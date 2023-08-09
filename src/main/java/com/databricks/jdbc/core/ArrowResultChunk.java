@@ -67,6 +67,10 @@ public class ArrowResultChunk {
     this.status = status;
   }
 
+  int getRecordBatchCountInChunk() {
+    throw new UnsupportedOperationException("Not implemented");
+  }
+
   DownloadStatus getStatus() {
     return this.status;
   }
