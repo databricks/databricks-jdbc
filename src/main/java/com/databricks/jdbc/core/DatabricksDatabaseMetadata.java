@@ -3,13 +3,15 @@ package com.databricks.jdbc.core;
 import java.sql.*;
 
 public class DatabricksDatabaseMetadata implements DatabaseMetaData {
-  
-  private DatabricksConnection connection;
-  
-  public DatabricksDatabaseMetadata(DatabricksConnection connection) {
-    this.connection = connection;
+
+  private final IDatabricksConnection connection;
+
+  private final IDatabricksSession session;
+
+  public DatabricksDatabaseMetadata(IDatabricksConnection connection) {
+      this.connection = connection;
+      this.session = connection.getSession();
   }
-  
   @Override
   public boolean allProceduresAreCallable() throws SQLException {
     throw new UnsupportedOperationException("Not implemented");
@@ -612,17 +614,40 @@ public class DatabricksDatabaseMetadata implements DatabaseMetaData {
 
   @Override
   public ResultSet getTables(String catalog, String schemaPattern, String tableNamePattern, String[] types) throws SQLException {
-    throw new UnsupportedOperationException("Not implemented");
+    raiseSQLExceptionIfConnectionIsClosed();
+
+    // TODO: Handle pattern for schema, assuming schema is not a regex for now
+
+    if (catalog == null) {
+      catalog = session.getCatalog();
+    }
+    if (catalog == null) {
+      // TODO: return an empty result set
+    }
+    if (schemaPattern == null) {
+      schemaPattern = session.getSchema();
+    }
+    if (schemaPattern == null) {
+      // TODO: return an empty result set
+    }
+
+    String showTablesSQL = "show tables from " + catalog + "." + schemaPattern + " like '" + tableNamePattern + "'";
+    return session.getDatabricksClient().executeStatement(showTablesSQL, session.getSessionId(), session.getWarehouseId(), true);
   }
 
   @Override
   public ResultSet getSchemas() throws SQLException {
-    throw new UnsupportedOperationException("Not implemented");
+    return getSchemas(null /* catalog */, null /* schema pattern */);
   }
 
   @Override
   public ResultSet getCatalogs() throws SQLException {
-    throw new UnsupportedOperationException("Not implemented");
+    raiseSQLExceptionIfConnectionIsClosed();
+
+    String showCatalogsSQL = "show catalogs";
+
+    return session.getDatabricksClient().executeStatement(showCatalogsSQL, session.getSessionId(),
+            session.getWarehouseId(), true);
   }
 
   @Override
@@ -752,7 +777,7 @@ public class DatabricksDatabaseMetadata implements DatabaseMetaData {
 
   @Override
   public Connection getConnection() throws SQLException {
-    return connection;
+    return connection.getConnection();
   }
 
   @Override
@@ -842,7 +867,18 @@ public class DatabricksDatabaseMetadata implements DatabaseMetaData {
 
   @Override
   public ResultSet getSchemas(String catalog, String schemaPattern) throws SQLException {
-    throw new UnsupportedOperationException("Not implemented");
+    raiseSQLExceptionIfConnectionIsClosed();
+
+    if (catalog == null) {
+        catalog = session.getCatalog();
+    }
+
+    if (catalog == null) {
+      // TODO: Return an empty result set
+    }
+
+    String showSchemaSQL = "show schemas in " + catalog + " like \'" + schemaPattern + "\'";
+    return session.getDatabricksClient().executeStatement(showSchemaSQL, session.getSessionId(), session.getWarehouseId(), true);
   }
 
   @Override
@@ -888,5 +924,11 @@ public class DatabricksDatabaseMetadata implements DatabaseMetaData {
   @Override
   public boolean isWrapperFor(Class<?> iface) throws SQLException {
     throw new UnsupportedOperationException("Not implemented");
+  }
+
+  private void raiseSQLExceptionIfConnectionIsClosed() throws SQLException {
+    if (!connection.getSession().isOpen()) {
+      throw new DatabricksSQLException("Connection closed!");
+    }
   }
 }

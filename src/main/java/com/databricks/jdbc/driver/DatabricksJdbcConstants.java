@@ -12,6 +12,7 @@ final class DatabricksJdbcConstants {
   static final String PORT_DELIMITER = ":";
   static final String PAIR_DELIMITER = "=";
   static final String TOKEN = "token";
+  static final String PASSWORD = "password";
   static final String HTTP_PATH = "httpPath";
   static final String HTTPS_SCHEMA = "https://";
 

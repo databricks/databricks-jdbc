@@ -319,4 +319,9 @@ public class DatabricksConnection implements IDatabricksConnection, Connection {
   public void closeStatement(IDatabricksStatement statement) {
     this.statementSet.remove(statement);
   }
+
+  @Override
+  public Connection getConnection() {
+    return this;
+  }
 }

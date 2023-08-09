@@ -43,4 +43,12 @@ public interface IDatabricksSession {
    * @return
    */
   DatabricksClient getDatabricksClient();
+
+  String getCatalog();
+
+  String getSchema();
+
+  void setCatalog(String catalog);
+
+  void setSchema(String schema);
 }

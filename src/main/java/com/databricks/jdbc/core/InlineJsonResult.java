@@ -6,6 +6,7 @@ import com.databricks.sdk.service.sql.ResultData;
 import com.databricks.sdk.service.sql.ResultManifest;
 
 import java.sql.SQLException;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 
@@ -24,6 +25,9 @@ public class InlineJsonResult implements IExecutionResult {
   }
 
   private static List<List<String>> getDataList(Collection<Collection<String>> dataArray) {
+    if (dataArray == null) {
+      return new ArrayList<>();
+    }
     return dataArray.stream().map(c -> c.stream().collect(toImmutableList())).collect(toImmutableList());
   }
 

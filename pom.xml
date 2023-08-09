@@ -30,20 +30,27 @@
     <junit.jupiter.version>5.9.2</junit.jupiter.version>
     <google.findbugs.annotations.version>3.0.1</google.findbugs.annotations.version>
     <immutables.value.version>2.9.2</immutables.value.version>
+    <httpclient.version>4.5.14</httpclient.version>
+    <commons-io.version>2.13.0</commons-io.version>
   </properties>
-  <!-- Remove this before production -->
-  <repositories>
-      <repository>
-        <id>databricks-jdbc-oss-local-repo</id>
-        <url>file://${basedir}/src/main/resources</url>
-      </repository>
-  </repositories>
 
   <dependencies>
     <dependency>
       <groupId>com.databricks</groupId>
       <artifactId>databricks-sdk-java</artifactId>
       <version>0.1.1</version>
+      <scope>system</scope>
+      <systemPath>${project.basedir}/src/main/resources/databricks-sdk-java-0.1.1.jar</systemPath>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.httpcomponents</groupId>
+      <artifactId>httpclient</artifactId>
+      <version>${httpclient.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>commons-io</groupId>
+      <artifactId>commons-io</artifactId>
+      <version>${commons-io.version}</version>
     </dependency>
     <dependency>
       <groupId>com.google.code.findbugs</groupId>
@@ -88,6 +95,12 @@
       <artifactId>value</artifactId>
       <version>${immutables.value.version}</version>
       <scope>provided</scope>
+    </dependency>
+    <!--    TODO: remove before going to production    -->
+    <dependency>
+      <groupId>com.databricks</groupId>
+      <artifactId>databricks-jdbc</artifactId>
+      <version>2.6.33</version>
     </dependency>
   </dependencies>
 

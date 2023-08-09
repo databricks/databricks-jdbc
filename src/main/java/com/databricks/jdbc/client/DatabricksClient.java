@@ -33,7 +33,7 @@ public interface DatabricksClient {
    * @param warehouseId warehouse-Id which should be used for statement execution
    * @return response for statement execution
    */
-  DatabricksResultSet executeStatement(String statement, String sessionId, String warehouseId) throws SQLException;
+  DatabricksResultSet executeStatement(String statement, String sessionId, String warehouseId, boolean isInternal) throws SQLException;
 
   /**
    * Closes a statement in Databricks server

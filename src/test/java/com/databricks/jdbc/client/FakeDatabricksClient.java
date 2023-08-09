@@ -25,7 +25,7 @@ public class FakeDatabricksClient implements DatabricksClient {
   }
 
   @Override
-  public DatabricksResultSet executeStatement(String statement, String sessionId, String warehouseId) throws SQLException {
+  public DatabricksResultSet executeStatement(String statement, String sessionId, String warehouseId, boolean isInternal) throws SQLException {
     return null;
   }
 

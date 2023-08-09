@@ -19,6 +19,11 @@ public class DatabricksSession implements IDatabricksSession {
   private boolean isSessionOpen;
   private Session session;
 
+  // For context based commands
+  private String catalog;
+
+  private String schema;
+
   /**
    * Creates an instance of Databricks session for given connection context
    * @param connectionContext underlying connection context
@@ -86,5 +91,26 @@ public class DatabricksSession implements IDatabricksSession {
   @Override
   public DatabricksClient getDatabricksClient() {
     return databricksClient;
+  }
+
+
+  @Override
+  public String getCatalog() {
+    return catalog;
+  }
+
+  @Override
+  public void setCatalog(String catalog) {
+    this.catalog = catalog;
+  }
+
+  @Override
+  public String getSchema() {
+    return schema;
+  }
+
+  @Override
+  public void setSchema(String schema) {
+    this.schema = schema;
   }
 }

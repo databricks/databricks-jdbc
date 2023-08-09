@@ -7,6 +7,7 @@ import com.databricks.jdbc.driver.IDatabricksConnectionContext;
 import com.databricks.sdk.WorkspaceClient;
 import com.databricks.sdk.core.DatabricksConfig;
 import com.databricks.sdk.service.sql.*;
+import com.google.common.annotations.VisibleForTesting;
 
 import java.sql.SQLException;
 
@@ -32,8 +33,7 @@ public class DatabricksSdkClient implements DatabricksClient {
     this.workspaceClient = new WorkspaceClient(databricksConfig);
   }
 
-  public DatabricksSdkClient(IDatabricksConnectionContext connectionContext,
-                             StatementExecutionService statementExecutionService) {
+  public DatabricksSdkClient(IDatabricksConnectionContext connectionContext, StatementExecutionService statementExecutionService) {
     this.connectionContext = connectionContext;
     // Handle more auth types
     this.databricksConfig = new DatabricksConfig()
@@ -56,14 +56,13 @@ public class DatabricksSdkClient implements DatabricksClient {
   }
 
   @Override
-  public DatabricksResultSet executeStatement(String statement, String sessionId, String warehouseId)
-      throws SQLException {
+  public DatabricksResultSet executeStatement(String statement, String sessionId, String warehouseId, boolean isInternal) throws SQLException {
     // TODO: change disposition and format, and handle pending result
     ExecuteStatementRequest request = new ExecuteStatementRequest()
         .setStatement(statement)
         .setWarehouseId(warehouseId)
-        .setDisposition(Disposition.EXTERNAL_LINKS)
-        .setFormat(Format.ARROW_STREAM)
+        .setDisposition(isInternal ? Disposition.INLINE : Disposition.EXTERNAL_LINKS)
+        .setFormat(isInternal ? Format.JSON_ARRAY : Format.ARROW_STREAM)
         .setWaitTimeout(ASYNC_TIMEOUT_VALUE)
         .setSessionId(sessionId);
 
