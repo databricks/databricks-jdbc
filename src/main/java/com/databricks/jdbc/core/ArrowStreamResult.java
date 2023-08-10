@@ -24,7 +24,8 @@ class ArrowStreamResult implements IExecutionResult {
   private final RootAllocator rootAllocator;
   private static final int rootAllocatorLimit = Integer.MAX_VALUE; // change if required
 
-  ArrowStreamResult(ResultManifest resultManifest, ResultData resultData) {
+  ArrowStreamResult(ResultManifest resultManifest, ResultData resultData, String statementId,
+                    IDatabricksSession session) {
     this.totalRows = resultManifest.getTotalRowCount();
     this.totalChunks = resultManifest.getTotalChunkCount();
     this.rowOffsetToChunkMap = getRowOffsetMap(resultManifest);
