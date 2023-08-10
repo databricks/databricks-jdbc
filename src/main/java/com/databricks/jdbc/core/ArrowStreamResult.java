@@ -1,5 +1,6 @@
 package com.databricks.jdbc.core;
 
+import com.databricks.client.jdbc42.internal.apache.arrow.memory.RootAllocator;
 import com.databricks.sdk.service.sql.ChunkInfo;
 import com.databricks.sdk.service.sql.ResultData;
 import com.databricks.sdk.service.sql.ResultManifest;
@@ -16,10 +17,15 @@ class ArrowStreamResult implements IExecutionResult {
   private int currentRowIndex;
   private int currentChunkIndex;
 
+  private final RootAllocator rootAllocator;
+
+  private static final int rootAllocatorLimit = Integer.MAX_VALUE; // change if required
+
   ArrowStreamResult(ResultManifest resultManifest, ResultData resultData) {
     this.totalRows = resultManifest.getTotalRowCount();
     this.totalChunks = resultManifest.getTotalChunkCount();
     this.rowOffsetToChunkMap = getRowOffsetMap(resultManifest);
+    this.rootAllocator = new RootAllocator(rootAllocatorLimit);
   }
 
   private static ImmutableMap<Long, ChunkInfo> getRowOffsetMap(ResultManifest resultManifest) {

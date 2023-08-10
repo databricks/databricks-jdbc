@@ -1,6 +1,15 @@
 package com.databricks.jdbc.core;
 
+import com.databricks.client.jdbc42.internal.apache.arrow.memory.RootAllocator;
+import com.databricks.client.jdbc42.internal.apache.arrow.vector.FieldVector;
+import com.databricks.client.jdbc42.internal.apache.arrow.vector.ValueVector;
+import com.databricks.client.jdbc42.internal.apache.arrow.vector.VectorSchemaRoot;
+import com.databricks.client.jdbc42.internal.apache.arrow.vector.ipc.ArrowStreamReader;
 import com.databricks.sdk.service.sql.ChunkInfo;
+
+import java.io.InputStream;
+import java.util.ArrayList;
+import java.util.List;
 
 public class ArrowResultChunk {
 
@@ -51,12 +60,22 @@ public class ArrowResultChunk {
   private String chunkUrl;
   private DownloadStatus status;
 
+  private InputStream inputStream;
+
+  private final ArrayList<ArrayList<ValueVector>> recordBatchList;
+
+  private final ArrowResultChunkIterator chunkIterator;
+
+  private RootAllocator rootAllocator;
+
   ArrowResultChunk(ChunkInfo chunkInfo) {
     this.chunkIndex = chunkInfo.getChunkIndex();
     this.numRows = chunkInfo.getRowCount();
     this.rowOffset = chunkInfo.getRowOffset();
     this.nextChunkIndex = chunkInfo.getNextChunkIndex();
     this.status = DownloadStatus.PENDING;
+    this.recordBatchList = new ArrayList<>();
+    this.chunkIterator = new ArrowResultChunkIterator(this);
   }
 
   void setChunkUrl(String chunkUrl) {
@@ -65,6 +84,24 @@ public class ArrowResultChunk {
 
   void setStatus(DownloadStatus status) {
     this.status = status;
+  }
+
+  private void getArrowDataFromInputStream() throws Exception {
+    // add check to see if input stream has been populated
+    ArrowStreamReader arrowStreamReader = new ArrowStreamReader(this.inputStream, this.rootAllocator);
+    VectorSchemaRoot vectorSchemaRoot = arrowStreamReader.getVectorSchemaRoot();
+    while(arrowStreamReader.loadNextBatch()) {
+      ArrayList<ValueVector> vectors = new ArrayList<>();
+      List<FieldVector> fieldVectors = vectorSchemaRoot.getFieldVectors();
+      for(FieldVector fieldVector: fieldVectors) {
+        vectors.add((ValueVector) fieldVector);
+      }
+      this.recordBatchList.add(vectors);
+    }
+  }
+
+  public void nextInChunk() {
+    this.chunkIterator.nextRow();
   }
 
   int getRecordBatchCountInChunk() {
