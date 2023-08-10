@@ -26,4 +26,6 @@ interface IExecutionResult {
    * @return true if cursor is moved at next row
    */
   boolean next();
+
+  boolean hasNext();
 }

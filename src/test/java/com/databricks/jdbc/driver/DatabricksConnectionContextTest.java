@@ -17,7 +17,7 @@ class DatabricksConnectionContestTest {
 
   @BeforeAll
   public static void setUp() {
-    properties.setProperty("token", "passwd");
+    properties.setProperty("password", "passwd");
   }
 
   @Test

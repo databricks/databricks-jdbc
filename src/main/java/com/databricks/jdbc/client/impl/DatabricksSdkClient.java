@@ -3,6 +3,8 @@ package com.databricks.jdbc.client.impl;
 import com.databricks.jdbc.client.DatabricksClient;
 import com.databricks.jdbc.core.DatabricksResultSet;
 import com.databricks.jdbc.core.DatabricksSQLException;
+import com.databricks.jdbc.core.IDatabricksResultSet;
+import com.databricks.jdbc.core.IDatabricksSession;
 import com.databricks.jdbc.driver.IDatabricksConnectionContext;
 import com.databricks.sdk.WorkspaceClient;
 import com.databricks.sdk.core.DatabricksConfig;
@@ -10,6 +12,7 @@ import com.databricks.sdk.service.sql.*;
 import com.google.common.annotations.VisibleForTesting;
 
 import java.sql.SQLException;
+import java.util.Optional;
 
 /**
  * Implementation of DatabricksClient interface using Databricks Java SDK.
@@ -56,7 +59,8 @@ public class DatabricksSdkClient implements DatabricksClient {
   }
 
   @Override
-  public DatabricksResultSet executeStatement(String statement, String sessionId, String warehouseId, boolean isInternal) throws SQLException {
+  public DatabricksResultSet executeStatement(
+      String statement, String warehouseId, boolean isInternal, IDatabricksSession session) throws SQLException {
     // TODO: change disposition and format, and handle pending result
     ExecuteStatementRequest request = new ExecuteStatementRequest()
         .setStatement(statement)
@@ -64,7 +68,7 @@ public class DatabricksSdkClient implements DatabricksClient {
         .setDisposition(isInternal ? Disposition.INLINE : Disposition.EXTERNAL_LINKS)
         .setFormat(isInternal ? Format.JSON_ARRAY : Format.ARROW_STREAM)
         .setWaitTimeout(ASYNC_TIMEOUT_VALUE)
-        .setSessionId(sessionId);
+        .setSessionId(session.getSessionId());
 
     ExecuteStatementResponse response = workspaceClient.statementExecution().executeStatement(request);
     String statementId = response.getStatementId();
@@ -87,12 +91,17 @@ public class DatabricksSdkClient implements DatabricksClient {
     }
 
     return new DatabricksResultSet(response.getStatus(), statementId, response.getResult(),
-          response.getManifest());
+          response.getManifest(), session);
   }
 
   @Override
   public void closeStatement(String statementId) {
     workspaceClient.statementExecution().closeStatement(statementId);
+  }
+
+  @Override
+  public Optional<ExternalLink> getResultChunk(String statementId, long chunkIndex) {
+    return workspaceClient.statementExecution().getStatementResultChunkN(statementId, chunkIndex).getExternalLinks().stream().findFirst();
   }
 
   /**

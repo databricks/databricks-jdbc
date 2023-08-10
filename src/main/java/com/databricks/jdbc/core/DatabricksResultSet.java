@@ -22,10 +22,10 @@ public class DatabricksResultSet implements ResultSet, IDatabricksResultSet {
   private final DatabricksResultSetMetaData resultSetMetaData;
 
   public DatabricksResultSet(
-      StatementStatus statementStatus, String statementId, ResultData resultData, ResultManifest resultManifest) {
+      StatementStatus statementStatus, String statementId, ResultData resultData, ResultManifest resultManifest, IDatabricksSession session) {
     this.statementStatus = statementStatus;
     this.statementId = statementId;
-    this.executionResult = ExecutionResultFactory.getResultSet(resultData, resultManifest);
+    this.executionResult = ExecutionResultFactory.getResultSet(resultData, resultManifest, statementId, session);
     this.resultSetMetaData = new DatabricksResultSetMetaData(statementId, resultManifest);
   }
 
@@ -374,7 +374,8 @@ public class DatabricksResultSet implements ResultSet, IDatabricksResultSet {
 
   @Override
   public boolean isBeforeFirst() throws SQLException {
-    throw new UnsupportedOperationException("Not implemented");
+    // TODO: Madhav to check the best way to implement this, below is not correct
+    return !executionResult.hasNext();
   }
 
   @Override

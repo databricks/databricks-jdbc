@@ -53,4 +53,9 @@ public class InlineJsonResult implements IExecutionResult {
     }
     return false;
   }
+
+  @Override
+  public synchronized boolean hasNext() {
+    return currentRow < data.size() - 1;
+  }
 }

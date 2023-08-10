@@ -1,6 +1,6 @@
 package com.databricks.jdbc.core;
 
-import com.databricks.jdbc.client.FakeDatabricksClient;
+// import com.databricks.jdbc.client.FakeDatabricksClient;
 import com.databricks.jdbc.client.impl.DatabricksSdkClient;
 import com.databricks.jdbc.driver.DatabricksConnectionContext;
 import com.databricks.jdbc.driver.IDatabricksConnectionContext;
@@ -52,6 +52,6 @@ public class DatabricksSessionTest {
   public void testOpenSession_invalidWarehouseUrl() {
     assertThrows(IllegalArgumentException.class,
         () -> new DatabricksSession(DatabricksConnectionContext.parse(JDBC_URL_INVALID, new Properties()),
-            new FakeDatabricksClient(statementExecutionService)));
+            null));
   }
 }

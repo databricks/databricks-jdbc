@@ -6,6 +6,10 @@ import com.databricks.client.jdbc42.internal.apache.arrow.vector.ValueVector;
 import com.databricks.client.jdbc42.internal.apache.arrow.vector.VectorSchemaRoot;
 import com.databricks.client.jdbc42.internal.apache.arrow.vector.ipc.ArrowStreamReader;
 import com.databricks.sdk.service.sql.ChunkInfo;
+import com.databricks.sdk.service.sql.ExternalLink;
+
+import java.text.SimpleDateFormat;
+import java.time.Instant;
 
 import java.io.InputStream;
 import java.util.ArrayList;
@@ -53,11 +57,13 @@ public class ArrowResultChunk {
   }
 
   private final long chunkIndex;
-  private final long nextChunkIndex;
-  private long numRows;
-  private long rowOffset;
+  final long numRows;
+  final long rowOffset;
+  final long byteCount;
 
   private String chunkUrl;
+  private Long nextChunkIndex;
+  private Instant expiryTime;
   private DownloadStatus status;
 
   private InputStream inputStream;
@@ -73,15 +79,26 @@ public class ArrowResultChunk {
     this.numRows = chunkInfo.getRowCount();
     this.rowOffset = chunkInfo.getRowOffset();
     this.nextChunkIndex = chunkInfo.getNextChunkIndex();
+    this.byteCount = chunkInfo.getByteCount();
     this.status = DownloadStatus.PENDING;
     this.recordBatchList = new ArrayList<>();
     this.chunkIterator = new ArrowResultChunkIterator(this);
+    this.chunkUrl = null;
   }
 
-  void setChunkUrl(String chunkUrl) {
-    this.chunkUrl = chunkUrl;
+  /**
+   * Sets link details for the given chunk.
+   */
+  void setChunkUrl(ExternalLink chunk) {
+    this.chunkUrl = chunk.getExternalLink();
+    this.nextChunkIndex = chunk.getNextChunkIndex();
+    this.expiryTime = Instant.parse(chunk.getExpiration());
+    this.status = DownloadStatus.URL_FETCHED;
   }
 
+  /**
+   * Updates status for the chunk
+   */
   void setStatus(DownloadStatus status) {
     this.status = status;
   }
@@ -108,7 +125,36 @@ public class ArrowResultChunk {
     throw new UnsupportedOperationException("Not implemented");
   }
 
+  /**
+   * Checks if the link is valid
+   */
+  boolean isChunkLinkValid() {
+    return expiryTime == null || expiryTime.isAfter(Instant.now());
+  }
+
+  /**
+   * Returns the status for the chunk
+   */
   DownloadStatus getStatus() {
     return this.status;
+  }
+
+  /**
+   * Returns next chunk index for given chunk. Null is returned for last chunk.
+   */
+  Long getNextChunkIndex() {
+    // This should never be called for pending state
+    if (status == DownloadStatus.PENDING) {
+      // TODO: log this
+      throw new IllegalStateException("Next index called for pending state chunk");
+    }
+    return this.nextChunkIndex;
+  }
+
+  /**
+   * Returns the chunk download link
+   */
+  String getChunkUrl() {
+    return chunkUrl;
   }
 }
