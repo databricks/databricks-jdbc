@@ -218,7 +218,7 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
   @Override
   public void setArray(int parameterIndex, Array x) throws SQLException {
     LOGGER.debug("public void setArray(int parameterIndex, Array x)");
-    throw new UnsupportedOperationException("Not implemented");
+    setString(parameterIndex, x.toString());
   }
 
   @Override
@@ -231,19 +231,25 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
   @Override
   public void setDate(int parameterIndex, Date x, Calendar cal) throws SQLException {
     LOGGER.debug("public void setDate(int parameterIndex, Date x, Calendar cal)");
-    throw new UnsupportedOperationException("Not implemented");
+
+    long adjustedTime = x.getTime() + cal.getTimeZone().getOffset(x.getTime());
+    setDate(parameterIndex, new Date(adjustedTime));
   }
 
   @Override
   public void setTime(int parameterIndex, Time x, Calendar cal) throws SQLException {
     LOGGER.debug("public void setTime(int parameterIndex, Time x, Calendar cal)");
-    throw new UnsupportedOperationException("Not implemented");
+
+    long adjustedTime = x.getTime() + cal.getTimeZone().getOffset(x.getTime());
+    setTime(parameterIndex, new Time(adjustedTime));
   }
 
   @Override
   public void setTimestamp(int parameterIndex, Timestamp x, Calendar cal) throws SQLException {
     LOGGER.debug("public void setTimestamp(int parameterIndex, Timestamp x, Calendar cal)");
-    throw new UnsupportedOperationException("Not implemented");
+
+    long adjustedTime = x.getTime() + cal.getTimeZone().getOffset(x.getTime());
+    setTimestamp(parameterIndex, new Timestamp(adjustedTime));
   }
 
   @Override
