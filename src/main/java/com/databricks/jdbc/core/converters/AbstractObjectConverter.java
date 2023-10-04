@@ -13,7 +13,12 @@ public abstract class AbstractObjectConverter {
 
     int DEFAULT_TIMESTAMP_SCALE = 3;
     Object object;
+
     AbstractObjectConverter(Object object) throws DatabricksSQLException {
+        this.object = object;
+    }
+
+    public void setObject(Object object) throws DatabricksSQLException {
         this.object = object;
     }
 

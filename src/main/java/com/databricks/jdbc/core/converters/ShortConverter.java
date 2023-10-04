@@ -10,6 +10,11 @@ public class ShortConverter extends AbstractObjectConverter {
     private short object;
     public ShortConverter(Object object) throws DatabricksSQLException {
         super(object);
+        setObject(object);
+    }
+
+    @Override
+    public void setObject(Object object) throws DatabricksSQLException {
         if (object instanceof String) {
             this.object = Short.parseShort((String) object);
         }

@@ -26,7 +26,17 @@ public class DatabricksResultSet implements ResultSet, IDatabricksResultSet {
   private final DatabricksResultSetMetaData resultSetMetaData;
   private final StatementType statementType;
   private final IDatabricksStatement parentStatement;
-
+  private ByteConverter byteConverter;
+  private ShortConverter shortConverter;
+  private IntConverter intConverter;
+  private LongConverter longConverter;
+  private FloatConverter floatConverter;
+  private DoubleConverter doubleConverter;
+  private BigDecimalConverter bigDecimalConverter;
+  private BooleanConverter booleanConverter;
+  private StringConverter stringConverter;
+  private DateConverter dateConverter;
+  private TimestampConverter timestampConverter;
   private Long updateCount;
   private boolean isClosed;
 
@@ -1171,28 +1181,94 @@ public class DatabricksResultSet implements ResultSet, IDatabricksResultSet {
   private AbstractObjectConverter getObjectConverter(Object object, int columnType) throws DatabricksSQLException {
     switch(columnType) {
       case Types.TINYINT:
-        return new ByteConverter(object);
+        if(this.byteConverter == null) {
+          this.byteConverter = new ByteConverter(object);
+        }
+        else {
+          this.byteConverter.setObject(object);
+        }
+        return this.byteConverter;
       case Types.SMALLINT:
-        return new ShortConverter(object);
+        if(this.shortConverter == null) {
+          this.shortConverter = new ShortConverter(object);
+        }
+        else {
+          this.shortConverter.setObject(object);
+        }
+        return this.shortConverter;
       case Types.INTEGER:
-        return new IntConverter(object);
+        if(this.intConverter == null) {
+          this.intConverter = new IntConverter(object);
+        }
+        else {
+          this.intConverter.setObject(object);
+        }
+        return this.intConverter;
       case Types.BIGINT:
-        return new LongConverter(object);
+        if(this.longConverter == null) {
+          this.longConverter = new LongConverter(object);
+        }
+        else {
+          this.longConverter.setObject(object);
+        }
+        return this.longConverter;
       case Types.FLOAT:
-        return new FloatConverter(object);
+        if(this.floatConverter == null) {
+          this.floatConverter = new FloatConverter(object);
+        }
+        else {
+          this.floatConverter.setObject(object);
+        }
+        return this.floatConverter;
       case Types.DOUBLE:
-        return new DoubleConverter(object);
+        if(this.doubleConverter == null) {
+          this.doubleConverter = new DoubleConverter(object);
+        }
+        else {
+          this.doubleConverter.setObject(object);
+        }
+        return this.doubleConverter;
       case Types.DECIMAL:
-        return new BigDecimalConverter(object);
+        if(this.bigDecimalConverter == null) {
+          this.bigDecimalConverter = new BigDecimalConverter(object);
+        }
+        else {
+          this.bigDecimalConverter.setObject(object);
+        }
+        return this.bigDecimalConverter;
       case Types.BOOLEAN:
-        return new BooleanConverter(object);
+        if(this.booleanConverter == null) {
+          this.booleanConverter = new BooleanConverter(object);
+        }
+        else {
+          this.booleanConverter.setObject(object);
+        }
+        return this.booleanConverter;
       case Types.VARCHAR:
       case Types.CHAR:
-        return new StringConverter(object);
+        if(this.stringConverter == null) {
+          this.stringConverter = new StringConverter(object);
+        }
+        else {
+          this.stringConverter.setObject(object);
+        }
+        return this.stringConverter;
       case Types.DATE:
-        return new DateConverter(object);
+        if(this.dateConverter == null) {
+          this.dateConverter = new DateConverter(object);
+        }
+        else {
+          this.dateConverter.setObject(object);
+        }
+        return this.dateConverter;
       case Types.TIMESTAMP:
-        return new TimestampConverter(object);
+        if(this.timestampConverter == null) {
+          this.timestampConverter = new TimestampConverter(object);
+        }
+        else {
+          this.timestampConverter.setObject(object);
+        }
+        return this.timestampConverter;
       default:
         throw new DatabricksSQLException("Bad object type");
     }

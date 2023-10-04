@@ -17,6 +17,8 @@ public class ByteConverter extends AbstractObjectConverter {
         }
     }
 
+
+
     @Override
     public byte convertToByte() throws DatabricksSQLException {
         return this.object;

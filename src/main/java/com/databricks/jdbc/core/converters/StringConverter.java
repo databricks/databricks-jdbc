@@ -11,6 +11,11 @@ public class StringConverter extends AbstractObjectConverter {
     private String object;
     public StringConverter(Object object) throws DatabricksSQLException {
         super(object);
+        setObject(object);
+    }
+
+    @Override
+    public void setObject(Object object) throws DatabricksSQLException {
         this.object = (String) object;
     }
 

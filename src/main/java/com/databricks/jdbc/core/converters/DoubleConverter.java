@@ -5,12 +5,18 @@ import com.databricks.jdbc.core.DatabricksSQLException;
 import java.math.BigDecimal;
 import java.math.MathContext;
 import java.nio.ByteBuffer;
+import java.sql.Date;
 
 public class DoubleConverter extends AbstractObjectConverter {
 
     private double object;
     public DoubleConverter(Object object) throws DatabricksSQLException {
         super(object);
+        setObject(object);
+    }
+
+    @Override
+    public void setObject(Object object) throws DatabricksSQLException {
         if (object instanceof String) {
             this.object = Double.parseDouble((String) object);
         }

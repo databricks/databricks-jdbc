@@ -11,6 +11,11 @@ public class FloatConverter extends AbstractObjectConverter {
     private float object;
     public FloatConverter(Object object) throws DatabricksSQLException {
         super(object);
+        setObject(object);
+    }
+
+    @Override
+    public void setObject(Object object) throws DatabricksSQLException {
         if (object instanceof String) {
             this.object = Float.parseFloat((String) object);
         }

@@ -10,6 +10,11 @@ public class BigDecimalConverter extends AbstractObjectConverter {
     private BigDecimal object;
     public BigDecimalConverter(Object object) throws DatabricksSQLException {
         super(object);
+        setObject(object);
+    }
+
+    @Override
+    public void setObject(Object object) throws DatabricksSQLException {
         if (object instanceof String) {
             this.object = new BigDecimal((String) object);
         }
