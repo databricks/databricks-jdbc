@@ -11,7 +11,12 @@ public class TimestampConverter extends AbstractObjectConverter {
     private Timestamp object;
     public TimestampConverter(Object object) throws DatabricksSQLException {
         super(object);
-        this.object = (Timestamp) object;
+        if (object instanceof String) {
+            this.object = Timestamp.valueOf((String) object);
+        }
+        else {
+            this.object = (Timestamp) object;
+        }
     }
 
     @Override

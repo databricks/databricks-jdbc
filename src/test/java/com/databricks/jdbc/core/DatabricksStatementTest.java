@@ -69,7 +69,7 @@ public class DatabricksStatementTest {
         .setStatus(new StatementStatus().setState(StatementState.SUCCEEDED))
         .setManifest(new ResultManifest()
             .setFormat(Format.ARROW_STREAM)
-            .setTotalRowCount(1L).setTotalChunkCount(1L)
+            .setTotalRowCount(0L).setTotalChunkCount(0L)
             .setChunks(new ArrayList<>())
             .setSchema(new ResultSchema()
                 .setColumns(new ArrayList<>())))

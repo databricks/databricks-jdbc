@@ -8,6 +8,7 @@ import java.sql.Date;
 
 public abstract class AbstractObjectConverter {
 
+    // TODO (Madhav): Ensure proper handling of null values in the conversions.
     long[] POWERS_OF_TEN = {1, 10, 100, 1000, 10000, 100000, 1000000, 10000000, 100000000, 1000000000};
 
     int DEFAULT_TIMESTAMP_SCALE = 3;
@@ -36,23 +37,11 @@ public abstract class AbstractObjectConverter {
         throw new DatabricksSQLException("Unsupported conversion operation");
     }
 
-    public float convertToFloat(int scale) throws DatabricksSQLException {
-        throw new DatabricksSQLException("Unsupported conversion operation");
-    }
-
     public double convertToDouble() throws DatabricksSQLException {
         throw new DatabricksSQLException("Unsupported conversion operation");
     }
 
-    public double convertToDouble(int scale) throws DatabricksSQLException {
-        throw new DatabricksSQLException("Unsupported conversion operation");
-    }
-
     public BigDecimal convertToBigDecimal() throws DatabricksSQLException {
-        throw new DatabricksSQLException("Unsupported conversion operation");
-    }
-
-    public BigDecimal convertToBigDecimal(int scale) throws DatabricksSQLException {
         throw new DatabricksSQLException("Unsupported conversion operation");
     }
 

@@ -9,7 +9,12 @@ public class BooleanConverter extends AbstractObjectConverter {
     private Boolean object;
     public BooleanConverter(Object object) throws DatabricksSQLException {
         super(object);
-        this.object = (boolean) object;
+        if (object instanceof String) {
+            this.object = Boolean.parseBoolean((String) object);
+        }
+        else {
+            this.object = (boolean) object;
+        }
     }
 
     @Override

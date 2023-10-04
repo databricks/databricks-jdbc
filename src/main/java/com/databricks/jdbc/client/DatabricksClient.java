@@ -1,15 +1,15 @@
 package com.databricks.jdbc.client;
 
-import com.databricks.jdbc.client.sqlexec.Session;
 import com.databricks.jdbc.core.DatabricksResultSet;
 import com.databricks.jdbc.core.IDatabricksSession;
 import com.databricks.jdbc.core.IDatabricksStatement;
+import com.databricks.jdbc.core.ImmutableSessionInfo;
 import com.databricks.jdbc.core.ImmutableSqlParameter;
 import com.databricks.sdk.service.sql.ExternalLink;
 
 import java.sql.SQLException;
+import java.util.Collection;
 import java.util.Map;
-import java.util.Optional;
 
 /**
  * Interface for Databricks client which abstracts the integration with Databricks server.
@@ -21,7 +21,7 @@ public interface DatabricksClient {
    * @param warehouseId for which a session should be created
    * @return created session
    */
-  Session createSession(String warehouseId);
+  ImmutableSessionInfo createSession(String warehouseId);
 
   /**
    * Deletes a session for given session-Id
@@ -57,5 +57,5 @@ public interface DatabricksClient {
    * @param statementId statement-Id for which chunk should be fetched
    * @param chunkIndex chunkIndex for which chunk should be fetched
    */
-  Optional<ExternalLink> getResultChunk(String statementId, long chunkIndex);
+  Collection<ExternalLink> getResultChunks(String statementId, long chunkIndex);
 }

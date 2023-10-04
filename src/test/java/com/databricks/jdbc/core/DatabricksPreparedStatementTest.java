@@ -55,7 +55,8 @@ public class DatabricksPreparedStatementTest {
             .setStatement(STATEMENT)
             .setDisposition(Disposition.EXTERNAL_LINKS)
             .setFormat(Format.ARROW_STREAM)
-            .setWaitTimeout("0s");
+            .setWaitTimeout("10s")
+            .setOnWaitTimeout(TimeoutAction.CONTINUE);
     when(statementExecutionService.executeStatement(executeStatementRequest))
         .thenReturn(new ExecuteStatementResponse()
             .setStatementId(STATEMENT_ID)
@@ -69,7 +70,7 @@ public class DatabricksPreparedStatementTest {
         .setStatus(new StatementStatus().setState(StatementState.SUCCEEDED))
         .setManifest(new ResultManifest()
             .setFormat(Format.ARROW_STREAM)
-            .setTotalRowCount(1L).setTotalChunkCount(1L)
+            .setTotalRowCount(0L).setTotalChunkCount(0L)
             .setChunks(new ArrayList<>())
             .setSchema(new ResultSchema()
                 .setColumns(new ArrayList<>())))
@@ -114,7 +115,8 @@ public class DatabricksPreparedStatementTest {
             .setStatement(STATEMENT)
             .setDisposition(Disposition.INLINE)
             .setFormat(Format.JSON_ARRAY)
-            .setWaitTimeout("0s");
+            .setWaitTimeout("10s")
+            .setOnWaitTimeout(TimeoutAction.CONTINUE);
     when(statementExecutionService.executeStatement(executeStatementRequest))
         .thenReturn(new ExecuteStatementResponse()
             .setStatementId(STATEMENT_ID)

@@ -15,7 +15,12 @@ public class LongConverter extends AbstractObjectConverter {
     private long object;
     public LongConverter(Object object) throws DatabricksSQLException {
         super(object);
-        this.object = (long) object;
+        if (object instanceof String) {
+            this.object = Long.parseLong((String) object);
+        }
+        else {
+            this.object = (long) object;
+        }
     }
 
     @Override
@@ -58,28 +63,13 @@ public class LongConverter extends AbstractObjectConverter {
     }
 
     @Override
-    public float convertToFloat(int scale) throws DatabricksSQLException {
-        return convertToFloat()/super.POWERS_OF_TEN[scale];
-    }
-
-    @Override
     public double convertToDouble() throws DatabricksSQLException {
         return (double) this.object;
     }
 
     @Override
-    public double convertToDouble(int scale) throws DatabricksSQLException {
-        return convertToDouble()/super.POWERS_OF_TEN[scale];
-    }
-
-    @Override
     public BigDecimal convertToBigDecimal() throws DatabricksSQLException {
-        return BigDecimal.valueOf((long) this.object);
-    }
-
-    @Override
-    public BigDecimal convertToBigDecimal(int scale) throws DatabricksSQLException {
-        return BigDecimal.valueOf(convertToDouble()/super.POWERS_OF_TEN[scale]);
+        return BigDecimal.valueOf(this.object);
     }
 
     @Override
@@ -105,6 +95,9 @@ public class LongConverter extends AbstractObjectConverter {
 
     @Override
     public Timestamp convertToTimestamp(int scale) throws DatabricksSQLException {
+        if(scale > 9) {
+            throw new DatabricksSQLException("Unsupported scale");
+        }
         long nanoseconds = this.object * super.POWERS_OF_TEN[9 - scale];
         Time time = new Time(nanoseconds/super.POWERS_OF_TEN[6]);
         return new Timestamp(time.getTime());

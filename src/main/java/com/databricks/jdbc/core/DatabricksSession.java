@@ -2,16 +2,12 @@ package com.databricks.jdbc.core;
 
 import com.databricks.jdbc.client.DatabricksClient;
 import com.databricks.jdbc.client.impl.DatabricksSdkClient;
-import com.databricks.jdbc.client.sqlexec.Session;
 import com.databricks.jdbc.driver.IDatabricksConnectionContext;
 import com.google.common.annotations.VisibleForTesting;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nullable;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ThreadFactory;
 
 /**
  * Implementation for Session interface, which maintains an underlying session in SQL Gateway.
@@ -19,16 +15,11 @@ import java.util.concurrent.ThreadFactory;
 public class DatabricksSession implements IDatabricksSession {
 
   private static final Logger LOGGER = LoggerFactory.getLogger(DatabricksSession.class);
-  private static final int LINKS_FETCHER_THREAD_POOL_SIZE = 4;
-  private static final String LINKS_FETCHER_THREAD_POOL_PREFIX = "databricks-jdbc-links-fetcher-";
   private final DatabricksClient databricksClient;
   private final String warehouseId;
 
-  // Common thread-pool for downloading external links asynchronously
-  private final ExecutorService executor;
-
   private boolean isSessionOpen;
-  private Session session;
+  private ImmutableSessionInfo session;
 
   // For context based commands
   private String catalog;
@@ -44,7 +35,6 @@ public class DatabricksSession implements IDatabricksSession {
     this.isSessionOpen = false;
     this.session = null;
     this.warehouseId = connectionContext.getWarehouse();
-    this.executor = createLinksDownloaderExecutorService();
   }
 
   /**
@@ -56,32 +46,13 @@ public class DatabricksSession implements IDatabricksSession {
     this.isSessionOpen = false;
     this.session = null;
     this.warehouseId = connectionContext.getWarehouse();
-    this.executor = Executors.newSingleThreadExecutor();
-  }
-
-  private static ExecutorService createLinksDownloaderExecutorService() {
-    LOGGER.debug("private static ExecutorService createLinksDownloaderExecutorService()");
-    ThreadFactory threadFactory =
-        new ThreadFactory() {
-          private int threadCount = 1;
-
-          public Thread newThread(final Runnable r) {
-            final Thread thread = new Thread(r);
-            thread.setName(LINKS_FETCHER_THREAD_POOL_PREFIX + threadCount++);
-            // TODO: catch uncaught exceptions
-            thread.setDaemon(true);
-
-            return thread;
-          }
-        };
-    return Executors.newFixedThreadPool(LINKS_FETCHER_THREAD_POOL_SIZE, threadFactory);
   }
 
   @Override
   @Nullable
   public String getSessionId() {
     LOGGER.debug("public String getSessionId()");
-    return isSessionOpen ? session.getSessionId() : null;
+    return isSessionOpen ? session.sessionId() : null;
   }
 
   @Override
@@ -117,8 +88,7 @@ public class DatabricksSession implements IDatabricksSession {
     synchronized (this) {
       if (isSessionOpen) {
         // TODO: handle closed connections by server
-        databricksClient.deleteSession(this.session.getSessionId(), getWarehouseId());
-        this.executor.shutdown();
+        databricksClient.deleteSession(this.session.sessionId(), getWarehouseId());
         this.session = null;
         this.isSessionOpen = false;
       }
@@ -129,12 +99,6 @@ public class DatabricksSession implements IDatabricksSession {
   public DatabricksClient getDatabricksClient() {
     LOGGER.debug("public DatabricksClient getDatabricksClient()");
     return databricksClient;
-  }
-
-  @Override
-  public ExecutorService getExecutorService() {
-    LOGGER.debug("public ExecutorService getExecutorService()");
-    return this.executor;
   }
 
   @Override

@@ -1,5 +1,7 @@
 package com.databricks.jdbc.core;
 
+import com.databricks.jdbc.client.IDatabricksHttpClient;
+import com.google.common.annotations.VisibleForTesting;
 import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.types.Types;
 import com.databricks.sdk.service.sql.*;
@@ -11,17 +13,12 @@ import java.util.List;
 
 class ArrowStreamResult implements IExecutionResult {
 
-  private final long totalRows;
-  private final long totalChunks;
-
   private final IDatabricksSession session;
   private final ImmutableMap<Long, ChunkInfo> rowOffsetToChunkMap;
   private final ChunkDownloader chunkDownloader;
 
   private long currentRowIndex;
-  private int currentChunkIndex;
 
-  private boolean firstChunkPopulated;
   private boolean isClosed;
 
   private ArrowResultChunk.ArrowResultChunkIterator chunkIterator;
@@ -30,15 +27,24 @@ class ArrowStreamResult implements IExecutionResult {
 
   ArrowStreamResult(ResultManifest resultManifest, ResultData resultData, String statementId,
                     IDatabricksSession session) {
-    this.totalRows = resultManifest.getTotalRowCount();
-    this.totalChunks = resultManifest.getTotalChunkCount();
+    this(resultManifest, new ChunkDownloader(statementId, resultManifest, resultData, session), session);
+  }
+
+  @VisibleForTesting
+  ArrowStreamResult(ResultManifest resultManifest, ResultData resultData, String statementId,
+                    IDatabricksSession session, IDatabricksHttpClient httpClient) {
+    this(resultManifest, new ChunkDownloader(statementId, resultManifest, resultData, session, httpClient), session);
+  }
+
+  private ArrowStreamResult(ResultManifest resultManifest, ChunkDownloader chunkDownloader,
+                            IDatabricksSession session) {
     this.rowOffsetToChunkMap = getRowOffsetMap(resultManifest);
     this.session = session;
-    this.chunkDownloader = new ChunkDownloader(statementId, resultManifest, resultData, session);
-    this.firstChunkPopulated = false;
+    this.chunkDownloader = chunkDownloader;
     this.columnInfos = new ArrayList(resultManifest.getSchema().getColumns());
     this.currentRowIndex = -1;
     this.isClosed = false;
+    this.chunkIterator = null;
   }
 
   public ChunkDownloader getChunkDownloader() {return this.chunkDownloader;}
@@ -69,33 +75,24 @@ class ArrowStreamResult implements IExecutionResult {
 
   @Override
   public boolean next() {
-    if (isClosed()) {
+    if (!hasNext()) {
       return false;
     }
-    if(!this.firstChunkPopulated) {
-      // get first chunk from chunk downloader and set iterator to its iterator i.e. row 0
-      if(this.totalChunks == 0) return false;
-      ++this.currentRowIndex;
-      ArrowResultChunk firstChunk = this.chunkDownloader.getChunk(/*chunkIndex =*/ 0L);
-      this.chunkIterator = firstChunk.getChunkIterator();
-      this.firstChunkPopulated = true;
-      return true;
+    this.currentRowIndex++;
+    // Either this is first chunk or we are crossing chunk boundary
+    if (this.chunkIterator == null || !this.chunkIterator.hasNextRow()) {
+      this.chunkDownloader.next();
+      this.chunkIterator = this.chunkDownloader.getChunk().getChunkIterator();
+      return chunkIterator.nextRow();
     }
-    ++this.currentRowIndex;
-    if(this.chunkIterator.nextRow()) {
-      return true;
-    }
-    // switch to next chunk and iterate over it
-    if(++this.currentChunkIndex == this.totalChunks) return false; // this implies that this was the last chunk
-    ArrowResultChunk nextChunk = this.chunkDownloader.getChunk(this.currentChunkIndex);
-    this.chunkIterator = nextChunk.getChunkIterator();
-    return true;
+    // Traversing within a chunk
+    return this.chunkIterator.nextRow();
   }
 
   @Override
   public boolean hasNext() {
-    return !isClosed() && ((this.currentChunkIndex < (totalChunks - 1)) ||
-            ((currentChunkIndex == (totalChunks - 1)) && chunkIterator.hasNextRow()));
+    return !isClosed() && ((chunkIterator != null && chunkIterator.hasNextRow())
+        || chunkDownloader.hasNextChunk());
   }
 
   @Override

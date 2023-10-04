@@ -12,10 +12,6 @@ public class ByteConverterTest {
 
     private byte NON_ZERO_OBJECT = 65;
     private byte ZERO_OBJECT = 0;
-
-    private byte NON_SCALED_OBJECT = 101;
-
-    private int SCALE = 4;
     @Test
     public void testConvertToByte() throws DatabricksSQLException {
         assertEquals(new ByteConverter(NON_ZERO_OBJECT).convertToByte(), (byte) 65);
@@ -44,24 +40,18 @@ public class ByteConverterTest {
     public void testConvertToFloat() throws DatabricksSQLException {
         assertEquals(new ByteConverter(NON_ZERO_OBJECT).convertToFloat(), 65f);
         assertEquals(new ByteConverter(ZERO_OBJECT).convertToFloat(), 0f);
-
-        assertEquals(new ByteConverter(NON_SCALED_OBJECT).convertToFloat(SCALE), 0.0101f);
     }
 
     @Test
     public void testConvertToDouble() throws DatabricksSQLException {
         assertEquals(new ByteConverter(NON_ZERO_OBJECT).convertToDouble(), (double) 65);
         assertEquals(new ByteConverter(ZERO_OBJECT).convertToDouble(), (double) 0);
-
-        assertEquals(new ByteConverter(NON_SCALED_OBJECT).convertToDouble(SCALE), 0.0101);
     }
 
     @Test
     public void testConvertToBigDecimal() throws DatabricksSQLException {
         assertEquals(new ByteConverter(NON_ZERO_OBJECT).convertToBigDecimal(), BigDecimal.valueOf(65));
         assertEquals(new ByteConverter(ZERO_OBJECT).convertToBigDecimal(), BigDecimal.valueOf(0));
-
-        assertEquals(new ByteConverter(NON_SCALED_OBJECT).convertToBigDecimal(SCALE), BigDecimal.valueOf(0.0101));
     }
 
     @Test

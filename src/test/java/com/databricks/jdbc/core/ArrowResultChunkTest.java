@@ -28,6 +28,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class ArrowResultChunkTest {
 
+    private static final String STATEMENT_ID = "statement_id";
     private Random random = new Random();
     private int rowsInRecordBatch = 20;
 
@@ -41,7 +42,8 @@ public class ArrowResultChunkTest {
                 .setByteCount(200L)
                 .setRowOffset(0L)
                 .setRowCount(totalRows);
-        ArrowResultChunk arrowResultChunk = new ArrowResultChunk(chunkInfo, new RootAllocator(Integer.MAX_VALUE));
+        ArrowResultChunk arrowResultChunk = new ArrowResultChunk(
+            chunkInfo, new RootAllocator(Integer.MAX_VALUE), STATEMENT_ID);
         Schema schema = createTestSchema();
         Object[][] testData = createTestData(schema, (int) totalRows);
         File arrowFile = createTestArrowFile("TestFile", schema, testData, new RootAllocator(Integer.MAX_VALUE));

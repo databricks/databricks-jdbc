@@ -90,7 +90,7 @@ public class DatabricksResultSet implements ResultSet, IDatabricksResultSet {
     return this == null;
   }
 
-  // TODO (Madhav): Clean up code by removing code duplicity by having common functions that branch out.
+  // TODO (Madhav): Clean up code by removing code duplicity by having common functions that branch out and to reuse converter objects.
   @Override
   public String getString(int columnIndex) throws SQLException {
     Object obj = getObjectInternal(columnIndex);
@@ -158,7 +158,6 @@ public class DatabricksResultSet implements ResultSet, IDatabricksResultSet {
     return converter.convertToLong();
   }
 
-  // TODO (Madhav): Handle case when scale is not provided when getScale is implemented.
   @Override
   public float getFloat(int columnIndex) throws SQLException {
     Object obj = getObjectInternal(columnIndex);
@@ -167,10 +166,9 @@ public class DatabricksResultSet implements ResultSet, IDatabricksResultSet {
     }
     int columnType = resultSetMetaData.getColumnType(columnIndex);
     AbstractObjectConverter converter = getObjectConverter(obj, columnType);
-    return converter.convertToFloat(resultSetMetaData.getScale(columnIndex));
+    return converter.convertToFloat();
   }
 
-  // TODO (Madhav): Handle case when scale is not provided when getScale is implemented.
   @Override
   public double getDouble(int columnIndex) throws SQLException {
     Object obj = getObjectInternal(columnIndex);
@@ -179,7 +177,8 @@ public class DatabricksResultSet implements ResultSet, IDatabricksResultSet {
     }
     int columnType = resultSetMetaData.getColumnType(columnIndex);
     AbstractObjectConverter converter = getObjectConverter(obj, columnType);
-    return converter.convertToDouble(resultSetMetaData.getScale(columnIndex));  }
+    return converter.convertToDouble();
+  }
 
   // TODO (Madhav): Handle case when scale is not provided when getScale is implemented.
   @Override
@@ -190,7 +189,7 @@ public class DatabricksResultSet implements ResultSet, IDatabricksResultSet {
     }
     int columnType = resultSetMetaData.getColumnType(columnIndex);
     AbstractObjectConverter converter = getObjectConverter(obj, columnType);
-    return converter.convertToBigDecimal(resultSetMetaData.getScale(columnIndex));
+    return converter.convertToBigDecimal();
   }
 
   @Override

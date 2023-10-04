@@ -3,7 +3,6 @@ package com.databricks.jdbc.core;
 import com.databricks.jdbc.client.DatabricksClient;
 
 import javax.annotation.Nullable;
-import java.util.concurrent.ExecutorService;
 
 /**
  * Session interface to represent an open connection to Databricks server.
@@ -43,12 +42,6 @@ public interface IDatabricksSession {
    * Returns the client for connecting to Databricks server
    */
   DatabricksClient getDatabricksClient();
-
-  /**
-   * Provides executor service to download external links asynchronously
-   * @return the shared executor service for the session
-   */
-  ExecutorService getExecutorService();
 
   /**
    * Returns default catalog associated with the session

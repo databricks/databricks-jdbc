@@ -9,7 +9,12 @@ public class ByteConverter extends AbstractObjectConverter {
     private byte object;
     public ByteConverter(Object object) throws DatabricksSQLException {
         super(object);
-        this.object = (byte) object;
+        if (object instanceof String) {
+            this.object = Byte.parseByte((String) object);
+        }
+        else {
+            this.object = (byte) object;
+        }
     }
 
     @Override
@@ -43,28 +48,13 @@ public class ByteConverter extends AbstractObjectConverter {
     }
 
     @Override
-    public float convertToFloat(int scale) throws DatabricksSQLException {
-        return convertToFloat()/super.POWERS_OF_TEN[scale];
-    }
-
-    @Override
     public double convertToDouble() throws DatabricksSQLException {
         return (double) this.object;
     }
 
     @Override
-    public double convertToDouble(int scale) throws DatabricksSQLException {
-        return convertToDouble()/super.POWERS_OF_TEN[scale];
-    }
-
-    @Override
     public BigDecimal convertToBigDecimal() throws DatabricksSQLException {
         return BigDecimal.valueOf((long) this.object);
-    }
-
-    @Override
-    public BigDecimal convertToBigDecimal(int scale) throws DatabricksSQLException {
-        return BigDecimal.valueOf(convertToDouble()/super.POWERS_OF_TEN[scale]);
     }
 
     @Override

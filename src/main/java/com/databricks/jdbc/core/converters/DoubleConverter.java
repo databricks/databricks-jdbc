@@ -11,7 +11,12 @@ public class DoubleConverter extends AbstractObjectConverter {
     private double object;
     public DoubleConverter(Object object) throws DatabricksSQLException {
         super(object);
-        this.object = (double) object;
+        if (object instanceof String) {
+            this.object = Double.parseDouble((String) object);
+        }
+        else {
+            this.object = (double) object;
+        }
     }
 
     @Override
