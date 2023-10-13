@@ -112,7 +112,7 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
   @Override
   public void setBytes(int parameterIndex, byte[] x) throws SQLException {
     LOGGER.debug("public void setBytes(int parameterIndex, byte[] x)");
-    setObject(parameterIndex, x, Types.BINARY);
+    setObject(parameterIndex, x, DatabricksTypes.BINARY);
   }
 
   @Override
