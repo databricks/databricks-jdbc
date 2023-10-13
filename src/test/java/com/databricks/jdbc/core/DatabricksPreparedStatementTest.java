@@ -3,6 +3,7 @@ package com.databricks.jdbc.core;
 import com.databricks.jdbc.client.impl.DatabricksSdkClient;
 import com.databricks.jdbc.client.sqlexec.CreateSessionRequest;
 import com.databricks.jdbc.client.sqlexec.ExecuteStatementRequestWithSession;
+import com.databricks.jdbc.client.sqlexec.PositionalStatementParameterListItem;
 import com.databricks.jdbc.client.sqlexec.Session;
 import com.databricks.jdbc.driver.DatabricksConnectionContext;
 import com.databricks.jdbc.driver.IDatabricksConnectionContext;
@@ -15,10 +16,7 @@ import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Properties;
+import java.util.*;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.verify;
@@ -30,7 +28,7 @@ public class DatabricksPreparedStatementTest {
   private static final String WAREHOUSE_ID = "erg6767gg";
   private static final String SESSION_ID = "session_id";
   private static final String STATEMENT_ID = "statement_id";
-  private static final String STATEMENT = "select 1";
+  private static final String STATEMENT = "SELECT * FROM orders WHERE user_id = ? AND shard = ? AND region_code = ? AND namespace = ?";
   private static final String JDBC_URL = "jdbc:databricks://adb-565757575.18.azuredatabricks.net:4423/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/erg6767gg;";
 
 
@@ -48,6 +46,11 @@ public class DatabricksPreparedStatementTest {
     when(apiClient.POST("/api/2.0/sql/statements/sessions", createSessionRequest,
         Session.class, headers)).thenReturn(new Session().setWarehouseId(WAREHOUSE_ID).setSessionId(SESSION_ID));
 
+    List<StatementParameterListItem> params = new ArrayList<>();
+    params.add(getParam("BIGINT", "100", 1));
+    params.add(getParam("SMALLINT", "10", 2));
+    params.add(getParam("TINYINT", "15", 3));
+    params.add(getParam("STRING", "value", 4));
     ExecuteStatementRequestWithSession executeStatementRequest = (ExecuteStatementRequestWithSession)
         new ExecuteStatementRequestWithSession()
             .setSessionId(SESSION_ID)
@@ -56,7 +59,8 @@ public class DatabricksPreparedStatementTest {
             .setDisposition(Disposition.EXTERNAL_LINKS)
             .setFormat(Format.ARROW_STREAM)
             .setWaitTimeout("10s")
-            .setOnWaitTimeout(TimeoutAction.CONTINUE);
+            .setOnWaitTimeout(TimeoutAction.CONTINUE)
+            .setParameters(params);
     when(statementExecutionService.executeStatement(executeStatementRequest))
         .thenReturn(new ExecuteStatementResponse()
             .setStatementId(STATEMENT_ID)
@@ -83,6 +87,11 @@ public class DatabricksPreparedStatementTest {
     DatabricksConnection connection = new DatabricksConnection(connectionContext,
         new DatabricksSdkClient(connectionContext, statementExecutionService, apiClient));
     DatabricksPreparedStatement statement = (DatabricksPreparedStatement) connection.prepareStatement(STATEMENT);
+    statement.setLong(1, 100);
+    statement.setShort(2, (short) 10);
+    statement.setByte(3, (byte) 15);
+    statement.setString(4, "value");
+
     DatabricksResultSet resultSet = (DatabricksResultSet) statement.executeQuery();
     assertFalse(resultSet.hasUpdateCount());
     assertFalse(statement.isClosed());
@@ -108,6 +117,7 @@ public class DatabricksPreparedStatementTest {
     when(apiClient.POST("/api/2.0/sql/statements/sessions", createSessionRequest,
         Session.class, headers)).thenReturn(new Session().setWarehouseId(WAREHOUSE_ID).setSessionId(SESSION_ID));
 
+    List<StatementParameterListItem> params = new ArrayList<>();
     ExecuteStatementRequestWithSession executeStatementRequest = (ExecuteStatementRequestWithSession)
         new ExecuteStatementRequestWithSession()
             .setSessionId(SESSION_ID)
@@ -116,7 +126,8 @@ public class DatabricksPreparedStatementTest {
             .setDisposition(Disposition.INLINE)
             .setFormat(Format.JSON_ARRAY)
             .setWaitTimeout("10s")
-            .setOnWaitTimeout(TimeoutAction.CONTINUE);
+            .setOnWaitTimeout(TimeoutAction.CONTINUE)
+            .setParameters(params);
     when(statementExecutionService.executeStatement(executeStatementRequest))
         .thenReturn(new ExecuteStatementResponse()
             .setStatementId(STATEMENT_ID)
@@ -162,5 +173,12 @@ public class DatabricksPreparedStatementTest {
     // close the statement
     statement.close();
     assertTrue(statement.isClosed());
+  }
+
+  private StatementParameterListItem getParam(String type, String value, int ordinal) {
+    return new PositionalStatementParameterListItem()
+        .setOrdinal(ordinal)
+        .setType(type)
+        .setValue(value);
   }
 }

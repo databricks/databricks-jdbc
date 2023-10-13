@@ -1,5 +1,7 @@
 package com.databricks.jdbc.core;
 
+import static com.databricks.jdbc.core.DatabricksTypes.*;
+
 import com.databricks.jdbc.client.StatementType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -48,63 +50,63 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
   public void setBoolean(int parameterIndex, boolean x) throws SQLException {
     LOGGER.debug("public void setBoolean(int parameterIndex, boolean x)");
     checkIfClosed();
-    setObject(parameterIndex, x, Types.BOOLEAN);
+    setObject(parameterIndex, x, DatabricksTypes.BOOLEAN);
   }
 
   @Override
   public void setByte(int parameterIndex, byte x) throws SQLException {
     LOGGER.debug("public void setByte(int parameterIndex, byte x)");
     checkIfClosed();
-    setObject(parameterIndex, x, Types.TINYINT);
+    setObject(parameterIndex, x, DatabricksTypes.TINYINT);
   }
 
   @Override
   public void setShort(int parameterIndex, short x) throws SQLException {
     LOGGER.debug("public void setShort(int parameterIndex, short x)");
     checkIfClosed();
-    setObject(parameterIndex, x, Types.SMALLINT);
+    setObject(parameterIndex, x, DatabricksTypes.SMALLINT);
   }
 
   @Override
   public void setInt(int parameterIndex, int x) throws SQLException {
     LOGGER.debug("public void setInt(int parameterIndex, int x)");
     checkIfClosed();
-    setObject(parameterIndex, x, Types.INTEGER);
+    setObject(parameterIndex, x, DatabricksTypes.INT);
   }
 
   @Override
   public void setLong(int parameterIndex, long x) throws SQLException {
     LOGGER.debug("public void setLong(int parameterIndex, long x)");
     checkIfClosed();
-    setObject(parameterIndex, x, Types.BIGINT);
+    setObject(parameterIndex, x, DatabricksTypes.BIGINT);
   }
 
   @Override
   public void setFloat(int parameterIndex, float x) throws SQLException {
     LOGGER.debug("public void setFloat(int parameterIndex, float x)");
     checkIfClosed();
-    setObject(parameterIndex, x, Types.FLOAT);
+    setObject(parameterIndex, x, DatabricksTypes.FLOAT);
   }
 
   @Override
   public void setDouble(int parameterIndex, double x) throws SQLException {
     LOGGER.debug("public void setDouble(int parameterIndex, double x)");
     checkIfClosed();
-    setObject(parameterIndex, x, Types.DOUBLE);
+    setObject(parameterIndex, x, DatabricksTypes.DOUBLE);
   }
 
   @Override
   public void setBigDecimal(int parameterIndex, BigDecimal x) throws SQLException {
     LOGGER.debug("public void setBigDecimal(int parameterIndex, BigDecimal x)");
     checkIfClosed();
-    setObject(parameterIndex, x, Types.DECIMAL);
+    setObject(parameterIndex, x, DatabricksTypes.DECIMAL);
   }
 
   @Override
   public void setString(int parameterIndex, String x) throws SQLException {
     LOGGER.debug("public void setString(int parameterIndex, String x)");
     checkIfClosed();
-    setObject(parameterIndex, x, Types.VARCHAR);
+    setObject(parameterIndex, x, DatabricksTypes.STRING);
   }
 
   @Override
@@ -117,21 +119,21 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
   public void setDate(int parameterIndex, Date x) throws SQLException {
     LOGGER.debug("public void setDate(int parameterIndex, Date x)");
     checkIfClosed();
-    setObject(parameterIndex, x, Types.DATE);
+    setObject(parameterIndex, x, DatabricksTypes.DATE);
   }
 
   @Override
   public void setTime(int parameterIndex, Time x) throws SQLException {
     LOGGER.debug("public void setTime(int parameterIndex, Time x)");
     checkIfClosed();
-    setObject(parameterIndex, x, Types.TIME);
+    throw new UnsupportedOperationException("Not implemented");
   }
 
   @Override
   public void setTimestamp(int parameterIndex, Timestamp x) throws SQLException {
     LOGGER.debug("public void setTimestamp(int parameterIndex, Timestamp x)");
     checkIfClosed();
-    setObject(parameterIndex, x, Types.TIMESTAMP);
+    setObject(parameterIndex, x, DatabricksTypes.TIMESTAMP);
   }
 
   @Override
@@ -163,18 +165,34 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
   public void setObject(int parameterIndex, Object x, int targetSqlType) throws SQLException {
     LOGGER.debug("public void setObject(int parameterIndex, Object x, int targetSqlType)");
     checkIfClosed();
-    this.parameterBindings.put(parameterIndex, ImmutableSqlParameter.builder()
-            .type(targetSqlType)
-            .value(x)
-            .cardinal(parameterIndex)
-            .build());
+    String databricksType = getDatabricksTypeFromSQLType(targetSqlType);
+    if (databricksType != null) {
+      setObject(parameterIndex, x, databricksType);
+      return;
+    }
+    // TODO: handle other types
+    throw new UnsupportedOperationException("Not implemented");
   }
 
   @Override
   public void setObject(int parameterIndex, Object x) throws SQLException {
     LOGGER.debug("public void setObject(int parameterIndex, Object x)");
     checkIfClosed();
-    setObject(parameterIndex, x, Types.JAVA_OBJECT);
+    String type = inferDatabricksType(x);
+    if (type != null) {
+      setObject(parameterIndex, x, type);
+      return;
+    }
+    // TODO: handle other types and generic objects
+    throw new UnsupportedOperationException("Not implemented");
+  }
+
+  private void setObject(int parameterIndex, Object x, String databricksType) {
+    this.parameterBindings.put(parameterIndex, ImmutableSqlParameter.builder()
+        .type(databricksType)
+        .value(x)
+        .cardinal(parameterIndex)
+        .build());
   }
 
   @Override

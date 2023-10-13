@@ -15,10 +15,7 @@ import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Properties;
+import java.util.*;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.verify;
@@ -48,6 +45,7 @@ public class DatabricksStatementTest {
     when(apiClient.POST("/api/2.0/sql/statements/sessions", createSessionRequest,
         Session.class, headers)).thenReturn(new Session().setWarehouseId(WAREHOUSE_ID).setSessionId(SESSION_ID));
 
+    List<StatementParameterListItem> params = new ArrayList<>();
     ExecuteStatementRequestWithSession executeStatementRequest = (ExecuteStatementRequestWithSession)
         new ExecuteStatementRequestWithSession()
             .setSessionId(SESSION_ID)
@@ -55,7 +53,9 @@ public class DatabricksStatementTest {
             .setStatement(STATEMENT)
             .setDisposition(Disposition.EXTERNAL_LINKS)
             .setFormat(Format.ARROW_STREAM)
-            .setWaitTimeout("0s");
+            .setWaitTimeout("10s")
+            .setOnWaitTimeout(TimeoutAction.CONTINUE)
+            .setParameters(params);
     when(statementExecutionService.executeStatement(executeStatementRequest))
         .thenReturn(new ExecuteStatementResponse()
             .setStatementId(STATEMENT_ID)
@@ -107,6 +107,7 @@ public class DatabricksStatementTest {
     when(apiClient.POST("/api/2.0/sql/statements/sessions", createSessionRequest,
         Session.class, headers)).thenReturn(new Session().setWarehouseId(WAREHOUSE_ID).setSessionId(SESSION_ID));
 
+    List<StatementParameterListItem> params = new ArrayList<>();
     ExecuteStatementRequestWithSession executeStatementRequest = (ExecuteStatementRequestWithSession)
         new ExecuteStatementRequestWithSession()
             .setSessionId(SESSION_ID)
@@ -114,7 +115,9 @@ public class DatabricksStatementTest {
             .setStatement(STATEMENT)
             .setDisposition(Disposition.INLINE)
             .setFormat(Format.JSON_ARRAY)
-            .setWaitTimeout("0s");
+            .setWaitTimeout("10s")
+            .setOnWaitTimeout(TimeoutAction.CONTINUE)
+            .setParameters(params);
     when(statementExecutionService.executeStatement(executeStatementRequest))
         .thenReturn(new ExecuteStatementResponse()
             .setStatementId(STATEMENT_ID)

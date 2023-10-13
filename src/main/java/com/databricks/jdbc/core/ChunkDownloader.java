@@ -8,17 +8,22 @@ import com.databricks.sdk.service.sql.ResultData;
 import com.databricks.sdk.service.sql.ResultManifest;
 import com.google.common.annotations.VisibleForTesting;
 import org.apache.arrow.memory.RootAllocator;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.Collection;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * Class to manage Arrow chunks and fetch them on proactive basis.
  */
 public class ChunkDownloader {
+
+  private static final Logger logger = LoggerFactory.getLogger(ChunkDownloader.class);
   private static final int CHUNKS_DOWNLOADER_THREAD_POOL_SIZE = 4;
   private static final String CHUNKS_DOWNLOADER_THREAD_POOL_PREFIX = "databricks-jdbc-chunks-downloader-";
   private final IDatabricksSession session;
@@ -27,7 +32,6 @@ public class ChunkDownloader {
   private final ExecutorService chunkDownloaderExecutorService;
   private final IDatabricksHttpClient httpClient;
   private Long currentChunkIndex;
-  private long nextChunkLinkToDownload;
   private long nextChunkToDownload;
   private Long totalChunksInMemory;
   private long allowedChunksInMemory;
@@ -47,9 +51,6 @@ public class ChunkDownloader {
     this.statementId = statementId;
     this.totalChunks = resultManifest.getTotalChunkCount();
     this.chunkIndexToChunksMap = initializeChunksMap(resultManifest, resultData, statementId);
-    // We are assuming that all links provided are in sequence. Currently, it only returns the
-    // first chunk link, and next links need to be fetched sequentially using a separate API
-    this.nextChunkLinkToDownload = resultData.getExternalLinks().size();
     // No chunks are downloaded, we need to start from first one
     this.nextChunkToDownload = 0;
     // Initialize current chunk to -1, since we don't have anything to read
@@ -65,11 +66,14 @@ public class ChunkDownloader {
     this.downloadNextChunks();
   }
 
-  private static ConcurrentHashMap<Long, ArrowResultChunk> initializeChunksMap(ResultManifest resultManifest, ResultData resultData, String statementId) {
+  private static ConcurrentHashMap<Long, ArrowResultChunk> initializeChunksMap(
+      ResultManifest resultManifest, ResultData resultData, String statementId) {
     ConcurrentHashMap<Long, ArrowResultChunk> chunkIndexMap = new ConcurrentHashMap<>();
     for (ChunkInfo chunkInfo : resultManifest.getChunks()) {
-      // TODO: Add logging to check data (in bytes) from server and in root allocator. If they are close, we can directly assign the number of bytes as the limit with a small buffer.
-      chunkIndexMap.put(chunkInfo.getChunkIndex(), new ArrowResultChunk(chunkInfo, new RootAllocator(/*limit =*/ Integer.MAX_VALUE), statementId));
+      // TODO: Add logging to check data (in bytes) from server and in root allocator.
+      //  If they are close, we can directly assign the number of bytes as the limit with a small buffer.
+      chunkIndexMap.put(chunkInfo.getChunkIndex(),
+          new ArrowResultChunk(chunkInfo, new RootAllocator(/*limit =*/ Integer.MAX_VALUE), statementId));
     }
 
     for (ExternalLink externalLink : resultData.getExternalLinks()) {
@@ -81,14 +85,12 @@ public class ChunkDownloader {
   private static ExecutorService createChunksDownloaderExecutorService() {
     ThreadFactory threadFactory =
         new ThreadFactory() {
-          private int threadCount = 1;
+          private AtomicInteger threadCount = new AtomicInteger(1);
 
           public Thread newThread(final Runnable r) {
             final Thread thread = new Thread(r);
-            thread.setName(CHUNKS_DOWNLOADER_THREAD_POOL_PREFIX + threadCount++);
-            // TODO: catch uncaught exceptions
+            thread.setName(CHUNKS_DOWNLOADER_THREAD_POOL_PREFIX + threadCount.getAndIncrement());
             thread.setDaemon(true);
-
             return thread;
           }
         };
@@ -111,7 +113,8 @@ public class ChunkDownloader {
           chunk.wait();
         }
       } catch (InterruptedException e) {
-        // Handle interruption
+        logger.atInfo().setCause(e).log("Caught interrupted exception while waiting for chunk [%s] for statement [%s]",
+            chunk.getChunkIndex(), statementId);
       }
     }
     // TODO: check for errors
@@ -123,15 +126,15 @@ public class ChunkDownloader {
   }
 
   boolean next() {
+    if (currentChunkIndex >= 0) {
+      // release current chunk
+      releaseChunk();
+    }
     if (!hasNextChunk()) {
       return false;
     }
     // go to next chunk
     currentChunkIndex++;
-    if (currentChunkIndex > 0) {
-      // release previous chunk
-      releaseChunk();
-    }
     return true;
   }
 
@@ -161,7 +164,7 @@ public class ChunkDownloader {
    * @param chunkIndex index of consumed chunk
    */
   public void releaseChunk() {
-    if (chunkIndexToChunksMap.get(currentChunkIndex - 1).releaseChunk()) {
+    if (chunkIndexToChunksMap.get(currentChunkIndex).releaseChunk()) {
       totalChunksInMemory--;
       downloadNextChunks();
     }
@@ -189,7 +192,7 @@ public class ChunkDownloader {
   void releaseAllChunks() {
     this.isClosed = true;
     this.chunkDownloaderExecutorService.shutdownNow();
-    // TODO: release all chunks
+    this.chunkIndexToChunksMap.values().forEach(chunk -> chunk.releaseChunk());
   }
 
   void downloadNextChunks() {

@@ -270,7 +270,6 @@ public class ArrowResultChunk {
     if (status == DownloadStatus.CHUNK_RELEASED) {
       return false;
     }
-    // TODO: release from memory
     this.recordBatchList.clear();
     this.setStatus(DownloadStatus.CHUNK_RELEASED);
     return true;

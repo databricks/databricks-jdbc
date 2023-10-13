@@ -26,6 +26,7 @@ import java.time.Instant;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
  * Implementation of DatabricksClient interface using Databricks Java SDK.
@@ -33,7 +34,7 @@ import java.util.Map;
 public class DatabricksSdkClient implements DatabricksClient {
   private static final Logger LOGGER = LoggerFactory.getLogger(DatabricksSdkClient.class);
   private static final String ASYNC_TIMEOUT_VALUE = "0s";
-  private static final String SYNC_TIMEOUT_VALUE = "20s";
+  private static final String SYNC_TIMEOUT_VALUE = "10s";
   private static final int STATEMENT_RESULT_POLL_INTERVAL_MILLIS = 200;
 
   private final IDatabricksConnectionContext connectionContext;
@@ -102,7 +103,13 @@ public class DatabricksSdkClient implements DatabricksClient {
             .setDisposition(disposition)
             .setFormat(format)
             .setWaitTimeout(SYNC_TIMEOUT_VALUE)
-            .setOnWaitTimeout(TimeoutAction.CONTINUE);
+            .setOnWaitTimeout(TimeoutAction.CONTINUE)
+            .setParameters(parameters.values().stream().map(
+                param -> new PositionalStatementParameterListItem()
+                    .setOrdinal(param.cardinal())
+                    .setType(param.type())
+                    .setValue(param.value().toString()))
+                .collect(Collectors.toList()));
 
     long pollCount = 0;
     long executionStartTime = Instant.now().toEpochMilli();
