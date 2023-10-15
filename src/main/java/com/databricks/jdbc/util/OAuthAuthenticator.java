@@ -5,11 +5,14 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
 import org.apache.http.HttpResponse;
+import org.apache.http.HttpStatus;
 import org.apache.http.NameValuePair;
 import org.apache.http.client.HttpClient;
 import org.apache.http.client.entity.UrlEncodedFormEntity;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpPost;
+import org.apache.http.client.utils.URIBuilder;
+import org.apache.http.client.utils.URLEncodedUtils;
 import org.apache.http.impl.client.HttpClientBuilder;
 import org.apache.http.message.BasicNameValuePair;
 import org.apache.http.util.Asserts;
@@ -19,6 +22,7 @@ import java.awt.*;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.net.InetSocketAddress;
+import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
@@ -54,7 +58,7 @@ public class OAuthAuthenticator {
     // Access token that can be used for API requests
     String accessToken;
 
-    public OAuthAuthenticator(String hostname) throws IOException {
+    public OAuthAuthenticator(String hostname) throws IOException, URISyntaxException {
         this.httpClient = HttpClientBuilder.create().build();
         this.idpUrl = getIdpUrl(hostname);
         this.oAuthConfig = fetchWellKnownOAuthConfig(idpUrl);
@@ -65,11 +69,10 @@ public class OAuthAuthenticator {
      *
      * @return the redirection URL to be used
      */
-    public String getRedirectUrl() {
-        return DatabricksJdbcConstants.HTTP_SCHEMA
-                + DatabricksJdbcConstants.LOCALHOST
-                + DatabricksJdbcConstants.PORT_DELIMITER
-                + LOCAL_PORT;
+    private String getRedirectUrl() throws URISyntaxException, MalformedURLException {
+        return new URIBuilder().setScheme(DatabricksJdbcConstants.HTTP_SCHEMA)
+                .setHost(DatabricksJdbcConstants.LOCALHOST).setPort(LOCAL_PORT)
+                .build().toString();
     }
 
     /**
@@ -77,7 +80,7 @@ public class OAuthAuthenticator {
      *
      * @return the token endpoint that can be used to request for access tokens
      */
-    public String getTokenEndpoint() {
+    private String getTokenEndpoint() {
         return (String) oAuthConfig.get("token_endpoint");
     }
 
@@ -87,12 +90,9 @@ public class OAuthAuthenticator {
      * @param hostname the workspace hostname
      * @return the IdP URL for the hostname
      */
-    public String getIdpUrl(String hostname) {
-        String start = hostname.startsWith(DatabricksJdbcConstants.HTTPS_SCHEMA)
-                ? DatabricksJdbcConstants.EMPTY_STRING : DatabricksJdbcConstants.HTTPS_SCHEMA;
-        String end = hostname.endsWith(DatabricksJdbcConstants.SLASH)
-                ? DatabricksJdbcConstants.EMPTY_STRING : DatabricksJdbcConstants.SLASH;
-        return start + hostname + end + "oidc";
+    private String getIdpUrl(String hostname) throws URISyntaxException {
+        return new URIBuilder(hostname).setScheme(DatabricksJdbcConstants.HTTPS_SCHEMA)
+                .setPath("oidc").build().toString();
     }
 
     /**
@@ -102,9 +102,15 @@ public class OAuthAuthenticator {
      * @return the OAuth config in the form of a java map
      * @throws IOException
      */
-    public Map<String, Object> fetchWellKnownOAuthConfig(String idpUrl) throws IOException {
-        String wellKnownConfigUrl = idpUrl + "/.well-known/oauth-authorization-server";
+    private Map<String, Object> fetchWellKnownOAuthConfig(String idpUrl) throws IOException, URISyntaxException {
+        URIBuilder uriBuilder = new URIBuilder(idpUrl);
+        List<String> pathSegments = uriBuilder.getPathSegments();
+        pathSegments.addAll(Arrays.asList(".well-known", "oauth-authorization-server"));
+        String wellKnownConfigUrl = uriBuilder.setPathSegments(pathSegments).build().toString();
         HttpResponse response = this.httpClient.execute(new HttpGet(wellKnownConfigUrl));
+        if (response.getStatusLine().getStatusCode() != HttpStatus.SC_OK) {
+            throw new RuntimeException("Unable to fetch well known oauth config for: " + idpUrl);
+        }
         return parseResponse(response);
     }
 
@@ -115,7 +121,7 @@ public class OAuthAuthenticator {
      * @return the response entity in the form of a java map
      * @throws IOException
      */
-    public Map<String, Object> parseResponse(HttpResponse response) throws IOException {
+    private Map<String, Object> parseResponse(HttpResponse response) throws IOException {
         String result = EntityUtils.toString(response.getEntity());
         ObjectMapper objectMapper = new ObjectMapper();
         return objectMapper.readValue(result, Map.class);
@@ -156,7 +162,7 @@ public class OAuthAuthenticator {
      * @return the access token received from the token endpoint
      * @throws IOException
      */
-    private String tokenExchange(String code, String verifier) throws IOException {
+    private String tokenExchange(String code, String verifier) throws IOException, URISyntaxException {
         List<NameValuePair> params = new ArrayList<>();
         params.add(new BasicNameValuePair("grant_type", "authorization_code"));
         params.add(new BasicNameValuePair("code", code));
@@ -169,7 +175,13 @@ public class OAuthAuthenticator {
         httpPost.setEntity(entity);
 
         HttpResponse response = httpClient.execute(httpPost);
+        if (response.getStatusLine().getStatusCode() != HttpStatus.SC_OK) {
+            throw new RuntimeException("Unable to perform token exchange");
+        }
         Map<String, Object> properties = parseResponse(response);
+        if (!properties.containsKey("access_token")) {
+            throw new RuntimeException("Access token not returned by server");
+        }
         return (String) properties.get("access_token");
     }
 
@@ -181,15 +193,9 @@ public class OAuthAuthenticator {
      * @param expectedState the expected state value from the callback, to prevent CSRF attacks
      * @throws IOException
      */
-    private void handleCallback(HttpExchange exchange, String codeVerifier, String expectedState) throws IOException {
-        String query = exchange.getRequestURI().getQuery();
-        Map<String, String> queryParams = new HashMap<>();
-        for (String param : query.split(DatabricksJdbcConstants.AMPERSAND)) {
-            String[] parts = param.split(DatabricksJdbcConstants.PAIR_DELIMITER);
-            String key = parts[0];
-            String value = parts[1];
-            queryParams.put(key, value);
-        }
+    private void handleCallback(HttpExchange exchange, String codeVerifier, String expectedState) throws IOException, URISyntaxException {
+        Map<String, String> queryParams = URLEncodedUtils.parse(exchange.getRequestURI(), StandardCharsets.UTF_8)
+                .stream().collect(Collectors.toMap(NameValuePair::getName, NameValuePair::getValue));
 
         // Verify the state parameter to prevent CSRF attacks.
         Asserts.check(queryParams.get("state").equals(expectedState), "Callback state does not match auth request state");
@@ -218,7 +224,7 @@ public class OAuthAuthenticator {
         server.createContext(DatabricksJdbcConstants.SLASH, exchange -> {
             try {
                 handleCallback(exchange, verifier, state);
-            } catch (IOException e) {
+            } catch (IOException | URISyntaxException e) {
                 throw new RuntimeException("Failed to perform OAuth authentication while receiving callback\n" + e);
             }
         });
@@ -235,22 +241,21 @@ public class OAuthAuthenticator {
      * @return the auth request URL
      * @throws NoSuchAlgorithmException
      */
-    public String getAuthorizationRequestURL(String verifier, String state) throws NoSuchAlgorithmException {
-        String authUrl = idpUrl + "/oauth2/v2.0/authorize";
-        // Using SHA-256 to generate challenge
-        String challenge = getSHA256Challenge(verifier);
-        Map<String, String> params = new HashMap<>();
-        params.put("response_type", "code");
-        params.put("client_id", CLIENT_ID);
-        params.put("redirect_uri", getRedirectUrl());
-        params.put("code_challenge", challenge);
-        params.put("code_challenge_method", "S256");
-        params.put("scope", "all-apis");
-        params.put("state", state);
-
-        return authUrl + DatabricksJdbcConstants.QUESTION_MARK + params.entrySet().stream()
-                        .map(e -> e.getKey() + DatabricksJdbcConstants.PAIR_DELIMITER + e.getValue())
-                        .collect(Collectors.joining(DatabricksJdbcConstants.AMPERSAND));
+    private String getAuthorizationRequestURL(String verifier, String state) throws NoSuchAlgorithmException, URISyntaxException, MalformedURLException {
+        URIBuilder uriBuilder = new URIBuilder(idpUrl);
+        List<String> pathSegments = uriBuilder.getPathSegments();
+        pathSegments.addAll(Arrays.asList("oauth2", "v2.0", "authorize"));
+        return uriBuilder
+                .setPathSegments(pathSegments)
+                .addParameter("response_type", "code")
+                .addParameter("client_id", CLIENT_ID)
+                .addParameter("redirect_uri", getRedirectUrl())
+                // Using SHA-256 to generate challenge
+                .addParameter("code_challenge", getSHA256Challenge(verifier))
+                .addParameter("code_challenge_method", "S256")
+                .addParameter("scope", "all-apis")
+                .addParameter("state", state)
+                .build().toString();
     }
 
     /**

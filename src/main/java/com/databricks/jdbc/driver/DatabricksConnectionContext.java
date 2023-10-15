@@ -2,9 +2,11 @@ package com.databricks.jdbc.driver;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
+import org.apache.http.client.utils.URIBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.net.URISyntaxException;
 import java.util.Map;
 import java.util.Properties;
 import java.util.regex.Matcher;
@@ -24,7 +26,7 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
    * @param properties connection properties
    * @return a connection context
    */
-  public static IDatabricksConnectionContext parse(String url, Properties properties) {
+  public static IDatabricksConnectionContext parse(String url, Properties properties) throws URISyntaxException {
     if (!isValid(url)) {
       // TODO: handle exceptions properly
       throw new IllegalArgumentException("Invalid url " + url);
@@ -75,13 +77,16 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   @Override
   public String getHostUrl() {
     LOGGER.debug("public String getHostUrl()");
-    StringBuilder hostUrlBuilder = new StringBuilder().append(DatabricksJdbcConstants.HTTPS_SCHEMA)
-        .append(this.host);
-    if (port != 0) {
-      hostUrlBuilder.append(DatabricksJdbcConstants.PORT_DELIMITER)
-          .append(port);
+    URIBuilder uriBuilder = new URIBuilder();
+    uriBuilder.setScheme(DatabricksJdbcConstants.HTTPS_SCHEMA).setHost(this.host);
+    if (this.port != 0) {
+      uriBuilder.setPort(this.port);
     }
-    return hostUrlBuilder.toString();
+    try {
+      return uriBuilder.build().toString();
+    } catch (URISyntaxException e) {
+      throw new RuntimeException(e);
+    }
   }
 
   String getHttpPath() {

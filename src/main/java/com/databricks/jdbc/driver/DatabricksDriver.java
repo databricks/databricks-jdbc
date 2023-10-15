@@ -4,6 +4,7 @@ import com.databricks.jdbc.core.DatabricksConnection;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.net.URISyntaxException;
 import java.sql.Connection;
 import java.sql.Driver;
 import java.sql.DriverManager;
@@ -40,7 +41,12 @@ public class DatabricksDriver implements Driver {
     @Override
     public Connection connect(String url, Properties info) {
         LOGGER.debug("public Connection connect(String url = {}, Properties info)", url);
-        IDatabricksConnectionContext connectionContext = DatabricksConnectionContext.parse(url, info);
+        IDatabricksConnectionContext connectionContext = null;
+        try {
+            connectionContext = DatabricksConnectionContext.parse(url, info);
+        } catch (URISyntaxException e) {
+            throw new RuntimeException(e);
+        }
         return new DatabricksConnection(connectionContext);
     }
 

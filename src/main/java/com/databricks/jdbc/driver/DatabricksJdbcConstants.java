@@ -12,15 +12,13 @@ public final class DatabricksJdbcConstants {
   public static final String PORT_DELIMITER = ":";
   public static final String PAIR_DELIMITER = "=";
   public static final String SLASH = "/";
-  public static final String AMPERSAND = "&";
-  public static final String QUESTION_MARK = "?";
   static final String TOKEN = "token";
   public static final String USER = "user";
   public static final String PASSWORD = "password";
   public static final String LOCALHOST = "localhost";
   static final String HTTP_PATH = "httpPath";
-  public static final String HTTPS_SCHEMA = "https://";
-  public static final String HTTP_SCHEMA = "http://";
+  public static final String HTTPS_SCHEMA = "https";
+  public static final String HTTP_SCHEMA = "http";
   public static final String LOGIN_TIMEOUT = "loginTimeout";
 
   public static final String FULL_STOP = ".";

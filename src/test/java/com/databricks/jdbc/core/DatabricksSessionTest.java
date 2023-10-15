@@ -11,6 +11,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.net.URISyntaxException;
 import java.util.Properties;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -28,7 +29,7 @@ public class DatabricksSessionTest {
   StatementExecutionService statementExecutionService;
 
   @Test
-  public void testOpenSession() {
+  public void testOpenSession() throws URISyntaxException {
     IDatabricksConnectionContext connectionContext = DatabricksConnectionContext.parse(JDBC_URL, new Properties());
     DatabricksSession session = new DatabricksSession(connectionContext,
         new DatabricksSdkClient(connectionContext, statementExecutionService));
