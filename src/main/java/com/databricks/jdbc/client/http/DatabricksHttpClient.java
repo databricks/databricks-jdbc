@@ -69,6 +69,7 @@ public class DatabricksHttpClient implements IDatabricksHttpClient {
     retryableCodes.add(502); // bad gateway (should this be retried?)
     retryableCodes.add(503); // service unavailable
     retryableCodes.add(504); // gateway timeout
+    return retryableCodes;
   }
 
   private CloseableHttpClient makeClosableHttpClient() {

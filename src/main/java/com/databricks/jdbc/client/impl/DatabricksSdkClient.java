@@ -42,14 +42,15 @@ public class DatabricksSdkClient implements DatabricksClient {
   private final WorkspaceClient workspaceClient;
 
   public DatabricksSdkClient(IDatabricksConnectionContext connectionContext) {
+
     this.connectionContext = connectionContext;
     // Handle more auth types
     this.databricksConfig = new DatabricksConfig()
-        .setHost(connectionContext.getHostUrl())
-        .setToken(connectionContext.getToken());
-
-    this.workspaceClient = new WorkspaceClient(databricksConfig);
+            .setHost(connectionContext.getHostUrl())
+            .setToken(connectionContext.getToken());
+    this.workspaceClient = new WorkspaceClient(this.databricksConfig);
   }
+
 
   public DatabricksSdkClient(IDatabricksConnectionContext connectionContext,
                              StatementExecutionService statementExecutionService, ApiClient apiClient) {
@@ -59,7 +60,7 @@ public class DatabricksSdkClient implements DatabricksClient {
         .setHost(connectionContext.getHostUrl())
         .setToken(connectionContext.getToken());
 
-    this.workspaceClient = new WorkspaceClient(true /* mock */, apiClient)
+    this.workspaceClient = new WorkspaceClient(this.databricksConfig)
         .withStatementExecutionImpl(statementExecutionService);
   }
 

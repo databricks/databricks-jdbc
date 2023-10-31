@@ -17,6 +17,7 @@ import java.util.Map;
 import java.util.Properties;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -28,29 +29,25 @@ public class DatabricksSessionTest {
   private static final String SESSION_ID = "session_id";
 
   @Mock
-  StatementExecutionService statementExecutionService;
+  DatabricksConnectionContext connectionContext;
 
   @Mock
-  ApiClient apiClient;
+  DatabricksSdkClient client;
 
   @Test
-  public void testOpenSession() {
-    IDatabricksConnectionContext connectionContext = DatabricksConnectionContext.parse(JDBC_URL, new Properties());
-    DatabricksSession session = new DatabricksSession(connectionContext,
-        new DatabricksSdkClient(connectionContext, statementExecutionService, apiClient));
+  public void testOpenAndCloseSession() {
+    ImmutableSessionInfo sessionInfo = ImmutableSessionInfo.builder().sessionId(SESSION_ID).warehouseId(WAREHOUSE_ID).build();
+    when(client.createSession(WAREHOUSE_ID)).thenReturn(sessionInfo);
+    when(connectionContext.getWarehouse()).thenReturn(WAREHOUSE_ID);
 
-    CreateSessionRequest createSessionRequest = new CreateSessionRequest().setWarehouseId(WAREHOUSE_ID);
-    Map<String, String> headers = new HashMap<>();
-    headers.put("Accept", "application/json");
-    headers.put("Content-Type", "application/json");
-    when(apiClient.POST("/api/2.0/sql/statements/sessions", createSessionRequest,
-        Session.class, headers)).thenReturn(new Session().setWarehouseId(WAREHOUSE_ID).setSessionId(SESSION_ID));
-
+    DatabricksSession session = new DatabricksSession(connectionContext,client);
     assertFalse(session.isOpen());
     session.open();
     assertTrue(session.isOpen());
     assertEquals(SESSION_ID, session.getSessionId());
 
+
+    doNothing().when(client).deleteSession(SESSION_ID,WAREHOUSE_ID);
     session.close();
     assertFalse(session.isOpen());
     assertNull(session.getSessionId());

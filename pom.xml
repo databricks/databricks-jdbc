@@ -132,7 +132,10 @@
           <artifactId>maven-surefire-plugin</artifactId>
           <version>${maven-surefire-plugin.version}</version>
           <configuration>
-            <argLine>--add-opens=java.base/java.nio=ALL-UNNAMED</argLine>
+            <argLine>
+              --add-opens=java.base/java.nio=ALL-UNNAMED
+              -Dnet.bytebuddy.experimental=true
+            </argLine>
           </configuration>
         </plugin>
         <plugin>
