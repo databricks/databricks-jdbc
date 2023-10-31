@@ -35,8 +35,6 @@ public class CreateSessionRequest {
 
   @Override
   public String toString() {
-    return new ToStringer(CreateSessionRequest.class)
-        .add("warehouseId", warehouseId)
-        .toString();
+    return new ToStringer(CreateSessionRequest.class).add("warehouseId", warehouseId).toString();
   }
 }

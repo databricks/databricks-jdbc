@@ -1,29 +1,21 @@
 package com.databricks.jdbc.core;
 
-import com.databricks.jdbc.client.StatementType;
-import com.databricks.jdbc.client.impl.DatabricksSdkClient;
-import com.databricks.jdbc.client.sqlexec.CreateSessionRequest;
-import com.databricks.jdbc.client.sqlexec.ExecuteStatementRequestWithSession;
-import com.databricks.jdbc.client.sqlexec.Session;
-import com.databricks.jdbc.driver.DatabricksConnectionContext;
-import com.databricks.jdbc.driver.IDatabricksConnectionContext;
-import com.databricks.sdk.core.ApiClient;
-import com.databricks.sdk.service.sql.*;
-import com.google.common.collect.ImmutableList;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.Mock;
-import org.mockito.Mockito;
-import org.mockito.junit.jupiter.MockitoExtension;
-
-import java.sql.ResultSet;
-import java.util.*;
-
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+
+import com.databricks.jdbc.client.StatementType;
+import com.databricks.jdbc.client.impl.DatabricksSdkClient;
+import com.databricks.jdbc.driver.DatabricksConnectionContext;
+import com.databricks.jdbc.driver.IDatabricksConnectionContext;
+import com.databricks.sdk.service.sql.*;
+import java.sql.ResultSet;
+import java.util.*;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
 public class DatabricksStatementTest {
@@ -32,26 +24,28 @@ public class DatabricksStatementTest {
   private static final String SESSION_ID = "session_id";
   private static final String STATEMENT_ID = "statement_id";
   private static final String STATEMENT = "select 1";
-  private static final String JDBC_URL = "jdbc:databricks://adb-565757575.18.azuredatabricks.net:4423/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/erg6767gg;";
+  private static final String JDBC_URL =
+      "jdbc:databricks://adb-565757575.18.azuredatabricks.net:4423/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/erg6767gg;";
 
-
-  @Mock
-  StatementExecutionService statementExecutionService;
-  @Mock
-  DatabricksSdkClient client;
-  @Mock
-  DatabricksResultSet resultSet;
+  @Mock StatementExecutionService statementExecutionService;
+  @Mock DatabricksSdkClient client;
+  @Mock DatabricksResultSet resultSet;
 
   @Test
   public void testExecuteStatement() throws Exception {
-    IDatabricksConnectionContext connectionContext = DatabricksConnectionContext.parse(JDBC_URL, new Properties());
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContext.parse(JDBC_URL, new Properties());
     DatabricksConnection connection = new DatabricksConnection(connectionContext, client);
     DatabricksStatement statement = new DatabricksStatement(connection);
 
-    when(client.executeStatement(eq(STATEMENT), eq(WAREHOUSE_ID),
+    when(client.executeStatement(
+            eq(STATEMENT),
+            eq(WAREHOUSE_ID),
             eq(new HashMap<Integer, ImmutableSqlParameter>()),
-            eq(StatementType.QUERY), any(IDatabricksSession.class),
-            eq(statement))).thenReturn(resultSet);
+            eq(StatementType.QUERY),
+            any(IDatabricksSession.class),
+            eq(statement)))
+        .thenReturn(resultSet);
 
     ResultSet newResultSet = statement.executeQuery(STATEMENT);
 
@@ -63,16 +57,20 @@ public class DatabricksStatementTest {
 
   @Test
   public void testExecuteUpdateStatement() throws Exception {
-    IDatabricksConnectionContext connectionContext = DatabricksConnectionContext.parse(JDBC_URL, new Properties());
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContext.parse(JDBC_URL, new Properties());
     DatabricksConnection connection = new DatabricksConnection(connectionContext, client);
     DatabricksStatement statement = new DatabricksStatement(connection);
 
     when(resultSet.getUpdateCount()).thenReturn(2L);
-    when(client.executeStatement(eq(STATEMENT),
+    when(client.executeStatement(
+            eq(STATEMENT),
             eq(WAREHOUSE_ID),
             eq(new HashMap<Integer, ImmutableSqlParameter>()),
-            eq(StatementType.UPDATE), any(IDatabricksSession.class),
-            eq(statement))).thenReturn(resultSet);
+            eq(StatementType.UPDATE),
+            any(IDatabricksSession.class),
+            eq(statement)))
+        .thenReturn(resultSet);
 
     int updateCount = statement.executeUpdate(STATEMENT);
     assertEquals(2, updateCount);

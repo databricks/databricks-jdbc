@@ -2,12 +2,11 @@ package com.databricks.jdbc.driver;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.util.Map;
 import java.util.Properties;
 import java.util.regex.Matcher;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class DatabricksConnectionContext implements IDatabricksConnectionContext {
 
@@ -15,11 +14,11 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   private final String host;
   private final int port;
 
-  @VisibleForTesting
-  final ImmutableMap<String, String> parameters;
+  @VisibleForTesting final ImmutableMap<String, String> parameters;
 
   /**
    * Parses connection Url and properties into a Databricks specific connection context
+   *
    * @param url Databricks server connection Url
    * @param properties connection properties
    * @return a connection context
@@ -37,7 +36,10 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
 
       String[] hostAndPort = hostUrlVal.split(DatabricksJdbcConstants.PORT_DELIMITER);
       String hostValue = hostAndPort[0];
-      int portValue = hostAndPort.length == 2 ? Integer.valueOf(hostAndPort[1]) : DatabricksJdbcConstants.DEFAULT_PORT;
+      int portValue =
+          hostAndPort.length == 2
+              ? Integer.valueOf(hostAndPort[1])
+              : DatabricksJdbcConstants.DEFAULT_PORT;
 
       ImmutableMap.Builder<String, String> parametersBuilder = ImmutableMap.builder();
       String[] urlParts = urlMinusHost.split(DatabricksJdbcConstants.URL_DELIMITER);
@@ -62,7 +64,8 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
     throw new IllegalArgumentException("Invalid url incorrect");
   }
 
-  private DatabricksConnectionContext(String host, int port, ImmutableMap<String, String> parameters) {
+  private DatabricksConnectionContext(
+      String host, int port, ImmutableMap<String, String> parameters) {
     this.host = host;
     this.port = port;
     this.parameters = parameters;
@@ -75,11 +78,10 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   @Override
   public String getHostUrl() {
     LOGGER.debug("public String getHostUrl()");
-    StringBuilder hostUrlBuilder = new StringBuilder().append(DatabricksJdbcConstants.HTTPS_SCHEMA)
-        .append(this.host);
+    StringBuilder hostUrlBuilder =
+        new StringBuilder().append(DatabricksJdbcConstants.HTTPS_SCHEMA).append(this.host);
     if (port != 0) {
-      hostUrlBuilder.append(DatabricksJdbcConstants.PORT_DELIMITER)
-          .append(port);
+      hostUrlBuilder.append(DatabricksJdbcConstants.PORT_DELIMITER).append(port);
     }
     return hostUrlBuilder.toString();
   }
@@ -101,7 +103,7 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
     } else {
       Matcher sqlUrlMatcher = DatabricksJdbcConstants.HTTP_PATH_SQL_PATTERN.matcher(httpPath);
       if (sqlUrlMatcher.matches()) {
-        warehouseId = httpPath.substring(httpPath.lastIndexOf('/') +1);
+        warehouseId = httpPath.substring(httpPath.lastIndexOf('/') + 1);
       } else {
         throw new IllegalArgumentException("Invalid httpPath " + httpPath);
       }

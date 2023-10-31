@@ -1,7 +1,6 @@
 package com.databricks.jdbc.core;
 
 import com.databricks.sdk.service.sql.StatementStatus;
-
 import java.sql.SQLException;
 
 public interface IDatabricksResultSet {

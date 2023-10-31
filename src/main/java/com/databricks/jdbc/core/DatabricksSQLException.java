@@ -2,9 +2,7 @@ package com.databricks.jdbc.core;
 
 import java.sql.SQLException;
 
-/**
- * Top level exception for Databricks driver
- */
+/** Top level exception for Databricks driver */
 public class DatabricksSQLException extends SQLException {
 
   public DatabricksSQLException(String reason, String sqlState, int vendorCode) {

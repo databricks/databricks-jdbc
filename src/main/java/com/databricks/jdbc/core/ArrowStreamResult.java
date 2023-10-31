@@ -1,12 +1,9 @@
 package com.databricks.jdbc.core;
 
 import com.databricks.jdbc.client.IDatabricksHttpClient;
-import com.google.common.annotations.VisibleForTesting;
-import org.apache.arrow.vector.ValueVector;
-import org.apache.arrow.vector.types.Types;
 import com.databricks.sdk.service.sql.*;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
-
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
@@ -25,19 +22,32 @@ class ArrowStreamResult implements IExecutionResult {
 
   List<ColumnInfo> columnInfos;
 
-  ArrowStreamResult(ResultManifest resultManifest, ResultData resultData, String statementId,
-                    IDatabricksSession session) {
-    this(resultManifest, new ChunkDownloader(statementId, resultManifest, resultData, session), session);
+  ArrowStreamResult(
+      ResultManifest resultManifest,
+      ResultData resultData,
+      String statementId,
+      IDatabricksSession session) {
+    this(
+        resultManifest,
+        new ChunkDownloader(statementId, resultManifest, resultData, session),
+        session);
   }
 
   @VisibleForTesting
-  ArrowStreamResult(ResultManifest resultManifest, ResultData resultData, String statementId,
-                    IDatabricksSession session, IDatabricksHttpClient httpClient) {
-    this(resultManifest, new ChunkDownloader(statementId, resultManifest, resultData, session, httpClient), session);
+  ArrowStreamResult(
+      ResultManifest resultManifest,
+      ResultData resultData,
+      String statementId,
+      IDatabricksSession session,
+      IDatabricksHttpClient httpClient) {
+    this(
+        resultManifest,
+        new ChunkDownloader(statementId, resultManifest, resultData, session, httpClient),
+        session);
   }
 
-  private ArrowStreamResult(ResultManifest resultManifest, ChunkDownloader chunkDownloader,
-                            IDatabricksSession session) {
+  private ArrowStreamResult(
+      ResultManifest resultManifest, ChunkDownloader chunkDownloader, IDatabricksSession session) {
     this.rowOffsetToChunkMap = getRowOffsetMap(resultManifest);
     this.session = session;
     this.chunkDownloader = chunkDownloader;
@@ -47,7 +57,9 @@ class ArrowStreamResult implements IExecutionResult {
     this.chunkIterator = null;
   }
 
-  public ChunkDownloader getChunkDownloader() {return this.chunkDownloader;}
+  public ChunkDownloader getChunkDownloader() {
+    return this.chunkDownloader;
+  }
 
   private static ImmutableMap<Long, ChunkInfo> getRowOffsetMap(ResultManifest resultManifest) {
     ImmutableMap.Builder<Long, ChunkInfo> rowOffsetMapBuilder = ImmutableMap.builder();
@@ -56,7 +68,7 @@ class ArrowStreamResult implements IExecutionResult {
     }
     return rowOffsetMapBuilder.build();
   }
-  
+
   @Override
   public Object getObject(int columnIndex) throws SQLException {
     // we have two types:
@@ -91,8 +103,9 @@ class ArrowStreamResult implements IExecutionResult {
 
   @Override
   public boolean hasNext() {
-    return !isClosed() && ((chunkIterator != null && chunkIterator.hasNextRow())
-        || chunkDownloader.hasNextChunk());
+    return !isClosed()
+        && ((chunkIterator != null && chunkIterator.hasNextRow())
+            || chunkDownloader.hasNextChunk());
   }
 
   @Override

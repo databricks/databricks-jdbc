@@ -2,18 +2,17 @@ package com.databricks.jdbc.client.sqlexec;
 
 import com.databricks.sdk.support.ToStringer;
 import com.fasterxml.jackson.annotation.JsonProperty;
-
 import java.util.Objects;
 
 public class DeleteSessionRequest {
 
   @JsonProperty("session_id")
   private String sessionId;
+
   @JsonProperty("warehouse_id")
   private String warehouseId;
 
-  public DeleteSessionRequest() {
-  }
+  public DeleteSessionRequest() {}
 
   public DeleteSessionRequest setSessionId(String sessionId) {
     this.sessionId = sessionId;
@@ -37,7 +36,7 @@ public class DeleteSessionRequest {
     if (this == o) {
       return true;
     } else if (o != null && this.getClass() == o.getClass()) {
-      DeleteSessionRequest that = (DeleteSessionRequest)o;
+      DeleteSessionRequest that = (DeleteSessionRequest) o;
       return Objects.equals(this.sessionId, that.sessionId)
           && Objects.equals(this.warehouseId, that.warehouseId);
     } else {

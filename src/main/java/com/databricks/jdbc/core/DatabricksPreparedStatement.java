@@ -3,9 +3,6 @@ package com.databricks.jdbc.core;
 import static com.databricks.jdbc.core.DatabricksTypes.*;
 
 import com.databricks.jdbc.client.StatementType;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.io.InputStream;
 import java.io.Reader;
 import java.math.BigDecimal;
@@ -14,6 +11,8 @@ import java.sql.*;
 import java.util.Calendar;
 import java.util.HashMap;
 import java.util.Map;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class DatabricksPreparedStatement extends DatabricksStatement implements PreparedStatement {
 
@@ -188,11 +187,13 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
   }
 
   private void setObject(int parameterIndex, Object x, String databricksType) {
-    this.parameterBindings.put(parameterIndex, ImmutableSqlParameter.builder()
-        .type(databricksType)
-        .value(x)
-        .cardinal(parameterIndex)
-        .build());
+    this.parameterBindings.put(
+        parameterIndex,
+        ImmutableSqlParameter.builder()
+            .type(databricksType)
+            .value(x)
+            .cardinal(parameterIndex)
+            .build());
   }
 
   @Override
@@ -210,7 +211,8 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
   }
 
   @Override
-  public void setCharacterStream(int parameterIndex, Reader reader, int length) throws SQLException {
+  public void setCharacterStream(int parameterIndex, Reader reader, int length)
+      throws SQLException {
     LOGGER.debug("public void setCharacterStream(int parameterIndex, Reader reader, int length)");
     throw new UnsupportedOperationException("Not implemented");
   }
@@ -295,7 +297,8 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
   }
 
   @Override
-  public void setNCharacterStream(int parameterIndex, Reader value, long length) throws SQLException {
+  public void setNCharacterStream(int parameterIndex, Reader value, long length)
+      throws SQLException {
     LOGGER.debug("public void setNCharacterStream(int parameterIndex, Reader value, long length)");
     throw new UnsupportedOperationException("Not implemented");
   }
@@ -313,7 +316,8 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
   }
 
   @Override
-  public void setBlob(int parameterIndex, InputStream inputStream, long length) throws SQLException {
+  public void setBlob(int parameterIndex, InputStream inputStream, long length)
+      throws SQLException {
     LOGGER.debug("public void setBlob(int parameterIndex, InputStream inputStream, long length)");
     throw new UnsupportedOperationException("Not implemented");
   }
@@ -331,8 +335,10 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
   }
 
   @Override
-  public void setObject(int parameterIndex, Object x, int targetSqlType, int scaleOrLength) throws SQLException {
-    LOGGER.debug("public void setObject(int parameterIndex, Object x, int targetSqlType, int scaleOrLength)");
+  public void setObject(int parameterIndex, Object x, int targetSqlType, int scaleOrLength)
+      throws SQLException {
+    LOGGER.debug(
+        "public void setObject(int parameterIndex, Object x, int targetSqlType, int scaleOrLength)");
     throw new UnsupportedOperationException("Not implemented");
   }
 
@@ -349,7 +355,8 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
   }
 
   @Override
-  public void setCharacterStream(int parameterIndex, Reader reader, long length) throws SQLException {
+  public void setCharacterStream(int parameterIndex, Reader reader, long length)
+      throws SQLException {
     LOGGER.debug("public void setCharacterStream(int parameterIndex, Reader reader, long length)");
     throw new UnsupportedOperationException("Not implemented");
   }

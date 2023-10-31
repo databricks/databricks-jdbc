@@ -5,7 +5,6 @@ import com.databricks.sdk.service.sql.ColumnInfoTypeName;
 import com.databricks.sdk.service.sql.ResultManifest;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.Types;
@@ -26,10 +25,11 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
     ImmutableMap.Builder<String, Integer> columnIndexBuilder = ImmutableMap.builder();
     int currIndex = 0;
     for (ColumnInfo columnInfo : resultManifest.getSchema().getColumns()) {
-      ImmutableDatabricksColumn.Builder columnBuilder = ImmutableDatabricksColumn.builder()
-          .columnName(columnInfo.getName())
-          .columnType(getColumnType(columnInfo.getTypeName()))
-          .columnTypeText(columnInfo.getTypeText());
+      ImmutableDatabricksColumn.Builder columnBuilder =
+          ImmutableDatabricksColumn.builder()
+              .columnName(columnInfo.getName())
+              .columnType(getColumnType(columnInfo.getTypeName()))
+              .columnTypeText(columnInfo.getTypeText());
       if (columnInfo.getTypePrecision() != null) {
         columnBuilder.typePrecision(columnInfo.getTypePrecision().intValue());
       } else if (columnInfo.getTypeName().equals(ColumnInfoTypeName.STRING)) {
@@ -46,15 +46,21 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
     this.totalRows = resultManifest.getTotalRowCount();
   }
 
-  public DatabricksResultSetMetaData(String statementId, List<String> columnNames, List<String> columnTypeText,
-     List<Integer> columnTypes, List<Integer> columnTypePrecisions, long totalRows) {
+  public DatabricksResultSetMetaData(
+      String statementId,
+      List<String> columnNames,
+      List<String> columnTypeText,
+      List<Integer> columnTypes,
+      List<Integer> columnTypePrecisions,
+      long totalRows) {
     // TODO: instead of passing precisions, maybe it can be set by default?
     this.statementId = statementId;
 
     ImmutableList.Builder<ImmutableDatabricksColumn> columnsBuilder = ImmutableList.builder();
     ImmutableMap.Builder<String, Integer> columnIndexBuilder = ImmutableMap.builder();
     for (int i = 0; i < columnNames.size(); i++) {
-      ImmutableDatabricksColumn.Builder columnBuilder = ImmutableDatabricksColumn.builder()
+      ImmutableDatabricksColumn.Builder columnBuilder =
+          ImmutableDatabricksColumn.builder()
               .columnName(columnNames.get(i))
               .columnType(columnTypes.get(i))
               .columnTypeText(columnTypeText.get(i))
@@ -106,7 +112,7 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
 
   @Override
   public int getColumnDisplaySize(int column) throws SQLException {
-    //TODO: to be fixed
+    // TODO: to be fixed
     return 10;
   }
 
@@ -234,6 +240,7 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
 
   /**
    * Returns index of column-name in metadata starting from 1
+   *
    * @param columnName column-name
    * @return index of column if exists, else -1
    */

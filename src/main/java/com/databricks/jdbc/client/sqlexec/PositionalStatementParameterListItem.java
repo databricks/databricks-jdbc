@@ -1,10 +1,8 @@
 package com.databricks.jdbc.client.sqlexec;
 
-import com.databricks.sdk.service.sql.ExecuteStatementRequest;
 import com.databricks.sdk.service.sql.StatementParameterListItem;
 import com.databricks.sdk.support.ToStringer;
 import com.fasterxml.jackson.annotation.JsonProperty;
-
 import java.util.Objects;
 
 public class PositionalStatementParameterListItem extends StatementParameterListItem {
@@ -24,16 +22,15 @@ public class PositionalStatementParameterListItem extends StatementParameterList
 
   public boolean equals(Object o) {
     if (o != null && o.getClass() == getClass()) {
-      return super.equals(o) && Objects.equals(this.ordinal, ((PositionalStatementParameterListItem) o).ordinal);
+      return super.equals(o)
+          && Objects.equals(this.ordinal, ((PositionalStatementParameterListItem) o).ordinal);
     }
     return false;
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(
-        super.hashCode(),
-        ordinal);
+    return Objects.hash(super.hashCode(), ordinal);
   }
 
   @Override
