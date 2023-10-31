@@ -6,6 +6,8 @@ import org.immutables.value.Value;
 public interface SqlParameter {
 
   Object value();
+
   String type();
+
   int cardinal();
 }

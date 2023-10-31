@@ -8,9 +8,7 @@ import java.sql.*;
 import java.util.Calendar;
 import java.util.Map;
 
-/**
- * Empty implementation of ResultSet
- */
+/** Empty implementation of ResultSet */
 class EmptyResultSet implements ResultSet {
   private boolean isClosed;
 
@@ -510,8 +508,7 @@ class EmptyResultSet implements ResultSet {
   }
 
   @Override
-  public void updateAsciiStream(String columnLabel, InputStream x, int length)
-      throws SQLException {
+  public void updateAsciiStream(String columnLabel, InputStream x, int length) throws SQLException {
     checkIfClosed();
   }
 
@@ -854,8 +851,7 @@ class EmptyResultSet implements ResultSet {
   }
 
   @Override
-  public void updateBinaryStream(int columnIndex, InputStream x, long length)
-      throws SQLException {
+  public void updateBinaryStream(int columnIndex, InputStream x, long length) throws SQLException {
     checkIfClosed();
   }
 

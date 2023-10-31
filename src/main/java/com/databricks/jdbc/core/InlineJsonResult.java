@@ -4,7 +4,6 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 
 import com.databricks.sdk.service.sql.ResultData;
 import com.databricks.sdk.service.sql.ResultManifest;
-
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -24,14 +23,29 @@ public class InlineJsonResult implements IExecutionResult {
     this.currentRow = -1;
     this.isClosed = false;
   }
+
   InlineJsonResult(Object[][] rows) {
-    this.data = Arrays.stream(rows).map(a -> Arrays.stream(a).map(o -> o == null ? null : o.toString()).collect(Collectors.toList())).collect(Collectors.toList());
+    this.data =
+        Arrays.stream(rows)
+            .map(
+                a ->
+                    Arrays.stream(a)
+                        .map(o -> o == null ? null : o.toString())
+                        .collect(Collectors.toList()))
+            .collect(Collectors.toList());
     this.currentRow = -1;
     this.isClosed = false;
   }
 
   InlineJsonResult(List<List<Object>> rows) {
-    this.data = rows.stream().map(a -> a.stream().map(o -> o == null ? null : o.toString()).collect(Collectors.toList())).collect(Collectors.toList());
+    this.data =
+        rows.stream()
+            .map(
+                a ->
+                    a.stream()
+                        .map(o -> o == null ? null : o.toString())
+                        .collect(Collectors.toList()))
+            .collect(Collectors.toList());
     this.currentRow = -1;
     this.isClosed = false;
   }
@@ -40,7 +54,9 @@ public class InlineJsonResult implements IExecutionResult {
     if (dataArray == null) {
       return new ArrayList<>();
     }
-    return dataArray.stream().map(c -> c.stream().collect(toImmutableList())).collect(toImmutableList());
+    return dataArray.stream()
+        .map(c -> c.stream().collect(toImmutableList()))
+        .collect(toImmutableList());
   }
 
   @Override
@@ -72,8 +88,7 @@ public class InlineJsonResult implements IExecutionResult {
   }
 
   @Override
-  public synchronized boolean hasNext()
-  {
+  public synchronized boolean hasNext() {
     return !this.isClosed() && currentRow < data.size() - 1;
   }
 

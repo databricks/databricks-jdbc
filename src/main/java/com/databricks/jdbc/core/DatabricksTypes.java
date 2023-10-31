@@ -5,7 +5,8 @@ import java.sql.Timestamp;
 import java.sql.Types;
 
 /**
- * Databricks types as supported in https://docs.databricks.com/en/sql/language-manual/sql-ref-datatypes.html
+ * Databricks types as supported in
+ * https://docs.databricks.com/en/sql/language-manual/sql-ref-datatypes.html
  */
 public class DatabricksTypes {
 
@@ -31,6 +32,7 @@ public class DatabricksTypes {
   /**
    * Converts SQL type into Databricks type as defined in
    * https://docs.databricks.com/en/sql/language-manual/sql-ref-datatypes.html
+   *
    * @param sqlType SQL type input
    * @return databricks type
    */
@@ -80,6 +82,7 @@ public class DatabricksTypes {
   /**
    * Infers Databricks type from class of given object as defined in
    * https://docs.databricks.com/en/sql/language-manual/sql-ref-datatypes.html
+   *
    * @param obj input object
    * @return inferred Databricks type
    */

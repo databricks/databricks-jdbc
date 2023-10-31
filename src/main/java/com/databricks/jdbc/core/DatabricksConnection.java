@@ -3,19 +3,16 @@ package com.databricks.jdbc.core;
 import com.databricks.jdbc.client.DatabricksClient;
 import com.databricks.jdbc.driver.IDatabricksConnectionContext;
 import com.google.common.annotations.VisibleForTesting;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.sql.*;
 import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-/**
- * Implementation for Databricks specific connection.
- */
+/** Implementation for Databricks specific connection. */
 public class DatabricksConnection implements IDatabricksConnection, Connection {
 
   private static final Logger LOGGER = LoggerFactory.getLogger(DatabricksConnection.class);
@@ -24,6 +21,7 @@ public class DatabricksConnection implements IDatabricksConnection, Connection {
 
   /**
    * Creates an instance of Databricks connection for given connection context.
+   *
    * @param connectionContext underlying connection context
    */
   public DatabricksConnection(IDatabricksConnectionContext connectionContext) {
@@ -32,7 +30,8 @@ public class DatabricksConnection implements IDatabricksConnection, Connection {
   }
 
   @VisibleForTesting
-  DatabricksConnection(IDatabricksConnectionContext connectionContext, DatabricksClient databricksClient) {
+  DatabricksConnection(
+      IDatabricksConnectionContext connectionContext, DatabricksClient databricksClient) {
     this.session = new DatabricksSession(connectionContext, databricksClient);
     this.session.open();
   }
@@ -169,20 +168,34 @@ public class DatabricksConnection implements IDatabricksConnection, Connection {
   }
 
   @Override
-  public Statement createStatement(int resultSetType, int resultSetConcurrency) throws SQLException {
-    LOGGER.debug("public Statement createStatement(int resultSetType = {}, int resultSetConcurrency = {})", resultSetType, resultSetConcurrency);
+  public Statement createStatement(int resultSetType, int resultSetConcurrency)
+      throws SQLException {
+    LOGGER.debug(
+        "public Statement createStatement(int resultSetType = {}, int resultSetConcurrency = {})",
+        resultSetType,
+        resultSetConcurrency);
     throw new UnsupportedOperationException("Not implemented");
   }
 
   @Override
-  public PreparedStatement prepareStatement(String sql, int resultSetType, int resultSetConcurrency) throws SQLException {
-    LOGGER.debug("public PreparedStatement prepareStatement(String sql = {}, int resultSetType = {}, int resultSetConcurrency = {})", sql, resultSetType, resultSetConcurrency);
+  public PreparedStatement prepareStatement(String sql, int resultSetType, int resultSetConcurrency)
+      throws SQLException {
+    LOGGER.debug(
+        "public PreparedStatement prepareStatement(String sql = {}, int resultSetType = {}, int resultSetConcurrency = {})",
+        sql,
+        resultSetType,
+        resultSetConcurrency);
     throw new UnsupportedOperationException("Not implemented");
   }
 
   @Override
-  public CallableStatement prepareCall(String sql, int resultSetType, int resultSetConcurrency) throws SQLException {
-    LOGGER.debug("public CallableStatement prepareCall(String sql = {}, int resultSetType = {}, int resultSetConcurrency = {})", sql, resultSetType, resultSetConcurrency);
+  public CallableStatement prepareCall(String sql, int resultSetType, int resultSetConcurrency)
+      throws SQLException {
+    LOGGER.debug(
+        "public CallableStatement prepareCall(String sql = {}, int resultSetType = {}, int resultSetConcurrency = {})",
+        sql,
+        resultSetType,
+        resultSetConcurrency);
     throw new UnsupportedOperationException("Not implemented");
   }
 
@@ -235,38 +248,66 @@ public class DatabricksConnection implements IDatabricksConnection, Connection {
   }
 
   @Override
-  public Statement createStatement(int resultSetType, int resultSetConcurrency, int resultSetHoldability) throws SQLException {
-    LOGGER.debug("public Statement createStatement(int resultSetType = {}, int resultSetConcurrency = {}, int resultSetHoldability = {})", resultSetType, resultSetConcurrency, resultSetHoldability);
+  public Statement createStatement(
+      int resultSetType, int resultSetConcurrency, int resultSetHoldability) throws SQLException {
+    LOGGER.debug(
+        "public Statement createStatement(int resultSetType = {}, int resultSetConcurrency = {}, int resultSetHoldability = {})",
+        resultSetType,
+        resultSetConcurrency,
+        resultSetHoldability);
     throw new UnsupportedOperationException("Not implemented");
   }
 
   @Override
-  public PreparedStatement prepareStatement(String sql, int resultSetType, int resultSetConcurrency, int resultSetHoldability) throws SQLException {
-    LOGGER.debug("public PreparedStatement prepareStatement(String sql = {}, int resultSetType = {}, int resultSetConcurrency = {}, int resultSetHoldability = {})", sql, resultSetType, resultSetConcurrency, resultSetHoldability);
+  public PreparedStatement prepareStatement(
+      String sql, int resultSetType, int resultSetConcurrency, int resultSetHoldability)
+      throws SQLException {
+    LOGGER.debug(
+        "public PreparedStatement prepareStatement(String sql = {}, int resultSetType = {}, int resultSetConcurrency = {}, int resultSetHoldability = {})",
+        sql,
+        resultSetType,
+        resultSetConcurrency,
+        resultSetHoldability);
     throw new UnsupportedOperationException("Not implemented");
   }
 
   @Override
-  public CallableStatement prepareCall(String sql, int resultSetType, int resultSetConcurrency, int resultSetHoldability) throws SQLException {
-    LOGGER.debug("public CallableStatement prepareCall(String sql = {}, int resultSetType = {}, int resultSetConcurrency = {}, int resultSetHoldability = {})", sql, resultSetType, resultSetConcurrency, resultSetHoldability);
+  public CallableStatement prepareCall(
+      String sql, int resultSetType, int resultSetConcurrency, int resultSetHoldability)
+      throws SQLException {
+    LOGGER.debug(
+        "public CallableStatement prepareCall(String sql = {}, int resultSetType = {}, int resultSetConcurrency = {}, int resultSetHoldability = {})",
+        sql,
+        resultSetType,
+        resultSetConcurrency,
+        resultSetHoldability);
     throw new UnsupportedOperationException("Not implemented");
   }
 
   @Override
   public PreparedStatement prepareStatement(String sql, int autoGeneratedKeys) throws SQLException {
-    LOGGER.debug("public PreparedStatement prepareStatement(String sql = {}, int autoGeneratedKeys = {})", sql, autoGeneratedKeys);
+    LOGGER.debug(
+        "public PreparedStatement prepareStatement(String sql = {}, int autoGeneratedKeys = {})",
+        sql,
+        autoGeneratedKeys);
     throw new UnsupportedOperationException("Not implemented");
   }
 
   @Override
   public PreparedStatement prepareStatement(String sql, int[] columnIndexes) throws SQLException {
-    LOGGER.debug("public PreparedStatement prepareStatement(String sql = {}, int[] columnIndexes = {})", sql, columnIndexes);
+    LOGGER.debug(
+        "public PreparedStatement prepareStatement(String sql = {}, int[] columnIndexes = {})",
+        sql,
+        columnIndexes);
     throw new UnsupportedOperationException("Not implemented");
   }
 
   @Override
   public PreparedStatement prepareStatement(String sql, String[] columnNames) throws SQLException {
-    LOGGER.debug("public PreparedStatement prepareStatement(String sql = {}, String[] columnNames = {})", sql, columnNames);
+    LOGGER.debug(
+        "public PreparedStatement prepareStatement(String sql = {}, String[] columnNames = {})",
+        sql,
+        columnNames);
     throw new UnsupportedOperationException("Not implemented");
   }
 

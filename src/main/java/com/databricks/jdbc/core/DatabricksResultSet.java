@@ -5,7 +5,6 @@ import com.databricks.jdbc.core.converters.*;
 import com.databricks.sdk.service.sql.ResultData;
 import com.databricks.sdk.service.sql.ResultManifest;
 import com.databricks.sdk.service.sql.StatementStatus;
-
 import java.io.InputStream;
 import java.io.Reader;
 import java.math.BigDecimal;
@@ -31,11 +30,17 @@ public class DatabricksResultSet implements ResultSet, IDatabricksResultSet {
   private boolean isClosed;
 
   public DatabricksResultSet(
-      StatementStatus statementStatus, String statementId, ResultData resultData, ResultManifest resultManifest,
-      StatementType statementType, IDatabricksSession session, IDatabricksStatement parentStatement) {
+      StatementStatus statementStatus,
+      String statementId,
+      ResultData resultData,
+      ResultManifest resultManifest,
+      StatementType statementType,
+      IDatabricksSession session,
+      IDatabricksStatement parentStatement) {
     this.statementStatus = statementStatus;
     this.statementId = statementId;
-    this.executionResult = ExecutionResultFactory.getResultSet(resultData, resultManifest, statementId, session);
+    this.executionResult =
+        ExecutionResultFactory.getResultSet(resultData, resultManifest, statementId, session);
     this.resultSetMetaData = new DatabricksResultSetMetaData(statementId, resultManifest);
     this.statementType = statementType;
     this.updateCount = null;
@@ -43,24 +48,52 @@ public class DatabricksResultSet implements ResultSet, IDatabricksResultSet {
     this.isClosed = false;
   }
 
-  public DatabricksResultSet(StatementStatus statementStatus, String statementId, List<String> columnNames, List<String> columnTypeText,
-                             List<Integer> columnTypes, List<Integer> columnTypePrecisions, Object[][] rows, StatementType statementType) {
+  public DatabricksResultSet(
+      StatementStatus statementStatus,
+      String statementId,
+      List<String> columnNames,
+      List<String> columnTypeText,
+      List<Integer> columnTypes,
+      List<Integer> columnTypePrecisions,
+      Object[][] rows,
+      StatementType statementType) {
     this.statementStatus = statementStatus;
     this.statementId = statementId;
     this.executionResult = ExecutionResultFactory.getResultSet(rows);
-    this.resultSetMetaData = new DatabricksResultSetMetaData(statementId, columnNames, columnTypeText, columnTypes, columnTypePrecisions, rows.length);
+    this.resultSetMetaData =
+        new DatabricksResultSetMetaData(
+            statementId,
+            columnNames,
+            columnTypeText,
+            columnTypes,
+            columnTypePrecisions,
+            rows.length);
     this.statementType = statementType;
     this.updateCount = null;
     this.parentStatement = null;
     this.isClosed = false;
   }
 
-  public DatabricksResultSet(StatementStatus statementStatus, String statementId, List<String> columnNames, List<String> columnTypeText,
-                             List<Integer> columnTypes, List<Integer> columnTypePrecisions, List<List<Object>> rows, StatementType statementType) {
+  public DatabricksResultSet(
+      StatementStatus statementStatus,
+      String statementId,
+      List<String> columnNames,
+      List<String> columnTypeText,
+      List<Integer> columnTypes,
+      List<Integer> columnTypePrecisions,
+      List<List<Object>> rows,
+      StatementType statementType) {
     this.statementStatus = statementStatus;
     this.statementId = statementId;
     this.executionResult = ExecutionResultFactory.getResultSet(rows);
-    this.resultSetMetaData = new DatabricksResultSetMetaData(statementId, columnNames, columnTypeText, columnTypes, columnTypePrecisions, rows.size());
+    this.resultSetMetaData =
+        new DatabricksResultSetMetaData(
+            statementId,
+            columnNames,
+            columnTypeText,
+            columnTypes,
+            columnTypePrecisions,
+            rows.size());
     this.statementType = statementType;
     this.updateCount = null;
     this.parentStatement = null;
@@ -90,11 +123,12 @@ public class DatabricksResultSet implements ResultSet, IDatabricksResultSet {
     return this == null;
   }
 
-  // TODO (Madhav): Clean up code by removing code duplicity by having common functions that branch out and to reuse converter objects.
+  // TODO (Madhav): Clean up code by removing code duplicity by having common functions that branch
+  // out and to reuse converter objects.
   @Override
   public String getString(int columnIndex) throws SQLException {
     Object obj = getObjectInternal(columnIndex);
-    if(obj == null) {
+    if (obj == null) {
       return null;
     }
     int columnType = resultSetMetaData.getColumnType(columnIndex);
@@ -662,12 +696,14 @@ public class DatabricksResultSet implements ResultSet, IDatabricksResultSet {
   }
 
   @Override
-  public void updateBinaryStream(String columnLabel, InputStream x, int length) throws SQLException {
+  public void updateBinaryStream(String columnLabel, InputStream x, int length)
+      throws SQLException {
     throw new UnsupportedOperationException("Not implemented");
   }
 
   @Override
-  public void updateCharacterStream(String columnLabel, Reader reader, int length) throws SQLException {
+  public void updateCharacterStream(String columnLabel, Reader reader, int length)
+      throws SQLException {
     throw new UnsupportedOperationException("Not implemented");
   }
 
@@ -957,7 +993,8 @@ public class DatabricksResultSet implements ResultSet, IDatabricksResultSet {
   }
 
   @Override
-  public void updateNCharacterStream(String columnLabel, Reader reader, long length) throws SQLException {
+  public void updateNCharacterStream(String columnLabel, Reader reader, long length)
+      throws SQLException {
     throw new UnsupportedOperationException("Not implemented");
   }
 
@@ -977,27 +1014,32 @@ public class DatabricksResultSet implements ResultSet, IDatabricksResultSet {
   }
 
   @Override
-  public void updateAsciiStream(String columnLabel, InputStream x, long length) throws SQLException {
+  public void updateAsciiStream(String columnLabel, InputStream x, long length)
+      throws SQLException {
     throw new UnsupportedOperationException("Not implemented");
   }
 
   @Override
-  public void updateBinaryStream(String columnLabel, InputStream x, long length) throws SQLException {
+  public void updateBinaryStream(String columnLabel, InputStream x, long length)
+      throws SQLException {
     throw new UnsupportedOperationException("Not implemented");
   }
 
   @Override
-  public void updateCharacterStream(String columnLabel, Reader reader, long length) throws SQLException {
+  public void updateCharacterStream(String columnLabel, Reader reader, long length)
+      throws SQLException {
     throw new UnsupportedOperationException("Not implemented");
   }
 
   @Override
-  public void updateBlob(int columnIndex, InputStream inputStream, long length) throws SQLException {
+  public void updateBlob(int columnIndex, InputStream inputStream, long length)
+      throws SQLException {
     throw new UnsupportedOperationException("Not implemented");
   }
 
   @Override
-  public void updateBlob(String columnLabel, InputStream inputStream, long length) throws SQLException {
+  public void updateBlob(String columnLabel, InputStream inputStream, long length)
+      throws SQLException {
     throw new UnsupportedOperationException("Not implemented");
   }
 
@@ -1128,8 +1170,7 @@ public class DatabricksResultSet implements ResultSet, IDatabricksResultSet {
     }
     if (this.statementType == StatementType.METADATA || this.statementType == StatementType.QUERY) {
       updateCount = 0L;
-    }
-    else if (hasUpdateCount()) {
+    } else if (hasUpdateCount()) {
       long rowsUpdated = 0;
       while (next()) {
         rowsUpdated += this.getLong(AFFECTED_ROWS_COUNT);
@@ -1158,9 +1199,7 @@ public class DatabricksResultSet implements ResultSet, IDatabricksResultSet {
     return executionResult.getObject(columnIndex - 1);
   }
 
-  /**
-   * For String values, return value without decimal fraction
-   */
+  /** For String values, return value without decimal fraction */
   private String getNumberStringWithoutDecimal(String s, int columnType) {
     if (s.contains(DECIMAL) && (columnType == Types.DOUBLE || columnType == Types.FLOAT)) {
       return s.substring(0, s.indexOf(DECIMAL));
@@ -1168,8 +1207,9 @@ public class DatabricksResultSet implements ResultSet, IDatabricksResultSet {
     return s;
   }
 
-  private AbstractObjectConverter getObjectConverter(Object object, int columnType) throws DatabricksSQLException {
-    switch(columnType) {
+  private AbstractObjectConverter getObjectConverter(Object object, int columnType)
+      throws DatabricksSQLException {
+    switch (columnType) {
       case Types.TINYINT:
         return new ByteConverter(object);
       case Types.SMALLINT:

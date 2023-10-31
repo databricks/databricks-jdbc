@@ -5,15 +5,14 @@ import com.databricks.jdbc.driver.DatabricksJdbcConstants;
 import com.databricks.jdbc.util.WildcardUtil;
 import com.databricks.sdk.service.sql.StatementState;
 import com.databricks.sdk.service.sql.StatementStatus;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.sql.*;
 import java.util.*;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class DatabricksDatabaseMetaData implements DatabaseMetaData {
   public static final String DRIVER_NAME = "DatabricksJDBC";
@@ -25,13 +24,16 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
   public static final int JDBC_MINOR_VERSION = 0;
   public static final int JDBC_PATCH_VERSION = 0;
   public static final Integer MAX_NAME_LENGTH = 128;
-  public static final String NUMERIC_FUNCTIONS = "ABS,ACOS,ASIN,ATAN,ATAN2,CEILING,COS,COT,DEGREES,EXP,FLOOR,LOG,LOG10,MOD,PI,POWER,RADIANS,RAND,ROUND,SIGN,SIN,SQRT,TAN,TRUNCATE";
-  public static final String STRING_FUNCTIONS = "ASCII,CHAR,CHAR_LENGTH,CHARACTER_LENGTH,CONCAT,INSERT,LCASE,LEFT,LENGTH,LOCATE,LOCATE2,LTRIM,OCTET_LENGTH,POSITION,REPEAT,REPLACE,RIGHT,RTRIM,SOUNDEX,SPACE,SUBSTRING,UCASE";
+  public static final String NUMERIC_FUNCTIONS =
+      "ABS,ACOS,ASIN,ATAN,ATAN2,CEILING,COS,COT,DEGREES,EXP,FLOOR,LOG,LOG10,MOD,PI,POWER,RADIANS,RAND,ROUND,SIGN,SIN,SQRT,TAN,TRUNCATE";
+  public static final String STRING_FUNCTIONS =
+      "ASCII,CHAR,CHAR_LENGTH,CHARACTER_LENGTH,CONCAT,INSERT,LCASE,LEFT,LENGTH,LOCATE,LOCATE2,LTRIM,OCTET_LENGTH,POSITION,REPEAT,REPLACE,RIGHT,RTRIM,SOUNDEX,SPACE,SUBSTRING,UCASE";
   public static final String SYSTEM_FUNCTIONS = "DATABASE,IFNULL,USER";
-  public static final String TIME_DATE_FUNCTIONS = "CURDATE,CURRENT_DATE,CURRENT_TIME,CURRENT_TIMESTAMP,CURTIME,DAYNAME,DAYOFMONTH,DAYOFWEEK,DAYOFYEAR,HOUR,MINUTE,MONTH,MONTHNAME,NOW,QUARTER,SECOND,TIMESTAMPADD,TIMESTAMPDIFF,WEEK,YEAR";
+  public static final String TIME_DATE_FUNCTIONS =
+      "CURDATE,CURRENT_DATE,CURRENT_TIME,CURRENT_TIMESTAMP,CURTIME,DAYNAME,DAYOFMONTH,DAYOFWEEK,DAYOFYEAR,HOUR,MINUTE,MONTH,MONTHNAME,NOW,QUARTER,SECOND,TIMESTAMPADD,TIMESTAMPDIFF,WEEK,YEAR";
   private final IDatabricksConnection connection;
   private final IDatabricksSession session;
-  private final static Logger LOGGER = LoggerFactory.getLogger(DatabricksDatabaseMetaData.class);
+  private static final Logger LOGGER = LoggerFactory.getLogger(DatabricksDatabaseMetaData.class);
 
   public DatabricksDatabaseMetaData(IDatabricksConnection connection) {
     this.connection = connection;
@@ -111,9 +113,11 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
   public String getDatabaseProductVersion() throws SQLException {
     LOGGER.debug("public String getDatabaseProductVersion()");
     throwExceptionIfConnectionIsClosed();
-    return DATABASE_MAJOR_VERSION + DatabricksJdbcConstants.FULL_STOP
-            + DATABASE_MINOR_VERSION + DatabricksJdbcConstants.FULL_STOP
-            + DATABASE_PATCH_VERSION;
+    return DATABASE_MAJOR_VERSION
+        + DatabricksJdbcConstants.FULL_STOP
+        + DATABASE_MINOR_VERSION
+        + DatabricksJdbcConstants.FULL_STOP
+        + DATABASE_PATCH_VERSION;
   }
 
   @Override
@@ -127,9 +131,11 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
   public String getDriverVersion() throws SQLException {
     LOGGER.debug("public String getDriverVersion()");
     throwExceptionIfConnectionIsClosed();
-    return JDBC_MAJOR_VERSION + DatabricksJdbcConstants.FULL_STOP
-            + JDBC_MINOR_VERSION + DatabricksJdbcConstants.FULL_STOP
-            + JDBC_PATCH_VERSION;
+    return JDBC_MAJOR_VERSION
+        + DatabricksJdbcConstants.FULL_STOP
+        + JDBC_MINOR_VERSION
+        + DatabricksJdbcConstants.FULL_STOP
+        + JDBC_PATCH_VERSION;
   }
 
   @Override
@@ -304,7 +310,8 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
 
   @Override
   public boolean supportsConvert(int fromType, int toType) throws SQLException {
-    LOGGER.debug("public boolean supportsConvert(int fromType = {}, int toType = {})", fromType, toType);
+    LOGGER.debug(
+        "public boolean supportsConvert(int fromType = {}, int toType = {})", fromType, toType);
     throw new UnsupportedOperationException("Not implemented");
   }
 
@@ -863,37 +870,76 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
   }
 
   @Override
-  public ResultSet getProcedures(String catalog, String schemaPattern, String procedureNamePattern) throws SQLException {
-    LOGGER.debug("public ResultSet getProcedures(String catalog = {}, String schemaPattern = {}, String procedureNamePattern = {})", catalog, schemaPattern, procedureNamePattern);
+  public ResultSet getProcedures(String catalog, String schemaPattern, String procedureNamePattern)
+      throws SQLException {
+    LOGGER.debug(
+        "public ResultSet getProcedures(String catalog = {}, String schemaPattern = {}, String procedureNamePattern = {})",
+        catalog,
+        schemaPattern,
+        procedureNamePattern);
     // TODO: check once, simba returns empty result set as well
     throwExceptionIfConnectionIsClosed();
     return new DatabricksResultSet(
-            new StatementStatus().setState(StatementState.SUCCEEDED),
-            "getprocedures-metadata",
-            Arrays.asList("PROCEDURE_CAT", "PROCEDURE_SCHEM", "PROCEDURE_NAME", "NUM_INPUT_PARAMS", "NUM_OUTPUT_PARAMS", "NUM_RESULT_SETS", "REMARKS", "PROCEDURE_TYPE", "SPECIFIC_NAME"),
-            Arrays.asList("VARCHAR", "VARCHAR", "VARCHAR", "VARCHAR", "VARCHAR", "VARCHAR", "VARCHAR", "VARCHAR", "VARCHAR"),
-            Arrays.asList(Types.VARCHAR, Types.VARCHAR, Types.VARCHAR, Types.VARCHAR, Types.VARCHAR, Types.VARCHAR, Types.VARCHAR, Types.VARCHAR, Types.VARCHAR),
-            Arrays.asList(128, 128, 128, 128, 128, 128, 128, 128, 128),
-            new Object[0][0],
-            StatementType.METADATA
-    );
+        new StatementStatus().setState(StatementState.SUCCEEDED),
+        "getprocedures-metadata",
+        Arrays.asList(
+            "PROCEDURE_CAT",
+            "PROCEDURE_SCHEM",
+            "PROCEDURE_NAME",
+            "NUM_INPUT_PARAMS",
+            "NUM_OUTPUT_PARAMS",
+            "NUM_RESULT_SETS",
+            "REMARKS",
+            "PROCEDURE_TYPE",
+            "SPECIFIC_NAME"),
+        Arrays.asList(
+            "VARCHAR", "VARCHAR", "VARCHAR", "VARCHAR", "VARCHAR", "VARCHAR", "VARCHAR", "VARCHAR",
+            "VARCHAR"),
+        Arrays.asList(
+            Types.VARCHAR,
+            Types.VARCHAR,
+            Types.VARCHAR,
+            Types.VARCHAR,
+            Types.VARCHAR,
+            Types.VARCHAR,
+            Types.VARCHAR,
+            Types.VARCHAR,
+            Types.VARCHAR),
+        Arrays.asList(128, 128, 128, 128, 128, 128, 128, 128, 128),
+        new Object[0][0],
+        StatementType.METADATA);
   }
 
   @Override
-  public ResultSet getProcedureColumns(String catalog, String schemaPattern, String procedureNamePattern, String columnNamePattern) throws SQLException {
-    LOGGER.debug("public ResultSet getProcedureColumns(String catalog = {}, String schemaPattern = {}, String procedureNamePattern = {}, String columnNamePattern = {})", catalog, schemaPattern, procedureNamePattern, columnNamePattern);
+  public ResultSet getProcedureColumns(
+      String catalog, String schemaPattern, String procedureNamePattern, String columnNamePattern)
+      throws SQLException {
+    LOGGER.debug(
+        "public ResultSet getProcedureColumns(String catalog = {}, String schemaPattern = {}, String procedureNamePattern = {}, String columnNamePattern = {})",
+        catalog,
+        schemaPattern,
+        procedureNamePattern,
+        columnNamePattern);
     throw new UnsupportedOperationException("Not implemented");
   }
 
   @Override
-  public ResultSet getTables(String catalog, String schemaPattern, String tableNamePattern, String[] types) throws SQLException {
-    LOGGER.debug("public ResultSet getTables(String catalog = {}, String schemaPattern = {}, String tableNamePattern = {}, String[] types = {})", catalog, schemaPattern, tableNamePattern, types);
+  public ResultSet getTables(
+      String catalog, String schemaPattern, String tableNamePattern, String[] types)
+      throws SQLException {
+    LOGGER.debug(
+        "public ResultSet getTables(String catalog = {}, String schemaPattern = {}, String tableNamePattern = {}, String[] types = {})",
+        catalog,
+        schemaPattern,
+        tableNamePattern,
+        types);
     throwExceptionIfConnectionIsClosed();
     Map.Entry<String, String> pair = applyContext(catalog, schemaPattern);
     String catalogWithContext = pair.getKey();
     String schemaWithContext = pair.getValue();
     Queue<Map.Entry<String, String>> catalogSchemaPairs = new ConcurrentLinkedQueue<>();
-    if (WildcardUtil.isWildcard(schemaWithContext) || WildcardUtil.isMatchAnything(catalogWithContext)) {
+    if (WildcardUtil.isWildcard(schemaWithContext)
+        || WildcardUtil.isMatchAnything(catalogWithContext)) {
       ResultSet resultSet = getSchemas(catalogWithContext, schemaWithContext);
       while (resultSet.next()) {
         catalogSchemaPairs.add(Map.entry(resultSet.getString(2), resultSet.getString(1)));
@@ -902,52 +948,95 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
       catalogSchemaPairs.add(pair);
     }
     // TODO: Limit to 15 pairs to run quickly, remove after demo/find workaround
-    while (catalogSchemaPairs.size() > 15)
-      catalogSchemaPairs.poll();
+    while (catalogSchemaPairs.size() > 15) catalogSchemaPairs.poll();
     String tableWithContext = tableNamePattern == null ? "*" : tableNamePattern;
 
     List<List<Object>> rows = new CopyOnWriteArrayList<>();
     ExecutorService executorService = Executors.newFixedThreadPool(150);
     for (int i = 0; i < 150; i++) {
-      executorService.submit(() -> {
-        while (!catalogSchemaPairs.isEmpty()) {
-          Map.Entry<String, String> currentPair = catalogSchemaPairs.poll();
-          String currentCatalog = currentPair.getKey();
-          String currentSchema = currentPair.getValue();
-          String showTablesSQL = "show tables from " + currentCatalog + "." + currentSchema;
-          if (!WildcardUtil.isMatchAnything(tableWithContext)) {
-            showTablesSQL += " like '" + tableWithContext + "'";
-          }
-          LOGGER.debug("SQL command to fetch tables: {}" + showTablesSQL);
-          try {
-            ResultSet rs = session.getDatabricksClient().executeStatement(
-                    showTablesSQL, session.getWarehouseId(), new HashMap<Integer, ImmutableSqlParameter>(),
-                StatementType.METADATA, session, null /* parentStatement */);
-            while (rs.next()) {
-              rows.add(Arrays.asList(currentCatalog, currentSchema, rs.getString(2), "TABLE", null, null, null, null, null, null));
+      executorService.submit(
+          () -> {
+            while (!catalogSchemaPairs.isEmpty()) {
+              Map.Entry<String, String> currentPair = catalogSchemaPairs.poll();
+              String currentCatalog = currentPair.getKey();
+              String currentSchema = currentPair.getValue();
+              String showTablesSQL = "show tables from " + currentCatalog + "." + currentSchema;
+              if (!WildcardUtil.isMatchAnything(tableWithContext)) {
+                showTablesSQL += " like '" + tableWithContext + "'";
+              }
+              LOGGER.debug("SQL command to fetch tables: {}" + showTablesSQL);
+              try {
+                ResultSet rs =
+                    session
+                        .getDatabricksClient()
+                        .executeStatement(
+                            showTablesSQL,
+                            session.getWarehouseId(),
+                            new HashMap<Integer, ImmutableSqlParameter>(),
+                            StatementType.METADATA,
+                            session,
+                            null /* parentStatement */);
+                while (rs.next()) {
+                  rows.add(
+                      Arrays.asList(
+                          currentCatalog,
+                          currentSchema,
+                          rs.getString(2),
+                          "TABLE",
+                          null,
+                          null,
+                          null,
+                          null,
+                          null,
+                          null));
+                }
+              } catch (SQLException e) {
+                throw new RuntimeException(e);
+              }
             }
-          } catch (SQLException e) {
-            throw new RuntimeException(e);
-          }
-        }
-      });
+          });
     }
     executorService.shutdown();
     while (!executorService.isTerminated()) {
       // wait
     }
     // They are ordered by TABLE_TYPE, TABLE_CAT, TABLE_SCHEM and TABLE_NAME.
-    rows.sort(Comparator.comparing((List<Object> i) -> i.get(3).toString())
-            .thenComparing(i -> i.get(0).toString()).thenComparing(i -> i.get(1).toString())
+    rows.sort(
+        Comparator.comparing((List<Object> i) -> i.get(3).toString())
+            .thenComparing(i -> i.get(0).toString())
+            .thenComparing(i -> i.get(1).toString())
             .thenComparing(i -> i.get(2).toString()));
-    return new DatabricksResultSet(new StatementStatus().setState(StatementState.SUCCEEDED),
-            "gettables-metadata",
-            Arrays.asList("TABLE_CAT", "TABLE_SCHEM", "TABLE_NAME", "TABLE_TYPE", "REMARKS", "TYPE_CAT", "TYPE_SCHEM", "TYPE_NAME", "SELF_REFERENCING_COL_NAME", "REF_GENERATION"),
-            Arrays.asList("VARCHAR", "VARCHAR", "VARCHAR", "VARCHAR", "VARCHAR", "VARCHAR", "VARCHAR", "VARCHAR", "VARCHAR", "VARCHAR"),
-            Arrays.asList(Types.VARCHAR, Types.VARCHAR, Types.VARCHAR, Types.VARCHAR, Types.VARCHAR, Types.VARCHAR, Types.VARCHAR, Types.VARCHAR, Types.VARCHAR, Types.VARCHAR),
-            Arrays.asList(128, 128, 128, 128, 128, 128, 128, 128, 128, 128),
-            rows,
-            StatementType.METADATA);
+    return new DatabricksResultSet(
+        new StatementStatus().setState(StatementState.SUCCEEDED),
+        "gettables-metadata",
+        Arrays.asList(
+            "TABLE_CAT",
+            "TABLE_SCHEM",
+            "TABLE_NAME",
+            "TABLE_TYPE",
+            "REMARKS",
+            "TYPE_CAT",
+            "TYPE_SCHEM",
+            "TYPE_NAME",
+            "SELF_REFERENCING_COL_NAME",
+            "REF_GENERATION"),
+        Arrays.asList(
+            "VARCHAR", "VARCHAR", "VARCHAR", "VARCHAR", "VARCHAR", "VARCHAR", "VARCHAR", "VARCHAR",
+            "VARCHAR", "VARCHAR"),
+        Arrays.asList(
+            Types.VARCHAR,
+            Types.VARCHAR,
+            Types.VARCHAR,
+            Types.VARCHAR,
+            Types.VARCHAR,
+            Types.VARCHAR,
+            Types.VARCHAR,
+            Types.VARCHAR,
+            Types.VARCHAR,
+            Types.VARCHAR),
+        Arrays.asList(128, 128, 128, 128, 128, 128, 128, 128, 128, 128),
+        rows,
+        StatementType.METADATA);
   }
 
   @Override
@@ -964,134 +1053,216 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
     String showCatalogsSQL = "show catalogs";
     LOGGER.debug("SQL command to fetch catalogs: {}" + showCatalogsSQL);
 
-    ResultSet rs = session.getDatabricksClient().executeStatement(
-            showCatalogsSQL, session.getWarehouseId(), new HashMap<Integer, ImmutableSqlParameter>(),
-            StatementType.METADATA, session, null /* parentStatement */);
+    ResultSet rs =
+        session
+            .getDatabricksClient()
+            .executeStatement(
+                showCatalogsSQL,
+                session.getWarehouseId(),
+                new HashMap<Integer, ImmutableSqlParameter>(),
+                StatementType.METADATA,
+                session,
+                null /* parentStatement */);
     List<List<Object>> rows = new ArrayList<>();
     while (rs.next()) {
       rows.add(Collections.singletonList(rs.getString(1)));
     }
     return new DatabricksResultSet(
-            new StatementStatus().setState(StatementState.SUCCEEDED),
-            "getcatalogs-metadata",
-            Collections.singletonList("TABLE_CAT"),
-            Collections.singletonList("VARCHAR"),
-            Collections.singletonList(Types.VARCHAR),
-            Collections.singletonList(128),
-            rows,
-            StatementType.METADATA);
+        new StatementStatus().setState(StatementState.SUCCEEDED),
+        "getcatalogs-metadata",
+        Collections.singletonList("TABLE_CAT"),
+        Collections.singletonList("VARCHAR"),
+        Collections.singletonList(Types.VARCHAR),
+        Collections.singletonList(128),
+        rows,
+        StatementType.METADATA);
   }
 
   @Override
   public ResultSet getTableTypes() throws SQLException {
     LOGGER.debug("public ResultSet getTableTypes()");
     throwExceptionIfConnectionIsClosed();
-    return new DatabricksResultSet(new StatementStatus().setState(StatementState.SUCCEEDED),
-            "tabletype-metadata",
-            Collections.singletonList("TABLE_TYPE"),
-            Collections.singletonList("VARCHAR"),
-            Collections.singletonList(Types.VARCHAR),
-            Collections.singletonList(128),
-            new String[][] {{"SYSTEM TABLE"}, {"TABLE"}, {"VIEW"}},
-            StatementType.METADATA);
+    return new DatabricksResultSet(
+        new StatementStatus().setState(StatementState.SUCCEEDED),
+        "tabletype-metadata",
+        Collections.singletonList("TABLE_TYPE"),
+        Collections.singletonList("VARCHAR"),
+        Collections.singletonList(Types.VARCHAR),
+        Collections.singletonList(128),
+        new String[][] {{"SYSTEM TABLE"}, {"TABLE"}, {"VIEW"}},
+        StatementType.METADATA);
   }
 
   @Override
-  public ResultSet getColumns(String catalog, String schemaPattern, String tableNamePattern, String columnNamePattern) throws SQLException {
-    LOGGER.debug("public ResultSet getColumns(String catalog = {}, String schemaPattern = {}, String tableNamePattern = {}, String columnNamePattern = {})", catalog, schemaPattern, tableNamePattern, columnNamePattern);
+  public ResultSet getColumns(
+      String catalog, String schemaPattern, String tableNamePattern, String columnNamePattern)
+      throws SQLException {
+    LOGGER.debug(
+        "public ResultSet getColumns(String catalog = {}, String schemaPattern = {}, String tableNamePattern = {}, String columnNamePattern = {})",
+        catalog,
+        schemaPattern,
+        tableNamePattern,
+        columnNamePattern);
     throwExceptionIfConnectionIsClosed();
 
     ResultSet resultSet = getTables(catalog, schemaPattern, tableNamePattern, null);
     Queue<String[]> catalogSchemaTableCombinations = new ConcurrentLinkedQueue<>();
     while (resultSet.next()) {
-      catalogSchemaTableCombinations.add(new String[]{resultSet.getString(1), resultSet.getString(2), resultSet.getString(3)});
+      catalogSchemaTableCombinations.add(
+          new String[] {resultSet.getString(1), resultSet.getString(2), resultSet.getString(3)});
     }
 
     List<List<Object>> rows = new CopyOnWriteArrayList<>();
     ExecutorService executorService = Executors.newFixedThreadPool(150);
     for (int i = 0; i < 150; i++) {
-      executorService.submit(() -> {
-        while (!catalogSchemaTableCombinations.isEmpty()) {
-          String[] combination = catalogSchemaTableCombinations.poll();
-          String showColumnsSQL = "show columns in " + combination[0] + "." + combination[1] + "." + combination[2];
-          LOGGER.debug("SQL command to fetch columns: {}" + showColumnsSQL);
-          try {
-            ResultSet rs = session.getDatabricksClient().executeStatement(showColumnsSQL, session.getWarehouseId(),
-                    new HashMap<Integer, ImmutableSqlParameter>(), StatementType.METADATA, session,
-                null /* parentStatement */);
-            while (rs.next()) {
-              if (rs.getString(1).matches(columnNamePattern)) {
-                rows.add(Arrays.asList(combination[0], combination[1], combination[2], rs.getString(1)));
+      executorService.submit(
+          () -> {
+            while (!catalogSchemaTableCombinations.isEmpty()) {
+              String[] combination = catalogSchemaTableCombinations.poll();
+              String showColumnsSQL =
+                  "show columns in " + combination[0] + "." + combination[1] + "." + combination[2];
+              LOGGER.debug("SQL command to fetch columns: {}" + showColumnsSQL);
+              try {
+                ResultSet rs =
+                    session
+                        .getDatabricksClient()
+                        .executeStatement(
+                            showColumnsSQL,
+                            session.getWarehouseId(),
+                            new HashMap<Integer, ImmutableSqlParameter>(),
+                            StatementType.METADATA,
+                            session,
+                            null /* parentStatement */);
+                while (rs.next()) {
+                  if (rs.getString(1).matches(columnNamePattern)) {
+                    rows.add(
+                        Arrays.asList(
+                            combination[0], combination[1], combination[2], rs.getString(1)));
+                  }
+                }
+              } catch (SQLException e) {
+                throw new RuntimeException(e);
               }
             }
-          } catch (SQLException e) {
-            throw new RuntimeException(e);
-          }
-        }
-      });
+          });
     }
     executorService.shutdown();
     while (!executorService.isTerminated()) {
       // wait
     }
     // TODO: some columns are missing from result set, determine how to fill those
-    rows.sort(Comparator.comparing((List<Object> i) -> i.get(0).toString())
-            .thenComparing(i -> i.get(1).toString()).thenComparing(i -> i.get(2).toString()));
-    return new DatabricksResultSet(new StatementStatus().setState(StatementState.SUCCEEDED),
-            "metadata-statement",
-            Arrays.asList("TABLE_CAT", "TABLE_SCHEM", "TABLE_NAME", "COLUMN_NAME"),
-            Arrays.asList("VARCHAR", "VARCHAR", "VARCHAR", "VARCHAR"),
-            Arrays.asList(Types.VARCHAR, Types.VARCHAR, Types.VARCHAR, Types.VARCHAR),
-            Arrays.asList(128, 128, 128, 128),
-            rows,
-            StatementType.METADATA);
+    rows.sort(
+        Comparator.comparing((List<Object> i) -> i.get(0).toString())
+            .thenComparing(i -> i.get(1).toString())
+            .thenComparing(i -> i.get(2).toString()));
+    return new DatabricksResultSet(
+        new StatementStatus().setState(StatementState.SUCCEEDED),
+        "metadata-statement",
+        Arrays.asList("TABLE_CAT", "TABLE_SCHEM", "TABLE_NAME", "COLUMN_NAME"),
+        Arrays.asList("VARCHAR", "VARCHAR", "VARCHAR", "VARCHAR"),
+        Arrays.asList(Types.VARCHAR, Types.VARCHAR, Types.VARCHAR, Types.VARCHAR),
+        Arrays.asList(128, 128, 128, 128),
+        rows,
+        StatementType.METADATA);
   }
 
   @Override
-  public ResultSet getColumnPrivileges(String catalog, String schema, String table, String columnNamePattern) throws SQLException {
-    LOGGER.debug("public ResultSet getColumnPrivileges(String catalog = {}, String schema = {}, String table = {}, String columnNamePattern = {})", catalog, schema, table, columnNamePattern);
+  public ResultSet getColumnPrivileges(
+      String catalog, String schema, String table, String columnNamePattern) throws SQLException {
+    LOGGER.debug(
+        "public ResultSet getColumnPrivileges(String catalog = {}, String schema = {}, String table = {}, String columnNamePattern = {})",
+        catalog,
+        schema,
+        table,
+        columnNamePattern);
     throw new UnsupportedOperationException("Not implemented");
   }
 
   @Override
-  public ResultSet getTablePrivileges(String catalog, String schemaPattern, String tableNamePattern) throws SQLException {
-    LOGGER.debug("public ResultSet getTablePrivileges(String catalog = {}, String schemaPattern = {}, String tableNamePattern = {})", catalog, schemaPattern, tableNamePattern);
+  public ResultSet getTablePrivileges(String catalog, String schemaPattern, String tableNamePattern)
+      throws SQLException {
+    LOGGER.debug(
+        "public ResultSet getTablePrivileges(String catalog = {}, String schemaPattern = {}, String tableNamePattern = {})",
+        catalog,
+        schemaPattern,
+        tableNamePattern);
     throw new UnsupportedOperationException("Not implemented");
   }
 
   @Override
-  public ResultSet getBestRowIdentifier(String catalog, String schema, String table, int scope, boolean nullable) throws SQLException {
-    LOGGER.debug("public ResultSet getBestRowIdentifier(String catalog = {}, String schema = {}, String table = {}, int scope = {}, boolean nullable = {})", catalog, schema, table, scope, nullable);
+  public ResultSet getBestRowIdentifier(
+      String catalog, String schema, String table, int scope, boolean nullable)
+      throws SQLException {
+    LOGGER.debug(
+        "public ResultSet getBestRowIdentifier(String catalog = {}, String schema = {}, String table = {}, int scope = {}, boolean nullable = {})",
+        catalog,
+        schema,
+        table,
+        scope,
+        nullable);
     throw new UnsupportedOperationException("Not implemented");
   }
 
   @Override
-  public ResultSet getVersionColumns(String catalog, String schema, String table) throws SQLException {
-    LOGGER.debug("public ResultSet getVersionColumns(String catalog = {}, String schema = {}, String table = {})", catalog, schema, table);
+  public ResultSet getVersionColumns(String catalog, String schema, String table)
+      throws SQLException {
+    LOGGER.debug(
+        "public ResultSet getVersionColumns(String catalog = {}, String schema = {}, String table = {})",
+        catalog,
+        schema,
+        table);
     throw new UnsupportedOperationException("Not implemented");
   }
 
   @Override
   public ResultSet getPrimaryKeys(String catalog, String schema, String table) throws SQLException {
-    LOGGER.debug("public ResultSet getPrimaryKeys(String catalog = {}, String schema = {}, String table = {})", catalog, schema, table);
+    LOGGER.debug(
+        "public ResultSet getPrimaryKeys(String catalog = {}, String schema = {}, String table = {})",
+        catalog,
+        schema,
+        table);
     throw new UnsupportedOperationException("Not implemented");
   }
 
   @Override
-  public ResultSet getImportedKeys(String catalog, String schema, String table) throws SQLException {
-    LOGGER.debug("public ResultSet getImportedKeys(String catalog = {}, String schema = {}, String table = {})", catalog, schema, table);
+  public ResultSet getImportedKeys(String catalog, String schema, String table)
+      throws SQLException {
+    LOGGER.debug(
+        "public ResultSet getImportedKeys(String catalog = {}, String schema = {}, String table = {})",
+        catalog,
+        schema,
+        table);
     throw new UnsupportedOperationException("Not implemented");
   }
 
   @Override
-  public ResultSet getExportedKeys(String catalog, String schema, String table) throws SQLException {
-    LOGGER.debug("public ResultSet getExportedKeys(String catalog = {}, String schema = {}, String table = {})", catalog, schema, table);
+  public ResultSet getExportedKeys(String catalog, String schema, String table)
+      throws SQLException {
+    LOGGER.debug(
+        "public ResultSet getExportedKeys(String catalog = {}, String schema = {}, String table = {})",
+        catalog,
+        schema,
+        table);
     throw new UnsupportedOperationException("Not implemented");
   }
 
   @Override
-  public ResultSet getCrossReference(String parentCatalog, String parentSchema, String parentTable, String foreignCatalog, String foreignSchema, String foreignTable) throws SQLException {
-    LOGGER.debug("public ResultSet getCrossReference(String parentCatalog = {}, String parentSchema = {}, String parentTable = {}, String foreignCatalog = {}, String foreignSchema = {}, String foreignTable = {})", parentCatalog, parentSchema, parentTable, foreignCatalog, foreignSchema, foreignTable);
+  public ResultSet getCrossReference(
+      String parentCatalog,
+      String parentSchema,
+      String parentTable,
+      String foreignCatalog,
+      String foreignSchema,
+      String foreignTable)
+      throws SQLException {
+    LOGGER.debug(
+        "public ResultSet getCrossReference(String parentCatalog = {}, String parentSchema = {}, String parentTable = {}, String foreignCatalog = {}, String foreignSchema = {}, String foreignTable = {})",
+        parentCatalog,
+        parentSchema,
+        parentTable,
+        foreignCatalog,
+        foreignSchema,
+        foreignTable);
     throw new UnsupportedOperationException("Not implemented");
   }
 
@@ -1101,417 +1272,422 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
     throwExceptionIfConnectionIsClosed();
 
     return new DatabricksResultSet(
-            new StatementStatus().setState(StatementState.SUCCEEDED),
-            "typeinfo-metadata",
-            Arrays.asList(
-                    "TYPE_NAME",
-                    "DATA_TYPE",
-                    "PRECISION",
-                    "LITERAL_PREFIX",
-                    "LITERAL_SUFFIX",
-                    "CREATE_PARAMS",
-                    "NULLABLE",
-                    "CASE_SENSITIVE",
-                    "SEARCHABLE",
-                    "UNSIGNED_ATTRIBUTE",
-                    "FIXED_PREC_SCALE",
-                    "AUTO_INCREMENT",
-                    "LOCAL_TYPE_NAME",
-                    "MINIMUM_SCALE",
-                    "MAXIMUM_SCALE",
-                    "SQL_DATA_TYPE",
-                    "SQL_DATETIME_SUB",
-                    "NUM_PREC_RADIX"),
-            Arrays.asList(
-                    "VARCHAR", "INTEGER", "INTEGER", "VARCHAR", "VARCHAR", "VARCHAR", "SMALLINT", "BIT", "SMALLINT",
-                    "BIT", "BIT", "BIT", "VARCHAR", "SMALLINT", "SMALLINT", "INTEGER", "INTEGER",
-                    "INTEGER"),
-            Arrays.asList(
-                    Types.VARCHAR,
-                    Types.INTEGER,
-                    Types.INTEGER,
-                    Types.VARCHAR,
-                    Types.VARCHAR,
-                    Types.VARCHAR,
-                    Types.SMALLINT,
-                    Types.BOOLEAN,
-                    Types.SMALLINT,
-                    Types.BOOLEAN,
-                    Types.BOOLEAN,
-                    Types.BOOLEAN,
-                    Types.VARCHAR,
-                    Types.SMALLINT,
-                    Types.SMALLINT,
-                    Types.INTEGER,
-                    Types.INTEGER,
-                    Types.INTEGER),
-            Arrays.asList(
-                    128,
-                    10,
-                    10,
-                    128,
-                    128,
-                    128,
-                    5,
-                    1,
-                    5,
-                    1,
-                    1,
-                    1,
-                    128,
-                    5,
-                    5,
-                    10,
-                    10,
-                    10),
-            new Object[][]{
-                    {
-                            "TINYINT",
-                            Types.TINYINT,
-                            3,
-                            null,
-                            null,
-                            null,
-                            typeNullable,
-                            false,
-                            typePredBasic,
-                            false,
-                            false,
-                            null,
-                            "TINYINT",
-                            0,
-                            0,
-                            Types.TINYINT,
-                            null,
-                            10
-                    },
-                    {
-                            "BIGINT",
-                            Types.BIGINT,
-                            19,
-                            null,
-                            null,
-                            null,
-                            typeNullable,
-                            false,
-                            typePredBasic,
-                            false,
-                            false,
-                            null,
-                            "BIGINT",
-                            0,
-                            0,
-                            Types.BIGINT,
-                            null,
-                            10
-                    },
-                    {
-                            "BINARY",
-                            Types.BINARY,
-                            32767,
-                            "0x",
-                            null,
-                            "LENGTH",
-                            typeNullable,
-                            false,
-                            typePredNone,
-                            null,
-                            false,
-                            null,
-                            "BINARY",
-                            null,
-                            null,
-                            Types.BINARY,
-                            null,
-                            null
-                    },
-                    {
-                            "CHAR",
-                            Types.CHAR,
-                            255,
-                            "'",
-                            "'",
-                            "LENGTH",
-                            typeNullable,
-                            true,
-                            typeSearchable,
-                            null,
-                            false,
-                            null,
-                            "CHAR",
-                            null,
-                            null,
-                            Types.CHAR,
-                            null,
-                            null
-                    },
-                    {
-                            "DECIMAL",
-                            Types.DECIMAL,
-                            38,
-                            null,
-                            null,
-                            null,
-                            typeNullable,
-                            false,
-                            typePredBasic,
-                            false,
-                            false,
-                            null,
-                            "DECIMAL",
-                            0,
-                            0,
-                            Types.DECIMAL,
-                            null,
-                            10
-                    },
-                    {
-                            "INT",
-                            Types.INTEGER,
-                            10,
-                            null,
-                            null,
-                            null,
-                            typeNullable,
-                            false,
-                            typePredBasic,
-                            false,
-                            false,
-                            null,
-                            "INT",
-                            0,
-                            0,
-                            Types.INTEGER,
-                            null,
-                            10
-                    },
-                    {
-                            "SMALLINT",
-                            Types.SMALLINT,
-                            5,
-                            null,
-                            null,
-                            null,
-                            typeNullable,
-                            false,
-                            typePredBasic,
-                            false,
-                            false,
-                            null,
-                            "SMALLINT",
-                            0,
-                            0,
-                            Types.SMALLINT,
-                            null,
-                            10
-                    },
-                    {
-                            "FLOAT",
-                            Types.FLOAT,
-                            7,
-                            null,
-                            null,
-                            null,
-                            typeNullable,
-                            false,
-                            typePredBasic,
-                            false,
-                            false,
-                            null,
-                            "FLOAT",
-                            null,
-                            null,
-                            Types.FLOAT,
-                            null,
-                            2
-                    },
-                    {
-                            "DOUBLE",
-                            Types.DOUBLE,
-                            15,
-                            null,
-                            null,
-                            null,
-                            typeNullable,
-                            false,
-                            typePredBasic,
-                            false,
-                            false,
-                            null,
-                            "DOUBLE",
-                            null,
-                            null,
-                            Types.DOUBLE,
-                            null,
-                            2
-                    },
-                    {
-                            "ARRAY",
-                            Types.VARCHAR,
-                            32767,
-                            "'",
-                            "'",
-                            "Type",
-                            typeNullable,
-                            false,
-                            typeSearchable,
-                            null,
-                            false,
-                            null,
-                            "ARRAY",
-                            null,
-                            null,
-                            Types.VARCHAR,
-                            null,
-                            null
-                    },
-                    {
-                            "MAP",
-                            Types.VARCHAR,
-                            32767,
-                            "'",
-                            "'",
-                            "Key,Value",
-                            typeNullable,
-                            false,
-                            typeSearchable,
-                            null,
-                            false,
-                            null,
-                            "MAP",
-                            null,
-                            null,
-                            Types.VARCHAR,
-                            null,
-                            null
-                    },
-                    {
-                            "STRING",
-                            Types.VARCHAR,
-                            510,
-                            "'",
-                            "'",
-                            "max length",
-                            typeNullable,
-                            true,
-                            typeSearchable,
-                            null,
-                            false,
-                            null,
-                            "STRING",
-                            null,
-                            null,
-                            Types.VARCHAR,
-                            null,
-                            null
-                    },
-                    {
-                            "STRUCT",
-                            Types.VARCHAR,
-                            32767,
-                            "'",
-                            "'",
-                            "Column Type, ...",
-                            typeNullable,
-                            false,
-                            typeSearchable,
-                            null,
-                            false,
-                            null,
-                            "STRUCT",
-                            null,
-                            null,
-                            Types.VARCHAR,
-                            null,
-                            null
-                    },
-                    {
-                            "VARCHAR",
-                            Types.VARCHAR,
-                            510,
-                            "'",
-                            "'",
-                            "max length",
-                            typeNullable,
-                            true,
-                            typeSearchable,
-                            null,
-                            false,
-                            null,
-                            "VARCHAR",
-                            null,
-                            null,
-                            Types.VARCHAR,
-                            null,
-                            null
-                    },
-                    {
-                            "BOOLEAN",
-                            Types.BOOLEAN,
-                            1,
-                            null,
-                            null,
-                            null,
-                            typeNullable,
-                            true,
-                            typePredBasic,
-                            null,
-                            false,
-                            null,
-                            "BOOLEAN",
-                            null,
-                            null,
-                            Types.BOOLEAN,
-                            null,
-                            null
-                    },
-                    {
-                            "DATE",
-                            Types.DATE,
-                            10,
-                            "'",
-                            "'",
-                            null,
-                            typeNullable,
-                            false,
-                            typeSearchable,
-                            null,
-                            false,
-                            null,
-                            "DATE",
-                            null,
-                            null,
-                            Types.DATE,
-                            null,
-                            null
-                    },
-                    {
-                            "TIMESTAMP",
-                            Types.TIMESTAMP,
-                            29,
-                            "'",
-                            "'",
-                            null,
-                            typeNullable,
-                            false,
-                            typeSearchable,
-                            null,
-                            false,
-                            null,
-                            "TIMESTAMP",
-                            0,
-                            0,
-                            Types.DATE,
-                            null,
-                            null
-                    }
-            },
-            StatementType.METADATA);
+        new StatementStatus().setState(StatementState.SUCCEEDED),
+        "typeinfo-metadata",
+        Arrays.asList(
+            "TYPE_NAME",
+            "DATA_TYPE",
+            "PRECISION",
+            "LITERAL_PREFIX",
+            "LITERAL_SUFFIX",
+            "CREATE_PARAMS",
+            "NULLABLE",
+            "CASE_SENSITIVE",
+            "SEARCHABLE",
+            "UNSIGNED_ATTRIBUTE",
+            "FIXED_PREC_SCALE",
+            "AUTO_INCREMENT",
+            "LOCAL_TYPE_NAME",
+            "MINIMUM_SCALE",
+            "MAXIMUM_SCALE",
+            "SQL_DATA_TYPE",
+            "SQL_DATETIME_SUB",
+            "NUM_PREC_RADIX"),
+        Arrays.asList(
+            "VARCHAR",
+            "INTEGER",
+            "INTEGER",
+            "VARCHAR",
+            "VARCHAR",
+            "VARCHAR",
+            "SMALLINT",
+            "BIT",
+            "SMALLINT",
+            "BIT",
+            "BIT",
+            "BIT",
+            "VARCHAR",
+            "SMALLINT",
+            "SMALLINT",
+            "INTEGER",
+            "INTEGER",
+            "INTEGER"),
+        Arrays.asList(
+            Types.VARCHAR,
+            Types.INTEGER,
+            Types.INTEGER,
+            Types.VARCHAR,
+            Types.VARCHAR,
+            Types.VARCHAR,
+            Types.SMALLINT,
+            Types.BOOLEAN,
+            Types.SMALLINT,
+            Types.BOOLEAN,
+            Types.BOOLEAN,
+            Types.BOOLEAN,
+            Types.VARCHAR,
+            Types.SMALLINT,
+            Types.SMALLINT,
+            Types.INTEGER,
+            Types.INTEGER,
+            Types.INTEGER),
+        Arrays.asList(128, 10, 10, 128, 128, 128, 5, 1, 5, 1, 1, 1, 128, 5, 5, 10, 10, 10),
+        new Object[][] {
+          {
+            "TINYINT",
+            Types.TINYINT,
+            3,
+            null,
+            null,
+            null,
+            typeNullable,
+            false,
+            typePredBasic,
+            false,
+            false,
+            null,
+            "TINYINT",
+            0,
+            0,
+            Types.TINYINT,
+            null,
+            10
+          },
+          {
+            "BIGINT",
+            Types.BIGINT,
+            19,
+            null,
+            null,
+            null,
+            typeNullable,
+            false,
+            typePredBasic,
+            false,
+            false,
+            null,
+            "BIGINT",
+            0,
+            0,
+            Types.BIGINT,
+            null,
+            10
+          },
+          {
+            "BINARY",
+            Types.BINARY,
+            32767,
+            "0x",
+            null,
+            "LENGTH",
+            typeNullable,
+            false,
+            typePredNone,
+            null,
+            false,
+            null,
+            "BINARY",
+            null,
+            null,
+            Types.BINARY,
+            null,
+            null
+          },
+          {
+            "CHAR",
+            Types.CHAR,
+            255,
+            "'",
+            "'",
+            "LENGTH",
+            typeNullable,
+            true,
+            typeSearchable,
+            null,
+            false,
+            null,
+            "CHAR",
+            null,
+            null,
+            Types.CHAR,
+            null,
+            null
+          },
+          {
+            "DECIMAL",
+            Types.DECIMAL,
+            38,
+            null,
+            null,
+            null,
+            typeNullable,
+            false,
+            typePredBasic,
+            false,
+            false,
+            null,
+            "DECIMAL",
+            0,
+            0,
+            Types.DECIMAL,
+            null,
+            10
+          },
+          {
+            "INT",
+            Types.INTEGER,
+            10,
+            null,
+            null,
+            null,
+            typeNullable,
+            false,
+            typePredBasic,
+            false,
+            false,
+            null,
+            "INT",
+            0,
+            0,
+            Types.INTEGER,
+            null,
+            10
+          },
+          {
+            "SMALLINT",
+            Types.SMALLINT,
+            5,
+            null,
+            null,
+            null,
+            typeNullable,
+            false,
+            typePredBasic,
+            false,
+            false,
+            null,
+            "SMALLINT",
+            0,
+            0,
+            Types.SMALLINT,
+            null,
+            10
+          },
+          {
+            "FLOAT",
+            Types.FLOAT,
+            7,
+            null,
+            null,
+            null,
+            typeNullable,
+            false,
+            typePredBasic,
+            false,
+            false,
+            null,
+            "FLOAT",
+            null,
+            null,
+            Types.FLOAT,
+            null,
+            2
+          },
+          {
+            "DOUBLE",
+            Types.DOUBLE,
+            15,
+            null,
+            null,
+            null,
+            typeNullable,
+            false,
+            typePredBasic,
+            false,
+            false,
+            null,
+            "DOUBLE",
+            null,
+            null,
+            Types.DOUBLE,
+            null,
+            2
+          },
+          {
+            "ARRAY",
+            Types.VARCHAR,
+            32767,
+            "'",
+            "'",
+            "Type",
+            typeNullable,
+            false,
+            typeSearchable,
+            null,
+            false,
+            null,
+            "ARRAY",
+            null,
+            null,
+            Types.VARCHAR,
+            null,
+            null
+          },
+          {
+            "MAP",
+            Types.VARCHAR,
+            32767,
+            "'",
+            "'",
+            "Key,Value",
+            typeNullable,
+            false,
+            typeSearchable,
+            null,
+            false,
+            null,
+            "MAP",
+            null,
+            null,
+            Types.VARCHAR,
+            null,
+            null
+          },
+          {
+            "STRING",
+            Types.VARCHAR,
+            510,
+            "'",
+            "'",
+            "max length",
+            typeNullable,
+            true,
+            typeSearchable,
+            null,
+            false,
+            null,
+            "STRING",
+            null,
+            null,
+            Types.VARCHAR,
+            null,
+            null
+          },
+          {
+            "STRUCT",
+            Types.VARCHAR,
+            32767,
+            "'",
+            "'",
+            "Column Type, ...",
+            typeNullable,
+            false,
+            typeSearchable,
+            null,
+            false,
+            null,
+            "STRUCT",
+            null,
+            null,
+            Types.VARCHAR,
+            null,
+            null
+          },
+          {
+            "VARCHAR",
+            Types.VARCHAR,
+            510,
+            "'",
+            "'",
+            "max length",
+            typeNullable,
+            true,
+            typeSearchable,
+            null,
+            false,
+            null,
+            "VARCHAR",
+            null,
+            null,
+            Types.VARCHAR,
+            null,
+            null
+          },
+          {
+            "BOOLEAN",
+            Types.BOOLEAN,
+            1,
+            null,
+            null,
+            null,
+            typeNullable,
+            true,
+            typePredBasic,
+            null,
+            false,
+            null,
+            "BOOLEAN",
+            null,
+            null,
+            Types.BOOLEAN,
+            null,
+            null
+          },
+          {
+            "DATE",
+            Types.DATE,
+            10,
+            "'",
+            "'",
+            null,
+            typeNullable,
+            false,
+            typeSearchable,
+            null,
+            false,
+            null,
+            "DATE",
+            null,
+            null,
+            Types.DATE,
+            null,
+            null
+          },
+          {
+            "TIMESTAMP",
+            Types.TIMESTAMP,
+            29,
+            "'",
+            "'",
+            null,
+            typeNullable,
+            false,
+            typeSearchable,
+            null,
+            false,
+            null,
+            "TIMESTAMP",
+            0,
+            0,
+            Types.DATE,
+            null,
+            null
+          }
+        },
+        StatementType.METADATA);
   }
 
   @Override
-  public ResultSet getIndexInfo(String catalog, String schema, String table, boolean unique, boolean approximate) throws SQLException {
-    LOGGER.debug("public ResultSet getIndexInfo(String catalog = {}, String schema = {}, String table = {}, boolean unique = {}, boolean approximate = {})", catalog, schema, table, unique, approximate);
+  public ResultSet getIndexInfo(
+      String catalog, String schema, String table, boolean unique, boolean approximate)
+      throws SQLException {
+    LOGGER.debug(
+        "public ResultSet getIndexInfo(String catalog = {}, String schema = {}, String table = {}, boolean unique = {}, boolean approximate = {})",
+        catalog,
+        schema,
+        table,
+        unique,
+        approximate);
     throw new UnsupportedOperationException("Not implemented");
   }
 
@@ -1524,7 +1700,10 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
 
   @Override
   public boolean supportsResultSetConcurrency(int type, int concurrency) throws SQLException {
-    LOGGER.debug("public boolean supportsResultSetConcurrency(int type = {}, int concurrency = {})", type, concurrency);
+    LOGGER.debug(
+        "public boolean supportsResultSetConcurrency(int type = {}, int concurrency = {})",
+        type,
+        concurrency);
     throwExceptionIfConnectionIsClosed();
     return type == ResultSet.TYPE_FORWARD_ONLY && concurrency == ResultSet.CONCUR_READ_ONLY;
   }
@@ -1599,20 +1778,40 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
   }
 
   @Override
-  public ResultSet getUDTs(String catalog, String schemaPattern, String typeNamePattern, int[] types) throws SQLException {
-    LOGGER.debug("public ResultSet getUDTs(String catalog = {}, String schemaPattern = {}, String typeNamePattern = {}, int[] types = {})", catalog, schemaPattern, typeNamePattern, types);
+  public ResultSet getUDTs(
+      String catalog, String schemaPattern, String typeNamePattern, int[] types)
+      throws SQLException {
+    LOGGER.debug(
+        "public ResultSet getUDTs(String catalog = {}, String schemaPattern = {}, String typeNamePattern = {}, int[] types = {})",
+        catalog,
+        schemaPattern,
+        typeNamePattern,
+        types);
     // TODO: implement, returning only empty set for now
     throwExceptionIfConnectionIsClosed();
     return new DatabricksResultSet(
-            new StatementStatus().setState(StatementState.SUCCEEDED),
-            "getudts-metadata",
-            Arrays.asList("TYPE_CAT", "TYPE_SCHEM", "TYPE_NAME", "CLASS_NAME", "DATA_TYPE", "REMAKRS", "BASE_TYPE"),
-            Arrays.asList("VARCHAR", "VARCHAR", "VARCHAR", "VARCHAR", "VARCHAR", "VARCHAR", "VARCHAR"),
-            Arrays.asList(Types.VARCHAR, Types.VARCHAR, Types.VARCHAR, Types.VARCHAR, Types.VARCHAR, Types.VARCHAR, Types.VARCHAR),
-            Arrays.asList(128, 128, 128, 128, 128, 128, 128),
-            new String[0][0],
-            StatementType.METADATA
-    );
+        new StatementStatus().setState(StatementState.SUCCEEDED),
+        "getudts-metadata",
+        Arrays.asList(
+            "TYPE_CAT",
+            "TYPE_SCHEM",
+            "TYPE_NAME",
+            "CLASS_NAME",
+            "DATA_TYPE",
+            "REMAKRS",
+            "BASE_TYPE"),
+        Arrays.asList("VARCHAR", "VARCHAR", "VARCHAR", "VARCHAR", "VARCHAR", "VARCHAR", "VARCHAR"),
+        Arrays.asList(
+            Types.VARCHAR,
+            Types.VARCHAR,
+            Types.VARCHAR,
+            Types.VARCHAR,
+            Types.VARCHAR,
+            Types.VARCHAR,
+            Types.VARCHAR),
+        Arrays.asList(128, 128, 128, 128, 128, 128, 128),
+        new String[0][0],
+        StatementType.METADATA);
   }
 
   @Override
@@ -1650,20 +1849,37 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
   }
 
   @Override
-  public ResultSet getSuperTypes(String catalog, String schemaPattern, String typeNamePattern) throws SQLException {
-    LOGGER.debug("public ResultSet getSuperTypes(String catalog = {}, String schemaPattern = {}, String typeNamePattern = {})", catalog, schemaPattern, typeNamePattern);
+  public ResultSet getSuperTypes(String catalog, String schemaPattern, String typeNamePattern)
+      throws SQLException {
+    LOGGER.debug(
+        "public ResultSet getSuperTypes(String catalog = {}, String schemaPattern = {}, String typeNamePattern = {})",
+        catalog,
+        schemaPattern,
+        typeNamePattern);
     throw new UnsupportedOperationException("Not implemented");
   }
 
   @Override
-  public ResultSet getSuperTables(String catalog, String schemaPattern, String tableNamePattern) throws SQLException {
-    LOGGER.debug("public ResultSet getSuperTables(String catalog = {}, String schemaPattern = {}, String tableNamePattern = {})", catalog, schemaPattern, tableNamePattern);
+  public ResultSet getSuperTables(String catalog, String schemaPattern, String tableNamePattern)
+      throws SQLException {
+    LOGGER.debug(
+        "public ResultSet getSuperTables(String catalog = {}, String schemaPattern = {}, String tableNamePattern = {})",
+        catalog,
+        schemaPattern,
+        tableNamePattern);
     throw new UnsupportedOperationException("Not implemented");
   }
 
   @Override
-  public ResultSet getAttributes(String catalog, String schemaPattern, String typeNamePattern, String attributeNamePattern) throws SQLException {
-    LOGGER.debug("public ResultSet getAttributes(String catalog = {}, String schemaPattern = {}, String typeNamePattern = {}, String attributeNamePattern = {})", catalog, schemaPattern, typeNamePattern, attributeNamePattern);
+  public ResultSet getAttributes(
+      String catalog, String schemaPattern, String typeNamePattern, String attributeNamePattern)
+      throws SQLException {
+    LOGGER.debug(
+        "public ResultSet getAttributes(String catalog = {}, String schemaPattern = {}, String typeNamePattern = {}, String attributeNamePattern = {})",
+        catalog,
+        schemaPattern,
+        typeNamePattern,
+        attributeNamePattern);
     throw new UnsupportedOperationException("Not implemented");
   }
 
@@ -1735,13 +1951,17 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
 
   @Override
   public ResultSet getSchemas(String catalog, String schemaPattern) throws SQLException {
-    LOGGER.debug("public ResultSet getSchemas(String catalog = {}, String schemaPattern = {})", catalog, schemaPattern);
+    LOGGER.debug(
+        "public ResultSet getSchemas(String catalog = {}, String schemaPattern = {})",
+        catalog,
+        schemaPattern);
     throwExceptionIfConnectionIsClosed();
     Map.Entry<String, String> pair = applyContext(catalog, schemaPattern);
     String catalogWithContext = pair.getKey();
     String schemaWithContext = pair.getValue();
 
-    // Since catalog must be an identifier or all catalogs (null), we need not care about catalog regex
+    // Since catalog must be an identifier or all catalogs (null), we need not care about catalog
+    // regex
     Queue<String> catalogs = new ConcurrentLinkedQueue<>();
     if (WildcardUtil.isMatchAnything(catalogWithContext)) {
       ResultSet rs = getCatalogs();
@@ -1752,49 +1972,60 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
       catalogs.add(catalogWithContext);
     }
     // TODO: Remove post demo
-    while (catalogs.size() > 5)
-      catalogs.poll();
+    while (catalogs.size() > 5) catalogs.poll();
 
     List<List<Object>> rows = new CopyOnWriteArrayList<>();
     ExecutorService executorService = Executors.newFixedThreadPool(150);
     for (int i = 0; i < 150; i++) {
-      executorService.submit(() -> {
-        while (!catalogs.isEmpty()) {
-          String currentCatalog = catalogs.poll();
-          // TODO: Emoji characters are not being handled correctly by SDK/SEA, hence, skipping for now
-//          if (WildcardUtil.containsEmoji(currentCatalog))
-//            return;
-          String showSchemaSQL = "show schemas in `" + currentCatalog + "`";
-          if (!WildcardUtil.isMatchAnything(schemaWithContext)) {
-            showSchemaSQL += " like '" + schemaWithContext + "'";
-          }
-          LOGGER.debug("SQL command to fetch schemas: {}" + showSchemaSQL);
-          try {
-            ResultSet rs = session.getDatabricksClient().executeStatement(
-                    showSchemaSQL, session.getWarehouseId(), new HashMap<Integer, ImmutableSqlParameter>(),
-                    StatementType.METADATA, session, null /* parentStatement */);
-            while (rs.next()) {
-              rows.add(Arrays.asList(rs.getString(1), currentCatalog));
+      executorService.submit(
+          () -> {
+            while (!catalogs.isEmpty()) {
+              String currentCatalog = catalogs.poll();
+              // TODO: Emoji characters are not being handled correctly by SDK/SEA, hence, skipping
+              // for now
+              //          if (WildcardUtil.containsEmoji(currentCatalog))
+              //            return;
+              String showSchemaSQL = "show schemas in `" + currentCatalog + "`";
+              if (!WildcardUtil.isMatchAnything(schemaWithContext)) {
+                showSchemaSQL += " like '" + schemaWithContext + "'";
+              }
+              LOGGER.debug("SQL command to fetch schemas: {}" + showSchemaSQL);
+              try {
+                ResultSet rs =
+                    session
+                        .getDatabricksClient()
+                        .executeStatement(
+                            showSchemaSQL,
+                            session.getWarehouseId(),
+                            new HashMap<Integer, ImmutableSqlParameter>(),
+                            StatementType.METADATA,
+                            session,
+                            null /* parentStatement */);
+                while (rs.next()) {
+                  rows.add(Arrays.asList(rs.getString(1), currentCatalog));
+                }
+              } catch (SQLException e) {
+                throw new RuntimeException(e);
+              }
             }
-          } catch (SQLException e) {
-            throw new RuntimeException(e);
-          }
-        }
-      });
+          });
     }
     executorService.shutdown();
     while (!executorService.isTerminated()) {
       // wait
     }
-    rows.sort(Comparator.comparing((List<Object> i) -> i.get(1).toString()).thenComparing(i -> i.get(0).toString()));
-    return new DatabricksResultSet(new StatementStatus().setState(StatementState.SUCCEEDED),
-            "metadata-statement",
-            Arrays.asList("TABLE_SCHEM", "TABLE_CATALOG"),
-            Arrays.asList("VARCHAR", "VARCHAR"),
-            Arrays.asList(Types.VARCHAR, Types.VARCHAR),
-            Arrays.asList(128, 128),
-            rows,
-            StatementType.METADATA);
+    rows.sort(
+        Comparator.comparing((List<Object> i) -> i.get(1).toString())
+            .thenComparing(i -> i.get(0).toString()));
+    return new DatabricksResultSet(
+        new StatementStatus().setState(StatementState.SUCCEEDED),
+        "metadata-statement",
+        Arrays.asList("TABLE_SCHEM", "TABLE_CATALOG"),
+        Arrays.asList("VARCHAR", "VARCHAR"),
+        Arrays.asList(Types.VARCHAR, Types.VARCHAR),
+        Arrays.asList(128, 128),
+        rows,
+        StatementType.METADATA);
   }
 
   @Override
@@ -1818,38 +2049,70 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
   }
 
   @Override
-  public ResultSet getFunctions(String catalog, String schemaPattern, String functionNamePattern) throws SQLException {
-    LOGGER.debug("public ResultSet getFunctions(String catalog = {}, String schemaPattern = {}, String functionNamePattern = {})", catalog, schemaPattern, functionNamePattern);
+  public ResultSet getFunctions(String catalog, String schemaPattern, String functionNamePattern)
+      throws SQLException {
+    LOGGER.debug(
+        "public ResultSet getFunctions(String catalog = {}, String schemaPattern = {}, String functionNamePattern = {})",
+        catalog,
+        schemaPattern,
+        functionNamePattern);
     throwExceptionIfConnectionIsClosed();
     // TODO: implement, returning only empty set for now
     throwExceptionIfConnectionIsClosed();
     return new DatabricksResultSet(
-            new StatementStatus().setState(StatementState.SUCCEEDED),
-            "getfunctions-metadata",
-            Arrays.asList("FUNCTION_CAT", "FUNCTION_SCHEM", "FUNCTION_NAME", "REMARKS", "FUNCTION_TYPE", "SPECIFIC_NAME"),
-            Arrays.asList("VARCHAR", "VARCHAR", "VARCHAR", "VARCHAR", "VARCHAR", "VARCHAR"),
-            Arrays.asList(Types.VARCHAR, Types.VARCHAR, Types.VARCHAR, Types.VARCHAR, Types.VARCHAR, Types.VARCHAR),
-            Arrays.asList(128, 128, 128, 128, 128, 128),
-            new Object[0][0],
-            StatementType.METADATA
-    );
+        new StatementStatus().setState(StatementState.SUCCEEDED),
+        "getfunctions-metadata",
+        Arrays.asList(
+            "FUNCTION_CAT",
+            "FUNCTION_SCHEM",
+            "FUNCTION_NAME",
+            "REMARKS",
+            "FUNCTION_TYPE",
+            "SPECIFIC_NAME"),
+        Arrays.asList("VARCHAR", "VARCHAR", "VARCHAR", "VARCHAR", "VARCHAR", "VARCHAR"),
+        Arrays.asList(
+            Types.VARCHAR,
+            Types.VARCHAR,
+            Types.VARCHAR,
+            Types.VARCHAR,
+            Types.VARCHAR,
+            Types.VARCHAR),
+        Arrays.asList(128, 128, 128, 128, 128, 128),
+        new Object[0][0],
+        StatementType.METADATA);
 
-//    // TODO: Handle null catalog, schema, function behaviour
-//
-//    String showSchemaSQL = "show functions in " + catalog + "." + schemaPattern + " like '" + functionNamePattern + "'";
-//    return session.getDatabricksClient().executeStatement(showSchemaSQL, session.getWarehouseId(),
-//        new HashMap<Integer, ImmutableSqlParameter>(), StatementType.METADATA, session);
+    //    // TODO: Handle null catalog, schema, function behaviour
+    //
+    //    String showSchemaSQL = "show functions in " + catalog + "." + schemaPattern + " like '" +
+    // functionNamePattern + "'";
+    //    return session.getDatabricksClient().executeStatement(showSchemaSQL,
+    // session.getWarehouseId(),
+    //        new HashMap<Integer, ImmutableSqlParameter>(), StatementType.METADATA, session);
   }
 
   @Override
-  public ResultSet getFunctionColumns(String catalog, String schemaPattern, String functionNamePattern, String columnNamePattern) throws SQLException {
-    LOGGER.debug("public ResultSet getFunctionColumns(String catalog = {}, String schemaPattern = {}, String functionNamePattern = {}, String columnNamePattern = {})", catalog, schemaPattern, functionNamePattern, columnNamePattern);
+  public ResultSet getFunctionColumns(
+      String catalog, String schemaPattern, String functionNamePattern, String columnNamePattern)
+      throws SQLException {
+    LOGGER.debug(
+        "public ResultSet getFunctionColumns(String catalog = {}, String schemaPattern = {}, String functionNamePattern = {}, String columnNamePattern = {})",
+        catalog,
+        schemaPattern,
+        functionNamePattern,
+        columnNamePattern);
     throw new UnsupportedOperationException("Not implemented");
   }
 
   @Override
-  public ResultSet getPseudoColumns(String catalog, String schemaPattern, String tableNamePattern, String columnNamePattern) throws SQLException {
-    LOGGER.debug("public ResultSet getPseudoColumns(String catalog = {}, String schemaPattern = {}, String tableNamePattern = {}, String columnNamePattern = {})", catalog, schemaPattern, tableNamePattern, columnNamePattern);
+  public ResultSet getPseudoColumns(
+      String catalog, String schemaPattern, String tableNamePattern, String columnNamePattern)
+      throws SQLException {
+    LOGGER.debug(
+        "public ResultSet getPseudoColumns(String catalog = {}, String schemaPattern = {}, String tableNamePattern = {}, String columnNamePattern = {})",
+        catalog,
+        schemaPattern,
+        tableNamePattern,
+        columnNamePattern);
     throw new UnsupportedOperationException("Not implemented");
   }
 
@@ -1879,8 +2142,12 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
     }
   }
 
-  private Map.Entry<String, String> applyContext(String catalog, String schema) throws SQLException {
-    LOGGER.debug("private Map.Entry<String, String> applyContext(String catalog = {}, String schema = {})", catalog, schema);
+  private Map.Entry<String, String> applyContext(String catalog, String schema)
+      throws SQLException {
+    LOGGER.debug(
+        "private Map.Entry<String, String> applyContext(String catalog = {}, String schema = {})",
+        catalog,
+        schema);
     if (catalog == null) {
       catalog = connection.getConnection().getCatalog();
     }

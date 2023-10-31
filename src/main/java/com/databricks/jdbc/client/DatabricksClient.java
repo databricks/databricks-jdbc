@@ -6,18 +6,16 @@ import com.databricks.jdbc.core.IDatabricksStatement;
 import com.databricks.jdbc.core.ImmutableSessionInfo;
 import com.databricks.jdbc.core.ImmutableSqlParameter;
 import com.databricks.sdk.service.sql.ExternalLink;
-
 import java.sql.SQLException;
 import java.util.Collection;
 import java.util.Map;
 
-/**
- * Interface for Databricks client which abstracts the integration with Databricks server.
- */
+/** Interface for Databricks client which abstracts the integration with Databricks server. */
 public interface DatabricksClient {
 
   /**
    * Creates a new session for given warehouse-Id.
+   *
    * @param warehouseId for which a session should be created
    * @return created session
    */
@@ -25,6 +23,7 @@ public interface DatabricksClient {
 
   /**
    * Deletes a session for given session-Id
+   *
    * @param sessionId for which the session should be deleted
    * @param warehouseId underlying warehouse-Id
    */
@@ -32,6 +31,7 @@ public interface DatabricksClient {
 
   /**
    * Executes a statement in Databricks server
+   *
    * @param statement SQL statement that needs to be executed
    * @param warehouseId warehouse-Id which should be used for statement execution
    * @param parameters SQL parameters for the statement
@@ -41,12 +41,17 @@ public interface DatabricksClient {
    * @return response for statement execution
    */
   DatabricksResultSet executeStatement(
-      String sql, String warehouseId, Map<Integer, ImmutableSqlParameter> parameters,
-      StatementType statementType, IDatabricksSession session, IDatabricksStatement parentStatement)
+      String sql,
+      String warehouseId,
+      Map<Integer, ImmutableSqlParameter> parameters,
+      StatementType statementType,
+      IDatabricksSession session,
+      IDatabricksStatement parentStatement)
       throws SQLException;
 
   /**
    * Closes a statement in Databricks server
+   *
    * @param statementId statement which should be closed
    * @return response for statement execution
    */
@@ -54,6 +59,7 @@ public interface DatabricksClient {
 
   /**
    * Fetches the chunk details for given chunk index and statement-Id.
+   *
    * @param statementId statement-Id for which chunk should be fetched
    * @param chunkIndex chunkIndex for which chunk should be fetched
    */

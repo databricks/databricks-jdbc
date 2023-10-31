@@ -1,13 +1,11 @@
 package com.databricks.jdbc.core;
 
-
 import com.databricks.jdbc.client.StatementType;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.sql.*;
 import java.util.HashMap;
 import java.util.Map;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class DatabricksStatement implements IDatabricksStatement, Statement {
 
@@ -39,8 +37,7 @@ public class DatabricksStatement implements IDatabricksStatement, Statement {
   @Override
   public int executeUpdate(String sql) throws SQLException {
     checkIfClosed();
-    executeInternal(
-            sql, new HashMap<Integer, ImmutableSqlParameter>(), StatementType.UPDATE);
+    executeInternal(sql, new HashMap<Integer, ImmutableSqlParameter>(), StatementType.UPDATE);
     return (int) resultSet.getUpdateCount();
   }
 
@@ -133,7 +130,8 @@ public class DatabricksStatement implements IDatabricksStatement, Statement {
   @Override
   public boolean execute(String sql) throws SQLException {
     checkIfClosed();
-    resultSet = executeInternal(sql, new HashMap<Integer, ImmutableSqlParameter>(), StatementType.SQL);
+    resultSet =
+        executeInternal(sql, new HashMap<Integer, ImmutableSqlParameter>(), StatementType.SQL);
     return !resultSet.hasUpdateCount();
   }
 
@@ -203,7 +201,8 @@ public class DatabricksStatement implements IDatabricksStatement, Statement {
   public void addBatch(String sql) throws SQLException {
     LOGGER.debug("public void addBatch(String sql = {})", sql);
     checkIfClosed();
-    throw new DatabricksSQLFeatureNotSupportedException("Method not supported", "addBatch(String sql)");
+    throw new DatabricksSQLFeatureNotSupportedException(
+        "Method not supported", "addBatch(String sql)");
   }
 
   @Override
@@ -344,6 +343,7 @@ public class DatabricksStatement implements IDatabricksStatement, Statement {
     LOGGER.debug("public boolean isWrapperFor(Class<?> iface)");
     throw new UnsupportedOperationException("Not implemented");
   }
+
   @Override
   public void handleResultSetClose(IDatabricksResultSet resultSet) throws SQLException {
     // Don't throw exception, we are already closing here
@@ -352,11 +352,25 @@ public class DatabricksStatement implements IDatabricksStatement, Statement {
     }
   }
 
-  DatabricksResultSet executeInternal(String sql, Map<Integer, ImmutableSqlParameter> params, StatementType statementType)
-          throws SQLException {
-    LOGGER.debug("DatabricksResultSet executeInternal(String sql = {}, Map<Integer, ImmutableSqlParameter> params = {}, StatementType statementType = {})", sql, params, statementType);
-    resultSet = connection.getSession().getDatabricksClient().executeStatement(
-        sql, connection.getSession().getWarehouseId(), params, statementType, connection.getSession(), this);
+  DatabricksResultSet executeInternal(
+      String sql, Map<Integer, ImmutableSqlParameter> params, StatementType statementType)
+      throws SQLException {
+    LOGGER.debug(
+        "DatabricksResultSet executeInternal(String sql = {}, Map<Integer, ImmutableSqlParameter> params = {}, StatementType statementType = {})",
+        sql,
+        params,
+        statementType);
+    resultSet =
+        connection
+            .getSession()
+            .getDatabricksClient()
+            .executeStatement(
+                sql,
+                connection.getSession().getWarehouseId(),
+                params,
+                statementType,
+                connection.getSession(),
+                this);
     this.isClosed = false;
     return resultSet;
   }
