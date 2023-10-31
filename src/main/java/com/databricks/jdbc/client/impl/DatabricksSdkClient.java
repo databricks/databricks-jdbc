@@ -61,8 +61,7 @@ public class DatabricksSdkClient implements DatabricksClient {
             .setToken(connectionContext.getToken());
 
     this.workspaceClient =
-        new WorkspaceClient(this.databricksConfig)
-            .withStatementExecutionImpl(statementExecutionService);
+        new WorkspaceClient(true, apiClient).withStatementExecutionImpl(statementExecutionService);
   }
 
   @Override

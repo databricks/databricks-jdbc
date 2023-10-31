@@ -34,11 +34,24 @@ public class DatabricksPreparedStatementTest {
         DatabricksConnectionContext.parse(JDBC_URL, new Properties());
     DatabricksConnection connection = new DatabricksConnection(connectionContext, client);
     DatabricksPreparedStatement statement = new DatabricksPreparedStatement(connection, STATEMENT);
+    statement.setLong(1, (long) 100);
+    statement.setShort(2, (short) 10);
+    statement.setByte(3, (byte) 15);
+    statement.setString(4, "value");
 
+    HashMap<Integer, ImmutableSqlParameter> sqlParams =
+        new HashMap<>() {
+          {
+            put(1, getSqlParam(1, 100, DatabricksTypes.BIGINT));
+            put(2, getSqlParam(2, (short) 10, DatabricksTypes.SMALLINT));
+            put(3, getSqlParam(3, (byte) 15, DatabricksTypes.TINYINT));
+            put(4, getSqlParam(4, "value", DatabricksTypes.STRING));
+          }
+        };
     when(client.executeStatement(
             eq(STATEMENT),
             eq(WAREHOUSE_ID),
-            eq(new HashMap<Integer, ImmutableSqlParameter>()),
+            any(HashMap.class),
             eq(StatementType.QUERY),
             any(IDatabricksSession.class),
             eq(statement)))
@@ -67,11 +80,18 @@ public class DatabricksPreparedStatementTest {
             any(IDatabricksSession.class),
             eq(statement)))
         .thenReturn(resultSet);
-
     int updateCount = statement.executeUpdate();
     assertEquals(2, updateCount);
     assertFalse(statement.isClosed());
     statement.close();
     assertTrue(statement.isClosed());
+  }
+
+  private ImmutableSqlParameter getSqlParam(int parameterIndex, Object x, String databricksType) {
+    return ImmutableSqlParameter.builder()
+        .type(databricksType)
+        .value(x)
+        .cardinal(parameterIndex)
+        .build();
   }
 }
