@@ -7,18 +7,14 @@ import com.databricks.jdbc.client.sqlexec.CloseStatementRequest;
 import com.databricks.jdbc.client.sqlexec.CreateSessionRequest;
 import com.databricks.jdbc.client.sqlexec.DeleteSessionRequest;
 import com.databricks.jdbc.client.sqlexec.Session;
-import com.databricks.jdbc.core.DatabricksResultSet;
-import com.databricks.jdbc.core.DatabricksSQLException;
-import com.databricks.jdbc.core.IDatabricksSession;
-import com.databricks.jdbc.core.IDatabricksStatement;
-import com.databricks.jdbc.core.ImmutableSessionInfo;
-import com.databricks.jdbc.core.ImmutableSqlParameter;
+import com.databricks.jdbc.core.*;
 import com.databricks.jdbc.driver.IDatabricksConnectionContext;
 import com.databricks.sdk.WorkspaceClient;
 import com.databricks.sdk.core.ApiClient;
 import com.databricks.sdk.core.DatabricksConfig;
 import com.databricks.sdk.service.sql.*;
 import java.sql.SQLException;
+import java.sql.SQLTimeoutException;
 import java.time.Instant;
 import java.util.Collection;
 import java.util.HashMap;
@@ -30,7 +26,7 @@ import org.slf4j.LoggerFactory;
 /** Implementation of DatabricksClient interface using Databricks Java SDK. */
 public class DatabricksSdkClient implements DatabricksClient {
   private static final Logger LOGGER = LoggerFactory.getLogger(DatabricksSdkClient.class);
-  private static final String ASYNC_TIMEOUT_VALUE = "0s";
+  private static final long ASYNC_TIMEOUT_MILLIS = 300000; /*timeout of 5 minutes*/
   private static final String SYNC_TIMEOUT_VALUE = "10s";
   private static final int STATEMENT_RESULT_POLL_INTERVAL_MILLIS = 200;
 
@@ -134,11 +130,10 @@ public class DatabricksSdkClient implements DatabricksClient {
         workspaceClient.statementExecution().executeStatement(request);
     String statementId = response.getStatementId();
     StatementState responseState = response.getStatus().getState();
-
-    // TODO: Add timeout
+    // Todo : Implement unit test for timeout once separating tests are merged
     while (responseState == StatementState.PENDING || responseState == StatementState.RUNNING) {
-      // First poll happens without a delay
-      if (pollCount > 0) {
+      checkAndHandleTimeout(executionStartTime, statementId, sql);
+      if (pollCount > 0) { // First poll happens without a delay
         try {
           // TODO: make this configurable
           Thread.sleep(STATEMENT_RESULT_POLL_INTERVAL_MILLIS);
@@ -211,6 +206,15 @@ public class DatabricksSdkClient implements DatabricksClient {
             "Statement execution failed " + statementId + " -> " + statement);
       default:
         throw new IllegalStateException("Invalid state for error");
+    }
+  }
+
+  private void checkAndHandleTimeout(long executionStartTime, String statementId, String statement)
+      throws SQLTimeoutException {
+    long timeSinceExecutionStart = System.currentTimeMillis() - executionStartTime;
+    if (timeSinceExecutionStart > ASYNC_TIMEOUT_MILLIS) {
+      throw new DatabricksTimeoutException(
+          "Statement execution failed " + statementId + " -> " + statement);
     }
   }
 
