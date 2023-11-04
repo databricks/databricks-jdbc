@@ -6,7 +6,6 @@ import com.databricks.sdk.service.sql.ResultManifest;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import java.sql.ResultSetMetaData;
-import java.sql.SQLException;
 import java.sql.Types;
 import java.util.List;
 
@@ -75,119 +74,119 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
   }
 
   @Override
-  public int getColumnCount() throws SQLException {
+  public int getColumnCount() throws DatabricksSQLException {
     return columns.size();
   }
 
   @Override
-  public boolean isAutoIncrement(int column) throws SQLException {
+  public boolean isAutoIncrement(int column) throws DatabricksSQLException {
     throw new UnsupportedOperationException("Not implemented");
   }
 
   @Override
-  public boolean isCaseSensitive(int column) throws SQLException {
+  public boolean isCaseSensitive(int column) throws DatabricksSQLException {
     throw new UnsupportedOperationException("Not implemented");
   }
 
   @Override
-  public boolean isSearchable(int column) throws SQLException {
+  public boolean isSearchable(int column) throws DatabricksSQLException {
     throw new UnsupportedOperationException("Not implemented");
   }
 
   @Override
-  public boolean isCurrency(int column) throws SQLException {
+  public boolean isCurrency(int column) throws DatabricksSQLException {
     throw new UnsupportedOperationException("Not implemented");
   }
 
   @Override
-  public int isNullable(int column) throws SQLException {
+  public int isNullable(int column) throws DatabricksSQLException {
     // TODO: implement
     return ResultSetMetaData.columnNullable;
   }
 
   @Override
-  public boolean isSigned(int column) throws SQLException {
+  public boolean isSigned(int column) throws DatabricksSQLException {
     throw new UnsupportedOperationException("Not implemented");
   }
 
   @Override
-  public int getColumnDisplaySize(int column) throws SQLException {
+  public int getColumnDisplaySize(int column) throws DatabricksSQLException {
     // TODO: to be fixed
     return 10;
   }
 
   @Override
-  public String getColumnLabel(int column) throws SQLException {
+  public String getColumnLabel(int column) throws DatabricksSQLException {
     return columns.get(getEffectiveIndex(column)).columnName();
   }
 
   @Override
-  public String getColumnName(int column) throws SQLException {
+  public String getColumnName(int column) throws DatabricksSQLException {
     return columns.get(getEffectiveIndex(column)).columnName();
   }
 
   @Override
-  public String getSchemaName(int column) throws SQLException {
+  public String getSchemaName(int column) throws DatabricksSQLException {
     throw new UnsupportedOperationException("Not implemented");
   }
 
   @Override
-  public int getPrecision(int column) throws SQLException {
+  public int getPrecision(int column) throws DatabricksSQLException {
     return columns.get(getEffectiveIndex(column)).typePrecision();
   }
 
   @Override
-  public int getScale(int column) throws SQLException {
+  public int getScale(int column) throws DatabricksSQLException {
     throw new UnsupportedOperationException("Not implemented");
   }
 
   @Override
-  public String getTableName(int column) throws SQLException {
+  public String getTableName(int column) throws DatabricksSQLException {
     throw new UnsupportedOperationException("Not implemented");
   }
 
   @Override
-  public String getCatalogName(int column) throws SQLException {
+  public String getCatalogName(int column) throws DatabricksSQLException {
     throw new UnsupportedOperationException("Not implemented");
   }
 
   @Override
-  public int getColumnType(int column) throws SQLException {
+  public int getColumnType(int column) throws DatabricksSQLException {
     return columns.get(getEffectiveIndex(column)).columnType();
   }
 
   @Override
-  public String getColumnTypeName(int column) throws SQLException {
+  public String getColumnTypeName(int column) throws DatabricksSQLException {
     return columns.get(getEffectiveIndex(column)).columnTypeText();
   }
 
   @Override
-  public boolean isReadOnly(int column) throws SQLException {
+  public boolean isReadOnly(int column) throws DatabricksSQLException {
     throw new UnsupportedOperationException("Not implemented");
   }
 
   @Override
-  public boolean isWritable(int column) throws SQLException {
+  public boolean isWritable(int column) throws DatabricksSQLException {
     throw new UnsupportedOperationException("Not implemented");
   }
 
   @Override
-  public boolean isDefinitelyWritable(int column) throws SQLException {
+  public boolean isDefinitelyWritable(int column) throws DatabricksSQLException {
     throw new UnsupportedOperationException("Not implemented");
   }
 
   @Override
-  public String getColumnClassName(int column) throws SQLException {
+  public String getColumnClassName(int column) throws DatabricksSQLException {
     throw new UnsupportedOperationException("Not implemented");
   }
 
   @Override
-  public <T> T unwrap(Class<T> iface) throws SQLException {
+  public <T> T unwrap(Class<T> iface) throws DatabricksSQLException {
     throw new UnsupportedOperationException("Not implemented");
   }
 
   @Override
-  public boolean isWrapperFor(Class<?> iface) throws SQLException {
+  public boolean isWrapperFor(Class<?> iface) throws DatabricksSQLException {
     throw new UnsupportedOperationException("Not implemented");
   }
 

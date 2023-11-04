@@ -60,7 +60,7 @@ public class DatabricksConnection implements IDatabricksConnection, Connection {
   @Override
   public CallableStatement prepareCall(String sql) throws SQLException {
     LOGGER.debug("public CallableStatement prepareCall(String sql = {})", sql);
-    throw new SQLFeatureNotSupportedException("Unsupported feature");
+    throw new UnsupportedOperationException("Not implemented");
   }
 
   @Override

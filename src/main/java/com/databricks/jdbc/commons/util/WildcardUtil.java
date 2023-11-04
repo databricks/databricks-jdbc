@@ -1,4 +1,4 @@
-package com.databricks.jdbc.util;
+package com.databricks.jdbc.commons.util;
 
 /**
  * This class consists of utility functions with respect to wildcard strings that are required in

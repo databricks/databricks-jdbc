@@ -14,7 +14,6 @@ import com.databricks.sdk.core.ApiClient;
 import com.databricks.sdk.core.DatabricksConfig;
 import com.databricks.sdk.service.sql.*;
 import java.sql.SQLException;
-import java.sql.SQLTimeoutException;
 import java.time.Instant;
 import java.util.Collection;
 import java.util.HashMap;
@@ -26,7 +25,6 @@ import org.slf4j.LoggerFactory;
 /** Implementation of DatabricksClient interface using Databricks Java SDK. */
 public class DatabricksSdkClient implements DatabricksClient {
   private static final Logger LOGGER = LoggerFactory.getLogger(DatabricksSdkClient.class);
-  private static final long ASYNC_TIMEOUT_MILLIS = 300000; /*timeout of 5 minutes*/
   private static final String SYNC_TIMEOUT_VALUE = "10s";
   private static final int STATEMENT_RESULT_POLL_INTERVAL_MILLIS = 200;
 
@@ -69,8 +67,7 @@ public class DatabricksSdkClient implements DatabricksClient {
     Map<String, String> headers = new HashMap<>();
     headers.put("Accept", "application/json");
     headers.put("Content-Type", "application/json");
-    Session session =
-        (Session) workspaceClient.apiClient().POST(path, request, Session.class, headers);
+    Session session = workspaceClient.apiClient().POST(path, request, Session.class, headers);
     return ImmutableSessionInfo.builder()
         .warehouseId(session.getWarehouseId())
         .sessionId(session.getSessionId())
@@ -101,45 +98,22 @@ public class DatabricksSdkClient implements DatabricksClient {
         sql,
         warehouseId,
         statementType);
-    Format format = useCloudFetchForResult(statementType) ? Format.ARROW_STREAM : Format.JSON_ARRAY;
-    Disposition disposition =
-        useCloudFetchForResult(statementType) ? Disposition.EXTERNAL_LINKS : Disposition.INLINE;
-    ExecuteStatementRequestWithSession request =
-        (ExecuteStatementRequestWithSession)
-            new ExecuteStatementRequestWithSession()
-                .setSessionId(session.getSessionId())
-                .setStatement(sql)
-                .setWarehouseId(warehouseId)
-                .setDisposition(disposition)
-                .setFormat(format)
-                .setWaitTimeout(SYNC_TIMEOUT_VALUE)
-                .setOnWaitTimeout(TimeoutAction.CONTINUE)
-                .setParameters(
-                    parameters.values().stream()
-                        .map(
-                            param ->
-                                new PositionalStatementParameterListItem()
-                                    .setOrdinal(param.cardinal())
-                                    .setType(param.type())
-                                    .setValue(param.value().toString()))
-                        .collect(Collectors.toList()));
 
     long pollCount = 0;
     long executionStartTime = Instant.now().toEpochMilli();
+    ExecuteStatementRequest request =
+        getRequest(statementType, sql, warehouseId, session, parameters);
     ExecuteStatementResponse response =
         workspaceClient.statementExecution().executeStatement(request);
     String statementId = response.getStatementId();
     StatementState responseState = response.getStatus().getState();
-    // Todo : Implement unit test for timeout once separating tests are merged
     while (responseState == StatementState.PENDING || responseState == StatementState.RUNNING) {
-      checkAndHandleTimeout(executionStartTime, statementId, sql);
       if (pollCount > 0) { // First poll happens without a delay
         try {
-          // TODO: make this configurable
-          Thread.sleep(STATEMENT_RESULT_POLL_INTERVAL_MILLIS);
+          Thread.sleep(STATEMENT_RESULT_POLL_INTERVAL_MILLIS); // TODO: make this configurable
         } catch (InterruptedException e) {
-          // TODO: Handle gracefully
-          throw new DatabricksSQLException("Statement execution fetch interrupted");
+          throw new DatabricksSQLException(
+              "Statement execution fetch interrupted"); // TODO: Handle gracefully
         }
       }
       response =
@@ -189,7 +163,39 @@ public class DatabricksSdkClient implements DatabricksClient {
         .getExternalLinks();
   }
 
+  private ExecuteStatementRequestWithSession getRequest(
+      StatementType statementType,
+      String sql,
+      String warehouseId,
+      IDatabricksSession session,
+      Map<Integer, ImmutableSqlParameter> parameters) {
+    Format format = useCloudFetchForResult(statementType) ? Format.ARROW_STREAM : Format.JSON_ARRAY;
+    Disposition disposition =
+        useCloudFetchForResult(statementType) ? Disposition.EXTERNAL_LINKS : Disposition.INLINE;
+
+    return (ExecuteStatementRequestWithSession)
+        new ExecuteStatementRequestWithSession()
+            .setSessionId(session.getSessionId())
+            .setStatement(sql)
+            .setWarehouseId(warehouseId)
+            .setDisposition(disposition)
+            .setFormat(format)
+            .setWaitTimeout(SYNC_TIMEOUT_VALUE)
+            .setOnWaitTimeout(TimeoutAction.CONTINUE)
+            .setParameters(
+                parameters.values().stream()
+                    .map(this::mapToParameterListItem)
+                    .collect(Collectors.toList()));
+  }
+
   /** Handles a failed execution and throws appropriate exception */
+  private StatementParameterListItem mapToParameterListItem(ImmutableSqlParameter parameter) {
+    return new PositionalStatementParameterListItem()
+        .setOrdinal(parameter.cardinal())
+        .setType(parameter.type())
+        .setValue(parameter.value().toString());
+  }
+
   private void handleFailedExecution(
       StatementState statementState, String statementId, String statement) throws SQLException {
     LOGGER.debug(
@@ -206,15 +212,6 @@ public class DatabricksSdkClient implements DatabricksClient {
             "Statement execution failed " + statementId + " -> " + statement);
       default:
         throw new IllegalStateException("Invalid state for error");
-    }
-  }
-
-  private void checkAndHandleTimeout(long executionStartTime, String statementId, String statement)
-      throws SQLTimeoutException {
-    long timeSinceExecutionStart = System.currentTimeMillis() - executionStartTime;
-    if (timeSinceExecutionStart > ASYNC_TIMEOUT_MILLIS) {
-      throw new DatabricksTimeoutException(
-          "Statement execution failed " + statementId + " -> " + statement);
     }
   }
 

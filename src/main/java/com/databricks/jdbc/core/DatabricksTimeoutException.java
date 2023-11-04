@@ -7,4 +7,8 @@ public class DatabricksTimeoutException extends SQLTimeoutException {
   public DatabricksTimeoutException(String message) {
     super(message);
   }
+
+  public DatabricksTimeoutException(String message, Throwable exception) {
+    super(message, exception);
+  }
 }

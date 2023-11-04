@@ -13,4 +13,8 @@ public class DatabricksSQLException extends SQLException {
     // TODO: Add proper error code
     super(reason, null, 0);
   }
+
+  public DatabricksSQLException(String reason, Throwable cause) {
+    super(reason, cause);
+  }
 }

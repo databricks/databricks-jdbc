@@ -1,15 +1,22 @@
 package com.databricks.jdbc.core;
 
+import static com.databricks.jdbc.commons.EnvironmentVariables.DEFAULT_STATEMENT_TIMEOUT_SECONDS;
+import static java.lang.String.format;
+
+import com.databricks.jdbc.client.DatabricksClient;
 import com.databricks.jdbc.client.StatementType;
 import java.sql.*;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class DatabricksStatement implements IDatabricksStatement, Statement {
 
   private static final Logger LOGGER = LoggerFactory.getLogger(DatabricksStatement.class);
+
+  private int timeoutInSeconds;
   private final DatabricksConnection connection;
   DatabricksResultSet resultSet;
   private String statementId;
@@ -21,6 +28,7 @@ public class DatabricksStatement implements IDatabricksStatement, Statement {
     this.resultSet = null;
     this.statementId = null;
     this.isClosed = false;
+    this.timeoutInSeconds = DEFAULT_STATEMENT_TIMEOUT_SECONDS;
   }
 
   @Override
@@ -94,13 +102,15 @@ public class DatabricksStatement implements IDatabricksStatement, Statement {
   @Override
   public int getQueryTimeout() throws SQLException {
     LOGGER.debug("public int getQueryTimeout()");
-    throw new UnsupportedOperationException("Not implemented");
+    checkIfClosed();
+    return this.timeoutInSeconds;
   }
 
   @Override
   public void setQueryTimeout(int seconds) throws SQLException {
     LOGGER.debug("public void setQueryTimeout(int seconds = {})", seconds);
-    throw new UnsupportedOperationException("Not implemented");
+    checkIfClosed();
+    this.timeoutInSeconds = seconds;
   }
 
   @Override
@@ -355,24 +365,50 @@ public class DatabricksStatement implements IDatabricksStatement, Statement {
   DatabricksResultSet executeInternal(
       String sql, Map<Integer, ImmutableSqlParameter> params, StatementType statementType)
       throws SQLException {
-    LOGGER.debug(
-        "DatabricksResultSet executeInternal(String sql = {}, Map<Integer, ImmutableSqlParameter> params = {}, StatementType statementType = {})",
-        sql,
-        params,
-        statementType);
-    resultSet =
-        connection
-            .getSession()
-            .getDatabricksClient()
-            .executeStatement(
-                sql,
-                connection.getSession().getWarehouseId(),
-                params,
-                statementType,
-                connection.getSession(),
-                this);
-    this.isClosed = false;
+    String stackTraceMessage =
+        format(
+            "DatabricksResultSet executeInternal(String sql = %s,Map<Integer, ImmutableSqlParameter> params = {%s}, StatementType statementType = {%s})",
+            sql, params.toString(), statementType.toString());
+    LOGGER.debug(stackTraceMessage);
+    CompletableFuture<DatabricksResultSet> futureResultSet =
+        getFutureResult(sql, params, statementType);
+    try {
+      resultSet = futureResultSet.get(DEFAULT_STATEMENT_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+    } catch (TimeoutException e) {
+      futureResultSet.cancel(true); // Cancel execution run
+      throw new DatabricksTimeoutException(
+          "Statement execution timed-out. " + stackTraceMessage, e);
+    } catch (InterruptedException | ExecutionException e) {
+      throw new DatabricksSQLException(
+          "Error occurred during statement execution." + stackTraceMessage, e);
+    }
+    LOGGER.debug("Result retrieved successfully" + resultSet.toString());
     return resultSet;
+  }
+//Todo : Add timeout tests in the subsequent PR
+  CompletableFuture<DatabricksResultSet> getFutureResult(
+      String sql, Map<Integer, ImmutableSqlParameter> params, StatementType statementType) {
+    return CompletableFuture.supplyAsync(
+        () -> {
+          try {
+            return getResultFromClient(sql, params, statementType);
+          } catch (SQLException e) {
+            throw new RuntimeException(e);
+          }
+        });
+  }
+
+  DatabricksResultSet getResultFromClient(
+      String sql, Map<Integer, ImmutableSqlParameter> params, StatementType statementType)
+      throws SQLException {
+    DatabricksClient client = connection.getSession().getDatabricksClient();
+    return client.executeStatement(
+        sql,
+        connection.getSession().getWarehouseId(),
+        params,
+        statementType,
+        connection.getSession(),
+        this);
   }
 
   void checkIfClosed() throws SQLException {
