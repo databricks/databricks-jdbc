@@ -375,6 +375,7 @@ public class DatabricksStatement implements IDatabricksStatement, Statement {
     try {
       resultSet = futureResultSet.get(DEFAULT_STATEMENT_TIMEOUT_SECONDS, TimeUnit.SECONDS);
     } catch (TimeoutException e) {
+      this.close(); // Close the statement
       futureResultSet.cancel(true); // Cancel execution run
       throw new DatabricksTimeoutException(
           "Statement execution timed-out. " + stackTraceMessage, e);
@@ -385,7 +386,8 @@ public class DatabricksStatement implements IDatabricksStatement, Statement {
     LOGGER.debug("Result retrieved successfully" + resultSet.toString());
     return resultSet;
   }
-//Todo : Add timeout tests in the subsequent PR
+
+  // Todo : Add timeout tests in the subsequent PR
   CompletableFuture<DatabricksResultSet> getFutureResult(
       String sql, Map<Integer, ImmutableSqlParameter> params, StatementType statementType) {
     return CompletableFuture.supplyAsync(

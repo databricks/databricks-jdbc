@@ -185,7 +185,7 @@ public class DatabricksConnection implements IDatabricksConnection, Connection {
         sql,
         resultSetType,
         resultSetConcurrency);
-    throw new UnsupportedOperationException("Not implemented");
+    throw new UnsupportedOperationException("Not supported");
   }
 
   @Override

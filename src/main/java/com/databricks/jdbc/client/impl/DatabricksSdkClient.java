@@ -26,6 +26,7 @@ import org.slf4j.LoggerFactory;
 public class DatabricksSdkClient implements DatabricksClient {
   private static final Logger LOGGER = LoggerFactory.getLogger(DatabricksSdkClient.class);
   private static final String SYNC_TIMEOUT_VALUE = "10s";
+  private static final String ASYNC_TIMEOUT_VALUE = "0s";
   private static final int STATEMENT_RESULT_POLL_INTERVAL_MILLIS = 200;
 
   private final IDatabricksConnectionContext connectionContext;
@@ -112,8 +113,8 @@ public class DatabricksSdkClient implements DatabricksClient {
         try {
           Thread.sleep(STATEMENT_RESULT_POLL_INTERVAL_MILLIS); // TODO: make this configurable
         } catch (InterruptedException e) {
-          throw new DatabricksSQLException(
-              "Statement execution fetch interrupted"); // TODO: Handle gracefully
+          throw new DatabricksTimeoutException(
+              "Thread interrupted due to statement timeout");
         }
       }
       response =
