@@ -60,7 +60,7 @@ public class DatabricksConnection implements IDatabricksConnection, Connection {
   @Override
   public CallableStatement prepareCall(String sql) throws SQLException {
     LOGGER.debug("public CallableStatement prepareCall(String sql = {})", sql);
-    throw new UnsupportedOperationException("Not implemented");
+    throw new UnsupportedOperationException("Not Supported");
   }
 
   @Override
@@ -185,7 +185,7 @@ public class DatabricksConnection implements IDatabricksConnection, Connection {
         sql,
         resultSetType,
         resultSetConcurrency);
-    throw new UnsupportedOperationException("Not supported");
+    throw new UnsupportedOperationException("Not implemented");
   }
 
   @Override
