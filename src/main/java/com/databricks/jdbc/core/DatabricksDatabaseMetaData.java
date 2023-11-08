@@ -7,10 +7,6 @@ import com.databricks.sdk.service.sql.StatementState;
 import com.databricks.sdk.service.sql.StatementStatus;
 import java.sql.*;
 import java.util.*;
-import java.util.concurrent.ConcurrentLinkedQueue;
-import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -937,106 +933,9 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
     Map.Entry<String, String> pair = applyContext(catalog, schemaPattern);
     String catalogWithContext = pair.getKey();
     String schemaWithContext = pair.getValue();
-    Queue<Map.Entry<String, String>> catalogSchemaPairs = new ConcurrentLinkedQueue<>();
-    if (WildcardUtil.isWildcard(schemaWithContext)
-        || WildcardUtil.isMatchAnything(catalogWithContext)) {
-      ResultSet resultSet = getSchemas(catalogWithContext, schemaWithContext);
-      while (resultSet.next()) {
-        catalogSchemaPairs.add(Map.entry(resultSet.getString(2), resultSet.getString(1)));
-      }
-    } else {
-      catalogSchemaPairs.add(pair);
-    }
-    // TODO: Limit to 15 pairs to run quickly, remove after demo/find workaround
-    while (catalogSchemaPairs.size() > 15) catalogSchemaPairs.poll();
-    String tableWithContext = tableNamePattern == null ? "*" : tableNamePattern;
-
-    List<List<Object>> rows = new CopyOnWriteArrayList<>();
-    ExecutorService executorService = Executors.newFixedThreadPool(150);
-    for (int i = 0; i < 150; i++) {
-      executorService.submit(
-          () -> {
-            while (!catalogSchemaPairs.isEmpty()) {
-              Map.Entry<String, String> currentPair = catalogSchemaPairs.poll();
-              String currentCatalog = currentPair.getKey();
-              String currentSchema = currentPair.getValue();
-              String showTablesSQL = "show tables from " + currentCatalog + "." + currentSchema;
-              if (!WildcardUtil.isMatchAnything(tableWithContext)) {
-                showTablesSQL += " like '" + tableWithContext + "'";
-              }
-              LOGGER.debug("SQL command to fetch tables: {}" + showTablesSQL);
-              try {
-                ResultSet rs =
-                    session
-                        .getDatabricksClient()
-                        .executeStatement(
-                            showTablesSQL,
-                            session.getWarehouseId(),
-                            new HashMap<Integer, ImmutableSqlParameter>(),
-                            StatementType.METADATA,
-                            session,
-                            null /* parentStatement */);
-                while (rs.next()) {
-                  rows.add(
-                      Arrays.asList(
-                          currentCatalog,
-                          currentSchema,
-                          rs.getString(2),
-                          "TABLE",
-                          null,
-                          null,
-                          null,
-                          null,
-                          null,
-                          null));
-                }
-              } catch (SQLException e) {
-                throw new RuntimeException(e);
-              }
-            }
-          });
-    }
-    executorService.shutdown();
-    while (!executorService.isTerminated()) {
-      // wait
-    }
-    // They are ordered by TABLE_TYPE, TABLE_CAT, TABLE_SCHEM and TABLE_NAME.
-    rows.sort(
-        Comparator.comparing((List<Object> i) -> i.get(3).toString())
-            .thenComparing(i -> i.get(0).toString())
-            .thenComparing(i -> i.get(1).toString())
-            .thenComparing(i -> i.get(2).toString()));
-    return new DatabricksResultSet(
-        new StatementStatus().setState(StatementState.SUCCEEDED),
-        "gettables-metadata",
-        Arrays.asList(
-            "TABLE_CAT",
-            "TABLE_SCHEM",
-            "TABLE_NAME",
-            "TABLE_TYPE",
-            "REMARKS",
-            "TYPE_CAT",
-            "TYPE_SCHEM",
-            "TYPE_NAME",
-            "SELF_REFERENCING_COL_NAME",
-            "REF_GENERATION"),
-        Arrays.asList(
-            "VARCHAR", "VARCHAR", "VARCHAR", "VARCHAR", "VARCHAR", "VARCHAR", "VARCHAR", "VARCHAR",
-            "VARCHAR", "VARCHAR"),
-        Arrays.asList(
-            Types.VARCHAR,
-            Types.VARCHAR,
-            Types.VARCHAR,
-            Types.VARCHAR,
-            Types.VARCHAR,
-            Types.VARCHAR,
-            Types.VARCHAR,
-            Types.VARCHAR,
-            Types.VARCHAR,
-            Types.VARCHAR),
-        Arrays.asList(128, 128, 128, 128, 128, 128, 128, 128, 128, 128),
-        rows,
-        StatementType.METADATA);
+    return session
+        .getDatabricksMetadataClient()
+        .listTables(session, catalogWithContext, schemaWithContext, tableNamePattern);
   }
 
   @Override
@@ -1050,32 +949,7 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
     LOGGER.debug("public ResultSet getCatalogs()");
     throwExceptionIfConnectionIsClosed();
 
-    String showCatalogsSQL = "show catalogs";
-    LOGGER.debug("SQL command to fetch catalogs: {}" + showCatalogsSQL);
-
-    ResultSet rs =
-        session
-            .getDatabricksClient()
-            .executeStatement(
-                showCatalogsSQL,
-                session.getWarehouseId(),
-                new HashMap<Integer, ImmutableSqlParameter>(),
-                StatementType.METADATA,
-                session,
-                null /* parentStatement */);
-    List<List<Object>> rows = new ArrayList<>();
-    while (rs.next()) {
-      rows.add(Collections.singletonList(rs.getString(1)));
-    }
-    return new DatabricksResultSet(
-        new StatementStatus().setState(StatementState.SUCCEEDED),
-        "getcatalogs-metadata",
-        Collections.singletonList("TABLE_CAT"),
-        Collections.singletonList("VARCHAR"),
-        Collections.singletonList(Types.VARCHAR),
-        Collections.singletonList(128),
-        rows,
-        StatementType.METADATA);
+    return session.getDatabricksMetadataClient().listCatalogs(session);
   }
 
   @Override
@@ -1105,65 +979,9 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
         columnNamePattern);
     throwExceptionIfConnectionIsClosed();
 
-    ResultSet resultSet = getTables(catalog, schemaPattern, tableNamePattern, null);
-    Queue<String[]> catalogSchemaTableCombinations = new ConcurrentLinkedQueue<>();
-    while (resultSet.next()) {
-      catalogSchemaTableCombinations.add(
-          new String[] {resultSet.getString(1), resultSet.getString(2), resultSet.getString(3)});
-    }
-
-    List<List<Object>> rows = new CopyOnWriteArrayList<>();
-    ExecutorService executorService = Executors.newFixedThreadPool(150);
-    for (int i = 0; i < 150; i++) {
-      executorService.submit(
-          () -> {
-            while (!catalogSchemaTableCombinations.isEmpty()) {
-              String[] combination = catalogSchemaTableCombinations.poll();
-              String showColumnsSQL =
-                  "show columns in " + combination[0] + "." + combination[1] + "." + combination[2];
-              LOGGER.debug("SQL command to fetch columns: {}" + showColumnsSQL);
-              try {
-                ResultSet rs =
-                    session
-                        .getDatabricksClient()
-                        .executeStatement(
-                            showColumnsSQL,
-                            session.getWarehouseId(),
-                            new HashMap<Integer, ImmutableSqlParameter>(),
-                            StatementType.METADATA,
-                            session,
-                            null /* parentStatement */);
-                while (rs.next()) {
-                  if (rs.getString(1).matches(columnNamePattern)) {
-                    rows.add(
-                        Arrays.asList(
-                            combination[0], combination[1], combination[2], rs.getString(1)));
-                  }
-                }
-              } catch (SQLException e) {
-                throw new RuntimeException(e);
-              }
-            }
-          });
-    }
-    executorService.shutdown();
-    while (!executorService.isTerminated()) {
-      // wait
-    }
-    // TODO: some columns are missing from result set, determine how to fill those
-    rows.sort(
-        Comparator.comparing((List<Object> i) -> i.get(0).toString())
-            .thenComparing(i -> i.get(1).toString())
-            .thenComparing(i -> i.get(2).toString()));
-    return new DatabricksResultSet(
-        new StatementStatus().setState(StatementState.SUCCEEDED),
-        "metadata-statement",
-        Arrays.asList("TABLE_CAT", "TABLE_SCHEM", "TABLE_NAME", "COLUMN_NAME"),
-        Arrays.asList("VARCHAR", "VARCHAR", "VARCHAR", "VARCHAR"),
-        Arrays.asList(Types.VARCHAR, Types.VARCHAR, Types.VARCHAR, Types.VARCHAR),
-        Arrays.asList(128, 128, 128, 128),
-        rows,
-        StatementType.METADATA);
+    return session
+        .getDatabricksMetadataClient()
+        .listColumns(session, catalog, schemaPattern, tableNamePattern, columnNamePattern);
   }
 
   @Override
@@ -1221,7 +1039,7 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
         catalog,
         schema,
         table);
-    throw new UnsupportedOperationException("Not implemented");
+    return session.getDatabricksMetadataClient().listPrimaryKeys(session, catalog, schema, table);
   }
 
   @Override
@@ -1960,72 +1778,9 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
     String catalogWithContext = pair.getKey();
     String schemaWithContext = pair.getValue();
 
-    // Since catalog must be an identifier or all catalogs (null), we need not care about catalog
-    // regex
-    Queue<String> catalogs = new ConcurrentLinkedQueue<>();
-    if (WildcardUtil.isMatchAnything(catalogWithContext)) {
-      ResultSet rs = getCatalogs();
-      while (rs.next()) {
-        catalogs.add(rs.getString(1));
-      }
-    } else {
-      catalogs.add(catalogWithContext);
-    }
-    // TODO: Remove post demo
-    while (catalogs.size() > 5) catalogs.poll();
-
-    List<List<Object>> rows = new CopyOnWriteArrayList<>();
-    ExecutorService executorService = Executors.newFixedThreadPool(150);
-    for (int i = 0; i < 150; i++) {
-      executorService.submit(
-          () -> {
-            while (!catalogs.isEmpty()) {
-              String currentCatalog = catalogs.poll();
-              // TODO: Emoji characters are not being handled correctly by SDK/SEA, hence, skipping
-              // for now
-              //          if (WildcardUtil.containsEmoji(currentCatalog))
-              //            return;
-              String showSchemaSQL = "show schemas in `" + currentCatalog + "`";
-              if (!WildcardUtil.isMatchAnything(schemaWithContext)) {
-                showSchemaSQL += " like '" + schemaWithContext + "'";
-              }
-              LOGGER.debug("SQL command to fetch schemas: {}" + showSchemaSQL);
-              try {
-                ResultSet rs =
-                    session
-                        .getDatabricksClient()
-                        .executeStatement(
-                            showSchemaSQL,
-                            session.getWarehouseId(),
-                            new HashMap<Integer, ImmutableSqlParameter>(),
-                            StatementType.METADATA,
-                            session,
-                            null /* parentStatement */);
-                while (rs.next()) {
-                  rows.add(Arrays.asList(rs.getString(1), currentCatalog));
-                }
-              } catch (SQLException e) {
-                throw new RuntimeException(e);
-              }
-            }
-          });
-    }
-    executorService.shutdown();
-    while (!executorService.isTerminated()) {
-      // wait
-    }
-    rows.sort(
-        Comparator.comparing((List<Object> i) -> i.get(1).toString())
-            .thenComparing(i -> i.get(0).toString()));
-    return new DatabricksResultSet(
-        new StatementStatus().setState(StatementState.SUCCEEDED),
-        "metadata-statement",
-        Arrays.asList("TABLE_SCHEM", "TABLE_CATALOG"),
-        Arrays.asList("VARCHAR", "VARCHAR"),
-        Arrays.asList(Types.VARCHAR, Types.VARCHAR),
-        Arrays.asList(128, 128),
-        rows,
-        StatementType.METADATA);
+    return session
+        .getDatabricksMetadataClient()
+        .listSchemas(session, catalogWithContext, schemaWithContext);
   }
 
   @Override

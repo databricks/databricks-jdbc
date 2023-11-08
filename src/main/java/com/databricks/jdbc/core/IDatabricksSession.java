@@ -1,6 +1,7 @@
 package com.databricks.jdbc.core;
 
 import com.databricks.jdbc.client.DatabricksClient;
+import com.databricks.jdbc.client.DatabricksMetadataClient;
 import javax.annotation.Nullable;
 
 /** Session interface to represent an open connection to Databricks server. */
@@ -36,6 +37,9 @@ public interface IDatabricksSession {
 
   /** Returns the client for connecting to Databricks server */
   DatabricksClient getDatabricksClient();
+
+  /** Returns the metadata client */
+  DatabricksMetadataClient getDatabricksMetadataClient();
 
   /** Returns default catalog associated with the session */
   String getCatalog();

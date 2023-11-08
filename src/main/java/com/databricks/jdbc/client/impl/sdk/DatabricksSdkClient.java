@@ -1,4 +1,4 @@
-package com.databricks.jdbc.client.impl;
+package com.databricks.jdbc.client.impl.sdk;
 
 import com.databricks.jdbc.client.DatabricksClient;
 import com.databricks.jdbc.client.StatementType;
