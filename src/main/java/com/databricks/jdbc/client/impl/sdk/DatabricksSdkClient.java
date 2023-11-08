@@ -189,7 +189,6 @@ public class DatabricksSdkClient implements DatabricksClient {
                     .collect(Collectors.toList()));
   }
 
-  /** Handles a failed execution and throws appropriate exception */
   private StatementParameterListItem mapToParameterListItem(ImmutableSqlParameter parameter) {
     return new PositionalStatementParameterListItem()
         .setOrdinal(parameter.cardinal())
@@ -197,6 +196,7 @@ public class DatabricksSdkClient implements DatabricksClient {
         .setValue(parameter.value().toString());
   }
 
+  /** Handles a failed execution and throws appropriate exception */
   private void handleFailedExecution(
       StatementState statementState, String statementId, String statement) throws SQLException {
     LOGGER.debug(
