@@ -81,4 +81,34 @@ public class TypeUtil {
         throw new IllegalStateException("Unknown column type: " + typeName);
     }
   }
+
+  public static int getDisplaySize(ColumnInfoTypeName typeName, int precision) {
+    switch (typeName) {
+      case BYTE:
+      case SHORT:
+      case INT:
+      case LONG:
+        return precision + 1; // including negative sign
+      case CHAR:
+        return precision;
+      case FLOAT:
+      case DOUBLE:
+      case DECIMAL:
+        return 24;
+      case BOOLEAN:
+        return 5; // length of `false`
+      case TIMESTAMP:
+        return 29; // as per
+        // https://docs.oracle.com/en/java/javase/21/docs/api/java.sql/java/sql/Timestamp.html#toString()
+      case DATE:
+        return 10;
+      case NULL:
+        return 4; // Length of `NULL`
+      case BINARY: // hive has no max limit for binary
+      case ARRAY:
+      case STRUCT:
+      default:
+        return Integer.MAX_VALUE;
+    }
+  }
 }

@@ -33,13 +33,9 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
               .columnTypeClassName(TypeUtil.getColumnTypeClassName(columnInfo.getTypeName()))
               .columnType(TypeUtil.getColumnType(columnInfo.getTypeName()))
               .columnTypeText(columnInfo.getTypeText());
-      if (columnInfo.getTypePrecision() != null) {
-        columnBuilder.typePrecision(columnInfo.getTypePrecision().intValue());
-      } else if (columnInfo.getTypeName().equals(ColumnInfoTypeName.STRING)) {
-        columnBuilder.typePrecision(255);
-      } else {
-        columnBuilder.typePrecision(0);
-      }
+      int precision = getPrecision(columnInfo);
+      columnBuilder.typePrecision(precision);
+      columnBuilder.displaySize(TypeUtil.getDisplaySize(columnInfo.getTypeName(), precision));
       columnsBuilder.add(columnBuilder.build());
       // Keep index starting from 1, to be consistent with JDBC convention
       columnIndexBuilder.put(columnInfo.getName(), ++currIndex);
@@ -47,6 +43,15 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
     this.columns = columnsBuilder.build();
     this.columnNameIndex = columnIndexBuilder.build();
     this.totalRows = resultManifest.getTotalRowCount();
+  }
+
+  private int getPrecision(ColumnInfo columnInfo) {
+    if (columnInfo.getTypePrecision() != null) {
+      return columnInfo.getTypePrecision().intValue();
+    } else if (columnInfo.getTypeName().equals(ColumnInfoTypeName.STRING)) {
+      return 255;
+    }
+    return 0;
   }
 
   public DatabricksResultSetMetaData(
