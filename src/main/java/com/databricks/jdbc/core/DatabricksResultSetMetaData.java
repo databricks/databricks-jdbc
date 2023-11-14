@@ -27,15 +27,19 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
     ImmutableMap.Builder<String, Integer> columnIndexBuilder = ImmutableMap.builder();
     int currIndex = 0;
     for (ColumnInfo columnInfo : resultManifest.getSchema().getColumns()) {
+      ColumnInfoTypeName columnTypeName = columnInfo.getTypeName();
       ImmutableDatabricksColumn.Builder columnBuilder =
           ImmutableDatabricksColumn.builder()
               .columnName(columnInfo.getName())
-              .columnTypeClassName(TypeUtil.getColumnTypeClassName(columnInfo.getTypeName()))
-              .columnType(TypeUtil.getColumnType(columnInfo.getTypeName()))
+              .columnTypeClassName(TypeUtil.getColumnTypeClassName(columnTypeName))
+              .columnType(TypeUtil.getColumnType(columnTypeName))
               .columnTypeText(columnInfo.getTypeText());
       int precision = getPrecision(columnInfo);
       columnBuilder.typePrecision(precision);
-      columnBuilder.displaySize(TypeUtil.getDisplaySize(columnInfo.getTypeName(), precision));
+      columnBuilder.displaySize(TypeUtil.getDisplaySize(columnTypeName, precision));
+      columnBuilder.isSigned(TypeUtil.isSigned(columnTypeName));
+      columnBuilder.isCaseSensitive(TypeUtil.isCaseSensitive(columnTypeName));
+
       columnsBuilder.add(columnBuilder.build());
       // Keep index starting from 1, to be consistent with JDBC convention
       columnIndexBuilder.put(columnInfo.getName(), ++currIndex);

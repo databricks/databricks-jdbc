@@ -1,13 +1,22 @@
 package com.databricks.jdbc.commons.util;
 
+import static com.databricks.sdk.service.sql.ColumnInfoTypeName.*;
+
 import com.databricks.sdk.service.sql.ColumnInfoTypeName;
 import java.sql.Types;
+import java.util.ArrayList;
+import java.util.Arrays;
 
 /**
  * This class consists of utility functions with respect to wildcard strings that are required in
  * building SQL queries
  */
 public class TypeUtil {
+  private static ArrayList<ColumnInfoTypeName> SIGNED_TYPES =
+      new ArrayList<>(Arrays.asList(DECIMAL, DOUBLE, FLOAT, INT, LONG, SHORT));
+  private static ArrayList<ColumnInfoTypeName> CASE_SENSITIVE_TYPES =
+      new ArrayList<>(Arrays.asList(CHAR, STRING));
+
   public static int getColumnType(ColumnInfoTypeName typeName) {
     switch (typeName) {
       case BYTE:
@@ -110,5 +119,13 @@ public class TypeUtil {
       default:
         return Integer.MAX_VALUE;
     }
+  }
+
+  public static boolean isSigned(ColumnInfoTypeName typeName) {
+    return SIGNED_TYPES.contains(typeName);
+  }
+
+  public static boolean isCaseSensitive(ColumnInfoTypeName typeName) {
+    return CASE_SENSITIVE_TYPES.contains(typeName);
   }
 }
