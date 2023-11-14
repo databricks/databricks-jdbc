@@ -1,5 +1,7 @@
 package com.databricks.jdbc.core;
 
+import com.databricks.jdbc.core.types.AccessType;
+import com.databricks.jdbc.core.types.Nullable;
 import org.immutables.value.Value;
 
 @Value.Immutable
@@ -19,4 +21,32 @@ public interface DatabricksColumn {
    * string, it's 255.
    */
   int typePrecision();
+
+  int displaySize();
+
+  boolean isSigned();
+
+  String schemaName();
+
+  boolean isCurrency();
+
+  boolean isAutoIncrement();
+
+  boolean isCaseSensitive();
+
+  boolean isSearchable();
+
+  Nullable nullable();
+
+  int scale();
+
+  AccessType accessType();
+
+  boolean isDefinitelyWritable();
+
+  String columnTypeClassName();
+
+  String tableName();
+
+  String catalogName();
 }

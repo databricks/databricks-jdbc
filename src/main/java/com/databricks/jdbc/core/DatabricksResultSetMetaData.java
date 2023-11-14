@@ -1,5 +1,8 @@
 package com.databricks.jdbc.core;
 
+import com.databricks.jdbc.commons.util.TypeUtil;
+import com.databricks.jdbc.commons.util.WrapperUtil;
+import com.databricks.jdbc.core.types.AccessType;
 import com.databricks.sdk.service.sql.ColumnInfo;
 import com.databricks.sdk.service.sql.ColumnInfoTypeName;
 import com.databricks.sdk.service.sql.ResultManifest;
@@ -7,7 +10,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
-import java.sql.Types;
 import java.util.List;
 
 public class DatabricksResultSetMetaData implements ResultSetMetaData {
@@ -28,7 +30,8 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
       ImmutableDatabricksColumn.Builder columnBuilder =
           ImmutableDatabricksColumn.builder()
               .columnName(columnInfo.getName())
-              .columnType(getColumnType(columnInfo.getTypeName()))
+              .columnTypeClassName(TypeUtil.getColumnTypeClassName(columnInfo.getTypeName()))
+              .columnType(TypeUtil.getColumnType(columnInfo.getTypeName()))
               .columnTypeText(columnInfo.getTypeText());
       if (columnInfo.getTypePrecision() != null) {
         columnBuilder.typePrecision(columnInfo.getTypePrecision().intValue());
@@ -81,39 +84,37 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
 
   @Override
   public boolean isAutoIncrement(int column) throws SQLException {
-    throw new UnsupportedOperationException("Not implemented");
+    return columns.get(getEffectiveIndex(column)).isAutoIncrement();
   }
 
   @Override
   public boolean isCaseSensitive(int column) throws SQLException {
-    throw new UnsupportedOperationException("Not implemented");
+    return columns.get(getEffectiveIndex(column)).isCaseSensitive();
   }
 
   @Override
   public boolean isSearchable(int column) throws SQLException {
-    throw new UnsupportedOperationException("Not implemented");
+    return columns.get(getEffectiveIndex(column)).isSearchable();
   }
 
   @Override
   public boolean isCurrency(int column) throws SQLException {
-    throw new UnsupportedOperationException("Not implemented");
+    return columns.get(getEffectiveIndex(column)).isCurrency();
   }
 
   @Override
   public int isNullable(int column) throws SQLException {
-    // TODO: implement
-    return ResultSetMetaData.columnNullable;
+    return columns.get(getEffectiveIndex(column)).nullable().getValue();
   }
 
   @Override
   public boolean isSigned(int column) throws SQLException {
-    throw new UnsupportedOperationException("Not implemented");
+    return columns.get(getEffectiveIndex(column)).isSigned();
   }
 
   @Override
   public int getColumnDisplaySize(int column) throws SQLException {
-    // TODO: to be fixed
-    return 10;
+    return columns.get(getEffectiveIndex(column)).displaySize();
   }
 
   @Override
@@ -128,7 +129,7 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
 
   @Override
   public String getSchemaName(int column) throws SQLException {
-    throw new UnsupportedOperationException("Not implemented");
+    return columns.get(getEffectiveIndex(column)).schemaName();
   }
 
   @Override
@@ -138,17 +139,17 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
 
   @Override
   public int getScale(int column) throws SQLException {
-    throw new UnsupportedOperationException("Not implemented");
+    return columns.get(getEffectiveIndex(column)).scale();
   }
 
   @Override
   public String getTableName(int column) throws SQLException {
-    throw new UnsupportedOperationException("Not implemented");
+    return columns.get(getEffectiveIndex(column)).tableName();
   }
 
   @Override
   public String getCatalogName(int column) throws SQLException {
-    throw new UnsupportedOperationException("Not implemented");
+    return columns.get(getEffectiveIndex(column)).catalogName();
   }
 
   @Override
@@ -163,71 +164,34 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
 
   @Override
   public boolean isReadOnly(int column) throws SQLException {
-    throw new UnsupportedOperationException("Not implemented");
+    AccessType columnAccessType = columns.get(getEffectiveIndex(column)).accessType();
+    return columnAccessType.equals(AccessType.READ_ONLY)
+        || columnAccessType.equals(AccessType.UNKNOWN);
   }
 
   @Override
   public boolean isWritable(int column) throws SQLException {
-    throw new UnsupportedOperationException("Not implemented");
+    return columns.get(getEffectiveIndex(column)).accessType().equals(AccessType.WRITE);
   }
 
   @Override
   public boolean isDefinitelyWritable(int column) throws SQLException {
-    throw new UnsupportedOperationException("Not implemented");
+    return columns.get(getEffectiveIndex(column)).isDefinitelyWritable();
   }
 
   @Override
   public String getColumnClassName(int column) throws SQLException {
-    throw new UnsupportedOperationException("Not implemented");
+    return columns.get(getEffectiveIndex(column)).columnTypeClassName();
   }
 
   @Override
   public <T> T unwrap(Class<T> iface) throws SQLException {
-    throw new UnsupportedOperationException("Not implemented");
+    return WrapperUtil.unwrap(iface, this);
   }
 
   @Override
   public boolean isWrapperFor(Class<?> iface) throws SQLException {
-    throw new UnsupportedOperationException("Not implemented");
-  }
-
-  private int getColumnType(ColumnInfoTypeName typeName) {
-    switch (typeName) {
-      case BYTE:
-        return Types.TINYINT;
-      case SHORT:
-        return Types.SMALLINT;
-      case INT:
-        return Types.INTEGER;
-      case LONG:
-        return Types.BIGINT;
-      case FLOAT:
-        return Types.FLOAT;
-      case DOUBLE:
-        return Types.DOUBLE;
-      case DECIMAL:
-        return Types.DECIMAL;
-      case BINARY:
-        return Types.BINARY;
-      case BOOLEAN:
-        return Types.BOOLEAN;
-      case CHAR:
-        return Types.CHAR;
-      case STRING:
-        return Types.VARCHAR;
-      case TIMESTAMP:
-        return Types.TIMESTAMP;
-      case DATE:
-        return Types.DATE;
-      case STRUCT:
-        return Types.STRUCT;
-      case ARRAY:
-        return Types.ARRAY;
-      case NULL:
-        return Types.NULL;
-      default:
-        throw new IllegalStateException("Unknown column type: " + typeName);
-    }
+    return WrapperUtil.isWrapperFor(iface, this);
   }
 
   private int getEffectiveIndex(int columnIndex) {
