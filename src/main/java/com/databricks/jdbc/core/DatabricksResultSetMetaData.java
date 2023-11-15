@@ -18,8 +18,10 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
   private final ImmutableList<ImmutableDatabricksColumn> columns;
   private final ImmutableMap<String, Integer> columnNameIndex;
   private final long totalRows;
+  private static final String DEFAULT_CATALOGUE_NAME = "Spark";
 
   // TODO: Add handling for Arrow stream results
+
   public DatabricksResultSetMetaData(
       String statementId, ResultManifest resultManifest, IDatabricksSession session) {
     this.statementId = statementId;
@@ -29,27 +31,16 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
     int currIndex = 0;
     for (ColumnInfo columnInfo : resultManifest.getSchema().getColumns()) {
       ColumnInfoTypeName columnTypeName = columnInfo.getTypeName();
-      ImmutableDatabricksColumn.Builder columnBuilder =
-          ImmutableDatabricksColumn.builder()
-              .columnName(columnInfo.getName())
-              .columnTypeClassName(DatabricksTypeUtil.getColumnTypeClassName(columnTypeName))
-              .columnType(DatabricksTypeUtil.getColumnType(columnTypeName))
-              .columnTypeText(columnInfo.getTypeText());
-      int precision = getPrecision(columnInfo);
-      columnBuilder.typePrecision(precision);
-      columnBuilder.displaySize(DatabricksTypeUtil.getDisplaySize(columnTypeName, precision));
-      columnBuilder.isSigned(DatabricksTypeUtil.isSigned(columnTypeName));
-      columnBuilder.isAutoIncrement(
-          false); // TODO: for hive, it is false. But, we need to figure out otherwise
-      columnBuilder.isSearchable(true);
-      columnBuilder.nullable(
-          Nullable.UNKNOWN); // TODO: add once it is introduced in columnInfo(databricks-sdk-java)
-      columnBuilder.accessType(AccessType.UNKNOWN);
-      columnBuilder.isDefinitelyWritable(false);
-      columnBuilder.schemaName(session.getSchema());
-      columnBuilder.catalogName(session.getCatalog());
-      columnBuilder.typeScale(0); // TODO initialise TableName
-      columnBuilder.isCaseSensitive(DatabricksTypeUtil.isCaseSensitive(columnTypeName));
+      int precision = DatabricksTypeUtil.getPrecision(columnTypeName);
+      ImmutableDatabricksColumn.Builder columnBuilder = getColumnBuilder();
+      columnBuilder
+          .columnName(columnInfo.getName())
+          .columnTypeClassName(DatabricksTypeUtil.getColumnTypeClassName(columnTypeName))
+          .columnType(DatabricksTypeUtil.getColumnType(columnTypeName))
+          .columnTypeText(columnInfo.getTypeText())
+          .typePrecision(precision)
+          .displaySize(DatabricksTypeUtil.getDisplaySize(columnTypeName, precision))
+          .isSigned(DatabricksTypeUtil.isSigned(columnTypeName));
 
       columnsBuilder.add(columnBuilder.build());
       // Keep index starting from 1, to be consistent with JDBC convention
@@ -60,15 +51,6 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
     this.totalRows = resultManifest.getTotalRowCount();
   }
 
-  private int getPrecision(ColumnInfo columnInfo) {
-    if (columnInfo.getTypePrecision() != null) {
-      return columnInfo.getTypePrecision().intValue();
-    } else if (columnInfo.getTypeName().equals(ColumnInfoTypeName.STRING)) {
-      return 255;
-    }
-    return 0;
-  }
-
   public DatabricksResultSetMetaData(
       String statementId,
       List<String> columnNames,
@@ -81,43 +63,19 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
     ImmutableList.Builder<ImmutableDatabricksColumn> columnsBuilder = ImmutableList.builder();
     ImmutableMap.Builder<String, Integer> columnIndexBuilder = ImmutableMap.builder();
     for (int i = 0; i < columnNames.size(); i++) {
-      ImmutableDatabricksColumn.Builder columnBuilder =
-          ImmutableDatabricksColumn.builder()
-              .columnName(columnNames.get(i))
-              .columnType(columnTypes.get(i))
-              .columnTypeText(columnTypeText.get(i))
-              .typePrecision(columnTypePrecisions.get(i));
-      columnsBuilder.add(columnBuilder.build());
-      // Keep index starting from 1, to be consistent with JDBC convention
-      columnIndexBuilder.put(columnNames.get(i), i + 1);
-    }
-    this.columns = columnsBuilder.build();
-    this.columnNameIndex = columnIndexBuilder.build();
-    this.totalRows = totalRows;
-  }
-
-  public DatabricksResultSetMetaData(
-      String statementId,
-      List<String> columnNames,
-      List<String> columnTypeText,
-      List<Integer> columnTypes,
-      List<Integer> columnTypePrecisions,
-      List<Integer> columnTypeScale,
-      long totalRows) {
-    this.statementId = statementId;
-
-    ImmutableList.Builder<ImmutableDatabricksColumn> columnsBuilder = ImmutableList.builder();
-    ImmutableMap.Builder<String, Integer> columnIndexBuilder = ImmutableMap.builder();
-    for (int i = 0; i < columnNames.size(); i++) {
-      ImmutableDatabricksColumn.Builder columnBuilder =
-          ImmutableDatabricksColumn.builder()
-              .columnName(columnNames.get(i))
-              .columnType(columnTypes.get(i))
-              .columnTypeText(columnTypeText.get(i))
-              .typeScale(columnTypeScale.get(i))
-              .isCurrency(false)
-              .accessType(AccessType.UNKNOWN)
-              .typePrecision(columnTypePrecisions.get(i));
+      ColumnInfoTypeName columnTypeName =
+          ColumnInfoTypeName.valueOf(
+              DatabricksTypeUtil.getDatabricksTypeFromSQLType(columnTypes.get(i)));
+      ImmutableDatabricksColumn.Builder columnBuilder = getColumnBuilder();
+      columnBuilder
+          .columnName(columnNames.get(i))
+          .columnType(columnTypes.get(i))
+          .columnTypeText(columnTypeText.get(i))
+          .typePrecision(columnTypePrecisions.get(i))
+          .columnTypeClassName(DatabricksTypeUtil.getColumnTypeClassName(columnTypeName))
+          .displaySize(
+              DatabricksTypeUtil.getDisplaySize(columnTypeName, columnTypePrecisions.get(i)))
+          .isSigned(DatabricksTypeUtil.isSigned(columnTypeName));
       columnsBuilder.add(columnBuilder.build());
       // Keep index starting from 1, to be consistent with JDBC convention
       columnIndexBuilder.put(columnNames.get(i), i + 1);
@@ -264,5 +222,20 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
 
   public long getTotalRows() {
     return totalRows;
+  }
+
+  private ImmutableDatabricksColumn.Builder getColumnBuilder() {
+    return ImmutableDatabricksColumn.builder()
+        .isAutoIncrement(false)
+        .isSearchable(true)
+        .nullable(Nullable.NULLABLE)
+        .accessType(AccessType.READ_ONLY)
+        .isDefinitelyWritable(false)
+        .schemaName(null)
+        .tableName(null)
+        .catalogName(DEFAULT_CATALOGUE_NAME)
+        .isCurrency(false)
+        .typeScale(0)
+        .isCaseSensitive(false);
   }
 }

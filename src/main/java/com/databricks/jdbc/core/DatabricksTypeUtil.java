@@ -124,6 +124,7 @@ public class DatabricksTypeUtil {
       case SHORT:
       case INT:
       case LONG:
+      case BINARY:
         return precision + 1; // including negative sign
       case CHAR:
         return precision;
@@ -140,20 +141,46 @@ public class DatabricksTypeUtil {
         return 10;
       case NULL:
         return 4; // Length of `NULL`
-      case BINARY: // hive has no max limit for binary
       case ARRAY:
+      case STRING:
       case STRUCT:
       default:
-        return Integer.MAX_VALUE;
+        return 255;
+    }
+  }
+
+  public static int getPrecision(ColumnInfoTypeName typeName) {
+    switch (typeName) {
+      case BYTE:
+      case SHORT:
+        return 5;
+      case INT:
+      case DATE:
+      case DECIMAL:
+        return 10;
+      case LONG:
+        return 19;
+      case CHAR:
+      case BOOLEAN:
+      case BINARY:
+        return 1;
+      case FLOAT:
+        return 7;
+      case DOUBLE:
+        return 15;
+      case TIMESTAMP:
+        return 29;
+      case ARRAY:
+      case STRING:
+      case STRUCT:
+        return 255;
+      default:
+        return 0;
     }
   }
 
   public static boolean isSigned(ColumnInfoTypeName typeName) {
     return SIGNED_TYPES.contains(typeName);
-  }
-
-  public static boolean isCaseSensitive(ColumnInfoTypeName typeName) {
-    return CASE_SENSITIVE_TYPES.contains(typeName);
   }
 
   /**

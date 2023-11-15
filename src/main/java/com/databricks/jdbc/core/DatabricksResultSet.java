@@ -100,34 +100,6 @@ public class DatabricksResultSet implements ResultSet, IDatabricksResultSet {
     this.isClosed = false;
   }
 
-  public DatabricksResultSet(
-      StatementStatus statementStatus,
-      String statementId,
-      List<String> columnNames,
-      List<String> columnTypeText,
-      List<Integer> columnTypes,
-      List<Integer> columnTypePrecisions,
-      List<Integer> columnTypeScale,
-      List<List<Object>> rows,
-      StatementType statementType) {
-    this.statementStatus = statementStatus;
-    this.statementId = statementId;
-    this.executionResult = ExecutionResultFactory.getResultSet(rows);
-    this.resultSetMetaData =
-        new DatabricksResultSetMetaData(
-            statementId,
-            columnNames,
-            columnTypeText,
-            columnTypes,
-            columnTypePrecisions,
-            columnTypeScale,
-            rows.size());
-    this.statementType = statementType;
-    this.updateCount = null;
-    this.parentStatement = null;
-    this.isClosed = false;
-  }
-
   @Override
   public boolean next() throws SQLException {
     if (isClosed()) {
