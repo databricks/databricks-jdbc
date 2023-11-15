@@ -1,6 +1,6 @@
 package com.databricks.jdbc.core;
 
-import static com.databricks.jdbc.core.DatabricksTypes.*;
+import static com.databricks.jdbc.core.DatabricksTypeUtil.*;
 
 import com.databricks.jdbc.client.StatementType;
 import java.io.InputStream;
@@ -49,63 +49,63 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
   public void setBoolean(int parameterIndex, boolean x) throws SQLException {
     LOGGER.debug("public void setBoolean(int parameterIndex, boolean x)");
     checkIfClosed();
-    setObject(parameterIndex, x, DatabricksTypes.BOOLEAN);
+    setObject(parameterIndex, x, DatabricksTypeUtil.BOOLEAN);
   }
 
   @Override
   public void setByte(int parameterIndex, byte x) throws SQLException {
     LOGGER.debug("public void setByte(int parameterIndex, byte x)");
     checkIfClosed();
-    setObject(parameterIndex, x, DatabricksTypes.TINYINT);
+    setObject(parameterIndex, x, DatabricksTypeUtil.TINYINT);
   }
 
   @Override
   public void setShort(int parameterIndex, short x) throws SQLException {
     LOGGER.debug("public void setShort(int parameterIndex, short x)");
     checkIfClosed();
-    setObject(parameterIndex, x, DatabricksTypes.SMALLINT);
+    setObject(parameterIndex, x, DatabricksTypeUtil.SMALLINT);
   }
 
   @Override
   public void setInt(int parameterIndex, int x) throws SQLException {
     LOGGER.debug("public void setInt(int parameterIndex, int x)");
     checkIfClosed();
-    setObject(parameterIndex, x, DatabricksTypes.INT);
+    setObject(parameterIndex, x, DatabricksTypeUtil.INT);
   }
 
   @Override
   public void setLong(int parameterIndex, long x) throws SQLException {
     LOGGER.debug("public void setLong(int parameterIndex, long x)");
     checkIfClosed();
-    setObject(parameterIndex, x, DatabricksTypes.BIGINT);
+    setObject(parameterIndex, x, DatabricksTypeUtil.BIGINT);
   }
 
   @Override
   public void setFloat(int parameterIndex, float x) throws SQLException {
     LOGGER.debug("public void setFloat(int parameterIndex, float x)");
     checkIfClosed();
-    setObject(parameterIndex, x, DatabricksTypes.FLOAT);
+    setObject(parameterIndex, x, DatabricksTypeUtil.FLOAT);
   }
 
   @Override
   public void setDouble(int parameterIndex, double x) throws SQLException {
     LOGGER.debug("public void setDouble(int parameterIndex, double x)");
     checkIfClosed();
-    setObject(parameterIndex, x, DatabricksTypes.DOUBLE);
+    setObject(parameterIndex, x, DatabricksTypeUtil.DOUBLE);
   }
 
   @Override
   public void setBigDecimal(int parameterIndex, BigDecimal x) throws SQLException {
     LOGGER.debug("public void setBigDecimal(int parameterIndex, BigDecimal x)");
     checkIfClosed();
-    setObject(parameterIndex, x, DatabricksTypes.DECIMAL);
+    setObject(parameterIndex, x, DatabricksTypeUtil.DECIMAL);
   }
 
   @Override
   public void setString(int parameterIndex, String x) throws SQLException {
     LOGGER.debug("public void setString(int parameterIndex, String x)");
     checkIfClosed();
-    setObject(parameterIndex, x, DatabricksTypes.STRING);
+    setObject(parameterIndex, x, DatabricksTypeUtil.STRING);
   }
 
   @Override
@@ -118,7 +118,7 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
   public void setDate(int parameterIndex, Date x) throws SQLException {
     LOGGER.debug("public void setDate(int parameterIndex, Date x)");
     checkIfClosed();
-    setObject(parameterIndex, x, DatabricksTypes.DATE);
+    setObject(parameterIndex, x, DatabricksTypeUtil.DATE);
   }
 
   @Override
@@ -132,7 +132,7 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
   public void setTimestamp(int parameterIndex, Timestamp x) throws SQLException {
     LOGGER.debug("public void setTimestamp(int parameterIndex, Timestamp x)");
     checkIfClosed();
-    setObject(parameterIndex, x, DatabricksTypes.TIMESTAMP);
+    setObject(parameterIndex, x, DatabricksTypeUtil.TIMESTAMP);
   }
 
   @Override

@@ -26,27 +26,27 @@ public interface DatabricksColumn {
 
   boolean isSigned();
 
-  String schemaName(); // TODO
+  String schemaName();
 
-  boolean isCurrency(); // TODO
+  boolean isCurrency();
 
-  boolean isAutoIncrement(); // TODO
+  boolean isAutoIncrement();
 
   boolean isCaseSensitive();
 
-  boolean isSearchable(); // TODO
+  boolean isSearchable();
 
-  Nullable nullable(); // TODO
+  Nullable nullable();
 
-  int scale(); // TODO
+  int typeScale();
 
-  AccessType accessType(); // TODO
+  AccessType accessType();
 
-  boolean isDefinitelyWritable(); // TODO
+  boolean isDefinitelyWritable();
 
   String columnTypeClassName();
 
-  String tableName(); // TODO
+  String tableName();
 
-  String catalogName(); // TODO
+  String catalogName();
 }

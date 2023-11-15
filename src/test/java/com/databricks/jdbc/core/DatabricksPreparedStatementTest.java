@@ -43,10 +43,10 @@ public class DatabricksPreparedStatementTest {
     HashMap<Integer, ImmutableSqlParameter> sqlParams =
         new HashMap<>() {
           {
-            put(1, getSqlParam(1, 100, DatabricksTypes.BIGINT));
-            put(2, getSqlParam(2, (short) 10, DatabricksTypes.SMALLINT));
-            put(3, getSqlParam(3, (byte) 15, DatabricksTypes.TINYINT));
-            put(4, getSqlParam(4, "value", DatabricksTypes.STRING));
+            put(1, getSqlParam(1, 100, DatabricksTypeUtil.BIGINT));
+            put(2, getSqlParam(2, (short) 10, DatabricksTypeUtil.SMALLINT));
+            put(3, getSqlParam(3, (byte) 15, DatabricksTypeUtil.TINYINT));
+            put(4, getSqlParam(4, "value", DatabricksTypeUtil.STRING));
           }
         };
     when(client.executeStatement(
