@@ -1,5 +1,8 @@
 package com.databricks.jdbc.driver;
 
+import static com.databricks.jdbc.driver.DatabricksJdbcConstants.SYSTEM_LOG_FILE_CONFIG;
+import static com.databricks.jdbc.driver.DatabricksJdbcConstants.SYSTEM_LOG_LEVEL_CONFIG;
+
 import com.databricks.jdbc.core.DatabricksConnection;
 import java.sql.Connection;
 import java.sql.Driver;
@@ -9,6 +12,7 @@ import java.sql.SQLException;
 import java.util.Properties;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.slf4j.event.Level;
 
 /**
  * Databricks JDBC driver. TODO: Add implementation to accept Urls in format:
@@ -16,7 +20,8 @@ import org.slf4j.LoggerFactory;
  */
 public class DatabricksDriver implements Driver {
 
-  private static final Logger LOGGER = LoggerFactory.getLogger(DatabricksDriver.class);
+  private static final Logger LOGGER =
+      (Logger) LoggerFactory.getLogger(DatabricksDriver.class).atLevel(Level.ERROR);
   private static final DatabricksDriver INSTANCE;
 
   private static int majorVersion = 0;
@@ -40,6 +45,11 @@ public class DatabricksDriver implements Driver {
   public Connection connect(String url, Properties info) {
     LOGGER.debug("public Connection connect(String url = {}, Properties info)", url);
     IDatabricksConnectionContext connectionContext = DatabricksConnectionContext.parse(url, info);
+    System.setProperty(SYSTEM_LOG_LEVEL_CONFIG, connectionContext.getLogLevelString());
+    String logFileConfig = connectionContext.getLogPathString();
+    if (logFileConfig != null) {
+      System.setProperty(SYSTEM_LOG_FILE_CONFIG, logFileConfig);
+    }
     return new DatabricksConnection(connectionContext);
   }
 

@@ -20,9 +20,11 @@ public final class DatabricksJdbcConstants {
   static final String CLIENT_SECRET = "databricks_client_secret";
 
   static final String AUTH_MECH = "authmech";
-
+  static final String LOG_LEVEL = "loglevel";
+  static final String LOG_PATH = "logpath";
   static final String AUTH_FLOW = "auth_flow";
-
+  static final String SYSTEM_LOG_LEVEL_CONFIG = "defaultLogLevel";
+  static final String SYSTEM_LOG_FILE_CONFIG = "defaultLogFile";
   static final String AWS_CLIENT_ID = "databricks-sql-jdbc";
 
   static final String AAD_CLIENT_ID = "96eecda7-19ea-49cc-abb5-240097d554f5";
@@ -44,4 +46,5 @@ public final class DatabricksJdbcConstants {
   public static final String SCHEMA = "schema";
   public static final String USER_NAME = "User";
   static final int DEFAULT_PORT = 443;
+  static final String DEFAULT_LOG_LEVEL = "info";
 }
