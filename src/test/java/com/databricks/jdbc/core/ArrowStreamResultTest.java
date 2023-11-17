@@ -45,7 +45,7 @@ public class ArrowStreamResultTest {
 
   private ArrayList<ArrowResultChunk> resultChunks = new ArrayList<>();
 
-  private List<ChunkInfo> chunkInfos = new ArrayList<>();
+  private List<BaseChunkInfo> chunkInfos = new ArrayList<>();
 
   private int numberOfChunks = 10;
   private Random random = new Random();
@@ -181,8 +181,8 @@ public class ArrowStreamResultTest {
 
   private void setupChunks() throws Exception {
     for (int i = 0; i < this.numberOfChunks; ++i) {
-      ChunkInfo chunkInfo =
-          new ChunkInfo()
+      BaseChunkInfo chunkInfo =
+          new BaseChunkInfo()
               .setChunkIndex((long) i)
               .setByteCount(1000L)
               .setRowOffset((long) (i * 110L))

@@ -109,15 +109,15 @@ public class ChunkDownloaderTest {
   }
 
   private ResultManifest getResultManifest() {
-    List<ChunkInfo> chunks = new ArrayList<>();
+    List<BaseChunkInfo> chunks = new ArrayList<>();
     for (long chunkIndex = 0; chunkIndex < TOTAL_CHUNKS; chunkIndex++) {
-      ChunkInfo chunkInfo =
-          new ChunkInfo()
+      BaseChunkInfo chunkInfo =
+          new BaseChunkInfo()
               .setChunkIndex(chunkIndex)
               .setByteCount(200L)
               .setRowOffset(chunkIndex * 20);
       if (chunkIndex < TOTAL_CHUNKS - 1) {
-        chunkInfo.setNextChunkIndex(chunkIndex + 1).setRowCount(20L);
+        chunkInfo.setRowCount(20L);
       } else {
         chunkInfo.setRowCount(10L);
       }

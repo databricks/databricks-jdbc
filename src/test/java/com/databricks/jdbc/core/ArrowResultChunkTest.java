@@ -3,7 +3,7 @@ package com.databricks.jdbc.core;
 import static java.lang.Math.min;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-import com.databricks.sdk.service.sql.ChunkInfo;
+import com.databricks.sdk.service.sql.BaseChunkInfo;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
@@ -36,8 +36,8 @@ public class ArrowResultChunkTest {
   @Test
   public void testGetArrowDataFromInputStream() throws Exception {
     // Arrange
-    ChunkInfo chunkInfo =
-        new ChunkInfo()
+    BaseChunkInfo chunkInfo =
+        new BaseChunkInfo()
             .setChunkIndex(0L)
             .setByteCount(200L)
             .setRowOffset(0L)

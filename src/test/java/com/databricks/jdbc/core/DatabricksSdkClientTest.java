@@ -114,7 +114,7 @@ public class DatabricksSdkClientTest {
                 .setDisposition(Disposition.EXTERNAL_LINKS)
                 .setFormat(Format.ARROW_STREAM)
                 .setWaitTimeout("10s")
-                .setOnWaitTimeout(TimeoutAction.CONTINUE)
+                .setOnWaitTimeout(ExecuteStatementRequestOnWaitTimeout.CONTINUE)
                 .setParameters(params);
 
     when(statementExecutionService.executeStatement(executeStatementRequest))
