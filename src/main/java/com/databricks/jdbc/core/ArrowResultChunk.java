@@ -2,7 +2,7 @@ package com.databricks.jdbc.core;
 
 import com.databricks.jdbc.client.DatabricksHttpException;
 import com.databricks.jdbc.client.IDatabricksHttpClient;
-import com.databricks.sdk.service.sql.ChunkInfo;
+import com.databricks.sdk.service.sql.BaseChunkInfo;
 import com.databricks.sdk.service.sql.ExternalLink;
 import java.io.IOException;
 import java.io.InputStream;
@@ -84,11 +84,10 @@ public class ArrowResultChunk {
 
   private RootAllocator rootAllocator;
 
-  ArrowResultChunk(ChunkInfo chunkInfo, RootAllocator rootAllocator, String statementId) {
+  ArrowResultChunk(BaseChunkInfo chunkInfo, RootAllocator rootAllocator, String statementId) {
     this.chunkIndex = chunkInfo.getChunkIndex();
     this.numRows = chunkInfo.getRowCount();
     this.rowOffset = chunkInfo.getRowOffset();
-    this.nextChunkIndex = chunkInfo.getNextChunkIndex();
     this.byteCount = chunkInfo.getByteCount();
     this.status = DownloadStatus.PENDING;
     this.rootAllocator = rootAllocator;

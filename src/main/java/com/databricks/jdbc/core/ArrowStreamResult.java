@@ -11,7 +11,7 @@ import java.util.List;
 class ArrowStreamResult implements IExecutionResult {
 
   private final IDatabricksSession session;
-  private final ImmutableMap<Long, ChunkInfo> rowOffsetToChunkMap;
+  private final ImmutableMap<Long, BaseChunkInfo> rowOffsetToChunkMap;
   private final ChunkDownloader chunkDownloader;
 
   private long currentRowIndex;
@@ -61,9 +61,9 @@ class ArrowStreamResult implements IExecutionResult {
     return this.chunkDownloader;
   }
 
-  private static ImmutableMap<Long, ChunkInfo> getRowOffsetMap(ResultManifest resultManifest) {
-    ImmutableMap.Builder<Long, ChunkInfo> rowOffsetMapBuilder = ImmutableMap.builder();
-    for (ChunkInfo chunk : resultManifest.getChunks()) {
+  private static ImmutableMap<Long, BaseChunkInfo> getRowOffsetMap(ResultManifest resultManifest) {
+    ImmutableMap.Builder<Long, BaseChunkInfo> rowOffsetMapBuilder = ImmutableMap.builder();
+    for (BaseChunkInfo chunk : resultManifest.getChunks()) {
       rowOffsetMapBuilder.put(chunk.getRowOffset(), chunk);
     }
     return rowOffsetMapBuilder.build();

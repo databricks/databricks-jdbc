@@ -124,6 +124,7 @@ public class DatabricksTypeUtil {
       case SHORT:
       case INT:
       case LONG:
+      case BINARY:
         return precision + 1; // including negative sign
       case CHAR:
         return precision;

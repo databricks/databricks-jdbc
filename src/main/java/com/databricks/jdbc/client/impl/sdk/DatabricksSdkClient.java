@@ -182,7 +182,7 @@ public class DatabricksSdkClient implements DatabricksClient {
             .setDisposition(disposition)
             .setFormat(format)
             .setWaitTimeout(SYNC_TIMEOUT_VALUE)
-            .setOnWaitTimeout(TimeoutAction.CONTINUE)
+            .setOnWaitTimeout(ExecuteStatementRequestOnWaitTimeout.CONTINUE)
             .setParameters(
                 parameters.values().stream()
                     .map(this::mapToParameterListItem)

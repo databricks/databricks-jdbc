@@ -2,7 +2,7 @@ package com.databricks.jdbc.core;
 
 import com.databricks.jdbc.client.IDatabricksHttpClient;
 import com.databricks.jdbc.client.http.DatabricksHttpClient;
-import com.databricks.sdk.service.sql.ChunkInfo;
+import com.databricks.sdk.service.sql.BaseChunkInfo;
 import com.databricks.sdk.service.sql.ExternalLink;
 import com.databricks.sdk.service.sql.ResultData;
 import com.databricks.sdk.service.sql.ResultManifest;
@@ -75,7 +75,7 @@ public class ChunkDownloader {
   private static ConcurrentHashMap<Long, ArrowResultChunk> initializeChunksMap(
       ResultManifest resultManifest, ResultData resultData, String statementId) {
     ConcurrentHashMap<Long, ArrowResultChunk> chunkIndexMap = new ConcurrentHashMap<>();
-    for (ChunkInfo chunkInfo : resultManifest.getChunks()) {
+    for (BaseChunkInfo chunkInfo : resultManifest.getChunks()) {
       // TODO: Add logging to check data (in bytes) from server and in root allocator.
       //  If they are close, we can directly assign the number of bytes as the limit with a small
       // buffer.
