@@ -2,6 +2,8 @@ package com.databricks.jdbc.driver;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
+import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.Jwts;
 import java.util.Map;
 import java.util.Properties;
 import java.util.regex.Matcher;
@@ -88,7 +90,15 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
 
   String getHttpPath() {
     LOGGER.debug("String getHttpPath()");
-    return getParameter(DatabricksJdbcConstants.HTTP_PATH);
+    String jwtToken = getToken();
+    int i = jwtToken.lastIndexOf('.');
+    String withoutSignature = jwtToken.substring(0, i + 1);
+    Claims claims = Jwts.parser().parseClaimsJwt(withoutSignature).getBody();
+    // Access the custom claim and extract the httpPath
+    Map<String, Object> customClaims = (Map<String, Object>) claims.get("custom");
+    String httpPath = customClaims != null ? (String) customClaims.get("httpPath") : null;
+    return httpPath;
+    // return getParameter(DatabricksJdbcConstants.HTTP_PATH);
   }
 
   @Override

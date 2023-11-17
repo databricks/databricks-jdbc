@@ -977,18 +977,7 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
                             session,
                             null /* parentStatement */);
                 while (rs.next()) {
-                  rows.add(
-                      Arrays.asList(
-                          currentCatalog,
-                          currentSchema,
-                          rs.getString(2),
-                          "TABLE",
-                          null,
-                          null,
-                          null,
-                          null,
-                          null,
-                          null));
+                  rows.add(Arrays.asList(currentCatalog, currentSchema, rs.getString(2), "TABLE"));
                 }
               } catch (SQLException e) {
                 throw new RuntimeException(e);
@@ -1009,32 +998,10 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
     return new DatabricksResultSet(
         new StatementStatus().setState(StatementState.SUCCEEDED),
         "gettables-metadata",
-        Arrays.asList(
-            "TABLE_CAT",
-            "TABLE_SCHEM",
-            "TABLE_NAME",
-            "TABLE_TYPE",
-            "REMARKS",
-            "TYPE_CAT",
-            "TYPE_SCHEM",
-            "TYPE_NAME",
-            "SELF_REFERENCING_COL_NAME",
-            "REF_GENERATION"),
-        Arrays.asList(
-            "VARCHAR", "VARCHAR", "VARCHAR", "VARCHAR", "VARCHAR", "VARCHAR", "VARCHAR", "VARCHAR",
-            "VARCHAR", "VARCHAR"),
-        Arrays.asList(
-            Types.VARCHAR,
-            Types.VARCHAR,
-            Types.VARCHAR,
-            Types.VARCHAR,
-            Types.VARCHAR,
-            Types.VARCHAR,
-            Types.VARCHAR,
-            Types.VARCHAR,
-            Types.VARCHAR,
-            Types.VARCHAR),
-        Arrays.asList(128, 128, 128, 128, 128, 128, 128, 128, 128, 128),
+        Arrays.asList("TABLE_CAT", "TABLE_SCHEM", "TABLE_NAME", "TABLE_TYPE"),
+        Arrays.asList("VARCHAR", "VARCHAR", "VARCHAR", "VARCHAR"),
+        Arrays.asList(Types.VARCHAR, Types.VARCHAR, Types.VARCHAR, Types.VARCHAR),
+        Arrays.asList(128, 128, 128, 128),
         rows,
         StatementType.METADATA);
   }
@@ -1067,6 +1034,8 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
     while (rs.next()) {
       rows.add(Collections.singletonList(rs.getString(1)));
     }
+    // Add the new catalog "samples"
+    rows.add(Collections.singletonList("samples"));
     return new DatabricksResultSet(
         new StatementStatus().setState(StatementState.SUCCEEDED),
         "getcatalogs-metadata",
@@ -1175,7 +1144,15 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
         schema,
         table,
         columnNamePattern);
-    throw new UnsupportedOperationException("Not implemented");
+    return new DatabricksResultSet(
+        new StatementStatus().setState(StatementState.SUCCEEDED),
+        "getImportedKeys",
+        Collections.singletonList("TABLE_CAT"),
+        Collections.singletonList("VARCHAR"),
+        Collections.singletonList(Types.VARCHAR),
+        Collections.singletonList(128),
+        new ArrayList<>(),
+        StatementType.METADATA);
   }
 
   @Override
@@ -1186,7 +1163,15 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
         catalog,
         schemaPattern,
         tableNamePattern);
-    throw new UnsupportedOperationException("Not implemented");
+    return new DatabricksResultSet(
+        new StatementStatus().setState(StatementState.SUCCEEDED),
+        "getImportedKeys",
+        Collections.singletonList("TABLE_CAT"),
+        Collections.singletonList("VARCHAR"),
+        Collections.singletonList(Types.VARCHAR),
+        Collections.singletonList(128),
+        new ArrayList<>(),
+        StatementType.METADATA);
   }
 
   @Override
@@ -1200,7 +1185,15 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
         table,
         scope,
         nullable);
-    throw new UnsupportedOperationException("Not implemented");
+    return new DatabricksResultSet(
+        new StatementStatus().setState(StatementState.SUCCEEDED),
+        "getImportedKeys",
+        Collections.singletonList("TABLE_CAT"),
+        Collections.singletonList("VARCHAR"),
+        Collections.singletonList(Types.VARCHAR),
+        Collections.singletonList(128),
+        new ArrayList<>(),
+        StatementType.METADATA);
   }
 
   @Override
@@ -1211,7 +1204,15 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
         catalog,
         schema,
         table);
-    throw new UnsupportedOperationException("Not implemented");
+    return new DatabricksResultSet(
+        new StatementStatus().setState(StatementState.SUCCEEDED),
+        "getImportedKeys",
+        Collections.singletonList("TABLE_CAT"),
+        Collections.singletonList("VARCHAR"),
+        Collections.singletonList(Types.VARCHAR),
+        Collections.singletonList(128),
+        new ArrayList<>(),
+        StatementType.METADATA);
   }
 
   @Override
@@ -1221,18 +1222,30 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
         catalog,
         schema,
         table);
-    throw new UnsupportedOperationException("Not implemented");
+    return new DatabricksResultSet(
+        new StatementStatus().setState(StatementState.SUCCEEDED),
+        "getImportedKeys",
+        Collections.singletonList("TABLE_CAT"),
+        Collections.singletonList("VARCHAR"),
+        Collections.singletonList(Types.VARCHAR),
+        Collections.singletonList(128),
+        new ArrayList<>(),
+        StatementType.METADATA);
   }
 
   @Override
   public ResultSet getImportedKeys(String catalog, String schema, String table)
       throws SQLException {
-    LOGGER.debug(
-        "public ResultSet getImportedKeys(String catalog = {}, String schema = {}, String table = {})",
-        catalog,
-        schema,
-        table);
-    throw new UnsupportedOperationException("Not implemented");
+
+    return new DatabricksResultSet(
+        new StatementStatus().setState(StatementState.SUCCEEDED),
+        "getImportedKeys",
+        Collections.singletonList("TABLE_CAT"),
+        Collections.singletonList("VARCHAR"),
+        Collections.singletonList(Types.VARCHAR),
+        Collections.singletonList(128),
+        new ArrayList<>(),
+        StatementType.METADATA);
   }
 
   @Override
@@ -1243,7 +1256,15 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
         catalog,
         schema,
         table);
-    throw new UnsupportedOperationException("Not implemented");
+    return new DatabricksResultSet(
+        new StatementStatus().setState(StatementState.SUCCEEDED),
+        "getImportedKeys",
+        Collections.singletonList("TABLE_CAT"),
+        Collections.singletonList("VARCHAR"),
+        Collections.singletonList(Types.VARCHAR),
+        Collections.singletonList(128),
+        new ArrayList<>(),
+        StatementType.METADATA);
   }
 
   @Override
@@ -1263,7 +1284,15 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
         foreignCatalog,
         foreignSchema,
         foreignTable);
-    throw new UnsupportedOperationException("Not implemented");
+    return new DatabricksResultSet(
+        new StatementStatus().setState(StatementState.SUCCEEDED),
+        "getImportedKeys",
+        Collections.singletonList("TABLE_CAT"),
+        Collections.singletonList("VARCHAR"),
+        Collections.singletonList(Types.VARCHAR),
+        Collections.singletonList(128),
+        new ArrayList<>(),
+        StatementType.METADATA);
   }
 
   @Override

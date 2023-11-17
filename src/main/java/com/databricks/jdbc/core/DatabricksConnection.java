@@ -337,8 +337,7 @@ public class DatabricksConnection implements IDatabricksConnection, Connection {
 
   @Override
   public boolean isValid(int timeout) throws SQLException {
-    LOGGER.debug("public boolean isValid(int timeout = {})", timeout);
-    throw new UnsupportedOperationException("Not implemented");
+    return true;
   }
 
   @Override

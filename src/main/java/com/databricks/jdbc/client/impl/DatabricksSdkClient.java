@@ -153,9 +153,6 @@ public class DatabricksSdkClient implements DatabricksClient {
       pollCount++;
     }
     long executionEndTime = Instant.now().toEpochMilli();
-    LOGGER.atDebug().log(
-        "Executed sql [%s] with status [%s], total time taken [%d] and pollCount [%d]",
-        sql, responseState, (executionEndTime - executionStartTime), pollCount);
     if (responseState != StatementState.SUCCEEDED) {
       handleFailedExecution(responseState, statementId, sql);
     }

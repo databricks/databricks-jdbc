@@ -81,33 +81,83 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
 
   @Override
   public boolean isAutoIncrement(int column) throws SQLException {
-    throw new UnsupportedOperationException("Not implemented");
+    return false; // Most columns are not auto-increment
   }
 
   @Override
   public boolean isCaseSensitive(int column) throws SQLException {
-    throw new UnsupportedOperationException("Not implemented");
+    return false; // Default to case-insensitive
   }
 
   @Override
   public boolean isSearchable(int column) throws SQLException {
-    throw new UnsupportedOperationException("Not implemented");
+    return true; // Assume all columns are searchable
   }
 
   @Override
   public boolean isCurrency(int column) throws SQLException {
-    throw new UnsupportedOperationException("Not implemented");
+    return false; // Default to non-currency
+  }
+
+  @Override
+  public boolean isSigned(int column) throws SQLException {
+    return false; // Default to unsigned
+  }
+
+  @Override
+  public String getSchemaName(int column) throws SQLException {
+    return ""; // Default to no schema name
+  }
+
+  @Override
+  public int getScale(int column) throws SQLException {
+    return 0; // Default scale
+  }
+
+  @Override
+  public String getTableName(int column) throws SQLException {
+    return ""; // Default to no table name
+  }
+
+  @Override
+  public String getCatalogName(int column) throws SQLException {
+    return "samples";
+  }
+
+  @Override
+  public boolean isReadOnly(int column) throws SQLException {
+    return true; // Default to read-only
+  }
+
+  @Override
+  public boolean isWritable(int column) throws SQLException {
+    return false; // Default to not writable
+  }
+
+  @Override
+  public boolean isDefinitelyWritable(int column) throws SQLException {
+    return false; // Default to definitely not writable
+  }
+
+  @Override
+  public String getColumnClassName(int column) throws SQLException {
+    return "java.lang.Object"; // Default to Object class
+  }
+
+  @Override
+  public <T> T unwrap(Class<T> iface) throws SQLException {
+    throw new SQLException("No object found for the given interface: " + iface.getName());
+  }
+
+  @Override
+  public boolean isWrapperFor(Class<?> iface) throws SQLException {
+    return false; // Default to not a wrapper
   }
 
   @Override
   public int isNullable(int column) throws SQLException {
     // TODO: implement
     return ResultSetMetaData.columnNullable;
-  }
-
-  @Override
-  public boolean isSigned(int column) throws SQLException {
-    throw new UnsupportedOperationException("Not implemented");
   }
 
   @Override
@@ -127,28 +177,8 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
   }
 
   @Override
-  public String getSchemaName(int column) throws SQLException {
-    throw new UnsupportedOperationException("Not implemented");
-  }
-
-  @Override
   public int getPrecision(int column) throws SQLException {
     return columns.get(getEffectiveIndex(column)).typePrecision();
-  }
-
-  @Override
-  public int getScale(int column) throws SQLException {
-    throw new UnsupportedOperationException("Not implemented");
-  }
-
-  @Override
-  public String getTableName(int column) throws SQLException {
-    throw new UnsupportedOperationException("Not implemented");
-  }
-
-  @Override
-  public String getCatalogName(int column) throws SQLException {
-    throw new UnsupportedOperationException("Not implemented");
   }
 
   @Override
@@ -159,36 +189,6 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
   @Override
   public String getColumnTypeName(int column) throws SQLException {
     return columns.get(getEffectiveIndex(column)).columnTypeText();
-  }
-
-  @Override
-  public boolean isReadOnly(int column) throws SQLException {
-    throw new UnsupportedOperationException("Not implemented");
-  }
-
-  @Override
-  public boolean isWritable(int column) throws SQLException {
-    throw new UnsupportedOperationException("Not implemented");
-  }
-
-  @Override
-  public boolean isDefinitelyWritable(int column) throws SQLException {
-    throw new UnsupportedOperationException("Not implemented");
-  }
-
-  @Override
-  public String getColumnClassName(int column) throws SQLException {
-    throw new UnsupportedOperationException("Not implemented");
-  }
-
-  @Override
-  public <T> T unwrap(Class<T> iface) throws SQLException {
-    throw new UnsupportedOperationException("Not implemented");
-  }
-
-  @Override
-  public boolean isWrapperFor(Class<?> iface) throws SQLException {
-    throw new UnsupportedOperationException("Not implemented");
   }
 
   private int getColumnType(ColumnInfoTypeName typeName) {
