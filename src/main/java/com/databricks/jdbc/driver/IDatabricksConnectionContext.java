@@ -57,4 +57,8 @@ public interface IDatabricksConnectionContext {
   AuthMech getAuthMech();
 
   AuthFlow getAuthFlow();
+
+  String getLogLevelString();
+
+  String getLogPathString();
 }

@@ -1,5 +1,7 @@
 package com.databricks.jdbc.driver;
 
+import static com.databricks.jdbc.driver.DatabricksJdbcConstants.DEFAULT_LOG_LEVEL;
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
 import java.util.Map;
@@ -7,6 +9,7 @@ import java.util.Properties;
 import java.util.regex.Matcher;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.slf4j.event.Level;
 
 public class DatabricksConnectionContext implements IDatabricksConnectionContext {
 
@@ -166,5 +169,27 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   public AuthMech getAuthMech() {
     String authMech = getParameter(DatabricksJdbcConstants.AUTH_MECH);
     return AuthMech.parseAuthMech(authMech);
+  }
+
+  @Override
+  public String getLogLevelString() {
+    String logLevel = getParameter(DatabricksJdbcConstants.LOG_LEVEL);
+    if (null == logLevel) {
+      LOGGER.debug("No logLevel given in the input, defaulting to info.");
+      return DEFAULT_LOG_LEVEL;
+    }
+    logLevel = logLevel.toUpperCase();
+    try {
+      Level.valueOf(logLevel);
+    } catch (Exception e) {
+      LOGGER.debug("Invalid logLevel given in the input, defaulting to info.");
+      return DEFAULT_LOG_LEVEL;
+    }
+    return logLevel;
+  }
+
+  @Override
+  public String getLogPathString() {
+    return getParameter(DatabricksJdbcConstants.LOG_PATH);
   }
 }
