@@ -21,7 +21,7 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
   private static final String DEFAULT_CATALOGUE_NAME = "Spark";
 
   // TODO: Add handling for Arrow stream results
-  
+
   public DatabricksResultSetMetaData(
       String statementId, ResultManifest resultManifest, IDatabricksSession session) {
     this.statementId = statementId;
@@ -31,7 +31,7 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
     int currIndex = 0;
     for (ColumnInfo columnInfo : resultManifest.getSchema().getColumns()) {
       ColumnInfoTypeName columnTypeName = columnInfo.getTypeName();
-      int precision = DatabricksTypeUtil.getPrecision(columnTypeName);
+      int precision = getPrecision(columnInfo);
       ImmutableDatabricksColumn.Builder columnBuilder = getColumnBuilder();
       columnBuilder
           .columnName(columnInfo.getName())

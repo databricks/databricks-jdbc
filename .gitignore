@@ -3,4 +3,5 @@ target/
 *.iml
 *DS_Store
 TestFile
+/logs/*
 

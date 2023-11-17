@@ -141,7 +141,6 @@ public class DatabricksTypeUtil {
         return 10;
       case NULL:
         return 4; // Length of `NULL`
-      case BINARY: // hive has no max limit for binary
       case ARRAY:
       case STRUCT:
       default:
