@@ -9,6 +9,11 @@ public final class DatabricksJdbcConstants {
   static final Pattern HTTP_PATH_PATTERN = Pattern.compile(".*\\/warehouses\\/(.*)");
   static final Pattern HTTP_PATH_SQL_PATTERN = Pattern.compile("sql\\/(.*)");
   static final String JDBC_SCHEMA = "jdbc:databricks://";
+  static final String DEFAULT_LOG_LEVEL = "INFO";
+  static final String LOG_LEVEL = "loglevel";
+  static final String LOG_PATH = "logpath";
+  static final String SYSTEM_LOG_LEVEL_CONFIG = "defaultLogLevel";
+  static final String SYSTEM_LOG_FILE_CONFIG = "defaultLogFile";
   static final String URL_DELIMITER = ";";
   static final String PORT_DELIMITER = ":";
   static final String PAIR_DELIMITER = "=";

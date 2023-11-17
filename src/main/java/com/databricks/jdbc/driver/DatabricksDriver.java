@@ -1,5 +1,8 @@
 package com.databricks.jdbc.driver;
 
+import static com.databricks.jdbc.driver.DatabricksJdbcConstants.SYSTEM_LOG_FILE_CONFIG;
+import static com.databricks.jdbc.driver.DatabricksJdbcConstants.SYSTEM_LOG_LEVEL_CONFIG;
+
 import com.databricks.jdbc.core.DatabricksConnection;
 import java.sql.Connection;
 import java.sql.Driver;
@@ -40,6 +43,11 @@ public class DatabricksDriver implements Driver {
   public Connection connect(String url, Properties info) {
     LOGGER.debug("public Connection connect(String url = {}, Properties info)", url);
     IDatabricksConnectionContext connectionContext = DatabricksConnectionContext.parse(url, info);
+    System.setProperty(SYSTEM_LOG_LEVEL_CONFIG, connectionContext.getLogLevelString());
+    String logFileConfig = connectionContext.getLogPathString();
+    if (logFileConfig != null) {
+      System.setProperty(SYSTEM_LOG_FILE_CONFIG, logFileConfig);
+    }
     return new DatabricksConnection(connectionContext);
   }
 

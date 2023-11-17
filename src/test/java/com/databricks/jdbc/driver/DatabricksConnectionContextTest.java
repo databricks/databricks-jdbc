@@ -9,9 +9,9 @@ import org.junit.jupiter.api.Test;
 class DatabricksConnectionContestTest {
 
   private static final String VALID_URL_1 =
-      "jdbc:databricks://adb-565757575.18.azuredatabricks.net:4423/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/erg6767gg;";
+      "jdbc:databricks://adb-565757575.18.azuredatabricks.net:4423/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/erg6767gg;LogLevel=debug;LogPath=test1/application.log;";
   private static final String VALID_URL_2 =
-      "jdbc:databricks://azuredatabricks.net/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/fgff575757;";
+      "jdbc:databricks://azuredatabricks.net/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/fgff575757;LogLevel=invalid;";
   private static final String INVALID_URL_1 =
       "jdbc:oracle://azuredatabricks.net/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/fgff575757;";
   private static final String INVALID_URL_2 =
@@ -51,7 +51,9 @@ class DatabricksConnectionContestTest {
         "https://adb-565757575.18.azuredatabricks.net:4423", connectionContext.getHostUrl());
     assertEquals("/sql/1.0/warehouses/erg6767gg", connectionContext.getHttpPath());
     assertEquals("passwd", connectionContext.getToken());
-    assertEquals(5, connectionContext.parameters.size());
+    assertEquals(7, connectionContext.parameters.size());
+    assertEquals("DEBUG", connectionContext.getLogLevelString());
+    assertEquals("test1/application.log", connectionContext.getLogPathString());
 
     // test default port
     connectionContext =
@@ -59,7 +61,9 @@ class DatabricksConnectionContestTest {
     assertEquals("https://azuredatabricks.net:443", connectionContext.getHostUrl());
     assertEquals("/sql/1.0/warehouses/fgff575757", connectionContext.getHttpPath());
     assertEquals("passwd", connectionContext.getToken());
-    assertEquals(5, connectionContext.parameters.size());
+    assertEquals(6, connectionContext.parameters.size());
+    assertEquals("INFO", connectionContext.getLogLevelString());
+    assertNull(connectionContext.getLogPathString());
     assertEquals("3", connectionContext.parameters.get("authmech"));
   }
 }
