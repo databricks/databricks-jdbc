@@ -1,0 +1,19 @@
+name: 'Close stale issues and PRs'
+on:
+  schedule:
+    - cron: "30 6 * * *" #Run at 06:30 GMT everyday
+jobs:
+  stale:
+    runs-on: ubuntu-latest
+    steps:
+      # Release v8 (https://github.com/actions/stale/tree/v8.0.0)
+      - uses: actions/stale@v8
+        with:
+          stale-issue-message: "This issue has been marked as Stale because it has been open for 30 days with no activity. If you would like the issue to remain open, please remove the stale label or comment on the issue."
+          stale-pr-message: "This PR has been marked as Stale because it has been open for 30 days with no activity. If you would like the PR to remain open, please remove the stale label or comment on the PR."
+          close-pr-message: "This PR was closed because it has been inactive for 7 days since being marked as stale."
+          close-issue-message: "This issue was closed because it has been inactive for 7 days since being marked as stale."
+          days-before-stale: 30
+          days-before-close: 7
+          # ignore checking issues with the following labels
+          exempt-issue-labels: "epic, discussion"
