@@ -28,13 +28,20 @@ public class ThriftHandler implements TCLIService.Iface {
     try {
       return client.OpenSession(tOpenSessionReq);
     } catch (TException e) {
+      LOGGER.warn("Error occurred while opening session :( ",e);
+      System.out.println("Error occurred while opening session :( "+e.getMessage()+ e.toString());
+      e.printStackTrace();
       throw new RuntimeException(e);
     }
   }
 
   @Override
-  public TCloseSessionResp CloseSession(TCloseSessionReq tCloseSessionReq) throws TException {
-    return null;
+  public TCloseSessionResp CloseSession(TCloseSessionReq tCloseSessionReq) {
+    try {
+      return client.CloseSession(tCloseSessionReq);
+    } catch (TException e) {
+      throw new RuntimeException(e);
+    }
   }
 
   @Override

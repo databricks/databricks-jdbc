@@ -4,6 +4,7 @@ import com.databricks.jdbc.client.DatabricksClient;
 import com.databricks.jdbc.client.DatabricksMetadataClient;
 import com.databricks.jdbc.client.impl.sdk.DatabricksMetadataSdkClient;
 import com.databricks.jdbc.client.impl.sdk.DatabricksSdkClient;
+import com.databricks.jdbc.client.impl.thrift.DatabricksThriftClient;
 import com.databricks.jdbc.driver.IDatabricksConnectionContext;
 import com.google.common.annotations.VisibleForTesting;
 import javax.annotation.Nullable;
@@ -16,6 +17,7 @@ public class DatabricksSession implements IDatabricksSession {
   private static final Logger LOGGER = LoggerFactory.getLogger(DatabricksSession.class);
   private final DatabricksClient databricksClient;
   private final DatabricksMetadataClient databricksMetadataClient;
+  private final DatabricksThriftClient databricksThriftClient;
   private final String warehouseId;
 
   private boolean isSessionOpen;
@@ -35,6 +37,7 @@ public class DatabricksSession implements IDatabricksSession {
     this.databricksClient = new DatabricksSdkClient(connectionContext);
     this.databricksMetadataClient =
         new DatabricksMetadataSdkClient((DatabricksSdkClient) databricksClient);
+    this.databricksThriftClient = new DatabricksThriftClient(connectionContext);
     this.isSessionOpen = false;
     this.session = null;
     this.warehouseId = connectionContext.getWarehouse();
@@ -47,6 +50,7 @@ public class DatabricksSession implements IDatabricksSession {
     this.databricksClient = databricksClient;
     this.databricksMetadataClient =
         new DatabricksMetadataSdkClient((DatabricksSdkClient) databricksClient);
+    this.databricksThriftClient = new DatabricksThriftClient(connectionContext);
     this.isSessionOpen = false;
     this.session = null;
     this.warehouseId = connectionContext.getWarehouse();
@@ -79,6 +83,7 @@ public class DatabricksSession implements IDatabricksSession {
     synchronized (this) {
       if (!isSessionOpen) {
         // TODO: handle errors
+        this.session = databricksThriftClient.createSession(this.warehouseId);
         this.session = databricksClient.createSession(this.warehouseId);
         this.isSessionOpen = true;
       }
@@ -92,6 +97,7 @@ public class DatabricksSession implements IDatabricksSession {
     synchronized (this) {
       if (isSessionOpen) {
         // TODO: handle closed connections by server
+        databricksThriftClient.deleteSession(this.session.sessionId(), this.warehouseId);
         databricksClient.deleteSession(this.session.sessionId(), getWarehouseId());
         this.session = null;
         this.isSessionOpen = false;

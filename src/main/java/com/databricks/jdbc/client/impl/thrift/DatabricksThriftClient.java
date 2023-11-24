@@ -8,11 +8,12 @@ import com.databricks.jdbc.client.impl.sdk.DatabricksSdkClient;
 import com.databricks.jdbc.core.*;
 import com.databricks.jdbc.driver.IDatabricksConnectionContext;
 import com.databricks.sdk.service.sql.ExternalLink;
+import java.nio.ByteBuffer;
 import java.sql.SQLException;
 import java.util.Collection;
 import java.util.Map;
-import org.apache.hive.service.rpc.thrift.TOpenSessionReq;
-import org.apache.hive.service.rpc.thrift.TOpenSessionResp;
+import java.util.UUID;
+import org.apache.hive.service.rpc.thrift.*;
 import org.apache.thrift.transport.TTransportException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -22,25 +23,29 @@ public class DatabricksThriftClient implements DatabricksClient, DatabricksMetad
   private final IDatabricksConnectionContext connectionContext;
   private final ThriftHandler thriftHandler;
 
-  public DatabricksThriftClient(IDatabricksConnectionContext connectionContext)
-      throws TTransportException {
+  public DatabricksThriftClient(IDatabricksConnectionContext connectionContext) {
+    // Todo : error handling
     this.connectionContext = connectionContext;
-    this.thriftHandler = new ThriftHandler(connectionContext);
+    try {
+      this.thriftHandler = new ThriftHandler(connectionContext);
+    } catch (TTransportException e) {
+      throw new RuntimeException(e);
+    }
   }
 
   @Override
   public ImmutableSessionInfo createSession(String warehouseId) {
+    LOGGER.debug("Thrift createSession(String warehouseId = {})", warehouseId);
     TOpenSessionReq request = new TOpenSessionReq();
     TOpenSessionResp response = thriftHandler.OpenSession(request);
-    return ImmutableSessionInfo.builder()
-        .sessionId(response.getSessionHandle().getSessionId().toString())
-        .warehouseId(warehouseId)
-        .build();
+    String sessionId = getSessionId(response.getSessionHandle());
+    return ImmutableSessionInfo.builder().sessionId(sessionId).warehouseId(warehouseId).build();
   }
 
   @Override
   public void deleteSession(String sessionId, String warehouseId) {
-    throw new UnsupportedOperationException();
+    TCloseSessionReq request = new TCloseSessionReq();
+    thriftHandler.CloseSession(request);
   }
 
   @Override
@@ -118,5 +123,11 @@ public class DatabricksThriftClient implements DatabricksClient, DatabricksMetad
   public DatabricksResultSet listPrimaryKeys(
       IDatabricksSession session, String catalog, String schema, String table) {
     throw new UnsupportedOperationException();
+  }
+
+  private String getSessionId(TSessionHandle sessionHandle) {
+    byte[] guid = sessionHandle.getSessionId().getGuid();
+    ByteBuffer byteBuffer = ByteBuffer.wrap(guid, 0, 16);
+    return new UUID(byteBuffer.getLong(), byteBuffer.getLong()).toString();
   }
 }
