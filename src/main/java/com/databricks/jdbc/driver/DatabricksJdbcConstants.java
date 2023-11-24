@@ -11,6 +11,7 @@ public final class DatabricksJdbcConstants {
   static final String JDBC_SCHEMA = "jdbc:databricks://";
   static final String DEFAULT_LOG_LEVEL = "INFO";
   static final String LOG_LEVEL = "loglevel";
+  static final String SSL = "ssl";
   static final String LOG_PATH = "logpath";
   static final String SYSTEM_LOG_LEVEL_CONFIG = "defaultLogLevel";
   static final String SYSTEM_LOG_FILE_CONFIG = "defaultLogFile";

@@ -9,6 +9,7 @@ import com.databricks.sdk.service.sql.ExternalLink;
 import java.sql.SQLException;
 import java.util.Collection;
 import java.util.Map;
+import org.apache.thrift.TException;
 
 /** Interface for Databricks client which abstracts the integration with Databricks server. */
 public interface DatabricksClient {
@@ -19,7 +20,7 @@ public interface DatabricksClient {
    * @param warehouseId for which a session should be created
    * @return created session
    */
-  ImmutableSessionInfo createSession(String warehouseId);
+  ImmutableSessionInfo createSession(String warehouseId) throws TException;
 
   /**
    * Deletes a session for given session-Id
