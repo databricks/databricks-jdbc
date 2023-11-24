@@ -7,7 +7,6 @@ import com.databricks.jdbc.client.impl.sdk.DatabricksSdkClient;
 import com.databricks.jdbc.driver.IDatabricksConnectionContext;
 import com.google.common.annotations.VisibleForTesting;
 import javax.annotation.Nullable;
-import org.apache.thrift.TException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -80,11 +79,7 @@ public class DatabricksSession implements IDatabricksSession {
     synchronized (this) {
       if (!isSessionOpen) {
         // TODO: handle errors
-        try {
-          this.session = databricksClient.createSession(this.warehouseId);
-        } catch (TException e) {
-          throw new RuntimeException(e);
-        }
+        this.session = databricksClient.createSession(this.warehouseId);
         this.isSessionOpen = true;
       }
     }

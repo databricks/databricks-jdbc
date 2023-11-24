@@ -29,9 +29,9 @@ public class DatabricksThriftClient implements DatabricksClient, DatabricksMetad
   }
 
   @Override
-  public ImmutableSessionInfo createSession(String warehouseId){
+  public ImmutableSessionInfo createSession(String warehouseId) {
     TOpenSessionReq request = new TOpenSessionReq();
-    TOpenSessionResp  response = thriftHandler.OpenSession(request);
+    TOpenSessionResp response = thriftHandler.OpenSession(request);
     return ImmutableSessionInfo.builder()
         .sessionId(response.getSessionHandle().getSessionId().toString())
         .warehouseId(warehouseId)
