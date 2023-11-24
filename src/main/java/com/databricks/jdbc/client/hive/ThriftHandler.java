@@ -23,9 +23,13 @@ public class ThriftHandler implements TCLIService.Iface {
   }
 
   @Override
-  public TOpenSessionResp OpenSession(TOpenSessionReq tOpenSessionReq) throws TException {
+  public TOpenSessionResp OpenSession(TOpenSessionReq tOpenSessionReq){
     // TODO : add error handling
-    return client.OpenSession(tOpenSessionReq);
+    try {
+      return client.OpenSession(tOpenSessionReq);
+    } catch (TException e) {
+      throw new RuntimeException(e);
+    }
   }
 
   @Override

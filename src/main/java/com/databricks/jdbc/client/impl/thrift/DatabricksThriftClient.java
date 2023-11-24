@@ -13,7 +13,6 @@ import java.util.Collection;
 import java.util.Map;
 import org.apache.hive.service.rpc.thrift.TOpenSessionReq;
 import org.apache.hive.service.rpc.thrift.TOpenSessionResp;
-import org.apache.thrift.TException;
 import org.apache.thrift.transport.TTransportException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -30,10 +29,9 @@ public class DatabricksThriftClient implements DatabricksClient, DatabricksMetad
   }
 
   @Override
-  public ImmutableSessionInfo createSession(String warehouseId) throws TException {
+  public ImmutableSessionInfo createSession(String warehouseId){
     TOpenSessionReq request = new TOpenSessionReq();
-
-    TOpenSessionResp response = thriftHandler.OpenSession(request);
+    TOpenSessionResp  response = thriftHandler.OpenSession(request);
     return ImmutableSessionInfo.builder()
         .sessionId(response.getSessionHandle().getSessionId().toString())
         .warehouseId(warehouseId)
