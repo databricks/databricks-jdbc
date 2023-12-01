@@ -192,4 +192,11 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   public String getLogPathString() {
     return getParameter(DatabricksJdbcConstants.LOG_PATH);
   }
+
+  @Override
+  public ClientType getClientType() {
+    return DatabricksJdbcConstants.HTTP_PATH_PATTERN.matcher(getHttpPath()).find()
+        ? ClientType.SQL_EXEC
+        : ClientType.THRIFT;
+  }
 }

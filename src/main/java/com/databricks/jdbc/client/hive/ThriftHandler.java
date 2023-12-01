@@ -28,8 +28,9 @@ public class ThriftHandler implements TCLIService.Iface {
     try {
       return client.OpenSession(tOpenSessionReq);
     } catch (TException e) {
-      LOGGER.warn("Error occurred while opening session :( ",e);
-      System.out.println("Error occurred while opening session :( "+e.getMessage()+ e.toString());
+      LOGGER.warn("Error occurred while opening session :( ", e);
+      System.out.println(
+          "Error occurred while opening session :( " + e.getMessage() + e.toString());
       e.printStackTrace();
       throw new RuntimeException(e);
     }
