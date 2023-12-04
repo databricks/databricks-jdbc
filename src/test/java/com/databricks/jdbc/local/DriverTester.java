@@ -48,10 +48,9 @@ public class DriverTester {
     DriverManager.drivers().forEach(driver -> System.out.println(driver.getClass()));
     // Getting the connection
     String jdbcUrl =
-        "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=http;ssl=1;httpPath=sql/protocolv1/o/6051921418418893/0728-203113-g1ofclm;AuthMech=3;UID=token;PWD=?";
+        "jdbc:databricks://adb-2548836972759138.18.azuredatabricks.net:443/default;transportMode=http;ssl=1;httpPath=sql/protocolv1/o/2548836972759138/0525-164152-n5zqavha;AuthMech=3;UID=token;PWD=pat";
     Connection con =
-        DriverManager.getConnection(
-            jdbcUrl, "samikshya.chand@databricks.com", "?");
+        DriverManager.getConnection(jdbcUrl);
   }
 
   @Test

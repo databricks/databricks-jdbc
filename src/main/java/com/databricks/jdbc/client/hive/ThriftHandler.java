@@ -30,7 +30,7 @@ public class ThriftHandler implements TCLIService.Iface {
     } catch (TException e) {
       LOGGER.warn("Error occurred while opening session :( ", e);
       System.out.println(
-          "Error occurred while opening session :( " + e.getMessage() + e.toString());
+          "Error occurred while opening session :( " + e.getMessage() + "string ????"+ e.toString());
       e.printStackTrace();
       throw new RuntimeException(e);
     }
