@@ -31,13 +31,27 @@ public class DriverTester {
     // Getting the connection
     String jdbcUrl =
         "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/791ba2a31c7fd70a;";
-    Connection con = DriverManager.getConnection(jdbcUrl, "madhav.sainanee@databricks.com", "##");
+    Connection con =
+        DriverManager.getConnection(
+            jdbcUrl, "samikshya.chand@databricks.com", "?");
     System.out.println("Connection established......");
     // Retrieving the meta data object
     DatabaseMetaData metaData = con.getMetaData();
     // Retrieving the columns in the database
     ResultSet resultSet = metaData.getTables("samples", "tpch", null, null);
     printResultSet(resultSet);
+  }
+
+  @Test
+  void testGetTablesOSSThrift() throws Exception {
+    DriverManager.registerDriver(new com.databricks.jdbc.driver.DatabricksDriver());
+    DriverManager.drivers().forEach(driver -> System.out.println(driver.getClass()));
+    // Getting the connection
+    String jdbcUrl =
+        "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=http;ssl=1;httpPath=sql/protocolv1/o/6051921418418893/0728-203113-g1ofclm;AuthMech=3;UID=token;PWD=?";
+    Connection con =
+        DriverManager.getConnection(
+            jdbcUrl, "samikshya.chand@databricks.com", "?");
   }
 
   @Test

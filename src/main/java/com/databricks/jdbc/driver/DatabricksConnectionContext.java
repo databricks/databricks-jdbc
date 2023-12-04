@@ -124,6 +124,11 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
     return getParameter(DatabricksJdbcConstants.PASSWORD);
   }
 
+  @Override
+  public String getUsername() {
+    return getParameter(DatabricksJdbcConstants.USER_NAME);
+  }
+
   public String getCloud() {
     String hostURL = getHostUrl();
     if (hostURL.contains(".azuredatabricks.net")

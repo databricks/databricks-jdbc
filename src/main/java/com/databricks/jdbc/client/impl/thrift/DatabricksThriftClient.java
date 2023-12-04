@@ -11,6 +11,7 @@ import com.databricks.sdk.service.sql.ExternalLink;
 import java.nio.ByteBuffer;
 import java.sql.SQLException;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 import org.apache.hive.service.rpc.thrift.*;
@@ -37,6 +38,12 @@ public class DatabricksThriftClient implements DatabricksClient, DatabricksMetad
   public ImmutableSessionInfo createSession(String warehouseId) {
     LOGGER.debug("Thrift createSession(String warehouseId = {})", warehouseId);
     TOpenSessionReq request = new TOpenSessionReq();
+    Map<String, String> thriftConfig = new HashMap<>();
+
+    request.setUsername(connectionContext.getUsername());
+    request.setPassword(connectionContext.getToken());
+    request.setConfiguration(thriftConfig);
+    // request.
     TOpenSessionResp response = thriftHandler.OpenSession(request);
     String sessionId = getSessionId(response.getSessionHandle());
     return ImmutableSessionInfo.builder().sessionId(sessionId).warehouseId(warehouseId).build();

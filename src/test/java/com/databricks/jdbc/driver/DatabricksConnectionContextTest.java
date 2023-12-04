@@ -83,6 +83,7 @@ class DatabricksConnectionContextTest {
     assertEquals("passwd", connectionContext.getToken());
     assertEquals(7, connectionContext.parameters.size());
     assertEquals("INFO", connectionContext.getLogLevelString());
+    assertEquals("0405-074109-omxf62hf", connectionContext.getWarehouse());
     assertNull(connectionContext.getLogPathString());
     assertEquals("3", connectionContext.parameters.get("authmech"));
     assertEquals(connectionContext.getClientType(), ClientType.THRIFT);

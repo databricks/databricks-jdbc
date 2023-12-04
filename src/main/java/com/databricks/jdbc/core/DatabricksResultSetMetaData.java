@@ -19,6 +19,7 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
   private final ImmutableMap<String, Integer> columnNameIndex;
   private final long totalRows;
   private static final String DEFAULT_CATALOGUE_NAME = "Spark";
+  private static final String NULL_STRING = "null";
 
   // TODO: Add handling for Arrow stream results
 
@@ -231,8 +232,8 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
         .nullable(Nullable.NULLABLE)
         .accessType(AccessType.READ_ONLY)
         .isDefinitelyWritable(false)
-        .schemaName(null)
-        .tableName(null)
+        .schemaName(NULL_STRING)
+        .tableName(NULL_STRING)
         .catalogName(DEFAULT_CATALOGUE_NAME)
         .isCurrency(false)
         .typeScale(0)

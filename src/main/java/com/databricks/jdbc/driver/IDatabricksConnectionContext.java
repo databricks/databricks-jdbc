@@ -48,6 +48,8 @@ public interface IDatabricksConnectionContext {
    */
   String getToken();
 
+  String getUsername();
+
   String getHostForOAuth();
 
   String getClientId();

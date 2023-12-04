@@ -17,7 +17,7 @@ public class ThriftHandler implements TCLIService.Iface {
 
   public ThriftHandler(IDatabricksConnectionContext connectionContext) throws TTransportException {
     TTransport transport = new THttpClient(connectionContext.getHostUrl());
-    // TODO : add more protocols other than binary
+    // TODO : figure out if we need more protocols other than binary
     this.client = new TCLIService.Client(new TBinaryProtocol(transport));
     this.connectionContext = connectionContext;
   }
