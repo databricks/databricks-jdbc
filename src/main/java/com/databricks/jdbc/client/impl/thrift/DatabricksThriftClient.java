@@ -39,11 +39,9 @@ public class DatabricksThriftClient implements DatabricksClient, DatabricksMetad
     LOGGER.debug("Thrift createSession(String warehouseId = {})", warehouseId);
     TOpenSessionReq request = new TOpenSessionReq();
     Map<String, String> thriftConfig = new HashMap<>();
-
     request.setUsername(connectionContext.getUsername());
     request.setPassword(connectionContext.getToken());
     request.setConfiguration(thriftConfig);
-    // request.
     TOpenSessionResp response = thriftHandler.OpenSession(request);
     String sessionId = getSessionId(response.getSessionHandle());
     return ImmutableSessionInfo.builder().sessionId(sessionId).warehouseId(warehouseId).build();

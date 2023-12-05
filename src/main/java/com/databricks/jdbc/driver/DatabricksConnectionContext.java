@@ -88,7 +88,8 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
     return hostUrlBuilder.toString();
   }
 
-  String getHttpPath() {
+  @Override
+  public String getHttpPath() {
     LOGGER.debug("String getHttpPath()");
     return getParameter(DatabricksJdbcConstants.HTTP_PATH);
   }

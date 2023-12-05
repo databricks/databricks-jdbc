@@ -65,4 +65,6 @@ public interface IDatabricksConnectionContext {
   String getLogPathString();
 
   ClientType getClientType();
+
+  String getHttpPath();
 }

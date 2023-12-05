@@ -14,9 +14,12 @@ public class ThriftHandler implements TCLIService.Iface {
   private static final Logger LOGGER = LoggerFactory.getLogger(ThriftHandler.class);
   private final TCLIService.Iface client;
   private final IDatabricksConnectionContext connectionContext;
+  private final TTransport transport;
 
   public ThriftHandler(IDatabricksConnectionContext connectionContext) throws TTransportException {
-    TTransport transport = new THttpClient(connectionContext.getHostUrl());
+    String url = connectionContext.getHostUrl() + '/' + connectionContext.getHttpPath();
+    LOGGER.debug("Using the interactive cluster URL " + url);
+    this.transport = new THttpClient(url);
     // TODO : figure out if we need more protocols other than binary
     this.client = new TCLIService.Client(new TBinaryProtocol(transport));
     this.connectionContext = connectionContext;
@@ -26,12 +29,10 @@ public class ThriftHandler implements TCLIService.Iface {
   public TOpenSessionResp OpenSession(TOpenSessionReq tOpenSessionReq) {
     // TODO : add error handling
     try {
+      this.transport.open();
       return client.OpenSession(tOpenSessionReq);
     } catch (TException e) {
-      LOGGER.warn("Error occurred while opening session :( ", e);
-      System.out.println(
-          "Error occurred while opening session :( " + e.getMessage() + "string ????"+ e.toString());
-      e.printStackTrace();
+      LOGGER.error("Error occurred while opening session", e);
       throw new RuntimeException(e);
     }
   }
