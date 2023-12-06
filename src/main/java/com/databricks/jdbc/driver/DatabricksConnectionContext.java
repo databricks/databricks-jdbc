@@ -1,6 +1,6 @@
 package com.databricks.jdbc.driver;
 
-import static com.databricks.jdbc.driver.DatabricksJdbcConstants.DEFAULT_LOG_LEVEL;
+import static com.databricks.jdbc.driver.DatabricksJdbcConstants.*;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
@@ -122,12 +122,14 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   @Override
   public String getToken() {
     // TODO: decide on token/password from published specs
-    return getParameter(DatabricksJdbcConstants.PASSWORD);
+    return getClientType().equals(ClientType.THRIFT)
+        ? getParameter(THRIFT_PASSWORD)
+        : getParameter(PASSWORD);
   }
 
   @Override
   public String getUsername() {
-    return getParameter(DatabricksJdbcConstants.USER_NAME);
+    return getParameter(USER_NAME);
   }
 
   public String getCloud() {

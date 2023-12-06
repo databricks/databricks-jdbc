@@ -19,6 +19,8 @@ import org.apache.thrift.transport.TTransportException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import static org.apache.hive.service.rpc.thrift.TProtocolVersion.*;
+
 public class DatabricksThriftClient implements DatabricksClient, DatabricksMetadataClient {
   private static final Logger LOGGER = LoggerFactory.getLogger(DatabricksSdkClient.class);
   private final IDatabricksConnectionContext connectionContext;
@@ -39,9 +41,8 @@ public class DatabricksThriftClient implements DatabricksClient, DatabricksMetad
     LOGGER.debug("Thrift createSession(String warehouseId = {})", warehouseId);
     TOpenSessionReq request = new TOpenSessionReq();
     Map<String, String> thriftConfig = new HashMap<>();
-    request.setUsername(connectionContext.getUsername());
     request.setPassword(connectionContext.getToken());
-    request.setConfiguration(thriftConfig);
+    request.setClient_protocol(HIVE_CLI_SERVICE_PROTOCOL_V6);
     TOpenSessionResp response = thriftHandler.OpenSession(request);
     String sessionId = getSessionId(response.getSessionHandle());
     return ImmutableSessionInfo.builder().sessionId(sessionId).warehouseId(warehouseId).build();

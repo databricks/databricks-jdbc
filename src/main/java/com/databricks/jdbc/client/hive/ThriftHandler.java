@@ -19,19 +19,26 @@ public class ThriftHandler implements TCLIService.Iface {
   public ThriftHandler(IDatabricksConnectionContext connectionContext) throws TTransportException {
     String url = connectionContext.getHostUrl() + '/' + connectionContext.getHttpPath();
     LOGGER.debug("Using the interactive cluster URL " + url);
+    System.out.println("Using the interactive cluster URL " + url);
     this.transport = new THttpClient(url);
+    this.transport.open();
     // TODO : figure out if we need more protocols other than binary
     this.client = new TCLIService.Client(new TBinaryProtocol(transport));
+
+    System.out.println("Client is " + client.toString());
     this.connectionContext = connectionContext;
   }
 
   @Override
   public TOpenSessionResp OpenSession(TOpenSessionReq tOpenSessionReq) {
     // TODO : add error handling
+    System.out.println("open session request " + tOpenSessionReq.toString());
     try {
-      this.transport.open();
       return client.OpenSession(tOpenSessionReq);
     } catch (TException e) {
+      // System.out.println(":((((((error
+      // stacktrace"+e.getLocalizedMessage()+e.getMessage()+e.toString()+e.getCause());
+      e.printStackTrace();
       LOGGER.error("Error occurred while opening session", e);
       throw new RuntimeException(e);
     }

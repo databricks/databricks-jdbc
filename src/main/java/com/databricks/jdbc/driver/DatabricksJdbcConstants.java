@@ -48,5 +48,6 @@ public final class DatabricksJdbcConstants {
   public static final String PROCEDURE = "procedure";
   public static final String SCHEMA = "schema";
   public static final String USER_NAME = "User";
+  public static final String THRIFT_PASSWORD = "pwd";
   static final int DEFAULT_PORT = 443;
 }

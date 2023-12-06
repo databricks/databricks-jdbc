@@ -80,7 +80,7 @@ class DatabricksConnectionContextTest {
     assertEquals("https://azuredatabricks.net:443", connectionContext.getHostUrl());
     assertEquals(
         "sql/protocolv1/o/6051921418418893/0405-074109-omxf62hf", connectionContext.getHttpPath());
-    assertEquals("passwd", connectionContext.getToken());
+    assertEquals("pat", connectionContext.getToken());
     assertEquals(7, connectionContext.parameters.size());
     assertEquals("INFO", connectionContext.getLogLevelString());
     assertEquals("0405-074109-omxf62hf", connectionContext.getWarehouse());

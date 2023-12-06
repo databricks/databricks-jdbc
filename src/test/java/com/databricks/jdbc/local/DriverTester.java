@@ -33,7 +33,7 @@ public class DriverTester {
         "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/791ba2a31c7fd70a;";
     Connection con =
         DriverManager.getConnection(
-            jdbcUrl, "samikshya.chand@databricks.com", "?");
+            jdbcUrl, "samikshya.chand@databricks.com", "PAT");
     System.out.println("Connection established......");
     // Retrieving the meta data object
     DatabaseMetaData metaData = con.getMetaData();
@@ -48,9 +48,9 @@ public class DriverTester {
     DriverManager.drivers().forEach(driver -> System.out.println(driver.getClass()));
     // Getting the connection
     String jdbcUrl =
-        "jdbc:databricks://adb-2548836972759138.18.azuredatabricks.net:443/default;transportMode=http;ssl=1;httpPath=sql/protocolv1/o/2548836972759138/0525-164152-n5zqavha;AuthMech=3;UID=token;PWD=pat";
-    Connection con =
-        DriverManager.getConnection(jdbcUrl);
+        "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=http;ssl=1;httpPath=sql/protocolv1/o/6051921418418893/1201-140734-9il0o6sc;AuthMech=3;UID=token;PWD=PAT";
+    Connection con = DriverManager.getConnection(jdbcUrl);
+    System.out.println("Thrift Connection established......");
   }
 
   @Test
