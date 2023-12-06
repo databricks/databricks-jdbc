@@ -30,4 +30,16 @@ The JDBC driver supports following modes for authentication:
    - Client Credentials: Set Auth_Flow=1 for using Machine-to-machine OAuth flow.
    - Browser based OAuth: Set Auth_Flow=2 for using User-to-machine OAuth flow.
 
+## Instructions for sanity testing
+Till the time we have E2E/Integration tests, we can use the following for sanity tests of our code changes :
+
+- Run the tests in `/test/java/com/databricks/jdbc/local/DriverTester.java` to validate output.
+- For sql-exec testing, 
+  - Get the `jdbcUrl` from [DogFood](https://e2-dogfood.staging.cloud.databricks.com/) &rarr; any warehouse from `SQL Warehouses`&rarr;`connection details`&rarr;`JDBC URL`
+  - Add your databricks email as username.
+  - Add the password as the personal access token generated from [DogFood developer settings](https://e2-dogfood.staging.cloud.databricks.com/settings/user/developer/access-tokens).
+- For thrift testing,
+  - Get the `jdbcUrl` from [DogFood](https://e2-dogfood.staging.cloud.databricks.com/) &rarr; any compute from `Compute`&rarr;`Advanced options`&rarr;`JDBC/ODBC`
+  - Add your PAT generated from [DogFood developer settings](https://e2-dogfood.staging.cloud.databricks.com/settings/user/developer/access-tokens) in the JDBC URL.
+  - <TODO>;
 

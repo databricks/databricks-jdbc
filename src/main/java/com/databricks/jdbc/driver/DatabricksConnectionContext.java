@@ -1,6 +1,6 @@
 package com.databricks.jdbc.driver;
 
-import static com.databricks.jdbc.driver.DatabricksJdbcConstants.DEFAULT_LOG_LEVEL;
+import static com.databricks.jdbc.driver.DatabricksJdbcConstants.*;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
@@ -88,7 +88,8 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
     return hostUrlBuilder.toString();
   }
 
-  String getHttpPath() {
+  @Override
+  public String getHttpPath() {
     LOGGER.debug("String getHttpPath()");
     return getParameter(DatabricksJdbcConstants.HTTP_PATH);
   }
@@ -121,7 +122,14 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   @Override
   public String getToken() {
     // TODO: decide on token/password from published specs
-    return getParameter(DatabricksJdbcConstants.PASSWORD);
+    return getClientType().equals(ClientType.THRIFT)
+        ? getParameter(THRIFT_PASSWORD)
+        : getParameter(PASSWORD);
+  }
+
+  @Override
+  public String getUsername() {
+    return getParameter(USER_NAME);
   }
 
   public String getCloud() {
@@ -191,5 +199,12 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   @Override
   public String getLogPathString() {
     return getParameter(DatabricksJdbcConstants.LOG_PATH);
+  }
+
+  @Override
+  public ClientType getClientType() {
+    return DatabricksJdbcConstants.HTTP_PATH_PATTERN.matcher(getHttpPath()).find()
+        ? ClientType.SQL_EXEC
+        : ClientType.THRIFT;
   }
 }

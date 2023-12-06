@@ -48,6 +48,8 @@ public interface IDatabricksConnectionContext {
    */
   String getToken();
 
+  String getUsername();
+
   String getHostForOAuth();
 
   String getClientId();
@@ -61,4 +63,8 @@ public interface IDatabricksConnectionContext {
   String getLogLevelString();
 
   String getLogPathString();
+
+  ClientType getClientType();
+
+  String getHttpPath();
 }

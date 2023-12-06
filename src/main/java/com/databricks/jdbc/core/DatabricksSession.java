@@ -4,6 +4,8 @@ import com.databricks.jdbc.client.DatabricksClient;
 import com.databricks.jdbc.client.DatabricksMetadataClient;
 import com.databricks.jdbc.client.impl.sdk.DatabricksMetadataSdkClient;
 import com.databricks.jdbc.client.impl.sdk.DatabricksSdkClient;
+import com.databricks.jdbc.client.impl.thrift.DatabricksThriftClient;
+import com.databricks.jdbc.driver.ClientType;
 import com.databricks.jdbc.driver.IDatabricksConnectionContext;
 import com.google.common.annotations.VisibleForTesting;
 import javax.annotation.Nullable;
@@ -32,9 +34,14 @@ public class DatabricksSession implements IDatabricksSession {
    * @param connectionContext underlying connection context
    */
   public DatabricksSession(IDatabricksConnectionContext connectionContext) {
-    this.databricksClient = new DatabricksSdkClient(connectionContext);
-    this.databricksMetadataClient =
-        new DatabricksMetadataSdkClient((DatabricksSdkClient) databricksClient);
+    if (connectionContext.getClientType().equals(ClientType.THRIFT)) {
+      this.databricksClient = new DatabricksThriftClient(connectionContext);
+      this.databricksMetadataClient = null;
+    } else {
+      this.databricksClient = new DatabricksSdkClient(connectionContext);
+      this.databricksMetadataClient =
+          new DatabricksMetadataSdkClient((DatabricksSdkClient) databricksClient);
+    }
     this.isSessionOpen = false;
     this.session = null;
     this.warehouseId = connectionContext.getWarehouse();

@@ -5,7 +5,7 @@ import java.util.regex.Pattern;
 public final class DatabricksJdbcConstants {
 
   static final Pattern JDBC_URL_PATTERN =
-      Pattern.compile("jdbc:databricks:\\/\\/([^/]*)(?::\\d+)?\\/(.*)");
+      Pattern.compile("jdbc:databricks://([^/]*)(?::\\d+)?/(.*)");
   static final Pattern HTTP_PATH_PATTERN = Pattern.compile(".*\\/warehouses\\/(.*)");
   static final Pattern HTTP_PATH_SQL_PATTERN = Pattern.compile("sql\\/(.*)");
   static final String JDBC_SCHEMA = "jdbc:databricks://";
@@ -56,5 +56,6 @@ public final class DatabricksJdbcConstants {
   public static final String PROCEDURE = "procedure";
   public static final String SCHEMA = "schema";
   public static final String USER_NAME = "User";
+  public static final String THRIFT_PASSWORD = "pwd";
   static final int DEFAULT_PORT = 443;
 }
