@@ -46,6 +46,7 @@ jobs:
         uses: actions/setup-java@v4
         with:
           java-version: ${{ matrix.java-version }}
+          distribution: 'zulu'
 
       - name: Cache Maven packages
         uses: actions/cache@v3
