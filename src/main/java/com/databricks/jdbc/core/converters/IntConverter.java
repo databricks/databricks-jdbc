@@ -100,7 +100,7 @@ public class IntConverter extends AbstractObjectConverter {
     }
     long nanoseconds = (long) this.object * super.POWERS_OF_TEN[9 - scale];
     Time time = new Time(nanoseconds / super.POWERS_OF_TEN[6]);
-    LOGGER.debug("check timestamp "+ time.toString() +" "+time.toLocalTime().toString());
+    LOGGER.info("check timestamp "+ time.toString() +" "+time.toLocalTime().toString());
     return new Timestamp(time.getTime());
   }
 }
