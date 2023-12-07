@@ -54,5 +54,12 @@ jobs:
           key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
           restore-keys: ${{ runner.os }}-m2
 
+      - name: "Set up timezone to Asia/Kolkata inorder for timestamp tests to pass in GH Actions "
+        uses: szenius/set-timezone@v1.2
+        with:
+          timezoneLinux: "Asia/Kolkata"
+          timezoneMacos: "Asia/Kolkata"
+          timezoneWindows: "Asia/Kolkata"
+
       - name: Check Unit Tests
         run: mvn --errors test
