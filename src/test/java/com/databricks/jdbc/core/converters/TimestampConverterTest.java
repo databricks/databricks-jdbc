@@ -18,7 +18,7 @@ public class TimestampConverterTest {
 
   @Test
   public void testConvertToString() throws DatabricksSQLException {
-    assertEquals(new TimestampConverter(TIMESTAMP).convertToString(), "2023-09-10 20:45:00.0");
+    assertEquals(new TimestampConverter(TIMESTAMP).convertToString(), "2023-09-10T15:15:00Z");
   }
 
   @Test

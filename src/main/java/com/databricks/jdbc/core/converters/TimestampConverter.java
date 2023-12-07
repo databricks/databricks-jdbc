@@ -29,11 +29,11 @@ public class TimestampConverter extends AbstractObjectConverter {
 
   @Override
   public long convertToLong() throws DatabricksSQLException {
-    return this.object.getTime();
+    return this.object.toInstant().getEpochSecond() * 1000L; // epoch milliseconds
   }
 
   @Override
   public String convertToString() throws DatabricksSQLException {
-    return this.object.toString();
+    return this.object.toInstant().toString();
   }
 }
