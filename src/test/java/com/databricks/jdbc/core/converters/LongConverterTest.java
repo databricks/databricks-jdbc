@@ -6,7 +6,6 @@ import com.databricks.jdbc.core.DatabricksSQLException;
 import java.math.BigDecimal;
 import java.nio.ByteBuffer;
 import java.sql.Date;
-import java.sql.Timestamp;
 import java.util.Arrays;
 import org.junit.jupiter.api.Test;
 
@@ -113,11 +112,11 @@ public class LongConverterTest {
   @Test
   public void testConvertToTimestamp() throws DatabricksSQLException {
     assertEquals(
-        new LongConverter(NON_ZERO_OBJECT).convertToTimestamp(),
-        Timestamp.valueOf("1970-01-01 05:30:00.01"));
+        new LongConverter(NON_ZERO_OBJECT).convertToTimestamp().toInstant().toString(),
+        "1970-01-01T00:00:00.010Z");
     assertEquals(
-        new LongConverter(ZERO_OBJECT).convertToTimestamp(),
-        Timestamp.valueOf("1970-01-01 05:30:00"));
+        new LongConverter(ZERO_OBJECT).convertToTimestamp().toInstant().toString(),
+        "1970-01-01T00:00:00Z");
   }
 
   @Test
