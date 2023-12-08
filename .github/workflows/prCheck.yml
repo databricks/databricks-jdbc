@@ -9,12 +9,17 @@ on:
 
 jobs:
   formatting-check:
-    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, ubuntu-latest]
+        java-version: [17, 20]  # 20 is the latest version as of 2023 and 17 is the latest LTS
+    runs-on: ${{ matrix.os }}
     steps:
-      - name: Set up JDK 8
+      - name: Set up JDK
         uses: actions/setup-java@v1
         with:
-          java-version: 8
+          java-version: ${{ matrix.java-version }}
 
       - name: Checkout
         uses: actions/checkout@v2
