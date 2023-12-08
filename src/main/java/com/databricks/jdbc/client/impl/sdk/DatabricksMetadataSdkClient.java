@@ -66,72 +66,47 @@ public class DatabricksMetadataSdkClient implements DatabricksMetadataClient {
   @Override
   public DatabricksResultSet listSchemas(
       IDatabricksSession session, String catalog, String schemaNamePattern) throws SQLException {
-    return listSchemasFallback(session, catalog, schemaNamePattern);
-  }
-
-  @Override
-  public DatabricksResultSet listTables(
-      IDatabricksSession session, String catalog, String schemaNamePattern, String tableNamePattern)
-      throws SQLException {
-    return listTablesFallback(session, catalog, schemaNamePattern, tableNamePattern);
-  }
-
-  @Override
-  public DatabricksResultSet listTableTypes(IDatabricksSession session) {
-    return null;
-  }
-
-  @Override
-  public DatabricksResultSet listColumns(
-      IDatabricksSession session,
-      String catalog,
-      String schemaNamePattern,
-      String tableNamePattern,
-      String columnNamePattern)
-      throws SQLException {
-    return listColumnsFallback(
-        session, catalog, schemaNamePattern, tableNamePattern, columnNamePattern);
-  }
-
-  public DatabricksResultSet listColumnsFallback(
-      IDatabricksSession session,
-      String catalog,
-      String schemaNamePattern,
-      String tableNamePattern,
-      String columnNamePattern)
-      throws SQLException {
-    ResultSet resultSet = listTables(session, catalog, schemaNamePattern, tableNamePattern);
-    Queue<String[]> catalogSchemaTableCombinations = new ConcurrentLinkedQueue<>();
-    while (resultSet.next()) {
-      catalogSchemaTableCombinations.add(
-          new String[] {resultSet.getString(1), resultSet.getString(2), resultSet.getString(3)});
+    // Since catalog must be an identifier or all catalogs (null), we need not care about catalog
+    // regex
+    Queue<String> catalogs = new ConcurrentLinkedQueue<>();
+    if (WildcardUtil.isMatchAnything(catalog)) {
+      ResultSet rs = listCatalogs(session);
+      while (rs.next()) {
+        catalogs.add(rs.getString(1));
+      }
+    } else {
+      catalogs.add(catalog);
     }
+    // TODO: Remove post demo
+    while (catalogs.size() > 5) catalogs.poll();
 
     List<List<Object>> rows = new CopyOnWriteArrayList<>();
     ExecutorService executorService = Executors.newFixedThreadPool(150);
     for (int i = 0; i < 150; i++) {
       executorService.submit(
           () -> {
-            while (!catalogSchemaTableCombinations.isEmpty()) {
-              String[] combination = catalogSchemaTableCombinations.poll();
-              String showColumnsSQL =
-                  "show columns in " + combination[0] + "." + combination[1] + "." + combination[2];
-              LOGGER.debug("SQL command to fetch columns: {}" + showColumnsSQL);
+            while (!catalogs.isEmpty()) {
+              String currentCatalog = catalogs.poll();
+              // TODO: Emoji characters are not being handled correctly by SDK/SEA, hence, skipping
+              // for now
+              //          if (WildcardUtil.containsEmoji(currentCatalog))
+              //            return;
+              String showSchemaSQL = "show schemas in `" + currentCatalog + "`";
+              if (!WildcardUtil.isMatchAnything(schemaNamePattern)) {
+                showSchemaSQL += " like '" + schemaNamePattern + "'";
+              }
+              LOGGER.debug("SQL command to fetch schemas: {}" + showSchemaSQL);
               try {
                 ResultSet rs =
                     sdkClient.executeStatement(
-                        showColumnsSQL,
+                        showSchemaSQL,
                         session.getWarehouseId(),
                         new HashMap<Integer, ImmutableSqlParameter>(),
                         StatementType.METADATA,
                         session,
                         null /* parentStatement */);
                 while (rs.next()) {
-                  if (rs.getString(1).matches(columnNamePattern)) {
-                    rows.add(
-                        Arrays.asList(
-                            combination[0], combination[1], combination[2], rs.getString(1)));
-                  }
+                  rows.add(Arrays.asList(rs.getString(1), currentCatalog));
                 }
               } catch (SQLException e) {
                 throw new RuntimeException(e);
@@ -143,29 +118,28 @@ public class DatabricksMetadataSdkClient implements DatabricksMetadataClient {
     while (!executorService.isTerminated()) {
       // wait
     }
-    // TODO: some columns are missing from result set, determine how to fill those
     rows.sort(
-        Comparator.comparing((List<Object> i) -> i.get(0).toString())
-            .thenComparing(i -> i.get(1).toString())
-            .thenComparing(i -> i.get(2).toString()));
+        Comparator.comparing((List<Object> i) -> i.get(1).toString())
+            .thenComparing(i -> i.get(0).toString()));
     return new DatabricksResultSet(
         new StatementStatus().setState(StatementState.SUCCEEDED),
         "metadata-statement",
-        Arrays.asList("TABLE_CAT", "TABLE_SCHEM", "TABLE_NAME", "COLUMN_NAME"),
-        Arrays.asList("VARCHAR", "VARCHAR", "VARCHAR", "VARCHAR"),
-        Arrays.asList(Types.VARCHAR, Types.VARCHAR, Types.VARCHAR, Types.VARCHAR),
-        Arrays.asList(128, 128, 128, 128),
+        Arrays.asList("TABLE_SCHEM", "TABLE_CATALOG"),
+        Arrays.asList("VARCHAR", "VARCHAR"),
+        Arrays.asList(Types.VARCHAR, Types.VARCHAR),
+        Arrays.asList(128, 128),
         rows,
         StatementType.METADATA);
   }
 
-  private DatabricksResultSet listTablesFallback(
+  @Override
+  public DatabricksResultSet listTables(
       IDatabricksSession session, String catalog, String schemaNamePattern, String tableNamePattern)
       throws SQLException {
 
     Queue<Map.Entry<String, String>> catalogSchemaPairs = new ConcurrentLinkedQueue<>();
     if (WildcardUtil.isWildcard(schemaNamePattern) || WildcardUtil.isMatchAnything(catalog)) {
-      ResultSet resultSet = listSchemasFallback(session, catalog, schemaNamePattern);
+      ResultSet resultSet = listSchemas(session, catalog, schemaNamePattern);
       while (resultSet.next()) {
         catalogSchemaPairs.add(Map.entry(resultSet.getString(2), resultSet.getString(1)));
       }
@@ -262,49 +236,51 @@ public class DatabricksMetadataSdkClient implements DatabricksMetadataClient {
         StatementType.METADATA);
   }
 
-  private DatabricksResultSet listSchemasFallback(
-      IDatabricksSession session, String catalog, String schemaNamePattern) throws SQLException {
-    // Since catalog must be an identifier or all catalogs (null), we need not care about catalog
-    // regex
-    Queue<String> catalogs = new ConcurrentLinkedQueue<>();
-    if (WildcardUtil.isMatchAnything(catalog)) {
-      ResultSet rs = listCatalogs(session);
-      while (rs.next()) {
-        catalogs.add(rs.getString(1));
-      }
-    } else {
-      catalogs.add(catalog);
+  @Override
+  public DatabricksResultSet listTableTypes(IDatabricksSession session) {
+    return null;
+  }
+
+  @Override
+  public DatabricksResultSet listColumns(
+      IDatabricksSession session,
+      String catalog,
+      String schemaNamePattern,
+      String tableNamePattern,
+      String columnNamePattern)
+      throws SQLException {
+    ResultSet resultSet = listTables(session, catalog, schemaNamePattern, tableNamePattern);
+    Queue<String[]> catalogSchemaTableCombinations = new ConcurrentLinkedQueue<>();
+    while (resultSet.next()) {
+      catalogSchemaTableCombinations.add(
+          new String[] {resultSet.getString(1), resultSet.getString(2), resultSet.getString(3)});
     }
-    // TODO: Remove post demo
-    while (catalogs.size() > 5) catalogs.poll();
 
     List<List<Object>> rows = new CopyOnWriteArrayList<>();
     ExecutorService executorService = Executors.newFixedThreadPool(150);
     for (int i = 0; i < 150; i++) {
       executorService.submit(
           () -> {
-            while (!catalogs.isEmpty()) {
-              String currentCatalog = catalogs.poll();
-              // TODO: Emoji characters are not being handled correctly by SDK/SEA, hence, skipping
-              // for now
-              //          if (WildcardUtil.containsEmoji(currentCatalog))
-              //            return;
-              String showSchemaSQL = "show schemas in `" + currentCatalog + "`";
-              if (!WildcardUtil.isMatchAnything(schemaNamePattern)) {
-                showSchemaSQL += " like '" + schemaNamePattern + "'";
-              }
-              LOGGER.debug("SQL command to fetch schemas: {}" + showSchemaSQL);
+            while (!catalogSchemaTableCombinations.isEmpty()) {
+              String[] combination = catalogSchemaTableCombinations.poll();
+              String showColumnsSQL =
+                  "show columns in " + combination[0] + "." + combination[1] + "." + combination[2];
+              LOGGER.debug("SQL command to fetch columns: {}" + showColumnsSQL);
               try {
                 ResultSet rs =
                     sdkClient.executeStatement(
-                        showSchemaSQL,
+                        showColumnsSQL,
                         session.getWarehouseId(),
                         new HashMap<Integer, ImmutableSqlParameter>(),
                         StatementType.METADATA,
                         session,
                         null /* parentStatement */);
                 while (rs.next()) {
-                  rows.add(Arrays.asList(rs.getString(1), currentCatalog));
+                  if (rs.getString(1).matches(columnNamePattern)) {
+                    rows.add(
+                        Arrays.asList(
+                            combination[0], combination[1], combination[2], rs.getString(1)));
+                  }
                 }
               } catch (SQLException e) {
                 throw new RuntimeException(e);
@@ -316,16 +292,18 @@ public class DatabricksMetadataSdkClient implements DatabricksMetadataClient {
     while (!executorService.isTerminated()) {
       // wait
     }
+    // TODO: some columns are missing from result set, determine how to fill those
     rows.sort(
-        Comparator.comparing((List<Object> i) -> i.get(1).toString())
-            .thenComparing(i -> i.get(0).toString()));
+        Comparator.comparing((List<Object> i) -> i.get(0).toString())
+            .thenComparing(i -> i.get(1).toString())
+            .thenComparing(i -> i.get(2).toString()));
     return new DatabricksResultSet(
         new StatementStatus().setState(StatementState.SUCCEEDED),
         "metadata-statement",
-        Arrays.asList("TABLE_SCHEM", "TABLE_CATALOG"),
-        Arrays.asList("VARCHAR", "VARCHAR"),
-        Arrays.asList(Types.VARCHAR, Types.VARCHAR),
-        Arrays.asList(128, 128),
+        Arrays.asList("TABLE_CAT", "TABLE_SCHEM", "TABLE_NAME", "COLUMN_NAME"),
+        Arrays.asList("VARCHAR", "VARCHAR", "VARCHAR", "VARCHAR"),
+        Arrays.asList(Types.VARCHAR, Types.VARCHAR, Types.VARCHAR, Types.VARCHAR),
+        Arrays.asList(128, 128, 128, 128),
         rows,
         StatementType.METADATA);
   }

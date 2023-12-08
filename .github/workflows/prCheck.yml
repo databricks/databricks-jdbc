@@ -12,8 +12,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [macos-latest, ubuntu-latest]
-        java-version: [17, 20]  # 20 is the latest version as of 2023 and 17 is the latest LTS
+        os: [ubuntu-latest]
+        java-version: [20]  # For formatting, we don't need to run across multiple versions. Only sanity testing is required here, rest is taken care in the build.
     runs-on: ${{ matrix.os }}
     steps:
       - name: Set up JDK
