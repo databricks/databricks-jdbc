@@ -31,7 +31,6 @@ public class TimestampConverter extends AbstractObjectConverter {
 
   @Override
   public long convertToLong() throws DatabricksSQLException {
-    System.out.println("hi " + object.toInstant().getEpochSecond());
     return this.object.toInstant().getEpochSecond() * 1000L; // epoch milliseconds
   }
 
