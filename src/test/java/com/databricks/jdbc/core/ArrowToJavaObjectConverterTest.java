@@ -187,13 +187,13 @@ public class ArrowToJavaObjectConverterTest {
   public void testTimestampConversion() throws SQLException {
     IntVector intVector = new IntVector("intVector", this.bufferAllocator);
     intVector.allocateNew(1);
-    intVector.set(0, 4);
+    intVector.set(0, 4000);
     Object unconvertedIntObject = intVector.getObject(0);
     Object convertedFromIntObject =
         ArrowToJavaObjectConverter.convert(unconvertedIntObject, ColumnInfoTypeName.TIMESTAMP);
     BigIntVector bigIntVector = new BigIntVector("bigIntVector", this.bufferAllocator);
     bigIntVector.allocateNew(1);
-    bigIntVector.set(0, 1693312639000L);
+    bigIntVector.set(0, 1693312639000000L);
     Object unconvertedBigIntObject = bigIntVector.getObject(0);
     Object convertedFromBigIntObject =
         ArrowToJavaObjectConverter.convert(unconvertedBigIntObject, ColumnInfoTypeName.TIMESTAMP);

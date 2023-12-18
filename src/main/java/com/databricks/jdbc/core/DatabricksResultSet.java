@@ -253,7 +253,6 @@ public class DatabricksResultSet implements ResultSet, IDatabricksResultSet {
     throw new UnsupportedOperationException("Not implemented");
   }
 
-  // TODO (Madhav): Handle case when scale is not provided when getScale is implemented.
   @Override
   public Timestamp getTimestamp(int columnIndex) throws SQLException {
     Object obj = getObjectInternal(columnIndex);
@@ -262,7 +261,7 @@ public class DatabricksResultSet implements ResultSet, IDatabricksResultSet {
     }
     int columnType = resultSetMetaData.getColumnType(columnIndex);
     AbstractObjectConverter converter = getObjectConverter(obj, columnType);
-    return converter.convertToTimestamp(resultSetMetaData.getScale(columnIndex));
+    return converter.convertToTimestamp();
   }
 
   @Override
@@ -332,7 +331,7 @@ public class DatabricksResultSet implements ResultSet, IDatabricksResultSet {
 
   @Override
   public Date getDate(String columnLabel) throws SQLException {
-    throw new UnsupportedOperationException("Not implemented");
+    return getDate(getColumnNameIndex(columnLabel));
   }
 
   @Override
@@ -342,7 +341,7 @@ public class DatabricksResultSet implements ResultSet, IDatabricksResultSet {
 
   @Override
   public Timestamp getTimestamp(String columnLabel) throws SQLException {
-    throw new UnsupportedOperationException("Not implemented");
+    return getTimestamp(getColumnNameIndex(columnLabel));
   }
 
   @Override
@@ -387,7 +386,7 @@ public class DatabricksResultSet implements ResultSet, IDatabricksResultSet {
 
   @Override
   public Object getObject(String columnLabel) throws SQLException {
-    throw new UnsupportedOperationException("Not implemented");
+    return getObject(getColumnNameIndex(columnLabel));
   }
 
   @Override
@@ -407,12 +406,12 @@ public class DatabricksResultSet implements ResultSet, IDatabricksResultSet {
 
   @Override
   public BigDecimal getBigDecimal(int columnIndex) throws SQLException {
-    throw new UnsupportedOperationException("Not implemented");
+    return getBigDecimal(columnIndex, resultSetMetaData.getScale(columnIndex));
   }
 
   @Override
   public BigDecimal getBigDecimal(String columnLabel) throws SQLException {
-    throw new UnsupportedOperationException("Not implemented");
+    return getBigDecimal(getColumnNameIndex(columnLabel));
   }
 
   @Override
