@@ -52,9 +52,6 @@ public final class DatabricksJdbcConstants {
 
   public static final String SQL_SCOPE = "sql";
   public static final String OFFLINE_ACCESS_SCOPE = "offline_access";
-  public static final String AAD_SQL_SCOPE =
-      "2ff814a6-3304-4ab8-85cb-cd0e6f879c1d/user_impersonation";
-
   public static final String FULL_STOP = ".";
   public static final String EMPTY_STRING = "";
   public static final String IDENTIFIER_QUOTE_STRING = "`";

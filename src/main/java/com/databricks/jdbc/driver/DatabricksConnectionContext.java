@@ -157,10 +157,8 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
     if (getCloud().equals("AWS")) {
       return Arrays.asList(
           DatabricksJdbcConstants.SQL_SCOPE, DatabricksJdbcConstants.OFFLINE_ACCESS_SCOPE);
-    } else if (getCloud().equals("AAD")) {
-      return Arrays.asList(
-          DatabricksJdbcConstants.AAD_SQL_SCOPE, DatabricksJdbcConstants.OFFLINE_ACCESS_SCOPE);
     } else {
+      // Default scope is already being set for Azure in databricks-sdk.
       return null;
     }
   }
