@@ -4,11 +4,7 @@ import static com.databricks.jdbc.driver.DatabricksJdbcConstants.SYSTEM_LOG_FILE
 import static com.databricks.jdbc.driver.DatabricksJdbcConstants.SYSTEM_LOG_LEVEL_CONFIG;
 
 import com.databricks.jdbc.core.DatabricksConnection;
-import java.sql.Connection;
-import java.sql.Driver;
-import java.sql.DriverManager;
-import java.sql.DriverPropertyInfo;
-import java.sql.SQLException;
+import java.sql.*;
 import java.util.Properties;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -74,6 +70,10 @@ public class DatabricksDriver implements Driver {
   @Override
   public java.util.logging.Logger getParentLogger() {
     return null;
+  }
+
+  public static DatabricksDriver getInstance() {
+    return INSTANCE;
   }
 
   public static void main(String[] args) {

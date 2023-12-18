@@ -16,6 +16,7 @@ class DatabricksConnectionContestTest {
       "jdbc:oracle://azuredatabricks.net/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/fgff575757;";
   private static final String INVALID_URL_2 =
       "http:databricks://azuredatabricks.net/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/fgff575757;";
+  private static final String VALID_TEST_URL = "jdbc:databricks://test";
 
   private static Properties properties = new Properties();
 
@@ -27,6 +28,7 @@ class DatabricksConnectionContestTest {
   @Test
   public void testIsValid() throws Exception {
     assertTrue(DatabricksConnectionContext.isValid(VALID_URL_1));
+    assertTrue(DatabricksConnectionContext.isValid(VALID_TEST_URL));
     assertTrue(DatabricksConnectionContext.isValid(VALID_URL_2));
     assertFalse(DatabricksConnectionContext.isValid(INVALID_URL_1));
     assertFalse(DatabricksConnectionContext.isValid(INVALID_URL_2));

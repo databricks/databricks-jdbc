@@ -142,10 +142,6 @@ public class ArrowStreamResultTest {
             connectionContext,
             new DatabricksSdkClient(connectionContext, statementExecutionService, null));
 
-    setupMockLinks(1, false);
-    setupMockLinks(2, false);
-    setupMockLinks(3, false);
-
     setupMockResponse();
     when(mockHttpClient.execute(isA(HttpUriRequest.class))).thenReturn(httpResponse);
 

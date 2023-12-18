@@ -1,5 +1,7 @@
 package com.databricks.jdbc.driver;
 
+import java.util.List;
+
 public interface IDatabricksConnectionContext {
 
   enum AuthFlow {
@@ -53,6 +55,8 @@ public interface IDatabricksConnectionContext {
   String getClientId();
 
   String getClientSecret();
+
+  List<String> getOAuthScopesForU2M();
 
   AuthMech getAuthMech();
 

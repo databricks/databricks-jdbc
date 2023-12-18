@@ -114,6 +114,7 @@ public class DatabricksSdkClientTest {
                 .setDisposition(Disposition.EXTERNAL_LINKS)
                 .setFormat(Format.ARROW_STREAM)
                 .setWaitTimeout("10s")
+                .setRowLimit(100L)
                 .setOnWaitTimeout(ExecuteStatementRequestOnWaitTimeout.CONTINUE)
                 .setParameters(params);
 
@@ -124,6 +125,7 @@ public class DatabricksSdkClientTest {
                 .setStatus(new StatementStatus().setState(StatementState.PENDING)));
 
     DatabricksStatement statement = new DatabricksStatement(connection);
+    statement.setMaxRows(100);
     HashMap<Integer, ImmutableSqlParameter> sqlParams =
         new HashMap<>() {
           {
