@@ -35,7 +35,7 @@
     <log4japi.version>2.21.1</log4japi.version>
     <log4jcore.version>2.21.1</log4jcore.version>
     <commons-io.version>2.13.0</commons-io.version>
-    <databricks-sdk.version>0.11.0</databricks-sdk.version>
+    <databricks-sdk.version>0.13.0</databricks-sdk.version>
     <maven-surefire-plugin.version>3.1.2</maven-surefire-plugin.version>
   </properties>
   <dependencies>
@@ -123,6 +123,11 @@
       <version>${jackson.version}</version>
     </dependency>
     <dependency>
+      <groupId>com.fasterxml.jackson.core</groupId>
+      <artifactId>jackson-annotations</artifactId>
+      <version>${jackson.version}</version>
+    </dependency>
+    <dependency>
       <groupId>org.immutables</groupId>
       <artifactId>value</artifactId>
       <version>${immutables.value.version}</version>
@@ -136,6 +141,7 @@
         <plugin>
           <groupId>org.apache.maven.plugins</groupId>
           <artifactId>maven-jar-plugin</artifactId>
+          <version>3.3.0</version>
           <executions>
             <execution>
               <goals>
@@ -150,6 +156,7 @@
           <version>${maven-surefire-plugin.version}</version>
           <configuration>
             <argLine>
+              @{argLine}
               --add-opens=java.base/java.nio=ALL-UNNAMED
               -Dnet.bytebuddy.experimental=true
             </argLine>
@@ -194,14 +201,31 @@
             </execution>
           </executions>
           <configuration>
-            <sourceDirectory>src/</sourceDirectory>
-            <targetDirectory>src/</targetDirectory>
             <java>
               <googleJavaFormat>
                 <version>1.18.1</version>
               </googleJavaFormat>
             </java>
           </configuration>
+        </plugin>
+        <plugin>
+          <groupId>org.jacoco</groupId>
+          <artifactId>jacoco-maven-plugin</artifactId>
+          <version>0.8.11</version>
+          <executions>
+            <execution>
+              <goals>
+                <goal>prepare-agent</goal>
+              </goals>
+            </execution>
+            <execution>
+              <id>report</id>
+              <phase>prepare-package</phase>
+              <goals>
+                <goal>report</goal>
+              </goals>
+            </execution>
+          </executions>
         </plugin>
       </plugins>
     </build>

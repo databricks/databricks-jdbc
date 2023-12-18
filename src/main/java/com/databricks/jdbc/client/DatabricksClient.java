@@ -32,12 +32,12 @@ public interface DatabricksClient {
   /**
    * Executes a statement in Databricks server
    *
-   * @param statement SQL statement that needs to be executed
+   * @param sql SQL statement that needs to be executed
    * @param warehouseId warehouse-Id which should be used for statement execution
    * @param parameters SQL parameters for the statement
    * @param statementType type of statement (metadata, update or generic SQL)
    * @param session underlying session
-   * @param statement statement instance if called from a statement
+   * @param parentStatement statement instance if called from a statement
    * @return response for statement execution
    */
   DatabricksResultSet executeStatement(

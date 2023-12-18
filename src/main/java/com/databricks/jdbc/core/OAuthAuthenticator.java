@@ -39,7 +39,9 @@ public class OAuthAuthenticator {
             .setAuthType(DatabricksJdbcConstants.U2M_AUTH_TYPE)
             .setHost(this.connectionContext.getHostForOAuth())
             .setClientId(this.connectionContext.getClientId())
-            .setClientSecret(this.connectionContext.getClientSecret());
+            .setClientSecret(this.connectionContext.getClientSecret())
+            .setScopes(this.connectionContext.getOAuthScopesForU2M())
+            .setOAuthRedirectUrl(DatabricksJdbcConstants.U2M_AUTH_REDIRECT_URL);
     return new WorkspaceClient(config);
   }
 

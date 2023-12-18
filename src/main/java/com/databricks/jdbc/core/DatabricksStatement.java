@@ -1,10 +1,12 @@
 package com.databricks.jdbc.core;
 
+import static com.databricks.jdbc.commons.EnvironmentVariables.DEFAULT_ROW_LIMIT;
 import static com.databricks.jdbc.commons.EnvironmentVariables.DEFAULT_STATEMENT_TIMEOUT_SECONDS;
 import static java.lang.String.format;
 
 import com.databricks.jdbc.client.DatabricksClient;
 import com.databricks.jdbc.client.StatementType;
+import com.databricks.jdbc.commons.util.ValidationUtil;
 import java.sql.*;
 import java.util.HashMap;
 import java.util.Map;
@@ -22,6 +24,8 @@ public class DatabricksStatement implements IDatabricksStatement, Statement {
   private String statementId;
   private boolean isClosed;
   private boolean closeOnCompletion;
+
+  private int maxRows = DEFAULT_ROW_LIMIT;
 
   public DatabricksStatement(DatabricksConnection connection) {
     this.connection = connection;
@@ -84,13 +88,16 @@ public class DatabricksStatement implements IDatabricksStatement, Statement {
   @Override
   public int getMaxRows() throws SQLException {
     LOGGER.debug("public int getMaxRows()");
-    throw new UnsupportedOperationException("Not implemented");
+    checkIfClosed();
+    return this.maxRows;
   }
 
   @Override
   public void setMaxRows(int max) throws SQLException {
     LOGGER.debug("public void setMaxRows(int max = {})", max);
-    throw new UnsupportedOperationException("Not implemented");
+    checkIfClosed();
+    ValidationUtil.checkIfPositive(max, "maxRows");
+    this.maxRows = max;
   }
 
   @Override

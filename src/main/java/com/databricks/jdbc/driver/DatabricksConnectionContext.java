@@ -1,9 +1,12 @@
 package com.databricks.jdbc.driver;
 
 import static com.databricks.jdbc.driver.DatabricksJdbcConstants.DEFAULT_LOG_LEVEL;
+import static com.databricks.jdbc.driver.DatabricksJdbcConstants.JDBC_URL_PATTERN;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
+import java.util.Arrays;
+import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.regex.Matcher;
@@ -31,7 +34,7 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
       // TODO: handle exceptions properly
       throw new IllegalArgumentException("Invalid url " + url);
     }
-    Matcher urlMatcher = DatabricksJdbcConstants.JDBC_URL_PATTERN.matcher(url);
+    Matcher urlMatcher = JDBC_URL_PATTERN.matcher(url);
     if (urlMatcher.find()) {
       String hostUrlVal = urlMatcher.group(1);
       String urlMinusHost = urlMatcher.group(2);
@@ -74,7 +77,7 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   }
 
   public static boolean isValid(String url) {
-    return DatabricksJdbcConstants.JDBC_URL_PATTERN.matcher(url).matches();
+    return JDBC_URL_PATTERN.matcher(url).matches();
   }
 
   @Override
@@ -147,6 +150,19 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
       }
     }
     return clientId;
+  }
+
+  @Override
+  public List<String> getOAuthScopesForU2M() {
+    if (getCloud().equals("AWS")) {
+      return Arrays.asList(
+          DatabricksJdbcConstants.SQL_SCOPE, DatabricksJdbcConstants.OFFLINE_ACCESS_SCOPE);
+    } else if (getCloud().equals("AAD")) {
+      return Arrays.asList(
+          DatabricksJdbcConstants.AAD_SQL_SCOPE, DatabricksJdbcConstants.OFFLINE_ACCESS_SCOPE);
+    } else {
+      return null;
+    }
   }
 
   @Override

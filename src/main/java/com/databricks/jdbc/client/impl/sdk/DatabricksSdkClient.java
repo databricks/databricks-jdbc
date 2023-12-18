@@ -1,5 +1,7 @@
 package com.databricks.jdbc.client.impl.sdk;
 
+import static com.databricks.jdbc.commons.EnvironmentVariables.DEFAULT_ROW_LIMIT;
+
 import com.databricks.jdbc.client.DatabricksClient;
 import com.databricks.jdbc.client.StatementType;
 import com.databricks.jdbc.client.sqlexec.*;
@@ -104,7 +106,7 @@ public class DatabricksSdkClient implements DatabricksClient {
     long pollCount = 0;
     long executionStartTime = Instant.now().toEpochMilli();
     ExecuteStatementRequest request =
-        getRequest(statementType, sql, warehouseId, session, parameters);
+        getRequest(statementType, sql, warehouseId, session, parameters, parentStatement);
     ExecuteStatementResponse response =
         workspaceClient.statementExecution().executeStatement(request);
     String statementId = response.getStatementId();
@@ -169,24 +171,31 @@ public class DatabricksSdkClient implements DatabricksClient {
       String sql,
       String warehouseId,
       IDatabricksSession session,
-      Map<Integer, ImmutableSqlParameter> parameters) {
+      Map<Integer, ImmutableSqlParameter> parameters,
+      IDatabricksStatement parentStatement)
+      throws SQLException {
     Format format = useCloudFetchForResult(statementType) ? Format.ARROW_STREAM : Format.JSON_ARRAY;
     Disposition disposition =
         useCloudFetchForResult(statementType) ? Disposition.EXTERNAL_LINKS : Disposition.INLINE;
-
-    return (ExecuteStatementRequestWithSession)
-        new ExecuteStatementRequestWithSession()
-            .setSessionId(session.getSessionId())
-            .setStatement(sql)
-            .setWarehouseId(warehouseId)
-            .setDisposition(disposition)
-            .setFormat(format)
-            .setWaitTimeout(SYNC_TIMEOUT_VALUE)
-            .setOnWaitTimeout(ExecuteStatementRequestOnWaitTimeout.CONTINUE)
-            .setParameters(
-                parameters.values().stream()
-                    .map(this::mapToParameterListItem)
-                    .collect(Collectors.toList()));
+    long maxRows = (parentStatement == null) ? DEFAULT_ROW_LIMIT : parentStatement.getMaxRows();
+    ExecuteStatementRequestWithSession request =
+        (ExecuteStatementRequestWithSession)
+            new ExecuteStatementRequestWithSession()
+                .setSessionId(session.getSessionId())
+                .setStatement(sql)
+                .setWarehouseId(warehouseId)
+                .setDisposition(disposition)
+                .setFormat(format)
+                .setWaitTimeout(SYNC_TIMEOUT_VALUE)
+                .setOnWaitTimeout(ExecuteStatementRequestOnWaitTimeout.CONTINUE)
+                .setParameters(
+                    parameters.values().stream()
+                        .map(this::mapToParameterListItem)
+                        .collect(Collectors.toList()));
+    if (maxRows != DEFAULT_ROW_LIMIT) {
+      request.setRowLimit(maxRows);
+    }
+    return request;
   }
 
   private StatementParameterListItem mapToParameterListItem(ImmutableSqlParameter parameter) {

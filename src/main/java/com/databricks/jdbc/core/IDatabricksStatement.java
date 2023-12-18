@@ -11,4 +11,6 @@ public interface IDatabricksStatement {
   void close(boolean removeFromSession) throws SQLException;
 
   void handleResultSetClose(IDatabricksResultSet resultSet) throws SQLException;
+
+  int getMaxRows() throws SQLException;
 }
