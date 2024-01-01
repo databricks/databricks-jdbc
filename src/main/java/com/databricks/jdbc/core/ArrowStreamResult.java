@@ -1,7 +1,11 @@
 package com.databricks.jdbc.core;
 
 import com.databricks.jdbc.client.IDatabricksHttpClient;
-import com.databricks.sdk.service.sql.*;
+import com.databricks.jdbc.client.sqlexec.ResultData;
+import com.databricks.sdk.service.sql.BaseChunkInfo;
+import com.databricks.sdk.service.sql.ColumnInfo;
+import com.databricks.sdk.service.sql.ColumnInfoTypeName;
+import com.databricks.sdk.service.sql.ResultManifest;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
 import java.sql.SQLException;

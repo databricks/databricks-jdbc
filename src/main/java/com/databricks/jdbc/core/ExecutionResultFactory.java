@@ -1,6 +1,6 @@
 package com.databricks.jdbc.core;
 
-import com.databricks.sdk.service.sql.ResultData;
+import com.databricks.jdbc.client.sqlexec.ResultData;
 import com.databricks.sdk.service.sql.ResultManifest;
 import java.util.List;
 

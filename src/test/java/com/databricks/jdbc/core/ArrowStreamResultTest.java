@@ -7,6 +7,8 @@ import static org.mockito.Mockito.when;
 
 import com.databricks.jdbc.client.IDatabricksHttpClient;
 import com.databricks.jdbc.client.impl.sdk.DatabricksSdkClient;
+import com.databricks.jdbc.client.sqlexec.ExternalLink;
+import com.databricks.jdbc.client.sqlexec.ResultData;
 import com.databricks.jdbc.driver.DatabricksConnectionContext;
 import com.databricks.jdbc.driver.IDatabricksConnectionContext;
 import com.databricks.sdk.core.ApiClient;
@@ -68,7 +70,7 @@ public class ArrowStreamResultTest {
   }
 
   @Test
-  public void testInitEmptyArrowStreamResult() throws Exception {
+  public void testInitEmptyArrowStreamResult() {
     ResultManifest resultManifest =
         new ResultManifest()
             .setTotalChunkCount(0L)
@@ -96,16 +98,6 @@ public class ArrowStreamResultTest {
         new DatabricksSession(
             connectionContext,
             new DatabricksSdkClient(connectionContext, statementExecutionService, apiClient));
-
-    setupMockLinks(1, false);
-    setupMockLinks(2, false);
-    setupMockLinks(3, false);
-    setupMockLinks(4, false);
-    setupMockLinks(5, false);
-    setupMockLinks(6, false);
-    setupMockLinks(7, false);
-    setupMockLinks(8, false);
-    setupMockLinks(9, true);
 
     setupMockResponse();
     when(mockHttpClient.execute(isA(HttpUriRequest.class))).thenReturn(httpResponse);
@@ -163,11 +155,6 @@ public class ArrowStreamResultTest {
 
     assertTrue(objectInFirstColumn instanceof Integer);
     assertTrue(objectInSecondColumn instanceof Double);
-  }
-
-  private void setupMockLinks(long chunkIndex, boolean isLast) {
-    when(statementExecutionService.getStatementResultChunkN(getChunkNRequest(chunkIndex)))
-        .thenReturn(new ResultData().setExternalLinks(getChunkLinks(chunkIndex, isLast)));
   }
 
   private List<ExternalLink> getChunkLinks(long chunkIndex, boolean isLast) {

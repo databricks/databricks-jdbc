@@ -1,8 +1,8 @@
 package com.databricks.jdbc.core;
 
 import com.databricks.jdbc.client.StatementType;
+import com.databricks.jdbc.client.sqlexec.ResultData;
 import com.databricks.jdbc.core.converters.*;
-import com.databricks.sdk.service.sql.ResultData;
 import com.databricks.sdk.service.sql.ResultManifest;
 import com.databricks.sdk.service.sql.StatementStatus;
 import java.io.InputStream;

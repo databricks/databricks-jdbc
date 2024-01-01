@@ -2,9 +2,9 @@ package com.databricks.jdbc.core;
 
 import com.databricks.jdbc.client.IDatabricksHttpClient;
 import com.databricks.jdbc.client.http.DatabricksHttpClient;
+import com.databricks.jdbc.client.sqlexec.ExternalLink;
+import com.databricks.jdbc.client.sqlexec.ResultData;
 import com.databricks.sdk.service.sql.BaseChunkInfo;
-import com.databricks.sdk.service.sql.ExternalLink;
-import com.databricks.sdk.service.sql.ResultData;
 import com.databricks.sdk.service.sql.ResultManifest;
 import com.google.common.annotations.VisibleForTesting;
 import java.util.Collection;

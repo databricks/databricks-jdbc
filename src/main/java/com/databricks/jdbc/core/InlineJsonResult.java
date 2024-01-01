@@ -2,7 +2,7 @@ package com.databricks.jdbc.core;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 
-import com.databricks.sdk.service.sql.ResultData;
+import com.databricks.jdbc.client.sqlexec.ResultData;
 import com.databricks.sdk.service.sql.ResultManifest;
 import java.sql.SQLException;
 import java.util.ArrayList;
