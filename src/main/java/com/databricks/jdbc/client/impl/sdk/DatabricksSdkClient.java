@@ -23,6 +23,7 @@ import com.databricks.sdk.service.sql.*;
 import java.sql.SQLException;
 import java.time.Instant;
 import java.util.Collection;
+import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 import org.slf4j.Logger;
@@ -194,6 +195,10 @@ public class DatabricksSdkClient implements DatabricksClient {
     Disposition disposition =
         useCloudFetchForResult(statementType) ? Disposition.EXTERNAL_LINKS : Disposition.INLINE;
     long maxRows = (parentStatement == null) ? DEFAULT_ROW_LIMIT : parentStatement.getMaxRows();
+
+    List<StatementParameterListItem> collect =
+        parameters.values().stream().map(this::mapToParameterListItem).collect(Collectors.toList());
+    System.out.println("hi  " + collect);
     ExecuteStatementRequest request =
         new ExecuteStatementRequest()
             .setSessionId(session.getSessionId())
@@ -203,10 +208,7 @@ public class DatabricksSdkClient implements DatabricksClient {
             .setFormat(format)
             .setWaitTimeout(SYNC_TIMEOUT_VALUE)
             .setOnWaitTimeout(ExecuteStatementRequestOnWaitTimeout.CONTINUE)
-            .setParameters(
-                parameters.values().stream()
-                    .map(this::mapToParameterListItem)
-                    .collect(Collectors.toList()));
+            .setParameters(collect);
     if (maxRows != DEFAULT_ROW_LIMIT) {
       request.setRowLimit(String.valueOf(maxRows));
     }
