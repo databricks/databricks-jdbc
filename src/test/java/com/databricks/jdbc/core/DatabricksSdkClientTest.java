@@ -97,7 +97,6 @@ public class DatabricksSdkClientTest {
                 .setRowLimit(100L)
                 .setOnWaitTimeout(ExecuteStatementRequestOnWaitTimeout.CONTINUE)
                 .setParameters(params);
-
     DatabricksStatement statement = new DatabricksStatement(connection);
     statement.setMaxRows(100);
     HashMap<Integer, ImmutableSqlParameter> sqlParams =

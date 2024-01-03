@@ -1,9 +1,5 @@
 package com.databricks.jdbc.client.sqlexec;
 
-import static com.databricks.jdbc.commons.EnvironmentVariables.DEFAULT_ROW_LIMIT;
-
-import com.databricks.sdk.service.sql.ExecuteStatementRequest;
-import com.databricks.sdk.support.ToStringer;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import java.util.Objects;
 
@@ -33,23 +29,5 @@ public class ExecuteStatementRequestWithSession extends ExecuteStatementRequest 
   @Override
   public int hashCode() {
     return Objects.hash(super.hashCode(), sessionId);
-  }
-
-  @Override
-  public String toString() {
-    ToStringer stringer =
-        new ToStringer(ExecuteStatementRequest.class)
-            .add("byteLimit", super.getByteLimit())
-            .add("catalog", super.getCatalog())
-            .add("disposition", super.getDisposition())
-            .add("format", super.getFormat())
-            .add("onWaitTimeout", super.getOnWaitTimeout())
-            .add("schema", super.getSchema())
-            .add("sessionId", sessionId)
-            .add("statement", super.getStatement())
-            .add("waitTimeout", super.getWaitTimeout())
-            .add("warehouseId", super.getWarehouseId());
-    if (super.getRowLimit() != DEFAULT_ROW_LIMIT) stringer.add("rowLimit", super.getRowLimit());
-    return stringer.toString();
   }
 }

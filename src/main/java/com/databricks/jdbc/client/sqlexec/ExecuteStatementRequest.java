@@ -17,7 +17,7 @@ public class ExecuteStatementRequest {
   private String warehouseId;
 
   @JsonProperty("row_limit")
-  private String rowLimit;
+  private Long rowLimit;
 
   @JsonProperty("session_id")
   private String sessionId;
@@ -45,7 +45,7 @@ public class ExecuteStatementRequest {
     return warehouseId;
   }
 
-  public String getRowLimit() {
+  public long getRowLimit() {
     return rowLimit;
   }
 
@@ -84,7 +84,7 @@ public class ExecuteStatementRequest {
     return this;
   }
 
-  public ExecuteStatementRequest setRowLimit(String rowLimit) {
+  public ExecuteStatementRequest setRowLimit(long rowLimit) {
     this.rowLimit = rowLimit;
     return this;
   }
@@ -127,10 +127,11 @@ public class ExecuteStatementRequest {
         .add("format", format)
         .add("onWaitTimeout", onWaitTimeout)
         .add("parameters", parameters)
-        .add("rowLimit", rowLimit)
         .add("statement", statement)
+        .add("sessionId", sessionId)
         .add("waitTimeout", waitTimeout)
         .add("warehouseId", warehouseId)
+        .add("rowLimit", rowLimit)
         .toString();
   }
 
@@ -159,6 +160,7 @@ public class ExecuteStatementRequest {
         && Objects.equals(rowLimit, that.rowLimit)
         && Objects.equals(statement, that.statement)
         && Objects.equals(waitTimeout, that.waitTimeout)
+        && Objects.equals(sessionId, that.sessionId)
         && Objects.equals(warehouseId, that.warehouseId);
   }
 }

@@ -198,7 +198,6 @@ public class DatabricksSdkClient implements DatabricksClient {
 
     List<StatementParameterListItem> collect =
         parameters.values().stream().map(this::mapToParameterListItem).collect(Collectors.toList());
-    System.out.println("hi  " + collect);
     ExecuteStatementRequest request =
         new ExecuteStatementRequest()
             .setSessionId(session.getSessionId())
@@ -210,7 +209,7 @@ public class DatabricksSdkClient implements DatabricksClient {
             .setOnWaitTimeout(ExecuteStatementRequestOnWaitTimeout.CONTINUE)
             .setParameters(collect);
     if (maxRows != DEFAULT_ROW_LIMIT) {
-      request.setRowLimit(String.valueOf(maxRows));
+      request.setRowLimit(maxRows);
     }
     return request;
   }
