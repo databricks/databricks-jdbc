@@ -151,7 +151,10 @@ public class ExecuteStatementRequest {
   @Override
   public boolean equals(Object o) {
     if (this == o) return true;
-    if (o == null || getClass() != o.getClass()) return false;
+    if (o == null || this.getClass() != o.getClass()) {
+      System.out.println("hi there you go " + this.getClass() + " " + o.getClass());
+      return false;
+    }
     ExecuteStatementRequest that = (ExecuteStatementRequest) o;
     return Objects.equals(disposition, that.disposition)
         && Objects.equals(format, that.format)

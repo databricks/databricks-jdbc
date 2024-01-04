@@ -1,16 +1,16 @@
 package com.databricks.jdbc.core;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.when;
 
 import com.databricks.jdbc.client.StatementType;
 import com.databricks.jdbc.client.impl.sdk.DatabricksSdkClient;
-import com.databricks.jdbc.client.sqlexec.CreateSessionRequest;
-import com.databricks.jdbc.client.sqlexec.ExecuteStatementRequestWithSession;
+import com.databricks.jdbc.client.sqlexec.*;
+import com.databricks.jdbc.client.sqlexec.ExecuteStatementRequest;
 import com.databricks.jdbc.client.sqlexec.ExecuteStatementResponse;
-import com.databricks.jdbc.client.sqlexec.PositionalStatementParameterListItem;
 import com.databricks.jdbc.client.sqlexec.ResultData;
-import com.databricks.jdbc.client.sqlexec.Session;
 import com.databricks.jdbc.driver.DatabricksConnectionContext;
 import com.databricks.jdbc.driver.IDatabricksConnectionContext;
 import com.databricks.sdk.core.ApiClient;
@@ -54,6 +54,59 @@ public class DatabricksSdkClientTest {
         .thenReturn(session);
   }
 
+  private void setupClientMocks() {
+    List<StatementParameterListItem> params =
+        new ArrayList<>() {
+          {
+            add(getParam("BIGINT", "100", 1));
+            add(getParam("SMALLINT", "10", 2));
+            add(getParam("TINYINT", "15", 3));
+            add(getParam("STRING", "value", 4));
+          }
+        };
+
+    StatementStatus statementStatus = new StatementStatus().setState(StatementState.SUCCEEDED);
+    ExecuteStatementRequest executeStatementRequest =
+        new ExecuteStatementRequest()
+            .setSessionId(SESSION_ID)
+            .setWarehouseId(WAREHOUSE_ID)
+            .setStatement(STATEMENT)
+            .setDisposition(Disposition.EXTERNAL_LINKS)
+            .setFormat(Format.ARROW_STREAM)
+            .setWaitTimeout("10s")
+            .setRowLimit(100L)
+            .setOnWaitTimeout(ExecuteStatementRequestOnWaitTimeout.CONTINUE)
+            .setParameters(params);
+    ExecuteStatementResponse response =
+        new ExecuteStatementResponse()
+            .setStatementId(STATEMENT_ID)
+            .setStatus(statementStatus)
+            .setResult(resultData)
+            .setManifest(
+                new ResultManifest()
+                    .setFormat(Format.JSON_ARRAY)
+                    .setSchema(new ResultSchema().setColumns(new ArrayList<>()))
+                    .setTotalRowCount(0L));
+
+    when(apiClient.POST(anyString(), any(), any(), any()))
+        .thenAnswer(
+            invocationOnMock -> {
+              String path = (String) invocationOnMock.getArguments()[0];
+              if (path.equals(STATEMENT_PATH)) {
+                ExecuteStatementRequest request =
+                    (ExecuteStatementRequest) invocationOnMock.getArguments()[1];
+                assertTrue(request.equals(executeStatementRequest));
+                return response;
+              } else if (path.equals(CLIENT_PATH)) {
+                CreateSessionRequest request =
+                    (CreateSessionRequest) invocationOnMock.getArguments()[1];
+                assertEquals(request.getWarehouseId(), WAREHOUSE_ID);
+                return new Session().setWarehouseId(WAREHOUSE_ID).setSessionId(SESSION_ID);
+              }
+              return null;
+            });
+  }
+
   @Test
   public void testCreateSession() {
     setupSessionMocks();
@@ -68,35 +121,13 @@ public class DatabricksSdkClientTest {
 
   @Test
   public void testExecuteStatement() throws Exception {
-    setupSessionMocks();
-    List<StatementParameterListItem> params =
-        new ArrayList<>() {
-          {
-            add(getParam("BIGINT", "100", 1));
-            add(getParam("SMALLINT", "10", 2));
-            add(getParam("TINYINT", "15", 3));
-            add(getParam("STRING", "value", 4));
-          }
-        };
-
+    setupClientMocks();
     IDatabricksConnectionContext connectionContext =
         DatabricksConnectionContext.parse(JDBC_URL, new Properties());
     DatabricksSdkClient databricksSdkClient =
         new DatabricksSdkClient(connectionContext, statementExecutionService, apiClient);
     DatabricksConnection connection =
         new DatabricksConnection(connectionContext, databricksSdkClient);
-    ExecuteStatementRequestWithSession executeStatementRequest =
-        (ExecuteStatementRequestWithSession)
-            new ExecuteStatementRequestWithSession()
-                .setSessionId(SESSION_ID)
-                .setWarehouseId(WAREHOUSE_ID)
-                .setStatement(STATEMENT)
-                .setDisposition(Disposition.EXTERNAL_LINKS)
-                .setFormat(Format.ARROW_STREAM)
-                .setWaitTimeout("10s")
-                .setRowLimit(100L)
-                .setOnWaitTimeout(ExecuteStatementRequestOnWaitTimeout.CONTINUE)
-                .setParameters(params);
     DatabricksStatement statement = new DatabricksStatement(connection);
     statement.setMaxRows(100);
     HashMap<Integer, ImmutableSqlParameter> sqlParams =
@@ -108,15 +139,7 @@ public class DatabricksSdkClientTest {
             put(4, getSqlParam(4, "value", DatabricksTypeUtil.STRING));
           }
         };
-    StatementStatus statementStatus = new StatementStatus().setState(StatementState.SUCCEEDED);
-    ExecuteStatementResponse response =
-        new ExecuteStatementResponse()
-            .setStatementId(STATEMENT_ID)
-            .setStatus(statementStatus)
-            .setResult(resultData);
-    when(apiClient.POST(
-            STATEMENT_PATH, executeStatementRequest, ExecuteStatementResponse.class, headers))
-        .thenReturn(response);
+
     DatabricksResultSet resultSet =
         databricksSdkClient.executeStatement(
             STATEMENT,
