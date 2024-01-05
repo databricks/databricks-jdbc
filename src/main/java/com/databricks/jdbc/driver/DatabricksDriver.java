@@ -4,12 +4,6 @@ import static com.databricks.jdbc.driver.DatabricksJdbcConstants.SYSTEM_LOG_FILE
 import static com.databricks.jdbc.driver.DatabricksJdbcConstants.SYSTEM_LOG_LEVEL_CONFIG;
 
 import com.databricks.jdbc.core.DatabricksConnection;
-import com.databricks.sdk.core.UserAgent;
-import java.sql.Connection;
-import java.sql.Driver;
-import java.sql.DriverManager;
-import java.sql.DriverPropertyInfo;
-import java.sql.SQLException;
 import com.databricks.jdbc.core.DatabricksSQLException;
 import com.databricks.sdk.core.DatabricksError;
 import java.sql.*;
@@ -52,18 +46,12 @@ public class DatabricksDriver implements Driver {
     if (logFileConfig != null) {
       System.setProperty(SYSTEM_LOG_FILE_CONFIG, logFileConfig);
     }
-<<<<<<< HEAD
-    UserAgent.withProduct(
-        connectionContext.getUserAgent(), getMajorVersion() + "." + getMinorVersion());
-    return new DatabricksConnection(connectionContext);
-=======
     try {
       return new DatabricksConnection(connectionContext);
     } catch (DatabricksError e) {
       throw new DatabricksSQLException(
           "Invalid or unknown hostname provided :" + connectionContext.getHostUrl(), e);
     }
->>>>>>> main
   }
 
   @Override
