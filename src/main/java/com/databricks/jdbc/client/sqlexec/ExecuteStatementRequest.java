@@ -152,7 +152,6 @@ public class ExecuteStatementRequest {
   public boolean equals(Object o) {
     if (this == o) return true;
     if (o == null || this.getClass() != o.getClass()) {
-      System.out.println("hi there you go " + this.getClass() + " " + o.getClass());
       return false;
     }
     ExecuteStatementRequest that = (ExecuteStatementRequest) o;
