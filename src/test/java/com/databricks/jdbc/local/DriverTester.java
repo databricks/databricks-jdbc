@@ -31,13 +31,17 @@ public class DriverTester {
     // Getting the connection
     String jdbcUrl =
         "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/791ba2a31c7fd70a;";
-    Connection con = DriverManager.getConnection(jdbcUrl, "madhav.sainanee@databricks.com", "##");
+    Connection con =
+        DriverManager.getConnection(
+            jdbcUrl, "samikshya.chand@databricks.com", "dapi4e0f1f5184ac01978969f44e94267bbf");
     System.out.println("Connection established......");
-    // Retrieving the meta data object
-    DatabaseMetaData metaData = con.getMetaData();
-    // Retrieving the columns in the database
-    ResultSet resultSet = metaData.getTables("samples", "tpch", null, null);
-    printResultSet(resultSet);
+    Statement statement = con.createStatement();
+    statement.setMaxRows(10);
+    ResultSet rs = statement.executeQuery("select * from samples.tpch.lineitem limit 10");
+    printResultSet(rs);
+    rs.close();
+    statement.close();
+    con.close();
   }
 
   @Test
@@ -61,8 +65,10 @@ public class DriverTester {
     DriverManager.drivers().forEach(driver -> System.out.println(driver.getClass()));
     // Getting the connection
     String jdbcUrl =
-            "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/5c89f447c476a5a8;";
-    Connection con = DriverManager.getConnection(jdbcUrl, "samikshya.chand@databricks.com", "xx");
+        "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/5c89f447c476a5a8;";
+    Connection con =
+        DriverManager.getConnection(
+            jdbcUrl, "samikshya.chand@databricks.com", "dapi4e0f1f5184ac01978969f44e94267bbf");
     System.out.println("Connection established......");
     // Retrieving the meta data object
     Statement statement = con.createStatement();
@@ -83,14 +89,14 @@ public class DriverTester {
         "jdbc:databricks://arclight-staging-e2-arclight-dmk-qa-staging-us-east-1.staging.cloud.databricks.com:443/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/8561171c1d9afb1f;";
     Connection con =
         DriverManager.getConnection(
-            jdbcUrl, "yunbo.deng@databricks.com", "xx");
+            jdbcUrl, "yunbo.deng@databricks.com", "dapi8b65c5ffb9d0ed9b9ecb4d697b8f3e85");
     System.out.println("Connection established......");
     // Retrieving data
     Statement statement = con.createStatement();
     statement.setMaxRows(10000);
     ResultSet rs =
         statement.executeQuery(
-            "select * from `arclight-dmk-catalog`.default.samikshya_test_large_table ");
+            "select * from `arclight-dmk-catalog`.default.samikshya_test_large_table");
     printResultSet(rs);
     System.out.println("printing is done......");
     rs.close();

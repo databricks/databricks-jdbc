@@ -203,7 +203,7 @@ public class ArrowResultChunk {
       this.downloadStartTime = Instant.now().toEpochMilli();
       URIBuilder uriBuilder = new URIBuilder(chunkUrl);
       HttpGet getRequest = new HttpGet(uriBuilder.build());
-      addHeaders(getRequest, headers);
+      // addHeaders(getRequest, headers);
       // Retry would be done in http client, we should not bother about that here
       HttpResponse response = httpClient.execute(getRequest);
       // TODO: handle error code
