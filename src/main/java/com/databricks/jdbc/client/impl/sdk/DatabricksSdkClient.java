@@ -119,6 +119,15 @@ public class DatabricksSdkClient implements DatabricksClient {
         workspaceClient
             .apiClient()
             .POST(path, request, ExecuteStatementResponse.class, getHeaders());
+    /*
+    if (response != null
+        && response.getResult() != null
+        && response.getResult().getExternalLinks() != null
+        && response.getResult().getExternalLinks().iterator() != null
+        && response.getResult().getExternalLinks().iterator().next() != null)
+      System.out.println(
+          "Here is the Result : "
+              + response.getResult().getExternalLinks().iterator().next().getHttpHeaders());*/
     String statementId = response.getStatementId();
     StatementState responseState = response.getStatus().getState();
     while (responseState == StatementState.PENDING || responseState == StatementState.RUNNING) {

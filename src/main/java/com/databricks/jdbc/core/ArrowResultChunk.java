@@ -10,6 +10,7 @@ import java.net.URISyntaxException;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.ValueVector;
@@ -186,13 +187,23 @@ public class ArrowResultChunk {
     return this.status;
   }
 
-  void downloadData(IDatabricksHttpClient httpClient)
+  void addHeaders(HttpGet getRequest, Map<String, String> headers) {
+    if (headers == null) {
+      LOGGER.debug("No encryption headers present.");
+      return;
+    }
+    for (Map.Entry<String, String> entry : headers.entrySet()) {
+      getRequest.addHeader(entry.getKey(), entry.getValue());
+    }
+  }
+
+  void downloadData(IDatabricksHttpClient httpClient, Map<String, String> headers)
       throws URISyntaxException, DatabricksHttpException, DatabricksParsingException {
     try {
       this.downloadStartTime = Instant.now().toEpochMilli();
       URIBuilder uriBuilder = new URIBuilder(chunkUrl);
       HttpGet getRequest = new HttpGet(uriBuilder.build());
-      // TODO: add appropriate headers
+      addHeaders(getRequest, headers);
       // Retry would be done in http client, we should not bother about that here
       HttpResponse response = httpClient.execute(getRequest);
       // TODO: handle error code
