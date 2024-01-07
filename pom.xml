@@ -226,6 +226,13 @@
               </goals>
             </execution>
           </executions>
+          <configuration>
+            <excludes>
+              <exclude>*EnvironmentVariables.java</exclude>
+              <exclude>*Exception.java</exclude>
+              <exclude>*/core/types/*</exclude>
+            </excludes>
+          </configuration>
         </plugin>
       </plugins>
     </build>

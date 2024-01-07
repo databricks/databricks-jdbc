@@ -31,6 +31,7 @@ import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.types.pojo.Schema;
 import org.apache.http.HttpEntity;
+import org.apache.http.StatusLine;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpUriRequest;
 import org.junit.jupiter.api.BeforeEach;
@@ -61,6 +62,7 @@ public class ArrowStreamResultTest {
   @Mock IDatabricksHttpClient mockHttpClient;
   @Mock CloseableHttpResponse httpResponse;
   @Mock HttpEntity httpEntity;
+  @Mock StatusLine mockedStatusLine;
 
   @BeforeEach
   public void setup() throws Exception {
@@ -203,6 +205,8 @@ public class ArrowStreamResultTest {
         createTestArrowFile("TestFile", schema, testData, new RootAllocator(Integer.MAX_VALUE));
 
     when(httpResponse.getEntity()).thenReturn(httpEntity);
+    when(httpResponse.getStatusLine()).thenReturn(mockedStatusLine);
+    when(mockedStatusLine.getStatusCode()).thenReturn(200);
     when(httpEntity.getContent()).thenAnswer(invocation -> new FileInputStream(arrowFile));
   }
 

@@ -1,5 +1,7 @@
 package com.databricks.jdbc.core;
 
+import static com.databricks.jdbc.commons.util.ValidationUtil.ensureSuccessResponse;
+
 import com.databricks.jdbc.client.DatabricksHttpException;
 import com.databricks.jdbc.client.IDatabricksHttpClient;
 import com.databricks.sdk.service.sql.BaseChunkInfo;
@@ -195,7 +197,7 @@ public class ArrowResultChunk {
       // TODO: add appropriate headers
       // Retry would be done in http client, we should not bother about that here
       HttpResponse response = httpClient.execute(getRequest);
-      // TODO: handle error code
+      ensureSuccessResponse(response);
       HttpEntity entity = response.getEntity();
       getArrowDataFromInputStream(entity.getContent());
       this.downloadFinishTime = Instant.now().toEpochMilli();
