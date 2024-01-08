@@ -8,7 +8,6 @@ import com.databricks.sdk.service.sql.BaseChunkInfo;
 import com.databricks.sdk.service.sql.ExternalLink;
 import java.io.IOException;
 import java.io.InputStream;
-import java.net.URISyntaxException;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
@@ -85,6 +84,7 @@ public class ArrowResultChunk {
   public List<List<ValueVector>> recordBatchList;
 
   private RootAllocator rootAllocator;
+  private String errorMessage;
 
   private boolean isDataInitialized;
 
@@ -100,6 +100,7 @@ public class ArrowResultChunk {
     this.downloadFinishTime = null;
     this.statementId = statementId;
     isDataInitialized = false;
+    this.errorMessage = null;
   }
 
   public static class ArrowResultChunkIterator {
@@ -188,8 +189,12 @@ public class ArrowResultChunk {
     return this.status;
   }
 
+  public String getErrorMessage() {
+    return this.errorMessage;
+  }
+
   void downloadData(IDatabricksHttpClient httpClient)
-      throws URISyntaxException, DatabricksHttpException, DatabricksParsingException {
+      throws DatabricksHttpException, DatabricksParsingException {
     try {
       this.downloadStartTime = Instant.now().toEpochMilli();
       URIBuilder uriBuilder = new URIBuilder(chunkUrl);
@@ -202,14 +207,14 @@ public class ArrowResultChunk {
       getArrowDataFromInputStream(entity.getContent());
       this.downloadFinishTime = Instant.now().toEpochMilli();
       this.setStatus(DownloadStatus.DOWNLOAD_SUCCEEDED);
-    } catch (IOException e) {
-      String errMsg =
+    } catch (Exception e) {
+      this.errorMessage =
           String.format(
-              "Data fetch failed for chunk index [%d] and statement [%s]",
-              this.chunkIndex, this.statementId);
-      LOGGER.atError().setCause(e).log(errMsg);
+              "Data fetch failed for chunk index [%d] and statement [%s]. Error message [%s]",
+              this.chunkIndex, this.statementId, e.getMessage());
+      LOGGER.atError().setCause(e).log(errorMessage);
       this.setStatus(DownloadStatus.DOWNLOAD_FAILED);
-      throw new DatabricksHttpException(errMsg, e);
+      throw new DatabricksHttpException(errorMessage, e);
     }
   }
 

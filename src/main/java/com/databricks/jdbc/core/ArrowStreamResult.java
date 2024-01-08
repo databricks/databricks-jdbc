@@ -89,7 +89,7 @@ class ArrowStreamResult implements IExecutionResult {
   }
 
   @Override
-  public boolean next() {
+  public boolean next() throws DatabricksSQLException {
     if (!hasNext()) {
       return false;
     }
