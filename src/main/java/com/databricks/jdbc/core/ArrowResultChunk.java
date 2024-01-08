@@ -188,12 +188,13 @@ public class ArrowResultChunk {
   }
 
   void addHeaders(HttpGet getRequest, Map<String, String> headers) {
-    if (headers == null) {
-      LOGGER.debug("No encryption headers present.");
-      return;
-    }
-    for (Map.Entry<String, String> entry : headers.entrySet()) {
-      getRequest.addHeader(entry.getKey(), entry.getValue());
+    if (headers != null) {
+      headers.forEach(getRequest::addHeader);
+    } else {
+      LOGGER.debug(
+          "No encryption headers present for chunk index [{}] and statement [{}]",
+          chunkIndex,
+          statementId);
     }
   }
 
@@ -203,7 +204,7 @@ public class ArrowResultChunk {
       this.downloadStartTime = Instant.now().toEpochMilli();
       URIBuilder uriBuilder = new URIBuilder(chunkUrl);
       HttpGet getRequest = new HttpGet(uriBuilder.build());
-      // addHeaders(getRequest, headers);
+      addHeaders(getRequest, headers);
       // Retry would be done in http client, we should not bother about that here
       HttpResponse response = httpClient.execute(getRequest);
       // TODO: handle error code
@@ -238,8 +239,9 @@ public class ArrowResultChunk {
   public void getArrowDataFromInputStream(InputStream inputStream)
       throws DatabricksParsingException {
     LOGGER.atDebug().log(
-        "Parsing data for chunk index [%d] and statement [%s]",
-        this.getChunkIndex(), this.statementId);
+        "Parsing data for chunk index [{}] and statement [{}]",
+        this.getChunkIndex(),
+        this.statementId);
     this.isDataInitialized = true;
     this.recordBatchList = new ArrayList<>();
     // add check to see if input stream has been populated
@@ -261,8 +263,9 @@ public class ArrowResultChunk {
         vectorSchemaRoot.clear();
       }
       LOGGER.atDebug().log(
-          "Data parsed for chunk index [%d] and statement [%s]",
-          this.getChunkIndex(), this.statementId);
+          "Data parsed for chunk index [{}] and statement [{}]",
+          this.getChunkIndex(),
+          this.statementId);
     } catch (IOException e) {
       String errMsg =
           String.format(

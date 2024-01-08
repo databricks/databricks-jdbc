@@ -87,9 +87,7 @@ public class DriverTester {
     // Getting the connection
     String jdbcUrl =
         "jdbc:databricks://arclight-staging-e2-arclight-dmk-qa-staging-us-east-1.staging.cloud.databricks.com:443/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/8561171c1d9afb1f;";
-    Connection con =
-        DriverManager.getConnection(
-            jdbcUrl, "yunbo.deng@databricks.com", "dapi8b65c5ffb9d0ed9b9ecb4d697b8f3e85");
+    Connection con = DriverManager.getConnection(jdbcUrl, "yunbo.deng@databricks.com", "XX");
     System.out.println("Connection established......");
     // Retrieving data
     Statement statement = con.createStatement();

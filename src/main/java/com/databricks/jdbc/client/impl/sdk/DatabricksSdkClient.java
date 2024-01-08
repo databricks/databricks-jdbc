@@ -23,6 +23,7 @@ import com.databricks.sdk.service.sql.*;
 import java.sql.SQLException;
 import java.time.Instant;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -92,7 +93,8 @@ public class DatabricksSdkClient implements DatabricksClient {
     DeleteSessionRequest request =
         new DeleteSessionRequest().setSessionId(sessionId).setWarehouseId(warehouseId);
     String path = String.format("/api/2.0/sql/statements/sessions/%s", request.getSessionId());
-    workspaceClient.apiClient().DELETE(path, request, Void.class, getHeaders());
+    Map<String, String> headers = new HashMap<>();
+    workspaceClient.apiClient().DELETE(path, request, Void.class, headers);
   }
 
   @Override
@@ -119,15 +121,7 @@ public class DatabricksSdkClient implements DatabricksClient {
         workspaceClient
             .apiClient()
             .POST(path, request, ExecuteStatementResponse.class, getHeaders());
-    /*
-    if (response != null
-        && response.getResult() != null
-        && response.getResult().getExternalLinks() != null
-        && response.getResult().getExternalLinks().iterator() != null
-        && response.getResult().getExternalLinks().iterator().next() != null)
-      System.out.println(
-          "Here is the Result : "
-              + response.getResult().getExternalLinks().iterator().next().getHttpHeaders());*/
+
     String statementId = response.getStatementId();
     StatementState responseState = response.getStatus().getState();
     while (responseState == StatementState.PENDING || responseState == StatementState.RUNNING) {
