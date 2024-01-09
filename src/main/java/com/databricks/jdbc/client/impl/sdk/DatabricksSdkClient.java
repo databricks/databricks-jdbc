@@ -121,9 +121,6 @@ public class DatabricksSdkClient implements DatabricksClient {
         workspaceClient
             .apiClient()
             .POST(STATEMENT_PATH, request, ExecuteStatementResponse.class, getHeaders());
-    if(response.getResult() !=null && response.getResult().getExternalLinks() !=null &&  response.getResult().getExternalLinks().iterator().next()!=null){
-      System.out.println("here are headers!!!!"+response.getResult().getExternalLinks().iterator().next().getHttpHeaders().toString());
-    }
 
     String statementId = response.getStatementId();
     StatementState responseState = response.getStatus().getState();
@@ -147,7 +144,10 @@ public class DatabricksSdkClient implements DatabricksClient {
     long executionEndTime = Instant.now().toEpochMilli();
     LOGGER.atDebug().log(
         "Executed sql [{}] with status [{}], total time taken [{}] and pollCount [{}]",
-        sql, responseState, (executionEndTime - executionStartTime), pollCount);
+        sql,
+        responseState,
+        (executionEndTime - executionStartTime),
+        pollCount);
     if (responseState != StatementState.SUCCEEDED) {
       handleFailedExecution(responseState, statementId, sql);
     }

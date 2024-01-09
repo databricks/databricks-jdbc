@@ -86,18 +86,17 @@ public class DriverTester {
     DriverManager.drivers().forEach(driver -> System.out.println(driver.getClass()));
     // Getting the connection
     String jdbcUrl =
-            "jdbc:databricks://arclight-staging-e2-arclight-dmk-qa-staging-us-east-1.staging.cloud.databricks.com:443/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/8561171c1d9afb1f;";
+        "jdbc:databricks://arclight-staging-e2-arclight-dmk-qa-staging-us-east-1.staging.cloud.databricks.com:443/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/8561171c1d9afb1f;";
     Connection con =
-            DriverManager.getConnection(
-                    jdbcUrl,
-                    "yunbo.deng+arclight+dmk+staging@databricks.com",
-                    "xx");
+        DriverManager.getConnection(
+            jdbcUrl, "yunbo.deng+arclight+dmk+staging@databricks.com", "xx");
     System.out.println("Connection established......");
     // Retrieving data
     Statement statement = con.createStatement();
     statement.setMaxRows(10000);
     ResultSet rs =
-            statement.executeQuery("select * from `arclight-dmk-catalog`.default.test_oct_30");
+        statement.executeQuery(
+            "select * from `arclight-dmk-catalog`.default.samikshya_test_large_table");
     printResultSet(rs);
     System.out.println("printing is done......");
     rs.close();
