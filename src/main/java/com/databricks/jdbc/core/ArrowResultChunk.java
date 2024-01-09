@@ -73,7 +73,7 @@ public class ArrowResultChunk {
   final long rowOffset;
   final long byteCount;
 
-  private String chunkUrl;
+  private ExternalLink chunkUrl;
   private final String statementId;
   private Long nextChunkIndex;
   private Instant expiryTime;
@@ -165,7 +165,7 @@ public class ArrowResultChunk {
 
   /** Sets link details for the given chunk. */
   void setChunkUrl(ExternalLink chunk) {
-    this.chunkUrl = chunk.getExternalLink();
+    this.chunkUrl = chunk;
     this.nextChunkIndex = chunk.getNextChunkIndex();
     this.expiryTime = Instant.parse(chunk.getExpiration());
     this.status = DownloadStatus.URL_FETCHED;
@@ -202,7 +202,7 @@ public class ArrowResultChunk {
       throws URISyntaxException, DatabricksHttpException, DatabricksParsingException {
     try {
       this.downloadStartTime = Instant.now().toEpochMilli();
-      URIBuilder uriBuilder = new URIBuilder(chunkUrl);
+      URIBuilder uriBuilder = new URIBuilder(chunkUrl.getExternalLink());
       HttpGet getRequest = new HttpGet(uriBuilder.build());
       addHeaders(getRequest, headers);
       // Retry would be done in http client, we should not bother about that here
@@ -229,7 +229,7 @@ public class ArrowResultChunk {
     if (status == DownloadStatus.PENDING) {
       LOGGER.debug(
           "Next index called for pending state chunk. chunkUrl = {}, nextChunkIndex = {}",
-          chunkUrl,
+          chunkUrl.getExternalLink(),
           nextChunkIndex);
       throw new IllegalStateException("Next index called for pending state chunk");
     }
@@ -280,7 +280,7 @@ public class ArrowResultChunk {
   void refreshChunkLink(IDatabricksSession session) {
     session.getDatabricksClient().getResultChunks(statementId, chunkIndex).stream()
         .findFirst()
-        .ifPresent(chunk -> setChunkUrl(chunk));
+        .ifPresent(this::setChunkUrl);
   }
 
   /**
@@ -316,6 +316,10 @@ public class ArrowResultChunk {
 
   /** Returns the chunk download link */
   String getChunkUrl() {
+    return chunkUrl.getExternalLink();
+  }
+
+  public ExternalLink getChunkLink() {
     return chunkUrl;
   }
 

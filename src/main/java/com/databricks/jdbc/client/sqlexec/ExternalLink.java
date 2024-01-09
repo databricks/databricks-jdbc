@@ -1,12 +1,12 @@
 package com.databricks.jdbc.client.sqlexec;
 
-import com.databricks.sdk.support.Generated;
 import com.databricks.sdk.support.ToStringer;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import java.util.Map;
 import java.util.Objects;
 
-@Generated
+/*Todo: This file is picked from databricks-sdk-java. Remove this once arclight changes are included in databricks-sdk-java */
+
 public class ExternalLink {
   @JsonProperty("byte_count")
   private Long byteCount;

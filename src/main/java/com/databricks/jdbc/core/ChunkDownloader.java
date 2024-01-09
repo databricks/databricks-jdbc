@@ -8,8 +8,6 @@ import com.databricks.sdk.service.sql.BaseChunkInfo;
 import com.databricks.sdk.service.sql.ResultManifest;
 import com.google.common.annotations.VisibleForTesting;
 import java.util.Collection;
-import java.util.Map;
-import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -35,7 +33,6 @@ public class ChunkDownloader {
   private long nextChunkToDownload;
   private Long totalChunksInMemory;
   private long allowedChunksInMemory;
-  private final Map<String, String> encryptionHeaders;
   private boolean isClosed;
 
   ConcurrentHashMap<Long, ArrowResultChunk> chunkIndexToChunksMap;
@@ -70,22 +67,8 @@ public class ChunkDownloader {
     this.chunkDownloaderExecutorService = createChunksDownloaderExecutorService();
     this.httpClient = httpClient;
     this.isClosed = false;
-    this.encryptionHeaders = safeGetHttpHeaders(resultData);
     // The first link is available
     this.downloadNextChunks();
-  }
-
-  private Map<String, String> safeGetHttpHeaders(ResultData resultData) {
-    return Optional.ofNullable(resultData)
-        .map(ResultData::getExternalLinks)
-        .filter(links -> !links.isEmpty())
-        .map(links -> links.iterator().next())
-        .map(ExternalLink::getHttpHeaders)
-        .orElse(null);
-  }
-
-  public Map<String, String> getEncryptionHeaders() {
-    return this.encryptionHeaders;
   }
 
   private static ConcurrentHashMap<Long, ArrowResultChunk> initializeChunksMap(

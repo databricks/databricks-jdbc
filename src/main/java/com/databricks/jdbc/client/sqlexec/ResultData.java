@@ -5,6 +5,8 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import java.util.Collection;
 import java.util.Objects;
 
+/*Todo: This file is picked from databricks-sdk-java. Remove this once arclight changes are included in databricks-sdk-java */
+
 public class ResultData {
 
   @JsonProperty("byte_count")
