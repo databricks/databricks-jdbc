@@ -29,10 +29,10 @@ class ValidationUtilTest {
   void testSuccessfulResponseCheck() {
     when(response.getStatusLine()).thenReturn(statusLine);
     when(statusLine.getStatusCode()).thenReturn(200);
-    assertDoesNotThrow(() -> ValidationUtil.ensureSuccessResponse(response));
+    assertDoesNotThrow(() -> ValidationUtil.checkHTTPError(response));
 
     when(statusLine.getStatusCode()).thenReturn(202);
-    assertDoesNotThrow(() -> ValidationUtil.ensureSuccessResponse(response));
+    assertDoesNotThrow(() -> ValidationUtil.checkHTTPError(response));
   }
 
   @Test
@@ -41,14 +41,12 @@ class ValidationUtilTest {
     when(statusLine.getStatusCode()).thenReturn(400);
     when(statusLine.toString()).thenReturn("mockStatusLine");
     Throwable exception =
-        assertThrows(
-            DatabricksHttpException.class, () -> ValidationUtil.ensureSuccessResponse(response));
+        assertThrows(DatabricksHttpException.class, () -> ValidationUtil.checkHTTPError(response));
     assertEquals(
         "Unable to fetch HTTP response successfully. HTTP request failed by code: 400, status line: mockStatusLine",
         exception.getMessage());
 
     when(statusLine.getStatusCode()).thenReturn(102);
-    assertThrows(
-        DatabricksHttpException.class, () -> ValidationUtil.ensureSuccessResponse(response));
+    assertThrows(DatabricksHttpException.class, () -> ValidationUtil.checkHTTPError(response));
   }
 }

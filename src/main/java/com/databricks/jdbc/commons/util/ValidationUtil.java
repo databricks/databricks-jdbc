@@ -18,7 +18,7 @@ public class ValidationUtil {
     }
   }
 
-  public static void ensureSuccessResponse(HttpResponse response) throws DatabricksHttpException {
+  public static void checkHTTPError(HttpResponse response) throws DatabricksHttpException {
     int statusCode = response.getStatusLine().getStatusCode();
     String statusLine = response.getStatusLine().toString();
     if (statusCode >= 200 && statusCode < 300) {
