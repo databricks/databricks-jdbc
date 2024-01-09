@@ -6,7 +6,7 @@ import com.databricks.sdk.support.ToStringer;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import java.util.Objects;
 
-/*Todo: This file is picked from databricks-sdk-java. Remove this once arclight changes are included in databricks-sdk-java */
+/*Todo: This file is picked from databricks-sdk-java. Remove this once arclight changes are included in  in API-SPEC */
 public class GetStatementResponse {
   @JsonProperty("manifest")
   private ResultManifest manifest;
