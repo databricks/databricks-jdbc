@@ -115,7 +115,7 @@ public class ChunkDownloader {
    * @param chunkIndex index of chunk
    * @return the chunk at given index
    */
-  public ArrowResultChunk getChunk() {
+  public ArrowResultChunk getChunk() throws DatabricksSQLException {
     if (currentChunkIndex < 0) {
       return null;
     }
@@ -124,6 +124,9 @@ public class ChunkDownloader {
       try {
         while (!isDownloadComplete(chunk.getStatus())) {
           chunk.wait();
+        }
+        if (chunk.getStatus() != ArrowResultChunk.DownloadStatus.DOWNLOAD_SUCCEEDED) {
+          throw new DatabricksSQLException(chunk.getErrorMessage());
         }
       } catch (InterruptedException e) {
         logger
@@ -134,7 +137,7 @@ public class ChunkDownloader {
                 chunk.getChunkIndex(), statementId);
       }
     }
-    // TODO: check for errors
+
     return chunk;
   }
 

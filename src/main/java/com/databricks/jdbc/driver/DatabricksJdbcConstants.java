@@ -60,4 +60,7 @@ public final class DatabricksJdbcConstants {
   public static final String SCHEMA = "schema";
   public static final String USER_NAME = "User";
   static final int DEFAULT_PORT = 443;
+
+  static final String USER_AGENT_ENTRY = "useragententry";
+  static final String DEFAULT_USER_AGENT = "databricks_jdbc_oss";
 }

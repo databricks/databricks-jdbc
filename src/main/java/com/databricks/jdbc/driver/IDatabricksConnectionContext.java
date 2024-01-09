@@ -65,4 +65,6 @@ public interface IDatabricksConnectionContext {
   String getLogLevelString();
 
   String getLogPathString();
+
+  String getUserAgent();
 }

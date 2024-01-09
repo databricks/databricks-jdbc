@@ -1,6 +1,7 @@
 package com.databricks.jdbc.driver;
 
 import static com.databricks.jdbc.driver.DatabricksJdbcConstants.DEFAULT_LOG_LEVEL;
+import static com.databricks.jdbc.driver.DatabricksJdbcConstants.DEFAULT_USER_AGENT;
 import static com.databricks.jdbc.driver.DatabricksJdbcConstants.JDBC_URL_PATTERN;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -142,7 +143,7 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   @Override
   public String getClientId() {
     String clientId = getParameter(DatabricksJdbcConstants.CLIENT_ID);
-    if (clientId == null) {
+    if (nullOrEmptyString(clientId)) {
       if (getCloud().equals("AWS")) {
         return DatabricksJdbcConstants.AWS_CLIENT_ID;
       } else if (getCloud().equals("AAD")) {
@@ -175,7 +176,7 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   @Override
   public AuthFlow getAuthFlow() {
     String authFlow = getParameter(DatabricksJdbcConstants.AUTH_FLOW);
-    if (authFlow == null) return AuthFlow.TOKEN_PASSTHROUGH;
+    if (nullOrEmptyString(authFlow)) return AuthFlow.TOKEN_PASSTHROUGH;
     return AuthFlow.values()[Integer.parseInt(authFlow)];
   }
 
@@ -188,7 +189,7 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   @Override
   public String getLogLevelString() {
     String logLevel = getParameter(DatabricksJdbcConstants.LOG_LEVEL);
-    if (null == logLevel) {
+    if (nullOrEmptyString(logLevel)) {
       LOGGER.debug("No logLevel given in the input, defaulting to info.");
       return DEFAULT_LOG_LEVEL;
     }
@@ -205,5 +206,17 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   @Override
   public String getLogPathString() {
     return getParameter(DatabricksJdbcConstants.LOG_PATH);
+  }
+
+  @Override
+  public String getUserAgent() {
+    String customerUserAgent = getParameter(DatabricksJdbcConstants.USER_AGENT_ENTRY);
+    return nullOrEmptyString(customerUserAgent)
+        ? DatabricksJdbcConstants.DEFAULT_USER_AGENT
+        : DEFAULT_USER_AGENT + "-" + customerUserAgent;
+  }
+
+  private static boolean nullOrEmptyString(String s) {
+    return s == null || s.isEmpty();
   }
 }

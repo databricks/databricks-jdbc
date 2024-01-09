@@ -26,7 +26,7 @@ interface IExecutionResult {
    *
    * @return true if cursor is moved at next row
    */
-  boolean next();
+  boolean next() throws DatabricksSQLException;
 
   /** Returns if there is next row in the result set */
   boolean hasNext();
