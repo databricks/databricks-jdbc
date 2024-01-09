@@ -24,7 +24,7 @@ class SingleChunkDownloader implements Callable<Void> {
       chunkDownloader.downloadLinks(chunk.getChunkIndex());
     }
     try {
-      chunk.downloadData(httpClient, chunk.getChunkLink().getHttpHeaders());
+      chunk.downloadData(httpClient, null);
     } catch (DatabricksHttpException | DatabricksParsingException e) {
       // TODO: handle retries
     } finally {

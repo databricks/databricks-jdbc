@@ -201,14 +201,11 @@ public class ArrowResultChunk {
     }
   }
 
-  void downloadData(IDatabricksHttpClient httpClient, Map<String, String> headers)
-      throws URISyntaxException, DatabricksHttpException, DatabricksParsingException {
-
   public String getErrorMessage() {
     return this.errorMessage;
+  }
 
-
-  void downloadData(IDatabricksHttpClient httpClient)
+  void downloadData(IDatabricksHttpClient httpClient, Map<String, String> headers)
       throws DatabricksHttpException, DatabricksParsingException {
     try {
       this.downloadStartTime = Instant.now().toEpochMilli();

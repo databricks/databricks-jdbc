@@ -121,7 +121,7 @@ public class DatabricksHttpClient implements IDatabricksHttpClient {
 
   @Override
   public HttpResponse execute(HttpUriRequest request) throws DatabricksHttpException {
-    LOGGER.atDebug().log("Executing HTTP request [%s]", RequestSanitizer.sanitizeRequest(request));
+    LOGGER.atDebug().log("Executing HTTP request [{}]", RequestSanitizer.sanitizeRequest(request));
     // TODO: add retries and error handling
     try {
       return httpClient.execute(request);
