@@ -1,5 +1,7 @@
 package com.databricks.jdbc.pooling;
 
+import static com.databricks.jdbc.client.impl.sdk.PathConstants.SESSION_PATH;
+
 import com.databricks.jdbc.client.impl.sdk.DatabricksSdkClient;
 import com.databricks.jdbc.client.sqlexec.CreateSessionRequest;
 import com.databricks.jdbc.client.sqlexec.Session;
@@ -32,7 +34,6 @@ public class DatabricksConnectionPoolingTest {
   private static StatementExecutionService statementExecutionService =
       Mockito.mock(StatementExecutionService.class);
   private static ApiClient apiClient = Mockito.mock(ApiClient.class);
-  private static final String CLIENT_PATH = "/api/2.0/sql/statements/sessions";
   private static final Map<String, String> headers =
       new HashMap<>() {
         {
@@ -46,7 +47,7 @@ public class DatabricksConnectionPoolingTest {
     CreateSessionRequest createSessionRequest =
         new CreateSessionRequest().setWarehouseId(WAREHOUSE_ID);
     Session session = new Session().setWarehouseId(WAREHOUSE_ID).setSessionId(SESSION_ID);
-    Mockito.when(apiClient.POST(CLIENT_PATH, createSessionRequest, Session.class, headers))
+    Mockito.when(apiClient.POST(SESSION_PATH, createSessionRequest, Session.class, headers))
         .thenReturn(session);
   }
 

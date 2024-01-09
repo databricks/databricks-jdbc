@@ -1,5 +1,7 @@
 package com.databricks.jdbc.core;
 
+import static com.databricks.jdbc.client.impl.sdk.PathConstants.SESSION_PATH;
+import static com.databricks.jdbc.client.impl.sdk.PathConstants.STATEMENT_PATH;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -43,14 +45,11 @@ public class DatabricksSdkClientTest {
         }
       };
 
-  private static final String CLIENT_PATH = "/api/2.0/sql/statements/sessions";
-  private static final String STATEMENT_PATH = "/api/2.0/sql/statements/";
-
   private void setupSessionMocks() {
     Session session = new Session().setWarehouseId(WAREHOUSE_ID).setSessionId(SESSION_ID);
     CreateSessionRequest createSessionRequest =
         new CreateSessionRequest().setWarehouseId(WAREHOUSE_ID);
-    when(apiClient.POST(CLIENT_PATH, createSessionRequest, Session.class, headers))
+    when(apiClient.POST(SESSION_PATH, createSessionRequest, Session.class, headers))
         .thenReturn(session);
   }
 
@@ -97,7 +96,7 @@ public class DatabricksSdkClientTest {
                     (ExecuteStatementRequest) invocationOnMock.getArguments()[1];
                 assertTrue(request.equals(executeStatementRequest));
                 return response;
-              } else if (path.equals(CLIENT_PATH)) {
+              } else if (path.equals(SESSION_PATH)) {
                 CreateSessionRequest request =
                     (CreateSessionRequest) invocationOnMock.getArguments()[1];
                 assertEquals(request.getWarehouseId(), WAREHOUSE_ID);
