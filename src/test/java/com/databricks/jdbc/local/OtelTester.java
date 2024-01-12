@@ -39,13 +39,33 @@ public class OtelTester {
          */
         static OpenTelemetry initOpenTelemetry() {
             // Include required service.name resource attribute on all spans and metrics
-            Resource resource = Resource.getDefault().merge(Resource.builder().put(SERVICE_NAME, "OtlpExporterExample").build());
-            OpenTelemetrySdk openTelemetrySdk = OpenTelemetrySdk.builder().setTracerProvider(SdkTracerProvider.builder().setResource(resource).addSpanProcessor(BatchSpanProcessor.builder(OtlpGrpcSpanExporter.builder().setTimeout(2, TimeUnit.SECONDS).build()).setScheduleDelay(100, TimeUnit.MILLISECONDS).build()).build()).setMeterProvider(SdkMeterProvider.builder().setResource(resource).registerMetricReader(PeriodicMetricReader.builder(OtlpGrpcMetricExporter.getDefault()).setInterval(Duration.ofMillis(1000)).build()).build()).setLoggerProvider(SdkLoggerProvider.builder().setResource(resource).addLogRecordProcessor(BatchLogRecordProcessor.builder(OtlpGrpcLogRecordExporter.getDefault()).build()).build()).buildAndRegisterGlobal();
+            Resource resource = Resource.getDefault()
+                    .merge(Resource.builder().put(SERVICE_NAME, "OtlpExporterExample").build());
+            OpenTelemetrySdk openTelemetrySdk = OpenTelemetrySdk.builder()
+                    .setTracerProvider(SdkTracerProvider.builder()
+                            .setResource(resource)
+                            .addSpanProcessor(BatchSpanProcessor.builder(
+                                    OtlpGrpcSpanExporter.builder()
+                                            .setTimeout(2, TimeUnit.SECONDS)
+                                            .build())
+                                    .setScheduleDelay(100, TimeUnit.MILLISECONDS)
+                                    .build())
+                            .build())
+                    .setMeterProvider(SdkMeterProvider.builder()
+                            .setResource(resource)
+                            .registerMetricReader(PeriodicMetricReader.builder(
+                                    OtlpGrpcMetricExporter.getDefault())
+                                    .setInterval(Duration.ofMillis(1000))
+                                    .build()).build())
+                    .setLoggerProvider(SdkLoggerProvider.builder()
+                            .setResource(resource)
+                            .addLogRecordProcessor(BatchLogRecordProcessor.builder(
+                                    OtlpGrpcLogRecordExporter.getDefault())
+                                    .build())
+                            .build())
+                    .buildAndRegisterGlobal();
             Runtime.getRuntime().addShutdownHook(new Thread(openTelemetrySdk::close));
-
-
             io.opentelemetry.instrumentation.log4j.appender.v2_17.OpenTelemetryAppender.install(openTelemetrySdk);
-
             return openTelemetrySdk;
 
 //            return GlobalOpenTelemetry.get();
