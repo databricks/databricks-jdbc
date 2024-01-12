@@ -4,12 +4,13 @@
         <Console name="ConsoleAppender" target="SYSTEM_OUT" follow="true">
             <PatternLayout pattern="log4j2: %d{HH:mm:ss.SSS} [%t] %-5level %logger{36} - %msg%n"/>
         </Console>
-        <OpenTelemetry name="OpenTelemetryAppender" captureMapMessageAttributes="true" captureExperimentalAttributes="true"/>
+        <OpenTelemetry name="OpenTelemetryAppender" captureMapMessageAttributes="true"
+                       captureExperimentalAttributes="true"/>
     </Appenders>
     <Loggers>
         <Root level="info">
-            <AppenderRef ref="OpenTelemetryAppender" />
-            <AppenderRef ref="ConsoleAppender" />
+            <AppenderRef ref="OpenTelemetryAppender"/>
+            <AppenderRef ref="ConsoleAppender"/>
         </Root>
     </Loggers>
 </Configuration>
