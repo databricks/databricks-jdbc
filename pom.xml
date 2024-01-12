@@ -37,6 +37,7 @@
     <commons-io.version>2.13.0</commons-io.version>
     <databricks-sdk.version>0.13.0</databricks-sdk.version>
     <maven-surefire-plugin.version>3.1.2</maven-surefire-plugin.version>
+    <slf4j-reload4j.version>2.1.0-alpha1</slf4j-reload4j.version>
   </properties>
   <dependencies>
     <dependency>
@@ -132,6 +133,12 @@
       <artifactId>value</artifactId>
       <version>${immutables.value.version}</version>
       <scope>provided</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.slf4j</groupId>
+      <artifactId>slf4j-reload4j</artifactId>
+      <version>${slf4j-reload4j.version}</version>
+      <scope>runtime</scope>
     </dependency>
     <dependency>
       <groupId>io.opentelemetry</groupId>

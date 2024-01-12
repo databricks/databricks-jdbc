@@ -88,15 +88,17 @@ public class DatabricksSession implements IDatabricksSession {
   @Override
   public void close() {
     LOGGER.debug("public void close()");
-    // TODO: check for any pending query executions
-    synchronized (this) {
-      if (isSessionOpen) {
-        // TODO: handle closed connections by server
-        databricksClient.deleteSession(this.session.sessionId(), getWarehouseId());
-        this.session = null;
-        this.isSessionOpen = false;
-      }
-    }
+    // TODO(PECO-1327): Add back when session closing is fixed.
+
+    //    // TODO: check for any pending query executions
+    //    synchronized (this) {
+    //      if (isSessionOpen) {
+    //        // TODO: handle closed connections by server
+    //        databricksClient.deleteSession(this.session.sessionId(), getWarehouseId());
+    //        this.session = null;
+    //        this.isSessionOpen = false;
+    //      }
+    //    }
   }
 
   @Override

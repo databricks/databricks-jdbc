@@ -212,7 +212,7 @@ public class ArrowResultChunk {
           String.format(
               "Data fetch failed for chunk index [%d] and statement [%s]. Error message [%s]",
               this.chunkIndex, this.statementId, e.getMessage());
-      LOGGER.atError().setCause(e).log(errorMessage);
+      LOGGER.error(errorMessage, e);
       this.setStatus(DownloadStatus.DOWNLOAD_FAILED);
       throw new DatabricksHttpException(errorMessage, e);
     }
@@ -233,9 +233,8 @@ public class ArrowResultChunk {
 
   public void getArrowDataFromInputStream(InputStream inputStream)
       throws DatabricksParsingException {
-    LOGGER.atDebug().log(
-        "Parsing data for chunk index [%d] and statement [%s]",
-        this.getChunkIndex(), this.statementId);
+    LOGGER.debug(
+        "Parsing data for chunk index [{}] and statement [{}]", this.chunkIndex, this.statementId);
     this.isDataInitialized = true;
     this.recordBatchList = new ArrayList<>();
     // add check to see if input stream has been populated
@@ -256,15 +255,14 @@ public class ArrowResultChunk {
         this.recordBatchList.add(vectors);
         vectorSchemaRoot.clear();
       }
-      LOGGER.atDebug().log(
-          "Data parsed for chunk index [%d] and statement [%s]",
-          this.getChunkIndex(), this.statementId);
+      LOGGER.debug(
+          "Data parsed for chunk index [{}] and statement [{}]", this.chunkIndex, this.statementId);
     } catch (IOException e) {
       String errMsg =
           String.format(
               "Data parsing failed for chunk index [%d] and statement [%s]",
               this.chunkIndex, this.statementId);
-      LOGGER.atError().setCause(e).log(errMsg);
+      LOGGER.error(errMsg, e);
       this.setStatus(DownloadStatus.DOWNLOAD_FAILED);
       throw new DatabricksParsingException(errMsg, e);
     }

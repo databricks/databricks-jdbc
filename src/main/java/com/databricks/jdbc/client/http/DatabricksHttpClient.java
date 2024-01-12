@@ -121,7 +121,7 @@ public class DatabricksHttpClient implements IDatabricksHttpClient {
 
   @Override
   public HttpResponse execute(HttpUriRequest request) throws DatabricksHttpException {
-    LOGGER.atDebug().log("Executing HTTP request [%s]", RequestSanitizer.sanitizeRequest(request));
+    LOGGER.debug("Executing HTTP request [{}]", RequestSanitizer.sanitizeRequest(request));
     // TODO: add retries and error handling
     try {
       return httpClient.execute(request);
@@ -130,7 +130,7 @@ public class DatabricksHttpClient implements IDatabricksHttpClient {
           String.format(
               "Caught error while executing http request: [%s]",
               RequestSanitizer.sanitizeRequest(request));
-      LOGGER.atError().setCause(e).log(errorMsg);
+      LOGGER.error(errorMsg, e);
       throw new DatabricksHttpException(errorMsg, e);
     }
   }
