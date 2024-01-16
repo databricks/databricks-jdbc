@@ -23,7 +23,7 @@ public class DatabricksTypeUtil {
   public static final String INT = "INT";
   public static final String INTERVAL = "INTERVAL";
   public static final String VOID = "VOID";
-  public static final String SMALLINT = "SMALLINT";
+  public static final String SMALLINT = "SHORT";
   public static final String STRING = "STRING";
   public static final String TINYINT = "TINYINT";
   public static final String TIMESTAMP = "TIMESTAMP";

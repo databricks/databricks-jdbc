@@ -58,7 +58,7 @@ public class DatabricksSdkClientTest {
         new ArrayList<>() {
           {
             add(getParam("BIGINT", "100", 1));
-            add(getParam("SMALLINT", "10", 2));
+            add(getParam("SHORT", "10", 2));
             add(getParam("TINYINT", "15", 3));
             add(getParam("STRING", "value", 4));
           }
