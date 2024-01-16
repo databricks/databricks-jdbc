@@ -46,7 +46,7 @@ public class ExecuteStatementRequest {
     return warehouseId;
   }
 
-  public long getRowLimit() {
+  public Long getRowLimit() {
     return rowLimit;
   }
 
