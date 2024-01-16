@@ -1,8 +1,8 @@
 package com.databricks.jdbc.core;
 
 import com.databricks.jdbc.client.DatabricksClient;
+import com.databricks.jdbc.driver.DatabricksDriver;
 import com.databricks.jdbc.driver.IDatabricksConnectionContext;
-import com.databricks.sdk.core.UserAgent;
 import com.google.common.annotations.VisibleForTesting;
 import java.sql.*;
 import java.util.Map;
@@ -35,7 +35,7 @@ public class DatabricksConnection implements IDatabricksConnection, Connection {
       IDatabricksConnectionContext connectionContext, DatabricksClient databricksClient) {
     this.session = new DatabricksSession(connectionContext, databricksClient);
     this.session.open();
-    UserAgent.withProduct(connectionContext.getUserAgent(), "0.0");
+    new DatabricksDriver().setUserAgent(connectionContext);
   }
 
   @Override

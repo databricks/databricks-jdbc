@@ -62,5 +62,8 @@ public final class DatabricksJdbcConstants {
   static final int DEFAULT_PORT = 443;
 
   static final String USER_AGENT_ENTRY = "useragententry";
-  static final String DEFAULT_USER_AGENT = "databricks_jdbc_oss";
+  public static final String DEFAULT_USER_AGENT = "DatabricksJDBCDriverOSS";
+  static final String CLIENT_USER_AGENT_PREFIX = "Java";
+  static final String USER_AGENT_SEA_CLIENT = "SQLExecHttpClient/HC";
+  static final String USER_AGENT_THRIFT_CLIENT = "THttpClient/HC";
 }

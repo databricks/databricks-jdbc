@@ -1,9 +1,9 @@
 package com.databricks.jdbc.driver;
 
 import static com.databricks.jdbc.driver.DatabricksJdbcConstants.DEFAULT_LOG_LEVEL;
-import static com.databricks.jdbc.driver.DatabricksJdbcConstants.DEFAULT_USER_AGENT;
 import static com.databricks.jdbc.driver.DatabricksJdbcConstants.JDBC_URL_PATTERN;
 
+import com.databricks.jdbc.client.DatabricksClientType;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
 import java.util.Arrays;
@@ -211,11 +211,20 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   }
 
   @Override
-  public String getUserAgent() {
+  public String getClientUserAgent() {
     String customerUserAgent = getParameter(DatabricksJdbcConstants.USER_AGENT_ENTRY);
+    String clientAgent =
+        getClientType().equals(DatabricksClientType.SQL_EXEC)
+            ? DatabricksJdbcConstants.USER_AGENT_SEA_CLIENT
+            : DatabricksJdbcConstants.USER_AGENT_THRIFT_CLIENT;
     return nullOrEmptyString(customerUserAgent)
-        ? DatabricksJdbcConstants.DEFAULT_USER_AGENT
-        : DEFAULT_USER_AGENT + "-" + customerUserAgent;
+        ? clientAgent
+        : clientAgent + " " + customerUserAgent;
+  }
+
+  private DatabricksClientType getClientType() {
+    // TODO: decide on client type from parsed JDBC Url
+    return DatabricksClientType.SQL_EXEC;
   }
 
   private static boolean nullOrEmptyString(String s) {

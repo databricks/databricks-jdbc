@@ -1,15 +1,16 @@
 package com.databricks.jdbc.driver;
 
-import static com.databricks.jdbc.driver.DatabricksJdbcConstants.SYSTEM_LOG_FILE_CONFIG;
-import static com.databricks.jdbc.driver.DatabricksJdbcConstants.SYSTEM_LOG_LEVEL_CONFIG;
-
 import com.databricks.jdbc.core.DatabricksConnection;
 import com.databricks.jdbc.core.DatabricksSQLException;
 import com.databricks.sdk.core.DatabricksError;
-import java.sql.*;
-import java.util.Properties;
+import com.databricks.sdk.core.UserAgent;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.sql.*;
+import java.util.Properties;
+
+import static com.databricks.jdbc.driver.DatabricksJdbcConstants.*;
 
 /**
  * Databricks JDBC driver. TODO: Add implementation to accept Urls in format:
@@ -20,8 +21,9 @@ public class DatabricksDriver implements Driver {
   private static final Logger LOGGER = LoggerFactory.getLogger(DatabricksDriver.class);
   private static final DatabricksDriver INSTANCE;
 
-  private static int majorVersion = 0;
-  private static int minorVersion = 0;
+  private static final int majorVersion = 0;
+  private static final int minorVersion = 0;
+  private static final int buildVersion = 0;
 
   static {
     try {
@@ -46,6 +48,7 @@ public class DatabricksDriver implements Driver {
     if (logFileConfig != null) {
       System.setProperty(SYSTEM_LOG_FILE_CONFIG, logFileConfig);
     }
+    setUserAgent(connectionContext);
     try {
       return new DatabricksConnection(connectionContext);
     } catch (DatabricksError e) {
@@ -85,5 +88,14 @@ public class DatabricksDriver implements Driver {
 
   public static void main(String[] args) {
     LOGGER.info("The driver {} has been initialized.", DatabricksDriver.class);
+  }
+
+  private String getVersion() {
+    return String.format("%d.%d.%d", getMajorVersion(), getMinorVersion(), buildVersion);
+  }
+
+  public void setUserAgent(IDatabricksConnectionContext connectionContext) {
+    UserAgent.withProduct(DatabricksJdbcConstants.DEFAULT_USER_AGENT, getVersion());
+    UserAgent.withOtherInfo(CLIENT_USER_AGENT_PREFIX, connectionContext.getClientUserAgent());
   }
 }

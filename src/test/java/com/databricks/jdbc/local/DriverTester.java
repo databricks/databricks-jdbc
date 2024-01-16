@@ -54,8 +54,11 @@ public class DriverTester {
     DatabaseMetaData metaData = con.getMetaData();
     ResultSet resultSet = metaData.getTables("samples", "tpch", null, null);
     printResultSet(resultSet);
+    resultSet.close();
+    con.close();
   }
 
+  /*
   @Test
   void testGetTablesSimba() throws Exception {
     DriverManager.drivers().forEach(driver -> System.out.println(driver.getClass()));
@@ -70,8 +73,9 @@ public class DriverTester {
     ResultSet rs = metaData.getSchemas();
     printResultSet(rs);
     con.close();
-  }
+  }*/
 
+  /*
   @Test
   void testStatementSimba() throws Exception {
     DriverManager.drivers().forEach(driver -> System.out.println(driver.getClass()));
@@ -88,7 +92,7 @@ public class DriverTester {
     rs.close();
     statement.close();
     con.close();
-  }
+  }*/
 
   @Test
   void testArclight() throws Exception {

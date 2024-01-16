@@ -19,7 +19,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 public class DatabricksConnectionTest {
 
   private static final String JDBC_URL =
-      "jdbc:databricks://adb-565757575.18.azuredatabricks.net:4423/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/erg6767gg;";
+      "jdbc:databricks://adb-565757575.18.azuredatabricks.net:4423/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/erg6767gg;UserAgentEntry=MyApp";
   private static final String WAREHOUSE_ID = "erg6767gg";
   private static final String SESSION_ID = "session_id";
 
@@ -38,6 +38,8 @@ public class DatabricksConnectionTest {
 
     assertFalse(connection.isClosed());
     assertEquals(connection.getSession().getSessionId(), SESSION_ID);
-    assertTrue(UserAgent.asString().contains("databricks_jdbc_oss/0.0"));
+    String userAgent = UserAgent.asString();
+    assertTrue(userAgent.contains("DatabricksJDBCDriverOSS/0.0.0"));
+    assertTrue(userAgent.contains("Java/SQLExecHttpClient/HC MyApp"));
   }
 }
