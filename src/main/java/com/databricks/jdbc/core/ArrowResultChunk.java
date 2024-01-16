@@ -6,8 +6,6 @@ import com.databricks.jdbc.client.DatabricksHttpException;
 import com.databricks.jdbc.client.IDatabricksHttpClient;
 import com.databricks.jdbc.client.sqlexec.ExternalLink;
 import com.databricks.sdk.service.sql.BaseChunkInfo;
-import java.io.IOException;
-import com.databricks.sdk.service.sql.ExternalLink;
 import java.io.InputStream;
 import java.nio.channels.ClosedByInterruptException;
 import java.time.Instant;
