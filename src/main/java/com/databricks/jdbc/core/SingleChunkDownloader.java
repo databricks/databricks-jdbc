@@ -19,12 +19,12 @@ class SingleChunkDownloader implements Callable<Void> {
   }
 
   @Override
-  public Void call() throws Exception {
+  public Void call() {
     if (chunk.isChunkLinkInvalid()) {
       chunkDownloader.downloadLinks(chunk.getChunkIndex());
     }
     try {
-      chunk.downloadData(httpClient, null);
+      chunk.downloadData(httpClient);
     } catch (DatabricksHttpException | DatabricksParsingException e) {
       // TODO: handle retries
     } finally {

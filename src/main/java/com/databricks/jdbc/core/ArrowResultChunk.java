@@ -205,13 +205,13 @@ public class ArrowResultChunk {
     return this.errorMessage;
   }
 
-  void downloadData(IDatabricksHttpClient httpClient, Map<String, String> headers)
+  void downloadData(IDatabricksHttpClient httpClient)
       throws DatabricksHttpException, DatabricksParsingException {
     try {
       this.downloadStartTime = Instant.now().toEpochMilli();
       URIBuilder uriBuilder = new URIBuilder(chunkUrl.getExternalLink());
       HttpGet getRequest = new HttpGet(uriBuilder.build());
-      addHeaders(getRequest, headers);
+      addHeaders(getRequest, chunkUrl.getHttpHeaders());
       // Retry would be done in http client, we should not bother about that here
       HttpResponse response = httpClient.execute(getRequest);
       checkHTTPError(response);

@@ -25,15 +25,13 @@ public class DriverTester {
   }
 
   @Test
-  void testGetTablesOSS() throws Exception {
+  void testGetTablesOSS_StatementExecution() throws Exception {
     DriverManager.registerDriver(new com.databricks.jdbc.driver.DatabricksDriver());
     DriverManager.drivers().forEach(driver -> System.out.println(driver.getClass()));
     // Getting the connection
     String jdbcUrl =
         "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/791ba2a31c7fd70a;";
-    Connection con =
-        DriverManager.getConnection(
-            jdbcUrl, "samikshya.chand@databricks.com", "dapi4e0f1f5184ac01978969f44e94267bbf");
+    Connection con = DriverManager.getConnection(jdbcUrl, "samikshya.chand@databricks.com", "xx");
     System.out.println("Connection established......");
     Statement statement = con.createStatement();
     statement.setMaxRows(10);
@@ -42,6 +40,20 @@ public class DriverTester {
     rs.close();
     statement.close();
     con.close();
+  }
+
+  @Test
+  void testGetTablesOSS_Metadata() throws Exception {
+    DriverManager.registerDriver(new com.databricks.jdbc.driver.DatabricksDriver());
+    DriverManager.drivers().forEach(driver -> System.out.println(driver.getClass()));
+    // Getting the connection
+    String jdbcUrl =
+        "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/791ba2a31c7fd70a;";
+    Connection con = DriverManager.getConnection(jdbcUrl, "samikshya.chand@databricks.com", "xx");
+    System.out.println("Connection established......");
+    DatabaseMetaData metaData = con.getMetaData();
+    ResultSet resultSet = metaData.getTables("samples", "tpch", null, null);
+    printResultSet(resultSet);
   }
 
   @Test
@@ -66,9 +78,7 @@ public class DriverTester {
     // Getting the connection
     String jdbcUrl =
         "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/5c89f447c476a5a8;";
-    Connection con =
-        DriverManager.getConnection(
-            jdbcUrl, "samikshya.chand@databricks.com", "dapi4e0f1f5184ac01978969f44e94267bbf");
+    Connection con = DriverManager.getConnection(jdbcUrl, "samikshya.chand@databricks.com", "xx");
     System.out.println("Connection established......");
     // Retrieving the meta data object
     Statement statement = con.createStatement();
@@ -87,16 +97,14 @@ public class DriverTester {
     // Getting the connection
     String jdbcUrl =
         "jdbc:databricks://arclight-staging-e2-arclight-dmk-qa-staging-us-east-1.staging.cloud.databricks.com:443/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/8561171c1d9afb1f;";
-    Connection con =
-        DriverManager.getConnection(
-            jdbcUrl, "yunbo.deng+arclight+dmk+staging@databricks.com", "xx");
+    Connection con = DriverManager.getConnection(jdbcUrl, "yunbo.deng@databricks.com", "xx");
     System.out.println("Connection established......");
     // Retrieving data
     Statement statement = con.createStatement();
     statement.setMaxRows(10000);
     ResultSet rs =
         statement.executeQuery(
-            "select * from `arclight-dmk-catalog`.default.samikshya_test_large_table");
+            "select * from `arclight-dmk-catalog`.default.samikshya_test_large_table limit 10");
     printResultSet(rs);
     System.out.println("printing is done......");
     rs.close();
