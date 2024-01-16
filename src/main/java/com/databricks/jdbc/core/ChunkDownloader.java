@@ -88,7 +88,7 @@ public class ChunkDownloader {
     }
 
     for (ExternalLink externalLink : resultData.getExternalLinks()) {
-      chunkIndexMap.get(externalLink.getChunkIndex()).setChunkUrl(externalLink);
+      chunkIndexMap.get(externalLink.getChunkIndex()).setChunkLink(externalLink);
     }
     return chunkIndexMap;
   }
@@ -198,7 +198,7 @@ public class ChunkDownloader {
    * @param chunkLink external link details for chunk
    */
   void setChunkLink(ExternalLink chunkLink) {
-    chunkIndexToChunksMap.get(chunkLink.getChunkIndex()).setChunkUrl(chunkLink);
+    chunkIndexToChunksMap.get(chunkLink.getChunkIndex()).setChunkLink(chunkLink);
   }
 
   /** Fetches total chunks that we have in memory */

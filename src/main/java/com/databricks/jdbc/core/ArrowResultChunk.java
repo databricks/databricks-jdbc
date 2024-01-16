@@ -74,7 +74,7 @@ public class ArrowResultChunk {
   final long rowOffset;
   final long byteCount;
 
-  private ExternalLink chunkUrl;
+  private ExternalLink chunkLink;
   private final String statementId;
   private Long nextChunkIndex;
   private Instant expiryTime;
@@ -98,7 +98,7 @@ public class ArrowResultChunk {
     this.byteCount = chunkInfo.getByteCount();
     this.status = DownloadStatus.PENDING;
     this.rootAllocator = rootAllocator;
-    this.chunkUrl = null;
+    this.chunkLink = null;
     this.downloadStartTime = null;
     this.downloadFinishTime = null;
     this.statementId = statementId;
@@ -170,8 +170,8 @@ public class ArrowResultChunk {
   }
 
   /** Sets link details for the given chunk. */
-  void setChunkUrl(ExternalLink chunk) {
-    this.chunkUrl = chunk;
+  void setChunkLink(ExternalLink chunk) {
+    this.chunkLink = chunk;
     this.nextChunkIndex = chunk.getNextChunkIndex();
     this.expiryTime = Instant.parse(chunk.getExpiration());
     this.status = DownloadStatus.URL_FETCHED;
@@ -212,9 +212,9 @@ public class ArrowResultChunk {
       throws DatabricksHttpException, DatabricksParsingException {
     try {
       this.downloadStartTime = Instant.now().toEpochMilli();
-      URIBuilder uriBuilder = new URIBuilder(chunkUrl.getExternalLink());
+      URIBuilder uriBuilder = new URIBuilder(chunkLink.getExternalLink());
       HttpGet getRequest = new HttpGet(uriBuilder.build());
-      addHeaders(getRequest, chunkUrl.getHttpHeaders());
+      addHeaders(getRequest, chunkLink.getHttpHeaders());
       // Retry would be done in http client, we should not bother about that here
       HttpResponse response = httpClient.execute(getRequest);
       checkHTTPError(response);
@@ -239,7 +239,7 @@ public class ArrowResultChunk {
     if (status == DownloadStatus.PENDING) {
       LOGGER.debug(
           "Next index called for pending state chunk. chunkUrl = {}, nextChunkIndex = {}",
-          chunkUrl.getExternalLink(),
+          chunkLink.getExternalLink(),
           nextChunkIndex);
       throw new IllegalStateException("Next index called for pending state chunk");
     }
@@ -304,7 +304,7 @@ public class ArrowResultChunk {
   void refreshChunkLink(IDatabricksSession session) {
     session.getDatabricksClient().getResultChunks(statementId, chunkIndex).stream()
         .findFirst()
-        .ifPresent(this::setChunkUrl);
+        .ifPresent(this::setChunkLink);
   }
 
   /**
@@ -340,11 +340,11 @@ public class ArrowResultChunk {
 
   /** Returns the chunk download link */
   String getChunkUrl() {
-    return chunkUrl.getExternalLink();
+    return chunkLink.getExternalLink();
   }
 
   public ExternalLink getChunkLink() {
-    return chunkUrl;
+    return chunkLink;
   }
 
   /** Returns index for current chunk */
