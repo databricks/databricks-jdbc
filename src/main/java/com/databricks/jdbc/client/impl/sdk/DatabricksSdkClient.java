@@ -123,6 +123,9 @@ public class DatabricksSdkClient implements DatabricksClient {
             .POST(STATEMENT_PATH, request, ExecuteStatementResponse.class, getHeaders());
 
     String statementId = response.getStatementId();
+    if (parentStatement != null) {
+      parentStatement.setStatementId(statementId);
+    }
     StatementState responseState = response.getStatus().getState();
     while (responseState == StatementState.PENDING || responseState == StatementState.RUNNING) {
       if (pollCount > 0) { // First poll happens without a delay
@@ -142,7 +145,7 @@ public class DatabricksSdkClient implements DatabricksClient {
       pollCount++;
     }
     long executionEndTime = Instant.now().toEpochMilli();
-    LOGGER.atDebug().log(
+    LOGGER.debug(
         "Executed sql [{}] with status [{}], total time taken [{}] and pollCount [{}]",
         sql,
         responseState,

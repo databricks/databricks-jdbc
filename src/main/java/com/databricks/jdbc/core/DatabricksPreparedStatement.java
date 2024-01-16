@@ -42,7 +42,8 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
   @Override
   public void setNull(int parameterIndex, int sqlType) throws SQLException {
     LOGGER.debug("public void setNull(int parameterIndex, int sqlType)");
-    throw new UnsupportedOperationException("Not implemented");
+    throw new UnsupportedOperationException(
+        "Not implemented in DatabricksPreparedStatement - setNull(int parameterIndex, int sqlType)");
   }
 
   @Override
@@ -111,7 +112,8 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
   @Override
   public void setBytes(int parameterIndex, byte[] x) throws SQLException {
     LOGGER.debug("public void setBytes(int parameterIndex, byte[] x)");
-    throw new UnsupportedOperationException("Not implemented");
+    throw new UnsupportedOperationException(
+        "Not implemented in DatabricksPreparedStatement - setBytes(int parameterIndex, byte[] x)");
   }
 
   @Override
@@ -125,7 +127,8 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
   public void setTime(int parameterIndex, Time x) throws SQLException {
     LOGGER.debug("public void setTime(int parameterIndex, Time x)");
     checkIfClosed();
-    throw new UnsupportedOperationException("Not implemented");
+    throw new UnsupportedOperationException(
+        "Not implemented in DatabricksPreparedStatement - setTime(int parameterIndex, Time x)");
   }
 
   @Override
@@ -138,19 +141,22 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
   @Override
   public void setAsciiStream(int parameterIndex, InputStream x, int length) throws SQLException {
     LOGGER.debug("public void setAsciiStream(int parameterIndex, InputStream x, int length)");
-    throw new UnsupportedOperationException("Not implemented");
+    throw new UnsupportedOperationException(
+        "Not implemented in DatabricksPreparedStatement - setAsciiStream(int parameterIndex, InputStream x, int length)");
   }
 
   @Override
   public void setUnicodeStream(int parameterIndex, InputStream x, int length) throws SQLException {
     LOGGER.debug("public void setUnicodeStream(int parameterIndex, InputStream x, int length)");
-    throw new UnsupportedOperationException("Not implemented");
+    throw new UnsupportedOperationException(
+        "Not implemented in DatabricksPreparedStatement - setUnicodeStream(int parameterIndex, InputStream x, int length)");
   }
 
   @Override
   public void setBinaryStream(int parameterIndex, InputStream x, int length) throws SQLException {
     LOGGER.debug("public void setBinaryStream(int parameterIndex, InputStream x, int length)");
-    throw new UnsupportedOperationException("Not implemented");
+    throw new UnsupportedOperationException(
+        "Not implemented in DatabricksPreparedStatement - setBinaryStream(int parameterIndex, InputStream x, int length)");
   }
 
   @Override
@@ -170,7 +176,8 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
       return;
     }
     // TODO: handle other types
-    throw new UnsupportedOperationException("Not implemented");
+    throw new UnsupportedOperationException(
+        "Not implemented in DatabricksPreparedStatement - setObject(int parameterIndex, Object x, int targetSqlType)");
   }
 
   @Override
@@ -183,7 +190,8 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
       return;
     }
     // TODO: handle other types and generic objects
-    throw new UnsupportedOperationException("Not implemented");
+    throw new UnsupportedOperationException(
+        "Not implemented in DatabricksPreparedStatement - setObject(int parameterIndex, Object x)");
   }
 
   private void setObject(int parameterIndex, Object x, String databricksType) {
@@ -207,38 +215,44 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
   @Override
   public void addBatch() throws SQLException {
     LOGGER.debug("public void addBatch()");
-    throw new UnsupportedOperationException("Not implemented");
+    throw new UnsupportedOperationException(
+        "Not implemented in DatabricksPreparedStatement - addBatch()");
   }
 
   @Override
   public void setCharacterStream(int parameterIndex, Reader reader, int length)
       throws SQLException {
     LOGGER.debug("public void setCharacterStream(int parameterIndex, Reader reader, int length)");
-    throw new UnsupportedOperationException("Not implemented");
+    throw new UnsupportedOperationException(
+        "Not implemented in DatabricksPreparedStatement - setCharacterStream(int parameterIndex, Reader reader, int length)");
   }
 
   @Override
   public void setRef(int parameterIndex, Ref x) throws SQLException {
     LOGGER.debug("public void setRef(int parameterIndex, Ref x)");
-    throw new UnsupportedOperationException("Not implemented");
+    throw new UnsupportedOperationException(
+        "Not implemented in DatabricksPreparedStatement - setRef(int parameterIndex, Ref x)");
   }
 
   @Override
   public void setBlob(int parameterIndex, Blob x) throws SQLException {
     LOGGER.debug("public void setBlob(int parameterIndex, Blob x)");
-    throw new UnsupportedOperationException("Not implemented");
+    throw new UnsupportedOperationException(
+        "Not implemented in DatabricksPreparedStatement - setBlob(int parameterIndex, Blob x)");
   }
 
   @Override
   public void setClob(int parameterIndex, Clob x) throws SQLException {
     LOGGER.debug("public void setClob(int parameterIndex, Clob x)");
-    throw new UnsupportedOperationException("Not implemented");
+    throw new UnsupportedOperationException(
+        "Not implemented in DatabricksPreparedStatement - setClob(int parameterIndex, Clob x)");
   }
 
   @Override
   public void setArray(int parameterIndex, Array x) throws SQLException {
     LOGGER.debug("public void setArray(int parameterIndex, Array x)");
-    throw new UnsupportedOperationException("Not implemented");
+    throw new UnsupportedOperationException(
+        "Not implemented in DatabricksPreparedStatement - setArray(int parameterIndex, Array x)");
   }
 
   @Override
@@ -251,87 +265,101 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
   @Override
   public void setDate(int parameterIndex, Date x, Calendar cal) throws SQLException {
     LOGGER.debug("public void setDate(int parameterIndex, Date x, Calendar cal)");
-    throw new UnsupportedOperationException("Not implemented");
+    throw new UnsupportedOperationException(
+        "Not implemented in DatabricksPreparedStatement - setDate(int parameterIndex, Date x, Calendar cal)");
   }
 
   @Override
   public void setTime(int parameterIndex, Time x, Calendar cal) throws SQLException {
     LOGGER.debug("public void setTime(int parameterIndex, Time x, Calendar cal)");
-    throw new UnsupportedOperationException("Not implemented");
+    throw new UnsupportedOperationException(
+        "Not implemented in DatabricksPreparedStatement - setTime(int parameterIndex, Time x, Calendar cal)");
   }
 
   @Override
   public void setTimestamp(int parameterIndex, Timestamp x, Calendar cal) throws SQLException {
     LOGGER.debug("public void setTimestamp(int parameterIndex, Timestamp x, Calendar cal)");
-    throw new UnsupportedOperationException("Not implemented");
+    throw new UnsupportedOperationException(
+        "Not implemented in DatabricksPreparedStatement - setTimestamp(int parameterIndex, Timestamp x, Calendar cal)");
   }
 
   @Override
   public void setNull(int parameterIndex, int sqlType, String typeName) throws SQLException {
     LOGGER.debug("public void setNull(int parameterIndex, int sqlType, String typeName)");
-    throw new UnsupportedOperationException("Not implemented");
+    throw new UnsupportedOperationException(
+        "Not implemented in DatabricksPreparedStatement - setNull(int parameterIndex, int sqlType, String typeName)");
   }
 
   @Override
   public void setURL(int parameterIndex, URL x) throws SQLException {
     LOGGER.debug("public void setURL(int parameterIndex, URL x)");
-    throw new UnsupportedOperationException("Not implemented");
+    throw new UnsupportedOperationException(
+        "Not implemented in DatabricksPreparedStatement - setURL(int parameterIndex, URL x)");
   }
 
   @Override
   public ParameterMetaData getParameterMetaData() throws SQLException {
     LOGGER.debug("public ParameterMetaData getParameterMetaData()");
-    throw new UnsupportedOperationException("Not implemented");
+    throw new UnsupportedOperationException(
+        "Not implemented in DatabricksPreparedStatement - getParameterMetaData()");
   }
 
   @Override
   public void setRowId(int parameterIndex, RowId x) throws SQLException {
     LOGGER.debug("public void setRowId(int parameterIndex, RowId x)");
-    throw new UnsupportedOperationException("Not implemented");
+    throw new UnsupportedOperationException(
+        "Not implemented in DatabricksPreparedStatement - setRowId(int parameterIndex, RowId x)");
   }
 
   @Override
   public void setNString(int parameterIndex, String value) throws SQLException {
     LOGGER.debug("public void setNString(int parameterIndex, String value)");
-    throw new UnsupportedOperationException("Not implemented");
+    throw new UnsupportedOperationException(
+        "Not implemented in DatabricksPreparedStatement - setNString(int parameterIndex, String value)");
   }
 
   @Override
   public void setNCharacterStream(int parameterIndex, Reader value, long length)
       throws SQLException {
     LOGGER.debug("public void setNCharacterStream(int parameterIndex, Reader value, long length)");
-    throw new UnsupportedOperationException("Not implemented");
+    throw new UnsupportedOperationException(
+        "Not implemented in DatabricksPreparedStatement - setNCharacterStream(int parameterIndex, Reader value, long length)");
   }
 
   @Override
   public void setNClob(int parameterIndex, NClob value) throws SQLException {
     LOGGER.debug("public void setNClob(int parameterIndex, NClob value)");
-    throw new UnsupportedOperationException("Not implemented");
+    throw new UnsupportedOperationException(
+        "Not implemented in DatabricksPreparedStatement - setNClob(int parameterIndex, NClob value)");
   }
 
   @Override
   public void setClob(int parameterIndex, Reader reader, long length) throws SQLException {
     LOGGER.debug("public void setClob(int parameterIndex, Reader reader, long length)");
-    throw new UnsupportedOperationException("Not implemented");
+    throw new UnsupportedOperationException(
+        "Not implemented in DatabricksPreparedStatement - setClob(int parameterIndex, Reader reader, long length)");
   }
 
   @Override
   public void setBlob(int parameterIndex, InputStream inputStream, long length)
       throws SQLException {
     LOGGER.debug("public void setBlob(int parameterIndex, InputStream inputStream, long length)");
-    throw new UnsupportedOperationException("Not implemented");
+    throw new UnsupportedOperationException(
+        "Not implemented in DatabricksPreparedStatement - setBlob(int parameterIndex, InputStream inputStream, long length)");
   }
 
   @Override
   public void setNClob(int parameterIndex, Reader reader, long length) throws SQLException {
     LOGGER.debug("public void setNClob(int parameterIndex, Reader reader, long length)");
-    throw new UnsupportedOperationException("Not implemented");
+    throw new UnsupportedOperationException(
+        "Not implemented in DatabricksPreparedStatement - setNClob(int parameterIndex, Reader reader, long length)");
   }
 
   @Override
   public void setSQLXML(int parameterIndex, SQLXML xmlObject) throws SQLException {
     LOGGER.debug("public void setSQLXML(int parameterIndex, SQLXML xmlObject)");
-    throw new UnsupportedOperationException("Not implemented");
+    throw new UnsupportedOperationException(
+        "Not implemented in DatabricksPreparedStatement - setSQLXML(int parameterIndex, SQLXML xmlObject)");
   }
 
   @Override
@@ -339,68 +367,79 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
       throws SQLException {
     LOGGER.debug(
         "public void setObject(int parameterIndex, Object x, int targetSqlType, int scaleOrLength)");
-    throw new UnsupportedOperationException("Not implemented");
+    throw new UnsupportedOperationException(
+        "Not implemented in DatabricksPreparedStatement - setObject(int parameterIndex, Object x, int targetSqlType, int scaleOrLength)");
   }
 
   @Override
   public void setAsciiStream(int parameterIndex, InputStream x, long length) throws SQLException {
     LOGGER.debug("public void setAsciiStream(int parameterIndex, InputStream x, long length)");
-    throw new UnsupportedOperationException("Not implemented");
+    throw new UnsupportedOperationException(
+        "Not implemented in DatabricksPreparedStatement - setAsciiStream(int parameterIndex, InputStream x, long length)");
   }
 
   @Override
   public void setBinaryStream(int parameterIndex, InputStream x, long length) throws SQLException {
     LOGGER.debug("public void setBinaryStream(int parameterIndex, InputStream x, long length)");
-    throw new UnsupportedOperationException("Not implemented");
+    throw new UnsupportedOperationException(
+        "Not implemented in DatabricksPreparedStatement - setBinaryStream(int parameterIndex, InputStream x, long length)");
   }
 
   @Override
   public void setCharacterStream(int parameterIndex, Reader reader, long length)
       throws SQLException {
     LOGGER.debug("public void setCharacterStream(int parameterIndex, Reader reader, long length)");
-    throw new UnsupportedOperationException("Not implemented");
+    throw new UnsupportedOperationException(
+        "Not implemented in DatabricksPreparedStatement - setCharacterStream(int parameterIndex, Reader reader, long length)");
   }
 
   @Override
   public void setAsciiStream(int parameterIndex, InputStream x) throws SQLException {
     LOGGER.debug("public void setAsciiStream(int parameterIndex, InputStream x)");
-    throw new UnsupportedOperationException("Not implemented");
+    throw new UnsupportedOperationException(
+        "Not implemented in DatabricksPreparedStatement - setAsciiStream(int parameterIndex, InputStream x)");
   }
 
   @Override
   public void setBinaryStream(int parameterIndex, InputStream x) throws SQLException {
     LOGGER.debug("public void setBinaryStream(int parameterIndex, InputStream x)");
-    throw new UnsupportedOperationException("Not implemented");
+    throw new UnsupportedOperationException(
+        "Not implemented in DatabricksPreparedStatement - setBinaryStream(int parameterIndex, InputStream x)");
   }
 
   @Override
   public void setCharacterStream(int parameterIndex, Reader reader) throws SQLException {
     LOGGER.debug("public void setCharacterStream(int parameterIndex, Reader reader)");
-    throw new UnsupportedOperationException("Not implemented");
+    throw new UnsupportedOperationException(
+        "Not implemented in DatabricksPreparedStatement - setCharacterStream(int parameterIndex, Reader reader)");
   }
 
   @Override
   public void setNCharacterStream(int parameterIndex, Reader value) throws SQLException {
     LOGGER.debug("public void setNCharacterStream(int parameterIndex, Reader value)");
-    throw new UnsupportedOperationException("Not implemented");
+    throw new UnsupportedOperationException(
+        "Not implemented in DatabricksPreparedStatement - setNCharacterStream(int parameterIndex, Reader value)");
   }
 
   @Override
   public void setClob(int parameterIndex, Reader reader) throws SQLException {
     LOGGER.debug("public void setClob(int parameterIndex, Reader reader)");
-    throw new UnsupportedOperationException("Not implemented");
+    throw new UnsupportedOperationException(
+        "Not implemented in DatabricksPreparedStatement - setClob(int parameterIndex, Reader reader)");
   }
 
   @Override
   public void setBlob(int parameterIndex, InputStream inputStream) throws SQLException {
     LOGGER.debug("public void setBlob(int parameterIndex, InputStream inputStream)");
-    throw new UnsupportedOperationException("Not implemented");
+    throw new UnsupportedOperationException(
+        "Not implemented in DatabricksPreparedStatement - setBlob(int parameterIndex, InputStream inputStream)");
   }
 
   @Override
   public void setNClob(int parameterIndex, Reader reader) throws SQLException {
     LOGGER.debug("public void setNClob(int parameterIndex, Reader reader)");
-    throw new UnsupportedOperationException("Not implemented");
+    throw new UnsupportedOperationException(
+        "Not implemented in DatabricksPreparedStatement - setNClob(int parameterIndex, Reader reader)");
   }
 
   @Override

@@ -147,7 +147,7 @@ public class DatabricksSdkClientTest {
             StatementType.QUERY,
             connection.getSession(),
             statement);
-    assertEquals(resultSet.statementId(), STATEMENT_ID);
+    assertEquals(STATEMENT_ID, statement.getStatementId());
   }
 
   private StatementParameterListItem getParam(String type, String value, int ordinal) {

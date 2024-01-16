@@ -52,7 +52,8 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
   @Override
   public String getURL() throws SQLException {
     LOGGER.debug("public String getURL()");
-    throw new UnsupportedOperationException("Not implemented");
+    throw new UnsupportedOperationException(
+        "Not implemented in DatabricksDatabaseMetaData - getURL()");
   }
 
   @Override
@@ -135,12 +136,14 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
 
   @Override
   public int getDriverMajorVersion() {
-    throw new UnsupportedOperationException("Not implemented");
+    throw new UnsupportedOperationException(
+        "Not implemented in DatabricksDatabaseMetaData - getDriverMajorVersion()");
   }
 
   @Override
   public int getDriverMinorVersion() {
-    throw new UnsupportedOperationException("Not implemented");
+    throw new UnsupportedOperationException(
+        "Not implemented in DatabricksDatabaseMetaData - getDriverMinorVersion()");
   }
 
   @Override
@@ -258,7 +261,8 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
   @Override
   public String getSearchStringEscape() throws SQLException {
     LOGGER.debug("public String getSearchStringEscape()");
-    throw new UnsupportedOperationException("Not implemented");
+    throw new UnsupportedOperationException(
+        "Not implemented in DatabricksDatabaseMetaData - getSearchStringEscape()");
   }
 
   @Override
@@ -307,7 +311,8 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
   public boolean supportsConvert(int fromType, int toType) throws SQLException {
     LOGGER.debug(
         "public boolean supportsConvert(int fromType = {}, int toType = {})", fromType, toType);
-    throw new UnsupportedOperationException("Not implemented");
+    throw new UnsupportedOperationException(
+        "Not implemented in DatabricksDatabaseMetaData - supportsConvert(int fromType, int toType)");
   }
 
   @Override
@@ -833,7 +838,8 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
   @Override
   public boolean supportsTransactionIsolationLevel(int level) throws SQLException {
     LOGGER.debug("public boolean supportsTransactionIsolationLevel(int level = {})", level);
-    throw new UnsupportedOperationException("Not implemented");
+    throw new UnsupportedOperationException(
+        "Not implemented in DatabricksDatabaseMetaData - supportsTransactionIsolationLevel(int level)");
   }
 
   @Override
@@ -915,7 +921,8 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
         schemaPattern,
         procedureNamePattern,
         columnNamePattern);
-    throw new UnsupportedOperationException("Not implemented");
+    throw new UnsupportedOperationException(
+        "Not implemented in DatabricksDatabaseMetaData - getProcedureColumns(String catalog, String schemaPattern, String procedureNamePattern, String columnNamePattern)");
   }
 
   @Override
@@ -992,7 +999,8 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
         schema,
         table,
         columnNamePattern);
-    throw new UnsupportedOperationException("Not implemented");
+    throw new UnsupportedOperationException(
+        "Not implemented in DatabricksDatabaseMetaData - getColumnPrivileges(String catalog, String schema, String table, String columnNamePattern)");
   }
 
   @Override
@@ -1003,7 +1011,8 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
         catalog,
         schemaPattern,
         tableNamePattern);
-    throw new UnsupportedOperationException("Not implemented");
+    throw new UnsupportedOperationException(
+        "Not implemented in DatabricksDatabaseMetaData - getTablePrivileges(String catalog, String schemaPattern, String tableNamePattern)");
   }
 
   @Override
@@ -1017,7 +1026,8 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
         table,
         scope,
         nullable);
-    throw new UnsupportedOperationException("Not implemented");
+    throw new UnsupportedOperationException(
+        "Not implemented in DatabricksDatabaseMetaData - getBestRowIdentifier(String catalog, String schema, String table, int scope, boolean nullable)");
   }
 
   @Override
@@ -1028,7 +1038,8 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
         catalog,
         schema,
         table);
-    throw new UnsupportedOperationException("Not implemented");
+    throw new UnsupportedOperationException(
+        "Not implemented in DatabricksDatabaseMetaData - getVersionColumns(String catalog, String schema, String table)");
   }
 
   @Override
@@ -1049,7 +1060,8 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
         catalog,
         schema,
         table);
-    throw new UnsupportedOperationException("Not implemented");
+    throw new UnsupportedOperationException(
+        "Not implemented in DatabricksDatabaseMetaData - getImportedKeys(String catalog, String schema, String table)");
   }
 
   @Override
@@ -1060,7 +1072,8 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
         catalog,
         schema,
         table);
-    throw new UnsupportedOperationException("Not implemented");
+    throw new UnsupportedOperationException(
+        "Not implemented in DatabricksDatabaseMetaData - getExportedKeys(String catalog, String schema, String table)");
   }
 
   @Override
@@ -1080,7 +1093,8 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
         foreignCatalog,
         foreignSchema,
         foreignTable);
-    throw new UnsupportedOperationException("Not implemented");
+    throw new UnsupportedOperationException(
+        "Not implemented in DatabricksDatabaseMetaData - getCrossReference(String parentCatalog, String parentSchema, String parentTable, String foreignCatalog, String foreignSchema, String foreignTable)");
   }
 
   @Override
@@ -1505,7 +1519,8 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
         table,
         unique,
         approximate);
-    throw new UnsupportedOperationException("Not implemented");
+    throw new UnsupportedOperationException(
+        "Not implemented in DatabricksDatabaseMetaData - getIndexInfo(String catalog, String schema, String table, boolean unique, boolean approximate)");
   }
 
   @Override
@@ -1577,7 +1592,8 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
   @Override
   public boolean deletesAreDetected(int type) throws SQLException {
     LOGGER.debug("public boolean deletesAreDetected(int type = {})", type);
-    throw new UnsupportedOperationException("Not implemented");
+    throw new UnsupportedOperationException(
+        "Not implemented in DatabricksDatabaseMetaData - deletesAreDetected(int type)");
   }
 
   @Override
@@ -1673,7 +1689,8 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
         catalog,
         schemaPattern,
         typeNamePattern);
-    throw new UnsupportedOperationException("Not implemented");
+    throw new UnsupportedOperationException(
+        "Not implemented in DatabricksDatabaseMetaData - getSuperTypes(String catalog, String schemaPattern, String typeNamePattern)");
   }
 
   @Override
@@ -1684,7 +1701,8 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
         catalog,
         schemaPattern,
         tableNamePattern);
-    throw new UnsupportedOperationException("Not implemented");
+    throw new UnsupportedOperationException(
+        "Not implemented in DatabricksDatabaseMetaData - getSuperTables(String catalog, String schemaPattern, String tableNamePattern)");
   }
 
   @Override
@@ -1697,7 +1715,8 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
         schemaPattern,
         typeNamePattern,
         attributeNamePattern);
-    throw new UnsupportedOperationException("Not implemented");
+    throw new UnsupportedOperationException(
+        "Not implemented in DatabricksDatabaseMetaData - getAttributes(String catalog, String schemaPattern, String typeNamePattern, String attributeNamePattern)");
   }
 
   @Override
@@ -1799,7 +1818,8 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
   @Override
   public ResultSet getClientInfoProperties() throws SQLException {
     LOGGER.debug("public ResultSet getClientInfoProperties()");
-    throw new UnsupportedOperationException("Not implemented");
+    throw new UnsupportedOperationException(
+        "Not implemented in DatabricksDatabaseMetaData - getClientInfoProperties()");
   }
 
   @Override
@@ -1854,7 +1874,8 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
         schemaPattern,
         functionNamePattern,
         columnNamePattern);
-    throw new UnsupportedOperationException("Not implemented");
+    throw new UnsupportedOperationException(
+        "Not implemented in DatabricksDatabaseMetaData - getFunctionColumns(String catalog, String schemaPattern, String functionNamePattern, String columnNamePattern)");
   }
 
   @Override
@@ -1867,7 +1888,8 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
         schemaPattern,
         tableNamePattern,
         columnNamePattern);
-    throw new UnsupportedOperationException("Not implemented");
+    throw new UnsupportedOperationException(
+        "Not implemented in DatabricksDatabaseMetaData - getPseudoColumns(String catalog, String schemaPattern, String tableNamePattern, String columnNamePattern)");
   }
 
   @Override
@@ -1880,13 +1902,15 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
   @Override
   public <T> T unwrap(Class<T> iface) throws SQLException {
     LOGGER.debug("public <T> T unwrap(Class<T> iface = {})", iface);
-    throw new UnsupportedOperationException("Not implemented");
+    throw new UnsupportedOperationException(
+        "Not implemented in DatabricksDatabaseMetaData - unwrap(Class<T> iface)");
   }
 
   @Override
   public boolean isWrapperFor(Class<?> iface) throws SQLException {
     LOGGER.debug("public boolean isWrapperFor(Class<?> iface = {})", iface);
-    throw new UnsupportedOperationException("Not implemented");
+    throw new UnsupportedOperationException(
+        "Not implemented in DatabricksDatabaseMetaData - isWrapperFor(Class<?> iface)");
   }
 
   private void throwExceptionIfConnectionIsClosed() throws SQLException {

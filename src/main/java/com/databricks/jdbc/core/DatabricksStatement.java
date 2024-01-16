@@ -63,10 +63,12 @@ public class DatabricksStatement implements IDatabricksStatement, Statement {
   public void close(boolean removeFromSession) throws SQLException {
     LOGGER.debug("public void close(boolean removeFromSession)");
     this.isClosed = true;
-    this.connection.getSession().getDatabricksClient().closeStatement(statementId);
-    if (resultSet != null) {
-      this.resultSet.close();
-      this.resultSet = null;
+    if (statementId != null) {
+      this.connection.getSession().getDatabricksClient().closeStatement(statementId);
+      if (resultSet != null) {
+        this.resultSet.close();
+        this.resultSet = null;
+      }
     }
     if (removeFromSession) {
       this.connection.closeStatement(this);
@@ -76,13 +78,15 @@ public class DatabricksStatement implements IDatabricksStatement, Statement {
   @Override
   public int getMaxFieldSize() throws SQLException {
     LOGGER.debug("public int getMaxFieldSize()");
-    throw new UnsupportedOperationException("Not implemented");
+    throw new UnsupportedOperationException(
+        "Not implemented in DatabricksStatement - getMaxFieldSize()");
   }
 
   @Override
   public void setMaxFieldSize(int max) throws SQLException {
     LOGGER.debug("public void setMaxFieldSize(int max = {})", max);
-    throw new UnsupportedOperationException("Not implemented");
+    throw new UnsupportedOperationException(
+        "Not implemented in DatabricksStatement - setMaxFieldSize(int max)");
   }
 
   @Override
@@ -103,7 +107,8 @@ public class DatabricksStatement implements IDatabricksStatement, Statement {
   @Override
   public void setEscapeProcessing(boolean enable) throws SQLException {
     LOGGER.debug("public void setEscapeProcessing(boolean enable = {})", enable);
-    throw new UnsupportedOperationException("Not implemented");
+    throw new UnsupportedOperationException(
+        "Not implemented in DatabricksStatement - setEscapeProcessing(boolean enable)");
   }
 
   @Override
@@ -123,25 +128,28 @@ public class DatabricksStatement implements IDatabricksStatement, Statement {
   @Override
   public void cancel() throws SQLException {
     LOGGER.debug("public void cancel()");
-    throw new UnsupportedOperationException("Not implemented");
+    throw new UnsupportedOperationException("Not implemented in DatabricksStatement - cancel()");
   }
 
   @Override
   public SQLWarning getWarnings() throws SQLException {
     LOGGER.debug("public SQLWarning getWarnings()");
-    throw new UnsupportedOperationException("Not implemented");
+    throw new UnsupportedOperationException(
+        "Not implemented in DatabricksStatement - getWarnings()");
   }
 
   @Override
   public void clearWarnings() throws SQLException {
     LOGGER.debug("public void clearWarnings()");
-    throw new UnsupportedOperationException("Not implemented");
+    throw new UnsupportedOperationException(
+        "Not implemented in DatabricksStatement - clearWarnings()");
   }
 
   @Override
   public void setCursorName(String name) throws SQLException {
     LOGGER.debug("public void setCursorName(String name = {})", name);
-    throw new UnsupportedOperationException("Not implemented");
+    throw new UnsupportedOperationException(
+        "Not implemented in DatabricksStatement - setCursorName(String name)");
   }
 
   @Override
@@ -169,7 +177,8 @@ public class DatabricksStatement implements IDatabricksStatement, Statement {
   @Override
   public boolean getMoreResults() throws SQLException {
     LOGGER.debug("public boolean getMoreResults()");
-    throw new UnsupportedOperationException("Not implemented");
+    throw new UnsupportedOperationException(
+        "Not implemented in DatabricksStatement - getMoreResults()");
   }
 
   @Override
@@ -191,13 +200,15 @@ public class DatabricksStatement implements IDatabricksStatement, Statement {
   @Override
   public void setFetchSize(int rows) throws SQLException {
     LOGGER.debug("public void setFetchSize(int rows = {})", rows);
-    throw new UnsupportedOperationException("Not implemented");
+    throw new UnsupportedOperationException(
+        "Not implemented in DatabricksStatement - setFetchSize(int rows)");
   }
 
   @Override
   public int getFetchSize() throws SQLException {
     LOGGER.debug("public int getFetchSize()");
-    throw new UnsupportedOperationException("Not implemented");
+    throw new UnsupportedOperationException(
+        "Not implemented in DatabricksStatement - getFetchSize()");
   }
 
   @Override
@@ -245,7 +256,8 @@ public class DatabricksStatement implements IDatabricksStatement, Statement {
   @Override
   public boolean getMoreResults(int current) throws SQLException {
     LOGGER.debug("public boolean getMoreResults(int current = {})", current);
-    throw new UnsupportedOperationException("Not implemented");
+    throw new UnsupportedOperationException(
+        "Not implemented in DatabricksStatement - getMoreResults(int current)");
   }
 
   @Override
@@ -352,13 +364,15 @@ public class DatabricksStatement implements IDatabricksStatement, Statement {
   @Override
   public <T> T unwrap(Class<T> iface) throws SQLException {
     LOGGER.debug("public <T> T unwrap(Class<T> iface)");
-    throw new UnsupportedOperationException("Not implemented");
+    throw new UnsupportedOperationException(
+        "Not implemented in DatabricksStatement - unwrap(Class<T> iface)");
   }
 
   @Override
   public boolean isWrapperFor(Class<?> iface) throws SQLException {
     LOGGER.debug("public boolean isWrapperFor(Class<?> iface)");
-    throw new UnsupportedOperationException("Not implemented");
+    throw new UnsupportedOperationException(
+        "Not implemented in DatabricksStatement - isWrapperFor(Class<?> iface)");
   }
 
   @Override
@@ -423,5 +437,15 @@ public class DatabricksStatement implements IDatabricksStatement, Statement {
     if (isClosed) {
       throw new DatabricksSQLException("Statement is closed");
     }
+  }
+
+  @Override
+  public void setStatementId(String statementId) {
+    this.statementId = statementId;
+  }
+
+  @Override
+  public String getStatementId() {
+    return this.statementId;
   }
 }
