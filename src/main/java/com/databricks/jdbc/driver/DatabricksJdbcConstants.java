@@ -61,6 +61,9 @@ public final class DatabricksJdbcConstants {
   public static final String USER_NAME = "User";
   static final int DEFAULT_PORT = 443;
 
+  static final String LZ4_COMPRESSION_FLAG =
+      "EnableQueryResultLZ4Compression"; // Adding this for backward compatibility only
+  static final String COMPRESSION_FLAG = "QueryResultCompressionType";
   static final String USER_AGENT_ENTRY = "useragententry";
   public static final String DEFAULT_USER_AGENT = "DatabricksJDBCDriverOSS";
   static final String CLIENT_USER_AGENT_PREFIX = "Java";
