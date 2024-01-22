@@ -226,9 +226,6 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
     String compressionType =
         Optional.ofNullable(getParameter(DatabricksJdbcConstants.LZ4_COMPRESSION_FLAG))
             .orElse(getParameter(DatabricksJdbcConstants.COMPRESSION_FLAG));
-    if (compressionType == null) {
-      return CompressionType.NONE;
-    }
     return CompressionType.parseCompressionType(compressionType);
   }
 

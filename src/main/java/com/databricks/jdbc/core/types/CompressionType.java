@@ -4,21 +4,28 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public enum CompressionType {
-  NONE,
-  LZ4_COMPRESSION;
-
+  NONE(0),
+  LZ4_COMPRESSION(1);
+  private final int compressionTypeVal;
   private static final Logger LOGGER = LoggerFactory.getLogger(CompressionType.class);
 
+  CompressionType(int value) {
+    this.compressionTypeVal = value;
+  }
+
   public static CompressionType parseCompressionType(String compressionType) {
-    int compressionTypeValue = Integer.parseInt(compressionType);
-    switch (compressionTypeValue) {
-      case 0:
-        return CompressionType.NONE;
-      case 1:
-        return CompressionType.LZ4_COMPRESSION;
-      default:
-        LOGGER.info("Invalid compression type provided {}. Defaulting to None", compressionType);
-        return CompressionType.NONE;
+    try {
+      int value = Integer.parseInt(compressionType);
+      for (CompressionType type : values()) {
+        if (type.compressionTypeVal == value) {
+          return type;
+        }
+      }
+    } catch (NumberFormatException ignored) {
+      LOGGER.error(
+          "Invalid compression type provided as input. Compression type should be integer only");
     }
+    LOGGER.debug("Defaulting to no compression as input is invalid.");
+    return NONE;
   }
 }
