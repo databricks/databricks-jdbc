@@ -5,9 +5,9 @@ import java.util.regex.Pattern;
 public final class DatabricksJdbcConstants {
 
   static final Pattern JDBC_URL_PATTERN =
-      Pattern.compile("jdbc:databricks:\\/\\/([^/]*)(?::\\d+)?\\/*(.*)");
-  static final Pattern HTTP_PATH_PATTERN = Pattern.compile(".*\\/warehouses\\/(.*)");
-  static final Pattern HTTP_PATH_SQL_PATTERN = Pattern.compile("sql\\/(.*)");
+      Pattern.compile("jdbc:databricks://([^/;]*)(?::\\d+)?/*(.*)");
+  static final Pattern HTTP_PATH_PATTERN = Pattern.compile(".*/warehouses/(.*)");
+  static final Pattern HTTP_PATH_SQL_PATTERN = Pattern.compile("sql/(.*)");
   public static final String JDBC_SCHEMA = "jdbc:databricks://";
   static final String DEFAULT_LOG_LEVEL = "INFO";
   static final String LOG_LEVEL = "loglevel";
