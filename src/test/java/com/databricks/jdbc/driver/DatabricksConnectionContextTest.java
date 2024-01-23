@@ -20,7 +20,7 @@ class DatabricksConnectionContextTest {
   private static final String VALID_URL_4 =
       "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/5c89f447c476a5a8;QueryResultCompressionType=1";
   private static final String VALID_URL_5 =
-      "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/5c89f447c476a5a8;QueryResultCompressionType=1";
+      "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:4473;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/5c89f447c476a5a8;QueryResultCompressionType=1";
 
   private static final String VALID_URL_WITH_INVALID_COMPRESSION_TYPE =
       "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/5c89f447c476a5a8;QueryResultCompressionType=234";
@@ -122,6 +122,8 @@ class DatabricksConnectionContextTest {
     assertEquals("passwd", connectionContext.getToken());
     assertEquals(CompressionType.LZ4_COMPRESSION, connectionContext.getCompressionType());
     assertEquals(6, connectionContext.parameters.size());
+    assertEquals(
+        "https://e2-dogfood.staging.cloud.databricks.com:4473", connectionContext.getHostUrl());
     assertEquals("INFO", connectionContext.getLogLevelString());
   }
 }
