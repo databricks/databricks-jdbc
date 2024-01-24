@@ -25,7 +25,7 @@ public class DatabricksResultSet implements ResultSet, IDatabricksResultSet {
   private final IDatabricksStatement parentStatement;
   private Long updateCount;
   private boolean isClosed;
-
+  private SQLWarning warnings = null;
   public DatabricksResultSet(
       StatementStatus statementStatus,
       String statementId,
@@ -395,14 +395,14 @@ public class DatabricksResultSet implements ResultSet, IDatabricksResultSet {
 
   @Override
   public SQLWarning getWarnings() throws SQLException {
-    throw new UnsupportedOperationException(
-        "Not implemented in DatabricksResultSet - getWarnings()");
+    checkIfClosed();
+    return warnings;
   }
 
   @Override
   public void clearWarnings() throws SQLException {
-    throw new UnsupportedOperationException(
-        "Not implemented in DatabricksResultSet - clearWarnings()");
+    checkIfClosed();
+    warnings = null;
   }
 
   @Override

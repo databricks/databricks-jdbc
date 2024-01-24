@@ -20,6 +20,7 @@ public class DatabricksConnection implements IDatabricksConnection, Connection {
   private static final Logger LOGGER = LoggerFactory.getLogger(DatabricksConnection.class);
   private final IDatabricksSession session;
   private final Set<IDatabricksStatement> statementSet = ConcurrentHashMap.newKeySet();
+  private SQLWarning warnings = null;
 
   /**
    * Creates an instance of Databricks connection for given connection context.
@@ -168,15 +169,15 @@ public class DatabricksConnection implements IDatabricksConnection, Connection {
   @Override
   public SQLWarning getWarnings() throws SQLException {
     LOGGER.debug("public SQLWarning getWarnings()");
-    throw new UnsupportedOperationException(
-        "Not implemented in DatabricksConnection - getWarnings()");
+    throwExceptionIfConnectionIsClosed();
+    return warnings;
   }
 
   @Override
   public void clearWarnings() throws SQLException {
     LOGGER.debug("public void clearWarnings()");
-    throw new UnsupportedOperationException(
-        "Not implemented in DatabricksConnection - clearWarnings()");
+    throwExceptionIfConnectionIsClosed();
+    warnings = null;
   }
 
   @Override

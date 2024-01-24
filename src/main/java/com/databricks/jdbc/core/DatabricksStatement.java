@@ -11,6 +11,8 @@ import java.sql.*;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.*;
+
+import com.databricks.jdbc.commons.util.WarningUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -24,7 +26,7 @@ public class DatabricksStatement implements IDatabricksStatement, Statement {
   private String statementId;
   private boolean isClosed;
   private boolean closeOnCompletion;
-
+  private SQLWarning warnings = null;
   private int maxRows = DEFAULT_ROW_LIMIT;
 
   public DatabricksStatement(DatabricksConnection connection) {
@@ -69,6 +71,10 @@ public class DatabricksStatement implements IDatabricksStatement, Statement {
         this.resultSet.close();
         this.resultSet = null;
       }
+    }
+    else{
+      WarningUtil.addWarning(warnings,String.format("statement you are trying to close is already null. ID : {}", this.statementId));
+      return;
     }
     if (removeFromSession) {
       this.connection.closeStatement(this);
@@ -134,15 +140,13 @@ public class DatabricksStatement implements IDatabricksStatement, Statement {
   @Override
   public SQLWarning getWarnings() throws SQLException {
     LOGGER.debug("public SQLWarning getWarnings()");
-    throw new UnsupportedOperationException(
-        "Not implemented in DatabricksStatement - getWarnings()");
+    return warnings;
   }
 
   @Override
   public void clearWarnings() throws SQLException {
     LOGGER.debug("public void clearWarnings()");
-    throw new UnsupportedOperationException(
-        "Not implemented in DatabricksStatement - clearWarnings()");
+    warnings=null;
   }
 
   @Override
