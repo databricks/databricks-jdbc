@@ -2,11 +2,13 @@ package com.databricks.jdbc.core;
 
 import com.databricks.jdbc.client.StatementType;
 import com.databricks.jdbc.client.sqlexec.ResultData;
+import com.databricks.jdbc.commons.util.ValidationUtil;
 import com.databricks.jdbc.core.converters.*;
 import com.databricks.sdk.service.sql.ResultManifest;
 import com.databricks.sdk.service.sql.StatementStatus;
 import java.io.InputStream;
 import java.io.Reader;
+import java.io.StringReader;
 import java.math.BigDecimal;
 import java.net.URL;
 import java.sql.*;
@@ -289,108 +291,93 @@ public class DatabricksResultSet implements ResultSet, IDatabricksResultSet {
   @Override
   public InputStream getBinaryStream(int columnIndex) throws SQLException {
     checkIfClosed();
-    throw new UnsupportedOperationException(
-        "Not implemented in DatabricksResultSet - getBinaryStream(int columnIndex)");
+    Object obj = getObjectInternal(columnIndex);
+    if (obj == null) {
+      return false;
+    }
+    int columnType = resultSetMetaData.getColumnType(columnIndex);
+    AbstractObjectConverter converter = getObjectConverter(obj, columnType);
+    return converter.convertToBoolean();
   }
 
   @Override
   public String getString(String columnLabel) throws SQLException {
-    checkIfClosed();
     return getString(getColumnNameIndex(columnLabel));
   }
 
   @Override
   public boolean getBoolean(String columnLabel) throws SQLException {
-    checkIfClosed();
     return getBoolean(getColumnNameIndex(columnLabel));
   }
 
   @Override
   public byte getByte(String columnLabel) throws SQLException {
-    checkIfClosed();
     return getByte(getColumnNameIndex(columnLabel));
   }
 
   @Override
   public short getShort(String columnLabel) throws SQLException {
-    checkIfClosed();
     return getShort(getColumnNameIndex(columnLabel));
   }
 
   @Override
   public int getInt(String columnLabel) throws SQLException {
-    checkIfClosed();
     return getInt(getColumnNameIndex(columnLabel));
   }
 
   @Override
   public long getLong(String columnLabel) throws SQLException {
-    checkIfClosed();
     return getLong(getColumnNameIndex(columnLabel));
   }
 
   @Override
   public float getFloat(String columnLabel) throws SQLException {
-    checkIfClosed();
     return getFloat(getColumnNameIndex(columnLabel));
   }
 
   @Override
   public double getDouble(String columnLabel) throws SQLException {
-    checkIfClosed();
     return getDouble(getColumnNameIndex(columnLabel));
   }
 
   @Override
   public BigDecimal getBigDecimal(String columnLabel, int scale) throws SQLException {
-    checkIfClosed();
     return getBigDecimal(getColumnNameIndex(columnLabel));
   }
 
   @Override
   public byte[] getBytes(String columnLabel) throws SQLException {
-    checkIfClosed();
     return getBytes(getColumnNameIndex(columnLabel));
   }
 
   @Override
   public Date getDate(String columnLabel) throws SQLException {
-    checkIfClosed();
     return getDate(getColumnNameIndex(columnLabel));
   }
 
   @Override
   public Time getTime(String columnLabel) throws SQLException {
-    checkIfClosed();
-    throw new UnsupportedOperationException(
-        "Not implemented in DatabricksResultSet - getTime(String columnLabel)");
+    return getTime(getColumnNameIndex(columnLabel));
   }
 
   @Override
   public Timestamp getTimestamp(String columnLabel) throws SQLException {
-    checkIfClosed();
     return getTimestamp(getColumnNameIndex(columnLabel));
   }
 
   @Override
   public InputStream getAsciiStream(String columnLabel) throws SQLException {
-    checkIfClosed();
-    throw new UnsupportedOperationException(
-        "Not implemented in DatabricksResultSet - getAsciiStream(String columnLabel)");
+    return getAsciiStream(getColumnNameIndex(columnLabel));
   }
 
   @Override
   public InputStream getUnicodeStream(String columnLabel) throws SQLException {
-    checkIfClosed();
-    throw new UnsupportedOperationException(
-        "Not implemented in DatabricksResultSet - getUnicodeStream(String columnLabel)");
+    return getUnicodeStream(getColumnNameIndex(columnLabel));
   }
 
   @Override
   public InputStream getBinaryStream(String columnLabel) throws SQLException {
-    checkIfClosed();
-    throw new UnsupportedOperationException(
-        "Not implemented in DatabricksResultSet - getBinaryStream(String columnLabel)");
+    return getBinaryStream(getColumnNameIndex(columnLabel));
   }
 
   @Override
@@ -432,33 +419,31 @@ public class DatabricksResultSet implements ResultSet, IDatabricksResultSet {
   @Override
   public int findColumn(String columnLabel) throws SQLException {
     checkIfClosed();
-    throw new UnsupportedOperationException(
-        "Not implemented in DatabricksResultSet - findColumn(String columnLabel)");
+    return getColumnNameIndex(columnLabel);
   }
 
   @Override
   public Reader getCharacterStream(int columnIndex) throws SQLException {
     checkIfClosed();
-    throw new UnsupportedOperationException(
-        "Not implemented in DatabricksResultSet - getCharacterStream(int columnIndex)");
+    String stringData = getString(columnIndex);
+    if(stringData==null){
+      return null;
+    }
+    return new StringReader(stringData);
   }
 
   @Override
   public Reader getCharacterStream(String columnLabel) throws SQLException {
-    checkIfClosed();
-    throw new UnsupportedOperationException(
-        "Not implemented in DatabricksResultSet - getCharacterStream(String columnLabel)");
+    return getCharacterStream(getColumnNameIndex(columnLabel));
   }
 
   @Override
   public BigDecimal getBigDecimal(int columnIndex) throws SQLException {
-    checkIfClosed();
     return getBigDecimal(columnIndex, resultSetMetaData.getScale(columnIndex));
   }
 
   @Override
   public BigDecimal getBigDecimal(String columnLabel) throws SQLException {
-    checkIfClosed();
     return getBigDecimal(getColumnNameIndex(columnLabel));
   }
 
@@ -1402,9 +1387,7 @@ public class DatabricksResultSet implements ResultSet, IDatabricksResultSet {
 
   @Override
   public void updateBlob(String columnLabel, InputStream inputStream) throws SQLException {
-    checkIfClosed();
-    throw new UnsupportedOperationException(
-        "Not implemented in DatabricksResultSet - updateBlob(String columnLabel, InputStream inputStream)");
+    updateBlob(getColumnNameIndex(columnLabel),inputStream);
   }
 
   @Override
@@ -1416,9 +1399,7 @@ public class DatabricksResultSet implements ResultSet, IDatabricksResultSet {
 
   @Override
   public void updateClob(String columnLabel, Reader reader) throws SQLException {
-    checkIfClosed();
-    throw new UnsupportedOperationException(
-        "Not implemented in DatabricksResultSet - updateClob(String columnLabel, Reader reader)");
+    updateClob(getColumnNameIndex(columnLabel),reader);
   }
 
   @Override
@@ -1430,9 +1411,7 @@ public class DatabricksResultSet implements ResultSet, IDatabricksResultSet {
 
   @Override
   public void updateNClob(String columnLabel, Reader reader) throws SQLException {
-    checkIfClosed();
-    throw new UnsupportedOperationException(
-        "Not implemented in DatabricksResultSet - updateNClob(String columnLabel, Reader reader)");
+     updateNClob(getColumnNameIndex(columnLabel),reader);
   }
 
   @Override
@@ -1444,9 +1423,7 @@ public class DatabricksResultSet implements ResultSet, IDatabricksResultSet {
 
   @Override
   public <T> T getObject(String columnLabel, Class<T> type) throws SQLException {
-    checkIfClosed();
-    throw new UnsupportedOperationException(
-        "Not implemented in DatabricksResultSet - getObject(String columnLabel, Class<T> type)");
+    return getObject(getColumnNameIndex(columnLabel),type);
   }
 
   @Override

@@ -74,4 +74,8 @@ public abstract class AbstractObjectConverter {
   public Date convertToDate() throws DatabricksSQLException {
     throw new DatabricksSQLException("Unsupported conversion operation");
   }
+
+  public Date convertToBinaryStream() throws DatabricksSQLException {
+    throw new DatabricksSQLException("Unsupported conversion operation");
+  }
 }
