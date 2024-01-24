@@ -2,6 +2,7 @@ package com.databricks.jdbc.core;
 
 import com.databricks.jdbc.client.StatementType;
 import com.databricks.jdbc.client.sqlexec.ResultData;
+import com.databricks.jdbc.commons.util.WarningUtil;
 import com.databricks.jdbc.core.converters.*;
 import com.databricks.sdk.service.sql.ResultManifest;
 import com.databricks.sdk.service.sql.StatementStatus;
@@ -13,8 +14,11 @@ import java.sql.*;
 import java.util.Calendar;
 import java.util.List;
 import java.util.Map;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class DatabricksResultSet implements ResultSet, IDatabricksResultSet {
+  private static final Logger LOGGER = LoggerFactory.getLogger(DatabricksResultSet.class);
   private static final String DECIMAL = ".";
   private static final String AFFECTED_ROWS_COUNT = "num_affected_rows";
   private final StatementStatus statementStatus;
@@ -558,16 +562,20 @@ public class DatabricksResultSet implements ResultSet, IDatabricksResultSet {
 
   @Override
   public void setFetchSize(int rows) throws SQLException {
-    checkIfClosed();
-    throw new UnsupportedOperationException(
-        "Not implemented in DatabricksResultSet - setFetchSize(int rows)");
+    LOGGER.debug("public void setFetchSize(int rows = {})", rows);
+    String warningString = "As FetchSize is not relevant in the present JDBC, ignoring it";
+    LOGGER.warn(warningString);
+    warnings = WarningUtil.addWarning(warnings, warningString);
   }
 
   @Override
   public int getFetchSize() throws SQLException {
-    checkIfClosed();
-    throw new UnsupportedOperationException(
-        "Not implemented in DatabricksResultSet - getFetchSize()");
+    LOGGER.debug("public int getFetchSize()");
+    String warningString =
+        "As FetchSize is not relevant in the present JDBC, we don't set it in the first place";
+    LOGGER.warn(warningString);
+    warnings = WarningUtil.addWarning(warnings, warningString);
+    return 0;
   }
 
   @Override
