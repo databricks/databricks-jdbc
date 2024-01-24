@@ -89,9 +89,9 @@ public class DatabricksStatementTest {
     assertEquals(0, statement.getFetchSize());
     SQLWarning warnings = statement.getWarnings();
     assertEquals(
-        warnings.getMessage(), "As FetchSize is not relevant in the present JDBC, ignoring it");
+        warnings.getMessage(), "As FetchSize is not supported in the Databricks JDBC, ignoring it");
     assertEquals(
         warnings.getNextWarning().getMessage(),
-        "As FetchSize is not relevant in the present JDBC, we don't set it in the first place");
+        "As FetchSize is not supported in the Databricks JDBC, we don't set it in the first place");
   }
 }
