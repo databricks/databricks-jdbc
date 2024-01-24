@@ -73,9 +73,7 @@ public class DatabricksStatement implements IDatabricksStatement, Statement {
       }
     } else {
       WarningUtil.addWarning(
-          warnings,
-          String.format(
-              "statement you are trying to close is already null. ID : {}", this.statementId));
+          warnings, "The statement you are trying to close does not have an ID yet.");
       return;
     }
     if (removeFromSession) {
