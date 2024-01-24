@@ -26,6 +26,7 @@ public class DatabricksResultSet implements ResultSet, IDatabricksResultSet {
   private Long updateCount;
   private boolean isClosed;
   private SQLWarning warnings = null;
+
   public DatabricksResultSet(
       StatementStatus statementStatus,
       String statementId,

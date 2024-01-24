@@ -7,12 +7,11 @@ import static java.lang.String.format;
 import com.databricks.jdbc.client.DatabricksClient;
 import com.databricks.jdbc.client.StatementType;
 import com.databricks.jdbc.commons.util.ValidationUtil;
+import com.databricks.jdbc.commons.util.WarningUtil;
 import java.sql.*;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.*;
-
-import com.databricks.jdbc.commons.util.WarningUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -71,9 +70,11 @@ public class DatabricksStatement implements IDatabricksStatement, Statement {
         this.resultSet.close();
         this.resultSet = null;
       }
-    }
-    else{
-      WarningUtil.addWarning(warnings,String.format("statement you are trying to close is already null. ID : {}", this.statementId));
+    } else {
+      WarningUtil.addWarning(
+          warnings,
+          String.format(
+              "statement you are trying to close is already null. ID : {}", this.statementId));
       return;
     }
     if (removeFromSession) {
@@ -146,7 +147,7 @@ public class DatabricksStatement implements IDatabricksStatement, Statement {
   @Override
   public void clearWarnings() throws SQLException {
     LOGGER.debug("public void clearWarnings()");
-    warnings=null;
+    warnings = null;
   }
 
   @Override
