@@ -563,6 +563,7 @@ public class DatabricksResultSet implements ResultSet, IDatabricksResultSet {
   @Override
   public void setFetchSize(int rows) throws SQLException {
     LOGGER.debug("public void setFetchSize(int rows = {})", rows);
+    checkIfClosed();
     String warningString = "As FetchSize is not relevant in the present JDBC, ignoring it";
     LOGGER.warn(warningString);
     warnings = WarningUtil.addWarning(warnings, warningString);
@@ -571,6 +572,7 @@ public class DatabricksResultSet implements ResultSet, IDatabricksResultSet {
   @Override
   public int getFetchSize() throws SQLException {
     LOGGER.debug("public int getFetchSize()");
+    checkIfClosed();
     String warningString =
         "As FetchSize is not relevant in the present JDBC, we don't set it in the first place";
     LOGGER.warn(warningString);
