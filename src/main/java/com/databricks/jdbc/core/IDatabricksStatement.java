@@ -1,9 +1,10 @@
 package com.databricks.jdbc.core;
 
 import java.sql.SQLException;
+import java.sql.Statement;
 
 /** Interface for Databricks specific statement. */
-public interface IDatabricksStatement {
+public interface IDatabricksStatement extends Statement {
 
   /** Returns the underlying session-Id for the statement. */
   String getSessionId();
