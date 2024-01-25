@@ -1,6 +1,7 @@
 package com.databricks.jdbc.core.converters;
 
 import com.databricks.jdbc.core.DatabricksSQLException;
+import java.io.InputStream;
 import java.math.BigDecimal;
 import java.sql.Date;
 import java.sql.Timestamp;
@@ -75,7 +76,15 @@ public abstract class AbstractObjectConverter {
     throw new DatabricksSQLException("Unsupported conversion operation");
   }
 
-  public Date convertToBinaryStream() throws DatabricksSQLException {
+  public InputStream convertToBinaryStream() throws DatabricksSQLException {
+    throw new DatabricksSQLException("Unsupported conversion operation");
+  }
+
+  public InputStream convertToUnicodeStream() throws DatabricksSQLException {
+    throw new DatabricksSQLException("Unsupported conversion operation");
+  }
+
+  public InputStream convertToAsciiStream() throws DatabricksSQLException {
     throw new DatabricksSQLException("Unsupported conversion operation");
   }
 }

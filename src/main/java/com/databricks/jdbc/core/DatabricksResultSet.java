@@ -2,7 +2,6 @@ package com.databricks.jdbc.core;
 
 import com.databricks.jdbc.client.StatementType;
 import com.databricks.jdbc.client.sqlexec.ResultData;
-import com.databricks.jdbc.commons.util.ValidationUtil;
 import com.databricks.jdbc.core.converters.*;
 import com.databricks.sdk.service.sql.ResultManifest;
 import com.databricks.sdk.service.sql.StatementStatus;
@@ -277,15 +276,25 @@ public class DatabricksResultSet implements ResultSet, IDatabricksResultSet {
   @Override
   public InputStream getAsciiStream(int columnIndex) throws SQLException {
     checkIfClosed();
-    throw new UnsupportedOperationException(
-        "Not implemented in DatabricksResultSet - getAsciiStream(int columnIndex)");
+    Object obj = getObjectInternal(columnIndex);
+    if (obj == null) {
+      return null;
+    }
+    int columnType = resultSetMetaData.getColumnType(columnIndex);
+    AbstractObjectConverter converter = getObjectConverter(obj, columnType);
+    return converter.convertToAsciiStream();
   }
 
   @Override
   public InputStream getUnicodeStream(int columnIndex) throws SQLException {
     checkIfClosed();
-    throw new UnsupportedOperationException(
-        "Not implemented in DatabricksResultSet - getUnicodeStream(int columnIndex)");
+    Object obj = getObjectInternal(columnIndex);
+    if (obj == null) {
+      return null;
+    }
+    int columnType = resultSetMetaData.getColumnType(columnIndex);
+    AbstractObjectConverter converter = getObjectConverter(obj, columnType);
+    return converter.convertToUnicodeStream();
   }
 
   @Override
@@ -293,11 +302,11 @@ public class DatabricksResultSet implements ResultSet, IDatabricksResultSet {
     checkIfClosed();
     Object obj = getObjectInternal(columnIndex);
     if (obj == null) {
-      return false;
+      return null;
     }
     int columnType = resultSetMetaData.getColumnType(columnIndex);
     AbstractObjectConverter converter = getObjectConverter(obj, columnType);
-    return converter.convertToBoolean();
+    return converter.convertToBinaryStream();
   }
 
   @Override
@@ -426,7 +435,7 @@ public class DatabricksResultSet implements ResultSet, IDatabricksResultSet {
   public Reader getCharacterStream(int columnIndex) throws SQLException {
     checkIfClosed();
     String stringData = getString(columnIndex);
-    if(stringData==null){
+    if (stringData == null) {
       return null;
     }
     return new StringReader(stringData);
@@ -450,27 +459,25 @@ public class DatabricksResultSet implements ResultSet, IDatabricksResultSet {
   @Override
   public boolean isBeforeFirst() throws SQLException {
     checkIfClosed();
-    // TODO: Madhav to check the best way to implement this, below is not correct
-    return !executionResult.hasNext();
+    return executionResult.getCurrentRow() == -1;
   }
 
   @Override
   public boolean isAfterLast() throws SQLException {
     checkIfClosed();
-    throw new UnsupportedOperationException(
-        "Not implemented in DatabricksResultSet - isAfterLast()");
+    return executionResult.getCurrentRow() >= resultSetMetaData.getTotalRows();
   }
 
   @Override
   public boolean isFirst() throws SQLException {
     checkIfClosed();
-    throw new UnsupportedOperationException("Not implemented in DatabricksResultSet - isFirst()");
+    return executionResult.getCurrentRow() == 0;
   }
 
   @Override
   public boolean isLast() throws SQLException {
     checkIfClosed();
-    throw new UnsupportedOperationException("Not implemented in DatabricksResultSet - isLast()");
+    return executionResult.getCurrentRow() == resultSetMetaData.getTotalRows() - 1;
   }
 
   @Override
@@ -1387,7 +1394,7 @@ public class DatabricksResultSet implements ResultSet, IDatabricksResultSet {
 
   @Override
   public void updateBlob(String columnLabel, InputStream inputStream) throws SQLException {
-    updateBlob(getColumnNameIndex(columnLabel),inputStream);
+    updateBlob(getColumnNameIndex(columnLabel), inputStream);
   }
 
   @Override
@@ -1399,7 +1406,7 @@ public class DatabricksResultSet implements ResultSet, IDatabricksResultSet {
 
   @Override
   public void updateClob(String columnLabel, Reader reader) throws SQLException {
-    updateClob(getColumnNameIndex(columnLabel),reader);
+    updateClob(getColumnNameIndex(columnLabel), reader);
   }
 
   @Override
@@ -1411,7 +1418,7 @@ public class DatabricksResultSet implements ResultSet, IDatabricksResultSet {
 
   @Override
   public void updateNClob(String columnLabel, Reader reader) throws SQLException {
-     updateNClob(getColumnNameIndex(columnLabel),reader);
+    updateNClob(getColumnNameIndex(columnLabel), reader);
   }
 
   @Override
@@ -1423,7 +1430,7 @@ public class DatabricksResultSet implements ResultSet, IDatabricksResultSet {
 
   @Override
   public <T> T getObject(String columnLabel, Class<T> type) throws SQLException {
-    return getObject(getColumnNameIndex(columnLabel),type);
+    return getObject(getColumnNameIndex(columnLabel), type);
   }
 
   @Override
