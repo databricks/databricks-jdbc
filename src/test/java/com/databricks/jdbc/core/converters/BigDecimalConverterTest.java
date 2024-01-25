@@ -3,7 +3,9 @@ package com.databricks.jdbc.core.converters;
 import static org.junit.jupiter.api.Assertions.*;
 
 import com.databricks.jdbc.core.DatabricksSQLException;
+import java.io.*;
 import java.math.BigDecimal;
+import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import org.junit.jupiter.api.Test;
 
@@ -135,17 +137,35 @@ public class BigDecimalConverterTest {
   }
 
   @Test
-  public void testConvertToUnicodeStream() throws DatabricksSQLException {
-    assertNotNull(new BigDecimalConverter(NON_ZERO_OBJECT).convertToUnicodeStream());
+  public void testConvertToUnicodeStream() throws DatabricksSQLException, IOException {
+    InputStream unicodeStream = new BigDecimalConverter(NON_ZERO_OBJECT).convertToUnicodeStream();
+    BufferedReader reader = new BufferedReader(new InputStreamReader(unicodeStream));
+    String result = reader.readLine();
+    assertEquals(NON_ZERO_OBJECT.toString(), result);
   }
 
   @Test
-  public void testConvertToBinaryStream() throws DatabricksSQLException {
-    assertNotNull(new BigDecimalConverter(NON_ZERO_OBJECT).convertToBinaryStream());
+  public void testConvertToBinaryStream()
+      throws DatabricksSQLException, IOException, ClassNotFoundException {
+    InputStream binaryStream = new BigDecimalConverter(NON_ZERO_OBJECT).convertToBinaryStream();
+    ObjectInputStream objectInputStream = new ObjectInputStream(binaryStream);
+    assertEquals(objectInputStream.readObject().toString(), NON_ZERO_OBJECT.toString());
   }
 
   @Test
-  public void testConvertToAsciiStream() throws DatabricksSQLException {
-    assertNotNull(new BigDecimalConverter(NON_ZERO_OBJECT).convertToAsciiStream());
+  public void testConvertToAsciiStream() throws DatabricksSQLException, IOException {
+    InputStream asciiStream = new BigDecimalConverter(NON_ZERO_OBJECT).convertToAsciiStream();
+    BufferedReader reader =
+        new BufferedReader(new InputStreamReader(asciiStream, StandardCharsets.US_ASCII));
+    String result = reader.readLine();
+    assertEquals(NON_ZERO_OBJECT.toString(), result);
+  }
+
+  @Test
+  public void testConvertToCharacterStream() throws DatabricksSQLException, IOException {
+    BufferedReader reader =
+        new BufferedReader(new BigDecimalConverter(NON_ZERO_OBJECT).convertToCharacterStream());
+    String result = reader.readLine();
+    assertEquals(NON_ZERO_OBJECT.toString(), result);
   }
 }

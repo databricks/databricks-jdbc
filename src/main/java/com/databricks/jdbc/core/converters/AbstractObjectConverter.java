@@ -101,4 +101,9 @@ public abstract class AbstractObjectConverter {
     byte[] asciiBytes = stringRepresentation.getBytes(StandardCharsets.US_ASCII);
     return new ByteArrayInputStream(asciiBytes);
   }
+
+  public Reader convertToCharacterStream() throws DatabricksSQLException {
+    String stringRepresentation = this.convertToString();
+    return new StringReader(stringRepresentation);
+  }
 }

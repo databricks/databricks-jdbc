@@ -7,7 +7,6 @@ import com.databricks.sdk.service.sql.ResultManifest;
 import com.databricks.sdk.service.sql.StatementStatus;
 import java.io.InputStream;
 import java.io.Reader;
-import java.io.StringReader;
 import java.math.BigDecimal;
 import java.net.URL;
 import java.sql.*;
@@ -434,11 +433,13 @@ public class DatabricksResultSet implements ResultSet, IDatabricksResultSet {
   @Override
   public Reader getCharacterStream(int columnIndex) throws SQLException {
     checkIfClosed();
-    String stringData = getString(columnIndex);
-    if (stringData == null) {
+    Object obj = getObjectInternal(columnIndex);
+    if (obj == null) {
       return null;
     }
-    return new StringReader(stringData);
+    int columnType = resultSetMetaData.getColumnType(columnIndex);
+    AbstractObjectConverter converter = getObjectConverter(obj, columnType);
+    return converter.convertToCharacterStream();
   }
 
   @Override
