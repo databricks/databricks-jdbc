@@ -1,8 +1,6 @@
 package com.databricks.jdbc.core.converters;
 
 import com.databricks.jdbc.core.DatabricksSQLException;
-
-import java.io.InputStream;
 import java.math.BigDecimal;
 
 public class BigDecimalConverter extends AbstractObjectConverter {

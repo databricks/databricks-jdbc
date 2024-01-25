@@ -133,4 +133,19 @@ public class BigDecimalConverterTest {
             () -> new BigDecimalConverter(NON_ZERO_OBJECT).convertToDate());
     assertTrue(exception.getMessage().contains("Unsupported conversion operation"));
   }
+
+  @Test
+  public void testConvertToUnicodeStream() throws DatabricksSQLException {
+    assertNotNull(new BigDecimalConverter(NON_ZERO_OBJECT).convertToUnicodeStream());
+  }
+
+  @Test
+  public void testConvertToBinaryStream() throws DatabricksSQLException {
+    assertNotNull(new BigDecimalConverter(NON_ZERO_OBJECT).convertToBinaryStream());
+  }
+
+  @Test
+  public void testConvertToAsciiStream() throws DatabricksSQLException {
+    assertNotNull(new BigDecimalConverter(NON_ZERO_OBJECT).convertToAsciiStream());
+  }
 }

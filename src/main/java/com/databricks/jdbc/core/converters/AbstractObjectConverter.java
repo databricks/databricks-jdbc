@@ -1,7 +1,6 @@
 package com.databricks.jdbc.core.converters;
 
 import com.databricks.jdbc.core.DatabricksSQLException;
-
 import java.io.*;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
@@ -80,13 +79,13 @@ public abstract class AbstractObjectConverter {
 
   public InputStream convertToBinaryStream() throws DatabricksSQLException {
     ByteArrayOutputStream bos = new ByteArrayOutputStream();
-    ObjectOutputStream out = null;
     try {
-      out = new ObjectOutputStream(bos);
+      ObjectOutputStream out = new ObjectOutputStream(bos);
       out.writeObject(object);
       out.flush();
     } catch (IOException e) {
-      throw new DatabricksSQLException("Could not convert object to binary stream "+ object.toString(),e);
+      throw new DatabricksSQLException(
+          "Could not convert object to binary stream " + object.toString(), e);
     }
     byte[] objectBytes = bos.toByteArray();
     return new ByteArrayInputStream(objectBytes);
