@@ -30,6 +30,7 @@ public class DatabricksResultSet implements ResultSet, IDatabricksResultSet {
   private Long updateCount;
   private boolean isClosed;
   private SQLWarning warnings = null;
+  private boolean wasNull;
 
   public DatabricksResultSet(
       StatementStatus statementStatus,
@@ -48,6 +49,7 @@ public class DatabricksResultSet implements ResultSet, IDatabricksResultSet {
     this.updateCount = null;
     this.parentStatement = parentStatement;
     this.isClosed = false;
+    this.wasNull=false;
   }
 
   public DatabricksResultSet(
@@ -74,6 +76,7 @@ public class DatabricksResultSet implements ResultSet, IDatabricksResultSet {
     this.updateCount = null;
     this.parentStatement = null;
     this.isClosed = false;
+    this.wasNull=false;
   }
 
   public DatabricksResultSet(
@@ -100,6 +103,7 @@ public class DatabricksResultSet implements ResultSet, IDatabricksResultSet {
     this.updateCount = null;
     this.parentStatement = null;
     this.isClosed = false;
+    this.wasNull=false;
   }
 
   @Override
@@ -120,8 +124,7 @@ public class DatabricksResultSet implements ResultSet, IDatabricksResultSet {
   @Override
   public boolean wasNull() throws SQLException {
     checkIfClosed();
-    // TODO: fix implementation
-    return this == null;
+    return this.wasNull;
   }
 
   // TODO (Madhav): Clean up code by removing code duplicity by having common functions that branch
@@ -409,7 +412,7 @@ public class DatabricksResultSet implements ResultSet, IDatabricksResultSet {
   public String getCursorName() throws SQLException {
     checkIfClosed();
     throw new UnsupportedOperationException(
-        "Not implemented in DatabricksResultSet - getCursorName()");
+        "Not supported in DatabricksResultSet - getCursorName()");
   }
 
   @Override
@@ -489,14 +492,13 @@ public class DatabricksResultSet implements ResultSet, IDatabricksResultSet {
   @Override
   public void beforeFirst() throws SQLException {
     checkIfClosed();
-    throw new UnsupportedOperationException(
-        "Not implemented in DatabricksResultSet - beforeFirst()");
+    throw new DatabricksSQLFeatureNotSupportedException("Databricks JDBC does not support random access (beforeFirst)");
   }
 
   @Override
   public void afterLast() throws SQLException {
     checkIfClosed();
-    throw new UnsupportedOperationException("Not implemented in DatabricksResultSet - afterLast()");
+    throw new DatabricksSQLFeatureNotSupportedException("Databricks JDBC does not support random access (afterLast)");
   }
 
   @Override
@@ -1504,8 +1506,9 @@ public class DatabricksResultSet implements ResultSet, IDatabricksResultSet {
     if (columnIndex <= 0) {
       throw new DatabricksSQLException("Invalid column index");
     }
-    // Handle null and other errors
-    return executionResult.getObject(columnIndex - 1);
+    Object object = executionResult.getObject(columnIndex - 1);
+    this.wasNull = object==null;
+    return object;
   }
 
   /** For String values, return value without decimal fraction */
