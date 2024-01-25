@@ -975,9 +975,7 @@ public class DatabricksResultSet implements ResultSet, IDatabricksResultSet {
 
   @Override
   public Object getObject(String columnLabel, Map<String, Class<?>> map) throws SQLException {
-    checkIfClosed();
-    throw new UnsupportedOperationException(
-        "Not implemented in DatabricksResultSet - getObject(String columnLabel, Map<String, Class<?>> map)");
+    return getObject(getColumnNameIndex(columnLabel), map);
   }
 
   @Override
