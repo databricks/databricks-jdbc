@@ -1,5 +1,8 @@
 package com.databricks.jdbc.core;
 
+import static com.databricks.jdbc.core.converters.ConverterHelper.getConvertedObject;
+import static com.databricks.jdbc.core.converters.ConverterHelper.getObjectConverter;
+
 import com.databricks.jdbc.client.StatementType;
 import com.databricks.jdbc.client.sqlexec.ResultData;
 import com.databricks.jdbc.commons.util.WarningUtil;
@@ -567,19 +570,15 @@ public class DatabricksResultSet implements ResultSet, IDatabricksResultSet {
     Hence, we don't support it.*/
     LOGGER.debug("public void setFetchSize(int rows = {})", rows);
     checkIfClosed();
-    String warningString = "As FetchSize is not supported in the Databricks JDBC, ignoring it";
-    LOGGER.warn(warningString);
-    warnings = WarningUtil.addWarning(warnings, warningString);
+    addWarningAndLog("As FetchSize is not supported in the Databricks JDBC, ignoring it");
   }
 
   @Override
   public int getFetchSize() throws SQLException {
     LOGGER.debug("public int getFetchSize()");
     checkIfClosed();
-    String warningString =
-        "As FetchSize is not supported in the Databricks JDBC, we don't set it in the first place";
-    LOGGER.warn(warningString);
-    warnings = WarningUtil.addWarning(warnings, warningString);
+    addWarningAndLog(
+        "As FetchSize is not supported in the Databricks JDBC, we don't set it in the first place");
     return 0;
   }
 
@@ -941,8 +940,33 @@ public class DatabricksResultSet implements ResultSet, IDatabricksResultSet {
   @Override
   public Object getObject(int columnIndex, Map<String, Class<?>> map) throws SQLException {
     checkIfClosed();
-    throw new UnsupportedOperationException(
-        "Not implemented in DatabricksResultSet - getObject(int columnIndex, Map<String, Class<?>> map)");
+    Object obj = getObjectInternal(columnIndex);
+    if (obj == null) {
+      return null;
+    }
+    int columnType = resultSetMetaData.getColumnType(columnIndex);
+    String columnTypeText = resultSetMetaData.getColumnTypeName(columnIndex);
+    Class<?> returnObjectType = map.get(columnTypeText);
+    if (returnObjectType != null) {
+      try {
+        AbstractObjectConverter converter = getObjectConverter(obj, columnType);
+        return getConvertedObject(returnObjectType, converter);
+      } catch (Exception e) {
+        addWarningAndLog(
+            "Exception occurred while converting object into corresponding return object type using getObject(int columnIndex, Map<String, Class<?>> map). Returning null. Exception: "
+                + e.getMessage());
+        return null;
+      }
+    }
+    addWarningAndLog(
+        "Corresponding return object type not found while using getObject(int columnIndex, Map<String, Class<?>> map). Returning null. Object type: "
+            + columnTypeText);
+    return null;
+  }
+
+  private void addWarningAndLog(String warningMessage) {
+    LOGGER.warn(warningMessage);
+    warnings = WarningUtil.addWarning(warnings, warningMessage);
   }
 
   @Override
@@ -1446,8 +1470,17 @@ public class DatabricksResultSet implements ResultSet, IDatabricksResultSet {
   @Override
   public <T> T getObject(int columnIndex, Class<T> type) throws SQLException {
     checkIfClosed();
-    throw new UnsupportedOperationException(
-        "Not implemented in DatabricksResultSet - getObject(int columnIndex, Class<T> type)");
+    Object obj = getObjectInternal(columnIndex);
+    int columnType = resultSetMetaData.getColumnType(columnIndex);
+    try {
+      AbstractObjectConverter converter = getObjectConverter(obj, columnType);
+      return (T) getConvertedObject(type, converter);
+    } catch (Exception e) {
+      addWarningAndLog(
+          "Exception occurred while converting object into corresponding return object type using getObject(int columnIndex, Class<T> type). Returning null. Exception: "
+              + e.getMessage());
+      return null;
+    }
   }
 
   @Override
@@ -1522,37 +1555,6 @@ public class DatabricksResultSet implements ResultSet, IDatabricksResultSet {
       return s.substring(0, s.indexOf(DECIMAL));
     }
     return s;
-  }
-
-  private AbstractObjectConverter getObjectConverter(Object object, int columnType)
-      throws DatabricksSQLException {
-    switch (columnType) {
-      case Types.TINYINT:
-        return new ByteConverter(object);
-      case Types.SMALLINT:
-        return new ShortConverter(object);
-      case Types.INTEGER:
-        return new IntConverter(object);
-      case Types.BIGINT:
-        return new LongConverter(object);
-      case Types.FLOAT:
-        return new FloatConverter(object);
-      case Types.DOUBLE:
-        return new DoubleConverter(object);
-      case Types.DECIMAL:
-        return new BigDecimalConverter(object);
-      case Types.BOOLEAN:
-        return new BooleanConverter(object);
-      case Types.VARCHAR:
-      case Types.CHAR:
-        return new StringConverter(object);
-      case Types.DATE:
-        return new DateConverter(object);
-      case Types.TIMESTAMP:
-        return new TimestampConverter(object);
-      default:
-        throw new DatabricksSQLException("Bad object type");
-    }
   }
 
   private int getColumnNameIndex(String columnName) {
