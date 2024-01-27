@@ -9,6 +9,7 @@ import com.databricks.jdbc.commons.util.WarningUtil;
 import com.databricks.jdbc.core.converters.*;
 import com.databricks.sdk.service.sql.ResultManifest;
 import com.databricks.sdk.service.sql.StatementStatus;
+import com.google.common.annotations.VisibleForTesting;
 import java.io.InputStream;
 import java.io.Reader;
 import java.math.BigDecimal;
@@ -48,6 +49,25 @@ public class DatabricksResultSet implements ResultSet, IDatabricksResultSet {
     this.executionResult =
         ExecutionResultFactory.getResultSet(resultData, resultManifest, statementId, session);
     this.resultSetMetaData = new DatabricksResultSetMetaData(statementId, resultManifest, session);
+    this.statementType = statementType;
+    this.updateCount = null;
+    this.parentStatement = parentStatement;
+    this.isClosed = false;
+    this.wasNull = false;
+  }
+
+  @VisibleForTesting
+  public DatabricksResultSet(
+      StatementStatus statementStatus,
+      String statementId,
+      StatementType statementType,
+      IDatabricksStatement parentStatement,
+      IExecutionResult executionResult,
+      DatabricksResultSetMetaData resultSetMetaData) {
+    this.statementStatus = statementStatus;
+    this.statementId = statementId;
+    this.executionResult = executionResult;
+    this.resultSetMetaData = resultSetMetaData;
     this.statementType = statementType;
     this.updateCount = null;
     this.parentStatement = parentStatement;
@@ -598,21 +618,21 @@ public class DatabricksResultSet implements ResultSet, IDatabricksResultSet {
   public boolean rowUpdated() throws SQLException {
     checkIfClosed();
     throw new DatabricksSQLFeatureNotSupportedException(
-        "Databricks JDBC has ResultSet as CONCUR_READ_ONLY. Doesn't support update function : rowUpdated");
+        "Databricks JDBC has ResultSet as CONCUR_READ_ONLY. Doesn't support the function : rowUpdated");
   }
 
   @Override
   public boolean rowInserted() throws SQLException {
     checkIfClosed();
     throw new DatabricksSQLFeatureNotSupportedException(
-        "Databricks JDBC has ResultSet as CONCUR_READ_ONLY. Doesn't support update function : rowInserted");
+        "Databricks JDBC has ResultSet as CONCUR_READ_ONLY. Doesn't support the function : rowInserted");
   }
 
   @Override
   public boolean rowDeleted() throws SQLException {
     checkIfClosed();
     throw new DatabricksSQLFeatureNotSupportedException(
-        "Databricks JDBC has ResultSet as CONCUR_READ_ONLY. Doesn't support update function : rowDeleted");
+        "Databricks JDBC has ResultSet as CONCUR_READ_ONLY. Doesn't support the function : rowDeleted");
   }
 
   @Override
