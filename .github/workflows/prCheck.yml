@@ -61,3 +61,11 @@ jobs:
 
       - name: Check Unit Tests
         run: mvn --errors test
+
+      - name: JaCoCo report
+        run: mvn --batch-mode --errors jacoco:report --file pom.xml
+
+      - name: Publish test coverage
+        uses: codecov/codecov-action@v1
+        with:
+          files: target/site/jacoco/jacoco.xml
