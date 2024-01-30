@@ -20,7 +20,8 @@ public class DatabricksResultSetTest {
   @Mock InlineJsonResult mockedExecutionResult;
   @Mock DatabricksResultSetMetaData mockedResultSetMetadata;
 
-  @Mock DatabricksStatement mockedStatement;
+  @Mock DatabricksStatement mockedDatabricksStatement;
+  @Mock Statement mockedStatement;
 
   private DatabricksResultSet getResultSet(
       StatementState statementState, IDatabricksStatement statement) {
@@ -43,7 +44,7 @@ public class DatabricksResultSetTest {
     assertThrows(DatabricksSQLException.class, resultSet::next);
 
     // Test non null parent statement
-    resultSet = getResultSet(StatementState.SUCCEEDED, mockedStatement);
+    resultSet = getResultSet(StatementState.SUCCEEDED, mockedDatabricksStatement);
     assertFalse(resultSet.isClosed());
     resultSet.close();
     assertTrue(resultSet.isClosed());
@@ -64,7 +65,8 @@ public class DatabricksResultSetTest {
 
   @Test
   void testGetStatement() throws SQLException {
-    DatabricksResultSet resultSet = getResultSet(StatementState.PENDING, mockedStatement);
+    when(mockedDatabricksStatement.getStatement()).thenReturn(mockedStatement);
+    DatabricksResultSet resultSet = getResultSet(StatementState.PENDING, mockedDatabricksStatement);
     assertEquals(mockedStatement, resultSet.getStatement());
   }
 

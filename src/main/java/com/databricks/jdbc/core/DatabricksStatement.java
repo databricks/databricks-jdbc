@@ -15,8 +15,7 @@ import java.util.concurrent.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class DatabricksStatement implements IDatabricksStatement {
-
+public class DatabricksStatement implements IDatabricksStatement, Statement {
   private static final Logger LOGGER = LoggerFactory.getLogger(DatabricksStatement.class);
 
   private int timeoutInSeconds;

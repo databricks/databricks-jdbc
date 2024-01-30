@@ -954,7 +954,11 @@ public class DatabricksResultSet implements ResultSet, IDatabricksResultSet {
   @Override
   public Statement getStatement() throws SQLException {
     checkIfClosed();
-    return parentStatement;
+    /*
+     *Retrieves the Statement object that produced this ResultSet object.
+     *In case the resultSet is produced as a response of meta-data operations, this method returns null.
+     */
+    return (parentStatement != null) ? parentStatement.getStatement() : null;
   }
 
   @Override
@@ -1502,9 +1506,12 @@ public class DatabricksResultSet implements ResultSet, IDatabricksResultSet {
       AbstractObjectConverter converter = getObjectConverter(obj, columnType);
       return (T) getConvertedObject(type, converter);
     } catch (Exception e) {
-      throw new DatabricksSQLException(
-          "Exception occurred while converting object into corresponding return object type using getObject(int columnIndex, Class<T> type). ",
-          e);
+      String errorMessage =
+          String.format(
+              "Exception occurred while converting object into corresponding return object type using getObject(int columnIndex, Class<T> type). ErrorMessage: %s",
+              e.getMessage());
+      LOGGER.error(errorMessage);
+      throw new DatabricksSQLException(errorMessage, e);
     }
   }
 

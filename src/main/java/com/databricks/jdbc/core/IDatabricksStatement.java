@@ -4,7 +4,7 @@ import java.sql.SQLException;
 import java.sql.Statement;
 
 /** Interface for Databricks specific statement. */
-public interface IDatabricksStatement extends Statement {
+public interface IDatabricksStatement {
 
   /** Returns the underlying session-Id for the statement. */
   String getSessionId();
@@ -18,4 +18,8 @@ public interface IDatabricksStatement extends Statement {
   void setStatementId(String statementId);
 
   String getStatementId();
+
+  default Statement getStatement() {
+    return (Statement) this;
+  }
 }
