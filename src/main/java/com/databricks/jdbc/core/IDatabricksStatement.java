@@ -19,7 +19,5 @@ public interface IDatabricksStatement {
 
   String getStatementId();
 
-  default Statement getStatement() {
-    return (Statement) this;
-  }
+  Statement getStatement();
 }

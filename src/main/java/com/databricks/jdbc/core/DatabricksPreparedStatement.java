@@ -486,4 +486,9 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
   public boolean execute(String sql, String[] columnNames) throws SQLException {
     throw new DatabricksSQLException("Method not supported in PreparedStatement");
   }
+
+  @Override
+  public Statement getStatement() {
+    return this;
+  }
 }
