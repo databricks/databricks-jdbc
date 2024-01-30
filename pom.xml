@@ -236,9 +236,12 @@
           </executions>
           <configuration>
             <excludes>
-              <exclude>*EnvironmentVariables.java</exclude>
-              <exclude>*Exception.java</exclude>
-              <exclude>*/core/types/*</exclude>
+              <exclude>**EnvironmentVariables*</exclude>
+              <exclude>**Exception*</exclude>
+              <exclude>**types/*</exclude>
+              <exclude>**/impl/thrift/*</exclude> <!--Remove this once thrift is implemented-->
+              <exclude>**client/sqlexec/*</exclude>
+              <exclude>**Constants*</exclude>
             </excludes>
           </configuration>
         </plugin>

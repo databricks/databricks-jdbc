@@ -1,6 +1,7 @@
 package com.databricks.jdbc.core;
 
 import java.sql.SQLException;
+import java.sql.Statement;
 
 /** Interface for Databricks specific statement. */
 public interface IDatabricksStatement {
@@ -17,4 +18,6 @@ public interface IDatabricksStatement {
   void setStatementId(String statementId);
 
   String getStatementId();
+
+  Statement getStatement();
 }

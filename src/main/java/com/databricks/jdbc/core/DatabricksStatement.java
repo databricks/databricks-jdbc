@@ -16,7 +16,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class DatabricksStatement implements IDatabricksStatement, Statement {
-
   private static final Logger LOGGER = LoggerFactory.getLogger(DatabricksStatement.class);
 
   private int timeoutInSeconds;
@@ -458,5 +457,10 @@ public class DatabricksStatement implements IDatabricksStatement, Statement {
   @Override
   public String getStatementId() {
     return this.statementId;
+  }
+
+  @Override
+  public Statement getStatement() {
+    return this;
   }
 }
