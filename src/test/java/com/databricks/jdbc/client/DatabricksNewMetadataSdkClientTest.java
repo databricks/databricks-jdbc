@@ -257,22 +257,46 @@ public class DatabricksNewMetadataSdkClientTest {
   }
 
   @Test
+  void testListPrimaryKeys() throws SQLException {
+    when(session.getWarehouseId()).thenReturn(WAREHOUSE_ID);
+    DatabricksNewMetadataSdkClient metadataClient = new DatabricksNewMetadataSdkClient(mockClient);
+    when(mockClient.executeStatement(
+            "SHOW KEYS IN CATALOG `catalog1` IN SCHEMA `testSchema` IN TABLE `testTable`",
+            WAREHOUSE_ID,
+            new HashMap<Integer, ImmutableSqlParameter>(),
+            StatementType.METADATA,
+            session,
+            null))
+        .thenReturn(mockedResultSet);
+    when(mockedResultSet.next()).thenReturn(true, false);
+    for (ResultColumn resultColumn : PRIMARY_KEYS_COLUMNS) {
+      when(mockedResultSet.getObject(resultColumn.getResultSetColumnName()))
+          .thenReturn(TEST_COLUMN);
+    }
+    DatabricksResultSet actualResult =
+        metadataClient.listPrimaryKeys(session, TEST_CATALOG, TEST_SCHEMA, TEST_TABLE);
+    assertEquals(actualResult.getStatementStatus().getState(), StatementState.SUCCEEDED);
+    assertEquals(actualResult.statementId(), METADATA_STATEMENT_ID);
+    assertEquals(((DatabricksResultSetMetaData) actualResult.getMetaData()).getTotalRows(), 1);
+  }
+
+  @Test
   void testThrowsErrorResultInCaseOfAllCatalogRegex() {
     DatabricksNewMetadataSdkClient metadataClient = new DatabricksNewMetadataSdkClient(mockClient);
     assertThrows(
-        DatabricksSQLFeatureNotSupportedException.class,
-        () -> metadataClient.listColumns(session, "*", TEST_SCHEMA, TEST_TABLE, TEST_COLUMN));
+        DatabricksValidationException.class,
+        () -> metadataClient.listColumns(session, null, TEST_SCHEMA, TEST_TABLE, TEST_COLUMN));
     assertThrows(
-        DatabricksSQLFeatureNotSupportedException.class,
-        () -> metadataClient.listTables(session, "*", TEST_SCHEMA, TEST_TABLE));
+        DatabricksValidationException.class,
+        () -> metadataClient.listTables(session, null, TEST_SCHEMA, TEST_TABLE));
     assertThrows(
-        DatabricksSQLFeatureNotSupportedException.class,
-        () -> metadataClient.listSchemas(session, "*", TEST_SCHEMA));
+        DatabricksValidationException.class,
+        () -> metadataClient.listSchemas(session, null, TEST_SCHEMA));
     assertThrows(
-        DatabricksSQLFeatureNotSupportedException.class,
-        () -> metadataClient.listPrimaryKeys(session, "*", TEST_SCHEMA, TEST_TABLE));
+        DatabricksValidationException.class,
+        () -> metadataClient.listPrimaryKeys(session, null, TEST_SCHEMA, TEST_TABLE));
     assertThrows(
-        DatabricksSQLFeatureNotSupportedException.class,
-        () -> metadataClient.listFunctions(session, "*", TEST_SCHEMA, TEST_TABLE));
+        DatabricksValidationException.class,
+        () -> metadataClient.listFunctions(session, null, TEST_SCHEMA, TEST_TABLE));
   }
 }

@@ -2,7 +2,7 @@ package com.databricks.jdbc.commons.util;
 
 import com.databricks.jdbc.client.DatabricksHttpException;
 import com.databricks.jdbc.core.DatabricksSQLException;
-import com.databricks.jdbc.core.DatabricksSQLFeatureNotSupportedException;
+import com.databricks.jdbc.core.DatabricksValidationException;
 import java.util.Map;
 import org.apache.http.HttpResponse;
 import org.slf4j.Logger;
@@ -30,11 +30,11 @@ public class ValidationUtil {
     return false;
   }
 
-  public static void throwErrorIfEmptyOrWildcard(Map<String, String> fields, String context)
-      throws DatabricksSQLFeatureNotSupportedException {
+  public static void throwErrorIfNull(Map<String, String> fields, String context)
+      throws DatabricksSQLException {
     for (Map.Entry<String, String> field : fields.entrySet()) {
-      if (checkEmptyOrWildcardValidation(field.getValue(), context, field.getKey())) {
-        throw new DatabricksSQLFeatureNotSupportedException(
+      if (field.getValue() == null) {
+        throw new DatabricksValidationException(
             String.format(
                 "Unsupported Input for field {%s}. Context: {%s}", field.getKey(), context));
       }
