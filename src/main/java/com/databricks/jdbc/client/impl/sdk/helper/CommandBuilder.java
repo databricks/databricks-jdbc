@@ -12,9 +12,6 @@ import java.util.Map;
 
 public class CommandBuilder {
   private String catalogName = null;
-  private String schemaName = null;
-  private String tableName = null;
-
   private String schemaPattern = null;
   private String tablePattern = null;
   private String columnPattern = null;
@@ -30,16 +27,6 @@ public class CommandBuilder {
 
   public CommandBuilder(IDatabricksSession session) throws SQLException {
     this.sessionContext = session.toString();
-  }
-
-  public CommandBuilder setSchema(String schemaName) {
-    this.schemaName = schemaName;
-    return this;
-  }
-
-  public CommandBuilder setTable(String tableName) {
-    this.tableName = tableName;
-    return this;
   }
 
   public CommandBuilder setSchemaPattern(String pattern) {
