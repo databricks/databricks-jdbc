@@ -43,26 +43,22 @@ public class CommandBuilder {
   }
 
   public CommandBuilder setSchemaPattern(String pattern) {
-    // TODO : add pattern conversion
-    this.schemaPattern = pattern;
+    this.schemaPattern = WildcardUtil.jdbcPatternToHive(pattern);
     return this;
   }
 
   public CommandBuilder setTablePattern(String pattern) {
-    // TODO : add pattern conversion
-    this.tablePattern = pattern;
+    this.tablePattern = WildcardUtil.jdbcPatternToHive(pattern);
     return this;
   }
 
   public CommandBuilder setColumnPattern(String pattern) {
-    // TODO : add pattern conversion
-    this.columnPattern = pattern;
+    this.columnPattern = WildcardUtil.jdbcPatternToHive(pattern);
     return this;
   }
 
   public CommandBuilder setFunctionPattern(String pattern) {
-    // TODO : add pattern conversion
-    this.functionNamePattern = pattern;
+    this.functionNamePattern = WildcardUtil.jdbcPatternToHive(pattern);
     return this;
   }
 
