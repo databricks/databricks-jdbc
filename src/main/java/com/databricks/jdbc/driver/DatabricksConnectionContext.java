@@ -108,7 +108,7 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
 
     String warehouseId = null;
     if (urlMatcher.find()) {
-      warehouseId = urlMatcher.group(1);
+      warehouseId = urlMatcher.group(urlMatcher.groupCount());
     } else {
       Matcher sqlUrlMatcher = DatabricksJdbcConstants.HTTP_PATH_SQL_PATTERN.matcher(httpPath);
       if (sqlUrlMatcher.matches()) {
