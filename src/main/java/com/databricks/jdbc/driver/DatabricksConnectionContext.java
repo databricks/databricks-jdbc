@@ -172,7 +172,7 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   }
 
   private String getParameter(String key) {
-    return this.parameters.getOrDefault(key, null);
+    return this.parameters.getOrDefault(key.toLowerCase(), null);
   }
 
   @Override
