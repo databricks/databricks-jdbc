@@ -126,7 +126,9 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   public String getToken() {
     // TODO: decide on token/password from published specs
     return getParameter(DatabricksJdbcConstants.PWD) == null
-        ? getParameter(DatabricksJdbcConstants.PASSWORD)
+        ? (getParameter(DatabricksJdbcConstants.PASSWORD) == null
+            ? getParameter(DatabricksJdbcConstants.AUTH_ACCESSTOKEN)
+            : getParameter(DatabricksJdbcConstants.PASSWORD))
         : getParameter(DatabricksJdbcConstants.PWD);
   }
 
@@ -220,6 +222,28 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
     return nullOrEmptyString(customerUserAgent)
         ? clientAgent
         : clientAgent + " " + customerUserAgent;
+  }
+
+  @Override
+  public boolean isSSLEnabled() {
+    return getParameter(DatabricksJdbcConstants.SSL_ENABLED) != null
+        && Integer.parseInt(getParameter(DatabricksJdbcConstants.SSL_ENABLED)) == 1;
+  }
+
+  @Override
+  public String getSSLKeyStorePath() {
+    return getParameter(DatabricksJdbcConstants.SSL_KEYSTORE_PATH);
+  }
+
+  @Override
+  public String getSSLKeyStorePassword() {
+    return getParameter(DatabricksJdbcConstants.SSL_KEYSTORE_PASSWORD);
+  }
+
+  @Override
+  public boolean getAllowSelfSignedCerts() {
+    return getParameter(DatabricksJdbcConstants.ALLOW_SELF_SIGNED_CERTS) != null
+        && Integer.parseInt(getParameter(DatabricksJdbcConstants.ALLOW_SELF_SIGNED_CERTS)) == 1;
   }
 
   private DatabricksClientType getClientType() {

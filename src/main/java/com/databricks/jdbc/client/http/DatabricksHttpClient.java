@@ -11,6 +11,7 @@ import org.apache.http.HttpException;
 import org.apache.http.HttpResponse;
 import org.apache.http.HttpResponseInterceptor;
 import org.apache.http.client.config.RequestConfig;
+import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpUriRequest;
 import org.apache.http.client.protocol.HttpClientContext;
 import org.apache.http.impl.client.CloseableHttpClient;
@@ -125,9 +126,10 @@ public class DatabricksHttpClient implements IDatabricksHttpClient {
   @Override
   public HttpResponse execute(HttpUriRequest request) throws DatabricksHttpException {
     LOGGER.debug("Executing HTTP request [{}]", RequestSanitizer.sanitizeRequest(request));
+    CloseableHttpResponse response = null;
     // TODO: add retries and error handling
     try {
-      return httpClient.execute(request);
+      return response = httpClient.execute(request);
     } catch (IOException e) {
       String errorMsg =
           String.format(
@@ -135,6 +137,14 @@ public class DatabricksHttpClient implements IDatabricksHttpClient {
               RequestSanitizer.sanitizeRequest(request));
       LOGGER.error(errorMsg, e);
       throw new DatabricksHttpException(errorMsg, e);
+    } finally {
+      if (response != null) {
+        try {
+          response.close();
+        } catch (IOException e) {
+          LOGGER.error("Caught error while closing http response", e);
+        }
+      }
     }
   }
 

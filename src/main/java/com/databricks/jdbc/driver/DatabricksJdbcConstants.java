@@ -6,7 +6,7 @@ public final class DatabricksJdbcConstants {
 
   static final Pattern JDBC_URL_PATTERN =
       Pattern.compile("jdbc:databricks:\\/\\/([^/]*)(?::\\d+)?\\/*(.*)");
-  static final Pattern HTTP_PATH_PATTERN = Pattern.compile(".*\\/warehouses\\/(.*)");
+  static final Pattern HTTP_PATH_PATTERN = Pattern.compile(".*\\/(warehouses|endpoints)\\/(.*)");
   static final Pattern HTTP_PATH_SQL_PATTERN = Pattern.compile("sql\\/(.*)");
   public static final String JDBC_SCHEMA = "jdbc:databricks://";
   static final String DEFAULT_LOG_LEVEL = "INFO";
@@ -66,4 +66,12 @@ public final class DatabricksJdbcConstants {
   static final String CLIENT_USER_AGENT_PREFIX = "Java";
   static final String USER_AGENT_SEA_CLIENT = "SQLExecHttpClient/HC";
   static final String USER_AGENT_THRIFT_CLIENT = "THttpClient/HC";
+
+  public static final String SSL_ENABLED = "ssl";
+
+  public static final String SSL_KEYSTORE_PATH = "sslkeystore";
+
+  public static final String SSL_KEYSTORE_PASSWORD = "sslkeystorepwd";
+
+  public static final String ALLOW_SELF_SIGNED_CERTS = "allowselfsignedcerts";
 }

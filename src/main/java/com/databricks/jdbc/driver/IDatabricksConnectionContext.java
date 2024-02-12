@@ -67,4 +67,12 @@ public interface IDatabricksConnectionContext {
   String getLogPathString();
 
   String getClientUserAgent();
+
+  boolean isSSLEnabled();
+
+  String getSSLKeyStorePath();
+
+  String getSSLKeyStorePassword();
+
+  boolean getAllowSelfSignedCerts();
 }

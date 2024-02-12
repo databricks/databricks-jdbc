@@ -1,9 +1,13 @@
 package com.databricks.jdbc.core;
 
+import com.databricks.jdbc.driver.DatabricksCommonHttpClient;
 import com.databricks.jdbc.driver.DatabricksJdbcConstants;
 import com.databricks.jdbc.driver.IDatabricksConnectionContext;
+import com.databricks.jdbc.driver.SSLConfiguration;
 import com.databricks.sdk.WorkspaceClient;
 import com.databricks.sdk.core.DatabricksConfig;
+import java.security.NoSuchAlgorithmException;
+import javax.net.ssl.SSLContext;
 
 public class OAuthAuthenticator {
 
@@ -49,11 +53,28 @@ public class OAuthAuthenticator {
   }
 
   public WorkspaceClient authenticateAccessToken() {
+    SSLContext sslContext = null;
+    try {
+      sslContext = SSLContext.getDefault();
+    } catch (NoSuchAlgorithmException e) {
+
+    }
+    if (connectionContext.isSSLEnabled()) {
+      try {
+        sslContext =
+            SSLConfiguration.configureSslContext(
+                this.connectionContext.getSSLKeyStorePath(),
+                this.connectionContext.getSSLKeyStorePassword());
+      } catch (Exception e) {
+
+      }
+    }
     DatabricksConfig config =
         new DatabricksConfig()
             .setAuthType(DatabricksJdbcConstants.ACCESS_TOKEN_AUTH_TYPE)
             .setHost(this.connectionContext.getHostUrl())
-            .setToken(this.connectionContext.getToken());
+            .setToken(this.connectionContext.getToken())
+            .setHttpClient(new DatabricksCommonHttpClient(300, sslContext));
     return new WorkspaceClient(config);
   }
 
