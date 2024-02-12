@@ -20,7 +20,7 @@ public class SSLConfiguration {
     keyManagerFactory.init(keyStore, keystorePassword.toCharArray());
 
     // Currently setting up a naive trust manager that trusts all certificates
-    // TODO (PECO-): Change Trust Manager configuration to allow only trusted certificates
+    // TODO (PECO-1470): Change Trust Manager configuration to allow only trusted certificates
     TrustManagerFactory trustManagerFactory =
         TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
     trustManagerFactory.init((KeyStore) null);
