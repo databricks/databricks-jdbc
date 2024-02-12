@@ -58,7 +58,7 @@ class ArrowStreamResult implements IExecutionResult {
     this.columnInfos =
         resultManifest.getSchema().getColumnCount() == 0
             ? new ArrayList<>()
-            : new ArrayList(resultManifest.getSchema().getColumns());
+            : new ArrayList<>(resultManifest.getSchema().getColumns());
     this.currentRowIndex = -1;
     this.isClosed = false;
     this.chunkIterator = null;

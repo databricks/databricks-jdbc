@@ -11,7 +11,8 @@ import java.util.Map;
 
 public class DatabricksThriftClient implements DatabricksClient, DatabricksMetadataClient {
   @Override
-  public ImmutableSessionInfo createSession(String warehouseId) {
+  public ImmutableSessionInfo createSession(
+      String warehouseId, String catalog, String schema, Map<String, String> sessionConf) {
     throw new UnsupportedOperationException();
   }
 

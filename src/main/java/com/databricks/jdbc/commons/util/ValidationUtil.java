@@ -2,12 +2,13 @@ package com.databricks.jdbc.commons.util;
 
 import com.databricks.jdbc.client.DatabricksHttpException;
 import com.databricks.jdbc.core.DatabricksSQLException;
+import com.databricks.jdbc.core.DatabricksSQLFeatureNotSupportedException;
+import java.util.Map;
 import org.apache.http.HttpResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class ValidationUtil {
-
   private static final Logger LOGGER = LoggerFactory.getLogger(ValidationUtil.class);
 
   public static void checkIfPositive(int number, String fieldName) throws DatabricksSQLException {
@@ -15,6 +16,28 @@ public class ValidationUtil {
     if (number < 0) {
       throw new DatabricksSQLException(
           String.format("Invalid input for %s, : %d", fieldName, number));
+    }
+  }
+
+  private static boolean checkEmptyOrWildcardValidation(
+      String fieldValue, String context, String fieldName) {
+    if (WildcardUtil.isNullOrEmpty(fieldValue) || WildcardUtil.isWildcard(fieldValue)) {
+      String reason = WildcardUtil.isNullOrEmpty(fieldValue) ? "empty or null" : "a wildcard";
+      LOGGER.error(
+          "Field {} failed validation. Reason : {}. Context : {}", fieldName, reason, context);
+      return true;
+    }
+    return false;
+  }
+
+  public static void throwErrorIfEmptyOrWildcard(Map<String, String> fields, String context)
+      throws DatabricksSQLFeatureNotSupportedException {
+    for (Map.Entry<String, String> field : fields.entrySet()) {
+      if (checkEmptyOrWildcardValidation(field.getValue(), context, field.getKey())) {
+        throw new DatabricksSQLFeatureNotSupportedException(
+            String.format(
+                "Unsupported Input for field {%s}. Context: {%s}", field.getKey(), context));
+      }
     }
   }
 

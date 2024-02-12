@@ -1,5 +1,6 @@
 package com.databricks.jdbc.driver;
 
+import com.databricks.jdbc.core.types.CompressionType;
 import java.util.List;
 
 public interface IDatabricksConnectionContext {
@@ -67,6 +68,12 @@ public interface IDatabricksConnectionContext {
   String getLogPathString();
 
   String getClientUserAgent();
+
+  CompressionType getCompressionType();
+
+  String getCatalog();
+
+  String getSchema();
 
   boolean isSSLEnabled();
 

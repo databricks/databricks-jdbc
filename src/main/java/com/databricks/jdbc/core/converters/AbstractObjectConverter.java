@@ -1,7 +1,9 @@
 package com.databricks.jdbc.core.converters;
 
 import com.databricks.jdbc.core.DatabricksSQLException;
+import java.io.*;
 import java.math.BigDecimal;
+import java.nio.charset.StandardCharsets;
 import java.sql.Date;
 import java.sql.Timestamp;
 
@@ -73,5 +75,35 @@ public abstract class AbstractObjectConverter {
 
   public Date convertToDate() throws DatabricksSQLException {
     throw new DatabricksSQLException("Unsupported conversion operation");
+  }
+
+  public InputStream convertToBinaryStream() throws DatabricksSQLException {
+    ByteArrayOutputStream bos = new ByteArrayOutputStream();
+    try {
+      ObjectOutputStream out = new ObjectOutputStream(bos);
+      out.writeObject(object);
+      out.flush();
+    } catch (IOException e) {
+      throw new DatabricksSQLException(
+          "Could not convert object to binary stream " + object.toString(), e);
+    }
+    byte[] objectBytes = bos.toByteArray();
+    return new ByteArrayInputStream(objectBytes);
+  }
+
+  public InputStream convertToUnicodeStream() throws DatabricksSQLException {
+    String stringRepresentation = this.convertToString();
+    return new ByteArrayInputStream(stringRepresentation.getBytes(StandardCharsets.UTF_8));
+  }
+
+  public InputStream convertToAsciiStream() throws DatabricksSQLException {
+    String stringRepresentation = this.convertToString();
+    byte[] asciiBytes = stringRepresentation.getBytes(StandardCharsets.US_ASCII);
+    return new ByteArrayInputStream(asciiBytes);
+  }
+
+  public Reader convertToCharacterStream() throws DatabricksSQLException {
+    String stringRepresentation = this.convertToString();
+    return new StringReader(stringRepresentation);
   }
 }

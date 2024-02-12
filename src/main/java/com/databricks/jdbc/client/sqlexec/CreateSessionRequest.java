@@ -1,8 +1,6 @@
 package com.databricks.jdbc.client.sqlexec;
 
-import com.databricks.sdk.support.ToStringer;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import java.util.Objects;
 
 /** Create session request */
 public class CreateSessionRequest {
@@ -10,6 +8,12 @@ public class CreateSessionRequest {
   /** Warehouse-Id for session */
   @JsonProperty("warehouse_id")
   private String warehouseId;
+
+  @JsonProperty("initial_schema")
+  private String schema;
+
+  @JsonProperty("initial_catalog")
+  private String catalog;
 
   public CreateSessionRequest setWarehouseId(String warehouseId) {
     this.warehouseId = warehouseId;
@@ -20,21 +24,21 @@ public class CreateSessionRequest {
     return warehouseId;
   }
 
-  @Override
-  public boolean equals(Object o) {
-    if (this == o) return true;
-    if (o == null || getClass() != o.getClass()) return false;
-    CreateSessionRequest that = (CreateSessionRequest) o;
-    return Objects.equals(warehouseId, that.warehouseId);
+  public CreateSessionRequest setSchema(String schema) {
+    this.schema = schema;
+    return this;
   }
 
-  @Override
-  public int hashCode() {
-    return Objects.hash(warehouseId);
+  public String getSchema() {
+    return schema;
   }
 
-  @Override
-  public String toString() {
-    return new ToStringer(CreateSessionRequest.class).add("warehouseId", warehouseId).toString();
+  public CreateSessionRequest setCatalog(String catalog) {
+    this.catalog = catalog;
+    return this;
+  }
+
+  public String getCatalog() {
+    return catalog;
   }
 }

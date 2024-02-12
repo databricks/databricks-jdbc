@@ -1,7 +1,7 @@
 package com.databricks.jdbc.core;
 
 import static java.lang.Math.min;
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.*;
 
 import com.databricks.sdk.service.sql.BaseChunkInfo;
 import java.io.File;
@@ -9,13 +9,11 @@ import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Random;
 import org.apache.arrow.memory.RootAllocator;
-import org.apache.arrow.vector.FieldVector;
-import org.apache.arrow.vector.Float8Vector;
-import org.apache.arrow.vector.IntVector;
-import org.apache.arrow.vector.VectorSchemaRoot;
+import org.apache.arrow.vector.*;
 import org.apache.arrow.vector.dictionary.DictionaryProvider;
 import org.apache.arrow.vector.ipc.ArrowStreamWriter;
 import org.apache.arrow.vector.ipc.ArrowWriter;
@@ -139,5 +137,80 @@ public class ArrowResultChunkTest {
       }
     }
     return data;
+  }
+
+  @Test
+  public void testHasNextRow() {
+    BaseChunkInfo emptyChunkInfo =
+        new BaseChunkInfo().setChunkIndex(0L).setByteCount(200L).setRowOffset(0L).setRowCount(0L);
+    ArrowResultChunk arrowResultChunk =
+        new ArrowResultChunk(emptyChunkInfo, new RootAllocator(Integer.MAX_VALUE), STATEMENT_ID);
+    arrowResultChunk.setIsDataInitialized(true);
+    arrowResultChunk.recordBatchList = Collections.nCopies(3, new ArrayList<>());
+    assertFalse(arrowResultChunk.getChunkIterator().hasNextRow());
+
+    BaseChunkInfo chunkInfo =
+        new BaseChunkInfo().setChunkIndex(18L).setByteCount(200L).setRowOffset(0L).setRowCount(4L);
+    arrowResultChunk =
+        new ArrowResultChunk(chunkInfo, new RootAllocator(Integer.MAX_VALUE), STATEMENT_ID);
+    arrowResultChunk.setIsDataInitialized(true);
+    int size = 2;
+    IntVector dummyVector = new IntVector("dummy_vector", new RootAllocator());
+    dummyVector.allocateNew(size);
+    dummyVector.setValueCount(size);
+    for (int i = 0; i < size; i++) {
+      dummyVector.set(i, i * 10);
+    }
+    arrowResultChunk.recordBatchList =
+        List.of(List.of(dummyVector), List.of(dummyVector), new ArrayList<>());
+    ArrowResultChunk.ArrowResultChunkIterator iterator = arrowResultChunk.getChunkIterator();
+    assertTrue(iterator.hasNextRow());
+    iterator.nextRow();
+    assertEquals(0, iterator.getColumnObjectAtCurrentRow(0));
+    assertTrue(iterator.hasNextRow());
+    iterator.nextRow();
+    assertEquals(10, iterator.getColumnObjectAtCurrentRow(0));
+    assertTrue(iterator.hasNextRow());
+    iterator.nextRow();
+    assertEquals(0, iterator.getColumnObjectAtCurrentRow(0));
+    assertTrue(iterator.hasNextRow());
+    iterator.nextRow();
+    assertEquals(10, iterator.getColumnObjectAtCurrentRow(0));
+    assertFalse(iterator.hasNextRow());
+  }
+
+  @Test
+  public void testEmptyRecordBatches() {
+    BaseChunkInfo chunkInfo =
+        new BaseChunkInfo().setChunkIndex(18L).setByteCount(200L).setRowOffset(0L).setRowCount(4L);
+    ArrowResultChunk arrowResultChunk =
+        new ArrowResultChunk(chunkInfo, new RootAllocator(Integer.MAX_VALUE), STATEMENT_ID);
+    arrowResultChunk.setIsDataInitialized(true);
+    int size = 2;
+    IntVector dummyVector = new IntVector("dummy_vector", new RootAllocator());
+    dummyVector.allocateNew(size);
+    dummyVector.setValueCount(size);
+    for (int i = 0; i < size; i++) {
+      dummyVector.set(i, i * 10);
+    }
+    IntVector emptyVector = new IntVector("empty_vector", new RootAllocator());
+    emptyVector.allocateNew(0);
+    emptyVector.setValueCount(0);
+    arrowResultChunk.recordBatchList =
+        List.of(List.of(dummyVector), List.of(emptyVector), List.of(dummyVector));
+    ArrowResultChunk.ArrowResultChunkIterator iterator = arrowResultChunk.getChunkIterator();
+    assertTrue(iterator.hasNextRow());
+    iterator.nextRow();
+    assertEquals(0, iterator.getColumnObjectAtCurrentRow(0));
+    assertTrue(iterator.hasNextRow());
+    iterator.nextRow();
+    assertEquals(10, iterator.getColumnObjectAtCurrentRow(0));
+    assertTrue(iterator.hasNextRow());
+    iterator.nextRow();
+    assertEquals(0, iterator.getColumnObjectAtCurrentRow(0));
+    assertTrue(iterator.hasNextRow());
+    iterator.nextRow();
+    assertEquals(10, iterator.getColumnObjectAtCurrentRow(0));
+    assertFalse(iterator.hasNextRow());
   }
 }

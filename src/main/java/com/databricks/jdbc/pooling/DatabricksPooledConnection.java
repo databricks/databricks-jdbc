@@ -147,8 +147,7 @@ public class DatabricksPooledConnection implements PooledConnection {
     @Override
     public Object invoke(Object proxy, Method method, @Nullable Object[] args) throws Throwable {
       CONNECTION_HANDLER_LOGGER.debug(
-          "public Object invoke(Object proxy = {}, Method method = {}, Object[] args = {})",
-          proxy,
+          "public Object invoke(Object proxy, Method method = {}, Object[] args = {})",
           method,
           args);
       final String methodName = method.getName();

@@ -4,12 +4,10 @@ import static com.databricks.jdbc.driver.DatabricksJdbcConstants.DEFAULT_LOG_LEV
 import static com.databricks.jdbc.driver.DatabricksJdbcConstants.JDBC_URL_PATTERN;
 
 import com.databricks.jdbc.client.DatabricksClientType;
+import com.databricks.jdbc.core.types.CompressionType;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Map;
-import java.util.Properties;
+import java.util.*;
 import java.util.regex.Matcher;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -224,6 +222,15 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
         : clientAgent + " " + customerUserAgent;
   }
 
+  // TODO: Make use of compression type
+  @Override
+  public CompressionType getCompressionType() {
+    String compressionType =
+        Optional.ofNullable(getParameter(DatabricksJdbcConstants.LZ4_COMPRESSION_FLAG))
+            .orElse(getParameter(DatabricksJdbcConstants.COMPRESSION_FLAG));
+    return CompressionType.parseCompressionType(compressionType);
+  }
+
   @Override
   public boolean isSSLEnabled() {
     return getParameter(DatabricksJdbcConstants.SSL_ENABLED) != null
@@ -253,5 +260,15 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
 
   private static boolean nullOrEmptyString(String s) {
     return s == null || s.isEmpty();
+  }
+
+  @Override
+  public String getCatalog() {
+    return getParameter(DatabricksJdbcConstants.CONN_CATALOG);
+  }
+
+  @Override
+  public String getSchema() {
+    return getParameter(DatabricksJdbcConstants.CONN_SCHEMA);
   }
 }

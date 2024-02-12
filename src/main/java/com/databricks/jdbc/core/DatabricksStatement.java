@@ -1,12 +1,13 @@
 package com.databricks.jdbc.core;
 
-import static com.databricks.jdbc.commons.EnvironmentVariables.DEFAULT_ROW_LIMIT;
-import static com.databricks.jdbc.commons.EnvironmentVariables.DEFAULT_STATEMENT_TIMEOUT_SECONDS;
+import static com.databricks.jdbc.commons.EnvironmentVariables.*;
 import static java.lang.String.format;
 
 import com.databricks.jdbc.client.DatabricksClient;
 import com.databricks.jdbc.client.StatementType;
+import com.databricks.jdbc.commons.util.StringUtil;
 import com.databricks.jdbc.commons.util.ValidationUtil;
+import com.databricks.jdbc.commons.util.WarningUtil;
 import java.sql.*;
 import java.util.HashMap;
 import java.util.Map;
@@ -15,7 +16,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class DatabricksStatement implements IDatabricksStatement, Statement {
-
   private static final Logger LOGGER = LoggerFactory.getLogger(DatabricksStatement.class);
 
   private int timeoutInSeconds;
@@ -24,8 +24,9 @@ public class DatabricksStatement implements IDatabricksStatement, Statement {
   private String statementId;
   private boolean isClosed;
   private boolean closeOnCompletion;
-
+  private SQLWarning warnings = null;
   private int maxRows = DEFAULT_ROW_LIMIT;
+  private boolean escapeProcessing = DEFAULT_ESCAPE_PROCESSING;
 
   public DatabricksStatement(DatabricksConnection connection) {
     this.connection = connection;
@@ -69,6 +70,10 @@ public class DatabricksStatement implements IDatabricksStatement, Statement {
         this.resultSet.close();
         this.resultSet = null;
       }
+    } else {
+      WarningUtil.addWarning(
+          warnings, "The statement you are trying to close does not have an ID yet.");
+      return;
     }
     if (removeFromSession) {
       this.connection.closeStatement(this);
@@ -107,8 +112,7 @@ public class DatabricksStatement implements IDatabricksStatement, Statement {
   @Override
   public void setEscapeProcessing(boolean enable) throws SQLException {
     LOGGER.debug("public void setEscapeProcessing(boolean enable = {})", enable);
-    throw new UnsupportedOperationException(
-        "Not implemented in DatabricksStatement - setEscapeProcessing(boolean enable)");
+    this.escapeProcessing = enable;
   }
 
   @Override
@@ -134,15 +138,13 @@ public class DatabricksStatement implements IDatabricksStatement, Statement {
   @Override
   public SQLWarning getWarnings() throws SQLException {
     LOGGER.debug("public SQLWarning getWarnings()");
-    throw new UnsupportedOperationException(
-        "Not implemented in DatabricksStatement - getWarnings()");
+    return warnings;
   }
 
   @Override
   public void clearWarnings() throws SQLException {
     LOGGER.debug("public void clearWarnings()");
-    throw new UnsupportedOperationException(
-        "Not implemented in DatabricksStatement - clearWarnings()");
+    warnings = null;
   }
 
   @Override
@@ -199,16 +201,23 @@ public class DatabricksStatement implements IDatabricksStatement, Statement {
 
   @Override
   public void setFetchSize(int rows) throws SQLException {
+    /* As we fetch chunks of data together,
+    setting fetchSize is an overkill.
+    Hence, we don't support it.*/
     LOGGER.debug("public void setFetchSize(int rows = {})", rows);
-    throw new UnsupportedOperationException(
-        "Not implemented in DatabricksStatement - setFetchSize(int rows)");
+    String warningString = "As FetchSize is not supported in the Databricks JDBC, ignoring it";
+    LOGGER.warn(warningString);
+    warnings = WarningUtil.addWarning(warnings, warningString);
   }
 
   @Override
   public int getFetchSize() throws SQLException {
     LOGGER.debug("public int getFetchSize()");
-    throw new UnsupportedOperationException(
-        "Not implemented in DatabricksStatement - getFetchSize()");
+    String warningString =
+        "As FetchSize is not supported in the Databricks JDBC, we don't set it in the first place";
+    LOGGER.warn(warningString);
+    warnings = WarningUtil.addWarning(warnings, warningString);
+    return 0;
   }
 
   @Override
@@ -401,6 +410,7 @@ public class DatabricksStatement implements IDatabricksStatement, Statement {
       throw new DatabricksTimeoutException(
           "Statement execution timed-out. " + stackTraceMessage, e);
     } catch (InterruptedException | ExecutionException e) {
+      LOGGER.error("Error occurred during statement execution: " + sql, e);
       throw new DatabricksSQLException("Error occurred during statement execution: " + sql, e);
     }
     LOGGER.debug("Result retrieved successfully" + resultSet.toString());
@@ -413,7 +423,8 @@ public class DatabricksStatement implements IDatabricksStatement, Statement {
     return CompletableFuture.supplyAsync(
         () -> {
           try {
-            return getResultFromClient(sql, params, statementType);
+            String SQLString = escapeProcessing ? StringUtil.getProcessedEscapeSequence(sql) : sql;
+            return getResultFromClient(SQLString, params, statementType);
           } catch (SQLException e) {
             throw new RuntimeException(e);
           }
@@ -447,5 +458,10 @@ public class DatabricksStatement implements IDatabricksStatement, Statement {
   @Override
   public String getStatementId() {
     return this.statementId;
+  }
+
+  @Override
+  public Statement getStatement() {
+    return this;
   }
 }

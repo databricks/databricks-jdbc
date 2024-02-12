@@ -5,6 +5,7 @@ import static com.databricks.jdbc.client.impl.sdk.PathConstants.STATEMENT_PATH;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.eq;
 import static org.mockito.Mockito.when;
 
 import com.databricks.jdbc.client.StatementType;
@@ -47,9 +48,7 @@ public class DatabricksSdkClientTest {
 
   private void setupSessionMocks() {
     Session session = new Session().setWarehouseId(WAREHOUSE_ID).setSessionId(SESSION_ID);
-    CreateSessionRequest createSessionRequest =
-        new CreateSessionRequest().setWarehouseId(WAREHOUSE_ID);
-    when(apiClient.POST(SESSION_PATH, createSessionRequest, Session.class, headers))
+    when(apiClient.POST(eq(SESSION_PATH), any(), eq(Session.class), eq(headers)))
         .thenReturn(session);
   }
 
@@ -113,7 +112,8 @@ public class DatabricksSdkClientTest {
         DatabricksConnectionContext.parse(JDBC_URL, new Properties());
     DatabricksSdkClient databricksSdkClient =
         new DatabricksSdkClient(connectionContext, statementExecutionService, apiClient);
-    ImmutableSessionInfo sessionInfo = databricksSdkClient.createSession(WAREHOUSE_ID);
+    ImmutableSessionInfo sessionInfo =
+        databricksSdkClient.createSession(WAREHOUSE_ID, null, null, null);
     assertEquals(sessionInfo.sessionId(), SESSION_ID);
     assertEquals(sessionInfo.warehouseId(), WAREHOUSE_ID);
   }

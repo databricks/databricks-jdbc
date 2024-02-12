@@ -5,9 +5,9 @@ import java.util.regex.Pattern;
 public final class DatabricksJdbcConstants {
 
   static final Pattern JDBC_URL_PATTERN =
-      Pattern.compile("jdbc:databricks:\\/\\/([^/]*)(?::\\d+)?\\/*(.*)");
-  static final Pattern HTTP_PATH_PATTERN = Pattern.compile(".*\\/(warehouses|endpoints)\\/(.*)");
-  static final Pattern HTTP_PATH_SQL_PATTERN = Pattern.compile("sql\\/(.*)");
+      Pattern.compile("jdbc:databricks://([^/;]*)(?::\\d+)?/*(.*)");
+  static final Pattern HTTP_PATH_PATTERN = Pattern.compile(".*/(warehouses|endpoints)/(.*)");
+  static final Pattern HTTP_PATH_SQL_PATTERN = Pattern.compile("sql/(.*)");
   public static final String JDBC_SCHEMA = "jdbc:databricks://";
   static final String DEFAULT_LOG_LEVEL = "INFO";
   static final String LOG_LEVEL = "loglevel";
@@ -26,6 +26,10 @@ public final class DatabricksJdbcConstants {
   static final String CLIENT_SECRET = "databricks_client_secret";
 
   static final String AUTH_MECH = "authmech";
+
+  static final String CONN_CATALOG = "conncatalog";
+
+  static final String CONN_SCHEMA = "connschema";
 
   static final String AUTH_FLOW = "auth_flow";
 
@@ -58,9 +62,13 @@ public final class DatabricksJdbcConstants {
   public static final String CATALOG = "catalog";
   public static final String PROCEDURE = "procedure";
   public static final String SCHEMA = "schema";
+  public static final String TABLE = "table";
   public static final String USER_NAME = "User";
   static final int DEFAULT_PORT = 443;
 
+  static final String LZ4_COMPRESSION_FLAG =
+      "EnableQueryResultLZ4Compression"; // Adding this for backward compatibility only
+  static final String COMPRESSION_FLAG = "QueryResultCompressionType";
   static final String USER_AGENT_ENTRY = "useragententry";
   public static final String DEFAULT_USER_AGENT = "DatabricksJDBCDriverOSS";
   static final String CLIENT_USER_AGENT_PREFIX = "Java";

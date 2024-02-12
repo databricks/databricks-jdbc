@@ -10,6 +10,8 @@ import com.databricks.jdbc.client.impl.sdk.DatabricksSdkClient;
 import com.databricks.jdbc.driver.DatabricksConnectionContext;
 import com.databricks.jdbc.driver.IDatabricksConnectionContext;
 import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.SQLWarning;
 import java.util.HashMap;
 import java.util.Properties;
 import org.junit.jupiter.api.Test;
@@ -74,5 +76,22 @@ public class DatabricksStatementTest {
     assertFalse(statement.isClosed());
     statement.close();
     assertTrue(statement.isClosed());
+  }
+
+  @Test
+  public void testFetchSize() throws SQLException {
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContext.parse(JDBC_URL, new Properties());
+    DatabricksConnection connection = new DatabricksConnection(connectionContext, client);
+    DatabricksStatement statement = new DatabricksStatement(connection);
+    assertEquals(statement.getWarnings(), null);
+    statement.setFetchSize(10);
+    assertEquals(0, statement.getFetchSize());
+    SQLWarning warnings = statement.getWarnings();
+    assertEquals(
+        warnings.getMessage(), "As FetchSize is not supported in the Databricks JDBC, ignoring it");
+    assertEquals(
+        warnings.getNextWarning().getMessage(),
+        "As FetchSize is not supported in the Databricks JDBC, we don't set it in the first place");
   }
 }

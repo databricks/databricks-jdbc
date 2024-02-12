@@ -40,7 +40,7 @@ public interface DatabricksMetadataClient {
       throws SQLException;
 
   /** Returns list of table types */
-  DatabricksResultSet listTableTypes(IDatabricksSession session);
+  DatabricksResultSet listTableTypes(IDatabricksSession session) throws SQLException;
 
   /**
    * Returns the list of columns

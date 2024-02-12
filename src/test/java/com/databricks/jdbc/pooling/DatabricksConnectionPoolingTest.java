@@ -1,15 +1,12 @@
 package com.databricks.jdbc.pooling;
 
-import static com.databricks.jdbc.client.impl.sdk.PathConstants.SESSION_PATH;
+import static org.mockito.Mockito.when;
 
 import com.databricks.jdbc.client.impl.sdk.DatabricksSdkClient;
-import com.databricks.jdbc.client.sqlexec.CreateSessionRequest;
-import com.databricks.jdbc.client.sqlexec.Session;
 import com.databricks.jdbc.core.DatabricksConnection;
+import com.databricks.jdbc.core.ImmutableSessionInfo;
 import com.databricks.jdbc.driver.DatabricksConnectionContext;
 import com.databricks.jdbc.driver.IDatabricksConnectionContext;
-import com.databricks.sdk.core.ApiClient;
-import com.databricks.sdk.service.sql.StatementExecutionService;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
@@ -21,6 +18,7 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -31,37 +29,24 @@ public class DatabricksConnectionPoolingTest {
       "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/791ba2a31c7fd70a;";
   private static final String WAREHOUSE_ID = "791ba2a31c7fd70a";
   private static final String SESSION_ID = "session_id";
-  private static StatementExecutionService statementExecutionService =
-      Mockito.mock(StatementExecutionService.class);
-  private static ApiClient apiClient = Mockito.mock(ApiClient.class);
-  private static final Map<String, String> headers =
-      new HashMap<>() {
-        {
-          put("Accept", "application/json");
-          put("Content-Type", "application/json");
-        }
-      };
+  @Mock private static DatabricksSdkClient databricksClient;
+  private static IDatabricksConnectionContext connectionContext;
 
   @BeforeAll
   public static void setUp() {
-    CreateSessionRequest createSessionRequest =
-        new CreateSessionRequest().setWarehouseId(WAREHOUSE_ID);
-    Session session = new Session().setWarehouseId(WAREHOUSE_ID).setSessionId(SESSION_ID);
-    Mockito.when(apiClient.POST(SESSION_PATH, createSessionRequest, Session.class, headers))
-        .thenReturn(session);
+    connectionContext = DatabricksConnectionContext.parse(JDBC_URL, new Properties());
   }
 
   @Test
   public void testPooledConnection() throws SQLException {
     DatabricksConnectionPoolDataSource poolDataSource =
         Mockito.mock(DatabricksConnectionPoolDataSource.class);
+    ImmutableSessionInfo session =
+        ImmutableSessionInfo.builder().warehouseId(WAREHOUSE_ID).sessionId(SESSION_ID).build();
+    when(databricksClient.createSession(WAREHOUSE_ID, null, null, null)).thenReturn(session);
 
-    IDatabricksConnectionContext connectionContext =
-        DatabricksConnectionContext.parse(JDBC_URL, new Properties());
     DatabricksConnection databricksConnection =
-        new DatabricksConnection(
-            connectionContext,
-            new DatabricksSdkClient(connectionContext, statementExecutionService, apiClient));
+        new DatabricksConnection(connectionContext, databricksClient);
     Mockito.when(poolDataSource.getPooledConnection())
         .thenReturn(new DatabricksPooledConnection(databricksConnection));
 
@@ -71,10 +56,9 @@ public class DatabricksConnectionPoolingTest {
 
     Connection connection = pooledConnection.getConnection();
 
-    // TODO(PECO-1328): Add back when connection closing is fixed.
-    //    connection.close();
-    //    List<ConnectionEvent> connectionClosedEvents = listener.getConnectionClosedEvents();
-    //    Assertions.assertEquals(connectionClosedEvents.size(), 1);
+    connection.close();
+    List<ConnectionEvent> connectionClosedEvents = listener.getConnectionClosedEvents();
+    Assertions.assertEquals(connectionClosedEvents.size(), 1);
     Connection actualConnection =
         ((DatabricksPooledConnection) pooledConnection).getPhysicalConnection();
     Assertions.assertFalse(actualConnection.isClosed());
@@ -88,13 +72,12 @@ public class DatabricksConnectionPoolingTest {
   public void testPooledConnectionReuse() throws SQLException {
     DatabricksConnectionPoolDataSource poolDataSource =
         Mockito.mock(DatabricksConnectionPoolDataSource.class);
+    ImmutableSessionInfo session =
+        ImmutableSessionInfo.builder().warehouseId(WAREHOUSE_ID).sessionId(SESSION_ID).build();
+    when(databricksClient.createSession(WAREHOUSE_ID, null, null, null)).thenReturn(session);
 
-    IDatabricksConnectionContext connectionContext =
-        DatabricksConnectionContext.parse(JDBC_URL, new Properties());
     DatabricksConnection databricksConnection =
-        new DatabricksConnection(
-            connectionContext,
-            new DatabricksSdkClient(connectionContext, statementExecutionService, apiClient));
+        new DatabricksConnection(connectionContext, databricksClient);
     Mockito.when(poolDataSource.getPooledConnection())
         .thenReturn(new DatabricksPooledConnection(databricksConnection));
 

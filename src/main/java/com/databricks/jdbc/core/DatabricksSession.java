@@ -38,6 +38,8 @@ public class DatabricksSession implements IDatabricksSession {
     this.isSessionOpen = false;
     this.session = null;
     this.warehouseId = connectionContext.getWarehouse();
+    this.catalog = connectionContext.getCatalog();
+    this.schema = connectionContext.getSchema();
   }
 
   /** Construct method to be used for mocking in a test case. */
@@ -50,6 +52,8 @@ public class DatabricksSession implements IDatabricksSession {
     this.isSessionOpen = false;
     this.session = null;
     this.warehouseId = connectionContext.getWarehouse();
+    this.catalog = connectionContext.getCatalog();
+    this.schema = connectionContext.getSchema();
   }
 
   @Override
@@ -79,7 +83,8 @@ public class DatabricksSession implements IDatabricksSession {
     synchronized (this) {
       if (!isSessionOpen) {
         // TODO: handle errors
-        this.session = databricksClient.createSession(this.warehouseId);
+        this.session =
+            databricksClient.createSession(this.warehouseId, this.catalog, this.schema, null);
         this.isSessionOpen = true;
       }
     }
@@ -88,17 +93,15 @@ public class DatabricksSession implements IDatabricksSession {
   @Override
   public void close() {
     LOGGER.debug("public void close()");
-    // TODO(PECO-1327): Add back when session closing is fixed.
-
-    //    // TODO: check for any pending query executions
-    //    synchronized (this) {
-    //      if (isSessionOpen) {
-    //        // TODO: handle closed connections by server
-    //        databricksClient.deleteSession(this.session.sessionId(), getWarehouseId());
-    //        this.session = null;
-    //        this.isSessionOpen = false;
-    //      }
-    //    }
+    // TODO: check for any pending query executions
+    synchronized (this) {
+      if (isSessionOpen) {
+        // TODO: handle closed connections by server
+        databricksClient.deleteSession(this.session.sessionId(), getWarehouseId());
+        this.session = null;
+        this.isSessionOpen = false;
+      }
+    }
   }
 
   @Override

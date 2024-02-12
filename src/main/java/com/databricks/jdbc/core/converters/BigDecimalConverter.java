@@ -74,7 +74,7 @@ public class BigDecimalConverter extends AbstractObjectConverter {
 
   @Override
   public boolean convertToBoolean() throws DatabricksSQLException {
-    return this.object.equals(BigDecimal.valueOf(0)) ? false : true;
+    return !this.object.equals(BigDecimal.valueOf(0));
   }
 
   @Override

@@ -1,0 +1,31 @@
+package com.databricks.jdbc.core.types;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+public enum CompressionType {
+  NONE(0),
+  LZ4_COMPRESSION(1);
+  private final int compressionTypeVal;
+  private static final Logger LOGGER = LoggerFactory.getLogger(CompressionType.class);
+
+  CompressionType(int value) {
+    this.compressionTypeVal = value;
+  }
+
+  public static CompressionType parseCompressionType(String compressionType) {
+    try {
+      int value = Integer.parseInt(compressionType);
+      for (CompressionType type : values()) {
+        if (type.compressionTypeVal == value) {
+          return type;
+        }
+      }
+    } catch (NumberFormatException ignored) {
+      LOGGER.error(
+          "Invalid compression type provided as input. Compression type should be integer only");
+    }
+    LOGGER.debug("Defaulting to no compression as input is invalid.");
+    return NONE;
+  }
+}

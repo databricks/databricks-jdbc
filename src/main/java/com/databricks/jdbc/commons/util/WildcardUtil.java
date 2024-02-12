@@ -17,6 +17,10 @@ public class WildcardUtil {
     return ASTERISK.equals(s);
   }
 
+  public static boolean isNullOrEmpty(String s) {
+    return s == null || s.trim().isEmpty();
+  }
+
   /**
    * This function checks if the input string is a wildcard string
    *

@@ -1,5 +1,6 @@
 package com.databricks.jdbc.client.sqlexec;
 
+import com.databricks.sdk.support.QueryParam;
 import com.databricks.sdk.support.ToStringer;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import java.util.Objects;
@@ -10,6 +11,7 @@ public class DeleteSessionRequest {
   private String sessionId;
 
   @JsonProperty("warehouse_id")
+  @QueryParam("warehouse_id")
   private String warehouseId;
 
   public DeleteSessionRequest() {}
