@@ -33,6 +33,7 @@ public class DatabricksNewMetadataSdkClientTest {
   private static final String TEST_TABLE = "testTable";
   private static final String TEST_COLUMN = "testColumn";
   private static final String TEST_CATALOG = "catalog1";
+  private static final String TEST_FUNCTION_PATTERN = "functionPattern";
 
   private static Stream<Arguments> listTableTestParams() {
     return Stream.of(
@@ -281,7 +282,45 @@ public class DatabricksNewMetadataSdkClientTest {
   }
 
   @Test
-  void testThrowsErrorResultInCaseOfAllCatalogRegex() {
+  void testTestFunctions() throws SQLException {
+    when(session.getWarehouseId()).thenReturn(WAREHOUSE_ID);
+    DatabricksNewMetadataSdkClient metadataClient = new DatabricksNewMetadataSdkClient(mockClient);
+    String sqlStatement =
+        "SHOW FUNCTIONS IN CATALOG `catalog1` SCHEMA LIKE `testSchema` LIKE `functionPattern`";
+    when(mockClient.executeStatement(
+            sqlStatement,
+            WAREHOUSE_ID,
+            new HashMap<Integer, ImmutableSqlParameter>(),
+            StatementType.METADATA,
+            session,
+            null))
+        .thenReturn(mockedResultSet);
+    when(mockedResultSet.next()).thenReturn(true, false);
+    for (ResultColumn resultColumn : FUNCTION_COLUMNS) {
+      when(mockedResultSet.getObject(resultColumn.getResultSetColumnName()))
+          .thenReturn(TEST_COLUMN);
+    }
+    DatabricksResultSet actualResult =
+        metadataClient.listFunctions(session, TEST_CATALOG, TEST_SCHEMA, TEST_FUNCTION_PATTERN);
+
+    assertEquals(actualResult.getStatementStatus().getState(), StatementState.SUCCEEDED);
+    assertEquals(actualResult.statementId(), GET_FUNCTIONS_STATEMENT_ID);
+    assertEquals(((DatabricksResultSetMetaData) actualResult.getMetaData()).getTotalRows(), 1);
+  }
+/*
+  @Test
+  void testFunctionsThrowError() {
+    DatabricksNewMetadataSdkClient metadataClient = new DatabricksNewMetadataSdkClient(mockClient);
+    assertThrows(
+        DatabricksValidationException.class,
+        () -> metadataClient.listFunctions(session, TEST_CATALOG, TEST_SCHEMA, null));
+    assertThrows(
+        DatabricksValidationException.class,
+        () -> metadataClient.listFunctions(session, TEST_CATALOG, null, TEST_TABLE));
+  }*/
+
+  @Test
+  void testThrowsErrorResultInCaseOfNullCatalog() {
     DatabricksNewMetadataSdkClient metadataClient = new DatabricksNewMetadataSdkClient(mockClient);
     assertThrows(
         DatabricksValidationException.class,
