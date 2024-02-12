@@ -10,7 +10,9 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 public class DatabricksResultSetMetaData implements ResultSetMetaData {
 
@@ -23,12 +25,10 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
 
   // TODO: Add handling for Arrow stream results
 
-  public DatabricksResultSetMetaData(
-      String statementId, ResultManifest resultManifest, IDatabricksSession session) {
+  public DatabricksResultSetMetaData(String statementId, ResultManifest resultManifest) {
     this.statementId = statementId;
-
+    Map<String, Integer> columnNameToIndexMap = new HashMap<>();
     ImmutableList.Builder<ImmutableDatabricksColumn> columnsBuilder = ImmutableList.builder();
-    ImmutableMap.Builder<String, Integer> columnIndexBuilder = ImmutableMap.builder();
     int currIndex = 0;
     if (resultManifest.getSchema().getColumnCount() > 0) {
       for (ColumnInfo columnInfo : resultManifest.getSchema().getColumns()) {
@@ -46,11 +46,11 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
 
         columnsBuilder.add(columnBuilder.build());
         // Keep index starting from 1, to be consistent with JDBC convention
-        columnIndexBuilder.put(columnInfo.getName(), ++currIndex);
+        columnNameToIndexMap.putIfAbsent(columnInfo.getName(), ++currIndex);
       }
     }
     this.columns = columnsBuilder.build();
-    this.columnNameIndex = columnIndexBuilder.build();
+    this.columnNameIndex = ImmutableMap.copyOf(columnNameToIndexMap);
     this.totalRows = resultManifest.getTotalRowCount();
   }
 
@@ -63,8 +63,8 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
       long totalRows) {
     this.statementId = statementId;
 
+    Map<String, Integer> columnNameToIndexMap = new HashMap<>();
     ImmutableList.Builder<ImmutableDatabricksColumn> columnsBuilder = ImmutableList.builder();
-    ImmutableMap.Builder<String, Integer> columnIndexBuilder = ImmutableMap.builder();
     for (int i = 0; i < columnNames.size(); i++) {
       ColumnInfoTypeName columnTypeName =
           ColumnInfoTypeName.valueOf(
@@ -81,10 +81,10 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
           .isSigned(DatabricksTypeUtil.isSigned(columnTypeName));
       columnsBuilder.add(columnBuilder.build());
       // Keep index starting from 1, to be consistent with JDBC convention
-      columnIndexBuilder.put(columnNames.get(i), i + 1);
+      columnNameToIndexMap.putIfAbsent(columnNames.get(i), i + 1);
     }
     this.columns = columnsBuilder.build();
-    this.columnNameIndex = columnIndexBuilder.build();
+    this.columnNameIndex = ImmutableMap.copyOf(columnNameToIndexMap);
     this.totalRows = totalRows;
   }
 
