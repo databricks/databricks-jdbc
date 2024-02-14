@@ -1,7 +1,8 @@
 package com.databricks.jdbc.driver;
 
+import static org.apache.http.entity.ContentType.APPLICATION_JSON;
+
 import com.databricks.sdk.core.DatabricksException;
-import com.databricks.sdk.core.commons.CommonsHttpClient;
 import com.databricks.sdk.core.http.HttpClient;
 import com.databricks.sdk.core.http.Request;
 import com.databricks.sdk.core.http.Response;
@@ -26,7 +27,6 @@ import org.apache.http.conn.socket.ConnectionSocketFactory;
 import org.apache.http.conn.socket.PlainConnectionSocketFactory;
 import org.apache.http.conn.ssl.NoopHostnameVerifier;
 import org.apache.http.conn.ssl.SSLConnectionSocketFactory;
-import org.apache.http.entity.ContentType;
 import org.apache.http.entity.InputStreamEntity;
 import org.apache.http.entity.StringEntity;
 import org.apache.http.impl.client.CloseableHttpClient;
@@ -36,7 +36,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class DatabricksCommonHttpClient implements HttpClient {
-  private static final Logger LOG = LoggerFactory.getLogger(CommonsHttpClient.class);
+  private static final Logger LOG =
+      LoggerFactory.getLogger(com.databricks.jdbc.driver.DatabricksCommonHttpClient.class);
   private PoolingHttpClientConnectionManager connectionManager = null;
   private final CloseableHttpClient hc;
   private int timeout;
@@ -46,14 +47,13 @@ public class DatabricksCommonHttpClient implements HttpClient {
   private SSLConnectionSocketFactory sslFactory;
 
   public DatabricksCommonHttpClient(int timeoutSeconds) {
-    this.timeout = timeoutSeconds * 1000;
+    timeout = timeoutSeconds * 1000;
     this.connectionManager = new PoolingHttpClientConnectionManager();
-    this.connectionManager.setMaxTotal(100);
-    this.hc = this.makeClosableHttpClient();
+    connectionManager.setMaxTotal(100);
+    hc = makeClosableHttpClient();
   }
 
   public DatabricksCommonHttpClient(int timeoutSeconds, SSLContext sslContext) {
-    System.out.println("Madhav's logs - Gets to CommonHTTPClient");
     this.timeout = timeoutSeconds * 1000;
     this.sslContext = sslContext;
     this.sslFactory = new SSLConnectionSocketFactory(sslContext, NoopHostnameVerifier.INSTANCE);
@@ -69,108 +69,86 @@ public class DatabricksCommonHttpClient implements HttpClient {
 
   private RequestConfig makeRequestConfig() {
     return RequestConfig.custom()
-        .setConnectionRequestTimeout(this.timeout)
-        .setConnectTimeout(this.timeout)
-        .setSocketTimeout(this.timeout)
+        .setConnectionRequestTimeout(timeout)
+        .setConnectTimeout(timeout)
+        .setSocketTimeout(timeout)
         .build();
   }
 
   private CloseableHttpClient makeClosableHttpClient() {
     return HttpClientBuilder.create()
-        .setConnectionManager(this.connectionManager)
-        .setSSLSocketFactory(this.sslFactory)
-        .setDefaultRequestConfig(this.makeRequestConfig())
+        .setConnectionManager(connectionManager)
+        .setDefaultRequestConfig(makeRequestConfig())
         .build();
   }
 
+  @Override
   public Response execute(Request in) throws IOException {
-    HttpUriRequest request = this.transformRequest(in);
+    HttpUriRequest request = transformRequest(in);
+    boolean handleRedirects = in.getRedirectionBehavior().orElse(true);
+    if (!handleRedirects) {
+      request.getParams().setParameter("http.protocol.handle-redirects", false);
+    }
     in.getHeaders().forEach(request::setHeader);
-    CloseableHttpResponse response = this.hc.execute(request);
-    return this.computeResponse(in, response);
+    CloseableHttpResponse response = hc.execute(request);
+    return computeResponse(in, response);
   }
 
   private Response computeResponse(Request in, CloseableHttpResponse response) throws IOException {
     HttpEntity entity = response.getEntity();
     StatusLine statusLine = response.getStatusLine();
     Map<String, List<String>> hs =
-        (Map)
-            Arrays.stream(response.getAllHeaders())
-                .collect(
-                    Collectors.groupingBy(
-                        NameValuePair::getName,
-                        Collectors.mapping(NameValuePair::getValue, Collectors.toList())));
+        Arrays.stream(response.getAllHeaders())
+            .collect(
+                Collectors.groupingBy(
+                    NameValuePair::getName,
+                    Collectors.mapping(NameValuePair::getValue, Collectors.toList())));
     if (entity == null) {
       response.close();
       return new Response(in, statusLine.getStatusCode(), statusLine.getReasonPhrase(), hs);
-    } else {
-      boolean streamResponse =
-          in.getHeaders().containsKey("Accept")
-              && !ContentType.APPLICATION_JSON.getMimeType().equals(in.getHeaders().get("Accept"))
-              && !ContentType.APPLICATION_JSON
-                  .getMimeType()
-                  .equals(response.getFirstHeader("Content-Type").getValue());
-      if (streamResponse) {
-        CustomCloseInputStream inputStream =
-            new CustomCloseInputStream(
-                entity.getContent(),
-                () -> {
-                  try {
-                    response.close();
-                  } catch (Exception var2) {
-                    throw new DatabricksException("Unable to close connection", var2);
-                  }
-                });
-        return new Response(
-            in, statusLine.getStatusCode(), statusLine.getReasonPhrase(), hs, inputStream);
-      } else {
-        Response var10;
-        try {
-          InputStream inputStream = entity.getContent();
-          Throwable var8 = null;
+    }
 
-          try {
-            String body = IOUtils.toString(inputStream, StandardCharsets.UTF_8);
-            var10 =
-                new Response(
-                    in, statusLine.getStatusCode(), statusLine.getReasonPhrase(), hs, body);
-          } catch (Throwable var26) {
-            var8 = var26;
-            throw var26;
-          } finally {
-            if (inputStream != null) {
-              if (var8 != null) {
+    boolean streamResponse =
+        in.getHeaders().containsKey("Accept")
+            && !APPLICATION_JSON.getMimeType().equals(in.getHeaders().get("Accept"))
+            && !APPLICATION_JSON
+                .getMimeType()
+                .equals(response.getFirstHeader("Content-Type").getValue());
+    if (streamResponse) {
+      CustomCloseInputStream inputStream =
+          new CustomCloseInputStream(
+              entity.getContent(),
+              () -> {
                 try {
-                  inputStream.close();
-                } catch (Throwable var25) {
-                  var8.addSuppressed(var25);
+                  response.close();
+                } catch (Exception e) {
+                  throw new DatabricksException("Unable to close connection", e);
                 }
-              } else {
-                inputStream.close();
-              }
-            }
-          }
-        } finally {
-          response.close();
-        }
+              });
+      return new Response(
+          in, statusLine.getStatusCode(), statusLine.getReasonPhrase(), hs, inputStream);
+    }
 
-        return var10;
-      }
+    try (InputStream inputStream = entity.getContent()) {
+      String body = IOUtils.toString(inputStream, StandardCharsets.UTF_8);
+      return new Response(in, statusLine.getStatusCode(), statusLine.getReasonPhrase(), hs, body);
+    } finally {
+      response.close();
     }
   }
 
   private HttpUriRequest transformRequest(Request in) {
     switch (in.getMethod()) {
-      case "GET":
+      case Request.GET:
         return new HttpGet(in.getUri());
-      case "DELETE":
+      case Request.DELETE:
         return new HttpDelete(in.getUri());
-      case "POST":
-        return this.withEntity(new HttpPost(in.getUri()), in);
-      case "PUT":
-        return this.withEntity(new HttpPut(in.getUri()), in);
-      case "PATCH":
-        return this.withEntity(new HttpPatch(in.getUri()), in);
+      case Request.POST:
+        return withEntity(new HttpPost(in.getUri()), in);
+      case Request.PUT:
+        return withEntity(new HttpPut(in.getUri()), in);
+      case Request.PATCH:
+        return withEntity(new HttpPatch(in.getUri()), in);
       default:
         throw new IllegalArgumentException("Unknown method: " + in.getMethod());
     }
@@ -186,7 +164,6 @@ public class DatabricksCommonHttpClient implements HttpClient {
           "withEntity called with a request with no body, so no request entity will be set. URI: {}",
           in.getUri());
     }
-
     return request;
   }
 }
