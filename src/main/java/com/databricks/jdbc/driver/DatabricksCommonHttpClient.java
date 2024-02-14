@@ -47,6 +47,7 @@ public class DatabricksCommonHttpClient implements HttpClient {
 
   public DatabricksCommonHttpClient(int timeoutSeconds) {
     this.timeout = timeoutSeconds * 1000;
+    this.connectionManager = new PoolingHttpClientConnectionManager();
     this.connectionManager.setMaxTotal(100);
     this.hc = this.makeClosableHttpClient();
   }
@@ -75,8 +76,6 @@ public class DatabricksCommonHttpClient implements HttpClient {
   }
 
   private CloseableHttpClient makeClosableHttpClient() {
-    System.out.println(
-        "Madhav's logs - Gets to makeClosableHttpClient " + this.sslContext.toString());
     return HttpClientBuilder.create()
         .setConnectionManager(this.connectionManager)
         .setSSLSocketFactory(this.sslFactory)
