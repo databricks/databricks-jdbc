@@ -5,6 +5,7 @@ import com.databricks.jdbc.client.DatabricksMetadataClient;
 import com.databricks.jdbc.client.impl.sdk.DatabricksMetadataSdkClient;
 import com.databricks.jdbc.client.impl.sdk.DatabricksSdkClient;
 import com.databricks.jdbc.driver.IDatabricksConnectionContext;
+import com.databricks.sdk.support.ToStringer;
 import com.google.common.annotations.VisibleForTesting;
 import javax.annotation.Nullable;
 import org.slf4j.Logger;
@@ -138,5 +139,15 @@ public class DatabricksSession implements IDatabricksSession {
   public void setSchema(String schema) {
     LOGGER.debug("public void setSchema(String schema = {})", schema);
     this.schema = schema;
+  }
+
+  @Override
+  public String toString() {
+    return (new ToStringer(DatabricksSession.class))
+        .add("warehouseId", this.warehouseId)
+        .add("catalog", this.catalog)
+        .add("schema", this.schema)
+        .add("sessionID", this.getSessionId())
+        .toString();
   }
 }

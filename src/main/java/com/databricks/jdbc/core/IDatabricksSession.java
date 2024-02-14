@@ -52,4 +52,6 @@ public interface IDatabricksSession {
 
   /** Sets the default schema */
   void setSchema(String schema);
+
+  String toString();
 }

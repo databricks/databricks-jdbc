@@ -10,15 +10,18 @@ import com.databricks.jdbc.core.IDatabricksSession;
 import java.sql.SQLException;
 import java.util.Collections;
 import java.util.HashMap;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class CommandBuilder {
+  private static final Logger LOGGER = LoggerFactory.getLogger(CommandBuilder.class);
   private String catalogName = null;
   private String schemaName = null;
   private String tableName = null;
   private String schemaPattern = null;
   private String tablePattern = null;
   private String columnPattern = null;
-  private String functionNamePattern = null;
+  private String functionPattern = null;
 
   private final String sessionContext;
 
@@ -45,21 +48,25 @@ public class CommandBuilder {
 
   public CommandBuilder setSchemaPattern(String pattern) {
     this.schemaPattern = WildcardUtil.jdbcPatternToHive(pattern);
+    LOGGER.debug("Schema pattern conversion {} -> {}", pattern, schemaPattern);
     return this;
   }
 
   public CommandBuilder setTablePattern(String pattern) {
     this.tablePattern = WildcardUtil.jdbcPatternToHive(pattern);
+    LOGGER.debug("Table pattern conversion {} -> {}", pattern, tablePattern);
     return this;
   }
 
   public CommandBuilder setColumnPattern(String pattern) {
     this.columnPattern = WildcardUtil.jdbcPatternToHive(pattern);
+    LOGGER.debug("Column pattern conversion {} -> {}", pattern, columnPattern);
     return this;
   }
 
   public CommandBuilder setFunctionPattern(String pattern) {
-    this.functionNamePattern = WildcardUtil.jdbcPatternToHive(pattern);
+    this.functionPattern = WildcardUtil.jdbcPatternToHive(pattern);
+    LOGGER.debug("Function pattern conversion {} -> {}", pattern, functionPattern);
     return this;
   }
 
@@ -68,6 +75,10 @@ public class CommandBuilder {
   }
 
   private String fetchSchemaSQL() throws SQLException {
+    LOGGER.debug(
+        "Building command for fetching schema. Catalog {}, SchemaPattern {}",
+        catalogName,
+        schemaPattern);
     String showSchemaSQL = String.format(SHOW_SCHEMA_IN_CATALOG_SQL, catalogName);
     if (!WildcardUtil.isNullOrEmpty(schemaPattern)) {
       showSchemaSQL += String.format(LIKE_SQL, schemaPattern);
@@ -76,6 +87,11 @@ public class CommandBuilder {
   }
 
   private String fetchTablesSQL() throws SQLException {
+    LOGGER.debug(
+        "Building command for fetching tables. Catalog {}, SchemaPattern {}, TablePattern {}",
+        catalogName,
+        schemaPattern,
+        tablePattern);
     String showTablesSQL = String.format(SHOW_TABLES_SQL, catalogName);
     if (!WildcardUtil.isNullOrEmpty(schemaPattern)) {
       showTablesSQL += String.format(SCHEMA_LIKE_SQL, schemaPattern);
@@ -87,6 +103,12 @@ public class CommandBuilder {
   }
 
   private String fetchColumnsSQL() throws SQLException {
+    LOGGER.debug(
+        "Building command for fetching columns. Catalog {}, SchemaPattern {}, TablePattern {}, ColumnPattern {}",
+        catalogName,
+        schemaPattern,
+        tablePattern,
+        columnPattern);
     String showColumnsSQL = String.format(SHOW_COLUMNS_SQL, catalogName);
 
     if (!WildcardUtil.isNullOrEmpty(schemaPattern)) {
@@ -104,12 +126,17 @@ public class CommandBuilder {
   }
 
   private String fetchFunctionsSQL() throws SQLException {
+    LOGGER.debug(
+        "Building command for fetching functions. Catalog {}, SchemaPattern {}, FunctionPattern {}",
+        catalogName,
+        schemaPattern,
+        functionPattern);
     String showFunctionsSQL = String.format(SHOW_FUNCTIONS_SQL, catalogName);
     if (!WildcardUtil.isNullOrEmpty(schemaPattern)) {
       showFunctionsSQL += String.format(SCHEMA_LIKE_SQL, schemaPattern);
     }
-    if (!WildcardUtil.isNullOrEmpty(functionNamePattern)) {
-      showFunctionsSQL += String.format(LIKE_SQL, functionNamePattern);
+    if (!WildcardUtil.isNullOrEmpty(functionPattern)) {
+      showFunctionsSQL += String.format(LIKE_SQL, functionPattern);
     }
     return showFunctionsSQL;
   }
@@ -119,6 +146,11 @@ public class CommandBuilder {
   }
 
   private String fetchPrimaryKeysSQL() throws SQLException {
+    LOGGER.debug(
+        "Building command for fetching primary keys. Catalog {}, Schema {}, Table {}",
+        catalogName,
+        schemaName,
+        tableName);
     HashMap<String, String> hashMap = new HashMap<>();
     hashMap.put(SCHEMA, schemaName);
     hashMap.put(TABLE, tableName);
