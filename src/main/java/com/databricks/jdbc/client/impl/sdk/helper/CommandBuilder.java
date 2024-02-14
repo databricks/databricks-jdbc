@@ -27,8 +27,6 @@ public class CommandBuilder {
 
   public CommandBuilder(String catalogName, IDatabricksSession session) throws SQLException {
     this.sessionContext = session.toString();
-    throwErrorIfNull(
-        Collections.singletonMap(CATALOG, catalogName), sessionContext); // Validating input
     this.catalogName = catalogName;
   }
 
@@ -75,10 +73,12 @@ public class CommandBuilder {
   }
 
   private String fetchSchemaSQL() throws SQLException {
-    LOGGER.debug(
-        "Building command for fetching schema. Catalog {}, SchemaPattern {}",
-        catalogName,
-        schemaPattern);
+    String contextString =
+        String.format(
+            "Building command for fetching schema. Catalog %s, SchemaPattern %s and session context %s",
+            catalogName, schemaPattern, sessionContext);
+    LOGGER.debug(contextString);
+    throwErrorIfNull(Collections.singletonMap(CATALOG, catalogName), contextString);
     String showSchemaSQL = String.format(SHOW_SCHEMA_IN_CATALOG_SQL, catalogName);
     if (!WildcardUtil.isNullOrEmpty(schemaPattern)) {
       showSchemaSQL += String.format(LIKE_SQL, schemaPattern);
@@ -87,11 +87,12 @@ public class CommandBuilder {
   }
 
   private String fetchTablesSQL() throws SQLException {
-    LOGGER.debug(
-        "Building command for fetching tables. Catalog {}, SchemaPattern {}, TablePattern {}",
-        catalogName,
-        schemaPattern,
-        tablePattern);
+    String contextString =
+        String.format(
+            "Building command for fetching tables. Catalog %s, SchemaPattern %s, TablePattern %s and session context %s",
+            catalogName, schemaPattern, tablePattern, sessionContext);
+    LOGGER.debug(contextString);
+    throwErrorIfNull(Collections.singletonMap(CATALOG, catalogName), contextString);
     String showTablesSQL = String.format(SHOW_TABLES_SQL, catalogName);
     if (!WildcardUtil.isNullOrEmpty(schemaPattern)) {
       showTablesSQL += String.format(SCHEMA_LIKE_SQL, schemaPattern);
@@ -103,12 +104,12 @@ public class CommandBuilder {
   }
 
   private String fetchColumnsSQL() throws SQLException {
-    LOGGER.debug(
-        "Building command for fetching columns. Catalog {}, SchemaPattern {}, TablePattern {}, ColumnPattern {}",
-        catalogName,
-        schemaPattern,
-        tablePattern,
-        columnPattern);
+    String contextString =
+        String.format(
+            "Building command for fetching columns. Catalog %s, SchemaPattern %s, TablePattern %s, ColumnPattern %s and session context : %s",
+            catalogName, schemaPattern, tablePattern, columnPattern, sessionContext);
+    LOGGER.debug(contextString);
+    throwErrorIfNull(Collections.singletonMap(CATALOG, catalogName), contextString);
     String showColumnsSQL = String.format(SHOW_COLUMNS_SQL, catalogName);
 
     if (!WildcardUtil.isNullOrEmpty(schemaPattern)) {
@@ -126,11 +127,13 @@ public class CommandBuilder {
   }
 
   private String fetchFunctionsSQL() throws SQLException {
-    LOGGER.debug(
-        "Building command for fetching functions. Catalog {}, SchemaPattern {}, FunctionPattern {}",
-        catalogName,
-        schemaPattern,
-        functionPattern);
+    String contextString =
+        String.format(
+            "Building command for fetching functions. Catalog %s, SchemaPattern %s, FunctionPattern %s. With session context %s",
+            catalogName, schemaPattern, functionPattern, sessionContext);
+
+    LOGGER.debug(contextString);
+    throwErrorIfNull(Collections.singletonMap(CATALOG, catalogName), contextString);
     String showFunctionsSQL = String.format(SHOW_FUNCTIONS_SQL, catalogName);
     if (!WildcardUtil.isNullOrEmpty(schemaPattern)) {
       showFunctionsSQL += String.format(SCHEMA_LIKE_SQL, schemaPattern);
@@ -146,15 +149,16 @@ public class CommandBuilder {
   }
 
   private String fetchPrimaryKeysSQL() throws SQLException {
-    LOGGER.debug(
-        "Building command for fetching primary keys. Catalog {}, Schema {}, Table {}",
-        catalogName,
-        schemaName,
-        tableName);
+    String contextString =
+        String.format(
+            "Building command for fetching primary keys. Catalog %s, Schema %s, Table %s. With session context: %s",
+            catalogName, schemaName, tableName, sessionContext);
+    LOGGER.debug(contextString);
     HashMap<String, String> hashMap = new HashMap<>();
+    hashMap.put(CATALOG, catalogName);
     hashMap.put(SCHEMA, schemaName);
     hashMap.put(TABLE, tableName);
-    throwErrorIfNull(hashMap, sessionContext);
+    throwErrorIfNull(hashMap, contextString);
     return String.format(SHOW_PRIMARY_KEYS_SQL, catalogName, schemaName, tableName);
   }
 
