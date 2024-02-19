@@ -28,7 +28,14 @@ public class DecompressionUtil {
   public static InputStream decompress(
       InputStream compressedInputStream, CompressionType compressionType, String context)
       throws DatabricksSQLException {
+    if (compressionType == null) {
+      LOGGER.debug("Compression is `NULL`. Skipping compression for context {}", context);
+      return compressedInputStream;
+    }
     switch (compressionType) {
+      case NONE:
+        LOGGER.debug("Compression is `NONE`. Skipping compression for context {}", context);
+        return compressedInputStream;
       case LZ4_COMPRESSION:
         return decompressLZ4Frame(compressedInputStream, context);
       default:

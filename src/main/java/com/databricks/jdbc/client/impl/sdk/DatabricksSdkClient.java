@@ -230,6 +230,7 @@ public class DatabricksSdkClient implements DatabricksClient {
             .setWarehouseId(warehouseId)
             .setDisposition(disposition)
             .setFormat(format)
+            .setCompressionType(session.getCompressionType())
             .setWaitTimeout(SYNC_TIMEOUT_VALUE)
             .setOnWaitTimeout(ExecuteStatementRequestOnWaitTimeout.CONTINUE)
             .setParameters(collect);

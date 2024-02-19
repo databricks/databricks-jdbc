@@ -10,6 +10,7 @@ import com.databricks.jdbc.client.impl.sdk.DatabricksSdkClient;
 import com.databricks.jdbc.client.sqlexec.ExternalLink;
 import com.databricks.jdbc.client.sqlexec.ResultData;
 import com.databricks.jdbc.client.sqlexec.ResultManifest;
+import com.databricks.jdbc.core.types.CompressionType;
 import com.databricks.jdbc.driver.DatabricksConnectionContext;
 import com.databricks.jdbc.driver.IDatabricksConnectionContext;
 import com.databricks.sdk.service.sql.BaseChunkInfo;
@@ -47,9 +48,6 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
 public class ArrowStreamResultTest {
-
-  private ArrayList<ArrowResultChunk> resultChunks = new ArrayList<>();
-
   private List<BaseChunkInfo> chunkInfos = new ArrayList<>();
 
   private int numberOfChunks = 10;
@@ -91,6 +89,7 @@ public class ArrowStreamResultTest {
             .setTotalChunkCount((long) this.numberOfChunks)
             .setTotalRowCount(this.numberOfChunks * 110L)
             .setTotalByteCount(1000L)
+            .setCompressionType(CompressionType.NONE)
             .setChunks(this.chunkInfos)
             .setSchema(new ResultSchema().setColumns(new ArrayList<>()).setColumnCount(0L));
 
@@ -126,6 +125,7 @@ public class ArrowStreamResultTest {
             .setTotalChunkCount((long) this.numberOfChunks)
             .setTotalRowCount(this.numberOfChunks * 110L)
             .setTotalByteCount(1000L)
+            .setCompressionType(CompressionType.NONE)
             .setChunks(this.chunkInfos)
             .setSchema(
                 new ResultSchema()

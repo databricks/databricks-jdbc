@@ -84,7 +84,10 @@ public class ChunkDownloader {
       chunkIndexMap.put(
           chunkInfo.getChunkIndex(),
           new ArrowResultChunk(
-              chunkInfo, new RootAllocator(/* limit= */ Integer.MAX_VALUE), statementId));
+              chunkInfo,
+              new RootAllocator(/* limit= */ Integer.MAX_VALUE),
+              statementId,
+              resultManifest.getCompressionType()));
     }
 
     for (ExternalLink externalLink : resultData.getExternalLinks()) {

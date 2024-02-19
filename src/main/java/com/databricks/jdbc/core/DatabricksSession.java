@@ -4,6 +4,7 @@ import com.databricks.jdbc.client.DatabricksClient;
 import com.databricks.jdbc.client.DatabricksMetadataClient;
 import com.databricks.jdbc.client.impl.sdk.DatabricksMetadataSdkClient;
 import com.databricks.jdbc.client.impl.sdk.DatabricksSdkClient;
+import com.databricks.jdbc.core.types.CompressionType;
 import com.databricks.jdbc.driver.IDatabricksConnectionContext;
 import com.google.common.annotations.VisibleForTesting;
 import java.util.Map;
@@ -28,6 +29,7 @@ public class DatabricksSession implements IDatabricksSession {
   private String schema;
 
   private Map<String, String> sessionConfigs;
+  private CompressionType compressionType;
 
   /**
    * Creates an instance of Databricks session for given connection context
@@ -44,6 +46,7 @@ public class DatabricksSession implements IDatabricksSession {
     this.catalog = connectionContext.getCatalog();
     this.schema = connectionContext.getSchema();
     this.sessionConfigs = connectionContext.getSessionConfigs();
+    this.compressionType = connectionContext.getCompressionType();
   }
 
   /** Construct method to be used for mocking in a test case. */
@@ -59,6 +62,7 @@ public class DatabricksSession implements IDatabricksSession {
     this.catalog = connectionContext.getCatalog();
     this.schema = connectionContext.getSchema();
     this.sessionConfigs = connectionContext.getSessionConfigs();
+    this.compressionType = connectionContext.getCompressionType();
   }
 
   @Override
@@ -72,6 +76,12 @@ public class DatabricksSession implements IDatabricksSession {
   public String getWarehouseId() {
     LOGGER.debug("public String getWarehouseId()");
     return warehouseId;
+  }
+
+  @Override
+  public CompressionType getCompressionType() {
+    LOGGER.debug("public String getWarehouseId()");
+    return compressionType;
   }
 
   @Override
