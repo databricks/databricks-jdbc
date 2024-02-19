@@ -35,10 +35,20 @@ public class ResultManifest {
 
   @JsonProperty("compression_codec")
   private CompressionType compressionType;
+
   public ResultManifest() {}
 
   public ResultManifest setChunks(Collection<BaseChunkInfo> chunks) {
     this.chunks = chunks;
+    return this;
+  }
+
+  public CompressionType getCompressionType() {
+    return this.compressionType;
+  }
+
+  public ResultManifest setCompressionType(CompressionType compressionType) {
+    this.compressionType = compressionType;
     return this;
   }
 
