@@ -43,7 +43,6 @@ public class DatabricksNewMetadataSdkClient implements DatabricksMetadataClient 
     CommandBuilder commandBuilder = new CommandBuilder(session);
     String SQL = commandBuilder.getSQLString(CommandName.LIST_CATALOGS);
     LOGGER.debug("SQL command to fetch catalogs: {}", SQL);
-    ResultSet resultSet = getResultSet(SQL, session);
     return MetadataResultSetBuilder.getCatalogsResult(getResultSet(SQL, session));
   }
 

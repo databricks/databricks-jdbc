@@ -3,17 +3,29 @@ package com.databricks.jdbc.client.impl.thrift;
 import com.databricks.jdbc.client.DatabricksClient;
 import com.databricks.jdbc.client.DatabricksMetadataClient;
 import com.databricks.jdbc.client.StatementType;
+import com.databricks.jdbc.client.impl.sdk.DatabricksSdkClient;
 import com.databricks.jdbc.client.sqlexec.ExternalLink;
 import com.databricks.jdbc.core.*;
+import com.databricks.jdbc.driver.IDatabricksConnectionContext;
 import java.sql.SQLException;
 import java.util.Collection;
 import java.util.Map;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class DatabricksThriftClient implements DatabricksClient, DatabricksMetadataClient {
+
+  private static final Logger LOGGER = LoggerFactory.getLogger(DatabricksSdkClient.class);
+  private final IDatabricksConnectionContext connectionContext;
+
   @Override
   public ImmutableSessionInfo createSession(
       String warehouseId, String catalog, String schema, Map<String, String> sessionConf) {
     throw new UnsupportedOperationException();
+  }
+
+  public DatabricksThriftClient(IDatabricksConnectionContext connectionContext) {
+    this.connectionContext = connectionContext;
   }
 
   @Override

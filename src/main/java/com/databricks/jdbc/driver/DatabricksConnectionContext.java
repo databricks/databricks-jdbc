@@ -258,4 +258,10 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
                     .anyMatch(allowedConf -> allowedConf.equals(e.getKey())))
         .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
   }
+
+  @Override
+  public boolean isAllPurposeCluster() {
+  //TODO : fix this.
+    return false;
+  }
 }

@@ -77,4 +77,6 @@ public interface IDatabricksConnectionContext {
   String getSchema();
 
   Map<String, String> getSessionConfigs();
+
+  boolean isAllPurposeCluster();
 }
