@@ -9,19 +9,18 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import net.jpountz.lz4.LZ4FrameOutputStream;
+import org.apache.commons.io.IOUtils;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.junit.jupiter.MockitoExtension;
 
-@ExtendWith(MockitoExtension.class)
 public class DecompressionUtilTest {
   private static final String CONTEXT = "testContext";
+  private static final String INITIAL_STRING = "testData";
   private static InputStream compressedInputStream;
 
   @BeforeAll
   public static void setCompressedInputStream() throws IOException {
-    byte[] uncompressedData = "testData".getBytes();
+    byte[] uncompressedData = INITIAL_STRING.getBytes();
     ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
     try (LZ4FrameOutputStream lz4FrameOutputStream =
         new LZ4FrameOutputStream(byteArrayOutputStream)) {
@@ -36,6 +35,8 @@ public class DecompressionUtilTest {
         DecompressionUtil.decompress(
             compressedInputStream, CompressionType.LZ4_COMPRESSION, CONTEXT);
     assertNotNull(resultStream, "The decompressed stream should not be null.");
+    assertTrue(
+        IOUtils.contentEquals(resultStream, new ByteArrayInputStream(INITIAL_STRING.getBytes())));
   }
 
   @Test
