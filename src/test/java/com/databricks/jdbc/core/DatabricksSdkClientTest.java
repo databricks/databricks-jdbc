@@ -14,6 +14,7 @@ import com.databricks.jdbc.client.sqlexec.*;
 import com.databricks.jdbc.client.sqlexec.ExecuteStatementRequest;
 import com.databricks.jdbc.client.sqlexec.ExecuteStatementResponse;
 import com.databricks.jdbc.client.sqlexec.ResultData;
+import com.databricks.jdbc.core.types.Warehouse;
 import com.databricks.jdbc.driver.DatabricksConnectionContext;
 import com.databricks.jdbc.driver.IDatabricksConnectionContext;
 import com.databricks.sdk.core.ApiClient;
@@ -106,14 +107,14 @@ public class DatabricksSdkClientTest {
   }
 
   @Test
-  public void testCreateSession() {
+  public void testCreateSession() throws DatabricksSQLException {
     setupSessionMocks();
     IDatabricksConnectionContext connectionContext =
         DatabricksConnectionContext.parse(JDBC_URL, new Properties());
     DatabricksSdkClient databricksSdkClient =
         new DatabricksSdkClient(connectionContext, statementExecutionService, apiClient);
     ImmutableSessionInfo sessionInfo =
-        databricksSdkClient.createSession(WAREHOUSE_ID, null, null, null);
+        databricksSdkClient.createSession(new Warehouse(WAREHOUSE_ID), null, null, null);
     assertEquals(sessionInfo.sessionId(), SESSION_ID);
     assertEquals(sessionInfo.warehouseId(), WAREHOUSE_ID);
   }

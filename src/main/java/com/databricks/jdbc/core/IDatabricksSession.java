@@ -21,7 +21,7 @@ public interface IDatabricksSession {
    *
    * @return warehouse-Id
    */
-  String getWarehouseId();
+  String getWarehouseId() throws DatabricksSQLException;
 
   /**
    * Checks if session is open and valid.

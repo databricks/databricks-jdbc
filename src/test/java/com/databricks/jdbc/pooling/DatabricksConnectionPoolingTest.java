@@ -1,12 +1,13 @@
 package com.databricks.jdbc.pooling;
 
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 
 import com.databricks.jdbc.client.impl.sdk.DatabricksSdkClient;
 import com.databricks.jdbc.core.DatabricksConnection;
+import com.databricks.jdbc.core.DatabricksSQLException;
 import com.databricks.jdbc.core.ImmutableSessionInfo;
+import com.databricks.jdbc.core.types.Warehouse;
 import com.databricks.jdbc.driver.DatabricksConnectionContext;
 import com.databricks.jdbc.driver.IDatabricksConnectionContext;
 import java.sql.Connection;
@@ -35,7 +36,7 @@ public class DatabricksConnectionPoolingTest {
   private static IDatabricksConnectionContext connectionContext;
 
   @BeforeAll
-  public static void setUp() {
+  public static void setUp() throws DatabricksSQLException {
     connectionContext = DatabricksConnectionContext.parse(JDBC_URL, new Properties());
   }
 
@@ -45,7 +46,8 @@ public class DatabricksConnectionPoolingTest {
         Mockito.mock(DatabricksConnectionPoolDataSource.class);
     ImmutableSessionInfo session =
         ImmutableSessionInfo.builder().warehouseId(WAREHOUSE_ID).sessionId(SESSION_ID).build();
-    when(databricksClient.createSession(eq(WAREHOUSE_ID), any(), any(), any())).thenReturn(session);
+    when(databricksClient.createSession(new Warehouse(WAREHOUSE_ID), any(), any(), any()))
+        .thenReturn(session);
 
     DatabricksConnection databricksConnection =
         new DatabricksConnection(connectionContext, databricksClient);
@@ -76,7 +78,8 @@ public class DatabricksConnectionPoolingTest {
         Mockito.mock(DatabricksConnectionPoolDataSource.class);
     ImmutableSessionInfo session =
         ImmutableSessionInfo.builder().warehouseId(WAREHOUSE_ID).sessionId(SESSION_ID).build();
-    when(databricksClient.createSession(eq(WAREHOUSE_ID), any(), any(), any())).thenReturn(session);
+    when(databricksClient.createSession(new Warehouse(WAREHOUSE_ID), any(), any(), any()))
+        .thenReturn(session);
 
     DatabricksConnection databricksConnection =
         new DatabricksConnection(connectionContext, databricksClient);

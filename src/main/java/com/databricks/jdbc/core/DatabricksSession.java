@@ -5,6 +5,8 @@ import com.databricks.jdbc.client.DatabricksMetadataClient;
 import com.databricks.jdbc.client.impl.sdk.DatabricksMetadataSdkClient;
 import com.databricks.jdbc.client.impl.sdk.DatabricksSdkClient;
 import com.databricks.jdbc.client.impl.thrift.DatabricksThriftClient;
+import com.databricks.jdbc.core.types.ComputeResource;
+import com.databricks.jdbc.core.types.Warehouse;
 import com.databricks.jdbc.driver.IDatabricksConnectionContext;
 import com.google.common.annotations.VisibleForTesting;
 import java.util.Map;
@@ -18,7 +20,7 @@ public class DatabricksSession implements IDatabricksSession {
   private static final Logger LOGGER = LoggerFactory.getLogger(DatabricksSession.class);
   private final DatabricksClient databricksClient;
   private final DatabricksMetadataClient databricksMetadataClient;
-  private final String warehouseId;
+  private final ComputeResource computeResource;
 
   private boolean isSessionOpen;
   private ImmutableSessionInfo session;
@@ -45,7 +47,7 @@ public class DatabricksSession implements IDatabricksSession {
         new DatabricksMetadataSdkClient((DatabricksSdkClient) databricksClient);
     this.isSessionOpen = false;
     this.session = null;
-    this.warehouseId = connectionContext.getWarehouse();
+    this.computeResource = connectionContext.getComputeResource();
     this.catalog = connectionContext.getCatalog();
     this.schema = connectionContext.getSchema();
     this.sessionConfigs = connectionContext.getSessionConfigs();
@@ -60,7 +62,7 @@ public class DatabricksSession implements IDatabricksSession {
         new DatabricksMetadataSdkClient((DatabricksSdkClient) databricksClient);
     this.isSessionOpen = false;
     this.session = null;
-    this.warehouseId = connectionContext.getWarehouse();
+    this.computeResource = connectionContext.getComputeResource();
     this.catalog = connectionContext.getCatalog();
     this.schema = connectionContext.getSchema();
     this.sessionConfigs = connectionContext.getSessionConfigs();
@@ -74,9 +76,14 @@ public class DatabricksSession implements IDatabricksSession {
   }
 
   @Override
-  public String getWarehouseId() {
+  public String getWarehouseId() throws DatabricksSQLException {
     LOGGER.debug("public String getWarehouseId()");
-    return warehouseId;
+    if (computeResource instanceof Warehouse) {
+      return ((Warehouse) computeResource).getWarehouseId();
+    }
+    throw new DatabricksSQLException(
+        "Input compute is not instance of warehouse. Can't fetch warehouseId : "
+            + computeResource.toString());
   }
 
   @Override
@@ -95,7 +102,7 @@ public class DatabricksSession implements IDatabricksSession {
         // TODO: handle errors
         this.session =
             databricksClient.createSession(
-                this.warehouseId, this.catalog, this.schema, this.sessionConfigs);
+                this.computeResource, this.catalog, this.schema, this.sessionConfigs);
         this.isSessionOpen = true;
       }
     }
@@ -108,7 +115,11 @@ public class DatabricksSession implements IDatabricksSession {
     synchronized (this) {
       if (isSessionOpen) {
         // TODO: handle closed connections by server
-        databricksClient.deleteSession(this.session.sessionId(), getWarehouseId());
+        if (computeResource instanceof Warehouse) {
+          databricksClient.deleteSession(this.session.sessionId(), computeResource);
+        } else {
+
+        }
         this.session = null;
         this.isSessionOpen = false;
       }

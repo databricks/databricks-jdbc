@@ -6,6 +6,7 @@ import com.databricks.jdbc.client.StatementType;
 import com.databricks.jdbc.client.impl.sdk.DatabricksSdkClient;
 import com.databricks.jdbc.client.sqlexec.ExternalLink;
 import com.databricks.jdbc.core.*;
+import com.databricks.jdbc.core.types.ComputeResource;
 import com.databricks.jdbc.driver.IDatabricksConnectionContext;
 import java.sql.SQLException;
 import java.util.Collection;
@@ -20,7 +21,7 @@ public class DatabricksThriftClient implements DatabricksClient, DatabricksMetad
 
   @Override
   public ImmutableSessionInfo createSession(
-      String warehouseId, String catalog, String schema, Map<String, String> sessionConf) {
+      ComputeResource cluster, String catalog, String schema, Map<String, String> sessionConf) {
     throw new UnsupportedOperationException();
   }
 
@@ -29,7 +30,7 @@ public class DatabricksThriftClient implements DatabricksClient, DatabricksMetad
   }
 
   @Override
-  public void deleteSession(String sessionId, String warehouseId) {
+  public void deleteSession(String sessionId, ComputeResource cluster) {
     throw new UnsupportedOperationException();
   }
 

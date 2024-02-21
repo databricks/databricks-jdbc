@@ -10,6 +10,8 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 
 import com.databricks.jdbc.client.impl.sdk.DatabricksSdkClient;
+import com.databricks.jdbc.core.types.ComputeResource;
+import com.databricks.jdbc.core.types.Warehouse;
 import com.databricks.jdbc.driver.DatabricksConnectionContext;
 import com.databricks.jdbc.driver.IDatabricksConnectionContext;
 import com.databricks.sdk.core.UserAgent;
@@ -51,8 +53,8 @@ public class DatabricksConnectionTest {
   public void testConnection() throws Exception {
     ImmutableSessionInfo session =
         ImmutableSessionInfo.builder().warehouseId(WAREHOUSE_ID).sessionId(SESSION_ID).build();
-
-    when(databricksClient.createSession(WAREHOUSE_ID, null, null, new HashMap<>()))
+    ComputeResource computeResource = new Warehouse(WAREHOUSE_ID);
+    when(databricksClient.createSession(computeResource, null, null, new HashMap<>()))
         .thenReturn(session);
 
     IDatabricksConnectionContext connectionContext =
@@ -65,7 +67,8 @@ public class DatabricksConnectionTest {
     assertTrue(userAgent.contains("DatabricksJDBCDriverOSS/0.0.0"));
     assertTrue(userAgent.contains("Java/SQLExecHttpClient/HC MyApp"));
 
-    when(databricksClient.createSession(WAREHOUSE_ID, CATALOG, SCHEMA, new HashMap<>()))
+    when(databricksClient.createSession(
+            new Warehouse(WAREHOUSE_ID), CATALOG, SCHEMA, new HashMap<>()))
         .thenReturn(session);
     connectionContext =
         DatabricksConnectionContext.parse(CATALOG_SCHEMA_JDBC_URL, new Properties());
@@ -77,7 +80,8 @@ public class DatabricksConnectionTest {
     Map<String, String> lowercaseSessionConfigs =
         SESSION_CONFIGS.entrySet().stream()
             .collect(Collectors.toMap(e -> e.getKey().toLowerCase(), Map.Entry::getValue));
-    when(databricksClient.createSession(WAREHOUSE_ID, null, null, lowercaseSessionConfigs))
+    when(databricksClient.createSession(
+            new Warehouse(WAREHOUSE_ID), null, null, lowercaseSessionConfigs))
         .thenReturn(session);
     connectionContext = DatabricksConnectionContext.parse(SESSION_CONF_JDBC_URL, new Properties());
     connection = new DatabricksConnection(connectionContext, databricksClient);
@@ -89,8 +93,8 @@ public class DatabricksConnectionTest {
   public void testStatement() throws Exception {
     ImmutableSessionInfo session =
         ImmutableSessionInfo.builder().warehouseId(WAREHOUSE_ID).sessionId(SESSION_ID).build();
-
-    when(databricksClient.createSession(eq(WAREHOUSE_ID), any(), any(), any())).thenReturn(session);
+    when(databricksClient.createSession(eq(new Warehouse(WAREHOUSE_ID)), any(), any(), any()))
+        .thenReturn(session);
     IDatabricksConnectionContext connectionContext =
         DatabricksConnectionContext.parse(JDBC_URL, new Properties());
     DatabricksConnection connection = new DatabricksConnection(connectionContext, databricksClient);

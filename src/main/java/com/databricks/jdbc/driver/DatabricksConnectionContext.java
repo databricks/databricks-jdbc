@@ -3,7 +3,11 @@ package com.databricks.jdbc.driver;
 import static com.databricks.jdbc.driver.DatabricksJdbcConstants.*;
 
 import com.databricks.jdbc.client.DatabricksClientType;
+import com.databricks.jdbc.core.DatabricksParsingException;
+import com.databricks.jdbc.core.DatabricksSQLException;
 import com.databricks.jdbc.core.types.CompressionType;
+import com.databricks.jdbc.core.types.ComputeResource;
+import com.databricks.jdbc.core.types.Warehouse;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
 import java.util.*;
@@ -28,10 +32,11 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
    * @param properties connection properties
    * @return a connection context
    */
-  public static IDatabricksConnectionContext parse(String url, Properties properties) {
+  public static IDatabricksConnectionContext parse(String url, Properties properties)
+      throws DatabricksSQLException {
     if (!isValid(url)) {
       // TODO: handle exceptions properly
-      throw new IllegalArgumentException("Invalid url " + url);
+      throw new DatabricksParsingException("Invalid url " + url);
     }
     Matcher urlMatcher = JDBC_URL_PATTERN.matcher(url);
     if (urlMatcher.find()) {
@@ -90,6 +95,11 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
     return hostUrlBuilder.toString();
   }
 
+  @Override
+  public ComputeResource getComputeResource() {
+    return new Warehouse(getWarehouse());
+  }
+
   String getHttpPath() {
     LOGGER.debug("String getHttpPath()");
     return getParameter(DatabricksJdbcConstants.HTTP_PATH);
@@ -100,7 +110,6 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
     return this.host;
   }
 
-  @Override
   public String getWarehouse() {
     LOGGER.debug("public String getWarehouse()");
     String httpPath = getHttpPath();
@@ -261,7 +270,6 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
 
   @Override
   public boolean isAllPurposeCluster() {
-  //TODO : fix this.
     return false;
   }
 }

@@ -1,6 +1,7 @@
 package com.databricks.jdbc.driver;
 
 import com.databricks.jdbc.core.types.CompressionType;
+import com.databricks.jdbc.core.types.ComputeResource;
 import java.util.List;
 import java.util.Map;
 
@@ -43,7 +44,7 @@ public interface IDatabricksConnectionContext {
    *
    * @return warehouse-Id
    */
-  String getWarehouse();
+  ComputeResource getComputeResource();
 
   /**
    * Returns the auth token (personal access token/OAuth token etc)

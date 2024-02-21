@@ -7,6 +7,7 @@ import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.when;
 
 import com.databricks.jdbc.client.impl.sdk.DatabricksSdkClient;
+import com.databricks.jdbc.core.types.Warehouse;
 import com.databricks.jdbc.driver.DatabricksConnectionContext;
 import java.util.Map;
 import java.util.Properties;
@@ -34,11 +35,13 @@ public class DatabricksSessionTest {
   @Mock DatabricksSdkClient client;
 
   @Test
-  public void testOpenAndCloseSession() {
+  public void testOpenAndCloseSession() throws DatabricksSQLException {
     ImmutableSessionInfo sessionInfo =
         ImmutableSessionInfo.builder().sessionId(SESSION_ID).warehouseId(WAREHOUSE_ID).build();
-    when(client.createSession(eq(WAREHOUSE_ID), any(), any(), any())).thenReturn(sessionInfo);
-    when(connectionContext.getWarehouse()).thenReturn(WAREHOUSE_ID);
+    when(client.createSession(eq(new Warehouse(WAREHOUSE_ID)), any(), any(), any()))
+        .thenReturn(sessionInfo);
+    when(((Warehouse) connectionContext.getComputeResource()).getWarehouseId())
+        .thenReturn(WAREHOUSE_ID);
     DatabricksSession session = new DatabricksSession(connectionContext, client);
     assertFalse(session.isOpen());
     session.open();
@@ -47,9 +50,10 @@ public class DatabricksSessionTest {
 
     sessionInfo =
         ImmutableSessionInfo.builder().sessionId(SESSION_ID).warehouseId(WAREHOUSE_ID).build();
-    when(client.createSession(eq(WAREHOUSE_ID), eq(CATALOG), eq(SCHEMA), any()))
+    when(client.createSession(eq(new Warehouse(WAREHOUSE_ID)), eq(CATALOG), eq(SCHEMA), any()))
         .thenReturn(sessionInfo);
-    when(connectionContext.getWarehouse()).thenReturn(WAREHOUSE_ID);
+    when(((Warehouse) connectionContext.getComputeResource()).getWarehouseId())
+        .thenReturn(WAREHOUSE_ID);
     when(connectionContext.getCatalog()).thenReturn(CATALOG);
     when(connectionContext.getSchema()).thenReturn(SCHEMA);
     session = new DatabricksSession(connectionContext, client);
@@ -61,9 +65,11 @@ public class DatabricksSessionTest {
 
     sessionInfo =
         ImmutableSessionInfo.builder().sessionId(SESSION_ID).warehouseId(WAREHOUSE_ID).build();
-    when(client.createSession(eq(WAREHOUSE_ID), eq(CATALOG), eq(SCHEMA), eq(SESSION_CONFIGS)))
+    when(client.createSession(
+            eq(new Warehouse(WAREHOUSE_ID)), eq(CATALOG), eq(SCHEMA), eq(SESSION_CONFIGS)))
         .thenReturn(sessionInfo);
-    when(connectionContext.getWarehouse()).thenReturn(WAREHOUSE_ID);
+    when(((Warehouse) connectionContext.getComputeResource()).getWarehouseId())
+        .thenReturn(WAREHOUSE_ID);
     when(connectionContext.getCatalog()).thenReturn(CATALOG);
     when(connectionContext.getSchema()).thenReturn(SCHEMA);
     when(connectionContext.getSessionConfigs()).thenReturn(SESSION_CONFIGS);
@@ -75,7 +81,7 @@ public class DatabricksSessionTest {
     assertEquals(session.getSchema(), SCHEMA);
     assertEquals(session.getSessionConfigs(), SESSION_CONFIGS);
 
-    doNothing().when(client).deleteSession(SESSION_ID, WAREHOUSE_ID);
+    doNothing().when(client).deleteSession(SESSION_ID, new Warehouse(WAREHOUSE_ID));
     session.close();
     assertFalse(session.isOpen());
     assertNull(session.getSessionId());
