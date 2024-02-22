@@ -97,7 +97,7 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
 
   @Override
   public ComputeResource getComputeResource() {
-    return new Warehouse(getWarehouse());
+    return new Warehouse(getWarehouseId());
   }
 
   String getHttpPath() {
@@ -110,7 +110,7 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
     return this.host;
   }
 
-  public String getWarehouse() {
+  private String getWarehouseId() {
     LOGGER.debug("public String getWarehouse()");
     String httpPath = getHttpPath();
     Matcher urlMatcher = DatabricksJdbcConstants.HTTP_PATH_PATTERN.matcher(httpPath);
