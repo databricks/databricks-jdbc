@@ -5,9 +5,9 @@ import static com.databricks.jdbc.core.converters.ConverterHelper.getObjectConve
 
 import com.databricks.jdbc.client.StatementType;
 import com.databricks.jdbc.client.sqlexec.ResultData;
+import com.databricks.jdbc.client.sqlexec.ResultManifest;
 import com.databricks.jdbc.commons.util.WarningUtil;
 import com.databricks.jdbc.core.converters.*;
-import com.databricks.sdk.service.sql.ResultManifest;
 import com.databricks.sdk.service.sql.StatementStatus;
 import com.google.common.annotations.VisibleForTesting;
 import java.io.InputStream;

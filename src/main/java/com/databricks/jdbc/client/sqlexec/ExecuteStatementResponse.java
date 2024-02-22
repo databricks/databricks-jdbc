@@ -1,6 +1,5 @@
 package com.databricks.jdbc.client.sqlexec;
 
-import com.databricks.sdk.service.sql.ResultManifest;
 import com.databricks.sdk.service.sql.StatementStatus;
 import com.databricks.sdk.support.ToStringer;
 import com.fasterxml.jackson.annotation.JsonProperty;

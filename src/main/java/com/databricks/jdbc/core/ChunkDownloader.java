@@ -4,8 +4,8 @@ import com.databricks.jdbc.client.IDatabricksHttpClient;
 import com.databricks.jdbc.client.http.DatabricksHttpClient;
 import com.databricks.jdbc.client.sqlexec.ExternalLink;
 import com.databricks.jdbc.client.sqlexec.ResultData;
+import com.databricks.jdbc.client.sqlexec.ResultManifest;
 import com.databricks.sdk.service.sql.BaseChunkInfo;
-import com.databricks.sdk.service.sql.ResultManifest;
 import com.google.common.annotations.VisibleForTesting;
 import java.util.Collection;
 import java.util.concurrent.ConcurrentHashMap;
@@ -84,7 +84,10 @@ public class ChunkDownloader {
       chunkIndexMap.put(
           chunkInfo.getChunkIndex(),
           new ArrowResultChunk(
-              chunkInfo, new RootAllocator(/* limit= */ Integer.MAX_VALUE), statementId));
+              chunkInfo,
+              new RootAllocator(/* limit= */ Integer.MAX_VALUE),
+              statementId,
+              resultManifest.getCompressionType()));
     }
 
     for (ExternalLink externalLink : resultData.getExternalLinks()) {

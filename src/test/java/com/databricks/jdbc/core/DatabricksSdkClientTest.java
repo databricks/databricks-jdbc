@@ -15,6 +15,7 @@ import com.databricks.jdbc.client.sqlexec.ExecuteStatementRequest;
 import com.databricks.jdbc.client.sqlexec.ExecuteStatementResponse;
 import com.databricks.jdbc.client.sqlexec.ResultData;
 import com.databricks.jdbc.core.types.Warehouse;
+import com.databricks.jdbc.client.sqlexec.ResultManifest;
 import com.databricks.jdbc.driver.DatabricksConnectionContext;
 import com.databricks.jdbc.driver.IDatabricksConnectionContext;
 import com.databricks.sdk.core.ApiClient;

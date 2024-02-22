@@ -1,0 +1,7 @@
+ignore:
+  - "*EnvironmentVariables*"
+  - "**Exception*"
+  - "**types/*"
+  - "**/impl/thrift/*"
+  - "**client/sqlexec/*"
+  - "**Constants*"

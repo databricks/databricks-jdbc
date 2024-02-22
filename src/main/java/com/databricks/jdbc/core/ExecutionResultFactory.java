@@ -1,7 +1,7 @@
 package com.databricks.jdbc.core;
 
 import com.databricks.jdbc.client.sqlexec.ResultData;
-import com.databricks.sdk.service.sql.ResultManifest;
+import com.databricks.jdbc.client.sqlexec.ResultManifest;
 import java.util.List;
 
 class ExecutionResultFactory {

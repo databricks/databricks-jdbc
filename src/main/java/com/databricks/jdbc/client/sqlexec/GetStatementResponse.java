@@ -1,12 +1,11 @@
 package com.databricks.jdbc.client.sqlexec;
 
-import com.databricks.sdk.service.sql.ResultManifest;
 import com.databricks.sdk.service.sql.StatementStatus;
 import com.databricks.sdk.support.ToStringer;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import java.util.Objects;
 
-/*Todo: This file is picked from databricks-sdk-java. Remove this once arclight changes are included in  in API-SPEC */
+/*Todo: This file is picked from databricks-sdk-java. Remove this once compression changes are included in  in API-SPEC */
 public class GetStatementResponse {
   @JsonProperty("manifest")
   private ResultManifest manifest;
