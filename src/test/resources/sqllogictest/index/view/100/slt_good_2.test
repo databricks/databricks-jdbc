@@ -1,0 +1,1573 @@
+hash-threshold 8
+
+statement ok
+CREATE TABLE tab0(pk INTEGER PRIMARY KEY, col0 INTEGER, col1 FLOAT, col2 STRING, col3 INTEGER, col4 FLOAT, col5 STRING)
+
+statement ok
+INSERT INTO tab0 VALUES(0,155,486.77,'aqfke',515,592.79,'gbigp')
+
+statement ok
+INSERT INTO tab0 VALUES(1,577,985.89,'ardgn',202,191.17,'ccbod')
+
+statement ok
+INSERT INTO tab0 VALUES(2,126,247.78,'cbgyy',537,952.26,'snbxb')
+
+statement ok
+INSERT INTO tab0 VALUES(3,783,745.80,'tchkr',208,212.82,'mhaer')
+
+statement ok
+INSERT INTO tab0 VALUES(4,105,209.54,'yebnk',799,626.68,'pvxai')
+
+statement ok
+INSERT INTO tab0 VALUES(5,855,755.42,'yhopg',410,301.30,'iiujg')
+
+statement ok
+INSERT INTO tab0 VALUES(6,628,7.37,'tpccz',284,912.42,'cqeey')
+
+statement ok
+INSERT INTO tab0 VALUES(7,472,226.37,'aghgc',432,836.71,'otyug')
+
+statement ok
+INSERT INTO tab0 VALUES(8,515,432.16,'fskra',258,267.36,'ulryj')
+
+statement ok
+INSERT INTO tab0 VALUES(9,593,529.79,'utixa',182,350.72,'lxrad')
+
+statement ok
+INSERT INTO tab0 VALUES(10,869,431.31,'istfs',266,302.91,'slazy')
+
+statement ok
+INSERT INTO tab0 VALUES(11,461,188.35,'njhbs',844,533.49,'rzvtd')
+
+statement ok
+INSERT INTO tab0 VALUES(12,69,109.77,'mnouf',137,782.2,'gsizw')
+
+statement ok
+INSERT INTO tab0 VALUES(13,598,887.26,'ulkgu',887,231.74,'kuyql')
+
+statement ok
+INSERT INTO tab0 VALUES(14,781,725.0,'pvxlp',978,635.16,'gzmqi')
+
+statement ok
+INSERT INTO tab0 VALUES(15,807,462.25,'scocr',61,446.71,'dcfkf')
+
+statement ok
+INSERT INTO tab0 VALUES(16,947,695.0,'vfliv',179,939.35,'xwaqi')
+
+statement ok
+INSERT INTO tab0 VALUES(17,175,908.59,'rggfw',395,337.19,'uilvl')
+
+statement ok
+INSERT INTO tab0 VALUES(18,795,593.32,'xyons',412,932.12,'vsavx')
+
+statement ok
+INSERT INTO tab0 VALUES(19,68,376.8,'onufp',203,217.46,'sueqa')
+
+statement ok
+INSERT INTO tab0 VALUES(20,832,146.0,'wcieb',629,6.55,'cskxw')
+
+statement ok
+INSERT INTO tab0 VALUES(21,132,173.4,'pkxtd',75,559.39,'qmmqt')
+
+statement ok
+INSERT INTO tab0 VALUES(22,845,240.64,'dnlnm',64,710.24,'dsota')
+
+statement ok
+INSERT INTO tab0 VALUES(23,298,762.34,'nefqp',888,990.32,'rffsk')
+
+statement ok
+INSERT INTO tab0 VALUES(24,904,916.38,'qvetq',231,750.33,'umrfa')
+
+statement ok
+INSERT INTO tab0 VALUES(25,776,763.37,'jwvmz',796,292.16,'lpvtp')
+
+statement ok
+INSERT INTO tab0 VALUES(26,360,372.87,'qmodz',927,987.47,'inmem')
+
+statement ok
+INSERT INTO tab0 VALUES(27,56,950.5,'pfqeh',236,406.34,'vzlpw')
+
+statement ok
+INSERT INTO tab0 VALUES(28,846,961.30,'uqhzw',229,439.87,'jampw')
+
+statement ok
+INSERT INTO tab0 VALUES(29,912,256.84,'dwalh',928,427.82,'goufq')
+
+statement ok
+INSERT INTO tab0 VALUES(30,273,194.38,'fhpoq',496,280.25,'actjo')
+
+statement ok
+INSERT INTO tab0 VALUES(31,398,769.72,'gefcu',867,608.10,'lhjoh')
+
+statement ok
+INSERT INTO tab0 VALUES(32,838,736.37,'kgngm',367,841.87,'tobmy')
+
+statement ok
+INSERT INTO tab0 VALUES(33,848,734.21,'rhycl',338,357.21,'qveqc')
+
+statement ok
+INSERT INTO tab0 VALUES(34,15,410.6,'gzrln',764,607.53,'lauzd')
+
+statement ok
+INSERT INTO tab0 VALUES(35,880,550.35,'leshu',900,239.68,'itame')
+
+statement ok
+INSERT INTO tab0 VALUES(36,563,196.75,'bvhnt',890,222.54,'jxbwi')
+
+statement ok
+INSERT INTO tab0 VALUES(37,390,775.73,'enpoi',397,974.63,'ohhdq')
+
+statement ok
+INSERT INTO tab0 VALUES(38,519,227.28,'oyiyc',227,485.76,'fingm')
+
+statement ok
+INSERT INTO tab0 VALUES(39,559,122.46,'rukxk',953,441.65,'tnzsl')
+
+statement ok
+INSERT INTO tab0 VALUES(40,202,795.5,'wejek',540,351.57,'bhpgp')
+
+statement ok
+INSERT INTO tab0 VALUES(41,847,461.18,'ihmih',973,671.91,'qixim')
+
+statement ok
+INSERT INTO tab0 VALUES(42,215,348.95,'messj',877,931.88,'mmiyl')
+
+statement ok
+INSERT INTO tab0 VALUES(43,991,817.6,'wcywe',145,856.8,'lhidn')
+
+statement ok
+INSERT INTO tab0 VALUES(44,438,489.42,'kkfdr',564,495.15,'imkpu')
+
+statement ok
+INSERT INTO tab0 VALUES(45,20,371.80,'laomf',436,341.38,'vviih')
+
+statement ok
+INSERT INTO tab0 VALUES(46,35,979.44,'yclzv',209,464.35,'xoehh')
+
+statement ok
+INSERT INTO tab0 VALUES(47,234,463.65,'osrji',96,629.54,'tdobj')
+
+statement ok
+INSERT INTO tab0 VALUES(48,451,735.50,'uhpvi',704,421.99,'zvqjm')
+
+statement ok
+INSERT INTO tab0 VALUES(49,220,586.37,'eniom',656,377.85,'sfjrg')
+
+statement ok
+INSERT INTO tab0 VALUES(50,411,825.63,'etpjn',218,101.10,'rcmaw')
+
+statement ok
+INSERT INTO tab0 VALUES(51,844,391.25,'qrggl',926,400.11,'lutkj')
+
+statement ok
+INSERT INTO tab0 VALUES(52,923,483.40,'qazeq',205,398.27,'nazot')
+
+statement ok
+INSERT INTO tab0 VALUES(53,254,685.13,'tdtoz',0,670.65,'hkinb')
+
+statement ok
+INSERT INTO tab0 VALUES(54,275,92.91,'cnwax',398,360.60,'kbehm')
+
+statement ok
+INSERT INTO tab0 VALUES(55,878,433.36,'qqxur',252,313.35,'vjlln')
+
+statement ok
+INSERT INTO tab0 VALUES(56,36,193.79,'zjdoj',811,193.71,'ukqqe')
+
+statement ok
+INSERT INTO tab0 VALUES(57,427,749.85,'wsjcb',339,613.60,'ctzmx')
+
+statement ok
+INSERT INTO tab0 VALUES(58,58,484.17,'bkhqz',741,258.77,'iaqxy')
+
+statement ok
+INSERT INTO tab0 VALUES(59,892,914.0,'mqltp',194,10.34,'qmrbg')
+
+statement ok
+INSERT INTO tab0 VALUES(60,473,818.77,'mllys',766,73.49,'fsfpu')
+
+statement ok
+INSERT INTO tab0 VALUES(61,546,357.78,'voccq',39,99.3,'ferpm')
+
+statement ok
+INSERT INTO tab0 VALUES(62,691,205.80,'wwmjh',743,312.8,'azwcp')
+
+statement ok
+INSERT INTO tab0 VALUES(63,942,668.67,'rhamj',372,634.66,'eizpm')
+
+statement ok
+INSERT INTO tab0 VALUES(64,412,813.0,'favsl',814,806.31,'sfxxd')
+
+statement ok
+INSERT INTO tab0 VALUES(65,917,590.69,'hnnfb',974,521.75,'dceoa')
+
+statement ok
+INSERT INTO tab0 VALUES(66,608,962.66,'wxpwu',399,541.47,'rmfof')
+
+statement ok
+INSERT INTO tab0 VALUES(67,586,25.39,'erltq',905,827.36,'folyr')
+
+statement ok
+INSERT INTO tab0 VALUES(68,537,133.60,'siotw',200,660.37,'rskoi')
+
+statement ok
+INSERT INTO tab0 VALUES(69,348,28.85,'lynle',509,771.9,'xktkc')
+
+statement ok
+INSERT INTO tab0 VALUES(70,738,960.16,'yxeia',201,462.38,'yoqnc')
+
+statement ok
+INSERT INTO tab0 VALUES(71,881,814.67,'mjxun',411,732.3,'bhqlt')
+
+statement ok
+INSERT INTO tab0 VALUES(72,30,234.21,'eaoor',667,402.37,'amway')
+
+statement ok
+INSERT INTO tab0 VALUES(73,145,751.99,'crqil',516,242.86,'bngta')
+
+statement ok
+INSERT INTO tab0 VALUES(74,514,903.17,'lwklz',144,92.76,'zsosd')
+
+statement ok
+INSERT INTO tab0 VALUES(75,382,365.50,'nlemq',9,991.75,'nfnye')
+
+statement ok
+INSERT INTO tab0 VALUES(76,572,71.97,'djezd',460,299.50,'ehzgz')
+
+statement ok
+INSERT INTO tab0 VALUES(77,114,339.40,'kbvxr',361,825.40,'phzsk')
+
+statement ok
+INSERT INTO tab0 VALUES(78,868,997.8,'dgwhd',723,949.7,'lzxjp')
+
+statement ok
+INSERT INTO tab0 VALUES(79,146,510.41,'uolcc',320,747.7,'ultuw')
+
+statement ok
+INSERT INTO tab0 VALUES(80,345,98.51,'sbgmz',323,120.47,'akxta')
+
+statement ok
+INSERT INTO tab0 VALUES(81,564,872.82,'dxpsh',916,915.52,'cdrxm')
+
+statement ok
+INSERT INTO tab0 VALUES(82,230,947.78,'larqn',931,51.24,'nxcfh')
+
+statement ok
+INSERT INTO tab0 VALUES(83,731,576.41,'gtmjn',462,643.7,'tqhvg')
+
+statement ok
+INSERT INTO tab0 VALUES(84,31,272.96,'mheyn',499,132.46,'zpine')
+
+statement ok
+INSERT INTO tab0 VALUES(85,299,930.51,'lozuc',550,403.55,'ozrky')
+
+statement ok
+INSERT INTO tab0 VALUES(86,533,957.64,'frloq',262,916.73,'wmbmn')
+
+statement ok
+INSERT INTO tab0 VALUES(87,192,395.0,'kpnqc',54,822.33,'qzskh')
+
+statement ok
+INSERT INTO tab0 VALUES(88,809,45.96,'nuutl',734,103.18,'zelzz')
+
+statement ok
+INSERT INTO tab0 VALUES(89,625,594.25,'dwjro',130,682.31,'nfuuy')
+
+statement ok
+INSERT INTO tab0 VALUES(90,209,733.56,'tcgul',712,558.48,'pffxd')
+
+statement ok
+INSERT INTO tab0 VALUES(91,87,298.19,'dfhsk',215,925.91,'fbblk')
+
+statement ok
+INSERT INTO tab0 VALUES(92,364,375.64,'mumxa',271,300.83,'jwwem')
+
+statement ok
+INSERT INTO tab0 VALUES(93,351,441.28,'jevlm',27,645.11,'bsige')
+
+statement ok
+INSERT INTO tab0 VALUES(94,189,481.92,'xvtlm',773,499.94,'kfmsl')
+
+statement ok
+INSERT INTO tab0 VALUES(95,474,112.49,'aebvo',565,95.40,'ucyfo')
+
+statement ok
+INSERT INTO tab0 VALUES(96,876,716.64,'lzbub',855,489.9,'cavng')
+
+statement ok
+INSERT INTO tab0 VALUES(97,784,555.36,'whuqh',110,684.80,'qxaiv')
+
+statement ok
+INSERT INTO tab0 VALUES(98,905,904.60,'auagu',440,755.6,'kxhqf')
+
+statement ok
+INSERT INTO tab0 VALUES(99,903,170.92,'yomuf',223,976.86,'esipe')
+
+statement ok
+CREATE TABLE tab1(pk INTEGER PRIMARY KEY, col0 INTEGER, col1 FLOAT, col2 STRING, col3 INTEGER, col4 FLOAT, col5 STRING)
+
+statement ok
+INSERT INTO tab1 SELECT * FROM tab0
+
+statement ok
+CREATE TABLE tab2(pk INTEGER PRIMARY KEY, col0 INTEGER, col1 FLOAT, col2 STRING, col3 INTEGER, col4 FLOAT, col5 STRING)
+
+statement ok
+INSERT INTO tab2 SELECT * FROM tab0
+
+statement ok
+CREATE TABLE tab3(pk INTEGER PRIMARY KEY, col0 INTEGER, col1 FLOAT, col2 STRING, col3 INTEGER, col4 FLOAT, col5 STRING)
+
+statement ok
+INSERT INTO tab3 SELECT * FROM tab0
+
+statement ok
+CREATE TABLE tab4(pk INTEGER PRIMARY KEY, col0 INTEGER, col1 FLOAT, col2 STRING, col3 INTEGER, col4 FLOAT, col5 STRING)
+
+statement ok
+INSERT INTO tab4 SELECT * FROM tab0
+
+query I rowsort label-empty
+SELECT pk FROM tab0 WHERE pk IS NULL
+----
+
+query II rowsort label-all
+SELECT pk, col0 FROM tab0
+----
+200 values hashing to 06b39c45fae5a895bfa7653ed4bed045
+
+onlyif mssql # IF EXISTS support: 
+statement ok
+IF EXISTS (SELECT TABLE_NAME FROM INFORMATION_SCHEMA.VIEWS WHERE TABLE_NAME = 'view_1_tab0_521') DROP VIEW view_1_tab0_521
+
+skipif mssql # not compatible
+statement ok
+DROP VIEW IF EXISTS view_1_tab0_521
+
+onlyif mssql # IF EXISTS support: 
+statement ok
+IF EXISTS (SELECT TABLE_NAME FROM INFORMATION_SCHEMA.VIEWS WHERE TABLE_NAME = 'view_2_tab0_521') DROP VIEW view_2_tab0_521
+
+skipif mssql # not compatible
+statement ok
+DROP VIEW IF EXISTS view_2_tab0_521
+
+onlyif mssql # IF EXISTS support: 
+statement ok
+IF EXISTS (SELECT TABLE_NAME FROM INFORMATION_SCHEMA.VIEWS WHERE TABLE_NAME = 'view_3_tab0_521') DROP VIEW view_3_tab0_521
+
+skipif mssql # not compatible
+statement ok
+DROP VIEW IF EXISTS view_3_tab0_521
+
+statement ok
+CREATE VIEW view_1_tab0_521 AS SELECT pk, col0 FROM tab0 WHERE col0 >= 789 AND (col4 >= 141.85 AND col1 IS NULL)
+
+statement ok
+CREATE VIEW view_2_tab0_521 AS SELECT pk, col0 FROM tab0 WHERE NOT (col0 >= 789 AND (col4 >= 141.85 AND col1 IS NULL))
+
+statement ok
+CREATE VIEW view_3_tab0_521 AS SELECT pk FROM view_1_tab0_521
+
+query II rowsort label-0-1
+SELECT pk, col0 FROM tab0 WHERE col0 >= 789 AND (col4 >= 141.85 AND col1 IS NULL)
+----
+
+query II rowsort label-0-2
+SELECT pk, col0 FROM tab0 WHERE NOT (col0 >= 789 AND (col4 >= 141.85 AND col1 IS NULL))
+----
+200 values hashing to 06b39c45fae5a895bfa7653ed4bed045
+
+query II rowsort label-0-1
+SELECT pk, col0 FROM view_1_tab0_521
+----
+
+query II rowsort label-0-2
+SELECT pk, col0 FROM view_2_tab0_521
+----
+200 values hashing to 06b39c45fae5a895bfa7653ed4bed045
+
+query II rowsort label-all
+SELECT pk, col0 FROM tab0 WHERE col0 >= 789 AND (col4 >= 141.85 AND col1 IS NULL) UNION ALL SELECT pk, col0 FROM tab0 WHERE NOT (col0 >= 789 AND (col4 >= 141.85 AND col1 IS NULL))
+----
+200 values hashing to 06b39c45fae5a895bfa7653ed4bed045
+
+query II rowsort label-all
+SELECT pk, col0 FROM view_1_tab0_521 UNION ALL SELECT pk, col0 FROM view_2_tab0_521
+----
+200 values hashing to 06b39c45fae5a895bfa7653ed4bed045
+
+query II rowsort label-all
+SELECT pk, col0 FROM tab0 WHERE col0 >= 789 AND (col4 >= 141.85 AND col1 IS NULL) UNION SELECT pk, col0 FROM tab0 WHERE NOT (col0 >= 789 AND (col4 >= 141.85 AND col1 IS NULL))
+----
+200 values hashing to 06b39c45fae5a895bfa7653ed4bed045
+
+query II rowsort label-all
+SELECT pk, col0 FROM view_1_tab0_521 UNION SELECT pk, col0 FROM view_2_tab0_521
+----
+200 values hashing to 06b39c45fae5a895bfa7653ed4bed045
+
+query I rowsort label-0-3
+SELECT pk FROM ( SELECT pk, col0 FROM tab0 WHERE col0 >= 789 AND (col4 >= 141.85 AND col1 IS NULL) ) AS tab0_521
+----
+
+query I rowsort label-0-3
+SELECT * FROM view_3_tab0_521
+----
+
+query I rowsort label-0-3
+SELECT pk FROM tab0 WHERE col0 >= 789 AND (col4 >= 141.85 AND col1 IS NULL)
+----
+
+statement ok
+DROP VIEW view_1_tab0_521
+
+statement ok
+DROP VIEW view_2_tab0_521
+
+statement ok
+DROP VIEW view_3_tab0_521
+
+onlyif mssql # IF EXISTS support: 
+statement ok
+IF EXISTS (SELECT TABLE_NAME FROM INFORMATION_SCHEMA.VIEWS WHERE TABLE_NAME = 'view_1_tab1_521') DROP VIEW view_1_tab1_521
+
+skipif mssql # not compatible
+statement ok
+DROP VIEW IF EXISTS view_1_tab1_521
+
+onlyif mssql # IF EXISTS support: 
+statement ok
+IF EXISTS (SELECT TABLE_NAME FROM INFORMATION_SCHEMA.VIEWS WHERE TABLE_NAME = 'view_2_tab1_521') DROP VIEW view_2_tab1_521
+
+skipif mssql # not compatible
+statement ok
+DROP VIEW IF EXISTS view_2_tab1_521
+
+onlyif mssql # IF EXISTS support: 
+statement ok
+IF EXISTS (SELECT TABLE_NAME FROM INFORMATION_SCHEMA.VIEWS WHERE TABLE_NAME = 'view_3_tab1_521') DROP VIEW view_3_tab1_521
+
+skipif mssql # not compatible
+statement ok
+DROP VIEW IF EXISTS view_3_tab1_521
+
+statement ok
+CREATE VIEW view_1_tab1_521 AS SELECT pk, col0 FROM tab1 WHERE col0 >= 789 AND (col4 >= 141.85 AND col1 IS NULL)
+
+statement ok
+CREATE VIEW view_2_tab1_521 AS SELECT pk, col0 FROM tab1 WHERE NOT (col0 >= 789 AND (col4 >= 141.85 AND col1 IS NULL))
+
+statement ok
+CREATE VIEW view_3_tab1_521 AS SELECT pk FROM view_1_tab1_521
+
+query II rowsort label-0-1
+SELECT pk, col0 FROM tab1 WHERE col0 >= 789 AND (col4 >= 141.85 AND col1 IS NULL)
+----
+
+query II rowsort label-0-2
+SELECT pk, col0 FROM tab1 WHERE NOT (col0 >= 789 AND (col4 >= 141.85 AND col1 IS NULL))
+----
+200 values hashing to 06b39c45fae5a895bfa7653ed4bed045
+
+query II rowsort label-0-1
+SELECT pk, col0 FROM view_1_tab1_521
+----
+
+query II rowsort label-0-2
+SELECT pk, col0 FROM view_2_tab1_521
+----
+200 values hashing to 06b39c45fae5a895bfa7653ed4bed045
+
+query II rowsort label-all
+SELECT pk, col0 FROM tab1 WHERE col0 >= 789 AND (col4 >= 141.85 AND col1 IS NULL) UNION ALL SELECT pk, col0 FROM tab1 WHERE NOT (col0 >= 789 AND (col4 >= 141.85 AND col1 IS NULL))
+----
+200 values hashing to 06b39c45fae5a895bfa7653ed4bed045
+
+query II rowsort label-all
+SELECT pk, col0 FROM view_1_tab1_521 UNION ALL SELECT pk, col0 FROM view_2_tab1_521
+----
+200 values hashing to 06b39c45fae5a895bfa7653ed4bed045
+
+query II rowsort label-all
+SELECT pk, col0 FROM tab1 WHERE col0 >= 789 AND (col4 >= 141.85 AND col1 IS NULL) UNION SELECT pk, col0 FROM tab1 WHERE NOT (col0 >= 789 AND (col4 >= 141.85 AND col1 IS NULL))
+----
+200 values hashing to 06b39c45fae5a895bfa7653ed4bed045
+
+query II rowsort label-all
+SELECT pk, col0 FROM view_1_tab1_521 UNION SELECT pk, col0 FROM view_2_tab1_521
+----
+200 values hashing to 06b39c45fae5a895bfa7653ed4bed045
+
+query I rowsort label-0-3
+SELECT pk FROM ( SELECT pk, col0 FROM tab1 WHERE col0 >= 789 AND (col4 >= 141.85 AND col1 IS NULL) ) AS tab1_521
+----
+
+query I rowsort label-0-3
+SELECT * FROM view_3_tab1_521
+----
+
+query I rowsort label-0-3
+SELECT pk FROM tab1 WHERE col0 >= 789 AND (col4 >= 141.85 AND col1 IS NULL)
+----
+
+statement ok
+DROP VIEW view_1_tab1_521
+
+statement ok
+DROP VIEW view_2_tab1_521
+
+statement ok
+DROP VIEW view_3_tab1_521
+
+onlyif mssql # IF EXISTS support: 
+statement ok
+IF EXISTS (SELECT TABLE_NAME FROM INFORMATION_SCHEMA.VIEWS WHERE TABLE_NAME = 'view_1_tab2_521') DROP VIEW view_1_tab2_521
+
+skipif mssql # not compatible
+statement ok
+DROP VIEW IF EXISTS view_1_tab2_521
+
+onlyif mssql # IF EXISTS support: 
+statement ok
+IF EXISTS (SELECT TABLE_NAME FROM INFORMATION_SCHEMA.VIEWS WHERE TABLE_NAME = 'view_2_tab2_521') DROP VIEW view_2_tab2_521
+
+skipif mssql # not compatible
+statement ok
+DROP VIEW IF EXISTS view_2_tab2_521
+
+onlyif mssql # IF EXISTS support: 
+statement ok
+IF EXISTS (SELECT TABLE_NAME FROM INFORMATION_SCHEMA.VIEWS WHERE TABLE_NAME = 'view_3_tab2_521') DROP VIEW view_3_tab2_521
+
+skipif mssql # not compatible
+statement ok
+DROP VIEW IF EXISTS view_3_tab2_521
+
+statement ok
+CREATE VIEW view_1_tab2_521 AS SELECT pk, col0 FROM tab2 WHERE col0 >= 789 AND (col4 >= 141.85 AND col1 IS NULL)
+
+statement ok
+CREATE VIEW view_2_tab2_521 AS SELECT pk, col0 FROM tab2 WHERE NOT (col0 >= 789 AND (col4 >= 141.85 AND col1 IS NULL))
+
+statement ok
+CREATE VIEW view_3_tab2_521 AS SELECT pk FROM view_1_tab2_521
+
+query II rowsort label-0-1
+SELECT pk, col0 FROM tab2 WHERE col0 >= 789 AND (col4 >= 141.85 AND col1 IS NULL)
+----
+
+query II rowsort label-0-2
+SELECT pk, col0 FROM tab2 WHERE NOT (col0 >= 789 AND (col4 >= 141.85 AND col1 IS NULL))
+----
+200 values hashing to 06b39c45fae5a895bfa7653ed4bed045
+
+query II rowsort label-0-1
+SELECT pk, col0 FROM view_1_tab2_521
+----
+
+query II rowsort label-0-2
+SELECT pk, col0 FROM view_2_tab2_521
+----
+200 values hashing to 06b39c45fae5a895bfa7653ed4bed045
+
+query II rowsort label-all
+SELECT pk, col0 FROM tab2 WHERE col0 >= 789 AND (col4 >= 141.85 AND col1 IS NULL) UNION ALL SELECT pk, col0 FROM tab2 WHERE NOT (col0 >= 789 AND (col4 >= 141.85 AND col1 IS NULL))
+----
+200 values hashing to 06b39c45fae5a895bfa7653ed4bed045
+
+query II rowsort label-all
+SELECT pk, col0 FROM view_1_tab2_521 UNION ALL SELECT pk, col0 FROM view_2_tab2_521
+----
+200 values hashing to 06b39c45fae5a895bfa7653ed4bed045
+
+query II rowsort label-all
+SELECT pk, col0 FROM tab2 WHERE col0 >= 789 AND (col4 >= 141.85 AND col1 IS NULL) UNION SELECT pk, col0 FROM tab2 WHERE NOT (col0 >= 789 AND (col4 >= 141.85 AND col1 IS NULL))
+----
+200 values hashing to 06b39c45fae5a895bfa7653ed4bed045
+
+query II rowsort label-all
+SELECT pk, col0 FROM view_1_tab2_521 UNION SELECT pk, col0 FROM view_2_tab2_521
+----
+200 values hashing to 06b39c45fae5a895bfa7653ed4bed045
+
+query I rowsort label-0-3
+SELECT pk FROM ( SELECT pk, col0 FROM tab2 WHERE col0 >= 789 AND (col4 >= 141.85 AND col1 IS NULL) ) AS tab2_521
+----
+
+query I rowsort label-0-3
+SELECT * FROM view_3_tab2_521
+----
+
+query I rowsort label-0-3
+SELECT pk FROM tab2 WHERE col0 >= 789 AND (col4 >= 141.85 AND col1 IS NULL)
+----
+
+statement ok
+DROP VIEW view_1_tab2_521
+
+statement ok
+DROP VIEW view_2_tab2_521
+
+statement ok
+DROP VIEW view_3_tab2_521
+
+onlyif mssql # IF EXISTS support: 
+statement ok
+IF EXISTS (SELECT TABLE_NAME FROM INFORMATION_SCHEMA.VIEWS WHERE TABLE_NAME = 'view_1_tab3_521') DROP VIEW view_1_tab3_521
+
+skipif mssql # not compatible
+statement ok
+DROP VIEW IF EXISTS view_1_tab3_521
+
+onlyif mssql # IF EXISTS support: 
+statement ok
+IF EXISTS (SELECT TABLE_NAME FROM INFORMATION_SCHEMA.VIEWS WHERE TABLE_NAME = 'view_2_tab3_521') DROP VIEW view_2_tab3_521
+
+skipif mssql # not compatible
+statement ok
+DROP VIEW IF EXISTS view_2_tab3_521
+
+onlyif mssql # IF EXISTS support: 
+statement ok
+IF EXISTS (SELECT TABLE_NAME FROM INFORMATION_SCHEMA.VIEWS WHERE TABLE_NAME = 'view_3_tab3_521') DROP VIEW view_3_tab3_521
+
+skipif mssql # not compatible
+statement ok
+DROP VIEW IF EXISTS view_3_tab3_521
+
+statement ok
+CREATE VIEW view_1_tab3_521 AS SELECT pk, col0 FROM tab3 WHERE col0 >= 789 AND (col4 >= 141.85 AND col1 IS NULL)
+
+statement ok
+CREATE VIEW view_2_tab3_521 AS SELECT pk, col0 FROM tab3 WHERE NOT (col0 >= 789 AND (col4 >= 141.85 AND col1 IS NULL))
+
+statement ok
+CREATE VIEW view_3_tab3_521 AS SELECT pk FROM view_1_tab3_521
+
+query II rowsort label-0-1
+SELECT pk, col0 FROM tab3 WHERE col0 >= 789 AND (col4 >= 141.85 AND col1 IS NULL)
+----
+
+query II rowsort label-0-2
+SELECT pk, col0 FROM tab3 WHERE NOT (col0 >= 789 AND (col4 >= 141.85 AND col1 IS NULL))
+----
+200 values hashing to 06b39c45fae5a895bfa7653ed4bed045
+
+query II rowsort label-0-1
+SELECT pk, col0 FROM view_1_tab3_521
+----
+
+query II rowsort label-0-2
+SELECT pk, col0 FROM view_2_tab3_521
+----
+200 values hashing to 06b39c45fae5a895bfa7653ed4bed045
+
+query II rowsort label-all
+SELECT pk, col0 FROM tab3 WHERE col0 >= 789 AND (col4 >= 141.85 AND col1 IS NULL) UNION ALL SELECT pk, col0 FROM tab3 WHERE NOT (col0 >= 789 AND (col4 >= 141.85 AND col1 IS NULL))
+----
+200 values hashing to 06b39c45fae5a895bfa7653ed4bed045
+
+query II rowsort label-all
+SELECT pk, col0 FROM view_1_tab3_521 UNION ALL SELECT pk, col0 FROM view_2_tab3_521
+----
+200 values hashing to 06b39c45fae5a895bfa7653ed4bed045
+
+query II rowsort label-all
+SELECT pk, col0 FROM tab3 WHERE col0 >= 789 AND (col4 >= 141.85 AND col1 IS NULL) UNION SELECT pk, col0 FROM tab3 WHERE NOT (col0 >= 789 AND (col4 >= 141.85 AND col1 IS NULL))
+----
+200 values hashing to 06b39c45fae5a895bfa7653ed4bed045
+
+query II rowsort label-all
+SELECT pk, col0 FROM view_1_tab3_521 UNION SELECT pk, col0 FROM view_2_tab3_521
+----
+200 values hashing to 06b39c45fae5a895bfa7653ed4bed045
+
+query I rowsort label-0-3
+SELECT pk FROM ( SELECT pk, col0 FROM tab3 WHERE col0 >= 789 AND (col4 >= 141.85 AND col1 IS NULL) ) AS tab3_521
+----
+
+query I rowsort label-0-3
+SELECT * FROM view_3_tab3_521
+----
+
+query I rowsort label-0-3
+SELECT pk FROM tab3 WHERE col0 >= 789 AND (col4 >= 141.85 AND col1 IS NULL)
+----
+
+statement ok
+DROP VIEW view_1_tab3_521
+
+statement ok
+DROP VIEW view_2_tab3_521
+
+statement ok
+DROP VIEW view_3_tab3_521
+
+onlyif mssql # IF EXISTS support: 
+statement ok
+IF EXISTS (SELECT TABLE_NAME FROM INFORMATION_SCHEMA.VIEWS WHERE TABLE_NAME = 'view_1_tab4_521') DROP VIEW view_1_tab4_521
+
+skipif mssql # not compatible
+statement ok
+DROP VIEW IF EXISTS view_1_tab4_521
+
+onlyif mssql # IF EXISTS support: 
+statement ok
+IF EXISTS (SELECT TABLE_NAME FROM INFORMATION_SCHEMA.VIEWS WHERE TABLE_NAME = 'view_2_tab4_521') DROP VIEW view_2_tab4_521
+
+skipif mssql # not compatible
+statement ok
+DROP VIEW IF EXISTS view_2_tab4_521
+
+onlyif mssql # IF EXISTS support: 
+statement ok
+IF EXISTS (SELECT TABLE_NAME FROM INFORMATION_SCHEMA.VIEWS WHERE TABLE_NAME = 'view_3_tab4_521') DROP VIEW view_3_tab4_521
+
+skipif mssql # not compatible
+statement ok
+DROP VIEW IF EXISTS view_3_tab4_521
+
+statement ok
+CREATE VIEW view_1_tab4_521 AS SELECT pk, col0 FROM tab4 WHERE col0 >= 789 AND (col4 >= 141.85 AND col1 IS NULL)
+
+statement ok
+CREATE VIEW view_2_tab4_521 AS SELECT pk, col0 FROM tab4 WHERE NOT (col0 >= 789 AND (col4 >= 141.85 AND col1 IS NULL))
+
+statement ok
+CREATE VIEW view_3_tab4_521 AS SELECT pk FROM view_1_tab4_521
+
+query II rowsort label-0-1
+SELECT pk, col0 FROM tab4 WHERE col0 >= 789 AND (col4 >= 141.85 AND col1 IS NULL)
+----
+
+query II rowsort label-0-2
+SELECT pk, col0 FROM tab4 WHERE NOT (col0 >= 789 AND (col4 >= 141.85 AND col1 IS NULL))
+----
+200 values hashing to 06b39c45fae5a895bfa7653ed4bed045
+
+query II rowsort label-0-1
+SELECT pk, col0 FROM view_1_tab4_521
+----
+
+query II rowsort label-0-2
+SELECT pk, col0 FROM view_2_tab4_521
+----
+200 values hashing to 06b39c45fae5a895bfa7653ed4bed045
+
+query II rowsort label-all
+SELECT pk, col0 FROM tab4 WHERE col0 >= 789 AND (col4 >= 141.85 AND col1 IS NULL) UNION ALL SELECT pk, col0 FROM tab4 WHERE NOT (col0 >= 789 AND (col4 >= 141.85 AND col1 IS NULL))
+----
+200 values hashing to 06b39c45fae5a895bfa7653ed4bed045
+
+query II rowsort label-all
+SELECT pk, col0 FROM view_1_tab4_521 UNION ALL SELECT pk, col0 FROM view_2_tab4_521
+----
+200 values hashing to 06b39c45fae5a895bfa7653ed4bed045
+
+query II rowsort label-all
+SELECT pk, col0 FROM tab4 WHERE col0 >= 789 AND (col4 >= 141.85 AND col1 IS NULL) UNION SELECT pk, col0 FROM tab4 WHERE NOT (col0 >= 789 AND (col4 >= 141.85 AND col1 IS NULL))
+----
+200 values hashing to 06b39c45fae5a895bfa7653ed4bed045
+
+query II rowsort label-all
+SELECT pk, col0 FROM view_1_tab4_521 UNION SELECT pk, col0 FROM view_2_tab4_521
+----
+200 values hashing to 06b39c45fae5a895bfa7653ed4bed045
+
+query I rowsort label-0-3
+SELECT pk FROM ( SELECT pk, col0 FROM tab4 WHERE col0 >= 789 AND (col4 >= 141.85 AND col1 IS NULL) ) AS tab4_521
+----
+
+query I rowsort label-0-3
+SELECT * FROM view_3_tab4_521
+----
+
+query I rowsort label-0-3
+SELECT pk FROM tab4 WHERE col0 >= 789 AND (col4 >= 141.85 AND col1 IS NULL)
+----
+
+statement ok
+DROP VIEW view_1_tab4_521
+
+statement ok
+DROP VIEW view_2_tab4_521
+
+statement ok
+DROP VIEW view_3_tab4_521
+
+onlyif mssql # IF EXISTS support: 
+statement ok
+IF EXISTS (SELECT TABLE_NAME FROM INFORMATION_SCHEMA.VIEWS WHERE TABLE_NAME = 'view_1_tab0_523') DROP VIEW view_1_tab0_523
+
+skipif mssql # not compatible
+statement ok
+DROP VIEW IF EXISTS view_1_tab0_523
+
+onlyif mssql # IF EXISTS support: 
+statement ok
+IF EXISTS (SELECT TABLE_NAME FROM INFORMATION_SCHEMA.VIEWS WHERE TABLE_NAME = 'view_2_tab0_523') DROP VIEW view_2_tab0_523
+
+skipif mssql # not compatible
+statement ok
+DROP VIEW IF EXISTS view_2_tab0_523
+
+onlyif mssql # IF EXISTS support: 
+statement ok
+IF EXISTS (SELECT TABLE_NAME FROM INFORMATION_SCHEMA.VIEWS WHERE TABLE_NAME = 'view_3_tab0_523') DROP VIEW view_3_tab0_523
+
+skipif mssql # not compatible
+statement ok
+DROP VIEW IF EXISTS view_3_tab0_523
+
+statement ok
+CREATE VIEW view_1_tab0_523 AS SELECT pk, col0 FROM tab0 WHERE (col0 > 333)
+
+statement ok
+CREATE VIEW view_2_tab0_523 AS SELECT pk, col0 FROM tab0 WHERE NOT ((col0 > 333))
+
+statement ok
+CREATE VIEW view_3_tab0_523 AS SELECT pk FROM view_1_tab0_523
+
+query II rowsort label-100-1
+SELECT pk, col0 FROM tab0 WHERE (col0 > 333)
+----
+136 values hashing to db5a6bb3ba5b664d7d4ca1118f326e27
+
+query II rowsort label-100-2
+SELECT pk, col0 FROM tab0 WHERE NOT ((col0 > 333))
+----
+64 values hashing to a3e87338fa9668b935eed721cc5356d7
+
+query II rowsort label-100-1
+SELECT pk, col0 FROM view_1_tab0_523
+----
+136 values hashing to db5a6bb3ba5b664d7d4ca1118f326e27
+
+query II rowsort label-100-2
+SELECT pk, col0 FROM view_2_tab0_523
+----
+64 values hashing to a3e87338fa9668b935eed721cc5356d7
+
+query II rowsort label-all
+SELECT pk, col0 FROM tab0 WHERE (col0 > 333) UNION ALL SELECT pk, col0 FROM tab0 WHERE NOT ((col0 > 333))
+----
+200 values hashing to 06b39c45fae5a895bfa7653ed4bed045
+
+query II rowsort label-all
+SELECT pk, col0 FROM view_1_tab0_523 UNION ALL SELECT pk, col0 FROM view_2_tab0_523
+----
+200 values hashing to 06b39c45fae5a895bfa7653ed4bed045
+
+query II rowsort label-all
+SELECT pk, col0 FROM tab0 WHERE (col0 > 333) UNION SELECT pk, col0 FROM tab0 WHERE NOT ((col0 > 333))
+----
+200 values hashing to 06b39c45fae5a895bfa7653ed4bed045
+
+query II rowsort label-all
+SELECT pk, col0 FROM view_1_tab0_523 UNION SELECT pk, col0 FROM view_2_tab0_523
+----
+200 values hashing to 06b39c45fae5a895bfa7653ed4bed045
+
+query I rowsort label-100-3
+SELECT pk FROM ( SELECT pk, col0 FROM tab0 WHERE (col0 > 333) ) AS tab0_523
+----
+68 values hashing to 8a9f460682d7c9ced371eafa52142f78
+
+query I rowsort label-100-3
+SELECT * FROM view_3_tab0_523
+----
+68 values hashing to 8a9f460682d7c9ced371eafa52142f78
+
+query I rowsort label-100-3
+SELECT pk FROM tab0 WHERE (col0 > 333)
+----
+68 values hashing to 8a9f460682d7c9ced371eafa52142f78
+
+statement ok
+DROP VIEW view_1_tab0_523
+
+statement ok
+DROP VIEW view_2_tab0_523
+
+statement ok
+DROP VIEW view_3_tab0_523
+
+onlyif mssql # IF EXISTS support: 
+statement ok
+IF EXISTS (SELECT TABLE_NAME FROM INFORMATION_SCHEMA.VIEWS WHERE TABLE_NAME = 'view_1_tab1_523') DROP VIEW view_1_tab1_523
+
+skipif mssql # not compatible
+statement ok
+DROP VIEW IF EXISTS view_1_tab1_523
+
+onlyif mssql # IF EXISTS support: 
+statement ok
+IF EXISTS (SELECT TABLE_NAME FROM INFORMATION_SCHEMA.VIEWS WHERE TABLE_NAME = 'view_2_tab1_523') DROP VIEW view_2_tab1_523
+
+skipif mssql # not compatible
+statement ok
+DROP VIEW IF EXISTS view_2_tab1_523
+
+onlyif mssql # IF EXISTS support: 
+statement ok
+IF EXISTS (SELECT TABLE_NAME FROM INFORMATION_SCHEMA.VIEWS WHERE TABLE_NAME = 'view_3_tab1_523') DROP VIEW view_3_tab1_523
+
+skipif mssql # not compatible
+statement ok
+DROP VIEW IF EXISTS view_3_tab1_523
+
+statement ok
+CREATE VIEW view_1_tab1_523 AS SELECT pk, col0 FROM tab1 WHERE (col0 > 333)
+
+statement ok
+CREATE VIEW view_2_tab1_523 AS SELECT pk, col0 FROM tab1 WHERE NOT ((col0 > 333))
+
+statement ok
+CREATE VIEW view_3_tab1_523 AS SELECT pk FROM view_1_tab1_523
+
+query II rowsort label-100-1
+SELECT pk, col0 FROM tab1 WHERE (col0 > 333)
+----
+136 values hashing to db5a6bb3ba5b664d7d4ca1118f326e27
+
+query II rowsort label-100-2
+SELECT pk, col0 FROM tab1 WHERE NOT ((col0 > 333))
+----
+64 values hashing to a3e87338fa9668b935eed721cc5356d7
+
+query II rowsort label-100-1
+SELECT pk, col0 FROM view_1_tab1_523
+----
+136 values hashing to db5a6bb3ba5b664d7d4ca1118f326e27
+
+query II rowsort label-100-2
+SELECT pk, col0 FROM view_2_tab1_523
+----
+64 values hashing to a3e87338fa9668b935eed721cc5356d7
+
+query II rowsort label-all
+SELECT pk, col0 FROM tab1 WHERE (col0 > 333) UNION ALL SELECT pk, col0 FROM tab1 WHERE NOT ((col0 > 333))
+----
+200 values hashing to 06b39c45fae5a895bfa7653ed4bed045
+
+query II rowsort label-all
+SELECT pk, col0 FROM view_1_tab1_523 UNION ALL SELECT pk, col0 FROM view_2_tab1_523
+----
+200 values hashing to 06b39c45fae5a895bfa7653ed4bed045
+
+query II rowsort label-all
+SELECT pk, col0 FROM tab1 WHERE (col0 > 333) UNION SELECT pk, col0 FROM tab1 WHERE NOT ((col0 > 333))
+----
+200 values hashing to 06b39c45fae5a895bfa7653ed4bed045
+
+query II rowsort label-all
+SELECT pk, col0 FROM view_1_tab1_523 UNION SELECT pk, col0 FROM view_2_tab1_523
+----
+200 values hashing to 06b39c45fae5a895bfa7653ed4bed045
+
+query I rowsort label-100-3
+SELECT pk FROM ( SELECT pk, col0 FROM tab1 WHERE (col0 > 333) ) AS tab1_523
+----
+68 values hashing to 8a9f460682d7c9ced371eafa52142f78
+
+query I rowsort label-100-3
+SELECT * FROM view_3_tab1_523
+----
+68 values hashing to 8a9f460682d7c9ced371eafa52142f78
+
+query I rowsort label-100-3
+SELECT pk FROM tab1 WHERE (col0 > 333)
+----
+68 values hashing to 8a9f460682d7c9ced371eafa52142f78
+
+statement ok
+DROP VIEW view_1_tab1_523
+
+statement ok
+DROP VIEW view_2_tab1_523
+
+statement ok
+DROP VIEW view_3_tab1_523
+
+onlyif mssql # IF EXISTS support: 
+statement ok
+IF EXISTS (SELECT TABLE_NAME FROM INFORMATION_SCHEMA.VIEWS WHERE TABLE_NAME = 'view_1_tab2_523') DROP VIEW view_1_tab2_523
+
+skipif mssql # not compatible
+statement ok
+DROP VIEW IF EXISTS view_1_tab2_523
+
+onlyif mssql # IF EXISTS support: 
+statement ok
+IF EXISTS (SELECT TABLE_NAME FROM INFORMATION_SCHEMA.VIEWS WHERE TABLE_NAME = 'view_2_tab2_523') DROP VIEW view_2_tab2_523
+
+skipif mssql # not compatible
+statement ok
+DROP VIEW IF EXISTS view_2_tab2_523
+
+onlyif mssql # IF EXISTS support: 
+statement ok
+IF EXISTS (SELECT TABLE_NAME FROM INFORMATION_SCHEMA.VIEWS WHERE TABLE_NAME = 'view_3_tab2_523') DROP VIEW view_3_tab2_523
+
+skipif mssql # not compatible
+statement ok
+DROP VIEW IF EXISTS view_3_tab2_523
+
+statement ok
+CREATE VIEW view_1_tab2_523 AS SELECT pk, col0 FROM tab2 WHERE (col0 > 333)
+
+statement ok
+CREATE VIEW view_2_tab2_523 AS SELECT pk, col0 FROM tab2 WHERE NOT ((col0 > 333))
+
+statement ok
+CREATE VIEW view_3_tab2_523 AS SELECT pk FROM view_1_tab2_523
+
+query II rowsort label-100-1
+SELECT pk, col0 FROM tab2 WHERE (col0 > 333)
+----
+136 values hashing to db5a6bb3ba5b664d7d4ca1118f326e27
+
+query II rowsort label-100-2
+SELECT pk, col0 FROM tab2 WHERE NOT ((col0 > 333))
+----
+64 values hashing to a3e87338fa9668b935eed721cc5356d7
+
+query II rowsort label-100-1
+SELECT pk, col0 FROM view_1_tab2_523
+----
+136 values hashing to db5a6bb3ba5b664d7d4ca1118f326e27
+
+query II rowsort label-100-2
+SELECT pk, col0 FROM view_2_tab2_523
+----
+64 values hashing to a3e87338fa9668b935eed721cc5356d7
+
+query II rowsort label-all
+SELECT pk, col0 FROM tab2 WHERE (col0 > 333) UNION ALL SELECT pk, col0 FROM tab2 WHERE NOT ((col0 > 333))
+----
+200 values hashing to 06b39c45fae5a895bfa7653ed4bed045
+
+query II rowsort label-all
+SELECT pk, col0 FROM view_1_tab2_523 UNION ALL SELECT pk, col0 FROM view_2_tab2_523
+----
+200 values hashing to 06b39c45fae5a895bfa7653ed4bed045
+
+query II rowsort label-all
+SELECT pk, col0 FROM tab2 WHERE (col0 > 333) UNION SELECT pk, col0 FROM tab2 WHERE NOT ((col0 > 333))
+----
+200 values hashing to 06b39c45fae5a895bfa7653ed4bed045
+
+query II rowsort label-all
+SELECT pk, col0 FROM view_1_tab2_523 UNION SELECT pk, col0 FROM view_2_tab2_523
+----
+200 values hashing to 06b39c45fae5a895bfa7653ed4bed045
+
+query I rowsort label-100-3
+SELECT pk FROM ( SELECT pk, col0 FROM tab2 WHERE (col0 > 333) ) AS tab2_523
+----
+68 values hashing to 8a9f460682d7c9ced371eafa52142f78
+
+query I rowsort label-100-3
+SELECT * FROM view_3_tab2_523
+----
+68 values hashing to 8a9f460682d7c9ced371eafa52142f78
+
+query I rowsort label-100-3
+SELECT pk FROM tab2 WHERE (col0 > 333)
+----
+68 values hashing to 8a9f460682d7c9ced371eafa52142f78
+
+statement ok
+DROP VIEW view_1_tab2_523
+
+statement ok
+DROP VIEW view_2_tab2_523
+
+statement ok
+DROP VIEW view_3_tab2_523
+
+onlyif mssql # IF EXISTS support: 
+statement ok
+IF EXISTS (SELECT TABLE_NAME FROM INFORMATION_SCHEMA.VIEWS WHERE TABLE_NAME = 'view_1_tab3_523') DROP VIEW view_1_tab3_523
+
+skipif mssql # not compatible
+statement ok
+DROP VIEW IF EXISTS view_1_tab3_523
+
+onlyif mssql # IF EXISTS support: 
+statement ok
+IF EXISTS (SELECT TABLE_NAME FROM INFORMATION_SCHEMA.VIEWS WHERE TABLE_NAME = 'view_2_tab3_523') DROP VIEW view_2_tab3_523
+
+skipif mssql # not compatible
+statement ok
+DROP VIEW IF EXISTS view_2_tab3_523
+
+onlyif mssql # IF EXISTS support: 
+statement ok
+IF EXISTS (SELECT TABLE_NAME FROM INFORMATION_SCHEMA.VIEWS WHERE TABLE_NAME = 'view_3_tab3_523') DROP VIEW view_3_tab3_523
+
+skipif mssql # not compatible
+statement ok
+DROP VIEW IF EXISTS view_3_tab3_523
+
+statement ok
+CREATE VIEW view_1_tab3_523 AS SELECT pk, col0 FROM tab3 WHERE (col0 > 333)
+
+statement ok
+CREATE VIEW view_2_tab3_523 AS SELECT pk, col0 FROM tab3 WHERE NOT ((col0 > 333))
+
+statement ok
+CREATE VIEW view_3_tab3_523 AS SELECT pk FROM view_1_tab3_523
+
+query II rowsort label-100-1
+SELECT pk, col0 FROM tab3 WHERE (col0 > 333)
+----
+136 values hashing to db5a6bb3ba5b664d7d4ca1118f326e27
+
+query II rowsort label-100-2
+SELECT pk, col0 FROM tab3 WHERE NOT ((col0 > 333))
+----
+64 values hashing to a3e87338fa9668b935eed721cc5356d7
+
+query II rowsort label-100-1
+SELECT pk, col0 FROM view_1_tab3_523
+----
+136 values hashing to db5a6bb3ba5b664d7d4ca1118f326e27
+
+query II rowsort label-100-2
+SELECT pk, col0 FROM view_2_tab3_523
+----
+64 values hashing to a3e87338fa9668b935eed721cc5356d7
+
+query II rowsort label-all
+SELECT pk, col0 FROM tab3 WHERE (col0 > 333) UNION ALL SELECT pk, col0 FROM tab3 WHERE NOT ((col0 > 333))
+----
+200 values hashing to 06b39c45fae5a895bfa7653ed4bed045
+
+query II rowsort label-all
+SELECT pk, col0 FROM view_1_tab3_523 UNION ALL SELECT pk, col0 FROM view_2_tab3_523
+----
+200 values hashing to 06b39c45fae5a895bfa7653ed4bed045
+
+query II rowsort label-all
+SELECT pk, col0 FROM tab3 WHERE (col0 > 333) UNION SELECT pk, col0 FROM tab3 WHERE NOT ((col0 > 333))
+----
+200 values hashing to 06b39c45fae5a895bfa7653ed4bed045
+
+query II rowsort label-all
+SELECT pk, col0 FROM view_1_tab3_523 UNION SELECT pk, col0 FROM view_2_tab3_523
+----
+200 values hashing to 06b39c45fae5a895bfa7653ed4bed045
+
+query I rowsort label-100-3
+SELECT pk FROM ( SELECT pk, col0 FROM tab3 WHERE (col0 > 333) ) AS tab3_523
+----
+68 values hashing to 8a9f460682d7c9ced371eafa52142f78
+
+query I rowsort label-100-3
+SELECT * FROM view_3_tab3_523
+----
+68 values hashing to 8a9f460682d7c9ced371eafa52142f78
+
+query I rowsort label-100-3
+SELECT pk FROM tab3 WHERE (col0 > 333)
+----
+68 values hashing to 8a9f460682d7c9ced371eafa52142f78
+
+statement ok
+DROP VIEW view_1_tab3_523
+
+statement ok
+DROP VIEW view_2_tab3_523
+
+statement ok
+DROP VIEW view_3_tab3_523
+
+onlyif mssql # IF EXISTS support: 
+statement ok
+IF EXISTS (SELECT TABLE_NAME FROM INFORMATION_SCHEMA.VIEWS WHERE TABLE_NAME = 'view_1_tab4_523') DROP VIEW view_1_tab4_523
+
+skipif mssql # not compatible
+statement ok
+DROP VIEW IF EXISTS view_1_tab4_523
+
+onlyif mssql # IF EXISTS support: 
+statement ok
+IF EXISTS (SELECT TABLE_NAME FROM INFORMATION_SCHEMA.VIEWS WHERE TABLE_NAME = 'view_2_tab4_523') DROP VIEW view_2_tab4_523
+
+skipif mssql # not compatible
+statement ok
+DROP VIEW IF EXISTS view_2_tab4_523
+
+onlyif mssql # IF EXISTS support: 
+statement ok
+IF EXISTS (SELECT TABLE_NAME FROM INFORMATION_SCHEMA.VIEWS WHERE TABLE_NAME = 'view_3_tab4_523') DROP VIEW view_3_tab4_523
+
+skipif mssql # not compatible
+statement ok
+DROP VIEW IF EXISTS view_3_tab4_523
+
+statement ok
+CREATE VIEW view_1_tab4_523 AS SELECT pk, col0 FROM tab4 WHERE (col0 > 333)
+
+statement ok
+CREATE VIEW view_2_tab4_523 AS SELECT pk, col0 FROM tab4 WHERE NOT ((col0 > 333))
+
+statement ok
+CREATE VIEW view_3_tab4_523 AS SELECT pk FROM view_1_tab4_523
+
+query II rowsort label-100-1
+SELECT pk, col0 FROM tab4 WHERE (col0 > 333)
+----
+136 values hashing to db5a6bb3ba5b664d7d4ca1118f326e27
+
+query II rowsort label-100-2
+SELECT pk, col0 FROM tab4 WHERE NOT ((col0 > 333))
+----
+64 values hashing to a3e87338fa9668b935eed721cc5356d7
+
+query II rowsort label-100-1
+SELECT pk, col0 FROM view_1_tab4_523
+----
+136 values hashing to db5a6bb3ba5b664d7d4ca1118f326e27
+
+query II rowsort label-100-2
+SELECT pk, col0 FROM view_2_tab4_523
+----
+64 values hashing to a3e87338fa9668b935eed721cc5356d7
+
+query II rowsort label-all
+SELECT pk, col0 FROM tab4 WHERE (col0 > 333) UNION ALL SELECT pk, col0 FROM tab4 WHERE NOT ((col0 > 333))
+----
+200 values hashing to 06b39c45fae5a895bfa7653ed4bed045
+
+query II rowsort label-all
+SELECT pk, col0 FROM view_1_tab4_523 UNION ALL SELECT pk, col0 FROM view_2_tab4_523
+----
+200 values hashing to 06b39c45fae5a895bfa7653ed4bed045
+
+query II rowsort label-all
+SELECT pk, col0 FROM tab4 WHERE (col0 > 333) UNION SELECT pk, col0 FROM tab4 WHERE NOT ((col0 > 333))
+----
+200 values hashing to 06b39c45fae5a895bfa7653ed4bed045
+
+query II rowsort label-all
+SELECT pk, col0 FROM view_1_tab4_523 UNION SELECT pk, col0 FROM view_2_tab4_523
+----
+200 values hashing to 06b39c45fae5a895bfa7653ed4bed045
+
+query I rowsort label-100-3
+SELECT pk FROM ( SELECT pk, col0 FROM tab4 WHERE (col0 > 333) ) AS tab4_523
+----
+68 values hashing to 8a9f460682d7c9ced371eafa52142f78
+
+query I rowsort label-100-3
+SELECT * FROM view_3_tab4_523
+----
+68 values hashing to 8a9f460682d7c9ced371eafa52142f78
+
+query I rowsort label-100-3
+SELECT pk FROM tab4 WHERE (col0 > 333)
+----
+68 values hashing to 8a9f460682d7c9ced371eafa52142f78
+
+statement ok
+DROP VIEW view_1_tab4_523
+
+statement ok
+DROP VIEW view_2_tab4_523
+
+statement ok
+DROP VIEW view_3_tab4_523
+
+onlyif mssql # IF EXISTS support: 
+statement ok
+IF EXISTS (SELECT TABLE_NAME FROM INFORMATION_SCHEMA.VIEWS WHERE TABLE_NAME = 'view_1_tab0_524') DROP VIEW view_1_tab0_524
+
+skipif mssql # not compatible
+statement ok
+DROP VIEW IF EXISTS view_1_tab0_524
+
+onlyif mssql # IF EXISTS support: 
+statement ok
+IF EXISTS (SELECT TABLE_NAME FROM INFORMATION_SCHEMA.VIEWS WHERE TABLE_NAME = 'view_2_tab0_524') DROP VIEW view_2_tab0_524
+
+skipif mssql # not compatible
+statement ok
+DROP VIEW IF EXISTS view_2_tab0_524
+
+onlyif mssql # IF EXISTS support: 
+statement ok
+IF EXISTS (SELECT TABLE_NAME FROM INFORMATION_SCHEMA.VIEWS WHERE TABLE_NAME = 'view_3_tab0_524') DROP VIEW view_3_tab0_524
+
+skipif mssql # not compatible
+statement ok
+DROP VIEW IF EXISTS view_3_tab0_524
+
+statement ok
+CREATE VIEW view_1_tab0_524 AS SELECT pk, col0 FROM tab0 WHERE col3 > 693 OR col0 > 732 OR col3 IS NULL OR col4 >= 538.47
+
+statement ok
+CREATE VIEW view_2_tab0_524 AS SELECT pk, col0 FROM tab0 WHERE NOT (col3 > 693 OR col0 > 732 OR col3 IS NULL OR col4 >= 538.47)
+
+statement ok
+CREATE VIEW view_3_tab0_524 AS SELECT pk FROM view_1_tab0_524
+
+query II rowsort label-200-1
+SELECT pk, col0 FROM tab0 WHERE col3 > 693 OR col0 > 732 OR col3 IS NULL OR col4 >= 538.47
+----
+150 values hashing to 8c8ed857d050f3d2e39c0d0970714819
+
+query II rowsort label-200-2
+SELECT pk, col0 FROM tab0 WHERE NOT (col3 > 693 OR col0 > 732 OR col3 IS NULL OR col4 >= 538.47)
+----
+50 values hashing to 9f976b0280d4afa722a790ca879fdf05
+
+query II rowsort label-200-1
+SELECT pk, col0 FROM view_1_tab0_524
+----
+150 values hashing to 8c8ed857d050f3d2e39c0d0970714819
+
+query II rowsort label-200-2
+SELECT pk, col0 FROM view_2_tab0_524
+----
+50 values hashing to 9f976b0280d4afa722a790ca879fdf05
+
+query II rowsort label-all
+SELECT pk, col0 FROM tab0 WHERE col3 > 693 OR col0 > 732 OR col3 IS NULL OR col4 >= 538.47 UNION ALL SELECT pk, col0 FROM tab0 WHERE NOT (col3 > 693 OR col0 > 732 OR col3 IS NULL OR col4 >= 538.47)
+----
+200 values hashing to 06b39c45fae5a895bfa7653ed4bed045
+
+query II rowsort label-all
+SELECT pk, col0 FROM view_1_tab0_524 UNION ALL SELECT pk, col0 FROM view_2_tab0_524
+----
+200 values hashing to 06b39c45fae5a895bfa7653ed4bed045
+
+query II rowsort label-all
+SELECT pk, col0 FROM tab0 WHERE col3 > 693 OR col0 > 732 OR col3 IS NULL OR col4 >= 538.47 UNION SELECT pk, col0 FROM tab0 WHERE NOT (col3 > 693 OR col0 > 732 OR col3 IS NULL OR col4 >= 538.47)
+----
+200 values hashing to 06b39c45fae5a895bfa7653ed4bed045
+
+query II rowsort label-all
+SELECT pk, col0 FROM view_1_tab0_524 UNION SELECT pk, col0 FROM view_2_tab0_524
+----
+200 values hashing to 06b39c45fae5a895bfa7653ed4bed045
+
+query I rowsort label-200-3
+SELECT pk FROM ( SELECT pk, col0 FROM tab0 WHERE col3 > 693 OR col0 > 732 OR col3 IS NULL OR col4 >= 538.47 ) AS tab0_524
+----
+75 values hashing to 71cf3485d900af3a9950fd548a1b37d0
+
+query I rowsort label-200-3
+SELECT * FROM view_3_tab0_524
+----
+75 values hashing to 71cf3485d900af3a9950fd548a1b37d0
+
+query I rowsort label-200-3
+SELECT pk FROM tab0 WHERE col3 > 693 OR col0 > 732 OR col3 IS NULL OR col4 >= 538.47
+----
+75 values hashing to 71cf3485d900af3a9950fd548a1b37d0
+
+statement ok
+DROP VIEW view_1_tab0_524
+
+statement ok
+DROP VIEW view_2_tab0_524
+
+statement ok
+DROP VIEW view_3_tab0_524
+
+onlyif mssql # IF EXISTS support: 
+statement ok
+IF EXISTS (SELECT TABLE_NAME FROM INFORMATION_SCHEMA.VIEWS WHERE TABLE_NAME = 'view_1_tab1_524') DROP VIEW view_1_tab1_524
+
+skipif mssql # not compatible
+statement ok
+DROP VIEW IF EXISTS view_1_tab1_524
+
+onlyif mssql # IF EXISTS support: 
+statement ok
+IF EXISTS (SELECT TABLE_NAME FROM INFORMATION_SCHEMA.VIEWS WHERE TABLE_NAME = 'view_2_tab1_524') DROP VIEW view_2_tab1_524
+
+skipif mssql # not compatible
+statement ok
+DROP VIEW IF EXISTS view_2_tab1_524
+
+onlyif mssql # IF EXISTS support: 
+statement ok
+IF EXISTS (SELECT TABLE_NAME FROM INFORMATION_SCHEMA.VIEWS WHERE TABLE_NAME = 'view_3_tab1_524') DROP VIEW view_3_tab1_524
+
+skipif mssql # not compatible
+statement ok
+DROP VIEW IF EXISTS view_3_tab1_524
+
+statement ok
+CREATE VIEW view_1_tab1_524 AS SELECT pk, col0 FROM tab1 WHERE col3 > 693 OR col0 > 732 OR col3 IS NULL OR col4 >= 538.47
+
+statement ok
+CREATE VIEW view_2_tab1_524 AS SELECT pk, col0 FROM tab1 WHERE NOT (col3 > 693 OR col0 > 732 OR col3 IS NULL OR col4 >= 538.47)
+
+statement ok
+CREATE VIEW view_3_tab1_524 AS SELECT pk FROM view_1_tab1_524
+
+query II rowsort label-200-1
+SELECT pk, col0 FROM tab1 WHERE col3 > 693 OR col0 > 732 OR col3 IS NULL OR col4 >= 538.47
+----
+150 values hashing to 8c8ed857d050f3d2e39c0d0970714819
+
+query II rowsort label-200-2
+SELECT pk, col0 FROM tab1 WHERE NOT (col3 > 693 OR col0 > 732 OR col3 IS NULL OR col4 >= 538.47)
+----
+50 values hashing to 9f976b0280d4afa722a790ca879fdf05
+
+query II rowsort label-200-1
+SELECT pk, col0 FROM view_1_tab1_524
+----
+150 values hashing to 8c8ed857d050f3d2e39c0d0970714819
+
+query II rowsort label-200-2
+SELECT pk, col0 FROM view_2_tab1_524
+----
+50 values hashing to 9f976b0280d4afa722a790ca879fdf05
+
+query II rowsort label-all
+SELECT pk, col0 FROM tab1 WHERE col3 > 693 OR col0 > 732 OR col3 IS NULL OR col4 >= 538.47 UNION ALL SELECT pk, col0 FROM tab1 WHERE NOT (col3 > 693 OR col0 > 732 OR col3 IS NULL OR col4 >= 538.47)
+----
+200 values hashing to 06b39c45fae5a895bfa7653ed4bed045
+
+query II rowsort label-all
+SELECT pk, col0 FROM view_1_tab1_524 UNION ALL SELECT pk, col0 FROM view_2_tab1_524
+----
+200 values hashing to 06b39c45fae5a895bfa7653ed4bed045
+
+query II rowsort label-all
+SELECT pk, col0 FROM tab1 WHERE col3 > 693 OR col0 > 732 OR col3 IS NULL OR col4 >= 538.47 UNION SELECT pk, col0 FROM tab1 WHERE NOT (col3 > 693 OR col0 > 732 OR col3 IS NULL OR col4 >= 538.47)
+----
+200 values hashing to 06b39c45fae5a895bfa7653ed4bed045
+
+query II rowsort label-all
+SELECT pk, col0 FROM view_1_tab1_524 UNION SELECT pk, col0 FROM view_2_tab1_524
+----
+200 values hashing to 06b39c45fae5a895bfa7653ed4bed045
+
+query I rowsort label-200-3
+SELECT pk FROM ( SELECT pk, col0 FROM tab1 WHERE col3 > 693 OR col0 > 732 OR col3 IS NULL OR col4 >= 538.47 ) AS tab1_524
+----
+75 values hashing to 71cf3485d900af3a9950fd548a1b37d0
+
+query I rowsort label-200-3
+SELECT * FROM view_3_tab1_524
+----
+75 values hashing to 71cf3485d900af3a9950fd548a1b37d0
+
+query I rowsort label-200-3
+SELECT pk FROM tab1 WHERE col3 > 693 OR col0 > 732 OR col3 IS NULL OR col4 >= 538.47
+----
+75 values hashing to 71cf3485d900af3a9950fd548a1b37d0
+
+statement ok
+DROP VIEW view_1_tab1_524
+
+statement ok
+DROP VIEW view_2_tab1_524
+
+statement ok
+DROP VIEW view_3_tab1_524
+
+onlyif mssql # IF EXISTS support: 
+statement ok
+IF EXISTS (SELECT TABLE_NAME FROM INFORMATION_SCHEMA.VIEWS WHERE TABLE_NAME = 'view_1_tab2_524') DROP VIEW view_1_tab2_524
+
+skipif mssql # not compatible
+statement ok
+DROP VIEW IF EXISTS view_1_tab2_524
+
+onlyif mssql # IF EXISTS support: 
+statement ok
+IF EXISTS (SELECT TABLE_NAME FROM INFORMATION_SCHEMA.VIEWS WHERE TABLE_NAME = 'view_2_tab2_524') DROP VIEW view_2_tab2_524
+
+skipif mssql # not compatible
+statement ok
+DROP VIEW IF EXISTS view_2_tab2_524
+
+onlyif mssql # IF EXISTS support: 
+statement ok
+IF EXISTS (SELECT TABLE_NAME FROM INFORMATION_SCHEMA.VIEWS WHERE TABLE_NAME = 'view_3_tab2_524') DROP VIEW view_3_tab2_524
+
+skipif mssql # not compatible
+statement ok
+DROP VIEW IF EXISTS view_3_tab2_524
+
+statement ok
+CREATE VIEW view_1_tab2_524 AS SELECT pk, col0 FROM tab2 WHERE col3 > 693 OR col0 > 732 OR col3 IS NULL OR col4 >= 538.47
+
+statement ok
+CREATE VIEW view_2_tab2_524 AS SELECT pk, col0 FROM tab2 WHERE NOT (col3 > 693 OR col0 > 732 OR col3 IS NULL OR col4 >= 538.47)
+
+statement ok
+CREATE VIEW view_3_tab2_524 AS SELECT pk FROM view_1_tab2_524
+
+query II rowsort label-200-1
+SELECT pk, col0 FROM tab2 WHERE col3 > 693 OR col0 > 732 OR col3 IS NULL OR col4 >= 538.47
+----
+150 values hashing to 8c8ed857d050f3d2e39c0d0970714819
+
+query II rowsort label-200-2
+SELECT pk, col0 FROM tab2 WHERE NOT (col3 > 693 OR col0 > 732 OR col3 IS NULL OR col4 >= 538.47)
+----
+50 values hashing to 9f976b0280d4afa722a790ca879fdf05
+
+query II rowsort label-200-1
+SELECT pk, col0 FROM view_1_tab2_524
+----
+150 values hashing to 8c8ed857d050f3d2e39c0d0970714819
+
+query II rowsort label-200-2
+SELECT pk, col0 FROM view_2_tab2_524
+----
+50 values hashing to 9f976b0280d4afa722a790ca879fdf05
+
+query II rowsort label-all
+SELECT pk, col0 FROM tab2 WHERE col3 > 693 OR col0 > 732 OR col3 IS NULL OR col4 >= 538.47 UNION ALL SELECT pk, col0 FROM tab2 WHERE NOT (col3 > 693 OR col0 > 732 OR col3 IS NULL OR col4 >= 538.47)
+----
+200 values hashing to 06b39c45fae5a895bfa7653ed4bed045
+
+query II rowsort label-all
+SELECT pk, col0 FROM view_1_tab2_524 UNION ALL SELECT pk, col0 FROM view_2_tab2_524
+----
+200 values hashing to 06b39c45fae5a895bfa7653ed4bed045
+
+query II rowsort label-all
+SELECT pk, col0 FROM tab2 WHERE col3 > 693 OR col0 > 732 OR col3 IS NULL OR col4 >= 538.47 UNION SELECT pk, col0 FROM tab2 WHERE NOT (col3 > 693 OR col0 > 732 OR col3 IS NULL OR col4 >= 538.47)
+----
+200 values hashing to 06b39c45fae5a895bfa7653ed4bed045
+
+query II rowsort label-all
+SELECT pk, col0 FROM view_1_tab2_524 UNION SELECT pk, col0 FROM view_2_tab2_524
+----
+200 values hashing to 06b39c45fae5a895bfa7653ed4bed045
+
+query I rowsort label-200-3
+SELECT pk FROM ( SELECT pk, col0 FROM tab2 WHERE col3 > 693 OR col0 > 732 OR col3 IS NULL OR col4 >= 538.47 ) AS tab2_524
+----
+75 values hashing to 71cf3485d900af3a9950fd548a1b37d0
+
+query I rowsort label-200-3
+SELECT * FROM view_3_tab2_524
+----
+75 values hashing to 71cf3485d900af3a9950fd548a1b37d0
+
+query I rowsort label-200-3
+SELECT pk FROM tab2 WHERE col3 > 693 OR col0 > 732 OR col3 IS NULL OR col4 >= 538.47
+----
+75 values hashing to 71cf3485d900af3a9950fd548a1b37d0
+
+statement ok
+DROP VIEW view_1_tab2_524
+
+statement ok
+DROP VIEW view_2_tab2_524
+
+statement ok
+DROP VIEW view_3_tab2_524

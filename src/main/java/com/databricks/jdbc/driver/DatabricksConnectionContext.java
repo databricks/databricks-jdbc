@@ -1,7 +1,6 @@
 package com.databricks.jdbc.driver;
 
-import static com.databricks.jdbc.driver.DatabricksJdbcConstants.DEFAULT_LOG_LEVEL;
-import static com.databricks.jdbc.driver.DatabricksJdbcConstants.JDBC_URL_PATTERN;
+import static com.databricks.jdbc.driver.DatabricksJdbcConstants.*;
 
 import com.databricks.jdbc.client.DatabricksClientType;
 import com.databricks.jdbc.core.types.CompressionType;
@@ -9,6 +8,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
 import java.util.*;
 import java.util.regex.Matcher;
+import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.event.Level;
@@ -246,5 +246,16 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   @Override
   public String getSchema() {
     return getParameter(DatabricksJdbcConstants.CONN_SCHEMA);
+  }
+
+  @Override
+  public Map<String, String> getSessionConfigs() {
+    return this.parameters.entrySet().stream()
+        .filter(
+            e ->
+                ALLOWED_SESSION_CONFIGS.stream()
+                    .map(String::toLowerCase)
+                    .anyMatch(allowedConf -> allowedConf.equals(e.getKey())))
+        .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
   }
 }

@@ -14,7 +14,6 @@ import com.databricks.jdbc.client.sqlexec.ExecuteStatementResponse;
 import com.databricks.jdbc.client.sqlexec.ExternalLink;
 import com.databricks.jdbc.client.sqlexec.GetStatementResponse;
 import com.databricks.jdbc.client.sqlexec.ResultData;
-import com.databricks.jdbc.client.sqlexec.Session;
 import com.databricks.jdbc.core.*;
 import com.databricks.jdbc.driver.IDatabricksConnectionContext;
 import com.databricks.sdk.WorkspaceClient;
@@ -93,11 +92,16 @@ public class DatabricksSdkClient implements DatabricksClient {
     if (schema != null) {
       request.setSchema(schema);
     }
-    Session session =
-        workspaceClient.apiClient().POST(SESSION_PATH, request, Session.class, getHeaders());
+    if (sessionConf != null && !sessionConf.isEmpty()) {
+      request.setSessionConfigs(sessionConf);
+    }
+    CreateSessionResponse createSessionResponse =
+        workspaceClient
+            .apiClient()
+            .POST(SESSION_PATH, request, CreateSessionResponse.class, getHeaders());
     return ImmutableSessionInfo.builder()
-        .warehouseId(session.getWarehouseId())
-        .sessionId(session.getSessionId())
+        .warehouseId(warehouseId)
+        .sessionId(createSessionResponse.getSessionId())
         .build();
   }
 
@@ -226,6 +230,7 @@ public class DatabricksSdkClient implements DatabricksClient {
             .setWarehouseId(warehouseId)
             .setDisposition(disposition)
             .setFormat(format)
+            .setCompressionType(session.getCompressionType())
             .setWaitTimeout(SYNC_TIMEOUT_VALUE)
             .setOnWaitTimeout(ExecuteStatementRequestOnWaitTimeout.CONTINUE)
             .setParameters(collect);

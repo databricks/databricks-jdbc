@@ -2,6 +2,7 @@ package com.databricks.jdbc.driver;
 
 import com.databricks.jdbc.core.types.CompressionType;
 import java.util.List;
+import java.util.Map;
 
 public interface IDatabricksConnectionContext {
 
@@ -74,4 +75,6 @@ public interface IDatabricksConnectionContext {
   String getCatalog();
 
   String getSchema();
+
+  Map<String, String> getSessionConfigs();
 }

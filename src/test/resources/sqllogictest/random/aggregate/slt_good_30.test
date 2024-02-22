@@ -1,0 +1,1974 @@
+hash-threshold 8
+
+statement ok
+CREATE TABLE tab0(col0 INTEGER, col1 INTEGER, col2 INTEGER)
+
+statement ok
+CREATE TABLE tab1(col0 INTEGER, col1 INTEGER, col2 INTEGER)
+
+statement ok
+CREATE TABLE tab2(col0 INTEGER, col1 INTEGER, col2 INTEGER)
+
+statement ok
+INSERT INTO tab0 VALUES(97,1,99)
+
+statement ok
+INSERT INTO tab0 VALUES(15,81,47)
+
+statement ok
+INSERT INTO tab0 VALUES(87,21,10)
+
+statement ok
+INSERT INTO tab1 VALUES(51,14,96)
+
+statement ok
+INSERT INTO tab1 VALUES(85,5,59)
+
+statement ok
+INSERT INTO tab1 VALUES(91,47,68)
+
+statement ok
+INSERT INTO tab2 VALUES(64,77,40)
+
+statement ok
+INSERT INTO tab2 VALUES(75,67,58)
+
+statement ok
+INSERT INTO tab2 VALUES(46,51,23)
+
+skipif postgresql # PostgreSQL requires AS when renaming output columns
+query I rowsort
+SELECT ALL - 71 col2 FROM tab2 AS cor0 CROSS JOIN tab1 AS cor1
+----
+9 values hashing to e72f95c346714d3065a96d67a6fd5062
+
+onlyif mysql # DIV for integer division: 
+query I rowsort label-1
+SELECT ALL 32 DIV + col2 - + - ( col1 ) + - 73 * col1 FROM tab2 cor0
+----
+-3671
+-4824
+-5544
+
+skipif mysql # not compatible
+query I rowsort label-1
+SELECT ALL 32 / + col2 - + - ( col1 ) + - 73 * col1 FROM tab2 cor0
+----
+-3671
+-4824
+-5544
+
+query I rowsort
+SELECT + - col2 + - 39 FROM tab0 cor0
+----
+-138
+-49
+-86
+
+query III rowsort
+SELECT * FROM tab2 AS cor0 WHERE + col2 NOT IN ( + ( 38 ) )
+----
+9 values hashing to 75c998aa53ac83218cbf2feb962d0a49
+
+query I rowsort
+SELECT DISTINCT + 33 - + 35 + + col0 * + 24 AS col1 FROM tab2 AS cor0
+----
+1102
+1534
+1798
+
+query III rowsort
+SELECT ALL * FROM tab1 AS cor0 WHERE NOT NULL = 75
+----
+
+query I rowsort
+SELECT DISTINCT col1 / col1 AS col1 FROM tab0 cor0 WHERE ( col1 + col0 ) IN ( col2 )
+----
+
+query I rowsort
+SELECT ALL col1 FROM tab2 WHERE - col1 NOT IN ( + - col1 * col1 )
+----
+51
+67
+77
+
+query I rowsort
+SELECT - 95 + col2 FROM tab2
+----
+-37
+-55
+-72
+
+skipif postgresql # PostgreSQL requires AS when renaming output columns
+query I rowsort
+SELECT DISTINCT col1 - - - col2 col0 FROM tab2
+----
+28
+37
+9
+
+onlyif mysql # CAST syntax: SIGNED type: DIV for integer division: 
+query I rowsort label-10
+SELECT + 45 DIV 23 FROM tab0 WHERE col0 + - + col1 + - 72 * ( CAST( NULL AS SIGNED ) * 26 ) IS NULL
+----
+1
+1
+1
+
+skipif mysql # not compatible
+query I rowsort label-10
+SELECT + 45 / 23 FROM tab0 WHERE col0 + - + col1 + - 72 * ( CAST ( NULL AS INTEGER ) * 26 ) IS NULL
+----
+1
+1
+1
+
+onlyif mysql # CAST syntax: SIGNED type: 
+query III rowsort label-11
+SELECT DISTINCT * FROM tab0 WHERE NOT - CAST( NULL AS SIGNED ) * 42 * col1 BETWEEN - col2 AND 20
+----
+
+skipif mysql # not compatible
+query III rowsort label-11
+SELECT DISTINCT * FROM tab0 WHERE NOT - CAST ( NULL AS INTEGER ) * 42 * col1 BETWEEN - col2 AND 20
+----
+
+onlyif mysql # CAST syntax: SIGNED type: 
+query I rowsort label-12
+SELECT ALL 42 + + CAST( NULL AS SIGNED ) * col0 FROM tab2
+----
+NULL
+NULL
+NULL
+
+skipif mysql # not compatible
+query I rowsort label-12
+SELECT ALL 42 + + CAST ( NULL AS INTEGER ) * col0 FROM tab2
+----
+NULL
+NULL
+NULL
+
+query III rowsort
+SELECT ALL * FROM tab0 WHERE NOT NULL NOT BETWEEN + - col2 AND ( NULL )
+----
+
+onlyif mysql # CAST syntax: SIGNED type: 
+query I rowsort label-14
+SELECT - ( 24 ) * - 62 AS col0 FROM tab2 WHERE ( - + CAST( NULL AS SIGNED ) * - 51 + + CAST( + col0 AS SIGNED ) ) = NULL
+----
+
+skipif mysql # not compatible
+query I rowsort label-14
+SELECT - ( 24 ) * - 62 AS col0 FROM tab2 WHERE ( - + CAST ( NULL AS INTEGER ) * - 51 + + CAST ( + col0 AS INTEGER ) ) = NULL
+----
+
+onlyif mysql # aggregate syntax: DIV for integer division: 
+query II rowsort label-15
+SELECT COUNT( * ) DIV + 19 AS col2, - 72 + - COUNT( * ) FROM tab2 AS cor0
+----
+0
+-75
+
+skipif mysql # not compatible
+query II rowsort label-15
+SELECT COUNT ( * ) / + 19 AS col2, - 72 + - COUNT ( * ) FROM tab2 AS cor0
+----
+0
+-75
+
+query I rowsort
+SELECT DISTINCT + + col1 + - 27 + - + col2 + - - col1 + + col1 FROM tab0 AS cor0
+----
+-123
+169
+26
+
+onlyif mysql # aggregate syntax: 
+query I rowsort label-17
+SELECT DISTINCT - - MIN( + col1 ) AS col1 FROM tab0 AS cor0
+----
+1
+
+skipif mysql # not compatible
+query I rowsort label-17
+SELECT DISTINCT - - MIN ( + col1 ) AS col1 FROM tab0 AS cor0
+----
+1
+
+query I rowsort
+SELECT DISTINCT + 15 * - - col1 AS col1 FROM tab2
+----
+1005
+1155
+765
+
+query III rowsort
+SELECT * FROM tab1 cor0 WHERE NOT + 39 * - ( - - col0 ) > - + col1 + 51
+----
+9 values hashing to c6c0a4111b36d04dbc811a11e4d54cad
+
+query III rowsort
+SELECT * FROM tab2 AS cor0 WHERE NOT NULL IN ( + 57 )
+----
+
+onlyif mysql # CAST syntax: SIGNED type: 
+query III rowsort label-21
+SELECT * FROM tab0 AS cor0 WHERE NOT - CAST( NULL AS SIGNED ) IN ( + + col1 )
+----
+
+skipif mysql # not compatible
+query III rowsort label-21
+SELECT * FROM tab0 AS cor0 WHERE NOT - CAST ( NULL AS INTEGER ) IN ( + + col1 )
+----
+
+query I rowsort
+SELECT DISTINCT - + 92 * ( 87 ) - + col0 FROM tab2 AS cor0
+----
+-8050
+-8068
+-8079
+
+onlyif mysql # aggregate syntax: DIV for integer division: 
+query I rowsort label-23
+SELECT DISTINCT - COUNT( * ) DIV + 86 AS col2 FROM tab1 AS cor0
+----
+0
+
+skipif mysql # not compatible
+query I rowsort label-23
+SELECT DISTINCT - COUNT ( * ) / + 86 AS col2 FROM tab1 AS cor0
+----
+0
+
+query III rowsort
+SELECT * FROM tab2 AS cor0 WHERE NOT + 31 BETWEEN NULL AND - 16
+----
+9 values hashing to 75c998aa53ac83218cbf2feb962d0a49
+
+onlyif mysql # aggregate syntax: 
+query I rowsort label-25
+SELECT ALL MAX( ALL + col2 ) FROM tab0 cor0 WHERE - 98 * - - 39 IN ( - col1 + + col0 + + col2 )
+----
+NULL
+
+skipif mysql # not compatible
+query I rowsort label-25
+SELECT ALL MAX ( ALL + col2 ) FROM tab0 cor0 WHERE - 98 * - - 39 IN ( - col1 + + col0 + + col2 )
+----
+NULL
+
+query I rowsort
+SELECT DISTINCT - - 25 * - col2 - - col0 + - 15 * + 8 AS col0 FROM tab1 AS cor0 WHERE NOT col0 IS NOT NULL
+----
+
+query I rowsort
+SELECT + - ( + - ( + + 19 ) ) FROM tab0 AS cor0
+----
+19
+19
+19
+
+query II rowsort
+SELECT - + col0 AS col0, col2 * - 42 FROM tab1 AS cor0
+----
+-51
+-4032
+-85
+-2478
+-91
+-2856
+
+onlyif mysql # CAST syntax: SIGNED type: 
+query II rowsort label-29
+SELECT ALL CAST( + col0 AS SIGNED ) AS col2, 44 * col1 FROM tab2 cor0 WHERE NULL IS NOT NULL
+----
+
+skipif mysql # not compatible
+query II rowsort label-29
+SELECT ALL CAST ( + col0 AS INTEGER ) AS col2, 44 * col1 FROM tab2 cor0 WHERE NULL IS NOT NULL
+----
+
+query II rowsort
+SELECT ALL + col2 * + + 49 AS col1, col1 AS col0 FROM tab0 AS cor0 WHERE NOT NULL IS NULL
+----
+
+query III rowsort
+SELECT ALL * FROM tab2 WHERE NOT NULL < ( 21 )
+----
+
+query I rowsort
+SELECT ALL 88 * + col0 FROM tab0
+----
+1320
+7656
+8536
+
+query III rowsort
+SELECT * FROM tab0 WHERE NOT NULL > - - ( + col0 ) / 49
+----
+
+query I rowsort
+SELECT ALL 72 + - 67 AS col2 FROM tab0 AS cor0
+----
+5
+5
+5
+
+query I rowsort
+SELECT - col0 * - 31 AS col0 FROM tab0 AS cor0 WHERE NOT NULL = NULL
+----
+
+onlyif mysql # aggregate syntax: 
+query I rowsort label-36
+SELECT + + ( - COUNT( * ) ) + SUM( DISTINCT col1 ) AS col2 FROM tab2 AS cor0 WHERE ( NULL ) IS NULL
+----
+192
+
+skipif mysql # not compatible
+query I rowsort label-36
+SELECT + + ( - COUNT ( * ) ) + SUM ( DISTINCT col1 ) AS col2 FROM tab2 AS cor0 WHERE ( NULL ) IS NULL
+----
+192
+
+query II rowsort
+SELECT - 5 AS col0, - col2 + col1 * col1 AS col1 FROM tab1 AS cor0
+----
+-5
+-34
+-5
+100
+-5
+2141
+
+onlyif mysql # CAST syntax: SIGNED type: 
+query I rowsort label-38
+SELECT - 50 / 64 * - - col2 + - + 94 - + + CAST( NULL AS SIGNED ) * + 12 + - + 82 FROM tab2
+----
+NULL
+NULL
+NULL
+
+skipif mysql # not compatible
+query I rowsort label-38
+SELECT - 50 / 64 * - - col2 + - + 94 - + + CAST ( NULL AS INTEGER ) * + 12 + - + 82 FROM tab2
+----
+NULL
+NULL
+NULL
+
+onlyif mysql # aggregate syntax: 
+query I rowsort label-39
+SELECT 97 + + COUNT( DISTINCT + - col2 ) FROM tab2
+----
+100
+
+skipif mysql # not compatible
+query I rowsort label-39
+SELECT 97 + + COUNT ( DISTINCT + - col2 ) FROM tab2
+----
+100
+
+query I rowsort
+SELECT DISTINCT col0 + - col0 + + 82 FROM tab2
+----
+82
+
+query I rowsort
+SELECT DISTINCT ( - + 42 ) FROM tab2 cor0 WHERE NOT NULL IS NOT NULL
+----
+-42
+
+onlyif mysql # aggregate syntax: 
+query II rowsort label-42
+SELECT ALL - 55 - 36 AS col2, COUNT( * ) + - + 78 * + MAX( DISTINCT + col0 ) AS col1 FROM tab0 AS cor0
+----
+-91
+-7563
+
+skipif mysql # not compatible
+query II rowsort label-42
+SELECT ALL - 55 - 36 AS col2, COUNT ( * ) + - + 78 * + MAX ( DISTINCT + col0 ) AS col1 FROM tab0 AS cor0
+----
+-91
+-7563
+
+query I rowsort
+SELECT DISTINCT col1 + ( + 52 ) FROM tab0 AS cor0
+----
+133
+53
+73
+
+query I rowsort
+SELECT col0 / - - col1 AS col2 FROM tab1 AS cor0 WHERE + col2 * - 39 IS NULL
+----
+
+query I rowsort
+SELECT ALL - 6 + 87 * + col0 FROM tab2 cor0
+----
+3996
+5562
+6519
+
+onlyif mysql # CAST syntax: SIGNED type: 
+query I rowsort label-46
+SELECT ALL col0 FROM tab1 AS cor0 WHERE NOT - col0 + - 56 NOT IN ( + - CAST( + 32 AS SIGNED ) )
+----
+
+skipif mysql # not compatible
+query I rowsort label-46
+SELECT ALL col0 FROM tab1 AS cor0 WHERE NOT - col0 + - 56 NOT IN ( + - CAST ( + 32 AS INTEGER ) )
+----
+
+onlyif mysql # CAST syntax: SIGNED type: 
+query I rowsort label-47
+SELECT 3 + col0 * col1 FROM tab1 AS cor0 WHERE ( ( ( - - col2 ) ) + + - CAST( NULL AS SIGNED ) ) IS NOT NULL
+----
+
+skipif mysql # not compatible
+query I rowsort label-47
+SELECT 3 + col0 * col1 FROM tab1 AS cor0 WHERE ( ( ( - - col2 ) ) + + - CAST ( NULL AS INTEGER ) ) IS NOT NULL
+----
+
+onlyif mysql # CAST syntax: SIGNED type: 
+query I rowsort label-48
+SELECT CAST( NULL AS SIGNED ) - 42 col2 FROM tab0 AS cor0
+----
+NULL
+NULL
+NULL
+
+skipif mysql # not compatible
+skipif postgresql # PostgreSQL requires AS when renaming output columns
+query I rowsort label-48
+SELECT CAST ( NULL AS INTEGER ) - 42 col2 FROM tab0 AS cor0
+----
+NULL
+NULL
+NULL
+
+query I rowsort
+SELECT 45 - 91 AS col2 FROM tab1
+----
+-46
+-46
+-46
+
+onlyif mysql # aggregate syntax: 
+query I rowsort label-50
+SELECT DISTINCT COUNT( ALL ( + col0 ) ) AS col1 FROM tab0
+----
+3
+
+skipif mysql # not compatible
+query I rowsort label-50
+SELECT DISTINCT COUNT ( ALL ( + col0 ) ) AS col1 FROM tab0
+----
+3
+
+query I rowsort
+SELECT ALL 6 + - col0 - - col2 AS col0 FROM tab1
+----
+-17
+-20
+51
+
+query II rowsort
+SELECT DISTINCT ( - ( + col1 ) ), col0 FROM tab2
+----
+-51
+46
+-67
+75
+-77
+64
+
+query II rowsort
+SELECT + col2 AS col1, - ( col1 ) AS col2 FROM tab1 AS cor0 WHERE NOT 59 >= NULL
+----
+
+query I rowsort
+SELECT DISTINCT + - col0 * col2 AS col1 FROM tab1 cor0
+----
+-4896
+-5015
+-6188
+
+onlyif mysql # aggregate syntax: 
+query I rowsort label-55
+SELECT ALL SUM( ALL + 33 ) FROM tab2
+----
+99
+
+skipif mysql # not compatible
+query I rowsort label-55
+SELECT ALL SUM ( ALL + 33 ) FROM tab2
+----
+99
+
+query III rowsort
+SELECT ALL * FROM tab1 WHERE NULL <> ( - col2 * - 57 )
+----
+
+query I rowsort
+SELECT ALL + 87 FROM tab0 AS cor0 CROSS JOIN tab0 cor1
+----
+9 values hashing to fa0cdd86483844cda3bb806e032d5c64
+
+skipif postgresql # PostgreSQL requires AS when renaming output columns
+query I rowsort
+SELECT - ( ( + col1 ) ) * 93 col1 FROM tab1 WHERE NOT NULL < + - col2 * - col0
+----
+
+query I rowsort
+SELECT ALL - 59 * - 34 FROM tab1
+----
+2006
+2006
+2006
+
+query I rowsort
+SELECT - + col0 * + col1 FROM tab2 cor0
+----
+-2346
+-4928
+-5025
+
+query I rowsort
+SELECT - ( + - 41 ) AS col0 FROM tab0 AS cor0
+----
+41
+41
+41
+
+onlyif mysql # aggregate syntax: 
+query I rowsort label-62
+SELECT DISTINCT COUNT( * ) * + 53 AS col0 FROM tab2
+----
+159
+
+skipif mysql # not compatible
+query I rowsort label-62
+SELECT DISTINCT COUNT ( * ) * + 53 AS col0 FROM tab2
+----
+159
+
+onlyif mysql # aggregate syntax: 
+query I rowsort label-63
+SELECT ALL MIN( DISTINCT + - 28 ) AS col2 FROM tab0
+----
+-28
+
+skipif mysql # not compatible
+query I rowsort label-63
+SELECT ALL MIN ( DISTINCT + - 28 ) AS col2 FROM tab0
+----
+-28
+
+onlyif mysql # aggregate syntax: 
+query I rowsort label-64
+SELECT ALL - 75 * - COUNT( * ) col0 FROM tab2
+----
+225
+
+skipif mysql # not compatible
+skipif postgresql # PostgreSQL requires AS when renaming output columns
+query I rowsort label-64
+SELECT ALL - 75 * - COUNT ( * ) col0 FROM tab2
+----
+225
+
+query I rowsort
+SELECT + col2 FROM tab1 WHERE NOT ( - col2 ) <> ( NULL )
+----
+
+onlyif mysql # CAST syntax: DECIMAL type: 
+query I rowsort label-66
+SELECT DISTINCT + CAST( NULL AS DECIMAL ) + + col2 AS col1 FROM tab1
+----
+NULL
+
+skipif mysql # not compatible
+query I rowsort label-66
+SELECT DISTINCT + CAST ( NULL AS REAL ) + + col2 AS col1 FROM tab1
+----
+NULL
+
+onlyif mysql # CAST syntax: SIGNED type: 
+query III rowsort label-67
+SELECT DISTINCT * FROM tab2 WHERE CAST( + + col2 AS SIGNED ) - + col1 + - + 83 NOT IN ( + + col2 )
+----
+9 values hashing to 75c998aa53ac83218cbf2feb962d0a49
+
+skipif mysql # not compatible
+query III rowsort label-67
+SELECT DISTINCT * FROM tab2 WHERE CAST ( + + col2 AS INTEGER ) - + col1 + - + 83 NOT IN ( + + col2 )
+----
+9 values hashing to 75c998aa53ac83218cbf2feb962d0a49
+
+onlyif mysql # aggregate syntax: 
+query I rowsort label-68
+SELECT SUM( DISTINCT - col0 ) + + + COUNT( * ) AS col0 FROM tab2
+----
+-182
+
+skipif mysql # not compatible
+query I rowsort label-68
+SELECT SUM ( DISTINCT - col0 ) + + + COUNT ( * ) AS col0 FROM tab2
+----
+-182
+
+onlyif mysql # aggregate syntax: 
+query I rowsort label-69
+SELECT COUNT( * ) + - 68 AS col2 FROM tab0
+----
+-65
+
+skipif mysql # not compatible
+query I rowsort label-69
+SELECT COUNT ( * ) + - 68 AS col2 FROM tab0
+----
+-65
+
+onlyif mysql # CAST syntax: DECIMAL type: 
+query I rowsort label-70
+SELECT col1 + + CAST( NULL AS DECIMAL ) - + + col0 FROM tab1
+----
+NULL
+NULL
+NULL
+
+skipif mysql # not compatible
+query I rowsort label-70
+SELECT col1 + + CAST ( NULL AS REAL ) - + + col0 FROM tab1
+----
+NULL
+NULL
+NULL
+
+query I rowsort
+SELECT DISTINCT + 49 + + - col1 FROM tab0
+----
+-32
+28
+48
+
+onlyif mysql # aggregate syntax: 
+query I rowsort label-72
+SELECT + - MAX( DISTINCT col0 ) FROM tab0 WHERE col1 BETWEEN NULL AND NULL
+----
+NULL
+
+skipif mysql # not compatible
+query I rowsort label-72
+SELECT + - MAX ( DISTINCT col0 ) FROM tab0 WHERE col1 BETWEEN NULL AND NULL
+----
+NULL
+
+onlyif mysql # CAST syntax: aggregate syntax: SIGNED type: 
+query I rowsort label-73
+SELECT CAST( + + 64 AS SIGNED ) + + COUNT( * ) AS col2 FROM tab1
+----
+67
+
+skipif mysql # not compatible
+query I rowsort label-73
+SELECT CAST ( + + 64 AS INTEGER ) + + COUNT ( * ) AS col2 FROM tab1
+----
+67
+
+query I rowsort
+SELECT ALL - - col0 FROM tab0 WHERE NOT + ( ( col1 ) ) - + col2 * - 61 IS NULL
+----
+15
+87
+97
+
+query I rowsort
+SELECT ALL - ( - col2 ) * - col0 AS col1 FROM tab2
+----
+-1058
+-2560
+-4350
+
+query II rowsort
+SELECT ALL + - col2 - + + col0 AS col2, + 43 AS col0 FROM tab0 AS cor0
+----
+-196
+43
+-62
+43
+-97
+43
+
+query I rowsort
+SELECT + + 9 + - 24 AS col2 FROM tab0 cor0
+----
+-15
+-15
+-15
+
+onlyif mysql # CAST syntax: SIGNED type: 
+query I rowsort label-78
+SELECT - - CAST( - 7 AS SIGNED ) AS col0 FROM tab0 WHERE + 94 BETWEEN - + col1 AND + col2
+----
+-7
+
+skipif mysql # not compatible
+query I rowsort label-78
+SELECT - - CAST ( - 7 AS INTEGER ) AS col0 FROM tab0 WHERE + 94 BETWEEN - + col1 AND + col2
+----
+-7
+
+query III rowsort
+SELECT * FROM tab1 WHERE NOT - 57 >= NULL
+----
+
+query I rowsort
+SELECT DISTINCT col0 - - + col2 * 60 FROM tab0 WHERE NOT col2 NOT IN ( - - col1, col1 + - col2 )
+----
+
+onlyif mysql # DIV for integer division: 
+query I rowsort label-81
+SELECT ALL 3 * + col2 DIV + ( + col0 ) FROM tab0
+----
+0
+3
+9
+
+skipif mysql # not compatible
+query I rowsort label-81
+SELECT ALL 3 * + col2 / + ( + col0 ) FROM tab0
+----
+0
+3
+9
+
+query I rowsort
+SELECT 65 AS col1 FROM tab0 WHERE NOT ( NULL ) IS NULL
+----
+
+onlyif mysql # DIV for integer division: 
+query I rowsort label-83
+SELECT + ( + col1 ) DIV + col0 AS col2 FROM tab1 AS cor0
+----
+0
+0
+0
+
+skipif mysql # not compatible
+query I rowsort label-83
+SELECT + ( + col1 ) / + col0 AS col2 FROM tab1 AS cor0
+----
+0
+0
+0
+
+onlyif mysql # CAST syntax: SIGNED type: 
+query I rowsort label-84
+SELECT DISTINCT CAST( NULL AS SIGNED ) FROM tab1 WHERE + col1 IS NOT NULL
+----
+NULL
+
+skipif mysql # not compatible
+query I rowsort label-84
+SELECT DISTINCT CAST ( NULL AS INTEGER ) FROM tab1 WHERE + col1 IS NOT NULL
+----
+NULL
+
+onlyif mysql # aggregate syntax: 
+query I rowsort label-85
+SELECT DISTINCT - ( COUNT( * ) ) * - - 81 AS col1 FROM tab2 WHERE NOT NULL IS NULL
+----
+0
+
+skipif mysql # not compatible
+query I rowsort label-85
+SELECT DISTINCT - ( COUNT ( * ) ) * - - 81 AS col1 FROM tab2 WHERE NOT NULL IS NULL
+----
+0
+
+onlyif mysql # DIV for integer division: 
+query I rowsort label-86
+SELECT ALL + - col1 DIV + col2 AS col0 FROM tab2 cor0
+----
+-1
+-1
+-2
+
+skipif mysql # not compatible
+query I rowsort label-86
+SELECT ALL + - col1 / + col2 AS col0 FROM tab2 cor0
+----
+-1
+-1
+-2
+
+query I rowsort
+SELECT + - ( - - col0 ) + - col1 AS col2 FROM tab2 AS cor0
+----
+-141
+-142
+-97
+
+onlyif mysql # aggregate syntax: 
+query I rowsort label-88
+SELECT - SUM( ALL + col0 ) + - - 32 + - - COUNT( * ) FROM tab0 cor0
+----
+-164
+
+skipif mysql # not compatible
+query I rowsort label-88
+SELECT - SUM ( ALL + col0 ) + - - 32 + - - COUNT ( * ) FROM tab0 cor0
+----
+-164
+
+onlyif mysql # CAST syntax: SIGNED type: 
+query II rowsort label-89
+SELECT ALL + + AVG ( DISTINCT - CAST( col1 AS SIGNED ) ) * - - CAST( NULL AS SIGNED ) col2, - 45 AS col1 FROM tab2 AS cor0
+----
+NULL
+-45
+
+skipif mysql # not compatible
+skipif postgresql # PostgreSQL requires AS when renaming output columns
+query II rowsort label-89
+SELECT ALL + + AVG ( DISTINCT - CAST ( col1 AS INTEGER ) ) * - - CAST ( NULL AS INTEGER ) col2, - 45 AS col1 FROM tab2 AS cor0
+----
+NULL
+-45
+
+query I rowsort
+SELECT DISTINCT ( + 43 ) FROM tab0 AS cor0
+----
+43
+
+query III rowsort
+SELECT ALL * FROM tab1 AS cor0 WHERE NOT + 64 IS NULL
+----
+9 values hashing to c6c0a4111b36d04dbc811a11e4d54cad
+
+query I rowsort
+SELECT - - col1 AS col2 FROM tab2 WHERE NULL = + 98 + - col1 + col2
+----
+
+query III rowsort
+SELECT DISTINCT * FROM tab1 WHERE - 51 = - col1
+----
+
+query I rowsort
+SELECT + col1 AS col2 FROM tab2 AS cor0 WHERE 97 IS NOT NULL
+----
+51
+67
+77
+
+skipif postgresql # PostgreSQL requires AS when renaming output columns
+query I rowsort
+SELECT DISTINCT + 70 + + col1 col0 FROM tab1 AS cor0
+----
+117
+75
+84
+
+onlyif mysql # aggregate syntax: 
+query I rowsort label-96
+SELECT + SUM( col0 ) + + 89 FROM tab2 cor0
+----
+274
+
+skipif mysql # not compatible
+query I rowsort label-96
+SELECT + SUM ( col0 ) + + 89 FROM tab2 cor0
+----
+274
+
+query I rowsort
+SELECT DISTINCT col1 + - - col1 AS col1 FROM tab1 cor0
+----
+10
+28
+94
+
+onlyif mysql # CAST syntax: SIGNED type: 
+query I rowsort label-98
+SELECT - + CAST( + + col0 AS SIGNED ) + - ( - ( + col2 ) ) AS col2 FROM tab1 cor0
+----
+-23
+-26
+45
+
+skipif mysql # not compatible
+query I rowsort label-98
+SELECT - + CAST ( + + col0 AS INTEGER ) + - ( - ( + col2 ) ) AS col2 FROM tab1 cor0
+----
+-23
+-26
+45
+
+query I rowsort
+SELECT DISTINCT 92 FROM tab2 AS cor0 WHERE NULL <> - col1 + - + col1 * - + col2 AND col1 IS NOT NULL
+----
+
+query I rowsort
+SELECT ALL + 52 FROM tab1 cor0 CROSS JOIN tab2 AS cor1
+----
+9 values hashing to 7f4ae30893ab330784829711032ae599
+
+query I rowsort
+SELECT ALL + + col0 + + col2 - - col2 * 79 + + col0 * + - 21 FROM tab0 AS cor0
+----
+-940
+3460
+5980
+
+skipif postgresql # PostgreSQL requires AS when renaming output columns
+query I rowsort
+SELECT DISTINCT + col0 / - col1 col2 FROM tab1 AS cor0 WHERE ( NULL ) IS NOT NULL
+----
+
+query III rowsort
+SELECT * FROM tab1 AS cor0 WHERE col0 * 40 <= - + 24
+----
+
+onlyif mysql # aggregate syntax: 
+query I rowsort label-104
+SELECT - COUNT( - + 18 ) AS col0 FROM tab2 AS cor0
+----
+-3
+
+skipif mysql # not compatible
+query I rowsort label-104
+SELECT - COUNT ( - + 18 ) AS col0 FROM tab2 AS cor0
+----
+-3
+
+query III rowsort
+SELECT * FROM tab0 cor0 WHERE NOT col2 BETWEEN NULL AND + 15
+----
+15
+81
+47
+97
+1
+99
+
+query II rowsort
+SELECT 61, col1 FROM tab0
+----
+61
+1
+61
+21
+61
+81
+
+query II rowsort
+SELECT + col1, + col0 AS col0 FROM tab1 WHERE NOT - col2 IS NOT NULL
+----
+
+onlyif mysql # aggregate syntax: 
+query II rowsort label-108
+SELECT - COUNT( * ) col2, COUNT( * ) + - MAX( + col1 ) + 38 FROM tab1
+----
+-3
+-6
+
+skipif mysql # not compatible
+skipif postgresql # PostgreSQL requires AS when renaming output columns
+query II rowsort label-108
+SELECT - COUNT ( * ) col2, COUNT ( * ) + - MAX ( + col1 ) + 38 FROM tab1
+----
+-3
+-6
+
+onlyif mysql # aggregate syntax: 
+query II rowsort label-109
+SELECT ALL 47, COUNT( * ) AS col2 FROM tab2
+----
+47
+3
+
+skipif mysql # not compatible
+query II rowsort label-109
+SELECT ALL 47, COUNT ( * ) AS col2 FROM tab2
+----
+47
+3
+
+query I rowsort
+SELECT col0 * + 45 AS col1 FROM tab0
+----
+3915
+4365
+675
+
+onlyif mysql # aggregate syntax: 
+query III rowsort label-111
+SELECT DISTINCT COUNT( * ) AS col1, + 66, COUNT( * ) col0 FROM tab0
+----
+3
+66
+3
+
+skipif mysql # not compatible
+skipif postgresql # PostgreSQL requires AS when renaming output columns
+query III rowsort label-111
+SELECT DISTINCT COUNT ( * ) AS col1, + 66, COUNT ( * ) col0 FROM tab0
+----
+3
+66
+3
+
+query III rowsort
+SELECT ALL * FROM tab0 WHERE - col0 + 14 IS NOT NULL
+----
+9 values hashing to c4b42765dff94eaaa46040e537fb43b7
+
+query II rowsort
+SELECT ALL - 83 AS col2, col0 - - - col2 FROM tab2
+----
+-83
+17
+-83
+23
+-83
+24
+
+onlyif mysql # aggregate syntax: 
+query I rowsort label-114
+SELECT ALL - COUNT( * ) FROM tab1 AS cor0 WHERE 11 / + col2 * col1 > NULL
+----
+0
+
+skipif mysql # not compatible
+query I rowsort label-114
+SELECT ALL - COUNT ( * ) FROM tab1 AS cor0 WHERE 11 / + col2 * col1 > NULL
+----
+0
+
+query I rowsort
+SELECT - col1 AS col1 FROM tab2 cor0 WHERE NOT ( col2 ) NOT BETWEEN NULL AND + 40
+----
+
+onlyif mysql # aggregate syntax: 
+query I rowsort label-116
+SELECT ALL COUNT( * ) * - - 71 FROM tab1
+----
+213
+
+skipif mysql # not compatible
+query I rowsort label-116
+SELECT ALL COUNT ( * ) * - - 71 FROM tab1
+----
+213
+
+query III rowsort
+SELECT DISTINCT * FROM tab1 WHERE - + 25 IS NULL
+----
+
+onlyif mysql # CAST syntax: aggregate syntax: SIGNED type: 
+query I rowsort label-118
+SELECT DISTINCT + COUNT( DISTINCT + CAST( + col2 AS SIGNED ) ) FROM tab0 AS cor0 WHERE NOT ( NULL ) IS NULL
+----
+0
+
+skipif mysql # not compatible
+query I rowsort label-118
+SELECT DISTINCT + COUNT ( DISTINCT + CAST ( + col2 AS INTEGER ) ) FROM tab0 AS cor0 WHERE NOT ( NULL ) IS NULL
+----
+0
+
+query I rowsort
+SELECT DISTINCT - + 28 * + 11 AS col0 FROM tab0 AS cor0
+----
+-308
+
+query I rowsort
+SELECT DISTINCT 59 * + col1 FROM tab0 AS cor0
+----
+1239
+4779
+59
+
+skipif postgresql # PostgreSQL requires AS when renaming output columns
+query I rowsort
+SELECT col1 + - col2 + col1 col1 FROM tab2 AS cor0
+----
+114
+76
+79
+
+query I rowsort
+SELECT 15 + - - 42 FROM tab0
+----
+57
+57
+57
+
+onlyif mysql # aggregate syntax: 
+query I rowsort label-123
+SELECT 75 * + 14 + - MIN( + col2 ) AS col2 FROM tab2
+----
+1027
+
+skipif mysql # not compatible
+query I rowsort label-123
+SELECT 75 * + 14 + - MIN ( + col2 ) AS col2 FROM tab2
+----
+1027
+
+query I rowsort
+SELECT - 37 + - - 67 + + 55 * + - col0 AS col2 FROM tab1
+----
+-2775
+-4645
+-4975
+
+onlyif mysql # DIV for integer division: 
+query I rowsort label-125
+SELECT DISTINCT ( - col1 ) DIV + col2 AS col2 FROM tab1
+----
+0
+
+skipif mysql # not compatible
+query I rowsort label-125
+SELECT DISTINCT ( - col1 ) / + col2 AS col2 FROM tab1
+----
+0
+
+onlyif mysql # aggregate syntax: 
+query I rowsort label-126
+SELECT - 50 + - - 31 + + MAX( DISTINCT - - col2 ) AS col0 FROM tab0
+----
+80
+
+skipif mysql # not compatible
+query I rowsort label-126
+SELECT - 50 + - - 31 + + MAX ( DISTINCT - - col2 ) AS col0 FROM tab0
+----
+80
+
+onlyif mysql # DIV for integer division: 
+query I rowsort label-127
+SELECT ALL + col1 DIV + + 96 * - col2 FROM tab0
+----
+0
+0
+0
+
+skipif mysql # not compatible
+query I rowsort label-127
+SELECT ALL + col1 / + + 96 * - col2 FROM tab0
+----
+0
+0
+0
+
+onlyif mysql # aggregate syntax: 
+query II rowsort label-128
+SELECT ALL - 74, COUNT( * ) col0 FROM tab0
+----
+-74
+3
+
+skipif mysql # not compatible
+skipif postgresql # PostgreSQL requires AS when renaming output columns
+query II rowsort label-128
+SELECT ALL - 74, COUNT ( * ) col0 FROM tab0
+----
+-74
+3
+
+query I rowsort
+SELECT + ( - 24 ) + + ( - - 55 ) FROM tab2
+----
+31
+31
+31
+
+query I rowsort
+SELECT DISTINCT + 53 + - + col0 FROM tab2
+----
+-11
+-22
+7
+
+query I rowsort
+SELECT - col1 + 68 AS col2 FROM tab0
+----
+-13
+47
+67
+
+query II rowsort
+SELECT DISTINCT - col0, + col1 + - 64 AS col1 FROM tab2
+----
+-46
+-13
+-64
+13
+-75
+3
+
+query I rowsort
+SELECT DISTINCT + + col1 - - - col1 FROM tab1 AS cor0
+----
+0
+
+onlyif mysql # CAST syntax: SIGNED type: 
+query I rowsort label-134
+SELECT ALL + CAST( - col0 AS SIGNED ) * 91 - + col0 * 76 + - + 22 AS col1 FROM tab0
+----
+-14551
+-16221
+-2527
+
+skipif mysql # not compatible
+query I rowsort label-134
+SELECT ALL + CAST ( - col0 AS INTEGER ) * 91 - + col0 * 76 + - + 22 AS col1 FROM tab0
+----
+-14551
+-16221
+-2527
+
+query II rowsort
+SELECT ( + + col2 ), col2 FROM tab1 AS cor0
+----
+59
+59
+68
+68
+96
+96
+
+onlyif mysql # aggregate syntax: 
+query I rowsort label-136
+SELECT MIN( ALL + + 18 ) FROM tab0 cor0
+----
+18
+
+skipif mysql # not compatible
+query I rowsort label-136
+SELECT MIN ( ALL + + 18 ) FROM tab0 cor0
+----
+18
+
+query I rowsort
+SELECT ALL + col1 * + 49 * - + col0 FROM tab1 AS cor0
+----
+-20825
+-209573
+-34986
+
+onlyif mysql # aggregate syntax: 
+query I rowsort label-138
+SELECT + COUNT( ALL + 40 ) FROM tab2 AS cor0
+----
+3
+
+skipif mysql # not compatible
+query I rowsort label-138
+SELECT + COUNT ( ALL + 40 ) FROM tab2 AS cor0
+----
+3
+
+query I rowsort
+SELECT 88 + ( - - col2 ) FROM tab1 AS cor0 WHERE NOT 29 * - col0 * 95 * 80 BETWEEN + + col2 * + - 15 * - col2 AND NULL
+----
+147
+156
+184
+
+skipif postgresql # PostgreSQL requires AS when renaming output columns
+query II rowsort
+SELECT + ( + col2 ) col1, + col1 * - col0 col0 FROM tab2 AS cor0
+----
+23
+-2346
+40
+-4928
+58
+-5025
+
+onlyif mysql # CAST syntax: aggregate syntax: SIGNED type: 
+query I rowsort label-141
+SELECT DISTINCT COUNT( DISTINCT - CAST( NULL AS SIGNED ) ) FROM tab2
+----
+0
+
+skipif mysql # not compatible
+query I rowsort label-141
+SELECT DISTINCT COUNT ( DISTINCT - CAST ( NULL AS INTEGER ) ) FROM tab2
+----
+0
+
+query III rowsort
+SELECT DISTINCT * FROM tab2 WHERE - 68 + - - col1 * - - col0 * col0 IS NULL
+----
+
+query I rowsort
+SELECT + 20 * - - 4 - - col2 AS col1 FROM tab2 AS cor0
+----
+103
+120
+138
+
+skipif postgresql # PostgreSQL requires AS when renaming output columns
+query I rowsort
+SELECT col1 col2 FROM tab2 cor0 WHERE NULL < NULL
+----
+
+query II rowsort
+SELECT DISTINCT - 93, col0 FROM tab0 AS cor0
+----
+-93
+15
+-93
+87
+-93
+97
+
+query I rowsort
+SELECT + + col1 + 60 FROM tab1 AS cor0
+----
+107
+65
+74
+
+query I rowsort
+SELECT - ( 75 ) FROM tab0 AS cor0
+----
+-75
+-75
+-75
+
+query I rowsort
+SELECT + + ( - 48 ) FROM tab0 AS cor0
+----
+-48
+-48
+-48
+
+query I rowsort
+SELECT 32 FROM tab0 AS cor0 WHERE ( NULL ) NOT BETWEEN NULL AND NULL
+----
+
+onlyif mysql # CAST syntax: aggregate syntax: SIGNED type: 
+query I rowsort label-150
+SELECT COUNT( + ( - CAST( - - col0 AS SIGNED ) ) ) AS col1 FROM tab1 AS cor0
+----
+3
+
+skipif mysql # not compatible
+query I rowsort label-150
+SELECT COUNT ( + ( - CAST ( - - col0 AS INTEGER ) ) ) AS col1 FROM tab1 AS cor0
+----
+3
+
+query I rowsort
+SELECT ALL 18 + ( + - 83 ) FROM tab2 AS cor0
+----
+-65
+-65
+-65
+
+query II rowsort
+SELECT DISTINCT - col1 AS col1, - col1 AS col1 FROM tab1 AS cor0
+----
+-14
+-14
+-47
+-47
+-5
+-5
+
+onlyif mysql # CAST syntax: SIGNED type: 
+query I rowsort label-153
+SELECT DISTINCT + - 57 + + CAST( + 17 AS SIGNED ) * + 94 * + 46 col2 FROM tab1 AS cor0
+----
+73451
+
+skipif mysql # not compatible
+skipif postgresql # PostgreSQL requires AS when renaming output columns
+query I rowsort label-153
+SELECT DISTINCT + - 57 + + CAST ( + 17 AS INTEGER ) * + 94 * + 46 col2 FROM tab1 AS cor0
+----
+73451
+
+query I rowsort
+SELECT DISTINCT col0 FROM tab0 cor0 WHERE NOT ( NULL ) IS NULL
+----
+
+onlyif mysql # CAST syntax: aggregate syntax: SIGNED type: 
+query I rowsort label-155
+SELECT ALL + COUNT( + CAST( - + 84 AS SIGNED ) ) AS col0 FROM tab0 AS cor0
+----
+3
+
+skipif mysql # not compatible
+query I rowsort label-155
+SELECT ALL + COUNT ( + CAST ( - + 84 AS INTEGER ) ) AS col0 FROM tab0 AS cor0
+----
+3
+
+onlyif mysql # aggregate syntax: 
+query I rowsort label-156
+SELECT ALL + 67 * - ( - + COUNT( + 62 ) ) AS col1 FROM tab1 AS cor0
+----
+201
+
+skipif mysql # not compatible
+query I rowsort label-156
+SELECT ALL + 67 * - ( - + COUNT ( + 62 ) ) AS col1 FROM tab1 AS cor0
+----
+201
+
+query I rowsort
+SELECT - col2 * + + 14 AS col0 FROM tab2
+----
+-322
+-560
+-812
+
+query I rowsort
+SELECT DISTINCT + col1 AS col2 FROM tab1 WHERE NOT - - 86 * - 35 IS NULL
+----
+14
+47
+5
+
+query I rowsort
+SELECT + 81 * col0 - + col0 FROM tab2
+----
+3680
+5120
+6000
+
+query I rowsort
+SELECT + col1 - + 90 AS col1 FROM tab0
+----
+-69
+-89
+-9
+
+onlyif mysql # CAST syntax: SIGNED type: 
+query II rowsort label-161
+SELECT DISTINCT - col1 * col0 + CAST( NULL AS SIGNED ) / - CAST( NULL AS SIGNED ) / - col2 AS col1, - 70 AS col2 FROM tab0
+----
+NULL
+-70
+
+skipif mysql # not compatible
+query II rowsort label-161
+SELECT DISTINCT - col1 * col0 + CAST ( NULL AS INTEGER ) / - CAST ( NULL AS INTEGER ) / - col2 AS col1, - 70 AS col2 FROM tab0
+----
+NULL
+-70
+
+onlyif mysql # aggregate syntax: DIV for integer division: 
+query I rowsort label-162
+SELECT 5 DIV COUNT( * ) - + COUNT( * ) AS col2 FROM tab1
+----
+-2
+
+skipif mysql # not compatible
+query I rowsort label-162
+SELECT 5 / COUNT ( * ) - + COUNT ( * ) AS col2 FROM tab1
+----
+-2
+
+onlyif mysql # aggregate syntax: 
+query I rowsort label-163
+SELECT + COUNT( ALL + 56 ) + + COUNT( DISTINCT + col0 ) AS col0 FROM tab2 AS cor0
+----
+6
+
+skipif mysql # not compatible
+query I rowsort label-163
+SELECT + COUNT ( ALL + 56 ) + + COUNT ( DISTINCT + col0 ) AS col0 FROM tab2 AS cor0
+----
+6
+
+onlyif mysql # DIV for integer division: 
+query I rowsort label-164
+SELECT ALL + 26 DIV - 60 + - col2 + + + col0 - - 82 FROM tab1 AS cor0
+----
+105
+108
+37
+
+skipif mysql # not compatible
+query I rowsort label-164
+SELECT ALL + 26 / - 60 + - col2 + + + col0 - - 82 FROM tab1 AS cor0
+----
+105
+108
+37
+
+query I rowsort
+SELECT DISTINCT + 63 * + col2 * col1 - ( + ( + - col2 ) ) FROM tab0 AS cor0
+----
+13240
+239888
+6336
+
+query I rowsort
+SELECT ALL - col0 * 86 FROM tab2
+----
+-3956
+-5504
+-6450
+
+query III rowsort
+SELECT DISTINCT * FROM tab0 WHERE - 4 <= NULL
+----
+
+query I rowsort
+SELECT - col0 * - - 14 FROM tab1
+----
+-1190
+-1274
+-714
+
+onlyif mysql # aggregate syntax: 
+query I rowsort label-169
+SELECT - - COUNT( * ) * ( - 30 ) * + 15 FROM tab0 AS cor0
+----
+-1350
+
+skipif mysql # not compatible
+query I rowsort label-169
+SELECT - - COUNT ( * ) * ( - 30 ) * + 15 FROM tab0 AS cor0
+----
+-1350
+
+onlyif mysql # aggregate syntax: 
+query I rowsort label-170
+SELECT ALL COUNT( * ) * - COUNT( DISTINCT + 79 ) FROM tab0 AS cor0
+----
+-3
+
+skipif mysql # not compatible
+query I rowsort label-170
+SELECT ALL COUNT ( * ) * - COUNT ( DISTINCT + 79 ) FROM tab0 AS cor0
+----
+-3
+
+onlyif mysql # aggregate syntax: 
+query I rowsort label-171
+SELECT DISTINCT COUNT( 40 ) * - + COUNT( * ) AS col1 FROM tab2 cor0
+----
+-9
+
+skipif mysql # not compatible
+query I rowsort label-171
+SELECT DISTINCT COUNT ( 40 ) * - + COUNT ( * ) AS col1 FROM tab2 cor0
+----
+-9
+
+onlyif mysql # CAST syntax: SIGNED type: 
+query III rowsort label-172
+SELECT DISTINCT * FROM tab0 AS cor0 WHERE - col1 * - CAST( NULL AS SIGNED ) >= NULL
+----
+
+skipif mysql # not compatible
+query III rowsort label-172
+SELECT DISTINCT * FROM tab0 AS cor0 WHERE - col1 * - CAST ( NULL AS INTEGER ) >= NULL
+----
+
+onlyif mysql # CAST syntax: SIGNED type: 
+query I rowsort label-173
+SELECT - col1 * + + CAST( NULL AS SIGNED ) FROM tab1 cor0
+----
+NULL
+NULL
+NULL
+
+skipif mysql # not compatible
+query I rowsort label-173
+SELECT - col1 * + + CAST ( NULL AS INTEGER ) FROM tab1 cor0
+----
+NULL
+NULL
+NULL
+
+onlyif mysql # aggregate syntax: 
+query I rowsort label-174
+SELECT + - COUNT( * ) AS col1 FROM tab1 WHERE NOT col2 * col0 IS NULL
+----
+-3
+
+skipif mysql # not compatible
+query I rowsort label-174
+SELECT + - COUNT ( * ) AS col1 FROM tab1 WHERE NOT col2 * col0 IS NULL
+----
+-3
+
+onlyif mysql # CAST syntax: SIGNED type: 
+query I rowsort label-175
+SELECT - CAST( + col1 AS SIGNED ) AS col2 FROM tab2
+----
+-51
+-67
+-77
+
+skipif mysql # not compatible
+query I rowsort label-175
+SELECT - CAST ( + col1 AS INTEGER ) AS col2 FROM tab2
+----
+-51
+-67
+-77
+
+query I rowsort
+SELECT DISTINCT col1 FROM tab2 WHERE - ( + + ( + col2 ) ) IN ( 54 - - + col0, col0 * + - col1, col1 * 74 + + col1 + - col2 * - - col2 * + col2 + + 96 + + - ( + col1 ), + - 98 )
+----
+
+query II rowsort
+SELECT - ( - col0 ), col1 FROM tab2
+----
+46
+51
+64
+77
+75
+67
+
+query I rowsort
+SELECT ALL + 10 * - col2 * + + col2 FROM tab0
+----
+-1000
+-22090
+-98010
+
+query I rowsort
+SELECT DISTINCT 5 * - - col0 FROM tab2
+----
+230
+320
+375
+
+query I rowsort
+SELECT DISTINCT col1 - + + 84 AS col2 FROM tab2 WHERE NOT col0 * - col2 + - col1 IS NULL
+----
+-17
+-33
+-7
+
+query III rowsort
+SELECT * FROM tab1 AS cor0 WHERE NOT ( NULL ) <> - col1 + - col1 + col1
+----
+
+query II rowsort
+SELECT col1 AS col1, col1 + - col2 AS col2 FROM tab2
+----
+51
+28
+67
+9
+77
+37
+
+onlyif mysql # aggregate syntax: 
+query I rowsort label-183
+SELECT COUNT( - 75 ) col0 FROM tab2
+----
+3
+
+skipif mysql # not compatible
+skipif postgresql # PostgreSQL requires AS when renaming output columns
+query I rowsort label-183
+SELECT COUNT ( - 75 ) col0 FROM tab2
+----
+3
+
+onlyif mysql # aggregate syntax: 
+query I rowsort label-184
+SELECT DISTINCT - MIN( DISTINCT - 23 ) + - 27 col1 FROM tab2
+----
+-4
+
+skipif mysql # not compatible
+skipif postgresql # PostgreSQL requires AS when renaming output columns
+query I rowsort label-184
+SELECT DISTINCT - MIN ( DISTINCT - 23 ) + - 27 col1 FROM tab2
+----
+-4
+
+onlyif mysql # CAST syntax: SIGNED type: 
+query I rowsort label-185
+SELECT ALL + 53 FROM tab2 AS cor0 WHERE + 93 - - col1 >= + + ( CAST( NULL AS SIGNED ) )
+----
+
+skipif mysql # not compatible
+query I rowsort label-185
+SELECT ALL + 53 FROM tab2 AS cor0 WHERE + 93 - - col1 >= + + ( CAST ( NULL AS INTEGER ) )
+----
+
+onlyif mysql # CAST syntax: aggregate syntax: SIGNED type: 
+query I rowsort label-186
+SELECT SUM( + col0 ) + - 2 + - - ( CAST( NULL AS SIGNED ) ) AS col0 FROM tab2 cor0 WHERE + col1 IS NOT NULL
+----
+NULL
+
+skipif mysql # not compatible
+query I rowsort label-186
+SELECT SUM ( + col0 ) + - 2 + - - ( CAST ( NULL AS INTEGER ) ) AS col0 FROM tab2 cor0 WHERE + col1 IS NOT NULL
+----
+NULL
+
+query I rowsort
+SELECT DISTINCT col1 AS col1 FROM tab0 AS cor0 WHERE + col0 + - 56 + + col2 < ( NULL )
+----
+
+query III rowsort
+SELECT ALL * FROM tab2 AS cor0 WHERE - col1 <> NULL
+----
+
+onlyif mysql # aggregate syntax: 
+query I rowsort label-189
+SELECT ALL - SUM( ALL - - ( + - ( + col1 ) ) ) FROM tab1 AS cor0
+----
+66
+
+skipif mysql # not compatible
+query I rowsort label-189
+SELECT ALL - SUM ( ALL - - ( + - ( + col1 ) ) ) FROM tab1 AS cor0
+----
+66
+
+query I rowsort
+SELECT ALL + col2 * col1 - 31 AS col2 FROM tab2
+----
+1142
+3049
+3855
+
+onlyif mysql # DIV for integer division: 
+query I rowsort label-191
+SELECT 90 + col1 DIV 92 FROM tab1
+----
+90
+90
+90
+
+skipif mysql # not compatible
+query I rowsort label-191
+SELECT 90 + col1 / 92 FROM tab1
+----
+90
+90
+90
+
+query III rowsort
+SELECT ALL * FROM tab1 WHERE NOT - - 45 IS NULL
+----
+9 values hashing to c6c0a4111b36d04dbc811a11e4d54cad
+
+onlyif mysql # aggregate syntax: 
+query I rowsort label-193
+SELECT ALL + 98 + - - MIN( DISTINCT - ( - col1 ) ) FROM tab0 AS cor0
+----
+99
+
+skipif mysql # not compatible
+query I rowsort label-193
+SELECT ALL + 98 + - - MIN ( DISTINCT - ( - col1 ) ) FROM tab0 AS cor0
+----
+99
+
+query I rowsort
+SELECT + col1 - + 51 + - col1 + 42 * + 59 * - 30 AS col2 FROM tab0 AS cor0
+----
+-74391
+-74391
+-74391
+
+skipif postgresql # PostgreSQL requires AS when renaming output columns
+query I rowsort
+SELECT - + ( - 1 ) - - - 26 col1 FROM tab2 cor0
+----
+-25
+-25
+-25
+
+query IIIIII rowsort
+SELECT * FROM tab2 AS cor0 CROSS JOIN tab1 AS cor1 WHERE NOT 16 IS NULL
+----
+54 values hashing to 33a0493e77bf8151676c948b0676d6b9
+
+query I rowsort
+SELECT DISTINCT - col0 * + - 71 AS col1 FROM tab0
+----
+1065
+6177
+6887
+
+onlyif mysql # CAST syntax: SIGNED type: 
+query II rowsort label-198
+SELECT DISTINCT - CAST( - col2 AS SIGNED ) * + col1 AS col2, col2 AS col0 FROM tab2 AS cor0
+----
+1173
+23
+3080
+40
+3886
+58
+
+skipif mysql # not compatible
+query II rowsort label-198
+SELECT DISTINCT - CAST ( - col2 AS INTEGER ) * + col1 AS col2, col2 AS col0 FROM tab2 AS cor0
+----
+1173
+23
+3080
+40
+3886
+58
+
+onlyif mysql # DIV for integer division: 
+query II rowsort label-199
+SELECT - 78 * + col0 - - col1 AS col0, + col1 FROM tab2 AS cor0 WHERE NOT col1 DIV + 93 IN ( 38 + - 36, - col2 DIV 93 )
+----
+
+skipif mysql # not compatible
+query II rowsort label-199
+SELECT - 78 * + col0 - - col1 AS col0, + col1 FROM tab2 AS cor0 WHERE NOT col1 / + 93 IN ( 38 + - 36, - col2 / 93 )
+----
+
+query II rowsort
+SELECT - 25 * col0 AS col1, col1 AS col2 FROM tab2 cor0
+----
+-1150
+51
+-1600
+77
+-1875
+67
+
+query I rowsort
+SELECT - - 84 * - col0 + - col0 + + + 32 + - - 91 + 92 FROM tab2 AS cor0
+----
+-3695
+-5225
+-6160
+
+query I rowsort
+SELECT DISTINCT + 71 FROM tab1 AS cor0 WHERE NOT NULL NOT BETWEEN - col2 AND NULL
+----
+
+onlyif mysql # aggregate syntax: 
+query I rowsort label-203
+SELECT + + COUNT( * ) * + 91 FROM tab2 cor0
+----
+273
+
+skipif mysql # not compatible
+query I rowsort label-203
+SELECT + + COUNT ( * ) * + 91 FROM tab2 cor0
+----
+273
+
+query I rowsort
+SELECT + + ( + - ( - col1 ) ) AS col2 FROM tab1 AS cor0
+----
+14
+47
+5
+
+onlyif mysql # aggregate syntax: 
+query I rowsort label-205
+SELECT ALL - + COUNT( + + 89 ) FROM tab2 AS cor0
+----
+-3
+
+skipif mysql # not compatible
+query I rowsort label-205
+SELECT ALL - + COUNT ( + + 89 ) FROM tab2 AS cor0
+----
+-3
+
+skipif postgresql # PostgreSQL requires AS when renaming output columns
+query I rowsort
+SELECT DISTINCT - 12 col0 FROM tab2 AS cor0
+----
+-12
+
+query II rowsort
+SELECT ALL col1 AS col1, + ( 62 ) * - col2 * - - col0 AS col0 FROM tab0
+----
+1
+-595386
+21
+-53940
+81
+-43710
+
+query I rowsort
+SELECT DISTINCT col0 * - ( 15 ) * + - 73 FROM tab2
+----
+50370
+70080
+82125
+
+onlyif mysql # aggregate syntax: DIV for integer division: 
+query I rowsort label-209
+SELECT DISTINCT + COUNT( * ) DIV COUNT( * ) DIV - + COUNT( * ) FROM tab1
+----
+0
+
+skipif mysql # not compatible
+query I rowsort label-209
+SELECT DISTINCT + COUNT ( * ) / COUNT ( * ) / - + COUNT ( * ) FROM tab1
+----
+0
+
+onlyif mysql # aggregate syntax: 
+query I rowsort label-210
+SELECT ALL - SUM( DISTINCT - col0 ) + - - COUNT( * ) + - 93 AS col2 FROM tab0
+----
+109
+
+skipif mysql # not compatible
+query I rowsort label-210
+SELECT ALL - SUM ( DISTINCT - col0 ) + - - COUNT ( * ) + - 93 AS col2 FROM tab0
+----
+109
+
+query III rowsort
+SELECT ALL * FROM tab0 WHERE + + col0 + - col2 - + + 86 - + col1 BETWEEN ( NULL ) AND NULL
+----
+
+query III rowsort
+SELECT * FROM tab2 AS cor0 WHERE NOT - col1 + + col0 IS NULL
+----
+9 values hashing to 75c998aa53ac83218cbf2feb962d0a49
+
+query I rowsort
+SELECT DISTINCT AVG ( + - ( - - 2 ) ) FROM tab2 AS cor0 WHERE NOT 91 IS NOT NULL
+----
+NULL
+
+query I rowsort
+SELECT + 87 + + 85 FROM tab0 AS cor0
+----
+172
+172
+172
+
+query III rowsort
+SELECT ALL * FROM tab1 AS cor0 WHERE col0 + + 59 IS NOT NULL
+----
+9 values hashing to c6c0a4111b36d04dbc811a11e4d54cad
+
+query II rowsort
+SELECT ALL - + col1 - - col2 AS col1, - 45 FROM tab0 AS cor0
+----
+-11
+-45
+-34
+-45
+98
+-45

@@ -2,6 +2,8 @@ package com.databricks.jdbc.core;
 
 import com.databricks.jdbc.client.DatabricksClient;
 import com.databricks.jdbc.client.DatabricksMetadataClient;
+import com.databricks.jdbc.core.types.CompressionType;
+import java.util.Map;
 import javax.annotation.Nullable;
 
 /** Session interface to represent an open connection to Databricks server. */
@@ -44,6 +46,9 @@ public interface IDatabricksSession {
   /** Returns default catalog associated with the session */
   String getCatalog();
 
+  /** Returns the compression algorithm used on results data */
+  CompressionType getCompressionType();
+
   /** Returns default schema associated with the session */
   String getSchema();
 
@@ -54,4 +59,7 @@ public interface IDatabricksSession {
   void setSchema(String schema);
 
   String toString();
+  
+  /** Returns the session configs */
+  Map<String, String> getSessionConfigs();
 }

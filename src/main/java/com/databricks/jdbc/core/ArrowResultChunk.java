@@ -5,6 +5,8 @@ import static com.databricks.jdbc.commons.util.ValidationUtil.checkHTTPError;
 import com.databricks.jdbc.client.DatabricksHttpException;
 import com.databricks.jdbc.client.IDatabricksHttpClient;
 import com.databricks.jdbc.client.sqlexec.ExternalLink;
+import com.databricks.jdbc.commons.util.DecompressionUtil;
+import com.databricks.jdbc.core.types.CompressionType;
 import com.databricks.sdk.service.sql.BaseChunkInfo;
 import com.google.common.annotations.VisibleForTesting;
 import java.io.InputStream;
@@ -92,7 +94,13 @@ public class ArrowResultChunk {
 
   private VectorSchemaRoot vectorSchemaRoot;
 
-  ArrowResultChunk(BaseChunkInfo chunkInfo, RootAllocator rootAllocator, String statementId) {
+  private CompressionType compressionType;
+
+  ArrowResultChunk(
+      BaseChunkInfo chunkInfo,
+      RootAllocator rootAllocator,
+      String statementId,
+      CompressionType compressionType) {
     this.chunkIndex = chunkInfo.getChunkIndex();
     this.numRows = chunkInfo.getRowCount();
     this.rowOffset = chunkInfo.getRowOffset();
@@ -106,6 +114,7 @@ public class ArrowResultChunk {
     isDataInitialized = false;
     this.errorMessage = null;
     this.vectorSchemaRoot = null;
+    this.compressionType = compressionType;
   }
 
   public static class ArrowResultChunkIterator {
@@ -265,14 +274,21 @@ public class ArrowResultChunk {
     return this.nextChunkIndex;
   }
 
-  public void getArrowDataFromInputStream(InputStream inputStream)
-      throws DatabricksParsingException {
+  public void getArrowDataFromInputStream(InputStream inputStream) throws DatabricksSQLException {
     LOGGER.debug(
         "Parsing data for chunk index [{}] and statement [{}]", this.chunkIndex, this.statementId);
+    InputStream decompressedStream =
+        DecompressionUtil.decompress(
+            inputStream,
+            this.compressionType,
+            String.format(
+                "Data fetch failed for chunk index [%d] and statement [%s] as decompression was unsuccessful. Algorithm : [%s]",
+                this.chunkIndex, this.statementId, this.compressionType));
     this.isDataInitialized = true;
     this.recordBatchList = new ArrayList<>();
     // add check to see if input stream has been populated
-    ArrowStreamReader arrowStreamReader = new ArrowStreamReader(inputStream, this.rootAllocator);
+    ArrowStreamReader arrowStreamReader =
+        new ArrowStreamReader(decompressedStream, this.rootAllocator);
     List<ValueVector> vectors = new ArrayList<>();
     try {
       this.vectorSchemaRoot = arrowStreamReader.getVectorSchemaRoot();

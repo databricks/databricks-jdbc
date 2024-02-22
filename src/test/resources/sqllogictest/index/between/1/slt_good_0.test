@@ -1,0 +1,937 @@
+hash-threshold 8
+
+statement ok
+CREATE TABLE tab0(pk INTEGER PRIMARY KEY, col0 INTEGER, col1 FLOAT, col2 TEXT, col3 INTEGER, col4 FLOAT, col5 TEXT)
+
+statement ok
+INSERT INTO tab0 VALUES(0,6,5.6,'jtqxx',9,5.19,'qvgba')
+
+statement ok
+CREATE TABLE tab1(pk INTEGER PRIMARY KEY, col0 INTEGER, col1 FLOAT, col2 TEXT, col3 INTEGER, col4 FLOAT, col5 TEXT)
+
+statement ok
+INSERT INTO tab1 SELECT * FROM tab0
+
+statement ok
+CREATE TABLE tab2(pk INTEGER PRIMARY KEY, col0 INTEGER, col1 FLOAT, col2 TEXT, col3 INTEGER, col4 FLOAT, col5 TEXT)
+
+statement ok
+INSERT INTO tab2 SELECT * FROM tab0
+
+statement ok
+CREATE TABLE tab3(pk INTEGER PRIMARY KEY, col0 INTEGER, col1 FLOAT, col2 TEXT, col3 INTEGER, col4 FLOAT, col5 TEXT)
+
+statement ok
+CREATE UNIQUE INDEX idx_tab3_1 ON tab3 (col1,col0)
+
+statement ok
+CREATE UNIQUE INDEX idx_tab3_2 ON tab3 (col4)
+
+statement ok
+INSERT INTO tab3 SELECT * FROM tab0
+
+statement ok
+CREATE TABLE tab4(pk INTEGER PRIMARY KEY, col0 INTEGER, col1 FLOAT, col2 TEXT, col3 INTEGER, col4 FLOAT, col5 TEXT)
+
+statement ok
+INSERT INTO tab4 SELECT * FROM tab0
+
+query I rowsort label-0
+SELECT pk FROM tab0 WHERE col3 < 6 OR col3 < 1 AND col3 BETWEEN 2 AND 7
+----
+
+query I rowsort label-0
+SELECT pk FROM tab0 WHERE col3 < 6 OR col3 < 1 AND (col3 >= 2 AND col3 <= 7)
+----
+
+query I rowsort label-0
+SELECT pk FROM tab1 WHERE col3 < 6 OR col3 < 1 AND col3 BETWEEN 2 AND 7
+----
+
+query I rowsort label-0
+SELECT pk FROM tab1 WHERE col3 < 6 OR col3 < 1 AND (col3 >= 2 AND col3 <= 7)
+----
+
+query I rowsort label-0
+SELECT pk FROM tab2 WHERE col3 < 6 OR col3 < 1 AND col3 BETWEEN 2 AND 7
+----
+
+query I rowsort label-0
+SELECT pk FROM tab2 WHERE col3 < 6 OR col3 < 1 AND (col3 >= 2 AND col3 <= 7)
+----
+
+query I rowsort label-0
+SELECT pk FROM tab3 WHERE col3 < 6 OR col3 < 1 AND col3 BETWEEN 2 AND 7
+----
+
+query I rowsort label-0
+SELECT pk FROM tab3 WHERE col3 < 6 OR col3 < 1 AND (col3 >= 2 AND col3 <= 7)
+----
+
+query I rowsort label-0
+SELECT pk FROM tab4 WHERE col3 < 6 OR col3 < 1 AND col3 BETWEEN 2 AND 7
+----
+
+query I rowsort label-0
+SELECT pk FROM tab4 WHERE col3 < 6 OR col3 < 1 AND (col3 >= 2 AND col3 <= 7)
+----
+
+query I rowsort label-10
+SELECT pk FROM tab0 WHERE (col4 BETWEEN 6.51 AND 4.36) AND ((((col4 > 1.61)))) OR (col0 > 5) AND col0 > 9 OR col1 > 4.37 OR (col3 <= 4 AND col3 < 3 AND col0 >= 6) AND col1 = 3.2
+----
+0
+
+query I rowsort label-10
+SELECT pk FROM tab0 WHERE ((col4 >= 6.51 AND col4 <= 4.36)) AND ((((col4 > 1.61)))) OR (col0 > 5) AND col0 > 9 OR col1 > 4.37 OR (col3 <= 4 AND col3 < 3 AND col0 >= 6) AND col1 = 3.2
+----
+0
+
+query I rowsort label-10
+SELECT pk FROM tab1 WHERE (col4 BETWEEN 6.51 AND 4.36) AND ((((col4 > 1.61)))) OR (col0 > 5) AND col0 > 9 OR col1 > 4.37 OR (col3 <= 4 AND col3 < 3 AND col0 >= 6) AND col1 = 3.2
+----
+0
+
+query I rowsort label-10
+SELECT pk FROM tab1 WHERE ((col4 >= 6.51 AND col4 <= 4.36)) AND ((((col4 > 1.61)))) OR (col0 > 5) AND col0 > 9 OR col1 > 4.37 OR (col3 <= 4 AND col3 < 3 AND col0 >= 6) AND col1 = 3.2
+----
+0
+
+query I rowsort label-10
+SELECT pk FROM tab2 WHERE (col4 BETWEEN 6.51 AND 4.36) AND ((((col4 > 1.61)))) OR (col0 > 5) AND col0 > 9 OR col1 > 4.37 OR (col3 <= 4 AND col3 < 3 AND col0 >= 6) AND col1 = 3.2
+----
+0
+
+query I rowsort label-10
+SELECT pk FROM tab2 WHERE ((col4 >= 6.51 AND col4 <= 4.36)) AND ((((col4 > 1.61)))) OR (col0 > 5) AND col0 > 9 OR col1 > 4.37 OR (col3 <= 4 AND col3 < 3 AND col0 >= 6) AND col1 = 3.2
+----
+0
+
+query I rowsort label-10
+SELECT pk FROM tab3 WHERE (col4 BETWEEN 6.51 AND 4.36) AND ((((col4 > 1.61)))) OR (col0 > 5) AND col0 > 9 OR col1 > 4.37 OR (col3 <= 4 AND col3 < 3 AND col0 >= 6) AND col1 = 3.2
+----
+0
+
+query I rowsort label-10
+SELECT pk FROM tab3 WHERE ((col4 >= 6.51 AND col4 <= 4.36)) AND ((((col4 > 1.61)))) OR (col0 > 5) AND col0 > 9 OR col1 > 4.37 OR (col3 <= 4 AND col3 < 3 AND col0 >= 6) AND col1 = 3.2
+----
+0
+
+query I rowsort label-10
+SELECT pk FROM tab4 WHERE (col4 BETWEEN 6.51 AND 4.36) AND ((((col4 > 1.61)))) OR (col0 > 5) AND col0 > 9 OR col1 > 4.37 OR (col3 <= 4 AND col3 < 3 AND col0 >= 6) AND col1 = 3.2
+----
+0
+
+query I rowsort label-10
+SELECT pk FROM tab4 WHERE ((col4 >= 6.51 AND col4 <= 4.36)) AND ((((col4 > 1.61)))) OR (col0 > 5) AND col0 > 9 OR col1 > 4.37 OR (col3 <= 4 AND col3 < 3 AND col0 >= 6) AND col1 = 3.2
+----
+0
+
+query I rowsort label-20
+SELECT pk FROM tab0 WHERE (((col3 IS NULL)) AND col3 <= 7) OR (col0 <= 1) AND col3 = 6 OR col1 > 2.66 AND col4 > 9.92 OR (col1 >= 9.94 AND ((col3 <= 6)) AND col3 < 1) OR col3 BETWEEN 6 AND 3 AND (((col0 IS NULL))) AND col1 > 3.76 OR col3 < 5 OR col3 >= 1
+----
+0
+
+query I rowsort label-20
+SELECT pk FROM tab0 WHERE (((col3 IS NULL)) AND col3 <= 7) OR (col0 <= 1) AND col3 = 6 OR col1 > 2.66 AND col4 > 9.92 OR (col1 >= 9.94 AND ((col3 <= 6)) AND col3 < 1) OR (col3 >= 6 AND col3 <= 3) AND (((col0 IS NULL))) AND col1 > 3.76 OR col3 < 5 OR col3 >= 1
+----
+0
+
+query I rowsort label-20
+SELECT pk FROM tab1 WHERE (((col3 IS NULL)) AND col3 <= 7) OR (col0 <= 1) AND col3 = 6 OR col1 > 2.66 AND col4 > 9.92 OR (col1 >= 9.94 AND ((col3 <= 6)) AND col3 < 1) OR col3 BETWEEN 6 AND 3 AND (((col0 IS NULL))) AND col1 > 3.76 OR col3 < 5 OR col3 >= 1
+----
+0
+
+query I rowsort label-20
+SELECT pk FROM tab1 WHERE (((col3 IS NULL)) AND col3 <= 7) OR (col0 <= 1) AND col3 = 6 OR col1 > 2.66 AND col4 > 9.92 OR (col1 >= 9.94 AND ((col3 <= 6)) AND col3 < 1) OR (col3 >= 6 AND col3 <= 3) AND (((col0 IS NULL))) AND col1 > 3.76 OR col3 < 5 OR col3 >= 1
+----
+0
+
+query I rowsort label-20
+SELECT pk FROM tab2 WHERE (((col3 IS NULL)) AND col3 <= 7) OR (col0 <= 1) AND col3 = 6 OR col1 > 2.66 AND col4 > 9.92 OR (col1 >= 9.94 AND ((col3 <= 6)) AND col3 < 1) OR col3 BETWEEN 6 AND 3 AND (((col0 IS NULL))) AND col1 > 3.76 OR col3 < 5 OR col3 >= 1
+----
+0
+
+query I rowsort label-20
+SELECT pk FROM tab2 WHERE (((col3 IS NULL)) AND col3 <= 7) OR (col0 <= 1) AND col3 = 6 OR col1 > 2.66 AND col4 > 9.92 OR (col1 >= 9.94 AND ((col3 <= 6)) AND col3 < 1) OR (col3 >= 6 AND col3 <= 3) AND (((col0 IS NULL))) AND col1 > 3.76 OR col3 < 5 OR col3 >= 1
+----
+0
+
+query I rowsort label-20
+SELECT pk FROM tab3 WHERE (((col3 IS NULL)) AND col3 <= 7) OR (col0 <= 1) AND col3 = 6 OR col1 > 2.66 AND col4 > 9.92 OR (col1 >= 9.94 AND ((col3 <= 6)) AND col3 < 1) OR col3 BETWEEN 6 AND 3 AND (((col0 IS NULL))) AND col1 > 3.76 OR col3 < 5 OR col3 >= 1
+----
+0
+
+query I rowsort label-20
+SELECT pk FROM tab3 WHERE (((col3 IS NULL)) AND col3 <= 7) OR (col0 <= 1) AND col3 = 6 OR col1 > 2.66 AND col4 > 9.92 OR (col1 >= 9.94 AND ((col3 <= 6)) AND col3 < 1) OR (col3 >= 6 AND col3 <= 3) AND (((col0 IS NULL))) AND col1 > 3.76 OR col3 < 5 OR col3 >= 1
+----
+0
+
+query I rowsort label-20
+SELECT pk FROM tab4 WHERE (((col3 IS NULL)) AND col3 <= 7) OR (col0 <= 1) AND col3 = 6 OR col1 > 2.66 AND col4 > 9.92 OR (col1 >= 9.94 AND ((col3 <= 6)) AND col3 < 1) OR col3 BETWEEN 6 AND 3 AND (((col0 IS NULL))) AND col1 > 3.76 OR col3 < 5 OR col3 >= 1
+----
+0
+
+query I rowsort label-20
+SELECT pk FROM tab4 WHERE (((col3 IS NULL)) AND col3 <= 7) OR (col0 <= 1) AND col3 = 6 OR col1 > 2.66 AND col4 > 9.92 OR (col1 >= 9.94 AND ((col3 <= 6)) AND col3 < 1) OR (col3 >= 6 AND col3 <= 3) AND (((col0 IS NULL))) AND col1 > 3.76 OR col3 < 5 OR col3 >= 1
+----
+0
+
+query I rowsort label-30
+SELECT pk FROM tab0 WHERE col3 > 7 AND col1 BETWEEN 9.96 AND 2.20
+----
+
+query I rowsort label-30
+SELECT pk FROM tab0 WHERE col3 > 7 AND (col1 >= 9.96 AND col1 <= 2.20)
+----
+
+query I rowsort label-30
+SELECT pk FROM tab1 WHERE col3 > 7 AND col1 BETWEEN 9.96 AND 2.20
+----
+
+query I rowsort label-30
+SELECT pk FROM tab1 WHERE col3 > 7 AND (col1 >= 9.96 AND col1 <= 2.20)
+----
+
+query I rowsort label-30
+SELECT pk FROM tab2 WHERE col3 > 7 AND col1 BETWEEN 9.96 AND 2.20
+----
+
+query I rowsort label-30
+SELECT pk FROM tab2 WHERE col3 > 7 AND (col1 >= 9.96 AND col1 <= 2.20)
+----
+
+query I rowsort label-30
+SELECT pk FROM tab3 WHERE col3 > 7 AND col1 BETWEEN 9.96 AND 2.20
+----
+
+query I rowsort label-30
+SELECT pk FROM tab3 WHERE col3 > 7 AND (col1 >= 9.96 AND col1 <= 2.20)
+----
+
+query I rowsort label-30
+SELECT pk FROM tab4 WHERE col3 > 7 AND col1 BETWEEN 9.96 AND 2.20
+----
+
+query I rowsort label-30
+SELECT pk FROM tab4 WHERE col3 > 7 AND (col1 >= 9.96 AND col1 <= 2.20)
+----
+
+query I rowsort label-40
+SELECT pk FROM tab0 WHERE ((col4 IN (1.88,2.42))) AND ((col0 >= 5 AND col0 IS NULL AND col4 BETWEEN 3.30 AND 1.10) OR (((((((col0 >= 1 AND col1 > 9.60 OR col0 >= 3) AND (col1 > 9.63 OR col0 < 0 AND col3 > 5 AND (col0 = 9))) AND (((col1 > 3.24))) AND col0 < 9 OR ((col3 <= 6))) OR ((col0 <= 7) AND col3 < 7) OR col4 IN (8.58,1.26,7.68,3.76,3.20,5.80))))) AND (col0 BETWEEN 7 AND 4) AND col1 >= 0.49) AND ((((col1 >= 8.95 AND col3 <= 7))) AND col1 > 1.97 AND (col4 < 2.86) AND col1 = 5.46) AND col1 <= 3.19 AND col0 <= 9
+----
+
+query I rowsort label-40
+SELECT pk FROM tab0 WHERE ((col4 IN (1.88,2.42))) AND ((col0 >= 5 AND col0 IS NULL AND (col4 >= 3.30 AND col4 <= 1.10)) OR (((((((col0 >= 1 AND col1 > 9.60 OR col0 >= 3) AND (col1 > 9.63 OR col0 < 0 AND col3 > 5 AND (col0 = 9))) AND (((col1 > 3.24))) AND col0 < 9 OR ((col3 <= 6))) OR ((col0 <= 7) AND col3 < 7) OR col4 IN (8.58,1.26,7.68,3.76,3.20,5.80))))) AND ((col0 >= 7 AND col0 <= 4)) AND col1 >= 0.49) AND ((((col1 >= 8.95 AND col3 <= 7))) AND col1 > 1.97 AND (col4 < 2.86) AND col1 = 5.46) AND col1 <= 3.19 AND col0 <= 9
+----
+
+query I rowsort label-40
+SELECT pk FROM tab1 WHERE ((col4 IN (1.88,2.42))) AND ((col0 >= 5 AND col0 IS NULL AND col4 BETWEEN 3.30 AND 1.10) OR (((((((col0 >= 1 AND col1 > 9.60 OR col0 >= 3) AND (col1 > 9.63 OR col0 < 0 AND col3 > 5 AND (col0 = 9))) AND (((col1 > 3.24))) AND col0 < 9 OR ((col3 <= 6))) OR ((col0 <= 7) AND col3 < 7) OR col4 IN (8.58,1.26,7.68,3.76,3.20,5.80))))) AND (col0 BETWEEN 7 AND 4) AND col1 >= 0.49) AND ((((col1 >= 8.95 AND col3 <= 7))) AND col1 > 1.97 AND (col4 < 2.86) AND col1 = 5.46) AND col1 <= 3.19 AND col0 <= 9
+----
+
+query I rowsort label-40
+SELECT pk FROM tab1 WHERE ((col4 IN (1.88,2.42))) AND ((col0 >= 5 AND col0 IS NULL AND (col4 >= 3.30 AND col4 <= 1.10)) OR (((((((col0 >= 1 AND col1 > 9.60 OR col0 >= 3) AND (col1 > 9.63 OR col0 < 0 AND col3 > 5 AND (col0 = 9))) AND (((col1 > 3.24))) AND col0 < 9 OR ((col3 <= 6))) OR ((col0 <= 7) AND col3 < 7) OR col4 IN (8.58,1.26,7.68,3.76,3.20,5.80))))) AND ((col0 >= 7 AND col0 <= 4)) AND col1 >= 0.49) AND ((((col1 >= 8.95 AND col3 <= 7))) AND col1 > 1.97 AND (col4 < 2.86) AND col1 = 5.46) AND col1 <= 3.19 AND col0 <= 9
+----
+
+query I rowsort label-40
+SELECT pk FROM tab2 WHERE ((col4 IN (1.88,2.42))) AND ((col0 >= 5 AND col0 IS NULL AND col4 BETWEEN 3.30 AND 1.10) OR (((((((col0 >= 1 AND col1 > 9.60 OR col0 >= 3) AND (col1 > 9.63 OR col0 < 0 AND col3 > 5 AND (col0 = 9))) AND (((col1 > 3.24))) AND col0 < 9 OR ((col3 <= 6))) OR ((col0 <= 7) AND col3 < 7) OR col4 IN (8.58,1.26,7.68,3.76,3.20,5.80))))) AND (col0 BETWEEN 7 AND 4) AND col1 >= 0.49) AND ((((col1 >= 8.95 AND col3 <= 7))) AND col1 > 1.97 AND (col4 < 2.86) AND col1 = 5.46) AND col1 <= 3.19 AND col0 <= 9
+----
+
+query I rowsort label-40
+SELECT pk FROM tab2 WHERE ((col4 IN (1.88,2.42))) AND ((col0 >= 5 AND col0 IS NULL AND (col4 >= 3.30 AND col4 <= 1.10)) OR (((((((col0 >= 1 AND col1 > 9.60 OR col0 >= 3) AND (col1 > 9.63 OR col0 < 0 AND col3 > 5 AND (col0 = 9))) AND (((col1 > 3.24))) AND col0 < 9 OR ((col3 <= 6))) OR ((col0 <= 7) AND col3 < 7) OR col4 IN (8.58,1.26,7.68,3.76,3.20,5.80))))) AND ((col0 >= 7 AND col0 <= 4)) AND col1 >= 0.49) AND ((((col1 >= 8.95 AND col3 <= 7))) AND col1 > 1.97 AND (col4 < 2.86) AND col1 = 5.46) AND col1 <= 3.19 AND col0 <= 9
+----
+
+query I rowsort label-40
+SELECT pk FROM tab3 WHERE ((col4 IN (1.88,2.42))) AND ((col0 >= 5 AND col0 IS NULL AND col4 BETWEEN 3.30 AND 1.10) OR (((((((col0 >= 1 AND col1 > 9.60 OR col0 >= 3) AND (col1 > 9.63 OR col0 < 0 AND col3 > 5 AND (col0 = 9))) AND (((col1 > 3.24))) AND col0 < 9 OR ((col3 <= 6))) OR ((col0 <= 7) AND col3 < 7) OR col4 IN (8.58,1.26,7.68,3.76,3.20,5.80))))) AND (col0 BETWEEN 7 AND 4) AND col1 >= 0.49) AND ((((col1 >= 8.95 AND col3 <= 7))) AND col1 > 1.97 AND (col4 < 2.86) AND col1 = 5.46) AND col1 <= 3.19 AND col0 <= 9
+----
+
+query I rowsort label-40
+SELECT pk FROM tab3 WHERE ((col4 IN (1.88,2.42))) AND ((col0 >= 5 AND col0 IS NULL AND (col4 >= 3.30 AND col4 <= 1.10)) OR (((((((col0 >= 1 AND col1 > 9.60 OR col0 >= 3) AND (col1 > 9.63 OR col0 < 0 AND col3 > 5 AND (col0 = 9))) AND (((col1 > 3.24))) AND col0 < 9 OR ((col3 <= 6))) OR ((col0 <= 7) AND col3 < 7) OR col4 IN (8.58,1.26,7.68,3.76,3.20,5.80))))) AND ((col0 >= 7 AND col0 <= 4)) AND col1 >= 0.49) AND ((((col1 >= 8.95 AND col3 <= 7))) AND col1 > 1.97 AND (col4 < 2.86) AND col1 = 5.46) AND col1 <= 3.19 AND col0 <= 9
+----
+
+query I rowsort label-40
+SELECT pk FROM tab4 WHERE ((col4 IN (1.88,2.42))) AND ((col0 >= 5 AND col0 IS NULL AND col4 BETWEEN 3.30 AND 1.10) OR (((((((col0 >= 1 AND col1 > 9.60 OR col0 >= 3) AND (col1 > 9.63 OR col0 < 0 AND col3 > 5 AND (col0 = 9))) AND (((col1 > 3.24))) AND col0 < 9 OR ((col3 <= 6))) OR ((col0 <= 7) AND col3 < 7) OR col4 IN (8.58,1.26,7.68,3.76,3.20,5.80))))) AND (col0 BETWEEN 7 AND 4) AND col1 >= 0.49) AND ((((col1 >= 8.95 AND col3 <= 7))) AND col1 > 1.97 AND (col4 < 2.86) AND col1 = 5.46) AND col1 <= 3.19 AND col0 <= 9
+----
+
+query I rowsort label-40
+SELECT pk FROM tab4 WHERE ((col4 IN (1.88,2.42))) AND ((col0 >= 5 AND col0 IS NULL AND (col4 >= 3.30 AND col4 <= 1.10)) OR (((((((col0 >= 1 AND col1 > 9.60 OR col0 >= 3) AND (col1 > 9.63 OR col0 < 0 AND col3 > 5 AND (col0 = 9))) AND (((col1 > 3.24))) AND col0 < 9 OR ((col3 <= 6))) OR ((col0 <= 7) AND col3 < 7) OR col4 IN (8.58,1.26,7.68,3.76,3.20,5.80))))) AND ((col0 >= 7 AND col0 <= 4)) AND col1 >= 0.49) AND ((((col1 >= 8.95 AND col3 <= 7))) AND col1 > 1.97 AND (col4 < 2.86) AND col1 = 5.46) AND col1 <= 3.19 AND col0 <= 9
+----
+
+query I rowsort label-50
+SELECT pk FROM tab0 WHERE ((((((col0 >= 3 OR ((col4 > 5.3) OR col0 = 1)) OR (((((((((((col0 IN (6,8,8) AND (((col3 IS NULL)) OR (col3 >= 7)) OR col4 > 1.7 AND (col3 < 6) AND col1 < 6.94 OR col3 <= 0 AND col4 > 4.97 OR col3 < 4))) AND (col4 >= 2.32)) AND (col1 > 9.72) OR col4 < 1.15 OR (col3 = 5 OR col0 >= 6 AND (col4 = 8.11) OR col3 > 2 OR col4 >= 7.17 OR col4 <= 0.15)))) AND col3 > 9 AND ((col1 < 4.34) AND col1 IS NULL) AND ((col0 >= 1))) OR ((col3 < 9 AND col0 > 2))) OR ((col1 >= 2.33) OR (col0 IS NULL) OR col0 < 8) OR col0 > 4 AND col4 < 2.41 OR col3 < 1 OR col1 IS NULL OR (col0 = 1 OR col0 < 0 OR col0 IS NULL) OR (col3 IS NULL) OR col0 > 4)) AND col3 <= 1))) OR col3 = 0 AND col0 < 3 OR col4 <= 1.54) AND (col0 IN (4,8,1,9,6) OR (col1 = 8.45 OR col3 IS NULL OR (((col0 = 2 OR col0 < 1 OR ((col0 >= 9)) AND (col4 <= 9.36) OR col3 < 1 OR ((col3 >= 5 OR (col4 < 1.77) OR col3 < 5)) OR col0 > 2 OR ((col3 < 1)) AND (col3 > 6) AND col1 <= 5.45 OR (((col1 <= 1.25 OR col3 < 1 AND (col1 < 9.3)) AND (col3 > 0 AND col3 = 5 OR (col1 IN (7.77,3.86,0.2) OR col1 > 1.85 OR ((col3 < 7 AND col3 > 3))) OR ((col0 >= 7 AND (col1 IN (2.13,7.79,7.5,4.90)))) AND ((((col3 < 5)))) AND (col1 < 6.11 AND col0 > 8) AND col3 <= 2 AND (col3 > 9)) AND col3 > 9 AND (col3 <= 5))) OR (col3 BETWEEN 6 AND 0 AND ((col0 < 1)) AND (col3 IS NULL OR (col0 IN (4,6,5,4,0) AND (col4 > 5.59)) OR col0 > 3 OR (((col3 BETWEEN 5 AND 7) OR (col1 >= 4.28)) AND col0 >= 2))) AND (col0 BETWEEN 5 AND 7 OR col4 <= 0.21) AND col0 <= 1 AND (((col4 >= 9.81 AND col1 > 9.33 OR col3 > 4 AND col3 > 4 AND (col1 >= 5.41) AND col1 = 6.30 AND (col0 = 1)))) OR col4 = 5.37 OR col3 IS NULL))))) OR (((col0 > 7) AND col3 IS NULL AND col3 > 6 OR col4 >= 5.33) AND col0 > 2) AND col4 > 1.59 AND col0 IN (SELECT col3 FROM tab0 WHERE col3 >= 9 AND col3 >= 4) AND col4 > 8.41 OR (col3 = 4) AND (((col3 < 6))) OR col3 >= 2)
+----
+0
+
+query I rowsort label-50
+SELECT pk FROM tab0 WHERE ((((((col0 >= 3 OR ((col4 > 5.3) OR col0 = 1)) OR (((((((((((col0 IN (6,8,8) AND (((col3 IS NULL)) OR (col3 >= 7)) OR col4 > 1.7 AND (col3 < 6) AND col1 < 6.94 OR col3 <= 0 AND col4 > 4.97 OR col3 < 4))) AND (col4 >= 2.32)) AND (col1 > 9.72) OR col4 < 1.15 OR (col3 = 5 OR col0 >= 6 AND (col4 = 8.11) OR col3 > 2 OR col4 >= 7.17 OR col4 <= 0.15)))) AND col3 > 9 AND ((col1 < 4.34) AND col1 IS NULL) AND ((col0 >= 1))) OR ((col3 < 9 AND col0 > 2))) OR ((col1 >= 2.33) OR (col0 IS NULL) OR col0 < 8) OR col0 > 4 AND col4 < 2.41 OR col3 < 1 OR col1 IS NULL OR (col0 = 1 OR col0 < 0 OR col0 IS NULL) OR (col3 IS NULL) OR col0 > 4)) AND col3 <= 1))) OR col3 = 0 AND col0 < 3 OR col4 <= 1.54) AND (col0 IN (4,8,1,9,6) OR (col1 = 8.45 OR col3 IS NULL OR (((col0 = 2 OR col0 < 1 OR ((col0 >= 9)) AND (col4 <= 9.36) OR col3 < 1 OR ((col3 >= 5 OR (col4 < 1.77) OR col3 < 5)) OR col0 > 2 OR ((col3 < 1)) AND (col3 > 6) AND col1 <= 5.45 OR (((col1 <= 1.25 OR col3 < 1 AND (col1 < 9.3)) AND (col3 > 0 AND col3 = 5 OR (col1 IN (7.77,3.86,0.2) OR col1 > 1.85 OR ((col3 < 7 AND col3 > 3))) OR ((col0 >= 7 AND (col1 IN (2.13,7.79,7.5,4.90)))) AND ((((col3 < 5)))) AND (col1 < 6.11 AND col0 > 8) AND col3 <= 2 AND (col3 > 9)) AND col3 > 9 AND (col3 <= 5))) OR ((col3 >= 6 AND col3 <= 0) AND ((col0 < 1)) AND (col3 IS NULL OR (col0 IN (4,6,5,4,0) AND (col4 > 5.59)) OR col0 > 3 OR ((((col3 >= 5 AND col3 <= 7)) OR (col1 >= 4.28)) AND col0 >= 2))) AND ((col0 >= 5 AND col0 <= 7) OR col4 <= 0.21) AND col0 <= 1 AND (((col4 >= 9.81 AND col1 > 9.33 OR col3 > 4 AND col3 > 4 AND (col1 >= 5.41) AND col1 = 6.30 AND (col0 = 1)))) OR col4 = 5.37 OR col3 IS NULL))))) OR (((col0 > 7) AND col3 IS NULL AND col3 > 6 OR col4 >= 5.33) AND col0 > 2) AND col4 > 1.59 AND col0 IN (SELECT col3 FROM tab0 WHERE col3 >= 9 AND col3 >= 4) AND col4 > 8.41 OR (col3 = 4) AND (((col3 < 6))) OR col3 >= 2)
+----
+0
+
+query I rowsort label-50
+SELECT pk FROM tab1 WHERE ((((((col0 >= 3 OR ((col4 > 5.3) OR col0 = 1)) OR (((((((((((col0 IN (6,8,8) AND (((col3 IS NULL)) OR (col3 >= 7)) OR col4 > 1.7 AND (col3 < 6) AND col1 < 6.94 OR col3 <= 0 AND col4 > 4.97 OR col3 < 4))) AND (col4 >= 2.32)) AND (col1 > 9.72) OR col4 < 1.15 OR (col3 = 5 OR col0 >= 6 AND (col4 = 8.11) OR col3 > 2 OR col4 >= 7.17 OR col4 <= 0.15)))) AND col3 > 9 AND ((col1 < 4.34) AND col1 IS NULL) AND ((col0 >= 1))) OR ((col3 < 9 AND col0 > 2))) OR ((col1 >= 2.33) OR (col0 IS NULL) OR col0 < 8) OR col0 > 4 AND col4 < 2.41 OR col3 < 1 OR col1 IS NULL OR (col0 = 1 OR col0 < 0 OR col0 IS NULL) OR (col3 IS NULL) OR col0 > 4)) AND col3 <= 1))) OR col3 = 0 AND col0 < 3 OR col4 <= 1.54) AND (col0 IN (4,8,1,9,6) OR (col1 = 8.45 OR col3 IS NULL OR (((col0 = 2 OR col0 < 1 OR ((col0 >= 9)) AND (col4 <= 9.36) OR col3 < 1 OR ((col3 >= 5 OR (col4 < 1.77) OR col3 < 5)) OR col0 > 2 OR ((col3 < 1)) AND (col3 > 6) AND col1 <= 5.45 OR (((col1 <= 1.25 OR col3 < 1 AND (col1 < 9.3)) AND (col3 > 0 AND col3 = 5 OR (col1 IN (7.77,3.86,0.2) OR col1 > 1.85 OR ((col3 < 7 AND col3 > 3))) OR ((col0 >= 7 AND (col1 IN (2.13,7.79,7.5,4.90)))) AND ((((col3 < 5)))) AND (col1 < 6.11 AND col0 > 8) AND col3 <= 2 AND (col3 > 9)) AND col3 > 9 AND (col3 <= 5))) OR (col3 BETWEEN 6 AND 0 AND ((col0 < 1)) AND (col3 IS NULL OR (col0 IN (4,6,5,4,0) AND (col4 > 5.59)) OR col0 > 3 OR (((col3 BETWEEN 5 AND 7) OR (col1 >= 4.28)) AND col0 >= 2))) AND (col0 BETWEEN 5 AND 7 OR col4 <= 0.21) AND col0 <= 1 AND (((col4 >= 9.81 AND col1 > 9.33 OR col3 > 4 AND col3 > 4 AND (col1 >= 5.41) AND col1 = 6.30 AND (col0 = 1)))) OR col4 = 5.37 OR col3 IS NULL))))) OR (((col0 > 7) AND col3 IS NULL AND col3 > 6 OR col4 >= 5.33) AND col0 > 2) AND col4 > 1.59 AND col0 IN (SELECT col3 FROM tab1 WHERE col3 >= 9 AND col3 >= 4) AND col4 > 8.41 OR (col3 = 4) AND (((col3 < 6))) OR col3 >= 2)
+----
+0
+
+query I rowsort label-50
+SELECT pk FROM tab1 WHERE ((((((col0 >= 3 OR ((col4 > 5.3) OR col0 = 1)) OR (((((((((((col0 IN (6,8,8) AND (((col3 IS NULL)) OR (col3 >= 7)) OR col4 > 1.7 AND (col3 < 6) AND col1 < 6.94 OR col3 <= 0 AND col4 > 4.97 OR col3 < 4))) AND (col4 >= 2.32)) AND (col1 > 9.72) OR col4 < 1.15 OR (col3 = 5 OR col0 >= 6 AND (col4 = 8.11) OR col3 > 2 OR col4 >= 7.17 OR col4 <= 0.15)))) AND col3 > 9 AND ((col1 < 4.34) AND col1 IS NULL) AND ((col0 >= 1))) OR ((col3 < 9 AND col0 > 2))) OR ((col1 >= 2.33) OR (col0 IS NULL) OR col0 < 8) OR col0 > 4 AND col4 < 2.41 OR col3 < 1 OR col1 IS NULL OR (col0 = 1 OR col0 < 0 OR col0 IS NULL) OR (col3 IS NULL) OR col0 > 4)) AND col3 <= 1))) OR col3 = 0 AND col0 < 3 OR col4 <= 1.54) AND (col0 IN (4,8,1,9,6) OR (col1 = 8.45 OR col3 IS NULL OR (((col0 = 2 OR col0 < 1 OR ((col0 >= 9)) AND (col4 <= 9.36) OR col3 < 1 OR ((col3 >= 5 OR (col4 < 1.77) OR col3 < 5)) OR col0 > 2 OR ((col3 < 1)) AND (col3 > 6) AND col1 <= 5.45 OR (((col1 <= 1.25 OR col3 < 1 AND (col1 < 9.3)) AND (col3 > 0 AND col3 = 5 OR (col1 IN (7.77,3.86,0.2) OR col1 > 1.85 OR ((col3 < 7 AND col3 > 3))) OR ((col0 >= 7 AND (col1 IN (2.13,7.79,7.5,4.90)))) AND ((((col3 < 5)))) AND (col1 < 6.11 AND col0 > 8) AND col3 <= 2 AND (col3 > 9)) AND col3 > 9 AND (col3 <= 5))) OR ((col3 >= 6 AND col3 <= 0) AND ((col0 < 1)) AND (col3 IS NULL OR (col0 IN (4,6,5,4,0) AND (col4 > 5.59)) OR col0 > 3 OR ((((col3 >= 5 AND col3 <= 7)) OR (col1 >= 4.28)) AND col0 >= 2))) AND ((col0 >= 5 AND col0 <= 7) OR col4 <= 0.21) AND col0 <= 1 AND (((col4 >= 9.81 AND col1 > 9.33 OR col3 > 4 AND col3 > 4 AND (col1 >= 5.41) AND col1 = 6.30 AND (col0 = 1)))) OR col4 = 5.37 OR col3 IS NULL))))) OR (((col0 > 7) AND col3 IS NULL AND col3 > 6 OR col4 >= 5.33) AND col0 > 2) AND col4 > 1.59 AND col0 IN (SELECT col3 FROM tab1 WHERE col3 >= 9 AND col3 >= 4) AND col4 > 8.41 OR (col3 = 4) AND (((col3 < 6))) OR col3 >= 2)
+----
+0
+
+query I rowsort label-50
+SELECT pk FROM tab2 WHERE ((((((col0 >= 3 OR ((col4 > 5.3) OR col0 = 1)) OR (((((((((((col0 IN (6,8,8) AND (((col3 IS NULL)) OR (col3 >= 7)) OR col4 > 1.7 AND (col3 < 6) AND col1 < 6.94 OR col3 <= 0 AND col4 > 4.97 OR col3 < 4))) AND (col4 >= 2.32)) AND (col1 > 9.72) OR col4 < 1.15 OR (col3 = 5 OR col0 >= 6 AND (col4 = 8.11) OR col3 > 2 OR col4 >= 7.17 OR col4 <= 0.15)))) AND col3 > 9 AND ((col1 < 4.34) AND col1 IS NULL) AND ((col0 >= 1))) OR ((col3 < 9 AND col0 > 2))) OR ((col1 >= 2.33) OR (col0 IS NULL) OR col0 < 8) OR col0 > 4 AND col4 < 2.41 OR col3 < 1 OR col1 IS NULL OR (col0 = 1 OR col0 < 0 OR col0 IS NULL) OR (col3 IS NULL) OR col0 > 4)) AND col3 <= 1))) OR col3 = 0 AND col0 < 3 OR col4 <= 1.54) AND (col0 IN (4,8,1,9,6) OR (col1 = 8.45 OR col3 IS NULL OR (((col0 = 2 OR col0 < 1 OR ((col0 >= 9)) AND (col4 <= 9.36) OR col3 < 1 OR ((col3 >= 5 OR (col4 < 1.77) OR col3 < 5)) OR col0 > 2 OR ((col3 < 1)) AND (col3 > 6) AND col1 <= 5.45 OR (((col1 <= 1.25 OR col3 < 1 AND (col1 < 9.3)) AND (col3 > 0 AND col3 = 5 OR (col1 IN (7.77,3.86,0.2) OR col1 > 1.85 OR ((col3 < 7 AND col3 > 3))) OR ((col0 >= 7 AND (col1 IN (2.13,7.79,7.5,4.90)))) AND ((((col3 < 5)))) AND (col1 < 6.11 AND col0 > 8) AND col3 <= 2 AND (col3 > 9)) AND col3 > 9 AND (col3 <= 5))) OR (col3 BETWEEN 6 AND 0 AND ((col0 < 1)) AND (col3 IS NULL OR (col0 IN (4,6,5,4,0) AND (col4 > 5.59)) OR col0 > 3 OR (((col3 BETWEEN 5 AND 7) OR (col1 >= 4.28)) AND col0 >= 2))) AND (col0 BETWEEN 5 AND 7 OR col4 <= 0.21) AND col0 <= 1 AND (((col4 >= 9.81 AND col1 > 9.33 OR col3 > 4 AND col3 > 4 AND (col1 >= 5.41) AND col1 = 6.30 AND (col0 = 1)))) OR col4 = 5.37 OR col3 IS NULL))))) OR (((col0 > 7) AND col3 IS NULL AND col3 > 6 OR col4 >= 5.33) AND col0 > 2) AND col4 > 1.59 AND col0 IN (SELECT col3 FROM tab2 WHERE col3 >= 9 AND col3 >= 4) AND col4 > 8.41 OR (col3 = 4) AND (((col3 < 6))) OR col3 >= 2)
+----
+0
+
+query I rowsort label-50
+SELECT pk FROM tab2 WHERE ((((((col0 >= 3 OR ((col4 > 5.3) OR col0 = 1)) OR (((((((((((col0 IN (6,8,8) AND (((col3 IS NULL)) OR (col3 >= 7)) OR col4 > 1.7 AND (col3 < 6) AND col1 < 6.94 OR col3 <= 0 AND col4 > 4.97 OR col3 < 4))) AND (col4 >= 2.32)) AND (col1 > 9.72) OR col4 < 1.15 OR (col3 = 5 OR col0 >= 6 AND (col4 = 8.11) OR col3 > 2 OR col4 >= 7.17 OR col4 <= 0.15)))) AND col3 > 9 AND ((col1 < 4.34) AND col1 IS NULL) AND ((col0 >= 1))) OR ((col3 < 9 AND col0 > 2))) OR ((col1 >= 2.33) OR (col0 IS NULL) OR col0 < 8) OR col0 > 4 AND col4 < 2.41 OR col3 < 1 OR col1 IS NULL OR (col0 = 1 OR col0 < 0 OR col0 IS NULL) OR (col3 IS NULL) OR col0 > 4)) AND col3 <= 1))) OR col3 = 0 AND col0 < 3 OR col4 <= 1.54) AND (col0 IN (4,8,1,9,6) OR (col1 = 8.45 OR col3 IS NULL OR (((col0 = 2 OR col0 < 1 OR ((col0 >= 9)) AND (col4 <= 9.36) OR col3 < 1 OR ((col3 >= 5 OR (col4 < 1.77) OR col3 < 5)) OR col0 > 2 OR ((col3 < 1)) AND (col3 > 6) AND col1 <= 5.45 OR (((col1 <= 1.25 OR col3 < 1 AND (col1 < 9.3)) AND (col3 > 0 AND col3 = 5 OR (col1 IN (7.77,3.86,0.2) OR col1 > 1.85 OR ((col3 < 7 AND col3 > 3))) OR ((col0 >= 7 AND (col1 IN (2.13,7.79,7.5,4.90)))) AND ((((col3 < 5)))) AND (col1 < 6.11 AND col0 > 8) AND col3 <= 2 AND (col3 > 9)) AND col3 > 9 AND (col3 <= 5))) OR ((col3 >= 6 AND col3 <= 0) AND ((col0 < 1)) AND (col3 IS NULL OR (col0 IN (4,6,5,4,0) AND (col4 > 5.59)) OR col0 > 3 OR ((((col3 >= 5 AND col3 <= 7)) OR (col1 >= 4.28)) AND col0 >= 2))) AND ((col0 >= 5 AND col0 <= 7) OR col4 <= 0.21) AND col0 <= 1 AND (((col4 >= 9.81 AND col1 > 9.33 OR col3 > 4 AND col3 > 4 AND (col1 >= 5.41) AND col1 = 6.30 AND (col0 = 1)))) OR col4 = 5.37 OR col3 IS NULL))))) OR (((col0 > 7) AND col3 IS NULL AND col3 > 6 OR col4 >= 5.33) AND col0 > 2) AND col4 > 1.59 AND col0 IN (SELECT col3 FROM tab2 WHERE col3 >= 9 AND col3 >= 4) AND col4 > 8.41 OR (col3 = 4) AND (((col3 < 6))) OR col3 >= 2)
+----
+0
+
+query I rowsort label-50
+SELECT pk FROM tab3 WHERE ((((((col0 >= 3 OR ((col4 > 5.3) OR col0 = 1)) OR (((((((((((col0 IN (6,8,8) AND (((col3 IS NULL)) OR (col3 >= 7)) OR col4 > 1.7 AND (col3 < 6) AND col1 < 6.94 OR col3 <= 0 AND col4 > 4.97 OR col3 < 4))) AND (col4 >= 2.32)) AND (col1 > 9.72) OR col4 < 1.15 OR (col3 = 5 OR col0 >= 6 AND (col4 = 8.11) OR col3 > 2 OR col4 >= 7.17 OR col4 <= 0.15)))) AND col3 > 9 AND ((col1 < 4.34) AND col1 IS NULL) AND ((col0 >= 1))) OR ((col3 < 9 AND col0 > 2))) OR ((col1 >= 2.33) OR (col0 IS NULL) OR col0 < 8) OR col0 > 4 AND col4 < 2.41 OR col3 < 1 OR col1 IS NULL OR (col0 = 1 OR col0 < 0 OR col0 IS NULL) OR (col3 IS NULL) OR col0 > 4)) AND col3 <= 1))) OR col3 = 0 AND col0 < 3 OR col4 <= 1.54) AND (col0 IN (4,8,1,9,6) OR (col1 = 8.45 OR col3 IS NULL OR (((col0 = 2 OR col0 < 1 OR ((col0 >= 9)) AND (col4 <= 9.36) OR col3 < 1 OR ((col3 >= 5 OR (col4 < 1.77) OR col3 < 5)) OR col0 > 2 OR ((col3 < 1)) AND (col3 > 6) AND col1 <= 5.45 OR (((col1 <= 1.25 OR col3 < 1 AND (col1 < 9.3)) AND (col3 > 0 AND col3 = 5 OR (col1 IN (7.77,3.86,0.2) OR col1 > 1.85 OR ((col3 < 7 AND col3 > 3))) OR ((col0 >= 7 AND (col1 IN (2.13,7.79,7.5,4.90)))) AND ((((col3 < 5)))) AND (col1 < 6.11 AND col0 > 8) AND col3 <= 2 AND (col3 > 9)) AND col3 > 9 AND (col3 <= 5))) OR (col3 BETWEEN 6 AND 0 AND ((col0 < 1)) AND (col3 IS NULL OR (col0 IN (4,6,5,4,0) AND (col4 > 5.59)) OR col0 > 3 OR (((col3 BETWEEN 5 AND 7) OR (col1 >= 4.28)) AND col0 >= 2))) AND (col0 BETWEEN 5 AND 7 OR col4 <= 0.21) AND col0 <= 1 AND (((col4 >= 9.81 AND col1 > 9.33 OR col3 > 4 AND col3 > 4 AND (col1 >= 5.41) AND col1 = 6.30 AND (col0 = 1)))) OR col4 = 5.37 OR col3 IS NULL))))) OR (((col0 > 7) AND col3 IS NULL AND col3 > 6 OR col4 >= 5.33) AND col0 > 2) AND col4 > 1.59 AND col0 IN (SELECT col3 FROM tab3 WHERE col3 >= 9 AND col3 >= 4) AND col4 > 8.41 OR (col3 = 4) AND (((col3 < 6))) OR col3 >= 2)
+----
+0
+
+query I rowsort label-50
+SELECT pk FROM tab3 WHERE ((((((col0 >= 3 OR ((col4 > 5.3) OR col0 = 1)) OR (((((((((((col0 IN (6,8,8) AND (((col3 IS NULL)) OR (col3 >= 7)) OR col4 > 1.7 AND (col3 < 6) AND col1 < 6.94 OR col3 <= 0 AND col4 > 4.97 OR col3 < 4))) AND (col4 >= 2.32)) AND (col1 > 9.72) OR col4 < 1.15 OR (col3 = 5 OR col0 >= 6 AND (col4 = 8.11) OR col3 > 2 OR col4 >= 7.17 OR col4 <= 0.15)))) AND col3 > 9 AND ((col1 < 4.34) AND col1 IS NULL) AND ((col0 >= 1))) OR ((col3 < 9 AND col0 > 2))) OR ((col1 >= 2.33) OR (col0 IS NULL) OR col0 < 8) OR col0 > 4 AND col4 < 2.41 OR col3 < 1 OR col1 IS NULL OR (col0 = 1 OR col0 < 0 OR col0 IS NULL) OR (col3 IS NULL) OR col0 > 4)) AND col3 <= 1))) OR col3 = 0 AND col0 < 3 OR col4 <= 1.54) AND (col0 IN (4,8,1,9,6) OR (col1 = 8.45 OR col3 IS NULL OR (((col0 = 2 OR col0 < 1 OR ((col0 >= 9)) AND (col4 <= 9.36) OR col3 < 1 OR ((col3 >= 5 OR (col4 < 1.77) OR col3 < 5)) OR col0 > 2 OR ((col3 < 1)) AND (col3 > 6) AND col1 <= 5.45 OR (((col1 <= 1.25 OR col3 < 1 AND (col1 < 9.3)) AND (col3 > 0 AND col3 = 5 OR (col1 IN (7.77,3.86,0.2) OR col1 > 1.85 OR ((col3 < 7 AND col3 > 3))) OR ((col0 >= 7 AND (col1 IN (2.13,7.79,7.5,4.90)))) AND ((((col3 < 5)))) AND (col1 < 6.11 AND col0 > 8) AND col3 <= 2 AND (col3 > 9)) AND col3 > 9 AND (col3 <= 5))) OR ((col3 >= 6 AND col3 <= 0) AND ((col0 < 1)) AND (col3 IS NULL OR (col0 IN (4,6,5,4,0) AND (col4 > 5.59)) OR col0 > 3 OR ((((col3 >= 5 AND col3 <= 7)) OR (col1 >= 4.28)) AND col0 >= 2))) AND ((col0 >= 5 AND col0 <= 7) OR col4 <= 0.21) AND col0 <= 1 AND (((col4 >= 9.81 AND col1 > 9.33 OR col3 > 4 AND col3 > 4 AND (col1 >= 5.41) AND col1 = 6.30 AND (col0 = 1)))) OR col4 = 5.37 OR col3 IS NULL))))) OR (((col0 > 7) AND col3 IS NULL AND col3 > 6 OR col4 >= 5.33) AND col0 > 2) AND col4 > 1.59 AND col0 IN (SELECT col3 FROM tab3 WHERE col3 >= 9 AND col3 >= 4) AND col4 > 8.41 OR (col3 = 4) AND (((col3 < 6))) OR col3 >= 2)
+----
+0
+
+query I rowsort label-50
+SELECT pk FROM tab4 WHERE ((((((col0 >= 3 OR ((col4 > 5.3) OR col0 = 1)) OR (((((((((((col0 IN (6,8,8) AND (((col3 IS NULL)) OR (col3 >= 7)) OR col4 > 1.7 AND (col3 < 6) AND col1 < 6.94 OR col3 <= 0 AND col4 > 4.97 OR col3 < 4))) AND (col4 >= 2.32)) AND (col1 > 9.72) OR col4 < 1.15 OR (col3 = 5 OR col0 >= 6 AND (col4 = 8.11) OR col3 > 2 OR col4 >= 7.17 OR col4 <= 0.15)))) AND col3 > 9 AND ((col1 < 4.34) AND col1 IS NULL) AND ((col0 >= 1))) OR ((col3 < 9 AND col0 > 2))) OR ((col1 >= 2.33) OR (col0 IS NULL) OR col0 < 8) OR col0 > 4 AND col4 < 2.41 OR col3 < 1 OR col1 IS NULL OR (col0 = 1 OR col0 < 0 OR col0 IS NULL) OR (col3 IS NULL) OR col0 > 4)) AND col3 <= 1))) OR col3 = 0 AND col0 < 3 OR col4 <= 1.54) AND (col0 IN (4,8,1,9,6) OR (col1 = 8.45 OR col3 IS NULL OR (((col0 = 2 OR col0 < 1 OR ((col0 >= 9)) AND (col4 <= 9.36) OR col3 < 1 OR ((col3 >= 5 OR (col4 < 1.77) OR col3 < 5)) OR col0 > 2 OR ((col3 < 1)) AND (col3 > 6) AND col1 <= 5.45 OR (((col1 <= 1.25 OR col3 < 1 AND (col1 < 9.3)) AND (col3 > 0 AND col3 = 5 OR (col1 IN (7.77,3.86,0.2) OR col1 > 1.85 OR ((col3 < 7 AND col3 > 3))) OR ((col0 >= 7 AND (col1 IN (2.13,7.79,7.5,4.90)))) AND ((((col3 < 5)))) AND (col1 < 6.11 AND col0 > 8) AND col3 <= 2 AND (col3 > 9)) AND col3 > 9 AND (col3 <= 5))) OR (col3 BETWEEN 6 AND 0 AND ((col0 < 1)) AND (col3 IS NULL OR (col0 IN (4,6,5,4,0) AND (col4 > 5.59)) OR col0 > 3 OR (((col3 BETWEEN 5 AND 7) OR (col1 >= 4.28)) AND col0 >= 2))) AND (col0 BETWEEN 5 AND 7 OR col4 <= 0.21) AND col0 <= 1 AND (((col4 >= 9.81 AND col1 > 9.33 OR col3 > 4 AND col3 > 4 AND (col1 >= 5.41) AND col1 = 6.30 AND (col0 = 1)))) OR col4 = 5.37 OR col3 IS NULL))))) OR (((col0 > 7) AND col3 IS NULL AND col3 > 6 OR col4 >= 5.33) AND col0 > 2) AND col4 > 1.59 AND col0 IN (SELECT col3 FROM tab4 WHERE col3 >= 9 AND col3 >= 4) AND col4 > 8.41 OR (col3 = 4) AND (((col3 < 6))) OR col3 >= 2)
+----
+0
+
+query I rowsort label-50
+SELECT pk FROM tab4 WHERE ((((((col0 >= 3 OR ((col4 > 5.3) OR col0 = 1)) OR (((((((((((col0 IN (6,8,8) AND (((col3 IS NULL)) OR (col3 >= 7)) OR col4 > 1.7 AND (col3 < 6) AND col1 < 6.94 OR col3 <= 0 AND col4 > 4.97 OR col3 < 4))) AND (col4 >= 2.32)) AND (col1 > 9.72) OR col4 < 1.15 OR (col3 = 5 OR col0 >= 6 AND (col4 = 8.11) OR col3 > 2 OR col4 >= 7.17 OR col4 <= 0.15)))) AND col3 > 9 AND ((col1 < 4.34) AND col1 IS NULL) AND ((col0 >= 1))) OR ((col3 < 9 AND col0 > 2))) OR ((col1 >= 2.33) OR (col0 IS NULL) OR col0 < 8) OR col0 > 4 AND col4 < 2.41 OR col3 < 1 OR col1 IS NULL OR (col0 = 1 OR col0 < 0 OR col0 IS NULL) OR (col3 IS NULL) OR col0 > 4)) AND col3 <= 1))) OR col3 = 0 AND col0 < 3 OR col4 <= 1.54) AND (col0 IN (4,8,1,9,6) OR (col1 = 8.45 OR col3 IS NULL OR (((col0 = 2 OR col0 < 1 OR ((col0 >= 9)) AND (col4 <= 9.36) OR col3 < 1 OR ((col3 >= 5 OR (col4 < 1.77) OR col3 < 5)) OR col0 > 2 OR ((col3 < 1)) AND (col3 > 6) AND col1 <= 5.45 OR (((col1 <= 1.25 OR col3 < 1 AND (col1 < 9.3)) AND (col3 > 0 AND col3 = 5 OR (col1 IN (7.77,3.86,0.2) OR col1 > 1.85 OR ((col3 < 7 AND col3 > 3))) OR ((col0 >= 7 AND (col1 IN (2.13,7.79,7.5,4.90)))) AND ((((col3 < 5)))) AND (col1 < 6.11 AND col0 > 8) AND col3 <= 2 AND (col3 > 9)) AND col3 > 9 AND (col3 <= 5))) OR ((col3 >= 6 AND col3 <= 0) AND ((col0 < 1)) AND (col3 IS NULL OR (col0 IN (4,6,5,4,0) AND (col4 > 5.59)) OR col0 > 3 OR ((((col3 >= 5 AND col3 <= 7)) OR (col1 >= 4.28)) AND col0 >= 2))) AND ((col0 >= 5 AND col0 <= 7) OR col4 <= 0.21) AND col0 <= 1 AND (((col4 >= 9.81 AND col1 > 9.33 OR col3 > 4 AND col3 > 4 AND (col1 >= 5.41) AND col1 = 6.30 AND (col0 = 1)))) OR col4 = 5.37 OR col3 IS NULL))))) OR (((col0 > 7) AND col3 IS NULL AND col3 > 6 OR col4 >= 5.33) AND col0 > 2) AND col4 > 1.59 AND col0 IN (SELECT col3 FROM tab4 WHERE col3 >= 9 AND col3 >= 4) AND col4 > 8.41 OR (col3 = 4) AND (((col3 < 6))) OR col3 >= 2)
+----
+0
+
+query I rowsort label-60
+SELECT pk FROM tab0 WHERE col0 < 7 OR col1 <= 6.28 AND (col0 <= 6) OR (col1 BETWEEN 9.43 AND 6.15) OR col3 > 0 AND (col0 = 7 OR ((col0 >= 8 AND ((col4 < 0.5 OR ((col4 = 3.48)) AND ((col4 IS NULL)) OR (((((((col3 IN (8,1) OR (col4 < 4.54) OR col1 = 7.10 AND (col1 = 7.10) OR col0 > 4)) OR (col0 >= 3) OR (((((col0 <= 8))) AND col1 <= 8.3) AND col3 > 2) AND col3 IN (3,3,6))) OR col0 > 1) AND col1 > 6.89 AND col0 >= 4)) AND (col0 >= 3) AND col1 < 3.67) AND col1 > 9.94 AND col1 <= 1.96 OR col4 > 5.80)))) OR col3 <= 0 OR ((col4 < 2.96)) OR col0 > 9
+----
+0
+
+query I rowsort label-60
+SELECT pk FROM tab0 WHERE col0 < 7 OR col1 <= 6.28 AND (col0 <= 6) OR ((col1 >= 9.43 AND col1 <= 6.15)) OR col3 > 0 AND (col0 = 7 OR ((col0 >= 8 AND ((col4 < 0.5 OR ((col4 = 3.48)) AND ((col4 IS NULL)) OR (((((((col3 IN (8,1) OR (col4 < 4.54) OR col1 = 7.10 AND (col1 = 7.10) OR col0 > 4)) OR (col0 >= 3) OR (((((col0 <= 8))) AND col1 <= 8.3) AND col3 > 2) AND col3 IN (3,3,6))) OR col0 > 1) AND col1 > 6.89 AND col0 >= 4)) AND (col0 >= 3) AND col1 < 3.67) AND col1 > 9.94 AND col1 <= 1.96 OR col4 > 5.80)))) OR col3 <= 0 OR ((col4 < 2.96)) OR col0 > 9
+----
+0
+
+query I rowsort label-60
+SELECT pk FROM tab1 WHERE col0 < 7 OR col1 <= 6.28 AND (col0 <= 6) OR (col1 BETWEEN 9.43 AND 6.15) OR col3 > 0 AND (col0 = 7 OR ((col0 >= 8 AND ((col4 < 0.5 OR ((col4 = 3.48)) AND ((col4 IS NULL)) OR (((((((col3 IN (8,1) OR (col4 < 4.54) OR col1 = 7.10 AND (col1 = 7.10) OR col0 > 4)) OR (col0 >= 3) OR (((((col0 <= 8))) AND col1 <= 8.3) AND col3 > 2) AND col3 IN (3,3,6))) OR col0 > 1) AND col1 > 6.89 AND col0 >= 4)) AND (col0 >= 3) AND col1 < 3.67) AND col1 > 9.94 AND col1 <= 1.96 OR col4 > 5.80)))) OR col3 <= 0 OR ((col4 < 2.96)) OR col0 > 9
+----
+0
+
+query I rowsort label-60
+SELECT pk FROM tab1 WHERE col0 < 7 OR col1 <= 6.28 AND (col0 <= 6) OR ((col1 >= 9.43 AND col1 <= 6.15)) OR col3 > 0 AND (col0 = 7 OR ((col0 >= 8 AND ((col4 < 0.5 OR ((col4 = 3.48)) AND ((col4 IS NULL)) OR (((((((col3 IN (8,1) OR (col4 < 4.54) OR col1 = 7.10 AND (col1 = 7.10) OR col0 > 4)) OR (col0 >= 3) OR (((((col0 <= 8))) AND col1 <= 8.3) AND col3 > 2) AND col3 IN (3,3,6))) OR col0 > 1) AND col1 > 6.89 AND col0 >= 4)) AND (col0 >= 3) AND col1 < 3.67) AND col1 > 9.94 AND col1 <= 1.96 OR col4 > 5.80)))) OR col3 <= 0 OR ((col4 < 2.96)) OR col0 > 9
+----
+0
+
+query I rowsort label-60
+SELECT pk FROM tab2 WHERE col0 < 7 OR col1 <= 6.28 AND (col0 <= 6) OR (col1 BETWEEN 9.43 AND 6.15) OR col3 > 0 AND (col0 = 7 OR ((col0 >= 8 AND ((col4 < 0.5 OR ((col4 = 3.48)) AND ((col4 IS NULL)) OR (((((((col3 IN (8,1) OR (col4 < 4.54) OR col1 = 7.10 AND (col1 = 7.10) OR col0 > 4)) OR (col0 >= 3) OR (((((col0 <= 8))) AND col1 <= 8.3) AND col3 > 2) AND col3 IN (3,3,6))) OR col0 > 1) AND col1 > 6.89 AND col0 >= 4)) AND (col0 >= 3) AND col1 < 3.67) AND col1 > 9.94 AND col1 <= 1.96 OR col4 > 5.80)))) OR col3 <= 0 OR ((col4 < 2.96)) OR col0 > 9
+----
+0
+
+query I rowsort label-60
+SELECT pk FROM tab2 WHERE col0 < 7 OR col1 <= 6.28 AND (col0 <= 6) OR ((col1 >= 9.43 AND col1 <= 6.15)) OR col3 > 0 AND (col0 = 7 OR ((col0 >= 8 AND ((col4 < 0.5 OR ((col4 = 3.48)) AND ((col4 IS NULL)) OR (((((((col3 IN (8,1) OR (col4 < 4.54) OR col1 = 7.10 AND (col1 = 7.10) OR col0 > 4)) OR (col0 >= 3) OR (((((col0 <= 8))) AND col1 <= 8.3) AND col3 > 2) AND col3 IN (3,3,6))) OR col0 > 1) AND col1 > 6.89 AND col0 >= 4)) AND (col0 >= 3) AND col1 < 3.67) AND col1 > 9.94 AND col1 <= 1.96 OR col4 > 5.80)))) OR col3 <= 0 OR ((col4 < 2.96)) OR col0 > 9
+----
+0
+
+query I rowsort label-60
+SELECT pk FROM tab3 WHERE col0 < 7 OR col1 <= 6.28 AND (col0 <= 6) OR (col1 BETWEEN 9.43 AND 6.15) OR col3 > 0 AND (col0 = 7 OR ((col0 >= 8 AND ((col4 < 0.5 OR ((col4 = 3.48)) AND ((col4 IS NULL)) OR (((((((col3 IN (8,1) OR (col4 < 4.54) OR col1 = 7.10 AND (col1 = 7.10) OR col0 > 4)) OR (col0 >= 3) OR (((((col0 <= 8))) AND col1 <= 8.3) AND col3 > 2) AND col3 IN (3,3,6))) OR col0 > 1) AND col1 > 6.89 AND col0 >= 4)) AND (col0 >= 3) AND col1 < 3.67) AND col1 > 9.94 AND col1 <= 1.96 OR col4 > 5.80)))) OR col3 <= 0 OR ((col4 < 2.96)) OR col0 > 9
+----
+0
+
+query I rowsort label-60
+SELECT pk FROM tab3 WHERE col0 < 7 OR col1 <= 6.28 AND (col0 <= 6) OR ((col1 >= 9.43 AND col1 <= 6.15)) OR col3 > 0 AND (col0 = 7 OR ((col0 >= 8 AND ((col4 < 0.5 OR ((col4 = 3.48)) AND ((col4 IS NULL)) OR (((((((col3 IN (8,1) OR (col4 < 4.54) OR col1 = 7.10 AND (col1 = 7.10) OR col0 > 4)) OR (col0 >= 3) OR (((((col0 <= 8))) AND col1 <= 8.3) AND col3 > 2) AND col3 IN (3,3,6))) OR col0 > 1) AND col1 > 6.89 AND col0 >= 4)) AND (col0 >= 3) AND col1 < 3.67) AND col1 > 9.94 AND col1 <= 1.96 OR col4 > 5.80)))) OR col3 <= 0 OR ((col4 < 2.96)) OR col0 > 9
+----
+0
+
+query I rowsort label-60
+SELECT pk FROM tab4 WHERE col0 < 7 OR col1 <= 6.28 AND (col0 <= 6) OR (col1 BETWEEN 9.43 AND 6.15) OR col3 > 0 AND (col0 = 7 OR ((col0 >= 8 AND ((col4 < 0.5 OR ((col4 = 3.48)) AND ((col4 IS NULL)) OR (((((((col3 IN (8,1) OR (col4 < 4.54) OR col1 = 7.10 AND (col1 = 7.10) OR col0 > 4)) OR (col0 >= 3) OR (((((col0 <= 8))) AND col1 <= 8.3) AND col3 > 2) AND col3 IN (3,3,6))) OR col0 > 1) AND col1 > 6.89 AND col0 >= 4)) AND (col0 >= 3) AND col1 < 3.67) AND col1 > 9.94 AND col1 <= 1.96 OR col4 > 5.80)))) OR col3 <= 0 OR ((col4 < 2.96)) OR col0 > 9
+----
+0
+
+query I rowsort label-60
+SELECT pk FROM tab4 WHERE col0 < 7 OR col1 <= 6.28 AND (col0 <= 6) OR ((col1 >= 9.43 AND col1 <= 6.15)) OR col3 > 0 AND (col0 = 7 OR ((col0 >= 8 AND ((col4 < 0.5 OR ((col4 = 3.48)) AND ((col4 IS NULL)) OR (((((((col3 IN (8,1) OR (col4 < 4.54) OR col1 = 7.10 AND (col1 = 7.10) OR col0 > 4)) OR (col0 >= 3) OR (((((col0 <= 8))) AND col1 <= 8.3) AND col3 > 2) AND col3 IN (3,3,6))) OR col0 > 1) AND col1 > 6.89 AND col0 >= 4)) AND (col0 >= 3) AND col1 < 3.67) AND col1 > 9.94 AND col1 <= 1.96 OR col4 > 5.80)))) OR col3 <= 0 OR ((col4 < 2.96)) OR col0 > 9
+----
+0
+
+query I rowsort label-70
+SELECT pk FROM tab0 WHERE col1 IS NULL OR col3 BETWEEN 4 AND 8
+----
+
+query I rowsort label-70
+SELECT pk FROM tab0 WHERE col1 IS NULL OR (col3 >= 4 AND col3 <= 8)
+----
+
+query I rowsort label-70
+SELECT pk FROM tab1 WHERE col1 IS NULL OR col3 BETWEEN 4 AND 8
+----
+
+query I rowsort label-70
+SELECT pk FROM tab1 WHERE col1 IS NULL OR (col3 >= 4 AND col3 <= 8)
+----
+
+query I rowsort label-70
+SELECT pk FROM tab2 WHERE col1 IS NULL OR col3 BETWEEN 4 AND 8
+----
+
+query I rowsort label-70
+SELECT pk FROM tab2 WHERE col1 IS NULL OR (col3 >= 4 AND col3 <= 8)
+----
+
+query I rowsort label-70
+SELECT pk FROM tab3 WHERE col1 IS NULL OR col3 BETWEEN 4 AND 8
+----
+
+query I rowsort label-70
+SELECT pk FROM tab3 WHERE col1 IS NULL OR (col3 >= 4 AND col3 <= 8)
+----
+
+query I rowsort label-70
+SELECT pk FROM tab4 WHERE col1 IS NULL OR col3 BETWEEN 4 AND 8
+----
+
+query I rowsort label-70
+SELECT pk FROM tab4 WHERE col1 IS NULL OR (col3 >= 4 AND col3 <= 8)
+----
+
+query I rowsort label-80
+SELECT pk FROM tab0 WHERE (col4 IN (5.85,5.95,6.30,0.0,1.27) AND (col4 IN (9.41,4.56,2.55,0.83,3.95,6.92) AND (col1 = 6.24)) OR col0 IN (SELECT col3 FROM tab0 WHERE (((((col0 IN (8,1) AND col0 IS NULL AND col1 < 9.21) AND col4 > 8.64 AND (col3 >= 9) OR col0 < 5)))))) AND (col1 < 7.95 OR col0 < 0) AND col3 >= 9 AND col0 < 2 OR col4 BETWEEN 1.13 AND 0.71 AND (col3 > 9) AND (col0 < 3)
+----
+
+query I rowsort label-80
+SELECT pk FROM tab0 WHERE (col4 IN (5.85,5.95,6.30,0.0,1.27) AND (col4 IN (9.41,4.56,2.55,0.83,3.95,6.92) AND (col1 = 6.24)) OR col0 IN (SELECT col3 FROM tab0 WHERE (((((col0 IN (8,1) AND col0 IS NULL AND col1 < 9.21) AND col4 > 8.64 AND (col3 >= 9) OR col0 < 5)))))) AND (col1 < 7.95 OR col0 < 0) AND col3 >= 9 AND col0 < 2 OR (col4 >= 1.13 AND col4 <= 0.71) AND (col3 > 9) AND (col0 < 3)
+----
+
+query I rowsort label-80
+SELECT pk FROM tab1 WHERE (col4 IN (5.85,5.95,6.30,0.0,1.27) AND (col4 IN (9.41,4.56,2.55,0.83,3.95,6.92) AND (col1 = 6.24)) OR col0 IN (SELECT col3 FROM tab1 WHERE (((((col0 IN (8,1) AND col0 IS NULL AND col1 < 9.21) AND col4 > 8.64 AND (col3 >= 9) OR col0 < 5)))))) AND (col1 < 7.95 OR col0 < 0) AND col3 >= 9 AND col0 < 2 OR col4 BETWEEN 1.13 AND 0.71 AND (col3 > 9) AND (col0 < 3)
+----
+
+query I rowsort label-80
+SELECT pk FROM tab1 WHERE (col4 IN (5.85,5.95,6.30,0.0,1.27) AND (col4 IN (9.41,4.56,2.55,0.83,3.95,6.92) AND (col1 = 6.24)) OR col0 IN (SELECT col3 FROM tab1 WHERE (((((col0 IN (8,1) AND col0 IS NULL AND col1 < 9.21) AND col4 > 8.64 AND (col3 >= 9) OR col0 < 5)))))) AND (col1 < 7.95 OR col0 < 0) AND col3 >= 9 AND col0 < 2 OR (col4 >= 1.13 AND col4 <= 0.71) AND (col3 > 9) AND (col0 < 3)
+----
+
+query I rowsort label-80
+SELECT pk FROM tab2 WHERE (col4 IN (5.85,5.95,6.30,0.0,1.27) AND (col4 IN (9.41,4.56,2.55,0.83,3.95,6.92) AND (col1 = 6.24)) OR col0 IN (SELECT col3 FROM tab2 WHERE (((((col0 IN (8,1) AND col0 IS NULL AND col1 < 9.21) AND col4 > 8.64 AND (col3 >= 9) OR col0 < 5)))))) AND (col1 < 7.95 OR col0 < 0) AND col3 >= 9 AND col0 < 2 OR col4 BETWEEN 1.13 AND 0.71 AND (col3 > 9) AND (col0 < 3)
+----
+
+query I rowsort label-80
+SELECT pk FROM tab2 WHERE (col4 IN (5.85,5.95,6.30,0.0,1.27) AND (col4 IN (9.41,4.56,2.55,0.83,3.95,6.92) AND (col1 = 6.24)) OR col0 IN (SELECT col3 FROM tab2 WHERE (((((col0 IN (8,1) AND col0 IS NULL AND col1 < 9.21) AND col4 > 8.64 AND (col3 >= 9) OR col0 < 5)))))) AND (col1 < 7.95 OR col0 < 0) AND col3 >= 9 AND col0 < 2 OR (col4 >= 1.13 AND col4 <= 0.71) AND (col3 > 9) AND (col0 < 3)
+----
+
+query I rowsort label-80
+SELECT pk FROM tab3 WHERE (col4 IN (5.85,5.95,6.30,0.0,1.27) AND (col4 IN (9.41,4.56,2.55,0.83,3.95,6.92) AND (col1 = 6.24)) OR col0 IN (SELECT col3 FROM tab3 WHERE (((((col0 IN (8,1) AND col0 IS NULL AND col1 < 9.21) AND col4 > 8.64 AND (col3 >= 9) OR col0 < 5)))))) AND (col1 < 7.95 OR col0 < 0) AND col3 >= 9 AND col0 < 2 OR col4 BETWEEN 1.13 AND 0.71 AND (col3 > 9) AND (col0 < 3)
+----
+
+query I rowsort label-80
+SELECT pk FROM tab3 WHERE (col4 IN (5.85,5.95,6.30,0.0,1.27) AND (col4 IN (9.41,4.56,2.55,0.83,3.95,6.92) AND (col1 = 6.24)) OR col0 IN (SELECT col3 FROM tab3 WHERE (((((col0 IN (8,1) AND col0 IS NULL AND col1 < 9.21) AND col4 > 8.64 AND (col3 >= 9) OR col0 < 5)))))) AND (col1 < 7.95 OR col0 < 0) AND col3 >= 9 AND col0 < 2 OR (col4 >= 1.13 AND col4 <= 0.71) AND (col3 > 9) AND (col0 < 3)
+----
+
+query I rowsort label-80
+SELECT pk FROM tab4 WHERE (col4 IN (5.85,5.95,6.30,0.0,1.27) AND (col4 IN (9.41,4.56,2.55,0.83,3.95,6.92) AND (col1 = 6.24)) OR col0 IN (SELECT col3 FROM tab4 WHERE (((((col0 IN (8,1) AND col0 IS NULL AND col1 < 9.21) AND col4 > 8.64 AND (col3 >= 9) OR col0 < 5)))))) AND (col1 < 7.95 OR col0 < 0) AND col3 >= 9 AND col0 < 2 OR col4 BETWEEN 1.13 AND 0.71 AND (col3 > 9) AND (col0 < 3)
+----
+
+query I rowsort label-80
+SELECT pk FROM tab4 WHERE (col4 IN (5.85,5.95,6.30,0.0,1.27) AND (col4 IN (9.41,4.56,2.55,0.83,3.95,6.92) AND (col1 = 6.24)) OR col0 IN (SELECT col3 FROM tab4 WHERE (((((col0 IN (8,1) AND col0 IS NULL AND col1 < 9.21) AND col4 > 8.64 AND (col3 >= 9) OR col0 < 5)))))) AND (col1 < 7.95 OR col0 < 0) AND col3 >= 9 AND col0 < 2 OR (col4 >= 1.13 AND col4 <= 0.71) AND (col3 > 9) AND (col0 < 3)
+----
+
+query I rowsort label-90
+SELECT pk FROM tab0 WHERE col3 BETWEEN 6 AND 6
+----
+
+query I rowsort label-90
+SELECT pk FROM tab0 WHERE (col3 >= 6 AND col3 <= 6)
+----
+
+query I rowsort label-90
+SELECT pk FROM tab1 WHERE col3 BETWEEN 6 AND 6
+----
+
+query I rowsort label-90
+SELECT pk FROM tab1 WHERE (col3 >= 6 AND col3 <= 6)
+----
+
+query I rowsort label-90
+SELECT pk FROM tab2 WHERE col3 BETWEEN 6 AND 6
+----
+
+query I rowsort label-90
+SELECT pk FROM tab2 WHERE (col3 >= 6 AND col3 <= 6)
+----
+
+query I rowsort label-90
+SELECT pk FROM tab3 WHERE col3 BETWEEN 6 AND 6
+----
+
+query I rowsort label-90
+SELECT pk FROM tab3 WHERE (col3 >= 6 AND col3 <= 6)
+----
+
+query I rowsort label-90
+SELECT pk FROM tab4 WHERE col3 BETWEEN 6 AND 6
+----
+
+query I rowsort label-90
+SELECT pk FROM tab4 WHERE (col3 >= 6 AND col3 <= 6)
+----
+
+query I rowsort label-100
+SELECT pk FROM tab0 WHERE col0 IS NULL AND (col3 < 5 AND (col4 = 1.24) OR (col3 < 9) OR col0 < 7 OR col3 >= 1 OR col3 < 2 AND (col3 < 1) AND col3 BETWEEN 9 AND 6 AND col3 >= 4)
+----
+
+query I rowsort label-100
+SELECT pk FROM tab0 WHERE col0 IS NULL AND (col3 < 5 AND (col4 = 1.24) OR (col3 < 9) OR col0 < 7 OR col3 >= 1 OR col3 < 2 AND (col3 < 1) AND (col3 >= 9 AND col3 <= 6) AND col3 >= 4)
+----
+
+query I rowsort label-100
+SELECT pk FROM tab1 WHERE col0 IS NULL AND (col3 < 5 AND (col4 = 1.24) OR (col3 < 9) OR col0 < 7 OR col3 >= 1 OR col3 < 2 AND (col3 < 1) AND col3 BETWEEN 9 AND 6 AND col3 >= 4)
+----
+
+query I rowsort label-100
+SELECT pk FROM tab1 WHERE col0 IS NULL AND (col3 < 5 AND (col4 = 1.24) OR (col3 < 9) OR col0 < 7 OR col3 >= 1 OR col3 < 2 AND (col3 < 1) AND (col3 >= 9 AND col3 <= 6) AND col3 >= 4)
+----
+
+query I rowsort label-100
+SELECT pk FROM tab2 WHERE col0 IS NULL AND (col3 < 5 AND (col4 = 1.24) OR (col3 < 9) OR col0 < 7 OR col3 >= 1 OR col3 < 2 AND (col3 < 1) AND col3 BETWEEN 9 AND 6 AND col3 >= 4)
+----
+
+query I rowsort label-100
+SELECT pk FROM tab2 WHERE col0 IS NULL AND (col3 < 5 AND (col4 = 1.24) OR (col3 < 9) OR col0 < 7 OR col3 >= 1 OR col3 < 2 AND (col3 < 1) AND (col3 >= 9 AND col3 <= 6) AND col3 >= 4)
+----
+
+query I rowsort label-100
+SELECT pk FROM tab3 WHERE col0 IS NULL AND (col3 < 5 AND (col4 = 1.24) OR (col3 < 9) OR col0 < 7 OR col3 >= 1 OR col3 < 2 AND (col3 < 1) AND col3 BETWEEN 9 AND 6 AND col3 >= 4)
+----
+
+query I rowsort label-100
+SELECT pk FROM tab3 WHERE col0 IS NULL AND (col3 < 5 AND (col4 = 1.24) OR (col3 < 9) OR col0 < 7 OR col3 >= 1 OR col3 < 2 AND (col3 < 1) AND (col3 >= 9 AND col3 <= 6) AND col3 >= 4)
+----
+
+query I rowsort label-100
+SELECT pk FROM tab4 WHERE col0 IS NULL AND (col3 < 5 AND (col4 = 1.24) OR (col3 < 9) OR col0 < 7 OR col3 >= 1 OR col3 < 2 AND (col3 < 1) AND col3 BETWEEN 9 AND 6 AND col3 >= 4)
+----
+
+query I rowsort label-100
+SELECT pk FROM tab4 WHERE col0 IS NULL AND (col3 < 5 AND (col4 = 1.24) OR (col3 < 9) OR col0 < 7 OR col3 >= 1 OR col3 < 2 AND (col3 < 1) AND (col3 >= 9 AND col3 <= 6) AND col3 >= 4)
+----
+
+query I rowsort label-110
+SELECT pk FROM tab0 WHERE (col0 > 9 AND (((((col1 <= 6.38) AND (col0 > 2)) OR (col0 BETWEEN 5 AND 8)) AND (col0 IN (7,6,3,5,0) OR ((((col4 IN (6.36,7.74,1.24)))))))))
+----
+
+query I rowsort label-110
+SELECT pk FROM tab0 WHERE (col0 > 9 AND (((((col1 <= 6.38) AND (col0 > 2)) OR ((col0 >= 5 AND col0 <= 8))) AND (col0 IN (7,6,3,5,0) OR ((((col4 IN (6.36,7.74,1.24)))))))))
+----
+
+query I rowsort label-110
+SELECT pk FROM tab1 WHERE (col0 > 9 AND (((((col1 <= 6.38) AND (col0 > 2)) OR (col0 BETWEEN 5 AND 8)) AND (col0 IN (7,6,3,5,0) OR ((((col4 IN (6.36,7.74,1.24)))))))))
+----
+
+query I rowsort label-110
+SELECT pk FROM tab1 WHERE (col0 > 9 AND (((((col1 <= 6.38) AND (col0 > 2)) OR ((col0 >= 5 AND col0 <= 8))) AND (col0 IN (7,6,3,5,0) OR ((((col4 IN (6.36,7.74,1.24)))))))))
+----
+
+query I rowsort label-110
+SELECT pk FROM tab2 WHERE (col0 > 9 AND (((((col1 <= 6.38) AND (col0 > 2)) OR (col0 BETWEEN 5 AND 8)) AND (col0 IN (7,6,3,5,0) OR ((((col4 IN (6.36,7.74,1.24)))))))))
+----
+
+query I rowsort label-110
+SELECT pk FROM tab2 WHERE (col0 > 9 AND (((((col1 <= 6.38) AND (col0 > 2)) OR ((col0 >= 5 AND col0 <= 8))) AND (col0 IN (7,6,3,5,0) OR ((((col4 IN (6.36,7.74,1.24)))))))))
+----
+
+query I rowsort label-110
+SELECT pk FROM tab3 WHERE (col0 > 9 AND (((((col1 <= 6.38) AND (col0 > 2)) OR (col0 BETWEEN 5 AND 8)) AND (col0 IN (7,6,3,5,0) OR ((((col4 IN (6.36,7.74,1.24)))))))))
+----
+
+query I rowsort label-110
+SELECT pk FROM tab3 WHERE (col0 > 9 AND (((((col1 <= 6.38) AND (col0 > 2)) OR ((col0 >= 5 AND col0 <= 8))) AND (col0 IN (7,6,3,5,0) OR ((((col4 IN (6.36,7.74,1.24)))))))))
+----
+
+query I rowsort label-110
+SELECT pk FROM tab4 WHERE (col0 > 9 AND (((((col1 <= 6.38) AND (col0 > 2)) OR (col0 BETWEEN 5 AND 8)) AND (col0 IN (7,6,3,5,0) OR ((((col4 IN (6.36,7.74,1.24)))))))))
+----
+
+query I rowsort label-110
+SELECT pk FROM tab4 WHERE (col0 > 9 AND (((((col1 <= 6.38) AND (col0 > 2)) OR ((col0 >= 5 AND col0 <= 8))) AND (col0 IN (7,6,3,5,0) OR ((((col4 IN (6.36,7.74,1.24)))))))))
+----
+
+query I rowsort label-120
+SELECT pk FROM tab0 WHERE (((col0 > 6 AND ((col1 IN (6.17,4.30) AND col1 > 0.73) AND (col1 <= 8.41)) OR col4 > 3.24 OR col4 >= 4.31 AND col1 >= 3.30)) AND (col3 < 6) AND (col1 > 4.48 AND col3 > 4 OR (col1 > 4.4) AND ((((col0 < 8) AND col3 > 8 AND col3 >= 9 OR ((col0 >= 5 AND (col0 >= 2))) OR col3 > 0 AND ((col0 BETWEEN 2 AND 8 AND col0 >= 4 OR col3 = 6 OR ((((col0 = 7) AND col3 > 0) AND (col0 < 2 AND col4 > 7.16 OR (col0 > 1 OR col3 < 7) OR (col0 < 8 AND col0 >= 4) AND col0 IN (6,0,9,5)) OR ((((col1 <= 4.99)))) AND ((((((col0 < 6) OR col3 IN (7,9)))) AND col3 < 0 AND col3 <= 5 AND col0 < 1 AND col0 <= 4) AND (col0 < 8 AND col0 >= 6) AND col0 IN (2,0,7,3)) AND col4 >= 2.77)))) AND col0 >= 6 AND col3 < 7))) OR col3 > 0) OR (col0 > 6) OR col4 BETWEEN 6.1 AND 7.37 AND col0 > 5 OR col0 >= 8 AND col1 > 6.56 AND col3 <= 8 AND col0 = 1)
+----
+
+query I rowsort label-120
+SELECT pk FROM tab0 WHERE (((col0 > 6 AND ((col1 IN (6.17,4.30) AND col1 > 0.73) AND (col1 <= 8.41)) OR col4 > 3.24 OR col4 >= 4.31 AND col1 >= 3.30)) AND (col3 < 6) AND (col1 > 4.48 AND col3 > 4 OR (col1 > 4.4) AND ((((col0 < 8) AND col3 > 8 AND col3 >= 9 OR ((col0 >= 5 AND (col0 >= 2))) OR col3 > 0 AND (((col0 >= 2 AND col0 <= 8) AND col0 >= 4 OR col3 = 6 OR ((((col0 = 7) AND col3 > 0) AND (col0 < 2 AND col4 > 7.16 OR (col0 > 1 OR col3 < 7) OR (col0 < 8 AND col0 >= 4) AND col0 IN (6,0,9,5)) OR ((((col1 <= 4.99)))) AND ((((((col0 < 6) OR col3 IN (7,9)))) AND col3 < 0 AND col3 <= 5 AND col0 < 1 AND col0 <= 4) AND (col0 < 8 AND col0 >= 6) AND col0 IN (2,0,7,3)) AND col4 >= 2.77)))) AND col0 >= 6 AND col3 < 7))) OR col3 > 0) OR (col0 > 6) OR (col4 >= 6.1 AND col4 <= 7.37) AND col0 > 5 OR col0 >= 8 AND col1 > 6.56 AND col3 <= 8 AND col0 = 1)
+----
+
+query I rowsort label-120
+SELECT pk FROM tab1 WHERE (((col0 > 6 AND ((col1 IN (6.17,4.30) AND col1 > 0.73) AND (col1 <= 8.41)) OR col4 > 3.24 OR col4 >= 4.31 AND col1 >= 3.30)) AND (col3 < 6) AND (col1 > 4.48 AND col3 > 4 OR (col1 > 4.4) AND ((((col0 < 8) AND col3 > 8 AND col3 >= 9 OR ((col0 >= 5 AND (col0 >= 2))) OR col3 > 0 AND ((col0 BETWEEN 2 AND 8 AND col0 >= 4 OR col3 = 6 OR ((((col0 = 7) AND col3 > 0) AND (col0 < 2 AND col4 > 7.16 OR (col0 > 1 OR col3 < 7) OR (col0 < 8 AND col0 >= 4) AND col0 IN (6,0,9,5)) OR ((((col1 <= 4.99)))) AND ((((((col0 < 6) OR col3 IN (7,9)))) AND col3 < 0 AND col3 <= 5 AND col0 < 1 AND col0 <= 4) AND (col0 < 8 AND col0 >= 6) AND col0 IN (2,0,7,3)) AND col4 >= 2.77)))) AND col0 >= 6 AND col3 < 7))) OR col3 > 0) OR (col0 > 6) OR col4 BETWEEN 6.1 AND 7.37 AND col0 > 5 OR col0 >= 8 AND col1 > 6.56 AND col3 <= 8 AND col0 = 1)
+----
+
+query I rowsort label-120
+SELECT pk FROM tab1 WHERE (((col0 > 6 AND ((col1 IN (6.17,4.30) AND col1 > 0.73) AND (col1 <= 8.41)) OR col4 > 3.24 OR col4 >= 4.31 AND col1 >= 3.30)) AND (col3 < 6) AND (col1 > 4.48 AND col3 > 4 OR (col1 > 4.4) AND ((((col0 < 8) AND col3 > 8 AND col3 >= 9 OR ((col0 >= 5 AND (col0 >= 2))) OR col3 > 0 AND (((col0 >= 2 AND col0 <= 8) AND col0 >= 4 OR col3 = 6 OR ((((col0 = 7) AND col3 > 0) AND (col0 < 2 AND col4 > 7.16 OR (col0 > 1 OR col3 < 7) OR (col0 < 8 AND col0 >= 4) AND col0 IN (6,0,9,5)) OR ((((col1 <= 4.99)))) AND ((((((col0 < 6) OR col3 IN (7,9)))) AND col3 < 0 AND col3 <= 5 AND col0 < 1 AND col0 <= 4) AND (col0 < 8 AND col0 >= 6) AND col0 IN (2,0,7,3)) AND col4 >= 2.77)))) AND col0 >= 6 AND col3 < 7))) OR col3 > 0) OR (col0 > 6) OR (col4 >= 6.1 AND col4 <= 7.37) AND col0 > 5 OR col0 >= 8 AND col1 > 6.56 AND col3 <= 8 AND col0 = 1)
+----
+
+query I rowsort label-120
+SELECT pk FROM tab2 WHERE (((col0 > 6 AND ((col1 IN (6.17,4.30) AND col1 > 0.73) AND (col1 <= 8.41)) OR col4 > 3.24 OR col4 >= 4.31 AND col1 >= 3.30)) AND (col3 < 6) AND (col1 > 4.48 AND col3 > 4 OR (col1 > 4.4) AND ((((col0 < 8) AND col3 > 8 AND col3 >= 9 OR ((col0 >= 5 AND (col0 >= 2))) OR col3 > 0 AND ((col0 BETWEEN 2 AND 8 AND col0 >= 4 OR col3 = 6 OR ((((col0 = 7) AND col3 > 0) AND (col0 < 2 AND col4 > 7.16 OR (col0 > 1 OR col3 < 7) OR (col0 < 8 AND col0 >= 4) AND col0 IN (6,0,9,5)) OR ((((col1 <= 4.99)))) AND ((((((col0 < 6) OR col3 IN (7,9)))) AND col3 < 0 AND col3 <= 5 AND col0 < 1 AND col0 <= 4) AND (col0 < 8 AND col0 >= 6) AND col0 IN (2,0,7,3)) AND col4 >= 2.77)))) AND col0 >= 6 AND col3 < 7))) OR col3 > 0) OR (col0 > 6) OR col4 BETWEEN 6.1 AND 7.37 AND col0 > 5 OR col0 >= 8 AND col1 > 6.56 AND col3 <= 8 AND col0 = 1)
+----
+
+query I rowsort label-120
+SELECT pk FROM tab2 WHERE (((col0 > 6 AND ((col1 IN (6.17,4.30) AND col1 > 0.73) AND (col1 <= 8.41)) OR col4 > 3.24 OR col4 >= 4.31 AND col1 >= 3.30)) AND (col3 < 6) AND (col1 > 4.48 AND col3 > 4 OR (col1 > 4.4) AND ((((col0 < 8) AND col3 > 8 AND col3 >= 9 OR ((col0 >= 5 AND (col0 >= 2))) OR col3 > 0 AND (((col0 >= 2 AND col0 <= 8) AND col0 >= 4 OR col3 = 6 OR ((((col0 = 7) AND col3 > 0) AND (col0 < 2 AND col4 > 7.16 OR (col0 > 1 OR col3 < 7) OR (col0 < 8 AND col0 >= 4) AND col0 IN (6,0,9,5)) OR ((((col1 <= 4.99)))) AND ((((((col0 < 6) OR col3 IN (7,9)))) AND col3 < 0 AND col3 <= 5 AND col0 < 1 AND col0 <= 4) AND (col0 < 8 AND col0 >= 6) AND col0 IN (2,0,7,3)) AND col4 >= 2.77)))) AND col0 >= 6 AND col3 < 7))) OR col3 > 0) OR (col0 > 6) OR (col4 >= 6.1 AND col4 <= 7.37) AND col0 > 5 OR col0 >= 8 AND col1 > 6.56 AND col3 <= 8 AND col0 = 1)
+----
+
+query I rowsort label-120
+SELECT pk FROM tab3 WHERE (((col0 > 6 AND ((col1 IN (6.17,4.30) AND col1 > 0.73) AND (col1 <= 8.41)) OR col4 > 3.24 OR col4 >= 4.31 AND col1 >= 3.30)) AND (col3 < 6) AND (col1 > 4.48 AND col3 > 4 OR (col1 > 4.4) AND ((((col0 < 8) AND col3 > 8 AND col3 >= 9 OR ((col0 >= 5 AND (col0 >= 2))) OR col3 > 0 AND ((col0 BETWEEN 2 AND 8 AND col0 >= 4 OR col3 = 6 OR ((((col0 = 7) AND col3 > 0) AND (col0 < 2 AND col4 > 7.16 OR (col0 > 1 OR col3 < 7) OR (col0 < 8 AND col0 >= 4) AND col0 IN (6,0,9,5)) OR ((((col1 <= 4.99)))) AND ((((((col0 < 6) OR col3 IN (7,9)))) AND col3 < 0 AND col3 <= 5 AND col0 < 1 AND col0 <= 4) AND (col0 < 8 AND col0 >= 6) AND col0 IN (2,0,7,3)) AND col4 >= 2.77)))) AND col0 >= 6 AND col3 < 7))) OR col3 > 0) OR (col0 > 6) OR col4 BETWEEN 6.1 AND 7.37 AND col0 > 5 OR col0 >= 8 AND col1 > 6.56 AND col3 <= 8 AND col0 = 1)
+----
+
+query I rowsort label-120
+SELECT pk FROM tab3 WHERE (((col0 > 6 AND ((col1 IN (6.17,4.30) AND col1 > 0.73) AND (col1 <= 8.41)) OR col4 > 3.24 OR col4 >= 4.31 AND col1 >= 3.30)) AND (col3 < 6) AND (col1 > 4.48 AND col3 > 4 OR (col1 > 4.4) AND ((((col0 < 8) AND col3 > 8 AND col3 >= 9 OR ((col0 >= 5 AND (col0 >= 2))) OR col3 > 0 AND (((col0 >= 2 AND col0 <= 8) AND col0 >= 4 OR col3 = 6 OR ((((col0 = 7) AND col3 > 0) AND (col0 < 2 AND col4 > 7.16 OR (col0 > 1 OR col3 < 7) OR (col0 < 8 AND col0 >= 4) AND col0 IN (6,0,9,5)) OR ((((col1 <= 4.99)))) AND ((((((col0 < 6) OR col3 IN (7,9)))) AND col3 < 0 AND col3 <= 5 AND col0 < 1 AND col0 <= 4) AND (col0 < 8 AND col0 >= 6) AND col0 IN (2,0,7,3)) AND col4 >= 2.77)))) AND col0 >= 6 AND col3 < 7))) OR col3 > 0) OR (col0 > 6) OR (col4 >= 6.1 AND col4 <= 7.37) AND col0 > 5 OR col0 >= 8 AND col1 > 6.56 AND col3 <= 8 AND col0 = 1)
+----
+
+query I rowsort label-120
+SELECT pk FROM tab4 WHERE (((col0 > 6 AND ((col1 IN (6.17,4.30) AND col1 > 0.73) AND (col1 <= 8.41)) OR col4 > 3.24 OR col4 >= 4.31 AND col1 >= 3.30)) AND (col3 < 6) AND (col1 > 4.48 AND col3 > 4 OR (col1 > 4.4) AND ((((col0 < 8) AND col3 > 8 AND col3 >= 9 OR ((col0 >= 5 AND (col0 >= 2))) OR col3 > 0 AND ((col0 BETWEEN 2 AND 8 AND col0 >= 4 OR col3 = 6 OR ((((col0 = 7) AND col3 > 0) AND (col0 < 2 AND col4 > 7.16 OR (col0 > 1 OR col3 < 7) OR (col0 < 8 AND col0 >= 4) AND col0 IN (6,0,9,5)) OR ((((col1 <= 4.99)))) AND ((((((col0 < 6) OR col3 IN (7,9)))) AND col3 < 0 AND col3 <= 5 AND col0 < 1 AND col0 <= 4) AND (col0 < 8 AND col0 >= 6) AND col0 IN (2,0,7,3)) AND col4 >= 2.77)))) AND col0 >= 6 AND col3 < 7))) OR col3 > 0) OR (col0 > 6) OR col4 BETWEEN 6.1 AND 7.37 AND col0 > 5 OR col0 >= 8 AND col1 > 6.56 AND col3 <= 8 AND col0 = 1)
+----
+
+query I rowsort label-120
+SELECT pk FROM tab4 WHERE (((col0 > 6 AND ((col1 IN (6.17,4.30) AND col1 > 0.73) AND (col1 <= 8.41)) OR col4 > 3.24 OR col4 >= 4.31 AND col1 >= 3.30)) AND (col3 < 6) AND (col1 > 4.48 AND col3 > 4 OR (col1 > 4.4) AND ((((col0 < 8) AND col3 > 8 AND col3 >= 9 OR ((col0 >= 5 AND (col0 >= 2))) OR col3 > 0 AND (((col0 >= 2 AND col0 <= 8) AND col0 >= 4 OR col3 = 6 OR ((((col0 = 7) AND col3 > 0) AND (col0 < 2 AND col4 > 7.16 OR (col0 > 1 OR col3 < 7) OR (col0 < 8 AND col0 >= 4) AND col0 IN (6,0,9,5)) OR ((((col1 <= 4.99)))) AND ((((((col0 < 6) OR col3 IN (7,9)))) AND col3 < 0 AND col3 <= 5 AND col0 < 1 AND col0 <= 4) AND (col0 < 8 AND col0 >= 6) AND col0 IN (2,0,7,3)) AND col4 >= 2.77)))) AND col0 >= 6 AND col3 < 7))) OR col3 > 0) OR (col0 > 6) OR (col4 >= 6.1 AND col4 <= 7.37) AND col0 > 5 OR col0 >= 8 AND col1 > 6.56 AND col3 <= 8 AND col0 = 1)
+----
+
+query I rowsort label-130
+SELECT pk FROM tab0 WHERE (col3 <= 9 OR (col0 > 3) AND col0 < 3 AND (col4 <= 3.11) OR ((((((col0 = 3) AND col1 >= 4.68 AND (col0 IS NULL) AND col3 >= 9 AND col3 < 5 AND col4 >= 5.27)) AND col3 > 6))) OR col3 IS NULL OR col4 = 0.77 AND (col3 < 2) AND col0 = 5 AND (col4 <= 3.30) AND col4 > 3.18 AND col4 >= 4.25 AND ((col0 <= 6)) OR col0 >= 3 OR col0 <= 4 AND ((col0 <= 9)) OR (col0 IN (2,5,3)) AND col3 IS NULL OR ((col4 > 0.0)) OR ((((((col3 IS NULL OR col3 = 9)) OR (col3 >= 3) OR (col4 > 6.0 AND col4 = 8.33)))) AND (((col0 IS NULL OR col0 IS NULL AND col0 > 4) OR (col0 IN (7,9,9) OR ((col3 < 1) AND (col1 < 6.50 AND col0 = 3 OR col3 > 8 AND col3 >= 7)) AND col3 >= 9 AND col0 >= 5 OR (col4 IS NULL) OR (((col3 <= 1) OR (col3 <= 5) AND (col3 < 8 OR ((col3 >= 6 AND (col1 <= 0.30 OR ((col1 <= 3.49) AND col3 <= 0 OR col1 IS NULL)) AND col0 <= 7 AND (col3 > 5 AND ((col4 <= 3.58 OR ((col1 = 5.77 AND col0 > 1 AND ((((col4 > 7.28))))) AND col0 IN (7,9,9,6,3)) AND (col3 < 9) AND col1 > 1.25 AND col4 >= 8.31)) AND col0 IN (4,9,2,9,8,7) AND col0 IN (SELECT col3 FROM tab0 WHERE (col4 > 3.43)))))) AND col0 < 2 OR (col0 >= 6 AND (((col3 >= 4)) OR col3 < 6) AND (col0 > 5 OR col0 < 9 OR col3 BETWEEN 2 AND 6)) AND (col3 >= 9) AND col0 > 9 AND col0 BETWEEN 0 AND 8 AND (((col1 > 5.22) OR col4 < 3.0)) OR col0 < 7 AND (col0 >= 3)))) AND col4 > 4.49) AND (col0 > 4 OR col3 >= 5 AND col0 > 3))) AND ((col3 > 2)) OR (col1 IS NULL) OR col1 >= 4.12 AND col3 IS NULL OR col0 < 8 AND (((((col0 >= 9) AND col1 < 9.39 OR (col3 >= 8) AND (col3 >= 9 OR (col3 <= 1 OR ((col3 < 2) AND ((col4 IS NULL OR col0 > 8 AND col0 > 9))) OR col0 <= 3 AND col4 > 5.37)) OR col3 < 0 AND (col4 >= 1.72 AND col3 > 6) AND col3 > 9)))) AND col1 IS NULL AND col0 < 6 AND col0 > 8 AND (col3 IN (6,5,9,9) AND (col0 >= 8)) OR (col1 = 3.11) OR (col4 IN (1.79,0.61,8.55) OR col1 > 5.50 OR col1 > 8.83) AND col0 = 4 AND col0 IN (0,6,1,4) AND col3 < 9 AND col3 BETWEEN 9 AND 6 AND (col4 > 3.74) OR col3 = 3 AND col1 IN (2.58,0.60,8.63,7.40))
+----
+0
+
+query I rowsort label-130
+SELECT pk FROM tab0 WHERE (col3 <= 9 OR (col0 > 3) AND col0 < 3 AND (col4 <= 3.11) OR ((((((col0 = 3) AND col1 >= 4.68 AND (col0 IS NULL) AND col3 >= 9 AND col3 < 5 AND col4 >= 5.27)) AND col3 > 6))) OR col3 IS NULL OR col4 = 0.77 AND (col3 < 2) AND col0 = 5 AND (col4 <= 3.30) AND col4 > 3.18 AND col4 >= 4.25 AND ((col0 <= 6)) OR col0 >= 3 OR col0 <= 4 AND ((col0 <= 9)) OR (col0 IN (2,5,3)) AND col3 IS NULL OR ((col4 > 0.0)) OR ((((((col3 IS NULL OR col3 = 9)) OR (col3 >= 3) OR (col4 > 6.0 AND col4 = 8.33)))) AND (((col0 IS NULL OR col0 IS NULL AND col0 > 4) OR (col0 IN (7,9,9) OR ((col3 < 1) AND (col1 < 6.50 AND col0 = 3 OR col3 > 8 AND col3 >= 7)) AND col3 >= 9 AND col0 >= 5 OR (col4 IS NULL) OR (((col3 <= 1) OR (col3 <= 5) AND (col3 < 8 OR ((col3 >= 6 AND (col1 <= 0.30 OR ((col1 <= 3.49) AND col3 <= 0 OR col1 IS NULL)) AND col0 <= 7 AND (col3 > 5 AND ((col4 <= 3.58 OR ((col1 = 5.77 AND col0 > 1 AND ((((col4 > 7.28))))) AND col0 IN (7,9,9,6,3)) AND (col3 < 9) AND col1 > 1.25 AND col4 >= 8.31)) AND col0 IN (4,9,2,9,8,7) AND col0 IN (SELECT col3 FROM tab0 WHERE (col4 > 3.43)))))) AND col0 < 2 OR (col0 >= 6 AND (((col3 >= 4)) OR col3 < 6) AND (col0 > 5 OR col0 < 9 OR (col3 >= 2 AND col3 <= 6))) AND (col3 >= 9) AND col0 > 9 AND (col0 >= 0 AND col0 <= 8) AND (((col1 > 5.22) OR col4 < 3.0)) OR col0 < 7 AND (col0 >= 3)))) AND col4 > 4.49) AND (col0 > 4 OR col3 >= 5 AND col0 > 3))) AND ((col3 > 2)) OR (col1 IS NULL) OR col1 >= 4.12 AND col3 IS NULL OR col0 < 8 AND (((((col0 >= 9) AND col1 < 9.39 OR (col3 >= 8) AND (col3 >= 9 OR (col3 <= 1 OR ((col3 < 2) AND ((col4 IS NULL OR col0 > 8 AND col0 > 9))) OR col0 <= 3 AND col4 > 5.37)) OR col3 < 0 AND (col4 >= 1.72 AND col3 > 6) AND col3 > 9)))) AND col1 IS NULL AND col0 < 6 AND col0 > 8 AND (col3 IN (6,5,9,9) AND (col0 >= 8)) OR (col1 = 3.11) OR (col4 IN (1.79,0.61,8.55) OR col1 > 5.50 OR col1 > 8.83) AND col0 = 4 AND col0 IN (0,6,1,4) AND col3 < 9 AND (col3 >= 9 AND col3 <= 6) AND (col4 > 3.74) OR col3 = 3 AND col1 IN (2.58,0.60,8.63,7.40))
+----
+0
+
+query I rowsort label-130
+SELECT pk FROM tab1 WHERE (col3 <= 9 OR (col0 > 3) AND col0 < 3 AND (col4 <= 3.11) OR ((((((col0 = 3) AND col1 >= 4.68 AND (col0 IS NULL) AND col3 >= 9 AND col3 < 5 AND col4 >= 5.27)) AND col3 > 6))) OR col3 IS NULL OR col4 = 0.77 AND (col3 < 2) AND col0 = 5 AND (col4 <= 3.30) AND col4 > 3.18 AND col4 >= 4.25 AND ((col0 <= 6)) OR col0 >= 3 OR col0 <= 4 AND ((col0 <= 9)) OR (col0 IN (2,5,3)) AND col3 IS NULL OR ((col4 > 0.0)) OR ((((((col3 IS NULL OR col3 = 9)) OR (col3 >= 3) OR (col4 > 6.0 AND col4 = 8.33)))) AND (((col0 IS NULL OR col0 IS NULL AND col0 > 4) OR (col0 IN (7,9,9) OR ((col3 < 1) AND (col1 < 6.50 AND col0 = 3 OR col3 > 8 AND col3 >= 7)) AND col3 >= 9 AND col0 >= 5 OR (col4 IS NULL) OR (((col3 <= 1) OR (col3 <= 5) AND (col3 < 8 OR ((col3 >= 6 AND (col1 <= 0.30 OR ((col1 <= 3.49) AND col3 <= 0 OR col1 IS NULL)) AND col0 <= 7 AND (col3 > 5 AND ((col4 <= 3.58 OR ((col1 = 5.77 AND col0 > 1 AND ((((col4 > 7.28))))) AND col0 IN (7,9,9,6,3)) AND (col3 < 9) AND col1 > 1.25 AND col4 >= 8.31)) AND col0 IN (4,9,2,9,8,7) AND col0 IN (SELECT col3 FROM tab1 WHERE (col4 > 3.43)))))) AND col0 < 2 OR (col0 >= 6 AND (((col3 >= 4)) OR col3 < 6) AND (col0 > 5 OR col0 < 9 OR col3 BETWEEN 2 AND 6)) AND (col3 >= 9) AND col0 > 9 AND col0 BETWEEN 0 AND 8 AND (((col1 > 5.22) OR col4 < 3.0)) OR col0 < 7 AND (col0 >= 3)))) AND col4 > 4.49) AND (col0 > 4 OR col3 >= 5 AND col0 > 3))) AND ((col3 > 2)) OR (col1 IS NULL) OR col1 >= 4.12 AND col3 IS NULL OR col0 < 8 AND (((((col0 >= 9) AND col1 < 9.39 OR (col3 >= 8) AND (col3 >= 9 OR (col3 <= 1 OR ((col3 < 2) AND ((col4 IS NULL OR col0 > 8 AND col0 > 9))) OR col0 <= 3 AND col4 > 5.37)) OR col3 < 0 AND (col4 >= 1.72 AND col3 > 6) AND col3 > 9)))) AND col1 IS NULL AND col0 < 6 AND col0 > 8 AND (col3 IN (6,5,9,9) AND (col0 >= 8)) OR (col1 = 3.11) OR (col4 IN (1.79,0.61,8.55) OR col1 > 5.50 OR col1 > 8.83) AND col0 = 4 AND col0 IN (0,6,1,4) AND col3 < 9 AND col3 BETWEEN 9 AND 6 AND (col4 > 3.74) OR col3 = 3 AND col1 IN (2.58,0.60,8.63,7.40))
+----
+0
+
+query I rowsort label-130
+SELECT pk FROM tab1 WHERE (col3 <= 9 OR (col0 > 3) AND col0 < 3 AND (col4 <= 3.11) OR ((((((col0 = 3) AND col1 >= 4.68 AND (col0 IS NULL) AND col3 >= 9 AND col3 < 5 AND col4 >= 5.27)) AND col3 > 6))) OR col3 IS NULL OR col4 = 0.77 AND (col3 < 2) AND col0 = 5 AND (col4 <= 3.30) AND col4 > 3.18 AND col4 >= 4.25 AND ((col0 <= 6)) OR col0 >= 3 OR col0 <= 4 AND ((col0 <= 9)) OR (col0 IN (2,5,3)) AND col3 IS NULL OR ((col4 > 0.0)) OR ((((((col3 IS NULL OR col3 = 9)) OR (col3 >= 3) OR (col4 > 6.0 AND col4 = 8.33)))) AND (((col0 IS NULL OR col0 IS NULL AND col0 > 4) OR (col0 IN (7,9,9) OR ((col3 < 1) AND (col1 < 6.50 AND col0 = 3 OR col3 > 8 AND col3 >= 7)) AND col3 >= 9 AND col0 >= 5 OR (col4 IS NULL) OR (((col3 <= 1) OR (col3 <= 5) AND (col3 < 8 OR ((col3 >= 6 AND (col1 <= 0.30 OR ((col1 <= 3.49) AND col3 <= 0 OR col1 IS NULL)) AND col0 <= 7 AND (col3 > 5 AND ((col4 <= 3.58 OR ((col1 = 5.77 AND col0 > 1 AND ((((col4 > 7.28))))) AND col0 IN (7,9,9,6,3)) AND (col3 < 9) AND col1 > 1.25 AND col4 >= 8.31)) AND col0 IN (4,9,2,9,8,7) AND col0 IN (SELECT col3 FROM tab1 WHERE (col4 > 3.43)))))) AND col0 < 2 OR (col0 >= 6 AND (((col3 >= 4)) OR col3 < 6) AND (col0 > 5 OR col0 < 9 OR (col3 >= 2 AND col3 <= 6))) AND (col3 >= 9) AND col0 > 9 AND (col0 >= 0 AND col0 <= 8) AND (((col1 > 5.22) OR col4 < 3.0)) OR col0 < 7 AND (col0 >= 3)))) AND col4 > 4.49) AND (col0 > 4 OR col3 >= 5 AND col0 > 3))) AND ((col3 > 2)) OR (col1 IS NULL) OR col1 >= 4.12 AND col3 IS NULL OR col0 < 8 AND (((((col0 >= 9) AND col1 < 9.39 OR (col3 >= 8) AND (col3 >= 9 OR (col3 <= 1 OR ((col3 < 2) AND ((col4 IS NULL OR col0 > 8 AND col0 > 9))) OR col0 <= 3 AND col4 > 5.37)) OR col3 < 0 AND (col4 >= 1.72 AND col3 > 6) AND col3 > 9)))) AND col1 IS NULL AND col0 < 6 AND col0 > 8 AND (col3 IN (6,5,9,9) AND (col0 >= 8)) OR (col1 = 3.11) OR (col4 IN (1.79,0.61,8.55) OR col1 > 5.50 OR col1 > 8.83) AND col0 = 4 AND col0 IN (0,6,1,4) AND col3 < 9 AND (col3 >= 9 AND col3 <= 6) AND (col4 > 3.74) OR col3 = 3 AND col1 IN (2.58,0.60,8.63,7.40))
+----
+0
+
+query I rowsort label-130
+SELECT pk FROM tab2 WHERE (col3 <= 9 OR (col0 > 3) AND col0 < 3 AND (col4 <= 3.11) OR ((((((col0 = 3) AND col1 >= 4.68 AND (col0 IS NULL) AND col3 >= 9 AND col3 < 5 AND col4 >= 5.27)) AND col3 > 6))) OR col3 IS NULL OR col4 = 0.77 AND (col3 < 2) AND col0 = 5 AND (col4 <= 3.30) AND col4 > 3.18 AND col4 >= 4.25 AND ((col0 <= 6)) OR col0 >= 3 OR col0 <= 4 AND ((col0 <= 9)) OR (col0 IN (2,5,3)) AND col3 IS NULL OR ((col4 > 0.0)) OR ((((((col3 IS NULL OR col3 = 9)) OR (col3 >= 3) OR (col4 > 6.0 AND col4 = 8.33)))) AND (((col0 IS NULL OR col0 IS NULL AND col0 > 4) OR (col0 IN (7,9,9) OR ((col3 < 1) AND (col1 < 6.50 AND col0 = 3 OR col3 > 8 AND col3 >= 7)) AND col3 >= 9 AND col0 >= 5 OR (col4 IS NULL) OR (((col3 <= 1) OR (col3 <= 5) AND (col3 < 8 OR ((col3 >= 6 AND (col1 <= 0.30 OR ((col1 <= 3.49) AND col3 <= 0 OR col1 IS NULL)) AND col0 <= 7 AND (col3 > 5 AND ((col4 <= 3.58 OR ((col1 = 5.77 AND col0 > 1 AND ((((col4 > 7.28))))) AND col0 IN (7,9,9,6,3)) AND (col3 < 9) AND col1 > 1.25 AND col4 >= 8.31)) AND col0 IN (4,9,2,9,8,7) AND col0 IN (SELECT col3 FROM tab2 WHERE (col4 > 3.43)))))) AND col0 < 2 OR (col0 >= 6 AND (((col3 >= 4)) OR col3 < 6) AND (col0 > 5 OR col0 < 9 OR col3 BETWEEN 2 AND 6)) AND (col3 >= 9) AND col0 > 9 AND col0 BETWEEN 0 AND 8 AND (((col1 > 5.22) OR col4 < 3.0)) OR col0 < 7 AND (col0 >= 3)))) AND col4 > 4.49) AND (col0 > 4 OR col3 >= 5 AND col0 > 3))) AND ((col3 > 2)) OR (col1 IS NULL) OR col1 >= 4.12 AND col3 IS NULL OR col0 < 8 AND (((((col0 >= 9) AND col1 < 9.39 OR (col3 >= 8) AND (col3 >= 9 OR (col3 <= 1 OR ((col3 < 2) AND ((col4 IS NULL OR col0 > 8 AND col0 > 9))) OR col0 <= 3 AND col4 > 5.37)) OR col3 < 0 AND (col4 >= 1.72 AND col3 > 6) AND col3 > 9)))) AND col1 IS NULL AND col0 < 6 AND col0 > 8 AND (col3 IN (6,5,9,9) AND (col0 >= 8)) OR (col1 = 3.11) OR (col4 IN (1.79,0.61,8.55) OR col1 > 5.50 OR col1 > 8.83) AND col0 = 4 AND col0 IN (0,6,1,4) AND col3 < 9 AND col3 BETWEEN 9 AND 6 AND (col4 > 3.74) OR col3 = 3 AND col1 IN (2.58,0.60,8.63,7.40))
+----
+0
+
+query I rowsort label-130
+SELECT pk FROM tab2 WHERE (col3 <= 9 OR (col0 > 3) AND col0 < 3 AND (col4 <= 3.11) OR ((((((col0 = 3) AND col1 >= 4.68 AND (col0 IS NULL) AND col3 >= 9 AND col3 < 5 AND col4 >= 5.27)) AND col3 > 6))) OR col3 IS NULL OR col4 = 0.77 AND (col3 < 2) AND col0 = 5 AND (col4 <= 3.30) AND col4 > 3.18 AND col4 >= 4.25 AND ((col0 <= 6)) OR col0 >= 3 OR col0 <= 4 AND ((col0 <= 9)) OR (col0 IN (2,5,3)) AND col3 IS NULL OR ((col4 > 0.0)) OR ((((((col3 IS NULL OR col3 = 9)) OR (col3 >= 3) OR (col4 > 6.0 AND col4 = 8.33)))) AND (((col0 IS NULL OR col0 IS NULL AND col0 > 4) OR (col0 IN (7,9,9) OR ((col3 < 1) AND (col1 < 6.50 AND col0 = 3 OR col3 > 8 AND col3 >= 7)) AND col3 >= 9 AND col0 >= 5 OR (col4 IS NULL) OR (((col3 <= 1) OR (col3 <= 5) AND (col3 < 8 OR ((col3 >= 6 AND (col1 <= 0.30 OR ((col1 <= 3.49) AND col3 <= 0 OR col1 IS NULL)) AND col0 <= 7 AND (col3 > 5 AND ((col4 <= 3.58 OR ((col1 = 5.77 AND col0 > 1 AND ((((col4 > 7.28))))) AND col0 IN (7,9,9,6,3)) AND (col3 < 9) AND col1 > 1.25 AND col4 >= 8.31)) AND col0 IN (4,9,2,9,8,7) AND col0 IN (SELECT col3 FROM tab2 WHERE (col4 > 3.43)))))) AND col0 < 2 OR (col0 >= 6 AND (((col3 >= 4)) OR col3 < 6) AND (col0 > 5 OR col0 < 9 OR (col3 >= 2 AND col3 <= 6))) AND (col3 >= 9) AND col0 > 9 AND (col0 >= 0 AND col0 <= 8) AND (((col1 > 5.22) OR col4 < 3.0)) OR col0 < 7 AND (col0 >= 3)))) AND col4 > 4.49) AND (col0 > 4 OR col3 >= 5 AND col0 > 3))) AND ((col3 > 2)) OR (col1 IS NULL) OR col1 >= 4.12 AND col3 IS NULL OR col0 < 8 AND (((((col0 >= 9) AND col1 < 9.39 OR (col3 >= 8) AND (col3 >= 9 OR (col3 <= 1 OR ((col3 < 2) AND ((col4 IS NULL OR col0 > 8 AND col0 > 9))) OR col0 <= 3 AND col4 > 5.37)) OR col3 < 0 AND (col4 >= 1.72 AND col3 > 6) AND col3 > 9)))) AND col1 IS NULL AND col0 < 6 AND col0 > 8 AND (col3 IN (6,5,9,9) AND (col0 >= 8)) OR (col1 = 3.11) OR (col4 IN (1.79,0.61,8.55) OR col1 > 5.50 OR col1 > 8.83) AND col0 = 4 AND col0 IN (0,6,1,4) AND col3 < 9 AND (col3 >= 9 AND col3 <= 6) AND (col4 > 3.74) OR col3 = 3 AND col1 IN (2.58,0.60,8.63,7.40))
+----
+0
+
+query I rowsort label-130
+SELECT pk FROM tab3 WHERE (col3 <= 9 OR (col0 > 3) AND col0 < 3 AND (col4 <= 3.11) OR ((((((col0 = 3) AND col1 >= 4.68 AND (col0 IS NULL) AND col3 >= 9 AND col3 < 5 AND col4 >= 5.27)) AND col3 > 6))) OR col3 IS NULL OR col4 = 0.77 AND (col3 < 2) AND col0 = 5 AND (col4 <= 3.30) AND col4 > 3.18 AND col4 >= 4.25 AND ((col0 <= 6)) OR col0 >= 3 OR col0 <= 4 AND ((col0 <= 9)) OR (col0 IN (2,5,3)) AND col3 IS NULL OR ((col4 > 0.0)) OR ((((((col3 IS NULL OR col3 = 9)) OR (col3 >= 3) OR (col4 > 6.0 AND col4 = 8.33)))) AND (((col0 IS NULL OR col0 IS NULL AND col0 > 4) OR (col0 IN (7,9,9) OR ((col3 < 1) AND (col1 < 6.50 AND col0 = 3 OR col3 > 8 AND col3 >= 7)) AND col3 >= 9 AND col0 >= 5 OR (col4 IS NULL) OR (((col3 <= 1) OR (col3 <= 5) AND (col3 < 8 OR ((col3 >= 6 AND (col1 <= 0.30 OR ((col1 <= 3.49) AND col3 <= 0 OR col1 IS NULL)) AND col0 <= 7 AND (col3 > 5 AND ((col4 <= 3.58 OR ((col1 = 5.77 AND col0 > 1 AND ((((col4 > 7.28))))) AND col0 IN (7,9,9,6,3)) AND (col3 < 9) AND col1 > 1.25 AND col4 >= 8.31)) AND col0 IN (4,9,2,9,8,7) AND col0 IN (SELECT col3 FROM tab3 WHERE (col4 > 3.43)))))) AND col0 < 2 OR (col0 >= 6 AND (((col3 >= 4)) OR col3 < 6) AND (col0 > 5 OR col0 < 9 OR col3 BETWEEN 2 AND 6)) AND (col3 >= 9) AND col0 > 9 AND col0 BETWEEN 0 AND 8 AND (((col1 > 5.22) OR col4 < 3.0)) OR col0 < 7 AND (col0 >= 3)))) AND col4 > 4.49) AND (col0 > 4 OR col3 >= 5 AND col0 > 3))) AND ((col3 > 2)) OR (col1 IS NULL) OR col1 >= 4.12 AND col3 IS NULL OR col0 < 8 AND (((((col0 >= 9) AND col1 < 9.39 OR (col3 >= 8) AND (col3 >= 9 OR (col3 <= 1 OR ((col3 < 2) AND ((col4 IS NULL OR col0 > 8 AND col0 > 9))) OR col0 <= 3 AND col4 > 5.37)) OR col3 < 0 AND (col4 >= 1.72 AND col3 > 6) AND col3 > 9)))) AND col1 IS NULL AND col0 < 6 AND col0 > 8 AND (col3 IN (6,5,9,9) AND (col0 >= 8)) OR (col1 = 3.11) OR (col4 IN (1.79,0.61,8.55) OR col1 > 5.50 OR col1 > 8.83) AND col0 = 4 AND col0 IN (0,6,1,4) AND col3 < 9 AND col3 BETWEEN 9 AND 6 AND (col4 > 3.74) OR col3 = 3 AND col1 IN (2.58,0.60,8.63,7.40))
+----
+0
+
+query I rowsort label-130
+SELECT pk FROM tab3 WHERE (col3 <= 9 OR (col0 > 3) AND col0 < 3 AND (col4 <= 3.11) OR ((((((col0 = 3) AND col1 >= 4.68 AND (col0 IS NULL) AND col3 >= 9 AND col3 < 5 AND col4 >= 5.27)) AND col3 > 6))) OR col3 IS NULL OR col4 = 0.77 AND (col3 < 2) AND col0 = 5 AND (col4 <= 3.30) AND col4 > 3.18 AND col4 >= 4.25 AND ((col0 <= 6)) OR col0 >= 3 OR col0 <= 4 AND ((col0 <= 9)) OR (col0 IN (2,5,3)) AND col3 IS NULL OR ((col4 > 0.0)) OR ((((((col3 IS NULL OR col3 = 9)) OR (col3 >= 3) OR (col4 > 6.0 AND col4 = 8.33)))) AND (((col0 IS NULL OR col0 IS NULL AND col0 > 4) OR (col0 IN (7,9,9) OR ((col3 < 1) AND (col1 < 6.50 AND col0 = 3 OR col3 > 8 AND col3 >= 7)) AND col3 >= 9 AND col0 >= 5 OR (col4 IS NULL) OR (((col3 <= 1) OR (col3 <= 5) AND (col3 < 8 OR ((col3 >= 6 AND (col1 <= 0.30 OR ((col1 <= 3.49) AND col3 <= 0 OR col1 IS NULL)) AND col0 <= 7 AND (col3 > 5 AND ((col4 <= 3.58 OR ((col1 = 5.77 AND col0 > 1 AND ((((col4 > 7.28))))) AND col0 IN (7,9,9,6,3)) AND (col3 < 9) AND col1 > 1.25 AND col4 >= 8.31)) AND col0 IN (4,9,2,9,8,7) AND col0 IN (SELECT col3 FROM tab3 WHERE (col4 > 3.43)))))) AND col0 < 2 OR (col0 >= 6 AND (((col3 >= 4)) OR col3 < 6) AND (col0 > 5 OR col0 < 9 OR (col3 >= 2 AND col3 <= 6))) AND (col3 >= 9) AND col0 > 9 AND (col0 >= 0 AND col0 <= 8) AND (((col1 > 5.22) OR col4 < 3.0)) OR col0 < 7 AND (col0 >= 3)))) AND col4 > 4.49) AND (col0 > 4 OR col3 >= 5 AND col0 > 3))) AND ((col3 > 2)) OR (col1 IS NULL) OR col1 >= 4.12 AND col3 IS NULL OR col0 < 8 AND (((((col0 >= 9) AND col1 < 9.39 OR (col3 >= 8) AND (col3 >= 9 OR (col3 <= 1 OR ((col3 < 2) AND ((col4 IS NULL OR col0 > 8 AND col0 > 9))) OR col0 <= 3 AND col4 > 5.37)) OR col3 < 0 AND (col4 >= 1.72 AND col3 > 6) AND col3 > 9)))) AND col1 IS NULL AND col0 < 6 AND col0 > 8 AND (col3 IN (6,5,9,9) AND (col0 >= 8)) OR (col1 = 3.11) OR (col4 IN (1.79,0.61,8.55) OR col1 > 5.50 OR col1 > 8.83) AND col0 = 4 AND col0 IN (0,6,1,4) AND col3 < 9 AND (col3 >= 9 AND col3 <= 6) AND (col4 > 3.74) OR col3 = 3 AND col1 IN (2.58,0.60,8.63,7.40))
+----
+0
+
+query I rowsort label-130
+SELECT pk FROM tab4 WHERE (col3 <= 9 OR (col0 > 3) AND col0 < 3 AND (col4 <= 3.11) OR ((((((col0 = 3) AND col1 >= 4.68 AND (col0 IS NULL) AND col3 >= 9 AND col3 < 5 AND col4 >= 5.27)) AND col3 > 6))) OR col3 IS NULL OR col4 = 0.77 AND (col3 < 2) AND col0 = 5 AND (col4 <= 3.30) AND col4 > 3.18 AND col4 >= 4.25 AND ((col0 <= 6)) OR col0 >= 3 OR col0 <= 4 AND ((col0 <= 9)) OR (col0 IN (2,5,3)) AND col3 IS NULL OR ((col4 > 0.0)) OR ((((((col3 IS NULL OR col3 = 9)) OR (col3 >= 3) OR (col4 > 6.0 AND col4 = 8.33)))) AND (((col0 IS NULL OR col0 IS NULL AND col0 > 4) OR (col0 IN (7,9,9) OR ((col3 < 1) AND (col1 < 6.50 AND col0 = 3 OR col3 > 8 AND col3 >= 7)) AND col3 >= 9 AND col0 >= 5 OR (col4 IS NULL) OR (((col3 <= 1) OR (col3 <= 5) AND (col3 < 8 OR ((col3 >= 6 AND (col1 <= 0.30 OR ((col1 <= 3.49) AND col3 <= 0 OR col1 IS NULL)) AND col0 <= 7 AND (col3 > 5 AND ((col4 <= 3.58 OR ((col1 = 5.77 AND col0 > 1 AND ((((col4 > 7.28))))) AND col0 IN (7,9,9,6,3)) AND (col3 < 9) AND col1 > 1.25 AND col4 >= 8.31)) AND col0 IN (4,9,2,9,8,7) AND col0 IN (SELECT col3 FROM tab4 WHERE (col4 > 3.43)))))) AND col0 < 2 OR (col0 >= 6 AND (((col3 >= 4)) OR col3 < 6) AND (col0 > 5 OR col0 < 9 OR col3 BETWEEN 2 AND 6)) AND (col3 >= 9) AND col0 > 9 AND col0 BETWEEN 0 AND 8 AND (((col1 > 5.22) OR col4 < 3.0)) OR col0 < 7 AND (col0 >= 3)))) AND col4 > 4.49) AND (col0 > 4 OR col3 >= 5 AND col0 > 3))) AND ((col3 > 2)) OR (col1 IS NULL) OR col1 >= 4.12 AND col3 IS NULL OR col0 < 8 AND (((((col0 >= 9) AND col1 < 9.39 OR (col3 >= 8) AND (col3 >= 9 OR (col3 <= 1 OR ((col3 < 2) AND ((col4 IS NULL OR col0 > 8 AND col0 > 9))) OR col0 <= 3 AND col4 > 5.37)) OR col3 < 0 AND (col4 >= 1.72 AND col3 > 6) AND col3 > 9)))) AND col1 IS NULL AND col0 < 6 AND col0 > 8 AND (col3 IN (6,5,9,9) AND (col0 >= 8)) OR (col1 = 3.11) OR (col4 IN (1.79,0.61,8.55) OR col1 > 5.50 OR col1 > 8.83) AND col0 = 4 AND col0 IN (0,6,1,4) AND col3 < 9 AND col3 BETWEEN 9 AND 6 AND (col4 > 3.74) OR col3 = 3 AND col1 IN (2.58,0.60,8.63,7.40))
+----
+0
+
+query I rowsort label-130
+SELECT pk FROM tab4 WHERE (col3 <= 9 OR (col0 > 3) AND col0 < 3 AND (col4 <= 3.11) OR ((((((col0 = 3) AND col1 >= 4.68 AND (col0 IS NULL) AND col3 >= 9 AND col3 < 5 AND col4 >= 5.27)) AND col3 > 6))) OR col3 IS NULL OR col4 = 0.77 AND (col3 < 2) AND col0 = 5 AND (col4 <= 3.30) AND col4 > 3.18 AND col4 >= 4.25 AND ((col0 <= 6)) OR col0 >= 3 OR col0 <= 4 AND ((col0 <= 9)) OR (col0 IN (2,5,3)) AND col3 IS NULL OR ((col4 > 0.0)) OR ((((((col3 IS NULL OR col3 = 9)) OR (col3 >= 3) OR (col4 > 6.0 AND col4 = 8.33)))) AND (((col0 IS NULL OR col0 IS NULL AND col0 > 4) OR (col0 IN (7,9,9) OR ((col3 < 1) AND (col1 < 6.50 AND col0 = 3 OR col3 > 8 AND col3 >= 7)) AND col3 >= 9 AND col0 >= 5 OR (col4 IS NULL) OR (((col3 <= 1) OR (col3 <= 5) AND (col3 < 8 OR ((col3 >= 6 AND (col1 <= 0.30 OR ((col1 <= 3.49) AND col3 <= 0 OR col1 IS NULL)) AND col0 <= 7 AND (col3 > 5 AND ((col4 <= 3.58 OR ((col1 = 5.77 AND col0 > 1 AND ((((col4 > 7.28))))) AND col0 IN (7,9,9,6,3)) AND (col3 < 9) AND col1 > 1.25 AND col4 >= 8.31)) AND col0 IN (4,9,2,9,8,7) AND col0 IN (SELECT col3 FROM tab4 WHERE (col4 > 3.43)))))) AND col0 < 2 OR (col0 >= 6 AND (((col3 >= 4)) OR col3 < 6) AND (col0 > 5 OR col0 < 9 OR (col3 >= 2 AND col3 <= 6))) AND (col3 >= 9) AND col0 > 9 AND (col0 >= 0 AND col0 <= 8) AND (((col1 > 5.22) OR col4 < 3.0)) OR col0 < 7 AND (col0 >= 3)))) AND col4 > 4.49) AND (col0 > 4 OR col3 >= 5 AND col0 > 3))) AND ((col3 > 2)) OR (col1 IS NULL) OR col1 >= 4.12 AND col3 IS NULL OR col0 < 8 AND (((((col0 >= 9) AND col1 < 9.39 OR (col3 >= 8) AND (col3 >= 9 OR (col3 <= 1 OR ((col3 < 2) AND ((col4 IS NULL OR col0 > 8 AND col0 > 9))) OR col0 <= 3 AND col4 > 5.37)) OR col3 < 0 AND (col4 >= 1.72 AND col3 > 6) AND col3 > 9)))) AND col1 IS NULL AND col0 < 6 AND col0 > 8 AND (col3 IN (6,5,9,9) AND (col0 >= 8)) OR (col1 = 3.11) OR (col4 IN (1.79,0.61,8.55) OR col1 > 5.50 OR col1 > 8.83) AND col0 = 4 AND col0 IN (0,6,1,4) AND col3 < 9 AND (col3 >= 9 AND col3 <= 6) AND (col4 > 3.74) OR col3 = 3 AND col1 IN (2.58,0.60,8.63,7.40))
+----
+0
+
+query I rowsort label-140
+SELECT pk FROM tab0 WHERE (col4 BETWEEN 5.12 AND 2.44)
+----
+
+query I rowsort label-140
+SELECT pk FROM tab0 WHERE ((col4 >= 5.12 AND col4 <= 2.44))
+----
+
+query I rowsort label-140
+SELECT pk FROM tab1 WHERE (col4 BETWEEN 5.12 AND 2.44)
+----
+
+query I rowsort label-140
+SELECT pk FROM tab1 WHERE ((col4 >= 5.12 AND col4 <= 2.44))
+----
+
+query I rowsort label-140
+SELECT pk FROM tab2 WHERE (col4 BETWEEN 5.12 AND 2.44)
+----
+
+query I rowsort label-140
+SELECT pk FROM tab2 WHERE ((col4 >= 5.12 AND col4 <= 2.44))
+----
+
+query I rowsort label-140
+SELECT pk FROM tab3 WHERE (col4 BETWEEN 5.12 AND 2.44)
+----
+
+query I rowsort label-140
+SELECT pk FROM tab3 WHERE ((col4 >= 5.12 AND col4 <= 2.44))
+----
+
+query I rowsort label-140
+SELECT pk FROM tab4 WHERE (col4 BETWEEN 5.12 AND 2.44)
+----
+
+query I rowsort label-140
+SELECT pk FROM tab4 WHERE ((col4 >= 5.12 AND col4 <= 2.44))
+----
+
+query I rowsort label-150
+SELECT pk FROM tab0 WHERE (((col3 >= 2 OR ((col3 = 6) AND (((col0 BETWEEN 1 AND 0) AND (col3 IN (0,6,3,4,2,5) AND (col4 >= 2.63) AND (col3 <= 9) OR ((col0 > 8 AND col4 > 4.66)) AND (col1 > 2.81)) AND (col1 >= 7.79 OR col3 BETWEEN 4 AND 7 OR col0 >= 9))) AND col0 < 1 OR col0 > 6) OR (((col0 IS NULL OR col3 > 1 OR col1 >= 5.67))))))
+----
+0
+
+query I rowsort label-150
+SELECT pk FROM tab0 WHERE (((col3 >= 2 OR ((col3 = 6) AND ((((col0 >= 1 AND col0 <= 0)) AND (col3 IN (0,6,3,4,2,5) AND (col4 >= 2.63) AND (col3 <= 9) OR ((col0 > 8 AND col4 > 4.66)) AND (col1 > 2.81)) AND (col1 >= 7.79 OR (col3 >= 4 AND col3 <= 7) OR col0 >= 9))) AND col0 < 1 OR col0 > 6) OR (((col0 IS NULL OR col3 > 1 OR col1 >= 5.67))))))
+----
+0
+
+query I rowsort label-150
+SELECT pk FROM tab1 WHERE (((col3 >= 2 OR ((col3 = 6) AND (((col0 BETWEEN 1 AND 0) AND (col3 IN (0,6,3,4,2,5) AND (col4 >= 2.63) AND (col3 <= 9) OR ((col0 > 8 AND col4 > 4.66)) AND (col1 > 2.81)) AND (col1 >= 7.79 OR col3 BETWEEN 4 AND 7 OR col0 >= 9))) AND col0 < 1 OR col0 > 6) OR (((col0 IS NULL OR col3 > 1 OR col1 >= 5.67))))))
+----
+0
+
+query I rowsort label-150
+SELECT pk FROM tab1 WHERE (((col3 >= 2 OR ((col3 = 6) AND ((((col0 >= 1 AND col0 <= 0)) AND (col3 IN (0,6,3,4,2,5) AND (col4 >= 2.63) AND (col3 <= 9) OR ((col0 > 8 AND col4 > 4.66)) AND (col1 > 2.81)) AND (col1 >= 7.79 OR (col3 >= 4 AND col3 <= 7) OR col0 >= 9))) AND col0 < 1 OR col0 > 6) OR (((col0 IS NULL OR col3 > 1 OR col1 >= 5.67))))))
+----
+0
+
+query I rowsort label-150
+SELECT pk FROM tab2 WHERE (((col3 >= 2 OR ((col3 = 6) AND (((col0 BETWEEN 1 AND 0) AND (col3 IN (0,6,3,4,2,5) AND (col4 >= 2.63) AND (col3 <= 9) OR ((col0 > 8 AND col4 > 4.66)) AND (col1 > 2.81)) AND (col1 >= 7.79 OR col3 BETWEEN 4 AND 7 OR col0 >= 9))) AND col0 < 1 OR col0 > 6) OR (((col0 IS NULL OR col3 > 1 OR col1 >= 5.67))))))
+----
+0
+
+query I rowsort label-150
+SELECT pk FROM tab2 WHERE (((col3 >= 2 OR ((col3 = 6) AND ((((col0 >= 1 AND col0 <= 0)) AND (col3 IN (0,6,3,4,2,5) AND (col4 >= 2.63) AND (col3 <= 9) OR ((col0 > 8 AND col4 > 4.66)) AND (col1 > 2.81)) AND (col1 >= 7.79 OR (col3 >= 4 AND col3 <= 7) OR col0 >= 9))) AND col0 < 1 OR col0 > 6) OR (((col0 IS NULL OR col3 > 1 OR col1 >= 5.67))))))
+----
+0
+
+query I rowsort label-150
+SELECT pk FROM tab3 WHERE (((col3 >= 2 OR ((col3 = 6) AND (((col0 BETWEEN 1 AND 0) AND (col3 IN (0,6,3,4,2,5) AND (col4 >= 2.63) AND (col3 <= 9) OR ((col0 > 8 AND col4 > 4.66)) AND (col1 > 2.81)) AND (col1 >= 7.79 OR col3 BETWEEN 4 AND 7 OR col0 >= 9))) AND col0 < 1 OR col0 > 6) OR (((col0 IS NULL OR col3 > 1 OR col1 >= 5.67))))))
+----
+0
+
+query I rowsort label-150
+SELECT pk FROM tab3 WHERE (((col3 >= 2 OR ((col3 = 6) AND ((((col0 >= 1 AND col0 <= 0)) AND (col3 IN (0,6,3,4,2,5) AND (col4 >= 2.63) AND (col3 <= 9) OR ((col0 > 8 AND col4 > 4.66)) AND (col1 > 2.81)) AND (col1 >= 7.79 OR (col3 >= 4 AND col3 <= 7) OR col0 >= 9))) AND col0 < 1 OR col0 > 6) OR (((col0 IS NULL OR col3 > 1 OR col1 >= 5.67))))))
+----
+0
+
+query I rowsort label-150
+SELECT pk FROM tab4 WHERE (((col3 >= 2 OR ((col3 = 6) AND (((col0 BETWEEN 1 AND 0) AND (col3 IN (0,6,3,4,2,5) AND (col4 >= 2.63) AND (col3 <= 9) OR ((col0 > 8 AND col4 > 4.66)) AND (col1 > 2.81)) AND (col1 >= 7.79 OR col3 BETWEEN 4 AND 7 OR col0 >= 9))) AND col0 < 1 OR col0 > 6) OR (((col0 IS NULL OR col3 > 1 OR col1 >= 5.67))))))
+----
+0
+
+query I rowsort label-150
+SELECT pk FROM tab4 WHERE (((col3 >= 2 OR ((col3 = 6) AND ((((col0 >= 1 AND col0 <= 0)) AND (col3 IN (0,6,3,4,2,5) AND (col4 >= 2.63) AND (col3 <= 9) OR ((col0 > 8 AND col4 > 4.66)) AND (col1 > 2.81)) AND (col1 >= 7.79 OR (col3 >= 4 AND col3 <= 7) OR col0 >= 9))) AND col0 < 1 OR col0 > 6) OR (((col0 IS NULL OR col3 > 1 OR col1 >= 5.67))))))
+----
+0
+
+query I rowsort label-160
+SELECT pk FROM tab0 WHERE col0 BETWEEN 2 AND 1
+----
+
+query I rowsort label-160
+SELECT pk FROM tab0 WHERE (col0 >= 2 AND col0 <= 1)
+----
+
+query I rowsort label-160
+SELECT pk FROM tab1 WHERE col0 BETWEEN 2 AND 1
+----
+
+query I rowsort label-160
+SELECT pk FROM tab1 WHERE (col0 >= 2 AND col0 <= 1)
+----
+
+query I rowsort label-160
+SELECT pk FROM tab2 WHERE col0 BETWEEN 2 AND 1
+----
+
+query I rowsort label-160
+SELECT pk FROM tab2 WHERE (col0 >= 2 AND col0 <= 1)
+----
+
+query I rowsort label-160
+SELECT pk FROM tab3 WHERE col0 BETWEEN 2 AND 1
+----
+
+query I rowsort label-160
+SELECT pk FROM tab3 WHERE (col0 >= 2 AND col0 <= 1)
+----
+
+query I rowsort label-160
+SELECT pk FROM tab4 WHERE col0 BETWEEN 2 AND 1
+----
+
+query I rowsort label-160
+SELECT pk FROM tab4 WHERE (col0 >= 2 AND col0 <= 1)
+----
+
+query I rowsort label-170
+SELECT pk FROM tab0 WHERE col0 >= 9 OR (col3 BETWEEN 9 AND 0) OR col3 < 5 AND col1 <= 2.14
+----
+
+query I rowsort label-170
+SELECT pk FROM tab0 WHERE col0 >= 9 OR ((col3 >= 9 AND col3 <= 0)) OR col3 < 5 AND col1 <= 2.14
+----
+
+query I rowsort label-170
+SELECT pk FROM tab1 WHERE col0 >= 9 OR (col3 BETWEEN 9 AND 0) OR col3 < 5 AND col1 <= 2.14
+----
+
+query I rowsort label-170
+SELECT pk FROM tab1 WHERE col0 >= 9 OR ((col3 >= 9 AND col3 <= 0)) OR col3 < 5 AND col1 <= 2.14
+----
+
+query I rowsort label-170
+SELECT pk FROM tab2 WHERE col0 >= 9 OR (col3 BETWEEN 9 AND 0) OR col3 < 5 AND col1 <= 2.14
+----
+
+query I rowsort label-170
+SELECT pk FROM tab2 WHERE col0 >= 9 OR ((col3 >= 9 AND col3 <= 0)) OR col3 < 5 AND col1 <= 2.14
+----
+
+query I rowsort label-170
+SELECT pk FROM tab3 WHERE col0 >= 9 OR (col3 BETWEEN 9 AND 0) OR col3 < 5 AND col1 <= 2.14
+----
+
+query I rowsort label-170
+SELECT pk FROM tab3 WHERE col0 >= 9 OR ((col3 >= 9 AND col3 <= 0)) OR col3 < 5 AND col1 <= 2.14
+----
+
+query I rowsort label-170
+SELECT pk FROM tab4 WHERE col0 >= 9 OR (col3 BETWEEN 9 AND 0) OR col3 < 5 AND col1 <= 2.14
+----
+
+query I rowsort label-170
+SELECT pk FROM tab4 WHERE col0 >= 9 OR ((col3 >= 9 AND col3 <= 0)) OR col3 < 5 AND col1 <= 2.14
+----
+
+query I rowsort label-180
+SELECT pk FROM tab0 WHERE ((((col0 <= 2) AND col0 BETWEEN 2 AND 2)))
+----
+
+query I rowsort label-180
+SELECT pk FROM tab0 WHERE ((((col0 <= 2) AND (col0 >= 2 AND col0 <= 2))))
+----
+
+query I rowsort label-180
+SELECT pk FROM tab1 WHERE ((((col0 <= 2) AND col0 BETWEEN 2 AND 2)))
+----
+
+query I rowsort label-180
+SELECT pk FROM tab1 WHERE ((((col0 <= 2) AND (col0 >= 2 AND col0 <= 2))))
+----
+
+query I rowsort label-180
+SELECT pk FROM tab2 WHERE ((((col0 <= 2) AND col0 BETWEEN 2 AND 2)))
+----
+
+query I rowsort label-180
+SELECT pk FROM tab2 WHERE ((((col0 <= 2) AND (col0 >= 2 AND col0 <= 2))))
+----
+
+query I rowsort label-180
+SELECT pk FROM tab3 WHERE ((((col0 <= 2) AND col0 BETWEEN 2 AND 2)))
+----
+
+query I rowsort label-180
+SELECT pk FROM tab3 WHERE ((((col0 <= 2) AND (col0 >= 2 AND col0 <= 2))))
+----
+
+query I rowsort label-180
+SELECT pk FROM tab4 WHERE ((((col0 <= 2) AND col0 BETWEEN 2 AND 2)))
+----
+
+query I rowsort label-180
+SELECT pk FROM tab4 WHERE ((((col0 <= 2) AND (col0 >= 2 AND col0 <= 2))))
+----
+
+query I rowsort label-190
+SELECT pk FROM tab0 WHERE ((col1 BETWEEN 0.70 AND 2.27))
+----
+
+query I rowsort label-190
+SELECT pk FROM tab0 WHERE (((col1 >= 0.70 AND col1 <= 2.27)))
+----
+
+query I rowsort label-190
+SELECT pk FROM tab1 WHERE ((col1 BETWEEN 0.70 AND 2.27))
+----
+
+query I rowsort label-190
+SELECT pk FROM tab1 WHERE (((col1 >= 0.70 AND col1 <= 2.27)))
+----
+
+query I rowsort label-190
+SELECT pk FROM tab2 WHERE ((col1 BETWEEN 0.70 AND 2.27))
+----
+
+query I rowsort label-190
+SELECT pk FROM tab2 WHERE (((col1 >= 0.70 AND col1 <= 2.27)))
+----
+
+query I rowsort label-190
+SELECT pk FROM tab3 WHERE ((col1 BETWEEN 0.70 AND 2.27))
+----
+
+query I rowsort label-190
+SELECT pk FROM tab3 WHERE (((col1 >= 0.70 AND col1 <= 2.27)))
+----
+
+query I rowsort label-190
+SELECT pk FROM tab4 WHERE ((col1 BETWEEN 0.70 AND 2.27))
+----
+
+query I rowsort label-190
+SELECT pk FROM tab4 WHERE (((col1 >= 0.70 AND col1 <= 2.27)))
+----
+
+query I rowsort label-200
+SELECT pk FROM tab0 WHERE (col3 BETWEEN 6 AND 1) OR (((col0 <= 4) AND col3 >= 5))
+----
+
+query I rowsort label-200
+SELECT pk FROM tab0 WHERE ((col3 >= 6 AND col3 <= 1)) OR (((col0 <= 4) AND col3 >= 5))
+----
+
+query I rowsort label-200
+SELECT pk FROM tab1 WHERE (col3 BETWEEN 6 AND 1) OR (((col0 <= 4) AND col3 >= 5))
+----
+
+query I rowsort label-200
+SELECT pk FROM tab1 WHERE ((col3 >= 6 AND col3 <= 1)) OR (((col0 <= 4) AND col3 >= 5))
+----
+
+query I rowsort label-200
+SELECT pk FROM tab2 WHERE (col3 BETWEEN 6 AND 1) OR (((col0 <= 4) AND col3 >= 5))
+----
+
+query I rowsort label-200
+SELECT pk FROM tab2 WHERE ((col3 >= 6 AND col3 <= 1)) OR (((col0 <= 4) AND col3 >= 5))
+----
+
+query I rowsort label-200
+SELECT pk FROM tab3 WHERE (col3 BETWEEN 6 AND 1) OR (((col0 <= 4) AND col3 >= 5))
+----
+
+query I rowsort label-200
+SELECT pk FROM tab3 WHERE ((col3 >= 6 AND col3 <= 1)) OR (((col0 <= 4) AND col3 >= 5))
+----
+
+query I rowsort label-200
+SELECT pk FROM tab4 WHERE (col3 BETWEEN 6 AND 1) OR (((col0 <= 4) AND col3 >= 5))
+----
+
+query I rowsort label-200
+SELECT pk FROM tab4 WHERE ((col3 >= 6 AND col3 <= 1)) OR (((col0 <= 4) AND col3 >= 5))
+----
