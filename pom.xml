@@ -40,6 +40,7 @@
     <maven-surefire-plugin.version>3.1.2</maven-surefire-plugin.version>
     <slf4j-reload4j.version>2.1.0-alpha1</slf4j-reload4j.version>
     <sql-logic-test.version>0.3</sql-logic-test.version>
+    <lz4-compression.version>1.8.0</lz4-compression.version>
   </properties>
   <dependencies>
     <dependency>
@@ -151,7 +152,7 @@
     <dependency>
       <groupId>org.lz4</groupId>
       <artifactId>lz4-java</artifactId>
-      <version>1.8.0</version>
+      <version>${lz4-compression.version}</version>
     </dependency>
   </dependencies>
 
