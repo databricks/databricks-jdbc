@@ -50,7 +50,7 @@ public interface DatabricksClient {
    */
   DatabricksResultSet executeStatement(
       String sql,
-      String warehouseId,
+      ComputeResource computeResource,
       Map<Integer, ImmutableSqlParameter> parameters,
       StatementType statementType,
       IDatabricksSession session,

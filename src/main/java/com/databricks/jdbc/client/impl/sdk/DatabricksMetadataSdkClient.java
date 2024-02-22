@@ -43,7 +43,7 @@ public class DatabricksMetadataSdkClient implements DatabricksMetadataClient {
     ResultSet rs =
         sdkClient.executeStatement(
             showCatalogsSQL,
-            session.getWarehouseId(),
+            session.getComputeResource(),
             new HashMap<Integer, ImmutableSqlParameter>(),
             StatementType.METADATA,
             session,
@@ -100,7 +100,7 @@ public class DatabricksMetadataSdkClient implements DatabricksMetadataClient {
                 ResultSet rs =
                     sdkClient.executeStatement(
                         showSchemaSQL,
-                        session.getWarehouseId(),
+                        session.getComputeResource(),
                         new HashMap<Integer, ImmutableSqlParameter>(),
                         StatementType.METADATA,
                         session,
@@ -168,7 +168,7 @@ public class DatabricksMetadataSdkClient implements DatabricksMetadataClient {
                 ResultSet rs =
                     sdkClient.executeStatement(
                         showTablesSQL,
-                        session.getWarehouseId(),
+                        session.getComputeResource(),
                         new HashMap<Integer, ImmutableSqlParameter>(),
                         StatementType.METADATA,
                         session,
@@ -270,7 +270,7 @@ public class DatabricksMetadataSdkClient implements DatabricksMetadataClient {
                 ResultSet rs =
                     sdkClient.executeStatement(
                         showColumnsSQL,
-                        session.getWarehouseId(),
+                        session.getComputeResource(),
                         new HashMap<Integer, ImmutableSqlParameter>(),
                         StatementType.METADATA,
                         session,

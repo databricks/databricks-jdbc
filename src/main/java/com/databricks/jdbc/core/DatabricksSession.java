@@ -76,14 +76,9 @@ public class DatabricksSession implements IDatabricksSession {
   }
 
   @Override
-  public String getWarehouseId() throws DatabricksSQLException {
+  public ComputeResource getComputeResource() throws DatabricksSQLException {
     LOGGER.debug("public String getWarehouseId()");
-    if (computeResource instanceof Warehouse) {
-      return ((Warehouse) computeResource).getWarehouseId();
-    }
-    throw new DatabricksSQLException(
-        "Input compute is not instance of warehouse. Can't fetch warehouseId : "
-            + computeResource.toString());
+    return this.computeResource;
   }
 
   @Override

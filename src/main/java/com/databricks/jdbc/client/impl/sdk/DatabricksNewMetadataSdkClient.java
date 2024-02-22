@@ -121,7 +121,7 @@ public class DatabricksNewMetadataSdkClient implements DatabricksMetadataClient 
   private ResultSet getResultSet(String SQL, IDatabricksSession session) throws SQLException {
     return sdkClient.executeStatement(
         SQL,
-        session.getWarehouseId(),
+        session.getComputeResource(),
         new HashMap<Integer, ImmutableSqlParameter>(),
         StatementType.METADATA,
         session,

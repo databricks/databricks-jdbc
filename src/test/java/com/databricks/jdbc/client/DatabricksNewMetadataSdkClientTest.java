@@ -10,6 +10,7 @@ import com.databricks.jdbc.client.impl.sdk.DatabricksNewMetadataSdkClient;
 import com.databricks.jdbc.client.impl.sdk.DatabricksSdkClient;
 import com.databricks.jdbc.client.impl.sdk.helper.ResultColumn;
 import com.databricks.jdbc.core.*;
+import com.databricks.jdbc.core.types.ComputeResource;
 import com.databricks.sdk.service.sql.StatementState;
 import java.sql.SQLException;
 import java.util.HashMap;
@@ -28,6 +29,7 @@ public class DatabricksNewMetadataSdkClientTest {
   @Mock private static DatabricksResultSet mockedCatalogResultSet;
   @Mock private static DatabricksResultSet mockedResultSet;
   @Mock private static IDatabricksSession session;
+  @Mock private static ComputeResource com
   private static final String WAREHOUSE_ID = "warehouse_id";
   private static final String TEST_SCHEMA = "testSchema";
   private static final String TEST_TABLE = "testTable";
@@ -233,7 +235,7 @@ public class DatabricksNewMetadataSdkClientTest {
   @ParameterizedTest
   @MethodSource("listSchemasTestParams")
   void testListSchemas(String sqlStatement, String schema, String description) throws SQLException {
-    when(session.getWarehouseId()).thenReturn(WAREHOUSE_ID);
+    when(session.getComputeResource()).thenReturn(WAREHOUSE_ID);
     DatabricksNewMetadataSdkClient metadataClient = new DatabricksNewMetadataSdkClient(mockClient);
     when(mockClient.executeStatement(
             sqlStatement,

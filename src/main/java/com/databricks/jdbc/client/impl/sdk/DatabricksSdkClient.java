@@ -123,22 +123,28 @@ public class DatabricksSdkClient implements DatabricksClient {
   @Override
   public DatabricksResultSet executeStatement(
       String sql,
-      String warehouseId,
+      ComputeResource computeResource,
       Map<Integer, ImmutableSqlParameter> parameters,
       StatementType statementType,
       IDatabricksSession session,
       IDatabricksStatement parentStatement)
       throws SQLException {
     LOGGER.debug(
-        "public DatabricksResultSet executeStatement(String sql = {}, String warehouseId = {}, Map<Integer, ImmutableSqlParameter> parameters, StatementType statementType = {}, IDatabricksSession session)",
+        "public DatabricksResultSet executeStatement(String sql = {}, compute resource = {}, Map<Integer, ImmutableSqlParameter> parameters, StatementType statementType = {}, IDatabricksSession session)",
         sql,
-        warehouseId,
+        computeResource.toString(),
         statementType);
 
     long pollCount = 0;
     long executionStartTime = Instant.now().toEpochMilli();
     ExecuteStatementRequest request =
-        getRequest(statementType, sql, warehouseId, session, parameters, parentStatement);
+        getRequest(
+            statementType,
+            sql,
+            ((Warehouse) computeResource).getWarehouseId(),
+            session,
+            parameters,
+            parentStatement);
     ExecuteStatementResponse response =
         workspaceClient
             .apiClient()
