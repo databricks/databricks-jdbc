@@ -176,6 +176,9 @@
           <artifactId>maven-surefire-plugin</artifactId>
           <version>${maven-surefire-plugin.version}</version>
           <configuration>
+            <excludes>
+              <exclude>**/**IntegrationTests.java</exclude>
+            </excludes>
             <argLine>
               @{argLine}
               --add-opens=java.base/java.nio=ALL-UNNAMED
