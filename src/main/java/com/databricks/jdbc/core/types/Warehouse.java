@@ -1,5 +1,7 @@
 package com.databricks.jdbc.core.types;
 
+import java.util.Objects;
+
 public class Warehouse implements ComputeResource {
   private final String warehouseId;
 
@@ -9,6 +11,14 @@ public class Warehouse implements ComputeResource {
 
   public String getWarehouseId() {
     return this.warehouseId;
+  }
+
+  @Override
+  public boolean equals(Object obj) {
+    if (obj.getClass() != this.getClass()) {
+      return false;
+    }
+    return Objects.equals(((Warehouse) obj).warehouseId, this.getWarehouseId());
   }
 
   @Override

@@ -40,47 +40,15 @@ public class DatabricksSessionTest {
         ImmutableSessionInfo.builder().sessionId(SESSION_ID).warehouseId(WAREHOUSE_ID).build();
     when(client.createSession(eq(new Warehouse(WAREHOUSE_ID)), any(), any(), any()))
         .thenReturn(sessionInfo);
-    when(((Warehouse) connectionContext.getComputeResource()).getWarehouseId())
-        .thenReturn(WAREHOUSE_ID);
+    when(connectionContext.getComputeResource()).thenReturn(new Warehouse(WAREHOUSE_ID));
+    when(connectionContext.getCatalog()).thenReturn(CATALOG);
+    when(connectionContext.getSchema()).thenReturn(SCHEMA);
     DatabricksSession session = new DatabricksSession(connectionContext, client);
     assertFalse(session.isOpen());
     session.open();
     assertTrue(session.isOpen());
     assertEquals(SESSION_ID, session.getSessionId());
-
-    sessionInfo =
-        ImmutableSessionInfo.builder().sessionId(SESSION_ID).warehouseId(WAREHOUSE_ID).build();
-    when(client.createSession(eq(new Warehouse(WAREHOUSE_ID)), eq(CATALOG), eq(SCHEMA), any()))
-        .thenReturn(sessionInfo);
-    when(((Warehouse) connectionContext.getComputeResource()).getWarehouseId())
-        .thenReturn(WAREHOUSE_ID);
-    when(connectionContext.getCatalog()).thenReturn(CATALOG);
-    when(connectionContext.getSchema()).thenReturn(SCHEMA);
-    session = new DatabricksSession(connectionContext, client);
-    assertFalse(session.isOpen());
-    session.open();
-    assertTrue(session.isOpen());
-    assertEquals(session.getCatalog(), CATALOG);
-    assertEquals(session.getSchema(), SCHEMA);
-
-    sessionInfo =
-        ImmutableSessionInfo.builder().sessionId(SESSION_ID).warehouseId(WAREHOUSE_ID).build();
-    when(client.createSession(
-            eq(new Warehouse(WAREHOUSE_ID)), eq(CATALOG), eq(SCHEMA), eq(SESSION_CONFIGS)))
-        .thenReturn(sessionInfo);
-    when(((Warehouse) connectionContext.getComputeResource()).getWarehouseId())
-        .thenReturn(WAREHOUSE_ID);
-    when(connectionContext.getCatalog()).thenReturn(CATALOG);
-    when(connectionContext.getSchema()).thenReturn(SCHEMA);
-    when(connectionContext.getSessionConfigs()).thenReturn(SESSION_CONFIGS);
-    session = new DatabricksSession(connectionContext, client);
-    assertFalse(session.isOpen());
-    session.open();
-    assertTrue(session.isOpen());
-    assertEquals(session.getCatalog(), CATALOG);
-    assertEquals(session.getSchema(), SCHEMA);
-    assertEquals(session.getSessionConfigs(), SESSION_CONFIGS);
-
+    assertEquals(WAREHOUSE_ID, session.getWarehouseId());
     doNothing().when(client).deleteSession(SESSION_ID, new Warehouse(WAREHOUSE_ID));
     session.close();
     assertFalse(session.isOpen());

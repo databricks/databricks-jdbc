@@ -1,6 +1,7 @@
 package com.databricks.jdbc.pooling;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 
 import com.databricks.jdbc.client.impl.sdk.DatabricksSdkClient;
@@ -46,7 +47,7 @@ public class DatabricksConnectionPoolingTest {
         Mockito.mock(DatabricksConnectionPoolDataSource.class);
     ImmutableSessionInfo session =
         ImmutableSessionInfo.builder().warehouseId(WAREHOUSE_ID).sessionId(SESSION_ID).build();
-    when(databricksClient.createSession(new Warehouse(WAREHOUSE_ID), any(), any(), any()))
+    when(databricksClient.createSession(eq(new Warehouse(WAREHOUSE_ID)), any(), any(), any()))
         .thenReturn(session);
 
     DatabricksConnection databricksConnection =
@@ -78,7 +79,7 @@ public class DatabricksConnectionPoolingTest {
         Mockito.mock(DatabricksConnectionPoolDataSource.class);
     ImmutableSessionInfo session =
         ImmutableSessionInfo.builder().warehouseId(WAREHOUSE_ID).sessionId(SESSION_ID).build();
-    when(databricksClient.createSession(new Warehouse(WAREHOUSE_ID), any(), any(), any()))
+    when(databricksClient.createSession(eq(new Warehouse(WAREHOUSE_ID)), any(), any(), any()))
         .thenReturn(session);
 
     DatabricksConnection databricksConnection =
