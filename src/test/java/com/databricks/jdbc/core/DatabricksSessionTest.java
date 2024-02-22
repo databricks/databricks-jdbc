@@ -7,6 +7,7 @@ import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.when;
 
 import com.databricks.jdbc.client.impl.sdk.DatabricksSdkClient;
+import com.databricks.jdbc.core.types.ComputeResource;
 import com.databricks.jdbc.core.types.Warehouse;
 import com.databricks.jdbc.driver.DatabricksConnectionContext;
 import java.util.Map;
@@ -27,6 +28,7 @@ public class DatabricksSessionTest {
   private static final String CATALOG = "field_demos";
   private static final String SCHEMA = "ossjdbc";
   private static final String SESSION_ID = "session_id";
+  private static final ComputeResource WAREHOUSE_COMPUTE = new Warehouse(WAREHOUSE_ID);
   private static final Map<String, String> SESSION_CONFIGS =
       Map.of("spark.sql.crossJoin.enabled", "true", "SSP_databricks.catalog", "field_demos");
 
@@ -38,8 +40,7 @@ public class DatabricksSessionTest {
   public void testOpenAndCloseSession() throws DatabricksSQLException {
     ImmutableSessionInfo sessionInfo =
         ImmutableSessionInfo.builder().sessionId(SESSION_ID).warehouseId(WAREHOUSE_ID).build();
-    when(client.createSession(eq(new Warehouse(WAREHOUSE_ID)), any(), any(), any()))
-        .thenReturn(sessionInfo);
+    when(client.createSession(eq(WAREHOUSE_COMPUTE), any(), any(), any())).thenReturn(sessionInfo);
     when(connectionContext.getComputeResource()).thenReturn(new Warehouse(WAREHOUSE_ID));
     when(connectionContext.getCatalog()).thenReturn(CATALOG);
     when(connectionContext.getSchema()).thenReturn(SCHEMA);
@@ -48,7 +49,7 @@ public class DatabricksSessionTest {
     session.open();
     assertTrue(session.isOpen());
     assertEquals(SESSION_ID, session.getSessionId());
-    assertEquals(WAREHOUSE_ID, session.getWarehouseId());
+    assertEquals(WAREHOUSE_COMPUTE, session.getComputeResource());
     doNothing().when(client).deleteSession(SESSION_ID, new Warehouse(WAREHOUSE_ID));
     session.close();
     assertFalse(session.isOpen());

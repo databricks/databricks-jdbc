@@ -29,7 +29,7 @@ public class DatabricksNewMetadataSdkClientTest {
   @Mock private static DatabricksResultSet mockedCatalogResultSet;
   @Mock private static DatabricksResultSet mockedResultSet;
   @Mock private static IDatabricksSession session;
-  @Mock private static ComputeResource com
+  @Mock private static ComputeResource mockedComputeResource;
   private static final String WAREHOUSE_ID = "warehouse_id";
   private static final String TEST_SCHEMA = "testSchema";
   private static final String TEST_TABLE = "testTable";
@@ -132,10 +132,10 @@ public class DatabricksNewMetadataSdkClientTest {
   }
 
   void setupCatalogMocks() throws SQLException {
-    when(session.getWarehouseId()).thenReturn(WAREHOUSE_ID);
+    when(session.getComputeResource()).thenReturn(mockedComputeResource);
     when(mockClient.executeStatement(
             "SHOW CATALOGS",
-            WAREHOUSE_ID,
+            mockedComputeResource,
             new HashMap<Integer, ImmutableSqlParameter>(),
             StatementType.METADATA,
             session,
@@ -173,11 +173,11 @@ public class DatabricksNewMetadataSdkClientTest {
   void testListTables(
       String sqlStatement, String catalog, String schema, String table, String description)
       throws SQLException {
-    when(session.getWarehouseId()).thenReturn(WAREHOUSE_ID);
+    when(session.getComputeResource()).thenReturn(mockedComputeResource);
     DatabricksNewMetadataSdkClient metadataClient = new DatabricksNewMetadataSdkClient(mockClient);
     when(mockClient.executeStatement(
             sqlStatement,
-            WAREHOUSE_ID,
+            mockedComputeResource,
             new HashMap<Integer, ImmutableSqlParameter>(),
             StatementType.METADATA,
             session,
@@ -207,11 +207,11 @@ public class DatabricksNewMetadataSdkClientTest {
       String column,
       String description)
       throws SQLException {
-    when(session.getWarehouseId()).thenReturn(WAREHOUSE_ID);
+    when(session.getComputeResource()).thenReturn(mockedComputeResource);
     DatabricksNewMetadataSdkClient metadataClient = new DatabricksNewMetadataSdkClient(mockClient);
     when(mockClient.executeStatement(
             sqlStatement,
-            WAREHOUSE_ID,
+            mockedComputeResource,
             new HashMap<Integer, ImmutableSqlParameter>(),
             StatementType.METADATA,
             session,
@@ -235,11 +235,11 @@ public class DatabricksNewMetadataSdkClientTest {
   @ParameterizedTest
   @MethodSource("listSchemasTestParams")
   void testListSchemas(String sqlStatement, String schema, String description) throws SQLException {
-    when(session.getComputeResource()).thenReturn(WAREHOUSE_ID);
+    when(session.getComputeResource()).thenReturn(mockedComputeResource);
     DatabricksNewMetadataSdkClient metadataClient = new DatabricksNewMetadataSdkClient(mockClient);
     when(mockClient.executeStatement(
             sqlStatement,
-            WAREHOUSE_ID,
+            mockedComputeResource,
             new HashMap<Integer, ImmutableSqlParameter>(),
             StatementType.METADATA,
             session,
