@@ -5,6 +5,7 @@ import static com.databricks.jdbc.driver.DatabricksJdbcConstants.*;
 import com.databricks.jdbc.client.DatabricksClientType;
 import com.databricks.jdbc.core.DatabricksParsingException;
 import com.databricks.jdbc.core.DatabricksSQLException;
+import com.databricks.jdbc.core.types.AllPurposeCluster;
 import com.databricks.jdbc.core.types.CompressionType;
 import com.databricks.jdbc.core.types.ComputeResource;
 import com.databricks.jdbc.core.types.Warehouse;
@@ -22,6 +23,7 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   private static final Logger LOGGER = LoggerFactory.getLogger(DatabricksConnectionContext.class);
   private final String host;
   private final int port;
+  private final ComputeResource computeResource;
 
   @VisibleForTesting final ImmutableMap<String, String> parameters;
 
@@ -74,14 +76,21 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   }
 
   private DatabricksConnectionContext(
-      String host, int port, ImmutableMap<String, String> parameters) {
+      String host, int port, ImmutableMap<String, String> parameters)
+      throws DatabricksSQLException {
     this.host = host;
     this.port = port;
     this.parameters = parameters;
+    this.computeResource = calculateCompute();
   }
 
   public static boolean isValid(String url) {
-    return JDBC_URL_PATTERN.matcher(url).matches();
+    if (!JDBC_URL_PATTERN.matcher(url).matches()) {
+      return false;
+    }
+    return HTTP_CLUSTER_PATH_PATTERN.matcher(url).matches()
+        || HTTP_WAREHOUSE_PATH_PATTERN.matcher(url).matches()
+        || TEST_PATH_PATTERN.matcher(url).matches();
   }
 
   @Override
@@ -97,7 +106,21 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
 
   @Override
   public ComputeResource getComputeResource() {
-    return new Warehouse(getWarehouseId());
+    return computeResource;
+  }
+
+  private ComputeResource calculateCompute() throws DatabricksSQLException {
+    String httpPath = getHttpPath();
+    Matcher urlMatcher = HTTP_WAREHOUSE_PATH_PATTERN.matcher(httpPath);
+    if (urlMatcher.find()) {
+      return new Warehouse(urlMatcher.group(1));
+    }
+    urlMatcher = HTTP_CLUSTER_PATH_PATTERN.matcher(httpPath);
+    if (urlMatcher.find()) {
+      return new AllPurposeCluster(urlMatcher.group(1), urlMatcher.group(2));
+    }
+    // the control should never reach here, as the parsing already ensured the URL is valid
+    throw new DatabricksParsingException("Invalid HTTP Path provided " + this.getHttpPath());
   }
 
   String getHttpPath() {
@@ -108,25 +131,6 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   @Override
   public String getHostForOAuth() {
     return this.host;
-  }
-
-  private String getWarehouseId() {
-    LOGGER.debug("public String getWarehouse()");
-    String httpPath = getHttpPath();
-    Matcher urlMatcher = DatabricksJdbcConstants.HTTP_PATH_PATTERN.matcher(httpPath);
-
-    String warehouseId = null;
-    if (urlMatcher.find()) {
-      warehouseId = urlMatcher.group(1);
-    } else {
-      Matcher sqlUrlMatcher = DatabricksJdbcConstants.HTTP_PATH_SQL_PATTERN.matcher(httpPath);
-      if (sqlUrlMatcher.matches()) {
-        warehouseId = httpPath.substring(httpPath.lastIndexOf('/') + 1);
-      } else {
-        throw new IllegalArgumentException("Invalid httpPath " + httpPath);
-      }
-    }
-    return warehouseId;
   }
 
   @Override
@@ -270,6 +274,6 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
 
   @Override
   public boolean isAllPurposeCluster() {
-    return false;
+    return this.computeResource instanceof AllPurposeCluster;
   }
 }

@@ -39,7 +39,8 @@ public class DatabricksSession implements IDatabricksSession {
    *
    * @param connectionContext underlying connection context
    */
-  public DatabricksSession(IDatabricksConnectionContext connectionContext) {
+  public DatabricksSession(IDatabricksConnectionContext connectionContext)
+      throws DatabricksSQLException {
     if (connectionContext.isAllPurposeCluster()) {
       this.databricksClient = new DatabricksThriftClient(connectionContext);
     } else {
@@ -59,7 +60,8 @@ public class DatabricksSession implements IDatabricksSession {
   /** Construct method to be used for mocking in a test case. */
   @VisibleForTesting
   DatabricksSession(
-      IDatabricksConnectionContext connectionContext, DatabricksClient databricksClient) {
+      IDatabricksConnectionContext connectionContext, DatabricksClient databricksClient)
+      throws DatabricksSQLException {
     this.databricksClient = databricksClient;
     this.databricksMetadataClient =
         new DatabricksMetadataSdkClient((DatabricksSdkClient) databricksClient);

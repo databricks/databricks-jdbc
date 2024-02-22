@@ -33,12 +33,10 @@ class DatabricksConnectionContextTest {
       "http:databricks://azuredatabricks.net/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/fgff575757;";
   private static final String VALID_TEST_URL = "jdbc:databricks://test";
 
-  // private static final String VALID_CLUSTER_URL =
-  //
-  // "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=http;ssl=1;httpPath=sql/protocolv1/o/6051921418418893/1115-130834-ms4m0yv;AuthMech=3";
-  // private static final String INVALID_CLUSTER_URL =
-  //
-  // "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=http;ssl=1;httpPath=sql/protocolv1/oo/6051921418418893/1115-130834-ms4m0yv;AuthMech=3";
+  private static final String VALID_CLUSTER_URL =
+      "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=http;ssl=1;httpPath=sql/protocolv1/o/6051921418418893/1115-130834-ms4m0yv;AuthMech=3";
+  private static final String INVALID_CLUSTER_URL =
+      "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=http;ssl=1;httpPath=sql/protocolv1/oo/6051921418418893/1115-130834-ms4m0yv;AuthMech=3";
   private static Properties properties = new Properties();
 
   @BeforeAll
@@ -57,8 +55,8 @@ class DatabricksConnectionContextTest {
     assertTrue(DatabricksConnectionContext.isValid(VALID_URL_WITH_INVALID_COMPRESSION_TYPE));
     assertFalse(DatabricksConnectionContext.isValid(INVALID_URL_1));
     assertFalse(DatabricksConnectionContext.isValid(INVALID_URL_2));
-    // assertTrue(DatabricksConnectionContext.isValid(VALID_CLUSTER_URL));
-    // assertFalse(DatabricksConnectionContext.isValid(INVALID_CLUSTER_URL));
+    assertTrue(DatabricksConnectionContext.isValid(VALID_CLUSTER_URL));
+    assertFalse(DatabricksConnectionContext.isValid(INVALID_CLUSTER_URL));
   }
 
   @Test
@@ -127,23 +125,22 @@ class DatabricksConnectionContextTest {
     assertEquals(CompressionType.NONE, connectionContext.getCompressionType());
   }
 
-  /*
-    @Test
-    public void testAllPurposeClusterParsing() throws DatabricksSQLException {
-      DatabricksConnectionContext connectionContext =
-          (DatabricksConnectionContext)
-              DatabricksConnectionContext.parse(VALID_CLUSTER_URL, properties);
-      assertEquals(
-          "https://e2-dogfood.staging.cloud.databricks.com:443", connectionContext.getHostUrl());
-      assertEquals(
-          "sql/protocolv1/o/6051921418418893/1115-130834-ms4m0yv", connectionContext.getHttpPath());
-      assertEquals("passwd", connectionContext.getToken());
-      assertEquals(CompressionType.NONE, connectionContext.getCompressionType());
-      assertEquals(5, connectionContext.parameters.size());
-      assertEquals("INFO", connectionContext.getLogLevelString());
-      assertTrue(connectionContext.isAllPurposeCluster());
-    }
-  */
+  @Test
+  public void testAllPurposeClusterParsing() throws DatabricksSQLException {
+    DatabricksConnectionContext connectionContext =
+        (DatabricksConnectionContext)
+            DatabricksConnectionContext.parse(VALID_CLUSTER_URL, properties);
+    assertEquals(
+        "https://e2-dogfood.staging.cloud.databricks.com:443", connectionContext.getHostUrl());
+    assertEquals(
+        "sql/protocolv1/o/6051921418418893/1115-130834-ms4m0yv", connectionContext.getHttpPath());
+    assertEquals("passwd", connectionContext.getToken());
+    assertEquals(CompressionType.NONE, connectionContext.getCompressionType());
+    assertEquals(5, connectionContext.parameters.size());
+    assertEquals("INFO", connectionContext.getLogLevelString());
+    assertTrue(connectionContext.isAllPurposeCluster());
+  }
+
   @Test
   public void testParsingOfUrlWithoutDefault() throws DatabricksSQLException {
     DatabricksConnectionContext connectionContext =
