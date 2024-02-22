@@ -58,8 +58,9 @@ public interface IDatabricksSession {
   /** Sets the default schema */
   void setSchema(String schema);
 
+  /** Extracts session to a string */
   String toString();
-  
+
   /** Returns the session configs */
   Map<String, String> getSessionConfigs();
 }

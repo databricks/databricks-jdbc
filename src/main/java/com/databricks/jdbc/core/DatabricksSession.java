@@ -165,7 +165,9 @@ public class DatabricksSession implements IDatabricksSession {
         .add("schema", this.schema)
         .add("sessionID", this.getSessionId())
         .toString();
-}
+  }
+
+  @Override
   public Map<String, String> getSessionConfigs() {
     LOGGER.debug("public Map<String, String> getSessionConfigs()");
     return sessionConfigs;
