@@ -59,7 +59,7 @@ public class DatabricksSessionTest {
   @Test
   public void testOpenSession_invalidWarehouseUrl() {
     assertThrows(
-            DatabricksParsingException.class,
+        DatabricksParsingException.class,
         () ->
             new DatabricksSession(
                 DatabricksConnectionContext.parse(JDBC_URL_INVALID, new Properties()), null));
