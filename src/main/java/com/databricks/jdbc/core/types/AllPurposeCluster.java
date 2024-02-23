@@ -4,19 +4,19 @@ import java.util.Objects;
 
 public class AllPurposeCluster implements ComputeResource {
   private final String clusterId;
-  private final String hostName;
+  private final String orgId;
 
-  public AllPurposeCluster(String clusterId, String hostName) {
+  public AllPurposeCluster(String orgId, String clusterId) {
     this.clusterId = clusterId;
-    this.hostName = hostName;
+    this.orgId = orgId;
   }
 
   public String getClusterId() {
     return this.clusterId;
   }
 
-  public String getHostName() {
-    return this.hostName;
+  public String getOrgId() {
+    return this.orgId;
   }
 
   @Override
@@ -25,12 +25,11 @@ public class AllPurposeCluster implements ComputeResource {
       return false;
     }
     return Objects.equals(((AllPurposeCluster) obj).clusterId, this.clusterId)
-        && Objects.equals(((AllPurposeCluster) obj).clusterId, this.hostName);
+        && Objects.equals(((AllPurposeCluster) obj).clusterId, this.orgId);
   }
 
   @Override
   public String toString() {
-    return String.format(
-        "AllPurpose cluster with clusterId {%s} and hostName {%s}", clusterId, hostName);
+    return String.format("AllPurpose cluster with clusterId {%s} and orgId {%s}", clusterId, orgId);
   }
 }

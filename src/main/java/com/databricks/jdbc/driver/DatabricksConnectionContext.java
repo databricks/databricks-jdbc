@@ -81,7 +81,7 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
     this.host = host;
     this.port = port;
     this.parameters = parameters;
-    this.computeResource = calculateCompute();
+    this.computeResource = buildCompute();
   }
 
   public static boolean isValid(String url) {
@@ -109,7 +109,7 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
     return computeResource;
   }
 
-  private ComputeResource calculateCompute() throws DatabricksSQLException {
+  private ComputeResource buildCompute() throws DatabricksSQLException {
     String httpPath = getHttpPath();
     Matcher urlMatcher = HTTP_WAREHOUSE_PATH_PATTERN.matcher(httpPath);
     if (urlMatcher.find()) {
