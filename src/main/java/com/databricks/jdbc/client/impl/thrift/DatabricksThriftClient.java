@@ -3,7 +3,6 @@ package com.databricks.jdbc.client.impl.thrift;
 import com.databricks.jdbc.client.DatabricksClient;
 import com.databricks.jdbc.client.DatabricksMetadataClient;
 import com.databricks.jdbc.client.StatementType;
-import com.databricks.jdbc.client.impl.sdk.DatabricksSdkClient;
 import com.databricks.jdbc.client.sqlexec.ExternalLink;
 import com.databricks.jdbc.core.*;
 import com.databricks.jdbc.core.types.ComputeResource;
@@ -16,7 +15,7 @@ import org.slf4j.LoggerFactory;
 
 public class DatabricksThriftClient implements DatabricksClient, DatabricksMetadataClient {
 
-  private static final Logger LOGGER = LoggerFactory.getLogger(DatabricksSdkClient.class);
+  private static final Logger LOGGER = LoggerFactory.getLogger(DatabricksThriftClient.class);
   private final IDatabricksConnectionContext connectionContext;
 
   @Override
