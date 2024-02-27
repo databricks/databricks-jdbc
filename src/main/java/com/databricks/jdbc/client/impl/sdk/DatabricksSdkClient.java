@@ -20,6 +20,7 @@ import com.databricks.sdk.WorkspaceClient;
 import com.databricks.sdk.core.ApiClient;
 import com.databricks.sdk.core.DatabricksConfig;
 import com.databricks.sdk.service.sql.*;
+import com.google.common.annotations.VisibleForTesting;
 import java.sql.SQLException;
 import java.time.Instant;
 import java.util.Collection;
@@ -53,12 +54,27 @@ public class DatabricksSdkClient implements DatabricksClient {
     this.databricksConfig =
         new DatabricksConfig()
             .setHost(connectionContext.getHostUrl())
-            .setToken(connectionContext.getToken());
+            .setToken(connectionContext.getToken())
+            .setUseSystemProxy(connectionContext.getUseSystemProxy());
+
+    if (connectionContext.getUseProxy()) {
+      this.databricksConfig
+          .setUseProxy(connectionContext.getUseProxy())
+          .setProxyHost(connectionContext.getProxyHost())
+          .setProxyPort(connectionContext.getProxyPort());
+      if (connectionContext.getUseProxyAuth()) {
+        this.databricksConfig
+            .setUseProxyAuth(connectionContext.getUseProxyAuth())
+            .setProxyUser(connectionContext.getProxyUser())
+            .setProxyPassword(connectionContext.getProxyPassword());
+      }
+    }
 
     OAuthAuthenticator authenticator = new OAuthAuthenticator(connectionContext);
-    this.workspaceClient = authenticator.getWorkspaceClient();
+    this.workspaceClient = authenticator.getWorkspaceClient(this.databricksConfig);
   }
 
+  @VisibleForTesting
   public DatabricksSdkClient(
       IDatabricksConnectionContext connectionContext,
       StatementExecutionService statementExecutionService,

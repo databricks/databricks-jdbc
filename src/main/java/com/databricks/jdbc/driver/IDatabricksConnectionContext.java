@@ -77,4 +77,18 @@ public interface IDatabricksConnectionContext {
   String getSchema();
 
   Map<String, String> getSessionConfigs();
+
+  String getProxyHost();
+
+  int getProxyPort();
+
+  String getProxyUser();
+
+  String getProxyPassword();
+
+  Boolean getUseProxy();
+
+  Boolean getUseProxyAuth();
+
+  Boolean getUseSystemProxy();
 }

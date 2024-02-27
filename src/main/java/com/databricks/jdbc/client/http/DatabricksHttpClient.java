@@ -2,19 +2,27 @@ package com.databricks.jdbc.client.http;
 
 import com.databricks.jdbc.client.DatabricksHttpException;
 import com.databricks.jdbc.client.IDatabricksHttpClient;
+import com.databricks.jdbc.core.IDatabricksSession;
+import com.databricks.jdbc.driver.IDatabricksConnectionContext;
 import java.io.IOException;
 import java.util.HashSet;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import org.apache.http.HttpException;
+import org.apache.http.HttpHost;
 import org.apache.http.HttpResponse;
 import org.apache.http.HttpResponseInterceptor;
+import org.apache.http.auth.AuthScope;
+import org.apache.http.auth.UsernamePasswordCredentials;
+import org.apache.http.client.CredentialsProvider;
 import org.apache.http.client.config.RequestConfig;
 import org.apache.http.client.methods.HttpUriRequest;
 import org.apache.http.client.protocol.HttpClientContext;
+import org.apache.http.impl.client.BasicCredentialsProvider;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClientBuilder;
+import org.apache.http.impl.client.ProxyAuthenticationStrategy;
 import org.apache.http.impl.conn.PoolingHttpClientConnectionManager;
 import org.apache.http.protocol.HttpContext;
 import org.slf4j.Logger;
@@ -38,17 +46,17 @@ public class DatabricksHttpClient implements IDatabricksHttpClient {
   private static final Set<Integer> RETRYABLE_HTTP_CODES = getRetryableHttpCodes();
   private static final long DEFAULT_IDLE_CONNECTION_TIMEOUT = 5;
 
-  private static DatabricksHttpClient instance = new DatabricksHttpClient();
+  private static DatabricksHttpClient instance = null;
 
   private static PoolingHttpClientConnectionManager connectionManager;
 
   private final CloseableHttpClient httpClient;
 
-  private DatabricksHttpClient() {
+  private DatabricksHttpClient(IDatabricksConnectionContext connectionContext) {
     connectionManager = new PoolingHttpClientConnectionManager();
     connectionManager.setMaxTotal(DEFAULT_MAX_HTTP_CONNECTIONS);
     connectionManager.setDefaultMaxPerRoute(DEFAULT_MAX_HTTP_CONNECTIONS_PER_ROUTE);
-    httpClient = makeClosableHttpClient();
+    httpClient = makeClosableHttpClient(connectionContext);
   }
 
   private RequestConfig makeRequestConfig() {
@@ -71,42 +79,67 @@ public class DatabricksHttpClient implements IDatabricksHttpClient {
     return retryableCodes;
   }
 
-  private CloseableHttpClient makeClosableHttpClient() {
-    return HttpClientBuilder.create()
-        .setConnectionManager(connectionManager)
-        // TODO: set appropriate user agent
-        .setUserAgent("jdbc/databricks")
-        .setDefaultRequestConfig(makeRequestConfig())
-        .setRetryHandler(
-            (exception, executionCount, context) -> {
-              if (executionCount > DEFAULT_RETRY_COUNT
-                  || !isRetryAllowed(
-                      ((HttpClientContext) context).getRequest().getRequestLine().getMethod())) {
-                return false;
-              }
-              long nextBackOffDelay =
-                  MIN_BACKOFF_INTERVAL
-                      * (long) Math.pow(DEFAULT_BACKOFF_FACTOR, executionCount - 1);
-              long delay = Math.min(MAX_RETRY_INTERVAL, nextBackOffDelay);
-              try {
-                Thread.sleep(delay);
-              } catch (InterruptedException e) {
-                // Do nothing
-              }
-              return true;
-            })
-        .addInterceptorFirst(
-            new HttpResponseInterceptor() {
-              // Handling 500 and 503 explicitly for retry
-              @Override
-              public void process(HttpResponse httpResponse, HttpContext httpContext)
-                  throws HttpException, IOException {
-                if (isErrorCodeRetryable(httpResponse.getStatusLine().getStatusCode())) {
-                  throw new IOException("Retry http request");
-                }
-              }
-            })
-        .build();
+  private CloseableHttpClient makeClosableHttpClient(
+      IDatabricksConnectionContext connectionContext) {
+    HttpClientBuilder builder =
+        HttpClientBuilder.create()
+            .setConnectionManager(connectionManager)
+            // TODO: set appropriate user agent
+            .setUserAgent("jdbc/databricks")
+            .setDefaultRequestConfig(makeRequestConfig())
+            .setRetryHandler(
+                (exception, executionCount, context) -> {
+                  if (executionCount > DEFAULT_RETRY_COUNT
+                      || !isRetryAllowed(
+                          ((HttpClientContext) context)
+                              .getRequest()
+                              .getRequestLine()
+                              .getMethod())) {
+                    return false;
+                  }
+                  long nextBackOffDelay =
+                      MIN_BACKOFF_INTERVAL
+                          * (long) Math.pow(DEFAULT_BACKOFF_FACTOR, executionCount - 1);
+                  long delay = Math.min(MAX_RETRY_INTERVAL, nextBackOffDelay);
+                  try {
+                    Thread.sleep(delay);
+                  } catch (InterruptedException e) {
+                    // Do nothing
+                  }
+                  return true;
+                })
+            .addInterceptorFirst(
+                new HttpResponseInterceptor() {
+                  // Handling 500 and 503 explicitly for retry
+                  @Override
+                  public void process(HttpResponse httpResponse, HttpContext httpContext)
+                      throws HttpException, IOException {
+                    if (isErrorCodeRetryable(httpResponse.getStatusLine().getStatusCode())) {
+                      throw new IOException("Retry http request");
+                    }
+                  }
+                });
+    if (connectionContext.getUseSystemProxy()) {
+      builder.useSystemProperties();
+    }
+    if (connectionContext.getUseProxy()) {
+      String proxyHost = connectionContext.getProxyHost();
+      int proxyPort = connectionContext.getProxyPort();
+      builder.setProxy(new HttpHost(proxyHost, proxyPort));
+      if (connectionContext.getUseProxyAuth()) {
+        String proxyUser = connectionContext.getProxyUser();
+        String proxyPassword = connectionContext.getProxyPassword();
+        CredentialsProvider credsProvider = new BasicCredentialsProvider();
+        credsProvider.setCredentials(
+            new AuthScope(proxyHost, proxyPort),
+            new UsernamePasswordCredentials(proxyUser, proxyPassword));
+
+        builder
+            .setDefaultCredentialsProvider(credsProvider)
+            .setProxyAuthenticationStrategy(new ProxyAuthenticationStrategy());
+      }
+    }
+    return builder.build();
   }
 
   private static boolean isRetryAllowed(String method) {
@@ -118,7 +151,10 @@ public class DatabricksHttpClient implements IDatabricksHttpClient {
     return RETRYABLE_HTTP_CODES.contains(errCode);
   }
 
-  public static synchronized DatabricksHttpClient getInstance() {
+  public static synchronized DatabricksHttpClient getInstance(IDatabricksSession session) {
+    if (instance == null) {
+      instance = new DatabricksHttpClient(session.getConnectionContext());
+    }
     return instance;
   }
 

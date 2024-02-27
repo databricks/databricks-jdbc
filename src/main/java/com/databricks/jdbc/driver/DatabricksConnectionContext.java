@@ -257,4 +257,40 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
                     .anyMatch(allowedConf -> allowedConf.toLowerCase().equals(e.getKey())))
         .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
   }
+
+  @Override
+  public String getProxyHost() {
+    return getParameter(DatabricksJdbcConstants.PROXY_HOST);
+  }
+
+  @Override
+  public int getProxyPort() {
+    return Integer.parseInt(getParameter(DatabricksJdbcConstants.PROXY_PORT));
+  }
+
+  @Override
+  public String getProxyUser() {
+    return getParameter(DatabricksJdbcConstants.PROXY_USER);
+  }
+
+  @Override
+  public String getProxyPassword() {
+    return getParameter(DatabricksJdbcConstants.PROXY_PWD);
+  }
+
+  @Override
+  public Boolean getUseProxy() {
+    return Objects.equals(getParameter(USE_PROXY), "1");
+  }
+
+  @Override
+  public Boolean getUseProxyAuth() {
+    return Objects.equals(getParameter(USE_PROXY_AUTH), "1");
+  }
+
+  @Override
+  public Boolean getUseSystemProxy() {
+    LOGGER.debug("public Boolean getUseSystemProxy()");
+    return Objects.equals(getParameter(USE_SYSTEM_PROXY), "1");
+  }
 }

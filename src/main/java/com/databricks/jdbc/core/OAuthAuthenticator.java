@@ -13,9 +13,9 @@ public class OAuthAuthenticator {
     this.connectionContext = connectionContext;
   }
 
-  public WorkspaceClient getWorkspaceClient() {
+  public WorkspaceClient getWorkspaceClient(DatabricksConfig databricksConfig) {
     if (this.connectionContext.getAuthMech().equals(IDatabricksConnectionContext.AuthMech.PAT)) {
-      return authenticateAccessToken();
+      return authenticateAccessToken(databricksConfig);
     }
     // TODO(Madhav): Revisit these to set JDBC values
     else if (this.connectionContext
@@ -23,14 +23,14 @@ public class OAuthAuthenticator {
         .equals(IDatabricksConnectionContext.AuthMech.OAUTH)) {
       switch (this.connectionContext.getAuthFlow()) {
         case TOKEN_PASSTHROUGH:
-          return authenticateAccessToken();
+          return authenticateAccessToken(databricksConfig);
         case CLIENT_CREDENTIALS:
           return authenticateM2M();
         case BROWSER_BASED_AUTHENTICATION:
           return authenticateU2M();
       }
     }
-    return authenticateAccessToken();
+    return authenticateAccessToken(databricksConfig);
   }
 
   public WorkspaceClient authenticateU2M() {
@@ -48,13 +48,9 @@ public class OAuthAuthenticator {
     return new WorkspaceClient(config);
   }
 
-  public WorkspaceClient authenticateAccessToken() {
-    DatabricksConfig config =
-        new DatabricksConfig()
-            .setAuthType(DatabricksJdbcConstants.ACCESS_TOKEN_AUTH_TYPE)
-            .setHost(this.connectionContext.getHostUrl())
-            .setToken(this.connectionContext.getToken());
-    return new WorkspaceClient(config);
+  public WorkspaceClient authenticateAccessToken(DatabricksConfig databricksConfig) {
+    databricksConfig.setAuthType(DatabricksJdbcConstants.ACCESS_TOKEN_AUTH_TYPE);
+    return new WorkspaceClient(databricksConfig);
   }
 
   public WorkspaceClient authenticateM2M() {

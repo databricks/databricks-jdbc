@@ -31,6 +31,8 @@ public class DatabricksSession implements IDatabricksSession {
   private Map<String, String> sessionConfigs;
   private CompressionType compressionType;
 
+  private IDatabricksConnectionContext connectionContext;
+
   /**
    * Creates an instance of Databricks session for given connection context
    *
@@ -47,6 +49,7 @@ public class DatabricksSession implements IDatabricksSession {
     this.schema = connectionContext.getSchema();
     this.sessionConfigs = connectionContext.getSessionConfigs();
     this.compressionType = connectionContext.getCompressionType();
+    this.connectionContext = connectionContext;
   }
 
   /** Construct method to be used for mocking in a test case. */
@@ -63,6 +66,7 @@ public class DatabricksSession implements IDatabricksSession {
     this.schema = connectionContext.getSchema();
     this.sessionConfigs = connectionContext.getSessionConfigs();
     this.compressionType = connectionContext.getCompressionType();
+    this.connectionContext = connectionContext;
   }
 
   @Override
@@ -166,5 +170,10 @@ public class DatabricksSession implements IDatabricksSession {
   public void setSessionConfig(String name, String value) {
     LOGGER.debug("public void setSessionConfig(String name = {}, String value = {})", name, value);
     sessionConfigs.put(name, value);
+  }
+
+  @Override
+  public IDatabricksConnectionContext getConnectionContext() {
+    return connectionContext;
   }
 }

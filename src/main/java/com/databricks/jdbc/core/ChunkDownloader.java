@@ -42,7 +42,12 @@ public class ChunkDownloader {
       ResultManifest resultManifest,
       ResultData resultData,
       IDatabricksSession session) {
-    this(statementId, resultManifest, resultData, session, DatabricksHttpClient.getInstance());
+    this(
+        statementId,
+        resultManifest,
+        resultData,
+        session,
+        DatabricksHttpClient.getInstance(session));
   }
 
   @VisibleForTesting
