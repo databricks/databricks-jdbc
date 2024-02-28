@@ -41,6 +41,8 @@
     <slf4j-reload4j.version>2.1.0-alpha1</slf4j-reload4j.version>
     <sql-logic-test.version>0.3</sql-logic-test.version>
     <lz4-compression.version>1.8.0</lz4-compression.version>
+    <thrift.version>0.19.0</thrift.version>
+    <annotation.version>1.3.5</annotation.version>
   </properties>
   <dependencies>
     <dependency>
@@ -72,6 +74,11 @@
       <groupId>org.apache.httpcomponents</groupId>
       <artifactId>httpclient</artifactId>
       <version>${httpclient.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.thrift</groupId>
+      <artifactId>libthrift</artifactId>
+      <version>${thrift.version}</version>
     </dependency>
     <dependency>
       <groupId>commons-io</groupId>
@@ -153,6 +160,11 @@
       <groupId>org.lz4</groupId>
       <artifactId>lz4-java</artifactId>
       <version>${lz4-compression.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>jakarta.annotation</groupId>
+      <artifactId>jakarta.annotation-api</artifactId>
+      <version>${annotation.version}</version>
     </dependency>
   </dependencies>
 
@@ -258,6 +270,7 @@
               <exclude>**/impl/thrift/*</exclude> <!--Remove this once thrift is implemented-->
               <exclude>**client/sqlexec/*</exclude>
               <exclude>**Constants*</exclude>
+              <exclude>**/thrift/gen-java/org/apache/hive/service/rpc/thrift/*</exclude>
             </excludes>
           </configuration>
         </plugin>

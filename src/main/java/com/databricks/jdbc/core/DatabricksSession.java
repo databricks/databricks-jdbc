@@ -174,4 +174,10 @@ public class DatabricksSession implements IDatabricksSession {
     LOGGER.debug("public Map<String, String> getSessionConfigs()");
     return sessionConfigs;
   }
+
+  @Override
+  public void setSessionConfig(String name, String value) {
+    LOGGER.debug("public void setSessionConfig(String name = {}, String value = {})", name, value);
+    sessionConfigs.put(name, value);
+  }
 }

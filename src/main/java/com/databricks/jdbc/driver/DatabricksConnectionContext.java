@@ -266,9 +266,8 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
     return this.parameters.entrySet().stream()
         .filter(
             e ->
-                ALLOWED_SESSION_CONFIGS.stream()
-                    .map(String::toLowerCase)
-                    .anyMatch(allowedConf -> allowedConf.equals(e.getKey())))
+                ALLOWED_SESSION_CONF_TO_DEFAULT_VALUES_MAP.keySet().stream()
+                    .anyMatch(allowedConf -> allowedConf.toLowerCase().equals(e.getKey())))
         .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
   }
 

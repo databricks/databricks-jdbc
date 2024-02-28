@@ -5,3 +5,5 @@ ignore:
   - "**/impl/thrift/*"
   - "**client/sqlexec/*"
   - "**Constants*"
+  - "**/thrift/gen-java/org/apache/hive/service/rpc/thrift/*"
+  - "**driver/DatabricksJdbcConstants*"

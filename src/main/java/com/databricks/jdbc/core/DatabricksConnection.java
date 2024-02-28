@@ -3,14 +3,17 @@ package com.databricks.jdbc.core;
 import com.databricks.jdbc.client.DatabricksClient;
 import com.databricks.jdbc.commons.util.ValidationUtil;
 import com.databricks.jdbc.driver.DatabricksDriver;
+import com.databricks.jdbc.driver.DatabricksJdbcConstants;
 import com.databricks.jdbc.driver.IDatabricksConnectionContext;
 import com.google.common.annotations.VisibleForTesting;
 import java.sql.*;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
+import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -394,32 +397,104 @@ public class DatabricksConnection implements IDatabricksConnection, Connection {
     }
   }
 
+  /**
+   * This function creates the exception message for the failed setClientInfo command
+   *
+   * @param failedProperties contains the map for the failed properties
+   * @return the exception message
+   */
+  public static String getFailedPropertiesExceptionMessage(
+      Map<String, ClientInfoStatus> failedProperties) {
+    return failedProperties.entrySet().stream()
+        .map(e -> String.format("Setting config %s failed with %s", e.getKey(), e.getValue()))
+        .collect(Collectors.joining("\n"));
+  }
+
+  /**
+   * This function determines the reason for the failure of setting a session config form the
+   * exception message
+   *
+   * @param key for which set command failed
+   * @param value for which set command failed
+   * @param e exception thrown by the set command
+   * @return the reason for the failure in ClientInfoStatus
+   */
+  public static ClientInfoStatus determineClientInfoStatus(String key, String value, Throwable e) {
+    String invalidConfigMessage = String.format("Configuration %s is not available", key);
+    String invalidValueMessage = String.format("Unsupported configuration %s=%s", key, value);
+    String errorMessage = e.getCause().getMessage();
+    if (errorMessage.contains(invalidConfigMessage))
+      return ClientInfoStatus.REASON_UNKNOWN_PROPERTY;
+    else if (errorMessage.contains(invalidValueMessage))
+      return ClientInfoStatus.REASON_VALUE_INVALID;
+    return ClientInfoStatus.REASON_UNKNOWN;
+  }
+
+  /**
+   * This function sets the session config for the given key and value. If the setting fails, the
+   * key and the reason for failure are added to the failedProperties map.
+   *
+   * @param key for the session conf
+   * @param value for the session conf
+   * @param failedProperties to add the key to, if the set command fails
+   */
+  public void setSessionConfig(
+      String key, String value, Map<String, ClientInfoStatus> failedProperties) {
+    LOGGER.debug("public void setSessionConfig(String key = {}, String value = {})", key, value);
+    try {
+      this.createStatement().execute(String.format("SET %s = %s", key, value));
+      this.session.setSessionConfig(key, value);
+    } catch (SQLException e) {
+      ClientInfoStatus status = determineClientInfoStatus(key, value, e);
+      failedProperties.put(key, status);
+    }
+  }
+
   @Override
   public void setClientInfo(String name, String value) throws SQLClientInfoException {
     LOGGER.debug("public void setClientInfo(String name = {}, String value = {})", name, value);
-    throw new UnsupportedOperationException(
-        "Not implemented in DatabricksConnection - setClientInfo(String name, String value)");
+    Map<String, ClientInfoStatus> failedProperties = new HashMap<>();
+    setSessionConfig(name, value, failedProperties);
+    if (!failedProperties.isEmpty()) {
+      throw new DatabricksSQLClientInfoException(
+          getFailedPropertiesExceptionMessage(failedProperties), failedProperties);
+    }
   }
 
   @Override
   public void setClientInfo(Properties properties) throws SQLClientInfoException {
     LOGGER.debug("public void setClientInfo(Properties properties)");
-    throw new UnsupportedOperationException(
-        "Not implemented in DatabricksConnection - setClientInfo(Properties properties)");
+    Map<String, ClientInfoStatus> failedProperties = new HashMap<>();
+    for (Map.Entry<Object, Object> entry : properties.entrySet()) {
+      setSessionConfig((String) entry.getKey(), (String) entry.getValue(), failedProperties);
+    }
+    if (!failedProperties.isEmpty()) {
+      throw new DatabricksSQLClientInfoException(
+          getFailedPropertiesExceptionMessage(failedProperties), failedProperties);
+    }
   }
 
   @Override
   public String getClientInfo(String name) throws SQLException {
     LOGGER.debug("public String getClientInfo(String name = {})", name);
-    throw new UnsupportedOperationException(
-        "Not implemented in DatabricksConnection - getClientInfo(String name)");
+    // Return session conf if set
+    if (this.session.getSessionConfigs().containsKey(name)) {
+      return this.session.getSessionConfigs().get(name);
+    }
+    // Else return default value or null if the conf name is invalid
+    return DatabricksJdbcConstants.ALLOWED_SESSION_CONF_TO_DEFAULT_VALUES_MAP.getOrDefault(
+        name, null);
   }
 
   @Override
   public Properties getClientInfo() throws SQLException {
     LOGGER.debug("public Properties getClientInfo()");
-    throw new UnsupportedOperationException(
-        "Not implemented in DatabricksConnection - getClientInfo()");
+    Properties properties = new Properties();
+    // Put in default values first
+    properties.putAll(DatabricksJdbcConstants.ALLOWED_SESSION_CONF_TO_DEFAULT_VALUES_MAP);
+    // Then override with session confs
+    properties.putAll(this.session.getSessionConfigs());
+    return properties;
   }
 
   @Override

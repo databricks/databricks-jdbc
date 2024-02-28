@@ -1,10 +1,6 @@
 package com.databricks.jdbc.core;
 
-import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
@@ -15,6 +11,7 @@ import com.databricks.jdbc.driver.DatabricksConnectionContext;
 import com.databricks.jdbc.driver.IDatabricksConnectionContext;
 import com.databricks.sdk.core.UserAgent;
 import java.sql.ResultSet;
+import java.sql.SQLClientInfoException;
 import java.sql.SQLException;
 import java.util.HashMap;
 import java.util.Map;
@@ -23,6 +20,7 @@ import java.util.stream.Collectors;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
+import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
@@ -125,5 +123,45 @@ public class DatabricksConnectionTest {
           connection.prepareStatement(
               "sql", ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
         });
+  }
+
+  @Test
+  public void testSetClientInfo() throws SQLException {
+    Properties properties = new Properties();
+    properties.put("ENABLE_PHOTON", "TRUE");
+    properties.put("TIMEZONE", "UTC");
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContext.parse(JDBC_URL, new Properties());
+    ImmutableSessionInfo session =
+        ImmutableSessionInfo.builder().warehouseId(WAREHOUSE_ID).sessionId(SESSION_ID).build();
+    when(databricksClient.createSession(WAREHOUSE_ID, null, null, new HashMap<>()))
+        .thenReturn(session);
+    DatabricksConnection connection =
+        Mockito.spy(new DatabricksConnection(connectionContext, databricksClient));
+    DatabricksStatement statement = Mockito.spy(new DatabricksStatement(connection));
+    Mockito.doReturn(statement).when(connection).createStatement();
+    Mockito.doReturn(true).when(statement).execute("SET ENABLE_PHOTON = TRUE");
+    Mockito.doReturn(true).when(statement).execute("SET TIMEZONE = UTC");
+    Mockito.doThrow(
+            new SQLException(
+                "Unable to set property",
+                new SQLException("Configuration RANDOM_CONF is not available")))
+        .when(statement)
+        .execute("SET RANDOM_CONF = UNLIMITED");
+    connection.setClientInfo(properties);
+    Properties clientInfoProperties = connection.getClientInfo();
+    // Check valid session confs are set
+    assertEquals(connection.getClientInfo("ENABLE_PHOTON"), "TRUE");
+    assertEquals(connection.getClientInfo("TIMEZONE"), "UTC");
+    assertEquals(clientInfoProperties.get("ENABLE_PHOTON"), "TRUE");
+    assertEquals(clientInfoProperties.get("TIMEZONE"), "UTC");
+    // Check conf not supplied returns default value
+    assertEquals(connection.getClientInfo("MAX_FILE_PARTITION_BYTES"), "128m");
+    assertEquals(clientInfoProperties.get("MAX_FILE_PARTITION_BYTES"), "128m");
+    // Checks for unknown conf
+    assertThrows(
+        SQLClientInfoException.class, () -> connection.setClientInfo("RANDOM_CONF", "UNLIMITED"));
+    assertNull(connection.getClientInfo("RANDOM_CONF"));
+    assertNull(clientInfoProperties.get("RANDOM_CONF"));
   }
 }

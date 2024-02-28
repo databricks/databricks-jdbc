@@ -255,7 +255,7 @@ public class DatabricksSdkClient implements DatabricksClient {
     return new PositionalStatementParameterListItem()
         .setOrdinal(parameter.cardinal())
         .setType(parameter.type())
-        .setValue(parameter.value().toString());
+        .setValue(parameter.value() != null ? parameter.value().toString() : null);
   }
 
   /** Handles a failed execution and throws appropriate exception */

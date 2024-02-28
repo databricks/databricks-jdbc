@@ -1,6 +1,6 @@
 package com.databricks.jdbc.driver;
 
-import java.util.Set;
+import java.util.Map;
 import java.util.regex.Pattern;
 
 public final class DatabricksJdbcConstants {
@@ -73,16 +73,16 @@ public final class DatabricksJdbcConstants {
   static final String CLIENT_USER_AGENT_PREFIX = "Java";
   static final String USER_AGENT_SEA_CLIENT = "SQLExecHttpClient/HC";
   static final String USER_AGENT_THRIFT_CLIENT = "THttpClient/HC";
-  static final Set<String> ALLOWED_SESSION_CONFIGS =
-      Set.of(
-          // This list comes from
-          // https://docs.databricks.com/en/sql/language-manual/sql-ref-parameters.html
-          "ANSI_MODE",
-          "ENABLE_PHOTON",
-          "LEGACY_TIME_PARSER_POLICY",
-          "MAX_FILE_PARTITION_BYTES",
-          "READ_ONLY_EXTERNAL_METASTORE",
-          "STATEMENT_TIMEOUT",
-          "TIMEZONE",
-          "USE_CACHED_RESULT");
+  public static final Map<String, String> ALLOWED_SESSION_CONF_TO_DEFAULT_VALUES_MAP =
+      // This map comes from
+      // https://docs.databricks.com/en/sql/language-manual/sql-ref-parameters.html
+      Map.of(
+          "ANSI_MODE", "TRUE",
+          "ENABLE_PHOTON", "TRUE",
+          "LEGACY_TIME_PARSER_POLICY", "EXCEPTION",
+          "MAX_FILE_PARTITION_BYTES", "128m",
+          "READ_ONLY_EXTERNAL_METASTORE", "FALSE",
+          "STATEMENT_TIMEOUT", "172800",
+          "TIMEZONE", "UTC",
+          "USE_CACHED_RESULT", "TRUE");
 }
