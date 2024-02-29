@@ -23,6 +23,7 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   private static final Logger LOGGER = LoggerFactory.getLogger(DatabricksConnectionContext.class);
   private final String host;
   private final int port;
+  private final String schema;
   private final ComputeResource computeResource;
 
   @VisibleForTesting final ImmutableMap<String, String> parameters;
@@ -45,6 +46,7 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
       String hostUrlVal = urlMatcher.group(1);
       String urlMinusHost = urlMatcher.group(2);
 
+      System.out.println("here is urlMinusHost : " + urlMinusHost);
       String[] hostAndPort = hostUrlVal.split(DatabricksJdbcConstants.PORT_DELIMITER);
       String hostValue = hostAndPort[0];
       int portValue =
@@ -54,6 +56,10 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
 
       ImmutableMap.Builder<String, String> parametersBuilder = ImmutableMap.builder();
       String[] urlParts = urlMinusHost.split(DatabricksJdbcConstants.URL_DELIMITER);
+      String schema = urlParts[0];
+      if (nullOrEmptyString(schema)) {
+        schema = DEFAULT_SCHEMA;
+      }
       for (int urlPartIndex = 1; urlPartIndex < urlParts.length; urlPartIndex++) {
         String[] pair = urlParts[urlPartIndex].split(DatabricksJdbcConstants.PAIR_DELIMITER);
         if (pair.length != 2) {
@@ -64,22 +70,24 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
       for (Map.Entry<Object, Object> entry : properties.entrySet()) {
         parametersBuilder.put(entry.getKey().toString().toLowerCase(), entry.getValue().toString());
       }
-      return new DatabricksConnectionContext(hostValue, portValue, parametersBuilder.build());
+      return new DatabricksConnectionContext(
+          hostValue, portValue, schema, parametersBuilder.build());
     } else {
       // Should never reach here, since we have already checked for url validity
       throw new IllegalArgumentException("Invalid url " + "incorrect");
     }
   }
 
-  private static void handleInvalidUrl(String url) {
-    throw new IllegalArgumentException("Invalid url incorrect");
+  private static void handleInvalidUrl(String url) throws DatabricksParsingException {
+    throw new DatabricksParsingException("Invalid url incorrect: " + url);
   }
 
   private DatabricksConnectionContext(
-      String host, int port, ImmutableMap<String, String> parameters)
+      String host, int port, String schema, ImmutableMap<String, String> parameters)
       throws DatabricksSQLException {
     this.host = host;
     this.port = port;
+    this.schema = schema;
     this.parameters = parameters;
     this.computeResource = buildCompute();
   }
@@ -253,12 +261,13 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
 
   @Override
   public String getCatalog() {
-    return getParameter(DatabricksJdbcConstants.CONN_CATALOG);
+    return Optional.ofNullable(getParameter(DatabricksJdbcConstants.CONN_CATALOG))
+        .orElse(DEFAULT_CATALOG);
   }
 
   @Override
   public String getSchema() {
-    return getParameter(DatabricksJdbcConstants.CONN_SCHEMA);
+    return Optional.ofNullable(getParameter(DatabricksJdbcConstants.CONN_SCHEMA)).orElse(schema);
   }
 
   @Override

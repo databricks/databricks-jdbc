@@ -1,5 +1,7 @@
 package com.databricks.jdbc.driver;
 
+import static com.databricks.jdbc.driver.DatabricksJdbcConstants.DEFAULT_CATALOG;
+import static com.databricks.jdbc.driver.DatabricksJdbcConstants.DEFAULT_SCHEMA;
 import static org.junit.jupiter.api.Assertions.*;
 
 import com.databricks.jdbc.core.DatabricksParsingException;
@@ -23,6 +25,9 @@ class DatabricksConnectionContextTest {
       "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/5c89f447c476a5a8;QueryResultCompressionType=1";
   private static final String VALID_URL_5 =
       "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:4473;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/5c89f447c476a5a8;QueryResultCompressionType=1";
+
+  private static final String VALID_URL_6 =
+      "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:4473/schemaName;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/5c89f447c476a5a8;ConnCatalog=catalogName;QueryResultCompressionType=1";
 
   private static final String VALID_URL_WITH_INVALID_COMPRESSION_TYPE =
       "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/5c89f447c476a5a8;QueryResultCompressionType=234";
@@ -52,6 +57,7 @@ class DatabricksConnectionContextTest {
     assertTrue(DatabricksConnectionContext.isValid(VALID_URL_3));
     assertTrue(DatabricksConnectionContext.isValid(VALID_URL_4));
     assertTrue(DatabricksConnectionContext.isValid(VALID_URL_5));
+    assertTrue(DatabricksConnectionContext.isValid(VALID_URL_6));
     assertTrue(DatabricksConnectionContext.isValid(VALID_URL_WITH_INVALID_COMPRESSION_TYPE));
     assertFalse(DatabricksConnectionContext.isValid(INVALID_URL_1));
     assertFalse(DatabricksConnectionContext.isValid(INVALID_URL_2));
@@ -123,6 +129,28 @@ class DatabricksConnectionContextTest {
         (DatabricksConnectionContext)
             DatabricksConnectionContext.parse(VALID_URL_WITH_INVALID_COMPRESSION_TYPE, properties);
     assertEquals(CompressionType.NONE, connectionContext.getCompressionType());
+  }
+
+  @Test
+  public void testFetchSchemaType() throws DatabricksSQLException {
+    DatabricksConnectionContext connectionContext =
+        (DatabricksConnectionContext) DatabricksConnectionContext.parse(VALID_URL_5, properties);
+    assertEquals(DEFAULT_SCHEMA, connectionContext.getSchema());
+
+    connectionContext =
+        (DatabricksConnectionContext) DatabricksConnectionContext.parse(VALID_URL_6, properties);
+    assertEquals("schemaName", connectionContext.getSchema());
+  }
+
+  @Test
+  public void testFetchCatalog() throws DatabricksSQLException {
+    DatabricksConnectionContext connectionContext =
+        (DatabricksConnectionContext) DatabricksConnectionContext.parse(VALID_URL_5, properties);
+    assertEquals(DEFAULT_CATALOG, connectionContext.getCatalog());
+
+    connectionContext =
+        (DatabricksConnectionContext) DatabricksConnectionContext.parse(VALID_URL_6, properties);
+    assertEquals("catalogName", connectionContext.getCatalog());
   }
 
   @Test

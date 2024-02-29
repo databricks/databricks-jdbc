@@ -31,6 +31,8 @@ public class DatabricksConnectionTest {
   private static final ComputeResource warehouse = new Warehouse(WAREHOUSE_ID);
   private static final String CATALOG = "field_demos";
   private static final String SCHEMA = "ossjdbc";
+  static final String DEFAULT_SCHEMA = "default";
+  static final String DEFAULT_CATALOG = "SPARK";
   private static final String SESSION_ID = "session_id";
   private static final Map<String, String> SESSION_CONFIGS =
       Map.of("ANSI_MODE", "TRUE", "TIMEZONE", "UTC", "MAX_FILE_PARTITION_BYTES", "64m");
@@ -52,7 +54,8 @@ public class DatabricksConnectionTest {
 
   @Test
   public void testConnection() throws Exception {
-    when(databricksClient.createSession(new Warehouse(WAREHOUSE_ID), null, null, new HashMap<>()))
+    when(databricksClient.createSession(
+            new Warehouse(WAREHOUSE_ID), DEFAULT_CATALOG, DEFAULT_SCHEMA, new HashMap<>()))
         .thenReturn(IMMUTABLE_SESSION_INFO);
     IDatabricksConnectionContext connectionContext =
         DatabricksConnectionContext.parse(JDBC_URL, new Properties());
@@ -83,7 +86,7 @@ public class DatabricksConnectionTest {
         SESSION_CONFIGS.entrySet().stream()
             .collect(Collectors.toMap(e -> e.getKey().toLowerCase(), Map.Entry::getValue));
     when(databricksClient.createSession(
-            new Warehouse(WAREHOUSE_ID), null, null, lowercaseSessionConfigs))
+            new Warehouse(WAREHOUSE_ID), DEFAULT_CATALOG, DEFAULT_SCHEMA, lowercaseSessionConfigs))
         .thenReturn(IMMUTABLE_SESSION_INFO);
     IDatabricksConnectionContext connectionContext =
         DatabricksConnectionContext.parse(SESSION_CONF_JDBC_URL, new Properties());
@@ -136,7 +139,8 @@ public class DatabricksConnectionTest {
         DatabricksConnectionContext.parse(JDBC_URL, new Properties());
     ImmutableSessionInfo session =
         ImmutableSessionInfo.builder().computeResource(warehouse).sessionId(SESSION_ID).build();
-    when(databricksClient.createSession(warehouse, null, null, new HashMap<>()))
+    when(databricksClient.createSession(
+            warehouse, DEFAULT_CATALOG, DEFAULT_SCHEMA, new HashMap<>()))
         .thenReturn(session);
     DatabricksConnection connection =
         Mockito.spy(new DatabricksConnection(connectionContext, databricksClient));

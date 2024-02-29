@@ -18,6 +18,8 @@ public final class DatabricksJdbcConstants {
   static final String SYSTEM_LOG_FILE_CONFIG = "defaultLogFile";
   static final String URL_DELIMITER = ";";
   static final String PORT_DELIMITER = ":";
+  static final String DEFAULT_SCHEMA = "default";
+  static final String DEFAULT_CATALOG = "SPARK";
   static final String PAIR_DELIMITER = "=";
   static final String TOKEN = "token";
   public static final String USER = "user";
