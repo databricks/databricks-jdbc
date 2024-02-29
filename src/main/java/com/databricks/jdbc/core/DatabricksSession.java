@@ -173,7 +173,7 @@ public class DatabricksSession implements IDatabricksSession {
   @Override
   public String toString() {
     return (new ToStringer(DatabricksSession.class))
-        .add("warehouseId", this.warehouseId)
+        .add("compute", this.computeResource.toString())
         .add("catalog", this.catalog)
         .add("schema", this.schema)
         .add("sessionID", this.getSessionId())
