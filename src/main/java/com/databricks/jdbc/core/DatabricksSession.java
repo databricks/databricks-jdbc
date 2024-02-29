@@ -9,6 +9,7 @@ import com.databricks.jdbc.core.types.CompressionType;
 import com.databricks.jdbc.core.types.ComputeResource;
 import com.databricks.jdbc.core.types.Warehouse;
 import com.databricks.jdbc.driver.IDatabricksConnectionContext;
+import com.databricks.sdk.support.ToStringer;
 import com.google.common.annotations.VisibleForTesting;
 import java.util.Map;
 import javax.annotation.Nullable;
@@ -167,6 +168,16 @@ public class DatabricksSession implements IDatabricksSession {
   public void setSchema(String schema) {
     LOGGER.debug("public void setSchema(String schema = {})", schema);
     this.schema = schema;
+  }
+
+  @Override
+  public String toString() {
+    return (new ToStringer(DatabricksSession.class))
+        .add("warehouseId", this.warehouseId)
+        .add("catalog", this.catalog)
+        .add("schema", this.schema)
+        .add("sessionID", this.getSessionId())
+        .toString();
   }
 
   @Override

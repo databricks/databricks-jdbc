@@ -51,7 +51,7 @@ public class DatabricksConnection implements IDatabricksConnection, Connection {
   }
 
   @Override
-  public Statement createStatement() throws SQLException {
+  public Statement createStatement() {
     LOGGER.debug("public Statement createStatement()");
     DatabricksStatement statement = new DatabricksStatement(this);
     statementSet.add(statement);
