@@ -9,6 +9,7 @@ import com.databricks.jdbc.commons.util.DecompressionUtil;
 import com.databricks.jdbc.core.types.CompressionType;
 import com.databricks.sdk.service.sql.BaseChunkInfo;
 import com.google.common.annotations.VisibleForTesting;
+import java.io.IOException;
 import java.io.InputStream;
 import java.nio.channels.ClosedByInterruptException;
 import java.time.Instant;
@@ -22,7 +23,7 @@ import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.ipc.ArrowStreamReader;
 import org.apache.arrow.vector.util.TransferPair;
 import org.apache.http.HttpEntity;
-import org.apache.http.HttpResponse;
+import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.utils.URIBuilder;
 import org.slf4j.Logger;
@@ -237,14 +238,15 @@ public class ArrowResultChunk {
   }
 
   void downloadData(IDatabricksHttpClient httpClient)
-      throws DatabricksHttpException, DatabricksParsingException {
+      throws DatabricksHttpException, DatabricksParsingException, IOException {
+    CloseableHttpResponse response = null;
     try {
       this.downloadStartTime = Instant.now().toEpochMilli();
       URIBuilder uriBuilder = new URIBuilder(chunkLink.getExternalLink());
       HttpGet getRequest = new HttpGet(uriBuilder.build());
       addHeaders(getRequest, chunkLink.getHttpHeaders());
       // Retry would be done in http client, we should not bother about that here
-      HttpResponse response = httpClient.execute(getRequest);
+      response = httpClient.execute(getRequest);
       checkHTTPError(response);
       HttpEntity entity = response.getEntity();
       getArrowDataFromInputStream(entity.getContent());
@@ -258,6 +260,10 @@ public class ArrowResultChunk {
       LOGGER.error(errorMessage, e);
       this.setStatus(DownloadStatus.DOWNLOAD_FAILED);
       throw new DatabricksHttpException(errorMessage, e);
+    } finally {
+      if (response != null) {
+        response.close();
+      }
     }
   }
 

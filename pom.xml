@@ -264,13 +264,14 @@
           </executions>
           <configuration>
             <excludes>
-              <exclude>**EnvironmentVariables*</exclude>
-              <exclude>**Exception*</exclude>
-              <exclude>**types/*</exclude>
-              <exclude>**/impl/thrift/*</exclude> <!--Remove this once thrift is implemented-->
-              <exclude>**client/sqlexec/*</exclude>
-              <exclude>**Constants*</exclude>
-              <exclude>**/thrift/gen-java/org/apache/hive/service/rpc/thrift/*</exclude>
+              <exclude>**/*EnvironmentVariables*</exclude>
+              <exclude>**/*Exception*</exclude>
+              <exclude>**/types/**</exclude>
+              <exclude>**/thrift/**</exclude>
+              <exclude>**/client/sqlexec/**</exclude>
+              <exclude>**/*Constants*</exclude>
+              <exclude>**/thrift/gen-java/org/apache/hive/service/rpc/thrift/**</exclude>
+              <exclude>**/*driver/DatabricksJdbcConstants*</exclude>
             </excludes>
           </configuration>
         </plugin>
