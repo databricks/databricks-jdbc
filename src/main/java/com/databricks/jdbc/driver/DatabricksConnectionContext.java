@@ -45,8 +45,6 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
     if (urlMatcher.find()) {
       String hostUrlVal = urlMatcher.group(1);
       String urlMinusHost = urlMatcher.group(2);
-
-      System.out.println("here is urlMinusHost : " + urlMinusHost);
       String[] hostAndPort = hostUrlVal.split(DatabricksJdbcConstants.PORT_DELIMITER);
       String hostValue = hostAndPort[0];
       int portValue =
