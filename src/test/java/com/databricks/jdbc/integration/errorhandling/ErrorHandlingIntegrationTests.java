@@ -57,7 +57,7 @@ public class ErrorHandlingIntegrationTests {
               Connection connection = getValidJDBCConnection();
               Statement statement = connection.createStatement();
               String sql =
-                  "INSER INTO "
+                  "INSERT INTO "
                       + getFullyQualifiedTableName(tableName)
                       + " (id, col1, col2) VALUES (1, 'value1', 'value2')";
               statement.executeQuery(sql);
