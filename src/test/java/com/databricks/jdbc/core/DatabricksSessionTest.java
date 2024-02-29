@@ -25,6 +25,8 @@ public class DatabricksSessionTest {
   private static final String JDBC_URL_INVALID =
       "jdbc:databricks://adb-565757575.18.azuredatabricks.net:4423/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehou/erg6767gg;";
   private static final String WAREHOUSE_ID = "erg6767gg";
+
+  private static final ComputeResource warehouse = new Warehouse(WAREHOUSE_ID);
   private static final String CATALOG = "field_demos";
   private static final String SCHEMA = "ossjdbc";
   private static final String SESSION_ID = "session_id";
@@ -39,9 +41,9 @@ public class DatabricksSessionTest {
   @Test
   public void testOpenAndCloseSession() throws DatabricksSQLException {
     ImmutableSessionInfo sessionInfo =
-        ImmutableSessionInfo.builder().sessionId(SESSION_ID).warehouseId(WAREHOUSE_ID).build();
+        ImmutableSessionInfo.builder().sessionId(SESSION_ID).computeResource(warehouse).build();
     when(client.createSession(eq(WAREHOUSE_COMPUTE), any(), any(), any())).thenReturn(sessionInfo);
-    when(connectionContext.getComputeResource()).thenReturn(new Warehouse(WAREHOUSE_ID));
+    when(connectionContext.getComputeResource()).thenReturn(warehouse);
     when(connectionContext.getCatalog()).thenReturn(CATALOG);
     when(connectionContext.getSchema()).thenReturn(SCHEMA);
     DatabricksSession session = new DatabricksSession(connectionContext, client);
@@ -50,7 +52,7 @@ public class DatabricksSessionTest {
     assertTrue(session.isOpen());
     assertEquals(SESSION_ID, session.getSessionId());
     assertEquals(WAREHOUSE_COMPUTE, session.getComputeResource());
-    doNothing().when(client).deleteSession(SESSION_ID, new Warehouse(WAREHOUSE_ID));
+    doNothing().when(client).deleteSession(SESSION_ID, warehouse);
     session.close();
     assertFalse(session.isOpen());
     assertNull(session.getSessionId());

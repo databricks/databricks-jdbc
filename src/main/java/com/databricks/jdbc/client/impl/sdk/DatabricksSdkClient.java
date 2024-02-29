@@ -103,7 +103,7 @@ public class DatabricksSdkClient implements DatabricksClient {
             .apiClient()
             .POST(SESSION_PATH, request, CreateSessionResponse.class, getHeaders());
     return ImmutableSessionInfo.builder()
-        .warehouseId(((Warehouse) warehouse).getWarehouseId())
+        .computeResource(warehouse)
         .sessionId(createSessionResponse.getSessionId())
         .build();
   }

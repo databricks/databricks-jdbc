@@ -6,6 +6,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 
 import com.databricks.jdbc.client.impl.sdk.DatabricksSdkClient;
+import com.databricks.jdbc.core.types.ComputeResource;
 import com.databricks.jdbc.core.types.Warehouse;
 import com.databricks.jdbc.driver.DatabricksConnectionContext;
 import com.databricks.jdbc.driver.IDatabricksConnectionContext;
@@ -27,6 +28,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 public class DatabricksConnectionTest {
 
   private static final String WAREHOUSE_ID = "erg6767gg";
+  private static final ComputeResource warehouse = new Warehouse(WAREHOUSE_ID);
   private static final String CATALOG = "field_demos";
   private static final String SCHEMA = "ossjdbc";
   private static final String SESSION_ID = "session_id";
@@ -45,7 +47,7 @@ public class DatabricksConnectionTest {
               .map(e -> e.getKey() + "=" + e.getValue())
               .collect(Collectors.joining(";")));
   private static final ImmutableSessionInfo IMMUTABLE_SESSION_INFO =
-      ImmutableSessionInfo.builder().warehouseId(WAREHOUSE_ID).sessionId(SESSION_ID).build();
+      ImmutableSessionInfo.builder().computeResource(warehouse).sessionId(SESSION_ID).build();
   @Mock DatabricksSdkClient databricksClient;
 
   @Test
@@ -93,7 +95,7 @@ public class DatabricksConnectionTest {
   @Test
   public void testStatement() throws Exception {
     ImmutableSessionInfo session =
-        ImmutableSessionInfo.builder().warehouseId(WAREHOUSE_ID).sessionId(SESSION_ID).build();
+        ImmutableSessionInfo.builder().computeResource(warehouse).sessionId(SESSION_ID).build();
     when(databricksClient.createSession(eq(new Warehouse(WAREHOUSE_ID)), any(), any(), any()))
         .thenReturn(session);
     IDatabricksConnectionContext connectionContext =
@@ -133,8 +135,8 @@ public class DatabricksConnectionTest {
     IDatabricksConnectionContext connectionContext =
         DatabricksConnectionContext.parse(JDBC_URL, new Properties());
     ImmutableSessionInfo session =
-        ImmutableSessionInfo.builder().warehouseId(WAREHOUSE_ID).sessionId(SESSION_ID).build();
-    when(databricksClient.createSession(WAREHOUSE_ID, null, null, new HashMap<>()))
+        ImmutableSessionInfo.builder().computeResource(warehouse).sessionId(SESSION_ID).build();
+    when(databricksClient.createSession(warehouse, null, null, new HashMap<>()))
         .thenReturn(session);
     DatabricksConnection connection =
         Mockito.spy(new DatabricksConnection(connectionContext, databricksClient));
