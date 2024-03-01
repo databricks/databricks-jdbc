@@ -6,6 +6,7 @@ import com.databricks.jdbc.core.IDatabricksSession;
 import com.databricks.jdbc.core.IDatabricksStatement;
 import com.databricks.jdbc.core.ImmutableSessionInfo;
 import com.databricks.jdbc.core.ImmutableSqlParameter;
+import com.databricks.jdbc.core.types.ComputeResource;
 import java.sql.SQLException;
 import java.util.Collection;
 import java.util.Map;
@@ -23,7 +24,10 @@ public interface DatabricksClient {
    * @return created session
    */
   ImmutableSessionInfo createSession(
-      String warehouseId, String catalog, String schema, Map<String, String> sessionConf);
+      ComputeResource computeResource,
+      String catalog,
+      String schema,
+      Map<String, String> sessionConf);
 
   /**
    * Deletes a session for given session-Id
@@ -31,7 +35,7 @@ public interface DatabricksClient {
    * @param sessionId for which the session should be deleted
    * @param warehouseId underlying warehouse-Id
    */
-  void deleteSession(String sessionId, String warehouseId);
+  void deleteSession(String sessionId, ComputeResource computeResource);
 
   /**
    * Executes a statement in Databricks server
@@ -46,7 +50,7 @@ public interface DatabricksClient {
    */
   DatabricksResultSet executeStatement(
       String sql,
-      String warehouseId,
+      ComputeResource computeResource,
       Map<Integer, ImmutableSqlParameter> parameters,
       StatementType statementType,
       IDatabricksSession session,

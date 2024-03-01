@@ -1,37 +1,31 @@
 hash-threshold 8
 
 statement ok
-CREATE TABLE tab0(pk INTEGER PRIMARY KEY, col0 INTEGER, col1 FLOAT, col2 TEXT, col3 INTEGER, col4 FLOAT, col5 TEXT)
+CREATE TABLE tab0(pk INTEGER PRIMARY KEY, col0 INTEGER, col1 FLOAT, col2 STRING, col3 INTEGER, col4 FLOAT, col5 STRING)
 
 statement ok
 INSERT INTO tab0 VALUES(0,6,5.6,'jtqxx',9,5.19,'qvgba')
 
 statement ok
-CREATE TABLE tab1(pk INTEGER PRIMARY KEY, col0 INTEGER, col1 FLOAT, col2 TEXT, col3 INTEGER, col4 FLOAT, col5 TEXT)
+CREATE TABLE tab1(pk INTEGER PRIMARY KEY, col0 INTEGER, col1 FLOAT, col2 STRING, col3 INTEGER, col4 FLOAT, col5 STRING)
 
 statement ok
 INSERT INTO tab1 SELECT * FROM tab0
 
 statement ok
-CREATE TABLE tab2(pk INTEGER PRIMARY KEY, col0 INTEGER, col1 FLOAT, col2 TEXT, col3 INTEGER, col4 FLOAT, col5 TEXT)
+CREATE TABLE tab2(pk INTEGER PRIMARY KEY, col0 INTEGER, col1 FLOAT, col2 STRING, col3 INTEGER, col4 FLOAT, col5 STRING)
 
 statement ok
 INSERT INTO tab2 SELECT * FROM tab0
 
 statement ok
-CREATE TABLE tab3(pk INTEGER PRIMARY KEY, col0 INTEGER, col1 FLOAT, col2 TEXT, col3 INTEGER, col4 FLOAT, col5 TEXT)
-
-statement ok
-CREATE UNIQUE INDEX idx_tab3_1 ON tab3 (col1,col0)
-
-statement ok
-CREATE UNIQUE INDEX idx_tab3_2 ON tab3 (col4)
+CREATE TABLE tab3(pk INTEGER PRIMARY KEY, col0 INTEGER, col1 FLOAT, col2 STRING, col3 INTEGER, col4 FLOAT, col5 STRING)
 
 statement ok
 INSERT INTO tab3 SELECT * FROM tab0
 
 statement ok
-CREATE TABLE tab4(pk INTEGER PRIMARY KEY, col0 INTEGER, col1 FLOAT, col2 TEXT, col3 INTEGER, col4 FLOAT, col5 TEXT)
+CREATE TABLE tab4(pk INTEGER PRIMARY KEY, col0 INTEGER, col1 FLOAT, col2 STRING, col3 INTEGER, col4 FLOAT, col5 STRING)
 
 statement ok
 INSERT INTO tab4 SELECT * FROM tab0

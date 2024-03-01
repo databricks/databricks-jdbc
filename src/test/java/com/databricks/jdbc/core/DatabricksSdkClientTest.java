@@ -15,6 +15,8 @@ import com.databricks.jdbc.client.sqlexec.ExecuteStatementRequest;
 import com.databricks.jdbc.client.sqlexec.ExecuteStatementResponse;
 import com.databricks.jdbc.client.sqlexec.ResultData;
 import com.databricks.jdbc.client.sqlexec.ResultManifest;
+import com.databricks.jdbc.core.types.ComputeResource;
+import com.databricks.jdbc.core.types.Warehouse;
 import com.databricks.jdbc.driver.DatabricksConnectionContext;
 import com.databricks.jdbc.driver.IDatabricksConnectionContext;
 import com.databricks.sdk.core.ApiClient;
@@ -33,6 +35,7 @@ public class DatabricksSdkClientTest {
   @Mock ResultData resultData;
 
   private static final String WAREHOUSE_ID = "erg6767gg";
+  private static final ComputeResource warehouse = new Warehouse(WAREHOUSE_ID);
   private static final String SESSION_ID = "session_id";
   private static final String STATEMENT_ID = "statement_id";
   private static final String STATEMENT =
@@ -107,16 +110,16 @@ public class DatabricksSdkClientTest {
   }
 
   @Test
-  public void testCreateSession() {
+  public void testCreateSession() throws DatabricksSQLException {
     setupSessionMocks();
     IDatabricksConnectionContext connectionContext =
         DatabricksConnectionContext.parse(JDBC_URL, new Properties());
     DatabricksSdkClient databricksSdkClient =
         new DatabricksSdkClient(connectionContext, statementExecutionService, apiClient);
     ImmutableSessionInfo sessionInfo =
-        databricksSdkClient.createSession(WAREHOUSE_ID, null, null, null);
+        databricksSdkClient.createSession(warehouse, null, null, null);
     assertEquals(sessionInfo.sessionId(), SESSION_ID);
-    assertEquals(sessionInfo.warehouseId(), WAREHOUSE_ID);
+    assertEquals(sessionInfo.computeResource(), warehouse);
   }
 
   @Test
@@ -143,7 +146,7 @@ public class DatabricksSdkClientTest {
     DatabricksResultSet resultSet =
         databricksSdkClient.executeStatement(
             STATEMENT,
-            WAREHOUSE_ID,
+            warehouse,
             sqlParams,
             StatementType.QUERY,
             connection.getSession(),

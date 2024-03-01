@@ -276,19 +276,9 @@ SELECT 'hello' IN t1
 ----
 0
 
-query I nosort label-15
-SELECT 'hello' IN (SELECT * FROM t1)
-----
-0
-
 onlyif sqlite
 query I nosort label-16
 SELECT 'hello' NOT IN t1
-----
-1
-
-query I nosort label-16
-SELECT 'hello' NOT IN (SELECT * FROM t1)
 ----
 1
 

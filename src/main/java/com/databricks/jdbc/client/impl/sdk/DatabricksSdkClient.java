@@ -15,6 +15,8 @@ import com.databricks.jdbc.client.sqlexec.ExternalLink;
 import com.databricks.jdbc.client.sqlexec.GetStatementResponse;
 import com.databricks.jdbc.client.sqlexec.ResultData;
 import com.databricks.jdbc.core.*;
+import com.databricks.jdbc.core.types.ComputeResource;
+import com.databricks.jdbc.core.types.Warehouse;
 import com.databricks.jdbc.driver.IDatabricksConnectionContext;
 import com.databricks.sdk.WorkspaceClient;
 import com.databricks.sdk.core.ApiClient;
@@ -93,15 +95,16 @@ public class DatabricksSdkClient implements DatabricksClient {
 
   @Override
   public ImmutableSessionInfo createSession(
-      String warehouseId, String catalog, String schema, Map<String, String> sessionConf) {
+      ComputeResource warehouse, String catalog, String schema, Map<String, String> sessionConf) {
     LOGGER.debug(
         "public Session createSession(String warehouseId = {}, String catalog = {}, String schema = {}, Map<String, String> sessionConf = {})",
-        warehouseId,
+        ((Warehouse) warehouse).getWarehouseId(),
         catalog,
         schema,
         sessionConf);
     // TODO: [PECO-1460] Handle sessionConf in public session API
-    CreateSessionRequest request = new CreateSessionRequest().setWarehouseId(warehouseId);
+    CreateSessionRequest request =
+        new CreateSessionRequest().setWarehouseId(((Warehouse) warehouse).getWarehouseId());
     if (catalog != null) {
       request.setCatalog(catalog);
     }
@@ -116,16 +119,18 @@ public class DatabricksSdkClient implements DatabricksClient {
             .apiClient()
             .POST(SESSION_PATH, request, CreateSessionResponse.class, getHeaders());
     return ImmutableSessionInfo.builder()
-        .warehouseId(warehouseId)
+        .computeResource(warehouse)
         .sessionId(createSessionResponse.getSessionId())
         .build();
   }
 
   @Override
-  public void deleteSession(String sessionId, String warehouseId) {
+  public void deleteSession(String sessionId, ComputeResource warehouse) {
     LOGGER.debug("public void deleteSession(String sessionId = {})", sessionId);
     DeleteSessionRequest request =
-        new DeleteSessionRequest().setSessionId(sessionId).setWarehouseId(warehouseId);
+        new DeleteSessionRequest()
+            .setSessionId(sessionId)
+            .setWarehouseId(((Warehouse) warehouse).getWarehouseId());
     String path = String.format(SESSION_PATH_WITH_ID, request.getSessionId());
     Map<String, String> headers = new HashMap<>();
     workspaceClient.apiClient().DELETE(path, request, Void.class, headers);
@@ -134,22 +139,28 @@ public class DatabricksSdkClient implements DatabricksClient {
   @Override
   public DatabricksResultSet executeStatement(
       String sql,
-      String warehouseId,
+      ComputeResource computeResource,
       Map<Integer, ImmutableSqlParameter> parameters,
       StatementType statementType,
       IDatabricksSession session,
       IDatabricksStatement parentStatement)
       throws SQLException {
     LOGGER.debug(
-        "public DatabricksResultSet executeStatement(String sql = {}, String warehouseId = {}, Map<Integer, ImmutableSqlParameter> parameters, StatementType statementType = {}, IDatabricksSession session)",
+        "public DatabricksResultSet executeStatement(String sql = {}, compute resource = {}, Map<Integer, ImmutableSqlParameter> parameters, StatementType statementType = {}, IDatabricksSession session)",
         sql,
-        warehouseId,
+        computeResource.toString(),
         statementType);
 
     long pollCount = 0;
     long executionStartTime = Instant.now().toEpochMilli();
     ExecuteStatementRequest request =
-        getRequest(statementType, sql, warehouseId, session, parameters, parentStatement);
+        getRequest(
+            statementType,
+            sql,
+            ((Warehouse) computeResource).getWarehouseId(),
+            session,
+            parameters,
+            parentStatement);
     ExecuteStatementResponse response =
         workspaceClient
             .apiClient()
@@ -260,7 +271,7 @@ public class DatabricksSdkClient implements DatabricksClient {
     return new PositionalStatementParameterListItem()
         .setOrdinal(parameter.cardinal())
         .setType(parameter.type())
-        .setValue(parameter.value().toString());
+        .setValue(parameter.value() != null ? parameter.value().toString() : null);
   }
 
   /** Handles a failed execution and throws appropriate exception */

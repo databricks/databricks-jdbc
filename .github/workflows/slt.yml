@@ -31,4 +31,4 @@ jobs:
     - name: Build with Maven
       run: mvn -B package --file pom.xml
     - name: Run SQL Logic Tests
-      run: mvn exec:java -Dexec.mainClass="com.databricks.jdbc.sqllogictest.SLTMain" -Dexec.args="-e dbsql -p ${{ inputs.token }}" -Dexec.classpathScope=test
+      run: mvn exec:exec -Dslt.token=${{ inputs.token }}

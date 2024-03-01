@@ -31,6 +31,7 @@ public class SLTMain {
       System.err.println("SQL Logic tests directory not found");
       return null;
     }
+    // TODO: Add these files back once getTables is supported for views
     Set<String> testFilesToSkip =
         Set.of(
             "sqllogictest/evidence/slt_lang_createview.test",

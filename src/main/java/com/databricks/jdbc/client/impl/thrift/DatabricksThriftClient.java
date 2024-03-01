@@ -5,26 +5,38 @@ import com.databricks.jdbc.client.DatabricksMetadataClient;
 import com.databricks.jdbc.client.StatementType;
 import com.databricks.jdbc.client.sqlexec.ExternalLink;
 import com.databricks.jdbc.core.*;
+import com.databricks.jdbc.core.types.ComputeResource;
+import com.databricks.jdbc.driver.IDatabricksConnectionContext;
 import java.sql.SQLException;
 import java.util.Collection;
 import java.util.Map;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class DatabricksThriftClient implements DatabricksClient, DatabricksMetadataClient {
+
+  private static final Logger LOGGER = LoggerFactory.getLogger(DatabricksThriftClient.class);
+  private final IDatabricksConnectionContext connectionContext;
+
   @Override
   public ImmutableSessionInfo createSession(
-      String warehouseId, String catalog, String schema, Map<String, String> sessionConf) {
+      ComputeResource cluster, String catalog, String schema, Map<String, String> sessionConf) {
     throw new UnsupportedOperationException();
   }
 
+  public DatabricksThriftClient(IDatabricksConnectionContext connectionContext) {
+    this.connectionContext = connectionContext;
+  }
+
   @Override
-  public void deleteSession(String sessionId, String warehouseId) {
+  public void deleteSession(String sessionId, ComputeResource cluster) {
     throw new UnsupportedOperationException();
   }
 
   @Override
   public DatabricksResultSet executeStatement(
       String sql,
-      String warehouseId,
+      ComputeResource computeResource,
       Map<Integer, ImmutableSqlParameter> parameters,
       StatementType statementType,
       IDatabricksSession session,

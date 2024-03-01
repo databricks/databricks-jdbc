@@ -43,7 +43,6 @@ public class DatabricksNewMetadataSdkClient implements DatabricksMetadataClient 
     CommandBuilder commandBuilder = new CommandBuilder(session);
     String SQL = commandBuilder.getSQLString(CommandName.LIST_CATALOGS);
     LOGGER.debug("SQL command to fetch catalogs: {}", SQL);
-    ResultSet resultSet = getResultSet(SQL, session);
     return MetadataResultSetBuilder.getCatalogsResult(getResultSet(SQL, session));
   }
 
@@ -122,7 +121,7 @@ public class DatabricksNewMetadataSdkClient implements DatabricksMetadataClient 
   private ResultSet getResultSet(String SQL, IDatabricksSession session) throws SQLException {
     return sdkClient.executeStatement(
         SQL,
-        session.getWarehouseId(),
+        session.getComputeResource(),
         new HashMap<Integer, ImmutableSqlParameter>(),
         StatementType.METADATA,
         session,

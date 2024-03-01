@@ -437,7 +437,7 @@ public class DatabricksStatement implements IDatabricksStatement, Statement {
     DatabricksClient client = connection.getSession().getDatabricksClient();
     return client.executeStatement(
         sql,
-        connection.getSession().getWarehouseId(),
+        connection.getSession().getComputeResource(),
         params,
         statementType,
         connection.getSession(),

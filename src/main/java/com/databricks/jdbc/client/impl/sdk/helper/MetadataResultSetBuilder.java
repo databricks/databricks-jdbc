@@ -45,7 +45,7 @@ public class MetadataResultSetBuilder {
 
   public static DatabricksResultSet getPrimaryKeysResult(ResultSet resultSet) throws SQLException {
     List<List<Object>> rows = getRows(resultSet, PRIMARY_KEYS_COLUMNS);
-    return buildResultSet(PRIMARY_KEYS_COLUMNS, rows, GET_TABLES_STATEMENT_ID);
+    return buildResultSet(PRIMARY_KEYS_COLUMNS, rows, METADATA_STATEMENT_ID);
   }
 
   private static List<List<Object>> getRows(ResultSet resultSet, List<ResultColumn> columns)

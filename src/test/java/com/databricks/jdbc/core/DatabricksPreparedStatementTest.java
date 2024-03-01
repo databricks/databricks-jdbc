@@ -7,6 +7,7 @@ import static org.mockito.Mockito.when;
 
 import com.databricks.jdbc.client.StatementType;
 import com.databricks.jdbc.client.impl.sdk.DatabricksSdkClient;
+import com.databricks.jdbc.core.types.Warehouse;
 import com.databricks.jdbc.driver.DatabricksConnectionContext;
 import com.databricks.jdbc.driver.IDatabricksConnectionContext;
 import java.util.HashMap;
@@ -51,7 +52,7 @@ public class DatabricksPreparedStatementTest {
         };
     when(client.executeStatement(
             eq(STATEMENT),
-            eq(WAREHOUSE_ID),
+            eq(new Warehouse(WAREHOUSE_ID)),
             any(HashMap.class),
             eq(StatementType.QUERY),
             any(IDatabricksSession.class),
@@ -75,7 +76,7 @@ public class DatabricksPreparedStatementTest {
     when(resultSet.getUpdateCount()).thenReturn(2L);
     when(client.executeStatement(
             eq(STATEMENT),
-            eq(WAREHOUSE_ID),
+            eq(new Warehouse(WAREHOUSE_ID)),
             eq(new HashMap<Integer, ImmutableSqlParameter>()),
             eq(StatementType.UPDATE),
             any(IDatabricksSession.class),

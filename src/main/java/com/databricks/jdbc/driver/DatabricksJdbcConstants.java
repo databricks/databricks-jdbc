@@ -7,8 +7,9 @@ public final class DatabricksJdbcConstants {
 
   static final Pattern JDBC_URL_PATTERN =
       Pattern.compile("jdbc:databricks://([^/;]*)(?::\\d+)?/*(.*)");
-  static final Pattern HTTP_PATH_PATTERN = Pattern.compile(".*/warehouses/(.*)");
-  static final Pattern HTTP_PATH_SQL_PATTERN = Pattern.compile("sql/(.*)");
+  static final Pattern HTTP_WAREHOUSE_PATH_PATTERN = Pattern.compile(".*/warehouses/(.+)");
+  static final Pattern TEST_PATH_PATTERN = Pattern.compile("jdbc:databricks://test");
+  static final Pattern HTTP_CLUSTER_PATH_PATTERN = Pattern.compile(".*/o/(.+)/(.+)");
   public static final String JDBC_SCHEMA = "jdbc:databricks://";
   static final String DEFAULT_LOG_LEVEL = "INFO";
   static final String LOG_LEVEL = "loglevel";
@@ -17,6 +18,8 @@ public final class DatabricksJdbcConstants {
   static final String SYSTEM_LOG_FILE_CONFIG = "defaultLogFile";
   static final String URL_DELIMITER = ";";
   static final String PORT_DELIMITER = ":";
+  static final String DEFAULT_SCHEMA = "default";
+  static final String DEFAULT_CATALOG = "SPARK";
   static final String PAIR_DELIMITER = "=";
   static final String TOKEN = "token";
   public static final String USER = "user";
@@ -47,9 +50,6 @@ public final class DatabricksJdbcConstants {
   static final String USE_SYSTEM_PROXY = "usesystemproxy";
 
   static final String AUTH_FLOW = "auth_flow";
-
-  // Only used when AUTH_MECH = 11
-  static final String AUTH_ACCESSTOKEN = "auth_accesstoken";
 
   // Only used when AUTH_MECH = 3
   static final String UID = "uid";

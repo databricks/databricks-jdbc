@@ -17,6 +17,7 @@ import org.apache.http.auth.AuthScope;
 import org.apache.http.auth.UsernamePasswordCredentials;
 import org.apache.http.client.CredentialsProvider;
 import org.apache.http.client.config.RequestConfig;
+import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpUriRequest;
 import org.apache.http.client.protocol.HttpClientContext;
 import org.apache.http.impl.client.BasicCredentialsProvider;
@@ -159,7 +160,7 @@ public class DatabricksHttpClient implements IDatabricksHttpClient {
   }
 
   @Override
-  public HttpResponse execute(HttpUriRequest request) throws DatabricksHttpException {
+  public CloseableHttpResponse execute(HttpUriRequest request) throws DatabricksHttpException {
     LOGGER.debug("Executing HTTP request [{}]", RequestSanitizer.sanitizeRequest(request));
     // TODO: add retries and error handling
     try {

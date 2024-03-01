@@ -6,7 +6,10 @@ import static org.mockito.Mockito.when;
 
 import com.databricks.jdbc.client.impl.sdk.DatabricksSdkClient;
 import com.databricks.jdbc.core.DatabricksConnection;
+import com.databricks.jdbc.core.DatabricksSQLException;
 import com.databricks.jdbc.core.ImmutableSessionInfo;
+import com.databricks.jdbc.core.types.ComputeResource;
+import com.databricks.jdbc.core.types.Warehouse;
 import com.databricks.jdbc.driver.DatabricksConnectionContext;
 import com.databricks.jdbc.driver.IDatabricksConnectionContext;
 import java.sql.Connection;
@@ -30,12 +33,13 @@ public class DatabricksConnectionPoolingTest {
   private static final String JDBC_URL =
       "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/791ba2a31c7fd70a;";
   private static final String WAREHOUSE_ID = "791ba2a31c7fd70a";
+  private static final ComputeResource warehouse = new Warehouse(WAREHOUSE_ID);
   private static final String SESSION_ID = "session_id";
   @Mock private static DatabricksSdkClient databricksClient;
   private static IDatabricksConnectionContext connectionContext;
 
   @BeforeAll
-  public static void setUp() {
+  public static void setUp() throws DatabricksSQLException {
     connectionContext = DatabricksConnectionContext.parse(JDBC_URL, new Properties());
   }
 
@@ -44,8 +48,9 @@ public class DatabricksConnectionPoolingTest {
     DatabricksConnectionPoolDataSource poolDataSource =
         Mockito.mock(DatabricksConnectionPoolDataSource.class);
     ImmutableSessionInfo session =
-        ImmutableSessionInfo.builder().warehouseId(WAREHOUSE_ID).sessionId(SESSION_ID).build();
-    when(databricksClient.createSession(eq(WAREHOUSE_ID), any(), any(), any())).thenReturn(session);
+        ImmutableSessionInfo.builder().computeResource(warehouse).sessionId(SESSION_ID).build();
+    when(databricksClient.createSession(eq(new Warehouse(WAREHOUSE_ID)), any(), any(), any()))
+        .thenReturn(session);
 
     DatabricksConnection databricksConnection =
         new DatabricksConnection(connectionContext, databricksClient);
@@ -75,8 +80,9 @@ public class DatabricksConnectionPoolingTest {
     DatabricksConnectionPoolDataSource poolDataSource =
         Mockito.mock(DatabricksConnectionPoolDataSource.class);
     ImmutableSessionInfo session =
-        ImmutableSessionInfo.builder().warehouseId(WAREHOUSE_ID).sessionId(SESSION_ID).build();
-    when(databricksClient.createSession(eq(WAREHOUSE_ID), any(), any(), any())).thenReturn(session);
+        ImmutableSessionInfo.builder().computeResource(warehouse).sessionId(SESSION_ID).build();
+    when(databricksClient.createSession(eq(new Warehouse(WAREHOUSE_ID)), any(), any(), any()))
+        .thenReturn(session);
 
     DatabricksConnection databricksConnection =
         new DatabricksConnection(connectionContext, databricksClient);

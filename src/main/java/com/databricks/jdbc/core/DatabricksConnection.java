@@ -30,14 +30,16 @@ public class DatabricksConnection implements IDatabricksConnection, Connection {
    *
    * @param connectionContext underlying connection context
    */
-  public DatabricksConnection(IDatabricksConnectionContext connectionContext) {
+  public DatabricksConnection(IDatabricksConnectionContext connectionContext)
+      throws DatabricksSQLException {
     this.session = new DatabricksSession(connectionContext);
     this.session.open();
   }
 
   @VisibleForTesting
   public DatabricksConnection(
-      IDatabricksConnectionContext connectionContext, DatabricksClient databricksClient) {
+      IDatabricksConnectionContext connectionContext, DatabricksClient databricksClient)
+      throws DatabricksSQLException {
     this.session = new DatabricksSession(connectionContext, databricksClient);
     this.session.open();
     new DatabricksDriver().setUserAgent(connectionContext);
@@ -49,7 +51,7 @@ public class DatabricksConnection implements IDatabricksConnection, Connection {
   }
 
   @Override
-  public Statement createStatement() throws SQLException {
+  public Statement createStatement() {
     LOGGER.debug("public Statement createStatement()");
     DatabricksStatement statement = new DatabricksStatement(this);
     statementSet.add(statement);

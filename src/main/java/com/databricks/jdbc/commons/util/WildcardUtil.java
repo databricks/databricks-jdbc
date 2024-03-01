@@ -47,4 +47,43 @@ public class WildcardUtil {
     }
     return false;
   }
+
+  public static String jdbcPatternToHive(String pattern) {
+    if (pattern == null) {
+      return null;
+    }
+    StringBuilder builder = new StringBuilder();
+    boolean escapeNext = false; // Flag to check if the next character is escaped
+    for (int i = 0; i < pattern.length(); i++) {
+      char ch = pattern.charAt(i);
+
+      if (ch == '\\') {
+        // Check if it's an escaped backslash
+        if (i + 1 < pattern.length() && pattern.charAt(i + 1) == '\\') {
+          builder.append("\\\\");
+          i++; // Skip the next backslash since it's part of the escape sequence
+        } else {
+          escapeNext = !escapeNext; // Toggle escape state for next character
+        }
+      } else if (escapeNext) {
+        // If the current character is escaped, add it directly
+        builder.append(ch);
+        escapeNext = false; // Reset escape state
+      } else {
+        // Handle unescaped wildcards
+        switch (ch) {
+          case '%':
+            builder.append("*");
+            break;
+          case '_':
+            builder.append(".");
+            break;
+          default:
+            builder.append(ch);
+            break;
+        }
+      }
+    }
+    return builder.toString();
+  }
 }
