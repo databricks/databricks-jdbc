@@ -8,6 +8,8 @@ import java.sql.SQLException;
 /** Utility class to support integration tests * */
 public class IntegrationTestUtil {
 
+  private static Connection JDBCConnection;
+
   public static String getDatabricksHost() {
     // includes port
     return System.getenv("DATABRICKS_HOST");
@@ -49,9 +51,8 @@ public class IntegrationTestUtil {
 
   public static boolean executeSQL(String sql) {
     try {
-      Connection conn = getValidJDBCConnection();
-      conn.createStatement().execute(sql);
-      conn.close();
+      if (JDBCConnection == null) JDBCConnection = getValidJDBCConnection();
+      JDBCConnection.createStatement().execute(sql);
       return true;
     } catch (SQLException e) {
       System.out.println("Error executing SQL: " + e.getMessage());
@@ -61,9 +62,8 @@ public class IntegrationTestUtil {
 
   public static ResultSet executeQuery(String sql) {
     try {
-      Connection conn = getValidJDBCConnection();
-      ResultSet rs = conn.createStatement().executeQuery(sql);
-      conn.close();
+      if (JDBCConnection == null) JDBCConnection = getValidJDBCConnection();
+      ResultSet rs = JDBCConnection.createStatement().executeQuery(sql);
       return rs;
     } catch (SQLException e) {
       System.out.println("Error executing SQL: " + e.getMessage());
