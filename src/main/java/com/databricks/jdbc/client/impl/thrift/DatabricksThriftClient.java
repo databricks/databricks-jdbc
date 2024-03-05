@@ -19,7 +19,13 @@ public class DatabricksThriftClient implements DatabricksClient, DatabricksMetad
 
   private static final Logger LOGGER = LoggerFactory.getLogger(DatabricksThriftClient.class);
   private final IDatabricksConnectionContext connectionContext;
+
   private final ThriftAccessor thriftAccessor;
+
+  public DatabricksThriftClient(IDatabricksConnectionContext connectionContext) {
+    this.connectionContext = connectionContext;
+    this.thriftAccessor = new ThriftAccessor(connectionContext);
+  }
 
   private TNamespace getNamespace(String catalog, String schema) {
     return new TNamespace().setCatalogName(catalog).setSchemaName(schema);
@@ -42,11 +48,6 @@ public class DatabricksThriftClient implements DatabricksClient, DatabricksMetad
         .sessionId(response.sessionHandle.getSessionId().guid.toString())
         .computeResource(cluster)
         .build();
-  }
-
-  public DatabricksThriftClient(IDatabricksConnectionContext connectionContext) {
-    this.connectionContext = connectionContext;
-    this.thriftAccessor = new ThriftAccessor(connectionContext);
   }
 
   @Override

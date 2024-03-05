@@ -7,35 +7,38 @@ import com.databricks.jdbc.commons.CommandName;
 import com.databricks.jdbc.core.DatabricksSQLException;
 import com.databricks.jdbc.core.DatabricksSQLFeatureNotSupportedException;
 import com.databricks.jdbc.driver.IDatabricksConnectionContext;
-import java.util.Map;
+import com.databricks.sdk.core.DatabricksConfig;
 import org.apache.thrift.TBase;
 import org.apache.thrift.TException;
 import org.apache.thrift.protocol.TBinaryProtocol;
-import org.apache.thrift.transport.TTransport;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class ThriftAccessor {
 
   private static final Logger LOGGER = LoggerFactory.getLogger(ThriftAccessor.class);
-  private final TCLIService.Client client;
-
-  private static Map<String, String> getThriftHeaders() {
-    return Map.of(
-        "Accept", "application/json",
-        "Content-Type", "application/x-thrift");
-  }
+  private DatabricksHttpTTransport transport;
+  private final DatabricksConfig databricksConfig;
 
   public ThriftAccessor(IDatabricksConnectionContext connectionContext) {
-    TTransport transport =
+    this.transport =
         new DatabricksHttpTTransport(
             DatabricksHttpClient.getInstance(), connectionContext.getHostUrl());
-    TBinaryProtocol protocol = new TBinaryProtocol(transport);
-    this.client = new TCLIService.Client(protocol);
+    this.databricksConfig =
+        new DatabricksConfig()
+            .setHost(connectionContext.getHostUrl())
+            .setToken(connectionContext.getToken());
   }
 
   public TBase getThriftResponse(TBase request, CommandName commandName)
       throws DatabricksSQLException {
+    LOGGER.debug(
+        "Fetching thrift response for request {}, CommandName {}",
+        request.toString(),
+        commandName.name());
+    transport.setCustomHeaders(databricksConfig.authenticate());
+    TBinaryProtocol protocol = new TBinaryProtocol(transport);
+    TCLIService.Client client = new TCLIService.Client(protocol);
     try {
       switch (commandName) {
         case OPEN_SESSION:
