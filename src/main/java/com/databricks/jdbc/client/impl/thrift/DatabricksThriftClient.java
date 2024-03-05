@@ -15,15 +15,15 @@ import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+/*TODO : add all debug logs and implementations*/
+
 public class DatabricksThriftClient implements DatabricksClient, DatabricksMetadataClient {
 
   private static final Logger LOGGER = LoggerFactory.getLogger(DatabricksThriftClient.class);
-  private final IDatabricksConnectionContext connectionContext;
 
   private final ThriftAccessor thriftAccessor;
 
   public DatabricksThriftClient(IDatabricksConnectionContext connectionContext) {
-    this.connectionContext = connectionContext;
     this.thriftAccessor = new ThriftAccessor(connectionContext);
   }
 
@@ -35,6 +35,12 @@ public class DatabricksThriftClient implements DatabricksClient, DatabricksMetad
   public ImmutableSessionInfo createSession(
       ComputeResource cluster, String catalog, String schema, Map<String, String> sessionConf)
       throws DatabricksSQLException {
+    LOGGER.debug(
+        "public Session createSession(Compute cluster = {}, String catalog = {}, String schema = {}, Map<String, String> sessionConf = {})",
+        cluster.toString(),
+        catalog,
+        schema,
+        sessionConf);
     TOpenSessionReq openSessionReq =
         new TOpenSessionReq()
             .setInitialNamespace(getNamespace(catalog, schema))
@@ -52,6 +58,10 @@ public class DatabricksThriftClient implements DatabricksClient, DatabricksMetad
 
   @Override
   public void deleteSession(String sessionId, ComputeResource cluster) {
+    LOGGER.debug(
+        "public void deleteSession(Compute cluster = {}, String sessionId = {})",
+        cluster.toString(),
+        sessionId);
     throw new UnsupportedOperationException();
   }
 
@@ -64,16 +74,27 @@ public class DatabricksThriftClient implements DatabricksClient, DatabricksMetad
       IDatabricksSession session,
       IDatabricksStatement parentStatement)
       throws SQLException {
+    LOGGER.debug(
+        "public DatabricksResultSet executeStatement(String sql = {}, Compute cluster = {}, Map<Integer, ImmutableSqlParameter> parameters, StatementType statementType = {}, IDatabricksSession session)",
+        sql,
+        computeResource.toString(),
+        statementType);
     throw new UnsupportedOperationException();
   }
 
   @Override
   public void closeStatement(String statementId) {
+    LOGGER.debug(
+        "public void closeStatement(String statementId = {}) for all purpose cluster", statementId);
     throw new UnsupportedOperationException();
   }
 
   @Override
   public Collection<ExternalLink> getResultChunks(String statementId, long chunkIndex) {
+    LOGGER.debug(
+        "public Optional<ExternalLink> getResultChunk(String statementId = {}, long chunkIndex = {}) for all purpose cluster",
+        statementId,
+        chunkIndex);
     throw new UnsupportedOperationException();
   }
 
