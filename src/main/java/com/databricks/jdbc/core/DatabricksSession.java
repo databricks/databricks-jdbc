@@ -102,7 +102,7 @@ public class DatabricksSession implements IDatabricksSession {
   }
 
   @Override
-  public void open() {
+  public void open() throws DatabricksSQLException {
     LOGGER.debug("public void open()");
     // TODO: check for expired sessions
     synchronized (this) {

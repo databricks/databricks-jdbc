@@ -33,7 +33,7 @@ public interface IDatabricksSession {
   boolean isOpen();
 
   /** Opens a new session. */
-  void open();
+  void open() throws DatabricksSQLException;
 
   /** Closes the session. */
   void close();

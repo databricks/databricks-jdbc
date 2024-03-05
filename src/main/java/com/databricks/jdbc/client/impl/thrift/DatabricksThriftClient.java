@@ -3,7 +3,9 @@ package com.databricks.jdbc.client.impl.thrift;
 import com.databricks.jdbc.client.DatabricksClient;
 import com.databricks.jdbc.client.DatabricksMetadataClient;
 import com.databricks.jdbc.client.StatementType;
+import com.databricks.jdbc.client.impl.thrift.generated.*;
 import com.databricks.jdbc.client.sqlexec.ExternalLink;
+import com.databricks.jdbc.commons.CommandName;
 import com.databricks.jdbc.core.*;
 import com.databricks.jdbc.core.types.ComputeResource;
 import com.databricks.jdbc.driver.IDatabricksConnectionContext;
@@ -17,15 +19,34 @@ public class DatabricksThriftClient implements DatabricksClient, DatabricksMetad
 
   private static final Logger LOGGER = LoggerFactory.getLogger(DatabricksThriftClient.class);
   private final IDatabricksConnectionContext connectionContext;
+  private final ThriftAccessor thriftAccessor;
+
+  private TNamespace getNamespace(String catalog, String schema) {
+    return new TNamespace().setCatalogName(catalog).setSchemaName(schema);
+  }
 
   @Override
   public ImmutableSessionInfo createSession(
-      ComputeResource cluster, String catalog, String schema, Map<String, String> sessionConf) {
-    throw new UnsupportedOperationException();
+      ComputeResource cluster, String catalog, String schema, Map<String, String> sessionConf)
+      throws DatabricksSQLException {
+    TOpenSessionReq openSessionReq =
+        new TOpenSessionReq()
+            .setInitialNamespace(getNamespace(catalog, schema))
+            .setConfiguration(sessionConf)
+            .setCanUseMultipleCatalogs(true)
+            .setClient_protocol(TProtocolVersion.HIVE_CLI_SERVICE_PROTOCOL_V10);
+    TOpenSessionResp response =
+        (TOpenSessionResp)
+            thriftAccessor.getThriftResponse(openSessionReq, CommandName.OPEN_SESSION);
+    return ImmutableSessionInfo.builder()
+        .sessionId(response.sessionHandle.getSessionId().guid.toString())
+        .computeResource(cluster)
+        .build();
   }
 
   public DatabricksThriftClient(IDatabricksConnectionContext connectionContext) {
     this.connectionContext = connectionContext;
+    this.thriftAccessor = new ThriftAccessor(connectionContext);
   }
 
   @Override
