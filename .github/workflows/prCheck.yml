@@ -47,11 +47,6 @@ jobs:
     runs-on: ${{ matrix.os }}
 
     steps:
-      - name: Set up JDK
-        uses: actions/setup-java@v4
-        with:
-          java-version: ${{ matrix.java-version }}
-          distribution: 'adopt'
 
       - name: Checkout
         uses: actions/checkout@v2
