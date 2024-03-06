@@ -24,7 +24,7 @@ public class ThriftAccessor {
   public ThriftAccessor(IDatabricksConnectionContext connectionContext) {
     this.transport =
         new DatabricksHttpTTransport(
-            DatabricksHttpClient.getInstance(), getEndpointURL(connectionContext));
+            DatabricksHttpClient.getInstance(connectionContext), getEndpointURL(connectionContext));
     // TODO : add other auth in followup PRs
     this.databricksConfig =
         new DatabricksConfig()

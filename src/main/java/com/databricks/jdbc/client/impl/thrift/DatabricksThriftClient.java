@@ -9,18 +9,13 @@ import com.databricks.jdbc.commons.CommandName;
 import com.databricks.jdbc.core.*;
 import com.databricks.jdbc.core.types.ComputeResource;
 import com.databricks.jdbc.driver.IDatabricksConnectionContext;
-
 import java.nio.ByteBuffer;
-import java.nio.charset.StandardCharsets;
 import java.sql.SQLException;
 import java.util.Collection;
 import java.util.Map;
 import java.util.UUID;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import static java.nio.charset.StandardCharsets.UTF_8;
 
 /*TODO : add all debug logs and implementations*/
 
@@ -58,17 +53,15 @@ public class DatabricksThriftClient implements DatabricksClient, DatabricksMetad
         (TOpenSessionResp)
             thriftAccessor.getThriftResponse(openSessionReq, CommandName.OPEN_SESSION);
     String sessionId = byteBufferToId(response.sessionHandle.getSessionId().guid);
-    LOGGER.info("Session created with ID {}",sessionId);
-    return ImmutableSessionInfo.builder()
-        .sessionId(sessionId)
-        .computeResource(cluster)
-        .build();
+    LOGGER.info("Session created with ID {}", sessionId);
+    return ImmutableSessionInfo.builder().sessionId(sessionId).computeResource(cluster).build();
   }
 
-private String byteBufferToId(ByteBuffer buffer){
-  long sigBits = buffer.getLong();
-  return new UUID(sigBits, sigBits).toString();
-}
+  private String byteBufferToId(ByteBuffer buffer) {
+    long sigBits = buffer.getLong();
+    return new UUID(sigBits, sigBits).toString();
+  }
+
   @Override
   public void deleteSession(String sessionId, ComputeResource cluster) {
     LOGGER.debug(
