@@ -279,11 +279,6 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   }
 
   @Override
-  public int getPort() {
-    return this.port;
-  }
-
-  @Override
   public boolean isAllPurposeCluster() {
     return this.computeResource instanceof AllPurposeCluster;
   }

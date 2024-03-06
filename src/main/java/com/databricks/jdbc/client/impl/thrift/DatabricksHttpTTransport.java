@@ -94,8 +94,12 @@ public class DatabricksHttpTTransport extends TTransport {
       }
       request.setEntity(new ByteArrayEntity(requestBuffer.toByteArray()));
       HttpResponse response = httpClient.execute(request);
+      System.out.println("Hi request " + request.toString());
+      System.out.println("Hi response " + response.toString());
+      inputStream = response.getEntity().getContent();
+      System.out.println("Hi input stream " + inputStream.toString());
       requestBuffer.reset();
-    } catch (DatabricksHttpException e) {
+    } catch (DatabricksHttpException|IOException e) {
       throw new TTransportException(
           TTransportException.UNKNOWN, "Failed to flush data to server: " + e.getMessage());
     }

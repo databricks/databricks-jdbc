@@ -78,8 +78,6 @@ public interface IDatabricksConnectionContext {
 
   String getSchema();
 
-  int getPort();
-
   Map<String, String> getSessionConfigs();
 
   boolean isAllPurposeCluster();

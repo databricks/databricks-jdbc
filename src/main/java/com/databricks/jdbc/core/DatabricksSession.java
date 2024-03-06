@@ -44,11 +44,12 @@ public class DatabricksSession implements IDatabricksSession {
       throws DatabricksSQLException {
     if (connectionContext.isAllPurposeCluster()) {
       this.databricksClient = new DatabricksThriftClient(connectionContext);
+      this.databricksMetadataClient = null;
     } else {
       this.databricksClient = new DatabricksSdkClient(connectionContext);
+      this.databricksMetadataClient =
+              new DatabricksMetadataSdkClient((DatabricksSdkClient) databricksClient);
     }
-    this.databricksMetadataClient =
-        new DatabricksMetadataSdkClient((DatabricksSdkClient) databricksClient);
     this.isSessionOpen = false;
     this.session = null;
     this.computeResource = connectionContext.getComputeResource();
