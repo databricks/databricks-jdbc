@@ -8,6 +8,7 @@ import com.databricks.jdbc.core.DatabricksSQLException;
 import com.databricks.jdbc.core.DatabricksSQLFeatureNotSupportedException;
 import com.databricks.jdbc.driver.IDatabricksConnectionContext;
 import com.databricks.sdk.core.DatabricksConfig;
+import java.util.Map;
 import org.apache.thrift.TBase;
 import org.apache.thrift.TException;
 import org.apache.thrift.protocol.TBinaryProtocol;
@@ -23,11 +24,16 @@ public class ThriftAccessor {
   public ThriftAccessor(IDatabricksConnectionContext connectionContext) {
     this.transport =
         new DatabricksHttpTTransport(
-            DatabricksHttpClient.getInstance(), connectionContext.getHostUrl());
+            DatabricksHttpClient.getInstance(), getEndpointURL(connectionContext));
+    // TODO : add other auth in followup PRs
     this.databricksConfig =
         new DatabricksConfig()
             .setHost(connectionContext.getHostUrl())
             .setToken(connectionContext.getToken());
+  }
+
+  private String getEndpointURL(IDatabricksConnectionContext connectionContext) {
+    return String.format("%s/%s", connectionContext.getHostUrl(), connectionContext.getHttpPath());
   }
 
   public TBase getThriftResponse(TBase request, CommandName commandName)
@@ -36,7 +42,10 @@ public class ThriftAccessor {
         "Fetching thrift response for request {}, CommandName {}",
         request.toString(),
         commandName.name());
-    transport.setCustomHeaders(databricksConfig.authenticate());
+    // TODO : find how we can create a client once rather than creating one for every execution
+    Map<String, String> authHeaders = databricksConfig.authenticate();
+    System.out.println("Auth headers " + authHeaders.toString());
+    transport.setCustomHeaders(authHeaders);
     TBinaryProtocol protocol = new TBinaryProtocol(transport);
     TCLIService.Client client = new TCLIService.Client(protocol);
     try {

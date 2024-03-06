@@ -129,7 +129,7 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
     throw new DatabricksParsingException("Invalid HTTP Path provided " + this.getHttpPath());
   }
 
-  String getHttpPath() {
+  public String getHttpPath() {
     LOGGER.debug("String getHttpPath()");
     return getParameter(DatabricksJdbcConstants.HTTP_PATH);
   }

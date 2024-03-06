@@ -2,6 +2,7 @@ package com.databricks.jdbc.client.impl.thrift;
 
 import com.databricks.jdbc.client.DatabricksHttpException;
 import com.databricks.jdbc.client.http.DatabricksHttpClient;
+import com.databricks.jdbc.commons.util.ValidationUtil;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -94,12 +95,10 @@ public class DatabricksHttpTTransport extends TTransport {
       }
       request.setEntity(new ByteArrayEntity(requestBuffer.toByteArray()));
       HttpResponse response = httpClient.execute(request);
-      System.out.println("Hi request " + request.toString());
-      System.out.println("Hi response " + response.toString());
+      ValidationUtil.checkHTTPError(response);
       inputStream = response.getEntity().getContent();
-      System.out.println("Hi input stream " + inputStream.toString());
       requestBuffer.reset();
-    } catch (DatabricksHttpException|IOException e) {
+    } catch (DatabricksHttpException | IOException e) {
       throw new TTransportException(
           TTransportException.UNKNOWN, "Failed to flush data to server: " + e.getMessage());
     }

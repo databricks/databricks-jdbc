@@ -48,7 +48,7 @@ public class DatabricksSession implements IDatabricksSession {
     } else {
       this.databricksClient = new DatabricksSdkClient(connectionContext);
       this.databricksMetadataClient =
-              new DatabricksMetadataSdkClient((DatabricksSdkClient) databricksClient);
+          new DatabricksMetadataSdkClient((DatabricksSdkClient) databricksClient);
     }
     this.isSessionOpen = false;
     this.session = null;
