@@ -66,9 +66,6 @@ public class DatabricksHttpTTransport extends TTransport {
     if (inputStream == null) {
       throw new TTransportException("Response buffer is empty, no request.");
     }
-
-    checkReadBytesAvailable(len);
-
     try {
       int ret = inputStream.read(buf, off, len);
       if (ret == -1) {

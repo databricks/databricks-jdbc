@@ -44,7 +44,6 @@ public class ThriftAccessor {
         commandName.name());
     // TODO : find how we can create a client once rather than creating one for every execution
     Map<String, String> authHeaders = databricksConfig.authenticate();
-    System.out.println("Auth headers " + authHeaders.toString());
     transport.setCustomHeaders(authHeaders);
     TBinaryProtocol protocol = new TBinaryProtocol(transport);
     TCLIService.Client client = new TCLIService.Client(protocol);
