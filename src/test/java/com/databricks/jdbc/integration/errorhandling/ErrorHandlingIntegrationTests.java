@@ -44,7 +44,7 @@ public class ErrorHandlingIntegrationTests {
                       "username",
                       "password");
             });
-    assertTrue(e.getMessage().contains("Invalid or unknown hostname provided"));
+    assertTrue(e.getMessage().contains("Invalid or unknown token or hostname provided"));
   }
 
   @Test

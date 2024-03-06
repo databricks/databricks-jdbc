@@ -108,13 +108,12 @@ public class DatabricksConnection implements IDatabricksConnection, Connection {
   @Override
   public void close() throws SQLException {
     LOGGER.debug("public void close()");
-    // TODO(PECO-1328): Add back when connection closing is fixed.
-    //    for (IDatabricksStatement statement : statementSet) {
-    //      statement.close(false);
-    //      statementSet.remove(statement);
-    //    }
-    //
-    //    this.session.close();
+    for (IDatabricksStatement statement : statementSet) {
+      statement.close(false);
+      statementSet.remove(statement);
+    }
+
+    this.session.close();
   }
 
   @Override

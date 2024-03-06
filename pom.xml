@@ -27,14 +27,14 @@
     <mockito.version>5.2.0</mockito.version>
     <slf4j.version>2.0.7</slf4j.version>
     <jackson.version>2.15.1</jackson.version>
-    <google.guava.version>31.1-jre</google.guava.version>
+    <google.guava.version>33.0.0-jre</google.guava.version>
     <junit.jupiter.version>5.9.2</junit.jupiter.version>
     <google.findbugs.annotations.version>3.0.1</google.findbugs.annotations.version>
     <immutables.value.version>2.9.2</immutables.value.version>
     <httpclient.version>4.5.14</httpclient.version>
     <log4japi.version>2.21.1</log4japi.version>
     <log4jcore.version>2.21.1</log4jcore.version>
-    <spotless.version>2.41.1</spotless.version>
+    <spotless.version>2.43.0</spotless.version>
     <commons-io.version>2.13.0</commons-io.version>
     <databricks-sdk.version>0.17.0</databricks-sdk.version>
     <maven-surefire-plugin.version>3.1.2</maven-surefire-plugin.version>
@@ -286,6 +286,7 @@
           <configuration>
             <excludes>
               <exclude>**/*EnvironmentVariables*</exclude>
+              <exclude>**/client/impl/sdk/DatabricksMetadataSdkClient*</exclude> <!-- TODO(PECO-1502): Remove once fixed -->
               <exclude>**/*Exception*</exclude>
               <exclude>**/types/**</exclude>
               <exclude>**/thrift/**</exclude>

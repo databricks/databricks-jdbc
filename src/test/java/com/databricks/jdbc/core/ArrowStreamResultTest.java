@@ -65,6 +65,7 @@ public class ArrowStreamResultTest {
   @Mock CloseableHttpResponse httpResponse;
   @Mock HttpEntity httpEntity;
   @Mock StatusLine mockedStatusLine;
+  @Mock DatabricksSession session;
 
   @BeforeEach
   public void setup() throws Exception {
@@ -73,12 +74,16 @@ public class ArrowStreamResultTest {
 
   @Test
   public void testInitEmptyArrowStreamResult() throws Exception {
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContext.parse(JDBC_URL, new Properties());
+    when(session.getConnectionContext()).thenReturn(connectionContext);
     ResultManifest resultManifest =
         new ResultManifest()
             .setTotalChunkCount(0L)
             .setSchema(new ResultSchema().setColumns(new ArrayList<>()).setColumnCount(0L));
     ResultData resultData = new ResultData().setExternalLinks(new ArrayList<>());
-    assertDoesNotThrow(() -> new ArrowStreamResult(resultManifest, resultData, STATEMENT_ID, null));
+    assertDoesNotThrow(
+        () -> new ArrowStreamResult(resultManifest, resultData, STATEMENT_ID, session));
   }
 
   @Test

@@ -42,6 +42,12 @@ class DatabricksConnectionContextTest {
       "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=http;ssl=1;httpPath=sql/protocolv1/o/6051921418418893/1115-130834-ms4m0yv;AuthMech=3";
   private static final String INVALID_CLUSTER_URL =
       "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=http;ssl=1;httpPath=sql/protocolv1/oo/6051921418418893/1115-130834-ms4m0yv;AuthMech=3";
+
+  private static final String VALID_URL_WITH_PROXY =
+      "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/5c89f447c476a5a8;UseProxy=1;ProxyHost=127.0.0.1;ProxyPort=8080;ProxyAuth=1;ProxyUID=proxyUser;ProxyPwd=proxyPassword;";
+  private static final String VALID_URL_WITH_PROXY_AND_CF_PROXY =
+      "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/5c89f447c476a5a8;UseSystemProxy=1;UseProxy=1;ProxyHost=127.0.0.1;ProxyPort=8080;ProxyAuth=1;ProxyUID=proxyUser;ProxyPwd=proxyPassword;UseCFProxy=1;CFProxyHost=127.0.1.2;CFProxyPort=8081;CFProxyAuth=1;CFProxyUID=cfProxyUser;CFProxyPwd=cfProxyPassword;";
+
   private static Properties properties = new Properties();
 
   @BeforeAll
@@ -180,5 +186,27 @@ class DatabricksConnectionContextTest {
     assertEquals(
         "https://e2-dogfood.staging.cloud.databricks.com:4473", connectionContext.getHostUrl());
     assertEquals("INFO", connectionContext.getLogLevelString());
+  }
+
+  @Test
+  public void testParsingofUrlWithProxy() throws DatabricksSQLException {
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContext.parse(VALID_URL_WITH_PROXY, properties);
+    assertTrue(connectionContext.getUseProxy());
+    assertEquals("127.0.0.1", connectionContext.getProxyHost());
+    assertEquals(8080, connectionContext.getProxyPort());
+    assertTrue(connectionContext.getUseProxyAuth());
+    assertEquals("proxyUser", connectionContext.getProxyUser());
+    assertEquals("proxyPassword", connectionContext.getProxyPassword());
+
+    IDatabricksConnectionContext connectionContextWithCFProxy =
+        DatabricksConnectionContext.parse(VALID_URL_WITH_PROXY_AND_CF_PROXY, properties);
+    assertTrue(connectionContextWithCFProxy.getUseSystemProxy());
+    assertTrue(connectionContextWithCFProxy.getUseProxy());
+    assertEquals("127.0.1.2", connectionContextWithCFProxy.getCloudFetchProxyHost());
+    assertEquals(8081, connectionContextWithCFProxy.getCloudFetchProxyPort());
+    assertTrue(connectionContextWithCFProxy.getUseCloudFetchProxyAuth());
+    assertEquals("cfProxyUser", connectionContextWithCFProxy.getCloudFetchProxyUser());
+    assertEquals("cfProxyPassword", connectionContextWithCFProxy.getCloudFetchProxyPassword());
   }
 }

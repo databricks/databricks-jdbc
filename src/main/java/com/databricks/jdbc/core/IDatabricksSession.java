@@ -4,6 +4,7 @@ import com.databricks.jdbc.client.DatabricksClient;
 import com.databricks.jdbc.client.DatabricksMetadataClient;
 import com.databricks.jdbc.core.types.CompressionType;
 import com.databricks.jdbc.core.types.ComputeResource;
+import com.databricks.jdbc.driver.IDatabricksConnectionContext;
 import java.util.Map;
 import javax.annotation.Nullable;
 
@@ -67,4 +68,6 @@ public interface IDatabricksSession {
 
   /** Sets the session config */
   void setSessionConfig(String name, String value);
+
+  IDatabricksConnectionContext getConnectionContext();
 }

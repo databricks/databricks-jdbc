@@ -3,6 +3,7 @@ package com.databricks.jdbc.core;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.databricks.jdbc.client.impl.sdk.DatabricksSdkClient;
@@ -65,6 +66,11 @@ public class DatabricksConnectionTest {
     String userAgent = UserAgent.asString();
     assertTrue(userAgent.contains("DatabricksJDBCDriverOSS/0.0.0"));
     assertTrue(userAgent.contains("Java/SQLExecHttpClient/HC MyApp"));
+
+    // close the connection
+    connection.close();
+    assertTrue(connection.isClosed());
+    verify(databricksClient).deleteSession(SESSION_ID, warehouse);
   }
 
   @Test

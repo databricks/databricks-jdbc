@@ -3,11 +3,7 @@ package com.databricks.jdbc.integration.metadata;
 import static com.databricks.jdbc.integration.IntegrationTestUtil.*;
 import static org.junit.jupiter.api.Assertions.*;
 
-import java.sql.Connection;
-import java.sql.DatabaseMetaData;
-import java.sql.ResultSet;
-import java.sql.ResultSetMetaData;
-import java.sql.SQLException;
+import java.sql.*;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -111,5 +107,62 @@ public class MetadataIntegrationTests {
     }
     String SQL = "DROP TABLE IF EXISTS " + getFullyQualifiedTableName(tableName);
     executeSQL(SQL);
+  }
+
+  @Test
+  void testCatalogAndSchemaInformation() throws SQLException {
+    DatabaseMetaData metaData = connection.getMetaData();
+
+    // Test getCatalogs
+    try (ResultSet catalogs = metaData.getCatalogs()) {
+      assertTrue(catalogs.next(), "There should be at least one catalog");
+      do {
+        String catalogName = catalogs.getString("TABLE_CAT");
+        assertNotNull(catalogName, "Catalog name should not be null");
+      } while (catalogs.next());
+    }
+
+    // Test getSchemas
+    try (ResultSet schemas = metaData.getSchemas()) {
+      assertTrue(schemas.next(), "There should be at least one schema");
+      do {
+        String schemaName = schemas.getString("TABLE_SCHEM");
+        assertNotNull(schemaName, "Schema name should not be null");
+      } while (schemas.next());
+    }
+
+    // Test getTableTypes
+    try (ResultSet tableTypes = metaData.getTableTypes()) {
+      assertTrue(tableTypes.next(), "There should be at least one table type");
+      do {
+        String tableType = tableTypes.getString("TABLE_TYPE");
+        assertNotNull(tableType, "Table type should not be null");
+      } while (tableTypes.next());
+    }
+
+    // Verify tables retrieval with specific catalog and schema
+    String catalog = "main";
+    String schemaPattern = "jdbc_test_schema";
+    try (ResultSet tables = metaData.getTables(catalog, schemaPattern, null, null)) {
+      assertTrue(
+          tables.next(), "There should be at least one table in the specified catalog and schema");
+      do {
+        String tableName = tables.getString("TABLE_NAME");
+        assertNotNull(tableName, "Table name should not be null");
+      } while (tables.next());
+    }
+
+    // Test to get particular table
+    String tableName = "catalog_and_schema_test_table";
+    setupDatabaseTable(tableName);
+    try (ResultSet tables = metaData.getTables(catalog, schemaPattern, tableName, null)) {
+      assertTrue(
+          tables.next(), "There should be at least one table in the specified catalog and schema");
+      do {
+        String fetchedTableName = tables.getString("TABLE_NAME");
+        assertEquals(
+            tableName, fetchedTableName, "Table name should match the specified table name");
+      } while (tables.next());
+    }
   }
 }
