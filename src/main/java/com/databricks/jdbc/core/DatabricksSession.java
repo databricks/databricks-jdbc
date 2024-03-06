@@ -68,8 +68,12 @@ public class DatabricksSession implements IDatabricksSession {
       IDatabricksConnectionContext connectionContext, DatabricksClient databricksClient)
       throws DatabricksSQLException {
     this.databricksClient = databricksClient;
-    this.databricksMetadataClient =
-        new DatabricksMetadataSdkClient((DatabricksSdkClient) databricksClient);
+    if (databricksClient instanceof DatabricksSdkClient) {
+      this.databricksMetadataClient =
+          new DatabricksMetadataSdkClient((DatabricksSdkClient) databricksClient);
+    } else {
+      this.databricksMetadataClient = null;
+    }
     this.isSessionOpen = false;
     this.session = null;
     this.computeResource = connectionContext.getComputeResource();
