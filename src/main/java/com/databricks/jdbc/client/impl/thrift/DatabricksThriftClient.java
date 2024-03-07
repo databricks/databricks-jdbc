@@ -17,6 +17,9 @@ import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import static com.databricks.jdbc.client.impl.thrift.DatabricksThriftHelper.byteBufferToString;
+import static com.databricks.jdbc.client.impl.thrift.DatabricksThriftHelper.getSessionHandle;
+
 /*TODO : add all debug logs and implementations*/
 
 public class DatabricksThriftClient implements DatabricksClient, DatabricksMetadataClient {
@@ -52,23 +55,20 @@ public class DatabricksThriftClient implements DatabricksClient, DatabricksMetad
     TOpenSessionResp response =
         (TOpenSessionResp)
             thriftAccessor.getThriftResponse(openSessionReq, CommandName.OPEN_SESSION);
-    String sessionId = byteBufferToId(response.sessionHandle.getSessionId().guid);
+    String sessionId = byteBufferToString(response.sessionHandle.getSessionId().guid);
     LOGGER.info("Session created with ID {}", sessionId);
     return ImmutableSessionInfo.builder().sessionId(sessionId).computeResource(cluster).build();
   }
 
-  private String byteBufferToId(ByteBuffer buffer) {
-    long sigBits = buffer.getLong();
-    return new UUID(sigBits, sigBits).toString();
-  }
-
   @Override
-  public void deleteSession(String sessionId, ComputeResource cluster) {
+  public void deleteSession(String sessionId, ComputeResource cluster)
+      throws DatabricksSQLException {
     LOGGER.debug(
-        "public void deleteSession(Compute cluster = {}, String sessionId = {})",
-        cluster.toString(),
-        sessionId);
-    throw new UnsupportedOperationException();
+        "public void deleteSession(String sessionId = {}, Compute cluster = {})",
+        sessionId,
+        cluster.toString());
+    TCloseSessionReq closeSessionReq = new TCloseSessionReq().setSessionHandle(getSessionHandle(sessionId));
+    thriftAccessor.getThriftResponse(closeSessionReq, CommandName.CLOSE_SESSION);
   }
 
   @Override
@@ -92,7 +92,7 @@ public class DatabricksThriftClient implements DatabricksClient, DatabricksMetad
   public void closeStatement(String statementId) {
     LOGGER.debug(
         "public void closeStatement(String statementId = {}) for all purpose cluster", statementId);
-    throw new UnsupportedOperationException();
+    //Does not require to perform anything in Thrift
   }
 
   @Override
@@ -155,7 +155,11 @@ public class DatabricksThriftClient implements DatabricksClient, DatabricksMetad
 
   @Override
   public DatabricksResultSet listPrimaryKeys(
-      IDatabricksSession session, String catalog, String schema, String table) {
-    throw new UnsupportedOperationException();
+      IDatabricksSession session, String catalog, String schema, String table) throws DatabricksSQLException {
+    TGetPrimaryKeysReq request = new TGetPrimaryKeysReq().
+    setSessionHandle(getSessionHandle(session.getSessionId()))
+            .setCatalogName(catalog).setSchemaName(schema).setTableName(table);
+     TGetPrimaryKeysResp resp = (TGetPrimaryKeysResp) thriftAccessor.getThriftResponse(request, CommandName.LIST_PRIMARY_KEYS);
+     resp.getDirectResults().getResultSet();
   }
 }

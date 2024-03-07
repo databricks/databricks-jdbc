@@ -37,7 +37,7 @@ public interface IDatabricksSession {
   void open() throws DatabricksSQLException;
 
   /** Closes the session. */
-  void close();
+  void close() throws DatabricksSQLException;
 
   /** Returns the client for connecting to Databricks server */
   DatabricksClient getDatabricksClient();

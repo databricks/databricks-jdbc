@@ -7,7 +7,6 @@ import com.databricks.jdbc.client.impl.sdk.DatabricksSdkClient;
 import com.databricks.jdbc.client.impl.thrift.DatabricksThriftClient;
 import com.databricks.jdbc.core.types.CompressionType;
 import com.databricks.jdbc.core.types.ComputeResource;
-import com.databricks.jdbc.core.types.Warehouse;
 import com.databricks.jdbc.driver.IDatabricksConnectionContext;
 import com.databricks.sdk.support.ToStringer;
 import com.google.common.annotations.VisibleForTesting;
@@ -126,17 +125,13 @@ public class DatabricksSession implements IDatabricksSession {
   }
 
   @Override
-  public void close() {
+  public void close() throws DatabricksSQLException {
     LOGGER.debug("public void close()");
     // TODO: check for any pending query executions
     synchronized (this) {
       if (isSessionOpen) {
         // TODO: handle closed connections by server
-        if (computeResource instanceof Warehouse) {
-          databricksClient.deleteSession(this.session.sessionId(), computeResource);
-        } else {
-
-        }
+        databricksClient.deleteSession(this.session.sessionId(), computeResource);
         this.session = null;
         this.isSessionOpen = false;
       }

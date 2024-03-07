@@ -32,7 +32,8 @@ public interface DatabricksClient {
    * @param sessionId for which the session should be deleted
    * @param warehouseId underlying warehouse-Id
    */
-  void deleteSession(String sessionId, ComputeResource computeResource);
+  void deleteSession(String sessionId, ComputeResource computeResource)
+      throws DatabricksSQLException;
 
   /**
    * Executes a statement in Databricks server
