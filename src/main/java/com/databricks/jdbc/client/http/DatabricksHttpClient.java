@@ -2,8 +2,9 @@ package com.databricks.jdbc.client.http;
 
 import com.databricks.jdbc.client.DatabricksHttpException;
 import com.databricks.jdbc.client.IDatabricksHttpClient;
-import com.databricks.jdbc.core.IDatabricksSession;
+import com.databricks.jdbc.driver.DatabricksJdbcConstants;
 import com.databricks.jdbc.driver.IDatabricksConnectionContext;
+import com.google.common.annotations.VisibleForTesting;
 import java.io.IOException;
 import java.util.HashSet;
 import java.util.Objects;
@@ -85,8 +86,7 @@ public class DatabricksHttpClient implements IDatabricksHttpClient {
     HttpClientBuilder builder =
         HttpClientBuilder.create()
             .setConnectionManager(connectionManager)
-            // TODO: set appropriate user agent
-            .setUserAgent("jdbc/databricks")
+            .setUserAgent(DatabricksJdbcConstants.DEFAULT_USER_AGENT)
             .setDefaultRequestConfig(makeRequestConfig())
             .setRetryHandler(
                 (exception, executionCount, context) -> {
@@ -123,24 +123,46 @@ public class DatabricksHttpClient implements IDatabricksHttpClient {
     if (connectionContext.getUseSystemProxy()) {
       builder.useSystemProperties();
     }
-    if (connectionContext.getUseProxy()) {
-      String proxyHost = connectionContext.getProxyHost();
-      int proxyPort = connectionContext.getProxyPort();
-      builder.setProxy(new HttpHost(proxyHost, proxyPort));
-      if (connectionContext.getUseProxyAuth()) {
-        String proxyUser = connectionContext.getProxyUser();
-        String proxyPassword = connectionContext.getProxyPassword();
-        CredentialsProvider credsProvider = new BasicCredentialsProvider();
-        credsProvider.setCredentials(
-            new AuthScope(proxyHost, proxyPort),
-            new UsernamePasswordCredentials(proxyUser, proxyPassword));
-
-        builder
-            .setDefaultCredentialsProvider(credsProvider)
-            .setProxyAuthenticationStrategy(new ProxyAuthenticationStrategy());
-      }
+    // Override system proxy if proxy details are explicitly provided
+    // If cloud fetch proxy is provided use that, else use the regular proxy
+    if (connectionContext.getUseCloudFetchProxy()) {
+      setProxyDetailsInHttpClient(
+          builder,
+          connectionContext.getCloudFetchProxyHost(),
+          connectionContext.getCloudFetchProxyPort(),
+          connectionContext.getUseCloudFetchProxyAuth(),
+          connectionContext.getCloudFetchProxyUser(),
+          connectionContext.getCloudFetchProxyPassword());
+    } else if (connectionContext.getUseProxy()) {
+      setProxyDetailsInHttpClient(
+          builder,
+          connectionContext.getProxyHost(),
+          connectionContext.getProxyPort(),
+          connectionContext.getUseProxyAuth(),
+          connectionContext.getProxyUser(),
+          connectionContext.getProxyPassword());
     }
     return builder.build();
+  }
+
+  @VisibleForTesting
+  public static void setProxyDetailsInHttpClient(
+      HttpClientBuilder builder,
+      String proxyHost,
+      int proxyPort,
+      Boolean useProxyAuth,
+      String proxyUser,
+      String proxyPassword) {
+    builder.setProxy(new HttpHost(proxyHost, proxyPort));
+    if (useProxyAuth) {
+      CredentialsProvider credsProvider = new BasicCredentialsProvider();
+      credsProvider.setCredentials(
+          new AuthScope(proxyHost, proxyPort),
+          new UsernamePasswordCredentials(proxyUser, proxyPassword));
+      builder
+          .setDefaultCredentialsProvider(credsProvider)
+          .setProxyAuthenticationStrategy(new ProxyAuthenticationStrategy());
+    }
   }
 
   private static boolean isRetryAllowed(String method) {
@@ -152,9 +174,10 @@ public class DatabricksHttpClient implements IDatabricksHttpClient {
     return RETRYABLE_HTTP_CODES.contains(errCode);
   }
 
-  public static synchronized DatabricksHttpClient getInstance(IDatabricksSession session) {
+  public static synchronized DatabricksHttpClient getInstance(
+      IDatabricksConnectionContext context) {
     if (instance == null) {
-      instance = new DatabricksHttpClient(session.getConnectionContext());
+      instance = new DatabricksHttpClient(context);
     }
     return instance;
   }

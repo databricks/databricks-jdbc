@@ -20,6 +20,7 @@ import org.slf4j.LoggerFactory;
  * This is for the new SQL commands added in runtime. Note that the DatabricksMetadataSdkClient will
  * be replaced by this class once runtime code is merged and this class is tested end to end.
  * https://docs.google.com/document/d/1E28o7jyPIp6_byZHGD5Eyc4uwGVSydX5o9PaiSY1V4s/edit#heading=h.681k0yimshae
+ * Tracking bug for replacement: (PECO-1502)
  */
 public class DatabricksNewMetadataSdkClient implements DatabricksMetadataClient {
 

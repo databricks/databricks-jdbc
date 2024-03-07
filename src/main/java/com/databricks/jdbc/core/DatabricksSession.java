@@ -198,6 +198,6 @@ public class DatabricksSession implements IDatabricksSession {
 
   @Override
   public IDatabricksConnectionContext getConnectionContext() {
-    return connectionContext;
+    return this.connectionContext;
   }
 }

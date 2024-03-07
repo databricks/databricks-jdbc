@@ -95,4 +95,16 @@ public interface IDatabricksConnectionContext {
   Boolean getUseProxyAuth();
 
   Boolean getUseSystemProxy();
+
+  Boolean getUseCloudFetchProxy();
+
+  String getCloudFetchProxyHost();
+
+  int getCloudFetchProxyPort();
+
+  String getCloudFetchProxyUser();
+
+  String getCloudFetchProxyPassword();
+
+  Boolean getUseCloudFetchProxyAuth();
 }

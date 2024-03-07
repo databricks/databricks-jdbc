@@ -10,6 +10,10 @@ import com.databricks.jdbc.client.impl.sdk.DatabricksSdkClient;
 import com.databricks.jdbc.core.types.Warehouse;
 import com.databricks.jdbc.driver.DatabricksConnectionContext;
 import com.databricks.jdbc.driver.IDatabricksConnectionContext;
+import java.io.InputStream;
+import java.io.Reader;
+import java.math.BigDecimal;
+import java.sql.*;
 import java.util.HashMap;
 import java.util.Properties;
 import org.junit.jupiter.api.Test;
@@ -95,5 +99,199 @@ public class DatabricksPreparedStatementTest {
         .value(x)
         .cardinal(parameterIndex)
         .build();
+  }
+
+  @Test
+  public void testSetBoolean() {
+    DatabricksPreparedStatement preparedStatement =
+        new DatabricksPreparedStatement(null, STATEMENT);
+    assertDoesNotThrow(() -> preparedStatement.setBoolean(1, true));
+  }
+
+  @Test
+  public void testSetByte() {
+    DatabricksPreparedStatement preparedStatement =
+        new DatabricksPreparedStatement(null, STATEMENT);
+    assertDoesNotThrow(() -> preparedStatement.setByte(1, (byte) 1));
+  }
+
+  @Test
+  public void testSetShort() {
+    DatabricksPreparedStatement preparedStatement =
+        new DatabricksPreparedStatement(null, STATEMENT);
+    assertDoesNotThrow(() -> preparedStatement.setShort(1, (short) 1));
+  }
+
+  @Test
+  public void testSetInt() {
+    DatabricksPreparedStatement preparedStatement =
+        new DatabricksPreparedStatement(null, STATEMENT);
+    assertDoesNotThrow(() -> preparedStatement.setInt(1, 1));
+  }
+
+  @Test
+  public void testSetLong() {
+    DatabricksPreparedStatement preparedStatement =
+        new DatabricksPreparedStatement(null, STATEMENT);
+    assertDoesNotThrow(() -> preparedStatement.setLong(1, 1L));
+  }
+
+  @Test
+  public void testSetFloat() {
+    DatabricksPreparedStatement preparedStatement =
+        new DatabricksPreparedStatement(null, STATEMENT);
+    assertDoesNotThrow(() -> preparedStatement.setFloat(1, 1.0f));
+  }
+
+  @Test
+  public void testSetDouble() {
+    DatabricksPreparedStatement preparedStatement =
+        new DatabricksPreparedStatement(null, STATEMENT);
+    assertDoesNotThrow(() -> preparedStatement.setDouble(1, 1.0));
+  }
+
+  @Test
+  public void testSetBigDecimal() {
+    DatabricksPreparedStatement preparedStatement =
+        new DatabricksPreparedStatement(null, STATEMENT);
+    assertDoesNotThrow(() -> preparedStatement.setBigDecimal(1, BigDecimal.ONE));
+  }
+
+  @Test
+  public void testSetString() {
+    DatabricksPreparedStatement preparedStatement =
+        new DatabricksPreparedStatement(null, STATEMENT);
+    assertDoesNotThrow(() -> preparedStatement.setString(1, "test"));
+  }
+
+  @Test
+  public void testSetDate() {
+    DatabricksPreparedStatement preparedStatement =
+        new DatabricksPreparedStatement(null, STATEMENT);
+    assertDoesNotThrow(() -> preparedStatement.setDate(1, new Date(System.currentTimeMillis())));
+  }
+
+  @Test
+  public void testSetTimestamp() {
+    DatabricksPreparedStatement preparedStatement =
+        new DatabricksPreparedStatement(null, STATEMENT);
+    assertDoesNotThrow(
+        () -> preparedStatement.setTimestamp(1, new Timestamp(System.currentTimeMillis())));
+  }
+
+  @Test
+  void testUnsupportedMethods() throws DatabricksSQLException {
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContext.parse(JDBC_URL, new Properties());
+    DatabricksConnection connection = new DatabricksConnection(connectionContext, client);
+    DatabricksPreparedStatement preparedStatement =
+        new DatabricksPreparedStatement(connection, STATEMENT);
+    // Unsupported methods
+    assertThrows(UnsupportedOperationException.class, () -> preparedStatement.setArray(1, null));
+    assertThrows(
+        UnsupportedOperationException.class, () -> preparedStatement.setBlob(1, (Blob) null));
+    assertThrows(
+        UnsupportedOperationException.class, () -> preparedStatement.setClob(1, (Clob) null));
+    assertThrows(UnsupportedOperationException.class, () -> preparedStatement.setRef(1, null));
+    assertThrows(UnsupportedOperationException.class, () -> preparedStatement.setURL(1, null));
+    assertThrows(UnsupportedOperationException.class, () -> preparedStatement.setRowId(1, null));
+    assertThrows(UnsupportedOperationException.class, () -> preparedStatement.setNString(1, null));
+    assertThrows(
+        UnsupportedOperationException.class,
+        () -> preparedStatement.setNCharacterStream(1, null, 1));
+    assertThrows(
+        UnsupportedOperationException.class, () -> preparedStatement.setNClob(1, (NClob) null));
+    assertThrows(UnsupportedOperationException.class, () -> preparedStatement.setClob(1, null, 1));
+    assertThrows(UnsupportedOperationException.class, () -> preparedStatement.setBlob(1, null, 1));
+    assertThrows(UnsupportedOperationException.class, () -> preparedStatement.setNClob(1, null, 1));
+    assertThrows(UnsupportedOperationException.class, () -> preparedStatement.setSQLXML(1, null));
+    assertThrows(
+        UnsupportedOperationException.class, () -> preparedStatement.setAsciiStream(1, null, 1));
+    assertThrows(
+        UnsupportedOperationException.class,
+        () -> preparedStatement.setAsciiStream(1, InputStream.nullInputStream(), 1));
+    assertThrows(
+        UnsupportedOperationException.class,
+        () -> preparedStatement.setAsciiStream(1, InputStream.nullInputStream(), 1L));
+    assertThrows(
+        UnsupportedOperationException.class, () -> preparedStatement.setBinaryStream(1, null, 1));
+    assertThrows(
+        UnsupportedOperationException.class,
+        () -> preparedStatement.setBinaryStream(1, InputStream.nullInputStream(), 1));
+    assertThrows(
+        UnsupportedOperationException.class,
+        () -> preparedStatement.setBinaryStream(1, InputStream.nullInputStream(), 1L));
+    assertThrows(
+        UnsupportedOperationException.class,
+        () -> preparedStatement.setCharacterStream(1, null, 1));
+    assertThrows(
+        UnsupportedOperationException.class,
+        () -> preparedStatement.setCharacterStream(1, Reader.nullReader(), 1));
+    assertThrows(
+        UnsupportedOperationException.class,
+        () -> preparedStatement.setCharacterStream(1, Reader.nullReader(), 1L));
+    assertThrows(
+        UnsupportedOperationException.class, () -> preparedStatement.setAsciiStream(1, null));
+    assertThrows(
+        UnsupportedOperationException.class, () -> preparedStatement.setBinaryStream(1, null));
+    assertThrows(
+        UnsupportedOperationException.class, () -> preparedStatement.setCharacterStream(1, null));
+    assertThrows(
+        UnsupportedOperationException.class, () -> preparedStatement.setNCharacterStream(1, null));
+    assertThrows(
+        UnsupportedOperationException.class,
+        () -> preparedStatement.setUnicodeStream(1, InputStream.nullInputStream(), 1));
+    assertThrows(
+        UnsupportedOperationException.class,
+        () -> preparedStatement.setClob(1, Reader.nullReader()));
+    assertThrows(
+        UnsupportedOperationException.class,
+        () -> preparedStatement.setBlob(1, InputStream.nullInputStream()));
+    assertThrows(
+        UnsupportedOperationException.class,
+        () -> preparedStatement.setNClob(1, Reader.nullReader()));
+    assertThrows(UnsupportedOperationException.class, () -> preparedStatement.setTime(1, null));
+    assertThrows(
+        UnsupportedOperationException.class, () -> preparedStatement.setTime(1, null, null));
+    assertThrows(
+        UnsupportedOperationException.class, () -> preparedStatement.setTimestamp(1, null, null));
+    assertThrows(UnsupportedOperationException.class, () -> preparedStatement.setBytes(1, null));
+    assertThrows(
+        UnsupportedOperationException.class, () -> preparedStatement.setDate(1, null, null));
+    assertThrows(UnsupportedOperationException.class, () -> preparedStatement.addBatch());
+
+    assertThrows(
+        SQLFeatureNotSupportedException.class, () -> preparedStatement.setObject(1, null, null));
+    assertThrows(
+        SQLFeatureNotSupportedException.class, () -> preparedStatement.setObject(1, null, null, 1));
+    assertThrows(
+        DatabricksSQLException.class, () -> preparedStatement.executeUpdate("SELECT * from table"));
+    assertThrows(
+        DatabricksSQLException.class,
+        () ->
+            preparedStatement.executeUpdate(
+                "UPDATE table SET column = 1", new String[] {"column"}));
+    assertThrows(
+        DatabricksSQLException.class, () -> preparedStatement.execute("SELECT * FROM table", 1));
+    assertThrows(
+        DatabricksSQLException.class,
+        () -> preparedStatement.execute("SELECT * FROM table", new int[] {1}));
+    assertThrows(
+        DatabricksSQLException.class,
+        () -> preparedStatement.execute("SELECT * FROM table", new String[] {"column"}));
+    assertThrows(
+        DatabricksSQLException.class,
+        () -> preparedStatement.executeUpdate("UPDATE table SET column = 1", new int[] {1}));
+    assertThrows(
+        DatabricksSQLException.class,
+        () ->
+            preparedStatement.executeUpdate(
+                "UPDATE table SET column = 1", new String[] {"column"}));
+    assertThrows(
+        DatabricksSQLException.class,
+        () -> preparedStatement.execute("SELECT * FROM table", new int[] {1}));
+    assertThrows(
+        DatabricksSQLException.class,
+        () -> preparedStatement.execute("SELECT * FROM table", new String[] {"column"}));
   }
 }

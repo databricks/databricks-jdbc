@@ -47,7 +47,7 @@ public class ChunkDownloader {
         resultManifest,
         resultData,
         session,
-        DatabricksHttpClient.getInstance(session));
+        DatabricksHttpClient.getInstance(session.getConnectionContext()));
   }
 
   @VisibleForTesting
@@ -120,7 +120,6 @@ public class ChunkDownloader {
    * Fetches the chunk for the given index. If chunk is not already downloaded, will download the
    * chunk first
    *
-   * @param chunkIndex index of chunk
    * @return the chunk at given index
    */
   public ArrowResultChunk getChunk() throws DatabricksSQLException {
@@ -188,11 +187,7 @@ public class ChunkDownloader {
     }
   }
 
-  /**
-   * Release the memory for previous chunk since it is already consumed
-   *
-   * @param chunkIndex index of consumed chunk
-   */
+  /** Release the memory for previous chunk since it is already consumed */
   public void releaseChunk() {
     if (chunkIndexToChunksMap.get(currentChunkIndex).releaseChunk()) {
       totalChunksInMemory--;
@@ -203,7 +198,6 @@ public class ChunkDownloader {
   /**
    * Initialize chunk with external link details
    *
-   * @param chunkIndex index of chunk
    * @param chunkLink external link details for chunk
    */
   void setChunkLink(ExternalLink chunkLink) {

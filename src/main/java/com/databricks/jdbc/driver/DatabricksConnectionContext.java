@@ -315,7 +315,36 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
 
   @Override
   public Boolean getUseSystemProxy() {
-    LOGGER.debug("public Boolean getUseSystemProxy()");
     return Objects.equals(getParameter(USE_SYSTEM_PROXY), "1");
+  }
+
+  @Override
+  public Boolean getUseCloudFetchProxy() {
+    return Objects.equals(getParameter(USE_CF_PROXY), "1");
+  }
+
+  @Override
+  public String getCloudFetchProxyHost() {
+    return getParameter(CF_PROXY_HOST);
+  }
+
+  @Override
+  public int getCloudFetchProxyPort() {
+    return Integer.parseInt(getParameter(CF_PROXY_PORT));
+  }
+
+  @Override
+  public String getCloudFetchProxyUser() {
+    return getParameter(CF_PROXY_USER);
+  }
+
+  @Override
+  public String getCloudFetchProxyPassword() {
+    return getParameter(CF_PROXY_PWD);
+  }
+
+  @Override
+  public Boolean getUseCloudFetchProxyAuth() {
+    return Objects.equals(getParameter(USE_CF_PROXY_AUTH), "1");
   }
 }
