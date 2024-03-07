@@ -119,21 +119,22 @@ public class DatabricksSdkClientTest {
     assertEquals(sessionInfo.sessionId(), SESSION_ID);
     assertEquals(sessionInfo.computeResource(), warehouse);
   }
-/*
-  @Test
-  public void testDeleteSession() throws DatabricksSQLException {
-    String path = String.format(DELETE_SESSION_PATH_WITH_ID, SESSION_ID);
-    IDatabricksConnectionContext connectionContext =
-        DatabricksConnectionContext.parse(JDBC_URL, new Properties());
-    DatabricksSdkClient databricksSdkClient =
-        new DatabricksSdkClient(connectionContext, statementExecutionService, apiClient);
-    IDatabricksSession session = new
-    databricksSdkClient.deleteSession(SESSION_ID, warehouse);
-    DeleteSessionRequest request =
-        new DeleteSessionRequest().setSessionId(SESSION_ID).setWarehouseId(WAREHOUSE_ID);
-    verify(apiClient).DELETE(eq(path), eq(request), eq(Void.class), eq(new HashMap<>()));
-  }
-*/
+
+  /*
+    @Test
+    public void testDeleteSession() throws DatabricksSQLException {
+      String path = String.format(DELETE_SESSION_PATH_WITH_ID, SESSION_ID);
+      IDatabricksConnectionContext connectionContext =
+          DatabricksConnectionContext.parse(JDBC_URL, new Properties());
+      DatabricksSdkClient databricksSdkClient =
+          new DatabricksSdkClient(connectionContext, statementExecutionService, apiClient);
+      IDatabricksSession session = new
+      databricksSdkClient.deleteSession(SESSION_ID, warehouse);
+      DeleteSessionRequest request =
+          new DeleteSessionRequest().setSessionId(SESSION_ID).setWarehouseId(WAREHOUSE_ID);
+      verify(apiClient).DELETE(eq(path), eq(request), eq(Void.class), eq(new HashMap<>()));
+    }
+  */
   @Test
   public void testExecuteStatement() throws Exception {
     setupClientMocks();

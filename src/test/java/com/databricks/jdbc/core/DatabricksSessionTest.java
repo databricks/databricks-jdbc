@@ -64,7 +64,7 @@ public class DatabricksSessionTest {
     assertTrue(session.isOpen());
     assertEquals(SESSION_ID, session.getSessionId());
     assertEquals(WAREHOUSE_COMPUTE, session.getComputeResource());
-    doNothing().when(sdkClient).deleteSession(SESSION_ID, WAREHOUSE_COMPUTE);
+    doNothing().when(sdkClient).deleteSession(session, WAREHOUSE_COMPUTE);
     session.close();
     assertFalse(session.isOpen());
     assertNull(session.getSessionId());

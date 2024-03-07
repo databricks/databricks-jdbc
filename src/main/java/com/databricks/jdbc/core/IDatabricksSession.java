@@ -21,6 +21,7 @@ public interface IDatabricksSession {
 
   @Nullable
   byte[] getSecret();
+
   /**
    * Get the warehouse associated with the session.
    *

@@ -1,5 +1,7 @@
 package com.databricks.jdbc.client.impl.thrift;
 
+import static com.databricks.jdbc.client.impl.thrift.commons.DatabricksThriftHelper.*;
+
 import com.databricks.jdbc.client.DatabricksClient;
 import com.databricks.jdbc.client.StatementType;
 import com.databricks.jdbc.client.impl.thrift.commons.ThriftAccessor;
@@ -12,12 +14,8 @@ import com.databricks.jdbc.driver.IDatabricksConnectionContext;
 import java.sql.SQLException;
 import java.util.Collection;
 import java.util.Map;
-
-import org.apache.thrift.TBase;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import static com.databricks.jdbc.client.impl.thrift.commons.DatabricksThriftHelper.*;
 
 /*TODO : add all debug logs and implementations*/
 
@@ -45,7 +43,7 @@ public class DatabricksThriftClient implements DatabricksClient {
         catalog,
         schema,
         sessionConf);
-        System.out.println("opening thrift session");
+    System.out.println("opening thrift session");
     TOpenSessionReq openSessionReq =
         new TOpenSessionReq()
             .setInitialNamespace(getNamespace(catalog, schema))
@@ -59,21 +57,23 @@ public class DatabricksThriftClient implements DatabricksClient {
     String secret = byteBufferToString(response.sessionHandle.getSessionId().secret);
     LOGGER.info("Session created with ID {}", sessionId);
 
-    System.out.println("opened thrift session "+sessionId);
+    System.out.println("opened thrift session " + sessionId);
     return ImmutableSessionInfo.builder().sessionId(sessionId).computeResource(cluster).build();
   }
 
   @Override
-  public void deleteSession(IDatabricksSession session, ComputeResource cluster)
+  public void deleteSession(DatabricksSession session, ComputeResource cluster)
       throws DatabricksSQLException {
     LOGGER.debug(
         "public void deleteSession(Session session = {}, Compute cluster = {})",
-            session.toString(),
+        session.toString(),
         cluster.toString());
     TCloseSessionReq closeSessionReq =
         new TCloseSessionReq().setSessionHandle(getSessionHandle(session));
-    TCloseSessionResp response = (TCloseSessionResp) thriftAccessor.getThriftResponse(closeSessionReq, CommandName.CLOSE_SESSION);
-    System.out.println("deleted thrift session "+response.toString());
+    TCloseSessionResp response =
+        (TCloseSessionResp)
+            thriftAccessor.getThriftResponse(closeSessionReq, CommandName.CLOSE_SESSION);
+    System.out.println("deleted thrift session " + response.toString());
   }
 
   @Override

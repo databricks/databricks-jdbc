@@ -3,8 +3,7 @@ package com.databricks.jdbc.core;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
 import com.databricks.jdbc.client.impl.sdk.DatabricksSdkClient;
 import com.databricks.jdbc.core.types.ComputeResource;
@@ -21,6 +20,7 @@ import java.util.Properties;
 import java.util.stream.Collectors;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -63,14 +63,22 @@ public class DatabricksConnectionTest {
     DatabricksConnection connection = new DatabricksConnection(connectionContext, databricksClient);
     assertFalse(connection.isClosed());
     assertEquals(connection.getSession().getSessionId(), SESSION_ID);
+
     String userAgent = UserAgent.asString();
     assertTrue(userAgent.contains("DatabricksJDBCDriverOSS/0.0.0"));
     assertTrue(userAgent.contains("Java/SQLExecHttpClient/HC MyApp"));
+    ArgumentCaptor<DatabricksSession> argumentCaptor =
+        ArgumentCaptor.forClass(DatabricksSession.class);
 
     // close the connection
     connection.close();
+    Mockito.verify(databricksClient).deleteSession(argumentCaptor.capture(), eq(warehouse));
     assertTrue(connection.isClosed());
-    verify(databricksClient).deleteSession(SESSION_ID, warehouse);
+    assertNull(
+        argumentCaptor.getValue().getSessionId()); // after session is closed, sessionID is null
+    assertEquals(argumentCaptor.getValue().getComputeResource(), warehouse);
+    assertEquals(argumentCaptor.getValue().getCatalog(), DEFAULT_CATALOG);
+    assertEquals(argumentCaptor.getValue().getSchema(), DEFAULT_SCHEMA);
   }
 
   @Test
