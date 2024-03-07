@@ -110,7 +110,7 @@ public class DatabricksSdkClient implements DatabricksClient {
   }
 
   @Override
-  public void deleteSession(DatabricksSession session, ComputeResource warehouse) {
+  public void deleteSession(IDatabricksSession session, ComputeResource warehouse) {
     LOGGER.debug("public void deleteSession(String sessionId = {})", session.getSessionId());
     DeleteSessionRequest request =
         new DeleteSessionRequest()

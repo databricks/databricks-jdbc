@@ -62,7 +62,7 @@ public class DatabricksThriftClient implements DatabricksClient {
   }
 
   @Override
-  public void deleteSession(DatabricksSession session, ComputeResource cluster)
+  public void deleteSession(IDatabricksSession session, ComputeResource cluster)
       throws DatabricksSQLException {
     LOGGER.debug(
         "public void deleteSession(Session session = {}, Compute cluster = {})",

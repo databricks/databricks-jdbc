@@ -32,7 +32,7 @@ public interface DatabricksClient {
    * @param session for which the session should be deleted
    * @param computeResource underlying compute resource (All purpose cluster or Warehouse)
    */
-  void deleteSession(DatabricksSession session, ComputeResource computeResource)
+  void deleteSession(IDatabricksSession session, ComputeResource computeResource)
       throws DatabricksSQLException;
 
   /**
