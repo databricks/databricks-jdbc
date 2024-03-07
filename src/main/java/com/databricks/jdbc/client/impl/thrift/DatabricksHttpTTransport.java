@@ -15,8 +15,12 @@ import org.apache.http.entity.ByteArrayEntity;
 import org.apache.thrift.TConfiguration;
 import org.apache.thrift.transport.TTransport;
 import org.apache.thrift.transport.TTransportException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class DatabricksHttpTTransport extends TTransport {
+
+  private static final Logger LOGGER = LoggerFactory.getLogger(DatabricksHttpTTransport.class);
   private final DatabricksHttpClient httpClient;
   private final String url;
   private Map<String, String> customHeaders = Collections.emptyMap();
@@ -48,6 +52,8 @@ public class DatabricksHttpTTransport extends TTransport {
       try {
         inputStream.close();
       } catch (IOException e) {
+        LOGGER.error(
+            "Failed to close inputStream with error {}. Skipping the close.", e.toString());
       }
       inputStream = null;
     }
@@ -72,8 +78,9 @@ public class DatabricksHttpTTransport extends TTransport {
         throw new TTransportException("No more data available.");
       }
       return ret;
-    } catch (IOException iox) {
-      throw new TTransportException(iox);
+    } catch (IOException e) {
+      LOGGER.error("Failed to read inputStream with error {}", e.toString());
+      throw new TTransportException(e);
     }
   }
 
@@ -96,8 +103,9 @@ public class DatabricksHttpTTransport extends TTransport {
       inputStream = response.getEntity().getContent();
       requestBuffer.reset();
     } catch (DatabricksHttpException | IOException e) {
-      throw new TTransportException(
-          TTransportException.UNKNOWN, "Failed to flush data to server: " + e.getMessage());
+      String errorMessage = "Failed to flush data to server: " + e.getMessage();
+      LOGGER.error(errorMessage);
+      throw new TTransportException(TTransportException.UNKNOWN, errorMessage);
     }
   }
 
@@ -116,7 +124,7 @@ public class DatabricksHttpTTransport extends TTransport {
     Map<String, String> headers = new HashMap<>();
     headers.put("Content-Type", "application/x-thrift");
     headers.put("Accept", "application/x-thrift");
-    headers.put("User-Agent", "Java/THttpClient/HC");
+    headers.put("User-Agent", "Java/THttpClient/HC"); // TODO : Fix userAgent
     return headers;
   }
 }
