@@ -8,5 +8,7 @@ public interface SessionInfo {
 
   String sessionId();
 
+  byte[] secret();
+
   ComputeResource computeResource();
 }

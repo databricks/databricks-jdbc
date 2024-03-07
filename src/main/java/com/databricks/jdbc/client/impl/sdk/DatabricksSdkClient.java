@@ -110,11 +110,11 @@ public class DatabricksSdkClient implements DatabricksClient {
   }
 
   @Override
-  public void deleteSession(String sessionId, ComputeResource warehouse) {
-    LOGGER.debug("public void deleteSession(String sessionId = {})", sessionId);
+  public void deleteSession(IDatabricksSession session, ComputeResource warehouse) {
+    LOGGER.debug("public void deleteSession(String sessionId = {})", session.getSessionId());
     DeleteSessionRequest request =
         new DeleteSessionRequest()
-            .setSessionId(sessionId)
+            .setSessionId(session.getSessionId())
             .setWarehouseId(((Warehouse) warehouse).getWarehouseId());
     String path = String.format(DELETE_SESSION_PATH_WITH_ID, request.getSessionId());
     Map<String, String> headers = new HashMap<>();

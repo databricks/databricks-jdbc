@@ -1,4 +1,4 @@
-package com.databricks.jdbc.client.impl.thrift;
+package com.databricks.jdbc.client.impl.thrift.commons;
 
 import com.databricks.jdbc.client.DatabricksHttpException;
 import com.databricks.jdbc.client.http.DatabricksHttpClient;

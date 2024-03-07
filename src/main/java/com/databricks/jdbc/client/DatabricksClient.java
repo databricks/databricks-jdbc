@@ -13,7 +13,7 @@ public interface DatabricksClient {
   /**
    * Creates a new session for given warehouse-Id, catalog and session.
    *
-   * @param warehouseId for which a session should be created
+   * @param computeResource underlying compute resource for which a session should be created
    * @param catalog for the session
    * @param schema for the session
    * @param sessionConf session configuration
@@ -29,17 +29,17 @@ public interface DatabricksClient {
   /**
    * Deletes a session for given session-Id
    *
-   * @param sessionId for which the session should be deleted
-   * @param warehouseId underlying warehouse-Id
+   * @param session for which the session should be deleted
+   * @param computeResource underlying compute resource (All purpose cluster or Warehouse)
    */
-  void deleteSession(String sessionId, ComputeResource computeResource)
+  void deleteSession(IDatabricksSession session, ComputeResource computeResource)
       throws DatabricksSQLException;
 
   /**
    * Executes a statement in Databricks server
    *
    * @param sql SQL statement that needs to be executed
-   * @param warehouseId warehouse-Id which should be used for statement execution
+   * @param computeResource underlying compute resource which should be used for statement execution
    * @param parameters SQL parameters for the statement
    * @param statementType type of statement (metadata, update or generic SQL)
    * @param session underlying session
