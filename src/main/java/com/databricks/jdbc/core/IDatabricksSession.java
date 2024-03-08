@@ -2,6 +2,7 @@ package com.databricks.jdbc.core;
 
 import com.databricks.jdbc.client.DatabricksClient;
 import com.databricks.jdbc.client.DatabricksMetadataClient;
+import com.databricks.jdbc.client.impl.thrift.generated.TSessionHandle;
 import com.databricks.jdbc.core.types.CompressionType;
 import com.databricks.jdbc.core.types.ComputeResource;
 import com.databricks.jdbc.driver.IDatabricksConnectionContext;
@@ -20,7 +21,7 @@ public interface IDatabricksSession {
   String getSessionId();
 
   @Nullable
-  byte[] getSecret();
+  TSessionHandle getSessionHandle();
 
   /**
    * Get the warehouse associated with the session.

@@ -5,6 +5,8 @@ import com.databricks.jdbc.client.DatabricksMetadataClient;
 import com.databricks.jdbc.client.impl.sdk.DatabricksMetadataSdkClient;
 import com.databricks.jdbc.client.impl.sdk.DatabricksSdkClient;
 import com.databricks.jdbc.client.impl.thrift.DatabricksThriftClient;
+import com.databricks.jdbc.client.impl.thrift.DatabricksThriftMetadataClient;
+import com.databricks.jdbc.client.impl.thrift.generated.TSessionHandle;
 import com.databricks.jdbc.core.types.CompressionType;
 import com.databricks.jdbc.core.types.ComputeResource;
 import com.databricks.jdbc.driver.IDatabricksConnectionContext;
@@ -45,7 +47,7 @@ public class DatabricksSession implements IDatabricksSession {
       throws DatabricksSQLException {
     if (connectionContext.isAllPurposeCluster()) {
       this.databricksClient = new DatabricksThriftClient(connectionContext);
-      this.databricksMetadataClient = null;
+      this.databricksMetadataClient = new DatabricksThriftMetadataClient(connectionContext);
     } else {
       this.databricksClient = new DatabricksSdkClient(connectionContext);
       this.databricksMetadataClient =
@@ -71,7 +73,7 @@ public class DatabricksSession implements IDatabricksSession {
       this.databricksMetadataClient =
           new DatabricksMetadataSdkClient((DatabricksSdkClient) databricksClient);
     } else {
-      this.databricksMetadataClient = null;
+      this.databricksMetadataClient = new DatabricksThriftMetadataClient(connectionContext);
     }
     this.isSessionOpen = false;
     this.sessionInfo = null;
@@ -92,8 +94,8 @@ public class DatabricksSession implements IDatabricksSession {
 
   @Nullable
   @Override
-  public byte[] getSecret() {
-    return isSessionOpen ? sessionInfo.secret() : null;
+  public TSessionHandle getSessionHandle() {
+    return sessionInfo.sessionHandle();
   }
 
   @Override

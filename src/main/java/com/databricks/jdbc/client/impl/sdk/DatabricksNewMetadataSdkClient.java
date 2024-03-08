@@ -72,7 +72,6 @@ public class DatabricksNewMetadataSdkClient implements DatabricksMetadataClient 
   @Override
   public DatabricksResultSet listTableTypes(IDatabricksSession session) throws SQLException {
     LOGGER.debug("Returning list of table types.");
-    ;
     return MetadataResultSetBuilder.getTableTypesResult();
   }
 

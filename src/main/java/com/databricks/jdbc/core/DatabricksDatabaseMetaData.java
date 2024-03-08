@@ -954,7 +954,6 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
   public ResultSet getCatalogs() throws SQLException {
     LOGGER.debug("public ResultSet getCatalogs()");
     throwExceptionIfConnectionIsClosed();
-
     return session.getDatabricksMetadataClient().listCatalogs(session);
   }
 
@@ -962,15 +961,8 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
   public ResultSet getTableTypes() throws SQLException {
     LOGGER.debug("public ResultSet getTableTypes()");
     throwExceptionIfConnectionIsClosed();
-    return new DatabricksResultSet(
-        new StatementStatus().setState(StatementState.SUCCEEDED),
-        "tabletype-metadata",
-        Collections.singletonList("TABLE_TYPE"),
-        Collections.singletonList("VARCHAR"),
-        Collections.singletonList(Types.VARCHAR),
-        Collections.singletonList(128),
-        new String[][] {{"SYSTEM TABLE"}, {"TABLE"}, {"VIEW"}},
-        StatementType.METADATA);
+    return session
+            .getDatabricksMetadataClient().listTableTypes(session);
   }
 
   @Override
@@ -1831,37 +1823,8 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
         schemaPattern,
         functionNamePattern);
     throwExceptionIfConnectionIsClosed();
-    // TODO: implement, returning only empty set for now
     throwExceptionIfConnectionIsClosed();
-    return new DatabricksResultSet(
-        new StatementStatus().setState(StatementState.SUCCEEDED),
-        "getfunctions-metadata",
-        Arrays.asList(
-            "FUNCTION_CAT",
-            "FUNCTION_SCHEM",
-            "FUNCTION_NAME",
-            "REMARKS",
-            "FUNCTION_TYPE",
-            "SPECIFIC_NAME"),
-        Arrays.asList("VARCHAR", "VARCHAR", "VARCHAR", "VARCHAR", "VARCHAR", "VARCHAR"),
-        Arrays.asList(
-            Types.VARCHAR,
-            Types.VARCHAR,
-            Types.VARCHAR,
-            Types.VARCHAR,
-            Types.VARCHAR,
-            Types.VARCHAR),
-        Arrays.asList(128, 128, 128, 128, 128, 128),
-        new Object[0][0],
-        StatementType.METADATA);
-
-    //    // TODO: Handle null catalog, schema, function behaviour
-    //
-    //    String showSchemaSQL = "show functions in " + catalog + "." + schemaPattern + " like '" +
-    // functionNamePattern + "'";
-    //    return session.getDatabricksClient().executeStatement(showSchemaSQL,
-    // session.getWarehouseId(),
-    //        new HashMap<Integer, ImmutableSqlParameter>(), StatementType.METADATA, session);
+    return session.getDatabricksMetadataClient().listFunctions(session, catalog, schemaPattern, functionNamePattern);
   }
 
   @Override

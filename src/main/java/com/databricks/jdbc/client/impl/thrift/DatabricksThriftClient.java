@@ -29,10 +29,6 @@ public class DatabricksThriftClient implements DatabricksClient {
     this.thriftAccessor = new ThriftAccessor(connectionContext);
   }
 
-  private TNamespace getNamespace(String catalog, String schema) {
-    return new TNamespace().setCatalogName(catalog).setSchemaName(schema);
-  }
-
   @Override
   public ImmutableSessionInfo createSession(
       ComputeResource cluster, String catalog, String schema, Map<String, String> sessionConf)
@@ -43,7 +39,6 @@ public class DatabricksThriftClient implements DatabricksClient {
         catalog,
         schema,
         sessionConf);
-    System.out.println("opening thrift session");
     TOpenSessionReq openSessionReq =
         new TOpenSessionReq()
             .setInitialNamespace(getNamespace(catalog, schema))
@@ -53,12 +48,14 @@ public class DatabricksThriftClient implements DatabricksClient {
     TOpenSessionResp response =
         (TOpenSessionResp)
             thriftAccessor.getThriftResponse(openSessionReq, CommandName.OPEN_SESSION);
+    verifySuccessStatus(response.status.getStatusCode(), response.toString());
     String sessionId = byteBufferToString(response.sessionHandle.getSessionId().guid);
-    String secret = byteBufferToString(response.sessionHandle.getSessionId().secret);
     LOGGER.info("Session created with ID {}", sessionId);
-
-    System.out.println("opened thrift session " + sessionId);
-    return ImmutableSessionInfo.builder().sessionId(sessionId).computeResource(cluster).build();
+    return ImmutableSessionInfo.builder()
+        .sessionId(sessionId)
+        .sessionHandle(response.sessionHandle)
+        .computeResource(cluster)
+        .build();
   }
 
   @Override
@@ -68,11 +65,14 @@ public class DatabricksThriftClient implements DatabricksClient {
         "public void deleteSession(Session session = {}, Compute cluster = {})",
         session.toString(),
         cluster.toString());
+
     TCloseSessionReq closeSessionReq =
-        new TCloseSessionReq().setSessionHandle(getSessionHandle(session));
+        new TCloseSessionReq().setSessionHandle(session.getSessionHandle());
+    System.out.println("close req " + closeSessionReq.toString());
     TCloseSessionResp response =
         (TCloseSessionResp)
             thriftAccessor.getThriftResponse(closeSessionReq, CommandName.CLOSE_SESSION);
+    verifySuccessStatus(response.status.getStatusCode(), response.toString());
     System.out.println("deleted thrift session " + response.toString());
   }
 

@@ -1,10 +1,7 @@
 package com.databricks.jdbc.client.impl.thrift.commons;
 
 import com.databricks.jdbc.client.http.DatabricksHttpClient;
-import com.databricks.jdbc.client.impl.thrift.generated.TCLIService;
-import com.databricks.jdbc.client.impl.thrift.generated.TCloseSessionReq;
-import com.databricks.jdbc.client.impl.thrift.generated.TGetPrimaryKeysReq;
-import com.databricks.jdbc.client.impl.thrift.generated.TOpenSessionReq;
+import com.databricks.jdbc.client.impl.thrift.generated.*;
 import com.databricks.jdbc.commons.CommandName;
 import com.databricks.jdbc.core.DatabricksSQLException;
 import com.databricks.jdbc.core.DatabricksSQLFeatureNotSupportedException;
@@ -55,8 +52,12 @@ public class ThriftAccessor {
           return client.OpenSession((TOpenSessionReq) request);
         case CLOSE_SESSION:
           return client.CloseSession((TCloseSessionReq) request);
+        case LIST_TABLE_TYPES:
+          return client.GetTableTypes((TGetTableTypesReq) request);
         case LIST_PRIMARY_KEYS:
           return client.GetPrimaryKeys((TGetPrimaryKeysReq) request);
+        case LIST_SCHEMAS:
+          return client.GetSchemas((TGetSchemasReq) request);
         default:
           String errorMessage =
               String.format(
