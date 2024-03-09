@@ -1,6 +1,5 @@
 package com.databricks.jdbc.local;
 
-import com.databricks.jdbc.core.DatabricksConnection;
 import java.sql.*;
 import org.junit.jupiter.api.Test;
 
@@ -60,7 +59,7 @@ public class DriverTester {
   }
 
   @Test
-  void testAllPurposeSessionOpenAndClose() throws Exception {
+  void testAllPurposeTest() throws Exception {
     DriverManager.registerDriver(new com.databricks.jdbc.driver.DatabricksDriver());
     DriverManager.drivers().forEach(driver -> System.out.println(driver.getClass()));
     // Getting the connection
@@ -70,8 +69,8 @@ public class DriverTester {
         DriverManager.getConnection(
             jdbcUrl, "samikshya.chand@databricks.com", "x");
     System.out.println("Connection established......");
-    System.out.println(((DatabricksConnection) con).getSession().getSessionId());
     con.close();
+    System.out.println("Connection closed successfully......");
   }
 
   @Test

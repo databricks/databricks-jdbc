@@ -49,8 +49,7 @@ public class DatabricksThriftClient implements DatabricksClient {
         (TOpenSessionResp)
             thriftAccessor.getThriftResponse(openSessionReq, CommandName.OPEN_SESSION);
     verifySuccessStatus(response.status.getStatusCode(), response.toString());
-    String sessionId = byteBufferToString(response.sessionHandle.getSessionId().guid);
-    LOGGER.info("Session created with ID {}", sessionId);
+    String sessionId = byteBufferToString(response.sessionHandle.sessionId.guid);
     return ImmutableSessionInfo.builder()
         .sessionId(sessionId)
         .sessionHandle(response.sessionHandle)
@@ -65,15 +64,12 @@ public class DatabricksThriftClient implements DatabricksClient {
         "public void deleteSession(Session session = {}, Compute cluster = {})",
         session.toString(),
         cluster.toString());
-
     TCloseSessionReq closeSessionReq =
         new TCloseSessionReq().setSessionHandle(session.getSessionHandle());
-    System.out.println("close req " + closeSessionReq.toString());
     TCloseSessionResp response =
         (TCloseSessionResp)
             thriftAccessor.getThriftResponse(closeSessionReq, CommandName.CLOSE_SESSION);
     verifySuccessStatus(response.status.getStatusCode(), response.toString());
-    System.out.println("deleted thrift session " + response.toString());
   }
 
   @Override

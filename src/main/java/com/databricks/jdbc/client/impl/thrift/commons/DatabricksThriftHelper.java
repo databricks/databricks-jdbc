@@ -8,14 +8,16 @@ import java.util.UUID;
 
 public class DatabricksThriftHelper {
   public static final TProtocolVersion PROTOCOL = TProtocolVersion.HIVE_CLI_SERVICE_PROTOCOL_V8;
-  private static final List<TStatusCode> SUCCESS_STATUS_LIST = List.of(TStatusCode.SUCCESS_STATUS, TStatusCode.SUCCESS_WITH_INFO_STATUS);
+  private static final List<TStatusCode> SUCCESS_STATUS_LIST =
+      List.of(TStatusCode.SUCCESS_STATUS, TStatusCode.SUCCESS_WITH_INFO_STATUS);
 
   public static TNamespace getNamespace(String catalog, String schema) {
     return new TNamespace().setCatalogName(catalog).setSchemaName(schema);
   }
 
   public static String byteBufferToString(ByteBuffer buffer) {
-    long sigBits = buffer.getLong();
+    ByteBuffer newBuffer = buffer.duplicate(); // This is to avoid a BufferUnderflowException
+    long sigBits = newBuffer.getLong();
     return new UUID(sigBits, sigBits).toString();
   }
 

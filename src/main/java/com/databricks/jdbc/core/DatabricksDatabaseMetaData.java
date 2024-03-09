@@ -961,8 +961,7 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
   public ResultSet getTableTypes() throws SQLException {
     LOGGER.debug("public ResultSet getTableTypes()");
     throwExceptionIfConnectionIsClosed();
-    return session
-            .getDatabricksMetadataClient().listTableTypes(session);
+    return session.getDatabricksMetadataClient().listTableTypes(session);
   }
 
   @Override
@@ -1824,7 +1823,9 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
         functionNamePattern);
     throwExceptionIfConnectionIsClosed();
     throwExceptionIfConnectionIsClosed();
-    return session.getDatabricksMetadataClient().listFunctions(session, catalog, schemaPattern, functionNamePattern);
+    return session
+        .getDatabricksMetadataClient()
+        .listFunctions(session, catalog, schemaPattern, functionNamePattern);
   }
 
   @Override

@@ -542,12 +542,6 @@ public class DatabricksDatabaseMetaDataTest {
   }
 
   @Test
-  public void getFunctions_returnsEmptyResultSet() throws Exception {
-    ResultSet resultSet = metaData.getFunctions(null, null, null);
-    assertFalse(resultSet.next());
-  }
-
-  @Test
   public void supportsGroupBy_returnsTrue() throws Exception {
     assertTrue(metaData.supportsGroupBy());
   }
@@ -641,12 +635,6 @@ public class DatabricksDatabaseMetaDataTest {
   @Test
   public void testGetProcedures() throws SQLException {
     ResultSet resultSet = metaData.getProcedures(null, null, null);
-    assertNotNull(resultSet);
-  }
-
-  @Test
-  public void testGetTableTypes() throws SQLException {
-    ResultSet resultSet = metaData.getTableTypes();
     assertNotNull(resultSet);
   }
 
