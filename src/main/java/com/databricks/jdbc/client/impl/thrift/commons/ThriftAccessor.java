@@ -56,8 +56,18 @@ public class ThriftAccessor {
           return client.GetTableTypes((TGetTableTypesReq) request);
         case LIST_PRIMARY_KEYS:
           return client.GetPrimaryKeys((TGetPrimaryKeysReq) request);
+        case LIST_FUNCTIONS:
+          return client.GetFunctions((TGetFunctionsReq) request);
         case LIST_SCHEMAS:
           return client.GetSchemas((TGetSchemasReq) request);
+        case LIST_COLUMNS:
+          return client.GetColumns((TGetColumnsReq) request);
+        case LIST_CATALOGS:
+          return client.GetCatalogs((TGetCatalogsReq) request);
+        case LIST_TABLES:
+          return client.GetTables((TGetTablesReq) request);
+        case LIST_TYPE_INFO:
+          return client.GetTypeInfo((TGetTypeInfoReq) request);
         default:
           String errorMessage =
               String.format(

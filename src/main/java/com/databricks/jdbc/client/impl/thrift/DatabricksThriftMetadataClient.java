@@ -3,6 +3,7 @@ package com.databricks.jdbc.client.impl.thrift;
 import static com.databricks.jdbc.client.impl.thrift.commons.DatabricksThriftHelper.verifySuccessStatus;
 
 import com.databricks.jdbc.client.DatabricksMetadataClient;
+import com.databricks.jdbc.client.impl.sdk.helper.MetadataResultSetBuilder;
 import com.databricks.jdbc.client.impl.thrift.commons.ThriftAccessor;
 import com.databricks.jdbc.client.impl.thrift.generated.*;
 import com.databricks.jdbc.commons.CommandName;
@@ -23,13 +24,26 @@ public class DatabricksThriftMetadataClient implements DatabricksMetadataClient 
   }
 
   @Override
-  public DatabricksResultSet listTypeInfo(IDatabricksSession session) {
-    throw new UnsupportedOperationException();
+  public DatabricksResultSet listTypeInfo(IDatabricksSession session)
+      throws DatabricksSQLException {
+    LOGGER.debug("Listing type info for all purpose cluster. Session {}", session.toString());
+    // TODO: hardcode value rather than server call.
+    TGetTypeInfoReq request = new TGetTypeInfoReq().setSessionHandle(session.getSessionHandle());
+    TGetTypeInfoResp response =
+        (TGetTypeInfoResp) thriftAccessor.getThriftResponse(request, CommandName.LIST_TYPE_INFO);
+    System.out.println("Here is list type info response " + response.toString());
+    return null;
   }
 
   @Override
-  public DatabricksResultSet listCatalogs(IDatabricksSession session) {
-    throw new UnsupportedOperationException();
+  public DatabricksResultSet listCatalogs(IDatabricksSession session)
+      throws DatabricksSQLException {
+    LOGGER.debug("Fetching catalogs for all purpose cluster. Session {}", session.toString());
+    TGetCatalogsReq request = new TGetCatalogsReq().setSessionHandle(session.getSessionHandle());
+    TGetCatalogsResp response =
+        (TGetCatalogsResp) thriftAccessor.getThriftResponse(request, CommandName.LIST_CATALOGS);
+    System.out.println("Here is list catalogs response " + response.toString());
+    return null;
   }
 
   @Override
@@ -55,31 +69,30 @@ public class DatabricksThriftMetadataClient implements DatabricksMetadataClient 
 
   @Override
   public DatabricksResultSet listTables(
-      IDatabricksSession session,
-      String catalog,
-      String schemaNamePattern,
-      String tableNamePattern) {
+      IDatabricksSession session, String catalog, String schemaNamePattern, String tableNamePattern)
+      throws DatabricksSQLException {
     LOGGER.debug(
         "Fetching tables for all purpose cluster. Session {}, catalog {}, schemaNamePattern {}, tableNamePattern {}",
         session.toString(),
         catalog,
         schemaNamePattern,
         tableNamePattern);
-    throw new UnsupportedOperationException();
+    TGetTablesReq request =
+        new TGetTablesReq()
+            .setSessionHandle(session.getSessionHandle())
+            .setCatalogName(catalog)
+            .setSchemaName(schemaNamePattern)
+            .setTableName(tableNamePattern);
+    TGetTablesResp response =
+        (TGetTablesResp) thriftAccessor.getThriftResponse(request, CommandName.LIST_TABLES);
+    System.out.println("response of get tables " + response);
+    return null;
   }
 
   @Override
-  public DatabricksResultSet listTableTypes(IDatabricksSession session)
-      throws DatabricksSQLException {
+  public DatabricksResultSet listTableTypes(IDatabricksSession session) {
     LOGGER.debug("Fetching table types for all purpose cluster. Session {}", session.toString());
-    TGetTableTypesReq request =
-        new TGetTableTypesReq().setSessionHandle(session.getSessionHandle());
-    TGetTableTypesResp response =
-        (TGetTableTypesResp)
-            thriftAccessor.getThriftResponse(request, CommandName.LIST_TABLE_TYPES);
-    System.out.println("??????? Table type info " + response.toString());
-    verifySuccessStatus(response.status.getStatusCode(), response.toString());
-    return null;
+    return MetadataResultSetBuilder.getTableTypesResult();
   }
 
   @Override
@@ -88,8 +101,19 @@ public class DatabricksThriftMetadataClient implements DatabricksMetadataClient 
       String catalog,
       String schemaNamePattern,
       String tableNamePattern,
-      String columnNamePattern) {
-    throw new UnsupportedOperationException();
+      String columnNamePattern)
+      throws DatabricksSQLException {
+    TGetColumnsReq request =
+        new TGetColumnsReq()
+            .setSessionHandle(session.getSessionHandle())
+            .setCatalogName(catalog)
+            .setSchemaName(schemaNamePattern)
+            .setTableName(tableNamePattern)
+            .setColumnName(columnNamePattern);
+    TGetTableTypesResp response =
+        (TGetTableTypesResp) thriftAccessor.getThriftResponse(request, CommandName.LIST_COLUMNS);
+    System.out.println("response of list columns keys " + response);
+    return null;
   }
 
   @Override
@@ -97,8 +121,18 @@ public class DatabricksThriftMetadataClient implements DatabricksMetadataClient 
       IDatabricksSession session,
       String catalog,
       String schemaNamePattern,
-      String functionNamePattern) {
-    throw new UnsupportedOperationException();
+      String functionNamePattern)
+      throws DatabricksSQLException {
+    TGetFunctionsReq request =
+        new TGetFunctionsReq()
+            .setSessionHandle(session.getSessionHandle())
+            .setCatalogName(catalog)
+            .setSchemaName(schemaNamePattern)
+            .setFunctionName(functionNamePattern);
+    TGetFunctionsResp response =
+        (TGetFunctionsResp) thriftAccessor.getThriftResponse(request, CommandName.LIST_FUNCTIONS);
+    System.out.println("response of get functions keys " + response);
+    return null;
   }
 
   @Override
@@ -120,7 +154,7 @@ public class DatabricksThriftMetadataClient implements DatabricksMetadataClient 
     TGetPrimaryKeysResp response =
         (TGetPrimaryKeysResp)
             thriftAccessor.getThriftResponse(request, CommandName.LIST_PRIMARY_KEYS);
-    System.out.println("response of primary keys " + response.toString());
+    System.out.println("response of primary keys " + response);
     verifySuccessStatus(response.status.getStatusCode(), response.toString());
     return null;
   }

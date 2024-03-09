@@ -24,7 +24,7 @@ public interface DatabricksClient {
       String catalog,
       String schema,
       Map<String, String> sessionConf)
-      throws DatabricksSQLException, DatabricksHttpException;
+      throws DatabricksSQLException;
 
   /**
    * Deletes a session for given session-Id
