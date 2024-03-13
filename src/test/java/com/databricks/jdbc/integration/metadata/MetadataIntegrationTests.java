@@ -157,5 +157,12 @@ public class MetadataIntegrationTests {
       } while (tables.next());
     }
     deleteTable(tableName);
+
+    // Test to get empty result set when no matching table is found
+
+    try (ResultSet tables =
+        metaData.getTables(catalog, schemaPattern, "non_existent_table", null)) {
+      assertFalse(tables.next(), "There should be no table in the specified catalog and schema");
+    }
   }
 }

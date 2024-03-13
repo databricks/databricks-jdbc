@@ -46,4 +46,14 @@ public class ConnectionIntegrationTests {
 
     assert (e.getMessage().contains("Invalid or unknown token or hostname provided"));
   }
+
+  @Test
+  void testConnectionWithConnectionStringContainingInvalidProperties_ShouldNotThrowException()
+      throws SQLException {
+    String template =
+        "jdbc:databricks://%s/default;transportMode=http;ssl=1;AuthMech=11;AuthFlow=0;httpPath=%s;invalidProperty=invalidValue";
+    String url = String.format(template, getDatabricksHost(), getDatabricksHTTPPath());
+    Connection conn = DriverManager.getConnection(url);
+    assert ((conn != null) && !conn.isClosed());
+  }
 }
