@@ -82,11 +82,16 @@ public class DatabricksThriftClient implements DatabricksClient {
       IDatabricksStatement parentStatement)
       throws SQLException {
     LOGGER.debug(
-        "public DatabricksResultSet executeStatement(String sql = {}, Compute cluster = {}, Map<Integer, ImmutableSqlParameter> parameters, StatementType statementType = {}, IDatabricksSession session)",
-        sql,
-        computeResource.toString(),
-        statementType);
-    throw new UnsupportedOperationException();
+            "public DatabricksResultSet executeStatement(String sql = {}, compute resource = {}, Map<Integer, ImmutableSqlParameter> parameters, StatementType statementType = {}, IDatabricksSession session)",
+            sql,
+            computeResource.toString(),
+            statementType);
+    TSparkGetDirectResults directResults = new TSparkGetDirectResults().setMaxRows(1000).setMaxBytes(100000);
+    TExecuteStatementReq request = new TExecuteStatementReq().setStatement(sql).setSessionHandle(session.getSessionHandle()).setGetDirectResults(directResults);
+    TExecuteStatementResp response = (TExecuteStatementResp) thriftAccessor.getThriftResponse(request,CommandName.EXECUTE_STATEMENT);
+    thriftAccessor.getResultSetResp(response.getOperationHandle());
+    System.out.println("HERE IS EXECUTE RESP "+ response);
+    return null;
   }
 
   @Override

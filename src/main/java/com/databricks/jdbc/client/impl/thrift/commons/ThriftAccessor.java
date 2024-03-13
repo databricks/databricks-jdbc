@@ -3,6 +3,7 @@ package com.databricks.jdbc.client.impl.thrift.commons;
 import com.databricks.jdbc.client.http.DatabricksHttpClient;
 import com.databricks.jdbc.client.impl.thrift.generated.*;
 import com.databricks.jdbc.commons.CommandName;
+import com.databricks.jdbc.core.DatabricksResultSet;
 import com.databricks.jdbc.core.DatabricksSQLException;
 import com.databricks.jdbc.core.DatabricksSQLFeatureNotSupportedException;
 import com.databricks.jdbc.driver.IDatabricksConnectionContext;
@@ -30,11 +31,29 @@ public class ThriftAccessor {
             .setHost(connectionContext.getHostUrl())
             .setToken(connectionContext.getToken());
   }
-
   private String getEndpointURL(IDatabricksConnectionContext connectionContext) {
     return String.format("%s/%s", connectionContext.getHostUrl(), connectionContext.getHttpPath());
   }
 
+public void getResultSetResp(TOperationHandle operationHandle)  throws DatabricksSQLException{
+  Map<String, String> authHeaders = databricksConfig.authenticate();
+  transport.setCustomHeaders(authHeaders);
+  TBinaryProtocol protocol = new TBinaryProtocol(transport);
+  TCLIService.Client client = new TCLIService.Client(protocol);
+  TFetchResultsReq request = new TFetchResultsReq().setOperationHandle(operationHandle).setIncludeResultSetMetadata(true).setFetchType((short) 0).setMaxRows(1000).setMaxBytes(1000000);
+  try{
+    TFetchResultsResp tFetchResultsResp = client.FetchResults(request);
+    System.out.println("Here is fetch response : "+ tFetchResultsResp.toString());
+  }
+  catch (TException e){
+    String errorMessage =
+            String.format(
+                    "Error while fetching results from Thrift server. Request {%s}, Error {%s}",
+                    request.toString(), e.toString());
+    LOGGER.error(errorMessage);
+    throw new DatabricksSQLException(errorMessage, e);
+  }
+}
   public TBase getThriftResponse(TBase request, CommandName commandName)
       throws DatabricksSQLException {
     LOGGER.debug(
@@ -49,7 +68,7 @@ public class ThriftAccessor {
     try {
       switch (commandName) {
         case OPEN_SESSION:
-          return client.OpenSession((TOpenSessionReq) request);
+           return client.OpenSession((TOpenSessionReq) request);
         case CLOSE_SESSION:
           return client.CloseSession((TCloseSessionReq) request);
         case LIST_TABLE_TYPES:
@@ -68,6 +87,8 @@ public class ThriftAccessor {
           return client.GetTables((TGetTablesReq) request);
         case LIST_TYPE_INFO:
           return client.GetTypeInfo((TGetTypeInfoReq) request);
+        case EXECUTE_STATEMENT:
+          return client.ExecuteStatement((TExecuteStatementReq) request);
         default:
           String errorMessage =
               String.format(

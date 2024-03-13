@@ -1,6 +1,8 @@
 package com.databricks.jdbc.local;
 
 import java.sql.*;
+import java.util.List;
+
 import org.junit.jupiter.api.Test;
 
 public class DriverTester {
@@ -65,8 +67,12 @@ public class DriverTester {
     // Getting the connection
     String jdbcUrl =
         "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=http;ssl=1;httpPath=sql/protocolv1/o/6051921418418893/1115-130834-ms4m0yv;AuthMech=3;UID=token;";
-    Connection con = DriverManager.getConnection(jdbcUrl, "samikshya.chand@databricks.com", "x");
+    Connection con =
+        DriverManager.getConnection(
+            jdbcUrl, "samikshya.chand@databricks.com", "x");
     System.out.println("Connection established......");
+    Statement statement = con.createStatement();
+    statement.execute("select 1");
     con.close();
     System.out.println("Connection closed successfully......");
   }
@@ -77,9 +83,14 @@ public class DriverTester {
     DriverManager.drivers().forEach(driver -> System.out.println(driver.getClass()));
     String jdbcUrl =
         "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=http;ssl=1;httpPath=sql/protocolv1/o/6051921418418893/1115-130834-ms4m0yv;AuthMech=3;UID=token;";
-    Connection con = DriverManager.getConnection(jdbcUrl, "samikshya.chand@databricks.com", "x");
-    // con.getMetaData().getPrimaryKeys("adriana_ispas", "default","samikshya_test_table");
-    con.getMetaData().getFunctions("adriana_ispas", "default", "*");
+    Connection con =
+        DriverManager.getConnection(
+            jdbcUrl, "samikshya.chand@databricks.com", "x");
+     //con.getMetaData().getPrimaryKeys("adriana_ispas", "default","samikshya_test_table");
+    //con.getMetaData().getSchemas();
+    con.getMetaData().getCatalogs();
+    //con.getMetaData().getTables("adriana_ispas","","", null);
+    //con.getMetaData().getFunctions("adriana_ispas", "default", "*");
   }
 
   /*

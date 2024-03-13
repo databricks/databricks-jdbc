@@ -34,15 +34,17 @@ public class DatabricksThriftMetadataClient implements DatabricksMetadataClient 
     System.out.println("Here is list type info response " + response.toString());
     return null;
   }
-
   @Override
   public DatabricksResultSet listCatalogs(IDatabricksSession session)
       throws DatabricksSQLException {
     LOGGER.debug("Fetching catalogs for all purpose cluster. Session {}", session.toString());
-    TGetCatalogsReq request = new TGetCatalogsReq().setSessionHandle(session.getSessionHandle());
+    TSparkGetDirectResults directResults = new TSparkGetDirectResults().setMaxRows(1000).setMaxBytes(100000);
+    TGetCatalogsReq request = new TGetCatalogsReq().setSessionHandle(session.getSessionHandle()).setGetDirectResults(directResults);
+    System.out.println("Here is request DIRECT results " + request.isSetGetDirectResults());
     TGetCatalogsResp response =
         (TGetCatalogsResp) thriftAccessor.getThriftResponse(request, CommandName.LIST_CATALOGS);
-    System.out.println("Here is list catalogs response " + response.toString());
+    thriftAccessor.getResultSetResp(response.getOperationHandle());
+    System.out.println("Here is list catalogs response " + response);
     return null;
   }
 
@@ -64,6 +66,7 @@ public class DatabricksThriftMetadataClient implements DatabricksMetadataClient 
         (TGetSchemasResp) thriftAccessor.getThriftResponse(request, CommandName.LIST_SCHEMAS);
     System.out.println("Here is schema response " + response.toString());
     verifySuccessStatus(response.status.getStatusCode(), response.toString());
+    thriftAccessor.getResultSetResp(response.operationHandle);
     return null;
   }
 
@@ -85,9 +88,13 @@ public class DatabricksThriftMetadataClient implements DatabricksMetadataClient 
             .setTableName(tableNamePattern);
     TGetTablesResp response =
         (TGetTablesResp) thriftAccessor.getThriftResponse(request, CommandName.LIST_TABLES);
-    System.out.println("response of get tables " + response);
+    verifySuccessStatus(response.status.getStatusCode(), response.toString());
+    thriftAccessor.getResultSetResp(response.operationHandle);
+    System.out.println("response of get tables 1 " + response.toString());
+    //System.out.println("response of get tables " + response.directResults.getResultSet());
     return null;
   }
+
 
   @Override
   public DatabricksResultSet listTableTypes(IDatabricksSession session) {
@@ -103,15 +110,19 @@ public class DatabricksThriftMetadataClient implements DatabricksMetadataClient 
       String tableNamePattern,
       String columnNamePattern)
       throws DatabricksSQLException {
+
+    TSparkGetDirectResults directResults = new TSparkGetDirectResults().setMaxRows(1000).setMaxBytes(100000);
     TGetColumnsReq request =
         new TGetColumnsReq()
             .setSessionHandle(session.getSessionHandle())
             .setCatalogName(catalog)
             .setSchemaName(schemaNamePattern)
             .setTableName(tableNamePattern)
-            .setColumnName(columnNamePattern);
+            .setColumnName(columnNamePattern)
+                .setGetDirectResults(directResults);
     TGetTableTypesResp response =
         (TGetTableTypesResp) thriftAccessor.getThriftResponse(request, CommandName.LIST_COLUMNS);
+    thriftAccessor.getResultSetResp(response.operationHandle);
     System.out.println("response of list columns keys " + response);
     return null;
   }
@@ -131,6 +142,7 @@ public class DatabricksThriftMetadataClient implements DatabricksMetadataClient 
             .setFunctionName(functionNamePattern);
     TGetFunctionsResp response =
         (TGetFunctionsResp) thriftAccessor.getThriftResponse(request, CommandName.LIST_FUNCTIONS);
+    thriftAccessor.getResultSetResp(response.operationHandle);
     System.out.println("response of get functions keys " + response);
     return null;
   }
@@ -155,6 +167,7 @@ public class DatabricksThriftMetadataClient implements DatabricksMetadataClient 
         (TGetPrimaryKeysResp)
             thriftAccessor.getThriftResponse(request, CommandName.LIST_PRIMARY_KEYS);
     System.out.println("response of primary keys " + response);
+    thriftAccessor.getResultSetResp(response.operationHandle);
     verifySuccessStatus(response.status.getStatusCode(), response.toString());
     return null;
   }
