@@ -8,9 +8,7 @@ import com.databricks.jdbc.core.DatabricksSQLException;
 import com.databricks.jdbc.core.DatabricksSQLFeatureNotSupportedException;
 import com.databricks.jdbc.driver.IDatabricksConnectionContext;
 import com.databricks.sdk.core.DatabricksConfig;
-
 import java.util.Map;
-
 import org.apache.thrift.TBase;
 import org.apache.thrift.TException;
 import org.apache.thrift.protocol.TBinaryProtocol;
@@ -33,44 +31,51 @@ public class ThriftAccessor {
             .setHost(connectionContext.getHostUrl())
             .setToken(connectionContext.getToken());
   }
+
   private String getEndpointURL(IDatabricksConnectionContext connectionContext) {
     return String.format("%s/%s", connectionContext.getHostUrl(), connectionContext.getHttpPath());
   }
 
-public TFetchResultsResp getResultSetResp(TOperationHandle operationHandle) throws DatabricksHttpException{
-  Map<String, String> authHeaders = databricksConfig.authenticate();
-  transport.setCustomHeaders(authHeaders);
-  TBinaryProtocol protocol = new TBinaryProtocol(transport);
-  TCLIService.Client client = new TCLIService.Client(protocol);
-  TFetchResultsReq request = new TFetchResultsReq().setOperationHandle(operationHandle).setIncludeResultSetMetadata(true).setFetchType((short) 0).setMaxRows(1000).setMaxBytes(1000000);
-  try{
-      return client.FetchResults(request);
-  }
-  catch (TException e){
-    String errorMessage =
-            String.format(
-                    "Error while fetching results from Thrift server. Request {%s}, Error {%s}",
-                    request.toString(), e.toString());
-    LOGGER.error(errorMessage);
-    throw new DatabricksHttpException(errorMessage, e);
-  }
-}
-
-  public TGetResultSetMetadataResp getMetadata(TOperationHandle operationHandle) throws DatabricksHttpException{
+  public TFetchResultsResp getResultSetResp(TOperationHandle operationHandle)
+      throws DatabricksHttpException {
     Map<String, String> authHeaders = databricksConfig.authenticate();
     transport.setCustomHeaders(authHeaders);
     TBinaryProtocol protocol = new TBinaryProtocol(transport);
     TCLIService.Client client = new TCLIService.Client(protocol);
-    TGetResultSetMetadataReq request = new TGetResultSetMetadataReq()
-            .setOperationHandle(operationHandle);
-    try{
-        return client.GetResultSetMetadata(request);
-    }
-    catch (TException e){
+    TFetchResultsReq request =
+        new TFetchResultsReq()
+            .setOperationHandle(operationHandle)
+            .setIncludeResultSetMetadata(true)
+            .setFetchType((short) 0)
+            .setMaxRows(1000)
+            .setMaxBytes(1000000);
+    try {
+      return client.FetchResults(request);
+    } catch (TException e) {
       String errorMessage =
-              String.format(
-                      "Error while fetching results from Thrift server. Request {%s}, Error {%s}",
-                      request.toString(), e.toString());
+          String.format(
+              "Error while fetching results from Thrift server. Request {%s}, Error {%s}",
+              request.toString(), e.toString());
+      LOGGER.error(errorMessage);
+      throw new DatabricksHttpException(errorMessage, e);
+    }
+  }
+
+  public TGetResultSetMetadataResp getMetadata(TOperationHandle operationHandle)
+      throws DatabricksHttpException {
+    Map<String, String> authHeaders = databricksConfig.authenticate();
+    transport.setCustomHeaders(authHeaders);
+    TBinaryProtocol protocol = new TBinaryProtocol(transport);
+    TCLIService.Client client = new TCLIService.Client(protocol);
+    TGetResultSetMetadataReq request =
+        new TGetResultSetMetadataReq().setOperationHandle(operationHandle);
+    try {
+      return client.GetResultSetMetadata(request);
+    } catch (TException e) {
+      String errorMessage =
+          String.format(
+              "Error while fetching results from Thrift server. Request {%s}, Error {%s}",
+              request.toString(), e.toString());
       LOGGER.error(errorMessage);
       throw new DatabricksHttpException(errorMessage, e);
     }
@@ -90,7 +95,7 @@ public TFetchResultsResp getResultSetResp(TOperationHandle operationHandle) thro
     try {
       switch (commandName) {
         case OPEN_SESSION:
-           return client.OpenSession((TOpenSessionReq) request);
+          return client.OpenSession((TOpenSessionReq) request);
         case CLOSE_SESSION:
           return client.CloseSession((TCloseSessionReq) request);
         case LIST_TABLE_TYPES:

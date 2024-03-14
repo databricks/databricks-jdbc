@@ -60,30 +60,30 @@ public class DatabricksResultSet implements ResultSet, IDatabricksResultSet {
   }
 
   public DatabricksResultSet(
-          TStatus statementStatus,
-          String statementId,
-          TRowSet resultData,
-          TGetResultSetMetadataResp resultManifest,
-          StatementType statementType,
-          IDatabricksSession session,
-          IDatabricksStatement parentStatement) {
-          if(SUCCESS_STATUS_LIST.contains(statementStatus.getStatusCode())){
-            this.statementStatus = new StatementStatus().setState(StatementState.SUCCEEDED);
-          }
-          else{
-            this.statementStatus = new StatementStatus().setState(StatementState.FAILED);
-          }
+      TStatus statementStatus,
+      String statementId,
+      TRowSet resultData,
+      TGetResultSetMetadataResp resultManifest,
+      StatementType statementType,
+      IDatabricksSession session,
+      IDatabricksStatement parentStatement) {
+    if (SUCCESS_STATUS_LIST.contains(statementStatus.getStatusCode())) {
+      this.statementStatus = new StatementStatus().setState(StatementState.SUCCEEDED);
+    } else {
+      this.statementStatus = new StatementStatus().setState(StatementState.FAILED);
+    }
     this.statementId = statementId;
     this.executionResult =
-            ExecutionResultFactory.getResultSet(resultData, resultManifest, statementId, session);
-     int rowSize = resultData.getColumns().size()-1;
-    this.resultSetMetaData = new DatabricksResultSetMetaData(statementId, resultManifest,rowSize);
+        ExecutionResultFactory.getResultSet(resultData, resultManifest, statementId, session);
+    int rowSize = resultData.getColumns().size() - 1;
+    this.resultSetMetaData = new DatabricksResultSetMetaData(statementId, resultManifest, rowSize);
     this.statementType = statementType;
     this.updateCount = null;
     this.parentStatement = parentStatement;
     this.isClosed = false;
     this.wasNull = false;
   }
+
   @VisibleForTesting
   public DatabricksResultSet(
       StatementStatus statementStatus,

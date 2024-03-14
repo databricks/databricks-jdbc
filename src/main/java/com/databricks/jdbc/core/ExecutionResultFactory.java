@@ -21,11 +21,16 @@ class ExecutionResultFactory {
     }
   }
 
-  static IExecutionResult getResultSet(TRowSet data, TGetResultSetMetadataResp manifest, String statementId, IDatabricksSession session) {
+  static IExecutionResult getResultSet(
+      TRowSet data,
+      TGetResultSetMetadataResp manifest,
+      String statementId,
+      IDatabricksSession session) {
     // We will use Arrow Stream only in prod. JSON is for testing and prototype purpose
-    System.out.println("here is data "+ data);
-     return new InlineJsonResult(manifest, data);
+    System.out.println("here is data " + data);
+    return new InlineJsonResult(manifest, data);
   }
+
   static IExecutionResult getResultSet(Object[][] rows) {
     return new InlineJsonResult(rows);
   }

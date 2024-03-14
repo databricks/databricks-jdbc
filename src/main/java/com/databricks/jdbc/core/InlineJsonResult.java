@@ -27,22 +27,21 @@ public class InlineJsonResult implements IExecutionResult {
 
   InlineJsonResult(TGetResultSetMetadataResp resultManifest, TRowSet resultData) {
     int rows = ((TDoubleColumn) resultData.getColumns().get(0).getFieldValue()).getValues().size();
-    int columns = resultData.getColumns().size()-1;
+    int columns = resultData.getColumns().size() - 1;
     data = new ArrayList<>();
-    for(int i=0;i<rows;i++) {
-    List<String>currentRowValues = new ArrayList<>();
-    for(int j=0;j<columns;j++){
+    for (int i = 0; i < rows; i++) {
+      List<String> currentRowValues = new ArrayList<>();
+      for (int j = 0; j < columns; j++) {
         TColumn tColumn = resultData.getColumns().get(j);
         if (tColumn.isSetDoubleVal()) {
           currentRowValues.add(tColumn.getDoubleVal().getValues().get(i).toString());
-        }
-        else{
+        } else {
           currentRowValues.add(tColumn.getStringVal().getValues().get(i));
         }
       }
       data.add(currentRowValues);
     }
-    System.out.println("here is data\n"+data.toString());
+    System.out.println("here is data\n" + data.toString());
     this.currentRow = -1;
     this.isClosed = false;
   }

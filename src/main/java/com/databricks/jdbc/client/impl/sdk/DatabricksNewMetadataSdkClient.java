@@ -10,7 +10,6 @@ import com.databricks.jdbc.client.impl.sdk.helper.CommandBuilder;
 import com.databricks.jdbc.client.impl.sdk.helper.CommandName;
 import com.databricks.jdbc.client.impl.sdk.helper.MetadataResultSetBuilder;
 import com.databricks.jdbc.core.*;
-import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.*;
 import org.slf4j.Logger;
@@ -118,7 +117,8 @@ public class DatabricksNewMetadataSdkClient implements DatabricksMetadataClient 
     return MetadataResultSetBuilder.getPrimaryKeysResult(getResultSet(SQL, session));
   }
 
-  private DatabricksResultSet getResultSet(String SQL, IDatabricksSession session) throws SQLException {
+  private DatabricksResultSet getResultSet(String SQL, IDatabricksSession session)
+      throws SQLException {
     return sdkClient.executeStatement(
         SQL,
         session.getComputeResource(),

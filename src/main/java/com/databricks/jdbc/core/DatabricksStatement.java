@@ -410,7 +410,10 @@ public class DatabricksStatement implements IDatabricksStatement, Statement {
       throw new DatabricksTimeoutException(
           "Statement execution timed-out. " + stackTraceMessage, e);
     } catch (InterruptedException | ExecutionException e) {
-      String errorMessage = format("Error occurred during statement execution. SQL: {%s}, Error: {%s}", sql, e.toString());
+      String errorMessage =
+          format(
+              "Error occurred during statement execution. SQL: {%s}, Error: {%s}",
+              sql, e.toString());
       LOGGER.error(errorMessage);
       throw new DatabricksSQLException(errorMessage, e);
     }
@@ -436,7 +439,8 @@ public class DatabricksStatement implements IDatabricksStatement, Statement {
       String sql, Map<Integer, ImmutableSqlParameter> params, StatementType statementType)
       throws SQLException {
     DatabricksClient client = connection.getSession().getDatabricksClient();
-    DatabricksResultSet resultSet = client.executeStatement(
+    DatabricksResultSet resultSet =
+        client.executeStatement(
             sql,
             connection.getSession().getComputeResource(),
             params,
