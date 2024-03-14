@@ -1,14 +1,16 @@
 package com.databricks.jdbc.client.impl.thrift.commons;
 
+import com.databricks.jdbc.client.DatabricksHttpException;
 import com.databricks.jdbc.client.http.DatabricksHttpClient;
 import com.databricks.jdbc.client.impl.thrift.generated.*;
 import com.databricks.jdbc.commons.CommandName;
-import com.databricks.jdbc.core.DatabricksResultSet;
 import com.databricks.jdbc.core.DatabricksSQLException;
 import com.databricks.jdbc.core.DatabricksSQLFeatureNotSupportedException;
 import com.databricks.jdbc.driver.IDatabricksConnectionContext;
 import com.databricks.sdk.core.DatabricksConfig;
+
 import java.util.Map;
+
 import org.apache.thrift.TBase;
 import org.apache.thrift.TException;
 import org.apache.thrift.protocol.TBinaryProtocol;
@@ -35,15 +37,14 @@ public class ThriftAccessor {
     return String.format("%s/%s", connectionContext.getHostUrl(), connectionContext.getHttpPath());
   }
 
-public void getResultSetResp(TOperationHandle operationHandle)  throws DatabricksSQLException{
+public TFetchResultsResp getResultSetResp(TOperationHandle operationHandle) throws DatabricksHttpException{
   Map<String, String> authHeaders = databricksConfig.authenticate();
   transport.setCustomHeaders(authHeaders);
   TBinaryProtocol protocol = new TBinaryProtocol(transport);
   TCLIService.Client client = new TCLIService.Client(protocol);
   TFetchResultsReq request = new TFetchResultsReq().setOperationHandle(operationHandle).setIncludeResultSetMetadata(true).setFetchType((short) 0).setMaxRows(1000).setMaxBytes(1000000);
   try{
-    TFetchResultsResp tFetchResultsResp = client.FetchResults(request);
-    System.out.println("Here is fetch response : "+ tFetchResultsResp.toString());
+      return client.FetchResults(request);
   }
   catch (TException e){
     String errorMessage =
@@ -51,9 +52,30 @@ public void getResultSetResp(TOperationHandle operationHandle)  throws Databrick
                     "Error while fetching results from Thrift server. Request {%s}, Error {%s}",
                     request.toString(), e.toString());
     LOGGER.error(errorMessage);
-    throw new DatabricksSQLException(errorMessage, e);
+    throw new DatabricksHttpException(errorMessage, e);
   }
 }
+
+  public TGetResultSetMetadataResp getMetadata(TOperationHandle operationHandle) throws DatabricksHttpException{
+    Map<String, String> authHeaders = databricksConfig.authenticate();
+    transport.setCustomHeaders(authHeaders);
+    TBinaryProtocol protocol = new TBinaryProtocol(transport);
+    TCLIService.Client client = new TCLIService.Client(protocol);
+    TGetResultSetMetadataReq request = new TGetResultSetMetadataReq()
+            .setOperationHandle(operationHandle);
+    try{
+        return client.GetResultSetMetadata(request);
+    }
+    catch (TException e){
+      String errorMessage =
+              String.format(
+                      "Error while fetching results from Thrift server. Request {%s}, Error {%s}",
+                      request.toString(), e.toString());
+      LOGGER.error(errorMessage);
+      throw new DatabricksHttpException(errorMessage, e);
+    }
+  }
+
   public TBase getThriftResponse(TBase request, CommandName commandName)
       throws DatabricksSQLException {
     LOGGER.debug(

@@ -1,13 +1,16 @@
 package com.databricks.jdbc.core;
 
+import static com.databricks.jdbc.client.impl.thrift.commons.DatabricksThriftHelper.SUCCESS_STATUS_LIST;
 import static com.databricks.jdbc.core.converters.ConverterHelper.getConvertedObject;
 import static com.databricks.jdbc.core.converters.ConverterHelper.getObjectConverter;
 
 import com.databricks.jdbc.client.StatementType;
+import com.databricks.jdbc.client.impl.thrift.generated.*;
 import com.databricks.jdbc.client.sqlexec.ResultData;
 import com.databricks.jdbc.client.sqlexec.ResultManifest;
 import com.databricks.jdbc.commons.util.WarningUtil;
 import com.databricks.jdbc.core.converters.*;
+import com.databricks.sdk.service.sql.StatementState;
 import com.databricks.sdk.service.sql.StatementStatus;
 import com.google.common.annotations.VisibleForTesting;
 import java.io.InputStream;
@@ -56,6 +59,31 @@ public class DatabricksResultSet implements ResultSet, IDatabricksResultSet {
     this.wasNull = false;
   }
 
+  public DatabricksResultSet(
+          TStatus statementStatus,
+          String statementId,
+          TRowSet resultData,
+          TGetResultSetMetadataResp resultManifest,
+          StatementType statementType,
+          IDatabricksSession session,
+          IDatabricksStatement parentStatement) {
+          if(SUCCESS_STATUS_LIST.contains(statementStatus.getStatusCode())){
+            this.statementStatus = new StatementStatus().setState(StatementState.SUCCEEDED);
+          }
+          else{
+            this.statementStatus = new StatementStatus().setState(StatementState.FAILED);
+          }
+    this.statementId = statementId;
+    this.executionResult =
+            ExecutionResultFactory.getResultSet(resultData, resultManifest, statementId, session);
+     int rowSize = resultData.getColumns().size()-1;
+    this.resultSetMetaData = new DatabricksResultSetMetaData(statementId, resultManifest,rowSize);
+    this.statementType = statementType;
+    this.updateCount = null;
+    this.parentStatement = parentStatement;
+    this.isClosed = false;
+    this.wasNull = false;
+  }
   @VisibleForTesting
   public DatabricksResultSet(
       StatementStatus statementStatus,

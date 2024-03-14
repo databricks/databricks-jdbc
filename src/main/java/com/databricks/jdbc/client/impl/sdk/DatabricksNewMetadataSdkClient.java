@@ -118,7 +118,7 @@ public class DatabricksNewMetadataSdkClient implements DatabricksMetadataClient 
     return MetadataResultSetBuilder.getPrimaryKeysResult(getResultSet(SQL, session));
   }
 
-  private ResultSet getResultSet(String SQL, IDatabricksSession session) throws SQLException {
+  private DatabricksResultSet getResultSet(String SQL, IDatabricksSession session) throws SQLException {
     return sdkClient.executeStatement(
         SQL,
         session.getComputeResource(),

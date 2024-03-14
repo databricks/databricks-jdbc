@@ -1,5 +1,7 @@
 package com.databricks.jdbc.core;
 
+import com.databricks.jdbc.client.impl.thrift.generated.TColumnDesc;
+import com.databricks.jdbc.client.impl.thrift.generated.TGetResultSetMetadataResp;
 import com.databricks.jdbc.client.sqlexec.ResultManifest;
 import com.databricks.jdbc.commons.util.WrapperUtil;
 import com.databricks.jdbc.core.types.AccessType;
@@ -54,6 +56,35 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
     this.totalRows = resultManifest.getTotalRowCount();
   }
 
+  public DatabricksResultSetMetaData(String statementId, TGetResultSetMetadataResp resultManifest, int rows) {
+    this.statementId = statementId;
+    Map<String, Integer> columnNameToIndexMap = new HashMap<>();
+    ImmutableList.Builder<ImmutableDatabricksColumn> columnsBuilder = ImmutableList.builder();
+    int currIndex = 0;
+    System.out.println("here is cols in manifest get schema "+resultManifest.getSchema().getColumns());
+    if (resultManifest.getSchema().getColumnsSize() > 0) {
+      for (TColumnDesc columnInfo : resultManifest.getSchema().getColumns()) {
+        ColumnInfoTypeName columnTypeName = ColumnInfoTypeName.STRING;
+        int precision = DatabricksTypeUtil.getPrecision(columnTypeName);
+        ImmutableDatabricksColumn.Builder columnBuilder = getColumnBuilder();
+        columnBuilder
+                .columnName(columnInfo.getColumnName())
+                .columnTypeClassName(DatabricksTypeUtil.getColumnTypeClassName(columnTypeName))
+                .columnType(DatabricksTypeUtil.getColumnType(columnTypeName))
+                .columnTypeText("STRING")
+                .typePrecision(precision)
+                .displaySize(DatabricksTypeUtil.getDisplaySize(columnTypeName, precision))
+                .isSigned(DatabricksTypeUtil.isSigned(columnTypeName));
+
+        columnsBuilder.add(columnBuilder.build());
+        // Keep index starting from 1, to be consistent with JDBC convention
+        columnNameToIndexMap.putIfAbsent(columnInfo.getColumnName(), ++currIndex);
+      }
+    }
+    this.columns = columnsBuilder.build();
+    this.columnNameIndex = ImmutableMap.copyOf(columnNameToIndexMap);
+    this.totalRows = rows;
+  }
   public DatabricksResultSetMetaData(
       String statementId,
       List<String> columnNames,

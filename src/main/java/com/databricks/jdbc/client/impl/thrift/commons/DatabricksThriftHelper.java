@@ -8,7 +8,7 @@ import java.util.UUID;
 
 public class DatabricksThriftHelper {
   public static final TProtocolVersion PROTOCOL = TProtocolVersion.HIVE_CLI_SERVICE_PROTOCOL_V8;
-  private static final List<TStatusCode> SUCCESS_STATUS_LIST =
+  public static final List<TStatusCode> SUCCESS_STATUS_LIST =
       List.of(TStatusCode.SUCCESS_STATUS, TStatusCode.SUCCESS_WITH_INFO_STATUS);
 
   public static TNamespace getNamespace(String catalog, String schema) {

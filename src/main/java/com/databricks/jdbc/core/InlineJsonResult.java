@@ -2,6 +2,7 @@ package com.databricks.jdbc.core;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 
+import com.databricks.jdbc.client.impl.thrift.generated.*;
 import com.databricks.jdbc.client.sqlexec.ResultData;
 import com.databricks.jdbc.client.sqlexec.ResultManifest;
 import java.sql.SQLException;
@@ -20,6 +21,28 @@ public class InlineJsonResult implements IExecutionResult {
 
   InlineJsonResult(ResultManifest resultManifest, ResultData resultData) {
     this.data = getDataList(resultData.getDataArray());
+    this.currentRow = -1;
+    this.isClosed = false;
+  }
+
+  InlineJsonResult(TGetResultSetMetadataResp resultManifest, TRowSet resultData) {
+    int rows = ((TDoubleColumn) resultData.getColumns().get(0).getFieldValue()).getValues().size();
+    int columns = resultData.getColumns().size()-1;
+    data = new ArrayList<>();
+    for(int i=0;i<rows;i++) {
+    List<String>currentRowValues = new ArrayList<>();
+    for(int j=0;j<columns;j++){
+        TColumn tColumn = resultData.getColumns().get(j);
+        if (tColumn.isSetDoubleVal()) {
+          currentRowValues.add(tColumn.getDoubleVal().getValues().get(i).toString());
+        }
+        else{
+          currentRowValues.add(tColumn.getStringVal().getValues().get(i));
+        }
+      }
+      data.add(currentRowValues);
+    }
+    System.out.println("here is data\n"+data.toString());
     this.currentRow = -1;
     this.isClosed = false;
   }

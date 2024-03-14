@@ -8,10 +8,11 @@ import org.junit.jupiter.api.Test;
 public class DriverTester {
   public void printResultSet(ResultSet resultSet) throws SQLException {
     ResultSetMetaData rsmd = resultSet.getMetaData();
-    int columnsNumber = rsmd.getColumnCount();
-    for (int i = 1; i <= columnsNumber; i++) System.out.print(rsmd.getColumnName(i) + "\t");
+    int columnsNumber = rsmd.getColumnCount()-1;
+    System.out.println("here is col number "+columnsNumber);
+    for (int i = 1; i <= columnsNumber; i++) System.out.print(rsmd.getColumnName(i) + "\t\t\t");
     System.out.println();
-    for (int i = 1; i <= columnsNumber; i++) System.out.print(rsmd.getColumnTypeName(i) + "\t\t");
+    for (int i = 1; i <= columnsNumber; i++) System.out.print(rsmd.getColumnTypeName(i) + "\t\t\t");
     System.out.println();
     for (int i = 1; i <= columnsNumber; i++) System.out.print(rsmd.getColumnType(i) + "\t\t\t");
     System.out.println();
@@ -20,7 +21,7 @@ public class DriverTester {
     while (resultSet.next()) {
       for (int i = 1; i <= columnsNumber; i++) {
         Object columnValue = resultSet.getObject(i);
-        System.out.print(columnValue + "\t\t");
+        System.out.print(columnValue + "\t");
       }
       System.out.println();
     }
@@ -33,11 +34,12 @@ public class DriverTester {
     // Getting the connection
     String jdbcUrl =
         "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/791ba2a31c7fd70a;";
-    Connection con = DriverManager.getConnection(jdbcUrl, "samikshya.chand@databricks.com", "xx");
+    Connection con = DriverManager.getConnection(jdbcUrl, "samikshya.chand@databricks.com", "x");
     System.out.println("Connection established......");
     Statement statement = con.createStatement();
     statement.setMaxRows(10);
     ResultSet rs = statement.executeQuery("select * from samples.tpch.lineitem limit 10");
+    //ResultSet rs = statement.executeQuery("select 1");
     printResultSet(rs);
     rs.close();
     statement.close();
@@ -72,7 +74,8 @@ public class DriverTester {
             jdbcUrl, "samikshya.chand@databricks.com", "x");
     System.out.println("Connection established......");
     Statement statement = con.createStatement();
-    statement.execute("select 1");
+    ResultSet rs = statement.executeQuery("SELECT * from lb_demo.demographics_fs.demographics LIMIT 10");
+    printResultSet(rs);
     con.close();
     System.out.println("Connection closed successfully......");
   }
@@ -86,11 +89,13 @@ public class DriverTester {
     Connection con =
         DriverManager.getConnection(
             jdbcUrl, "samikshya.chand@databricks.com", "x");
-     //con.getMetaData().getPrimaryKeys("adriana_ispas", "default","samikshya_test_table");
-    //con.getMetaData().getSchemas();
-    con.getMetaData().getCatalogs();
-    //con.getMetaData().getTables("adriana_ispas","","", null);
-    //con.getMetaData().getFunctions("adriana_ispas", "default", "*");
+     ResultSet rs =con.getMetaData().getPrimaryKeys("adriana_ispas", "default","samikshya_test_table");
+     //System.out.println("Here you go "+rs.);
+    //ResultSet rs =con.getMetaData().getSchemas("adriana_ispas","quickstart"); -> NOT WORKING
+    //ResultSet rs =con.getMetaData().getCatalogs();
+    //ResultSet rs = con.getMetaData().getTables("adriana_ispas","","", null);
+    //ResultSet rs =con.getMetaData().getFunctions("adriana_ispas", "default", "*");
+    printResultSet(rs);
   }
 
   /*
