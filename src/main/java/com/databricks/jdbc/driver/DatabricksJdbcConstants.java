@@ -36,7 +36,6 @@ public final class DatabricksJdbcConstants {
   static final String CONN_CATALOG = "conncatalog";
 
   static final String CONN_SCHEMA = "connschema";
-
   public static final String PROXY_HOST = "proxyhost";
   public static final String PROXY_PORT = "proxyport";
   public static final String PROXY_USER = "proxyuid";
@@ -50,7 +49,6 @@ public final class DatabricksJdbcConstants {
   public static final String CF_PROXY_AUTH = "cfproxyauth";
   public static final String CF_PROXY_USER = "cfproxyuid";
   public static final String CF_PROXY_PWD = "cfproxypwd";
-
   static final String AUTH_FLOW = "auth_flow";
 
   // Only used when AUTH_MECH = 3

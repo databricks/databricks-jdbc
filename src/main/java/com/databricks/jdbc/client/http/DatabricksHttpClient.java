@@ -52,12 +52,14 @@ public class DatabricksHttpClient implements IDatabricksHttpClient {
   private static PoolingHttpClientConnectionManager connectionManager;
 
   private final CloseableHttpClient httpClient;
+  private IDatabricksConnectionContext connectionContext;
 
   private DatabricksHttpClient(IDatabricksConnectionContext connectionContext) {
     connectionManager = new PoolingHttpClientConnectionManager();
     connectionManager.setMaxTotal(DEFAULT_MAX_HTTP_CONNECTIONS);
     connectionManager.setDefaultMaxPerRoute(DEFAULT_MAX_HTTP_CONNECTIONS_PER_ROUTE);
     httpClient = makeClosableHttpClient(connectionContext);
+    this.connectionContext = connectionContext;
   }
 
   @VisibleForTesting
@@ -171,8 +173,7 @@ public class DatabricksHttpClient implements IDatabricksHttpClient {
     return builder.build();
   }
 
-  @VisibleForTesting
-  static boolean isRetryAllowed(String method) {
+  public static boolean isRetryAllowed(String method) {
     // For now, allowing retry only for GET which is idempotent
     return Objects.equals(HTTP_GET, method);
   }

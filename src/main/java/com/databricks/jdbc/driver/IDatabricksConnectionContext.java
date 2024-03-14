@@ -98,6 +98,8 @@ public interface IDatabricksConnectionContext {
 
   ProxyConfig.ProxyAuthType getProxyAuthType();
 
+  int getProxyAuth();
+
   Boolean getUseSystemProxy();
 
   Boolean getUseCloudFetchProxy();
@@ -113,4 +115,6 @@ public interface IDatabricksConnectionContext {
   ProxyConfig.ProxyAuthType getCloudFetchProxyAuthType();
 
   String getEndpointURL() throws DatabricksParsingException;
+
+  int getCloudFetchProxyAuth();
 }

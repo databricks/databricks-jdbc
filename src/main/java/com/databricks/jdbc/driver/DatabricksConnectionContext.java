@@ -340,6 +340,10 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
     return ProxyConfig.ProxyAuthType.values()[proxyAuthTypeOrdinal];
   }
 
+  public int getProxyAuth() {
+    return getParameter(PROXY_AUTH) == null ? 0 : Integer.parseInt(getParameter(PROXY_AUTH));
+  }
+
   @Override
   public Boolean getUseSystemProxy() {
     return Objects.equals(getParameter(USE_SYSTEM_PROXY), "1");
@@ -380,5 +384,9 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   @Override
   public String getEndpointURL() throws DatabricksParsingException {
     return String.format("%s/%s", this.getHostUrl(), this.getHttpPath());
+  }
+
+  public int getCloudFetchProxyAuth() {
+    return getParameter(CF_PROXY_AUTH) == null ? 0 : Integer.parseInt(getParameter(CF_PROXY_AUTH));
   }
 }
