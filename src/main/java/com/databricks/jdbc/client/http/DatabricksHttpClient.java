@@ -4,7 +4,7 @@ import com.databricks.jdbc.client.DatabricksHttpException;
 import com.databricks.jdbc.client.IDatabricksHttpClient;
 import com.databricks.jdbc.driver.DatabricksJdbcConstants;
 import com.databricks.jdbc.driver.IDatabricksConnectionContext;
-import com.google.common.annotations.VisibleForTesting;
+import com.databricks.sdk.core.commons.CommonsHttpClient;
 import java.io.IOException;
 import java.util.HashSet;
 import java.util.Objects;
@@ -14,17 +14,12 @@ import org.apache.http.HttpException;
 import org.apache.http.HttpHost;
 import org.apache.http.HttpResponse;
 import org.apache.http.HttpResponseInterceptor;
-import org.apache.http.auth.AuthScope;
-import org.apache.http.auth.UsernamePasswordCredentials;
-import org.apache.http.client.CredentialsProvider;
 import org.apache.http.client.config.RequestConfig;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpUriRequest;
 import org.apache.http.client.protocol.HttpClientContext;
-import org.apache.http.impl.client.BasicCredentialsProvider;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClientBuilder;
-import org.apache.http.impl.client.ProxyAuthenticationStrategy;
 import org.apache.http.impl.conn.PoolingHttpClientConnectionManager;
 import org.apache.http.protocol.HttpContext;
 import org.slf4j.Logger;
@@ -120,49 +115,39 @@ public class DatabricksHttpClient implements IDatabricksHttpClient {
                     }
                   }
                 });
+    String proxyHost = null;
+    Integer proxyPort = null;
+    String proxyUser = null;
+    String proxyPassword = null;
+    Integer proxyAuth = connectionContext.getProxyAuth();
     if (connectionContext.getUseSystemProxy()) {
       builder.useSystemProperties();
+      proxyHost = System.getProperty("https.proxyHost");
+      proxyPort = Integer.getInteger("https.proxyPort");
+      proxyUser = System.getProperty("https.proxyUser");
+      proxyPassword = System.getProperty("https.proxyPassword");
     }
     // Override system proxy if proxy details are explicitly provided
     // If cloud fetch proxy is provided use that, else use the regular proxy
     if (connectionContext.getUseCloudFetchProxy()) {
-      setProxyDetailsInHttpClient(
-          builder,
-          connectionContext.getCloudFetchProxyHost(),
-          connectionContext.getCloudFetchProxyPort(),
-          connectionContext.getUseCloudFetchProxyAuth(),
-          connectionContext.getCloudFetchProxyUser(),
-          connectionContext.getCloudFetchProxyPassword());
+      proxyHost = connectionContext.getCloudFetchProxyHost();
+      proxyPort = connectionContext.getCloudFetchProxyPort();
+      proxyUser = connectionContext.getCloudFetchProxyUser();
+      proxyPassword = connectionContext.getCloudFetchProxyPassword();
+      proxyAuth = connectionContext.getCloudFetchProxyAuth();
     } else if (connectionContext.getUseProxy()) {
-      setProxyDetailsInHttpClient(
-          builder,
-          connectionContext.getProxyHost(),
-          connectionContext.getProxyPort(),
-          connectionContext.getUseProxyAuth(),
-          connectionContext.getProxyUser(),
-          connectionContext.getProxyPassword());
+      proxyHost = connectionContext.getProxyHost();
+      proxyPort = connectionContext.getProxyPort();
+      proxyUser = connectionContext.getProxyUser();
+      proxyPassword = connectionContext.getProxyPassword();
+      proxyAuth = connectionContext.getProxyAuth();
+    }
+    if (proxyHost != null) {
+      builder.setProxy(new HttpHost(proxyHost, proxyPort));
+      CommonsHttpClient.setupProxyAuth(
+          proxyHost, proxyPort, proxyAuth, proxyUser, proxyPassword, builder);
     }
     return builder.build();
-  }
-
-  @VisibleForTesting
-  public static void setProxyDetailsInHttpClient(
-      HttpClientBuilder builder,
-      String proxyHost,
-      int proxyPort,
-      Boolean useProxyAuth,
-      String proxyUser,
-      String proxyPassword) {
-    builder.setProxy(new HttpHost(proxyHost, proxyPort));
-    if (useProxyAuth) {
-      CredentialsProvider credsProvider = new BasicCredentialsProvider();
-      credsProvider.setCredentials(
-          new AuthScope(proxyHost, proxyPort),
-          new UsernamePasswordCredentials(proxyUser, proxyPassword));
-      builder
-          .setDefaultCredentialsProvider(credsProvider)
-          .setProxyAuthenticationStrategy(new ProxyAuthenticationStrategy());
-    }
   }
 
   private static boolean isRetryAllowed(String method) {

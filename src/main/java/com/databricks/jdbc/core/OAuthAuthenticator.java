@@ -25,41 +25,42 @@ public class OAuthAuthenticator {
         case TOKEN_PASSTHROUGH:
           return authenticateAccessToken(databricksConfig);
         case CLIENT_CREDENTIALS:
-          return authenticateM2M();
+          return authenticateM2M(databricksConfig);
         case BROWSER_BASED_AUTHENTICATION:
-          return authenticateU2M();
+          return authenticateU2M(databricksConfig);
       }
     }
     return authenticateAccessToken(databricksConfig);
   }
 
-  public WorkspaceClient authenticateU2M() {
-    DatabricksConfig config =
-        new DatabricksConfig()
-            .setAuthType(DatabricksJdbcConstants.U2M_AUTH_TYPE)
-            .setHost(this.connectionContext.getHostForOAuth())
-            .setClientId(this.connectionContext.getClientId())
-            .setClientSecret(this.connectionContext.getClientSecret())
-            .setOAuthRedirectUrl(DatabricksJdbcConstants.U2M_AUTH_REDIRECT_URL);
-    if (!config.isAzure()) {
+  public WorkspaceClient authenticateU2M(DatabricksConfig databricksConfig) {
+    databricksConfig
+        .setAuthType(DatabricksJdbcConstants.U2M_AUTH_TYPE)
+        .setHost(this.connectionContext.getHostForOAuth())
+        .setClientId(this.connectionContext.getClientId())
+        .setClientSecret(this.connectionContext.getClientSecret())
+        .setOAuthRedirectUrl(DatabricksJdbcConstants.U2M_AUTH_REDIRECT_URL);
+    if (!databricksConfig.isAzure()) {
       // Default scope is already being set for Azure in databricks-sdk.
-      config.setScopes(this.connectionContext.getOAuthScopesForU2M());
+      databricksConfig.setScopes(this.connectionContext.getOAuthScopesForU2M());
     }
-    return new WorkspaceClient(config);
-  }
-
-  public WorkspaceClient authenticateAccessToken(DatabricksConfig databricksConfig) {
-    databricksConfig.setAuthType(DatabricksJdbcConstants.ACCESS_TOKEN_AUTH_TYPE);
     return new WorkspaceClient(databricksConfig);
   }
 
-  public WorkspaceClient authenticateM2M() {
-    DatabricksConfig config =
-        new DatabricksConfig()
-            .setAuthType(DatabricksJdbcConstants.M2M_AUTH_TYPE)
-            .setHost(this.connectionContext.getHostForOAuth())
-            .setClientId(this.connectionContext.getClientId())
-            .setClientSecret(this.connectionContext.getClientSecret());
-    return new WorkspaceClient(config);
+  public WorkspaceClient authenticateAccessToken(DatabricksConfig databricksConfig) {
+    databricksConfig
+        .setAuthType(DatabricksJdbcConstants.ACCESS_TOKEN_AUTH_TYPE)
+        .setHost(this.connectionContext.getHostUrl())
+        .setToken(this.connectionContext.getToken());
+    return new WorkspaceClient(databricksConfig);
+  }
+
+  public WorkspaceClient authenticateM2M(DatabricksConfig databricksConfig) {
+    databricksConfig
+        .setAuthType(DatabricksJdbcConstants.M2M_AUTH_TYPE)
+        .setHost(this.connectionContext.getHostForOAuth())
+        .setClientId(this.connectionContext.getClientId())
+        .setClientSecret(this.connectionContext.getClientSecret());
+    return new WorkspaceClient(databricksConfig);
   }
 }

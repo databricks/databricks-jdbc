@@ -195,7 +195,7 @@ class DatabricksConnectionContextTest {
     assertTrue(connectionContext.getUseProxy());
     assertEquals("127.0.0.1", connectionContext.getProxyHost());
     assertEquals(8080, connectionContext.getProxyPort());
-    assertTrue(connectionContext.getUseProxyAuth());
+    assertEquals(1, connectionContext.getProxyAuth());
     assertEquals("proxyUser", connectionContext.getProxyUser());
     assertEquals("proxyPassword", connectionContext.getProxyPassword());
 
@@ -205,7 +205,7 @@ class DatabricksConnectionContextTest {
     assertTrue(connectionContextWithCFProxy.getUseProxy());
     assertEquals("127.0.1.2", connectionContextWithCFProxy.getCloudFetchProxyHost());
     assertEquals(8081, connectionContextWithCFProxy.getCloudFetchProxyPort());
-    assertTrue(connectionContextWithCFProxy.getUseCloudFetchProxyAuth());
+    assertEquals(1, connectionContextWithCFProxy.getCloudFetchProxyAuth());
     assertEquals("cfProxyUser", connectionContextWithCFProxy.getCloudFetchProxyUser());
     assertEquals("cfProxyPassword", connectionContextWithCFProxy.getCloudFetchProxyPassword());
   }

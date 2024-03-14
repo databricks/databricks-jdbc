@@ -27,11 +27,12 @@ public class OAuthAuthenticatorTest {
 
   @Test
   void getWorkspaceClient_PAT_AuthenticatesWithAccessToken() {
+    DatabricksConfig databricksConfig = new DatabricksConfig();
     when(mockContext.getAuthMech()).thenReturn(IDatabricksConnectionContext.AuthMech.PAT);
     when(mockContext.getHostUrl()).thenReturn("https://pat.databricks.com");
     when(mockContext.getToken()).thenReturn("pat-token");
 
-    WorkspaceClient client = authenticator.getWorkspaceClient();
+    WorkspaceClient client = authenticator.getWorkspaceClient(databricksConfig);
     assertNotNull(client);
     DatabricksConfig config = client.config();
 
@@ -42,13 +43,14 @@ public class OAuthAuthenticatorTest {
 
   @Test
   void getWorkspaceClient_OAuthWithTokenPassthrough_AuthenticatesCorrectly() {
+    DatabricksConfig databricksConfig = new DatabricksConfig();
     when(mockContext.getAuthMech()).thenReturn(IDatabricksConnectionContext.AuthMech.OAUTH);
     when(mockContext.getAuthFlow())
         .thenReturn(IDatabricksConnectionContext.AuthFlow.TOKEN_PASSTHROUGH);
     when(mockContext.getHostUrl()).thenReturn("https://oauth-token.databricks.com");
     when(mockContext.getToken()).thenReturn("oauth-token");
 
-    WorkspaceClient client = authenticator.getWorkspaceClient();
+    WorkspaceClient client = authenticator.getWorkspaceClient(databricksConfig);
     assertNotNull(client);
     DatabricksConfig config = client.config();
 
@@ -59,6 +61,7 @@ public class OAuthAuthenticatorTest {
 
   @Test
   void getWorkspaceClient_OAuthWithClientCredentials_AuthenticatesCorrectly() {
+    DatabricksConfig databricksConfig = new DatabricksConfig();
     when(mockContext.getAuthMech()).thenReturn(IDatabricksConnectionContext.AuthMech.OAUTH);
     when(mockContext.getAuthFlow())
         .thenReturn(IDatabricksConnectionContext.AuthFlow.CLIENT_CREDENTIALS);
@@ -66,7 +69,7 @@ public class OAuthAuthenticatorTest {
     when(mockContext.getClientId()).thenReturn("client-id");
     when(mockContext.getClientSecret()).thenReturn("client-secret");
 
-    WorkspaceClient client = authenticator.getWorkspaceClient();
+    WorkspaceClient client = authenticator.getWorkspaceClient(databricksConfig);
     assertNotNull(client);
     DatabricksConfig config = client.config();
 
@@ -78,6 +81,7 @@ public class OAuthAuthenticatorTest {
 
   @Test
   void getWorkspaceClient_OAuthWithBrowserBasedAuthentication_AuthenticatesCorrectly() {
+    DatabricksConfig databricksConfig = new DatabricksConfig();
     when(mockContext.getAuthMech()).thenReturn(IDatabricksConnectionContext.AuthMech.OAUTH);
     when(mockContext.getAuthFlow())
         .thenReturn(IDatabricksConnectionContext.AuthFlow.BROWSER_BASED_AUTHENTICATION);
@@ -86,7 +90,7 @@ public class OAuthAuthenticatorTest {
     when(mockContext.getClientSecret()).thenReturn("browser-client-secret");
     when(mockContext.getOAuthScopesForU2M()).thenReturn(List.of(new String[] {"scope1", "scope2"}));
 
-    WorkspaceClient client = authenticator.getWorkspaceClient();
+    WorkspaceClient client = authenticator.getWorkspaceClient(databricksConfig);
     assertNotNull(client);
     DatabricksConfig config = client.config();
 

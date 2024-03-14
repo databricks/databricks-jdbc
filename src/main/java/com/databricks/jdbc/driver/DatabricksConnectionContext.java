@@ -309,8 +309,8 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   }
 
   @Override
-  public Boolean getUseProxyAuth() {
-    return Objects.equals(getParameter(USE_PROXY_AUTH), "1");
+  public int getProxyAuth() {
+    return getParameter(PROXY_AUTH) == null ? 0 : Integer.parseInt(getParameter(PROXY_AUTH));
   }
 
   @Override
@@ -344,7 +344,12 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   }
 
   @Override
-  public Boolean getUseCloudFetchProxyAuth() {
-    return Objects.equals(getParameter(USE_CF_PROXY_AUTH), "1");
+  public int getCloudFetchProxyAuth() {
+    return getParameter(CF_PROXY_AUTH) == null ? 0 : Integer.parseInt(getParameter(CF_PROXY_AUTH));
+  }
+
+  @Override
+  public String getKrb5ConfPath() {
+    return getParameter(KRB5_CONF_PATH);
   }
 }

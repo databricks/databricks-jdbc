@@ -92,7 +92,7 @@ public interface IDatabricksConnectionContext {
 
   Boolean getUseProxy();
 
-  Boolean getUseProxyAuth();
+  int getProxyAuth();
 
   Boolean getUseSystemProxy();
 
@@ -106,5 +106,7 @@ public interface IDatabricksConnectionContext {
 
   String getCloudFetchProxyPassword();
 
-  Boolean getUseCloudFetchProxyAuth();
+  int getCloudFetchProxyAuth();
+
+  String getKrb5ConfPath();
 }
