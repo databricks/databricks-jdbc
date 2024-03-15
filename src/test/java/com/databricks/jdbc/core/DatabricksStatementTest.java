@@ -7,6 +7,7 @@ import static org.mockito.Mockito.when;
 
 import com.databricks.jdbc.client.StatementType;
 import com.databricks.jdbc.client.impl.sdk.DatabricksSdkClient;
+import com.databricks.jdbc.core.types.Warehouse;
 import com.databricks.jdbc.driver.DatabricksConnectionContext;
 import com.databricks.jdbc.driver.IDatabricksConnectionContext;
 import java.sql.ResultSet;
@@ -39,7 +40,7 @@ public class DatabricksStatementTest {
 
     when(client.executeStatement(
             eq(STATEMENT),
-            eq(WAREHOUSE_ID),
+            eq(new Warehouse(WAREHOUSE_ID)),
             eq(new HashMap<Integer, ImmutableSqlParameter>()),
             eq(StatementType.QUERY),
             any(IDatabricksSession.class),
@@ -64,7 +65,7 @@ public class DatabricksStatementTest {
     when(resultSet.getUpdateCount()).thenReturn(2L);
     when(client.executeStatement(
             eq(STATEMENT),
-            eq(WAREHOUSE_ID),
+            eq(new Warehouse(WAREHOUSE_ID)),
             eq(new HashMap<Integer, ImmutableSqlParameter>()),
             eq(StatementType.UPDATE),
             any(IDatabricksSession.class),
@@ -84,7 +85,7 @@ public class DatabricksStatementTest {
         DatabricksConnectionContext.parse(JDBC_URL, new Properties());
     DatabricksConnection connection = new DatabricksConnection(connectionContext, client);
     DatabricksStatement statement = new DatabricksStatement(connection);
-    assertEquals(statement.getWarnings(), null);
+    assertNull(statement.getWarnings());
     statement.setFetchSize(10);
     assertEquals(0, statement.getFetchSize());
     SQLWarning warnings = statement.getWarnings();

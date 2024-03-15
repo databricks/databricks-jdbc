@@ -1,5 +1,6 @@
 package com.databricks.jdbc.local;
 
+import com.databricks.jdbc.core.DatabricksConnection;
 import java.sql.*;
 import org.junit.jupiter.api.Test;
 
@@ -56,6 +57,18 @@ public class DriverTester {
     printResultSet(resultSet);
     resultSet.close();
     con.close();
+  }
+
+  @Test
+  void testAllPurposeGetSession() throws Exception {
+    DriverManager.registerDriver(new com.databricks.jdbc.driver.DatabricksDriver());
+    DriverManager.drivers().forEach(driver -> System.out.println(driver.getClass()));
+    // Getting the connection
+    String jdbcUrl =
+        "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=http;ssl=1;httpPath=sql/protocolv1/o/6051921418418893/1115-130834-ms4m0yv;AuthMech=3;UID=token;";
+    Connection con = DriverManager.getConnection(jdbcUrl, "samikshya.chand@databricks.com", "x");
+    System.out.println("Connection established......");
+    System.out.println(((DatabricksConnection) con).getSession().getSessionId());
   }
 
   /*

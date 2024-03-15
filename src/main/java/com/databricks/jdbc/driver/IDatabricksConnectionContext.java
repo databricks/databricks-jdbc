@@ -1,7 +1,10 @@
 package com.databricks.jdbc.driver;
 
+import com.databricks.jdbc.core.DatabricksSQLException;
 import com.databricks.jdbc.core.types.CompressionType;
+import com.databricks.jdbc.core.types.ComputeResource;
 import java.util.List;
+import java.util.Map;
 
 public interface IDatabricksConnectionContext {
 
@@ -42,7 +45,7 @@ public interface IDatabricksConnectionContext {
    *
    * @return warehouse-Id
    */
-  String getWarehouse();
+  ComputeResource getComputeResource() throws DatabricksSQLException;
 
   /**
    * Returns the auth token (personal access token/OAuth token etc)
@@ -82,4 +85,36 @@ public interface IDatabricksConnectionContext {
   String getSSLKeyStorePassword();
 
   boolean getAllowSelfSignedCerts();
+
+  Map<String, String> getSessionConfigs();
+
+  boolean isAllPurposeCluster();
+
+  String getHttpPath();
+
+  String getProxyHost();
+
+  int getProxyPort();
+
+  String getProxyUser();
+
+  String getProxyPassword();
+
+  Boolean getUseProxy();
+
+  Boolean getUseProxyAuth();
+
+  Boolean getUseSystemProxy();
+
+  Boolean getUseCloudFetchProxy();
+
+  String getCloudFetchProxyHost();
+
+  int getCloudFetchProxyPort();
+
+  String getCloudFetchProxyUser();
+
+  String getCloudFetchProxyPassword();
+
+  Boolean getUseCloudFetchProxyAuth();
 }

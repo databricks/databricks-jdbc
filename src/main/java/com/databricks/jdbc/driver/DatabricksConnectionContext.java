@@ -1,14 +1,19 @@
 package com.databricks.jdbc.driver;
 
-import static com.databricks.jdbc.driver.DatabricksJdbcConstants.DEFAULT_LOG_LEVEL;
-import static com.databricks.jdbc.driver.DatabricksJdbcConstants.JDBC_URL_PATTERN;
+import static com.databricks.jdbc.driver.DatabricksJdbcConstants.*;
 
 import com.databricks.jdbc.client.DatabricksClientType;
+import com.databricks.jdbc.core.DatabricksParsingException;
+import com.databricks.jdbc.core.DatabricksSQLException;
+import com.databricks.jdbc.core.types.AllPurposeCluster;
 import com.databricks.jdbc.core.types.CompressionType;
+import com.databricks.jdbc.core.types.ComputeResource;
+import com.databricks.jdbc.core.types.Warehouse;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
 import java.util.*;
 import java.util.regex.Matcher;
+import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.event.Level;
@@ -18,6 +23,8 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   private static final Logger LOGGER = LoggerFactory.getLogger(DatabricksConnectionContext.class);
   private final String host;
   private final int port;
+  private final String schema;
+  private final ComputeResource computeResource;
 
   @VisibleForTesting final ImmutableMap<String, String> parameters;
 
@@ -28,16 +35,16 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
    * @param properties connection properties
    * @return a connection context
    */
-  public static IDatabricksConnectionContext parse(String url, Properties properties) {
+  public static IDatabricksConnectionContext parse(String url, Properties properties)
+      throws DatabricksSQLException {
     if (!isValid(url)) {
       // TODO: handle exceptions properly
-      throw new IllegalArgumentException("Invalid url " + url);
+      throw new DatabricksParsingException("Invalid url " + url);
     }
     Matcher urlMatcher = JDBC_URL_PATTERN.matcher(url);
     if (urlMatcher.find()) {
       String hostUrlVal = urlMatcher.group(1);
       String urlMinusHost = urlMatcher.group(2);
-
       String[] hostAndPort = hostUrlVal.split(DatabricksJdbcConstants.PORT_DELIMITER);
       String hostValue = hostAndPort[0];
       int portValue =
@@ -47,6 +54,10 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
 
       ImmutableMap.Builder<String, String> parametersBuilder = ImmutableMap.builder();
       String[] urlParts = urlMinusHost.split(DatabricksJdbcConstants.URL_DELIMITER);
+      String schema = urlParts[0];
+      if (nullOrEmptyString(schema)) {
+        schema = DEFAULT_SCHEMA;
+      }
       for (int urlPartIndex = 1; urlPartIndex < urlParts.length; urlPartIndex++) {
         String[] pair = urlParts[urlPartIndex].split(DatabricksJdbcConstants.PAIR_DELIMITER);
         if (pair.length != 2) {
@@ -57,26 +68,35 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
       for (Map.Entry<Object, Object> entry : properties.entrySet()) {
         parametersBuilder.put(entry.getKey().toString().toLowerCase(), entry.getValue().toString());
       }
-      return new DatabricksConnectionContext(hostValue, portValue, parametersBuilder.build());
+      return new DatabricksConnectionContext(
+          hostValue, portValue, schema, parametersBuilder.build());
     } else {
       // Should never reach here, since we have already checked for url validity
       throw new IllegalArgumentException("Invalid url " + "incorrect");
     }
   }
 
-  private static void handleInvalidUrl(String url) {
-    throw new IllegalArgumentException("Invalid url incorrect");
+  private static void handleInvalidUrl(String url) throws DatabricksParsingException {
+    throw new DatabricksParsingException("Invalid url incorrect: " + url);
   }
 
   private DatabricksConnectionContext(
-      String host, int port, ImmutableMap<String, String> parameters) {
+      String host, int port, String schema, ImmutableMap<String, String> parameters)
+      throws DatabricksSQLException {
     this.host = host;
     this.port = port;
+    this.schema = schema;
     this.parameters = parameters;
+    this.computeResource = buildCompute();
   }
 
   public static boolean isValid(String url) {
-    return JDBC_URL_PATTERN.matcher(url).matches();
+    if (!JDBC_URL_PATTERN.matcher(url).matches()) {
+      return false;
+    }
+    return HTTP_CLUSTER_PATH_PATTERN.matcher(url).matches()
+        || HTTP_WAREHOUSE_PATH_PATTERN.matcher(url).matches()
+        || TEST_PATH_PATTERN.matcher(url).matches();
   }
 
   @Override
@@ -90,7 +110,26 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
     return hostUrlBuilder.toString();
   }
 
-  String getHttpPath() {
+  @Override
+  public ComputeResource getComputeResource() {
+    return computeResource;
+  }
+
+  private ComputeResource buildCompute() throws DatabricksSQLException {
+    String httpPath = getHttpPath();
+    Matcher urlMatcher = HTTP_WAREHOUSE_PATH_PATTERN.matcher(httpPath);
+    if (urlMatcher.find()) {
+      return new Warehouse(urlMatcher.group(1));
+    }
+    urlMatcher = HTTP_CLUSTER_PATH_PATTERN.matcher(httpPath);
+    if (urlMatcher.find()) {
+      return new AllPurposeCluster(urlMatcher.group(1), urlMatcher.group(2));
+    }
+    // the control should never reach here, as the parsing already ensured the URL is valid
+    throw new DatabricksParsingException("Invalid HTTP Path provided " + this.getHttpPath());
+  }
+
+  public String getHttpPath() {
     LOGGER.debug("String getHttpPath()");
     return getParameter(DatabricksJdbcConstants.HTTP_PATH);
   }
@@ -98,26 +137,6 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   @Override
   public String getHostForOAuth() {
     return this.host;
-  }
-
-  @Override
-  public String getWarehouse() {
-    LOGGER.debug("public String getWarehouse()");
-    String httpPath = getHttpPath();
-    Matcher urlMatcher = DatabricksJdbcConstants.HTTP_PATH_PATTERN.matcher(httpPath);
-
-    String warehouseId = null;
-    if (urlMatcher.find()) {
-      warehouseId = urlMatcher.group(urlMatcher.groupCount());
-    } else {
-      Matcher sqlUrlMatcher = DatabricksJdbcConstants.HTTP_PATH_SQL_PATTERN.matcher(httpPath);
-      if (sqlUrlMatcher.matches()) {
-        warehouseId = httpPath.substring(httpPath.lastIndexOf('/') + 1);
-      } else {
-        throw new IllegalArgumentException("Invalid httpPath " + httpPath);
-      }
-    }
-    return warehouseId;
   }
 
   @Override
@@ -264,11 +283,92 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
 
   @Override
   public String getCatalog() {
-    return getParameter(DatabricksJdbcConstants.CONN_CATALOG);
+    return Optional.ofNullable(getParameter(DatabricksJdbcConstants.CONN_CATALOG))
+        .orElse(DEFAULT_CATALOG);
   }
 
   @Override
   public String getSchema() {
-    return getParameter(DatabricksJdbcConstants.CONN_SCHEMA);
+    return Optional.ofNullable(getParameter(DatabricksJdbcConstants.CONN_SCHEMA)).orElse(schema);
+  }
+
+  @Override
+  public Map<String, String> getSessionConfigs() {
+    return this.parameters.entrySet().stream()
+        .filter(
+            e ->
+                ALLOWED_SESSION_CONF_TO_DEFAULT_VALUES_MAP.keySet().stream()
+                    .anyMatch(allowedConf -> allowedConf.toLowerCase().equals(e.getKey())))
+        .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+  }
+
+  @Override
+  public boolean isAllPurposeCluster() {
+    return this.computeResource instanceof AllPurposeCluster;
+  }
+
+  @Override
+  public String getProxyHost() {
+    return getParameter(DatabricksJdbcConstants.PROXY_HOST);
+  }
+
+  @Override
+  public int getProxyPort() {
+    return Integer.parseInt(getParameter(DatabricksJdbcConstants.PROXY_PORT));
+  }
+
+  @Override
+  public String getProxyUser() {
+    return getParameter(DatabricksJdbcConstants.PROXY_USER);
+  }
+
+  @Override
+  public String getProxyPassword() {
+    return getParameter(DatabricksJdbcConstants.PROXY_PWD);
+  }
+
+  @Override
+  public Boolean getUseProxy() {
+    return Objects.equals(getParameter(USE_PROXY), "1");
+  }
+
+  @Override
+  public Boolean getUseProxyAuth() {
+    return Objects.equals(getParameter(USE_PROXY_AUTH), "1");
+  }
+
+  @Override
+  public Boolean getUseSystemProxy() {
+    return Objects.equals(getParameter(USE_SYSTEM_PROXY), "1");
+  }
+
+  @Override
+  public Boolean getUseCloudFetchProxy() {
+    return Objects.equals(getParameter(USE_CF_PROXY), "1");
+  }
+
+  @Override
+  public String getCloudFetchProxyHost() {
+    return getParameter(CF_PROXY_HOST);
+  }
+
+  @Override
+  public int getCloudFetchProxyPort() {
+    return Integer.parseInt(getParameter(CF_PROXY_PORT));
+  }
+
+  @Override
+  public String getCloudFetchProxyUser() {
+    return getParameter(CF_PROXY_USER);
+  }
+
+  @Override
+  public String getCloudFetchProxyPassword() {
+    return getParameter(CF_PROXY_PWD);
+  }
+
+  @Override
+  public Boolean getUseCloudFetchProxyAuth() {
+    return Objects.equals(getParameter(USE_CF_PROXY_AUTH), "1");
   }
 }

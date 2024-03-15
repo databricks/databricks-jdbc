@@ -1,8 +1,8 @@
 package com.databricks.jdbc.core;
 
+import com.databricks.jdbc.client.sqlexec.ResultManifest;
 import com.databricks.sdk.service.sql.ColumnInfo;
 import com.databricks.sdk.service.sql.ColumnInfoTypeName;
-import com.databricks.sdk.service.sql.ResultManifest;
 import com.databricks.sdk.service.sql.ResultSchema;
 import java.sql.SQLException;
 import java.util.List;

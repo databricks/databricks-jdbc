@@ -1,6 +1,6 @@
 package com.databricks.jdbc.core;
 
-public class DatabricksParsingException extends Exception {
+public class DatabricksParsingException extends DatabricksSQLException {
   private final Throwable cause;
 
   public DatabricksParsingException(String message) {

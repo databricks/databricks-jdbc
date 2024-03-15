@@ -2,6 +2,10 @@ package com.databricks.jdbc.core;
 
 import com.databricks.jdbc.client.DatabricksClient;
 import com.databricks.jdbc.client.DatabricksMetadataClient;
+import com.databricks.jdbc.core.types.CompressionType;
+import com.databricks.jdbc.core.types.ComputeResource;
+import com.databricks.jdbc.driver.IDatabricksConnectionContext;
+import java.util.Map;
 import javax.annotation.Nullable;
 
 /** Session interface to represent an open connection to Databricks server. */
@@ -20,7 +24,7 @@ public interface IDatabricksSession {
    *
    * @return warehouse-Id
    */
-  String getWarehouseId();
+  ComputeResource getComputeResource() throws DatabricksSQLException;
 
   /**
    * Checks if session is open and valid.
@@ -30,7 +34,7 @@ public interface IDatabricksSession {
   boolean isOpen();
 
   /** Opens a new session. */
-  void open();
+  void open() throws DatabricksSQLException;
 
   /** Closes the session. */
   void close();
@@ -44,6 +48,9 @@ public interface IDatabricksSession {
   /** Returns default catalog associated with the session */
   String getCatalog();
 
+  /** Returns the compression algorithm used on results data */
+  CompressionType getCompressionType();
+
   /** Returns default schema associated with the session */
   String getSchema();
 
@@ -52,4 +59,15 @@ public interface IDatabricksSession {
 
   /** Sets the default schema */
   void setSchema(String schema);
+
+  /** Extracts session to a string */
+  String toString();
+
+  /** Returns the session configs */
+  Map<String, String> getSessionConfigs();
+
+  /** Sets the session config */
+  void setSessionConfig(String name, String value);
+
+  IDatabricksConnectionContext getConnectionContext();
 }

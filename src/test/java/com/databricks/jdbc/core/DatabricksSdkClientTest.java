@@ -1,12 +1,10 @@
 package com.databricks.jdbc.core;
 
-import static com.databricks.jdbc.client.impl.sdk.PathConstants.SESSION_PATH;
-import static com.databricks.jdbc.client.impl.sdk.PathConstants.STATEMENT_PATH;
+import static com.databricks.jdbc.client.impl.sdk.PathConstants.*;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.Mockito.eq;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
 import com.databricks.jdbc.client.StatementType;
 import com.databricks.jdbc.client.impl.sdk.DatabricksSdkClient;
@@ -14,6 +12,9 @@ import com.databricks.jdbc.client.sqlexec.*;
 import com.databricks.jdbc.client.sqlexec.ExecuteStatementRequest;
 import com.databricks.jdbc.client.sqlexec.ExecuteStatementResponse;
 import com.databricks.jdbc.client.sqlexec.ResultData;
+import com.databricks.jdbc.client.sqlexec.ResultManifest;
+import com.databricks.jdbc.core.types.ComputeResource;
+import com.databricks.jdbc.core.types.Warehouse;
 import com.databricks.jdbc.driver.DatabricksConnectionContext;
 import com.databricks.jdbc.driver.IDatabricksConnectionContext;
 import com.databricks.sdk.core.ApiClient;
@@ -32,6 +33,7 @@ public class DatabricksSdkClientTest {
   @Mock ResultData resultData;
 
   private static final String WAREHOUSE_ID = "erg6767gg";
+  private static final ComputeResource warehouse = new Warehouse(WAREHOUSE_ID);
   private static final String SESSION_ID = "session_id";
   private static final String STATEMENT_ID = "statement_id";
   private static final String STATEMENT =
@@ -47,9 +49,9 @@ public class DatabricksSdkClientTest {
       };
 
   private void setupSessionMocks() {
-    Session session = new Session().setWarehouseId(WAREHOUSE_ID).setSessionId(SESSION_ID);
-    when(apiClient.POST(eq(SESSION_PATH), any(), eq(Session.class), eq(headers)))
-        .thenReturn(session);
+    CreateSessionResponse response = new CreateSessionResponse().setSessionId(SESSION_ID);
+    when(apiClient.POST(eq(SESSION_PATH), any(), eq(CreateSessionResponse.class), eq(headers)))
+        .thenReturn(response);
   }
 
   private void setupClientMocks() {
@@ -99,23 +101,36 @@ public class DatabricksSdkClientTest {
                 CreateSessionRequest request =
                     (CreateSessionRequest) invocationOnMock.getArguments()[1];
                 assertEquals(request.getWarehouseId(), WAREHOUSE_ID);
-                return new Session().setWarehouseId(WAREHOUSE_ID).setSessionId(SESSION_ID);
+                return new CreateSessionResponse().setSessionId(SESSION_ID);
               }
               return null;
             });
   }
 
   @Test
-  public void testCreateSession() {
+  public void testCreateSession() throws DatabricksSQLException {
     setupSessionMocks();
     IDatabricksConnectionContext connectionContext =
         DatabricksConnectionContext.parse(JDBC_URL, new Properties());
     DatabricksSdkClient databricksSdkClient =
         new DatabricksSdkClient(connectionContext, statementExecutionService, apiClient);
     ImmutableSessionInfo sessionInfo =
-        databricksSdkClient.createSession(WAREHOUSE_ID, null, null, null);
+        databricksSdkClient.createSession(warehouse, null, null, null);
     assertEquals(sessionInfo.sessionId(), SESSION_ID);
-    assertEquals(sessionInfo.warehouseId(), WAREHOUSE_ID);
+    assertEquals(sessionInfo.computeResource(), warehouse);
+  }
+
+  @Test
+  public void testDeleteSession() throws DatabricksSQLException {
+    String path = String.format(DELETE_SESSION_PATH_WITH_ID, SESSION_ID);
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContext.parse(JDBC_URL, new Properties());
+    DatabricksSdkClient databricksSdkClient =
+        new DatabricksSdkClient(connectionContext, statementExecutionService, apiClient);
+    databricksSdkClient.deleteSession(SESSION_ID, warehouse);
+    DeleteSessionRequest request =
+        new DeleteSessionRequest().setSessionId(SESSION_ID).setWarehouseId(WAREHOUSE_ID);
+    verify(apiClient).DELETE(eq(path), eq(request), eq(Void.class), eq(new HashMap<>()));
   }
 
   @Test
@@ -142,7 +157,7 @@ public class DatabricksSdkClientTest {
     DatabricksResultSet resultSet =
         databricksSdkClient.executeStatement(
             STATEMENT,
-            WAREHOUSE_ID,
+            warehouse,
             sqlParams,
             StatementType.QUERY,
             connection.getSession(),

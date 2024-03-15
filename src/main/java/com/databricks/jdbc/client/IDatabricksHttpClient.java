@@ -1,6 +1,6 @@
 package com.databricks.jdbc.client;
 
-import org.apache.http.HttpResponse;
+import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpUriRequest;
 
 /** Http client interface for executing http requests. */
@@ -12,7 +12,7 @@ public interface IDatabricksHttpClient {
    * @param request underlying http request
    * @return http response
    */
-  HttpResponse execute(HttpUriRequest request) throws DatabricksHttpException;
+  CloseableHttpResponse execute(HttpUriRequest request) throws DatabricksHttpException;
 
   void closeExpiredAndIdleConnections();
 }

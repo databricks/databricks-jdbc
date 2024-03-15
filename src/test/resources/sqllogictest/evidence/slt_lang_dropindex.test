@@ -1,0 +1,14 @@
+hash-threshold 8
+
+statement ok
+CREATE TABLE t1( x INTEGER, y VARCHAR(8) )
+
+statement ok
+INSERT INTO t1 VALUES(1,'true')
+
+statement ok
+INSERT INTO t1 VALUES(0,'false')
+
+statement ok
+INSERT INTO t1 VALUES(NULL,'NULL')
+

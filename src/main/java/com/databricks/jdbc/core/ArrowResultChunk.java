@@ -5,8 +5,11 @@ import static com.databricks.jdbc.commons.util.ValidationUtil.checkHTTPError;
 import com.databricks.jdbc.client.DatabricksHttpException;
 import com.databricks.jdbc.client.IDatabricksHttpClient;
 import com.databricks.jdbc.client.sqlexec.ExternalLink;
+import com.databricks.jdbc.commons.util.DecompressionUtil;
+import com.databricks.jdbc.core.types.CompressionType;
 import com.databricks.sdk.service.sql.BaseChunkInfo;
 import com.google.common.annotations.VisibleForTesting;
+import java.io.IOException;
 import java.io.InputStream;
 import java.nio.channels.ClosedByInterruptException;
 import java.time.Instant;
@@ -20,7 +23,7 @@ import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.ipc.ArrowStreamReader;
 import org.apache.arrow.vector.util.TransferPair;
 import org.apache.http.HttpEntity;
-import org.apache.http.HttpResponse;
+import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.utils.URIBuilder;
 import org.slf4j.Logger;
@@ -92,7 +95,13 @@ public class ArrowResultChunk {
 
   private VectorSchemaRoot vectorSchemaRoot;
 
-  ArrowResultChunk(BaseChunkInfo chunkInfo, RootAllocator rootAllocator, String statementId) {
+  private CompressionType compressionType;
+
+  ArrowResultChunk(
+      BaseChunkInfo chunkInfo,
+      RootAllocator rootAllocator,
+      String statementId,
+      CompressionType compressionType) {
     this.chunkIndex = chunkInfo.getChunkIndex();
     this.numRows = chunkInfo.getRowCount();
     this.rowOffset = chunkInfo.getRowOffset();
@@ -106,6 +115,7 @@ public class ArrowResultChunk {
     isDataInitialized = false;
     this.errorMessage = null;
     this.vectorSchemaRoot = null;
+    this.compressionType = compressionType;
   }
 
   public static class ArrowResultChunkIterator {
@@ -228,14 +238,15 @@ public class ArrowResultChunk {
   }
 
   void downloadData(IDatabricksHttpClient httpClient)
-      throws DatabricksHttpException, DatabricksParsingException {
+      throws DatabricksHttpException, DatabricksParsingException, IOException {
+    CloseableHttpResponse response = null;
     try {
       this.downloadStartTime = Instant.now().toEpochMilli();
       URIBuilder uriBuilder = new URIBuilder(chunkLink.getExternalLink());
       HttpGet getRequest = new HttpGet(uriBuilder.build());
       addHeaders(getRequest, chunkLink.getHttpHeaders());
       // Retry would be done in http client, we should not bother about that here
-      HttpResponse response = httpClient.execute(getRequest);
+      response = httpClient.execute(getRequest);
       checkHTTPError(response);
       HttpEntity entity = response.getEntity();
       getArrowDataFromInputStream(entity.getContent());
@@ -249,6 +260,10 @@ public class ArrowResultChunk {
       LOGGER.error(errorMessage, e);
       this.setStatus(DownloadStatus.DOWNLOAD_FAILED);
       throw new DatabricksHttpException(errorMessage, e);
+    } finally {
+      if (response != null) {
+        response.close();
+      }
     }
   }
 
@@ -265,14 +280,21 @@ public class ArrowResultChunk {
     return this.nextChunkIndex;
   }
 
-  public void getArrowDataFromInputStream(InputStream inputStream)
-      throws DatabricksParsingException {
+  public void getArrowDataFromInputStream(InputStream inputStream) throws DatabricksSQLException {
     LOGGER.debug(
         "Parsing data for chunk index [{}] and statement [{}]", this.chunkIndex, this.statementId);
+    InputStream decompressedStream =
+        DecompressionUtil.decompress(
+            inputStream,
+            this.compressionType,
+            String.format(
+                "Data fetch failed for chunk index [%d] and statement [%s] as decompression was unsuccessful. Algorithm : [%s]",
+                this.chunkIndex, this.statementId, this.compressionType));
     this.isDataInitialized = true;
     this.recordBatchList = new ArrayList<>();
     // add check to see if input stream has been populated
-    ArrowStreamReader arrowStreamReader = new ArrowStreamReader(inputStream, this.rootAllocator);
+    ArrowStreamReader arrowStreamReader =
+        new ArrowStreamReader(decompressedStream, this.rootAllocator);
     List<ValueVector> vectors = new ArrayList<>();
     try {
       this.vectorSchemaRoot = arrowStreamReader.getVectorSchemaRoot();

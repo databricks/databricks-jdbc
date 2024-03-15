@@ -1,6 +1,7 @@
 package com.databricks.jdbc.client.sqlexec;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import java.util.Map;
 
 /** Create session request */
 public class CreateSessionRequest {
@@ -9,11 +10,14 @@ public class CreateSessionRequest {
   @JsonProperty("warehouse_id")
   private String warehouseId;
 
-  @JsonProperty("initial_schema")
+  @JsonProperty("schema")
   private String schema;
 
-  @JsonProperty("initial_catalog")
+  @JsonProperty("catalog")
   private String catalog;
+
+  @JsonProperty("session_confs")
+  private Map<String, String> sessionConfigs;
 
   public CreateSessionRequest setWarehouseId(String warehouseId) {
     this.warehouseId = warehouseId;
@@ -40,5 +44,14 @@ public class CreateSessionRequest {
 
   public String getCatalog() {
     return catalog;
+  }
+
+  public CreateSessionRequest setSessionConfigs(Map<String, String> sessionConfigs) {
+    this.sessionConfigs = sessionConfigs;
+    return this;
+  }
+
+  public Map<String, String> getSessionConfigs() {
+    return sessionConfigs;
   }
 }

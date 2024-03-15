@@ -1,0 +1,60 @@
+name: Integration Tests Workflow
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    types: [opened, synchronize, reopened]
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build-and-test:
+    name: Build and Run Integration Tests
+    runs-on: ubuntu-latest
+    environment: azure-prod
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v2
+        with:
+          java-version: 21
+          distribution: 'adopt'
+
+      - name: Cache Maven packages
+        uses: actions/cache@v2
+        with:
+          path: ~/.m2
+          key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
+          restore-keys: ${{ runner.os }}-m2
+
+      - name: Set up Warehouse Connection
+        env:
+          DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
+          DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
+          DATABRICKS_USER: ${{ secrets.DATABRICKS_USER }}
+          DATABRICKS_HTTP_PATH: ${{ secrets.DATABRICKS_HTTP_PATH }}
+          DATABRICKS_CATALOG: ${{ secrets.DATABRICKS_CATALOG }}
+          DATABRICKS_SCHEMA: ${{ secrets.DATABRICKS_SCHEMA }}
+        run: |
+          echo "DATABRICKS_HOST=${DATABRICKS_HOST}" >> $GITHUB_ENV
+          echo "DATABRICKS_TOKEN=${DATABRICKS_TOKEN}" >> $GITHUB_ENV
+          echo "DATABRICKS_USER=${DATABRICKS_USER}" >> $GITHUB_ENV
+          echo "DATABRICKS_HTTP_PATH=${DATABRICKS_HTTP_PATH}" >> $GITHUB_ENV
+          echo "DATABRICKS_CATALOG=${DATABRICKS_CATALOG}" >> $GITHUB_ENV
+          echo "DATABRICKS_SCHEMA=${DATABRICKS_SCHEMA}" >> $GITHUB_ENV
+
+      - name: Build with Maven
+        run: mvn -B package --file pom.xml
+
+      - name: Run Integration Tests
+        run: mvn -B test -Dtest=*IntegrationTests
+        env:
+          DATABRICKS_HOST: ${{ env.DATABRICKS_HOST }}
+          DATABRICKS_TOKEN: ${{ env.DATABRICKS_TOKEN }}
+          DATABRICKS_USER: ${{ env.DATABRICKS_USER }}
+          DATABRICKS_HTTP_PATH: ${{ env.DATABRICKS_HTTP_PATH }}
+          DATABRICKS_CATALOG: ${{ env.DATABRICKS_CATALOG }}
+          DATABRICKS_SCHEMA: ${{ env.DATABRICKS_SCHEMA }}

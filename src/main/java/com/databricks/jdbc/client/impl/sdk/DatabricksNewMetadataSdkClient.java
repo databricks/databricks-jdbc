@@ -20,6 +20,7 @@ import org.slf4j.LoggerFactory;
  * This is for the new SQL commands added in runtime. Note that the DatabricksMetadataSdkClient will
  * be replaced by this class once runtime code is merged and this class is tested end to end.
  * https://docs.google.com/document/d/1E28o7jyPIp6_byZHGD5Eyc4uwGVSydX5o9PaiSY1V4s/edit#heading=h.681k0yimshae
+ * Tracking bug for replacement: (PECO-1502)
  */
 public class DatabricksNewMetadataSdkClient implements DatabricksMetadataClient {
 
@@ -43,7 +44,6 @@ public class DatabricksNewMetadataSdkClient implements DatabricksMetadataClient 
     CommandBuilder commandBuilder = new CommandBuilder(session);
     String SQL = commandBuilder.getSQLString(CommandName.LIST_CATALOGS);
     LOGGER.debug("SQL command to fetch catalogs: {}", SQL);
-    ResultSet resultSet = getResultSet(SQL, session);
     return MetadataResultSetBuilder.getCatalogsResult(getResultSet(SQL, session));
   }
 
@@ -122,7 +122,7 @@ public class DatabricksNewMetadataSdkClient implements DatabricksMetadataClient 
   private ResultSet getResultSet(String SQL, IDatabricksSession session) throws SQLException {
     return sdkClient.executeStatement(
         SQL,
-        session.getWarehouseId(),
+        session.getComputeResource(),
         new HashMap<Integer, ImmutableSqlParameter>(),
         StatementType.METADATA,
         session,

@@ -1,11 +1,15 @@
 package com.databricks.jdbc.driver;
 
+import java.util.Map;
 import java.util.regex.Pattern;
 
 public final class DatabricksJdbcConstants {
 
   static final Pattern JDBC_URL_PATTERN =
       Pattern.compile("jdbc:databricks://([^/;]*)(?::\\d+)?/*(.*)");
+  static final Pattern HTTP_WAREHOUSE_PATH_PATTERN = Pattern.compile(".*/warehouses/(.+)");
+  static final Pattern TEST_PATH_PATTERN = Pattern.compile("jdbc:databricks://test");
+  static final Pattern HTTP_CLUSTER_PATH_PATTERN = Pattern.compile(".*/o/(.+)/(.+)");
   static final Pattern HTTP_PATH_PATTERN = Pattern.compile(".*/(warehouses|endpoints)/(.*)");
   static final Pattern HTTP_PATH_SQL_PATTERN = Pattern.compile("sql/(.*)");
   public static final String JDBC_SCHEMA = "jdbc:databricks://";
@@ -16,6 +20,8 @@ public final class DatabricksJdbcConstants {
   static final String SYSTEM_LOG_FILE_CONFIG = "defaultLogFile";
   static final String URL_DELIMITER = ";";
   static final String PORT_DELIMITER = ":";
+  static final String DEFAULT_SCHEMA = "default";
+  static final String DEFAULT_CATALOG = "SPARK";
   static final String PAIR_DELIMITER = "=";
   static final String TOKEN = "token";
   public static final String USER = "user";
@@ -31,10 +37,21 @@ public final class DatabricksJdbcConstants {
 
   static final String CONN_SCHEMA = "connschema";
 
-  static final String AUTH_FLOW = "auth_flow";
+  static final String PROXY_HOST = "proxyhost";
+  static final String PROXY_PORT = "proxyport";
+  static final String PROXY_USER = "proxyuid";
+  static final String PROXY_PWD = "proxypwd";
+  static final String USE_PROXY = "useproxy";
+  static final String USE_PROXY_AUTH = "proxyauth";
+  static final String USE_SYSTEM_PROXY = "usesystemproxy";
+  static final String USE_CF_PROXY = "usecfproxy";
+  static final String CF_PROXY_HOST = "cfproxyhost";
+  static final String CF_PROXY_PORT = "cfproxyport";
+  static final String USE_CF_PROXY_AUTH = "cfproxyauth";
+  static final String CF_PROXY_USER = "cfproxyuid";
+  static final String CF_PROXY_PWD = "cfproxypwd";
 
-  // Only used when AUTH_MECH = 11
-  static final String AUTH_ACCESSTOKEN = "auth_accesstoken";
+  static final String AUTH_FLOW = "auth_flow";
 
   // Only used when AUTH_MECH = 3
   static final String UID = "uid";
@@ -74,6 +91,18 @@ public final class DatabricksJdbcConstants {
   static final String CLIENT_USER_AGENT_PREFIX = "Java";
   static final String USER_AGENT_SEA_CLIENT = "SQLExecHttpClient/HC";
   static final String USER_AGENT_THRIFT_CLIENT = "THttpClient/HC";
+  public static final Map<String, String> ALLOWED_SESSION_CONF_TO_DEFAULT_VALUES_MAP =
+      // This map comes from
+      // https://docs.databricks.com/en/sql/language-manual/sql-ref-parameters.html
+      Map.of(
+          "ANSI_MODE", "TRUE",
+          "ENABLE_PHOTON", "TRUE",
+          "LEGACY_TIME_PARSER_POLICY", "EXCEPTION",
+          "MAX_FILE_PARTITION_BYTES", "128m",
+          "READ_ONLY_EXTERNAL_METASTORE", "FALSE",
+          "STATEMENT_TIMEOUT", "172800",
+          "TIMEZONE", "UTC",
+          "USE_CACHED_RESULT", "TRUE");
 
   public static final String SSL_ENABLED = "ssl";
 
@@ -82,4 +111,6 @@ public final class DatabricksJdbcConstants {
   public static final String SSL_KEYSTORE_PASSWORD = "sslkeystorepwd";
 
   public static final String ALLOW_SELF_SIGNED_CERTS = "allowselfsignedcerts";
+
+  public static final String AUTH_ACCESSTOKEN = "auth_accesstoken";
 }

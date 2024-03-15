@@ -42,8 +42,7 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
   @Override
   public void setNull(int parameterIndex, int sqlType) throws SQLException {
     LOGGER.debug("public void setNull(int parameterIndex, int sqlType)");
-    throw new UnsupportedOperationException(
-        "Not implemented in DatabricksPreparedStatement - setNull(int parameterIndex, int sqlType)");
+    setObject(parameterIndex, null, sqlType);
   }
 
   @Override
@@ -286,8 +285,7 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
   @Override
   public void setNull(int parameterIndex, int sqlType, String typeName) throws SQLException {
     LOGGER.debug("public void setNull(int parameterIndex, int sqlType, String typeName)");
-    throw new UnsupportedOperationException(
-        "Not implemented in DatabricksPreparedStatement - setNull(int parameterIndex, int sqlType, String typeName)");
+    setObject(parameterIndex, null, sqlType);
   }
 
   @Override

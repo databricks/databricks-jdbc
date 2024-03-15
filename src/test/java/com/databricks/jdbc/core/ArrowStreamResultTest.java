@@ -9,9 +9,14 @@ import com.databricks.jdbc.client.IDatabricksHttpClient;
 import com.databricks.jdbc.client.impl.sdk.DatabricksSdkClient;
 import com.databricks.jdbc.client.sqlexec.ExternalLink;
 import com.databricks.jdbc.client.sqlexec.ResultData;
+import com.databricks.jdbc.client.sqlexec.ResultManifest;
+import com.databricks.jdbc.core.types.CompressionType;
 import com.databricks.jdbc.driver.DatabricksConnectionContext;
 import com.databricks.jdbc.driver.IDatabricksConnectionContext;
-import com.databricks.sdk.service.sql.*;
+import com.databricks.sdk.service.sql.BaseChunkInfo;
+import com.databricks.sdk.service.sql.ColumnInfo;
+import com.databricks.sdk.service.sql.ColumnInfoTypeName;
+import com.databricks.sdk.service.sql.ResultSchema;
 import com.google.common.collect.ImmutableList;
 import java.io.*;
 import java.time.Instant;
@@ -43,9 +48,6 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
 public class ArrowStreamResultTest {
-
-  private ArrayList<ArrowResultChunk> resultChunks = new ArrayList<>();
-
   private List<BaseChunkInfo> chunkInfos = new ArrayList<>();
 
   private int numberOfChunks = 10;
@@ -63,6 +65,7 @@ public class ArrowStreamResultTest {
   @Mock CloseableHttpResponse httpResponse;
   @Mock HttpEntity httpEntity;
   @Mock StatusLine mockedStatusLine;
+  @Mock DatabricksSession session;
 
   @BeforeEach
   public void setup() throws Exception {
@@ -71,12 +74,16 @@ public class ArrowStreamResultTest {
 
   @Test
   public void testInitEmptyArrowStreamResult() throws Exception {
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContext.parse(JDBC_URL, new Properties());
+    when(session.getConnectionContext()).thenReturn(connectionContext);
     ResultManifest resultManifest =
         new ResultManifest()
             .setTotalChunkCount(0L)
             .setSchema(new ResultSchema().setColumns(new ArrayList<>()).setColumnCount(0L));
     ResultData resultData = new ResultData().setExternalLinks(new ArrayList<>());
-    assertDoesNotThrow(() -> new ArrowStreamResult(resultManifest, resultData, STATEMENT_ID, null));
+    assertDoesNotThrow(
+        () -> new ArrowStreamResult(resultManifest, resultData, STATEMENT_ID, session));
   }
 
   @Test
@@ -87,6 +94,7 @@ public class ArrowStreamResultTest {
             .setTotalChunkCount((long) this.numberOfChunks)
             .setTotalRowCount(this.numberOfChunks * 110L)
             .setTotalByteCount(1000L)
+            .setCompressionType(CompressionType.NONE)
             .setChunks(this.chunkInfos)
             .setSchema(new ResultSchema().setColumns(new ArrayList<>()).setColumnCount(0L));
 
@@ -122,6 +130,7 @@ public class ArrowStreamResultTest {
             .setTotalChunkCount((long) this.numberOfChunks)
             .setTotalRowCount(this.numberOfChunks * 110L)
             .setTotalByteCount(1000L)
+            .setCompressionType(CompressionType.NONE)
             .setChunks(this.chunkInfos)
             .setSchema(
                 new ResultSchema()

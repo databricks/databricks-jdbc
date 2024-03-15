@@ -22,10 +22,9 @@ public enum CompressionType {
         }
       }
     } catch (NumberFormatException ignored) {
-      LOGGER.error(
-          "Invalid compression type provided as input. Compression type should be integer only");
+      LOGGER.debug("Invalid or no compression type provided as input.");
     }
-    LOGGER.debug("Defaulting to no compression as input is invalid.");
+    LOGGER.debug("Defaulting to no compression for fetching results.");
     return NONE;
   }
 }

@@ -1,8 +1,6 @@
 package com.databricks.jdbc.core;
 
-import java.sql.SQLFeatureNotSupportedException;
-
-public class DatabricksSQLFeatureNotSupportedException extends SQLFeatureNotSupportedException {
+public class DatabricksSQLFeatureNotSupportedException extends DatabricksSQLException {
   String featureName;
 
   public DatabricksSQLFeatureNotSupportedException(String reason) {
