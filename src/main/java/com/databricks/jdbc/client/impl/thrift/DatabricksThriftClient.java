@@ -1,6 +1,7 @@
 package com.databricks.jdbc.client.impl.thrift;
 
 import static com.databricks.jdbc.client.impl.thrift.commons.DatabricksThriftHelper.*;
+import static com.databricks.jdbc.commons.util.StringUtil.*;
 
 import com.databricks.jdbc.client.DatabricksClient;
 import com.databricks.jdbc.client.StatementType;
@@ -98,8 +99,15 @@ public class DatabricksThriftClient implements DatabricksClient {
     TExecuteStatementResp response =
         (TExecuteStatementResp)
             thriftAccessor.getThriftResponse(request, CommandName.EXECUTE_STATEMENT);
+    System.out.println("Here is initial resppmse " + response.toString());
     TFetchResultsResp fetchResultsResp =
         thriftAccessor.getResultSetResp(response.getOperationHandle());
+    if (isPutCommand(sql)) {
+      return uploadFileAndGetResultSet(fetchResultsResp, sql);
+    }
+    if (isGetCommand(sql)) {
+      return downloadFile(fetchResultsResp, sql);
+    }
     TGetResultSetMetadataResp metadata = thriftAccessor.getMetadata(response.getOperationHandle());
     return new DatabricksResultSet(
         response.getStatus(),

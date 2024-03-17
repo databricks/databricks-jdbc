@@ -2,6 +2,8 @@ package com.databricks.jdbc.client.impl.sdk;
 
 import static com.databricks.jdbc.client.impl.sdk.PathConstants.*;
 import static com.databricks.jdbc.commons.EnvironmentVariables.DEFAULT_ROW_LIMIT;
+import static com.databricks.jdbc.commons.util.StringUtil.*;
+import static com.databricks.jdbc.commons.util.StringUtil.downloadFile;
 
 import com.databricks.jdbc.client.DatabricksClient;
 import com.databricks.jdbc.client.StatementType;
@@ -182,6 +184,12 @@ public class DatabricksSdkClient implements DatabricksClient {
         pollCount);
     if (responseState != StatementState.SUCCEEDED) {
       handleFailedExecution(response, statementId, sql);
+    }
+    if (isPutCommand(sql)) {
+      return uploadFileAndGetResultSet(response, sql);
+    }
+    if (isGetCommand(sql)) {
+      return downloadFile(response, sql);
     }
     return new DatabricksResultSet(
         response.getStatus(),

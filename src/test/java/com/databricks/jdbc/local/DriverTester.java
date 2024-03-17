@@ -45,6 +45,27 @@ public class DriverTester {
   }
 
   @Test
+  void testGetTablesOSS_UC_Test() throws Exception {
+    DriverManager.registerDriver(new com.databricks.jdbc.driver.DatabricksDriver());
+    DriverManager.drivers().forEach(driver -> System.out.println(driver.getClass()));
+    // Getting the connection
+    String jdbcUrl =
+        "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/791ba2a31c7fd70a;";
+    Connection con = DriverManager.getConnection(jdbcUrl, "samikshya.chand@databricks.com", "x");
+    System.out.println("Connection established......");
+    Statement statement = con.createStatement();
+    statement.setMaxRows(10);
+    ResultSet rs =
+        statement.executeQuery(
+            "PUT `/Users/samikshya.chand/Desktop/1.csv` INTO `/Volumes/samikshya-catalog/newschema/testvolume/1.csv` OVERWRITE");
+    // ResultSet rs = statement.executeQuery("select 1");
+    printResultSet(rs);
+    rs.close();
+    statement.close();
+    con.close();
+  }
+
+  @Test
   void testGetTablesOSS_Metadata() throws Exception {
     DriverManager.registerDriver(new com.databricks.jdbc.driver.DatabricksDriver());
     DriverManager.drivers().forEach(driver -> System.out.println(driver.getClass()));
@@ -71,7 +92,26 @@ public class DriverTester {
     System.out.println("Connection established......");
     Statement statement = con.createStatement();
     ResultSet rs =
-        statement.executeQuery("SELECT * from lb_demo.demographics_fs.demographics LIMIT 10");
+        statement.executeQuery(
+            "PUT '/Users/samikshya.chand/Desktop/1.csv' INTO '/Volumes/samikshya-catalog/newschema/testvolume/1.csv' OVERWRITE");
+    printResultSet(rs);
+    con.close();
+    System.out.println("Connection closed successfully......");
+  }
+
+  @Test
+  void testAllPurposeTestGet() throws Exception {
+    DriverManager.registerDriver(new com.databricks.jdbc.driver.DatabricksDriver());
+    DriverManager.drivers().forEach(driver -> System.out.println(driver.getClass()));
+    // Getting the connection
+    String jdbcUrl =
+        "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=http;ssl=1;httpPath=sql/protocolv1/o/6051921418418893/1115-130834-ms4m0yv;AuthMech=3;UID=token;";
+    Connection con = DriverManager.getConnection(jdbcUrl, "samikshya.chand@databricks.com", "x");
+    System.out.println("Connection established......");
+    Statement statement = con.createStatement();
+    ResultSet rs =
+        statement.executeQuery(
+            "GET '/Volumes/samikshya-catalog/newschema/testvolume/1.csv' INTO '/Users/samikshya.chand/Desktop/1hi.csv'");
     printResultSet(rs);
     con.close();
     System.out.println("Connection closed successfully......");
