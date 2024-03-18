@@ -7,8 +7,9 @@ public final class DatabricksJdbcConstants {
 
   static final Pattern JDBC_URL_PATTERN =
       Pattern.compile("jdbc:databricks://([^/;]*)(?::\\d+)?/*(.*)");
-  static final Pattern HTTP_WAREHOUSE_PATH_PATTERN = Pattern.compile(".*/warehouses/(.+)");
-  static final Pattern TEST_PATH_PATTERN = Pattern.compile("jdbc:databricks://test");
+  static final Pattern HTTP_WAREHOUSE_PATH_PATTERN =
+      Pattern.compile(".*/(warehouses|endpoints)/(.+)");
+  static final Pattern TEST_PATH_PATTERN = Pattern.compile("jdbc:databricks://(test|localhost.*)");
   static final Pattern HTTP_CLUSTER_PATH_PATTERN = Pattern.compile(".*/o/(.+)/(.+)");
   static final Pattern HTTP_PATH_PATTERN = Pattern.compile(".*/(warehouses|endpoints)/(.*)");
   static final Pattern HTTP_PATH_SQL_PATTERN = Pattern.compile("sql/(.*)");
@@ -21,7 +22,7 @@ public final class DatabricksJdbcConstants {
   static final String URL_DELIMITER = ";";
   static final String PORT_DELIMITER = ":";
   static final String DEFAULT_SCHEMA = "default";
-  static final String DEFAULT_CATALOG = "SPARK";
+  static final String DEFAULT_CATALOG = "hive_metastore";
   static final String PAIR_DELIMITER = "=";
   static final String TOKEN = "token";
   public static final String USER = "user";

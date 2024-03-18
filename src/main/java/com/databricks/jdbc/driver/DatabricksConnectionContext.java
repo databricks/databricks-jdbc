@@ -117,9 +117,11 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
 
   private ComputeResource buildCompute() throws DatabricksSQLException {
     String httpPath = getHttpPath();
+    System.out.println(httpPath);
     Matcher urlMatcher = HTTP_WAREHOUSE_PATH_PATTERN.matcher(httpPath);
+    //    System.out.println(urlMatcher.find() + " " + urlMatcher.group(2));
     if (urlMatcher.find()) {
-      return new Warehouse(urlMatcher.group(1));
+      return new Warehouse(urlMatcher.group(2));
     }
     urlMatcher = HTTP_CLUSTER_PATH_PATTERN.matcher(httpPath);
     if (urlMatcher.find()) {
