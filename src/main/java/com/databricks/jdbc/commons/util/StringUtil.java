@@ -6,17 +6,14 @@ import com.databricks.jdbc.client.impl.thrift.generated.TColumn;
 import com.databricks.jdbc.client.impl.thrift.generated.TFetchResultsResp;
 import com.databricks.jdbc.client.sqlexec.ExecuteStatementResponse;
 import com.databricks.jdbc.core.DatabricksResultSet;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.InputStream;
+
+import java.io.*;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.*;
 import java.sql.SQLException;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.apache.http.HttpResponse;
@@ -50,8 +47,10 @@ public class StringUtil {
   }
 
   public static String getPresignedUrl(ExecuteStatementResponse response) {
-    System.out.println("here !!!!!!!");
-    return response.getResult().getExternalLinks().iterator().next().getExternalLink();
+    Collection<String> next = response.getResult().getDataArray().iterator().next();
+    Iterator<String> iterator = next.iterator();
+    iterator.next();
+    return iterator.next();
   }
 
   public static String getPresignedUrl(TFetchResultsResp response) {
@@ -107,9 +106,8 @@ public class StringUtil {
     try (CloseableHttpClient httpClient = HttpClients.createDefault()) {
       byte[] data = Files.readAllBytes(Paths.get(filePath));
       HttpPut putRequest = new HttpPut(presignedUrl);
-      putRequest.setHeader("Content-Type", "text/csv");
+      headers.forEach(putRequest::setHeader);
       ByteArrayEntity entity = new ByteArrayEntity(data);
-      entity.setContentType("text/csv");
       putRequest.setEntity(entity);
       HttpResponse response = httpClient.execute(putRequest);
       System.out.println("response " + response.toString());
@@ -155,8 +153,7 @@ public class StringUtil {
     downloadFile(presignedUrl, localFile, Collections.emptyMap());
   }
 
-  public static void downloadFile(
-      String presignedUrl, String localFile, Map<String, String> headers) {
+  public static void downloadFile(String presignedUrl, String localFile, Map<String, String> headers) {
     HttpURLConnection connection = null;
     try {
       URL url = new URL(presignedUrl);
@@ -164,15 +161,13 @@ public class StringUtil {
       connection.setRequestMethod("GET");
       headers.forEach(connection::setRequestProperty);
       int responseCode = connection.getResponseCode();
-      System.out.println("reached here :" + connection.getResponseMessage());
-      System.out.println("reached here :" + connection.getContentEncoding());
       if (responseCode == HttpURLConnection.HTTP_OK) {
         try (InputStream inputStream = connection.getInputStream();
-            FileOutputStream outputStream = new FileOutputStream(localFile)) {
-          byte[] buffer = new byte[4096];
-          int bytesRead;
-          while ((bytesRead = inputStream.read(buffer)) != -1) {
-            outputStream.write(buffer, 0, bytesRead);
+             BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream, StandardCharsets.UTF_8));
+             PrintWriter writer = new PrintWriter(new OutputStreamWriter(new FileOutputStream(localFile), StandardCharsets.UTF_8))) {
+          String line;
+          while ((line = reader.readLine()) != null) {
+            writer.println(line);
           }
           System.out.println("File downloaded: " + localFile);
         } catch (IOException e) {
