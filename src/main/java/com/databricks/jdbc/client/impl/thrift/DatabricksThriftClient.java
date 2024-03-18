@@ -102,13 +102,15 @@ public class DatabricksThriftClient implements DatabricksClient {
     System.out.println("Here is initial resppmse " + response.toString());
     TFetchResultsResp fetchResultsResp =
         thriftAccessor.getResultSetResp(response.getOperationHandle());
+
+    TGetResultSetMetadataResp metadata = thriftAccessor.getMetadata(response.getOperationHandle());
+    System.out.println("here is metadata " + metadata.toString());
     if (isPutCommand(sql)) {
       return uploadFileAndGetResultSet(fetchResultsResp, sql);
     }
     if (isGetCommand(sql)) {
       return downloadFile(fetchResultsResp, sql);
     }
-    TGetResultSetMetadataResp metadata = thriftAccessor.getMetadata(response.getOperationHandle());
     return new DatabricksResultSet(
         response.getStatus(),
         session.getSessionId(),

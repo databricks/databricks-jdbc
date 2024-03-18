@@ -2,6 +2,7 @@ package com.databricks.jdbc.client.impl.sdk.helper;
 
 import static com.databricks.jdbc.client.impl.sdk.helper.CommandConstants.*;
 import static com.databricks.jdbc.client.impl.sdk.helper.MetadataResultConstants.*;
+import static java.util.Collections.singletonList;
 
 import com.databricks.jdbc.client.StatementType;
 import com.databricks.jdbc.core.DatabricksResultSet;
@@ -58,6 +59,16 @@ public class MetadataResultSetBuilder {
   public static DatabricksResultSet getPrimaryKeysResult(ResultSet resultSet) throws SQLException {
     List<List<Object>> rows = getRows(resultSet, PRIMARY_KEYS_COLUMNS);
     return buildResultSet(PRIMARY_KEYS_COLUMNS, rows, METADATA_STATEMENT_ID);
+  }
+
+  public static DatabricksResultSet getSuccessResponseForGet() throws SQLException {
+    return buildResultSet(
+        SUCCESSFUL_GET, singletonList(singletonList(NULL_STRING)), GET_UC_STATEMENT_ID);
+  }
+
+  public static DatabricksResultSet getSuccessResponseForPut() throws SQLException {
+    return buildResultSet(
+        SUCCESSFUL_PUT, singletonList(singletonList(NULL_STRING)), GET_UC_STATEMENT_ID);
   }
 
   public static DatabricksResultSet getPrimaryKeysResult(List<List<Object>> rows)

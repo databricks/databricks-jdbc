@@ -1,17 +1,22 @@
 package com.databricks.jdbc.commons.util;
 
+import static com.databricks.jdbc.client.impl.sdk.helper.MetadataResultSetBuilder.getSuccessResponseForGet;
+
 import com.databricks.jdbc.client.impl.thrift.generated.TColumn;
 import com.databricks.jdbc.client.impl.thrift.generated.TFetchResultsResp;
 import com.databricks.jdbc.client.sqlexec.ExecuteStatementResponse;
 import com.databricks.jdbc.core.DatabricksResultSet;
-import java.io.BufferedInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.file.*;
-import java.util.Collection;
-import java.util.Iterator;
+import java.sql.SQLException;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.apache.http.HttpResponse;
@@ -19,10 +24,9 @@ import org.apache.http.client.methods.HttpPut;
 import org.apache.http.entity.ByteArrayEntity;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
-import org.apache.http.util.EntityUtils;
 
 public class StringUtil {
-  static String PUT_PATH_REGEX = "'(/[^']*)'";
+  static String PATH_REGEX = "'(/[^']*)'";
 
   public static String getProcessedEscapeSequence(String sql) {
     // Replace JDBC escape sequences;
@@ -46,10 +50,8 @@ public class StringUtil {
   }
 
   public static String getPresignedUrl(ExecuteStatementResponse response) {
-    Collection<Collection<String>> dataArray = response.getResult().getDataArray();
-    Iterator<String> iterator = dataArray.iterator().next().iterator();
-    iterator.next();
-    return iterator.next();
+    System.out.println("here !!!!!!!");
+    return response.getResult().getExternalLinks().iterator().next().getExternalLink();
   }
 
   public static String getPresignedUrl(TFetchResultsResp response) {
@@ -60,8 +62,29 @@ public class StringUtil {
     return "noURL";
   }
 
+  public static Map<String, String> parseHeaders(List<String> headerStrings) {
+    Map<String, String> headers = new HashMap<>();
+    Pattern pattern = Pattern.compile("\\{(.*?)\\}");
+    for (String headerString : headerStrings) {
+      Matcher matcher = pattern.matcher(headerString);
+      if (matcher.find()) {
+        String[] keyValue = matcher.group(1).split(":");
+        if (keyValue.length == 2) {
+          headers.put(keyValue[0].trim(), keyValue[1].trim());
+        }
+      }
+    }
+    System.out.println(" here is headers " + headers.toString());
+    return headers;
+  }
+
+  private static Map<String, String> getHeaders(TFetchResultsResp response) {
+    TColumn tColumn = response.getResults().getColumns().get(2);
+    return parseHeaders(tColumn.getStringVal().getValues());
+  }
+
   public static String getFilePathFromPUTSql(String sql) {
-    Matcher matcher = Pattern.compile(PUT_PATH_REGEX).matcher(sql);
+    Matcher matcher = Pattern.compile(PATH_REGEX).matcher(sql);
     if (matcher.find()) {
       return matcher.group(1);
     }
@@ -69,13 +92,18 @@ public class StringUtil {
   }
 
   public static String getFilePathFromGETSql(String sql) {
-    Matcher matcher = Pattern.compile(PUT_PATH_REGEX).matcher(sql);
+    Matcher matcher = Pattern.compile(PATH_REGEX).matcher(sql);
     matcher.find();
     matcher.find();
     return matcher.group(1);
   }
 
   private static void uploadFileToS3UsingPresignedUrl(String presignedUrl, String filePath) {
+    uploadFileToS3UsingPresignedUrl(presignedUrl, filePath, Collections.emptyMap());
+  }
+
+  private static void uploadFileToS3UsingPresignedUrl(
+      String presignedUrl, String filePath, Map<String, String> headers) {
     try (CloseableHttpClient httpClient = HttpClients.createDefault()) {
       byte[] data = Files.readAllBytes(Paths.get(filePath));
       HttpPut putRequest = new HttpPut(presignedUrl);
@@ -84,8 +112,6 @@ public class StringUtil {
       entity.setContentType("text/csv");
       putRequest.setEntity(entity);
       HttpResponse response = httpClient.execute(putRequest);
-      String content = EntityUtils.toString(response.getEntity());
-      System.out.println("here " + content);
       System.out.println("response " + response.toString());
     } catch (IOException e) {
       System.out.println("HERE we go again: " + e.toString());
@@ -93,58 +119,70 @@ public class StringUtil {
   }
 
   public static DatabricksResultSet uploadFileAndGetResultSet(
-      TFetchResultsResp response, String sql) {
+      TFetchResultsResp response, String sql) throws SQLException {
     System.out.println("here is response : " + response.toString());
     String localFilePath = getFilePathFromPUTSql(sql);
     String presignedURL = getPresignedUrl(response);
     System.out.printf(
         "Here is the local path {%s}, and the presigned URL {%s}.%n", localFilePath, presignedURL);
-    uploadFileToS3UsingPresignedUrl(presignedURL, localFilePath);
-    return null;
+    uploadFileToS3UsingPresignedUrl(presignedURL, localFilePath, getHeaders(response));
+    return getSuccessResponseForGet();
   }
 
   public static DatabricksResultSet uploadFileAndGetResultSet(
-      ExecuteStatementResponse response, String sql) {
+      ExecuteStatementResponse response, String sql) throws SQLException {
     System.out.println("here is response : " + response.toString());
     String localFilePath = getFilePathFromPUTSql(sql);
     String presignedURL = getPresignedUrl(response);
     System.out.printf(
         "Here is the local path {%s}, and the presigned URL {%s}.%n", localFilePath, presignedURL);
     uploadFileToS3UsingPresignedUrl(presignedURL, localFilePath);
-    return null;
+    return getSuccessResponseForGet();
   }
 
-  public static DatabricksResultSet downloadFile(TFetchResultsResp response, String sql) {
+  public static DatabricksResultSet downloadFile(TFetchResultsResp response, String sql)
+      throws SQLException {
     System.out.println("here is response : " + response.toString());
     String localFilePath = getFilePathFromGETSql(sql);
     String presignedURL = getPresignedUrl(response);
     System.out.printf(
         "Here is the local path {%s}, and the presigned URL {%s}.%n", localFilePath, presignedURL);
-    downloadFile(presignedURL, localFilePath);
-    return null;
+    downloadFile(presignedURL, localFilePath, getHeaders(response));
+    return getSuccessResponseForGet();
   }
 
-  private static void downloadFile(String presignedUrl, String outputPath) {
+  public static void downloadFile(String presignedUrl, String localFile) {
+    downloadFile(presignedUrl, localFile, Collections.emptyMap());
+  }
+
+  public static void downloadFile(
+      String presignedUrl, String localFile, Map<String, String> headers) {
     HttpURLConnection connection = null;
     try {
       URL url = new URL(presignedUrl);
       connection = (HttpURLConnection) url.openConnection();
       connection.setRequestMethod("GET");
+      headers.forEach(connection::setRequestProperty);
       int responseCode = connection.getResponseCode();
-      if (responseCode != HttpURLConnection.HTTP_OK) {
-        throw new IOException(
-            "Server returned HTTP response code: " + responseCode + " for URL: " + presignedUrl);
-      }
-      try (BufferedInputStream in = new BufferedInputStream(connection.getInputStream());
-          FileOutputStream fileOutputStream = new FileOutputStream(outputPath)) {
-        byte[] dataBuffer = new byte[4096];
-        int bytesRead;
-        while ((bytesRead = in.read(dataBuffer, 0, 4096)) != -1) {
-          fileOutputStream.write(dataBuffer, 0, bytesRead);
+      System.out.println("reached here :" + connection.getResponseMessage());
+      System.out.println("reached here :" + connection.getContentEncoding());
+      if (responseCode == HttpURLConnection.HTTP_OK) {
+        try (InputStream inputStream = connection.getInputStream();
+            FileOutputStream outputStream = new FileOutputStream(localFile)) {
+          byte[] buffer = new byte[4096];
+          int bytesRead;
+          while ((bytesRead = inputStream.read(buffer)) != -1) {
+            outputStream.write(buffer, 0, bytesRead);
+          }
+          System.out.println("File downloaded: " + localFile);
+        } catch (IOException e) {
+          System.err.println("Error writing file: " + e.toString());
         }
+      } else {
+        throw new IOException("HTTP error " + responseCode + " " + connection.getResponseMessage());
       }
-    } catch (IOException e) {
-      System.out.println("io error " + e.toString());
+    } catch (Exception e) {
+      System.err.println("Error downloading file: " + e.toString());
     } finally {
       if (connection != null) {
         connection.disconnect();
@@ -152,13 +190,14 @@ public class StringUtil {
     }
   }
 
-  public static DatabricksResultSet downloadFile(ExecuteStatementResponse response, String sql) {
+  public static DatabricksResultSet downloadFile(ExecuteStatementResponse response, String sql)
+      throws SQLException {
     System.out.println("here is response : " + response.toString());
     String localFilePath = getFilePathFromGETSql(sql);
     String presignedURL = getPresignedUrl(response);
     System.out.printf(
         "Here is the local path {%s}, and the presigned URL {%s}.%n", localFilePath, presignedURL);
     downloadFile(presignedURL, localFilePath);
-    return null;
+    return getSuccessResponseForGet();
   }
 }

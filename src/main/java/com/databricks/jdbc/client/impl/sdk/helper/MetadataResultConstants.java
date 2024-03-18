@@ -7,6 +7,11 @@ import java.util.List;
 public class MetadataResultConstants {
   private static final ResultColumn CATALOG_COLUMN =
       new ResultColumn("TABLE_CAT", "catalogName", Types.VARCHAR);
+  private static final ResultColumn SUCCESS_PUT_COLUMN =
+      new ResultColumn("SUCCESS_PUT", "successfullyPutFileInVolume", Types.VARCHAR);
+  private static final ResultColumn SUCCESS_GET_COLUMN =
+      new ResultColumn("SUCCESS_GET", "successfullyGetFileFromVolume", Types.VARCHAR);
+
   private static final ResultColumn TYPE_CATALOG_COLUMN =
       new ResultColumn("TYPE_CAT", "TYPE_CATALOG_COLUMN", Types.VARCHAR);
   private static final ResultColumn TYPE_SCHEMA_COLUMN =
@@ -102,6 +107,8 @@ public class MetadataResultConstants {
           SELF_REFERENCING_COLUMN_NAME,
           REF_GENERATION_COLUMN,
           INFORMATION_NAME_COLUMN);
+  public static List<ResultColumn> SUCCESSFUL_GET = List.of(SUCCESS_GET_COLUMN);
+  public static List<ResultColumn> SUCCESSFUL_PUT = List.of(SUCCESS_PUT_COLUMN);
   public static List<ResultColumn> PRIMARY_KEYS_COLUMNS =
       List.of(
           CATALOG_COLUMN,

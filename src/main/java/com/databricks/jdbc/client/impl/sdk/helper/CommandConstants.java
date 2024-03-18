@@ -6,6 +6,8 @@ public class CommandConstants {
   public static final String GET_CATALOGS_STATEMENT_ID = "getcatalogs-metadata";
   public static final String GET_TABLE_TYPE_STATEMENT_ID = "gettabletype-metadata";
   public static final String GET_FUNCTIONS_STATEMENT_ID = "getfunctions-metadata";
+  public static final String GET_UC_STATEMENT_ID = "getUC-data";
+  public static final String PUT_UC_STATEMENT_ID = "putUC-data";
   public static final String SHOW_CATALOGS_SQL = "SHOW CATALOGS";
   public static final String SHOW_TABLE_TYPES_SQL = "SHOW TABLE_TYPES";
   public static final String IN_CATALOG_SQL = " IN CATALOG %s";
