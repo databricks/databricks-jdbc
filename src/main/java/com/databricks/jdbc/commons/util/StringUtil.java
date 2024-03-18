@@ -47,8 +47,7 @@ public class StringUtil {
   }
 
   public static String getPresignedUrl(ExecuteStatementResponse response) {
-    Collection<String> next = response.getResult().getDataArray().iterator().next();
-    Iterator<String> iterator = next.iterator();
+    Iterator<String> iterator = response.getResult().getDataArray().iterator().next().iterator();
     iterator.next();
     return iterator.next();
   }
@@ -149,7 +148,7 @@ public class StringUtil {
     return getSuccessResponseForGet();
   }
 
-  public static void downloadFile(String presignedUrl, String localFile) {
+  private static void downloadFile(String presignedUrl, String localFile) {
     downloadFile(presignedUrl, localFile, Collections.emptyMap());
   }
 

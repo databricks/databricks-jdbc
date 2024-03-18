@@ -49,16 +49,16 @@ public class DriverTester {
     DriverManager.drivers().forEach(driver -> System.out.println(driver.getClass()));
     // Getting the connection
     String jdbcUrl =
-        "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/791ba2a31c7fd70a;";
+        "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/5c89f447c476a5a8;";
     Connection con = DriverManager.getConnection(jdbcUrl, "samikshya.chand@databricks.com", "x");
-    con.setCatalog("samikshya_catalog");
+    con.setCatalog("samikshya_hackathon");
     con.setSchema("default");
     System.out.println("Connection established......");
     Statement statement = con.createStatement();
     statement.setMaxRows(10);
     ResultSet rs =
         statement.executeQuery(
-            "PUT '/Users/samikshya.chand/Desktop/1.csv' INTO '/Volumes/samikshya_catalog/default/newvol/newfile.csv' OVERWRITE");
+            "PUT '/Users/samikshya.chand/Desktop/1.csv' INTO '/Volumes/samikshya_hackathon/default/newvol/helloNewFile.csv' OVERWRITE");
     // ResultSet rs = statement.executeQuery("select 1");
     printResultSet(rs);
     rs.close();
@@ -74,14 +74,14 @@ public class DriverTester {
     String jdbcUrl =
             "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/791ba2a31c7fd70a;";
     Connection con = DriverManager.getConnection(jdbcUrl, "samikshya.chand@databricks.com", "x");
-    con.setCatalog("samikshya_catalog");
+    con.setCatalog("samikshya_hackathon");
     con.setSchema("default");
     System.out.println("Connection established......");
     Statement statement = con.createStatement();
     statement.setMaxRows(10);
     ResultSet rs =
             statement.executeQuery(
-                    "GET '/Volumes/samikshya_catalog/default/newvol/1.csv' TO '/Users/samikshya.chand/Desktop/1hi222'");
+                    "GET '/Volumes/samikshya_hackathon/default/newvol/1.csv' TO '/Users/samikshya.chand/Desktop/1hi222'");
     printResultSet(rs);
     rs.close();
     statement.close();
@@ -116,7 +116,7 @@ public class DriverTester {
     Statement statement = con.createStatement();
     ResultSet rs =
         statement.executeQuery(
-            "PUT '/Users/samikshya.chand/Desktop/1.csv' INTO '/Volumes/samikshya_catalog/default/newvol/1.csv' OVERWRITE");
+            "PUT '/Users/samikshya.chand/Desktop/1.csv' INTO '/Volumes/samikshya_hackathon/default/newvol/helloNewFile.csv' OVERWRITE");
     printResultSet(rs);
     con.close();
     System.out.println("Connection closed successfully......");
@@ -133,7 +133,7 @@ public class DriverTester {
     Statement statement = con.createStatement();
     ResultSet rs =
         statement.executeQuery(
-            "GET '/Volumes/samikshya_catalog/default/newvol/1.csv' TO '/Users/samikshya.chand/Desktop/helloNewFile.csv'");
+            "GET '/Volumes/samikshya_hackathon/default/newvol/1.csv' TO '/Users/samikshya.chand/Desktop/helloNewFile.csv'");
     printResultSet(rs);
     con.close();
     System.out.println("Connection closed successfully......");

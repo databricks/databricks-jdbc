@@ -7,7 +7,7 @@ import java.util.List;
 import java.util.UUID;
 
 public class DatabricksThriftHelper {
-  public static final TProtocolVersion PROTOCOL = TProtocolVersion.HIVE_CLI_SERVICE_PROTOCOL_V8;
+  public static final TProtocolVersion PROTOCOL = TProtocolVersion.HIVE_CLI_SERVICE_PROTOCOL_V10;
   public static final List<TStatusCode> SUCCESS_STATUS_LIST =
       List.of(TStatusCode.SUCCESS_STATUS, TStatusCode.SUCCESS_WITH_INFO_STATUS);
 

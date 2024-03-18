@@ -27,7 +27,6 @@ class ExecutionResultFactory {
       String statementId,
       IDatabricksSession session) {
     // We will use Arrow Stream only in prod. JSON is for testing and prototype purpose
-    System.out.println("here is data " + data);
     return new InlineJsonResult(manifest, data);
   }
 
