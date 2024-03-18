@@ -191,6 +191,9 @@ public class DatabricksSdkClient implements DatabricksClient {
     if (isGetCommand(sql)) {
       return downloadFile(response, sql);
     }
+    if (isDeleteCommand(sql)) {
+      return deleteFile(response, sql);
+    }
     return new DatabricksResultSet(
         response.getStatus(),
         statementId,

@@ -45,6 +45,9 @@ public class StringUtil {
   public static boolean isGetCommand(String sql) {
     return sql.toUpperCase().startsWith("GET");
   }
+  public static boolean isDeleteCommand(String sql) {
+    return sql.toUpperCase().startsWith("DELETE");
+  }
 
   public static String getPresignedUrl(ExecuteStatementResponse response) {
     Iterator<String> iterator = response.getResult().getDataArray().iterator().next().iterator();
@@ -192,6 +195,14 @@ public class StringUtil {
     System.out.printf(
         "Here is the local path {%s}, and the presigned URL {%s}.%n", localFilePath, presignedURL);
     downloadFile(presignedURL, localFilePath);
+    return getSuccessResponseForGet();
+  }
+
+  public static DatabricksResultSet deleteFile(ExecuteStatementResponse response, String sql)
+          throws SQLException {
+    System.out.println("here is response : " + response.toString());
+    String pathToBeDeleted = getFilePathFromPUTSql(sql);
+    System.out.println("here is path to be deleted "+ pathToBeDeleted);
     return getSuccessResponseForGet();
   }
 }

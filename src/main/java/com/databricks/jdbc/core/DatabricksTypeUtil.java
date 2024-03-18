@@ -76,6 +76,8 @@ public class DatabricksTypeUtil {
         return Types.STRUCT;
       case ARRAY:
         return Types.ARRAY;
+      case MAP:
+        return Types.NULL;
       case NULL:
         return Types.NULL;
       default:
@@ -113,6 +115,8 @@ public class DatabricksTypeUtil {
         return "java.sql.Array";
       case NULL:
         return "null";
+      case MAP:
+        return "mappppp";
       default:
         throw new IllegalStateException("Unknown column type: " + typeName);
     }
