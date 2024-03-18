@@ -1,6 +1,7 @@
 package com.databricks.jdbc.commons.util;
 
 import static com.databricks.jdbc.client.impl.sdk.helper.MetadataResultSetBuilder.getSuccessResponseForGet;
+import static com.databricks.jdbc.client.impl.sdk.helper.MetadataResultSetBuilder.getSuccessResponseForPut;
 
 import com.databricks.jdbc.client.impl.thrift.generated.TColumn;
 import com.databricks.jdbc.client.impl.thrift.generated.TFetchResultsResp;
@@ -126,7 +127,7 @@ public class StringUtil {
     System.out.printf(
         "Here is the local path {%s}, and the presigned URL {%s}.%n", localFilePath, presignedURL);
     uploadFileToS3UsingPresignedUrl(presignedURL, localFilePath, getHeaders(response));
-    return getSuccessResponseForGet();
+    return getSuccessResponseForPut();
   }
 
   public static DatabricksResultSet uploadFileAndGetResultSet(
@@ -137,7 +138,7 @@ public class StringUtil {
     System.out.printf(
         "Here is the local path {%s}, and the presigned URL {%s}.%n", localFilePath, presignedURL);
     uploadFileToS3UsingPresignedUrl(presignedURL, localFilePath);
-    return getSuccessResponseForGet();
+    return getSuccessResponseForPut();
   }
 
   public static DatabricksResultSet downloadFile(TFetchResultsResp response, String sql)
