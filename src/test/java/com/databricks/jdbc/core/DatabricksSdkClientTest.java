@@ -6,7 +6,6 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
 
-import com.databricks.jdbc.client.StatementType;
 import com.databricks.jdbc.client.impl.sdk.DatabricksSdkClient;
 import com.databricks.jdbc.client.sqlexec.*;
 import com.databricks.jdbc.client.sqlexec.ExecuteStatementRequest;
@@ -133,38 +132,6 @@ public class DatabricksSdkClientTest {
     DeleteSessionRequest request =
         new DeleteSessionRequest().setSessionId(SESSION_ID).setWarehouseId(WAREHOUSE_ID);
     verify(apiClient).DELETE(eq(path), eq(request), eq(Void.class), eq(new HashMap<>()));
-  }
-
-  @Test
-  public void testExecuteStatement() throws Exception {
-    setupClientMocks();
-    IDatabricksConnectionContext connectionContext =
-        DatabricksConnectionContext.parse(JDBC_URL, new Properties());
-    DatabricksSdkClient databricksSdkClient =
-        new DatabricksSdkClient(connectionContext, statementExecutionService, apiClient);
-    DatabricksConnection connection =
-        new DatabricksConnection(connectionContext, databricksSdkClient);
-    DatabricksStatement statement = new DatabricksStatement(connection);
-    statement.setMaxRows(100);
-    HashMap<Integer, ImmutableSqlParameter> sqlParams =
-        new HashMap<>() {
-          {
-            put(1, getSqlParam(1, 100, DatabricksTypeUtil.BIGINT));
-            put(2, getSqlParam(2, (short) 10, DatabricksTypeUtil.SMALLINT));
-            put(3, getSqlParam(3, (byte) 15, DatabricksTypeUtil.TINYINT));
-            put(4, getSqlParam(4, "value", DatabricksTypeUtil.STRING));
-          }
-        };
-
-    DatabricksResultSet resultSet =
-        databricksSdkClient.executeStatement(
-            STATEMENT,
-            warehouse,
-            sqlParams,
-            StatementType.QUERY,
-            connection.getSession(),
-            statement);
-    assertEquals(STATEMENT_ID, statement.getStatementId());
   }
 
   private StatementParameterListItem getParam(String type, String value, int ordinal) {

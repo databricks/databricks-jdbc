@@ -6,7 +6,6 @@ import com.databricks.jdbc.client.impl.thrift.generated.TColumn;
 import com.databricks.jdbc.client.impl.thrift.generated.TFetchResultsResp;
 import com.databricks.jdbc.client.sqlexec.ExecuteStatementResponse;
 import com.databricks.jdbc.core.DatabricksResultSet;
-
 import java.io.*;
 import java.net.HttpURLConnection;
 import java.net.URL;
@@ -45,6 +44,7 @@ public class StringUtil {
   public static boolean isGetCommand(String sql) {
     return sql.toUpperCase().startsWith("GET");
   }
+
   public static boolean isDeleteCommand(String sql) {
     return sql.toUpperCase().startsWith("DELETE");
   }
@@ -155,7 +155,8 @@ public class StringUtil {
     downloadFile(presignedUrl, localFile, Collections.emptyMap());
   }
 
-  public static void downloadFile(String presignedUrl, String localFile, Map<String, String> headers) {
+  public static void downloadFile(
+      String presignedUrl, String localFile, Map<String, String> headers) {
     HttpURLConnection connection = null;
     try {
       URL url = new URL(presignedUrl);
@@ -165,8 +166,12 @@ public class StringUtil {
       int responseCode = connection.getResponseCode();
       if (responseCode == HttpURLConnection.HTTP_OK) {
         try (InputStream inputStream = connection.getInputStream();
-             BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream, StandardCharsets.UTF_8));
-             PrintWriter writer = new PrintWriter(new OutputStreamWriter(new FileOutputStream(localFile), StandardCharsets.UTF_8))) {
+            BufferedReader reader =
+                new BufferedReader(new InputStreamReader(inputStream, StandardCharsets.UTF_8));
+            PrintWriter writer =
+                new PrintWriter(
+                    new OutputStreamWriter(
+                        new FileOutputStream(localFile), StandardCharsets.UTF_8))) {
           String line;
           while ((line = reader.readLine()) != null) {
             writer.println(line);
@@ -199,10 +204,10 @@ public class StringUtil {
   }
 
   public static DatabricksResultSet deleteFile(ExecuteStatementResponse response, String sql)
-          throws SQLException {
+      throws SQLException {
     System.out.println("here is response : " + response.toString());
     String pathToBeDeleted = getFilePathFromPUTSql(sql);
-    System.out.println("here is path to be deleted "+ pathToBeDeleted);
+    System.out.println("here is path to be deleted " + pathToBeDeleted);
     return getSuccessResponseForGet();
   }
 }

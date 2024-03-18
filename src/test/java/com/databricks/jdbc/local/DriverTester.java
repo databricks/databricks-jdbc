@@ -1,12 +1,6 @@
 package com.databricks.jdbc.local;
 
-import java.io.IOException;
-import java.net.URI;
-import java.net.http.HttpResponse;
 import java.sql.*;
-
-import org.apache.http.HttpRequest;
-import org.apache.http.client.HttpClient;
 import org.junit.jupiter.api.Test;
 
 public class DriverTester {
@@ -78,7 +72,7 @@ public class DriverTester {
     DriverManager.drivers().forEach(driver -> System.out.println(driver.getClass()));
     // Getting the connection
     String jdbcUrl =
-            "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/791ba2a31c7fd70a;";
+        "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/791ba2a31c7fd70a;";
     Connection con = DriverManager.getConnection(jdbcUrl, "samikshya.chand@databricks.com", "x");
     con.setCatalog("samikshya_hackathon");
     con.setSchema("default");
@@ -86,8 +80,8 @@ public class DriverTester {
     Statement statement = con.createStatement();
     statement.setMaxRows(10);
     ResultSet rs =
-            statement.executeQuery(
-                    "GET '/Volumes/samikshya_hackathon/default/newvol/1.csv' TO '/Users/samikshya.chand/Desktop/1hi222'");
+        statement.executeQuery(
+            "GET '/Volumes/samikshya_hackathon/default/newvol/1.csv' TO '/Users/samikshya.chand/Desktop/1hi222'");
     printResultSet(rs);
     rs.close();
     statement.close();
@@ -100,7 +94,7 @@ public class DriverTester {
     DriverManager.drivers().forEach(driver -> System.out.println(driver.getClass()));
     // Getting the connection
     String jdbcUrl =
-            "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/791ba2a31c7fd70a;";
+        "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/791ba2a31c7fd70a;";
     Connection con = DriverManager.getConnection(jdbcUrl, "samikshya.chand@databricks.com", "x");
     con.setCatalog("samikshya_hackathon");
     con.setSchema("default");
@@ -108,13 +102,14 @@ public class DriverTester {
     Statement statement = con.createStatement();
     statement.setMaxRows(10);
     ResultSet rs =
-            statement.executeQuery(
-                    "CREATE TABLE test_table  AS SELECT * FROM read_files('/Volumes/samikshya_hackathon/default/newvol/1.csv')");
+        statement.executeQuery(
+            "CREATE TABLE test_table  AS SELECT * FROM read_files('/Volumes/samikshya_hackathon/default/newvol/1.csv')");
     printResultSet(rs);
     rs.close();
     statement.close();
     con.close();
   }
+
   @Test
   void testGetTablesOSS_Metadata() throws Exception {
     DriverManager.registerDriver(new com.databricks.jdbc.driver.DatabricksDriver());
@@ -148,6 +143,7 @@ public class DriverTester {
     con.close();
     System.out.println("Connection closed successfully......");
   }
+
   @Test
   void testAllPurposeTest_GET() throws Exception {
     DriverManager.registerDriver(new com.databricks.jdbc.driver.DatabricksDriver());
