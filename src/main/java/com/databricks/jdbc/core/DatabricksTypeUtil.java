@@ -45,6 +45,9 @@ public class DatabricksTypeUtil {
       new ArrayList<>(Arrays.asList(ColumnInfoTypeName.CHAR, ColumnInfoTypeName.STRING));
 
   public static int getColumnType(ColumnInfoTypeName typeName) {
+    if (typeName == null) {
+      return Types.OTHER;
+    }
     switch (typeName) {
       case BYTE:
         return Types.TINYINT;
@@ -84,6 +87,9 @@ public class DatabricksTypeUtil {
   }
 
   public static String getColumnTypeClassName(ColumnInfoTypeName typeName) {
+    if (typeName == null) {
+      return "null";
+    }
     switch (typeName) {
       case BYTE:
       case SHORT:
@@ -119,6 +125,9 @@ public class DatabricksTypeUtil {
   }
 
   public static int getDisplaySize(ColumnInfoTypeName typeName, int precision) {
+    if (typeName == null) {
+      return 255;
+    }
     switch (typeName) {
       case BYTE:
       case SHORT:
@@ -150,6 +159,9 @@ public class DatabricksTypeUtil {
   }
 
   public static int getPrecision(ColumnInfoTypeName typeName) {
+    if (typeName == null) {
+      return 0;
+    }
     switch (typeName) {
       case BYTE:
       case SHORT:

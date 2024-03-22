@@ -28,20 +28,22 @@ public class DatabricksResultSetMetaDataTest {
     ColumnInfo col1 = getColumn("col1", ColumnInfoTypeName.INT, "int");
     ColumnInfo col2 = getColumn("col2", ColumnInfoTypeName.STRING, "string");
     ColumnInfo col2dup = getColumn("col2", ColumnInfoTypeName.DOUBLE, "double");
-    schema.setColumns(List.of(col1, col2, col2dup));
+    ColumnInfo col3 = getColumn("col5", null, "double");
+    schema.setColumns(List.of(col1, col2, col2dup, col3));
     manifest.setSchema(schema);
     return manifest;
   }
 
   @Test
-  public void testColumnsWithSameName() throws SQLException {
+  public void testColumnsWithSameNameAndNullTypeName() throws SQLException {
     ResultManifest resultManifest = getResultManifest();
     DatabricksResultSetMetaData metaData =
         new DatabricksResultSetMetaData(STATEMENT_ID, resultManifest);
-    Assertions.assertEquals(3, metaData.getColumnCount());
+    Assertions.assertEquals(4, metaData.getColumnCount());
     Assertions.assertEquals("col1", metaData.getColumnName(1));
     Assertions.assertEquals("col2", metaData.getColumnName(2));
     Assertions.assertEquals("col2", metaData.getColumnName(3));
+    Assertions.assertEquals("col5", metaData.getColumnName(4));
     Assertions.assertEquals(10, metaData.getTotalRows());
     Assertions.assertEquals(2, metaData.getColumnNameIndex("col2"));
 
