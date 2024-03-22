@@ -302,6 +302,7 @@
               <exclude>**/*Constants*</exclude>
               <exclude>**/thrift/gen-java/org/apache/hive/service/rpc/thrift/**</exclude>
               <exclude>**/*driver/DatabricksJdbcConstants*</exclude>
+              <exclude>**/CommandName*</exclude>
             </excludes>
           </configuration>
         </plugin>

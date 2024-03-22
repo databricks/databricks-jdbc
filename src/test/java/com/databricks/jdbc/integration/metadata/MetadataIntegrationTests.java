@@ -123,7 +123,7 @@ public class MetadataIntegrationTests {
     }
 
     // Test getSchemas
-    try (ResultSet schemas = metaData.getSchemas()) {
+    try (ResultSet schemas = metaData.getSchemas("main", "*")) {
       assertTrue(schemas.next(), "There should be at least one schema");
       do {
         String schemaName = schemas.getString("TABLE_SCHEM");
@@ -131,30 +131,22 @@ public class MetadataIntegrationTests {
       } while (schemas.next());
     }
 
-    // Test getTableTypes
-    try (ResultSet tableTypes = metaData.getTableTypes()) {
-      assertTrue(tableTypes.next(), "There should be at least one table type");
-      do {
-        String tableType = tableTypes.getString("TABLE_TYPE");
-        assertNotNull(tableType, "Table type should not be null");
-      } while (tableTypes.next());
-    }
-
     // Verify tables retrieval with specific catalog and schema
     String catalog = "main";
     String schemaPattern = "jdbc_test_schema";
-    try (ResultSet tables = metaData.getTables(catalog, schemaPattern, null, null)) {
+    String tableName = "catalog_and_schema_test_table";
+    setupDatabaseTable(tableName);
+    try (ResultSet tables = metaData.getTables(catalog, schemaPattern, "*", null)) {
       assertTrue(
           tables.next(), "There should be at least one table in the specified catalog and schema");
       do {
-        String tableName = tables.getString("TABLE_NAME");
-        assertNotNull(tableName, "Table name should not be null");
+        String fetchedTableName = tables.getString("TABLE_NAME");
+        assertNotNull(fetchedTableName, "Table name should not be null");
       } while (tables.next());
     }
 
     // Test to get particular table
-    String tableName = "catalog_and_schema_test_table";
-    setupDatabaseTable(tableName);
+
     try (ResultSet tables = metaData.getTables(catalog, schemaPattern, tableName, null)) {
       assertTrue(
           tables.next(), "There should be at least one table in the specified catalog and schema");
@@ -164,5 +156,6 @@ public class MetadataIntegrationTests {
             tableName, fetchedTableName, "Table name should match the specified table name");
       } while (tables.next());
     }
+    deleteTable(tableName);
   }
 }

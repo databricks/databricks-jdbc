@@ -7,4 +7,5 @@ ignore:
   - "**Constants*"
   - "**/thrift/gen-java/org/apache/hive/service/rpc/thrift/*"
   - "**driver/DatabricksJdbcConstants*"
+  - "**/client/impl/sdk/helper/CommandName*"
   - "**/client/impl/sdk/DatabricksMetadataSdkClient*" # TODO(PECO-1502): Remove once fixed

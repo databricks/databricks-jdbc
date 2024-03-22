@@ -55,15 +55,14 @@ public class ConverterHelper {
         return new BigDecimalConverter(object);
       case Types.BOOLEAN:
         return new BooleanConverter(object);
-      case Types.VARCHAR:
-      case Types.CHAR:
-        return new StringConverter(object);
       case Types.DATE:
         return new DateConverter(object);
       case Types.TIMESTAMP:
         return new TimestampConverter(object);
+      case Types.VARCHAR:
+      case Types.CHAR:
       default:
-        throw new DatabricksSQLException("Bad object type");
+        return new StringConverter(object);
     }
   }
 }

@@ -936,12 +936,9 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
         tableNamePattern,
         types);
     throwExceptionIfConnectionIsClosed();
-    Map.Entry<String, String> pair = applyContext(catalog, schemaPattern);
-    String catalogWithContext = pair.getKey();
-    String schemaWithContext = pair.getValue();
     return session
         .getDatabricksMetadataClient()
-        .listTables(session, catalogWithContext, schemaWithContext, tableNamePattern);
+        .listTables(session, catalog, schemaPattern, tableNamePattern);
   }
 
   @Override
@@ -1792,13 +1789,8 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
         catalog,
         schemaPattern);
     throwExceptionIfConnectionIsClosed();
-    Map.Entry<String, String> pair = applyContext(catalog, schemaPattern);
-    String catalogWithContext = pair.getKey();
-    String schemaWithContext = pair.getValue();
 
-    return session
-        .getDatabricksMetadataClient()
-        .listSchemas(session, catalogWithContext, schemaWithContext);
+    return session.getDatabricksMetadataClient().listSchemas(session, catalog, schemaPattern);
   }
 
   @Override
@@ -1918,28 +1910,5 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
     if (!connection.getSession().isOpen()) {
       throw new DatabricksSQLException("Connection closed!");
     }
-  }
-
-  private Map.Entry<String, String> applyContext(String catalog, String schema)
-      throws SQLException {
-    LOGGER.debug(
-        "private Map.Entry<String, String> applyContext(String catalog = {}, String schema = {})",
-        catalog,
-        schema);
-    if (catalog == null) {
-      catalog = connection.getConnection().getCatalog();
-    }
-    // If catalog is not set in context, look at all catalogs
-    if (catalog == null) {
-      catalog = "*";
-    }
-    if (schema == null) {
-      schema = connection.getConnection().getSchema();
-    }
-    // If schema is not set in context, look at all schemas
-    if (schema == null) {
-      schema = "*";
-    }
-    return Map.entry(catalog, schema);
   }
 }

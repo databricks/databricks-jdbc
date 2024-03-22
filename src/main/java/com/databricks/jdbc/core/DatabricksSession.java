@@ -46,11 +46,12 @@ public class DatabricksSession implements IDatabricksSession {
       throws DatabricksSQLException {
     if (connectionContext.isAllPurposeCluster()) {
       this.databricksClient = new DatabricksThriftClient(connectionContext);
+      this.databricksMetadataClient = null;
     } else {
       this.databricksClient = new DatabricksSdkClient(connectionContext);
+      this.databricksMetadataClient =
+          new DatabricksMetadataSdkClient((DatabricksSdkClient) databricksClient);
     }
-    this.databricksMetadataClient =
-        new DatabricksMetadataSdkClient((DatabricksSdkClient) databricksClient);
     this.isSessionOpen = false;
     this.session = null;
     this.computeResource = connectionContext.getComputeResource();
@@ -67,8 +68,12 @@ public class DatabricksSession implements IDatabricksSession {
       IDatabricksConnectionContext connectionContext, DatabricksClient databricksClient)
       throws DatabricksSQLException {
     this.databricksClient = databricksClient;
-    this.databricksMetadataClient =
-        new DatabricksMetadataSdkClient((DatabricksSdkClient) databricksClient);
+    if (databricksClient instanceof DatabricksSdkClient) {
+      this.databricksMetadataClient =
+          new DatabricksMetadataSdkClient((DatabricksSdkClient) databricksClient);
+    } else {
+      this.databricksMetadataClient = null;
+    }
     this.isSessionOpen = false;
     this.session = null;
     this.computeResource = connectionContext.getComputeResource();
@@ -106,7 +111,7 @@ public class DatabricksSession implements IDatabricksSession {
   }
 
   @Override
-  public void open() {
+  public void open() throws DatabricksSQLException {
     LOGGER.debug("public void open()");
     // TODO: check for expired sessions
     synchronized (this) {

@@ -82,6 +82,8 @@ public interface IDatabricksConnectionContext {
 
   boolean isAllPurposeCluster();
 
+  String getHttpPath();
+
   String getProxyHost();
 
   int getProxyPort();

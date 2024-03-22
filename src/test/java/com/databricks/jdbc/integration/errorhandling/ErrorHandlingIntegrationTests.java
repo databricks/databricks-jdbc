@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import com.databricks.jdbc.core.DatabricksParsingException;
 import com.databricks.jdbc.core.DatabricksSQLException;
+import com.databricks.jdbc.core.DatabricksSQLFeatureNotSupportedException;
 import java.sql.*;
 import org.junit.jupiter.api.Test;
 
@@ -90,7 +91,7 @@ public class ErrorHandlingIntegrationTests {
     String tableName = "unsupported_sql_feature_test_table";
     setupDatabaseTable(tableName);
     assertThrows(
-        SQLFeatureNotSupportedException.class,
+        DatabricksSQLFeatureNotSupportedException.class,
         () -> {
           Connection connection = getValidJDBCConnection();
           Statement statement = connection.createStatement();
