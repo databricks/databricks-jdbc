@@ -1,9 +1,10 @@
 package com.databricks.jdbc.commons;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.*;
 
 import com.databricks.jdbc.commons.util.WildcardUtil;
 import java.util.stream.Stream;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -36,5 +37,27 @@ public class WildcardUtilTest {
       String inputPattern, String expectedOutput, String errorMessage) {
     String actualOutput = WildcardUtil.jdbcPatternToHive(inputPattern);
     assertEquals(expectedOutput, actualOutput, errorMessage);
+  }
+
+  @Test
+  public void testIsWildcard() {
+    assertTrue(WildcardUtil.isWildcard("*Test*"));
+    assertFalse(WildcardUtil.isWildcard("Test"));
+    assertFalse(WildcardUtil.isWildcard(null));
+  }
+
+  @Test
+  public void testIsNullOrEmptyWithWhitespace() {
+    assertFalse(WildcardUtil.isNullOrEmpty("Test"));
+    assertTrue(WildcardUtil.isNullOrEmpty(null));
+    assertTrue(WildcardUtil.isNullOrEmpty(""));
+    assertTrue(WildcardUtil.isNullOrEmpty("    "));
+  }
+
+  @Test
+  void testIsMatchAnything() {
+    assertTrue(WildcardUtil.isMatchAnything("*"));
+    assertFalse(WildcardUtil.isMatchAnything("Test"));
+    assertFalse(WildcardUtil.isMatchAnything(null));
   }
 }
