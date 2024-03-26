@@ -55,7 +55,7 @@ public class DatabricksHttpClientTest {
   void testExecuteThrowsError() throws IOException {
     DatabricksHttpClient databricksHttpClient =
         new DatabricksHttpClient(mockHttpClient, connectionManager);
-    when(request.getURI()).thenReturn(URI.create("TestURI"));
+    when(request.getURI()).thenReturn(URI.create("https://databricks.com"));
     when(mockHttpClient.execute(request)).thenThrow(new IOException());
     assertThrows(DatabricksHttpException.class, () -> databricksHttpClient.execute(request));
   }
