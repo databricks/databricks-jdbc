@@ -13,7 +13,7 @@ import java.time.Year;
 import java.util.Calendar;
 import org.junit.jupiter.api.Test;
 
-class converterHelperTest {
+class ConverterHelperTest {
   ConverterHelper converterHelper;
 
   @Test

@@ -59,6 +59,8 @@ public class ConverterHelper {
         return new DateConverter(object);
       case Types.TIMESTAMP:
         return new TimestampConverter(object);
+      case Types.BINARY:
+        return new ByteArrayConverter(object);
       case Types.VARCHAR:
       case Types.CHAR:
       default:
