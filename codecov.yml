@@ -8,4 +8,6 @@ ignore:
   - "**/thrift/gen-java/org/apache/hive/service/rpc/thrift/*"
   - "**driver/DatabricksJdbcConstants*"
   - "**/client/impl/sdk/helper/CommandName*"
+  - "**/core/DatabricksDataSource*" #TODO (PECO-1543): Remove once fixed
+  - "**/pooling/DatabricksPooledConnection*"
   - "**/client/impl/sdk/DatabricksMetadataSdkClient*" # TODO(PECO-1502): Remove once fixed

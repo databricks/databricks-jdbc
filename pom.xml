@@ -292,6 +292,8 @@
               <exclude>**/thrift/**</exclude>
               <exclude>**/client/sqlexec/**</exclude>
               <exclude>**/*Constants*</exclude>
+              <exclude>**/core/DatabricksDataSource*</exclude>
+              <exclude>**/pooling/DatabricksPooledConnection*</exclude>
               <exclude>**/thrift/gen-java/org/apache/hive/service/rpc/thrift/**</exclude>
               <exclude>**/*driver/DatabricksJdbcConstants*</exclude>
               <exclude>**/CommandName*</exclude>
