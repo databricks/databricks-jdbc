@@ -17,7 +17,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 class ValidationUtilTest {
   @Mock StatusLine statusLine;
   @Mock HttpResponse response;
-  ValidationUtil validationUtil;
+  private static ValidationUtil validationUtil = new ValidationUtil();
 
   @Test
   void testCheckIfPositive() {

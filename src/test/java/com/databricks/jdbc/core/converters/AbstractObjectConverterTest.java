@@ -12,6 +12,7 @@ public class AbstractObjectConverterTest {
       super(object);
     }
   }
+
   @Test
   void testUnsupportedOperations() throws DatabricksSQLException {
     AbstractObjectConverter objectConverter = new TestableAbstractObjectConverter("testString");
@@ -28,6 +29,6 @@ public class AbstractObjectConverterTest {
     assertThrows(DatabricksSQLException.class, objectConverter::convertToString);
     assertThrows(DatabricksSQLException.class, objectConverter::convertToTimestamp);
     assertThrows(DatabricksSQLException.class, objectConverter::convertToDate);
-    assertThrows(DatabricksSQLException.class, ()->objectConverter.convertToTimestamp(10));
+    assertThrows(DatabricksSQLException.class, () -> objectConverter.convertToTimestamp(10));
   }
 }

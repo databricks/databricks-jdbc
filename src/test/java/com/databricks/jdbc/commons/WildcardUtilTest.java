@@ -13,6 +13,8 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
 public class WildcardUtilTest {
+  private static WildcardUtil wildcardUtil = new WildcardUtil();
+
   private static Stream<Arguments> listPatterns() {
     return Stream.of(
         Arguments.of("abc", "abc", "Same string check"),
@@ -35,29 +37,29 @@ public class WildcardUtilTest {
   @MethodSource("listPatterns")
   public void testJDBCToHiveConversion(
       String inputPattern, String expectedOutput, String errorMessage) {
-    String actualOutput = WildcardUtil.jdbcPatternToHive(inputPattern);
+    String actualOutput = wildcardUtil.jdbcPatternToHive(inputPattern);
     assertEquals(expectedOutput, actualOutput, errorMessage);
   }
 
   @Test
   public void testIsWildcard() {
-    assertTrue(WildcardUtil.isWildcard("*Test*"));
-    assertFalse(WildcardUtil.isWildcard("Test"));
-    assertFalse(WildcardUtil.isWildcard(null));
+    assertTrue(wildcardUtil.isWildcard("*Test*"));
+    assertFalse(wildcardUtil.isWildcard("Test"));
+    assertFalse(wildcardUtil.isWildcard(null));
   }
 
   @Test
   public void testIsNullOrEmptyWithWhitespace() {
-    assertFalse(WildcardUtil.isNullOrEmpty("Test"));
-    assertTrue(WildcardUtil.isNullOrEmpty(null));
-    assertTrue(WildcardUtil.isNullOrEmpty(""));
-    assertTrue(WildcardUtil.isNullOrEmpty("    "));
+    assertFalse(wildcardUtil.isNullOrEmpty("Test"));
+    assertTrue(wildcardUtil.isNullOrEmpty(null));
+    assertTrue(wildcardUtil.isNullOrEmpty(""));
+    assertTrue(wildcardUtil.isNullOrEmpty("    "));
   }
 
   @Test
   void testIsMatchAnything() {
-    assertTrue(WildcardUtil.isMatchAnything("*"));
-    assertFalse(WildcardUtil.isMatchAnything("Test"));
-    assertFalse(WildcardUtil.isMatchAnything(null));
+    assertTrue(wildcardUtil.isMatchAnything("*"));
+    assertFalse(wildcardUtil.isMatchAnything("Test"));
+    assertFalse(wildcardUtil.isMatchAnything(null));
   }
 }

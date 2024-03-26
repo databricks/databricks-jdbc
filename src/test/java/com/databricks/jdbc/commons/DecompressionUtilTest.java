@@ -17,7 +17,8 @@ public class DecompressionUtilTest {
   private static final String CONTEXT = "testContext";
   private static final String INITIAL_STRING = "testData";
   private static InputStream compressedInputStream;
-  private DecompressionUtil decompressionUtil;
+
+  private static DecompressionUtil decompressionUtil = new DecompressionUtil();
 
   @BeforeAll
   public static void setCompressedInputStream() throws IOException {
