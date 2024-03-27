@@ -1,7 +1,8 @@
 package com.databricks.jdbc.pooling;
 
 import com.databricks.jdbc.core.DatabricksSQLException;
-import com.databricks.jdbc.core.DatabricksStatement;
+import com.databricks.jdbc.core.IDatabricksConnection;
+import com.databricks.jdbc.core.IDatabricksStatement;
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
@@ -141,7 +142,9 @@ public class DatabricksPooledConnection implements PooledConnection {
       this.virtualConnection =
           (Connection)
               Proxy.newProxyInstance(
-                  getClass().getClassLoader(), new Class[] {Connection.class}, this);
+                  getClass().getClassLoader(),
+                  new Class[] {Connection.class, IDatabricksConnection.class},
+                  this);
     }
 
     @Override
@@ -205,7 +208,7 @@ public class DatabricksPooledConnection implements PooledConnection {
         Statement st = (Statement) method.invoke(physicalConnection, args);
         return Proxy.newProxyInstance(
             getClass().getClassLoader(),
-            new Class[] {statementClass, DatabricksStatement.class},
+            new Class[] {statementClass, IDatabricksStatement.class},
             new StatementHandler(this, st));
       } catch (final InvocationTargetException ite) {
         final Throwable targetException = ite.getTargetException();

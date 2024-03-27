@@ -1,7 +1,10 @@
 package com.databricks.jdbc.core;
 
+import static com.databricks.jdbc.driver.DatabricksJdbcConstants.*;
+
 import com.databricks.jdbc.driver.DatabricksDriver;
 import com.databricks.jdbc.driver.DatabricksJdbcConstants;
+import com.google.common.annotations.VisibleForTesting;
 import java.io.PrintWriter;
 import java.sql.Connection;
 import java.sql.SQLException;
@@ -15,7 +18,18 @@ public class DatabricksDataSource implements DataSource {
   private static final Logger LOGGER = LoggerFactory.getLogger(DatabricksDataSource.class);
   private String host;
   private int port;
+  private String httpPath;
   private Properties properties = new Properties();
+  private final DatabricksDriver databricksDriver;
+
+  public DatabricksDataSource() {
+    this.databricksDriver = DatabricksDriver.getInstance();
+  }
+
+  @VisibleForTesting
+  public DatabricksDataSource(DatabricksDriver databricksDriver) {
+    this.databricksDriver = databricksDriver;
+  }
 
   @Override
   public Connection getConnection() throws DatabricksSQLException {
@@ -35,7 +49,7 @@ public class DatabricksDataSource implements DataSource {
     if (password != null) {
       setPassword(password);
     }
-    return DatabricksDriver.getInstance().connect(getUrl(), properties);
+    return databricksDriver.connect(getUrl(), properties);
   }
 
   @Override
@@ -83,7 +97,10 @@ public class DatabricksDataSource implements DataSource {
     }
     urlBuilder.append(host);
     if (port != 0) {
-      urlBuilder.append(":").append(port);
+      urlBuilder.append(PORT_DELIMITER).append(port);
+    }
+    if (httpPath != null) {
+      urlBuilder.append(URL_DELIMITER).append(HTTP_PATH).append(PAIR_DELIMITER).append(httpPath);
     }
     return urlBuilder.toString();
   }
@@ -118,6 +135,14 @@ public class DatabricksDataSource implements DataSource {
 
   public void setPort(int port) {
     this.port = port;
+  }
+
+  public String getHttpPath() {
+    return httpPath;
+  }
+
+  public void setHttpPath(String httpPath) {
+    this.httpPath = httpPath;
   }
 
   public Properties getProperties() {

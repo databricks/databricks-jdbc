@@ -16,11 +16,11 @@ public final class DatabricksJdbcConstants {
   static final String LOG_PATH = "logpath";
   static final String SYSTEM_LOG_LEVEL_CONFIG = "defaultLogLevel";
   static final String SYSTEM_LOG_FILE_CONFIG = "defaultLogFile";
-  static final String URL_DELIMITER = ";";
-  static final String PORT_DELIMITER = ":";
+  public static final String URL_DELIMITER = ";";
+  public static final String PORT_DELIMITER = ":";
   static final String DEFAULT_SCHEMA = "default";
   static final String DEFAULT_CATALOG = "SPARK";
-  static final String PAIR_DELIMITER = "=";
+  public static final String PAIR_DELIMITER = "=";
   static final String TOKEN = "token";
   public static final String USER = "user";
   public static final String PASSWORD = "password";
@@ -29,7 +29,7 @@ public final class DatabricksJdbcConstants {
 
   static final String CLIENT_SECRET = "databricks_client_secret";
 
-  static final String AUTH_MECH = "authmech";
+  public static final String AUTH_MECH = "authmech";
 
   static final String CONN_CATALOG = "conncatalog";
 
@@ -59,7 +59,7 @@ public final class DatabricksJdbcConstants {
 
   static final String AAD_CLIENT_ID = "96eecda7-19ea-49cc-abb5-240097d554f5";
 
-  static final String HTTP_PATH = "httppath";
+  public static final String HTTP_PATH = "httppath";
   static final String HTTPS_SCHEMA = "https://";
   public static final String LOGIN_TIMEOUT = "loginTimeout";
 
