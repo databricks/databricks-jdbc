@@ -3,6 +3,7 @@ package com.databricks.jdbc.core.converters;
 import com.databricks.jdbc.core.DatabricksSQLException;
 import java.sql.Date;
 import java.sql.Timestamp;
+import java.time.Instant;
 import java.util.TimeZone;
 
 public class TimestampConverter extends AbstractObjectConverter {
@@ -12,7 +13,12 @@ public class TimestampConverter extends AbstractObjectConverter {
   public TimestampConverter(Object object) throws DatabricksSQLException {
     super(object);
     if (object instanceof String) {
-      this.object = Timestamp.valueOf((String) object);
+      try {
+        this.object = Timestamp.valueOf((String) object);
+      } catch (Exception e) {
+        Instant instant = Instant.parse((String) object);
+        this.object = Timestamp.from(instant);
+      }
     } else {
       this.object = (Timestamp) object;
     }

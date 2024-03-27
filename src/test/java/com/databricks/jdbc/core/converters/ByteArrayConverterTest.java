@@ -1,9 +1,12 @@
 package com.databricks.jdbc.core.converters;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.databricks.jdbc.core.DatabricksSQLException;
 import java.nio.charset.StandardCharsets;
+import java.sql.Timestamp;
+import java.time.LocalDateTime;
 import org.junit.jupiter.api.Test;
 
 class ByteArrayConverterTest {
@@ -23,10 +26,19 @@ class ByteArrayConverterTest {
   }
 
   @Test
+  void testConvertFromString() throws DatabricksSQLException {
+    String testString = "Test";
+    ByteArrayConverter converter = new ByteArrayConverter(testString);
+    assertEquals(converter.convertToString(), testString);
+  }
+
+  @Test
   void testConvertToByte() throws DatabricksSQLException {
     byte[] byteArray = {5};
     ByteArrayConverter converter = new ByteArrayConverter(byteArray);
     assertEquals(5, converter.convertToByte());
+    assertThrows(
+        DatabricksSQLException.class, () -> new ByteArrayConverter(new byte[] {}).convertToByte());
   }
 
   @Test
@@ -34,6 +46,9 @@ class ByteArrayConverterTest {
     byte[] byteArray = {1};
     ByteArrayConverter converter = new ByteArrayConverter(byteArray);
     assertTrue(converter.convertToBoolean());
+    byteArray = new byte[] {};
+    converter = new ByteArrayConverter(byteArray);
+    assertFalse(converter.convertToBoolean());
   }
 
   @Test
@@ -41,6 +56,13 @@ class ByteArrayConverterTest {
     byte[] byteArray = {0};
     ByteArrayConverter converter = new ByteArrayConverter(byteArray);
     assertFalse(converter.convertToBoolean());
+  }
+
+  @Test
+  void testConvertThrowsException() {
+    assertThrows(
+        DatabricksSQLException.class,
+        () -> new ByteArrayConverter(Timestamp.valueOf(LocalDateTime.now())));
   }
 
   @Test

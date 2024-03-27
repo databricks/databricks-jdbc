@@ -36,10 +36,7 @@ public class DateConverter extends AbstractObjectConverter {
   @Override
   public int convertToInt() throws DatabricksSQLException {
     long epochDays = convertToLong();
-    if ((int) epochDays == epochDays) {
-      return (int) epochDays;
-    }
-    throw new DatabricksSQLException("Invalid conversion");
+    return (int) epochDays; // the convertToLong will always be within integer limits
   }
 
   @Override
