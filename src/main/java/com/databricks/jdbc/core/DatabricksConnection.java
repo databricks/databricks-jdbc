@@ -69,20 +69,20 @@ public class DatabricksConnection implements IDatabricksConnection, Connection {
   @Override
   public CallableStatement prepareCall(String sql) throws SQLException {
     LOGGER.debug("public CallableStatement prepareCall(String sql = {})", sql);
-    throw new UnsupportedOperationException("Not Supported");
+    throw new DatabricksSQLFeatureNotSupportedException("Not Supported");
   }
 
   @Override
   public String nativeSQL(String sql) throws SQLException {
     LOGGER.debug("public String nativeSQL(String sql = {})", sql);
-    throw new UnsupportedOperationException(
+    throw new DatabricksSQLFeatureNotSupportedException(
         "Not implemented in DatabricksConnection - nativeSQL(String sql)");
   }
 
   @Override
   public void setAutoCommit(boolean autoCommit) throws SQLException {
     LOGGER.debug("public void setAutoCommit(boolean autoCommit = {})", autoCommit);
-    throw new UnsupportedOperationException(
+    throw new DatabricksSQLFeatureNotSupportedException(
         "Not implemented in DatabricksConnection - setAutoCommit(boolean autoCommit)");
   }
 
@@ -96,13 +96,15 @@ public class DatabricksConnection implements IDatabricksConnection, Connection {
   @Override
   public void commit() throws SQLException {
     LOGGER.debug("public void commit()");
-    throw new UnsupportedOperationException("Not implemented in DatabricksConnection - commit()");
+    throw new DatabricksSQLFeatureNotSupportedException(
+        "Not implemented in DatabricksConnection - commit()");
   }
 
   @Override
   public void rollback() throws SQLException {
     LOGGER.debug("public void rollback()");
-    throw new UnsupportedOperationException("Not implemented in DatabricksConnection - rollback()");
+    throw new DatabricksSQLFeatureNotSupportedException(
+        "Not implemented in DatabricksConnection - rollback()");
   }
 
   @Override
@@ -131,7 +133,7 @@ public class DatabricksConnection implements IDatabricksConnection, Connection {
   @Override
   public void setReadOnly(boolean readOnly) throws SQLException {
     LOGGER.debug("public void setReadOnly(boolean readOnly = {})", readOnly);
-    throw new UnsupportedOperationException(
+    throw new DatabricksSQLFeatureNotSupportedException(
         "Not implemented in DatabricksConnection - setReadOnly(boolean readOnly)");
   }
 
@@ -159,7 +161,7 @@ public class DatabricksConnection implements IDatabricksConnection, Connection {
   @Override
   public void setTransactionIsolation(int level) throws SQLException {
     LOGGER.debug("public void setTransactionIsolation(int level = {})", level);
-    throw new UnsupportedOperationException(
+    throw new DatabricksSQLFeatureNotSupportedException(
         "Not implemented in DatabricksConnection - setTransactionIsolation(int level)");
   }
 
@@ -223,63 +225,63 @@ public class DatabricksConnection implements IDatabricksConnection, Connection {
         sql,
         resultSetType,
         resultSetConcurrency);
-    throw new UnsupportedOperationException(
+    throw new DatabricksSQLFeatureNotSupportedException(
         "Not implemented in DatabricksConnection - prepareCall(String sql, int resultSetType, int resultSetConcurrency)");
   }
 
   @Override
   public Map<String, Class<?>> getTypeMap() throws SQLException {
     LOGGER.debug("public Map<String, Class<?>> getTypeMap()");
-    throw new UnsupportedOperationException(
+    throw new DatabricksSQLFeatureNotSupportedException(
         "Not implemented in DatabricksConnection - getTypeMap()");
   }
 
   @Override
   public void setTypeMap(Map<String, Class<?>> map) throws SQLException {
     LOGGER.debug("public void setTypeMap(Map<String, Class<?>> map)");
-    throw new UnsupportedOperationException(
+    throw new DatabricksSQLFeatureNotSupportedException(
         "Not implemented in DatabricksConnection - setTypeMap(Map<String, Class<?>> map)");
   }
 
   @Override
   public void setHoldability(int holdability) throws SQLException {
     LOGGER.debug("public void setHoldability(int holdability = {})", holdability);
-    throw new UnsupportedOperationException(
+    throw new DatabricksSQLFeatureNotSupportedException(
         "Not implemented in DatabricksConnection - setHoldability(int holdability)");
   }
 
   @Override
   public int getHoldability() throws SQLException {
     LOGGER.debug("public int getHoldability()");
-    throw new UnsupportedOperationException(
+    throw new DatabricksSQLFeatureNotSupportedException(
         "Not implemented in DatabricksConnection - getHoldability()");
   }
 
   @Override
   public Savepoint setSavepoint() throws SQLException {
     LOGGER.debug("public Savepoint setSavepoint()");
-    throw new UnsupportedOperationException(
+    throw new DatabricksSQLFeatureNotSupportedException(
         "Not implemented in DatabricksConnection - setSavepoint()");
   }
 
   @Override
   public Savepoint setSavepoint(String name) throws SQLException {
     LOGGER.debug("public Savepoint setSavepoint(String name = {})", name);
-    throw new UnsupportedOperationException(
+    throw new DatabricksSQLFeatureNotSupportedException(
         "Not implemented in DatabricksConnection - setSavepoint(String name)");
   }
 
   @Override
   public void rollback(Savepoint savepoint) throws SQLException {
     LOGGER.debug("public void rollback(Savepoint savepoint)");
-    throw new UnsupportedOperationException(
+    throw new DatabricksSQLFeatureNotSupportedException(
         "Not implemented in DatabricksConnection - rollback(Savepoint savepoint)");
   }
 
   @Override
   public void releaseSavepoint(Savepoint savepoint) throws SQLException {
     LOGGER.debug("public void releaseSavepoint(Savepoint savepoint)");
-    throw new UnsupportedOperationException(
+    throw new DatabricksSQLFeatureNotSupportedException(
         "Not implemented in DatabricksConnection - releaseSavepoint(Savepoint savepoint)");
   }
 
@@ -291,7 +293,7 @@ public class DatabricksConnection implements IDatabricksConnection, Connection {
         resultSetType,
         resultSetConcurrency,
         resultSetHoldability);
-    throw new UnsupportedOperationException(
+    throw new DatabricksSQLFeatureNotSupportedException(
         "Not implemented in DatabricksConnection - createStatement(int resultSetType, int resultSetConcurrency, int resultSetHoldability)");
   }
 
@@ -305,7 +307,7 @@ public class DatabricksConnection implements IDatabricksConnection, Connection {
         resultSetType,
         resultSetConcurrency,
         resultSetHoldability);
-    throw new UnsupportedOperationException(
+    throw new DatabricksSQLFeatureNotSupportedException(
         "Not implemented in DatabricksConnection - prepareStatement(String sql, int resultSetType, int resultSetConcurrency, int resultSetHoldability)");
   }
 
@@ -319,7 +321,7 @@ public class DatabricksConnection implements IDatabricksConnection, Connection {
         resultSetType,
         resultSetConcurrency,
         resultSetHoldability);
-    throw new UnsupportedOperationException(
+    throw new DatabricksSQLFeatureNotSupportedException(
         "Not implemented in DatabricksConnection - prepareCall(String sql, int resultSetType, int resultSetConcurrency, int resultSetHoldability)");
   }
 
@@ -329,7 +331,7 @@ public class DatabricksConnection implements IDatabricksConnection, Connection {
         "public PreparedStatement prepareStatement(String sql = {}, int autoGeneratedKeys = {})",
         sql,
         autoGeneratedKeys);
-    throw new UnsupportedOperationException(
+    throw new DatabricksSQLFeatureNotSupportedException(
         "Not implemented in DatabricksConnection - prepareStatement(String sql, int autoGeneratedKeys)");
   }
 
@@ -339,7 +341,7 @@ public class DatabricksConnection implements IDatabricksConnection, Connection {
         "public PreparedStatement prepareStatement(String sql = {}, int[] columnIndexes = {})",
         sql,
         columnIndexes);
-    throw new UnsupportedOperationException(
+    throw new DatabricksSQLFeatureNotSupportedException(
         "Not implemented in DatabricksConnection - prepareStatement(String sql, int[] columnIndexes)");
   }
 
@@ -349,35 +351,35 @@ public class DatabricksConnection implements IDatabricksConnection, Connection {
         "public PreparedStatement prepareStatement(String sql = {}, String[] columnNames = {})",
         sql,
         columnNames);
-    throw new UnsupportedOperationException(
+    throw new DatabricksSQLFeatureNotSupportedException(
         "Not implemented in DatabricksConnection - prepareStatement(String sql, String[] columnNames)");
   }
 
   @Override
   public Clob createClob() throws SQLException {
     LOGGER.debug("public Clob createClob()");
-    throw new UnsupportedOperationException(
+    throw new DatabricksSQLFeatureNotSupportedException(
         "Not implemented in DatabricksConnection - createClob()");
   }
 
   @Override
   public Blob createBlob() throws SQLException {
     LOGGER.debug("public Blob createBlob()");
-    throw new UnsupportedOperationException(
+    throw new DatabricksSQLFeatureNotSupportedException(
         "Not implemented in DatabricksConnection - createBlob()");
   }
 
   @Override
   public NClob createNClob() throws SQLException {
     LOGGER.debug("public NClob createNClob()");
-    throw new UnsupportedOperationException(
+    throw new DatabricksSQLFeatureNotSupportedException(
         "Not implemented in DatabricksConnection - createNClob()");
   }
 
   @Override
   public SQLXML createSQLXML() throws SQLException {
     LOGGER.debug("public SQLXML createSQLXML()");
-    throw new UnsupportedOperationException(
+    throw new DatabricksSQLFeatureNotSupportedException(
         "Not implemented in DatabricksConnection - createSQLXML()");
   }
 
@@ -499,14 +501,14 @@ public class DatabricksConnection implements IDatabricksConnection, Connection {
   @Override
   public Array createArrayOf(String typeName, Object[] elements) throws SQLException {
     LOGGER.debug("public Array createArrayOf(String typeName, Object[] elements)");
-    throw new UnsupportedOperationException(
+    throw new DatabricksSQLFeatureNotSupportedException(
         "Not implemented in DatabricksConnection - createArrayOf(String typeName, Object[] elements)");
   }
 
   @Override
   public Struct createStruct(String typeName, Object[] attributes) throws SQLException {
     LOGGER.debug("public Struct createStruct(String typeName, Object[] attributes)");
-    throw new UnsupportedOperationException(
+    throw new DatabricksSQLFeatureNotSupportedException(
         "Not implemented in DatabricksConnection - createStruct(String typeName, Object[] attributes)");
   }
 
@@ -527,35 +529,35 @@ public class DatabricksConnection implements IDatabricksConnection, Connection {
   @Override
   public void abort(Executor executor) throws SQLException {
     LOGGER.debug("public void abort(Executor executor)");
-    throw new UnsupportedOperationException(
+    throw new DatabricksSQLFeatureNotSupportedException(
         "Not implemented in DatabricksConnection - abort(Executor executor)");
   }
 
   @Override
   public void setNetworkTimeout(Executor executor, int milliseconds) throws SQLException {
     LOGGER.debug("public void setNetworkTimeout(Executor executor, int milliseconds)");
-    throw new UnsupportedOperationException(
+    throw new DatabricksSQLFeatureNotSupportedException(
         "Not implemented in DatabricksConnection - setNetworkTimeout(Executor executor, int milliseconds)");
   }
 
   @Override
   public int getNetworkTimeout() throws SQLException {
     LOGGER.debug("public int getNetworkTimeout()");
-    throw new UnsupportedOperationException(
+    throw new DatabricksSQLFeatureNotSupportedException(
         "Not implemented in DatabricksConnection - getNetworkTimeout()");
   }
 
   @Override
   public <T> T unwrap(Class<T> iface) throws SQLException {
     LOGGER.debug("public <T> T unwrap(Class<T> iface)");
-    throw new UnsupportedOperationException(
+    throw new DatabricksSQLFeatureNotSupportedException(
         "Not implemented in DatabricksConnection - unwrap(Class<T> iface)");
   }
 
   @Override
   public boolean isWrapperFor(Class<?> iface) throws SQLException {
     LOGGER.debug("public boolean isWrapperFor(Class<?> iface)");
-    throw new UnsupportedOperationException(
+    throw new DatabricksSQLFeatureNotSupportedException(
         "Not implemented in DatabricksConnection - isWrapperFor(Class<?> iface)");
   }
 
