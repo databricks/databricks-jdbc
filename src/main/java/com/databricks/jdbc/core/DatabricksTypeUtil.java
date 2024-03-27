@@ -201,9 +201,8 @@ public class DatabricksTypeUtil {
       case ARRAY:
       case STRING:
       case STRUCT:
-        return 255;
       default:
-        return 0;
+        return 255;
     }
   }
 

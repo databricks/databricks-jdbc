@@ -28,24 +28,7 @@ public class WildcardUtil {
    * @return true if the input string is wildcard
    */
   public static boolean isWildcard(String s) {
-    return s.contains(ASTERISK);
-  }
-
-  /**
-   * This function checks if the input string contains an emoji
-   *
-   * @param str the input string
-   * @return true if the input string contains an emoji
-   */
-  public static boolean containsEmoji(String str) {
-    int length = str.length();
-    for (int i = 0; i < length; i++) {
-      int type = Character.getType(str.charAt(i));
-      if (type == Character.SURROGATE || type == Character.OTHER_SYMBOL) {
-        return true;
-      }
-    }
-    return false;
+    return s != null && s.contains(ASTERISK);
   }
 
   public static String jdbcPatternToHive(String pattern) {

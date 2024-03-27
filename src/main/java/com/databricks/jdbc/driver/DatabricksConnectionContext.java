@@ -149,7 +149,7 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
 
   public String getCloud() {
     String hostURL = getHostUrl();
-    if (hostURL.contains(".azuredatabricks.net")
+    if (hostURL.contains("azuredatabricks.net")
         || hostURL.contains(".databricks.azure.cn")
         || hostURL.contains(".databricks.azure.us")) {
       return "AAD";

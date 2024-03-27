@@ -46,7 +46,7 @@ public class DatabricksHttpClient implements IDatabricksHttpClient {
   private static final int DEFAULT_RETRY_COUNT = 5;
   private static final String HTTP_GET = "GET";
   private static final Set<Integer> RETRYABLE_HTTP_CODES = getRetryableHttpCodes();
-  private static final long DEFAULT_IDLE_CONNECTION_TIMEOUT = 5;
+  protected static final long DEFAULT_IDLE_CONNECTION_TIMEOUT = 5;
 
   private static DatabricksHttpClient instance = null;
 
@@ -59,6 +59,18 @@ public class DatabricksHttpClient implements IDatabricksHttpClient {
     connectionManager.setMaxTotal(DEFAULT_MAX_HTTP_CONNECTIONS);
     connectionManager.setDefaultMaxPerRoute(DEFAULT_MAX_HTTP_CONNECTIONS_PER_ROUTE);
     httpClient = makeClosableHttpClient(connectionContext);
+  }
+
+  @VisibleForTesting
+  DatabricksHttpClient(
+      CloseableHttpClient closeableHttpClient,
+      PoolingHttpClientConnectionManager connectionManager) {
+    DatabricksHttpClient.connectionManager = connectionManager;
+    if (connectionManager != null) {
+      connectionManager.setMaxTotal(DEFAULT_MAX_HTTP_CONNECTIONS);
+      connectionManager.setDefaultMaxPerRoute(DEFAULT_MAX_HTTP_CONNECTIONS_PER_ROUTE);
+    }
+    httpClient = closeableHttpClient;
   }
 
   private RequestConfig makeRequestConfig() {
@@ -165,12 +177,14 @@ public class DatabricksHttpClient implements IDatabricksHttpClient {
     }
   }
 
-  private static boolean isRetryAllowed(String method) {
+  @VisibleForTesting
+  static boolean isRetryAllowed(String method) {
     // For now, allowing retry only for GET which is idempotent
     return Objects.equals(HTTP_GET, method);
   }
 
-  private static boolean isErrorCodeRetryable(int errCode) {
+  @VisibleForTesting
+  static boolean isErrorCodeRetryable(int errCode) {
     return RETRYABLE_HTTP_CODES.contains(errCode);
   }
 

@@ -83,6 +83,9 @@ public class BigDecimalConverterTest {
     assertEquals(
         new BigDecimalConverter(NON_ZERO_OBJECT).convertToBigDecimal(), BigDecimal.valueOf(10.2));
     assertEquals(new BigDecimalConverter(ZERO_OBJECT).convertToBigDecimal(), BigDecimal.valueOf(0));
+    assertEquals(
+        new BigDecimalConverter(NON_ZERO_OBJECT.toString()).convertToBigDecimal(),
+        BigDecimal.valueOf(10.2));
   }
 
   @Test

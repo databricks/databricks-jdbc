@@ -25,6 +25,9 @@ public class IntConverterTest {
             DatabricksSQLException.class,
             () -> new IntConverter(intThatDoesNotFitInByte).convertToByte());
     assertTrue(exception.getMessage().contains("Invalid conversion"));
+
+    assertThrows(
+        DatabricksSQLException.class, () -> new IntConverter(Byte.MIN_VALUE - 1).convertToByte());
   }
 
   @Test
@@ -100,6 +103,11 @@ public class IntConverterTest {
   public void testConvertToString() throws DatabricksSQLException {
     assertEquals(new IntConverter(NON_ZERO_OBJECT).convertToString(), "10");
     assertEquals(new IntConverter(ZERO_OBJECT).convertToString(), "0");
+  }
+
+  @Test
+  public void testConvertFromString() throws DatabricksSQLException {
+    assertEquals(new IntConverter("65").convertToInt(), 65);
   }
 
   @Test

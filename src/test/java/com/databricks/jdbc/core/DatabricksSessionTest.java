@@ -12,6 +12,7 @@ import com.databricks.jdbc.core.types.AllPurposeCluster;
 import com.databricks.jdbc.core.types.ComputeResource;
 import com.databricks.jdbc.core.types.Warehouse;
 import com.databricks.jdbc.driver.DatabricksConnectionContext;
+import com.databricks.jdbc.driver.IDatabricksConnectionContext;
 import java.util.Map;
 import java.util.Properties;
 import org.junit.jupiter.api.Test;
@@ -29,6 +30,9 @@ public class DatabricksSessionTest {
 
   private static final String WAREHOUSE_ID = "erg6767gg";
   private static final String CATALOG = "field_demos";
+
+  private static final String NEW_CATALOG = "new_catalog";
+  private static final String NEW_SCHEMA = "new_schema";
   private static final String SCHEMA = "ossjdbc";
   private static final String SESSION_ID = "session_id";
   private static final ComputeResource WAREHOUSE_COMPUTE = new Warehouse(WAREHOUSE_ID);
@@ -115,5 +119,27 @@ public class DatabricksSessionTest {
         () ->
             new DatabricksSession(
                 DatabricksConnectionContext.parse(JDBC_URL_INVALID, new Properties()), null));
+  }
+
+  @Test
+  public void testCatalogAndSchema() throws DatabricksSQLException {
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContext.parse(VALID_WAREHOUSE_URL, new Properties());
+    DatabricksSession session = new DatabricksSession(connectionContext);
+    session.setCatalog(NEW_CATALOG);
+    assertEquals(NEW_CATALOG, session.getCatalog());
+    session.setSchema(NEW_SCHEMA);
+    assertEquals(NEW_SCHEMA, session.getSchema());
+    assertEquals(connectionContext, session.getConnectionContext());
+  }
+
+  @Test
+  public void testSessionToString() throws DatabricksSQLException {
+    DatabricksSession session =
+        new DatabricksSession(
+            DatabricksConnectionContext.parse(VALID_WAREHOUSE_URL, new Properties()));
+    assertEquals(
+        "DatabricksSession[compute='SQL Warehouse with warehouse ID {erg6767gg}', catalog='SPARK', schema='default']",
+        session.toString());
   }
 }

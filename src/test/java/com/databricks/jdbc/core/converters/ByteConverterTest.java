@@ -81,6 +81,11 @@ public class ByteConverterTest {
   }
 
   @Test
+  public void testConvertFromString() throws DatabricksSQLException {
+    assertEquals(new ByteConverter("65").convertToInt(), 65);
+  }
+
+  @Test
   public void testConvertToTimestamp() throws DatabricksSQLException {
     DatabricksSQLException exception =
         assertThrows(

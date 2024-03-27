@@ -1581,14 +1581,6 @@ public class DatabricksResultSet implements ResultSet, IDatabricksResultSet {
     return object;
   }
 
-  /** For String values, return value without decimal fraction */
-  private String getNumberStringWithoutDecimal(String s, int columnType) {
-    if (s.contains(DECIMAL) && (columnType == Types.DOUBLE || columnType == Types.FLOAT)) {
-      return s.substring(0, s.indexOf(DECIMAL));
-    }
-    return s;
-  }
-
   private int getColumnNameIndex(String columnName) {
     return this.resultSetMetaData.getColumnNameIndex(columnName);
   }
