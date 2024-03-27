@@ -129,10 +129,12 @@ public class DatabricksResultSetTest {
     // null object
     when(mockedExecutionResult.getObject(0)).thenReturn(null);
     assertEquals(0, resultSet.getShort(1));
+    assertNull(resultSet.getObject(1));
     // Test with column label
     when(mockedExecutionResult.getObject(0)).thenReturn((short) 100);
     when(mockedResultSetMetadata.getColumnNameIndex("columnLabel")).thenReturn(1);
     assertEquals((short) 100, resultSet.getShort("columnLabel"));
+    assertEquals((short) 100, resultSet.getObject("columnLabel"));
   }
 
   @Test
@@ -545,39 +547,84 @@ public class DatabricksResultSetTest {
   }
 
   @Test
-  void testUnsupportedOperationsThrowUnsupportedOperationException() {
+  void testUnsupportedOperationsThrowDatabricksSQLFeatureNotSupportedException() {
     when(mockedResultSetMetadata.getColumnNameIndex("column")).thenReturn(1);
     DatabricksResultSet resultSet = getResultSet(StatementState.SUCCEEDED, null);
-    assertThrows(UnsupportedOperationException.class, () -> resultSet.getTime(1));
-    assertThrows(UnsupportedOperationException.class, () -> resultSet.getTime("column"));
-    assertThrows(UnsupportedOperationException.class, () -> resultSet.getURL(1));
-    assertThrows(UnsupportedOperationException.class, () -> resultSet.getURL("column"));
-    assertThrows(UnsupportedOperationException.class, () -> resultSet.updateRef(1, null));
-    assertThrows(UnsupportedOperationException.class, () -> resultSet.updateRef("column", null));
-    assertThrows(UnsupportedOperationException.class, () -> resultSet.updateBlob(1, (Blob) null));
+    assertThrows(DatabricksSQLFeatureNotSupportedException.class, () -> resultSet.getTime(1));
     assertThrows(
-        UnsupportedOperationException.class, () -> resultSet.updateBlob("column", (Blob) null));
-    assertThrows(UnsupportedOperationException.class, () -> resultSet.updateClob(1, (Clob) null));
+        DatabricksSQLFeatureNotSupportedException.class, () -> resultSet.getTime("column"));
+    assertThrows(DatabricksSQLFeatureNotSupportedException.class, () -> resultSet.getURL(1));
+    assertThrows(DatabricksSQLFeatureNotSupportedException.class, () -> resultSet.getURL("column"));
     assertThrows(
-        UnsupportedOperationException.class, () -> resultSet.updateClob("column", (Clob) null));
-    assertThrows(UnsupportedOperationException.class, () -> resultSet.updateArray(1, null));
-    assertThrows(UnsupportedOperationException.class, () -> resultSet.updateArray("column", null));
-    assertThrows(UnsupportedOperationException.class, () -> resultSet.getRowId(1));
-    assertThrows(UnsupportedOperationException.class, () -> resultSet.getRowId("column"));
-    assertThrows(UnsupportedOperationException.class, () -> resultSet.updateRowId(1, null));
-    assertThrows(UnsupportedOperationException.class, () -> resultSet.updateRowId("column", null));
-    assertThrows(UnsupportedOperationException.class, () -> resultSet.getNClob(1));
-    assertThrows(UnsupportedOperationException.class, () -> resultSet.getNClob("column"));
-    assertThrows(UnsupportedOperationException.class, () -> resultSet.getSQLXML(1));
-    assertThrows(UnsupportedOperationException.class, () -> resultSet.getSQLXML("column"));
+        DatabricksSQLFeatureNotSupportedException.class, () -> resultSet.updateRef(1, null));
     assertThrows(
-        UnsupportedOperationException.class,
+        DatabricksSQLFeatureNotSupportedException.class, () -> resultSet.updateRef("column", null));
+    assertThrows(
+        DatabricksSQLFeatureNotSupportedException.class,
+        () -> resultSet.updateBlob(1, (Blob) null));
+    assertThrows(
+        DatabricksSQLFeatureNotSupportedException.class,
+        () -> resultSet.updateBlob("column", (Blob) null));
+    assertThrows(
+        DatabricksSQLFeatureNotSupportedException.class,
+        () -> resultSet.updateClob(1, (Clob) null));
+    assertThrows(
+        DatabricksSQLFeatureNotSupportedException.class,
+        () -> resultSet.updateClob("column", (Clob) null));
+    assertThrows(
+        DatabricksSQLFeatureNotSupportedException.class, () -> resultSet.updateArray(1, null));
+    assertThrows(
+        DatabricksSQLFeatureNotSupportedException.class,
+        () -> resultSet.updateArray("column", null));
+    assertThrows(DatabricksSQLFeatureNotSupportedException.class, () -> resultSet.getRowId(1));
+    assertThrows(
+        DatabricksSQLFeatureNotSupportedException.class, () -> resultSet.getRowId("column"));
+    assertThrows(
+        DatabricksSQLFeatureNotSupportedException.class, () -> resultSet.updateRowId(1, null));
+    assertThrows(
+        DatabricksSQLFeatureNotSupportedException.class,
+        () -> resultSet.updateRowId("column", null));
+    assertThrows(DatabricksSQLFeatureNotSupportedException.class, () -> resultSet.getNClob(1));
+    assertThrows(
+        DatabricksSQLFeatureNotSupportedException.class, () -> resultSet.getNClob("column"));
+    assertThrows(DatabricksSQLFeatureNotSupportedException.class, () -> resultSet.getSQLXML(1));
+    assertThrows(
+        DatabricksSQLFeatureNotSupportedException.class, () -> resultSet.getSQLXML("column"));
+    assertThrows(
+        DatabricksSQLFeatureNotSupportedException.class, () -> resultSet.getNString("column"));
+    assertThrows(DatabricksSQLFeatureNotSupportedException.class, () -> resultSet.getNString(2));
+    assertThrows(
+        DatabricksSQLFeatureNotSupportedException.class,
+        () -> resultSet.getNCharacterStream("column"));
+    assertThrows(
+        DatabricksSQLFeatureNotSupportedException.class, () -> resultSet.getNCharacterStream(2));
+    assertThrows(
+        DatabricksSQLFeatureNotSupportedException.class,
+        () -> resultSet.updateAsciiStream(2, null, 1));
+    assertThrows(
+        DatabricksSQLFeatureNotSupportedException.class,
+        () -> resultSet.updateAsciiStream("column", null, 1));
+    assertThrows(
+        DatabricksSQLFeatureNotSupportedException.class,
+        () -> resultSet.updateBinaryStream(2, null, 1));
+    assertThrows(
+        DatabricksSQLFeatureNotSupportedException.class,
+        () -> resultSet.updateBinaryStream("column", null, 1));
+    assertThrows(
+        DatabricksSQLFeatureNotSupportedException.class,
+        () -> resultSet.updateCharacterStream(2, null, 1));
+    assertThrows(
+        DatabricksSQLFeatureNotSupportedException.class,
+        () -> resultSet.updateCharacterStream("column", null, 1));
+    assertThrows(
+        DatabricksSQLFeatureNotSupportedException.class,
         () -> resultSet.getTimestamp(1, Calendar.getInstance()));
     assertThrows(
-        UnsupportedOperationException.class,
+        DatabricksSQLFeatureNotSupportedException.class,
         () -> resultSet.getTimestamp("column", Calendar.getInstance()));
-    assertThrows(UnsupportedOperationException.class, () -> resultSet.unwrap(null));
-    assertThrows(UnsupportedOperationException.class, () -> resultSet.isWrapperFor(null));
-    assertThrows(UnsupportedOperationException.class, () -> resultSet.getHoldability());
+    assertThrows(DatabricksSQLFeatureNotSupportedException.class, () -> resultSet.unwrap(null));
+    assertThrows(
+        DatabricksSQLFeatureNotSupportedException.class, () -> resultSet.isWrapperFor(null));
+    assertThrows(DatabricksSQLFeatureNotSupportedException.class, () -> resultSet.getHoldability());
   }
 }
