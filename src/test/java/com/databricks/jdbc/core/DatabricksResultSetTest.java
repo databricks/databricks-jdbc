@@ -554,25 +554,25 @@ public class DatabricksResultSetTest {
     assertThrows(DatabricksSQLFeatureNotSupportedException.class, resultSet::getHoldability);
     assertThrows(DatabricksSQLFeatureNotSupportedException.class, () -> resultSet.getBlob(1));
     assertThrows(
-            DatabricksSQLFeatureNotSupportedException.class, () -> resultSet.getBlob("column"));
+        DatabricksSQLFeatureNotSupportedException.class, () -> resultSet.getBlob("column"));
     assertThrows(DatabricksSQLFeatureNotSupportedException.class, () -> resultSet.getClob(1));
     assertThrows(
-            DatabricksSQLFeatureNotSupportedException.class, () -> resultSet.getClob("column"));
+        DatabricksSQLFeatureNotSupportedException.class, () -> resultSet.getClob("column"));
     assertThrows(DatabricksSQLFeatureNotSupportedException.class, () -> resultSet.getArray(1));
     assertThrows(
-            DatabricksSQLFeatureNotSupportedException.class, () -> resultSet.getArray("column"));
+        DatabricksSQLFeatureNotSupportedException.class, () -> resultSet.getArray("column"));
     assertThrows(
-            DatabricksSQLFeatureNotSupportedException.class,
-            () -> resultSet.getDate(1, new GregorianCalendar()));
+        DatabricksSQLFeatureNotSupportedException.class,
+        () -> resultSet.getDate(1, new GregorianCalendar()));
     assertThrows(
-            DatabricksSQLFeatureNotSupportedException.class,
-            () -> resultSet.getDate("column", new GregorianCalendar()));
+        DatabricksSQLFeatureNotSupportedException.class,
+        () -> resultSet.getDate("column", new GregorianCalendar()));
     assertThrows(
-            DatabricksSQLFeatureNotSupportedException.class,
-            () -> resultSet.getTime(1, new GregorianCalendar()));
+        DatabricksSQLFeatureNotSupportedException.class,
+        () -> resultSet.getTime(1, new GregorianCalendar()));
     assertThrows(
-            DatabricksSQLFeatureNotSupportedException.class,
-            () -> resultSet.getTime("column", new GregorianCalendar()));
+        DatabricksSQLFeatureNotSupportedException.class,
+        () -> resultSet.getTime("column", new GregorianCalendar()));
     assertThrows(DatabricksSQLFeatureNotSupportedException.class, () -> resultSet.getTime(1));
     assertThrows(
         DatabricksSQLFeatureNotSupportedException.class, () -> resultSet.getTime("column"));
