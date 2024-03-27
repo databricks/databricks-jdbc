@@ -71,6 +71,26 @@ public class DatabricksConnectionTest {
     when(databricksClient.createSession(
             new Warehouse(WAREHOUSE_ID), CATALOG, SCHEMA, new HashMap<>()))
         .thenReturn(IMMUTABLE_SESSION_INFO);
+    connection = new DatabricksConnection(connectionContext, databricksClient);
+    assertFalse(connection.isClosed());
+    assertEquals(connection.getSession().getSessionId(), SESSION_ID);
+    String userAgent = UserAgent.asString();
+    assertTrue(userAgent.contains("DatabricksJDBCDriverOSS/0.0.0"));
+    assertTrue(userAgent.contains("Java/SQLExecHttpClient/HC"));
+
+    // close the connection
+    connection.close();
+    assertTrue(connection.isClosed());
+    assertEquals(connection.getConnection(), connection);
+    verify(databricksClient).deleteSession(SESSION_ID, warehouse);
+  }
+
+  @Test
+  public void testGetAndSetSchemaAndCatalog() throws SQLException {
+    when(databricksClient.createSession(
+            new Warehouse(WAREHOUSE_ID), CATALOG, SCHEMA, new HashMap<>()))
+        .thenReturn(IMMUTABLE_SESSION_INFO);
+    connection = new DatabricksConnection(connectionContext, databricksClient);
     when(resultSet.hasUpdateCount()).thenReturn(true);
     when(databricksClient.executeStatement(
             eq("SET CATALOG SPARK"),
@@ -80,20 +100,20 @@ public class DatabricksConnectionTest {
             any(),
             any()))
         .thenReturn(resultSet);
-    connection = new DatabricksConnection(connectionContext, databricksClient);
-    assertFalse(connection.isClosed());
-    assertEquals(connection.getSession().getSessionId(), SESSION_ID);
-    String userAgent = UserAgent.asString();
-    assertTrue(userAgent.contains("DatabricksJDBCDriverOSS/0.0.0"));
-    assertTrue(userAgent.contains("Java/SQLExecHttpClient/HC"));
+    when(databricksClient.executeStatement(
+            eq("USE SCHEMA default"),
+            eq(new Warehouse(WAREHOUSE_ID)),
+            eq(new HashMap<>()),
+            eq(StatementType.SQL),
+            any(),
+            any()))
+        .thenReturn(resultSet);
     assertEquals(connection.getCatalog(), CATALOG);
     connection.setCatalog(DEFAULT_CATALOG);
     assertEquals(connection.getCatalog(), DEFAULT_CATALOG);
-    // close the connection
-    connection.close();
-    assertTrue(connection.isClosed());
-    assertEquals(connection.getConnection(), connection);
-    verify(databricksClient).deleteSession(SESSION_ID, warehouse);
+    assertEquals(connection.getSchema(), SCHEMA);
+    connection.setSchema(DEFAULT_SCHEMA);
+    assertEquals(connection.getSchema(), DEFAULT_SCHEMA);
   }
 
   @Test
@@ -105,6 +125,16 @@ public class DatabricksConnectionTest {
     assertFalse(connection.isClosed());
     assertEquals(connection.getSession().getCatalog(), CATALOG);
     assertEquals(connection.getSession().getSchema(), SCHEMA);
+  }
+
+  @Test
+  public void testClosedConnection() throws SQLException {
+    when(databricksClient.createSession(
+            new Warehouse(WAREHOUSE_ID), CATALOG, SCHEMA, new HashMap<>()))
+        .thenReturn(IMMUTABLE_SESSION_INFO);
+    connection = new DatabricksConnection(connectionContext, databricksClient);
+    connection.close();
+    assertThrows(DatabricksSQLException.class, connection::isReadOnly);
   }
 
   @Test
@@ -240,9 +270,35 @@ public class DatabricksConnectionTest {
     assertThrows(
         DatabricksSQLFeatureNotSupportedException.class, () -> connection.setSavepoint("1"));
     assertThrows(DatabricksSQLFeatureNotSupportedException.class, connection::setSavepoint);
+    assertThrows(DatabricksSQLFeatureNotSupportedException.class, connection::createClob);
+    assertThrows(DatabricksSQLFeatureNotSupportedException.class, connection::createBlob);
+    assertThrows(DatabricksSQLFeatureNotSupportedException.class, connection::createNClob);
+    assertThrows(DatabricksSQLFeatureNotSupportedException.class, connection::createSQLXML);
+    assertThrows(
+        DatabricksSQLFeatureNotSupportedException.class,
+        () -> connection.prepareStatement(SQL, new int[0]));
+    assertThrows(
+        DatabricksSQLFeatureNotSupportedException.class,
+        () -> connection.prepareStatement(SQL, new String[0]));
     assertThrows(DatabricksSQLFeatureNotSupportedException.class, () -> connection.rollback(null));
     assertThrows(
         DatabricksSQLFeatureNotSupportedException.class, () -> connection.releaseSavepoint(null));
+    assertThrows(DatabricksSQLFeatureNotSupportedException.class, () -> connection.abort(null));
+    assertThrows(
+        DatabricksSQLFeatureNotSupportedException.class,
+        () -> connection.setNetworkTimeout(null, 1));
+    assertThrows(
+        DatabricksSQLFeatureNotSupportedException.class, () -> connection.getNetworkTimeout());
+    assertThrows(DatabricksSQLFeatureNotSupportedException.class, () -> connection.unwrap(null));
+    assertThrows(
+        DatabricksSQLFeatureNotSupportedException.class, () -> connection.isWrapperFor(null));
+    assertThrows(
+        DatabricksSQLFeatureNotSupportedException.class, () -> connection.isWrapperFor(null));
+    assertThrows(
+        DatabricksSQLFeatureNotSupportedException.class,
+        () -> connection.createArrayOf(null, null));
+    assertThrows(
+        DatabricksSQLFeatureNotSupportedException.class, () -> connection.createStruct(null, null));
   }
 
   @Test
