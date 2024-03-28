@@ -82,7 +82,7 @@ public class DatabricksPooledConnection implements PooledConnection {
   @Override
   public void close() throws SQLException {
     LOGGER.debug("public void close()");
-    if (connectionHandler != null) {
+    if (connectionHandler != null && !connectionHandler.isClosed()) {
       connectionHandler.close();
     }
     if (physicalConnection == null) {
@@ -115,7 +115,7 @@ public class DatabricksPooledConnection implements PooledConnection {
       throw sqlException;
     }
     // Only one connection can be open at a time from this PooledConnection
-    if (connectionHandler != null) {
+    if (connectionHandler != null && !connectionHandler.isClosed()) {
       connectionHandler.close();
     }
     connectionHandler = new ConnectionHandler(physicalConnection);
@@ -221,10 +221,6 @@ public class DatabricksPooledConnection implements PooledConnection {
 
     Connection getVirtualConnection() {
       return virtualConnection;
-    }
-
-    void setVirtualConnection(Connection virtualConnection) {
-      this.virtualConnection = virtualConnection;
     }
 
     public void close() {

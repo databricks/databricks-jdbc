@@ -13,10 +13,7 @@ import com.databricks.jdbc.core.types.ComputeResource;
 import com.databricks.jdbc.core.types.Warehouse;
 import com.databricks.jdbc.driver.DatabricksConnectionContext;
 import com.databricks.jdbc.driver.IDatabricksConnectionContext;
-import java.sql.Connection;
-import java.sql.DriverManager;
-import java.sql.SQLException;
-import java.sql.Statement;
+import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Properties;
@@ -77,6 +74,10 @@ public class DatabricksPooledConnectionTest {
         ((DatabricksPooledConnection) pooledConnection).getPhysicalConnection();
     assertFalse(actualConnection.isClosed());
 
+    // Statement listeners do nothing
+    pooledConnection.addStatementEventListener(null);
+    pooledConnection.removeStatementEventListener(null);
+
     // Confirm closing of physical connection
     pooledConnection.removeConnectionEventListener(listener);
     pooledConnection.close();
@@ -84,6 +85,35 @@ public class DatabricksPooledConnectionTest {
 
     // An error should be thrown when underlying physical connection is closed
     assertThrows(DatabricksSQLException.class, pooledConnection::getConnection);
+  }
+
+  @Test
+  public void testPooledConnectionInvoke() throws SQLException {
+    DatabricksConnectionPoolDataSource poolDataSource =
+        Mockito.mock(DatabricksConnectionPoolDataSource.class);
+    ImmutableSessionInfo session =
+        ImmutableSessionInfo.builder().computeResource(warehouse).sessionId(SESSION_ID).build();
+    when(databricksClient.createSession(eq(new Warehouse(WAREHOUSE_ID)), any(), any(), any()))
+        .thenReturn(session);
+
+    DatabricksConnection databricksConnection =
+        new DatabricksConnection(connectionContext, databricksClient);
+    Mockito.when(poolDataSource.getPooledConnection())
+        .thenReturn(new DatabricksPooledConnection(databricksConnection));
+
+    // Get a pooled connection
+    PooledConnection pooledConnection = poolDataSource.getPooledConnection();
+    Connection virtualConnection = pooledConnection.getConnection();
+    Connection physicalConnection =
+        ((DatabricksPooledConnection) pooledConnection).getPhysicalConnection();
+    // Check invoke methods
+    assertNotEquals(0, virtualConnection.hashCode());
+    assertEquals(
+        "Pooled connection wrapping physical connection " + physicalConnection,
+        virtualConnection.toString());
+    assertInstanceOf(PreparedStatement.class, virtualConnection.prepareStatement("SELECT 1"));
+
+    pooledConnection.close();
   }
 
   @Test
@@ -143,6 +173,36 @@ public class DatabricksPooledConnectionTest {
     assertFalse(statement.isClosed());
     assertEquals(connection, statement.getConnection());
     statement.close();
+    assertTrue(statement.isClosed());
+  }
+
+  @Test
+  public void testPooledConnectionStatementInvoke() throws SQLException {
+    DatabricksConnectionPoolDataSource poolDataSource =
+        Mockito.mock(DatabricksConnectionPoolDataSource.class);
+    ImmutableSessionInfo session =
+        ImmutableSessionInfo.builder().computeResource(warehouse).sessionId(SESSION_ID).build();
+    when(databricksClient.createSession(eq(new Warehouse(WAREHOUSE_ID)), any(), any(), any()))
+        .thenReturn(session);
+    DatabricksConnection databricksConnection =
+        new DatabricksConnection(connectionContext, databricksClient);
+    Mockito.when(poolDataSource.getPooledConnection())
+        .thenReturn(new DatabricksPooledConnection(databricksConnection));
+
+    // Get a pooled connection
+    DriverManager.registerDriver(new com.databricks.jdbc.driver.DatabricksDriver());
+    DatabricksPooledConnection pooledConnection =
+        (DatabricksPooledConnection) poolDataSource.getPooledConnection();
+    Connection connection = pooledConnection.getConnection();
+    // Check statement commands
+    Statement statement = connection.createStatement();
+    // Check invokes
+    assertNotEquals(0, statement.hashCode());
+    assertTrue(statement.toString().startsWith("Pooled statement wrapping physical statement "));
+    // Check delegated invoke
+    assertEquals(300, statement.getQueryTimeout());
+    statement.close();
+    assertThrows(DatabricksSQLException.class, statement::getConnection);
     assertTrue(statement.isClosed());
   }
 
