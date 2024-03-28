@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import com.databricks.jdbc.driver.DatabricksDriver;
 import java.sql.Connection;
+import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
 import java.util.Properties;
 import org.junit.jupiter.api.Test;
@@ -66,5 +67,21 @@ public class DatabricksDataSourceTest {
         SQLFeatureNotSupportedException.class,
         () -> dataSource.getParentLogger(),
         "public Logger getParentLogger()");
+  }
+
+  @Test
+  public void testGettersAndSetters() throws SQLException {
+    Properties properties = new Properties();
+    properties.setProperty(AUTH_MECH, "3");
+
+    DatabricksDataSource dataSource = new DatabricksDataSource();
+    dataSource.setProperties(properties);
+    assertEquals(properties, dataSource.getProperties());
+
+    dataSource.setLoginTimeout(100);
+    assertEquals(100, dataSource.getLoginTimeout());
+
+    assertNull(dataSource.unwrap(null));
+    assertFalse(dataSource.isWrapperFor(null));
   }
 }
