@@ -6,19 +6,20 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.databricks.jdbc.client.StatementType;
 import com.databricks.jdbc.client.impl.sdk.DatabricksSdkClient;
 import com.databricks.jdbc.core.types.ComputeResource;
 import com.databricks.jdbc.core.types.Warehouse;
 import com.databricks.jdbc.driver.DatabricksConnectionContext;
 import com.databricks.jdbc.driver.IDatabricksConnectionContext;
 import com.databricks.sdk.core.UserAgent;
+import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLClientInfoException;
 import java.sql.SQLException;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Properties;
+import java.util.*;
 import java.util.stream.Collectors;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -31,6 +32,7 @@ public class DatabricksConnectionTest {
   private static final String WAREHOUSE_ID = "erg6767gg";
   private static final ComputeResource warehouse = new Warehouse(WAREHOUSE_ID);
   private static final String CATALOG = "field_demos";
+  private static final String SQL = "select 1";
   private static final String SCHEMA = "ossjdbc";
   static final String DEFAULT_SCHEMA = "default";
   static final String DEFAULT_CATALOG = "SPARK";
@@ -52,25 +54,66 @@ public class DatabricksConnectionTest {
   private static final ImmutableSessionInfo IMMUTABLE_SESSION_INFO =
       ImmutableSessionInfo.builder().computeResource(warehouse).sessionId(SESSION_ID).build();
   @Mock DatabricksSdkClient databricksClient;
+  @Mock DatabricksResultSet resultSet;
+
+  private static DatabricksConnection connection;
+
+  private static IDatabricksConnectionContext connectionContext;
+
+  @BeforeAll
+  static void setup() throws DatabricksSQLException {
+    connectionContext =
+        DatabricksConnectionContext.parse(CATALOG_SCHEMA_JDBC_URL, new Properties());
+  }
 
   @Test
   public void testConnection() throws Exception {
     when(databricksClient.createSession(
-            new Warehouse(WAREHOUSE_ID), DEFAULT_CATALOG, DEFAULT_SCHEMA, new HashMap<>()))
+            new Warehouse(WAREHOUSE_ID), CATALOG, SCHEMA, new HashMap<>()))
         .thenReturn(IMMUTABLE_SESSION_INFO);
-    IDatabricksConnectionContext connectionContext =
-        DatabricksConnectionContext.parse(JDBC_URL, new Properties());
-    DatabricksConnection connection = new DatabricksConnection(connectionContext, databricksClient);
+    connection = new DatabricksConnection(connectionContext, databricksClient);
     assertFalse(connection.isClosed());
     assertEquals(connection.getSession().getSessionId(), SESSION_ID);
     String userAgent = UserAgent.asString();
     assertTrue(userAgent.contains("DatabricksJDBCDriverOSS/0.0.0"));
-    assertTrue(userAgent.contains("Java/SQLExecHttpClient/HC MyApp"));
+    assertTrue(userAgent.contains("Java/SQLExecHttpClient/HC"));
 
     // close the connection
     connection.close();
     assertTrue(connection.isClosed());
+    assertEquals(connection.getConnection(), connection);
     verify(databricksClient).deleteSession(SESSION_ID, warehouse);
+  }
+
+  @Test
+  public void testGetAndSetSchemaAndCatalog() throws SQLException {
+    when(databricksClient.createSession(
+            new Warehouse(WAREHOUSE_ID), CATALOG, SCHEMA, new HashMap<>()))
+        .thenReturn(IMMUTABLE_SESSION_INFO);
+    connection = new DatabricksConnection(connectionContext, databricksClient);
+    when(resultSet.hasUpdateCount()).thenReturn(true);
+    when(databricksClient.executeStatement(
+            eq("SET CATALOG SPARK"),
+            eq(new Warehouse(WAREHOUSE_ID)),
+            eq(new HashMap<>()),
+            eq(StatementType.SQL),
+            any(),
+            any()))
+        .thenReturn(resultSet);
+    when(databricksClient.executeStatement(
+            eq("USE SCHEMA default"),
+            eq(new Warehouse(WAREHOUSE_ID)),
+            eq(new HashMap<>()),
+            eq(StatementType.SQL),
+            any(),
+            any()))
+        .thenReturn(resultSet);
+    assertEquals(connection.getCatalog(), CATALOG);
+    connection.setCatalog(DEFAULT_CATALOG);
+    assertEquals(connection.getCatalog(), DEFAULT_CATALOG);
+    assertEquals(connection.getSchema(), SCHEMA);
+    connection.setSchema(DEFAULT_SCHEMA);
+    assertEquals(connection.getSchema(), DEFAULT_SCHEMA);
   }
 
   @Test
@@ -78,12 +121,20 @@ public class DatabricksConnectionTest {
     when(databricksClient.createSession(
             new Warehouse(WAREHOUSE_ID), CATALOG, SCHEMA, new HashMap<>()))
         .thenReturn(IMMUTABLE_SESSION_INFO);
-    IDatabricksConnectionContext connectionContext =
-        DatabricksConnectionContext.parse(CATALOG_SCHEMA_JDBC_URL, new Properties());
-    DatabricksConnection connection = new DatabricksConnection(connectionContext, databricksClient);
+    connection = new DatabricksConnection(connectionContext, databricksClient);
     assertFalse(connection.isClosed());
     assertEquals(connection.getSession().getCatalog(), CATALOG);
     assertEquals(connection.getSession().getSchema(), SCHEMA);
+  }
+
+  @Test
+  public void testClosedConnection() throws SQLException {
+    when(databricksClient.createSession(
+            new Warehouse(WAREHOUSE_ID), CATALOG, SCHEMA, new HashMap<>()))
+        .thenReturn(IMMUTABLE_SESSION_INFO);
+    connection = new DatabricksConnection(connectionContext, databricksClient);
+    connection.close();
+    assertThrows(DatabricksSQLException.class, connection::isReadOnly);
   }
 
   @Test
@@ -102,15 +153,11 @@ public class DatabricksConnectionTest {
   }
 
   @Test
-  public void testStatement() throws Exception {
-    ImmutableSessionInfo session =
-        ImmutableSessionInfo.builder().computeResource(warehouse).sessionId(SESSION_ID).build();
-    when(databricksClient.createSession(eq(new Warehouse(WAREHOUSE_ID)), any(), any(), any()))
-        .thenReturn(session);
-    IDatabricksConnectionContext connectionContext =
-        DatabricksConnectionContext.parse(JDBC_URL, new Properties());
-    DatabricksConnection connection = new DatabricksConnection(connectionContext, databricksClient);
-
+  public void testStatement() throws DatabricksSQLException {
+    when(databricksClient.createSession(
+            new Warehouse(WAREHOUSE_ID), CATALOG, SCHEMA, new HashMap<>()))
+        .thenReturn(IMMUTABLE_SESSION_INFO);
+    connection = new DatabricksConnection(connectionContext, databricksClient);
     assertThrows(
         DatabricksSQLFeatureNotSupportedException.class,
         () -> {
@@ -138,6 +185,10 @@ public class DatabricksConnectionTest {
 
   @Test
   public void testSetClientInfo() throws SQLException {
+    when(databricksClient.createSession(
+            new Warehouse(WAREHOUSE_ID), CATALOG, SCHEMA, new HashMap<>()))
+        .thenReturn(IMMUTABLE_SESSION_INFO);
+    connection = new DatabricksConnection(connectionContext, databricksClient);
     Properties properties = new Properties();
     properties.put("ENABLE_PHOTON", "TRUE");
     properties.put("TIMEZONE", "UTC");
@@ -175,5 +226,93 @@ public class DatabricksConnectionTest {
         SQLClientInfoException.class, () -> connection.setClientInfo("RANDOM_CONF", "UNLIMITED"));
     assertNull(connection.getClientInfo("RANDOM_CONF"));
     assertNull(clientInfoProperties.get("RANDOM_CONF"));
+  }
+
+  @Test
+  void testUnsupportedOperations() throws DatabricksSQLException {
+    when(databricksClient.createSession(
+            new Warehouse(WAREHOUSE_ID), CATALOG, SCHEMA, new HashMap<>()))
+        .thenReturn(IMMUTABLE_SESSION_INFO);
+    connection = new DatabricksConnection(connectionContext, databricksClient);
+    assertThrows(
+        DatabricksSQLFeatureNotSupportedException.class, () -> connection.prepareCall(SQL));
+    assertThrows(DatabricksSQLFeatureNotSupportedException.class, () -> connection.nativeSQL(SQL));
+    assertThrows(
+        DatabricksSQLFeatureNotSupportedException.class, () -> connection.setAutoCommit(true));
+    assertThrows(
+        DatabricksSQLFeatureNotSupportedException.class, () -> connection.setReadOnly(true));
+    assertThrows(DatabricksSQLFeatureNotSupportedException.class, connection::commit);
+    assertThrows(DatabricksSQLFeatureNotSupportedException.class, connection::rollback);
+    assertThrows(
+        DatabricksSQLFeatureNotSupportedException.class,
+        () -> connection.setTransactionIsolation(10));
+    assertThrows(
+        DatabricksSQLFeatureNotSupportedException.class,
+        () -> connection.setTypeMap(Collections.emptyMap()));
+    assertThrows(
+        DatabricksSQLFeatureNotSupportedException.class, () -> connection.prepareCall(SQL, 10, 10));
+    assertThrows(DatabricksSQLFeatureNotSupportedException.class, connection::getTypeMap);
+    assertThrows(DatabricksSQLFeatureNotSupportedException.class, connection::getHoldability);
+    assertThrows(
+        DatabricksSQLFeatureNotSupportedException.class, () -> connection.setHoldability(1));
+    assertThrows(
+        DatabricksSQLFeatureNotSupportedException.class,
+        () -> connection.prepareCall(SQL, 1, 1, 1));
+    assertThrows(
+        DatabricksSQLFeatureNotSupportedException.class,
+        () -> connection.prepareStatement(SQL, 1, 1, 1));
+    assertThrows(
+        DatabricksSQLFeatureNotSupportedException.class, () -> connection.prepareStatement(SQL, 1));
+    assertThrows(
+        DatabricksSQLFeatureNotSupportedException.class, () -> connection.prepareStatement(SQL, 1));
+    assertThrows(
+        DatabricksSQLFeatureNotSupportedException.class, () -> connection.createStatement(1, 1, 1));
+    assertThrows(
+        DatabricksSQLFeatureNotSupportedException.class, () -> connection.setSavepoint("1"));
+    assertThrows(DatabricksSQLFeatureNotSupportedException.class, connection::setSavepoint);
+    assertThrows(DatabricksSQLFeatureNotSupportedException.class, connection::createClob);
+    assertThrows(DatabricksSQLFeatureNotSupportedException.class, connection::createBlob);
+    assertThrows(DatabricksSQLFeatureNotSupportedException.class, connection::createNClob);
+    assertThrows(DatabricksSQLFeatureNotSupportedException.class, connection::createSQLXML);
+    assertThrows(
+        DatabricksSQLFeatureNotSupportedException.class,
+        () -> connection.prepareStatement(SQL, new int[0]));
+    assertThrows(
+        DatabricksSQLFeatureNotSupportedException.class,
+        () -> connection.prepareStatement(SQL, new String[0]));
+    assertThrows(DatabricksSQLFeatureNotSupportedException.class, () -> connection.rollback(null));
+    assertThrows(
+        DatabricksSQLFeatureNotSupportedException.class, () -> connection.releaseSavepoint(null));
+    assertThrows(DatabricksSQLFeatureNotSupportedException.class, () -> connection.abort(null));
+    assertThrows(
+        DatabricksSQLFeatureNotSupportedException.class,
+        () -> connection.setNetworkTimeout(null, 1));
+    assertThrows(
+        DatabricksSQLFeatureNotSupportedException.class, () -> connection.getNetworkTimeout());
+    assertThrows(DatabricksSQLFeatureNotSupportedException.class, () -> connection.unwrap(null));
+    assertThrows(
+        DatabricksSQLFeatureNotSupportedException.class, () -> connection.isWrapperFor(null));
+    assertThrows(
+        DatabricksSQLFeatureNotSupportedException.class, () -> connection.isWrapperFor(null));
+    assertThrows(
+        DatabricksSQLFeatureNotSupportedException.class,
+        () -> connection.createArrayOf(null, null));
+    assertThrows(
+        DatabricksSQLFeatureNotSupportedException.class, () -> connection.createStruct(null, null));
+  }
+
+  @Test
+  void testCommonMethods() throws SQLException {
+    when(databricksClient.createSession(
+            new Warehouse(WAREHOUSE_ID), CATALOG, SCHEMA, new HashMap<>()))
+        .thenReturn(IMMUTABLE_SESSION_INFO);
+    connection = new DatabricksConnection(connectionContext, databricksClient);
+    assertFalse(connection.isReadOnly());
+    assertNull(connection.getWarnings());
+    connection.clearWarnings();
+    assertDoesNotThrow(() -> connection.createStatement());
+    assertNull(connection.getWarnings());
+    assertTrue(connection.getAutoCommit());
+    assertEquals(connection.getTransactionIsolation(), Connection.TRANSACTION_READ_UNCOMMITTED);
   }
 }
