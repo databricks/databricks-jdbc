@@ -23,8 +23,6 @@ import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-/*TODO : add all debug logs and implementations*/
-
 public class DatabricksThriftClient implements DatabricksClient, DatabricksMetadataClient {
 
   private static final Logger LOGGER = LoggerFactory.getLogger(DatabricksThriftClient.class);
@@ -143,7 +141,7 @@ public class DatabricksThriftClient implements DatabricksClient, DatabricksMetad
   @Override
   public DatabricksResultSet listTypeInfo(IDatabricksSession session)
       throws DatabricksSQLException {
-    // The control would not reach here, already implemented in DatabricksDatabaseMetaData
+    // The control would not reach here, already implemented in DatabricksDatabaseMetaData.
     throw new DatabricksSQLFeatureNotSupportedException(
         "listTypeInfo in cluster compute not implemented");
   }

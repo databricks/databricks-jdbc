@@ -45,12 +45,15 @@ public class DatabricksThriftHelper {
   }
 
   public static List<List<Object>> extractValues(List<TColumn> columnList) {
+    if (columnList == null) {
+      return Collections.singletonList(Collections.emptyList());
+    }
     List<Object> obj =
         columnList.stream()
             .map(
                 column -> {
                   try {
-                    return getColumnValue(column);
+                    return getColumnFirstValue(column);
                   } catch (Exception e) {
                     // In case a column doesn't have an object, add the default null value
                     return NULL_STRING;
@@ -60,7 +63,7 @@ public class DatabricksThriftHelper {
     return Collections.singletonList(obj);
   }
 
-  private static Object getColumnValue(TColumn column) {
+  private static Object getColumnFirstValue(TColumn column) {
     if (column.isSetBinaryVal()) return column.getBinaryVal().getValues().get(0);
     if (column.isSetBoolVal()) return column.getBoolVal().getValues().get(0);
     if (column.isSetByteVal()) return column.getByteVal().getValues().get(0);
