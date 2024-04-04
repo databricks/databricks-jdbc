@@ -19,16 +19,17 @@ import org.apache.thrift.transport.TTransportException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
+import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
 public class DatabricksHttpTTransportTest {
-  @Mock private DatabricksHttpClient mockedHttpClient;
+  @Mock DatabricksHttpClient mockedHttpClient;
   @Mock CloseableHttpResponse mockResponse;
   @Mock StatusLine statusLine;
   private final String testUrl = "http://localhost:8080";
-  private DatabricksHttpTTransport transport;
+  @InjectMocks private DatabricksHttpTTransport transport;
 
   @Test
   public void isOpen_AlwaysReturnsTrue() {
