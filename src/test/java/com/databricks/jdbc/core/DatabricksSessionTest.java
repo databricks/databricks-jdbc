@@ -118,4 +118,13 @@ public class DatabricksSessionTest {
         "DatabricksSession[compute='SQL Warehouse with warehouse ID {warehouse_id}', catalog='SPARK', schema='default']",
         session.toString());
   }
+
+  @Test
+  public void testSetClientInfoProperty() throws DatabricksSQLException {
+    DatabricksSession session =
+        new DatabricksSession(
+            DatabricksConnectionContext.parse(VALID_CLUSTER_URL, new Properties()), sdkClient);
+    session.setClientInfoProperty("key", "value");
+    assertEquals("value", session.getClientInfoProperties().get("key"));
+  }
 }

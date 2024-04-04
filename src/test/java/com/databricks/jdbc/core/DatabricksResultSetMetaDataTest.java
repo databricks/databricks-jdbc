@@ -4,6 +4,7 @@ import com.databricks.jdbc.client.impl.thrift.generated.TColumnDesc;
 import com.databricks.jdbc.client.impl.thrift.generated.TGetResultSetMetadataResp;
 import com.databricks.jdbc.client.impl.thrift.generated.TTableSchema;
 import com.databricks.jdbc.client.sqlexec.ResultManifest;
+import com.databricks.jdbc.driver.DatabricksJdbcConstants;
 import com.databricks.sdk.service.sql.ColumnInfo;
 import com.databricks.sdk.service.sql.ColumnInfoTypeName;
 import com.databricks.sdk.service.sql.ResultSchema;
@@ -73,6 +74,21 @@ public class DatabricksResultSetMetaDataTest {
     Assertions.assertEquals("col2", metaData.getColumnName(3));
     Assertions.assertEquals(10, metaData.getTotalRows());
     Assertions.assertEquals(2, metaData.getColumnNameIndex("col2"));
+  }
+
+  @Test
+  public void testColumnsForVolumeOperation() throws SQLException {
+    ResultManifest resultManifest = getResultManifest();
+    resultManifest.setIsVolumeOperation(true);
+    DatabricksResultSetMetaData metaData =
+        new DatabricksResultSetMetaData(STATEMENT_ID, resultManifest);
+    Assertions.assertEquals(1, metaData.getColumnCount());
+    Assertions.assertEquals(
+        DatabricksJdbcConstants.VOLUME_OPERATION_STATUS_COLUMN_NAME, metaData.getColumnName(1));
+    Assertions.assertEquals(10, metaData.getTotalRows());
+    Assertions.assertEquals(
+        1,
+        metaData.getColumnNameIndex(DatabricksJdbcConstants.VOLUME_OPERATION_STATUS_COLUMN_NAME));
   }
 
   @Test

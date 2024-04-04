@@ -2,8 +2,8 @@ package com.databricks.jdbc.client.http;
 
 import com.databricks.jdbc.client.DatabricksHttpException;
 import com.databricks.jdbc.client.IDatabricksHttpClient;
-import com.databricks.jdbc.driver.DatabricksJdbcConstants;
 import com.databricks.jdbc.driver.IDatabricksConnectionContext;
+import com.databricks.sdk.core.UserAgent;
 import com.google.common.annotations.VisibleForTesting;
 import java.io.IOException;
 import java.util.HashSet;
@@ -98,7 +98,7 @@ public class DatabricksHttpClient implements IDatabricksHttpClient {
     HttpClientBuilder builder =
         HttpClientBuilder.create()
             .setConnectionManager(connectionManager)
-            .setUserAgent(DatabricksJdbcConstants.DEFAULT_USER_AGENT)
+            .setUserAgent(getUserAgent())
             .setDefaultRequestConfig(makeRequestConfig())
             .setRetryHandler(
                 (exception, executionCount, context) -> {
@@ -221,5 +221,25 @@ public class DatabricksHttpClient implements IDatabricksHttpClient {
         connectionManager.closeIdleConnections(DEFAULT_IDLE_CONNECTION_TIMEOUT, TimeUnit.SECONDS);
       }
     }
+  }
+
+  static String getUserAgent() {
+    String sdkUserAgent = UserAgent.asString();
+    // Split the string into parts
+    String[] parts = sdkUserAgent.split("\\s+");
+
+    // User Agent is in format:
+    // product/product-version databricks-sdk-java/sdk-version jvm/jvm-version other-info
+    // Remove the SDK part from user agent
+    StringBuilder mergedString = new StringBuilder();
+    for (int i = 0; i < parts.length; i++) {
+      if (i != 1) { // Skip the second part
+        mergedString.append(parts[i]);
+        if (i != parts.length - 1) {
+          mergedString.append(" "); // Add space between parts
+        }
+      }
+    }
+    return mergedString.toString();
   }
 }

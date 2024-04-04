@@ -1,5 +1,7 @@
 package com.databricks.jdbc.core;
 
+import static com.databricks.jdbc.driver.DatabricksJdbcConstants.VOLUME_OPERATION_STATUS_COLUMN_NAME;
+
 import com.databricks.jdbc.client.impl.thrift.generated.TColumnDesc;
 import com.databricks.jdbc.client.impl.thrift.generated.TGetResultSetMetadataResp;
 import com.databricks.jdbc.client.sqlexec.ResultManifest;
@@ -12,6 +14,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
+import java.sql.Types;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -34,26 +37,41 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
     this.statementId = statementId;
     Map<String, Integer> columnNameToIndexMap = new HashMap<>();
     ImmutableList.Builder<ImmutableDatabricksColumn> columnsBuilder = ImmutableList.builder();
-    int currIndex = 0;
     LOGGER.debug(
         "Result manifest for statement {} has schema: {}", statementId, resultManifest.getSchema());
-    if (resultManifest.getSchema().getColumnCount() > 0) {
-      for (ColumnInfo columnInfo : resultManifest.getSchema().getColumns()) {
-        ColumnInfoTypeName columnTypeName = columnInfo.getTypeName();
-        int precision = DatabricksTypeUtil.getPrecision(columnTypeName);
-        ImmutableDatabricksColumn.Builder columnBuilder = getColumnBuilder();
-        columnBuilder
-            .columnName(columnInfo.getName())
-            .columnTypeClassName(DatabricksTypeUtil.getColumnTypeClassName(columnTypeName))
-            .columnType(DatabricksTypeUtil.getColumnType(columnTypeName))
-            .columnTypeText(columnInfo.getTypeText())
-            .typePrecision(precision)
-            .displaySize(DatabricksTypeUtil.getDisplaySize(columnTypeName, precision))
-            .isSigned(DatabricksTypeUtil.isSigned(columnTypeName));
 
-        columnsBuilder.add(columnBuilder.build());
-        // Keep index starting from 1, to be consistent with JDBC convention
-        columnNameToIndexMap.putIfAbsent(columnInfo.getName(), ++currIndex);
+    int currIndex = 0;
+    if (resultManifest.getIsVolumeOperation() != null && resultManifest.getIsVolumeOperation()) {
+      ImmutableDatabricksColumn.Builder columnBuilder = getColumnBuilder();
+      columnBuilder
+          .columnName(VOLUME_OPERATION_STATUS_COLUMN_NAME)
+          .columnType(Types.VARCHAR)
+          .columnTypeText(ColumnInfoTypeName.STRING.name())
+          .typePrecision(0)
+          .columnTypeClassName(DatabricksTypeUtil.getColumnTypeClassName(ColumnInfoTypeName.STRING))
+          .displaySize(DatabricksTypeUtil.getDisplaySize(ColumnInfoTypeName.STRING, 0))
+          .isSigned(DatabricksTypeUtil.isSigned(ColumnInfoTypeName.STRING));
+      columnsBuilder.add(columnBuilder.build());
+      columnNameToIndexMap.putIfAbsent(VOLUME_OPERATION_STATUS_COLUMN_NAME, ++currIndex);
+    } else {
+      if (resultManifest.getSchema().getColumnCount() > 0) {
+        for (ColumnInfo columnInfo : resultManifest.getSchema().getColumns()) {
+          ColumnInfoTypeName columnTypeName = columnInfo.getTypeName();
+          int precision = DatabricksTypeUtil.getPrecision(columnTypeName);
+          ImmutableDatabricksColumn.Builder columnBuilder = getColumnBuilder();
+          columnBuilder
+              .columnName(columnInfo.getName())
+              .columnTypeClassName(DatabricksTypeUtil.getColumnTypeClassName(columnTypeName))
+              .columnType(DatabricksTypeUtil.getColumnType(columnTypeName))
+              .columnTypeText(columnInfo.getTypeText())
+              .typePrecision(precision)
+              .displaySize(DatabricksTypeUtil.getDisplaySize(columnTypeName, precision))
+              .isSigned(DatabricksTypeUtil.isSigned(columnTypeName));
+
+          columnsBuilder.add(columnBuilder.build());
+          // Keep index starting from 1, to be consistent with JDBC convention
+          columnNameToIndexMap.putIfAbsent(columnInfo.getName(), ++currIndex);
+        }
       }
     }
     this.columns = columnsBuilder.build();

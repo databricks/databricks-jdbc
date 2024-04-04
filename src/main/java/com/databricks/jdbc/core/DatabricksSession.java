@@ -10,6 +10,7 @@ import com.databricks.jdbc.core.types.ComputeResource;
 import com.databricks.jdbc.driver.IDatabricksConnectionContext;
 import com.databricks.sdk.support.ToStringer;
 import com.google.common.annotations.VisibleForTesting;
+import java.util.HashMap;
 import java.util.Map;
 import javax.annotation.Nullable;
 import org.slf4j.Logger;
@@ -32,6 +33,8 @@ public class DatabricksSession implements IDatabricksSession {
   private String schema;
 
   private Map<String, String> sessionConfigs;
+
+  private Map<String, String> clientInfoProperties;
   private CompressionType compressionType;
 
   private IDatabricksConnectionContext connectionContext;
@@ -57,6 +60,7 @@ public class DatabricksSession implements IDatabricksSession {
     this.catalog = connectionContext.getCatalog();
     this.schema = connectionContext.getSchema();
     this.sessionConfigs = connectionContext.getSessionConfigs();
+    this.clientInfoProperties = new HashMap<>();
     this.compressionType = connectionContext.getCompressionType();
     this.connectionContext = connectionContext;
   }
@@ -79,6 +83,7 @@ public class DatabricksSession implements IDatabricksSession {
     this.catalog = connectionContext.getCatalog();
     this.schema = connectionContext.getSchema();
     this.sessionConfigs = connectionContext.getSessionConfigs();
+    this.clientInfoProperties = new HashMap<>();
     this.compressionType = connectionContext.getCompressionType();
     this.connectionContext = connectionContext;
   }
@@ -204,6 +209,19 @@ public class DatabricksSession implements IDatabricksSession {
   public void setSessionConfig(String name, String value) {
     LOGGER.debug("public void setSessionConfig(String name = {}, String value = {})", name, value);
     sessionConfigs.put(name, value);
+  }
+
+  @Override
+  public Map<String, String> getClientInfoProperties() {
+    LOGGER.debug("public Map<String, String> getClientInfoProperties()");
+    return clientInfoProperties;
+  }
+
+  @Override
+  public void setClientInfoProperty(String name, String value) {
+    LOGGER.debug(
+        "public void setClientInfoProperty(String name = {}, String value = {})", name, value);
+    clientInfoProperties.put(name, value);
   }
 
   @Override

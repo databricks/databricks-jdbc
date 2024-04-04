@@ -72,5 +72,11 @@ public interface IDatabricksSession {
   /** Sets the session config */
   void setSessionConfig(String name, String value);
 
+  /** Returns the client info properties */
+  Map<String, String> getClientInfoProperties();
+
+  /** Sets the client info property */
+  void setClientInfoProperty(String name, String value);
+
   IDatabricksConnectionContext getConnectionContext();
 }

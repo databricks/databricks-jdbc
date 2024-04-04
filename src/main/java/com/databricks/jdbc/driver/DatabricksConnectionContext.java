@@ -25,7 +25,6 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   private final int port;
   private final String schema;
   private final ComputeResource computeResource;
-
   @VisibleForTesting final ImmutableMap<String, String> parameters;
 
   /**
@@ -249,8 +248,7 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   }
 
   private DatabricksClientType getClientType() {
-    // TODO: decide on client type from parsed JDBC Url
-    return DatabricksClientType.SQL_EXEC;
+    return computeResource.getClientType();
   }
 
   private static boolean nullOrEmptyString(String s) {

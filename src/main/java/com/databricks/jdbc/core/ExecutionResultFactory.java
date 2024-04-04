@@ -9,12 +9,16 @@ import java.util.List;
 class ExecutionResultFactory {
   static IExecutionResult getResultSet(
       ResultData data, ResultManifest manifest, String statementId, IDatabricksSession session) {
-    // We will use Arrow Stream only in prod. JSON is for testing and prototype purpose
+    // Return Volume operation handler
+    if (manifest.getIsVolumeOperation() != null && manifest.getIsVolumeOperation()) {
+      return new VolumeOperationResult(data, statementId, session);
+    }
+    // We use JSON_ARRAY for metadata and update commands, and ARROW_STREAM for query results
     switch (manifest.getFormat()) {
       case ARROW_STREAM:
         return new ArrowStreamResult(manifest, data, statementId, session);
       case JSON_ARRAY:
-        // This is only for testing and prototype
+        // This is used for metadata and update commands
         return new InlineJsonResult(manifest, data);
       default:
         throw new IllegalStateException("Invalid response format " + manifest.getFormat());

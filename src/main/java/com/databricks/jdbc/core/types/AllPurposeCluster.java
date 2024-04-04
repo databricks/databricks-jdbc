@@ -1,5 +1,6 @@
 package com.databricks.jdbc.core.types;
 
+import com.databricks.jdbc.client.DatabricksClientType;
 import java.util.Objects;
 
 public class AllPurposeCluster implements ComputeResource {
@@ -31,5 +32,10 @@ public class AllPurposeCluster implements ComputeResource {
   @Override
   public String toString() {
     return String.format("AllPurpose cluster with clusterId {%s} and orgId {%s}", clusterId, orgId);
+  }
+
+  @Override
+  public DatabricksClientType getClientType() {
+    return DatabricksClientType.THRIFT;
   }
 }
