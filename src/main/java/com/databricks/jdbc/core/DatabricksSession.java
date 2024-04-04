@@ -4,7 +4,7 @@ import com.databricks.jdbc.client.DatabricksClient;
 import com.databricks.jdbc.client.DatabricksMetadataClient;
 import com.databricks.jdbc.client.impl.sdk.DatabricksMetadataSdkClient;
 import com.databricks.jdbc.client.impl.sdk.DatabricksSdkClient;
-import com.databricks.jdbc.client.impl.thrift.DatabricksThriftClient;
+import com.databricks.jdbc.client.impl.thrift.DatabricksThriftServiceClient;
 import com.databricks.jdbc.core.types.CompressionType;
 import com.databricks.jdbc.core.types.ComputeResource;
 import com.databricks.jdbc.driver.IDatabricksConnectionContext;
@@ -47,7 +47,7 @@ public class DatabricksSession implements IDatabricksSession {
   public DatabricksSession(IDatabricksConnectionContext connectionContext)
       throws DatabricksSQLException {
     if (connectionContext.isAllPurposeCluster()) {
-      this.databricksClient = new DatabricksThriftClient(connectionContext);
+      this.databricksClient = new DatabricksThriftServiceClient(connectionContext);
       this.databricksMetadataClient = null;
     } else {
       this.databricksClient = new DatabricksSdkClient(connectionContext);
@@ -71,7 +71,7 @@ public class DatabricksSession implements IDatabricksSession {
       IDatabricksConnectionContext connectionContext, DatabricksClient databricksClient)
       throws DatabricksSQLException {
     this.databricksClient = databricksClient;
-    if (databricksClient instanceof DatabricksThriftClient) {
+    if (databricksClient instanceof DatabricksThriftServiceClient) {
       this.databricksMetadataClient = null;
     } else {
       this.databricksMetadataClient =

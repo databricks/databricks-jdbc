@@ -23,18 +23,18 @@ import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class DatabricksThriftClient implements DatabricksClient, DatabricksMetadataClient {
+public class DatabricksThriftServiceClient implements DatabricksClient, DatabricksMetadataClient {
 
-  private static final Logger LOGGER = LoggerFactory.getLogger(DatabricksThriftClient.class);
+  private static final Logger LOGGER = LoggerFactory.getLogger(DatabricksThriftServiceClient.class);
 
   private final DatabricksThriftAccessor thriftAccessor;
 
-  public DatabricksThriftClient(IDatabricksConnectionContext connectionContext) {
+  public DatabricksThriftServiceClient(IDatabricksConnectionContext connectionContext) {
     this.thriftAccessor = new DatabricksThriftAccessor(connectionContext);
   }
 
   @VisibleForTesting
-  DatabricksThriftClient(DatabricksThriftAccessor thriftAccessor) {
+  DatabricksThriftServiceClient(DatabricksThriftAccessor thriftAccessor) {
     this.thriftAccessor = thriftAccessor;
   }
 

@@ -22,7 +22,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
-public class DatabricksThriftClientTest {
+public class DatabricksThriftServiceClientTest {
   @Mock DatabricksThriftAccessor thriftAccessor;
   @Mock IDatabricksSession session;
   @Mock TRowSet resultData;
@@ -30,7 +30,7 @@ public class DatabricksThriftClientTest {
 
   @Test
   void testCreateSession() throws DatabricksSQLException {
-    DatabricksThriftClient client = new DatabricksThriftClient(thriftAccessor);
+    DatabricksThriftServiceClient client = new DatabricksThriftServiceClient(thriftAccessor);
     TOpenSessionReq openSessionReq =
         new TOpenSessionReq()
             .setInitialNamespace(getNamespace(CATALOG, SCHEMA))
@@ -51,7 +51,7 @@ public class DatabricksThriftClientTest {
 
   @Test
   void testCloseSession() throws DatabricksSQLException {
-    DatabricksThriftClient client = new DatabricksThriftClient(thriftAccessor);
+    DatabricksThriftServiceClient client = new DatabricksThriftServiceClient(thriftAccessor);
     when(session.getSessionInfo()).thenReturn(SESSION_INFO);
     TCloseSessionReq closeSessionReq = new TCloseSessionReq().setSessionHandle(SESSION_HANDLE);
     TCloseSessionResp closeSessionResp =
@@ -63,7 +63,7 @@ public class DatabricksThriftClientTest {
 
   @Test
   void testExecute() throws SQLException {
-    DatabricksThriftClient client = new DatabricksThriftClient(thriftAccessor);
+    DatabricksThriftServiceClient client = new DatabricksThriftServiceClient(thriftAccessor);
     when(session.getSessionInfo()).thenReturn(SESSION_INFO);
     TExecuteStatementReq executeStatementReq =
         new TExecuteStatementReq()
@@ -85,7 +85,7 @@ public class DatabricksThriftClientTest {
 
   @Test
   void testUnsupportedFunctions() {
-    DatabricksThriftClient client = new DatabricksThriftClient(thriftAccessor);
+    DatabricksThriftServiceClient client = new DatabricksThriftServiceClient(thriftAccessor);
     assertThrows(
         DatabricksSQLFeatureNotSupportedException.class, () -> client.listTypeInfo(session));
   }
