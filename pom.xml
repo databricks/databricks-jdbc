@@ -291,7 +291,6 @@
               <exclude>**/types/**</exclude>
               <exclude>**/client/sqlexec/**</exclude>
               <exclude>**/*Constants*</exclude>
-              <exclude>**/thrift/generated/**</exclude>
               <exclude>**/*driver/DatabricksJdbcConstants*</exclude>
               <exclude>**/CommandName*</exclude>
             </excludes>
