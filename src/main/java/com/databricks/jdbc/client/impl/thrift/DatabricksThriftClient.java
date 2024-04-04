@@ -1,6 +1,6 @@
 package com.databricks.jdbc.client.impl.thrift;
 
-import static com.databricks.jdbc.client.impl.helper.MetadataResultSetBuilder.getPrimaryKeysResult;
+import static com.databricks.jdbc.client.impl.helper.MetadataResultSetBuilder.*;
 import static com.databricks.jdbc.client.impl.thrift.commons.DatabricksThriftHelper.*;
 import static com.databricks.jdbc.commons.EnvironmentVariables.DEFAULT_BYTE_LIMIT;
 import static com.databricks.jdbc.commons.EnvironmentVariables.JDBC_THRIFT_VERSION;
@@ -143,37 +143,42 @@ public class DatabricksThriftClient implements DatabricksClient, DatabricksMetad
   @Override
   public DatabricksResultSet listTypeInfo(IDatabricksSession session)
       throws DatabricksSQLException {
-    // TODO : implement
-    String context =
-        String.format(
-            "Listing type info for all purpose cluster. Session {%s}", session.toString());
-    LOGGER.debug(context);
-    throw new DatabricksSQLFeatureNotImplementedException(
+    // The control would not reach here, already implemented in DatabricksDatabaseMetaData
+    throw new DatabricksSQLFeatureNotSupportedException(
         "listTypeInfo in cluster compute not implemented");
   }
 
   @Override
   public DatabricksResultSet listCatalogs(IDatabricksSession session) throws SQLException {
-    // TODO : implement
     String context =
         String.format(
             "Fetching catalogs for all purpose cluster. Session {%s}", session.toString());
     LOGGER.debug(context);
-    throw new DatabricksSQLFeatureNotImplementedException(
-        "listCatalogs in cluster compute not implemented");
+    TGetCatalogsReq request =
+        new TGetCatalogsReq().setSessionHandle(session.getSessionInfo().sessionHandle());
+    TFetchResultsResp response =
+        (TFetchResultsResp)
+            thriftAccessor.getThriftResponse(request, CommandName.LIST_SCHEMAS, null);
+    return getCatalogsResult(extractValues(response.getResults().getColumns()));
   }
 
   @Override
   public DatabricksResultSet listSchemas(
       IDatabricksSession session, String catalog, String schemaNamePattern) throws SQLException {
-    // TODO : implement
     String context =
         String.format(
             "Fetching schemas for all purpose cluster. Session {%s}, catalog {%s}, schemaNamePattern {%s}",
             session.toString(), catalog, schemaNamePattern);
     LOGGER.debug(context);
-    throw new DatabricksSQLFeatureNotImplementedException(
-        "listSchemas in cluster compute not implemented");
+    TGetSchemasReq request =
+        new TGetSchemasReq()
+            .setSessionHandle(session.getSessionInfo().sessionHandle())
+            .setCatalogName(catalog)
+            .setSchemaName(schemaNamePattern);
+    TFetchResultsResp response =
+        (TFetchResultsResp)
+            thriftAccessor.getThriftResponse(request, CommandName.LIST_SCHEMAS, null);
+    return getSchemasResult(extractValues(response.getResults().getColumns()));
   }
 
   @Override
@@ -186,8 +191,16 @@ public class DatabricksThriftClient implements DatabricksClient, DatabricksMetad
             "Fetching tables for all purpose cluster. Session {%s}, catalog {%s}, schemaNamePattern {%s}, tableNamePattern {%s}",
             session.toString(), catalog, schemaNamePattern, tableNamePattern);
     LOGGER.debug(context);
-    throw new DatabricksSQLFeatureNotImplementedException(
-        "listTables in cluster compute not implemented");
+    TGetTablesReq request =
+        new TGetTablesReq()
+            .setSessionHandle(session.getSessionInfo().sessionHandle())
+            .setCatalogName(catalog)
+            .setSchemaName(schemaNamePattern)
+            .setTableName(tableNamePattern);
+    TFetchResultsResp response =
+        (TFetchResultsResp)
+            thriftAccessor.getThriftResponse(request, CommandName.LIST_TABLES, null);
+    return getTablesResult(extractValues(response.getResults().getColumns()));
   }
 
   @Override
@@ -204,14 +217,22 @@ public class DatabricksThriftClient implements DatabricksClient, DatabricksMetad
       String tableNamePattern,
       String columnNamePattern)
       throws DatabricksSQLException {
-    // TODO : implement
     String context =
         String.format(
             "Fetching columns for all purpose cluster. Session {%s}, catalog {%s}, schemaNamePattern {%s}, tableNamePattern {%s}, columnNamePattern {%s}",
             session.toString(), catalog, schemaNamePattern, tableNamePattern, columnNamePattern);
     LOGGER.debug(context);
-    throw new DatabricksSQLFeatureNotImplementedException(
-        "listColumns in cluster compute not implemented");
+    TGetColumnsReq request =
+        new TGetColumnsReq()
+            .setSessionHandle(session.getSessionInfo().sessionHandle())
+            .setCatalogName(catalog)
+            .setSchemaName(schemaNamePattern)
+            .setTableName(tableNamePattern)
+            .setColumnName(columnNamePattern);
+    TFetchResultsResp response =
+        (TFetchResultsResp)
+            thriftAccessor.getThriftResponse(request, CommandName.LIST_COLUMNS, null);
+    return getColumnsResult(extractValues(response.getResults().getColumns()));
   }
 
   @Override
@@ -221,14 +242,21 @@ public class DatabricksThriftClient implements DatabricksClient, DatabricksMetad
       String schemaNamePattern,
       String functionNamePattern)
       throws DatabricksSQLException {
-    // TODO : implement
     String context =
         String.format(
             "Fetching functions for all purpose cluster. Session {%s}, catalog {%s}, schemaNamePattern {%s}, functionNamePattern {%s}.",
             session.toString(), catalog, schemaNamePattern, functionNamePattern);
     LOGGER.debug(context);
-    throw new DatabricksSQLFeatureNotImplementedException(
-        "listFunctions in cluster compute not implemented");
+    TGetFunctionsReq request =
+        new TGetFunctionsReq()
+            .setSessionHandle(session.getSessionInfo().sessionHandle())
+            .setCatalogName(catalog)
+            .setSchemaName(schemaNamePattern)
+            .setFunctionName(functionNamePattern);
+    TFetchResultsResp response =
+        (TFetchResultsResp)
+            thriftAccessor.getThriftResponse(request, CommandName.LIST_FUNCTIONS, null);
+    return getFunctionsResult(extractValues(response.getResults().getColumns()));
   }
 
   @Override

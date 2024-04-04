@@ -85,8 +85,6 @@ public class DatabricksThriftAccessor {
           return getCatalogs((TGetCatalogsReq) request);
         case LIST_TABLES:
           return getTables((TGetTablesReq) request);
-        case LIST_TYPE_INFO:
-          return thriftClient.GetTypeInfo((TGetTypeInfoReq) request);
         default:
           String errorMessage =
               String.format(

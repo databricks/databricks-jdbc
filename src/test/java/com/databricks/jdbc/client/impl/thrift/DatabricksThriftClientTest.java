@@ -84,23 +84,9 @@ public class DatabricksThriftClientTest {
   }
 
   @Test
-  void testUnimplementedFunctions() {
+  void testUnsupportedFunctions() {
     DatabricksThriftClient client = new DatabricksThriftClient(thriftAccessor);
     assertThrows(
-        DatabricksSQLFeatureNotImplementedException.class,
-        () -> client.listFunctions(session, TEST_CATALOG, TEST_SCHEMA, TEST_FUNCTION_PATTERN));
-    assertThrows(
-        DatabricksSQLFeatureNotImplementedException.class, () -> client.listTypeInfo(session));
-    assertThrows(
-        DatabricksSQLFeatureNotImplementedException.class, () -> client.listCatalogs(session));
-    assertThrows(
-        DatabricksSQLFeatureNotImplementedException.class,
-        () -> client.listSchemas(session, TEST_CATALOG, TEST_SCHEMA));
-    assertThrows(
-        DatabricksSQLFeatureNotImplementedException.class,
-        () -> client.listTables(session, TEST_CATALOG, TEST_SCHEMA, TEST_TABLE));
-    assertThrows(
-        DatabricksSQLFeatureNotImplementedException.class,
-        () -> client.listColumns(session, TEST_CATALOG, TEST_SCHEMA, TEST_TABLE, TEST_COLUMN));
+        DatabricksSQLFeatureNotSupportedException.class, () -> client.listTypeInfo(session));
   }
 }

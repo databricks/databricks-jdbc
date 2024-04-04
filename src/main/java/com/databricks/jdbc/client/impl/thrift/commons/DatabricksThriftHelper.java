@@ -1,5 +1,7 @@
 package com.databricks.jdbc.client.impl.thrift.commons;
 
+import static com.databricks.jdbc.client.impl.helper.MetadataResultConstants.NULL_STRING;
+
 import com.databricks.jdbc.client.DatabricksHttpException;
 import com.databricks.jdbc.client.impl.thrift.generated.*;
 import java.nio.ByteBuffer;
@@ -13,7 +15,6 @@ import org.slf4j.LoggerFactory;
 
 public class DatabricksThriftHelper {
   private static final Logger LOGGER = LoggerFactory.getLogger(DatabricksThriftHelper.class);
-  public static final Object NULL_STRING = "null";
   public static final List<TStatusCode> SUCCESS_STATUS_LIST =
       List.of(TStatusCode.SUCCESS_STATUS, TStatusCode.SUCCESS_WITH_INFO_STATUS);
 

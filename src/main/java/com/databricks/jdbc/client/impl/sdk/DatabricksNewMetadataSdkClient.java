@@ -29,10 +29,9 @@ public class DatabricksNewMetadataSdkClient implements DatabricksMetadataClient 
   }
 
   @Override
-  public DatabricksResultSet listTypeInfo(IDatabricksSession session) {
-    // Todo : need to add hardcoded values here.
-    throw new UnsupportedOperationException(
-        "Not implemented in DatabricksMetadataSdkClient - listTypeInfo");
+  public DatabricksResultSet listTypeInfo(IDatabricksSession session) throws SQLException {
+    // The control would not reach here, already implemented in DatabricksDatabaseMetaData
+    throw new DatabricksSQLFeatureNotSupportedException("ListTypeInfo not supported  in SDK");
   }
 
   @Override
