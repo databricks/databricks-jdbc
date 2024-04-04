@@ -285,14 +285,6 @@
           </executions>
           <configuration>
             <excludes>
-              <exclude>**/*EnvironmentVariables*</exclude>
-              <exclude>**/client/impl/sdk/DatabricksMetadataSdkClient*</exclude> <!-- TODO(PECO-1502): Remove once fixed -->
-              <exclude>**/*Exception*</exclude>
-              <exclude>**/types/**</exclude>
-              <exclude>**/client/sqlexec/**</exclude>
-              <exclude>**/*Constants*</exclude>
-              <exclude>**/*driver/DatabricksJdbcConstants*</exclude>
-              <exclude>**/CommandName*</exclude>
             </excludes>
           </configuration>
         </plugin>

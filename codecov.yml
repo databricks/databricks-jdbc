@@ -1,9 +1,0 @@
-ignore:
-  - "*EnvironmentVariables*"
-  - "**Exception*"
-  - "**types/*"
-  - "**client/sqlexec/*"
-  - "**Constants*"
-  - "**driver/DatabricksJdbcConstants*"
-  - "**/client/impl/sdk/helper/CommandName*"
-  - "**/client/impl/sdk/DatabricksMetadataSdkClient*" # TODO(PECO-1502): Remove once fixed
