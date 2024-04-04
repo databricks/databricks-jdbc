@@ -41,7 +41,8 @@ public class DatabricksThriftAccessorTest {
     DatabricksThriftAccessor accessor = new DatabricksThriftAccessor(thriftClient);
     TExecuteStatementReq request = new TExecuteStatementReq();
     TOperationHandle tOperationHandle = new TOperationHandle();
-    TFetchResultsResp response = new TFetchResultsResp();
+    TFetchResultsResp response =
+        new TFetchResultsResp().setStatus(new TStatus().setStatusCode(TStatusCode.SUCCESS_STATUS));
     TGetResultSetMetadataResp metadataResp = new TGetResultSetMetadataResp();
     TExecuteStatementResp tExecuteStatementResp =
         new TExecuteStatementResp()

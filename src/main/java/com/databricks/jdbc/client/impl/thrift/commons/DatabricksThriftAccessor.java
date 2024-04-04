@@ -71,6 +71,22 @@ public class DatabricksThriftAccessor {
           return thriftClient.CloseSession((TCloseSessionReq) request);
         case EXECUTE_STATEMENT:
           return execute((TExecuteStatementReq) request, parentStatement);
+        case LIST_TABLE_TYPES:
+          return thriftClient.GetTableTypes((TGetTableTypesReq) request);
+        case LIST_PRIMARY_KEYS:
+          return listPrimaryKeys((TGetPrimaryKeysReq) request);
+        case LIST_FUNCTIONS:
+          return listFunctions((TGetFunctionsReq) request);
+        case LIST_SCHEMAS:
+          return listSchemas((TGetSchemasReq) request);
+        case LIST_COLUMNS:
+          return listColumns((TGetColumnsReq) request);
+        case LIST_CATALOGS:
+          return getCatalogs((TGetCatalogsReq) request);
+        case LIST_TABLES:
+          return getTables((TGetTablesReq) request);
+        case LIST_TYPE_INFO:
+          return thriftClient.GetTypeInfo((TGetTypeInfoReq) request);
         default:
           String errorMessage =
               String.format(
@@ -90,7 +106,11 @@ public class DatabricksThriftAccessor {
   }
 
   public TFetchResultsResp getResultSetResp(
-      TStatusCode responseCode, TOperationHandle operationHandle, String context, int maxRows)
+      TStatusCode responseCode,
+      TOperationHandle operationHandle,
+      String context,
+      int maxRows,
+      boolean fetchMetadata)
       throws DatabricksHttpException {
     verifySuccessStatus(responseCode, context);
     TFetchResultsReq request =
@@ -102,8 +122,12 @@ public class DatabricksThriftAccessor {
             .setFetchType((short) 0) // 0 represents Query output. 1 represents Log
             .setMaxRows(maxRows)
             .setMaxBytes(DEFAULT_BYTE_LIMIT);
+    TFetchResultsResp response = null;
     try {
-      return thriftClient.FetchResults(request);
+      response = thriftClient.FetchResults(request);
+      if (fetchMetadata) {
+        response.setResultSetMetadata(getResultSetMetadata(operationHandle));
+      }
     } catch (TException e) {
       String errorMessage =
           String.format(
@@ -112,6 +136,10 @@ public class DatabricksThriftAccessor {
       LOGGER.error(errorMessage);
       throw new DatabricksHttpException(errorMessage, e);
     }
+    verifySuccessStatus(
+        response.getStatus().getStatusCode(),
+        String.format("Error while fetching results. TFetchResultsResp {}. "));
+    return response;
   }
 
   private String getEndpointURL(IDatabricksConnectionContext connectionContext) {
@@ -123,18 +151,84 @@ public class DatabricksThriftAccessor {
       throws TException, SQLException {
     TExecuteStatementResp tExecuteStatementResp = thriftClient.ExecuteStatement(request);
     int maxRows = (parentStatement == null) ? DEFAULT_ROW_LIMIT : parentStatement.getMaxRows();
-    TFetchResultsResp response =
-        getResultSetResp(
-            tExecuteStatementResp.getStatus().getStatusCode(),
-            tExecuteStatementResp.getOperationHandle(),
-            tExecuteStatementResp.toString(),
-            maxRows);
+    return getResultSetResp(
+        tExecuteStatementResp.getStatus().getStatusCode(),
+        tExecuteStatementResp.getOperationHandle(),
+        tExecuteStatementResp.toString(),
+        maxRows,
+        true);
+  }
+
+  private TFetchResultsResp listFunctions(TGetFunctionsReq request)
+      throws DatabricksHttpException, TException {
+    TGetFunctionsResp response = thriftClient.GetFunctions(request);
+    return getResultSetResp(
+        response.getStatus().getStatusCode(),
+        response.getOperationHandle(),
+        response.toString(),
+        DEFAULT_ROW_LIMIT,
+        false);
+  }
+
+  private TFetchResultsResp listPrimaryKeys(TGetPrimaryKeysReq request)
+      throws DatabricksHttpException, TException {
+    TGetPrimaryKeysResp response = thriftClient.GetPrimaryKeys(request);
+    return getResultSetResp(
+        response.getStatus().getStatusCode(),
+        response.getOperationHandle(),
+        response.toString(),
+        DEFAULT_ROW_LIMIT,
+        false);
+  }
+
+  private TFetchResultsResp getTables(TGetTablesReq request)
+      throws TException, DatabricksHttpException {
+    TGetTablesResp response = thriftClient.GetTables(request);
+    return getResultSetResp(
+        response.getStatus().getStatusCode(),
+        response.getOperationHandle(),
+        response.toString(),
+        DEFAULT_ROW_LIMIT,
+        false);
+  }
+
+  private TFetchResultsResp getCatalogs(TGetCatalogsReq request)
+      throws TException, DatabricksHttpException {
+    TGetCatalogsResp response = thriftClient.GetCatalogs(request);
+    return getResultSetResp(
+        response.getStatus().getStatusCode(),
+        response.getOperationHandle(),
+        response.toString(),
+        DEFAULT_ROW_LIMIT,
+        false);
+  }
+
+  private TFetchResultsResp listSchemas(TGetSchemasReq request)
+      throws TException, DatabricksHttpException {
+    TGetSchemasResp response = thriftClient.GetSchemas(request);
+    return getResultSetResp(
+        response.getStatus().getStatusCode(),
+        response.getOperationHandle(),
+        response.toString(),
+        DEFAULT_ROW_LIMIT,
+        false);
+  }
+
+  private TFetchResultsResp listColumns(TGetColumnsReq request)
+      throws TException, DatabricksHttpException {
+    TGetColumnsResp tGetColumnsResp = thriftClient.GetColumns(request);
+    return getResultSetResp(
+        tGetColumnsResp.getStatus().getStatusCode(),
+        tGetColumnsResp.getOperationHandle(),
+        tGetColumnsResp.toString(),
+        DEFAULT_ROW_LIMIT,
+        false);
+  }
+
+  private TGetResultSetMetadataResp getResultSetMetadata(TOperationHandle operationHandle)
+      throws TException {
     TGetResultSetMetadataReq resultSetMetadataReq =
-        new TGetResultSetMetadataReq()
-            .setOperationHandle(tExecuteStatementResp.getOperationHandle());
-    TGetResultSetMetadataResp resultSetMetadataResp =
-        thriftClient.GetResultSetMetadata(resultSetMetadataReq);
-    response.setResultSetMetadata(resultSetMetadataResp);
-    return response;
+        new TGetResultSetMetadataReq().setOperationHandle(operationHandle);
+    return thriftClient.GetResultSetMetadata(resultSetMetadataReq);
   }
 }

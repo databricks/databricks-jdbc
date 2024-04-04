@@ -102,8 +102,5 @@ public class DatabricksThriftClientTest {
     assertThrows(
         DatabricksSQLFeatureNotImplementedException.class,
         () -> client.listColumns(session, TEST_CATALOG, TEST_SCHEMA, TEST_TABLE, TEST_COLUMN));
-    assertThrows(
-        DatabricksSQLFeatureNotImplementedException.class,
-        () -> client.listPrimaryKeys(session, TEST_CATALOG, TEST_SCHEMA, TEST_TABLE));
   }
 }

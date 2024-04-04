@@ -53,7 +53,6 @@ public class DatabricksResultSetTest {
         rowSet,
         metadataResp,
         StatementType.METADATA,
-        session,
         mockedDatabricksStatement);
   }
 

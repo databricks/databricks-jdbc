@@ -115,6 +115,12 @@ public class MetadataResultConstants {
       Arrays.asList(List.of("TABLE"), List.of("VIEW"), List.of("SYSTEM TABLES"));
   public static List<ResultColumn> TABLE_TYPE_COLUMNS = List.of(TABLE_TYPE_COLUMN);
   public static List<ResultColumn> PRIMARY_KEYS_COLUMNS_ALL_PURPOSE =
-      List.of(CATALOG_COLUMN, SCHEMA_COLUMN, TABLE_NAME_COLUMN, COLUMN_NAME_COLUMN);
+      List.of(
+          CATALOG_COLUMN,
+          SCHEMA_COLUMN,
+          TABLE_NAME_COLUMN,
+          COLUMN_NAME_COLUMN,
+          KEY_SEQUENCE_COLUMN,
+          PRIMARY_KEY_NAME_COLUMN);
   public static String NULL_STRING = "null";
 }

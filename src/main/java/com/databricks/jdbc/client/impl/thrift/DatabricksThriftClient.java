@@ -1,7 +1,7 @@
 package com.databricks.jdbc.client.impl.thrift;
 
-import static com.databricks.jdbc.client.impl.thrift.commons.DatabricksThriftHelper.byteBufferToString;
-import static com.databricks.jdbc.client.impl.thrift.commons.DatabricksThriftHelper.verifySuccessStatus;
+import static com.databricks.jdbc.client.impl.helper.MetadataResultSetBuilder.getPrimaryKeysResult;
+import static com.databricks.jdbc.client.impl.thrift.commons.DatabricksThriftHelper.*;
 import static com.databricks.jdbc.commons.EnvironmentVariables.DEFAULT_BYTE_LIMIT;
 import static com.databricks.jdbc.commons.EnvironmentVariables.JDBC_THRIFT_VERSION;
 
@@ -118,7 +118,6 @@ public class DatabricksThriftClient implements DatabricksClient, DatabricksMetad
         response.getResults(),
         response.getResultSetMetadata(),
         statementType,
-        session,
         parentStatement);
   }
 
@@ -235,13 +234,20 @@ public class DatabricksThriftClient implements DatabricksClient, DatabricksMetad
   @Override
   public DatabricksResultSet listPrimaryKeys(
       IDatabricksSession session, String catalog, String schema, String table) throws SQLException {
-    // TODO : implement
     String context =
         String.format(
             "Fetching primary keys for all purpose cluster. session {%s}, catalog {%s}, schema {%s}, table {%s}",
             session.toString(), catalog, schema, table);
     LOGGER.debug(context);
-    throw new DatabricksSQLFeatureNotImplementedException(
-        "listPrimaryKeys in cluster compute not implemented");
+    TGetPrimaryKeysReq request =
+        new TGetPrimaryKeysReq()
+            .setSessionHandle(session.getSessionInfo().sessionHandle())
+            .setCatalogName(catalog)
+            .setSchemaName(schema)
+            .setTableName(table);
+    TFetchResultsResp response =
+        (TFetchResultsResp)
+            thriftAccessor.getThriftResponse(request, CommandName.LIST_PRIMARY_KEYS, null);
+    return getPrimaryKeysResult(extractValues(response.getResults().getColumns()));
   }
 }
