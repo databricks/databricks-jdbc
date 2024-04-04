@@ -17,10 +17,11 @@ import org.mockito.junit.jupiter.MockitoExtension;
 @ExtendWith(MockitoExtension.class)
 public class DatabricksThriftAccessorTest {
   @Mock TCLIService.Client thriftClient;
+  DatabricksThriftAccessor accessor;
 
   @Test
   void testOpenSession() throws TException, DatabricksSQLException {
-    DatabricksThriftAccessor accessor = new DatabricksThriftAccessor(thriftClient);
+    accessor = new DatabricksThriftAccessor(thriftClient);
     TOpenSessionReq request = new TOpenSessionReq();
     TOpenSessionResp response = new TOpenSessionResp();
     when(thriftClient.OpenSession(request)).thenReturn(response);
@@ -29,7 +30,7 @@ public class DatabricksThriftAccessorTest {
 
   @Test
   void testCloseSession() throws TException, DatabricksSQLException {
-    DatabricksThriftAccessor accessor = new DatabricksThriftAccessor(thriftClient);
+    accessor = new DatabricksThriftAccessor(thriftClient);
     TCloseSessionReq request = new TCloseSessionReq();
     TCloseSessionResp response = new TCloseSessionResp();
     when(thriftClient.CloseSession(request)).thenReturn(response);
@@ -38,7 +39,7 @@ public class DatabricksThriftAccessorTest {
 
   @Test
   void testExecute() throws TException, DatabricksSQLException {
-    DatabricksThriftAccessor accessor = new DatabricksThriftAccessor(thriftClient);
+    accessor = new DatabricksThriftAccessor(thriftClient);
     TExecuteStatementReq request = new TExecuteStatementReq();
     TOperationHandle tOperationHandle = new TOperationHandle();
     TFetchResultsResp response =

@@ -27,10 +27,11 @@ public class DatabricksThriftServiceClientTest {
   @Mock IDatabricksSession session;
   @Mock TRowSet resultData;
   @Mock TGetResultSetMetadataResp resultMetadataData;
+  DatabricksThriftServiceClient client;
 
   @Test
   void testCreateSession() throws DatabricksSQLException {
-    DatabricksThriftServiceClient client = new DatabricksThriftServiceClient(thriftAccessor);
+    client = new DatabricksThriftServiceClient(thriftAccessor);
     TOpenSessionReq openSessionReq =
         new TOpenSessionReq()
             .setInitialNamespace(getNamespace(CATALOG, SCHEMA))
@@ -51,7 +52,7 @@ public class DatabricksThriftServiceClientTest {
 
   @Test
   void testCloseSession() throws DatabricksSQLException {
-    DatabricksThriftServiceClient client = new DatabricksThriftServiceClient(thriftAccessor);
+    client = new DatabricksThriftServiceClient(thriftAccessor);
     when(session.getSessionInfo()).thenReturn(SESSION_INFO);
     TCloseSessionReq closeSessionReq = new TCloseSessionReq().setSessionHandle(SESSION_HANDLE);
     TCloseSessionResp closeSessionResp =
@@ -63,7 +64,7 @@ public class DatabricksThriftServiceClientTest {
 
   @Test
   void testExecute() throws SQLException {
-    DatabricksThriftServiceClient client = new DatabricksThriftServiceClient(thriftAccessor);
+    client = new DatabricksThriftServiceClient(thriftAccessor);
     when(session.getSessionInfo()).thenReturn(SESSION_INFO);
     TExecuteStatementReq executeStatementReq =
         new TExecuteStatementReq()
@@ -85,7 +86,7 @@ public class DatabricksThriftServiceClientTest {
 
   @Test
   void testUnsupportedFunctions() {
-    DatabricksThriftServiceClient client = new DatabricksThriftServiceClient(thriftAccessor);
+    client = new DatabricksThriftServiceClient(thriftAccessor);
     assertThrows(
         DatabricksSQLFeatureNotSupportedException.class, () -> client.listTypeInfo(session));
   }
