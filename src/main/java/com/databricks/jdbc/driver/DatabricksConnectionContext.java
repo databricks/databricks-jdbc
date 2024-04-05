@@ -52,6 +52,8 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
               ? Integer.valueOf(hostAndPort[1])
               : DatabricksJdbcConstants.DEFAULT_PORT;
 
+      System.out.println(url + " " + hostUrlVal + " " + urlMinusHost + " " + hostValue + " " + portValue);
+
       ImmutableMap.Builder<String, String> parametersBuilder = ImmutableMap.builder();
       String[] urlParts = urlMinusHost.split(DatabricksJdbcConstants.URL_DELIMITER);
       String schema = urlParts[0];

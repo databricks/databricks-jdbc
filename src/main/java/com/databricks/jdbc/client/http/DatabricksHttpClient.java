@@ -185,10 +185,9 @@ public class DatabricksHttpClient implements IDatabricksHttpClient {
   @Override
   public CloseableHttpResponse execute(HttpUriRequest request) throws DatabricksHttpException {
     LOGGER.debug("Executing HTTP request [{}]", RequestSanitizer.sanitizeRequest(request));
-    CloseableHttpResponse response = null;
     // TODO: add retries and error handling
     try {
-      return response = httpClient.execute(request);
+      return httpClient.execute(request);
     } catch (IOException e) {
       String errorMsg =
           String.format(
@@ -196,14 +195,6 @@ public class DatabricksHttpClient implements IDatabricksHttpClient {
               RequestSanitizer.sanitizeRequest(request));
       LOGGER.error(errorMsg, e);
       throw new DatabricksHttpException(errorMsg, e);
-    } finally {
-      if (response != null) {
-        try {
-          response.close();
-        } catch (IOException e) {
-          LOGGER.error("Caught error while closing http response", e);
-        }
-      }
     }
   }
 
