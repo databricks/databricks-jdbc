@@ -64,7 +64,7 @@ jobs:
           restore-keys: ${{ runner.os }}-m2
 
       - name: Check Unit Tests
-        run: mvn --errors test -Dtest="com.databricks.jdbc.*.*Test, com.databricks.jdbc.*.*.*Test, !*IntegrationTests"
+        run: mvn test
 
       - name: JaCoCo report
         run: mvn --batch-mode --errors jacoco:report --file pom.xml
