@@ -31,7 +31,8 @@ public class DatabricksThriftAccessor {
   public DatabricksThriftAccessor(IDatabricksConnectionContext connectionContext) {
     DatabricksHttpTTransport transport =
         new DatabricksHttpTTransport(
-            DatabricksHttpClient.getInstance(connectionContext), getEndpointURL(connectionContext));
+            DatabricksHttpClient.getInstance(connectionContext),
+            connectionContext.getEndpointURL());
     // TODO : add other auth in followup PRs
     this.databricksConfig =
         new DatabricksConfig()
@@ -71,8 +72,6 @@ public class DatabricksThriftAccessor {
           return thriftClient.CloseSession((TCloseSessionReq) request);
         case EXECUTE_STATEMENT:
           return execute((TExecuteStatementReq) request, parentStatement);
-        case LIST_TABLE_TYPES:
-          return thriftClient.GetTableTypes((TGetTableTypesReq) request);
         case LIST_PRIMARY_KEYS:
           return listPrimaryKeys((TGetPrimaryKeysReq) request);
         case LIST_FUNCTIONS:
@@ -138,10 +137,6 @@ public class DatabricksThriftAccessor {
         response.getStatus().getStatusCode(),
         String.format("Error while fetching results. TFetchResultsResp {}. "));
     return response;
-  }
-
-  private String getEndpointURL(IDatabricksConnectionContext connectionContext) {
-    return String.format("%s/%s", connectionContext.getHostUrl(), connectionContext.getHttpPath());
   }
 
   private TFetchResultsResp execute(

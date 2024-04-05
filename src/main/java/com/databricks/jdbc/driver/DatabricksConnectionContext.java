@@ -345,4 +345,9 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   public Boolean getUseCloudFetchProxyAuth() {
     return Objects.equals(getParameter(USE_CF_PROXY_AUTH), "1");
   }
+
+  @Override
+  public String getEndpointURL() {
+    return String.format("%s/%s", this.getHostUrl(), this.getHttpPath());
+  }
 }

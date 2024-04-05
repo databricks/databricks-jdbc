@@ -61,7 +61,7 @@ public interface DatabricksClient {
    * @param statementId statement which should be closed
    * @return response for statement execution
    */
-  void closeStatement(String statementId);
+  void closeStatement(String statementId) throws DatabricksSQLException;
 
   /**
    * Fetches the chunk details for given chunk index and statement-Id.

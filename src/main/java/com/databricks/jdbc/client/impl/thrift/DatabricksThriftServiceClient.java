@@ -8,7 +8,6 @@ import static com.databricks.jdbc.commons.EnvironmentVariables.JDBC_THRIFT_VERSI
 import com.databricks.jdbc.client.DatabricksClient;
 import com.databricks.jdbc.client.DatabricksMetadataClient;
 import com.databricks.jdbc.client.StatementType;
-import com.databricks.jdbc.client.impl.helper.MetadataResultSetBuilder;
 import com.databricks.jdbc.client.impl.thrift.commons.DatabricksThriftAccessor;
 import com.databricks.jdbc.client.impl.thrift.generated.*;
 import com.databricks.jdbc.client.sqlexec.ExternalLink;
@@ -120,10 +119,11 @@ public class DatabricksThriftServiceClient implements DatabricksClient, Databric
   }
 
   @Override
-  public void closeStatement(String statementId) {
+  public void closeStatement(String statementId) throws DatabricksSQLException {
     LOGGER.debug(
         "public void closeStatement(String statementId = {}) for all purpose cluster", statementId);
-    throw new UnsupportedOperationException();
+    throw new DatabricksSQLFeatureNotImplementedException(
+        "closeStatement for all purpose cluster not implemented");
   }
 
   @Override
@@ -156,7 +156,7 @@ public class DatabricksThriftServiceClient implements DatabricksClient, Databric
         new TGetCatalogsReq().setSessionHandle(session.getSessionInfo().sessionHandle());
     TFetchResultsResp response =
         (TFetchResultsResp)
-            thriftAccessor.getThriftResponse(request, CommandName.LIST_SCHEMAS, null);
+            thriftAccessor.getThriftResponse(request, CommandName.LIST_CATALOGS, null);
     return getCatalogsResult(extractValues(response.getResults().getColumns()));
   }
 
@@ -202,9 +202,12 @@ public class DatabricksThriftServiceClient implements DatabricksClient, Databric
   }
 
   @Override
-  public DatabricksResultSet listTableTypes(IDatabricksSession session) {
+  public DatabricksResultSet listTableTypes(IDatabricksSession session)
+      throws DatabricksSQLException {
+    // The control would not reach here, already implemented in DatabricksDatabaseMetaData.
     LOGGER.debug("Fetching table types for all purpose cluster. Session {}", session.toString());
-    return MetadataResultSetBuilder.getTableTypesResult();
+    throw new DatabricksSQLFeatureNotSupportedException(
+        "listTableTypes in cluster compute not implemented");
   }
 
   @Override

@@ -109,4 +109,6 @@ public interface IDatabricksConnectionContext {
   String getCloudFetchProxyPassword();
 
   Boolean getUseCloudFetchProxyAuth();
+
+  String getEndpointURL();
 }
