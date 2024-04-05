@@ -27,11 +27,10 @@ public class DatabricksThriftServiceClientTest {
   @Mock IDatabricksSession session;
   @Mock TRowSet resultData;
   @Mock TGetResultSetMetadataResp resultMetadataData;
-  DatabricksThriftServiceClient client;
 
   @Test
   void testCreateSession() throws DatabricksSQLException {
-    client = new DatabricksThriftServiceClient(thriftAccessor);
+    DatabricksThriftServiceClient client = new DatabricksThriftServiceClient(thriftAccessor);
     TOpenSessionReq openSessionReq =
         new TOpenSessionReq()
             .setInitialNamespace(getNamespace(CATALOG, SCHEMA))
@@ -52,7 +51,7 @@ public class DatabricksThriftServiceClientTest {
 
   @Test
   void testCloseSession() throws DatabricksSQLException {
-    client = new DatabricksThriftServiceClient(thriftAccessor);
+    DatabricksThriftServiceClient client = new DatabricksThriftServiceClient(thriftAccessor);
     when(session.getSessionInfo()).thenReturn(SESSION_INFO);
     TCloseSessionReq closeSessionReq = new TCloseSessionReq().setSessionHandle(SESSION_HANDLE);
     TCloseSessionResp closeSessionResp =
@@ -64,7 +63,7 @@ public class DatabricksThriftServiceClientTest {
 
   @Test
   void testExecute() throws SQLException {
-    client = new DatabricksThriftServiceClient(thriftAccessor);
+    DatabricksThriftServiceClient client = new DatabricksThriftServiceClient(thriftAccessor);
     when(session.getSessionInfo()).thenReturn(SESSION_INFO);
     TExecuteStatementReq executeStatementReq =
         new TExecuteStatementReq()
@@ -86,7 +85,7 @@ public class DatabricksThriftServiceClientTest {
 
   @Test
   void testUnsupportedFunctions() {
-    client = new DatabricksThriftServiceClient(thriftAccessor);
+    DatabricksThriftServiceClient client = new DatabricksThriftServiceClient(thriftAccessor);
     assertThrows(
         DatabricksSQLFeatureNotSupportedException.class, () -> client.listTypeInfo(session));
     assertThrows(
@@ -101,7 +100,7 @@ public class DatabricksThriftServiceClientTest {
 
   @Test
   void testListCatalogs() throws SQLException {
-    client = new DatabricksThriftServiceClient(thriftAccessor);
+    DatabricksThriftServiceClient client = new DatabricksThriftServiceClient(thriftAccessor);
     when(session.getSessionInfo()).thenReturn(SESSION_INFO);
     TGetCatalogsReq request = new TGetCatalogsReq().setSessionHandle(SESSION_HANDLE);
     TFetchResultsResp response =
@@ -118,7 +117,7 @@ public class DatabricksThriftServiceClientTest {
 
   @Test
   void testListSchemas() throws SQLException {
-    client = new DatabricksThriftServiceClient(thriftAccessor);
+    DatabricksThriftServiceClient client = new DatabricksThriftServiceClient(thriftAccessor);
     when(session.getSessionInfo()).thenReturn(SESSION_INFO);
     TGetSchemasReq request =
         new TGetSchemasReq()
@@ -139,7 +138,7 @@ public class DatabricksThriftServiceClientTest {
 
   @Test
   void testListTables() throws SQLException {
-    client = new DatabricksThriftServiceClient(thriftAccessor);
+    DatabricksThriftServiceClient client = new DatabricksThriftServiceClient(thriftAccessor);
     when(session.getSessionInfo()).thenReturn(SESSION_INFO);
     TGetTablesReq request =
         new TGetTablesReq()
@@ -162,7 +161,7 @@ public class DatabricksThriftServiceClientTest {
 
   @Test
   void testListColumns() throws SQLException {
-    client = new DatabricksThriftServiceClient(thriftAccessor);
+    DatabricksThriftServiceClient client = new DatabricksThriftServiceClient(thriftAccessor);
     when(session.getSessionInfo()).thenReturn(SESSION_INFO);
     TGetColumnsReq request =
         new TGetColumnsReq()
@@ -186,7 +185,7 @@ public class DatabricksThriftServiceClientTest {
 
   @Test
   void testListFunctions() throws SQLException {
-    client = new DatabricksThriftServiceClient(thriftAccessor);
+    DatabricksThriftServiceClient client = new DatabricksThriftServiceClient(thriftAccessor);
     when(session.getSessionInfo()).thenReturn(SESSION_INFO);
     TGetFunctionsReq request =
         new TGetFunctionsReq()
@@ -209,7 +208,7 @@ public class DatabricksThriftServiceClientTest {
 
   @Test
   void testListPrimaryKeys() throws SQLException {
-    client = new DatabricksThriftServiceClient(thriftAccessor);
+    DatabricksThriftServiceClient client = new DatabricksThriftServiceClient(thriftAccessor);
     when(session.getSessionInfo()).thenReturn(SESSION_INFO);
     TGetPrimaryKeysReq request =
         new TGetPrimaryKeysReq()

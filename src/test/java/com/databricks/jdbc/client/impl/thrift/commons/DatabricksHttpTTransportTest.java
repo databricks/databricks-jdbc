@@ -19,7 +19,6 @@ import org.apache.thrift.transport.TTransportException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -29,24 +28,24 @@ public class DatabricksHttpTTransportTest {
   @Mock CloseableHttpResponse mockResponse;
   @Mock StatusLine statusLine;
   private final String testUrl = "http://localhost:8080";
-  @InjectMocks private DatabricksHttpTTransport transport;
 
   @Test
   public void isOpen_AlwaysReturnsTrue() {
-    transport = new DatabricksHttpTTransport(mockedHttpClient, testUrl);
+    DatabricksHttpTTransport transport = new DatabricksHttpTTransport(mockedHttpClient, testUrl);
     assertTrue(transport.isOpen());
   }
 
   @Test
   public void close_ClosesInputStreamWithoutError() {
-    transport = new DatabricksHttpTTransport(mockedHttpClient, testUrl);
+    DatabricksHttpTTransport transport = new DatabricksHttpTTransport(mockedHttpClient, testUrl);
     transport.close();
     assertNull(transport.getInputStream());
+    assertDoesNotThrow(() -> transport.open());
   }
 
   @Test
   public void setCustomHeaders_SetsHeadersCorrectly() throws TTransportException {
-    transport = new DatabricksHttpTTransport(mockedHttpClient, testUrl);
+    DatabricksHttpTTransport transport = new DatabricksHttpTTransport(mockedHttpClient, testUrl);
     Map<String, String> headers = new HashMap<>();
     headers.put("Authorization", "Bearer abc123");
     transport.setCustomHeaders(headers);
@@ -60,7 +59,7 @@ public class DatabricksHttpTTransportTest {
 
   @Test
   public void writeAndRead_ValidatesDataIntegrity() throws TTransportException {
-    transport = new DatabricksHttpTTransport(mockedHttpClient, testUrl);
+    DatabricksHttpTTransport transport = new DatabricksHttpTTransport(mockedHttpClient, testUrl);
     byte[] testData = TEST_STRING.getBytes();
     transport.write(testData, 0, testData.length);
     transport.setInputStream(new ByteArrayInputStream(testData));
@@ -75,7 +74,7 @@ public class DatabricksHttpTTransportTest {
   @Test
   public void flush_SendsDataCorrectly()
       throws DatabricksHttpException, IOException, TTransportException {
-    transport = new DatabricksHttpTTransport(mockedHttpClient, testUrl);
+    DatabricksHttpTTransport transport = new DatabricksHttpTTransport(mockedHttpClient, testUrl);
     byte[] testData = TEST_STRING.getBytes();
     transport.write(testData, 0, testData.length);
     HttpEntity mockEntity = mock(HttpEntity.class);
