@@ -1,5 +1,7 @@
 package com.databricks.jdbc.client.impl.sdk;
 
+import static com.databricks.jdbc.client.impl.sdk.ResultConstants.TYPE_INFO_RESULT;
+
 import com.databricks.jdbc.client.DatabricksMetadataClient;
 import com.databricks.jdbc.client.StatementType;
 import com.databricks.jdbc.client.impl.helper.CommandBuilder;
@@ -29,9 +31,9 @@ public class DatabricksNewMetadataSdkClient implements DatabricksMetadataClient 
   }
 
   @Override
-  public DatabricksResultSet listTypeInfo(IDatabricksSession session) throws SQLException {
-    // The control would not reach here, already implemented in DatabricksDatabaseMetaData
-    throw new DatabricksSQLFeatureNotSupportedException("ListTypeInfo not supported  in SDK");
+  public DatabricksResultSet listTypeInfo(IDatabricksSession session) {
+    LOGGER.debug("public ResultSet getTypeInfo()");
+    return TYPE_INFO_RESULT;
   }
 
   @Override

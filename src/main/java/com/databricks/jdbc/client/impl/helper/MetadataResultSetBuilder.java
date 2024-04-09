@@ -43,6 +43,14 @@ public class MetadataResultSetBuilder {
     return buildResultSet(TABLE_TYPE_COLUMNS, TABLE_TYPES_ROWS, GET_TABLE_TYPE_STATEMENT_ID);
   }
 
+  public static DatabricksResultSet getTableTypesResult(List<List<Object>> rows) {
+    return buildResultSet(TABLE_TYPE_COLUMNS, rows, GET_TABLE_TYPE_STATEMENT_ID);
+  }
+
+  public static DatabricksResultSet getTypeInfoResult(List<List<Object>> rows) {
+    return buildResultSet(TYPE_INFO_COLUMNS, rows, GET_TYPE_INFO_STATEMENT_ID);
+  }
+
   public static DatabricksResultSet getPrimaryKeysResult(ResultSet resultSet) throws SQLException {
     List<List<Object>> rows = getRows(resultSet, PRIMARY_KEYS_COLUMNS);
     return buildResultSet(PRIMARY_KEYS_COLUMNS, rows, METADATA_STATEMENT_ID);

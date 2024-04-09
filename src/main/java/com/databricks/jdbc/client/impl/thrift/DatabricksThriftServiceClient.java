@@ -141,9 +141,13 @@ public class DatabricksThriftServiceClient implements DatabricksClient, Databric
   @Override
   public DatabricksResultSet listTypeInfo(IDatabricksSession session)
       throws DatabricksSQLException {
-    // The control would not reach here, already implemented in DatabricksDatabaseMetaData.
-    throw new DatabricksSQLFeatureNotSupportedException(
-        "listTypeInfo in cluster compute not implemented");
+    LOGGER.debug("public ResultSet getTypeInfo()");
+    TGetTypeInfoReq request =
+        new TGetTypeInfoReq().setSessionHandle(session.getSessionInfo().sessionHandle());
+    TFetchResultsResp response =
+        (TFetchResultsResp)
+            thriftAccessor.getThriftResponse(request, CommandName.LIST_TYPE_INFO, null);
+    return getCatalogsResult(extractValues(response.getResults().getColumns()));
   }
 
   @Override
@@ -204,10 +208,13 @@ public class DatabricksThriftServiceClient implements DatabricksClient, Databric
   @Override
   public DatabricksResultSet listTableTypes(IDatabricksSession session)
       throws DatabricksSQLException {
-    // The control would not reach here, already implemented in DatabricksDatabaseMetaData.
     LOGGER.debug("Fetching table types for all purpose cluster. Session {}", session.toString());
-    throw new DatabricksSQLFeatureNotSupportedException(
-        "listTableTypes in cluster compute not implemented");
+    TGetTableTypesReq request =
+        new TGetTableTypesReq().setSessionHandle(session.getSessionInfo().sessionHandle());
+    TFetchResultsResp response =
+        (TFetchResultsResp)
+            thriftAccessor.getThriftResponse(request, CommandName.LIST_TABLE_TYPES, null);
+    return getTableTypesResult(extractValues(response.getResults().getColumns()));
   }
 
   @Override

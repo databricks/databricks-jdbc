@@ -84,6 +84,10 @@ public class DatabricksThriftAccessor {
           return getCatalogs((TGetCatalogsReq) request);
         case LIST_TABLES:
           return getTables((TGetTablesReq) request);
+        case LIST_TABLE_TYPES:
+          return getTableTypes((TGetTableTypesReq) request);
+        case LIST_TYPE_INFO:
+          return getTypeInfo((TGetTypeInfoReq) request);
         default:
           String errorMessage =
               String.format(
@@ -165,7 +169,10 @@ public class DatabricksThriftAccessor {
 
   private TFetchResultsResp listPrimaryKeys(TGetPrimaryKeysReq request)
       throws DatabricksHttpException, TException {
+    request.setGetDirectResults(
+        new TSparkGetDirectResults().setMaxRows(100000).setMaxBytes(1000000));
     TGetPrimaryKeysResp response = thriftClient.GetPrimaryKeys(request);
+    System.out.println("Without resultSet is : " + response.toString());
     return getResultSetResp(
         response.getStatus().getStatusCode(),
         response.getOperationHandle(),
@@ -177,6 +184,17 @@ public class DatabricksThriftAccessor {
   private TFetchResultsResp getTables(TGetTablesReq request)
       throws TException, DatabricksHttpException {
     TGetTablesResp response = thriftClient.GetTables(request);
+    return getResultSetResp(
+        response.getStatus().getStatusCode(),
+        response.getOperationHandle(),
+        response.toString(),
+        DEFAULT_ROW_LIMIT,
+        false);
+  }
+
+  private TFetchResultsResp getTableTypes(TGetTableTypesReq request)
+      throws TException, DatabricksHttpException {
+    TGetTableTypesResp response = thriftClient.GetTableTypes(request);
     return getResultSetResp(
         response.getStatus().getStatusCode(),
         response.getOperationHandle(),
@@ -199,6 +217,17 @@ public class DatabricksThriftAccessor {
   private TFetchResultsResp listSchemas(TGetSchemasReq request)
       throws TException, DatabricksHttpException {
     TGetSchemasResp response = thriftClient.GetSchemas(request);
+    return getResultSetResp(
+        response.getStatus().getStatusCode(),
+        response.getOperationHandle(),
+        response.toString(),
+        DEFAULT_ROW_LIMIT,
+        false);
+  }
+
+  private TFetchResultsResp getTypeInfo(TGetTypeInfoReq request)
+      throws TException, DatabricksHttpException {
+    TGetTypeInfoResp response = thriftClient.GetTypeInfo(request);
     return getResultSetResp(
         response.getStatus().getStatusCode(),
         response.getOperationHandle(),

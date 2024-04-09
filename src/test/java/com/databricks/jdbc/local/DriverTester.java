@@ -5,6 +5,7 @@ import org.junit.jupiter.api.Test;
 
 public class DriverTester {
   public void printResultSet(ResultSet resultSet) throws SQLException {
+    System.out.println("\n\nPrinting resultSet...........\n");
     ResultSetMetaData rsmd = resultSet.getMetaData();
     int columnsNumber = rsmd.getColumnCount();
     for (int i = 1; i <= columnsNumber; i++) System.out.print(rsmd.getColumnName(i) + "\t");

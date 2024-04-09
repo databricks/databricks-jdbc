@@ -638,20 +638,8 @@ public class DatabricksDatabaseMetaDataTest {
   }
 
   @Test
-  public void testGetTypeInfo() throws SQLException {
-    ResultSet resultSet = metaData.getTypeInfo();
-    assertNotNull(resultSet);
-  }
-
-  @Test
   public void testGetProcedures() throws SQLException {
     ResultSet resultSet = metaData.getProcedures(null, null, null);
-    assertNotNull(resultSet);
-  }
-
-  @Test
-  public void testGetTableTypes() throws SQLException {
-    ResultSet resultSet = metaData.getTableTypes();
     assertNotNull(resultSet);
   }
 

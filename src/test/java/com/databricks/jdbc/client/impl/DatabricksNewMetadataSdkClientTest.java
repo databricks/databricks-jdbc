@@ -349,12 +349,4 @@ public class DatabricksNewMetadataSdkClientTest {
         DatabricksValidationException.class,
         () -> metadataClient.listFunctions(session, null, TEST_SCHEMA, TEST_TABLE));
   }
-
-  @Test
-  void testUnsupportedFunctions() {
-    DatabricksNewMetadataSdkClient metadataClient = new DatabricksNewMetadataSdkClient(mockClient);
-    assertThrows(
-        DatabricksSQLFeatureNotSupportedException.class,
-        () -> metadataClient.listTypeInfo(session));
-  }
 }

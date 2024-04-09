@@ -1,5 +1,7 @@
 package com.databricks.jdbc.client.impl.sdk;
 
+import static com.databricks.jdbc.client.impl.sdk.ResultConstants.TYPE_INFO_RESULT;
+
 import com.databricks.jdbc.client.DatabricksMetadataClient;
 import com.databricks.jdbc.client.StatementType;
 import com.databricks.jdbc.commons.util.WildcardUtil;
@@ -32,7 +34,7 @@ public class DatabricksMetadataSdkClient implements DatabricksMetadataClient {
 
   @Override
   public DatabricksResultSet listTypeInfo(IDatabricksSession session) {
-    return null;
+    return TYPE_INFO_RESULT;
   }
 
   @Override

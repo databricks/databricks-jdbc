@@ -42,6 +42,8 @@ public class MetadataResultConstants {
       new ResultColumn("BUFFER_LENGTH", "bufferLength", Types.INTEGER);
   private static final ResultColumn COLUMN_SIZE_COLUMN =
       new ResultColumn("COLUMN_SIZE", "columnType", Types.INTEGER);
+  private static final ResultColumn PRECISION_COLUMN =
+      new ResultColumn("PRECISION", "precision", Types.INTEGER);
   private static final ResultColumn COLUMN_DEF_COLUMN =
       new ResultColumn("COLUMN_DEF", "columnType", Types.VARCHAR);
   private static final ResultColumn DECIMAL_DIGITS_COLUMN =
@@ -68,6 +70,14 @@ public class MetadataResultConstants {
       new ResultColumn("IS_NULLABLE", "isNullable", Types.INTEGER);
   private static final ResultColumn SQL_DATA_TYPE_COLUMN =
       new ResultColumn("SQL_DATA_TYPE", "SQLDataType", Types.SMALLINT);
+  private static final ResultColumn DATA_TYPE_COLUMN =
+      new ResultColumn("DATA_TYPE", "dataType", Types.INTEGER);
+  private static final ResultColumn LITERAL_PREFIX_COLUMN =
+      new ResultColumn("LITERAL_PREFIX", "literalPrefix", Types.VARCHAR);
+  private static final ResultColumn LITERAL_SUFFIX_COLUMN =
+      new ResultColumn("LITERAL_SUFFIX", "literalSuffix", Types.VARCHAR);
+  private static final ResultColumn CREATE_PARAMS_COLUMN =
+      new ResultColumn("CREATE_PARAMS", "createParams", Types.VARCHAR);
   private static final ResultColumn SQL_DATETIME_SUB_COLUMN =
       new ResultColumn("SQL_DATETIME_SUB", "SQLDateTimeSub", Types.SMALLINT);
   private static final ResultColumn CHAR_OCTET_LENGTH_COLUMN =
@@ -82,6 +92,23 @@ public class MetadataResultConstants {
       new ResultColumn("IS_AUTOINCREMENT", "isAutoIncrement", Types.INTEGER);
   private static final ResultColumn IS_GENERATED_COLUMN =
       new ResultColumn("IS_GENERATEDCOLUMN", "isGenerated", Types.VARCHAR);
+  private static final ResultColumn CASE_SENSITIVE_COLUMN =
+      new ResultColumn("CASE_SENSITIVE", "caseSensitive", Types.BIT);
+  private static final ResultColumn SEARCHABLE_COLUMN =
+      new ResultColumn("SEARCHABLE", "searchable", Types.SMALLINT);
+  private static final ResultColumn UNSIGNED_ATTRIBUTE_COLUMN =
+      new ResultColumn("UNSIGNED_ATTRIBUTE", "unsignedAttribute", Types.BIT);
+  private static final ResultColumn FIXED_PREC_SCALE_COLUMN =
+      new ResultColumn("FIXED_PREC_SCALE", "fixedPrecScale", Types.BIT);
+
+  private static final ResultColumn AUTO_INCREMENT_COLUMN =
+      new ResultColumn("AUTO_INCREMENT", "autoIncrement", Types.BIT);
+  private static final ResultColumn LOCAL_TYPE_NAME_COLUMN =
+      new ResultColumn("LOCAL_TYPE_NAME", "localTypeName", Types.VARCHAR);
+  private static final ResultColumn MINIMUM_SCALE_COLUMN =
+      new ResultColumn("MINIMUM_SCALE", "minimumScale", Types.SMALLINT);
+  private static final ResultColumn MAXIMUM_SCALE_COLUMN =
+      new ResultColumn("MAXIMUM_SCALE", "maximumScale", Types.SMALLINT);
   public static List<ResultColumn> FUNCTION_COLUMNS =
       List.of(
           FUNCTION_CATALOG_COLUMN,
@@ -178,4 +205,25 @@ public class MetadataResultConstants {
           USER_DATA_TYPE_COLUMN,
           IS_GENERATED_COLUMN);
   public static String NULL_STRING = "null";
+
+  public static List<ResultColumn> TYPE_INFO_COLUMNS =
+      List.of(
+          TYPE_NAME_COLUMN,
+          DATA_TYPE_COLUMN,
+          PRECISION_COLUMN,
+          LITERAL_PREFIX_COLUMN,
+          LITERAL_SUFFIX_COLUMN,
+          CREATE_PARAMS_COLUMN,
+          NULLABLE_COLUMN,
+          CASE_SENSITIVE_COLUMN,
+          SEARCHABLE_COLUMN,
+          UNSIGNED_ATTRIBUTE_COLUMN,
+          FIXED_PREC_SCALE_COLUMN,
+          AUTO_INCREMENT_COLUMN,
+          LOCAL_TYPE_NAME_COLUMN,
+          MINIMUM_SCALE_COLUMN,
+          MAXIMUM_SCALE_COLUMN,
+          SQL_DATA_TYPE_COLUMN,
+          SQL_DATETIME_SUB_COLUMN,
+          NUM_PREC_RADIX_COLUMN);
 }

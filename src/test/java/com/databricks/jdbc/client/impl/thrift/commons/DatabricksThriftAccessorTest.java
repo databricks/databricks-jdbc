@@ -183,13 +183,4 @@ public class DatabricksThriftAccessorTest {
         DatabricksSQLException.class,
         () -> accessor.getThriftResponse(request, CommandName.LIST_TABLES, null));
   }
-
-  @Test
-  void testAccessorThrowsErrorOnInvalidCommand() {
-    accessor = new DatabricksThriftAccessor(thriftClient);
-    TGetTableTypesReq request = new TGetTableTypesReq();
-    assertThrows(
-        DatabricksSQLException.class,
-        () -> accessor.getThriftResponse(request, CommandName.LIST_TABLE_TYPES, null));
-  }
 }

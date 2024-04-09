@@ -87,10 +87,6 @@ public class DatabricksThriftServiceClientTest {
   void testUnsupportedFunctions() {
     DatabricksThriftServiceClient client = new DatabricksThriftServiceClient(thriftAccessor);
     assertThrows(
-        DatabricksSQLFeatureNotSupportedException.class, () -> client.listTypeInfo(session));
-    assertThrows(
-        DatabricksSQLFeatureNotSupportedException.class, () -> client.listTableTypes(session));
-    assertThrows(
         DatabricksSQLFeatureNotImplementedException.class,
         () -> client.closeStatement(TEST_STRING));
     assertThrows(
@@ -112,6 +108,40 @@ public class DatabricksThriftServiceClientTest {
     when(thriftAccessor.getThriftResponse(request, CommandName.LIST_CATALOGS, null))
         .thenReturn(response);
     DatabricksResultSet resultSet = client.listCatalogs(session);
+    assertEquals(resultSet.getStatementStatus().getState(), StatementState.SUCCEEDED);
+  }
+
+  @Test
+  void testListTableTypes() throws SQLException {
+    DatabricksThriftServiceClient client = new DatabricksThriftServiceClient(thriftAccessor);
+    when(session.getSessionInfo()).thenReturn(SESSION_INFO);
+    TGetTableTypesReq request = new TGetTableTypesReq().setSessionHandle(SESSION_HANDLE);
+    TFetchResultsResp response =
+        new TFetchResultsResp()
+            .setStatus(new TStatus().setStatusCode(TStatusCode.SUCCESS_STATUS))
+            .setResults(resultData)
+            .setResultSetMetadata(resultMetadataData);
+    when(resultData.getColumns()).thenReturn(Collections.singletonList(new TColumn()));
+    when(thriftAccessor.getThriftResponse(request, CommandName.LIST_TABLE_TYPES, null))
+        .thenReturn(response);
+    DatabricksResultSet resultSet = client.listTableTypes(session);
+    assertEquals(resultSet.getStatementStatus().getState(), StatementState.SUCCEEDED);
+  }
+
+  @Test
+  void testListTypeInfo() throws SQLException {
+    DatabricksThriftServiceClient client = new DatabricksThriftServiceClient(thriftAccessor);
+    when(session.getSessionInfo()).thenReturn(SESSION_INFO);
+    TGetTypeInfoReq request = new TGetTypeInfoReq().setSessionHandle(SESSION_HANDLE);
+    TFetchResultsResp response =
+        new TFetchResultsResp()
+            .setStatus(new TStatus().setStatusCode(TStatusCode.SUCCESS_STATUS))
+            .setResults(resultData)
+            .setResultSetMetadata(resultMetadataData);
+    when(resultData.getColumns()).thenReturn(Collections.singletonList(new TColumn()));
+    when(thriftAccessor.getThriftResponse(request, CommandName.LIST_TYPE_INFO, null))
+        .thenReturn(response);
+    DatabricksResultSet resultSet = client.listTypeInfo(session);
     assertEquals(resultSet.getStatementStatus().getState(), StatementState.SUCCEEDED);
   }
 
