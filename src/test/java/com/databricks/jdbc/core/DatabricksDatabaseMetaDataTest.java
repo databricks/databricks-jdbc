@@ -39,6 +39,8 @@ public class DatabricksDatabaseMetaDataTest {
     when(metadataClient.listSchemas(any(), any(), any()))
         .thenReturn(Mockito.mock(DatabricksResultSet.class));
     when(metadataClient.listCatalogs(any())).thenReturn(Mockito.mock(DatabricksResultSet.class));
+    when(metadataClient.listTableTypes(any())).thenReturn(Mockito.mock(DatabricksResultSet.class));
+    when(metadataClient.listTypeInfo(any())).thenReturn(Mockito.mock(DatabricksResultSet.class));
     when(metadataClient.listFunctions(any(), any(), any(), any()))
         .thenReturn(Mockito.mock(DatabricksResultSet.class));
     when(metadataClient.listColumns(any(), any(), any(), any(), any()))
@@ -676,6 +678,24 @@ public class DatabricksDatabaseMetaDataTest {
   @Test
   public void testGetCatalogs() throws SQLException {
     ResultSet resultSet = metaData.getCatalogs();
+    assertNotNull(resultSet);
+  }
+
+  @Test
+  public void testTableTypes() throws SQLException {
+    ResultSet resultSet = metaData.getTableTypes();
+    assertNotNull(resultSet);
+  }
+
+  @Test
+  public void testGetSchemasWithoutInput() throws SQLException {
+    ResultSet resultSet = metaData.getSchemas();
+    assertNotNull(resultSet);
+  }
+
+  @Test
+  public void testTypeInfo() throws SQLException {
+    ResultSet resultSet = metaData.getTypeInfo();
     assertNotNull(resultSet);
   }
 
