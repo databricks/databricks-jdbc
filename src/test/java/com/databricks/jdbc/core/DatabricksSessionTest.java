@@ -6,6 +6,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 
+import com.databricks.jdbc.client.impl.sdk.DatabricksMetadataSdkClient;
 import com.databricks.jdbc.client.impl.sdk.DatabricksSdkClient;
 import com.databricks.jdbc.client.impl.thrift.DatabricksThriftServiceClient;
 import com.databricks.jdbc.client.impl.thrift.generated.*;
@@ -62,6 +63,7 @@ public class DatabricksSessionTest {
     session.open();
     assertTrue(session.isOpen());
     assertEquals(SESSION_ID, session.getSessionId());
+    assertTrue(session.getDatabricksMetadataClient() instanceof DatabricksMetadataSdkClient);
     assertEquals(WAREHOUSE_COMPUTE, session.getComputeResource());
     session.close();
     assertFalse(session.isOpen());
@@ -77,6 +79,7 @@ public class DatabricksSessionTest {
     assertTrue(session.isOpen());
     assertEquals(SESSION_ID, session.getSessionId());
     assertEquals(tSessionHandle, session.getSessionInfo().sessionHandle());
+    assertEquals(thriftClient, session.getDatabricksMetadataClient());
     session.close();
     assertFalse(session.isOpen());
     assertNull(session.getSessionId());

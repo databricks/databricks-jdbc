@@ -233,7 +233,7 @@ public class DatabricksThriftAccessor {
         response.getOperationHandle(),
         response.toString(),
         DEFAULT_ROW_LIMIT,
-        false);
+        true);
   }
 
   private TFetchResultsResp listColumns(TGetColumnsReq request)

@@ -139,7 +139,7 @@ public class DatabricksThriftServiceClientTest {
             .setStatus(new TStatus().setStatusCode(TStatusCode.SUCCESS_STATUS))
             .setResults(resultData)
             .setResultSetMetadata(resultMetadataData);
-    when(resultData.getColumns()).thenReturn(Collections.singletonList(new TColumn()));
+    when(resultData.getColumns()).thenReturn(Collections.emptyList());
     when(thriftAccessor.getThriftResponse(request, CommandName.LIST_TYPE_INFO, null))
         .thenReturn(response);
     DatabricksResultSet resultSet = client.listTypeInfo(session);
