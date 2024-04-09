@@ -206,7 +206,8 @@ public class DatabricksNewMetadataSdkClientTest {
       when(mockedResultSet.getObject(resultColumn.getResultSetColumnName()))
           .thenReturn(TEST_COLUMN);
     }
-    DatabricksResultSet actualResult = metadataClient.listTables(session, catalog, schema, table);
+    DatabricksResultSet actualResult =
+        metadataClient.listTables(session, catalog, schema, table, null);
 
     assertEquals(
         actualResult.getStatementStatus().getState(), StatementState.SUCCEEDED, description);
@@ -338,7 +339,7 @@ public class DatabricksNewMetadataSdkClientTest {
         () -> metadataClient.listColumns(session, null, TEST_SCHEMA, TEST_TABLE, TEST_COLUMN));
     assertThrows(
         DatabricksValidationException.class,
-        () -> metadataClient.listTables(session, null, TEST_SCHEMA, TEST_TABLE));
+        () -> metadataClient.listTables(session, null, TEST_SCHEMA, TEST_TABLE, null));
     assertThrows(
         DatabricksValidationException.class,
         () -> metadataClient.listSchemas(session, null, TEST_SCHEMA));

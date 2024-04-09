@@ -32,7 +32,7 @@ public class DatabricksDatabaseMetaDataTest {
     metaData = new DatabricksDatabaseMetaData(connection);
     metadataClient = Mockito.mock(DatabricksMetadataClient.class);
     when(session.getDatabricksMetadataClient()).thenReturn(metadataClient);
-    when(metadataClient.listTables(any(), any(), any(), any()))
+    when(metadataClient.listTables(any(), any(), any(), any(), any()))
         .thenReturn(Mockito.mock(DatabricksResultSet.class));
     when(metadataClient.listPrimaryKeys(any(), any(), any(), any()))
         .thenReturn(Mockito.mock(DatabricksResultSet.class));

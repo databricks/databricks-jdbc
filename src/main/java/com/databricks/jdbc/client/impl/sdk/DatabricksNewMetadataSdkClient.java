@@ -56,7 +56,11 @@ public class DatabricksNewMetadataSdkClient implements DatabricksMetadataClient 
 
   @Override
   public DatabricksResultSet listTables(
-      IDatabricksSession session, String catalog, String schemaNamePattern, String tableNamePattern)
+      IDatabricksSession session,
+      String catalog,
+      String schemaNamePattern,
+      String tableNamePattern,
+      String[] tableTypes)
       throws SQLException {
     CommandBuilder commandBuilder =
         new CommandBuilder(catalog, session)

@@ -17,6 +17,7 @@ import com.databricks.jdbc.core.types.ComputeResource;
 import com.databricks.jdbc.driver.IDatabricksConnectionContext;
 import com.google.common.annotations.VisibleForTesting;
 import java.sql.SQLException;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Map;
 import org.slf4j.Logger;
@@ -185,8 +186,11 @@ public class DatabricksThriftServiceClient implements DatabricksClient, Databric
 
   @Override
   public DatabricksResultSet listTables(
-      // TODO : implement
-      IDatabricksSession session, String catalog, String schemaNamePattern, String tableNamePattern)
+      IDatabricksSession session,
+      String catalog,
+      String schemaNamePattern,
+      String tableNamePattern,
+      String[] tableTypes)
       throws SQLException {
     String context =
         String.format(
@@ -198,7 +202,8 @@ public class DatabricksThriftServiceClient implements DatabricksClient, Databric
             .setSessionHandle(session.getSessionInfo().sessionHandle())
             .setCatalogName(catalog)
             .setSchemaName(schemaNamePattern)
-            .setTableName(tableNamePattern);
+            .setTableName(tableNamePattern)
+            .setTableTypes(Arrays.asList(tableTypes));
     TFetchResultsResp response =
         (TFetchResultsResp)
             thriftAccessor.getThriftResponse(request, CommandName.LIST_TABLES, null);

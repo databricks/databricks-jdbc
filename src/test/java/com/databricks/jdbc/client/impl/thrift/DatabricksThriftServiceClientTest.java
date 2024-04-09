@@ -15,6 +15,7 @@ import com.databricks.jdbc.commons.CommandName;
 import com.databricks.jdbc.core.*;
 import com.databricks.sdk.service.sql.StatementState;
 import java.sql.SQLException;
+import java.util.Arrays;
 import java.util.Collections;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -170,12 +171,14 @@ public class DatabricksThriftServiceClientTest {
   void testListTables() throws SQLException {
     DatabricksThriftServiceClient client = new DatabricksThriftServiceClient(thriftAccessor);
     when(session.getSessionInfo()).thenReturn(SESSION_INFO);
+    String[] tableTypes = {"testTableType"};
     TGetTablesReq request =
         new TGetTablesReq()
             .setSessionHandle(SESSION_HANDLE)
             .setCatalogName(TEST_CATALOG)
             .setSchemaName(TEST_SCHEMA)
-            .setTableName(TEST_TABLE);
+            .setTableName(TEST_TABLE)
+            .setTableTypes(Arrays.asList(tableTypes));
     TFetchResultsResp response =
         new TFetchResultsResp()
             .setStatus(new TStatus().setStatusCode(TStatusCode.SUCCESS_STATUS))
@@ -185,7 +188,7 @@ public class DatabricksThriftServiceClientTest {
     when(thriftAccessor.getThriftResponse(request, CommandName.LIST_TABLES, null))
         .thenReturn(response);
     DatabricksResultSet resultSet =
-        client.listTables(session, TEST_CATALOG, TEST_SCHEMA, TEST_TABLE);
+        client.listTables(session, TEST_CATALOG, TEST_SCHEMA, TEST_TABLE, tableTypes);
     assertEquals(resultSet.getStatementStatus().getState(), StatementState.SUCCEEDED);
   }
 

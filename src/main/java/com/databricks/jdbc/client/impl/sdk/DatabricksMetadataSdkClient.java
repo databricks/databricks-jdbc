@@ -136,7 +136,11 @@ public class DatabricksMetadataSdkClient implements DatabricksMetadataClient {
 
   @Override
   public DatabricksResultSet listTables(
-      IDatabricksSession session, String catalog, String schemaNamePattern, String tableNamePattern)
+      IDatabricksSession session,
+      String catalog,
+      String schemaNamePattern,
+      String tableNamePattern,
+      String[] tableTypes)
       throws SQLException {
 
     Queue<Map.Entry<String, String>> catalogSchemaPairs = new ConcurrentLinkedQueue<>();
@@ -250,7 +254,7 @@ public class DatabricksMetadataSdkClient implements DatabricksMetadataClient {
       String tableNamePattern,
       String columnNamePattern)
       throws SQLException {
-    ResultSet resultSet = listTables(session, catalog, schemaNamePattern, tableNamePattern);
+    ResultSet resultSet = listTables(session, catalog, schemaNamePattern, tableNamePattern, null);
     Queue<String[]> catalogSchemaTableCombinations = new ConcurrentLinkedQueue<>();
     while (resultSet.next()) {
       catalogSchemaTableCombinations.add(
