@@ -38,7 +38,7 @@ public class DriverTester {
     System.out.println("Connection established......");
     Statement statement = con.createStatement();
     statement.setMaxRows(10);
-    ResultSet rs = statement.executeQuery("select * from samples.tpch.lineitem limit 10");
+    ResultSet rs = statement.executeQuery("select * from RANGE(37500000)");
     printResultSet(rs);
     rs.close();
     statement.close();
@@ -56,7 +56,7 @@ public class DriverTester {
         DriverManager.getConnection(
             jdbcUrl, "samikshya.chand@databricks.com", "dapi59b6dc8d33b42fb4cb4b550c87ae7977");
     Statement s = con.createStatement();
-    ResultSet rs = s.executeQuery("SELECT reflect('java.lang.Thread', 'sleep', 1000L)");
+    ResultSet rs = s.executeQuery("SELECT * from range(37500000)");
     con.close();
   }
 
@@ -96,7 +96,7 @@ public class DriverTester {
     // Getting the connection
     String jdbcUrl =
         "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/5c89f447c476a5a8;";
-    Connection con = DriverManager.getConnection(jdbcUrl, "samikshya.chand@databricks.com", "xx");
+    Connection con = DriverManager.getConnection(jdbcUrl, "samikshya.chand@databricks.com", "dapi59b6dc8d33b42fb4cb4b550c87ae7977");
     System.out.println("Connection established......");
     // Retrieving the meta data object
     Statement statement = con.createStatement();
