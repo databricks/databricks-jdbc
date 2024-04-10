@@ -2,7 +2,6 @@ package com.databricks.jdbc.client.impl.thrift;
 
 import static com.databricks.jdbc.client.impl.thrift.commons.DatabricksThriftHelper.byteBufferToString;
 import static com.databricks.jdbc.client.impl.thrift.commons.DatabricksThriftHelper.verifySuccessStatus;
-import static com.databricks.jdbc.commons.EnvironmentVariables.DEFAULT_BYTE_LIMIT;
 import static com.databricks.jdbc.commons.EnvironmentVariables.JDBC_THRIFT_VERSION;
 
 import com.databricks.jdbc.client.DatabricksClient;
@@ -106,8 +105,7 @@ public class DatabricksThriftClient implements DatabricksClient, DatabricksMetad
     TExecuteStatementReq request =
         new TExecuteStatementReq()
             .setStatement(sql)
-            .setSessionHandle(session.getSessionInfo().sessionHandle())
-            .setResultByteLimit(DEFAULT_BYTE_LIMIT);
+            .setSessionHandle(session.getSessionInfo().sessionHandle());
     TFetchResultsResp response =
         (TFetchResultsResp)
             thriftAccessor.getThriftResponse(

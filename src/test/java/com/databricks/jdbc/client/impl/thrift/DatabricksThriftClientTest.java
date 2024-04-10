@@ -2,7 +2,6 @@ package com.databricks.jdbc.client.impl.thrift;
 
 import static com.databricks.jdbc.TestConstants.*;
 import static com.databricks.jdbc.client.impl.thrift.commons.DatabricksThriftHelper.getNamespace;
-import static com.databricks.jdbc.commons.EnvironmentVariables.DEFAULT_BYTE_LIMIT;
 import static com.databricks.jdbc.driver.DatabricksJdbcConstants.CATALOG;
 import static com.databricks.jdbc.driver.DatabricksJdbcConstants.SCHEMA;
 import static org.junit.jupiter.api.Assertions.*;
@@ -66,10 +65,7 @@ public class DatabricksThriftClientTest {
     DatabricksThriftClient client = new DatabricksThriftClient(thriftAccessor);
     when(session.getSessionInfo()).thenReturn(SESSION_INFO);
     TExecuteStatementReq executeStatementReq =
-        new TExecuteStatementReq()
-            .setStatement(TEST_STRING)
-            .setSessionHandle(SESSION_HANDLE)
-            .setResultByteLimit(DEFAULT_BYTE_LIMIT);
+        new TExecuteStatementReq().setStatement(TEST_STRING).setSessionHandle(SESSION_HANDLE);
     TFetchResultsResp fetchResultsResp =
         new TFetchResultsResp()
             .setStatus(new TStatus().setStatusCode(TStatusCode.SUCCESS_STATUS))
