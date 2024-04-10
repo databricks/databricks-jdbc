@@ -54,7 +54,7 @@ public class DriverTester {
         "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/791ba2a31c7fd70a;";
     Connection con =
         DriverManager.getConnection(
-            jdbcUrl, "samikshya.chand@databricks.com", "dapi59b6dc8d33b42fb4cb4b550c87ae7977");
+            jdbcUrl, "samikshya.chand@databricks.com", "xx");
     Statement s = con.createStatement();
     ResultSet rs = s.executeQuery("SELECT * from range(37500000)");
     con.close();
