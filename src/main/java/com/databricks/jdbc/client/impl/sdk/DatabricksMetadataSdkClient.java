@@ -1,5 +1,7 @@
 package com.databricks.jdbc.client.impl.sdk;
 
+import static com.databricks.jdbc.client.impl.sdk.ResultConstants.TYPE_INFO_RESULT;
+
 import com.databricks.jdbc.client.DatabricksMetadataClient;
 import com.databricks.jdbc.client.StatementType;
 import com.databricks.jdbc.commons.util.WildcardUtil;
@@ -32,7 +34,7 @@ public class DatabricksMetadataSdkClient implements DatabricksMetadataClient {
 
   @Override
   public DatabricksResultSet listTypeInfo(IDatabricksSession session) {
-    return null;
+    return TYPE_INFO_RESULT;
   }
 
   @Override
@@ -134,7 +136,11 @@ public class DatabricksMetadataSdkClient implements DatabricksMetadataClient {
 
   @Override
   public DatabricksResultSet listTables(
-      IDatabricksSession session, String catalog, String schemaNamePattern, String tableNamePattern)
+      IDatabricksSession session,
+      String catalog,
+      String schemaNamePattern,
+      String tableNamePattern,
+      String[] tableTypes)
       throws SQLException {
 
     Queue<Map.Entry<String, String>> catalogSchemaPairs = new ConcurrentLinkedQueue<>();
@@ -248,7 +254,7 @@ public class DatabricksMetadataSdkClient implements DatabricksMetadataClient {
       String tableNamePattern,
       String columnNamePattern)
       throws SQLException {
-    ResultSet resultSet = listTables(session, catalog, schemaNamePattern, tableNamePattern);
+    ResultSet resultSet = listTables(session, catalog, schemaNamePattern, tableNamePattern, null);
     Queue<String[]> catalogSchemaTableCombinations = new ConcurrentLinkedQueue<>();
     while (resultSet.next()) {
       catalogSchemaTableCombinations.add(

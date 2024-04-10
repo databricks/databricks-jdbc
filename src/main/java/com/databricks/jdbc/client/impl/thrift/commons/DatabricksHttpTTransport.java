@@ -3,6 +3,7 @@ package com.databricks.jdbc.client.impl.thrift.commons;
 import com.databricks.jdbc.client.DatabricksHttpException;
 import com.databricks.jdbc.client.http.DatabricksHttpClient;
 import com.databricks.jdbc.commons.util.ValidationUtil;
+import com.google.common.annotations.VisibleForTesting;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -65,6 +66,21 @@ public class DatabricksHttpTTransport extends TTransport {
     } else {
       customHeaders = Collections.emptyMap();
     }
+  }
+
+  @VisibleForTesting
+  Map<String, String> getCustomHeaders() {
+    return customHeaders;
+  }
+
+  @VisibleForTesting
+  InputStream getInputStream() {
+    return inputStream;
+  }
+
+  @VisibleForTesting
+  void setInputStream(InputStream inputStream) {
+    this.inputStream = inputStream;
   }
 
   @Override

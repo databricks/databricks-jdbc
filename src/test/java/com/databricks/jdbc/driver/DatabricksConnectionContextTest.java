@@ -182,6 +182,16 @@ class DatabricksConnectionContextTest {
   }
 
   @Test
+  public void testEndpointURL() throws DatabricksSQLException {
+    DatabricksConnectionContext connectionContext =
+        (DatabricksConnectionContext)
+            DatabricksConnectionContext.parse(VALID_CLUSTER_URL, properties);
+    assertEquals(
+        "https://e2-dogfood.staging.cloud.databricks.com:443/sql/protocolv1/o/6051921418418893/1115-130834-ms4m0yv",
+        connectionContext.getEndpointURL());
+  }
+
+  @Test
   public void testFetchCatalog() throws DatabricksSQLException {
     DatabricksConnectionContext connectionContext =
         (DatabricksConnectionContext) DatabricksConnectionContext.parse(VALID_URL_5, properties);

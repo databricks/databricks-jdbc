@@ -32,13 +32,15 @@ public class DatabricksDatabaseMetaDataTest {
     metaData = new DatabricksDatabaseMetaData(connection);
     metadataClient = Mockito.mock(DatabricksMetadataClient.class);
     when(session.getDatabricksMetadataClient()).thenReturn(metadataClient);
-    when(metadataClient.listTables(any(), any(), any(), any()))
+    when(metadataClient.listTables(any(), any(), any(), any(), any()))
         .thenReturn(Mockito.mock(DatabricksResultSet.class));
     when(metadataClient.listPrimaryKeys(any(), any(), any(), any()))
         .thenReturn(Mockito.mock(DatabricksResultSet.class));
     when(metadataClient.listSchemas(any(), any(), any()))
         .thenReturn(Mockito.mock(DatabricksResultSet.class));
     when(metadataClient.listCatalogs(any())).thenReturn(Mockito.mock(DatabricksResultSet.class));
+    when(metadataClient.listTableTypes(any())).thenReturn(Mockito.mock(DatabricksResultSet.class));
+    when(metadataClient.listTypeInfo(any())).thenReturn(Mockito.mock(DatabricksResultSet.class));
     when(metadataClient.listFunctions(any(), any(), any(), any()))
         .thenReturn(Mockito.mock(DatabricksResultSet.class));
     when(metadataClient.listColumns(any(), any(), any(), any(), any()))
@@ -638,20 +640,8 @@ public class DatabricksDatabaseMetaDataTest {
   }
 
   @Test
-  public void testGetTypeInfo() throws SQLException {
-    ResultSet resultSet = metaData.getTypeInfo();
-    assertNotNull(resultSet);
-  }
-
-  @Test
   public void testGetProcedures() throws SQLException {
     ResultSet resultSet = metaData.getProcedures(null, null, null);
-    assertNotNull(resultSet);
-  }
-
-  @Test
-  public void testGetTableTypes() throws SQLException {
-    ResultSet resultSet = metaData.getTableTypes();
     assertNotNull(resultSet);
   }
 
@@ -688,6 +678,24 @@ public class DatabricksDatabaseMetaDataTest {
   @Test
   public void testGetCatalogs() throws SQLException {
     ResultSet resultSet = metaData.getCatalogs();
+    assertNotNull(resultSet);
+  }
+
+  @Test
+  public void testTableTypes() throws SQLException {
+    ResultSet resultSet = metaData.getTableTypes();
+    assertNotNull(resultSet);
+  }
+
+  @Test
+  public void testGetSchemasWithoutInput() throws SQLException {
+    ResultSet resultSet = metaData.getSchemas();
+    assertNotNull(resultSet);
+  }
+
+  @Test
+  public void testTypeInfo() throws SQLException {
+    ResultSet resultSet = metaData.getTypeInfo();
     assertNotNull(resultSet);
   }
 

@@ -3,8 +3,7 @@ package com.databricks.jdbc.client.impl;
 import static com.databricks.jdbc.TestConstants.*;
 import static com.databricks.jdbc.client.impl.helper.CommandConstants.*;
 import static com.databricks.jdbc.client.impl.helper.MetadataResultConstants.*;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.when;
 
 import com.databricks.jdbc.client.StatementType;
@@ -206,7 +205,8 @@ public class DatabricksNewMetadataSdkClientTest {
       when(mockedResultSet.getObject(resultColumn.getResultSetColumnName()))
           .thenReturn(TEST_COLUMN);
     }
-    DatabricksResultSet actualResult = metadataClient.listTables(session, catalog, schema, table);
+    DatabricksResultSet actualResult =
+        metadataClient.listTables(session, catalog, schema, table, null);
 
     assertEquals(
         actualResult.getStatementStatus().getState(), StatementState.SUCCEEDED, description);
@@ -338,7 +338,7 @@ public class DatabricksNewMetadataSdkClientTest {
         () -> metadataClient.listColumns(session, null, TEST_SCHEMA, TEST_TABLE, TEST_COLUMN));
     assertThrows(
         DatabricksValidationException.class,
-        () -> metadataClient.listTables(session, null, TEST_SCHEMA, TEST_TABLE));
+        () -> metadataClient.listTables(session, null, TEST_SCHEMA, TEST_TABLE, null));
     assertThrows(
         DatabricksValidationException.class,
         () -> metadataClient.listSchemas(session, null, TEST_SCHEMA));
@@ -348,5 +348,11 @@ public class DatabricksNewMetadataSdkClientTest {
     assertThrows(
         DatabricksValidationException.class,
         () -> metadataClient.listFunctions(session, null, TEST_SCHEMA, TEST_TABLE));
+  }
+
+  @Test
+  void testListTypeInfo() {
+    DatabricksNewMetadataSdkClient metadataClient = new DatabricksNewMetadataSdkClient(mockClient);
+    assertNotNull(metadataClient.listTypeInfo(session));
   }
 }

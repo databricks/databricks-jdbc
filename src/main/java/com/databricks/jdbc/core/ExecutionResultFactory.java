@@ -25,8 +25,7 @@ class ExecutionResultFactory {
     }
   }
 
-  static IExecutionResult getResultSet(
-      TRowSet data, TGetResultSetMetadataResp manifest, IDatabricksSession session) {
+  static IExecutionResult getResultSet(TRowSet data, TGetResultSetMetadataResp manifest) {
     return new InlineJsonResult(manifest, data);
   }
 

@@ -4,6 +4,7 @@ public class CommandConstants {
   public static final String METADATA_STATEMENT_ID = "metadata-statement";
   public static final String GET_TABLES_STATEMENT_ID = "gettables-metadata";
   public static final String GET_CATALOGS_STATEMENT_ID = "getcatalogs-metadata";
+  public static final String GET_TYPE_INFO_STATEMENT_ID = "typeinfo-metadata";
   public static final String GET_TABLE_TYPE_STATEMENT_ID = "gettabletype-metadata";
   public static final String GET_FUNCTIONS_STATEMENT_ID = "getfunctions-metadata";
   public static final String SHOW_CATALOGS_SQL = "SHOW CATALOGS";

@@ -1,5 +1,7 @@
 package com.databricks.jdbc.client.impl.sdk;
 
+import static com.databricks.jdbc.client.impl.sdk.ResultConstants.TYPE_INFO_RESULT;
+
 import com.databricks.jdbc.client.DatabricksMetadataClient;
 import com.databricks.jdbc.client.StatementType;
 import com.databricks.jdbc.client.impl.helper.CommandBuilder;
@@ -30,9 +32,8 @@ public class DatabricksNewMetadataSdkClient implements DatabricksMetadataClient 
 
   @Override
   public DatabricksResultSet listTypeInfo(IDatabricksSession session) {
-    // Todo : need to add hardcoded values here.
-    throw new UnsupportedOperationException(
-        "Not implemented in DatabricksMetadataSdkClient - listTypeInfo");
+    LOGGER.debug("public ResultSet getTypeInfo()");
+    return TYPE_INFO_RESULT;
   }
 
   @Override
@@ -55,7 +56,11 @@ public class DatabricksNewMetadataSdkClient implements DatabricksMetadataClient 
 
   @Override
   public DatabricksResultSet listTables(
-      IDatabricksSession session, String catalog, String schemaNamePattern, String tableNamePattern)
+      IDatabricksSession session,
+      String catalog,
+      String schemaNamePattern,
+      String tableNamePattern,
+      String[] tableTypes)
       throws SQLException {
     CommandBuilder commandBuilder =
         new CommandBuilder(catalog, session)

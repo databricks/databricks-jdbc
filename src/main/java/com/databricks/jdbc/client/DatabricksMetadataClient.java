@@ -36,7 +36,11 @@ public interface DatabricksMetadataClient {
    * @return a DatabricksResultSet representing list of tables
    */
   DatabricksResultSet listTables(
-      IDatabricksSession session, String catalog, String schemaNamePattern, String tableNamePattern)
+      IDatabricksSession session,
+      String catalog,
+      String schemaNamePattern,
+      String tableNamePattern,
+      String[] tableTypes)
       throws SQLException;
 
   /** Returns list of table types */

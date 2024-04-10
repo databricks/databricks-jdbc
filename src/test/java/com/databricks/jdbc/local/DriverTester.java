@@ -5,6 +5,7 @@ import org.junit.jupiter.api.Test;
 
 public class DriverTester {
   public void printResultSet(ResultSet resultSet) throws SQLException {
+    System.out.println("\n\nPrinting resultSet...........\n");
     ResultSetMetaData rsmd = resultSet.getMetaData();
     int columnsNumber = rsmd.getColumnCount();
     for (int i = 1; i <= columnsNumber; i++) System.out.print(rsmd.getColumnName(i) + "\t");
@@ -99,5 +100,19 @@ public class DriverTester {
     printResultSet(rs);
     con.close();
     System.out.println("Connection closed successfully......");
+  }
+
+  @Test
+  void testAllPurposeClustersMetadata() throws Exception {
+    DriverManager.registerDriver(new com.databricks.jdbc.driver.DatabricksDriver());
+    DriverManager.drivers().forEach(driver -> System.out.println(driver.getClass()));
+    String jdbcUrl =
+        "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=http;ssl=1;httpPath=sql/protocolv1/o/6051921418418893/1115-130834-ms4m0yv;AuthMech=3;UID=token;";
+    Connection con = DriverManager.getConnection(jdbcUrl, "samikshya.chand@databricks.com", "xx");
+    System.out.println("Connection established......");
+    ResultSet resultSet = con.getMetaData().getPrimaryKeys("main", "ggm_pk", "table_with_pk");
+    printResultSet(resultSet);
+    resultSet.close();
+    con.close();
   }
 }

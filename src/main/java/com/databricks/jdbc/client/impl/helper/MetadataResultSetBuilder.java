@@ -43,6 +43,14 @@ public class MetadataResultSetBuilder {
     return buildResultSet(TABLE_TYPE_COLUMNS, TABLE_TYPES_ROWS, GET_TABLE_TYPE_STATEMENT_ID);
   }
 
+  public static DatabricksResultSet getTableTypesResult(List<List<Object>> rows) {
+    return buildResultSet(TABLE_TYPE_COLUMNS, rows, GET_TABLE_TYPE_STATEMENT_ID);
+  }
+
+  public static DatabricksResultSet getTypeInfoResult(List<List<Object>> rows) {
+    return buildResultSet(TYPE_INFO_COLUMNS, rows, GET_TYPE_INFO_STATEMENT_ID);
+  }
+
   public static DatabricksResultSet getPrimaryKeysResult(ResultSet resultSet) throws SQLException {
     List<List<Object>> rows = getRows(resultSet, PRIMARY_KEYS_COLUMNS);
     return buildResultSet(PRIMARY_KEYS_COLUMNS, rows, METADATA_STATEMENT_ID);
@@ -76,5 +84,29 @@ public class MetadataResultSetBuilder {
         columns.stream().map(ResultColumn::getColumnPrecision).collect(Collectors.toList()),
         rows,
         StatementType.METADATA);
+  }
+
+  public static DatabricksResultSet getCatalogsResult(List<List<Object>> rows) {
+    return buildResultSet(CATALOG_COLUMNS, rows, GET_CATALOGS_STATEMENT_ID);
+  }
+
+  public static DatabricksResultSet getSchemasResult(List<List<Object>> rows) {
+    return buildResultSet(SCHEMA_COLUMNS, rows, METADATA_STATEMENT_ID);
+  }
+
+  public static DatabricksResultSet getTablesResult(List<List<Object>> rows) {
+    return buildResultSet(TABLE_COLUMNS_ALL_PURPOSE, rows, GET_TABLES_STATEMENT_ID);
+  }
+
+  public static DatabricksResultSet getColumnsResult(List<List<Object>> rows) {
+    return buildResultSet(COLUMN_COLUMNS_ALL_PURPOSE, rows, METADATA_STATEMENT_ID);
+  }
+
+  public static DatabricksResultSet getPrimaryKeysResult(List<List<Object>> rows) {
+    return buildResultSet(PRIMARY_KEYS_COLUMNS_ALL_PURPOSE, rows, METADATA_STATEMENT_ID);
+  }
+
+  public static DatabricksResultSet getFunctionsResult(List<List<Object>> rows) {
+    return buildResultSet(FUNCTION_COLUMNS_ALL_PURPOSE, rows, GET_FUNCTIONS_STATEMENT_ID);
   }
 }

@@ -87,7 +87,6 @@ public class DatabricksResultSet implements ResultSet, IDatabricksResultSet {
       TRowSet resultData,
       TGetResultSetMetadataResp resultManifest,
       StatementType statementType,
-      IDatabricksSession session,
       IDatabricksStatement parentStatement) {
     if (SUCCESS_STATUS_LIST.contains(statementStatus.getStatusCode())) {
       this.statementStatus = new StatementStatus().setState(StatementState.SUCCEEDED);
@@ -95,7 +94,7 @@ public class DatabricksResultSet implements ResultSet, IDatabricksResultSet {
       this.statementStatus = new StatementStatus().setState(StatementState.FAILED);
     }
     this.statementId = statementId;
-    this.executionResult = ExecutionResultFactory.getResultSet(resultData, resultManifest, session);
+    this.executionResult = ExecutionResultFactory.getResultSet(resultData, resultManifest);
     int rowSize = getRowCount(resultData);
     this.resultSetMetaData = new DatabricksResultSetMetaData(statementId, resultManifest, rowSize);
     this.statementType = statementType;

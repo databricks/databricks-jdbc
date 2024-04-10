@@ -6,8 +6,9 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 
+import com.databricks.jdbc.client.impl.sdk.DatabricksMetadataSdkClient;
 import com.databricks.jdbc.client.impl.sdk.DatabricksSdkClient;
-import com.databricks.jdbc.client.impl.thrift.DatabricksThriftClient;
+import com.databricks.jdbc.client.impl.thrift.DatabricksThriftServiceClient;
 import com.databricks.jdbc.client.impl.thrift.generated.*;
 import com.databricks.jdbc.driver.DatabricksConnectionContext;
 import com.databricks.jdbc.driver.IDatabricksConnectionContext;
@@ -20,7 +21,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 @ExtendWith(MockitoExtension.class)
 public class DatabricksSessionTest {
   @Mock DatabricksSdkClient sdkClient;
-  @Mock DatabricksThriftClient thriftClient;
+  @Mock DatabricksThriftServiceClient thriftClient;
   @Mock TSessionHandle tSessionHandle;
   private static final String JDBC_URL_INVALID =
       "jdbc:databricks://adb-565757575.18.azuredatabricks.net:4423/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehou/erg6767gg;";
@@ -62,6 +63,7 @@ public class DatabricksSessionTest {
     session.open();
     assertTrue(session.isOpen());
     assertEquals(SESSION_ID, session.getSessionId());
+    assertTrue(session.getDatabricksMetadataClient() instanceof DatabricksMetadataSdkClient);
     assertEquals(WAREHOUSE_COMPUTE, session.getComputeResource());
     session.close();
     assertFalse(session.isOpen());
@@ -77,6 +79,7 @@ public class DatabricksSessionTest {
     assertTrue(session.isOpen());
     assertEquals(SESSION_ID, session.getSessionId());
     assertEquals(tSessionHandle, session.getSessionInfo().sessionHandle());
+    assertEquals(thriftClient, session.getDatabricksMetadataClient());
     session.close();
     assertFalse(session.isOpen());
     assertNull(session.getSessionId());
