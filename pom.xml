@@ -206,6 +206,7 @@
             <excludes>
               <exclude>**/integration/**/*.java</exclude>
               <exclude>**/*MetadataBenchmarkingTest.java</exclude>
+              <exclude>**/*LargeQueriesBenchmarkingTest.java</exclude>
             </excludes>
             <argLine>
               @{argLine}
