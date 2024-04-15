@@ -12,5 +12,5 @@ public final class EnvironmentVariables {
       false; // By default, we should not process the sql
 
   public static final TProtocolVersion JDBC_THRIFT_VERSION =
-      TProtocolVersion.HIVE_CLI_SERVICE_PROTOCOL_V10;
+      TProtocolVersion.SPARK_CLI_SERVICE_PROTOCOL_V9;
 }
