@@ -4,6 +4,8 @@ import static com.databricks.jdbc.integration.IntegrationTestUtil.*;
 
 import java.sql.*;
 import java.time.LocalDateTime;
+import java.util.Arrays;
+import java.util.Enumeration;
 import java.util.Random;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -21,6 +23,9 @@ public class LargeQueriesBenchmarkingTest {
 
   private int ROWS = 1000000;
 
+  long timesForOSSDriver[] = new long[ATTEMPTS];
+  long timesForDatabricksDriver[] = new long[ATTEMPTS];
+
   long totalTimeForOSSDriver = 0;
   long totalTimeForDatabricksDriver = 0;
 
@@ -31,6 +36,7 @@ public class LargeQueriesBenchmarkingTest {
 
   @AfterEach
   void tearDown() throws SQLException {
+    DriverManager.registerDriver(new com.databricks.jdbc.driver.DatabricksDriver());
     insertBenchmarkingDataIntoBenchfood();
     connection.close();
   }
@@ -39,7 +45,7 @@ public class LargeQueriesBenchmarkingTest {
   void testLargeQueries() throws SQLException {
     // Currently connection is held by OSS driver
     long startTime = System.currentTimeMillis();
-    measureLargeQueriesPerformance();
+    measureLargeQueriesPerformance(1);
     long endTime = System.currentTimeMillis();
     System.out.println(
         "Time taken to execute large queries by OSS Driver: "
@@ -50,15 +56,30 @@ public class LargeQueriesBenchmarkingTest {
             + " rows and "
             + ATTEMPTS
             + " attempts");
-    totalTimeForOSSDriver = endTime - startTime;
+
+    System.out.println(
+        "Driver used : "
+            + connection.getMetaData().getDriverVersion()
+            + " "
+            + connection.getMetaData().getDriverName());
 
     connection.close();
 
-    DriverManager.deregisterDriver(new com.databricks.jdbc.driver.DatabricksDriver());
-    connection = getBenchmarkingJDBCConnection();
+    Enumeration<Driver> drivers = DriverManager.getDrivers();
+
+    while (drivers.hasMoreElements()) {
+      Driver driver = drivers.nextElement();
+      if (driver.getClass().getName().contains("DatabricksDriver")) {
+        DriverManager.deregisterDriver(driver);
+      }
+    }
+
+    connection =
+        DriverManager.getConnection(
+            getBenchmarkingJDBCUrl(), "token", getDatabricksBenchmarkingToken());
 
     startTime = System.currentTimeMillis();
-    measureLargeQueriesPerformance();
+    measureLargeQueriesPerformance(2);
     endTime = System.currentTimeMillis();
     System.out.println(
         "Time taken to execute large queries by Databricks Driver: "
@@ -69,18 +90,24 @@ public class LargeQueriesBenchmarkingTest {
             + " rows and "
             + ATTEMPTS
             + " attempts");
-    totalTimeForDatabricksDriver = endTime - startTime;
+
+    System.out.println(
+        "Driver used : "
+            + connection.getMetaData().getDriverVersion()
+            + " "
+            + connection.getMetaData().getDriverName());
 
     connection.close();
   }
 
-  void measureLargeQueriesPerformance() {
+  void measureLargeQueriesPerformance(int recording) {
     Random random = new Random();
     for (int i = 0; i < ATTEMPTS; i++) {
       System.out.println("Attempt: " + i);
       int offset =
-          i * 1000000 + random.nextInt(1000); // Randomization to avoid possible query caching
+          i * 1000000 + random.nextInt(1000000); // Randomization to avoid possible query caching
       try (Statement statement = connection.createStatement()) {
+        long startTime = System.currentTimeMillis();
         statement.executeQuery(
             "SELECT * FROM "
                 + SCHEMA_NAME
@@ -90,6 +117,12 @@ public class LargeQueriesBenchmarkingTest {
                 + ROWS
                 + " OFFSET "
                 + offset);
+        long endTime = System.currentTimeMillis();
+        if (recording == 1) {
+          timesForOSSDriver[i] = endTime - startTime;
+        } else {
+          timesForDatabricksDriver[i] = endTime - startTime;
+        }
       } catch (SQLException e) {
         e.printStackTrace();
       }
@@ -97,6 +130,16 @@ public class LargeQueriesBenchmarkingTest {
   }
 
   private void insertBenchmarkingDataIntoBenchfood() throws SQLException {
+
+    Arrays.sort(timesForOSSDriver);
+    Arrays.sort(timesForDatabricksDriver);
+
+    // Removing min and max times for better average calculation
+    for (int i = 1; i < ATTEMPTS - 1; i++) {
+      totalTimeForOSSDriver += timesForOSSDriver[i];
+      totalTimeForDatabricksDriver += timesForDatabricksDriver[i];
+    }
+
     connection = getBenchfoodJDBCConnection();
 
     String sql =
@@ -106,8 +149,8 @@ public class LargeQueriesBenchmarkingTest {
 
     try (PreparedStatement stmt = connection.prepareStatement(sql)) {
       stmt.setTimestamp(1, java.sql.Timestamp.valueOf(LocalDateTime.now()));
-      stmt.setDouble(2, ((totalTimeForOSSDriver * 1.0) / ATTEMPTS));
-      stmt.setDouble(3, ((totalTimeForDatabricksDriver * 1.0) / ATTEMPTS));
+      stmt.setDouble(2, ((totalTimeForOSSDriver * 1.0) / (ATTEMPTS - 2)));
+      stmt.setDouble(3, ((totalTimeForDatabricksDriver * 1.0) / (ATTEMPTS - 2)));
       stmt.setLong(4, totalTimeForOSSDriver);
       stmt.setLong(5, totalTimeForDatabricksDriver);
       stmt.executeUpdate();
