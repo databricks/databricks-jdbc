@@ -43,7 +43,8 @@ public class DatabricksResultSetTest {
     columnValue.setStringVal(new TStringValue().setValue("testString"));
     TRow row = new TRow().setColVals(Collections.singletonList(columnValue));
     TRowSet rowSet = new TRowSet().setRows(Collections.singletonList(row));
-    TGetResultSetMetadataResp metadataResp = new TGetResultSetMetadataResp();
+    TGetResultSetMetadataResp metadataResp =
+        new TGetResultSetMetadataResp().setResultFormat(TSparkRowSetType.COLUMN_BASED_SET);
     TColumnDesc columnDesc = new TColumnDesc().setColumnName("testCol");
     TTableSchema schema = new TTableSchema().setColumns(Collections.singletonList(columnDesc));
     metadataResp.setSchema(schema);

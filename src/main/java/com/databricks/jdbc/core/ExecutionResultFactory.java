@@ -1,5 +1,8 @@
 package com.databricks.jdbc.core;
 
+import static com.databricks.jdbc.client.impl.thrift.commons.DatabricksThriftHelper.convertColumnarToRowBased;
+import static com.databricks.jdbc.client.impl.thrift.commons.DatabricksThriftHelper.extractValuesFromRowSet;
+
 import com.databricks.jdbc.client.impl.thrift.generated.TGetResultSetMetadataResp;
 import com.databricks.jdbc.client.impl.thrift.generated.TRowSet;
 import com.databricks.jdbc.client.sqlexec.ResultData;
@@ -26,7 +29,15 @@ class ExecutionResultFactory {
   }
 
   static IExecutionResult getResultSet(TRowSet data, TGetResultSetMetadataResp manifest) {
-    return new InlineJsonResult(manifest, data);
+    switch (manifest.getResultFormat()) {
+      case COLUMN_BASED_SET:
+        return getResultSet(convertColumnarToRowBased(data));
+      case ROW_BASED_SET:
+        return getResultSet(extractValuesFromRowSet(data));
+      default:
+        throw new IllegalStateException(
+            "Invalid thrift response format " + manifest.getResultFormat());
+    }
   }
 
   static IExecutionResult getResultSet(Object[][] rows) {

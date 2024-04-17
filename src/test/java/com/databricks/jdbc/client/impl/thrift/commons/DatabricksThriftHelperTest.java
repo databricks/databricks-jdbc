@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import com.databricks.jdbc.client.DatabricksHttpException;
 import com.databricks.jdbc.client.impl.thrift.generated.*;
+import com.databricks.sdk.service.sql.ColumnInfoTypeName;
 import java.nio.ByteBuffer;
 import java.util.Collections;
 import java.util.List;
@@ -56,6 +57,28 @@ public class DatabricksThriftHelperTest {
         Arguments.of(binaryRowSet, 1));
   }
 
+  private static Stream<Arguments> typeIdAndColumnInfoType() {
+    return Stream.of(
+        Arguments.of(TTypeId.BOOLEAN_TYPE, ColumnInfoTypeName.BOOLEAN),
+        Arguments.of(TTypeId.TINYINT_TYPE, ColumnInfoTypeName.SHORT),
+        Arguments.of(TTypeId.SMALLINT_TYPE, ColumnInfoTypeName.SHORT),
+        Arguments.of(TTypeId.INT_TYPE, ColumnInfoTypeName.INT),
+        Arguments.of(TTypeId.BIGINT_TYPE, ColumnInfoTypeName.LONG),
+        Arguments.of(TTypeId.FLOAT_TYPE, ColumnInfoTypeName.FLOAT),
+        Arguments.of(TTypeId.VARCHAR_TYPE, ColumnInfoTypeName.STRING),
+        Arguments.of(TTypeId.STRING_TYPE, ColumnInfoTypeName.STRING),
+        Arguments.of(TTypeId.TIMESTAMP_TYPE, ColumnInfoTypeName.TIMESTAMP),
+        Arguments.of(TTypeId.BINARY_TYPE, ColumnInfoTypeName.BINARY),
+        Arguments.of(TTypeId.DECIMAL_TYPE, ColumnInfoTypeName.DECIMAL),
+        Arguments.of(TTypeId.NULL_TYPE, ColumnInfoTypeName.NULL),
+        Arguments.of(TTypeId.DATE_TYPE, ColumnInfoTypeName.DATE),
+        Arguments.of(TTypeId.CHAR_TYPE, ColumnInfoTypeName.CHAR),
+        Arguments.of(TTypeId.INTERVAL_YEAR_MONTH_TYPE, ColumnInfoTypeName.INTERVAL),
+        Arguments.of(TTypeId.INTERVAL_DAY_TIME_TYPE, ColumnInfoTypeName.INTERVAL),
+        Arguments.of(TTypeId.DOUBLE_TYPE, ColumnInfoTypeName.DOUBLE),
+        Arguments.of(TTypeId.MAP_TYPE, ColumnInfoTypeName.STRING));
+  }
+
   private static Stream<Arguments> resultDataTypesForGetColumnValue() {
     return Stream.of(
         Arguments.of(new TRowSet(), Collections.singletonList(Collections.emptyList())),
@@ -104,5 +127,29 @@ public class DatabricksThriftHelperTest {
   @MethodSource("manifestTypes")
   public void testColumnCount(TGetResultSetMetadataResp resultManifest, int expectedColumnCount) {
     assertEquals(expectedColumnCount, DatabricksThriftHelper.getColumnCount(resultManifest));
+  }
+
+  @Test
+  public void testConvertColumnarToRowBased() {
+    List<List<Object>> rowBasedData = DatabricksThriftHelper.convertColumnarToRowBased(boolRowSet);
+    assertEquals(rowBasedData.size(), 4);
+
+    rowBasedData = DatabricksThriftHelper.convertColumnarToRowBased(null);
+    assertEquals(rowBasedData.size(), 0);
+
+    rowBasedData =
+        DatabricksThriftHelper.convertColumnarToRowBased(
+            new TRowSet().setColumns(Collections.emptyList()));
+    assertEquals(rowBasedData.size(), 0);
+  }
+
+  @ParameterizedTest
+  @MethodSource("typeIdAndColumnInfoType")
+  public void testGetTypeFromTypeDesc(TTypeId type, ColumnInfoTypeName typeName) {
+    TPrimitiveTypeEntry primitiveType = new TPrimitiveTypeEntry().setType(type);
+    TTypeEntry typeEntry = new TTypeEntry();
+    typeEntry.setPrimitiveEntry(primitiveType);
+    TTypeDesc typeDesc = new TTypeDesc().setTypes(Collections.singletonList(typeEntry));
+    assertEquals(DatabricksThriftHelper.getTypeFromTypeDesc(typeDesc), typeName);
   }
 }

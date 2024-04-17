@@ -1,5 +1,6 @@
 package com.databricks.jdbc.core;
 
+import static com.databricks.jdbc.client.impl.thrift.commons.DatabricksThriftHelper.getTypeFromTypeDesc;
 import static com.databricks.jdbc.driver.DatabricksJdbcConstants.VOLUME_OPERATION_STATUS_COLUMN_NAME;
 
 import com.databricks.jdbc.client.impl.thrift.generated.TColumnDesc;
@@ -87,14 +88,14 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
     int currIndex = 0;
     if (resultManifest.getSchema() != null && resultManifest.getSchema().getColumnsSize() > 0) {
       for (TColumnDesc columnInfo : resultManifest.getSchema().getColumns()) {
-        ColumnInfoTypeName columnTypeName = ColumnInfoTypeName.STRING; // TODO : derive typeName
+        ColumnInfoTypeName columnTypeName = getTypeFromTypeDesc(columnInfo.getTypeDesc());
         int precision = DatabricksTypeUtil.getPrecision(columnTypeName);
         ImmutableDatabricksColumn.Builder columnBuilder = getColumnBuilder();
         columnBuilder
             .columnName(columnInfo.getColumnName())
             .columnTypeClassName(DatabricksTypeUtil.getColumnTypeClassName(columnTypeName))
             .columnType(DatabricksTypeUtil.getColumnType(columnTypeName))
-            .columnTypeText("STRING")
+            .columnTypeText(columnTypeName.name())
             .typePrecision(precision)
             .displaySize(DatabricksTypeUtil.getDisplaySize(columnTypeName, precision))
             .isSigned(DatabricksTypeUtil.isSigned(columnTypeName));

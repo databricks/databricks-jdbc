@@ -153,7 +153,9 @@ public class DatabricksThriftAccessor {
     request.setGetDirectResults(directResults);
     TExecuteStatementResp response = thriftClient.ExecuteStatement(request);
     if (response.isSetDirectResults()) {
-      return response.getDirectResults().getResultSet();
+      TFetchResultsResp resultSet = response.getDirectResults().getResultSet();
+      resultSet.setResultSetMetadata(response.getDirectResults().getResultSetMetadata());
+      return resultSet;
     }
     return getResultSetResp(
         response.getStatus().getStatusCode(),
