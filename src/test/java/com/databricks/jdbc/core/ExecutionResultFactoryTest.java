@@ -3,6 +3,9 @@ package com.databricks.jdbc.core;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.when;
 
+import com.databricks.jdbc.client.impl.thrift.generated.TGetResultSetMetadataResp;
+import com.databricks.jdbc.client.impl.thrift.generated.TRowSet;
+import com.databricks.jdbc.client.impl.thrift.generated.TSparkRowSetType;
 import com.databricks.jdbc.client.sqlexec.ExternalLink;
 import com.databricks.jdbc.client.sqlexec.ResultData;
 import com.databricks.jdbc.client.sqlexec.ResultManifest;
@@ -20,6 +23,9 @@ public class ExecutionResultFactoryTest {
 
   @Mock DatabricksSession session;
   @Mock IDatabricksConnectionContext connectionContext;
+
+  @Mock TGetResultSetMetadataResp resultSetMetadataResp;
+  @Mock TRowSet tRowSet;
 
   @Test
   public void testGetResultSet_jsonInline() {
@@ -62,5 +68,27 @@ public class ExecutionResultFactoryTest {
         ExecutionResultFactory.getResultSet(data, manifest, "statementId", session);
 
     assertInstanceOf(VolumeOperationResult.class, result);
+  }
+
+  @Test
+  public void testGetResultSet_thriftColumnar() throws DatabricksSQLFeatureNotImplementedException {
+    when(resultSetMetadataResp.getResultFormat()).thenReturn(TSparkRowSetType.COLUMN_BASED_SET);
+    IExecutionResult result = ExecutionResultFactory.getResultSet(tRowSet, resultSetMetadataResp);
+    assertInstanceOf(InlineJsonResult.class, result);
+  }
+
+  @Test
+  public void testGetResultSet_thriftRow() throws DatabricksSQLFeatureNotImplementedException {
+    when(resultSetMetadataResp.getResultFormat()).thenReturn(TSparkRowSetType.ROW_BASED_SET);
+    IExecutionResult result = ExecutionResultFactory.getResultSet(tRowSet, resultSetMetadataResp);
+    assertInstanceOf(InlineJsonResult.class, result);
+  }
+
+  @Test
+  public void testGetResultSet_thriftURL() {
+    when(resultSetMetadataResp.getResultFormat()).thenReturn(TSparkRowSetType.URL_BASED_SET);
+    assertThrows(
+        DatabricksSQLFeatureNotImplementedException.class,
+        () -> ExecutionResultFactory.getResultSet(tRowSet, resultSetMetadataResp));
   }
 }

@@ -38,7 +38,8 @@ public class DatabricksResultSetTest {
         mockedResultSetMetadata);
   }
 
-  private DatabricksResultSet getThriftResultSetMetadata() {
+  private DatabricksResultSet getThriftResultSetMetadata()
+      throws DatabricksSQLFeatureNotImplementedException {
     TColumnValue columnValue = new TColumnValue();
     columnValue.setStringVal(new TStringValue().setValue("testString"));
     TRow row = new TRow().setColVals(Collections.singletonList(columnValue));

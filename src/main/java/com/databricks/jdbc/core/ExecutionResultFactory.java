@@ -28,14 +28,15 @@ class ExecutionResultFactory {
     }
   }
 
-  static IExecutionResult getResultSet(TRowSet data, TGetResultSetMetadataResp manifest) {
+  static IExecutionResult getResultSet(TRowSet data, TGetResultSetMetadataResp manifest)
+      throws DatabricksSQLFeatureNotImplementedException {
     switch (manifest.getResultFormat()) {
       case COLUMN_BASED_SET:
         return getResultSet(convertColumnarToRowBased(data));
       case ROW_BASED_SET:
         return getResultSet(extractValuesFromRowSet(data));
       default:
-        throw new IllegalStateException(
+        throw new DatabricksSQLFeatureNotImplementedException(
             "Invalid thrift response format " + manifest.getResultFormat());
     }
   }

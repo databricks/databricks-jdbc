@@ -87,7 +87,8 @@ public class DatabricksResultSet implements ResultSet, IDatabricksResultSet {
       TRowSet resultData,
       TGetResultSetMetadataResp resultManifest,
       StatementType statementType,
-      IDatabricksStatement parentStatement) {
+      IDatabricksStatement parentStatement)
+      throws DatabricksSQLFeatureNotImplementedException {
     if (SUCCESS_STATUS_LIST.contains(statementStatus.getStatusCode())) {
       this.statementStatus = new StatementStatus().setState(StatementState.SUCCEEDED);
     } else {
