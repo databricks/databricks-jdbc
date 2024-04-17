@@ -71,7 +71,6 @@ public class DatabricksThriftHelper {
     TTypeId type =
         Optional.ofNullable(typeDesc)
             .map(TTypeDesc::getTypes)
-            .filter(t -> !t.isEmpty())
             .map(t -> t.get(0))
             .map(TTypeEntry::getPrimitiveEntry)
             .map(TPrimitiveTypeEntry::getType)
@@ -126,7 +125,7 @@ public class DatabricksThriftHelper {
 
   public static List<List<Object>> convertColumnarToRowBased(TRowSet rowSet) {
     List<List<Object>> columnarData = extractValuesFromRowSet(rowSet);
-    if (columnarData.isEmpty() || columnarData.get(0).isEmpty()) {
+    if (columnarData.isEmpty()) {
       return Collections.emptyList();
     }
     int numRows = columnarData.get(0).size();
