@@ -74,7 +74,7 @@ public class DatabricksConnectionTest {
     assertFalse(connection.isClosed());
     assertEquals(connection.getSession().getSessionId(), SESSION_ID);
     String userAgent = UserAgent.asString();
-    assertTrue(userAgent.contains("DatabricksDatabricksJDBCDriverOSS/0.0.0"));
+    assertTrue(userAgent.contains("DatabricksJDBCDriverOSS/0.0.0"));
     assertTrue(userAgent.contains("Java/SQLExecHttpClient/HC"));
 
     // close the connection

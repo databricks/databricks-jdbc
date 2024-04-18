@@ -45,6 +45,8 @@ public class DatabricksHttpClient implements IDatabricksHttpClient {
   private static final int MAX_RETRY_INTERVAL = 10 * 1000; // 10s
   private static final int DEFAULT_RETRY_COUNT = 5;
   private static final String HTTP_GET = "GET";
+  private static final String SDK_USER_AGENT = "databricks-sdk-java";
+  private static final String JDBC_HTTP_USER_AGENT = "databricks-jdbc-http";
   private static final Set<Integer> RETRYABLE_HTTP_CODES = getRetryableHttpCodes();
   protected static final long DEFAULT_IDLE_CONNECTION_TIMEOUT = 5;
 
@@ -233,11 +235,13 @@ public class DatabricksHttpClient implements IDatabricksHttpClient {
     // Remove the SDK part from user agent
     StringBuilder mergedString = new StringBuilder();
     for (int i = 0; i < parts.length; i++) {
-      if (i != 1) { // Skip the second part
+      if (parts[i].startsWith(SDK_USER_AGENT)) {
+        mergedString.append(JDBC_HTTP_USER_AGENT);
+      } else {
         mergedString.append(parts[i]);
-        if (i != parts.length - 1) {
-          mergedString.append(" "); // Add space between parts
-        }
+      }
+      if (i != parts.length - 1) {
+        mergedString.append(" "); // Add space between parts
       }
     }
     return mergedString.toString();

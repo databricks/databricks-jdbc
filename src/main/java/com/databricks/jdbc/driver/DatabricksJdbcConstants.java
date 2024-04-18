@@ -86,7 +86,7 @@ public final class DatabricksJdbcConstants {
       "EnableQueryResultLZ4Compression"; // Adding this for backward compatibility only
   static final String COMPRESSION_FLAG = "QueryResultCompressionType";
   static final String USER_AGENT_ENTRY = "useragententry";
-  public static final String DEFAULT_USER_AGENT = "DatabricksDatabricksJDBCDriverOSS";
+  public static final String DEFAULT_USER_AGENT = "DatabricksJDBCDriverOSS";
   static final String CLIENT_USER_AGENT_PREFIX = "Java";
   static final String USER_AGENT_SEA_CLIENT = "SQLExecHttpClient/HC";
   static final String USER_AGENT_THRIFT_CLIENT = "THttpClient/HC";
