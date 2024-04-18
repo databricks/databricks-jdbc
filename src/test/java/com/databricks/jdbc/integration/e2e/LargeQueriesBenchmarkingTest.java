@@ -108,7 +108,7 @@ public class LargeQueriesBenchmarkingTest {
           i * 1000000 + random.nextInt(1000000); // Randomization to avoid possible query caching
       try (Statement statement = connection.createStatement()) {
         long startTime = System.currentTimeMillis();
-        statement.executeQuery(
+        ResultSet rs = statement.executeQuery(
             "SELECT * FROM "
                 + SCHEMA_NAME
                 + "."
@@ -117,6 +117,7 @@ public class LargeQueriesBenchmarkingTest {
                 + ROWS
                 + " OFFSET "
                 + offset);
+        while(rs.next()) {}
         long endTime = System.currentTimeMillis();
         if (recording == 1) {
           timesForOSSDriver[i] = endTime - startTime;
