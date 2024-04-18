@@ -44,6 +44,13 @@ public class DatabricksThriftHelper {
     return resultManifest.getSchema().getColumnsSize();
   }
 
+  /**
+   * In metadata operations, a list of singleton lists is obtained. This function extracts metadata
+   * values from these TColumn lists based on the data type set in the column.
+   *
+   * @param List<TColumn> columnList the TColumn from which to extract values
+   * @return a singleton list of metadata result
+   */
   public static List<List<Object>> extractValues(List<TColumn> columnList) {
     if (columnList == null) {
       return Collections.singletonList(Collections.emptyList());
@@ -111,6 +118,12 @@ public class DatabricksThriftHelper {
     return ColumnInfoTypeName.STRING; // by default return string
   }
 
+  /**
+   * Extracts values from a TColumn based on the data type set in the column.
+   *
+   * @param column the TColumn from which to extract values
+   * @return a list of values from the specified column
+   */
   private static List<?> getColumnValues(TColumn column) {
     // TODO : Handle complex data types
     if (column.isSetBinaryVal()) return column.getBinaryVal().getValues();
@@ -123,12 +136,20 @@ public class DatabricksThriftHelper {
     return column.getStringVal().getValues(); // Default case
   }
 
+  /**
+   * Converts columnar data from a TRowSet to a row-based list format.
+   *
+   * @param rowSet the TRowSet containing the data
+   * @return a list where each sublist represents a row with column values, or an empty list if
+   *     rowSet is empty
+   */
   public static List<List<Object>> convertColumnarToRowBased(TRowSet rowSet) {
     List<List<Object>> columnarData = extractValuesFromRowSet(rowSet);
     if (columnarData.isEmpty()) {
       return Collections.emptyList();
     }
-    int numRows = columnarData.get(0).size();
+    int numRows =
+        columnarData.get(0).size(); // Number of rows (if the data was displayed in row format)
     List<List<Object>> rowBasedData =
         IntStream.range(0, numRows)
             .mapToObj(i -> new ArrayList<Object>(columnarData.size()))
@@ -141,6 +162,15 @@ public class DatabricksThriftHelper {
     return rowBasedData;
   }
 
+  /**
+   * Extracts and returns the values from each column of a TRowSet as a list of lists. Each sublist
+   * represents a column of values. Returns an empty list if the input is null or contains no
+   * columns.
+   *
+   * @param rowSet the TRowSet to extract values from
+   * @return a list of lists, each containing the values of a column, or an empty list if the input
+   *     is invalid
+   */
   public static List<List<Object>> extractValuesFromRowSet(TRowSet rowSet) {
     if (rowSet == null || rowSet.getColumns() == null) {
       return Collections.emptyList();
