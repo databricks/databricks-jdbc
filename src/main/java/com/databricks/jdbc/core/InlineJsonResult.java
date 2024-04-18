@@ -1,19 +1,12 @@
 package com.databricks.jdbc.core;
 
-import static com.databricks.jdbc.client.impl.helper.MetadataResultConstants.NULL_STRING;
-import static com.databricks.jdbc.client.impl.thrift.commons.DatabricksThriftHelper.getColumnCount;
-import static com.databricks.jdbc.client.impl.thrift.commons.DatabricksThriftHelper.getRowCount;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 
-import com.databricks.jdbc.client.impl.thrift.generated.TColumn;
-import com.databricks.jdbc.client.impl.thrift.generated.TGetResultSetMetadataResp;
-import com.databricks.jdbc.client.impl.thrift.generated.TRowSet;
 import com.databricks.jdbc.client.sqlexec.ResultData;
 import com.databricks.jdbc.client.sqlexec.ResultManifest;
 import java.sql.SQLException;
 import java.util.*;
 import java.util.stream.Collectors;
-import java.util.stream.IntStream;
 
 public class InlineJsonResult implements IExecutionResult {
 
@@ -24,26 +17,6 @@ public class InlineJsonResult implements IExecutionResult {
 
   InlineJsonResult(ResultManifest resultManifest, ResultData resultData) {
     this.data = getDataList(resultData.getDataArray());
-    this.currentRow = -1;
-    this.isClosed = false;
-  }
-
-  InlineJsonResult(TGetResultSetMetadataResp resultManifest, TRowSet resultData) {
-    int rows = getRowCount(resultData);
-    int columns = getColumnCount(resultManifest);
-    this.data =
-        IntStream.range(0, rows)
-            .mapToObj(
-                column ->
-                    IntStream.range(0, columns)
-                        .mapToObj(
-                            row ->
-                                Optional.ofNullable(resultData.getColumns().get(row))
-                                    .map(TColumn::getFieldValue)
-                                    .map(Object::toString)
-                                    .orElse(NULL_STRING))
-                        .collect(Collectors.toList()))
-            .collect(Collectors.toCollection(ArrayList::new));
     this.currentRow = -1;
     this.isClosed = false;
   }
