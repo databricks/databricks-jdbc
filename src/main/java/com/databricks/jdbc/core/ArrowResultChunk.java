@@ -5,7 +5,6 @@ import static com.databricks.jdbc.commons.util.ValidationUtil.checkHTTPError;
 import com.databricks.jdbc.client.DatabricksHttpException;
 import com.databricks.jdbc.client.IDatabricksHttpClient;
 import com.databricks.jdbc.client.sqlexec.ExternalLink;
-import com.databricks.jdbc.commons.util.DecompressionUtil;
 import com.databricks.jdbc.core.types.CompressionType;
 import com.databricks.sdk.service.sql.BaseChunkInfo;
 import com.google.common.annotations.VisibleForTesting;
@@ -242,16 +241,22 @@ public class ArrowResultChunk {
     CloseableHttpResponse response = null;
     try {
       this.downloadStartTime = Instant.now().toEpochMilli();
+      System.out.println("SAINANEELOGS3 " + chunkLink.getExternalLink());
       URIBuilder uriBuilder = new URIBuilder(chunkLink.getExternalLink());
       HttpGet getRequest = new HttpGet(uriBuilder.build());
+      System.out.println(getRequest.toString());
       addHeaders(getRequest, chunkLink.getHttpHeaders());
       // Retry would be done in http client, we should not bother about that here
       response = httpClient.execute(getRequest);
+      System.out.println("SAINANEELOGSRESPONSE " + response.toString());
       checkHTTPError(response);
       HttpEntity entity = response.getEntity();
+      System.out.println("SAINANEELOGSENTITY " + entity.toString());
       getArrowDataFromInputStream(entity.getContent());
+      System.out.println("SAINANEELOGSENTITYCONTENT " + entity.getContent().toString());
       this.downloadFinishTime = Instant.now().toEpochMilli();
       this.setStatus(DownloadStatus.DOWNLOAD_SUCCEEDED);
+      System.out.println(this.status);
     } catch (Exception e) {
       this.errorMessage =
           String.format(
@@ -283,13 +288,17 @@ public class ArrowResultChunk {
   public void getArrowDataFromInputStream(InputStream inputStream) throws DatabricksSQLException {
     LOGGER.debug(
         "Parsing data for chunk index [{}] and statement [{}]", this.chunkIndex, this.statementId);
-    InputStream decompressedStream =
-        DecompressionUtil.decompress(
-            inputStream,
-            this.compressionType,
-            String.format(
-                "Data fetch failed for chunk index [%d] and statement [%s] as decompression was unsuccessful. Algorithm : [%s]",
-                this.chunkIndex, this.statementId, this.compressionType));
+    System.out.println("SAINANEELOGS5 uncomp " + inputStream.toString());
+    InputStream decompressedStream = inputStream;
+    //    InputStream decompressedStream =
+    //        DecompressionUtil.decompress(
+    //            inputStream,
+    //            this.compressionType,
+    //            String.format(
+    //                "Data fetch failed for chunk index [%d] and statement [%s] as decompression
+    // was unsuccessful. Algorithm : [%s]",
+    //                this.chunkIndex, this.statementId, this.compressionType));
+    System.out.println("SAINANEELOGS5 " + decompressedStream.toString());
     this.isDataInitialized = true;
     this.recordBatchList = new ArrayList<>();
     // add check to see if input stream has been populated
@@ -299,6 +308,7 @@ public class ArrowResultChunk {
     try {
       this.vectorSchemaRoot = arrowStreamReader.getVectorSchemaRoot();
       while (arrowStreamReader.loadNextBatch()) {
+        System.out.println("SAINANEELOGS6 : inside loading next batch");
         vectors =
             vectorSchemaRoot.getFieldVectors().stream()
                 .map(

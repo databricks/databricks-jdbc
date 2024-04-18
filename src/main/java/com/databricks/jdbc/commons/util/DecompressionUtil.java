@@ -28,6 +28,13 @@ public class DecompressionUtil {
   public static InputStream decompress(
       InputStream compressedInputStream, CompressionType compressionType, String context)
       throws DatabricksSQLException {
+    System.out.println(
+        "SAINANEELOGS7: DecompressionUtil: decompress: compressedInputStream: "
+            + compressedInputStream
+            + ", compressionType: "
+            + compressionType
+            + ", context: "
+            + context);
     if (compressionType == null || compressedInputStream == null) {
       LOGGER.debug(
           "Compression/InputStream is `NULL`. Skipping compression for context {}", context);

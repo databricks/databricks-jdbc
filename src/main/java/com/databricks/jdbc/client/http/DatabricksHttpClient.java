@@ -4,12 +4,15 @@ import com.databricks.jdbc.client.DatabricksHttpException;
 import com.databricks.jdbc.client.IDatabricksHttpClient;
 import com.databricks.jdbc.driver.DatabricksJdbcConstants;
 import com.databricks.jdbc.driver.IDatabricksConnectionContext;
+import com.databricks.jdbc.driver.SSLConfiguration;
 import com.google.common.annotations.VisibleForTesting;
 import java.io.IOException;
+import java.security.NoSuchAlgorithmException;
 import java.util.HashSet;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
+import javax.net.ssl.SSLContext;
 import org.apache.http.HttpException;
 import org.apache.http.HttpHost;
 import org.apache.http.HttpResponse;
@@ -21,6 +24,12 @@ import org.apache.http.client.config.RequestConfig;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpUriRequest;
 import org.apache.http.client.protocol.HttpClientContext;
+import org.apache.http.config.Registry;
+import org.apache.http.config.RegistryBuilder;
+import org.apache.http.conn.socket.ConnectionSocketFactory;
+import org.apache.http.conn.socket.PlainConnectionSocketFactory;
+import org.apache.http.conn.ssl.NoopHostnameVerifier;
+import org.apache.http.conn.ssl.SSLConnectionSocketFactory;
 import org.apache.http.impl.client.BasicCredentialsProvider;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClientBuilder;
@@ -55,7 +64,28 @@ public class DatabricksHttpClient implements IDatabricksHttpClient {
   private final CloseableHttpClient httpClient;
 
   private DatabricksHttpClient(IDatabricksConnectionContext connectionContext) {
-    connectionManager = new PoolingHttpClientConnectionManager();
+    SSLContext sslContext = null;
+
+    try {
+      sslContext = SSLContext.getDefault();
+    } catch (NoSuchAlgorithmException e) {
+    }
+    if (connectionContext.isSSLEnabled()) {
+      try {
+        sslContext =
+            SSLConfiguration.configureSslContext(
+                connectionContext.getSSLKeyStorePath(), connectionContext.getSSLKeyStorePassword());
+      } catch (Exception e) {
+      }
+    }
+    SSLConnectionSocketFactory sslFactory =
+        new SSLConnectionSocketFactory(sslContext, NoopHostnameVerifier.INSTANCE);
+    Registry<ConnectionSocketFactory> socketFactoryRegistry =
+        RegistryBuilder.<ConnectionSocketFactory>create()
+            .register("https", sslFactory)
+            .register("http", new PlainConnectionSocketFactory())
+            .build();
+    connectionManager = new PoolingHttpClientConnectionManager(socketFactoryRegistry);
     connectionManager.setMaxTotal(DEFAULT_MAX_HTTP_CONNECTIONS);
     connectionManager.setDefaultMaxPerRoute(DEFAULT_MAX_HTTP_CONNECTIONS_PER_ROUTE);
     httpClient = makeClosableHttpClient(connectionContext);
@@ -186,6 +216,7 @@ public class DatabricksHttpClient implements IDatabricksHttpClient {
   public CloseableHttpResponse execute(HttpUriRequest request) throws DatabricksHttpException {
     LOGGER.debug("Executing HTTP request [{}]", RequestSanitizer.sanitizeRequest(request));
     // TODO: add retries and error handling
+    System.out.println("SAINANEELOGS4 " + request);
     try {
       return httpClient.execute(request);
     } catch (IOException e) {

@@ -31,14 +31,13 @@ public class DriverTester {
     DriverManager.drivers().forEach(driver -> System.out.println(driver.getClass()));
     // Getting the connection
     String jdbcUrl =
-        "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/791ba2a31c7fd70a;";
+        "jdbc:databricks://localhost:9901/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/791ba2a31c7fd70a;";
     Connection con =
-        DriverManager.getConnection(
-            jdbcUrl, "samikshya.chand@databricks.com", "dapi59b6dc8d33b42fb4cb4b550c87ae7977");
+        DriverManager.getConnection(jdbcUrl, "token", "dapi9312936e2e5674422edfa2f4c98a64bc");
     System.out.println("Connection established......");
     Statement statement = con.createStatement();
     statement.setMaxRows(10);
-    ResultSet rs = statement.executeQuery("select * from RANGE(37500000)");
+    ResultSet rs = statement.executeQuery("select * from RANGE(1)");
     printResultSet(rs);
     rs.close();
     statement.close();
@@ -52,9 +51,7 @@ public class DriverTester {
     // Getting the connection
     String jdbcUrl =
         "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/791ba2a31c7fd70a;";
-    Connection con =
-        DriverManager.getConnection(
-            jdbcUrl, "samikshya.chand@databricks.com", "xx");
+    Connection con = DriverManager.getConnection(jdbcUrl, "samikshya.chand@databricks.com", "xx");
     Statement s = con.createStatement();
     ResultSet rs = s.executeQuery("SELECT * from range(37500000)");
     con.close();

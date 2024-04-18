@@ -127,7 +127,18 @@ public class ChunkDownloader {
       return null;
     }
     ArrowResultChunk chunk = chunkIndexToChunksMap.get(currentChunkIndex);
-    httpClient.closeExpiredAndIdleConnections();
+    //    httpClient.closeExpiredAndIdleConnections();
+    System.out.println(
+        "SAINANEELOGS "
+            + chunk.getChunkUrl()
+            + " "
+            + chunk.getChunkIndex()
+            + " "
+            + chunk.getStatus()
+            + " "
+            + chunk.getErrorMessage()
+            + " "
+            + chunk.getChunkLink());
     synchronized (chunk) {
       try {
         while (!isDownloadComplete(chunk.getStatus())) {
@@ -218,6 +229,8 @@ public class ChunkDownloader {
   }
 
   void downloadNextChunks() {
+    System.out.println(
+        "SAINANEELOGS2 " + nextChunkToDownload + " " + totalChunksInMemory + " " + this.isClosed);
     while (!this.isClosed
         && nextChunkToDownload < totalChunks
         && totalChunksInMemory < allowedChunksInMemory) {
