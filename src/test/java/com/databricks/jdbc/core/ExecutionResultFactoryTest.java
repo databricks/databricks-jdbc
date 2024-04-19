@@ -71,17 +71,18 @@ public class ExecutionResultFactoryTest {
   }
 
   @Test
-  public void testGetResultSet_thriftColumnar() throws DatabricksSQLFeatureNotImplementedException {
+  public void testGetResultSet_thriftColumnar() throws DatabricksSQLException {
     when(resultSetMetadataResp.getResultFormat()).thenReturn(TSparkRowSetType.COLUMN_BASED_SET);
     IExecutionResult result = ExecutionResultFactory.getResultSet(tRowSet, resultSetMetadataResp);
     assertInstanceOf(InlineJsonResult.class, result);
   }
 
   @Test
-  public void testGetResultSet_thriftRow() throws DatabricksSQLFeatureNotImplementedException {
+  public void testGetResultSet_thriftRow() {
     when(resultSetMetadataResp.getResultFormat()).thenReturn(TSparkRowSetType.ROW_BASED_SET);
-    IExecutionResult result = ExecutionResultFactory.getResultSet(tRowSet, resultSetMetadataResp);
-    assertInstanceOf(InlineJsonResult.class, result);
+    assertThrows(
+        DatabricksSQLFeatureNotSupportedException.class,
+        () -> ExecutionResultFactory.getResultSet(tRowSet, resultSetMetadataResp));
   }
 
   @Test
