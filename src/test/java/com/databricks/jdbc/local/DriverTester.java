@@ -33,7 +33,7 @@ public class DriverTester {
     String jdbcUrl =
         "jdbc:databricks://localhost:9901/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/791ba2a31c7fd70a;";
     Connection con =
-        DriverManager.getConnection(jdbcUrl, "token", "dapi9312936e2e5674422edfa2f4c98a64bc");
+        DriverManager.getConnection(jdbcUrl, "token", "xx");
     System.out.println("Connection established......");
     Statement statement = con.createStatement();
     statement.setMaxRows(10);
