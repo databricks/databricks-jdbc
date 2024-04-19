@@ -1,6 +1,6 @@
-package com.databricks.jdbc.client.impl.sdk.helper;
+package com.databricks.jdbc.client.impl.helper;
 
-import static com.databricks.jdbc.client.impl.sdk.helper.CommandConstants.*;
+import static com.databricks.jdbc.client.impl.helper.CommandConstants.*;
 import static com.databricks.jdbc.commons.util.ValidationUtil.throwErrorIfNull;
 import static com.databricks.jdbc.driver.DatabricksJdbcConstants.*;
 

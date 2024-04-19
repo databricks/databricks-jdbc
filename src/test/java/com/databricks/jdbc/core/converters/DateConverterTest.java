@@ -40,7 +40,18 @@ public class DateConverterTest {
   }
 
   @Test
+  public void testConvertFromString() throws DatabricksSQLException {
+    assertEquals(new DateConverter("2023-09-10").convertToDate(), DATE);
+  }
+
+  @Test
   public void testConvertToTimestamp() throws DatabricksSQLException {
+    assertEquals(
+        new DateConverter(DATE).convertToTimestamp(), Timestamp.valueOf("2023-09-10 00:00:00"));
+  }
+
+  @Test
+  public void testConvertToDate() throws DatabricksSQLException {
     assertEquals(new DateConverter(DATE).convertToDate(), Timestamp.valueOf("2023-09-10 00:00:00"));
   }
 }

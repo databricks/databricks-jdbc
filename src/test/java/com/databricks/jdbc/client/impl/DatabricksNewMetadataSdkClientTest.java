@@ -1,17 +1,17 @@
-package com.databricks.jdbc.client;
+package com.databricks.jdbc.client.impl;
 
-import static com.databricks.jdbc.client.impl.sdk.helper.CommandConstants.*;
-import static com.databricks.jdbc.client.impl.sdk.helper.MetadataResultConstants.*;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
+import static com.databricks.jdbc.TestConstants.*;
+import static com.databricks.jdbc.client.impl.helper.CommandConstants.*;
+import static com.databricks.jdbc.client.impl.helper.MetadataResultConstants.*;
+import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.when;
 
+import com.databricks.jdbc.client.StatementType;
+import com.databricks.jdbc.client.impl.helper.ResultColumn;
 import com.databricks.jdbc.client.impl.sdk.DatabricksNewMetadataSdkClient;
 import com.databricks.jdbc.client.impl.sdk.DatabricksSdkClient;
-import com.databricks.jdbc.client.impl.sdk.helper.ResultColumn;
 import com.databricks.jdbc.core.*;
 import com.databricks.jdbc.core.types.ComputeResource;
-import com.databricks.jdbc.core.types.Warehouse;
 import com.databricks.sdk.service.sql.StatementState;
 import java.sql.SQLException;
 import java.util.HashMap;
@@ -31,13 +31,6 @@ public class DatabricksNewMetadataSdkClientTest {
   @Mock private static DatabricksResultSet mockedResultSet;
   @Mock private static IDatabricksSession session;
   @Mock private static ComputeResource mockedComputeResource;
-  private static final String WAREHOUSE_ID = "warehouse_id";
-  private static final Warehouse warehouseCompute = new Warehouse(WAREHOUSE_ID);
-  private static final String TEST_SCHEMA = "testSchema";
-  private static final String TEST_TABLE = "testTable";
-  private static final String TEST_COLUMN = "testColumn";
-  private static final String TEST_CATALOG = "catalog1";
-  private static final String TEST_FUNCTION_PATTERN = "functionPattern";
 
   private static Stream<Arguments> listTableTestParams() {
     return Stream.of(
@@ -212,7 +205,8 @@ public class DatabricksNewMetadataSdkClientTest {
       when(mockedResultSet.getObject(resultColumn.getResultSetColumnName()))
           .thenReturn(TEST_COLUMN);
     }
-    DatabricksResultSet actualResult = metadataClient.listTables(session, catalog, schema, table);
+    DatabricksResultSet actualResult =
+        metadataClient.listTables(session, catalog, schema, table, null);
 
     assertEquals(
         actualResult.getStatementStatus().getState(), StatementState.SUCCEEDED, description);
@@ -284,11 +278,11 @@ public class DatabricksNewMetadataSdkClientTest {
 
   @Test
   void testListPrimaryKeys() throws SQLException {
-    when(session.getComputeResource()).thenReturn(warehouseCompute);
+    when(session.getComputeResource()).thenReturn(WAREHOUSE_COMPUTE);
     DatabricksNewMetadataSdkClient metadataClient = new DatabricksNewMetadataSdkClient(mockClient);
     when(mockClient.executeStatement(
             "SHOW KEYS IN CATALOG catalog1 IN SCHEMA testSchema IN TABLE testTable",
-            warehouseCompute,
+            WAREHOUSE_COMPUTE,
             new HashMap<Integer, ImmutableSqlParameter>(),
             StatementType.METADATA,
             session,
@@ -311,11 +305,11 @@ public class DatabricksNewMetadataSdkClientTest {
   void testTestFunctions(
       String sql, String catalog, String schema, String functionPattern, String description)
       throws SQLException {
-    when(session.getComputeResource()).thenReturn(warehouseCompute);
+    when(session.getComputeResource()).thenReturn(WAREHOUSE_COMPUTE);
     DatabricksNewMetadataSdkClient metadataClient = new DatabricksNewMetadataSdkClient(mockClient);
     when(mockClient.executeStatement(
             sql,
-            warehouseCompute,
+            WAREHOUSE_COMPUTE,
             new HashMap<Integer, ImmutableSqlParameter>(),
             StatementType.METADATA,
             session,
@@ -344,7 +338,7 @@ public class DatabricksNewMetadataSdkClientTest {
         () -> metadataClient.listColumns(session, null, TEST_SCHEMA, TEST_TABLE, TEST_COLUMN));
     assertThrows(
         DatabricksValidationException.class,
-        () -> metadataClient.listTables(session, null, TEST_SCHEMA, TEST_TABLE));
+        () -> metadataClient.listTables(session, null, TEST_SCHEMA, TEST_TABLE, null));
     assertThrows(
         DatabricksValidationException.class,
         () -> metadataClient.listSchemas(session, null, TEST_SCHEMA));
@@ -354,5 +348,11 @@ public class DatabricksNewMetadataSdkClientTest {
     assertThrows(
         DatabricksValidationException.class,
         () -> metadataClient.listFunctions(session, null, TEST_SCHEMA, TEST_TABLE));
+  }
+
+  @Test
+  void testListTypeInfo() {
+    DatabricksNewMetadataSdkClient metadataClient = new DatabricksNewMetadataSdkClient(mockClient);
+    assertNotNull(metadataClient.listTypeInfo(session));
   }
 }

@@ -7,7 +7,7 @@ import java.sql.SQLException;
 public interface DatabricksMetadataClient {
 
   /** Returns information about types supported by Databricks server */
-  DatabricksResultSet listTypeInfo(IDatabricksSession session);
+  DatabricksResultSet listTypeInfo(IDatabricksSession session) throws SQLException;
 
   /** Returns the list of catalogs */
   DatabricksResultSet listCatalogs(IDatabricksSession session) throws SQLException;
@@ -36,7 +36,11 @@ public interface DatabricksMetadataClient {
    * @return a DatabricksResultSet representing list of tables
    */
   DatabricksResultSet listTables(
-      IDatabricksSession session, String catalog, String schemaNamePattern, String tableNamePattern)
+      IDatabricksSession session,
+      String catalog,
+      String schemaNamePattern,
+      String tableNamePattern,
+      String[] tableTypes)
       throws SQLException;
 
   /** Returns list of table types */

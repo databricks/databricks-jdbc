@@ -17,22 +17,23 @@ import org.mockito.junit.jupiter.MockitoExtension;
 class ValidationUtilTest {
   @Mock StatusLine statusLine;
   @Mock HttpResponse response;
+  private static ValidationUtil validationUtil = new ValidationUtil();
 
   @Test
   void testCheckIfPositive() {
     assertDoesNotThrow(() -> ValidationUtil.checkIfPositive(10, "testField"));
     assertThrows(
-        DatabricksSQLException.class, () -> ValidationUtil.checkIfPositive(-10, "testField"));
+        DatabricksSQLException.class, () -> validationUtil.checkIfPositive(-10, "testField"));
   }
 
   @Test
   void testSuccessfulResponseCheck() {
     when(response.getStatusLine()).thenReturn(statusLine);
     when(statusLine.getStatusCode()).thenReturn(200);
-    assertDoesNotThrow(() -> ValidationUtil.checkHTTPError(response));
+    assertDoesNotThrow(() -> validationUtil.checkHTTPError(response));
 
     when(statusLine.getStatusCode()).thenReturn(202);
-    assertDoesNotThrow(() -> ValidationUtil.checkHTTPError(response));
+    assertDoesNotThrow(() -> validationUtil.checkHTTPError(response));
   }
 
   @Test
@@ -41,12 +42,12 @@ class ValidationUtilTest {
     when(statusLine.getStatusCode()).thenReturn(400);
     when(statusLine.toString()).thenReturn("mockStatusLine");
     Throwable exception =
-        assertThrows(DatabricksHttpException.class, () -> ValidationUtil.checkHTTPError(response));
+        assertThrows(DatabricksHttpException.class, () -> validationUtil.checkHTTPError(response));
     assertEquals(
         "Unable to fetch HTTP response successfully. HTTP request failed by code: 400, status line: mockStatusLine",
         exception.getMessage());
 
     when(statusLine.getStatusCode()).thenReturn(102);
-    assertThrows(DatabricksHttpException.class, () -> ValidationUtil.checkHTTPError(response));
+    assertThrows(DatabricksHttpException.class, () -> validationUtil.checkHTTPError(response));
   }
 }

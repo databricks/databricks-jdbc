@@ -1,14 +1,12 @@
 package com.databricks.jdbc.client.impl.sdk;
 
-import static com.databricks.jdbc.client.impl.sdk.helper.CommandConstants.*;
-import static com.databricks.jdbc.commons.util.ValidationUtil.*;
-import static com.databricks.jdbc.driver.DatabricksJdbcConstants.*;
+import static com.databricks.jdbc.client.impl.sdk.ResultConstants.TYPE_INFO_RESULT;
 
 import com.databricks.jdbc.client.DatabricksMetadataClient;
 import com.databricks.jdbc.client.StatementType;
-import com.databricks.jdbc.client.impl.sdk.helper.CommandBuilder;
-import com.databricks.jdbc.client.impl.sdk.helper.CommandName;
-import com.databricks.jdbc.client.impl.sdk.helper.MetadataResultSetBuilder;
+import com.databricks.jdbc.client.impl.helper.CommandBuilder;
+import com.databricks.jdbc.client.impl.helper.CommandName;
+import com.databricks.jdbc.client.impl.helper.MetadataResultSetBuilder;
 import com.databricks.jdbc.core.*;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -34,9 +32,8 @@ public class DatabricksNewMetadataSdkClient implements DatabricksMetadataClient 
 
   @Override
   public DatabricksResultSet listTypeInfo(IDatabricksSession session) {
-    // Todo : need to add hardcoded values here.
-    throw new UnsupportedOperationException(
-        "Not implemented in DatabricksMetadataSdkClient - listTypeInfo");
+    LOGGER.debug("public ResultSet getTypeInfo()");
+    return TYPE_INFO_RESULT;
   }
 
   @Override
@@ -59,7 +56,11 @@ public class DatabricksNewMetadataSdkClient implements DatabricksMetadataClient 
 
   @Override
   public DatabricksResultSet listTables(
-      IDatabricksSession session, String catalog, String schemaNamePattern, String tableNamePattern)
+      IDatabricksSession session,
+      String catalog,
+      String schemaNamePattern,
+      String tableNamePattern,
+      String[] tableTypes)
       throws SQLException {
     CommandBuilder commandBuilder =
         new CommandBuilder(catalog, session)
@@ -72,7 +73,6 @@ public class DatabricksNewMetadataSdkClient implements DatabricksMetadataClient 
   @Override
   public DatabricksResultSet listTableTypes(IDatabricksSession session) throws SQLException {
     LOGGER.debug("Returning list of table types.");
-    ;
     return MetadataResultSetBuilder.getTableTypesResult();
   }
 

@@ -190,7 +190,7 @@ public class ChunkDownloader {
     }
   }
 
-  void downloadLinks(long chunkIndexToDownloadLink) {
+  void downloadLinks(long chunkIndexToDownloadLink) throws DatabricksSQLException {
     Collection<ExternalLink> chunks =
         session.getDatabricksClient().getResultChunks(statementId, chunkIndexToDownloadLink);
     for (ExternalLink chunkLink : chunks) {

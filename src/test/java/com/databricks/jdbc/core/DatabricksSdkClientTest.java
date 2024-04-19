@@ -31,6 +31,7 @@ public class DatabricksSdkClientTest {
   @Mock StatementExecutionService statementExecutionService;
   @Mock ApiClient apiClient;
   @Mock ResultData resultData;
+  @Mock DatabricksSession session;
 
   private static final String WAREHOUSE_ID = "erg6767gg";
   private static final ComputeResource warehouse = new Warehouse(WAREHOUSE_ID);
@@ -127,7 +128,8 @@ public class DatabricksSdkClientTest {
         DatabricksConnectionContext.parse(JDBC_URL, new Properties());
     DatabricksSdkClient databricksSdkClient =
         new DatabricksSdkClient(connectionContext, statementExecutionService, apiClient);
-    databricksSdkClient.deleteSession(SESSION_ID, warehouse);
+    when(session.getSessionId()).thenReturn(SESSION_ID);
+    databricksSdkClient.deleteSession(session, warehouse);
     DeleteSessionRequest request =
         new DeleteSessionRequest().setSessionId(SESSION_ID).setWarehouseId(WAREHOUSE_ID);
     verify(apiClient).DELETE(eq(path), eq(request), eq(Void.class), eq(new HashMap<>()));

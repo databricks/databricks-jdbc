@@ -34,6 +34,9 @@ public class ResultData {
   @JsonProperty("row_offset")
   private Long rowOffset;
 
+  @JsonProperty("volume_operation_info")
+  private VolumeOperationInfo volumeOperationInfo;
+
   public ResultData setByteCount(Long byteCount) {
     this.byteCount = byteCount;
     return this;
@@ -104,6 +107,15 @@ public class ResultData {
 
   public Long getRowOffset() {
     return rowOffset;
+  }
+
+  public ResultData setVolumeOperationInfo(VolumeOperationInfo volumeOperationInfo) {
+    this.volumeOperationInfo = volumeOperationInfo;
+    return this;
+  }
+
+  public VolumeOperationInfo getVolumeOperationInfo() {
+    return volumeOperationInfo;
   }
 
   @Override

@@ -19,17 +19,6 @@ public class ValidationUtil {
     }
   }
 
-  private static boolean checkEmptyOrWildcardValidation(
-      String fieldValue, String context, String fieldName) {
-    if (WildcardUtil.isNullOrEmpty(fieldValue) || WildcardUtil.isWildcard(fieldValue)) {
-      String reason = WildcardUtil.isNullOrEmpty(fieldValue) ? "empty or null" : "a wildcard";
-      LOGGER.error(
-          "Field {} failed validation. Reason : {}. Context : {}", fieldName, reason, context);
-      return true;
-    }
-    return false;
-  }
-
   public static void throwErrorIfNull(Map<String, String> fields, String context)
       throws DatabricksSQLException {
     for (Map.Entry<String, String> field : fields.entrySet()) {

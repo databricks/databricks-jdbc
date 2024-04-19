@@ -23,7 +23,7 @@ class SingleChunkDownloader implements Callable<Void> {
   }
 
   @Override
-  public Void call() {
+  public Void call() throws DatabricksSQLException {
     if (chunk.isChunkLinkInvalid()) {
       chunkDownloader.downloadLinks(chunk.getChunkIndex());
     }

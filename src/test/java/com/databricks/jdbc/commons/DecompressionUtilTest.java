@@ -18,6 +18,8 @@ public class DecompressionUtilTest {
   private static final String INITIAL_STRING = "testData";
   private static InputStream compressedInputStream;
 
+  private static DecompressionUtil decompressionUtil = new DecompressionUtil();
+
   @BeforeAll
   public static void setCompressedInputStream() throws IOException {
     byte[] uncompressedData = INITIAL_STRING.getBytes();
@@ -32,7 +34,7 @@ public class DecompressionUtilTest {
   @Test
   public void testDecompressLZ4Frame() throws Exception {
     InputStream resultStream =
-        DecompressionUtil.decompress(
+        decompressionUtil.decompress(
             compressedInputStream, CompressionType.LZ4_COMPRESSION, CONTEXT);
     assertNotNull(resultStream, "The decompressed stream should not be null.");
     assertTrue(
@@ -42,7 +44,7 @@ public class DecompressionUtilTest {
   @Test
   public void testDecompressLZ4FrameSkipsCompression() throws Exception {
     assertEquals(
-        DecompressionUtil.decompress(compressedInputStream, CompressionType.NONE, CONTEXT),
+        decompressionUtil.decompress(compressedInputStream, CompressionType.NONE, CONTEXT),
         compressedInputStream);
     assertNull(DecompressionUtil.decompress(null, CompressionType.LZ4_COMPRESSION, CONTEXT));
   }

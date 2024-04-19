@@ -4,13 +4,15 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.when;
 
 import com.databricks.jdbc.client.StatementType;
+import com.databricks.jdbc.client.impl.thrift.generated.*;
 import com.databricks.sdk.service.sql.StatementState;
 import com.databricks.sdk.service.sql.StatementStatus;
-import java.io.InputStream;
-import java.io.Reader;
+import java.io.*;
 import java.math.BigDecimal;
 import java.sql.*;
 import java.util.Calendar;
+import java.util.Collections;
+import java.util.GregorianCalendar;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -20,6 +22,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 public class DatabricksResultSetTest {
   @Mock InlineJsonResult mockedExecutionResult;
   @Mock DatabricksResultSetMetaData mockedResultSetMetadata;
+  @Mock IDatabricksSession session;
 
   @Mock DatabricksStatement mockedDatabricksStatement;
   @Mock Statement mockedStatement;
@@ -35,20 +38,22 @@ public class DatabricksResultSetTest {
         mockedResultSetMetadata);
   }
 
-  @Test
-  void testClose() throws SQLException {
-    // Test null parent statement
-    DatabricksResultSet resultSet = getResultSet(StatementState.SUCCEEDED, null);
-    assertFalse(resultSet.isClosed());
-    resultSet.close();
-    assertTrue(resultSet.isClosed());
-    assertThrows(DatabricksSQLException.class, resultSet::next);
-
-    // Test non null parent statement
-    resultSet = getResultSet(StatementState.SUCCEEDED, mockedDatabricksStatement);
-    assertFalse(resultSet.isClosed());
-    resultSet.close();
-    assertTrue(resultSet.isClosed());
+  private DatabricksResultSet getThriftResultSetMetadata() {
+    TColumnValue columnValue = new TColumnValue();
+    columnValue.setStringVal(new TStringValue().setValue("testString"));
+    TRow row = new TRow().setColVals(Collections.singletonList(columnValue));
+    TRowSet rowSet = new TRowSet().setRows(Collections.singletonList(row));
+    TGetResultSetMetadataResp metadataResp = new TGetResultSetMetadataResp();
+    TColumnDesc columnDesc = new TColumnDesc().setColumnName("testCol");
+    TTableSchema schema = new TTableSchema().setColumns(Collections.singletonList(columnDesc));
+    metadataResp.setSchema(schema);
+    return new DatabricksResultSet(
+        new TStatus().setStatusCode(TStatusCode.SUCCESS_STATUS),
+        "test-statementID",
+        rowSet,
+        metadataResp,
+        StatementType.METADATA,
+        mockedDatabricksStatement);
   }
 
   @Test
@@ -56,6 +61,12 @@ public class DatabricksResultSetTest {
     when(mockedExecutionResult.next()).thenReturn(true);
     DatabricksResultSet resultSet = getResultSet(StatementState.SUCCEEDED, null);
     assertTrue(resultSet.next());
+  }
+
+  @Test
+  void testThriftResultSet() throws SQLException {
+    DatabricksResultSet resultSet = getThriftResultSetMetadata();
+    assertFalse(resultSet.next());
   }
 
   @Test
@@ -128,10 +139,12 @@ public class DatabricksResultSetTest {
     // null object
     when(mockedExecutionResult.getObject(0)).thenReturn(null);
     assertEquals(0, resultSet.getShort(1));
+    assertNull(resultSet.getObject(1));
     // Test with column label
     when(mockedExecutionResult.getObject(0)).thenReturn((short) 100);
     when(mockedResultSetMetadata.getColumnNameIndex("columnLabel")).thenReturn(1);
     assertEquals((short) 100, resultSet.getShort("columnLabel"));
+    assertEquals((short) 100, resultSet.getObject("columnLabel"));
   }
 
   @Test
@@ -162,6 +175,163 @@ public class DatabricksResultSetTest {
     when(mockedExecutionResult.getObject(0)).thenReturn((long) 100);
     when(mockedResultSetMetadata.getColumnNameIndex("columnLabel")).thenReturn(1);
     assertEquals((long) 100, resultSet.getLong("columnLabel"));
+  }
+
+  @Test
+  void testGetFloat() throws SQLException {
+    DatabricksResultSet resultSet = getResultSet(StatementState.SUCCEEDED, null);
+    when(mockedExecutionResult.getObject(0)).thenReturn((float) 100);
+    when(mockedResultSetMetadata.getColumnType(1)).thenReturn(Types.FLOAT);
+    assertEquals(100f, resultSet.getFloat(1));
+    // null object
+    when(mockedExecutionResult.getObject(0)).thenReturn(null);
+    assertEquals(0, resultSet.getFloat(1));
+    // Test with column label
+    when(mockedExecutionResult.getObject(0)).thenReturn((float) 100);
+    when(mockedResultSetMetadata.getColumnNameIndex("columnLabel")).thenReturn(1);
+    assertEquals(100f, resultSet.getFloat("columnLabel"));
+  }
+
+  @Test
+  void testGetUnicode() throws SQLException, UnsupportedEncodingException {
+    DatabricksResultSet resultSet = getResultSet(StatementState.SUCCEEDED, null);
+    String testString = "test";
+    InputStream expectedStream = new java.io.ByteArrayInputStream(testString.getBytes("UTF-16"));
+    when(mockedExecutionResult.getObject(0)).thenReturn(testString);
+    when(mockedResultSetMetadata.getColumnType(1)).thenReturn(Types.VARCHAR);
+    assertNotNull(resultSet.getUnicodeStream(1));
+    // null object
+    when(mockedExecutionResult.getObject(0)).thenReturn(null);
+    assertNull(resultSet.getUnicodeStream(1));
+    // Test with column label
+    when(mockedExecutionResult.getObject(0)).thenReturn(testString);
+    when(mockedResultSetMetadata.getColumnNameIndex("columnLabel")).thenReturn(1);
+    assertNotNull(resultSet.getUnicodeStream("columnLabel"));
+  }
+
+  @Test
+  void testGetDouble() throws SQLException {
+    DatabricksResultSet resultSet = getResultSet(StatementState.SUCCEEDED, null);
+    when(mockedExecutionResult.getObject(0)).thenReturn((double) 100);
+    when(mockedResultSetMetadata.getColumnType(1)).thenReturn(Types.DOUBLE);
+    assertEquals(100f, resultSet.getDouble(1));
+    // null object
+    when(mockedExecutionResult.getObject(0)).thenReturn(null);
+    assertEquals(0, resultSet.getDouble(1));
+    // Test with column label
+    when(mockedExecutionResult.getObject(0)).thenReturn((double) 100);
+    when(mockedResultSetMetadata.getColumnNameIndex("columnLabel")).thenReturn(1);
+    assertEquals(100f, resultSet.getDouble("columnLabel"));
+  }
+
+  @Test
+  void testGetBigDecimal() throws SQLException {
+    DatabricksResultSet resultSet = getResultSet(StatementState.SUCCEEDED, null);
+    BigDecimal expected = new BigDecimal("123.45");
+    when(mockedExecutionResult.getObject(1)).thenReturn(expected);
+    when(mockedResultSetMetadata.getColumnType(2)).thenReturn(Types.DECIMAL);
+    assertEquals(expected, resultSet.getBigDecimal(2));
+    // null object
+    when(mockedExecutionResult.getObject(0)).thenReturn(null);
+    assertEquals(BigDecimal.ZERO, resultSet.getBigDecimal(1));
+    // Test with column label
+    when(mockedExecutionResult.getObject(1)).thenReturn(expected);
+    when(mockedResultSetMetadata.getColumnNameIndex("columnLabel")).thenReturn(2);
+    assertEquals(expected, resultSet.getBigDecimal("columnLabel"));
+  }
+
+  @Test
+  void testGetDate() throws SQLException {
+    DatabricksResultSet resultSet = getResultSet(StatementState.SUCCEEDED, null);
+    Date expected = Date.valueOf("2023-01-01");
+    when(mockedExecutionResult.getObject(2)).thenReturn(expected);
+    when(mockedResultSetMetadata.getColumnType(3)).thenReturn(Types.DATE);
+    assertEquals(expected, resultSet.getDate(3));
+    // null object
+    when(mockedExecutionResult.getObject(2)).thenReturn(null);
+    assertEquals(null, resultSet.getDate(3));
+    // Test with column label
+    when(mockedExecutionResult.getObject(2)).thenReturn(expected);
+    when(mockedResultSetMetadata.getColumnNameIndex("columnLabel")).thenReturn(3);
+    assertEquals(expected, resultSet.getDate("columnLabel"));
+  }
+
+  @Test
+  void testGetBinaryStream() throws SQLException {
+    DatabricksResultSet resultSet = getResultSet(StatementState.SUCCEEDED, null);
+    int columnIndex = 1;
+    byte[] testBytes = {0x00, 0x01, 0x02};
+    when(resultSet.getObject(columnIndex)).thenReturn(testBytes);
+    when(mockedResultSetMetadata.getColumnType(columnIndex)).thenReturn(java.sql.Types.BINARY);
+    assertNotNull(resultSet.getBinaryStream(columnIndex));
+    // null object
+    when(mockedExecutionResult.getObject(2)).thenReturn(null);
+    assertNull(resultSet.getBinaryStream(3));
+    // Test with column label
+    when(mockedResultSetMetadata.getColumnNameIndex("columnLabel")).thenReturn(columnIndex);
+    assertNotNull(resultSet.getBinaryStream("columnLabel"));
+  }
+
+  @Test
+  void testGetAsciiStream() throws SQLException {
+    DatabricksResultSet resultSet = getResultSet(StatementState.SUCCEEDED, null);
+    int columnIndex = 5;
+    when(resultSet.getObject(columnIndex)).thenReturn("Test ASCII Stream");
+    when(mockedResultSetMetadata.getColumnType(columnIndex)).thenReturn(java.sql.Types.VARCHAR);
+    assertNotNull(resultSet.getAsciiStream(columnIndex));
+    // null object
+    when(mockedExecutionResult.getObject(2)).thenReturn(null);
+    assertNull(resultSet.getAsciiStream(3));
+    // Test with column label
+    when(mockedResultSetMetadata.getColumnNameIndex("columnLabel")).thenReturn(columnIndex);
+    assertNotNull(resultSet.getAsciiStream("columnLabel"));
+  }
+
+  @Test
+  void testGetTimestamp() throws SQLException {
+    DatabricksResultSet resultSet = getResultSet(StatementState.SUCCEEDED, null);
+    int columnIndex = 5;
+    Timestamp expectedTimestamp = new Timestamp(System.currentTimeMillis());
+    when(resultSet.getObject(columnIndex)).thenReturn(expectedTimestamp);
+    when(mockedResultSetMetadata.getColumnType(columnIndex)).thenReturn(java.sql.Types.TIMESTAMP);
+    assertEquals(expectedTimestamp, resultSet.getTimestamp(columnIndex));
+    // null object
+    when(mockedExecutionResult.getObject(2)).thenReturn(null);
+    assertNull(resultSet.getTimestamp(3));
+    // Test with column label
+    when(mockedResultSetMetadata.getColumnNameIndex("columnLabel")).thenReturn(columnIndex);
+    assertEquals(expectedTimestamp, resultSet.getTimestamp("columnLabel"));
+  }
+
+  @Test
+  void testGetBytes() throws SQLException {
+    DatabricksResultSet resultSet = getResultSet(StatementState.SUCCEEDED, null);
+    byte[] expected = new byte[] {1, 2, 3};
+    when(mockedExecutionResult.getObject(2)).thenReturn(expected);
+    when(mockedResultSetMetadata.getColumnType(3)).thenReturn(Types.BINARY);
+    assertEquals(expected, resultSet.getBytes(3));
+    // null object
+    when(mockedExecutionResult.getObject(2)).thenReturn(null);
+    assertNull(resultSet.getBytes(3));
+    // Test with column label
+    when(mockedExecutionResult.getObject(2)).thenReturn(expected);
+    when(mockedResultSetMetadata.getColumnNameIndex("columnLabel")).thenReturn(3);
+    assertEquals(expected, resultSet.getBytes("columnLabel"));
+  }
+
+  @Test
+  void testGetObject() throws SQLException {
+    String expected = "testObject";
+    DatabricksResultSet resultSet = getResultSet(StatementState.SUCCEEDED, null);
+    when(mockedExecutionResult.getObject(2)).thenReturn(expected);
+    assertEquals(expected, resultSet.getObject(3));
+    // null object
+    when(mockedExecutionResult.getObject(2)).thenReturn(null);
+    assertNull(resultSet.getObject(3));
+    // Test with column label
+    when(mockedExecutionResult.getObject(2)).thenReturn(expected);
+    when(mockedResultSetMetadata.getColumnNameIndex("columnLabel")).thenReturn(3);
+    assertEquals(expected, resultSet.getObject("columnLabel"));
   }
 
   @Test
@@ -333,6 +503,22 @@ public class DatabricksResultSetTest {
     assertThrows(
         DatabricksSQLFeatureNotSupportedException.class,
         () -> resultSet.updateBinaryStream("column", InputStream.nullInputStream(), 1));
+    assertThrows(DatabricksSQLFeatureNotSupportedException.class, resultSet::rowUpdated);
+    assertThrows(DatabricksSQLFeatureNotSupportedException.class, resultSet::rowInserted);
+    assertThrows(DatabricksSQLFeatureNotSupportedException.class, resultSet::rowDeleted);
+    assertThrows(
+        DatabricksSQLFeatureNotSupportedException.class, () -> resultSet.updateNull("column"));
+    assertThrows(DatabricksSQLFeatureNotSupportedException.class, () -> resultSet.updateNull(1));
+    assertThrows(
+        DatabricksSQLFeatureNotSupportedException.class, () -> resultSet.updateBoolean(1, true));
+    assertThrows(
+        DatabricksSQLFeatureNotSupportedException.class,
+        () -> resultSet.updateBoolean("column", true));
+    assertThrows(
+        DatabricksSQLFeatureNotSupportedException.class, () -> resultSet.updateByte(1, (byte) 100));
+    assertThrows(
+        DatabricksSQLFeatureNotSupportedException.class,
+        () -> resultSet.updateByte("column", (byte) 100));
     assertThrows(
         DatabricksSQLFeatureNotSupportedException.class,
         () -> resultSet.updateCharacterStream(1, Reader.nullReader(), 1));
@@ -349,6 +535,24 @@ public class DatabricksResultSetTest {
         () -> resultSet.updateObject(1, new Object(), 1));
     assertThrows(
         DatabricksSQLFeatureNotSupportedException.class,
+        () -> resultSet.updateAsciiStream(1, null, 1));
+    assertThrows(
+        DatabricksSQLFeatureNotSupportedException.class,
+        () -> resultSet.updateAsciiStream("column", null, 1));
+    assertThrows(
+        DatabricksSQLFeatureNotSupportedException.class,
+        () -> resultSet.updateBinaryStream(1, new ByteArrayInputStream(new byte[0]), 1));
+    assertThrows(
+        DatabricksSQLFeatureNotSupportedException.class,
+        () -> resultSet.updateBinaryStream("column", new ByteArrayInputStream(new byte[0]), 1));
+    assertThrows(
+        DatabricksSQLFeatureNotSupportedException.class,
+        () -> resultSet.updateCharacterStream(1, new CharArrayReader(new char[0]), 1));
+    assertThrows(
+        DatabricksSQLFeatureNotSupportedException.class,
+        () -> resultSet.updateCharacterStream("column", new CharArrayReader(new char[0]), 1));
+    assertThrows(
+        DatabricksSQLFeatureNotSupportedException.class,
         () -> resultSet.updateObject("column", new Object(), 1));
     assertThrows(
         DatabricksSQLFeatureNotSupportedException.class,
@@ -357,7 +561,7 @@ public class DatabricksResultSetTest {
         DatabricksSQLFeatureNotSupportedException.class,
         () -> resultSet.updateObject("column", new Object()));
 
-    assertThrows(DatabricksSQLFeatureNotSupportedException.class, () -> resultSet.first());
+    assertThrows(DatabricksSQLFeatureNotSupportedException.class, resultSet::first);
     assertThrows(DatabricksSQLFeatureNotSupportedException.class, () -> resultSet.last());
     assertThrows(DatabricksSQLFeatureNotSupportedException.class, () -> resultSet.beforeFirst());
     assertThrows(DatabricksSQLFeatureNotSupportedException.class, () -> resultSet.afterLast());
@@ -371,39 +575,121 @@ public class DatabricksResultSetTest {
   }
 
   @Test
-  void testUnsupportedOperationsThrowUnsupportedOperationException() {
+  void testUnsupportedOperationsThrowDatabricksSQLFeatureNotSupportedException() {
     when(mockedResultSetMetadata.getColumnNameIndex("column")).thenReturn(1);
     DatabricksResultSet resultSet = getResultSet(StatementState.SUCCEEDED, null);
-    assertThrows(UnsupportedOperationException.class, () -> resultSet.getTime(1));
-    assertThrows(UnsupportedOperationException.class, () -> resultSet.getTime("column"));
-    assertThrows(UnsupportedOperationException.class, () -> resultSet.getURL(1));
-    assertThrows(UnsupportedOperationException.class, () -> resultSet.getURL("column"));
-    assertThrows(UnsupportedOperationException.class, () -> resultSet.updateRef(1, null));
-    assertThrows(UnsupportedOperationException.class, () -> resultSet.updateRef("column", null));
-    assertThrows(UnsupportedOperationException.class, () -> resultSet.updateBlob(1, (Blob) null));
+    assertThrows(DatabricksSQLFeatureNotSupportedException.class, resultSet::getHoldability);
+    assertThrows(DatabricksSQLFeatureNotSupportedException.class, () -> resultSet.getBlob(1));
     assertThrows(
-        UnsupportedOperationException.class, () -> resultSet.updateBlob("column", (Blob) null));
-    assertThrows(UnsupportedOperationException.class, () -> resultSet.updateClob(1, (Clob) null));
+        DatabricksSQLFeatureNotSupportedException.class, () -> resultSet.getBlob("column"));
+    assertThrows(DatabricksSQLFeatureNotSupportedException.class, () -> resultSet.getClob(1));
     assertThrows(
-        UnsupportedOperationException.class, () -> resultSet.updateClob("column", (Clob) null));
-    assertThrows(UnsupportedOperationException.class, () -> resultSet.updateArray(1, null));
-    assertThrows(UnsupportedOperationException.class, () -> resultSet.updateArray("column", null));
-    assertThrows(UnsupportedOperationException.class, () -> resultSet.getRowId(1));
-    assertThrows(UnsupportedOperationException.class, () -> resultSet.getRowId("column"));
-    assertThrows(UnsupportedOperationException.class, () -> resultSet.updateRowId(1, null));
-    assertThrows(UnsupportedOperationException.class, () -> resultSet.updateRowId("column", null));
-    assertThrows(UnsupportedOperationException.class, () -> resultSet.getNClob(1));
-    assertThrows(UnsupportedOperationException.class, () -> resultSet.getNClob("column"));
-    assertThrows(UnsupportedOperationException.class, () -> resultSet.getSQLXML(1));
-    assertThrows(UnsupportedOperationException.class, () -> resultSet.getSQLXML("column"));
+        DatabricksSQLFeatureNotSupportedException.class, () -> resultSet.getClob("column"));
+    assertThrows(DatabricksSQLFeatureNotSupportedException.class, () -> resultSet.getArray(1));
     assertThrows(
-        UnsupportedOperationException.class,
+        DatabricksSQLFeatureNotSupportedException.class, () -> resultSet.getArray("column"));
+    assertThrows(
+        DatabricksSQLFeatureNotSupportedException.class,
+        () -> resultSet.getDate(1, new GregorianCalendar()));
+    assertThrows(
+        DatabricksSQLFeatureNotSupportedException.class,
+        () -> resultSet.getDate("column", new GregorianCalendar()));
+    assertThrows(
+        DatabricksSQLFeatureNotSupportedException.class,
+        () -> resultSet.getTime(1, new GregorianCalendar()));
+    assertThrows(
+        DatabricksSQLFeatureNotSupportedException.class,
+        () -> resultSet.getTime("column", new GregorianCalendar()));
+    assertThrows(DatabricksSQLFeatureNotSupportedException.class, () -> resultSet.getTime(1));
+    assertThrows(
+        DatabricksSQLFeatureNotSupportedException.class, () -> resultSet.getTime("column"));
+    assertThrows(DatabricksSQLFeatureNotSupportedException.class, () -> resultSet.getURL(1));
+    assertThrows(DatabricksSQLFeatureNotSupportedException.class, () -> resultSet.getURL("column"));
+    assertThrows(
+        DatabricksSQLFeatureNotSupportedException.class, () -> resultSet.updateRef(1, null));
+    assertThrows(
+        DatabricksSQLFeatureNotSupportedException.class, () -> resultSet.updateRef("column", null));
+    assertThrows(
+        DatabricksSQLFeatureNotSupportedException.class,
+        () -> resultSet.updateBlob(1, (Blob) null));
+    assertThrows(
+        DatabricksSQLFeatureNotSupportedException.class,
+        () -> resultSet.updateBlob("column", (Blob) null));
+    assertThrows(
+        DatabricksSQLFeatureNotSupportedException.class,
+        () -> resultSet.updateClob(1, (Clob) null));
+    assertThrows(
+        DatabricksSQLFeatureNotSupportedException.class,
+        () -> resultSet.updateClob("column", (Clob) null));
+    assertThrows(
+        DatabricksSQLFeatureNotSupportedException.class, () -> resultSet.updateArray(1, null));
+    assertThrows(
+        DatabricksSQLFeatureNotSupportedException.class,
+        () -> resultSet.updateArray("column", null));
+    assertThrows(DatabricksSQLFeatureNotSupportedException.class, () -> resultSet.getRowId(1));
+    assertThrows(
+        DatabricksSQLFeatureNotSupportedException.class, () -> resultSet.getRowId("column"));
+    assertThrows(
+        DatabricksSQLFeatureNotSupportedException.class, () -> resultSet.updateRowId(1, null));
+    assertThrows(
+        DatabricksSQLFeatureNotSupportedException.class,
+        () -> resultSet.updateRowId("column", null));
+    assertThrows(DatabricksSQLFeatureNotSupportedException.class, () -> resultSet.getNClob(1));
+    assertThrows(
+        DatabricksSQLFeatureNotSupportedException.class, () -> resultSet.getNClob("column"));
+    assertThrows(DatabricksSQLFeatureNotSupportedException.class, () -> resultSet.getSQLXML(1));
+    assertThrows(
+        DatabricksSQLFeatureNotSupportedException.class, () -> resultSet.getSQLXML("column"));
+    assertThrows(
+        DatabricksSQLFeatureNotSupportedException.class, () -> resultSet.getNString("column"));
+    assertThrows(DatabricksSQLFeatureNotSupportedException.class, () -> resultSet.getNString(2));
+    assertThrows(
+        DatabricksSQLFeatureNotSupportedException.class,
+        () -> resultSet.getNCharacterStream("column"));
+    assertThrows(
+        DatabricksSQLFeatureNotSupportedException.class, () -> resultSet.getNCharacterStream(2));
+    assertThrows(
+        DatabricksSQLFeatureNotSupportedException.class,
+        () -> resultSet.updateAsciiStream(2, null, 1));
+    assertThrows(
+        DatabricksSQLFeatureNotSupportedException.class,
+        () -> resultSet.updateAsciiStream("column", null, 1));
+    assertThrows(
+        DatabricksSQLFeatureNotSupportedException.class,
+        () -> resultSet.updateBinaryStream(2, null, 1));
+    assertThrows(
+        DatabricksSQLFeatureNotSupportedException.class,
+        () -> resultSet.updateBinaryStream("column", null, 1));
+    assertThrows(
+        DatabricksSQLFeatureNotSupportedException.class,
+        () -> resultSet.updateCharacterStream(2, null, 1));
+    assertThrows(
+        DatabricksSQLFeatureNotSupportedException.class,
+        () -> resultSet.updateCharacterStream("column", null, 1));
+    assertThrows(
+        DatabricksSQLFeatureNotSupportedException.class,
         () -> resultSet.getTimestamp(1, Calendar.getInstance()));
     assertThrows(
-        UnsupportedOperationException.class,
+        DatabricksSQLFeatureNotSupportedException.class,
         () -> resultSet.getTimestamp("column", Calendar.getInstance()));
-    assertThrows(UnsupportedOperationException.class, () -> resultSet.unwrap(null));
-    assertThrows(UnsupportedOperationException.class, () -> resultSet.isWrapperFor(null));
-    assertThrows(UnsupportedOperationException.class, () -> resultSet.getHoldability());
+    assertThrows(DatabricksSQLFeatureNotSupportedException.class, () -> resultSet.unwrap(null));
+    assertThrows(
+        DatabricksSQLFeatureNotSupportedException.class, () -> resultSet.isWrapperFor(null));
+  }
+
+  @Test
+  void testClose() throws SQLException {
+    // Test null parent statement
+    DatabricksResultSet resultSet = getResultSet(StatementState.SUCCEEDED, null);
+    assertFalse(resultSet.isClosed());
+    resultSet.close();
+    assertTrue(resultSet.isClosed());
+    assertThrows(DatabricksSQLException.class, resultSet::next);
+
+    // Test non null parent statement
+    resultSet = getResultSet(StatementState.SUCCEEDED, mockedDatabricksStatement);
+    assertFalse(resultSet.isClosed());
+    resultSet.close();
+    assertTrue(resultSet.isClosed());
   }
 }

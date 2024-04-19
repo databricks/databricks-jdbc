@@ -1,3 +1,8 @@
 package com.databricks.jdbc.core.types;
 
-public interface ComputeResource {}
+import com.databricks.jdbc.client.DatabricksClientType;
+
+public interface ComputeResource {
+
+  DatabricksClientType getClientType();
+}
