@@ -145,7 +145,7 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
     Matcher urlMatcher = HTTP_WAREHOUSE_PATH_PATTERN.matcher(httpPath);
     //    System.out.println(urlMatcher.find() + " " + urlMatcher.group(2));
     if (urlMatcher.find()) {
-      return new Warehouse(urlMatcher.group(2));
+      return new Warehouse(urlMatcher.group(1));
     }
     urlMatcher = HTTP_ENDPOINT_PATH_PATTERN.matcher(httpPath);
     if (urlMatcher.find()) {
