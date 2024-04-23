@@ -338,13 +338,10 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
     int proxyAuthTypeOrdinal =
         getParameter(PROXY_AUTH) == null ? 0 : Integer.parseInt(getParameter(PROXY_AUTH));
     return ProxyConfig.ProxyAuthType.values()[proxyAuthTypeOrdinal];
-<<<<<<< HEAD
   }
 
   public int getProxyAuth() {
     return getParameter(PROXY_AUTH) == null ? 0 : Integer.parseInt(getParameter(PROXY_AUTH));
-=======
->>>>>>> 43a0bb84 (update based on SDK)
   }
 
   @Override
