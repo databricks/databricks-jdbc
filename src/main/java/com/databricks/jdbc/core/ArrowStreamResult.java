@@ -1,22 +1,25 @@
 package com.databricks.jdbc.core;
 
 import com.databricks.jdbc.client.IDatabricksHttpClient;
+import com.databricks.jdbc.client.impl.thrift.generated.TColumnDesc;
+import com.databricks.jdbc.client.impl.thrift.generated.TGetResultSetMetadataResp;
+import com.databricks.jdbc.client.impl.thrift.generated.TRowSet;
 import com.databricks.jdbc.client.sqlexec.ResultData;
 import com.databricks.jdbc.client.sqlexec.ResultManifest;
-import com.databricks.sdk.service.sql.BaseChunkInfo;
 import com.databricks.sdk.service.sql.ColumnInfo;
 import com.databricks.sdk.service.sql.ColumnInfoTypeName;
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.collect.ImmutableMap;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 
+import static com.databricks.jdbc.client.impl.thrift.commons.DatabricksThriftHelper.getTypeFromTypeDesc;
+
 class ArrowStreamResult implements IExecutionResult {
 
-  private final IDatabricksSession session;
-  private final ImmutableMap<Long, BaseChunkInfo> rowOffsetToChunkMap;
-  private final ChunkDownloader chunkDownloader;
+  private IDatabricksSession session;
+  private ChunkDownloader chunkDownloader;
+  private ChunkExtractor chunkExtractor;
 
   private long currentRowIndex;
 
@@ -37,6 +40,22 @@ class ArrowStreamResult implements IExecutionResult {
         session);
   }
 
+  ArrowStreamResult(TGetResultSetMetadataResp resultManifest, TRowSet resultData) throws DatabricksParsingException {
+    this.chunkDownloader = null;
+    setColumnInfo(resultManifest);
+    this.currentRowIndex = -1;
+    this.isClosed = false;
+    this.chunkIterator = null;
+    this.chunkExtractor = new ChunkExtractor(resultData.getArrowBatches(),resultManifest);
+  }
+
+  private void setColumnInfo(TGetResultSetMetadataResp resultManifest){
+    this.columnInfos = new ArrayList<>();
+    for (TColumnDesc columnInfo : resultManifest.getSchema().getColumns()){
+      this.columnInfos.add(new ColumnInfo().setTypeName(getTypeFromTypeDesc(columnInfo.getTypeDesc())));
+    }
+  }
+
   @VisibleForTesting
   ArrowStreamResult(
       ResultManifest resultManifest,
@@ -52,7 +71,6 @@ class ArrowStreamResult implements IExecutionResult {
 
   private ArrowStreamResult(
       ResultManifest resultManifest, ChunkDownloader chunkDownloader, IDatabricksSession session) {
-    this.rowOffsetToChunkMap = getRowOffsetMap(resultManifest);
     this.session = session;
     this.chunkDownloader = chunkDownloader;
     this.columnInfos =
@@ -62,21 +80,6 @@ class ArrowStreamResult implements IExecutionResult {
     this.currentRowIndex = -1;
     this.isClosed = false;
     this.chunkIterator = null;
-  }
-
-  public ChunkDownloader getChunkDownloader() {
-    return this.chunkDownloader;
-  }
-
-  private static ImmutableMap<Long, BaseChunkInfo> getRowOffsetMap(ResultManifest resultManifest) {
-    ImmutableMap.Builder<Long, BaseChunkInfo> rowOffsetMapBuilder = ImmutableMap.builder();
-    if (resultManifest.getTotalChunkCount() == 0) {
-      return rowOffsetMapBuilder.build();
-    }
-    for (BaseChunkInfo chunk : resultManifest.getChunks()) {
-      rowOffsetMapBuilder.put(chunk.getRowOffset(), chunk);
-    }
-    return rowOffsetMapBuilder.build();
   }
 
   @Override

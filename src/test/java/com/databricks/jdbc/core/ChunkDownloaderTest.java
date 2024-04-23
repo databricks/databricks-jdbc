@@ -13,7 +13,6 @@ import com.databricks.jdbc.client.impl.sdk.DatabricksSdkClient;
 import com.databricks.jdbc.client.sqlexec.ExternalLink;
 import com.databricks.jdbc.client.sqlexec.ResultData;
 import com.databricks.jdbc.client.sqlexec.ResultManifest;
-import com.databricks.jdbc.core.ArrowResultChunk.DownloadStatus;
 import com.databricks.jdbc.driver.DatabricksConnectionContext;
 import com.databricks.jdbc.driver.IDatabricksConnectionContext;
 import com.databricks.sdk.core.ApiClient;
@@ -166,7 +165,7 @@ public class ChunkDownloaderTest {
     assertEquals(CHUNK_URL_PREFIX + chunkIndex, chunk.getChunkUrl());
 
     assertNotNull(chunk.getDownloadFinishTime());
-    assertEquals(DownloadStatus.DOWNLOAD_SUCCEEDED, chunk.getStatus());
+    assertEquals(ArrowResultChunk.ChunkStatus.DOWNLOAD_SUCCEEDED, chunk.getStatus());
   }
 
   private File createTestArrowFile(

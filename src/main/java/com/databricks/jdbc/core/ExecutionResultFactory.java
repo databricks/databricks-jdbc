@@ -32,6 +32,8 @@ class ExecutionResultFactory {
     switch (manifest.getResultFormat()) {
       case COLUMN_BASED_SET:
         return getResultSet(convertColumnarToRowBased(data));
+      case ARROW_BASED_SET:
+        return new ArrowStreamResult(manifest, data);
       case ROW_BASED_SET:
         throw new DatabricksSQLFeatureNotSupportedException(
             "Invalid state - row based set cannot be received");

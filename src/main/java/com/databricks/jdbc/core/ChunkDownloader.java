@@ -90,7 +90,6 @@ public class ChunkDownloader {
           chunkInfo.getChunkIndex(),
           new ArrowResultChunk(
               chunkInfo,
-              new RootAllocator(/* limit= */ Integer.MAX_VALUE),
               statementId,
               resultManifest.getCompressionType()));
     }
@@ -133,7 +132,7 @@ public class ChunkDownloader {
         while (!isDownloadComplete(chunk.getStatus())) {
           chunk.wait();
         }
-        if (chunk.getStatus() != ArrowResultChunk.DownloadStatus.DOWNLOAD_SUCCEEDED) {
+        if (chunk.getStatus() != ArrowResultChunk.ChunkStatus.DOWNLOAD_SUCCEEDED) {
           throw new DatabricksSQLException(chunk.getErrorMessage());
         }
       } catch (InterruptedException e) {
@@ -166,10 +165,10 @@ public class ChunkDownloader {
     return true;
   }
 
-  private boolean isDownloadComplete(ArrowResultChunk.DownloadStatus status) {
-    return status == ArrowResultChunk.DownloadStatus.DOWNLOAD_SUCCEEDED
-        || status == ArrowResultChunk.DownloadStatus.DOWNLOAD_FAILED
-        || status == ArrowResultChunk.DownloadStatus.DOWNLOAD_FAILED_ABORTED;
+  private boolean isDownloadComplete(ArrowResultChunk.ChunkStatus status) {
+    return status == ArrowResultChunk.ChunkStatus.DOWNLOAD_SUCCEEDED
+        || status == ArrowResultChunk.ChunkStatus.DOWNLOAD_FAILED
+        || status == ArrowResultChunk.ChunkStatus.DOWNLOAD_FAILED_ABORTED;
   }
 
   void downloadProcessed(long chunkIndex) {
@@ -222,7 +221,7 @@ public class ChunkDownloader {
         && nextChunkToDownload < totalChunks
         && totalChunksInMemory < allowedChunksInMemory) {
       ArrowResultChunk chunk = chunkIndexToChunksMap.get(nextChunkToDownload);
-      if (chunk.getStatus() != ArrowResultChunk.DownloadStatus.DOWNLOAD_SUCCEEDED) {
+      if (chunk.getStatus() != ArrowResultChunk.ChunkStatus.DOWNLOAD_SUCCEEDED) {
         this.chunkDownloaderExecutorService.submit(
             new SingleChunkDownloader(chunk, httpClient, this));
         totalChunksInMemory++;

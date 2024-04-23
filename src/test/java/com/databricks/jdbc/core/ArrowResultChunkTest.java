@@ -43,7 +43,7 @@ public class ArrowResultChunkTest {
             .setRowCount(totalRows);
     ArrowResultChunk arrowResultChunk =
         new ArrowResultChunk(
-            chunkInfo, new RootAllocator(Integer.MAX_VALUE), STATEMENT_ID, CompressionType.NONE);
+            chunkInfo, STATEMENT_ID, CompressionType.NONE);
 
     // Assert
     assert (arrowResultChunk.getRecordBatchCountInChunk() == 0);
@@ -61,7 +61,7 @@ public class ArrowResultChunkTest {
             .setRowCount(totalRows);
     ArrowResultChunk arrowResultChunk =
         new ArrowResultChunk(
-            chunkInfo, new RootAllocator(Integer.MAX_VALUE), STATEMENT_ID, CompressionType.NONE);
+            chunkInfo,STATEMENT_ID, CompressionType.NONE);
     Schema schema = createTestSchema();
     Object[][] testData = createTestData(schema, (int) totalRows);
     File arrowFile =
@@ -149,7 +149,6 @@ public class ArrowResultChunkTest {
     ArrowResultChunk arrowResultChunk =
         new ArrowResultChunk(
             emptyChunkInfo,
-            new RootAllocator(Integer.MAX_VALUE),
             STATEMENT_ID,
             CompressionType.NONE);
     arrowResultChunk.setIsDataInitialized(true);
@@ -160,7 +159,7 @@ public class ArrowResultChunkTest {
         new BaseChunkInfo().setChunkIndex(18L).setByteCount(200L).setRowOffset(0L).setRowCount(4L);
     arrowResultChunk =
         new ArrowResultChunk(
-            chunkInfo, new RootAllocator(Integer.MAX_VALUE), STATEMENT_ID, CompressionType.NONE);
+            chunkInfo, STATEMENT_ID, CompressionType.NONE);
     arrowResultChunk.setIsDataInitialized(true);
     int size = 2;
     IntVector dummyVector = new IntVector("dummy_vector", new RootAllocator());
@@ -193,7 +192,7 @@ public class ArrowResultChunkTest {
         new BaseChunkInfo().setChunkIndex(18L).setByteCount(200L).setRowOffset(0L).setRowCount(4L);
     ArrowResultChunk arrowResultChunk =
         new ArrowResultChunk(
-            chunkInfo, new RootAllocator(Integer.MAX_VALUE), STATEMENT_ID, CompressionType.NONE);
+            chunkInfo, STATEMENT_ID, CompressionType.NONE);
     arrowResultChunk.setIsDataInitialized(true);
     int size = 2;
     IntVector dummyVector = new IntVector("dummy_vector", new RootAllocator());
