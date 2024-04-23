@@ -9,6 +9,7 @@ import com.databricks.jdbc.core.types.AllPurposeCluster;
 import com.databricks.jdbc.core.types.CompressionType;
 import com.databricks.jdbc.core.types.ComputeResource;
 import com.databricks.jdbc.core.types.Warehouse;
+import com.databricks.sdk.core.ProxyConfig;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
 import java.util.*;
@@ -333,8 +334,10 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   }
 
   @Override
-  public int getProxyAuth() {
-    return getParameter(PROXY_AUTH) == null ? 0 : Integer.parseInt(getParameter(PROXY_AUTH));
+  public ProxyConfig.ProxyAuthType getProxyAuthType() {
+    int proxyAuthTypeOrdinal =
+        getParameter(PROXY_AUTH) == null ? 0 : Integer.parseInt(getParameter(PROXY_AUTH));
+    return ProxyConfig.ProxyAuthType.values()[proxyAuthTypeOrdinal];
   }
 
   @Override
@@ -368,13 +371,10 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   }
 
   @Override
-  public int getCloudFetchProxyAuth() {
-    return getParameter(CF_PROXY_AUTH) == null ? 0 : Integer.parseInt(getParameter(CF_PROXY_AUTH));
-  }
-
-  @Override
-  public String getKrb5ConfPath() {
-    return getParameter(KRB5_CONF_PATH);
+  public ProxyConfig.ProxyAuthType getCloudFetchProxyAuthType() {
+    int proxyAuthTypeOrdinal =
+        getParameter(CF_PROXY_AUTH) == null ? 0 : Integer.parseInt(getParameter(CF_PROXY_AUTH));
+    return ProxyConfig.ProxyAuthType.values()[proxyAuthTypeOrdinal];
   }
 
   @Override

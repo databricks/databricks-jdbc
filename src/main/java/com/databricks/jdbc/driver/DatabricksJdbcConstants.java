@@ -37,20 +37,19 @@ public final class DatabricksJdbcConstants {
 
   static final String CONN_SCHEMA = "connschema";
 
-  static final String PROXY_HOST = "proxyhost";
-  static final String PROXY_PORT = "proxyport";
-  static final String PROXY_USER = "proxyuid";
-  static final String PROXY_PWD = "proxypwd";
-  static final String USE_PROXY = "useproxy";
-  static final String PROXY_AUTH = "proxyauth";
-  static final String USE_SYSTEM_PROXY = "usesystemproxy";
-  static final String USE_CF_PROXY = "usecfproxy";
-  static final String CF_PROXY_HOST = "cfproxyhost";
-  static final String CF_PROXY_PORT = "cfproxyport";
-  static final String CF_PROXY_AUTH = "cfproxyauth";
-  static final String CF_PROXY_USER = "cfproxyuid";
-  static final String CF_PROXY_PWD = "cfproxypwd";
-  static final String KRB5_CONF_PATH = "krb5conf";
+  public static final String PROXY_HOST = "proxyhost";
+  public static final String PROXY_PORT = "proxyport";
+  public static final String PROXY_USER = "proxyuid";
+  public static final String PROXY_PWD = "proxypwd";
+  public static final String USE_PROXY = "useproxy";
+  public static final String PROXY_AUTH = "proxyauth";
+  public static final String USE_SYSTEM_PROXY = "usesystemproxy";
+  public static final String USE_CF_PROXY = "usecfproxy";
+  public static final String CF_PROXY_HOST = "cfproxyhost";
+  public static final String CF_PROXY_PORT = "cfproxyport";
+  public static final String CF_PROXY_AUTH = "cfproxyauth";
+  public static final String CF_PROXY_USER = "cfproxyuid";
+  public static final String CF_PROXY_PWD = "cfproxypwd";
 
   static final String AUTH_FLOW = "auth_flow";
 

@@ -13,7 +13,8 @@ public class OAuthAuthenticator {
     this.connectionContext = connectionContext;
   }
 
-  public WorkspaceClient getWorkspaceClient(DatabricksConfig databricksConfig) throws DatabricksParsingException {
+  public WorkspaceClient getWorkspaceClient(DatabricksConfig databricksConfig)
+      throws DatabricksParsingException {
     if (this.connectionContext.getAuthMech().equals(IDatabricksConnectionContext.AuthMech.PAT)) {
       return authenticateAccessToken(databricksConfig);
     }
@@ -33,7 +34,8 @@ public class OAuthAuthenticator {
     return authenticateAccessToken(databricksConfig);
   }
 
-  public WorkspaceClient authenticateU2M(DatabricksConfig databricksConfig) {
+  public WorkspaceClient authenticateU2M(DatabricksConfig databricksConfig)
+      throws DatabricksParsingException {
     databricksConfig
         .setAuthType(DatabricksJdbcConstants.U2M_AUTH_TYPE)
         .setHost(this.connectionContext.getHostForOAuth())
@@ -47,7 +49,8 @@ public class OAuthAuthenticator {
     return new WorkspaceClient(databricksConfig);
   }
 
-  public WorkspaceClient authenticateAccessToken(DatabricksConfig databricksConfig) {
+  public WorkspaceClient authenticateAccessToken(DatabricksConfig databricksConfig)
+      throws DatabricksParsingException {
     databricksConfig
         .setAuthType(DatabricksJdbcConstants.ACCESS_TOKEN_AUTH_TYPE)
         .setHost(this.connectionContext.getHostUrl())
@@ -55,7 +58,8 @@ public class OAuthAuthenticator {
     return new WorkspaceClient(databricksConfig);
   }
 
-  public WorkspaceClient authenticateM2M(DatabricksConfig databricksConfig) {
+  public WorkspaceClient authenticateM2M(DatabricksConfig databricksConfig)
+      throws DatabricksParsingException {
     databricksConfig
         .setAuthType(DatabricksJdbcConstants.M2M_AUTH_TYPE)
         .setHost(this.connectionContext.getHostForOAuth())

@@ -59,21 +59,18 @@ public class DatabricksSdkClient implements DatabricksClient {
         new DatabricksConfig()
             .setHost(connectionContext.getHostUrl())
             .setToken(connectionContext.getToken())
-            .setUseSystemProxy(connectionContext.getUseSystemProxy());
+            .setUseSystemPropertiesHttp(connectionContext.getUseSystemProxy());
 
+    // Setup proxy settings
     if (connectionContext.getUseProxy()) {
       this.databricksConfig
-          .setUseProxy(connectionContext.getUseProxy())
           .setProxyHost(connectionContext.getProxyHost())
           .setProxyPort(connectionContext.getProxyPort());
     }
-
-    if (connectionContext.getProxyAuth() != 0) {
-      this.databricksConfig
-          .setProxyAuth(connectionContext.getProxyAuth())
-          .setProxyUser(connectionContext.getProxyUser())
-          .setProxyPassword(connectionContext.getProxyPassword());
-    }
+    this.databricksConfig
+        .setProxyAuthType(connectionContext.getProxyAuthType())
+        .setProxyUsername(connectionContext.getProxyUser())
+        .setProxyPassword(connectionContext.getProxyPassword());
 
     OAuthAuthenticator authenticator = new OAuthAuthenticator(connectionContext);
     this.workspaceClient = authenticator.getWorkspaceClient(this.databricksConfig);

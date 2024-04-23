@@ -26,8 +26,7 @@ public class OAuthAuthenticatorTest {
   }
 
   @Test
-  void getWorkspaceClient_PAT_AuthenticatesWithAccessToken()
-    throws DatabricksParsingException {
+  void getWorkspaceClient_PAT_AuthenticatesWithAccessToken() throws DatabricksParsingException {
     DatabricksConfig databricksConfig = new DatabricksConfig();
     when(mockContext.getAuthMech()).thenReturn(IDatabricksConnectionContext.AuthMech.PAT);
     when(mockContext.getHostUrl()).thenReturn("https://pat.databricks.com");

@@ -8,6 +8,7 @@ import com.databricks.jdbc.client.DatabricksHttpException;
 import com.databricks.jdbc.driver.DatabricksConnectionContext;
 import com.databricks.jdbc.driver.DatabricksDriver;
 import com.databricks.jdbc.driver.IDatabricksConnectionContext;
+import com.databricks.sdk.core.ProxyConfig;
 import java.io.IOException;
 import java.net.URI;
 import java.util.Properties;
@@ -32,6 +33,8 @@ public class DatabricksHttpClientTest {
 
   @Mock CloseableHttpResponse closeableHttpResponse;
 
+  @Mock IDatabricksConnectionContext connectionContext;
+
   private static final String CLUSTER_JDBC_URL =
       "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=http;ssl=1;httpPath=sql/protocolv1/o/6051921418418893/1115-130834-ms4m0yv;AuthMech=3;UserAgentEntry=MyApp";
   private static final String DBSQL_JDBC_URL =
@@ -40,24 +43,24 @@ public class DatabricksHttpClientTest {
   @Test
   public void testSetProxyDetailsIntoHttpClient() {
     HttpClientBuilder builder = HttpClientBuilder.create();
-    assertDoesNotThrow(
-        () ->
-            DatabricksHttpClient.setProxyDetailsInHttpClient(
-                builder, "proxyHost", 8080, true, "proxyUser", "proxyPassword"));
-    assertDoesNotThrow(
-        () ->
-            DatabricksHttpClient.setProxyDetailsInHttpClient(
-                builder, "proxyHost", 8080, false, "proxyUser", "proxyPassword"));
+
+    doReturn(true).when(connectionContext).getUseProxy();
+    doReturn("proxyHost").when(connectionContext).getProxyHost();
+    doReturn(1234).when(connectionContext).getProxyPort();
+    doReturn("proxyUser").when(connectionContext).getProxyUser();
+    doReturn("proxyPassword").when(connectionContext).getProxyPassword();
+    doReturn(ProxyConfig.ProxyAuthType.BASIC).when(connectionContext).getProxyAuthType();
+
+    assertDoesNotThrow(() -> DatabricksHttpClient.setupProxy(connectionContext, builder));
+
+    doReturn(ProxyConfig.ProxyAuthType.NONE).when(connectionContext).getProxyAuthType();
+    assertDoesNotThrow(() -> DatabricksHttpClient.setupProxy(connectionContext, builder));
+
+    doReturn(ProxyConfig.ProxyAuthType.BASIC).when(connectionContext).getProxyAuthType();
+    doReturn(null).when(connectionContext).getProxyUser();
     assertThrows(
         IllegalArgumentException.class,
-        () ->
-            DatabricksHttpClient.setProxyDetailsInHttpClient(
-                builder, "proxyHost", 8080, true, null, "proxyPassword"));
-    assertThrows(
-        IllegalArgumentException.class,
-        () ->
-            DatabricksHttpClient.setProxyDetailsInHttpClient(
-                builder, null, 8080, true, "user", "proxyPassword"));
+        () -> DatabricksHttpClient.setupProxy(connectionContext, builder));
   }
 
   @Test
