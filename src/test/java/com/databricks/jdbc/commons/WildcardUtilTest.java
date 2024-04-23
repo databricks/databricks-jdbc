@@ -1,9 +1,10 @@
 package com.databricks.jdbc.commons;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.*;
 
 import com.databricks.jdbc.commons.util.WildcardUtil;
 import java.util.stream.Stream;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -12,6 +13,8 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
 public class WildcardUtilTest {
+  private static WildcardUtil wildcardUtil = new WildcardUtil();
+
   private static Stream<Arguments> listPatterns() {
     return Stream.of(
         Arguments.of("abc", "abc", "Same string check"),
@@ -34,7 +37,29 @@ public class WildcardUtilTest {
   @MethodSource("listPatterns")
   public void testJDBCToHiveConversion(
       String inputPattern, String expectedOutput, String errorMessage) {
-    String actualOutput = WildcardUtil.jdbcPatternToHive(inputPattern);
+    String actualOutput = wildcardUtil.jdbcPatternToHive(inputPattern);
     assertEquals(expectedOutput, actualOutput, errorMessage);
+  }
+
+  @Test
+  public void testIsWildcard() {
+    assertTrue(wildcardUtil.isWildcard("*Test*"));
+    assertFalse(wildcardUtil.isWildcard("Test"));
+    assertFalse(wildcardUtil.isWildcard(null));
+  }
+
+  @Test
+  public void testIsNullOrEmptyWithWhitespace() {
+    assertFalse(wildcardUtil.isNullOrEmpty("Test"));
+    assertTrue(wildcardUtil.isNullOrEmpty(null));
+    assertTrue(wildcardUtil.isNullOrEmpty(""));
+    assertTrue(wildcardUtil.isNullOrEmpty("    "));
+  }
+
+  @Test
+  void testIsMatchAnything() {
+    assertTrue(wildcardUtil.isMatchAnything("*"));
+    assertFalse(wildcardUtil.isMatchAnything("Test"));
+    assertFalse(wildcardUtil.isMatchAnything(null));
   }
 }

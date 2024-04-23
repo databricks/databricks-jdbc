@@ -2,8 +2,9 @@ package com.databricks.jdbc.client.http;
 
 import com.databricks.jdbc.client.DatabricksHttpException;
 import com.databricks.jdbc.client.IDatabricksHttpClient;
-import com.databricks.jdbc.driver.DatabricksJdbcConstants;
 import com.databricks.jdbc.driver.IDatabricksConnectionContext;
+import com.databricks.sdk.core.UserAgent;
+import com.google.common.annotations.VisibleForTesting;
 import com.databricks.sdk.core.commons.CommonsHttpClient;
 import java.io.IOException;
 import java.util.HashSet;
@@ -40,8 +41,10 @@ public class DatabricksHttpClient implements IDatabricksHttpClient {
   private static final int MAX_RETRY_INTERVAL = 10 * 1000; // 10s
   private static final int DEFAULT_RETRY_COUNT = 5;
   private static final String HTTP_GET = "GET";
+  private static final String SDK_USER_AGENT = "databricks-sdk-java";
+  private static final String JDBC_HTTP_USER_AGENT = "databricks-jdbc-http";
   private static final Set<Integer> RETRYABLE_HTTP_CODES = getRetryableHttpCodes();
-  private static final long DEFAULT_IDLE_CONNECTION_TIMEOUT = 5;
+  protected static final long DEFAULT_IDLE_CONNECTION_TIMEOUT = 5;
 
   private static DatabricksHttpClient instance = null;
 
@@ -54,6 +57,18 @@ public class DatabricksHttpClient implements IDatabricksHttpClient {
     connectionManager.setMaxTotal(DEFAULT_MAX_HTTP_CONNECTIONS);
     connectionManager.setDefaultMaxPerRoute(DEFAULT_MAX_HTTP_CONNECTIONS_PER_ROUTE);
     httpClient = makeClosableHttpClient(connectionContext);
+  }
+
+  @VisibleForTesting
+  DatabricksHttpClient(
+      CloseableHttpClient closeableHttpClient,
+      PoolingHttpClientConnectionManager connectionManager) {
+    DatabricksHttpClient.connectionManager = connectionManager;
+    if (connectionManager != null) {
+      connectionManager.setMaxTotal(DEFAULT_MAX_HTTP_CONNECTIONS);
+      connectionManager.setDefaultMaxPerRoute(DEFAULT_MAX_HTTP_CONNECTIONS_PER_ROUTE);
+    }
+    httpClient = closeableHttpClient;
   }
 
   private RequestConfig makeRequestConfig() {
@@ -81,7 +96,7 @@ public class DatabricksHttpClient implements IDatabricksHttpClient {
     HttpClientBuilder builder =
         HttpClientBuilder.create()
             .setConnectionManager(connectionManager)
-            .setUserAgent(DatabricksJdbcConstants.DEFAULT_USER_AGENT)
+            .setUserAgent(getUserAgent())
             .setDefaultRequestConfig(makeRequestConfig())
             .setRetryHandler(
                 (exception, executionCount, context) -> {
@@ -150,12 +165,14 @@ public class DatabricksHttpClient implements IDatabricksHttpClient {
     return builder.build();
   }
 
-  private static boolean isRetryAllowed(String method) {
+  @VisibleForTesting
+  static boolean isRetryAllowed(String method) {
     // For now, allowing retry only for GET which is idempotent
     return Objects.equals(HTTP_GET, method);
   }
 
-  private static boolean isErrorCodeRetryable(int errCode) {
+  @VisibleForTesting
+  static boolean isErrorCodeRetryable(int errCode) {
     return RETRYABLE_HTTP_CODES.contains(errCode);
   }
 
@@ -192,5 +209,27 @@ public class DatabricksHttpClient implements IDatabricksHttpClient {
         connectionManager.closeIdleConnections(DEFAULT_IDLE_CONNECTION_TIMEOUT, TimeUnit.SECONDS);
       }
     }
+  }
+
+  static String getUserAgent() {
+    String sdkUserAgent = UserAgent.asString();
+    // Split the string into parts
+    String[] parts = sdkUserAgent.split("\\s+");
+
+    // User Agent is in format:
+    // product/product-version databricks-sdk-java/sdk-version jvm/jvm-version other-info
+    // Remove the SDK part from user agent
+    StringBuilder mergedString = new StringBuilder();
+    for (int i = 0; i < parts.length; i++) {
+      if (parts[i].startsWith(SDK_USER_AGENT)) {
+        mergedString.append(JDBC_HTTP_USER_AGENT);
+      } else {
+        mergedString.append(parts[i]);
+      }
+      if (i != parts.length - 1) {
+        mergedString.append(" "); // Add space between parts
+      }
+    }
+    return mergedString.toString();
   }
 }

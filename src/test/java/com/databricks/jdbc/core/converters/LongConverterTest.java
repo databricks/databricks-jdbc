@@ -124,4 +124,17 @@ public class LongConverterTest {
     assertEquals(new LongConverter(NON_ZERO_OBJECT).convertToDate(), Date.valueOf("1970-01-11"));
     assertEquals(new LongConverter(ZERO_OBJECT).convertToDate(), Date.valueOf("1970-01-01"));
   }
+
+  @Test
+  public void testExceptions() throws DatabricksSQLException {
+    LongConverter longConverter = new LongConverter(Long.MAX_VALUE);
+    assertThrows(DatabricksSQLException.class, longConverter::convertToInt);
+    assertThrows(DatabricksSQLException.class, () -> longConverter.convertToTimestamp(10));
+  }
+
+  @Test
+  public void testStringConversion() throws DatabricksSQLException {
+    LongConverter longConverter = new LongConverter("123");
+    assertEquals(longConverter.convertToInt(), 123);
+  }
 }

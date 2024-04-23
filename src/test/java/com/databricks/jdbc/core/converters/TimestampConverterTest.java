@@ -25,6 +25,12 @@ public class TimestampConverterTest {
   }
 
   @Test
+  public void testConvertFromString() throws DatabricksSQLException {
+    assertEquals(new TimestampConverter("2023-09-10T20:45:00Z").convertToTimestamp(), TIMESTAMP);
+    assertDoesNotThrow(() -> new TimestampConverter("2023-09-10 20:45:00").convertToString());
+  }
+
+  @Test
   public void testConvertToDate() throws DatabricksSQLException {
     assertEquals(new TimestampConverter(TIMESTAMP).convertToDate().toString(), "2023-09-10");
   }

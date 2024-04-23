@@ -26,7 +26,8 @@ public class OAuthAuthenticatorTest {
   }
 
   @Test
-  void getWorkspaceClient_PAT_AuthenticatesWithAccessToken() {
+  void getWorkspaceClient_PAT_AuthenticatesWithAccessToken()
+    throws DatabricksParsingException {
     DatabricksConfig databricksConfig = new DatabricksConfig();
     when(mockContext.getAuthMech()).thenReturn(IDatabricksConnectionContext.AuthMech.PAT);
     when(mockContext.getHostUrl()).thenReturn("https://pat.databricks.com");
@@ -42,7 +43,8 @@ public class OAuthAuthenticatorTest {
   }
 
   @Test
-  void getWorkspaceClient_OAuthWithTokenPassthrough_AuthenticatesCorrectly() {
+  void getWorkspaceClient_OAuthWithTokenPassthrough_AuthenticatesCorrectly()
+      throws DatabricksParsingException {
     DatabricksConfig databricksConfig = new DatabricksConfig();
     when(mockContext.getAuthMech()).thenReturn(IDatabricksConnectionContext.AuthMech.OAUTH);
     when(mockContext.getAuthFlow())
@@ -60,7 +62,8 @@ public class OAuthAuthenticatorTest {
   }
 
   @Test
-  void getWorkspaceClient_OAuthWithClientCredentials_AuthenticatesCorrectly() {
+  void getWorkspaceClient_OAuthWithClientCredentials_AuthenticatesCorrectly()
+      throws DatabricksParsingException {
     DatabricksConfig databricksConfig = new DatabricksConfig();
     when(mockContext.getAuthMech()).thenReturn(IDatabricksConnectionContext.AuthMech.OAUTH);
     when(mockContext.getAuthFlow())
@@ -80,7 +83,8 @@ public class OAuthAuthenticatorTest {
   }
 
   @Test
-  void getWorkspaceClient_OAuthWithBrowserBasedAuthentication_AuthenticatesCorrectly() {
+  void getWorkspaceClient_OAuthWithBrowserBasedAuthentication_AuthenticatesCorrectly()
+      throws DatabricksParsingException {
     DatabricksConfig databricksConfig = new DatabricksConfig();
     when(mockContext.getAuthMech()).thenReturn(IDatabricksConnectionContext.AuthMech.OAUTH);
     when(mockContext.getAuthFlow())

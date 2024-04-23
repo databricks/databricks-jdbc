@@ -1,13 +1,19 @@
 package com.databricks.jdbc.core;
 
+import static com.databricks.jdbc.client.impl.thrift.commons.DatabricksThriftHelper.SUCCESS_STATUS_LIST;
+import static com.databricks.jdbc.client.impl.thrift.commons.DatabricksThriftHelper.getRowCount;
 import static com.databricks.jdbc.core.converters.ConverterHelper.getConvertedObject;
 import static com.databricks.jdbc.core.converters.ConverterHelper.getObjectConverter;
 
 import com.databricks.jdbc.client.StatementType;
+import com.databricks.jdbc.client.impl.thrift.generated.TGetResultSetMetadataResp;
+import com.databricks.jdbc.client.impl.thrift.generated.TRowSet;
+import com.databricks.jdbc.client.impl.thrift.generated.TStatus;
 import com.databricks.jdbc.client.sqlexec.ResultData;
 import com.databricks.jdbc.client.sqlexec.ResultManifest;
 import com.databricks.jdbc.commons.util.WarningUtil;
 import com.databricks.jdbc.core.converters.*;
+import com.databricks.sdk.service.sql.StatementState;
 import com.databricks.sdk.service.sql.StatementStatus;
 import com.google.common.annotations.VisibleForTesting;
 import java.io.InputStream;
@@ -68,6 +74,30 @@ public class DatabricksResultSet implements ResultSet, IDatabricksResultSet {
     this.statementId = statementId;
     this.executionResult = executionResult;
     this.resultSetMetaData = resultSetMetaData;
+    this.statementType = statementType;
+    this.updateCount = null;
+    this.parentStatement = parentStatement;
+    this.isClosed = false;
+    this.wasNull = false;
+  }
+
+  public DatabricksResultSet(
+      TStatus statementStatus,
+      String statementId,
+      TRowSet resultData,
+      TGetResultSetMetadataResp resultManifest,
+      StatementType statementType,
+      IDatabricksStatement parentStatement)
+      throws DatabricksSQLException {
+    if (SUCCESS_STATUS_LIST.contains(statementStatus.getStatusCode())) {
+      this.statementStatus = new StatementStatus().setState(StatementState.SUCCEEDED);
+    } else {
+      this.statementStatus = new StatementStatus().setState(StatementState.FAILED);
+    }
+    this.statementId = statementId;
+    this.executionResult = ExecutionResultFactory.getResultSet(resultData, resultManifest);
+    int rowSize = getRowCount(resultData);
+    this.resultSetMetaData = new DatabricksResultSetMetaData(statementId, resultManifest, rowSize);
     this.statementType = statementType;
     this.updateCount = null;
     this.parentStatement = parentStatement;
@@ -287,7 +317,7 @@ public class DatabricksResultSet implements ResultSet, IDatabricksResultSet {
   @Override
   public Time getTime(int columnIndex) throws SQLException {
     checkIfClosed();
-    throw new UnsupportedOperationException(
+    throw new DatabricksSQLFeatureNotSupportedException(
         "Not implemented in DatabricksResultSet - getTime(int columnIndex)");
   }
 
@@ -434,7 +464,7 @@ public class DatabricksResultSet implements ResultSet, IDatabricksResultSet {
   @Override
   public String getCursorName() throws SQLException {
     checkIfClosed();
-    throw new UnsupportedOperationException(
+    throw new DatabricksSQLFeatureNotSupportedException(
         "Not supported in DatabricksResultSet - getCursorName()");
   }
 
@@ -996,28 +1026,28 @@ public class DatabricksResultSet implements ResultSet, IDatabricksResultSet {
   @Override
   public Ref getRef(int columnIndex) throws SQLException {
     checkIfClosed();
-    throw new UnsupportedOperationException(
+    throw new DatabricksSQLFeatureNotSupportedException(
         "Not implemented in DatabricksResultSet - getRef(int columnIndex)");
   }
 
   @Override
   public Blob getBlob(int columnIndex) throws SQLException {
     checkIfClosed();
-    throw new UnsupportedOperationException(
+    throw new DatabricksSQLFeatureNotSupportedException(
         "Not implemented in DatabricksResultSet - getBlob(int columnIndex)");
   }
 
   @Override
   public Clob getClob(int columnIndex) throws SQLException {
     checkIfClosed();
-    throw new UnsupportedOperationException(
+    throw new DatabricksSQLFeatureNotSupportedException(
         "Not implemented in DatabricksResultSet - getClob(int columnIndex)");
   }
 
   @Override
   public Array getArray(int columnIndex) throws SQLException {
     checkIfClosed();
-    throw new UnsupportedOperationException(
+    throw new DatabricksSQLFeatureNotSupportedException(
         "Not implemented in DatabricksResultSet - getArray(int columnIndex)");
   }
 
@@ -1053,7 +1083,7 @@ public class DatabricksResultSet implements ResultSet, IDatabricksResultSet {
   @Override
   public Date getDate(int columnIndex, Calendar cal) throws SQLException {
     checkIfClosed();
-    throw new UnsupportedOperationException(
+    throw new DatabricksSQLFeatureNotSupportedException(
         "Not implemented in DatabricksResultSet - getDate(int columnIndex, Calendar cal)");
   }
 
@@ -1066,7 +1096,7 @@ public class DatabricksResultSet implements ResultSet, IDatabricksResultSet {
   @Override
   public Time getTime(int columnIndex, Calendar cal) throws SQLException {
     checkIfClosed();
-    throw new UnsupportedOperationException(
+    throw new DatabricksSQLFeatureNotSupportedException(
         "Not implemented in DatabricksResultSet - getTime(int columnIndex, Calendar cal)");
   }
 
@@ -1079,116 +1109,116 @@ public class DatabricksResultSet implements ResultSet, IDatabricksResultSet {
   @Override
   public Timestamp getTimestamp(int columnIndex, Calendar cal) throws SQLException {
     checkIfClosed();
-    throw new UnsupportedOperationException(
+    throw new DatabricksSQLFeatureNotSupportedException(
         "Not implemented in DatabricksResultSet - getTimestamp(int columnIndex, Calendar cal)");
   }
 
   @Override
   public Timestamp getTimestamp(String columnLabel, Calendar cal) throws SQLException {
     checkIfClosed();
-    throw new UnsupportedOperationException(
+    throw new DatabricksSQLFeatureNotSupportedException(
         "Not implemented in DatabricksResultSet - getTimestamp(String columnLabel, Calendar cal)");
   }
 
   @Override
   public URL getURL(int columnIndex) throws SQLException {
     checkIfClosed();
-    throw new UnsupportedOperationException(
+    throw new DatabricksSQLFeatureNotSupportedException(
         "Not implemented in DatabricksResultSet - getURL(int columnIndex)");
   }
 
   @Override
   public URL getURL(String columnLabel) throws SQLException {
     checkIfClosed();
-    throw new UnsupportedOperationException(
+    throw new DatabricksSQLFeatureNotSupportedException(
         "Not implemented in DatabricksResultSet - getURL(String columnLabel)");
   }
 
   @Override
   public void updateRef(int columnIndex, Ref x) throws SQLException {
     checkIfClosed();
-    throw new UnsupportedOperationException(
+    throw new DatabricksSQLFeatureNotSupportedException(
         "Not implemented in DatabricksResultSet - updateRef(int columnIndex, Ref x)");
   }
 
   @Override
   public void updateRef(String columnLabel, Ref x) throws SQLException {
     checkIfClosed();
-    throw new UnsupportedOperationException(
+    throw new DatabricksSQLFeatureNotSupportedException(
         "Not implemented in DatabricksResultSet - updateRef(String columnLabel, Ref x)");
   }
 
   @Override
   public void updateBlob(int columnIndex, Blob x) throws SQLException {
     checkIfClosed();
-    throw new UnsupportedOperationException(
+    throw new DatabricksSQLFeatureNotSupportedException(
         "Not implemented in DatabricksResultSet - updateBlob(int columnIndex, Blob x)");
   }
 
   @Override
   public void updateBlob(String columnLabel, Blob x) throws SQLException {
     checkIfClosed();
-    throw new UnsupportedOperationException(
+    throw new DatabricksSQLFeatureNotSupportedException(
         "Not implemented in DatabricksResultSet - updateBlob(String columnLabel, Blob x)");
   }
 
   @Override
   public void updateClob(int columnIndex, Clob x) throws SQLException {
     checkIfClosed();
-    throw new UnsupportedOperationException(
+    throw new DatabricksSQLFeatureNotSupportedException(
         "Not implemented in DatabricksResultSet - updateClob(int columnIndex, Clob x)");
   }
 
   @Override
   public void updateClob(String columnLabel, Clob x) throws SQLException {
     checkIfClosed();
-    throw new UnsupportedOperationException(
+    throw new DatabricksSQLFeatureNotSupportedException(
         "Not implemented in DatabricksResultSet - updateClob(String columnLabel, Clob x)");
   }
 
   @Override
   public void updateArray(int columnIndex, Array x) throws SQLException {
     checkIfClosed();
-    throw new UnsupportedOperationException(
+    throw new DatabricksSQLFeatureNotSupportedException(
         "Not implemented in DatabricksResultSet - updateArray(int columnIndex, Array x)");
   }
 
   @Override
   public void updateArray(String columnLabel, Array x) throws SQLException {
     checkIfClosed();
-    throw new UnsupportedOperationException(
+    throw new DatabricksSQLFeatureNotSupportedException(
         "Not implemented in DatabricksResultSet - updateArray(String columnLabel, Array x)");
   }
 
   @Override
   public RowId getRowId(int columnIndex) throws SQLException {
-    throw new UnsupportedOperationException(
+    throw new DatabricksSQLFeatureNotSupportedException(
         "Not implemented in DatabricksResultSet - getRowId(int columnIndex)");
   }
 
   @Override
   public RowId getRowId(String columnLabel) throws SQLException {
-    throw new UnsupportedOperationException(
+    throw new DatabricksSQLFeatureNotSupportedException(
         "Not implemented in DatabricksResultSet - getRowId(String columnLabel)");
   }
 
   @Override
   public void updateRowId(int columnIndex, RowId x) throws SQLException {
     checkIfClosed();
-    throw new UnsupportedOperationException(
+    throw new DatabricksSQLFeatureNotSupportedException(
         "Not implemented in DatabricksResultSet - updateRowId(int columnIndex, RowId x)");
   }
 
   @Override
   public void updateRowId(String columnLabel, RowId x) throws SQLException {
     checkIfClosed();
-    throw new UnsupportedOperationException(
+    throw new DatabricksSQLFeatureNotSupportedException(
         "Not implemented in DatabricksResultSet - updateRowId(String columnLabel, RowId x)");
   }
 
   @Override
   public int getHoldability() throws SQLException {
-    throw new UnsupportedOperationException(
+    throw new DatabricksSQLFeatureNotSupportedException(
         "Not implemented in DatabricksResultSet - getHoldability()");
   }
 
@@ -1228,28 +1258,28 @@ public class DatabricksResultSet implements ResultSet, IDatabricksResultSet {
   @Override
   public NClob getNClob(int columnIndex) throws SQLException {
     checkIfClosed();
-    throw new UnsupportedOperationException(
+    throw new DatabricksSQLFeatureNotSupportedException(
         "Not implemented in DatabricksResultSet - getNClob(int columnIndex)");
   }
 
   @Override
   public NClob getNClob(String columnLabel) throws SQLException {
     checkIfClosed();
-    throw new UnsupportedOperationException(
+    throw new DatabricksSQLFeatureNotSupportedException(
         "Not implemented in DatabricksResultSet - getNClob(String columnLabel)");
   }
 
   @Override
   public SQLXML getSQLXML(int columnIndex) throws SQLException {
     checkIfClosed();
-    throw new UnsupportedOperationException(
+    throw new DatabricksSQLFeatureNotSupportedException(
         "Not implemented in DatabricksResultSet - getSQLXML(int columnIndex)");
   }
 
   @Override
   public SQLXML getSQLXML(String columnLabel) throws SQLException {
     checkIfClosed();
-    throw new UnsupportedOperationException(
+    throw new DatabricksSQLFeatureNotSupportedException(
         "Not implemented in DatabricksResultSet - getSQLXML(String columnLabel)");
   }
 
@@ -1270,28 +1300,28 @@ public class DatabricksResultSet implements ResultSet, IDatabricksResultSet {
   @Override
   public String getNString(int columnIndex) throws SQLException {
     checkIfClosed();
-    throw new UnsupportedOperationException(
+    throw new DatabricksSQLFeatureNotSupportedException(
         "Not implemented in DatabricksResultSet - getNString(int columnIndex)");
   }
 
   @Override
   public String getNString(String columnLabel) throws SQLException {
     checkIfClosed();
-    throw new UnsupportedOperationException(
+    throw new DatabricksSQLFeatureNotSupportedException(
         "Not implemented in DatabricksResultSet - getNString(String columnLabel)");
   }
 
   @Override
   public Reader getNCharacterStream(int columnIndex) throws SQLException {
     checkIfClosed();
-    throw new UnsupportedOperationException(
+    throw new DatabricksSQLFeatureNotSupportedException(
         "Not implemented in DatabricksResultSet - getNCharacterStream(int columnIndex)");
   }
 
   @Override
   public Reader getNCharacterStream(String columnLabel) throws SQLException {
     checkIfClosed();
-    throw new UnsupportedOperationException(
+    throw new DatabricksSQLFeatureNotSupportedException(
         "Not implemented in DatabricksResultSet - getNCharacterStream(String columnLabel)");
   }
 
@@ -1522,13 +1552,13 @@ public class DatabricksResultSet implements ResultSet, IDatabricksResultSet {
 
   @Override
   public <T> T unwrap(Class<T> iface) throws SQLException {
-    throw new UnsupportedOperationException(
+    throw new DatabricksSQLFeatureNotSupportedException(
         "Not implemented in DatabricksResultSet - unwrap(Class<T> iface)");
   }
 
   @Override
   public boolean isWrapperFor(Class<?> iface) throws SQLException {
-    throw new UnsupportedOperationException(
+    throw new DatabricksSQLFeatureNotSupportedException(
         "Not implemented in DatabricksResultSet - isWrapperFor(Class<?> iface)");
   }
 
@@ -1579,14 +1609,6 @@ public class DatabricksResultSet implements ResultSet, IDatabricksResultSet {
     Object object = executionResult.getObject(columnIndex - 1);
     this.wasNull = object == null;
     return object;
-  }
-
-  /** For String values, return value without decimal fraction */
-  private String getNumberStringWithoutDecimal(String s, int columnType) {
-    if (s.contains(DECIMAL) && (columnType == Types.DOUBLE || columnType == Types.FLOAT)) {
-      return s.substring(0, s.indexOf(DECIMAL));
-    }
-    return s;
   }
 
   private int getColumnNameIndex(String columnName) {

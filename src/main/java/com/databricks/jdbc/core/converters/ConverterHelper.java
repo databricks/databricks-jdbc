@@ -33,7 +33,7 @@ public class ConverterHelper {
       return converter.convertToShort();
     }
     // TODO : add more types if required.
-    return Types.OTHER;
+    return converter.convertToString(); // By default, convert to string
   }
 
   public static AbstractObjectConverter getObjectConverter(Object object, int columnType)
@@ -59,6 +59,8 @@ public class ConverterHelper {
         return new DateConverter(object);
       case Types.TIMESTAMP:
         return new TimestampConverter(object);
+      case Types.BINARY:
+        return new ByteArrayConverter(object);
       case Types.VARCHAR:
       case Types.CHAR:
       default:

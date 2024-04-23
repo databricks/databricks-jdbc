@@ -1,4 +1,4 @@
-package com.databricks.jdbc.client.impl.sdk.helper;
+package com.databricks.jdbc.client.impl.helper;
 
 import java.sql.Types;
 

@@ -54,7 +54,7 @@ jobs:
           distribution: 'adopt'
 
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
 
       - name: Cache Maven packages
         uses: actions/cache@v2
@@ -64,16 +64,15 @@ jobs:
           restore-keys: ${{ runner.os }}-m2
 
       - name: Check Unit Tests
-        run: mvn --errors test -Dtest="com.databricks.jdbc.*.*Test, com.databricks.jdbc.*.*.*Test, !*IntegrationTests"
+        run: mvn test
 
       - name: JaCoCo report
         run: mvn --batch-mode --errors jacoco:report --file pom.xml
 
       - name: Publish test coverage
-        uses: codecov/codecov-action@v3
+        uses: codecov/codecov-action@v4
         with:
-          files: target/site/jacoco/jacoco.xml
+          file: target/site/jacoco/jacoco.xml
           token: ${{ secrets.CODECOV_TOKEN }}
-          flags: unittests
           fail_ci_if_error: true
           verbose: true

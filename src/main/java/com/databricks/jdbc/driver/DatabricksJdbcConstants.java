@@ -1,6 +1,7 @@
 package com.databricks.jdbc.driver;
 
 import java.util.Map;
+import java.util.Set;
 import java.util.regex.Pattern;
 
 public final class DatabricksJdbcConstants {
@@ -8,6 +9,7 @@ public final class DatabricksJdbcConstants {
   static final Pattern JDBC_URL_PATTERN =
       Pattern.compile("jdbc:databricks://([^/;]*)(?::\\d+)?/*(.*)");
   static final Pattern HTTP_WAREHOUSE_PATH_PATTERN = Pattern.compile(".*/warehouses/(.+)");
+  static final Pattern HTTP_ENDPOINT_PATH_PATTERN = Pattern.compile(".*/endpoints/(.+)");
   static final Pattern TEST_PATH_PATTERN = Pattern.compile("jdbc:databricks://test");
   static final Pattern HTTP_CLUSTER_PATH_PATTERN = Pattern.compile(".*/o/(.+)/(.+)");
   public static final String JDBC_SCHEMA = "jdbc:databricks://";
@@ -16,11 +18,11 @@ public final class DatabricksJdbcConstants {
   static final String LOG_PATH = "logpath";
   static final String SYSTEM_LOG_LEVEL_CONFIG = "defaultLogLevel";
   static final String SYSTEM_LOG_FILE_CONFIG = "defaultLogFile";
-  static final String URL_DELIMITER = ";";
-  static final String PORT_DELIMITER = ":";
+  public static final String URL_DELIMITER = ";";
+  public static final String PORT_DELIMITER = ":";
   static final String DEFAULT_SCHEMA = "default";
   static final String DEFAULT_CATALOG = "SPARK";
-  static final String PAIR_DELIMITER = "=";
+  public static final String PAIR_DELIMITER = "=";
   static final String TOKEN = "token";
   public static final String USER = "user";
   public static final String PASSWORD = "password";
@@ -29,7 +31,7 @@ public final class DatabricksJdbcConstants {
 
   static final String CLIENT_SECRET = "databricks_client_secret";
 
-  static final String AUTH_MECH = "authmech";
+  public static final String AUTH_MECH = "authmech";
 
   static final String CONN_CATALOG = "conncatalog";
 
@@ -60,7 +62,11 @@ public final class DatabricksJdbcConstants {
 
   static final String AAD_CLIENT_ID = "96eecda7-19ea-49cc-abb5-240097d554f5";
 
-  static final String HTTP_PATH = "httppath";
+  public static final String HTTP_PATH = "httppath";
+
+  public static final String TRANSPORT_MODE = "transportmode";
+
+  static final String HTTP_SCHEMA = "http://";
   static final String HTTPS_SCHEMA = "https://";
   public static final String LOGIN_TIMEOUT = "loginTimeout";
 
@@ -90,6 +96,9 @@ public final class DatabricksJdbcConstants {
   static final String CLIENT_USER_AGENT_PREFIX = "Java";
   static final String USER_AGENT_SEA_CLIENT = "SQLExecHttpClient/HC";
   static final String USER_AGENT_THRIFT_CLIENT = "THttpClient/HC";
+  public static final String ALLOWED_VOLUME_INGESTION_PATHS =
+      "allowlistedVolumeOperationLocalFilePaths";
+  public static final String VOLUME_OPERATION_STATUS_COLUMN_NAME = "operation_status";
   public static final Map<String, String> ALLOWED_SESSION_CONF_TO_DEFAULT_VALUES_MAP =
       // This map comes from
       // https://docs.databricks.com/en/sql/language-manual/sql-ref-parameters.html
@@ -102,4 +111,7 @@ public final class DatabricksJdbcConstants {
           "STATEMENT_TIMEOUT", "172800",
           "TIMEZONE", "UTC",
           "USE_CACHED_RESULT", "TRUE");
+
+  public static final Set<String> ALLOWED_CLIENT_INFO_PROPERTIES =
+      Set.of(ALLOWED_VOLUME_INGESTION_PATHS);
 }

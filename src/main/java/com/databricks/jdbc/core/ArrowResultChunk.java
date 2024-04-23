@@ -342,7 +342,7 @@ public class ArrowResultChunk {
     }
   }
 
-  void refreshChunkLink(IDatabricksSession session) {
+  void refreshChunkLink(IDatabricksSession session) throws DatabricksSQLException {
     session.getDatabricksClient().getResultChunks(statementId, chunkIndex).stream()
         .findFirst()
         .ifPresent(this::setChunkLink);

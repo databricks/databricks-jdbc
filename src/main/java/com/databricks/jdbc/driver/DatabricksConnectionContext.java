@@ -14,6 +14,7 @@ import com.google.common.collect.ImmutableMap;
 import java.util.*;
 import java.util.regex.Matcher;
 import java.util.stream.Collectors;
+import org.apache.http.client.utils.URIBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.event.Level;
@@ -25,7 +26,6 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   private final int port;
   private final String schema;
   private final ComputeResource computeResource;
-
   @VisibleForTesting final ImmutableMap<String, String> parameters;
 
   /**
@@ -96,18 +96,39 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
     }
     return HTTP_CLUSTER_PATH_PATTERN.matcher(url).matches()
         || HTTP_WAREHOUSE_PATH_PATTERN.matcher(url).matches()
+        || HTTP_ENDPOINT_PATH_PATTERN.matcher(url).matches()
         || TEST_PATH_PATTERN.matcher(url).matches();
   }
 
   @Override
-  public String getHostUrl() {
+  public String getHostUrl() throws DatabricksParsingException {
     LOGGER.debug("public String getHostUrl()");
-    StringBuilder hostUrlBuilder =
-        new StringBuilder().append(DatabricksJdbcConstants.HTTPS_SCHEMA).append(this.host);
-    if (port != 0) {
-      hostUrlBuilder.append(DatabricksJdbcConstants.PORT_DELIMITER).append(port);
+    // Determine the schema based on the transport mode
+    String schema =
+        (getTransportMode() != null && getTransportMode().equals("http"))
+            ? DatabricksJdbcConstants.HTTP_SCHEMA
+            : DatabricksJdbcConstants.HTTPS_SCHEMA;
+
+    schema = schema.replace("://", "");
+
+    try {
+      URIBuilder uriBuilder = new URIBuilder().setScheme(schema).setHost(this.host);
+
+      // Conditionally add the port if it is specified
+      if (port != 0) {
+        uriBuilder.setPort(port);
+      }
+
+      // Build the URI and convert to string
+      return uriBuilder.build().toString();
+    } catch (Exception e) {
+      LOGGER.debug("URI Building failed with exception: " + e.getMessage());
+      throw new DatabricksParsingException("URI Building failed with exception: " + e.getMessage());
     }
-    return hostUrlBuilder.toString();
+  }
+
+  private String getTransportMode() {
+    return getParameter(DatabricksJdbcConstants.TRANSPORT_MODE);
   }
 
   @Override
@@ -118,6 +139,10 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   private ComputeResource buildCompute() throws DatabricksSQLException {
     String httpPath = getHttpPath();
     Matcher urlMatcher = HTTP_WAREHOUSE_PATH_PATTERN.matcher(httpPath);
+    if (urlMatcher.find()) {
+      return new Warehouse(urlMatcher.group(1));
+    }
+    urlMatcher = HTTP_ENDPOINT_PATH_PATTERN.matcher(httpPath);
     if (urlMatcher.find()) {
       return new Warehouse(urlMatcher.group(1));
     }
@@ -147,9 +172,9 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
         : getParameter(DatabricksJdbcConstants.PWD);
   }
 
-  public String getCloud() {
+  public String getCloud() throws DatabricksParsingException {
     String hostURL = getHostUrl();
-    if (hostURL.contains(".azuredatabricks.net")
+    if (hostURL.contains("azuredatabricks.net")
         || hostURL.contains(".databricks.azure.cn")
         || hostURL.contains(".databricks.azure.us")) {
       return "AAD";
@@ -160,7 +185,7 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   }
 
   @Override
-  public String getClientId() {
+  public String getClientId() throws DatabricksParsingException {
     String clientId = getParameter(DatabricksJdbcConstants.CLIENT_ID);
     if (nullOrEmptyString(clientId)) {
       if (getCloud().equals("AWS")) {
@@ -173,7 +198,7 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   }
 
   @Override
-  public List<String> getOAuthScopesForU2M() {
+  public List<String> getOAuthScopesForU2M() throws DatabricksParsingException {
     if (getCloud().equals("AWS")) {
       return Arrays.asList(
           DatabricksJdbcConstants.SQL_SCOPE, DatabricksJdbcConstants.OFFLINE_ACCESS_SCOPE);
@@ -249,8 +274,7 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   }
 
   private DatabricksClientType getClientType() {
-    // TODO: decide on client type from parsed JDBC Url
-    return DatabricksClientType.SQL_EXEC;
+    return computeResource.getClientType();
   }
 
   private static boolean nullOrEmptyString(String s) {
@@ -351,5 +375,10 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   @Override
   public String getKrb5ConfPath() {
     return getParameter(KRB5_CONF_PATH);
+  }
+
+  @Override
+  public String getEndpointURL() throws DatabricksParsingException {
+    return String.format("%s/%s", this.getHostUrl(), this.getHttpPath());
   }
 }

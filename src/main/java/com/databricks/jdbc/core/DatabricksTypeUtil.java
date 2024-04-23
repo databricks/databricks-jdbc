@@ -28,6 +28,7 @@ public class DatabricksTypeUtil {
   public static final String INTERVAL = "INTERVAL";
   public static final String VOID = "VOID";
   public static final String SMALLINT = "SHORT";
+  public static final String NULL = "NULL";
   public static final String STRING = "STRING";
   public static final String TINYINT = "TINYINT";
   public static final String TIMESTAMP = "TIMESTAMP";
@@ -201,9 +202,8 @@ public class DatabricksTypeUtil {
       case ARRAY:
       case STRING:
       case STRUCT:
-        return 255;
       default:
-        return 0;
+        return 255;
     }
   }
 
@@ -257,7 +257,7 @@ public class DatabricksTypeUtil {
         return SMALLINT;
       default:
         // TODO: handle more types
-        return null;
+        return NULL;
     }
   }
 

@@ -13,7 +13,7 @@ public class OAuthAuthenticator {
     this.connectionContext = connectionContext;
   }
 
-  public WorkspaceClient getWorkspaceClient(DatabricksConfig databricksConfig) {
+  public WorkspaceClient getWorkspaceClient(DatabricksConfig databricksConfig) throws DatabricksParsingException {
     if (this.connectionContext.getAuthMech().equals(IDatabricksConnectionContext.AuthMech.PAT)) {
       return authenticateAccessToken(databricksConfig);
     }

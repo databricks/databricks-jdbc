@@ -205,6 +205,7 @@
           <configuration>
             <excludes>
               <exclude>**/**IntegrationTests.java</exclude>
+              <exclude>**/*MetadataBenchmarkingTest.java</exclude>
             </excludes>
             <argLine>
               @{argLine}
@@ -230,6 +231,15 @@
               <argument>${slt.token}</argument>
             </arguments>
             <classpathScope>test</classpathScope>
+          </configuration>
+        </plugin>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-compiler-plugin</artifactId>
+          <configuration>
+            <testExcludes>
+              <testExclude>com/databricks/jdbc/integration/benchmarking/MetadataBenchmarkingTest.java</testExclude>
+            </testExcludes>
           </configuration>
         </plugin>
         <plugin>
@@ -298,14 +308,13 @@
           </executions>
           <configuration>
             <excludes>
-              <exclude>**/*EnvironmentVariables*</exclude>
+              <exclude>**/EnvironmentVariables*</exclude>
               <exclude>**/client/impl/sdk/DatabricksMetadataSdkClient*</exclude> <!-- TODO(PECO-1502): Remove once fixed -->
               <exclude>**/*Exception*</exclude>
               <exclude>**/types/**</exclude>
-              <exclude>**/thrift/**</exclude>
               <exclude>**/client/sqlexec/**</exclude>
               <exclude>**/*Constants*</exclude>
-              <exclude>**/thrift/gen-java/org/apache/hive/service/rpc/thrift/**</exclude>
+              <exclude>**/thrift/generated/**</exclude>
               <exclude>**/*driver/DatabricksJdbcConstants*</exclude>
               <exclude>**/CommandName*</exclude>
             </excludes>
