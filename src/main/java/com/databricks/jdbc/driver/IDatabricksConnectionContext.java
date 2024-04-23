@@ -98,8 +98,6 @@ public interface IDatabricksConnectionContext {
 
   ProxyConfig.ProxyAuthType getProxyAuthType();
 
-  int getProxyAuth();
-
   Boolean getUseSystemProxy();
 
   Boolean getUseCloudFetchProxy();
