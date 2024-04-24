@@ -33,6 +33,7 @@ public class ChunkExtractor {
     this.currentChunkIndex = -1;
     this.totalRows = 0;
     initializeByteStream(arrowBatches, metadata);
+    //Todo : Add compression appropriately
     arrowResultChunk = new ArrowResultChunk(totalRows, null, CompressionType.NONE, byteStream);
   }
 
@@ -96,5 +97,9 @@ public class ChunkExtractor {
               fields.add(new Field(columnDesc.getColumnName(), fieldType, null));
             });
     return new Schema(fields);
+  }
+
+  public void releaseChunk(){
+    this.arrowResultChunk.releaseChunk();
   }
 }

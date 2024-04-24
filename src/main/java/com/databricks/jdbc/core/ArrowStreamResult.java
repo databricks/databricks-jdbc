@@ -145,7 +145,10 @@ class ArrowStreamResult implements IExecutionResult {
   @Override
   public void close() {
     this.isClosed = true;
-    if (!isInlineArrow) {
+    if (isInlineArrow) {
+      this.chunkExtractor.releaseChunk();
+    }
+    else{
       this.chunkDownloader.releaseAllChunks();
     }
   }
