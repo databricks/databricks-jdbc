@@ -72,6 +72,7 @@ public class ArrowResultChunkTest {
     int totalRecordBatches = (int) ((totalRows + rowsInRecordBatch) / rowsInRecordBatch);
     assertEquals(arrowResultChunk.getRecordBatchCountInChunk(), totalRecordBatches);
     arrowResultChunk.releaseChunk();
+    arrowResultChunk.releaseChunk(); // calling it a second time also does not throw error.
   }
 
   private File createTestArrowFile(

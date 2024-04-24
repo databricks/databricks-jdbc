@@ -308,7 +308,11 @@ public class ArrowResultChunk {
     List<ValueVector> vectors = new ArrayList<>();
     try {
       this.vectorSchemaRoot = arrowStreamReader.getVectorSchemaRoot();
+
+      System.out.println("here 4444");
       while (arrowStreamReader.loadNextBatch()) {
+
+        System.out.println("here 5555");
         this.recordBatchList.add(getVectorsFromSchemaRoot());
         vectorSchemaRoot.clear();
       }

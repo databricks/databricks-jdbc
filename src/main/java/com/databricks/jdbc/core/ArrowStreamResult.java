@@ -147,13 +147,8 @@ class ArrowStreamResult implements IExecutionResult {
     this.isClosed = true;
     if (isInlineArrow) {
       this.chunkExtractor.releaseChunk();
-    }
-    else{
+    } else {
       this.chunkDownloader.releaseAllChunks();
     }
-  }
-
-  private boolean isClosed() {
-    return this.isClosed;
   }
 }

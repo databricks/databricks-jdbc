@@ -83,4 +83,10 @@ public class TestConstants {
               Collections.singletonList(
                   TColumn.stringVal(
                       new TStringColumn().setValues(List.of(TEST_STRING, TEST_STRING)))));
+
+  private static final TColumnDesc TEST_COLUMN_DESCRIPTION =
+      new TColumnDesc().setColumnName("testCol");
+  public static final TTableSchema TEST_TABLE_SCHEMA =
+      new TTableSchema().setColumns(Collections.singletonList(TEST_COLUMN_DESCRIPTION));
+  public static final byte[] TEST_BYTES = {65, 66, 67};
 }

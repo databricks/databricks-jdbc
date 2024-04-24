@@ -33,7 +33,7 @@ public class ChunkExtractor {
     this.currentChunkIndex = -1;
     this.totalRows = 0;
     initializeByteStream(arrowBatches, metadata);
-    //Todo : Add compression appropriately
+    // Todo : Add compression appropriately
     arrowResultChunk = new ArrowResultChunk(totalRows, null, CompressionType.NONE, byteStream);
   }
 
@@ -61,9 +61,7 @@ public class ChunkExtractor {
       }
       this.byteStream = new ByteArrayInputStream(baos.toByteArray());
     } catch (DatabricksSQLException | IOException e) {
-      String errorMessage = "Unable to extract arrow vectors from inline arrowJson";
-      LOGGER.error(errorMessage);
-      throw new DatabricksParsingException(errorMessage, e);
+      handleError(e);
     }
   }
 
@@ -76,30 +74,48 @@ public class ChunkExtractor {
     try {
       return SchemaUtility.serialize(arrowSchema);
     } catch (IOException e) {
-      throw new DatabricksParsingException("Couldn't convert to serialised schema");
+      handleError(e);
     }
+    // should never reach here;
+    return null;
   }
 
-  private static Schema hiveSchemaToArrowSchema(TTableSchema hiveSchema) {
+  private static Schema hiveSchemaToArrowSchema(TTableSchema hiveSchema)
+      throws DatabricksParsingException {
     List<Field> fields = new ArrayList<>();
-    hiveSchema
-        .getColumns()
-        .forEach(
-            columnDesc -> {
-              TTypeId thriftType = getThriftTypeFromTypeDesc(columnDesc.getTypeDesc());
-              ArrowType arrowType = null;
-              try {
-                arrowType = maptoArrowType(thriftType);
-              } catch (DatabricksSQLException e) {
-                throw new RuntimeException(e);
-              }
-              FieldType fieldType = new FieldType(true, arrowType, null);
-              fields.add(new Field(columnDesc.getColumnName(), fieldType, null));
-            });
+    String errorMessage = null;
+    try {
+      hiveSchema
+          .getColumns()
+          .forEach(
+              columnDesc -> {
+                try {
+                  fields.add(getArrowField(columnDesc));
+                } catch (DatabricksSQLException e) {
+                  throw new RuntimeException(e);
+                }
+              });
+    } catch (RuntimeException e) {
+      handleError(e);
+    }
     return new Schema(fields);
   }
 
-  public void releaseChunk(){
+  private static Field getArrowField(TColumnDesc columnDesc) throws DatabricksSQLException {
+    TTypeId thriftType = getThriftTypeFromTypeDesc(columnDesc.getTypeDesc());
+    ArrowType arrowType = null;
+    arrowType = maptoArrowType(thriftType);
+    FieldType fieldType = new FieldType(true, arrowType, null);
+    return new Field(columnDesc.getColumnName(), fieldType, null);
+  }
+
+  private static void handleError(Exception e) throws DatabricksParsingException {
+    String errorMessage = "Cannot process inline arrow format. Error: " + e.getMessage();
+    LOGGER.error(errorMessage);
+    throw new DatabricksParsingException(errorMessage, e);
+  }
+
+  public void releaseChunk() {
     this.arrowResultChunk.releaseChunk();
   }
 }
