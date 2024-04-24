@@ -153,6 +153,8 @@ public class DatabricksThriftAccessor {
     TSparkGetDirectResults directResults =
         new TSparkGetDirectResults().setMaxBytes(DEFAULT_BYTE_LIMIT).setMaxRows(maxRows);
     request.setGetDirectResults(directResults);
+    request.setCanReadArrowResult(true);
+    request.setCanDownloadResult(true);
     TExecuteStatementResp response = thriftClient.ExecuteStatement(request);
     if (response.isSetDirectResults()) {
       TFetchResultsResp resultSet = response.getDirectResults().getResultSet();

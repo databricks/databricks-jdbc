@@ -23,6 +23,8 @@ class ArrowStreamResult implements IExecutionResult {
 
   private long currentRowIndex;
 
+  private final boolean isInlineArrow;
+
   private boolean isClosed;
 
   private ArrowResultChunk.ArrowResultChunkIterator chunkIterator;
@@ -45,6 +47,7 @@ class ArrowStreamResult implements IExecutionResult {
     setColumnInfo(resultManifest);
     this.currentRowIndex = -1;
     this.isClosed = false;
+    this.isInlineArrow = true;
     this.chunkIterator = null;
     this.chunkExtractor = new ChunkExtractor(resultData.getArrowBatches(),resultManifest);
   }
@@ -72,6 +75,7 @@ class ArrowStreamResult implements IExecutionResult {
   private ArrowStreamResult(
       ResultManifest resultManifest, ChunkDownloader chunkDownloader, IDatabricksSession session) {
     this.session = session;
+    this.isInlineArrow = false;
     this.chunkDownloader = chunkDownloader;
     this.columnInfos =
         resultManifest.getSchema().getColumnCount() == 0
@@ -104,6 +108,12 @@ class ArrowStreamResult implements IExecutionResult {
       return false;
     }
     this.currentRowIndex++;
+    if(isInlineArrow){
+        if(chunkIterator==null) {
+          this.chunkIterator = this.chunkExtractor.next().getChunkIterator();
+        }
+        return chunkIterator.nextRow();
+    }
     // Either this is first chunk or we are crossing chunk boundary
     if (this.chunkIterator == null || !this.chunkIterator.hasNextRow()) {
       this.chunkDownloader.next();
@@ -116,15 +126,22 @@ class ArrowStreamResult implements IExecutionResult {
 
   @Override
   public boolean hasNext() {
-    return !isClosed()
-        && ((chunkIterator != null && chunkIterator.hasNextRow())
+    if(isClosed){
+      return false;
+    }
+    if(isInlineArrow){
+      return chunkExtractor.hasNext();
+    }
+    return ((chunkIterator != null && chunkIterator.hasNextRow())
             || chunkDownloader.hasNextChunk());
   }
 
   @Override
   public void close() {
     this.isClosed = true;
-    this.chunkDownloader.releaseAllChunks();
+    if(!isInlineArrow) {
+      this.chunkDownloader.releaseAllChunks();
+    }
   }
 
   private boolean isClosed() {

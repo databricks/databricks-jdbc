@@ -2,6 +2,7 @@ package com.databricks.jdbc.client.impl.thrift.commons;
 
 import static com.databricks.jdbc.client.impl.helper.MetadataResultConstants.NULL_STRING;
 import static com.databricks.jdbc.client.impl.thrift.generated.TTypeId.TIMESTAMP_TYPE;
+import static com.databricks.jdbc.core.DatabricksTypeUtil.getThriftTypeFromTypeDesc;
 
 import com.databricks.jdbc.client.DatabricksHttpException;
 import com.databricks.jdbc.client.impl.thrift.generated.*;
@@ -75,13 +76,7 @@ public class DatabricksThriftHelper {
   }
 
   public static ColumnInfoTypeName getTypeFromTypeDesc(TTypeDesc typeDesc) {
-    TTypeId type =
-        Optional.ofNullable(typeDesc)
-            .map(TTypeDesc::getTypes)
-            .map(t -> t.get(0))
-            .map(TTypeEntry::getPrimitiveEntry)
-            .map(TPrimitiveTypeEntry::getType)
-            .orElse(TTypeId.STRING_TYPE);
+    TTypeId type = getThriftTypeFromTypeDesc(typeDesc);
     switch (type) {
       case BOOLEAN_TYPE:
         return ColumnInfoTypeName.BOOLEAN;
