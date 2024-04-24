@@ -1,5 +1,7 @@
 package com.databricks.jdbc.core;
 
+import static com.databricks.jdbc.client.impl.thrift.commons.DatabricksThriftHelper.getTypeFromTypeDesc;
+
 import com.databricks.jdbc.client.IDatabricksHttpClient;
 import com.databricks.jdbc.client.impl.thrift.generated.TColumnDesc;
 import com.databricks.jdbc.client.impl.thrift.generated.TGetResultSetMetadataResp;
@@ -12,8 +14,6 @@ import com.google.common.annotations.VisibleForTesting;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
-
-import static com.databricks.jdbc.client.impl.thrift.commons.DatabricksThriftHelper.getTypeFromTypeDesc;
 
 class ArrowStreamResult implements IExecutionResult {
 
@@ -42,20 +42,22 @@ class ArrowStreamResult implements IExecutionResult {
         session);
   }
 
-  ArrowStreamResult(TGetResultSetMetadataResp resultManifest, TRowSet resultData) throws DatabricksParsingException {
+  ArrowStreamResult(TGetResultSetMetadataResp resultManifest, TRowSet resultData)
+      throws DatabricksParsingException {
     this.chunkDownloader = null;
     setColumnInfo(resultManifest);
     this.currentRowIndex = -1;
     this.isClosed = false;
     this.isInlineArrow = true;
     this.chunkIterator = null;
-    this.chunkExtractor = new ChunkExtractor(resultData.getArrowBatches(),resultManifest);
+    this.chunkExtractor = new ChunkExtractor(resultData.getArrowBatches(), resultManifest);
   }
 
-  private void setColumnInfo(TGetResultSetMetadataResp resultManifest){
+  private void setColumnInfo(TGetResultSetMetadataResp resultManifest) {
     this.columnInfos = new ArrayList<>();
-    for (TColumnDesc columnInfo : resultManifest.getSchema().getColumns()){
-      this.columnInfos.add(new ColumnInfo().setTypeName(getTypeFromTypeDesc(columnInfo.getTypeDesc())));
+    for (TColumnDesc columnInfo : resultManifest.getSchema().getColumns()) {
+      this.columnInfos.add(
+          new ColumnInfo().setTypeName(getTypeFromTypeDesc(columnInfo.getTypeDesc())));
     }
   }
 
@@ -108,11 +110,11 @@ class ArrowStreamResult implements IExecutionResult {
       return false;
     }
     this.currentRowIndex++;
-    if(isInlineArrow){
-        if(chunkIterator==null) {
-          this.chunkIterator = this.chunkExtractor.next().getChunkIterator();
-        }
-        return chunkIterator.nextRow();
+    if (isInlineArrow) {
+      if (chunkIterator == null) {
+        this.chunkIterator = this.chunkExtractor.next().getChunkIterator();
+      }
+      return chunkIterator.nextRow();
     }
     // Either this is first chunk or we are crossing chunk boundary
     if (this.chunkIterator == null || !this.chunkIterator.hasNextRow()) {
@@ -126,20 +128,24 @@ class ArrowStreamResult implements IExecutionResult {
 
   @Override
   public boolean hasNext() {
-    if(isClosed){
+    if (isClosed) {
       return false;
     }
-    if(isInlineArrow){
-      return chunkExtractor.hasNext();
+
+    // Check if there are any more rows available in the current chunk
+    if (chunkIterator != null && chunkIterator.hasNextRow()) {
+      return true;
     }
-    return ((chunkIterator != null && chunkIterator.hasNextRow())
-            || chunkDownloader.hasNextChunk());
+
+    // For inline arrow, check if the chunk extractor has more chunks
+    // Otherwise, check the chunk downloader
+    return isInlineArrow ? this.chunkExtractor.hasNext() : this.chunkDownloader.hasNextChunk();
   }
 
   @Override
   public void close() {
     this.isClosed = true;
-    if(!isInlineArrow) {
+    if (!isInlineArrow) {
       this.chunkDownloader.releaseAllChunks();
     }
   }

@@ -42,8 +42,7 @@ public class ArrowResultChunkTest {
             .setRowOffset(0L)
             .setRowCount(totalRows);
     ArrowResultChunk arrowResultChunk =
-        new ArrowResultChunk(
-            chunkInfo, STATEMENT_ID, CompressionType.NONE);
+        new ArrowResultChunk(chunkInfo, STATEMENT_ID, CompressionType.NONE);
 
     // Assert
     assert (arrowResultChunk.getRecordBatchCountInChunk() == 0);
@@ -60,8 +59,7 @@ public class ArrowResultChunkTest {
             .setRowOffset(0L)
             .setRowCount(totalRows);
     ArrowResultChunk arrowResultChunk =
-        new ArrowResultChunk(
-            chunkInfo,STATEMENT_ID, CompressionType.NONE);
+        new ArrowResultChunk(chunkInfo, STATEMENT_ID, CompressionType.NONE);
     Schema schema = createTestSchema();
     Object[][] testData = createTestData(schema, (int) totalRows);
     File arrowFile =
@@ -147,19 +145,14 @@ public class ArrowResultChunkTest {
     BaseChunkInfo emptyChunkInfo =
         new BaseChunkInfo().setChunkIndex(0L).setByteCount(200L).setRowOffset(0L).setRowCount(0L);
     ArrowResultChunk arrowResultChunk =
-        new ArrowResultChunk(
-            emptyChunkInfo,
-            STATEMENT_ID,
-            CompressionType.NONE);
+        new ArrowResultChunk(emptyChunkInfo, STATEMENT_ID, CompressionType.NONE);
     arrowResultChunk.setIsDataInitialized(true);
     arrowResultChunk.recordBatchList = Collections.nCopies(3, new ArrayList<>());
     assertFalse(arrowResultChunk.getChunkIterator().hasNextRow());
 
     BaseChunkInfo chunkInfo =
         new BaseChunkInfo().setChunkIndex(18L).setByteCount(200L).setRowOffset(0L).setRowCount(4L);
-    arrowResultChunk =
-        new ArrowResultChunk(
-            chunkInfo, STATEMENT_ID, CompressionType.NONE);
+    arrowResultChunk = new ArrowResultChunk(chunkInfo, STATEMENT_ID, CompressionType.NONE);
     arrowResultChunk.setIsDataInitialized(true);
     int size = 2;
     IntVector dummyVector = new IntVector("dummy_vector", new RootAllocator());
@@ -191,8 +184,7 @@ public class ArrowResultChunkTest {
     BaseChunkInfo chunkInfo =
         new BaseChunkInfo().setChunkIndex(18L).setByteCount(200L).setRowOffset(0L).setRowCount(4L);
     ArrowResultChunk arrowResultChunk =
-        new ArrowResultChunk(
-            chunkInfo, STATEMENT_ID, CompressionType.NONE);
+        new ArrowResultChunk(chunkInfo, STATEMENT_ID, CompressionType.NONE);
     arrowResultChunk.setIsDataInitialized(true);
     int size = 2;
     IntVector dummyVector = new IntVector("dummy_vector", new RootAllocator());

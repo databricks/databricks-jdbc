@@ -59,11 +59,11 @@ public class ArrowResultChunk {
     DOWNLOAD_IN_PROGRESS,
     // Data has been downloaded and ready for consumption
     DOWNLOAD_SUCCEEDED,
-    //Result Chunk was of type inline arrow and extract is successful
+    // Result Chunk was of type inline arrow and extract is successful
     EXTRACT_SUCCEEDED,
     // Download has failed and it would be retried
     DOWNLOAD_FAILED,
-    //Result Chunk was of type inline arrow and extract has failed
+    // Result Chunk was of type inline arrow and extract has failed
     EXTRACT_FAILED,
     // Download has failed and we have given up
     DOWNLOAD_FAILED_ABORTED,
@@ -101,10 +101,7 @@ public class ArrowResultChunk {
 
   private CompressionType compressionType;
 
-  ArrowResultChunk(
-      BaseChunkInfo chunkInfo,
-      String statementId,
-      CompressionType compressionType) {
+  ArrowResultChunk(BaseChunkInfo chunkInfo, String statementId, CompressionType compressionType) {
     this.chunkIndex = chunkInfo.getChunkIndex();
     this.numRows = chunkInfo.getRowCount();
     this.rowOffset = chunkInfo.getRowOffset();
@@ -121,11 +118,13 @@ public class ArrowResultChunk {
     this.compressionType = compressionType;
   }
 
-  ArrowResultChunk(long rowCount, String statementId,CompressionType compressionType, InputStream stream) throws DatabricksParsingException {
+  ArrowResultChunk(
+      long rowCount, String statementId, CompressionType compressionType, InputStream stream)
+      throws DatabricksParsingException {
     this.chunkIndex = 0L;
-    this.numRows =  rowCount;
+    this.numRows = rowCount;
     this.rowOffset = 0L;
-    this.byteCount = null; //Inline results don't have byteCount attached to its chunk
+    this.byteCount = null; // Inline results don't have byteCount attached to its chunk
     this.status = ChunkStatus.PENDING;
     this.rootAllocator = new RootAllocator(/* limit= */ Integer.MAX_VALUE);
     this.chunkLink = null;
@@ -136,11 +135,12 @@ public class ArrowResultChunk {
     try {
       getArrowDataFromInputStream(stream);
       this.status = ChunkStatus.EXTRACT_SUCCEEDED;
-    }catch (Exception e){
+    } catch (Exception e) {
       handleFailure(e, ChunkStatus.EXTRACT_FAILED);
     }
     this.compressionType = compressionType;
   }
+
   public static class ArrowResultChunkIterator {
     private final ArrowResultChunk resultChunk;
 
@@ -300,10 +300,11 @@ public class ArrowResultChunk {
     initializeRecordBatch(decompressedStream);
   }
 
-  private void initializeRecordBatch(InputStream decompressedStream) throws DatabricksParsingException {
+  private void initializeRecordBatch(InputStream decompressedStream)
+      throws DatabricksParsingException {
     this.recordBatchList = new ArrayList<>();
     ArrowStreamReader arrowStreamReader =
-            new ArrowStreamReader(decompressedStream, this.rootAllocator);
+        new ArrowStreamReader(decompressedStream, this.rootAllocator);
     List<ValueVector> vectors = new ArrayList<>();
     try {
       this.vectorSchemaRoot = arrowStreamReader.getVectorSchemaRoot();
@@ -312,7 +313,7 @@ public class ArrowResultChunk {
         vectorSchemaRoot.clear();
       }
       LOGGER.debug(
-              "Data parsed for chunk index [{}] and statement [{}]", this.chunkIndex, this.statementId);
+          "Data parsed for chunk index [{}] and statement [{}]", this.chunkIndex, this.statementId);
     } catch (ClosedByInterruptException e) {
       LOGGER.debug("Data parsing interrupted when loading Arrow Result", e);
       vectors.forEach(ValueVector::close);
@@ -325,26 +326,29 @@ public class ArrowResultChunk {
     }
   }
 
- private List<ValueVector> getVectorsFromSchemaRoot() {
-   return vectorSchemaRoot.getFieldVectors().stream()
-            .map(
-                    fieldVector -> {
-                      TransferPair transferPair = fieldVector.getTransferPair(rootAllocator);
-                      transferPair.transfer();
-                      return transferPair.getTo();
-                    })
-            .collect(Collectors.toList());
+  private List<ValueVector> getVectorsFromSchemaRoot() {
+    return vectorSchemaRoot.getFieldVectors().stream()
+        .map(
+            fieldVector -> {
+              TransferPair transferPair = fieldVector.getTransferPair(rootAllocator);
+              transferPair.transfer();
+              return transferPair.getTo();
+            })
+        .collect(Collectors.toList());
   }
-void handleFailure(Exception exception, ChunkStatus failedStatus) throws DatabricksParsingException {
-  String errMsg =
-          String.format(
-                  "Data parsing failed for chunk index [%d] and statement [%s]",
-                  this.chunkIndex, this.statementId);
-  LOGGER.error(errMsg, exception);
-  this.setStatus(failedStatus);
-  purgeArrowData();
-  throw new DatabricksParsingException(errMsg, exception);
-}
+
+  void handleFailure(Exception exception, ChunkStatus failedStatus)
+      throws DatabricksParsingException {
+    String errMsg =
+        String.format(
+            "Data parsing failed for chunk index [%d] and statement [%s]",
+            this.chunkIndex, this.statementId);
+    LOGGER.error(errMsg, exception);
+    this.setStatus(failedStatus);
+    purgeArrowData();
+    throw new DatabricksParsingException(errMsg, exception);
+  }
+
   void purgeArrowData() {
     this.recordBatchList.forEach(vectors -> vectors.forEach(ValueVector::close));
     this.recordBatchList.clear();

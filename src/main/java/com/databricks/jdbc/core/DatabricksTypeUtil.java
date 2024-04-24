@@ -10,16 +10,11 @@ import java.sql.Timestamp;
 import java.sql.Types;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.List;
 import java.util.Optional;
-
 import org.apache.arrow.vector.types.DateUnit;
 import org.apache.arrow.vector.types.FloatingPointPrecision;
-import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.TimeUnit;
-import org.apache.arrow.vector.types.pojo.Field;
-import org.apache.arrow.vector.types.pojo.FieldType;
-import org.apache.arrow.vector.types.pojo.Schema;
+import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -309,43 +304,43 @@ public class DatabricksTypeUtil {
     return type;
   }
 
-  public static TTypeId getThriftTypeFromTypeDesc(TTypeDesc typeDesc){
+  public static TTypeId getThriftTypeFromTypeDesc(TTypeDesc typeDesc) {
     return Optional.ofNullable(typeDesc)
-            .map(TTypeDesc::getTypes)
-            .map(t -> t.get(0))
-            .map(TTypeEntry::getPrimitiveEntry)
-            .map(TPrimitiveTypeEntry::getType)
-            .orElse(TTypeId.STRING_TYPE);
-
+        .map(TTypeDesc::getTypes)
+        .map(t -> t.get(0))
+        .map(TTypeEntry::getPrimitiveEntry)
+        .map(TPrimitiveTypeEntry::getType)
+        .orElse(TTypeId.STRING_TYPE);
   }
+
   public static ArrowType maptoArrowType(TTypeId typeId) throws DatabricksSQLException {
-      switch (typeId) {
-        case BOOLEAN_TYPE:
-          return ArrowType.Bool.INSTANCE;
-        case TINYINT_TYPE:
-          return new ArrowType.Int(8, true);
-        case SMALLINT_TYPE:
-          return new ArrowType.Int(16, true);
-        case INT_TYPE:
-          return new ArrowType.Int(32, true);
-        case BIGINT_TYPE:
-          return new ArrowType.Int(64, true);
-        case FLOAT_TYPE:
-          return new ArrowType.FloatingPoint(FloatingPointPrecision.SINGLE);
-        case DOUBLE_TYPE:
-          return new ArrowType.FloatingPoint(FloatingPointPrecision.DOUBLE);
-        case STRING_TYPE:
-        case VARCHAR_TYPE:
-        case CHAR_TYPE:
-          return ArrowType.Utf8.INSTANCE;
-        case TIMESTAMP_TYPE:
-          return new ArrowType.Timestamp(TimeUnit.MICROSECOND, null);
-        case BINARY_TYPE:
-          return ArrowType.Binary.INSTANCE;
-        case DATE_TYPE:
-          return new ArrowType.Date(DateUnit.DAY);
-        default:
-          throw new DatabricksSQLFeatureNotSupportedException("Unsupported Hive type: " + typeId);
-      }
+    switch (typeId) {
+      case BOOLEAN_TYPE:
+        return ArrowType.Bool.INSTANCE;
+      case TINYINT_TYPE:
+        return new ArrowType.Int(8, true);
+      case SMALLINT_TYPE:
+        return new ArrowType.Int(16, true);
+      case INT_TYPE:
+        return new ArrowType.Int(32, true);
+      case BIGINT_TYPE:
+        return new ArrowType.Int(64, true);
+      case FLOAT_TYPE:
+        return new ArrowType.FloatingPoint(FloatingPointPrecision.SINGLE);
+      case DOUBLE_TYPE:
+        return new ArrowType.FloatingPoint(FloatingPointPrecision.DOUBLE);
+      case STRING_TYPE:
+      case VARCHAR_TYPE:
+      case CHAR_TYPE:
+        return ArrowType.Utf8.INSTANCE;
+      case TIMESTAMP_TYPE:
+        return new ArrowType.Timestamp(TimeUnit.MICROSECOND, null);
+      case BINARY_TYPE:
+        return ArrowType.Binary.INSTANCE;
+      case DATE_TYPE:
+        return new ArrowType.Date(DateUnit.DAY);
+      default:
+        throw new DatabricksSQLFeatureNotSupportedException("Unsupported Hive type: " + typeId);
+    }
   }
 }
