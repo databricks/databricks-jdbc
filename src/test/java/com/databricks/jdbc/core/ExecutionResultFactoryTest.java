@@ -92,4 +92,12 @@ public class ExecutionResultFactoryTest {
         DatabricksSQLFeatureNotImplementedException.class,
         () -> ExecutionResultFactory.getResultSet(tRowSet, resultSetMetadataResp));
   }
+
+  @Test
+  public void testGetResultSet_thriftInlineArrow() throws DatabricksSQLException {
+    when(resultSetMetadataResp.getResultFormat()).thenReturn(TSparkRowSetType.ARROW_BASED_SET);
+    ExecutionResultFactory executionResultFactory = new ExecutionResultFactory();
+    IExecutionResult result = executionResultFactory.getResultSet(tRowSet, resultSetMetadataResp);
+    assertInstanceOf(ArrowStreamResult.class, result);
+  }
 }

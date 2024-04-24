@@ -55,6 +55,9 @@ class ArrowStreamResult implements IExecutionResult {
 
   private void setColumnInfo(TGetResultSetMetadataResp resultManifest) {
     this.columnInfos = new ArrayList<>();
+    if (resultManifest.getSchema() == null) {
+      return;
+    }
     for (TColumnDesc columnInfo : resultManifest.getSchema().getColumns()) {
       this.columnInfos.add(
           new ColumnInfo().setTypeName(getTypeFromTypeDesc(columnInfo.getTypeDesc())));

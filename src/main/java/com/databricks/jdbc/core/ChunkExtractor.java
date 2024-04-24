@@ -54,7 +54,10 @@ public class ChunkExtractor {
       throws DatabricksParsingException {
     ByteArrayOutputStream baos = new ByteArrayOutputStream();
     try {
-      baos.write(getSerializedSchema(metadata));
+      byte[] serializedSchema = getSerializedSchema(metadata);
+      if (serializedSchema != null) {
+        baos.write(serializedSchema);
+      }
       for (TSparkArrowBatch arrowBatch : arrowBatches) {
         totalRows += arrowBatch.getRowCount();
         baos.write(arrowBatch.getBatch());
@@ -83,7 +86,9 @@ public class ChunkExtractor {
   private static Schema hiveSchemaToArrowSchema(TTableSchema hiveSchema)
       throws DatabricksParsingException {
     List<Field> fields = new ArrayList<>();
-    String errorMessage = null;
+    if (hiveSchema == null) {
+      return new Schema(fields);
+    }
     try {
       hiveSchema
           .getColumns()
