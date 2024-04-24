@@ -1,8 +1,7 @@
 package com.databricks.jdbc.core;
 
 import static com.databricks.jdbc.TestConstants.TEST_TABLE_SCHEMA;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.when;
 
 import com.databricks.jdbc.client.impl.thrift.generated.TGetResultSetMetadataResp;
@@ -27,5 +26,16 @@ public class ChunkExtractorTest {
         new ChunkExtractor(Collections.singletonList(arrowBatch), metadata);
     assertTrue(chunkExtractor.hasNext());
     assertNotNull(chunkExtractor.next());
+    assertNull(chunkExtractor.next());
+  }
+
+  @Test
+  void handleErrorTest() throws DatabricksParsingException {
+    TSparkArrowBatch arrowBatch =
+        new TSparkArrowBatch().setRowCount(0).setBatch(new byte[] {65, 66, 67});
+    ChunkExtractor chunkExtractor =
+        new ChunkExtractor(Collections.singletonList(arrowBatch), metadata);
+    assertThrows(
+        DatabricksParsingException.class, () -> chunkExtractor.handleError(new RuntimeException()));
   }
 }

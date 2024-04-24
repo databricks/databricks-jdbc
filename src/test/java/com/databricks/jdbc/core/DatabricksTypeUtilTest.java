@@ -31,10 +31,15 @@ class DatabricksTypeUtilTest {
           TTypeId.DOUBLE_TYPE, new ArrowType.FloatingPoint(FloatingPointPrecision.DOUBLE)
         },
         new Object[] {TTypeId.STRING_TYPE, ArrowType.Utf8.INSTANCE},
+        new Object[] {TTypeId.INTERVAL_DAY_TIME_TYPE, ArrowType.Utf8.INSTANCE},
+        new Object[] {TTypeId.INTERVAL_YEAR_MONTH_TYPE, ArrowType.Utf8.INSTANCE},
+        new Object[] {TTypeId.UNION_TYPE, ArrowType.Utf8.INSTANCE},
+        new Object[] {TTypeId.STRING_TYPE, ArrowType.Utf8.INSTANCE},
         new Object[] {TTypeId.VARCHAR_TYPE, ArrowType.Utf8.INSTANCE},
         new Object[] {TTypeId.CHAR_TYPE, ArrowType.Utf8.INSTANCE},
         new Object[] {TTypeId.TIMESTAMP_TYPE, new ArrowType.Timestamp(TimeUnit.MICROSECOND, null)},
         new Object[] {TTypeId.BINARY_TYPE, ArrowType.Binary.INSTANCE},
+        new Object[] {TTypeId.NULL_TYPE, ArrowType.Null.INSTANCE},
         new Object[] {TTypeId.DATE_TYPE, new ArrowType.Date(DateUnit.DAY)});
   }
 
@@ -42,7 +47,8 @@ class DatabricksTypeUtilTest {
   @MethodSource("dataProvider")
   public void testMapToArrowType(TTypeId typeId, ArrowType expectedArrowType)
       throws DatabricksSQLException {
-    ArrowType result = DatabricksTypeUtil.maptoArrowType(typeId);
+    DatabricksTypeUtil typeUtil = new DatabricksTypeUtil(); // code coverage of constructor too
+    ArrowType result = typeUtil.maptoArrowType(typeId);
     assertEquals(expectedArrowType, result);
   }
 
@@ -105,6 +111,8 @@ class DatabricksTypeUtilTest {
     assertEquals(29, DatabricksTypeUtil.getPrecision(ColumnInfoTypeName.TIMESTAMP));
     assertEquals(255, DatabricksTypeUtil.getPrecision(ColumnInfoTypeName.STRUCT));
     assertEquals(255, DatabricksTypeUtil.getPrecision(ColumnInfoTypeName.INTERVAL));
+    assertEquals(5, DatabricksTypeUtil.getPrecision(ColumnInfoTypeName.BYTE));
+    assertEquals(5, DatabricksTypeUtil.getPrecision(ColumnInfoTypeName.SHORT));
   }
 
   @Test

@@ -5,6 +5,7 @@ import static com.databricks.jdbc.core.DatabricksTypeUtil.maptoArrowType;
 
 import com.databricks.jdbc.client.impl.thrift.generated.*;
 import com.databricks.jdbc.core.types.CompressionType;
+import com.google.common.annotations.VisibleForTesting;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -114,7 +115,8 @@ public class ChunkExtractor {
     return new Field(columnDesc.getColumnName(), fieldType, null);
   }
 
-  private static void handleError(Exception e) throws DatabricksParsingException {
+  @VisibleForTesting
+  static void handleError(Exception e) throws DatabricksParsingException {
     String errorMessage = "Cannot process inline arrow format. Error: " + e.getMessage();
     LOGGER.error(errorMessage);
     throw new DatabricksParsingException(errorMessage, e);

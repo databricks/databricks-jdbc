@@ -329,7 +329,15 @@ public class DatabricksTypeUtil {
         return new ArrowType.FloatingPoint(FloatingPointPrecision.SINGLE);
       case DOUBLE_TYPE:
         return new ArrowType.FloatingPoint(FloatingPointPrecision.DOUBLE);
+      case INTERVAL_DAY_TIME_TYPE:
+      case INTERVAL_YEAR_MONTH_TYPE:
       case STRING_TYPE:
+      case ARRAY_TYPE:
+      case MAP_TYPE:
+      case STRUCT_TYPE:
+      case USER_DEFINED_TYPE:
+      case DECIMAL_TYPE:
+      case UNION_TYPE:
       case VARCHAR_TYPE:
       case CHAR_TYPE:
         return ArrowType.Utf8.INSTANCE;
@@ -339,6 +347,8 @@ public class DatabricksTypeUtil {
         return ArrowType.Binary.INSTANCE;
       case DATE_TYPE:
         return new ArrowType.Date(DateUnit.DAY);
+      case NULL_TYPE:
+        return ArrowType.Null.INSTANCE;
       default:
         throw new DatabricksSQLFeatureNotSupportedException("Unsupported Hive type: " + typeId);
     }
