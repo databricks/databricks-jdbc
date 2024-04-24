@@ -15,12 +15,25 @@ public class IntegrationTestUtil {
     return System.getenv("DATABRICKS_HOST");
   }
 
+  public static String getDatabricksBenchfoodHost() {
+    // includes port
+    return System.getenv("DATABRICKS_BENCHFOOD_HOST");
+  }
+
   public static String getDatabricksToken() {
     return System.getenv("DATABRICKS_TOKEN");
   }
 
+  public static String getDatabricksBenchfoodToken() {
+    return System.getenv("DATABRICKS_BENCHFOOD_TOKEN");
+  }
+
   public static String getDatabricksHTTPPath() {
     return System.getenv("DATABRICKS_HTTP_PATH");
+  }
+
+  public static String getDatabricksBenchfoodHTTPPath() {
+    return System.getenv("DATABRICKS_BENCHFOOD_HTTP_PATH");
   }
 
   public static String getDatabricksCatalog() {
@@ -40,10 +53,25 @@ public class IntegrationTestUtil {
     return DriverManager.getConnection(getJDBCUrl(), getDatabricksUser(), getDatabricksToken());
   }
 
+  public static Connection getBenchfoodJDBCConnection() throws SQLException {
+    // add support for properties
+    return DriverManager.getConnection(
+        getBenchfoodJDBCUrl(), getDatabricksUser(), getDatabricksBenchfoodToken());
+  }
+
   public static String getJDBCUrl() {
     String template = "jdbc:databricks://%s/default;ssl=1;AuthMech=3;httpPath=%s";
     String host = getDatabricksHost();
     String httpPath = getDatabricksHTTPPath();
+
+    return String.format(template, host, httpPath);
+  }
+
+  public static String getBenchfoodJDBCUrl() {
+    String template =
+        "jdbc:databricks://%s/default;transportMode=http;ssl=1;AuthMech=3;httpPath=%s";
+    String host = getDatabricksBenchfoodHost();
+    String httpPath = getDatabricksBenchfoodHTTPPath();
 
     return String.format(template, host, httpPath);
   }

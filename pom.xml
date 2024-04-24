@@ -192,6 +192,7 @@
           <configuration>
             <excludes>
               <exclude>**/**IntegrationTests.java</exclude>
+              <exclude>**/*MetadataBenchmarkingTest.java</exclude>
             </excludes>
             <argLine>
               @{argLine}
@@ -217,6 +218,15 @@
               <argument>${slt.token}</argument>
             </arguments>
             <classpathScope>test</classpathScope>
+          </configuration>
+        </plugin>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-compiler-plugin</artifactId>
+          <configuration>
+            <testExcludes>
+              <testExclude>com/databricks/jdbc/integration/benchmarking/MetadataBenchmarkingTest.java</testExclude>
+            </testExcludes>
           </configuration>
         </plugin>
         <plugin>
