@@ -504,6 +504,7 @@ public class VolumeOperationResultTest {
     } catch (DatabricksSQLException e) {
       assertEquals("Volume operation failed: Failed to delete volume", e.getMessage());
     }
+    assertDoesNotThrow(() -> volumeOperationResult.close());
   }
 
   @Test
