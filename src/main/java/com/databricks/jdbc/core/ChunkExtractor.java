@@ -1,7 +1,6 @@
 package com.databricks.jdbc.core;
 
-import static com.databricks.jdbc.core.DatabricksTypeUtil.getThriftTypeFromTypeDesc;
-import static com.databricks.jdbc.core.DatabricksTypeUtil.maptoArrowType;
+import static com.databricks.jdbc.core.DatabricksTypeUtil.*;
 
 import com.databricks.jdbc.client.impl.thrift.generated.*;
 import com.databricks.jdbc.core.types.CompressionType;
@@ -110,7 +109,7 @@ public class ChunkExtractor {
   private static Field getArrowField(TColumnDesc columnDesc) throws DatabricksSQLException {
     TTypeId thriftType = getThriftTypeFromTypeDesc(columnDesc.getTypeDesc());
     ArrowType arrowType = null;
-    arrowType = maptoArrowType(thriftType);
+    arrowType = mapThriftToArrowType(thriftType);
     FieldType fieldType = new FieldType(true, arrowType, null);
     return new Field(columnDesc.getColumnName(), fieldType, null);
   }

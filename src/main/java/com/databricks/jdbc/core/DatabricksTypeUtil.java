@@ -313,7 +313,7 @@ public class DatabricksTypeUtil {
         .orElse(TTypeId.STRING_TYPE);
   }
 
-  public static ArrowType maptoArrowType(TTypeId typeId) throws DatabricksSQLException {
+  public static ArrowType mapThriftToArrowType(TTypeId typeId) throws DatabricksSQLException {
     switch (typeId) {
       case BOOLEAN_TYPE:
         return ArrowType.Bool.INSTANCE;

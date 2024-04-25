@@ -48,7 +48,7 @@ class DatabricksTypeUtilTest {
   public void testMapToArrowType(TTypeId typeId, ArrowType expectedArrowType)
       throws DatabricksSQLException {
     DatabricksTypeUtil typeUtil = new DatabricksTypeUtil(); // code coverage of constructor too
-    ArrowType result = typeUtil.maptoArrowType(typeId);
+    ArrowType result = typeUtil.mapThriftToArrowType(typeId);
     assertEquals(expectedArrowType, result);
   }
 
