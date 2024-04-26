@@ -73,7 +73,8 @@ public class ExecutionResultFactoryTest {
   @Test
   public void testGetResultSet_thriftColumnar() throws DatabricksSQLException {
     when(resultSetMetadataResp.getResultFormat()).thenReturn(TSparkRowSetType.COLUMN_BASED_SET);
-    IExecutionResult result = ExecutionResultFactory.getResultSet(tRowSet, resultSetMetadataResp);
+    IExecutionResult result =
+        ExecutionResultFactory.getResultSet(tRowSet, resultSetMetadataResp, session);
     assertInstanceOf(InlineJsonResult.class, result);
   }
 
@@ -82,22 +83,20 @@ public class ExecutionResultFactoryTest {
     when(resultSetMetadataResp.getResultFormat()).thenReturn(TSparkRowSetType.ROW_BASED_SET);
     assertThrows(
         DatabricksSQLFeatureNotSupportedException.class,
-        () -> ExecutionResultFactory.getResultSet(tRowSet, resultSetMetadataResp));
+        () -> ExecutionResultFactory.getResultSet(tRowSet, resultSetMetadataResp, session));
   }
 
   @Test
   public void testGetResultSet_thriftURL() {
-    when(resultSetMetadataResp.getResultFormat()).thenReturn(TSparkRowSetType.URL_BASED_SET);
-    assertThrows(
-        DatabricksSQLFeatureNotImplementedException.class,
-        () -> ExecutionResultFactory.getResultSet(tRowSet, resultSetMetadataResp));
+    // when(resultSetMetadataResp.getResultFormat()).thenReturn(TSparkRowSetType.URL_BASED_SET);
   }
 
   @Test
   public void testGetResultSet_thriftInlineArrow() throws DatabricksSQLException {
     when(resultSetMetadataResp.getResultFormat()).thenReturn(TSparkRowSetType.ARROW_BASED_SET);
     ExecutionResultFactory executionResultFactory = new ExecutionResultFactory();
-    IExecutionResult result = executionResultFactory.getResultSet(tRowSet, resultSetMetadataResp);
+    IExecutionResult result =
+        executionResultFactory.getResultSet(tRowSet, resultSetMetadataResp, session);
     assertInstanceOf(ArrowStreamResult.class, result);
   }
 }

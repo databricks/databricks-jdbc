@@ -67,6 +67,8 @@ public class DatabricksThriftServiceClientTest {
     when(session.getSessionInfo()).thenReturn(SESSION_INFO);
     TExecuteStatementReq executeStatementReq =
         new TExecuteStatementReq().setStatement(TEST_STRING).setSessionHandle(SESSION_HANDLE);
+    executeStatementReq.setResultPersistenceMode(TResultPersistenceMode.ALL_RESULTS);
+    executeStatementReq.setEnforceResultPersistenceMode(true);
     when(resultMetadataData.getResultFormat()).thenReturn(TSparkRowSetType.COLUMN_BASED_SET);
     TFetchResultsResp fetchResultsResp =
         new TFetchResultsResp()

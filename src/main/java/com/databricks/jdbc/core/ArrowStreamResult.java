@@ -42,15 +42,26 @@ class ArrowStreamResult implements IExecutionResult {
         session);
   }
 
-  ArrowStreamResult(TGetResultSetMetadataResp resultManifest, TRowSet resultData)
+  ArrowStreamResult(
+      TGetResultSetMetadataResp resultManifest,
+      TRowSet resultData,
+      boolean isInlineArrow,
+      IDatabricksSession session)
       throws DatabricksParsingException {
-    this.chunkDownloader = null;
+    this.isInlineArrow = isInlineArrow;
     setColumnInfo(resultManifest);
     this.currentRowIndex = -1;
     this.isClosed = false;
-    this.isInlineArrow = true;
     this.chunkIterator = null;
-    this.chunkExtractor = new ChunkExtractor(resultData.getArrowBatches(), resultManifest);
+    this.session = session;
+    if (isInlineArrow) {
+      this.chunkExtractor = new ChunkExtractor(resultData.getArrowBatches(), resultManifest);
+      this.chunkDownloader = null;
+    } else {
+      //  Todo : propogate statement ID
+      this.chunkDownloader = new ChunkDownloader(null, resultManifest, resultData, session);
+      this.chunkExtractor = null;
+    }
   }
 
   private void setColumnInfo(TGetResultSetMetadataResp resultManifest) {

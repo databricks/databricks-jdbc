@@ -107,16 +107,20 @@ public class DatabricksThriftServiceClient implements DatabricksClient, Databric
         new TExecuteStatementReq()
             .setStatement(sql)
             .setSessionHandle(session.getSessionInfo().sessionHandle());
+    request.setResultPersistenceMode(TResultPersistenceMode.ALL_RESULTS);
+    request.setEnforceResultPersistenceMode(true);
     TFetchResultsResp response =
         (TFetchResultsResp)
             thriftAccessor.getThriftResponse(
                 request, CommandName.EXECUTE_STATEMENT, parentStatement);
+    // TODO : propagate statement ID for execute statement
     return new DatabricksResultSet(
         response.getStatus(),
         session.getSessionId(),
         response.getResults(),
         response.getResultSetMetadata(),
         statementType,
+        session,
         parentStatement);
   }
 
