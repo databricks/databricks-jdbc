@@ -8,6 +8,7 @@ public class DriverTester {
     System.out.println("\n\nPrinting resultSet...........\n");
     ResultSetMetaData rsmd = resultSet.getMetaData();
     int columnsNumber = rsmd.getColumnCount();
+    System.out.println("Number of columns is "+columnsNumber);
     for (int i = 1; i <= columnsNumber; i++) System.out.print(rsmd.getColumnName(i) + "\t");
     System.out.println();
     for (int i = 1; i <= columnsNumber; i++) System.out.print(rsmd.getColumnTypeName(i) + "\t\t");
@@ -18,16 +19,16 @@ public class DriverTester {
     System.out.println();
     while (resultSet.next()) {
       for (int i = 1; i <= columnsNumber; i++) {
-        try {
+       // try {
           Object columnValue = resultSet.getObject(i);
           System.out.print(columnValue + "\t\t");
-        } catch (Exception e) {
+      /*  } catch (Exception e) {
           System.out.print(
               "NULL\t\t"); // It is possible for certain columns to be non-existent (edge case)
         }
-      }
+      }*/
       System.out.println();
-    }
+    }}
   }
 
   @Test
@@ -94,7 +95,7 @@ public class DriverTester {
         "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=https;ssl=1;httpPath=sql/protocolv1/o/6051921418418893/0403-201212-eatc4ksv;AuthMech=3;UID=token;";
     Connection con =
         DriverManager.getConnection(
-            jdbcUrl, "samikshya.chand@databricks.com", "x");
+            jdbcUrl, "samikshya.chand@databricks.com", "dapi0b4b876d161d1f58dd3ddbd480da96f2");
     System.out.println("Connection established......");
     Statement statement = con.createStatement();
     ResultSet rs =

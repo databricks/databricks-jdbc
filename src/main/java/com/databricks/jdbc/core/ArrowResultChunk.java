@@ -9,6 +9,7 @@ import com.databricks.jdbc.client.sqlexec.ExternalLink;
 import com.databricks.jdbc.commons.util.DecompressionUtil;
 import com.databricks.jdbc.core.types.CompressionType;
 import com.databricks.sdk.service.sql.BaseChunkInfo;
+import com.databricks.sdk.support.ToStringer;
 import com.google.common.annotations.VisibleForTesting;
 import java.io.IOException;
 import java.io.InputStream;
@@ -18,6 +19,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+
+import com.google.common.base.MoreObjects;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
@@ -424,5 +427,28 @@ public class ArrowResultChunk {
 
   Long getDownloadFinishTime() {
     return this.downloadFinishTime;
+  }
+
+  @Override
+  public String toString() {
+    return new ToStringer(ExternalLink.class)
+            .add("chunkIndex", chunkIndex)
+            .add("numRows", numRows)
+            .add("rowOffset", rowOffset)
+            .add("byteCount", byteCount)
+            .add("chunkLink", chunkLink)
+            .add("statementId", statementId)
+            .add("nextChunkIndex", nextChunkIndex)
+            .add("expiryTime", expiryTime)
+            .add("status", status)
+            .add("downloadStartTime", downloadStartTime)
+            .add("downloadFinishTime", downloadFinishTime)
+            .add("recordBatchList", recordBatchList)
+            .add("rootAllocator", rootAllocator)
+            .add("errorMessage", errorMessage)
+            .add("isDataInitialized", isDataInitialized)
+            .add("vectorSchemaRoot", vectorSchemaRoot)
+            .add("compressionType", compressionType)
+            .toString();
   }
 }

@@ -128,13 +128,12 @@ class ArrowStreamResult implements IExecutionResult {
       if (chunkIterator == null) {
         this.chunkIterator = this.chunkExtractor.next().getChunkIterator();
       }
-      return chunkIterator.nextRow();
     }
     // Either this is first chunk or we are crossing chunk boundary
-    if (this.chunkIterator == null || !this.chunkIterator.hasNextRow()) {
+   else if (this.chunkIterator == null || !this.chunkIterator.hasNextRow()) {
       this.chunkDownloader.next();
-      this.chunkIterator = this.chunkDownloader.getChunk().getChunkIterator();
-      return chunkIterator.nextRow();
+      ArrowResultChunk chunk = this.chunkDownloader.getChunk();
+      this.chunkIterator = chunk.getChunkIterator();
     }
     // Traversing within a chunk
     return this.chunkIterator.nextRow();

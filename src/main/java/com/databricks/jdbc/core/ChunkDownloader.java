@@ -60,7 +60,6 @@ public class ChunkDownloader {
       IDatabricksSession session) {
     this(
         statementId,
-        resultManifest,
         resultData,
         session,
         DatabricksHttpClient.getInstance(session.getConnectionContext()));
@@ -85,7 +84,6 @@ public class ChunkDownloader {
   @VisibleForTesting
   ChunkDownloader(
       String statementId,
-      TGetResultSetMetadataResp resultManifest,
       TRowSet resultData,
       IDatabricksSession session,
       IDatabricksHttpClient httpClient) {
@@ -94,7 +92,7 @@ public class ChunkDownloader {
     this.session = session;
     this.statementId = statementId;
     this.totalChunks = resultData.getResultLinksSize();
-    this.chunkIndexToChunksMap = initializeChunksMap(resultManifest, resultData, statementId);
+    this.chunkIndexToChunksMap = initializeChunksMap(resultData, statementId);
     initializeData();
   }
 
@@ -133,8 +131,7 @@ public class ChunkDownloader {
     return chunkIndexMap;
   }
 
-  private static ConcurrentHashMap<Long, ArrowResultChunk> initializeChunksMap(
-      TGetResultSetMetadataResp resultManifest, TRowSet resultData, String statementId) {
+  private static ConcurrentHashMap<Long, ArrowResultChunk> initializeChunksMap( TRowSet resultData, String statementId) {
     ConcurrentHashMap<Long, ArrowResultChunk> chunkIndexMap = new ConcurrentHashMap<>();
     long chunkIndex = 0;
     if (resultData.getResultLinksSize() == 0) {
@@ -142,7 +139,6 @@ public class ChunkDownloader {
     }
     for (TSparkArrowResultLink resultLink : resultData.getResultLinks()) {
       // TODO : add compression
-      System.out.println("hi " + chunkIndex);
       chunkIndexMap.put(
           chunkIndex,
           new ArrowResultChunk(chunkIndex, resultLink, statementId, CompressionType.NONE));
