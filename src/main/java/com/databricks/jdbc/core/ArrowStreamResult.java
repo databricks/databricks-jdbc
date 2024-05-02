@@ -46,7 +46,8 @@ class ArrowStreamResult implements IExecutionResult {
       TGetResultSetMetadataResp resultManifest,
       TRowSet resultData,
       boolean isInlineArrow,
-      String parentStatementId)
+      String parentStatementId,
+      IDatabricksSession session)
       throws DatabricksParsingException {
     this.chunkDownloader = null;
     setColumnInfo(resultManifest);

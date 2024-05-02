@@ -28,15 +28,18 @@ class ExecutionResultFactory {
   }
 
   static IExecutionResult getResultSet(
-      TRowSet data, TGetResultSetMetadataResp manifest, String parentStatementId)
+      TRowSet data,
+      TGetResultSetMetadataResp manifest,
+      String parentStatementId,
+      IDatabricksSession session)
       throws DatabricksSQLException {
     switch (manifest.getResultFormat()) {
       case COLUMN_BASED_SET:
         return getResultSet(convertColumnarToRowBased(data), parentStatementId);
       case ARROW_BASED_SET:
-        return new ArrowStreamResult(manifest, data, true, parentStatementId);
+        return new ArrowStreamResult(manifest, data, true, parentStatementId, session);
       case URL_BASED_SET:
-        return new ArrowStreamResult(manifest, data, false, parentStatementId);
+        return new ArrowStreamResult(manifest, data, false, parentStatementId, session);
       case ROW_BASED_SET:
         throw new DatabricksSQLFeatureNotSupportedException(
             "Invalid state - row based set cannot be received");

@@ -111,12 +111,14 @@ public class DatabricksThriftServiceClient implements DatabricksClient, Databric
         (TFetchResultsResp)
             thriftAccessor.getThriftResponse(
                 request, CommandName.EXECUTE_STATEMENT, parentStatement);
+    String statementId = (parentStatement == null) ? null : parentStatement.getStatementId();
     return new DatabricksResultSet(
         response.getStatus(),
-        session.getSessionId(),
+        statementId,
         response.getResults(),
         response.getResultSetMetadata(),
         statementType,
+        session,
         parentStatement);
   }
 

@@ -129,7 +129,7 @@ public class ArrowStreamResultTest {
   @Test
   public void testInlineArrow() throws DatabricksSQLException {
     when(metadataResp.getSchema()).thenReturn(TEST_TABLE_SCHEMA);
-    ArrowStreamResult result = new ArrowStreamResult(metadataResp, resultData, true, null);
+    ArrowStreamResult result = new ArrowStreamResult(metadataResp, resultData, true, null, null);
     assertEquals(-1, result.getCurrentRow());
     assertTrue(result.hasNext());
     assertFalse(result.next());
