@@ -28,7 +28,8 @@ public class ChunkExtractor {
 
   ArrowResultChunk arrowResultChunk; // There is only one packet of data in case of inline arrow
 
-  ChunkExtractor(List<TSparkArrowBatch> arrowBatches, TGetResultSetMetadataResp metadata)
+  ChunkExtractor(
+      String statementId, List<TSparkArrowBatch> arrowBatches, TGetResultSetMetadataResp metadata)
       throws DatabricksParsingException {
     this.currentChunkIndex = -1;
     this.totalRows = 0;

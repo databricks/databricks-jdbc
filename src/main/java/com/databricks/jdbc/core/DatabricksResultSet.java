@@ -95,7 +95,8 @@ public class DatabricksResultSet implements ResultSet, IDatabricksResultSet {
       this.statementStatus = new StatementStatus().setState(StatementState.FAILED);
     }
     this.statementId = statementId;
-    this.executionResult = ExecutionResultFactory.getResultSet(resultData, resultManifest);
+    this.executionResult =
+        ExecutionResultFactory.getResultSet(resultData, resultManifest, statementId);
     int rowSize = getRowCount(resultData);
     this.resultSetMetaData = new DatabricksResultSetMetaData(statementId, resultManifest, rowSize);
     this.statementType = statementType;
@@ -116,7 +117,7 @@ public class DatabricksResultSet implements ResultSet, IDatabricksResultSet {
       StatementType statementType) {
     this.statementStatus = statementStatus;
     this.statementId = statementId;
-    this.executionResult = ExecutionResultFactory.getResultSet(rows);
+    this.executionResult = ExecutionResultFactory.getResultSet(rows, statementId);
     this.resultSetMetaData =
         new DatabricksResultSetMetaData(
             statementId,
@@ -143,7 +144,7 @@ public class DatabricksResultSet implements ResultSet, IDatabricksResultSet {
       StatementType statementType) {
     this.statementStatus = statementStatus;
     this.statementId = statementId;
-    this.executionResult = ExecutionResultFactory.getResultSet(rows);
+    this.executionResult = ExecutionResultFactory.getResultSet(rows, statementId);
     this.resultSetMetaData =
         new DatabricksResultSetMetaData(
             statementId,

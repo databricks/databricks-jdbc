@@ -23,7 +23,7 @@ public class ChunkExtractorTest {
     when(metadata.getArrowSchema()).thenReturn(null);
     when(metadata.getSchema()).thenReturn(TEST_TABLE_SCHEMA);
     ChunkExtractor chunkExtractor =
-        new ChunkExtractor(Collections.singletonList(arrowBatch), metadata);
+        new ChunkExtractor(null, Collections.singletonList(arrowBatch), metadata);
     assertTrue(chunkExtractor.hasNext());
     assertNotNull(chunkExtractor.next());
     assertNull(chunkExtractor.next());
@@ -34,7 +34,7 @@ public class ChunkExtractorTest {
     TSparkArrowBatch arrowBatch =
         new TSparkArrowBatch().setRowCount(0).setBatch(new byte[] {65, 66, 67});
     ChunkExtractor chunkExtractor =
-        new ChunkExtractor(Collections.singletonList(arrowBatch), metadata);
+        new ChunkExtractor(null, Collections.singletonList(arrowBatch), metadata);
     assertThrows(
         DatabricksParsingException.class, () -> chunkExtractor.handleError(new RuntimeException()));
   }

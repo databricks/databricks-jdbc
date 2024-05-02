@@ -21,19 +21,22 @@ class ExecutionResultFactory {
         return new ArrowStreamResult(manifest, data, statementId, session);
       case JSON_ARRAY:
         // This is used for metadata and update commands
-        return new InlineJsonResult(manifest, data);
+        return new InlineJsonResult(manifest, data, statementId);
       default:
         throw new IllegalStateException("Invalid response format " + manifest.getFormat());
     }
   }
 
-  static IExecutionResult getResultSet(TRowSet data, TGetResultSetMetadataResp manifest)
+  static IExecutionResult getResultSet(
+      TRowSet data, TGetResultSetMetadataResp manifest, String parentStatementId)
       throws DatabricksSQLException {
     switch (manifest.getResultFormat()) {
       case COLUMN_BASED_SET:
-        return getResultSet(convertColumnarToRowBased(data));
+        return getResultSet(convertColumnarToRowBased(data), parentStatementId);
       case ARROW_BASED_SET:
-        return new ArrowStreamResult(manifest, data);
+        return new ArrowStreamResult(manifest, data, true, parentStatementId);
+      case URL_BASED_SET:
+        return new ArrowStreamResult(manifest, data, false, parentStatementId);
       case ROW_BASED_SET:
         throw new DatabricksSQLFeatureNotSupportedException(
             "Invalid state - row based set cannot be received");
@@ -43,11 +46,11 @@ class ExecutionResultFactory {
     }
   }
 
-  static IExecutionResult getResultSet(Object[][] rows) {
-    return new InlineJsonResult(rows);
+  static IExecutionResult getResultSet(Object[][] rows, String statementId) {
+    return new InlineJsonResult(rows, statementId);
   }
 
-  static IExecutionResult getResultSet(List<List<Object>> rows) {
-    return new InlineJsonResult(rows);
+  static IExecutionResult getResultSet(List<List<Object>> rows, String statementId) {
+    return new InlineJsonResult(rows, statementId);
   }
 }

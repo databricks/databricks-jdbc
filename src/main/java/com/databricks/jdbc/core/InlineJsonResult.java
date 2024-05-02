@@ -12,16 +12,18 @@ public class InlineJsonResult implements IExecutionResult {
 
   private long currentRow;
   private List<List<String>> data;
+  private final String statementId;
 
   private boolean isClosed;
 
-  InlineJsonResult(ResultManifest resultManifest, ResultData resultData) {
+  InlineJsonResult(ResultManifest resultManifest, ResultData resultData, String parentStatementId) {
     this.data = getDataList(resultData.getDataArray());
     this.currentRow = -1;
+    this.statementId = parentStatementId;
     this.isClosed = false;
   }
 
-  InlineJsonResult(Object[][] rows) {
+  InlineJsonResult(Object[][] rows, String parentStatementId) {
     this.data =
         Arrays.stream(rows)
             .map(
@@ -32,9 +34,10 @@ public class InlineJsonResult implements IExecutionResult {
             .collect(Collectors.toList());
     this.currentRow = -1;
     this.isClosed = false;
+    this.statementId = parentStatementId;
   }
 
-  InlineJsonResult(List<List<Object>> rows) {
+  InlineJsonResult(List<List<Object>> rows, String parentStatementId) {
     this.data =
         rows.stream()
             .map(
@@ -45,6 +48,7 @@ public class InlineJsonResult implements IExecutionResult {
             .collect(Collectors.toList());
     this.currentRow = -1;
     this.isClosed = false;
+    this.statementId = parentStatementId;
   }
 
   private static List<List<String>> getDataList(Collection<Collection<String>> dataArray) {
