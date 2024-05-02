@@ -77,8 +77,8 @@ public class ChunkDownloader {
     this.session = session;
     this.statementId = statementId;
     this.totalChunks = resultManifest.getTotalChunkCount();
-    initializeData();
     this.chunkIndexToChunksMap = initializeChunksMap(resultManifest, resultData, statementId);
+    initializeData();
   }
 
   @VisibleForTesting
@@ -131,7 +131,8 @@ public class ChunkDownloader {
     return chunkIndexMap;
   }
 
-  private static ConcurrentHashMap<Long, ArrowResultChunk> initializeChunksMap( TRowSet resultData, String statementId) {
+  private static ConcurrentHashMap<Long, ArrowResultChunk> initializeChunksMap(
+      TRowSet resultData, String statementId) {
     ConcurrentHashMap<Long, ArrowResultChunk> chunkIndexMap = new ConcurrentHashMap<>();
     long chunkIndex = 0;
     if (resultData.getResultLinksSize() == 0) {

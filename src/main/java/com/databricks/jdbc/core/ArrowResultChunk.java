@@ -19,8 +19,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
-
-import com.google.common.base.MoreObjects;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
@@ -131,7 +129,7 @@ public class ArrowResultChunk {
     this.numRows = chunkInfo.getRowCount();
     this.rowOffset = chunkInfo.getStartRowOffset();
     this.byteCount = chunkInfo.getBytesNum();
-    this.status = ChunkStatus.PENDING;
+    this.status = ChunkStatus.URL_FETCHED;
     this.rootAllocator = new RootAllocator(/* limit= */ Integer.MAX_VALUE);
     this.chunkLink =
         new ExternalLink().setExternalLink(chunkInfo.getFileLink()).setChunkIndex(chunkIndex);
@@ -262,8 +260,14 @@ public class ArrowResultChunk {
 
   /** Checks if the link is valid */
   boolean isChunkLinkInvalid() {
-    return status == ChunkStatus.PENDING
-        || expiryTime.minusSeconds(SECONDS_BUFFER_FOR_EXPIRY).isBefore(Instant.now());
+    System.out.println("here 1 " + expiryTime);
+    System.out.println("here 2 " + status);
+    boolean hasExpired =
+        expiryTime != null
+            && expiryTime.minusSeconds(SECONDS_BUFFER_FOR_EXPIRY).isBefore(Instant.now());
+    System.out.println("here 3");
+    System.out.println("here 4" + hasExpired);
+    return status == ChunkStatus.PENDING || hasExpired;
   }
 
   /** Returns the status for the chunk */
@@ -432,23 +436,23 @@ public class ArrowResultChunk {
   @Override
   public String toString() {
     return new ToStringer(ExternalLink.class)
-            .add("chunkIndex", chunkIndex)
-            .add("numRows", numRows)
-            .add("rowOffset", rowOffset)
-            .add("byteCount", byteCount)
-            .add("chunkLink", chunkLink)
-            .add("statementId", statementId)
-            .add("nextChunkIndex", nextChunkIndex)
-            .add("expiryTime", expiryTime)
-            .add("status", status)
-            .add("downloadStartTime", downloadStartTime)
-            .add("downloadFinishTime", downloadFinishTime)
-            .add("recordBatchList", recordBatchList)
-            .add("rootAllocator", rootAllocator)
-            .add("errorMessage", errorMessage)
-            .add("isDataInitialized", isDataInitialized)
-            .add("vectorSchemaRoot", vectorSchemaRoot)
-            .add("compressionType", compressionType)
-            .toString();
+        .add("chunkIndex", chunkIndex)
+        .add("numRows", numRows)
+        .add("rowOffset", rowOffset)
+        .add("byteCount", byteCount)
+        .add("chunkLink", chunkLink)
+        .add("statementId", statementId)
+        .add("nextChunkIndex", nextChunkIndex)
+        .add("expiryTime", expiryTime)
+        .add("status", status)
+        .add("downloadStartTime", downloadStartTime)
+        .add("downloadFinishTime", downloadFinishTime)
+        .add("recordBatchList", recordBatchList)
+        .add("rootAllocator", rootAllocator)
+        .add("errorMessage", errorMessage)
+        .add("isDataInitialized", isDataInitialized)
+        .add("vectorSchemaRoot", vectorSchemaRoot)
+        .add("compressionType", compressionType)
+        .toString();
   }
 }
