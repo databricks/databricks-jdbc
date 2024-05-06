@@ -88,7 +88,6 @@ public class ChunkDownloader {
     this.statementId = statementId;
     this.totalChunks = resultData.getResultLinksSize();
     this.chunkIndexToChunksMap = initializeChunksMap(resultData, statementId);
-    System.out.println("here is map " + this.chunkIndexToChunksMap);
     initializeData();
   }
 

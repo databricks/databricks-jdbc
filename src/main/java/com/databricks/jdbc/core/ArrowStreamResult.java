@@ -46,8 +46,19 @@ class ArrowStreamResult implements IExecutionResult {
       TGetResultSetMetadataResp resultManifest,
       TRowSet resultData,
       boolean isInlineArrow,
-      String statementId,
+      String parentStatementId,
       IDatabricksSession session)
+      throws DatabricksParsingException {
+    this(resultManifest, resultData, isInlineArrow, parentStatementId, session, null);
+  }
+
+  ArrowStreamResult(
+      TGetResultSetMetadataResp resultManifest,
+      TRowSet resultData,
+      boolean isInlineArrow,
+      String statementId,
+      IDatabricksSession session,
+      IDatabricksHttpClient httpClient)
       throws DatabricksParsingException {
     this.chunkDownloader = null;
     setColumnInfo(resultManifest);
@@ -59,7 +70,11 @@ class ArrowStreamResult implements IExecutionResult {
       this.chunkExtractor = new ChunkExtractor(resultData.getArrowBatches(), resultManifest);
       this.chunkDownloader = null;
     } else {
-      this.chunkDownloader = new ChunkDownloader(statementId, resultData, session);
+      if (httpClient != null) { // This is to aid testing
+        this.chunkDownloader = new ChunkDownloader(statementId, resultData, session, httpClient);
+      } else {
+        this.chunkDownloader = new ChunkDownloader(statementId, resultData, session);
+      }
       this.chunkExtractor = null;
     }
   }

@@ -27,6 +27,7 @@ public class ExecutionResultFactoryTest {
 
   @Mock TGetResultSetMetadataResp resultSetMetadataResp;
   @Mock TRowSet tRowSet;
+  @Mock IDatabricksConnectionContext context;
 
   @Test
   public void testGetResultSet_jsonInline() {
@@ -91,9 +92,13 @@ public class ExecutionResultFactoryTest {
   }
 
   @Test
-  public void testGetResultSet_thriftURL() {
-    // when(resultSetMetadataResp.getResultFormat()).thenReturn(TSparkRowSetType.URL_BASED_SET);
-    // todo
+  public void testGetResultSet_thriftURL() throws DatabricksSQLException {
+    when(resultSetMetadataResp.getResultFormat()).thenReturn(TSparkRowSetType.URL_BASED_SET);
+    when(session.getConnectionContext()).thenReturn(context);
+    IExecutionResult result =
+        ExecutionResultFactory.getResultSet(
+            tRowSet, resultSetMetadataResp, TEST_STATEMENT_ID, session);
+    assertInstanceOf(ArrowStreamResult.class, result);
   }
 
   @Test

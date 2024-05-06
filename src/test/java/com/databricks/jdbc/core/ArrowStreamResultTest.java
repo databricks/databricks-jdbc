@@ -1,7 +1,6 @@
 package com.databricks.jdbc.core;
 
-import static com.databricks.jdbc.TestConstants.TEST_STATEMENT_ID;
-import static com.databricks.jdbc.TestConstants.TEST_TABLE_SCHEMA;
+import static com.databricks.jdbc.TestConstants.*;
 import static java.lang.Math.min;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.isA;
@@ -11,6 +10,7 @@ import com.databricks.jdbc.client.IDatabricksHttpClient;
 import com.databricks.jdbc.client.impl.sdk.DatabricksSdkClient;
 import com.databricks.jdbc.client.impl.thrift.generated.TGetResultSetMetadataResp;
 import com.databricks.jdbc.client.impl.thrift.generated.TRowSet;
+import com.databricks.jdbc.client.impl.thrift.generated.TSparkArrowResultLink;
 import com.databricks.jdbc.client.sqlexec.ExternalLink;
 import com.databricks.jdbc.client.sqlexec.ResultData;
 import com.databricks.jdbc.client.sqlexec.ResultManifest;
@@ -137,6 +137,21 @@ public class ArrowStreamResultTest {
     assertFalse(result.next());
     assertEquals(0, result.getCurrentRow());
     assertFalse(result.hasNext());
+    assertDoesNotThrow(result::close);
+    assertFalse(result.hasNext());
+  }
+
+  @Test
+  public void testCloudFetchArrow() throws Exception {
+    when(metadataResp.getSchema()).thenReturn(TEST_TABLE_SCHEMA);
+    TSparkArrowResultLink resultLink = new TSparkArrowResultLink().setFileLink(TEST_STRING);
+    when(resultData.getResultLinks()).thenReturn(Collections.singletonList(resultLink));
+    when(resultData.getResultLinksSize()).thenReturn(1);
+    ArrowStreamResult result =
+        new ArrowStreamResult(
+            metadataResp, resultData, false, TEST_STATEMENT_ID, session, mockHttpClient);
+    assertEquals(-1, result.getCurrentRow());
+    assertTrue(result.hasNext());
     assertDoesNotThrow(result::close);
     assertFalse(result.hasNext());
   }
