@@ -1,5 +1,6 @@
 package com.databricks.jdbc.core;
 
+import static com.databricks.jdbc.TestConstants.TEST_STATEMENT_ID;
 import static com.databricks.jdbc.TestConstants.TEST_TABLE_SCHEMA;
 import static java.lang.Math.min;
 import static org.junit.jupiter.api.Assertions.*;
@@ -52,6 +53,7 @@ public class ArrowStreamResultTest {
 
   @Mock TGetResultSetMetadataResp metadataResp;
   @Mock TRowSet resultData;
+  @Mock IDatabricksSession session;
   private int numberOfChunks = 10;
   private Random random = new Random();
 
@@ -67,7 +69,6 @@ public class ArrowStreamResultTest {
   @Mock CloseableHttpResponse httpResponse;
   @Mock HttpEntity httpEntity;
   @Mock StatusLine mockedStatusLine;
-  @Mock DatabricksSession session;
 
   @BeforeEach
   public void setup() throws Exception {
@@ -129,7 +130,8 @@ public class ArrowStreamResultTest {
   @Test
   public void testInlineArrow() throws DatabricksSQLException {
     when(metadataResp.getSchema()).thenReturn(TEST_TABLE_SCHEMA);
-    ArrowStreamResult result = new ArrowStreamResult(metadataResp, resultData);
+    ArrowStreamResult result =
+        new ArrowStreamResult(metadataResp, resultData, true, TEST_STATEMENT_ID, session);
     assertEquals(-1, result.getCurrentRow());
     assertTrue(result.hasNext());
     assertFalse(result.next());

@@ -26,6 +26,7 @@ public class TestConstants {
   public static final String TEST_CATALOG = "catalog1";
   public static final String TEST_FUNCTION_PATTERN = "functionPattern";
   public static final String TEST_STRING = "test";
+  public static final String TEST_STATEMENT_ID = "testStatementId";
   public static final TSessionHandle SESSION_HANDLE =
       new TSessionHandle().setSessionId(new THandleIdentifier().setGuid(SESSION_ID.getBytes()));
   public static final ImmutableSessionInfo SESSION_INFO =

@@ -117,7 +117,8 @@ public class DatabricksThriftServiceClient implements DatabricksClient, Databric
         response.getResults(),
         response.getResultSetMetadata(),
         statementType,
-        parentStatement);
+        parentStatement,
+        session);
   }
 
   @Override
