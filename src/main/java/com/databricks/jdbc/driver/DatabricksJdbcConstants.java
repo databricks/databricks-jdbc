@@ -97,6 +97,8 @@ public final class DatabricksJdbcConstants {
   static final String USER_AGENT_THRIFT_CLIENT = "THttpClient/HC";
   public static final String ALLOWED_VOLUME_INGESTION_PATHS =
       "allowlistedVolumeOperationLocalFilePaths";
+  public static final String INLINE_RESULT_THRESHOLD =
+          "spark.thriftserver.cloudStoreBasedRowSet.executor.cloudUploadThreshold";
   public static final String VOLUME_OPERATION_STATUS_COLUMN_NAME = "operation_status";
   public static final Map<String, String> ALLOWED_SESSION_CONF_TO_DEFAULT_VALUES_MAP =
       // This map comes from
@@ -106,11 +108,12 @@ public final class DatabricksJdbcConstants {
           "ENABLE_PHOTON", "TRUE",
           "LEGACY_TIME_PARSER_POLICY", "EXCEPTION",
           "MAX_FILE_PARTITION_BYTES", "128m",
+          "spark.thriftserver.cloudStoreBasedRowSet.executor.cloudUploadThreshold", "0",
           "READ_ONLY_EXTERNAL_METASTORE", "FALSE",
           "STATEMENT_TIMEOUT", "172800",
           "TIMEZONE", "UTC",
           "USE_CACHED_RESULT", "TRUE");
 
   public static final Set<String> ALLOWED_CLIENT_INFO_PROPERTIES =
-      Set.of(ALLOWED_VOLUME_INGESTION_PATHS);
+      Set.of(ALLOWED_VOLUME_INGESTION_PATHS, INLINE_RESULT_THRESHOLD);
 }

@@ -33,6 +33,7 @@ class ExecutionResultFactory {
       String parentStatementId,
       IDatabricksSession session)
       throws DatabricksSQLException {
+      System.out.println("result format "+ manifest.getResultFormat());
     switch (manifest.getResultFormat()) {
       case COLUMN_BASED_SET:
         return getResultSet(convertColumnarToRowBased(data), parentStatementId);
@@ -44,7 +45,7 @@ class ExecutionResultFactory {
         throw new DatabricksSQLFeatureNotSupportedException(
             "Invalid state - row based set cannot be received");
       default:
-        throw new DatabricksSQLFeatureNotImplementedException(
+        throw new DatabricksSQLFeatureNotSupportedException(
             "Invalid thrift response format " + manifest.getResultFormat());
     }
   }

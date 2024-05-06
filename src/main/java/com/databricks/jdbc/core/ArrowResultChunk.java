@@ -150,6 +150,7 @@ public class ArrowResultChunk {
     this.chunkIndex = chunkIndex;
     this.numRows = chunkInfo.getRowCount();
     this.rowOffset = chunkInfo.getStartRowOffset();
+    this.expiryTime = Instant.ofEpochMilli(chunkInfo.getExpiryTime());
     this.byteCount = chunkInfo.getBytesNum();
     this.status = ChunkStatus.URL_FETCHED; // URL has always been fetched in case of thrift
     this.rootAllocator = new RootAllocator(/* limit= */ Integer.MAX_VALUE);

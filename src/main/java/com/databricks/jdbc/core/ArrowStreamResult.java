@@ -49,20 +49,35 @@ class ArrowStreamResult implements IExecutionResult {
       String parentStatementId,
       IDatabricksSession session)
       throws DatabricksParsingException {
-    this.chunkDownloader = null;
+    this(resultManifest, resultData, isInlineArrow, parentStatementId, session, null);
+  }
+
+  @VisibleForTesting
+  ArrowStreamResult(
+      TGetResultSetMetadataResp resultManifest,
+      TRowSet resultData,
+      boolean isInlineArrow,
+      String parentStatementId,
+      IDatabricksSession session,
+      IDatabricksHttpClient httpClient)
+      throws DatabricksParsingException {
     setColumnInfo(resultManifest);
     this.currentRowIndex = -1;
     this.isClosed = false;
     this.isInlineArrow = isInlineArrow;
     this.chunkIterator = null;
-    String statementId = parentStatementId;
     if (isInlineArrow) {
       this.chunkExtractor =
-          new ChunkExtractor(statementId, resultData.getArrowBatches(), resultManifest);
+          new ChunkExtractor(parentStatementId, resultData.getArrowBatches(), resultManifest);
       this.chunkDownloader = null;
     } else {
-      this.chunkDownloader = new ChunkDownloader(statementId, resultData, session);
       this.chunkExtractor = null;
+      if (httpClient != null) { // This is to aid testing
+        this.chunkDownloader =
+            new ChunkDownloader(parentStatementId, resultData, session, httpClient);
+      } else {
+        this.chunkDownloader = new ChunkDownloader(parentStatementId, resultData, session);
+      }
     }
   }
 
@@ -147,12 +162,10 @@ class ArrowStreamResult implements IExecutionResult {
     if (isClosed) {
       return false;
     }
-
     // Check if there are any more rows available in the current chunk
     if (chunkIterator != null && chunkIterator.hasNextRow()) {
       return true;
     }
-
     // For inline arrow, check if the chunk extractor has more chunks
     // Otherwise, check the chunk downloader
     return isInlineArrow ? this.chunkExtractor.hasNext() : this.chunkDownloader.hasNextChunk();

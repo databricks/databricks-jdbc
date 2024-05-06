@@ -27,6 +27,7 @@ public class DatabricksThriftServiceClientTest {
   @Mock IDatabricksSession session;
   @Mock TRowSet resultData;
   @Mock TGetResultSetMetadataResp resultMetadataData;
+  @Mock IDatabricksStatement parentStatement;
 
   @Test
   void testCreateSession() throws DatabricksSQLException {
@@ -78,6 +79,33 @@ public class DatabricksThriftServiceClientTest {
     DatabricksResultSet resultSet =
         client.executeStatement(
             TEST_STRING, CLUSTER_COMPUTE, Collections.emptyMap(), StatementType.SQL, session, null);
+    assertEquals(resultSet.getStatementStatus().getState(), StatementState.SUCCEEDED);
+  }
+
+  @Test
+  void testExecuteWithParentStatement() throws SQLException {
+    DatabricksThriftServiceClient client = new DatabricksThriftServiceClient(thriftAccessor);
+    when(session.getSessionInfo()).thenReturn(SESSION_INFO);
+    when(parentStatement.getStatementId()).thenReturn(TEST_STRING);
+    TExecuteStatementReq executeStatementReq =
+        new TExecuteStatementReq().setStatement(TEST_STRING).setSessionHandle(SESSION_HANDLE);
+    when(resultMetadataData.getResultFormat()).thenReturn(TSparkRowSetType.COLUMN_BASED_SET);
+    TFetchResultsResp fetchResultsResp =
+        new TFetchResultsResp()
+            .setStatus(new TStatus().setStatusCode(TStatusCode.SUCCESS_STATUS))
+            .setResults(resultData)
+            .setResultSetMetadata(resultMetadataData);
+    when(thriftAccessor.getThriftResponse(
+            executeStatementReq, CommandName.EXECUTE_STATEMENT, parentStatement))
+        .thenReturn(fetchResultsResp);
+    DatabricksResultSet resultSet =
+        client.executeStatement(
+            TEST_STRING,
+            CLUSTER_COMPUTE,
+            Collections.emptyMap(),
+            StatementType.SQL,
+            session,
+            parentStatement);
     assertEquals(resultSet.getStatementStatus().getState(), StatementState.SUCCEEDED);
   }
 
