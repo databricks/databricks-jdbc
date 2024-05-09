@@ -27,6 +27,7 @@ public class DatabricksThriftServiceClientTest {
   @Mock IDatabricksSession session;
   @Mock TRowSet resultData;
   @Mock TGetResultSetMetadataResp resultMetadataData;
+  @Mock DatabricksResultSet resultSet;
 
   @Test
   void testCreateSession() throws DatabricksSQLException {
@@ -66,19 +67,17 @@ public class DatabricksThriftServiceClientTest {
     DatabricksThriftServiceClient client = new DatabricksThriftServiceClient(thriftAccessor);
     when(session.getSessionInfo()).thenReturn(SESSION_INFO);
     TExecuteStatementReq executeStatementReq =
-        new TExecuteStatementReq().setStatement(TEST_STRING).setSessionHandle(SESSION_HANDLE);
-    when(resultMetadataData.getResultFormat()).thenReturn(TSparkRowSetType.COLUMN_BASED_SET);
-    TFetchResultsResp fetchResultsResp =
-        new TFetchResultsResp()
-            .setStatus(new TStatus().setStatusCode(TStatusCode.SUCCESS_STATUS))
-            .setResults(resultData)
-            .setResultSetMetadata(resultMetadataData);
-    when(thriftAccessor.getThriftResponse(executeStatementReq, CommandName.EXECUTE_STATEMENT, null))
-        .thenReturn(fetchResultsResp);
-    DatabricksResultSet resultSet =
+        new TExecuteStatementReq()
+            .setStatement(TEST_STRING)
+            .setSessionHandle(SESSION_HANDLE)
+            .setCanReadArrowResult(true)
+            .setCanDownloadResult(true);
+    when(thriftAccessor.execute(executeStatementReq, null, session, StatementType.SQL))
+        .thenReturn(resultSet);
+    DatabricksResultSet actualResultSet =
         client.executeStatement(
             TEST_STRING, CLUSTER_COMPUTE, Collections.emptyMap(), StatementType.SQL, session, null);
-    assertEquals(resultSet.getStatementStatus().getState(), StatementState.SUCCEEDED);
+    assertEquals(resultSet, actualResultSet);
   }
 
   @Test
@@ -87,9 +86,6 @@ public class DatabricksThriftServiceClientTest {
     assertThrows(
         DatabricksSQLFeatureNotImplementedException.class,
         () -> client.closeStatement(TEST_STRING));
-    assertThrows(
-        DatabricksSQLFeatureNotImplementedException.class,
-        () -> client.getResultChunks(TEST_STRING, 0));
   }
 
   @Test

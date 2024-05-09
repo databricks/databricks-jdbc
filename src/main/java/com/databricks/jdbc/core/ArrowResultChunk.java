@@ -1,5 +1,6 @@
 package com.databricks.jdbc.core;
 
+import static com.databricks.jdbc.client.impl.thrift.commons.DatabricksThriftHelper.createExternalLink;
 import static com.databricks.jdbc.commons.util.ValidationUtil.checkHTTPError;
 
 import com.databricks.jdbc.client.DatabricksHttpException;
@@ -154,8 +155,7 @@ public class ArrowResultChunk {
     this.byteCount = chunkInfo.getBytesNum();
     this.status = ChunkStatus.URL_FETCHED; // URL has always been fetched in case of thrift
     this.rootAllocator = new RootAllocator(/* limit= */ Integer.MAX_VALUE);
-    this.chunkLink =
-        new ExternalLink().setExternalLink(chunkInfo.getFileLink()).setChunkIndex(chunkIndex);
+    this.chunkLink = createExternalLink(chunkInfo, chunkIndex);
     this.downloadStartTime = null;
     this.downloadFinishTime = null;
     this.statementId = statementId;

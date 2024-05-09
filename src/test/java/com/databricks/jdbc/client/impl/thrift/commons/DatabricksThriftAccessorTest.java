@@ -1,15 +1,19 @@
 package com.databricks.jdbc.client.impl.thrift.commons;
 
+import static com.databricks.jdbc.TestConstants.TEST_BYTES;
 import static com.databricks.jdbc.commons.EnvironmentVariables.DEFAULT_BYTE_LIMIT;
 import static com.databricks.jdbc.commons.EnvironmentVariables.DEFAULT_ROW_LIMIT;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.when;
 
+import com.databricks.jdbc.client.StatementType;
 import com.databricks.jdbc.client.impl.thrift.generated.*;
 import com.databricks.jdbc.commons.CommandName;
+import com.databricks.jdbc.core.DatabricksResultSet;
 import com.databricks.jdbc.core.DatabricksSQLException;
 import com.databricks.jdbc.core.IDatabricksStatement;
+import com.databricks.sdk.service.sql.StatementState;
 import java.sql.SQLException;
 import org.apache.thrift.TException;
 import org.junit.jupiter.api.Test;
@@ -21,7 +25,9 @@ import org.mockito.junit.jupiter.MockitoExtension;
 public class DatabricksThriftAccessorTest {
   @Mock TCLIService.Client thriftClient;
   DatabricksThriftAccessor accessor;
-  private static final TOperationHandle tOperationHandle = new TOperationHandle();
+  static THandleIdentifier handleIdentifier = new THandleIdentifier().setGuid(TEST_BYTES);
+  private static final TOperationHandle tOperationHandle =
+      new TOperationHandle().setOperationId(handleIdentifier).setHasResultSet(false);
   private static final TFetchResultsReq fetchResultsReq =
       new TFetchResultsReq()
           .setOperationHandle(tOperationHandle)
@@ -32,10 +38,17 @@ public class DatabricksThriftAccessorTest {
   private static final TGetResultSetMetadataReq resultSetMetadataReq =
       new TGetResultSetMetadataReq().setOperationHandle(tOperationHandle);
   private static final TFetchResultsResp response =
-      new TFetchResultsResp().setStatus(new TStatus().setStatusCode(TStatusCode.SUCCESS_STATUS));
+      new TFetchResultsResp()
+          .setStatus(new TStatus().setStatusCode(TStatusCode.SUCCESS_STATUS))
+          .setResultSetMetadata(
+              new TGetResultSetMetadataResp().setResultFormat(TSparkRowSetType.COLUMN_BASED_SET));
   private static final TSparkDirectResults directResults =
-      new TSparkDirectResults().setResultSet(response);
-  private static final TGetResultSetMetadataResp metadataResp = new TGetResultSetMetadataResp();
+      new TSparkDirectResults()
+          .setResultSet(response)
+          .setResultSetMetadata(
+              new TGetResultSetMetadataResp().setResultFormat(TSparkRowSetType.COLUMN_BASED_SET));
+  private static final TGetResultSetMetadataResp metadataResp =
+      new TGetResultSetMetadataResp().setResultFormat(TSparkRowSetType.COLUMN_BASED_SET);
 
   @Mock IDatabricksStatement statement;
 
@@ -58,7 +71,7 @@ public class DatabricksThriftAccessorTest {
   }
 
   @Test
-  void testExecute() throws TException, DatabricksSQLException {
+  void testExecute() throws TException, SQLException {
     accessor = new DatabricksThriftAccessor(thriftClient);
     TExecuteStatementReq request = new TExecuteStatementReq();
     TExecuteStatementResp tExecuteStatementResp =
@@ -68,10 +81,8 @@ public class DatabricksThriftAccessorTest {
     when(thriftClient.GetResultSetMetadata(resultSetMetadataReq)).thenReturn(metadataResp);
     when(thriftClient.FetchResults(fetchResultsReq)).thenReturn(response);
     when(thriftClient.ExecuteStatement(request)).thenReturn(tExecuteStatementResp);
-    TFetchResultsResp actualResponse =
-        (TFetchResultsResp)
-            accessor.getThriftResponse(request, CommandName.EXECUTE_STATEMENT, null);
-    assertEquals(actualResponse, response.setResultSetMetadata(metadataResp));
+    DatabricksResultSet resultSet = accessor.execute(request, null, null, StatementType.SQL);
+    assertEquals(resultSet.getStatementStatus().getState(), StatementState.SUCCEEDED);
   }
 
   @Test
@@ -85,14 +96,12 @@ public class DatabricksThriftAccessorTest {
             .setDirectResults(directResults);
     when(thriftClient.ExecuteStatement(request)).thenReturn(tExecuteStatementResp);
     when(statement.getMaxRows()).thenReturn(25);
-    TFetchResultsResp actualResponse =
-        (TFetchResultsResp)
-            accessor.getThriftResponse(request, CommandName.EXECUTE_STATEMENT, statement);
-    assertEquals(actualResponse, response);
+    DatabricksResultSet resultSet = accessor.execute(request, statement, null, StatementType.SQL);
+    assertEquals(resultSet.getStatementStatus().getState(), StatementState.SUCCEEDED);
   }
 
   @Test
-  void testExecuteWithDirectResults() throws TException, DatabricksSQLException {
+  void testExecuteWithDirectResults() throws TException, SQLException {
     accessor = new DatabricksThriftAccessor(thriftClient);
     TExecuteStatementReq request = new TExecuteStatementReq();
     TExecuteStatementResp tExecuteStatementResp =
@@ -101,10 +110,8 @@ public class DatabricksThriftAccessorTest {
             .setStatus(new TStatus().setStatusCode(TStatusCode.SUCCESS_STATUS))
             .setDirectResults(directResults);
     when(thriftClient.ExecuteStatement(request)).thenReturn(tExecuteStatementResp);
-    TFetchResultsResp actualResponse =
-        (TFetchResultsResp)
-            accessor.getThriftResponse(request, CommandName.EXECUTE_STATEMENT, null);
-    assertEquals(actualResponse, response);
+    DatabricksResultSet resultSet = accessor.execute(request, null, null, StatementType.SQL);
+    assertEquals(resultSet.getStatementStatus().getState(), StatementState.SUCCEEDED);
   }
 
   @Test

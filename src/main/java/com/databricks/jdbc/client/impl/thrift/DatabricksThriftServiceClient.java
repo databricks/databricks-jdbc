@@ -20,6 +20,7 @@ import com.google.common.annotations.VisibleForTesting;
 import java.sql.SQLException;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -106,19 +107,10 @@ public class DatabricksThriftServiceClient implements DatabricksClient, Databric
     TExecuteStatementReq request =
         new TExecuteStatementReq()
             .setStatement(sql)
-            .setSessionHandle(session.getSessionInfo().sessionHandle());
-    TFetchResultsResp response =
-        (TFetchResultsResp)
-            thriftAccessor.getThriftResponse(
-                request, CommandName.EXECUTE_STATEMENT, parentStatement);
-    return new DatabricksResultSet(
-        response.getStatus(),
-        session.getSessionId(),
-        response.getResults(),
-        response.getResultSetMetadata(),
-        statementType,
-        parentStatement,
-        session);
+            .setSessionHandle(session.getSessionInfo().sessionHandle())
+            .setCanReadArrowResult(true)
+            .setCanDownloadResult(true);
+    return thriftAccessor.execute(request, parentStatement, session, statementType);
   }
 
   @Override
@@ -132,13 +124,23 @@ public class DatabricksThriftServiceClient implements DatabricksClient, Databric
   @Override
   public Collection<ExternalLink> getResultChunks(String statementId, long chunkIndex)
       throws DatabricksSQLException {
-    // TODO : implement
-    LOGGER.debug(
-        "public Optional<ExternalLink> getResultChunk(String statementId = {}, long chunkIndex = {}) for all purpose cluster",
-        statementId,
-        chunkIndex);
-    throw new DatabricksSQLFeatureNotImplementedException(
-        "getResultChunk in thrift is not implemented");
+    String context =
+        String.format(
+            "public Optional<ExternalLink> getResultChunk(String statementId = {%s}, long chunkIndex = {%s}) for all purpose cluster",
+            statementId, chunkIndex);
+    LOGGER.debug(context);
+    THandleIdentifier handleIdentifier = new THandleIdentifier().setGuid(statementId.getBytes());
+    TOperationHandle operationHandle =
+        new TOperationHandle().setOperationId(handleIdentifier).setHasResultSet(false);
+    TFetchResultsResp fetchResultsResp = thriftAccessor.getResultSetResp(operationHandle, context);
+    if (fetchResultsResp.getResults().getResultLinksSize() < chunkIndex || chunkIndex < 0) {
+      String error = String.format("Out of bounds error for chunkIndex. Context: %s", context);
+      LOGGER.error(error);
+      throw new DatabricksSQLException(error);
+    }
+    return Collections.singletonList(
+        createExternalLink(
+            fetchResultsResp.getResults().getResultLinks().get((int) chunkIndex), chunkIndex));
   }
 
   @Override

@@ -89,5 +89,6 @@ public class TestConstants {
       new TColumnDesc().setColumnName("testCol");
   public static final TTableSchema TEST_TABLE_SCHEMA =
       new TTableSchema().setColumns(Collections.singletonList(TEST_COLUMN_DESCRIPTION));
-  public static final byte[] TEST_BYTES = {65, 66, 67};
+  public static final byte[] TEST_BYTES =
+      ByteBuffer.allocate(Long.BYTES).putLong(123456789L).array();
 }
