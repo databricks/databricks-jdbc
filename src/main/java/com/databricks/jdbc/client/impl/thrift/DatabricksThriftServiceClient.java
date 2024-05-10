@@ -19,7 +19,6 @@ import com.databricks.jdbc.driver.IDatabricksConnectionContext;
 import com.google.common.annotations.VisibleForTesting;
 import java.sql.SQLException;
 import java.util.*;
-import java.util.concurrent.atomic.AtomicInteger;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -131,20 +130,19 @@ public class DatabricksThriftServiceClient implements DatabricksClient, Databric
     TOperationHandle operationHandle =
         new TOperationHandle().setOperationId(handleIdentifier).setHasResultSet(false);
     TFetchResultsResp fetchResultsResp = thriftAccessor.getResultSetResp(operationHandle, context);
-    if (chunkIndex < 0 || fetchResultsResp.getResults().getResultLinksSize() <= chunkIndex) {
+    int resultSize = fetchResultsResp.getResults().getResultLinksSize();
+    if (chunkIndex < 0 || resultSize <= chunkIndex) {
       String error = String.format("Out of bounds error for chunkIndex. Context: %s", context);
       LOGGER.error(error);
       throw new DatabricksSQLException(error);
     }
-    AtomicInteger index = new AtomicInteger(0);
     List<ExternalLink> externalLinks = new ArrayList<>();
-    fetchResultsResp
-        .getResults()
-        .getResultLinks()
-        .forEach(
-            resultLink -> {
-              externalLinks.add(createExternalLink(resultLink, index.getAndIncrement()));
-            });
+    // The following sends back external links from chunkIndex onwards only
+    for (long index = chunkIndex; index < resultSize; index++) {
+      externalLinks.add(
+          createExternalLink(
+              fetchResultsResp.getResults().getResultLinks().get((int) index), index));
+    }
     return externalLinks;
   }
 
