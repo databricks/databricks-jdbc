@@ -55,13 +55,13 @@ import org.junit.jupiter.api.extension.ExtensionContext;
 public class FakeServiceExtension extends DBWireMockExtension {
 
   /**
-   * Maximum size in bytes of text body size in stubbing before which it is extracted in a separate
+   * Maximum size in bytes of text body size in stubbing beyond which it is extracted in a separate
    * file.
    */
   private static final long MAX_STUBBING_TEXT_SIZE = 102400;
 
   /**
-   * Maximum size in bytes of binary body size in stubbing before which it is extracted in a
+   * Maximum size in bytes of binary body size in stubbing beyond which it is extracted in a
    * separate file.
    */
   private static final long MAX_STUBBING_BINARY_SIZE = 102400;
