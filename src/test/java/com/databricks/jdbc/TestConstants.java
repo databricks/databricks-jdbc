@@ -38,6 +38,9 @@ public class TestConstants {
   public static final String WAREHOUSE_JDBC_URL =
       "jdbc:databricks://adb-565757575.18.azuredatabricks.net:4423/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/warehouse_id;";
 
+  public static final String WAREHOUSE_JDBC_URL_WITH_THRIFT =
+      "jdbc:databricks://adb-565757575.18.azuredatabricks.net:4423/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/warehouse_id;UseThriftClient=1;";
+
   public static final TRowSet binaryRowSet =
       new TRowSet()
           .setColumns(

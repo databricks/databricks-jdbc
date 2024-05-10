@@ -1,6 +1,7 @@
 package com.databricks.jdbc.core;
 
 import com.databricks.jdbc.client.DatabricksClient;
+import com.databricks.jdbc.client.DatabricksClientType;
 import com.databricks.jdbc.client.DatabricksMetadataClient;
 import com.databricks.jdbc.client.impl.sdk.DatabricksMetadataSdkClient;
 import com.databricks.jdbc.client.impl.sdk.DatabricksSdkClient;
@@ -46,7 +47,7 @@ public class DatabricksSession implements IDatabricksSession {
    */
   public DatabricksSession(IDatabricksConnectionContext connectionContext)
       throws DatabricksSQLException {
-    if (connectionContext.isAllPurposeCluster()) {
+    if (connectionContext.getClientType() == DatabricksClientType.THRIFT) {
       this.databricksClient = new DatabricksThriftServiceClient(connectionContext);
       this.databricksMetadataClient = null;
     } else {
@@ -159,7 +160,7 @@ public class DatabricksSession implements IDatabricksSession {
   @Override
   public DatabricksMetadataClient getDatabricksMetadataClient() {
     LOGGER.debug("public DatabricksClient getDatabricksMetadataClient()");
-    if (this.connectionContext.isAllPurposeCluster()) {
+    if (this.connectionContext.getClientType() == DatabricksClientType.THRIFT) {
       return (DatabricksMetadataClient) databricksClient;
     }
     return databricksMetadataClient;

@@ -44,11 +44,14 @@ public class DatabricksThriftServiceClient implements DatabricksClient, Databric
 
   @Override
   public ImmutableSessionInfo createSession(
-      ComputeResource cluster, String catalog, String schema, Map<String, String> sessionConf)
+      ComputeResource computeResource,
+      String catalog,
+      String schema,
+      Map<String, String> sessionConf)
       throws DatabricksSQLException {
     LOGGER.debug(
         "public Session createSession(Compute cluster = {}, String catalog = {}, String schema = {}, Map<String, String> sessionConf = {})",
-        cluster.toString(),
+        computeResource.toString(),
         catalog,
         schema,
         sessionConf);
@@ -67,17 +70,17 @@ public class DatabricksThriftServiceClient implements DatabricksClient, Databric
     return ImmutableSessionInfo.builder()
         .sessionId(sessionId)
         .sessionHandle(response.sessionHandle)
-        .computeResource(cluster)
+        .computeResource(computeResource)
         .build();
   }
 
   @Override
-  public void deleteSession(IDatabricksSession session, ComputeResource cluster)
+  public void deleteSession(IDatabricksSession session, ComputeResource computeResource)
       throws DatabricksSQLException {
     LOGGER.debug(
-        "public void deleteSession(Session session = {}, Compute cluster = {})",
+        "public void deleteSession(Session session = {}, Compute resource = {})",
         session.toString(),
-        cluster.toString());
+        computeResource.toString());
     TCloseSessionReq closeSessionReq =
         new TCloseSessionReq().setSessionHandle(session.getSessionInfo().sessionHandle());
     TCloseSessionResp response =

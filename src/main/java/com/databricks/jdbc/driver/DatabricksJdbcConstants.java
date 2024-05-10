@@ -113,4 +113,6 @@ public final class DatabricksJdbcConstants {
 
   public static final Set<String> ALLOWED_CLIENT_INFO_PROPERTIES =
       Set.of(ALLOWED_VOLUME_INGESTION_PATHS);
+
+  public static final String USE_THRIFT_CLIENT = "usethriftclient";
 }
