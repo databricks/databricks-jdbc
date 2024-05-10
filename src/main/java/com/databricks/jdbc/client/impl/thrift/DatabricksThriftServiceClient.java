@@ -18,10 +18,8 @@ import com.databricks.jdbc.core.types.ComputeResource;
 import com.databricks.jdbc.driver.IDatabricksConnectionContext;
 import com.google.common.annotations.VisibleForTesting;
 import java.sql.SQLException;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.Map;
+import java.util.*;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -133,14 +131,21 @@ public class DatabricksThriftServiceClient implements DatabricksClient, Databric
     TOperationHandle operationHandle =
         new TOperationHandle().setOperationId(handleIdentifier).setHasResultSet(false);
     TFetchResultsResp fetchResultsResp = thriftAccessor.getResultSetResp(operationHandle, context);
-    if (fetchResultsResp.getResults().getResultLinksSize() < chunkIndex || chunkIndex < 0) {
+    if (chunkIndex < 0 || fetchResultsResp.getResults().getResultLinksSize() < chunkIndex) {
       String error = String.format("Out of bounds error for chunkIndex. Context: %s", context);
       LOGGER.error(error);
       throw new DatabricksSQLException(error);
     }
-    return Collections.singletonList(
-        createExternalLink(
-            fetchResultsResp.getResults().getResultLinks().get((int) chunkIndex), chunkIndex));
+    AtomicInteger index = new AtomicInteger(0);
+    List<ExternalLink> externalLinks = new ArrayList<>();
+    fetchResultsResp
+        .getResults()
+        .getResultLinks()
+        .forEach(
+            resultLink -> {
+              externalLinks.add(createExternalLink(resultLink, index.getAndIncrement()));
+            });
+    return externalLinks;
   }
 
   @Override
