@@ -5,16 +5,19 @@ import static com.databricks.jdbc.client.impl.thrift.commons.DatabricksThriftHel
 import static com.databricks.jdbc.driver.DatabricksJdbcConstants.CATALOG;
 import static com.databricks.jdbc.driver.DatabricksJdbcConstants.SCHEMA;
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 
 import com.databricks.jdbc.client.StatementType;
 import com.databricks.jdbc.client.impl.thrift.commons.DatabricksThriftAccessor;
 import com.databricks.jdbc.client.impl.thrift.generated.*;
+import com.databricks.jdbc.client.sqlexec.ExternalLink;
 import com.databricks.jdbc.commons.CommandName;
 import com.databricks.jdbc.core.*;
 import com.databricks.sdk.service.sql.StatementState;
 import java.sql.SQLException;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -103,6 +106,39 @@ public class DatabricksThriftServiceClientTest {
         .thenReturn(response);
     DatabricksResultSet resultSet = client.listCatalogs(session);
     assertEquals(resultSet.getStatementStatus().getState(), StatementState.SUCCEEDED);
+  }
+
+  @Test
+  void testGetResultChunks() throws SQLException {
+    DatabricksThriftServiceClient client = new DatabricksThriftServiceClient(thriftAccessor);
+    TFetchResultsResp response =
+        new TFetchResultsResp()
+            .setStatus(new TStatus().setStatusCode(TStatusCode.SUCCESS_STATUS))
+            .setResults(resultData)
+            .setResultSetMetadata(resultMetadataData);
+    when(thriftAccessor.getResultSetResp(any(), any())).thenReturn(response);
+    when(resultData.getResultLinksSize()).thenReturn(1);
+    when(resultData.getResultLinks())
+        .thenReturn(
+            Collections.singletonList(new TSparkArrowResultLink().setFileLink(TEST_STRING)));
+    Collection<ExternalLink> resultChunks = client.getResultChunks(TEST_STATEMENT_ID, 0);
+    assertEquals(resultChunks.size(), 1);
+    assertEquals(resultChunks.stream().findFirst().get().getExternalLink(), TEST_STRING);
+  }
+
+  @Test
+  void testGetResultChunksThrowsError() throws SQLException {
+    DatabricksThriftServiceClient client = new DatabricksThriftServiceClient(thriftAccessor);
+    TFetchResultsResp response =
+        new TFetchResultsResp()
+            .setStatus(new TStatus().setStatusCode(TStatusCode.SUCCESS_STATUS))
+            .setResults(resultData)
+            .setResultSetMetadata(resultMetadataData);
+    when(thriftAccessor.getResultSetResp(any(), any())).thenReturn(response);
+    when(resultData.getResultLinksSize()).thenReturn(1);
+    assertThrows(DatabricksSQLException.class, () -> client.getResultChunks(TEST_STATEMENT_ID, -1));
+    assertThrows(DatabricksSQLException.class, () -> client.getResultChunks(TEST_STATEMENT_ID, 2));
+    assertThrows(DatabricksSQLException.class, () -> client.getResultChunks(TEST_STATEMENT_ID, 1));
   }
 
   @Test

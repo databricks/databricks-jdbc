@@ -131,7 +131,7 @@ public class DatabricksThriftServiceClient implements DatabricksClient, Databric
     TOperationHandle operationHandle =
         new TOperationHandle().setOperationId(handleIdentifier).setHasResultSet(false);
     TFetchResultsResp fetchResultsResp = thriftAccessor.getResultSetResp(operationHandle, context);
-    if (chunkIndex < 0 || fetchResultsResp.getResults().getResultLinksSize() < chunkIndex) {
+    if (chunkIndex < 0 || fetchResultsResp.getResults().getResultLinksSize() <= chunkIndex) {
       String error = String.format("Out of bounds error for chunkIndex. Context: %s", context);
       LOGGER.error(error);
       throw new DatabricksSQLException(error);
