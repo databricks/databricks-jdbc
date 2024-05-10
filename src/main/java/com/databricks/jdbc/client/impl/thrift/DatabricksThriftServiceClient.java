@@ -19,6 +19,7 @@ import com.databricks.jdbc.driver.IDatabricksConnectionContext;
 import com.google.common.annotations.VisibleForTesting;
 import java.sql.SQLException;
 import java.util.*;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -44,14 +45,11 @@ public class DatabricksThriftServiceClient implements DatabricksClient, Databric
 
   @Override
   public ImmutableSessionInfo createSession(
-      ComputeResource computeResource,
-      String catalog,
-      String schema,
-      Map<String, String> sessionConf)
+      ComputeResource cluster, String catalog, String schema, Map<String, String> sessionConf)
       throws DatabricksSQLException {
     LOGGER.debug(
         "public Session createSession(Compute cluster = {}, String catalog = {}, String schema = {}, Map<String, String> sessionConf = {})",
-        computeResource.toString(),
+        cluster.toString(),
         catalog,
         schema,
         sessionConf);
@@ -70,17 +68,17 @@ public class DatabricksThriftServiceClient implements DatabricksClient, Databric
     return ImmutableSessionInfo.builder()
         .sessionId(sessionId)
         .sessionHandle(response.sessionHandle)
-        .computeResource(computeResource)
+        .computeResource(cluster)
         .build();
   }
 
   @Override
-  public void deleteSession(IDatabricksSession session, ComputeResource computeResource)
+  public void deleteSession(IDatabricksSession session, ComputeResource cluster)
       throws DatabricksSQLException {
     LOGGER.debug(
-        "public void deleteSession(Session session = {}, Compute resource = {})",
+        "public void deleteSession(Session session = {}, Compute cluster = {})",
         session.toString(),
-        computeResource.toString());
+        cluster.toString());
     TCloseSessionReq closeSessionReq =
         new TCloseSessionReq().setSessionHandle(session.getSessionInfo().sessionHandle());
     TCloseSessionResp response =
@@ -133,19 +131,20 @@ public class DatabricksThriftServiceClient implements DatabricksClient, Databric
     TOperationHandle operationHandle =
         new TOperationHandle().setOperationId(handleIdentifier).setHasResultSet(false);
     TFetchResultsResp fetchResultsResp = thriftAccessor.getResultSetResp(operationHandle, context);
-    int resultSize = fetchResultsResp.getResults().getResultLinksSize();
-    if (chunkIndex < 0 || resultSize <= chunkIndex) {
+    if (chunkIndex < 0 || fetchResultsResp.getResults().getResultLinksSize() <= chunkIndex) {
       String error = String.format("Out of bounds error for chunkIndex. Context: %s", context);
       LOGGER.error(error);
       throw new DatabricksSQLException(error);
     }
+    AtomicInteger index = new AtomicInteger(0);
     List<ExternalLink> externalLinks = new ArrayList<>();
-    // The following sends back external links from chunkIndex onwards only
-    for (long index = chunkIndex; index < resultSize; index++) {
-      externalLinks.add(
-          createExternalLink(
-              fetchResultsResp.getResults().getResultLinks().get((int) index), index));
-    }
+    fetchResultsResp
+        .getResults()
+        .getResultLinks()
+        .forEach(
+            resultLink -> {
+              externalLinks.add(createExternalLink(resultLink, index.getAndIncrement()));
+            });
     return externalLinks;
   }
 
