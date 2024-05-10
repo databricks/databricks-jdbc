@@ -11,7 +11,9 @@ import static org.junit.jupiter.api.Assertions.*;
 import com.databricks.jdbc.driver.DatabricksJdbcConstants.FakeService;
 import com.databricks.jdbc.integration.fakeservice.DBWireMockExtension;
 import com.databricks.jdbc.integration.fakeservice.FakeServiceExtension;
+import com.databricks.jdbc.integration.fakeservice.StubMappingCredentialsCleaner;
 import com.github.tomakehurst.wiremock.client.CountMatchingStrategy;
+import com.github.tomakehurst.wiremock.extension.Extension;
 import java.sql.*;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -29,7 +31,8 @@ public class MetadataIntegrationTests {
   private static final FakeServiceExtension sqlExecApiExtension =
       new FakeServiceExtension(
           new DBWireMockExtension.Builder()
-              .options(wireMockConfig().dynamicPort().dynamicHttpsPort()),
+              .options(
+                  wireMockConfig().dynamicPort().dynamicHttpsPort().extensions(getExtensions())),
           FakeService.SQL_EXEC,
           "https://e2-dogfood.staging.cloud.databricks.com");
 
@@ -41,7 +44,8 @@ public class MetadataIntegrationTests {
   private static final FakeServiceExtension cloudFetchApiExtension =
       new FakeServiceExtension(
           new DBWireMockExtension.Builder()
-              .options(wireMockConfig().dynamicPort().dynamicHttpsPort()),
+              .options(
+                  wireMockConfig().dynamicPort().dynamicHttpsPort().extensions(getExtensions())),
           FakeService.CLOUD_FETCH,
           "https://e2-dogfood-core.s3.us-west-2.amazonaws.com");
 
@@ -200,5 +204,10 @@ public class MetadataIntegrationTests {
     sqlExecApiExtension.verify(
         new CountMatchingStrategy(CountMatchingStrategy.GREATER_THAN_OR_EQUAL, 7),
         postRequestedFor(urlEqualTo(STATEMENT_PATH)));
+  }
+
+  /** Returns the extensions to be used for stubbing. */
+  private static Extension[] getExtensions() {
+    return new Extension[] {new StubMappingCredentialsCleaner()};
   }
 }

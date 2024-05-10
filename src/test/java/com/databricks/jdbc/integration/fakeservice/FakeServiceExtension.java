@@ -202,7 +202,8 @@ public class FakeServiceExtension extends DBWireMockExtension {
                 .forTarget(targetBaseUrl)
                 .makeStubsPersistent(false) // manually save stub mappings
                 .extractTextBodiesOver(MAX_STUBBING_TEXT_SIZE)
-                .extractBinaryBodiesOver(MAX_STUBBING_BINARY_SIZE));
+                .extractBinaryBodiesOver(MAX_STUBBING_BINARY_SIZE)
+                .transformers(StubMappingCredentialsCleaner.NAME));
   }
 
   /**
