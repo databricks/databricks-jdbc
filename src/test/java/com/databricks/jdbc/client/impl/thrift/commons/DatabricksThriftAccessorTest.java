@@ -46,7 +46,9 @@ public class DatabricksThriftAccessorTest {
       new TSparkDirectResults()
           .setResultSet(response)
           .setResultSetMetadata(
-              new TGetResultSetMetadataResp().setResultFormat(TSparkRowSetType.COLUMN_BASED_SET));
+              new TGetResultSetMetadataResp()
+                  .setResultFormat(TSparkRowSetType.COLUMN_BASED_SET)
+                  .setStatus(new TStatus().setStatusCode(TStatusCode.SUCCESS_STATUS)));
   private static final TGetResultSetMetadataResp metadataResp =
       new TGetResultSetMetadataResp().setResultFormat(TSparkRowSetType.COLUMN_BASED_SET);
 
@@ -81,6 +83,14 @@ public class DatabricksThriftAccessorTest {
     when(thriftClient.GetResultSetMetadata(resultSetMetadataReq)).thenReturn(metadataResp);
     when(thriftClient.FetchResults(fetchResultsReq)).thenReturn(response);
     when(thriftClient.ExecuteStatement(request)).thenReturn(tExecuteStatementResp);
+    TGetOperationStatusReq operationStatusReq =
+        new TGetOperationStatusReq()
+            .setOperationHandle(tOperationHandle)
+            .setGetProgressUpdate(false);
+    when(thriftClient.GetOperationStatus(operationStatusReq))
+        .thenReturn(
+            new TGetOperationStatusResp()
+                .setStatus(new TStatus().setStatusCode(TStatusCode.SUCCESS_STATUS)));
     DatabricksResultSet resultSet = accessor.execute(request, null, null, StatementType.SQL);
     assertEquals(resultSet.getStatementStatus().getState(), StatementState.SUCCEEDED);
   }
