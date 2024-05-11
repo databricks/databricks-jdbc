@@ -1,5 +1,6 @@
 package com.databricks.jdbc.core;
 
+import static com.databricks.jdbc.commons.EnvironmentVariables.DEFAULT_SLEEP_DELAY;
 import static com.databricks.jdbc.driver.DatabricksJdbcConstants.ALLOWED_VOLUME_INGESTION_PATHS;
 
 import com.databricks.jdbc.client.IDatabricksHttpClient;
@@ -88,7 +89,7 @@ class VolumeOperationResult implements IExecutionResult {
     while (volumeOperationExecutor.getStatus() == VolumeOperationStatus.PENDING
         || volumeOperationExecutor.getStatus() == VolumeOperationStatus.RUNNING) {
       try {
-        Thread.sleep(100);
+        Thread.sleep(DEFAULT_SLEEP_DELAY);
       } catch (InterruptedException e) {
         throw new DatabricksSQLException(
             "Thread interrupted while waiting for volume operation to complete", e);

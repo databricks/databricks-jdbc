@@ -13,4 +13,6 @@ public final class EnvironmentVariables {
 
   public static final TProtocolVersion JDBC_THRIFT_VERSION =
       TProtocolVersion.SPARK_CLI_SERVICE_PROTOCOL_V9;
+
+  public static final int DEFAULT_SLEEP_DELAY = 100; // 100 milliseconds
 }

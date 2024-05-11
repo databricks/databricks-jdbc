@@ -1,8 +1,7 @@
 package com.databricks.jdbc.client.impl.thrift.commons;
 
 import static com.databricks.jdbc.client.impl.thrift.commons.DatabricksThriftHelper.*;
-import static com.databricks.jdbc.commons.EnvironmentVariables.DEFAULT_BYTE_LIMIT;
-import static com.databricks.jdbc.commons.EnvironmentVariables.DEFAULT_ROW_LIMIT;
+import static com.databricks.jdbc.commons.EnvironmentVariables.*;
 
 import com.databricks.jdbc.client.DatabricksHttpException;
 import com.databricks.jdbc.client.StatementType;
@@ -159,7 +158,7 @@ public class DatabricksThriftAccessor {
       response = thriftClient.GetOperationStatus(request);
       statusCode = response.getStatus().getStatusCode();
       if (statusCode == TStatusCode.STILL_EXECUTING_STATUS) {
-        Thread.sleep(100);
+        Thread.sleep(DEFAULT_SLEEP_DELAY);
       }
     } while (statusCode == TStatusCode.STILL_EXECUTING_STATUS);
   }
