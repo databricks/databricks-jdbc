@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.when;
 
+import com.databricks.jdbc.client.DatabricksHttpException;
 import com.databricks.jdbc.client.StatementType;
 import com.databricks.jdbc.client.impl.thrift.generated.*;
 import com.databricks.jdbc.commons.CommandName;
@@ -46,7 +47,9 @@ public class DatabricksThriftAccessorTest {
       new TSparkDirectResults()
           .setResultSet(response)
           .setResultSetMetadata(
-              new TGetResultSetMetadataResp().setResultFormat(TSparkRowSetType.COLUMN_BASED_SET));
+              new TGetResultSetMetadataResp()
+                  .setResultFormat(TSparkRowSetType.COLUMN_BASED_SET)
+                  .setStatus(new TStatus().setStatusCode(TStatusCode.SUCCESS_STATUS)));
   private static final TGetResultSetMetadataResp metadataResp =
       new TGetResultSetMetadataResp().setResultFormat(TSparkRowSetType.COLUMN_BASED_SET);
 
@@ -81,8 +84,26 @@ public class DatabricksThriftAccessorTest {
     when(thriftClient.GetResultSetMetadata(resultSetMetadataReq)).thenReturn(metadataResp);
     when(thriftClient.FetchResults(fetchResultsReq)).thenReturn(response);
     when(thriftClient.ExecuteStatement(request)).thenReturn(tExecuteStatementResp);
+    TGetOperationStatusReq operationStatusReq =
+        new TGetOperationStatusReq()
+            .setOperationHandle(tOperationHandle)
+            .setGetProgressUpdate(false);
+    when(thriftClient.GetOperationStatus(operationStatusReq))
+        .thenReturn(
+            new TGetOperationStatusResp()
+                .setStatus(new TStatus().setStatusCode(TStatusCode.SUCCESS_STATUS)));
     DatabricksResultSet resultSet = accessor.execute(request, null, null, StatementType.SQL);
     assertEquals(resultSet.getStatementStatus().getState(), StatementState.SUCCEEDED);
+  }
+
+  @Test
+  void testExecuteThrowsThriftError() throws TException {
+    accessor = new DatabricksThriftAccessor(thriftClient);
+    TExecuteStatementReq request = new TExecuteStatementReq();
+    when(thriftClient.ExecuteStatement(request)).thenThrow(TException.class);
+    assertThrows(
+        DatabricksHttpException.class,
+        () -> accessor.execute(request, null, null, StatementType.SQL));
   }
 
   @Test

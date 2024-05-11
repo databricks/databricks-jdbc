@@ -195,4 +195,24 @@ public class DatabricksThriftHelper {
     }
     return getColumnValues(columns.get(0)).size();
   }
+
+  public static void checkDirectResultsForErrorStatus(
+      TSparkDirectResults directResults, String context) throws DatabricksHttpException {
+    if (directResults.isSetOperationStatus()) {
+      LOGGER.debug("direct result operation status being verified for success response");
+      verifySuccessStatus(directResults.getOperationStatus().getStatus().getStatusCode(), context);
+    }
+    if (directResults.isSetResultSetMetadata()) {
+      LOGGER.debug("direct results metadata being verified for success response");
+      verifySuccessStatus(directResults.getResultSetMetadata().status.getStatusCode(), context);
+    }
+    if (directResults.isSetCloseOperation()) {
+      LOGGER.debug("direct results close operation verified for success response");
+      verifySuccessStatus(directResults.getCloseOperation().status.getStatusCode(), context);
+    }
+    if (directResults.isSetResultSet()) {
+      LOGGER.debug("direct result set being verified for success response");
+      verifySuccessStatus(directResults.getResultSet().status.getStatusCode(), context);
+    }
+  }
 }
