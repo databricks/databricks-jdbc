@@ -69,7 +69,6 @@ public class DatabricksSdkClient implements DatabricksClient {
       ApiClient apiClient)
       throws DatabricksParsingException {
     this.connectionContext = connectionContext;
-    // Handle more auth types
     this.databricksConfig =
         new DatabricksConfig()
             .setHost(connectionContext.getHostUrl())

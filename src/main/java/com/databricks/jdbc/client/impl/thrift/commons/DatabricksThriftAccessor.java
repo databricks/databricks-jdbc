@@ -36,11 +36,8 @@ public class DatabricksThriftAccessor {
         new DatabricksHttpTTransport(
             DatabricksHttpClient.getInstance(connectionContext),
             connectionContext.getEndpointURL());
-    // TODO : add other auth in followup PRs
-    this.databricksConfig =
-        new DatabricksConfig()
-            .setHost(connectionContext.getHostUrl())
-            .setToken(connectionContext.getToken());
+    OAuthAuthenticator oAuthAuthenticator = new OAuthAuthenticator(connectionContext);
+    this.databricksConfig = oAuthAuthenticator.getDatabricksConfig();
     Map<String, String> authHeaders = databricksConfig.authenticate();
     transport.setCustomHeaders(authHeaders);
     TBinaryProtocol protocol = new TBinaryProtocol(transport);
@@ -57,11 +54,8 @@ public class DatabricksThriftAccessor {
       TBase request, CommandName commandName, IDatabricksStatement parentStatement)
       throws DatabricksSQLException {
     /*Todo list :
-     *  1. Poll until we get a success status
-     *  2. Test out metadata operations.
-     *  3. Add token refresh
-     *  4. Handle cloud-fetch
-     *  5. Handle compression
+     *  1. Test out metadata operations.
+     *  2. Handle compression
      * */
     LOGGER.debug(
         "Fetching thrift response for request {}, CommandName {}",
