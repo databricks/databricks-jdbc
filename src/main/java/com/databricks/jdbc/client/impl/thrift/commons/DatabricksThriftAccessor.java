@@ -198,7 +198,7 @@ public class DatabricksThriftAccessor {
               "Error while receiving response from Thrift server. Request {%s}, Error {%s}",
               request.toString(), e.toString());
       LOGGER.error(errorMessage);
-      throw new DatabricksSQLException(errorMessage, e);
+      throw new DatabricksHttpException(errorMessage, e);
     }
     return new DatabricksResultSet(
         response.getStatus(),
