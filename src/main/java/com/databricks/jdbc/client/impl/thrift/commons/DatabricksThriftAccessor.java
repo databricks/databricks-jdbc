@@ -34,8 +34,8 @@ public class DatabricksThriftAccessor {
         new DatabricksHttpTTransport(
             DatabricksHttpClient.getInstance(connectionContext),
             connectionContext.getEndpointURL());
-    OAuthAuthenticator oAuthAuthenticator = new OAuthAuthenticator(connectionContext);
-    this.databricksConfig = oAuthAuthenticator.getDatabricksConfig();
+    this.databricksConfig = new OAuthAuthenticator(connectionContext).getDatabricksConfig();
+    databricksConfig.getAuthType();
     Map<String, String> authHeaders = databricksConfig.authenticate();
     transport.setCustomHeaders(authHeaders);
     TBinaryProtocol protocol = new TBinaryProtocol(transport);
@@ -43,8 +43,8 @@ public class DatabricksThriftAccessor {
   }
 
   @VisibleForTesting
-  public DatabricksThriftAccessor(TCLIService.Client client) {
-    this.databricksConfig = null;
+  DatabricksThriftAccessor(TCLIService.Client client, DatabricksConfig config) {
+    this.databricksConfig = config;
     this.thriftClient = client;
   }
 
@@ -59,6 +59,7 @@ public class DatabricksThriftAccessor {
         "Fetching thrift response for request {}, CommandName {}",
         request.toString(),
         commandName.name());
+    refreshHeaders();
     try {
       switch (commandName) {
         case OPEN_SESSION:
@@ -101,11 +102,12 @@ public class DatabricksThriftAccessor {
 
   public TFetchResultsResp getResultSetResp(TOperationHandle operationHandle, String context)
       throws DatabricksHttpException {
+    refreshHeaders();
     return getResultSetResp(
         TStatusCode.SUCCESS_STATUS, operationHandle, context, DEFAULT_ROW_LIMIT, false);
   }
 
-  public TFetchResultsResp getResultSetResp(
+  private TFetchResultsResp getResultSetResp(
       TStatusCode responseCode,
       TOperationHandle operationHandle,
       String context,
@@ -163,6 +165,7 @@ public class DatabricksThriftAccessor {
       IDatabricksSession session,
       StatementType statementType)
       throws SQLException {
+    refreshHeaders();
     int maxRows = (parentStatement == null) ? DEFAULT_ROW_LIMIT : parentStatement.getMaxRows();
     TSparkGetDirectResults directResults =
         new TSparkGetDirectResults().setMaxBytes(DEFAULT_BYTE_LIMIT).setMaxRows(maxRows);
@@ -332,10 +335,15 @@ public class DatabricksThriftAccessor {
         false);
   }
 
-  public TGetResultSetMetadataResp getResultSetMetadata(TOperationHandle operationHandle)
+  private TGetResultSetMetadataResp getResultSetMetadata(TOperationHandle operationHandle)
       throws TException {
     TGetResultSetMetadataReq resultSetMetadataReq =
         new TGetResultSetMetadataReq().setOperationHandle(operationHandle);
     return thriftClient.GetResultSetMetadata(resultSetMetadataReq);
+  }
+
+  private void refreshHeaders() {
+    ((DatabricksHttpTTransport) thriftClient.getInputProtocol().getTransport())
+        .setCustomHeaders(databricksConfig.authenticate());
   }
 }
