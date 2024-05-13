@@ -1,14 +1,16 @@
 package com.databricks.jdbc.integration;
 
-import static com.databricks.jdbc.driver.DatabricksJdbcConstants.FAKE_SERVICE_PORT_PROP_PREFIX;
+import static com.databricks.jdbc.driver.DatabricksJdbcConstants.FAKE_SERVICE_URI_PROP_SUFFIX;
 import static com.databricks.jdbc.driver.DatabricksJdbcConstants.IS_FAKE_SERVICE_TEST_PROP;
+import static com.databricks.jdbc.integration.fakeservice.FakeServiceExtension.TARGET_URI_PROP_SUFFIX;
 
-import com.databricks.jdbc.driver.DatabricksJdbcConstants.FakeService;
+import com.databricks.jdbc.driver.DatabricksJdbcConstants.FakeServiceType;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.util.Optional;
 
 /** Utility class to support integration tests * */
 public class IntegrationTestUtil {
@@ -17,14 +19,19 @@ public class IntegrationTestUtil {
 
   public static String getDatabricksHost() {
     if (Boolean.parseBoolean(System.getProperty(IS_FAKE_SERVICE_TEST_PROP, "false"))) {
-      String fakeSqlExecServicePortProp =
-          FAKE_SERVICE_PORT_PROP_PREFIX + FakeService.SQL_EXEC.name().toLowerCase();
+      String serviceURI =
+          System.getProperty(
+              FakeServiceType.SQL_EXEC.name().toLowerCase() + TARGET_URI_PROP_SUFFIX);
+      URI fakeServiceURI;
+      try {
+        fakeServiceURI = new URI(System.getProperty(serviceURI + FAKE_SERVICE_URI_PROP_SUFFIX));
+      } catch (URISyntaxException e) {
+        throw new RuntimeException(e);
+      }
 
-      // Direct requests to SQL_EXEC fake service
-      return Optional.ofNullable(System.getProperty(fakeSqlExecServicePortProp))
-          .map(port -> "localhost:" + port)
-          .orElseThrow(() -> new RuntimeException("Fake service port not set for SQL_EXEC"));
+      return fakeServiceURI.getAuthority();
     }
+
     // includes port
     return System.getenv("DATABRICKS_HOST");
   }

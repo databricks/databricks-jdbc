@@ -8,8 +8,8 @@ import static com.github.tomakehurst.wiremock.client.WireMock.urlEqualTo;
 import static com.github.tomakehurst.wiremock.core.WireMockConfiguration.wireMockConfig;
 import static org.junit.jupiter.api.Assertions.*;
 
-import com.databricks.jdbc.driver.DatabricksJdbcConstants.FakeService;
-import com.databricks.jdbc.integration.fakeservice.DBWireMockExtension;
+import com.databricks.jdbc.driver.DatabricksJdbcConstants.FakeServiceType;
+import com.databricks.jdbc.integration.fakeservice.DatabricksWireMockExtension;
 import com.databricks.jdbc.integration.fakeservice.FakeServiceExtension;
 import com.databricks.jdbc.integration.fakeservice.StubMappingCredentialsCleaner;
 import com.github.tomakehurst.wiremock.client.CountMatchingStrategy;
@@ -20,33 +20,38 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
-/** Integration tests for metadata retrieval. */
+/**
+ * Integration tests for metadata retrieval.
+ *
+ * <p>TODO: Remove {@link com.databricks.jdbc.integration.metadata.MetadataIntegrationTests} once
+ * {@link FakeServiceExtension} tests stabilize.
+ */
 public class MetadataIntegrationTests {
 
   /**
-   * {@link FakeServiceExtension} for {@link FakeService#SQL_EXEC}. Intercepts all requests to SQL
-   * Execution API.
+   * {@link FakeServiceExtension} for {@link FakeServiceType#SQL_EXEC}. Intercepts all requests to
+   * SQL Execution API.
    */
   @RegisterExtension
   private static final FakeServiceExtension sqlExecApiExtension =
       new FakeServiceExtension(
-          new DBWireMockExtension.Builder()
+          new DatabricksWireMockExtension.Builder()
               .options(
                   wireMockConfig().dynamicPort().dynamicHttpsPort().extensions(getExtensions())),
-          FakeService.SQL_EXEC,
+          FakeServiceType.SQL_EXEC,
           "https://e2-dogfood.staging.cloud.databricks.com");
 
   /**
-   * {@link FakeServiceExtension} for {@link FakeService#CLOUD_FETCH}. Intercepts all requests to
-   * Cloud Fetch API.
+   * {@link FakeServiceExtension} for {@link FakeServiceType#CLOUD_FETCH}. Intercepts all requests
+   * to Cloud Fetch API.
    */
   @RegisterExtension
   private static final FakeServiceExtension cloudFetchApiExtension =
       new FakeServiceExtension(
-          new DBWireMockExtension.Builder()
+          new DatabricksWireMockExtension.Builder()
               .options(
                   wireMockConfig().dynamicPort().dynamicHttpsPort().extensions(getExtensions())),
-          FakeService.CLOUD_FETCH,
+          FakeServiceType.CLOUD_FETCH,
           "https://e2-dogfood-core.s3.us-west-2.amazonaws.com");
 
   private Connection connection;

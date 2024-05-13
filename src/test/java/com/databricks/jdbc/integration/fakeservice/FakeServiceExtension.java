@@ -1,9 +1,9 @@
 package com.databricks.jdbc.integration.fakeservice;
 
-import static com.databricks.jdbc.driver.DatabricksJdbcConstants.FAKE_SERVICE_PORT_PROP_PREFIX;
+import static com.databricks.jdbc.driver.DatabricksJdbcConstants.FAKE_SERVICE_URI_PROP_SUFFIX;
 import static com.databricks.jdbc.driver.DatabricksJdbcConstants.IS_FAKE_SERVICE_TEST_PROP;
 
-import com.databricks.jdbc.driver.DatabricksJdbcConstants.FakeService;
+import com.databricks.jdbc.driver.DatabricksJdbcConstants.FakeServiceType;
 import com.databricks.jdbc.integration.IntegrationTestUtil;
 import com.github.tomakehurst.wiremock.common.SingleRootFileSource;
 import com.github.tomakehurst.wiremock.junit5.WireMockRuntimeInfo;
@@ -52,7 +52,7 @@ import org.junit.jupiter.api.extension.ExtensionContext;
  * }
  * }</pre>
  */
-public class FakeServiceExtension extends DBWireMockExtension {
+public class FakeServiceExtension extends DatabricksWireMockExtension {
 
   /**
    * Maximum size in bytes of text body size in stubbing beyond which it is extracted in a separate
@@ -78,6 +78,8 @@ public class FakeServiceExtension extends DBWireMockExtension {
    */
   public static final String FAKE_SERVICE_TEST_MODE_ENV = "FAKE_SERVICE_TEST_MODE";
 
+  public static final String TARGET_URI_PROP_SUFFIX = ".targetURI";
+
   /** Path to the stubbing directory for SQL Execution API. */
   public static final String SQL_EXEC_API_STUBBING_FILE_PATH = "src/test/resources/sqlexecapi";
 
@@ -86,7 +88,7 @@ public class FakeServiceExtension extends DBWireMockExtension {
       "src/test/resources/cloudfetchapi";
 
   /** Fake service to manage. */
-  private final FakeService fakeService;
+  private final FakeServiceType fakeServiceType;
 
   /** Base URL of the target production service. */
   private final String targetBaseUrl;
@@ -99,14 +101,15 @@ public class FakeServiceExtension extends DBWireMockExtension {
     REPLAY
   }
 
-  public FakeServiceExtension(Builder builder, FakeService fakeService, String targetBaseUrl) {
+  public FakeServiceExtension(
+      Builder builder, FakeServiceType fakeServiceType, String targetBaseUrl) {
     super(builder);
-    this.fakeService = fakeService;
+    this.fakeServiceType = fakeServiceType;
     this.targetBaseUrl = targetBaseUrl;
   }
 
-  public FakeService getFakeService() {
-    return fakeService;
+  public FakeServiceType getFakeServiceType() {
+    return fakeServiceType;
   }
 
   public String getTargetBaseUrl() {
@@ -129,11 +132,7 @@ public class FakeServiceExtension extends DBWireMockExtension {
             ? FakeServiceMode.valueOf(fakeServiceModeValue.toUpperCase())
             : FakeServiceMode.REPLAY;
 
-    System.setProperty(
-        FAKE_SERVICE_PORT_PROP_PREFIX + fakeService.name().toLowerCase(),
-        String.valueOf(wireMockRuntimeInfo.getHttpPort()));
-
-    System.setProperty(IS_FAKE_SERVICE_TEST_PROP, "true");
+    setFakeServiceProperties(wireMockRuntimeInfo);
   }
 
   /** {@inheritDoc} */
@@ -166,9 +165,7 @@ public class FakeServiceExtension extends DBWireMockExtension {
   @Override
   protected void onAfterAll(WireMockRuntimeInfo wireMockRuntimeInfo, ExtensionContext context)
       throws Exception {
-    System.clearProperty(FAKE_SERVICE_PORT_PROP_PREFIX + fakeService.name().toLowerCase());
-    System.clearProperty(IS_FAKE_SERVICE_TEST_PROP);
-
+    clearFakeServiceProperties();
     super.onAfterAll(wireMockRuntimeInfo, context);
   }
 
@@ -178,7 +175,7 @@ public class FakeServiceExtension extends DBWireMockExtension {
     String testClassName = context.getTestClass().orElseThrow().getSimpleName().toLowerCase();
     String testMethodName = context.getTestMethod().orElseThrow().getName().toLowerCase();
 
-    return (fakeService == FakeService.SQL_EXEC
+    return (fakeServiceType == FakeServiceType.SQL_EXEC
             ? SQL_EXEC_API_STUBBING_FILE_PATH
             : CLOUD_FETCH_API_STUBBING_FILE_PATH)
         + "/"
@@ -219,11 +216,27 @@ public class FakeServiceExtension extends DBWireMockExtension {
     new JsonFileMappingsSource(new SingleRootFileSource(stubbingDir), null).save(stubMappingList);
   }
 
+  private void setFakeServiceProperties(WireMockRuntimeInfo wireMockRuntimeInfo) {
+    System.setProperty(IS_FAKE_SERVICE_TEST_PROP, "true");
+    System.setProperty(
+        fakeServiceType.name().toLowerCase() + TARGET_URI_PROP_SUFFIX, targetBaseUrl);
+    System.setProperty(
+        targetBaseUrl + FAKE_SERVICE_URI_PROP_SUFFIX,
+        "http://localhost:" + wireMockRuntimeInfo.getHttpPort());
+  }
+
+  private void clearFakeServiceProperties() {
+    System.clearProperty(IS_FAKE_SERVICE_TEST_PROP);
+    System.clearProperty(fakeServiceType.name().toLowerCase() + TARGET_URI_PROP_SUFFIX);
+    System.clearProperty(targetBaseUrl + FAKE_SERVICE_URI_PROP_SUFFIX);
+  }
+
   /** Deletes files in the given directory. */
   private static void deleteFilesInDir(String dirPath) throws IOException {
     Path dir = Paths.get(dirPath);
     if (!Files.exists(dir)) {
-      throw new IOException("Directory does not exist: " + dir.toAbsolutePath());
+      Files.createDirectories(dir);
+      return;
     }
 
     try (Stream<Path> paths = Files.walk(dir)) {

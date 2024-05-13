@@ -1,6 +1,8 @@
 package com.databricks.jdbc.client.http;
 
-import static com.databricks.jdbc.client.http.DatabricksHttpClient.*;
+import static com.databricks.jdbc.client.http.DatabricksHttpClient.isErrorCodeRetryable;
+import static com.databricks.jdbc.client.http.DatabricksHttpClient.isRetryAllowed;
+import static com.databricks.jdbc.driver.DatabricksJdbcConstants.FAKE_SERVICE_URI_PROP_SUFFIX;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
@@ -12,14 +14,21 @@ import java.io.IOException;
 import java.net.URI;
 import java.util.Properties;
 import java.util.concurrent.TimeUnit;
+import org.apache.http.HttpException;
+import org.apache.http.HttpHost;
 import org.apache.http.client.methods.CloseableHttpResponse;
+import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpUriRequest;
+import org.apache.http.conn.routing.HttpRoute;
+import org.apache.http.conn.routing.HttpRoutePlanner;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClientBuilder;
 import org.apache.http.impl.conn.PoolingHttpClientConnectionManager;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
+import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
@@ -58,6 +67,34 @@ public class DatabricksHttpClientTest {
         () ->
             DatabricksHttpClient.setProxyDetailsInHttpClient(
                 builder, null, 8080, true, "user", "proxyPassword"));
+  }
+
+  @Test
+  public void testSetFakeServiceRouteInHttpClient() throws HttpException {
+    final String testTargetURI = "https://example.com";
+    final String testFakeServiceURI = "http://localhost:8080";
+    System.setProperty(testTargetURI + FAKE_SERVICE_URI_PROP_SUFFIX, testFakeServiceURI);
+
+    HttpClientBuilder httpClientBuilder = Mockito.mock(HttpClientBuilder.class);
+    ArgumentCaptor<HttpRoutePlanner> routePlannerCaptor =
+        ArgumentCaptor.forClass(HttpRoutePlanner.class);
+
+    DatabricksHttpClient.setFakeServiceRouteInHttpClient(httpClientBuilder);
+
+    // Capture the route planner set in builder
+    Mockito.verify(httpClientBuilder).setRoutePlanner(routePlannerCaptor.capture());
+    HttpRoutePlanner capturedRoutePlanner = routePlannerCaptor.getValue();
+
+    // Create a request and determine the route
+    HttpGet request = new HttpGet(testTargetURI);
+    HttpHost proxy = HttpHost.create(testFakeServiceURI);
+    HttpRoute route =
+        capturedRoutePlanner.determineRoute(
+            HttpHost.create(request.getURI().toString()), request, null);
+
+    // Verify the route is set to the fake service URI
+    assertEquals(proxy, route.getProxyHost());
+    assertEquals(2, route.getHopCount());
   }
 
   @Test

@@ -1,7 +1,6 @@
 package com.databricks.jdbc.core;
 
 import static com.databricks.jdbc.commons.util.ValidationUtil.checkHTTPError;
-import static com.databricks.jdbc.driver.DatabricksJdbcConstants.FAKE_SERVICE_PORT_PROP_PREFIX;
 import static com.databricks.jdbc.driver.DatabricksJdbcConstants.IS_FAKE_SERVICE_TEST_PROP;
 
 import com.databricks.jdbc.client.DatabricksHttpException;
@@ -9,7 +8,6 @@ import com.databricks.jdbc.client.IDatabricksHttpClient;
 import com.databricks.jdbc.client.sqlexec.ExternalLink;
 import com.databricks.jdbc.commons.util.DecompressionUtil;
 import com.databricks.jdbc.core.types.CompressionType;
-import com.databricks.jdbc.driver.DatabricksJdbcConstants.FakeService;
 import com.databricks.sdk.service.sql.BaseChunkInfo;
 import com.google.common.annotations.VisibleForTesting;
 import java.io.IOException;
@@ -19,7 +17,6 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.stream.Collectors;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.ValueVector;
@@ -271,20 +268,6 @@ public class ArrowResultChunk {
     try {
       this.downloadStartTime = Instant.now().toEpochMilli();
       URIBuilder uriBuilder = new URIBuilder(chunkLink.getExternalLink());
-
-      if (Boolean.parseBoolean(System.getProperty(IS_FAKE_SERVICE_TEST_PROP, "false"))) {
-        String fakeCloudFetchServicePortProp =
-            FAKE_SERVICE_PORT_PROP_PREFIX + FakeService.CLOUD_FETCH.name().toLowerCase();
-        int fakeServicePort =
-            Optional.ofNullable(System.getProperty(fakeCloudFetchServicePortProp))
-                .map(Integer::parseInt)
-                .orElseThrow(
-                    () -> new RuntimeException("Fake service port not set for CLOUD_FETCH"));
-
-        // Direct requests to CLOUD_FETCH fake service
-        uriBuilder.setScheme("http").setHost("localhost").setPort(fakeServicePort);
-      }
-
       HttpGet getRequest = new HttpGet(uriBuilder.build());
       addHeaders(getRequest, chunkLink.getHttpHeaders());
       // Retry would be done in http client, we should not bother about that here

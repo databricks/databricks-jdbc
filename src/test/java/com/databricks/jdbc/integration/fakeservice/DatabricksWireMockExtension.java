@@ -22,7 +22,7 @@ import org.junit.platform.commons.support.AnnotationSupport;
  * <p>TODO: Switch to OSS version once the <a
  * href="https://github.com/wiremock/wiremock/pull/1981">PR</a> is merged.
  */
-public class DBWireMockExtension extends DslWrapper
+public class DatabricksWireMockExtension extends DslWrapper
     implements ParameterResolver,
         BeforeAllCallback,
         AfterAllCallback,
@@ -45,13 +45,13 @@ public class DBWireMockExtension extends DslWrapper
 
   private Boolean proxyMode;
 
-  DBWireMockExtension() {
+  DatabricksWireMockExtension() {
     configureStaticDsl = true;
     failOnUnmatchedRequests = false;
     isDeclarative = true;
   }
 
-  protected DBWireMockExtension(DBWireMockExtension.Builder builder) {
+  protected DatabricksWireMockExtension(DatabricksWireMockExtension.Builder builder) {
     this.options = builder.options;
     this.configureStaticDsl = builder.configureStaticDsl;
     this.failOnUnmatchedRequests = builder.failOnUnmatchedRequests;
@@ -59,7 +59,7 @@ public class DBWireMockExtension extends DslWrapper
     this.isDeclarative = false;
   }
 
-  private DBWireMockExtension(
+  private DatabricksWireMockExtension(
       Options options,
       boolean configureStaticDsl,
       boolean failOnUnmatchedRequests,
@@ -71,12 +71,12 @@ public class DBWireMockExtension extends DslWrapper
     this.isDeclarative = false;
   }
 
-  public static DBWireMockExtension.Builder extensionOptions() {
+  public static DatabricksWireMockExtension.Builder extensionOptions() {
     return newInstance();
   }
 
-  public static DBWireMockExtension.Builder newInstance() {
-    return new DBWireMockExtension.Builder();
+  public static DatabricksWireMockExtension.Builder newInstance() {
+    return new DatabricksWireMockExtension.Builder();
   }
 
   /**
@@ -266,7 +266,7 @@ public class DBWireMockExtension extends DslWrapper
     return wireMockServer.port();
   }
 
-  /** Builder for {@link DBWireMockExtension}. */
+  /** Builder for {@link DatabricksWireMockExtension}. */
   public static class Builder {
 
     private Options options = WireMockConfiguration.wireMockConfig().dynamicPort();
@@ -274,34 +274,34 @@ public class DBWireMockExtension extends DslWrapper
     private boolean failOnUnmatchedRequests = false;
     private boolean proxyMode = false;
 
-    public DBWireMockExtension.Builder options(Options options) {
+    public DatabricksWireMockExtension.Builder options(Options options) {
       this.options = options;
       return this;
     }
 
-    public DBWireMockExtension.Builder configureStaticDsl(boolean configureStaticDsl) {
+    public DatabricksWireMockExtension.Builder configureStaticDsl(boolean configureStaticDsl) {
       this.configureStaticDsl = configureStaticDsl;
       return this;
     }
 
-    public DBWireMockExtension.Builder failOnUnmatchedRequests(boolean failOnUnmatched) {
+    public DatabricksWireMockExtension.Builder failOnUnmatchedRequests(boolean failOnUnmatched) {
       this.failOnUnmatchedRequests = failOnUnmatched;
       return this;
     }
 
-    public DBWireMockExtension.Builder proxyMode(boolean proxyMode) {
+    public DatabricksWireMockExtension.Builder proxyMode(boolean proxyMode) {
       this.proxyMode = proxyMode;
       return this;
     }
 
-    public DBWireMockExtension build() {
+    public DatabricksWireMockExtension build() {
       if (proxyMode
           && !options.browserProxySettings().enabled()
           && (options instanceof WireMockConfiguration)) {
         ((WireMockConfiguration) options).enableBrowserProxying(true);
       }
 
-      return new DBWireMockExtension(
+      return new DatabricksWireMockExtension(
           options, configureStaticDsl, failOnUnmatchedRequests, proxyMode);
     }
   }

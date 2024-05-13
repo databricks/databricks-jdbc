@@ -117,11 +117,11 @@ public final class DatabricksJdbcConstants {
 
   @VisibleForTesting public static final String IS_FAKE_SERVICE_TEST_PROP = "isFakeServiceTest";
 
-  @VisibleForTesting public static final String FAKE_SERVICE_PORT_PROP_PREFIX = "fakeServicePort.";
+  @VisibleForTesting public static final String FAKE_SERVICE_URI_PROP_SUFFIX = ".fakeServiceURI";
 
   /** Enum for the services that can be replaced with a fake service in integration tests. */
   @VisibleForTesting
-  public enum FakeService {
+  public enum FakeServiceType {
     SQL_EXEC,
     CLOUD_FETCH
   }
