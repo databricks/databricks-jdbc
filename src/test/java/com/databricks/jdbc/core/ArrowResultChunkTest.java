@@ -1,8 +1,10 @@
 package com.databricks.jdbc.core;
 
+import static com.databricks.jdbc.TestConstants.*;
 import static java.lang.Math.min;
 import static org.junit.jupiter.api.Assertions.*;
 
+import com.databricks.jdbc.client.impl.thrift.generated.TSparkArrowResultLink;
 import com.databricks.jdbc.core.types.CompressionType;
 import com.databricks.sdk.service.sql.BaseChunkInfo;
 import java.io.File;
@@ -73,6 +75,21 @@ public class ArrowResultChunkTest {
     assertEquals(arrowResultChunk.getRecordBatchCountInChunk(), totalRecordBatches);
     arrowResultChunk.releaseChunk();
     arrowResultChunk.releaseChunk(); // calling it a second time also does not throw error.
+  }
+
+  @Test
+  public void testGetArrowDataFromThriftInput() {
+    TSparkArrowResultLink chunkInfo =
+        new TSparkArrowResultLink()
+            .setRowCount(totalRows)
+            .setFileLink(TEST_STRING)
+            .setExpiryTime(1000)
+            .setBytesNum(200L);
+    ArrowResultChunk arrowResultChunk =
+        new ArrowResultChunk(0, chunkInfo, TEST_STATEMENT_ID, CompressionType.NONE);
+    assertNull(arrowResultChunk.getErrorMessage());
+    assertEquals(arrowResultChunk.getChunkUrl(), TEST_STRING);
+    assertEquals(arrowResultChunk.getChunkIndex(), 0);
   }
 
   private File createTestArrowFile(

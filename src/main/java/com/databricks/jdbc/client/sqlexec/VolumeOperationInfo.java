@@ -2,12 +2,13 @@ package com.databricks.jdbc.client.sqlexec;
 
 import com.databricks.sdk.support.ToStringer;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import java.util.Collection;
 import java.util.Objects;
 
 public class VolumeOperationInfo {
 
-  @JsonProperty("presigned_url")
-  private ExternalLink presignedUrl;
+  @JsonProperty("external_links")
+  private Collection<ExternalLink> externalLinks;
 
   @JsonProperty("local_file")
   private String localFile;
@@ -15,13 +16,13 @@ public class VolumeOperationInfo {
   @JsonProperty("volume_operation_type")
   private String volumeOperationType;
 
-  public VolumeOperationInfo setPresignedUrl(ExternalLink presignedUrl) {
-    this.presignedUrl = presignedUrl;
+  public VolumeOperationInfo setExternalLinks(Collection<ExternalLink> externalLinks) {
+    this.externalLinks = externalLinks;
     return this;
   }
 
-  public ExternalLink getPresignedUrl() {
-    return presignedUrl;
+  public Collection<ExternalLink> getExternalLinks() {
+    return externalLinks;
   }
 
   public VolumeOperationInfo setLocalFile(String localFile) {
@@ -47,20 +48,20 @@ public class VolumeOperationInfo {
     if (this == o) return true;
     if (o == null || getClass() != o.getClass()) return false;
     VolumeOperationInfo that = (VolumeOperationInfo) o;
-    return Objects.equals(presignedUrl, that.presignedUrl)
+    return Objects.equals(externalLinks, that.externalLinks)
         && Objects.equals(localFile, that.localFile)
         && Objects.equals(volumeOperationType, that.volumeOperationType);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(presignedUrl, localFile, volumeOperationType);
+    return Objects.hash(externalLinks, localFile, volumeOperationType);
   }
 
   @Override
   public String toString() {
     return new ToStringer(VolumeOperationInfo.class)
-        .add("presignedUrl", presignedUrl)
+        .add("externalLinks", externalLinks)
         .add("localFile", localFile)
         .add("volumeOperationType", volumeOperationType)
         .toString();

@@ -4,6 +4,7 @@ import static com.databricks.jdbc.driver.DatabricksJdbcConstants.DEFAULT_CATALOG
 import static com.databricks.jdbc.driver.DatabricksJdbcConstants.DEFAULT_SCHEMA;
 import static org.junit.jupiter.api.Assertions.*;
 
+import com.databricks.jdbc.client.DatabricksClientType;
 import com.databricks.jdbc.core.DatabricksParsingException;
 import com.databricks.jdbc.core.DatabricksSQLException;
 import com.databricks.jdbc.core.types.CompressionType;
@@ -17,9 +18,9 @@ class DatabricksConnectionContextTest {
   private static final String VALID_URL_1 =
       "jdbc:databricks://adb-565757575.18.azuredatabricks.net:4423/default;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/erg6767gg;LogLevel=debug;LogPath=test1/application.log;auth_flow=2";
   private static final String VALID_URL_2 =
-      "jdbc:databricks://azuredatabricks.net/default;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/fgff575757;LogLevel=invalid;EnableQueryResultLZ4Compression=1";
+      "jdbc:databricks://azuredatabricks.net/default;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/fgff575757;LogLevel=invalid;EnableQueryResultLZ4Compression=1;UseThriftClient=0";
   private static final String VALID_URL_3 =
-      "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/5c89f447c476a5a8;EnableQueryResultLZ4Compression=0";
+      "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/5c89f447c476a5a8;EnableQueryResultLZ4Compression=0;UseThriftClient=1";
   private static final String VALID_URL_4 =
       "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/5c89f447c476a5a8;QueryResultCompressionType=1";
   private static final String VALID_URL_5 =
@@ -105,6 +106,7 @@ class DatabricksConnectionContextTest {
     assertEquals("test1/application.log", connectionContext.getLogPathString());
     assertNull(connectionContext.getOAuthScopesForU2M());
     assertFalse(connectionContext.isAllPurposeCluster());
+    assertEquals(DatabricksClientType.SQL_EXEC, connectionContext.getClientType());
 
     // test default port
     connectionContext =
@@ -114,13 +116,14 @@ class DatabricksConnectionContextTest {
     assertEquals("/sql/1.0/warehouses/fgff575757", connectionContext.getHttpPath());
     assertEquals("passwd2", connectionContext.getToken());
     assertEquals("96eecda7-19ea-49cc-abb5-240097d554f5", connectionContext.getClientId());
-    assertEquals(6, connectionContext.parameters.size());
+    assertEquals(7, connectionContext.parameters.size());
     assertEquals(CompressionType.LZ4_COMPRESSION, connectionContext.getCompressionType());
     assertEquals("INFO", connectionContext.getLogLevelString());
     assertNull(connectionContext.getLogPathString());
     assertEquals("3", connectionContext.parameters.get("authmech"));
     assertNull(connectionContext.getOAuthScopesForU2M());
     assertFalse(connectionContext.isAllPurposeCluster());
+    assertEquals(DatabricksClientType.SQL_EXEC, connectionContext.getClientType());
 
     // test aws port
     connectionContext =
@@ -136,10 +139,11 @@ class DatabricksConnectionContextTest {
         IDatabricksConnectionContext.AuthFlow.TOKEN_PASSTHROUGH, connectionContext.getAuthFlow());
     assertEquals(IDatabricksConnectionContext.AuthMech.PAT, connectionContext.getAuthMech());
     assertEquals(CompressionType.NONE, connectionContext.getCompressionType());
-    assertEquals(6, connectionContext.parameters.size());
+    assertEquals(7, connectionContext.parameters.size());
     assertEquals("INFO", connectionContext.getLogLevelString());
     assertEquals(connectionContext.getOAuthScopesForU2M(), expected_scopes);
     assertFalse(connectionContext.isAllPurposeCluster());
+    assertEquals(DatabricksClientType.THRIFT, connectionContext.getClientType());
   }
 
   @Test
@@ -226,6 +230,7 @@ class DatabricksConnectionContextTest {
     assertEquals(4, connectionContext.parameters.size());
     assertEquals("INFO", connectionContext.getLogLevelString());
     assertTrue(connectionContext.isAllPurposeCluster());
+    assertEquals(DatabricksClientType.THRIFT, connectionContext.getClientType());
   }
 
   @Test

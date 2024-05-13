@@ -1,5 +1,6 @@
 package com.databricks.jdbc.driver;
 
+import com.databricks.jdbc.client.DatabricksClientType;
 import com.databricks.jdbc.core.DatabricksParsingException;
 import com.databricks.jdbc.core.DatabricksSQLException;
 import com.databricks.jdbc.core.types.CompressionType;
@@ -112,4 +113,6 @@ public interface IDatabricksConnectionContext {
   Boolean getUseCloudFetchProxyAuth();
 
   String getEndpointURL() throws DatabricksParsingException;
+
+  DatabricksClientType getClientType();
 }

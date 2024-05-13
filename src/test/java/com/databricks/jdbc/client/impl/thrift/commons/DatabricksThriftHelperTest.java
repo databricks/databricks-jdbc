@@ -2,6 +2,7 @@ package com.databricks.jdbc.client.impl.thrift.commons;
 
 import static com.databricks.jdbc.TestConstants.*;
 import static com.databricks.jdbc.client.impl.helper.MetadataResultConstants.NULL_STRING;
+import static com.databricks.jdbc.client.impl.thrift.commons.DatabricksThriftHelper.checkDirectResultsForErrorStatus;
 import static org.junit.jupiter.api.Assertions.*;
 
 import com.databricks.jdbc.client.DatabricksHttpException;
@@ -55,6 +56,30 @@ public class DatabricksThriftHelperTest {
         Arguments.of(i64RowSet, 2),
         Arguments.of(stringRowSet, 2),
         Arguments.of(binaryRowSet, 1));
+  }
+
+  private static Stream<Arguments> thriftDirectResultSets() {
+    return Stream.of(
+        Arguments.of(
+            new TSparkDirectResults()
+                .setResultSet(
+                    new TFetchResultsResp()
+                        .setStatus(new TStatus().setStatusCode(TStatusCode.SUCCESS_STATUS)))),
+        Arguments.of(
+            new TSparkDirectResults()
+                .setCloseOperation(
+                    new TCloseOperationResp()
+                        .setStatus(new TStatus().setStatusCode(TStatusCode.SUCCESS_STATUS)))),
+        Arguments.of(
+            new TSparkDirectResults()
+                .setOperationStatus(
+                    new TGetOperationStatusResp()
+                        .setStatus(new TStatus().setStatusCode(TStatusCode.SUCCESS_STATUS)))),
+        Arguments.of(
+            new TSparkDirectResults()
+                .setResultSet(
+                    new TFetchResultsResp()
+                        .setStatus(new TStatus().setStatusCode(TStatusCode.SUCCESS_STATUS)))));
   }
 
   private static Stream<Arguments> typeIdAndColumnInfoType() {
@@ -151,5 +176,11 @@ public class DatabricksThriftHelperTest {
     typeEntry.setPrimitiveEntry(primitiveType);
     TTypeDesc typeDesc = new TTypeDesc().setTypes(Collections.singletonList(typeEntry));
     assertEquals(DatabricksThriftHelper.getTypeFromTypeDesc(typeDesc), typeName);
+  }
+
+  @ParameterizedTest
+  @MethodSource("thriftDirectResultSets")
+  public void testCheckDirectResultsForErrorStatus(TSparkDirectResults response) {
+    assertDoesNotThrow(() -> checkDirectResultsForErrorStatus(response, TEST_STRING));
   }
 }

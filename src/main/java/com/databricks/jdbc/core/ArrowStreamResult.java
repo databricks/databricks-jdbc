@@ -42,15 +42,41 @@ class ArrowStreamResult implements IExecutionResult {
         session);
   }
 
-  ArrowStreamResult(TGetResultSetMetadataResp resultManifest, TRowSet resultData)
+  ArrowStreamResult(
+      TGetResultSetMetadataResp resultManifest,
+      TRowSet resultData,
+      boolean isInlineArrow,
+      String parentStatementId,
+      IDatabricksSession session)
+      throws DatabricksParsingException {
+    this(resultManifest, resultData, isInlineArrow, parentStatementId, session, null);
+  }
+
+  ArrowStreamResult(
+      TGetResultSetMetadataResp resultManifest,
+      TRowSet resultData,
+      boolean isInlineArrow,
+      String statementId,
+      IDatabricksSession session,
+      IDatabricksHttpClient httpClient)
       throws DatabricksParsingException {
     this.chunkDownloader = null;
     setColumnInfo(resultManifest);
     this.currentRowIndex = -1;
     this.isClosed = false;
-    this.isInlineArrow = true;
+    this.isInlineArrow = isInlineArrow;
     this.chunkIterator = null;
-    this.chunkExtractor = new ChunkExtractor(resultData.getArrowBatches(), resultManifest);
+    if (isInlineArrow) {
+      this.chunkExtractor = new ChunkExtractor(resultData.getArrowBatches(), resultManifest);
+      this.chunkDownloader = null;
+    } else {
+      if (httpClient != null) { // This is to aid testing
+        this.chunkDownloader = new ChunkDownloader(statementId, resultData, session, httpClient);
+      } else {
+        this.chunkDownloader = new ChunkDownloader(statementId, resultData, session);
+      }
+      this.chunkExtractor = null;
+    }
   }
 
   private void setColumnInfo(TGetResultSetMetadataResp resultManifest) {

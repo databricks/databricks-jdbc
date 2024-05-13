@@ -273,8 +273,16 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
     return CompressionType.parseCompressionType(compressionType);
   }
 
-  private DatabricksClientType getClientType() {
-    return computeResource.getClientType();
+  @Override
+  public DatabricksClientType getClientType() {
+    if (computeResource instanceof AllPurposeCluster) {
+      return DatabricksClientType.THRIFT;
+    }
+    String useThriftClient = getParameter(DatabricksJdbcConstants.USE_THRIFT_CLIENT);
+    if (useThriftClient != null && useThriftClient.equals("1")) {
+      return DatabricksClientType.THRIFT;
+    }
+    return DatabricksClientType.SQL_EXEC;
   }
 
   private static boolean nullOrEmptyString(String s) {

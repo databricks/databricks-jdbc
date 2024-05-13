@@ -1,5 +1,6 @@
 package com.databricks.jdbc.core;
 
+import static com.databricks.jdbc.TestConstants.TEST_STATEMENT_ID;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.when;
 
@@ -13,6 +14,7 @@ import com.databricks.jdbc.client.sqlexec.VolumeOperationInfo;
 import com.databricks.jdbc.driver.IDatabricksConnectionContext;
 import com.databricks.sdk.service.sql.Format;
 import com.databricks.sdk.service.sql.ResultSchema;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -26,6 +28,7 @@ public class ExecutionResultFactoryTest {
 
   @Mock TGetResultSetMetadataResp resultSetMetadataResp;
   @Mock TRowSet tRowSet;
+  @Mock IDatabricksConnectionContext context;
 
   @Test
   public void testGetResultSet_jsonInline() {
@@ -58,12 +61,11 @@ public class ExecutionResultFactoryTest {
     when(session.getConnectionContext()).thenReturn(connectionContext);
 
     ResultManifest manifest = new ResultManifest();
-    manifest.setIsVolumeOperation(true);
     ResultData data = new ResultData();
     data.setVolumeOperationInfo(
         new VolumeOperationInfo()
             .setVolumeOperationType("INVALID")
-            .setPresignedUrl(new ExternalLink().setExternalLink("url")));
+            .setExternalLinks(List.of(new ExternalLink().setExternalLink("url"))));
     IExecutionResult result =
         ExecutionResultFactory.getResultSet(data, manifest, "statementId", session);
 
@@ -73,7 +75,9 @@ public class ExecutionResultFactoryTest {
   @Test
   public void testGetResultSet_thriftColumnar() throws DatabricksSQLException {
     when(resultSetMetadataResp.getResultFormat()).thenReturn(TSparkRowSetType.COLUMN_BASED_SET);
-    IExecutionResult result = ExecutionResultFactory.getResultSet(tRowSet, resultSetMetadataResp);
+    IExecutionResult result =
+        ExecutionResultFactory.getResultSet(
+            tRowSet, resultSetMetadataResp, TEST_STATEMENT_ID, session);
     assertInstanceOf(InlineJsonResult.class, result);
   }
 
@@ -82,22 +86,28 @@ public class ExecutionResultFactoryTest {
     when(resultSetMetadataResp.getResultFormat()).thenReturn(TSparkRowSetType.ROW_BASED_SET);
     assertThrows(
         DatabricksSQLFeatureNotSupportedException.class,
-        () -> ExecutionResultFactory.getResultSet(tRowSet, resultSetMetadataResp));
+        () ->
+            ExecutionResultFactory.getResultSet(
+                tRowSet, resultSetMetadataResp, TEST_STATEMENT_ID, session));
   }
 
   @Test
-  public void testGetResultSet_thriftURL() {
+  public void testGetResultSet_thriftURL() throws DatabricksSQLException {
     when(resultSetMetadataResp.getResultFormat()).thenReturn(TSparkRowSetType.URL_BASED_SET);
-    assertThrows(
-        DatabricksSQLFeatureNotImplementedException.class,
-        () -> ExecutionResultFactory.getResultSet(tRowSet, resultSetMetadataResp));
+    when(session.getConnectionContext()).thenReturn(context);
+    IExecutionResult result =
+        ExecutionResultFactory.getResultSet(
+            tRowSet, resultSetMetadataResp, TEST_STATEMENT_ID, session);
+    assertInstanceOf(ArrowStreamResult.class, result);
   }
 
   @Test
   public void testGetResultSet_thriftInlineArrow() throws DatabricksSQLException {
     when(resultSetMetadataResp.getResultFormat()).thenReturn(TSparkRowSetType.ARROW_BASED_SET);
     ExecutionResultFactory executionResultFactory = new ExecutionResultFactory();
-    IExecutionResult result = executionResultFactory.getResultSet(tRowSet, resultSetMetadataResp);
+    IExecutionResult result =
+        executionResultFactory.getResultSet(
+            tRowSet, resultSetMetadataResp, TEST_STATEMENT_ID, session);
     assertInstanceOf(ArrowStreamResult.class, result);
   }
 }

@@ -125,4 +125,6 @@ public final class DatabricksJdbcConstants {
     SQL_EXEC,
     CLOUD_FETCH
   }
+
+  public static final String USE_THRIFT_CLIENT = "usethriftclient";
 }

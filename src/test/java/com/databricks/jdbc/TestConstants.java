@@ -26,6 +26,7 @@ public class TestConstants {
   public static final String TEST_CATALOG = "catalog1";
   public static final String TEST_FUNCTION_PATTERN = "functionPattern";
   public static final String TEST_STRING = "test";
+  public static final String TEST_STATEMENT_ID = "testStatementId";
   public static final TSessionHandle SESSION_HANDLE =
       new TSessionHandle().setSessionId(new THandleIdentifier().setGuid(SESSION_ID.getBytes()));
   public static final ImmutableSessionInfo SESSION_INFO =
@@ -36,6 +37,9 @@ public class TestConstants {
           .build();
   public static final String WAREHOUSE_JDBC_URL =
       "jdbc:databricks://adb-565757575.18.azuredatabricks.net:4423/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/warehouse_id;";
+
+  public static final String WAREHOUSE_JDBC_URL_WITH_THRIFT =
+      "jdbc:databricks://adb-565757575.18.azuredatabricks.net:4423/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/warehouse_id;UseThriftClient=1;";
 
   public static final TRowSet binaryRowSet =
       new TRowSet()
@@ -88,5 +92,6 @@ public class TestConstants {
       new TColumnDesc().setColumnName("testCol");
   public static final TTableSchema TEST_TABLE_SCHEMA =
       new TTableSchema().setColumns(Collections.singletonList(TEST_COLUMN_DESCRIPTION));
-  public static final byte[] TEST_BYTES = {65, 66, 67};
+  public static final byte[] TEST_BYTES =
+      ByteBuffer.allocate(Long.BYTES).putLong(123456789L).array();
 }

@@ -12,7 +12,7 @@ class ExecutionResultFactory {
   static IExecutionResult getResultSet(
       ResultData data, ResultManifest manifest, String statementId, IDatabricksSession session) {
     // Return Volume operation handler
-    if (manifest.getIsVolumeOperation() != null && manifest.getIsVolumeOperation()) {
+    if (data.getVolumeOperationInfo() != null) {
       return new VolumeOperationResult(data, statementId, session);
     }
     // We use JSON_ARRAY for metadata and update commands, and ARROW_STREAM for query results
@@ -27,13 +27,19 @@ class ExecutionResultFactory {
     }
   }
 
-  static IExecutionResult getResultSet(TRowSet data, TGetResultSetMetadataResp manifest)
+  static IExecutionResult getResultSet(
+      TRowSet data,
+      TGetResultSetMetadataResp manifest,
+      String statementId,
+      IDatabricksSession session)
       throws DatabricksSQLException {
     switch (manifest.getResultFormat()) {
       case COLUMN_BASED_SET:
         return getResultSet(convertColumnarToRowBased(data));
       case ARROW_BASED_SET:
-        return new ArrowStreamResult(manifest, data);
+        return new ArrowStreamResult(manifest, data, true, statementId, session);
+      case URL_BASED_SET:
+        return new ArrowStreamResult(manifest, data, false, statementId, session);
       case ROW_BASED_SET:
         throw new DatabricksSQLFeatureNotSupportedException(
             "Invalid state - row based set cannot be received");

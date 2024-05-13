@@ -13,6 +13,7 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.nio.file.Files;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import org.apache.http.HttpEntity;
 import org.apache.http.StatusLine;
@@ -45,8 +46,11 @@ public class VolumeOperationResultTest {
       new VolumeOperationInfo()
           .setVolumeOperationType("PUT")
           .setLocalFile("localFile")
-          .setPresignedUrl(
-              new ExternalLink().setExternalLink("externalLink").setHttpHeaders(new HashMap<>()));
+          .setExternalLinks(
+              List.of(
+                  new ExternalLink()
+                      .setExternalLink("externalLink")
+                      .setHttpHeaders(new HashMap<>())));
   private static final ResultData RESULT_DATA =
       new ResultData().setVolumeOperationInfo(VOLUME_OPERATION_INFO);
 
@@ -67,7 +71,7 @@ public class VolumeOperationResultTest {
                 new VolumeOperationInfo()
                     .setVolumeOperationType("GET")
                     .setLocalFile(LOCAL_FILE_GET)
-                    .setPresignedUrl(presignedUrl));
+                    .setExternalLinks(List.of(presignedUrl)));
     VolumeOperationResult volumeOperationResult =
         new VolumeOperationResult(resultData, STATEMENT_ID, session, mockHttpClient);
 
@@ -102,7 +106,7 @@ public class VolumeOperationResultTest {
                 new VolumeOperationInfo()
                     .setVolumeOperationType("GET")
                     .setLocalFile(LOCAL_FILE_GET)
-                    .setPresignedUrl(presignedUrl));
+                    .setExternalLinks(List.of(presignedUrl)));
     VolumeOperationResult volumeOperationResult =
         new VolumeOperationResult(resultData, STATEMENT_ID, session, mockHttpClient);
 
@@ -129,7 +133,7 @@ public class VolumeOperationResultTest {
                 new VolumeOperationInfo()
                     .setVolumeOperationType("GET")
                     .setLocalFile("localFileOther")
-                    .setPresignedUrl(presignedUrl));
+                    .setExternalLinks(List.of(presignedUrl)));
     VolumeOperationResult volumeOperationResult =
         new VolumeOperationResult(resultData, STATEMENT_ID, session, mockHttpClient);
 
@@ -156,7 +160,7 @@ public class VolumeOperationResultTest {
                 new VolumeOperationInfo()
                     .setVolumeOperationType("GET")
                     .setLocalFile("getvolfile.csv")
-                    .setPresignedUrl(presignedUrl));
+                    .setExternalLinks(List.of(presignedUrl)));
     VolumeOperationResult volumeOperationResult =
         new VolumeOperationResult(resultData, STATEMENT_ID, session, mockHttpClient);
 
@@ -183,7 +187,7 @@ public class VolumeOperationResultTest {
                 new VolumeOperationInfo()
                     .setVolumeOperationType("GET")
                     .setLocalFile("")
-                    .setPresignedUrl(presignedUrl));
+                    .setExternalLinks(List.of(presignedUrl)));
     VolumeOperationResult volumeOperationResult =
         new VolumeOperationResult(resultData, STATEMENT_ID, session, mockHttpClient);
 
@@ -213,7 +217,7 @@ public class VolumeOperationResultTest {
                 new VolumeOperationInfo()
                     .setVolumeOperationType("GET")
                     .setLocalFile(LOCAL_FILE_GET)
-                    .setPresignedUrl(presignedUrl));
+                    .setExternalLinks(List.of(presignedUrl)));
     VolumeOperationResult volumeOperationResult =
         new VolumeOperationResult(resultData, STATEMENT_ID, session, mockHttpClient);
 
@@ -242,7 +246,7 @@ public class VolumeOperationResultTest {
                 new VolumeOperationInfo()
                     .setVolumeOperationType("GET")
                     .setLocalFile("../newFile.csv")
-                    .setPresignedUrl(presignedUrl));
+                    .setExternalLinks(List.of(presignedUrl)));
     VolumeOperationResult volumeOperationResult =
         new VolumeOperationResult(resultData, STATEMENT_ID, session, mockHttpClient);
 
@@ -272,7 +276,7 @@ public class VolumeOperationResultTest {
                 new VolumeOperationInfo()
                     .setVolumeOperationType("GET")
                     .setLocalFile(LOCAL_FILE_GET)
-                    .setPresignedUrl(presignedUrl));
+                    .setExternalLinks(List.of(presignedUrl)));
     VolumeOperationResult volumeOperationResult =
         new VolumeOperationResult(resultData, STATEMENT_ID, session, mockHttpClient);
 
@@ -305,7 +309,7 @@ public class VolumeOperationResultTest {
                 new VolumeOperationInfo()
                     .setVolumeOperationType("PUT")
                     .setLocalFile(LOCAL_FILE_PUT)
-                    .setPresignedUrl(presignedUrl));
+                    .setExternalLinks(List.of(presignedUrl)));
     VolumeOperationResult volumeOperationResult =
         new VolumeOperationResult(resultData, STATEMENT_ID, session, mockHttpClient);
 
@@ -338,7 +342,7 @@ public class VolumeOperationResultTest {
                 new VolumeOperationInfo()
                     .setVolumeOperationType("PUT")
                     .setLocalFile(LOCAL_FILE_PUT)
-                    .setPresignedUrl(presignedUrl));
+                    .setExternalLinks(List.of(presignedUrl)));
     VolumeOperationResult volumeOperationResult =
         new VolumeOperationResult(resultData, STATEMENT_ID, session, mockHttpClient);
 
@@ -371,7 +375,7 @@ public class VolumeOperationResultTest {
                 new VolumeOperationInfo()
                     .setVolumeOperationType("PUT")
                     .setLocalFile(LOCAL_FILE_PUT)
-                    .setPresignedUrl(presignedUrl));
+                    .setExternalLinks(List.of(presignedUrl)));
     VolumeOperationResult volumeOperationResult =
         new VolumeOperationResult(resultData, STATEMENT_ID, session, mockHttpClient);
 
@@ -400,7 +404,7 @@ public class VolumeOperationResultTest {
                 new VolumeOperationInfo()
                     .setVolumeOperationType("PUT")
                     .setLocalFile(LOCAL_FILE_PUT)
-                    .setPresignedUrl(presignedUrl));
+                    .setExternalLinks(List.of(presignedUrl)));
     VolumeOperationResult volumeOperationResult =
         new VolumeOperationResult(resultData, STATEMENT_ID, session, mockHttpClient);
 
@@ -428,7 +432,7 @@ public class VolumeOperationResultTest {
                 new VolumeOperationInfo()
                     .setVolumeOperationType("FETCH")
                     .setLocalFile(LOCAL_FILE_PUT)
-                    .setPresignedUrl(presignedUrl));
+                    .setExternalLinks(List.of(presignedUrl)));
     VolumeOperationResult volumeOperationResult =
         new VolumeOperationResult(resultData, STATEMENT_ID, session, mockHttpClient);
 
@@ -457,7 +461,7 @@ public class VolumeOperationResultTest {
             .setVolumeOperationInfo(
                 new VolumeOperationInfo()
                     .setVolumeOperationType("REMOVE")
-                    .setPresignedUrl(presignedUrl));
+                    .setExternalLinks(List.of(presignedUrl)));
     VolumeOperationResult volumeOperationResult =
         new VolumeOperationResult(resultData, STATEMENT_ID, session, mockHttpClient);
 
@@ -491,7 +495,7 @@ public class VolumeOperationResultTest {
             .setVolumeOperationInfo(
                 new VolumeOperationInfo()
                     .setVolumeOperationType("REMOVE")
-                    .setPresignedUrl(presignedUrl));
+                    .setExternalLinks(List.of(presignedUrl)));
     VolumeOperationResult volumeOperationResult =
         new VolumeOperationResult(resultData, STATEMENT_ID, session, mockHttpClient);
 
@@ -520,7 +524,7 @@ public class VolumeOperationResultTest {
                 new VolumeOperationInfo()
                     .setVolumeOperationType("INVALID")
                     .setLocalFile(LOCAL_FILE_GET)
-                    .setPresignedUrl(presignedUrl));
+                    .setExternalLinks(List.of(presignedUrl)));
     VolumeOperationResult volumeOperationResult =
         new VolumeOperationResult(resultData, STATEMENT_ID, session, mockHttpClient);
 
@@ -529,6 +533,30 @@ public class VolumeOperationResultTest {
       fail("Should throw DatabricksSQLException");
     } catch (DatabricksSQLException e) {
       assertEquals("Invalid row access", e.getMessage());
+    }
+  }
+
+  @Test
+  public void testGetResult_Get_emptyLink() throws Exception {
+    when(session.getClientInfoProperties())
+        .thenReturn(Map.of(ALLOWED_VOLUME_INGESTION_PATHS.toLowerCase(), ALLOWED_PATHS));
+
+    ResultData resultData =
+        new ResultData()
+            .setVolumeOperationInfo(
+                new VolumeOperationInfo()
+                    .setVolumeOperationType("GET")
+                    .setLocalFile(LOCAL_FILE_GET));
+    VolumeOperationResult volumeOperationResult =
+        new VolumeOperationResult(resultData, STATEMENT_ID, session, mockHttpClient);
+
+    assertTrue(volumeOperationResult.hasNext());
+    assertEquals(-1, volumeOperationResult.getCurrentRow());
+    try {
+      volumeOperationResult.next();
+      fail("Should throw DatabricksSQLException");
+    } catch (DatabricksSQLException e) {
+      assertEquals("Volume operation aborted: Volume operation URL is not set", e.getMessage());
     }
   }
 }

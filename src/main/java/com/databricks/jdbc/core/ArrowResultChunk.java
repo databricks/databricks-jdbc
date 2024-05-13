@@ -1,10 +1,12 @@
 package com.databricks.jdbc.core;
 
+import static com.databricks.jdbc.client.impl.thrift.commons.DatabricksThriftHelper.createExternalLink;
 import static com.databricks.jdbc.commons.util.ValidationUtil.checkHTTPError;
 import static com.databricks.jdbc.driver.DatabricksJdbcConstants.IS_FAKE_SERVICE_TEST_PROP;
 
 import com.databricks.jdbc.client.DatabricksHttpException;
 import com.databricks.jdbc.client.IDatabricksHttpClient;
+import com.databricks.jdbc.client.impl.thrift.generated.TSparkArrowResultLink;
 import com.databricks.jdbc.client.sqlexec.ExternalLink;
 import com.databricks.jdbc.commons.util.DecompressionUtil;
 import com.databricks.jdbc.core.types.CompressionType;
@@ -139,6 +141,28 @@ public class ArrowResultChunk {
     } catch (Exception e) {
       handleFailure(e, ChunkStatus.EXTRACT_FAILED);
     }
+    this.compressionType = compressionType;
+  }
+
+  ArrowResultChunk(
+      long chunkIndex,
+      TSparkArrowResultLink chunkInfo,
+      String statementId,
+      CompressionType compressionType) {
+    this.chunkIndex = chunkIndex;
+    this.numRows = chunkInfo.getRowCount();
+    this.rowOffset = chunkInfo.getStartRowOffset();
+    this.expiryTime = Instant.ofEpochMilli(chunkInfo.getExpiryTime());
+    this.byteCount = chunkInfo.getBytesNum();
+    this.status = ChunkStatus.URL_FETCHED; // URL has always been fetched in case of thrift
+    this.rootAllocator = new RootAllocator(/* limit= */ Integer.MAX_VALUE);
+    this.chunkLink = createExternalLink(chunkInfo, chunkIndex);
+    this.downloadStartTime = null;
+    this.downloadFinishTime = null;
+    this.statementId = statementId;
+    isDataInitialized = false;
+    this.errorMessage = null;
+    this.vectorSchemaRoot = null;
     this.compressionType = compressionType;
   }
 

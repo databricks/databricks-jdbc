@@ -36,9 +36,6 @@ public class ResultManifest {
   @JsonProperty("compression_codec")
   private CompressionType compressionType;
 
-  @JsonProperty("is_volume_operation")
-  private Boolean isVolumeOperation;
-
   public ResultManifest() {}
 
   public ResultManifest setChunks(Collection<BaseChunkInfo> chunks) {
@@ -111,15 +108,6 @@ public class ResultManifest {
 
   public Boolean getTruncated() {
     return this.truncated;
-  }
-
-  public ResultManifest setIsVolumeOperation(Boolean isVolumeOperation) {
-    this.isVolumeOperation = isVolumeOperation;
-    return this;
-  }
-
-  public Boolean getIsVolumeOperation() {
-    return this.isVolumeOperation;
   }
 
   public boolean equals(Object o) {
