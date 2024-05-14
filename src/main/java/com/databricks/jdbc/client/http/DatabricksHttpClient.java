@@ -161,7 +161,7 @@ public class DatabricksHttpClient implements IDatabricksHttpClient {
           connectionContext.getUseProxyAuth(),
           connectionContext.getProxyUser(),
           connectionContext.getProxyPassword());
-    } else if (Boolean.parseBoolean(System.getProperty(IS_FAKE_SERVICE_TEST_PROP, "false"))) {
+    } else if (Boolean.parseBoolean(System.getProperty(IS_FAKE_SERVICE_TEST_PROP))) {
       setFakeServiceRouteInHttpClient(builder);
     }
 
@@ -189,7 +189,7 @@ public class DatabricksHttpClient implements IDatabricksHttpClient {
   }
 
   @VisibleForTesting
-  public static void setFakeServiceRouteInHttpClient(HttpClientBuilder builder) {
+  static void setFakeServiceRouteInHttpClient(HttpClientBuilder builder) {
     builder.setRoutePlanner(
         (host, request, context) -> {
           // Get the fake service URI for the target URI and set it as proxy

@@ -262,7 +262,7 @@ public class ArrowResultChunk {
   /** Checks if the link is valid */
   boolean isChunkLinkInvalid() {
     return status == ChunkStatus.PENDING
-        || (!Boolean.parseBoolean(System.getProperty(IS_FAKE_SERVICE_TEST_PROP, "false"))
+        || (!Boolean.parseBoolean(System.getProperty(IS_FAKE_SERVICE_TEST_PROP))
             && expiryTime.minusSeconds(SECONDS_BUFFER_FOR_EXPIRY).isBefore(Instant.now()));
   }
 

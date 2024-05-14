@@ -68,7 +68,7 @@ public class ExecutionIntegrationTests {
     while (rs != null && rs.next()) {
       rows++;
     }
-    assertTrue(rows == 1, "Expected 1 row, got " + rows);
+    assertEquals(1, rows, "Expected 1 row, got " + rows);
     deleteTable(tableName);
 
     // A session request is sent

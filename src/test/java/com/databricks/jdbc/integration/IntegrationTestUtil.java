@@ -18,12 +18,14 @@ public class IntegrationTestUtil {
   private static Connection JDBCConnection;
 
   public static String getDatabricksHost() {
-    if (Boolean.parseBoolean(System.getProperty(IS_FAKE_SERVICE_TEST_PROP, "false"))) {
+    if (Boolean.parseBoolean(System.getProperty(IS_FAKE_SERVICE_TEST_PROP))) {
+      // Target base URL of the fake service type
       String serviceURI =
           System.getProperty(
               FakeServiceType.SQL_EXEC.name().toLowerCase() + TARGET_URI_PROP_SUFFIX);
       URI fakeServiceURI;
       try {
+        // Fake service URL for the base URL
         fakeServiceURI = new URI(System.getProperty(serviceURI + FAKE_SERVICE_URI_PROP_SUFFIX));
       } catch (URISyntaxException e) {
         throw new RuntimeException(e);
@@ -86,7 +88,7 @@ public class IntegrationTestUtil {
 
   public static String getJDBCUrl() {
     String template =
-        Boolean.parseBoolean(System.getProperty(IS_FAKE_SERVICE_TEST_PROP, "false"))
+        Boolean.parseBoolean(System.getProperty(IS_FAKE_SERVICE_TEST_PROP))
             ? "jdbc:databricks://%s/default;transportMode=http;ssl=1;AuthMech=3;httpPath=%s"
             : "jdbc:databricks://%s/default;ssl=1;AuthMech=3;httpPath=%s";
 

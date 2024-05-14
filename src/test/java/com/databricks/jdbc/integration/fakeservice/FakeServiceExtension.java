@@ -236,6 +236,8 @@ public class FakeServiceExtension extends DatabricksWireMockExtension {
     Path dir = Paths.get(dirPath);
     if (!Files.exists(dir)) {
       Files.createDirectories(dir);
+      // Stub mappings directory should be tracked by git even if it's empty
+      Files.createFile(dir.resolve(".gitkeep"));
       return;
     }
 

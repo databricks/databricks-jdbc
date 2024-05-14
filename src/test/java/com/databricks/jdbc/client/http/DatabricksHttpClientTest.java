@@ -95,6 +95,31 @@ public class DatabricksHttpClientTest {
     // Verify the route is set to the fake service URI
     assertEquals(proxy, route.getProxyHost());
     assertEquals(2, route.getHopCount());
+
+    System.clearProperty(testTargetURI + FAKE_SERVICE_URI_PROP_SUFFIX);
+  }
+
+  @Test
+  public void testSetFakeServiceRouteInHttpClientThrowsError() {
+    final String testTargetURI = "https://example.com";
+
+    HttpClientBuilder httpClientBuilder = Mockito.mock(HttpClientBuilder.class);
+    ArgumentCaptor<HttpRoutePlanner> routePlannerCaptor =
+        ArgumentCaptor.forClass(HttpRoutePlanner.class);
+
+    DatabricksHttpClient.setFakeServiceRouteInHttpClient(httpClientBuilder);
+
+    Mockito.verify(httpClientBuilder).setRoutePlanner(routePlannerCaptor.capture());
+    HttpRoutePlanner capturedRoutePlanner = routePlannerCaptor.getValue();
+
+    HttpGet request = new HttpGet(testTargetURI);
+
+    // Determine route should throw an error as the fake service URI is not set
+    assertThrows(
+        IllegalArgumentException.class,
+        () ->
+            capturedRoutePlanner.determineRoute(
+                HttpHost.create(request.getURI().toString()), request, null));
   }
 
   @Test
