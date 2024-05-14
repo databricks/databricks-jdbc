@@ -118,8 +118,7 @@ public class IntegrationTestUtil {
   }
 
   public static String getBenchfoodJDBCUrl() {
-    String template =
-            "jdbc:databricks://%s/default;transportMode=http;ssl=1;AuthMech=3;httpPath=%s";
+    String template ="jdbc:databricks://%s/default;transportMode=http;ssl=1;AuthMech=3;httpPath=%s";
     String host = getDatabricksBenchfoodHost();
     String httpPath = getDatabricksBenchfoodHTTPPath();
 
