@@ -23,7 +23,6 @@ public final class DatabricksJdbcConstants {
   static final String DEFAULT_SCHEMA = "default";
   static final String DEFAULT_CATALOG = "SPARK";
   public static final String PAIR_DELIMITER = "=";
-  static final String TOKEN = "token";
   public static final String USER = "user";
   public static final String PASSWORD = "password";
 
@@ -54,7 +53,6 @@ public final class DatabricksJdbcConstants {
   static final String AUTH_FLOW = "auth_flow";
 
   // Only used when AUTH_MECH = 3
-  static final String UID = "uid";
   static final String PWD = "pwd";
 
   static final String AWS_CLIENT_ID = "databricks-sql-jdbc";
