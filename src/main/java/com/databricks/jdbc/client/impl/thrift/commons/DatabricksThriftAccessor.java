@@ -35,7 +35,6 @@ public class DatabricksThriftAccessor {
             DatabricksHttpClient.getInstance(connectionContext),
             connectionContext.getEndpointURL());
     this.databricksConfig = new OAuthAuthenticator(connectionContext).getDatabricksConfig();
-    databricksConfig.getAuthType();
     Map<String, String> authHeaders = databricksConfig.authenticate();
     transport.setCustomHeaders(authHeaders);
     TBinaryProtocol protocol = new TBinaryProtocol(transport);
@@ -59,7 +58,7 @@ public class DatabricksThriftAccessor {
         "Fetching thrift response for request {}, CommandName {}",
         request.toString(),
         commandName.name());
-    refreshHeaders();
+    refreshHeadersIfRequired();
     try {
       switch (commandName) {
         case OPEN_SESSION:
@@ -102,7 +101,7 @@ public class DatabricksThriftAccessor {
 
   public TFetchResultsResp getResultSetResp(TOperationHandle operationHandle, String context)
       throws DatabricksHttpException {
-    refreshHeaders();
+    refreshHeadersIfRequired();
     return getResultSetResp(
         TStatusCode.SUCCESS_STATUS, operationHandle, context, DEFAULT_ROW_LIMIT, false);
   }
@@ -165,7 +164,7 @@ public class DatabricksThriftAccessor {
       IDatabricksSession session,
       StatementType statementType)
       throws SQLException {
-    refreshHeaders();
+    refreshHeadersIfRequired();
     int maxRows = (parentStatement == null) ? DEFAULT_ROW_LIMIT : parentStatement.getMaxRows();
     TSparkGetDirectResults directResults =
         new TSparkGetDirectResults().setMaxBytes(DEFAULT_BYTE_LIMIT).setMaxRows(maxRows);
@@ -342,7 +341,7 @@ public class DatabricksThriftAccessor {
     return thriftClient.GetResultSetMetadata(resultSetMetadataReq);
   }
 
-  private void refreshHeaders() {
+  private void refreshHeadersIfRequired() {
     ((DatabricksHttpTTransport) thriftClient.getInputProtocol().getTransport())
         .setCustomHeaders(databricksConfig.authenticate());
   }
