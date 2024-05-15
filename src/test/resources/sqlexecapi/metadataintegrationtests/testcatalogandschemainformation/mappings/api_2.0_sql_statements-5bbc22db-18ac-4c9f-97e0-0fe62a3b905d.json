@@ -1,0 +1,32 @@
+{
+  "id" : "5bbc22db-18ac-4c9f-97e0-0fe62a3b905d",
+  "name" : "api_2.0_sql_statements",
+  "request" : {
+    "url" : "/api/2.0/sql/statements/",
+    "method" : "POST",
+    "bodyPatterns" : [ {
+      "equalToJson" : "{\"statement\":\"show tables from main.jdbc_test_schema\",\"warehouse_id\":\"791ba2a31c7fd70a\",\"session_id\":\"01ef0e3a-5019-1e50-b887-4c7ba80cb4d6\",\"disposition\":\"INLINE\",\"format\":\"JSON_ARRAY\",\"on_wait_timeout\":\"CONTINUE\",\"wait_timeout\":\"10s\",\"parameters\":[],\"compression_codec\":\"NONE\"}",
+      "ignoreArrayOrder" : true,
+      "ignoreExtraElements" : true
+    } ]
+  },
+  "response" : {
+    "status" : 200,
+    "body" : "{\"statement_id\":\"01ef0e3a-59b0-1030-bec3-607bccf34712\",\"status\":{\"state\":\"SUCCEEDED\"},\"manifest\":{\"format\":\"JSON_ARRAY\",\"schema\":{\"column_count\":3,\"columns\":[{\"name\":\"database\",\"type_text\":\"STRING\",\"type_name\":\"STRING\",\"position\":0},{\"name\":\"tableName\",\"type_text\":\"STRING\",\"type_name\":\"STRING\",\"position\":1},{\"name\":\"isTemporary\",\"type_text\":\"BOOLEAN\",\"type_name\":\"BOOLEAN\",\"position\":2}]},\"total_chunk_count\":1,\"chunks\":[{\"chunk_index\":0,\"row_offset\":0,\"row_count\":2}],\"total_row_count\":2,\"truncated\":false},\"result\":{\"chunk_index\":0,\"row_offset\":0,\"row_count\":2,\"data_array\":[[\"jdbc_test_schema\",\"catalog_and_schema_test_table\",\"false\"],[\"jdbc_test_schema\",\"complex_data_types_test\",\"false\"]]}}",
+    "headers" : {
+      "date" : "Thu, 9 May 2024 19:28:45 GMT",
+      "server" : "databricks",
+      "x-databricks-popp-request-id" : "445c705e-8209-4731-8a51-f582d22f7498",
+      "x-content-type-options" : "nosniff",
+      "x-databricks-shard-debug" : "oregon-staging",
+      "vary" : "Accept-Encoding",
+      "x-databricks-popp-shadow-routing-reason" : "deployment-name",
+      "x-databricks-org-id" : "6051921418418893",
+      "x-databricks-popp-routing-reason" : "deployment-name",
+      "content-type" : "application/json",
+      "strict-transport-security" : "max-age=31536000; includeSubDomains; preload"
+    }
+  },
+  "uuid" : "5bbc22db-18ac-4c9f-97e0-0fe62a3b905d",
+  "insertionIndex" : 16
+}
