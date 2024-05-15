@@ -34,11 +34,7 @@ public class DatabricksThriftAccessor {
         new DatabricksHttpTTransport(
             DatabricksHttpClient.getInstance(connectionContext),
             connectionContext.getEndpointURL());
-    // TODO : add other auth in followup PRs
-    this.databricksConfig =
-        new DatabricksConfig()
-            .setHost(connectionContext.getHostUrl())
-            .setToken(connectionContext.getToken());
+    this.databricksConfig = new OAuthAuthenticator(connectionContext).getDatabricksConfig();
     Map<String, String> authHeaders = databricksConfig.authenticate();
     transport.setCustomHeaders(authHeaders);
     TBinaryProtocol protocol = new TBinaryProtocol(transport);
@@ -46,8 +42,8 @@ public class DatabricksThriftAccessor {
   }
 
   @VisibleForTesting
-  public DatabricksThriftAccessor(TCLIService.Client client) {
-    this.databricksConfig = null;
+  DatabricksThriftAccessor(TCLIService.Client client, DatabricksConfig config) {
+    this.databricksConfig = config;
     this.thriftClient = client;
   }
 
@@ -55,16 +51,14 @@ public class DatabricksThriftAccessor {
       TBase request, CommandName commandName, IDatabricksStatement parentStatement)
       throws DatabricksSQLException {
     /*Todo list :
-     *  1. Poll until we get a success status
-     *  2. Test out metadata operations.
-     *  3. Add token refresh
-     *  4. Handle cloud-fetch
-     *  5. Handle compression
+     *  1. Test out metadata operations.
+     *  2. Handle compression
      * */
     LOGGER.debug(
         "Fetching thrift response for request {}, CommandName {}",
         request.toString(),
         commandName.name());
+    refreshHeadersIfRequired();
     try {
       switch (commandName) {
         case OPEN_SESSION:
@@ -107,11 +101,12 @@ public class DatabricksThriftAccessor {
 
   public TFetchResultsResp getResultSetResp(TOperationHandle operationHandle, String context)
       throws DatabricksHttpException {
+    refreshHeadersIfRequired();
     return getResultSetResp(
         TStatusCode.SUCCESS_STATUS, operationHandle, context, DEFAULT_ROW_LIMIT, false);
   }
 
-  public TFetchResultsResp getResultSetResp(
+  private TFetchResultsResp getResultSetResp(
       TStatusCode responseCode,
       TOperationHandle operationHandle,
       String context,
@@ -169,6 +164,7 @@ public class DatabricksThriftAccessor {
       IDatabricksSession session,
       StatementType statementType)
       throws SQLException {
+    refreshHeadersIfRequired();
     int maxRows = (parentStatement == null) ? DEFAULT_ROW_LIMIT : parentStatement.getMaxRows();
     TSparkGetDirectResults directResults =
         new TSparkGetDirectResults().setMaxBytes(DEFAULT_BYTE_LIMIT).setMaxRows(maxRows);
@@ -338,10 +334,15 @@ public class DatabricksThriftAccessor {
         false);
   }
 
-  public TGetResultSetMetadataResp getResultSetMetadata(TOperationHandle operationHandle)
+  private TGetResultSetMetadataResp getResultSetMetadata(TOperationHandle operationHandle)
       throws TException {
     TGetResultSetMetadataReq resultSetMetadataReq =
         new TGetResultSetMetadataReq().setOperationHandle(operationHandle);
     return thriftClient.GetResultSetMetadata(resultSetMetadataReq);
+  }
+
+  private void refreshHeadersIfRequired() {
+    ((DatabricksHttpTTransport) thriftClient.getInputProtocol().getTransport())
+        .setCustomHeaders(databricksConfig.authenticate());
   }
 }

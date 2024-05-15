@@ -100,4 +100,14 @@ public class OAuthAuthenticatorTest {
     assertEquals(DatabricksJdbcConstants.U2M_AUTH_REDIRECT_URL, config.getOAuthRedirectUrl());
     assertEquals(DatabricksJdbcConstants.U2M_AUTH_TYPE, config.getAuthType());
   }
+
+  @Test
+  void testNonOauth() throws DatabricksParsingException {
+    when(mockContext.getHostForOAuth()).thenReturn("https://oauth-client.databricks.com");
+    when(mockContext.getClientId()).thenReturn("client-id");
+    when(mockContext.getClientSecret()).thenReturn("client-secret");
+    when(mockContext.getAuthMech()).thenReturn(IDatabricksConnectionContext.AuthMech.OTHER);
+    DatabricksConfig config = authenticator.getDatabricksConfig();
+    assertEquals(DatabricksJdbcConstants.ACCESS_TOKEN_AUTH_TYPE, config.getAuthType());
+  }
 }
