@@ -39,7 +39,7 @@ public class MetadataIntegrationTests {
               .options(
                   wireMockConfig().dynamicPort().dynamicHttpsPort().extensions(getExtensions())),
           FakeServiceType.SQL_EXEC,
-          "https://e2-dogfood.staging.cloud.databricks.com");
+          "https://" + System.getenv("DATABRICKS_HOST"));
 
   /**
    * {@link FakeServiceExtension} for {@link FakeServiceType#CLOUD_FETCH}. Intercepts all requests
@@ -52,7 +52,7 @@ public class MetadataIntegrationTests {
               .options(
                   wireMockConfig().dynamicPort().dynamicHttpsPort().extensions(getExtensions())),
           FakeServiceType.CLOUD_FETCH,
-          "https://e2-dogfood-core.s3.us-west-2.amazonaws.com");
+          "https://dbstoragepzjc6kojqibtg.blob.core.windows.net");
 
   private Connection connection;
 

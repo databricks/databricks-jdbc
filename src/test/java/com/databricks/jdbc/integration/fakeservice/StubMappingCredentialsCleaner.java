@@ -21,9 +21,11 @@ public class StubMappingCredentialsCleaner extends StubMappingTransformer {
 
   private static final String AMAZON_S3_SERVER_VALUE = "AmazonS3";
 
+  private static final String AZURE_STORAGE_SERVER_VALUE = "Windows-Azure-Blob/1.0";
+
   /** Pattern to match sensitive credentials in the stub mappings. */
   private static final Pattern SENSITIVE_CREDS_PATTERN =
-      Pattern.compile("(X-Amz-Security-Token|X-Amz-Credential)=[^&\"]*[&\"]");
+      Pattern.compile("(X-Amz-Security-Token|X-Amz-Credential|sig)=[^&\"]*[&\"]");
 
   /** {@inheritDoc} */
   @Override
@@ -32,7 +34,9 @@ public class StubMappingCredentialsCleaner extends StubMappingTransformer {
     String serverHeaderValue =
         stubMapping.getResponse().getHeaders().getHeader(SERVER_HEADER_NAME).firstValue();
 
-    if (STATEMENT_PATH.equals(requestUrl) || AMAZON_S3_SERVER_VALUE.equals(serverHeaderValue)) {
+    if (STATEMENT_PATH.equals(requestUrl)
+        || AMAZON_S3_SERVER_VALUE.equals(serverHeaderValue)
+        || serverHeaderValue.startsWith(AZURE_STORAGE_SERVER_VALUE)) {
       // Clean credentials from statement requests (embedded S3 links) and Amazon S3 responses.
       String jsonString = StubMapping.buildJsonStringFor(stubMapping);
       String transformedJsonString = removeSensitiveCredentials(jsonString);

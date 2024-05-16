@@ -123,6 +123,34 @@ public class DatabricksHttpClientTest {
   }
 
   @Test
+  public void testSetFakeServiceRouteInHttpClientThrowsHTTPError() {
+    // Invalid scheme
+    final String testTargetURI = "invalid://example.com";
+    final String testFakeServiceURI = "http://localhost:8080";
+    System.setProperty(testTargetURI + FAKE_SERVICE_URI_PROP_SUFFIX, testFakeServiceURI);
+
+    HttpClientBuilder httpClientBuilder = Mockito.mock(HttpClientBuilder.class);
+    ArgumentCaptor<HttpRoutePlanner> routePlannerCaptor =
+        ArgumentCaptor.forClass(HttpRoutePlanner.class);
+
+    DatabricksHttpClient.setFakeServiceRouteInHttpClient(httpClientBuilder);
+
+    Mockito.verify(httpClientBuilder).setRoutePlanner(routePlannerCaptor.capture());
+    HttpRoutePlanner capturedRoutePlanner = routePlannerCaptor.getValue();
+
+    HttpGet request = new HttpGet(testTargetURI);
+
+    // Determine route should throw HTTP error as the target URI is invalid
+    assertThrows(
+        HttpException.class,
+        () ->
+            capturedRoutePlanner.determineRoute(
+                HttpHost.create(request.getURI().toString()), request, null));
+
+    System.clearProperty(testTargetURI + FAKE_SERVICE_URI_PROP_SUFFIX);
+  }
+
+  @Test
   void testExecuteThrowsError() throws IOException {
     DatabricksHttpClient databricksHttpClient =
         new DatabricksHttpClient(mockHttpClient, connectionManager);
