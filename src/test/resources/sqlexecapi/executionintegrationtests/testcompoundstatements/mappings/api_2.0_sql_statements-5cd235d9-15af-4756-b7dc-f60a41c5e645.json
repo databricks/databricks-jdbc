@@ -1,0 +1,28 @@
+{
+  "id" : "5cd235d9-15af-4756-b7dc-f60a41c5e645",
+  "name" : "api_2.0_sql_statements",
+  "request" : {
+    "url" : "/api/2.0/sql/statements/",
+    "method" : "POST",
+    "bodyPatterns" : [ {
+      "equalToJson" : "{\"statement\":\"DELETE FROM main.jdbc_test_schema.compound_test_table WHERE id = 1\",\"warehouse_id\":\"2f03dd43e35e2aa0\",\"session_id\":\"01ef137d-3cc4-178a-a7df-6274e56acd57\",\"disposition\":\"EXTERNAL_LINKS\",\"format\":\"ARROW_STREAM\",\"on_wait_timeout\":\"CONTINUE\",\"wait_timeout\":\"10s\",\"parameters\":[],\"compression_codec\":\"NONE\"}",
+      "ignoreArrayOrder" : true,
+      "ignoreExtraElements" : true
+    } ]
+  },
+  "response" : {
+    "status" : 200,
+    "body" : "{\"statement_id\":\"01ef137d-482e-1f97-9e0e-a44894dfe508\",\"status\":{\"state\":\"SUCCEEDED\"},\"manifest\":{\"format\":\"ARROW_STREAM\",\"schema\":{\"column_count\":1,\"columns\":[{\"name\":\"num_affected_rows\",\"type_text\":\"BIGINT\",\"type_name\":\"LONG\",\"position\":0}]},\"total_chunk_count\":1,\"chunks\":[{\"chunk_index\":0,\"row_offset\":0,\"row_count\":1,\"byte_count\":336}],\"total_row_count\":1,\"total_byte_count\":336,\"truncated\":false},\"result\":{\"external_links\":[{\"chunk_index\":0,\"row_offset\":0,\"row_count\":1,\"byte_count\":336,\"external_link\":\"https://dbstoragepzjc6kojqibtg.blob.core.windows.net/jobs/6436897454825492/sql/extended/results_2024-05-17T13:10:29Z_2da94d24-7eda-4467-832b-f91acabc605a?se=2024-05-16T12%3A25%3A29Z&sv=2019-02-02&spr=https&sp=r&sr=b\",\"expiration\":\"2024-05-16T12:25:29.211Z\"}]}}",
+    "headers" : {
+      "date" : "Thu, 16 May 2024 12:10:29 GMT",
+      "server" : "databricks",
+      "x-content-type-options" : "nosniff",
+      "vary" : "Accept-Encoding",
+      "x-databricks-org-id" : "6436897454825492",
+      "content-type" : "application/json",
+      "strict-transport-security" : "max-age=31536000; includeSubDomains; preload"
+    }
+  },
+  "uuid" : "5cd235d9-15af-4756-b7dc-f60a41c5e645",
+  "insertionIndex" : 19
+}
