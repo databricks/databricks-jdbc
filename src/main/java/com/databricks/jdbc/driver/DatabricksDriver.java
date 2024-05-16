@@ -22,7 +22,7 @@ public class DatabricksDriver implements Driver {
 
   private static final int majorVersion = 0;
   private static final int minorVersion = 0;
-  private static final int buildVersion = 0;
+  private static final int buildVersion = 1;
 
   static {
     try {
