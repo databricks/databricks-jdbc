@@ -15,7 +15,6 @@ public class ConnectionIntegrationTests {
   void testSuccessfulConnection() throws SQLException {
     Connection conn = getValidJDBCConnection();
     assert ((conn != null) && !conn.isClosed());
-
     if (conn != null) conn.close();
   }
 
@@ -28,14 +27,13 @@ public class ConnectionIntegrationTests {
             () -> {
               DriverManager.getConnection(url, getDatabricksUser(), "bad_token");
             });
-
     assert (e.getMessage().contains("Invalid or unknown token or hostname provided"));
   }
 
   @Test
   void testIncorrectCredentialsForOAuth() throws SQLException {
     String template =
-        "jdbc:databricks://%s/default;transportMode=http;ssl=1;AuthMech=11;AuthFlow=0;httpPath=%s";
+        "jdbc:databricks://%s/default;transportMode=https;ssl=1;AuthMech=11;AuthFlow=0;httpPath=%s";
     String url = String.format(template, getDatabricksHost(), getDatabricksHTTPPath());
     DatabricksSQLException e =
         assertThrows(
