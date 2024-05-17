@@ -1,0 +1,30 @@
+{
+  "id" : "3a56226a-5f8d-4a8c-9b09-7088ea024fa1",
+  "name" : "api_2.0_sql_statements",
+  "request" : {
+    "url" : "/api/2.0/sql/statements/",
+    "method" : "POST",
+    "bodyPatterns" : [ {
+      "equalToJson" : "{\"statement\":\"SELECT counter FROM main.jdbc_test_schema.concurrency_test_table WHERE id = 1\",\"warehouse_id\":\"2f03dd43e35e2aa0\",\"session_id\":\"01ef143d-0c08-1fbb-8e53-c37f25673b29\",\"disposition\":\"EXTERNAL_LINKS\",\"format\":\"ARROW_STREAM\",\"on_wait_timeout\":\"CONTINUE\",\"wait_timeout\":\"10s\",\"parameters\":[],\"compression_codec\":\"NONE\"}",
+      "ignoreArrayOrder" : true,
+      "ignoreExtraElements" : true
+    } ]
+  },
+  "response" : {
+    "status" : 200,
+    "body" : "{\"statement_id\":\"01ef143d-123f-114d-9247-e78a80a541b3\",\"status\":{\"state\":\"SUCCEEDED\"},\"manifest\":{\"format\":\"ARROW_STREAM\",\"schema\":{\"column_count\":1,\"columns\":[{\"name\":\"counter\",\"type_text\":\"INT\",\"type_name\":\"INT\",\"position\":0}]},\"total_chunk_count\":1,\"chunks\":[{\"chunk_index\":0,\"row_offset\":0,\"row_count\":1,\"byte_count\":328}],\"total_row_count\":1,\"total_byte_count\":328,\"truncated\":false},\"result\":{\"external_links\":[{\"chunk_index\":0,\"row_offset\":0,\"row_count\":1,\"byte_count\":328,\"external_link\":\"https://dbstoragepzjc6kojqibtg.blob.core.windows.net/jobs/6436897454825492/sql/extended/results_2024-05-18T12:03:20Z_547ee4d2-9d52-4a34-8886-06e08ca0a73b?se=2024-05-17T11%3A18%3A21Z&sv=2019-02-02&spr=https&sp=r&sr=b\",\"expiration\":\"2024-05-17T11:18:21.250Z\"}]}}",
+    "headers" : {
+      "date" : "Fri, 17 May 2024 11:03:21 GMT",
+      "server" : "databricks",
+      "x-content-type-options" : "nosniff",
+      "vary" : "Accept-Encoding",
+      "x-databricks-org-id" : "6436897454825492",
+      "content-type" : "application/json",
+      "strict-transport-security" : "max-age=31536000; includeSubDomains; preload"
+    }
+  },
+  "uuid" : "3a56226a-5f8d-4a8c-9b09-7088ea024fa1",
+  "scenarioName" : "scenario-1-api-2.0-sql-statements",
+  "requiredScenarioState" : "scenario-1-api-2.0-sql-statements-2",
+  "insertionIndex" : 6
+}
