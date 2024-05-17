@@ -276,4 +276,17 @@ public class DatabricksHttpClient implements IDatabricksHttpClient {
     }
     return mergedString.toString();
   }
+
+  /** Reset the instance of the http client. This is used for testing purposes only. */
+  @VisibleForTesting
+  public static synchronized void resetInstance() {
+    if (instance != null) {
+      try {
+        instance.httpClient.close();
+      } catch (IOException e) {
+        LOGGER.error("Caught error while closing http client", e);
+      }
+      instance = null;
+    }
+  }
 }

@@ -3,6 +3,7 @@ package com.databricks.jdbc.integration.fakeservice;
 import static com.databricks.jdbc.driver.DatabricksJdbcConstants.FAKE_SERVICE_URI_PROP_SUFFIX;
 import static com.databricks.jdbc.driver.DatabricksJdbcConstants.IS_FAKE_SERVICE_TEST_PROP;
 
+import com.databricks.jdbc.client.http.DatabricksHttpClient;
 import com.databricks.jdbc.driver.DatabricksJdbcConstants.FakeServiceType;
 import com.databricks.jdbc.integration.IntegrationTestUtil;
 import com.github.tomakehurst.wiremock.common.SingleRootFileSource;
@@ -133,6 +134,8 @@ public class FakeServiceExtension extends DatabricksWireMockExtension {
             : FakeServiceMode.REPLAY;
 
     setFakeServiceProperties(wireMockRuntimeInfo);
+    IntegrationTestUtil.resetJDBCConnection();
+    DatabricksHttpClient.resetInstance();
   }
 
   /** {@inheritDoc} */
@@ -165,7 +168,9 @@ public class FakeServiceExtension extends DatabricksWireMockExtension {
   @Override
   protected void onAfterAll(WireMockRuntimeInfo wireMockRuntimeInfo, ExtensionContext context)
       throws Exception {
+    DatabricksHttpClient.resetInstance();
     clearFakeServiceProperties();
+
     super.onAfterAll(wireMockRuntimeInfo, context);
   }
 
