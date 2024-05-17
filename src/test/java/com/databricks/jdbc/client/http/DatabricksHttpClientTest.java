@@ -3,6 +3,7 @@ package com.databricks.jdbc.client.http;
 import static com.databricks.jdbc.client.http.DatabricksHttpClient.isErrorCodeRetryable;
 import static com.databricks.jdbc.client.http.DatabricksHttpClient.isRetryAllowed;
 import static com.databricks.jdbc.driver.DatabricksJdbcConstants.FAKE_SERVICE_URI_PROP_SUFFIX;
+import static com.databricks.jdbc.driver.DatabricksJdbcConstants.IS_FAKE_SERVICE_TEST_PROP;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
@@ -11,6 +12,7 @@ import com.databricks.jdbc.driver.DatabricksConnectionContext;
 import com.databricks.jdbc.driver.DatabricksDriver;
 import com.databricks.jdbc.driver.IDatabricksConnectionContext;
 import java.io.IOException;
+import java.lang.reflect.Field;
 import java.net.URI;
 import java.util.Properties;
 import java.util.concurrent.TimeUnit;
@@ -218,5 +220,46 @@ public class DatabricksHttpClientTest {
     assertTrue(userAgent.contains(" Java/SQLExecHttpClient/HC MyApp"));
     assertTrue(userAgent.contains(" databricks-jdbc-http "));
     assertFalse(userAgent.contains("databricks-sdk-java"));
+  }
+
+  @Test
+  public void testResetInstance() {
+    System.setProperty(IS_FAKE_SERVICE_TEST_PROP, "true");
+
+    IDatabricksConnectionContext connectionContext =
+        Mockito.mock(IDatabricksConnectionContext.class);
+    when(connectionContext.getUseSystemProxy()).thenReturn(false);
+    when(connectionContext.getUseProxy()).thenReturn(false);
+    when(connectionContext.getUseCloudFetchProxy()).thenReturn(false);
+
+    DatabricksHttpClient databricksHttpClient = DatabricksHttpClient.getInstance(connectionContext);
+    assertNotNull(databricksHttpClient);
+
+    DatabricksHttpClient.resetInstance();
+
+    DatabricksHttpClient newInstance = DatabricksHttpClient.getInstance(connectionContext);
+    assertNotNull(newInstance);
+    // The instance should be different after reset
+    assertNotSame(databricksHttpClient, newInstance);
+
+    System.clearProperty(IS_FAKE_SERVICE_TEST_PROP);
+  }
+
+  @Test
+  void testResetInstanceCatchesIOException()
+      throws IOException, NoSuchFieldException, IllegalAccessException {
+    DatabricksHttpClient testInstance = new DatabricksHttpClient(mockHttpClient, connectionManager);
+
+    doThrow(new IOException()).when(mockHttpClient).close();
+
+    // Set the instance to the testInstance using reflection
+    Field instanceField = DatabricksHttpClient.class.getDeclaredField("instance");
+    instanceField.setAccessible(true);
+    instanceField.set(null, testInstance);
+
+    DatabricksHttpClient.resetInstance();
+
+    verify(mockHttpClient, times(1)).close();
+    assertNull(instanceField.get(null));
   }
 }
