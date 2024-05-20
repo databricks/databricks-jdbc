@@ -2,7 +2,9 @@ package com.databricks.jdbc.integration.fakeservice;
 
 import static com.databricks.jdbc.client.impl.sdk.PathConstants.STATEMENT_PATH;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.github.tomakehurst.wiremock.common.FileSource;
+import com.github.tomakehurst.wiremock.common.Json;
 import com.github.tomakehurst.wiremock.extension.Parameters;
 import com.github.tomakehurst.wiremock.extension.StubMappingTransformer;
 import com.github.tomakehurst.wiremock.stubbing.StubMapping;
@@ -34,13 +36,17 @@ public class StubMappingCredentialsCleaner extends StubMappingTransformer {
     String serverHeaderValue =
         stubMapping.getResponse().getHeaders().getHeader(SERVER_HEADER_NAME).firstValue();
 
-    if (STATEMENT_PATH.equals(requestUrl)
-        || AMAZON_S3_SERVER_VALUE.equals(serverHeaderValue)
+    if (AMAZON_S3_SERVER_VALUE.equals(serverHeaderValue)
+        || requestUrl.startsWith(STATEMENT_PATH)
         || serverHeaderValue.startsWith(AZURE_STORAGE_SERVER_VALUE)) {
       // Clean credentials from statement requests (embedded S3 links) and Amazon S3 responses.
-      String jsonString = StubMapping.buildJsonStringFor(stubMapping);
-      String transformedJsonString = removeSensitiveCredentials(jsonString);
-      return StubMapping.buildFrom(transformedJsonString);
+      try {
+        final String jsonString = getJsonStringFromStubMapping(stubMapping);
+        final String transformedJsonString = removeSensitiveCredentials(jsonString);
+        return getStubMappingFromJsonString(transformedJsonString);
+      } catch (JsonProcessingException e) {
+        throw new RuntimeException(e);
+      }
     } else {
       return stubMapping;
     }
@@ -63,5 +69,17 @@ public class StubMappingCredentialsCleaner extends StubMappingTransformer {
     matcher.appendTail(buffer);
 
     return buffer.toString();
+  }
+
+  /** Returns the JSON string representation of the given {@link StubMapping}. */
+  private String getJsonStringFromStubMapping(StubMapping stubMapping)
+      throws JsonProcessingException {
+    return JsonUtils.write(stubMapping, Json.PublicView.class);
+  }
+
+  /** Returns the {@link StubMapping} from the given JSON string. */
+  private StubMapping getStubMappingFromJsonString(String jsonString)
+      throws JsonProcessingException {
+    return JsonUtils.read(jsonString, StubMapping.class);
   }
 }

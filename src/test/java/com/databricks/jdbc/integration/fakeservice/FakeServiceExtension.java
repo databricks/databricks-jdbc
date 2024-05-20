@@ -2,20 +2,24 @@ package com.databricks.jdbc.integration.fakeservice;
 
 import static com.databricks.jdbc.driver.DatabricksJdbcConstants.FAKE_SERVICE_URI_PROP_SUFFIX;
 import static com.databricks.jdbc.driver.DatabricksJdbcConstants.IS_FAKE_SERVICE_TEST_PROP;
+import static com.github.tomakehurst.wiremock.common.AbstractFileSource.byFileExtension;
 
 import com.databricks.jdbc.client.http.DatabricksHttpClient;
 import com.databricks.jdbc.driver.DatabricksJdbcConstants.FakeServiceType;
 import com.databricks.jdbc.integration.IntegrationTestUtil;
 import com.github.tomakehurst.wiremock.common.SingleRootFileSource;
+import com.github.tomakehurst.wiremock.common.TextFile;
 import com.github.tomakehurst.wiremock.junit5.WireMockRuntimeInfo;
 import com.github.tomakehurst.wiremock.recording.RecordSpecBuilder;
 import com.github.tomakehurst.wiremock.standalone.JsonFileMappingsSource;
 import com.github.tomakehurst.wiremock.stubbing.StubMapping;
+import com.github.tomakehurst.wiremock.stubbing.StubMappingCollection;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.List;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.extension.ExtensionContext;
@@ -59,13 +63,13 @@ public class FakeServiceExtension extends DatabricksWireMockExtension {
    * Maximum size in bytes of text body size in stubbing beyond which it is extracted in a separate
    * file.
    */
-  private static final long MAX_STUBBING_TEXT_SIZE = 102400;
+  private static final long MAX_STUBBING_TEXT_SIZE = 27000000;
 
   /**
    * Maximum size in bytes of binary body size in stubbing beyond which it is extracted in a
    * separate file.
    */
-  private static final long MAX_STUBBING_BINARY_SIZE = 102400;
+  private static final long MAX_STUBBING_BINARY_SIZE = 27000000;
 
   /**
    * Environment variable holding the fake service mode.
@@ -190,9 +194,23 @@ public class FakeServiceExtension extends DatabricksWireMockExtension {
   }
 
   /** Loads stub mappings from the stubbing directory. */
-  private void loadStubMappings(WireMockRuntimeInfo wireMockRuntimeInfo, ExtensionContext context) {
-    String stubbingDir = getStubbingDir(context);
-    wireMockRuntimeInfo.getWireMock().loadMappingsFrom(stubbingDir);
+  private void loadStubMappings(WireMockRuntimeInfo wireMockRuntimeInfo, ExtensionContext context)
+      throws IOException {
+    final String stubbingDir = getStubbingDir(context);
+    final SingleRootFileSource fileSource = new SingleRootFileSource(stubbingDir + "/mappings");
+
+    final List<TextFile> mappingFiles =
+        fileSource.listFilesRecursively().stream()
+            .filter(byFileExtension("json"))
+            .collect(Collectors.toList());
+
+    for (TextFile mappingFile : mappingFiles) {
+      final StubMappingCollection stubCollection =
+          JsonUtils.read(mappingFile.readContents(), StubMappingCollection.class);
+      for (StubMapping mapping : stubCollection.getMappingOrMappings()) {
+        wireMockRuntimeInfo.getWireMock().register(mapping);
+      }
+    }
   }
 
   /** Starts recording stub mappings. */
