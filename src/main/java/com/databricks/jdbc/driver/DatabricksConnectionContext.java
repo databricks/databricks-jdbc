@@ -105,7 +105,7 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
     LOGGER.debug("public String getHostUrl()");
     // Determine the schema based on the transport mode
     String schema =
-        (getTransportMode() != null && getTransportMode().equals("http"))
+        (getSSLMode() != null && getSSLMode().equals("0"))
             ? DatabricksJdbcConstants.HTTP_SCHEMA
             : DatabricksJdbcConstants.HTTPS_SCHEMA;
 
@@ -127,8 +127,8 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
     }
   }
 
-  private String getTransportMode() {
-    return getParameter(DatabricksJdbcConstants.TRANSPORT_MODE);
+  private String getSSLMode() {
+    return getParameter(DatabricksJdbcConstants.SSL);
   }
 
   @Override
