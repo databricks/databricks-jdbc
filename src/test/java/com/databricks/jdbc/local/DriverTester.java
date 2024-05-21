@@ -115,4 +115,41 @@ public class DriverTester {
     resultSet.close();
     con.close();
   }
+
+  @Test
+  void testPrefixExists() throws Exception {
+    DriverManager.registerDriver(new com.databricks.jdbc.driver.DatabricksDriver());
+    DriverManager.drivers().forEach(driver -> System.out.println(driver.getClass()));
+    String jdbcUrl =
+            "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=https;ssl=1;httpPath=sql/protocolv1/o/6051921418418893/1115-130834-ms4m0yv;AuthMech=3;UID=token;";
+    Connection con = DriverManager.getConnection(jdbcUrl, "agnipratim.nag@databricks.com", "dapic253ee107b0960e6f4a4abe653a09bb7");
+    System.out.println("Connection established......");
+
+    // Construct the DBFS path
+    String dbfsPath = "/dbfs/samikshya_hackathon/agnipratim_test";
+
+    // Construct the SQL command to list all files in the specified DBFS directory
+    String listFilesSQL = "LIST '" + dbfsPath + "'";
+
+    // Create a Statement
+    Statement statement = con.createStatement();
+
+    // Execute the SQL command and get a ResultSet
+    ResultSet resultSet = statement.executeQuery(listFilesSQL);
+
+    // Iterate over the ResultSet and check if the specified prefix exists in the file names
+    boolean exists = false;
+    while (resultSet.next()) {
+      String fileName = resultSet.getString("path");
+      if (fileName.startsWith("abc")) {
+        exists = true;
+        break;
+      }
+    }
+
+    // Print the result
+    System.out.println("Prefix exists: " + exists);
+
+    con.close();
+  }
 }
