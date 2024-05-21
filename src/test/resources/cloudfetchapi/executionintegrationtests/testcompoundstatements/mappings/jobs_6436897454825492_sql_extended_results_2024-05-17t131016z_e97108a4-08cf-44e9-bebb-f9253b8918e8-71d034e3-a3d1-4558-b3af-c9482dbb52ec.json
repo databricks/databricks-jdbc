@@ -1,0 +1,30 @@
+{
+  "id" : "71d034e3-a3d1-4558-b3af-c9482dbb52ec",
+  "name" : "jobs_6436897454825492_sql_extended_results_2024-05-17t131016z_e97108a4-08cf-44e9-bebb-f9253b8918e8",
+  "request" : {
+    "url" : "/jobs/6436897454825492/sql/extended/results_2024-05-17T13:10:16Z_e97108a4-08cf-44e9-bebb-f9253b8918e8?se=2024-05-16T12%3A25%3A16Z&sv=2019-02-02&spr=https&sp=r&sr=b",
+    "method" : "GET"
+  },
+  "response" : {
+    "status" : 200,
+    "base64Body" : "/////+gAAAAQAAAAAAAKAA4ABgANAAgACgAAAAAABAAQAAAAAAEKAAwAAAAIAAQACgAAAAgAAAAIAAAAAAAAAAIAAABcAAAABAAAAL7///8UAAAAFAAAABQAAAAAAAIBGAAAAAAAAAAAAAAArP///wAAAAFAAAAAEQAAAG51bV9pbnNlcnRlZF9yb3dzABIAGAAUABMAEgAMAAAACAAEABIAAAAUAAAAFAAAABwAAAAAAAIBIAAAAAAAAAAAAAAACAAMAAgABwAIAAAAAAAAAUAAAAARAAAAbnVtX2FmZmVjdGVkX3Jvd3MAAAAAAAAA/////7gAAAAUAAAAAAAAAAwAFgAOABUAEAAEAAwAAAAgAAAAAAAAAAAABAAQAAAAAAMKABgADAAIAAQACgAAABQAAABYAAAAAQAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAQAAAAAAAAAIAAAAAAAAAAgAAAAAAAAAEAAAAAAAAAABAAAAAAAAABgAAAAAAAAACAAAAAAAAAAAAAAAAgAAAAEAAAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAAAAAQAAAAAAAAABAAAAAAAAAAEAAAAAAAAAAQAAAAAAAAD/////AAAAAA==",
+    "headers" : {
+      "x-ms-lease-status" : "unlocked",
+      "x-ms-version" : "2019-02-02",
+      "Server" : "Windows-Azure-Blob/1.0 Microsoft-HTTPAPI/2.0",
+      "x-ms-lease-state" : "available",
+      "Last-Modified" : "Thu, 16 May 2024 12:10:16 GMT",
+      "Date" : "Thu, 16 May 2024 12:10:17 GMT",
+      "x-ms-blob-type" : "BlockBlob",
+      "Content-MD5" : "k72mY7O1cF9VyDusfE6NGw==",
+      "Accept-Ranges" : "bytes",
+      "x-ms-server-encrypted" : "true",
+      "ETag" : "\"0x8DC75A125AEF73D\"",
+      "x-ms-creation-time" : "Thu, 16 May 2024 12:10:16 GMT",
+      "x-ms-request-id" : "8317f3e1-701e-006c-6c8a-a7d626000000",
+      "Content-Type" : "application/octet-stream"
+    }
+  },
+  "uuid" : "71d034e3-a3d1-4558-b3af-c9482dbb52ec",
+  "insertionIndex" : 11
+}

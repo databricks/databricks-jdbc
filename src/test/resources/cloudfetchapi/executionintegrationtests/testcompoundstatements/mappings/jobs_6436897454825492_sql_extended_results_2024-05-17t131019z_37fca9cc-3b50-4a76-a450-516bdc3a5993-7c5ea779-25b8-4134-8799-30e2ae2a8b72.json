@@ -1,0 +1,30 @@
+{
+  "id" : "7c5ea779-25b8-4134-8799-30e2ae2a8b72",
+  "name" : "jobs_6436897454825492_sql_extended_results_2024-05-17t131019z_37fca9cc-3b50-4a76-a450-516bdc3a5993",
+  "request" : {
+    "url" : "/jobs/6436897454825492/sql/extended/results_2024-05-17T13:10:19Z_37fca9cc-3b50-4a76-a450-516bdc3a5993?se=2024-05-16T12%3A25%3A19Z&sv=2019-02-02&spr=https&sp=r&sr=b",
+    "method" : "GET"
+  },
+  "response" : {
+    "status" : 200,
+    "base64Body" : "/////6AAAAAQAAAAAAAKAA4ABgANAAgACgAAAAAABAAQAAAAAAEKAAwAAAAIAAQACgAAAAgAAAAIAAAAAAAAAAEAAAAYAAAAAAASABgAFAATABIADAAAAAgABAASAAAAFAAAABQAAAAcAAAAAAACASAAAAAAAAAAAAAAAAgADAAIAAcACAAAAAAAAAFAAAAAEQAAAG51bV9hZmZlY3RlZF9yb3dzAAAA/////4gAAAAUAAAAAAAAAAwAFgAOABUAEAAEAAwAAAAQAAAAAAAAAAAABAAQAAAAAAMKABgADAAIAAQACgAAABQAAAA4AAAAAQAAAAAAAAAAAAAAAgAAAAAAAAAAAAAAAQAAAAAAAAAIAAAAAAAAAAgAAAAAAAAAAAAAAAEAAAABAAAAAAAAAAAAAAAAAAAAAQAAAAAAAAABAAAAAAAAAP////8AAAAA",
+    "headers" : {
+      "x-ms-lease-status" : "unlocked",
+      "x-ms-version" : "2019-02-02",
+      "Server" : "Windows-Azure-Blob/1.0 Microsoft-HTTPAPI/2.0",
+      "x-ms-lease-state" : "available",
+      "Last-Modified" : "Thu, 16 May 2024 12:10:19 GMT",
+      "Date" : "Thu, 16 May 2024 12:10:21 GMT",
+      "x-ms-blob-type" : "BlockBlob",
+      "Content-MD5" : "seyCIeRuNwk7w9xoeP84Tg==",
+      "Accept-Ranges" : "bytes",
+      "x-ms-server-encrypted" : "true",
+      "ETag" : "\"0x8DC75A127B06457\"",
+      "x-ms-creation-time" : "Thu, 16 May 2024 12:10:19 GMT",
+      "x-ms-request-id" : "c6599387-701e-0043-6c8a-a7dbed000000",
+      "Content-Type" : "application/octet-stream"
+    }
+  },
+  "uuid" : "7c5ea779-25b8-4134-8799-30e2ae2a8b72",
+  "insertionIndex" : 10
+}

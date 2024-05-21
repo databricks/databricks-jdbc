@@ -133,41 +133,4 @@ public class ExecutionIntegrationTests {
     assertTrue(rs.next(), "Expected at least one row from subquery");
     deleteTable(tableName);
   }
-
-  private static void insertTestDataForJoins(String table1Name, String table2Name)
-      throws SQLException {
-    // Insert data into the first table
-    String insertTable1SQL1 =
-        "INSERT INTO "
-            + getFullyQualifiedTableName(table1Name)
-            + " (id, col1, col2) VALUES (1, 'value1_table1', 'value2_table1')";
-    executeSQL(insertTable1SQL1);
-
-    String insertTable1SQL2 =
-        "INSERT INTO "
-            + getFullyQualifiedTableName(table1Name)
-            + " (id, col1, col2) VALUES (2, 'value3_table1', 'value4_table1')";
-    executeSQL(insertTable1SQL2);
-
-    // Insert related data into the second table
-    String insertTable2SQL1 =
-        "INSERT INTO "
-            + getFullyQualifiedTableName(table2Name)
-            + " (id, col1, col2) VALUES (1, 'related_value1_table2', 'related_value2_table2')";
-    executeSQL(insertTable2SQL1);
-
-    String insertTable2SQL2 =
-        "INSERT INTO "
-            + getFullyQualifiedTableName(table2Name)
-            + " (id, col1, col2) VALUES (2, 'related_value3_table2', 'related_value4_table2')";
-    executeSQL(insertTable2SQL2);
-  }
-
-  private static void insertTestData(String tableName) throws SQLException {
-    String insertSQL =
-        "INSERT INTO "
-            + getFullyQualifiedTableName(tableName)
-            + " (id, col1, col2) VALUES (1, 'value1', 'value2')";
-    executeSQL(insertSQL);
-  }
 }

@@ -1,0 +1,28 @@
+{
+  "id" : "4c040615-5996-4bfb-9877-c7e25876a5c3",
+  "name" : "api_2.0_sql_statements",
+  "request" : {
+    "url" : "/api/2.0/sql/statements/",
+    "method" : "POST",
+    "bodyPatterns" : [ {
+      "equalToJson" : "{\"statement\":\"UPDATE main.jdbc_test_schema.compound_test_table SET col2 = 'updatedValue2' WHERE id = 1\",\"warehouse_id\":\"2f03dd43e35e2aa0\",\"session_id\":\"01ef137d-3cc4-178a-a7df-6274e56acd57\",\"disposition\":\"EXTERNAL_LINKS\",\"format\":\"ARROW_STREAM\",\"on_wait_timeout\":\"CONTINUE\",\"wait_timeout\":\"10s\",\"parameters\":[],\"compression_codec\":\"NONE\"}",
+      "ignoreArrayOrder" : true,
+      "ignoreExtraElements" : true
+    } ]
+  },
+  "response" : {
+    "status" : 200,
+    "body" : "{\"statement_id\":\"01ef137d-4247-1923-b79a-382e3b509418\",\"status\":{\"state\":\"SUCCEEDED\"},\"manifest\":{\"format\":\"ARROW_STREAM\",\"schema\":{\"column_count\":1,\"columns\":[{\"name\":\"num_affected_rows\",\"type_text\":\"BIGINT\",\"type_name\":\"LONG\",\"position\":0}]},\"total_chunk_count\":1,\"chunks\":[{\"chunk_index\":0,\"row_offset\":0,\"row_count\":1,\"byte_count\":336}],\"total_row_count\":1,\"total_byte_count\":336,\"truncated\":false},\"result\":{\"external_links\":[{\"chunk_index\":0,\"row_offset\":0,\"row_count\":1,\"byte_count\":336,\"external_link\":\"https://dbstoragepzjc6kojqibtg.blob.core.windows.net/jobs/6436897454825492/sql/extended/results_2024-05-17T13:10:19Z_37fca9cc-3b50-4a76-a450-516bdc3a5993?se=2024-05-16T12%3A25%3A19Z&sv=2019-02-02&spr=https&sp=r&sr=b\",\"expiration\":\"2024-05-16T12:25:19.712Z\"}]}}",
+    "headers" : {
+      "date" : "Thu, 16 May 2024 12:10:19 GMT",
+      "server" : "databricks",
+      "x-content-type-options" : "nosniff",
+      "vary" : "Accept-Encoding",
+      "x-databricks-org-id" : "6436897454825492",
+      "content-type" : "application/json",
+      "strict-transport-security" : "max-age=31536000; includeSubDomains; preload"
+    }
+  },
+  "uuid" : "4c040615-5996-4bfb-9877-c7e25876a5c3",
+  "insertionIndex" : 21
+}

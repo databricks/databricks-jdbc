@@ -1,6 +1,9 @@
 package com.databricks.jdbc.client.http;
 
-import static com.databricks.jdbc.client.http.DatabricksHttpClient.*;
+import static com.databricks.jdbc.client.http.DatabricksHttpClient.isErrorCodeRetryable;
+import static com.databricks.jdbc.client.http.DatabricksHttpClient.isRetryAllowed;
+import static com.databricks.jdbc.driver.DatabricksJdbcConstants.FAKE_SERVICE_URI_PROP_SUFFIX;
+import static com.databricks.jdbc.driver.DatabricksJdbcConstants.IS_FAKE_SERVICE_TEST_PROP;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
@@ -9,17 +12,25 @@ import com.databricks.jdbc.driver.DatabricksConnectionContext;
 import com.databricks.jdbc.driver.DatabricksDriver;
 import com.databricks.jdbc.driver.IDatabricksConnectionContext;
 import java.io.IOException;
+import java.lang.reflect.Field;
 import java.net.URI;
 import java.util.Properties;
 import java.util.concurrent.TimeUnit;
+import org.apache.http.HttpException;
+import org.apache.http.HttpHost;
 import org.apache.http.client.methods.CloseableHttpResponse;
+import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpUriRequest;
+import org.apache.http.conn.routing.HttpRoute;
+import org.apache.http.conn.routing.HttpRoutePlanner;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClientBuilder;
 import org.apache.http.impl.conn.PoolingHttpClientConnectionManager;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
+import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
@@ -58,6 +69,87 @@ public class DatabricksHttpClientTest {
         () ->
             DatabricksHttpClient.setProxyDetailsInHttpClient(
                 builder, null, 8080, true, "user", "proxyPassword"));
+  }
+
+  @Test
+  public void testSetFakeServiceRouteInHttpClient() throws HttpException {
+    final String testTargetURI = "https://example.com";
+    final String testFakeServiceURI = "http://localhost:8080";
+    System.setProperty(testTargetURI + FAKE_SERVICE_URI_PROP_SUFFIX, testFakeServiceURI);
+
+    HttpClientBuilder httpClientBuilder = Mockito.mock(HttpClientBuilder.class);
+    ArgumentCaptor<HttpRoutePlanner> routePlannerCaptor =
+        ArgumentCaptor.forClass(HttpRoutePlanner.class);
+
+    DatabricksHttpClient.setFakeServiceRouteInHttpClient(httpClientBuilder);
+
+    // Capture the route planner set in builder
+    Mockito.verify(httpClientBuilder).setRoutePlanner(routePlannerCaptor.capture());
+    HttpRoutePlanner capturedRoutePlanner = routePlannerCaptor.getValue();
+
+    // Create a request and determine the route
+    HttpGet request = new HttpGet(testTargetURI);
+    HttpHost proxy = HttpHost.create(testFakeServiceURI);
+    HttpRoute route =
+        capturedRoutePlanner.determineRoute(
+            HttpHost.create(request.getURI().toString()), request, null);
+
+    // Verify the route is set to the fake service URI
+    assertEquals(proxy, route.getProxyHost());
+    assertEquals(2, route.getHopCount());
+
+    System.clearProperty(testTargetURI + FAKE_SERVICE_URI_PROP_SUFFIX);
+  }
+
+  @Test
+  public void testSetFakeServiceRouteInHttpClientThrowsError() {
+    final String testTargetURI = "https://example.com";
+
+    HttpClientBuilder httpClientBuilder = Mockito.mock(HttpClientBuilder.class);
+    ArgumentCaptor<HttpRoutePlanner> routePlannerCaptor =
+        ArgumentCaptor.forClass(HttpRoutePlanner.class);
+
+    DatabricksHttpClient.setFakeServiceRouteInHttpClient(httpClientBuilder);
+
+    Mockito.verify(httpClientBuilder).setRoutePlanner(routePlannerCaptor.capture());
+    HttpRoutePlanner capturedRoutePlanner = routePlannerCaptor.getValue();
+
+    HttpGet request = new HttpGet(testTargetURI);
+
+    // Determine route should throw an error as the fake service URI is not set
+    assertThrows(
+        IllegalArgumentException.class,
+        () ->
+            capturedRoutePlanner.determineRoute(
+                HttpHost.create(request.getURI().toString()), request, null));
+  }
+
+  @Test
+  public void testSetFakeServiceRouteInHttpClientThrowsHTTPError() {
+    // Invalid scheme
+    final String testTargetURI = "invalid://example.com";
+    final String testFakeServiceURI = "http://localhost:8080";
+    System.setProperty(testTargetURI + FAKE_SERVICE_URI_PROP_SUFFIX, testFakeServiceURI);
+
+    HttpClientBuilder httpClientBuilder = Mockito.mock(HttpClientBuilder.class);
+    ArgumentCaptor<HttpRoutePlanner> routePlannerCaptor =
+        ArgumentCaptor.forClass(HttpRoutePlanner.class);
+
+    DatabricksHttpClient.setFakeServiceRouteInHttpClient(httpClientBuilder);
+
+    Mockito.verify(httpClientBuilder).setRoutePlanner(routePlannerCaptor.capture());
+    HttpRoutePlanner capturedRoutePlanner = routePlannerCaptor.getValue();
+
+    HttpGet request = new HttpGet(testTargetURI);
+
+    // Determine route should throw HTTP error as the target URI is invalid
+    assertThrows(
+        HttpException.class,
+        () ->
+            capturedRoutePlanner.determineRoute(
+                HttpHost.create(request.getURI().toString()), request, null));
+
+    System.clearProperty(testTargetURI + FAKE_SERVICE_URI_PROP_SUFFIX);
   }
 
   @Test
@@ -128,5 +220,46 @@ public class DatabricksHttpClientTest {
     assertTrue(userAgent.contains(" Java/SQLExecHttpClient/HC MyApp"));
     assertTrue(userAgent.contains(" databricks-jdbc-http "));
     assertFalse(userAgent.contains("databricks-sdk-java"));
+  }
+
+  @Test
+  public void testResetInstance() {
+    System.setProperty(IS_FAKE_SERVICE_TEST_PROP, "true");
+
+    IDatabricksConnectionContext connectionContext =
+        Mockito.mock(IDatabricksConnectionContext.class);
+    when(connectionContext.getUseSystemProxy()).thenReturn(false);
+    when(connectionContext.getUseProxy()).thenReturn(false);
+    when(connectionContext.getUseCloudFetchProxy()).thenReturn(false);
+
+    DatabricksHttpClient databricksHttpClient = DatabricksHttpClient.getInstance(connectionContext);
+    assertNotNull(databricksHttpClient);
+
+    DatabricksHttpClient.resetInstance();
+
+    DatabricksHttpClient newInstance = DatabricksHttpClient.getInstance(connectionContext);
+    assertNotNull(newInstance);
+    // The instance should be different after reset
+    assertNotSame(databricksHttpClient, newInstance);
+
+    System.clearProperty(IS_FAKE_SERVICE_TEST_PROP);
+  }
+
+  @Test
+  void testResetInstanceCatchesIOException()
+      throws IOException, NoSuchFieldException, IllegalAccessException {
+    DatabricksHttpClient testInstance = new DatabricksHttpClient(mockHttpClient, connectionManager);
+
+    doThrow(new IOException()).when(mockHttpClient).close();
+
+    // Set the instance to the testInstance using reflection
+    Field instanceField = DatabricksHttpClient.class.getDeclaredField("instance");
+    instanceField.setAccessible(true);
+    instanceField.set(null, testInstance);
+
+    DatabricksHttpClient.resetInstance();
+
+    verify(mockHttpClient, times(1)).close();
+    assertNull(instanceField.get(null));
   }
 }

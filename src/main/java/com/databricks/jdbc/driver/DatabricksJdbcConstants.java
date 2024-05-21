@@ -1,5 +1,6 @@
 package com.databricks.jdbc.driver;
 
+import com.google.common.annotations.VisibleForTesting;
 import java.util.Map;
 import java.util.Set;
 import java.util.regex.Pattern;
@@ -113,6 +114,17 @@ public final class DatabricksJdbcConstants {
 
   public static final Set<String> ALLOWED_CLIENT_INFO_PROPERTIES =
       Set.of(ALLOWED_VOLUME_INGESTION_PATHS);
+
+  @VisibleForTesting public static final String IS_FAKE_SERVICE_TEST_PROP = "isFakeServiceTest";
+
+  @VisibleForTesting public static final String FAKE_SERVICE_URI_PROP_SUFFIX = ".fakeServiceURI";
+
+  /** Enum for the services that can be replaced with a fake service in integration tests. */
+  @VisibleForTesting
+  public enum FakeServiceType {
+    SQL_EXEC,
+    CLOUD_FETCH
+  }
 
   public static final String USE_THRIFT_CLIENT = "usethriftclient";
 }

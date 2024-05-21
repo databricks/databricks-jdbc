@@ -2,6 +2,7 @@ package com.databricks.jdbc.core;
 
 import static com.databricks.jdbc.client.impl.thrift.commons.DatabricksThriftHelper.createExternalLink;
 import static com.databricks.jdbc.commons.util.ValidationUtil.checkHTTPError;
+import static com.databricks.jdbc.driver.DatabricksJdbcConstants.IS_FAKE_SERVICE_TEST_PROP;
 
 import com.databricks.jdbc.client.DatabricksHttpException;
 import com.databricks.jdbc.client.IDatabricksHttpClient;
@@ -261,7 +262,8 @@ public class ArrowResultChunk {
   /** Checks if the link is valid */
   boolean isChunkLinkInvalid() {
     return status == ChunkStatus.PENDING
-        || expiryTime.minusSeconds(SECONDS_BUFFER_FOR_EXPIRY).isBefore(Instant.now());
+        || (!Boolean.parseBoolean(System.getProperty(IS_FAKE_SERVICE_TEST_PROP))
+            && expiryTime.minusSeconds(SECONDS_BUFFER_FOR_EXPIRY).isBefore(Instant.now()));
   }
 
   /** Returns the status for the chunk */
@@ -396,11 +398,7 @@ public class ArrowResultChunk {
     return true;
   }
 
-  /**
-   * Returns number of recordBatches in the chunk.
-   *
-   * @return
-   */
+  /** Returns number of recordBatches in the chunk. */
   int getRecordBatchCountInChunk() {
     return this.isDataInitialized ? this.recordBatchList.size() : 0;
   }
