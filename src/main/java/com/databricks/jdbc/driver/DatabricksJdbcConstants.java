@@ -58,6 +58,9 @@ public final class DatabricksJdbcConstants {
   static final String UID = "uid";
   static final String PWD = "pwd";
 
+  static final String POLL_INTERVAL = "asyncexecpollinterval";
+  static final int POLL_INTERVAL_DEFAULT = 200;
+
   static final String AWS_CLIENT_ID = "databricks-sql-jdbc";
 
   static final String AAD_CLIENT_ID = "96eecda7-19ea-49cc-abb5-240097d554f5";
