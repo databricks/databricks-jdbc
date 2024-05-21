@@ -8,7 +8,7 @@ import static org.mockito.Mockito.when;
 
 import com.databricks.jdbc.client.StatementType;
 import com.databricks.jdbc.client.impl.helper.ResultColumn;
-import com.databricks.jdbc.client.impl.sdk.DatabricksMetadataSdkClient;
+import com.databricks.jdbc.client.impl.sdk.DatabricksNewMetadataSdkClient;
 import com.databricks.jdbc.client.impl.sdk.DatabricksSdkClient;
 import com.databricks.jdbc.core.*;
 import com.databricks.jdbc.core.types.ComputeResource;
@@ -25,7 +25,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
-public class DatabricksMetadataSdkClientTest {
+public class DatabricksNewMetadataSdkClientTest {
   @Mock private static DatabricksSdkClient mockClient;
   @Mock private static DatabricksResultSet mockedCatalogResultSet;
   @Mock private static DatabricksResultSet mockedResultSet;
@@ -168,7 +168,7 @@ public class DatabricksMetadataSdkClientTest {
   @Test
   void testListCatalogs() throws SQLException {
     setupCatalogMocks();
-    DatabricksMetadataSdkClient metadataClient = new DatabricksMetadataSdkClient(mockClient);
+    DatabricksNewMetadataSdkClient metadataClient = new DatabricksNewMetadataSdkClient(mockClient);
     DatabricksResultSet actualResult = metadataClient.listCatalogs(session);
 
     assertEquals(actualResult.getStatementStatus().getState(), StatementState.SUCCEEDED);
@@ -178,7 +178,7 @@ public class DatabricksMetadataSdkClientTest {
 
   @Test
   void testListTableTypes() throws SQLException {
-    DatabricksMetadataSdkClient metadataClient = new DatabricksMetadataSdkClient(mockClient);
+    DatabricksNewMetadataSdkClient metadataClient = new DatabricksNewMetadataSdkClient(mockClient);
     DatabricksResultSet actualResult = metadataClient.listTableTypes(session);
     assertEquals(actualResult.getStatementStatus().getState(), StatementState.SUCCEEDED);
     assertEquals(actualResult.statementId(), GET_TABLE_TYPE_STATEMENT_ID);
@@ -191,7 +191,7 @@ public class DatabricksMetadataSdkClientTest {
       String sqlStatement, String catalog, String schema, String table, String description)
       throws SQLException {
     when(session.getComputeResource()).thenReturn(mockedComputeResource);
-    DatabricksMetadataSdkClient metadataClient = new DatabricksMetadataSdkClient(mockClient);
+    DatabricksNewMetadataSdkClient metadataClient = new DatabricksNewMetadataSdkClient(mockClient);
     when(mockClient.executeStatement(
             sqlStatement,
             mockedComputeResource,
@@ -226,7 +226,7 @@ public class DatabricksMetadataSdkClientTest {
       String description)
       throws SQLException {
     when(session.getComputeResource()).thenReturn(mockedComputeResource);
-    DatabricksMetadataSdkClient metadataClient = new DatabricksMetadataSdkClient(mockClient);
+    DatabricksNewMetadataSdkClient metadataClient = new DatabricksNewMetadataSdkClient(mockClient);
     when(mockClient.executeStatement(
             sqlStatement,
             mockedComputeResource,
@@ -254,7 +254,7 @@ public class DatabricksMetadataSdkClientTest {
   @MethodSource("listSchemasTestParams")
   void testListSchemas(String sqlStatement, String schema, String description) throws SQLException {
     when(session.getComputeResource()).thenReturn(mockedComputeResource);
-    DatabricksMetadataSdkClient metadataClient = new DatabricksMetadataSdkClient(mockClient);
+    DatabricksNewMetadataSdkClient metadataClient = new DatabricksNewMetadataSdkClient(mockClient);
     when(mockClient.executeStatement(
             sqlStatement,
             mockedComputeResource,
@@ -279,7 +279,7 @@ public class DatabricksMetadataSdkClientTest {
   @Test
   void testListPrimaryKeys() throws SQLException {
     when(session.getComputeResource()).thenReturn(WAREHOUSE_COMPUTE);
-    DatabricksMetadataSdkClient metadataClient = new DatabricksMetadataSdkClient(mockClient);
+    DatabricksNewMetadataSdkClient metadataClient = new DatabricksNewMetadataSdkClient(mockClient);
     when(mockClient.executeStatement(
             "SHOW KEYS IN CATALOG catalog1 IN SCHEMA testSchema IN TABLE testTable",
             WAREHOUSE_COMPUTE,
@@ -306,7 +306,7 @@ public class DatabricksMetadataSdkClientTest {
       String sql, String catalog, String schema, String functionPattern, String description)
       throws SQLException {
     when(session.getComputeResource()).thenReturn(WAREHOUSE_COMPUTE);
-    DatabricksMetadataSdkClient metadataClient = new DatabricksMetadataSdkClient(mockClient);
+    DatabricksNewMetadataSdkClient metadataClient = new DatabricksNewMetadataSdkClient(mockClient);
     when(mockClient.executeStatement(
             sql,
             WAREHOUSE_COMPUTE,
@@ -332,7 +332,7 @@ public class DatabricksMetadataSdkClientTest {
 
   @Test
   void testThrowsErrorResultInCaseOfNullCatalog() {
-    DatabricksMetadataSdkClient metadataClient = new DatabricksMetadataSdkClient(mockClient);
+    DatabricksNewMetadataSdkClient metadataClient = new DatabricksNewMetadataSdkClient(mockClient);
     assertThrows(
         DatabricksValidationException.class,
         () -> metadataClient.listColumns(session, null, TEST_SCHEMA, TEST_TABLE, TEST_COLUMN));
@@ -352,7 +352,7 @@ public class DatabricksMetadataSdkClientTest {
 
   @Test
   void testListTypeInfo() {
-    DatabricksMetadataSdkClient metadataClient = new DatabricksMetadataSdkClient(mockClient);
+    DatabricksNewMetadataSdkClient metadataClient = new DatabricksNewMetadataSdkClient(mockClient);
     assertNotNull(metadataClient.listTypeInfo(session));
   }
 }
