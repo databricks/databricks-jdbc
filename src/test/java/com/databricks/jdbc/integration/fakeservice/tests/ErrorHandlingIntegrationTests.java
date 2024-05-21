@@ -58,10 +58,7 @@ public class ErrorHandlingIntegrationTests {
     Exception exception =
         assertThrows(
             DatabricksParsingException.class,
-            () -> {
-              Connection connection =
-                  getConnection("jdbc:abcde://invalidhost:0000/db", "username", "password");
-            });
+            () -> getConnection("jdbc:abcde://invalidhost:0000/db"));
     assertTrue(exception.getMessage().contains("Invalid url"));
   }
 
@@ -70,13 +67,9 @@ public class ErrorHandlingIntegrationTests {
     SQLException e =
         assertThrows(
             SQLException.class,
-            () -> {
-              Connection connection =
-                  getConnection(
-                      "jdbc:databricks://e2-wrongfood.staging.cloud.databricks.com:443/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/791ba2a31c7fd70a;",
-                      "username",
-                      "password");
-            });
+            () ->
+                getConnection(
+                    "jdbc:databricks://e2-wrongfood.staging.cloud.databricks.com:443/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/791ba2a31c7fd70a;"));
     assertTrue(e.getMessage().contains("Invalid or unknown token or hostname provided"));
   }
 
@@ -134,9 +127,8 @@ public class ErrorHandlingIntegrationTests {
     deleteTable(tableName);
   }
 
-  private Connection getConnection(String url, String username, String password)
-      throws SQLException {
-    return DriverManager.getConnection(url, username, password);
+  private void getConnection(String url) throws SQLException {
+    DriverManager.getConnection(url, "username", "password");
   }
 
   /** Returns the extensions to be used for stubbing. */

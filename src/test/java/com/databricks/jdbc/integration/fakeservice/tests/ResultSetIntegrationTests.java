@@ -127,8 +127,7 @@ public class ResultSetIntegrationTests {
 
     while (resultSet.next()) {
       String field = resultSet.getString("nullable_col");
-      assertTrue(
-          field == null || field instanceof String, "Field should be null or of type String");
+      assertNull(field, "Field should be null when not set");
     }
     deleteTable(tableName);
   }
