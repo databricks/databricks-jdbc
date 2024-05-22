@@ -67,6 +67,7 @@ jobs:
         run: mvn test
 
       - name: Install xmllint
+        if: runner.os == 'ubuntu-latest'
         run: sudo apt-get update && sudo apt-get install -y libxml2-utils
 
       - name: JaCoCo report
