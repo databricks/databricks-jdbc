@@ -66,6 +66,9 @@ jobs:
       - name: Check Unit Tests
         run: mvn test
 
+      - name: Install xmllint
+        run: sudo apt-get update && sudo apt-get install -y libxml2-utils
+
       - name: JaCoCo report
         run: mvn --batch-mode --errors jacoco:report --file pom.xml
 
