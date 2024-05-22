@@ -90,7 +90,7 @@ public class IntegrationTestUtil {
     String template =
         Boolean.parseBoolean(System.getProperty(IS_FAKE_SERVICE_TEST_PROP))
             ? "jdbc:databricks://%s/default;transportMode=http;ssl=1;AuthMech=3;httpPath=%s"
-            : "jdbc:databricks://%s/default;ssl=1;AuthMech=3;httpPath=%s";
+            : "jdbc:databricks://%s/default;ssl=0;AuthMech=3;httpPath=%s";
 
     String host = getDatabricksHost();
     String httpPath = getDatabricksHTTPPath();
