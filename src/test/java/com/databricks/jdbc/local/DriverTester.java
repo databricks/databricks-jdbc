@@ -130,7 +130,7 @@ public class DriverTester {
 
     // Construct the SQL command to list all files in the specified DBFS directory
     // String listFilesSQL = "LIST '" + dbfsPath + "'"; SHOW VOLUMES IN samikshya_hackathon.agnipratim_test;
-    String listFilesSQL = "SHOW VOLUMES IN samikshya_hackathon.agnipratim_test";
+    String listFilesSQL = "LIST '/Volumes/samikshya_hackathon/agnipratim_test/abc_volume1/'";
 
     // Create a Statement
     Statement statement = con.createStatement();
@@ -141,8 +141,8 @@ public class DriverTester {
     // Iterate over the ResultSet and check if the specified prefix exists in the file names
     boolean exists = false;
     while (resultSet.next()) {
-      String fileName = resultSet.getString("volume_name");
-      if (fileName.startsWith("abc")) {
+      String fileName = resultSet.getString("name");
+      if (fileName.startsWith("def")) {
         exists = true;
         break;
       }
