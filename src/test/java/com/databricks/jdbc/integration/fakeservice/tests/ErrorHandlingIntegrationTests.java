@@ -90,7 +90,6 @@ public class ErrorHandlingIntegrationTests extends AbstractFakeServiceIntegratio
           Connection connection = getValidJDBCConnection();
           Statement statement = connection.createStatement();
           String sql = "SELECT * FROM " + getFullyQualifiedTableName(tableName);
-          System.out.println(sql);
           ResultSet resultSet = statement.executeQuery(sql);
           resultSet.first(); // Currently unsupported method
         });
