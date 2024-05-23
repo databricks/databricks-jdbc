@@ -66,13 +66,29 @@ jobs:
       - name: Check Unit Tests
         run: mvn test
 
+      - name: Install xmllint
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libxml2-utils
+
       - name: JaCoCo report
         run: mvn --batch-mode --errors jacoco:report --file pom.xml
 
-      - name: Publish test coverage
-        uses: codecov/codecov-action@v4
-        with:
-          file: target/site/jacoco/jacoco.xml
-          token: ${{ secrets.CODECOV_TOKEN }}
-          fail_ci_if_error: true
-          verbose: true
+      - name: Extract codeCov percentage
+        run: |
+          COVERAGE_FILE="target/site/jacoco/jacoco.xml"
+          COVERED=$(xmllint --xpath "string(//report/counter[@type='INSTRUCTION']/@covered)" $COVERAGE_FILE)
+          MISSED=$(xmllint --xpath "string(//report/counter[@type='INSTRUCTION']/@missed)" $COVERAGE_FILE)
+          TOTAL=$(($COVERED + $MISSED))
+          PERCENTAGE=$(echo "scale=2; 100 * $COVERED / $TOTAL" | bc)
+          echo $PERCENTAGE > coverage.txt
+          echo "::set-output name=coverage::$PERCENTAGE"
+      - name: Check coverage percentage
+        run: |
+          BRANCH_COVERAGE=$(cat coverage.txt)
+          echo "Branch Coverage: $BRANCH_COVERAGE%"
+          if (( $(echo "$BRANCH_COVERAGE < 85" | bc -l) )); then
+            echo "Coverage is less than 85%"
+            exit 1
+          else
+            echo "Coverage is equal to or greater than 85%"
+          fi

@@ -67,7 +67,7 @@ public final class DatabricksJdbcConstants {
 
   public static final String HTTP_PATH = "httppath";
 
-  public static final String TRANSPORT_MODE = "transportmode";
+  public static final String SSL = "ssl";
 
   static final String HTTP_SCHEMA = "http://";
   static final String HTTPS_SCHEMA = "https://";
