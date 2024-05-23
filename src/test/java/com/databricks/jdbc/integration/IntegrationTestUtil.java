@@ -1,7 +1,6 @@
 package com.databricks.jdbc.integration;
 
-import static com.databricks.jdbc.driver.DatabricksJdbcConstants.FAKE_SERVICE_URI_PROP_SUFFIX;
-import static com.databricks.jdbc.driver.DatabricksJdbcConstants.IS_FAKE_SERVICE_TEST_PROP;
+import static com.databricks.jdbc.driver.DatabricksJdbcConstants.*;
 import static com.databricks.jdbc.integration.fakeservice.FakeServiceExtension.TARGET_URI_PROP_SUFFIX;
 
 import com.databricks.jdbc.driver.DatabricksJdbcConstants.FakeServiceType;
@@ -11,14 +10,18 @@ import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.regex.Pattern;
 
 /** Utility class to support integration tests * */
 public class IntegrationTestUtil {
 
   private static Connection JDBCConnection;
-
+  private static final String FAKE_SERVICE_TEMPLATE = "jdbc:databricks://%s/default;transportMode=http;ssl=0;AuthMech=3;httpPath=%s";
+  private static final String GENERAL_JDBC_TEMPLATE = "jdbc:databricks://%s/default;ssl=1;AuthMech=3;httpPath=%s";
+  private static final Pattern HTTP_WAREHOUSE_PATH_PATTERN = Pattern.compile(".*/warehouses/(.+)");
   public static String getDatabricksHost() {
-    if (Boolean.parseBoolean(System.getProperty(IS_FAKE_SERVICE_TEST_PROP))) {
+    String databricksHost = System.getenv("DATABRICKS_HOST");
+    if (shouldUseFakeService(databricksHost)) {
       // Target base URL of the fake service type
       String serviceURI =
           System.getProperty(
@@ -33,9 +36,7 @@ public class IntegrationTestUtil {
 
       return fakeServiceURI.getAuthority();
     }
-
-    // includes port
-    return System.getenv("DATABRICKS_HOST");
+    return databricksHost;
   }
 
   public static String getDatabricksBenchfoodHost() {
@@ -90,15 +91,17 @@ public class IntegrationTestUtil {
   }
 
   public static String getJDBCUrl() {
-    String template =
-        Boolean.parseBoolean(System.getProperty(IS_FAKE_SERVICE_TEST_PROP))
-            ? "jdbc:databricks://%s/default;transportMode=http;ssl=0;AuthMech=3;httpPath=%s"
-            : "jdbc:databricks://%s/default;ssl=1;AuthMech=3;httpPath=%s";
-
     String host = getDatabricksHost();
+    String template =
+            shouldUseFakeService(host)
+            ? FAKE_SERVICE_TEMPLATE
+            : GENERAL_JDBC_TEMPLATE;
     String httpPath = getDatabricksHTTPPath();
-
     return String.format(template, host, httpPath);
+  }
+
+  private static boolean shouldUseFakeService(String host){
+    return HTTP_WAREHOUSE_PATH_PATTERN.matcher(host).matches() && Boolean.getBoolean(IS_FAKE_SERVICE_TEST_PROP);
   }
 
   public static String getBenchfoodJDBCUrl() {
