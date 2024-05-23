@@ -16,9 +16,12 @@ import java.util.regex.Pattern;
 public class IntegrationTestUtil {
 
   private static Connection JDBCConnection;
-  private static final String FAKE_SERVICE_TEMPLATE = "jdbc:databricks://%s/default;transportMode=http;ssl=0;AuthMech=3;httpPath=%s";
-  private static final String GENERAL_JDBC_TEMPLATE = "jdbc:databricks://%s/default;ssl=1;AuthMech=3;httpPath=%s";
+  private static final String FAKE_SERVICE_TEMPLATE =
+      "jdbc:databricks://%s/default;transportMode=http;ssl=0;AuthMech=3;httpPath=%s";
+  private static final String GENERAL_JDBC_TEMPLATE =
+      "jdbc:databricks://%s/default;ssl=1;AuthMech=3;httpPath=%s";
   private static final Pattern HTTP_WAREHOUSE_PATH_PATTERN = Pattern.compile(".*/warehouses/(.+)");
+
   public static String getDatabricksHost() {
     String databricksHost = System.getenv("DATABRICKS_HOST");
     if (shouldUseFakeService(databricksHost)) {
@@ -92,16 +95,14 @@ public class IntegrationTestUtil {
 
   public static String getJDBCUrl() {
     String host = getDatabricksHost();
-    String template =
-            shouldUseFakeService(host)
-            ? FAKE_SERVICE_TEMPLATE
-            : GENERAL_JDBC_TEMPLATE;
+    String template = shouldUseFakeService(host) ? FAKE_SERVICE_TEMPLATE : GENERAL_JDBC_TEMPLATE;
     String httpPath = getDatabricksHTTPPath();
     return String.format(template, host, httpPath);
   }
 
-  private static boolean shouldUseFakeService(String host){
-    return HTTP_WAREHOUSE_PATH_PATTERN.matcher(host).matches() && Boolean.getBoolean(IS_FAKE_SERVICE_TEST_PROP);
+  private static boolean shouldUseFakeService(String host) {
+    return HTTP_WAREHOUSE_PATH_PATTERN.matcher(host).matches()
+        && Boolean.getBoolean(IS_FAKE_SERVICE_TEST_PROP);
   }
 
   public static String getBenchfoodJDBCUrl() {
@@ -130,7 +131,7 @@ public class IntegrationTestUtil {
       ResultSet rs = JDBCConnection.createStatement().executeQuery(sql);
       return rs;
     } catch (SQLException e) {
-      System.out.println("Error executing SQL: " + e.getMessage());
+      System.out.println("Error executing SQL: " + e);
       return null;
     }
   }
