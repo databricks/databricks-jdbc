@@ -183,7 +183,8 @@ public class DatabricksThriftServiceClient implements DatabricksClient, Databric
             "Fetching schemas for all purpose cluster. Session {%s}, catalog {%s}, schemaNamePattern {%s}",
             session.toString(), catalog, schemaNamePattern);
     LOGGER.debug(context);
-    System.out.println("here is updated schemas "+ WildcardUtil.jdbcPatternToHive(schemaNamePattern));
+    System.out.println(
+        "here is updated schemas " + WildcardUtil.jdbcPatternToHive(schemaNamePattern));
     TGetSchemasReq request =
         new TGetSchemasReq()
             .setSessionHandle(session.getSessionInfo().sessionHandle())

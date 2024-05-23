@@ -93,9 +93,7 @@ public class DriverTester {
     String jdbcUrl =
         // "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=https;ssl=1;httpPath=sql/protocolv1/o/6051921418418893/1115-130834-ms4m0yv;AuthMech=3;UID=token;";
         "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;ssl=1;AuthMech=3;httpPath=sql/protocolv1/o/6051921418418893/1115-130834-ms4m0yv";
-    Connection con =
-        DriverManager.getConnection(
-            jdbcUrl, "samikshya.chand@databricks.com", "x");
+    Connection con = DriverManager.getConnection(jdbcUrl, "samikshya.chand@databricks.com", "x");
     System.out.println("Connection established......");
     Statement statement = con.createStatement();
     ResultSet rs =
