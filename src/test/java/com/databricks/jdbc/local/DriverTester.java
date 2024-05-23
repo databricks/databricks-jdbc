@@ -2,6 +2,8 @@ package com.databricks.jdbc.local;
 
 import java.sql.*;
 import org.junit.jupiter.api.Test;
+import java.util.List;
+import java.util.ArrayList;
 
 public class DriverTester {
   public void printResultSet(ResultSet resultSet) throws SQLException {
@@ -125,24 +127,18 @@ public class DriverTester {
     Connection con = DriverManager.getConnection(jdbcUrl, "agnipratim.nag@databricks.com", "dapic253ee107b0960e6f4a4abe653a09bb7");
     System.out.println("Connection established......");
 
-    // Construct the DBFS path
-    String dbfsPath = "/dbfs/samikshya_hackathon/agnipratim_test";
-
-    // Construct the SQL command to list all files in the specified DBFS directory
-    // String listFilesSQL = "LIST '" + dbfsPath + "'"; SHOW VOLUMES IN samikshya_hackathon.agnipratim_test;
     String listFilesSQL = "LIST '/Volumes/samikshya_hackathon/agnipratim_test/abc_volume1/'";
 
-    // Create a Statement
     Statement statement = con.createStatement();
 
-    // Execute the SQL command and get a ResultSet
     ResultSet resultSet = statement.executeQuery(listFilesSQL);
 
-    // Iterate over the ResultSet and check if the specified prefix exists in the file names
+    String prefix = "efg";
+
     boolean exists = false;
     while (resultSet.next()) {
       String fileName = resultSet.getString("name");
-      if (fileName.startsWith("def")) {
+      if (fileName.startsWith(prefix)) {
         exists = true;
         break;
       }
@@ -153,4 +149,103 @@ public class DriverTester {
 
     con.close();
   }
+
+  @Test
+  void testObjectExists() throws Exception {
+    DriverManager.registerDriver(new com.databricks.jdbc.driver.DatabricksDriver());
+    DriverManager.drivers().forEach(driver -> System.out.println(driver.getClass()));
+    String jdbcUrl =
+            "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=https;ssl=1;httpPath=sql/protocolv1/o/6051921418418893/1115-130834-ms4m0yv;AuthMech=3;UID=token;";
+    Connection con = DriverManager.getConnection(jdbcUrl, "agnipratim.nag@databricks.com", "dapic253ee107b0960e6f4a4abe653a09bb7");
+    System.out.println("Connection established......");
+
+    String listFilesSQL = "LIST '/Volumes/samikshya_hackathon/agnipratim_test/abc_volume1/'";
+
+    Statement statement = con.createStatement();
+
+    ResultSet resultSet = statement.executeQuery(listFilesSQL);
+
+    String file = "abc_file1.csv";
+
+    boolean exists = false;
+    while (resultSet.next()) {
+      String fileName = resultSet.getString("name");
+      if (fileName.equals(file)) {
+        exists = true;
+        break;
+      }
+    }
+
+    // Print the result
+    System.out.println("Prefix exists: " + exists);
+
+    con.close();
+  }
+
+  @Test
+  void testListObjects() throws Exception {
+    DriverManager.registerDriver(new com.databricks.jdbc.driver.DatabricksDriver());
+    DriverManager.drivers().forEach(driver -> System.out.println(driver.getClass()));
+    String jdbcUrl =
+            "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=https;ssl=1;httpPath=sql/protocolv1/o/6051921418418893/1115-130834-ms4m0yv;AuthMech=3;UID=token;";
+    Connection con = DriverManager.getConnection(jdbcUrl, "agnipratim.nag@databricks.com", "dapic253ee107b0960e6f4a4abe653a09bb7");
+    System.out.println("Connection established......");
+
+    String listFilesSQL = "LIST '/Volumes/samikshya_hackathon/agnipratim_test/abc_volume1/'";
+
+    Statement statement = con.createStatement();
+
+    ResultSet resultSet = statement.executeQuery(listFilesSQL);
+
+    String prefix = "abc";
+
+    List<String> filesWithPrefix = new ArrayList<>();
+    while (resultSet.next()) {
+      String fileName = resultSet.getString("name");
+      if (fileName.startsWith(prefix)) {
+        filesWithPrefix.add(fileName);
+      }
+    }
+
+    // Print the result
+    System.out.println("Files with prefix '" + prefix + "': " + filesWithPrefix);
+
+    con.close();
+  }
+
+  @Test
+  void testVolumeExists() throws Exception {
+    DriverManager.registerDriver(new com.databricks.jdbc.driver.DatabricksDriver());
+    DriverManager.drivers().forEach(driver -> System.out.println(driver.getClass()));
+    String jdbcUrl =
+            "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=https;ssl=1;httpPath=sql/protocolv1/o/6051921418418893/1115-130834-ms4m0yv;AuthMech=3;UID=token;";
+    Connection con = DriverManager.getConnection(jdbcUrl, "agnipratim.nag@databricks.com", "dapic253ee107b0960e6f4a4abe653a09bb7");
+    System.out.println("Connection established......");
+
+    String catalog = "samikshya_hackathon";
+    String schema = "agnipratim_test";
+    String showTablesSQL = "SHOW TABLES IN " + catalog + "." + schema;
+
+    Statement statement = con.createStatement();
+
+    ResultSet resultSet = statement.executeQuery(showTablesSQL);
+
+    String prefix = "abc";
+
+    boolean exists = false;
+    while (resultSet.next()) {
+      String tableName = resultSet.getString("tableName");
+      if (tableName.startsWith(prefix)) {
+        exists = true;
+        break;
+      }
+    }
+
+    // Print the result
+    System.out.println("Prefix exists: " + exists);
+
+    con.close();
+  }
+
+
 }

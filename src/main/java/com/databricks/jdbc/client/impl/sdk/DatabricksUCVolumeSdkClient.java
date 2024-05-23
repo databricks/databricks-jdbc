@@ -45,9 +45,9 @@ public class DatabricksUCVolumeSdkClient implements DatabricksUCVolumeClient{
     }
 
     @Override
-    public boolean prefixExists(Connection con, String catalogName, String schemaName, String prefix) throws SQLException {
+    public boolean prefixExists(Connection con, String path, String prefix) throws SQLException {
         // Construct the DBFS path
-        String dbfsPath = "/dbfs/" + catalogName + "/" + schemaName;
+        String dbfsPath = "/Volumes/" + path;
 
         // Construct the SQL command to list all files in the specified DBFS directory
         String listFilesSQL = "LIST '" + dbfsPath + "'";
@@ -60,7 +60,7 @@ public class DatabricksUCVolumeSdkClient implements DatabricksUCVolumeClient{
 
         // Iterate over the ResultSet and check if the specified prefix exists in the file names
         while (resultSet.next()) {
-            String fileName = resultSet.getString("path");
+            String fileName = resultSet.getString("name");
             if (fileName.startsWith(prefix)) {
                 return true;
             }

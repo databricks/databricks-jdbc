@@ -36,14 +36,13 @@ public interface DatabricksUCVolumeClient {
      * prefixExists(): Determines if a specific prefix (folder-like structure) exists in the UC Volume
      *
      * @param con                  underlying JDBC Connection
-     * @param catalogName          name of the destination catalog
-     * @param schemaName           name of the destination schema within the destination catalog
+     * @param path                 the path to the UC Volume, format: Catalog.Schema.Volume
      * @param prefix must match to principal name in database (can be a regex pattern or
      *                             absolute name)
      * @return a boolean indicating whether the prefix exists or not
      */
     boolean prefixExists(
-            Connection con, String catalogName, String schemaName, String prefix) throws SQLException;
+            Connection con, String path, String prefix) throws SQLException;
 }
 
 
