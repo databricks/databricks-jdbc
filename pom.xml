@@ -45,6 +45,7 @@
     <annotation.version>1.3.5</annotation.version>
     <slt.executor>dbsql</slt.executor>
     <slt.token>dummy-token</slt.token>
+    <wiremock.version>3.5.4</wiremock.version>
   </properties>
   <dependencies>
     <dependency>
@@ -167,6 +168,18 @@
       <groupId>jakarta.annotation</groupId>
       <artifactId>jakarta.annotation-api</artifactId>
       <version>${annotation.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.wiremock</groupId>
+      <artifactId>wiremock</artifactId>
+      <version>${wiremock.version}</version>
+      <scope>test</scope>
+      <exclusions>
+        <exclusion>
+          <groupId>commons-fileupload</groupId>
+          <artifactId>commons-fileupload</artifactId>
+        </exclusion>
+      </exclusions>
     </dependency>
   </dependencies>
 

@@ -1,0 +1,28 @@
+{
+  "id" : "d823de4d-0d34-4489-bad6-e41e424316f6",
+  "name" : "api_2.0_sql_statements",
+  "request" : {
+    "url" : "/api/2.0/sql/statements/",
+    "method" : "POST",
+    "bodyPatterns" : [ {
+      "equalToJson" : "{\"statement\":\"INSERT INTO main.jdbc_test_schema.insert_test_table (id, col1, col2) VALUES (1, 'value1', 'value2')\",\"warehouse_id\":\"2f03dd43e35e2aa0\",\"session_id\":\"01ef137d-564e-1a25-b8b0-1a1415804e48\",\"disposition\":\"EXTERNAL_LINKS\",\"format\":\"ARROW_STREAM\",\"on_wait_timeout\":\"CONTINUE\",\"wait_timeout\":\"10s\",\"parameters\":[],\"compression_codec\":\"NONE\"}",
+      "ignoreArrayOrder" : true,
+      "ignoreExtraElements" : true
+    } ]
+  },
+  "response" : {
+    "status" : 200,
+    "body" : "{\"statement_id\":\"01ef137d-5a8c-15ab-8900-1891da145fba\",\"status\":{\"state\":\"SUCCEEDED\"},\"manifest\":{\"format\":\"ARROW_STREAM\",\"schema\":{\"column_count\":2,\"columns\":[{\"name\":\"num_affected_rows\",\"type_text\":\"BIGINT\",\"type_name\":\"LONG\",\"position\":0},{\"name\":\"num_inserted_rows\",\"type_text\":\"BIGINT\",\"type_name\":\"LONG\",\"position\":1}]},\"total_chunk_count\":1,\"chunks\":[{\"chunk_index\":0,\"row_offset\":0,\"row_count\":1,\"byte_count\":472}],\"total_row_count\":1,\"total_byte_count\":472,\"truncated\":false},\"result\":{\"external_links\":[{\"chunk_index\":0,\"row_offset\":0,\"row_count\":1,\"byte_count\":472,\"external_link\":\"https://dbstoragepzjc6kojqibtg.blob.core.windows.net/jobs/6436897454825492/sql/extended/results_2024-05-17T13:10:59Z_2c920201-6f79-47e9-a13d-d7bc66176641?se=2024-05-16T12%3A26%3A00Z&sv=2019-02-02&spr=https&sp=r&sr=b\",\"expiration\":\"2024-05-16T12:26:00.080Z\"}]}}",
+    "headers" : {
+      "date" : "Thu, 16 May 2024 12:11:00 GMT",
+      "server" : "databricks",
+      "x-content-type-options" : "nosniff",
+      "vary" : "Accept-Encoding",
+      "x-databricks-org-id" : "6436897454825492",
+      "content-type" : "application/json",
+      "strict-transport-security" : "max-age=31536000; includeSubDomains; preload"
+    }
+  },
+  "uuid" : "d823de4d-0d34-4489-bad6-e41e424316f6",
+  "insertionIndex" : 36
+}

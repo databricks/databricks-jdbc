@@ -1,0 +1,28 @@
+{
+  "id" : "06875d5d-301d-4f3a-b682-8e17da829fbb",
+  "name" : "api_2.0_sql_statements",
+  "request" : {
+    "url" : "/api/2.0/sql/statements/",
+    "method" : "POST",
+    "bodyPatterns" : [ {
+      "equalToJson" : "{\"statement\":\"show catalogs\",\"warehouse_id\":\"2f03dd43e35e2aa0\",\"session_id\":\"01ef137d-e437-1739-8b44-3b5b6ca27404\",\"disposition\":\"INLINE\",\"format\":\"JSON_ARRAY\",\"on_wait_timeout\":\"CONTINUE\",\"wait_timeout\":\"10s\",\"parameters\":[],\"compression_codec\":\"NONE\"}",
+      "ignoreArrayOrder" : true,
+      "ignoreExtraElements" : true
+    } ]
+  },
+  "response" : {
+    "status" : 200,
+    "body" : "{\"statement_id\":\"01ef137d-e4e8-1bae-8992-b8061d432c34\",\"status\":{\"state\":\"SUCCEEDED\"},\"manifest\":{\"format\":\"JSON_ARRAY\",\"schema\":{\"column_count\":1,\"columns\":[{\"name\":\"catalog\",\"type_text\":\"STRING\",\"type_name\":\"STRING\",\"position\":0}]},\"total_chunk_count\":1,\"chunks\":[{\"chunk_index\":0,\"row_offset\":0,\"row_count\":6}],\"total_row_count\":6,\"truncated\":false},\"result\":{\"chunk_index\":0,\"row_offset\":0,\"row_count\":6,\"data_array\":[[\"__databricks_internal\"],[\"hive_metastore\"],[\"main\"],[\"peco\"],[\"samples\"],[\"system\"]]}}",
+    "headers" : {
+      "date" : "Thu, 16 May 2024 12:14:50 GMT",
+      "server" : "databricks",
+      "x-content-type-options" : "nosniff",
+      "vary" : "Accept-Encoding",
+      "x-databricks-org-id" : "6436897454825492",
+      "content-type" : "application/json",
+      "strict-transport-security" : "max-age=31536000; includeSubDomains; preload"
+    }
+  },
+  "uuid" : "06875d5d-301d-4f3a-b682-8e17da829fbb",
+  "insertionIndex" : 21
+}
