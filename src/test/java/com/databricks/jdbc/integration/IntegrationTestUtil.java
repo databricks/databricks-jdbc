@@ -86,9 +86,6 @@ public class IntegrationTestUtil {
 
   public static Connection getValidJDBCConnection() throws SQLException {
     // add support for properties
-    System.out.println("url " + getJDBCUrl());
-    System.out.println("user " + getDatabricksUser());
-    System.out.println("token " + getDatabricksToken());
     return DriverManager.getConnection(getJDBCUrl(), getDatabricksUser(), getDatabricksToken());
   }
 
@@ -121,7 +118,8 @@ public class IntegrationTestUtil {
   }
 
   public static String getBenchfoodJDBCUrl() {
-    String template ="jdbc:databricks://%s/default;transportMode=http;ssl=1;AuthMech=3;httpPath=%s";
+    String template =
+            "jdbc:databricks://%s/default;transportMode=http;ssl=1;AuthMech=3;httpPath=%s";
     String host = getDatabricksBenchfoodHost();
     String httpPath = getDatabricksBenchfoodHTTPPath();
 
