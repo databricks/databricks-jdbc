@@ -81,6 +81,7 @@ public class ExecutionIntegrationTests {
     // Verify update operation
     ResultSet rs =
         executeQuery("SELECT col2 FROM " + getFullyQualifiedTableName(tableName) + " WHERE id = 1");
+    assertNotNull(rs);
     assertTrue(
         rs.next() && "updatedValue2".equals(rs.getString("col2")),
         "Expected 'updatedValue2', got " + rs.getString("col2"));
