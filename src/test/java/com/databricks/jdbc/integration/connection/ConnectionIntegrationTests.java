@@ -35,7 +35,7 @@ public class ConnectionIntegrationTests {
   @Test
   void testIncorrectCredentialsForOAuth() throws SQLException {
     String template =
-        "jdbc:databricks://%s/default;transportMode=http;ssl=1;AuthMech=11;AuthFlow=0;httpPath=%s";
+        "jdbc:databricks://%s/default;transportMode=https;ssl=1;AuthMech=11;AuthFlow=0;httpPath=%s";
     String url = String.format(template, getDatabricksHost(), getDatabricksHTTPPath());
     DatabricksSQLException e =
         assertThrows(

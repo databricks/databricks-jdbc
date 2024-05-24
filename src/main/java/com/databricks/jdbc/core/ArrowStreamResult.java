@@ -1,24 +1,29 @@
 package com.databricks.jdbc.core;
 
+import static com.databricks.jdbc.client.impl.thrift.commons.DatabricksThriftHelper.getTypeFromTypeDesc;
+
 import com.databricks.jdbc.client.IDatabricksHttpClient;
+import com.databricks.jdbc.client.impl.thrift.generated.TColumnDesc;
+import com.databricks.jdbc.client.impl.thrift.generated.TGetResultSetMetadataResp;
+import com.databricks.jdbc.client.impl.thrift.generated.TRowSet;
 import com.databricks.jdbc.client.sqlexec.ResultData;
 import com.databricks.jdbc.client.sqlexec.ResultManifest;
-import com.databricks.sdk.service.sql.BaseChunkInfo;
 import com.databricks.sdk.service.sql.ColumnInfo;
 import com.databricks.sdk.service.sql.ColumnInfoTypeName;
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.collect.ImmutableMap;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 
 class ArrowStreamResult implements IExecutionResult {
 
-  private final IDatabricksSession session;
-  private final ImmutableMap<Long, BaseChunkInfo> rowOffsetToChunkMap;
-  private final ChunkDownloader chunkDownloader;
+  private IDatabricksSession session;
+  private ChunkDownloader chunkDownloader;
+  private ChunkExtractor chunkExtractor;
 
   private long currentRowIndex;
+
+  private final boolean isInlineArrow;
 
   private boolean isClosed;
 
@@ -37,6 +42,54 @@ class ArrowStreamResult implements IExecutionResult {
         session);
   }
 
+  ArrowStreamResult(
+      TGetResultSetMetadataResp resultManifest,
+      TRowSet resultData,
+      boolean isInlineArrow,
+      String parentStatementId,
+      IDatabricksSession session)
+      throws DatabricksParsingException {
+    this(resultManifest, resultData, isInlineArrow, parentStatementId, session, null);
+  }
+
+  ArrowStreamResult(
+      TGetResultSetMetadataResp resultManifest,
+      TRowSet resultData,
+      boolean isInlineArrow,
+      String statementId,
+      IDatabricksSession session,
+      IDatabricksHttpClient httpClient)
+      throws DatabricksParsingException {
+    this.chunkDownloader = null;
+    setColumnInfo(resultManifest);
+    this.currentRowIndex = -1;
+    this.isClosed = false;
+    this.isInlineArrow = isInlineArrow;
+    this.chunkIterator = null;
+    if (isInlineArrow) {
+      this.chunkExtractor = new ChunkExtractor(resultData.getArrowBatches(), resultManifest);
+      this.chunkDownloader = null;
+    } else {
+      if (httpClient != null) { // This is to aid testing
+        this.chunkDownloader = new ChunkDownloader(statementId, resultData, session, httpClient);
+      } else {
+        this.chunkDownloader = new ChunkDownloader(statementId, resultData, session);
+      }
+      this.chunkExtractor = null;
+    }
+  }
+
+  private void setColumnInfo(TGetResultSetMetadataResp resultManifest) {
+    this.columnInfos = new ArrayList<>();
+    if (resultManifest.getSchema() == null) {
+      return;
+    }
+    for (TColumnDesc columnInfo : resultManifest.getSchema().getColumns()) {
+      this.columnInfos.add(
+          new ColumnInfo().setTypeName(getTypeFromTypeDesc(columnInfo.getTypeDesc())));
+    }
+  }
+
   @VisibleForTesting
   ArrowStreamResult(
       ResultManifest resultManifest,
@@ -52,8 +105,8 @@ class ArrowStreamResult implements IExecutionResult {
 
   private ArrowStreamResult(
       ResultManifest resultManifest, ChunkDownloader chunkDownloader, IDatabricksSession session) {
-    this.rowOffsetToChunkMap = getRowOffsetMap(resultManifest);
     this.session = session;
+    this.isInlineArrow = false;
     this.chunkDownloader = chunkDownloader;
     this.columnInfos =
         resultManifest.getSchema().getColumnCount() == 0
@@ -62,21 +115,6 @@ class ArrowStreamResult implements IExecutionResult {
     this.currentRowIndex = -1;
     this.isClosed = false;
     this.chunkIterator = null;
-  }
-
-  public ChunkDownloader getChunkDownloader() {
-    return this.chunkDownloader;
-  }
-
-  private static ImmutableMap<Long, BaseChunkInfo> getRowOffsetMap(ResultManifest resultManifest) {
-    ImmutableMap.Builder<Long, BaseChunkInfo> rowOffsetMapBuilder = ImmutableMap.builder();
-    if (resultManifest.getTotalChunkCount() == 0) {
-      return rowOffsetMapBuilder.build();
-    }
-    for (BaseChunkInfo chunk : resultManifest.getChunks()) {
-      rowOffsetMapBuilder.put(chunk.getRowOffset(), chunk);
-    }
-    return rowOffsetMapBuilder.build();
   }
 
   @Override
@@ -101,6 +139,12 @@ class ArrowStreamResult implements IExecutionResult {
       return false;
     }
     this.currentRowIndex++;
+    if (isInlineArrow) {
+      if (chunkIterator == null) {
+        this.chunkIterator = this.chunkExtractor.next().getChunkIterator();
+      }
+      return chunkIterator.nextRow();
+    }
     // Either this is first chunk or we are crossing chunk boundary
     if (this.chunkIterator == null || !this.chunkIterator.hasNextRow()) {
       this.chunkDownloader.next();
@@ -113,18 +157,27 @@ class ArrowStreamResult implements IExecutionResult {
 
   @Override
   public boolean hasNext() {
-    return !isClosed()
-        && ((chunkIterator != null && chunkIterator.hasNextRow())
-            || chunkDownloader.hasNextChunk());
+    if (isClosed) {
+      return false;
+    }
+
+    // Check if there are any more rows available in the current chunk
+    if (chunkIterator != null && chunkIterator.hasNextRow()) {
+      return true;
+    }
+
+    // For inline arrow, check if the chunk extractor has more chunks
+    // Otherwise, check the chunk downloader
+    return isInlineArrow ? this.chunkExtractor.hasNext() : this.chunkDownloader.hasNextChunk();
   }
 
   @Override
   public void close() {
     this.isClosed = true;
-    this.chunkDownloader.releaseAllChunks();
-  }
-
-  private boolean isClosed() {
-    return this.isClosed;
+    if (isInlineArrow) {
+      this.chunkExtractor.releaseChunk();
+    } else {
+      this.chunkDownloader.releaseAllChunks();
+    }
   }
 }

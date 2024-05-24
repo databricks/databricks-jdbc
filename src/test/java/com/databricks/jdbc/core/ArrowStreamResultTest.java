@@ -1,5 +1,6 @@
 package com.databricks.jdbc.core;
 
+import static com.databricks.jdbc.TestConstants.*;
 import static java.lang.Math.min;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.isA;
@@ -7,6 +8,9 @@ import static org.mockito.Mockito.when;
 
 import com.databricks.jdbc.client.IDatabricksHttpClient;
 import com.databricks.jdbc.client.impl.sdk.DatabricksSdkClient;
+import com.databricks.jdbc.client.impl.thrift.generated.TGetResultSetMetadataResp;
+import com.databricks.jdbc.client.impl.thrift.generated.TRowSet;
+import com.databricks.jdbc.client.impl.thrift.generated.TSparkArrowResultLink;
 import com.databricks.jdbc.client.sqlexec.ExternalLink;
 import com.databricks.jdbc.client.sqlexec.ResultData;
 import com.databricks.jdbc.client.sqlexec.ResultManifest;
@@ -20,10 +24,7 @@ import com.databricks.sdk.service.sql.ResultSchema;
 import com.google.common.collect.ImmutableList;
 import java.io.*;
 import java.time.Instant;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Properties;
-import java.util.Random;
+import java.util.*;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.Float8Vector;
@@ -50,6 +51,9 @@ import org.mockito.junit.jupiter.MockitoExtension;
 public class ArrowStreamResultTest {
   private List<BaseChunkInfo> chunkInfos = new ArrayList<>();
 
+  @Mock TGetResultSetMetadataResp metadataResp;
+  @Mock TRowSet resultData;
+  @Mock IDatabricksSession session;
   private int numberOfChunks = 10;
   private Random random = new Random();
 
@@ -65,7 +69,6 @@ public class ArrowStreamResultTest {
   @Mock CloseableHttpResponse httpResponse;
   @Mock HttpEntity httpEntity;
   @Mock StatusLine mockedStatusLine;
-  @Mock DatabricksSession session;
 
   @BeforeEach
   public void setup() throws Exception {
@@ -82,8 +85,10 @@ public class ArrowStreamResultTest {
             .setTotalChunkCount(0L)
             .setSchema(new ResultSchema().setColumns(new ArrayList<>()).setColumnCount(0L));
     ResultData resultData = new ResultData().setExternalLinks(new ArrayList<>());
-    assertDoesNotThrow(
-        () -> new ArrowStreamResult(resultManifest, resultData, STATEMENT_ID, session));
+    ArrowStreamResult result =
+        new ArrowStreamResult(resultManifest, resultData, STATEMENT_ID, session);
+    assertDoesNotThrow(result::close);
+    assertFalse(result.hasNext());
   }
 
   @Test
@@ -120,6 +125,35 @@ public class ArrowStreamResultTest {
     }
     assertFalse(result.hasNext());
     assertFalse(result.next());
+  }
+
+  @Test
+  public void testInlineArrow() throws DatabricksSQLException {
+    when(metadataResp.getSchema()).thenReturn(TEST_TABLE_SCHEMA);
+    ArrowStreamResult result =
+        new ArrowStreamResult(metadataResp, resultData, true, TEST_STATEMENT_ID, session);
+    assertEquals(-1, result.getCurrentRow());
+    assertTrue(result.hasNext());
+    assertFalse(result.next());
+    assertEquals(0, result.getCurrentRow());
+    assertFalse(result.hasNext());
+    assertDoesNotThrow(result::close);
+    assertFalse(result.hasNext());
+  }
+
+  @Test
+  public void testCloudFetchArrow() throws Exception {
+    when(metadataResp.getSchema()).thenReturn(TEST_TABLE_SCHEMA);
+    TSparkArrowResultLink resultLink = new TSparkArrowResultLink().setFileLink(TEST_STRING);
+    when(resultData.getResultLinks()).thenReturn(Collections.singletonList(resultLink));
+    when(resultData.getResultLinksSize()).thenReturn(1);
+    ArrowStreamResult result =
+        new ArrowStreamResult(
+            metadataResp, resultData, false, TEST_STATEMENT_ID, session, mockHttpClient);
+    assertEquals(-1, result.getCurrentRow());
+    assertTrue(result.hasNext());
+    assertDoesNotThrow(result::close);
+    assertFalse(result.hasNext());
   }
 
   @Test

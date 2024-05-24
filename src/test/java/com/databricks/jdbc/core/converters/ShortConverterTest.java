@@ -96,6 +96,11 @@ public class ShortConverterTest {
   }
 
   @Test
+  public void testConvertFromString() throws DatabricksSQLException {
+    assertEquals(new ShortConverter("65").convertToInt(), 65);
+  }
+
+  @Test
   public void testConvertToTimestamp() throws DatabricksSQLException {
     DatabricksSQLException exception =
         assertThrows(

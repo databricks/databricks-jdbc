@@ -2,9 +2,12 @@ package com.databricks.jdbc.core;
 
 import com.databricks.jdbc.client.IDatabricksHttpClient;
 import com.databricks.jdbc.client.http.DatabricksHttpClient;
+import com.databricks.jdbc.client.impl.thrift.generated.TRowSet;
+import com.databricks.jdbc.client.impl.thrift.generated.TSparkArrowResultLink;
 import com.databricks.jdbc.client.sqlexec.ExternalLink;
 import com.databricks.jdbc.client.sqlexec.ResultData;
 import com.databricks.jdbc.client.sqlexec.ResultManifest;
+import com.databricks.jdbc.core.types.CompressionType;
 import com.databricks.sdk.service.sql.BaseChunkInfo;
 import com.google.common.annotations.VisibleForTesting;
 import java.util.Collection;
@@ -13,7 +16,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.atomic.AtomicInteger;
-import org.apache.arrow.memory.RootAllocator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -57,46 +59,51 @@ public class ChunkDownloader {
       ResultData resultData,
       IDatabricksSession session,
       IDatabricksHttpClient httpClient) {
+    this.chunkDownloaderExecutorService = createChunksDownloaderExecutorService();
+    this.httpClient = httpClient;
     this.session = session;
     this.statementId = statementId;
     this.totalChunks = resultManifest.getTotalChunkCount();
     this.chunkIndexToChunksMap = initializeChunksMap(resultManifest, resultData, statementId);
-    // No chunks are downloaded, we need to start from first one
-    this.nextChunkToDownload = 0;
-    // Initialize current chunk to -1, since we don't have anything to read
-    this.currentChunkIndex = -1L;
-    // We don't have any chunk in downloaded yet
-    this.totalChunksInMemory = 0L;
-    // Number of worker threads are directly linked to allowed chunks in memory
-    this.allowedChunksInMemory = Math.min(CHUNKS_DOWNLOADER_THREAD_POOL_SIZE, totalChunks);
+    initializeData();
+  }
+
+  ChunkDownloader(String statementId, TRowSet resultData, IDatabricksSession session) {
+    this(
+        statementId,
+        resultData,
+        session,
+        DatabricksHttpClient.getInstance(session.getConnectionContext()));
+  }
+
+  @VisibleForTesting
+  ChunkDownloader(
+      String statementId,
+      TRowSet resultData,
+      IDatabricksSession session,
+      IDatabricksHttpClient httpClient) {
     this.chunkDownloaderExecutorService = createChunksDownloaderExecutorService();
     this.httpClient = httpClient;
-    this.isClosed = false;
-    // The first link is available
-    this.downloadNextChunks();
+    this.session = session;
+    this.statementId = statementId;
+    this.totalChunks = resultData.getResultLinksSize();
+    this.chunkIndexToChunksMap = initializeChunksMap(resultData, statementId);
+    initializeData();
   }
 
   private static ConcurrentHashMap<Long, ArrowResultChunk> initializeChunksMap(
-      ResultManifest resultManifest, ResultData resultData, String statementId) {
+      TRowSet resultData, String statementId) {
     ConcurrentHashMap<Long, ArrowResultChunk> chunkIndexMap = new ConcurrentHashMap<>();
-    if (resultManifest.getTotalChunkCount() == 0) {
+    long chunkIndex = 0;
+    if (resultData.getResultLinksSize() == 0) {
       return chunkIndexMap;
     }
-    for (BaseChunkInfo chunkInfo : resultManifest.getChunks()) {
-      // TODO: Add logging to check data (in bytes) from server and in root allocator.
-      //  If they are close, we can directly assign the number of bytes as the limit with a small
-      // buffer.
+    for (TSparkArrowResultLink resultLink : resultData.getResultLinks()) {
+      // TODO : add compression
       chunkIndexMap.put(
-          chunkInfo.getChunkIndex(),
-          new ArrowResultChunk(
-              chunkInfo,
-              new RootAllocator(/* limit= */ Integer.MAX_VALUE),
-              statementId,
-              resultManifest.getCompressionType()));
-    }
-
-    for (ExternalLink externalLink : resultData.getExternalLinks()) {
-      chunkIndexMap.get(externalLink.getChunkIndex()).setChunkLink(externalLink);
+          chunkIndex,
+          new ArrowResultChunk(chunkIndex, resultLink, statementId, CompressionType.NONE));
+      chunkIndex++;
     }
     return chunkIndexMap;
   }
@@ -144,7 +151,7 @@ public class ChunkDownloader {
         while (!isDownloadComplete(chunk.getStatus())) {
           chunk.wait();
         }
-        if (chunk.getStatus() != ArrowResultChunk.DownloadStatus.DOWNLOAD_SUCCEEDED) {
+        if (chunk.getStatus() != ArrowResultChunk.ChunkStatus.DOWNLOAD_SUCCEEDED) {
           throw new DatabricksSQLException(chunk.getErrorMessage());
         }
       } catch (InterruptedException e) {
@@ -177,10 +184,10 @@ public class ChunkDownloader {
     return true;
   }
 
-  private boolean isDownloadComplete(ArrowResultChunk.DownloadStatus status) {
-    return status == ArrowResultChunk.DownloadStatus.DOWNLOAD_SUCCEEDED
-        || status == ArrowResultChunk.DownloadStatus.DOWNLOAD_FAILED
-        || status == ArrowResultChunk.DownloadStatus.DOWNLOAD_FAILED_ABORTED;
+  private boolean isDownloadComplete(ArrowResultChunk.ChunkStatus status) {
+    return status == ArrowResultChunk.ChunkStatus.DOWNLOAD_SUCCEEDED
+        || status == ArrowResultChunk.ChunkStatus.DOWNLOAD_FAILED
+        || status == ArrowResultChunk.ChunkStatus.DOWNLOAD_FAILED_ABORTED;
   }
 
   void downloadProcessed(long chunkIndex) {
@@ -190,7 +197,7 @@ public class ChunkDownloader {
     }
   }
 
-  void downloadLinks(long chunkIndexToDownloadLink) {
+  void downloadLinks(long chunkIndexToDownloadLink) throws DatabricksSQLException {
     Collection<ExternalLink> chunks =
         session.getDatabricksClient().getResultChunks(statementId, chunkIndexToDownloadLink);
     for (ExternalLink chunkLink : chunks) {
@@ -212,7 +219,9 @@ public class ChunkDownloader {
    * @param chunkLink external link details for chunk
    */
   void setChunkLink(ExternalLink chunkLink) {
-    chunkIndexToChunksMap.get(chunkLink.getChunkIndex()).setChunkLink(chunkLink);
+    if (!isDownloadComplete(chunkIndexToChunksMap.get(chunkLink.getChunkIndex()).getStatus())) {
+      chunkIndexToChunksMap.get(chunkLink.getChunkIndex()).setChunkLink(chunkLink);
+    }
   }
 
   /** Fetches total chunks that we have in memory */
@@ -235,12 +244,47 @@ public class ChunkDownloader {
         && nextChunkToDownload < totalChunks
         && totalChunksInMemory < allowedChunksInMemory) {
       ArrowResultChunk chunk = chunkIndexToChunksMap.get(nextChunkToDownload);
-      if (chunk.getStatus() != ArrowResultChunk.DownloadStatus.DOWNLOAD_SUCCEEDED) {
+      if (chunk.getStatus() != ArrowResultChunk.ChunkStatus.DOWNLOAD_SUCCEEDED) {
         this.chunkDownloaderExecutorService.submit(
             new SingleChunkDownloader(chunk, httpClient, this));
         totalChunksInMemory++;
       }
       nextChunkToDownload++;
     }
+  }
+
+  void initializeData() {
+    // No chunks are downloaded, we need to start from first one
+    this.nextChunkToDownload = 0;
+    // Initialize current chunk to -1, since we don't have anything to read
+    this.currentChunkIndex = -1L;
+    // We don't have any chunk in downloaded yet
+    this.totalChunksInMemory = 0L;
+    // Number of worker threads are directly linked to allowed chunks in memory
+    this.allowedChunksInMemory = Math.min(CHUNKS_DOWNLOADER_THREAD_POOL_SIZE, totalChunks);
+    this.isClosed = false;
+    // The first link is available
+    this.downloadNextChunks();
+  }
+
+  private static ConcurrentHashMap<Long, ArrowResultChunk> initializeChunksMap(
+      ResultManifest resultManifest, ResultData resultData, String statementId) {
+    ConcurrentHashMap<Long, ArrowResultChunk> chunkIndexMap = new ConcurrentHashMap<>();
+    if (resultManifest.getTotalChunkCount() == 0) {
+      return chunkIndexMap;
+    }
+    for (BaseChunkInfo chunkInfo : resultManifest.getChunks()) {
+      // TODO: Add logging to check data (in bytes) from server and in root allocator.
+      //  If they are close, we can directly assign the number of bytes as the limit with a small
+      // buffer.
+      chunkIndexMap.put(
+          chunkInfo.getChunkIndex(),
+          new ArrowResultChunk(chunkInfo, statementId, resultManifest.getCompressionType()));
+    }
+
+    for (ExternalLink externalLink : resultData.getExternalLinks()) {
+      chunkIndexMap.get(externalLink.getChunkIndex()).setChunkLink(externalLink);
+    }
+    return chunkIndexMap;
   }
 }

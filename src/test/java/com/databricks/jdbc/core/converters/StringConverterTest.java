@@ -93,7 +93,7 @@ public class StringConverterTest {
     DatabricksSQLException invalidCharactersException =
         assertThrows(
             DatabricksSQLException.class,
-            () -> new StringConverter(CHARACTER_STRING).convertToLong());
+            () -> new StringConverter(CHARACTER_STRING).convertToFloat());
     assertTrue(invalidCharactersException.getMessage().contains("Invalid conversion"));
   }
 
@@ -104,7 +104,7 @@ public class StringConverterTest {
     DatabricksSQLException invalidCharactersException =
         assertThrows(
             DatabricksSQLException.class,
-            () -> new StringConverter(CHARACTER_STRING).convertToLong());
+            () -> new StringConverter(CHARACTER_STRING).convertToDouble());
     assertTrue(invalidCharactersException.getMessage().contains("Invalid conversion"));
   }
 

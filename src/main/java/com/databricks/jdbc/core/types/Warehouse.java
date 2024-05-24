@@ -15,7 +15,7 @@ public class Warehouse implements ComputeResource {
 
   @Override
   public boolean equals(Object obj) {
-    if (obj.getClass() != this.getClass()) {
+    if (!(obj instanceof Warehouse)) {
       return false;
     }
     return Objects.equals(((Warehouse) obj).warehouseId, this.getWarehouseId());

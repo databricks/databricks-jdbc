@@ -1,5 +1,7 @@
 package com.databricks.jdbc.driver;
 
+import com.databricks.jdbc.client.DatabricksClientType;
+import com.databricks.jdbc.core.DatabricksParsingException;
 import com.databricks.jdbc.core.DatabricksSQLException;
 import com.databricks.jdbc.core.types.CompressionType;
 import com.databricks.jdbc.core.types.ComputeResource;
@@ -38,7 +40,7 @@ public interface IDatabricksConnectionContext {
    *
    * @return Databricks host-Url
    */
-  String getHostUrl();
+  String getHostUrl() throws DatabricksParsingException;
 
   /**
    * Returns warehouse-Id as parsed from JDBC connection Url
@@ -56,11 +58,11 @@ public interface IDatabricksConnectionContext {
 
   String getHostForOAuth();
 
-  String getClientId();
+  String getClientId() throws DatabricksParsingException;
 
   String getClientSecret();
 
-  List<String> getOAuthScopesForU2M();
+  List<String> getOAuthScopesForU2M() throws DatabricksParsingException;
 
   AuthMech getAuthMech();
 
@@ -117,4 +119,10 @@ public interface IDatabricksConnectionContext {
   String getCloudFetchProxyPassword();
 
   Boolean getUseCloudFetchProxyAuth();
+
+  String getEndpointURL() throws DatabricksParsingException;
+
+  int getAsyncExecPollInterval();
+
+  DatabricksClientType getClientType();
 }

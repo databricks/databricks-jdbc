@@ -33,7 +33,7 @@ public class ConverterHelper {
       return converter.convertToShort();
     }
     // TODO : add more types if required.
-    return Types.OTHER;
+    return converter.convertToString(); // By default, convert to string
   }
 
   public static AbstractObjectConverter getObjectConverter(Object object, int columnType)
@@ -55,15 +55,16 @@ public class ConverterHelper {
         return new BigDecimalConverter(object);
       case Types.BOOLEAN:
         return new BooleanConverter(object);
-      case Types.VARCHAR:
-      case Types.CHAR:
-        return new StringConverter(object);
       case Types.DATE:
         return new DateConverter(object);
       case Types.TIMESTAMP:
         return new TimestampConverter(object);
+      case Types.BINARY:
+        return new ByteArrayConverter(object);
+      case Types.VARCHAR:
+      case Types.CHAR:
       default:
-        throw new DatabricksSQLException("Bad object type");
+        return new StringConverter(object);
     }
   }
 }

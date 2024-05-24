@@ -1,5 +1,6 @@
 package com.databricks.jdbc.core;
 
+import static com.databricks.jdbc.TestConstants.WAREHOUSE_JDBC_URL;
 import static java.lang.Math.min;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.isA;
@@ -12,7 +13,6 @@ import com.databricks.jdbc.client.impl.sdk.DatabricksSdkClient;
 import com.databricks.jdbc.client.sqlexec.ExternalLink;
 import com.databricks.jdbc.client.sqlexec.ResultData;
 import com.databricks.jdbc.client.sqlexec.ResultManifest;
-import com.databricks.jdbc.core.ArrowResultChunk.DownloadStatus;
 import com.databricks.jdbc.driver.DatabricksConnectionContext;
 import com.databricks.jdbc.driver.IDatabricksConnectionContext;
 import com.databricks.sdk.core.ApiClient;
@@ -48,13 +48,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
 public class ChunkDownloaderTest {
-
-  private static final String WAREHOUSE_ID = "erg6767gg";
-  private static final String SESSION_ID = "session_id";
   private static final String STATEMENT_ID = "statement_id";
-  private static final String STATEMENT = "select 1";
-  private static final String JDBC_URL =
-      "jdbc:databricks://adb-565757575.18.azuredatabricks.net:4423/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/erg6767gg;";
   private static final String CHUNK_URL_PREFIX = "chunk.databricks.com/";
   private static final long TOTAL_CHUNKS = 5;
   private static final long TOTAL_ROWS = 90;
@@ -87,7 +81,7 @@ public class ChunkDownloaderTest {
     ResultData resultData = getResultData();
 
     IDatabricksConnectionContext connectionContext =
-        DatabricksConnectionContext.parse(JDBC_URL, new Properties());
+        DatabricksConnectionContext.parse(WAREHOUSE_JDBC_URL, new Properties());
     DatabricksSession session =
         new DatabricksSession(
             connectionContext,
@@ -171,7 +165,7 @@ public class ChunkDownloaderTest {
     assertEquals(CHUNK_URL_PREFIX + chunkIndex, chunk.getChunkUrl());
 
     assertNotNull(chunk.getDownloadFinishTime());
-    assertEquals(DownloadStatus.DOWNLOAD_SUCCEEDED, chunk.getStatus());
+    assertEquals(ArrowResultChunk.ChunkStatus.DOWNLOAD_SUCCEEDED, chunk.getStatus());
   }
 
   private File createTestArrowFile(

@@ -19,6 +19,9 @@ public interface IDatabricksSession {
   @Nullable
   String getSessionId();
 
+  @Nullable
+  ImmutableSessionInfo getSessionInfo();
+
   /**
    * Get the warehouse associated with the session.
    *
@@ -37,7 +40,7 @@ public interface IDatabricksSession {
   void open() throws DatabricksSQLException;
 
   /** Closes the session. */
-  void close();
+  void close() throws DatabricksSQLException;
 
   /** Returns the client for connecting to Databricks server */
   DatabricksClient getDatabricksClient();
@@ -68,6 +71,12 @@ public interface IDatabricksSession {
 
   /** Sets the session config */
   void setSessionConfig(String name, String value);
+
+  /** Returns the client info properties */
+  Map<String, String> getClientInfoProperties();
+
+  /** Sets the client info property */
+  void setClientInfoProperty(String name, String value);
 
   IDatabricksConnectionContext getConnectionContext();
 }

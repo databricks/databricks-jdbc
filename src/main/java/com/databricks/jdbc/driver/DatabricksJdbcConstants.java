@@ -1,29 +1,29 @@
 package com.databricks.jdbc.driver;
 
+import com.google.common.annotations.VisibleForTesting;
 import java.util.Map;
+import java.util.Set;
 import java.util.regex.Pattern;
 
 public final class DatabricksJdbcConstants {
 
   static final Pattern JDBC_URL_PATTERN =
       Pattern.compile("jdbc:databricks://([^/;]*)(?::\\d+)?/*(.*)");
-  static final Pattern HTTP_WAREHOUSE_PATH_PATTERN =
-      Pattern.compile(".*/(warehouses|endpoints)/(.+)");
-  static final Pattern TEST_PATH_PATTERN = Pattern.compile("jdbc:databricks://(test|localhost.*)");
+  static final Pattern HTTP_WAREHOUSE_PATH_PATTERN = Pattern.compile(".*/warehouses/(.+)");
+  static final Pattern HTTP_ENDPOINT_PATH_PATTERN = Pattern.compile(".*/endpoints/(.+)");
+  static final Pattern TEST_PATH_PATTERN = Pattern.compile("jdbc:databricks://test");
   static final Pattern HTTP_CLUSTER_PATH_PATTERN = Pattern.compile(".*/o/(.+)/(.+)");
-  static final Pattern HTTP_PATH_PATTERN = Pattern.compile(".*/(warehouses|endpoints)/(.*)");
-  static final Pattern HTTP_PATH_SQL_PATTERN = Pattern.compile("sql/(.*)");
   public static final String JDBC_SCHEMA = "jdbc:databricks://";
   static final String DEFAULT_LOG_LEVEL = "INFO";
   static final String LOG_LEVEL = "loglevel";
   static final String LOG_PATH = "logpath";
   static final String SYSTEM_LOG_LEVEL_CONFIG = "defaultLogLevel";
   static final String SYSTEM_LOG_FILE_CONFIG = "defaultLogFile";
-  static final String URL_DELIMITER = ";";
-  static final String PORT_DELIMITER = ":";
+  public static final String URL_DELIMITER = ";";
+  public static final String PORT_DELIMITER = ":";
   static final String DEFAULT_SCHEMA = "default";
-  static final String DEFAULT_CATALOG = "hive_metastore";
-  static final String PAIR_DELIMITER = "=";
+  static final String DEFAULT_CATALOG = "SPARK";
+  public static final String PAIR_DELIMITER = "=";
   static final String TOKEN = "token";
   public static final String USER = "user";
   public static final String PASSWORD = "password";
@@ -32,7 +32,7 @@ public final class DatabricksJdbcConstants {
 
   static final String CLIENT_SECRET = "databricks_client_secret";
 
-  static final String AUTH_MECH = "authmech";
+  public static final String AUTH_MECH = "authmech";
 
   static final String CONN_CATALOG = "conncatalog";
 
@@ -58,11 +58,18 @@ public final class DatabricksJdbcConstants {
   static final String UID = "uid";
   static final String PWD = "pwd";
 
+  static final String POLL_INTERVAL = "asyncexecpollinterval";
+  static final int POLL_INTERVAL_DEFAULT = 200;
+
   static final String AWS_CLIENT_ID = "databricks-sql-jdbc";
 
   static final String AAD_CLIENT_ID = "96eecda7-19ea-49cc-abb5-240097d554f5";
 
-  static final String HTTP_PATH = "httppath";
+  public static final String HTTP_PATH = "httppath";
+
+  public static final String SSL = "ssl";
+
+  static final String HTTP_SCHEMA = "http://";
   static final String HTTPS_SCHEMA = "https://";
   public static final String LOGIN_TIMEOUT = "loginTimeout";
 
@@ -92,6 +99,9 @@ public final class DatabricksJdbcConstants {
   static final String CLIENT_USER_AGENT_PREFIX = "Java";
   static final String USER_AGENT_SEA_CLIENT = "SQLExecHttpClient/HC";
   static final String USER_AGENT_THRIFT_CLIENT = "THttpClient/HC";
+  public static final String ALLOWED_VOLUME_INGESTION_PATHS =
+      "allowlistedVolumeOperationLocalFilePaths";
+  public static final String VOLUME_OPERATION_STATUS_COLUMN_NAME = "operation_status";
   public static final Map<String, String> ALLOWED_SESSION_CONF_TO_DEFAULT_VALUES_MAP =
       // This map comes from
       // https://docs.databricks.com/en/sql/language-manual/sql-ref-parameters.html
@@ -105,13 +115,19 @@ public final class DatabricksJdbcConstants {
           "TIMEZONE", "UTC",
           "USE_CACHED_RESULT", "TRUE");
 
-  public static final String SSL_ENABLED = "ssl";
+  public static final Set<String> ALLOWED_CLIENT_INFO_PROPERTIES =
+      Set.of(ALLOWED_VOLUME_INGESTION_PATHS);
 
-  public static final String SSL_KEYSTORE_PATH = "sslkeystore";
+  @VisibleForTesting public static final String IS_FAKE_SERVICE_TEST_PROP = "isFakeServiceTest";
 
-  public static final String SSL_KEYSTORE_PASSWORD = "sslkeystorepwd";
+  @VisibleForTesting public static final String FAKE_SERVICE_URI_PROP_SUFFIX = ".fakeServiceURI";
 
-  public static final String ALLOW_SELF_SIGNED_CERTS = "allowselfsignedcerts";
+  /** Enum for the services that can be replaced with a fake service in integration tests. */
+  @VisibleForTesting
+  public enum FakeServiceType {
+    SQL_EXEC,
+    CLOUD_FETCH
+  }
 
-  public static final String AUTH_ACCESSTOKEN = "auth_accesstoken";
+  public static final String USE_THRIFT_CLIENT = "usethriftclient";
 }

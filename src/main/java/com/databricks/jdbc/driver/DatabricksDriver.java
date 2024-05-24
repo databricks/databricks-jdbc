@@ -22,7 +22,7 @@ public class DatabricksDriver implements Driver {
 
   private static final int majorVersion = 0;
   private static final int minorVersion = 0;
-  private static final int buildVersion = 0;
+  private static final int buildVersion = 1;
 
   static {
     try {
@@ -89,11 +89,11 @@ public class DatabricksDriver implements Driver {
     LOGGER.info("The driver {} has been initialized.", DatabricksDriver.class);
   }
 
-  private String getVersion() {
-    return String.format("%d.%d.%d", getMajorVersion(), getMinorVersion(), buildVersion);
+  private static String getVersion() {
+    return String.format("%d.%d.%d", majorVersion, minorVersion, buildVersion);
   }
 
-  public void setUserAgent(IDatabricksConnectionContext connectionContext) {
+  public static void setUserAgent(IDatabricksConnectionContext connectionContext) {
     UserAgent.withProduct(DatabricksJdbcConstants.DEFAULT_USER_AGENT, getVersion());
     UserAgent.withOtherInfo(CLIENT_USER_AGENT_PREFIX, connectionContext.getClientUserAgent());
   }

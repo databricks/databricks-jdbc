@@ -1,8 +1,10 @@
 package com.databricks.jdbc.core;
 
+import static com.databricks.jdbc.TestConstants.*;
 import static java.lang.Math.min;
 import static org.junit.jupiter.api.Assertions.*;
 
+import com.databricks.jdbc.client.impl.thrift.generated.TSparkArrowResultLink;
 import com.databricks.jdbc.core.types.CompressionType;
 import com.databricks.sdk.service.sql.BaseChunkInfo;
 import java.io.File;
@@ -42,8 +44,7 @@ public class ArrowResultChunkTest {
             .setRowOffset(0L)
             .setRowCount(totalRows);
     ArrowResultChunk arrowResultChunk =
-        new ArrowResultChunk(
-            chunkInfo, new RootAllocator(Integer.MAX_VALUE), STATEMENT_ID, CompressionType.NONE);
+        new ArrowResultChunk(chunkInfo, STATEMENT_ID, CompressionType.NONE);
 
     // Assert
     assert (arrowResultChunk.getRecordBatchCountInChunk() == 0);
@@ -60,8 +61,7 @@ public class ArrowResultChunkTest {
             .setRowOffset(0L)
             .setRowCount(totalRows);
     ArrowResultChunk arrowResultChunk =
-        new ArrowResultChunk(
-            chunkInfo, new RootAllocator(Integer.MAX_VALUE), STATEMENT_ID, CompressionType.NONE);
+        new ArrowResultChunk(chunkInfo, STATEMENT_ID, CompressionType.NONE);
     Schema schema = createTestSchema();
     Object[][] testData = createTestData(schema, (int) totalRows);
     File arrowFile =
@@ -74,6 +74,22 @@ public class ArrowResultChunkTest {
     int totalRecordBatches = (int) ((totalRows + rowsInRecordBatch) / rowsInRecordBatch);
     assertEquals(arrowResultChunk.getRecordBatchCountInChunk(), totalRecordBatches);
     arrowResultChunk.releaseChunk();
+    arrowResultChunk.releaseChunk(); // calling it a second time also does not throw error.
+  }
+
+  @Test
+  public void testGetArrowDataFromThriftInput() {
+    TSparkArrowResultLink chunkInfo =
+        new TSparkArrowResultLink()
+            .setRowCount(totalRows)
+            .setFileLink(TEST_STRING)
+            .setExpiryTime(1000)
+            .setBytesNum(200L);
+    ArrowResultChunk arrowResultChunk =
+        new ArrowResultChunk(0, chunkInfo, TEST_STATEMENT_ID, CompressionType.NONE);
+    assertNull(arrowResultChunk.getErrorMessage());
+    assertEquals(arrowResultChunk.getChunkUrl(), TEST_STRING);
+    assertEquals(arrowResultChunk.getChunkIndex(), 0);
   }
 
   private File createTestArrowFile(
@@ -147,20 +163,14 @@ public class ArrowResultChunkTest {
     BaseChunkInfo emptyChunkInfo =
         new BaseChunkInfo().setChunkIndex(0L).setByteCount(200L).setRowOffset(0L).setRowCount(0L);
     ArrowResultChunk arrowResultChunk =
-        new ArrowResultChunk(
-            emptyChunkInfo,
-            new RootAllocator(Integer.MAX_VALUE),
-            STATEMENT_ID,
-            CompressionType.NONE);
+        new ArrowResultChunk(emptyChunkInfo, STATEMENT_ID, CompressionType.NONE);
     arrowResultChunk.setIsDataInitialized(true);
     arrowResultChunk.recordBatchList = Collections.nCopies(3, new ArrayList<>());
     assertFalse(arrowResultChunk.getChunkIterator().hasNextRow());
 
     BaseChunkInfo chunkInfo =
         new BaseChunkInfo().setChunkIndex(18L).setByteCount(200L).setRowOffset(0L).setRowCount(4L);
-    arrowResultChunk =
-        new ArrowResultChunk(
-            chunkInfo, new RootAllocator(Integer.MAX_VALUE), STATEMENT_ID, CompressionType.NONE);
+    arrowResultChunk = new ArrowResultChunk(chunkInfo, STATEMENT_ID, CompressionType.NONE);
     arrowResultChunk.setIsDataInitialized(true);
     int size = 2;
     IntVector dummyVector = new IntVector("dummy_vector", new RootAllocator());
@@ -192,8 +202,7 @@ public class ArrowResultChunkTest {
     BaseChunkInfo chunkInfo =
         new BaseChunkInfo().setChunkIndex(18L).setByteCount(200L).setRowOffset(0L).setRowCount(4L);
     ArrowResultChunk arrowResultChunk =
-        new ArrowResultChunk(
-            chunkInfo, new RootAllocator(Integer.MAX_VALUE), STATEMENT_ID, CompressionType.NONE);
+        new ArrowResultChunk(chunkInfo, STATEMENT_ID, CompressionType.NONE);
     arrowResultChunk.setIsDataInitialized(true);
     int size = 2;
     IntVector dummyVector = new IntVector("dummy_vector", new RootAllocator());

@@ -37,7 +37,6 @@ public class DatabricksSdkClient implements DatabricksClient {
   private static final Logger LOGGER = LoggerFactory.getLogger(DatabricksSdkClient.class);
   private static final String SYNC_TIMEOUT_VALUE = "10s";
   private static final String ASYNC_TIMEOUT_VALUE = "0s";
-  private static final int STATEMENT_RESULT_POLL_INTERVAL_MILLIS = 200;
 
   private final IDatabricksConnectionContext connectionContext;
   private final DatabricksConfig databricksConfig;
@@ -49,7 +48,8 @@ public class DatabricksSdkClient implements DatabricksClient {
         "Content-Type", "application/json");
   }
 
-  public DatabricksSdkClient(IDatabricksConnectionContext connectionContext) {
+  public DatabricksSdkClient(IDatabricksConnectionContext connectionContext)
+      throws DatabricksParsingException {
     this.connectionContext = connectionContext;
     // TODO: [PECO-1486] pass on proxy settings to SDK once changes are merged in SDK
     // Handle more auth types
@@ -65,9 +65,9 @@ public class DatabricksSdkClient implements DatabricksClient {
   public DatabricksSdkClient(
       IDatabricksConnectionContext connectionContext,
       StatementExecutionService statementExecutionService,
-      ApiClient apiClient) {
+      ApiClient apiClient)
+      throws DatabricksParsingException {
     this.connectionContext = connectionContext;
-    // Handle more auth types
     this.databricksConfig =
         new DatabricksConfig()
             .setHost(connectionContext.getHostUrl())
@@ -110,11 +110,11 @@ public class DatabricksSdkClient implements DatabricksClient {
   }
 
   @Override
-  public void deleteSession(String sessionId, ComputeResource warehouse) {
-    LOGGER.debug("public void deleteSession(String sessionId = {})", sessionId);
+  public void deleteSession(IDatabricksSession session, ComputeResource warehouse) {
+    LOGGER.debug("public void deleteSession(String sessionId = {})", session.getSessionId());
     DeleteSessionRequest request =
         new DeleteSessionRequest()
-            .setSessionId(sessionId)
+            .setSessionId(session.getSessionId())
             .setWarehouseId(((Warehouse) warehouse).getWarehouseId());
     String path = String.format(DELETE_SESSION_PATH_WITH_ID, request.getSessionId());
     Map<String, String> headers = new HashMap<>();
@@ -159,7 +159,7 @@ public class DatabricksSdkClient implements DatabricksClient {
     while (responseState == StatementState.PENDING || responseState == StatementState.RUNNING) {
       if (pollCount > 0) { // First poll happens without a delay
         try {
-          Thread.sleep(STATEMENT_RESULT_POLL_INTERVAL_MILLIS); // TODO: make this configurable
+          Thread.sleep(this.connectionContext.getAsyncExecPollInterval());
         } catch (InterruptedException e) {
           throw new DatabricksTimeoutException("Thread interrupted due to statement timeout");
         }
