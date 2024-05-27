@@ -101,7 +101,9 @@ public class DatabricksThriftServiceClientTest {
             .setStatus(new TStatus().setStatusCode(TStatusCode.SUCCESS_STATUS))
             .setResults(resultData)
             .setResultSetMetadata(resultMetadataData);
-    when(resultData.getColumns()).thenReturn(Collections.singletonList(new TColumn()));
+    TColumn tColumn = new TColumn();
+    tColumn.setStringVal(new TStringColumn().setValues(Collections.singletonList(TEST_CATALOG)));
+    when(resultData.getColumns()).thenReturn(Collections.singletonList(tColumn));
     when(thriftAccessor.getThriftResponse(request, CommandName.LIST_CATALOGS, null))
         .thenReturn(response);
     DatabricksResultSet resultSet = client.listCatalogs(session);

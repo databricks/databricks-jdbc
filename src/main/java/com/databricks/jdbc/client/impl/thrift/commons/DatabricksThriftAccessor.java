@@ -241,7 +241,6 @@ public class DatabricksThriftAccessor {
       throws TException, DatabricksHttpException {
     request.setGetDirectResults(DEFAULT_DIRECT_RESULTS);
     TGetTablesResp response = thriftClient.GetTables(request);
-    request.setGetDirectResults(DEFAULT_DIRECT_RESULTS);
     if (response.isSetDirectResults()) {
       checkDirectResultsForErrorStatus(response.getDirectResults(), response.toString());
       return response.getDirectResults().getResultSet();

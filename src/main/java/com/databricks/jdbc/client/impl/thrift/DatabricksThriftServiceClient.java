@@ -172,7 +172,7 @@ public class DatabricksThriftServiceClient implements DatabricksClient, Databric
     TFetchResultsResp response =
         (TFetchResultsResp)
             thriftAccessor.getThriftResponse(request, CommandName.LIST_CATALOGS, null);
-    return getCatalogsResult(extractValues(response.getResults().getColumns()));
+    return getCatalogsResult(extractValuesColumnar(response.getResults().getColumns()));
   }
 
   @Override
@@ -183,8 +183,6 @@ public class DatabricksThriftServiceClient implements DatabricksClient, Databric
             "Fetching schemas for all purpose cluster. Session {%s}, catalog {%s}, schemaNamePattern {%s}",
             session.toString(), catalog, schemaNamePattern);
     LOGGER.debug(context);
-    System.out.println(
-        "here is updated schemas " + WildcardUtil.jdbcPatternToHive(schemaNamePattern));
     TGetSchemasReq request =
         new TGetSchemasReq()
             .setSessionHandle(session.getSessionInfo().sessionHandle())
@@ -214,12 +212,14 @@ public class DatabricksThriftServiceClient implements DatabricksClient, Databric
             .setSessionHandle(session.getSessionInfo().sessionHandle())
             .setCatalogName(catalog)
             .setSchemaName(WildcardUtil.jdbcPatternToHive(schemaNamePattern))
-            .setTableName(WildcardUtil.jdbcPatternToHive(tableNamePattern))
-            .setTableTypes(Arrays.asList(tableTypes));
+            .setTableName(WildcardUtil.jdbcPatternToHive(tableNamePattern));
+    if (tableTypes != null) {
+      request.setTableTypes(Arrays.asList(tableTypes));
+    }
     TFetchResultsResp response =
         (TFetchResultsResp)
             thriftAccessor.getThriftResponse(request, CommandName.LIST_TABLES, null);
-    return getTablesResult(extractValues(response.getResults().getColumns()));
+    return getTablesResult(extractValuesColumnar(response.getResults().getColumns()));
   }
 
   @Override

@@ -150,7 +150,17 @@ public class MetadataResultConstants {
           INFORMATION_NAME_COLUMN);
 
   public static List<ResultColumn> TABLE_COLUMNS_ALL_PURPOSE =
-      List.of(CATALOG_COLUMN, SCHEMA_COLUMN, TABLE_NAME_COLUMN, TABLE_TYPE_COLUMN, REMARKS_COLUMN);
+      List.of(
+          CATALOG_COLUMN,
+          SCHEMA_COLUMN,
+          TABLE_NAME_COLUMN,
+          TABLE_TYPE_COLUMN,
+          REMARKS_COLUMN,
+          TYPE_CATALOG_COLUMN,
+          TYPE_SCHEMA_COLUMN,
+          TYPE_NAME_COLUMN,
+          SELF_REFERENCING_COLUMN_NAME,
+          REF_GENERATION_COLUMN);
   public static List<ResultColumn> PRIMARY_KEYS_COLUMNS =
       List.of(
           CATALOG_COLUMN,
