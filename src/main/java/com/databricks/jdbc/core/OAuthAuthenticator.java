@@ -6,9 +6,8 @@ import com.databricks.jdbc.driver.IDatabricksConnectionContext;
 import com.databricks.jdbc.driver.SSLConfiguration;
 import com.databricks.sdk.WorkspaceClient;
 import com.databricks.sdk.core.DatabricksConfig;
-
-import javax.net.ssl.SSLContext;
 import java.security.NoSuchAlgorithmException;
+import javax.net.ssl.SSLContext;
 
 public class OAuthAuthenticator {
 
@@ -66,9 +65,9 @@ public class OAuthAuthenticator {
     if (connectionContext.isSSLEnabled()) {
       try {
         sslContext =
-                SSLConfiguration.configureSslContext(
-                        this.connectionContext.getSSLKeyStorePath(),
-                        this.connectionContext.getSSLKeyStorePassword());
+            SSLConfiguration.configureSslContext(
+                this.connectionContext.getSSLKeyStorePath(),
+                this.connectionContext.getSSLKeyStorePassword());
       } catch (Exception e) {
 
       }
@@ -76,7 +75,8 @@ public class OAuthAuthenticator {
     return new DatabricksConfig()
         .setAuthType(DatabricksJdbcConstants.ACCESS_TOKEN_AUTH_TYPE)
         .setHost(connectionContext.getHostUrl())
-        .setToken(connectionContext.getToken()).setHttpClient(new DatabricksCommonHttpClient(300, sslContext));
+        .setToken(connectionContext.getToken())
+        .setHttpClient(new DatabricksCommonHttpClient(300, sslContext));
   }
 
   public DatabricksConfig createM2MConfig() throws DatabricksParsingException {

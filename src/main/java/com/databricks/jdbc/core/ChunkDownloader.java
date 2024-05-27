@@ -145,7 +145,7 @@ public class ChunkDownloader {
             + " "
             + chunk.getErrorMessage()
             + " "
-            + chunk.getChunkLink());
+            + chunk.getChunkUrl());
     synchronized (chunk) {
       try {
         while (!isDownloadComplete(chunk.getStatus())) {

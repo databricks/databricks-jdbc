@@ -287,7 +287,7 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   @Override
   public boolean isSSLEnabled() {
     return getParameter(DatabricksJdbcConstants.SSL_ENABLED) != null
-            && Integer.parseInt(getParameter(DatabricksJdbcConstants.SSL_ENABLED)) == 1;
+        && Integer.parseInt(getParameter(DatabricksJdbcConstants.SSL_ENABLED)) == 1;
   }
 
   @Override
@@ -303,7 +303,7 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   @Override
   public boolean getAllowSelfSignedCerts() {
     return getParameter(DatabricksJdbcConstants.ALLOW_SELF_SIGNED_CERTS) != null
-            && Integer.parseInt(getParameter(DatabricksJdbcConstants.ALLOW_SELF_SIGNED_CERTS)) == 1;
+        && Integer.parseInt(getParameter(DatabricksJdbcConstants.ALLOW_SELF_SIGNED_CERTS)) == 1;
   }
 
   @Override
