@@ -83,14 +83,16 @@ public class DatabricksThriftHelper {
   }
 
   public static List<List<Object>> extractValuesColumnar(List<TColumn> columnList) {
-    System.out.println(columnList);
     if (columnList == null || columnList.isEmpty() || columnList.get(0).getStringVal() == null) {
       return Collections.singletonList(Collections.emptyList());
     }
+    int numberOfColumns = columnList.size();
     int numberOfItems = columnList.get(0).getStringVal().getValuesSize();
     List<List<Object>> ans = new ArrayList<>();
     for (int i = 0; i < numberOfItems; i++) {
-      ans.add(Collections.singletonList(columnList.get(0).getStringVal().getValues().get(i)));
+      for (int j = 0; j < numberOfColumns; j++) {
+        ans.add(Collections.singletonList(columnList.get(0).getStringVal().getValues().get(i)));
+      }
     }
     return ans;
   }

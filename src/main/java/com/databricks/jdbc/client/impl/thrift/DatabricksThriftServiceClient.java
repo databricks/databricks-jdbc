@@ -13,7 +13,6 @@ import com.databricks.jdbc.client.impl.thrift.commons.DatabricksThriftAccessor;
 import com.databricks.jdbc.client.impl.thrift.generated.*;
 import com.databricks.jdbc.client.sqlexec.ExternalLink;
 import com.databricks.jdbc.commons.CommandName;
-import com.databricks.jdbc.commons.util.WildcardUtil;
 import com.databricks.jdbc.core.*;
 import com.databricks.jdbc.core.types.ComputeResource;
 import com.databricks.jdbc.driver.IDatabricksConnectionContext;
@@ -186,12 +185,14 @@ public class DatabricksThriftServiceClient implements DatabricksClient, Databric
     TGetSchemasReq request =
         new TGetSchemasReq()
             .setSessionHandle(session.getSessionInfo().sessionHandle())
-            .setCatalogName(catalog)
-            .setSchemaName(WildcardUtil.jdbcPatternToHive(schemaNamePattern));
+            .setCatalogName(catalog);
+    if (schemaNamePattern != null) {
+      request.setSchemaName(schemaNamePattern);
+    }
     TFetchResultsResp response =
         (TFetchResultsResp)
             thriftAccessor.getThriftResponse(request, CommandName.LIST_SCHEMAS, null);
-    return getSchemasResult(extractValues(response.getResults().getColumns()));
+    return getSchemasResult(extractValuesColumnar(response.getResults().getColumns()));
   }
 
   @Override
@@ -211,8 +212,8 @@ public class DatabricksThriftServiceClient implements DatabricksClient, Databric
         new TGetTablesReq()
             .setSessionHandle(session.getSessionInfo().sessionHandle())
             .setCatalogName(catalog)
-            .setSchemaName(WildcardUtil.jdbcPatternToHive(schemaNamePattern))
-            .setTableName(WildcardUtil.jdbcPatternToHive(tableNamePattern));
+            .setSchemaName(schemaNamePattern)
+            .setTableName(tableNamePattern);
     if (tableTypes != null) {
       request.setTableTypes(Arrays.asList(tableTypes));
     }
@@ -251,9 +252,9 @@ public class DatabricksThriftServiceClient implements DatabricksClient, Databric
         new TGetColumnsReq()
             .setSessionHandle(session.getSessionInfo().sessionHandle())
             .setCatalogName(catalog)
-            .setSchemaName(WildcardUtil.jdbcPatternToHive(schemaNamePattern))
-            .setTableName(WildcardUtil.jdbcPatternToHive(tableNamePattern))
-            .setColumnName(WildcardUtil.jdbcPatternToHive(columnNamePattern));
+            .setSchemaName(schemaNamePattern)
+            .setTableName(tableNamePattern)
+            .setColumnName(columnNamePattern);
     TFetchResultsResp response =
         (TFetchResultsResp)
             thriftAccessor.getThriftResponse(request, CommandName.LIST_COLUMNS, null);
@@ -276,8 +277,8 @@ public class DatabricksThriftServiceClient implements DatabricksClient, Databric
         new TGetFunctionsReq()
             .setSessionHandle(session.getSessionInfo().sessionHandle())
             .setCatalogName(catalog)
-            .setSchemaName(WildcardUtil.jdbcPatternToHive(schemaNamePattern))
-            .setFunctionName(WildcardUtil.jdbcPatternToHive(functionNamePattern));
+            .setSchemaName(schemaNamePattern)
+            .setFunctionName(functionNamePattern);
     TFetchResultsResp response =
         (TFetchResultsResp)
             thriftAccessor.getThriftResponse(request, CommandName.LIST_FUNCTIONS, null);

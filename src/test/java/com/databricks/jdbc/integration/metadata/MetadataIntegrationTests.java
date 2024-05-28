@@ -123,7 +123,7 @@ public class MetadataIntegrationTests {
     }
 
     // Test getSchemas
-    try (ResultSet schemas = metaData.getSchemas("main", "*")) {
+    try (ResultSet schemas = metaData.getSchemas("main", ".*")) {
       assertTrue(schemas.next(), "There should be at least one schema");
       do {
         String schemaName = schemas.getString("TABLE_SCHEM");
@@ -136,7 +136,7 @@ public class MetadataIntegrationTests {
     String schemaPattern = "jdbc_test_schema";
     String tableName = "catalog_and_schema_test_table";
     setupDatabaseTable(tableName);
-    try (ResultSet tables = metaData.getTables(catalog, schemaPattern, "*", null)) {
+    try (ResultSet tables = metaData.getTables(catalog, schemaPattern, ".*", null)) {
       assertTrue(
           tables.next(), "There should be at least one table in the specified catalog and schema");
       do {

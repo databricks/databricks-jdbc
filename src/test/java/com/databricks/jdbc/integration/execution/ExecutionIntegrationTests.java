@@ -1,6 +1,7 @@
 package com.databricks.jdbc.integration.execution;
 
 import static com.databricks.jdbc.integration.IntegrationTestUtil.*;
+import static java.lang.Thread.sleep;
 import static org.junit.jupiter.api.Assertions.*;
 
 import java.sql.ResultSet;
@@ -65,12 +66,12 @@ public class ExecutionIntegrationTests {
   }
 
   @Test
-  void testCompoundStatements() throws SQLException {
+  void testCompoundStatements() throws SQLException, InterruptedException {
     // Insert for compound test
     String tableName = "compound_test_table";
     setupDatabaseTable(tableName);
     insertTestData(tableName);
-
+    sleep(100);
     // Update operation as part of compound test
     String updateSQL =
         "UPDATE "

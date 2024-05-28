@@ -72,10 +72,12 @@ public class ErrorHandlingIntegrationTests {
   void testAccessingClosedResultSet() {
     String tableName = "access_closed_result_set_test_table";
     setupDatabaseTable(tableName);
-    executeSQL(
+    String sql =
         "INSERT INTO "
             + getFullyQualifiedTableName(tableName)
-            + " (id, col1, col2) VALUES (1, 'value1', 'value2')");
+            + " (id, col1, col2) VALUES (1, 'value1', 'value2')";
+    System.out.println(sql);
+    executeSQL(sql);
     ResultSet resultSet = executeQuery("SELECT * FROM " + getFullyQualifiedTableName(tableName));
     try {
       resultSet.close();
