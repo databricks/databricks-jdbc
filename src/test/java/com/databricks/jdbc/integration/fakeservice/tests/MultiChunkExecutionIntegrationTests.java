@@ -1,9 +1,15 @@
 package com.databricks.jdbc.integration.fakeservice.tests;
 
+import static com.databricks.jdbc.client.impl.sdk.PathConstants.RESULT_CHUNK_PATH;
 import static com.databricks.jdbc.integration.IntegrationTestUtil.getValidJDBCConnection;
+import static com.github.tomakehurst.wiremock.client.WireMock.getRequestedFor;
+import static com.github.tomakehurst.wiremock.client.WireMock.urlPathMatching;
 import static com.github.tomakehurst.wiremock.core.WireMockConfiguration.wireMockConfig;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.databricks.jdbc.core.DatabricksResultSet;
+import com.databricks.jdbc.core.DatabricksResultSetMetaData;
 import com.databricks.jdbc.driver.DatabricksJdbcConstants;
 import com.databricks.jdbc.integration.fakeservice.DatabricksWireMockExtension;
 import com.databricks.jdbc.integration.fakeservice.FakeServiceExtension;
@@ -71,16 +77,36 @@ public class MultiChunkExecutionIntegrationTests {
     final Statement statement = connection.createStatement();
     statement.setMaxRows(maxRows);
 
-    final ResultSet rs = statement.executeQuery(sql);
-    int cnt = 0;
-    while (rs.next()) {
-      cnt++;
+    try (ResultSet rs = statement.executeQuery(sql)) {
+      DatabricksResultSetMetaData metaData = (DatabricksResultSetMetaData) rs.getMetaData();
+
+      int rowCount = 0;
+      while (rs.next()) {
+        rowCount++;
+      }
+
+      // The result should have the same number of rows as the limit
+      assertEquals(maxRows, rowCount);
+      assertEquals(maxRows, metaData.getTotalRows());
+
+      // The result should be split into multiple chunks
+      assertTrue(metaData.getChunkCount() > 1, "Chunk count should be greater than 1");
+
+      // The number of cloud fetch calls should be equal to the number of chunks
+      final int cloudFetchCalls =
+          cloudFetchApiExtension
+              .countRequestsMatching(getRequestedFor(urlPathMatching(".*")).build())
+              .getCount();
+      assertEquals(metaData.getChunkCount(), cloudFetchCalls);
+
+      // Number of requests to fetch external links should be one less than the total number of
+      // chunks as first chunk link is already fetched
+      final String statementId = ((DatabricksResultSet) rs).statementId();
+      final String resultChunkPathRegex = String.format(RESULT_CHUNK_PATH, statementId, ".*");
+      sqlExecApiExtension.verify(
+          (int) (metaData.getChunkCount() - 1),
+          getRequestedFor(urlPathMatching(resultChunkPathRegex)));
     }
-
-    assertEquals(maxRows, cnt);
-    assertEquals(16, rs.getMetaData().getColumnCount());
-
-    rs.close();
   }
 
   /** Returns the extensions to be used for stubbing. */

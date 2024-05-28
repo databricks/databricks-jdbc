@@ -101,7 +101,7 @@ public class DatabricksResultSetMetaDataTest {
   @Test
   public void testThriftColumns() throws SQLException {
     DatabricksResultSetMetaData metaData =
-        new DatabricksResultSetMetaData(STATEMENT_ID, getThriftResultManifest(), 10);
+        new DatabricksResultSetMetaData(STATEMENT_ID, getThriftResultManifest(), 10, 1);
     Assertions.assertEquals(10, metaData.getTotalRows());
     Assertions.assertEquals(1, metaData.getColumnCount());
     Assertions.assertEquals("testCol", metaData.getColumnName(1));
@@ -111,7 +111,7 @@ public class DatabricksResultSetMetaDataTest {
   public void testEmptyAndNullThriftColumns() throws SQLException {
     TGetResultSetMetadataResp resultSetMetadataResp = new TGetResultSetMetadataResp();
     DatabricksResultSetMetaData metaData =
-        new DatabricksResultSetMetaData(STATEMENT_ID, resultSetMetadataResp, 0);
+        new DatabricksResultSetMetaData(STATEMENT_ID, resultSetMetadataResp, 0, 1);
     Assertions.assertEquals(0, metaData.getColumnCount());
 
     resultSetMetadataResp.setSchema(new TTableSchema());
