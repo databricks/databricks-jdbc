@@ -88,12 +88,12 @@ public class DatabricksThriftHelper {
     }
     int numberOfItems = columnList.get(0).getStringVal().getValuesSize();
     return IntStream.range(0, numberOfItems)
-        .mapToObj(
-            i ->
-                columnList.stream()
-                    .map(column -> (Object) column.getStringVal().getValues().get(i))
-                    .collect(Collectors.toList()))
-        .collect(Collectors.toList());
+            .mapToObj(
+                    i ->
+                            columnList.stream()
+                                    .map(column -> (Object) column.getStringVal().getValues().get(i))
+                                    .collect(Collectors.toList()))
+            .collect(Collectors.toList());
   }
 
   private static Object getColumnFirstValue(TColumn column) {
