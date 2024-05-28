@@ -1,8 +1,6 @@
 package com.databricks.jdbc.core;
 
 import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -15,44 +13,18 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import com.databricks.jdbc.client.impl.sdk.DatabricksUCVolumeClient;
 
-
-
 @ExtendWith(MockitoExtension.class)
 public class DatabricksUCVolumeClientTest {
-
-    private static final String JDBC_URL = "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=https;ssl=1;httpPath=sql/protocolv1/o/6051921418418893/1115-130834-ms4m0yv;AuthMech=3;UID=token;";
-
-    private static final String USER = "agnipratim.nag@databricks.com";
-
-    private static final String PASSWORD = "dapic253ee107b0960e6f4a4abe653a09bb7";
 
     private static final String CATALOG = "samikshya_hackathon";
 
     private static final String SCHEMA = "agnipratim_test";
-
-    // private static  Connection CON;
-
-    // private static Statement STATEMENT;
 
     @Mock Connection connection;
 
     @Mock Statement statement;
 
     @Mock ResultSet resultSet;
-
-    /*
-    @BeforeAll
-    static void setup() throws DatabricksSQLException {
-        try {
-            CON = DriverManager.getConnection(JDBC_URL, USER, PASSWORD);
-            STATEMENT = CON.createStatement();
-        }
-        catch (SQLException e) {
-            throw new RuntimeException(e);
-        }
-    }
-    */
-
 
     @Test
     public void testPrefixExists() throws SQLException {
@@ -61,7 +33,7 @@ public class DatabricksUCVolumeClientTest {
         String volume = "abc_volume1";
         String prefix = "efg";
 
-        DatabricksUCVolumeClient client = new DatabricksUCVolumeClient(JDBC_URL, USER, PASSWORD, connection);
+        DatabricksUCVolumeClient client = new DatabricksUCVolumeClient(connection);
 
         // Define the behavior of the mock objects
         when(connection.createStatement()).thenReturn(statement);
@@ -86,7 +58,7 @@ public class DatabricksUCVolumeClientTest {
     @MethodSource("provideParameters")
     public void testPrefixExists(String volume, String prefix, boolean expected) throws SQLException {
         // Arrange
-        DatabricksUCVolumeClient client = new DatabricksUCVolumeClient(JDBC_URL, USER, PASSWORD, connection);
+        DatabricksUCVolumeClient client = new DatabricksUCVolumeClient(connection);
 
         // Define the behavior of the mock objects
         when(connection.createStatement()).thenReturn(statement);
