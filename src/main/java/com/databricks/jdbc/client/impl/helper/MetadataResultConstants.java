@@ -7,6 +7,8 @@ import java.util.List;
 public class MetadataResultConstants {
   private static final ResultColumn CATALOG_COLUMN =
       new ResultColumn("TABLE_CAT", "catalogName", Types.VARCHAR);
+  private static final ResultColumn CATALOG_FULL_COLUMN =
+          new ResultColumn("TABLE_CATALOG", "catalogName", Types.VARCHAR);
   private static final ResultColumn TYPE_CATALOG_COLUMN =
       new ResultColumn("TYPE_CAT", "TYPE_CATALOG_COLUMN", Types.VARCHAR);
   private static final ResultColumn TYPE_SCHEMA_COLUMN =
@@ -133,7 +135,7 @@ public class MetadataResultConstants {
           IS_AUTO_INCREMENT_COLUMN,
           IS_GENERATED_COLUMN);
   public static List<ResultColumn> CATALOG_COLUMNS = List.of(CATALOG_COLUMN);
-  public static List<ResultColumn> SCHEMA_COLUMNS = List.of(SCHEMA_COLUMN, CATALOG_COLUMN);
+  public static List<ResultColumn> SCHEMA_COLUMNS = List.of(SCHEMA_COLUMN, CATALOG_FULL_COLUMN);
   public static List<ResultColumn> TABLE_COLUMNS =
       List.of(
           CATALOG_COLUMN,

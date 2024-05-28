@@ -110,7 +110,7 @@ public class MetadataIntegrationTests {
   }
 
   @Test
-  void testCatalogAndSchemaInformation() throws SQLException {
+  void testCatalogInformation() throws SQLException {
     DatabaseMetaData metaData = connection.getMetaData();
 
     // Test getCatalogs
@@ -121,8 +121,10 @@ public class MetadataIntegrationTests {
         assertNotNull(catalogName, "Catalog name should not be null");
       } while (catalogs.next());
     }
-
-    // Test getSchemas
+  }
+  @Test
+  void testSchemaInformation() throws SQLException {
+    DatabaseMetaData metaData = connection.getMetaData();
     try (ResultSet schemas = metaData.getSchemas("main", ".*")) {
       assertTrue(schemas.next(), "There should be at least one schema");
       do {
@@ -130,30 +132,40 @@ public class MetadataIntegrationTests {
         assertNotNull(schemaName, "Schema name should not be null");
       } while (schemas.next());
     }
+  }
 
-    // Verify tables retrieval with specific catalog and schema
+  @Test
+  void testTableInformation() throws SQLException {
+    DatabaseMetaData metaData = connection.getMetaData();
     String catalog = "main";
     String schemaPattern = "jdbc_test_schema";
     String tableName = "catalog_and_schema_test_table";
     setupDatabaseTable(tableName);
     try (ResultSet tables = metaData.getTables(catalog, schemaPattern, ".*", null)) {
       assertTrue(
-          tables.next(), "There should be at least one table in the specified catalog and schema");
+              tables.next(), "There should be at least one table in the specified catalog and schema");
       do {
         String fetchedTableName = tables.getString("TABLE_NAME");
         assertNotNull(fetchedTableName, "Table name should not be null");
       } while (tables.next());
     }
+    deleteTable(tableName);
+  }
 
-    // Test to get particular table
-
+  @Test
+  void testTableInformationExactMatch() throws SQLException {
+    DatabaseMetaData metaData = connection.getMetaData();
+    String catalog = "main";
+    String schemaPattern = "jdbc_test_schema";
+    String tableName = "catalog_and_schema_test_table";
+    setupDatabaseTable(tableName);
     try (ResultSet tables = metaData.getTables(catalog, schemaPattern, tableName, null)) {
       assertTrue(
-          tables.next(), "There should be at least one table in the specified catalog and schema");
+              tables.next(), "There should be at least one table in the specified catalog and schema");
       do {
         String fetchedTableName = tables.getString("TABLE_NAME");
         assertEquals(
-            tableName, fetchedTableName, "Table name should match the specified table name");
+                tableName, fetchedTableName, "Table name should match the specified table name");
       } while (tables.next());
     }
     deleteTable(tableName);

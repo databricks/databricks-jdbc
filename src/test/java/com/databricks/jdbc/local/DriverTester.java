@@ -55,10 +55,12 @@ public class DriverTester {
     // Getting the connection
     String jdbcUrl =
         "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=https;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/791ba2a31c7fd70a;";
-    Connection con = DriverManager.getConnection(jdbcUrl, "samikshya.chand@databricks.com", "x");
+    Connection con =
+        DriverManager.getConnection(
+            jdbcUrl, "samikshya.chand@databricks.com", "dapi0b4b876d161d1f58dd3ddbd480da96f2");
     System.out.println("Connection established......");
-    DatabaseMetaData metaData = con.getMetaData();
-    ResultSet resultSet = metaData.getCatalogs();
+    // DatabaseMetaData metaData = con.getMetaData();
+    ResultSet resultSet = con.getMetaData().getTables("main", ".*", ".*", null);
     printResultSet(resultSet);
     resultSet.close();
     con.close();
@@ -86,32 +88,77 @@ public class DriverTester {
     con.close();
   }
 
-  @Test
-  void testAllPurposeClusters() throws Exception {
-    DriverManager.registerDriver(new com.databricks.jdbc.driver.DatabricksDriver());
-    DriverManager.drivers().forEach(driver -> System.out.println(driver.getClass()));
-    String jdbcUrl =
-        // "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=https;ssl=1;httpPath=sql/protocolv1/o/6051921418418893/1115-130834-ms4m0yv;AuthMech=3;UID=token;";
-        "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;ssl=1;AuthMech=3;httpPath=sql/protocolv1/o/6051921418418893/1115-130834-ms4m0yv";
-    Connection con = DriverManager.getConnection(jdbcUrl, "samikshya.chand@databricks.com", "x");
-    System.out.println("Connection established......");
-    Statement statement = con.createStatement();
-    ResultSet rs =
-        statement.executeQuery("SELECT * from lb_demo.demographics_fs.demographics LIMIT 10");
-    printResultSet(rs);
-    con.close();
-    System.out.println("Connection closed successfully......");
-  }
+  /* @Test
+    void testAllPurposeClusters() throws Exception {
+      DriverManager.registerDriver(new com.databricks.client.jdbc.Driver());
+      DriverManager.drivers()
+          .forEach(
+              driver -> {
+                if (driver.getClass().getName().contains("DatabricksDriver")) {
+                  try {
+                    DriverManager.deregisterDriver(driver);
+                  } catch (SQLException e) {
+                    throw new RuntimeException(e);
+                  }
+                }
+              });
+      String jdbcUrl =
+          // "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=https;ssl=1;httpPath=sql/protocolv1/o/6051921418418893/1115-130834-ms4m0yv;AuthMech=3;UID=token;";
+          "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;ssl=1;AuthMech=3;httpPath=sql/protocolv1/o/6051921418418893/1115-130834-ms4m0yv";
+      Connection con =
+          DriverManager.getConnection(
+              jdbcUrl, "samikshya.chand@databricks.com", "dapi0b4b876d161d1f58dd3ddbd480da96f2");
+      System.out.println("Connection established......");
+      Statement statement = con.createStatement();
+      ResultSet rs =
+          statement.executeQuery("SELECT * from lb_demo.demographics_fs.demographics LIMIT 10");
+      printResultSet(rs);
+      con.close();
+      System.out.println("Connection closed successfully......");
+    }
+  */
+/*
+    @Test
+    void testAllPurposeClustersMetadataSimba() throws Exception {
+      DriverManager.registerDriver(new com.databricks.client.jdbc.Driver());
+      DriverManager.drivers()
+          .forEach(
+              driver -> {
+                if (driver.getClass().getName().contains("DatabricksDriver")) {
+                  try {
+                    DriverManager.deregisterDriver(driver);
+                  } catch (SQLException e) {
+                    throw new RuntimeException(e);
+                  }
+                }
+              });
+      String jdbcUrl =
+          "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;ssl=1;AuthMech=3;httpPath=sql/protocolv1/o/6051921418418893/1115-130834-ms4m0yv";
+      Connection con =
+          DriverManager.getConnection(
+              jdbcUrl, "samikshya.chand@databricks.com", "dapi0b4b876d161d1f58dd3ddbd480da96f2");
+      System.out.println("Connection established......");
+      ResultSet resultSet = con.getMetaData().getTables("main", "ggm_pk","table_with_pk%", null);
 
+      // con.getMetaData().getPrimaryKeys("main", "ggm_pk", "table_with_pk");
+      printResultSet(resultSet);
+      resultSet.close();
+      con.close();
+    }
+*/
   @Test
   void testAllPurposeClustersMetadata() throws Exception {
-    DriverManager.registerDriver(new com.databricks.jdbc.driver.DatabricksDriver());
-    DriverManager.drivers().forEach(driver -> System.out.println(driver.getClass()));
     String jdbcUrl =
-        "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=https;ssl=1;httpPath=sql/protocolv1/o/6051921418418893/1115-130834-ms4m0yv;AuthMech=3;UID=token;";
-    Connection con = DriverManager.getConnection(jdbcUrl, "samikshya.chand@databricks.com", "xx");
+        "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;ssl=1;AuthMech=3;httpPath=sql/protocolv1/o/6051921418418893/1115-130834-ms4m0yv";
+    Connection con =
+        DriverManager.getConnection(
+            jdbcUrl, "samikshya.chand@databricks.com", "dapi0b4b876d161d1f58dd3ddbd480da96f2");
     System.out.println("Connection established......");
-    ResultSet resultSet = con.getMetaData().getPrimaryKeys("main", "ggm_pk", "table_with_pk");
+     // ResultSet resultSet = con.getMetaData().getCatalogs();
+    ResultSet resultSet = con.getMetaData().getSchemas("main","%");
+     //ResultSet resultSet = con.getMetaData().getTables("main", "ggm_pk","table_with_pk", null);
+    //ResultSet resultSet = con.getMetaData().getTables("%", "%", null, null);
+    // con.getMetaData().getPrimaryKeys("main", "ggm_pk", "table_with_pk");
     printResultSet(resultSet);
     resultSet.close();
     con.close();
