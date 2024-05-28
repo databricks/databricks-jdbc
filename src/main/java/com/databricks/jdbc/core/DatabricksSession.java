@@ -4,6 +4,7 @@ import com.databricks.jdbc.client.DatabricksClient;
 import com.databricks.jdbc.client.DatabricksClientType;
 import com.databricks.jdbc.client.DatabricksMetadataClient;
 import com.databricks.jdbc.client.impl.sdk.DatabricksMetadataSdkClient;
+import com.databricks.jdbc.client.impl.sdk.DatabricksNewMetadataSdkClient;
 import com.databricks.jdbc.client.impl.sdk.DatabricksSdkClient;
 import com.databricks.jdbc.client.impl.thrift.DatabricksThriftServiceClient;
 import com.databricks.jdbc.core.types.CompressionType;
@@ -52,8 +53,13 @@ public class DatabricksSession implements IDatabricksSession {
       this.databricksMetadataClient = null;
     } else {
       this.databricksClient = new DatabricksSdkClient(connectionContext);
-      this.databricksMetadataClient =
-          new DatabricksMetadataSdkClient((DatabricksSdkClient) databricksClient);
+      if (connectionContext.getUseLegacyMetadata()) {
+        this.databricksMetadataClient =
+            new DatabricksMetadataSdkClient((DatabricksSdkClient) databricksClient);
+      } else {
+        this.databricksMetadataClient =
+            new DatabricksNewMetadataSdkClient((DatabricksSdkClient) databricksClient);
+      }
     }
     this.isSessionOpen = false;
     this.sessionInfo = null;

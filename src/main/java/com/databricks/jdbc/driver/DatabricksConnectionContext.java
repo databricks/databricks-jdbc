@@ -292,6 +292,13 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
     return DatabricksClientType.SQL_EXEC;
   }
 
+  @Override
+  public Boolean getUseLegacyMetadata() {
+    // Defaults to use legacy metadata client
+    return getParameter(DatabricksJdbcConstants.USE_LEGACY_METADATA) == null
+        || getParameter(DatabricksJdbcConstants.USE_LEGACY_METADATA).equals("1");
+  }
+
   private static boolean nullOrEmptyString(String s) {
     return s == null || s.isEmpty();
   }

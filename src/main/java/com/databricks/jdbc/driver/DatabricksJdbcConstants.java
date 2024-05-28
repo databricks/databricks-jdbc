@@ -128,4 +128,6 @@ public final class DatabricksJdbcConstants {
   }
 
   public static final String USE_THRIFT_CLIENT = "usethriftclient";
+
+  public static final String USE_LEGACY_METADATA = "uselegacymetadata";
 }
