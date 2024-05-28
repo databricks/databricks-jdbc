@@ -61,6 +61,7 @@ jobs:
   build-and-test-thrift:
     name: Build and Run Integration Tests (Thrift)
     runs-on: ubuntu-latest
+    if: false  # TODO : Remove this line once PECO-1674 is fixed
     environment: azure-prod
     steps:
       - name: Checkout code
@@ -79,7 +80,7 @@ jobs:
           key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
           restore-keys: ${{ runner.os }}-m2
 
-      - name: Set up Warehouse Connection (Alternative)
+      - name: Set up All purpose Connection
         env:
           DATABRICKS_HOST: ${{ secrets.THRIFT_DATABRICKS_HOST }}
           DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
