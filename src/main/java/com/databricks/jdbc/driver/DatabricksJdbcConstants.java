@@ -132,9 +132,9 @@ public final class DatabricksJdbcConstants {
   public static final String USE_THRIFT_CLIENT = "usethriftclient";
 
   public static final String AUTH_ACCESSTOKEN = "auth_accesstoken";
-  public static final String SSL_ENABLED = "ssl_enabled";
+  public static final String SSL_ENABLED = "ssl";
 
-  public static final String SSL_KEYSTORE_PATH = "ssl_keystore_path";
-  public static final String SSL_KEYSTORE_PASSWORD = "ssl_keystore_password";
-  public static final String ALLOW_SELF_SIGNED_CERTS = "allow_self_signed_certs";
+  public static final String SSL_KEYSTORE_PATH = "sslkeystore";
+  public static final String SSL_KEYSTORE_PASSWORD = "sslkeystorepwd";
+  public static final String ALLOW_SELF_SIGNED_CERTS = "allowselfsignedcerts";
 }
