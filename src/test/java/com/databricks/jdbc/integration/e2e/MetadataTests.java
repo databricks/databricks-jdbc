@@ -122,6 +122,7 @@ public class MetadataTests {
       } while (catalogs.next());
     }
   }
+
   @Test
   void testSchemaInformation() throws SQLException {
     DatabaseMetaData metaData = connection.getMetaData();
