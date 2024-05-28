@@ -1,5 +1,6 @@
 package com.databricks.jdbc.local;
 
+import java.io.File;
 import java.sql.*;
 import org.junit.jupiter.api.Test;
 import java.util.List;
@@ -224,7 +225,7 @@ public class DriverTester {
 
     String catalog = "samikshya_hackathon";
     String schema = "agnipratim_test";
-    String showTablesSQL = "SHOW TABLES IN " + catalog + "." + schema;
+    String showTablesSQL = "SHOW VOLUMES IN " + catalog + "." + schema;
 
     Statement statement = con.createStatement();
 
@@ -234,7 +235,7 @@ public class DriverTester {
 
     boolean exists = false;
     while (resultSet.next()) {
-      String tableName = resultSet.getString("tableName");
+      String tableName = resultSet.getString("volume_name");
       if (tableName.startsWith(prefix)) {
         exists = true;
         break;
@@ -243,6 +244,63 @@ public class DriverTester {
 
     // Print the result
     System.out.println("Prefix exists: " + exists);
+
+    con.close();
+  }
+
+  @Test
+  void testDeleteFile() throws Exception {
+    DriverManager.registerDriver(new com.databricks.jdbc.driver.DatabricksDriver());
+    DriverManager.drivers().forEach(driver -> System.out.println(driver.getClass()));
+    String jdbcUrl =
+            "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=https;ssl=1;httpPath=sql/protocolv1/o/6051921418418893/1115-130834-ms4m0yv;AuthMech=3;UID=token;";
+    Connection con = DriverManager.getConnection(jdbcUrl, "agnipratim.nag@databricks.com", "dapic253ee107b0960e6f4a4abe653a09bb7");
+    System.out.println("Connection established......");
+
+    String filePath = "/Volumes/samikshya_hackathon/agnipratim_test/abc_volume1/abc_file1.csv";
+    String deleteFileSQL = "rm '" + filePath + "'";
+
+    Statement statement = con.createStatement();
+
+    // Execute the SQL command to delete the file
+    boolean result = statement.execute(deleteFileSQL);
+
+    // Print the result
+    if (result) {
+      System.out.println("File deleted successfully.");
+    } else {
+      System.out.println("Failed to delete file.");
+    }
+
+    con.close();
+  }
+
+  @Test
+  void testGetObject() throws Exception {
+    DriverManager.registerDriver(new com.databricks.jdbc.driver.DatabricksDriver());
+    DriverManager.drivers().forEach(driver -> System.out.println(driver.getClass()));
+    String jdbcUrl =
+            "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=https;ssl=1;httpPath=sql/protocolv1/o/6051921418418893/1115-130834-ms4m0yv;AuthMech=3;UID=token;";
+    Connection con = DriverManager.getConnection(jdbcUrl, "agnipratim.nag@databricks.com", "dapic253ee107b0960e6f4a4abe653a09bb7");
+    System.out.println("Connection established......");
+
+    String catalog = "samikshya_hackathon";
+    String schema = "agnipratim_test";
+    String volume = "abc_volume1";
+    String localFilePath = "/Users/agnipratim.nag/Downloads/downloadtest.csv";
+    String dbfsPath = "/Volumes/" + catalog + "/" + schema + "/" + volume + "/abc_file1.csv";
+
+    // Get the file from the specified DBFS path to local file
+    String getFileSQL = "GET '" + dbfsPath + "' TO " + localFilePath;
+    Statement getStatement = con.createStatement();
+    getStatement.execute(getFileSQL);
+
+    // Check if the file exists in the local file system
+    File file = new File(localFilePath);
+    boolean exists = file.exists();
+
+    // Print the result
+    System.out.println("File exists: " + exists);
 
     con.close();
   }

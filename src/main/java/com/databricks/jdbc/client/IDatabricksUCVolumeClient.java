@@ -1,12 +1,11 @@
 package com.databricks.jdbc.client;
 
-import com.databricks.jdbc.core.DatabricksResultSet;
 import com.databricks.jdbc.core.IDatabricksSession;
 
-import java.sql.Connection;
 import java.sql.SQLException;
+import java.sql.Statement;
 
-public interface DatabricksUCVolumeClient {
+public interface IDatabricksUCVolumeClient {
 
     /**
      * putObject(): Uploads a file from an input stream to the UC Volume
@@ -35,15 +34,15 @@ public interface DatabricksUCVolumeClient {
     /**
      * prefixExists(): Determines if a specific prefix (folder-like structure) exists in the UC Volume
      *
-     * @param con                  underlying JDBC Connection
-     * @param path                 the path to the UC Volume, format: Catalog.Schema.Volume
-     * @param prefix must match to principal name in database (can be a regex pattern or
-     *                             absolute name)
+     * @param catalog
+     * @param schema
+     * @param volume
+     * @param prefix
+     * @param statement
      * @return a boolean indicating whether the prefix exists or not
      */
     boolean prefixExists(
-            Connection con, String path, String prefix) throws SQLException;
+            String catalog, String schema, String volume, String prefix, Statement statement) throws SQLException;
+
+
 }
-
-
-
