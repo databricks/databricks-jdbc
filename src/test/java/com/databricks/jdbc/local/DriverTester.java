@@ -55,7 +55,9 @@ public class DriverTester {
     // Getting the connection
     String jdbcUrl =
         "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=https;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/791ba2a31c7fd70a;";
-    Connection con = DriverManager.getConnection(jdbcUrl, "samikshya.chand@databricks.com", "x");
+    Connection con =
+        DriverManager.getConnection(
+            jdbcUrl, "samikshya.chand@databricks.com", "dapi0b4b876d161d1f58dd3ddbd480da96f2");
     System.out.println("Connection established......");
     // DatabaseMetaData metaData = con.getMetaData();
     ResultSet resultSet = con.getMetaData().getTables("main", ".*", ".*", null);
@@ -85,6 +87,7 @@ public class DriverTester {
     statement.close();
     con.close();
   }
+<<<<<<< HEAD
 
   @Test
   void testAllPurposeClusters() throws Exception {
@@ -105,13 +108,15 @@ public class DriverTester {
   @Test
   void testAllPurposeClustersMetadata() throws Exception {
     String jdbcUrl =
-        "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;AuthMech=3;httpPath=sql/protocolv1/o/6051921418418893/1115-130834-ms4m0yv";
-    Connection con = DriverManager.getConnection(jdbcUrl, "samikshya.chand@databricks.com", "x");
+        "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;ssl=1;AuthMech=3;httpPath=sql/protocolv1/o/6051921418418893/1115-130834-ms4m0yv";
+    Connection con =
+        DriverManager.getConnection(
+            jdbcUrl, "samikshya.chand@databricks.com", "dapi0b4b876d161d1f58dd3ddbd480da96f2");
     System.out.println("Connection established......");
-    // ResultSet resultSet = con.getMetaData().getCatalogs();
-    ResultSet resultSet = con.getMetaData().getSchemas("main", "%");
-    // ResultSet resultSet = con.getMetaData().getTables("main", "ggm_pk","table_with_pk", null);
-    // ResultSet resultSet = con.getMetaData().getTables("%", "%", null, null);
+     // ResultSet resultSet = con.getMetaData().getCatalogs();
+    ResultSet resultSet = con.getMetaData().getSchemas("main","%");
+     //ResultSet resultSet = con.getMetaData().getTables("main", "ggm_pk","table_with_pk", null);
+    //ResultSet resultSet = con.getMetaData().getTables("%", "%", null, null);
     // con.getMetaData().getPrimaryKeys("main", "ggm_pk", "table_with_pk");
     printResultSet(resultSet);
     resultSet.close();

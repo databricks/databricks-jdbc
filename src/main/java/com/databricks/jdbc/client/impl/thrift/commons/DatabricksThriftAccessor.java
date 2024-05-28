@@ -291,8 +291,6 @@ public class DatabricksThriftAccessor {
     TGetSchemasResp response = thriftClient.GetSchemas(request);
     if (response.isSetDirectResults()) {
       checkDirectResultsForErrorStatus(response.getDirectResults(), response.toString());
-      System.out.println("here is " + response.getDirectResults().getResultSet());
-      System.out.println("here2 is " + response.getDirectResults().getResultSetMetadata());
       return response.getDirectResults().getResultSet();
     }
     return getResultSetResp(
