@@ -15,14 +15,15 @@ public class DatabricksUCVolumeClient implements IDatabricksUCVolumeClient {
   public DatabricksUCVolumeClient(Connection connection) {
     this.connection = connection;
   }
+
   private String createListQuery(String catalog, String schema, String volume) {
     return String.format("LIST '/Volumes/%s/%s/%s/'", catalog, schema, volume);
   }
 
   @Override
   public boolean prefixExists(
-          String catalog, String schema, String volume, String prefix, boolean caseSensitive)
-          throws SQLException {
+      String catalog, String schema, String volume, String prefix, boolean caseSensitive)
+      throws SQLException {
 
     String listFilesSQLQuery = createListQuery(catalog, schema, volume);
 

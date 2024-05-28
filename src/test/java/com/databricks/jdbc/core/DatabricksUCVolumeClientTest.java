@@ -1,8 +1,9 @@
 package com.databricks.jdbc.core;
 
+import static com.databricks.jdbc.TestConstants.*;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
-import static com.databricks.jdbc.TestConstants.*;
+
 import com.databricks.jdbc.client.impl.sdk.DatabricksUCVolumeClient;
 import java.sql.*;
 import java.util.stream.Stream;
@@ -32,7 +33,8 @@ public class DatabricksUCVolumeClientTest {
     DatabricksUCVolumeClient client = new DatabricksUCVolumeClient(connection);
 
     when(connection.createStatement()).thenReturn(statement);
-    String listFilesSQL = "LIST '/Volumes/" + TEST_CATALOG + "/" + TEST_SCHEMA + "/" + volume + "/'";
+    String listFilesSQL =
+        "LIST '/Volumes/" + TEST_CATALOG + "/" + TEST_SCHEMA + "/" + volume + "/'";
     when(statement.executeQuery(listFilesSQL)).thenReturn(resultSet);
     when(resultSet.next())
         .thenReturn(true, true, true, true, false); // Simulate four rows in the result set
@@ -52,7 +54,8 @@ public class DatabricksUCVolumeClientTest {
     DatabricksUCVolumeClient client = new DatabricksUCVolumeClient(connection);
 
     when(connection.createStatement()).thenReturn(statement);
-    String listFilesSQL = "LIST '/Volumes/" + TEST_CATALOG + "/" + TEST_SCHEMA + "/" + volume + "/'";
+    String listFilesSQL =
+        "LIST '/Volumes/" + TEST_CATALOG + "/" + TEST_SCHEMA + "/" + volume + "/'";
     when(statement.executeQuery(listFilesSQL)).thenReturn(resultSet);
     when(resultSet.next())
         .thenReturn(true, true, true, true, true, false); // Simulate four rows in the result set
@@ -68,8 +71,10 @@ public class DatabricksUCVolumeClientTest {
 
   private static Stream<Arguments> provideParameters() {
     return Stream.of(
-        Arguments.of("abc_volume1", "abc", false), Arguments.of("abc_volume2", "xyz", false), Arguments.of("abc_volume2", "def", true),
-        Arguments.of("abc_volume2", "#!", true), Arguments.of("abc_volume2", "aBc", true)
-        );
+        Arguments.of("abc_volume1", "abc", false),
+        Arguments.of("abc_volume2", "xyz", false),
+        Arguments.of("abc_volume2", "def", true),
+        Arguments.of("abc_volume2", "#!", true),
+        Arguments.of("abc_volume2", "aBc", true));
   }
 }
