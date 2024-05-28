@@ -137,4 +137,6 @@ public final class DatabricksJdbcConstants {
   public static final String SSL_KEYSTORE_PATH = "sslkeystore";
   public static final String SSL_KEYSTORE_PASSWORD = "sslkeystorepwd";
   public static final String ALLOW_SELF_SIGNED_CERTS = "allowselfsignedcerts";
+
+  public static final String USE_LEGACY_METADATA = "uselegacymetadata";
 }
