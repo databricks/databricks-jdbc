@@ -87,7 +87,6 @@ public class DriverTester {
     statement.close();
     con.close();
   }
-<<<<<<< HEAD
 
   @Test
   void testAllPurposeClusters() throws Exception {
