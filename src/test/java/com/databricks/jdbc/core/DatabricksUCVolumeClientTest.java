@@ -37,7 +37,7 @@ public class DatabricksUCVolumeClientTest {
         "LIST '/Volumes/" + TEST_CATALOG + "/" + TEST_SCHEMA + "/" + volume + "/'";
     when(statement.executeQuery(listFilesSQL)).thenReturn(resultSet);
     when(resultSet.next())
-        .thenReturn(true, true, true, true, false); // Simulate four rows in the result set
+        .thenReturn(true, true, true, true, false);
     when(resultSet.getString("name"))
         .thenReturn("abc_file1", "abc_file2", "def_file1", "efg_file2");
 
@@ -58,7 +58,7 @@ public class DatabricksUCVolumeClientTest {
         "LIST '/Volumes/" + TEST_CATALOG + "/" + TEST_SCHEMA + "/" + volume + "/'";
     when(statement.executeQuery(listFilesSQL)).thenReturn(resultSet);
     when(resultSet.next())
-        .thenReturn(true, true, true, true, true, false); // Simulate four rows in the result set
+        .thenReturn(true, true, true, true, true, false);
     when(resultSet.getString("name"))
         .thenReturn("aBc_file1", "abC_file2", "def_file1", "efg_file2", "#!#_file3");
 
