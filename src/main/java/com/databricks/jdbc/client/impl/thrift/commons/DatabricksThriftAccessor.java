@@ -288,7 +288,7 @@ public class DatabricksThriftAccessor {
   private TFetchResultsResp listSchemas(TGetSchemasReq request)
       throws TException, DatabricksHttpException {
     request.setGetDirectResults(DEFAULT_DIRECT_RESULTS);
-    System.out.println("here is request "+ request);
+    System.out.println("here is request " + request);
     TGetSchemasResp response = thriftClient.GetSchemas(request);
     if (response.isSetDirectResults()) {
       checkDirectResultsForErrorStatus(response.getDirectResults(), response.toString());

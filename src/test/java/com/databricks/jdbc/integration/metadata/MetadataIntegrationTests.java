@@ -143,7 +143,7 @@ public class MetadataIntegrationTests {
     setupDatabaseTable(tableName);
     try (ResultSet tables = metaData.getTables(catalog, schemaPattern, ".*", null)) {
       assertTrue(
-              tables.next(), "There should be at least one table in the specified catalog and schema");
+          tables.next(), "There should be at least one table in the specified catalog and schema");
       do {
         String fetchedTableName = tables.getString("TABLE_NAME");
         assertNotNull(fetchedTableName, "Table name should not be null");
@@ -161,11 +161,11 @@ public class MetadataIntegrationTests {
     setupDatabaseTable(tableName);
     try (ResultSet tables = metaData.getTables(catalog, schemaPattern, tableName, null)) {
       assertTrue(
-              tables.next(), "There should be at least one table in the specified catalog and schema");
+          tables.next(), "There should be at least one table in the specified catalog and schema");
       do {
         String fetchedTableName = tables.getString("TABLE_NAME");
         assertEquals(
-                tableName, fetchedTableName, "Table name should match the specified table name");
+            tableName, fetchedTableName, "Table name should match the specified table name");
       } while (tables.next());
     }
     deleteTable(tableName);

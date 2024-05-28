@@ -90,9 +90,11 @@ public class DatabricksThriftHelper {
     int numberOfItems = columnList.get(0).getStringVal().getValuesSize();
     List<List<Object>> ans = new ArrayList<>();
     for (int i = 0; i < numberOfItems; i++) {
+      List<Object>temp = new ArrayList<>();
       for (int j = 0; j < numberOfColumns; j++) {
-        ans.add(Collections.singletonList(columnList.get(0).getStringVal().getValues().get(i)));
+        temp.add(columnList.get(j).getStringVal().getValues().get(i));
       }
+      ans.add(temp);
     }
     return ans;
   }

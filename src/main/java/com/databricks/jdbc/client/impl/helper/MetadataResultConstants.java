@@ -8,7 +8,7 @@ public class MetadataResultConstants {
   private static final ResultColumn CATALOG_COLUMN =
       new ResultColumn("TABLE_CAT", "catalogName", Types.VARCHAR);
   private static final ResultColumn CATALOG_FULL_COLUMN =
-          new ResultColumn("TABLE_CATALOG", "catalogName", Types.VARCHAR);
+      new ResultColumn("TABLE_CATALOG", "catalogName", Types.VARCHAR);
   private static final ResultColumn TYPE_CATALOG_COLUMN =
       new ResultColumn("TYPE_CAT", "TYPE_CATALOG_COLUMN", Types.VARCHAR);
   private static final ResultColumn TYPE_SCHEMA_COLUMN =
