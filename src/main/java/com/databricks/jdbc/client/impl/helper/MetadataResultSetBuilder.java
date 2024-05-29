@@ -88,6 +88,7 @@ public class MetadataResultSetBuilder {
 
   private static List<List<Object>> getRowsForSchemas(
       ResultSet resultSet, List<ResultColumn> columns, String catalog) throws SQLException {
+    // TODO(PECO-1677): Remove this method once the server side ResultSet metadata contains catalogs
     List<List<Object>> rows = new ArrayList<>();
     while (resultSet.next()) {
       List<Object> row = new ArrayList<>();
