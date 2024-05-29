@@ -12,7 +12,6 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Objects;
 import java.util.stream.Collectors;
 
 public class MetadataResultSetBuilder {
@@ -33,7 +32,7 @@ public class MetadataResultSetBuilder {
 
   public static DatabricksResultSet getSchemasResult(ResultSet resultSet, String catalog)
       throws SQLException {
-    List<List<Object>> rows = getRows(resultSet, SCHEMA_COLUMNS, catalog);
+    List<List<Object>> rows = getRowsForSchemas(resultSet, SCHEMA_COLUMNS, catalog);
     return buildResultSet(SCHEMA_COLUMNS, rows, METADATA_STATEMENT_ID);
   }
 
@@ -66,26 +65,40 @@ public class MetadataResultSetBuilder {
 
   private static List<List<Object>> getRows(ResultSet resultSet, List<ResultColumn> columns)
       throws SQLException {
-    return getRows(resultSet, columns, null);
+    List<List<Object>> rows = new ArrayList<>();
+    while (resultSet.next()) {
+      List<Object> row = new ArrayList<>();
+      for (ResultColumn column : columns) {
+        Object object;
+        try {
+          object = resultSet.getObject(column.getResultSetColumnName());
+          if (object == null) {
+            object = NULL_STRING;
+          }
+        } catch (DatabricksSQLException e) {
+          // Remove non-relevant columns from the obtained result set
+          object = NULL_STRING;
+        }
+        row.add(object);
+      }
+      rows.add(row);
+    }
+    return rows;
   }
 
-  private static List<List<Object>> getRows(
+  private static List<List<Object>> getRowsForSchemas(
       ResultSet resultSet, List<ResultColumn> columns, String catalog) throws SQLException {
     List<List<Object>> rows = new ArrayList<>();
     while (resultSet.next()) {
       List<Object> row = new ArrayList<>();
       for (ResultColumn column : columns) {
-        Object object = null;
+        if (column.getColumnName().equals("TABLE_CAT")) {
+          row.add(catalog);
+          continue;
+        }
+        Object object;
         try {
-          try {
-            object = resultSet.getObject(column.getResultSetColumnName());
-          } catch (SQLException e) {
-            if (Objects.equals(column.getColumnName(), "TABLE_CAT")) {
-              object = catalog;
-            } else {
-              throw e;
-            }
-          }
+          object = resultSet.getObject(column.getResultSetColumnName());
           if (object == null) {
             object = NULL_STRING;
           }

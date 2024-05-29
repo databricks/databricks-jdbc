@@ -267,10 +267,7 @@ public class DatabricksNewMetadataSdkClientTest {
             null))
         .thenReturn(mockedResultSet);
     when(mockedResultSet.next()).thenReturn(true, false);
-    for (ResultColumn resultColumn : SCHEMA_COLUMNS) {
-      when(mockedResultSet.getObject(resultColumn.getResultSetColumnName()))
-          .thenReturn(TEST_COLUMN);
-    }
+    when(mockedResultSet.getObject("databaseName")).thenReturn(TEST_COLUMN);
     DatabricksResultSet actualResult = metadataClient.listSchemas(session, TEST_CATALOG, schema);
     assertEquals(
         actualResult.getStatementStatus().getState(), StatementState.SUCCEEDED, description);
