@@ -1,5 +1,6 @@
 package com.databricks.jdbc.client.impl.sdk;
 
+import static com.databricks.jdbc.client.impl.helper.MetadataResultConstants.DEFAULT_TABLE_TYPES;
 import static com.databricks.jdbc.client.impl.sdk.ResultConstants.TYPE_INFO_RESULT;
 
 import com.databricks.jdbc.client.DatabricksMetadataClient;
@@ -62,12 +63,16 @@ public class DatabricksNewMetadataSdkClient implements DatabricksMetadataClient 
       String tableNamePattern,
       String[] tableTypes)
       throws SQLException {
+    tableTypes =
+        Optional.ofNullable(tableTypes)
+            .filter(types -> types.length > 0)
+            .orElse(DEFAULT_TABLE_TYPES);
     CommandBuilder commandBuilder =
         new CommandBuilder(catalog, session)
             .setSchemaPattern(schemaNamePattern)
             .setTablePattern(tableNamePattern);
     String SQL = commandBuilder.getSQLString(CommandName.LIST_TABLES);
-    return MetadataResultSetBuilder.getTablesResult(getResultSet(SQL, session));
+    return MetadataResultSetBuilder.getTablesResult(getResultSet(SQL, session), tableTypes);
   }
 
   @Override

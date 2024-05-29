@@ -202,8 +202,11 @@ public class DatabricksNewMetadataSdkClientTest {
         .thenReturn(mockedResultSet);
     when(mockedResultSet.next()).thenReturn(true, false);
     for (ResultColumn resultColumn : TABLE_COLUMNS) {
-      when(mockedResultSet.getObject(resultColumn.getResultSetColumnName()))
-          .thenReturn(TEST_COLUMN);
+      if (resultColumn == TABLE_COLUMNS.get(3)) {
+        when(mockedResultSet.getObject(resultColumn.getResultSetColumnName())).thenReturn("TABLE");
+      } else
+        when(mockedResultSet.getObject(resultColumn.getResultSetColumnName()))
+            .thenReturn(TEST_COLUMN);
     }
     DatabricksResultSet actualResult =
         metadataClient.listTables(session, catalog, schema, table, null);
