@@ -45,11 +45,13 @@ public class DatabricksNewMetadataSdkClient implements DatabricksMetadataClient 
     CommandBuilder commandBuilder = new CommandBuilder(session);
     String SQL = commandBuilder.getSQLString(CommandName.LIST_CATALOGS);
     LOGGER.debug("SQL command to fetch catalogs: {}", SQL);
+
     DatabricksResultSet resultSet =
-        MetadataResultSetBuilder.getCatalogsResult(getResultSet(SQL, session));
+        MetadataResultSetBuilder.getCatalogsResult(getResultSet(SQL, session, StatementType.METADATA));
     Metrics.SetGaugeMetric(
         MetricName.LIST_CATALOGS_METADATA_SEA.name(), System.currentTimeMillis() - startTime);
     return resultSet;
+
   }
 
   @Override
@@ -61,7 +63,7 @@ public class DatabricksNewMetadataSdkClient implements DatabricksMetadataClient 
     String SQL = commandBuilder.getSQLString(CommandName.LIST_SCHEMAS);
     LOGGER.debug("SQL command to fetch schemas: {}", SQL);
     DatabricksResultSet resultSet =
-        MetadataResultSetBuilder.getSchemasResult(getResultSet(SQL, session));
+        MetadataResultSetBuilder.getSchemasResult(getResultSet(SQL, session, StatementType.METADATA));
     Metrics.SetGaugeMetric(
         MetricName.LIST_SCHEMAS_METADATA_SEA.name(), System.currentTimeMillis() - startTime);
     return resultSet;
@@ -90,7 +92,7 @@ public class DatabricksNewMetadataSdkClient implements DatabricksMetadataClient 
     String SQL = commandBuilder.getSQLString(CommandName.LIST_TABLES);
 
     DatabricksResultSet resultSet =
-        MetadataResultSetBuilder.getTablesResult(getResultSet(SQL, session));
+        MetadataResultSetBuilder.getTablesResult(getResultSet(SQL, session, StatementType.METADATA));
     Metrics.SetGaugeMetric(
         MetricName.LIST_TABLES_METADATA_SEA.name(), System.currentTimeMillis() - startTime);
     return resultSet;
@@ -121,8 +123,9 @@ public class DatabricksNewMetadataSdkClient implements DatabricksMetadataClient 
             .setTablePattern(tableNamePattern)
             .setColumnPattern(columnNamePattern);
     String SQL = commandBuilder.getSQLString(CommandName.LIST_COLUMNS);
+
     DatabricksResultSet resultSet =
-        MetadataResultSetBuilder.getColumnsResult(getResultSet(SQL, session));
+        MetadataResultSetBuilder.getColumnsResult(getResultSet(SQL, session, StatementType.METADATA));
     Metrics.SetGaugeMetric(
         MetricName.LIST_COLUMNS_METADATA_SEA.name(), System.currentTimeMillis() - startTime);
     return resultSet;
@@ -143,10 +146,11 @@ public class DatabricksNewMetadataSdkClient implements DatabricksMetadataClient 
     String SQL = commandBuilder.getSQLString(CommandName.LIST_FUNCTIONS);
     LOGGER.debug("SQL command to fetch functions: {}", SQL);
     DatabricksResultSet resultSet =
-        MetadataResultSetBuilder.getFunctionsResult(getResultSet(SQL, session));
+        MetadataResultSetBuilder.getFunctionsResult(getResultSet(SQL, session,, StatementType.METADATA));
     Metrics.SetGaugeMetric(
         MetricName.LIST_FUNCTIONS_METADATA_SEA.name(), System.currentTimeMillis() - startTime);
     return resultSet;
+
   }
 
   @Override
@@ -157,19 +161,22 @@ public class DatabricksNewMetadataSdkClient implements DatabricksMetadataClient 
         new CommandBuilder(catalog, session).setSchema(schema).setTable(table);
     String SQL = commandBuilder.getSQLString(CommandName.LIST_PRIMARY_KEYS);
     LOGGER.debug("SQL command to fetch primary keys: {}", SQL);
+
     DatabricksResultSet resultSet =
-        MetadataResultSetBuilder.getPrimaryKeysResult(getResultSet(SQL, session));
+        MetadataResultSetBuilder.getPrimaryKeysResult(getResultSet(SQL, session, StatementType.METADATA));
     Metrics.SetGaugeMetric(
         MetricName.LIST_PRIMARY_KEYS_METADATA_SEA.name(), System.currentTimeMillis() - startTime);
     return resultSet;
+
   }
 
-  private ResultSet getResultSet(String SQL, IDatabricksSession session) throws SQLException {
+  private ResultSet getResultSet(
+      String SQL, IDatabricksSession session, StatementType statementType) throws SQLException {
     return sdkClient.executeStatement(
         SQL,
         session.getComputeResource(),
         new HashMap<Integer, ImmutableSqlParameter>(),
-        StatementType.METADATA,
+        statementType,
         session,
         null /* parentStatement */);
   }
