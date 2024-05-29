@@ -40,7 +40,7 @@ public class DatabricksThriftServiceClientTest {
             .setInitialNamespace(getNamespace(CATALOG, SCHEMA))
             .setConfiguration(EMPTY_MAP)
             .setCanUseMultipleCatalogs(true)
-            .setClient_protocol(TProtocolVersion.SPARK_CLI_SERVICE_PROTOCOL_V9);
+            .setClient_protocol_i64(TProtocolVersion.SPARK_CLI_SERVICE_PROTOCOL_V9.getValue());
     TOpenSessionResp openSessionResp =
         new TOpenSessionResp()
             .setSessionHandle(SESSION_HANDLE)
