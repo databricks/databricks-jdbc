@@ -234,7 +234,7 @@ public class DatabricksNewMetadataSdkClientTest {
             sqlStatement,
             mockedComputeResource,
             new HashMap<Integer, ImmutableSqlParameter>(),
-            StatementType.METADATA,
+            StatementType.QUERY,
             session,
             null))
         .thenReturn(mockedResultSet);
