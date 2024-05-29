@@ -59,7 +59,6 @@ public class DatabricksThriftServiceClient implements DatabricksClient, Databric
             .setConfiguration(sessionConf)
             .setCanUseMultipleCatalogs(true)
             .setClient_protocol_i64(JDBC_THRIFT_VERSION.getValue());
-    System.out.println("Here is the openSessionReq " + openSessionReq);
     TOpenSessionResp response =
         (TOpenSessionResp)
             thriftAccessor.getThriftResponse(openSessionReq, CommandName.OPEN_SESSION, null);
