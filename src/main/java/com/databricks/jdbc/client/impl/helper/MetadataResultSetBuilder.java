@@ -35,8 +35,13 @@ public class MetadataResultSetBuilder {
     return buildResultSet(SCHEMA_COLUMNS, rows, METADATA_STATEMENT_ID);
   }
 
-  public static DatabricksResultSet getTablesResult(ResultSet resultSet) throws SQLException {
-    List<List<Object>> rows = getRows(resultSet, TABLE_COLUMNS);
+  public static DatabricksResultSet getTablesResult(ResultSet resultSet, String[] tableTypes)
+      throws SQLException {
+    List<String> allowedTableTypes = List.of(tableTypes);
+    List<List<Object>> rows =
+        getRows(resultSet, TABLE_COLUMNS).stream()
+            .filter(row -> allowedTableTypes.contains(row.get(3))) // Filtering based on table type
+            .collect(Collectors.toList());
     return buildResultSet(TABLE_COLUMNS, rows, GET_TABLES_STATEMENT_ID);
   }
 

@@ -5,6 +5,7 @@ import java.util.Arrays;
 import java.util.List;
 
 public class MetadataResultConstants {
+  public static final String[] DEFAULT_TABLE_TYPES = {"TABLE", "VIEW", "SYSTEM TABLE"};
   private static final ResultColumn CATALOG_COLUMN =
       new ResultColumn("TABLE_CAT", "catalogName", Types.VARCHAR);
   private static final ResultColumn TYPE_CATALOG_COLUMN =
