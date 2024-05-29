@@ -36,7 +36,7 @@ public class DatabricksDriver implements Driver {
 
   public DatabricksDriver() {
     System.out.println("Initializing OpenTelemetry Exporter");
-    OpenTelemetryExporter.builder().intervalSeconds(5).endpoint("Public Endpoint").buildAndStart();
+    OpenTelemetryExporter.builder().intervalSeconds(5).buildAndStart();
     System.out.println("OpenTelemetry exporter started");
   }
 

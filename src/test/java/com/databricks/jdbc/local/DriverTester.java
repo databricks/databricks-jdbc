@@ -1,5 +1,8 @@
 package com.databricks.jdbc.local;
 
+import com.databricks.jdbc.telemetry.Metrics;
+import com.databricks.jdbc.telemetry.PrintWriterSingleton;
+import java.io.PrintWriter;
 import java.sql.*;
 import org.junit.jupiter.api.Test;
 
@@ -114,5 +117,34 @@ public class DriverTester {
     printResultSet(resultSet);
     resultSet.close();
     con.close();
+  }
+
+  @Test
+  void openTelemetryInitializer2() throws Exception {
+    //    OpenTelemetryExporter.builder()
+    //            .intervalSeconds(5)
+    //            .buildAndStart();
+
+    PrintWriter printWriter = PrintWriterSingleton.getPrintWriter();
+
+    long startTimeMillis = System.currentTimeMillis();
+
+    try {
+      for (int i = 0; i < 100; i++) {
+        Thread.sleep(1000);
+
+        long currentTimeMillis = System.currentTimeMillis();
+
+        Metrics.SetGaugeMetric("QueryExecutionTime", currentTimeMillis - startTimeMillis);
+        Metrics.IncCounterMetric("Iteration", 1);
+
+        printWriter.println("Iteration: " + Metrics.getCounterMetric("Iteration"));
+        printWriter.println("QueryExecutionTime: " + Metrics.getGaugeMetric("QueryExecutionTime"));
+      }
+    } finally {
+      if (printWriter != null) printWriter.close();
+      else System.out.println("printWriter is null");
+    }
+    System.out.println("Metrics qet exported to metrics.txt");
   }
 }
