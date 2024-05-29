@@ -92,7 +92,7 @@ public class FakeServiceExtension extends DatabricksWireMockExtension {
   private final FakeServiceType fakeServiceType;
 
   /** Base URL of the target production service. */
-  private final String targetBaseUrl;
+  private String targetBaseUrl;
 
   /** Mode of the fake service. */
   private FakeServiceMode fakeServiceMode;
@@ -172,6 +172,11 @@ public class FakeServiceExtension extends DatabricksWireMockExtension {
     clearFakeServiceProperties();
 
     super.onAfterAll(wireMockRuntimeInfo, context);
+  }
+
+  /** Sets the base URL of the target production service to be tracked. */
+  protected void setTargetBaseUrl(String targetBaseUrl) {
+    this.targetBaseUrl = targetBaseUrl;
   }
 
   /** Gets the stubbing directory for the current test class and method. */

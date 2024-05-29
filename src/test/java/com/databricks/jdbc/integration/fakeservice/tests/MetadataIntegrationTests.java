@@ -5,54 +5,17 @@ import static com.databricks.jdbc.client.impl.sdk.PathConstants.STATEMENT_PATH;
 import static com.databricks.jdbc.integration.IntegrationTestUtil.*;
 import static com.github.tomakehurst.wiremock.client.WireMock.postRequestedFor;
 import static com.github.tomakehurst.wiremock.client.WireMock.urlEqualTo;
-import static com.github.tomakehurst.wiremock.core.WireMockConfiguration.wireMockConfig;
 import static org.junit.jupiter.api.Assertions.*;
 
-import com.databricks.jdbc.driver.DatabricksJdbcConstants.FakeServiceType;
-import com.databricks.jdbc.integration.fakeservice.DatabricksWireMockExtension;
-import com.databricks.jdbc.integration.fakeservice.FakeServiceExtension;
-import com.databricks.jdbc.integration.fakeservice.StubMappingCredentialsCleaner;
+import com.databricks.jdbc.integration.fakeservice.BaseFakeServiceIntegrationTests;
 import com.github.tomakehurst.wiremock.client.CountMatchingStrategy;
-import com.github.tomakehurst.wiremock.extension.Extension;
 import java.sql.*;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.RegisterExtension;
 
-/**
- * Integration tests for metadata retrieval.
- *
- * <p>TODO: Remove {@link com.databricks.jdbc.integration.metadata.MetadataIntegrationTests} once
- * {@link FakeServiceExtension} tests stabilize.
- */
-public class MetadataIntegrationTests {
-
-  /**
-   * {@link FakeServiceExtension} for {@link FakeServiceType#SQL_EXEC}. Intercepts all requests to
-   * SQL Execution API.
-   */
-  @RegisterExtension
-  private static final FakeServiceExtension sqlExecApiExtension =
-      new FakeServiceExtension(
-          new DatabricksWireMockExtension.Builder()
-              .options(
-                  wireMockConfig().dynamicPort().dynamicHttpsPort().extensions(getExtensions())),
-          FakeServiceType.SQL_EXEC,
-          "https://" + System.getenv("DATABRICKS_HOST"));
-
-  /**
-   * {@link FakeServiceExtension} for {@link FakeServiceType#CLOUD_FETCH}. Intercepts all requests
-   * to Cloud Fetch API.
-   */
-  @RegisterExtension
-  private static final FakeServiceExtension cloudFetchApiExtension =
-      new FakeServiceExtension(
-          new DatabricksWireMockExtension.Builder()
-              .options(
-                  wireMockConfig().dynamicPort().dynamicHttpsPort().extensions(getExtensions())),
-          FakeServiceType.CLOUD_FETCH,
-          "https://dbstoragepzjc6kojqibtg.blob.core.windows.net");
+/** Integration tests for metadata retrieval. */
+public class MetadataIntegrationTests extends BaseFakeServiceIntegrationTests {
 
   private Connection connection;
 
@@ -94,7 +57,7 @@ public class MetadataIntegrationTests {
         metaData.getMaxColumnsInTable() >= 0, "Max columns in table should be greater than 0");
 
     // Create session request is sent
-    sqlExecApiExtension.verify(1, postRequestedFor(urlEqualTo(SESSION_PATH)));
+    getSqlExecApiExtension().verify(1, postRequestedFor(urlEqualTo(SESSION_PATH)));
   }
 
   @Test
@@ -150,9 +113,10 @@ public class MetadataIntegrationTests {
     executeSQL(SQL);
 
     // At least 5 statement requests are sent: drop, create, insert, select, drop
-    sqlExecApiExtension.verify(
-        new CountMatchingStrategy(CountMatchingStrategy.GREATER_THAN_OR_EQUAL, 5),
-        postRequestedFor(urlEqualTo(STATEMENT_PATH)));
+    getSqlExecApiExtension()
+        .verify(
+            new CountMatchingStrategy(CountMatchingStrategy.GREATER_THAN_OR_EQUAL, 5),
+            postRequestedFor(urlEqualTo(STATEMENT_PATH)));
   }
 
   @Test
@@ -206,13 +170,9 @@ public class MetadataIntegrationTests {
     // At least 7 statement requests are sent:
     // show catalogs, show schemas, drop table, create table, show tables, show particular table,
     // drop
-    sqlExecApiExtension.verify(
-        new CountMatchingStrategy(CountMatchingStrategy.GREATER_THAN_OR_EQUAL, 7),
-        postRequestedFor(urlEqualTo(STATEMENT_PATH)));
-  }
-
-  /** Returns the extensions to be used for stubbing. */
-  private static Extension[] getExtensions() {
-    return new Extension[] {new StubMappingCredentialsCleaner()};
+    getSqlExecApiExtension()
+        .verify(
+            new CountMatchingStrategy(CountMatchingStrategy.GREATER_THAN_OR_EQUAL, 7),
+            postRequestedFor(urlEqualTo(STATEMENT_PATH)));
   }
 }
