@@ -30,6 +30,7 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
   private final ImmutableList<ImmutableDatabricksColumn> columns;
   private final ImmutableMap<String, Integer> columnNameIndex;
   private final long totalRows;
+  private Long chunkCount;
   private static final String DEFAULT_CATALOGUE_NAME = "Spark";
   private static final String NULL_STRING = "null";
 
@@ -80,10 +81,11 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
     this.columns = columnsBuilder.build();
     this.columnNameIndex = ImmutableMap.copyOf(columnNameToIndexMap);
     this.totalRows = resultManifest.getTotalRowCount();
+    this.chunkCount = resultManifest.getTotalChunkCount();
   }
 
   public DatabricksResultSetMetaData(
-      String statementId, TGetResultSetMetadataResp resultManifest, int rows) {
+      String statementId, TGetResultSetMetadataResp resultManifest, int rows, long chunkCount) {
     this.statementId = statementId;
     Map<String, Integer> columnNameToIndexMap = new HashMap<>();
     ImmutableList.Builder<ImmutableDatabricksColumn> columnsBuilder = ImmutableList.builder();
@@ -108,6 +110,7 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
     this.columns = columnsBuilder.build();
     this.columnNameIndex = ImmutableMap.copyOf(columnNameToIndexMap);
     this.totalRows = rows;
+    this.chunkCount = chunkCount;
   }
 
   public DatabricksResultSetMetaData(
@@ -281,6 +284,10 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
 
   public long getTotalRows() {
     return totalRows;
+  }
+
+  public Long getChunkCount() {
+    return chunkCount;
   }
 
   private ImmutableDatabricksColumn.Builder getColumnBuilder() {
