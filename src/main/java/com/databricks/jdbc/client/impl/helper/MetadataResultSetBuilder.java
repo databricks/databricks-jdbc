@@ -5,6 +5,7 @@ import static com.databricks.jdbc.client.impl.helper.MetadataResultConstants.*;
 
 import com.databricks.jdbc.client.StatementType;
 import com.databricks.jdbc.core.DatabricksResultSet;
+import com.databricks.jdbc.core.DatabricksSQLException;
 import com.databricks.sdk.service.sql.StatementState;
 import com.databricks.sdk.service.sql.StatementStatus;
 import java.sql.ResultSet;
@@ -62,8 +63,14 @@ public class MetadataResultSetBuilder {
     while (resultSet.next()) {
       List<Object> row = new ArrayList<>();
       for (ResultColumn column : columns) {
-        Object object = resultSet.getObject(column.getResultSetColumnName());
-        if (object == null) {
+        Object object;
+        try {
+          object = resultSet.getObject(column.getResultSetColumnName());
+          if (object == null) {
+            object = NULL_STRING;
+          }
+        } catch (DatabricksSQLException e) {
+          // Remove non-relevant columns from the obtained result set
           object = NULL_STRING;
         }
         row.add(object);
