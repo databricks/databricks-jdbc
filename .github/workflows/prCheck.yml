@@ -64,7 +64,7 @@ jobs:
           restore-keys: ${{ runner.os }}-m2
 
       - name: Check Unit Tests
-        run: mvn test -Dtest=!**/integration/**
+        run: mvn test -Dtest=!**/integration/**,!**/local/**
 
       - name: JaCoCo report
         run: mvn --batch-mode --errors jacoco:report --file pom.xml

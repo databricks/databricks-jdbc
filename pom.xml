@@ -204,7 +204,7 @@
           <version>${maven-surefire-plugin.version}</version>
           <configuration>
             <excludes>
-              <exclude>**/**IntegrationTests.java</exclude>
+              <exclude>**/integration/**/*.java</exclude>
               <exclude>**/*MetadataBenchmarkingTest.java</exclude>
             </excludes>
             <argLine>
