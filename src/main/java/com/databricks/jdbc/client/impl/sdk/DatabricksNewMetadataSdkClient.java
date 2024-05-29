@@ -47,7 +47,7 @@ public class DatabricksNewMetadataSdkClient implements DatabricksMetadataClient 
     DatabricksResultSet resultSet =
         MetadataResultSetBuilder.getCatalogsResult(getResultSet(SQL, session));
     Metrics.SetGaugeMetric(
-        MetricName.LIST_CATALOGS_METADATA.name(), System.currentTimeMillis() - startTime);
+        MetricName.LIST_CATALOGS_METADATA_SEA.name(), System.currentTimeMillis() - startTime);
     return resultSet;
   }
 
@@ -62,7 +62,7 @@ public class DatabricksNewMetadataSdkClient implements DatabricksMetadataClient 
     DatabricksResultSet resultSet =
         MetadataResultSetBuilder.getSchemasResult(getResultSet(SQL, session));
     Metrics.SetGaugeMetric(
-        MetricName.LIST_SCHEMAS_METADATA.name(), System.currentTimeMillis() - startTime);
+        MetricName.LIST_SCHEMAS_METADATA_SEA.name(), System.currentTimeMillis() - startTime);
     return resultSet;
   }
 
@@ -83,7 +83,7 @@ public class DatabricksNewMetadataSdkClient implements DatabricksMetadataClient 
     DatabricksResultSet resultSet =
         MetadataResultSetBuilder.getTablesResult(getResultSet(SQL, session));
     Metrics.SetGaugeMetric(
-        MetricName.LIST_TABLES_METADATA.name(), System.currentTimeMillis() - startTime);
+        MetricName.LIST_TABLES_METADATA_SEA.name(), System.currentTimeMillis() - startTime);
     return resultSet;
   }
 
@@ -93,7 +93,7 @@ public class DatabricksNewMetadataSdkClient implements DatabricksMetadataClient 
     LOGGER.debug("Returning list of table types.");
     DatabricksResultSet resultSet = MetadataResultSetBuilder.getTableTypesResult();
     Metrics.SetGaugeMetric(
-        MetricName.LIST_TABLE_TYPES_METADATA.name(), System.currentTimeMillis() - startTime);
+        MetricName.LIST_TABLE_TYPES_METADATA_SEA.name(), System.currentTimeMillis() - startTime);
     return resultSet;
   }
 
@@ -115,7 +115,7 @@ public class DatabricksNewMetadataSdkClient implements DatabricksMetadataClient 
     DatabricksResultSet resultSet =
         MetadataResultSetBuilder.getColumnsResult(getResultSet(SQL, session));
     Metrics.SetGaugeMetric(
-        MetricName.LIST_COLUMNS_METADATA.name(), System.currentTimeMillis() - startTime);
+        MetricName.LIST_COLUMNS_METADATA_SEA.name(), System.currentTimeMillis() - startTime);
     return resultSet;
   }
 
@@ -136,7 +136,7 @@ public class DatabricksNewMetadataSdkClient implements DatabricksMetadataClient 
     DatabricksResultSet resultSet =
         MetadataResultSetBuilder.getFunctionsResult(getResultSet(SQL, session));
     Metrics.SetGaugeMetric(
-        MetricName.LIST_FUNCTIONS_METADATA.name(), System.currentTimeMillis() - startTime);
+        MetricName.LIST_FUNCTIONS_METADATA_SEA.name(), System.currentTimeMillis() - startTime);
     return resultSet;
   }
 
@@ -151,7 +151,7 @@ public class DatabricksNewMetadataSdkClient implements DatabricksMetadataClient 
     DatabricksResultSet resultSet =
         MetadataResultSetBuilder.getPrimaryKeysResult(getResultSet(SQL, session));
     Metrics.SetGaugeMetric(
-        MetricName.LIST_PRIMARY_KEYS_METADATA.name(), System.currentTimeMillis() - startTime);
+        MetricName.LIST_PRIMARY_KEYS_METADATA_SEA.name(), System.currentTimeMillis() - startTime);
     return resultSet;
   }
 

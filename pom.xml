@@ -46,6 +46,16 @@
     <slt.executor>dbsql</slt.executor>
     <slt.token>dummy-token</slt.token>
     <wiremock.version>3.5.4</wiremock.version>
+    <opentelemetry-api.version>1.38.0</opentelemetry-api.version>
+    <opentelemetry-sdk.version>1.38.0</opentelemetry-sdk.version>
+    <opentelemetry-sdk-metrics.version>1.38.0</opentelemetry-sdk-metrics.version>
+    <open-telemetry-exporter-otlp.version>1.38.0</open-telemetry-exporter-otlp.version>
+    <open-telemetry-exporter-logging.version>1.38.0</open-telemetry-exporter-logging.version>
+    <open-telemetry-semconv.version>1.25.0-alpha</open-telemetry-semconv.version>
+    <http.version>20070405</http.version>
+    <prometheus-metrics-core.version>1.3.0</prometheus-metrics-core.version>
+    <prometheus-metrics-instrumentation-jvm.version>1.3.0</prometheus-metrics-instrumentation-jvm.version>
+    <prometheus-metrics-exporter-opentelemetry.version>1.3.0</prometheus-metrics-exporter-opentelemetry.version>
   </properties>
   <dependencies>
     <dependency>
@@ -184,52 +194,52 @@
     <dependency>
       <groupId>io.opentelemetry</groupId>
       <artifactId>opentelemetry-api</artifactId>
-      <version>1.38.0</version>
+      <version>${opentelemetry-api.version}</version>
     </dependency>
     <dependency>
       <groupId>io.opentelemetry</groupId>
       <artifactId>opentelemetry-sdk</artifactId>
-      <version>1.38.0</version>
+      <version>${opentelemetry-sdk-metrics.version}</version>
     </dependency>
     <dependency>
       <groupId>io.opentelemetry</groupId>
       <artifactId>opentelemetry-sdk-metrics</artifactId>
-      <version>1.38.0</version>
+      <version>${opentelemetry-sdk-metrics.version}</version>
     </dependency>
     <dependency>
       <groupId>io.opentelemetry</groupId>
       <artifactId>opentelemetry-exporter-otlp</artifactId>
-      <version>1.38.0</version>
+      <version>${open-telemetry-exporter-otlp.version}</version>
     </dependency>
     <dependency>
       <groupId>io.opentelemetry</groupId>
       <artifactId>opentelemetry-exporter-logging</artifactId>
-      <version>1.38.0</version>
+      <version>${open-telemetry-exporter-logging.version}</version>
     </dependency>
     <dependency>
       <groupId>io.opentelemetry.semconv</groupId>
       <artifactId>opentelemetry-semconv</artifactId>
-      <version>1.25.0-alpha</version>
+      <version>${open-telemetry-semconv.version}</version>
     </dependency>
     <dependency>
       <groupId>com.sun.net.httpserver</groupId>
       <artifactId>http</artifactId>
-      <version>20070405</version>
+      <version>${http.version}</version>
     </dependency>
     <dependency>
       <groupId>io.prometheus</groupId>
       <artifactId>prometheus-metrics-core</artifactId>
-      <version>1.3.0</version>
+      <version>${prometheus-metrics-core.version}</version>
     </dependency>
     <dependency>
       <groupId>io.prometheus</groupId>
       <artifactId>prometheus-metrics-instrumentation-jvm</artifactId>
-      <version>1.3.0</version>
+      <version>${prometheus-metrics-instrumentation-jvm.version}</version>
     </dependency>
     <dependency>
       <groupId>io.prometheus</groupId>
       <artifactId>prometheus-metrics-exporter-opentelemetry</artifactId>
-      <version>1.3.0</version>
+      <version>${prometheus-metrics-exporter-opentelemetry.version}</version>
     </dependency>
   </dependencies>
 

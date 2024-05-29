@@ -32,12 +32,13 @@ public class DatabricksDriver implements Driver {
     } catch (SQLException e) {
       throw new IllegalStateException("Unable to register " + DatabricksDriver.class, e);
     }
-  }
 
-  public DatabricksDriver() {
-    System.out.println("Initializing OpenTelemetry Exporter");
-    OpenTelemetryExporter.builder().intervalSeconds(5).buildAndStart();
-    System.out.println("OpenTelemetry exporter started");
+    try {
+      OpenTelemetryExporter.builder().intervalSeconds(5).buildAndStart();
+      System.out.println("OpenTelemetry exporter started");
+    } catch (Exception e) {
+      System.out.println("OpenTelemetry exporter failed to start");
+    }
   }
 
   @Override
