@@ -13,7 +13,7 @@ public class CommandConstants {
   public static final String IN_ABSOLUTE_SCHEMA_SQL = " IN SCHEMA %s";
   public static final String IN_ABSOLUTE_TABLE_SQL = " IN TABLE %s";
   public static final String SHOW_SCHEMA_IN_CATALOG_SQL = "SHOW SCHEMAS IN %s";
-  public static final String LIKE_SQL = " LIKE `%s`";
+  public static final String LIKE_SQL = " LIKE '%s'";
   public static final String SCHEMA_LIKE_SQL = " SCHEMA" + LIKE_SQL;
   public static final String TABLE_LIKE_SQL = " TABLE" + LIKE_SQL;
   public static final String SHOW_TABLES_SQL = "SHOW TABLES" + IN_CATALOG_SQL;
