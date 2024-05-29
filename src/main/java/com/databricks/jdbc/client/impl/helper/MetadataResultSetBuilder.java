@@ -30,13 +30,19 @@ public class MetadataResultSetBuilder {
     return buildResultSet(CATALOG_COLUMNS, rows, GET_CATALOGS_STATEMENT_ID);
   }
 
-  public static DatabricksResultSet getSchemasResult(ResultSet resultSet) throws SQLException {
-    List<List<Object>> rows = getRows(resultSet, SCHEMA_COLUMNS);
+  public static DatabricksResultSet getSchemasResult(ResultSet resultSet, String catalog)
+      throws SQLException {
+    List<List<Object>> rows = getRowsForSchemas(resultSet, SCHEMA_COLUMNS, catalog);
     return buildResultSet(SCHEMA_COLUMNS, rows, METADATA_STATEMENT_ID);
   }
 
-  public static DatabricksResultSet getTablesResult(ResultSet resultSet) throws SQLException {
-    List<List<Object>> rows = getRows(resultSet, TABLE_COLUMNS);
+  public static DatabricksResultSet getTablesResult(ResultSet resultSet, String[] tableTypes)
+      throws SQLException {
+    List<String> allowedTableTypes = List.of(tableTypes);
+    List<List<Object>> rows =
+        getRows(resultSet, TABLE_COLUMNS).stream()
+            .filter(row -> allowedTableTypes.contains(row.get(3))) // Filtering based on table type
+            .collect(Collectors.toList());
     return buildResultSet(TABLE_COLUMNS, rows, GET_TABLES_STATEMENT_ID);
   }
 
@@ -63,6 +69,34 @@ public class MetadataResultSetBuilder {
     while (resultSet.next()) {
       List<Object> row = new ArrayList<>();
       for (ResultColumn column : columns) {
+        Object object;
+        try {
+          object = resultSet.getObject(column.getResultSetColumnName());
+          if (object == null) {
+            object = NULL_STRING;
+          }
+        } catch (DatabricksSQLException e) {
+          // Remove non-relevant columns from the obtained result set
+          object = NULL_STRING;
+        }
+        row.add(object);
+      }
+      rows.add(row);
+    }
+    return rows;
+  }
+
+  private static List<List<Object>> getRowsForSchemas(
+      ResultSet resultSet, List<ResultColumn> columns, String catalog) throws SQLException {
+    // TODO(PECO-1677): Remove this method once the server side ResultSet metadata contains catalogs
+    List<List<Object>> rows = new ArrayList<>();
+    while (resultSet.next()) {
+      List<Object> row = new ArrayList<>();
+      for (ResultColumn column : columns) {
+        if (column.getColumnName().equals("TABLE_CAT")) {
+          row.add(catalog);
+          continue;
+        }
         Object object;
         try {
           object = resultSet.getObject(column.getResultSetColumnName());

@@ -202,8 +202,11 @@ public class DatabricksNewMetadataSdkClientTest {
         .thenReturn(mockedResultSet);
     when(mockedResultSet.next()).thenReturn(true, false);
     for (ResultColumn resultColumn : TABLE_COLUMNS) {
-      when(mockedResultSet.getObject(resultColumn.getResultSetColumnName()))
-          .thenReturn(TEST_COLUMN);
+      if (resultColumn == TABLE_COLUMNS.get(3)) {
+        when(mockedResultSet.getObject(resultColumn.getResultSetColumnName())).thenReturn("TABLE");
+      } else
+        when(mockedResultSet.getObject(resultColumn.getResultSetColumnName()))
+            .thenReturn(TEST_COLUMN);
     }
     DatabricksResultSet actualResult =
         metadataClient.listTables(session, catalog, schema, table, null);
@@ -231,7 +234,7 @@ public class DatabricksNewMetadataSdkClientTest {
             sqlStatement,
             mockedComputeResource,
             new HashMap<Integer, ImmutableSqlParameter>(),
-            StatementType.METADATA,
+            StatementType.QUERY,
             session,
             null))
         .thenReturn(mockedResultSet);
@@ -264,10 +267,7 @@ public class DatabricksNewMetadataSdkClientTest {
             null))
         .thenReturn(mockedResultSet);
     when(mockedResultSet.next()).thenReturn(true, false);
-    for (ResultColumn resultColumn : SCHEMA_COLUMNS) {
-      when(mockedResultSet.getObject(resultColumn.getResultSetColumnName()))
-          .thenReturn(TEST_COLUMN);
-    }
+    when(mockedResultSet.getObject("databaseName")).thenReturn(TEST_COLUMN);
     DatabricksResultSet actualResult = metadataClient.listSchemas(session, TEST_CATALOG, schema);
     assertEquals(
         actualResult.getStatementStatus().getState(), StatementState.SUCCEEDED, description);

@@ -5,8 +5,12 @@ import java.util.Arrays;
 import java.util.List;
 
 public class MetadataResultConstants {
+  public static final String[] DEFAULT_TABLE_TYPES = {"TABLE", "VIEW", "SYSTEM TABLE"};
   private static final ResultColumn CATALOG_COLUMN =
       new ResultColumn("TABLE_CAT", "catalogName", Types.VARCHAR);
+
+  private static final ResultColumn CATALOG_COLUMN_FOR_GET_CATALOGS =
+      new ResultColumn("TABLE_CAT", "catalog", Types.VARCHAR);
   private static final ResultColumn TYPE_CATALOG_COLUMN =
       new ResultColumn("TYPE_CAT", "TYPE_CATALOG_COLUMN", Types.VARCHAR);
   private static final ResultColumn TYPE_SCHEMA_COLUMN =
@@ -25,6 +29,10 @@ public class MetadataResultConstants {
       new ResultColumn("TYPE_NAME", "TYPE_NAME", Types.VARCHAR);
   private static final ResultColumn SCHEMA_COLUMN =
       new ResultColumn("TABLE_SCHEM", "namespace", Types.VARCHAR);
+
+  private static final ResultColumn SCHEMA_COLUMN_FOR_GET_SCHEMA =
+      new ResultColumn("TABLE_SCHEM", "databaseName", Types.VARCHAR);
+
   private static final ResultColumn TABLE_NAME_COLUMN =
       new ResultColumn("TABLE_NAME", "tableName", Types.VARCHAR);
   private static final ResultColumn TABLE_TYPE_COLUMN =
@@ -132,8 +140,9 @@ public class MetadataResultConstants {
           ORDINAL_POSITION_COLUMN,
           IS_AUTO_INCREMENT_COLUMN,
           IS_GENERATED_COLUMN);
-  public static List<ResultColumn> CATALOG_COLUMNS = List.of(CATALOG_COLUMN);
-  public static List<ResultColumn> SCHEMA_COLUMNS = List.of(SCHEMA_COLUMN, CATALOG_COLUMN);
+  public static List<ResultColumn> CATALOG_COLUMNS = List.of(CATALOG_COLUMN_FOR_GET_CATALOGS);
+  public static List<ResultColumn> SCHEMA_COLUMNS =
+      List.of(SCHEMA_COLUMN_FOR_GET_SCHEMA, CATALOG_COLUMN);
   public static List<ResultColumn> TABLE_COLUMNS =
       List.of(
           CATALOG_COLUMN,
