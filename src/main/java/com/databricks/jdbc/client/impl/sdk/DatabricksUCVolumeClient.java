@@ -20,6 +20,11 @@ public class DatabricksUCVolumeClient implements IDatabricksUCVolumeClient {
     return String.format("LIST '/Volumes/%s/%s/%s/'", catalog, schema, volume);
   }
 
+  public boolean prefixExists(String catalog, String schema, String volume, String prefix)
+      throws SQLException {
+    return prefixExists(catalog, schema, volume, prefix, true);
+  }
+
   @Override
   public boolean prefixExists(
       String catalog, String schema, String volume, String prefix, boolean caseSensitive)

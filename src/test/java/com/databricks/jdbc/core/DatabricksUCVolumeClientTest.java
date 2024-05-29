@@ -40,7 +40,7 @@ public class DatabricksUCVolumeClientTest {
     when(resultSet.getString("name"))
         .thenReturn("abc_file1", "abc_file2", "def_file1", "efg_file2");
 
-    boolean exists = client.prefixExists(TEST_CATALOG, TEST_SCHEMA, volume, prefix, true);
+    boolean exists = client.prefixExists(TEST_CATALOG, TEST_SCHEMA, volume, prefix);
 
     assertTrue(exists);
     verify(statement)
