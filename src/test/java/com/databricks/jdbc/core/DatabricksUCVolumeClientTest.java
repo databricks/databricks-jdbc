@@ -48,7 +48,7 @@ public class DatabricksUCVolumeClientTest {
   }
 
   @ParameterizedTest
-  @MethodSource("provideParameters")
+  @MethodSource("provideParametersForPrefixExists")
   public void testPrefixExists(String volume, String prefix, boolean expected) throws SQLException {
     DatabricksUCVolumeClient client = new DatabricksUCVolumeClient(connection);
 
@@ -67,7 +67,7 @@ public class DatabricksUCVolumeClientTest {
         .executeQuery("LIST '/Volumes/" + TEST_CATALOG + "/" + TEST_SCHEMA + "/" + volume + "/'");
   }
 
-  private static Stream<Arguments> provideParameters() {
+  private static Stream<Arguments> provideParametersForPrefixExists() {
     return Stream.of(
         Arguments.of("abc_volume1", "abc", false),
         Arguments.of("abc_volume2", "xyz", false),

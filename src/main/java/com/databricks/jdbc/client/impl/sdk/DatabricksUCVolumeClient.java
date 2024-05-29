@@ -25,10 +25,20 @@ public class DatabricksUCVolumeClient implements IDatabricksUCVolumeClient {
       String catalog, String schema, String volume, String prefix, boolean caseSensitive)
       throws SQLException {
 
+    LOGGER.info(
+        "Entering prefixExists method with parameters: catalog={}, schema={}, volume={}, prefix={}, caseSensitive={}",
+        catalog,
+        schema,
+        volume,
+        prefix,
+        caseSensitive);
+
     String listFilesSQLQuery = createListQuery(catalog, schema, volume);
 
     try (Statement statement = connection.createStatement()) {
+      LOGGER.info("Executing SQL query: {}", listFilesSQLQuery);
       ResultSet resultSet = statement.executeQuery(listFilesSQLQuery);
+      LOGGER.info("SQL query executed successfully");
 
       boolean exists = false;
       while (resultSet.next()) {
@@ -46,6 +56,9 @@ public class DatabricksUCVolumeClient implements IDatabricksUCVolumeClient {
         }
       }
       return exists;
+    } catch (SQLException e) {
+      LOGGER.error("SQL query execution failed", e);
+      throw e;
     }
   }
 }
