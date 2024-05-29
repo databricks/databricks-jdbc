@@ -213,6 +213,11 @@ public class FakeServiceExtension extends DatabricksWireMockExtension {
     final String stubbingDir = getStubbingDir(context);
     final SingleRootFileSource fileSource = new SingleRootFileSource(stubbingDir + "/mappings");
 
+    if (!fileSource.exists()) {
+      // No stub mappings to load
+      return;
+    }
+
     final List<TextFile> mappingFiles =
         fileSource.listFilesRecursively().stream()
             .filter(byFileExtension("json"))
@@ -302,8 +307,6 @@ public class FakeServiceExtension extends DatabricksWireMockExtension {
     Path dir = Paths.get(dirPath);
     if (!Files.exists(dir)) {
       Files.createDirectories(dir);
-      // Stub mappings directory should be tracked by git even if it's empty
-      Files.createFile(dir.resolve(".gitkeep"));
       return;
     }
 
