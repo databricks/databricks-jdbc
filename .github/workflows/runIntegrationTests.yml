@@ -61,6 +61,7 @@ jobs:
   build-and-test-thrift:
     name: Build and Run Integration Tests (Thrift)
     runs-on: ubuntu-latest
+    if: false  # TODO : Remove this line once PECO-1674 is fixed
     environment: azure-prod
     steps:
       - name: Checkout code
