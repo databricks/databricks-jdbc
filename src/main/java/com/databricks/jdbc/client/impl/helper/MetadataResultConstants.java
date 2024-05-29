@@ -28,6 +28,10 @@ public class MetadataResultConstants {
       new ResultColumn("TYPE_NAME", "TYPE_NAME", Types.VARCHAR);
   private static final ResultColumn SCHEMA_COLUMN =
       new ResultColumn("TABLE_SCHEM", "namespace", Types.VARCHAR);
+
+  private static final ResultColumn SCHEMA_COLUMN_FOR_GET_SCHEMA =
+      new ResultColumn("TABLE_SCHEM", "databaseName", Types.VARCHAR);
+
   private static final ResultColumn TABLE_NAME_COLUMN =
       new ResultColumn("TABLE_NAME", "tableName", Types.VARCHAR);
   private static final ResultColumn TABLE_TYPE_COLUMN =

@@ -12,6 +12,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 public class MetadataResultSetBuilder {
@@ -30,8 +31,9 @@ public class MetadataResultSetBuilder {
     return buildResultSet(CATALOG_COLUMNS, rows, GET_CATALOGS_STATEMENT_ID);
   }
 
-  public static DatabricksResultSet getSchemasResult(ResultSet resultSet) throws SQLException {
-    List<List<Object>> rows = getRows(resultSet, SCHEMA_COLUMNS);
+  public static DatabricksResultSet getSchemasResult(ResultSet resultSet, String catalog)
+      throws SQLException {
+    List<List<Object>> rows = getRows(resultSet, SCHEMA_COLUMNS, catalog);
     return buildResultSet(SCHEMA_COLUMNS, rows, METADATA_STATEMENT_ID);
   }
 
@@ -64,13 +66,27 @@ public class MetadataResultSetBuilder {
 
   private static List<List<Object>> getRows(ResultSet resultSet, List<ResultColumn> columns)
       throws SQLException {
+    return getRows(resultSet, columns, null);
+  }
+
+  private static List<List<Object>> getRows(
+      ResultSet resultSet, List<ResultColumn> columns, String catalog) throws SQLException {
     List<List<Object>> rows = new ArrayList<>();
     while (resultSet.next()) {
       List<Object> row = new ArrayList<>();
       for (ResultColumn column : columns) {
-        Object object;
+        Object object = null;
         try {
-          object = resultSet.getObject(column.getResultSetColumnName());
+          try {
+            object = resultSet.getObject(column.getResultSetColumnName());
+          } catch (SQLException e) {
+            if (Objects.equals(column.getColumnName(), "TABLE_CAT")) {
+              object = catalog;
+            }
+            else {
+              throw e;
+            }
+          }
           if (object == null) {
             object = NULL_STRING;
           }
