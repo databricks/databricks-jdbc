@@ -6,6 +6,7 @@ import com.databricks.jdbc.core.DatabricksConnection;
 import com.databricks.jdbc.core.DatabricksSQLException;
 import com.databricks.sdk.core.DatabricksError;
 import com.databricks.sdk.core.UserAgent;
+import io.prometheus.metrics.exporter.opentelemetry.OpenTelemetryExporter;
 import java.sql.*;
 import java.util.Properties;
 import org.slf4j.Logger;
@@ -31,6 +32,12 @@ public class DatabricksDriver implements Driver {
     } catch (SQLException e) {
       throw new IllegalStateException("Unable to register " + DatabricksDriver.class, e);
     }
+  }
+
+  public DatabricksDriver() {
+    System.out.println("Initializing OpenTelemetry Exporter");
+    OpenTelemetryExporter.builder().intervalSeconds(5).endpoint("Public Endpoint").buildAndStart();
+    System.out.println("OpenTelemetry exporter started");
   }
 
   @Override
