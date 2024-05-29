@@ -1,4 +1,4 @@
-package com.databricks.jdbc.integration.resultset;
+package com.databricks.jdbc.integration.e2e;
 
 import static com.databricks.jdbc.integration.IntegrationTestUtil.*;
 import static org.junit.jupiter.api.Assertions.*;
@@ -7,7 +7,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import org.junit.jupiter.api.Test;
 
-public class ResultSetIntegrationTests {
+public class ResultSetTests {
 
   @Test
   void testRetrievalOfBasicDataTypes() throws SQLException {

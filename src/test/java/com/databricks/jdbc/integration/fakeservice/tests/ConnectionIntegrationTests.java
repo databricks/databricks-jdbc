@@ -1,36 +1,17 @@
 package com.databricks.jdbc.integration.fakeservice.tests;
 
 import static com.databricks.jdbc.integration.IntegrationTestUtil.*;
-import static com.github.tomakehurst.wiremock.core.WireMockConfiguration.wireMockConfig;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import com.databricks.jdbc.core.DatabricksSQLException;
-import com.databricks.jdbc.driver.DatabricksJdbcConstants;
-import com.databricks.jdbc.integration.fakeservice.DatabricksWireMockExtension;
-import com.databricks.jdbc.integration.fakeservice.FakeServiceExtension;
-import com.databricks.jdbc.integration.fakeservice.StubMappingCredentialsCleaner;
-import com.github.tomakehurst.wiremock.extension.Extension;
+import com.databricks.jdbc.integration.fakeservice.BaseFakeServiceIntegrationTests;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.RegisterExtension;
 
 /** Integration tests for connection to Databricks service. */
-public class ConnectionIntegrationTests {
-
-  /**
-   * {@link FakeServiceExtension} for {@link DatabricksJdbcConstants.FakeServiceType#SQL_EXEC}.
-   * Intercepts all requests to SQL Execution API.
-   */
-  @RegisterExtension
-  private static final FakeServiceExtension sqlExecApiExtension =
-      new FakeServiceExtension(
-          new DatabricksWireMockExtension.Builder()
-              .options(
-                  wireMockConfig().dynamicPort().dynamicHttpsPort().extensions(getExtensions())),
-          DatabricksJdbcConstants.FakeServiceType.SQL_EXEC,
-          "https://" + System.getenv("DATABRICKS_HOST"));
+public class ConnectionIntegrationTests extends BaseFakeServiceIntegrationTests {
 
   @Test
   void testSuccessfulConnection() throws SQLException {
@@ -48,7 +29,7 @@ public class ConnectionIntegrationTests {
             DatabricksSQLException.class,
             () -> DriverManager.getConnection(url, getDatabricksUser(), "bad_token"));
 
-    assert (e.getMessage().contains("Invalid or unknown token or hostname provided"));
+    assert e.getMessage().contains("Invalid or unknown token or hostname provided");
   }
 
   @Test
@@ -61,11 +42,6 @@ public class ConnectionIntegrationTests {
             DatabricksSQLException.class,
             () -> DriverManager.getConnection(url, getDatabricksUser(), "bad_token"));
 
-    assert (e.getMessage().contains("Invalid or unknown token or hostname provided"));
-  }
-
-  /** Returns the extensions to be used for stubbing. */
-  private static Extension[] getExtensions() {
-    return new Extension[] {new StubMappingCredentialsCleaner()};
+    assert e.getMessage().contains("Invalid or unknown token or hostname provided");
   }
 }

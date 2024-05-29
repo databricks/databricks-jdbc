@@ -1,4 +1,4 @@
-package com.databricks.jdbc.integration.execution;
+package com.databricks.jdbc.integration.e2e;
 
 import static com.databricks.jdbc.integration.IntegrationTestUtil.*;
 import static org.junit.jupiter.api.Assertions.*;
@@ -7,7 +7,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import org.junit.jupiter.api.*;
 
-public class ExecutionIntegrationTests {
+public class ExecutionTests {
 
   @Test
   void testInsertStatement() throws SQLException {

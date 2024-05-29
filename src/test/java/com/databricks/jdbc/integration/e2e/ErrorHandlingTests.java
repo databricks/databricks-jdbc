@@ -1,4 +1,4 @@
-package com.databricks.jdbc.integration.errorhandling;
+package com.databricks.jdbc.integration.e2e;
 
 import static com.databricks.jdbc.integration.IntegrationTestUtil.*;
 import static org.junit.jupiter.api.Assertions.*;
@@ -9,7 +9,7 @@ import com.databricks.jdbc.core.DatabricksSQLFeatureNotSupportedException;
 import java.sql.*;
 import org.junit.jupiter.api.Test;
 
-public class ErrorHandlingIntegrationTests {
+public class ErrorHandlingTests {
   @Test
   void testFailureToLoadDriver() {
     Exception exception =

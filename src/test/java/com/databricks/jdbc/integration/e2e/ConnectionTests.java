@@ -1,4 +1,4 @@
-package com.databricks.jdbc.integration.connection;
+package com.databricks.jdbc.integration.e2e;
 
 import static com.databricks.jdbc.integration.IntegrationTestUtil.*;
 import static org.junit.jupiter.api.Assertions.*;
@@ -9,7 +9,7 @@ import java.sql.DriverManager;
 import java.sql.SQLException;
 import org.junit.jupiter.api.Test;
 
-public class ConnectionIntegrationTests {
+public class ConnectionTests {
 
   @Test
   void testSuccessfulConnection() throws SQLException {

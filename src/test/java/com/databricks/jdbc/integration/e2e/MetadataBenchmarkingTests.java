@@ -1,4 +1,4 @@
-package com.databricks.jdbc.integration.benchmarking;
+package com.databricks.jdbc.integration.e2e;
 
 import static com.databricks.jdbc.integration.IntegrationTestUtil.*;
 
@@ -9,7 +9,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-public class MetadataBenchmarkingTest {
+public class MetadataBenchmarkingTests {
 
   private Connection connection;
   private static final int NUM_SCHEMAS = 10;

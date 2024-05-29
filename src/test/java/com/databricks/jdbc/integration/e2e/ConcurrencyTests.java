@@ -1,4 +1,4 @@
-package com.databricks.jdbc.integration.concurrency;
+package com.databricks.jdbc.integration.e2e;
 
 import static com.databricks.jdbc.integration.IntegrationTestUtil.*;
 import static org.junit.jupiter.api.Assertions.*;
@@ -15,7 +15,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-public class ConcurrencyIntegrationTests {
+public class ConcurrencyTests {
 
   private Connection connection;
   private static final String tableName = "concurrency_test_table";

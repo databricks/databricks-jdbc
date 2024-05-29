@@ -1,4 +1,4 @@
-package com.databricks.jdbc.integration.preparedstatement;
+package com.databricks.jdbc.integration.e2e;
 
 import static com.databricks.jdbc.integration.IntegrationTestUtil.*;
 import static org.junit.jupiter.api.Assertions.*;
@@ -11,7 +11,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-public class PreparedStatementIntegrationTests {
+public class PreparedStatementTests {
 
   private Connection connection;
 

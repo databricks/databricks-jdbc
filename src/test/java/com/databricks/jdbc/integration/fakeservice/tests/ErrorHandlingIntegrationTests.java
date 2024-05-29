@@ -1,49 +1,17 @@
 package com.databricks.jdbc.integration.fakeservice.tests;
 
 import static com.databricks.jdbc.integration.IntegrationTestUtil.*;
-import static com.github.tomakehurst.wiremock.core.WireMockConfiguration.wireMockConfig;
 import static org.junit.jupiter.api.Assertions.*;
 
 import com.databricks.jdbc.core.DatabricksParsingException;
 import com.databricks.jdbc.core.DatabricksSQLException;
 import com.databricks.jdbc.core.DatabricksSQLFeatureNotSupportedException;
-import com.databricks.jdbc.driver.DatabricksJdbcConstants;
-import com.databricks.jdbc.integration.fakeservice.DatabricksWireMockExtension;
-import com.databricks.jdbc.integration.fakeservice.FakeServiceExtension;
-import com.databricks.jdbc.integration.fakeservice.StubMappingCredentialsCleaner;
-import com.github.tomakehurst.wiremock.extension.Extension;
+import com.databricks.jdbc.integration.fakeservice.BaseFakeServiceIntegrationTests;
 import java.sql.*;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.RegisterExtension;
 
 /** Integration tests for error handling scenarios. */
-public class ErrorHandlingIntegrationTests {
-
-  /**
-   * {@link FakeServiceExtension} for {@link DatabricksJdbcConstants.FakeServiceType#SQL_EXEC}.
-   * Intercepts all requests to SQL Execution API.
-   */
-  @RegisterExtension
-  private static final FakeServiceExtension sqlExecApiExtension =
-      new FakeServiceExtension(
-          new DatabricksWireMockExtension.Builder()
-              .options(
-                  wireMockConfig().dynamicPort().dynamicHttpsPort().extensions(getExtensions())),
-          DatabricksJdbcConstants.FakeServiceType.SQL_EXEC,
-          "https://" + System.getenv("DATABRICKS_HOST"));
-
-  /**
-   * {@link FakeServiceExtension} for {@link DatabricksJdbcConstants.FakeServiceType#CLOUD_FETCH}.
-   * Intercepts all requests to Cloud Fetch API.
-   */
-  @RegisterExtension
-  private static final FakeServiceExtension cloudFetchApiExtension =
-      new FakeServiceExtension(
-          new DatabricksWireMockExtension.Builder()
-              .options(
-                  wireMockConfig().dynamicPort().dynamicHttpsPort().extensions(getExtensions())),
-          DatabricksJdbcConstants.FakeServiceType.CLOUD_FETCH,
-          "https://dbstoragepzjc6kojqibtg.blob.core.windows.net");
+public class ErrorHandlingIntegrationTests extends BaseFakeServiceIntegrationTests {
 
   @Test
   void testFailureToLoadDriver() {
@@ -129,10 +97,5 @@ public class ErrorHandlingIntegrationTests {
 
   private void getConnection(String url) throws SQLException {
     DriverManager.getConnection(url, "username", "password");
-  }
-
-  /** Returns the extensions to be used for stubbing. */
-  private static Extension[] getExtensions() {
-    return new Extension[] {new StubMappingCredentialsCleaner()};
   }
 }

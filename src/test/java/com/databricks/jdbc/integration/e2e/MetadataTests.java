@@ -1,4 +1,4 @@
-package com.databricks.jdbc.integration.metadata;
+package com.databricks.jdbc.integration.e2e;
 
 import static com.databricks.jdbc.integration.IntegrationTestUtil.*;
 import static org.junit.jupiter.api.Assertions.*;
@@ -8,7 +8,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-public class MetadataIntegrationTests {
+public class MetadataTests {
 
   private Connection connection;
 
