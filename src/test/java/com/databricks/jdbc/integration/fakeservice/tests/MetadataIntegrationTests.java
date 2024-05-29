@@ -7,7 +7,7 @@ import static com.github.tomakehurst.wiremock.client.WireMock.postRequestedFor;
 import static com.github.tomakehurst.wiremock.client.WireMock.urlEqualTo;
 import static org.junit.jupiter.api.Assertions.*;
 
-import com.databricks.jdbc.integration.fakeservice.BaseFakeServiceIntegrationTests;
+import com.databricks.jdbc.integration.fakeservice.AbstractFakeServiceIntegrationTests;
 import com.github.tomakehurst.wiremock.client.CountMatchingStrategy;
 import java.sql.*;
 import org.junit.jupiter.api.AfterEach;
@@ -15,7 +15,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 /** Integration tests for metadata retrieval. */
-public class MetadataIntegrationTests extends BaseFakeServiceIntegrationTests {
+public class MetadataIntegrationTests extends AbstractFakeServiceIntegrationTests {
 
   private Connection connection;
 

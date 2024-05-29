@@ -7,14 +7,14 @@ import static com.github.tomakehurst.wiremock.client.WireMock.postRequestedFor;
 import static com.github.tomakehurst.wiremock.client.WireMock.urlEqualTo;
 import static org.junit.jupiter.api.Assertions.*;
 
-import com.databricks.jdbc.integration.fakeservice.BaseFakeServiceIntegrationTests;
+import com.databricks.jdbc.integration.fakeservice.AbstractFakeServiceIntegrationTests;
 import com.github.tomakehurst.wiremock.client.CountMatchingStrategy;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import org.junit.jupiter.api.Test;
 
 /** Integration tests for SQL statement execution. */
-public class ExecutionIntegrationTests extends BaseFakeServiceIntegrationTests {
+public class ExecutionIntegrationTests extends AbstractFakeServiceIntegrationTests {
 
   @Test
   void testInsertStatement() throws SQLException {
