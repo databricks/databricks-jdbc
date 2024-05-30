@@ -29,7 +29,6 @@ import org.slf4j.LoggerFactory;
 
 public class DatabricksResultSet implements ResultSet, IDatabricksResultSet {
   private static final Logger LOGGER = LoggerFactory.getLogger(DatabricksResultSet.class);
-  private static final String DECIMAL = ".";
   private static final String AFFECTED_ROWS_COUNT = "num_affected_rows";
   private final StatementStatus statementStatus;
   private final String statementId;

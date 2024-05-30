@@ -2,6 +2,7 @@ package com.databricks.jdbc.core.converters;
 
 import com.databricks.jdbc.core.DatabricksSQLException;
 import java.math.BigDecimal;
+import java.math.BigInteger;
 import java.nio.ByteBuffer;
 
 public class ShortConverter extends AbstractObjectConverter {
@@ -20,6 +21,11 @@ public class ShortConverter extends AbstractObjectConverter {
   @Override
   public short convertToShort() throws DatabricksSQLException {
     return this.object;
+  }
+
+  @Override
+  public BigInteger convertToBigInteger() throws DatabricksSQLException {
+    return BigInteger.valueOf(this.object);
   }
 
   @Override
