@@ -54,30 +54,29 @@ public class DatabricksUCVolumeClientTest {
   @ParameterizedTest
   @MethodSource("provideParametersForObjectExists")
   public void testObjectExists(String volume, String objectName, boolean expected)
-          throws SQLException {
+      throws SQLException {
     DatabricksUCVolumeClient client = new DatabricksUCVolumeClient(connection);
 
     when(connection.createStatement()).thenReturn(statement);
     String listFilesSQL =
-            "LIST '/Volumes/" + TEST_CATALOG + "/" + TEST_SCHEMA + "/" + volume + "/'";
+        "LIST '/Volumes/" + TEST_CATALOG + "/" + TEST_SCHEMA + "/" + volume + "/'";
     when(statement.executeQuery(listFilesSQL)).thenReturn(resultSet);
     when(resultSet.next()).thenReturn(true, true, true, true, true, false);
     when(resultSet.getString("name"))
-            .thenReturn("aBc_file1", "abC_file2", "def_file1", "efg_file2", "#!#_file3");
+        .thenReturn("aBc_file1", "abC_file2", "def_file1", "efg_file2", "#!#_file3");
 
     boolean exists = client.objectExists(TEST_CATALOG, TEST_SCHEMA, volume, objectName);
 
     assertEquals(expected, exists);
-    verify(statement)
-            .executeQuery(listFilesSQL);
+    verify(statement).executeQuery(listFilesSQL);
   }
 
   private static Stream<Arguments> provideParametersForObjectExists() {
     return Stream.of(
-            Arguments.of("abc_volume1", "abc_file1", false),
-            Arguments.of("abc_volume2", "xyz_file1", false),
-            Arguments.of("abc_volume2", "def_file1", true),
-            Arguments.of("abc_volume2", "#!#_file3", true),
-            Arguments.of("abc_volume2", "aBc_file1", true));
+        Arguments.of("abc_volume1", "abc_file1", false),
+        Arguments.of("abc_volume2", "xyz_file1", false),
+        Arguments.of("abc_volume2", "def_file1", true),
+        Arguments.of("abc_volume2", "#!#_file3", true),
+        Arguments.of("abc_volume2", "aBc_file1", true));
   }
 }

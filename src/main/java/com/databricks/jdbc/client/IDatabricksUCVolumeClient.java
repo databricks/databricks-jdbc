@@ -20,8 +20,8 @@ public interface IDatabricksUCVolumeClient {
       throws SQLException;
 
   /**
-   * objectExists(): Determines if a specific object (file) exists in the UC Volume
-   * The object that we are looking for must match the file name exactly
+   * objectExists(): Determines if a specific object (file) exists in the UC Volume The object that
+   * we are looking for must match the file name exactly
    *
    * @param catalog the catalog name of the cloud storage
    * @param schema the schema name of the cloud storage
@@ -31,6 +31,6 @@ public interface IDatabricksUCVolumeClient {
    * @return a boolean indicating whether the object exists or not
    */
   boolean objectExists(
-          String catalog, String schema, String volume, String objectName, boolean caseSensitive)
-          throws SQLException;
+      String catalog, String schema, String volume, String objectName, boolean caseSensitive)
+      throws SQLException;
 }
