@@ -167,6 +167,31 @@ public class DatabricksSdkClientTest {
     assertEquals(STATEMENT_ID, statement.getStatementId());
   }
 
+  @Test
+  public void testCloseStatement() throws DatabricksSQLException {
+    String path = String.format(STATEMENT_PATH_WITH_ID, STATEMENT_ID);
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContext.parse(JDBC_URL, new Properties());
+    DatabricksSdkClient databricksSdkClient =
+        new DatabricksSdkClient(connectionContext, statementExecutionService, apiClient);
+    CloseStatementRequest request = new CloseStatementRequest().setStatementId(STATEMENT_ID);
+    databricksSdkClient.closeStatement(STATEMENT_ID);
+
+    verify(apiClient).DELETE(eq(path), eq(request), eq(Void.class), eq(headers));
+  }
+
+  @Test
+  public void testCancelStatement() throws DatabricksSQLException {
+    String path = String.format(CANCEL_STATEMENT_PATH_WITH_ID, STATEMENT_ID);
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContext.parse(JDBC_URL, new Properties());
+    DatabricksSdkClient databricksSdkClient =
+        new DatabricksSdkClient(connectionContext, statementExecutionService, apiClient);
+    CancelStatementRequest request = new CancelStatementRequest().setStatementId(STATEMENT_ID);
+    databricksSdkClient.cancelStatement(STATEMENT_ID);
+    verify(apiClient).POST(eq(path), eq(request), eq(Void.class), eq(headers));
+  }
+
   private StatementParameterListItem getParam(String type, String value, int ordinal) {
     return new PositionalStatementParameterListItem()
         .setOrdinal(ordinal)

@@ -206,6 +206,14 @@ public class DatabricksSdkClient implements DatabricksClient {
   }
 
   @Override
+  public void cancelStatement(String statementId) {
+    LOGGER.debug("public void cancelStatement(String statementId = {})", statementId);
+    CancelStatementRequest request = new CancelStatementRequest().setStatementId(statementId);
+    String path = String.format(CANCEL_STATEMENT_PATH_WITH_ID, request.getStatementId());
+    workspaceClient.apiClient().POST(path, request, Void.class, getHeaders());
+  }
+
+  @Override
   public Collection<ExternalLink> getResultChunks(String statementId, long chunkIndex) {
     LOGGER.debug(
         "public Optional<ExternalLink> getResultChunk(String statementId = {}, long chunkIndex = {})",
