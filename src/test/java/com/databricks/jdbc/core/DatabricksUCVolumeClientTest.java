@@ -7,7 +7,6 @@ import static org.mockito.Mockito.*;
 import com.databricks.jdbc.client.impl.sdk.DatabricksUCVolumeClient;
 import java.sql.*;
 import java.util.stream.Stream;
-import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -23,29 +22,6 @@ public class DatabricksUCVolumeClientTest {
   @Mock Statement statement;
 
   @Mock ResultSet resultSet;
-
-  @Test
-  public void testPrefixExists() throws SQLException {
-
-    String volume = "abc_volume1";
-    String prefix = "efg";
-
-    DatabricksUCVolumeClient client = new DatabricksUCVolumeClient(connection);
-
-    when(connection.createStatement()).thenReturn(statement);
-    String listFilesSQL =
-        "LIST '/Volumes/" + TEST_CATALOG + "/" + TEST_SCHEMA + "/" + volume + "/'";
-    when(statement.executeQuery(listFilesSQL)).thenReturn(resultSet);
-    when(resultSet.next()).thenReturn(true, true, true, true, false);
-    when(resultSet.getString("name"))
-        .thenReturn("abc_file1", "abc_file2", "def_file1", "efg_file2");
-
-    boolean exists = client.prefixExists(TEST_CATALOG, TEST_SCHEMA, volume, prefix);
-
-    assertTrue(exists);
-    verify(statement)
-        .executeQuery("LIST '/Volumes/" + TEST_CATALOG + "/" + TEST_SCHEMA + "/" + volume + "/'");
-  }
 
   @ParameterizedTest
   @MethodSource("provideParametersForPrefixExists")
@@ -63,8 +39,7 @@ public class DatabricksUCVolumeClientTest {
     boolean exists = client.prefixExists(TEST_CATALOG, TEST_SCHEMA, volume, prefix, true);
 
     assertEquals(expected, exists);
-    verify(statement)
-        .executeQuery("LIST '/Volumes/" + TEST_CATALOG + "/" + TEST_SCHEMA + "/" + volume + "/'");
+    verify(statement).executeQuery(listFilesSQL);
   }
 
   private static Stream<Arguments> provideParametersForPrefixExists() {

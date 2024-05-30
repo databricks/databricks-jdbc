@@ -5,7 +5,7 @@ import java.sql.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-/** Implementation for DatabricksUCVolumeClient using SDK client + SQL Exec API */
+/** Implementation for DatabricksUCVolumeClient */
 public class DatabricksUCVolumeClient implements IDatabricksUCVolumeClient {
 
   private final Connection connection;
@@ -41,23 +41,15 @@ public class DatabricksUCVolumeClient implements IDatabricksUCVolumeClient {
     String listFilesSQLQuery = createListQuery(catalog, schema, volume);
 
     try (Statement statement = connection.createStatement()) {
-      LOGGER.info("Executing SQL query: {}", listFilesSQLQuery);
       ResultSet resultSet = statement.executeQuery(listFilesSQLQuery);
       LOGGER.info("SQL query executed successfully");
 
       boolean exists = false;
       while (resultSet.next()) {
         String fileName = resultSet.getString("name");
-        if (caseSensitive) {
-          if (fileName.startsWith(prefix)) {
-            exists = true;
-            break;
-          }
-        } else {
-          if (fileName.toLowerCase().startsWith(prefix.toLowerCase())) {
-            exists = true;
-            break;
-          }
+        if (fileName.regionMatches(!caseSensitive, 0, prefix, 0, prefix.length())) {
+          exists = true;
+          break;
         }
       }
       return exists;
