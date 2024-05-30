@@ -20,12 +20,12 @@ import java.sql.Types;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 public class DatabricksResultSetMetaData implements ResultSetMetaData {
 
-  private static final Logger LOGGER = LoggerFactory.getLogger(DatabricksResultSetMetaData.class);
+  private static final Logger LOGGER = LogManager.getLogger(DatabricksResultSetMetaData.class);
   private final String statementId;
   private final ImmutableList<ImmutableDatabricksColumn> columns;
   private final ImmutableMap<String, Integer> columnNameIndex;
