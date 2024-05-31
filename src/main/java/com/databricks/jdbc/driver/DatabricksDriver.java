@@ -113,14 +113,13 @@ public class DatabricksDriver implements Driver {
             .withFileName(logFilePath)
             .withName(logFilePath)
             .build();
-    if (appender
-        != null) { // Appender can be null if the parameters are incorrect. We don't want to throw
-      // an error in that case.
+    LoggerConfig loggerConfig = config.getLoggerConfig(LogManager.ROOT_LOGGER_NAME);
+    if (appender != null) {
+      // Appender can be null if the parameters are incorrect; no error should be thrown.
       appender.start();
       config.addAppender(appender);
+      loggerConfig.addAppender(appender, null, null);
     }
-    LoggerConfig loggerConfig = config.getLoggerConfig(LogManager.ROOT_LOGGER_NAME);
-    loggerConfig.addAppender(appender, null, null);
     loggerConfig.setLevel(org.apache.logging.log4j.Level.valueOf(logLevel.toUpperCase()));
     context.updateLoggers();
   }
