@@ -4,56 +4,31 @@ import static com.databricks.jdbc.client.impl.sdk.PathConstants.RESULT_CHUNK_PAT
 import static com.databricks.jdbc.integration.IntegrationTestUtil.getValidJDBCConnection;
 import static com.github.tomakehurst.wiremock.client.WireMock.getRequestedFor;
 import static com.github.tomakehurst.wiremock.client.WireMock.urlPathMatching;
-import static com.github.tomakehurst.wiremock.core.WireMockConfiguration.wireMockConfig;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.databricks.jdbc.core.DatabricksResultSet;
 import com.databricks.jdbc.core.DatabricksResultSetMetaData;
-import com.databricks.jdbc.driver.DatabricksJdbcConstants;
-import com.databricks.jdbc.integration.fakeservice.DatabricksWireMockExtension;
-import com.databricks.jdbc.integration.fakeservice.FakeServiceExtension;
-import com.databricks.jdbc.integration.fakeservice.StubMappingCredentialsCleaner;
-import com.github.tomakehurst.wiremock.extension.Extension;
+import com.databricks.jdbc.integration.fakeservice.AbstractFakeServiceIntegrationTests;
 import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.RegisterExtension;
 
 /** Test SQL execution with results spanning multiple chunks. */
-public class MultiChunkExecutionIntegrationTests {
-
-  /**
-   * {@link FakeServiceExtension} for {@link DatabricksJdbcConstants.FakeServiceType#SQL_EXEC}.
-   * Intercepts all requests to SQL Execution API.
-   */
-  @RegisterExtension
-  private static final FakeServiceExtension sqlExecApiExtension =
-      new FakeServiceExtension(
-          new DatabricksWireMockExtension.Builder()
-              .options(
-                  wireMockConfig().dynamicPort().dynamicHttpsPort().extensions(getExtensions())),
-          DatabricksJdbcConstants.FakeServiceType.SQL_EXEC,
-          "https://e2-dogfood.staging.cloud.databricks.com");
-
-  /**
-   * {@link FakeServiceExtension} for {@link DatabricksJdbcConstants.FakeServiceType#CLOUD_FETCH}.
-   * Intercepts all requests to Cloud Fetch API.
-   */
-  @RegisterExtension
-  private static final FakeServiceExtension cloudFetchApiExtension =
-      new FakeServiceExtension(
-          new DatabricksWireMockExtension.Builder()
-              .options(
-                  wireMockConfig().dynamicPort().dynamicHttpsPort().extensions(getExtensions())),
-          DatabricksJdbcConstants.FakeServiceType.CLOUD_FETCH,
-          "https://e2-dogfood-core.s3.us-west-2.amazonaws.com");
+public class MultiChunkExecutionIntegrationTests extends AbstractFakeServiceIntegrationTests {
 
   private Connection connection;
+
+  @BeforeAll
+  static void beforeAll() {
+    setSqlExecApiTargetUrl("https://e2-dogfood.staging.cloud.databricks.com");
+    setCloudFetchApiTargetUrl("https://e2-dogfood-core.s3.us-west-2.amazonaws.com");
+  }
 
   @BeforeEach
   void setUp() throws SQLException {
@@ -94,7 +69,7 @@ public class MultiChunkExecutionIntegrationTests {
 
       // The number of cloud fetch calls should be equal to the number of chunks
       final int cloudFetchCalls =
-          cloudFetchApiExtension
+          getCloudFetchApiExtension()
               .countRequestsMatching(getRequestedFor(urlPathMatching(".*")).build())
               .getCount();
       assertEquals(metaData.getChunkCount(), cloudFetchCalls);
@@ -103,14 +78,10 @@ public class MultiChunkExecutionIntegrationTests {
       // chunks as first chunk link is already fetched
       final String statementId = ((DatabricksResultSet) rs).statementId();
       final String resultChunkPathRegex = String.format(RESULT_CHUNK_PATH, statementId, ".*");
-      sqlExecApiExtension.verify(
-          (int) (metaData.getChunkCount() - 1),
-          getRequestedFor(urlPathMatching(resultChunkPathRegex)));
+      getSqlExecApiExtension()
+          .verify(
+              (int) (metaData.getChunkCount() - 1),
+              getRequestedFor(urlPathMatching(resultChunkPathRegex)));
     }
-  }
-
-  /** Returns the extensions to be used for stubbing. */
-  private static Extension[] getExtensions() {
-    return new Extension[] {new StubMappingCredentialsCleaner()};
   }
 }

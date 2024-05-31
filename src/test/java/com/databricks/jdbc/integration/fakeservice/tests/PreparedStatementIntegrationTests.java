@@ -4,7 +4,7 @@ import static com.databricks.jdbc.integration.IntegrationTestUtil.*;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import com.databricks.jdbc.integration.fakeservice.BaseFakeServiceIntegrationTests;
+import com.databricks.jdbc.integration.fakeservice.AbstractFakeServiceIntegrationTests;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -14,7 +14,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 /** Integration tests for PreparedStatement operations. */
-public class PreparedStatementIntegrationTests extends BaseFakeServiceIntegrationTests {
+public class PreparedStatementIntegrationTests extends AbstractFakeServiceIntegrationTests {
 
   private Connection connection;
 

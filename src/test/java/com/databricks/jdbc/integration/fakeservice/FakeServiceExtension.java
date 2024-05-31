@@ -104,6 +104,9 @@ public class FakeServiceExtension extends DatabricksWireMockExtension {
   /** Fake service to manage. */
   private final FakeServiceType fakeServiceType;
 
+  /** HTTP port of the WireMock server. */
+  private int wireMockServerHttpPort;
+
   /** Base URL of the target production service. */
   private String targetBaseUrl;
 
@@ -145,8 +148,9 @@ public class FakeServiceExtension extends DatabricksWireMockExtension {
         fakeServiceModeValue != null
             ? FakeServiceMode.valueOf(fakeServiceModeValue.toUpperCase())
             : FakeServiceMode.REPLAY;
+    wireMockServerHttpPort = wireMockRuntimeInfo.getHttpPort();
 
-    setFakeServiceProperties(wireMockRuntimeInfo);
+    setFakeServiceProperties(wireMockServerHttpPort);
     IntegrationTestUtil.resetJDBCConnection();
     DatabricksHttpClient.resetInstance();
   }
@@ -190,6 +194,9 @@ public class FakeServiceExtension extends DatabricksWireMockExtension {
   /** Sets the base URL of the target production service to be tracked. */
   protected void setTargetBaseUrl(String targetBaseUrl) {
     this.targetBaseUrl = targetBaseUrl;
+
+    // Refresh the fake service properties
+    setFakeServiceProperties(wireMockServerHttpPort);
   }
 
   /** Gets the stubbing directory for the current test class and method. */
@@ -254,13 +261,12 @@ public class FakeServiceExtension extends DatabricksWireMockExtension {
     new JsonFileMappingsSource(new SingleRootFileSource(stubbingDir), null).save(stubMappingList);
   }
 
-  private void setFakeServiceProperties(WireMockRuntimeInfo wireMockRuntimeInfo) {
+  private void setFakeServiceProperties(int wireMockServerHttpPort) {
     System.setProperty(IS_FAKE_SERVICE_TEST_PROP, "true");
     System.setProperty(
         fakeServiceType.name().toLowerCase() + TARGET_URI_PROP_SUFFIX, targetBaseUrl);
     System.setProperty(
-        targetBaseUrl + FAKE_SERVICE_URI_PROP_SUFFIX,
-        "http://localhost:" + wireMockRuntimeInfo.getHttpPort());
+        targetBaseUrl + FAKE_SERVICE_URI_PROP_SUFFIX, "http://localhost:" + wireMockServerHttpPort);
   }
 
   private void clearFakeServiceProperties() {

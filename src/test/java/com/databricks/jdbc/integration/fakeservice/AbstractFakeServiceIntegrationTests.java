@@ -12,7 +12,7 @@ import org.junit.jupiter.api.extension.RegisterExtension;
  * com.databricks.jdbc.driver.DatabricksJdbcConstants.FakeServiceType#SQL_EXEC} and {@link
  * com.databricks.jdbc.driver.DatabricksJdbcConstants.FakeServiceType#CLOUD_FETCH}.
  */
-public abstract class BaseFakeServiceIntegrationTests {
+public abstract class AbstractFakeServiceIntegrationTests {
 
   /**
    * {@link FakeServiceExtension} for {@link DatabricksJdbcConstants.FakeServiceType#SQL_EXEC}.
@@ -40,11 +40,22 @@ public abstract class BaseFakeServiceIntegrationTests {
           DatabricksJdbcConstants.FakeServiceType.CLOUD_FETCH,
           "https://dbstoragepzjc6kojqibtg.blob.core.windows.net");
 
-  /** Resets the possible mutations for the extensions after all tests have run. */
+  /**
+   * Resets the potential mutations (e.g., URLs set by {@link #setSqlExecApiTargetUrl}, {@link
+   * #setCloudFetchApiTargetUrl}) to meaningful defaults, after all tests have completed.
+   */
   @AfterAll
-  protected static void resetPossibleMutations() {
+  static void resetPossibleMutations() {
     sqlExecApiExtension.setTargetBaseUrl("https://" + System.getenv("DATABRICKS_HOST"));
     cloudFetchApiExtension.setTargetBaseUrl("https://dbstoragepzjc6kojqibtg.blob.core.windows.net");
+  }
+
+  protected static void setSqlExecApiTargetUrl(final String sqlExecApiTargetUrl) {
+    sqlExecApiExtension.setTargetBaseUrl(sqlExecApiTargetUrl);
+  }
+
+  protected static void setCloudFetchApiTargetUrl(final String cloudFetchApiTargetUrl) {
+    cloudFetchApiExtension.setTargetBaseUrl(cloudFetchApiTargetUrl);
   }
 
   protected FakeServiceExtension getSqlExecApiExtension() {

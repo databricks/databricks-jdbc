@@ -4,7 +4,7 @@ import static com.databricks.jdbc.integration.IntegrationTestUtil.*;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.fail;
 
-import com.databricks.jdbc.integration.fakeservice.BaseFakeServiceIntegrationTests;
+import com.databricks.jdbc.integration.fakeservice.AbstractFakeServiceIntegrationTests;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -18,7 +18,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 /** Integration tests for concurrent operations on a table. */
-public class ConcurrencyIntegrationTests extends BaseFakeServiceIntegrationTests {
+public class ConcurrencyIntegrationTests extends AbstractFakeServiceIntegrationTests {
 
   private Connection connection;
 
