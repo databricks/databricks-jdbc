@@ -2,6 +2,7 @@ package com.databricks.jdbc.client.http;
 
 import static com.databricks.jdbc.driver.DatabricksJdbcConstants.FAKE_SERVICE_URI_PROP_SUFFIX;
 import static com.databricks.jdbc.driver.DatabricksJdbcConstants.IS_FAKE_SERVICE_TEST_PROP;
+import static io.netty.util.NetUtil.LOCALHOST;
 
 import com.databricks.jdbc.client.DatabricksHttpException;
 import com.databricks.jdbc.client.IDatabricksHttpClient;
@@ -192,9 +193,6 @@ public class DatabricksHttpClient implements IDatabricksHttpClient {
   static void setFakeServiceRouteInHttpClient(HttpClientBuilder builder) {
     builder.setRoutePlanner(
         (host, request, context) -> {
-          // Get the fake service URI for the target URI and set it as proxy
-          final HttpHost proxy =
-              HttpHost.create(System.getProperty(host.toURI() + FAKE_SERVICE_URI_PROP_SUFFIX));
           final HttpHost target;
           try {
             target =
@@ -205,6 +203,16 @@ public class DatabricksHttpClient implements IDatabricksHttpClient {
           } catch (UnsupportedSchemeException e) {
             throw new HttpException(e.getMessage());
           }
+
+          if (LOCALHOST.getHostName().equalsIgnoreCase(host.getHostName())) {
+            // If the target host is localhost, then no need to set proxy
+            return new HttpRoute(target, null, false);
+          }
+
+          // Get the fake service URI for the target URI and set it as proxy
+          final HttpHost proxy =
+              HttpHost.create(System.getProperty(host.toURI() + FAKE_SERVICE_URI_PROP_SUFFIX));
+
           return new HttpRoute(target, null, proxy, false);
         });
   }
