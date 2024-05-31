@@ -47,7 +47,12 @@ public class DatabricksUCVolumeClient implements IDatabricksUCVolumeClient {
       boolean exists = false;
       while (resultSet.next()) {
         String fileName = resultSet.getString("name");
-        if (fileName.regionMatches(/* ignoreCase = */ !caseSensitive, /* targetOffset = */ 0, /* StringToCheck = */ prefix, /* sourceOffset = */ 0, /* lengthToMatch = */ prefix.length())) {
+        if (fileName.regionMatches(
+            /* ignoreCase= */ !caseSensitive,
+            /* targetOffset= */ 0,
+            /* StringToCheck= */ prefix,
+            /* sourceOffset= */ 0,
+            /* lengthToMatch= */ prefix.length())) {
           exists = true;
           break;
         }
@@ -81,7 +86,12 @@ public class DatabricksUCVolumeClient implements IDatabricksUCVolumeClient {
       boolean exists = false;
       while (resultSet.next()) {
         String fileName = resultSet.getString("name");
-        if (fileName.regionMatches(/* ignoreCase = */ !caseSensitive, /* targetOffset = */ 0, /* StringToCheck = */ objectName, /* sourceOffset = */ 0, /* lengthToMatch = */ objectName.length())) {
+        if (fileName.regionMatches(
+            /* ignoreCase= */ !caseSensitive,
+            /* targetOffset= */ 0,
+            /* StringToCheck= */ objectName,
+            /* sourceOffset= */ 0,
+            /* lengthToMatch= */ objectName.length())) {
           exists = true;
           break;
         }
