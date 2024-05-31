@@ -108,16 +108,17 @@ public class LargeQueriesBenchmarkingTest {
           i * 1000000 + random.nextInt(1000000); // Randomization to avoid possible query caching
       try (Statement statement = connection.createStatement()) {
         long startTime = System.currentTimeMillis();
-        ResultSet rs = statement.executeQuery(
-            "SELECT * FROM "
-                + SCHEMA_NAME
-                + "."
-                + TABLE_NAME
-                + " LIMIT "
-                + ROWS
-                + " OFFSET "
-                + offset);
-        while(rs.next()) {}
+        ResultSet rs =
+            statement.executeQuery(
+                "SELECT * FROM "
+                    + SCHEMA_NAME
+                    + "."
+                    + TABLE_NAME
+                    + " LIMIT "
+                    + ROWS
+                    + " OFFSET "
+                    + offset);
+        while (rs.next()) {}
         long endTime = System.currentTimeMillis();
         if (recording == 1) {
           timesForOSSDriver[i] = endTime - startTime;
