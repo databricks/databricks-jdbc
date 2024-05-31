@@ -100,7 +100,9 @@ public class DatabricksResultSet implements ResultSet, IDatabricksResultSet {
     this.executionResult =
         ExecutionResultFactory.getResultSet(resultData, resultManifest, statementId, session);
     int rowSize = getRowCount(resultData);
-    this.resultSetMetaData = new DatabricksResultSetMetaData(statementId, resultManifest, rowSize);
+    this.resultSetMetaData =
+        new DatabricksResultSetMetaData(
+            statementId, resultManifest, rowSize, resultData.getResultLinksSize());
     this.statementType = statementType;
     this.updateCount = null;
     this.parentStatement = parentStatement;

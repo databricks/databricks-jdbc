@@ -1,0 +1,30 @@
+{
+  "id" : "6cbeacec-9121-4d30-a24e-acd8c11d752b",
+  "name" : "api_2.0_sql_statements",
+  "request" : {
+    "url" : "/api/2.0/sql/statements/",
+    "method" : "POST",
+    "bodyPatterns" : [ {
+      "equalToJson" : "{\"statement\":\"UPDATE main.jdbc_test_schema.concurrency_test_table SET counter = counter + 1 WHERE id = 1\",\"warehouse_id\":\"2f03dd43e35e2aa0\",\"session_id\":\"01ef143a-f936-1cca-871a-7febd997cc57\",\"disposition\":\"INLINE\",\"format\":\"JSON_ARRAY\",\"on_wait_timeout\":\"CONTINUE\",\"wait_timeout\":\"10s\",\"parameters\":[],\"compression_codec\":\"NONE\"}",
+      "ignoreArrayOrder" : true,
+      "ignoreExtraElements" : true
+    } ]
+  },
+  "response" : {
+    "status" : 200,
+    "body" : "{\"statement_id\":\"01ef143a-ff38-1adc-b503-0ec0df1e9916\",\"status\":{\"state\":\"FAILED\",\"error\":{\"error_code\":\"BAD_REQUEST\",\"message\":\"Files were added to the root of the table by a concurrent update. Please try the operation again.\\nConflicting commit: {\\\"timestamp\\\":1715942910468,\\\"userId\\\":\\\"8414034434937150\\\",\\\"userName\\\":\\\"c2108ab0-1c66-4fa0-ae95-3baa5e160017\\\",\\\"operation\\\":\\\"UPDATE\\\",\\\"operationParameters\\\":{\\\"predicate\\\":[\\\"(id#67541 = 1)\\\"]},\\\"readVersion\\\":1,\\\"isolationLevel\\\":\\\"WriteSerializable\\\",\\\"isBlindAppend\\\":false,\\\"operationMetrics\\\":{\\\"numRemovedFiles\\\":\\\"1\\\",\\\"numRemovedBytes\\\":\\\"622\\\",\\\"numCopiedRows\\\":\\\"0\\\",\\\"numDeletionVectorsAdded\\\":\\\"0\\\",\\\"numDeletionVectorsRemoved\\\":\\\"0\\\",\\\"numAddedChangeFiles\\\":\\\"0\\\",\\\"executionTimeMs\\\":\\\"633\\\",\\\"numDeletionVectorsUpdated\\\":\\\"0\\\",\\\"scanTimeMs\\\":\\\"373\\\",\\\"numAddedFiles\\\":\\\"1\\\",\\\"numUpdatedRows\\\":\\\"1\\\",\\\"numAddedBytes\\\":\\\"628\\\",\\\"rewriteTimeMs\\\":\\\"260\\\"},\\\"tags\\\":{\\\"noRowsCopied\\\":\\\"true\\\",\\\"delta.rowTracking.preserved\\\":\\\"false\\\",\\\"restoresDeletedRows\\\":\\\"false\\\"},\\\"engineInfo\\\":\\\"Databricks-Runtime/14.3.x-photon-scala2.12\\\",\\\"txnId\\\":\\\"0533fbec-a452-461f-9cd0-7e94218ae32a\\\"}\\nRefer to https://docs.microsoft.com/azure/databricks/delta/concurrency-control for more details.\"}}}",
+    "headers" : {
+      "date" : "Fri, 17 May 2024 10:48:31 GMT",
+      "server" : "databricks",
+      "x-content-type-options" : "nosniff",
+      "vary" : "Accept-Encoding",
+      "x-databricks-org-id" : "6436897454825492",
+      "content-type" : "application/json",
+      "strict-transport-security" : "max-age=31536000; includeSubDomains; preload"
+    }
+  },
+  "uuid" : "6cbeacec-9121-4d30-a24e-acd8c11d752b",
+  "scenarioName" : "scenario-1-api-2.0-sql-statements",
+  "requiredScenarioState" : "scenario-1-api-2.0-sql-statements-2",
+  "insertionIndex" : 7
+}

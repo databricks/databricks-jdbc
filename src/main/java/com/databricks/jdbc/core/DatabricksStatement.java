@@ -132,8 +132,14 @@ public class DatabricksStatement implements IDatabricksStatement, Statement {
   @Override
   public void cancel() throws SQLException {
     LOGGER.debug("public void cancel()");
-    throw new DatabricksSQLFeatureNotSupportedException(
-        "Not implemented in DatabricksStatement - cancel()");
+    checkIfClosed();
+
+    if (statementId != null) {
+      this.connection.getSession().getDatabricksClient().cancelStatement(statementId);
+    } else {
+      WarningUtil.addWarning(
+          warnings, "The statement you are trying to cancel does not have an ID yet.");
+    }
   }
 
   @Override

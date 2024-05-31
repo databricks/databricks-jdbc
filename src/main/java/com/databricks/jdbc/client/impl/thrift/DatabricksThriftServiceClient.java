@@ -120,6 +120,15 @@ public class DatabricksThriftServiceClient implements DatabricksClient, Databric
   }
 
   @Override
+  public void cancelStatement(String statementId) throws DatabricksSQLException {
+    LOGGER.debug(
+        "public void cancelStatement(String statementId = {}) for all purpose cluster",
+        statementId);
+    throw new DatabricksSQLFeatureNotImplementedException(
+        "abortStatement for all purpose cluster not implemented");
+  }
+
+  @Override
   public Collection<ExternalLink> getResultChunks(String statementId, long chunkIndex)
       throws DatabricksSQLException {
     String context =
