@@ -13,13 +13,13 @@ import org.apache.http.client.methods.HttpPut;
 import org.apache.http.entity.ContentType;
 import org.apache.http.entity.FileEntity;
 import org.apache.http.util.EntityUtils;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 /** Executor for volume operations */
 class VolumeOperationExecutor implements Runnable {
 
-  private static final Logger LOGGER = LoggerFactory.getLogger(VolumeOperationExecutor.class);
+  private static final Logger LOGGER = LogManager.getLogger(VolumeOperationExecutor.class);
 
   private static final String COMMA_SEPARATOR = ",";
   private static final String PARENT_DIRECTORY_REF = "..";

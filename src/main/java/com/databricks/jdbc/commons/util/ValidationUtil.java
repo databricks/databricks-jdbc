@@ -5,11 +5,11 @@ import com.databricks.jdbc.core.DatabricksSQLException;
 import com.databricks.jdbc.core.DatabricksValidationException;
 import java.util.Map;
 import org.apache.http.HttpResponse;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 public class ValidationUtil {
-  private static final Logger LOGGER = LoggerFactory.getLogger(ValidationUtil.class);
+  private static final Logger LOGGER = LogManager.getLogger(ValidationUtil.class);
 
   public static void checkIfPositive(int number, String fieldName) throws DatabricksSQLException {
     // Todo : Add appropriate exception

@@ -34,13 +34,13 @@ import org.apache.http.impl.client.ProxyAuthenticationStrategy;
 import org.apache.http.impl.conn.DefaultSchemePortResolver;
 import org.apache.http.impl.conn.PoolingHttpClientConnectionManager;
 import org.apache.http.protocol.HttpContext;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 /** Http client implementation to be used for executing http requests. */
 public class DatabricksHttpClient implements IDatabricksHttpClient {
 
-  private static final Logger LOGGER = LoggerFactory.getLogger(DatabricksHttpClient.class);
+  private static final Logger LOGGER = LogManager.getLogger(DatabricksHttpClient.class);
 
   // TODO(PECO-1373): Revisit number of connections and connections per route.
   private static final int DEFAULT_MAX_HTTP_CONNECTIONS = 1000;

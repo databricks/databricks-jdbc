@@ -12,8 +12,8 @@ import com.databricks.jdbc.core.*;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.*;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 /**
  * This is for the new SQL commands added in runtime. Note that the DatabricksMetadataSdkClient will
@@ -23,8 +23,7 @@ import org.slf4j.LoggerFactory;
  */
 public class DatabricksNewMetadataSdkClient implements DatabricksMetadataClient {
 
-  private static final Logger LOGGER =
-      LoggerFactory.getLogger(DatabricksNewMetadataSdkClient.class);
+  private static final Logger LOGGER = LogManager.getLogger(DatabricksNewMetadataSdkClient.class);
   private final DatabricksSdkClient sdkClient;
 
   public DatabricksNewMetadataSdkClient(DatabricksSdkClient sdkClient) {

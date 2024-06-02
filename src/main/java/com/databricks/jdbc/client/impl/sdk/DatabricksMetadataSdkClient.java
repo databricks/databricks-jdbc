@@ -18,13 +18,13 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 /** Implementation for DatabricksMetadataClient using SDK client */
 public class DatabricksMetadataSdkClient implements DatabricksMetadataClient {
 
-  private static final Logger LOGGER = LoggerFactory.getLogger(DatabricksSdkClient.class);
+  private static final Logger LOGGER = LogManager.getLogger(DatabricksSdkClient.class);
 
   private final DatabricksSdkClient sdkClient;
 

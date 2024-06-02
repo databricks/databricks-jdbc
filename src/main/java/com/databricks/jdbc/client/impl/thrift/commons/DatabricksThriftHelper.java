@@ -11,11 +11,11 @@ import java.nio.ByteBuffer;
 import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 public class DatabricksThriftHelper {
-  private static final Logger LOGGER = LoggerFactory.getLogger(DatabricksThriftHelper.class);
+  private static final Logger LOGGER = LogManager.getLogger(DatabricksThriftHelper.class);
   public static final List<TStatusCode> SUCCESS_STATUS_LIST =
       List.of(TStatusCode.SUCCESS_STATUS, TStatusCode.SUCCESS_WITH_INFO_STATUS);
 

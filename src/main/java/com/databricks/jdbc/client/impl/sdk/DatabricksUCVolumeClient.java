@@ -2,15 +2,15 @@ package com.databricks.jdbc.client.impl.sdk;
 
 import com.databricks.jdbc.client.IDatabricksUCVolumeClient;
 import java.sql.*;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 /** Implementation for DatabricksUCVolumeClient */
 public class DatabricksUCVolumeClient implements IDatabricksUCVolumeClient {
 
   private final Connection connection;
 
-  private static final Logger LOGGER = LoggerFactory.getLogger(DatabricksSdkClient.class);
+  private static final Logger LOGGER = LogManager.getLogger(DatabricksSdkClient.class);
 
   public DatabricksUCVolumeClient(Connection connection) {
     this.connection = connection;

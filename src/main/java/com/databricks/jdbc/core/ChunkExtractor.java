@@ -15,13 +15,13 @@ import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.types.pojo.Schema;
 import org.apache.arrow.vector.util.SchemaUtility;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 /** Class to manage inline Arrow chunks */
 public class ChunkExtractor {
 
-  private static final Logger LOGGER = LoggerFactory.getLogger(ChunkExtractor.class);
+  private static final Logger LOGGER = LogManager.getLogger(ChunkExtractor.class);
   private long totalRows;
   private long currentChunkIndex;
   private ByteArrayInputStream byteStream;

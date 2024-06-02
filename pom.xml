@@ -19,7 +19,6 @@
     <maven.compiler.source>11</maven.compiler.source>
     <maven.compiler.target>11</maven.compiler.target>
     <mockito.version>5.2.0</mockito.version>
-    <slf4j.version>2.0.7</slf4j.version>
     <jackson.version>2.15.1</jackson.version>
     <google.guava.version>33.0.0-jre</google.guava.version>
     <junit.jupiter.version>5.9.2</junit.jupiter.version>
@@ -32,7 +31,6 @@
     <commons-io.version>2.13.0</commons-io.version>
     <databricks-sdk.version>0.17.0</databricks-sdk.version>
     <maven-surefire-plugin.version>3.1.2</maven-surefire-plugin.version>
-    <slf4j-reload4j.version>2.1.0-alpha1</slf4j-reload4j.version>
     <sql-logic-test.version>0.3</sql-logic-test.version>
     <lz4-compression.version>1.8.0</lz4-compression.version>
     <thrift.version>0.19.0</thrift.version>
@@ -111,11 +109,6 @@
       <scope>test</scope>
     </dependency>
     <dependency>
-      <groupId>org.slf4j</groupId>
-      <artifactId>slf4j-api</artifactId>
-      <version>${slf4j.version}</version>
-    </dependency>
-    <dependency>
       <groupId>org.apache.logging.log4j</groupId>
       <artifactId>log4j-api</artifactId>
       <version>${log4japi.version}</version>
@@ -140,12 +133,6 @@
       <artifactId>value</artifactId>
       <version>${immutables.value.version}</version>
       <scope>provided</scope>
-    </dependency>
-    <dependency>
-      <groupId>org.slf4j</groupId>
-      <artifactId>slf4j-reload4j</artifactId>
-      <version>${slf4j-reload4j.version}</version>
-      <scope>runtime</scope>
     </dependency>
     <dependency>
       <groupId>net.hydromatic</groupId>
@@ -197,6 +184,9 @@
           <artifactId>maven-surefire-plugin</artifactId>
           <version>${maven-surefire-plugin.version}</version>
           <configuration>
+            <systemPropertyVariables>
+              <log4j.configurationFile>file:src/main/resources/log4j2.xml</log4j.configurationFile>
+            </systemPropertyVariables>
             <excludes>
               <exclude>**/integration/**/*.java</exclude>
               <exclude>**/*MetadataBenchmarkingTest.java</exclude>

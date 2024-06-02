@@ -14,15 +14,15 @@ import com.databricks.sdk.core.DatabricksConfig;
 import com.google.common.annotations.VisibleForTesting;
 import java.sql.SQLException;
 import java.util.Map;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.apache.thrift.TBase;
 import org.apache.thrift.TException;
 import org.apache.thrift.protocol.TBinaryProtocol;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 public class DatabricksThriftAccessor {
 
-  private static final Logger LOGGER = LoggerFactory.getLogger(DatabricksThriftAccessor.class);
+  private static final Logger LOGGER = LogManager.getLogger(DatabricksThriftAccessor.class);
   private final DatabricksConfig databricksConfig;
   private final TCLIService.Client thriftClient;
   private static final TSparkGetDirectResults DEFAULT_DIRECT_RESULTS =

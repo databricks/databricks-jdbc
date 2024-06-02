@@ -115,4 +115,20 @@ public class DriverTester {
     resultSet.close();
     con.close();
   }
+
+  @Test
+  void testLogging() throws Exception {
+    DriverManager.registerDriver(new com.databricks.jdbc.driver.DatabricksDriver());
+    DriverManager.drivers().forEach(driver -> System.out.println(driver.getClass()));
+    String jdbcUrl =
+        "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=https;ssl=1;httpPath=sql/protocolv1/o/6051921418418893/1115-130834-ms4m0yv;AuthMech=3;UID=token;LogLevel=debug;LogPath=test1/applicationLoggingTest.log;";
+    Connection con = DriverManager.getConnection(jdbcUrl, "samikshya.chand@databricks.com", "x");
+    System.out.println("Connection established......");
+    ResultSet resultSet =
+        con.createStatement()
+            .executeQuery("SELECT * from lb_demo.demographics_fs.demographics LIMIT 10");
+    printResultSet(resultSet);
+    resultSet.close();
+    con.close();
+  }
 }
