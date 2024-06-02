@@ -8,6 +8,7 @@ import com.databricks.sdk.core.DatabricksError;
 import com.databricks.sdk.core.UserAgent;
 import java.sql.*;
 import java.util.Properties;
+import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.core.LoggerContext;
@@ -118,7 +119,7 @@ public class DatabricksDriver implements Driver {
       // Appender can be null if the parameters are incorrect; no error should be thrown.
       appender.start();
       config.addAppender(appender);
-      loggerConfig.addAppender(appender, null, null);
+      loggerConfig.addAppender(appender, Level.valueOf(logLevel), null);
     }
     loggerConfig.setLevel(org.apache.logging.log4j.Level.valueOf(logLevel.toUpperCase()));
     context.updateLoggers();

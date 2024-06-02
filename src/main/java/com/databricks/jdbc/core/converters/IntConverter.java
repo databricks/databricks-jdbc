@@ -7,12 +7,12 @@ import java.sql.Date;
 import java.sql.Time;
 import java.sql.Timestamp;
 import java.time.LocalDate;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 public class IntConverter extends AbstractObjectConverter {
 
-  private static final Logger LOGGER = LoggerFactory.getLogger(IntConverter.class);
+  private static final Logger LOGGER = LogManager.getLogger(IntConverter.class);
   private int object;
 
   public IntConverter(Object object) throws DatabricksSQLException {
