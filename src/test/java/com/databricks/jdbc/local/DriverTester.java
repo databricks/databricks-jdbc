@@ -1,6 +1,9 @@
 package com.databricks.jdbc.local;
 
+import java.math.BigDecimal;
+import java.math.BigInteger;
 import java.sql.*;
+import java.time.LocalDate;
 import org.junit.jupiter.api.Test;
 
 public class DriverTester {
@@ -130,5 +133,29 @@ public class DriverTester {
     printResultSet(resultSet);
     resultSet.close();
     con.close();
+  }
+
+  @Test
+  void testDatatypeConversion() throws SQLException {
+    DriverManager.registerDriver(new com.databricks.jdbc.driver.DatabricksDriver());
+    String jdbcUrl =
+        "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=https;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/791ba2a31c7fd70a;";
+    Connection con = DriverManager.getConnection(jdbcUrl, "samikshya.chand@databricks.com", "x");
+    System.out.println("Connection established......");
+    String selectSQL =
+        "SELECT id, local_date, big_integer, big_decimal FROM samikshya_catalog_2.default.test_table_2";
+    ResultSet rs = con.createStatement().executeQuery(selectSQL);
+    printResultSet(rs);
+
+    LocalDate date = rs.getObject("local_date", LocalDate.class);
+    System.out.println("here is date " + date + " here is class" + date.getClass());
+
+    BigInteger bigInteger = rs.getObject("big_integer", BigInteger.class);
+    System.out.println(
+        "here is big_integer " + bigInteger + " here is class" + bigInteger.getClass());
+
+    BigDecimal bigDecimal = rs.getObject("big_decimal", BigDecimal.class);
+    System.out.println(
+        "here is bigDecimal " + bigDecimal + " here is class" + bigDecimal.getClass());
   }
 }
