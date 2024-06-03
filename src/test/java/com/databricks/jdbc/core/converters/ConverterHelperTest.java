@@ -84,7 +84,7 @@ class ConverterHelperTest {
   @Test
   void testConvertToLocalDate() throws DatabricksSQLException {
     AbstractObjectConverter converter = mock(AbstractObjectConverter.class);
-    LocalDate expected =  LocalDate.now();
+    LocalDate expected = LocalDate.now();
     when(converter.convertToLocalDate()).thenReturn(expected);
     assertEquals(expected, converterHelper.getConvertedObject(LocalDate.class, converter));
   }
@@ -92,7 +92,7 @@ class ConverterHelperTest {
   @Test
   void testConvertToBigInteger() throws DatabricksSQLException {
     AbstractObjectConverter converter = mock(AbstractObjectConverter.class);
-    BigInteger expected =  BigInteger.ONE;
+    BigInteger expected = BigInteger.ONE;
     when(converter.convertToBigInteger()).thenReturn(expected);
     assertEquals(expected, converterHelper.getConvertedObject(BigInteger.class, converter));
   }
