@@ -1,10 +1,11 @@
 package com.databricks.jdbc.integration.e2e;
 
+import static com.databricks.jdbc.TestConstants.*;
 import static org.junit.jupiter.api.Assertions.*;
+import static com.databricks.jdbc.integration.IntegrationTestUtil.*;
 
 import com.databricks.jdbc.client.impl.sdk.DatabricksUCVolumeClient;
 import java.sql.Connection;
-import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.AfterEach;
@@ -20,13 +21,8 @@ public class UCVolumeTests {
 
   @BeforeEach
   void setUp() throws SQLException {
-    DriverManager.registerDriver(new com.databricks.jdbc.driver.DatabricksDriver());
-    DriverManager.drivers().forEach(driver -> System.out.println(driver.getClass()));
-    String jdbcUrl =
-        "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=https;ssl=1;httpPath=sql/protocolv1/o/6051921418418893/1115-130834-ms4m0yv;AuthMech=3;UID=token;";
-    con = DriverManager.getConnection(jdbcUrl, "agnipratim.nag@databricks.com", "xx");
+    con = getValidJDBCConnection();
     System.out.println("Connection established......");
-
     client = new DatabricksUCVolumeClient(con);
   }
 
@@ -53,11 +49,11 @@ public class UCVolumeTests {
 
   private static Stream<Arguments> provideParametersForPrefixExists() {
     return Stream.of(
-        Arguments.of("samikshya_hackathon", "agnipratim_test", "abc_volume1", "abc", true, true),
-        Arguments.of("samikshya_hackathon", "agnipratim_test", "abc_volume1", "xyz", false, false),
-        Arguments.of("samikshya_hackathon", "agnipratim_test", "abc_volume1", "dEf", false, true),
-        Arguments.of("samikshya_hackathon", "agnipratim_test", "abc_volume1", "#!", true, true),
-        Arguments.of("samikshya_hackathon", "agnipratim_test", "abc_volume1", "aBc", true, true));
+        Arguments.of(UC_VOLUME_CATALOG, UC_VOLUME_SCHEMA, "abc_volume1", "abc", true, true),
+        Arguments.of(UC_VOLUME_CATALOG, UC_VOLUME_SCHEMA, "abc_volume1", "xyz", false, false),
+        Arguments.of(UC_VOLUME_CATALOG, UC_VOLUME_SCHEMA, "abc_volume1", "dEf", false, true),
+        Arguments.of(UC_VOLUME_CATALOG, UC_VOLUME_SCHEMA, "abc_volume1", "#!", true, true),
+        Arguments.of(UC_VOLUME_CATALOG, UC_VOLUME_SCHEMA, "abc_volume1", "aBc", true, true));
   }
 
   @ParameterizedTest
@@ -77,11 +73,11 @@ public class UCVolumeTests {
   private static Stream<Arguments> provideParametersForObjectExistsCaseSensitivity() {
     return Stream.of(
         Arguments.of(
-            "samikshya_hackathon", "agnipratim_test", "abc_volume1", "abc_file1.csv", true, false),
+            UC_VOLUME_CATALOG, UC_VOLUME_SCHEMA, "abc_volume1", "abc_file1.csv", true, false),
         Arguments.of(
-            "samikshya_hackathon", "agnipratim_test", "abc_volume1", "aBc_file1.csv", true, true),
+            UC_VOLUME_CATALOG, UC_VOLUME_SCHEMA, "abc_volume1", "aBc_file1.csv", true, true),
         Arguments.of(
-            "samikshya_hackathon", "agnipratim_test", "abc_volume1", "abc_file1.csv", false, true));
+            UC_VOLUME_CATALOG, UC_VOLUME_SCHEMA, "abc_volume1", "abc_file1.csv", false, true));
   }
 
   @ParameterizedTest
@@ -101,17 +97,17 @@ public class UCVolumeTests {
   private static Stream<Arguments> provideParametersForObjectExistsVolumeReferencing() {
     return Stream.of(
         Arguments.of(
-            "samikshya_hackathon", "agnipratim_test", "abc_volume1", "abc_file3.csv", true, true),
+            UC_VOLUME_CATALOG, UC_VOLUME_SCHEMA, "abc_volume1", "abc_file3.csv", true, true),
         Arguments.of(
-            "samikshya_hackathon", "agnipratim_test", "abc_volume2", "abc_file4.csv", true, true),
+            UC_VOLUME_CATALOG, UC_VOLUME_SCHEMA, "abc_volume2", "abc_file4.csv", true, true),
         Arguments.of(
-            "samikshya_hackathon", "agnipratim_test", "abc_volume1", "abc_file2.csv", true, true),
+            UC_VOLUME_CATALOG, UC_VOLUME_SCHEMA, "abc_volume1", "abc_file2.csv", true, true),
         Arguments.of(
-            "samikshya_hackathon", "agnipratim_test", "abc_volume2", "abc_file2.csv", true, true),
+            UC_VOLUME_CATALOG, UC_VOLUME_SCHEMA, "abc_volume2", "abc_file2.csv", true, true),
         Arguments.of(
-            "samikshya_hackathon", "agnipratim_test", "abc_volume1", "abc_file4.csv", true, false),
+            UC_VOLUME_CATALOG, UC_VOLUME_SCHEMA, "abc_volume1", "abc_file4.csv", true, false),
         Arguments.of(
-            "samikshya_hackathon", "agnipratim_test", "abc_volume2", "abc_file3.csv", true, false));
+            UC_VOLUME_CATALOG, UC_VOLUME_SCHEMA, "abc_volume2", "abc_file3.csv", true, false));
   }
 
   @ParameterizedTest
@@ -131,12 +127,12 @@ public class UCVolumeTests {
   private static Stream<Arguments> provideParametersForObjectExistsSpecialCharacters() {
     return Stream.of(
         Arguments.of(
-            "samikshya_hackathon", "agnipratim_test", "abc_volume1", "@!aBc_file1.csv", true, true),
+            UC_VOLUME_CATALOG, UC_VOLUME_SCHEMA, "abc_volume1", "@!aBc_file1.csv", true, true),
         Arguments.of(
-            "samikshya_hackathon", "agnipratim_test", "abc_volume1", "@aBc_file1.csv", true, false),
+            UC_VOLUME_CATALOG, UC_VOLUME_SCHEMA, "abc_volume1", "@aBc_file1.csv", true, false),
         Arguments.of(
-            "samikshya_hackathon", "agnipratim_test", "abc_volume1", "#!#_file3.csv", true, true),
+            UC_VOLUME_CATALOG, UC_VOLUME_SCHEMA, "abc_volume1", "#!#_file3.csv", true, true),
         Arguments.of(
-            "samikshya_hackathon", "agnipratim_test", "abc_volume1", "#_file3.csv", true, false));
+            UC_VOLUME_CATALOG, UC_VOLUME_SCHEMA, "abc_volume1", "#_file3.csv", true, false));
   }
 }
