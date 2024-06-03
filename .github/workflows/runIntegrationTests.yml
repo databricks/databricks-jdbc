@@ -50,7 +50,7 @@ jobs:
         run: mvn -B package --file pom.xml
 
       - name: Run Integration Tests
-        run: mvn -B test -Dtest=*IntegrationTests
+        run: mvn -B test -Dtest=*IntegrationTests -DexcludedTests=**/thrifttests/**
         env:
           DATABRICKS_HOST: ${{ env.DATABRICKS_HOST }}
           DATABRICKS_TOKEN: ${{ env.DATABRICKS_TOKEN }}

@@ -1,0 +1,29 @@
+{
+  "id" : "2ba235b4-57ec-408f-bed6-bf38b21581e9",
+  "name" : "sql_protocolv1_o_6051921418418893_1115-130834-ms4m0yv",
+  "request" : {
+    "url" : "/sql/protocolv1/o/6051921418418893/1115-130834-ms4m0yv",
+    "method" : "POST",
+    "bodyPatterns" : [ {
+      "binaryEqualTo" : "gAEAAQAAAAtPcGVuU2Vzc2lvbgAAAAEMAAEIAAEAAKUJDQAECwsAAAAADAUECwABAAAABVNQQVJLCwACAAAAB2RlZmF1bHQAAgUFAQAA"
+    } ]
+  },
+  "response" : {
+    "status" : 401,
+    "body" : "{\"error_code\":401,\"message\":\"Credential was not sent or was of an unsupported type for this API.\"}",
+    "headers" : {
+      "date" : "Mon, 03 Jun 2024 15:01:46 GMT",
+      "server" : "databricks",
+      "x-databricks-popp-request-id" : "80c953ba-0e51-4198-bf74-c8c11f8c5141",
+      "x-databricks-shard-debug" : "oregon-staging",
+      "vary" : "Accept-Encoding",
+      "x-databricks-popp-shadow-routing-reason" : "deployment-name",
+      "www-authenticate" : "Bearer realm=\"DatabricksRealm\"",
+      "x-databricks-popp-routing-reason" : "deployment-name",
+      "content-type" : "application/json; charset=utf-8",
+      "x-databricks-reason-phrase" : "Credential was not sent or was of an unsupported type for this API."
+    }
+  },
+  "uuid" : "2ba235b4-57ec-408f-bed6-bf38b21581e9",
+  "insertionIndex" : 1
+}

@@ -16,9 +16,10 @@ public class ConnectionIntegrationTests extends AbstractFakeServiceIntegrationTe
   @Test
   void testSuccessfulConnection() throws SQLException {
     Connection conn = getValidJDBCConnection();
-    assert ((conn != null) && !conn.isClosed());
+    assert !conn.isClosed();
 
     conn.close();
+    assert conn.isClosed();
   }
 
   @Test
@@ -29,19 +30,23 @@ public class ConnectionIntegrationTests extends AbstractFakeServiceIntegrationTe
             DatabricksSQLException.class,
             () -> DriverManager.getConnection(url, getDatabricksUser(), "bad_token"));
 
-    assert e.getMessage().contains("Invalid or unknown token or hostname provided");
+    assert e.getMessage().contains(getUnsuccessfulConnectionMessage());
   }
 
   @Test
   void testIncorrectCredentialsForOAuth() {
     String template =
-        "jdbc:databricks://%s/default;transportMode=http;ssl=1;AuthMech=11;AuthFlow=0;httpPath=%s";
+        "jdbc:databricks://%s/default;transportMode=http;ssl=0;AuthMech=11;AuthFlow=0;httpPath=%s";
     String url = String.format(template, getDatabricksHost(), getDatabricksHTTPPath());
     DatabricksSQLException e =
         assertThrows(
             DatabricksSQLException.class,
             () -> DriverManager.getConnection(url, getDatabricksUser(), "bad_token"));
 
-    assert e.getMessage().contains("Invalid or unknown token or hostname provided");
+    assert e.getMessage().contains(getUnsuccessfulConnectionMessage());
+  }
+
+  protected String getUnsuccessfulConnectionMessage() {
+    return "Invalid or unknown token or hostname provided";
   }
 }
