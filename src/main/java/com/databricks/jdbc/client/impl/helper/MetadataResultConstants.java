@@ -140,7 +140,8 @@ public class MetadataResultConstants {
           IS_AUTO_INCREMENT_COLUMN,
           IS_GENERATED_COLUMN);
   public static List<ResultColumn> CATALOG_COLUMNS = List.of(CATALOG_COLUMN);
-  public static List<ResultColumn> SCHEMA_COLUMNS = List.of(SCHEMA_COLUMN, CATALOG_FULL_COLUMN);
+  public static List<ResultColumn> SCHEMA_COLUMNS =
+      List.of(SCHEMA_COLUMN_FOR_GET_SCHEMA, CATALOG_FULL_COLUMN);
   public static List<ResultColumn> TABLE_COLUMNS =
       List.of(
           CATALOG_COLUMN,

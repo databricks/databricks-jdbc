@@ -21,8 +21,8 @@ public class IntegrationTestUtil {
     if (Boolean.parseBoolean(System.getProperty(IS_FAKE_SERVICE_TEST_PROP))) {
       // Target base URL of the fake service type
       String serviceURI =
-              System.getProperty(
-                      FakeServiceType.SQL_EXEC.name().toLowerCase() + TARGET_URI_PROP_SUFFIX);
+          System.getProperty(
+              FakeServiceType.SQL_EXEC.name().toLowerCase() + TARGET_URI_PROP_SUFFIX);
       URI fakeServiceURI;
       try {
         // Fake service URL for the base URL
@@ -92,13 +92,13 @@ public class IntegrationTestUtil {
   public static Connection getBenchfoodJDBCConnection() throws SQLException {
     // add support for properties
     return DriverManager.getConnection(
-            getBenchfoodJDBCUrl(), getDatabricksUser(), getDatabricksBenchfoodToken());
+        getBenchfoodJDBCUrl(), getDatabricksUser(), getDatabricksBenchfoodToken());
   }
 
   public static Connection getBenchmarkingJDBCConnection() throws SQLException {
     // add support for properties
     return DriverManager.getConnection(
-            getBenchmarkingJDBCUrl(), getDatabricksUser(), getDatabricksBenchmarkingToken());
+        getBenchmarkingJDBCUrl(), getDatabricksUser(), getDatabricksBenchmarkingToken());
   }
 
   public static void resetJDBCConnection() {
@@ -107,9 +107,9 @@ public class IntegrationTestUtil {
 
   public static String getJDBCUrl() {
     String template =
-            Boolean.parseBoolean(System.getProperty(IS_FAKE_SERVICE_TEST_PROP))
-                    ? "jdbc:databricks://%s/default;transportMode=http;ssl=0;AuthMech=3;httpPath=%s"
-                    : "jdbc:databricks://%s/default;ssl=1;AuthMech=3;httpPath=%s";
+        Boolean.parseBoolean(System.getProperty(IS_FAKE_SERVICE_TEST_PROP))
+            ? "jdbc:databricks://%s/default;transportMode=http;ssl=0;AuthMech=3;httpPath=%s"
+            : "jdbc:databricks://%s/default;ssl=1;AuthMech=3;httpPath=%s";
 
     String host = getDatabricksHost();
     String httpPath = getDatabricksHTTPPath();
@@ -119,7 +119,7 @@ public class IntegrationTestUtil {
 
   public static String getBenchfoodJDBCUrl() {
     String template =
-            "jdbc:databricks://%s/default;transportMode=http;ssl=1;AuthMech=3;httpPath=%s";
+        "jdbc:databricks://%s/default;transportMode=http;ssl=1;AuthMech=3;httpPath=%s";
     String host = getDatabricksBenchfoodHost();
     String httpPath = getDatabricksBenchfoodHTTPPath();
 
@@ -128,7 +128,7 @@ public class IntegrationTestUtil {
 
   public static String getBenchmarkingJDBCUrl() {
     String template =
-            "jdbc:databricks://%s/default;transportMode=http;ssl=1;AuthMech=3;httpPath=%s";
+        "jdbc:databricks://%s/default;transportMode=http;ssl=1;AuthMech=3;httpPath=%s";
     String host = getDatabricksBenchmarkingHost();
     String httpPath = getDatabricksBenchmarkingHTTPPath();
 
@@ -162,9 +162,9 @@ public class IntegrationTestUtil {
     executeSQL(tableDeletionSQL);
 
     String tableCreationSQL =
-            "CREATE TABLE IF NOT EXISTS "
-                    + getFullyQualifiedTableName(tableName)
-                    + " (id INT PRIMARY KEY, col1 VARCHAR(255), col2 VARCHAR(255))";
+        "CREATE TABLE IF NOT EXISTS "
+            + getFullyQualifiedTableName(tableName)
+            + " (id INT PRIMARY KEY, col1 VARCHAR(255), col2 VARCHAR(255))";
 
     executeSQL(tableCreationSQL);
   }
@@ -188,36 +188,36 @@ public class IntegrationTestUtil {
   public static void insertTestDataForJoins(String table1Name, String table2Name) {
     // Insert data into the first table
     String insertTable1SQL1 =
-            "INSERT INTO "
-                    + getFullyQualifiedTableName(table1Name)
-                    + " (id, col1, col2) VALUES (1, 'value1_table1', 'value2_table1')";
+        "INSERT INTO "
+            + getFullyQualifiedTableName(table1Name)
+            + " (id, col1, col2) VALUES (1, 'value1_table1', 'value2_table1')";
     executeSQL(insertTable1SQL1);
 
     String insertTable1SQL2 =
-            "INSERT INTO "
-                    + getFullyQualifiedTableName(table1Name)
-                    + " (id, col1, col2) VALUES (2, 'value3_table1', 'value4_table1')";
+        "INSERT INTO "
+            + getFullyQualifiedTableName(table1Name)
+            + " (id, col1, col2) VALUES (2, 'value3_table1', 'value4_table1')";
     executeSQL(insertTable1SQL2);
 
     // Insert related data into the second table
     String insertTable2SQL1 =
-            "INSERT INTO "
-                    + getFullyQualifiedTableName(table2Name)
-                    + " (id, col1, col2) VALUES (1, 'related_value1_table2', 'related_value2_table2')";
+        "INSERT INTO "
+            + getFullyQualifiedTableName(table2Name)
+            + " (id, col1, col2) VALUES (1, 'related_value1_table2', 'related_value2_table2')";
     executeSQL(insertTable2SQL1);
 
     String insertTable2SQL2 =
-            "INSERT INTO "
-                    + getFullyQualifiedTableName(table2Name)
-                    + " (id, col1, col2) VALUES (2, 'related_value3_table2', 'related_value4_table2')";
+        "INSERT INTO "
+            + getFullyQualifiedTableName(table2Name)
+            + " (id, col1, col2) VALUES (2, 'related_value3_table2', 'related_value4_table2')";
     executeSQL(insertTable2SQL2);
   }
 
   public static void insertTestData(String tableName) {
     String insertSQL =
-            "INSERT INTO "
-                    + getFullyQualifiedTableName(tableName)
-                    + " (id, col1, col2) VALUES (1, 'value1', 'value2')";
+        "INSERT INTO "
+            + getFullyQualifiedTableName(tableName)
+            + " (id, col1, col2) VALUES (1, 'value1', 'value2')";
     executeSQL(insertSQL);
   }
 }

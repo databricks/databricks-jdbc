@@ -74,7 +74,7 @@ public class DatabricksNewMetadataSdkClient implements DatabricksMetadataClient 
             .setTablePattern(tableNamePattern);
     String SQL = commandBuilder.getSQLString(CommandName.LIST_TABLES);
     return MetadataResultSetBuilder.getTablesResult(
-            getResultSet(SQL, session, StatementType.METADATA), tableTypes);
+        getResultSet(SQL, session, StatementType.METADATA), tableTypes);
   }
 
   @Override
