@@ -15,8 +15,8 @@ import org.apache.arrow.vector.types.DateUnit;
 import org.apache.arrow.vector.types.FloatingPointPrecision;
 import org.apache.arrow.vector.types.TimeUnit;
 import org.apache.arrow.vector.types.pojo.ArrowType;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 /**
  * Databricks types as supported in
@@ -24,7 +24,7 @@ import org.slf4j.LoggerFactory;
  */
 public class DatabricksTypeUtil {
 
-  private static final Logger LOGGER = LoggerFactory.getLogger(DatabricksTypeUtil.class);
+  private static final Logger LOGGER = LogManager.getLogger(DatabricksTypeUtil.class);
 
   public static final String BIGINT = "BIGINT";
   public static final String BINARY = "BINARY";

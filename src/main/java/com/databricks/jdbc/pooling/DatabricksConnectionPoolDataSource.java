@@ -4,13 +4,13 @@ import com.databricks.jdbc.core.DatabricksDataSource;
 import com.databricks.jdbc.core.DatabricksSQLException;
 import javax.sql.ConnectionPoolDataSource;
 import javax.sql.PooledConnection;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 public class DatabricksConnectionPoolDataSource extends DatabricksDataSource
     implements ConnectionPoolDataSource {
   private static final Logger LOGGER =
-      LoggerFactory.getLogger(DatabricksConnectionPoolDataSource.class);
+      LogManager.getLogger(DatabricksConnectionPoolDataSource.class);
 
   @Override
   public PooledConnection getPooledConnection() throws DatabricksSQLException {

@@ -1,0 +1,28 @@
+{
+  "id" : "c6195159-d051-4a99-86f7-0f5965e8e9c1",
+  "name" : "api_2.0_sql_statements",
+  "request" : {
+    "url" : "/api/2.0/sql/statements/",
+    "method" : "POST",
+    "bodyPatterns" : [ {
+      "equalToJson" : "{\"statement\":\"CREATE TABLE IF NOT EXISTS main.jdbc_test_schema.prepared_statement_complex_query_test_table (id INT PRIMARY KEY, col1 VARCHAR(255), col2 VARCHAR(255))\",\"warehouse_id\":\"2f03dd43e35e2aa0\",\"session_id\":\"01ef1490-e4e4-109e-bddd-497a5a674d36\",\"disposition\":\"EXTERNAL_LINKS\",\"format\":\"ARROW_STREAM\",\"on_wait_timeout\":\"CONTINUE\",\"wait_timeout\":\"10s\",\"parameters\":[],\"compression_codec\":\"NONE\"}",
+      "ignoreArrayOrder" : true,
+      "ignoreExtraElements" : true
+    } ]
+  },
+  "response" : {
+    "status" : 200,
+    "body" : "{\"statement_id\":\"01ef1490-e6b8-11d4-b8b8-01d3cedb906e\",\"status\":{\"state\":\"SUCCEEDED\"},\"manifest\":{\"format\":\"ARROW_STREAM\",\"schema\":{\"column_count\":0},\"total_chunk_count\":0,\"total_row_count\":0,\"total_byte_count\":0,\"truncated\":false},\"result\":{}}",
+    "headers" : {
+      "date" : "Fri, 17 May 2024 21:03:28 GMT",
+      "server" : "databricks",
+      "x-content-type-options" : "nosniff",
+      "vary" : "Accept-Encoding",
+      "x-databricks-org-id" : "6436897454825492",
+      "content-type" : "application/json",
+      "strict-transport-security" : "max-age=31536000; includeSubDomains; preload"
+    }
+  },
+  "uuid" : "c6195159-d051-4a99-86f7-0f5965e8e9c1",
+  "insertionIndex" : 8
+}

@@ -2,20 +2,30 @@ package com.databricks.jdbc.integration.fakeservice;
 
 import static com.databricks.jdbc.driver.DatabricksJdbcConstants.FAKE_SERVICE_URI_PROP_SUFFIX;
 import static com.databricks.jdbc.driver.DatabricksJdbcConstants.IS_FAKE_SERVICE_TEST_PROP;
+import static com.github.tomakehurst.wiremock.common.AbstractFileSource.byFileExtension;
 
 import com.databricks.jdbc.client.http.DatabricksHttpClient;
 import com.databricks.jdbc.driver.DatabricksJdbcConstants.FakeServiceType;
 import com.databricks.jdbc.integration.IntegrationTestUtil;
+import com.github.tomakehurst.wiremock.client.ResponseDefinitionBuilder;
+import com.github.tomakehurst.wiremock.common.BinaryFile;
+import com.github.tomakehurst.wiremock.common.ContentTypes;
 import com.github.tomakehurst.wiremock.common.SingleRootFileSource;
+import com.github.tomakehurst.wiremock.common.TextFile;
+import com.github.tomakehurst.wiremock.http.ContentTypeHeader;
+import com.github.tomakehurst.wiremock.http.HttpHeaders;
 import com.github.tomakehurst.wiremock.junit5.WireMockRuntimeInfo;
 import com.github.tomakehurst.wiremock.recording.RecordSpecBuilder;
 import com.github.tomakehurst.wiremock.standalone.JsonFileMappingsSource;
 import com.github.tomakehurst.wiremock.stubbing.StubMapping;
+import com.github.tomakehurst.wiremock.stubbing.StubMappingCollection;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.List;
+import java.util.Optional;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.extension.ExtensionContext;
@@ -67,6 +77,9 @@ public class FakeServiceExtension extends DatabricksWireMockExtension {
    */
   private static final long MAX_STUBBING_BINARY_SIZE = 102400;
 
+  /** Root directory for extracted body files. */
+  private static final String EXTRACTED_BODY_FILE_ROOT = "src/test/resources/__files";
+
   /**
    * Environment variable holding the fake service mode.
    *
@@ -91,8 +104,11 @@ public class FakeServiceExtension extends DatabricksWireMockExtension {
   /** Fake service to manage. */
   private final FakeServiceType fakeServiceType;
 
+  /** HTTP port of the WireMock server. */
+  private int wireMockServerHttpPort;
+
   /** Base URL of the target production service. */
-  private final String targetBaseUrl;
+  private String targetBaseUrl;
 
   /** Mode of the fake service. */
   private FakeServiceMode fakeServiceMode;
@@ -132,8 +148,9 @@ public class FakeServiceExtension extends DatabricksWireMockExtension {
         fakeServiceModeValue != null
             ? FakeServiceMode.valueOf(fakeServiceModeValue.toUpperCase())
             : FakeServiceMode.REPLAY;
+    wireMockServerHttpPort = wireMockRuntimeInfo.getHttpPort();
 
-    setFakeServiceProperties(wireMockRuntimeInfo);
+    setFakeServiceProperties(wireMockServerHttpPort);
     IntegrationTestUtil.resetJDBCConnection();
     DatabricksHttpClient.resetInstance();
   }
@@ -174,6 +191,14 @@ public class FakeServiceExtension extends DatabricksWireMockExtension {
     super.onAfterAll(wireMockRuntimeInfo, context);
   }
 
+  /** Sets the base URL of the target production service to be tracked. */
+  protected void setTargetBaseUrl(String targetBaseUrl) {
+    this.targetBaseUrl = targetBaseUrl;
+
+    // Refresh the fake service properties
+    setFakeServiceProperties(wireMockServerHttpPort);
+  }
+
   /** Gets the stubbing directory for the current test class and method. */
   @NotNull
   private String getStubbingDir(ExtensionContext context) {
@@ -190,9 +215,29 @@ public class FakeServiceExtension extends DatabricksWireMockExtension {
   }
 
   /** Loads stub mappings from the stubbing directory. */
-  private void loadStubMappings(WireMockRuntimeInfo wireMockRuntimeInfo, ExtensionContext context) {
-    String stubbingDir = getStubbingDir(context);
-    wireMockRuntimeInfo.getWireMock().loadMappingsFrom(stubbingDir);
+  private void loadStubMappings(WireMockRuntimeInfo wireMockRuntimeInfo, ExtensionContext context)
+      throws IOException {
+    final String stubbingDir = getStubbingDir(context);
+    final SingleRootFileSource fileSource = new SingleRootFileSource(stubbingDir + "/mappings");
+
+    if (!fileSource.exists()) {
+      // No stub mappings to load
+      return;
+    }
+
+    final List<TextFile> mappingFiles =
+        fileSource.listFilesRecursively().stream()
+            .filter(byFileExtension("json"))
+            .collect(Collectors.toList());
+
+    for (TextFile mappingFile : mappingFiles) {
+      final StubMappingCollection stubCollection =
+          JsonUtils.read(mappingFile.readContents(), StubMappingCollection.class);
+      for (StubMapping mapping : stubCollection.getMappingOrMappings()) {
+        embedExtractedBodyFile(mapping);
+        wireMockRuntimeInfo.getWireMock().register(mapping);
+      }
+    }
   }
 
   /** Starts recording stub mappings. */
@@ -221,13 +266,12 @@ public class FakeServiceExtension extends DatabricksWireMockExtension {
     new JsonFileMappingsSource(new SingleRootFileSource(stubbingDir), null).save(stubMappingList);
   }
 
-  private void setFakeServiceProperties(WireMockRuntimeInfo wireMockRuntimeInfo) {
+  private void setFakeServiceProperties(int wireMockServerHttpPort) {
     System.setProperty(IS_FAKE_SERVICE_TEST_PROP, "true");
     System.setProperty(
         fakeServiceType.name().toLowerCase() + TARGET_URI_PROP_SUFFIX, targetBaseUrl);
     System.setProperty(
-        targetBaseUrl + FAKE_SERVICE_URI_PROP_SUFFIX,
-        "http://localhost:" + wireMockRuntimeInfo.getHttpPort());
+        targetBaseUrl + FAKE_SERVICE_URI_PROP_SUFFIX, "http://localhost:" + wireMockServerHttpPort);
   }
 
   private void clearFakeServiceProperties() {
@@ -236,13 +280,39 @@ public class FakeServiceExtension extends DatabricksWireMockExtension {
     System.clearProperty(targetBaseUrl + FAKE_SERVICE_URI_PROP_SUFFIX);
   }
 
+  /** Embeds the extracted body file content into the stub mapping. */
+  private static void embedExtractedBodyFile(final StubMapping mapping) {
+    final SingleRootFileSource fileSource = new SingleRootFileSource(EXTRACTED_BODY_FILE_ROOT);
+    final String bodyFileName = mapping.getResponse().getBodyFileName();
+
+    if (bodyFileName != null) {
+      final ResponseDefinitionBuilder responseDefinitionBuilder =
+          ResponseDefinitionBuilder.like(mapping.getResponse()).withBodyFile(null);
+      if (ContentTypes.determineIsTextFromMimeType(getMimeType(mapping))) {
+        final TextFile bodyFile = fileSource.getTextFileNamed(bodyFileName);
+        responseDefinitionBuilder.withBody(bodyFile.readContentsAsString());
+      } else {
+        BinaryFile bodyFile = fileSource.getBinaryFileNamed(bodyFileName);
+        responseDefinitionBuilder.withBody(bodyFile.readContents());
+      }
+
+      mapping.setResponse(responseDefinitionBuilder.build());
+    }
+  }
+
+  /** Gets the MIME type of the response body. */
+  private static String getMimeType(StubMapping mapping) {
+    return Optional.ofNullable(mapping.getResponse().getHeaders())
+        .map(HttpHeaders::getContentTypeHeader)
+        .map(ContentTypeHeader::mimeTypePart)
+        .orElse(null);
+  }
+
   /** Deletes files in the given directory. */
   private static void deleteFilesInDir(String dirPath) throws IOException {
     Path dir = Paths.get(dirPath);
     if (!Files.exists(dir)) {
       Files.createDirectories(dir);
-      // Stub mappings directory should be tracked by git even if it's empty
-      Files.createFile(dir.resolve(".gitkeep"));
       return;
     }
 

@@ -15,13 +15,13 @@ import java.util.*;
 import java.util.regex.Matcher;
 import java.util.stream.Collectors;
 import org.apache.http.client.utils.URIBuilder;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.slf4j.event.Level;
+import org.apache.logging.log4j.Level;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 public class DatabricksConnectionContext implements IDatabricksConnectionContext {
 
-  private static final Logger LOGGER = LoggerFactory.getLogger(DatabricksConnectionContext.class);
+  private static final Logger LOGGER = LogManager.getLogger(DatabricksConnectionContext.class);
   private final String host;
   private final int port;
   private final String schema;

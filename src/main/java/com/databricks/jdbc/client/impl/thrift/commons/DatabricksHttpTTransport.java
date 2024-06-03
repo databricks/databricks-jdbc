@@ -13,15 +13,15 @@ import java.util.Map;
 import org.apache.http.HttpResponse;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.entity.ByteArrayEntity;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.apache.thrift.TConfiguration;
 import org.apache.thrift.transport.TTransport;
 import org.apache.thrift.transport.TTransportException;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 public class DatabricksHttpTTransport extends TTransport {
 
-  private static final Logger LOGGER = LoggerFactory.getLogger(DatabricksHttpTTransport.class);
+  private static final Logger LOGGER = LogManager.getLogger(DatabricksHttpTTransport.class);
   private final DatabricksHttpClient httpClient;
   private final String url;
   private Map<String, String> customHeaders = Collections.emptyMap();

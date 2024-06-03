@@ -11,12 +11,12 @@ import java.sql.*;
 import java.util.Calendar;
 import java.util.HashMap;
 import java.util.Map;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 public class DatabricksPreparedStatement extends DatabricksStatement implements PreparedStatement {
 
-  private static final Logger LOGGER = LoggerFactory.getLogger(DatabricksPreparedStatement.class);
+  private static final Logger LOGGER = LogManager.getLogger(DatabricksPreparedStatement.class);
   private final String sql;
   private final Map<Integer, ImmutableSqlParameter> parameterBindings;
 

@@ -18,6 +18,7 @@ import com.databricks.jdbc.core.IDatabricksStatement;
 import com.databricks.sdk.core.DatabricksConfig;
 import com.databricks.sdk.service.sql.StatementState;
 import java.sql.SQLException;
+import java.util.ArrayList;
 import java.util.Collections;
 import org.apache.thrift.TException;
 import org.apache.thrift.protocol.TProtocol;
@@ -46,11 +47,16 @@ public class DatabricksThriftAccessorTest {
           .setMaxBytes(DEFAULT_BYTE_LIMIT);
   private static final TGetResultSetMetadataReq resultSetMetadataReq =
       new TGetResultSetMetadataReq().setOperationHandle(tOperationHandle);
+
+  private static final TRowSet rowSet = new TRowSet().setResultLinks(new ArrayList<>(2));
+
   private static final TFetchResultsResp response =
       new TFetchResultsResp()
           .setStatus(new TStatus().setStatusCode(TStatusCode.SUCCESS_STATUS))
           .setResultSetMetadata(
-              new TGetResultSetMetadataResp().setResultFormat(TSparkRowSetType.COLUMN_BASED_SET));
+              new TGetResultSetMetadataResp().setResultFormat(TSparkRowSetType.COLUMN_BASED_SET))
+          .setResults(rowSet);
+
   private static final TSparkDirectResults directResults =
       new TSparkDirectResults()
           .setResultSet(response)

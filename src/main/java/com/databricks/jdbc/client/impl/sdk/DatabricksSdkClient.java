@@ -29,12 +29,12 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 /** Implementation of DatabricksClient interface using Databricks Java SDK. */
 public class DatabricksSdkClient implements DatabricksClient {
-  private static final Logger LOGGER = LoggerFactory.getLogger(DatabricksSdkClient.class);
+  private static final Logger LOGGER = LogManager.getLogger(DatabricksSdkClient.class);
   private static final String SYNC_TIMEOUT_VALUE = "10s";
   private static final String ASYNC_TIMEOUT_VALUE = "0s";
 
@@ -203,6 +203,14 @@ public class DatabricksSdkClient implements DatabricksClient {
     CloseStatementRequest request = new CloseStatementRequest().setStatementId(statementId);
     String path = String.format(STATEMENT_PATH_WITH_ID, request.getStatementId());
     workspaceClient.apiClient().DELETE(path, request, Void.class, getHeaders());
+  }
+
+  @Override
+  public void cancelStatement(String statementId) {
+    LOGGER.debug("public void cancelStatement(String statementId = {})", statementId);
+    CancelStatementRequest request = new CancelStatementRequest().setStatementId(statementId);
+    String path = String.format(CANCEL_STATEMENT_PATH_WITH_ID, request.getStatementId());
+    workspaceClient.apiClient().POST(path, request, Void.class, getHeaders());
   }
 
   @Override

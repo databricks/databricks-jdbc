@@ -81,6 +81,12 @@ public class DatabricksStatementTest {
 
     when(resultSet.hasUpdateCount()).thenReturn(true);
     assertFalse(statement.execute(STATEMENT, Statement.NO_GENERATED_KEYS));
+
+    assertFalse(statement.isClosed());
+    statement.cancel();
+
+    statement.close();
+    assertThrows(DatabricksSQLException.class, () -> statement.cancel());
   }
 
   @Test
@@ -199,7 +205,6 @@ public class DatabricksStatementTest {
         () -> statement.isWrapperFor(java.sql.Connection.class));
     assertThrows(
         DatabricksSQLFeatureNotSupportedException.class, () -> statement.setCursorName("name"));
-    assertThrows(DatabricksSQLFeatureNotSupportedException.class, statement::cancel);
     assertThrows(DatabricksSQLFeatureNotSupportedException.class, statement::getMaxFieldSize);
     assertThrows(DatabricksSQLFeatureNotSupportedException.class, statement::getMoreResults);
     assertThrows(

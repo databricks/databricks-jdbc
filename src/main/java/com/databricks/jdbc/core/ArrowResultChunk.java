@@ -29,8 +29,8 @@ import org.apache.http.HttpEntity;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.utils.URIBuilder;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 public class ArrowResultChunk {
 
@@ -78,7 +78,7 @@ public class ArrowResultChunk {
 
   private static final Integer SECONDS_BUFFER_FOR_EXPIRY = 60;
 
-  private static final Logger LOGGER = LoggerFactory.getLogger(ArrowResultChunk.class);
+  private static final Logger LOGGER = LogManager.getLogger(ArrowResultChunk.class);
 
   private final long chunkIndex;
   final long numRows;

@@ -12,11 +12,11 @@ import java.sql.*;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.*;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 public class DatabricksStatement implements IDatabricksStatement, Statement {
-  private static final Logger LOGGER = LoggerFactory.getLogger(DatabricksStatement.class);
+  private static final Logger LOGGER = LogManager.getLogger(DatabricksStatement.class);
 
   private int timeoutInSeconds;
   private final DatabricksConnection connection;
@@ -132,8 +132,14 @@ public class DatabricksStatement implements IDatabricksStatement, Statement {
   @Override
   public void cancel() throws SQLException {
     LOGGER.debug("public void cancel()");
-    throw new DatabricksSQLFeatureNotSupportedException(
-        "Not implemented in DatabricksStatement - cancel()");
+    checkIfClosed();
+
+    if (statementId != null) {
+      this.connection.getSession().getDatabricksClient().cancelStatement(statementId);
+    } else {
+      WarningUtil.addWarning(
+          warnings, "The statement you are trying to cancel does not have an ID yet.");
+    }
   }
 
   @Override

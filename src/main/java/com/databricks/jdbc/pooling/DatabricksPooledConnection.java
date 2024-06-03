@@ -15,12 +15,12 @@ import javax.sql.ConnectionEvent;
 import javax.sql.ConnectionEventListener;
 import javax.sql.PooledConnection;
 import javax.sql.StatementEventListener;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 public class DatabricksPooledConnection implements PooledConnection {
 
-  private static final Logger LOGGER = LoggerFactory.getLogger(DatabricksPooledConnection.class);
+  private static final Logger LOGGER = LogManager.getLogger(DatabricksPooledConnection.class);
   private final Set<ConnectionEventListener> listeners = new HashSet<>();
   private Connection physicalConnection;
   private ConnectionHandler connectionHandler;
@@ -127,8 +127,7 @@ public class DatabricksPooledConnection implements PooledConnection {
    * through the Connection interface.
    */
   private class ConnectionHandler implements InvocationHandler {
-    private final Logger CONNECTION_HANDLER_LOGGER =
-        LoggerFactory.getLogger(ConnectionHandler.class);
+    private final Logger CONNECTION_HANDLER_LOGGER = LogManager.getLogger(ConnectionHandler.class);
     private Connection physicalConnection;
     private Connection
         virtualConnection; // the Connection the client is currently using, which is not a physical
@@ -241,7 +240,7 @@ public class DatabricksPooledConnection implements PooledConnection {
    * proper Connection proxy for the getConnection method.
    */
   private class StatementHandler implements InvocationHandler {
-    private final Logger STATEMENT_HANDLER_LOGGER = LoggerFactory.getLogger(StatementHandler.class);
+    private final Logger STATEMENT_HANDLER_LOGGER = LogManager.getLogger(StatementHandler.class);
     private ConnectionHandler conHandler;
     private Statement physicalStatement;
 

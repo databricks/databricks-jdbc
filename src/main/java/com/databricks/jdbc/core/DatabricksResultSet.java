@@ -24,11 +24,12 @@ import java.sql.*;
 import java.util.Calendar;
 import java.util.List;
 import java.util.Map;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 public class DatabricksResultSet implements ResultSet, IDatabricksResultSet {
-  private static final Logger LOGGER = LoggerFactory.getLogger(DatabricksResultSet.class);
+  private static final Logger LOGGER = LogManager.getLogger(DatabricksResultSet.class);
+  private static final String DECIMAL = ".";
   private static final String AFFECTED_ROWS_COUNT = "num_affected_rows";
   private final StatementStatus statementStatus;
   private final String statementId;
@@ -99,7 +100,9 @@ public class DatabricksResultSet implements ResultSet, IDatabricksResultSet {
     this.executionResult =
         ExecutionResultFactory.getResultSet(resultData, resultManifest, statementId, session);
     int rowSize = getRowCount(resultData);
-    this.resultSetMetaData = new DatabricksResultSetMetaData(statementId, resultManifest, rowSize);
+    this.resultSetMetaData =
+        new DatabricksResultSetMetaData(
+            statementId, resultManifest, rowSize, resultData.getResultLinksSize());
     this.statementType = statementType;
     this.updateCount = null;
     this.parentStatement = parentStatement;
