@@ -148,14 +148,14 @@ public class DriverTester {
     printResultSet(rs);
 
     LocalDate date = rs.getObject("local_date", LocalDate.class);
-    System.out.println("here is date " + date + " here is class" + date.getClass());
+    System.out.println("here is date " + date + ". Class Details : " + date.getClass());
 
     BigInteger bigInteger = rs.getObject("big_integer", BigInteger.class);
     System.out.println(
-        "here is big_integer " + bigInteger + " here is class" + bigInteger.getClass());
+        "here is big_integer " + bigInteger + ". Class Details : " + bigInteger.getClass());
 
     BigDecimal bigDecimal = rs.getObject("big_decimal", BigDecimal.class);
     System.out.println(
-        "here is bigDecimal " + bigDecimal + " here is class" + bigDecimal.getClass());
+        "here is bigDecimal " + bigDecimal + ". Class Details : " + bigDecimal.getClass());
   }
 }
