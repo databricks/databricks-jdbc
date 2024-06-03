@@ -1,8 +1,8 @@
 package com.databricks.jdbc.integration.e2e;
 
 import static com.databricks.jdbc.TestConstants.*;
-import static org.junit.jupiter.api.Assertions.*;
 import static com.databricks.jdbc.integration.IntegrationTestUtil.*;
+import static org.junit.jupiter.api.Assertions.*;
 
 import com.databricks.jdbc.client.impl.sdk.DatabricksUCVolumeClient;
 import java.sql.Connection;
@@ -21,7 +21,9 @@ public class UCVolumeTests {
 
   @BeforeEach
   void setUp() throws SQLException {
-    con = getValidJDBCConnection();
+    // TO DO: Testing is done here using the E2-Dogfood environment. Need to update this to use a
+    // test warehouse.
+    con = getDogfoodJDBCConnection();
     System.out.println("Connection established......");
     client = new DatabricksUCVolumeClient(con);
   }
@@ -49,11 +51,11 @@ public class UCVolumeTests {
 
   private static Stream<Arguments> provideParametersForPrefixExists() {
     return Stream.of(
-        Arguments.of(UC_VOLUME_CATALOG, UC_VOLUME_SCHEMA, "abc_volume1", "abc", true, true),
-        Arguments.of(UC_VOLUME_CATALOG, UC_VOLUME_SCHEMA, "abc_volume1", "xyz", false, false),
-        Arguments.of(UC_VOLUME_CATALOG, UC_VOLUME_SCHEMA, "abc_volume1", "dEf", false, true),
-        Arguments.of(UC_VOLUME_CATALOG, UC_VOLUME_SCHEMA, "abc_volume1", "#!", true, true),
-        Arguments.of(UC_VOLUME_CATALOG, UC_VOLUME_SCHEMA, "abc_volume1", "aBc", true, true));
+        Arguments.of(UC_VOLUME_CATALOG, UC_VOLUME_SCHEMA, "test_volume1", "abc", true, true),
+        Arguments.of(UC_VOLUME_CATALOG, UC_VOLUME_SCHEMA, "test_volume1", "xyz", false, false),
+        Arguments.of(UC_VOLUME_CATALOG, UC_VOLUME_SCHEMA, "test_volume1", "dEf", false, true),
+        Arguments.of(UC_VOLUME_CATALOG, UC_VOLUME_SCHEMA, "test_volume1", "#!", true, true),
+        Arguments.of(UC_VOLUME_CATALOG, UC_VOLUME_SCHEMA, "test_volume1", "aBc", true, true));
   }
 
   @ParameterizedTest
@@ -73,11 +75,11 @@ public class UCVolumeTests {
   private static Stream<Arguments> provideParametersForObjectExistsCaseSensitivity() {
     return Stream.of(
         Arguments.of(
-            UC_VOLUME_CATALOG, UC_VOLUME_SCHEMA, "abc_volume1", "abc_file1.csv", true, false),
+            UC_VOLUME_CATALOG, UC_VOLUME_SCHEMA, "test_volume1", "abc_file1.csv", true, false),
         Arguments.of(
-            UC_VOLUME_CATALOG, UC_VOLUME_SCHEMA, "abc_volume1", "aBc_file1.csv", true, true),
+            UC_VOLUME_CATALOG, UC_VOLUME_SCHEMA, "test_volume1", "aBc_file1.csv", true, true),
         Arguments.of(
-            UC_VOLUME_CATALOG, UC_VOLUME_SCHEMA, "abc_volume1", "abc_file1.csv", false, true));
+            UC_VOLUME_CATALOG, UC_VOLUME_SCHEMA, "test_volume1", "abc_file1.csv", false, true));
   }
 
   @ParameterizedTest
@@ -97,17 +99,17 @@ public class UCVolumeTests {
   private static Stream<Arguments> provideParametersForObjectExistsVolumeReferencing() {
     return Stream.of(
         Arguments.of(
-            UC_VOLUME_CATALOG, UC_VOLUME_SCHEMA, "abc_volume1", "abc_file3.csv", true, true),
+            UC_VOLUME_CATALOG, UC_VOLUME_SCHEMA, "test_volume1", "abc_file3.csv", true, true),
         Arguments.of(
-            UC_VOLUME_CATALOG, UC_VOLUME_SCHEMA, "abc_volume2", "abc_file4.csv", true, true),
+            UC_VOLUME_CATALOG, UC_VOLUME_SCHEMA, "test_volume2", "abc_file4.csv", true, true),
         Arguments.of(
-            UC_VOLUME_CATALOG, UC_VOLUME_SCHEMA, "abc_volume1", "abc_file2.csv", true, true),
+            UC_VOLUME_CATALOG, UC_VOLUME_SCHEMA, "test_volume1", "abc_file2.csv", true, true),
         Arguments.of(
-            UC_VOLUME_CATALOG, UC_VOLUME_SCHEMA, "abc_volume2", "abc_file2.csv", true, true),
+            UC_VOLUME_CATALOG, UC_VOLUME_SCHEMA, "test_volume2", "abc_file2.csv", true, true),
         Arguments.of(
-            UC_VOLUME_CATALOG, UC_VOLUME_SCHEMA, "abc_volume1", "abc_file4.csv", true, false),
+            UC_VOLUME_CATALOG, UC_VOLUME_SCHEMA, "test_volume1", "abc_file4.csv", true, false),
         Arguments.of(
-            UC_VOLUME_CATALOG, UC_VOLUME_SCHEMA, "abc_volume2", "abc_file3.csv", true, false));
+            UC_VOLUME_CATALOG, UC_VOLUME_SCHEMA, "test_volume2", "abc_file3.csv", true, false));
   }
 
   @ParameterizedTest
@@ -127,12 +129,12 @@ public class UCVolumeTests {
   private static Stream<Arguments> provideParametersForObjectExistsSpecialCharacters() {
     return Stream.of(
         Arguments.of(
-            UC_VOLUME_CATALOG, UC_VOLUME_SCHEMA, "abc_volume1", "@!aBc_file1.csv", true, true),
+            UC_VOLUME_CATALOG, UC_VOLUME_SCHEMA, "test_volume1", "@!aBc_file1.csv", true, true),
         Arguments.of(
-            UC_VOLUME_CATALOG, UC_VOLUME_SCHEMA, "abc_volume1", "@aBc_file1.csv", true, false),
+            UC_VOLUME_CATALOG, UC_VOLUME_SCHEMA, "test_volume1", "@aBc_file1.csv", true, false),
         Arguments.of(
-            UC_VOLUME_CATALOG, UC_VOLUME_SCHEMA, "abc_volume1", "#!#_file3.csv", true, true),
+            UC_VOLUME_CATALOG, UC_VOLUME_SCHEMA, "test_volume1", "#!#_file3.csv", true, true),
         Arguments.of(
-            UC_VOLUME_CATALOG, UC_VOLUME_SCHEMA, "abc_volume1", "#_file3.csv", true, false));
+            UC_VOLUME_CATALOG, UC_VOLUME_SCHEMA, "test_volume1", "#_file3.csv", true, false));
   }
 }

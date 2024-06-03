@@ -28,9 +28,9 @@ public class TestConstants {
   public static final String TEST_STRING = "test";
   public static final String TEST_STATEMENT_ID = "testStatementId";
 
-  public static final String UC_VOLUME_CATALOG = "samikshya_hackathon";
+  public static final String UC_VOLUME_CATALOG = "uc_volume_test_catalog";
 
-  public static final String UC_VOLUME_SCHEMA = "agnipratim_test";
+  public static final String UC_VOLUME_SCHEMA = "uc_volume_test_schema";
   public static final TSessionHandle SESSION_HANDLE =
       new TSessionHandle().setSessionId(new THandleIdentifier().setGuid(SESSION_ID.getBytes()));
   public static final ImmutableSessionInfo SESSION_INFO =
