@@ -4,14 +4,14 @@ import static com.databricks.jdbc.integration.IntegrationTestUtil.*;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import com.databricks.jdbc.core.DatabricksSQLException;
-import com.databricks.jdbc.integration.fakeservice.BaseFakeServiceIntegrationTests;
+import com.databricks.jdbc.integration.fakeservice.AbstractFakeServiceIntegrationTests;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 import org.junit.jupiter.api.Test;
 
 /** Integration tests for connection to Databricks service. */
-public class ConnectionIntegrationTests extends BaseFakeServiceIntegrationTests {
+public class ConnectionIntegrationTests extends AbstractFakeServiceIntegrationTests {
 
   @Test
   void testSuccessfulConnection() throws SQLException {

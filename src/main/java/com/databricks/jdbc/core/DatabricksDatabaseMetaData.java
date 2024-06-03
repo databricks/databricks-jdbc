@@ -6,8 +6,8 @@ import com.databricks.sdk.service.sql.StatementState;
 import com.databricks.sdk.service.sql.StatementStatus;
 import java.sql.*;
 import java.util.*;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 public class DatabricksDatabaseMetaData implements DatabaseMetaData {
   public static final String DRIVER_NAME = "DatabricksJDBC";
@@ -28,7 +28,7 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
       "CURDATE,CURRENT_DATE,CURRENT_TIME,CURRENT_TIMESTAMP,CURTIME,DAYNAME,DAYOFMONTH,DAYOFWEEK,DAYOFYEAR,HOUR,MINUTE,MONTH,MONTHNAME,NOW,QUARTER,SECOND,TIMESTAMPADD,TIMESTAMPDIFF,WEEK,YEAR";
   private final IDatabricksConnection connection;
   private final IDatabricksSession session;
-  private static final Logger LOGGER = LoggerFactory.getLogger(DatabricksDatabaseMetaData.class);
+  private static final Logger LOGGER = LogManager.getLogger(DatabricksDatabaseMetaData.class);
 
   public DatabricksDatabaseMetaData(IDatabricksConnection connection) {
     this.connection = connection;

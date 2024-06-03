@@ -3,7 +3,7 @@ package com.databricks.jdbc.integration.fakeservice.tests;
 import static com.databricks.jdbc.integration.IntegrationTestUtil.*;
 import static org.junit.jupiter.api.Assertions.*;
 
-import com.databricks.jdbc.integration.fakeservice.BaseFakeServiceIntegrationTests;
+import com.databricks.jdbc.integration.fakeservice.AbstractFakeServiceIntegrationTests;
 import java.math.BigDecimal;
 import java.sql.Date;
 import java.sql.ResultSet;
@@ -12,7 +12,7 @@ import java.sql.Timestamp;
 import org.junit.jupiter.api.Test;
 
 /** Integration tests for ResultSet operations. */
-public class ResultSetIntegrationTests extends BaseFakeServiceIntegrationTests {
+public class ResultSetIntegrationTests extends AbstractFakeServiceIntegrationTests {
 
   @Test
   void testRetrievalOfBasicDataTypes() throws SQLException {

@@ -43,6 +43,8 @@ public class DatabricksHttpClientTest {
 
   @Mock CloseableHttpResponse closeableHttpResponse;
 
+  @Mock HttpClientBuilder httpClientBuilder;
+
   private static final String CLUSTER_JDBC_URL =
       "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=http;ssl=1;httpPath=sql/protocolv1/o/6051921418418893/1115-130834-ms4m0yv;AuthMech=3;UserAgentEntry=MyApp";
   private static final String DBSQL_JDBC_URL =
@@ -77,7 +79,6 @@ public class DatabricksHttpClientTest {
     final String testFakeServiceURI = "http://localhost:8080";
     System.setProperty(testTargetURI + FAKE_SERVICE_URI_PROP_SUFFIX, testFakeServiceURI);
 
-    HttpClientBuilder httpClientBuilder = Mockito.mock(HttpClientBuilder.class);
     ArgumentCaptor<HttpRoutePlanner> routePlannerCaptor =
         ArgumentCaptor.forClass(HttpRoutePlanner.class);
 
@@ -102,10 +103,28 @@ public class DatabricksHttpClientTest {
   }
 
   @Test
+  public void testSetFakeServiceRouteInHttpClientWithLocalhostTarget() throws HttpException {
+    ArgumentCaptor<HttpRoutePlanner> routePlannerCaptor =
+        ArgumentCaptor.forClass(HttpRoutePlanner.class);
+
+    DatabricksHttpClient.setFakeServiceRouteInHttpClient(httpClientBuilder);
+
+    Mockito.verify(httpClientBuilder).setRoutePlanner(routePlannerCaptor.capture());
+    HttpRoutePlanner capturedRoutePlanner = routePlannerCaptor.getValue();
+
+    HttpGet request = new HttpGet("http://localhost:53423");
+    HttpRoute route =
+        capturedRoutePlanner.determineRoute(
+            HttpHost.create(request.getURI().toString()), request, null);
+
+    // Verify the route has no proxy host set as the target URI directly points to fake service
+    assertNull(route.getProxyHost());
+  }
+
+  @Test
   public void testSetFakeServiceRouteInHttpClientThrowsError() {
     final String testTargetURI = "https://example.com";
 
-    HttpClientBuilder httpClientBuilder = Mockito.mock(HttpClientBuilder.class);
     ArgumentCaptor<HttpRoutePlanner> routePlannerCaptor =
         ArgumentCaptor.forClass(HttpRoutePlanner.class);
 
@@ -131,7 +150,6 @@ public class DatabricksHttpClientTest {
     final String testFakeServiceURI = "http://localhost:8080";
     System.setProperty(testTargetURI + FAKE_SERVICE_URI_PROP_SUFFIX, testFakeServiceURI);
 
-    HttpClientBuilder httpClientBuilder = Mockito.mock(HttpClientBuilder.class);
     ArgumentCaptor<HttpRoutePlanner> routePlannerCaptor =
         ArgumentCaptor.forClass(HttpRoutePlanner.class);
 

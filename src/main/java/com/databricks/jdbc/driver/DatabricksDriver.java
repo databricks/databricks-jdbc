@@ -8,8 +8,14 @@ import com.databricks.sdk.core.DatabricksError;
 import com.databricks.sdk.core.UserAgent;
 import java.sql.*;
 import java.util.Properties;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Level;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.core.LoggerContext;
+import org.apache.logging.log4j.core.appender.FileAppender;
+import org.apache.logging.log4j.core.config.Configuration;
+import org.apache.logging.log4j.core.config.LoggerConfig;
+import org.apache.logging.log4j.core.layout.PatternLayout;
 
 /**
  * Databricks JDBC driver. TODO: Add implementation to accept Urls in format:
@@ -17,7 +23,7 @@ import org.slf4j.LoggerFactory;
  */
 public class DatabricksDriver implements Driver {
 
-  private static final Logger LOGGER = LoggerFactory.getLogger(DatabricksDriver.class);
+  private static final Logger LOGGER = LogManager.getLogger(DatabricksDriver.class);
   private static final DatabricksDriver INSTANCE;
 
   private static final int majorVersion = 0;
@@ -42,11 +48,7 @@ public class DatabricksDriver implements Driver {
   public Connection connect(String url, Properties info) throws DatabricksSQLException {
     LOGGER.debug("public Connection connect(String url = {}, Properties info)", url);
     IDatabricksConnectionContext connectionContext = DatabricksConnectionContext.parse(url, info);
-    System.setProperty(SYSTEM_LOG_LEVEL_CONFIG, connectionContext.getLogLevelString());
-    String logFileConfig = connectionContext.getLogPathString();
-    if (logFileConfig != null) {
-      System.setProperty(SYSTEM_LOG_FILE_CONFIG, logFileConfig);
-    }
+    configureLogging(connectionContext.getLogPathString(), connectionContext.getLogLevelString());
     setUserAgent(connectionContext);
     try {
       return new DatabricksConnection(connectionContext);
@@ -96,5 +98,30 @@ public class DatabricksDriver implements Driver {
   public static void setUserAgent(IDatabricksConnectionContext connectionContext) {
     UserAgent.withProduct(DatabricksJdbcConstants.DEFAULT_USER_AGENT, getVersion());
     UserAgent.withOtherInfo(CLIENT_USER_AGENT_PREFIX, connectionContext.getClientUserAgent());
+  }
+
+  public static void configureLogging(String logFilePath, String logLevel) {
+    LoggerContext context = (LoggerContext) LogManager.getContext(false);
+    Configuration config = context.getConfiguration();
+    PatternLayout layout =
+        PatternLayout.newBuilder()
+            .withPattern("%d{yyyy-MM-dd HH:mm:ss} %-5p %c{1}:%L - %m%n")
+            .build();
+    FileAppender appender =
+        FileAppender.newBuilder()
+            .setConfiguration(config)
+            .withLayout(layout)
+            .withFileName(logFilePath)
+            .withName(logFilePath)
+            .build();
+    LoggerConfig loggerConfig = config.getLoggerConfig(LogManager.ROOT_LOGGER_NAME);
+    if (appender != null) {
+      // Appender can be null if the parameters are incorrect; no error should be thrown.
+      appender.start();
+      config.addAppender(appender);
+      loggerConfig.addAppender(appender, Level.valueOf(logLevel), null);
+    }
+    loggerConfig.setLevel(org.apache.logging.log4j.Level.valueOf(logLevel.toUpperCase()));
+    context.updateLoggers();
   }
 }
