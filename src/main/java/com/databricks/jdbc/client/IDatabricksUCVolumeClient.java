@@ -26,7 +26,7 @@ public interface IDatabricksUCVolumeClient {
    * @param catalog the catalog name of the cloud storage
    * @param schema the schema name of the cloud storage
    * @param volume the UC volume name of the cloud storage
-   * @param objectName the name of the object (file) to check for existence
+   * @param objectName the name of the object (file OR folder) to check for existence
    * @param caseSensitive a boolean indicating whether the check should be case-sensitive or not
    * @return a boolean indicating whether the object exists or not
    */

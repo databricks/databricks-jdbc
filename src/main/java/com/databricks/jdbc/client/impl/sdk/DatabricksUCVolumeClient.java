@@ -12,6 +12,8 @@ public class DatabricksUCVolumeClient implements IDatabricksUCVolumeClient {
 
   private static final Logger LOGGER = LogManager.getLogger(DatabricksSdkClient.class);
 
+  public static final String UC_VOLUME_COLUMN_NAME = "name";
+
   public DatabricksUCVolumeClient(Connection connection) {
     this.connection = connection;
   }
@@ -85,7 +87,7 @@ public class DatabricksUCVolumeClient implements IDatabricksUCVolumeClient {
 
       boolean exists = false;
       while (resultSet.next()) {
-        String fileName = resultSet.getString("name");
+        String fileName = resultSet.getString(UC_VOLUME_COLUMN_NAME);
         if (fileName.regionMatches(
             /* ignoreCase= */ !caseSensitive,
             /* targetOffset= */ 0,
