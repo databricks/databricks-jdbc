@@ -85,8 +85,7 @@ public class ConcurrencyIntegrationTests extends AbstractFakeServiceIntegrationT
     executor.submit(updateTask);
     executor.submit(updateTask);
     executor.shutdown();
-    executor.awaitTermination(2, TimeUnit.MINUTES);
-
+    executor.awaitTermination(1, TimeUnit.MINUTES);
     assertEquals(counter.get(), 1);
 
     String selectSQL =

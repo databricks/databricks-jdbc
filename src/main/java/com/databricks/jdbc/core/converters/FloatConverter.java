@@ -2,6 +2,7 @@ package com.databricks.jdbc.core.converters;
 
 import com.databricks.jdbc.core.DatabricksSQLException;
 import java.math.BigDecimal;
+import java.math.BigInteger;
 import java.nio.ByteBuffer;
 
 public class FloatConverter extends AbstractObjectConverter {
@@ -15,6 +16,11 @@ public class FloatConverter extends AbstractObjectConverter {
     } else {
       this.object = (float) object;
     }
+  }
+
+  @Override
+  public BigInteger convertToBigInteger() throws DatabricksSQLException {
+    return BigInteger.valueOf(this.convertToLong());
   }
 
   @Override

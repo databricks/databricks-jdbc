@@ -2,6 +2,7 @@ package com.databricks.jdbc.core.converters;
 
 import com.databricks.jdbc.core.DatabricksSQLException;
 import java.math.BigDecimal;
+import java.math.BigInteger;
 import java.sql.Date;
 import java.sql.Timestamp;
 
@@ -71,6 +72,11 @@ public class StringConverter extends AbstractObjectConverter {
     } catch (NumberFormatException e) {
       throw new DatabricksSQLException("Invalid conversion");
     }
+  }
+
+  @Override
+  public BigInteger convertToBigInteger() throws DatabricksSQLException {
+    return BigInteger.valueOf(this.convertToLong());
   }
 
   @Override

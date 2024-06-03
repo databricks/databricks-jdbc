@@ -3,9 +3,11 @@ package com.databricks.jdbc.core.converters;
 import com.databricks.jdbc.core.DatabricksSQLException;
 import java.io.*;
 import java.math.BigDecimal;
+import java.math.BigInteger;
 import java.nio.charset.StandardCharsets;
 import java.sql.Date;
 import java.sql.Timestamp;
+import java.time.LocalDate;
 
 public abstract class AbstractObjectConverter {
 
@@ -46,6 +48,14 @@ public abstract class AbstractObjectConverter {
   }
 
   public BigDecimal convertToBigDecimal() throws DatabricksSQLException {
+    throw new DatabricksSQLException("Unsupported conversion operation");
+  }
+
+  public BigInteger convertToBigInteger() throws DatabricksSQLException {
+    throw new DatabricksSQLException("Unsupported conversion operation");
+  }
+
+  public LocalDate convertToLocalDate() throws DatabricksSQLException {
     throw new DatabricksSQLException("Unsupported conversion operation");
   }
 
