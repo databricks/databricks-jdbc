@@ -71,9 +71,18 @@ public class DatabricksUCVolumeClient implements IDatabricksUCVolumeClient {
     }
   }
 
+  @Override
   public boolean objectExists(
       String catalog, String schema, String volume, String objectName, boolean caseSensitive)
       throws SQLException {
+
+    LOGGER.info(
+        "Entering objectExists method with parameters: catalog={}, schema={}, volume={}, objectName={}, caseSensitive={}",
+        catalog,
+        schema,
+        volume,
+        objectName,
+        caseSensitive);
 
     String listFilesSQLQuery = createListQuery(catalog, schema, volume);
 
