@@ -131,35 +131,4 @@ public class DriverTester {
     resultSet.close();
     con.close();
   }
-
-  @Test
-  void testWhichDriver() throws Exception {
-    DriverManager.registerDriver(new com.databricks.client.jdbc.Driver());
-    DriverManager.drivers()
-            .forEach(
-                    driver -> {
-                      if (driver.getClass().getName().contains("DatabricksDriver")) {
-                        try {
-                          DriverManager.deregisterDriver(driver);
-                        } catch (SQLException e) {
-                          throw new RuntimeException(e);
-                        }
-                      }
-                    });
-    DriverManager.registerDriver(new com.databricks.jdbc.driver.DatabricksDriver());
-    DriverManager.drivers().forEach(driver -> System.out.println(driver.getClass()));
-    String jdbcUrl =
-            "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=https;ssl=1;httpPath=sql/protocolv1/o/6051921418418893/1115-130834-ms4m0yv;AuthMech=3;UID=token;LogLevel=debug;LogPath=test1/applicationLoggingTest.log;";
-    Connection connection = DriverManager.getConnection(jdbcUrl, "samikshya.chand@databricks.com", System.getenv("DATABRICKS_TOKEN"));
-    DatabaseMetaData metaData = connection.getMetaData();
-    String driverName = metaData.getDriverName();
-
-    if (driverName.contains("Databricks")) {
-      System.out.println("Using Databricks JDBC driver");
-    } else if (driverName.contains("Simba")) {
-      System.out.println("Using Simba JDBC driver");
-    } else {
-      System.out.println("Using other JDBC driver");
-    }
-  }
 }
