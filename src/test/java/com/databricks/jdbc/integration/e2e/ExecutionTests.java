@@ -34,13 +34,11 @@ public class ExecutionTests {
     String tableName = "update_test_table";
     setupDatabaseTable(tableName);
     insertTestData(tableName);
-
     String updateSQL =
         "UPDATE "
             + getFullyQualifiedTableName(tableName)
             + " SET col1 = 'updatedValue1' WHERE id = 1";
     executeSQL(updateSQL);
-
     ResultSet rs =
         executeQuery("SELECT col1 FROM " + getFullyQualifiedTableName(tableName) + " WHERE id = 1");
     assertTrue(
@@ -70,7 +68,6 @@ public class ExecutionTests {
     String tableName = "compound_test_table";
     setupDatabaseTable(tableName);
     insertTestData(tableName);
-
     // Update operation as part of compound test
     String updateSQL =
         "UPDATE "

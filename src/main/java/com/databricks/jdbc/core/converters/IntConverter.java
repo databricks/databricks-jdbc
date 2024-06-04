@@ -2,6 +2,7 @@ package com.databricks.jdbc.core.converters;
 
 import com.databricks.jdbc.core.DatabricksSQLException;
 import java.math.BigDecimal;
+import java.math.BigInteger;
 import java.nio.ByteBuffer;
 import java.sql.Date;
 import java.sql.Time;
@@ -22,6 +23,11 @@ public class IntConverter extends AbstractObjectConverter {
     } else {
       this.object = (int) object;
     }
+  }
+
+  @Override
+  public BigInteger convertToBigInteger() throws DatabricksSQLException {
+    return BigInteger.valueOf(this.object);
   }
 
   @Override

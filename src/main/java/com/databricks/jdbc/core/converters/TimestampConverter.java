@@ -1,6 +1,7 @@
 package com.databricks.jdbc.core.converters;
 
 import com.databricks.jdbc.core.DatabricksSQLException;
+import java.math.BigInteger;
 import java.sql.Date;
 import java.sql.Timestamp;
 import java.time.Instant;
@@ -43,5 +44,10 @@ public class TimestampConverter extends AbstractObjectConverter {
   @Override
   public String convertToString() throws DatabricksSQLException {
     return this.object.toInstant().toString();
+  }
+
+  @Override
+  public BigInteger convertToBigInteger() throws DatabricksSQLException {
+    return BigInteger.valueOf(this.convertToLong());
   }
 }

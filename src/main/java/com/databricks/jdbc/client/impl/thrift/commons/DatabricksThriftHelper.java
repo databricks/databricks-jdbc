@@ -82,6 +82,20 @@ public class DatabricksThriftHelper {
     return Collections.singletonList(obj);
   }
 
+  public static List<List<Object>> extractValuesColumnar(List<TColumn> columnList) {
+    if (columnList == null || columnList.isEmpty() || columnList.get(0).getStringVal() == null) {
+      return Collections.singletonList(Collections.emptyList());
+    }
+    int numberOfItems = columnList.get(0).getStringVal().getValuesSize();
+    return IntStream.range(0, numberOfItems)
+        .mapToObj(
+            i ->
+                columnList.stream()
+                    .map(column -> (Object) column.getStringVal().getValues().get(i))
+                    .collect(Collectors.toList()))
+        .collect(Collectors.toList());
+  }
+
   private static Object getColumnFirstValue(TColumn column) {
     return getColumnValues(column).get(0);
   }

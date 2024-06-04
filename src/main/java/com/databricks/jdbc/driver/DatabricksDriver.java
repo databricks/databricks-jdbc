@@ -4,7 +4,6 @@ import static com.databricks.jdbc.driver.DatabricksJdbcConstants.*;
 
 import com.databricks.jdbc.core.DatabricksConnection;
 import com.databricks.jdbc.core.DatabricksSQLException;
-import com.databricks.sdk.core.DatabricksError;
 import com.databricks.sdk.core.UserAgent;
 import java.sql.*;
 import java.util.Properties;
@@ -52,7 +51,7 @@ public class DatabricksDriver implements Driver {
     setUserAgent(connectionContext);
     try {
       return new DatabricksConnection(connectionContext);
-    } catch (DatabricksError e) {
+    } catch (Exception e) {
       throw new DatabricksSQLException(
           "Invalid or unknown token or hostname provided :" + connectionContext.getHostUrl(), e);
     }

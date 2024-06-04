@@ -8,7 +8,8 @@ public class MetadataResultConstants {
   public static final String[] DEFAULT_TABLE_TYPES = {"TABLE", "VIEW", "SYSTEM TABLE"};
   private static final ResultColumn CATALOG_COLUMN =
       new ResultColumn("TABLE_CAT", "catalogName", Types.VARCHAR);
-
+  private static final ResultColumn CATALOG_FULL_COLUMN =
+      new ResultColumn("TABLE_CATALOG", "catalogName", Types.VARCHAR);
   private static final ResultColumn CATALOG_COLUMN_FOR_GET_CATALOGS =
       new ResultColumn("TABLE_CAT", "catalog", Types.VARCHAR);
   private static final ResultColumn TYPE_CATALOG_COLUMN =
@@ -159,7 +160,17 @@ public class MetadataResultConstants {
           INFORMATION_NAME_COLUMN);
 
   public static List<ResultColumn> TABLE_COLUMNS_ALL_PURPOSE =
-      List.of(CATALOG_COLUMN, SCHEMA_COLUMN, TABLE_NAME_COLUMN, TABLE_TYPE_COLUMN, REMARKS_COLUMN);
+      List.of(
+          CATALOG_COLUMN,
+          SCHEMA_COLUMN,
+          TABLE_NAME_COLUMN,
+          TABLE_TYPE_COLUMN,
+          REMARKS_COLUMN,
+          TYPE_CATALOG_COLUMN,
+          TYPE_SCHEMA_COLUMN,
+          TYPE_NAME_COLUMN,
+          SELF_REFERENCING_COLUMN_NAME,
+          REF_GENERATION_COLUMN);
   public static List<ResultColumn> PRIMARY_KEYS_COLUMNS =
       List.of(
           CATALOG_COLUMN,

@@ -75,7 +75,7 @@ public class ConcurrencyIntegrationTests extends AbstractFakeServiceIntegrationT
                   + " SET counter = counter + 1 WHERE id = 1";
           try (PreparedStatement preparedStatement = connection.prepareStatement(sql)) {
             preparedStatement.executeUpdate();
-          } catch (SQLException e) {
+          } catch (Exception e) {
             counter.getAndIncrement();
             System.out.println("Expected exception on concurrent update: " + e.getMessage());
           }
@@ -86,7 +86,6 @@ public class ConcurrencyIntegrationTests extends AbstractFakeServiceIntegrationT
     executor.submit(updateTask);
     executor.shutdown();
     executor.awaitTermination(1, TimeUnit.MINUTES);
-
     assertEquals(counter.get(), 1);
 
     String selectSQL =

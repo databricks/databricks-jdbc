@@ -15,7 +15,6 @@ public class ConnectionTests {
   void testSuccessfulConnection() throws SQLException {
     Connection conn = getValidJDBCConnection();
     assert ((conn != null) && !conn.isClosed());
-
     if (conn != null) conn.close();
   }
 
@@ -28,7 +27,6 @@ public class ConnectionTests {
             () -> {
               DriverManager.getConnection(url, getDatabricksUser(), "bad_token");
             });
-
     assert (e.getMessage().contains("Invalid or unknown token or hostname provided"));
   }
 

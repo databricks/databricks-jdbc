@@ -58,7 +58,7 @@ public class DatabricksThriftServiceClient implements DatabricksClient, Databric
             .setInitialNamespace(getNamespace(catalog, schema))
             .setConfiguration(sessionConf)
             .setCanUseMultipleCatalogs(true)
-            .setClient_protocol(JDBC_THRIFT_VERSION);
+            .setClient_protocol_i64(JDBC_THRIFT_VERSION.getValue());
     TOpenSessionResp response =
         (TOpenSessionResp)
             thriftAccessor.getThriftResponse(openSessionReq, CommandName.OPEN_SESSION, null);
@@ -180,7 +180,7 @@ public class DatabricksThriftServiceClient implements DatabricksClient, Databric
     TFetchResultsResp response =
         (TFetchResultsResp)
             thriftAccessor.getThriftResponse(request, CommandName.LIST_CATALOGS, null);
-    return getCatalogsResult(extractValues(response.getResults().getColumns()));
+    return getCatalogsResult(extractValuesColumnar(response.getResults().getColumns()));
   }
 
   @Override
@@ -194,12 +194,14 @@ public class DatabricksThriftServiceClient implements DatabricksClient, Databric
     TGetSchemasReq request =
         new TGetSchemasReq()
             .setSessionHandle(session.getSessionInfo().sessionHandle())
-            .setCatalogName(catalog)
-            .setSchemaName(schemaNamePattern);
+            .setCatalogName(catalog);
+    if (schemaNamePattern != null) {
+      request.setSchemaName(schemaNamePattern);
+    }
     TFetchResultsResp response =
         (TFetchResultsResp)
             thriftAccessor.getThriftResponse(request, CommandName.LIST_SCHEMAS, null);
-    return getSchemasResult(extractValues(response.getResults().getColumns()));
+    return getSchemasResult(extractValuesColumnar(response.getResults().getColumns()));
   }
 
   @Override
@@ -220,12 +222,14 @@ public class DatabricksThriftServiceClient implements DatabricksClient, Databric
             .setSessionHandle(session.getSessionInfo().sessionHandle())
             .setCatalogName(catalog)
             .setSchemaName(schemaNamePattern)
-            .setTableName(tableNamePattern)
-            .setTableTypes(Arrays.asList(tableTypes));
+            .setTableName(tableNamePattern);
+    if (tableTypes != null) {
+      request.setTableTypes(Arrays.asList(tableTypes));
+    }
     TFetchResultsResp response =
         (TFetchResultsResp)
             thriftAccessor.getThriftResponse(request, CommandName.LIST_TABLES, null);
-    return getTablesResult(extractValues(response.getResults().getColumns()));
+    return getTablesResult(extractValuesColumnar(response.getResults().getColumns()));
   }
 
   @Override
