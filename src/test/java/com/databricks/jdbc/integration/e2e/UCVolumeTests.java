@@ -55,7 +55,15 @@ public class UCVolumeTests {
         Arguments.of(UC_VOLUME_CATALOG, UC_VOLUME_SCHEMA, "test_volume1", "xyz", false, false),
         Arguments.of(UC_VOLUME_CATALOG, UC_VOLUME_SCHEMA, "test_volume1", "dEf", false, true),
         Arguments.of(UC_VOLUME_CATALOG, UC_VOLUME_SCHEMA, "test_volume1", "#!", true, true),
-        Arguments.of(UC_VOLUME_CATALOG, UC_VOLUME_SCHEMA, "test_volume1", "aBc", true, true));
+        Arguments.of(UC_VOLUME_CATALOG, UC_VOLUME_SCHEMA, "test_volume1", "aBc", true, true),
+        Arguments.of(
+            UC_VOLUME_CATALOG,
+            UC_VOLUME_SCHEMA,
+            "test_volume1",
+            "testfile",
+            true,
+            true), // checks for recursive calls since testfile.csv is located in a sub-folder
+        Arguments.of(UC_VOLUME_CATALOG, UC_VOLUME_SCHEMA, "test_volume1", "file", true, false));
   }
 
   @ParameterizedTest
@@ -136,5 +144,29 @@ public class UCVolumeTests {
             UC_VOLUME_CATALOG, UC_VOLUME_SCHEMA, "test_volume1", "#!#_file3.csv", true, true),
         Arguments.of(
             UC_VOLUME_CATALOG, UC_VOLUME_SCHEMA, "test_volume1", "#_file3.csv", true, false));
+  }
+
+  @ParameterizedTest
+  @MethodSource("provideParametersForObjectExistsRecursiveCalls")
+  void testObjectExistsRecursiveCalls(
+      String catalog,
+      String schema,
+      String volume,
+      String objectName,
+      boolean caseSensitive,
+      boolean expected)
+      throws Exception {
+    boolean result = client.objectExists(catalog, schema, volume, objectName, caseSensitive);
+    assertEquals(expected, result);
+  }
+
+  private static Stream<Arguments> provideParametersForObjectExistsRecursiveCalls() {
+    return Stream.of(
+        Arguments.of(
+            UC_VOLUME_CATALOG, UC_VOLUME_SCHEMA, "test_volume1", "efg_file1.csv", true, true),
+        Arguments.of(
+            UC_VOLUME_CATALOG, UC_VOLUME_SCHEMA, "test_volume1", "xyz_file1.csv", true, false),
+        Arguments.of(
+            UC_VOLUME_CATALOG, UC_VOLUME_SCHEMA, "test_volume1", "testfile1.csv", true, true));
   }
 }

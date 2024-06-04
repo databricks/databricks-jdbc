@@ -46,38 +46,34 @@ public class DatabricksUCVolumeClient implements IDatabricksUCVolumeClient {
       ResultSet resultSet = statement.executeQuery(listFilesSQLQuery);
       LOGGER.info("SQL query executed successfully");
 
-      boolean exists = false;
       while (resultSet.next()) {
-        String fileName = resultSet.getString("name");
-        if (fileName.regionMatches(
+        String fileName = resultSet.getString(UC_VOLUME_COLUMN_NAME);
+
+        if (fileName.endsWith("/")) { // recursive calls when a folder is detected
+          String newVolume = volume + "/" + fileName;
+          if (prefixExists(catalog, schema, newVolume, prefix, caseSensitive)) {
+            return true;
+          }
+        } else if (fileName.regionMatches(
             /* ignoreCase= */ !caseSensitive,
             /* targetOffset= */ 0,
             /* StringToCheck= */ prefix,
             /* sourceOffset= */ 0,
             /* lengthToMatch= */ prefix.length())) {
-          exists = true;
-          break;
+          return true;
         }
       }
-      return exists;
+
+      return false;
     } catch (SQLException e) {
       LOGGER.error("SQL query execution failed", e);
       throw e;
     }
   }
 
-  @Override
   public boolean objectExists(
       String catalog, String schema, String volume, String objectName, boolean caseSensitive)
       throws SQLException {
-
-    LOGGER.info(
-        "Entering objectExists method with parameters: catalog={}, schema={}, volume={}, objectName={}, caseSensitive={}",
-        catalog,
-        schema,
-        volume,
-        objectName,
-        caseSensitive);
 
     String listFilesSQLQuery = createListQuery(catalog, schema, volume);
 
@@ -85,20 +81,25 @@ public class DatabricksUCVolumeClient implements IDatabricksUCVolumeClient {
       ResultSet resultSet = statement.executeQuery(listFilesSQLQuery);
       LOGGER.info("SQL query executed successfully");
 
-      boolean exists = false;
       while (resultSet.next()) {
         String fileName = resultSet.getString(UC_VOLUME_COLUMN_NAME);
-        if (fileName.regionMatches(
+
+        if (fileName.endsWith("/")) { // recursive calls when a folder is detected
+          String newVolume = volume + "/" + fileName;
+          if (objectExists(catalog, schema, newVolume, objectName, caseSensitive)) {
+            return true;
+          }
+        } else if (fileName.regionMatches(
             /* ignoreCase= */ !caseSensitive,
             /* targetOffset= */ 0,
             /* StringToCheck= */ objectName,
             /* sourceOffset= */ 0,
             /* lengthToMatch= */ objectName.length())) {
-          exists = true;
-          break;
+          return true;
         }
       }
-      return exists;
+
+      return false;
     } catch (SQLException e) {
       LOGGER.error("SQL query execution failed", e);
       throw e;
