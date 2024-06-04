@@ -7,6 +7,7 @@ import com.databricks.jdbc.core.types.CompressionType;
 import com.databricks.jdbc.core.types.ComputeResource;
 import java.util.List;
 import java.util.Map;
+import org.apache.logging.log4j.Level;
 
 public interface IDatabricksConnectionContext {
 
@@ -68,7 +69,7 @@ public interface IDatabricksConnectionContext {
 
   AuthFlow getAuthFlow();
 
-  String getLogLevelString();
+  Level getLogLevel();
 
   String getLogPathString();
 

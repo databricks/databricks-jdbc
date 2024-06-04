@@ -1,5 +1,6 @@
 package com.databricks.jdbc.driver;
 
+import static com.databricks.jdbc.driver.DatabricksConnectionContext.getLogLevel;
 import static com.databricks.jdbc.driver.DatabricksJdbcConstants.DEFAULT_CATALOG;
 import static com.databricks.jdbc.driver.DatabricksJdbcConstants.DEFAULT_SCHEMA;
 import static org.junit.jupiter.api.Assertions.*;
@@ -10,6 +11,7 @@ import com.databricks.jdbc.core.DatabricksSQLException;
 import com.databricks.jdbc.core.types.CompressionType;
 import java.util.List;
 import java.util.Properties;
+import org.apache.logging.log4j.Level;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
@@ -20,7 +22,7 @@ class DatabricksConnectionContextTest {
   private static final String VALID_URL_2 =
       "jdbc:databricks://azuredatabricks.net/default;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/fgff575757;LogLevel=invalid;EnableQueryResultLZ4Compression=1;UseThriftClient=0";
   private static final String VALID_URL_3 =
-      "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=http;ssl=0;AuthMech=3;httpPath=/sql/1.0/warehouses/5c89f447c476a5a8;EnableQueryResultLZ4Compression=0;UseThriftClient=1";
+      "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=http;ssl=0;AuthMech=3;httpPath=/sql/1.0/warehouses/5c89f447c476a5a8;EnableQueryResultLZ4Compression=0;UseThriftClient=1;LogLevel=1234";
   private static final String VALID_URL_4 =
       "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;AuthMech=3;httpPath=/sql/1.0/warehouses/5c89f447c476a5a8;QueryResultCompressionType=1";
   private static final String VALID_URL_5 =
@@ -42,7 +44,7 @@ class DatabricksConnectionContextTest {
   private static final String VALID_TEST_URL = "jdbc:databricks://test";
 
   private static final String VALID_CLUSTER_URL =
-      "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;ssl=1;httpPath=sql/protocolv1/o/6051921418418893/1115-130834-ms4m0yv;AuthMech=3";
+      "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;ssl=1;httpPath=sql/protocolv1/o/6051921418418893/1115-130834-ms4m0yv;AuthMech=3;loglevel=3";
   private static final String INVALID_CLUSTER_URL =
       "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;ssl=1;httpPath=sql/protocolv1/oo/6051921418418893/1115-130834-ms4m0yv;AuthMech=3";
 
@@ -105,7 +107,7 @@ class DatabricksConnectionContextTest {
         IDatabricksConnectionContext.AuthFlow.BROWSER_BASED_AUTHENTICATION);
     assertEquals(7, connectionContext.parameters.size());
     assertEquals(CompressionType.NONE, connectionContext.getCompressionType());
-    assertEquals("DEBUG", connectionContext.getLogLevelString());
+    assertEquals(Level.DEBUG, connectionContext.getLogLevel());
     assertNull(connectionContext.getClientSecret());
     assertEquals("test1/application.log", connectionContext.getLogPathString());
     assertNull(connectionContext.getOAuthScopesForU2M());
@@ -122,8 +124,8 @@ class DatabricksConnectionContextTest {
     assertEquals("96eecda7-19ea-49cc-abb5-240097d554f5", connectionContext.getClientId());
     assertEquals(7, connectionContext.parameters.size());
     assertEquals(CompressionType.LZ4_COMPRESSION, connectionContext.getCompressionType());
-    assertEquals("INFO", connectionContext.getLogLevelString());
-    assertNull(connectionContext.getLogPathString());
+    assertEquals(Level.INFO, connectionContext.getLogLevel());
+    assertEquals(connectionContext.getLogPathString(), "logs/application.log");
     assertEquals("3", connectionContext.parameters.get("authmech"));
     assertNull(connectionContext.getOAuthScopesForU2M());
     assertFalse(connectionContext.isAllPurposeCluster());
@@ -143,8 +145,8 @@ class DatabricksConnectionContextTest {
         IDatabricksConnectionContext.AuthFlow.TOKEN_PASSTHROUGH, connectionContext.getAuthFlow());
     assertEquals(IDatabricksConnectionContext.AuthMech.PAT, connectionContext.getAuthMech());
     assertEquals(CompressionType.NONE, connectionContext.getCompressionType());
-    assertEquals(7, connectionContext.parameters.size());
-    assertEquals("INFO", connectionContext.getLogLevelString());
+    assertEquals(8, connectionContext.parameters.size());
+    assertEquals(Level.INFO, connectionContext.getLogLevel());
     assertEquals(connectionContext.getOAuthScopesForU2M(), expected_scopes);
     assertFalse(connectionContext.isAllPurposeCluster());
     assertEquals(DatabricksClientType.THRIFT, connectionContext.getClientType());
@@ -204,6 +206,7 @@ class DatabricksConnectionContextTest {
     DatabricksConnectionContext connectionContext =
         (DatabricksConnectionContext)
             DatabricksConnectionContext.parse(VALID_CLUSTER_URL, properties);
+    assertEquals(connectionContext.getLogLevel(), Level.WARN);
     assertEquals(
         "https://e2-dogfood.staging.cloud.databricks.com:443/sql/protocolv1/o/6051921418418893/1115-130834-ms4m0yv",
         connectionContext.getEndpointURL());
@@ -231,8 +234,8 @@ class DatabricksConnectionContextTest {
         "sql/protocolv1/o/6051921418418893/1115-130834-ms4m0yv", connectionContext.getHttpPath());
     assertEquals("passwd", connectionContext.getToken());
     assertEquals(CompressionType.NONE, connectionContext.getCompressionType());
-    assertEquals(4, connectionContext.parameters.size());
-    assertEquals("INFO", connectionContext.getLogLevelString());
+    assertEquals(5, connectionContext.parameters.size());
+    assertEquals(Level.WARN, connectionContext.getLogLevel());
     assertTrue(connectionContext.isAllPurposeCluster());
     assertEquals(DatabricksClientType.THRIFT, connectionContext.getClientType());
   }
@@ -247,7 +250,7 @@ class DatabricksConnectionContextTest {
     assertEquals(5, connectionContext.parameters.size());
     assertEquals(
         "http://e2-dogfood.staging.cloud.databricks.com:4473", connectionContext.getHostUrl());
-    assertEquals("INFO", connectionContext.getLogLevelString());
+    assertEquals(Level.INFO, connectionContext.getLogLevel());
   }
 
   @Test
@@ -282,5 +285,17 @@ class DatabricksConnectionContextTest {
     assertTrue(connectionContextWithCFProxy.getUseCloudFetchProxyAuth());
     assertEquals("cfProxyUser", connectionContextWithCFProxy.getCloudFetchProxyUser());
     assertEquals("cfProxyPassword", connectionContextWithCFProxy.getCloudFetchProxyPassword());
+  }
+
+  @Test
+  void testLogLevels() {
+    assertEquals(getLogLevel(123), Level.INFO);
+    assertEquals(getLogLevel(0), Level.OFF);
+    assertEquals(getLogLevel(1), Level.FATAL);
+    assertEquals(getLogLevel(2), Level.ERROR);
+    assertEquals(getLogLevel(3), Level.WARN);
+    assertEquals(getLogLevel(4), Level.INFO);
+    assertEquals(getLogLevel(5), Level.DEBUG);
+    assertEquals(getLogLevel(6), Level.TRACE);
   }
 }

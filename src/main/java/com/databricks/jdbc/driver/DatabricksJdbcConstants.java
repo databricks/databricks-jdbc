@@ -4,6 +4,7 @@ import com.google.common.annotations.VisibleForTesting;
 import java.util.Map;
 import java.util.Set;
 import java.util.regex.Pattern;
+import org.apache.logging.log4j.Level;
 
 public final class DatabricksJdbcConstants {
 
@@ -14,11 +15,10 @@ public final class DatabricksJdbcConstants {
   static final Pattern TEST_PATH_PATTERN = Pattern.compile("jdbc:databricks://test");
   static final Pattern HTTP_CLUSTER_PATH_PATTERN = Pattern.compile(".*/o/(.+)/(.+)");
   public static final String JDBC_SCHEMA = "jdbc:databricks://";
-  static final String DEFAULT_LOG_LEVEL = "INFO";
+  static final Level DEFAULT_LOG_LEVEL = Level.INFO;
   static final String LOG_LEVEL = "loglevel";
   static final String LOG_PATH = "logpath";
-  static final String SYSTEM_LOG_LEVEL_CONFIG = "defaultLogLevel";
-  static final String SYSTEM_LOG_FILE_CONFIG = "defaultLogFile";
+  static final String DEFAULT_LOG_PATH = "logs/application.log";
   public static final String URL_DELIMITER = ";";
   public static final String PORT_DELIMITER = ":";
   static final String DEFAULT_SCHEMA = "default";
