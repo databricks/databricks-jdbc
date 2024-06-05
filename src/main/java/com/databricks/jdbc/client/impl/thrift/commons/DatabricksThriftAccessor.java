@@ -59,6 +59,7 @@ public class DatabricksThriftAccessor {
         request.toString(),
         commandName.name());
     refreshHeadersIfRequired();
+    System.out.println("Here is request "+request);
     try {
       switch (commandName) {
         case OPEN_SESSION:
