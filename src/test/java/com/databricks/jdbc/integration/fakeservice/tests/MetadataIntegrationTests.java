@@ -120,7 +120,7 @@ public class MetadataIntegrationTests extends AbstractFakeServiceIntegrationTest
   }
 
   @Test
-  void testCatalogAndSchemaInformation() throws SQLException {
+  void testCatalogInformation() throws SQLException {
     DatabaseMetaData metaData = connection.getMetaData();
 
     // Test getCatalogs
@@ -131,22 +131,28 @@ public class MetadataIntegrationTests extends AbstractFakeServiceIntegrationTest
         assertNotNull(catalogName, "Catalog name should not be null");
       } while (catalogs.next());
     }
+  }
 
-    // Test getSchemas
-    try (ResultSet schemas = metaData.getSchemas("main", "*")) {
+  @Test
+  void testSchemaInformation() throws SQLException {
+    DatabaseMetaData metaData = connection.getMetaData();
+    try (ResultSet schemas = metaData.getSchemas("main", ".*")) {
       assertTrue(schemas.next(), "There should be at least one schema");
       do {
         String schemaName = schemas.getString("TABLE_SCHEM");
         assertNotNull(schemaName, "Schema name should not be null");
       } while (schemas.next());
     }
+  }
 
-    // Verify tables retrieval with specific catalog and schema
+  @Test
+  void testTableInformation() throws SQLException {
+    DatabaseMetaData metaData = connection.getMetaData();
     String catalog = "main";
     String schemaPattern = "jdbc_test_schema";
     String tableName = "catalog_and_schema_test_table";
     setupDatabaseTable(tableName);
-    try (ResultSet tables = metaData.getTables(catalog, schemaPattern, "*", null)) {
+    try (ResultSet tables = metaData.getTables(catalog, schemaPattern, ".*", null)) {
       assertTrue(
           tables.next(), "There should be at least one table in the specified catalog and schema");
       do {
@@ -154,8 +160,16 @@ public class MetadataIntegrationTests extends AbstractFakeServiceIntegrationTest
         assertNotNull(fetchedTableName, "Table name should not be null");
       } while (tables.next());
     }
+    deleteTable(tableName);
+  }
 
-    // Test to get particular table
+  @Test
+  void testTableInformationExactMatch() throws SQLException {
+    DatabaseMetaData metaData = connection.getMetaData();
+    String catalog = "main";
+    String schemaPattern = "jdbc_test_schema";
+    String tableName = "catalog_and_schema_test_table";
+    setupDatabaseTable(tableName);
     try (ResultSet tables = metaData.getTables(catalog, schemaPattern, tableName, null)) {
       assertTrue(
           tables.next(), "There should be at least one table in the specified catalog and schema");
@@ -166,13 +180,5 @@ public class MetadataIntegrationTests extends AbstractFakeServiceIntegrationTest
       } while (tables.next());
     }
     deleteTable(tableName);
-
-    // At least 7 statement requests are sent:
-    // show catalogs, show schemas, drop table, create table, show tables, show particular table,
-    // drop
-    getSqlExecApiExtension()
-        .verify(
-            new CountMatchingStrategy(CountMatchingStrategy.GREATER_THAN_OR_EQUAL, 7),
-            postRequestedFor(urlEqualTo(STATEMENT_PATH)));
   }
 }

@@ -69,10 +69,7 @@ public class ErrorHandlingIntegrationTests extends AbstractFakeServiceIntegratio
         "INSERT INTO "
             + getFullyQualifiedTableName(tableName)
             + " (id, col1, col2) VALUES (1, 'value1', 'value2')";
-    executeSQL(
-        "INSERT INTO "
-            + getFullyQualifiedTableName(tableName)
-            + " (id, col1, col2) VALUES (1, 'value1', 'value2')");
+    executeSQL(sql);
     ResultSet resultSet = executeQuery("SELECT * FROM " + getFullyQualifiedTableName(tableName));
     try {
       resultSet.close();
