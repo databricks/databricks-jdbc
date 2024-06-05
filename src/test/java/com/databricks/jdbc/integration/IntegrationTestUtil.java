@@ -133,7 +133,8 @@ public class IntegrationTestUtil {
 
     String host = getDatabricksHost();
     String httpPath = getDatabricksHTTPPath();
-
+    System.out.println(host);
+    System.out.println(httpPath);
     return String.format(template, host, httpPath);
   }
 
