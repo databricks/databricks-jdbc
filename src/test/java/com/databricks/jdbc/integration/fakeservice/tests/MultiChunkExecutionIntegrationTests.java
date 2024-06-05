@@ -26,7 +26,7 @@ public class MultiChunkExecutionIntegrationTests extends AbstractFakeServiceInte
 
   @BeforeAll
   static void beforeAll() {
-    setSqlExecApiTargetUrl("https://e2-dogfood.staging.cloud.databricks.com");
+    setDatabricksApiTargetUrl("https://e2-dogfood.staging.cloud.databricks.com");
     setCloudFetchApiTargetUrl("https://e2-dogfood-core.s3.us-west-2.amazonaws.com");
   }
 
@@ -78,7 +78,7 @@ public class MultiChunkExecutionIntegrationTests extends AbstractFakeServiceInte
       // chunks as first chunk link is already fetched
       final String statementId = ((DatabricksResultSet) rs).statementId();
       final String resultChunkPathRegex = String.format(RESULT_CHUNK_PATH, statementId, ".*");
-      getSqlExecApiExtension()
+      getDatabricksApiExtension()
           .verify(
               (int) (metaData.getChunkCount() - 1),
               getRequestedFor(urlPathMatching(resultChunkPathRegex)));

@@ -13,7 +13,7 @@ public final class DatabricksJdbcConstants {
   static final Pattern HTTP_WAREHOUSE_PATH_PATTERN = Pattern.compile(".*/warehouses/(.+)");
   static final Pattern HTTP_ENDPOINT_PATH_PATTERN = Pattern.compile(".*/endpoints/(.+)");
   static final Pattern TEST_PATH_PATTERN = Pattern.compile("jdbc:databricks://test");
-  static final Pattern HTTP_CLUSTER_PATH_PATTERN = Pattern.compile(".*/o/(.+)/(.+)");
+  public static final Pattern HTTP_CLUSTER_PATH_PATTERN = Pattern.compile(".*/o/(.+)/(.+)");
   public static final String JDBC_SCHEMA = "jdbc:databricks://";
   static final Level DEFAULT_LOG_LEVEL = Level.INFO;
   static final String LOG_LEVEL = "loglevel";
@@ -124,7 +124,9 @@ public final class DatabricksJdbcConstants {
   @VisibleForTesting
   public enum FakeServiceType {
     SQL_EXEC,
-    CLOUD_FETCH
+    CLOUD_FETCH,
+    SQL_GATEWAY,
+    CLOUD_FETCH_SQL_GATEWAY
   }
 
   public static final String USE_THRIFT_CLIENT = "usethriftclient";

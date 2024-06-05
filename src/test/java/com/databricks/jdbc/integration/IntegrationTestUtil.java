@@ -1,7 +1,6 @@
 package com.databricks.jdbc.integration;
 
-import static com.databricks.jdbc.driver.DatabricksJdbcConstants.FAKE_SERVICE_URI_PROP_SUFFIX;
-import static com.databricks.jdbc.driver.DatabricksJdbcConstants.IS_FAKE_SERVICE_TEST_PROP;
+import static com.databricks.jdbc.driver.DatabricksJdbcConstants.*;
 import static com.databricks.jdbc.integration.fakeservice.FakeServiceExtension.TARGET_URI_PROP_SUFFIX;
 
 import com.databricks.jdbc.driver.DatabricksJdbcConstants.FakeServiceType;
@@ -21,9 +20,14 @@ public class IntegrationTestUtil {
   public static String getDatabricksHost() {
     if (Boolean.parseBoolean(System.getProperty(IS_FAKE_SERVICE_TEST_PROP))) {
       // Target base URL of the fake service type
+      FakeServiceType databricksFakeServiceType =
+          shouldUseSqlGatewayFakeServiceType()
+              ? FakeServiceType.SQL_GATEWAY
+              : FakeServiceType.SQL_EXEC;
       String serviceURI =
           System.getProperty(
-              FakeServiceType.SQL_EXEC.name().toLowerCase() + TARGET_URI_PROP_SUFFIX);
+              databricksFakeServiceType.name().toLowerCase() + TARGET_URI_PROP_SUFFIX);
+
       URI fakeServiceURI;
       try {
         // Fake service URL for the base URL
@@ -277,5 +281,13 @@ public class IntegrationTestUtil {
     }
 
     return JDBCConnection;
+  }
+
+  /**
+   * Returns whether the fake service type should be {@link
+   * com.databricks.jdbc.driver.DatabricksJdbcConstants.FakeServiceType#SQL_GATEWAY}
+   */
+  public static boolean shouldUseSqlGatewayFakeServiceType() {
+    return HTTP_CLUSTER_PATH_PATTERN.matcher(getDatabricksHTTPPath()).find();
   }
 }
