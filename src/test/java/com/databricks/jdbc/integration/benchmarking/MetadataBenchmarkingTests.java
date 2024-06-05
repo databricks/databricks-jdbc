@@ -5,13 +5,13 @@ import static com.databricks.jdbc.integration.IntegrationTestUtil.*;
 import java.sql.*;
 import java.time.LocalDateTime;
 import java.util.Enumeration;
-import java.util.Map;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 public class MetadataBenchmarkingTests {
 
+  private static final String TESTING_MODE = "THRIFT"; // Set to "SEA" or "THRIFT"
   private Connection connection;
   private static final int NUM_SCHEMAS = 10;
   private static final int NUM_TABLES = 10;
@@ -23,7 +23,7 @@ public class MetadataBenchmarkingTests {
 
   private static final String BASE_SCHEMA_NAME = "jdbc_new_metadata_benchmark_schema";
 
-  private static final String RESULTS_TABLE =
+  private static String RESULTS_TABLE =
       "main.jdbc_new_metadata_benchmark_schema.benchmarking_results";
 
   private static final String BASE_TABLE_NAME = "table";
@@ -33,14 +33,42 @@ public class MetadataBenchmarkingTests {
 
   @BeforeEach
   void setUp() throws SQLException {
-    connection = getValidJDBCConnection(Map.of("useLegacyMetadata", "0"));
+    switch (TESTING_MODE) {
+      case "SEA":
+        connection = getValidJDBCConnection();
+        RESULTS_TABLE = "main.jdbc_new_metadata_benchmark_schema.benchmarking_results";
+        break;
+      case "THRIFT":
+        connection =
+            DriverManager.getConnection(
+                "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;ssl=1;AuthMech=3;httpPath=sql/protocolv1/o/6051921418418893/1115-130834-ms4m0yv",
+                "token",
+                getDatabricksDogfoodToken());
+        RESULTS_TABLE = "main.jdbc_thrift.benchmarking_results";
+        break;
+      default:
+        throw new IllegalArgumentException("Invalid testing mode");
+    }
     setUpSchemas();
     setUpTables();
   }
 
   @AfterEach
   void tearDown() throws SQLException {
-    connection = getValidJDBCConnection();
+    switch (TESTING_MODE) {
+      case "SEA":
+        connection = getValidJDBCConnection();
+        break;
+      case "THRIFT":
+        connection =
+            DriverManager.getConnection(
+                "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;ssl=1;AuthMech=3;httpPath=sql/protocolv1/o/6051921418418893/1115-130834-ms4m0yv",
+                "token",
+                getDatabricksDogfoodToken());
+        break;
+      default:
+        throw new IllegalArgumentException("Invalid testing mode");
+    }
     insertResultsIntoTable();
     tearDownSchemas();
     connection.close();
@@ -102,7 +130,7 @@ public class MetadataBenchmarkingTests {
     // SECTION 1: Get all schemas
     long startTime = System.currentTimeMillis();
     for (int i = 0; i < ATTEMPTS; i++) {
-      ResultSet r = metaData.getSchemas(getDatabricksCatalog(), "*");
+      metaData.getSchemas(getDatabricksCatalog(), "%");
     }
     long endTime = System.currentTimeMillis();
     totalTimesForSection[recording][0] = endTime - startTime;
@@ -113,7 +141,7 @@ public class MetadataBenchmarkingTests {
     // SECTION 2: Get all schemas matching a name
     startTime = System.currentTimeMillis();
     for (int i = 0; i < ATTEMPTS; i++) {
-      ResultSet r = metaData.getSchemas(getDatabricksCatalog(), BASE_SCHEMA_NAME + "*");
+      metaData.getSchemas(getDatabricksCatalog(), BASE_SCHEMA_NAME + "%");
     }
     endTime = System.currentTimeMillis();
     totalTimesForSection[recording][1] = endTime - startTime;
@@ -124,7 +152,7 @@ public class MetadataBenchmarkingTests {
     // SECTION 3: Get all tables for all schema
     startTime = System.currentTimeMillis();
     for (int i = 0; i < ATTEMPTS; i++) {
-      ResultSet r = metaData.getTables(getDatabricksCatalog(), "*", "*", null);
+      metaData.getTables(getDatabricksCatalog(), "%", "%", null);
     }
     endTime = System.currentTimeMillis();
     totalTimesForSection[recording][2] = endTime - startTime;
@@ -135,7 +163,7 @@ public class MetadataBenchmarkingTests {
     // SECTION 4: Get all tables for a schema
     startTime = System.currentTimeMillis();
     for (int i = 0; i < ATTEMPTS; i++) {
-      ResultSet r = metaData.getTables(getDatabricksCatalog(), BASE_SCHEMA_NAME + "*", "*", null);
+      metaData.getTables(getDatabricksCatalog(), BASE_SCHEMA_NAME + "0", "%", null);
     }
     endTime = System.currentTimeMillis();
     totalTimesForSection[recording][3] = endTime - startTime;
@@ -157,7 +185,7 @@ public class MetadataBenchmarkingTests {
     // SECTION 6: Get all columns for all tables in a schema
     startTime = System.currentTimeMillis();
     for (int i = 0; i < ATTEMPTS; i++) {
-      ResultSet r = metaData.getColumns(getDatabricksCatalog(), BASE_SCHEMA_NAME + "*", "*", "*");
+      metaData.getColumns(getDatabricksCatalog(), BASE_SCHEMA_NAME + "0", "%", "%");
     }
     endTime = System.currentTimeMillis();
     totalTimesForSection[recording][5] = endTime - startTime;
@@ -168,9 +196,8 @@ public class MetadataBenchmarkingTests {
     // SECTION 7: Get all columns for a table
     startTime = System.currentTimeMillis();
     for (int i = 0; i < ATTEMPTS; i++) {
-      ResultSet r =
-          metaData.getColumns(
-              getDatabricksCatalog(), BASE_SCHEMA_NAME + "*", BASE_TABLE_NAME + "*", null);
+      metaData.getColumns(
+          getDatabricksCatalog(), BASE_SCHEMA_NAME + "0", BASE_TABLE_NAME + "0", null);
     }
     endTime = System.currentTimeMillis();
     totalTimesForSection[recording][6] = endTime - startTime;
@@ -198,7 +225,21 @@ public class MetadataBenchmarkingTests {
       }
     }
 
-    connection = DriverManager.getConnection(getJDBCUrl(), "token", getDatabricksToken());
+    switch (TESTING_MODE) {
+      case "SEA":
+        connection = DriverManager.getConnection(getJDBCUrl(), "token", getDatabricksToken());
+        ;
+        break;
+      case "THRIFT":
+        connection =
+            DriverManager.getConnection(
+                "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;ssl=1;AuthMech=3;httpPath=sql/protocolv1/o/6051921418418893/1115-130834-ms4m0yv",
+                "token",
+                getDatabricksDogfoodToken());
+        break;
+      default:
+        throw new IllegalArgumentException("Invalid testing mode");
+    }
 
     // Currently connection is held by Databricks driver
     startTime = System.currentTimeMillis();
@@ -217,7 +258,6 @@ public class MetadataBenchmarkingTests {
     System.out.println("5. Get all columns for all tables for all schema");
     System.out.println("6. Get all columns for all tables in a schema");
     System.out.println("7. Get all columns for a table");
-    System.out.println("8. Get all functions for a catalog");
     for (int i = 0; i < NUM_SECTIONS; i++) {
       System.out.println(
           "Average time taken by OSS JDBC for section "
