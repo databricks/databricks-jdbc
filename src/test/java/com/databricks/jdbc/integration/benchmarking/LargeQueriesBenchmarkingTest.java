@@ -13,13 +13,13 @@ import org.junit.jupiter.api.Test;
 
 public class LargeQueriesBenchmarkingTest {
   private Connection connection;
-
+  private static final String TESTING_MODE = "THRIFT"; // Set to "SEA" or "THRIFT"
   private String SCHEMA_NAME = "main";
   private String TABLE_NAME = "tpcds_sf100_delta.catalog_sales";
 
-  private static final String RESULTS_TABLE =
+  private static String RESULTS_TABLE =
       "main.jdbc_large_queries_benchmarking_schema.benchmarking_results";
-  private int ATTEMPTS = 10;
+  private int ATTEMPTS = 1;
 
   private int ROWS = 1000000;
 
@@ -31,13 +31,28 @@ public class LargeQueriesBenchmarkingTest {
 
   @BeforeEach
   void setUp() throws SQLException {
-    connection = getBenchmarkingJDBCConnection();
+    switch (TESTING_MODE) {
+      case "SEA":
+        connection = getBenchmarkingJDBCConnection();
+        RESULTS_TABLE = "main.jdbc_large_queries_benchmarking_schema.benchmarking_results";
+        break;
+      case "THRIFT":
+        connection =
+            DriverManager.getConnection(
+                "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;ssl=1;AuthMech=3;httpPath=sql/protocolv1/o/6051921418418893/1115-130834-ms4m0yv",
+                "token",
+                getDatabricksDogfoodToken());
+        RESULTS_TABLE = "main.jdbc_thrift_large_queries_benchmarking_schema.benchmarking_results";
+        break;
+      default:
+        throw new IllegalArgumentException("Invalid testing mode");
+    }
   }
 
   @AfterEach
   void tearDown() throws SQLException {
     DriverManager.registerDriver(new com.databricks.jdbc.driver.DatabricksDriver());
-    insertBenchmarkingDataIntoBenchfood();
+    //    insertBenchmarkingDataIntoBenchfood();
     connection.close();
   }
 
@@ -74,9 +89,22 @@ public class LargeQueriesBenchmarkingTest {
       }
     }
 
-    connection =
-        DriverManager.getConnection(
-            getBenchmarkingJDBCUrl(), "token", getDatabricksBenchmarkingToken());
+    switch (TESTING_MODE) {
+      case "SEA":
+        connection =
+            DriverManager.getConnection(
+                getBenchmarkingJDBCUrl(), "token", getDatabricksBenchmarkingToken());
+        break;
+      case "THRIFT":
+        connection =
+            DriverManager.getConnection(
+                "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;ssl=1;AuthMech=3;httpPath=sql/protocolv1/o/6051921418418893/1115-130834-ms4m0yv",
+                "token",
+                getDatabricksDogfoodToken());
+        break;
+      default:
+        throw new IllegalArgumentException("Invalid testing mode");
+    }
 
     startTime = System.currentTimeMillis();
     measureLargeQueriesPerformance(2);
@@ -118,7 +146,11 @@ public class LargeQueriesBenchmarkingTest {
                     + ROWS
                     + " OFFSET "
                     + offset);
-        while (rs.next()) {}
+        int cnt = 0;
+        while (rs.next()) {
+          cnt++;
+        }
+        System.out.println("Number of rows fetched: " + cnt);
         long endTime = System.currentTimeMillis();
         if (recording == 1) {
           timesForOSSDriver[i] = endTime - startTime;

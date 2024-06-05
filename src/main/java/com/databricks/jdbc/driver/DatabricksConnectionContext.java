@@ -224,6 +224,10 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
     return this.parameters.getOrDefault(key.toLowerCase(), null);
   }
 
+  private String getParameter(String key, String defaultValue) {
+    return this.parameters.getOrDefault(key.toLowerCase(), defaultValue);
+  }
+
   @Override
   public AuthFlow getAuthFlow() {
     String authFlow = getParameter(DatabricksJdbcConstants.AUTH_FLOW);
@@ -303,6 +307,18 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
     // Defaults to use legacy metadata client
     return getParameter(DatabricksJdbcConstants.USE_LEGACY_METADATA) == null
         || getParameter(DatabricksJdbcConstants.USE_LEGACY_METADATA).equals("1");
+  }
+
+  @Override
+  public int getCloudFetchThreadPoolSize() {
+    try {
+      return Integer.parseInt(
+          getParameter(
+              CLOUD_FETCH_THREAD_POOL_SIZE, String.valueOf(CLOUD_FETCH_THREAD_POOL_SIZE_DEFAULT)));
+    } catch (NumberFormatException e) {
+      LOGGER.debug("Invalid thread pool size, defaulting to default thread pool size.");
+      return CLOUD_FETCH_THREAD_POOL_SIZE_DEFAULT;
+    }
   }
 
   private static boolean nullOrEmptyString(String s) {

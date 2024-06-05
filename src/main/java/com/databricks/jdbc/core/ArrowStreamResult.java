@@ -38,7 +38,12 @@ class ArrowStreamResult implements IExecutionResult {
       IDatabricksSession session) {
     this(
         resultManifest,
-        new ChunkDownloader(statementId, resultManifest, resultData, session),
+        new ChunkDownloader(
+            statementId,
+            resultManifest,
+            resultData,
+            session,
+            session.getConnectionContext().getCloudFetchThreadPoolSize()),
         session);
   }
 
@@ -71,9 +76,20 @@ class ArrowStreamResult implements IExecutionResult {
       this.chunkDownloader = null;
     } else {
       if (httpClient != null) { // This is to aid testing
-        this.chunkDownloader = new ChunkDownloader(statementId, resultData, session, httpClient);
+        this.chunkDownloader =
+            new ChunkDownloader(
+                statementId,
+                resultData,
+                session,
+                httpClient,
+                session.getConnectionContext().getCloudFetchThreadPoolSize());
       } else {
-        this.chunkDownloader = new ChunkDownloader(statementId, resultData, session);
+        this.chunkDownloader =
+            new ChunkDownloader(
+                statementId,
+                resultData,
+                session,
+                session.getConnectionContext().getCloudFetchThreadPoolSize());
       }
       this.chunkExtractor = null;
     }
@@ -99,7 +115,13 @@ class ArrowStreamResult implements IExecutionResult {
       IDatabricksHttpClient httpClient) {
     this(
         resultManifest,
-        new ChunkDownloader(statementId, resultManifest, resultData, session, httpClient),
+        new ChunkDownloader(
+            statementId,
+            resultManifest,
+            resultData,
+            session,
+            httpClient,
+            session.getConnectionContext().getCloudFetchThreadPoolSize()),
         session);
   }
 

@@ -31,6 +31,7 @@ public class ChunkDownloader {
   private final long totalChunks;
   private final ExecutorService chunkDownloaderExecutorService;
   private final IDatabricksHttpClient httpClient;
+  private final int chunksDownloaderThreadPoolSize;
   private Long currentChunkIndex;
   private long nextChunkToDownload;
   private Long totalChunksInMemory;
@@ -43,13 +44,15 @@ public class ChunkDownloader {
       String statementId,
       ResultManifest resultManifest,
       ResultData resultData,
-      IDatabricksSession session) {
+      IDatabricksSession session,
+      int chunksDownloaderThreadPoolSize) {
     this(
         statementId,
         resultManifest,
         resultData,
         session,
-        DatabricksHttpClient.getInstance(session.getConnectionContext()));
+        DatabricksHttpClient.getInstance(session.getConnectionContext()),
+        chunksDownloaderThreadPoolSize);
   }
 
   @VisibleForTesting
@@ -58,22 +61,29 @@ public class ChunkDownloader {
       ResultManifest resultManifest,
       ResultData resultData,
       IDatabricksSession session,
-      IDatabricksHttpClient httpClient) {
+      IDatabricksHttpClient httpClient,
+      int chunksDownloaderThreadPoolSize) {
     this.chunkDownloaderExecutorService = createChunksDownloaderExecutorService();
     this.httpClient = httpClient;
     this.session = session;
     this.statementId = statementId;
+    this.chunksDownloaderThreadPoolSize = chunksDownloaderThreadPoolSize;
     this.totalChunks = resultManifest.getTotalChunkCount();
     this.chunkIndexToChunksMap = initializeChunksMap(resultManifest, resultData, statementId);
     initializeData();
   }
 
-  ChunkDownloader(String statementId, TRowSet resultData, IDatabricksSession session) {
+  ChunkDownloader(
+      String statementId,
+      TRowSet resultData,
+      IDatabricksSession session,
+      int chunksDownloaderThreadPoolSize) {
     this(
         statementId,
         resultData,
         session,
-        DatabricksHttpClient.getInstance(session.getConnectionContext()));
+        DatabricksHttpClient.getInstance(session.getConnectionContext()),
+        chunksDownloaderThreadPoolSize);
   }
 
   @VisibleForTesting
@@ -81,11 +91,13 @@ public class ChunkDownloader {
       String statementId,
       TRowSet resultData,
       IDatabricksSession session,
-      IDatabricksHttpClient httpClient) {
+      IDatabricksHttpClient httpClient,
+      int chunksDownloaderThreadPoolSize) {
     this.chunkDownloaderExecutorService = createChunksDownloaderExecutorService();
     this.httpClient = httpClient;
     this.session = session;
     this.statementId = statementId;
+    this.chunksDownloaderThreadPoolSize = chunksDownloaderThreadPoolSize;
     this.totalChunks = resultData.getResultLinksSize();
     this.chunkIndexToChunksMap = initializeChunksMap(resultData, statementId);
     initializeData();

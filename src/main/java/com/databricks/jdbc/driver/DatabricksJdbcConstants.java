@@ -130,4 +130,7 @@ public final class DatabricksJdbcConstants {
   public static final String USE_THRIFT_CLIENT = "usethriftclient";
 
   public static final String USE_LEGACY_METADATA = "uselegacymetadata";
+
+  static final String CLOUD_FETCH_THREAD_POOL_SIZE = "cloudFetchThreadPoolSize";
+  static final int CLOUD_FETCH_THREAD_POOL_SIZE_DEFAULT = 16;
 }
