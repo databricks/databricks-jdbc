@@ -34,6 +34,8 @@ public class DatabricksThriftAccessor {
         new DatabricksHttpTTransport(
             DatabricksHttpClient.getInstance(connectionContext),
             connectionContext.getEndpointURL());
+
+    System.out.println("Here is URL "+connectionContext.getEndpointURL());
     this.databricksConfig = new OAuthAuthenticator(connectionContext).getDatabricksConfig();
     Map<String, String> authHeaders = databricksConfig.authenticate();
     transport.setCustomHeaders(authHeaders);
@@ -59,7 +61,6 @@ public class DatabricksThriftAccessor {
         request.toString(),
         commandName.name());
     refreshHeadersIfRequired();
-    System.out.println("Here is request "+request);
     try {
       switch (commandName) {
         case OPEN_SESSION:
