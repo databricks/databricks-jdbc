@@ -224,6 +224,7 @@
           <configuration>
             <testExcludes>
               <testExclude>com/databricks/jdbc/integration/benchmarking/MetadataBenchmarkingTest.java</testExclude>
+              <testExclude>com/databricks/jdbc/integration/benchmarking/LargeQueriesBenchmarkingTest.java</testExclude>
             </testExcludes>
           </configuration>
         </plugin>

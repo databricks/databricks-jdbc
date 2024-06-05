@@ -311,7 +311,7 @@ public class DatabricksNewMetadataSdkClientTest {
             sql,
             WAREHOUSE_COMPUTE,
             new HashMap<Integer, ImmutableSqlParameter>(),
-            StatementType.METADATA,
+            StatementType.QUERY,
             session,
             null))
         .thenReturn(mockedResultSet);

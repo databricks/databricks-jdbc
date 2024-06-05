@@ -47,7 +47,7 @@ public class DatabricksDriver implements Driver {
   public Connection connect(String url, Properties info) throws DatabricksSQLException {
     LOGGER.debug("public Connection connect(String url = {}, Properties info)", url);
     IDatabricksConnectionContext connectionContext = DatabricksConnectionContext.parse(url, info);
-    configureLogging(connectionContext.getLogPathString(), connectionContext.getLogLevelString());
+    configureLogging(connectionContext.getLogPathString(), connectionContext.getLogLevel());
     setUserAgent(connectionContext);
     try {
       return new DatabricksConnection(connectionContext);
@@ -99,7 +99,7 @@ public class DatabricksDriver implements Driver {
     UserAgent.withOtherInfo(CLIENT_USER_AGENT_PREFIX, connectionContext.getClientUserAgent());
   }
 
-  public static void configureLogging(String logFilePath, String logLevel) {
+  public static void configureLogging(String logFilePath, Level logLevel) {
     LoggerContext context = (LoggerContext) LogManager.getContext(false);
     Configuration config = context.getConfiguration();
     PatternLayout layout =
@@ -118,9 +118,9 @@ public class DatabricksDriver implements Driver {
       // Appender can be null if the parameters are incorrect; no error should be thrown.
       appender.start();
       config.addAppender(appender);
-      loggerConfig.addAppender(appender, Level.valueOf(logLevel), null);
+      loggerConfig.addAppender(appender, logLevel, null);
     }
-    loggerConfig.setLevel(org.apache.logging.log4j.Level.valueOf(logLevel.toUpperCase()));
+    loggerConfig.setLevel(logLevel);
     context.updateLoggers();
   }
 }
