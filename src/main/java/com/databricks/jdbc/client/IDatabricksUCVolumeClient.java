@@ -11,8 +11,9 @@ public interface IDatabricksUCVolumeClient {
    * @param catalog the catalog name of the cloud storage
    * @param schema the schema name of the cloud storage
    * @param volume the UC volume name of the cloud storage
-   * @param prefix the prefix to check for existence
-   * @param caseSensitive a boolean indicating whether the check should be case sensitive or not
+   * @param prefix the prefix to check for existence along with the relative path from the volume as
+   *     the root directory
+   * @param caseSensitive a boolean indicating whether the check should be case-sensitive or not
    * @return a boolean indicating whether the prefix exists or not
    */
   boolean prefixExists(
@@ -26,12 +27,12 @@ public interface IDatabricksUCVolumeClient {
    * @param catalog the catalog name of the cloud storage
    * @param schema the schema name of the cloud storage
    * @param volume the UC volume name of the cloud storage
-   * @param objectName the name of the object (file) to check for existence within the volume
-   *     (inside any sub-folder)
+   * @param objectPath the path of the object (file) from the volume as the root directory to check
+   *     for existence within the volume (inside any sub-folder)
    * @param caseSensitive a boolean indicating whether the check should be case-sensitive or not
    * @return a boolean indicating whether the object exists or not
    */
   boolean objectExists(
-      String catalog, String schema, String volume, String objectName, boolean caseSensitive)
+      String catalog, String schema, String volume, String objectPath, boolean caseSensitive)
       throws SQLException;
 }

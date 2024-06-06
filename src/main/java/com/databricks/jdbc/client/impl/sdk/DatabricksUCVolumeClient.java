@@ -40,6 +40,15 @@ public class DatabricksUCVolumeClient implements IDatabricksUCVolumeClient {
         prefix,
         caseSensitive);
 
+    // Extract the sub-folder and append to volume to use LIST at the correct location, prefix is
+    // checked for after listing
+    int lastSlashIndex = prefix.lastIndexOf("/");
+    if (lastSlashIndex != -1) {
+      String folder = prefix.substring(0, lastSlashIndex);
+      volume = volume + "/" + folder;
+      prefix = prefix.substring(lastSlashIndex + 1);
+    }
+
     String listFilesSQLQuery = createListQuery(catalog, schema, volume);
 
     try (Statement statement = connection.createStatement()) {
@@ -68,16 +77,29 @@ public class DatabricksUCVolumeClient implements IDatabricksUCVolumeClient {
 
   @Override
   public boolean objectExists(
-      String catalog, String schema, String volume, String objectName, boolean caseSensitive)
+      String catalog, String schema, String volume, String objectPath, boolean caseSensitive)
       throws SQLException {
 
     LOGGER.info(
-        "Entering objectExists method with parameters: catalog={}, schema={}, volume={}, objectName={}, caseSensitive={}",
+        "Entering objectExists method with parameters: catalog={}, schema={}, volume={}, objectPath={}, caseSensitive={}",
         catalog,
         schema,
         volume,
-        objectName,
+        objectPath,
         caseSensitive);
+
+    // Extract the sub-folder and append to volume to use LIST at the correct location, objectName
+    // is checked for after listing
+    String objectName;
+
+    int lastSlashIndex = objectPath.lastIndexOf("/");
+    if (lastSlashIndex != -1) {
+      String folder = objectPath.substring(0, lastSlashIndex);
+      volume = volume + "/" + folder;
+      objectName = objectPath.substring(lastSlashIndex + 1);
+    } else {
+      objectName = objectPath;
+    }
 
     String listFilesSQLQuery = createListQuery(catalog, schema, volume);
 
@@ -105,8 +127,8 @@ public class DatabricksUCVolumeClient implements IDatabricksUCVolumeClient {
     }
   }
 
-  public boolean objectExists(String catalog, String schema, String volume, String objectName)
+  public boolean objectExists(String catalog, String schema, String volume, String objectPath)
       throws SQLException {
-    return objectExists(catalog, schema, volume, objectName, true);
+    return objectExists(catalog, schema, volume, objectPath, true);
   }
 }

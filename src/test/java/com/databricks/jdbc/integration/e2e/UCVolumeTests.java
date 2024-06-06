@@ -55,7 +55,17 @@ public class UCVolumeTests {
         Arguments.of(UC_VOLUME_CATALOG, UC_VOLUME_SCHEMA, "test_volume1", "xyz", false, false),
         Arguments.of(UC_VOLUME_CATALOG, UC_VOLUME_SCHEMA, "test_volume1", "dEf", false, true),
         Arguments.of(UC_VOLUME_CATALOG, UC_VOLUME_SCHEMA, "test_volume1", "#!", true, true),
-        Arguments.of(UC_VOLUME_CATALOG, UC_VOLUME_SCHEMA, "test_volume1", "aBc", true, true));
+        Arguments.of(UC_VOLUME_CATALOG, UC_VOLUME_SCHEMA, "test_volume1", "aBc", true, true),
+        Arguments.of(UC_VOLUME_CATALOG, UC_VOLUME_SCHEMA, "test_volume1", "folder1/ab", true, true),
+        Arguments.of(
+            UC_VOLUME_CATALOG, UC_VOLUME_SCHEMA, "test_volume1", "folder1/folder2/e", true, true),
+        Arguments.of(
+            UC_VOLUME_CATALOG,
+            UC_VOLUME_SCHEMA,
+            "test_volume1",
+            "folder1/folder2/xyz",
+            true,
+            false));
   }
 
   @ParameterizedTest
@@ -64,11 +74,11 @@ public class UCVolumeTests {
       String catalog,
       String schema,
       String volume,
-      String objectName,
+      String objectPath,
       boolean caseSensitive,
       boolean expected)
       throws Exception {
-    boolean result = client.objectExists(catalog, schema, volume, objectName, caseSensitive);
+    boolean result = client.objectExists(catalog, schema, volume, objectPath, caseSensitive);
     assertEquals(expected, result);
   }
 
@@ -79,7 +89,28 @@ public class UCVolumeTests {
         Arguments.of(
             UC_VOLUME_CATALOG, UC_VOLUME_SCHEMA, "test_volume1", "aBc_file1.csv", true, true),
         Arguments.of(
-            UC_VOLUME_CATALOG, UC_VOLUME_SCHEMA, "test_volume1", "abc_file1.csv", false, true));
+            UC_VOLUME_CATALOG, UC_VOLUME_SCHEMA, "test_volume1", "abc_file1.csv", false, true),
+        Arguments.of(
+            UC_VOLUME_CATALOG,
+            UC_VOLUME_SCHEMA,
+            "test_volume1",
+            "folder1/ABC_file1.csv",
+            false,
+            true),
+        Arguments.of(
+            UC_VOLUME_CATALOG,
+            UC_VOLUME_SCHEMA,
+            "test_volume1",
+            "folder1/folder2/efg_file1.csv",
+            true,
+            true),
+        Arguments.of(
+            UC_VOLUME_CATALOG,
+            UC_VOLUME_SCHEMA,
+            "test_volume1",
+            "folder1/folder2/xyz_file.csv",
+            true,
+            false));
   }
 
   @ParameterizedTest
@@ -88,11 +119,11 @@ public class UCVolumeTests {
       String catalog,
       String schema,
       String volume,
-      String objectName,
+      String objectPath,
       boolean caseSensitive,
       boolean expected)
       throws Exception {
-    boolean result = client.objectExists(catalog, schema, volume, objectName, caseSensitive);
+    boolean result = client.objectExists(catalog, schema, volume, objectPath, caseSensitive);
     assertEquals(expected, result);
   }
 
@@ -118,11 +149,11 @@ public class UCVolumeTests {
       String catalog,
       String schema,
       String volume,
-      String objectName,
+      String objectPath,
       boolean caseSensitive,
       boolean expected)
       throws Exception {
-    boolean result = client.objectExists(catalog, schema, volume, objectName, caseSensitive);
+    boolean result = client.objectExists(catalog, schema, volume, objectPath, caseSensitive);
     assertEquals(expected, result);
   }
 

@@ -57,7 +57,7 @@ public class DatabricksUCVolumeClientTest {
   @ParameterizedTest
   @MethodSource("provideParametersForObjectExists_CaseSensitivity")
   public void testObjectExistsCaseSensitivity(
-      String volume, String objectName, boolean caseSensitive, boolean expected)
+      String volume, String objectPath, boolean caseSensitive, boolean expected)
       throws SQLException {
     DatabricksUCVolumeClient client = new DatabricksUCVolumeClient(connection);
 
@@ -71,7 +71,7 @@ public class DatabricksUCVolumeClientTest {
 
     assertEquals(
         expected,
-        client.objectExists(TEST_CATALOG, TEST_SCHEMA, volume, objectName, caseSensitive));
+        client.objectExists(TEST_CATALOG, TEST_SCHEMA, volume, objectPath, caseSensitive));
     verify(statement).executeQuery(listFilesSQL);
   }
 
@@ -85,7 +85,7 @@ public class DatabricksUCVolumeClientTest {
   @ParameterizedTest
   @MethodSource("provideParametersForObjectExists_VolumeReferencing")
   public void testObjectExistsVolumeReferencing(
-      String volume, String objectName, boolean caseSensitive, boolean expected)
+      String volume, String objectPath, boolean caseSensitive, boolean expected)
       throws SQLException {
     DatabricksUCVolumeClient client = new DatabricksUCVolumeClient(connection);
 
@@ -106,7 +106,7 @@ public class DatabricksUCVolumeClientTest {
 
     assertEquals(
         expected,
-        client.objectExists(TEST_CATALOG, TEST_SCHEMA, volume, objectName, caseSensitive));
+        client.objectExists(TEST_CATALOG, TEST_SCHEMA, volume, objectPath, caseSensitive));
     verify(statement).executeQuery(listFilesSQL);
   }
 
@@ -123,7 +123,7 @@ public class DatabricksUCVolumeClientTest {
   @ParameterizedTest
   @MethodSource("provideParametersForObjectExists_SpecialCharacters")
   public void testObjectExistsSpecialCharacters(
-      String volume, String objectName, boolean caseSensitive, boolean expected)
+      String volume, String objectPath, boolean caseSensitive, boolean expected)
       throws SQLException {
     DatabricksUCVolumeClient client = new DatabricksUCVolumeClient(connection);
 
@@ -137,7 +137,7 @@ public class DatabricksUCVolumeClientTest {
 
     assertEquals(
         expected,
-        client.objectExists(TEST_CATALOG, TEST_SCHEMA, volume, objectName, caseSensitive));
+        client.objectExists(TEST_CATALOG, TEST_SCHEMA, volume, objectPath, caseSensitive));
     verify(statement).executeQuery(listFilesSQL);
   }
 
