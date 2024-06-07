@@ -131,4 +131,49 @@ public class DatabricksUCVolumeClient implements IDatabricksUCVolumeClient {
       throws SQLException {
     return objectExists(catalog, schema, volume, objectPath, true);
   }
+
+  @Override
+  public boolean volumeExists(
+          String catalog, String schema, String volumeName, boolean caseSensitive) throws SQLException {
+
+    LOGGER.info(
+            "Entering volumeExists method with parameters: catalog={}, schema={}, volumeName={}, caseSensitive={}",
+            catalog,
+            schema,
+            volumeName,
+            caseSensitive);
+
+    String showVolumesSQLQuery = createShowVolumesQuery(catalog, schema);
+
+    try (Statement statement = connection.createStatement()) {
+      LOGGER.info("Executing SQL query: {}", showVolumesSQLQuery);
+      ResultSet resultSet = statement.executeQuery(showVolumesSQLQuery);
+      LOGGER.info("SQL query executed successfully");
+
+      boolean exists = false;
+      while (resultSet.next()) {
+        String volume = resultSet.getString("name");
+        if (caseSensitive) {
+          if (volume.equals(volumeName)) {
+            exists = true;
+            break;
+          }
+        } else {
+          if (volume.equalsIgnoreCase(volumeName)) {
+            exists = true;
+            break;
+          }
+        }
+      }
+      return exists;
+    } catch (SQLException e) {
+      LOGGER.error("SQL query execution failed", e);
+      throw e;
+    }
+  }
+
+  public boolean volumeExists(String catalog, String schema, String volumeName)
+          throws SQLException {
+    return volumeExists(catalog, schema, volumeName, true);
+  }
 }

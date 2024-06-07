@@ -148,4 +148,31 @@ public class DatabricksUCVolumeClientTest {
         Arguments.of("abc_volume1", "#!#_file3", true, true),
         Arguments.of("abc_volume1", "#_file3", true, false));
   }
+
+  @ParameterizedTest
+  @MethodSource("provideParametersForVolumeExists")
+  public void testVolumeExists(String volumeName, boolean expected) throws SQLException {
+    DatabricksUCVolumeClient client = new DatabricksUCVolumeClient(connection);
+
+    when(connection.createStatement()).thenReturn(statement);
+    String showVolumesSQL = "SHOW VOLUMES IN " + TEST_CATALOG + "." + TEST_SCHEMA;
+    when(statement.executeQuery(showVolumesSQL)).thenReturn(resultSet);
+    when(resultSet.next()).thenReturn(true, true, true, true, true, false);
+    when(resultSet.getString("name"))
+            .thenReturn("aBc_volume1", "abC_volume2", "def_volume1", "efg_volume2", "#!#_volume3");
+
+    boolean exists = client.volumeExists(TEST_CATALOG, TEST_SCHEMA, volumeName, true);
+
+    assertEquals(expected, exists);
+    verify(statement).executeQuery("SHOW VOLUMES IN " + TEST_CATALOG + "." + TEST_SCHEMA);
+  }
+
+  private static Stream<Arguments> provideParametersForVolumeExists() {
+    return Stream.of(
+            Arguments.of("abc_volume1", false),
+            Arguments.of("xyz_volume1", false),
+            Arguments.of("def_volume1", true),
+            Arguments.of("#!#_volume3", true),
+            Arguments.of("aBc_volume1", true));
+  }
 }

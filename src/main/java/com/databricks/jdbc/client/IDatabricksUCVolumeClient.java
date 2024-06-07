@@ -35,4 +35,17 @@ public interface IDatabricksUCVolumeClient {
   boolean objectExists(
       String catalog, String schema, String volume, String objectPath, boolean caseSensitive)
       throws SQLException;
+
+  /**
+   * volumeExists(): Determines if a specific volume exists in the given catalog and schema. The
+   * volume that we are looking for must match the volume name exactly.
+   *
+   * @param catalog the catalog name of the cloud storage
+   * @param schema the schema name of the cloud storage
+   * @param volumeName the name of the volume to check for existence
+   * @param caseSensitive a boolean indicating whether the check should be case-sensitive or not
+   * @return a boolean indicating whether the volume exists or not
+   */
+  boolean volumeExists(String catalog, String schema, String volumeName, boolean caseSensitive)
+          throws SQLException;
 }
