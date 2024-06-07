@@ -1,6 +1,7 @@
 package com.databricks.jdbc.client;
 
 import java.sql.SQLException;
+import java.util.List;
 
 public interface IDatabricksUCVolumeClient {
 
@@ -47,5 +48,21 @@ public interface IDatabricksUCVolumeClient {
    * @return a boolean indicating whether the volume exists or not
    */
   boolean volumeExists(String catalog, String schema, String volumeName, boolean caseSensitive)
+      throws SQLException;
+
+  /**
+   * listObjects(): Lists all filenames in the UC Volume that start with a specified prefix. The
+   * prefix that we are looking for must be a part of the file path from the volume as the root.
+   *
+   * @param catalog the catalog name of the cloud storage
+   * @param schema the schema name of the cloud storage
+   * @param volume the UC volume name of the cloud storage
+   * @param prefix the prefix of the filenames to list. This includes the relative path from the
+   *     volume as the root directory
+   * @param caseSensitive a boolean indicating whether the check should be case-sensitive or not
+   * @return a list of strings indicating the filenames that start with the specified prefix
+   */
+  List<String> listObjects(
+      String catalog, String schema, String volume, String prefix, boolean caseSensitive)
       throws SQLException;
 }

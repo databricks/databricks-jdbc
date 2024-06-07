@@ -2,6 +2,8 @@ package com.databricks.jdbc.client.impl.sdk;
 
 import com.databricks.jdbc.client.IDatabricksUCVolumeClient;
 import java.sql.*;
+import java.util.ArrayList;
+import java.util.List;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -180,5 +182,57 @@ public class DatabricksUCVolumeClient implements IDatabricksUCVolumeClient {
   public boolean volumeExists(String catalog, String schema, String volumeName)
       throws SQLException {
     return volumeExists(catalog, schema, volumeName, true);
+  }
+
+  @Override
+  public List<String> listObjects(
+      String catalog, String schema, String volume, String prefix, boolean caseSensitive)
+      throws SQLException {
+
+    LOGGER.info(
+        "Entering listObjects method with parameters: catalog={}, schema={}, volume={}, prefix={}, caseSensitive={}",
+        catalog,
+        schema,
+        volume,
+        prefix,
+        caseSensitive);
+
+    // Extract the sub-folder and append to volume to use LIST at the correct location, prefix is
+    // checked for after listing
+    int lastSlashIndex = prefix.lastIndexOf("/");
+    if (lastSlashIndex != -1) {
+      String folder = prefix.substring(0, lastSlashIndex);
+      volume = volume + "/" + folder;
+      prefix = prefix.substring(lastSlashIndex + 1);
+    }
+
+    String listFilesSQLQuery = createListQuery(catalog, schema, volume);
+
+    try (Statement statement = connection.createStatement()) {
+      ResultSet resultSet = statement.executeQuery(listFilesSQLQuery);
+      LOGGER.info("SQL query executed successfully");
+
+      List<String> filenames = new ArrayList<>();
+      while (resultSet.next()) {
+        String fileName = resultSet.getString("name");
+        if (fileName.regionMatches(
+            /* ignoreCase= */ !caseSensitive,
+            /* targetOffset= */ 0,
+            /* StringToCheck= */ prefix,
+            /* sourceOffset= */ 0,
+            /* lengthToMatch= */ prefix.length())) {
+          filenames.add(fileName);
+        }
+      }
+      return filenames;
+    } catch (SQLException e) {
+      LOGGER.error("SQL query execution failed", e);
+      throw e;
+    }
+  }
+
+  public List<String> listObjects(String catalog, String schema, String volume, String prefix)
+      throws SQLException {
+    return listObjects(catalog, schema, volume, prefix, true);
   }
 }

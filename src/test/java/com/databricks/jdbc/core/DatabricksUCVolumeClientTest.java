@@ -6,6 +6,9 @@ import static org.mockito.Mockito.*;
 
 import com.databricks.jdbc.client.impl.sdk.DatabricksUCVolumeClient;
 import java.sql.*;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -178,5 +181,53 @@ public class DatabricksUCVolumeClientTest {
         Arguments.of("def_volume1", true, true),
         Arguments.of("#!#_volume3", true, true),
         Arguments.of("aBC_volume1", true, false));
+  }
+
+  @ParameterizedTest
+  @MethodSource("provideParametersForListObjects")
+  public void testListObjects(String volume, String prefix, List<String> expected)
+      throws SQLException {
+    DatabricksUCVolumeClient client = new DatabricksUCVolumeClient(connection);
+
+    when(connection.createStatement()).thenReturn(statement);
+    String listFilesSQL = createListQuery(TEST_CATALOG, TEST_SCHEMA, volume);
+    when(statement.executeQuery(listFilesSQL)).thenReturn(resultSet);
+    when(resultSet.next()).thenReturn(true, true, true, true, true, true, true, false);
+    when(resultSet.getString("name"))
+        .thenReturn(
+            "aBc_file1",
+            "abC_file2",
+            "def_file1",
+            "efg_file2",
+            "#!#_file3",
+            "xyz_file4",
+            "###file1");
+
+    List<String> filenames = client.listObjects(TEST_CATALOG, TEST_SCHEMA, volume, prefix, true);
+
+    assertEquals(expected.size(), filenames.size());
+    assertTrue(filenames.containsAll(expected));
+    verify(statement).executeQuery(listFilesSQL);
+  }
+
+  private static Stream<Arguments> provideParametersForListObjects() {
+    return Stream.of(
+        Arguments.of("abc_volume1", "a", Arrays.asList("aBc_file1", "abC_file2")),
+        Arguments.of("abc_volume1", "aBC", Collections.emptyList()),
+        Arguments.of("abc_volume1", "xyz", Collections.singletonList("xyz_file4")),
+        Arguments.of("abc_volume1", "aB", Collections.singletonList("aBc_file1")),
+        Arguments.of("abc_volume1", "#", Arrays.asList("#!#_file3", "###file1")),
+        Arguments.of("abc_volume1", "aBc", Collections.singletonList("aBc_file1")),
+        Arguments.of(
+            "abc_volume2",
+            "",
+            Arrays.asList(
+                "aBc_file1",
+                "abC_file2",
+                "def_file1",
+                "efg_file2",
+                "#!#_file3",
+                "xyz_file4",
+                "###file1")));
   }
 }
