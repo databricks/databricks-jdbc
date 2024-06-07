@@ -29,6 +29,10 @@ public class DatabricksUCVolumeClientTest {
     return String.format("LIST '/Volumes/%s/%s/%s/'", catalog, schema, volume);
   }
 
+  private String createShowVolumesQuery(String catalog, String schema) {
+    return String.format("SHOW VOLUMES IN %s.%s", catalog, schema);
+  }
+
   @ParameterizedTest
   @MethodSource("provideParametersForPrefixExists")
   public void testPrefixExists(String volume, String prefix, boolean expected) throws SQLException {
@@ -151,28 +155,28 @@ public class DatabricksUCVolumeClientTest {
 
   @ParameterizedTest
   @MethodSource("provideParametersForVolumeExists")
-  public void testVolumeExists(String volumeName, boolean expected) throws SQLException {
+  public void testVolumeExists(String volumeName, boolean caseSensitive, boolean expected)
+      throws SQLException {
     DatabricksUCVolumeClient client = new DatabricksUCVolumeClient(connection);
 
     when(connection.createStatement()).thenReturn(statement);
-    String showVolumesSQL = "SHOW VOLUMES IN " + TEST_CATALOG + "." + TEST_SCHEMA;
+    String showVolumesSQL = createShowVolumesQuery(TEST_CATALOG, TEST_SCHEMA);
     when(statement.executeQuery(showVolumesSQL)).thenReturn(resultSet);
     when(resultSet.next()).thenReturn(true, true, true, true, true, false);
     when(resultSet.getString("name"))
-            .thenReturn("aBc_volume1", "abC_volume2", "def_volume1", "efg_volume2", "#!#_volume3");
+        .thenReturn("aBc_volume1", "abC_volume2", "def_volume1", "efg_volume2", "#!#_volume3");
 
-    boolean exists = client.volumeExists(TEST_CATALOG, TEST_SCHEMA, volumeName, true);
-
-    assertEquals(expected, exists);
-    verify(statement).executeQuery("SHOW VOLUMES IN " + TEST_CATALOG + "." + TEST_SCHEMA);
+    assertEquals(
+        expected, client.volumeExists(TEST_CATALOG, TEST_SCHEMA, volumeName, caseSensitive));
+    verify(statement).executeQuery(showVolumesSQL);
   }
 
   private static Stream<Arguments> provideParametersForVolumeExists() {
     return Stream.of(
-            Arguments.of("abc_volume1", false),
-            Arguments.of("xyz_volume1", false),
-            Arguments.of("def_volume1", true),
-            Arguments.of("#!#_volume3", true),
-            Arguments.of("aBc_volume1", true));
+        Arguments.of("abc_volume1", true, false),
+        Arguments.of("abc_volume1", false, true),
+        Arguments.of("def_volume1", true, true),
+        Arguments.of("#!#_volume3", true, true),
+        Arguments.of("aBC_volume1", true, false));
   }
 }

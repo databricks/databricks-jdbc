@@ -47,5 +47,5 @@ public interface IDatabricksUCVolumeClient {
    * @return a boolean indicating whether the volume exists or not
    */
   boolean volumeExists(String catalog, String schema, String volumeName, boolean caseSensitive)
-          throws SQLException;
+      throws SQLException;
 }

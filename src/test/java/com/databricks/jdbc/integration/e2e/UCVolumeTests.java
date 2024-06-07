@@ -168,4 +168,19 @@ public class UCVolumeTests {
         Arguments.of(
             UC_VOLUME_CATALOG, UC_VOLUME_SCHEMA, "test_volume1", "#_file3.csv", true, false));
   }
+
+  @ParameterizedTest
+  @MethodSource("provideParametersForVolumeExists")
+  void testVolumeExists(
+      String catalog, String schema, String volumeName, boolean caseSensitive, boolean expected)
+      throws Exception {
+    assertEquals(expected, client.volumeExists(catalog, schema, volumeName, caseSensitive));
+  }
+
+  private static Stream<Arguments> provideParametersForVolumeExists() {
+    return Stream.of(
+        Arguments.of(UC_VOLUME_CATALOG, UC_VOLUME_SCHEMA, "test_volume1", true, true),
+        Arguments.of(UC_VOLUME_CATALOG, UC_VOLUME_SCHEMA, "###", true, true),
+        Arguments.of(UC_VOLUME_CATALOG, UC_VOLUME_SCHEMA, "test_volume5", true, false));
+  }
 }

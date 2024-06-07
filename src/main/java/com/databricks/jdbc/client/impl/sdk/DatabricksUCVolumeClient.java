@@ -12,7 +12,11 @@ public class DatabricksUCVolumeClient implements IDatabricksUCVolumeClient {
 
   private static final Logger LOGGER = LogManager.getLogger(DatabricksSdkClient.class);
 
-  public static final String UC_VOLUME_COLUMN_NAME = "name";
+  private static final String UC_VOLUME_COLUMN_NAME =
+      "name"; // Column name for the file names within a volume
+
+  private static final String UC_VOLUME_NAME =
+      "volume_name"; // Column name for the volume names within a schema
 
   public DatabricksUCVolumeClient(Connection connection) {
     this.connection = connection;
@@ -20,6 +24,10 @@ public class DatabricksUCVolumeClient implements IDatabricksUCVolumeClient {
 
   private String createListQuery(String catalog, String schema, String volume) {
     return String.format("LIST '/Volumes/%s/%s/%s/'", catalog, schema, volume);
+  }
+
+  private String createShowVolumesQuery(String catalog, String schema) {
+    return String.format("SHOW VOLUMES IN %s.%s", catalog, schema);
   }
 
   public boolean prefixExists(String catalog, String schema, String volume, String prefix)
@@ -134,35 +142,32 @@ public class DatabricksUCVolumeClient implements IDatabricksUCVolumeClient {
 
   @Override
   public boolean volumeExists(
-          String catalog, String schema, String volumeName, boolean caseSensitive) throws SQLException {
+      String catalog, String schema, String volumeName, boolean caseSensitive) throws SQLException {
 
     LOGGER.info(
-            "Entering volumeExists method with parameters: catalog={}, schema={}, volumeName={}, caseSensitive={}",
-            catalog,
-            schema,
-            volumeName,
-            caseSensitive);
+        "Entering volumeExists method with parameters: catalog={}, schema={}, volumeName={}, caseSensitive={}",
+        catalog,
+        schema,
+        volumeName,
+        caseSensitive);
 
     String showVolumesSQLQuery = createShowVolumesQuery(catalog, schema);
 
     try (Statement statement = connection.createStatement()) {
-      LOGGER.info("Executing SQL query: {}", showVolumesSQLQuery);
       ResultSet resultSet = statement.executeQuery(showVolumesSQLQuery);
       LOGGER.info("SQL query executed successfully");
 
       boolean exists = false;
       while (resultSet.next()) {
-        String volume = resultSet.getString("name");
-        if (caseSensitive) {
-          if (volume.equals(volumeName)) {
-            exists = true;
-            break;
-          }
-        } else {
-          if (volume.equalsIgnoreCase(volumeName)) {
-            exists = true;
-            break;
-          }
+        String volume = resultSet.getString(UC_VOLUME_NAME);
+        if (volume.regionMatches(
+            /* ignoreCase= */ !caseSensitive,
+            /* targetOffset= */ 0,
+            /* other= */ volumeName,
+            /* sourceOffset= */ 0,
+            /* len= */ volumeName.length())) {
+          exists = true;
+          break;
         }
       }
       return exists;
@@ -173,7 +178,7 @@ public class DatabricksUCVolumeClient implements IDatabricksUCVolumeClient {
   }
 
   public boolean volumeExists(String catalog, String schema, String volumeName)
-          throws SQLException {
+      throws SQLException {
     return volumeExists(catalog, schema, volumeName, true);
   }
 }
