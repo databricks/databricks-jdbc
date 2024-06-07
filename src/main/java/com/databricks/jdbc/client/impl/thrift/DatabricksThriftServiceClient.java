@@ -271,7 +271,6 @@ public class DatabricksThriftServiceClient implements DatabricksClient, Databric
     TFetchResultsResp response =
         (TFetchResultsResp)
             thriftAccessor.getThriftResponse(request, CommandName.LIST_COLUMNS, null);
-    System.out.println("here are columns \n " + response.getResults().toString());
     return getColumnsResult(extractValuesColumnar(response.getResults().getColumns()));
   }
 
