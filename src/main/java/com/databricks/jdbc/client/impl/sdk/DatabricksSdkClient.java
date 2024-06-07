@@ -194,7 +194,8 @@ public class DatabricksSdkClient implements DatabricksClient {
   }
 
   private boolean useCloudFetchForResult(StatementType statementType) {
-    return statementType == StatementType.QUERY || statementType == StatementType.SQL;
+    return this.connectionContext.shouldEnableArrow()
+        && (statementType == StatementType.QUERY || statementType == StatementType.SQL);
   }
 
   @Override
@@ -236,10 +237,7 @@ public class DatabricksSdkClient implements DatabricksClient {
       Map<Integer, ImmutableSqlParameter> parameters,
       IDatabricksStatement parentStatement)
       throws SQLException {
-    Format format =
-        this.connectionContext.shouldEnableArrow() && useCloudFetchForResult(statementType)
-            ? Format.ARROW_STREAM
-            : Format.JSON_ARRAY;
+    Format format = useCloudFetchForResult(statementType) ? Format.ARROW_STREAM : Format.JSON_ARRAY;
     Disposition disposition =
         useCloudFetchForResult(statementType) ? Disposition.EXTERNAL_LINKS : Disposition.INLINE;
     long maxRows = (parentStatement == null) ? DEFAULT_ROW_LIMIT : parentStatement.getMaxRows();
