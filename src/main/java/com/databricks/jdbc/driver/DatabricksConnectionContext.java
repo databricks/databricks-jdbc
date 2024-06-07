@@ -18,10 +18,11 @@ import org.apache.http.client.utils.URIBuilder;
 import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.core.LoggerContext;
 
 public class DatabricksConnectionContext implements IDatabricksConnectionContext {
 
-  private static final Logger LOGGER = LogManager.getLogger(DatabricksConnectionContext.class);
+  private static Logger LOGGER;
   private final String host;
   private final int port;
   private final String schema;
@@ -76,6 +77,14 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
     }
   }
 
+  private static void configureLogging(String logFilePath, Level logLevel) {
+    System.setProperty("logFilePath", logFilePath);
+    System.setProperty("logLevel", logLevel.name());
+    LoggerContext context = (LoggerContext) LogManager.getContext(false);
+    context.updateLoggers();
+    context.reconfigure();
+  }
+
   private static void handleInvalidUrl(String url) throws DatabricksParsingException {
     throw new DatabricksParsingException("Invalid url incorrect: " + url);
   }
@@ -87,6 +96,8 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
     this.port = port;
     this.schema = schema;
     this.parameters = parameters;
+    configureLogging(getLogPathString(), getLogLevel());
+    LOGGER = LogManager.getLogger(DatabricksConnectionContext.class);
     this.computeResource = buildCompute();
   }
 
@@ -245,20 +256,17 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   public Level getLogLevel() {
     String logLevel = getParameter(DatabricksJdbcConstants.LOG_LEVEL);
     if (nullOrEmptyString(logLevel)) {
-      LOGGER.debug("No logLevel given in the input, defaulting to info.");
       return DEFAULT_LOG_LEVEL;
     }
     try {
       return getLogLevel(Integer.parseInt(logLevel));
     } catch (NumberFormatException e) {
-      LOGGER.debug("Input log level is not an integer, parsing string.");
       logLevel = logLevel.toUpperCase();
     }
 
     try {
       return Level.valueOf(logLevel);
     } catch (Exception e) {
-      LOGGER.debug("Invalid logLevel given in the input, defaulting to info.");
       return DEFAULT_LOG_LEVEL;
     }
   }
