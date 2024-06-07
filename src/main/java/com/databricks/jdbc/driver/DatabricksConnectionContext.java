@@ -417,6 +417,11 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   }
 
   @Override
+  public Boolean shouldEnableArrow() {
+    return Objects.equals(getParameter(ENABLE_ARROW, "1"), "1");
+  }
+
+  @Override
   public String getEndpointURL() throws DatabricksParsingException {
     return String.format("%s/%s", this.getHostUrl(), this.getHttpPath());
   }

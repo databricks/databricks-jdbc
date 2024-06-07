@@ -236,7 +236,10 @@ public class DatabricksSdkClient implements DatabricksClient {
       Map<Integer, ImmutableSqlParameter> parameters,
       IDatabricksStatement parentStatement)
       throws SQLException {
-    Format format = useCloudFetchForResult(statementType) ? Format.ARROW_STREAM : Format.JSON_ARRAY;
+    Format format =
+        this.connectionContext.shouldEnableArrow() && useCloudFetchForResult(statementType)
+            ? Format.ARROW_STREAM
+            : Format.JSON_ARRAY;
     Disposition disposition =
         useCloudFetchForResult(statementType) ? Disposition.EXTERNAL_LINKS : Disposition.INLINE;
     long maxRows = (parentStatement == null) ? DEFAULT_ROW_LIMIT : parentStatement.getMaxRows();
