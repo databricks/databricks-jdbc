@@ -35,7 +35,7 @@ public class DatabricksThriftAccessor {
             DatabricksHttpClient.getInstance(connectionContext),
             connectionContext.getEndpointURL());
 
-    System.out.println("Here is URL "+connectionContext.getEndpointURL());
+    System.out.println("Here is URL " + connectionContext.getEndpointURL());
     this.databricksConfig = new OAuthAuthenticator(connectionContext).getDatabricksConfig();
     Map<String, String> authHeaders = databricksConfig.authenticate();
     transport.setCustomHeaders(authHeaders);

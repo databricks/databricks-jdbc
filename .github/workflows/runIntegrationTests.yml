@@ -81,10 +81,10 @@ jobs:
 
       - name: Set up All purpose Connection
         env:
-          DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
-          DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
-          DATABRICKS_USER: ${{ secrets.DATABRICKS_USER }}
-          DATABRICKS_HTTP_PATH: ${{ secrets.DATABRICKS_HTTP_PATH }}
+          DATABRICKS_HOST: ${{ secrets.THRIFT_DATABRICKS_HOST }}
+          DATABRICKS_TOKEN: ${{ secrets.THRIFT_DATABRICKS_TOKEN }}
+          DATABRICKS_USER: ${{ secrets.THRIFT_DATABRICKS_USER }}
+          DATABRICKS_HTTP_PATH: ${{ secrets.THRIFT_DATABRICKS_HTTP_PATH }}
           DATABRICKS_CATALOG: ${{ secrets.DATABRICKS_CATALOG }}
           DATABRICKS_SCHEMA: ${{ secrets.DATABRICKS_SCHEMA }}
         run: |

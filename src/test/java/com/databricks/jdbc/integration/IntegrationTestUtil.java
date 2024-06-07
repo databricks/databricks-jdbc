@@ -126,6 +126,10 @@ public class IntegrationTestUtil {
   }
 
   public static String getJDBCUrl() {
+    System.out.println("here is sys variable " + System.getenv("DATABRICKS_HOST"));
+    System.out.println("here is sys variable " + System.getenv("DATABRICKS_TOKEN"));
+    System.out.println("here is sys variable " + System.getenv("DATABRICKS_USER"));
+    System.out.println("here is sys variable " + System.getenv("DATABRICKS_HTTP_PATH"));
     String template =
         Boolean.parseBoolean(System.getProperty(IS_FAKE_SERVICE_TEST_PROP))
             ? "jdbc:databricks://%s/default;transportMode=http;ssl=0;AuthMech=3;httpPath=%s"
