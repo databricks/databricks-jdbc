@@ -17,11 +17,15 @@ import org.junit.jupiter.api.Test;
 /** Integration tests for metadata retrieval. */
 public class MetadataIntegrationTests extends AbstractFakeServiceIntegrationTests {
 
+  /** TODO: switch to new metadata client when it is available in Azure test env. */
+  private static final String jdbcUrlTemplateWithLegacyMetadata =
+      "jdbc:databricks://%s/default;transportMode=http;ssl=0;AuthMech=3;httpPath=%s;useLegacyMetadata=1";
+
   private Connection connection;
 
   @BeforeEach
   void setUp() throws SQLException {
-    connection = getValidJDBCConnection();
+    connection = getConnection();
   }
 
   @AfterEach
@@ -174,5 +178,12 @@ public class MetadataIntegrationTests extends AbstractFakeServiceIntegrationTest
         .verify(
             new CountMatchingStrategy(CountMatchingStrategy.GREATER_THAN_OR_EQUAL, 7),
             postRequestedFor(urlEqualTo(STATEMENT_PATH)));
+  }
+
+  private Connection getConnection() throws SQLException {
+    String jdbcUrl =
+        String.format(
+            jdbcUrlTemplateWithLegacyMetadata, getDatabricksHost(), getDatabricksHTTPPath());
+    return DriverManager.getConnection(jdbcUrl, getDatabricksUser(), getDatabricksToken());
   }
 }
