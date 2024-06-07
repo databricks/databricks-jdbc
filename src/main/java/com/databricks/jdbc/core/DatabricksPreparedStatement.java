@@ -258,6 +258,9 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
   public ResultSetMetaData getMetaData() throws SQLException {
     LOGGER.debug("public ResultSetMetaData getMetaData()");
     checkIfClosed();
+    if (resultSet == null) {
+      return null;
+    }
     return resultSet.getMetaData();
   }
 

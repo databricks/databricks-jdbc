@@ -1049,8 +1049,8 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
         catalog,
         schema,
         table);
-    throw new UnsupportedOperationException(
-        "Not implemented in DatabricksDatabaseMetaData - getImportedKeys(String catalog, String schema, String table)");
+    // TODO(PECO-1696): Implement this
+    return new EmptyResultSet();
   }
 
   @Override
@@ -1061,8 +1061,8 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
         catalog,
         schema,
         table);
-    throw new UnsupportedOperationException(
-        "Not implemented in DatabricksDatabaseMetaData - getExportedKeys(String catalog, String schema, String table)");
+    // TODO(PECO-1696): Implement this
+    return new EmptyResultSet();
   }
 
   @Override

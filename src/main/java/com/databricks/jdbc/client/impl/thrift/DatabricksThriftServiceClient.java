@@ -28,15 +28,19 @@ public class DatabricksThriftServiceClient implements DatabricksClient, Databric
   private static final Logger LOGGER = LogManager.getLogger(DatabricksThriftServiceClient.class);
 
   private final DatabricksThriftAccessor thriftAccessor;
+  private final IDatabricksConnectionContext connectionContext;
 
   public DatabricksThriftServiceClient(IDatabricksConnectionContext connectionContext)
       throws DatabricksParsingException {
+    this.connectionContext = connectionContext;
     this.thriftAccessor = new DatabricksThriftAccessor(connectionContext);
   }
 
   @VisibleForTesting
-  DatabricksThriftServiceClient(DatabricksThriftAccessor thriftAccessor) {
+  DatabricksThriftServiceClient(
+      DatabricksThriftAccessor thriftAccessor, IDatabricksConnectionContext connectionContext) {
     this.thriftAccessor = thriftAccessor;
+    this.connectionContext = connectionContext;
   }
 
   private TNamespace getNamespace(String catalog, String schema) {
@@ -106,7 +110,7 @@ public class DatabricksThriftServiceClient implements DatabricksClient, Databric
         new TExecuteStatementReq()
             .setStatement(sql)
             .setSessionHandle(session.getSessionInfo().sessionHandle())
-            .setCanReadArrowResult(true)
+            .setCanReadArrowResult(this.connectionContext.shouldEnableArrow())
             .setCanDownloadResult(true);
     return thriftAccessor.execute(request, parentStatement, session, statementType);
   }

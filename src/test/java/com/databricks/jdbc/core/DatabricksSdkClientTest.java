@@ -96,7 +96,7 @@ public class DatabricksSdkClientTest {
               if (path.equals(STATEMENT_PATH)) {
                 ExecuteStatementRequest request =
                     (ExecuteStatementRequest) invocationOnMock.getArguments()[1];
-                assertTrue(request.equals(executeStatementRequest));
+                assertEquals(request, executeStatementRequest);
                 return response;
               } else if (path.equals(SESSION_PATH)) {
                 CreateSessionRequest request =

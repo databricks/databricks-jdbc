@@ -48,6 +48,7 @@ public final class DatabricksJdbcConstants {
   static final String CF_PROXY_HOST = "cfproxyhost";
   static final String CF_PROXY_PORT = "cfproxyport";
   static final String USE_CF_PROXY_AUTH = "cfproxyauth";
+  static final String ENABLE_ARROW = "EnableArrow";
   static final String CF_PROXY_USER = "cfproxyuid";
   static final String CF_PROXY_PWD = "cfproxypwd";
 

@@ -117,6 +117,8 @@ public interface IDatabricksConnectionContext {
 
   int getAsyncExecPollInterval();
 
+  Boolean shouldEnableArrow();
+
   DatabricksClientType getClientType();
 
   Boolean getUseLegacyMetadata();
