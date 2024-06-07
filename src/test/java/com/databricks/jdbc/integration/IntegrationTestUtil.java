@@ -1,7 +1,6 @@
 package com.databricks.jdbc.integration;
 
-import static com.databricks.jdbc.driver.DatabricksJdbcConstants.FAKE_SERVICE_URI_PROP_SUFFIX;
-import static com.databricks.jdbc.driver.DatabricksJdbcConstants.IS_FAKE_SERVICE_TEST_PROP;
+import static com.databricks.jdbc.driver.DatabricksJdbcConstants.*;
 import static com.databricks.jdbc.integration.fakeservice.FakeServiceExtension.TARGET_URI_PROP_SUFFIX;
 
 import com.databricks.jdbc.driver.DatabricksJdbcConstants.FakeServiceType;
@@ -19,7 +18,8 @@ public class IntegrationTestUtil {
   private static Connection JDBCConnection;
 
   public static String getDatabricksHost() {
-    if (Boolean.parseBoolean(System.getProperty(IS_FAKE_SERVICE_TEST_PROP))) {
+    if (isAllpurposeCluster()
+        && Boolean.parseBoolean(System.getProperty(IS_FAKE_SERVICE_TEST_PROP))) {
       // Target base URL of the fake service type
       String serviceURI =
           System.getProperty(
@@ -126,10 +126,6 @@ public class IntegrationTestUtil {
   }
 
   public static String getJDBCUrl() {
-    System.out.println("here is sys variable " + System.getenv("DATABRICKS_HOST"));
-    System.out.println("here is sys variable " + System.getenv("DATABRICKS_TOKEN"));
-    System.out.println("here is sys variable " + System.getenv("DATABRICKS_USER"));
-    System.out.println("here is sys variable " + System.getenv("DATABRICKS_HTTP_PATH"));
     String template =
         Boolean.parseBoolean(System.getProperty(IS_FAKE_SERVICE_TEST_PROP))
             ? "jdbc:databricks://%s/default;transportMode=http;ssl=0;AuthMech=3;httpPath=%s"
@@ -137,8 +133,6 @@ public class IntegrationTestUtil {
 
     String host = getDatabricksHost();
     String httpPath = getDatabricksHTTPPath();
-    System.out.println(host);
-    System.out.println(httpPath);
     return String.format(template, host, httpPath);
   }
 
@@ -273,5 +267,9 @@ public class IntegrationTestUtil {
             + getFullyQualifiedTableName(tableName)
             + " (id, col1, col2) VALUES (1, 'value1', 'value2')";
     executeSQL(insertSQL);
+  }
+
+  private static boolean isAllpurposeCluster() {
+    return HTTP_CLUSTER_PATH_PATTERN.matcher(getDatabricksHTTPPath()).matches();
   }
 }
