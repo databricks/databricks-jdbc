@@ -163,7 +163,7 @@ public class DatabricksUCVolumeClientTest {
     String showVolumesSQL = createShowVolumesQuery(TEST_CATALOG, TEST_SCHEMA);
     when(statement.executeQuery(showVolumesSQL)).thenReturn(resultSet);
     when(resultSet.next()).thenReturn(true, true, true, true, true, false);
-    when(resultSet.getString("name"))
+    when(resultSet.getString("volume_name"))
         .thenReturn("aBc_volume1", "abC_volume2", "def_volume1", "efg_volume2", "#!#_volume3");
 
     assertEquals(
