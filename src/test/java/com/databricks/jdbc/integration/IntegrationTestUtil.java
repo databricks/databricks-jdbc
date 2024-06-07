@@ -18,7 +18,7 @@ public class IntegrationTestUtil {
   private static Connection JDBCConnection;
 
   public static String getDatabricksHost() {
-    if (isAllpurposeCluster()
+    if (!isAllpurposeCluster()
         && Boolean.parseBoolean(System.getProperty(IS_FAKE_SERVICE_TEST_PROP))) {
       // Target base URL of the fake service type
       String serviceURI =
