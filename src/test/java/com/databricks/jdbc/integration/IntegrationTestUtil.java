@@ -18,8 +18,7 @@ public class IntegrationTestUtil {
   private static Connection JDBCConnection;
 
   public static String getDatabricksHost() {
-    if (!isAllpurposeCluster()
-        && Boolean.parseBoolean(System.getProperty(IS_FAKE_SERVICE_TEST_PROP))) {
+    if (fakeServiceToBeUsed()) {
       // Target base URL of the fake service type
       String serviceURI =
           System.getProperty(
@@ -37,6 +36,11 @@ public class IntegrationTestUtil {
 
     // includes port
     return System.getenv("DATABRICKS_HOST");
+  }
+
+  public static boolean fakeServiceToBeUsed() {
+    return !isAllpurposeCluster()
+        && Boolean.parseBoolean(System.getProperty(IS_FAKE_SERVICE_TEST_PROP));
   }
 
   public static String getDatabricksBenchfoodHost() {
@@ -99,7 +103,7 @@ public class IntegrationTestUtil {
 
   public static Connection getValidJDBCConnection() throws SQLException {
     // add support for properties
-    System.out.println("here is jdbc url "+ getJDBCUrl());
+    System.out.println("here is jdbc url " + getJDBCUrl());
     return DriverManager.getConnection(getJDBCUrl(), getDatabricksUser(), getDatabricksToken());
   }
 
@@ -128,7 +132,7 @@ public class IntegrationTestUtil {
 
   public static String getJDBCUrl() {
     String template =
-        Boolean.parseBoolean(System.getProperty(IS_FAKE_SERVICE_TEST_PROP))
+        fakeServiceToBeUsed()
             ? "jdbc:databricks://%s/default;transportMode=http;ssl=0;AuthMech=3;httpPath=%s"
             : "jdbc:databricks://%s/default;ssl=1;AuthMech=3;httpPath=%s";
 
@@ -139,7 +143,7 @@ public class IntegrationTestUtil {
 
   public static String getJDBCUrl(Map<String, String> args) {
     String template =
-        Boolean.parseBoolean(System.getProperty(IS_FAKE_SERVICE_TEST_PROP))
+        fakeServiceToBeUsed()
             ? "jdbc:databricks://%s/default;transportMode=http;ssl=0;AuthMech=3;httpPath=%s"
             : "jdbc:databricks://%s/default;ssl=1;AuthMech=3;httpPath=%s";
 
