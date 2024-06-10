@@ -305,8 +305,7 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   @Override
   public Boolean getUseLegacyMetadata() {
     // Defaults to use legacy metadata client
-    return getParameter(DatabricksJdbcConstants.USE_LEGACY_METADATA) == null
-        || getParameter(DatabricksJdbcConstants.USE_LEGACY_METADATA).equals("1");
+    return Objects.equals(getParameter(USE_LEGACY_METADATA, "0"), "1");
   }
 
   @Override
@@ -414,6 +413,11 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   @Override
   public Boolean getUseCloudFetchProxyAuth() {
     return Objects.equals(getParameter(USE_CF_PROXY_AUTH), "1");
+  }
+
+  @Override
+  public Boolean shouldEnableArrow() {
+    return Objects.equals(getParameter(ENABLE_ARROW, "1"), "1");
   }
 
   @Override

@@ -981,8 +981,6 @@ public class DatabricksDatabaseMetaDataTest {
             () -> metaData.getProcedureColumns(null, null, null, null),
             () -> metaData.getBestRowIdentifier(null, null, null, 0, false),
             () -> metaData.getVersionColumns(null, null, null),
-            () -> metaData.getExportedKeys(null, null, null),
-            () -> metaData.getImportedKeys(null, null, null),
             () -> metaData.getCrossReference(null, null, null, null, null, null),
             () -> metaData.getIndexInfo(null, null, null, false, false),
             () -> metaData.supportsConvert(0, 0),

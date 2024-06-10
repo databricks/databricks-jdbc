@@ -194,7 +194,8 @@ public class DatabricksSdkClient implements DatabricksClient {
   }
 
   private boolean useCloudFetchForResult(StatementType statementType) {
-    return statementType == StatementType.QUERY || statementType == StatementType.SQL;
+    return this.connectionContext.shouldEnableArrow()
+        && (statementType == StatementType.QUERY || statementType == StatementType.SQL);
   }
 
   @Override
