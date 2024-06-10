@@ -35,7 +35,6 @@ public class DatabricksThriftAccessor {
             DatabricksHttpClient.getInstance(connectionContext),
             connectionContext.getEndpointURL());
 
-    System.out.println("Here is URL " + connectionContext.getEndpointURL());
     this.databricksConfig = new OAuthAuthenticator(connectionContext).getDatabricksConfig();
     Map<String, String> authHeaders = databricksConfig.authenticate();
     transport.setCustomHeaders(authHeaders);
@@ -144,7 +143,8 @@ public class DatabricksThriftAccessor {
     return response;
   }
 
-  void longPolling(TOperationHandle operationHandle) throws TException, InterruptedException {
+  void longPolling(TOperationHandle operationHandle)
+      throws TException, InterruptedException, DatabricksHttpException {
     TGetOperationStatusReq request =
         new TGetOperationStatusReq()
             .setOperationHandle(operationHandle)
@@ -158,6 +158,7 @@ public class DatabricksThriftAccessor {
         Thread.sleep(DEFAULT_SLEEP_DELAY);
       }
     } while (statusCode == TStatusCode.STILL_EXECUTING_STATUS);
+    verifySuccessStatus(statusCode, request.toString());
   }
 
   public DatabricksResultSet execute(

@@ -103,7 +103,6 @@ public class IntegrationTestUtil {
 
   public static Connection getValidJDBCConnection() throws SQLException {
     // add support for properties
-    System.out.println("here is jdbc url " + getJDBCUrl());
     return DriverManager.getConnection(getJDBCUrl(), getDatabricksUser(), getDatabricksToken());
   }
 

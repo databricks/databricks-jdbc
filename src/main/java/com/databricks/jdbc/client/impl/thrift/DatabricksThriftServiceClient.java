@@ -100,6 +100,7 @@ public class DatabricksThriftServiceClient implements DatabricksClient, Databric
       IDatabricksSession session,
       IDatabricksStatement parentStatement)
       throws SQLException {
+    // Note that prepared statement is not supported by SEA/Thrift flow.
     LOGGER.debug(
         "public DatabricksResultSet executeStatement(String sql = {}, Compute cluster = {}, Map<Integer, ImmutableSqlParameter> parameters = {}, StatementType statementType = {}, IDatabricksSession session)",
         sql,

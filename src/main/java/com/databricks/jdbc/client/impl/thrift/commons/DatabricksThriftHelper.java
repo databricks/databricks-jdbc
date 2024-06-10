@@ -1,7 +1,7 @@
 package com.databricks.jdbc.client.impl.thrift.commons;
 
 import static com.databricks.jdbc.client.impl.helper.MetadataResultConstants.NULL_STRING;
-import static com.databricks.jdbc.core.DatabricksTypeUtil.getThriftTypeFromTypeDesc;
+import static com.databricks.jdbc.core.DatabricksTypeUtil.*;
 
 import com.databricks.jdbc.client.DatabricksHttpException;
 import com.databricks.jdbc.client.impl.thrift.generated.*;

@@ -59,7 +59,7 @@ public class ResultSetIntegrationTests extends AbstractFakeServiceIntegrationTes
     String query =
         "SELECT datetime_col, decimal_col, date_col FROM " + getFullyQualifiedTableName(tableName);
     ResultSet resultSet = executeQuery(query);
-
+    System.out.println("here is resultSet " + resultSet);
     while (resultSet.next()) {
       assertInstanceOf(
           Timestamp.class,
