@@ -1,7 +1,6 @@
 package com.databricks.jdbc.core;
 
-import static com.databricks.jdbc.client.impl.thrift.commons.DatabricksThriftHelper.SUCCESS_STATUS_LIST;
-import static com.databricks.jdbc.client.impl.thrift.commons.DatabricksThriftHelper.getRowCount;
+import static com.databricks.jdbc.client.impl.thrift.commons.DatabricksThriftHelper.*;
 import static com.databricks.jdbc.core.converters.ConverterHelper.getConvertedObject;
 import static com.databricks.jdbc.core.converters.ConverterHelper.getObjectConverter;
 
@@ -99,7 +98,7 @@ public class DatabricksResultSet implements ResultSet, IDatabricksResultSet {
     this.statementId = statementId;
     this.executionResult =
         ExecutionResultFactory.getResultSet(resultData, resultManifest, statementId, session);
-    int rowSize = getRowCount(resultData);
+    long rowSize = getRowCount(resultData);
     this.resultSetMetaData =
         new DatabricksResultSetMetaData(
             statementId, resultManifest, rowSize, resultData.getResultLinksSize());

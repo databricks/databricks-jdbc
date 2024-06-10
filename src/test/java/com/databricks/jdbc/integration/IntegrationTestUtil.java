@@ -273,7 +273,16 @@ public class IntegrationTestUtil {
     executeSQL(insertSQL);
   }
 
+
   private static boolean isAllpurposeCluster() {
     return HTTP_CLUSTER_PATH_PATTERN.matcher(getDatabricksHTTPPath()).matches();
+  }
+  
+  /** Get the JDBC connection if it is already initialized in the test suite. */
+  public static Connection getJDBCConnectionIfInitialized() {
+    if (JDBCConnection == null) {
+      throw new IllegalStateException("JDBC connection is not initialized for the test");
+    }
+    return JDBCConnection;
   }
 }

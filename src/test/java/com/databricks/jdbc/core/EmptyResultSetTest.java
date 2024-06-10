@@ -122,7 +122,7 @@ public class EmptyResultSetTest {
 
   @Test
   public void testGetMetaData() throws SQLException {
-    assertNull(resultSet.getMetaData());
+    assertEquals(resultSet.getMetaData(), new EmptyResultSetMetaData());
   }
 
   @Test

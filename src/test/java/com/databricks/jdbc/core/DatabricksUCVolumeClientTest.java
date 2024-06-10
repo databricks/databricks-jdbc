@@ -6,6 +6,9 @@ import static org.mockito.Mockito.*;
 
 import com.databricks.jdbc.client.impl.sdk.DatabricksUCVolumeClient;
 import java.sql.*;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -27,6 +30,10 @@ public class DatabricksUCVolumeClientTest {
 
   private String createListQuery(String catalog, String schema, String volume) {
     return String.format("LIST '/Volumes/%s/%s/%s/'", catalog, schema, volume);
+  }
+
+  private String createShowVolumesQuery(String catalog, String schema) {
+    return String.format("SHOW VOLUMES IN %s.%s", catalog, schema);
   }
 
   @ParameterizedTest
@@ -57,7 +64,7 @@ public class DatabricksUCVolumeClientTest {
   @ParameterizedTest
   @MethodSource("provideParametersForObjectExists_CaseSensitivity")
   public void testObjectExistsCaseSensitivity(
-      String volume, String objectName, boolean caseSensitive, boolean expected)
+      String volume, String objectPath, boolean caseSensitive, boolean expected)
       throws SQLException {
     DatabricksUCVolumeClient client = new DatabricksUCVolumeClient(connection);
 
@@ -71,7 +78,7 @@ public class DatabricksUCVolumeClientTest {
 
     assertEquals(
         expected,
-        client.objectExists(TEST_CATALOG, TEST_SCHEMA, volume, objectName, caseSensitive));
+        client.objectExists(TEST_CATALOG, TEST_SCHEMA, volume, objectPath, caseSensitive));
     verify(statement).executeQuery(listFilesSQL);
   }
 
@@ -85,7 +92,7 @@ public class DatabricksUCVolumeClientTest {
   @ParameterizedTest
   @MethodSource("provideParametersForObjectExists_VolumeReferencing")
   public void testObjectExistsVolumeReferencing(
-      String volume, String objectName, boolean caseSensitive, boolean expected)
+      String volume, String objectPath, boolean caseSensitive, boolean expected)
       throws SQLException {
     DatabricksUCVolumeClient client = new DatabricksUCVolumeClient(connection);
 
@@ -106,7 +113,7 @@ public class DatabricksUCVolumeClientTest {
 
     assertEquals(
         expected,
-        client.objectExists(TEST_CATALOG, TEST_SCHEMA, volume, objectName, caseSensitive));
+        client.objectExists(TEST_CATALOG, TEST_SCHEMA, volume, objectPath, caseSensitive));
     verify(statement).executeQuery(listFilesSQL);
   }
 
@@ -123,7 +130,7 @@ public class DatabricksUCVolumeClientTest {
   @ParameterizedTest
   @MethodSource("provideParametersForObjectExists_SpecialCharacters")
   public void testObjectExistsSpecialCharacters(
-      String volume, String objectName, boolean caseSensitive, boolean expected)
+      String volume, String objectPath, boolean caseSensitive, boolean expected)
       throws SQLException {
     DatabricksUCVolumeClient client = new DatabricksUCVolumeClient(connection);
 
@@ -137,7 +144,7 @@ public class DatabricksUCVolumeClientTest {
 
     assertEquals(
         expected,
-        client.objectExists(TEST_CATALOG, TEST_SCHEMA, volume, objectName, caseSensitive));
+        client.objectExists(TEST_CATALOG, TEST_SCHEMA, volume, objectPath, caseSensitive));
     verify(statement).executeQuery(listFilesSQL);
   }
 
@@ -147,5 +154,80 @@ public class DatabricksUCVolumeClientTest {
         Arguments.of("abc_volume1", "@aBc_file1", true, false),
         Arguments.of("abc_volume1", "#!#_file3", true, true),
         Arguments.of("abc_volume1", "#_file3", true, false));
+  }
+
+  @ParameterizedTest
+  @MethodSource("provideParametersForVolumeExists")
+  public void testVolumeExists(String volumeName, boolean caseSensitive, boolean expected)
+      throws SQLException {
+    DatabricksUCVolumeClient client = new DatabricksUCVolumeClient(connection);
+
+    when(connection.createStatement()).thenReturn(statement);
+    String showVolumesSQL = createShowVolumesQuery(TEST_CATALOG, TEST_SCHEMA);
+    when(statement.executeQuery(showVolumesSQL)).thenReturn(resultSet);
+    when(resultSet.next()).thenReturn(true, true, true, true, true, false);
+    when(resultSet.getString("volume_name"))
+        .thenReturn("aBc_volume1", "abC_volume2", "def_volume1", "efg_volume2", "#!#_volume3");
+
+    assertEquals(
+        expected, client.volumeExists(TEST_CATALOG, TEST_SCHEMA, volumeName, caseSensitive));
+    verify(statement).executeQuery(showVolumesSQL);
+  }
+
+  private static Stream<Arguments> provideParametersForVolumeExists() {
+    return Stream.of(
+        Arguments.of("abc_volume1", true, false),
+        Arguments.of("abc_volume1", false, true),
+        Arguments.of("def_volume1", true, true),
+        Arguments.of("#!#_volume3", true, true),
+        Arguments.of("aBC_volume1", true, false));
+  }
+
+  @ParameterizedTest
+  @MethodSource("provideParametersForListObjects")
+  public void testListObjects(String volume, String prefix, List<String> expected)
+      throws SQLException {
+    DatabricksUCVolumeClient client = new DatabricksUCVolumeClient(connection);
+
+    when(connection.createStatement()).thenReturn(statement);
+    String listFilesSQL = createListQuery(TEST_CATALOG, TEST_SCHEMA, volume);
+    when(statement.executeQuery(listFilesSQL)).thenReturn(resultSet);
+    when(resultSet.next()).thenReturn(true, true, true, true, true, true, true, false);
+    when(resultSet.getString("name"))
+        .thenReturn(
+            "aBc_file1",
+            "abC_file2",
+            "def_file1",
+            "efg_file2",
+            "#!#_file3",
+            "xyz_file4",
+            "###file1");
+
+    List<String> filenames = client.listObjects(TEST_CATALOG, TEST_SCHEMA, volume, prefix, true);
+
+    assertEquals(expected.size(), filenames.size());
+    assertTrue(filenames.containsAll(expected));
+    verify(statement).executeQuery(listFilesSQL);
+  }
+
+  private static Stream<Arguments> provideParametersForListObjects() {
+    return Stream.of(
+        Arguments.of("abc_volume1", "a", Arrays.asList("aBc_file1", "abC_file2")),
+        Arguments.of("abc_volume1", "aBC", Collections.emptyList()),
+        Arguments.of("abc_volume1", "xyz", Collections.singletonList("xyz_file4")),
+        Arguments.of("abc_volume1", "aB", Collections.singletonList("aBc_file1")),
+        Arguments.of("abc_volume1", "#", Arrays.asList("#!#_file3", "###file1")),
+        Arguments.of("abc_volume1", "aBc", Collections.singletonList("aBc_file1")),
+        Arguments.of(
+            "abc_volume2",
+            "",
+            Arrays.asList(
+                "aBc_file1",
+                "abC_file2",
+                "def_file1",
+                "efg_file2",
+                "#!#_file3",
+                "xyz_file4",
+                "###file1")));
   }
 }
