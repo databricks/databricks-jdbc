@@ -201,13 +201,23 @@ public class DatabricksThriftHelper {
         .collect(Collectors.toUnmodifiableList());
   }
 
-  public static int getRowCount(TRowSet resultData) {
-    if (resultData == null) return 0;
-    List<TColumn> columns = resultData.getColumns();
-    if (columns == null || columns.isEmpty()) {
+  public static long getRowCount(TRowSet resultData) {
+    if (resultData == null) {
       return 0;
     }
-    return getColumnValues(columns.get(0)).size();
+
+    if (resultData.isSetColumns()) {
+      List<TColumn> columns = resultData.getColumns();
+      return columns == null || columns.isEmpty()
+          ? 0
+          : getColumnValues(resultData.getColumns().get(0)).size();
+    } else if (resultData.isSetResultLinks()) {
+      return resultData.getResultLinks().stream()
+          .mapToLong(link -> link.isSetRowCount() ? link.getRowCount() : 0)
+          .sum();
+    }
+
+    return 0;
   }
 
   public static void checkDirectResultsForErrorStatus(

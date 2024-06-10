@@ -45,9 +45,17 @@ public class DatabricksThriftHelperTest {
   }
 
   private static Stream<Arguments> resultDataTypes() {
+    // Create a test row set with chunk links
+    TSparkArrowResultLink sampleResultLink = new TSparkArrowResultLink().setRowCount(10);
+    sampleResultLink.setRowCountIsSet(true);
+    TRowSet resultChunkRowSet =
+        new TRowSet().setResultLinks(Collections.singletonList(sampleResultLink));
+    resultChunkRowSet.setResultLinksIsSet(true);
+
     return Stream.of(
         Arguments.of(new TRowSet(), 0),
         Arguments.of(new TRowSet().setColumns(Collections.emptyList()), 0),
+        Arguments.of(resultChunkRowSet, 10),
         Arguments.of(boolRowSet, 4),
         Arguments.of(byteRowSet, 1),
         Arguments.of(doubleRowSet, 6),

@@ -85,7 +85,7 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
   }
 
   public DatabricksResultSetMetaData(
-      String statementId, TGetResultSetMetadataResp resultManifest, int rows, long chunkCount) {
+      String statementId, TGetResultSetMetadataResp resultManifest, long rows, long chunkCount) {
     this.statementId = statementId;
     Map<String, Integer> columnNameToIndexMap = new HashMap<>();
     ImmutableList.Builder<ImmutableDatabricksColumn> columnsBuilder = ImmutableList.builder();
