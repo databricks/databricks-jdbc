@@ -269,4 +269,13 @@ public class IntegrationTestUtil {
             + " (id, col1, col2) VALUES (1, 'value1', 'value2')";
     executeSQL(insertSQL);
   }
+
+  /** Get the JDBC connection if it is already initialized in the test suite. */
+  public static Connection getJDBCConnectionIfInitialized() {
+    if (JDBCConnection == null) {
+      throw new IllegalStateException("JDBC connection is not initialized for the test");
+    }
+
+    return JDBCConnection;
+  }
 }
