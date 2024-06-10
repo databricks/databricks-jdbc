@@ -1038,7 +1038,7 @@ class EmptyResultSet implements ResultSet {
   @Override
   public ResultSetMetaData getMetaData() throws SQLException {
     checkIfClosed();
-    return null;
+    return new EmptyResultSetMetaData();
   }
 
   @Override
