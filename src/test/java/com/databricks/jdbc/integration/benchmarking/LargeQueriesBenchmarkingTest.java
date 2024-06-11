@@ -19,7 +19,7 @@ public class LargeQueriesBenchmarkingTest {
 
   private static String RESULTS_TABLE =
       "main.jdbc_large_queries_benchmarking_schema.benchmarking_results";
-  private int ATTEMPTS = 1;
+  private int ATTEMPTS = 10;
 
   private int ROWS = 1000000;
 
@@ -52,7 +52,7 @@ public class LargeQueriesBenchmarkingTest {
   @AfterEach
   void tearDown() throws SQLException {
     DriverManager.registerDriver(new com.databricks.jdbc.driver.DatabricksDriver());
-    //    insertBenchmarkingDataIntoBenchfood();
+    insertBenchmarkingDataIntoBenchfood();
     connection.close();
   }
 

@@ -44,7 +44,7 @@ public class ExecutionResultFactoryTest {
   @Test
   public void testGetResultSet_externalLink() {
     when(session.getConnectionContext()).thenReturn(connectionContext);
-
+    when(session.getConnectionContext().getCloudFetchThreadPoolSize()).thenReturn(16);
     ResultManifest manifest = new ResultManifest();
     manifest.setFormat(Format.ARROW_STREAM);
     manifest.setTotalChunkCount(0L);
@@ -95,6 +95,7 @@ public class ExecutionResultFactoryTest {
   public void testGetResultSet_thriftURL() throws DatabricksSQLException {
     when(resultSetMetadataResp.getResultFormat()).thenReturn(TSparkRowSetType.URL_BASED_SET);
     when(session.getConnectionContext()).thenReturn(context);
+    when(session.getConnectionContext().getCloudFetchThreadPoolSize()).thenReturn(16);
     IExecutionResult result =
         ExecutionResultFactory.getResultSet(
             tRowSet, resultSetMetadataResp, TEST_STATEMENT_ID, session);

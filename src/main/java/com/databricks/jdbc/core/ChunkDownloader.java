@@ -23,7 +23,6 @@ import org.apache.logging.log4j.Logger;
 public class ChunkDownloader {
 
   private static final Logger logger = LogManager.getLogger(ChunkDownloader.class);
-  private static final int CHUNKS_DOWNLOADER_THREAD_POOL_SIZE = 4;
   private static final String CHUNKS_DOWNLOADER_THREAD_POOL_PREFIX =
       "databricks-jdbc-chunks-downloader-";
   private final IDatabricksSession session;
@@ -31,7 +30,7 @@ public class ChunkDownloader {
   private final long totalChunks;
   private final ExecutorService chunkDownloaderExecutorService;
   private final IDatabricksHttpClient httpClient;
-  private final int chunksDownloaderThreadPoolSize;
+  private static int chunksDownloaderThreadPoolSize;
   private Long currentChunkIndex;
   private long nextChunkToDownload;
   private Long totalChunksInMemory;
@@ -63,11 +62,11 @@ public class ChunkDownloader {
       IDatabricksSession session,
       IDatabricksHttpClient httpClient,
       int chunksDownloaderThreadPoolSize) {
+    this.chunksDownloaderThreadPoolSize = chunksDownloaderThreadPoolSize;
     this.chunkDownloaderExecutorService = createChunksDownloaderExecutorService();
     this.httpClient = httpClient;
     this.session = session;
     this.statementId = statementId;
-    this.chunksDownloaderThreadPoolSize = chunksDownloaderThreadPoolSize;
     this.totalChunks = resultManifest.getTotalChunkCount();
     this.chunkIndexToChunksMap = initializeChunksMap(resultManifest, resultData, statementId);
     initializeData();
@@ -93,11 +92,11 @@ public class ChunkDownloader {
       IDatabricksSession session,
       IDatabricksHttpClient httpClient,
       int chunksDownloaderThreadPoolSize) {
+    this.chunksDownloaderThreadPoolSize = chunksDownloaderThreadPoolSize;
     this.chunkDownloaderExecutorService = createChunksDownloaderExecutorService();
     this.httpClient = httpClient;
     this.session = session;
     this.statementId = statementId;
-    this.chunksDownloaderThreadPoolSize = chunksDownloaderThreadPoolSize;
     this.totalChunks = resultData.getResultLinksSize();
     this.chunkIndexToChunksMap = initializeChunksMap(resultData, statementId);
     initializeData();
@@ -132,7 +131,7 @@ public class ChunkDownloader {
             return thread;
           }
         };
-    return Executors.newFixedThreadPool(CHUNKS_DOWNLOADER_THREAD_POOL_SIZE, threadFactory);
+    return Executors.newFixedThreadPool(chunksDownloaderThreadPoolSize, threadFactory);
   }
 
   /**
@@ -257,7 +256,7 @@ public class ChunkDownloader {
     // We don't have any chunk in downloaded yet
     this.totalChunksInMemory = 0L;
     // Number of worker threads are directly linked to allowed chunks in memory
-    this.allowedChunksInMemory = Math.min(CHUNKS_DOWNLOADER_THREAD_POOL_SIZE, totalChunks);
+    this.allowedChunksInMemory = Math.min(chunksDownloaderThreadPoolSize, totalChunks);
     this.isClosed = false;
     // The first link is available
     this.downloadNextChunks();

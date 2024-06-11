@@ -44,7 +44,7 @@ public class MetadataBenchmarkingTests {
                 "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;ssl=1;AuthMech=3;httpPath=sql/protocolv1/o/6051921418418893/1115-130834-ms4m0yv",
                 "token",
                 getDatabricksDogfoodToken());
-        RESULTS_TABLE = "main.jdbc_thrift.benchmarking_results";
+        RESULTS_TABLE = "main.jdbc_metadata_benchmarking_thrift.benchmarking_results";
         break;
       default:
         throw new IllegalArgumentException("Invalid testing mode");
@@ -228,7 +228,6 @@ public class MetadataBenchmarkingTests {
     switch (TESTING_MODE) {
       case "SEA":
         connection = DriverManager.getConnection(getJDBCUrl(), "token", getDatabricksToken());
-        ;
         break;
       case "THRIFT":
         connection =
