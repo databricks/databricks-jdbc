@@ -23,11 +23,13 @@ public class UCVolumeTests {
 
   @BeforeEach
   void setUp() throws SQLException {
-    // TO DO: Testing is done here using the E2-Dogfood environment. Need to update this to use a
-    // test warehouse.
-    con = getDogfoodJDBCConnection();
-    System.out.println("Connection established......");
-    client = new DatabricksUCVolumeClient(con);
+    if (!isAllpurposeCluster()) {
+      // TO DO: Testing is done here using the E2-Dogfood environment. Need to update this to use a
+      // test warehouse.
+      con = getDogfoodJDBCConnection();
+      System.out.println("Connection established......");
+      client = new DatabricksUCVolumeClient(con);
+    }
   }
 
   @AfterEach
@@ -161,7 +163,6 @@ public class UCVolumeTests {
       boolean caseSensitive,
       boolean expected)
       throws Exception {
-
     if (!isAllpurposeCluster()) {
       boolean result = client.objectExists(catalog, schema, volume, objectPath, caseSensitive);
       assertEquals(expected, result);
@@ -208,7 +209,9 @@ public class UCVolumeTests {
       boolean caseSensitive,
       List<String> expected)
       throws Exception {
-    assertEquals(expected, client.listObjects(catalog, schema, volume, prefix, caseSensitive));
+    if (!isAllpurposeCluster()) {
+      assertEquals(expected, client.listObjects(catalog, schema, volume, prefix, caseSensitive));
+    }
   }
 
   private static Stream<Arguments> provideParametersForListObjectsInSubFolders() {
@@ -246,7 +249,6 @@ public class UCVolumeTests {
       boolean caseSensitive,
       List<String> expected)
       throws Exception {
-
     if (!isAllpurposeCluster()) {
       assertEquals(expected, client.listObjects(catalog, schema, volume, prefix, caseSensitive));
     }
