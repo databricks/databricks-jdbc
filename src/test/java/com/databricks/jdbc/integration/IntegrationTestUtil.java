@@ -273,7 +273,7 @@ public class IntegrationTestUtil {
     executeSQL(insertSQL);
   }
 
-  private static boolean isAllpurposeCluster() {
+  public static boolean isAllpurposeCluster() {
     return HTTP_CLUSTER_PATH_PATTERN.matcher(getDatabricksHTTPPath()).matches();
   }
 
