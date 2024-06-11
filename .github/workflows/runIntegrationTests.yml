@@ -99,7 +99,7 @@ jobs:
         run: mvn -B package --file pom.xml
 
       - name: Run Integration Tests
-        run: mvn -B test -Dtest=**/e2e/*.java -Dexcludes=**/e2e/UCVolumeTests.java,**/e2e/ConcurrencyTests.java,**/e2e/PreparedStatementTests.java
+        run: mvn -B test -Dtest=**/e2e/*.java -Dsurefire.excludes=**/e2e/UCVolumeTests*.java,**/e2e/ConcurrencyTests*.java,**/e2e/PreparedStatementTests*.java -X
         env:
           DATABRICKS_HOST: ${{ env.DATABRICKS_HOST }}
           DATABRICKS_TOKEN: ${{ env.DATABRICKS_TOKEN }}
