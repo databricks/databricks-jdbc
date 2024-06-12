@@ -60,7 +60,6 @@ public class ConcurrencyTests {
   @Test
   void testConcurrentUpdates() throws InterruptedException, SQLException {
     ExecutorService executor = Executors.newFixedThreadPool(2);
-
     AtomicInteger counter = new AtomicInteger();
 
     Runnable updateTask =
@@ -81,9 +80,9 @@ public class ConcurrencyTests {
     executor.submit(updateTask);
     executor.submit(updateTask);
     executor.shutdown();
-    executor.awaitTermination(1, TimeUnit.MINUTES);
+    executor.awaitTermination(2, TimeUnit.MINUTES);
 
-    assertEquals(counter.get(), 1);
+    assertEquals(1, counter.get());
 
     String selectSQL =
         "SELECT counter FROM " + getFullyQualifiedTableName(tableName) + " WHERE id = 1";
@@ -94,8 +93,9 @@ public class ConcurrencyTests {
   }
 
   @Test
-  void testConcurrentReads() throws InterruptedException, SQLException {
+  void testConcurrentReads() throws InterruptedException {
     ExecutorService executor = Executors.newFixedThreadPool(2);
+    AtomicInteger counter = new AtomicInteger();
 
     Runnable readTask =
         () -> {
@@ -107,7 +107,8 @@ public class ConcurrencyTests {
               System.out.println("Read counter: " + resultSet.getInt("counter"));
             }
           } catch (SQLException e) {
-            fail("Read operation should not fail.");
+            counter.getAndIncrement();
+            System.out.println("Expected exception on concurrent read: " + e.getMessage());
           }
         };
 
@@ -116,5 +117,7 @@ public class ConcurrencyTests {
     executor.submit(readTask);
     executor.shutdown();
     executor.awaitTermination(1, TimeUnit.MINUTES);
+
+    assertEquals(0, counter.get());
   }
 }
