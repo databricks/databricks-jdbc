@@ -3,10 +3,12 @@ package com.databricks.jdbc.core;
 import static com.databricks.jdbc.core.DatabricksTypeUtil.*;
 
 import com.databricks.jdbc.client.StatementType;
+import java.io.IOException;
 import java.io.InputStream;
 import java.io.Reader;
 import java.math.BigDecimal;
 import java.net.URL;
+import java.nio.charset.StandardCharsets;
 import java.sql.*;
 import java.util.Calendar;
 import java.util.HashMap;
@@ -24,6 +26,27 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
     super(connection);
     this.sql = sql;
     this.parameterBindings = new HashMap<Integer, ImmutableSqlParameter>();
+  }
+
+  private byte[] checkByteStreamLength(InputStream x, int length) throws DatabricksSQLException {
+    if (x == null) {
+      throw new DatabricksSQLException("InputStream cannot be null");
+    }
+
+    byte[] bytes = new byte[length];
+    try {
+      int bytesRead = x.read(bytes);
+      if (bytesRead != length) {
+        throw new DatabricksSQLException(
+            "Unexpected number of bytes read from the stream. Expected: "
+                + length
+                + ", got: "
+                + bytesRead);
+      }
+    } catch (IOException e) {
+      throw new DatabricksSQLException("Error reading from the InputStream", e);
+    }
+    return bytes;
   }
 
   @Override
@@ -138,10 +161,13 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
   }
 
   @Override
-  public void setAsciiStream(int parameterIndex, InputStream x, int length) throws SQLException {
+  public void setAsciiStream(int parameterIndex, InputStream x, int length)
+      throws DatabricksSQLException {
     LOGGER.debug("public void setAsciiStream(int parameterIndex, InputStream x, int length)");
-    throw new UnsupportedOperationException(
-        "Not implemented in DatabricksPreparedStatement - setAsciiStream(int parameterIndex, InputStream x, int length)");
+    checkIfClosed();
+    byte[] bytes = checkByteStreamLength(x, length);
+    String asciiString = new String(bytes, StandardCharsets.US_ASCII);
+    setObject(parameterIndex, asciiString, DatabricksTypeUtil.STRING);
   }
 
   @Override
@@ -220,10 +246,24 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
 
   @Override
   public void setCharacterStream(int parameterIndex, Reader reader, int length)
-      throws SQLException {
+      throws DatabricksSQLException {
     LOGGER.debug("public void setCharacterStream(int parameterIndex, Reader reader, int length)");
-    throw new UnsupportedOperationException(
-        "Not implemented in DatabricksPreparedStatement - setCharacterStream(int parameterIndex, Reader reader, int length)");
+    checkIfClosed();
+    try {
+      char[] buffer = new char[length];
+      int charsRead = reader.read(buffer);
+      if (charsRead != length) {
+        throw new DatabricksSQLException(
+            "Unexpected number of characters read from the reader. Expected: "
+                + length
+                + ", got: "
+                + charsRead);
+      }
+      String str = new String(buffer);
+      setObject(parameterIndex, str, DatabricksTypeUtil.STRING);
+    } catch (IOException e) {
+      throw new DatabricksSQLException("Error reading from the Reader", e);
+    }
   }
 
   @Override
@@ -265,10 +305,13 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
   }
 
   @Override
-  public void setDate(int parameterIndex, Date x, Calendar cal) throws SQLException {
+  public void setDate(int parameterIndex, Date x, Calendar cal) throws DatabricksSQLException {
     LOGGER.debug("public void setDate(int parameterIndex, Date x, Calendar cal)");
-    throw new UnsupportedOperationException(
-        "Not implemented in DatabricksPreparedStatement - setDate(int parameterIndex, Date x, Calendar cal)");
+    // TODO[PECO-1702]: Integrate the calendar object since Simba implementation appears to be
+    // incorrect - they
+    // clear the calendar before using it
+    checkIfClosed();
+    setObject(parameterIndex, x, DatabricksTypeUtil.DATE);
   }
 
   @Override

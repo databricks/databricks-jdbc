@@ -10,10 +10,13 @@ import com.databricks.jdbc.client.impl.sdk.DatabricksSdkClient;
 import com.databricks.jdbc.core.types.Warehouse;
 import com.databricks.jdbc.driver.DatabricksConnectionContext;
 import com.databricks.jdbc.driver.IDatabricksConnectionContext;
+import java.io.ByteArrayInputStream;
 import java.io.InputStream;
 import java.io.Reader;
+import java.io.StringReader;
 import java.math.BigDecimal;
 import java.sql.*;
+import java.util.Calendar;
 import java.util.HashMap;
 import java.util.Properties;
 import org.junit.jupiter.api.Test;
@@ -172,11 +175,47 @@ public class DatabricksPreparedStatementTest {
   }
 
   @Test
+  public void testSetDateWithCalendar() {
+    DatabricksPreparedStatement preparedStatement =
+        new DatabricksPreparedStatement(null, STATEMENT);
+
+    Date date = new Date(System.currentTimeMillis());
+    Calendar cal = Calendar.getInstance();
+    assertDoesNotThrow(() -> preparedStatement.setDate(1, date, cal));
+  }
+
+  @Test
   public void testSetTimestamp() {
     DatabricksPreparedStatement preparedStatement =
         new DatabricksPreparedStatement(null, STATEMENT);
     assertDoesNotThrow(
         () -> preparedStatement.setTimestamp(1, new Timestamp(System.currentTimeMillis())));
+  }
+
+  @Test
+  public void testSetAsciiStream() {
+    DatabricksPreparedStatement preparedStatement =
+        new DatabricksPreparedStatement(null, STATEMENT);
+
+    byte[] bytes = {0x01, 0x02, 0x03, 0x04};
+    InputStream asciiStream = new ByteArrayInputStream(bytes);
+
+    assertDoesNotThrow(
+        () -> {
+          preparedStatement.setAsciiStream(1, asciiStream, bytes.length);
+        });
+  }
+
+  @Test
+  public void testSetCharacterStream() {
+    DatabricksPreparedStatement preparedStatement =
+        new DatabricksPreparedStatement(null, STATEMENT);
+
+    String originalString = "Hello, World!";
+    Reader characterStream = new StringReader(originalString);
+
+    assertDoesNotThrow(
+        () -> preparedStatement.setCharacterStream(1, characterStream, originalString.length()));
   }
 
   @Test
@@ -206,14 +245,6 @@ public class DatabricksPreparedStatementTest {
     assertThrows(UnsupportedOperationException.class, () -> preparedStatement.setNClob(1, null, 1));
     assertThrows(UnsupportedOperationException.class, () -> preparedStatement.setSQLXML(1, null));
     assertThrows(
-        UnsupportedOperationException.class, () -> preparedStatement.setAsciiStream(1, null, 1));
-    assertThrows(
-        UnsupportedOperationException.class,
-        () -> preparedStatement.setAsciiStream(1, InputStream.nullInputStream(), 1));
-    assertThrows(
-        UnsupportedOperationException.class,
-        () -> preparedStatement.setAsciiStream(1, InputStream.nullInputStream(), 1L));
-    assertThrows(
         UnsupportedOperationException.class, () -> preparedStatement.setBinaryStream(1, null, 1));
     assertThrows(
         UnsupportedOperationException.class,
@@ -222,20 +253,7 @@ public class DatabricksPreparedStatementTest {
         UnsupportedOperationException.class,
         () -> preparedStatement.setBinaryStream(1, InputStream.nullInputStream(), 1L));
     assertThrows(
-        UnsupportedOperationException.class,
-        () -> preparedStatement.setCharacterStream(1, null, 1));
-    assertThrows(
-        UnsupportedOperationException.class,
-        () -> preparedStatement.setCharacterStream(1, Reader.nullReader(), 1));
-    assertThrows(
-        UnsupportedOperationException.class,
-        () -> preparedStatement.setCharacterStream(1, Reader.nullReader(), 1L));
-    assertThrows(
-        UnsupportedOperationException.class, () -> preparedStatement.setAsciiStream(1, null));
-    assertThrows(
         UnsupportedOperationException.class, () -> preparedStatement.setBinaryStream(1, null));
-    assertThrows(
-        UnsupportedOperationException.class, () -> preparedStatement.setCharacterStream(1, null));
     assertThrows(
         UnsupportedOperationException.class, () -> preparedStatement.setNCharacterStream(1, null));
     assertThrows(
@@ -256,8 +274,6 @@ public class DatabricksPreparedStatementTest {
     assertThrows(
         UnsupportedOperationException.class, () -> preparedStatement.setTimestamp(1, null, null));
     assertThrows(UnsupportedOperationException.class, () -> preparedStatement.setBytes(1, null));
-    assertThrows(
-        UnsupportedOperationException.class, () -> preparedStatement.setDate(1, null, null));
     assertThrows(UnsupportedOperationException.class, () -> preparedStatement.addBatch());
 
     assertThrows(

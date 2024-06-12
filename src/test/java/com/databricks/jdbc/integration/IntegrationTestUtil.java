@@ -10,6 +10,7 @@ import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.List;
 import java.util.Map;
 
 /** Utility class to support integration tests * */
@@ -106,9 +107,27 @@ public class IntegrationTestUtil {
     return DriverManager.getConnection(getJDBCUrl(), getDatabricksUser(), getDatabricksToken());
   }
 
+  public static Connection getValidJDBCConnection(List<List<String>> extraArgs)
+      throws SQLException {
+    String jdbcUrl = getJDBCUrl();
+    for (List<String> args : extraArgs) {
+      jdbcUrl += ";" + args.get(0) + "=" + args.get(1);
+    }
+    return DriverManager.getConnection(jdbcUrl, getDatabricksUser(), getDatabricksToken());
+  }
+
   public static Connection getDogfoodJDBCConnection() throws SQLException {
     return DriverManager.getConnection(
         getDogfoodJDBCUrl(), getDatabricksUser(), getDatabricksDogfoodToken());
+  }
+
+  public static Connection getDogfoodJDBCConnection(List<List<String>> extraArgs)
+      throws SQLException {
+    String jdbcUrl = getDogfoodJDBCUrl();
+    for (List<String> args : extraArgs) {
+      jdbcUrl += ";" + args.get(0) + "=" + args.get(1);
+    }
+    return DriverManager.getConnection(jdbcUrl, getDatabricksUser(), getDatabricksDogfoodToken());
   }
 
   public static Connection getValidJDBCConnection(Map<String, String> args) throws SQLException {

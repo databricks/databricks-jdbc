@@ -451,7 +451,7 @@ public class DatabricksStatement implements IDatabricksStatement, Statement {
         this);
   }
 
-  void checkIfClosed() throws SQLException {
+  void checkIfClosed() throws DatabricksSQLException {
     if (isClosed) {
       throw new DatabricksSQLException("Statement is closed");
     }
