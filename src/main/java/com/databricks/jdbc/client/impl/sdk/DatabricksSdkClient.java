@@ -14,10 +14,12 @@ import com.databricks.jdbc.client.sqlexec.ExecuteStatementResponse;
 import com.databricks.jdbc.client.sqlexec.ExternalLink;
 import com.databricks.jdbc.client.sqlexec.GetStatementResponse;
 import com.databricks.jdbc.client.sqlexec.ResultData;
+import com.databricks.jdbc.commons.MetricsList;
 import com.databricks.jdbc.core.*;
 import com.databricks.jdbc.core.types.ComputeResource;
 import com.databricks.jdbc.core.types.Warehouse;
 import com.databricks.jdbc.driver.IDatabricksConnectionContext;
+import com.databricks.jdbc.telemetry.DatabricksMetrics;
 import com.databricks.sdk.WorkspaceClient;
 import com.databricks.sdk.core.ApiClient;
 import com.databricks.sdk.core.DatabricksConfig;
@@ -88,6 +90,7 @@ public class DatabricksSdkClient implements DatabricksClient {
         schema,
         sessionConf);
     // TODO: [PECO-1460] Handle sessionConf in public session API
+    long startTime = System.currentTimeMillis();
     CreateSessionRequest request =
         new CreateSessionRequest().setWarehouseId(((Warehouse) warehouse).getWarehouseId());
     if (catalog != null) {
@@ -103,14 +106,20 @@ public class DatabricksSdkClient implements DatabricksClient {
         workspaceClient
             .apiClient()
             .POST(SESSION_PATH, request, CreateSessionResponse.class, getHeaders());
-    return ImmutableSessionInfo.builder()
-        .computeResource(warehouse)
-        .sessionId(createSessionResponse.getSessionId())
-        .build();
+
+    ImmutableSessionInfo sessionInfo =
+        ImmutableSessionInfo.builder()
+            .computeResource(warehouse)
+            .sessionId(createSessionResponse.getSessionId())
+            .build();
+    DatabricksMetrics.record(
+        MetricsList.CREATE_SESSION.name(), System.currentTimeMillis() - startTime);
+    return sessionInfo;
   }
 
   @Override
   public void deleteSession(IDatabricksSession session, ComputeResource warehouse) {
+    long startTime = System.currentTimeMillis();
     LOGGER.debug("public void deleteSession(String sessionId = {})", session.getSessionId());
     DeleteSessionRequest request =
         new DeleteSessionRequest()
@@ -119,6 +128,8 @@ public class DatabricksSdkClient implements DatabricksClient {
     String path = String.format(DELETE_SESSION_PATH_WITH_ID, request.getSessionId());
     Map<String, String> headers = new HashMap<>();
     workspaceClient.apiClient().DELETE(path, request, Void.class, headers);
+    DatabricksMetrics.record(
+        MetricsList.DELETE_SESSION.name(), System.currentTimeMillis() - startTime);
   }
 
   @Override
@@ -130,6 +141,7 @@ public class DatabricksSdkClient implements DatabricksClient {
       IDatabricksSession session,
       IDatabricksStatement parentStatement)
       throws SQLException {
+    long startTime = System.currentTimeMillis();
     LOGGER.debug(
         "public DatabricksResultSet executeStatement(String sql = {}, compute resource = {}, Map<Integer, ImmutableSqlParameter> parameters, StatementType statementType = {}, IDatabricksSession session)",
         sql,
@@ -183,14 +195,18 @@ public class DatabricksSdkClient implements DatabricksClient {
     if (responseState != StatementState.SUCCEEDED) {
       handleFailedExecution(response, statementId, sql);
     }
-    return new DatabricksResultSet(
-        response.getStatus(),
-        statementId,
-        response.getResult(),
-        response.getManifest(),
-        statementType,
-        session,
-        parentStatement);
+    DatabricksResultSet resultSet =
+        new DatabricksResultSet(
+            response.getStatus(),
+            statementId,
+            response.getResult(),
+            response.getManifest(),
+            statementType,
+            session,
+            parentStatement);
+    DatabricksMetrics.record(
+        MetricsList.EXECUTE_STATEMENT.name(), System.currentTimeMillis() - startTime);
+    return resultSet;
   }
 
   private boolean useCloudFetchForResult(StatementType statementType) {
@@ -220,13 +236,18 @@ public class DatabricksSdkClient implements DatabricksClient {
         "public Optional<ExternalLink> getResultChunk(String statementId = {}, long chunkIndex = {})",
         statementId,
         chunkIndex);
+    long startTime = System.currentTimeMillis();
     GetStatementResultChunkNRequest request =
         new GetStatementResultChunkNRequest().setStatementId(statementId).setChunkIndex(chunkIndex);
     String path = String.format(RESULT_CHUNK_PATH, statementId, chunkIndex);
-    return workspaceClient
-        .apiClient()
-        .GET(path, request, ResultData.class, getHeaders())
-        .getExternalLinks();
+    Collection<ExternalLink> chunkLinks =
+        workspaceClient
+            .apiClient()
+            .GET(path, request, ResultData.class, getHeaders())
+            .getExternalLinks();
+    DatabricksMetrics.record(
+        MetricsList.GET_RESULT_CHUNKS.name(), System.currentTimeMillis() - startTime);
+    return chunkLinks;
   }
 
   private ExecuteStatementRequest getRequest(
@@ -237,6 +258,7 @@ public class DatabricksSdkClient implements DatabricksClient {
       Map<Integer, ImmutableSqlParameter> parameters,
       IDatabricksStatement parentStatement)
       throws SQLException {
+    long startTime = System.currentTimeMillis();
     Format format = useCloudFetchForResult(statementType) ? Format.ARROW_STREAM : Format.JSON_ARRAY;
     Disposition disposition =
         useCloudFetchForResult(statementType) ? Disposition.EXTERNAL_LINKS : Disposition.INLINE;
@@ -258,6 +280,8 @@ public class DatabricksSdkClient implements DatabricksClient {
     if (maxRows != DEFAULT_ROW_LIMIT) {
       request.setRowLimit(maxRows);
     }
+    DatabricksMetrics.record(
+        MetricsList.GET_REQUEST.name(), System.currentTimeMillis() - startTime);
     return request;
   }
 

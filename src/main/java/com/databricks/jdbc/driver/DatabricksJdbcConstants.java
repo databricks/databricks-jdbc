@@ -27,14 +27,13 @@ public final class DatabricksJdbcConstants {
   public static final String USER = "user";
   public static final String PASSWORD = "password";
 
-  static final String CLIENT_ID = "databricks_client_id";
+  static final String CLIENT_ID = "OAuth2ClientId";
 
-  static final String CLIENT_SECRET = "databricks_client_secret";
+  static final String CLIENT_SECRET = "OAuth2Secret";
 
   public static final String AUTH_MECH = "authmech";
 
   static final String CONN_CATALOG = "conncatalog";
-
   static final String CONN_SCHEMA = "connschema";
 
   static final String PROXY_HOST = "proxyhost";

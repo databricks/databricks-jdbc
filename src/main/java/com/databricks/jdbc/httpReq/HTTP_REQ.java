@@ -37,7 +37,7 @@ public class HTTP_REQ {
       conn.disconnect();
 
     } catch (Exception e) {
-      e.printStackTrace();
+      System.out.println("Error executing post request");
     }
     return result.toString();
   }

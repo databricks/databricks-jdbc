@@ -191,7 +191,7 @@ class DatabricksConnectionContextTest {
 
     connectionContext =
         (DatabricksConnectionContext) DatabricksConnectionContext.parse(VALID_URL_6, properties);
-    assertEquals("schemaName", connectionContext.getSchema());
+    assertEquals("default", connectionContext.getSchema());
   }
 
   @Test
