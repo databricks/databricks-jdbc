@@ -89,7 +89,8 @@ public class ConcurrencyTests {
     ResultSet rs = executeQuery(selectSQL);
     rs.next();
     String r = rs.getString("counter");
-    assertEquals(r, "1");
+
+    assertEquals("1", r);
   }
 
   @Test

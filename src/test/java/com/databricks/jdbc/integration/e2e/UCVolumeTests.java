@@ -23,11 +23,13 @@ public class UCVolumeTests {
 
   @BeforeEach
   void setUp() throws SQLException {
-    // TO DO: Testing is done here using the E2-Dogfood environment. Need to update this to use a
-    // test warehouse.
-    con = getDogfoodJDBCConnection();
-    System.out.println("Connection established......");
-    client = new DatabricksUCVolumeClient(con);
+    if (!isAllpurposeCluster()) {
+      // TO DO: Testing is done here using the E2-Dogfood environment. Need to update this to use a
+      // test warehouse.
+      con = getDogfoodJDBCConnection();
+      System.out.println("Connection established......");
+      client = new DatabricksUCVolumeClient(con);
+    }
   }
 
   @AfterEach
@@ -47,8 +49,10 @@ public class UCVolumeTests {
       boolean caseSensitive,
       boolean expected)
       throws Exception {
-    boolean result = client.prefixExists(catalog, schema, volume, prefix, caseSensitive);
-    assertEquals(expected, result);
+    if (!isAllpurposeCluster()) {
+      boolean result = client.prefixExists(catalog, schema, volume, prefix, caseSensitive);
+      assertEquals(expected, result);
+    }
   }
 
   private static Stream<Arguments> provideParametersForPrefixExists() {
@@ -80,8 +84,10 @@ public class UCVolumeTests {
       boolean caseSensitive,
       boolean expected)
       throws Exception {
-    boolean result = client.objectExists(catalog, schema, volume, objectPath, caseSensitive);
-    assertEquals(expected, result);
+    if (!isAllpurposeCluster()) {
+      boolean result = client.objectExists(catalog, schema, volume, objectPath, caseSensitive);
+      assertEquals(expected, result);
+    }
   }
 
   private static Stream<Arguments> provideParametersForObjectExistsCaseSensitivity() {
@@ -125,8 +131,10 @@ public class UCVolumeTests {
       boolean caseSensitive,
       boolean expected)
       throws Exception {
-    boolean result = client.objectExists(catalog, schema, volume, objectPath, caseSensitive);
-    assertEquals(expected, result);
+    if (!isAllpurposeCluster()) {
+      boolean result = client.objectExists(catalog, schema, volume, objectPath, caseSensitive);
+      assertEquals(expected, result);
+    }
   }
 
   private static Stream<Arguments> provideParametersForObjectExistsVolumeReferencing() {
@@ -155,8 +163,10 @@ public class UCVolumeTests {
       boolean caseSensitive,
       boolean expected)
       throws Exception {
-    boolean result = client.objectExists(catalog, schema, volume, objectPath, caseSensitive);
-    assertEquals(expected, result);
+    if (!isAllpurposeCluster()) {
+      boolean result = client.objectExists(catalog, schema, volume, objectPath, caseSensitive);
+      assertEquals(expected, result);
+    }
   }
 
   private static Stream<Arguments> provideParametersForObjectExistsSpecialCharacters() {
@@ -176,7 +186,10 @@ public class UCVolumeTests {
   void testVolumeExists(
       String catalog, String schema, String volumeName, boolean caseSensitive, boolean expected)
       throws Exception {
-    assertEquals(expected, client.volumeExists(catalog, schema, volumeName, caseSensitive));
+
+    if (!isAllpurposeCluster()) {
+      assertEquals(expected, client.volumeExists(catalog, schema, volumeName, caseSensitive));
+    }
   }
 
   private static Stream<Arguments> provideParametersForVolumeExists() {
@@ -196,7 +209,9 @@ public class UCVolumeTests {
       boolean caseSensitive,
       List<String> expected)
       throws Exception {
-    assertEquals(expected, client.listObjects(catalog, schema, volume, prefix, caseSensitive));
+    if (!isAllpurposeCluster()) {
+      assertEquals(expected, client.listObjects(catalog, schema, volume, prefix, caseSensitive));
+    }
   }
 
   private static Stream<Arguments> provideParametersForListObjectsInSubFolders() {
@@ -234,7 +249,9 @@ public class UCVolumeTests {
       boolean caseSensitive,
       List<String> expected)
       throws Exception {
-    assertEquals(expected, client.listObjects(catalog, schema, volume, prefix, caseSensitive));
+    if (!isAllpurposeCluster()) {
+      assertEquals(expected, client.listObjects(catalog, schema, volume, prefix, caseSensitive));
+    }
   }
 
   private static Stream<Arguments> provideParametersForListObjectsVolumeReferencing() {
@@ -265,7 +282,10 @@ public class UCVolumeTests {
       boolean caseSensitive,
       List<String> expected)
       throws Exception {
-    assertEquals(expected, client.listObjects(catalog, schema, volume, prefix, caseSensitive));
+
+    if (!isAllpurposeCluster()) {
+      assertEquals(expected, client.listObjects(catalog, schema, volume, prefix, caseSensitive));
+    }
   }
 
   private static Stream<Arguments>

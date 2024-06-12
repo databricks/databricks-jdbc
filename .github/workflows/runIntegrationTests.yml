@@ -61,7 +61,6 @@ jobs:
   build-and-test-thrift:
     name: Build and Run Integration Tests (Thrift)
     runs-on: ubuntu-latest
-    if: false  # TODO : Remove this line once PECO-1674 is fixed
     environment: azure-prod
     steps:
       - name: Checkout code
@@ -83,8 +82,8 @@ jobs:
       - name: Set up All purpose Connection
         env:
           DATABRICKS_HOST: ${{ secrets.THRIFT_DATABRICKS_HOST }}
-          DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
-          DATABRICKS_USER: ${{ secrets.DATABRICKS_USER }}
+          DATABRICKS_TOKEN: ${{ secrets.THRIFT_DATABRICKS_TOKEN }}
+          DATABRICKS_USER: ${{ secrets.THRIFT_DATABRICKS_USER }}
           DATABRICKS_HTTP_PATH: ${{ secrets.THRIFT_DATABRICKS_HTTP_PATH }}
           DATABRICKS_CATALOG: ${{ secrets.DATABRICKS_CATALOG }}
           DATABRICKS_SCHEMA: ${{ secrets.DATABRICKS_SCHEMA }}
@@ -100,11 +99,11 @@ jobs:
         run: mvn -B package --file pom.xml
 
       - name: Run Integration Tests
-        run: mvn -B test -Dtest=*IntegrationTests
+        run: mvn -B test -Dtest=**/e2e/*.java
         env:
           DATABRICKS_HOST: ${{ env.DATABRICKS_HOST }}
-          DATABRICKS_TOKEN: ${{ env.THRIFT_DATABRICKS_TOKEN }}
-          DATABRICKS_USER: ${{ env.THRIFT_DATABRICKS_USER }}
+          DATABRICKS_TOKEN: ${{ env.DATABRICKS_TOKEN }}
+          DATABRICKS_USER: ${{ env.DATABRICKS_USER }}
           DATABRICKS_HTTP_PATH: ${{ env.DATABRICKS_HTTP_PATH }}
           DATABRICKS_CATALOG: ${{ env.DATABRICKS_CATALOG }}
           DATABRICKS_SCHEMA: ${{ env.DATABRICKS_SCHEMA }}

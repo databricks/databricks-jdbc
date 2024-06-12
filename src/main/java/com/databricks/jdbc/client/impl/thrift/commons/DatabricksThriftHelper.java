@@ -1,7 +1,7 @@
 package com.databricks.jdbc.client.impl.thrift.commons;
 
 import static com.databricks.jdbc.client.impl.helper.MetadataResultConstants.NULL_STRING;
-import static com.databricks.jdbc.core.DatabricksTypeUtil.getThriftTypeFromTypeDesc;
+import static com.databricks.jdbc.core.DatabricksTypeUtil.*;
 
 import com.databricks.jdbc.client.DatabricksHttpException;
 import com.databricks.jdbc.client.impl.thrift.generated.*;
@@ -83,7 +83,7 @@ public class DatabricksThriftHelper {
   }
 
   public static List<List<Object>> extractValuesColumnar(List<TColumn> columnList) {
-    if (columnList == null || columnList.isEmpty() || columnList.get(0).getStringVal() == null) {
+    if (columnList == null || columnList.isEmpty()) {
       return Collections.singletonList(Collections.emptyList());
     }
     int numberOfItems = columnList.get(0).getStringVal().getValuesSize();
@@ -91,9 +91,33 @@ public class DatabricksThriftHelper {
         .mapToObj(
             i ->
                 columnList.stream()
-                    .map(column -> (Object) column.getStringVal().getValues().get(i))
+                    .map(column -> getObjectInColumn(column, i))
                     .collect(Collectors.toList()))
         .collect(Collectors.toList());
+  }
+
+  private static Object getObjectInColumn(TColumn column, int index) {
+    if (column == null) {
+      return NULL_STRING;
+    }
+    if (column.isSetStringVal()) {
+      return column.getStringVal().getValues().get(index);
+    } else if (column.isSetBoolVal()) {
+      return column.getBoolVal().getValues().get(index);
+    } else if (column.isSetDoubleVal()) {
+      return column.getDoubleVal().getValues().get(index);
+    } else if (column.isSetI16Val()) {
+      return column.getI16Val().getValues().get(index);
+    } else if (column.isSetI32Val()) {
+      return column.getI32Val().getValues().get(index);
+    } else if (column.isSetI64Val()) {
+      return column.getI64Val().getValues().get(index);
+    } else if (column.isSetBinaryVal()) {
+      return column.getBinaryVal().getValues().get(index);
+    } else if (column.isSetByteVal()) {
+      return column.getByteVal().getValues().get(index);
+    }
+    return NULL_STRING;
   }
 
   private static Object getColumnFirstValue(TColumn column) {

@@ -113,6 +113,7 @@ public class DatabricksThriftServiceClient implements DatabricksClient, Databric
       IDatabricksSession session,
       IDatabricksStatement parentStatement)
       throws SQLException {
+    // Note that prepared statement is not supported by SEA/Thrift flow.
     long startTime = System.currentTimeMillis();
     LOGGER.debug(
         "public DatabricksResultSet executeStatement(String sql = {}, Compute cluster = {}, Map<Integer, ImmutableSqlParameter> parameters = {}, StatementType statementType = {}, IDatabricksSession session)",
@@ -323,7 +324,7 @@ public class DatabricksThriftServiceClient implements DatabricksClient, Databric
         (TFetchResultsResp)
             thriftAccessor.getThriftResponse(request, CommandName.LIST_COLUMNS, null);
     DatabricksResultSet resultSet =
-        getColumnsResult(extractValues(response.getResults().getColumns()));
+        getColumnsResult(extractValuesColumnar(response.getResults().getColumns()));
     DatabricksMetrics.record(
         MetricsList.LIST_COLUMNS_THRIFT.name(), (double) (System.currentTimeMillis() - startTime));
     return resultSet;
