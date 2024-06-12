@@ -326,8 +326,7 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
 
   @Override
   public String getCatalog() {
-    return Optional.ofNullable(
-            getParameter(CATALOG, getParameter(CONN_CATALOG)))
+    return Optional.ofNullable(getParameter(CATALOG, getParameter(CONN_CATALOG)))
         .orElse(DEFAULT_CATALOG);
   }
 
