@@ -1,11 +1,7 @@
 package com.databricks.jdbc.integration;
 
 import static com.databricks.jdbc.driver.DatabricksJdbcConstants.*;
-import static com.databricks.jdbc.integration.fakeservice.FakeServiceExtension.TARGET_URI_PROP_SUFFIX;
 
-import com.databricks.jdbc.driver.DatabricksJdbcConstants.FakeServiceType;
-import java.net.URI;
-import java.net.URISyntaxException;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.ResultSet;
@@ -18,29 +14,8 @@ public class IntegrationTestUtil {
   private static Connection JDBCConnection;
 
   public static String getDatabricksHost() {
-    if (fakeServiceToBeUsed()) {
-      // Target base URL of the fake service type
-      String serviceURI =
-          System.getProperty(
-              FakeServiceType.SQL_EXEC.name().toLowerCase() + TARGET_URI_PROP_SUFFIX);
-      URI fakeServiceURI;
-      try {
-        // Fake service URL for the base URL
-        fakeServiceURI = new URI(System.getProperty(serviceURI + FAKE_SERVICE_URI_PROP_SUFFIX));
-      } catch (URISyntaxException e) {
-        throw new RuntimeException(e);
-      }
-
-      return fakeServiceURI.getAuthority();
-    }
-
     // includes port
     return System.getenv("DATABRICKS_HOST");
-  }
-
-  public static boolean fakeServiceToBeUsed() {
-    return !isAllpurposeCluster()
-        && Boolean.parseBoolean(System.getProperty(IS_FAKE_SERVICE_TEST_PROP));
   }
 
   public static String getDatabricksBenchfoodHost() {
@@ -130,21 +105,14 @@ public class IntegrationTestUtil {
   }
 
   public static String getJDBCUrl() {
-    String template =
-        fakeServiceToBeUsed()
-            ? "jdbc:databricks://%s/default;transportMode=http;ssl=0;AuthMech=3;httpPath=%s"
-            : "jdbc:databricks://%s/default;ssl=1;AuthMech=3;httpPath=%s";
-
+    String template = "jdbc:databricks://%s/default;ssl=1;AuthMech=3;httpPath=%s";
     String host = getDatabricksHost();
     String httpPath = getDatabricksHTTPPath();
     return String.format(template, host, httpPath);
   }
 
   public static String getJDBCUrl(Map<String, String> args) {
-    String template =
-        fakeServiceToBeUsed()
-            ? "jdbc:databricks://%s/default;transportMode=http;ssl=0;AuthMech=3;httpPath=%s"
-            : "jdbc:databricks://%s/default;ssl=1;AuthMech=3;httpPath=%s";
+    String template = "jdbc:databricks://%s/default;ssl=1;AuthMech=3;httpPath=%s";
 
     String host = getDatabricksHost();
     String httpPath = getDatabricksHTTPPath();
