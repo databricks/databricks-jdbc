@@ -139,7 +139,8 @@ public class DatabricksThriftAccessor {
     verifySuccessStatus(
         response.getStatus().getStatusCode(),
         String.format(
-            "Error while fetching results. TFetchResultsResp {%s}. ", response.toString()));
+            "Error while fetching results Request {%s}. TFetchResultsResp {%s}. ",
+            request, response));
     return response;
   }
 
@@ -158,7 +159,8 @@ public class DatabricksThriftAccessor {
         Thread.sleep(DEFAULT_SLEEP_DELAY);
       }
     } while (statusCode == TStatusCode.STILL_EXECUTING_STATUS);
-    verifySuccessStatus(statusCode, request.toString());
+    verifySuccessStatus(
+        statusCode, String.format("Request {%s}, Response {%s}", request, response));
   }
 
   public DatabricksResultSet execute(
