@@ -9,7 +9,6 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import com.databricks.jdbc.client.DatabricksClientType;
 import com.databricks.jdbc.core.DatabricksConnection;
-import com.databricks.jdbc.driver.IDatabricksConnectionContext;
 import com.databricks.jdbc.integration.fakeservice.AbstractFakeServiceIntegrationTests;
 import com.github.tomakehurst.wiremock.client.CountMatchingStrategy;
 import java.sql.*;
@@ -63,9 +62,7 @@ public class MetadataIntegrationTests extends AbstractFakeServiceIntegrationTest
     assertTrue(
         metaData.getMaxColumnsInTable() >= 0, "Max columns in table should be greater than 0");
 
-    IDatabricksConnectionContext connectionContext =
-        ((DatabricksConnection) connection).getSession().getConnectionContext();
-    if (connectionContext.getClientType() == DatabricksClientType.SQL_EXEC) {
+    if (isSqlExecSdkClient()) {
       // Create session request is sent
       getDatabricksApiExtension().verify(1, postRequestedFor(urlEqualTo(SESSION_PATH)));
     }
@@ -123,9 +120,7 @@ public class MetadataIntegrationTests extends AbstractFakeServiceIntegrationTest
     String SQL = "DROP TABLE IF EXISTS " + getFullyQualifiedTableName(tableName);
     executeSQL(SQL);
 
-    IDatabricksConnectionContext connectionContext =
-        ((DatabricksConnection) connection).getSession().getConnectionContext();
-    if (connectionContext.getClientType() == DatabricksClientType.SQL_EXEC) {
+    if (isSqlExecSdkClient()) {
       // At least 5 statement requests are sent: drop, create, insert, select, drop
       getDatabricksApiExtension()
           .verify(
@@ -182,9 +177,7 @@ public class MetadataIntegrationTests extends AbstractFakeServiceIntegrationTest
     }
     deleteTable(tableName);
 
-    IDatabricksConnectionContext connectionContext =
-        ((DatabricksConnection) connection).getSession().getConnectionContext();
-    if (connectionContext.getClientType() == DatabricksClientType.SQL_EXEC) {
+    if (isSqlExecSdkClient()) {
       // At least 7 statement requests are sent:
       // show catalogs, show schemas, drop table, create table, show tables, show particular table,
       // drop
@@ -200,5 +193,10 @@ public class MetadataIntegrationTests extends AbstractFakeServiceIntegrationTest
         String.format(
             jdbcUrlTemplateWithLegacyMetadata, getDatabricksHost(), getDatabricksHTTPPath());
     return DriverManager.getConnection(jdbcUrl, getDatabricksUser(), getDatabricksToken());
+  }
+
+  protected boolean isSqlExecSdkClient() {
+    return ((DatabricksConnection) connection).getSession().getConnectionContext().getClientType()
+        == DatabricksClientType.SQL_EXEC;
   }
 }
