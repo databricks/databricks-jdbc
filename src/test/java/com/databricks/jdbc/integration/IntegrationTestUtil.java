@@ -45,8 +45,7 @@ public class IntegrationTestUtil {
   }
 
   public static boolean fakeServiceToBeUsed() {
-    return !isAllpurposeCluster()
-        && Boolean.parseBoolean(System.getProperty(IS_FAKE_SERVICE_TEST_PROP));
+    return Boolean.parseBoolean(System.getProperty(IS_FAKE_SERVICE_TEST_PROP));
   }
 
   public static String getDatabricksBenchfoodHost() {
