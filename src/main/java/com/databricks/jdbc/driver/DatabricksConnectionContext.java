@@ -97,7 +97,8 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
     return HTTP_CLUSTER_PATH_PATTERN.matcher(url).matches()
         || HTTP_WAREHOUSE_PATH_PATTERN.matcher(url).matches()
         || HTTP_ENDPOINT_PATH_PATTERN.matcher(url).matches()
-        || TEST_PATH_PATTERN.matcher(url).matches();
+        || TEST_PATH_PATTERN.matcher(url).matches()
+        || BASE_PATTERN.matcher(url).matches();
   }
 
   @Override

@@ -142,7 +142,7 @@ public class MetadataTests {
     String schemaPattern = "jdbc_test_schema";
     String tableName = "catalog_and_schema_test_table";
     setupDatabaseTable(tableName);
-    try (ResultSet tables = metaData.getTables(catalog, schemaPattern, ".*", null)) {
+    try (ResultSet tables = metaData.getTables(catalog, schemaPattern, "%", null)) {
       assertTrue(
           tables.next(), "There should be at least one table in the specified catalog and schema");
       do {

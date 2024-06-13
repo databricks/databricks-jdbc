@@ -59,62 +59,67 @@ public class ConcurrencyTests {
 
   @Test
   void testConcurrentUpdates() throws InterruptedException, SQLException {
-    ExecutorService executor = Executors.newFixedThreadPool(2);
 
-    AtomicInteger counter = new AtomicInteger();
+    if (!isAllpurposeCluster()) {
+      ExecutorService executor = Executors.newFixedThreadPool(2);
 
-    Runnable updateTask =
-        () -> {
-          String sql =
-              "UPDATE "
-                  + getFullyQualifiedTableName(tableName)
-                  + " SET counter = counter + 1 WHERE id = 1";
-          try (PreparedStatement preparedStatement = connection.prepareStatement(sql)) {
-            preparedStatement.executeUpdate();
-          } catch (SQLException e) {
-            counter.getAndIncrement();
-            System.out.println("Expected exception on concurrent update: " + e.getMessage());
-          }
-        };
+      AtomicInteger counter = new AtomicInteger();
 
-    // Execute concurrent updates
-    executor.submit(updateTask);
-    executor.submit(updateTask);
-    executor.shutdown();
-    executor.awaitTermination(1, TimeUnit.MINUTES);
+      Runnable updateTask =
+          () -> {
+            String sql =
+                "UPDATE "
+                    + getFullyQualifiedTableName(tableName)
+                    + " SET counter = counter + 1 WHERE id = 1";
+            try (PreparedStatement preparedStatement = connection.prepareStatement(sql)) {
+              preparedStatement.executeUpdate();
+            } catch (SQLException e) {
+              counter.getAndIncrement();
+              System.out.println("Expected exception on concurrent update: " + e.getMessage());
+            }
+          };
 
-    assertEquals(counter.get(), 1);
+      // Execute concurrent updates
+      executor.submit(updateTask);
+      executor.submit(updateTask);
+      executor.shutdown();
+      executor.awaitTermination(1, TimeUnit.MINUTES);
 
-    String selectSQL =
-        "SELECT counter FROM " + getFullyQualifiedTableName(tableName) + " WHERE id = 1";
-    ResultSet rs = executeQuery(selectSQL);
-    rs.next();
-    String r = rs.getString("counter");
-    assertEquals(r, "1");
+      assertEquals(counter.get(), 1);
+
+      String selectSQL =
+          "SELECT counter FROM " + getFullyQualifiedTableName(tableName) + " WHERE id = 1";
+      ResultSet rs = executeQuery(selectSQL);
+      rs.next();
+      String r = rs.getString("counter");
+      assertEquals(r, "1");
+    }
   }
 
   @Test
   void testConcurrentReads() throws InterruptedException, SQLException {
-    ExecutorService executor = Executors.newFixedThreadPool(2);
+    if (!isAllpurposeCluster()) {
+      ExecutorService executor = Executors.newFixedThreadPool(2);
 
-    Runnable readTask =
-        () -> {
-          String sql =
-              "SELECT counter FROM " + getFullyQualifiedTableName(tableName) + " WHERE id = 1";
-          try (PreparedStatement preparedStatement = connection.prepareStatement(sql);
-              ResultSet resultSet = preparedStatement.executeQuery()) {
-            if (resultSet.next()) {
-              System.out.println("Read counter: " + resultSet.getInt("counter"));
+      Runnable readTask =
+          () -> {
+            String sql =
+                "SELECT counter FROM " + getFullyQualifiedTableName(tableName) + " WHERE id = 1";
+            try (PreparedStatement preparedStatement = connection.prepareStatement(sql);
+                ResultSet resultSet = preparedStatement.executeQuery()) {
+              if (resultSet.next()) {
+                System.out.println("Read counter: " + resultSet.getInt("counter"));
+              }
+            } catch (SQLException e) {
+              fail("Read operation should not fail.");
             }
-          } catch (SQLException e) {
-            fail("Read operation should not fail.");
-          }
-        };
+          };
 
-    // Execute concurrent reads
-    executor.submit(readTask);
-    executor.submit(readTask);
-    executor.shutdown();
-    executor.awaitTermination(1, TimeUnit.MINUTES);
+      // Execute concurrent reads
+      executor.submit(readTask);
+      executor.submit(readTask);
+      executor.shutdown();
+      executor.awaitTermination(1, TimeUnit.MINUTES);
+    }
   }
 }

@@ -47,7 +47,12 @@ class DatabricksConnectionContextTest {
       "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;ssl=1;httpPath=sql/protocolv1/o/6051921418418893/1115-130834-ms4m0yv;AuthMech=3;loglevel=3";
   private static final String INVALID_CLUSTER_URL =
       "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;ssl=1;httpPath=sql/protocolv1/oo/6051921418418893/1115-130834-ms4m0yv;AuthMech=3";
-
+  private static final String VALID_BASE_URL_1 =
+      "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;";
+  private static final String VALID_BASE_URL_2 =
+      "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default";
+  private static final String VALID_BASE_URL_3 =
+      "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443";
   private static final String VALID_URL_WITH_PROXY =
       "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/5c89f447c476a5a8;UseProxy=1;ProxyHost=127.0.0.1;ProxyPort=8080;ProxyAuth=1;ProxyUID=proxyUser;ProxyPwd=proxyPassword;";
   private static final String VALID_URL_WITH_PROXY_AND_CF_PROXY =
@@ -69,6 +74,9 @@ class DatabricksConnectionContextTest {
   @Test
   public void testIsValid() {
     assertTrue(DatabricksConnectionContext.isValid(VALID_URL_1));
+    assertTrue(DatabricksConnectionContext.isValid(VALID_BASE_URL_1));
+    assertTrue(DatabricksConnectionContext.isValid(VALID_BASE_URL_2));
+    assertTrue(DatabricksConnectionContext.isValid(VALID_BASE_URL_3));
     assertTrue(DatabricksConnectionContext.isValid(VALID_TEST_URL));
     assertTrue(DatabricksConnectionContext.isValid(VALID_URL_2));
     assertTrue(DatabricksConnectionContext.isValid(VALID_URL_3));

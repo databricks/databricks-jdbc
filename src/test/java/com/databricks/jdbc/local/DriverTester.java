@@ -117,9 +117,10 @@ public class DriverTester {
     Connection con = DriverManager.getConnection(jdbcUrl, "samikshya.chand@databricks.com", "x");
     System.out.println("Connection established......");
     // ResultSet resultSet = con.getMetaData().getCatalogs();
-    ResultSet resultSet = con.getMetaData().getSchemas("main", "%");
+    // ResultSet resultSet = con.getMetaData().getSchemas("main", "%");
     // ResultSet resultSet = con.getMetaData().getTables("main", "ggm_pk","table_with_pk", null);
     // ResultSet resultSet = con.getMetaData().getTables("%", "%", null, null);
+    ResultSet resultSet = con.getMetaData().getColumns("main", "ggm_pk", "%", "%");
     // con.getMetaData().getPrimaryKeys("main", "ggm_pk", "table_with_pk");
     printResultSet(resultSet);
     resultSet.close();

@@ -34,6 +34,7 @@ public class DatabricksThriftAccessor {
         new DatabricksHttpTTransport(
             DatabricksHttpClient.getInstance(connectionContext),
             connectionContext.getEndpointURL());
+
     this.databricksConfig = new OAuthAuthenticator(connectionContext).getDatabricksConfig();
     Map<String, String> authHeaders = databricksConfig.authenticate();
     transport.setCustomHeaders(authHeaders);
@@ -138,11 +139,13 @@ public class DatabricksThriftAccessor {
     verifySuccessStatus(
         response.getStatus().getStatusCode(),
         String.format(
-            "Error while fetching results. TFetchResultsResp {%s}. ", response.toString()));
+            "Error while fetching results Request {%s}. TFetchResultsResp {%s}. ",
+            request, response));
     return response;
   }
 
-  void longPolling(TOperationHandle operationHandle) throws TException, InterruptedException {
+  void longPolling(TOperationHandle operationHandle)
+      throws TException, InterruptedException, DatabricksHttpException {
     TGetOperationStatusReq request =
         new TGetOperationStatusReq()
             .setOperationHandle(operationHandle)
@@ -156,6 +159,8 @@ public class DatabricksThriftAccessor {
         Thread.sleep(DEFAULT_SLEEP_DELAY);
       }
     } while (statusCode == TStatusCode.STILL_EXECUTING_STATUS);
+    verifySuccessStatus(
+        statusCode, String.format("Request {%s}, Response {%s}", request, response));
   }
 
   public DatabricksResultSet execute(
