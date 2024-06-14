@@ -7,8 +7,6 @@ package com.databricks.jdbc.commons.util;
 public class WildcardUtil {
   private static final String ASTERISK = "*";
 
-  private static final String PERCENT = "%";
-
   /**
    * This function checks if the input string is a "match anything" string i.e. "*"
    *
@@ -16,7 +14,7 @@ public class WildcardUtil {
    * @return true if the input string is "*"
    */
   public static boolean isMatchAnything(String s) {
-    return ASTERISK.equals(s) || PERCENT.equals(s);
+    return ASTERISK.equals(s);
   }
 
   public static boolean isNullOrEmpty(String s) {
