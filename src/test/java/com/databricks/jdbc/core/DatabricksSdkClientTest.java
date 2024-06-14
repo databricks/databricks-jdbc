@@ -59,9 +59,9 @@ public class DatabricksSdkClientTest {
     List<StatementParameterListItem> params =
         new ArrayList<>() {
           {
-            add(getParam("BIGINT", "100", 1));
+            add(getParam("LONG", "100", 1));
             add(getParam("SHORT", "10", 2));
-            add(getParam("TINYINT", "15", 3));
+            add(getParam("SHORT", "15", 3));
             add(getParam("STRING", "value", 4));
           }
         };
@@ -201,7 +201,7 @@ public class DatabricksSdkClientTest {
 
   private ImmutableSqlParameter getSqlParam(int parameterIndex, Object x, String databricksType) {
     return ImmutableSqlParameter.builder()
-        .type(databricksType)
+        .type(DatabricksTypeUtil.getColumnInfoType(databricksType))
         .value(x)
         .cardinal(parameterIndex)
         .build();

@@ -11,8 +11,6 @@ import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.sql.*;
 import java.util.Calendar;
-import java.util.HashMap;
-import java.util.Map;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -20,12 +18,12 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
 
   private static final Logger LOGGER = LogManager.getLogger(DatabricksPreparedStatement.class);
   private final String sql;
-  private final Map<Integer, ImmutableSqlParameter> parameterBindings;
+  DatabricksParameterMetaData databricksParameterMetaData;
 
   public DatabricksPreparedStatement(DatabricksConnection connection, String sql) {
     super(connection);
     this.sql = sql;
-    this.parameterBindings = new HashMap<Integer, ImmutableSqlParameter>();
+    this.databricksParameterMetaData = new DatabricksParameterMetaData();
   }
 
   private byte[] checkByteStreamLength(InputStream x, int length) throws DatabricksSQLException {
@@ -52,13 +50,15 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
   @Override
   public ResultSet executeQuery() throws SQLException {
     LOGGER.debug("public ResultSet executeQuery()");
-    return executeInternal(sql, parameterBindings, StatementType.QUERY);
+    return executeInternal(
+        sql, this.databricksParameterMetaData.getParameterBindings(), StatementType.QUERY);
   }
 
   @Override
   public int executeUpdate() throws SQLException {
     LOGGER.debug("public int executeUpdate()");
-    executeInternal(sql, parameterBindings, StatementType.UPDATE);
+    executeInternal(
+        sql, this.databricksParameterMetaData.getParameterBindings(), StatementType.UPDATE);
     return (int) resultSet.getUpdateCount();
   }
 
@@ -188,7 +188,7 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
   public void clearParameters() throws SQLException {
     LOGGER.debug("public void clearParameters()");
     checkIfClosed();
-    this.parameterBindings.clear();
+    this.databricksParameterMetaData.getParameterBindings();
   }
 
   @Override
@@ -220,10 +220,10 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
   }
 
   private void setObject(int parameterIndex, Object x, String databricksType) {
-    this.parameterBindings.put(
+    this.databricksParameterMetaData.put(
         parameterIndex,
         ImmutableSqlParameter.builder()
-            .type(databricksType)
+            .type(DatabricksTypeUtil.getColumnInfoType(databricksType))
             .value(x)
             .cardinal(parameterIndex)
             .build());
@@ -233,7 +233,8 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
   public boolean execute() throws SQLException {
     LOGGER.debug("public boolean execute()");
     checkIfClosed();
-    executeInternal(sql, parameterBindings, StatementType.SQL);
+    executeInternal(
+        sql, this.databricksParameterMetaData.getParameterBindings(), StatementType.SQL);
     return !resultSet.hasUpdateCount();
   }
 
@@ -344,8 +345,7 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
   @Override
   public ParameterMetaData getParameterMetaData() throws SQLException {
     LOGGER.debug("public ParameterMetaData getParameterMetaData()");
-    throw new UnsupportedOperationException(
-        "Not implemented in DatabricksPreparedStatement - getParameterMetaData()");
+    return this.databricksParameterMetaData;
   }
 
   @Override

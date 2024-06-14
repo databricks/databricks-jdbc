@@ -288,7 +288,7 @@ public class DatabricksSdkClient implements DatabricksClient {
   private StatementParameterListItem mapToParameterListItem(ImmutableSqlParameter parameter) {
     return new PositionalStatementParameterListItem()
         .setOrdinal(parameter.cardinal())
-        .setType(parameter.type())
+        .setType(parameter.type().name())
         .setValue(parameter.value() != null ? parameter.value().toString() : null);
   }
 

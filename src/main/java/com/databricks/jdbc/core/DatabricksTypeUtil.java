@@ -1,5 +1,7 @@
 package com.databricks.jdbc.core;
 
+import static java.sql.ParameterMetaData.parameterNullable;
+
 import com.databricks.jdbc.client.impl.thrift.generated.TPrimitiveTypeEntry;
 import com.databricks.jdbc.client.impl.thrift.generated.TTypeDesc;
 import com.databricks.jdbc.client.impl.thrift.generated.TTypeEntry;
@@ -34,7 +36,7 @@ public class DatabricksTypeUtil {
   public static final String DOUBLE = "DOUBLE";
   public static final String FLOAT = "FLOAT";
   public static final String INT = "INT";
-  public static final String INTERVAL = "INTERVAL";
+  public static final String BYTE = "BYTE";
   public static final String VOID = "VOID";
   public static final String SMALLINT = "SHORT";
   public static final String NULL = "NULL";
@@ -57,6 +59,46 @@ public class DatabricksTypeUtil {
               ColumnInfoTypeName.SHORT));
   private static final ArrayList<ColumnInfoTypeName> CASE_SENSITIVE_TYPES =
       new ArrayList<>(Arrays.asList(ColumnInfoTypeName.CHAR, ColumnInfoTypeName.STRING));
+
+  public static ColumnInfoTypeName getColumnInfoType(String typeName) {
+    switch (typeName) {
+      case DatabricksTypeUtil.STRING:
+        return ColumnInfoTypeName.STRING;
+      case DatabricksTypeUtil.DATE:
+      case DatabricksTypeUtil.TIMESTAMP:
+      case DatabricksTypeUtil.TIMESTAMP_NTZ:
+        return ColumnInfoTypeName.TIMESTAMP;
+      case DatabricksTypeUtil.SMALLINT:
+      case DatabricksTypeUtil.TINYINT:
+        return ColumnInfoTypeName.SHORT;
+      case DatabricksTypeUtil.BYTE:
+        return ColumnInfoTypeName.BYTE;
+      case DatabricksTypeUtil.INT:
+        return ColumnInfoTypeName.INT;
+      case DatabricksTypeUtil.BIGINT:
+        return ColumnInfoTypeName.LONG;
+      case DatabricksTypeUtil.FLOAT:
+        return ColumnInfoTypeName.FLOAT;
+      case DatabricksTypeUtil.DOUBLE:
+        return ColumnInfoTypeName.DOUBLE;
+      case DatabricksTypeUtil.BINARY:
+        return ColumnInfoTypeName.BINARY;
+      case DatabricksTypeUtil.BOOLEAN:
+        return ColumnInfoTypeName.BOOLEAN;
+      case DatabricksTypeUtil.DECIMAL:
+        return ColumnInfoTypeName.DECIMAL;
+      case DatabricksTypeUtil.STRUCT:
+        return ColumnInfoTypeName.STRUCT;
+      case DatabricksTypeUtil.ARRAY:
+        return ColumnInfoTypeName.ARRAY;
+      case DatabricksTypeUtil.VOID:
+      case DatabricksTypeUtil.NULL:
+        return ColumnInfoTypeName.NULL;
+      case DatabricksTypeUtil.MAP:
+        return ColumnInfoTypeName.MAP;
+    }
+    return ColumnInfoTypeName.USER_DEFINED_TYPE;
+  }
 
   public static int getColumnType(ColumnInfoTypeName typeName) {
     if (typeName == null) {
@@ -213,6 +255,29 @@ public class DatabricksTypeUtil {
       case STRUCT:
       default:
         return 255;
+    }
+  }
+
+  public static int isNullable(ColumnInfoTypeName typeName) {
+    // Todo : we need to figure out schema fetch [PECO-1711]
+    return parameterNullable;
+  }
+
+  public static int getScale(ColumnInfoTypeName typeName) {
+    if (typeName == null) {
+      return 0;
+    }
+    switch (typeName) {
+      case FLOAT:
+        return 7;
+      case DOUBLE:
+        return 15;
+      case DECIMAL:
+        return 10;
+      case TIMESTAMP:
+        return 6;
+      default:
+        return 0; // Default to 0 if unknown
     }
   }
 
