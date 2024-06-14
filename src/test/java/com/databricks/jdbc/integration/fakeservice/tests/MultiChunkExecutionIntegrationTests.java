@@ -49,6 +49,9 @@ public class MultiChunkExecutionIntegrationTests extends AbstractFakeServiceInte
   @Test
   void testMultiChunkSelect() throws SQLException {
     final String table = "samples.tpch.lineitem";
+
+    // To save on the size of stub mappings, the test uses just enough rows to span multiple chunks.
+    // That minimum threshold is different for SQL Exec and SQL Gateway clients.
     final int maxRows = isSqlExecSdkClient() ? 122900 : 147500;
     final String sql = "SELECT * FROM " + table + " limit " + maxRows;
 
