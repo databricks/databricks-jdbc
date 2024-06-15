@@ -2,12 +2,14 @@ package com.databricks.jdbc.integration.fakeservice.tests;
 
 import static com.databricks.jdbc.client.impl.sdk.PathConstants.SESSION_PATH;
 import static com.databricks.jdbc.client.impl.sdk.PathConstants.STATEMENT_PATH;
+import static com.databricks.jdbc.driver.DatabricksJdbcConstants.HTTP_PATH;
 import static com.databricks.jdbc.integration.IntegrationTestUtil.*;
 import static com.github.tomakehurst.wiremock.client.WireMock.postRequestedFor;
 import static com.github.tomakehurst.wiremock.client.WireMock.urlEqualTo;
 import static org.junit.jupiter.api.Assertions.*;
 
 import com.databricks.jdbc.integration.fakeservice.AbstractFakeServiceIntegrationTests;
+import com.databricks.jdbc.integration.fakeservice.FakeServiceConfigLoader;
 import com.github.tomakehurst.wiremock.client.CountMatchingStrategy;
 import java.sql.*;
 import org.junit.jupiter.api.AfterEach;
@@ -19,7 +21,7 @@ public class MetadataIntegrationTests extends AbstractFakeServiceIntegrationTest
 
   /** TODO: switch to new metadata client when it is available in Azure test env. */
   private static final String jdbcUrlTemplateWithLegacyMetadata =
-      "jdbc:databricks://%s/default;transportMode=http;ssl=0;AuthMech=3;httpPath=%s;useLegacyMetadata=1";
+      "jdbc:databricks://%s/default;transportMode=http;ssl=0;AuthMech=3;httpPath=%s;useLegacyMetadata=1;catalog=SPARK";
 
   private Connection connection;
 
@@ -183,7 +185,10 @@ public class MetadataIntegrationTests extends AbstractFakeServiceIntegrationTest
   private Connection getConnection() throws SQLException {
     String jdbcUrl =
         String.format(
-            jdbcUrlTemplateWithLegacyMetadata, getDatabricksHost(), getDatabricksHTTPPath());
+            jdbcUrlTemplateWithLegacyMetadata,
+            getFakeServiceHost(),
+            FakeServiceConfigLoader.getProperty(HTTP_PATH));
+
     return DriverManager.getConnection(jdbcUrl, getDatabricksUser(), getDatabricksToken());
   }
 }
