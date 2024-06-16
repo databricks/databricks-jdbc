@@ -60,8 +60,8 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
       }
       for (int urlPartIndex = 1; urlPartIndex < urlParts.length; urlPartIndex++) {
         String[] pair = urlParts[urlPartIndex].split(DatabricksJdbcConstants.PAIR_DELIMITER);
-        if (pair.length != 2) {
-          handleInvalidUrl(url);
+        if (pair.length == 1) {
+          pair = new String[] {pair[0], ""};
         }
         parametersBuilder.put(pair[0].toLowerCase(), pair[1]);
       }
@@ -98,7 +98,8 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
         || HTTP_WAREHOUSE_PATH_PATTERN.matcher(url).matches()
         || HTTP_ENDPOINT_PATH_PATTERN.matcher(url).matches()
         || TEST_PATH_PATTERN.matcher(url).matches()
-        || BASE_PATTERN.matcher(url).matches();
+        || BASE_PATTERN.matcher(url).matches()
+        || HTTP_CLI_PATTERN.matcher(url).matches();
   }
 
   @Override
@@ -150,6 +151,10 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
     urlMatcher = HTTP_CLUSTER_PATH_PATTERN.matcher(httpPath);
     if (urlMatcher.find()) {
       return new AllPurposeCluster(urlMatcher.group(1), urlMatcher.group(2));
+    }
+    urlMatcher = HTTP_PATH_CLI_PATTERN.matcher(httpPath);
+    if (urlMatcher.find()) {
+      return new AllPurposeCluster("default", "default");
     }
     // the control should never reach here, as the parsing already ensured the URL is valid
     throw new DatabricksParsingException("Invalid HTTP Path provided " + this.getHttpPath());

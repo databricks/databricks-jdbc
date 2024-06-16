@@ -145,7 +145,7 @@ public class DatabricksSessionTest {
     setupWarehouse(false);
     DatabricksSession session = new DatabricksSession(connectionContext);
     assertEquals(
-        "DatabricksSession[compute='SQL Warehouse with warehouse ID {warehouse_id}', catalog='SPARK', schema='default']",
+        "DatabricksSession[compute='SQL Warehouse with warehouse ID {warehouse_id}', catalog='hive_metastore', schema='default']",
         session.toString());
   }
 

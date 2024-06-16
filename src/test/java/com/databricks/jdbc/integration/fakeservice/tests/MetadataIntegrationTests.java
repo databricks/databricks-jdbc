@@ -61,7 +61,7 @@ public class MetadataIntegrationTests extends AbstractFakeServiceIntegrationTest
         metaData.getMaxColumnsInTable() >= 0, "Max columns in table should be greater than 0");
 
     // Create session request is sent
-    getSqlExecApiExtension().verify(1, postRequestedFor(urlEqualTo(SESSION_PATH)));
+    getDatabricksApiExtension().verify(1, postRequestedFor(urlEqualTo(SESSION_PATH)));
   }
 
   @Test
@@ -117,7 +117,7 @@ public class MetadataIntegrationTests extends AbstractFakeServiceIntegrationTest
     executeSQL(SQL);
 
     // At least 5 statement requests are sent: drop, create, insert, select, drop
-    getSqlExecApiExtension()
+    getDatabricksApiExtension()
         .verify(
             new CountMatchingStrategy(CountMatchingStrategy.GREATER_THAN_OR_EQUAL, 5),
             postRequestedFor(urlEqualTo(STATEMENT_PATH)));
@@ -174,7 +174,7 @@ public class MetadataIntegrationTests extends AbstractFakeServiceIntegrationTest
     // At least 7 statement requests are sent:
     // show catalogs, show schemas, drop table, create table, show tables, show particular table,
     // drop
-    getSqlExecApiExtension()
+    getDatabricksApiExtension()
         .verify(
             new CountMatchingStrategy(CountMatchingStrategy.GREATER_THAN_OR_EQUAL, 7),
             postRequestedFor(urlEqualTo(STATEMENT_PATH)));
