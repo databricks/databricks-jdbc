@@ -1,5 +1,6 @@
 package com.databricks.jdbc.core;
 
+import static com.databricks.jdbc.TestConstants.TEST_STRING;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -18,6 +19,7 @@ import java.math.BigDecimal;
 import java.sql.*;
 import java.util.Calendar;
 import java.util.HashMap;
+import java.util.Map;
 import java.util.Properties;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -29,7 +31,13 @@ public class DatabricksPreparedStatementTest {
 
   private static final String WAREHOUSE_ID = "erg6767gg";
   private static final String STATEMENT =
-      "SELECT * FROM orders WHERE user_id = ? AND shard = ? AND region_code = ? AND namespace = ?";
+      "SELECT * FROM orders WHERE user_id = ? AND name = ?";
+  private static final String STATEMENT =
+          "SELECT * FROM orders WHERE user_id = ? AND name = ?";
+  Map<Integer, ImmutableSqlParameter> PARAM_MAP = new HashMap<>() {{
+    put(1, getSqlParam(1,1,DatabricksTypeUtil.INT));
+    put(2, getSqlParam(2,TEST_STRING,DatabricksTypeUtil.STRING));
+  }};
   private static final String JDBC_URL =
       "jdbc:databricks://adb-565757575.18.azuredatabricks.net:4423/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/erg6767gg;";
 
@@ -79,17 +87,19 @@ public class DatabricksPreparedStatementTest {
         DatabricksConnectionContext.parse(JDBC_URL, new Properties());
     DatabricksConnection connection = new DatabricksConnection(connectionContext, client);
     DatabricksPreparedStatement statement = new DatabricksPreparedStatement(connection, STATEMENT);
-
+    statement.setInt(1,1);
+    statement.setString(2,TEST_STRING);
     when(resultSet.getUpdateCount()).thenReturn(2L);
     when(client.executeStatement(
             eq(STATEMENT),
             eq(new Warehouse(WAREHOUSE_ID)),
-            eq(new HashMap<Integer, ImmutableSqlParameter>()),
+            eq(null),
             eq(StatementType.UPDATE),
             any(IDatabricksSession.class),
             eq(statement)))
         .thenReturn(resultSet);
     int updateCount = statement.executeUpdate();
+
     assertEquals(2, updateCount);
     assertFalse(statement.isClosed());
     statement.close();
