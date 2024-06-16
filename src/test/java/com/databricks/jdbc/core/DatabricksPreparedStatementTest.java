@@ -30,14 +30,16 @@ import org.mockito.junit.jupiter.MockitoExtension;
 public class DatabricksPreparedStatementTest {
 
   private static final String WAREHOUSE_ID = "erg6767gg";
-  private static final String STATEMENT =
-      "SELECT * FROM orders WHERE user_id = ? AND name = ?";
-  private static final String STATEMENT =
-          "SELECT * FROM orders WHERE user_id = ? AND name = ?";
-  Map<Integer, ImmutableSqlParameter> PARAM_MAP = new HashMap<>() {{
-    put(1, getSqlParam(1,1,DatabricksTypeUtil.INT));
-    put(2, getSqlParam(2,TEST_STRING,DatabricksTypeUtil.STRING));
-  }};
+  private static final String STATEMENT = "SELECT * FROM orders WHERE user_id = ? AND name = ?";
+  private static final String ACTUAL_STATEMENT =
+      "SELECT * FROM orders WHERE user_id = 1 AND name = 'test'";
+  Map<Integer, ImmutableSqlParameter> PARAM_MAP =
+      new HashMap<>() {
+        {
+          put(1, getSqlParam(1, 1, DatabricksTypeUtil.INT));
+          put(2, getSqlParam(2, TEST_STRING, DatabricksTypeUtil.STRING));
+        }
+      };
   private static final String JDBC_URL =
       "jdbc:databricks://adb-565757575.18.azuredatabricks.net:4423/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/erg6767gg;";
 
@@ -51,24 +53,12 @@ public class DatabricksPreparedStatementTest {
         DatabricksConnectionContext.parse(JDBC_URL, new Properties());
     DatabricksConnection connection = new DatabricksConnection(connectionContext, client);
     DatabricksPreparedStatement statement = new DatabricksPreparedStatement(connection, STATEMENT);
-    statement.setLong(1, (long) 100);
-    statement.setShort(2, (short) 10);
-    statement.setByte(3, (byte) 15);
-    statement.setString(4, "value");
-
-    HashMap<Integer, ImmutableSqlParameter> sqlParams =
-        new HashMap<>() {
-          {
-            put(1, getSqlParam(1, 100, DatabricksTypeUtil.BIGINT));
-            put(2, getSqlParam(2, (short) 10, DatabricksTypeUtil.SMALLINT));
-            put(3, getSqlParam(3, (byte) 15, DatabricksTypeUtil.TINYINT));
-            put(4, getSqlParam(4, "value", DatabricksTypeUtil.STRING));
-          }
-        };
+    statement.setInt(1, 1);
+    statement.setString(2, TEST_STRING);
     when(client.executeStatement(
-            eq(STATEMENT),
+            eq(ACTUAL_STATEMENT),
             eq(new Warehouse(WAREHOUSE_ID)),
-            any(HashMap.class),
+            eq(null),
             eq(StatementType.QUERY),
             any(IDatabricksSession.class),
             eq(statement)))
@@ -87,11 +77,11 @@ public class DatabricksPreparedStatementTest {
         DatabricksConnectionContext.parse(JDBC_URL, new Properties());
     DatabricksConnection connection = new DatabricksConnection(connectionContext, client);
     DatabricksPreparedStatement statement = new DatabricksPreparedStatement(connection, STATEMENT);
-    statement.setInt(1,1);
-    statement.setString(2,TEST_STRING);
+    statement.setInt(1, 1);
+    statement.setString(2, TEST_STRING);
     when(resultSet.getUpdateCount()).thenReturn(2L);
     when(client.executeStatement(
-            eq(STATEMENT),
+            eq(ACTUAL_STATEMENT),
             eq(new Warehouse(WAREHOUSE_ID)),
             eq(null),
             eq(StatementType.UPDATE),

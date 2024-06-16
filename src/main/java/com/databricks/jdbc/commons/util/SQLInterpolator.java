@@ -1,17 +1,16 @@
 package com.databricks.jdbc.commons.util;
 
+import static com.databricks.jdbc.client.impl.helper.MetadataResultConstants.NULL_STRING;
+
 import com.databricks.jdbc.core.DatabricksValidationException;
 import com.databricks.jdbc.core.ImmutableSqlParameter;
 import java.util.Map;
 
-import static com.databricks.jdbc.client.impl.helper.MetadataResultConstants.NULL_STRING;
-
 public class SQLInterpolator {
   private static String formatObject(ImmutableSqlParameter object) {
-   if(object == null || object.value() == null){
-     return NULL_STRING;
-   }
-   else if (object.value() instanceof String) {
+    if (object == null || object.value() == null) {
+      return NULL_STRING;
+    } else if (object.value() instanceof String) {
       return "'" + object.value() + "'";
     } else {
       return object.value().toString();

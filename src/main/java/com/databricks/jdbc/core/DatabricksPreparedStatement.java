@@ -60,8 +60,7 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
   @Override
   public int executeUpdate() throws SQLException {
     LOGGER.debug("public int executeUpdate()");
-    executeInternal(
-        interpolateSQL(sql, parameterBindings), parameterBindings, StatementType.UPDATE);
+    executeInternal(interpolateSQL(sql, parameterBindings), null, StatementType.UPDATE);
     return (int) resultSet.getUpdateCount();
   }
 
