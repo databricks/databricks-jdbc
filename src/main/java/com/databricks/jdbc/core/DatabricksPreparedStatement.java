@@ -53,13 +53,19 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
   @Override
   public ResultSet executeQuery() throws SQLException {
     LOGGER.debug("public ResultSet executeQuery()");
-    return executeInternal(interpolateSQL(sql, parameterBindings), null, StatementType.QUERY);
+    return executeInternal(
+        interpolateSQL(sql, parameterBindings),
+        new HashMap<Integer, ImmutableSqlParameter>(),
+        StatementType.QUERY);
   }
 
   @Override
   public int executeUpdate() throws SQLException {
     LOGGER.debug("public int executeUpdate()");
-    executeInternal(interpolateSQL(sql, parameterBindings), null, StatementType.UPDATE);
+    executeInternal(
+        interpolateSQL(sql, parameterBindings),
+        new HashMap<Integer, ImmutableSqlParameter>(),
+        StatementType.UPDATE);
     return (int) resultSet.getUpdateCount();
   }
 

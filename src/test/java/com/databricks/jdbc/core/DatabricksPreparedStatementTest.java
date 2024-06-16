@@ -58,7 +58,7 @@ public class DatabricksPreparedStatementTest {
     when(client.executeStatement(
             eq(ACTUAL_STATEMENT),
             eq(new Warehouse(WAREHOUSE_ID)),
-            eq(null),
+            eq(new HashMap<Integer, ImmutableSqlParameter>()),
             eq(StatementType.QUERY),
             any(IDatabricksSession.class),
             eq(statement)))
@@ -83,7 +83,7 @@ public class DatabricksPreparedStatementTest {
     when(client.executeStatement(
             eq(ACTUAL_STATEMENT),
             eq(new Warehouse(WAREHOUSE_ID)),
-            eq(null),
+            eq(new HashMap<Integer, ImmutableSqlParameter>()),
             eq(StatementType.UPDATE),
             any(IDatabricksSession.class),
             eq(statement)))
