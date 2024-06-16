@@ -17,10 +17,20 @@ public class SQLInterpolator {
     }
   }
 
+  public static int countPlaceholders(String sql) {
+    int count = 0;
+    for (char c : sql.toCharArray()) {
+      if (c == '?') {
+        count++;
+      }
+    }
+    return count;
+  }
+
   public static String interpolateSQL(String sql, Map<Integer, ImmutableSqlParameter> params)
       throws DatabricksValidationException {
     String[] parts = sql.split("\\?");
-    if (parts.length != params.size()) {
+    if (countPlaceholders(sql) != params.size()) {
       throw new DatabricksValidationException(
           "Parameter count does not match. Provide equal number of parameters as placeholders. SQL "
               + sql);

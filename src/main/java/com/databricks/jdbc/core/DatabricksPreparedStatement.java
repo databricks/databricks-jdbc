@@ -53,7 +53,6 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
   @Override
   public ResultSet executeQuery() throws SQLException {
     LOGGER.debug("public ResultSet executeQuery()");
-    // return executeInternal(sql, parameterBindings, StatementType.QUERY);
     return executeInternal(interpolateSQL(sql, parameterBindings), null, StatementType.QUERY);
   }
 

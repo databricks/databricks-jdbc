@@ -96,7 +96,8 @@ public class DatabricksPreparedStatementTest {
     assertTrue(statement.isClosed());
   }
 
-  private ImmutableSqlParameter getSqlParam(int parameterIndex, Object x, String databricksType) {
+  public static ImmutableSqlParameter getSqlParam(
+      int parameterIndex, Object x, String databricksType) {
     return ImmutableSqlParameter.builder()
         .type(databricksType)
         .value(x)
