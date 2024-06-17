@@ -16,7 +16,7 @@ public class SQLInterpolator {
     if (object == null || object.value() == null) {
       return NULL_STRING;
     } else if (object.value() instanceof String) {
-      return "'" + escapeApostrophes((String)object.value()) + "'";
+      return "'" + escapeApostrophes((String) object.value()) + "'";
     } else {
       return object.value().toString();
     }
@@ -37,8 +37,8 @@ public class SQLInterpolator {
     String[] parts = sql.split("\\?");
     if (countPlaceholders(sql) != params.size()) {
       throw new DatabricksValidationException(
-              "Parameter count does not match. Provide equal number of parameters as placeholders. SQL "
-                      + sql);
+          "Parameter count does not match. Provide equal number of parameters as placeholders. SQL "
+              + sql);
     }
     StringBuilder sb = new StringBuilder();
     for (int i = 0; i < parts.length; i++) {

@@ -79,5 +79,4 @@ public class SQLInterpolatorTest {
     String expected = "UPDATE products SET price = 'O''Reilly' WHERE id = 200";
     assertEquals(expected, SQLInterpolator.interpolateSQL(sql, params));
   }
-
 }
