@@ -8,8 +8,6 @@ import static com.github.tomakehurst.wiremock.client.WireMock.postRequestedFor;
 import static com.github.tomakehurst.wiremock.client.WireMock.urlEqualTo;
 import static org.junit.jupiter.api.Assertions.*;
 
-import com.databricks.jdbc.client.DatabricksClientType;
-import com.databricks.jdbc.core.DatabricksConnection;
 import com.databricks.jdbc.integration.fakeservice.AbstractFakeServiceIntegrationTests;
 import com.databricks.jdbc.integration.fakeservice.FakeServiceConfigLoader;
 import com.github.tomakehurst.wiremock.client.CountMatchingStrategy;
@@ -198,10 +196,5 @@ public class MetadataIntegrationTests extends AbstractFakeServiceIntegrationTest
             FakeServiceConfigLoader.getProperty(HTTP_PATH));
 
     return DriverManager.getConnection(jdbcUrl, getDatabricksUser(), getDatabricksToken());
-  }
-
-  protected boolean isSqlExecSdkClient() {
-    return ((DatabricksConnection) connection).getSession().getConnectionContext().getClientType()
-        == DatabricksClientType.SQL_EXEC;
   }
 }

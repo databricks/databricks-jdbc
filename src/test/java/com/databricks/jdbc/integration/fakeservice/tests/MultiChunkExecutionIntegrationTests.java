@@ -7,11 +7,8 @@ import static com.github.tomakehurst.wiremock.client.WireMock.urlPathMatching;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import com.databricks.jdbc.client.DatabricksClientType;
-import com.databricks.jdbc.core.DatabricksConnection;
 import com.databricks.jdbc.core.DatabricksResultSet;
 import com.databricks.jdbc.core.DatabricksResultSetMetaData;
-import com.databricks.jdbc.driver.IDatabricksConnectionContext;
 import com.databricks.jdbc.integration.fakeservice.AbstractFakeServiceIntegrationTests;
 import java.sql.Connection;
 import java.sql.ResultSet;
@@ -91,13 +88,5 @@ public class MultiChunkExecutionIntegrationTests extends AbstractFakeServiceInte
                 getRequestedFor(urlPathMatching(resultChunkPathRegex)));
       }
     }
-  }
-
-  @Override
-  protected boolean isSqlExecSdkClient() {
-    IDatabricksConnectionContext connectionContext =
-        ((DatabricksConnection) connection).getSession().getConnectionContext();
-
-    return connectionContext.getClientType() == DatabricksClientType.SQL_EXEC;
   }
 }
