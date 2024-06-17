@@ -21,7 +21,7 @@ public class MetadataIntegrationTests extends AbstractFakeServiceIntegrationTest
 
   /** TODO: switch to new metadata client when it is available in Azure test env. */
   private static final String jdbcUrlTemplateWithLegacyMetadata =
-      "jdbc:databricks://%s/default;transportMode=http;ssl=0;AuthMech=3;httpPath=%s;useLegacyMetadata=1";
+      "jdbc:databricks://%s/default;transportMode=http;ssl=0;AuthMech=3;httpPath=%s;useLegacyMetadata=1;catalog=SPARK";
 
   private Connection connection;
 

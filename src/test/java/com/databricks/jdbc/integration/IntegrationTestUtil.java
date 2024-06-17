@@ -155,7 +155,7 @@ public class IntegrationTestUtil {
   public static String getJDBCUrl() {
     String template =
         fakeServiceToBeUsed()
-            ? "jdbc:databricks://%s/default;transportMode=http;ssl=0;AuthMech=3;httpPath=%s"
+            ? "jdbc:databricks://%s/default;transportMode=http;ssl=0;AuthMech=3;httpPath=%s;catalog=SPARK"
             : "jdbc:databricks://%s/default;ssl=1;AuthMech=3;httpPath=%s";
 
     String host = getDatabricksHost();
