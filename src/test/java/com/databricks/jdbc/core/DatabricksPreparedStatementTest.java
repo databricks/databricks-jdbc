@@ -16,6 +16,7 @@ import java.io.InputStream;
 import java.io.Reader;
 import java.io.StringReader;
 import java.math.BigDecimal;
+import java.nio.charset.StandardCharsets;
 import java.sql.*;
 import java.util.Calendar;
 import java.util.HashMap;
@@ -194,6 +195,16 @@ public class DatabricksPreparedStatementTest {
   }
 
   @Test
+  public void testSetTimestampWithCalendar() {
+    DatabricksPreparedStatement preparedStatement =
+        new DatabricksPreparedStatement(null, STATEMENT);
+    assertDoesNotThrow(
+        () ->
+            preparedStatement.setTimestamp(
+                1, new Timestamp(System.currentTimeMillis()), Calendar.getInstance()));
+  }
+
+  @Test
   public void testSetAsciiStream() {
     DatabricksPreparedStatement preparedStatement =
         new DatabricksPreparedStatement(null, STATEMENT);
@@ -208,6 +219,20 @@ public class DatabricksPreparedStatementTest {
   }
 
   @Test
+  public void testSetAsciiStreamWithLong() {
+    DatabricksPreparedStatement preparedStatement =
+        new DatabricksPreparedStatement(null, STATEMENT);
+
+    byte[] bytes = {0x01, 0x02, 0x03, 0x04};
+    InputStream asciiStream = new ByteArrayInputStream(bytes);
+
+    assertDoesNotThrow(
+        () -> {
+          preparedStatement.setAsciiStream(1, asciiStream, (long) bytes.length);
+        });
+  }
+
+  @Test
   public void testSetCharacterStream() {
     DatabricksPreparedStatement preparedStatement =
         new DatabricksPreparedStatement(null, STATEMENT);
@@ -217,6 +242,42 @@ public class DatabricksPreparedStatementTest {
 
     assertDoesNotThrow(
         () -> preparedStatement.setCharacterStream(1, characterStream, originalString.length()));
+  }
+
+  @Test
+  public void testSetCharacterStreamWithLong() throws Exception {
+    DatabricksPreparedStatement preparedStatement =
+        new DatabricksPreparedStatement(null, STATEMENT);
+
+    String originalString = "Hello, World!";
+    Reader characterStream = new StringReader(originalString);
+
+    assertDoesNotThrow(
+        () ->
+            preparedStatement.setCharacterStream(
+                1, characterStream, (long) originalString.length()));
+  }
+
+  @Test
+  public void testSetAsciiStreamWithoutLength() {
+    DatabricksPreparedStatement preparedStatement =
+        new DatabricksPreparedStatement(null, STATEMENT);
+
+    byte[] bytes = "Hello, World!".getBytes(StandardCharsets.US_ASCII);
+    InputStream asciiStream = new ByteArrayInputStream(bytes);
+
+    assertDoesNotThrow(() -> preparedStatement.setAsciiStream(1, asciiStream));
+  }
+
+  @Test
+  public void testSetCharacterStreamWithoutLength() {
+    DatabricksPreparedStatement preparedStatement =
+        new DatabricksPreparedStatement(null, STATEMENT);
+
+    String originalString = "Hello, World!";
+    Reader characterStream = new StringReader(originalString);
+
+    assertDoesNotThrow(() -> preparedStatement.setCharacterStream(1, characterStream));
   }
 
   @Test
@@ -272,11 +333,8 @@ public class DatabricksPreparedStatementTest {
     assertThrows(UnsupportedOperationException.class, () -> preparedStatement.setTime(1, null));
     assertThrows(
         UnsupportedOperationException.class, () -> preparedStatement.setTime(1, null, null));
-    assertThrows(
-        UnsupportedOperationException.class, () -> preparedStatement.setTimestamp(1, null, null));
     assertThrows(UnsupportedOperationException.class, () -> preparedStatement.setBytes(1, null));
     assertThrows(UnsupportedOperationException.class, () -> preparedStatement.addBatch());
-
     assertThrows(
         SQLFeatureNotSupportedException.class, () -> preparedStatement.setObject(1, null, null));
     assertThrows(

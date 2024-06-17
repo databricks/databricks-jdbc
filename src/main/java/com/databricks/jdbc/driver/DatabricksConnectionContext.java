@@ -185,6 +185,11 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
         : Integer.parseInt(getParameter(DatabricksJdbcConstants.POLL_INTERVAL));
   }
 
+  @Override
+  public Boolean getDirectResultMode() {
+    return getParameter(DIRECT_RESULT) == null || Objects.equals(getParameter(DIRECT_RESULT), "1");
+  }
+
   public String getCloud() throws DatabricksParsingException {
     String hostURL = getHostUrl();
     if (hostURL.contains("azuredatabricks.net")

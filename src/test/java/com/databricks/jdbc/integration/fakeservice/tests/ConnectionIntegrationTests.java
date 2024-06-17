@@ -34,8 +34,10 @@ public class ConnectionIntegrationTests extends AbstractFakeServiceIntegrationTe
 
   @Test
   void testIncorrectCredentialsForOAuth() {
+    // SSL is disabled as embedded web server of fake service uses HTTP protocol.
+    // Note that in RECORD mode, the web server interacts with production services over HTTPS.
     String template =
-        "jdbc:databricks://%s/default;transportMode=http;ssl=1;AuthMech=11;AuthFlow=0;httpPath=%s";
+        "jdbc:databricks://%s/default;transportMode=http;ssl=0;AuthMech=11;AuthFlow=0;httpPath=%s";
     String url = String.format(template, getDatabricksHost(), getDatabricksHTTPPath());
     DatabricksSQLException e =
         assertThrows(

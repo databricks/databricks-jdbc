@@ -316,10 +316,6 @@ public class DatabricksNewMetadataSdkClientTest {
             null))
         .thenReturn(mockedResultSet);
     when(mockedResultSet.next()).thenReturn(true, false);
-    for (ResultColumn resultColumn : FUNCTION_COLUMNS) {
-      when(mockedResultSet.getObject(resultColumn.getResultSetColumnName()))
-          .thenReturn(TEST_COLUMN);
-    }
     DatabricksResultSet actualResult =
         metadataClient.listFunctions(session, catalog, schema, functionPattern);
 

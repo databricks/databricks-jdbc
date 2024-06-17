@@ -72,6 +72,8 @@ public final class DatabricksJdbcConstants {
 
   public static final String SSL = "ssl";
 
+  public static final String DIRECT_RESULT = "EnableDirectResults";
+
   static final String HTTP_SCHEMA = "http://";
   static final String HTTPS_SCHEMA = "https://";
   public static final String LOGIN_TIMEOUT = "loginTimeout";

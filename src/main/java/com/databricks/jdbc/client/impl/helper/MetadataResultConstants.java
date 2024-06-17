@@ -143,7 +143,7 @@ public class MetadataResultConstants {
           IS_GENERATED_COLUMN);
   public static List<ResultColumn> CATALOG_COLUMNS = List.of(CATALOG_COLUMN_FOR_GET_CATALOGS);
   public static List<ResultColumn> SCHEMA_COLUMNS =
-      List.of(SCHEMA_COLUMN_FOR_GET_SCHEMA, CATALOG_COLUMN);
+      List.of(SCHEMA_COLUMN_FOR_GET_SCHEMA, CATALOG_FULL_COLUMN);
   public static List<ResultColumn> TABLE_COLUMNS =
       List.of(
           CATALOG_COLUMN,
@@ -181,7 +181,7 @@ public class MetadataResultConstants {
           PRIMARY_KEY_NAME_COLUMN,
           PRIMARY_KEY_TYPE_COLUMN);
   public static List<List<Object>> TABLE_TYPES_ROWS =
-      Arrays.asList(List.of("TABLE"), List.of("VIEW"), List.of("SYSTEM TABLES"));
+      Arrays.asList(List.of("TABLE"), List.of("VIEW"), List.of("SYSTEM TABLE"));
   public static List<ResultColumn> TABLE_TYPE_COLUMNS = List.of(TABLE_TYPE_COLUMN);
   public static List<ResultColumn> PRIMARY_KEYS_COLUMNS_ALL_PURPOSE =
       List.of(
@@ -198,7 +198,7 @@ public class MetadataResultConstants {
           FUNCTION_SCHEMA_COLUMN,
           FUNCTION_NAME_COLUMN,
           REMARKS_COLUMN,
-          PROCEDURE_TYPE_COLUMN,
+          FUNCTION_TYPE_COLUMN,
           SPECIFIC_NAME_COLUMN);
 
   public static List<ResultColumn> COLUMN_COLUMNS_ALL_PURPOSE =

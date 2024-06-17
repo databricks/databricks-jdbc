@@ -125,4 +125,6 @@ public interface IDatabricksConnectionContext {
 
   /** Returns the number of threads to be used for fetching data from cloud storage */
   int getCloudFetchThreadPoolSize();
+
+  Boolean getDirectResultMode();
 }
