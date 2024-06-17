@@ -1,6 +1,7 @@
 package com.databricks.jdbc.client.impl.thrift;
 
 import static com.databricks.jdbc.TestConstants.*;
+import static com.databricks.jdbc.client.impl.helper.CommandConstants.GET_TABLE_TYPE_STATEMENT_ID;
 import static com.databricks.jdbc.client.impl.thrift.commons.DatabricksThriftHelper.getNamespace;
 import static com.databricks.jdbc.driver.DatabricksJdbcConstants.CATALOG;
 import static com.databricks.jdbc.driver.DatabricksJdbcConstants.SCHEMA;
@@ -9,6 +10,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 
 import com.databricks.jdbc.client.StatementType;
+import com.databricks.jdbc.client.impl.sdk.DatabricksNewMetadataSdkClient;
 import com.databricks.jdbc.client.impl.thrift.commons.DatabricksThriftAccessor;
 import com.databricks.jdbc.client.impl.thrift.generated.*;
 import com.databricks.jdbc.client.sqlexec.ExternalLink;
@@ -157,18 +159,10 @@ public class DatabricksThriftServiceClientTest {
   void testListTableTypes() throws SQLException {
     DatabricksThriftServiceClient client =
         new DatabricksThriftServiceClient(thriftAccessor, connectionContext);
-    when(session.getSessionInfo()).thenReturn(SESSION_INFO);
-    TGetTableTypesReq request = new TGetTableTypesReq().setSessionHandle(SESSION_HANDLE);
-    TFetchResultsResp response =
-        new TFetchResultsResp()
-            .setStatus(new TStatus().setStatusCode(TStatusCode.SUCCESS_STATUS))
-            .setResults(resultData)
-            .setResultSetMetadata(resultMetadataData);
-    when(resultData.getColumns()).thenReturn(Collections.singletonList(new TColumn()));
-    when(thriftAccessor.getThriftResponse(request, CommandName.LIST_TABLE_TYPES, null))
-        .thenReturn(response);
-    DatabricksResultSet resultSet = client.listTableTypes(session);
-    assertEquals(resultSet.getStatementStatus().getState(), StatementState.SUCCEEDED);
+    DatabricksResultSet actualResult = client.listTableTypes(session);
+    assertEquals(actualResult.getStatementStatus().getState(), StatementState.SUCCEEDED);
+    assertEquals(actualResult.statementId(), GET_TABLE_TYPE_STATEMENT_ID);
+    assertEquals(((DatabricksResultSetMetaData) actualResult.getMetaData()).getTotalRows(), 3);
   }
 
   @Test
