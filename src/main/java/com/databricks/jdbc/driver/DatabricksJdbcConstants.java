@@ -108,6 +108,8 @@ public final class DatabricksJdbcConstants {
 
   public static final String HTTPS_SCHEMA = "https://";
 
+  public static final String DIRECT_RESULT = "EnableDirectResults";
+
   public static final String LOGIN_TIMEOUT = "loginTimeout";
 
   public static final String U2M_AUTH_TYPE = "external-browser";

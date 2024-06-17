@@ -8,6 +8,8 @@ import static com.github.tomakehurst.wiremock.client.WireMock.postRequestedFor;
 import static com.github.tomakehurst.wiremock.client.WireMock.urlEqualTo;
 import static org.junit.jupiter.api.Assertions.*;
 
+import com.databricks.jdbc.client.DatabricksClientType;
+import com.databricks.jdbc.core.DatabricksConnection;
 import com.databricks.jdbc.integration.fakeservice.AbstractFakeServiceIntegrationTests;
 import com.databricks.jdbc.integration.fakeservice.FakeServiceConfigLoader;
 import com.github.tomakehurst.wiremock.client.CountMatchingStrategy;
@@ -62,8 +64,10 @@ public class MetadataIntegrationTests extends AbstractFakeServiceIntegrationTest
     assertTrue(
         metaData.getMaxColumnsInTable() >= 0, "Max columns in table should be greater than 0");
 
-    // Create session request is sent
-    getDatabricksApiExtension().verify(1, postRequestedFor(urlEqualTo(SESSION_PATH)));
+    if (isSqlExecSdkClient()) {
+      // Create session request is sent
+      getDatabricksApiExtension().verify(1, postRequestedFor(urlEqualTo(SESSION_PATH)));
+    }
   }
 
   @Test
@@ -118,11 +122,13 @@ public class MetadataIntegrationTests extends AbstractFakeServiceIntegrationTest
     String SQL = "DROP TABLE IF EXISTS " + getFullyQualifiedTableName(tableName);
     executeSQL(SQL);
 
-    // At least 5 statement requests are sent: drop, create, insert, select, drop
-    getDatabricksApiExtension()
-        .verify(
-            new CountMatchingStrategy(CountMatchingStrategy.GREATER_THAN_OR_EQUAL, 5),
-            postRequestedFor(urlEqualTo(STATEMENT_PATH)));
+    if (isSqlExecSdkClient()) {
+      // At least 5 statement requests are sent: drop, create, insert, select, drop
+      getDatabricksApiExtension()
+          .verify(
+              new CountMatchingStrategy(CountMatchingStrategy.GREATER_THAN_OR_EQUAL, 5),
+              postRequestedFor(urlEqualTo(STATEMENT_PATH)));
+    }
   }
 
   @Test
@@ -139,7 +145,7 @@ public class MetadataIntegrationTests extends AbstractFakeServiceIntegrationTest
     }
 
     // Test getSchemas
-    try (ResultSet schemas = metaData.getSchemas("main", "*")) {
+    try (ResultSet schemas = metaData.getSchemas("main", "%")) {
       assertTrue(schemas.next(), "There should be at least one schema");
       do {
         String schemaName = schemas.getString("TABLE_SCHEM");
@@ -152,7 +158,7 @@ public class MetadataIntegrationTests extends AbstractFakeServiceIntegrationTest
     String schemaPattern = "jdbc_test_schema";
     String tableName = "catalog_and_schema_test_table";
     setupDatabaseTable(tableName);
-    try (ResultSet tables = metaData.getTables(catalog, schemaPattern, "*", null)) {
+    try (ResultSet tables = metaData.getTables(catalog, schemaPattern, "%", null)) {
       assertTrue(
           tables.next(), "There should be at least one table in the specified catalog and schema");
       do {
@@ -173,13 +179,15 @@ public class MetadataIntegrationTests extends AbstractFakeServiceIntegrationTest
     }
     deleteTable(tableName);
 
-    // At least 7 statement requests are sent:
-    // show catalogs, show schemas, drop table, create table, show tables, show particular table,
-    // drop
-    getDatabricksApiExtension()
-        .verify(
-            new CountMatchingStrategy(CountMatchingStrategy.GREATER_THAN_OR_EQUAL, 7),
-            postRequestedFor(urlEqualTo(STATEMENT_PATH)));
+    if (isSqlExecSdkClient()) {
+      // At least 7 statement requests are sent:
+      // show catalogs, show schemas, drop table, create table, show tables, show particular table,
+      // drop
+      getDatabricksApiExtension()
+          .verify(
+              new CountMatchingStrategy(CountMatchingStrategy.GREATER_THAN_OR_EQUAL, 7),
+              postRequestedFor(urlEqualTo(STATEMENT_PATH)));
+    }
   }
 
   private Connection getConnection() throws SQLException {
@@ -190,5 +198,10 @@ public class MetadataIntegrationTests extends AbstractFakeServiceIntegrationTest
             FakeServiceConfigLoader.getProperty(HTTP_PATH));
 
     return DriverManager.getConnection(jdbcUrl, getDatabricksUser(), getDatabricksToken());
+  }
+
+  protected boolean isSqlExecSdkClient() {
+    return ((DatabricksConnection) connection).getSession().getConnectionContext().getClientType()
+        == DatabricksClientType.SQL_EXEC;
   }
 }
