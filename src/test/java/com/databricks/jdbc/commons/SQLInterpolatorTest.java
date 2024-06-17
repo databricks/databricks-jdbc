@@ -69,4 +69,15 @@ public class SQLInterpolatorTest {
           SQLInterpolator.interpolateSQL(sql, params);
         });
   }
+
+  @Test
+  public void testEscapedValues() throws DatabricksValidationException {
+    String sql = "UPDATE products SET price = ? WHERE id = ?";
+    Map<Integer, ImmutableSqlParameter> params = new HashMap<>();
+    params.put(1, getSqlParam(1, "O'Reilly", DatabricksTypeUtil.STRING));
+    params.put(2, getSqlParam(2, 200, DatabricksTypeUtil.INT));
+    String expected = "UPDATE products SET price = 'O''Reilly' WHERE id = 200";
+    assertEquals(expected, SQLInterpolator.interpolateSQL(sql, params));
+  }
+
 }

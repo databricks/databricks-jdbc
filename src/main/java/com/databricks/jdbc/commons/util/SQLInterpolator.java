@@ -7,11 +7,16 @@ import com.databricks.jdbc.core.ImmutableSqlParameter;
 import java.util.Map;
 
 public class SQLInterpolator {
+  public static String escapeApostrophes(String input) {
+    if (input == null) return null;
+    return input.replace("'", "''");
+  }
+
   private static String formatObject(ImmutableSqlParameter object) {
     if (object == null || object.value() == null) {
       return NULL_STRING;
     } else if (object.value() instanceof String) {
-      return "'" + object.value() + "'";
+      return "'" + escapeApostrophes((String)object.value()) + "'";
     } else {
       return object.value().toString();
     }
@@ -32,8 +37,8 @@ public class SQLInterpolator {
     String[] parts = sql.split("\\?");
     if (countPlaceholders(sql) != params.size()) {
       throw new DatabricksValidationException(
-          "Parameter count does not match. Provide equal number of parameters as placeholders. SQL "
-              + sql);
+              "Parameter count does not match. Provide equal number of parameters as placeholders. SQL "
+                      + sql);
     }
     StringBuilder sb = new StringBuilder();
     for (int i = 0; i < parts.length; i++) {
@@ -42,6 +47,7 @@ public class SQLInterpolator {
         sb.append(formatObject(params.get(i + 1))); // because we have 1 based index in params
       }
     }
+    System.out.println(sb.toString());
     return sb.toString();
   }
 }
