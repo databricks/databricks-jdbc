@@ -246,7 +246,6 @@ public class DatabricksHttpClientTest {
 
     IDatabricksConnectionContext connectionContext =
         Mockito.mock(IDatabricksConnectionContext.class);
-    when(connectionContext.getUseSystemProxy()).thenReturn(false);
     when(connectionContext.getUseProxy()).thenReturn(false);
     when(connectionContext.getUseCloudFetchProxy()).thenReturn(false);
 

@@ -302,8 +302,7 @@ class DatabricksConnectionContextTest {
     assertEquals("127.0.1.2", connectionContextWithCFProxy.getCloudFetchProxyHost());
     assertEquals(8081, connectionContextWithCFProxy.getCloudFetchProxyPort());
     assertEquals(
-        ProxyConfig.ProxyAuthType.SPNEGO,
-        connectionContextWithCFProxy.getCloudFetchProxyAuthType());
+        ProxyConfig.ProxyAuthType.BASIC, connectionContextWithCFProxy.getCloudFetchProxyAuthType());
     assertEquals("cfProxyUser", connectionContextWithCFProxy.getCloudFetchProxyUser());
     assertEquals("cfProxyPassword", connectionContextWithCFProxy.getCloudFetchProxyPassword());
   }
