@@ -44,9 +44,7 @@ public class DriverTester {
     // Getting the connection
     String jdbcUrl =
         "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=https;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/791ba2a31c7fd70a;";
-    Connection con =
-        DriverManager.getConnection(
-            jdbcUrl, "samikshya.chand@databricks.com", "dapi064c157bd3b949b616c9bb5cd44bd522");
+    Connection con = DriverManager.getConnection(jdbcUrl, "samikshya.chand@databricks.com", "xx");
     System.out.println("Connection established......");
     Statement statement = con.createStatement();
     statement.setMaxRows(10);
@@ -132,7 +130,7 @@ public class DriverTester {
     DriverManager.registerDriver(new com.databricks.jdbc.driver.DatabricksDriver());
     DriverManager.drivers().forEach(driver -> System.out.println(driver.getClass()));
     String jdbcUrl =
-        "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=https;ssl=1;httpPath=sql/protocolv1/o/6051921418418893/1115-130834-ms4m0yv;AuthMech=3;UID=token;LogLevel=debug;LogPath=test1/applicationLoggingTest.log;";
+        "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=https;ssl=1;httpPath=sql/protocolv1/o/6051921418418893/1115-130834-ms4m0yv;AuthMech=3;UID=token;LogLevel=debug;LogPath=test;LogFileCount=3;LogFileSize=2;";
     Connection con = DriverManager.getConnection(jdbcUrl, "samikshya.chand@databricks.com", "x");
     System.out.println("Connection established......");
     ResultSet resultSet =

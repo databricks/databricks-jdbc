@@ -2,6 +2,7 @@ package com.databricks.jdbc.driver;
 
 import static com.databricks.jdbc.driver.DatabricksJdbcConstants.*;
 
+import com.databricks.jdbc.commons.util.AppenderUtil;
 import com.databricks.jdbc.core.DatabricksConnection;
 import com.databricks.jdbc.core.DatabricksSQLException;
 import com.databricks.jdbc.telemetry.DatabricksMetrics;
@@ -11,8 +12,8 @@ import java.util.Properties;
 import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.core.Appender;
 import org.apache.logging.log4j.core.LoggerContext;
-import org.apache.logging.log4j.core.appender.FileAppender;
 import org.apache.logging.log4j.core.config.Configuration;
 import org.apache.logging.log4j.core.config.LoggerConfig;
 import org.apache.logging.log4j.core.layout.PatternLayout;
@@ -48,7 +49,11 @@ public class DatabricksDriver implements Driver {
   public Connection connect(String url, Properties info) throws DatabricksSQLException {
     LOGGER.debug("public Connection connect(String url = {}, Properties info)", url);
     IDatabricksConnectionContext connectionContext = DatabricksConnectionContext.parse(url, info);
-    configureLogging(connectionContext.getLogPathString(), connectionContext.getLogLevel());
+    configureLogging(
+        connectionContext.getLogPathString(),
+        connectionContext.getLogLevel(),
+        connectionContext.getLogFileCount(),
+        connectionContext.getLogFileSize());
     setUserAgent(connectionContext);
     DatabricksMetrics.instantiateTelemetryClient(connectionContext);
     try {
@@ -101,28 +106,34 @@ public class DatabricksDriver implements Driver {
     UserAgent.withOtherInfo(CLIENT_USER_AGENT_PREFIX, connectionContext.getClientUserAgent());
   }
 
-  public static void configureLogging(String logFilePath, Level logLevel) {
+  private static void configureLogger(Appender appender, Level logLevel) {
     LoggerContext context = (LoggerContext) LogManager.getContext(false);
     Configuration config = context.getConfiguration();
-    PatternLayout layout =
-        PatternLayout.newBuilder()
-            .withPattern("%d{yyyy-MM-dd HH:mm:ss} %-5p %c{1}:%L - %m%n")
-            .build();
-    FileAppender appender =
-        FileAppender.newBuilder()
-            .setConfiguration(config)
-            .withLayout(layout)
-            .withFileName(logFilePath)
-            .withName(logFilePath)
-            .build();
     LoggerConfig loggerConfig = config.getLoggerConfig(LogManager.ROOT_LOGGER_NAME);
+
     if (appender != null) {
-      // Appender can be null if the parameters are incorrect; no error should be thrown.
       appender.start();
       config.addAppender(appender);
       loggerConfig.addAppender(appender, logLevel, null);
     }
+
     loggerConfig.setLevel(logLevel);
     context.updateLoggers();
+  }
+
+  public static void configureLogging(
+      String logDirectory, Level logLevel, int logFileCount, int logFileSize) {
+    LoggerContext context = (LoggerContext) LogManager.getContext(false);
+    Configuration config = context.getConfiguration();
+    PatternLayout layout = AppenderUtil.getPatternLayout(config, DEFAULT_LOG_PATTERN);
+    boolean isFilePath = logDirectory.matches(".*\\.(log|txt|json|csv|xml|out)$");
+    if (isFilePath) {
+      configureLogger(AppenderUtil.getFileAppender(config, layout, logDirectory), logLevel);
+    } else {
+      configureLogger(
+          AppenderUtil.getRollingFileAppender(
+              config, layout, logDirectory, logFileSize, logFileCount - 1),
+          logLevel);
+    }
   }
 }

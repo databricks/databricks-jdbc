@@ -29,7 +29,7 @@ public class ResultColumn {
     if (columnType.equals(Types.VARCHAR)) {
       return "VARCHAR";
     }
-    return "INT"; // Currently we have only Varchar and Int metadata fields.
+    return "INTEGER"; // Currently we have only Varchar and Int metadata fields.
   }
 
   public Integer getColumnPrecision() {

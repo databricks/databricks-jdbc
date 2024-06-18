@@ -1,0 +1,31 @@
+{
+  "id" : "2c53cfec-f5f9-415a-a5ef-fbd57d4d9f46",
+  "name" : "sql_protocolv1_o_6051921418418893_1115-130834-ms4m0yv",
+  "request" : {
+    "url" : "/sql/protocolv1/o/6051921418418893/1115-130834-ms4m0yv",
+    "method" : "POST",
+    "bodyPatterns" : [ {
+      "binaryEqualTo" : "gAEAAQAAABBFeGVjdXRlU3RhdGVtZW50AAAAAgwAAQwAAQwAAQsAAQAAABA6PtsqaF9MmY9kKp+2q5nlCwACAAAAENDlIm5bM0pqhXQO3hL6vlkAAAsAAgAAAE1EUk9QIFRBQkxFIElGIEVYSVNUUyBtYWluLmpkYmNfdGVzdF9zY2hlbWEudW5zdXBwb3J0ZWRfc3FsX2ZlYXR1cmVfdGVzdF90YWJsZQwFAQoAAQAAAAAAHoSACgACAAAAABghowAAAgUCAQIFAwEAAA=="
+    } ]
+  },
+  "response" : {
+    "status" : 200,
+    "base64Body" : "gAEAAgAAABBFeGVjdXRlU3RhdGVtZW50AAAAAgwAAAwAAQgAAQAAAAAADAACDAABCwABAAAAEH18cOkR9UWnmueFcwJSpjgLAAIAAAAQzh6yI6GFR/63hwZP4QtkdQYNAQAAAAgAAgAAAAACAAMBAAwFAQwAAQwAAQgAAQAAAAAACAACAAAAAggNAgAAAAAADAACDAABCAABAAAAAAAMAAIPAAEMAAAAAQsAAQAAAAZSZXN1bHQMAAIPAAEMAAAAAQwAAQgAAQAAAAcAAAAIAAMAAAABCwAEAAAAAAAACAUBAAAAAAIFAgALBQMAAABI/////0AAAAAQAAAAAAAKAA4ABgANAAgACgAAAAAABAAQAAAAAAEKAAwAAAAIAAQACgAAAAgAAAAIAAAAAAAAAAAAAAAAAAAACAUEAAAAAAoFBQAAAAAAAAAACgUGAAAAAAAAAAACBQcACA0BAAAABQoNBQAAAAAAAAAAAg0RAAAMAAMMAAEIAAEAAAAAAAIAAgAMAAMKAAEAAAAAAAAAAA8AAgwAAAAADwUBDAAAAAAAAAwABAwAAQgAAQAAAAAAAAAAAA==",
+    "headers" : {
+      "date" : "Thu, 13 Jun 2024 15:56:28 GMT,Thu, 13 Jun 2024 15:56:28 GMT",
+      "server" : "databricks",
+      "x-databricks-popp-request-id" : "9a8b297a-baec-48db-b5f5-a0939159aedd",
+      "x-content-type-options" : [ "nosniff", "nosniff" ],
+      "x-xss-protection" : "1; mode=block",
+      "x-databricks-shard-debug" : "oregon-staging",
+      "x-frame-options" : "SAMEORIGIN",
+      "x-databricks-popp-shadow-routing-reason" : "deployment-name",
+      "x-databricks-org-id" : "6051921418418893",
+      "x-databricks-popp-routing-reason" : "deployment-name",
+      "content-type" : "application/x-thrift",
+      "strict-transport-security" : [ "max-age=31536000; includeSubDomains; preload", "max-age=31536000; includeSubDomains; preload" ]
+    }
+  },
+  "uuid" : "2c53cfec-f5f9-415a-a5ef-fbd57d4d9f46",
+  "insertionIndex" : 5
+}
