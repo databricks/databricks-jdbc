@@ -21,9 +21,14 @@ public class IntegrationTestUtil {
   public static String getDatabricksHost() {
     if (fakeServiceToBeUsed()) {
       // Target base URL of the fake service type
+      FakeServiceType databricksFakeServiceType =
+          shouldUseSqlGatewayFakeServiceType()
+              ? FakeServiceType.SQL_GATEWAY
+              : FakeServiceType.SQL_EXEC;
       String serviceURI =
           System.getProperty(
-              FakeServiceType.SQL_EXEC.name().toLowerCase() + TARGET_URI_PROP_SUFFIX);
+              databricksFakeServiceType.name().toLowerCase() + TARGET_URI_PROP_SUFFIX);
+
       URI fakeServiceURI;
       try {
         // Fake service URL for the base URL
@@ -40,8 +45,7 @@ public class IntegrationTestUtil {
   }
 
   public static boolean fakeServiceToBeUsed() {
-    return !isAllpurposeCluster()
-        && Boolean.parseBoolean(System.getProperty(IS_FAKE_SERVICE_TEST_PROP));
+    return Boolean.parseBoolean(System.getProperty(IS_FAKE_SERVICE_TEST_PROP));
   }
 
   public static String getDatabricksBenchfoodHost() {
@@ -151,7 +155,7 @@ public class IntegrationTestUtil {
   public static String getJDBCUrl() {
     String template =
         fakeServiceToBeUsed()
-            ? "jdbc:databricks://%s/default;transportMode=http;ssl=0;AuthMech=3;httpPath=%s"
+            ? "jdbc:databricks://%s/default;transportMode=http;ssl=0;AuthMech=3;httpPath=%s;catalog=SPARK"
             : "jdbc:databricks://%s/default;ssl=1;AuthMech=3;httpPath=%s";
 
     String host = getDatabricksHost();
@@ -302,5 +306,13 @@ public class IntegrationTestUtil {
       throw new IllegalStateException("JDBC connection is not initialized for the test");
     }
     return JDBCConnection;
+  }
+
+  /**
+   * Returns whether the fake service type should be {@link
+   * com.databricks.jdbc.driver.DatabricksJdbcConstants.FakeServiceType#SQL_GATEWAY}
+   */
+  public static boolean shouldUseSqlGatewayFakeServiceType() {
+    return HTTP_CLUSTER_PATH_PATTERN.matcher(getDatabricksHTTPPath()).find();
   }
 }

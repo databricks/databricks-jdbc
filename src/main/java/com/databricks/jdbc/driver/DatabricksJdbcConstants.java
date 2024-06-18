@@ -12,6 +12,10 @@ public final class DatabricksJdbcConstants {
       Pattern.compile("jdbc:databricks://([^/;]*)(?::\\d+)?/*(.*)");
   static final Pattern HTTP_WAREHOUSE_PATH_PATTERN = Pattern.compile(".*/warehouses/(.+)");
   static final Pattern HTTP_ENDPOINT_PATH_PATTERN = Pattern.compile(".*/endpoints/(.+)");
+
+  static final Pattern HTTP_CLI_PATTERN = Pattern.compile(".*cliservice(.+)");
+
+  static final Pattern HTTP_PATH_CLI_PATTERN = Pattern.compile("cliservice");
   static final Pattern TEST_PATH_PATTERN = Pattern.compile("jdbc:databricks://test");
   static final Pattern BASE_PATTERN = Pattern.compile("jdbc:databricks://[^;]+(;[^;]*)?");
   public static final Pattern HTTP_CLUSTER_PATH_PATTERN = Pattern.compile(".*/o/(.+)/(.+)");
@@ -20,10 +24,17 @@ public final class DatabricksJdbcConstants {
   static final String LOG_LEVEL = "loglevel";
   static final String LOG_PATH = "logpath";
   static final String DEFAULT_LOG_PATH = "logs/application.log";
+  static final String LOG_FILE_SIZE = "LogFileSize";
+  static final int DEFAULT_LOG_FILE_SIZE_IN_MB = 10;
+  static final String DEFAULT_LOG_PATTERN = "%d{yyyy-MM-dd HH:mm:ss} %p %c{1}:%L - %m%n";
+  public static final String DEFAULT_FILE_LOG_PATTERN = "/%d{yyyy-MM-dd}-logfile-%i.log";
+  public static final String DEFAULT_LOG_NAME_FILE = "logfile-0.log";
+  static final String LOG_FILE_COUNT = "LogFileCount";
+  static final int DEFAULT_LOG_FILE_COUNT = 10;
   public static final String URL_DELIMITER = ";";
   public static final String PORT_DELIMITER = ":";
   static final String DEFAULT_SCHEMA = "default";
-  static final String DEFAULT_CATALOG = "SPARK";
+  static final String DEFAULT_CATALOG = "hive_metastore";
   public static final String PAIR_DELIMITER = "=";
   public static final String USER = "user";
   public static final String PASSWORD = "password";
@@ -67,6 +78,8 @@ public final class DatabricksJdbcConstants {
   public static final String HTTP_PATH = "httppath";
 
   public static final String SSL = "ssl";
+
+  public static final String DIRECT_RESULT = "EnableDirectResults";
 
   static final String HTTP_SCHEMA = "http://";
   static final String HTTPS_SCHEMA = "https://";
@@ -125,7 +138,9 @@ public final class DatabricksJdbcConstants {
   @VisibleForTesting
   public enum FakeServiceType {
     SQL_EXEC,
-    CLOUD_FETCH
+    CLOUD_FETCH,
+    SQL_GATEWAY,
+    CLOUD_FETCH_SQL_GATEWAY
   }
 
   public static final String USE_THRIFT_CLIENT = "usethriftclient";

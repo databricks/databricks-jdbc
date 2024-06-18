@@ -60,8 +60,8 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
       }
       for (int urlPartIndex = 1; urlPartIndex < urlParts.length; urlPartIndex++) {
         String[] pair = urlParts[urlPartIndex].split(DatabricksJdbcConstants.PAIR_DELIMITER);
-        if (pair.length != 2) {
-          handleInvalidUrl(url);
+        if (pair.length == 1) {
+          pair = new String[] {pair[0], ""};
         }
         parametersBuilder.put(pair[0].toLowerCase(), pair[1]);
       }
@@ -98,7 +98,8 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
         || HTTP_WAREHOUSE_PATH_PATTERN.matcher(url).matches()
         || HTTP_ENDPOINT_PATH_PATTERN.matcher(url).matches()
         || TEST_PATH_PATTERN.matcher(url).matches()
-        || BASE_PATTERN.matcher(url).matches();
+        || BASE_PATTERN.matcher(url).matches()
+        || HTTP_CLI_PATTERN.matcher(url).matches();
   }
 
   @Override
@@ -151,6 +152,10 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
     if (urlMatcher.find()) {
       return new AllPurposeCluster(urlMatcher.group(1), urlMatcher.group(2));
     }
+    urlMatcher = HTTP_PATH_CLI_PATTERN.matcher(httpPath);
+    if (urlMatcher.find()) {
+      return new AllPurposeCluster("default", "default");
+    }
     // the control should never reach here, as the parsing already ensured the URL is valid
     throw new DatabricksParsingException("Invalid HTTP Path provided " + this.getHttpPath());
   }
@@ -178,6 +183,11 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
     return getParameter(POLL_INTERVAL) == null
         ? POLL_INTERVAL_DEFAULT
         : Integer.parseInt(getParameter(DatabricksJdbcConstants.POLL_INTERVAL));
+  }
+
+  @Override
+  public Boolean getDirectResultMode() {
+    return getParameter(DIRECT_RESULT) == null || Objects.equals(getParameter(DIRECT_RESULT), "1");
   }
 
   public String getCloud() throws DatabricksParsingException {
@@ -268,6 +278,18 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   public String getLogPathString() {
     String parameter = getParameter(LOG_PATH);
     return (parameter == null) ? DEFAULT_LOG_PATH : parameter;
+  }
+
+  @Override
+  public int getLogFileSize() {
+    String parameter = getParameter(LOG_FILE_SIZE);
+    return (parameter == null) ? DEFAULT_LOG_FILE_SIZE_IN_MB : Integer.parseInt(parameter);
+  }
+
+  @Override
+  public int getLogFileCount() {
+    String parameter = getParameter(LOG_FILE_COUNT);
+    return (parameter == null) ? DEFAULT_LOG_FILE_COUNT : Integer.parseInt(parameter);
   }
 
   @Override

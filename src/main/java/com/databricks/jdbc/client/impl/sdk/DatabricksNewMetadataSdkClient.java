@@ -142,7 +142,7 @@ public class DatabricksNewMetadataSdkClient implements DatabricksMetadataClient 
     LOGGER.debug("SQL command to fetch functions: {}", SQL);
     DatabricksResultSet resultSet =
         MetadataResultSetBuilder.getFunctionsResult(
-            getResultSet(SQL, session, StatementType.QUERY));
+            getResultSet(SQL, session, StatementType.QUERY), catalog);
     DatabricksMetrics.record(
         MetricsList.LIST_FUNCTIONS_METADATA_SEA.name(), System.currentTimeMillis() - startTime);
     return resultSet;
