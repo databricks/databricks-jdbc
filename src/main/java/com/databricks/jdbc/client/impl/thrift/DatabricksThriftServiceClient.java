@@ -71,6 +71,13 @@ public class DatabricksThriftServiceClient implements DatabricksClient, Databric
         (TOpenSessionResp)
             thriftAccessor.getThriftResponse(openSessionReq, CommandName.OPEN_SESSION, null);
     verifySuccessStatus(response.status.getStatusCode(), response.toString());
+
+    TProtocolVersion serverProtocol = response.getServerProtocolVersion();
+    if (serverProtocol.getValue() <= TProtocolVersion.HIVE_CLI_SERVICE_PROTOCOL_V10.getValue()) {
+      throw new DatabricksSQLException(
+          "Attempting to connect to a non Databricks cluster using the Databricks driver.");
+    }
+
     String sessionId = byteBufferToString(response.sessionHandle.getSessionId().guid);
     LOGGER.info("Session created with ID {}", sessionId);
 
@@ -127,7 +134,8 @@ public class DatabricksThriftServiceClient implements DatabricksClient, Databric
             .setStatement(sql)
             .setSessionHandle(session.getSessionInfo().sessionHandle())
             .setCanReadArrowResult(this.connectionContext.shouldEnableArrow())
-            .setCanDownloadResult(true);
+            .setCanDownloadResult(true)
+            .setRunAsync(true);
     DatabricksResultSet resultSet =
         thriftAccessor.execute(request, parentStatement, session, statementType);
     DatabricksMetrics.record(

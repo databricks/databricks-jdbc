@@ -48,6 +48,7 @@ public class DatabricksThriftServiceClientTest {
     TOpenSessionResp openSessionResp =
         new TOpenSessionResp()
             .setSessionHandle(SESSION_HANDLE)
+            .setServerProtocolVersion(TProtocolVersion.SPARK_CLI_SERVICE_PROTOCOL_V9)
             .setStatus(new TStatus().setStatusCode(TStatusCode.SUCCESS_STATUS));
     when(thriftAccessor.getThriftResponse(openSessionReq, CommandName.OPEN_SESSION, null))
         .thenReturn(openSessionResp);
@@ -81,7 +82,8 @@ public class DatabricksThriftServiceClientTest {
             .setStatement(TEST_STRING)
             .setSessionHandle(SESSION_HANDLE)
             .setCanReadArrowResult(true)
-            .setCanDownloadResult(true);
+            .setCanDownloadResult(true)
+            .setRunAsync(true);
     when(thriftAccessor.execute(executeStatementReq, null, session, StatementType.SQL))
         .thenReturn(resultSet);
     DatabricksResultSet actualResultSet =

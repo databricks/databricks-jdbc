@@ -5,6 +5,7 @@ import com.databricks.jdbc.core.DatabricksParsingException;
 import com.databricks.jdbc.core.DatabricksSQLException;
 import com.databricks.jdbc.core.types.CompressionType;
 import com.databricks.jdbc.core.types.ComputeResource;
+import com.databricks.sdk.core.ProxyConfig;
 import java.util.List;
 import java.util.Map;
 import org.apache.logging.log4j.Level;
@@ -73,6 +74,10 @@ public interface IDatabricksConnectionContext {
 
   String getLogPathString();
 
+  int getLogFileSize();
+
+  int getLogFileCount();
+
   String getClientUserAgent();
 
   CompressionType getCompressionType();
@@ -97,7 +102,7 @@ public interface IDatabricksConnectionContext {
 
   Boolean getUseProxy();
 
-  Boolean getUseProxyAuth();
+  ProxyConfig.ProxyAuthType getProxyAuthType();
 
   Boolean getUseSystemProxy();
 
@@ -111,7 +116,7 @@ public interface IDatabricksConnectionContext {
 
   String getCloudFetchProxyPassword();
 
-  Boolean getUseCloudFetchProxyAuth();
+  ProxyConfig.ProxyAuthType getCloudFetchProxyAuthType();
 
   String getEndpointURL() throws DatabricksParsingException;
 

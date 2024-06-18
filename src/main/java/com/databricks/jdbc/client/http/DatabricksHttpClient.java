@@ -7,7 +7,10 @@ import static io.netty.util.NetUtil.LOCALHOST;
 import com.databricks.jdbc.client.DatabricksHttpException;
 import com.databricks.jdbc.client.IDatabricksHttpClient;
 import com.databricks.jdbc.driver.IDatabricksConnectionContext;
+import com.databricks.sdk.core.DatabricksConfig;
+import com.databricks.sdk.core.ProxyConfig;
 import com.databricks.sdk.core.UserAgent;
+import com.databricks.sdk.core.utils.ProxyUtils;
 import com.google.common.annotations.VisibleForTesting;
 import java.io.IOException;
 import java.util.HashSet;
@@ -141,31 +144,7 @@ public class DatabricksHttpClient implements IDatabricksHttpClient {
                     }
                   }
                 });
-    if (connectionContext.getUseSystemProxy()) {
-      builder.useSystemProperties();
-    }
-    // Override system proxy if proxy details are explicitly provided
-    // If cloud fetch proxy is provided use that, else use the regular proxy
-    if (connectionContext.getUseCloudFetchProxy()) {
-      setProxyDetailsInHttpClient(
-          builder,
-          connectionContext.getCloudFetchProxyHost(),
-          connectionContext.getCloudFetchProxyPort(),
-          connectionContext.getUseCloudFetchProxyAuth(),
-          connectionContext.getCloudFetchProxyUser(),
-          connectionContext.getCloudFetchProxyPassword());
-    } else if (connectionContext.getUseProxy()) {
-      setProxyDetailsInHttpClient(
-          builder,
-          connectionContext.getProxyHost(),
-          connectionContext.getProxyPort(),
-          connectionContext.getUseProxyAuth(),
-          connectionContext.getProxyUser(),
-          connectionContext.getProxyPassword());
-    } else if (Boolean.parseBoolean(System.getProperty(IS_FAKE_SERVICE_TEST_PROP))) {
-      setFakeServiceRouteInHttpClient(builder);
-    }
-
+    setupProxy(connectionContext, builder);
     return builder.build();
   }
 
@@ -186,6 +165,45 @@ public class DatabricksHttpClient implements IDatabricksHttpClient {
       builder
           .setDefaultCredentialsProvider(credsProvider)
           .setProxyAuthenticationStrategy(new ProxyAuthenticationStrategy());
+    }
+  }
+
+  @VisibleForTesting
+  public static void setupProxy(
+      IDatabricksConnectionContext connectionContext, HttpClientBuilder builder) {
+    if (Boolean.parseBoolean(System.getProperty(IS_FAKE_SERVICE_TEST_PROP))) {
+      setFakeServiceRouteInHttpClient(builder);
+    }
+    String proxyHost = null;
+    Integer proxyPort = null;
+    String proxyUser = null;
+    String proxyPassword = null;
+    ProxyConfig.ProxyAuthType proxyAuth = ProxyConfig.ProxyAuthType.NONE;
+    // System proxy is handled by the SDK.
+    // If proxy details are explicitly provided use those for the connection.
+    if (connectionContext.getUseCloudFetchProxy()) {
+      proxyHost = connectionContext.getCloudFetchProxyHost();
+      proxyPort = connectionContext.getCloudFetchProxyPort();
+      proxyUser = connectionContext.getCloudFetchProxyUser();
+      proxyPassword = connectionContext.getCloudFetchProxyPassword();
+      proxyAuth = connectionContext.getCloudFetchProxyAuthType();
+    } else if (connectionContext.getUseProxy()) {
+      proxyHost = connectionContext.getProxyHost();
+      proxyPort = connectionContext.getProxyPort();
+      proxyUser = connectionContext.getProxyUser();
+      proxyPassword = connectionContext.getProxyPassword();
+      proxyAuth = connectionContext.getProxyAuthType();
+    }
+    if (proxyHost != null) {
+      ProxyConfig proxyConfig =
+          new ProxyConfig(new DatabricksConfig())
+              .setUseSystemProperties(connectionContext.getUseSystemProxy())
+              .setHost(proxyHost)
+              .setPort(proxyPort)
+              .setUsername(proxyUser)
+              .setPassword(proxyPassword)
+              .setProxyAuthType(proxyAuth);
+      ProxyUtils.setupProxy(proxyConfig, builder);
     }
   }
 

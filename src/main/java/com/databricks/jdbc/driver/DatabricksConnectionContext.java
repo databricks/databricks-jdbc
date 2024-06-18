@@ -9,6 +9,7 @@ import com.databricks.jdbc.core.types.AllPurposeCluster;
 import com.databricks.jdbc.core.types.CompressionType;
 import com.databricks.jdbc.core.types.ComputeResource;
 import com.databricks.jdbc.core.types.Warehouse;
+import com.databricks.sdk.core.ProxyConfig;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
 import java.util.*;
@@ -281,6 +282,18 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   }
 
   @Override
+  public int getLogFileSize() {
+    String parameter = getParameter(LOG_FILE_SIZE);
+    return (parameter == null) ? DEFAULT_LOG_FILE_SIZE_IN_MB : Integer.parseInt(parameter);
+  }
+
+  @Override
+  public int getLogFileCount() {
+    String parameter = getParameter(LOG_FILE_COUNT);
+    return (parameter == null) ? DEFAULT_LOG_FILE_COUNT : Integer.parseInt(parameter);
+  }
+
+  @Override
   public String getClientUserAgent() {
     String customerUserAgent = getParameter(DatabricksJdbcConstants.USER_AGENT_ENTRY);
     String clientAgent =
@@ -388,8 +401,10 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   }
 
   @Override
-  public Boolean getUseProxyAuth() {
-    return Objects.equals(getParameter(USE_PROXY_AUTH), "1");
+  public ProxyConfig.ProxyAuthType getProxyAuthType() {
+    int proxyAuthTypeOrdinal =
+        getParameter(PROXY_AUTH) == null ? 0 : Integer.parseInt(getParameter(PROXY_AUTH));
+    return ProxyConfig.ProxyAuthType.values()[proxyAuthTypeOrdinal];
   }
 
   @Override
@@ -423,8 +438,10 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   }
 
   @Override
-  public Boolean getUseCloudFetchProxyAuth() {
-    return Objects.equals(getParameter(USE_CF_PROXY_AUTH), "1");
+  public ProxyConfig.ProxyAuthType getCloudFetchProxyAuthType() {
+    int proxyAuthTypeOrdinal =
+        getParameter(CF_PROXY_AUTH) == null ? 0 : Integer.parseInt(getParameter(CF_PROXY_AUTH));
+    return ProxyConfig.ProxyAuthType.values()[proxyAuthTypeOrdinal];
   }
 
   @Override

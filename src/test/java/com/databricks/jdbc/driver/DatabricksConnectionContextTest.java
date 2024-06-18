@@ -9,6 +9,7 @@ import com.databricks.jdbc.client.DatabricksClientType;
 import com.databricks.jdbc.core.DatabricksParsingException;
 import com.databricks.jdbc.core.DatabricksSQLException;
 import com.databricks.jdbc.core.types.CompressionType;
+import com.databricks.sdk.core.ProxyConfig;
 import java.util.List;
 import java.util.Properties;
 import org.apache.logging.log4j.Level;
@@ -307,7 +308,7 @@ class DatabricksConnectionContextTest {
     assertTrue(connectionContext.getUseProxy());
     assertEquals("127.0.0.1", connectionContext.getProxyHost());
     assertEquals(8080, connectionContext.getProxyPort());
-    assertTrue(connectionContext.getUseProxyAuth());
+    assertEquals(ProxyConfig.ProxyAuthType.BASIC, connectionContext.getProxyAuthType());
     assertEquals("proxyUser", connectionContext.getProxyUser());
     assertEquals("proxyPassword", connectionContext.getProxyPassword());
 
@@ -317,7 +318,8 @@ class DatabricksConnectionContextTest {
     assertTrue(connectionContextWithCFProxy.getUseProxy());
     assertEquals("127.0.1.2", connectionContextWithCFProxy.getCloudFetchProxyHost());
     assertEquals(8081, connectionContextWithCFProxy.getCloudFetchProxyPort());
-    assertTrue(connectionContextWithCFProxy.getUseCloudFetchProxyAuth());
+    assertEquals(
+        ProxyConfig.ProxyAuthType.BASIC, connectionContextWithCFProxy.getCloudFetchProxyAuthType());
     assertEquals("cfProxyUser", connectionContextWithCFProxy.getCloudFetchProxyUser());
     assertEquals("cfProxyPassword", connectionContextWithCFProxy.getCloudFetchProxyPassword());
   }

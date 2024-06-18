@@ -1,5 +1,6 @@
 package com.databricks.jdbc.core;
 
+import static com.databricks.jdbc.commons.util.ProxyUtil.getProxyDecoratedDatabricksConfig;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.when;
 
@@ -30,8 +31,9 @@ public class OAuthAuthenticatorTest {
     when(mockContext.getAuthMech()).thenReturn(IDatabricksConnectionContext.AuthMech.PAT);
     when(mockContext.getHostUrl()).thenReturn("https://pat.databricks.com");
     when(mockContext.getToken()).thenReturn("pat-token");
-
-    WorkspaceClient client = authenticator.getWorkspaceClient();
+    DatabricksConfig databricksConfig = getProxyDecoratedDatabricksConfig(mockContext);
+    new OAuthAuthenticator(mockContext).decorateConfig(databricksConfig);
+    WorkspaceClient client = new WorkspaceClient(databricksConfig);
     assertNotNull(client);
     DatabricksConfig config = client.config();
 
@@ -48,8 +50,9 @@ public class OAuthAuthenticatorTest {
         .thenReturn(IDatabricksConnectionContext.AuthFlow.TOKEN_PASSTHROUGH);
     when(mockContext.getHostUrl()).thenReturn("https://oauth-token.databricks.com");
     when(mockContext.getToken()).thenReturn("oauth-token");
-
-    WorkspaceClient client = authenticator.getWorkspaceClient();
+    DatabricksConfig databricksConfig = getProxyDecoratedDatabricksConfig(mockContext);
+    new OAuthAuthenticator(mockContext).decorateConfig(databricksConfig);
+    WorkspaceClient client = new WorkspaceClient(databricksConfig);
     assertNotNull(client);
     DatabricksConfig config = client.config();
 
@@ -67,8 +70,9 @@ public class OAuthAuthenticatorTest {
     when(mockContext.getHostForOAuth()).thenReturn("https://oauth-client.databricks.com");
     when(mockContext.getClientId()).thenReturn("client-id");
     when(mockContext.getClientSecret()).thenReturn("client-secret");
-
-    WorkspaceClient client = authenticator.getWorkspaceClient();
+    DatabricksConfig databricksConfig = getProxyDecoratedDatabricksConfig(mockContext);
+    new OAuthAuthenticator(mockContext).decorateConfig(databricksConfig);
+    WorkspaceClient client = new WorkspaceClient(databricksConfig);
     assertNotNull(client);
     DatabricksConfig config = client.config();
 
@@ -88,8 +92,9 @@ public class OAuthAuthenticatorTest {
     when(mockContext.getClientId()).thenReturn("browser-client-id");
     when(mockContext.getClientSecret()).thenReturn("browser-client-secret");
     when(mockContext.getOAuthScopesForU2M()).thenReturn(List.of(new String[] {"scope1", "scope2"}));
-
-    WorkspaceClient client = authenticator.getWorkspaceClient();
+    DatabricksConfig databricksConfig = getProxyDecoratedDatabricksConfig(mockContext);
+    new OAuthAuthenticator(mockContext).decorateConfig(databricksConfig);
+    WorkspaceClient client = new WorkspaceClient(databricksConfig);
     assertNotNull(client);
     DatabricksConfig config = client.config();
 
@@ -107,7 +112,9 @@ public class OAuthAuthenticatorTest {
     when(mockContext.getClientId()).thenReturn("client-id");
     when(mockContext.getClientSecret()).thenReturn("client-secret");
     when(mockContext.getAuthMech()).thenReturn(IDatabricksConnectionContext.AuthMech.OTHER);
-    DatabricksConfig config = authenticator.getDatabricksConfig();
-    assertEquals(DatabricksJdbcConstants.ACCESS_TOKEN_AUTH_TYPE, config.getAuthType());
+    DatabricksConfig databricksConfig = getProxyDecoratedDatabricksConfig(mockContext);
+    new OAuthAuthenticator(mockContext).decorateConfig(databricksConfig);
+    WorkspaceClient client = new WorkspaceClient(databricksConfig);
+    assertEquals(DatabricksJdbcConstants.ACCESS_TOKEN_AUTH_TYPE, databricksConfig.getAuthType());
   }
 }

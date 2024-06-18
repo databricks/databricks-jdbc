@@ -24,10 +24,19 @@ public final class DatabricksJdbcConstants {
   static final String LOG_LEVEL = "loglevel";
   static final String LOG_PATH = "logpath";
   static final String DEFAULT_LOG_PATH = "logs/application.log";
+  static final String LOG_FILE_SIZE = "LogFileSize";
+  static final int DEFAULT_LOG_FILE_SIZE_IN_MB = 10;
+  static final String DEFAULT_LOG_PATTERN = "%d{yyyy-MM-dd HH:mm:ss} %p %c{1}:%L - %m%n";
+  public static final String DEFAULT_FILE_LOG_PATTERN = "/%d{yyyy-MM-dd}-logfile-%i.log";
+  public static final String DEFAULT_LOG_NAME_FILE = "logfile-0.log";
+  static final String LOG_FILE_COUNT = "LogFileCount";
+  static final int DEFAULT_LOG_FILE_COUNT = 10;
   public static final String URL_DELIMITER = ";";
   public static final String PORT_DELIMITER = ":";
   static final String DEFAULT_SCHEMA = "default";
   static final String DEFAULT_CATALOG = "hive_metastore";
+  static final String ENABLE_ARROW = "EnableArrow";
+
   public static final String PAIR_DELIMITER = "=";
   public static final String USER = "user";
   public static final String PASSWORD = "password";
@@ -40,22 +49,19 @@ public final class DatabricksJdbcConstants {
 
   static final String CONN_CATALOG = "conncatalog";
   static final String CONN_SCHEMA = "connschema";
-
-  static final String PROXY_HOST = "proxyhost";
-  static final String PROXY_PORT = "proxyport";
-  static final String PROXY_USER = "proxyuid";
-  static final String PROXY_PWD = "proxypwd";
-  static final String USE_PROXY = "useproxy";
-  static final String USE_PROXY_AUTH = "proxyauth";
-  static final String USE_SYSTEM_PROXY = "usesystemproxy";
-  static final String USE_CF_PROXY = "usecfproxy";
-  static final String CF_PROXY_HOST = "cfproxyhost";
-  static final String CF_PROXY_PORT = "cfproxyport";
-  static final String USE_CF_PROXY_AUTH = "cfproxyauth";
-  static final String ENABLE_ARROW = "EnableArrow";
-  static final String CF_PROXY_USER = "cfproxyuid";
-  static final String CF_PROXY_PWD = "cfproxypwd";
-
+  public static final String PROXY_HOST = "proxyhost";
+  public static final String PROXY_PORT = "proxyport";
+  public static final String PROXY_USER = "proxyuid";
+  public static final String PROXY_PWD = "proxypwd";
+  public static final String USE_PROXY = "useproxy";
+  public static final String PROXY_AUTH = "proxyauth";
+  public static final String USE_SYSTEM_PROXY = "usesystemproxy";
+  public static final String USE_CF_PROXY = "usecfproxy";
+  public static final String CF_PROXY_HOST = "cfproxyhost";
+  public static final String CF_PROXY_PORT = "cfproxyport";
+  public static final String CF_PROXY_AUTH = "cfproxyauth";
+  public static final String CF_PROXY_USER = "cfproxyuid";
+  public static final String CF_PROXY_PWD = "cfproxypwd";
   static final String AUTH_FLOW = "auth_flow";
 
   // Only used when AUTH_MECH = 3

@@ -239,10 +239,6 @@ public class DatabricksNewMetadataSdkClientTest {
             null))
         .thenReturn(mockedResultSet);
     when(mockedResultSet.next()).thenReturn(true, false);
-    for (ResultColumn resultColumn : COLUMN_COLUMNS) {
-      when(mockedResultSet.getObject(resultColumn.getResultSetColumnName()))
-          .thenReturn(TEST_COLUMN);
-    }
     DatabricksResultSet actualResult =
         metadataClient.listColumns(session, catalog, schema, table, column);
 

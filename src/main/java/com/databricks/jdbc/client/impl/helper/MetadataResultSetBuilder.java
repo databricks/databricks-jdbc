@@ -70,21 +70,116 @@ public class MetadataResultSetBuilder {
     while (resultSet.next()) {
       List<Object> row = new ArrayList<>();
       for (ResultColumn column : columns) {
-        Object object;
+        Object object = null;
+        switch (column.getColumnName()) {
+          case "NUM_PREC_RADIX":
+            object = 10;
+            row.add(object);
+
+            continue;
+          case "NULLABLE":
+            object = 2;
+            row.add(object);
+
+            continue;
+          case "SQL_DATA_TYPE":
+          case "SQL_DATETIME_SUB":
+            object = 0;
+            row.add(object);
+            continue;
+          case "IS_NULLABLE":
+            object = "YES";
+            row.add(object);
+
+            continue;
+          case "IS_AUTOINCREMENT":
+          case "IS_GENERATEDCOLUMN":
+            object = "";
+            row.add(object);
+
+            continue;
+        }
         try {
           object = resultSet.getObject(column.getResultSetColumnName());
-          if (object == null) {
-            object = NULL_STRING;
-          }
         } catch (DatabricksSQLException e) {
-          // Remove non-relevant columns from the obtained result set
-          object = NULL_STRING;
+          if (column.getColumnName().equals("DATA_TYPE")) {
+            String typeVal = resultSet.getString("columnType");
+            if (typeVal.contains("(")) typeVal = typeVal.substring(0, typeVal.indexOf('('));
+            object = getCode(typeVal);
+          } else if (column.getColumnName().equals("CHAR_OCTET_LENGTH")) {
+            String typeVal = resultSet.getString("columnType");
+            object =
+                typeVal.contains("(")
+                    ? Integer.parseInt(
+                        typeVal.substring(typeVal.indexOf('(') + 1, typeVal.indexOf(')')))
+                    : 0;
+          } else {
+            // Remove non-relevant columns from the obtained result set
+            object = null;
+          }
         }
+        if (column.getColumnName().equals("COLUMN_SIZE") && object == null) object = 0;
         row.add(object);
       }
       rows.add(row);
     }
     return rows;
+  }
+
+  private static int getCode(String s) {
+    switch (s) {
+      case "STRING":
+        return 12;
+      case "INT":
+        return 4;
+      case "DOUBLE":
+        return 8;
+      case "FLOAT":
+        return 6;
+      case "BOOLEAN":
+        return 16;
+      case "DATE":
+        return 91;
+      case "TIMESTAMP":
+        return 93;
+      case "DECIMAL":
+        return 3;
+      case "BINARY":
+        return -2;
+      case "ARRAY":
+        return 2003;
+      case "MAP":
+        return 2002;
+      case "STRUCT":
+        return 2002;
+      case "UNIONTYPE":
+        return 2002;
+      case "BYTE":
+        return -6;
+      case "SHORT":
+        return 5;
+      case "LONG":
+        return -5;
+      case "NULL":
+        return 0;
+      case "VOID":
+        return 0;
+      case "CHAR":
+        return 1;
+      case "VARCHAR":
+        return 12;
+      case "CHARACTER":
+        return 1;
+      case "BIGINT":
+        return -5;
+      case "TINYINT":
+        return -6;
+      case "SMALLINT":
+        return 5;
+      case "INTEGER":
+        return 4;
+    }
+    return 0;
   }
 
   private static List<List<Object>> getRowsForFunctions(

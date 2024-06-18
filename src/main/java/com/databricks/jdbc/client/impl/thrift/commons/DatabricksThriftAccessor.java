@@ -2,6 +2,7 @@ package com.databricks.jdbc.client.impl.thrift.commons;
 
 import static com.databricks.jdbc.client.impl.thrift.commons.DatabricksThriftHelper.*;
 import static com.databricks.jdbc.commons.EnvironmentVariables.*;
+import static com.databricks.jdbc.commons.util.ProxyUtil.getProxyDecoratedDatabricksConfig;
 
 import com.databricks.jdbc.client.DatabricksHttpException;
 import com.databricks.jdbc.client.StatementType;
@@ -35,9 +36,10 @@ public class DatabricksThriftAccessor {
         new DatabricksHttpTTransport(
             DatabricksHttpClient.getInstance(connectionContext),
             connectionContext.getEndpointURL());
-
+    this.databricksConfig = getProxyDecoratedDatabricksConfig(connectionContext);
+    new OAuthAuthenticator(connectionContext).decorateConfig(databricksConfig);
     enableDirectResults = connectionContext.getDirectResultMode();
-    this.databricksConfig = new OAuthAuthenticator(connectionContext).getDatabricksConfig();
+
     Map<String, String> authHeaders = databricksConfig.authenticate();
     transport.setCustomHeaders(authHeaders);
     TBinaryProtocol protocol = new TBinaryProtocol(transport);
