@@ -18,9 +18,26 @@ public class ArrowToJavaObjectConverter {
       Arrays.asList(
           DateTimeFormatter.ofPattern("yyyy-MM-dd"),
           DateTimeFormatter.ofPattern("yyyy/MM/dd"),
-          DateTimeFormatter.ISO_LOCAL_DATE_TIME,
+          DateTimeFormatter.ofPattern("yyyy.MM.dd"),
+          DateTimeFormatter.ofPattern("yyyyMMdd"),
+          DateTimeFormatter.ofPattern("dd-MM-yyyy"),
+          DateTimeFormatter.ofPattern("dd/MM/yyyy"),
+          DateTimeFormatter.ofPattern("dd.MM.yyyy"),
+          DateTimeFormatter.ofPattern("ddMMyyyy"),
           DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"),
-          DateTimeFormatter.ofPattern("yyyy/MM/dd HH:mm:ss"));
+          DateTimeFormatter.ofPattern("yyyy/MM/dd HH:mm:ss"),
+          DateTimeFormatter.ofPattern("yyyy.MM.dd HH:mm:ss"),
+          DateTimeFormatter.ofPattern("yyyyMMdd HH:mm:ss"),
+          DateTimeFormatter.ofPattern("dd-MM-yyyy HH:mm:ss"),
+          DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm:ss"),
+          DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm:ss"),
+          DateTimeFormatter.ofPattern("ddMMyyyy HH:mm:ss"),
+          DateTimeFormatter.ISO_LOCAL_DATE_TIME,
+          DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSS"),
+          DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS"),
+          DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'"),
+          DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SS"), // Two-digit milliseconds
+          DateTimeFormatter.RFC_1123_DATE_TIME);
 
   // TODO (Madhav): Check Arrow to JSON conversion
   public static Object convert(Object object, ColumnInfoTypeName requiredType)
@@ -128,12 +145,18 @@ public class ArrowToJavaObjectConverter {
     if (object instanceof Text) {
       return Byte.parseByte(object.toString());
     }
+    if (object instanceof Number) {
+      return ((Number) object).byteValue();
+    }
     return (byte) object;
   }
 
   private static short convertToShort(Object object) throws DatabricksSQLException {
     if (object instanceof Text) {
       return Short.parseShort(object.toString());
+    }
+    if (object instanceof Number) {
+      return ((Number) object).shortValue();
     }
     return (short) object;
   }
@@ -149,6 +172,9 @@ public class ArrowToJavaObjectConverter {
     if (object instanceof Text) {
       return Double.parseDouble(object.toString());
     }
+    if (object instanceof Number) {
+      return ((Number) object).doubleValue();
+    }
     return (double) object;
   }
 
@@ -156,19 +182,28 @@ public class ArrowToJavaObjectConverter {
     if (object instanceof Text) {
       return Float.parseFloat(object.toString());
     }
+    if (object instanceof Number) {
+      return ((Number) object).floatValue();
+    }
     return (float) object;
   }
 
   private static int convertToInteger(Object object) throws DatabricksSQLException {
     if (object instanceof Text) {
-      Integer.parseInt(object.toString());
+      return Integer.parseInt(object.toString());
+    }
+    if (object instanceof Number) {
+      return ((Number) object).intValue();
     }
     return (int) object;
   }
 
   private static long convertToLong(Object object) throws DatabricksSQLException {
     if (object instanceof Text) {
-      Long.parseLong(object.toString());
+      return Long.parseLong(object.toString());
+    }
+    if (object instanceof Number) {
+      return ((Number) object).longValue();
     }
     return (long) object;
   }
