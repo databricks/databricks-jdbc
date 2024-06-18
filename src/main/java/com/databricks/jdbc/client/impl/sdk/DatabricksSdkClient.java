@@ -2,6 +2,7 @@ package com.databricks.jdbc.client.impl.sdk;
 
 import static com.databricks.jdbc.client.impl.sdk.PathConstants.*;
 import static com.databricks.jdbc.commons.EnvironmentVariables.DEFAULT_ROW_LIMIT;
+import static com.databricks.jdbc.commons.util.ProxyUtil.getProxyDecoratedDatabricksConfig;
 
 import com.databricks.jdbc.client.DatabricksClient;
 import com.databricks.jdbc.client.StatementType;
@@ -54,26 +55,9 @@ public class DatabricksSdkClient implements DatabricksClient {
       throws DatabricksParsingException {
     this.connectionContext = connectionContext;
     // TODO: [PECO-1486] pass on proxy settings to SDK once changes are merged in SDK
-    // Handle more auth types
-    this.databricksConfig =
-        new DatabricksConfig()
-            .setHost(connectionContext.getHostUrl())
-            .setToken(connectionContext.getToken())
-                .setUseSystemPropertiesHttp(connectionContext.getUseSystemProxy());
-
-    // Setup proxy settings
-    if (connectionContext.getUseProxy()) {
-      this.databricksConfig
-              .setProxyHost(connectionContext.getProxyHost())
-              .setProxyPort(connectionContext.getProxyPort());
-    }
-    this.databricksConfig
-            .setProxyAuthType(connectionContext.getProxyAuthType())
-            .setProxyUsername(connectionContext.getProxyUser())
-            .setProxyPassword(connectionContext.getProxyPassword());
-
-    OAuthAuthenticator authenticator = new OAuthAuthenticator(connectionContext);
-    this.workspaceClient = authenticator.getWorkspaceClient(this.databricksConfig);
+    this.databricksConfig = getProxyDecoratedDatabricksConfig(connectionContext);
+    new OAuthAuthenticator(connectionContext).decorateConfig(databricksConfig);
+    this.workspaceClient = new WorkspaceClient(databricksConfig);
   }
 
   public DatabricksSdkClient(

@@ -381,9 +381,10 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   @Override
   public ProxyConfig.ProxyAuthType getProxyAuthType() {
     int proxyAuthTypeOrdinal =
-            getParameter(PROXY_AUTH) == null ? 0 : Integer.parseInt(getParameter(PROXY_AUTH));
+        getParameter(PROXY_AUTH) == null ? 0 : Integer.parseInt(getParameter(PROXY_AUTH));
     return ProxyConfig.ProxyAuthType.values()[proxyAuthTypeOrdinal];
   }
+
   @Override
   public Boolean getUseSystemProxy() {
     return Objects.equals(getParameter(USE_SYSTEM_PROXY), "1");
@@ -417,9 +418,10 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   @Override
   public ProxyConfig.ProxyAuthType getCloudFetchProxyAuthType() {
     int proxyAuthTypeOrdinal =
-            getParameter(CF_PROXY_AUTH) == null ? 0 : Integer.parseInt(getParameter(CF_PROXY_AUTH));
+        getParameter(CF_PROXY_AUTH) == null ? 0 : Integer.parseInt(getParameter(CF_PROXY_AUTH));
     return ProxyConfig.ProxyAuthType.values()[proxyAuthTypeOrdinal];
   }
+
   @Override
   public Boolean shouldEnableArrow() {
     return Objects.equals(getParameter(ENABLE_ARROW, "1"), "1");

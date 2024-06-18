@@ -8,12 +8,9 @@ import com.databricks.jdbc.client.DatabricksHttpException;
 import com.databricks.jdbc.client.IDatabricksHttpClient;
 import com.databricks.jdbc.driver.IDatabricksConnectionContext;
 import com.databricks.sdk.core.DatabricksConfig;
-
-import com.databricks.sdk.core.DatabricksConfig;
 import com.databricks.sdk.core.ProxyConfig;
 import com.databricks.sdk.core.UserAgent;
 import com.databricks.sdk.core.utils.ProxyUtils;
-import com.databricks.sdk.core.UserAgent;
 import com.google.common.annotations.VisibleForTesting;
 import java.io.IOException;
 import java.util.HashSet;
@@ -173,7 +170,7 @@ public class DatabricksHttpClient implements IDatabricksHttpClient {
 
   @VisibleForTesting
   public static void setupProxy(
-          IDatabricksConnectionContext connectionContext, HttpClientBuilder builder) {
+      IDatabricksConnectionContext connectionContext, HttpClientBuilder builder) {
     if (Boolean.parseBoolean(System.getProperty(IS_FAKE_SERVICE_TEST_PROP))) {
       setFakeServiceRouteInHttpClient(builder);
     }
@@ -199,13 +196,13 @@ public class DatabricksHttpClient implements IDatabricksHttpClient {
     }
     if (proxyHost != null) {
       ProxyConfig proxyConfig =
-              new ProxyConfig(new DatabricksConfig())
-                      .setUseSystemProperties(connectionContext.getUseSystemProxy())
-                      .setHost(proxyHost)
-                      .setPort(proxyPort)
-                      .setUsername(proxyUser)
-                      .setPassword(proxyPassword)
-                      .setProxyAuthType(proxyAuth);
+          new ProxyConfig(new DatabricksConfig())
+              .setUseSystemProperties(connectionContext.getUseSystemProxy())
+              .setHost(proxyHost)
+              .setPort(proxyPort)
+              .setUsername(proxyUser)
+              .setPassword(proxyPassword)
+              .setProxyAuthType(proxyAuth);
       ProxyUtils.setupProxy(proxyConfig, builder);
     }
   }
