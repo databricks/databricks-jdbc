@@ -4,6 +4,7 @@ import com.databricks.jdbc.client.DatabricksClientType;
 import com.databricks.jdbc.core.DatabricksParsingException;
 import com.databricks.jdbc.core.DatabricksSQLException;
 import com.databricks.jdbc.core.types.CompressionType;
+import com.databricks.sdk.core.ProxyConfig;
 import com.databricks.jdbc.core.types.ComputeResource;
 import java.util.List;
 import java.util.Map;
@@ -97,7 +98,7 @@ public interface IDatabricksConnectionContext {
 
   Boolean getUseProxy();
 
-  Boolean getUseProxyAuth();
+  ProxyConfig.ProxyAuthType getProxyAuthType();
 
   Boolean getUseSystemProxy();
 
@@ -111,7 +112,7 @@ public interface IDatabricksConnectionContext {
 
   String getCloudFetchProxyPassword();
 
-  Boolean getUseCloudFetchProxyAuth();
+  ProxyConfig.ProxyAuthType getCloudFetchProxyAuthType();
 
   String getEndpointURL() throws DatabricksParsingException;
 

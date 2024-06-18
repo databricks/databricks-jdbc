@@ -9,6 +9,7 @@ import com.databricks.jdbc.core.types.AllPurposeCluster;
 import com.databricks.jdbc.core.types.CompressionType;
 import com.databricks.jdbc.core.types.ComputeResource;
 import com.databricks.jdbc.core.types.Warehouse;
+import com.databricks.sdk.core.ProxyConfig;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
 import java.util.*;
@@ -378,10 +379,11 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   }
 
   @Override
-  public Boolean getUseProxyAuth() {
-    return Objects.equals(getParameter(USE_PROXY_AUTH), "1");
+  public ProxyConfig.ProxyAuthType getProxyAuthType() {
+    int proxyAuthTypeOrdinal =
+            getParameter(PROXY_AUTH) == null ? 0 : Integer.parseInt(getParameter(PROXY_AUTH));
+    return ProxyConfig.ProxyAuthType.values()[proxyAuthTypeOrdinal];
   }
-
   @Override
   public Boolean getUseSystemProxy() {
     return Objects.equals(getParameter(USE_SYSTEM_PROXY), "1");
@@ -413,10 +415,11 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   }
 
   @Override
-  public Boolean getUseCloudFetchProxyAuth() {
-    return Objects.equals(getParameter(USE_CF_PROXY_AUTH), "1");
+  public ProxyConfig.ProxyAuthType getCloudFetchProxyAuthType() {
+    int proxyAuthTypeOrdinal =
+            getParameter(CF_PROXY_AUTH) == null ? 0 : Integer.parseInt(getParameter(CF_PROXY_AUTH));
+    return ProxyConfig.ProxyAuthType.values()[proxyAuthTypeOrdinal];
   }
-
   @Override
   public Boolean shouldEnableArrow() {
     return Objects.equals(getParameter(ENABLE_ARROW, "1"), "1");
