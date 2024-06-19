@@ -134,8 +134,7 @@ public class DatabricksThriftServiceClient implements DatabricksClient, Databric
             .setStatement(sql)
             .setSessionHandle(session.getSessionInfo().sessionHandle())
             .setCanReadArrowResult(this.connectionContext.shouldEnableArrow())
-            .setCanDownloadResult(true)
-            .setRunAsync(true);
+            .setCanDownloadResult(true);
     DatabricksResultSet resultSet =
         thriftAccessor.execute(request, parentStatement, session, statementType);
     DatabricksMetrics.record(

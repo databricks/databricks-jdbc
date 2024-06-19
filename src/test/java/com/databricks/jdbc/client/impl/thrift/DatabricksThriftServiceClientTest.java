@@ -82,8 +82,7 @@ public class DatabricksThriftServiceClientTest {
             .setStatement(TEST_STRING)
             .setSessionHandle(SESSION_HANDLE)
             .setCanReadArrowResult(true)
-            .setCanDownloadResult(true)
-            .setRunAsync(true);
+            .setCanDownloadResult(true);
     when(thriftAccessor.execute(executeStatementReq, null, session, StatementType.SQL))
         .thenReturn(resultSet);
     DatabricksResultSet actualResultSet =
