@@ -20,11 +20,10 @@ import java.util.Properties;
 /** Utility class to support integration tests * */
 public class IntegrationTestUtil {
 
-  private static Connection JDBCConnection;
+  private static final boolean isFakeServiceTest =
+      Boolean.parseBoolean(System.getProperty(IS_FAKE_SERVICE_TEST_PROP));
 
-  public static boolean shouldUseFakeService() {
-    return Boolean.parseBoolean(System.getProperty(IS_FAKE_SERVICE_TEST_PROP));
-  }
+  private static Connection JDBCConnection;
 
   /** Get the host of the embedded web server of fake service to be used in the tests. */
   public static String getFakeServiceHost() {
@@ -107,13 +106,13 @@ public class IntegrationTestUtil {
   }
 
   public static String getDatabricksCatalog() {
-    return shouldUseFakeService()
+    return isFakeServiceTest
         ? FakeServiceConfigLoader.getProperty(TEST_CATALOG)
         : System.getenv("DATABRICKS_CATALOG");
   }
 
   public static String getDatabricksSchema() {
-    return shouldUseFakeService()
+    return isFakeServiceTest
         ? FakeServiceConfigLoader.getProperty(TEST_SCHEMA)
         : System.getenv("DATABRICKS_SCHEMA");
   }
@@ -127,7 +126,7 @@ public class IntegrationTestUtil {
     connectionProperties.put(USER, getDatabricksUser());
     connectionProperties.put(PASSWORD, getDatabricksToken());
 
-    if (shouldUseFakeService()) {
+    if (isFakeServiceTest) {
       connectionProperties.put(CATALOG, FakeServiceConfigLoader.getProperty(CATALOG));
       connectionProperties.put(CONN_SCHEMA, FakeServiceConfigLoader.getProperty(CONN_SCHEMA));
 
