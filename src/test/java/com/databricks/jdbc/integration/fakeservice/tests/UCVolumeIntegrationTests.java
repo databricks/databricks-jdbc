@@ -68,7 +68,8 @@ public class UCVolumeIntegrationTests extends AbstractFakeServiceIntegrationTest
   private static Stream<Arguments> provideParametersForPrefixExists() {
     return Stream.of(
         Arguments.of(UC_VOLUME_CATALOG, UC_VOLUME_SCHEMA, "test_volume1", "abc", true, true),
-        Arguments.of(UC_VOLUME_CATALOG, UC_VOLUME_SCHEMA, "test_volume1", "folder1/ab", true, true));
+        Arguments.of(
+            UC_VOLUME_CATALOG, UC_VOLUME_SCHEMA, "test_volume1", "folder1/ab", true, true));
   }
 
   @ParameterizedTest
