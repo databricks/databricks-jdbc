@@ -121,7 +121,8 @@ public class FakeServiceExtension extends DatabricksWireMockExtension {
   /** Mode of the fake service. */
   private FakeServiceMode fakeServiceMode;
 
-  private final String INVOCATION_ID = "invocation";
+  /** Index of parameterised test invocation. */
+  private final String TEST_INVOCATION_INDEX_KEY = "invocation";
 
   public enum FakeServiceMode {
     RECORD,
