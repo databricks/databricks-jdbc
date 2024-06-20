@@ -235,9 +235,11 @@ public class FakeServiceExtension extends DatabricksWireMockExtension {
     }
 
     String uniqueID = context.getUniqueId();
-    int invocationIndex = uniqueID.indexOf(INVOCATION_ID);
+    int invocationIndex = uniqueID.indexOf(TEST_INVOCATION_INDEX_KEY);
     if (invocationIndex != -1) {
-      uniqueID = uniqueID.substring(uniqueID.lastIndexOf(INVOCATION_ID), uniqueID.length() - 1);
+      uniqueID =
+          uniqueID.substring(
+              uniqueID.lastIndexOf(TEST_INVOCATION_INDEX_KEY), uniqueID.length() - 1);
       return String.format("%s/%s/%s.%s", basePath, testClassName, testMethodName, uniqueID);
     } else {
       return String.format("%s/%s/%s", basePath, testClassName, testMethodName);
