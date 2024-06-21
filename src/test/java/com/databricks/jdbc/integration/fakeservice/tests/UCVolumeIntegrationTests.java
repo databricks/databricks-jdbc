@@ -33,13 +33,11 @@ public class UCVolumeIntegrationTests extends AbstractFakeServiceIntegrationTest
 
   @BeforeEach
   void setUp() throws SQLException {
-    if (!isAllpurposeCluster()) {
-      // TODO: Testing is done here using the E2-Dogfood environment. Need to update this to use a
-      // test warehouse.
-      con = getValidJDBCConnection();
-      System.out.println("Connection established......");
-      client = new DatabricksUCVolumeClient(con);
-    }
+    // TODO: Testing is done here using the E2-Dogfood environment. Need to update this to use a
+    // test warehouse.
+    con = getValidJDBCConnection();
+    System.out.println("Connection established......");
+    client = new DatabricksUCVolumeClient(con);
   }
 
   @AfterEach
@@ -59,10 +57,8 @@ public class UCVolumeIntegrationTests extends AbstractFakeServiceIntegrationTest
       boolean caseSensitive,
       boolean expected)
       throws Exception {
-    if (!isAllpurposeCluster()) {
-      boolean result = client.prefixExists(catalog, schema, volume, prefix, caseSensitive);
-      assertEquals(expected, result);
-    }
+    boolean result = client.prefixExists(catalog, schema, volume, prefix, caseSensitive);
+    assertEquals(expected, result);
   }
 
   private static Stream<Arguments> provideParametersForPrefixExists() {
@@ -82,10 +78,8 @@ public class UCVolumeIntegrationTests extends AbstractFakeServiceIntegrationTest
       boolean caseSensitive,
       boolean expected)
       throws Exception {
-    if (!isAllpurposeCluster()) {
-      boolean result = client.objectExists(catalog, schema, volume, objectPath, caseSensitive);
-      assertEquals(expected, result);
-    }
+    boolean result = client.objectExists(catalog, schema, volume, objectPath, caseSensitive);
+    assertEquals(expected, result);
   }
 
   private static Stream<Arguments> provideParametersForObjectExistsCaseSensitivity() {
@@ -111,10 +105,8 @@ public class UCVolumeIntegrationTests extends AbstractFakeServiceIntegrationTest
       boolean caseSensitive,
       boolean expected)
       throws Exception {
-    if (!isAllpurposeCluster()) {
-      boolean result = client.objectExists(catalog, schema, volume, objectPath, caseSensitive);
-      assertEquals(expected, result);
-    }
+    boolean result = client.objectExists(catalog, schema, volume, objectPath, caseSensitive);
+    assertEquals(expected, result);
   }
 
   private static Stream<Arguments> provideParametersForObjectExistsVolumeReferencing() {
@@ -135,10 +127,8 @@ public class UCVolumeIntegrationTests extends AbstractFakeServiceIntegrationTest
       boolean caseSensitive,
       boolean expected)
       throws Exception {
-    if (!isAllpurposeCluster()) {
-      boolean result = client.objectExists(catalog, schema, volume, objectPath, caseSensitive);
-      assertEquals(expected, result);
-    }
+    boolean result = client.objectExists(catalog, schema, volume, objectPath, caseSensitive);
+    assertEquals(expected, result);
   }
 
   private static Stream<Arguments> provideParametersForObjectExistsSpecialCharacters() {
@@ -154,10 +144,7 @@ public class UCVolumeIntegrationTests extends AbstractFakeServiceIntegrationTest
   void testVolumeExists(
       String catalog, String schema, String volumeName, boolean caseSensitive, boolean expected)
       throws Exception {
-
-    if (!isAllpurposeCluster()) {
-      assertEquals(expected, client.volumeExists(catalog, schema, volumeName, caseSensitive));
-    }
+    assertEquals(expected, client.volumeExists(catalog, schema, volumeName, caseSensitive));
   }
 
   private static Stream<Arguments> provideParametersForVolumeExists() {
@@ -176,9 +163,7 @@ public class UCVolumeIntegrationTests extends AbstractFakeServiceIntegrationTest
       boolean caseSensitive,
       List<String> expected)
       throws Exception {
-    if (!isAllpurposeCluster()) {
-      assertEquals(expected, client.listObjects(catalog, schema, volume, prefix, caseSensitive));
-    }
+    assertEquals(expected, client.listObjects(catalog, schema, volume, prefix, caseSensitive));
   }
 
   private static Stream<Arguments> provideParametersForListObjectsInSubFolders() {
@@ -209,9 +194,7 @@ public class UCVolumeIntegrationTests extends AbstractFakeServiceIntegrationTest
       boolean caseSensitive,
       List<String> expected)
       throws Exception {
-    if (!isAllpurposeCluster()) {
-      assertEquals(expected, client.listObjects(catalog, schema, volume, prefix, caseSensitive));
-    }
+    assertEquals(expected, client.listObjects(catalog, schema, volume, prefix, caseSensitive));
   }
 
   private static Stream<Arguments> provideParametersForListObjectsVolumeReferencing() {
@@ -242,10 +225,7 @@ public class UCVolumeIntegrationTests extends AbstractFakeServiceIntegrationTest
       boolean caseSensitive,
       List<String> expected)
       throws Exception {
-
-    if (!isAllpurposeCluster()) {
-      assertEquals(expected, client.listObjects(catalog, schema, volume, prefix, caseSensitive));
-    }
+    assertEquals(expected, client.listObjects(catalog, schema, volume, prefix, caseSensitive));
   }
 
   private static Stream<Arguments>
