@@ -12,7 +12,7 @@ public class DatabricksUCVolumeClient implements IDatabricksUCVolumeClient {
 
   private final Connection connection;
 
-  private static final Logger LOGGER = LogManager.getLogger(DatabricksSdkClient.class);
+  private static final Logger LOGGER = LogManager.getLogger(DatabricksUCVolumeClient.class);
 
   private static final String UC_VOLUME_COLUMN_NAME =
       "name"; // Column name for the file names within a volume
