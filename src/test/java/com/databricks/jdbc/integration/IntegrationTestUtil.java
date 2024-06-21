@@ -188,8 +188,6 @@ public class IntegrationTestUtil {
 
     String host = getDatabricksDogfoodHost();
     String httpPath = getDatabricksDogfoodHTTPPath();
-    System.out.println("Dogfood JDBC URL: " + String.format(template, host, httpPath));
-
     return String.format(template, host, httpPath);
   }
 
@@ -202,7 +200,6 @@ public class IntegrationTestUtil {
     String host = getDatabricksHost();
     String httpPath = getDatabricksHTTPPath();
 
-    System.out.println("JDBC URL: " + String.format(template, host, httpPath));
     return String.format(template, host, httpPath);
   }
 
