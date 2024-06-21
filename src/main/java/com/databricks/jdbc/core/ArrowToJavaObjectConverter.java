@@ -36,7 +36,8 @@ public class ArrowToJavaObjectConverter {
           DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSS"),
           DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS"),
           DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'"),
-          DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SS"), // Two-digit milliseconds
+          DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SS"),
+          DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.S"),
           DateTimeFormatter.RFC_1123_DATE_TIME);
 
   // TODO (Madhav): Check Arrow to JSON conversion

@@ -46,7 +46,7 @@ public class MetadataResultConstants {
   private static final ResultColumn PROCEDURE_TYPE_COLUMN =
       new ResultColumn("PROCEDURE_TYPE", "procedureType", Types.SMALLINT);
   private static final ResultColumn COLUMN_TYPE_COLUMN =
-      new ResultColumn("TYPE_NAME", "columnType", Types.VARCHAR);
+      new ResultColumn("DATA_TYPE", "columnType", Types.INTEGER);
   private static final ResultColumn BUFFER_LENGTH_COLUMN =
       new ResultColumn("BUFFER_LENGTH", "bufferLength", Types.INTEGER);
   private static final ResultColumn COLUMN_SIZE_COLUMN =
@@ -66,7 +66,7 @@ public class MetadataResultConstants {
   private static final ResultColumn FUNCTION_NAME_COLUMN =
       new ResultColumn("FUNCTION_NAME", "functionName", Types.VARCHAR);
   private static final ResultColumn FUNCTION_TYPE_COLUMN =
-      new ResultColumn("FUNCTION_TYPE", "functionType", Types.VARCHAR);
+      new ResultColumn("FUNCTION_TYPE", "functionType", Types.SMALLINT);
   private static final ResultColumn SPECIFIC_NAME_COLUMN =
       new ResultColumn("SPECIFIC_NAME", "specificName", Types.VARCHAR);
   private static final ResultColumn INFORMATION_NAME_COLUMN =
