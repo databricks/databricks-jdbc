@@ -54,6 +54,28 @@ public class IntegrationTestUtil {
   }
 
   public static String getDatabricksDogfoodHost() {
+    if (fakeServiceToBeUsed()) {
+      // Target base URL of the fake service type
+      FakeServiceType databricksFakeServiceType =
+          shouldUseSqlGatewayFakeServiceType()
+              ? FakeServiceType.SQL_GATEWAY
+              : FakeServiceType.SQL_EXEC;
+      String serviceURI =
+          System.getProperty(
+              databricksFakeServiceType.name().toLowerCase() + TARGET_URI_PROP_SUFFIX);
+
+      URI fakeServiceURI;
+      try {
+        // Fake service URL for the base URL
+        fakeServiceURI = new URI(System.getProperty(serviceURI + FAKE_SERVICE_URI_PROP_SUFFIX));
+      } catch (URISyntaxException e) {
+        throw new RuntimeException(e);
+      }
+
+      return fakeServiceURI.getAuthority();
+    }
+
+    // includes port
     return System.getenv("DATABRICKS_DOGFOOD_HOST");
   }
 
@@ -109,7 +131,7 @@ public class IntegrationTestUtil {
   public static Connection getValidDogfoodConnection() throws SQLException {
     // add support for properties
     return DriverManager.getConnection(
-        getDogfoodJDBCUrl(), getDatabricksUser(), getDatabricksToken());
+        getDogfoodJDBCUrl(), getDatabricksUser(), getDatabricksDogfoodToken());
   }
 
   public static Connection getValidJDBCConnection() throws SQLException {
@@ -166,6 +188,7 @@ public class IntegrationTestUtil {
 
     String host = getDatabricksDogfoodHost();
     String httpPath = getDatabricksDogfoodHTTPPath();
+    System.out.println("Dogfood JDBC URL: " + String.format(template, host, httpPath));
 
     return String.format(template, host, httpPath);
   }
@@ -178,6 +201,8 @@ public class IntegrationTestUtil {
 
     String host = getDatabricksHost();
     String httpPath = getDatabricksHTTPPath();
+
+    System.out.println("JDBC URL: " + String.format(template, host, httpPath));
     return String.format(template, host, httpPath);
   }
 
