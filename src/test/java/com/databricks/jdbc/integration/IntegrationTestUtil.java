@@ -106,6 +106,12 @@ public class IntegrationTestUtil {
     return System.getenv("DATABRICKS_USER");
   }
 
+  public static Connection getValidDogfoodConnection() throws SQLException {
+    // add support for properties
+    return DriverManager.getConnection(
+        getDogfoodJDBCUrl(), getDatabricksUser(), getDatabricksToken());
+  }
+
   public static Connection getValidJDBCConnection() throws SQLException {
     // add support for properties
     return DriverManager.getConnection(getJDBCUrl(), getDatabricksUser(), getDatabricksToken());
@@ -152,6 +158,18 @@ public class IntegrationTestUtil {
     JDBCConnection = null;
   }
 
+  public static String getDogfoodJDBCUrl() {
+    String template =
+        fakeServiceToBeUsed()
+            ? "jdbc:databricks://%s/default;transportMode=http;ssl=0;AuthMech=3;httpPath=%s;catalog=SPARK"
+            : "jdbc:databricks://%s/default;ssl=1;AuthMech=3;httpPath=%s";
+
+    String host = getDatabricksDogfoodHost();
+    String httpPath = getDatabricksDogfoodHTTPPath();
+
+    return String.format(template, host, httpPath);
+  }
+
   public static String getJDBCUrl() {
     String template =
         fakeServiceToBeUsed()
@@ -188,15 +206,6 @@ public class IntegrationTestUtil {
         "jdbc:databricks://%s/default;transportMode=http;ssl=1;AuthMech=3;httpPath=%s";
     String host = getDatabricksBenchfoodHost();
     String httpPath = getDatabricksBenchfoodHTTPPath();
-
-    return String.format(template, host, httpPath);
-  }
-
-  public static String getDogfoodJDBCUrl() {
-    String template =
-        "jdbc:databricks://%s/default;transportMode=http;ssl=1;AuthMech=3;httpPath=%s";
-    String host = getDatabricksDogfoodHost();
-    String httpPath = getDatabricksDogfoodHTTPPath();
 
     return String.format(template, host, httpPath);
   }

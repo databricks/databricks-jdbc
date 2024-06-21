@@ -36,7 +36,7 @@ public class UCVolumeIntegrationTests extends AbstractFakeServiceIntegrationTest
     if (!isAllpurposeCluster()) {
       // TODO: Testing is done here using the E2-Dogfood environment. Need to update this to use a
       // test warehouse.
-      con = getValidJDBCConnection();
+      con = getValidDogfoodConnection();
       System.out.println("Connection established......");
       client = new DatabricksUCVolumeClient(con);
     }
