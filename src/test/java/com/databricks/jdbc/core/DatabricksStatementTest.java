@@ -3,8 +3,7 @@ package com.databricks.jdbc.core;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.doNothing;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
 import com.databricks.jdbc.client.StatementType;
 import com.databricks.jdbc.client.impl.sdk.DatabricksSdkClient;
@@ -18,6 +17,8 @@ import java.sql.SQLWarning;
 import java.sql.Statement;
 import java.util.HashMap;
 import java.util.Properties;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -238,5 +239,28 @@ public class DatabricksStatementTest {
     assertEquals(ResultSet.CONCUR_READ_ONLY, statement.getResultSetConcurrency());
     assertEquals(ResultSet.TYPE_FORWARD_ONLY, statement.getResultSetType());
     assertEquals(ResultSet.FETCH_FORWARD, statement.getFetchDirection());
+  }
+
+  @Test
+  public void testExecuteInternalWithZeroTimeout() throws Exception {
+    DatabricksConnection mockConnection = mock(DatabricksConnection.class);
+    DatabricksStatement statement = new DatabricksStatement(mockConnection);
+
+    // Set timeout to 0 for infinite wait
+    statement.setQueryTimeout(0);
+
+    CompletableFuture<DatabricksResultSet> mockFuture = mock(CompletableFuture.class);
+
+    when(mockFuture.get()).thenReturn(resultSet);
+
+    DatabricksStatement spyStatement = spy(statement);
+    doReturn(mockFuture).when(spyStatement).getFutureResult(anyString(), anyMap(), any());
+
+    // Execute query using statement
+    spyStatement.executeInternal("SELECT * FROM table", new HashMap<>(), StatementType.QUERY);
+
+    // Verify that get() is called instead of get(long, TimeUnit) for infinite wait
+    verify(mockFuture, times(1)).get();
+    verify(mockFuture, never()).get(anyLong(), any(TimeUnit.class));
   }
 }

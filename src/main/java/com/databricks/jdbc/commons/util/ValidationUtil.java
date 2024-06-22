@@ -11,7 +11,8 @@ import org.apache.logging.log4j.Logger;
 public class ValidationUtil {
   private static final Logger LOGGER = LogManager.getLogger(ValidationUtil.class);
 
-  public static void checkIfPositive(int number, String fieldName) throws DatabricksSQLException {
+  public static void checkIfNonNegative(int number, String fieldName)
+      throws DatabricksSQLException {
     // Todo : Add appropriate exception
     if (number < 0) {
       throw new DatabricksSQLException(

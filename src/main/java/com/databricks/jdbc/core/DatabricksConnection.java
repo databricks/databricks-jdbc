@@ -386,7 +386,7 @@ public class DatabricksConnection implements IDatabricksConnection, Connection {
   @Override
   public boolean isValid(int timeout) throws SQLException {
     LOGGER.debug("public boolean isValid(int timeout = {})", timeout);
-    ValidationUtil.checkIfPositive(timeout, "timeout");
+    ValidationUtil.checkIfNonNegative(timeout, "timeout");
     try {
       DatabricksStatement statement = new DatabricksStatement(this);
       statement.setQueryTimeout(timeout);
