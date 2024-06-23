@@ -34,7 +34,7 @@ public class DatabricksConnectionTest {
   private static final String SQL = "select 1";
   private static final String SCHEMA = "ossjdbc";
   static final String DEFAULT_SCHEMA = "default";
-  static final String DEFAULT_CATALOG = "SPARK";
+  static final String DEFAULT_CATALOG = "hive_metastore";
   private static final String SESSION_ID = "session_id";
   private static final Map<String, String> SESSION_CONFIGS =
       Map.of("ANSI_MODE", "TRUE", "TIMEZONE", "UTC", "MAX_FILE_PARTITION_BYTES", "64m");
@@ -91,7 +91,7 @@ public class DatabricksConnectionTest {
     connection = new DatabricksConnection(connectionContext, databricksClient);
     when(resultSet.hasUpdateCount()).thenReturn(true);
     when(databricksClient.executeStatement(
-            eq("SET CATALOG SPARK"),
+            eq("SET CATALOG hive_metastore"),
             eq(new Warehouse(WAREHOUSE_ID)),
             eq(new HashMap<>()),
             eq(StatementType.SQL),

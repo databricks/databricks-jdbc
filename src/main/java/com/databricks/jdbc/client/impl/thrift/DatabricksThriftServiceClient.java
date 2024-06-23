@@ -9,6 +9,7 @@ import static com.databricks.jdbc.commons.EnvironmentVariables.JDBC_THRIFT_VERSI
 import com.databricks.jdbc.client.DatabricksClient;
 import com.databricks.jdbc.client.DatabricksMetadataClient;
 import com.databricks.jdbc.client.StatementType;
+import com.databricks.jdbc.client.impl.helper.MetadataResultSetBuilder;
 import com.databricks.jdbc.client.impl.thrift.commons.DatabricksThriftAccessor;
 import com.databricks.jdbc.client.impl.thrift.generated.*;
 import com.databricks.jdbc.client.sqlexec.ExternalLink;
@@ -70,6 +71,13 @@ public class DatabricksThriftServiceClient implements DatabricksClient, Databric
         (TOpenSessionResp)
             thriftAccessor.getThriftResponse(openSessionReq, CommandName.OPEN_SESSION, null);
     verifySuccessStatus(response.status.getStatusCode(), response.toString());
+
+    TProtocolVersion serverProtocol = response.getServerProtocolVersion();
+    if (serverProtocol.getValue() <= TProtocolVersion.HIVE_CLI_SERVICE_PROTOCOL_V10.getValue()) {
+      throw new DatabricksSQLException(
+          "Attempting to connect to a non Databricks cluster using the Databricks driver.");
+    }
+
     String sessionId = byteBufferToString(response.sessionHandle.getSessionId().guid);
     LOGGER.info("Session created with ID {}", sessionId);
 
@@ -286,17 +294,7 @@ public class DatabricksThriftServiceClient implements DatabricksClient, Databric
       throws DatabricksSQLException {
     long startTime = System.currentTimeMillis();
     LOGGER.debug("Fetching table types for all purpose cluster. Session {}", session.toString());
-    TGetTableTypesReq request =
-        new TGetTableTypesReq().setSessionHandle(session.getSessionInfo().sessionHandle());
-    TFetchResultsResp response =
-        (TFetchResultsResp)
-            thriftAccessor.getThriftResponse(request, CommandName.LIST_TABLE_TYPES, null);
-    DatabricksResultSet resultSet =
-        getTableTypesResult(extractValues(response.getResults().getColumns()));
-    DatabricksMetrics.record(
-        MetricsList.LIST_TABLE_TYPES_THRIFT.name(),
-        (double) (System.currentTimeMillis() - startTime));
-    return resultSet;
+    return MetadataResultSetBuilder.getTableTypesResult();
   }
 
   @Override

@@ -7,8 +7,11 @@ import static com.github.tomakehurst.wiremock.client.WireMock.urlPathMatching;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.databricks.jdbc.client.DatabricksClientType;
+import com.databricks.jdbc.core.DatabricksConnection;
 import com.databricks.jdbc.core.DatabricksResultSet;
 import com.databricks.jdbc.core.DatabricksResultSetMetaData;
+import com.databricks.jdbc.driver.IDatabricksConnectionContext;
 import com.databricks.jdbc.integration.fakeservice.AbstractFakeServiceIntegrationTests;
 import java.sql.Connection;
 import java.sql.ResultSet;
@@ -26,7 +29,7 @@ public class MultiChunkExecutionIntegrationTests extends AbstractFakeServiceInte
 
   @BeforeAll
   static void beforeAll() {
-    setSqlExecApiTargetUrl("https://e2-dogfood.staging.cloud.databricks.com");
+    setDatabricksApiTargetUrl("https://e2-dogfood.staging.cloud.databricks.com");
     setCloudFetchApiTargetUrl("https://e2-dogfood-core.s3.us-west-2.amazonaws.com");
   }
 
@@ -46,7 +49,10 @@ public class MultiChunkExecutionIntegrationTests extends AbstractFakeServiceInte
   @Test
   void testMultiChunkSelect() throws SQLException {
     final String table = "samples.tpch.lineitem";
-    final int maxRows = 122900;
+
+    // To save on the size of stub mappings, the test uses just enough rows to span multiple chunks.
+    // That minimum threshold is different for SQL Exec and SQL Gateway clients.
+    final int maxRows = isSqlExecSdkClient() ? 122900 : 147500;
     final String sql = "SELECT * FROM " + table + " limit " + maxRows;
 
     final Statement statement = connection.createStatement();
@@ -74,14 +80,24 @@ public class MultiChunkExecutionIntegrationTests extends AbstractFakeServiceInte
               .getCount();
       assertEquals(metaData.getChunkCount(), cloudFetchCalls);
 
-      // Number of requests to fetch external links should be one less than the total number of
-      // chunks as first chunk link is already fetched
-      final String statementId = ((DatabricksResultSet) rs).statementId();
-      final String resultChunkPathRegex = String.format(RESULT_CHUNK_PATH, statementId, ".*");
-      getSqlExecApiExtension()
-          .verify(
-              (int) (metaData.getChunkCount() - 1),
-              getRequestedFor(urlPathMatching(resultChunkPathRegex)));
+      if (isSqlExecSdkClient()) {
+        // Number of requests to fetch external links should be one less than the total number of
+        // chunks as first chunk link is already fetched
+        final String statementId = ((DatabricksResultSet) rs).statementId();
+        final String resultChunkPathRegex = String.format(RESULT_CHUNK_PATH, statementId, ".*");
+        getDatabricksApiExtension()
+            .verify(
+                (int) (metaData.getChunkCount() - 1),
+                getRequestedFor(urlPathMatching(resultChunkPathRegex)));
+      }
     }
+  }
+
+  @Override
+  protected boolean isSqlExecSdkClient() {
+    IDatabricksConnectionContext connectionContext =
+        ((DatabricksConnection) connection).getSession().getConnectionContext();
+
+    return connectionContext.getClientType() == DatabricksClientType.SQL_EXEC;
   }
 }

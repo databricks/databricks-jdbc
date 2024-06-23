@@ -3,6 +3,7 @@ package com.databricks.jdbc.core;
 import static com.databricks.jdbc.core.DatabricksTypeUtil.*;
 
 import com.databricks.jdbc.client.StatementType;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.Reader;
@@ -10,9 +11,8 @@ import java.math.BigDecimal;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.sql.*;
-import java.util.Calendar;
-import java.util.HashMap;
-import java.util.Map;
+import java.sql.Date;
+import java.util.*;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -22,29 +22,50 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
   private final String sql;
   private final Map<Integer, ImmutableSqlParameter> parameterBindings;
 
+  private final int CHUNK_SIZE = 8192;
+
   public DatabricksPreparedStatement(DatabricksConnection connection, String sql) {
     super(connection);
     this.sql = sql;
     this.parameterBindings = new HashMap<Integer, ImmutableSqlParameter>();
   }
 
-  private byte[] checkByteStreamLength(InputStream x, int length) throws DatabricksSQLException {
-    if (x == null) {
-      throw new DatabricksSQLException("InputStream cannot be null");
+  private void checkLength(int targetLength, int sourceLength) throws SQLException {
+    if (targetLength != sourceLength) {
+      String errorMessage =
+          String.format(
+              "Unexpected number of bytes read from the stream. Expected: %d, got: %d",
+              targetLength, sourceLength);
+      LOGGER.error(errorMessage);
+      throw new DatabricksSQLException(errorMessage);
     }
+  }
 
+  private void checkLength(long targetLength, long sourceLength) throws SQLException {
+    if (targetLength != sourceLength) {
+      String errorMessage =
+          String.format(
+              "Unexpected number of bytes read from the stream. Expected: %d, got: %d",
+              targetLength, sourceLength);
+      LOGGER.error(errorMessage);
+      throw new DatabricksSQLException(errorMessage);
+    }
+  }
+
+  private byte[] readByteStream(InputStream x, int length) throws SQLException {
+    if (x == null) {
+      String errorMessage = "InputStream cannot be null";
+      LOGGER.error(errorMessage);
+      throw new DatabricksSQLException(errorMessage);
+    }
     byte[] bytes = new byte[length];
     try {
       int bytesRead = x.read(bytes);
-      if (bytesRead != length) {
-        throw new DatabricksSQLException(
-            "Unexpected number of bytes read from the stream. Expected: "
-                + length
-                + ", got: "
-                + bytesRead);
-      }
+      checkLength(bytesRead, length);
     } catch (IOException e) {
-      throw new DatabricksSQLException("Error reading from the InputStream", e);
+      String errorMessage = "Error reading from the InputStream";
+      LOGGER.error(errorMessage);
+      throw new DatabricksSQLException(errorMessage, e);
     }
     return bytes;
   }
@@ -161,11 +182,10 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
   }
 
   @Override
-  public void setAsciiStream(int parameterIndex, InputStream x, int length)
-      throws DatabricksSQLException {
+  public void setAsciiStream(int parameterIndex, InputStream x, int length) throws SQLException {
     LOGGER.debug("public void setAsciiStream(int parameterIndex, InputStream x, int length)");
     checkIfClosed();
-    byte[] bytes = checkByteStreamLength(x, length);
+    byte[] bytes = readByteStream(x, length);
     String asciiString = new String(bytes, StandardCharsets.US_ASCII);
     setObject(parameterIndex, asciiString, DatabricksTypeUtil.STRING);
   }
@@ -246,23 +266,19 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
 
   @Override
   public void setCharacterStream(int parameterIndex, Reader reader, int length)
-      throws DatabricksSQLException {
+      throws SQLException {
     LOGGER.debug("public void setCharacterStream(int parameterIndex, Reader reader, int length)");
     checkIfClosed();
     try {
       char[] buffer = new char[length];
       int charsRead = reader.read(buffer);
-      if (charsRead != length) {
-        throw new DatabricksSQLException(
-            "Unexpected number of characters read from the reader. Expected: "
-                + length
-                + ", got: "
-                + charsRead);
-      }
+      checkLength(charsRead, length);
       String str = new String(buffer);
       setObject(parameterIndex, str, DatabricksTypeUtil.STRING);
     } catch (IOException e) {
-      throw new DatabricksSQLException("Error reading from the Reader", e);
+      String errorMessage = "Error reading from the Reader";
+      LOGGER.error(errorMessage);
+      throw new DatabricksSQLException(errorMessage, e);
     }
   }
 
@@ -305,7 +321,7 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
   }
 
   @Override
-  public void setDate(int parameterIndex, Date x, Calendar cal) throws DatabricksSQLException {
+  public void setDate(int parameterIndex, Date x, Calendar cal) throws SQLException {
     LOGGER.debug("public void setDate(int parameterIndex, Date x, Calendar cal)");
     // TODO[PECO-1702]: Integrate the calendar object since Simba implementation appears to be
     // incorrect - they
@@ -324,8 +340,12 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
   @Override
   public void setTimestamp(int parameterIndex, Timestamp x, Calendar cal) throws SQLException {
     LOGGER.debug("public void setTimestamp(int parameterIndex, Timestamp x, Calendar cal)");
-    throw new UnsupportedOperationException(
-        "Not implemented in DatabricksPreparedStatement - setTimestamp(int parameterIndex, Timestamp x, Calendar cal)");
+    checkIfClosed();
+    TimeZone originalTimeZone = TimeZone.getDefault();
+    TimeZone.setDefault(cal.getTimeZone());
+    x = new Timestamp(x.getTime());
+    TimeZone.setDefault(originalTimeZone);
+    setObject(parameterIndex, x, DatabricksTypeUtil.TIMESTAMP);
   }
 
   @Override
@@ -412,14 +432,33 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
     LOGGER.debug(
         "public void setObject(int parameterIndex, Object x, int targetSqlType, int scaleOrLength)");
     throw new UnsupportedOperationException(
-        "Not implemented in DatabricksPreparedStatement - setObject(int parameterIndex, Object x, int targetSqlType, int scaleOrLength)");
+        "Not implemented in DatabricksPreparedStatement - setCharacterStream(int parameterIndex, Reader reader)");
   }
 
   @Override
   public void setAsciiStream(int parameterIndex, InputStream x, long length) throws SQLException {
     LOGGER.debug("public void setAsciiStream(int parameterIndex, InputStream x, long length)");
-    throw new UnsupportedOperationException(
-        "Not implemented in DatabricksPreparedStatement - setAsciiStream(int parameterIndex, InputStream x, long length)");
+    checkIfClosed();
+    try {
+      ByteArrayOutputStream buffer = new ByteArrayOutputStream();
+      int nRead;
+      byte[] chunk =
+          new byte[CHUNK_SIZE]; // read the stream in 8KB chunks since an int sized array may be
+      // insufficient
+      // to store the entire stream
+      long bytesRead = 0;
+      while (bytesRead < length && (nRead = x.read(chunk)) != -1) {
+        buffer.write(chunk, 0, nRead);
+        bytesRead += nRead;
+      }
+      checkLength(bytesRead, length);
+      String asciiString = new String(buffer.toByteArray(), StandardCharsets.US_ASCII);
+      setObject(parameterIndex, asciiString, DatabricksTypeUtil.STRING);
+    } catch (IOException e) {
+      String errorMessage = "Error reading from the InputStream";
+      LOGGER.error(errorMessage);
+      throw new DatabricksSQLException(errorMessage, e);
+    }
   }
 
   @Override
@@ -429,19 +468,50 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
         "Not implemented in DatabricksPreparedStatement - setBinaryStream(int parameterIndex, InputStream x, long length)");
   }
 
-  @Override
   public void setCharacterStream(int parameterIndex, Reader reader, long length)
       throws SQLException {
     LOGGER.debug("public void setCharacterStream(int parameterIndex, Reader reader, long length)");
-    throw new UnsupportedOperationException(
-        "Not implemented in DatabricksPreparedStatement - setCharacterStream(int parameterIndex, Reader reader, long length)");
+    checkIfClosed();
+    try {
+      StringBuilder buffer = new StringBuilder();
+      int nRead;
+      char[] chunk =
+          new char[CHUNK_SIZE]; // read the stream in 8KB chunks since an int sized array may be
+      // insufficient
+      // to store the entire stream
+      long charsRead = 0;
+      while (charsRead < length && (nRead = reader.read(chunk)) != -1) {
+        buffer.append(chunk, 0, nRead);
+        charsRead += nRead;
+      }
+      checkLength(charsRead, length);
+      String characterString = buffer.toString();
+      setObject(parameterIndex, characterString, DatabricksTypeUtil.STRING);
+    } catch (IOException e) {
+      String errorMessage = "Error reading from the Reader";
+      LOGGER.error(errorMessage);
+      throw new DatabricksSQLException(errorMessage, e);
+    }
   }
 
   @Override
   public void setAsciiStream(int parameterIndex, InputStream x) throws SQLException {
     LOGGER.debug("public void setAsciiStream(int parameterIndex, InputStream x)");
-    throw new UnsupportedOperationException(
-        "Not implemented in DatabricksPreparedStatement - setAsciiStream(int parameterIndex, InputStream x)");
+    checkIfClosed();
+    try {
+      ByteArrayOutputStream buffer = new ByteArrayOutputStream();
+      int nRead;
+      byte[] chunk = new byte[CHUNK_SIZE]; // read the stream in 8KB chunks
+      while ((nRead = x.read(chunk)) != -1) {
+        buffer.write(chunk, 0, nRead);
+      }
+      String asciiString = new String(buffer.toByteArray(), StandardCharsets.US_ASCII);
+      setObject(parameterIndex, asciiString, DatabricksTypeUtil.STRING);
+    } catch (IOException e) {
+      String errorMessage = "Error reading from the InputStream";
+      LOGGER.error(errorMessage);
+      throw new DatabricksSQLException(errorMessage, e);
+    }
   }
 
   @Override
@@ -454,8 +524,21 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
   @Override
   public void setCharacterStream(int parameterIndex, Reader reader) throws SQLException {
     LOGGER.debug("public void setCharacterStream(int parameterIndex, Reader reader)");
-    throw new UnsupportedOperationException(
-        "Not implemented in DatabricksPreparedStatement - setCharacterStream(int parameterIndex, Reader reader)");
+    checkIfClosed();
+    try {
+      StringBuilder buffer = new StringBuilder();
+      int nRead;
+      char[] chunk = new char[CHUNK_SIZE]; // read the stream in 8KB chunks
+      while ((nRead = reader.read(chunk)) != -1) {
+        buffer.append(chunk, 0, nRead);
+      }
+      String characterString = buffer.toString();
+      setObject(parameterIndex, characterString, DatabricksTypeUtil.STRING);
+    } catch (IOException e) {
+      String errorMessage = "Error reading from the Reader";
+      LOGGER.error(errorMessage);
+      throw new DatabricksSQLException(errorMessage, e);
+    }
   }
 
   @Override

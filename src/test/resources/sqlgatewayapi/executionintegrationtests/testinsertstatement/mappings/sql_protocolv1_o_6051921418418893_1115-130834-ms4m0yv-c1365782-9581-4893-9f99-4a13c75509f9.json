@@ -1,0 +1,31 @@
+{
+  "id" : "c1365782-9581-4893-9f99-4a13c75509f9",
+  "name" : "sql_protocolv1_o_6051921418418893_1115-130834-ms4m0yv",
+  "request" : {
+    "url" : "/sql/protocolv1/o/6051921418418893/1115-130834-ms4m0yv",
+    "method" : "POST",
+    "bodyPatterns" : [ {
+      "binaryEqualTo" : "gAEAAQAAABBFeGVjdXRlU3RhdGVtZW50AAAABgwAAQwAAQwAAQsAAQAAABBlr8BFOO1H+4vfeN7imeQoCwACAAAAEIYSm+ajGU0dpUk6P+l34DIAAAsAAgAAADxEUk9QIFRBQkxFIElGIEVYSVNUUyBtYWluLmpkYmNfdGVzdF9zY2hlbWEuaW5zZXJ0X3Rlc3RfdGFibGUMBQEKAAEAAAAAAB6EgAoAAgAAAAAYIaMAAAIFAgECBQMBAAA="
+    } ]
+  },
+  "response" : {
+    "status" : 200,
+    "base64Body" : "gAEAAgAAABBFeGVjdXRlU3RhdGVtZW50AAAABgwAAAwAAQgAAQAAAAAADAACDAABCwABAAAAEK8JcbBWrkWcs2ZrKG6L6VULAAIAAAAQK/gwgogfT5qiRxeS6s2WeAYNAQAAAAgAAgAAAAACAAMBAAwFAQwAAQwAAQgAAQAAAAAACAACAAAAAggNAgAAAAAADAACDAABCAABAAAAAAAMAAIPAAEMAAAAAQsAAQAAAAZSZXN1bHQMAAIPAAEMAAAAAQwAAQgAAQAAAAcAAAAIAAMAAAABCwAEAAAAAAAACAUBAAAAAAIFAgALBQMAAABI/////0AAAAAQAAAAAAAKAA4ABgANAAgACgAAAAAABAAQAAAAAAEKAAwAAAAIAAQACgAAAAgAAAAIAAAAAAAAAAAAAAAAAAAACAUEAAAAAAoFBQAAAAAAAAAACgUGAAAAAAAAAAACBQcACA0BAAAABQoNBQAAAAAAAAAAAg0RAAAMAAMMAAEIAAEAAAAAAAIAAgAMAAMKAAEAAAAAAAAAAA8AAgwAAAAADwUBDAAAAAAAAAwABAwAAQgAAQAAAAAAAAAAAA==",
+    "headers" : {
+      "date" : "Wed, 12 Jun 2024 09:19:26 GMT,Wed, 12 Jun 2024 09:19:26 GMT",
+      "server" : "databricks",
+      "x-databricks-popp-request-id" : "d7f92447-dc9f-4b38-9c00-051b2f2385db",
+      "x-content-type-options" : [ "nosniff", "nosniff" ],
+      "x-xss-protection" : "1; mode=block",
+      "x-databricks-shard-debug" : "oregon-staging",
+      "x-frame-options" : "SAMEORIGIN",
+      "x-databricks-popp-shadow-routing-reason" : "deployment-name",
+      "x-databricks-org-id" : "6051921418418893",
+      "x-databricks-popp-routing-reason" : "deployment-name",
+      "content-type" : "application/x-thrift",
+      "strict-transport-security" : [ "max-age=31536000; includeSubDomains; preload", "max-age=31536000; includeSubDomains; preload" ]
+    }
+  },
+  "uuid" : "c1365782-9581-4893-9f99-4a13c75509f9",
+  "insertionIndex" : 1
+}

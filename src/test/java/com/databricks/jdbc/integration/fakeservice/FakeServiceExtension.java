@@ -101,6 +101,14 @@ public class FakeServiceExtension extends DatabricksWireMockExtension {
   public static final String CLOUD_FETCH_API_STUBBING_FILE_PATH =
       "src/test/resources/cloudfetchapi";
 
+  /** Path to the stubbing directory for SQL Gateway API. */
+  public static final String SQL_GATEWAY_API_STUBBING_FILE_PATH =
+      "src/test/resources/sqlgatewayapi";
+
+  /** Path to the stubbing directory for Cloud Fetch when using SQL Gateway API. */
+  public static final String CLOUD_FETCH_SQL_GATEWAY_API_STUBBING_FILE_PATH =
+      "src/test/resources/cloudfetchsqlgatewayapi";
+
   /** Fake service to manage. */
   private final FakeServiceType fakeServiceType;
 
@@ -112,6 +120,9 @@ public class FakeServiceExtension extends DatabricksWireMockExtension {
 
   /** Mode of the fake service. */
   private FakeServiceMode fakeServiceMode;
+
+  /** Index of parameterised test invocation. */
+  private final String TEST_INVOCATION_INDEX_KEY = "invocation";
 
   public enum FakeServiceMode {
     RECORD,
@@ -205,13 +216,34 @@ public class FakeServiceExtension extends DatabricksWireMockExtension {
     String testClassName = context.getTestClass().orElseThrow().getSimpleName().toLowerCase();
     String testMethodName = context.getTestMethod().orElseThrow().getName().toLowerCase();
 
-    return (fakeServiceType == FakeServiceType.SQL_EXEC
-            ? SQL_EXEC_API_STUBBING_FILE_PATH
-            : CLOUD_FETCH_API_STUBBING_FILE_PATH)
-        + "/"
-        + testClassName
-        + "/"
-        + testMethodName;
+    String basePath;
+    switch (fakeServiceType) {
+      case SQL_EXEC:
+        basePath = SQL_EXEC_API_STUBBING_FILE_PATH;
+        break;
+      case CLOUD_FETCH:
+        basePath = CLOUD_FETCH_API_STUBBING_FILE_PATH;
+        break;
+      case SQL_GATEWAY:
+        basePath = SQL_GATEWAY_API_STUBBING_FILE_PATH;
+        break;
+      case CLOUD_FETCH_SQL_GATEWAY:
+        basePath = CLOUD_FETCH_SQL_GATEWAY_API_STUBBING_FILE_PATH;
+        break;
+      default:
+        throw new IllegalStateException("Unsupported fake service type: " + fakeServiceType);
+    }
+
+    String uniqueID = context.getUniqueId();
+    int invocationIndex = uniqueID.indexOf(TEST_INVOCATION_INDEX_KEY);
+    if (invocationIndex != -1) {
+      uniqueID =
+          uniqueID.substring(
+              uniqueID.lastIndexOf(TEST_INVOCATION_INDEX_KEY), uniqueID.length() - 1);
+      return String.format("%s/%s/%s.%s", basePath, testClassName, testMethodName, uniqueID);
+    } else {
+      return String.format("%s/%s/%s", basePath, testClassName, testMethodName);
+    }
   }
 
   /** Loads stub mappings from the stubbing directory. */
