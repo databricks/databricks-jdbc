@@ -281,6 +281,18 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   }
 
   @Override
+  public int getLogFileSize() {
+    String parameter = getParameter(LOG_FILE_SIZE);
+    return (parameter == null) ? DEFAULT_LOG_FILE_SIZE_IN_MB : Integer.parseInt(parameter);
+  }
+
+  @Override
+  public int getLogFileCount() {
+    String parameter = getParameter(LOG_FILE_COUNT);
+    return (parameter == null) ? DEFAULT_LOG_FILE_COUNT : Integer.parseInt(parameter);
+  }
+
+  @Override
   public String getClientUserAgent() {
     String customerUserAgent = getParameter(DatabricksJdbcConstants.USER_AGENT_ENTRY);
     String clientAgent =

@@ -35,6 +35,20 @@ public final class DatabricksJdbcConstants {
 
   public static final String DEFAULT_LOG_PATH = "logs/application.log";
 
+  public static final String LOG_FILE_SIZE = "LogFileSize";
+
+  public static final int DEFAULT_LOG_FILE_SIZE_IN_MB = 10;
+
+  public static final String DEFAULT_LOG_PATTERN = "%d{yyyy-MM-dd HH:mm:ss} %p %c{1}:%L - %m%n";
+
+  public static final String DEFAULT_FILE_LOG_PATTERN = "/%d{yyyy-MM-dd}-logfile-%i.log";
+
+  public static final String DEFAULT_LOG_NAME_FILE = "logfile-0.log";
+
+  public static final String LOG_FILE_COUNT = "LogFileCount";
+
+  public static final int DEFAULT_LOG_FILE_COUNT = 10;
+
   public static final String URL_DELIMITER = ";";
 
   public static final String PORT_DELIMITER = ":";

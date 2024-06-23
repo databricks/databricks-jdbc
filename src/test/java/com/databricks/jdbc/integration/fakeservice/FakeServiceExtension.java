@@ -121,6 +121,9 @@ public class FakeServiceExtension extends DatabricksWireMockExtension {
   /** Mode of the fake service. */
   private FakeServiceMode fakeServiceMode;
 
+  /** Index of parameterised test invocation. */
+  private final String TEST_INVOCATION_INDEX_KEY = "invocation";
+
   public enum FakeServiceMode {
     RECORD,
     REPLAY
@@ -231,7 +234,16 @@ public class FakeServiceExtension extends DatabricksWireMockExtension {
         throw new IllegalStateException("Unsupported fake service type: " + fakeServiceType);
     }
 
-    return String.format("%s/%s/%s", basePath, testClassName, testMethodName);
+    String uniqueID = context.getUniqueId();
+    int invocationIndex = uniqueID.indexOf(TEST_INVOCATION_INDEX_KEY);
+    if (invocationIndex != -1) {
+      uniqueID =
+          uniqueID.substring(
+              uniqueID.lastIndexOf(TEST_INVOCATION_INDEX_KEY), uniqueID.length() - 1);
+      return String.format("%s/%s/%s.%s", basePath, testClassName, testMethodName, uniqueID);
+    } else {
+      return String.format("%s/%s/%s", basePath, testClassName, testMethodName);
+    }
   }
 
   /** Loads stub mappings from the stubbing directory. */

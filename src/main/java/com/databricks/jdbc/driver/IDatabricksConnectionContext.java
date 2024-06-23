@@ -73,6 +73,10 @@ public interface IDatabricksConnectionContext {
 
   String getLogPathString();
 
+  int getLogFileSize();
+
+  int getLogFileCount();
+
   String getClientUserAgent();
 
   CompressionType getCompressionType();
