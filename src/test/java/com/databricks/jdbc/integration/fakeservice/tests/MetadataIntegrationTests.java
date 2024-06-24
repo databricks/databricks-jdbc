@@ -2,14 +2,14 @@ package com.databricks.jdbc.integration.fakeservice.tests;
 
 import static com.databricks.jdbc.client.impl.sdk.PathConstants.SESSION_PATH;
 import static com.databricks.jdbc.client.impl.sdk.PathConstants.STATEMENT_PATH;
+import static com.databricks.jdbc.driver.DatabricksJdbcConstants.HTTP_PATH;
 import static com.databricks.jdbc.integration.IntegrationTestUtil.*;
 import static com.github.tomakehurst.wiremock.client.WireMock.postRequestedFor;
 import static com.github.tomakehurst.wiremock.client.WireMock.urlEqualTo;
 import static org.junit.jupiter.api.Assertions.*;
 
-import com.databricks.jdbc.client.DatabricksClientType;
-import com.databricks.jdbc.core.DatabricksConnection;
 import com.databricks.jdbc.integration.fakeservice.AbstractFakeServiceIntegrationTests;
+import com.databricks.jdbc.integration.fakeservice.FakeServiceConfigLoader;
 import com.github.tomakehurst.wiremock.client.CountMatchingStrategy;
 import java.sql.*;
 import org.junit.jupiter.api.AfterEach;
@@ -191,12 +191,10 @@ public class MetadataIntegrationTests extends AbstractFakeServiceIntegrationTest
   private Connection getConnection() throws SQLException {
     String jdbcUrl =
         String.format(
-            jdbcUrlTemplateWithLegacyMetadata, getDatabricksHost(), getDatabricksHTTPPath());
-    return DriverManager.getConnection(jdbcUrl, getDatabricksUser(), getDatabricksToken());
-  }
+            jdbcUrlTemplateWithLegacyMetadata,
+            getFakeServiceHost(),
+            FakeServiceConfigLoader.getProperty(HTTP_PATH));
 
-  protected boolean isSqlExecSdkClient() {
-    return ((DatabricksConnection) connection).getSession().getConnectionContext().getClientType()
-        == DatabricksClientType.SQL_EXEC;
+    return DriverManager.getConnection(jdbcUrl, getDatabricksUser(), getDatabricksToken());
   }
 }
