@@ -1,5 +1,6 @@
 package com.databricks.jdbc.core;
 
+import static com.databricks.jdbc.commons.util.SQLInterpolator.interpolateSQL;
 import static com.databricks.jdbc.core.DatabricksTypeUtil.*;
 
 import com.databricks.jdbc.client.StatementType;
@@ -73,13 +74,19 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
   @Override
   public ResultSet executeQuery() throws SQLException {
     LOGGER.debug("public ResultSet executeQuery()");
-    return executeInternal(sql, parameterBindings, StatementType.QUERY);
+    return executeInternal(
+        interpolateSQL(sql, parameterBindings),
+        new HashMap<Integer, ImmutableSqlParameter>(),
+        StatementType.QUERY);
   }
 
   @Override
   public int executeUpdate() throws SQLException {
     LOGGER.debug("public int executeUpdate()");
-    executeInternal(sql, parameterBindings, StatementType.UPDATE);
+    executeInternal(
+        interpolateSQL(sql, parameterBindings),
+        new HashMap<Integer, ImmutableSqlParameter>(),
+        StatementType.UPDATE);
     return (int) resultSet.getUpdateCount();
   }
 
@@ -253,7 +260,7 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
   public boolean execute() throws SQLException {
     LOGGER.debug("public boolean execute()");
     checkIfClosed();
-    executeInternal(sql, parameterBindings, StatementType.SQL);
+    executeInternal(interpolateSQL(sql, parameterBindings), parameterBindings, StatementType.SQL);
     return !resultSet.hasUpdateCount();
   }
 
