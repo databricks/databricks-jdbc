@@ -60,7 +60,7 @@ public class DatabricksDriver implements Driver {
       return new DatabricksConnection(connectionContext);
     } catch (Exception e) {
       throw new DatabricksSQLException(
-          "Invalid or unknown token or hostname provided :" + connectionContext.getHostUrl(), e);
+          "Could not create the connection to " + connectionContext.getHostUrl(), e);
     }
   }
 

@@ -108,8 +108,8 @@ public final class DatabricksJdbcConstants {
   static final String USER_AGENT_ENTRY = "useragententry";
   public static final String DEFAULT_USER_AGENT = "DatabricksJDBCDriverOSS";
   static final String CLIENT_USER_AGENT_PREFIX = "Java";
-  static final String USER_AGENT_SEA_CLIENT = "SQLExecHttpClient/HC";
-  static final String USER_AGENT_THRIFT_CLIENT = "THttpClient/HC";
+  static final String USER_AGENT_SEA_CLIENT = "SQLExecHttpClientHC";
+  static final String USER_AGENT_THRIFT_CLIENT = "THttpClientHC";
   public static final String ALLOWED_VOLUME_INGESTION_PATHS =
       "allowlistedVolumeOperationLocalFilePaths";
   public static final String VOLUME_OPERATION_STATUS_COLUMN_NAME = "operation_status";

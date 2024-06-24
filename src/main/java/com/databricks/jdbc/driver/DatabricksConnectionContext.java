@@ -302,7 +302,7 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
             : DatabricksJdbcConstants.USER_AGENT_THRIFT_CLIENT;
     return nullOrEmptyString(customerUserAgent)
         ? clientAgent
-        : clientAgent + " " + customerUserAgent;
+        : clientAgent + "-" + customerUserAgent;
   }
 
   // TODO: Make use of compression type
