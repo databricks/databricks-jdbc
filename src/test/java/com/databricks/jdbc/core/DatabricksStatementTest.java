@@ -76,11 +76,9 @@ public class DatabricksStatementTest {
             any(IDatabricksSession.class),
             eq(statement)))
         .thenReturn(resultSet);
-    when(resultSet.hasUpdateCount()).thenReturn(false);
     assertTrue(statement.execute(STATEMENT));
 
-    when(resultSet.hasUpdateCount()).thenReturn(true);
-    assertFalse(statement.execute(STATEMENT, Statement.NO_GENERATED_KEYS));
+    assertTrue(statement.execute(STATEMENT, Statement.NO_GENERATED_KEYS));
 
     assertFalse(statement.isClosed());
     statement.cancel();
@@ -156,7 +154,6 @@ public class DatabricksStatementTest {
             any(IDatabricksSession.class),
             eq(statement)))
         .thenReturn(resultSet);
-    when(resultSet.hasUpdateCount()).thenReturn(false);
     assertTrue(statement.execute(STATEMENT));
 
     statement.setStatementId(STATEMENT_ID);

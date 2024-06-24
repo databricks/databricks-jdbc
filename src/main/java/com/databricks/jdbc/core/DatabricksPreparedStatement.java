@@ -1,6 +1,7 @@
 package com.databricks.jdbc.core;
 
 import static com.databricks.jdbc.core.DatabricksTypeUtil.*;
+import static com.databricks.jdbc.driver.DatabricksJdbcConstants.*;
 
 import com.databricks.jdbc.client.StatementType;
 import java.io.ByteArrayOutputStream;
@@ -254,7 +255,7 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
     LOGGER.debug("public boolean execute()");
     checkIfClosed();
     executeInternal(sql, parameterBindings, StatementType.SQL);
-    return !resultSet.hasUpdateCount();
+    return shouldReturnResultSet(sql);
   }
 
   @Override
