@@ -88,6 +88,7 @@ public class FakeServiceExtension extends DatabricksWireMockExtension {
    *       persisted.
    *   <li>{@link FakeServiceMode#REPLAY}: Saved responses are replayed instead of sending requests
    *       to production service.
+   *   <li>{@link FakeServiceMode#DRY}: Requests are sent to production service but not persisted.
    * </ul>
    */
   public static final String FAKE_SERVICE_TEST_MODE_ENV = "FAKE_SERVICE_TEST_MODE";
@@ -126,7 +127,8 @@ public class FakeServiceExtension extends DatabricksWireMockExtension {
 
   public enum FakeServiceMode {
     RECORD,
-    REPLAY
+    REPLAY,
+    DRY
   }
 
   public FakeServiceExtension(
