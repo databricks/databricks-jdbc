@@ -33,6 +33,7 @@ public class DatabricksThriftAccessor {
       throws DatabricksParsingException {
     enableDirectResults = connectionContext.getDirectResultMode();
     this.databricksConfig = new OAuthAuthenticator(connectionContext).getDatabricksConfig();
+    this.databricksConfig.resolve();
     Map<String, String> authHeaders = databricksConfig.authenticate();
     String endPointUrl = connectionContext.getEndpointURL();
     // Create a new thrift client for each thread as client state is not thread safe. Note that the
