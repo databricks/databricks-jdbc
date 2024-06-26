@@ -314,8 +314,4 @@ public class IntegrationTestUtil {
             + " (id, col1, col2) VALUES (1, 'value1', 'value2')";
     executeSQL(insertSQL);
   }
-
-  public static boolean isAllpurposeCluster() {
-    return HTTP_CLUSTER_PATH_PATTERN.matcher(getDatabricksHTTPPath()).matches();
-  }
 }

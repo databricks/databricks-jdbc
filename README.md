@@ -43,8 +43,8 @@ fake-service modes controlled by the environment variable <u>`FAKE_SERVICE_MODE`
 2. `REPLAY` (default): In this mode, the fake-service will replay the recorded responses saved in the corresponding
    directory in `/src/test/resources/`. This mode is useful for running the tests without connecting to the production
    service.
-3. `DRY` (WIP): In this mode, the tests will run against the production service and the fake-service will simply act as
-   a pass-through proxy, meaning it neither records nor replays the responses. This mode is useful for debugging and
+3. `DRY`: In this mode, the tests will run against the production service and the fake-service will simply act as a
+   pass-through proxy, meaning it neither records nor replays the responses. This mode is useful for debugging and
    authoring the tests.
 
 ### Running Integration Tests
