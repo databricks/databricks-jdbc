@@ -12,9 +12,9 @@ import java.math.BigDecimal;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.sql.*;
-import java.util.Calendar;
 import java.sql.Date;
 import java.util.*;
+import java.util.Calendar;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -257,7 +257,7 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
   public boolean execute() throws SQLException {
     LOGGER.debug("public boolean execute()");
     checkIfClosed();
-    executeInternal(sql, parameterBindings, StatementType.SQL);
+    executeInternal(sql, databricksParameterMetaData.getParameterBindings(), StatementType.SQL);
     return shouldReturnResultSet(sql);
   }
 
