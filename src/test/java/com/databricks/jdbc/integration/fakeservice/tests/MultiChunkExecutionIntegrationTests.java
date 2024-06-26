@@ -46,7 +46,10 @@ public class MultiChunkExecutionIntegrationTests extends AbstractFakeServiceInte
   @Test
   void testMultiChunkSelect() throws SQLException {
     final String table = "samples.tpch.lineitem";
-    final int maxRows = 122900;
+
+    // To save on the size of stub mappings, the test uses just enough rows to span multiple chunks.
+    // That minimum threshold is different for SQL Exec and SQL Gateway clients.
+    final int maxRows = isSqlExecSdkClient() ? 122900 : 147500;
     final String sql = "SELECT * FROM " + table + " limit " + maxRows;
 
     final Statement statement = connection.createStatement();
@@ -74,14 +77,16 @@ public class MultiChunkExecutionIntegrationTests extends AbstractFakeServiceInte
               .getCount();
       assertEquals(metaData.getChunkCount(), cloudFetchCalls);
 
-      // Number of requests to fetch external links should be one less than the total number of
-      // chunks as first chunk link is already fetched
-      final String statementId = ((DatabricksResultSet) rs).statementId();
-      final String resultChunkPathRegex = String.format(RESULT_CHUNK_PATH, statementId, ".*");
-      getDatabricksApiExtension()
-          .verify(
-              (int) (metaData.getChunkCount() - 1),
-              getRequestedFor(urlPathMatching(resultChunkPathRegex)));
+      if (isSqlExecSdkClient()) {
+        // Number of requests to fetch external links should be one less than the total number of
+        // chunks as first chunk link is already fetched
+        final String statementId = ((DatabricksResultSet) rs).statementId();
+        final String resultChunkPathRegex = String.format(RESULT_CHUNK_PATH, statementId, ".*");
+        getDatabricksApiExtension()
+            .verify(
+                (int) (metaData.getChunkCount() - 1),
+                getRequestedFor(urlPathMatching(resultChunkPathRegex)));
+      }
     }
   }
 }

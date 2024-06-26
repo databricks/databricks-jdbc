@@ -21,9 +21,9 @@ class ValidationUtilTest {
 
   @Test
   void testCheckIfPositive() {
-    assertDoesNotThrow(() -> ValidationUtil.checkIfPositive(10, "testField"));
+    assertDoesNotThrow(() -> ValidationUtil.checkIfNonNegative(10, "testField"));
     assertThrows(
-        DatabricksSQLException.class, () -> validationUtil.checkIfPositive(-10, "testField"));
+        DatabricksSQLException.class, () -> validationUtil.checkIfNonNegative(-10, "testField"));
   }
 
   @Test

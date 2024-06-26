@@ -94,7 +94,8 @@ public class DatabricksMetadataSdkClient implements DatabricksMetadataClient {
               //          if (WildcardUtil.containsEmoji(currentCatalog))
               //            return;
               String showSchemaSQL = "show schemas in `" + currentCatalog + "`";
-              if (!WildcardUtil.isMatchAnything(schemaNamePattern)) {
+              String schemaWithContext = WildcardUtil.jdbcPatternToHive(schemaNamePattern);
+              if (!WildcardUtil.isMatchAnything(schemaWithContext)) {
                 showSchemaSQL += " like '" + schemaNamePattern + "'";
               }
               LOGGER.debug("SQL command to fetch schemas: {}", showSchemaSQL);

@@ -4,7 +4,6 @@ import static com.databricks.jdbc.driver.DatabricksJdbcConstants.FAKE_SERVICE_UR
 import static com.databricks.jdbc.driver.DatabricksJdbcConstants.IS_FAKE_SERVICE_TEST_PROP;
 import static com.github.tomakehurst.wiremock.common.AbstractFileSource.byFileExtension;
 
-import com.databricks.jdbc.client.http.DatabricksHttpClient;
 import com.databricks.jdbc.driver.DatabricksJdbcConstants.FakeServiceType;
 import com.databricks.jdbc.integration.IntegrationTestUtil;
 import com.github.tomakehurst.wiremock.client.ResponseDefinitionBuilder;
@@ -88,6 +87,7 @@ public class FakeServiceExtension extends DatabricksWireMockExtension {
    *       persisted.
    *   <li>{@link FakeServiceMode#REPLAY}: Saved responses are replayed instead of sending requests
    *       to production service.
+   *   <li>{@link FakeServiceMode#DRY}: Requests are sent to production service but not persisted.
    * </ul>
    */
   public static final String FAKE_SERVICE_TEST_MODE_ENV = "FAKE_SERVICE_TEST_MODE";
@@ -121,9 +121,13 @@ public class FakeServiceExtension extends DatabricksWireMockExtension {
   /** Mode of the fake service. */
   private FakeServiceMode fakeServiceMode;
 
+  /** Index of parameterised test invocation. */
+  private final String TEST_INVOCATION_INDEX_KEY = "invocation";
+
   public enum FakeServiceMode {
     RECORD,
-    REPLAY
+    REPLAY,
+    DRY
   }
 
   public FakeServiceExtension(
@@ -160,7 +164,6 @@ public class FakeServiceExtension extends DatabricksWireMockExtension {
 
     setFakeServiceProperties(wireMockServerHttpPort);
     IntegrationTestUtil.resetJDBCConnection();
-    DatabricksHttpClient.resetInstance();
   }
 
   /** {@inheritDoc} */
@@ -193,7 +196,6 @@ public class FakeServiceExtension extends DatabricksWireMockExtension {
   @Override
   protected void onAfterAll(WireMockRuntimeInfo wireMockRuntimeInfo, ExtensionContext context)
       throws Exception {
-    DatabricksHttpClient.resetInstance();
     clearFakeServiceProperties();
 
     super.onAfterAll(wireMockRuntimeInfo, context);
@@ -231,7 +233,16 @@ public class FakeServiceExtension extends DatabricksWireMockExtension {
         throw new IllegalStateException("Unsupported fake service type: " + fakeServiceType);
     }
 
-    return String.format("%s/%s/%s", basePath, testClassName, testMethodName);
+    String uniqueID = context.getUniqueId();
+    int invocationIndex = uniqueID.indexOf(TEST_INVOCATION_INDEX_KEY);
+    if (invocationIndex != -1) {
+      uniqueID =
+          uniqueID.substring(
+              uniqueID.lastIndexOf(TEST_INVOCATION_INDEX_KEY), uniqueID.length() - 1);
+      return String.format("%s/%s/%s.%s", basePath, testClassName, testMethodName, uniqueID);
+    } else {
+      return String.format("%s/%s/%s", basePath, testClassName, testMethodName);
+    }
   }
 
   /** Loads stub mappings from the stubbing directory. */

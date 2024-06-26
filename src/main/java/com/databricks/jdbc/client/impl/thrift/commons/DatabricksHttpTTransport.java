@@ -10,7 +10,7 @@ import java.io.InputStream;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
-import org.apache.http.HttpResponse;
+import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.entity.ByteArrayEntity;
 import org.apache.logging.log4j.LogManager;
@@ -27,6 +27,7 @@ public class DatabricksHttpTTransport extends TTransport {
   private Map<String, String> customHeaders = Collections.emptyMap();
   private final ByteArrayOutputStream requestBuffer;
   private InputStream inputStream = null;
+  private CloseableHttpResponse response = null;
   private static final Map<String, String> DEFAULT_HEADERS =
       Collections.unmodifiableMap(getDefaultHeaders());
 
@@ -49,7 +50,7 @@ public class DatabricksHttpTTransport extends TTransport {
 
   @Override
   public void close() {
-    if (null != inputStream) {
+    if (inputStream != null) {
       try {
         inputStream.close();
       } catch (IOException e) {
@@ -57,6 +58,14 @@ public class DatabricksHttpTTransport extends TTransport {
             "Failed to close inputStream with error {}. Skipping the close.", e.toString());
       }
       inputStream = null;
+    }
+    if (response != null) {
+      try {
+        response.close();
+      } catch (IOException e) {
+        LOGGER.error("Failed to close response with error {}", e.toString());
+      }
+      response = null;
     }
   }
 
@@ -114,7 +123,7 @@ public class DatabricksHttpTTransport extends TTransport {
         customHeaders.forEach(request::addHeader);
       }
       request.setEntity(new ByteArrayEntity(requestBuffer.toByteArray()));
-      HttpResponse response = httpClient.execute(request);
+      response = httpClient.execute(request);
       ValidationUtil.checkHTTPError(response);
       inputStream = response.getEntity().getContent();
       requestBuffer.reset();

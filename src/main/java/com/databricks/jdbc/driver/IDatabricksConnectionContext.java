@@ -73,6 +73,10 @@ public interface IDatabricksConnectionContext {
 
   String getLogPathString();
 
+  int getLogFileSize();
+
+  int getLogFileCount();
+
   String getClientUserAgent();
 
   CompressionType getCompressionType();
@@ -125,4 +129,16 @@ public interface IDatabricksConnectionContext {
 
   /** Returns the number of threads to be used for fetching data from cloud storage */
   int getCloudFetchThreadPoolSize();
+
+  Boolean getDirectResultMode();
+
+  int getTemporarilyUnavailableRetryInterval();
+
+  int getTemporarilyUnavailableRetryTimeout();
+
+  int getRateLimitRetryInterval();
+
+  int getRateLimitRetryTimeout();
+
+  int getIdleHttpConnectionExpiry();
 }

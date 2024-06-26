@@ -89,7 +89,6 @@ public class DatabricksConnectionTest {
             new Warehouse(WAREHOUSE_ID), CATALOG, SCHEMA, new HashMap<>()))
         .thenReturn(IMMUTABLE_SESSION_INFO);
     connection = new DatabricksConnection(connectionContext, databricksClient);
-    when(resultSet.hasUpdateCount()).thenReturn(true);
     when(databricksClient.executeStatement(
             eq("SET CATALOG hive_metastore"),
             eq(new Warehouse(WAREHOUSE_ID)),

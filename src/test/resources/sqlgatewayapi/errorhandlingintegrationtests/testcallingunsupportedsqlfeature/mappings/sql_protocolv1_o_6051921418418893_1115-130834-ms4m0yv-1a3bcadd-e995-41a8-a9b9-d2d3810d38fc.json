@@ -1,0 +1,31 @@
+{
+  "id" : "1a3bcadd-e995-41a8-a9b9-d2d3810d38fc",
+  "name" : "sql_protocolv1_o_6051921418418893_1115-130834-ms4m0yv",
+  "request" : {
+    "url" : "/sql/protocolv1/o/6051921418418893/1115-130834-ms4m0yv",
+    "method" : "POST",
+    "bodyPatterns" : [ {
+      "binaryEqualTo" : "gAEAAQAAABBFeGVjdXRlU3RhdGVtZW50AAAABAwAAQwAAQwAAQsAAQAAABA6PtsqaF9MmY9kKp+2q5nlCwACAAAAENDlIm5bM0pqhXQO3hL6vlkAAAsAAgAAAE1EUk9QIFRBQkxFIElGIEVYSVNUUyBtYWluLmpkYmNfdGVzdF9zY2hlbWEudW5zdXBwb3J0ZWRfc3FsX2ZlYXR1cmVfdGVzdF90YWJsZQwFAQoAAQAAAAAAHoSACgACAAAAABghowAAAgUCAQIFAwEAAA=="
+    } ]
+  },
+  "response" : {
+    "status" : 200,
+    "base64Body" : "gAEAAgAAABBFeGVjdXRlU3RhdGVtZW50AAAABAwAAAwAAQgAAQAAAAAADAACDAABCwABAAAAEJrp22kRG0TktPx42oWwlt4LAAIAAAAQn/M71PMrSyihn97Om778HwYNAQAAAAgAAgAAAAACAAMBAAwFAQwAAQwAAQgAAQAAAAAACAACAAAAAggNAgAAAAAADAACDAABCAABAAAAAAAMAAIPAAEMAAAAAQsAAQAAAAZSZXN1bHQMAAIPAAEMAAAAAQwAAQgAAQAAAAcAAAAIAAMAAAABCwAEAAAAAAAACAUBAAAAAAIFAgALBQMAAABI/////0AAAAAQAAAAAAAKAA4ABgANAAgACgAAAAAABAAQAAAAAAEKAAwAAAAIAAQACgAAAAgAAAAIAAAAAAAAAAAAAAAAAAAACAUEAAAAAAoFBQAAAAAAAAAACgUGAAAAAAAAAAACBQcACA0BAAAABQoNBQAAAAAAAAAAAg0RAAAMAAMMAAEIAAEAAAAAAAIAAgAMAAMKAAEAAAAAAAAAAA8AAgwAAAAADwUBDAAAAAAAAAwABAwAAQgAAQAAAAAAAAAAAA==",
+    "headers" : {
+      "date" : "Thu, 13 Jun 2024 15:56:37 GMT,Thu, 13 Jun 2024 15:56:37 GMT",
+      "server" : "databricks",
+      "x-databricks-popp-request-id" : "318178ee-c0b2-45dc-b87a-14329fe065dd",
+      "x-content-type-options" : [ "nosniff", "nosniff" ],
+      "x-xss-protection" : "1; mode=block",
+      "x-databricks-shard-debug" : "oregon-staging",
+      "x-frame-options" : "SAMEORIGIN",
+      "x-databricks-popp-shadow-routing-reason" : "deployment-name",
+      "x-databricks-org-id" : "6051921418418893",
+      "x-databricks-popp-routing-reason" : "deployment-name",
+      "content-type" : "application/x-thrift",
+      "strict-transport-security" : [ "max-age=31536000; includeSubDomains; preload", "max-age=31536000; includeSubDomains; preload" ]
+    }
+  },
+  "uuid" : "1a3bcadd-e995-41a8-a9b9-d2d3810d38fc",
+  "insertionIndex" : 1
+}

@@ -11,6 +11,8 @@ import javax.annotation.Nullable;
 /** Session interface to represent an open connection to Databricks server. */
 public interface IDatabricksSession {
 
+  void setMetadataClient(boolean useLegacyMetadataClient);
+
   /**
    * Get the unique session-Id associated with the session.
    *

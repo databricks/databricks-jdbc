@@ -126,7 +126,7 @@ jobs:
         run: mvn -B package --file pom.xml
 
       - name: Run Integration Tests
-        run: mvn -B test -Dtest=**/e2e/*.java,!**/e2e/UCMetadataTests.java
+        run: mvn -B test -Dtest=**/fakeservice/tests/*.java,!**/fakeservice/tests/ConcurrencyIntegrationTests.java,!**/fakeservice/tests/PreparedStatementIntegrationTests.java
         env:
           DATABRICKS_HOST: ${{ env.DATABRICKS_HOST }}
           DATABRICKS_TOKEN: ${{ env.DATABRICKS_TOKEN }}

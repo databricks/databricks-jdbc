@@ -23,7 +23,7 @@ public class DatabricksSession implements IDatabricksSession {
 
   private static final Logger LOGGER = LogManager.getLogger(DatabricksSession.class);
   private final DatabricksClient databricksClient;
-  private final DatabricksMetadataClient databricksMetadataClient;
+  private DatabricksMetadataClient databricksMetadataClient;
   private final ComputeResource computeResource;
 
   private boolean isSessionOpen;
@@ -53,13 +53,6 @@ public class DatabricksSession implements IDatabricksSession {
       this.databricksMetadataClient = null;
     } else {
       this.databricksClient = new DatabricksSdkClient(connectionContext);
-      if (connectionContext.getUseLegacyMetadata()) {
-        this.databricksMetadataClient =
-            new DatabricksMetadataSdkClient((DatabricksSdkClient) databricksClient);
-      } else {
-        this.databricksMetadataClient =
-            new DatabricksNewMetadataSdkClient((DatabricksSdkClient) databricksClient);
-      }
     }
     this.isSessionOpen = false;
     this.sessionInfo = null;
@@ -70,6 +63,17 @@ public class DatabricksSession implements IDatabricksSession {
     this.clientInfoProperties = new HashMap<>();
     this.compressionType = connectionContext.getCompressionType();
     this.connectionContext = connectionContext;
+  }
+
+  @Override
+  public void setMetadataClient(boolean useLegacyMetadataClient) {
+    if (connectionContext.getClientType() == DatabricksClientType.THRIFT) {
+      return;
+    }
+    this.databricksMetadataClient =
+        useLegacyMetadataClient
+            ? new DatabricksMetadataSdkClient((DatabricksSdkClient) databricksClient)
+            : new DatabricksNewMetadataSdkClient((DatabricksSdkClient) databricksClient);
   }
 
   /** Constructor method to be used for mocking in a test case. */
