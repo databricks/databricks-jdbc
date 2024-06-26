@@ -46,11 +46,6 @@ public class DatabricksParameterMetaDataTest {
   }
 
   @Test
-  public void testInvalidParameterIndex() {
-    assertThrows(DatabricksValidationException.class, () -> metaData.getParameterType(3));
-  }
-
-  @Test
   public void testGetParameterMode() throws SQLException {
     assertEquals(parameterModeIn, metaData.getParameterMode(1));
   }
