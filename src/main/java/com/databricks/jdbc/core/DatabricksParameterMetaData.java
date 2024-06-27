@@ -14,7 +14,7 @@ import org.apache.logging.log4j.Logger;
 
 public class DatabricksParameterMetaData implements ParameterMetaData {
   // TODO : this class is not fully implemented. Tracked in PECO-1738
-  private static final Logger LOGGER = LogManager.getLogger(DatabricksSdkClient.class);
+  private static final Logger LOGGER = LogManager.getLogger(DatabricksParameterMetaData.class);
 
   private final Map<Integer, ImmutableSqlParameter> parameterBindings;
 
