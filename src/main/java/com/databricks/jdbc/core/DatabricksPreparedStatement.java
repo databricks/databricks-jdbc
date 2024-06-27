@@ -22,7 +22,7 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
 
   private static final Logger LOGGER = LogManager.getLogger(DatabricksPreparedStatement.class);
   private final String sql;
-  DatabricksParameterMetaData databricksParameterMetaData;
+  private final DatabricksParameterMetaData databricksParameterMetaData;
 
   private final int CHUNK_SIZE = 8192;
 
@@ -212,7 +212,7 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
   public void clearParameters() throws SQLException {
     LOGGER.debug("public void clearParameters()");
     checkIfClosed();
-    this.databricksParameterMetaData.getParameterBindings();
+    this.databricksParameterMetaData.getParameterBindings().clear();
   }
 
   @Override
@@ -225,7 +225,7 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
       return;
     }
     // TODO: handle other types
-    throw new UnsupportedOperationException(
+    throw new DatabricksSQLFeatureNotImplementedException(
         "Not implemented in DatabricksPreparedStatement - setObject(int parameterIndex, Object x, int targetSqlType)");
   }
 
