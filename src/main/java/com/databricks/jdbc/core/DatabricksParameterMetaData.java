@@ -2,7 +2,6 @@ package com.databricks.jdbc.core;
 
 import static com.databricks.jdbc.driver.DatabricksJdbcConstants.EMPTY_STRING;
 
-import com.databricks.jdbc.client.impl.sdk.DatabricksSdkClient;
 import com.databricks.jdbc.commons.util.WrapperUtil;
 import com.databricks.sdk.service.sql.ColumnInfoTypeName;
 import java.sql.ParameterMetaData;
