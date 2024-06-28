@@ -38,6 +38,15 @@ public class ValidationUtil {
       return;
     }
     LOGGER.debug("Response has failure HTTP Code");
+    String thriftErrorHeader = "X-Thriftserver-Error-Message";
+    if (response.containsHeader(thriftErrorHeader)) {
+      String errorMessage = response.getFirstHeader(thriftErrorHeader).getValue();
+      throw new DatabricksHttpException(
+          "HTTP Response code: "
+              + response.getStatusLine().getStatusCode()
+              + ", Error message: "
+              + errorMessage);
+    }
     String errorMessage =
         String.format("HTTP request failed by code: %d, status line: %s", statusCode, statusLine);
     throw new DatabricksHttpException(

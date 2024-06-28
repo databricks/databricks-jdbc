@@ -1,6 +1,7 @@
 package com.databricks.jdbc.client.impl.thrift.commons;
 
 import static com.databricks.jdbc.client.impl.thrift.commons.DatabricksThriftHelper.*;
+import static com.databricks.jdbc.client.impl.thrift.generated.TStatusCode.*;
 import static com.databricks.jdbc.commons.EnvironmentVariables.*;
 
 import com.databricks.jdbc.client.DatabricksHttpException;
@@ -13,7 +14,9 @@ import com.databricks.jdbc.driver.IDatabricksConnectionContext;
 import com.databricks.sdk.core.DatabricksConfig;
 import com.google.common.annotations.VisibleForTesting;
 import java.sql.SQLException;
+import java.util.Arrays;
 import java.util.Map;
+import org.apache.http.HttpException;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.thrift.TBase;
@@ -105,6 +108,13 @@ public class DatabricksThriftAccessor {
           throw new DatabricksSQLFeatureNotSupportedException(errorMessage);
       }
     } catch (TException | SQLException e) {
+      Throwable cause = e;
+      while (cause != null) {
+        if (cause instanceof HttpException) {
+          throw new DatabricksHttpException(cause.getMessage(), cause);
+        }
+        cause = cause.getCause();
+      }
       String errorMessage =
           String.format(
               "Error while receiving response from Thrift server. Request {%s}, Error {%s}",
@@ -120,8 +130,7 @@ public class DatabricksThriftAccessor {
   public TFetchResultsResp getResultSetResp(TOperationHandle operationHandle, String context)
       throws DatabricksHttpException {
     refreshHeadersIfRequired();
-    return getResultSetResp(
-        TStatusCode.SUCCESS_STATUS, operationHandle, context, DEFAULT_ROW_LIMIT, false);
+    return getResultSetResp(SUCCESS_STATUS, operationHandle, context, DEFAULT_ROW_LIMIT, false);
   }
 
   private TFetchResultsResp getResultSetResp(
@@ -209,10 +218,24 @@ public class DatabricksThriftAccessor {
         (DatabricksHttpTTransport) getThriftClient().getInputProtocol().getTransport();
     try {
       response = getThriftClient().ExecuteStatement(request);
+      if (Arrays.asList(ERROR_STATUS, INVALID_HANDLE_STATUS).contains(response.status.statusCode)) {
+        throw new DatabricksSQLException(response.status.errorMessage);
+      }
       if (response.isSetDirectResults()) {
-        checkDirectResultsForErrorStatus(response.getDirectResults(), response.toString());
-        resultSet = response.getDirectResults().getResultSet();
-        resultSet.setResultSetMetadata(response.getDirectResults().getResultSetMetadata());
+        if (enableDirectResults) {
+          if (response.getDirectResults().isSetOperationStatus()
+              && response.getDirectResults().operationStatus.operationState
+                  == TOperationState.ERROR_STATE) {
+            throw new DatabricksSQLException(
+                response.getDirectResults().getOperationStatus().errorMessage);
+          }
+        }
+        if (((response.status.statusCode == SUCCESS_STATUS)
+            || (response.status.statusCode == SUCCESS_WITH_INFO_STATUS))) {
+          checkDirectResultsForErrorStatus(response.getDirectResults(), response.toString());
+          resultSet = response.getDirectResults().getResultSet();
+          resultSet.setResultSetMetadata(response.getDirectResults().getResultSetMetadata());
+        }
       } else {
         longPolling(response.getOperationHandle());
         resultSet =

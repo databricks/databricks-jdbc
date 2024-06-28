@@ -177,6 +177,25 @@ public class DatabricksThriftAccessorTest {
   }
 
   @Test
+  void testExecute_throwsException() throws TException {
+    setup(true);
+    accessor = new DatabricksThriftAccessor(thriftClient, config, connectionContext);
+    TExecuteStatementReq request = new TExecuteStatementReq();
+    TExecuteStatementResp tExecuteStatementResp =
+        new TExecuteStatementResp()
+            .setStatus(
+                new TStatus()
+                    .setStatusCode(TStatusCode.ERROR_STATUS)
+                    .setErrorMessage("Test Error Message"));
+    when(thriftClient.ExecuteStatement(request)).thenReturn(tExecuteStatementResp);
+    DatabricksSQLException e =
+        assertThrows(
+            DatabricksSQLException.class,
+            () -> accessor.execute(request, null, null, StatementType.SQL));
+    assert (e.getMessage().contains("Test Error Message"));
+  }
+
+  @Test
   void testListPrimaryKeys() throws TException, DatabricksSQLException {
     setup(true);
     TGetPrimaryKeysReq request = new TGetPrimaryKeysReq();

@@ -210,11 +210,9 @@ public final class DatabricksJdbcConstants {
   public static final String USE_LEGACY_METADATA = "uselegacymetadata";
 
   static final String TEMPORARILY_UNAVAILABLE_RETRY = "TemporarilyUnavailableRetry";
-  public static final String DEFAULT_TEMPORARILY_UNAVAILABLE_RETRY = "1";
   static final String TEMPORARILY_UNAVAILABLE_RETRY_TIMEOUT = "TemporarilyUnavailableRetryTimeout";
   public static final String DEFAULT_TEMPORARILY_UNAVAILABLE_RETRY_TIMEOUT = "900";
   static final String RATE_LIMIT_RETRY = "RateLimitRetry";
-  public static final String DEFAULT_RATE_LIMIT_RETRY = "1";
   static final String RATE_LIMIT_RETRY_TIMEOUT = "RateLimitRetryTimeout";
   public static final String DEFAULT_RATE_LIMIT_RETRY_TIMEOUT = "120";
   static final String IDLE_HTTP_CONNECTION_EXPIRY = "IdleHttpConnectionExpiry";
@@ -251,4 +249,6 @@ public final class DatabricksJdbcConstants {
       Pattern.compile("^(\\s*\\()*\\s*DECLARE", Pattern.CASE_INSENSITIVE);
   static final int DBSQL_MIN_MAJOR_VERSION_FOR_NEW_METADATA = 2024;
   static final int DBSQL_MIN_MINOR_VERSION_FOR_NEW_METADATA = 30;
+
+  public static final int DEFAULT_RETRY_COUNT = 5;
 }

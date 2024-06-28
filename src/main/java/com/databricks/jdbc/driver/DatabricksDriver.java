@@ -64,8 +64,22 @@ public class DatabricksDriver implements Driver {
       }
       return connection;
     } catch (Exception e) {
+      Throwable cause = e;
+      while (cause != null) {
+        if (cause instanceof DatabricksSQLException) {
+          throw new DatabricksSQLException(
+              "Communication link failure. Failed to connect to server. : "
+                  + connectionContext.getHostUrl()
+                  + cause.getMessage(),
+              cause.getCause());
+        }
+        cause = cause.getCause();
+      }
       throw new DatabricksSQLException(
-          "Invalid or unknown token or hostname provided :" + connectionContext.getHostUrl(), e);
+          "Communication link failure. Failed to connect to server. :"
+              + connectionContext.getHostUrl()
+              + e.getMessage(),
+          e);
     }
   }
 

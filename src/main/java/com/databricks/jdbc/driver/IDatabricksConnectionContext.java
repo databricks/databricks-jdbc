@@ -132,11 +132,11 @@ public interface IDatabricksConnectionContext {
 
   Boolean getDirectResultMode();
 
-  int getTemporarilyUnavailableRetryInterval();
+  Boolean shouldRetryTemporarilyUnavailableError();
+
+  Boolean shouldRetryRateLimitError();
 
   int getTemporarilyUnavailableRetryTimeout();
-
-  int getRateLimitRetryInterval();
 
   int getRateLimitRetryTimeout();
 

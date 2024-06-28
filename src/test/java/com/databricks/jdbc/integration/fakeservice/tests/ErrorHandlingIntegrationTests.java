@@ -38,7 +38,7 @@ public class ErrorHandlingIntegrationTests extends AbstractFakeServiceIntegratio
             () ->
                 getConnection(
                     "jdbc:databricks://e2-wrongfood.staging.cloud.databricks.com:443/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/791ba2a31c7fd70a;"));
-    assertTrue(e.getMessage().contains("Invalid or unknown token or hostname provided"));
+    assertTrue(e.getMessage().contains("Communication link failure. Failed to connect to server."));
   }
 
   @Test
@@ -57,7 +57,7 @@ public class ErrorHandlingIntegrationTests extends AbstractFakeServiceIntegratio
                       + " (id, col1, col2) VALUES (1, 'value1', 'value2')";
               statement.executeQuery(sql);
             });
-    assertTrue(e.getMessage().contains("Error occurred during statement execution"));
+    assertTrue(e.getMessage().contains("Syntax error"));
     deleteTable(tableName);
   }
 

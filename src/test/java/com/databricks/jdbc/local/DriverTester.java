@@ -96,13 +96,10 @@ public class DriverTester {
   void testAllPurposeClusters() throws Exception {
     String jdbcUrl =
         "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;ssl=1;AuthMech=3;httpPath=sql/protocolv1/o/6051921418418893/1115-130834-ms4m0yv";
-    Connection con = DriverManager.getConnection(jdbcUrl, "samikshya.chand@databricks.com", "x");
-    DriverManager.getConnection(jdbcUrl, "samikshya.chand@databricks.com", "x");
+    Connection con = DriverManager.getConnection(jdbcUrl, "samikshya.chand@databricks.com", "xx");
     System.out.println("Connection established......");
-    Statement statement = con.createStatement();
-    ResultSet rs =
-        statement.executeQuery("SELECT * from lb_demo.demographics_fs.demographics LIMIT 10");
-    printResultSet(rs);
+    Statement s = con.createStatement();
+    s.executeQuery("SELECT *5 from RANGE(100000000)");
     con.close();
     System.out.println("Connection closed successfully......");
   }
@@ -249,5 +246,17 @@ public class DriverTester {
     }
     ResultSet rs = pstmt.executeQuery();
     printResultSet(rs);
+}
+  
+    @Test
+  void testAllPurposeClusters_errorHandling() throws Exception {
+    String jdbcUrl =
+        "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;ssl=1;AuthMech=3;httpPath=sql/protocolv1/o/6051921418418893/1115-130834-ms4m0yv;enableDirectResults=1";
+    Connection con = DriverManager.getConnection(jdbcUrl, "token", "xx");
+    System.out.println("Connection established......");
+    Statement s = con.createStatement();
+    s.executeQuery("SELECT * from RANGE(10)");
+    con.close();
+    System.out.println("Connection closed successfully......");
   }
 }

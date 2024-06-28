@@ -490,9 +490,13 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   }
 
   @Override
-  public int getTemporarilyUnavailableRetryInterval() {
-    return Integer.parseInt(
-        getParameter(TEMPORARILY_UNAVAILABLE_RETRY, DEFAULT_TEMPORARILY_UNAVAILABLE_RETRY));
+  public Boolean shouldRetryTemporarilyUnavailableError() {
+    return Objects.equals(getParameter(TEMPORARILY_UNAVAILABLE_RETRY, "1"), "1");
+  }
+
+  @Override
+  public Boolean shouldRetryRateLimitError() {
+    return Objects.equals(getParameter(RATE_LIMIT_RETRY, "1"), "1");
   }
 
   @Override
@@ -500,11 +504,6 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
     return Integer.parseInt(
         getParameter(
             TEMPORARILY_UNAVAILABLE_RETRY_TIMEOUT, DEFAULT_TEMPORARILY_UNAVAILABLE_RETRY_TIMEOUT));
-  }
-
-  @Override
-  public int getRateLimitRetryInterval() {
-    return Integer.parseInt(getParameter(RATE_LIMIT_RETRY, DEFAULT_RATE_LIMIT_RETRY));
   }
 
   @Override
