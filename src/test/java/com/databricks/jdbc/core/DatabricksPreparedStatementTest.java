@@ -1,5 +1,6 @@
 package com.databricks.jdbc.core;
 
+import static com.databricks.jdbc.TestConstants.TEST_STRING;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -19,6 +20,7 @@ import java.nio.charset.StandardCharsets;
 import java.sql.*;
 import java.util.Calendar;
 import java.util.HashMap;
+import java.util.Map;
 import java.util.Properties;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -33,10 +35,33 @@ public class DatabricksPreparedStatementTest {
       "SELECT * FROM orders WHERE user_id = ? AND shard = ? AND region_code = ? AND namespace = ?";
   private static final String JDBC_URL =
       "jdbc:databricks://adb-565757575.18.azuredatabricks.net:4423/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/erg6767gg;";
+  private static final String JDBC_URL_WITH_MANY_PARAMETERS =
+      "jdbc:databricks://adb-565757575.18.azuredatabricks.net:4423/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/erg6767gg;supportManyParameters=1;";
 
   @Mock DatabricksResultSet resultSet;
 
   @Mock DatabricksSdkClient client;
+  @Mock DatabricksConnection connection;
+  @Mock DatabricksSession session;
+
+  private static final String INTERPOLATED_INITIAL_STATEMENT =
+      "SELECT * FROM orders WHERE user_id = ? AND name = ?";
+  private static final String INTERPOLATED_PROCESSED_STATEMENT =
+      "SELECT * FROM orders WHERE user_id = 1 AND name = 'test'";
+  Map<Integer, ImmutableSqlParameter> PARAM_MAP =
+      new HashMap<>() {
+        {
+          put(1, getSqlParam(1, 1, DatabricksTypeUtil.INT));
+          put(2, getSqlParam(2, TEST_STRING, DatabricksTypeUtil.STRING));
+        }
+      };
+
+  void setupMocks() throws DatabricksSQLException {
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContext.parse(JDBC_URL, new Properties());
+    when(connection.getSession()).thenReturn(session);
+    when(session.getConnectionContext()).thenReturn(connectionContext);
+  }
 
   @Test
   public void testExecuteStatement() throws Exception {
@@ -75,6 +100,31 @@ public class DatabricksPreparedStatementTest {
   }
 
   @Test
+  public void testExecuteStatementWithManyParameters() throws Exception {
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContext.parse(JDBC_URL_WITH_MANY_PARAMETERS, new Properties());
+    DatabricksConnection connection = new DatabricksConnection(connectionContext, client);
+    DatabricksPreparedStatement statement =
+        new DatabricksPreparedStatement(connection, INTERPOLATED_INITIAL_STATEMENT);
+    statement.setInt(1, 1);
+    statement.setString(2, TEST_STRING);
+    when(client.executeStatement(
+            eq(INTERPOLATED_PROCESSED_STATEMENT),
+            eq(new Warehouse(WAREHOUSE_ID)),
+            any(HashMap.class),
+            eq(StatementType.QUERY),
+            any(IDatabricksSession.class),
+            eq(statement)))
+        .thenReturn(resultSet);
+
+    DatabricksResultSet newResultSet = (DatabricksResultSet) statement.executeQuery();
+    assertFalse(statement.isClosed());
+    assertEquals(resultSet, newResultSet);
+    statement.close();
+    assertTrue(statement.isClosed());
+  }
+
+  @Test
   public void testExecuteUpdateStatement() throws Exception {
     IDatabricksConnectionContext connectionContext =
         DatabricksConnectionContext.parse(JDBC_URL, new Properties());
@@ -97,7 +147,8 @@ public class DatabricksPreparedStatementTest {
     assertTrue(statement.isClosed());
   }
 
-  private ImmutableSqlParameter getSqlParam(int parameterIndex, Object x, String databricksType) {
+  public static ImmutableSqlParameter getSqlParam(
+      int parameterIndex, Object x, String databricksType) {
     return ImmutableSqlParameter.builder()
         .type(DatabricksTypeUtil.getColumnInfoType(databricksType))
         .value(x)
@@ -106,79 +157,90 @@ public class DatabricksPreparedStatementTest {
   }
 
   @Test
-  public void testSetBoolean() {
+  public void testSetBoolean() throws DatabricksSQLException {
+    setupMocks();
     DatabricksPreparedStatement preparedStatement =
-        new DatabricksPreparedStatement(null, STATEMENT);
+        new DatabricksPreparedStatement(connection, STATEMENT);
     assertDoesNotThrow(() -> preparedStatement.setBoolean(1, true));
   }
 
   @Test
-  public void testSetByte() {
+  public void testSetByte() throws DatabricksSQLException {
+    setupMocks();
     DatabricksPreparedStatement preparedStatement =
-        new DatabricksPreparedStatement(null, STATEMENT);
+        new DatabricksPreparedStatement(connection, STATEMENT);
     assertDoesNotThrow(() -> preparedStatement.setByte(1, (byte) 1));
   }
 
   @Test
-  public void testSetShort() {
+  public void testSetShort() throws DatabricksSQLException {
+    setupMocks();
     DatabricksPreparedStatement preparedStatement =
-        new DatabricksPreparedStatement(null, STATEMENT);
+        new DatabricksPreparedStatement(connection, STATEMENT);
     assertDoesNotThrow(() -> preparedStatement.setShort(1, (short) 1));
   }
 
   @Test
-  public void testSetInt() {
+  public void testSetInt() throws DatabricksSQLException {
+    setupMocks();
     DatabricksPreparedStatement preparedStatement =
-        new DatabricksPreparedStatement(null, STATEMENT);
+        new DatabricksPreparedStatement(connection, STATEMENT);
     assertDoesNotThrow(() -> preparedStatement.setInt(1, 1));
   }
 
   @Test
-  public void testSetLong() {
+  public void testSetLong() throws DatabricksSQLException {
+    setupMocks();
     DatabricksPreparedStatement preparedStatement =
-        new DatabricksPreparedStatement(null, STATEMENT);
+        new DatabricksPreparedStatement(connection, STATEMENT);
     assertDoesNotThrow(() -> preparedStatement.setLong(1, 1L));
   }
 
   @Test
-  public void testSetFloat() {
+  public void testSetFloat() throws DatabricksSQLException {
+    setupMocks();
     DatabricksPreparedStatement preparedStatement =
-        new DatabricksPreparedStatement(null, STATEMENT);
+        new DatabricksPreparedStatement(connection, STATEMENT);
     assertDoesNotThrow(() -> preparedStatement.setFloat(1, 1.0f));
   }
 
   @Test
-  public void testSetDouble() {
+  public void testSetDouble() throws DatabricksSQLException {
+    setupMocks();
     DatabricksPreparedStatement preparedStatement =
-        new DatabricksPreparedStatement(null, STATEMENT);
+        new DatabricksPreparedStatement(connection, STATEMENT);
     assertDoesNotThrow(() -> preparedStatement.setDouble(1, 1.0));
   }
 
   @Test
-  public void testSetBigDecimal() {
+  public void testSetBigDecimal() throws DatabricksSQLException {
+    setupMocks();
     DatabricksPreparedStatement preparedStatement =
-        new DatabricksPreparedStatement(null, STATEMENT);
+        new DatabricksPreparedStatement(connection, STATEMENT);
     assertDoesNotThrow(() -> preparedStatement.setBigDecimal(1, BigDecimal.ONE));
   }
 
   @Test
-  public void testSetString() {
+  public void testSetString() throws DatabricksSQLException {
+    setupMocks();
     DatabricksPreparedStatement preparedStatement =
-        new DatabricksPreparedStatement(null, STATEMENT);
+        new DatabricksPreparedStatement(connection, STATEMENT);
     assertDoesNotThrow(() -> preparedStatement.setString(1, "test"));
   }
 
   @Test
-  public void testSetDate() {
+  public void testSetDate() throws DatabricksSQLException {
+    setupMocks();
     DatabricksPreparedStatement preparedStatement =
-        new DatabricksPreparedStatement(null, STATEMENT);
+        new DatabricksPreparedStatement(connection, STATEMENT);
     assertDoesNotThrow(() -> preparedStatement.setDate(1, new Date(System.currentTimeMillis())));
   }
 
   @Test
-  public void testSetDateWithCalendar() {
+  public void testSetDateWithCalendar() throws DatabricksSQLException {
+    setupMocks();
     DatabricksPreparedStatement preparedStatement =
-        new DatabricksPreparedStatement(null, STATEMENT);
+        new DatabricksPreparedStatement(connection, STATEMENT);
 
     Date date = new Date(System.currentTimeMillis());
     Calendar cal = Calendar.getInstance();
@@ -186,17 +248,19 @@ public class DatabricksPreparedStatementTest {
   }
 
   @Test
-  public void testSetTimestamp() {
+  public void testSetTimestamp() throws DatabricksSQLException {
+    setupMocks();
     DatabricksPreparedStatement preparedStatement =
-        new DatabricksPreparedStatement(null, STATEMENT);
+        new DatabricksPreparedStatement(connection, STATEMENT);
     assertDoesNotThrow(
         () -> preparedStatement.setTimestamp(1, new Timestamp(System.currentTimeMillis())));
   }
 
   @Test
-  public void testSetTimestampWithCalendar() {
+  public void testSetTimestampWithCalendar() throws DatabricksSQLException {
+    setupMocks();
     DatabricksPreparedStatement preparedStatement =
-        new DatabricksPreparedStatement(null, STATEMENT);
+        new DatabricksPreparedStatement(connection, STATEMENT);
     assertDoesNotThrow(
         () ->
             preparedStatement.setTimestamp(
@@ -204,9 +268,10 @@ public class DatabricksPreparedStatementTest {
   }
 
   @Test
-  public void testSetAsciiStream() {
+  public void testSetAsciiStream() throws DatabricksSQLException {
+    setupMocks();
     DatabricksPreparedStatement preparedStatement =
-        new DatabricksPreparedStatement(null, STATEMENT);
+        new DatabricksPreparedStatement(connection, STATEMENT);
 
     byte[] bytes = {0x01, 0x02, 0x03, 0x04};
     InputStream asciiStream = new ByteArrayInputStream(bytes);
@@ -218,9 +283,10 @@ public class DatabricksPreparedStatementTest {
   }
 
   @Test
-  public void testSetAsciiStreamWithLong() {
+  public void testSetAsciiStreamWithLong() throws DatabricksSQLException {
+    setupMocks();
     DatabricksPreparedStatement preparedStatement =
-        new DatabricksPreparedStatement(null, STATEMENT);
+        new DatabricksPreparedStatement(connection, STATEMENT);
 
     byte[] bytes = {0x01, 0x02, 0x03, 0x04};
     InputStream asciiStream = new ByteArrayInputStream(bytes);
@@ -232,9 +298,10 @@ public class DatabricksPreparedStatementTest {
   }
 
   @Test
-  public void testSetCharacterStream() {
+  public void testSetCharacterStream() throws DatabricksSQLException {
+    setupMocks();
     DatabricksPreparedStatement preparedStatement =
-        new DatabricksPreparedStatement(null, STATEMENT);
+        new DatabricksPreparedStatement(connection, STATEMENT);
 
     String originalString = "Hello, World!";
     Reader characterStream = new StringReader(originalString);
@@ -244,9 +311,10 @@ public class DatabricksPreparedStatementTest {
   }
 
   @Test
-  public void testSetCharacterStreamWithLong() throws Exception {
+  public void testSetCharacterStreamWithLong() throws DatabricksSQLException {
+    setupMocks();
     DatabricksPreparedStatement preparedStatement =
-        new DatabricksPreparedStatement(null, STATEMENT);
+        new DatabricksPreparedStatement(connection, STATEMENT);
 
     String originalString = "Hello, World!";
     Reader characterStream = new StringReader(originalString);
@@ -258,9 +326,10 @@ public class DatabricksPreparedStatementTest {
   }
 
   @Test
-  public void testSetAsciiStreamWithoutLength() {
+  public void testSetAsciiStreamWithoutLength() throws DatabricksSQLException {
+    setupMocks();
     DatabricksPreparedStatement preparedStatement =
-        new DatabricksPreparedStatement(null, STATEMENT);
+        new DatabricksPreparedStatement(connection, STATEMENT);
 
     byte[] bytes = "Hello, World!".getBytes(StandardCharsets.US_ASCII);
     InputStream asciiStream = new ByteArrayInputStream(bytes);
@@ -269,9 +338,10 @@ public class DatabricksPreparedStatementTest {
   }
 
   @Test
-  public void testSetCharacterStreamWithoutLength() {
+  public void testSetCharacterStreamWithoutLength() throws DatabricksSQLException {
+    setupMocks();
     DatabricksPreparedStatement preparedStatement =
-        new DatabricksPreparedStatement(null, STATEMENT);
+        new DatabricksPreparedStatement(connection, STATEMENT);
 
     String originalString = "Hello, World!";
     Reader characterStream = new StringReader(originalString);

@@ -418,7 +418,7 @@ public class DatabricksStatement implements IDatabricksStatement, Statement {
     String stackTraceMessage =
         format(
             "DatabricksResultSet executeInternal(String sql = %s,Map<Integer, ImmutableSqlParameter> params = {%s}, StatementType statementType = {%s})",
-            sql, params.toString(), statementType.toString());
+            sql, params, statementType.toString());
     LOGGER.debug(stackTraceMessage);
     CompletableFuture<DatabricksResultSet> futureResultSet =
         getFutureResult(sql, params, statementType);
