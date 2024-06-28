@@ -246,9 +246,9 @@ public class DriverTester {
     }
     ResultSet rs = pstmt.executeQuery();
     printResultSet(rs);
-}
-  
-    @Test
+  }
+
+  @Test
   void testAllPurposeClusters_errorHandling() throws Exception {
     String jdbcUrl =
         "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;ssl=1;AuthMech=3;httpPath=sql/protocolv1/o/6051921418418893/1115-130834-ms4m0yv;enableDirectResults=1";
