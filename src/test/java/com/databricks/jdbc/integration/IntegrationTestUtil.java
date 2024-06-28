@@ -65,7 +65,6 @@ public class IntegrationTestUtil {
   }
 
   public static String getDatabricksUrlForM2M() {
-    // includes port
     return System.getenv("DATABRICKS_JDBC_M2M_URL");
   }
 
