@@ -216,6 +216,7 @@ public final class DatabricksJdbcConstants {
   static final String RATE_LIMIT_RETRY_TIMEOUT = "RateLimitRetryTimeout";
   public static final String DEFAULT_RATE_LIMIT_RETRY_TIMEOUT = "120";
   static final String IDLE_HTTP_CONNECTION_EXPIRY = "IdleHttpConnectionExpiry";
+  static final String SUPPORT_MANY_PARAMETERS = "supportManyParameters";
   public static final String DEFAULT_IDLE_HTTP_CONNECTION_EXPIRY = "60";
   public static final String CLOUD_FETCH_THREAD_POOL_SIZE = "cloudFetchThreadPoolSize";
   public static final int CLOUD_FETCH_THREAD_POOL_SIZE_DEFAULT = 16;

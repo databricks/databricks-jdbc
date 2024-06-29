@@ -1,5 +1,6 @@
 package com.databricks.jdbc.core;
 
+import static com.databricks.jdbc.commons.util.SQLInterpolator.interpolateSQL;
 import static com.databricks.jdbc.core.DatabricksTypeUtil.*;
 import static com.databricks.jdbc.driver.DatabricksJdbcConstants.*;
 
@@ -23,12 +24,15 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
   private static final Logger LOGGER = LogManager.getLogger(DatabricksPreparedStatement.class);
   private final String sql;
   private final DatabricksParameterMetaData databricksParameterMetaData;
+  private final boolean supportManyParameters;
 
   private final int CHUNK_SIZE = 8192;
 
   public DatabricksPreparedStatement(DatabricksConnection connection, String sql) {
     super(connection);
     this.sql = sql;
+    this.supportManyParameters =
+        connection.getSession().getConnectionContext().supportManyParameters();
     this.databricksParameterMetaData = new DatabricksParameterMetaData();
   }
 
@@ -75,15 +79,29 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
   @Override
   public ResultSet executeQuery() throws SQLException {
     LOGGER.debug("public ResultSet executeQuery()");
-    return executeInternal(
-        sql, this.databricksParameterMetaData.getParameterBindings(), StatementType.QUERY);
+    String interpolatedSql =
+        this.supportManyParameters
+            ? interpolateSQL(sql, this.databricksParameterMetaData.getParameterBindings())
+            : sql;
+    Map<Integer, ImmutableSqlParameter> paramMap =
+        this.supportManyParameters
+            ? new HashMap<>()
+            : this.databricksParameterMetaData.getParameterBindings();
+    return executeInternal(interpolatedSql, paramMap, StatementType.QUERY);
   }
 
   @Override
   public int executeUpdate() throws SQLException {
     LOGGER.debug("public int executeUpdate()");
-    executeInternal(
-        sql, this.databricksParameterMetaData.getParameterBindings(), StatementType.UPDATE);
+    String interpolatedSql =
+        this.supportManyParameters
+            ? interpolateSQL(sql, this.databricksParameterMetaData.getParameterBindings())
+            : sql;
+    Map<Integer, ImmutableSqlParameter> paramMap =
+        this.supportManyParameters
+            ? new HashMap<>()
+            : this.databricksParameterMetaData.getParameterBindings();
+    executeInternal(interpolatedSql, paramMap, StatementType.UPDATE);
     return (int) resultSet.getUpdateCount();
   }
 
@@ -257,7 +275,15 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
   public boolean execute() throws SQLException {
     LOGGER.debug("public boolean execute()");
     checkIfClosed();
-    executeInternal(sql, databricksParameterMetaData.getParameterBindings(), StatementType.SQL);
+    String interpolatedSql =
+        this.supportManyParameters
+            ? interpolateSQL(sql, this.databricksParameterMetaData.getParameterBindings())
+            : sql;
+    Map<Integer, ImmutableSqlParameter> paramMap =
+        this.supportManyParameters
+            ? new HashMap<>()
+            : this.databricksParameterMetaData.getParameterBindings();
+    executeInternal(interpolatedSql, paramMap, StatementType.SQL);
     return shouldReturnResultSet(sql);
   }
 

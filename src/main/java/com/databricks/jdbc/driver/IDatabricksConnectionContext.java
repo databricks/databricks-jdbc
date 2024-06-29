@@ -141,4 +141,6 @@ public interface IDatabricksConnectionContext {
   int getRateLimitRetryTimeout();
 
   int getIdleHttpConnectionExpiry();
+
+  boolean supportManyParameters();
 }

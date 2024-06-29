@@ -517,4 +517,9 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
     return Integer.parseInt(
         getParameter(IDLE_HTTP_CONNECTION_EXPIRY, DEFAULT_IDLE_HTTP_CONNECTION_EXPIRY));
   }
+
+  @Override
+  public boolean supportManyParameters() {
+    return getParameter(SUPPORT_MANY_PARAMETERS, "0").equals("1");
+  }
 }
