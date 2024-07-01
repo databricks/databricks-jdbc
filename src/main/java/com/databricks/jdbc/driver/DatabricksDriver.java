@@ -10,8 +10,6 @@ import com.databricks.jdbc.telemetry.DatabricksMetrics;
 import com.databricks.sdk.core.UserAgent;
 import java.sql.*;
 import java.util.Properties;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 
 /**
  * Databricks JDBC driver. TODO: Add implementation to accept Urls in format:
@@ -19,7 +17,6 @@ import org.apache.logging.log4j.Logger;
  */
 public class DatabricksDriver implements Driver {
 
-  private static final Logger LOGGER = LogManager.getLogger(DatabricksDriver.class);
   private static final DatabricksDriver INSTANCE;
 
   private static final int majorVersion = 0;
@@ -42,7 +39,6 @@ public class DatabricksDriver implements Driver {
 
   @Override
   public Connection connect(String url, Properties info) throws DatabricksSQLException {
-    LOGGER.debug("public Connection connect(String url = {}, Properties info)", url);
     IDatabricksConnectionContext connectionContext = DatabricksConnectionContext.parse(url, info);
     LoggingUtil.configureLogging(
         connectionContext.getLogPathString(),
@@ -84,25 +80,16 @@ public class DatabricksDriver implements Driver {
           connection.createStatement().executeQuery("SELECT current_version().dbsql_version");
       getDBSQLVersionInfo.next();
       String dbsqlVersion = getDBSQLVersionInfo.getString(1);
-      LOGGER.info("Connected to Databricks DBSQL version: {}", dbsqlVersion);
       if (checkSupportForNewMetadata(dbsqlVersion)) {
-        LOGGER.info(
-            "The Databricks DBSQL version {} supports the new metadata commands.", dbsqlVersion);
         if (connectionContext.getUseLegacyMetadata().equals(true)) {
-          LOGGER.warn(
-              "The new metadata commands are enabled, but the legacy metadata commands are being used due to connection parameter useLegacyMetadata");
           connection.setMetadataClient(true);
         } else {
           connection.setMetadataClient(false);
         }
       } else {
-        LOGGER.warn(
-            "The Databricks DBSQL version {} does not support the new metadata commands. Falling back to legacy metadata commands.",
-            dbsqlVersion);
         connection.setMetadataClient(true);
       }
     } catch (SQLException e) {
-      LOGGER.warn("Unable to get the DBSQL version. Falling back to legacy metadata commands.", e);
       connection.setMetadataClient(true);
     }
   }
@@ -120,9 +107,6 @@ public class DatabricksDriver implements Driver {
         return false;
       }
     } catch (Exception e) {
-      LOGGER.warn(
-          "Unable to parse the DBSQL version {}. Falling back to legacy metadata commands.",
-          dbsqlVersion);
       return false;
     }
   }
@@ -156,9 +140,7 @@ public class DatabricksDriver implements Driver {
     return INSTANCE;
   }
 
-  public static void main(String[] args) {
-    LOGGER.info("The driver {} has been initialized.", DatabricksDriver.class);
-  }
+  public static void main(String[] args) {}
 
   private static String getVersion() {
     return String.format("%d.%d.%d", majorVersion, minorVersion, buildVersion);

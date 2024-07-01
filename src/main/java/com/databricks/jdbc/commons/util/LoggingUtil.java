@@ -13,6 +13,8 @@ import org.apache.logging.log4j.core.appender.RollingFileAppender;
 import org.apache.logging.log4j.core.appender.rolling.DefaultRolloverStrategy;
 import org.apache.logging.log4j.core.appender.rolling.SizeBasedTriggeringPolicy;
 import org.apache.logging.log4j.core.config.Configuration;
+import org.apache.logging.log4j.core.config.Configurator;
+import org.apache.logging.log4j.core.config.LoggerConfig;
 import org.apache.logging.log4j.core.layout.PatternLayout;
 
 public class LoggingUtil {
@@ -79,23 +81,24 @@ public class LoggingUtil {
         .build();
   }
 
-  private static void configureLogger(Appender appender, Level logLevel) {
+  private void configureLogger(Appender appender, Level logLevel) {
     LoggerContext context = (LoggerContext) LogManager.getContext(false);
     Configuration config = context.getConfiguration();
     Appender consoleAppender = getConsoleAppender(config);
+    updateIfAppenderNotNull(appender,config,logLevel);
+    updateIfAppenderNotNull(consoleAppender,config,logLevel);
+  }
 
-    if (appender != null) {
-      appender.start();
-      config.addAppender(appender);
-      config.getRootLogger().addAppender(appender, logLevel, null);
+  private void updateIfAppenderNotNull(Appender appender, Configuration config, Level logLevel) {
+    if (appender == null) {
+      return;
     }
-    if (consoleAppender != null) {
-      consoleAppender.start();
-      config.addAppender(consoleAppender);
-      config.getRootLogger().addAppender(consoleAppender, logLevel, null);
+    appender.start();
+    config.addAppender(appender);
+    for (final LoggerConfig loggerConfig : config.getLoggers().values()) {
+      loggerConfig.addAppender(appender, logLevel, null);
     }
-    config.getRootLogger().setLevel(logLevel);
-    context.updateLoggers();
+    config.getRootLogger().addAppender(appender, logLevel, null);
   }
 
   public static void configureLogging(

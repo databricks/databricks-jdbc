@@ -1,4 +1,4 @@
-package com.databricks.jdbc.local;
+package newTest;
 
 import com.databricks.jdbc.commons.MetricsList;
 import com.databricks.jdbc.telemetry.DatabricksMetrics;
