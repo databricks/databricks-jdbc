@@ -1111,16 +1111,21 @@ public class DatabricksResultSet implements ResultSet, IDatabricksResultSet {
 
   @Override
   public Timestamp getTimestamp(int columnIndex, Calendar cal) throws SQLException {
-    checkIfClosed();
-    throw new DatabricksSQLFeatureNotSupportedException(
-        "Not implemented in DatabricksResultSet - getTimestamp(int columnIndex, Calendar cal)");
+    Timestamp defaultTimestamp = getTimestamp(columnIndex);
+
+    // Clone the calendar to avoid modifying the passed instance
+    Calendar tempCal = (Calendar) cal.clone();
+    if (defaultTimestamp != null && tempCal != null) {
+      tempCal.setTimeInMillis(defaultTimestamp.getTime());
+      return new Timestamp(tempCal.getTimeInMillis());
+    }
+
+    return defaultTimestamp;
   }
 
   @Override
   public Timestamp getTimestamp(String columnLabel, Calendar cal) throws SQLException {
-    checkIfClosed();
-    throw new DatabricksSQLFeatureNotSupportedException(
-        "Not implemented in DatabricksResultSet - getTimestamp(String columnLabel, Calendar cal)");
+    return getTimestamp(getColumnNameIndex(columnLabel), cal);
   }
 
   @Override
