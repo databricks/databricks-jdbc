@@ -7,6 +7,7 @@ import com.databricks.jdbc.client.impl.sdk.DatabricksMetadataSdkClient;
 import com.databricks.jdbc.client.impl.sdk.DatabricksNewMetadataSdkClient;
 import com.databricks.jdbc.client.impl.sdk.DatabricksSdkClient;
 import com.databricks.jdbc.client.impl.thrift.DatabricksThriftServiceClient;
+import com.databricks.jdbc.commons.LogLevel;
 import com.databricks.jdbc.commons.util.LoggingUtil;
 import com.databricks.jdbc.core.types.CompressionType;
 import com.databricks.jdbc.core.types.ComputeResource;
@@ -15,7 +16,6 @@ import com.databricks.sdk.support.ToStringer;
 import com.google.common.annotations.VisibleForTesting;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.logging.Level;
 import javax.annotation.Nullable;
 
 /** Implementation for Session interface, which maintains an underlying session in SQL Gateway. */
@@ -100,39 +100,39 @@ public class DatabricksSession implements IDatabricksSession {
   @Nullable
   @Override
   public String getSessionId() {
-    LoggingUtil.log(Level.FINE, "public String getSessionId()");
+    LoggingUtil.log(LogLevel.DEBUG, "public String getSessionId()");
     return (isSessionOpen) ? sessionInfo.sessionId() : null;
   }
 
   @Override
   @Nullable
   public ImmutableSessionInfo getSessionInfo() {
-    LoggingUtil.log(Level.FINE, "public String getSessionInfo()");
+    LoggingUtil.log(LogLevel.DEBUG, "public String getSessionInfo()");
     return sessionInfo;
   }
 
   @Override
   public ComputeResource getComputeResource() {
-    LoggingUtil.log(Level.FINE, "public String getWarehouseId()");
+    LoggingUtil.log(LogLevel.DEBUG, "public String getWarehouseId()");
     return this.computeResource;
   }
 
   @Override
   public CompressionType getCompressionType() {
-    LoggingUtil.log(Level.FINE, "public String getWarehouseId()");
+    LoggingUtil.log(LogLevel.DEBUG, "public String getWarehouseId()");
     return compressionType;
   }
 
   @Override
   public boolean isOpen() {
-    LoggingUtil.log(Level.FINE, "public boolean isOpen()");
+    LoggingUtil.log(LogLevel.DEBUG, "public boolean isOpen()");
     // TODO: check for expired sessions
     return isSessionOpen;
   }
 
   @Override
   public void open() throws DatabricksSQLException {
-    LoggingUtil.log(Level.FINE, "public void open()");
+    LoggingUtil.log(LogLevel.DEBUG, "public void open()");
     // TODO: check for expired sessions
     synchronized (this) {
       if (!isSessionOpen) {
@@ -147,7 +147,7 @@ public class DatabricksSession implements IDatabricksSession {
 
   @Override
   public void close() throws DatabricksSQLException {
-    LoggingUtil.log(Level.FINE, "public void close()");
+    LoggingUtil.log(LogLevel.DEBUG, "public void close()");
     // TODO: check for any pending query executions
     synchronized (this) {
       if (isSessionOpen) {
@@ -161,13 +161,13 @@ public class DatabricksSession implements IDatabricksSession {
 
   @Override
   public DatabricksClient getDatabricksClient() {
-    LoggingUtil.log(Level.FINE, "public DatabricksClient getDatabricksClient()");
+    LoggingUtil.log(LogLevel.DEBUG, "public DatabricksClient getDatabricksClient()");
     return databricksClient;
   }
 
   @Override
   public DatabricksMetadataClient getDatabricksMetadataClient() {
-    LoggingUtil.log(Level.FINE, "public DatabricksClient getDatabricksMetadataClient()");
+    LoggingUtil.log(LogLevel.DEBUG, "public DatabricksClient getDatabricksMetadataClient()");
     if (this.connectionContext.getClientType() == DatabricksClientType.THRIFT) {
       return (DatabricksMetadataClient) databricksClient;
     }
@@ -176,27 +176,27 @@ public class DatabricksSession implements IDatabricksSession {
 
   @Override
   public String getCatalog() {
-    LoggingUtil.log(Level.FINE, "public String getCatalog()");
+    LoggingUtil.log(LogLevel.DEBUG, "public String getCatalog()");
     return catalog;
   }
 
   @Override
   public void setCatalog(String catalog) {
     LoggingUtil.log(
-        Level.FINE, String.format("public void setCatalog(String catalog = {%s})", catalog));
+        LogLevel.DEBUG, String.format("public void setCatalog(String catalog = {%s})", catalog));
     this.catalog = catalog;
   }
 
   @Override
   public String getSchema() {
-    LoggingUtil.log(Level.FINE, "public String getSchema()");
+    LoggingUtil.log(LogLevel.DEBUG, "public String getSchema()");
     return schema;
   }
 
   @Override
   public void setSchema(String schema) {
     LoggingUtil.log(
-        Level.FINE, String.format("public void setSchema(String schema = {%s})", schema));
+        LogLevel.DEBUG, String.format("public void setSchema(String schema = {%s})", schema));
     this.schema = schema;
   }
 
@@ -212,27 +212,27 @@ public class DatabricksSession implements IDatabricksSession {
 
   @Override
   public Map<String, String> getSessionConfigs() {
-    LoggingUtil.log(Level.FINE, "public Map<String, String> getSessionConfigs()");
+    LoggingUtil.log(LogLevel.DEBUG, "public Map<String, String> getSessionConfigs()");
     return sessionConfigs;
   }
 
   @Override
   public void setSessionConfig(String name, String value) {
-    // LoggingUtil.log(Level.FINE,String.format("public void setSessionConfig(String name = {},
+    // LoggingUtil.log(LogLevel.DEBUG,String.format("public void setSessionConfig(String name = {},
     // String value = {%s})", name, value);
     sessionConfigs.put(name, value);
   }
 
   @Override
   public Map<String, String> getClientInfoProperties() {
-    LoggingUtil.log(Level.FINE, "public Map<String, String> getClientInfoProperties()");
+    LoggingUtil.log(LogLevel.DEBUG, "public Map<String, String> getClientInfoProperties()");
     return clientInfoProperties;
   }
 
   @Override
   public void setClientInfoProperty(String name, String value) {
     LoggingUtil.log(
-        Level.FINE,
+        LogLevel.DEBUG,
         String.format(
             "public void setClientInfoProperty(String name = {%s}, String value = {%s})",
             name, value));

@@ -1,11 +1,11 @@
 package com.databricks.jdbc.client.impl.sdk;
 
 import com.databricks.jdbc.client.IDatabricksUCVolumeClient;
+import com.databricks.jdbc.commons.LogLevel;
 import com.databricks.jdbc.commons.util.LoggingUtil;
 import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.logging.Level;
 
 /** Implementation for DatabricksUCVolumeClient */
 public class DatabricksUCVolumeClient implements IDatabricksUCVolumeClient {
@@ -41,7 +41,7 @@ public class DatabricksUCVolumeClient implements IDatabricksUCVolumeClient {
       throws SQLException {
 
     LoggingUtil.log(
-        Level.FINE,
+        LogLevel.DEBUG,
         String.format(
             "Entering prefixExists method with parameters: catalog={%s}, schema={%s}, volume={%s}, prefix={%s}, caseSensitive={%s}",
             catalog, schema, volume, prefix, caseSensitive));
@@ -59,7 +59,7 @@ public class DatabricksUCVolumeClient implements IDatabricksUCVolumeClient {
 
     try (Statement statement = connection.createStatement()) {
       ResultSet resultSet = statement.executeQuery(listFilesSQLQuery);
-      // LOGGER.info("SQL query executed successfully");
+      LoggingUtil.log(LogLevel.INFO, "SQL query executed successfully");
 
       boolean exists = false;
       while (resultSet.next()) {
@@ -76,7 +76,7 @@ public class DatabricksUCVolumeClient implements IDatabricksUCVolumeClient {
       }
       return exists;
     } catch (SQLException e) {
-      // LOGGER.error("SQL query execution failed", e);
+      LoggingUtil.log(LogLevel.ERROR, "SQL query execution failed " + e);
       throw e;
     }
   }
@@ -86,13 +86,11 @@ public class DatabricksUCVolumeClient implements IDatabricksUCVolumeClient {
       String catalog, String schema, String volume, String objectPath, boolean caseSensitive)
       throws SQLException {
 
-    /*  LOGGER.info(
-    "Entering objectExists method with parameters: catalog={}, schema={}, volume={}, objectPath={}, caseSensitive={}",
-    catalog,
-    schema,
-    volume,
-    objectPath,
-    caseSensitive);*/
+    LoggingUtil.log(
+        LogLevel.INFO,
+        String.format(
+            "Entering objectExists method with parameters: catalog={%s}, schema={%s}, volume={%s}, objectPath={%s}, caseSensitive={%s}",
+            catalog, schema, volume, objectPath, caseSensitive));
 
     // Extract the sub-folder and append to volume to use LIST at the correct location, objectName
     // is checked for after listing
@@ -111,7 +109,7 @@ public class DatabricksUCVolumeClient implements IDatabricksUCVolumeClient {
 
     try (Statement statement = connection.createStatement()) {
       ResultSet resultSet = statement.executeQuery(listFilesSQLQuery);
-      //  LOGGER.info("SQL query executed successfully");
+      LoggingUtil.log(LogLevel.INFO, "SQL query executed successfully");
 
       boolean exists = false;
       while (resultSet.next()) {
@@ -128,7 +126,7 @@ public class DatabricksUCVolumeClient implements IDatabricksUCVolumeClient {
       }
       return exists;
     } catch (SQLException e) {
-      // LOGGER.error("SQL query execution failed", e);
+      LoggingUtil.log(LogLevel.ERROR, "SQL query execution failed " + e);
       throw e;
     }
   }
@@ -142,18 +140,17 @@ public class DatabricksUCVolumeClient implements IDatabricksUCVolumeClient {
   public boolean volumeExists(
       String catalog, String schema, String volumeName, boolean caseSensitive) throws SQLException {
 
-    /*LOGGER.info(
-    "Entering volumeExists method with parameters: catalog={}, schema={}, volumeName={}, caseSensitive={}",
-    catalog,
-    schema,
-    volumeName,
-    caseSensitive);*/
+    LoggingUtil.log(
+        LogLevel.INFO,
+        String.format(
+            "Entering volumeExists method with parameters: catalog={%s}, schema={%s}, volumeName={%s}, caseSensitive={%s}",
+            catalog, schema, volumeName, caseSensitive));
 
     String showVolumesSQLQuery = createShowVolumesQuery(catalog, schema);
 
     try (Statement statement = connection.createStatement()) {
       ResultSet resultSet = statement.executeQuery(showVolumesSQLQuery);
-      // LOGGER.info("SQL query executed successfully");
+      LoggingUtil.log(LogLevel.INFO, "SQL query executed successfully");
 
       boolean exists = false;
       while (resultSet.next()) {
@@ -170,7 +167,7 @@ public class DatabricksUCVolumeClient implements IDatabricksUCVolumeClient {
       }
       return exists;
     } catch (SQLException e) {
-      // LOGGER.error("SQL query execution failed", e);
+      LoggingUtil.log(LogLevel.ERROR, "SQL query execution failed " + e);
       throw e;
     }
   }
@@ -185,13 +182,11 @@ public class DatabricksUCVolumeClient implements IDatabricksUCVolumeClient {
       String catalog, String schema, String volume, String prefix, boolean caseSensitive)
       throws SQLException {
 
-    /*LOGGER.info(
-    "Entering listObjects method with parameters: catalog={}, schema={}, volume={}, prefix={}, caseSensitive={}",
-    catalog,
-    schema,
-    volume,
-    prefix,
-    caseSensitive);*/
+    LoggingUtil.log(
+        LogLevel.INFO,
+        String.format(
+            "Entering listObjects method with parameters: catalog={%s}, schema={%s}, volume={%s}, prefix={%s}, caseSensitive={%s}",
+            catalog, schema, volume, prefix, caseSensitive));
 
     // Extract the sub-folder and append to volume to use LIST at the correct location, prefix is
     // checked for after listing
@@ -206,7 +201,7 @@ public class DatabricksUCVolumeClient implements IDatabricksUCVolumeClient {
 
     try (Statement statement = connection.createStatement()) {
       ResultSet resultSet = statement.executeQuery(listFilesSQLQuery);
-      // LOGGER.info("SQL query executed successfully");
+      LoggingUtil.log(LogLevel.INFO, "SQL query executed successfully");
 
       List<String> filenames = new ArrayList<>();
       while (resultSet.next()) {
@@ -222,7 +217,7 @@ public class DatabricksUCVolumeClient implements IDatabricksUCVolumeClient {
       }
       return filenames;
     } catch (SQLException e) {
-      // LOGGER.error("SQL query execution failed", e);
+      LoggingUtil.log(LogLevel.ERROR, "SQL query execution failed" + e);
       throw e;
     }
   }

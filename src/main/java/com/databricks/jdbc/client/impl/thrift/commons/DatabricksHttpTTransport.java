@@ -2,6 +2,7 @@ package com.databricks.jdbc.client.impl.thrift.commons;
 
 import com.databricks.jdbc.client.DatabricksHttpException;
 import com.databricks.jdbc.client.http.DatabricksHttpClient;
+import com.databricks.jdbc.commons.LogLevel;
 import com.databricks.jdbc.commons.util.LoggingUtil;
 import com.databricks.jdbc.commons.util.ValidationUtil;
 import com.google.common.annotations.VisibleForTesting;
@@ -11,7 +12,6 @@ import java.io.InputStream;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.logging.Level;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.entity.ByteArrayEntity;
@@ -55,7 +55,7 @@ public class DatabricksHttpTTransport extends TTransport {
         inputStream.close();
       } catch (IOException e) {
         LoggingUtil.log(
-            Level.SEVERE,
+            LogLevel.ERROR,
             String.format("Failed to close inputStream with error {%s}. Skipping the close.", e));
       }
       inputStream = null;
@@ -65,7 +65,8 @@ public class DatabricksHttpTTransport extends TTransport {
         response.close();
       } catch (IOException e) {
         LoggingUtil.log(
-            Level.SEVERE, String.format("Failed to close response with error {%s}", e.toString()));
+            LogLevel.ERROR,
+            String.format("Failed to close response with error {%s}", e.toString()));
       }
       response = null;
     }
@@ -107,7 +108,8 @@ public class DatabricksHttpTTransport extends TTransport {
       return ret;
     } catch (IOException e) {
       LoggingUtil.log(
-          Level.SEVERE, String.format("Failed to read inputStream with error {%s}", e.toString()));
+          LogLevel.ERROR,
+          String.format("Failed to read inputStream with error {%s}", e.toString()));
       throw new TTransportException(e);
     }
   }
@@ -142,7 +144,7 @@ public class DatabricksHttpTTransport extends TTransport {
       httpClient.closeExpiredAndIdleConnections();
 
       String errorMessage = "Failed to flush data to server: " + e.getMessage();
-      LoggingUtil.log(Level.SEVERE, errorMessage);
+      LoggingUtil.log(LogLevel.ERROR, errorMessage);
       throw new TTransportException(TTransportException.UNKNOWN, errorMessage);
     }
   }

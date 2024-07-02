@@ -1,13 +1,13 @@
 package com.databricks.jdbc.driver;
 
 import com.databricks.jdbc.client.DatabricksClientType;
+import com.databricks.jdbc.commons.LogLevel;
 import com.databricks.jdbc.core.DatabricksParsingException;
 import com.databricks.jdbc.core.DatabricksSQLException;
 import com.databricks.jdbc.core.types.CompressionType;
 import com.databricks.jdbc.core.types.ComputeResource;
 import java.util.List;
 import java.util.Map;
-import java.util.logging.Level;
 
 public interface IDatabricksConnectionContext {
 
@@ -69,7 +69,7 @@ public interface IDatabricksConnectionContext {
 
   AuthFlow getAuthFlow();
 
-  Level getLogLevel();
+  LogLevel getLogLevel();
 
   String getLogPathString();
 

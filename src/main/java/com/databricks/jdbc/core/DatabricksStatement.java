@@ -6,6 +6,7 @@ import static java.lang.String.format;
 
 import com.databricks.jdbc.client.DatabricksClient;
 import com.databricks.jdbc.client.StatementType;
+import com.databricks.jdbc.commons.LogLevel;
 import com.databricks.jdbc.commons.util.LoggingUtil;
 import com.databricks.jdbc.commons.util.StringUtil;
 import com.databricks.jdbc.commons.util.ValidationUtil;
@@ -14,7 +15,6 @@ import java.sql.*;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.*;
-import java.util.logging.Level;
 
 public class DatabricksStatement implements IDatabricksStatement, Statement {
 
@@ -67,13 +67,13 @@ public class DatabricksStatement implements IDatabricksStatement, Statement {
 
   @Override
   public void close() throws SQLException {
-    LoggingUtil.log(Level.FINE, "public void close()");
+    LoggingUtil.log(LogLevel.DEBUG, "public void close()");
     close(true);
   }
 
   @Override
   public void close(boolean removeFromSession) throws SQLException {
-    LoggingUtil.log(Level.FINE, "public void close(boolean removeFromSession)");
+    LoggingUtil.log(LogLevel.DEBUG, "public void close(boolean removeFromSession)");
     this.isClosed = true;
     if (statementId != null) {
       this.connection.getSession().getDatabricksClient().closeStatement(statementId);
@@ -93,28 +93,29 @@ public class DatabricksStatement implements IDatabricksStatement, Statement {
 
   @Override
   public int getMaxFieldSize() throws SQLException {
-    LoggingUtil.log(Level.FINE, "public int getMaxFieldSize()");
+    LoggingUtil.log(LogLevel.DEBUG, "public int getMaxFieldSize()");
     throw new DatabricksSQLFeatureNotSupportedException(
         "Not implemented in DatabricksStatement - getMaxFieldSize()");
   }
 
   @Override
   public void setMaxFieldSize(int max) throws SQLException {
-    LoggingUtil.log(Level.FINE, String.format("public void setMaxFieldSize(int max = {%s})", max));
+    LoggingUtil.log(
+        LogLevel.DEBUG, String.format("public void setMaxFieldSize(int max = {%s})", max));
     throw new DatabricksSQLFeatureNotSupportedException(
         "Not implemented in DatabricksStatement - setMaxFieldSize(int max)");
   }
 
   @Override
   public int getMaxRows() throws SQLException {
-    LoggingUtil.log(Level.FINE, "public int getMaxRows()");
+    LoggingUtil.log(LogLevel.DEBUG, "public int getMaxRows()");
     checkIfClosed();
     return this.maxRows;
   }
 
   @Override
   public void setMaxRows(int max) throws SQLException {
-    LoggingUtil.log(Level.FINE, String.format("public void setMaxRows(int max = {%s})", max));
+    LoggingUtil.log(LogLevel.DEBUG, String.format("public void setMaxRows(int max = {%s})", max));
     checkIfClosed();
     ValidationUtil.checkIfNonNegative(max, "maxRows");
     this.maxRows = max;
@@ -123,14 +124,14 @@ public class DatabricksStatement implements IDatabricksStatement, Statement {
   @Override
   public void setEscapeProcessing(boolean enable) throws SQLException {
     LoggingUtil.log(
-        Level.FINE,
+        LogLevel.DEBUG,
         String.format("public void setEscapeProcessing(boolean enable = {%s})", enable));
     this.escapeProcessing = enable;
   }
 
   @Override
   public int getQueryTimeout() throws SQLException {
-    LoggingUtil.log(Level.FINE, "public int getQueryTimeout()");
+    LoggingUtil.log(LogLevel.DEBUG, "public int getQueryTimeout()");
     checkIfClosed();
     return this.timeoutInSeconds;
   }
@@ -138,7 +139,7 @@ public class DatabricksStatement implements IDatabricksStatement, Statement {
   @Override
   public void setQueryTimeout(int seconds) throws SQLException {
     LoggingUtil.log(
-        Level.FINE, String.format("public void setQueryTimeout(int seconds = {%s})", seconds));
+        LogLevel.DEBUG, String.format("public void setQueryTimeout(int seconds = {%s})", seconds));
     checkIfClosed();
     ValidationUtil.checkIfNonNegative(seconds, "queryTimeout");
     this.timeoutInSeconds = seconds;
@@ -146,7 +147,7 @@ public class DatabricksStatement implements IDatabricksStatement, Statement {
 
   @Override
   public void cancel() throws SQLException {
-    LoggingUtil.log(Level.FINE, "public void cancel()");
+    LoggingUtil.log(LogLevel.DEBUG, "public void cancel()");
     checkIfClosed();
 
     if (statementId != null) {
@@ -159,20 +160,20 @@ public class DatabricksStatement implements IDatabricksStatement, Statement {
 
   @Override
   public SQLWarning getWarnings() throws SQLException {
-    LoggingUtil.log(Level.FINE, "public SQLWarning getWarnings()");
+    LoggingUtil.log(LogLevel.DEBUG, "public SQLWarning getWarnings()");
     return warnings;
   }
 
   @Override
   public void clearWarnings() throws SQLException {
-    LoggingUtil.log(Level.FINE, "public void clearWarnings()");
+    LoggingUtil.log(LogLevel.DEBUG, "public void clearWarnings()");
     warnings = null;
   }
 
   @Override
   public void setCursorName(String name) throws SQLException {
     LoggingUtil.log(
-        Level.FINE, String.format("public void setCursorName(String name = {%s})", name));
+        LogLevel.DEBUG, String.format("public void setCursorName(String name = {%s})", name));
     throw new DatabricksSQLFeatureNotSupportedException(
         "Not implemented in DatabricksStatement - setCursorName(String name)");
   }
@@ -187,21 +188,21 @@ public class DatabricksStatement implements IDatabricksStatement, Statement {
 
   @Override
   public ResultSet getResultSet() throws SQLException {
-    LoggingUtil.log(Level.FINE, "public ResultSet getResultSet()");
+    LoggingUtil.log(LogLevel.DEBUG, "public ResultSet getResultSet()");
     checkIfClosed();
     return resultSet;
   }
 
   @Override
   public int getUpdateCount() throws SQLException {
-    LoggingUtil.log(Level.FINE, "public int getUpdateCount()");
+    LoggingUtil.log(LogLevel.DEBUG, "public int getUpdateCount()");
     checkIfClosed();
     return (int) resultSet.getUpdateCount();
   }
 
   @Override
   public boolean getMoreResults() throws SQLException {
-    LoggingUtil.log(Level.FINE, "public boolean getMoreResults()");
+    LoggingUtil.log(LogLevel.DEBUG, "public boolean getMoreResults()");
     throw new DatabricksSQLFeatureNotSupportedException(
         "Not implemented in DatabricksStatement - getMoreResults()");
   }
@@ -209,7 +210,7 @@ public class DatabricksStatement implements IDatabricksStatement, Statement {
   @Override
   public void setFetchDirection(int direction) throws SQLException {
     LoggingUtil.log(
-        Level.FINE,
+        LogLevel.DEBUG,
         String.format("public void setFetchDirection(int direction = {%s})", direction));
     checkIfClosed();
     if (direction != ResultSet.FETCH_FORWARD) {
@@ -219,7 +220,7 @@ public class DatabricksStatement implements IDatabricksStatement, Statement {
 
   @Override
   public int getFetchDirection() throws SQLException {
-    LoggingUtil.log(Level.FINE, "public int getFetchDirection()");
+    LoggingUtil.log(LogLevel.DEBUG, "public int getFetchDirection()");
     checkIfClosed();
     return ResultSet.FETCH_FORWARD;
   }
@@ -229,41 +230,42 @@ public class DatabricksStatement implements IDatabricksStatement, Statement {
     /* As we fetch chunks of data together,
     setting fetchSize is an overkill.
     Hence, we don't support it.*/
-    LoggingUtil.log(Level.FINE, String.format("public void setFetchSize(int rows = {%s})", rows));
+    LoggingUtil.log(
+        LogLevel.DEBUG, String.format("public void setFetchSize(int rows = {%s})", rows));
     String warningString = "As FetchSize is not supported in the Databricks JDBC, ignoring it";
 
-    LoggingUtil.log(Level.WARNING, warningString);
+    LoggingUtil.log(LogLevel.WARNING, warningString);
     warnings = WarningUtil.addWarning(warnings, warningString);
   }
 
   @Override
   public int getFetchSize() throws SQLException {
-    LoggingUtil.log(Level.FINE, "public int getFetchSize()");
+    LoggingUtil.log(LogLevel.DEBUG, "public int getFetchSize()");
     String warningString =
         "As FetchSize is not supported in the Databricks JDBC, we don't set it in the first place";
 
-    LoggingUtil.log(Level.WARNING, warningString);
+    LoggingUtil.log(LogLevel.WARNING, warningString);
     warnings = WarningUtil.addWarning(warnings, warningString);
     return 0;
   }
 
   @Override
   public int getResultSetConcurrency() throws SQLException {
-    LoggingUtil.log(Level.FINE, "public int getResultSetConcurrency()");
+    LoggingUtil.log(LogLevel.DEBUG, "public int getResultSetConcurrency()");
     checkIfClosed();
     return ResultSet.CONCUR_READ_ONLY;
   }
 
   @Override
   public int getResultSetType() throws SQLException {
-    LoggingUtil.log(Level.FINE, "public int getResultSetType()");
+    LoggingUtil.log(LogLevel.DEBUG, "public int getResultSetType()");
     checkIfClosed();
     return ResultSet.TYPE_FORWARD_ONLY;
   }
 
   @Override
   public void addBatch(String sql) throws SQLException {
-    LoggingUtil.log(Level.FINE, String.format("public void addBatch(String sql = {%s})", sql));
+    LoggingUtil.log(LogLevel.DEBUG, String.format("public void addBatch(String sql = {%s})", sql));
     checkIfClosed();
     throw new DatabricksSQLFeatureNotSupportedException(
         "Method not supported", "addBatch(String sql)");
@@ -271,35 +273,36 @@ public class DatabricksStatement implements IDatabricksStatement, Statement {
 
   @Override
   public void clearBatch() throws SQLException {
-    LoggingUtil.log(Level.FINE, "public void clearBatch()");
+    LoggingUtil.log(LogLevel.DEBUG, "public void clearBatch()");
     checkIfClosed();
     throw new DatabricksSQLFeatureNotSupportedException("Method not supported", "clearBatch()");
   }
 
   @Override
   public int[] executeBatch() throws SQLException {
-    LoggingUtil.log(Level.FINE, "public int[] executeBatch()");
+    LoggingUtil.log(LogLevel.DEBUG, "public int[] executeBatch()");
     checkIfClosed();
     throw new DatabricksSQLFeatureNotSupportedException("Method not supported", "executeBatch()");
   }
 
   @Override
   public Connection getConnection() throws SQLException {
-    LoggingUtil.log(Level.FINE, "public Connection getConnection()");
+    LoggingUtil.log(LogLevel.DEBUG, "public Connection getConnection()");
     return this.connection;
   }
 
   @Override
   public boolean getMoreResults(int current) throws SQLException {
     LoggingUtil.log(
-        Level.FINE, String.format("public boolean getMoreResults(int current = {%s})", current));
+        LogLevel.DEBUG,
+        String.format("public boolean getMoreResults(int current = {%s})", current));
     throw new DatabricksSQLFeatureNotSupportedException(
         "Not implemented in DatabricksStatement - getMoreResults(int current)");
   }
 
   @Override
   public ResultSet getGeneratedKeys() throws SQLException {
-    LoggingUtil.log(Level.FINE, "public ResultSet getGeneratedKeys()");
+    LoggingUtil.log(LogLevel.DEBUG, "public ResultSet getGeneratedKeys()");
     checkIfClosed();
     return new EmptyResultSet();
   }
@@ -324,7 +327,7 @@ public class DatabricksStatement implements IDatabricksStatement, Statement {
 
   @Override
   public int executeUpdate(String sql, String[] columnNames) throws SQLException {
-    LoggingUtil.log(Level.FINE, "public int executeUpdate(String sql, String[] columnNames)");
+    LoggingUtil.log(LogLevel.DEBUG, "public int executeUpdate(String sql, String[] columnNames)");
     checkIfClosed();
     throw new DatabricksSQLFeatureNotSupportedException(
         "Method not supported", "executeUpdate(String sql, String[] columnNames)");
@@ -357,20 +360,21 @@ public class DatabricksStatement implements IDatabricksStatement, Statement {
 
   @Override
   public int getResultSetHoldability() throws SQLException {
-    LoggingUtil.log(Level.FINE, "public int getResultSetHoldability()");
+    LoggingUtil.log(LogLevel.DEBUG, "public int getResultSetHoldability()");
     return ResultSet.CLOSE_CURSORS_AT_COMMIT;
   }
 
   @Override
   public boolean isClosed() throws SQLException {
-    LoggingUtil.log(Level.FINE, "public boolean isClosed()");
+    LoggingUtil.log(LogLevel.DEBUG, "public boolean isClosed()");
     return this.isClosed;
   }
 
   @Override
   public void setPoolable(boolean poolable) throws SQLException {
     LoggingUtil.log(
-        Level.FINE, String.format("public void setPoolable(boolean poolable = {%s})", poolable));
+        LogLevel.DEBUG,
+        String.format("public void setPoolable(boolean poolable = {%s})", poolable));
     checkIfClosed();
     if (poolable) {
       throw new DatabricksSQLFeatureNotSupportedException(
@@ -380,35 +384,35 @@ public class DatabricksStatement implements IDatabricksStatement, Statement {
 
   @Override
   public boolean isPoolable() throws SQLException {
-    LoggingUtil.log(Level.FINE, "public boolean isPoolable()");
+    LoggingUtil.log(LogLevel.DEBUG, "public boolean isPoolable()");
     checkIfClosed();
     return false;
   }
 
   @Override
   public void closeOnCompletion() throws SQLException {
-    LoggingUtil.log(Level.FINE, "public void closeOnCompletion()");
+    LoggingUtil.log(LogLevel.DEBUG, "public void closeOnCompletion()");
     checkIfClosed();
     this.closeOnCompletion = true;
   }
 
   @Override
   public boolean isCloseOnCompletion() throws SQLException {
-    LoggingUtil.log(Level.FINE, "public boolean isCloseOnCompletion()");
+    LoggingUtil.log(LogLevel.DEBUG, "public boolean isCloseOnCompletion()");
     checkIfClosed();
     return this.closeOnCompletion;
   }
 
   @Override
   public <T> T unwrap(Class<T> iface) throws SQLException {
-    LoggingUtil.log(Level.FINE, "public <T> T unwrap(Class<T> iface)");
+    LoggingUtil.log(LogLevel.DEBUG, "public <T> T unwrap(Class<T> iface)");
     throw new DatabricksSQLFeatureNotSupportedException(
         "Not implemented in DatabricksStatement - unwrap(Class<T> iface)");
   }
 
   @Override
   public boolean isWrapperFor(Class<?> iface) throws SQLException {
-    LoggingUtil.log(Level.FINE, "public boolean isWrapperFor(Class<?> iface)");
+    LoggingUtil.log(LogLevel.DEBUG, "public boolean isWrapperFor(Class<?> iface)");
     throw new DatabricksSQLFeatureNotSupportedException(
         "Not implemented in DatabricksStatement - isWrapperFor(Class<?> iface)");
   }
@@ -428,7 +432,7 @@ public class DatabricksStatement implements IDatabricksStatement, Statement {
         format(
             "DatabricksResultSet executeInternal(String sql = %s,Map<Integer, ImmutableSqlParameter> params = {%s}, StatementType statementType = {%s})",
             sql, params.toString(), statementType.toString());
-    LoggingUtil.log(Level.FINE, stackTraceMessage);
+    LoggingUtil.log(LogLevel.DEBUG, stackTraceMessage);
     CompletableFuture<DatabricksResultSet> futureResultSet =
         getFutureResult(sql, params, statementType);
     try {
@@ -451,11 +455,11 @@ public class DatabricksStatement implements IDatabricksStatement, Statement {
         }
       }
       LoggingUtil.log(
-          Level.SEVERE,
+          LogLevel.ERROR,
           String.format("Error occurred during statement execution: %s. Error : %s", sql, e));
       throw new DatabricksSQLException("Error occurred during statement execution: " + sql, e);
     }
-    LoggingUtil.log(Level.FINE, "Result retrieved successfully" + resultSet.toString());
+    LoggingUtil.log(LogLevel.DEBUG, "Result retrieved successfully" + resultSet.toString());
     return resultSet;
   }
 

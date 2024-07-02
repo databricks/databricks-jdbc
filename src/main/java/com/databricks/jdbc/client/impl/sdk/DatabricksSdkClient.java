@@ -14,7 +14,9 @@ import com.databricks.jdbc.client.sqlexec.ExecuteStatementResponse;
 import com.databricks.jdbc.client.sqlexec.ExternalLink;
 import com.databricks.jdbc.client.sqlexec.GetStatementResponse;
 import com.databricks.jdbc.client.sqlexec.ResultData;
+import com.databricks.jdbc.commons.LogLevel;
 import com.databricks.jdbc.commons.MetricsList;
+import com.databricks.jdbc.commons.util.LoggingUtil;
 import com.databricks.jdbc.core.*;
 import com.databricks.jdbc.core.types.ComputeResource;
 import com.databricks.jdbc.core.types.Warehouse;
@@ -111,7 +113,10 @@ public class DatabricksSdkClient implements DatabricksClient {
   @Override
   public void deleteSession(IDatabricksSession session, ComputeResource warehouse) {
     long startTime = System.currentTimeMillis();
-    // LOGGER.debug("public void deleteSession(String sessionId = {})", session.getSessionId());
+    LoggingUtil.log(
+        LogLevel.DEBUG,
+        String.format(
+            "public void deleteSession(String sessionId = {%s})", session.getSessionId()));
     DeleteSessionRequest request =
         new DeleteSessionRequest()
             .setSessionId(session.getSessionId())
@@ -196,7 +201,9 @@ public class DatabricksSdkClient implements DatabricksClient {
 
   @Override
   public void closeStatement(String statementId) {
-    // LOGGER.debug("public void closeStatement(String statementId = {})", statementId);
+    LoggingUtil.log(
+        LogLevel.DEBUG,
+        String.format("public void closeStatement(String statementId = {%s})", statementId));
     CloseStatementRequest request = new CloseStatementRequest().setStatementId(statementId);
     String path = String.format(STATEMENT_PATH_WITH_ID, request.getStatementId());
     workspaceClient.apiClient().DELETE(path, request, Void.class, getHeaders());
@@ -204,7 +211,9 @@ public class DatabricksSdkClient implements DatabricksClient {
 
   @Override
   public void cancelStatement(String statementId) {
-    //  LOGGER.debug("public void cancelStatement(String statementId = {})", statementId);
+    LoggingUtil.log(
+        LogLevel.DEBUG,
+        String.format("public void cancelStatement(String statementId = {%s})", statementId));
     CancelStatementRequest request = new CancelStatementRequest().setStatementId(statementId);
     String path = String.format(CANCEL_STATEMENT_PATH_WITH_ID, request.getStatementId());
     workspaceClient.apiClient().POST(path, request, Void.class, getHeaders());

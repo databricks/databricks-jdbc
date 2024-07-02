@@ -76,8 +76,6 @@ public class ArrowResultChunk {
 
   private static final Integer SECONDS_BUFFER_FOR_EXPIRY = 60;
 
-  // private static final Logger LOGGER = LogManager.getLogger(ArrowResultChunk.class);
-
   private final long chunkIndex;
   final long numRows;
   final long rowOffset;

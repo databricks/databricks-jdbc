@@ -8,6 +8,7 @@ import static io.netty.util.NetUtil.LOCALHOST;
 import com.databricks.jdbc.client.DatabricksHttpException;
 import com.databricks.jdbc.client.DatabricksRetryHandlerException;
 import com.databricks.jdbc.client.IDatabricksHttpClient;
+import com.databricks.jdbc.commons.LogLevel;
 import com.databricks.jdbc.commons.util.LoggingUtil;
 import com.databricks.jdbc.driver.IDatabricksConnectionContext;
 import com.databricks.sdk.core.UserAgent;
@@ -17,7 +18,6 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
-import java.util.logging.Level;
 import org.apache.http.HttpException;
 import org.apache.http.HttpHost;
 import org.apache.http.HttpResponse;
@@ -337,7 +337,7 @@ public class DatabricksHttpClient implements IDatabricksHttpClient {
   @Override
   public CloseableHttpResponse execute(HttpUriRequest request) throws DatabricksHttpException {
     LoggingUtil.log(
-        Level.FINE,
+        LogLevel.DEBUG,
         String.format("Executing HTTP request [{%s}]", RequestSanitizer.sanitizeRequest(request)));
     try {
       return httpClient.execute(request);
@@ -353,7 +353,7 @@ public class DatabricksHttpClient implements IDatabricksHttpClient {
           String.format(
               "Caught error while executing http request: [%s]. Error Message: [%s]",
               RequestSanitizer.sanitizeRequest(request), e);
-      LoggingUtil.log(Level.SEVERE, errorMsg);
+      LoggingUtil.log(LogLevel.ERROR, errorMsg);
       throw new DatabricksHttpException(errorMsg, e);
     }
   }
@@ -363,7 +363,7 @@ public class DatabricksHttpClient implements IDatabricksHttpClient {
     if (connectionManager != null) {
       synchronized (connectionManager) {
         LoggingUtil.log(
-            Level.FINE,
+            LogLevel.DEBUG,
             String.format("connection pool stats: {%s}", connectionManager.getTotalStats()));
         connectionManager.closeExpiredConnections();
         connectionManager.closeIdleConnections(idleHttpConnectionExpiry, TimeUnit.SECONDS);
@@ -401,7 +401,7 @@ public class DatabricksHttpClient implements IDatabricksHttpClient {
         instance.httpClient.close();
       } catch (IOException e) {
         LoggingUtil.log(
-            Level.FINE, String.format("Caught error while closing http client. Error %s", e));
+            LogLevel.DEBUG, String.format("Caught error while closing http client. Error %s", e));
       }
     }
   }

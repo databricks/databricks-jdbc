@@ -1,5 +1,7 @@
 package com.databricks.jdbc.core.converters;
 
+import com.databricks.jdbc.commons.LogLevel;
+import com.databricks.jdbc.commons.util.LoggingUtil;
 import com.databricks.jdbc.core.DatabricksSQLException;
 import java.math.BigDecimal;
 import java.math.BigInteger;
@@ -100,7 +102,8 @@ public class IntConverter extends AbstractObjectConverter {
     }
     long nanoseconds = (long) this.object * super.POWERS_OF_TEN[9 - scale];
     Time time = new Time(nanoseconds / super.POWERS_OF_TEN[6]);
-    // LOGGER.info("check timestamp " + time.toString() + " " + time.toLocalTime().toString());
+    LoggingUtil.log(
+        LogLevel.INFO, "check timestamp " + time.toString() + " " + time.toLocalTime().toString());
     return new Timestamp(time.getTime());
   }
 }

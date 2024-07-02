@@ -2,6 +2,7 @@ package com.databricks.jdbc.core;
 
 import static com.databricks.jdbc.driver.DatabricksJdbcConstants.*;
 
+import com.databricks.jdbc.commons.LogLevel;
 import com.databricks.jdbc.commons.util.LoggingUtil;
 import com.databricks.jdbc.driver.DatabricksDriver;
 import com.databricks.jdbc.driver.DatabricksJdbcConstants;
@@ -11,7 +12,6 @@ import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
 import java.util.Properties;
-import java.util.logging.Level;
 import javax.sql.DataSource;
 
 public class DatabricksDataSource implements DataSource {
@@ -32,14 +32,14 @@ public class DatabricksDataSource implements DataSource {
 
   @Override
   public Connection getConnection() throws DatabricksSQLException {
-    LoggingUtil.log(Level.FINE, "public Connection getConnection()");
+    LoggingUtil.log(LogLevel.DEBUG, "public Connection getConnection()");
     return getConnection(this.getUsername(), this.getPassword());
   }
 
   @Override
   public Connection getConnection(String username, String password) throws DatabricksSQLException {
     LoggingUtil.log(
-        Level.FINE,
+        LogLevel.DEBUG,
         String.format(
             "public Connection getConnection(String username = {%s}, String password = {%s})",
             username, password));
@@ -65,7 +65,7 @@ public class DatabricksDataSource implements DataSource {
   @Override
   public void setLoginTimeout(int seconds) {
     LoggingUtil.log(
-        Level.INFO, String.format("public void setLoginTimeout(int seconds = {%s})", seconds));
+        LogLevel.INFO, String.format("public void setLoginTimeout(int seconds = {%s})", seconds));
     this.properties.put(DatabricksJdbcConstants.LOGIN_TIMEOUT, seconds);
   }
 
@@ -90,7 +90,7 @@ public class DatabricksDataSource implements DataSource {
   }
 
   public String getUrl() {
-    LoggingUtil.log(Level.INFO, "public String getUrl()");
+    LoggingUtil.log(LogLevel.INFO, "public String getUrl()");
     StringBuilder urlBuilder = new StringBuilder();
     urlBuilder.append(DatabricksJdbcConstants.JDBC_SCHEMA);
     if (host == null) {

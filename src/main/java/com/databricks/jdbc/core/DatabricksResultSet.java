@@ -10,6 +10,7 @@ import com.databricks.jdbc.client.impl.thrift.generated.TRowSet;
 import com.databricks.jdbc.client.impl.thrift.generated.TStatus;
 import com.databricks.jdbc.client.sqlexec.ResultData;
 import com.databricks.jdbc.client.sqlexec.ResultManifest;
+import com.databricks.jdbc.commons.LogLevel;
 import com.databricks.jdbc.commons.util.LoggingUtil;
 import com.databricks.jdbc.commons.util.WarningUtil;
 import com.databricks.jdbc.core.converters.*;
@@ -24,10 +25,8 @@ import java.sql.*;
 import java.util.Calendar;
 import java.util.List;
 import java.util.Map;
-import java.util.logging.Level;
 
 public class DatabricksResultSet implements ResultSet, IDatabricksResultSet {
-  private static final String DECIMAL = ".";
   private static final String AFFECTED_ROWS_COUNT = "num_affected_rows";
   private final StatementStatus statementStatus;
   private final String statementId;
@@ -620,14 +619,15 @@ public class DatabricksResultSet implements ResultSet, IDatabricksResultSet {
     /* As we fetch chunks of data together,
     setting fetchSize is an overkill.
     Hence, we don't support it.*/
-    LoggingUtil.log(Level.FINE, String.format("public void setFetchSize(int rows = {%s})", rows));
+    LoggingUtil.log(
+        LogLevel.DEBUG, String.format("public void setFetchSize(int rows = {%s})", rows));
     checkIfClosed();
     addWarningAndLog("As FetchSize is not supported in the Databricks JDBC, ignoring it");
   }
 
   @Override
   public int getFetchSize() throws SQLException {
-    LoggingUtil.log(Level.FINE, "public int getFetchSize()");
+    LoggingUtil.log(LogLevel.DEBUG, "public int getFetchSize()");
     checkIfClosed();
     addWarningAndLog(
         "As FetchSize is not supported in the Databricks JDBC, we don't set it in the first place");
@@ -1021,7 +1021,7 @@ public class DatabricksResultSet implements ResultSet, IDatabricksResultSet {
   }
 
   private void addWarningAndLog(String warningMessage) {
-    LoggingUtil.log(Level.WARNING, warningMessage);
+    LoggingUtil.log(LogLevel.WARNING, warningMessage);
     warnings = WarningUtil.addWarning(warnings, warningMessage);
   }
 
@@ -1547,7 +1547,7 @@ public class DatabricksResultSet implements ResultSet, IDatabricksResultSet {
           String.format(
               "Exception occurred while converting object into corresponding return object type using getObject(int columnIndex, Class<T> type). ErrorMessage: %s",
               e.getMessage());
-      LoggingUtil.log(Level.SEVERE, errorMessage);
+      LoggingUtil.log(LogLevel.ERROR, errorMessage);
       throw new DatabricksSQLException(errorMessage, e);
     }
   }

@@ -2,10 +2,10 @@ package com.databricks.jdbc.driver;
 
 import static com.databricks.jdbc.driver.DatabricksJdbcConstants.*;
 
-import com.databricks.jdbc.client.DatabricksClientType
-import com.databricks.jdbc.commons.util.LoggingUtil;
-import com.databricks.jdbc.commons.util.AppenderUtil;
+import com.databricks.jdbc.client.DatabricksClientType;
+import com.databricks.jdbc.commons.LogLevel;
 import com.databricks.jdbc.commons.util.DeviceInfoLogUtil;
+import com.databricks.jdbc.commons.util.LoggingUtil;
 import com.databricks.jdbc.core.DatabricksConnection;
 import com.databricks.jdbc.core.DatabricksSQLException;
 import com.databricks.jdbc.telemetry.DatabricksMetrics;
@@ -13,7 +13,6 @@ import com.databricks.sdk.core.UserAgent;
 import java.io.IOException;
 import java.sql.*;
 import java.util.Properties;
-import java.util.logging.Level;
 
 /**
  * Databricks JDBC driver. TODO: Add implementation to accept Urls in format:
@@ -88,16 +87,17 @@ public class DatabricksDriver implements Driver {
       getDBSQLVersionInfo.next();
       String dbsqlVersion = getDBSQLVersionInfo.getString(1);
       LoggingUtil.log(
-          Level.FINER, String.format("Connected to Databricks DBSQL version: {%s}", dbsqlVersion));
+          LogLevel.DEBUG,
+          String.format("Connected to Databricks DBSQL version: {%s}", dbsqlVersion));
       if (checkSupportForNewMetadata(dbsqlVersion)) {
         LoggingUtil.log(
-            Level.FINER,
+            LogLevel.DEBUG,
             String.format(
                 "The Databricks DBSQL version {%s} supports the new metadata commands.",
                 dbsqlVersion));
         if (connectionContext.getUseLegacyMetadata().equals(true)) {
           LoggingUtil.log(
-              Level.FINE,
+              LogLevel.DEBUG,
               "The new metadata commands are enabled, but the legacy metadata commands are being used due to connection parameter useLegacyMetadata");
           connection.setMetadataClient(true);
         } else {
@@ -105,7 +105,7 @@ public class DatabricksDriver implements Driver {
         }
       } else {
         LoggingUtil.log(
-            Level.FINE,
+            LogLevel.DEBUG,
             String.format(
                 "The Databricks DBSQL version {%s} does not support the new metadata commands. Falling back to legacy metadata commands.",
                 dbsqlVersion));
@@ -113,7 +113,7 @@ public class DatabricksDriver implements Driver {
       }
     } catch (SQLException e) {
       LoggingUtil.log(
-          Level.FINE,
+          LogLevel.DEBUG,
           String.format(
               "Unable to get the DBSQL version. Falling back to legacy metadata commands. Error : %s",
               e));
@@ -135,7 +135,7 @@ public class DatabricksDriver implements Driver {
       }
     } catch (Exception e) {
       LoggingUtil.log(
-          Level.FINE,
+          LogLevel.DEBUG,
           String.format(
               "Unable to parse the DBSQL version {%s}. Falling back to legacy metadata commands.",
               dbsqlVersion));
@@ -174,7 +174,7 @@ public class DatabricksDriver implements Driver {
 
   public static void main(String[] args) {
     LoggingUtil.log(
-        Level.FINER,
+        LogLevel.DEBUG,
         String.format("The driver {%s} has been initialized.", DatabricksDriver.class));
   }
 

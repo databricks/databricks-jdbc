@@ -1,5 +1,6 @@
 package com.databricks.jdbc.commons.util;
 
+import com.databricks.jdbc.commons.LogLevel;
 import com.databricks.jdbc.core.DatabricksParsingException;
 import com.databricks.jdbc.core.DatabricksSQLException;
 import com.databricks.jdbc.core.types.CompressionType;
@@ -11,13 +12,13 @@ public class DecompressionUtil {
 
   public static InputStream decompressLZ4Frame(InputStream compressedInputStream, String context)
       throws DatabricksSQLException {
-    // LOGGER.debug("Decompressing using LZ4 Frame algorithm. Context: {}", context);
+    LoggingUtil.log(LogLevel.DEBUG, "Decompressing using LZ4 Frame algorithm. Context: " + context);
     try {
       return new LZ4FrameInputStream(compressedInputStream);
     } catch (IOException e) {
       String errorMessage =
           String.format("Unable to de-compress LZ4 Frame compressed result %s", context);
-      // LOGGER.error(errorMessage + e.getMessage());
+      LoggingUtil.log(LogLevel.ERROR, errorMessage + e.getMessage());
       throw new DatabricksParsingException(errorMessage, e);
     }
   }

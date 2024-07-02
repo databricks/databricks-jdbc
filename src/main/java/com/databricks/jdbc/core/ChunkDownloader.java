@@ -7,6 +7,7 @@ import com.databricks.jdbc.client.impl.thrift.generated.TSparkArrowResultLink;
 import com.databricks.jdbc.client.sqlexec.ExternalLink;
 import com.databricks.jdbc.client.sqlexec.ResultData;
 import com.databricks.jdbc.client.sqlexec.ResultManifest;
+import com.databricks.jdbc.commons.LogLevel;
 import com.databricks.jdbc.commons.util.LoggingUtil;
 import com.databricks.jdbc.core.types.CompressionType;
 import com.databricks.sdk.service.sql.BaseChunkInfo;
@@ -17,7 +18,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.logging.Level;
 
 /** Class to manage Arrow chunks and fetch them on proactive basis. */
 public class ChunkDownloader {
@@ -154,7 +154,7 @@ public class ChunkDownloader {
         }
       } catch (InterruptedException e) {
         LoggingUtil.log(
-            Level.SEVERE,
+            LogLevel.ERROR,
             String.format(
                 "Caught interrupted exception while waiting for chunk [%s] for statement [%s]. Exception [%s]",
                 chunk.getChunkIndex(), statementId, e));

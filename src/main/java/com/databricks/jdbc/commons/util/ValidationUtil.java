@@ -1,10 +1,10 @@
 package com.databricks.jdbc.commons.util;
 
 import com.databricks.jdbc.client.DatabricksHttpException;
+import com.databricks.jdbc.commons.LogLevel;
 import com.databricks.jdbc.core.DatabricksSQLException;
 import com.databricks.jdbc.core.DatabricksValidationException;
 import java.util.Map;
-import java.util.logging.Level;
 import org.apache.http.HttpResponse;
 
 public class ValidationUtil {
@@ -35,7 +35,7 @@ public class ValidationUtil {
     if (statusCode >= 200 && statusCode < 300) {
       return;
     }
-    LoggingUtil.log(Level.FINE, "Response has failure HTTP Code");
+    LoggingUtil.log(LogLevel.DEBUG, "Response has failure HTTP Code");
     String thriftErrorHeader = "X-Thriftserver-Error-Message";
     if (response.containsHeader(thriftErrorHeader)) {
       String errorMessage = response.getFirstHeader(thriftErrorHeader).getValue();
