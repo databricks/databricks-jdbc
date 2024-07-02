@@ -29,8 +29,6 @@ import org.apache.http.HttpEntity;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.utils.URIBuilder;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 
 public class ArrowResultChunk {
 
@@ -78,7 +76,7 @@ public class ArrowResultChunk {
 
   private static final Integer SECONDS_BUFFER_FOR_EXPIRY = 60;
 
-  private static final Logger LOGGER = LogManager.getLogger(ArrowResultChunk.class);
+  // private static final Logger LOGGER = LogManager.getLogger(ArrowResultChunk.class);
 
   private final long chunkIndex;
   final long numRows;
@@ -275,10 +273,6 @@ public class ArrowResultChunk {
     if (headers != null) {
       headers.forEach(getRequest::addHeader);
     } else {
-      LOGGER.debug(
-          "No encryption headers present for chunk index [{}] and statement [{}]",
-          chunkIndex,
-          statementId);
     }
   }
 
@@ -312,8 +306,6 @@ public class ArrowResultChunk {
   }
 
   public void getArrowDataFromInputStream(InputStream inputStream) throws DatabricksSQLException {
-    LOGGER.debug(
-        "Parsing data for chunk index [{}] and statement [{}]", this.chunkIndex, this.statementId);
     InputStream decompressedStream =
         DecompressionUtil.decompress(
             inputStream,
@@ -338,10 +330,7 @@ public class ArrowResultChunk {
         this.recordBatchList.add(getVectorsFromSchemaRoot());
         vectorSchemaRoot.clear();
       }
-      LOGGER.debug(
-          "Data parsed for chunk index [{}] and statement [{}]", this.chunkIndex, this.statementId);
     } catch (ClosedByInterruptException e) {
-      LOGGER.debug("Data parsing interrupted when loading Arrow Result", e);
       vectors.forEach(ValueVector::close);
       purgeArrowData();
       // no need to throw an exception here, this is expected if statement is closed when loading
@@ -369,7 +358,6 @@ public class ArrowResultChunk {
         String.format(
             "Data parsing failed for chunk index [%d] and statement [%s]",
             this.chunkIndex, this.statementId);
-    LOGGER.error(errMsg, exception);
     this.setStatus(failedStatus);
     purgeArrowData();
     throw new DatabricksParsingException(errMsg, exception);

@@ -25,8 +25,7 @@
     <google.findbugs.annotations.version>3.0.1</google.findbugs.annotations.version>
     <immutables.value.version>2.9.2</immutables.value.version>
     <httpclient.version>4.5.14</httpclient.version>
-    <log4japi.version>2.21.1</log4japi.version>
-    <log4jcore.version>2.21.1</log4jcore.version>
+
     <spotless.version>2.43.0</spotless.version>
     <commons-io.version>2.13.0</commons-io.version>
     <databricks-sdk.version>0.17.0</databricks-sdk.version>
@@ -114,16 +113,6 @@
       <scope>test</scope>
     </dependency>
     <dependency>
-      <groupId>org.apache.logging.log4j</groupId>
-      <artifactId>log4j-api</artifactId>
-      <version>${log4japi.version}</version>
-    </dependency>
-    <dependency>
-      <groupId>org.apache.logging.log4j</groupId>
-      <artifactId>log4j-core</artifactId>
-      <version>${log4jcore.version}</version>
-    </dependency>
-    <dependency>
       <groupId>com.fasterxml.jackson.core</groupId>
       <artifactId>jackson-databind</artifactId>
       <version>${jackson.version}</version>
@@ -194,9 +183,6 @@
           <artifactId>maven-surefire-plugin</artifactId>
           <version>${maven-surefire-plugin.version}</version>
           <configuration>
-            <systemPropertyVariables>
-              <log4j.configurationFile>file:src/main/resources/log4j2.xml</log4j.configurationFile>
-            </systemPropertyVariables>
             <excludes>
               <exclude>**/integration/**/*.java</exclude>
               <exclude>**/*MetadataBenchmarkingTest.java</exclude>

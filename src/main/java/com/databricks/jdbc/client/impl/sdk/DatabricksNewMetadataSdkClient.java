@@ -9,13 +9,13 @@ import com.databricks.jdbc.client.impl.helper.CommandBuilder;
 import com.databricks.jdbc.client.impl.helper.CommandName;
 import com.databricks.jdbc.client.impl.helper.MetadataResultSetBuilder;
 import com.databricks.jdbc.commons.MetricsList;
+import com.databricks.jdbc.commons.util.LoggingUtil;
 import com.databricks.jdbc.core.*;
 import com.databricks.jdbc.telemetry.DatabricksMetrics;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.*;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
+import java.util.logging.Level;
 
 /**
  * This is for the new SQL commands added in runtime. Note that the DatabricksMetadataSdkClient will
@@ -24,8 +24,6 @@ import org.apache.logging.log4j.Logger;
  * Tracking bug for replacement: (PECO-1502)
  */
 public class DatabricksNewMetadataSdkClient implements DatabricksMetadataClient {
-
-  private static final Logger LOGGER = LogManager.getLogger(DatabricksNewMetadataSdkClient.class);
   private final DatabricksSdkClient sdkClient;
 
   public DatabricksNewMetadataSdkClient(DatabricksSdkClient sdkClient) {
@@ -34,7 +32,7 @@ public class DatabricksNewMetadataSdkClient implements DatabricksMetadataClient 
 
   @Override
   public DatabricksResultSet listTypeInfo(IDatabricksSession session) {
-    LOGGER.debug("public ResultSet getTypeInfo()");
+    LoggingUtil.log(Level.FINE, "public ResultSet getTypeInfo()");
     return TYPE_INFO_RESULT;
   }
 
@@ -43,7 +41,7 @@ public class DatabricksNewMetadataSdkClient implements DatabricksMetadataClient 
     long startTime = System.currentTimeMillis();
     CommandBuilder commandBuilder = new CommandBuilder(session);
     String SQL = commandBuilder.getSQLString(CommandName.LIST_CATALOGS);
-    LOGGER.debug("SQL command to fetch catalogs: {}", SQL);
+    LoggingUtil.log(Level.FINE, String.format("SQL command to fetch catalogs: {%s}", SQL));
     DatabricksResultSet resultSet =
         MetadataResultSetBuilder.getCatalogsResult(
             getResultSet(SQL, session, StatementType.METADATA));
@@ -59,7 +57,7 @@ public class DatabricksNewMetadataSdkClient implements DatabricksMetadataClient 
     CommandBuilder commandBuilder =
         new CommandBuilder(catalog, session).setSchemaPattern(schemaNamePattern);
     String SQL = commandBuilder.getSQLString(CommandName.LIST_SCHEMAS);
-    LOGGER.debug("SQL command to fetch schemas: {}", SQL);
+    LoggingUtil.log(Level.FINE, String.format("SQL command to fetch schemas: {%s}", SQL));
     DatabricksResultSet resultSet =
         MetadataResultSetBuilder.getSchemasResult(
             getResultSet(SQL, session, StatementType.METADATA), catalog);
@@ -96,7 +94,7 @@ public class DatabricksNewMetadataSdkClient implements DatabricksMetadataClient 
 
   @Override
   public DatabricksResultSet listTableTypes(IDatabricksSession session) throws SQLException {
-    LOGGER.debug("Returning list of table types.");
+    LoggingUtil.log(Level.FINE, "Returning list of table types.");
     long startTime = System.currentTimeMillis();
     DatabricksResultSet resultSet = MetadataResultSetBuilder.getTableTypesResult();
     DatabricksMetrics.record(
@@ -139,7 +137,7 @@ public class DatabricksNewMetadataSdkClient implements DatabricksMetadataClient 
             .setSchemaPattern(schemaNamePattern)
             .setFunctionPattern(functionNamePattern);
     String SQL = commandBuilder.getSQLString(CommandName.LIST_FUNCTIONS);
-    LOGGER.debug("SQL command to fetch functions: {}", SQL);
+    LoggingUtil.log(Level.FINE, String.format("SQL command to fetch functions: {%s}", SQL));
     DatabricksResultSet resultSet =
         MetadataResultSetBuilder.getFunctionsResult(
             getResultSet(SQL, session, StatementType.QUERY), catalog);
@@ -155,7 +153,7 @@ public class DatabricksNewMetadataSdkClient implements DatabricksMetadataClient 
     CommandBuilder commandBuilder =
         new CommandBuilder(catalog, session).setSchema(schema).setTable(table);
     String SQL = commandBuilder.getSQLString(CommandName.LIST_PRIMARY_KEYS);
-    LOGGER.debug("SQL command to fetch primary keys: {}", SQL);
+    LoggingUtil.log(Level.FINE, String.format("SQL command to fetch primary keys: {%s}", SQL));
     DatabricksResultSet resultSet =
         MetadataResultSetBuilder.getPrimaryKeysResult(
             getResultSet(SQL, session, StatementType.METADATA));

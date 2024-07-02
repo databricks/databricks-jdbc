@@ -10,11 +10,8 @@ import com.databricks.jdbc.core.IDatabricksSession;
 import java.sql.SQLException;
 import java.util.Collections;
 import java.util.HashMap;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 
 public class CommandBuilder {
-  private static final Logger LOGGER = LogManager.getLogger(CommandBuilder.class);
   private String catalogName = null;
   private String schemaName = null;
   private String tableName = null;
@@ -46,25 +43,25 @@ public class CommandBuilder {
 
   public CommandBuilder setSchemaPattern(String pattern) {
     this.schemaPattern = WildcardUtil.jdbcPatternToHive(pattern);
-    LOGGER.debug("Schema pattern conversion {} -> {}", pattern, schemaPattern);
+    // LOGGER.debug("Schema pattern conversion {} -> {}", pattern, schemaPattern);
     return this;
   }
 
   public CommandBuilder setTablePattern(String pattern) {
     this.tablePattern = WildcardUtil.jdbcPatternToHive(pattern);
-    LOGGER.debug("Table pattern conversion {} -> {}", pattern, tablePattern);
+    // .debug("Table pattern conversion {} -> {}", pattern, tablePattern);
     return this;
   }
 
   public CommandBuilder setColumnPattern(String pattern) {
     this.columnPattern = WildcardUtil.jdbcPatternToHive(pattern);
-    LOGGER.debug("Column pattern conversion {} -> {}", pattern, columnPattern);
+    // LOGGER.debug("Column pattern conversion {} -> {}", pattern, columnPattern);
     return this;
   }
 
   public CommandBuilder setFunctionPattern(String pattern) {
     this.functionPattern = WildcardUtil.jdbcPatternToHive(pattern);
-    LOGGER.debug("Function pattern conversion {} -> {}", pattern, functionPattern);
+    // LOGGER.debug("Function pattern conversion {} -> {}", pattern, functionPattern);
     return this;
   }
 
@@ -77,7 +74,7 @@ public class CommandBuilder {
         String.format(
             "Building command for fetching schema. Catalog %s, SchemaPattern %s and session context %s",
             catalogName, schemaPattern, sessionContext);
-    LOGGER.debug(contextString);
+    // LOGGER.debug(contextString);
     throwErrorIfNull(Collections.singletonMap(CATALOG, catalogName), contextString);
     String showSchemaSQL = String.format(SHOW_SCHEMA_IN_CATALOG_SQL, catalogName);
     if (!WildcardUtil.isNullOrEmpty(schemaPattern)) {
@@ -91,7 +88,7 @@ public class CommandBuilder {
         String.format(
             "Building command for fetching tables. Catalog %s, SchemaPattern %s, TablePattern %s and session context %s",
             catalogName, schemaPattern, tablePattern, sessionContext);
-    LOGGER.debug(contextString);
+    // LOGGER.debug(contextString);
     throwErrorIfNull(Collections.singletonMap(CATALOG, catalogName), contextString);
     String showTablesSQL = String.format(SHOW_TABLES_SQL, catalogName);
     if (!WildcardUtil.isNullOrEmpty(schemaPattern)) {
@@ -108,7 +105,7 @@ public class CommandBuilder {
         String.format(
             "Building command for fetching columns. Catalog %s, SchemaPattern %s, TablePattern %s, ColumnPattern %s and session context : %s",
             catalogName, schemaPattern, tablePattern, columnPattern, sessionContext);
-    LOGGER.debug(contextString);
+    // LOGGER.debug(contextString);
     throwErrorIfNull(Collections.singletonMap(CATALOG, catalogName), contextString);
     String showColumnsSQL = String.format(SHOW_COLUMNS_SQL, catalogName);
 
@@ -132,7 +129,7 @@ public class CommandBuilder {
             "Building command for fetching functions. Catalog %s, SchemaPattern %s, FunctionPattern %s. With session context %s",
             catalogName, schemaPattern, functionPattern, sessionContext);
 
-    LOGGER.debug(contextString);
+    // LOGGER.debug(contextString);
     throwErrorIfNull(Collections.singletonMap(CATALOG, catalogName), contextString);
     String showFunctionsSQL = String.format(SHOW_FUNCTIONS_SQL, catalogName);
     if (!WildcardUtil.isNullOrEmpty(schemaPattern)) {
@@ -153,7 +150,7 @@ public class CommandBuilder {
         String.format(
             "Building command for fetching primary keys. Catalog %s, Schema %s, Table %s. With session context: %s",
             catalogName, schemaName, tableName, sessionContext);
-    LOGGER.debug(contextString);
+    // LOGGER.debug(contextString);
     HashMap<String, String> hashMap = new HashMap<>();
     hashMap.put(CATALOG, catalogName);
     hashMap.put(SCHEMA, schemaName);

@@ -3,8 +3,8 @@ package com.databricks.jdbc.driver;
 import com.google.common.annotations.VisibleForTesting;
 import java.util.Map;
 import java.util.Set;
+import java.util.logging.Level;
 import java.util.regex.Pattern;
-import org.apache.logging.log4j.Level;
 
 public final class DatabricksJdbcConstants {
 

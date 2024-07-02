@@ -1,5 +1,6 @@
 package com.databricks.jdbc.pooling;
 
+import com.databricks.jdbc.commons.util.LoggingUtil;
 import com.databricks.jdbc.core.DatabricksSQLException;
 import com.databricks.jdbc.core.IDatabricksConnection;
 import com.databricks.jdbc.core.IDatabricksStatement;
@@ -10,17 +11,14 @@ import java.lang.reflect.Proxy;
 import java.sql.*;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.logging.Level;
 import javax.annotation.Nullable;
 import javax.sql.ConnectionEvent;
 import javax.sql.ConnectionEventListener;
 import javax.sql.PooledConnection;
 import javax.sql.StatementEventListener;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 
 public class DatabricksPooledConnection implements PooledConnection {
-
-  private static final Logger LOGGER = LogManager.getLogger(DatabricksPooledConnection.class);
   private final Set<ConnectionEventListener> listeners = new HashSet<>();
   private Connection physicalConnection;
   private ConnectionHandler connectionHandler;
@@ -40,7 +38,7 @@ public class DatabricksPooledConnection implements PooledConnection {
 
   /** Fires a connection closed event to all listeners. */
   void fireConnectionClosed() {
-    LOGGER.debug("void fireConnectionClosed()");
+    // LOGGER.debug("void fireConnectionClosed()");
     for (ConnectionEventListener listener : this.listeners) {
       listener.connectionClosed(new ConnectionEvent(this));
     }
@@ -52,7 +50,7 @@ public class DatabricksPooledConnection implements PooledConnection {
    * @param e the SQLException to consider
    */
   private void fireConnectionError(SQLException e) {
-    LOGGER.debug("private void fireConnectionError(SQLException e = {})", e.toString());
+    // LOGGER.debug("private void fireConnectionError(SQLException e = {})", e.toString());
     for (ConnectionEventListener listener : this.listeners) {
       listener.connectionErrorOccurred(new ConnectionEvent(this, e));
     }
@@ -81,7 +79,7 @@ public class DatabricksPooledConnection implements PooledConnection {
   /** Close the physical connection once the pooled connection is closed */
   @Override
   public void close() throws SQLException {
-    LOGGER.debug("public void close()");
+    // LOGGER.debug("public void close()");
     if (connectionHandler != null && !connectionHandler.isClosed()) {
       connectionHandler.close();
     }
@@ -106,7 +104,7 @@ public class DatabricksPooledConnection implements PooledConnection {
    */
   @Override
   public Connection getConnection() throws SQLException {
-    LOGGER.debug("public Connection getConnection()");
+    // LOGGER.debug("public Connection getConnection()");
     if (physicalConnection == null) {
       // Before throwing the exception, notify the listeners
       DatabricksSQLException sqlException =
@@ -127,7 +125,6 @@ public class DatabricksPooledConnection implements PooledConnection {
    * through the Connection interface.
    */
   private class ConnectionHandler implements InvocationHandler {
-    private final Logger CONNECTION_HANDLER_LOGGER = LogManager.getLogger(ConnectionHandler.class);
     private Connection physicalConnection;
     private Connection
         virtualConnection; // the Connection the client is currently using, which is not a physical
@@ -148,10 +145,11 @@ public class DatabricksPooledConnection implements PooledConnection {
 
     @Override
     public Object invoke(Object proxy, Method method, @Nullable Object[] args) throws Throwable {
-      CONNECTION_HANDLER_LOGGER.debug(
-          "public Object invoke(Object proxy, Method method = {}, Object[] args = {})",
-          method,
-          args);
+      LoggingUtil.log(
+          Level.FINE,
+          String.format(
+              "public Object invoke(Object proxy, Method method = {%s}, Object[] args = {%s})",
+              method, args));
       final String methodName = method.getName();
       if (method.getDeclaringClass() == Object.class) {
         if (methodName.equals("toString")) {
@@ -223,7 +221,7 @@ public class DatabricksPooledConnection implements PooledConnection {
     }
 
     public void close() {
-      CONNECTION_HANDLER_LOGGER.debug("public void close()");
+      //  CONNECTION_HANDLER_LOGGER.debug("public void close()");
       physicalConnection = null;
       virtualConnection = null;
       // No close event fired here: see JDBC 4.3 Optional Package spec section 11.4
@@ -240,7 +238,6 @@ public class DatabricksPooledConnection implements PooledConnection {
    * proper Connection proxy for the getConnection method.
    */
   private class StatementHandler implements InvocationHandler {
-    private final Logger STATEMENT_HANDLER_LOGGER = LogManager.getLogger(StatementHandler.class);
     private ConnectionHandler conHandler;
     private Statement physicalStatement;
 
@@ -251,11 +248,11 @@ public class DatabricksPooledConnection implements PooledConnection {
 
     @Override
     public Object invoke(Object proxy, Method method, @Nullable Object[] args) throws Throwable {
-      STATEMENT_HANDLER_LOGGER.debug(
-          "public Object invoke(Object proxy = {}, Method method = {}, Object[] args = {})",
-          proxy,
-          method,
-          args);
+      LoggingUtil.log(
+          Level.FINE,
+          String.format(
+              "public Object invoke(Object proxy = {%s}, Method method = {%s}, Object[] args = {%s})",
+              proxy, method, args));
       final String methodName = method.getName();
       if (method.getDeclaringClass() == Object.class) {
         if (methodName.equals("toString")) {

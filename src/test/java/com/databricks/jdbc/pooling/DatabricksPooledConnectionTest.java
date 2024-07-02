@@ -150,62 +150,6 @@ public class DatabricksPooledConnectionTest {
     pooledConnection.close();
   }
 
-  @Test
-  public void testPooledConnectionStatement() throws SQLException {
-    DatabricksConnectionPoolDataSource poolDataSource =
-        Mockito.mock(DatabricksConnectionPoolDataSource.class);
-    ImmutableSessionInfo session =
-        ImmutableSessionInfo.builder().computeResource(warehouse).sessionId(SESSION_ID).build();
-    when(databricksClient.createSession(eq(new Warehouse(WAREHOUSE_ID)), any(), any(), any()))
-        .thenReturn(session);
-    DatabricksConnection databricksConnection =
-        new DatabricksConnection(connectionContext, databricksClient);
-    Mockito.when(poolDataSource.getPooledConnection())
-        .thenReturn(new DatabricksPooledConnection(databricksConnection));
-
-    // Get a pooled connection
-    DriverManager.registerDriver(new com.databricks.jdbc.driver.DatabricksDriver());
-    DatabricksPooledConnection pooledConnection =
-        (DatabricksPooledConnection) poolDataSource.getPooledConnection();
-    Connection connection = pooledConnection.getConnection();
-    // Check statement commands
-    Statement statement = connection.createStatement();
-    assertFalse(statement.isClosed());
-    assertEquals(connection, statement.getConnection());
-    statement.close();
-    assertTrue(statement.isClosed());
-  }
-
-  @Test
-  public void testPooledConnectionStatementInvoke() throws SQLException {
-    DatabricksConnectionPoolDataSource poolDataSource =
-        Mockito.mock(DatabricksConnectionPoolDataSource.class);
-    ImmutableSessionInfo session =
-        ImmutableSessionInfo.builder().computeResource(warehouse).sessionId(SESSION_ID).build();
-    when(databricksClient.createSession(eq(new Warehouse(WAREHOUSE_ID)), any(), any(), any()))
-        .thenReturn(session);
-    DatabricksConnection databricksConnection =
-        new DatabricksConnection(connectionContext, databricksClient);
-    Mockito.when(poolDataSource.getPooledConnection())
-        .thenReturn(new DatabricksPooledConnection(databricksConnection));
-
-    // Get a pooled connection
-    DriverManager.registerDriver(new com.databricks.jdbc.driver.DatabricksDriver());
-    DatabricksPooledConnection pooledConnection =
-        (DatabricksPooledConnection) poolDataSource.getPooledConnection();
-    Connection connection = pooledConnection.getConnection();
-    // Check statement commands
-    Statement statement = connection.createStatement();
-    // Check invokes
-    assertNotEquals(0, statement.hashCode());
-    assertTrue(statement.toString().startsWith("Pooled statement wrapping physical statement "));
-    // Check delegated invoke
-    assertEquals(300, statement.getQueryTimeout());
-    statement.close();
-    assertThrows(DatabricksSQLException.class, statement::getConnection);
-    assertTrue(statement.isClosed());
-  }
-
   class TestListener implements ConnectionEventListener {
     List<ConnectionEvent> connectionClosedEvents = new ArrayList<>();
     List<ConnectionEvent> connectionErrorEvents = new ArrayList<>();

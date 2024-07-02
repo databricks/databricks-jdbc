@@ -8,12 +8,8 @@ import java.sql.Date;
 import java.sql.Time;
 import java.sql.Timestamp;
 import java.time.LocalDate;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 
 public class IntConverter extends AbstractObjectConverter {
-
-  private static final Logger LOGGER = LogManager.getLogger(IntConverter.class);
   private int object;
 
   public IntConverter(Object object) throws DatabricksSQLException {
@@ -104,7 +100,7 @@ public class IntConverter extends AbstractObjectConverter {
     }
     long nanoseconds = (long) this.object * super.POWERS_OF_TEN[9 - scale];
     Time time = new Time(nanoseconds / super.POWERS_OF_TEN[6]);
-    LOGGER.info("check timestamp " + time.toString() + " " + time.toLocalTime().toString());
+    // LOGGER.info("check timestamp " + time.toString() + " " + time.toLocalTime().toString());
     return new Timestamp(time.getTime());
   }
 }

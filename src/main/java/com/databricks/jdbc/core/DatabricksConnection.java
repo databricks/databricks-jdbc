@@ -1,6 +1,7 @@
 package com.databricks.jdbc.core;
 
 import com.databricks.jdbc.client.DatabricksClient;
+import com.databricks.jdbc.commons.util.LoggingUtil;
 import com.databricks.jdbc.commons.util.ValidationUtil;
 import com.databricks.jdbc.driver.DatabricksDriver;
 import com.databricks.jdbc.driver.DatabricksJdbcConstants;
@@ -13,14 +14,11 @@ import java.util.Properties;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
+import java.util.logging.Level;
 import java.util.stream.Collectors;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 
 /** Implementation for Databricks specific connection. */
 public class DatabricksConnection implements IDatabricksConnection, Connection {
-
-  private static final Logger LOGGER = LogManager.getLogger(DatabricksConnection.class);
   private IDatabricksSession session;
   private final Set<IDatabricksStatement> statementSet = ConcurrentHashMap.newKeySet();
   private SQLWarning warnings = null;
@@ -56,7 +54,7 @@ public class DatabricksConnection implements IDatabricksConnection, Connection {
 
   @Override
   public Statement createStatement() {
-    LOGGER.debug("public Statement createStatement()");
+    LoggingUtil.log(Level.FINE, "public Statement createStatement()");
     DatabricksStatement statement = new DatabricksStatement(this);
     statementSet.add(statement);
     return statement;
@@ -64,7 +62,9 @@ public class DatabricksConnection implements IDatabricksConnection, Connection {
 
   @Override
   public PreparedStatement prepareStatement(String sql) throws SQLException {
-    LOGGER.debug("public PreparedStatement prepareStatement(String sql = {})", sql);
+    LoggingUtil.log(
+        Level.FINE,
+        String.format("public PreparedStatement prepareStatement(String sql = {%s})", sql));
     DatabricksPreparedStatement statement = new DatabricksPreparedStatement(this, sql);
     statementSet.add(statement);
     return statement;
@@ -72,48 +72,48 @@ public class DatabricksConnection implements IDatabricksConnection, Connection {
 
   @Override
   public CallableStatement prepareCall(String sql) throws SQLException {
-    LOGGER.debug("public CallableStatement prepareCall(String sql = {})", sql);
+    LoggingUtil.log(Level.FINE, String.format("public CallableStatement prepareCall= {%s})", sql));
     throw new DatabricksSQLFeatureNotSupportedException("Not Supported");
   }
 
   @Override
   public String nativeSQL(String sql) throws SQLException {
-    LOGGER.debug("public String nativeSQL(String sql = {})", sql);
+    LoggingUtil.log(Level.FINE, String.format("public String nativeSQL(String sql{%s})", sql));
     throw new DatabricksSQLFeatureNotSupportedException(
         "Not implemented in DatabricksConnection - nativeSQL(String sql)");
   }
 
   @Override
   public void setAutoCommit(boolean autoCommit) throws SQLException {
-    LOGGER.debug("public void setAutoCommit(boolean autoCommit = {})", autoCommit);
+    // LoggingUtil.log(Level.FINE,"public void setAutoCommit(boolean autoCommit = {})", autoCommit);
     throw new DatabricksSQLFeatureNotSupportedException(
         "Not implemented in DatabricksConnection - setAutoCommit(boolean autoCommit)");
   }
 
   @Override
   public boolean getAutoCommit() throws SQLException {
-    LOGGER.debug("public boolean getAutoCommit()");
+    LoggingUtil.log(Level.FINE, "public boolean getAutoCommit()");
     throwExceptionIfConnectionIsClosed();
     return true;
   }
 
   @Override
   public void commit() throws SQLException {
-    LOGGER.debug("public void commit()");
+    LoggingUtil.log(Level.FINE, "public void commit()");
     throw new DatabricksSQLFeatureNotSupportedException(
         "Not implemented in DatabricksConnection - commit()");
   }
 
   @Override
   public void rollback() throws SQLException {
-    LOGGER.debug("public void rollback()");
+    LoggingUtil.log(Level.FINE, "public void rollback()");
     throw new DatabricksSQLFeatureNotSupportedException(
         "Not implemented in DatabricksConnection - rollback()");
   }
 
   @Override
   public void close() throws SQLException {
-    LOGGER.debug("public void close()");
+    LoggingUtil.log(Level.FINE, "public void close()");
     for (IDatabricksStatement statement : statementSet) {
       statement.close(false);
       statementSet.remove(statement);
@@ -124,33 +124,32 @@ public class DatabricksConnection implements IDatabricksConnection, Connection {
 
   @Override
   public boolean isClosed() throws SQLException {
-    LOGGER.debug("public boolean isClosed()");
+    LoggingUtil.log(Level.FINE, "public boolean isClosed()");
     return session == null || !session.isOpen();
   }
 
   @Override
   public DatabaseMetaData getMetaData() throws SQLException {
-    LOGGER.debug("public DatabaseMetaData getMetaData()");
+    LoggingUtil.log(Level.FINE, "public DatabaseMetaData getMetaData()");
     return new DatabricksDatabaseMetaData(this);
   }
 
   @Override
   public void setReadOnly(boolean readOnly) throws SQLException {
-    LOGGER.debug("public void setReadOnly(boolean readOnly = {})", readOnly);
+    LoggingUtil.log(Level.FINE, "public void setReadOnly(boolean readOnly = {})");
     throw new DatabricksSQLFeatureNotSupportedException(
         "Not implemented in DatabricksConnection - setReadOnly(boolean readOnly)");
   }
 
   @Override
   public boolean isReadOnly() throws SQLException {
-    LOGGER.debug("public boolean isReadOnly()");
+    LoggingUtil.log(Level.FINE, "public boolean isReadOnly()");
     throwExceptionIfConnectionIsClosed();
     return false;
   }
 
   @Override
   public void setCatalog(String catalog) throws SQLException {
-    LOGGER.debug("public void setCatalog(String catalog + {})", catalog);
     this.session.setCatalog(catalog);
     Statement statement = this.createStatement();
     statement.execute("SET CATALOG " + catalog);
@@ -158,34 +157,34 @@ public class DatabricksConnection implements IDatabricksConnection, Connection {
 
   @Override
   public String getCatalog() throws SQLException {
-    LOGGER.debug("public String getCatalog()");
+    LoggingUtil.log(Level.FINE, "public String getCatalog()");
     return this.session.getCatalog();
   }
 
   @Override
   public void setTransactionIsolation(int level) throws SQLException {
-    LOGGER.debug("public void setTransactionIsolation(int level = {})", level);
+    LoggingUtil.log(Level.FINE, "public void setTransactionIsolation(int level = {})");
     throw new DatabricksSQLFeatureNotSupportedException(
         "Not implemented in DatabricksConnection - setTransactionIsolation(int level)");
   }
 
   @Override
   public int getTransactionIsolation() throws SQLException {
-    LOGGER.debug("public int getTransactionIsolation()");
+    LoggingUtil.log(Level.FINE, "public int getTransactionIsolation()");
     throwExceptionIfConnectionIsClosed();
     return Connection.TRANSACTION_READ_UNCOMMITTED;
   }
 
   @Override
   public SQLWarning getWarnings() throws SQLException {
-    LOGGER.debug("public SQLWarning getWarnings()");
+    LoggingUtil.log(Level.FINE, "public SQLWarning getWarnings()");
     throwExceptionIfConnectionIsClosed();
     return warnings;
   }
 
   @Override
   public void clearWarnings() throws SQLException {
-    LOGGER.debug("public void clearWarnings()");
+    LoggingUtil.log(Level.FINE, "public void clearWarnings()");
     throwExceptionIfConnectionIsClosed();
     warnings = null;
   }
@@ -193,10 +192,7 @@ public class DatabricksConnection implements IDatabricksConnection, Connection {
   @Override
   public Statement createStatement(int resultSetType, int resultSetConcurrency)
       throws SQLException {
-    LOGGER.debug(
-        "public Statement createStatement(int resultSetType = {}, int resultSetConcurrency = {})",
-        resultSetType,
-        resultSetConcurrency);
+
     if (resultSetType != ResultSet.TYPE_FORWARD_ONLY
         || resultSetConcurrency != ResultSet.CONCUR_READ_ONLY) {
       throw new DatabricksSQLFeatureNotSupportedException(
@@ -208,11 +204,7 @@ public class DatabricksConnection implements IDatabricksConnection, Connection {
   @Override
   public PreparedStatement prepareStatement(String sql, int resultSetType, int resultSetConcurrency)
       throws SQLException {
-    LOGGER.debug(
-        "public PreparedStatement prepareStatement(String sql = {}, int resultSetType = {}, int resultSetConcurrency = {})",
-        sql,
-        resultSetType,
-        resultSetConcurrency);
+
     if (resultSetType != ResultSet.TYPE_FORWARD_ONLY
         || resultSetConcurrency != ResultSet.CONCUR_READ_ONLY) {
       throw new DatabricksSQLFeatureNotSupportedException(
@@ -224,67 +216,61 @@ public class DatabricksConnection implements IDatabricksConnection, Connection {
   @Override
   public CallableStatement prepareCall(String sql, int resultSetType, int resultSetConcurrency)
       throws SQLException {
-    LOGGER.debug(
-        "public CallableStatement prepareCall(String sql = {}, int resultSetType = {}, int resultSetConcurrency = {})",
-        sql,
-        resultSetType,
-        resultSetConcurrency);
+
     throw new DatabricksSQLFeatureNotSupportedException(
         "Not implemented in DatabricksConnection - prepareCall(String sql, int resultSetType, int resultSetConcurrency)");
   }
 
   @Override
   public Map<String, Class<?>> getTypeMap() throws SQLException {
-    LOGGER.debug("public Map<String, Class<?>> getTypeMap()");
+    LoggingUtil.log(Level.FINE, "public Map<String, Class<?>> getTypeMap()");
     throw new DatabricksSQLFeatureNotSupportedException(
         "Not implemented in DatabricksConnection - getTypeMap()");
   }
 
   @Override
   public void setTypeMap(Map<String, Class<?>> map) throws SQLException {
-    LOGGER.debug("public void setTypeMap(Map<String, Class<?>> map)");
+    LoggingUtil.log(Level.FINE, "public void setTypeMap(Map<String, Class<?>> map)");
     throw new DatabricksSQLFeatureNotSupportedException(
         "Not implemented in DatabricksConnection - setTypeMap(Map<String, Class<?>> map)");
   }
 
   @Override
   public void setHoldability(int holdability) throws SQLException {
-    LOGGER.debug("public void setHoldability(int holdability = {})", holdability);
     throw new DatabricksSQLFeatureNotSupportedException(
         "Not implemented in DatabricksConnection - setHoldability(int holdability)");
   }
 
   @Override
   public int getHoldability() throws SQLException {
-    LOGGER.debug("public int getHoldability()");
+    LoggingUtil.log(Level.FINE, "public int getHoldability()");
     throw new DatabricksSQLFeatureNotSupportedException(
         "Not implemented in DatabricksConnection - getHoldability()");
   }
 
   @Override
   public Savepoint setSavepoint() throws SQLException {
-    LOGGER.debug("public Savepoint setSavepoint()");
+    LoggingUtil.log(Level.FINE, "public Savepoint setSavepoint()");
     throw new DatabricksSQLFeatureNotSupportedException(
         "Not implemented in DatabricksConnection - setSavepoint()");
   }
 
   @Override
   public Savepoint setSavepoint(String name) throws SQLException {
-    LOGGER.debug("public Savepoint setSavepoint(String name = {})", name);
     throw new DatabricksSQLFeatureNotSupportedException(
         "Not implemented in DatabricksConnection - setSavepoint(String name)");
   }
 
   @Override
   public void rollback(Savepoint savepoint) throws SQLException {
-    LOGGER.debug("public void rollback(Savepoint savepoint)");
+    LoggingUtil.log(Level.FINE, "public void rollback(Savepoint savepoint)");
     throw new DatabricksSQLFeatureNotSupportedException(
         "Not implemented in DatabricksConnection - rollback(Savepoint savepoint)");
   }
 
   @Override
   public void releaseSavepoint(Savepoint savepoint) throws SQLException {
-    LOGGER.debug("public void releaseSavepoint(Savepoint savepoint)");
+    LoggingUtil.log(Level.FINE, "public void releaseSavepoint(Savepoint savepoint)");
     throw new DatabricksSQLFeatureNotSupportedException(
         "Not implemented in DatabricksConnection - releaseSavepoint(Savepoint savepoint)");
   }
@@ -292,11 +278,7 @@ public class DatabricksConnection implements IDatabricksConnection, Connection {
   @Override
   public Statement createStatement(
       int resultSetType, int resultSetConcurrency, int resultSetHoldability) throws SQLException {
-    LOGGER.debug(
-        "public Statement createStatement(int resultSetType = {}, int resultSetConcurrency = {}, int resultSetHoldability = {})",
-        resultSetType,
-        resultSetConcurrency,
-        resultSetHoldability);
+
     throw new DatabricksSQLFeatureNotSupportedException(
         "Not implemented in DatabricksConnection - createStatement(int resultSetType, int resultSetConcurrency, int resultSetHoldability)");
   }
@@ -305,12 +287,7 @@ public class DatabricksConnection implements IDatabricksConnection, Connection {
   public PreparedStatement prepareStatement(
       String sql, int resultSetType, int resultSetConcurrency, int resultSetHoldability)
       throws SQLException {
-    LOGGER.debug(
-        "public PreparedStatement prepareStatement(String sql = {}, int resultSetType = {}, int resultSetConcurrency = {}, int resultSetHoldability = {})",
-        sql,
-        resultSetType,
-        resultSetConcurrency,
-        resultSetHoldability);
+
     throw new DatabricksSQLFeatureNotSupportedException(
         "Not implemented in DatabricksConnection - prepareStatement(String sql, int resultSetType, int resultSetConcurrency, int resultSetHoldability)");
   }
@@ -319,77 +296,63 @@ public class DatabricksConnection implements IDatabricksConnection, Connection {
   public CallableStatement prepareCall(
       String sql, int resultSetType, int resultSetConcurrency, int resultSetHoldability)
       throws SQLException {
-    LOGGER.debug(
-        "public CallableStatement prepareCall(String sql = {}, int resultSetType = {}, int resultSetConcurrency = {}, int resultSetHoldability = {})",
-        sql,
-        resultSetType,
-        resultSetConcurrency,
-        resultSetHoldability);
+
     throw new DatabricksSQLFeatureNotSupportedException(
         "Not implemented in DatabricksConnection - prepareCall(String sql, int resultSetType, int resultSetConcurrency, int resultSetHoldability)");
   }
 
   @Override
   public PreparedStatement prepareStatement(String sql, int autoGeneratedKeys) throws SQLException {
-    LOGGER.debug(
-        "public PreparedStatement prepareStatement(String sql = {}, int autoGeneratedKeys = {})",
-        sql,
-        autoGeneratedKeys);
+
     throw new DatabricksSQLFeatureNotSupportedException(
         "Not implemented in DatabricksConnection - prepareStatement(String sql, int autoGeneratedKeys)");
   }
 
   @Override
   public PreparedStatement prepareStatement(String sql, int[] columnIndexes) throws SQLException {
-    LOGGER.debug(
-        "public PreparedStatement prepareStatement(String sql = {}, int[] columnIndexes = {})",
-        sql,
-        columnIndexes);
+
     throw new DatabricksSQLFeatureNotSupportedException(
         "Not implemented in DatabricksConnection - prepareStatement(String sql, int[] columnIndexes)");
   }
 
   @Override
   public PreparedStatement prepareStatement(String sql, String[] columnNames) throws SQLException {
-    LOGGER.debug(
-        "public PreparedStatement prepareStatement(String sql = {}, String[] columnNames = {})",
-        sql,
-        columnNames);
+
     throw new DatabricksSQLFeatureNotSupportedException(
         "Not implemented in DatabricksConnection - prepareStatement(String sql, String[] columnNames)");
   }
 
   @Override
   public Clob createClob() throws SQLException {
-    LOGGER.debug("public Clob createClob()");
+    LoggingUtil.log(Level.FINE, "public Clob createClob()");
     throw new DatabricksSQLFeatureNotSupportedException(
         "Not implemented in DatabricksConnection - createClob()");
   }
 
   @Override
   public Blob createBlob() throws SQLException {
-    LOGGER.debug("public Blob createBlob()");
+    LoggingUtil.log(Level.FINE, "public Blob createBlob()");
     throw new DatabricksSQLFeatureNotSupportedException(
         "Not implemented in DatabricksConnection - createBlob()");
   }
 
   @Override
   public NClob createNClob() throws SQLException {
-    LOGGER.debug("public NClob createNClob()");
+    LoggingUtil.log(Level.FINE, "public NClob createNClob()");
     throw new DatabricksSQLFeatureNotSupportedException(
         "Not implemented in DatabricksConnection - createNClob()");
   }
 
   @Override
   public SQLXML createSQLXML() throws SQLException {
-    LOGGER.debug("public SQLXML createSQLXML()");
+    LoggingUtil.log(Level.FINE, "public SQLXML createSQLXML()");
     throw new DatabricksSQLFeatureNotSupportedException(
         "Not implemented in DatabricksConnection - createSQLXML()");
   }
 
   @Override
   public boolean isValid(int timeout) throws SQLException {
-    LOGGER.debug("public boolean isValid(int timeout = {})", timeout);
+    // LoggingUtil.log(Level.FINE,"public boolean isValid(int timeout = {})", timeout);
     ValidationUtil.checkIfNonNegative(timeout, "timeout");
     try {
       DatabricksStatement statement = new DatabricksStatement(this);
@@ -445,7 +408,8 @@ public class DatabricksConnection implements IDatabricksConnection, Connection {
    */
   public void setSessionConfig(
       String key, String value, Map<String, ClientInfoStatus> failedProperties) {
-    LOGGER.debug("public void setSessionConfig(String key = {}, String value = {})", key, value);
+    //  LoggingUtil.log(Level.FINE,"public void setSessionConfig(String key = {}, String value =
+    // {})", key, value);
     try {
       this.createStatement().execute(String.format("SET %s = %s", key, value));
       this.session.setSessionConfig(key, value);
@@ -457,7 +421,8 @@ public class DatabricksConnection implements IDatabricksConnection, Connection {
 
   @Override
   public void setClientInfo(String name, String value) throws SQLClientInfoException {
-    LOGGER.debug("public void setClientInfo(String name = {}, String value = {})", name, value);
+    // LoggingUtil.log(Level.FINE,"public void setClientInfo(String name = {}, String value = {})",
+    // name, value);
     if (DatabricksJdbcConstants.ALLOWED_SESSION_CONF_TO_DEFAULT_VALUES_MAP.keySet().stream()
         .map(String::toLowerCase)
         .anyMatch(s -> s.equalsIgnoreCase(name))) {
@@ -484,7 +449,7 @@ public class DatabricksConnection implements IDatabricksConnection, Connection {
 
   @Override
   public void setClientInfo(Properties properties) throws SQLClientInfoException {
-    LOGGER.debug("public void setClientInfo(Properties properties)");
+    LoggingUtil.log(Level.FINE, "public void setClientInfo(Properties properties)");
     for (Map.Entry<Object, Object> entry : properties.entrySet()) {
       setClientInfo((String) entry.getKey(), (String) entry.getValue());
     }
@@ -492,7 +457,7 @@ public class DatabricksConnection implements IDatabricksConnection, Connection {
 
   @Override
   public String getClientInfo(String name) throws SQLException {
-    LOGGER.debug("public String getClientInfo(String name = {})", name);
+    //  LoggingUtil.log(Level.FINE,"public String getClientInfo(String name = {})", name);
     // Return session conf if set
     if (this.session.getSessionConfigs().containsKey(name)) {
       return this.session.getSessionConfigs().get(name);
@@ -507,7 +472,7 @@ public class DatabricksConnection implements IDatabricksConnection, Connection {
 
   @Override
   public Properties getClientInfo() throws SQLException {
-    LOGGER.debug("public Properties getClientInfo()");
+    LoggingUtil.log(Level.FINE, "public Properties getClientInfo()");
     Properties properties = new Properties();
     // Put in default values first
     properties.putAll(DatabricksJdbcConstants.ALLOWED_SESSION_CONF_TO_DEFAULT_VALUES_MAP);
@@ -520,21 +485,21 @@ public class DatabricksConnection implements IDatabricksConnection, Connection {
 
   @Override
   public Array createArrayOf(String typeName, Object[] elements) throws SQLException {
-    LOGGER.debug("public Array createArrayOf(String typeName, Object[] elements)");
+    LoggingUtil.log(Level.FINE, "public Array createArrayOf(String typeName, Object[] elements)");
     throw new DatabricksSQLFeatureNotSupportedException(
         "Not implemented in DatabricksConnection - createArrayOf(String typeName, Object[] elements)");
   }
 
   @Override
   public Struct createStruct(String typeName, Object[] attributes) throws SQLException {
-    LOGGER.debug("public Struct createStruct(String typeName, Object[] attributes)");
+    LoggingUtil.log(Level.FINE, "public Struct createStruct(String typeName, Object[] attributes)");
     throw new DatabricksSQLFeatureNotSupportedException(
         "Not implemented in DatabricksConnection - createStruct(String typeName, Object[] attributes)");
   }
 
   @Override
   public void setSchema(String schema) throws SQLException {
-    LOGGER.debug("public void setSchema(String schema = {})", schema);
+    //  LoggingUtil.log(Level.FINE,"public void setSchema(String schema = {})", schema);
     session.setSchema(schema);
     Statement statement = this.createStatement();
     statement.execute("USE SCHEMA " + schema);
@@ -542,48 +507,49 @@ public class DatabricksConnection implements IDatabricksConnection, Connection {
 
   @Override
   public String getSchema() throws SQLException {
-    LOGGER.debug("public String getSchema()");
+    LoggingUtil.log(Level.FINE, "public String getSchema()");
     return session.getSchema();
   }
 
   @Override
   public void abort(Executor executor) throws SQLException {
-    LOGGER.debug("public void abort(Executor executor)");
+    LoggingUtil.log(Level.FINE, "public void abort(Executor executor)");
     throw new DatabricksSQLFeatureNotSupportedException(
         "Not implemented in DatabricksConnection - abort(Executor executor)");
   }
 
   @Override
   public void setNetworkTimeout(Executor executor, int milliseconds) throws SQLException {
-    LOGGER.debug("public void setNetworkTimeout(Executor executor, int milliseconds)");
+    LoggingUtil.log(
+        Level.FINE, "public void setNetworkTimeout(Executor executor, int milliseconds)");
     throw new DatabricksSQLFeatureNotSupportedException(
         "Not implemented in DatabricksConnection - setNetworkTimeout(Executor executor, int milliseconds)");
   }
 
   @Override
   public int getNetworkTimeout() throws SQLException {
-    LOGGER.debug("public int getNetworkTimeout()");
+    LoggingUtil.log(Level.FINE, "public int getNetworkTimeout()");
     throw new DatabricksSQLFeatureNotSupportedException(
         "Not implemented in DatabricksConnection - getNetworkTimeout()");
   }
 
   @Override
   public <T> T unwrap(Class<T> iface) throws SQLException {
-    LOGGER.debug("public <T> T unwrap(Class<T> iface)");
+    LoggingUtil.log(Level.FINE, "public <T> T unwrap(Class<T> iface)");
     throw new DatabricksSQLFeatureNotSupportedException(
         "Not implemented in DatabricksConnection - unwrap(Class<T> iface)");
   }
 
   @Override
   public boolean isWrapperFor(Class<?> iface) throws SQLException {
-    LOGGER.debug("public boolean isWrapperFor(Class<?> iface)");
+    LoggingUtil.log(Level.FINE, "public boolean isWrapperFor(Class<?> iface)");
     throw new DatabricksSQLFeatureNotSupportedException(
         "Not implemented in DatabricksConnection - isWrapperFor(Class<?> iface)");
   }
 
   @Override
   public void closeStatement(IDatabricksStatement statement) {
-    LOGGER.debug("public void closeStatement(IDatabricksStatement statement)");
+    LoggingUtil.log(Level.FINE, "public void closeStatement(IDatabricksStatement statement)");
     this.statementSet.remove(statement);
   }
 

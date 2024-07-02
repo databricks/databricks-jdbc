@@ -7,7 +7,7 @@ import com.databricks.jdbc.core.types.CompressionType;
 import com.databricks.jdbc.core.types.ComputeResource;
 import java.util.List;
 import java.util.Map;
-import org.apache.logging.log4j.Level;
+import java.util.logging.Level;
 
 public interface IDatabricksConnectionContext {
 
