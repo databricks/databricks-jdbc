@@ -1113,9 +1113,9 @@ public class DatabricksResultSet implements ResultSet, IDatabricksResultSet {
   public Timestamp getTimestamp(int columnIndex, Calendar cal) throws SQLException {
     Timestamp defaultTimestamp = getTimestamp(columnIndex);
 
-    // Clone the calendar to avoid modifying the passed instance
-    Calendar tempCal = (Calendar) cal.clone();
-    if (defaultTimestamp != null && tempCal != null) {
+    if (defaultTimestamp != null && cal != null) {
+      // Clone the calendar to avoid modifying the passed instance
+      Calendar tempCal = (Calendar) cal.clone();
       tempCal.setTimeInMillis(defaultTimestamp.getTime());
       return new Timestamp(tempCal.getTimeInMillis());
     }
