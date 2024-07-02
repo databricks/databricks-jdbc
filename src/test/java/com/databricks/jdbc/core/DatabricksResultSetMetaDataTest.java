@@ -3,10 +3,7 @@ package com.databricks.jdbc.core;
 import com.databricks.jdbc.client.impl.thrift.generated.TColumnDesc;
 import com.databricks.jdbc.client.impl.thrift.generated.TGetResultSetMetadataResp;
 import com.databricks.jdbc.client.impl.thrift.generated.TTableSchema;
-import com.databricks.jdbc.client.sqlexec.ExternalLink;
-import com.databricks.jdbc.client.sqlexec.ResultData;
 import com.databricks.jdbc.client.sqlexec.ResultManifest;
-import com.databricks.jdbc.client.sqlexec.VolumeOperationInfo;
 import com.databricks.jdbc.driver.DatabricksJdbcConstants;
 import com.databricks.sdk.service.sql.ColumnInfo;
 import com.databricks.sdk.service.sql.ColumnInfoTypeName;
@@ -54,7 +51,7 @@ public class DatabricksResultSetMetaDataTest {
   public void testColumnsWithSameNameAndNullTypeName() throws SQLException {
     ResultManifest resultManifest = getResultManifest();
     DatabricksResultSetMetaData metaData =
-        new DatabricksResultSetMetaData(STATEMENT_ID, resultManifest, new ResultData());
+        new DatabricksResultSetMetaData(STATEMENT_ID, resultManifest);
     Assertions.assertEquals(4, metaData.getColumnCount());
     Assertions.assertEquals("col1", metaData.getColumnName(1));
     Assertions.assertEquals("col2", metaData.getColumnName(2));
@@ -81,14 +78,9 @@ public class DatabricksResultSetMetaDataTest {
 
   @Test
   public void testColumnsForVolumeOperation() throws SQLException {
-    ResultManifest resultManifest = getResultManifest();
-    ResultData resultData =
-        new ResultData()
-            .setVolumeOperationInfo(
-                new VolumeOperationInfo()
-                    .setExternalLinks(List.of(new ExternalLink().setExternalLink("link"))));
+    ResultManifest resultManifest = getResultManifest().setIsVolumeOperation(true);
     DatabricksResultSetMetaData metaData =
-        new DatabricksResultSetMetaData(STATEMENT_ID, resultManifest, resultData);
+        new DatabricksResultSetMetaData(STATEMENT_ID, resultManifest);
     Assertions.assertEquals(1, metaData.getColumnCount());
     Assertions.assertEquals(
         DatabricksJdbcConstants.VOLUME_OPERATION_STATUS_COLUMN_NAME, metaData.getColumnName(1));
@@ -101,7 +93,7 @@ public class DatabricksResultSetMetaDataTest {
   @Test
   public void testThriftColumns() throws SQLException {
     DatabricksResultSetMetaData metaData =
-        new DatabricksResultSetMetaData(STATEMENT_ID, getThriftResultManifest(), 10);
+        new DatabricksResultSetMetaData(STATEMENT_ID, getThriftResultManifest(), 10, 1);
     Assertions.assertEquals(10, metaData.getTotalRows());
     Assertions.assertEquals(1, metaData.getColumnCount());
     Assertions.assertEquals("testCol", metaData.getColumnName(1));
@@ -111,7 +103,7 @@ public class DatabricksResultSetMetaDataTest {
   public void testEmptyAndNullThriftColumns() throws SQLException {
     TGetResultSetMetadataResp resultSetMetadataResp = new TGetResultSetMetadataResp();
     DatabricksResultSetMetaData metaData =
-        new DatabricksResultSetMetaData(STATEMENT_ID, resultSetMetadataResp, 0);
+        new DatabricksResultSetMetaData(STATEMENT_ID, resultSetMetadataResp, 0, 1);
     Assertions.assertEquals(0, metaData.getColumnCount());
 
     resultSetMetadataResp.setSchema(new TTableSchema());

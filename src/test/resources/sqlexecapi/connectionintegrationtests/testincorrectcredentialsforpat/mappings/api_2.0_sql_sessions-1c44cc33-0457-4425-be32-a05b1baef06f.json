@@ -1,0 +1,27 @@
+{
+  "id" : "1c44cc33-0457-4425-be32-a05b1baef06f",
+  "name" : "api_2.0_sql_sessions",
+  "request" : {
+    "url" : "/api/2.0/sql/sessions/",
+    "method" : "POST",
+    "bodyPatterns" : [ {
+      "equalToJson" : "{\"warehouse_id\":\"2f03dd43e35e2aa0\",\"schema\":\"default\",\"catalog\":\"SPARK\"}",
+      "ignoreArrayOrder" : true,
+      "ignoreExtraElements" : true
+    } ]
+  },
+  "response" : {
+    "status" : 403,
+    "body" : "<html>\n<head>\n<meta http-equiv=\"Content-Type\" content=\"text/html;charset=utf-8\"/>\n<title>Error 403 Invalid access token.</title>\n</head>\n<body><h2>HTTP ERROR 403</h2>\n<p>Problem accessing /api/2.0/sql/sessions/. Reason:\n<pre>    Invalid access token.</pre></p>\n</body>\n</html>\n",
+    "headers" : {
+      "date" : "Fri, 17 May 2024 20:34:14 GMT",
+      "server" : "databricks",
+      "vary" : "Accept-Encoding",
+      "content-type" : "text/html;charset=iso-8859-1",
+      "cache-control" : "must-revalidate,no-cache,no-store",
+      "x-databricks-reason-phrase" : "Invalid access token."
+    }
+  },
+  "uuid" : "1c44cc33-0457-4425-be32-a05b1baef06f",
+  "insertionIndex" : 3
+}

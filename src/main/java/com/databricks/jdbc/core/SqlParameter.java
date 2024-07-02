@@ -1,5 +1,6 @@
 package com.databricks.jdbc.core;
 
+import com.databricks.sdk.service.sql.ColumnInfoTypeName;
 import javax.annotation.Nullable;
 import org.immutables.value.Value;
 
@@ -9,7 +10,7 @@ public interface SqlParameter {
   @Nullable
   Object value();
 
-  String type();
+  ColumnInfoTypeName type();
 
   int cardinal();
 }

@@ -6,11 +6,11 @@ import com.databricks.jdbc.core.types.CompressionType;
 import java.io.IOException;
 import java.io.InputStream;
 import net.jpountz.lz4.LZ4FrameInputStream;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 public class DecompressionUtil {
-  private static final Logger LOGGER = LoggerFactory.getLogger(DecompressionUtil.class);
+  private static final Logger LOGGER = LogManager.getLogger(DecompressionUtil.class);
 
   public static InputStream decompressLZ4Frame(InputStream compressedInputStream, String context)
       throws DatabricksSQLException {

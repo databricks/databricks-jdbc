@@ -5,53 +5,16 @@ import static com.databricks.jdbc.client.impl.sdk.PathConstants.STATEMENT_PATH;
 import static com.databricks.jdbc.integration.IntegrationTestUtil.*;
 import static com.github.tomakehurst.wiremock.client.WireMock.postRequestedFor;
 import static com.github.tomakehurst.wiremock.client.WireMock.urlEqualTo;
-import static com.github.tomakehurst.wiremock.core.WireMockConfiguration.wireMockConfig;
 import static org.junit.jupiter.api.Assertions.*;
 
-import com.databricks.jdbc.driver.DatabricksJdbcConstants.FakeServiceType;
-import com.databricks.jdbc.integration.fakeservice.DatabricksWireMockExtension;
-import com.databricks.jdbc.integration.fakeservice.FakeServiceExtension;
-import com.databricks.jdbc.integration.fakeservice.StubMappingCredentialsCleaner;
+import com.databricks.jdbc.integration.fakeservice.AbstractFakeServiceIntegrationTests;
 import com.github.tomakehurst.wiremock.client.CountMatchingStrategy;
-import com.github.tomakehurst.wiremock.extension.Extension;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.RegisterExtension;
 
-/**
- * Integration tests for SQL statement execution.
- *
- * <p>TODO: Remove {@link com.databricks.jdbc.integration.execution.ExecutionIntegrationTests} once
- * {@link FakeServiceExtension} tests stabilize.
- */
-public class ExecutionIntegrationTests {
-
-  /**
-   * {@link FakeServiceExtension} for {@link FakeServiceType#SQL_EXEC}. Intercepts all requests to
-   * SQL Execution API.
-   */
-  @RegisterExtension
-  private static final FakeServiceExtension sqlExecApiExtension =
-      new FakeServiceExtension(
-          new DatabricksWireMockExtension.Builder()
-              .options(
-                  wireMockConfig().dynamicPort().dynamicHttpsPort().extensions(getExtensions())),
-          FakeServiceType.SQL_EXEC,
-          "https://" + System.getenv("DATABRICKS_HOST"));
-
-  /**
-   * {@link FakeServiceExtension} for {@link FakeServiceType#CLOUD_FETCH}. Intercepts all requests
-   * to Cloud Fetch API.
-   */
-  @RegisterExtension
-  private static final FakeServiceExtension cloudFetchApiExtension =
-      new FakeServiceExtension(
-          new DatabricksWireMockExtension.Builder()
-              .options(
-                  wireMockConfig().dynamicPort().dynamicHttpsPort().extensions(getExtensions())),
-          FakeServiceType.CLOUD_FETCH,
-          "https://dbstoragepzjc6kojqibtg.blob.core.windows.net");
+/** Integration tests for SQL statement execution. */
+public class ExecutionIntegrationTests extends AbstractFakeServiceIntegrationTests {
 
   @Test
   void testInsertStatement() throws SQLException {
@@ -71,14 +34,17 @@ public class ExecutionIntegrationTests {
     assertEquals(1, rows, "Expected 1 row, got " + rows);
     deleteTable(tableName);
 
-    // A session request is sent
-    sqlExecApiExtension.verify(1, postRequestedFor(urlEqualTo(SESSION_PATH)));
+    if (isSqlExecSdkClient()) {
+      // Run validations for SQL_EXEC fake service
+      getDatabricksApiExtension().verify(1, postRequestedFor(urlEqualTo(SESSION_PATH)));
 
-    // At least 5 statement requests are sent: drop, create, insert, select, drop
-    // There can be more for retries
-    sqlExecApiExtension.verify(
-        new CountMatchingStrategy(CountMatchingStrategy.GREATER_THAN_OR_EQUAL, 5),
-        postRequestedFor(urlEqualTo(STATEMENT_PATH)));
+      // At least 5 statement requests are sent: drop, create, insert, select, drop
+      // There can be more for retries
+      getDatabricksApiExtension()
+          .verify(
+              new CountMatchingStrategy(CountMatchingStrategy.GREATER_THAN_OR_EQUAL, 5),
+              postRequestedFor(urlEqualTo(STATEMENT_PATH)));
+    }
   }
 
   @Test
@@ -101,14 +67,17 @@ public class ExecutionIntegrationTests {
         "Expected 'updatedValue1', got " + rs.getString("col1"));
     deleteTable(tableName);
 
-    // A session request is sent
-    sqlExecApiExtension.verify(1, postRequestedFor(urlEqualTo(SESSION_PATH)));
+    if (isSqlExecSdkClient()) {
+      // Run validations for SQL_EXEC fake service
+      getDatabricksApiExtension().verify(1, postRequestedFor(urlEqualTo(SESSION_PATH)));
 
-    // At least 6 statement requests are sent: drop, create, insert, update, select, drop
-    // There can be more for retries
-    sqlExecApiExtension.verify(
-        new CountMatchingStrategy(CountMatchingStrategy.GREATER_THAN_OR_EQUAL, 6),
-        postRequestedFor(urlEqualTo(STATEMENT_PATH)));
+      // At least 6 statement requests are sent: drop, create, insert, update, select, drop
+      // There can be more for retries
+      getDatabricksApiExtension()
+          .verify(
+              new CountMatchingStrategy(CountMatchingStrategy.GREATER_THAN_OR_EQUAL, 6),
+              postRequestedFor(urlEqualTo(STATEMENT_PATH)));
+    }
   }
 
   @Test
@@ -125,10 +94,13 @@ public class ExecutionIntegrationTests {
     assertFalse(rs.next(), "Expected no rows after delete");
     deleteTable(tableName);
 
-    // At least 6 statement requests are sent: drop, create, insert, delete, select, drop
-    sqlExecApiExtension.verify(
-        new CountMatchingStrategy(CountMatchingStrategy.GREATER_THAN_OR_EQUAL, 6),
-        postRequestedFor(urlEqualTo(STATEMENT_PATH)));
+    if (isSqlExecSdkClient()) {
+      // At least 6 statement requests are sent: drop, create, insert, delete, select, drop
+      getDatabricksApiExtension()
+          .verify(
+              new CountMatchingStrategy(CountMatchingStrategy.GREATER_THAN_OR_EQUAL, 6),
+              postRequestedFor(urlEqualTo(STATEMENT_PATH)));
+    }
   }
 
   @Test
@@ -161,12 +133,15 @@ public class ExecutionIntegrationTests {
     assertFalse(rs.next(), "Expected no rows after delete");
     deleteTable(tableName);
 
-    // At least 8 statement requests are sent:
-    // drop, create, insert, update, select, delete, select, drop
-    // There can be more for retries
-    sqlExecApiExtension.verify(
-        new CountMatchingStrategy(CountMatchingStrategy.GREATER_THAN_OR_EQUAL, 8),
-        postRequestedFor(urlEqualTo(STATEMENT_PATH)));
+    if (isSqlExecSdkClient()) {
+      // At least 8 statement requests are sent:
+      // drop, create, insert, update, select, delete, select, drop
+      // There can be more for retries
+      getDatabricksApiExtension()
+          .verify(
+              new CountMatchingStrategy(CountMatchingStrategy.GREATER_THAN_OR_EQUAL, 8),
+              postRequestedFor(urlEqualTo(STATEMENT_PATH)));
+    }
   }
 
   @Test
@@ -190,12 +165,15 @@ public class ExecutionIntegrationTests {
     deleteTable(table1Name);
     deleteTable(table2Name);
 
-    // At least 11 statement requests are sent:
-    // drop table1, create table1, drop table2, create table2, insert table1, insert table1,
-    // insert table2, insert table2, select join, drop table1, drop table2
-    sqlExecApiExtension.verify(
-        new CountMatchingStrategy(CountMatchingStrategy.GREATER_THAN_OR_EQUAL, 11),
-        postRequestedFor(urlEqualTo(STATEMENT_PATH)));
+    if (isSqlExecSdkClient()) {
+      // At least 11 statement requests are sent:
+      // drop table1, create table1, drop table2, create table2, insert table1, insert table1,
+      // insert table2, insert table2, select join, drop table1, drop table2
+      getDatabricksApiExtension()
+          .verify(
+              new CountMatchingStrategy(CountMatchingStrategy.GREATER_THAN_OR_EQUAL, 11),
+              postRequestedFor(urlEqualTo(STATEMENT_PATH)));
+    }
   }
 
   @Test
@@ -214,15 +192,13 @@ public class ExecutionIntegrationTests {
     assertTrue(rs.next(), "Expected at least one row from subquery");
     deleteTable(tableName);
 
-    // At least 5 statement requests are sent: drop, create, insert, select, drop
-    // There can be more for retries
-    sqlExecApiExtension.verify(
-        new CountMatchingStrategy(CountMatchingStrategy.GREATER_THAN_OR_EQUAL, 5),
-        postRequestedFor(urlEqualTo(STATEMENT_PATH)));
-  }
-
-  /** Returns the extensions to be used for stubbing. */
-  private static Extension[] getExtensions() {
-    return new Extension[] {new StubMappingCredentialsCleaner()};
+    if (isSqlExecSdkClient()) {
+      // At least 5 statement requests are sent: drop, create, insert, select, drop
+      // There can be more for retries
+      getDatabricksApiExtension()
+          .verify(
+              new CountMatchingStrategy(CountMatchingStrategy.GREATER_THAN_OR_EQUAL, 5),
+              postRequestedFor(urlEqualTo(STATEMENT_PATH)));
+    }
   }
 }

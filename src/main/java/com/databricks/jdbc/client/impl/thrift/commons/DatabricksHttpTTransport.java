@@ -10,28 +10,30 @@ import java.io.InputStream;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
-import org.apache.http.HttpResponse;
+import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.entity.ByteArrayEntity;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.apache.thrift.TConfiguration;
 import org.apache.thrift.transport.TTransport;
 import org.apache.thrift.transport.TTransportException;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 public class DatabricksHttpTTransport extends TTransport {
 
-  private static final Logger LOGGER = LoggerFactory.getLogger(DatabricksHttpTTransport.class);
+  private static final Logger LOGGER = LogManager.getLogger(DatabricksHttpTTransport.class);
   private final DatabricksHttpClient httpClient;
   private final String url;
   private Map<String, String> customHeaders = Collections.emptyMap();
   private final ByteArrayOutputStream requestBuffer;
   private InputStream inputStream = null;
+  private CloseableHttpResponse response = null;
   private static final Map<String, String> DEFAULT_HEADERS =
       Collections.unmodifiableMap(getDefaultHeaders());
 
   public DatabricksHttpTTransport(DatabricksHttpClient httpClient, String url) {
     this.httpClient = httpClient;
+    this.httpClient.closeExpiredAndIdleConnections();
     this.url = url;
     this.requestBuffer = new ByteArrayOutputStream();
   }
@@ -49,7 +51,8 @@ public class DatabricksHttpTTransport extends TTransport {
 
   @Override
   public void close() {
-    if (null != inputStream) {
+    this.httpClient.closeExpiredAndIdleConnections();
+    if (inputStream != null) {
       try {
         inputStream.close();
       } catch (IOException e) {
@@ -57,6 +60,14 @@ public class DatabricksHttpTTransport extends TTransport {
             "Failed to close inputStream with error {}. Skipping the close.", e.toString());
       }
       inputStream = null;
+    }
+    if (response != null) {
+      try {
+        response.close();
+      } catch (IOException e) {
+        LOGGER.error("Failed to close response with error {}", e.toString());
+      }
+      response = null;
     }
   }
 
@@ -114,11 +125,21 @@ public class DatabricksHttpTTransport extends TTransport {
         customHeaders.forEach(request::addHeader);
       }
       request.setEntity(new ByteArrayEntity(requestBuffer.toByteArray()));
-      HttpResponse response = httpClient.execute(request);
+      response = httpClient.execute(request);
       ValidationUtil.checkHTTPError(response);
       inputStream = response.getEntity().getContent();
       requestBuffer.reset();
     } catch (DatabricksHttpException | IOException e) {
+      Throwable cause = e;
+      while (cause != null) {
+        if (cause instanceof DatabricksHttpException) {
+          throw new TTransportException(
+              TTransportException.UNKNOWN, "Failed to flush data to server: " + cause.getMessage());
+        }
+        cause = cause.getCause();
+      }
+      httpClient.closeExpiredAndIdleConnections();
+
       String errorMessage = "Failed to flush data to server: " + e.getMessage();
       LOGGER.error(errorMessage);
       throw new TTransportException(TTransportException.UNKNOWN, errorMessage);

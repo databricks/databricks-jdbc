@@ -59,9 +59,9 @@ public class DatabricksSdkClientTest {
     List<StatementParameterListItem> params =
         new ArrayList<>() {
           {
-            add(getParam("BIGINT", "100", 1));
+            add(getParam("LONG", "100", 1));
             add(getParam("SHORT", "10", 2));
-            add(getParam("TINYINT", "15", 3));
+            add(getParam("SHORT", "15", 3));
             add(getParam("STRING", "value", 4));
           }
         };
@@ -96,7 +96,7 @@ public class DatabricksSdkClientTest {
               if (path.equals(STATEMENT_PATH)) {
                 ExecuteStatementRequest request =
                     (ExecuteStatementRequest) invocationOnMock.getArguments()[1];
-                assertTrue(request.equals(executeStatementRequest));
+                assertEquals(request, executeStatementRequest);
                 return response;
               } else if (path.equals(SESSION_PATH)) {
                 CreateSessionRequest request =
@@ -167,6 +167,31 @@ public class DatabricksSdkClientTest {
     assertEquals(STATEMENT_ID, statement.getStatementId());
   }
 
+  @Test
+  public void testCloseStatement() throws DatabricksSQLException {
+    String path = String.format(STATEMENT_PATH_WITH_ID, STATEMENT_ID);
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContext.parse(JDBC_URL, new Properties());
+    DatabricksSdkClient databricksSdkClient =
+        new DatabricksSdkClient(connectionContext, statementExecutionService, apiClient);
+    CloseStatementRequest request = new CloseStatementRequest().setStatementId(STATEMENT_ID);
+    databricksSdkClient.closeStatement(STATEMENT_ID);
+
+    verify(apiClient).DELETE(eq(path), eq(request), eq(Void.class), eq(headers));
+  }
+
+  @Test
+  public void testCancelStatement() throws DatabricksSQLException {
+    String path = String.format(CANCEL_STATEMENT_PATH_WITH_ID, STATEMENT_ID);
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContext.parse(JDBC_URL, new Properties());
+    DatabricksSdkClient databricksSdkClient =
+        new DatabricksSdkClient(connectionContext, statementExecutionService, apiClient);
+    CancelStatementRequest request = new CancelStatementRequest().setStatementId(STATEMENT_ID);
+    databricksSdkClient.cancelStatement(STATEMENT_ID);
+    verify(apiClient).POST(eq(path), eq(request), eq(Void.class), eq(headers));
+  }
+
   private StatementParameterListItem getParam(String type, String value, int ordinal) {
     return new PositionalStatementParameterListItem()
         .setOrdinal(ordinal)
@@ -176,7 +201,7 @@ public class DatabricksSdkClientTest {
 
   private ImmutableSqlParameter getSqlParam(int parameterIndex, Object x, String databricksType) {
     return ImmutableSqlParameter.builder()
-        .type(databricksType)
+        .type(DatabricksTypeUtil.getColumnInfoType(databricksType))
         .value(x)
         .cardinal(parameterIndex)
         .build();

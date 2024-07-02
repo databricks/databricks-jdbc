@@ -15,15 +15,15 @@ import java.util.*;
 import java.util.regex.Matcher;
 import java.util.stream.Collectors;
 import org.apache.http.client.utils.URIBuilder;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.slf4j.event.Level;
+import org.apache.logging.log4j.Level;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 public class DatabricksConnectionContext implements IDatabricksConnectionContext {
 
-  private static final Logger LOGGER = LoggerFactory.getLogger(DatabricksConnectionContext.class);
+  private static final Logger LOGGER = LogManager.getLogger(DatabricksConnectionContext.class);
   private final String host;
-  private final int port;
+  @VisibleForTesting final int port;
   private final String schema;
   private final ComputeResource computeResource;
   @VisibleForTesting final ImmutableMap<String, String> parameters;
@@ -60,8 +60,15 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
       }
       for (int urlPartIndex = 1; urlPartIndex < urlParts.length; urlPartIndex++) {
         String[] pair = urlParts[urlPartIndex].split(DatabricksJdbcConstants.PAIR_DELIMITER);
-        if (pair.length != 2) {
-          handleInvalidUrl(url);
+        if (pair.length == 1) {
+          pair = new String[] {pair[0], ""};
+        }
+        if (pair[0].toLowerCase().equals(PORT)) {
+          try {
+            portValue = Integer.valueOf(pair[1]);
+          } catch (NumberFormatException e) {
+            throw new DatabricksParsingException("Invalid port number " + pair[1]);
+          }
         }
         parametersBuilder.put(pair[0].toLowerCase(), pair[1]);
       }
@@ -74,6 +81,22 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
       // Should never reach here, since we have already checked for url validity
       throw new IllegalArgumentException("Invalid url " + "incorrect");
     }
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hash(host, port, schema, parameters);
+  }
+
+  @Override
+  public boolean equals(Object obj) {
+    if (this == obj) return true;
+    if (obj == null || getClass() != obj.getClass()) return false;
+    DatabricksConnectionContext that = (DatabricksConnectionContext) obj;
+    return port == that.port
+        && Objects.equals(host, that.host)
+        && Objects.equals(schema, that.schema)
+        && Objects.equals(parameters, that.parameters);
   }
 
   private static void handleInvalidUrl(String url) throws DatabricksParsingException {
@@ -97,7 +120,9 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
     return HTTP_CLUSTER_PATH_PATTERN.matcher(url).matches()
         || HTTP_WAREHOUSE_PATH_PATTERN.matcher(url).matches()
         || HTTP_ENDPOINT_PATH_PATTERN.matcher(url).matches()
-        || TEST_PATH_PATTERN.matcher(url).matches();
+        || TEST_PATH_PATTERN.matcher(url).matches()
+        || BASE_PATTERN.matcher(url).matches()
+        || HTTP_CLI_PATTERN.matcher(url).matches();
   }
 
   @Override
@@ -152,6 +177,10 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
     if (urlMatcher.find()) {
       return new AllPurposeCluster(urlMatcher.group(1), urlMatcher.group(2));
     }
+    urlMatcher = HTTP_PATH_CLI_PATTERN.matcher(httpPath);
+    if (urlMatcher.find()) {
+      return new AllPurposeCluster("default", "default");
+    }
     // the control should never reach here, as the parsing already ensured the URL is valid
     throw new DatabricksParsingException("Invalid HTTP Path provided " + this.getHttpPath());
   }
@@ -181,6 +210,11 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
     return getParameter(POLL_INTERVAL) == null
         ? POLL_INTERVAL_DEFAULT
         : Integer.parseInt(getParameter(DatabricksJdbcConstants.POLL_INTERVAL));
+  }
+
+  @Override
+  public Boolean getDirectResultMode() {
+    return getParameter(DIRECT_RESULT) == null || Objects.equals(getParameter(DIRECT_RESULT), "1");
   }
 
   public String getCloud() throws DatabricksParsingException {
@@ -228,6 +262,10 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
     return this.parameters.getOrDefault(key.toLowerCase(), null);
   }
 
+  private String getParameter(String key, String defaultValue) {
+    return this.parameters.getOrDefault(key.toLowerCase(), defaultValue);
+  }
+
   @Override
   public AuthFlow getAuthFlow() {
     String authFlow = getParameter(DatabricksJdbcConstants.AUTH_FLOW);
@@ -242,25 +280,43 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   }
 
   @Override
-  public String getLogLevelString() {
+  public Level getLogLevel() {
     String logLevel = getParameter(DatabricksJdbcConstants.LOG_LEVEL);
     if (nullOrEmptyString(logLevel)) {
       LOGGER.debug("No logLevel given in the input, defaulting to info.");
       return DEFAULT_LOG_LEVEL;
     }
-    logLevel = logLevel.toUpperCase();
     try {
-      Level.valueOf(logLevel);
+      return getLogLevel(Integer.parseInt(logLevel));
+    } catch (NumberFormatException e) {
+      LOGGER.debug("Input log level is not an integer, parsing string.");
+      logLevel = logLevel.toUpperCase();
+    }
+
+    try {
+      return Level.valueOf(logLevel);
     } catch (Exception e) {
       LOGGER.debug("Invalid logLevel given in the input, defaulting to info.");
       return DEFAULT_LOG_LEVEL;
     }
-    return logLevel;
   }
 
   @Override
   public String getLogPathString() {
-    return getParameter(DatabricksJdbcConstants.LOG_PATH);
+    String parameter = getParameter(LOG_PATH);
+    return (parameter == null) ? DEFAULT_LOG_PATH : parameter;
+  }
+
+  @Override
+  public int getLogFileSize() {
+    String parameter = getParameter(LOG_FILE_SIZE);
+    return (parameter == null) ? DEFAULT_LOG_FILE_SIZE_IN_MB : Integer.parseInt(parameter);
+  }
+
+  @Override
+  public int getLogFileCount() {
+    String parameter = getParameter(LOG_FILE_COUNT);
+    return (parameter == null) ? DEFAULT_LOG_FILE_COUNT : Integer.parseInt(parameter);
   }
 
   @Override
@@ -321,8 +377,20 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   @Override
   public Boolean getUseLegacyMetadata() {
     // Defaults to use legacy metadata client
-    return getParameter(DatabricksJdbcConstants.USE_LEGACY_METADATA) == null
-        || getParameter(DatabricksJdbcConstants.USE_LEGACY_METADATA).equals("1");
+    String param = getParameter(USE_LEGACY_METADATA);
+    return param != null && param.equals("1");
+  }
+
+  @Override
+  public int getCloudFetchThreadPoolSize() {
+    try {
+      return Integer.parseInt(
+          getParameter(
+              CLOUD_FETCH_THREAD_POOL_SIZE, String.valueOf(CLOUD_FETCH_THREAD_POOL_SIZE_DEFAULT)));
+    } catch (NumberFormatException e) {
+      LOGGER.debug("Invalid thread pool size, defaulting to default thread pool size.");
+      return CLOUD_FETCH_THREAD_POOL_SIZE_DEFAULT;
+    }
   }
 
   private static boolean nullOrEmptyString(String s) {
@@ -331,13 +399,14 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
 
   @Override
   public String getCatalog() {
-    return Optional.ofNullable(getParameter(DatabricksJdbcConstants.CONN_CATALOG))
+    return Optional.ofNullable(getParameter(CATALOG, getParameter(CONN_CATALOG)))
         .orElse(DEFAULT_CATALOG);
   }
 
   @Override
   public String getSchema() {
-    return Optional.ofNullable(getParameter(DatabricksJdbcConstants.CONN_SCHEMA)).orElse(schema);
+    return Optional.ofNullable(getParameter(CONN_SCHEMA, getParameter(SCHEMA)))
+        .orElse(DEFAULT_SCHEMA);
   }
 
   @Override
@@ -421,7 +490,64 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   }
 
   @Override
+  public Boolean shouldEnableArrow() {
+    return Objects.equals(getParameter(ENABLE_ARROW, "1"), "1");
+  }
+
+  @Override
   public String getEndpointURL() throws DatabricksParsingException {
     return String.format("%s/%s", this.getHostUrl(), this.getHttpPath());
+  }
+
+  @VisibleForTesting
+  static Level getLogLevel(int level) {
+    switch (level) {
+      case 0:
+        return Level.OFF;
+      case 1:
+        return Level.FATAL;
+      case 2:
+        return Level.ERROR;
+      case 3:
+        return Level.WARN;
+      case 4:
+        return Level.INFO;
+      case 5:
+        return Level.DEBUG;
+      case 6:
+        return Level.TRACE;
+      default:
+        LOGGER.debug("Invalid logLevel, defaulting to default log level.");
+        return DEFAULT_LOG_LEVEL;
+    }
+  }
+
+  @Override
+  public Boolean shouldRetryTemporarilyUnavailableError() {
+    return Objects.equals(getParameter(TEMPORARILY_UNAVAILABLE_RETRY, "1"), "1");
+  }
+
+  @Override
+  public Boolean shouldRetryRateLimitError() {
+    return Objects.equals(getParameter(RATE_LIMIT_RETRY, "1"), "1");
+  }
+
+  @Override
+  public int getTemporarilyUnavailableRetryTimeout() {
+    return Integer.parseInt(
+        getParameter(
+            TEMPORARILY_UNAVAILABLE_RETRY_TIMEOUT, DEFAULT_TEMPORARILY_UNAVAILABLE_RETRY_TIMEOUT));
+  }
+
+  @Override
+  public int getRateLimitRetryTimeout() {
+    return Integer.parseInt(
+        getParameter(RATE_LIMIT_RETRY_TIMEOUT, DEFAULT_RATE_LIMIT_RETRY_TIMEOUT));
+  }
+
+  @Override
+  public int getIdleHttpConnectionExpiry() {
+    return Integer.parseInt(
+        getParameter(IDLE_HTTP_CONNECTION_EXPIRY, DEFAULT_IDLE_HTTP_CONNECTION_EXPIRY));
   }
 }

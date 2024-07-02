@@ -14,14 +14,14 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 import java.util.stream.Collectors;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 /** Implementation for Databricks specific connection. */
 public class DatabricksConnection implements IDatabricksConnection, Connection {
 
-  private static final Logger LOGGER = LoggerFactory.getLogger(DatabricksConnection.class);
-  private final IDatabricksSession session;
+  private static final Logger LOGGER = LogManager.getLogger(DatabricksConnection.class);
+  private IDatabricksSession session;
   private final Set<IDatabricksStatement> statementSet = ConcurrentHashMap.newKeySet();
   private SQLWarning warnings = null;
 
@@ -34,6 +34,10 @@ public class DatabricksConnection implements IDatabricksConnection, Connection {
       throws DatabricksSQLException {
     this.session = new DatabricksSession(connectionContext);
     this.session.open();
+  }
+
+  public void setMetadataClient(boolean useLegacyMetadataClient) {
+    this.session.setMetadataClient(useLegacyMetadataClient);
   }
 
   @VisibleForTesting
@@ -386,7 +390,7 @@ public class DatabricksConnection implements IDatabricksConnection, Connection {
   @Override
   public boolean isValid(int timeout) throws SQLException {
     LOGGER.debug("public boolean isValid(int timeout = {})", timeout);
-    ValidationUtil.checkIfPositive(timeout, "timeout");
+    ValidationUtil.checkIfNonNegative(timeout, "timeout");
     try {
       DatabricksStatement statement = new DatabricksStatement(this);
       statement.setQueryTimeout(timeout);

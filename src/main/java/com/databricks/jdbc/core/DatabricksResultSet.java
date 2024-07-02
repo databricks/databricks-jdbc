@@ -1,7 +1,6 @@
 package com.databricks.jdbc.core;
 
-import static com.databricks.jdbc.client.impl.thrift.commons.DatabricksThriftHelper.SUCCESS_STATUS_LIST;
-import static com.databricks.jdbc.client.impl.thrift.commons.DatabricksThriftHelper.getRowCount;
+import static com.databricks.jdbc.client.impl.thrift.commons.DatabricksThriftHelper.*;
 import static com.databricks.jdbc.core.converters.ConverterHelper.getConvertedObject;
 import static com.databricks.jdbc.core.converters.ConverterHelper.getObjectConverter;
 
@@ -24,11 +23,11 @@ import java.sql.*;
 import java.util.Calendar;
 import java.util.List;
 import java.util.Map;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 public class DatabricksResultSet implements ResultSet, IDatabricksResultSet {
-  private static final Logger LOGGER = LoggerFactory.getLogger(DatabricksResultSet.class);
+  private static final Logger LOGGER = LogManager.getLogger(DatabricksResultSet.class);
   private static final String DECIMAL = ".";
   private static final String AFFECTED_ROWS_COUNT = "num_affected_rows";
   private final StatementStatus statementStatus;
@@ -54,8 +53,7 @@ public class DatabricksResultSet implements ResultSet, IDatabricksResultSet {
     this.statementId = statementId;
     this.executionResult =
         ExecutionResultFactory.getResultSet(resultData, resultManifest, statementId, session);
-    this.resultSetMetaData =
-        new DatabricksResultSetMetaData(statementId, resultManifest, resultData);
+    this.resultSetMetaData = new DatabricksResultSetMetaData(statementId, resultManifest);
     this.statementType = statementType;
     this.updateCount = null;
     this.parentStatement = parentStatement;
@@ -99,8 +97,10 @@ public class DatabricksResultSet implements ResultSet, IDatabricksResultSet {
     this.statementId = statementId;
     this.executionResult =
         ExecutionResultFactory.getResultSet(resultData, resultManifest, statementId, session);
-    int rowSize = getRowCount(resultData);
-    this.resultSetMetaData = new DatabricksResultSetMetaData(statementId, resultManifest, rowSize);
+    long rowSize = getRowCount(resultData);
+    this.resultSetMetaData =
+        new DatabricksResultSetMetaData(
+            statementId, resultManifest, rowSize, resultData.getResultLinksSize());
     this.statementType = statementType;
     this.updateCount = null;
     this.parentStatement = parentStatement;
@@ -1111,16 +1111,21 @@ public class DatabricksResultSet implements ResultSet, IDatabricksResultSet {
 
   @Override
   public Timestamp getTimestamp(int columnIndex, Calendar cal) throws SQLException {
-    checkIfClosed();
-    throw new DatabricksSQLFeatureNotSupportedException(
-        "Not implemented in DatabricksResultSet - getTimestamp(int columnIndex, Calendar cal)");
+    Timestamp defaultTimestamp = getTimestamp(columnIndex);
+
+    if (defaultTimestamp != null && cal != null) {
+      // Clone the calendar to avoid modifying the passed instance
+      Calendar tempCal = (Calendar) cal.clone();
+      tempCal.setTimeInMillis(defaultTimestamp.getTime());
+      return new Timestamp(tempCal.getTimeInMillis());
+    }
+
+    return defaultTimestamp;
   }
 
   @Override
   public Timestamp getTimestamp(String columnLabel, Calendar cal) throws SQLException {
-    checkIfClosed();
-    throw new DatabricksSQLFeatureNotSupportedException(
-        "Not implemented in DatabricksResultSet - getTimestamp(String columnLabel, Calendar cal)");
+    return getTimestamp(getColumnNameIndex(columnLabel), cal);
   }
 
   @Override

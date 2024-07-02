@@ -72,7 +72,7 @@ public class ChunkDownloaderTest {
             .setSchema(new ResultSchema().setColumns(new ArrayList<>()));
     ResultData resultData = new ResultData().setExternalLinks(new ArrayList<>());
     assertDoesNotThrow(
-        () -> new ChunkDownloader(STATEMENT_ID, resultManifest, resultData, null, null));
+        () -> new ChunkDownloader(STATEMENT_ID, resultManifest, resultData, null, null, 4));
   }
 
   // @Test
@@ -90,7 +90,7 @@ public class ChunkDownloaderTest {
     when(mockHttpClient.execute(isA(HttpUriRequest.class))).thenReturn(httpResponse);
 
     ChunkDownloader chunkDownloader =
-        new ChunkDownloader(STATEMENT_ID, resultManifest, resultData, session, mockHttpClient);
+        new ChunkDownloader(STATEMENT_ID, resultManifest, resultData, session, mockHttpClient, 4);
     verify(statementExecutionService, times(3))
         .getStatementResultChunkN(isA(GetStatementResultChunkNRequest.class));
 

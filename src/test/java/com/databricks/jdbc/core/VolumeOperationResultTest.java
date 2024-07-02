@@ -6,14 +6,11 @@ import static org.mockito.ArgumentMatchers.isA;
 import static org.mockito.Mockito.when;
 
 import com.databricks.jdbc.client.IDatabricksHttpClient;
-import com.databricks.jdbc.client.sqlexec.ExternalLink;
-import com.databricks.jdbc.client.sqlexec.ResultData;
-import com.databricks.jdbc.client.sqlexec.VolumeOperationInfo;
+import com.databricks.jdbc.client.sqlexec.ResultManifest;
+import com.databricks.sdk.service.sql.ResultSchema;
 import java.io.File;
 import java.io.FileInputStream;
 import java.nio.file.Files;
-import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import org.apache.http.HttpEntity;
 import org.apache.http.StatusLine;
@@ -35,45 +32,34 @@ public class VolumeOperationResultTest {
   private static final String LOCAL_FILE_PUT = "putVolFile.csv";
   private static final String PRESIGNED_URL = "http://presignedUrl.site";
   private static final String ALLOWED_PATHS = "getVolFile,putVolFile";
-  private static final Map<String, String> HEADERS = Map.of("header1", "value1");
+  private static final String HEADERS = "{\"header1\":\"value1\"}";
 
   @Mock IDatabricksHttpClient mockHttpClient;
   @Mock CloseableHttpResponse httpResponse;
   @Mock HttpEntity httpEntity;
   @Mock StatusLine mockedStatusLine;
   @Mock DatabricksSession session;
-  private static final VolumeOperationInfo VOLUME_OPERATION_INFO =
-      new VolumeOperationInfo()
-          .setVolumeOperationType("PUT")
-          .setLocalFile("localFile")
-          .setExternalLinks(
-              List.of(
-                  new ExternalLink()
-                      .setExternalLink("externalLink")
-                      .setHttpHeaders(new HashMap<>())));
-  private static final ResultData RESULT_DATA =
-      new ResultData().setVolumeOperationInfo(VOLUME_OPERATION_INFO);
+  @Mock IExecutionResult resultHandler;
+  private static final ResultManifest RESULT_MANIFEST =
+      new ResultManifest()
+          .setIsVolumeOperation(true)
+          .setTotalRowCount(1L)
+          .setSchema(new ResultSchema().setColumnCount(4L));
 
   @Test
   public void testGetResult_Get() throws Exception {
+    setupCommonInteractions();
+    when(resultHandler.getObject(0)).thenReturn("GET");
+    when(resultHandler.getObject(1)).thenReturn(PRESIGNED_URL);
+    when(resultHandler.getObject(3)).thenReturn(LOCAL_FILE_GET);
     when(mockHttpClient.execute(isA(HttpGet.class))).thenReturn(httpResponse);
     when(httpResponse.getEntity()).thenReturn(new StringEntity("test"));
     when(httpResponse.getStatusLine()).thenReturn(mockedStatusLine);
     when(mockedStatusLine.getStatusCode()).thenReturn(200);
-    when(session.getClientInfoProperties())
-        .thenReturn(Map.of(ALLOWED_VOLUME_INGESTION_PATHS.toLowerCase(), ALLOWED_PATHS));
 
-    ExternalLink presignedUrl =
-        new ExternalLink().setHttpHeaders(HEADERS).setExternalLink(PRESIGNED_URL);
-    ResultData resultData =
-        new ResultData()
-            .setVolumeOperationInfo(
-                new VolumeOperationInfo()
-                    .setVolumeOperationType("GET")
-                    .setLocalFile(LOCAL_FILE_GET)
-                    .setExternalLinks(List.of(presignedUrl)));
     VolumeOperationResult volumeOperationResult =
-        new VolumeOperationResult(resultData, STATEMENT_ID, session, mockHttpClient);
+        new VolumeOperationResult(
+            STATEMENT_ID, RESULT_MANIFEST, session, resultHandler, mockHttpClient);
 
     assertTrue(volumeOperationResult.hasNext());
     assertEquals(-1, volumeOperationResult.getCurrentRow());
@@ -95,20 +81,22 @@ public class VolumeOperationResultTest {
 
   @Test
   public void testGetResult_Get_PropertyEmpty() throws Exception {
+    when(resultHandler.hasNext())
+        .thenReturn(true)
+        .thenReturn(true)
+        .thenReturn(false)
+        .thenReturn(false);
+    when(resultHandler.next()).thenReturn(true).thenReturn(false);
+    when(resultHandler.getObject(0)).thenReturn("GET");
+    when(resultHandler.getObject(1)).thenReturn(PRESIGNED_URL);
+    when(resultHandler.getObject(2)).thenReturn(HEADERS);
+    when(resultHandler.getObject(3)).thenReturn(LOCAL_FILE_GET);
     when(session.getClientInfoProperties())
         .thenReturn(Map.of(ALLOWED_VOLUME_INGESTION_PATHS.toLowerCase(), ""));
 
-    ExternalLink presignedUrl =
-        new ExternalLink().setHttpHeaders(HEADERS).setExternalLink(PRESIGNED_URL);
-    ResultData resultData =
-        new ResultData()
-            .setVolumeOperationInfo(
-                new VolumeOperationInfo()
-                    .setVolumeOperationType("GET")
-                    .setLocalFile(LOCAL_FILE_GET)
-                    .setExternalLinks(List.of(presignedUrl)));
     VolumeOperationResult volumeOperationResult =
-        new VolumeOperationResult(resultData, STATEMENT_ID, session, mockHttpClient);
+        new VolumeOperationResult(
+            STATEMENT_ID, RESULT_MANIFEST, session, resultHandler, mockHttpClient);
 
     assertTrue(volumeOperationResult.hasNext());
     assertEquals(-1, volumeOperationResult.getCurrentRow());
@@ -122,20 +110,14 @@ public class VolumeOperationResultTest {
 
   @Test
   public void testGetResult_Get_PathNotAllowed() throws Exception {
-    when(session.getClientInfoProperties())
-        .thenReturn(Map.of(ALLOWED_VOLUME_INGESTION_PATHS.toLowerCase(), ALLOWED_PATHS));
+    setupCommonInteractions();
+    when(resultHandler.getObject(0)).thenReturn("GET");
+    when(resultHandler.getObject(1)).thenReturn(PRESIGNED_URL);
+    when(resultHandler.getObject(3)).thenReturn("localFileOther");
 
-    ExternalLink presignedUrl =
-        new ExternalLink().setHttpHeaders(HEADERS).setExternalLink(PRESIGNED_URL);
-    ResultData resultData =
-        new ResultData()
-            .setVolumeOperationInfo(
-                new VolumeOperationInfo()
-                    .setVolumeOperationType("GET")
-                    .setLocalFile("localFileOther")
-                    .setExternalLinks(List.of(presignedUrl)));
     VolumeOperationResult volumeOperationResult =
-        new VolumeOperationResult(resultData, STATEMENT_ID, session, mockHttpClient);
+        new VolumeOperationResult(
+            STATEMENT_ID, RESULT_MANIFEST, session, resultHandler, mockHttpClient);
 
     assertTrue(volumeOperationResult.hasNext());
     assertEquals(-1, volumeOperationResult.getCurrentRow());
@@ -149,20 +131,14 @@ public class VolumeOperationResultTest {
 
   @Test
   public void testGetResult_Get_PathCaseSensitive() throws Exception {
-    when(session.getClientInfoProperties())
-        .thenReturn(Map.of(ALLOWED_VOLUME_INGESTION_PATHS.toLowerCase(), ALLOWED_PATHS));
+    setupCommonInteractions();
+    when(resultHandler.getObject(0)).thenReturn("GET");
+    when(resultHandler.getObject(1)).thenReturn(PRESIGNED_URL);
+    when(resultHandler.getObject(3)).thenReturn("getvolfile.csv");
 
-    ExternalLink presignedUrl =
-        new ExternalLink().setHttpHeaders(HEADERS).setExternalLink(PRESIGNED_URL);
-    ResultData resultData =
-        new ResultData()
-            .setVolumeOperationInfo(
-                new VolumeOperationInfo()
-                    .setVolumeOperationType("GET")
-                    .setLocalFile("getvolfile.csv")
-                    .setExternalLinks(List.of(presignedUrl)));
     VolumeOperationResult volumeOperationResult =
-        new VolumeOperationResult(resultData, STATEMENT_ID, session, mockHttpClient);
+        new VolumeOperationResult(
+            STATEMENT_ID, RESULT_MANIFEST, session, resultHandler, mockHttpClient);
 
     assertTrue(volumeOperationResult.hasNext());
     assertEquals(-1, volumeOperationResult.getCurrentRow());
@@ -176,20 +152,14 @@ public class VolumeOperationResultTest {
 
   @Test
   public void testGetResult_Get_PathInvalid() throws Exception {
-    when(session.getClientInfoProperties())
-        .thenReturn(Map.of(ALLOWED_VOLUME_INGESTION_PATHS.toLowerCase(), ALLOWED_PATHS));
+    setupCommonInteractions();
+    when(resultHandler.getObject(0)).thenReturn("GET");
+    when(resultHandler.getObject(1)).thenReturn(PRESIGNED_URL);
+    when(resultHandler.getObject(3)).thenReturn("");
 
-    ExternalLink presignedUrl =
-        new ExternalLink().setHttpHeaders(HEADERS).setExternalLink(PRESIGNED_URL);
-    ResultData resultData =
-        new ResultData()
-            .setVolumeOperationInfo(
-                new VolumeOperationInfo()
-                    .setVolumeOperationType("GET")
-                    .setLocalFile("")
-                    .setExternalLinks(List.of(presignedUrl)));
     VolumeOperationResult volumeOperationResult =
-        new VolumeOperationResult(resultData, STATEMENT_ID, session, mockHttpClient);
+        new VolumeOperationResult(
+            STATEMENT_ID, RESULT_MANIFEST, session, resultHandler, mockHttpClient);
 
     assertTrue(volumeOperationResult.hasNext());
     assertEquals(-1, volumeOperationResult.getCurrentRow());
@@ -203,23 +173,17 @@ public class VolumeOperationResultTest {
 
   @Test
   public void testGetResult_Get_FileExists() throws Exception {
-    when(session.getClientInfoProperties())
-        .thenReturn(Map.of(ALLOWED_VOLUME_INGESTION_PATHS.toLowerCase(), ALLOWED_PATHS));
+    setupCommonInteractions();
+    when(resultHandler.getObject(0)).thenReturn("GET");
+    when(resultHandler.getObject(1)).thenReturn(PRESIGNED_URL);
+    when(resultHandler.getObject(3)).thenReturn(LOCAL_FILE_GET);
 
     File file = new File(LOCAL_FILE_GET);
     Files.writeString(file.toPath(), "test-put");
 
-    ExternalLink presignedUrl =
-        new ExternalLink().setHttpHeaders(HEADERS).setExternalLink(PRESIGNED_URL);
-    ResultData resultData =
-        new ResultData()
-            .setVolumeOperationInfo(
-                new VolumeOperationInfo()
-                    .setVolumeOperationType("GET")
-                    .setLocalFile(LOCAL_FILE_GET)
-                    .setExternalLinks(List.of(presignedUrl)));
     VolumeOperationResult volumeOperationResult =
-        new VolumeOperationResult(resultData, STATEMENT_ID, session, mockHttpClient);
+        new VolumeOperationResult(
+            STATEMENT_ID, RESULT_MANIFEST, session, resultHandler, mockHttpClient);
 
     assertTrue(volumeOperationResult.hasNext());
     assertEquals(-1, volumeOperationResult.getCurrentRow());
@@ -235,20 +199,14 @@ public class VolumeOperationResultTest {
 
   @Test
   public void testGetResult_Get_PathContainsParentDir() throws Exception {
-    when(session.getClientInfoProperties())
-        .thenReturn(Map.of(ALLOWED_VOLUME_INGESTION_PATHS.toLowerCase(), ALLOWED_PATHS));
+    setupCommonInteractions();
+    when(resultHandler.getObject(0)).thenReturn("GET");
+    when(resultHandler.getObject(1)).thenReturn(PRESIGNED_URL);
+    when(resultHandler.getObject(3)).thenReturn("../newFile.csv");
 
-    ExternalLink presignedUrl =
-        new ExternalLink().setHttpHeaders(HEADERS).setExternalLink(PRESIGNED_URL);
-    ResultData resultData =
-        new ResultData()
-            .setVolumeOperationInfo(
-                new VolumeOperationInfo()
-                    .setVolumeOperationType("GET")
-                    .setLocalFile("../newFile.csv")
-                    .setExternalLinks(List.of(presignedUrl)));
     VolumeOperationResult volumeOperationResult =
-        new VolumeOperationResult(resultData, STATEMENT_ID, session, mockHttpClient);
+        new VolumeOperationResult(
+            STATEMENT_ID, RESULT_MANIFEST, session, resultHandler, mockHttpClient);
 
     assertTrue(volumeOperationResult.hasNext());
     assertEquals(-1, volumeOperationResult.getCurrentRow());
@@ -262,23 +220,17 @@ public class VolumeOperationResultTest {
 
   @Test
   public void testGetResult_Get_HttpError() throws Exception {
+    setupCommonInteractions();
+    when(resultHandler.getObject(0)).thenReturn("GET");
+    when(resultHandler.getObject(1)).thenReturn(PRESIGNED_URL);
+    when(resultHandler.getObject(3)).thenReturn(LOCAL_FILE_GET);
     when(mockHttpClient.execute(isA(HttpGet.class))).thenReturn(httpResponse);
     when(httpResponse.getStatusLine()).thenReturn(mockedStatusLine);
     when(mockedStatusLine.getStatusCode()).thenReturn(403);
-    when(session.getClientInfoProperties())
-        .thenReturn(Map.of(ALLOWED_VOLUME_INGESTION_PATHS.toLowerCase(), ALLOWED_PATHS));
 
-    ExternalLink presignedUrl =
-        new ExternalLink().setHttpHeaders(HEADERS).setExternalLink(PRESIGNED_URL);
-    ResultData resultData =
-        new ResultData()
-            .setVolumeOperationInfo(
-                new VolumeOperationInfo()
-                    .setVolumeOperationType("GET")
-                    .setLocalFile(LOCAL_FILE_GET)
-                    .setExternalLinks(List.of(presignedUrl)));
     VolumeOperationResult volumeOperationResult =
-        new VolumeOperationResult(resultData, STATEMENT_ID, session, mockHttpClient);
+        new VolumeOperationResult(
+            STATEMENT_ID, RESULT_MANIFEST, session, resultHandler, mockHttpClient);
 
     assertTrue(volumeOperationResult.hasNext());
     assertEquals(-1, volumeOperationResult.getCurrentRow());
@@ -292,26 +244,20 @@ public class VolumeOperationResultTest {
 
   @Test
   public void testGetResult_Put() throws Exception {
+    setupCommonInteractions();
+    when(resultHandler.getObject(0)).thenReturn("PUT");
+    when(resultHandler.getObject(1)).thenReturn(PRESIGNED_URL);
+    when(resultHandler.getObject(3)).thenReturn(LOCAL_FILE_PUT);
     when(mockHttpClient.execute(isA(HttpPut.class))).thenReturn(httpResponse);
     when(httpResponse.getStatusLine()).thenReturn(mockedStatusLine);
     when(mockedStatusLine.getStatusCode()).thenReturn(200);
-    when(session.getClientInfoProperties())
-        .thenReturn(Map.of(ALLOWED_VOLUME_INGESTION_PATHS.toLowerCase(), ALLOWED_PATHS));
 
     File file = new File(LOCAL_FILE_PUT);
     Files.writeString(file.toPath(), "test-put");
 
-    ExternalLink presignedUrl =
-        new ExternalLink().setHttpHeaders(HEADERS).setExternalLink(PRESIGNED_URL);
-    ResultData resultData =
-        new ResultData()
-            .setVolumeOperationInfo(
-                new VolumeOperationInfo()
-                    .setVolumeOperationType("PUT")
-                    .setLocalFile(LOCAL_FILE_PUT)
-                    .setExternalLinks(List.of(presignedUrl)));
     VolumeOperationResult volumeOperationResult =
-        new VolumeOperationResult(resultData, STATEMENT_ID, session, mockHttpClient);
+        new VolumeOperationResult(
+            STATEMENT_ID, RESULT_MANIFEST, session, resultHandler, mockHttpClient);
 
     assertTrue(volumeOperationResult.hasNext());
     assertEquals(-1, volumeOperationResult.getCurrentRow());
@@ -325,26 +271,20 @@ public class VolumeOperationResultTest {
 
   @Test
   public void testGetResult_Put_failedHttpResponse() throws Exception {
+    setupCommonInteractions();
+    when(resultHandler.getObject(0)).thenReturn("PUT");
+    when(resultHandler.getObject(1)).thenReturn(PRESIGNED_URL);
+    when(resultHandler.getObject(3)).thenReturn(LOCAL_FILE_PUT);
     when(mockHttpClient.execute(isA(HttpPut.class))).thenReturn(httpResponse);
     when(httpResponse.getStatusLine()).thenReturn(mockedStatusLine);
     when(mockedStatusLine.getStatusCode()).thenReturn(403);
-    when(session.getClientInfoProperties())
-        .thenReturn(Map.of(ALLOWED_VOLUME_INGESTION_PATHS.toLowerCase(), ALLOWED_PATHS));
 
     File file = new File(LOCAL_FILE_PUT);
     Files.writeString(file.toPath(), "test-put");
 
-    ExternalLink presignedUrl =
-        new ExternalLink().setHttpHeaders(HEADERS).setExternalLink(PRESIGNED_URL);
-    ResultData resultData =
-        new ResultData()
-            .setVolumeOperationInfo(
-                new VolumeOperationInfo()
-                    .setVolumeOperationType("PUT")
-                    .setLocalFile(LOCAL_FILE_PUT)
-                    .setExternalLinks(List.of(presignedUrl)));
     VolumeOperationResult volumeOperationResult =
-        new VolumeOperationResult(resultData, STATEMENT_ID, session, mockHttpClient);
+        new VolumeOperationResult(
+            STATEMENT_ID, RESULT_MANIFEST, session, resultHandler, mockHttpClient);
 
     assertTrue(volumeOperationResult.hasNext());
     assertEquals(-1, volumeOperationResult.getCurrentRow());
@@ -361,23 +301,17 @@ public class VolumeOperationResultTest {
 
   @Test
   public void testGetResult_Put_emptyLocalFile() throws Exception {
-    when(session.getClientInfoProperties())
-        .thenReturn(Map.of(ALLOWED_VOLUME_INGESTION_PATHS.toLowerCase(), ALLOWED_PATHS));
+    setupCommonInteractions();
+    when(resultHandler.getObject(0)).thenReturn("PUT");
+    when(resultHandler.getObject(1)).thenReturn(PRESIGNED_URL);
+    when(resultHandler.getObject(3)).thenReturn(LOCAL_FILE_PUT);
 
     File file = new File(LOCAL_FILE_PUT);
     Files.writeString(file.toPath(), "");
 
-    ExternalLink presignedUrl =
-        new ExternalLink().setHttpHeaders(HEADERS).setExternalLink(PRESIGNED_URL);
-    ResultData resultData =
-        new ResultData()
-            .setVolumeOperationInfo(
-                new VolumeOperationInfo()
-                    .setVolumeOperationType("PUT")
-                    .setLocalFile(LOCAL_FILE_PUT)
-                    .setExternalLinks(List.of(presignedUrl)));
     VolumeOperationResult volumeOperationResult =
-        new VolumeOperationResult(resultData, STATEMENT_ID, session, mockHttpClient);
+        new VolumeOperationResult(
+            STATEMENT_ID, RESULT_MANIFEST, session, resultHandler, mockHttpClient);
 
     assertTrue(volumeOperationResult.hasNext());
     assertEquals(-1, volumeOperationResult.getCurrentRow());
@@ -393,20 +327,14 @@ public class VolumeOperationResultTest {
 
   @Test
   public void testGetResult_Put_nonExistingLocalFile() throws Exception {
-    when(session.getClientInfoProperties())
-        .thenReturn(Map.of(ALLOWED_VOLUME_INGESTION_PATHS.toLowerCase(), ALLOWED_PATHS));
+    setupCommonInteractions();
+    when(resultHandler.getObject(0)).thenReturn("PUT");
+    when(resultHandler.getObject(1)).thenReturn(PRESIGNED_URL);
+    when(resultHandler.getObject(3)).thenReturn(LOCAL_FILE_PUT);
 
-    ExternalLink presignedUrl =
-        new ExternalLink().setHttpHeaders(HEADERS).setExternalLink(PRESIGNED_URL);
-    ResultData resultData =
-        new ResultData()
-            .setVolumeOperationInfo(
-                new VolumeOperationInfo()
-                    .setVolumeOperationType("PUT")
-                    .setLocalFile(LOCAL_FILE_PUT)
-                    .setExternalLinks(List.of(presignedUrl)));
     VolumeOperationResult volumeOperationResult =
-        new VolumeOperationResult(resultData, STATEMENT_ID, session, mockHttpClient);
+        new VolumeOperationResult(
+            STATEMENT_ID, RESULT_MANIFEST, session, resultHandler, mockHttpClient);
 
     assertTrue(volumeOperationResult.hasNext());
     assertEquals(-1, volumeOperationResult.getCurrentRow());
@@ -421,20 +349,14 @@ public class VolumeOperationResultTest {
 
   @Test
   public void testGetResult_invalidOperationType() throws Exception {
-    when(session.getClientInfoProperties())
-        .thenReturn(Map.of(ALLOWED_VOLUME_INGESTION_PATHS.toLowerCase(), ALLOWED_PATHS));
+    setupCommonInteractions();
+    when(resultHandler.getObject(0)).thenReturn("FETCH");
+    when(resultHandler.getObject(1)).thenReturn(PRESIGNED_URL);
+    when(resultHandler.getObject(3)).thenReturn(LOCAL_FILE_PUT);
 
-    ExternalLink presignedUrl =
-        new ExternalLink().setHttpHeaders(HEADERS).setExternalLink(PRESIGNED_URL);
-    ResultData resultData =
-        new ResultData()
-            .setVolumeOperationInfo(
-                new VolumeOperationInfo()
-                    .setVolumeOperationType("FETCH")
-                    .setLocalFile(LOCAL_FILE_PUT)
-                    .setExternalLinks(List.of(presignedUrl)));
     VolumeOperationResult volumeOperationResult =
-        new VolumeOperationResult(resultData, STATEMENT_ID, session, mockHttpClient);
+        new VolumeOperationResult(
+            STATEMENT_ID, RESULT_MANIFEST, session, resultHandler, mockHttpClient);
 
     assertTrue(volumeOperationResult.hasNext());
     assertEquals(-1, volumeOperationResult.getCurrentRow());
@@ -448,22 +370,17 @@ public class VolumeOperationResultTest {
 
   @Test
   public void testGetResult_Remove() throws Exception {
+    setupCommonInteractions();
+    when(resultHandler.getObject(0)).thenReturn("REMOVE");
+    when(resultHandler.getObject(1)).thenReturn(PRESIGNED_URL);
+    when(resultHandler.getObject(3)).thenReturn(null);
     when(mockHttpClient.execute(isA(HttpDelete.class))).thenReturn(httpResponse);
     when(httpResponse.getStatusLine()).thenReturn(mockedStatusLine);
     when(mockedStatusLine.getStatusCode()).thenReturn(200);
-    when(session.getClientInfoProperties())
-        .thenReturn(Map.of(ALLOWED_VOLUME_INGESTION_PATHS.toLowerCase(), ALLOWED_PATHS));
 
-    ExternalLink presignedUrl =
-        new ExternalLink().setHttpHeaders(HEADERS).setExternalLink(PRESIGNED_URL);
-    ResultData resultData =
-        new ResultData()
-            .setVolumeOperationInfo(
-                new VolumeOperationInfo()
-                    .setVolumeOperationType("REMOVE")
-                    .setExternalLinks(List.of(presignedUrl)));
     VolumeOperationResult volumeOperationResult =
-        new VolumeOperationResult(resultData, STATEMENT_ID, session, mockHttpClient);
+        new VolumeOperationResult(
+            STATEMENT_ID, RESULT_MANIFEST, session, resultHandler, mockHttpClient);
 
     assertTrue(volumeOperationResult.hasNext());
     assertEquals(-1, volumeOperationResult.getCurrentRow());
@@ -482,22 +399,17 @@ public class VolumeOperationResultTest {
 
   @Test
   public void testGetResult_RemoveFailed() throws Exception {
+    setupCommonInteractions();
+    when(resultHandler.getObject(0)).thenReturn("REMOVE");
+    when(resultHandler.getObject(1)).thenReturn(PRESIGNED_URL);
+    when(resultHandler.getObject(3)).thenReturn(null);
     when(mockHttpClient.execute(isA(HttpDelete.class))).thenReturn(httpResponse);
     when(httpResponse.getStatusLine()).thenReturn(mockedStatusLine);
     when(mockedStatusLine.getStatusCode()).thenReturn(403);
-    when(session.getClientInfoProperties())
-        .thenReturn(Map.of(ALLOWED_VOLUME_INGESTION_PATHS.toLowerCase(), ALLOWED_PATHS));
 
-    ExternalLink presignedUrl =
-        new ExternalLink().setHttpHeaders(HEADERS).setExternalLink(PRESIGNED_URL);
-    ResultData resultData =
-        new ResultData()
-            .setVolumeOperationInfo(
-                new VolumeOperationInfo()
-                    .setVolumeOperationType("REMOVE")
-                    .setExternalLinks(List.of(presignedUrl)));
     VolumeOperationResult volumeOperationResult =
-        new VolumeOperationResult(resultData, STATEMENT_ID, session, mockHttpClient);
+        new VolumeOperationResult(
+            STATEMENT_ID, RESULT_MANIFEST, session, resultHandler, mockHttpClient);
 
     assertTrue(volumeOperationResult.hasNext());
     assertEquals(-1, volumeOperationResult.getCurrentRow());
@@ -513,20 +425,9 @@ public class VolumeOperationResultTest {
 
   @Test
   public void getObject() throws Exception {
-    when(session.getClientInfoProperties())
-        .thenReturn(Map.of(ALLOWED_VOLUME_INGESTION_PATHS.toLowerCase(), ALLOWED_PATHS));
-
-    ExternalLink presignedUrl =
-        new ExternalLink().setHttpHeaders(HEADERS).setExternalLink(PRESIGNED_URL);
-    ResultData resultData =
-        new ResultData()
-            .setVolumeOperationInfo(
-                new VolumeOperationInfo()
-                    .setVolumeOperationType("INVALID")
-                    .setLocalFile(LOCAL_FILE_GET)
-                    .setExternalLinks(List.of(presignedUrl)));
     VolumeOperationResult volumeOperationResult =
-        new VolumeOperationResult(resultData, STATEMENT_ID, session, mockHttpClient);
+        new VolumeOperationResult(
+            STATEMENT_ID, RESULT_MANIFEST, session, resultHandler, mockHttpClient);
 
     try {
       volumeOperationResult.getObject(2);
@@ -538,17 +439,14 @@ public class VolumeOperationResultTest {
 
   @Test
   public void testGetResult_Get_emptyLink() throws Exception {
-    when(session.getClientInfoProperties())
-        .thenReturn(Map.of(ALLOWED_VOLUME_INGESTION_PATHS.toLowerCase(), ALLOWED_PATHS));
+    setupCommonInteractions();
+    when(resultHandler.getObject(0)).thenReturn("GET");
+    when(resultHandler.getObject(1)).thenReturn("");
+    when(resultHandler.getObject(3)).thenReturn(LOCAL_FILE_GET);
 
-    ResultData resultData =
-        new ResultData()
-            .setVolumeOperationInfo(
-                new VolumeOperationInfo()
-                    .setVolumeOperationType("GET")
-                    .setLocalFile(LOCAL_FILE_GET));
     VolumeOperationResult volumeOperationResult =
-        new VolumeOperationResult(resultData, STATEMENT_ID, session, mockHttpClient);
+        new VolumeOperationResult(
+            STATEMENT_ID, RESULT_MANIFEST, session, resultHandler, mockHttpClient);
 
     assertTrue(volumeOperationResult.hasNext());
     assertEquals(-1, volumeOperationResult.getCurrentRow());
@@ -558,5 +456,17 @@ public class VolumeOperationResultTest {
     } catch (DatabricksSQLException e) {
       assertEquals("Volume operation aborted: Volume operation URL is not set", e.getMessage());
     }
+  }
+
+  private void setupCommonInteractions() throws Exception {
+    when(resultHandler.hasNext())
+        .thenReturn(true)
+        .thenReturn(true)
+        .thenReturn(false)
+        .thenReturn(false);
+    when(resultHandler.next()).thenReturn(true).thenReturn(false);
+    when(resultHandler.getObject(2)).thenReturn(HEADERS);
+    when(session.getClientInfoProperties())
+        .thenReturn(Map.of(ALLOWED_VOLUME_INGESTION_PATHS.toLowerCase(), ALLOWED_PATHS));
   }
 }

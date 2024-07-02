@@ -1,10 +1,7 @@
 package com.databricks.jdbc.core;
 
-import static com.google.common.collect.ImmutableList.toImmutableList;
-
 import com.databricks.jdbc.client.sqlexec.ResultData;
 import com.databricks.jdbc.client.sqlexec.ResultManifest;
-import java.sql.SQLException;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -51,13 +48,19 @@ public class InlineJsonResult implements IExecutionResult {
     if (dataArray == null) {
       return new ArrayList<>();
     }
-    return dataArray.stream()
-        .map(c -> c.stream().collect(toImmutableList()))
-        .collect(toImmutableList());
+    List<List<String>> dataList = new ArrayList<>();
+    for (Collection<String> innerCollection : dataArray) {
+      if (innerCollection == null) {
+        dataList.add(Collections.emptyList());
+      } else {
+        dataList.add(new ArrayList<>(innerCollection));
+      }
+    }
+    return dataList;
   }
 
   @Override
-  public Object getObject(int columnIndex) throws SQLException {
+  public Object getObject(int columnIndex) throws DatabricksSQLException {
     if (isClosed()) {
       throw new DatabricksSQLException("Method called on closed result");
     }

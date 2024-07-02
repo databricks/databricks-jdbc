@@ -1,6 +1,7 @@
 package com.databricks.jdbc.core;
 
 import static com.databricks.jdbc.commons.EnvironmentVariables.*;
+import static com.databricks.jdbc.driver.DatabricksJdbcConstants.*;
 import static java.lang.String.format;
 
 import com.databricks.jdbc.client.DatabricksClient;
@@ -12,11 +13,11 @@ import java.sql.*;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.*;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 public class DatabricksStatement implements IDatabricksStatement, Statement {
-  private static final Logger LOGGER = LoggerFactory.getLogger(DatabricksStatement.class);
+  private static final Logger LOGGER = LogManager.getLogger(DatabricksStatement.class);
 
   private int timeoutInSeconds;
   private final DatabricksConnection connection;
@@ -43,8 +44,19 @@ public class DatabricksStatement implements IDatabricksStatement, Statement {
 
   @Override
   public ResultSet executeQuery(String sql) throws SQLException {
+    // TODO(PECO-1731): Revisit this to see if we can fail fast if the statement does not return a
+    // result set.
     checkIfClosed();
-    return executeInternal(sql, new HashMap<Integer, ImmutableSqlParameter>(), StatementType.QUERY);
+    ResultSet rs =
+        executeInternal(sql, new HashMap<Integer, ImmutableSqlParameter>(), StatementType.QUERY);
+    if (!shouldReturnResultSet(sql)) {
+      throw new DatabricksSQLException(
+          "A ResultSet was expected but not generated from query: "
+              + sql
+              + ". However, query "
+              + "execution was successful.");
+    }
+    return rs;
   }
 
   @Override
@@ -105,7 +117,7 @@ public class DatabricksStatement implements IDatabricksStatement, Statement {
   public void setMaxRows(int max) throws SQLException {
     LOGGER.debug("public void setMaxRows(int max = {})", max);
     checkIfClosed();
-    ValidationUtil.checkIfPositive(max, "maxRows");
+    ValidationUtil.checkIfNonNegative(max, "maxRows");
     this.maxRows = max;
   }
 
@@ -126,14 +138,21 @@ public class DatabricksStatement implements IDatabricksStatement, Statement {
   public void setQueryTimeout(int seconds) throws SQLException {
     LOGGER.debug("public void setQueryTimeout(int seconds = {})", seconds);
     checkIfClosed();
+    ValidationUtil.checkIfNonNegative(seconds, "queryTimeout");
     this.timeoutInSeconds = seconds;
   }
 
   @Override
   public void cancel() throws SQLException {
     LOGGER.debug("public void cancel()");
-    throw new DatabricksSQLFeatureNotSupportedException(
-        "Not implemented in DatabricksStatement - cancel()");
+    checkIfClosed();
+
+    if (statementId != null) {
+      this.connection.getSession().getDatabricksClient().cancelStatement(statementId);
+    } else {
+      WarningUtil.addWarning(
+          warnings, "The statement you are trying to cancel does not have an ID yet.");
+    }
   }
 
   @Override
@@ -160,7 +179,7 @@ public class DatabricksStatement implements IDatabricksStatement, Statement {
     checkIfClosed();
     resultSet =
         executeInternal(sql, new HashMap<Integer, ImmutableSqlParameter>(), StatementType.SQL);
-    return !resultSet.hasUpdateCount();
+    return shouldReturnResultSet(sql);
   }
 
   @Override
@@ -404,13 +423,24 @@ public class DatabricksStatement implements IDatabricksStatement, Statement {
     CompletableFuture<DatabricksResultSet> futureResultSet =
         getFutureResult(sql, params, statementType);
     try {
-      resultSet = futureResultSet.get(timeoutInSeconds, TimeUnit.SECONDS);
+      resultSet =
+          timeoutInSeconds == 0
+              ? futureResultSet.get() // Wait indefinitely when timeout is 0
+              : futureResultSet.get(timeoutInSeconds, TimeUnit.SECONDS);
     } catch (TimeoutException e) {
       this.close(); // Close the statement
       futureResultSet.cancel(true); // Cancel execution run
       throw new DatabricksTimeoutException(
           "Statement execution timed-out. " + stackTraceMessage, e);
     } catch (InterruptedException | ExecutionException e) {
+      Throwable cause = e;
+      // Look for underlying DatabricksSQL exception
+      while (cause.getCause() != null) {
+        cause = cause.getCause();
+        if (cause instanceof DatabricksSQLException) {
+          throw (DatabricksSQLException) cause;
+        }
+      }
       LOGGER.error("Error occurred during statement execution: " + sql, e);
       throw new DatabricksSQLException("Error occurred during statement execution: " + sql, e);
     }
@@ -445,7 +475,7 @@ public class DatabricksStatement implements IDatabricksStatement, Statement {
         this);
   }
 
-  void checkIfClosed() throws SQLException {
+  void checkIfClosed() throws DatabricksSQLException {
     if (isClosed) {
       throw new DatabricksSQLException("Statement is closed");
     }
@@ -464,5 +494,34 @@ public class DatabricksStatement implements IDatabricksStatement, Statement {
   @Override
   public Statement getStatement() {
     return this;
+  }
+
+  protected static boolean shouldReturnResultSet(String query) {
+    if (query == null || query.trim().isEmpty()) {
+      throw new IllegalArgumentException("Query cannot be null or empty");
+    }
+
+    // Trim and remove leading comments and whitespaces.
+    String trimmedQuery = query.trim().replaceAll("^(--.*|/\\*.*?\\*/)*", "").trim();
+
+    // Check if the query matches any of the patterns that return a ResultSet
+    if (SELECT_PATTERN.matcher(trimmedQuery).find()
+        || SHOW_PATTERN.matcher(trimmedQuery).find()
+        || DESCRIBE_PATTERN.matcher(trimmedQuery).find()
+        || EXPLAIN_PATTERN.matcher(trimmedQuery).find()
+        || WITH_PATTERN.matcher(trimmedQuery).find()
+        || SET_PATTERN.matcher(trimmedQuery).find()
+        || MAP_PATTERN.matcher(trimmedQuery).find()
+        || FROM_PATTERN.matcher(trimmedQuery).find()
+        || VALUES_PATTERN.matcher(trimmedQuery).find()
+        || UNION_PATTERN.matcher(trimmedQuery).find()
+        || INTERSECT_PATTERN.matcher(trimmedQuery).find()
+        || EXCEPT_PATTERN.matcher(trimmedQuery).find()
+        || DECLARE_PATTERN.matcher(trimmedQuery).find()) {
+      return true;
+    }
+
+    // Otherwise, it should not return a ResultSet
+    return false;
   }
 }

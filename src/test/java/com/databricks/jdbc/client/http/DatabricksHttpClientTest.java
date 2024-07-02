@@ -8,11 +8,11 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 import com.databricks.jdbc.client.DatabricksHttpException;
+import com.databricks.jdbc.client.DatabricksRetryHandlerException;
 import com.databricks.jdbc.driver.DatabricksConnectionContext;
 import com.databricks.jdbc.driver.DatabricksDriver;
 import com.databricks.jdbc.driver.IDatabricksConnectionContext;
 import java.io.IOException;
-import java.lang.reflect.Field;
 import java.net.URI;
 import java.util.Properties;
 import java.util.concurrent.TimeUnit;
@@ -42,6 +42,8 @@ public class DatabricksHttpClientTest {
   @Mock PoolingHttpClientConnectionManager connectionManager;
 
   @Mock CloseableHttpResponse closeableHttpResponse;
+
+  @Mock HttpClientBuilder httpClientBuilder;
 
   private static final String CLUSTER_JDBC_URL =
       "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=http;ssl=1;httpPath=sql/protocolv1/o/6051921418418893/1115-130834-ms4m0yv;AuthMech=3;UserAgentEntry=MyApp";
@@ -77,7 +79,6 @@ public class DatabricksHttpClientTest {
     final String testFakeServiceURI = "http://localhost:8080";
     System.setProperty(testTargetURI + FAKE_SERVICE_URI_PROP_SUFFIX, testFakeServiceURI);
 
-    HttpClientBuilder httpClientBuilder = Mockito.mock(HttpClientBuilder.class);
     ArgumentCaptor<HttpRoutePlanner> routePlannerCaptor =
         ArgumentCaptor.forClass(HttpRoutePlanner.class);
 
@@ -102,10 +103,28 @@ public class DatabricksHttpClientTest {
   }
 
   @Test
+  public void testSetFakeServiceRouteInHttpClientWithLocalhostTarget() throws HttpException {
+    ArgumentCaptor<HttpRoutePlanner> routePlannerCaptor =
+        ArgumentCaptor.forClass(HttpRoutePlanner.class);
+
+    DatabricksHttpClient.setFakeServiceRouteInHttpClient(httpClientBuilder);
+
+    Mockito.verify(httpClientBuilder).setRoutePlanner(routePlannerCaptor.capture());
+    HttpRoutePlanner capturedRoutePlanner = routePlannerCaptor.getValue();
+
+    HttpGet request = new HttpGet("http://localhost:53423");
+    HttpRoute route =
+        capturedRoutePlanner.determineRoute(
+            HttpHost.create(request.getURI().toString()), request, null);
+
+    // Verify the route has no proxy host set as the target URI directly points to fake service
+    assertNull(route.getProxyHost());
+  }
+
+  @Test
   public void testSetFakeServiceRouteInHttpClientThrowsError() {
     final String testTargetURI = "https://example.com";
 
-    HttpClientBuilder httpClientBuilder = Mockito.mock(HttpClientBuilder.class);
     ArgumentCaptor<HttpRoutePlanner> routePlannerCaptor =
         ArgumentCaptor.forClass(HttpRoutePlanner.class);
 
@@ -131,7 +150,6 @@ public class DatabricksHttpClientTest {
     final String testFakeServiceURI = "http://localhost:8080";
     System.setProperty(testTargetURI + FAKE_SERVICE_URI_PROP_SUFFIX, testFakeServiceURI);
 
-    HttpClientBuilder httpClientBuilder = Mockito.mock(HttpClientBuilder.class);
     ArgumentCaptor<HttpRoutePlanner> routePlannerCaptor =
         ArgumentCaptor.forClass(HttpRoutePlanner.class);
 
@@ -162,6 +180,16 @@ public class DatabricksHttpClientTest {
   }
 
   @Test
+  void testRetryHandlerWithTemporarilyUnavailableRetryInterval() throws IOException {
+    DatabricksHttpClient databricksHttpClient =
+        new DatabricksHttpClient(mockHttpClient, connectionManager);
+    when(request.getURI()).thenReturn(URI.create("TestURI"));
+    when(mockHttpClient.execute(request))
+        .thenThrow(new DatabricksRetryHandlerException("Retry http request.Error code: ", 503));
+    assertThrows(DatabricksHttpException.class, () -> databricksHttpClient.execute(request));
+  }
+
+  @Test
   void testExecute() throws IOException, DatabricksHttpException {
     DatabricksHttpClient databricksHttpClient =
         new DatabricksHttpClient(mockHttpClient, connectionManager);
@@ -177,8 +205,7 @@ public class DatabricksHttpClientTest {
     databricksHttpClient.closeExpiredAndIdleConnections();
     verify(connectionManager).closeExpiredConnections();
     verify(connectionManager)
-        .closeIdleConnections(
-            DatabricksHttpClient.DEFAULT_IDLE_CONNECTION_TIMEOUT, TimeUnit.SECONDS);
+        .closeIdleConnections(DatabricksHttpClient.idleHttpConnectionExpiry, TimeUnit.SECONDS);
   }
 
   @Test
@@ -190,13 +217,16 @@ public class DatabricksHttpClientTest {
   @Test
   void testIsRetryAllowed() {
     assertTrue(isRetryAllowed("GET"), "GET requests should be allowed for retry");
-    assertFalse(isRetryAllowed("POST"), "POST requests should not be allowed for retry");
+    assertTrue(isRetryAllowed("POST"), "POST requests should  be allowed for retry");
+    assertTrue(isRetryAllowed("PUT"), "PUT requests should be allowed for retry");
+    assertFalse(isRetryAllowed("DELETE"), "DELETE requests should not be allowed for retry");
   }
 
   @Test
   void testIsErrorCodeRetryable() {
-    assertTrue(isErrorCodeRetryable(408), "HTTP 408 Request Timeout should be retryable");
+    assertFalse(isErrorCodeRetryable(408), "HTTP 408 Request Timeout should not be retryable");
     assertTrue(isErrorCodeRetryable(503), "HTTP 503 Service Unavailable should be retryable");
+    assertTrue(isErrorCodeRetryable(429), "HTTP 429 Too Many Requests should be retryable");
     assertFalse(isErrorCodeRetryable(401), "HTTP 401 Unauthorized should not be retryable");
   }
 
@@ -223,43 +253,47 @@ public class DatabricksHttpClientTest {
   }
 
   @Test
-  public void testResetInstance() {
+  public void testDifferentInstancesForDifferentContexts() {
     System.setProperty(IS_FAKE_SERVICE_TEST_PROP, "true");
 
-    IDatabricksConnectionContext connectionContext =
+    // Create the first mock connection context
+    IDatabricksConnectionContext connectionContext1 =
         Mockito.mock(IDatabricksConnectionContext.class);
-    when(connectionContext.getUseSystemProxy()).thenReturn(false);
-    when(connectionContext.getUseProxy()).thenReturn(false);
-    when(connectionContext.getUseCloudFetchProxy()).thenReturn(false);
+    when(connectionContext1.getUseSystemProxy()).thenReturn(false);
+    when(connectionContext1.getUseProxy()).thenReturn(false);
+    when(connectionContext1.getUseCloudFetchProxy()).thenReturn(false);
 
-    DatabricksHttpClient databricksHttpClient = DatabricksHttpClient.getInstance(connectionContext);
-    assertNotNull(databricksHttpClient);
+    // Create the second mock connection context
+    IDatabricksConnectionContext connectionContext2 =
+        Mockito.mock(IDatabricksConnectionContext.class);
+    when(connectionContext2.getUseSystemProxy()).thenReturn(false);
+    when(connectionContext2.getUseProxy()).thenReturn(false);
+    when(connectionContext2.getUseCloudFetchProxy()).thenReturn(false);
 
-    DatabricksHttpClient.resetInstance();
+    // Get instances of DatabricksHttpClient for each context
+    DatabricksHttpClient client1 = DatabricksHttpClient.getInstance(connectionContext1);
+    DatabricksHttpClient client2 = DatabricksHttpClient.getInstance(connectionContext2);
 
-    DatabricksHttpClient newInstance = DatabricksHttpClient.getInstance(connectionContext);
-    assertNotNull(newInstance);
-    // The instance should be different after reset
-    assertNotSame(databricksHttpClient, newInstance);
+    assertNotNull(client1);
+    assertNotNull(client2);
+
+    // Assert that the instances are different for different contexts
+    assertNotSame(client1, client2);
+
+    // Reset the instance for the first context
+    DatabricksHttpClient.removeInstance(connectionContext1);
+
+    // Get a new instance for the first context
+    DatabricksHttpClient newClient1 = DatabricksHttpClient.getInstance(connectionContext1);
+
+    assertNotNull(newClient1);
+    // The new instance should be different after reset
+    assertNotSame(client1, newClient1);
+
+    // Ensure that the second context's instance remains the same
+    DatabricksHttpClient sameClient2 = DatabricksHttpClient.getInstance(connectionContext2);
+    assertSame(client2, sameClient2);
 
     System.clearProperty(IS_FAKE_SERVICE_TEST_PROP);
-  }
-
-  @Test
-  void testResetInstanceCatchesIOException()
-      throws IOException, NoSuchFieldException, IllegalAccessException {
-    DatabricksHttpClient testInstance = new DatabricksHttpClient(mockHttpClient, connectionManager);
-
-    doThrow(new IOException()).when(mockHttpClient).close();
-
-    // Set the instance to the testInstance using reflection
-    Field instanceField = DatabricksHttpClient.class.getDeclaredField("instance");
-    instanceField.setAccessible(true);
-    instanceField.set(null, testInstance);
-
-    DatabricksHttpClient.resetInstance();
-
-    verify(mockHttpClient, times(1)).close();
-    assertNull(instanceField.get(null));
   }
 }

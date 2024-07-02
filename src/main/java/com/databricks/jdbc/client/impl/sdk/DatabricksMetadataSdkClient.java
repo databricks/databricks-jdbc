@@ -18,13 +18,13 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 /** Implementation for DatabricksMetadataClient using SDK client */
 public class DatabricksMetadataSdkClient implements DatabricksMetadataClient {
 
-  private static final Logger LOGGER = LoggerFactory.getLogger(DatabricksSdkClient.class);
+  private static final Logger LOGGER = LogManager.getLogger(DatabricksSdkClient.class);
 
   private final DatabricksSdkClient sdkClient;
 
@@ -94,7 +94,8 @@ public class DatabricksMetadataSdkClient implements DatabricksMetadataClient {
               //          if (WildcardUtil.containsEmoji(currentCatalog))
               //            return;
               String showSchemaSQL = "show schemas in `" + currentCatalog + "`";
-              if (!WildcardUtil.isMatchAnything(schemaNamePattern)) {
+              String schemaWithContext = WildcardUtil.jdbcPatternToHive(schemaNamePattern);
+              if (!WildcardUtil.isMatchAnything(schemaWithContext)) {
                 showSchemaSQL += " like '" + schemaNamePattern + "'";
               }
               LOGGER.debug("SQL command to fetch schemas: {}", showSchemaSQL);

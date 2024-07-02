@@ -4,13 +4,13 @@ import com.databricks.jdbc.client.DatabricksHttpException;
 import com.databricks.jdbc.client.IDatabricksHttpClient;
 import java.io.IOException;
 import java.util.concurrent.Callable;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 /** Task class to manage download for a single chunk. */
 class SingleChunkDownloader implements Callable<Void> {
 
-  private static final Logger LOGGER = LoggerFactory.getLogger(SingleChunkDownloader.class);
+  private static final Logger LOGGER = LogManager.getLogger(SingleChunkDownloader.class);
   private final ArrowResultChunk chunk;
   private final IDatabricksHttpClient httpClient;
   private final ChunkDownloader chunkDownloader;

@@ -36,6 +36,9 @@ public class ResultManifest {
   @JsonProperty("compression_codec")
   private CompressionType compressionType;
 
+  @JsonProperty("is_volume_operation")
+  private Boolean isVolumeOperation;
+
   public ResultManifest() {}
 
   public ResultManifest setChunks(Collection<BaseChunkInfo> chunks) {
@@ -110,6 +113,15 @@ public class ResultManifest {
     return this.truncated;
   }
 
+  public ResultManifest setIsVolumeOperation(Boolean isVolumeOperation) {
+    this.isVolumeOperation = isVolumeOperation;
+    return this;
+  }
+
+  public Boolean getIsVolumeOperation() {
+    return this.isVolumeOperation;
+  }
+
   public boolean equals(Object o) {
     if (this == o) {
       return true;
@@ -121,7 +133,8 @@ public class ResultManifest {
           && Objects.equals(this.totalByteCount, that.totalByteCount)
           && Objects.equals(this.totalChunkCount, that.totalChunkCount)
           && Objects.equals(this.totalRowCount, that.totalRowCount)
-          && Objects.equals(this.truncated, that.truncated);
+          && Objects.equals(this.truncated, that.truncated)
+          && Objects.equals(this.isVolumeOperation, that.isVolumeOperation);
     } else {
       return false;
     }
@@ -136,7 +149,8 @@ public class ResultManifest {
           this.totalByteCount,
           this.totalChunkCount,
           this.totalRowCount,
-          this.truncated
+          this.truncated,
+          this.isVolumeOperation
         });
   }
 
@@ -149,6 +163,7 @@ public class ResultManifest {
         .add("totalChunkCount", this.totalChunkCount)
         .add("totalRowCount", this.totalRowCount)
         .add("truncated", this.truncated)
+        .add("isVolumeOperation", this.isVolumeOperation)
         .toString();
   }
 }

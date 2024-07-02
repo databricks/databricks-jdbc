@@ -2,10 +2,12 @@ package com.databricks.jdbc.core.converters;
 
 import com.databricks.jdbc.core.DatabricksSQLException;
 import java.math.BigDecimal;
-import java.sql.Date;
+import java.math.BigInteger;
 import java.sql.Timestamp;
 import java.sql.Types;
+import java.time.LocalDate;
 import java.util.Calendar;
+import java.util.Date;
 
 public class ConverterHelper {
 
@@ -25,7 +27,11 @@ public class ConverterHelper {
       return converter.convertToFloat();
     } else if (javaType == Double.class || javaType == double.class) {
       return converter.convertToDouble();
-    } else if (javaType == Date.class) {
+    } else if (javaType == LocalDate.class) {
+      return converter.convertToLocalDate();
+    } else if (javaType == BigInteger.class) {
+      return converter.convertToBigInteger();
+    } else if (javaType == Date.class || javaType == java.sql.Date.class) {
       return converter.convertToDate();
     } else if (javaType == Timestamp.class || javaType == Calendar.class) {
       return converter.convertToTimestamp();

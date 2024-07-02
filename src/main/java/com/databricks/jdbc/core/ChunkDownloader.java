@@ -16,14 +16,13 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.atomic.AtomicInteger;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 /** Class to manage Arrow chunks and fetch them on proactive basis. */
 public class ChunkDownloader {
 
-  private static final Logger logger = LoggerFactory.getLogger(ChunkDownloader.class);
-  private static final int CHUNKS_DOWNLOADER_THREAD_POOL_SIZE = 4;
+  private static final Logger logger = LogManager.getLogger(ChunkDownloader.class);
   private static final String CHUNKS_DOWNLOADER_THREAD_POOL_PREFIX =
       "databricks-jdbc-chunks-downloader-";
   private final IDatabricksSession session;
@@ -31,6 +30,7 @@ public class ChunkDownloader {
   private final long totalChunks;
   private final ExecutorService chunkDownloaderExecutorService;
   private final IDatabricksHttpClient httpClient;
+  private static int chunksDownloaderThreadPoolSize;
   private Long currentChunkIndex;
   private long nextChunkToDownload;
   private Long totalChunksInMemory;
@@ -43,13 +43,15 @@ public class ChunkDownloader {
       String statementId,
       ResultManifest resultManifest,
       ResultData resultData,
-      IDatabricksSession session) {
+      IDatabricksSession session,
+      int chunksDownloaderThreadPoolSize) {
     this(
         statementId,
         resultManifest,
         resultData,
         session,
-        DatabricksHttpClient.getInstance(session.getConnectionContext()));
+        DatabricksHttpClient.getInstance(session.getConnectionContext()),
+        chunksDownloaderThreadPoolSize);
   }
 
   @VisibleForTesting
@@ -58,7 +60,9 @@ public class ChunkDownloader {
       ResultManifest resultManifest,
       ResultData resultData,
       IDatabricksSession session,
-      IDatabricksHttpClient httpClient) {
+      IDatabricksHttpClient httpClient,
+      int chunksDownloaderThreadPoolSize) {
+    this.chunksDownloaderThreadPoolSize = chunksDownloaderThreadPoolSize;
     this.chunkDownloaderExecutorService = createChunksDownloaderExecutorService();
     this.httpClient = httpClient;
     this.session = session;
@@ -68,12 +72,17 @@ public class ChunkDownloader {
     initializeData();
   }
 
-  ChunkDownloader(String statementId, TRowSet resultData, IDatabricksSession session) {
+  ChunkDownloader(
+      String statementId,
+      TRowSet resultData,
+      IDatabricksSession session,
+      int chunksDownloaderThreadPoolSize) {
     this(
         statementId,
         resultData,
         session,
-        DatabricksHttpClient.getInstance(session.getConnectionContext()));
+        DatabricksHttpClient.getInstance(session.getConnectionContext()),
+        chunksDownloaderThreadPoolSize);
   }
 
   @VisibleForTesting
@@ -81,7 +90,9 @@ public class ChunkDownloader {
       String statementId,
       TRowSet resultData,
       IDatabricksSession session,
-      IDatabricksHttpClient httpClient) {
+      IDatabricksHttpClient httpClient,
+      int chunksDownloaderThreadPoolSize) {
+    this.chunksDownloaderThreadPoolSize = chunksDownloaderThreadPoolSize;
     this.chunkDownloaderExecutorService = createChunksDownloaderExecutorService();
     this.httpClient = httpClient;
     this.session = session;
@@ -120,7 +131,7 @@ public class ChunkDownloader {
             return thread;
           }
         };
-    return Executors.newFixedThreadPool(CHUNKS_DOWNLOADER_THREAD_POOL_SIZE, threadFactory);
+    return Executors.newFixedThreadPool(chunksDownloaderThreadPoolSize, threadFactory);
   }
 
   /**
@@ -155,12 +166,9 @@ public class ChunkDownloader {
           throw new DatabricksSQLException(chunk.getErrorMessage());
         }
       } catch (InterruptedException e) {
-        logger
-            .atInfo()
-            .setCause(e)
-            .log(
-                "Caught interrupted exception while waiting for chunk [%s] for statement [%s]",
-                chunk.getChunkIndex(), statementId);
+        logger.info(
+            "Caught interrupted exception while waiting for chunk [%s] for statement [%s]. Exception [%s]",
+            chunk.getChunkIndex(), statementId, e);
       }
     }
 
@@ -261,7 +269,7 @@ public class ChunkDownloader {
     // We don't have any chunk in downloaded yet
     this.totalChunksInMemory = 0L;
     // Number of worker threads are directly linked to allowed chunks in memory
-    this.allowedChunksInMemory = Math.min(CHUNKS_DOWNLOADER_THREAD_POOL_SIZE, totalChunks);
+    this.allowedChunksInMemory = Math.min(chunksDownloaderThreadPoolSize, totalChunks);
     this.isClosed = false;
     // The first link is available
     this.downloadNextChunks();

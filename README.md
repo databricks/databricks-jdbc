@@ -30,4 +30,47 @@ The JDBC driver supports following modes for authentication:
    - Client Credentials: Set Auth_Flow=1 for using Machine-to-machine OAuth flow.
    - Browser based OAuth: Set Auth_Flow=2 for using User-to-machine OAuth flow.
 
+## Integration Tests
+The project includes a suite of integration tests located in the
+`src/test/java/com/databricks/jdbc/integration/fakeservice/tests`. Each test runs against a set of fake-services
+corresponding to each production service, namely `SQL_EXEC`/`SQL_GATEWAY` and `DBFS`. The [fake-service](./src/test/java/com/databricks/jdbc/integration/fakeservice/FakeServiceExtension.java)
+is based on the open-source project [WireMock](https://wiremock.org/). The tests can be run in the following
+fake-service modes controlled by the environment variable <u>`FAKE_SERVICE_MODE`</u>:
 
+1. `RECORD`: In this mode, the fake-service will record the responses from the production service and save them to the
+   corresponding directory in `/src/test/resources/`. This mode is useful for updating the responses when contract with
+   the production service changes.
+2. `REPLAY` (default): In this mode, the fake-service will replay the recorded responses saved in the corresponding
+   directory in `/src/test/resources/`. This mode is useful for running the tests without connecting to the production
+   service.
+3. `DRY`: In this mode, the tests will run against the production service and the fake-service will simply act as a
+   pass-through proxy, meaning it neither records nor replays the responses. This mode is useful for debugging and
+   authoring the tests.
+
+### Running Integration Tests
+The driver supports both SQL-Execution (default) and Thrift clients. Integration tests can be executed using either the
+SQL-Execution or Thrift client, determined by setting the environment variable <u>`USE_THRIFT_CLIENT`</u> to `true` or
+`false`. By default, tests run using the SQL-Execution client. Depending on the environment, either the `SQL_EXEC` or
+`SQL_GATEWAY` (Thrift) fake-service is used, and test properties such as `HTTP_PATH`, `DATABRICKS_HOST`, `CATALOG`,
+`SCHEMA`, etc., are loaded accordingly.
+
+Running [connection](./src/test/java/com/databricks/jdbc/integration/fakeservice/tests/ConnectionIntegrationTests.java)
+tests in `REPLAY` mode using `SQL_GATEWAY`:
+```
+USE_THRIFT_CLIENT=true FAKE_SERVICE_TEST_MODE=replay mvn -Dtest=com.databricks.jdbc.integration.fakeservice.tests.ConnectionIntegrationTests test
+```
+
+Running all tests in `REPLAY` mode using `SQL_EXEC`:
+```
+USE_THRIFT_CLIENT=false FAKE_SERVICE_TEST_MODE=replay mvn -Dtest=*IntegrationTests test
+```
+
+To run tests in either `RECORD` or `DRY` mode, set a personal access token in the <u>`DATABRICKS_TOKEN`</u> environment
+variable.
+
+Running [execution](./src/test/java/com/databricks/jdbc/integration/fakeservice/tests/ExecutionIntegrationTests.java)
+tests in `RECORD` mode using `SQL_EXEC`:
+```
+DATABRICKS_TOKEN=<personal-access-token> USE_THRIFT_CLIENT=false FAKE_SERVICE_TEST_MODE=record mvn -Dtest=com.databricks.jdbc.integration.fakeservice.tests.ExecutionIntegrationTests test
+```
+This will replace the recorded responses with the new responses from the production services.

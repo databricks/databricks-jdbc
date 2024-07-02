@@ -4,17 +4,11 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>com.databricks</groupId>
     <artifactId>databricks-jdbc-oss</artifactId>
-    <version>0.0.1</version>
+    <version>0.1.1</version>
     <packaging>jar</packaging>
     <name>Databricks JDBC Driver</name>
     <description>Databricks JDBC Driver.</description>
     <url>https://github.com/databricks/databricks-jdbc</url>
-    <developers>
-        <developer>
-            <name>Gopal Lal</name>
-            <email>gopal.lal@databricks.com</email>
-        </developer>
-    </developers>
     <scm>
         <connection>scm:git:https://github.com/databricks/databricks-jdbc.git</connection>
         <developerConnection>scm:git:https://github.com/databricks/databricks-jdbc.git</developerConnection>
@@ -25,7 +19,6 @@
     <maven.compiler.source>11</maven.compiler.source>
     <maven.compiler.target>11</maven.compiler.target>
     <mockito.version>5.2.0</mockito.version>
-    <slf4j.version>2.0.7</slf4j.version>
     <jackson.version>2.15.1</jackson.version>
     <google.guava.version>33.0.0-jre</google.guava.version>
     <junit.jupiter.version>5.9.2</junit.jupiter.version>
@@ -38,7 +31,6 @@
     <commons-io.version>2.13.0</commons-io.version>
     <databricks-sdk.version>0.17.1</databricks-sdk.version>
     <maven-surefire-plugin.version>3.1.2</maven-surefire-plugin.version>
-    <slf4j-reload4j.version>2.1.0-alpha1</slf4j-reload4j.version>
     <sql-logic-test.version>0.3</sql-logic-test.version>
     <lz4-compression.version>1.8.0</lz4-compression.version>
     <thrift.version>0.19.0</thrift.version>
@@ -56,6 +48,11 @@
     <dependency>
       <groupId>org.apache.arrow</groupId>
       <artifactId>arrow-memory-core</artifactId>
+      <version>${arrow.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.arrow</groupId>
+      <artifactId>arrow-memory-unsafe</artifactId>
       <version>${arrow.version}</version>
     </dependency>
     <dependency>
@@ -117,11 +114,6 @@
       <scope>test</scope>
     </dependency>
     <dependency>
-      <groupId>org.slf4j</groupId>
-      <artifactId>slf4j-api</artifactId>
-      <version>${slf4j.version}</version>
-    </dependency>
-    <dependency>
       <groupId>org.apache.logging.log4j</groupId>
       <artifactId>log4j-api</artifactId>
       <version>${log4japi.version}</version>
@@ -142,16 +134,15 @@
       <version>${jackson.version}</version>
     </dependency>
     <dependency>
+      <groupId>com.fasterxml.jackson.core</groupId>
+      <artifactId>jackson-core</artifactId>
+      <version>${jackson.version}</version>
+    </dependency>
+    <dependency>
       <groupId>org.immutables</groupId>
       <artifactId>value</artifactId>
       <version>${immutables.value.version}</version>
       <scope>provided</scope>
-    </dependency>
-    <dependency>
-      <groupId>org.slf4j</groupId>
-      <artifactId>slf4j-reload4j</artifactId>
-      <version>${slf4j-reload4j.version}</version>
-      <scope>runtime</scope>
     </dependency>
     <dependency>
       <groupId>net.hydromatic</groupId>
@@ -203,9 +194,13 @@
           <artifactId>maven-surefire-plugin</artifactId>
           <version>${maven-surefire-plugin.version}</version>
           <configuration>
+            <systemPropertyVariables>
+              <log4j.configurationFile>file:src/main/resources/log4j2.xml</log4j.configurationFile>
+            </systemPropertyVariables>
             <excludes>
-              <exclude>**/**IntegrationTests.java</exclude>
+              <exclude>**/integration/**/*.java</exclude>
               <exclude>**/*MetadataBenchmarkingTest.java</exclude>
+              <exclude>**/*LargeQueriesBenchmarkingTest.java</exclude>
             </excludes>
             <argLine>
               @{argLine}
@@ -239,6 +234,7 @@
           <configuration>
             <testExcludes>
               <testExclude>com/databricks/jdbc/integration/benchmarking/MetadataBenchmarkingTest.java</testExclude>
+              <testExclude>com/databricks/jdbc/integration/benchmarking/LargeQueriesBenchmarkingTest.java</testExclude>
             </testExcludes>
           </configuration>
         </plugin>

@@ -14,6 +14,7 @@ import org.apache.arrow.vector.types.TimeUnit;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.MethodSource;
 
 class DatabricksTypeUtilTest {
@@ -190,5 +191,46 @@ class DatabricksTypeUtilTest {
     assertEquals(DatabricksTypeUtil.FLOAT, DatabricksTypeUtil.inferDatabricksType(1.0f));
     assertEquals(DatabricksTypeUtil.INT, DatabricksTypeUtil.inferDatabricksType(1));
     assertEquals(DatabricksTypeUtil.DOUBLE, DatabricksTypeUtil.inferDatabricksType(1.0d));
+  }
+
+  @ParameterizedTest
+  @CsvSource({
+    "STRING, STRING",
+    "DATE, TIMESTAMP",
+    "TIMESTAMP, TIMESTAMP",
+    "TIMESTAMP_NTZ, TIMESTAMP",
+    "SHORT, SHORT",
+    "TINYINT, SHORT",
+    "BYTE, BYTE",
+    "INT, INT",
+    "BIGINT, LONG",
+    "FLOAT, FLOAT",
+    "DOUBLE, DOUBLE",
+    "BINARY, BINARY",
+    "BOOLEAN, BOOLEAN",
+    "DECIMAL, DECIMAL",
+    "STRUCT, STRUCT",
+    "ARRAY, ARRAY",
+    "VOID, NULL",
+    "NULL, NULL",
+    "MAP, MAP",
+    "UNKNOWN, USER_DEFINED_TYPE"
+  })
+  public void testGetColumnInfoType(String inputTypeName, String expectedTypeName) {
+    assertEquals(
+        ColumnInfoTypeName.valueOf(expectedTypeName),
+        DatabricksTypeUtil.getColumnInfoType(inputTypeName),
+        String.format(
+            "inputType : %s, output should have been %s.  But was %s",
+            inputTypeName, expectedTypeName, DatabricksTypeUtil.getColumnInfoType(inputTypeName)));
+  }
+
+  @ParameterizedTest
+  @CsvSource({"FLOAT, 7", "DOUBLE, 15", "DECIMAL, 10", "TIMESTAMP, 6", "STRING, 0", "NULL, 0"})
+  void testGetScale(ColumnInfoTypeName typeName, int expectedScale) {
+    assertEquals(
+        expectedScale,
+        DatabricksTypeUtil.getScale(typeName),
+        "Scale did not match for type: " + typeName);
   }
 }

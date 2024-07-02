@@ -1,39 +1,60 @@
 package com.databricks.jdbc.integration;
 
-import static com.databricks.jdbc.driver.DatabricksJdbcConstants.FAKE_SERVICE_URI_PROP_SUFFIX;
-import static com.databricks.jdbc.driver.DatabricksJdbcConstants.IS_FAKE_SERVICE_TEST_PROP;
+import static com.databricks.jdbc.driver.DatabricksJdbcConstants.*;
+import static com.databricks.jdbc.integration.fakeservice.FakeServiceConfigLoader.TEST_CATALOG;
+import static com.databricks.jdbc.integration.fakeservice.FakeServiceConfigLoader.TEST_SCHEMA;
 import static com.databricks.jdbc.integration.fakeservice.FakeServiceExtension.TARGET_URI_PROP_SUFFIX;
 
 import com.databricks.jdbc.driver.DatabricksJdbcConstants.FakeServiceType;
+import com.databricks.jdbc.integration.fakeservice.FakeServiceConfigLoader;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.List;
+import java.util.Map;
+import java.util.Properties;
 
 /** Utility class to support integration tests * */
 public class IntegrationTestUtil {
 
+  private static final boolean isFakeServiceTest =
+      Boolean.parseBoolean(System.getProperty(IS_FAKE_SERVICE_TEST_PROP));
+
   private static Connection JDBCConnection;
 
-  public static String getDatabricksHost() {
-    if (Boolean.parseBoolean(System.getProperty(IS_FAKE_SERVICE_TEST_PROP))) {
-      // Target base URL of the fake service type
-      String serviceURI =
-          System.getProperty(
-              FakeServiceType.SQL_EXEC.name().toLowerCase() + TARGET_URI_PROP_SUFFIX);
-      URI fakeServiceURI;
-      try {
-        // Fake service URL for the base URL
-        fakeServiceURI = new URI(System.getProperty(serviceURI + FAKE_SERVICE_URI_PROP_SUFFIX));
-      } catch (URISyntaxException e) {
-        throw new RuntimeException(e);
-      }
+  /** Get the host of the embedded web server of fake service to be used in the tests. */
+  public static String getFakeServiceHost() {
+    // Target base URL of the fake service type
+    FakeServiceType databricksFakeServiceType =
+        FakeServiceConfigLoader.shouldUseThriftClient
+            ? FakeServiceType.SQL_GATEWAY
+            : FakeServiceType.SQL_EXEC;
+    String serviceURI =
+        System.getProperty(databricksFakeServiceType.name().toLowerCase() + TARGET_URI_PROP_SUFFIX);
 
-      return fakeServiceURI.getAuthority();
+    URI fakeServiceURI;
+    try {
+      // Fake service URL for the base URL
+      fakeServiceURI = new URI(System.getProperty(serviceURI + FAKE_SERVICE_URI_PROP_SUFFIX));
+    } catch (URISyntaxException e) {
+      throw new RuntimeException(e);
     }
 
+    return fakeServiceURI.getAuthority();
+  }
+
+  public static String getFakeServiceJDBCUrl() {
+    // The fake service client has SSL disabled, but SSL is enabled for its communication with
+    // production services.
+    String jdbcUrlTemplate = "jdbc:databricks://%s/default;ssl=0;AuthMech=3;httpPath=%s";
+    return String.format(
+        jdbcUrlTemplate, getFakeServiceHost(), FakeServiceConfigLoader.getProperty(HTTP_PATH));
+  }
+
+  public static String getDatabricksHost() {
     // includes port
     return System.getenv("DATABRICKS_HOST");
   }
@@ -43,12 +64,33 @@ public class IntegrationTestUtil {
     return System.getenv("DATABRICKS_BENCHFOOD_HOST");
   }
 
+  public static String getDatabricksUrlForM2M() {
+    return System.getenv("DATABRICKS_JDBC_M2M_URL");
+  }
+
+  public static String getDatabricksDogfoodHost() {
+    return System.getenv("DATABRICKS_DOGFOOD_HOST");
+  }
+
+  public static String getDatabricksBenchmarkingHost() {
+    // includes port
+    return System.getenv("DATABRICKS_BENCHMARKING_HOST");
+  }
+
   public static String getDatabricksToken() {
     return System.getenv("DATABRICKS_TOKEN");
   }
 
+  public static String getDatabricksDogfoodToken() {
+    return System.getenv("DATABRICKS_DOGFOOD_TOKEN");
+  }
+
   public static String getDatabricksBenchfoodToken() {
     return System.getenv("DATABRICKS_BENCHFOOD_TOKEN");
+  }
+
+  public static String getDatabricksBenchmarkingToken() {
+    return System.getenv("DATABRICKS_BENCHMARKING_TOKEN");
   }
 
   public static String getDatabricksHTTPPath() {
@@ -59,12 +101,24 @@ public class IntegrationTestUtil {
     return System.getenv("DATABRICKS_BENCHFOOD_HTTP_PATH");
   }
 
+  public static String getDatabricksDogfoodHTTPPath() {
+    return System.getenv("DATABRICKS_DOGFOOD_HTTP_PATH");
+  }
+
+  public static String getDatabricksBenchmarkingHTTPPath() {
+    return System.getenv("DATABRICKS_BENCHMARKING_HTTP_PATH");
+  }
+
   public static String getDatabricksCatalog() {
-    return System.getenv("DATABRICKS_CATALOG");
+    return isFakeServiceTest
+        ? FakeServiceConfigLoader.getProperty(TEST_CATALOG)
+        : System.getenv("DATABRICKS_CATALOG");
   }
 
   public static String getDatabricksSchema() {
-    return System.getenv("DATABRICKS_SCHEMA");
+    return isFakeServiceTest
+        ? FakeServiceConfigLoader.getProperty(TEST_SCHEMA)
+        : System.getenv("DATABRICKS_SCHEMA");
   }
 
   public static String getDatabricksUser() {
@@ -72,14 +126,55 @@ public class IntegrationTestUtil {
   }
 
   public static Connection getValidJDBCConnection() throws SQLException {
-    // add support for properties
-    return DriverManager.getConnection(getJDBCUrl(), getDatabricksUser(), getDatabricksToken());
+    Properties connectionProperties = new Properties();
+    connectionProperties.put(USER, getDatabricksUser());
+    connectionProperties.put(PASSWORD, getDatabricksToken());
+
+    if (isFakeServiceTest) {
+      connectionProperties.put(CATALOG, FakeServiceConfigLoader.getProperty(CATALOG));
+      connectionProperties.put(CONN_SCHEMA, FakeServiceConfigLoader.getProperty(CONN_SCHEMA));
+
+      return DriverManager.getConnection(getFakeServiceJDBCUrl(), connectionProperties);
+    }
+
+    return DriverManager.getConnection(getJDBCUrl(), connectionProperties);
+  }
+
+  public static Connection getValidJDBCConnection(List<List<String>> extraArgs)
+      throws SQLException {
+    String jdbcUrl = getJDBCUrl();
+    for (List<String> args : extraArgs) {
+      jdbcUrl += ";" + args.get(0) + "=" + args.get(1);
+    }
+    return DriverManager.getConnection(jdbcUrl, getDatabricksUser(), getDatabricksToken());
+  }
+
+  public static Connection getDogfoodJDBCConnection() throws SQLException {
+    return DriverManager.getConnection(
+        getDogfoodJDBCUrl(), getDatabricksUser(), getDatabricksDogfoodToken());
+  }
+
+  public static Connection getDogfoodJDBCConnection(List<List<String>> extraArgs)
+      throws SQLException {
+    String jdbcUrl = getDogfoodJDBCUrl();
+    for (List<String> args : extraArgs) {
+      jdbcUrl += ";" + args.get(0) + "=" + args.get(1);
+    }
+    return DriverManager.getConnection(jdbcUrl, getDatabricksUser(), getDatabricksDogfoodToken());
+  }
+
+  public static Connection getValidJDBCConnection(Map<String, String> args) throws SQLException {
+    return DriverManager.getConnection(getJDBCUrl(args), getDatabricksUser(), getDatabricksToken());
   }
 
   public static Connection getBenchfoodJDBCConnection() throws SQLException {
-    // add support for properties
     return DriverManager.getConnection(
         getBenchfoodJDBCUrl(), getDatabricksUser(), getDatabricksBenchfoodToken());
+  }
+
+  public static Connection getBenchmarkingJDBCConnection() throws SQLException {
+    return DriverManager.getConnection(
+        getBenchmarkingJDBCUrl(), getDatabricksUser(), getDatabricksBenchmarkingToken());
   }
 
   public static void resetJDBCConnection() {
@@ -87,15 +182,28 @@ public class IntegrationTestUtil {
   }
 
   public static String getJDBCUrl() {
-    String template =
-        Boolean.parseBoolean(System.getProperty(IS_FAKE_SERVICE_TEST_PROP))
-            ? "jdbc:databricks://%s/default;transportMode=http;ssl=0;AuthMech=3;httpPath=%s"
-            : "jdbc:databricks://%s/default;ssl=1;AuthMech=3;httpPath=%s";
-
+    String template = "jdbc:databricks://%s/default;ssl=1;AuthMech=3;httpPath=%s";
     String host = getDatabricksHost();
     String httpPath = getDatabricksHTTPPath();
 
     return String.format(template, host, httpPath);
+  }
+
+  public static String getJDBCUrl(Map<String, String> args) {
+    String template = "jdbc:databricks://%s/default;ssl=1;AuthMech=3;httpPath=%s";
+
+    String host = getDatabricksHost();
+    String httpPath = getDatabricksHTTPPath();
+
+    StringBuilder url = new StringBuilder(String.format(template, host, httpPath));
+    for (Map.Entry<String, String> entry : args.entrySet()) {
+      url.append(";");
+      url.append(entry.getKey());
+      url.append("=");
+      url.append(entry.getValue());
+    }
+
+    return url.toString();
   }
 
   public static String getBenchfoodJDBCUrl() {
@@ -103,6 +211,24 @@ public class IntegrationTestUtil {
         "jdbc:databricks://%s/default;transportMode=http;ssl=1;AuthMech=3;httpPath=%s";
     String host = getDatabricksBenchfoodHost();
     String httpPath = getDatabricksBenchfoodHTTPPath();
+
+    return String.format(template, host, httpPath);
+  }
+
+  public static String getDogfoodJDBCUrl() {
+    String template =
+        "jdbc:databricks://%s/default;transportMode=http;ssl=1;AuthMech=3;httpPath=%s";
+    String host = getDatabricksDogfoodHost();
+    String httpPath = getDatabricksDogfoodHTTPPath();
+
+    return String.format(template, host, httpPath);
+  }
+
+  public static String getBenchmarkingJDBCUrl() {
+    String template =
+        "jdbc:databricks://%s/default;transportMode=http;ssl=1;AuthMech=3;httpPath=%s";
+    String host = getDatabricksBenchmarkingHost();
+    String httpPath = getDatabricksBenchmarkingHTTPPath();
 
     return String.format(template, host, httpPath);
   }
@@ -131,7 +257,6 @@ public class IntegrationTestUtil {
 
   public static void setupDatabaseTable(String tableName) {
     String tableDeletionSQL = "DROP TABLE IF EXISTS " + getFullyQualifiedTableName(tableName);
-
     executeSQL(tableDeletionSQL);
 
     String tableCreationSQL =

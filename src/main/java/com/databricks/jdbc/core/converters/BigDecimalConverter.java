@@ -2,6 +2,7 @@ package com.databricks.jdbc.core.converters;
 
 import com.databricks.jdbc.core.DatabricksSQLException;
 import java.math.BigDecimal;
+import java.math.BigInteger;
 
 public class BigDecimalConverter extends AbstractObjectConverter {
 
@@ -42,6 +43,11 @@ public class BigDecimalConverter extends AbstractObjectConverter {
     } catch (ArithmeticException e) {
       throw new DatabricksSQLException("Invalid conversion");
     }
+  }
+
+  @Override
+  public BigInteger convertToBigInteger() throws DatabricksSQLException {
+    return this.object.toBigInteger();
   }
 
   @Override

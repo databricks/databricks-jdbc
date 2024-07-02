@@ -2,6 +2,7 @@ package com.databricks.jdbc.core;
 
 import static com.databricks.jdbc.client.impl.thrift.commons.DatabricksThriftHelper.convertColumnarToRowBased;
 
+import com.databricks.jdbc.client.impl.thrift.commons.DatabricksThriftHelper;
 import com.databricks.jdbc.client.impl.thrift.generated.TGetResultSetMetadataResp;
 import com.databricks.jdbc.client.impl.thrift.generated.TRowSet;
 import com.databricks.jdbc.client.sqlexec.ResultData;
@@ -11,9 +12,23 @@ import java.util.List;
 class ExecutionResultFactory {
   static IExecutionResult getResultSet(
       ResultData data, ResultManifest manifest, String statementId, IDatabricksSession session) {
-    // Return Volume operation handler
-    if (data.getVolumeOperationInfo() != null) {
-      return new VolumeOperationResult(data, statementId, session);
+    IExecutionResult resultHandler = getResultHandler(data, manifest, statementId, session);
+    if (manifest.getIsVolumeOperation() != null && manifest.getIsVolumeOperation()) {
+      return new VolumeOperationResult(
+          statementId,
+          manifest.getTotalRowCount(),
+          manifest.getSchema().getColumnCount(),
+          session,
+          resultHandler);
+    } else {
+      return resultHandler;
+    }
+  }
+
+  private static IExecutionResult getResultHandler(
+      ResultData data, ResultManifest manifest, String statementId, IDatabricksSession session) {
+    if (manifest.getFormat() == null) {
+      throw new IllegalStateException("Empty response format");
     }
     // We use JSON_ARRAY for metadata and update commands, and ARROW_STREAM for query results
     switch (manifest.getFormat()) {
@@ -28,6 +43,25 @@ class ExecutionResultFactory {
   }
 
   static IExecutionResult getResultSet(
+      TRowSet data,
+      TGetResultSetMetadataResp manifest,
+      String statementId,
+      IDatabricksSession session)
+      throws DatabricksSQLException {
+    IExecutionResult resultHandler = getResultHandler(data, manifest, statementId, session);
+    if (manifest.isSetIsStagingOperation() && manifest.isIsStagingOperation()) {
+      return new VolumeOperationResult(
+          statementId,
+          DatabricksThriftHelper.getRowCount(data),
+          manifest.getSchema().getColumnsSize(),
+          session,
+          resultHandler);
+    } else {
+      return resultHandler;
+    }
+  }
+
+  private static IExecutionResult getResultHandler(
       TRowSet data,
       TGetResultSetMetadataResp manifest,
       String statementId,

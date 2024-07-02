@@ -11,11 +11,11 @@ import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
 import java.util.Properties;
 import javax.sql.DataSource;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 public class DatabricksDataSource implements DataSource {
-  private static final Logger LOGGER = LoggerFactory.getLogger(DatabricksDataSource.class);
+  private static final Logger LOGGER = LogManager.getLogger(DatabricksDataSource.class);
   private String host;
   private int port;
   private String httpPath;

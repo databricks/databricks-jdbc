@@ -6,9 +6,11 @@ import static org.mockito.Mockito.when;
 
 import com.databricks.jdbc.core.DatabricksSQLException;
 import java.math.BigDecimal;
+import java.math.BigInteger;
 import java.sql.Date;
 import java.sql.Timestamp;
 import java.sql.Types;
+import java.time.LocalDate;
 import java.time.Year;
 import java.util.Calendar;
 import org.junit.jupiter.api.Test;
@@ -77,6 +79,22 @@ class ConverterHelperTest {
     Date expected = new Date(System.currentTimeMillis());
     when(converter.convertToDate()).thenReturn(expected);
     assertEquals(expected, converterHelper.getConvertedObject(Date.class, converter));
+  }
+
+  @Test
+  void testConvertToLocalDate() throws DatabricksSQLException {
+    AbstractObjectConverter converter = mock(AbstractObjectConverter.class);
+    LocalDate expected = LocalDate.now();
+    when(converter.convertToLocalDate()).thenReturn(expected);
+    assertEquals(expected, converterHelper.getConvertedObject(LocalDate.class, converter));
+  }
+
+  @Test
+  void testConvertToBigInteger() throws DatabricksSQLException {
+    AbstractObjectConverter converter = mock(AbstractObjectConverter.class);
+    BigInteger expected = BigInteger.ONE;
+    when(converter.convertToBigInteger()).thenReturn(expected);
+    assertEquals(expected, converterHelper.getConvertedObject(BigInteger.class, converter));
   }
 
   @Test

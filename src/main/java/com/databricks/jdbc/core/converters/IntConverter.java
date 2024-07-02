@@ -2,17 +2,18 @@ package com.databricks.jdbc.core.converters;
 
 import com.databricks.jdbc.core.DatabricksSQLException;
 import java.math.BigDecimal;
+import java.math.BigInteger;
 import java.nio.ByteBuffer;
 import java.sql.Date;
 import java.sql.Time;
 import java.sql.Timestamp;
 import java.time.LocalDate;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 public class IntConverter extends AbstractObjectConverter {
 
-  private static final Logger LOGGER = LoggerFactory.getLogger(IntConverter.class);
+  private static final Logger LOGGER = LogManager.getLogger(IntConverter.class);
   private int object;
 
   public IntConverter(Object object) throws DatabricksSQLException {
@@ -22,6 +23,11 @@ public class IntConverter extends AbstractObjectConverter {
     } else {
       this.object = (int) object;
     }
+  }
+
+  @Override
+  public BigInteger convertToBigInteger() throws DatabricksSQLException {
+    return BigInteger.valueOf(this.object);
   }
 
   @Override

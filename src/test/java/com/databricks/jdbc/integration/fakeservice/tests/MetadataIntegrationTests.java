@@ -2,63 +2,32 @@ package com.databricks.jdbc.integration.fakeservice.tests;
 
 import static com.databricks.jdbc.client.impl.sdk.PathConstants.SESSION_PATH;
 import static com.databricks.jdbc.client.impl.sdk.PathConstants.STATEMENT_PATH;
+import static com.databricks.jdbc.driver.DatabricksJdbcConstants.HTTP_PATH;
 import static com.databricks.jdbc.integration.IntegrationTestUtil.*;
 import static com.github.tomakehurst.wiremock.client.WireMock.postRequestedFor;
 import static com.github.tomakehurst.wiremock.client.WireMock.urlEqualTo;
-import static com.github.tomakehurst.wiremock.core.WireMockConfiguration.wireMockConfig;
 import static org.junit.jupiter.api.Assertions.*;
 
-import com.databricks.jdbc.driver.DatabricksJdbcConstants.FakeServiceType;
-import com.databricks.jdbc.integration.fakeservice.DatabricksWireMockExtension;
-import com.databricks.jdbc.integration.fakeservice.FakeServiceExtension;
-import com.databricks.jdbc.integration.fakeservice.StubMappingCredentialsCleaner;
+import com.databricks.jdbc.integration.fakeservice.AbstractFakeServiceIntegrationTests;
+import com.databricks.jdbc.integration.fakeservice.FakeServiceConfigLoader;
 import com.github.tomakehurst.wiremock.client.CountMatchingStrategy;
-import com.github.tomakehurst.wiremock.extension.Extension;
 import java.sql.*;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.RegisterExtension;
 
-/**
- * Integration tests for metadata retrieval.
- *
- * <p>TODO: Remove {@link com.databricks.jdbc.integration.metadata.MetadataIntegrationTests} once
- * {@link FakeServiceExtension} tests stabilize.
- */
-public class MetadataIntegrationTests {
+/** Integration tests for metadata retrieval. */
+public class MetadataIntegrationTests extends AbstractFakeServiceIntegrationTests {
 
-  /**
-   * {@link FakeServiceExtension} for {@link FakeServiceType#SQL_EXEC}. Intercepts all requests to
-   * SQL Execution API.
-   */
-  @RegisterExtension
-  private static final FakeServiceExtension sqlExecApiExtension =
-      new FakeServiceExtension(
-          new DatabricksWireMockExtension.Builder()
-              .options(
-                  wireMockConfig().dynamicPort().dynamicHttpsPort().extensions(getExtensions())),
-          FakeServiceType.SQL_EXEC,
-          "https://" + System.getenv("DATABRICKS_HOST"));
-
-  /**
-   * {@link FakeServiceExtension} for {@link FakeServiceType#CLOUD_FETCH}. Intercepts all requests
-   * to Cloud Fetch API.
-   */
-  @RegisterExtension
-  private static final FakeServiceExtension cloudFetchApiExtension =
-      new FakeServiceExtension(
-          new DatabricksWireMockExtension.Builder()
-              .options(
-                  wireMockConfig().dynamicPort().dynamicHttpsPort().extensions(getExtensions())),
-          FakeServiceType.CLOUD_FETCH,
-          "https://dbstoragepzjc6kojqibtg.blob.core.windows.net");
+  /** TODO: switch to new metadata client when it is available in Azure test env. */
+  private static final String jdbcUrlTemplateWithLegacyMetadata =
+      "jdbc:databricks://%s/default;transportMode=http;ssl=0;AuthMech=3;httpPath=%s;useLegacyMetadata=1;catalog=SPARK";
 
   private Connection connection;
 
   @BeforeEach
   void setUp() throws SQLException {
-    connection = getValidJDBCConnection();
+    connection = getConnection();
   }
 
   @AfterEach
@@ -93,8 +62,10 @@ public class MetadataIntegrationTests {
     assertTrue(
         metaData.getMaxColumnsInTable() >= 0, "Max columns in table should be greater than 0");
 
-    // Create session request is sent
-    sqlExecApiExtension.verify(1, postRequestedFor(urlEqualTo(SESSION_PATH)));
+    if (isSqlExecSdkClient()) {
+      // Create session request is sent
+      getDatabricksApiExtension().verify(1, postRequestedFor(urlEqualTo(SESSION_PATH)));
+    }
   }
 
   @Test
@@ -149,10 +120,13 @@ public class MetadataIntegrationTests {
     String SQL = "DROP TABLE IF EXISTS " + getFullyQualifiedTableName(tableName);
     executeSQL(SQL);
 
-    // At least 5 statement requests are sent: drop, create, insert, select, drop
-    sqlExecApiExtension.verify(
-        new CountMatchingStrategy(CountMatchingStrategy.GREATER_THAN_OR_EQUAL, 5),
-        postRequestedFor(urlEqualTo(STATEMENT_PATH)));
+    if (isSqlExecSdkClient()) {
+      // At least 5 statement requests are sent: drop, create, insert, select, drop
+      getDatabricksApiExtension()
+          .verify(
+              new CountMatchingStrategy(CountMatchingStrategy.GREATER_THAN_OR_EQUAL, 5),
+              postRequestedFor(urlEqualTo(STATEMENT_PATH)));
+    }
   }
 
   @Test
@@ -169,7 +143,7 @@ public class MetadataIntegrationTests {
     }
 
     // Test getSchemas
-    try (ResultSet schemas = metaData.getSchemas("main", "*")) {
+    try (ResultSet schemas = metaData.getSchemas("main", "%")) {
       assertTrue(schemas.next(), "There should be at least one schema");
       do {
         String schemaName = schemas.getString("TABLE_SCHEM");
@@ -182,7 +156,7 @@ public class MetadataIntegrationTests {
     String schemaPattern = "jdbc_test_schema";
     String tableName = "catalog_and_schema_test_table";
     setupDatabaseTable(tableName);
-    try (ResultSet tables = metaData.getTables(catalog, schemaPattern, "*", null)) {
+    try (ResultSet tables = metaData.getTables(catalog, schemaPattern, "%", null)) {
       assertTrue(
           tables.next(), "There should be at least one table in the specified catalog and schema");
       do {
@@ -203,16 +177,24 @@ public class MetadataIntegrationTests {
     }
     deleteTable(tableName);
 
-    // At least 7 statement requests are sent:
-    // show catalogs, show schemas, drop table, create table, show tables, show particular table,
-    // drop
-    sqlExecApiExtension.verify(
-        new CountMatchingStrategy(CountMatchingStrategy.GREATER_THAN_OR_EQUAL, 7),
-        postRequestedFor(urlEqualTo(STATEMENT_PATH)));
+    if (isSqlExecSdkClient()) {
+      // At least 7 statement requests are sent:
+      // show catalogs, show schemas, drop table, create table, show tables, show particular table,
+      // drop
+      getDatabricksApiExtension()
+          .verify(
+              new CountMatchingStrategy(CountMatchingStrategy.GREATER_THAN_OR_EQUAL, 7),
+              postRequestedFor(urlEqualTo(STATEMENT_PATH)));
+    }
   }
 
-  /** Returns the extensions to be used for stubbing. */
-  private static Extension[] getExtensions() {
-    return new Extension[] {new StubMappingCredentialsCleaner()};
+  private Connection getConnection() throws SQLException {
+    String jdbcUrl =
+        String.format(
+            jdbcUrlTemplateWithLegacyMetadata,
+            getFakeServiceHost(),
+            FakeServiceConfigLoader.getProperty(HTTP_PATH));
+
+    return DriverManager.getConnection(jdbcUrl, getDatabricksUser(), getDatabricksToken());
   }
 }

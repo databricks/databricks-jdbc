@@ -1,6 +1,7 @@
 package com.databricks.jdbc.core.converters;
 
 import com.databricks.jdbc.core.DatabricksSQLException;
+import java.math.BigInteger;
 import java.sql.Date;
 import java.sql.Timestamp;
 import java.time.LocalDate;
@@ -17,6 +18,17 @@ public class DateConverter extends AbstractObjectConverter {
     } else {
       this.object = (Date) object;
     }
+  }
+
+  @Override
+  public BigInteger convertToBigInteger() throws DatabricksSQLException {
+    long epochDays = convertToLong();
+    return BigInteger.valueOf(epochDays);
+  }
+
+  @Override
+  public LocalDate convertToLocalDate() throws DatabricksSQLException {
+    return this.object.toLocalDate();
   }
 
   @Override

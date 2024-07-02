@@ -7,6 +7,7 @@ import com.databricks.jdbc.core.types.CompressionType;
 import com.databricks.jdbc.core.types.ComputeResource;
 import java.util.List;
 import java.util.Map;
+import org.apache.logging.log4j.Level;
 
 public interface IDatabricksConnectionContext {
 
@@ -68,9 +69,13 @@ public interface IDatabricksConnectionContext {
 
   AuthFlow getAuthFlow();
 
-  String getLogLevelString();
+  Level getLogLevel();
 
   String getLogPathString();
+
+  int getLogFileSize();
+
+  int getLogFileCount();
 
   String getClientUserAgent();
 
@@ -124,7 +129,24 @@ public interface IDatabricksConnectionContext {
 
   int getAsyncExecPollInterval();
 
+  Boolean shouldEnableArrow();
+
   DatabricksClientType getClientType();
 
   Boolean getUseLegacyMetadata();
+
+  /** Returns the number of threads to be used for fetching data from cloud storage */
+  int getCloudFetchThreadPoolSize();
+
+  Boolean getDirectResultMode();
+
+  Boolean shouldRetryTemporarilyUnavailableError();
+
+  Boolean shouldRetryRateLimitError();
+
+  int getTemporarilyUnavailableRetryTimeout();
+
+  int getRateLimitRetryTimeout();
+
+  int getIdleHttpConnectionExpiry();
 }

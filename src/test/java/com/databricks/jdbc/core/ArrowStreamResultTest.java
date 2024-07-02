@@ -143,6 +143,9 @@ public class ArrowStreamResultTest {
 
   @Test
   public void testCloudFetchArrow() throws Exception {
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContext.parse(JDBC_URL, new Properties());
+    when(session.getConnectionContext()).thenReturn(connectionContext);
     when(metadataResp.getSchema()).thenReturn(TEST_TABLE_SCHEMA);
     TSparkArrowResultLink resultLink = new TSparkArrowResultLink().setFileLink(TEST_STRING);
     when(resultData.getResultLinks()).thenReturn(Collections.singletonList(resultLink));

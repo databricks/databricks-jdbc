@@ -2,6 +2,7 @@ package com.databricks.jdbc.core.converters;
 
 import com.databricks.jdbc.core.DatabricksSQLException;
 import java.math.BigDecimal;
+import java.math.BigInteger;
 import java.nio.charset.StandardCharsets;
 
 public class ByteArrayConverter extends AbstractObjectConverter {
@@ -26,6 +27,11 @@ public class ByteArrayConverter extends AbstractObjectConverter {
     } else {
       throw new DatabricksSQLException("ByteArray is empty, cannot convert to single byte");
     }
+  }
+
+  @Override
+  public BigInteger convertToBigInteger() throws DatabricksSQLException {
+    throw new DatabricksSQLException("Conversion from byte[] to BigInteger is not supported");
   }
 
   @Override

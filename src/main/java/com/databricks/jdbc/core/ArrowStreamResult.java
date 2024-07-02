@@ -11,7 +11,6 @@ import com.databricks.jdbc.client.sqlexec.ResultManifest;
 import com.databricks.sdk.service.sql.ColumnInfo;
 import com.databricks.sdk.service.sql.ColumnInfoTypeName;
 import com.google.common.annotations.VisibleForTesting;
-import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -38,7 +37,12 @@ class ArrowStreamResult implements IExecutionResult {
       IDatabricksSession session) {
     this(
         resultManifest,
-        new ChunkDownloader(statementId, resultManifest, resultData, session),
+        new ChunkDownloader(
+            statementId,
+            resultManifest,
+            resultData,
+            session,
+            session.getConnectionContext().getCloudFetchThreadPoolSize()),
         session);
   }
 
@@ -71,9 +75,20 @@ class ArrowStreamResult implements IExecutionResult {
       this.chunkDownloader = null;
     } else {
       if (httpClient != null) { // This is to aid testing
-        this.chunkDownloader = new ChunkDownloader(statementId, resultData, session, httpClient);
+        this.chunkDownloader =
+            new ChunkDownloader(
+                statementId,
+                resultData,
+                session,
+                httpClient,
+                session.getConnectionContext().getCloudFetchThreadPoolSize());
       } else {
-        this.chunkDownloader = new ChunkDownloader(statementId, resultData, session);
+        this.chunkDownloader =
+            new ChunkDownloader(
+                statementId,
+                resultData,
+                session,
+                session.getConnectionContext().getCloudFetchThreadPoolSize());
       }
       this.chunkExtractor = null;
     }
@@ -99,7 +114,13 @@ class ArrowStreamResult implements IExecutionResult {
       IDatabricksHttpClient httpClient) {
     this(
         resultManifest,
-        new ChunkDownloader(statementId, resultManifest, resultData, session, httpClient),
+        new ChunkDownloader(
+            statementId,
+            resultManifest,
+            resultData,
+            session,
+            httpClient,
+            session.getConnectionContext().getCloudFetchThreadPoolSize()),
         session);
   }
 
@@ -118,7 +139,7 @@ class ArrowStreamResult implements IExecutionResult {
   }
 
   @Override
-  public Object getObject(int columnIndex) throws SQLException {
+  public Object getObject(int columnIndex) throws DatabricksSQLException {
     // we have two types:
     // 1. Required type via the metadata
     // 2. Interpreted type while reading from the arrow file into the record batches

@@ -1,6 +1,7 @@
 package com.databricks.jdbc.client.impl.thrift;
 
 import static com.databricks.jdbc.TestConstants.*;
+import static com.databricks.jdbc.client.impl.helper.CommandConstants.GET_TABLE_TYPE_STATEMENT_ID;
 import static com.databricks.jdbc.client.impl.thrift.commons.DatabricksThriftHelper.getNamespace;
 import static com.databricks.jdbc.driver.DatabricksJdbcConstants.CATALOG;
 import static com.databricks.jdbc.driver.DatabricksJdbcConstants.SCHEMA;
@@ -14,6 +15,7 @@ import com.databricks.jdbc.client.impl.thrift.generated.*;
 import com.databricks.jdbc.client.sqlexec.ExternalLink;
 import com.databricks.jdbc.commons.CommandName;
 import com.databricks.jdbc.core.*;
+import com.databricks.jdbc.driver.IDatabricksConnectionContext;
 import com.databricks.sdk.service.sql.StatementState;
 import java.sql.SQLException;
 import java.util.Arrays;
@@ -31,19 +33,22 @@ public class DatabricksThriftServiceClientTest {
   @Mock TRowSet resultData;
   @Mock TGetResultSetMetadataResp resultMetadataData;
   @Mock DatabricksResultSet resultSet;
+  @Mock IDatabricksConnectionContext connectionContext;
 
   @Test
   void testCreateSession() throws DatabricksSQLException {
-    DatabricksThriftServiceClient client = new DatabricksThriftServiceClient(thriftAccessor);
+    DatabricksThriftServiceClient client =
+        new DatabricksThriftServiceClient(thriftAccessor, connectionContext);
     TOpenSessionReq openSessionReq =
         new TOpenSessionReq()
             .setInitialNamespace(getNamespace(CATALOG, SCHEMA))
             .setConfiguration(EMPTY_MAP)
             .setCanUseMultipleCatalogs(true)
-            .setClient_protocol(TProtocolVersion.SPARK_CLI_SERVICE_PROTOCOL_V9);
+            .setClient_protocol_i64(TProtocolVersion.SPARK_CLI_SERVICE_PROTOCOL_V9.getValue());
     TOpenSessionResp openSessionResp =
         new TOpenSessionResp()
             .setSessionHandle(SESSION_HANDLE)
+            .setServerProtocolVersion(TProtocolVersion.SPARK_CLI_SERVICE_PROTOCOL_V9)
             .setStatus(new TStatus().setStatusCode(TStatusCode.SUCCESS_STATUS));
     when(thriftAccessor.getThriftResponse(openSessionReq, CommandName.OPEN_SESSION, null))
         .thenReturn(openSessionResp);
@@ -55,7 +60,8 @@ public class DatabricksThriftServiceClientTest {
 
   @Test
   void testCloseSession() throws DatabricksSQLException {
-    DatabricksThriftServiceClient client = new DatabricksThriftServiceClient(thriftAccessor);
+    DatabricksThriftServiceClient client =
+        new DatabricksThriftServiceClient(thriftAccessor, connectionContext);
     when(session.getSessionInfo()).thenReturn(SESSION_INFO);
     TCloseSessionReq closeSessionReq = new TCloseSessionReq().setSessionHandle(SESSION_HANDLE);
     TCloseSessionResp closeSessionResp =
@@ -67,7 +73,9 @@ public class DatabricksThriftServiceClientTest {
 
   @Test
   void testExecute() throws SQLException {
-    DatabricksThriftServiceClient client = new DatabricksThriftServiceClient(thriftAccessor);
+    when(connectionContext.shouldEnableArrow()).thenReturn(true);
+    DatabricksThriftServiceClient client =
+        new DatabricksThriftServiceClient(thriftAccessor, connectionContext);
     when(session.getSessionInfo()).thenReturn(SESSION_INFO);
     TExecuteStatementReq executeStatementReq =
         new TExecuteStatementReq()
@@ -85,7 +93,8 @@ public class DatabricksThriftServiceClientTest {
 
   @Test
   void testUnsupportedFunctions() {
-    DatabricksThriftServiceClient client = new DatabricksThriftServiceClient(thriftAccessor);
+    DatabricksThriftServiceClient client =
+        new DatabricksThriftServiceClient(thriftAccessor, connectionContext);
     assertThrows(
         DatabricksSQLFeatureNotImplementedException.class,
         () -> client.closeStatement(TEST_STRING));
@@ -93,7 +102,8 @@ public class DatabricksThriftServiceClientTest {
 
   @Test
   void testListCatalogs() throws SQLException {
-    DatabricksThriftServiceClient client = new DatabricksThriftServiceClient(thriftAccessor);
+    DatabricksThriftServiceClient client =
+        new DatabricksThriftServiceClient(thriftAccessor, connectionContext);
     when(session.getSessionInfo()).thenReturn(SESSION_INFO);
     TGetCatalogsReq request = new TGetCatalogsReq().setSessionHandle(SESSION_HANDLE);
     TFetchResultsResp response =
@@ -101,7 +111,9 @@ public class DatabricksThriftServiceClientTest {
             .setStatus(new TStatus().setStatusCode(TStatusCode.SUCCESS_STATUS))
             .setResults(resultData)
             .setResultSetMetadata(resultMetadataData);
-    when(resultData.getColumns()).thenReturn(Collections.singletonList(new TColumn()));
+    TColumn tColumn = new TColumn();
+    tColumn.setStringVal(new TStringColumn().setValues(Collections.singletonList(TEST_CATALOG)));
+    when(resultData.getColumns()).thenReturn(Collections.singletonList(tColumn));
     when(thriftAccessor.getThriftResponse(request, CommandName.LIST_CATALOGS, null))
         .thenReturn(response);
     DatabricksResultSet resultSet = client.listCatalogs(session);
@@ -110,7 +122,8 @@ public class DatabricksThriftServiceClientTest {
 
   @Test
   void testGetResultChunks() throws SQLException {
-    DatabricksThriftServiceClient client = new DatabricksThriftServiceClient(thriftAccessor);
+    DatabricksThriftServiceClient client =
+        new DatabricksThriftServiceClient(thriftAccessor, connectionContext);
     TFetchResultsResp response =
         new TFetchResultsResp()
             .setStatus(new TStatus().setStatusCode(TStatusCode.SUCCESS_STATUS))
@@ -128,7 +141,8 @@ public class DatabricksThriftServiceClientTest {
 
   @Test
   void testGetResultChunksThrowsError() throws SQLException {
-    DatabricksThriftServiceClient client = new DatabricksThriftServiceClient(thriftAccessor);
+    DatabricksThriftServiceClient client =
+        new DatabricksThriftServiceClient(thriftAccessor, connectionContext);
     TFetchResultsResp response =
         new TFetchResultsResp()
             .setStatus(new TStatus().setStatusCode(TStatusCode.SUCCESS_STATUS))
@@ -143,24 +157,18 @@ public class DatabricksThriftServiceClientTest {
 
   @Test
   void testListTableTypes() throws SQLException {
-    DatabricksThriftServiceClient client = new DatabricksThriftServiceClient(thriftAccessor);
-    when(session.getSessionInfo()).thenReturn(SESSION_INFO);
-    TGetTableTypesReq request = new TGetTableTypesReq().setSessionHandle(SESSION_HANDLE);
-    TFetchResultsResp response =
-        new TFetchResultsResp()
-            .setStatus(new TStatus().setStatusCode(TStatusCode.SUCCESS_STATUS))
-            .setResults(resultData)
-            .setResultSetMetadata(resultMetadataData);
-    when(resultData.getColumns()).thenReturn(Collections.singletonList(new TColumn()));
-    when(thriftAccessor.getThriftResponse(request, CommandName.LIST_TABLE_TYPES, null))
-        .thenReturn(response);
-    DatabricksResultSet resultSet = client.listTableTypes(session);
-    assertEquals(resultSet.getStatementStatus().getState(), StatementState.SUCCEEDED);
+    DatabricksThriftServiceClient client =
+        new DatabricksThriftServiceClient(thriftAccessor, connectionContext);
+    DatabricksResultSet actualResult = client.listTableTypes(session);
+    assertEquals(actualResult.getStatementStatus().getState(), StatementState.SUCCEEDED);
+    assertEquals(actualResult.statementId(), GET_TABLE_TYPE_STATEMENT_ID);
+    assertEquals(((DatabricksResultSetMetaData) actualResult.getMetaData()).getTotalRows(), 3);
   }
 
   @Test
   void testListTypeInfo() throws SQLException {
-    DatabricksThriftServiceClient client = new DatabricksThriftServiceClient(thriftAccessor);
+    DatabricksThriftServiceClient client =
+        new DatabricksThriftServiceClient(thriftAccessor, connectionContext);
     when(session.getSessionInfo()).thenReturn(SESSION_INFO);
     TGetTypeInfoReq request = new TGetTypeInfoReq().setSessionHandle(SESSION_HANDLE);
     TFetchResultsResp response =
@@ -177,7 +185,8 @@ public class DatabricksThriftServiceClientTest {
 
   @Test
   void testListSchemas() throws SQLException {
-    DatabricksThriftServiceClient client = new DatabricksThriftServiceClient(thriftAccessor);
+    DatabricksThriftServiceClient client =
+        new DatabricksThriftServiceClient(thriftAccessor, connectionContext);
     when(session.getSessionInfo()).thenReturn(SESSION_INFO);
     TGetSchemasReq request =
         new TGetSchemasReq()
@@ -198,7 +207,8 @@ public class DatabricksThriftServiceClientTest {
 
   @Test
   void testListTables() throws SQLException {
-    DatabricksThriftServiceClient client = new DatabricksThriftServiceClient(thriftAccessor);
+    DatabricksThriftServiceClient client =
+        new DatabricksThriftServiceClient(thriftAccessor, connectionContext);
     when(session.getSessionInfo()).thenReturn(SESSION_INFO);
     String[] tableTypes = {"testTableType"};
     TGetTablesReq request =
@@ -223,7 +233,8 @@ public class DatabricksThriftServiceClientTest {
 
   @Test
   void testListColumns() throws SQLException {
-    DatabricksThriftServiceClient client = new DatabricksThriftServiceClient(thriftAccessor);
+    DatabricksThriftServiceClient client =
+        new DatabricksThriftServiceClient(thriftAccessor, connectionContext);
     when(session.getSessionInfo()).thenReturn(SESSION_INFO);
     TGetColumnsReq request =
         new TGetColumnsReq()
@@ -247,7 +258,8 @@ public class DatabricksThriftServiceClientTest {
 
   @Test
   void testListFunctions() throws SQLException {
-    DatabricksThriftServiceClient client = new DatabricksThriftServiceClient(thriftAccessor);
+    DatabricksThriftServiceClient client =
+        new DatabricksThriftServiceClient(thriftAccessor, connectionContext);
     when(session.getSessionInfo()).thenReturn(SESSION_INFO);
     TGetFunctionsReq request =
         new TGetFunctionsReq()
@@ -270,7 +282,8 @@ public class DatabricksThriftServiceClientTest {
 
   @Test
   void testListPrimaryKeys() throws SQLException {
-    DatabricksThriftServiceClient client = new DatabricksThriftServiceClient(thriftAccessor);
+    DatabricksThriftServiceClient client =
+        new DatabricksThriftServiceClient(thriftAccessor, connectionContext);
     when(session.getSessionInfo()).thenReturn(SESSION_INFO);
     TGetPrimaryKeysReq request =
         new TGetPrimaryKeysReq()
