@@ -10,7 +10,6 @@ import com.databricks.jdbc.core.DatabricksConnection;
 import com.databricks.jdbc.core.DatabricksSQLException;
 import com.databricks.jdbc.telemetry.DatabricksMetrics;
 import com.databricks.sdk.core.UserAgent;
-import java.io.IOException;
 import java.sql.*;
 import java.util.Properties;
 
@@ -41,15 +40,11 @@ public class DatabricksDriver implements Driver {
   @Override
   public Connection connect(String url, Properties info) throws DatabricksSQLException {
     IDatabricksConnectionContext connectionContext = DatabricksConnectionContext.parse(url, info);
-    try {
-      LoggingUtil.setupLogger(
-          connectionContext.getLogPathString(),
-          connectionContext.getLogFileSize(),
-          connectionContext.getLogFileCount(),
-          connectionContext.getLogLevel());
-    } catch (IOException e) {
-      throw new RuntimeException(e);
-    }
+    LoggingUtil.setupLogger(
+        connectionContext.getLogPathString(),
+        connectionContext.getLogFileSize(),
+        connectionContext.getLogFileCount(),
+        connectionContext.getLogLevel());
     setUserAgent(connectionContext);
     DatabricksMetrics.instantiateTelemetryClient(connectionContext);
     DeviceInfoLogUtil.logProperties();

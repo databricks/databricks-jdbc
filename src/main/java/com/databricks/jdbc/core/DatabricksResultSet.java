@@ -1021,7 +1021,7 @@ public class DatabricksResultSet implements ResultSet, IDatabricksResultSet {
   }
 
   private void addWarningAndLog(String warningMessage) {
-    LoggingUtil.log(LogLevel.WARNING, warningMessage);
+    LoggingUtil.log(LogLevel.WARN, warningMessage);
     warnings = WarningUtil.addWarning(warnings, warningMessage);
   }
 

@@ -481,7 +481,7 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
       case 2:
         return LogLevel.ERROR;
       case 3:
-        return LogLevel.WARNING;
+        return LogLevel.WARN;
       case 4:
         return LogLevel.INFO;
       case 5:

@@ -44,43 +44,43 @@ public class DatabricksParameterMetaData implements ParameterMetaData {
 
   @Override
   public boolean isSigned(int param) throws SQLException {
-    LoggingUtil.log(LogLevel.WARNING, "This feature is not fully implemented in the driver yet.");
+    LoggingUtil.log(LogLevel.WARN, "This feature is not fully implemented in the driver yet.");
     return DatabricksTypeUtil.isSigned(getObject(param).type());
   }
 
   @Override
   public int getPrecision(int param) throws SQLException {
-    LoggingUtil.log(LogLevel.WARNING, "This feature is not fully implemented in the driver yet.");
+    LoggingUtil.log(LogLevel.WARN, "This feature is not fully implemented in the driver yet.");
     return DatabricksTypeUtil.getPrecision(getObject(param).type());
   }
 
   @Override
   public int getScale(int param) throws SQLException {
-    LoggingUtil.log(LogLevel.WARNING, "This feature is not fully implemented in the driver yet.");
+    LoggingUtil.log(LogLevel.WARN, "This feature is not fully implemented in the driver yet.");
     return DatabricksTypeUtil.getScale(getObject(param).type());
   }
 
   @Override
   public int getParameterType(int param) throws SQLException {
-    LoggingUtil.log(LogLevel.WARNING, "This feature is not fully implemented in the driver yet.");
+    LoggingUtil.log(LogLevel.WARN, "This feature is not fully implemented in the driver yet.");
     return DatabricksTypeUtil.getColumnType(getObject(param).type());
   }
 
   @Override
   public String getParameterTypeName(int param) throws SQLException {
-    LoggingUtil.log(LogLevel.WARNING, "This feature is not fully implemented in the driver yet.");
+    LoggingUtil.log(LogLevel.WARN, "This feature is not fully implemented in the driver yet.");
     return getObject(param).type().name();
   }
 
   @Override
   public String getParameterClassName(int param) throws SQLException {
-    LoggingUtil.log(LogLevel.WARNING, "This feature is not fully implemented in the driver yet.");
+    LoggingUtil.log(LogLevel.WARN, "This feature is not fully implemented in the driver yet.");
     return DatabricksTypeUtil.getColumnTypeClassName(getObject(param).type());
   }
 
   @Override
   public int getParameterMode(int param) throws SQLException {
-    LoggingUtil.log(LogLevel.WARNING, "This feature is not fully implemented in the driver yet.");
+    LoggingUtil.log(LogLevel.WARN, "This feature is not fully implemented in the driver yet.");
     return ParameterMetaData
         .parameterModeIn; // In context of prepared statement, only IN parameters are provided.
   }

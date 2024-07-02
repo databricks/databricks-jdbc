@@ -234,7 +234,7 @@ public class DatabricksStatement implements IDatabricksStatement, Statement {
         LogLevel.DEBUG, String.format("public void setFetchSize(int rows = {%s})", rows));
     String warningString = "As FetchSize is not supported in the Databricks JDBC, ignoring it";
 
-    LoggingUtil.log(LogLevel.WARNING, warningString);
+    LoggingUtil.log(LogLevel.WARN, warningString);
     warnings = WarningUtil.addWarning(warnings, warningString);
   }
 
@@ -244,7 +244,7 @@ public class DatabricksStatement implements IDatabricksStatement, Statement {
     String warningString =
         "As FetchSize is not supported in the Databricks JDBC, we don't set it in the first place";
 
-    LoggingUtil.log(LogLevel.WARNING, warningString);
+    LoggingUtil.log(LogLevel.WARN, warningString);
     warnings = WarningUtil.addWarning(warnings, warningString);
     return 0;
   }

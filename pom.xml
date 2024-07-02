@@ -209,6 +209,9 @@
           <artifactId>maven-surefire-plugin</artifactId>
           <version>${maven-surefire-plugin.version}</version>
           <configuration>
+            <systemPropertyVariables>
+              <log4j.configurationFile>file:src/main/resources/log4j2.xml</log4j.configurationFile>
+            </systemPropertyVariables>
             <excludes>
               <exclude>**/integration/**/*.java</exclude>
               <exclude>**/*MetadataBenchmarkingTest.java</exclude>
