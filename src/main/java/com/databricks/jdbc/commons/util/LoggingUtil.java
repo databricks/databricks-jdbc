@@ -24,7 +24,6 @@ import org.apache.logging.log4j.core.layout.PatternLayout;
 public class LoggingUtil {
   // TODO : make this thread safe.
   private static final String LOGGER_NAME = "DATABRICKS-OSS-JDBC-LOGGER";
-  private static Logger LOGGER = LogManager.getLogger(LOGGER_NAME);
   private static final PatternLayout LOG_LAYOUT =
       PatternLayout.newBuilder()
           .withPattern("%d{yyyy-MM-dd HH:mm:ss} %-5level %logger{36} - %msg%n")
@@ -34,10 +33,7 @@ public class LoggingUtil {
       String filePath, int logFileSize, int logFileCount, LogLevel level) {
     LoggerContext ctx = (LoggerContext) LogManager.getContext(false);
     Configuration config = ctx.getConfiguration();
-    LoggerConfig loggerConfig = config.getLoggerConfig(LOGGER_NAME);
-    loggerConfig.setLevel(levelConverter(level));
-
-    // Determine if logDirectory is a single file based on extension
+    LoggerConfig loggerConfig = new LoggerConfig(LOGGER_NAME, levelConverter(level), false);
     boolean isFilePath = filePath.matches(".*\\.(log|txt|json|csv|xml|out)$");
 
     if (isFilePath) {
@@ -67,8 +63,8 @@ public class LoggingUtil {
             .setConfiguration(config)
             .build();
     consoleAppender.start();
-    config.addAppender(consoleAppender);
     loggerConfig.addAppender(consoleAppender, levelConverter(level), null);
+
     config.addLogger(LOGGER_NAME, loggerConfig);
     ctx.updateLoggers();
   }
@@ -85,7 +81,6 @@ public class LoggingUtil {
             .withName("FileAppender")
             .build();
     fileAppender.start();
-    config.addAppender(fileAppender);
     loggerConfig.addAppender(fileAppender, levelConverter(level), null);
   }
 
@@ -116,15 +111,15 @@ public class LoggingUtil {
             .withPolicy(triggeringPolicy)
             .withStrategy(rolloverStrategy)
             .setConfiguration(config)
-            .withName(LOGGER_NAME)
+            .withName("RollingFileAppender")
             .build();
     rollingFileAppender.start();
-    config.addAppender(rollingFileAppender);
     loggerConfig.addAppender(rollingFileAppender, levelConverter(level), null);
   }
 
   public static void log(LogLevel level, String message) {
-    LOGGER.log(levelConverter(level), message);
+    Logger logger = LogManager.getLogger(LOGGER_NAME);
+    logger.log(levelConverter(level), message);
   }
 
   private static Level levelConverter(LogLevel level) {
