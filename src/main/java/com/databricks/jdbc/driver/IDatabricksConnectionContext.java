@@ -6,6 +6,7 @@ import com.databricks.jdbc.core.DatabricksParsingException;
 import com.databricks.jdbc.core.DatabricksSQLException;
 import com.databricks.jdbc.core.types.CompressionType;
 import com.databricks.jdbc.core.types.ComputeResource;
+import com.databricks.jdbc.telemetry.DatabricksMetrics;
 import java.util.List;
 import java.util.Map;
 
@@ -131,6 +132,8 @@ public interface IDatabricksConnectionContext {
   int getCloudFetchThreadPoolSize();
 
   Boolean getDirectResultMode();
+
+  DatabricksMetrics getMetricsExporter();
 
   Boolean shouldRetryTemporarilyUnavailableError();
 

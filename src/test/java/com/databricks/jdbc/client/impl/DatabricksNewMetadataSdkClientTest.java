@@ -12,6 +12,8 @@ import com.databricks.jdbc.client.impl.sdk.DatabricksNewMetadataSdkClient;
 import com.databricks.jdbc.client.impl.sdk.DatabricksSdkClient;
 import com.databricks.jdbc.core.*;
 import com.databricks.jdbc.core.types.ComputeResource;
+import com.databricks.jdbc.driver.IDatabricksConnectionContext;
+import com.databricks.jdbc.telemetry.DatabricksMetrics;
 import com.databricks.sdk.service.sql.StatementState;
 import java.sql.SQLException;
 import java.util.HashMap;
@@ -31,6 +33,8 @@ public class DatabricksNewMetadataSdkClientTest {
   @Mock private static DatabricksResultSet mockedResultSet;
   @Mock private static IDatabricksSession session;
   @Mock private static ComputeResource mockedComputeResource;
+  @Mock private static DatabricksMetrics databricksMetrics;
+  @Mock private static IDatabricksConnectionContext connectionContext;
 
   private static Stream<Arguments> listTableTestParams() {
     return Stream.of(
@@ -169,8 +173,9 @@ public class DatabricksNewMetadataSdkClientTest {
   void testListCatalogs() throws SQLException {
     setupCatalogMocks();
     DatabricksNewMetadataSdkClient metadataClient = new DatabricksNewMetadataSdkClient(mockClient);
+    when(session.getConnectionContext()).thenReturn(connectionContext);
+    when(connectionContext.getMetricsExporter()).thenReturn(databricksMetrics);
     DatabricksResultSet actualResult = metadataClient.listCatalogs(session);
-
     assertEquals(actualResult.getStatementStatus().getState(), StatementState.SUCCEEDED);
     assertEquals(actualResult.statementId(), GET_CATALOGS_STATEMENT_ID);
     assertEquals(((DatabricksResultSetMetaData) actualResult.getMetaData()).getTotalRows(), 2);
@@ -179,6 +184,8 @@ public class DatabricksNewMetadataSdkClientTest {
   @Test
   void testListTableTypes() throws SQLException {
     DatabricksNewMetadataSdkClient metadataClient = new DatabricksNewMetadataSdkClient(mockClient);
+    when(session.getConnectionContext()).thenReturn(connectionContext);
+    when(connectionContext.getMetricsExporter()).thenReturn(databricksMetrics);
     DatabricksResultSet actualResult = metadataClient.listTableTypes(session);
     assertEquals(actualResult.getStatementStatus().getState(), StatementState.SUCCEEDED);
     assertEquals(actualResult.statementId(), GET_TABLE_TYPE_STATEMENT_ID);
@@ -191,6 +198,8 @@ public class DatabricksNewMetadataSdkClientTest {
       String sqlStatement, String catalog, String schema, String table, String description)
       throws SQLException {
     when(session.getComputeResource()).thenReturn(mockedComputeResource);
+    when(session.getConnectionContext()).thenReturn(connectionContext);
+    when(connectionContext.getMetricsExporter()).thenReturn(databricksMetrics);
     DatabricksNewMetadataSdkClient metadataClient = new DatabricksNewMetadataSdkClient(mockClient);
     when(mockClient.executeStatement(
             sqlStatement,
@@ -229,6 +238,8 @@ public class DatabricksNewMetadataSdkClientTest {
       String description)
       throws SQLException {
     when(session.getComputeResource()).thenReturn(mockedComputeResource);
+    when(session.getConnectionContext()).thenReturn(connectionContext);
+    when(connectionContext.getMetricsExporter()).thenReturn(databricksMetrics);
     DatabricksNewMetadataSdkClient metadataClient = new DatabricksNewMetadataSdkClient(mockClient);
     when(mockClient.executeStatement(
             sqlStatement,
@@ -253,6 +264,8 @@ public class DatabricksNewMetadataSdkClientTest {
   @MethodSource("listSchemasTestParams")
   void testListSchemas(String sqlStatement, String schema, String description) throws SQLException {
     when(session.getComputeResource()).thenReturn(mockedComputeResource);
+    when(session.getConnectionContext()).thenReturn(connectionContext);
+    when(connectionContext.getMetricsExporter()).thenReturn(databricksMetrics);
     DatabricksNewMetadataSdkClient metadataClient = new DatabricksNewMetadataSdkClient(mockClient);
     when(mockClient.executeStatement(
             sqlStatement,
@@ -275,6 +288,8 @@ public class DatabricksNewMetadataSdkClientTest {
   @Test
   void testListPrimaryKeys() throws SQLException {
     when(session.getComputeResource()).thenReturn(WAREHOUSE_COMPUTE);
+    when(session.getConnectionContext()).thenReturn(connectionContext);
+    when(connectionContext.getMetricsExporter()).thenReturn(databricksMetrics);
     DatabricksNewMetadataSdkClient metadataClient = new DatabricksNewMetadataSdkClient(mockClient);
     when(mockClient.executeStatement(
             "SHOW KEYS IN CATALOG catalog1 IN SCHEMA testSchema IN TABLE testTable",
@@ -302,6 +317,8 @@ public class DatabricksNewMetadataSdkClientTest {
       String sql, String catalog, String schema, String functionPattern, String description)
       throws SQLException {
     when(session.getComputeResource()).thenReturn(WAREHOUSE_COMPUTE);
+    when(session.getConnectionContext()).thenReturn(connectionContext);
+    when(connectionContext.getMetricsExporter()).thenReturn(databricksMetrics);
     DatabricksNewMetadataSdkClient metadataClient = new DatabricksNewMetadataSdkClient(mockClient);
     when(mockClient.executeStatement(
             sql,
