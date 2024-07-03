@@ -76,7 +76,6 @@ public interface IDatabricksUCVolumeClient {
    * @param localPath the local path where the retrieved data is to be stored
    * @return a boolean value indicating status of the GET operation
    */
-  boolean getObject(
-          String catalog, String schema, String volume, String localPath)
-          throws SQLException;
+  boolean getObject(String catalog, String schema, String volume, String localPath)
+      throws SQLException;
 }

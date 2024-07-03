@@ -1,14 +1,14 @@
 package com.databricks.jdbc.client.impl.sdk;
 
+import static com.databricks.jdbc.driver.DatabricksJdbcConstants.VOLUME_OPERATION_STATUS_COLUMN_NAME;
+import static com.databricks.jdbc.driver.DatabricksJdbcConstants.VOLUME_OPERATION_STATUS_SUCCEEDED;
+
 import com.databricks.jdbc.client.IDatabricksUCVolumeClient;
 import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-
-import static com.databricks.jdbc.driver.DatabricksJdbcConstants.VOLUME_OPERATION_STATUS_COLUMN_NAME;
-import static com.databricks.jdbc.driver.DatabricksJdbcConstants.VOLUME_OPERATION_STATUS_SUCCEEDED;
 
 /** Implementation for DatabricksUCVolumeClient */
 public class DatabricksUCVolumeClient implements IDatabricksUCVolumeClient {
@@ -35,7 +35,8 @@ public class DatabricksUCVolumeClient implements IDatabricksUCVolumeClient {
     return String.format("SHOW VOLUMES IN %s.%s", catalog, schema);
   }
 
-  private String createGetObjectQuery(String catalog, String schema, String volume, String localPath) {
+  private String createGetObjectQuery(
+      String catalog, String schema, String volume, String localPath) {
     return String.format("GET '/Volumes/%s/%s/%s/' TO %s", catalog, schema, volume, localPath);
   }
 
@@ -244,7 +245,7 @@ public class DatabricksUCVolumeClient implements IDatabricksUCVolumeClient {
   }
 
   public boolean getObject(String catalog, String schema, String volume, String localPath)
-    throws SQLException {
+      throws SQLException {
     LOGGER.info(
         "Entering getObject method with parameters: catalog={}, schema={}, volume={}, localPath={}",
         catalog,
@@ -261,8 +262,10 @@ public class DatabricksUCVolumeClient implements IDatabricksUCVolumeClient {
       LOGGER.info("SQL query executed successfully");
 
       if (resultSet.next()) {
-        String volumeOperationStatusString =  resultSet.getString(VOLUME_OPERATION_STATUS_COLUMN_NAME);
-        volumeOperationStatus = VOLUME_OPERATION_STATUS_SUCCEEDED.equals(volumeOperationStatusString);
+        String volumeOperationStatusString =
+            resultSet.getString(VOLUME_OPERATION_STATUS_COLUMN_NAME);
+        volumeOperationStatus =
+            VOLUME_OPERATION_STATUS_SUCCEEDED.equals(volumeOperationStatusString);
       }
     } catch (SQLException e) {
       LOGGER.error("SQL query execution failed", e);
