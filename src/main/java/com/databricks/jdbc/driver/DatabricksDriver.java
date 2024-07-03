@@ -169,9 +169,7 @@ public class DatabricksDriver implements Driver {
   }
 
   public static void main(String[] args) {
-    LoggingUtil.log(
-        LogLevel.DEBUG,
-        String.format("The driver {%s} has been initialized.", DatabricksDriver.class));
+   System.out.printf("The driver {%s} has been initialized.%n", DatabricksDriver.class);
   }
 
   private static String getVersion() {
