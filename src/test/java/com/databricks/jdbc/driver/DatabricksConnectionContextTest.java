@@ -34,6 +34,9 @@ class DatabricksConnectionContextTest {
   private static final String VALID_URL_7 =
       "jdbc:databricks://adb-565757575.18.azuredatabricks.net:4423/default;ssl=1;AuthMech=3;httpPath=/sql/1.0/endpoints/erg6767gg;LogLevel=debug;LogPath=test1/application.log;auth_flow=2;enablearrow=0";
 
+  private static final String VALID_URL_8 =
+      "jdbc:databricks://adb-565757575.18.azuredatabricks.net:4423/default;ssl=1;port=123;AuthMech=3;httpPath=/sql/1.0/endpoints/erg6767gg;LogLevel=debug;LogPath=test1/application.log;auth_flow=2;enablearrow=0";
+
   private static final String VALID_URL_WITH_INVALID_COMPRESSION_TYPE =
       "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/5c89f447c476a5a8;QueryResultCompressionType=234";
 
@@ -41,6 +44,10 @@ class DatabricksConnectionContextTest {
       "jdbc:oracle://azuredatabricks.net/default;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/fgff575757;";
   private static final String INVALID_URL_2 =
       "http:databricks://azuredatabricks.net/default;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/fgff575757;";
+
+  private static final String INVALID_URL_3 =
+      "jdbc:databricks://adb-565757575.18.azuredatabricks.net:4423/default;ssl=1;port=alphabetical;AuthMech=3;httpPath=/sql/1.0/endpoints/erg6767gg;LogLevel=debug;LogPath=test1/application.log;auth_flow=2;enablearrow=0";
+
   private static final String VALID_TEST_URL = "jdbc:databricks://test";
 
   private static final String VALID_CLUSTER_URL =
@@ -158,6 +165,16 @@ class DatabricksConnectionContextTest {
     assertEquals(connectionContext.getOAuthScopesForU2M(), expected_scopes);
     assertFalse(connectionContext.isAllPurposeCluster());
     assertEquals(DatabricksClientType.THRIFT, connectionContext.getClientType());
+  }
+
+  @Test
+  public void testPortStringThroughConnectionParameters() throws DatabricksSQLException {
+    DatabricksConnectionContext connectionContext =
+        (DatabricksConnectionContext) DatabricksConnectionContext.parse(VALID_URL_8, properties);
+    assertEquals(123, connectionContext.port);
+    assertThrows(
+        DatabricksSQLException.class,
+        () -> DatabricksConnectionContext.parse(INVALID_URL_3, properties));
   }
 
   @Test

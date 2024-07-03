@@ -13,6 +13,7 @@ import java.sql.*;
 import java.util.Calendar;
 import java.util.Collections;
 import java.util.GregorianCalendar;
+import java.util.TimeZone;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -303,6 +304,24 @@ public class DatabricksResultSetTest {
     // Test with column label
     when(mockedResultSetMetadata.getColumnNameIndex("columnLabel")).thenReturn(columnIndex);
     assertEquals(expectedTimestamp, resultSet.getTimestamp("columnLabel"));
+  }
+
+  @Test
+  void testGetTimestampWithCalendar() throws SQLException {
+    DatabricksResultSet resultSet = getResultSet(StatementState.SUCCEEDED, null);
+    int columnIndex = 5;
+    String columnLabel = "columnLabel";
+    Calendar cal = Calendar.getInstance(TimeZone.getTimeZone("Asia/Tokyo"));
+    Timestamp expectedTimestamp = new Timestamp(System.currentTimeMillis());
+
+    // Mocking for columnIndex
+    when(resultSet.getObject(columnIndex)).thenReturn(expectedTimestamp);
+    when(mockedResultSetMetadata.getColumnType(columnIndex)).thenReturn(java.sql.Types.TIMESTAMP);
+    assertEquals(expectedTimestamp, resultSet.getTimestamp(columnIndex, cal));
+
+    // Mocking for columnLabel
+    when(mockedResultSetMetadata.getColumnNameIndex(columnLabel)).thenReturn(columnIndex);
+    assertEquals(expectedTimestamp, resultSet.getTimestamp(columnLabel, cal));
   }
 
   @Test
@@ -668,12 +687,6 @@ public class DatabricksResultSetTest {
     assertThrows(
         DatabricksSQLFeatureNotSupportedException.class,
         () -> resultSet.updateCharacterStream("column", null, 1));
-    assertThrows(
-        DatabricksSQLFeatureNotSupportedException.class,
-        () -> resultSet.getTimestamp(1, Calendar.getInstance()));
-    assertThrows(
-        DatabricksSQLFeatureNotSupportedException.class,
-        () -> resultSet.getTimestamp("column", Calendar.getInstance()));
     assertThrows(DatabricksSQLFeatureNotSupportedException.class, () -> resultSet.unwrap(null));
     assertThrows(
         DatabricksSQLFeatureNotSupportedException.class, () -> resultSet.isWrapperFor(null));

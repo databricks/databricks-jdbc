@@ -4,6 +4,7 @@ import static com.databricks.jdbc.driver.DatabricksJdbcConstants.*;
 
 import com.databricks.jdbc.client.DatabricksClientType;
 import com.databricks.jdbc.commons.util.AppenderUtil;
+import com.databricks.jdbc.commons.util.DeviceInfoLogUtil;
 import com.databricks.jdbc.core.DatabricksConnection;
 import com.databricks.jdbc.core.DatabricksSQLException;
 import com.databricks.jdbc.telemetry.DatabricksMetrics;
@@ -204,5 +205,6 @@ public class DatabricksDriver implements Driver {
               config, layout, logDirectory, logFileSize, logFileCount - 1),
           logLevel);
     }
+    DeviceInfoLogUtil.logProperties();
   }
 }

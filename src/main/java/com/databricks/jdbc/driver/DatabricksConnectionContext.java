@@ -23,7 +23,7 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
 
   private static final Logger LOGGER = LogManager.getLogger(DatabricksConnectionContext.class);
   private final String host;
-  private final int port;
+  @VisibleForTesting final int port;
   private final String schema;
   private final ComputeResource computeResource;
   @VisibleForTesting final ImmutableMap<String, String> parameters;
@@ -62,6 +62,13 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
         String[] pair = urlParts[urlPartIndex].split(DatabricksJdbcConstants.PAIR_DELIMITER);
         if (pair.length == 1) {
           pair = new String[] {pair[0], ""};
+        }
+        if (pair[0].toLowerCase().equals(PORT)) {
+          try {
+            portValue = Integer.valueOf(pair[1]);
+          } catch (NumberFormatException e) {
+            throw new DatabricksParsingException("Invalid port number " + pair[1]);
+          }
         }
         parametersBuilder.put(pair[0].toLowerCase(), pair[1]);
       }
