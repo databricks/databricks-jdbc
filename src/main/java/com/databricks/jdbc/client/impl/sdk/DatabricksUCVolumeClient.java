@@ -7,10 +7,11 @@ import java.util.List;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
+import static com.databricks.jdbc.driver.DatabricksJdbcConstants.VOLUME_OPERATION_STATUS_COLUMN_NAME;
+import static com.databricks.jdbc.driver.DatabricksJdbcConstants.VOLUME_OPERATION_STATUS_SUCCEEDED;
+
 /** Implementation for DatabricksUCVolumeClient */
 public class DatabricksUCVolumeClient implements IDatabricksUCVolumeClient {
-
-  // test
 
   private final Connection connection;
 
@@ -32,6 +33,10 @@ public class DatabricksUCVolumeClient implements IDatabricksUCVolumeClient {
 
   private String createShowVolumesQuery(String catalog, String schema) {
     return String.format("SHOW VOLUMES IN %s.%s", catalog, schema);
+  }
+
+  private String createGetObjectQuery(String catalog, String schema, String volume, String localPath) {
+    return String.format("GET '/Volumes/%s/%s/%s/' TO %s", catalog, schema, volume, localPath);
   }
 
   public boolean prefixExists(String catalog, String schema, String volume, String prefix)
@@ -236,5 +241,34 @@ public class DatabricksUCVolumeClient implements IDatabricksUCVolumeClient {
   public List<String> listObjects(String catalog, String schema, String volume, String prefix)
       throws SQLException {
     return listObjects(catalog, schema, volume, prefix, true);
+  }
+
+  public boolean getObject(String catalog, String schema, String volume, String localPath)
+    throws SQLException {
+    LOGGER.info(
+        "Entering getObject method with parameters: catalog={}, schema={}, volume={}, localPath={}",
+        catalog,
+        schema,
+        volume,
+        localPath);
+
+    String getObjectQuery = createGetObjectQuery(catalog, schema, volume, localPath);
+
+    boolean volumeOperationStatus = false;
+
+    try (Statement statement = connection.createStatement()) {
+      ResultSet resultSet = statement.executeQuery(getObjectQuery);
+      LOGGER.info("SQL query executed successfully");
+
+      if (resultSet.next()) {
+        String volumeOperationStatusString =  resultSet.getString(VOLUME_OPERATION_STATUS_COLUMN_NAME);
+        volumeOperationStatus = VOLUME_OPERATION_STATUS_SUCCEEDED.equals(volumeOperationStatusString);
+      }
+    } catch (SQLException e) {
+      LOGGER.error("SQL query execution failed", e);
+      throw e;
+    }
+
+    return volumeOperationStatus;
   }
 }

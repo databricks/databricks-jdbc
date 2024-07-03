@@ -65,4 +65,18 @@ public interface IDatabricksUCVolumeClient {
   List<String> listObjects(
       String catalog, String schema, String volume, String prefix, boolean caseSensitive)
       throws SQLException;
+
+  /**
+   * getObject(): Lists all filenames in the UC Volume that start with a specified prefix. The
+   * prefix that we are looking for must be a part of the file path from the volume as the root.
+   *
+   * @param catalog the catalog name of the cloud storage
+   * @param schema the schema name of the cloud storage
+   * @param volume the UC volume name of the cloud storage
+   * @param localPath the local path where the retrieved data is to be stored
+   * @return a boolean value indicating status of the GET operation
+   */
+  boolean getObject(
+          String catalog, String schema, String volume, String localPath)
+          throws SQLException;
 }

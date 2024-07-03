@@ -1,6 +1,8 @@
 package com.databricks.jdbc.core;
 
 import static com.databricks.jdbc.TestConstants.*;
+import static com.databricks.jdbc.driver.DatabricksJdbcConstants.VOLUME_OPERATION_STATUS_COLUMN_NAME;
+import static com.databricks.jdbc.driver.DatabricksJdbcConstants.VOLUME_OPERATION_STATUS_SUCCEEDED;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
@@ -15,6 +17,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.Mock;
+import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
@@ -34,6 +37,10 @@ public class DatabricksUCVolumeClientTest {
 
   private String createShowVolumesQuery(String catalog, String schema) {
     return String.format("SHOW VOLUMES IN %s.%s", catalog, schema);
+  }
+
+  private String createGetObjectQuery(String catalog, String schema, String volume, String localPath) {
+    return String.format("GET '/Volumes/%s/%s/%s/' TO %s", catalog, schema, volume, localPath);
   }
 
   @ParameterizedTest
@@ -229,5 +236,26 @@ public class DatabricksUCVolumeClientTest {
                 "#!#_file3",
                 "xyz_file4",
                 "###file1")));
+  }
+
+  @ParameterizedTest
+  @MethodSource("provideParametersForGetObject")
+  public void testGetObject(String catalog, String schema, String volume, String localPath, boolean expected) throws SQLException {
+    DatabricksUCVolumeClient client = new DatabricksUCVolumeClient(connection);
+
+    when(connection.createStatement()).thenReturn(statement);
+    String getObjectQuery = createGetObjectQuery(catalog, schema, volume, localPath);
+    when(statement.executeQuery(getObjectQuery)).thenReturn(resultSet);
+    when(resultSet.next()).thenReturn(true);
+    when(resultSet.getString(VOLUME_OPERATION_STATUS_COLUMN_NAME)).thenReturn(VOLUME_OPERATION_STATUS_SUCCEEDED);
+    boolean result = client.getObject(catalog, schema, volume, localPath);
+
+    assertEquals(expected, result);
+    verify(statement).executeQuery(getObjectQuery);
+  }
+
+  private static Stream<Arguments> provideParametersForGetObject() {
+    return Stream.of(
+            Arguments.of("test_catalog", "test_schema", "test_volume", "test_path", true));
   }
 }
