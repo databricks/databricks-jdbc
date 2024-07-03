@@ -33,6 +33,7 @@ public class DatabricksHttpTTransport extends TTransport {
 
   public DatabricksHttpTTransport(DatabricksHttpClient httpClient, String url) {
     this.httpClient = httpClient;
+    this.httpClient.closeExpiredAndIdleConnections();
     this.url = url;
     this.requestBuffer = new ByteArrayOutputStream();
   }
@@ -50,6 +51,7 @@ public class DatabricksHttpTTransport extends TTransport {
 
   @Override
   public void close() {
+    this.httpClient.closeExpiredAndIdleConnections();
     if (inputStream != null) {
       try {
         inputStream.close();
@@ -136,6 +138,8 @@ public class DatabricksHttpTTransport extends TTransport {
         }
         cause = cause.getCause();
       }
+      httpClient.closeExpiredAndIdleConnections();
+
       String errorMessage = "Failed to flush data to server: " + e.getMessage();
       LOGGER.error(errorMessage);
       throw new TTransportException(TTransportException.UNKNOWN, errorMessage);

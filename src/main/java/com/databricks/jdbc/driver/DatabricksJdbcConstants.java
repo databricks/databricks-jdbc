@@ -153,7 +153,7 @@ public final class DatabricksJdbcConstants {
   public static final String TABLE = "table";
 
   public static final String USER_NAME = "User";
-
+  public static final String PORT = "port";
   public static final int DEFAULT_PORT = 443;
 
   /** Adding this for backward compatibility only */

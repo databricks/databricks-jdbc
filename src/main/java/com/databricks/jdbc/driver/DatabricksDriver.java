@@ -4,9 +4,9 @@ import static com.databricks.jdbc.driver.DatabricksJdbcConstants.*;
 
 import com.databricks.jdbc.client.DatabricksClientType;
 import com.databricks.jdbc.commons.util.AppenderUtil;
+import com.databricks.jdbc.commons.util.DeviceInfoLogUtil;
 import com.databricks.jdbc.core.DatabricksConnection;
 import com.databricks.jdbc.core.DatabricksSQLException;
-import com.databricks.jdbc.telemetry.DatabricksMetrics;
 import com.databricks.sdk.core.UserAgent;
 import java.sql.*;
 import java.util.Properties;
@@ -29,8 +29,9 @@ public class DatabricksDriver implements Driver {
   private static final DatabricksDriver INSTANCE;
 
   private static final int majorVersion = 0;
-  private static final int minorVersion = 0;
-  private static final int buildVersion = 1;
+  private static final int minorVersion = 7;
+  private static final int buildVersion = 0;
+  private static final String qualifier = "oss";
 
   static {
     try {
@@ -56,7 +57,6 @@ public class DatabricksDriver implements Driver {
         connectionContext.getLogFileCount(),
         connectionContext.getLogFileSize());
     setUserAgent(connectionContext);
-    DatabricksMetrics.instantiateTelemetryClient(connectionContext);
     try {
       DatabricksConnection connection = new DatabricksConnection(connectionContext);
       if (connectionContext.getClientType() == DatabricksClientType.SQL_EXEC) {
@@ -167,7 +167,7 @@ public class DatabricksDriver implements Driver {
   }
 
   private static String getVersion() {
-    return String.format("%d.%d.%d", majorVersion, minorVersion, buildVersion);
+    return String.format("%d.%d.%d-%s", majorVersion, minorVersion, buildVersion, qualifier);
   }
 
   public static void setUserAgent(IDatabricksConnectionContext connectionContext) {
@@ -204,5 +204,6 @@ public class DatabricksDriver implements Driver {
               config, layout, logDirectory, logFileSize, logFileCount - 1),
           logLevel);
     }
+    DeviceInfoLogUtil.logProperties();
   }
 }

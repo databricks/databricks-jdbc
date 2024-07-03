@@ -9,11 +9,14 @@ import com.databricks.jdbc.client.impl.helper.CommandBuilder;
 import com.databricks.jdbc.client.impl.helper.CommandName;
 import com.databricks.jdbc.client.impl.helper.MetadataResultSetBuilder;
 import com.databricks.jdbc.commons.MetricsList;
-import com.databricks.jdbc.core.*;
-import com.databricks.jdbc.telemetry.DatabricksMetrics;
+import com.databricks.jdbc.core.DatabricksResultSet;
+import com.databricks.jdbc.core.IDatabricksSession;
+import com.databricks.jdbc.core.ImmutableSqlParameter;
+import com.databricks.jdbc.driver.IDatabricksConnectionContext;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.util.*;
+import java.util.HashMap;
+import java.util.Optional;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -47,8 +50,11 @@ public class DatabricksNewMetadataSdkClient implements DatabricksMetadataClient 
     DatabricksResultSet resultSet =
         MetadataResultSetBuilder.getCatalogsResult(
             getResultSet(SQL, session, StatementType.METADATA));
-    DatabricksMetrics.record(
-        MetricsList.LIST_CATALOGS_METADATA_SEA.name(), System.currentTimeMillis() - startTime);
+    IDatabricksConnectionContext connectionContext = session.getConnectionContext();
+    connectionContext
+        .getMetricsExporter()
+        .record(
+            MetricsList.LIST_CATALOGS_METADATA_SEA.name(), System.currentTimeMillis() - startTime);
     return resultSet;
   }
 
@@ -63,8 +69,11 @@ public class DatabricksNewMetadataSdkClient implements DatabricksMetadataClient 
     DatabricksResultSet resultSet =
         MetadataResultSetBuilder.getSchemasResult(
             getResultSet(SQL, session, StatementType.METADATA), catalog);
-    DatabricksMetrics.record(
-        MetricsList.LIST_SCHEMAS_METADATA_SEA.name(), System.currentTimeMillis() - startTime);
+    IDatabricksConnectionContext connectionContext = session.getConnectionContext();
+    connectionContext
+        .getMetricsExporter()
+        .record(
+            MetricsList.LIST_SCHEMAS_METADATA_SEA.name(), System.currentTimeMillis() - startTime);
     return resultSet;
   }
 
@@ -89,8 +98,11 @@ public class DatabricksNewMetadataSdkClient implements DatabricksMetadataClient 
     DatabricksResultSet resultSet =
         MetadataResultSetBuilder.getTablesResult(
             getResultSet(SQL, session, StatementType.METADATA), tableTypes);
-    DatabricksMetrics.record(
-        MetricsList.LIST_TABLES_METADATA_SEA.name(), System.currentTimeMillis() - startTime);
+    IDatabricksConnectionContext connectionContext = session.getConnectionContext();
+    connectionContext
+        .getMetricsExporter()
+        .record(
+            MetricsList.LIST_TABLES_METADATA_SEA.name(), System.currentTimeMillis() - startTime);
     return resultSet;
   }
 
@@ -99,8 +111,12 @@ public class DatabricksNewMetadataSdkClient implements DatabricksMetadataClient 
     LOGGER.debug("Returning list of table types.");
     long startTime = System.currentTimeMillis();
     DatabricksResultSet resultSet = MetadataResultSetBuilder.getTableTypesResult();
-    DatabricksMetrics.record(
-        MetricsList.LIST_TABLE_TYPES_METADATA_SEA.name(), System.currentTimeMillis() - startTime);
+    IDatabricksConnectionContext connectionContext = session.getConnectionContext();
+    connectionContext
+        .getMetricsExporter()
+        .record(
+            MetricsList.LIST_TABLE_TYPES_METADATA_SEA.name(),
+            System.currentTimeMillis() - startTime);
     return resultSet;
   }
 
@@ -121,8 +137,11 @@ public class DatabricksNewMetadataSdkClient implements DatabricksMetadataClient 
     String SQL = commandBuilder.getSQLString(CommandName.LIST_COLUMNS);
     DatabricksResultSet resultSet =
         MetadataResultSetBuilder.getColumnsResult(getResultSet(SQL, session, StatementType.QUERY));
-    DatabricksMetrics.record(
-        MetricsList.LIST_COLUMNS_METADATA_SEA.name(), System.currentTimeMillis() - startTime);
+    IDatabricksConnectionContext connectionContext = session.getConnectionContext();
+    connectionContext
+        .getMetricsExporter()
+        .record(
+            MetricsList.LIST_COLUMNS_METADATA_SEA.name(), System.currentTimeMillis() - startTime);
     return resultSet;
   }
 
@@ -143,8 +162,11 @@ public class DatabricksNewMetadataSdkClient implements DatabricksMetadataClient 
     DatabricksResultSet resultSet =
         MetadataResultSetBuilder.getFunctionsResult(
             getResultSet(SQL, session, StatementType.QUERY), catalog);
-    DatabricksMetrics.record(
-        MetricsList.LIST_FUNCTIONS_METADATA_SEA.name(), System.currentTimeMillis() - startTime);
+    IDatabricksConnectionContext connectionContext = session.getConnectionContext();
+    connectionContext
+        .getMetricsExporter()
+        .record(
+            MetricsList.LIST_FUNCTIONS_METADATA_SEA.name(), System.currentTimeMillis() - startTime);
     return resultSet;
   }
 
@@ -159,8 +181,12 @@ public class DatabricksNewMetadataSdkClient implements DatabricksMetadataClient 
     DatabricksResultSet resultSet =
         MetadataResultSetBuilder.getPrimaryKeysResult(
             getResultSet(SQL, session, StatementType.METADATA));
-    DatabricksMetrics.record(
-        MetricsList.LIST_PRIMARY_KEYS_METADATA_SEA.name(), System.currentTimeMillis() - startTime);
+    IDatabricksConnectionContext connectionContext = session.getConnectionContext();
+    connectionContext
+        .getMetricsExporter()
+        .record(
+            MetricsList.LIST_PRIMARY_KEYS_METADATA_SEA.name(),
+            System.currentTimeMillis() - startTime);
     return resultSet;
   }
 

@@ -64,6 +64,10 @@ public class IntegrationTestUtil {
     return System.getenv("DATABRICKS_BENCHFOOD_HOST");
   }
 
+  public static String getDatabricksUrlForM2M() {
+    return System.getenv("DATABRICKS_JDBC_M2M_URL");
+  }
+
   public static String getDatabricksDogfoodHost() {
     return System.getenv("DATABRICKS_DOGFOOD_HOST");
   }
