@@ -28,6 +28,8 @@ public class LoggingUtil {
       PatternLayout.newBuilder()
           .withPattern("%d{yyyy-MM-dd HH:mm:ss} %-5level %logger{36} - %msg%n")
           .build();
+  private static final Logger LOGGER = LogManager.getLogger(LOGGER_NAME);
+  ;
 
   public static void setupLogger(
       String filePath, int logFileSize, int logFileCount, LogLevel level) {
@@ -118,8 +120,7 @@ public class LoggingUtil {
   }
 
   public static void log(LogLevel level, String message) {
-    Logger logger = LogManager.getLogger(LOGGER_NAME);
-    logger.log(levelConverter(level), message);
+    LOGGER.log(levelConverter(level), message);
   }
 
   private static Level levelConverter(LogLevel level) {
