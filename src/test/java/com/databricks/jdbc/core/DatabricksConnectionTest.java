@@ -11,7 +11,6 @@ import com.databricks.jdbc.core.types.ComputeResource;
 import com.databricks.jdbc.core.types.Warehouse;
 import com.databricks.jdbc.driver.DatabricksConnectionContext;
 import com.databricks.jdbc.driver.IDatabricksConnectionContext;
-import com.databricks.jdbc.pooling.DatabricksConnectionPoolDataSource;
 import com.databricks.jdbc.pooling.DatabricksPooledConnection;
 import com.databricks.sdk.core.UserAgent;
 import java.sql.*;
@@ -41,7 +40,7 @@ public class DatabricksConnectionTest {
       "jdbc:databricks://adb-565757575.18.azuredatabricks.net:4423/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/erg6767gg;UserAgentEntry=MyApp";
   private static final String CATALOG_SCHEMA_JDBC_URL =
       String.format(
-          "jdbc:databricks://adb-565757575.18.azuredatabricks.net:4423/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/erg6767gg;ConnCatalog=%s;ConnSchema=%s",
+          "jdbc:databricks://adb-565757575.18.azuredatabricks.net:4423/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/erg6767gg;ConnCatalog=%s;ConnSchema=%s;logLevel=FATAL",
           CATALOG, SCHEMA);
   private static final String SESSION_CONF_JDBC_URL =
       String.format(
@@ -229,7 +228,8 @@ public class DatabricksConnectionTest {
         new DatabricksConnection(connectionContext, databricksClient);
     // Get a pooled connection
     DriverManager.registerDriver(new com.databricks.jdbc.driver.DatabricksDriver());
-    DatabricksPooledConnection pooledConnection = new DatabricksPooledConnection(databricksConnection);
+    DatabricksPooledConnection pooledConnection =
+        new DatabricksPooledConnection(databricksConnection);
     Connection connection = pooledConnection.getConnection();
     // Check statement commands
     Statement statement = connection.createStatement();
@@ -241,21 +241,16 @@ public class DatabricksConnectionTest {
 
   @Test
   public void testPooledConnectionStatementInvoke() throws SQLException {
-    DatabricksConnectionPoolDataSource poolDataSource =
-        Mockito.mock(DatabricksConnectionPoolDataSource.class);
     ImmutableSessionInfo session =
         ImmutableSessionInfo.builder().computeResource(warehouse).sessionId(SESSION_ID).build();
     when(databricksClient.createSession(eq(new Warehouse(WAREHOUSE_ID)), any(), any(), any()))
         .thenReturn(session);
     DatabricksConnection databricksConnection =
         new DatabricksConnection(connectionContext, databricksClient);
-    Mockito.when(poolDataSource.getPooledConnection())
-        .thenReturn(new DatabricksPooledConnection(databricksConnection));
-
     // Get a pooled connection
     DriverManager.registerDriver(new com.databricks.jdbc.driver.DatabricksDriver());
     DatabricksPooledConnection pooledConnection =
-        (DatabricksPooledConnection) poolDataSource.getPooledConnection();
+        new DatabricksPooledConnection(databricksConnection);
     Connection connection = pooledConnection.getConnection();
     // Check statement commands
     Statement statement = connection.createStatement();

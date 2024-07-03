@@ -10,6 +10,7 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
 import java.sql.*;
+import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Set;
 import javax.annotation.Nullable;
@@ -106,7 +107,7 @@ public class DatabricksPooledConnection implements PooledConnection {
    */
   @Override
   public Connection getConnection() throws SQLException {
-    LoggingUtil.log(LogLevel.DEBUG, "public Connection getConnection()");
+    LoggingUtil.log(LogLevel.DEBUG, "public PooledConnection getConnection()");
     if (physicalConnection == null) {
       // Before throwing the exception, notify the listeners
       DatabricksSQLException sqlException =
@@ -253,8 +254,8 @@ public class DatabricksPooledConnection implements PooledConnection {
       LoggingUtil.log(
           LogLevel.DEBUG,
           String.format(
-              "public Object invoke(Object proxy = {%s}, Method method = {%s}, Object[] args = {%s})",
-              proxy, method, args));
+              "public Object invoke(Object proxy, Method method = {%s}, Object[] args = {%s})",
+              method, Arrays.toString(args)));
       final String methodName = method.getName();
       if (method.getDeclaringClass() == Object.class) {
         if (methodName.equals("toString")) {

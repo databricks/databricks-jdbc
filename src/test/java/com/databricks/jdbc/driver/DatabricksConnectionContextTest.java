@@ -139,7 +139,7 @@ class DatabricksConnectionContextTest {
     assertEquals("96eecda7-19ea-49cc-abb5-240097d554f5", connectionContext.getClientId());
     assertEquals(7, connectionContext.parameters.size());
     assertEquals(CompressionType.LZ4_COMPRESSION, connectionContext.getCompressionType());
-   assertEquals(LogLevel.INFO, connectionContext.getLogLevel());
+    assertEquals(LogLevel.INFO, connectionContext.getLogLevel());
     assertEquals(connectionContext.getLogPathString(), "logs/application.log");
     assertEquals("3", connectionContext.parameters.get("authmech"));
     assertNull(connectionContext.getOAuthScopesForU2M());
@@ -161,7 +161,7 @@ class DatabricksConnectionContextTest {
     assertEquals(IDatabricksConnectionContext.AuthMech.PAT, connectionContext.getAuthMech());
     assertEquals(CompressionType.NONE, connectionContext.getCompressionType());
     assertEquals(8, connectionContext.parameters.size());
-   assertEquals(LogLevel.INFO, connectionContext.getLogLevel());
+    assertEquals(LogLevel.INFO, connectionContext.getLogLevel());
     assertEquals(connectionContext.getOAuthScopesForU2M(), expected_scopes);
     assertFalse(connectionContext.isAllPurposeCluster());
     assertEquals(DatabricksClientType.THRIFT, connectionContext.getClientType());
@@ -270,7 +270,7 @@ class DatabricksConnectionContextTest {
     assertEquals("passwd", connectionContext.getToken());
     assertEquals(CompressionType.NONE, connectionContext.getCompressionType());
     assertEquals(5, connectionContext.parameters.size());
-   assertEquals(LogLevel.WARN, connectionContext.getLogLevel());
+    assertEquals(LogLevel.WARN, connectionContext.getLogLevel());
     assertTrue(connectionContext.isAllPurposeCluster());
     assertEquals(DatabricksClientType.THRIFT, connectionContext.getClientType());
   }
@@ -285,7 +285,7 @@ class DatabricksConnectionContextTest {
     assertEquals(6, connectionContext.parameters.size());
     assertEquals(
         "http://e2-dogfood.staging.cloud.databricks.com:4473", connectionContext.getHostUrl());
-   assertEquals(LogLevel.INFO, connectionContext.getLogLevel());
+    assertEquals(LogLevel.INFO, connectionContext.getLogLevel());
   }
 
   @Test
@@ -339,7 +339,7 @@ class DatabricksConnectionContextTest {
     assertEquals("cfProxyPassword", connectionContextWithCFProxy.getCloudFetchProxyPassword());
   }
 
- @Test
+  @Test
   void testLogLevels() {
     assertEquals(getLogLevel(123), LogLevel.INFO);
     assertEquals(getLogLevel(0), LogLevel.OFF);
