@@ -83,6 +83,11 @@ public class DatabricksSdkClient implements DatabricksClient {
   public ImmutableSessionInfo createSession(
       ComputeResource warehouse, String catalog, String schema, Map<String, String> sessionConf) {
     // TODO: [PECO-1460] Handle sessionConf in public session API
+    LoggingUtil.log(
+        LogLevel.DEBUG,
+        String.format(
+            "public Session createSession(String warehouseId = {%s}, String catalog = {%s}, String schema = {%s}, Map<String, String> sessionConf = {%s})",
+            ((Warehouse) warehouse).getWarehouseId(), catalog, schema, sessionConf));
     long startTime = System.currentTimeMillis();
     CreateSessionRequest request =
         new CreateSessionRequest().setWarehouseId(((Warehouse) warehouse).getWarehouseId());
@@ -138,7 +143,12 @@ public class DatabricksSdkClient implements DatabricksClient {
       IDatabricksStatement parentStatement)
       throws SQLException {
     long startTime = System.currentTimeMillis();
-
+    LoggingUtil.log(
+        LogLevel.DEBUG,
+        String.format(
+            "public DatabricksResultSet executeStatement(String sql = {%s}, compute resource = {%s}, Map<Integer, ImmutableSqlParameter> parameters, StatementType statementType = {%s}, IDatabricksSession session)",
+            sql, computeResource.toString(), statementType),
+        this.getClass().getName());
     long pollCount = 0;
     long executionStartTime = Instant.now().toEpochMilli();
     ExecuteStatementRequest request =
@@ -177,6 +187,11 @@ public class DatabricksSdkClient implements DatabricksClient {
       pollCount++;
     }
     long executionEndTime = Instant.now().toEpochMilli();
+    LoggingUtil.log(
+        LogLevel.DEBUG,
+        String.format(
+            "Executed sql [%s] with status [%s], total time taken [%s] and pollCount [%s]",
+            sql, responseState, (executionEndTime - executionStartTime), pollCount));
     if (responseState != StatementState.SUCCEEDED) {
       handleFailedExecution(response, statementId, sql);
     }
@@ -221,6 +236,11 @@ public class DatabricksSdkClient implements DatabricksClient {
 
   @Override
   public Collection<ExternalLink> getResultChunks(String statementId, long chunkIndex) {
+    LoggingUtil.log(
+        LogLevel.DEBUG,
+        String.format(
+            "public Optional<ExternalLink> getResultChunk(String statementId = {%s}, long chunkIndex = {%s})",
+            statementId, chunkIndex));
     long startTime = System.currentTimeMillis();
     GetStatementResultChunkNRequest request =
         new GetStatementResultChunkNRequest().setStatementId(statementId).setChunkIndex(chunkIndex);
@@ -281,18 +301,17 @@ public class DatabricksSdkClient implements DatabricksClient {
   private void handleFailedExecution(
       ExecuteStatementResponse response, String statementId, String statement) throws SQLException {
     StatementState statementState = response.getStatus().getState();
+    String errorMessage =
+        String.format(
+            "Statement execution failed %s -> %s\n%s: %s",
+            statementId, statement, statementState, response.getStatus().getError().getMessage());
+    LoggingUtil.log(LogLevel.DEBUG, errorMessage, this.getClass().getName());
     switch (statementState) {
       case FAILED:
       case CLOSED:
       case CANCELED:
         // TODO: Handle differently for failed, closed and cancelled with proper error codes
-        throw new DatabricksSQLException(
-            String.format(
-                "Statement execution failed %s -> %s\n%s: %s",
-                statementId,
-                statement,
-                statementState,
-                response.getStatus().getError().getMessage()));
+        throw new DatabricksSQLException(errorMessage);
       default:
         throw new IllegalStateException("Invalid state for error");
     }

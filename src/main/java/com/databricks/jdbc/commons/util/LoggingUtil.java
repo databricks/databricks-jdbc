@@ -23,7 +23,7 @@ import org.apache.logging.log4j.core.layout.PatternLayout;
 
 public class LoggingUtil {
   // TODO : make this thread safe.
-  private static final String LOGGER_NAME = "DATABRICKS-OSS-JDBC-LOGGER";
+  private static final String LOGGER_NAME = "databricks-jdbc";
   private static final PatternLayout LOG_LAYOUT =
       PatternLayout.newBuilder()
           .withPattern("%d{yyyy-MM-dd HH:mm:ss} %-5level %logger{36} - %msg%n")
@@ -117,6 +117,10 @@ public class LoggingUtil {
             .build();
     rollingFileAppender.start();
     loggerConfig.addAppender(rollingFileAppender, levelConverter(level), null);
+  }
+
+  public static void log(LogLevel level, String message, String classContext) {
+    log(level, String.format("%s- %s", classContext, message));
   }
 
   public static void log(LogLevel level, String message) {

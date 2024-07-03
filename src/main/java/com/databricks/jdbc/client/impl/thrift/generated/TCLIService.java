@@ -2598,10 +2598,15 @@ public class TCLIService {
               fcall.sendResponse(fb, result, org.apache.thrift.protocol.TMessageType.REPLY, seqid);
             } catch (org.apache.thrift.transport.TTransportException e) {
               LoggingUtil.log(
-                  LogLevel.ERROR, "TTransportException writing to internal frame buffer" + e);
+                  LogLevel.ERROR,
+                  "TTransportException writing to internal frame buffer" + e,
+                  this.getClass().getName());
               fb.close();
             } catch (java.lang.Exception e) {
-              LoggingUtil.log(LogLevel.ERROR, "Exception writing to internal frame buffer " + e);
+              LoggingUtil.log(
+                  LogLevel.ERROR,
+                  "Exception writing to internal frame buffer " + e,
+                  this.getClass().getName());
               onError(e);
             }
           }
@@ -2612,15 +2617,22 @@ public class TCLIService {
             org.apache.thrift.TSerializable msg;
             OpenSession_result result = new OpenSession_result();
             if (e instanceof org.apache.thrift.transport.TTransportException) {
-              LoggingUtil.log(LogLevel.ERROR, "TTransportException inside handler " + e);
+              LoggingUtil.log(
+                  LogLevel.ERROR,
+                  "TTransportException inside handler " + e,
+                  this.getClass().getName());
               fb.close();
               return;
             } else if (e instanceof org.apache.thrift.TApplicationException) {
-              LoggingUtil.log(LogLevel.ERROR, "TApplicationException inside handler " + e);
+              LoggingUtil.log(
+                  LogLevel.ERROR,
+                  "TApplicationException inside handler " + e,
+                  this.getClass().getName());
               msgType = org.apache.thrift.protocol.TMessageType.EXCEPTION;
               msg = (org.apache.thrift.TApplicationException) e;
             } else {
-              LoggingUtil.log(LogLevel.ERROR, "Exception inside handler " + e);
+              LoggingUtil.log(
+                  LogLevel.ERROR, "Exception inside handler " + e, this.getClass().getName());
               msgType = org.apache.thrift.protocol.TMessageType.EXCEPTION;
               msg =
                   new org.apache.thrift.TApplicationException(
@@ -2629,7 +2641,10 @@ public class TCLIService {
             try {
               fcall.sendResponse(fb, msg, msgType, seqid);
             } catch (java.lang.Exception ex) {
-              LoggingUtil.log(LogLevel.ERROR, "Exception writing to internal frame buffer " + ex);
+              LoggingUtil.log(
+                  LogLevel.ERROR,
+                  "Exception writing to internal frame buffer " + e,
+                  this.getClass().getName());
               fb.close();
             }
           }
@@ -2676,10 +2691,15 @@ public class TCLIService {
               fcall.sendResponse(fb, result, org.apache.thrift.protocol.TMessageType.REPLY, seqid);
             } catch (org.apache.thrift.transport.TTransportException e) {
               LoggingUtil.log(
-                  LogLevel.ERROR, "TTransportException writing to internal frame buffer " + e);
+                  LogLevel.ERROR,
+                  "TTransportException writing to internal frame buffer " + e,
+                  this.getClass().getName());
               fb.close();
             } catch (java.lang.Exception e) {
-              LoggingUtil.log(LogLevel.ERROR, "Exception writing to internal frame buffer " + e);
+              LoggingUtil.log(
+                  LogLevel.ERROR,
+                  "Exception writing to internal frame buffer " + e,
+                  this.getClass().getName());
               onError(e);
             }
           }
@@ -2690,15 +2710,22 @@ public class TCLIService {
             org.apache.thrift.TSerializable msg;
             CloseSession_result result = new CloseSession_result();
             if (e instanceof org.apache.thrift.transport.TTransportException) {
-              LoggingUtil.log(LogLevel.ERROR, "TTransportException inside handler " + e);
+              LoggingUtil.log(
+                  LogLevel.ERROR,
+                  "TTransportException inside handler " + e,
+                  this.getClass().getName());
               fb.close();
               return;
             } else if (e instanceof org.apache.thrift.TApplicationException) {
-              LoggingUtil.log(LogLevel.ERROR, "TApplicationException inside handler " + e);
+              LoggingUtil.log(
+                  LogLevel.ERROR,
+                  "TApplicationException inside handler " + e,
+                  this.getClass().getName());
               msgType = org.apache.thrift.protocol.TMessageType.EXCEPTION;
               msg = (org.apache.thrift.TApplicationException) e;
             } else {
-              LoggingUtil.log(LogLevel.ERROR, "Exception inside handler " + e);
+              LoggingUtil.log(
+                  LogLevel.ERROR, "Exception inside handler " + e, this.getClass().getName());
               msgType = org.apache.thrift.protocol.TMessageType.EXCEPTION;
               msg =
                   new org.apache.thrift.TApplicationException(
@@ -2707,7 +2734,10 @@ public class TCLIService {
             try {
               fcall.sendResponse(fb, msg, msgType, seqid);
             } catch (java.lang.Exception ex) {
-              LoggingUtil.log(LogLevel.ERROR, "Exception writing to internal frame buffer " + ex);
+              LoggingUtil.log(
+                  LogLevel.ERROR,
+                  "Exception writing to internal frame buffer " + e,
+                  this.getClass().getName());
               fb.close();
             }
           }
@@ -2754,10 +2784,15 @@ public class TCLIService {
               fcall.sendResponse(fb, result, org.apache.thrift.protocol.TMessageType.REPLY, seqid);
             } catch (org.apache.thrift.transport.TTransportException e) {
               LoggingUtil.log(
-                  LogLevel.ERROR, "TTransportException writing to internal frame buffer " + e);
+                  LogLevel.ERROR,
+                  "TTransportException writing to internal frame buffer " + e,
+                  this.getClass().getName());
               fb.close();
             } catch (java.lang.Exception e) {
-              LoggingUtil.log(LogLevel.ERROR, "Exception writing to internal frame buffer " + e);
+              LoggingUtil.log(
+                  LogLevel.ERROR,
+                  "Exception writing to internal frame buffer " + e,
+                  this.getClass().getName());
               onError(e);
             }
           }
@@ -2768,15 +2803,22 @@ public class TCLIService {
             org.apache.thrift.TSerializable msg;
             GetInfo_result result = new GetInfo_result();
             if (e instanceof org.apache.thrift.transport.TTransportException) {
-              LoggingUtil.log(LogLevel.ERROR, "TTransportException inside handler " + e);
+              LoggingUtil.log(
+                  LogLevel.ERROR,
+                  "TTransportException inside handler " + e,
+                  this.getClass().getName());
               fb.close();
               return;
             } else if (e instanceof org.apache.thrift.TApplicationException) {
-              LoggingUtil.log(LogLevel.ERROR, "TApplicationException inside handler " + e);
+              LoggingUtil.log(
+                  LogLevel.ERROR,
+                  "TApplicationException inside handler " + e,
+                  this.getClass().getName());
               msgType = org.apache.thrift.protocol.TMessageType.EXCEPTION;
               msg = (org.apache.thrift.TApplicationException) e;
             } else {
-              LoggingUtil.log(LogLevel.ERROR, "Exception inside handler " + e);
+              LoggingUtil.log(
+                  LogLevel.ERROR, "Exception inside handler " + e, this.getClass().getName());
               msgType = org.apache.thrift.protocol.TMessageType.EXCEPTION;
               msg =
                   new org.apache.thrift.TApplicationException(
@@ -2785,7 +2827,10 @@ public class TCLIService {
             try {
               fcall.sendResponse(fb, msg, msgType, seqid);
             } catch (java.lang.Exception ex) {
-              LoggingUtil.log(LogLevel.ERROR, "Exception writing to internal frame buffer " + ex);
+              LoggingUtil.log(
+                  LogLevel.ERROR,
+                  "Exception writing to internal frame buffer " + e,
+                  this.getClass().getName());
               fb.close();
             }
           }
@@ -2833,10 +2878,15 @@ public class TCLIService {
               fcall.sendResponse(fb, result, org.apache.thrift.protocol.TMessageType.REPLY, seqid);
             } catch (org.apache.thrift.transport.TTransportException e) {
               LoggingUtil.log(
-                  LogLevel.ERROR, "TTransportException writing to internal frame buffer " + e);
+                  LogLevel.ERROR,
+                  "TTransportException writing to internal frame buffer " + e,
+                  this.getClass().getName());
               fb.close();
             } catch (java.lang.Exception e) {
-              LoggingUtil.log(LogLevel.ERROR, "Exception writing to internal frame buffer " + e);
+              LoggingUtil.log(
+                  LogLevel.ERROR,
+                  "Exception writing to internal frame buffer " + e,
+                  this.getClass().getName());
               onError(e);
             }
           }
@@ -2847,15 +2897,22 @@ public class TCLIService {
             org.apache.thrift.TSerializable msg;
             ExecuteStatement_result result = new ExecuteStatement_result();
             if (e instanceof org.apache.thrift.transport.TTransportException) {
-              LoggingUtil.log(LogLevel.ERROR, "TTransportException inside handler " + e);
+              LoggingUtil.log(
+                  LogLevel.ERROR,
+                  "TTransportException inside handler " + e,
+                  this.getClass().getName());
               fb.close();
               return;
             } else if (e instanceof org.apache.thrift.TApplicationException) {
-              LoggingUtil.log(LogLevel.ERROR, "TApplicationException inside handler " + e);
+              LoggingUtil.log(
+                  LogLevel.ERROR,
+                  "TApplicationException inside handler " + e,
+                  this.getClass().getName());
               msgType = org.apache.thrift.protocol.TMessageType.EXCEPTION;
               msg = (org.apache.thrift.TApplicationException) e;
             } else {
-              LoggingUtil.log(LogLevel.ERROR, "Exception inside handler " + e);
+              LoggingUtil.log(
+                  LogLevel.ERROR, "Exception inside handler " + e, this.getClass().getName());
               msgType = org.apache.thrift.protocol.TMessageType.EXCEPTION;
               msg =
                   new org.apache.thrift.TApplicationException(
@@ -2864,7 +2921,10 @@ public class TCLIService {
             try {
               fcall.sendResponse(fb, msg, msgType, seqid);
             } catch (java.lang.Exception ex) {
-              LoggingUtil.log(LogLevel.ERROR, "Exception writing to internal frame buffer " + ex);
+              LoggingUtil.log(
+                  LogLevel.ERROR,
+                  "Exception writing to internal frame buffer " + e,
+                  this.getClass().getName());
               fb.close();
             }
           }
@@ -2911,10 +2971,15 @@ public class TCLIService {
               fcall.sendResponse(fb, result, org.apache.thrift.protocol.TMessageType.REPLY, seqid);
             } catch (org.apache.thrift.transport.TTransportException e) {
               LoggingUtil.log(
-                  LogLevel.ERROR, "TTransportException writing to internal frame buffer " + e);
+                  LogLevel.ERROR,
+                  "TTransportException writing to internal frame buffer " + e,
+                  this.getClass().getName());
               fb.close();
             } catch (java.lang.Exception e) {
-              LoggingUtil.log(LogLevel.ERROR, "Exception writing to internal frame buffer " + e);
+              LoggingUtil.log(
+                  LogLevel.ERROR,
+                  "Exception writing to internal frame buffer " + e,
+                  this.getClass().getName());
               onError(e);
             }
           }
@@ -2925,15 +2990,22 @@ public class TCLIService {
             org.apache.thrift.TSerializable msg;
             GetTypeInfo_result result = new GetTypeInfo_result();
             if (e instanceof org.apache.thrift.transport.TTransportException) {
-              LoggingUtil.log(LogLevel.ERROR, "TTransportException inside handler " + e);
+              LoggingUtil.log(
+                  LogLevel.ERROR,
+                  "TTransportException inside handler " + e,
+                  this.getClass().getName());
               fb.close();
               return;
             } else if (e instanceof org.apache.thrift.TApplicationException) {
-              LoggingUtil.log(LogLevel.ERROR, "TApplicationException inside handler " + e);
+              LoggingUtil.log(
+                  LogLevel.ERROR,
+                  "TApplicationException inside handler " + e,
+                  this.getClass().getName());
               msgType = org.apache.thrift.protocol.TMessageType.EXCEPTION;
               msg = (org.apache.thrift.TApplicationException) e;
             } else {
-              LoggingUtil.log(LogLevel.ERROR, "Exception inside handler " + e);
+              LoggingUtil.log(
+                  LogLevel.ERROR, "Exception inside handler " + e, this.getClass().getName());
               msgType = org.apache.thrift.protocol.TMessageType.EXCEPTION;
               msg =
                   new org.apache.thrift.TApplicationException(
@@ -2942,7 +3014,10 @@ public class TCLIService {
             try {
               fcall.sendResponse(fb, msg, msgType, seqid);
             } catch (java.lang.Exception ex) {
-              LoggingUtil.log(LogLevel.ERROR, "Exception writing to internal frame buffer " + ex);
+              LoggingUtil.log(
+                  LogLevel.ERROR,
+                  "Exception writing to internal frame buffer " + e,
+                  this.getClass().getName());
               fb.close();
             }
           }
@@ -2989,10 +3064,15 @@ public class TCLIService {
               fcall.sendResponse(fb, result, org.apache.thrift.protocol.TMessageType.REPLY, seqid);
             } catch (org.apache.thrift.transport.TTransportException e) {
               LoggingUtil.log(
-                  LogLevel.ERROR, "TTransportException writing to internal frame buffer " + e);
+                  LogLevel.ERROR,
+                  "TTransportException writing to internal frame buffer " + e,
+                  this.getClass().getName());
               fb.close();
             } catch (java.lang.Exception e) {
-              LoggingUtil.log(LogLevel.ERROR, "Exception writing to internal frame buffer " + e);
+              LoggingUtil.log(
+                  LogLevel.ERROR,
+                  "Exception writing to internal frame buffer " + e,
+                  this.getClass().getName());
               onError(e);
             }
           }
@@ -3003,15 +3083,22 @@ public class TCLIService {
             org.apache.thrift.TSerializable msg;
             GetCatalogs_result result = new GetCatalogs_result();
             if (e instanceof org.apache.thrift.transport.TTransportException) {
-              LoggingUtil.log(LogLevel.ERROR, "TTransportException inside handler " + e);
+              LoggingUtil.log(
+                  LogLevel.ERROR,
+                  "TTransportException inside handler " + e,
+                  this.getClass().getName());
               fb.close();
               return;
             } else if (e instanceof org.apache.thrift.TApplicationException) {
-              LoggingUtil.log(LogLevel.ERROR, "TApplicationException inside handler " + e);
+              LoggingUtil.log(
+                  LogLevel.ERROR,
+                  "TApplicationException inside handler " + e,
+                  this.getClass().getName());
               msgType = org.apache.thrift.protocol.TMessageType.EXCEPTION;
               msg = (org.apache.thrift.TApplicationException) e;
             } else {
-              LoggingUtil.log(LogLevel.ERROR, "Exception inside handler " + e);
+              LoggingUtil.log(
+                  LogLevel.ERROR, "Exception inside handler " + e, this.getClass().getName());
               msgType = org.apache.thrift.protocol.TMessageType.EXCEPTION;
               msg =
                   new org.apache.thrift.TApplicationException(
@@ -3020,7 +3107,10 @@ public class TCLIService {
             try {
               fcall.sendResponse(fb, msg, msgType, seqid);
             } catch (java.lang.Exception ex) {
-              LoggingUtil.log(LogLevel.ERROR, "Exception writing to internal frame buffer " + ex);
+              LoggingUtil.log(
+                  LogLevel.ERROR,
+                  "Exception writing to internal frame buffer " + e,
+                  this.getClass().getName());
               fb.close();
             }
           }
@@ -3067,10 +3157,15 @@ public class TCLIService {
               fcall.sendResponse(fb, result, org.apache.thrift.protocol.TMessageType.REPLY, seqid);
             } catch (org.apache.thrift.transport.TTransportException e) {
               LoggingUtil.log(
-                  LogLevel.ERROR, "TTransportException writing to internal frame buffer " + e);
+                  LogLevel.ERROR,
+                  "TTransportException writing to internal frame buffer " + e,
+                  this.getClass().getName());
               fb.close();
             } catch (java.lang.Exception e) {
-              LoggingUtil.log(LogLevel.ERROR, "Exception writing to internal frame buffer " + e);
+              LoggingUtil.log(
+                  LogLevel.ERROR,
+                  "Exception writing to internal frame buffer " + e,
+                  this.getClass().getName());
               onError(e);
             }
           }
@@ -3081,15 +3176,22 @@ public class TCLIService {
             org.apache.thrift.TSerializable msg;
             GetSchemas_result result = new GetSchemas_result();
             if (e instanceof org.apache.thrift.transport.TTransportException) {
-              LoggingUtil.log(LogLevel.ERROR, "TTransportException inside handler " + e);
+              LoggingUtil.log(
+                  LogLevel.ERROR,
+                  "TTransportException inside handler " + e,
+                  this.getClass().getName());
               fb.close();
               return;
             } else if (e instanceof org.apache.thrift.TApplicationException) {
-              LoggingUtil.log(LogLevel.ERROR, "TApplicationException inside handler " + e);
+              LoggingUtil.log(
+                  LogLevel.ERROR,
+                  "TApplicationException inside handler " + e,
+                  this.getClass().getName());
               msgType = org.apache.thrift.protocol.TMessageType.EXCEPTION;
               msg = (org.apache.thrift.TApplicationException) e;
             } else {
-              LoggingUtil.log(LogLevel.ERROR, "Exception inside handler " + e);
+              LoggingUtil.log(
+                  LogLevel.ERROR, "Exception inside handler " + e, this.getClass().getName());
               msgType = org.apache.thrift.protocol.TMessageType.EXCEPTION;
               msg =
                   new org.apache.thrift.TApplicationException(
@@ -3098,7 +3200,10 @@ public class TCLIService {
             try {
               fcall.sendResponse(fb, msg, msgType, seqid);
             } catch (java.lang.Exception ex) {
-              LoggingUtil.log(LogLevel.ERROR, "Exception writing to internal frame buffer " + ex);
+              LoggingUtil.log(
+                  LogLevel.ERROR,
+                  "Exception writing to internal frame buffer " + e,
+                  this.getClass().getName());
               fb.close();
             }
           }
@@ -3145,10 +3250,15 @@ public class TCLIService {
               fcall.sendResponse(fb, result, org.apache.thrift.protocol.TMessageType.REPLY, seqid);
             } catch (org.apache.thrift.transport.TTransportException e) {
               LoggingUtil.log(
-                  LogLevel.ERROR, "TTransportException writing to internal frame buffer " + e);
+                  LogLevel.ERROR,
+                  "TTransportException writing to internal frame buffer " + e,
+                  this.getClass().getName());
               fb.close();
             } catch (java.lang.Exception e) {
-              LoggingUtil.log(LogLevel.ERROR, "Exception writing to internal frame buffer " + e);
+              LoggingUtil.log(
+                  LogLevel.ERROR,
+                  "Exception writing to internal frame buffer " + e,
+                  this.getClass().getName());
               onError(e);
             }
           }
@@ -3159,15 +3269,22 @@ public class TCLIService {
             org.apache.thrift.TSerializable msg;
             GetTables_result result = new GetTables_result();
             if (e instanceof org.apache.thrift.transport.TTransportException) {
-              LoggingUtil.log(LogLevel.ERROR, "TTransportException inside handler " + e);
+              LoggingUtil.log(
+                  LogLevel.ERROR,
+                  "TTransportException inside handler " + e,
+                  this.getClass().getName());
               fb.close();
               return;
             } else if (e instanceof org.apache.thrift.TApplicationException) {
-              LoggingUtil.log(LogLevel.ERROR, "TApplicationException inside handler " + e);
+              LoggingUtil.log(
+                  LogLevel.ERROR,
+                  "TApplicationException inside handler " + e,
+                  this.getClass().getName());
               msgType = org.apache.thrift.protocol.TMessageType.EXCEPTION;
               msg = (org.apache.thrift.TApplicationException) e;
             } else {
-              LoggingUtil.log(LogLevel.ERROR, "Exception inside handler " + e);
+              LoggingUtil.log(
+                  LogLevel.ERROR, "Exception inside handler " + e, this.getClass().getName());
               msgType = org.apache.thrift.protocol.TMessageType.EXCEPTION;
               msg =
                   new org.apache.thrift.TApplicationException(
@@ -3176,7 +3293,10 @@ public class TCLIService {
             try {
               fcall.sendResponse(fb, msg, msgType, seqid);
             } catch (java.lang.Exception ex) {
-              LoggingUtil.log(LogLevel.ERROR, "Exception writing to internal frame buffer " + ex);
+              LoggingUtil.log(
+                  LogLevel.ERROR,
+                  "Exception writing to internal frame buffer " + e,
+                  this.getClass().getName());
               fb.close();
             }
           }
@@ -3223,10 +3343,15 @@ public class TCLIService {
               fcall.sendResponse(fb, result, org.apache.thrift.protocol.TMessageType.REPLY, seqid);
             } catch (org.apache.thrift.transport.TTransportException e) {
               LoggingUtil.log(
-                  LogLevel.ERROR, "TTransportException writing to internal frame buffer " + e);
+                  LogLevel.ERROR,
+                  "TTransportException writing to internal frame buffer " + e,
+                  this.getClass().getName());
               fb.close();
             } catch (java.lang.Exception e) {
-              LoggingUtil.log(LogLevel.ERROR, "Exception writing to internal frame buffer " + e);
+              LoggingUtil.log(
+                  LogLevel.ERROR,
+                  "Exception writing to internal frame buffer " + e,
+                  this.getClass().getName());
               onError(e);
             }
           }
@@ -3237,15 +3362,22 @@ public class TCLIService {
             org.apache.thrift.TSerializable msg;
             GetTableTypes_result result = new GetTableTypes_result();
             if (e instanceof org.apache.thrift.transport.TTransportException) {
-              LoggingUtil.log(LogLevel.ERROR, "TTransportException inside handler " + e);
+              LoggingUtil.log(
+                  LogLevel.ERROR,
+                  "TTransportException inside handler " + e,
+                  this.getClass().getName());
               fb.close();
               return;
             } else if (e instanceof org.apache.thrift.TApplicationException) {
-              LoggingUtil.log(LogLevel.ERROR, "TApplicationException inside handler " + e);
+              LoggingUtil.log(
+                  LogLevel.ERROR,
+                  "TApplicationException inside handler " + e,
+                  this.getClass().getName());
               msgType = org.apache.thrift.protocol.TMessageType.EXCEPTION;
               msg = (org.apache.thrift.TApplicationException) e;
             } else {
-              LoggingUtil.log(LogLevel.ERROR, "Exception inside handler " + e);
+              LoggingUtil.log(
+                  LogLevel.ERROR, "Exception inside handler " + e, this.getClass().getName());
               msgType = org.apache.thrift.protocol.TMessageType.EXCEPTION;
               msg =
                   new org.apache.thrift.TApplicationException(
@@ -3254,7 +3386,10 @@ public class TCLIService {
             try {
               fcall.sendResponse(fb, msg, msgType, seqid);
             } catch (java.lang.Exception ex) {
-              LoggingUtil.log(LogLevel.ERROR, "Exception writing to internal frame buffer " + ex);
+              LoggingUtil.log(
+                  LogLevel.ERROR,
+                  "Exception writing to internal frame buffer " + e,
+                  this.getClass().getName());
               fb.close();
             }
           }
@@ -3301,10 +3436,15 @@ public class TCLIService {
               fcall.sendResponse(fb, result, org.apache.thrift.protocol.TMessageType.REPLY, seqid);
             } catch (org.apache.thrift.transport.TTransportException e) {
               LoggingUtil.log(
-                  LogLevel.ERROR, "TTransportException writing to internal frame buffer " + e);
+                  LogLevel.ERROR,
+                  "TTransportException writing to internal frame buffer " + e,
+                  this.getClass().getName());
               fb.close();
             } catch (java.lang.Exception e) {
-              LoggingUtil.log(LogLevel.ERROR, "Exception writing to internal frame buffer " + e);
+              LoggingUtil.log(
+                  LogLevel.ERROR,
+                  "Exception writing to internal frame buffer " + e,
+                  this.getClass().getName());
               onError(e);
             }
           }
@@ -3315,15 +3455,22 @@ public class TCLIService {
             org.apache.thrift.TSerializable msg;
             GetColumns_result result = new GetColumns_result();
             if (e instanceof org.apache.thrift.transport.TTransportException) {
-              LoggingUtil.log(LogLevel.ERROR, "TTransportException inside handler " + e);
+              LoggingUtil.log(
+                  LogLevel.ERROR,
+                  "TTransportException inside handler " + e,
+                  this.getClass().getName());
               fb.close();
               return;
             } else if (e instanceof org.apache.thrift.TApplicationException) {
-              LoggingUtil.log(LogLevel.ERROR, "TApplicationException inside handler " + e);
+              LoggingUtil.log(
+                  LogLevel.ERROR,
+                  "TApplicationException inside handler " + e,
+                  this.getClass().getName());
               msgType = org.apache.thrift.protocol.TMessageType.EXCEPTION;
               msg = (org.apache.thrift.TApplicationException) e;
             } else {
-              LoggingUtil.log(LogLevel.ERROR, "Exception inside handler " + e);
+              LoggingUtil.log(
+                  LogLevel.ERROR, "Exception inside handler " + e, this.getClass().getName());
               msgType = org.apache.thrift.protocol.TMessageType.EXCEPTION;
               msg =
                   new org.apache.thrift.TApplicationException(
@@ -3332,7 +3479,10 @@ public class TCLIService {
             try {
               fcall.sendResponse(fb, msg, msgType, seqid);
             } catch (java.lang.Exception ex) {
-              LoggingUtil.log(LogLevel.ERROR, "Exception writing to internal frame buffer " + ex);
+              LoggingUtil.log(
+                  LogLevel.ERROR,
+                  "Exception writing to internal frame buffer " + e,
+                  this.getClass().getName());
               fb.close();
             }
           }
@@ -3379,10 +3529,15 @@ public class TCLIService {
               fcall.sendResponse(fb, result, org.apache.thrift.protocol.TMessageType.REPLY, seqid);
             } catch (org.apache.thrift.transport.TTransportException e) {
               LoggingUtil.log(
-                  LogLevel.ERROR, "TTransportException writing to internal frame buffer " + e);
+                  LogLevel.ERROR,
+                  "TTransportException writing to internal frame buffer " + e,
+                  this.getClass().getName());
               fb.close();
             } catch (java.lang.Exception e) {
-              LoggingUtil.log(LogLevel.ERROR, "Exception writing to internal frame buffer " + e);
+              LoggingUtil.log(
+                  LogLevel.ERROR,
+                  "Exception writing to internal frame buffer " + e,
+                  this.getClass().getName());
               onError(e);
             }
           }
@@ -3393,15 +3548,22 @@ public class TCLIService {
             org.apache.thrift.TSerializable msg;
             GetFunctions_result result = new GetFunctions_result();
             if (e instanceof org.apache.thrift.transport.TTransportException) {
-              LoggingUtil.log(LogLevel.ERROR, "TTransportException inside handler " + e);
+              LoggingUtil.log(
+                  LogLevel.ERROR,
+                  "TTransportException inside handler " + e,
+                  this.getClass().getName());
               fb.close();
               return;
             } else if (e instanceof org.apache.thrift.TApplicationException) {
-              LoggingUtil.log(LogLevel.ERROR, "TApplicationException inside handler " + e);
+              LoggingUtil.log(
+                  LogLevel.ERROR,
+                  "TApplicationException inside handler " + e,
+                  this.getClass().getName());
               msgType = org.apache.thrift.protocol.TMessageType.EXCEPTION;
               msg = (org.apache.thrift.TApplicationException) e;
             } else {
-              LoggingUtil.log(LogLevel.ERROR, "Exception inside handler " + e);
+              LoggingUtil.log(
+                  LogLevel.ERROR, "Exception inside handler " + e, this.getClass().getName());
               msgType = org.apache.thrift.protocol.TMessageType.EXCEPTION;
               msg =
                   new org.apache.thrift.TApplicationException(
@@ -3410,7 +3572,10 @@ public class TCLIService {
             try {
               fcall.sendResponse(fb, msg, msgType, seqid);
             } catch (java.lang.Exception ex) {
-              LoggingUtil.log(LogLevel.ERROR, "Exception writing to internal frame buffer " + ex);
+              LoggingUtil.log(
+                  LogLevel.ERROR,
+                  "Exception writing to internal frame buffer " + e,
+                  this.getClass().getName());
               fb.close();
             }
           }
@@ -3458,10 +3623,15 @@ public class TCLIService {
               fcall.sendResponse(fb, result, org.apache.thrift.protocol.TMessageType.REPLY, seqid);
             } catch (org.apache.thrift.transport.TTransportException e) {
               LoggingUtil.log(
-                  LogLevel.ERROR, "TTransportException writing to internal frame buffer " + e);
+                  LogLevel.ERROR,
+                  "TTransportException writing to internal frame buffer " + e,
+                  this.getClass().getName());
               fb.close();
             } catch (java.lang.Exception e) {
-              LoggingUtil.log(LogLevel.ERROR, "Exception writing to internal frame buffer " + e);
+              LoggingUtil.log(
+                  LogLevel.ERROR,
+                  "Exception writing to internal frame buffer " + e,
+                  this.getClass().getName());
               onError(e);
             }
           }
@@ -3472,15 +3642,22 @@ public class TCLIService {
             org.apache.thrift.TSerializable msg;
             GetPrimaryKeys_result result = new GetPrimaryKeys_result();
             if (e instanceof org.apache.thrift.transport.TTransportException) {
-              LoggingUtil.log(LogLevel.ERROR, "TTransportException inside handler " + e);
+              LoggingUtil.log(
+                  LogLevel.ERROR,
+                  "TTransportException inside handler " + e,
+                  this.getClass().getName());
               fb.close();
               return;
             } else if (e instanceof org.apache.thrift.TApplicationException) {
-              LoggingUtil.log(LogLevel.ERROR, "TApplicationException inside handler " + e);
+              LoggingUtil.log(
+                  LogLevel.ERROR,
+                  "TApplicationException inside handler " + e,
+                  this.getClass().getName());
               msgType = org.apache.thrift.protocol.TMessageType.EXCEPTION;
               msg = (org.apache.thrift.TApplicationException) e;
             } else {
-              LoggingUtil.log(LogLevel.ERROR, "Exception inside handler " + e);
+              LoggingUtil.log(
+                  LogLevel.ERROR, "Exception inside handler " + e, this.getClass().getName());
               msgType = org.apache.thrift.protocol.TMessageType.EXCEPTION;
               msg =
                   new org.apache.thrift.TApplicationException(
@@ -3489,7 +3666,10 @@ public class TCLIService {
             try {
               fcall.sendResponse(fb, msg, msgType, seqid);
             } catch (java.lang.Exception ex) {
-              LoggingUtil.log(LogLevel.ERROR, "Exception writing to internal frame buffer " + ex);
+              LoggingUtil.log(
+                  LogLevel.ERROR,
+                  "Exception writing to internal frame buffer " + e,
+                  this.getClass().getName());
               fb.close();
             }
           }
@@ -3537,10 +3717,15 @@ public class TCLIService {
               fcall.sendResponse(fb, result, org.apache.thrift.protocol.TMessageType.REPLY, seqid);
             } catch (org.apache.thrift.transport.TTransportException e) {
               LoggingUtil.log(
-                  LogLevel.ERROR, "TTransportException writing to internal frame buffer " + e);
+                  LogLevel.ERROR,
+                  "TTransportException writing to internal frame buffer " + e,
+                  this.getClass().getName());
               fb.close();
             } catch (java.lang.Exception e) {
-              LoggingUtil.log(LogLevel.ERROR, "Exception writing to internal frame buffer " + e);
+              LoggingUtil.log(
+                  LogLevel.ERROR,
+                  "Exception writing to internal frame buffer " + e,
+                  this.getClass().getName());
               onError(e);
             }
           }
@@ -3551,15 +3736,22 @@ public class TCLIService {
             org.apache.thrift.TSerializable msg;
             GetCrossReference_result result = new GetCrossReference_result();
             if (e instanceof org.apache.thrift.transport.TTransportException) {
-              LoggingUtil.log(LogLevel.ERROR, "TTransportException inside handler " + e);
+              LoggingUtil.log(
+                  LogLevel.ERROR,
+                  "TTransportException inside handler " + e,
+                  this.getClass().getName());
               fb.close();
               return;
             } else if (e instanceof org.apache.thrift.TApplicationException) {
-              LoggingUtil.log(LogLevel.ERROR, "TApplicationException inside handler " + e);
+              LoggingUtil.log(
+                  LogLevel.ERROR,
+                  "TApplicationException inside handler " + e,
+                  this.getClass().getName());
               msgType = org.apache.thrift.protocol.TMessageType.EXCEPTION;
               msg = (org.apache.thrift.TApplicationException) e;
             } else {
-              LoggingUtil.log(LogLevel.ERROR, "Exception inside handler " + e);
+              LoggingUtil.log(
+                  LogLevel.ERROR, "Exception inside handler " + e, this.getClass().getName());
               msgType = org.apache.thrift.protocol.TMessageType.EXCEPTION;
               msg =
                   new org.apache.thrift.TApplicationException(
@@ -3568,7 +3760,10 @@ public class TCLIService {
             try {
               fcall.sendResponse(fb, msg, msgType, seqid);
             } catch (java.lang.Exception ex) {
-              LoggingUtil.log(LogLevel.ERROR, "Exception writing to internal frame buffer " + ex);
+              LoggingUtil.log(
+                  LogLevel.ERROR,
+                  "Exception writing to internal frame buffer " + e,
+                  this.getClass().getName());
               fb.close();
             }
           }
@@ -3616,10 +3811,15 @@ public class TCLIService {
               fcall.sendResponse(fb, result, org.apache.thrift.protocol.TMessageType.REPLY, seqid);
             } catch (org.apache.thrift.transport.TTransportException e) {
               LoggingUtil.log(
-                  LogLevel.ERROR, "TTransportException writing to internal frame buffer " + e);
+                  LogLevel.ERROR,
+                  "TTransportException writing to internal frame buffer " + e,
+                  this.getClass().getName());
               fb.close();
             } catch (java.lang.Exception e) {
-              LoggingUtil.log(LogLevel.ERROR, "Exception writing to internal frame buffer " + e);
+              LoggingUtil.log(
+                  LogLevel.ERROR,
+                  "Exception writing to internal frame buffer " + e,
+                  this.getClass().getName());
               onError(e);
             }
           }
@@ -3630,15 +3830,22 @@ public class TCLIService {
             org.apache.thrift.TSerializable msg;
             GetOperationStatus_result result = new GetOperationStatus_result();
             if (e instanceof org.apache.thrift.transport.TTransportException) {
-              LoggingUtil.log(LogLevel.ERROR, "TTransportException inside handler " + e);
+              LoggingUtil.log(
+                  LogLevel.ERROR,
+                  "TTransportException inside handler " + e,
+                  this.getClass().getName());
               fb.close();
               return;
             } else if (e instanceof org.apache.thrift.TApplicationException) {
-              LoggingUtil.log(LogLevel.ERROR, "TApplicationException inside handler " + e);
+              LoggingUtil.log(
+                  LogLevel.ERROR,
+                  "TApplicationException inside handler " + e,
+                  this.getClass().getName());
               msgType = org.apache.thrift.protocol.TMessageType.EXCEPTION;
               msg = (org.apache.thrift.TApplicationException) e;
             } else {
-              LoggingUtil.log(LogLevel.ERROR, "Exception inside handler " + e);
+              LoggingUtil.log(
+                  LogLevel.ERROR, "Exception inside handler " + e, this.getClass().getName());
               msgType = org.apache.thrift.protocol.TMessageType.EXCEPTION;
               msg =
                   new org.apache.thrift.TApplicationException(
@@ -3647,7 +3854,10 @@ public class TCLIService {
             try {
               fcall.sendResponse(fb, msg, msgType, seqid);
             } catch (java.lang.Exception ex) {
-              LoggingUtil.log(LogLevel.ERROR, "Exception writing to internal frame buffer " + ex);
+              LoggingUtil.log(
+                  LogLevel.ERROR,
+                  "Exception writing to internal frame buffer " + e,
+                  this.getClass().getName());
               fb.close();
             }
           }
@@ -3695,10 +3905,15 @@ public class TCLIService {
               fcall.sendResponse(fb, result, org.apache.thrift.protocol.TMessageType.REPLY, seqid);
             } catch (org.apache.thrift.transport.TTransportException e) {
               LoggingUtil.log(
-                  LogLevel.ERROR, "TTransportException writing to internal frame buffer " + e);
+                  LogLevel.ERROR,
+                  "TTransportException writing to internal frame buffer " + e,
+                  this.getClass().getName());
               fb.close();
             } catch (java.lang.Exception e) {
-              LoggingUtil.log(LogLevel.ERROR, "Exception writing to internal frame buffer " + e);
+              LoggingUtil.log(
+                  LogLevel.ERROR,
+                  "Exception writing to internal frame buffer " + e,
+                  this.getClass().getName());
               onError(e);
             }
           }
@@ -3709,15 +3924,22 @@ public class TCLIService {
             org.apache.thrift.TSerializable msg;
             CancelOperation_result result = new CancelOperation_result();
             if (e instanceof org.apache.thrift.transport.TTransportException) {
-              LoggingUtil.log(LogLevel.ERROR, "TTransportException inside handler " + e);
+              LoggingUtil.log(
+                  LogLevel.ERROR,
+                  "TTransportException inside handler " + e,
+                  this.getClass().getName());
               fb.close();
               return;
             } else if (e instanceof org.apache.thrift.TApplicationException) {
-              LoggingUtil.log(LogLevel.ERROR, "TApplicationException inside handler " + e);
+              LoggingUtil.log(
+                  LogLevel.ERROR,
+                  "TApplicationException inside handler " + e,
+                  this.getClass().getName());
               msgType = org.apache.thrift.protocol.TMessageType.EXCEPTION;
               msg = (org.apache.thrift.TApplicationException) e;
             } else {
-              LoggingUtil.log(LogLevel.ERROR, "Exception inside handler " + e);
+              LoggingUtil.log(
+                  LogLevel.ERROR, "Exception inside handler " + e, this.getClass().getName());
               msgType = org.apache.thrift.protocol.TMessageType.EXCEPTION;
               msg =
                   new org.apache.thrift.TApplicationException(
@@ -3726,7 +3948,10 @@ public class TCLIService {
             try {
               fcall.sendResponse(fb, msg, msgType, seqid);
             } catch (java.lang.Exception ex) {
-              LoggingUtil.log(LogLevel.ERROR, "Exception writing to internal frame buffer " + ex);
+              LoggingUtil.log(
+                  LogLevel.ERROR,
+                  "Exception writing to internal frame buffer " + e,
+                  this.getClass().getName());
               fb.close();
             }
           }
@@ -3774,10 +3999,15 @@ public class TCLIService {
               fcall.sendResponse(fb, result, org.apache.thrift.protocol.TMessageType.REPLY, seqid);
             } catch (org.apache.thrift.transport.TTransportException e) {
               LoggingUtil.log(
-                  LogLevel.ERROR, "TTransportException writing to internal frame buffer " + e);
+                  LogLevel.ERROR,
+                  "TTransportException writing to internal frame buffer " + e,
+                  this.getClass().getName());
               fb.close();
             } catch (java.lang.Exception e) {
-              LoggingUtil.log(LogLevel.ERROR, "Exception writing to internal frame buffer " + e);
+              LoggingUtil.log(
+                  LogLevel.ERROR,
+                  "Exception writing to internal frame buffer " + e,
+                  this.getClass().getName());
               onError(e);
             }
           }
@@ -3788,15 +4018,22 @@ public class TCLIService {
             org.apache.thrift.TSerializable msg;
             CloseOperation_result result = new CloseOperation_result();
             if (e instanceof org.apache.thrift.transport.TTransportException) {
-              LoggingUtil.log(LogLevel.ERROR, "TTransportException inside handler " + e);
+              LoggingUtil.log(
+                  LogLevel.ERROR,
+                  "TTransportException inside handler " + e,
+                  this.getClass().getName());
               fb.close();
               return;
             } else if (e instanceof org.apache.thrift.TApplicationException) {
-              LoggingUtil.log(LogLevel.ERROR, "TApplicationException inside handler " + e);
+              LoggingUtil.log(
+                  LogLevel.ERROR,
+                  "TApplicationException inside handler " + e,
+                  this.getClass().getName());
               msgType = org.apache.thrift.protocol.TMessageType.EXCEPTION;
               msg = (org.apache.thrift.TApplicationException) e;
             } else {
-              LoggingUtil.log(LogLevel.ERROR, "Exception inside handler " + e);
+              LoggingUtil.log(
+                  LogLevel.ERROR, "Exception inside handler " + e, this.getClass().getName());
               msgType = org.apache.thrift.protocol.TMessageType.EXCEPTION;
               msg =
                   new org.apache.thrift.TApplicationException(
@@ -3805,7 +4042,10 @@ public class TCLIService {
             try {
               fcall.sendResponse(fb, msg, msgType, seqid);
             } catch (java.lang.Exception ex) {
-              LoggingUtil.log(LogLevel.ERROR, "Exception writing to internal frame buffer " + ex);
+              LoggingUtil.log(
+                  LogLevel.ERROR,
+                  "Exception writing to internal frame buffer " + e,
+                  this.getClass().getName());
               fb.close();
             }
           }
@@ -3854,10 +4094,15 @@ public class TCLIService {
               fcall.sendResponse(fb, result, org.apache.thrift.protocol.TMessageType.REPLY, seqid);
             } catch (org.apache.thrift.transport.TTransportException e) {
               LoggingUtil.log(
-                  LogLevel.ERROR, "TTransportException writing to internal frame buffer " + e);
+                  LogLevel.ERROR,
+                  "TTransportException writing to internal frame buffer " + e,
+                  this.getClass().getName());
               fb.close();
             } catch (java.lang.Exception e) {
-              LoggingUtil.log(LogLevel.ERROR, "Exception writing to internal frame buffer " + e);
+              LoggingUtil.log(
+                  LogLevel.ERROR,
+                  "Exception writing to internal frame buffer " + e,
+                  this.getClass().getName());
               onError(e);
             }
           }
@@ -3868,15 +4113,22 @@ public class TCLIService {
             org.apache.thrift.TSerializable msg;
             GetResultSetMetadata_result result = new GetResultSetMetadata_result();
             if (e instanceof org.apache.thrift.transport.TTransportException) {
-              LoggingUtil.log(LogLevel.ERROR, "TTransportException inside handler " + e);
+              LoggingUtil.log(
+                  LogLevel.ERROR,
+                  "TTransportException inside handler " + e,
+                  this.getClass().getName());
               fb.close();
               return;
             } else if (e instanceof org.apache.thrift.TApplicationException) {
-              LoggingUtil.log(LogLevel.ERROR, "TApplicationException inside handler " + e);
+              LoggingUtil.log(
+                  LogLevel.ERROR,
+                  "TApplicationException inside handler " + e,
+                  this.getClass().getName());
               msgType = org.apache.thrift.protocol.TMessageType.EXCEPTION;
               msg = (org.apache.thrift.TApplicationException) e;
             } else {
-              LoggingUtil.log(LogLevel.ERROR, "Exception inside handler " + e);
+              LoggingUtil.log(
+                  LogLevel.ERROR, "Exception inside handler " + e, this.getClass().getName());
               msgType = org.apache.thrift.protocol.TMessageType.EXCEPTION;
               msg =
                   new org.apache.thrift.TApplicationException(
@@ -3885,7 +4137,10 @@ public class TCLIService {
             try {
               fcall.sendResponse(fb, msg, msgType, seqid);
             } catch (java.lang.Exception ex) {
-              LoggingUtil.log(LogLevel.ERROR, "Exception writing to internal frame buffer " + ex);
+              LoggingUtil.log(
+                  LogLevel.ERROR,
+                  "Exception writing to internal frame buffer " + e,
+                  this.getClass().getName());
               fb.close();
             }
           }
@@ -3932,10 +4187,15 @@ public class TCLIService {
               fcall.sendResponse(fb, result, org.apache.thrift.protocol.TMessageType.REPLY, seqid);
             } catch (org.apache.thrift.transport.TTransportException e) {
               LoggingUtil.log(
-                  LogLevel.ERROR, "TTransportException writing to internal frame buffer " + e);
+                  LogLevel.ERROR,
+                  "TTransportException writing to internal frame buffer " + e,
+                  this.getClass().getName());
               fb.close();
             } catch (java.lang.Exception e) {
-              LoggingUtil.log(LogLevel.ERROR, "Exception writing to internal frame buffer " + e);
+              LoggingUtil.log(
+                  LogLevel.ERROR,
+                  "Exception writing to internal frame buffer " + e,
+                  this.getClass().getName());
               onError(e);
             }
           }
@@ -3946,15 +4206,22 @@ public class TCLIService {
             org.apache.thrift.TSerializable msg;
             FetchResults_result result = new FetchResults_result();
             if (e instanceof org.apache.thrift.transport.TTransportException) {
-              LoggingUtil.log(LogLevel.ERROR, "TTransportException inside handler " + e);
+              LoggingUtil.log(
+                  LogLevel.ERROR,
+                  "TTransportException inside handler " + e,
+                  this.getClass().getName());
               fb.close();
               return;
             } else if (e instanceof org.apache.thrift.TApplicationException) {
-              LoggingUtil.log(LogLevel.ERROR, "TApplicationException inside handler " + e);
+              LoggingUtil.log(
+                  LogLevel.ERROR,
+                  "TApplicationException inside handler " + e,
+                  this.getClass().getName());
               msgType = org.apache.thrift.protocol.TMessageType.EXCEPTION;
               msg = (org.apache.thrift.TApplicationException) e;
             } else {
-              LoggingUtil.log(LogLevel.ERROR, "Exception inside handler " + e);
+              LoggingUtil.log(
+                  LogLevel.ERROR, "Exception inside handler " + e, this.getClass().getName());
               msgType = org.apache.thrift.protocol.TMessageType.EXCEPTION;
               msg =
                   new org.apache.thrift.TApplicationException(
@@ -3963,7 +4230,10 @@ public class TCLIService {
             try {
               fcall.sendResponse(fb, msg, msgType, seqid);
             } catch (java.lang.Exception ex) {
-              LoggingUtil.log(LogLevel.ERROR, "Exception writing to internal frame buffer " + ex);
+              LoggingUtil.log(
+                  LogLevel.ERROR,
+                  "Exception writing to internal frame buffer " + e,
+                  this.getClass().getName());
               fb.close();
             }
           }
@@ -4011,10 +4281,15 @@ public class TCLIService {
               fcall.sendResponse(fb, result, org.apache.thrift.protocol.TMessageType.REPLY, seqid);
             } catch (org.apache.thrift.transport.TTransportException e) {
               LoggingUtil.log(
-                  LogLevel.ERROR, "TTransportException writing to internal frame buffer " + e);
+                  LogLevel.ERROR,
+                  "TTransportException writing to internal frame buffer " + e,
+                  this.getClass().getName());
               fb.close();
             } catch (java.lang.Exception e) {
-              LoggingUtil.log(LogLevel.ERROR, "Exception writing to internal frame buffer " + e);
+              LoggingUtil.log(
+                  LogLevel.ERROR,
+                  "Exception writing to internal frame buffer " + e,
+                  this.getClass().getName());
               onError(e);
             }
           }
@@ -4025,15 +4300,22 @@ public class TCLIService {
             org.apache.thrift.TSerializable msg;
             GetDelegationToken_result result = new GetDelegationToken_result();
             if (e instanceof org.apache.thrift.transport.TTransportException) {
-              LoggingUtil.log(LogLevel.ERROR, "TTransportException inside handler " + e);
+              LoggingUtil.log(
+                  LogLevel.ERROR,
+                  "TTransportException inside handler " + e,
+                  this.getClass().getName());
               fb.close();
               return;
             } else if (e instanceof org.apache.thrift.TApplicationException) {
-              LoggingUtil.log(LogLevel.ERROR, "TApplicationException inside handler " + e);
+              LoggingUtil.log(
+                  LogLevel.ERROR,
+                  "TApplicationException inside handler " + e,
+                  this.getClass().getName());
               msgType = org.apache.thrift.protocol.TMessageType.EXCEPTION;
               msg = (org.apache.thrift.TApplicationException) e;
             } else {
-              LoggingUtil.log(LogLevel.ERROR, "Exception inside handler " + e);
+              LoggingUtil.log(
+                  LogLevel.ERROR, "Exception inside handler " + e, this.getClass().getName());
               msgType = org.apache.thrift.protocol.TMessageType.EXCEPTION;
               msg =
                   new org.apache.thrift.TApplicationException(
@@ -4042,7 +4324,10 @@ public class TCLIService {
             try {
               fcall.sendResponse(fb, msg, msgType, seqid);
             } catch (java.lang.Exception ex) {
-              LoggingUtil.log(LogLevel.ERROR, "Exception writing to internal frame buffer " + ex);
+              LoggingUtil.log(
+                  LogLevel.ERROR,
+                  "Exception writing to internal frame buffer " + e,
+                  this.getClass().getName());
               fb.close();
             }
           }
@@ -4091,10 +4376,15 @@ public class TCLIService {
               fcall.sendResponse(fb, result, org.apache.thrift.protocol.TMessageType.REPLY, seqid);
             } catch (org.apache.thrift.transport.TTransportException e) {
               LoggingUtil.log(
-                  LogLevel.ERROR, "TTransportException writing to internal frame buffer " + e);
+                  LogLevel.ERROR,
+                  "TTransportException writing to internal frame buffer " + e,
+                  this.getClass().getName());
               fb.close();
             } catch (java.lang.Exception e) {
-              LoggingUtil.log(LogLevel.ERROR, "Exception writing to internal frame buffer " + e);
+              LoggingUtil.log(
+                  LogLevel.ERROR,
+                  "Exception writing to internal frame buffer " + e,
+                  this.getClass().getName());
               onError(e);
             }
           }
@@ -4105,15 +4395,22 @@ public class TCLIService {
             org.apache.thrift.TSerializable msg;
             CancelDelegationToken_result result = new CancelDelegationToken_result();
             if (e instanceof org.apache.thrift.transport.TTransportException) {
-              LoggingUtil.log(LogLevel.ERROR, "TTransportException inside handler " + e);
+              LoggingUtil.log(
+                  LogLevel.ERROR,
+                  "TTransportException inside handler " + e,
+                  this.getClass().getName());
               fb.close();
               return;
             } else if (e instanceof org.apache.thrift.TApplicationException) {
-              LoggingUtil.log(LogLevel.ERROR, "TApplicationException inside handler " + e);
+              LoggingUtil.log(
+                  LogLevel.ERROR,
+                  "TApplicationException inside handler " + e,
+                  this.getClass().getName());
               msgType = org.apache.thrift.protocol.TMessageType.EXCEPTION;
               msg = (org.apache.thrift.TApplicationException) e;
             } else {
-              LoggingUtil.log(LogLevel.ERROR, "Exception inside handler " + e);
+              LoggingUtil.log(
+                  LogLevel.ERROR, "Exception inside handler " + e, this.getClass().getName());
               msgType = org.apache.thrift.protocol.TMessageType.EXCEPTION;
               msg =
                   new org.apache.thrift.TApplicationException(
@@ -4122,7 +4419,10 @@ public class TCLIService {
             try {
               fcall.sendResponse(fb, msg, msgType, seqid);
             } catch (java.lang.Exception ex) {
-              LoggingUtil.log(LogLevel.ERROR, "Exception writing to internal frame buffer " + ex);
+              LoggingUtil.log(
+                  LogLevel.ERROR,
+                  "Exception writing to internal frame buffer " + e,
+                  this.getClass().getName());
               fb.close();
             }
           }
@@ -4171,10 +4471,15 @@ public class TCLIService {
               fcall.sendResponse(fb, result, org.apache.thrift.protocol.TMessageType.REPLY, seqid);
             } catch (org.apache.thrift.transport.TTransportException e) {
               LoggingUtil.log(
-                  LogLevel.ERROR, "TTransportException writing to internal frame buffer " + e);
+                  LogLevel.ERROR,
+                  "TTransportException writing to internal frame buffer " + e,
+                  this.getClass().getName());
               fb.close();
             } catch (java.lang.Exception e) {
-              LoggingUtil.log(LogLevel.ERROR, "Exception writing to internal frame buffer " + e);
+              LoggingUtil.log(
+                  LogLevel.ERROR,
+                  "Exception writing to internal frame buffer " + e,
+                  this.getClass().getName());
               onError(e);
             }
           }
@@ -4185,15 +4490,22 @@ public class TCLIService {
             org.apache.thrift.TSerializable msg;
             RenewDelegationToken_result result = new RenewDelegationToken_result();
             if (e instanceof org.apache.thrift.transport.TTransportException) {
-              LoggingUtil.log(LogLevel.ERROR, "TTransportException inside handler " + e);
+              LoggingUtil.log(
+                  LogLevel.ERROR,
+                  "TTransportException inside handler " + e,
+                  this.getClass().getName());
               fb.close();
               return;
             } else if (e instanceof org.apache.thrift.TApplicationException) {
-              LoggingUtil.log(LogLevel.ERROR, "TApplicationException inside handler " + e);
+              LoggingUtil.log(
+                  LogLevel.ERROR,
+                  "TApplicationException inside handler " + e,
+                  this.getClass().getName());
               msgType = org.apache.thrift.protocol.TMessageType.EXCEPTION;
               msg = (org.apache.thrift.TApplicationException) e;
             } else {
-              LoggingUtil.log(LogLevel.ERROR, "Exception inside handler " + e);
+              LoggingUtil.log(
+                  LogLevel.ERROR, "Exception inside handler " + e, this.getClass().getName());
               msgType = org.apache.thrift.protocol.TMessageType.EXCEPTION;
               msg =
                   new org.apache.thrift.TApplicationException(
@@ -4202,7 +4514,10 @@ public class TCLIService {
             try {
               fcall.sendResponse(fb, msg, msgType, seqid);
             } catch (java.lang.Exception ex) {
-              LoggingUtil.log(LogLevel.ERROR, "Exception writing to internal frame buffer " + ex);
+              LoggingUtil.log(
+                  LogLevel.ERROR,
+                  "Exception writing to internal frame buffer " + e,
+                  this.getClass().getName());
               fb.close();
             }
           }

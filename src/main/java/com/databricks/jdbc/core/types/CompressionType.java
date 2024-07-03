@@ -1,5 +1,8 @@
 package com.databricks.jdbc.core.types;
 
+import com.databricks.jdbc.commons.LogLevel;
+import com.databricks.jdbc.commons.util.LoggingUtil;
+
 public enum CompressionType {
   NONE(0),
   LZ4_COMPRESSION(1);
@@ -18,7 +21,9 @@ public enum CompressionType {
         }
       }
     } catch (NumberFormatException ignored) {
+      LoggingUtil.log(LogLevel.DEBUG, "Invalid or no compression type provided as input.");
     }
+    LoggingUtil.log(LogLevel.DEBUG, "Defaulting to no compression for fetching results.");
     return NONE;
   }
 }

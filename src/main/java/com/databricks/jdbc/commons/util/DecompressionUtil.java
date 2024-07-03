@@ -27,16 +27,22 @@ public class DecompressionUtil {
       InputStream compressedInputStream, CompressionType compressionType, String context)
       throws DatabricksSQLException {
     if (compressionType == null || compressedInputStream == null) {
+      LoggingUtil.log(
+          LogLevel.DEBUG, "Compression/InputStream is `NULL`. Skipping compression.", context);
       return compressedInputStream;
     }
     switch (compressionType) {
       case NONE:
+        LoggingUtil.log(
+            LogLevel.DEBUG, "Compression/InputStream is `NULL`. Skipping compression.", context);
         return compressedInputStream;
       case LZ4_COMPRESSION:
         return decompressLZ4Frame(compressedInputStream, context);
       default:
-        throw new DatabricksSQLException(
-            String.format("Unknown compression type: %s. Context : %s", compressionType, context));
+        String errorMessage =
+            String.format("Unknown compression type: %s. Context : %s", compressionType, context);
+        LoggingUtil.log(LogLevel.ERROR, errorMessage);
+        throw new DatabricksSQLException(errorMessage);
     }
   }
 }

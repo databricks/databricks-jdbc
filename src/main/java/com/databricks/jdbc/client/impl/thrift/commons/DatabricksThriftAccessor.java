@@ -9,6 +9,8 @@ import com.databricks.jdbc.client.StatementType;
 import com.databricks.jdbc.client.http.DatabricksHttpClient;
 import com.databricks.jdbc.client.impl.thrift.generated.*;
 import com.databricks.jdbc.commons.CommandName;
+import com.databricks.jdbc.commons.LogLevel;
+import com.databricks.jdbc.commons.util.LoggingUtil;
 import com.databricks.jdbc.core.*;
 import com.databricks.jdbc.driver.IDatabricksConnectionContext;
 import com.databricks.sdk.core.DatabricksConfig;
@@ -69,6 +71,11 @@ public class DatabricksThriftAccessor {
     refreshHeadersIfRequired();
     DatabricksHttpTTransport transport =
         (DatabricksHttpTTransport) getThriftClient().getInputProtocol().getTransport();
+    LoggingUtil.log(
+        LogLevel.DEBUG,
+        String.format(
+            "Fetching thrift response for request {%s}, CommandName {%s}",
+            request.toString(), commandName.name()));
     try {
       switch (commandName) {
         case OPEN_SESSION:
@@ -96,6 +103,7 @@ public class DatabricksThriftAccessor {
               String.format(
                   "No implementation for fetching thrift response for CommandName {%s}.  Request {%s}",
                   commandName, request.toString());
+          LoggingUtil.log(LogLevel.ERROR, errorMessage);
           throw new DatabricksSQLFeatureNotSupportedException(errorMessage);
       }
     } catch (TException | SQLException e) {
@@ -110,6 +118,7 @@ public class DatabricksThriftAccessor {
           String.format(
               "Error while receiving response from Thrift server. Request {%s}, Error {%s}",
               request.toString(), e.toString());
+      LoggingUtil.log(LogLevel.ERROR, errorMessage);
       throw new DatabricksSQLException(errorMessage, e);
     } finally {
       // Ensure resources are closed after use
@@ -151,6 +160,7 @@ public class DatabricksThriftAccessor {
           String.format(
               "Error while fetching results from Thrift server. Request {%s}, Error {%s}",
               request.toString(), e.toString());
+      LoggingUtil.log(LogLevel.ERROR, errorMessage);
       throw new DatabricksHttpException(errorMessage, e);
     } finally {
       transport.close();
@@ -240,6 +250,7 @@ public class DatabricksThriftAccessor {
           String.format(
               "Error while receiving response from Thrift server. Request {%s}, Error {%s}",
               request.toString(), e.toString());
+      LoggingUtil.log(LogLevel.ERROR, errorMessage);
       throw new DatabricksHttpException(errorMessage, e);
     } finally {
       transport.close();

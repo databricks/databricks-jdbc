@@ -6,6 +6,8 @@ import com.databricks.jdbc.client.impl.thrift.generated.TPrimitiveTypeEntry;
 import com.databricks.jdbc.client.impl.thrift.generated.TTypeDesc;
 import com.databricks.jdbc.client.impl.thrift.generated.TTypeEntry;
 import com.databricks.jdbc.client.impl.thrift.generated.TTypeId;
+import com.databricks.jdbc.commons.LogLevel;
+import com.databricks.jdbc.commons.util.LoggingUtil;
 import com.databricks.sdk.service.sql.ColumnInfoTypeName;
 import java.sql.Date;
 import java.sql.Timestamp;
@@ -139,6 +141,7 @@ public class DatabricksTypeUtil {
       case USER_DEFINED_TYPE:
         return Types.OTHER;
       default:
+        LoggingUtil.log(LogLevel.ERROR, "Unknown column type: " + typeName);
         throw new IllegalStateException("Unknown column type: " + typeName);
     }
   }
@@ -182,7 +185,8 @@ public class DatabricksTypeUtil {
       case MAP:
         return "java.util.Map";
       default:
-        throw new IllegalStateException("Unknown column type: " + typeName);
+        LoggingUtil.log(LogLevel.ERROR, "Unknown column type class name: " + typeName);
+        throw new IllegalStateException("Unknown column type class name: " + typeName);
     }
   }
 
