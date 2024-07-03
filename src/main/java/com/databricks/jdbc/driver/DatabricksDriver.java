@@ -46,7 +46,6 @@ public class DatabricksDriver implements Driver {
         connectionContext.getLogFileCount(),
         connectionContext.getLogLevel());
     setUserAgent(connectionContext);
-    DatabricksMetrics.instantiateTelemetryClient(connectionContext);
     DeviceInfoLogUtil.logProperties();
     try {
       DatabricksConnection connection = new DatabricksConnection(connectionContext);

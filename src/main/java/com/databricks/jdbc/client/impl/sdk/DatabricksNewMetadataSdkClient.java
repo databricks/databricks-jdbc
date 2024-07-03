@@ -12,20 +12,15 @@ import com.databricks.jdbc.commons.LogLevel;
 import com.databricks.jdbc.commons.MetricsList;
 import com.databricks.jdbc.commons.util.LoggingUtil;
 import com.databricks.jdbc.core.*;
-import com.databricks.jdbc.telemetry.DatabricksMetrics;
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.util.*;
 import com.databricks.jdbc.core.DatabricksResultSet;
 import com.databricks.jdbc.core.IDatabricksSession;
 import com.databricks.jdbc.core.ImmutableSqlParameter;
 import com.databricks.jdbc.driver.IDatabricksConnectionContext;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.*;
 import java.util.HashMap;
 import java.util.Optional;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 
 /**
  * This is for the new SQL commands added in runtime. Note that the DatabricksMetadataSdkClient will
