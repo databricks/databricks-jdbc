@@ -44,7 +44,7 @@ public class DatabricksUCVolumeClientTest {
   }
 
   private String createPutObjectQuery(
-          String catalog, String schema, String volume, String localPath) {
+      String catalog, String schema, String volume, String localPath) {
     return String.format("PUT %s INTO '/Volumes/%s/%s/%s/'", localPath, catalog, schema, volume);
   }
 
@@ -269,8 +269,8 @@ public class DatabricksUCVolumeClientTest {
   @ParameterizedTest
   @MethodSource("provideParametersForPutObject")
   public void testPutObject(
-          String catalog, String schema, String volume, String localPath, boolean expected)
-          throws SQLException {
+      String catalog, String schema, String volume, String localPath, boolean expected)
+      throws SQLException {
     DatabricksUCVolumeClient client = new DatabricksUCVolumeClient(connection);
 
     when(connection.createStatement()).thenReturn(statement);
@@ -278,7 +278,7 @@ public class DatabricksUCVolumeClientTest {
     when(statement.executeQuery(putObjectQuery)).thenReturn(resultSet);
     when(resultSet.next()).thenReturn(true);
     when(resultSet.getString(VOLUME_OPERATION_STATUS_COLUMN_NAME))
-            .thenReturn(VOLUME_OPERATION_STATUS_SUCCEEDED);
+        .thenReturn(VOLUME_OPERATION_STATUS_SUCCEEDED);
     boolean result = client.putObject(catalog, schema, volume, localPath);
 
     assertEquals(expected, result);

@@ -88,5 +88,5 @@ public interface IDatabricksUCVolumeClient {
    * @return a boolean value indicating status of the PUT operation
    */
   boolean putObject(String catalog, String schema, String volume, String localPath)
-          throws SQLException;
+      throws SQLException;
 }

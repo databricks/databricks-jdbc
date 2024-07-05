@@ -39,10 +39,9 @@ public class DatabricksUCVolumeClient implements IDatabricksUCVolumeClient {
   }
 
   private String createPutObjectQuery(
-          String catalog, String schema, String volume, String localPath) {
+      String catalog, String schema, String volume, String localPath) {
     return String.format("PUT %s INTO '/Volumes/%s/%s/%s/'", localPath, catalog, schema, volume);
   }
-
 
   public boolean prefixExists(String catalog, String schema, String volume, String prefix)
       throws SQLException {
@@ -272,14 +271,13 @@ public class DatabricksUCVolumeClient implements IDatabricksUCVolumeClient {
   }
 
   public boolean putObject(String catalog, String schema, String volume, String localPath)
-          throws SQLException {
+      throws SQLException {
 
     LoggingUtil.log(
-            LogLevel.DEBUG,
-            String.format(
-                    "Entering putObject method with parameters: catalog={%s}, schema={%s}, volume={%s}, localPath={%s}",
-                    catalog, schema, volume, localPath));
-
+        LogLevel.DEBUG,
+        String.format(
+            "Entering putObject method with parameters: catalog={%s}, schema={%s}, volume={%s}, localPath={%s}",
+            catalog, schema, volume, localPath));
 
     String putObjectQuery = createPutObjectQuery(catalog, schema, volume, localPath);
 
@@ -291,9 +289,9 @@ public class DatabricksUCVolumeClient implements IDatabricksUCVolumeClient {
 
       if (resultSet.next()) {
         String volumeOperationStatusString =
-                resultSet.getString(VOLUME_OPERATION_STATUS_COLUMN_NAME);
+            resultSet.getString(VOLUME_OPERATION_STATUS_COLUMN_NAME);
         volumeOperationStatus =
-                VOLUME_OPERATION_STATUS_SUCCEEDED.equals(volumeOperationStatusString);
+            VOLUME_OPERATION_STATUS_SUCCEEDED.equals(volumeOperationStatusString);
       }
     } catch (SQLException e) {
       LoggingUtil.log(LogLevel.ERROR, "SQL query execution failed " + e);
