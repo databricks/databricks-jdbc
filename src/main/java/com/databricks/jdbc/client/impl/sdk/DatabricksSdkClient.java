@@ -3,6 +3,8 @@ package com.databricks.jdbc.client.impl.sdk;
 import static com.databricks.jdbc.client.impl.sdk.PathConstants.*;
 import static com.databricks.jdbc.commons.EnvironmentVariables.DEFAULT_ROW_LIMIT;
 
+import com.databricks.jdbc.annotation.Timed;
+import com.databricks.jdbc.annotation.TimedClass;
 import com.databricks.jdbc.client.DatabricksClient;
 import com.databricks.jdbc.client.StatementType;
 import com.databricks.jdbc.client.sqlexec.*;
@@ -79,6 +81,7 @@ public class DatabricksSdkClient implements DatabricksClient {
   }
 
   @Override
+  @Timed
   public ImmutableSessionInfo createSession(
       ComputeResource warehouse, String catalog, String schema, Map<String, String> sessionConf) {
     // TODO: [PECO-1460] Handle sessionConf in public session API
@@ -112,6 +115,7 @@ public class DatabricksSdkClient implements DatabricksClient {
     connectionContext
         .getMetricsExporter()
         .record(MetricsList.CREATE_SESSION.name(), System.currentTimeMillis() - startTime);
+    System.out.println("createSessionFunction");
     return sessionInfo;
   }
 

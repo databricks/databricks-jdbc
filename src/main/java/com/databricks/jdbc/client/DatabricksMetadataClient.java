@@ -1,5 +1,6 @@
 package com.databricks.jdbc.client;
 
+import com.databricks.jdbc.annotation.TimedClass;
 import com.databricks.jdbc.core.DatabricksResultSet;
 import com.databricks.jdbc.core.IDatabricksSession;
 import java.sql.SQLException;

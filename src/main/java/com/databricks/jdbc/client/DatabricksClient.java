@@ -1,5 +1,6 @@
 package com.databricks.jdbc.client;
 
+import com.databricks.jdbc.annotation.Timed;
 import com.databricks.jdbc.client.sqlexec.ExternalLink;
 import com.databricks.jdbc.core.*;
 import com.databricks.jdbc.core.types.ComputeResource;

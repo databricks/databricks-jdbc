@@ -1,5 +1,6 @@
 package com.databricks.jdbc.core;
 
+import com.databricks.jdbc.annotation.TimingUtility;
 import com.databricks.jdbc.client.DatabricksClient;
 import com.databricks.jdbc.client.DatabricksClientType;
 import com.databricks.jdbc.client.DatabricksMetadataClient;
@@ -47,10 +48,14 @@ public class DatabricksSession implements IDatabricksSession {
   public DatabricksSession(IDatabricksConnectionContext connectionContext)
       throws DatabricksSQLException {
     if (connectionContext.getClientType() == DatabricksClientType.THRIFT) {
-      this.databricksClient = new DatabricksThriftServiceClient(connectionContext);
+      System.out.println("Creating timed instance of DatabricksThriftServiceClient");
+      this.databricksClient = TimingUtility.createTimedInstance(new DatabricksThriftServiceClient(connectionContext), DatabricksClient.class);
+      System.out.println("Created timed instance: " + this.databricksClient);
       this.databricksMetadataClient = null;
     } else {
-      this.databricksClient = new DatabricksSdkClient(connectionContext);
+      System.out.println("Creating timed instance of DatabricksSdkClient");
+      this.databricksClient = TimingUtility.createTimedInstance(new DatabricksSdkClient(connectionContext), DatabricksClient.class);
+      System.out.println("Created timed instance: " + this.databricksClient);
     }
     this.isSessionOpen = false;
     this.sessionInfo = null;
@@ -68,6 +73,8 @@ public class DatabricksSession implements IDatabricksSession {
     if (connectionContext.getClientType() == DatabricksClientType.THRIFT) {
       return;
     }
+    System.out.println(useLegacyMetadataClient);
+    System.out.println(databricksClient);
     this.databricksMetadataClient =
         useLegacyMetadataClient
             ? new DatabricksMetadataSdkClient((DatabricksSdkClient) databricksClient)
@@ -79,7 +86,7 @@ public class DatabricksSession implements IDatabricksSession {
   DatabricksSession(
       IDatabricksConnectionContext connectionContext, DatabricksClient databricksClient)
       throws DatabricksSQLException {
-    this.databricksClient = databricksClient;
+    this.databricksClient = TimingUtility.createTimedInstance((DatabricksSdkClient) databricksClient, DatabricksClient.class);
     if (databricksClient instanceof DatabricksThriftServiceClient) {
       this.databricksMetadataClient = null;
     } else {

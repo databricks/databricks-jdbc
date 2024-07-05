@@ -4,6 +4,8 @@ import static com.databricks.jdbc.client.impl.helper.MetadataResultSetBuilder.*;
 import static com.databricks.jdbc.client.impl.thrift.commons.DatabricksThriftHelper.*;
 import static com.databricks.jdbc.commons.EnvironmentVariables.JDBC_THRIFT_VERSION;
 
+import com.databricks.jdbc.annotation.Timed;
+import com.databricks.jdbc.annotation.TimedClass;
 import com.databricks.jdbc.client.DatabricksClient;
 import com.databricks.jdbc.client.DatabricksMetadataClient;
 import com.databricks.jdbc.client.StatementType;
@@ -46,6 +48,7 @@ public class DatabricksThriftServiceClient implements DatabricksClient, Databric
   }
 
   @Override
+  @Timed
   public ImmutableSessionInfo createSession(
       ComputeResource cluster, String catalog, String schema, Map<String, String> sessionConf)
       throws DatabricksSQLException {

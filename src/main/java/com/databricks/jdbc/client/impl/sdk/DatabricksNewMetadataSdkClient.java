@@ -3,6 +3,7 @@ package com.databricks.jdbc.client.impl.sdk;
 import static com.databricks.jdbc.client.impl.helper.MetadataResultConstants.DEFAULT_TABLE_TYPES;
 import static com.databricks.jdbc.client.impl.sdk.ResultConstants.TYPE_INFO_RESULT;
 
+import com.databricks.jdbc.annotation.TimedClass;
 import com.databricks.jdbc.client.DatabricksMetadataClient;
 import com.databricks.jdbc.client.StatementType;
 import com.databricks.jdbc.client.impl.helper.CommandBuilder;

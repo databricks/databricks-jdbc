@@ -160,10 +160,23 @@ public class DriverTester {
 
   @Test
   void testIfCreateSessionIsExported() throws Exception {
+    DriverManager.drivers()
+        .forEach(
+            driver -> {
+              if (driver.getClass().getName().contains("client.jdbc.Driver")) {
+                try {
+                  DriverManager.deregisterDriver(driver);
+                } catch (SQLException e) {
+                  throw new RuntimeException(e);
+                }
+              }
+            });
     DriverManager.registerDriver(new com.databricks.jdbc.driver.DatabricksDriver());
     String jdbcUrl =
-        "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=https;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/791ba2a31c7fd70a;";
-    Connection con = DriverManager.getConnection(jdbcUrl, "user", "x");
+        "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=https;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/791ba2a31c7fd70a;TemporarilyUnavailableRetry=3;";
+    Connection con =
+        DriverManager.getConnection(
+            jdbcUrl, "bhuvan.rangoju@databricks.com", "x");
     System.out.println("Connection established......");
   }
 
