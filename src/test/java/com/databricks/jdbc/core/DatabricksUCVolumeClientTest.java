@@ -48,6 +48,11 @@ public class DatabricksUCVolumeClientTest {
     return String.format("PUT %s INTO '/Volumes/%s/%s/%s/'", localPath, catalog, schema, volume);
   }
 
+  private String createDeleteObjectQuery(
+      String catalog, String schema, String volume, String objectPath) {
+    return String.format("REMOVE '/Volumes/%s/%s/%s/%s'", catalog, schema, volume, objectPath);
+  }
+
   @ParameterizedTest
   @MethodSource("provideParametersForPrefixExists")
   public void testPrefixExists(String volume, String prefix, boolean expected) throws SQLException {
@@ -286,6 +291,29 @@ public class DatabricksUCVolumeClientTest {
   }
 
   private static Stream<Arguments> provideParametersForPutObject() {
+    return Stream.of(Arguments.of("test_catalog", "test_schema", "test_volume", "test_path", true));
+  }
+
+  @ParameterizedTest
+  @MethodSource("provideParametersForDeleteObject")
+  public void testDeleteObject(
+      String catalog, String schema, String volume, String objectPath, boolean expected)
+      throws SQLException {
+    DatabricksUCVolumeClient client = new DatabricksUCVolumeClient(connection);
+
+    when(connection.createStatement()).thenReturn(statement);
+    String deleteObjectQuery = createDeleteObjectQuery(catalog, schema, volume, objectPath);
+    when(statement.executeQuery(deleteObjectQuery)).thenReturn(resultSet);
+    when(resultSet.next()).thenReturn(true);
+    when(resultSet.getString(VOLUME_OPERATION_STATUS_COLUMN_NAME))
+        .thenReturn(VOLUME_OPERATION_STATUS_SUCCEEDED);
+    boolean result = client.deleteObject(catalog, schema, volume, objectPath);
+
+    assertEquals(expected, result);
+    verify(statement).executeQuery(deleteObjectQuery);
+  }
+
+  private static Stream<Arguments> provideParametersForDeleteObject() {
     return Stream.of(Arguments.of("test_catalog", "test_schema", "test_volume", "test_path", true));
   }
 }

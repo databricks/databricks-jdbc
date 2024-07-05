@@ -43,6 +43,11 @@ public class DatabricksUCVolumeClient implements IDatabricksUCVolumeClient {
     return String.format("PUT %s INTO '/Volumes/%s/%s/%s/'", localPath, catalog, schema, volume);
   }
 
+  private String createDeleteObjectQuery(
+      String catalog, String schema, String volume, String objectPath) {
+    return String.format("REMOVE '/Volumes/%s/%s/%s/%s'", catalog, schema, volume, objectPath);
+  }
+
   public boolean prefixExists(String catalog, String schema, String volume, String prefix)
       throws SQLException {
     return prefixExists(catalog, schema, volume, prefix, true);
@@ -285,6 +290,37 @@ public class DatabricksUCVolumeClient implements IDatabricksUCVolumeClient {
 
     try (Statement statement = connection.createStatement()) {
       ResultSet resultSet = statement.executeQuery(putObjectQuery);
+      LoggingUtil.log(LogLevel.INFO, "SQL query executed successfully");
+
+      if (resultSet.next()) {
+        String volumeOperationStatusString =
+            resultSet.getString(VOLUME_OPERATION_STATUS_COLUMN_NAME);
+        volumeOperationStatus =
+            VOLUME_OPERATION_STATUS_SUCCEEDED.equals(volumeOperationStatusString);
+      }
+    } catch (SQLException e) {
+      LoggingUtil.log(LogLevel.ERROR, "SQL query execution failed " + e);
+      throw e;
+    }
+
+    return volumeOperationStatus;
+  }
+
+  public boolean deleteObject(String catalog, String schema, String volume, String objectPath)
+      throws SQLException {
+
+    LoggingUtil.log(
+        LogLevel.DEBUG,
+        String.format(
+            "Entering deleteObject method with parameters: catalog={%s}, schema={%s}, volume={%s}, objectPath={%s}",
+            catalog, schema, volume, objectPath));
+
+    String deleteObjectQuery = createDeleteObjectQuery(catalog, schema, volume, objectPath);
+
+    boolean volumeOperationStatus = false;
+
+    try (Statement statement = connection.createStatement()) {
+      ResultSet resultSet = statement.executeQuery(deleteObjectQuery);
       LoggingUtil.log(LogLevel.INFO, "SQL query executed successfully");
 
       if (resultSet.next()) {
