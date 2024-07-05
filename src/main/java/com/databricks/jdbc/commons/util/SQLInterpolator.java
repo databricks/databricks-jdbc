@@ -7,7 +7,7 @@ import com.databricks.jdbc.core.ImmutableSqlParameter;
 import java.util.Map;
 
 public class SQLInterpolator {
-  public static String escapeApostrophes(String input) {
+  private static String escapeApostrophes(String input) {
     if (input == null) return null;
     return input.replace("'", "''");
   }
@@ -22,7 +22,7 @@ public class SQLInterpolator {
     }
   }
 
-  public static int countPlaceholders(String sql) {
+  private static int countPlaceholders(String sql) {
     int count = 0;
     for (char c : sql.toCharArray()) {
       if (c == '?') {
@@ -32,6 +32,20 @@ public class SQLInterpolator {
     return count;
   }
 
+  /**
+   * Interpolates the given SQL string by replacing placeholders with the provided parameters.
+   *
+   * <p>This method splits the SQL string by placeholders (question marks) and replaces each
+   * placeholder with the corresponding parameter from the provided map. The map keys are 1-based
+   * indexes, aligning with the SQL parameter positions.
+   *
+   * @param sql the SQL string containing placeholders ('?') to be replaced.
+   * @param params a map of parameters where the key is the 1-based index of the placeholder in the
+   *     SQL string, and the value is the corresponding {@link ImmutableSqlParameter}.
+   * @return the interpolated SQL string with placeholders replaced by the corresponding parameters.
+   * @throws DatabricksValidationException if the number of placeholders in the SQL string does not
+   *     match the number of parameters provided in the map.
+   */
   public static String interpolateSQL(String sql, Map<Integer, ImmutableSqlParameter> params)
       throws DatabricksValidationException {
     String[] parts = sql.split("\\?");

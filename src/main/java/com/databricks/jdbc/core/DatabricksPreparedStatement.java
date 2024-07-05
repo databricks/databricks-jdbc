@@ -77,29 +77,13 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
   @Override
   public ResultSet executeQuery() throws SQLException {
     LoggingUtil.log(LogLevel.DEBUG, "public ResultSet executeQuery()");
-    String interpolatedSql =
-        this.supportManyParameters
-            ? interpolateSQL(sql, this.databricksParameterMetaData.getParameterBindings())
-            : sql;
-    Map<Integer, ImmutableSqlParameter> paramMap =
-        this.supportManyParameters
-            ? new HashMap<>()
-            : this.databricksParameterMetaData.getParameterBindings();
-    return executeInternal(interpolatedSql, paramMap, StatementType.QUERY);
+    return interpolateIfRequiredAndExecute(StatementType.QUERY);
   }
 
   @Override
   public int executeUpdate() throws SQLException {
     LoggingUtil.log(LogLevel.DEBUG, "public int executeUpdate()");
-    String interpolatedSql =
-        this.supportManyParameters
-            ? interpolateSQL(sql, this.databricksParameterMetaData.getParameterBindings())
-            : sql;
-    Map<Integer, ImmutableSqlParameter> paramMap =
-        this.supportManyParameters
-            ? new HashMap<>()
-            : this.databricksParameterMetaData.getParameterBindings();
-    executeInternal(interpolatedSql, paramMap, StatementType.UPDATE);
+    interpolateIfRequiredAndExecute(StatementType.UPDATE);
     return (int) resultSet.getUpdateCount();
   }
 
@@ -280,15 +264,7 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
   public boolean execute() throws SQLException {
     LoggingUtil.log(LogLevel.DEBUG, "public boolean execute()");
     checkIfClosed();
-    String interpolatedSql =
-        this.supportManyParameters
-            ? interpolateSQL(sql, this.databricksParameterMetaData.getParameterBindings())
-            : sql;
-    Map<Integer, ImmutableSqlParameter> paramMap =
-        this.supportManyParameters
-            ? new HashMap<>()
-            : this.databricksParameterMetaData.getParameterBindings();
-    executeInternal(interpolatedSql, paramMap, StatementType.SQL);
+    interpolateIfRequiredAndExecute(StatementType.SQL);
     return shouldReturnResultSet(sql);
   }
 
@@ -670,5 +646,18 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
   @Override
   public boolean execute(String sql, String[] columnNames) throws SQLException {
     throw new DatabricksSQLException("Method not supported in PreparedStatement");
+  }
+
+  private DatabricksResultSet interpolateIfRequiredAndExecute(StatementType statementType)
+      throws SQLException {
+    String interpolatedSql =
+        this.supportManyParameters
+            ? interpolateSQL(sql, this.databricksParameterMetaData.getParameterBindings())
+            : sql;
+    Map<Integer, ImmutableSqlParameter> paramMap =
+        this.supportManyParameters
+            ? new HashMap<>()
+            : this.databricksParameterMetaData.getParameterBindings();
+    return executeInternal(interpolatedSql, paramMap, statementType);
   }
 }
