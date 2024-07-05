@@ -61,7 +61,6 @@ public class SQLInterpolator {
         sb.append(formatObject(params.get(i + 1))); // because we have 1 based index in params
       }
     }
-    System.out.println(sb.toString());
     return sb.toString();
   }
 }
