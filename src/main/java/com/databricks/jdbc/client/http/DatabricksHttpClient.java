@@ -8,6 +8,8 @@ import static io.netty.util.NetUtil.LOCALHOST;
 import com.databricks.jdbc.client.DatabricksHttpException;
 import com.databricks.jdbc.client.DatabricksRetryHandlerException;
 import com.databricks.jdbc.client.IDatabricksHttpClient;
+import com.databricks.jdbc.commons.LogLevel;
+import com.databricks.jdbc.commons.util.LoggingUtil;
 import com.databricks.jdbc.driver.IDatabricksConnectionContext;
 import com.databricks.sdk.core.UserAgent;
 import com.google.common.annotations.VisibleForTesting;
@@ -35,13 +37,9 @@ import org.apache.http.impl.client.ProxyAuthenticationStrategy;
 import org.apache.http.impl.conn.DefaultSchemePortResolver;
 import org.apache.http.impl.conn.PoolingHttpClientConnectionManager;
 import org.apache.http.protocol.HttpContext;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 
 /** Http client implementation to be used for executing http requests. */
 public class DatabricksHttpClient implements IDatabricksHttpClient {
-
-  private static final Logger LOGGER = LogManager.getLogger(DatabricksHttpClient.class);
 
   // Context attribute keys
   private static final String RETRY_INTERVAL_KEY = "retryInterval";
@@ -338,7 +336,9 @@ public class DatabricksHttpClient implements IDatabricksHttpClient {
 
   @Override
   public CloseableHttpResponse execute(HttpUriRequest request) throws DatabricksHttpException {
-    LOGGER.debug("Executing HTTP request [{}]", RequestSanitizer.sanitizeRequest(request));
+    LoggingUtil.log(
+        LogLevel.DEBUG,
+        String.format("Executing HTTP request [{%s}]", RequestSanitizer.sanitizeRequest(request)));
     try {
       return httpClient.execute(request);
     } catch (IOException e) {
@@ -351,9 +351,9 @@ public class DatabricksHttpClient implements IDatabricksHttpClient {
       }
       String errorMsg =
           String.format(
-              "Caught error while executing http request: [%s]",
-              RequestSanitizer.sanitizeRequest(request));
-      LOGGER.error(errorMsg, e);
+              "Caught error while executing http request: [%s]. Error Message: [%s]",
+              RequestSanitizer.sanitizeRequest(request), e);
+      LoggingUtil.log(LogLevel.ERROR, errorMsg);
       throw new DatabricksHttpException(errorMsg, e);
     }
   }
@@ -362,7 +362,9 @@ public class DatabricksHttpClient implements IDatabricksHttpClient {
   public void closeExpiredAndIdleConnections() {
     if (connectionManager != null) {
       synchronized (connectionManager) {
-        LOGGER.debug("connection pool stats: {}", connectionManager.getTotalStats());
+        LoggingUtil.log(
+            LogLevel.DEBUG,
+            String.format("connection pool stats: {%s}", connectionManager.getTotalStats()));
         connectionManager.closeExpiredConnections();
         connectionManager.closeIdleConnections(idleHttpConnectionExpiry, TimeUnit.SECONDS);
       }
@@ -398,7 +400,8 @@ public class DatabricksHttpClient implements IDatabricksHttpClient {
       try {
         instance.httpClient.close();
       } catch (IOException e) {
-        LOGGER.error("Caught error while closing http client", e);
+        LoggingUtil.log(
+            LogLevel.DEBUG, String.format("Caught error while closing http client. Error %s", e));
       }
     }
   }

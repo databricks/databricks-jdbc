@@ -26,13 +26,14 @@
     <maven.compiler.target>11</maven.compiler.target>
     <mockito.version>5.2.0</mockito.version>
     <jackson.version>2.15.1</jackson.version>
+    <log4j.version>2.22.1</log4j.version>
+    <slf4j.version>2.0.13</slf4j.version>
     <google.guava.version>33.0.0-jre</google.guava.version>
     <junit.jupiter.version>5.9.2</junit.jupiter.version>
     <google.findbugs.annotations.version>3.0.1</google.findbugs.annotations.version>
     <immutables.value.version>2.9.2</immutables.value.version>
     <httpclient.version>4.5.14</httpclient.version>
-    <log4japi.version>2.21.1</log4japi.version>
-    <log4jcore.version>2.21.1</log4jcore.version>
+
     <spotless.version>2.43.0</spotless.version>
     <commons-io.version>2.13.0</commons-io.version>
     <databricks-sdk.version>0.17.0</databricks-sdk.version>
@@ -86,6 +87,26 @@
       <artifactId>libthrift</artifactId>
       <version>${thrift.version}</version>
     </dependency>
+      <dependency>
+        <groupId>org.slf4j</groupId>
+        <artifactId>slf4j-api</artifactId>
+        <version>${slf4j.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.apache.logging.log4j</groupId>
+        <artifactId>log4j-slf4j-impl</artifactId>
+        <version>${log4j.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.apache.logging.log4j</groupId>
+        <artifactId>log4j-core</artifactId>
+        <version>${log4j.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.apache.logging.log4j</groupId>
+        <artifactId>log4j-api</artifactId>
+        <version>${log4j.version}</version>
+      </dependency>
     <dependency>
       <groupId>commons-io</groupId>
       <artifactId>commons-io</artifactId>
@@ -118,16 +139,6 @@
       <artifactId>mockito-junit-jupiter</artifactId>
       <version>${mockito.version}</version>
       <scope>test</scope>
-    </dependency>
-    <dependency>
-      <groupId>org.apache.logging.log4j</groupId>
-      <artifactId>log4j-api</artifactId>
-      <version>${log4japi.version}</version>
-    </dependency>
-    <dependency>
-      <groupId>org.apache.logging.log4j</groupId>
-      <artifactId>log4j-core</artifactId>
-      <version>${log4jcore.version}</version>
     </dependency>
     <dependency>
       <groupId>com.fasterxml.jackson.core</groupId>
