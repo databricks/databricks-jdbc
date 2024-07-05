@@ -237,12 +237,14 @@ public class DatabricksUCVolumeClient implements IDatabricksUCVolumeClient {
 
   public boolean getObject(String catalog, String schema, String volume, String localPath)
       throws SQLException {
-    LOGGER.info(
-        "Entering getObject method with parameters: catalog={}, schema={}, volume={}, localPath={}",
-        catalog,
-        schema,
-        volume,
-        localPath);
+    LoggingUtil.log(
+        LogLevel.DEBUG,
+        String.format(
+            "Entering getObject method with parameters: catalog={}, schema={}, volume={}, localPath={}",
+            catalog,
+            schema,
+            volume,
+            localPath));
 
     String getObjectQuery = createGetObjectQuery(catalog, schema, volume, localPath);
 
@@ -250,7 +252,7 @@ public class DatabricksUCVolumeClient implements IDatabricksUCVolumeClient {
 
     try (Statement statement = connection.createStatement()) {
       ResultSet resultSet = statement.executeQuery(getObjectQuery);
-      LOGGER.info("SQL query executed successfully");
+      LoggingUtil.log(LogLevel.INFO, "SQL query executed successfully");
 
       if (resultSet.next()) {
         String volumeOperationStatusString =
@@ -259,7 +261,7 @@ public class DatabricksUCVolumeClient implements IDatabricksUCVolumeClient {
             VOLUME_OPERATION_STATUS_SUCCEEDED.equals(volumeOperationStatusString);
       }
     } catch (SQLException e) {
-      LOGGER.error("SQL query execution failed", e);
+      LoggingUtil.log(LogLevel.ERROR, "SQL query execution failed " + e);
       throw e;
     }
 
