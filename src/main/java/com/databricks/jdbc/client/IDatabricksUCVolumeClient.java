@@ -67,8 +67,7 @@ public interface IDatabricksUCVolumeClient {
       throws SQLException;
 
   /**
-   * getObject(): Lists all filenames in the UC Volume that start with a specified prefix. The
-   * prefix that we are looking for must be a part of the file path from the volume as the root.
+   * getObject(): Retrieves an object (file) from the UC Volume and stores it in the local path
    *
    * @param catalog the catalog name of the cloud storage
    * @param schema the schema name of the cloud storage
