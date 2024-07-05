@@ -1,10 +1,6 @@
 name: Weekly bug catcher
 
 on:
-  pull_request:
-    types: [opened, synchronize, reopened]
-    branches:
-      - main
   schedule:
     # Runs at 00:00 on every Monday
     - cron: '0 0 * * 1'
