@@ -240,11 +240,8 @@ public class DatabricksUCVolumeClient implements IDatabricksUCVolumeClient {
     LoggingUtil.log(
         LogLevel.DEBUG,
         String.format(
-            "Entering getObject method with parameters: catalog={}, schema={}, volume={}, localPath={}",
-            catalog,
-            schema,
-            volume,
-            localPath));
+            "Entering getObject method with parameters: catalog={%s}, schema={%s}, volume={%s}, localPath={%s}",
+            catalog, schema, volume, localPath));
 
     String getObjectQuery = createGetObjectQuery(catalog, schema, volume, localPath);
 
