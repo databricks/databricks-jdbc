@@ -3,31 +3,21 @@ package com.databricks.jdbc.driver;
 import static com.databricks.jdbc.driver.DatabricksJdbcConstants.*;
 
 import com.databricks.jdbc.client.DatabricksClientType;
-import com.databricks.jdbc.commons.util.AppenderUtil;
+import com.databricks.jdbc.commons.LogLevel;
 import com.databricks.jdbc.commons.util.DeviceInfoLogUtil;
+import com.databricks.jdbc.commons.util.LoggingUtil;
 import com.databricks.jdbc.core.DatabricksConnection;
 import com.databricks.jdbc.core.DatabricksSQLException;
 import com.databricks.sdk.core.UserAgent;
 import java.sql.*;
 import java.util.Properties;
-import org.apache.logging.log4j.Level;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
-import org.apache.logging.log4j.core.Appender;
-import org.apache.logging.log4j.core.LoggerContext;
-import org.apache.logging.log4j.core.config.Configuration;
-import org.apache.logging.log4j.core.config.LoggerConfig;
-import org.apache.logging.log4j.core.layout.PatternLayout;
 
 /**
  * Databricks JDBC driver. TODO: Add implementation to accept Urls in format:
  * jdbc:databricks://host:port.
  */
 public class DatabricksDriver implements Driver {
-
-  private static final Logger LOGGER = LogManager.getLogger(DatabricksDriver.class);
   private static final DatabricksDriver INSTANCE;
-
   private static final int majorVersion = 0;
   private static final int minorVersion = 7;
   private static final int buildVersion = 0;
@@ -49,14 +39,14 @@ public class DatabricksDriver implements Driver {
 
   @Override
   public Connection connect(String url, Properties info) throws DatabricksSQLException {
-    LOGGER.debug("public Connection connect(String url = {}, Properties info)", url);
     IDatabricksConnectionContext connectionContext = DatabricksConnectionContext.parse(url, info);
-    configureLogging(
+    LoggingUtil.setupLogger(
         connectionContext.getLogPathString(),
-        connectionContext.getLogLevel(),
+        connectionContext.getLogFileSize(),
         connectionContext.getLogFileCount(),
-        connectionContext.getLogFileSize());
+        connectionContext.getLogLevel());
     setUserAgent(connectionContext);
+    DeviceInfoLogUtil.logProperties();
     try {
       DatabricksConnection connection = new DatabricksConnection(connectionContext);
       if (connectionContext.getClientType() == DatabricksClientType.SQL_EXEC) {
@@ -90,25 +80,37 @@ public class DatabricksDriver implements Driver {
           connection.createStatement().executeQuery("SELECT current_version().dbsql_version");
       getDBSQLVersionInfo.next();
       String dbsqlVersion = getDBSQLVersionInfo.getString(1);
-      LOGGER.info("Connected to Databricks DBSQL version: {}", dbsqlVersion);
+      LoggingUtil.log(
+          LogLevel.DEBUG,
+          String.format("Connected to Databricks DBSQL version: {%s}", dbsqlVersion));
       if (checkSupportForNewMetadata(dbsqlVersion)) {
-        LOGGER.info(
-            "The Databricks DBSQL version {} supports the new metadata commands.", dbsqlVersion);
+        LoggingUtil.log(
+            LogLevel.DEBUG,
+            String.format(
+                "The Databricks DBSQL version {%s} supports the new metadata commands.",
+                dbsqlVersion));
         if (connectionContext.getUseLegacyMetadata().equals(true)) {
-          LOGGER.warn(
+          LoggingUtil.log(
+              LogLevel.DEBUG,
               "The new metadata commands are enabled, but the legacy metadata commands are being used due to connection parameter useLegacyMetadata");
           connection.setMetadataClient(true);
         } else {
           connection.setMetadataClient(false);
         }
       } else {
-        LOGGER.warn(
-            "The Databricks DBSQL version {} does not support the new metadata commands. Falling back to legacy metadata commands.",
-            dbsqlVersion);
+        LoggingUtil.log(
+            LogLevel.DEBUG,
+            String.format(
+                "The Databricks DBSQL version {%s} does not support the new metadata commands. Falling back to legacy metadata commands.",
+                dbsqlVersion));
         connection.setMetadataClient(true);
       }
     } catch (SQLException e) {
-      LOGGER.warn("Unable to get the DBSQL version. Falling back to legacy metadata commands.", e);
+      LoggingUtil.log(
+          LogLevel.DEBUG,
+          String.format(
+              "Unable to get the DBSQL version. Falling back to legacy metadata commands. Error : %s",
+              e));
       connection.setMetadataClient(true);
     }
   }
@@ -126,9 +128,11 @@ public class DatabricksDriver implements Driver {
         return false;
       }
     } catch (Exception e) {
-      LOGGER.warn(
-          "Unable to parse the DBSQL version {}. Falling back to legacy metadata commands.",
-          dbsqlVersion);
+      LoggingUtil.log(
+          LogLevel.DEBUG,
+          String.format(
+              "Unable to parse the DBSQL version {%s}. Falling back to legacy metadata commands.",
+              dbsqlVersion));
       return false;
     }
   }
@@ -163,7 +167,7 @@ public class DatabricksDriver implements Driver {
   }
 
   public static void main(String[] args) {
-    LOGGER.info("The driver {} has been initialized.", DatabricksDriver.class);
+    System.out.printf("The driver {%s} has been initialized.%n", DatabricksDriver.class);
   }
 
   private static String getVersion() {
@@ -173,37 +177,5 @@ public class DatabricksDriver implements Driver {
   public static void setUserAgent(IDatabricksConnectionContext connectionContext) {
     UserAgent.withProduct(DatabricksJdbcConstants.DEFAULT_USER_AGENT, getVersion());
     UserAgent.withOtherInfo(CLIENT_USER_AGENT_PREFIX, connectionContext.getClientUserAgent());
-  }
-
-  private static void configureLogger(Appender appender, Level logLevel) {
-    LoggerContext context = (LoggerContext) LogManager.getContext(false);
-    Configuration config = context.getConfiguration();
-    LoggerConfig loggerConfig = config.getLoggerConfig(LogManager.ROOT_LOGGER_NAME);
-
-    if (appender != null) {
-      appender.start();
-      config.addAppender(appender);
-      loggerConfig.addAppender(appender, logLevel, null);
-    }
-
-    loggerConfig.setLevel(logLevel);
-    context.updateLoggers();
-  }
-
-  public static void configureLogging(
-      String logDirectory, Level logLevel, int logFileCount, int logFileSize) {
-    LoggerContext context = (LoggerContext) LogManager.getContext(false);
-    Configuration config = context.getConfiguration();
-    PatternLayout layout = AppenderUtil.getPatternLayout(config, DEFAULT_LOG_PATTERN);
-    boolean isFilePath = logDirectory.matches(".*\\.(log|txt|json|csv|xml|out)$");
-    if (isFilePath) {
-      configureLogger(AppenderUtil.getFileAppender(config, layout, logDirectory), logLevel);
-    } else {
-      configureLogger(
-          AppenderUtil.getRollingFileAppender(
-              config, layout, logDirectory, logFileSize, logFileCount - 1),
-          logLevel);
-    }
-    DeviceInfoLogUtil.logProperties();
   }
 }

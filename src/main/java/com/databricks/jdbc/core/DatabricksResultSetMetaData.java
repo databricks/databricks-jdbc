@@ -6,6 +6,8 @@ import static com.databricks.jdbc.driver.DatabricksJdbcConstants.VOLUME_OPERATIO
 import com.databricks.jdbc.client.impl.thrift.generated.TColumnDesc;
 import com.databricks.jdbc.client.impl.thrift.generated.TGetResultSetMetadataResp;
 import com.databricks.jdbc.client.sqlexec.ResultManifest;
+import com.databricks.jdbc.commons.LogLevel;
+import com.databricks.jdbc.commons.util.LoggingUtil;
 import com.databricks.jdbc.commons.util.WrapperUtil;
 import com.databricks.jdbc.core.types.AccessType;
 import com.databricks.jdbc.core.types.Nullable;
@@ -19,12 +21,8 @@ import java.sql.Types;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 
 public class DatabricksResultSetMetaData implements ResultSetMetaData {
-
-  private static final Logger LOGGER = LogManager.getLogger(DatabricksResultSetMetaData.class);
   private final String statementId;
   private final ImmutableList<ImmutableDatabricksColumn> columns;
   private final ImmutableMap<String, Integer> columnNameIndex;
@@ -39,8 +37,6 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
     this.statementId = statementId;
     Map<String, Integer> columnNameToIndexMap = new HashMap<>();
     ImmutableList.Builder<ImmutableDatabricksColumn> columnsBuilder = ImmutableList.builder();
-    LOGGER.debug(
-        "Result manifest for statement {} has schema: {}", statementId, resultManifest.getSchema());
 
     int currIndex = 0;
     if (resultManifest.getIsVolumeOperation() != null && resultManifest.getIsVolumeOperation()) {
@@ -87,6 +83,11 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
     this.statementId = statementId;
     Map<String, Integer> columnNameToIndexMap = new HashMap<>();
     ImmutableList.Builder<ImmutableDatabricksColumn> columnsBuilder = ImmutableList.builder();
+    LoggingUtil.log(
+        LogLevel.DEBUG,
+        String.format(
+            "Result manifest for statement {%s} has schema: {%s}",
+            statementId, resultManifest.getSchema()));
     int currIndex = 0;
     if (resultManifest.getSchema() != null && resultManifest.getSchema().getColumnsSize() > 0) {
       for (TColumnDesc columnInfo : resultManifest.getSchema().getColumns()) {

@@ -1,12 +1,9 @@
 package com.databricks.jdbc.commons.util;
 
-import com.databricks.jdbc.client.http.DatabricksHttpClient;
+import com.databricks.jdbc.commons.LogLevel;
 import java.nio.charset.Charset;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 
 public class DeviceInfoLogUtil {
-  private static final Logger LOGGER = LogManager.getLogger(DatabricksHttpClient.class);
 
   public static void logProperties() {
     String jvmName = System.getProperty("java.vm.name");
@@ -19,15 +16,17 @@ public class DeviceInfoLogUtil {
     String localeName =
         System.getProperty("user.language") + "_" + System.getProperty("user.country");
     String charsetEncoding = Charset.defaultCharset().displayName();
-
-    LOGGER.debug("JVM Name: {}", jvmName);
-    LOGGER.debug("JVM Specification Version: {}", jvmSpecVersion);
-    LOGGER.debug("JVM Implementation Version: {}", jvmImplVersion);
-    LOGGER.debug("JVM Vendor: {}", jvmVendor);
-    LOGGER.debug("Operating System Name: {}", osName);
-    LOGGER.debug("Operating System Version: {}", osVersion);
-    LOGGER.debug("Operating System Architecture: {}", osArch);
-    LOGGER.debug("Locale Name: {}", localeName);
-    LOGGER.debug("Default Charset Encoding: {}", charsetEncoding);
+    LoggingUtil.log(LogLevel.DEBUG, String.format("JVM Name: {%s}", jvmName));
+    LoggingUtil.log(
+        LogLevel.DEBUG, String.format("JVM Specification Version: {%s}", jvmSpecVersion));
+    LoggingUtil.log(
+        LogLevel.DEBUG, String.format("JVM Implementation Version: {%s}", jvmImplVersion));
+    LoggingUtil.log(LogLevel.DEBUG, String.format("JVM Vendor: {%s}", jvmVendor));
+    LoggingUtil.log(LogLevel.DEBUG, String.format("Operating System Name: {%s}", osName));
+    LoggingUtil.log(LogLevel.DEBUG, String.format("Operating System Version: {%s}", osVersion));
+    LoggingUtil.log(LogLevel.DEBUG, String.format("Operating System Architecture: {%s}", osArch));
+    LoggingUtil.log(LogLevel.DEBUG, String.format("Locale Name: {%s}", localeName));
+    LoggingUtil.log(
+        LogLevel.DEBUG, String.format("Default Charset Encoding: {%s}", charsetEncoding));
   }
 }

@@ -4,6 +4,8 @@ import static com.databricks.jdbc.client.impl.sdk.ResultConstants.TYPE_INFO_RESU
 
 import com.databricks.jdbc.client.DatabricksMetadataClient;
 import com.databricks.jdbc.client.StatementType;
+import com.databricks.jdbc.commons.LogLevel;
+import com.databricks.jdbc.commons.util.LoggingUtil;
 import com.databricks.jdbc.commons.util.WildcardUtil;
 import com.databricks.jdbc.core.DatabricksResultSet;
 import com.databricks.jdbc.core.IDatabricksSession;
@@ -18,13 +20,9 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 
 /** Implementation for DatabricksMetadataClient using SDK client */
 public class DatabricksMetadataSdkClient implements DatabricksMetadataClient {
-
-  private static final Logger LOGGER = LogManager.getLogger(DatabricksSdkClient.class);
 
   private final DatabricksSdkClient sdkClient;
 
@@ -40,7 +38,8 @@ public class DatabricksMetadataSdkClient implements DatabricksMetadataClient {
   @Override
   public DatabricksResultSet listCatalogs(IDatabricksSession session) throws SQLException {
     String showCatalogsSQL = "show catalogs";
-    LOGGER.debug("SQL command to fetch catalogs: {}", showCatalogsSQL);
+    LoggingUtil.log(
+        LogLevel.DEBUG, String.format("SQL command to fetch catalogs: {%s}", showCatalogsSQL));
 
     ResultSet rs =
         sdkClient.executeStatement(
@@ -98,7 +97,7 @@ public class DatabricksMetadataSdkClient implements DatabricksMetadataClient {
               if (!WildcardUtil.isMatchAnything(schemaWithContext)) {
                 showSchemaSQL += " like '" + schemaNamePattern + "'";
               }
-              LOGGER.debug("SQL command to fetch schemas: {}", showSchemaSQL);
+              LoggingUtil.log(LogLevel.DEBUG, "SQL command to fetch schemas: " + showSchemaSQL);
               try {
                 ResultSet rs =
                     sdkClient.executeStatement(
@@ -169,7 +168,7 @@ public class DatabricksMetadataSdkClient implements DatabricksMetadataClient {
               if (!WildcardUtil.isMatchAnything(tableWithContext)) {
                 showTablesSQL += " like '" + tableWithContext + "'";
               }
-              LOGGER.debug("SQL command to fetch tables: {}", showTablesSQL);
+              LoggingUtil.log(LogLevel.DEBUG, "SQL command to fetch tables: " + showTablesSQL);
               try {
                 ResultSet rs =
                     sdkClient.executeStatement(
@@ -271,7 +270,7 @@ public class DatabricksMetadataSdkClient implements DatabricksMetadataClient {
               String[] combination = catalogSchemaTableCombinations.poll();
               String showColumnsSQL =
                   "show columns in " + combination[0] + "." + combination[1] + "." + combination[2];
-              LOGGER.debug("SQL command to fetch columns: {}", showColumnsSQL);
+              LoggingUtil.log(LogLevel.DEBUG, "SQL command to fetch columns: " + showColumnsSQL);
               try {
                 ResultSet rs =
                     sdkClient.executeStatement(

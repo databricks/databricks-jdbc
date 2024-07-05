@@ -6,16 +6,15 @@ import static com.databricks.jdbc.core.DatabricksTypeUtil.*;
 import com.databricks.jdbc.client.DatabricksHttpException;
 import com.databricks.jdbc.client.impl.thrift.generated.*;
 import com.databricks.jdbc.client.sqlexec.ExternalLink;
+import com.databricks.jdbc.commons.LogLevel;
+import com.databricks.jdbc.commons.util.LoggingUtil;
 import com.databricks.sdk.service.sql.ColumnInfoTypeName;
 import java.nio.ByteBuffer;
 import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 
 public class DatabricksThriftHelper {
-  private static final Logger LOGGER = LogManager.getLogger(DatabricksThriftHelper.class);
   public static final List<TStatusCode> SUCCESS_STATUS_LIST =
       List.of(TStatusCode.SUCCESS_STATUS, TStatusCode.SUCCESS_WITH_INFO_STATUS);
 
@@ -44,7 +43,7 @@ public class DatabricksThriftHelper {
       throws DatabricksHttpException {
     if (!SUCCESS_STATUS_LIST.contains(statusCode)) {
       String errorMessage = "Error thrift response received. " + errorContext;
-      LOGGER.error(errorMessage);
+      LoggingUtil.log(LogLevel.ERROR, errorMessage);
       throw new DatabricksHttpException(errorMessage);
     }
   }
@@ -247,19 +246,22 @@ public class DatabricksThriftHelper {
   public static void checkDirectResultsForErrorStatus(
       TSparkDirectResults directResults, String context) throws DatabricksHttpException {
     if (directResults.isSetOperationStatus()) {
-      LOGGER.debug("direct result operation status being verified for success response");
+      LoggingUtil.log(
+          LogLevel.DEBUG, "direct result operation status being verified for success response");
       verifySuccessStatus(directResults.getOperationStatus().getStatus().getStatusCode(), context);
     }
     if (directResults.isSetResultSetMetadata()) {
-      LOGGER.debug("direct results metadata being verified for success response");
+      LoggingUtil.log(
+          LogLevel.DEBUG, "direct results metadata being verified for success response");
       verifySuccessStatus(directResults.getResultSetMetadata().status.getStatusCode(), context);
     }
     if (directResults.isSetCloseOperation()) {
-      LOGGER.debug("direct results close operation verified for success response");
+      LoggingUtil.log(
+          LogLevel.DEBUG, "direct results close operation verified for success response");
       verifySuccessStatus(directResults.getCloseOperation().status.getStatusCode(), context);
     }
     if (directResults.isSetResultSet()) {
-      LOGGER.debug("direct result set being verified for success response");
+      LoggingUtil.log(LogLevel.DEBUG, "direct result set being verified for success response");
       verifySuccessStatus(directResults.getResultSet().status.getStatusCode(), context);
     }
   }

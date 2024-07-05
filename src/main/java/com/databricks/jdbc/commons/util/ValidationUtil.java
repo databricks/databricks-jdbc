@@ -1,15 +1,13 @@
 package com.databricks.jdbc.commons.util;
 
 import com.databricks.jdbc.client.DatabricksHttpException;
+import com.databricks.jdbc.commons.LogLevel;
 import com.databricks.jdbc.core.DatabricksSQLException;
 import com.databricks.jdbc.core.DatabricksValidationException;
 import java.util.Map;
 import org.apache.http.HttpResponse;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 
 public class ValidationUtil {
-  private static final Logger LOGGER = LogManager.getLogger(ValidationUtil.class);
 
   public static void checkIfNonNegative(int number, String fieldName)
       throws DatabricksSQLException {
@@ -37,7 +35,7 @@ public class ValidationUtil {
     if (statusCode >= 200 && statusCode < 300) {
       return;
     }
-    LOGGER.debug("Response has failure HTTP Code");
+    LoggingUtil.log(LogLevel.DEBUG, "Response has failure HTTP Code");
     String thriftErrorHeader = "X-Thriftserver-Error-Message";
     if (response.containsHeader(thriftErrorHeader)) {
       String errorMessage = response.getFirstHeader(thriftErrorHeader).getValue();

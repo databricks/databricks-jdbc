@@ -3,6 +3,8 @@ package com.databricks.jdbc.driver;
 import static com.databricks.jdbc.driver.DatabricksJdbcConstants.*;
 
 import com.databricks.jdbc.client.DatabricksClientType;
+import com.databricks.jdbc.commons.LogLevel;
+import com.databricks.jdbc.commons.util.LoggingUtil;
 import com.databricks.jdbc.core.DatabricksParsingException;
 import com.databricks.jdbc.core.DatabricksSQLException;
 import com.databricks.jdbc.core.types.AllPurposeCluster;
@@ -16,13 +18,8 @@ import java.util.*;
 import java.util.regex.Matcher;
 import java.util.stream.Collectors;
 import org.apache.http.client.utils.URIBuilder;
-import org.apache.logging.log4j.Level;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 
 public class DatabricksConnectionContext implements IDatabricksConnectionContext {
-
-  private static final Logger LOGGER = LogManager.getLogger(DatabricksConnectionContext.class);
   private final String host;
   @VisibleForTesting final int port;
   private final String schema;
@@ -136,7 +133,7 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
 
   @Override
   public String getHostUrl() throws DatabricksParsingException {
-    LOGGER.debug("public String getHostUrl()");
+    LoggingUtil.log(LogLevel.DEBUG, "public String getHostUrl()");
     // Determine the schema based on the transport mode
     String schema =
         (getSSLMode() != null && getSSLMode().equals("0"))
@@ -156,7 +153,7 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
       // Build the URI and convert to string
       return uriBuilder.build().toString();
     } catch (Exception e) {
-      LOGGER.debug("URI Building failed with exception: " + e.getMessage());
+      LoggingUtil.log(LogLevel.DEBUG, "URI Building failed with exception: " + e.getMessage());
       throw new DatabricksParsingException("URI Building failed with exception: " + e.getMessage());
     }
   }
@@ -193,7 +190,7 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   }
 
   public String getHttpPath() {
-    LOGGER.debug("String getHttpPath()");
+    LoggingUtil.log(LogLevel.DEBUG, "String getHttpPath()");
     return getParameter(DatabricksJdbcConstants.HTTP_PATH);
   }
 
@@ -285,23 +282,23 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   }
 
   @Override
-  public Level getLogLevel() {
+  public LogLevel getLogLevel() {
     String logLevel = getParameter(DatabricksJdbcConstants.LOG_LEVEL);
     if (nullOrEmptyString(logLevel)) {
-      LOGGER.debug("No logLevel given in the input, defaulting to info.");
+      LoggingUtil.log(LogLevel.DEBUG, "No logLevel given in the input, defaulting to info.");
       return DEFAULT_LOG_LEVEL;
     }
     try {
       return getLogLevel(Integer.parseInt(logLevel));
     } catch (NumberFormatException e) {
-      LOGGER.debug("Input log level is not an integer, parsing string.");
+      LoggingUtil.log(LogLevel.DEBUG, "Input log level is not an integer, parsing string.");
       logLevel = logLevel.toUpperCase();
     }
 
     try {
-      return Level.valueOf(logLevel);
+      return LogLevel.valueOf(logLevel);
     } catch (Exception e) {
-      LOGGER.debug("Invalid logLevel given in the input, defaulting to info.");
+      LoggingUtil.log(LogLevel.DEBUG, "Invalid logLevel given in the input, defaulting to info.");
       return DEFAULT_LOG_LEVEL;
     }
   }
@@ -371,7 +368,8 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
           getParameter(
               CLOUD_FETCH_THREAD_POOL_SIZE, String.valueOf(CLOUD_FETCH_THREAD_POOL_SIZE_DEFAULT)));
     } catch (NumberFormatException e) {
-      LOGGER.debug("Invalid thread pool size, defaulting to default thread pool size.");
+      LoggingUtil.log(
+          LogLevel.DEBUG, "Invalid thread pool size, defaulting to default thread pool size.");
       return CLOUD_FETCH_THREAD_POOL_SIZE_DEFAULT;
     }
   }
@@ -483,24 +481,24 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   }
 
   @VisibleForTesting
-  static Level getLogLevel(int level) {
+  static LogLevel getLogLevel(int level) {
     switch (level) {
       case 0:
-        return Level.OFF;
+        return LogLevel.OFF;
       case 1:
-        return Level.FATAL;
+        return LogLevel.FATAL;
       case 2:
-        return Level.ERROR;
+        return LogLevel.ERROR;
       case 3:
-        return Level.WARN;
+        return LogLevel.WARN;
       case 4:
-        return Level.INFO;
+        return LogLevel.INFO;
       case 5:
-        return Level.DEBUG;
+        return LogLevel.DEBUG;
       case 6:
-        return Level.TRACE;
+        return LogLevel.TRACE;
       default:
-        LOGGER.debug("Invalid logLevel, defaulting to default log level.");
+        LoggingUtil.log(LogLevel.INFO, "Invalid logLevel, defaulting to default log level.");
         return DEFAULT_LOG_LEVEL;
     }
   }

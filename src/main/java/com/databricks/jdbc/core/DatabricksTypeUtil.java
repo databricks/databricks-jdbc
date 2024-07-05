@@ -6,6 +6,8 @@ import com.databricks.jdbc.client.impl.thrift.generated.TPrimitiveTypeEntry;
 import com.databricks.jdbc.client.impl.thrift.generated.TTypeDesc;
 import com.databricks.jdbc.client.impl.thrift.generated.TTypeEntry;
 import com.databricks.jdbc.client.impl.thrift.generated.TTypeId;
+import com.databricks.jdbc.commons.LogLevel;
+import com.databricks.jdbc.commons.util.LoggingUtil;
 import com.databricks.sdk.service.sql.ColumnInfoTypeName;
 import java.sql.Date;
 import java.sql.Timestamp;
@@ -17,16 +19,12 @@ import org.apache.arrow.vector.types.DateUnit;
 import org.apache.arrow.vector.types.FloatingPointPrecision;
 import org.apache.arrow.vector.types.TimeUnit;
 import org.apache.arrow.vector.types.pojo.ArrowType;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 
 /**
  * Databricks types as supported in
  * https://docs.databricks.com/en/sql/language-manual/sql-ref-datatypes.html
  */
 public class DatabricksTypeUtil {
-
-  private static final Logger LOGGER = LogManager.getLogger(DatabricksTypeUtil.class);
 
   public static final String BIGINT = "BIGINT";
   public static final String BINARY = "BINARY";
@@ -143,7 +141,7 @@ public class DatabricksTypeUtil {
       case USER_DEFINED_TYPE:
         return Types.OTHER;
       default:
-        LOGGER.error("Unknown column type: {}", typeName);
+        LoggingUtil.log(LogLevel.ERROR, "Unknown column type: " + typeName);
         throw new IllegalStateException("Unknown column type: " + typeName);
     }
   }
@@ -187,8 +185,8 @@ public class DatabricksTypeUtil {
       case MAP:
         return "java.util.Map";
       default:
-        LOGGER.error("Unknown column type: {}", typeName);
-        throw new IllegalStateException("Unknown column type: " + typeName);
+        LoggingUtil.log(LogLevel.ERROR, "Unknown column type class name: " + typeName);
+        throw new IllegalStateException("Unknown column type class name: " + typeName);
     }
   }
 

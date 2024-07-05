@@ -12,7 +12,9 @@ import com.databricks.jdbc.client.impl.thrift.commons.DatabricksThriftAccessor;
 import com.databricks.jdbc.client.impl.thrift.generated.*;
 import com.databricks.jdbc.client.sqlexec.ExternalLink;
 import com.databricks.jdbc.commons.CommandName;
+import com.databricks.jdbc.commons.LogLevel;
 import com.databricks.jdbc.commons.MetricsList;
+import com.databricks.jdbc.commons.util.LoggingUtil;
 import com.databricks.jdbc.core.*;
 import com.databricks.jdbc.core.types.ComputeResource;
 import com.databricks.jdbc.driver.IDatabricksConnectionContext;
@@ -20,12 +22,8 @@ import com.google.common.annotations.VisibleForTesting;
 import java.sql.SQLException;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 
 public class DatabricksThriftServiceClient implements DatabricksClient, DatabricksMetadataClient {
-
-  private static final Logger LOGGER = LogManager.getLogger(DatabricksThriftServiceClient.class);
 
   private final DatabricksThriftAccessor thriftAccessor;
   private final IDatabricksConnectionContext connectionContext;
@@ -51,12 +49,11 @@ public class DatabricksThriftServiceClient implements DatabricksClient, Databric
   public ImmutableSessionInfo createSession(
       ComputeResource cluster, String catalog, String schema, Map<String, String> sessionConf)
       throws DatabricksSQLException {
-    LOGGER.debug(
-        "public Session createSession(Compute cluster = {}, String catalog = {}, String schema = {}, Map<String, String> sessionConf = {})",
-        cluster.toString(),
-        catalog,
-        schema,
-        sessionConf);
+    LoggingUtil.log(
+        LogLevel.DEBUG,
+        String.format(
+            "public Session createSession(Compute cluster = {%s}, String catalog = {%s}, String schema = {%s}, Map<String, String> sessionConf = {%s})",
+            cluster.toString(), catalog, schema, sessionConf));
     long startTime = System.currentTimeMillis();
     TOpenSessionReq openSessionReq =
         new TOpenSessionReq()
@@ -76,7 +73,7 @@ public class DatabricksThriftServiceClient implements DatabricksClient, Databric
     }
 
     String sessionId = byteBufferToString(response.sessionHandle.getSessionId().guid);
-    LOGGER.info("Session created with ID {}", sessionId);
+    LoggingUtil.log(LogLevel.DEBUG, String.format("Session created with ID {%s}", sessionId));
 
     ImmutableSessionInfo sessionInfo =
         ImmutableSessionInfo.builder()
@@ -97,10 +94,11 @@ public class DatabricksThriftServiceClient implements DatabricksClient, Databric
   public void deleteSession(IDatabricksSession session, ComputeResource cluster)
       throws DatabricksSQLException {
     long startTime = System.currentTimeMillis();
-    LOGGER.debug(
-        "public void deleteSession(Session session = {}, Compute cluster = {})",
-        session.toString(),
-        cluster.toString());
+    LoggingUtil.log(
+        LogLevel.DEBUG,
+        String.format(
+            "public void deleteSession(Session session = {%s}, Compute cluster = {%s})",
+            session.toString(), cluster.toString()));
     TCloseSessionReq closeSessionReq =
         new TCloseSessionReq().setSessionHandle(session.getSessionInfo().sessionHandle());
     TCloseSessionResp response =
@@ -125,12 +123,11 @@ public class DatabricksThriftServiceClient implements DatabricksClient, Databric
       throws SQLException {
     // Note that prepared statement is not supported by SEA/Thrift flow.
     long startTime = System.currentTimeMillis();
-    LOGGER.debug(
-        "public DatabricksResultSet executeStatement(String sql = {}, Compute cluster = {}, Map<Integer, ImmutableSqlParameter> parameters = {}, StatementType statementType = {}, IDatabricksSession session)",
-        sql,
-        computeResource.toString(),
-        parameters.toString(),
-        statementType);
+    LoggingUtil.log(
+        LogLevel.DEBUG,
+        String.format(
+            "public DatabricksResultSet executeStatement(String sql = {%s}, Compute cluster = {%s}, Map<Integer, ImmutableSqlParameter> parameters = {%s}, StatementType statementType = {%s}, IDatabricksSession session)",
+            sql, computeResource.toString(), parameters.toString(), statementType));
     TExecuteStatementReq request =
         new TExecuteStatementReq()
             .setStatement(sql)
@@ -149,17 +146,22 @@ public class DatabricksThriftServiceClient implements DatabricksClient, Databric
 
   @Override
   public void closeStatement(String statementId) throws DatabricksSQLException {
-    LOGGER.debug(
-        "public void closeStatement(String statementId = {}) for all purpose cluster", statementId);
+    LoggingUtil.log(
+        LogLevel.DEBUG,
+        String.format(
+            "public void closeStatement(String statementId = {%s}) for all purpose cluster",
+            statementId));
     throw new DatabricksSQLFeatureNotImplementedException(
         "closeStatement for all purpose cluster not implemented");
   }
 
   @Override
   public void cancelStatement(String statementId) throws DatabricksSQLException {
-    LOGGER.debug(
-        "public void cancelStatement(String statementId = {}) for all purpose cluster",
-        statementId);
+    LoggingUtil.log(
+        LogLevel.DEBUG,
+        String.format(
+            "public void cancelStatement(String statementId = {%s}) for all purpose cluster",
+            statementId));
     throw new DatabricksSQLFeatureNotImplementedException(
         "abortStatement for all purpose cluster not implemented");
   }
@@ -172,14 +174,14 @@ public class DatabricksThriftServiceClient implements DatabricksClient, Databric
         String.format(
             "public Optional<ExternalLink> getResultChunk(String statementId = {%s}, long chunkIndex = {%s}) for all purpose cluster",
             statementId, chunkIndex);
-    LOGGER.debug(context);
+    LoggingUtil.log(LogLevel.DEBUG, context);
     THandleIdentifier handleIdentifier = new THandleIdentifier().setGuid(statementId.getBytes());
     TOperationHandle operationHandle =
         new TOperationHandle().setOperationId(handleIdentifier).setHasResultSet(false);
     TFetchResultsResp fetchResultsResp = thriftAccessor.getResultSetResp(operationHandle, context);
     if (chunkIndex < 0 || fetchResultsResp.getResults().getResultLinksSize() <= chunkIndex) {
       String error = String.format("Out of bounds error for chunkIndex. Context: %s", context);
-      LOGGER.error(error);
+      LoggingUtil.log(LogLevel.ERROR, error);
       throw new DatabricksSQLException(error);
     }
     AtomicInteger index = new AtomicInteger(0);
@@ -203,7 +205,7 @@ public class DatabricksThriftServiceClient implements DatabricksClient, Databric
   public DatabricksResultSet listTypeInfo(IDatabricksSession session)
       throws DatabricksSQLException {
     long startTime = System.currentTimeMillis();
-    LOGGER.debug("public ResultSet getTypeInfo()");
+    LoggingUtil.log(LogLevel.DEBUG, "public ResultSet getTypeInfo()");
     TGetTypeInfoReq request =
         new TGetTypeInfoReq().setSessionHandle(session.getSessionInfo().sessionHandle());
     TFetchResultsResp response =
@@ -225,7 +227,7 @@ public class DatabricksThriftServiceClient implements DatabricksClient, Databric
     String context =
         String.format(
             "Fetching catalogs for all purpose cluster. Session {%s}", session.toString());
-    LOGGER.debug(context);
+    LoggingUtil.log(LogLevel.DEBUG, context);
     TGetCatalogsReq request =
         new TGetCatalogsReq().setSessionHandle(session.getSessionInfo().sessionHandle());
     TFetchResultsResp response =
@@ -249,7 +251,7 @@ public class DatabricksThriftServiceClient implements DatabricksClient, Databric
         String.format(
             "Fetching schemas for all purpose cluster. Session {%s}, catalog {%s}, schemaNamePattern {%s}",
             session.toString(), catalog, schemaNamePattern);
-    LOGGER.debug(context);
+    LoggingUtil.log(LogLevel.DEBUG, context);
     TGetSchemasReq request =
         new TGetSchemasReq()
             .setSessionHandle(session.getSessionInfo().sessionHandle())
@@ -283,7 +285,7 @@ public class DatabricksThriftServiceClient implements DatabricksClient, Databric
         String.format(
             "Fetching tables for all purpose cluster. Session {%s}, catalog {%s}, schemaNamePattern {%s}, tableNamePattern {%s}",
             session.toString(), catalog, schemaNamePattern, tableNamePattern);
-    LOGGER.debug(context);
+    LoggingUtil.log(LogLevel.DEBUG, context);
     TGetTablesReq request =
         new TGetTablesReq()
             .setSessionHandle(session.getSessionInfo().sessionHandle())
@@ -307,10 +309,11 @@ public class DatabricksThriftServiceClient implements DatabricksClient, Databric
   }
 
   @Override
-  public DatabricksResultSet listTableTypes(IDatabricksSession session)
-      throws DatabricksSQLException {
-    long startTime = System.currentTimeMillis();
-    LOGGER.debug("Fetching table types for all purpose cluster. Session {}", session.toString());
+  public DatabricksResultSet listTableTypes(IDatabricksSession session) {
+    LoggingUtil.log(
+        LogLevel.DEBUG,
+        String.format(
+            "Fetching table types for all purpose cluster. Session {%s}", session.toString()));
     return MetadataResultSetBuilder.getTableTypesResult();
   }
 
@@ -327,7 +330,7 @@ public class DatabricksThriftServiceClient implements DatabricksClient, Databric
         String.format(
             "Fetching columns for all purpose cluster. Session {%s}, catalog {%s}, schemaNamePattern {%s}, tableNamePattern {%s}, columnNamePattern {%s}",
             session.toString(), catalog, schemaNamePattern, tableNamePattern, columnNamePattern);
-    LOGGER.debug(context);
+    LoggingUtil.log(LogLevel.DEBUG, context);
     TGetColumnsReq request =
         new TGetColumnsReq()
             .setSessionHandle(session.getSessionInfo().sessionHandle())
@@ -360,7 +363,7 @@ public class DatabricksThriftServiceClient implements DatabricksClient, Databric
         String.format(
             "Fetching functions for all purpose cluster. Session {%s}, catalog {%s}, schemaNamePattern {%s}, functionNamePattern {%s}.",
             session.toString(), catalog, schemaNamePattern, functionNamePattern);
-    LOGGER.debug(context);
+    LoggingUtil.log(LogLevel.DEBUG, context);
     TGetFunctionsReq request =
         new TGetFunctionsReq()
             .setSessionHandle(session.getSessionInfo().sessionHandle())
@@ -388,7 +391,7 @@ public class DatabricksThriftServiceClient implements DatabricksClient, Databric
         String.format(
             "Fetching primary keys for all purpose cluster. session {%s}, catalog {%s}, schema {%s}, table {%s}",
             session.toString(), catalog, schema, table);
-    LOGGER.debug(context);
+    LoggingUtil.log(LogLevel.DEBUG, context);
     TGetPrimaryKeysReq request =
         new TGetPrimaryKeysReq()
             .setSessionHandle(session.getSessionInfo().sessionHandle())

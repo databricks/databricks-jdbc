@@ -9,6 +9,8 @@ import com.databricks.jdbc.client.StatementType;
 import com.databricks.jdbc.client.http.DatabricksHttpClient;
 import com.databricks.jdbc.client.impl.thrift.generated.*;
 import com.databricks.jdbc.commons.CommandName;
+import com.databricks.jdbc.commons.LogLevel;
+import com.databricks.jdbc.commons.util.LoggingUtil;
 import com.databricks.jdbc.core.*;
 import com.databricks.jdbc.driver.IDatabricksConnectionContext;
 import com.databricks.sdk.core.DatabricksConfig;
@@ -17,15 +19,11 @@ import java.sql.SQLException;
 import java.util.Arrays;
 import java.util.Map;
 import org.apache.http.HttpException;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 import org.apache.thrift.TBase;
 import org.apache.thrift.TException;
 import org.apache.thrift.protocol.TBinaryProtocol;
 
 public class DatabricksThriftAccessor {
-
-  private static final Logger LOGGER = LogManager.getLogger(DatabricksThriftAccessor.class);
   private final DatabricksConfig databricksConfig;
   private final ThreadLocal<TCLIService.Client> thriftClient;
   private final Boolean enableDirectResults;
@@ -70,13 +68,14 @@ public class DatabricksThriftAccessor {
      *  1. Test out metadata operations.
      *  2. Handle compression
      * */
-    LOGGER.debug(
-        "Fetching thrift response for request {}, CommandName {}",
-        request.toString(),
-        commandName.name());
     refreshHeadersIfRequired();
     DatabricksHttpTTransport transport =
         (DatabricksHttpTTransport) getThriftClient().getInputProtocol().getTransport();
+    LoggingUtil.log(
+        LogLevel.DEBUG,
+        String.format(
+            "Fetching thrift response for request {%s}, CommandName {%s}",
+            request.toString(), commandName.name()));
     try {
       switch (commandName) {
         case OPEN_SESSION:
@@ -104,7 +103,7 @@ public class DatabricksThriftAccessor {
               String.format(
                   "No implementation for fetching thrift response for CommandName {%s}.  Request {%s}",
                   commandName, request.toString());
-          LOGGER.error(errorMessage);
+          LoggingUtil.log(LogLevel.ERROR, errorMessage);
           throw new DatabricksSQLFeatureNotSupportedException(errorMessage);
       }
     } catch (TException | SQLException e) {
@@ -119,7 +118,7 @@ public class DatabricksThriftAccessor {
           String.format(
               "Error while receiving response from Thrift server. Request {%s}, Error {%s}",
               request.toString(), e.toString());
-      LOGGER.error(errorMessage);
+      LoggingUtil.log(LogLevel.ERROR, errorMessage);
       throw new DatabricksSQLException(errorMessage, e);
     } finally {
       // Ensure resources are closed after use
@@ -161,7 +160,7 @@ public class DatabricksThriftAccessor {
           String.format(
               "Error while fetching results from Thrift server. Request {%s}, Error {%s}",
               request.toString(), e.toString());
-      LOGGER.error(errorMessage);
+      LoggingUtil.log(LogLevel.ERROR, errorMessage);
       throw new DatabricksHttpException(errorMessage, e);
     } finally {
       transport.close();
@@ -251,7 +250,7 @@ public class DatabricksThriftAccessor {
           String.format(
               "Error while receiving response from Thrift server. Request {%s}, Error {%s}",
               request.toString(), e.toString());
-      LOGGER.error(errorMessage);
+      LoggingUtil.log(LogLevel.ERROR, errorMessage);
       throw new DatabricksHttpException(errorMessage, e);
     } finally {
       transport.close();

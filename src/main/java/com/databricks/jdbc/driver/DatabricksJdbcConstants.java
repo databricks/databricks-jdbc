@@ -1,10 +1,10 @@
 package com.databricks.jdbc.driver;
 
+import com.databricks.jdbc.commons.LogLevel;
 import com.google.common.annotations.VisibleForTesting;
 import java.util.Map;
 import java.util.Set;
 import java.util.regex.Pattern;
-import org.apache.logging.log4j.Level;
 
 public final class DatabricksJdbcConstants {
 
@@ -27,7 +27,7 @@ public final class DatabricksJdbcConstants {
 
   public static final String JDBC_SCHEMA = "jdbc:databricks://";
 
-  public static final Level DEFAULT_LOG_LEVEL = Level.INFO;
+  public static final LogLevel DEFAULT_LOG_LEVEL = LogLevel.INFO;
 
   public static final String LOG_LEVEL = "loglevel";
 
