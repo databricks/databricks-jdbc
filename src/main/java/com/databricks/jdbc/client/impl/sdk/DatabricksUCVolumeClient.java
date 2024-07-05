@@ -38,6 +38,12 @@ public class DatabricksUCVolumeClient implements IDatabricksUCVolumeClient {
     return String.format("GET '/Volumes/%s/%s/%s/' TO %s", catalog, schema, volume, localPath);
   }
 
+  private String createPutObjectQuery(
+          String catalog, String schema, String volume, String localPath) {
+    return String.format("PUT %s INTO '/Volumes/%s/%s/%s/'", localPath, catalog, schema, volume);
+  }
+
+
   public boolean prefixExists(String catalog, String schema, String volume, String prefix)
       throws SQLException {
     return prefixExists(catalog, schema, volume, prefix, true);
@@ -256,6 +262,38 @@ public class DatabricksUCVolumeClient implements IDatabricksUCVolumeClient {
             resultSet.getString(VOLUME_OPERATION_STATUS_COLUMN_NAME);
         volumeOperationStatus =
             VOLUME_OPERATION_STATUS_SUCCEEDED.equals(volumeOperationStatusString);
+      }
+    } catch (SQLException e) {
+      LoggingUtil.log(LogLevel.ERROR, "SQL query execution failed " + e);
+      throw e;
+    }
+
+    return volumeOperationStatus;
+  }
+
+  public boolean putObject(String catalog, String schema, String volume, String localPath)
+          throws SQLException {
+
+    LoggingUtil.log(
+            LogLevel.DEBUG,
+            String.format(
+                    "Entering putObject method with parameters: catalog={%s}, schema={%s}, volume={%s}, localPath={%s}",
+                    catalog, schema, volume, localPath));
+
+
+    String putObjectQuery = createPutObjectQuery(catalog, schema, volume, localPath);
+
+    boolean volumeOperationStatus = false;
+
+    try (Statement statement = connection.createStatement()) {
+      ResultSet resultSet = statement.executeQuery(putObjectQuery);
+      LoggingUtil.log(LogLevel.INFO, "SQL query executed successfully");
+
+      if (resultSet.next()) {
+        String volumeOperationStatusString =
+                resultSet.getString(VOLUME_OPERATION_STATUS_COLUMN_NAME);
+        volumeOperationStatus =
+                VOLUME_OPERATION_STATUS_SUCCEEDED.equals(volumeOperationStatusString);
       }
     } catch (SQLException e) {
       LoggingUtil.log(LogLevel.ERROR, "SQL query execution failed " + e);

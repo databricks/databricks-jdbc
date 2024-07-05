@@ -43,6 +43,11 @@ public class DatabricksUCVolumeClientTest {
     return String.format("GET '/Volumes/%s/%s/%s/' TO %s", catalog, schema, volume, localPath);
   }
 
+  private String createPutObjectQuery(
+          String catalog, String schema, String volume, String localPath) {
+    return String.format("PUT %s INTO '/Volumes/%s/%s/%s/'", localPath, catalog, schema, volume);
+  }
+
   @ParameterizedTest
   @MethodSource("provideParametersForPrefixExists")
   public void testPrefixExists(String volume, String prefix, boolean expected) throws SQLException {
@@ -258,6 +263,29 @@ public class DatabricksUCVolumeClientTest {
   }
 
   private static Stream<Arguments> provideParametersForGetObject() {
+    return Stream.of(Arguments.of("test_catalog", "test_schema", "test_volume", "test_path", true));
+  }
+
+  @ParameterizedTest
+  @MethodSource("provideParametersForPutObject")
+  public void testPutObject(
+          String catalog, String schema, String volume, String localPath, boolean expected)
+          throws SQLException {
+    DatabricksUCVolumeClient client = new DatabricksUCVolumeClient(connection);
+
+    when(connection.createStatement()).thenReturn(statement);
+    String putObjectQuery = createPutObjectQuery(catalog, schema, volume, localPath);
+    when(statement.executeQuery(putObjectQuery)).thenReturn(resultSet);
+    when(resultSet.next()).thenReturn(true);
+    when(resultSet.getString(VOLUME_OPERATION_STATUS_COLUMN_NAME))
+            .thenReturn(VOLUME_OPERATION_STATUS_SUCCEEDED);
+    boolean result = client.putObject(catalog, schema, volume, localPath);
+
+    assertEquals(expected, result);
+    verify(statement).executeQuery(putObjectQuery);
+  }
+
+  private static Stream<Arguments> provideParametersForPutObject() {
     return Stream.of(Arguments.of("test_catalog", "test_schema", "test_volume", "test_path", true));
   }
 }

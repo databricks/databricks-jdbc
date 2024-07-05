@@ -77,4 +77,16 @@ public interface IDatabricksUCVolumeClient {
    */
   boolean getObject(String catalog, String schema, String volume, String localPath)
       throws SQLException;
+
+  /**
+   * putObject(): Upload data from a local path to a specified UC Volume.
+   *
+   * @param catalog the catalog name of the cloud storage
+   * @param schema the schema name of the cloud storage
+   * @param volume the UC volume name of the cloud storage
+   * @param localPath the local path from where the data is to be uploaded
+   * @return a boolean value indicating status of the PUT operation
+   */
+  boolean putObject(String catalog, String schema, String volume, String localPath)
+          throws SQLException;
 }
