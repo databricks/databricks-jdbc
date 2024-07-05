@@ -9,6 +9,7 @@ import com.databricks.jdbc.core.types.AllPurposeCluster;
 import com.databricks.jdbc.core.types.CompressionType;
 import com.databricks.jdbc.core.types.ComputeResource;
 import com.databricks.jdbc.core.types.Warehouse;
+import com.databricks.jdbc.telemetry.DatabricksMetrics;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
 import java.util.*;
@@ -26,6 +27,7 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   @VisibleForTesting final int port;
   private final String schema;
   private final ComputeResource computeResource;
+  private static DatabricksMetrics metricsExporter;
   @VisibleForTesting final ImmutableMap<String, String> parameters;
 
   /**
@@ -75,8 +77,10 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
       for (Map.Entry<Object, Object> entry : properties.entrySet()) {
         parametersBuilder.put(entry.getKey().toString().toLowerCase(), entry.getValue().toString());
       }
-      return new DatabricksConnectionContext(
-          hostValue, portValue, schema, parametersBuilder.build());
+      DatabricksConnectionContext context =
+          new DatabricksConnectionContext(hostValue, portValue, schema, parametersBuilder.build());
+      metricsExporter = new DatabricksMetrics(context);
+      return context;
     } else {
       // Should never reach here, since we have already checked for url validity
       throw new IllegalArgumentException("Invalid url " + "incorrect");
@@ -123,6 +127,11 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
         || TEST_PATH_PATTERN.matcher(url).matches()
         || BASE_PATTERN.matcher(url).matches()
         || HTTP_CLI_PATTERN.matcher(url).matches();
+  }
+
+  @Override
+  public DatabricksMetrics getMetricsExporter() {
+    return metricsExporter;
   }
 
   @Override
