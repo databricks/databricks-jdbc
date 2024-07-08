@@ -93,7 +93,7 @@ public class DatabricksThriftHelperTest {
   private static Stream<Arguments> typeIdAndColumnInfoType() {
     return Stream.of(
         Arguments.of(TTypeId.BOOLEAN_TYPE, ColumnInfoTypeName.BOOLEAN),
-        Arguments.of(TTypeId.TINYINT_TYPE, ColumnInfoTypeName.SHORT),
+        Arguments.of(TTypeId.TINYINT_TYPE, ColumnInfoTypeName.BYTE),
         Arguments.of(TTypeId.SMALLINT_TYPE, ColumnInfoTypeName.SHORT),
         Arguments.of(TTypeId.INT_TYPE, ColumnInfoTypeName.INT),
         Arguments.of(TTypeId.BIGINT_TYPE, ColumnInfoTypeName.LONG),
