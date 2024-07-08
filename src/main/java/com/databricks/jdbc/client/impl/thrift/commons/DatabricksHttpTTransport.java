@@ -2,6 +2,8 @@ package com.databricks.jdbc.client.impl.thrift.commons;
 
 import com.databricks.jdbc.client.DatabricksHttpException;
 import com.databricks.jdbc.client.http.DatabricksHttpClient;
+import com.databricks.jdbc.commons.LogLevel;
+import com.databricks.jdbc.commons.util.LoggingUtil;
 import com.databricks.jdbc.commons.util.ValidationUtil;
 import com.google.common.annotations.VisibleForTesting;
 import java.io.ByteArrayOutputStream;
@@ -13,15 +15,11 @@ import java.util.Map;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.entity.ByteArrayEntity;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 import org.apache.thrift.TConfiguration;
 import org.apache.thrift.transport.TTransport;
 import org.apache.thrift.transport.TTransportException;
 
 public class DatabricksHttpTTransport extends TTransport {
-
-  private static final Logger LOGGER = LogManager.getLogger(DatabricksHttpTTransport.class);
   private final DatabricksHttpClient httpClient;
   private final String url;
   private Map<String, String> customHeaders = Collections.emptyMap();
@@ -56,8 +54,9 @@ public class DatabricksHttpTTransport extends TTransport {
       try {
         inputStream.close();
       } catch (IOException e) {
-        LOGGER.error(
-            "Failed to close inputStream with error {}. Skipping the close.", e.toString());
+        LoggingUtil.log(
+            LogLevel.ERROR,
+            String.format("Failed to close inputStream with error {%s}. Skipping the close.", e));
       }
       inputStream = null;
     }
@@ -65,7 +64,9 @@ public class DatabricksHttpTTransport extends TTransport {
       try {
         response.close();
       } catch (IOException e) {
-        LOGGER.error("Failed to close response with error {}", e.toString());
+        LoggingUtil.log(
+            LogLevel.ERROR,
+            String.format("Failed to close response with error {%s}", e.toString()));
       }
       response = null;
     }
@@ -106,7 +107,9 @@ public class DatabricksHttpTTransport extends TTransport {
       }
       return ret;
     } catch (IOException e) {
-      LOGGER.error("Failed to read inputStream with error {}", e.toString());
+      LoggingUtil.log(
+          LogLevel.ERROR,
+          String.format("Failed to read inputStream with error {%s}", e.toString()));
       throw new TTransportException(e);
     }
   }
@@ -141,7 +144,7 @@ public class DatabricksHttpTTransport extends TTransport {
       httpClient.closeExpiredAndIdleConnections();
 
       String errorMessage = "Failed to flush data to server: " + e.getMessage();
-      LOGGER.error(errorMessage);
+      LoggingUtil.log(LogLevel.ERROR, errorMessage);
       throw new TTransportException(TTransportException.UNKNOWN, errorMessage);
     }
   }

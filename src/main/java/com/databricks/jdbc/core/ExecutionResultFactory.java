@@ -2,6 +2,7 @@ package com.databricks.jdbc.core;
 
 import static com.databricks.jdbc.client.impl.thrift.commons.DatabricksThriftHelper.convertColumnarToRowBased;
 
+import com.databricks.jdbc.client.impl.thrift.commons.DatabricksThriftHelper;
 import com.databricks.jdbc.client.impl.thrift.generated.TGetResultSetMetadataResp;
 import com.databricks.jdbc.client.impl.thrift.generated.TRowSet;
 import com.databricks.jdbc.client.sqlexec.ResultData;
@@ -11,11 +12,14 @@ import java.util.List;
 class ExecutionResultFactory {
   static IExecutionResult getResultSet(
       ResultData data, ResultManifest manifest, String statementId, IDatabricksSession session) {
-    // Return Volume operation handler
-
     IExecutionResult resultHandler = getResultHandler(data, manifest, statementId, session);
     if (manifest.getIsVolumeOperation() != null && manifest.getIsVolumeOperation()) {
-      return new VolumeOperationResult(statementId, manifest, session, resultHandler);
+      return new VolumeOperationResult(
+          statementId,
+          manifest.getTotalRowCount(),
+          manifest.getSchema().getColumnCount(),
+          session,
+          resultHandler);
     } else {
       return resultHandler;
     }
@@ -39,6 +43,25 @@ class ExecutionResultFactory {
   }
 
   static IExecutionResult getResultSet(
+      TRowSet data,
+      TGetResultSetMetadataResp manifest,
+      String statementId,
+      IDatabricksSession session)
+      throws DatabricksSQLException {
+    IExecutionResult resultHandler = getResultHandler(data, manifest, statementId, session);
+    if (manifest.isSetIsStagingOperation() && manifest.isIsStagingOperation()) {
+      return new VolumeOperationResult(
+          statementId,
+          DatabricksThriftHelper.getRowCount(data),
+          manifest.getSchema().getColumnsSize(),
+          session,
+          resultHandler);
+    } else {
+      return resultHandler;
+    }
+  }
+
+  private static IExecutionResult getResultHandler(
       TRowSet data,
       TGetResultSetMetadataResp manifest,
       String statementId,

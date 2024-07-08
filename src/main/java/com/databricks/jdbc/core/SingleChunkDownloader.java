@@ -2,15 +2,13 @@ package com.databricks.jdbc.core;
 
 import com.databricks.jdbc.client.DatabricksHttpException;
 import com.databricks.jdbc.client.IDatabricksHttpClient;
+import com.databricks.jdbc.commons.LogLevel;
+import com.databricks.jdbc.commons.util.LoggingUtil;
 import java.io.IOException;
 import java.util.concurrent.Callable;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 
 /** Task class to manage download for a single chunk. */
 class SingleChunkDownloader implements Callable<Void> {
-
-  private static final Logger LOGGER = LogManager.getLogger(SingleChunkDownloader.class);
   private final ArrowResultChunk chunk;
   private final IDatabricksHttpClient httpClient;
   private final ChunkDownloader chunkDownloader;
@@ -32,7 +30,9 @@ class SingleChunkDownloader implements Callable<Void> {
     } catch (DatabricksHttpException | DatabricksParsingException e) {
       // TODO: handle retries
     } catch (IOException e) {
-      LOGGER.warn("Unable to close response, there might be a connection leak", e);
+      LoggingUtil.log(
+          LogLevel.ERROR,
+          String.format("Unable to close response, there might be a connection leak. %s", e));
     } finally {
       chunkDownloader.downloadProcessed(chunk.getChunkIndex());
     }
