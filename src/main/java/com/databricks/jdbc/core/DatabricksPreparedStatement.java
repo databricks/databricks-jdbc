@@ -345,11 +345,15 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
   public void setTimestamp(int parameterIndex, Timestamp x, Calendar cal) throws SQLException {
     LOGGER.debug("public void setTimestamp(int parameterIndex, Timestamp x, Calendar cal)");
     checkIfClosed();
-    TimeZone originalTimeZone = TimeZone.getDefault();
-    TimeZone.setDefault(cal.getTimeZone());
-    x = new Timestamp(x.getTime());
-    TimeZone.setDefault(originalTimeZone);
-    setObject(parameterIndex, x, DatabricksTypeUtil.TIMESTAMP);
+    if (cal != null) {
+      TimeZone originalTimeZone = TimeZone.getDefault();
+      TimeZone.setDefault(cal.getTimeZone());
+      x = new Timestamp(x.getTime());
+      TimeZone.setDefault(originalTimeZone);
+      setObject(parameterIndex, x, DatabricksTypeUtil.TIMESTAMP);
+    } else {
+      setTimestamp(parameterIndex, x);
+    }
   }
 
   @Override

@@ -204,6 +204,14 @@ public class DatabricksPreparedStatementTest {
   }
 
   @Test
+  public void testSetTimestampWithNullCalendar() {
+    DatabricksPreparedStatement preparedStatement =
+        new DatabricksPreparedStatement(null, STATEMENT);
+    assertDoesNotThrow(
+        () -> preparedStatement.setTimestamp(1, new Timestamp(System.currentTimeMillis()), null));
+  }
+
+  @Test
   public void testSetAsciiStream() {
     DatabricksPreparedStatement preparedStatement =
         new DatabricksPreparedStatement(null, STATEMENT);
