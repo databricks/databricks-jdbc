@@ -222,7 +222,7 @@ public class DriverTester {
             "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/dd43ee29fedd958d;";
     Connection con =
             DriverManager.getConnection(
-                    jdbcUrl, "jothi.prakash@databricks.com", "dapib0a507b0d18c529b4e3cfbb6041d9082");
+                    jdbcUrl, "jothi.prakash@databricks.com", "xx");
     System.out.println("Connection established......");
 //    ResultSet resultSet = con.getMetaData().getSchemas("main", "%");
 //    printResultSet(resultSet);
