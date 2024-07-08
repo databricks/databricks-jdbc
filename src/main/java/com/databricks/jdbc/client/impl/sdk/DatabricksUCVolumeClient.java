@@ -36,7 +36,7 @@ public class DatabricksUCVolumeClient implements IDatabricksUCVolumeClient {
   private String createGetObjectQuery(
       String catalog, String schema, String volume, String objectPath, String localPath) {
     return String.format(
-        "GET '/Volumes/%s/%s/%s/%s/' TO '%s'", catalog, schema, volume, objectPath, localPath);
+        "GET '/Volumes/%s/%s/%s/%s' TO '%s'", catalog, schema, volume, objectPath, localPath);
   }
 
   public boolean prefixExists(String catalog, String schema, String volume, String prefix)
