@@ -99,10 +99,10 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
       DatabricksParameterMetaData databricksParameterMetaData=databricksBatchParameterMetaData.get(i);
       try
       {
-        executeInternal(
+        executeBatchInternal(
                 sql, databricksParameterMetaData.getParameterBindings(), StatementType.UPDATE);
         updateCount[i]=(int) resultSet.getUpdateCount();
-      }catch (SQLException e){
+      }catch (Exception e){
         System.out.println("An error occurred: " + e.getMessage());
         updateCount[i]=-1;
       }

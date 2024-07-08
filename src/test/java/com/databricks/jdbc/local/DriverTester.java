@@ -222,7 +222,7 @@ public class DriverTester {
             "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/dd43ee29fedd958d;";
     Connection con =
             DriverManager.getConnection(
-                    jdbcUrl, "jothi.prakash@databricks.com", "xx");
+                    jdbcUrl, "jothi.prakash@databricks.com", "dapib0a507b0d18c529b4e3cfbb6041d9082");
     System.out.println("Connection established......");
 //    ResultSet resultSet = con.getMetaData().getSchemas("main", "%");
 //    printResultSet(resultSet);
@@ -242,6 +242,11 @@ public class DriverTester {
       pstmt.addBatch();
     }
 
+    pstmt.setString(1, "Shaama");
+    pstmt.setString(2, "Bad");
+    pstmt.setString(3, "F");
+    pstmt.setString(4, "SI6");
+    pstmt.addBatch();
 
     for (int i = 1; i <= 3; i++) {
       pstmt.setFloat(1, 0.23f);
@@ -303,6 +308,35 @@ public class DriverTester {
 //    }
 //    con.close();
 //    System.out.println("Connection closed successfully......");
+
+
+    //
+    // Simba Statement Ordering Batch Test
+    //
+
+//        String sqlStatement="UPDATE ___________________first.`jprakash-test`.diamonds SET color=?,cut=? where cut=?";
+//    PreparedStatement pstmt = con.prepareStatement(sqlStatement);
+//   pstmt.setString(1,"F");
+//   pstmt.setString(2,"Change1");
+//   pstmt.setString(3,"Ideal");
+//
+//   pstmt.addBatch();
+//
+//    pstmt.setString(1,"L");
+//    pstmt.setString(2,"Change2");
+//    pstmt.setString(3,"Change1");
+//
+//    pstmt.addBatch();
+//
+//        // Execute the batch
+//    int[] updateCounts = pstmt.executeBatch();
+//
+//    // Process the update counts
+//    for (int count : updateCounts) {
+//      System.out.println("Update count: " + count);
+//    }
+//    con.close();
+
 
   }
 }
