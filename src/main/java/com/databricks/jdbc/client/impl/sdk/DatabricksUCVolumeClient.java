@@ -34,8 +34,9 @@ public class DatabricksUCVolumeClient implements IDatabricksUCVolumeClient {
   }
 
   private String createGetObjectQuery(
-      String catalog, String schema, String volume, String localPath) {
-    return String.format("GET '/Volumes/%s/%s/%s/' TO %s", catalog, schema, volume, localPath);
+      String catalog, String schema, String volume, String objectPath, String localPath) {
+    return String.format(
+        "GET '/Volumes/%s/%s/%s/%s/' TO '%s'", catalog, schema, volume, objectPath, localPath);
   }
 
   public boolean prefixExists(String catalog, String schema, String volume, String prefix)
@@ -235,15 +236,16 @@ public class DatabricksUCVolumeClient implements IDatabricksUCVolumeClient {
     return listObjects(catalog, schema, volume, prefix, true);
   }
 
-  public boolean getObject(String catalog, String schema, String volume, String localPath)
+  public boolean getObject(
+      String catalog, String schema, String volume, String objectPath, String localPath)
       throws SQLException {
     LoggingUtil.log(
         LogLevel.DEBUG,
         String.format(
-            "Entering getObject method with parameters: catalog={%s}, schema={%s}, volume={%s}, localPath={%s}",
-            catalog, schema, volume, localPath));
+            "Entering getObject method with parameters: catalog={%s}, schema={%s}, volume={%s}, objectPath={%s}, localPath={%s}",
+            catalog, schema, volume, objectPath, localPath));
 
-    String getObjectQuery = createGetObjectQuery(catalog, schema, volume, localPath);
+    String getObjectQuery = createGetObjectQuery(catalog, schema, volume, objectPath, localPath);
 
     boolean volumeOperationStatus = false;
 

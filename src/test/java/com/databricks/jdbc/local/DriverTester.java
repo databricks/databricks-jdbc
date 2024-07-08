@@ -229,42 +229,4 @@ public class DriverTester {
     con.close();
     System.out.println("Connection closed successfully......");
   }
-
-  @Test
-  void testGetObject() throws Exception {
-    DriverManager.registerDriver(new com.databricks.jdbc.driver.DatabricksDriver());
-    DriverManager.drivers().forEach(driver -> System.out.println(driver.getClass()));
-    String jdbcUrl =
-            "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=https;ssl=1;httpPath=/sql/1.0/warehouses/791ba2a31c7fd70a;AuthMech=3;UID=token;";
-    Connection con = DriverManager.getConnection(jdbcUrl, "agnipratim.nag@databricks.com", "dapie6557019e280075d7442ac99bb17efb0");
-    System.out.println("Connection established......");
-    Statement s = con.createStatement();
-    //boolean success = s.execute("GET '/Volumes/samikshya_hackathon/agnipratim_test/abc_volume1/abc_file1.csv' TO '/Users/agnipratim.nag/Downloads/downloadtest.csv'");
-    boolean success = s.execute("PUT '/Users/agnipratim.nag/Downloads/downloadtest.csv' INTO '/Volumes/samikshya_hackathon/agnipratim_test/abc_volume1/abc_file1.csv'");
-    //ResultSet resultSet = s.executeQuery("GET '/Volumes/samikshya_hackathon/agnipratim_test/abc_volume1/abc_file1.csv' to '/Users/agnipratim.nag/Downloads/downloadtest.csv'");
-
-    System.out.println("Operation successful: " + success);
-    con.close();
-    System.out.println("Connection closed successfully......");
-  }
-
-  @Test
-  void testVolumeOps() throws Exception {
-    DriverManager.registerDriver(new com.databricks.jdbc.driver.DatabricksDriver());
-    DriverManager.drivers().forEach(driver -> System.out.println(driver.getClass()));
-    // Getting the connection
-    String jdbcUrl =
-            "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/791ba2a31c7fd70a;uselegacyMetadata=1";
-    Connection con = DriverManager.getConnection(jdbcUrl, "agnipratim.nag@databricks.com", "dapie6557019e280075d7442ac99bb17efb0");
-    System.out.println("Connection established......");
-    con.setClientInfo("allowlistedVolumeOperationLocalFilePaths", "/tmp");
-    Statement statement = con.createStatement();
-    String query = "GET '/Volumes/samikshya_hackathon/agnipratim_test/abc_volume1/abc_file2.csv' TO '/tmp/downloadtest.csv'";
-    //String query = "PUT '/tmp/test_table.csv' INTO '/Volumes/samikshya_hackathon/agnipratim_test/abc_volume1/testupload.csv'";
-    //String query = "REMOVE '/Volumes/samikshya_hackathon/agnipratim_test/abc_volume1/abc_file2.csv'";
-    boolean b = statement.execute(query);
-    System.out.println(b);
-    ResultSet rs = statement.executeQuery(query);
-    printResultSet(rs);
-  }
 }
