@@ -20,7 +20,8 @@ import java.util.Calendar;
 
 public class DatabricksPreparedStatement extends DatabricksStatement implements PreparedStatement {
   private final String sql;
-  private final DatabricksParameterMetaData databricksParameterMetaData;
+  private DatabricksParameterMetaData databricksParameterMetaData;
+  List<DatabricksParameterMetaData> databricksBatchParameterMetaData;
 
   private final int CHUNK_SIZE = 8192;
 
@@ -28,6 +29,7 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
     super(connection);
     this.sql = sql;
     this.databricksParameterMetaData = new DatabricksParameterMetaData();
+    this.databricksBatchParameterMetaData = new ArrayList<>();
   }
 
   private void checkLength(int targetLength, int sourceLength) throws SQLException {
@@ -84,6 +86,28 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
     executeInternal(
         sql, this.databricksParameterMetaData.getParameterBindings(), StatementType.UPDATE);
     return (int) resultSet.getUpdateCount();
+  }
+
+  @Override
+  public int[] executeBatch()
+  {
+    LoggingUtil.log(LogLevel.DEBUG, "public int executeBatch()");
+    int[] updateCount=new int[databricksBatchParameterMetaData.size()];
+
+    for(int i=0;i<databricksBatchParameterMetaData.size();i++)
+    {
+      DatabricksParameterMetaData databricksParameterMetaData=databricksBatchParameterMetaData.get(i);
+      try
+      {
+        executeInternal(
+                sql, databricksParameterMetaData.getParameterBindings(), StatementType.UPDATE);
+        updateCount[i]=(int) resultSet.getUpdateCount();
+      }catch (SQLException e){
+        System.out.println("An error occurred: " + e.getMessage());
+        updateCount[i]=-1;
+      }
+    }
+    return updateCount;
   }
 
   @Override
@@ -268,10 +292,10 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
   }
 
   @Override
-  public void addBatch() throws SQLException {
+  public void addBatch(){
     LoggingUtil.log(LogLevel.DEBUG, "public void addBatch()");
-    throw new UnsupportedOperationException(
-        "Not implemented in DatabricksPreparedStatement - addBatch()");
+    this.databricksBatchParameterMetaData.add(databricksParameterMetaData);
+    this.databricksParameterMetaData = new DatabricksParameterMetaData();
   }
 
   @Override
