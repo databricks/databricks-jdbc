@@ -1,5 +1,6 @@
 package com.databricks.jdbc.core;
 
+import com.databricks.jdbc.annotation.TimedProcessor;
 import com.databricks.jdbc.client.DatabricksClient;
 import com.databricks.jdbc.commons.LogLevel;
 import com.databricks.jdbc.commons.util.LoggingUtil;

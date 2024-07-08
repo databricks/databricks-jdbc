@@ -1,5 +1,6 @@
 package com.databricks.jdbc.core;
 
+import com.databricks.jdbc.annotation.TimedProcessor;
 import com.databricks.jdbc.annotation.TimingUtility;
 import com.databricks.jdbc.client.DatabricksClient;
 import com.databricks.jdbc.client.DatabricksClientType;
@@ -22,6 +23,8 @@ import javax.annotation.Nullable;
 /** Implementation for Session interface, which maintains an underlying session in SQL Gateway. */
 public class DatabricksSession implements IDatabricksSession {
   private final DatabricksClient databricksClient;
+
+  private DatabricksClient dummyDatabricksClient;
   private DatabricksMetadataClient databricksMetadataClient;
   private final ComputeResource computeResource;
 
@@ -48,15 +51,13 @@ public class DatabricksSession implements IDatabricksSession {
   public DatabricksSession(IDatabricksConnectionContext connectionContext)
       throws DatabricksSQLException {
     if (connectionContext.getClientType() == DatabricksClientType.THRIFT) {
-      System.out.println("Creating timed instance of DatabricksThriftServiceClient");
-      this.databricksClient = TimingUtility.createTimedInstance(new DatabricksThriftServiceClient(connectionContext), DatabricksClient.class);
-      System.out.println("Created timed instance: " + this.databricksClient);
+      dummyDatabricksClient = new DatabricksThriftServiceClient(connectionContext);
       this.databricksMetadataClient = null;
     } else {
-      System.out.println("Creating timed instance of DatabricksSdkClient");
-      this.databricksClient = TimingUtility.createTimedInstance(new DatabricksSdkClient(connectionContext), DatabricksClient.class);
-      System.out.println("Created timed instance: " + this.databricksClient);
+      dummyDatabricksClient = new DatabricksSdkClient(connectionContext);
     }
+    this.databricksClient = TimingUtility.createTimedInstance(dummyDatabricksClient, DatabricksClient.class);
+    System.out.println("bhuvan " + databricksClient.getClass());
     this.isSessionOpen = false;
     this.sessionInfo = null;
     this.computeResource = connectionContext.getComputeResource();
@@ -73,12 +74,11 @@ public class DatabricksSession implements IDatabricksSession {
     if (connectionContext.getClientType() == DatabricksClientType.THRIFT) {
       return;
     }
-    System.out.println(useLegacyMetadataClient);
-    System.out.println(databricksClient);
+    System.out.println("hello" + databricksClient.getClass());
     this.databricksMetadataClient =
         useLegacyMetadataClient
             ? new DatabricksMetadataSdkClient((DatabricksSdkClient) databricksClient)
-            : new DatabricksNewMetadataSdkClient((DatabricksSdkClient) databricksClient);
+            : new DatabricksNewMetadataSdkClient((DatabricksSdkClient)  databricksClient);
   }
 
   /** Constructor method to be used for mocking in a test case. */
@@ -86,7 +86,7 @@ public class DatabricksSession implements IDatabricksSession {
   DatabricksSession(
       IDatabricksConnectionContext connectionContext, DatabricksClient databricksClient)
       throws DatabricksSQLException {
-    this.databricksClient = TimingUtility.createTimedInstance((DatabricksSdkClient) databricksClient, DatabricksClient.class);
+    this.databricksClient = (DatabricksSdkClient) databricksClient;
     if (databricksClient instanceof DatabricksThriftServiceClient) {
       this.databricksMetadataClient = null;
     } else {

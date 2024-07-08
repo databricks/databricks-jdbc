@@ -8,6 +8,7 @@ public class TimingUtility {
 
   @SuppressWarnings("unchecked")
   public static <T> T createTimedInstance(T target, Class<T> interfaceType) {
+    System.out.println("bhuvan timedINstance " + target.getClass() + " " + interfaceType.getClassLoader());
     return (T) Proxy.newProxyInstance(
             interfaceType.getClassLoader(),
             new Class<?>[]{interfaceType},
