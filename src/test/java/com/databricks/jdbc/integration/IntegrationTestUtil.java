@@ -109,6 +109,10 @@ public class IntegrationTestUtil {
     return System.getenv("DATABRICKS_BENCHMARKING_HTTP_PATH");
   }
 
+  public static String getDatabricksBenchmarkingHTTPPathForThrift() {
+    return System.getenv("DATABRICKS_BENCHMARKING_HTTP_PATH_THRIFT");
+  }
+
   public static String getDatabricksCatalog() {
     return isFakeServiceTest
         ? FakeServiceConfigLoader.getProperty(TEST_CATALOG)
@@ -177,6 +181,11 @@ public class IntegrationTestUtil {
         getBenchmarkingJDBCUrl(), getDatabricksUser(), getDatabricksBenchmarkingToken());
   }
 
+  public static Connection getBenchmarkingJDBCConnectionForThrift() throws SQLException {
+    return DriverManager.getConnection(
+        getBenchmarkingJDBCUrlForThrift(), getDatabricksUser(), getDatabricksBenchmarkingToken());
+  }
+
   public static void resetJDBCConnection() {
     JDBCConnection = null;
   }
@@ -229,6 +238,14 @@ public class IntegrationTestUtil {
         "jdbc:databricks://%s/default;transportMode=http;ssl=1;AuthMech=3;httpPath=%s";
     String host = getDatabricksBenchmarkingHost();
     String httpPath = getDatabricksBenchmarkingHTTPPath();
+
+    return String.format(template, host, httpPath);
+  }
+
+  public static String getBenchmarkingJDBCUrlForThrift() {
+    String template = "jdbc:databricks://%s/default;ssl=1;AuthMech=3;httpPath=%s";
+    String host = getDatabricksBenchmarkingHost();
+    String httpPath = getDatabricksBenchmarkingHTTPPathForThrift();
 
     return String.format(template, host, httpPath);
   }
