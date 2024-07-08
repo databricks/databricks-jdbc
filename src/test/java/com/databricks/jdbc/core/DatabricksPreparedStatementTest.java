@@ -270,7 +270,7 @@ public class DatabricksPreparedStatementTest {
   @Test
   public void testSetTimestampWithNullCalendar() {
     DatabricksPreparedStatement preparedStatement =
-        new DatabricksPreparedStatement(null, STATEMENT);
+        new DatabricksPreparedStatement(connection, STATEMENT);
     assertDoesNotThrow(
         () -> preparedStatement.setTimestamp(1, new Timestamp(System.currentTimeMillis()), null));
   }
