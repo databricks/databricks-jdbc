@@ -12,6 +12,7 @@ import com.databricks.jdbc.client.DatabricksRetryHandlerException;
 import com.databricks.jdbc.driver.DatabricksConnectionContext;
 import com.databricks.jdbc.driver.DatabricksDriver;
 import com.databricks.jdbc.driver.IDatabricksConnectionContext;
+import com.databricks.sdk.core.ProxyConfig;
 import java.io.IOException;
 import java.net.URI;
 import java.util.Properties;
@@ -43,6 +44,8 @@ public class DatabricksHttpClientTest {
 
   @Mock CloseableHttpResponse closeableHttpResponse;
 
+  @Mock IDatabricksConnectionContext connectionContext;
+
   @Mock HttpClientBuilder httpClientBuilder;
 
   private static final String CLUSTER_JDBC_URL =
@@ -53,24 +56,24 @@ public class DatabricksHttpClientTest {
   @Test
   public void testSetProxyDetailsIntoHttpClient() {
     HttpClientBuilder builder = HttpClientBuilder.create();
-    assertDoesNotThrow(
-        () ->
-            DatabricksHttpClient.setProxyDetailsInHttpClient(
-                builder, "proxyHost", 8080, true, "proxyUser", "proxyPassword"));
-    assertDoesNotThrow(
-        () ->
-            DatabricksHttpClient.setProxyDetailsInHttpClient(
-                builder, "proxyHost", 8080, false, "proxyUser", "proxyPassword"));
+
+    doReturn(true).when(connectionContext).getUseProxy();
+    doReturn("proxyHost").when(connectionContext).getProxyHost();
+    doReturn(1234).when(connectionContext).getProxyPort();
+    doReturn("proxyUser").when(connectionContext).getProxyUser();
+    doReturn("proxyPassword").when(connectionContext).getProxyPassword();
+    doReturn(ProxyConfig.ProxyAuthType.BASIC).when(connectionContext).getProxyAuthType();
+
+    assertDoesNotThrow(() -> DatabricksHttpClient.setupProxy(connectionContext, builder));
+
+    doReturn(ProxyConfig.ProxyAuthType.NONE).when(connectionContext).getProxyAuthType();
+    assertDoesNotThrow(() -> DatabricksHttpClient.setupProxy(connectionContext, builder));
+
+    doReturn(ProxyConfig.ProxyAuthType.BASIC).when(connectionContext).getProxyAuthType();
+    doReturn(null).when(connectionContext).getProxyUser();
     assertThrows(
         IllegalArgumentException.class,
-        () ->
-            DatabricksHttpClient.setProxyDetailsInHttpClient(
-                builder, "proxyHost", 8080, true, null, "proxyPassword"));
-    assertThrows(
-        IllegalArgumentException.class,
-        () ->
-            DatabricksHttpClient.setProxyDetailsInHttpClient(
-                builder, null, 8080, true, "user", "proxyPassword"));
+        () -> DatabricksHttpClient.setupProxy(connectionContext, builder));
   }
 
   @Test
@@ -238,7 +241,7 @@ public class DatabricksHttpClientTest {
     DatabricksDriver.setUserAgent(connectionContext);
     String userAgent = DatabricksHttpClient.getUserAgent();
     assertTrue(userAgent.contains("DatabricksJDBCDriverOSS/0.7.0-oss"));
-    assertTrue(userAgent.contains(" Java/THttpClient/HC MyApp"));
+    assertTrue(userAgent.contains(" Java/THttpClient-HC-MyApp"));
     assertTrue(userAgent.contains(" databricks-jdbc-http "));
     assertFalse(userAgent.contains("databricks-sdk-java"));
 
@@ -247,7 +250,7 @@ public class DatabricksHttpClientTest {
     DatabricksDriver.setUserAgent(connectionContext);
     userAgent = DatabricksHttpClient.getUserAgent();
     assertTrue(userAgent.contains("DatabricksJDBCDriverOSS/0.7.0-oss"));
-    assertTrue(userAgent.contains(" Java/SQLExecHttpClient/HC MyApp"));
+    assertTrue(userAgent.contains(" Java/SQLExecHttpClient-HC-MyApp"));
     assertTrue(userAgent.contains(" databricks-jdbc-http "));
     assertFalse(userAgent.contains("databricks-sdk-java"));
   }
@@ -259,14 +262,12 @@ public class DatabricksHttpClientTest {
     // Create the first mock connection context
     IDatabricksConnectionContext connectionContext1 =
         Mockito.mock(IDatabricksConnectionContext.class);
-    when(connectionContext1.getUseSystemProxy()).thenReturn(false);
     when(connectionContext1.getUseProxy()).thenReturn(false);
     when(connectionContext1.getUseCloudFetchProxy()).thenReturn(false);
 
     // Create the second mock connection context
     IDatabricksConnectionContext connectionContext2 =
         Mockito.mock(IDatabricksConnectionContext.class);
-    when(connectionContext2.getUseSystemProxy()).thenReturn(false);
     when(connectionContext2.getUseProxy()).thenReturn(false);
     when(connectionContext2.getUseCloudFetchProxy()).thenReturn(false);
 

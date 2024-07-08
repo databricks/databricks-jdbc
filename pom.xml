@@ -36,7 +36,7 @@
 
     <spotless.version>2.43.0</spotless.version>
     <commons-io.version>2.13.0</commons-io.version>
-    <databricks-sdk.version>0.17.0</databricks-sdk.version>
+    <databricks-sdk.version>0.26.0</databricks-sdk.version>
     <maven-surefire-plugin.version>3.1.2</maven-surefire-plugin.version>
     <sql-logic-test.version>0.3</sql-logic-test.version>
     <lz4-compression.version>1.8.0</lz4-compression.version>
@@ -66,6 +66,11 @@
       <groupId>org.apache.arrow</groupId>
       <artifactId>arrow-vector</artifactId>
       <version>${arrow.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.slf4j</groupId>
+      <artifactId>slf4j-reload4j</artifactId>
+      <version>2.0.13</version>
     </dependency>
     <dependency>
       <groupId>com.diffplug.spotless</groupId>

@@ -4,6 +4,7 @@ import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.sql.*;
 import java.time.LocalDate;
+import java.util.*;
 import org.junit.jupiter.api.Test;
 
 public class DriverTester {
@@ -189,6 +190,32 @@ public class DriverTester {
     Connection con = DriverManager.getConnection(jdbcUrl, "user", "xx");
     System.out.println("Connection established......");
     con.close();
+  }
+
+  @Test
+  public void tooManyParameters() throws SQLException {
+    DriverManager.registerDriver(new com.databricks.jdbc.driver.DatabricksDriver());
+    StringBuilder sql =
+        new StringBuilder("SELECT * FROM lb_demo.demographics_fs.demographics WHERE age IN (");
+    StringJoiner joiner = new StringJoiner(",");
+    for (int i = 0; i < 300; i++) {
+      joiner.add("?");
+    }
+    sql.append(joiner.toString()).append(")");
+    System.out.println("here is SQL " + sql);
+    String jdbcUrl =
+        "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=https;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/791ba2a31c7fd70a;supportManyParameters=1";
+    Connection con = DriverManager.getConnection(jdbcUrl, "samikshya.chand@databricks.com", "x");
+    PreparedStatement pstmt = con.prepareStatement(sql.toString());
+    List<Integer> ids = new ArrayList<>();
+    for (int i = 1; i <= 300; i++) {
+      ids.add(i);
+    }
+    for (int i = 0; i < ids.size(); i++) {
+      pstmt.setInt(i + 1, ids.get(i));
+    }
+    ResultSet rs = pstmt.executeQuery();
+    printResultSet(rs);
   }
 
   @Test

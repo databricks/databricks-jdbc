@@ -1,7 +1,7 @@
 package com.databricks.jdbc.telemetry;
 
 import com.databricks.jdbc.client.DatabricksHttpException;
-import com.databricks.jdbc.client.http.DatabricksHttpClient;
+import com.databricks.jdbc.commons.util.DefaultHttpClientUtil;
 import com.databricks.jdbc.core.DatabricksSQLException;
 import com.databricks.jdbc.driver.IDatabricksConnectionContext;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -15,6 +15,7 @@ import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.client.methods.HttpUriRequest;
 import org.apache.http.client.utils.URIBuilder;
+import org.apache.http.impl.client.DefaultHttpClient;
 import org.apache.http.util.EntityUtils;
 
 // TODO (Bhuvan) Flush out metrics once the driver connection is closed
@@ -30,7 +31,7 @@ public class DatabricksMetrics {
   private final String METRICS_TYPE = "metrics_type";
   private Boolean hasInitialExportOccurred = false;
   private String workspaceId = null;
-  private DatabricksHttpClient telemetryClient = null;
+  private DefaultHttpClient telemetryClient = null;
 
   private void setWorkspaceId(String workspaceId) {
     this.workspaceId = workspaceId;
@@ -67,7 +68,13 @@ public class DatabricksMetrics {
     }
     String resourceId = context.getComputeResource().getWorkspaceId();
     setWorkspaceId(resourceId);
-    telemetryClient = DatabricksHttpClient.getInstance(context);
+    // TODO: Bhuvan: Replace telemetry client with DatabricksHttpClient when non-SSL variation is
+    // implemented
+    try {
+      telemetryClient = DefaultHttpClientUtil.getDefaultHttpClient();
+    } catch (Exception e) {
+      throw new DatabricksSQLException("Failed to create telemetry client");
+    }
     scheduleExportMetrics();
   }
 
