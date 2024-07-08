@@ -7,7 +7,6 @@ import com.databricks.jdbc.client.IDatabricksHttpClient;
 import com.databricks.jdbc.client.http.DatabricksHttpClient;
 import com.databricks.jdbc.client.sqlexec.ResultManifest;
 import com.databricks.jdbc.core.VolumeOperationExecutor.VolumeOperationStatus;
-import com.databricks.sdk.service.sql.ResultSchema;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.annotations.VisibleForTesting;
@@ -18,20 +17,24 @@ import java.util.Map;
 class VolumeOperationResult implements IExecutionResult {
 
   private final IDatabricksSession session;
-  private final ResultManifest manifest;
   private final String statementId;
   private final IExecutionResult resultHandler;
   private final IDatabricksHttpClient httpClient;
+  private final long rowCount;
+  private final long columnCount;
+
   private VolumeOperationExecutor volumeOperationExecutor;
   private int currentRowIndex;
 
   VolumeOperationResult(
       String statementId,
-      ResultManifest manifest,
+      long totalRows,
+      long totalColumns,
       IDatabricksSession session,
       IExecutionResult resultHandler) {
     this.statementId = statementId;
-    this.manifest = manifest;
+    this.rowCount = totalRows;
+    this.columnCount = totalColumns;
     this.session = session;
     this.resultHandler = resultHandler;
     this.httpClient = DatabricksHttpClient.getInstance(session.getConnectionContext());
@@ -46,7 +49,8 @@ class VolumeOperationResult implements IExecutionResult {
       IExecutionResult resultHandler,
       IDatabricksHttpClient httpClient) {
     this.statementId = statementId;
-    this.manifest = manifest;
+    this.rowCount = manifest.getTotalRowCount();
+    this.columnCount = manifest.getSchema().getColumnCount();
     this.session = session;
     this.resultHandler = resultHandler;
     this.httpClient = httpClient;
@@ -56,7 +60,7 @@ class VolumeOperationResult implements IExecutionResult {
   private void initHandler(IExecutionResult resultHandler) throws DatabricksSQLException {
     String operation = getString(resultHandler.getObject(0));
     String presignedUrl = getString(resultHandler.getObject(1));
-    String localFile = getString(resultHandler.getObject(3));
+    String localFile = columnCount > 3 ? getString(resultHandler.getObject(3)) : null;
     Map<String, String> headers = getHeaders(getString(resultHandler.getObject(2)));
     this.volumeOperationExecutor =
         new VolumeOperationExecutor(
@@ -79,11 +83,18 @@ class VolumeOperationResult implements IExecutionResult {
 
   private Map<String, String> getHeaders(String headersVal) throws DatabricksSQLException {
     if (headersVal != null && !headersVal.isEmpty()) {
-      ObjectMapper objectMapper = new ObjectMapper();
-      try {
-        return objectMapper.readValue(headersVal, Map.class);
-      } catch (JsonProcessingException e) {
-        throw new DatabricksSQLException("Failed to parse headers", e);
+      // Map is encoded in extra [] while doing toString
+      String headers =
+          headersVal.charAt(0) == '['
+              ? headersVal.substring(1, headersVal.length() - 1)
+              : headersVal;
+      if (!headers.isEmpty()) {
+        ObjectMapper objectMapper = new ObjectMapper();
+        try {
+          return objectMapper.readValue(headers, Map.class);
+        } catch (JsonProcessingException e) {
+          throw new DatabricksSQLException("Failed to parse headers", e);
+        }
       }
     }
     return new HashMap<>();
@@ -91,14 +102,13 @@ class VolumeOperationResult implements IExecutionResult {
 
   private void validateMetadata() throws DatabricksSQLException {
     // For now we only support one row for Volume operation
-    if (manifest.getTotalRowCount() > 1) {
+    if (rowCount > 1) {
       throw new DatabricksSQLException("Too many rows for Volume Operation");
     }
-    ResultSchema schema = manifest.getSchema();
-    if (schema.getColumnCount() > 4) {
+    if (columnCount > 4) {
       throw new DatabricksSQLException("Too many columns for Volume Operation");
     }
-    if (schema.getColumnCount() < 3) {
+    if (columnCount < 3) {
       throw new DatabricksSQLException("Too few columns for Volume Operation");
     }
   }
@@ -108,7 +118,7 @@ class VolumeOperationResult implements IExecutionResult {
     if (currentRowIndex < 0) {
       throw new DatabricksSQLException("Invalid row access");
     }
-    if (columnIndex == 1) {
+    if (columnIndex == 0) {
       return volumeOperationExecutor.getStatus().name();
     } else {
       throw new DatabricksSQLException("Invalid column access");

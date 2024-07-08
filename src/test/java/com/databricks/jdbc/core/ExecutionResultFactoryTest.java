@@ -7,6 +7,7 @@ import static org.mockito.Mockito.when;
 import com.databricks.jdbc.client.impl.thrift.generated.TGetResultSetMetadataResp;
 import com.databricks.jdbc.client.impl.thrift.generated.TRowSet;
 import com.databricks.jdbc.client.impl.thrift.generated.TSparkRowSetType;
+import com.databricks.jdbc.client.impl.thrift.generated.TTableSchema;
 import com.databricks.jdbc.client.sqlexec.ResultData;
 import com.databricks.jdbc.client.sqlexec.ResultManifest;
 import com.databricks.jdbc.driver.IDatabricksConnectionContext;
@@ -59,9 +60,28 @@ public class ExecutionResultFactoryTest {
 
     ResultData data = new ResultData();
     ResultManifest manifest =
-        new ResultManifest().setIsVolumeOperation(true).setFormat(Format.JSON_ARRAY);
+        new ResultManifest()
+            .setIsVolumeOperation(true)
+            .setFormat(Format.JSON_ARRAY)
+            .setTotalRowCount(1L)
+            .setSchema(new ResultSchema().setColumnCount(4L));
     IExecutionResult result =
         ExecutionResultFactory.getResultSet(data, manifest, "statementId", session);
+
+    assertInstanceOf(VolumeOperationResult.class, result);
+  }
+
+  @Test
+  public void testGetResultSet_volumeOperationThriftResp() throws Exception {
+    when(session.getConnectionContext()).thenReturn(connectionContext);
+    when(resultSetMetadataResp.getResultFormat()).thenReturn(TSparkRowSetType.COLUMN_BASED_SET);
+    when(resultSetMetadataResp.isSetIsStagingOperation()).thenReturn(true);
+    when(resultSetMetadataResp.isIsStagingOperation()).thenReturn(true);
+    when(resultSetMetadataResp.getSchema()).thenReturn(new TTableSchema());
+
+    ResultData data = new ResultData();
+    IExecutionResult result =
+        ExecutionResultFactory.getResultSet(tRowSet, resultSetMetadataResp, "statementId", session);
 
     assertInstanceOf(VolumeOperationResult.class, result);
   }

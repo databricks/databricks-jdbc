@@ -2,6 +2,8 @@ package com.databricks.jdbc.core;
 
 import static com.databricks.jdbc.driver.DatabricksJdbcConstants.*;
 
+import com.databricks.jdbc.commons.LogLevel;
+import com.databricks.jdbc.commons.util.LoggingUtil;
 import com.databricks.jdbc.driver.DatabricksDriver;
 import com.databricks.jdbc.driver.DatabricksJdbcConstants;
 import com.google.common.annotations.VisibleForTesting;
@@ -11,11 +13,8 @@ import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
 import java.util.Properties;
 import javax.sql.DataSource;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 
 public class DatabricksDataSource implements DataSource {
-  private static final Logger LOGGER = LogManager.getLogger(DatabricksDataSource.class);
   private String host;
   private int port;
   private String httpPath;
@@ -33,16 +32,17 @@ public class DatabricksDataSource implements DataSource {
 
   @Override
   public Connection getConnection() throws DatabricksSQLException {
-    LOGGER.debug("public Connection getConnection()");
+    LoggingUtil.log(LogLevel.DEBUG, "public Connection getConnection()");
     return getConnection(this.getUsername(), this.getPassword());
   }
 
   @Override
   public Connection getConnection(String username, String password) throws DatabricksSQLException {
-    LOGGER.debug(
-        "public Connection getConnection(String username = {}, String password = {})",
-        username,
-        password);
+    LoggingUtil.log(
+        LogLevel.DEBUG,
+        String.format(
+            "public Connection getConnection(String username = {%s}, String password = {%s})",
+            username, password));
     if (username != null) {
       setUsername(username);
     }
@@ -64,7 +64,8 @@ public class DatabricksDataSource implements DataSource {
 
   @Override
   public void setLoginTimeout(int seconds) {
-    LOGGER.debug("public void setLoginTimeout(int seconds = {})", seconds);
+    LoggingUtil.log(
+        LogLevel.INFO, String.format("public void setLoginTimeout(int seconds = {%s})", seconds));
     this.properties.put(DatabricksJdbcConstants.LOGIN_TIMEOUT, seconds);
   }
 
@@ -89,7 +90,7 @@ public class DatabricksDataSource implements DataSource {
   }
 
   public String getUrl() {
-    LOGGER.debug("public String getUrl()");
+    LoggingUtil.log(LogLevel.INFO, "public String getUrl()");
     StringBuilder urlBuilder = new StringBuilder();
     urlBuilder.append(DatabricksJdbcConstants.JDBC_SCHEMA);
     if (host == null) {

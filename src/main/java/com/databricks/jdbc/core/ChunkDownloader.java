@@ -7,6 +7,8 @@ import com.databricks.jdbc.client.impl.thrift.generated.TSparkArrowResultLink;
 import com.databricks.jdbc.client.sqlexec.ExternalLink;
 import com.databricks.jdbc.client.sqlexec.ResultData;
 import com.databricks.jdbc.client.sqlexec.ResultManifest;
+import com.databricks.jdbc.commons.LogLevel;
+import com.databricks.jdbc.commons.util.LoggingUtil;
 import com.databricks.jdbc.core.types.CompressionType;
 import com.databricks.sdk.service.sql.BaseChunkInfo;
 import com.google.common.annotations.VisibleForTesting;
@@ -16,13 +18,9 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.atomic.AtomicInteger;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 
 /** Class to manage Arrow chunks and fetch them on proactive basis. */
 public class ChunkDownloader {
-
-  private static final Logger logger = LogManager.getLogger(ChunkDownloader.class);
   private static final String CHUNKS_DOWNLOADER_THREAD_POOL_PREFIX =
       "databricks-jdbc-chunks-downloader-";
   private final IDatabricksSession session;
@@ -155,9 +153,11 @@ public class ChunkDownloader {
           throw new DatabricksSQLException(chunk.getErrorMessage());
         }
       } catch (InterruptedException e) {
-        logger.info(
-            "Caught interrupted exception while waiting for chunk [%s] for statement [%s]. Exception [%s]",
-            chunk.getChunkIndex(), statementId, e);
+        LoggingUtil.log(
+            LogLevel.ERROR,
+            String.format(
+                "Caught interrupted exception while waiting for chunk [%s] for statement [%s]. Exception [%s]",
+                chunk.getChunkIndex(), statementId, e));
       }
     }
 
