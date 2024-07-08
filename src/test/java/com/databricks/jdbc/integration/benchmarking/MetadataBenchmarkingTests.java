@@ -25,7 +25,7 @@ public class MetadataBenchmarkingTests {
   private static final String BASE_SCHEMA_NAME = "jdbc_new_metadata_benchmark_schema";
 
   private static String RESULTS_TABLE =
-          "main.jdbc_new_metadata_benchmark_schema.benchmarking_results";
+      "main.jdbc_new_metadata_benchmark_schema.benchmarking_results";
 
   private static final String BASE_TABLE_NAME = "table";
 
@@ -67,10 +67,10 @@ public class MetadataBenchmarkingTests {
         break;
       case "THRIFT":
         connection =
-                DriverManager.getConnection(
-                        "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;ssl=1;AuthMech=3;httpPath=sql/protocolv1/o/6051921418418893/1115-130834-ms4m0yv",
-                        "token",
-                        getDatabricksDogfoodToken());
+            DriverManager.getConnection(
+                "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;ssl=1;AuthMech=3;httpPath=sql/protocolv1/o/6051921418418893/1115-130834-ms4m0yv",
+                "token",
+                getDatabricksDogfoodToken());
         RESULTS_TABLE = "main.jdbc_metadata_benchmarking_thrift.benchmarking_results";
         break;
       default:
@@ -84,7 +84,12 @@ public class MetadataBenchmarkingTests {
     long startTime = System.currentTimeMillis();
     measureMetadataPerformance(recording);
     long endTime = System.currentTimeMillis();
-    System.out.println("Time taken by " + (recording == 0 ? "OSS JDBC" : "Databricks JDBC") + ": " + (endTime - startTime) + "ms");
+    System.out.println(
+        "Time taken by "
+            + (recording == 0 ? "OSS JDBC" : "Databricks JDBC")
+            + ": "
+            + (endTime - startTime)
+            + "ms");
   }
 
   private void switchDriver(String mode) throws SQLException {
@@ -104,10 +109,10 @@ public class MetadataBenchmarkingTests {
         break;
       case "THRIFT":
         connection =
-                DriverManager.getConnection(
-                        "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;ssl=1;AuthMech=3;httpPath=sql/protocolv1/o/6051921418418893/1115-130834-ms4m0yv",
-                        "token",
-                        getDatabricksDogfoodToken());
+            DriverManager.getConnection(
+                "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;ssl=1;AuthMech=3;httpPath=sql/protocolv1/o/6051921418418893/1115-130834-ms4m0yv",
+                "token",
+                getDatabricksDogfoodToken());
         break;
       default:
         throw new IllegalArgumentException("Invalid testing mode");
@@ -117,7 +122,7 @@ public class MetadataBenchmarkingTests {
   private void setUpSchemas() {
     for (int i = 0; i < NUM_SCHEMAS; i++) {
       executeSQL(
-              "CREATE SCHEMA IF NOT EXISTS " + getDatabricksCatalog() + "." + BASE_SCHEMA_NAME + i);
+          "CREATE SCHEMA IF NOT EXISTS " + getDatabricksCatalog() + "." + BASE_SCHEMA_NAME + i);
       System.out.println("Created schema " + i);
     }
   }
@@ -126,16 +131,16 @@ public class MetadataBenchmarkingTests {
     for (int i = 0; i < NUM_SCHEMAS; i++) {
       for (int j = 0; j < NUM_TABLES; j++) {
         executeSQL(
-                "CREATE TABLE IF NOT EXISTS "
-                        + getDatabricksCatalog()
-                        + "."
-                        + BASE_SCHEMA_NAME
-                        + i
-                        + "."
-                        + BASE_TABLE_NAME
-                        + j
-                        + " "
-                        + getColumnString());
+            "CREATE TABLE IF NOT EXISTS "
+                + getDatabricksCatalog()
+                + "."
+                + BASE_SCHEMA_NAME
+                + i
+                + "."
+                + BASE_TABLE_NAME
+                + j
+                + " "
+                + getColumnString());
       }
       System.out.println("Created tables for schema " + i);
     }
@@ -154,12 +159,12 @@ public class MetadataBenchmarkingTests {
   private void tearDownSchemas() {
     for (int i = 0; i < NUM_SCHEMAS; i++) {
       executeSQL(
-              "DROP SCHEMA IF EXISTS "
-                      + getDatabricksCatalog()
-                      + "."
-                      + BASE_SCHEMA_NAME
-                      + i
-                      + " CASCADE");
+          "DROP SCHEMA IF EXISTS "
+              + getDatabricksCatalog()
+              + "."
+              + BASE_SCHEMA_NAME
+              + i
+              + " CASCADE");
     }
   }
 
@@ -211,7 +216,7 @@ public class MetadataBenchmarkingTests {
             System.out.println("START OF SECTION 7");
             for (int i = 0; i < ATTEMPTS; i++) {
               metaData.getColumns(
-                      getDatabricksCatalog(), BASE_SCHEMA_NAME + "0", BASE_TABLE_NAME + "0", null);
+                  getDatabricksCatalog(), BASE_SCHEMA_NAME + "0", BASE_TABLE_NAME + "0", null);
             }
             break;
           default:
@@ -219,7 +224,8 @@ public class MetadataBenchmarkingTests {
         }
         long endTime = System.currentTimeMillis();
         totalTimesForSection[recording][section] = endTime - startTime;
-        avgTimesForSection[recording][section] = totalTimesForSection[recording][section] / ATTEMPTS;
+        avgTimesForSection[recording][section] =
+            totalTimesForSection[recording][section] / ATTEMPTS;
         System.out.println("END OF SECTION " + (section + 1));
       } catch (SQLException e) {
         e.printStackTrace();
@@ -234,17 +240,17 @@ public class MetadataBenchmarkingTests {
     connection = getBenchfoodJDBCConnection();
     // SQL statement with placeholders
     String sql =
-            "INSERT INTO "
-                    + RESULTS_TABLE
-                    + "(DateTime, "
-                    + "s1_avg_oss, s1_tot_oss, s1_avg_db, s1_tot_db, "
-                    + "s2_avg_oss, s2_tot_oss, s2_avg_db, s2_tot_db, "
-                    + "s3_avg_oss, s3_tot_oss, s3_avg_db, s3_tot_db, "
-                    + "s4_avg_oss, s4_tot_oss, s4_avg_db, s4_tot_db, "
-                    + "s5_avg_oss, s5_tot_oss, s5_avg_db, s5_tot_db, "
-                    + "s6_avg_oss, s6_tot_oss, s6_avg_db, s6_tot_db, "
-                    + "s7_avg_oss, s7_tot_oss, s7_avg_db, s7_tot_db) "
-                    + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+        "INSERT INTO "
+            + RESULTS_TABLE
+            + "(DateTime, "
+            + "s1_avg_oss, s1_tot_oss, s1_avg_db, s1_tot_db, "
+            + "s2_avg_oss, s2_tot_oss, s2_avg_db, s2_tot_db, "
+            + "s3_avg_oss, s3_tot_oss, s3_avg_db, s3_tot_db, "
+            + "s4_avg_oss, s4_tot_oss, s4_avg_db, s4_tot_db, "
+            + "s5_avg_oss, s5_tot_oss, s5_avg_db, s5_tot_db, "
+            + "s6_avg_oss, s6_tot_oss, s6_avg_db, s6_tot_db, "
+            + "s7_avg_oss, s7_tot_oss, s7_avg_db, s7_tot_db) "
+            + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
     try (PreparedStatement stmt = connection.prepareStatement(sql)) {
       // Set the TIMESTAMP for the current date and time

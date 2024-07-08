@@ -8,7 +8,6 @@ import java.util.Arrays;
 import java.util.Enumeration;
 import java.util.Random;
 import java.util.stream.Stream;
-
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -20,7 +19,7 @@ public class LargeQueriesBenchmarkingTest {
   private static final String TABLE_NAME = "tpcds_sf100_delta.catalog_sales";
 
   private static String RESULTS_TABLE =
-          "main.jdbc_large_queries_benchmarking_schema.benchmarking_results";
+      "main.jdbc_large_queries_benchmarking_schema.benchmarking_results";
   private static final int ATTEMPTS = 10;
 
   private static final int ROWS = 1000000;
@@ -63,10 +62,8 @@ public class LargeQueriesBenchmarkingTest {
         break;
       case "THRIFT":
         connection = getBenchmarkingJDBCConnectionForThrift();
-                DriverManager.getConnection(
-                        getBenchmarkingJDBCUrlForThrift(),
-                        "token",
-                        getDatabricksBenchmarkingToken());
+        DriverManager.getConnection(
+            getBenchmarkingJDBCUrlForThrift(), "token", getDatabricksBenchmarkingToken());
         RESULTS_TABLE = "main.jdbc_thrift_large_queries_benchmarking_schema.benchmarking_results";
         break;
       default:
@@ -85,19 +82,21 @@ public class LargeQueriesBenchmarkingTest {
     measureLargeQueriesPerformance(recording);
     long endTime = System.currentTimeMillis();
     System.out.println(
-            "Time taken to execute large queries by " + (recording == 1 ? "OSS" : "Databricks") + " Driver: "
-                    + (endTime - startTime)
-                    + "ms for "
-                    + ROWS
-                    + " rows and "
-                    + ATTEMPTS
-                    + " attempts");
+        "Time taken to execute large queries by "
+            + (recording == 1 ? "OSS" : "Databricks")
+            + " Driver: "
+            + (endTime - startTime)
+            + "ms for "
+            + ROWS
+            + " rows and "
+            + ATTEMPTS
+            + " attempts");
 
     System.out.println(
-            "Driver used : "
-                    + connection.getMetaData().getDriverVersion()
-                    + " "
-                    + connection.getMetaData().getDriverName());
+        "Driver used : "
+            + connection.getMetaData().getDriverVersion()
+            + " "
+            + connection.getMetaData().getDriverName());
   }
 
   private void switchDriver(String mode) throws SQLException {
@@ -114,15 +113,13 @@ public class LargeQueriesBenchmarkingTest {
     switch (mode) {
       case "SEA":
         connection =
-                DriverManager.getConnection(
-                        getBenchmarkingJDBCUrl(), "token", getDatabricksBenchmarkingToken());
+            DriverManager.getConnection(
+                getBenchmarkingJDBCUrl(), "token", getDatabricksBenchmarkingToken());
         break;
       case "THRIFT":
         connection =
-                DriverManager.getConnection(
-                        getBenchmarkingJDBCUrlForThrift(),
-                        "token",
-                        getDatabricksBenchmarkingToken());
+            DriverManager.getConnection(
+                getBenchmarkingJDBCUrlForThrift(), "token", getDatabricksBenchmarkingToken());
         break;
       default:
         throw new IllegalArgumentException("Invalid testing mode");
@@ -134,19 +131,19 @@ public class LargeQueriesBenchmarkingTest {
     for (int i = 0; i < ATTEMPTS; i++) {
       System.out.println("Attempt: " + i);
       int offset =
-              i * 1000000 + random.nextInt(1000000); // Randomization to avoid possible query caching
+          i * 1000000 + random.nextInt(1000000); // Randomization to avoid possible query caching
       try (Statement statement = connection.createStatement()) {
         long startTime = System.currentTimeMillis();
         ResultSet rs =
-                statement.executeQuery(
-                        "SELECT * FROM "
-                                + SCHEMA_NAME
-                                + "."
-                                + TABLE_NAME
-                                + " LIMIT "
-                                + ROWS
-                                + " OFFSET "
-                                + offset);
+            statement.executeQuery(
+                "SELECT * FROM "
+                    + SCHEMA_NAME
+                    + "."
+                    + TABLE_NAME
+                    + " LIMIT "
+                    + ROWS
+                    + " OFFSET "
+                    + offset);
         int cnt = 0;
         while (rs.next()) {
           cnt++;
@@ -177,9 +174,9 @@ public class LargeQueriesBenchmarkingTest {
     connection = getBenchfoodJDBCConnection();
 
     String sql =
-            "INSERT INTO "
-                    + RESULTS_TABLE
-                    + "(DateTime, OSS_AVG, DATABRICKS_AVG, OSS_TOTAL, DATABRICKS_TOTAL) VALUES (?, ?, ?, ?, ?)";
+        "INSERT INTO "
+            + RESULTS_TABLE
+            + "(DateTime, OSS_AVG, DATABRICKS_AVG, OSS_TOTAL, DATABRICKS_TOTAL) VALUES (?, ?, ?, ?, ?)";
 
     try (PreparedStatement stmt = connection.prepareStatement(sql)) {
       stmt.setTimestamp(1, java.sql.Timestamp.valueOf(LocalDateTime.now()));
