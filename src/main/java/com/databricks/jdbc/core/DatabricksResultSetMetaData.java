@@ -56,6 +56,7 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
         for (ColumnInfo columnInfo : resultManifest.getSchema().getColumns()) {
           ColumnInfoTypeName columnTypeName = columnInfo.getTypeName();
           int precision = DatabricksTypeUtil.getPrecision(columnTypeName);
+          int scale = DatabricksTypeUtil.getScale(columnTypeName);
           ImmutableDatabricksColumn.Builder columnBuilder = getColumnBuilder();
           columnBuilder
               .columnName(columnInfo.getName())
@@ -63,6 +64,7 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
               .columnType(DatabricksTypeUtil.getColumnType(columnTypeName))
               .columnTypeText(columnInfo.getTypeText())
               .typePrecision(precision)
+              .typeScale(scale)
               .displaySize(DatabricksTypeUtil.getDisplaySize(columnTypeName, precision))
               .isSigned(DatabricksTypeUtil.isSigned(columnTypeName));
 
@@ -93,6 +95,7 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
       for (TColumnDesc columnInfo : resultManifest.getSchema().getColumns()) {
         ColumnInfoTypeName columnTypeName = getTypeFromTypeDesc(columnInfo.getTypeDesc());
         int precision = DatabricksTypeUtil.getPrecision(columnTypeName);
+        int scale = DatabricksTypeUtil.getScale(columnTypeName);
         ImmutableDatabricksColumn.Builder columnBuilder = getColumnBuilder();
         columnBuilder
             .columnName(columnInfo.getColumnName())
@@ -100,6 +103,7 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
             .columnType(DatabricksTypeUtil.getColumnType(columnTypeName))
             .columnTypeText(columnTypeName.name())
             .typePrecision(precision)
+            .typeScale(scale)
             .displaySize(DatabricksTypeUtil.getDisplaySize(columnTypeName, precision))
             .isSigned(DatabricksTypeUtil.isSigned(columnTypeName));
         columnsBuilder.add(columnBuilder.build());

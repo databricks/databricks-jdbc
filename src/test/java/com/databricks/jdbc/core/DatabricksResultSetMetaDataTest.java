@@ -9,6 +9,7 @@ import com.databricks.sdk.service.sql.ColumnInfo;
 import com.databricks.sdk.service.sql.ColumnInfoTypeName;
 import com.databricks.sdk.service.sql.ResultSchema;
 import java.sql.SQLException;
+import java.sql.Types;
 import java.util.Collections;
 import java.util.List;
 import org.junit.jupiter.api.Assertions;
@@ -108,5 +109,20 @@ public class DatabricksResultSetMetaDataTest {
 
     resultSetMetadataResp.setSchema(new TTableSchema());
     Assertions.assertEquals(0, metaData.getColumnCount());
+  }
+
+  @Test
+  public void testColumnsForPrecisionAndScale() throws SQLException {
+    ResultManifest resultManifest = getResultManifest();
+    DatabricksResultSetMetaData metaData =
+            new DatabricksResultSetMetaData(STATEMENT_ID, resultManifest);
+
+    Assertions.assertEquals(Types.INTEGER, metaData.getColumnType(1));
+    Assertions.assertEquals(DatabricksTypeUtil.getPrecision(ColumnInfoTypeName.INT), metaData.getPrecision(1));
+    Assertions.assertEquals(DatabricksTypeUtil.getScale(ColumnInfoTypeName.INT), metaData.getScale(1));
+
+    Assertions.assertEquals(Types.DOUBLE, metaData.getColumnType(3));
+    Assertions.assertEquals(DatabricksTypeUtil.getPrecision(ColumnInfoTypeName.DOUBLE), metaData.getPrecision(3));
+    Assertions.assertEquals(DatabricksTypeUtil.getScale(ColumnInfoTypeName.DOUBLE), metaData.getScale(3));
   }
 }
