@@ -205,18 +205,18 @@ public class DriverTester {
 
   @Test
   void testSimbaBatchFunction() throws Exception {
-//    DriverManager.registerDriver(new com.databricks.client.jdbc.Driver());
-//    DriverManager.drivers()
-//            .forEach(
-//                    driver -> {
-//                      if (driver.getClass().getName().contains("DatabricksDriver")) {
-//                        try {
-//                          DriverManager.deregisterDriver(driver);
-//                        } catch (SQLException e) {
-//                          throw new RuntimeException(e);
-//                        }
-//                      }
-//                    });
+    DriverManager.registerDriver(new com.databricks.client.jdbc.Driver());
+    DriverManager.drivers()
+            .forEach(
+                    driver -> {
+                      if (driver.getClass().getName().contains("DatabricksDriver")) {
+                        try {
+                          DriverManager.deregisterDriver(driver);
+                        } catch (SQLException e) {
+                          throw new RuntimeException(e);
+                        }
+                      }
+                    });
 
     String jdbcUrl =
             "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/dd43ee29fedd958d;";
@@ -224,10 +224,6 @@ public class DriverTester {
             DriverManager.getConnection(
                     jdbcUrl, "jothi.prakash@databricks.com", "xx");
     System.out.println("Connection established......");
-//    ResultSet resultSet = con.getMetaData().getSchemas("main", "%");
-//    printResultSet(resultSet);
-//    resultSet.close();
-
 
     //
     // Batch Statement Testing
@@ -264,79 +260,6 @@ public class DriverTester {
       System.out.println("Update count: " + count);
     }
     con.close();
-
-    //
-    // Prepared Statement executeQuery when using executeBatch Fiasco
-    //
-    // Throws this error - java.sql.SQLNonTransientException: [Databricks][JDBC](10000) Batch must either be executed with executeBatch() or cleared with clearBatch().
-    //
-
-//    String sqlStatement="INSERT INTO ___________________first.`jprakash-test`.diamonds (carat, cut, color, clarity) VALUES (?, ?, ?, ?)";
-//    PreparedStatement pstmt = con.prepareStatement(sqlStatement);
-//    for (int i = 1; i <= 3; i++) {
-//      pstmt.setFloat(1, 0.23f);
-//      pstmt.setString(2, "Descent");
-//      pstmt.setString(3, "E");
-//      pstmt.setString(4, "SI2");
-//      pstmt.addBatch();
-//    }
-//
-//    int updateCount = pstmt.executeUpdate();
-//
-//    System.out.println("Update count: "+updateCount);
-//
-//    con.close();
-
-    //
-    //  Basic Result Set Testing
-    //
-
-//    Connection con = DriverManager.getConnection(jdbcUrl, "jothi.prakash@databricks.com", "dapib0a507b0d18c529b4e3cfbb6041d9082");
-//    System.out.println("Connection established......");
-
-
-//    Statement s = con.createStatement();
-//    ResultSet rs=s.executeQuery("SELECT * FROM  ___________________first.default.owid_covid_data LIMIT 5");
-//    System.out.println(rs);
-//    while (rs.next()) {
-//      // Retrieve data by column name or index
-//      String continent = rs.getString("continent");
-//      String location = rs.getString("location");
-//
-//      // Print the data
-//      System.out.println("Continent: " + continent + ", Location: " + location);
-//    }
-//    con.close();
-//    System.out.println("Connection closed successfully......");
-
-
-    //
-    // Simba Statement Ordering Batch Test
-    //
-
-//        String sqlStatement="UPDATE ___________________first.`jprakash-test`.diamonds SET color=?,cut=? where cut=?";
-//    PreparedStatement pstmt = con.prepareStatement(sqlStatement);
-//   pstmt.setString(1,"F");
-//   pstmt.setString(2,"Change1");
-//   pstmt.setString(3,"Ideal");
-//
-//   pstmt.addBatch();
-//
-//    pstmt.setString(1,"L");
-//    pstmt.setString(2,"Change2");
-//    pstmt.setString(3,"Change1");
-//
-//    pstmt.addBatch();
-//
-//        // Execute the batch
-//    int[] updateCounts = pstmt.executeBatch();
-//
-//    // Process the update counts
-//    for (int count : updateCounts) {
-//      System.out.println("Update count: " + count);
-//    }
-//    con.close();
-
 
   }
 }

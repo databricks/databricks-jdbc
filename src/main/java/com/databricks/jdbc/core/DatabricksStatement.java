@@ -425,8 +425,10 @@ public class DatabricksStatement implements IDatabricksStatement, Statement {
     }
   }
 
-  DatabricksResultSet executeInternalMain(String sql, Map<Integer, ImmutableSqlParameter> params, StatementType statementType, boolean closeStatement) throws SQLException
-  {
+
+  DatabricksResultSet executeInternal(
+      String sql, Map<Integer, ImmutableSqlParameter> params, StatementType statementType,boolean closeStatement)
+      throws SQLException {
     String stackTraceMessage =
             format(
                     "DatabricksResultSet executeInternal(String sql = %s,Map<Integer, ImmutableSqlParameter> params = {%s}, StatementType statementType = {%s})",
@@ -465,15 +467,9 @@ public class DatabricksStatement implements IDatabricksStatement, Statement {
   }
 
   DatabricksResultSet executeInternal(
-      String sql, Map<Integer, ImmutableSqlParameter> params, StatementType statementType)
-      throws SQLException {
-    return executeInternalMain(sql,params,statementType,false);
-  }
-
-  DatabricksResultSet executeBatchInternal(
           String sql, Map<Integer, ImmutableSqlParameter> params, StatementType statementType)
           throws SQLException {
-    return executeInternalMain(sql,params,statementType,true);
+    return executeInternal(sql,params,statementType,true);
   }
 
   // Todo : Add timeout tests in the subsequent PR
