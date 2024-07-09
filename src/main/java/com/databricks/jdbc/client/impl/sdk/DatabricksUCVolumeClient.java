@@ -251,7 +251,7 @@ public class DatabricksUCVolumeClient implements IDatabricksUCVolumeClient {
 
     try (Statement statement = connection.createStatement()) {
       ResultSet resultSet = statement.executeQuery(getObjectQuery);
-      LoggingUtil.log(LogLevel.INFO, "SQL query executed successfully");
+      LoggingUtil.log(LogLevel.INFO, "GET query executed successfully");
 
       if (resultSet.next()) {
         String volumeOperationStatusString =
@@ -260,7 +260,7 @@ public class DatabricksUCVolumeClient implements IDatabricksUCVolumeClient {
             VOLUME_OPERATION_STATUS_SUCCEEDED.equals(volumeOperationStatusString);
       }
     } catch (SQLException e) {
-      LoggingUtil.log(LogLevel.ERROR, "SQL query execution failed " + e);
+      LoggingUtil.log(LogLevel.ERROR, "GET query execution failed " + e);
       throw e;
     }
 
