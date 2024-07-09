@@ -115,14 +115,18 @@ public class DatabricksResultSetMetaDataTest {
   public void testColumnsForPrecisionAndScale() throws SQLException {
     ResultManifest resultManifest = getResultManifest();
     DatabricksResultSetMetaData metaData =
-            new DatabricksResultSetMetaData(STATEMENT_ID, resultManifest);
+        new DatabricksResultSetMetaData(STATEMENT_ID, resultManifest);
 
     Assertions.assertEquals(Types.INTEGER, metaData.getColumnType(1));
-    Assertions.assertEquals(DatabricksTypeUtil.getPrecision(ColumnInfoTypeName.INT), metaData.getPrecision(1));
-    Assertions.assertEquals(DatabricksTypeUtil.getScale(ColumnInfoTypeName.INT), metaData.getScale(1));
+    Assertions.assertEquals(
+        DatabricksTypeUtil.getPrecision(ColumnInfoTypeName.INT), metaData.getPrecision(1));
+    Assertions.assertEquals(
+        DatabricksTypeUtil.getScale(ColumnInfoTypeName.INT), metaData.getScale(1));
 
     Assertions.assertEquals(Types.DOUBLE, metaData.getColumnType(3));
-    Assertions.assertEquals(DatabricksTypeUtil.getPrecision(ColumnInfoTypeName.DOUBLE), metaData.getPrecision(3));
-    Assertions.assertEquals(DatabricksTypeUtil.getScale(ColumnInfoTypeName.DOUBLE), metaData.getScale(3));
+    Assertions.assertEquals(
+        DatabricksTypeUtil.getPrecision(ColumnInfoTypeName.DOUBLE), metaData.getPrecision(3));
+    Assertions.assertEquals(
+        DatabricksTypeUtil.getScale(ColumnInfoTypeName.DOUBLE), metaData.getScale(3));
   }
 }
