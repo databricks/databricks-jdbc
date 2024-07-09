@@ -5,6 +5,9 @@ import static com.databricks.jdbc.integration.IntegrationTestUtil.*;
 import static org.junit.jupiter.api.Assertions.*;
 
 import com.databricks.jdbc.client.impl.sdk.DatabricksUCVolumeClient;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.Arrays;
@@ -333,5 +336,33 @@ public class UCVolumeTests {
             "folder1/folder2/efg_file1.csv",
             "/tmp/download2.csv",
             true));
+  }
+
+  @ParameterizedTest
+  @MethodSource("provideParametersForGetObject_FileRead")
+  void testGetObject_FileRead(
+      String catalog,
+      String schema,
+      String volume,
+      String objectPath,
+      String localPath,
+      String expectedContent)
+      throws Exception {
+    byte[] fileContent = Files.readAllBytes(Paths.get(localPath));
+    String actualContent = new String(fileContent, StandardCharsets.UTF_8);
+
+    assertTrue(client.getObject(catalog, schema, volume, objectPath, localPath));
+    assertEquals(expectedContent, actualContent);
+  }
+
+  private static Stream<Arguments> provideParametersForGetObject_FileRead() {
+    return Stream.of(
+        Arguments.of(
+            UC_VOLUME_CATALOG,
+            UC_VOLUME_SCHEMA,
+            "test_volume1",
+            "hello_world.txt",
+            "/tmp/download_hello_world.txt",
+            "helloworld"));
   }
 }
