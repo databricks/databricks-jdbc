@@ -22,9 +22,9 @@ import javax.annotation.Nullable;
 
 /** Implementation for Session interface, which maintains an underlying session in SQL Gateway. */
 public class DatabricksSession implements IDatabricksSession {
-  private final DatabricksClient databricksClient;
+  private DatabricksClient databricksClient;
 
-  private DatabricksClient dummyDatabricksClient;
+  private DatabricksClient proxyDatabricksClient;
   private DatabricksMetadataClient databricksMetadataClient;
   private final ComputeResource computeResource;
 
@@ -51,13 +51,11 @@ public class DatabricksSession implements IDatabricksSession {
   public DatabricksSession(IDatabricksConnectionContext connectionContext)
       throws DatabricksSQLException {
     if (connectionContext.getClientType() == DatabricksClientType.THRIFT) {
-      dummyDatabricksClient = new DatabricksThriftServiceClient(connectionContext);
+      this.databricksClient = new DatabricksThriftServiceClient(connectionContext);
       this.databricksMetadataClient = null;
     } else {
-      dummyDatabricksClient = new DatabricksSdkClient(connectionContext);
+      this.databricksClient = new DatabricksSdkClient(connectionContext);
     }
-    this.databricksClient = TimingUtility.createTimedInstance(dummyDatabricksClient, DatabricksClient.class);
-    System.out.println("bhuvan " + databricksClient.getClass());
     this.isSessionOpen = false;
     this.sessionInfo = null;
     this.computeResource = connectionContext.getComputeResource();
@@ -74,11 +72,12 @@ public class DatabricksSession implements IDatabricksSession {
     if (connectionContext.getClientType() == DatabricksClientType.THRIFT) {
       return;
     }
-    System.out.println("hello" + databricksClient.getClass());
     this.databricksMetadataClient =
         useLegacyMetadataClient
             ? new DatabricksMetadataSdkClient((DatabricksSdkClient) databricksClient)
-            : new DatabricksNewMetadataSdkClient((DatabricksSdkClient)  databricksClient);
+            : new DatabricksNewMetadataSdkClient((DatabricksSdkClient) databricksClient);
+    System.out.println("Inside setMetadataClient " + System.currentTimeMillis());
+    databricksClient = TimedProcessor.createProxy(databricksClient);
   }
 
   /** Constructor method to be used for mocking in a test case. */
@@ -86,7 +85,7 @@ public class DatabricksSession implements IDatabricksSession {
   DatabricksSession(
       IDatabricksConnectionContext connectionContext, DatabricksClient databricksClient)
       throws DatabricksSQLException {
-    this.databricksClient = (DatabricksSdkClient) databricksClient;
+    this.databricksClient = databricksClient;
     if (databricksClient instanceof DatabricksThriftServiceClient) {
       this.databricksMetadataClient = null;
     } else {
@@ -162,6 +161,7 @@ public class DatabricksSession implements IDatabricksSession {
         databricksClient.deleteSession(this, computeResource);
         this.sessionInfo = null;
         this.isSessionOpen = false;
+        this.connectionContext.getMetricsExporter().close();
       }
     }
   }

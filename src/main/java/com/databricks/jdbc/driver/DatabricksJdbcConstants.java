@@ -49,6 +49,8 @@ public final class DatabricksJdbcConstants {
 
   public static final int DEFAULT_LOG_FILE_COUNT = 10;
 
+  public static final String USER_AGENT_DELIMITER = "-";
+
   public static final String URL_DELIMITER = ";";
 
   public static final String PORT_DELIMITER = ":";
@@ -83,7 +85,7 @@ public final class DatabricksJdbcConstants {
 
   public static final String USE_PROXY = "useproxy";
 
-  public static final String USE_PROXY_AUTH = "proxyauth";
+  public static final String PROXY_AUTH = "proxyauth";
 
   public static final String USE_SYSTEM_PROXY = "usesystemproxy";
 
@@ -93,13 +95,13 @@ public final class DatabricksJdbcConstants {
 
   public static final String CF_PROXY_PORT = "cfproxyport";
 
-  public static final String USE_CF_PROXY_AUTH = "cfproxyauth";
-
-  public static final String ENABLE_ARROW = "EnableArrow";
+  public static final String CF_PROXY_AUTH = "cfproxyauth";
 
   public static final String CF_PROXY_USER = "cfproxyuid";
 
   public static final String CF_PROXY_PWD = "cfproxypwd";
+
+  public static final String ENABLE_ARROW = "EnableArrow";
 
   public static final String AUTH_FLOW = "auth_flow";
 
@@ -167,9 +169,9 @@ public final class DatabricksJdbcConstants {
 
   public static final String CLIENT_USER_AGENT_PREFIX = "Java";
 
-  public static final String USER_AGENT_SEA_CLIENT = "SQLExecHttpClient/HC";
+  public static final String USER_AGENT_SEA_CLIENT = "SQLExecHttpClient-HC";
 
-  public static final String USER_AGENT_THRIFT_CLIENT = "THttpClient/HC";
+  public static final String USER_AGENT_THRIFT_CLIENT = "THttpClient-HC";
 
   public static final String ALLOWED_VOLUME_INGESTION_PATHS =
       "allowlistedVolumeOperationLocalFilePaths";
@@ -216,6 +218,7 @@ public final class DatabricksJdbcConstants {
   static final String RATE_LIMIT_RETRY_TIMEOUT = "RateLimitRetryTimeout";
   public static final String DEFAULT_RATE_LIMIT_RETRY_TIMEOUT = "120";
   static final String IDLE_HTTP_CONNECTION_EXPIRY = "IdleHttpConnectionExpiry";
+  static final String SUPPORT_MANY_PARAMETERS = "supportManyParameters";
   public static final String DEFAULT_IDLE_HTTP_CONNECTION_EXPIRY = "60";
   public static final String CLOUD_FETCH_THREAD_POOL_SIZE = "cloudFetchThreadPoolSize";
   public static final int CLOUD_FETCH_THREAD_POOL_SIZE_DEFAULT = 16;
@@ -246,6 +249,12 @@ public final class DatabricksJdbcConstants {
       Pattern.compile("\\s+EXCEPT\\s+", Pattern.CASE_INSENSITIVE);
   public static final Pattern DECLARE_PATTERN =
       Pattern.compile("^(\\s*\\()*\\s*DECLARE", Pattern.CASE_INSENSITIVE);
+  public static final Pattern PUT_PATTERN =
+      Pattern.compile("^(\\s*\\()*\\s*GET", Pattern.CASE_INSENSITIVE);
+  public static final Pattern GET_PATTERN =
+      Pattern.compile("^(\\s*\\()*\\s*PUT", Pattern.CASE_INSENSITIVE);
+  public static final Pattern REMOVE_PATTERN =
+      Pattern.compile("^(\\s*\\()*\\s*REMOVE", Pattern.CASE_INSENSITIVE);
   static final int DBSQL_MIN_MAJOR_VERSION_FOR_NEW_METADATA = 2024;
   static final int DBSQL_MIN_MINOR_VERSION_FOR_NEW_METADATA = 30;
 

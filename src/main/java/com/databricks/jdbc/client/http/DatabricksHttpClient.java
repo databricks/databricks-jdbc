@@ -1,8 +1,7 @@
 package com.databricks.jdbc.client.http;
 
 import static com.databricks.jdbc.client.http.RetryHandler.*;
-import static com.databricks.jdbc.driver.DatabricksJdbcConstants.FAKE_SERVICE_URI_PROP_SUFFIX;
-import static com.databricks.jdbc.driver.DatabricksJdbcConstants.IS_FAKE_SERVICE_TEST_PROP;
+import static com.databricks.jdbc.driver.DatabricksJdbcConstants.*;
 import static io.netty.util.NetUtil.LOCALHOST;
 
 import com.databricks.jdbc.client.DatabricksHttpException;
@@ -11,32 +10,35 @@ import com.databricks.jdbc.client.IDatabricksHttpClient;
 import com.databricks.jdbc.commons.LogLevel;
 import com.databricks.jdbc.commons.util.LoggingUtil;
 import com.databricks.jdbc.driver.IDatabricksConnectionContext;
+import com.databricks.sdk.core.DatabricksConfig;
+import com.databricks.sdk.core.ProxyConfig;
 import com.databricks.sdk.core.UserAgent;
+import com.databricks.sdk.core.utils.ProxyUtils;
 import com.google.common.annotations.VisibleForTesting;
 import java.io.IOException;
+import java.security.KeyManagementException;
+import java.security.KeyStoreException;
+import java.security.NoSuchAlgorithmException;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
+import javax.net.ssl.SSLContext;
 import org.apache.http.HttpException;
 import org.apache.http.HttpHost;
 import org.apache.http.HttpResponse;
-import org.apache.http.HttpResponseInterceptor;
-import org.apache.http.auth.AuthScope;
-import org.apache.http.auth.UsernamePasswordCredentials;
-import org.apache.http.client.CredentialsProvider;
 import org.apache.http.client.config.RequestConfig;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpUriRequest;
 import org.apache.http.conn.UnsupportedSchemeException;
 import org.apache.http.conn.routing.HttpRoute;
-import org.apache.http.impl.client.BasicCredentialsProvider;
+import org.apache.http.conn.ssl.NoopHostnameVerifier;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClientBuilder;
-import org.apache.http.impl.client.ProxyAuthenticationStrategy;
 import org.apache.http.impl.conn.DefaultSchemePortResolver;
 import org.apache.http.impl.conn.PoolingHttpClientConnectionManager;
 import org.apache.http.protocol.HttpContext;
+import org.apache.http.ssl.SSLContextBuilder;
 
 /** Http client implementation to be used for executing http requests. */
 public class DatabricksHttpClient implements IDatabricksHttpClient {
@@ -76,6 +78,7 @@ public class DatabricksHttpClient implements IDatabricksHttpClient {
   private static boolean shouldRetryRateLimitError;
   private static int rateLimitRetryTimeout;
   protected static int idleHttpConnectionExpiry;
+  private CloseableHttpClient httpDisabledSSLClient;
 
   private DatabricksHttpClient(IDatabricksConnectionContext connectionContext) {
     initializeConnectionManager();
@@ -85,6 +88,7 @@ public class DatabricksHttpClient implements IDatabricksHttpClient {
     shouldRetryRateLimitError = connectionContext.shouldRetryRateLimitError();
     rateLimitRetryTimeout = connectionContext.getRateLimitRetryTimeout();
     httpClient = makeClosableHttpClient(connectionContext);
+    httpDisabledSSLClient = makeClosableDisabledSslHttpClient();
     idleHttpConnectionExpiry = connectionContext.getIdleHttpConnectionExpiry();
   }
 
@@ -138,17 +142,33 @@ public class DatabricksHttpClient implements IDatabricksHttpClient {
             .setConnectionManager(connectionManager)
             .setUserAgent(getUserAgent())
             .setDefaultRequestConfig(makeRequestConfig())
-            .setRetryHandler(
-                (exception, executionCount, context) ->
-                    handleRetry(exception, executionCount, context))
-            .addInterceptorFirst(
-                (HttpResponseInterceptor)
-                    (httpResponse, httpContext) ->
-                        handleResponseInterceptor(httpResponse, httpContext));
-
-    configureProxy(connectionContext, builder);
-
+            .setRetryHandler(this::handleRetry)
+            .addInterceptorFirst(this::handleResponseInterceptor);
+    setupProxy(connectionContext, builder);
+    if (Boolean.parseBoolean(System.getProperty(IS_FAKE_SERVICE_TEST_PROP))) {
+      setFakeServiceRouteInHttpClient(builder);
+    }
     return builder.build();
+  }
+
+  private CloseableHttpClient makeClosableDisabledSslHttpClient() {
+    try {
+      // Create SSL context that trusts all certificates
+      SSLContext sslContext =
+          new SSLContextBuilder().loadTrustMaterial(null, (chain, authType) -> true).build();
+
+      // Create HttpClient with the SSL context
+      return HttpClientBuilder.create()
+          .setSSLContext(sslContext)
+          .setSSLHostnameVerifier(new NoopHostnameVerifier())
+          .build();
+    } catch (NoSuchAlgorithmException | KeyManagementException | KeyStoreException e) {
+      LoggingUtil.log(
+          LogLevel.DEBUG,
+          String.format(
+              "Error in creating HttpClient with the SSL context [{%s}]", e.getMessage()));
+    }
+    return null;
   }
 
   private boolean handleRetry(IOException exception, int executionCount, HttpContext context) {
@@ -240,51 +260,39 @@ public class DatabricksHttpClient implements IDatabricksHttpClient {
     }
   }
 
-  private void configureProxy(
-      IDatabricksConnectionContext connectionContext, HttpClientBuilder builder) {
-    if (connectionContext.getUseSystemProxy()) {
-      builder.useSystemProperties();
-    }
-    // Override system proxy if proxy details are explicitly provided
-    // If cloud fetch proxy is provided use that, else use the regular proxy
-    if (connectionContext.getUseCloudFetchProxy()) {
-      setProxyDetailsInHttpClient(
-          builder,
-          connectionContext.getCloudFetchProxyHost(),
-          connectionContext.getCloudFetchProxyPort(),
-          connectionContext.getUseCloudFetchProxyAuth(),
-          connectionContext.getCloudFetchProxyUser(),
-          connectionContext.getCloudFetchProxyPassword());
-    } else if (connectionContext.getUseProxy()) {
-      setProxyDetailsInHttpClient(
-          builder,
-          connectionContext.getProxyHost(),
-          connectionContext.getProxyPort(),
-          connectionContext.getUseProxyAuth(),
-          connectionContext.getProxyUser(),
-          connectionContext.getProxyPassword());
-    } else if (Boolean.parseBoolean(System.getProperty(IS_FAKE_SERVICE_TEST_PROP))) {
-      setFakeServiceRouteInHttpClient(builder);
-    }
-  }
-
   @VisibleForTesting
-  public static void setProxyDetailsInHttpClient(
-      HttpClientBuilder builder,
-      String proxyHost,
-      int proxyPort,
-      Boolean useProxyAuth,
-      String proxyUser,
-      String proxyPassword) {
-    builder.setProxy(new HttpHost(proxyHost, proxyPort));
-    if (useProxyAuth) {
-      CredentialsProvider credsProvider = new BasicCredentialsProvider();
-      credsProvider.setCredentials(
-          new AuthScope(proxyHost, proxyPort),
-          new UsernamePasswordCredentials(proxyUser, proxyPassword));
-      builder
-          .setDefaultCredentialsProvider(credsProvider)
-          .setProxyAuthenticationStrategy(new ProxyAuthenticationStrategy());
+  public static void setupProxy(
+      IDatabricksConnectionContext connectionContext, HttpClientBuilder builder) {
+    String proxyHost = null;
+    Integer proxyPort = null;
+    String proxyUser = null;
+    String proxyPassword = null;
+    ProxyConfig.ProxyAuthType proxyAuth = connectionContext.getProxyAuthType();
+    // System proxy is handled by the SDK.
+    // If proxy details are explicitly provided use those for the connection.
+    if (connectionContext.getUseCloudFetchProxy()) {
+      proxyHost = connectionContext.getCloudFetchProxyHost();
+      proxyPort = connectionContext.getCloudFetchProxyPort();
+      proxyUser = connectionContext.getCloudFetchProxyUser();
+      proxyPassword = connectionContext.getCloudFetchProxyPassword();
+      proxyAuth = connectionContext.getCloudFetchProxyAuthType();
+    } else if (connectionContext.getUseProxy()) {
+      proxyHost = connectionContext.getProxyHost();
+      proxyPort = connectionContext.getProxyPort();
+      proxyUser = connectionContext.getProxyUser();
+      proxyPassword = connectionContext.getProxyPassword();
+      proxyAuth = connectionContext.getProxyAuthType();
+    }
+    if (proxyHost != null || connectionContext.getUseSystemProxy()) {
+      ProxyConfig proxyConfig =
+          new ProxyConfig(new DatabricksConfig())
+              .setUseSystemProperties(connectionContext.getUseSystemProxy())
+              .setHost(proxyHost)
+              .setPort(proxyPort)
+              .setUsername(proxyUser)
+              .setPassword(proxyPassword)
+              .setProxyAuthType(proxyAuth);
+      ProxyUtils.setupProxy(proxyConfig, builder);
     }
   }
 
@@ -342,20 +350,22 @@ public class DatabricksHttpClient implements IDatabricksHttpClient {
     try {
       return httpClient.execute(request);
     } catch (IOException e) {
-      Throwable cause = e;
-      while (cause != null) {
-        if (cause instanceof DatabricksRetryHandlerException) {
-          throw new DatabricksHttpException(cause.getMessage(), cause);
-        }
-        cause = cause.getCause();
-      }
-      String errorMsg =
-          String.format(
-              "Caught error while executing http request: [%s]. Error Message: [%s]",
-              RequestSanitizer.sanitizeRequest(request), e);
-      LoggingUtil.log(LogLevel.ERROR, errorMsg);
-      throw new DatabricksHttpException(errorMsg, e);
+      throwHttpException(e, request, LogLevel.ERROR);
     }
+    return null;
+  }
+
+  public CloseableHttpResponse executeWithoutSSL(HttpUriRequest request)
+      throws DatabricksHttpException {
+    LoggingUtil.log(
+        LogLevel.DEBUG,
+        String.format("Executing HTTP request [{%s}]", RequestSanitizer.sanitizeRequest(request)));
+    try {
+      return httpDisabledSSLClient.execute(request);
+    } catch (Exception e) {
+      throwHttpException(e, request, LogLevel.DEBUG);
+    }
+    return null;
   }
 
   @Override
@@ -404,5 +414,22 @@ public class DatabricksHttpClient implements IDatabricksHttpClient {
             LogLevel.DEBUG, String.format("Caught error while closing http client. Error %s", e));
       }
     }
+  }
+
+  private static void throwHttpException(Exception e, HttpUriRequest request, LogLevel logLevel)
+      throws DatabricksHttpException {
+    Throwable cause = e;
+    while (cause != null) {
+      if (cause instanceof DatabricksRetryHandlerException) {
+        throw new DatabricksHttpException(cause.getMessage(), cause);
+      }
+      cause = cause.getCause();
+    }
+    String errorMsg =
+        String.format(
+            "Caught error while executing http request: [%s]. Error Message: [%s]",
+            RequestSanitizer.sanitizeRequest(request), e);
+    LoggingUtil.log(logLevel, errorMsg);
+    throw new DatabricksHttpException(errorMsg, e);
   }
 }

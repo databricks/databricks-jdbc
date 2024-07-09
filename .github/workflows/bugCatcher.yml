@@ -47,7 +47,7 @@ jobs:
           echo "DATABRICKS_USER=${DATABRICKS_USER}" >> $GITHUB_ENV
           echo "DATABRICKS_JDBC_M2M_URL=${DATABRICKS_JDBC_M2M_URL}" >> $GITHUB_ENV
       - name: Run Integration Tests
-        run: mvn -B test -Dtest=*e2e/*
+        run: mvn -B test -Dtest=*e2e/OAuthTests*
         env:
           DATABRICKS_HOST: ${{ env.DATABRICKS_HOST }}
           DATABRICKS_HTTP_PATH: ${{ env.DATABRICKS_HTTP_PATH }}

@@ -1,45 +1,67 @@
 package com.databricks.jdbc.annotation;
 
-import java.lang.reflect.Method;
 
+import com.databricks.jdbc.driver.IDatabricksConnectionContext;
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
+import java.util.*;
 
-public class TimedProcessor {
+public class TimedProcessor{
 
-    @SuppressWarnings("unchecked")
-    public static <T> T createProxy(T obj) {
-        Class<?> clazz = obj.getClass();
-        return (T) Proxy.newProxyInstance(
-                clazz.getClassLoader(),
-                clazz.getInterfaces(),
-                new TimedInvocationHandler(obj)
-        );
+  @SuppressWarnings("unchecked")
+  public static <T> T createProxy(T obj) {
+    Class<?> clazz = obj.getClass();
+    TimedClass timedClass = clazz.getAnnotation(TimedClass.class);
+
+    if (timedClass == null) {
+      throw new IllegalArgumentException(
+          "Class " + clazz.getName() + " is not annotated with @TimedClass");
     }
 
-    private static class TimedInvocationHandler implements InvocationHandler {
-        private final Object target;
-
-        public TimedInvocationHandler(Object target) {
-            this.target = target;
-        }
-
-        @Override
-        public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
-            System.out.println("invoke method: " + method.getName());
-            if (method.isAnnotationPresent(Timed.class)) {
-                long startTime = System.currentTimeMillis();
-                Object result = method.invoke(target, args);
-                long endTime = System.currentTimeMillis();
-                System.out.println("Execution time of " + method.getName() + ": " + (endTime - startTime) + " ms");
-                return result;
-            } else {
-                System.out.println("Method " + method.getName() + " is not annotated with @Timed");
-                return method.invoke(target, args);
-            }
-        }
+    Map<String, TimedMethod> methodsToTime = new HashMap<>();
+    for (TimedMethod timedMethod : timedClass.methods()) {
+      methodsToTime.put(timedMethod.name(), timedMethod);
     }
+
+    return (T)
+        Proxy.newProxyInstance(
+            clazz.getClassLoader(),
+            clazz.getInterfaces(),
+            new TimedInvocationHandler<>(obj, methodsToTime));
+  }
+
+  private static class TimedInvocationHandler<T> implements InvocationHandler {
+    private final T target;
+    private final Map<String, TimedMethod> methodsToTime;
+
+    public TimedInvocationHandler(T target, Map<String, TimedMethod> methodsToTime) {
+      this.target = target;
+      this.methodsToTime = methodsToTime;
+    }
+
+    @Override
+    public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
+      if (methodsToTime.containsKey(method.getName())) {
+        TimedMethod timedMethod = methodsToTime.get(method.getName());
+        String parameterValue = timedMethod.parameters();
+        long startTime = System.currentTimeMillis();
+        Object result = method.invoke(target, args);
+        long endTime = System.currentTimeMillis();
+        System.out.println("Inside invoke method of TimedProcessor");
+        System.out.println(
+            "Execution time of " + method.getName() + ": " + (endTime - startTime) + " ms");
+
+        Method getConnectionContext = target.getClass().getMethod("getConnectionContext");
+        IDatabricksConnectionContext connectionContext =
+            (IDatabricksConnectionContext) getConnectionContext.invoke(target);
+        connectionContext.getMetricsExporter().record(parameterValue, endTime - startTime);
+        System.out.println("Hello bhuvan: ");
+        //connectionContext.getMetricsExporter().record(parameterValue, endTime - startTime);
+        return result;
+      } else {
+        return method.invoke(target, args);
+      }
+    }
+  }
 }
-
-

@@ -1,9 +1,10 @@
 package com.databricks.jdbc.client;
 
-import com.databricks.jdbc.annotation.Timed;
 import com.databricks.jdbc.client.sqlexec.ExternalLink;
 import com.databricks.jdbc.core.*;
 import com.databricks.jdbc.core.types.ComputeResource;
+import com.databricks.jdbc.driver.IDatabricksConnectionContext;
+
 import java.sql.SQLException;
 import java.util.Collection;
 import java.util.Map;
@@ -78,4 +79,6 @@ public interface DatabricksClient {
    */
   Collection<ExternalLink> getResultChunks(String statementId, long chunkIndex)
       throws DatabricksSQLException;
+
+  IDatabricksConnectionContext getConnectionContext();
 }

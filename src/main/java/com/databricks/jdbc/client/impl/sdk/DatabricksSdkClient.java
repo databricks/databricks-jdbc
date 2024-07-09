@@ -5,8 +5,10 @@ import static com.databricks.jdbc.commons.EnvironmentVariables.DEFAULT_ROW_LIMIT
 
 import com.databricks.jdbc.annotation.Timed;
 import com.databricks.jdbc.annotation.TimedClass;
+import com.databricks.jdbc.annotation.TimedMethod;
 import com.databricks.jdbc.client.DatabricksClient;
 import com.databricks.jdbc.client.StatementType;
+import com.databricks.jdbc.client.impl.helper.ClientUtils;
 import com.databricks.jdbc.client.sqlexec.*;
 import com.databricks.jdbc.client.sqlexec.CloseStatementRequest;
 import com.databricks.jdbc.client.sqlexec.CreateSessionRequest;
@@ -27,6 +29,7 @@ import com.databricks.sdk.WorkspaceClient;
 import com.databricks.sdk.core.ApiClient;
 import com.databricks.sdk.core.DatabricksConfig;
 import com.databricks.sdk.service.sql.*;
+import com.google.common.annotations.VisibleForTesting;
 import java.sql.SQLException;
 import java.time.Instant;
 import java.util.Collection;
@@ -36,13 +39,20 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 /** Implementation of DatabricksClient interface using Databricks Java SDK. */
+@TimedClass(
+    methods = {
+      @TimedMethod(name = "createSession", parameters = "CREATE_SESSION_ANNOTATION"),
+    })
 public class DatabricksSdkClient implements DatabricksClient {
   private static final String SYNC_TIMEOUT_VALUE = "10s";
-  private static final String ASYNC_TIMEOUT_VALUE = "0s";
-
   private final IDatabricksConnectionContext connectionContext;
   private final DatabricksConfig databricksConfig;
   private final WorkspaceClient workspaceClient;
+
+  @Override
+  public IDatabricksConnectionContext getConnectionContext() {
+    return connectionContext;
+  }
 
   private static Map<String, String> getHeaders() {
     return Map.of(
@@ -53,17 +63,12 @@ public class DatabricksSdkClient implements DatabricksClient {
   public DatabricksSdkClient(IDatabricksConnectionContext connectionContext)
       throws DatabricksParsingException {
     this.connectionContext = connectionContext;
-    // TODO: [PECO-1486] pass on proxy settings to SDK once changes are merged in SDK
-    // Handle more auth types
-    this.databricksConfig =
-        new DatabricksConfig()
-            .setHost(connectionContext.getHostUrl())
-            .setToken(connectionContext.getToken());
-
+    this.databricksConfig = ClientUtils.generateDatabricksConfig(connectionContext);
     OAuthAuthenticator authenticator = new OAuthAuthenticator(connectionContext);
-    this.workspaceClient = authenticator.getWorkspaceClient();
+    this.workspaceClient = authenticator.getWorkspaceClient(this.databricksConfig);
   }
 
+  @VisibleForTesting
   public DatabricksSdkClient(
       IDatabricksConnectionContext connectionContext,
       StatementExecutionService statementExecutionService,
@@ -81,7 +86,6 @@ public class DatabricksSdkClient implements DatabricksClient {
   }
 
   @Override
-  @Timed
   public ImmutableSessionInfo createSession(
       ComputeResource warehouse, String catalog, String schema, Map<String, String> sessionConf) {
     // TODO: [PECO-1460] Handle sessionConf in public session API
@@ -112,10 +116,11 @@ public class DatabricksSdkClient implements DatabricksClient {
             .computeResource(warehouse)
             .sessionId(createSessionResponse.getSessionId())
             .build();
-    connectionContext
-        .getMetricsExporter()
-        .record(MetricsList.CREATE_SESSION.name(), System.currentTimeMillis() - startTime);
+//    connectionContext
+//        .getMetricsExporter()
+//        .record(MetricsList.CREATE_SESSION.name(), System.currentTimeMillis() - startTime);
     System.out.println("createSessionFunction");
+    System.out.println(System.currentTimeMillis());
     return sessionInfo;
   }
 
