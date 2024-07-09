@@ -273,4 +273,40 @@ public class DatabricksUCVolumeClientTest {
             "test_localPath",
             true));
   }
+
+  @ParameterizedTest
+  @MethodSource("provideParametersForGetObject_FileNotFound")
+  public void testGetObject_FileNotFound(
+      String catalog,
+      String schema,
+      String volume,
+      String objectPath,
+      String localPath,
+      boolean expected)
+      throws SQLException {
+    DatabricksUCVolumeClient client = new DatabricksUCVolumeClient(connection);
+
+    when(connection.createStatement()).thenReturn(statement);
+    String getObjectQuery = createGetObjectQuery(catalog, schema, volume, objectPath, localPath);
+    when(statement.executeQuery(getObjectQuery))
+        .thenThrow(new SQLException("Volume operation failed : Failed to download file"));
+
+    assertThrows(
+        SQLException.class,
+        () -> {
+          client.getObject(catalog, schema, volume, objectPath, localPath);
+        });
+    verify(statement).executeQuery(getObjectQuery);
+  }
+
+  private static Stream<Arguments> provideParametersForGetObject_FileNotFound() {
+    return Stream.of(
+        Arguments.of(
+            "test_catalog",
+            "test_schema",
+            "test_volume",
+            "non_existent_file",
+            "test_localPath",
+            false));
+  }
 }
