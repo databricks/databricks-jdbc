@@ -50,7 +50,6 @@ public class DatabricksUCVolumeClient implements IDatabricksUCVolumeClient {
     return String.format("REMOVE '/Volumes/%s/%s/%s/%s'", catalog, schema, volume, objectPath);
   }
 
-
   public boolean prefixExists(String catalog, String schema, String volume, String prefix)
       throws SQLException {
     return prefixExists(catalog, schema, volume, prefix, true);
