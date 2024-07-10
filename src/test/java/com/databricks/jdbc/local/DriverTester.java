@@ -231,4 +231,20 @@ public class DriverTester {
     con.close();
     System.out.println("Connection closed successfully......");
   }
+
+  @Test
+  void testGet() throws Exception {
+    String jdbcUrl =
+        "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/791ba2a31c7fd70a;uselegacyMetadata=1";
+    Connection con =
+        DriverManager.getConnection(
+            jdbcUrl, "agnipratim.nag@databricks.com", "dapie6557019e280075d7442ac99bb17efb0");
+    con.setClientInfo("allowlistedVolumeOperationLocalFilePaths", "/tmp");
+    Statement statement = con.createStatement();
+    ResultSet rs =
+        statement.executeQuery(
+            "REMOVE '/Volumes/uc_volume_test_catalog/uc_volume_test_schema/test_volume1/abc_fiesgaegfaergdfsle2.csv'");
+    System.out.println("Connection established......");
+    printResultSet(rs);
+  }
 }

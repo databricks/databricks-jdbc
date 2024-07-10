@@ -48,6 +48,7 @@ public class DatabricksStatement implements IDatabricksStatement, Statement {
     checkIfClosed();
     ResultSet rs =
         executeInternal(sql, new HashMap<Integer, ImmutableSqlParameter>(), StatementType.QUERY);
+    /*
     if (!shouldReturnResultSet(sql)) {
       throw new DatabricksSQLException(
           "A ResultSet was expected but not generated from query: "
@@ -55,6 +56,7 @@ public class DatabricksStatement implements IDatabricksStatement, Statement {
               + ". However, query "
               + "execution was successful.");
     }
+     */
     return rs;
   }
 

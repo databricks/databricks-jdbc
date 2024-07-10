@@ -404,4 +404,28 @@ public class DatabricksUCVolumeClientTest {
   private static Stream<Arguments> provideParametersForDeleteObject() {
     return Stream.of(Arguments.of("test_catalog", "test_schema", "test_volume", "test_path", true));
   }
+
+  @ParameterizedTest
+  @MethodSource("provideParametersForDeleteObject_InvalidObjectPath")
+  public void testDeleteObject_InvalidObjectPath(
+      String catalog, String schema, String volume, String objectPath) throws SQLException {
+    DatabricksUCVolumeClient client = new DatabricksUCVolumeClient(connection);
+
+    when(connection.createStatement()).thenReturn(statement);
+    String deleteObjectQuery = createDeleteObjectQuery(catalog, schema, volume, objectPath);
+    when(statement.executeQuery(deleteObjectQuery))
+        .thenThrow(new SQLException("Invalid object path: Object not found"));
+
+    assertThrows(
+        SQLException.class,
+        () -> {
+          client.deleteObject(catalog, schema, volume, objectPath);
+        });
+    verify(statement).executeQuery(deleteObjectQuery);
+  }
+
+  private static Stream<Arguments> provideParametersForDeleteObject_InvalidObjectPath() {
+    return Stream.of(
+        Arguments.of("test_catalog", "test_schema", "test_volume", "invalid_objectpath"));
+  }
 }

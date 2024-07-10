@@ -96,7 +96,7 @@ public interface IDatabricksUCVolumeClient {
       throws SQLException;
 
   /**
-   * deleteObject(): Remove
+   * deleteObject(): Remove an object from a specified path within a UC Volume
    *
    * @param catalog the catalog name of the cloud storage
    * @param schema the schema name of the cloud storage
