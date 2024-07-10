@@ -517,7 +517,10 @@ public class DatabricksStatement implements IDatabricksStatement, Statement {
         || UNION_PATTERN.matcher(trimmedQuery).find()
         || INTERSECT_PATTERN.matcher(trimmedQuery).find()
         || EXCEPT_PATTERN.matcher(trimmedQuery).find()
-        || DECLARE_PATTERN.matcher(trimmedQuery).find()) {
+        || DECLARE_PATTERN.matcher(trimmedQuery).find()
+        || GET_PATTERN.matcher(trimmedQuery).find()
+        || PUT_PATTERN.matcher(trimmedQuery).find()
+        || REMOVE_PATTERN.matcher(trimmedQuery).find()) {
       return true;
     }
 
