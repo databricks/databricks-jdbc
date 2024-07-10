@@ -354,12 +354,7 @@ public class DatabricksUCVolumeClientTest {
   @ParameterizedTest
   @MethodSource("provideParametersForPutObject_InvalidLocalPath")
   public void testPutObject_InvalidLocalPath(
-      String catalog,
-      String schema,
-      String volume,
-      String objectPath,
-      String localPath,
-      boolean expected)
+      String catalog, String schema, String volume, String objectPath, String localPath)
       throws SQLException {
     DatabricksUCVolumeClient client = new DatabricksUCVolumeClient(connection);
 
@@ -379,11 +374,6 @@ public class DatabricksUCVolumeClientTest {
   private static Stream<Arguments> provideParametersForPutObject_InvalidLocalPath() {
     return Stream.of(
         Arguments.of(
-            "test_catalog",
-            "test_schema",
-            "test_volume",
-            "test_objectpath",
-            "invalid_localpath",
-            false));
+            "test_catalog", "test_schema", "test_volume", "test_objectpath", "invalid_localpath"));
   }
 }
