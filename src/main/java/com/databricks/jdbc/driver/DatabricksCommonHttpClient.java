@@ -3,12 +3,18 @@ package com.databricks.jdbc.driver;
 import static org.apache.http.entity.ContentType.APPLICATION_JSON;
 
 import com.databricks.sdk.core.DatabricksException;
+import com.databricks.sdk.core.ProxyConfig;
 import com.databricks.sdk.core.http.HttpClient;
 import com.databricks.sdk.core.http.Request;
 import com.databricks.sdk.core.http.Response;
 import com.databricks.sdk.core.utils.CustomCloseInputStream;
+import com.databricks.sdk.core.utils.ProxyUtils;
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.MalformedURLException;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.List;
@@ -16,9 +22,7 @@ import java.util.Map;
 import java.util.stream.Collectors;
 import javax.net.ssl.SSLContext;
 import org.apache.commons.io.IOUtils;
-import org.apache.http.HttpEntity;
-import org.apache.http.NameValuePair;
-import org.apache.http.StatusLine;
+import org.apache.http.*;
 import org.apache.http.client.config.RequestConfig;
 import org.apache.http.client.methods.*;
 import org.apache.http.config.Registry;
@@ -32,6 +36,8 @@ import org.apache.http.entity.StringEntity;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClientBuilder;
 import org.apache.http.impl.conn.PoolingHttpClientConnectionManager;
+import org.apache.http.protocol.BasicHttpContext;
+import org.apache.http.protocol.HttpContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -82,6 +88,15 @@ public class DatabricksCommonHttpClient implements HttpClient {
         .build();
   }
 
+  private CloseableHttpClient makeClosableHttpClient(ProxyConfig proxyConfig) {
+    HttpClientBuilder builder =
+        HttpClientBuilder.create()
+            .setConnectionManager(connectionManager)
+            .setDefaultRequestConfig(makeRequestConfig());
+    ProxyUtils.setupProxy(proxyConfig, builder);
+    return builder.build();
+  }
+
   @Override
   public Response execute(Request in) throws IOException {
     HttpUriRequest request = transformRequest(in);
@@ -90,11 +105,33 @@ public class DatabricksCommonHttpClient implements HttpClient {
       request.getParams().setParameter("http.protocol.handle-redirects", false);
     }
     in.getHeaders().forEach(request::setHeader);
-    CloseableHttpResponse response = hc.execute(request);
-    return computeResponse(in, response);
+    HttpContext context = new BasicHttpContext();
+    CloseableHttpResponse response = hc.execute(request, context);
+    return computeResponse(in, context, response);
   }
 
-  private Response computeResponse(Request in, CloseableHttpResponse response) throws IOException {
+  private URL getTargetUrl(HttpContext context) {
+    try {
+      HttpHost targetHost = (HttpHost) context.getAttribute("http.target_host");
+      HttpRequest request = (HttpRequest) context.getAttribute("http.request");
+      URI uri = new URI(request.getRequestLine().getUri());
+      uri =
+          new URI(
+              targetHost.getSchemeName(),
+              null,
+              targetHost.getHostName(),
+              targetHost.getPort(),
+              uri.getPath(),
+              uri.getQuery(),
+              uri.getFragment());
+      return uri.toURL();
+    } catch (MalformedURLException | URISyntaxException e) {
+      throw new DatabricksException("Unable to get target URL", e);
+    }
+  }
+
+  private Response computeResponse(Request in, HttpContext context, CloseableHttpResponse response)
+      throws IOException {
     HttpEntity entity = response.getEntity();
     StatusLine statusLine = response.getStatusLine();
     Map<String, List<String>> hs =
@@ -103,11 +140,19 @@ public class DatabricksCommonHttpClient implements HttpClient {
                 Collectors.groupingBy(
                     NameValuePair::getName,
                     Collectors.mapping(NameValuePair::getValue, Collectors.toList())));
+    URL url = getTargetUrl(context);
     if (entity == null) {
       response.close();
-      return new Response(in, statusLine.getStatusCode(), statusLine.getReasonPhrase(), hs);
+      return new Response(in, url, statusLine.getStatusCode(), statusLine.getReasonPhrase(), hs);
     }
 
+    // The Databricks SDK is currently designed to treat all non-application/json responses as
+    // InputStreams, leaving the caller to decide how to read and parse the response. The caller
+    // is responsible for closing the InputStream to release the HTTP Connection.
+    //
+    // The client only streams responses when the caller has explicitly requested a non-JSON
+    // response and the server has responded with a non-JSON Content-Type. The Databricks API
+    // error response is either JSON or HTML and is safe to read fully into memory.
     boolean streamResponse =
         in.getHeaders().containsKey("Accept")
             && !APPLICATION_JSON.getMimeType().equals(in.getHeaders().get("Accept"))
@@ -126,12 +171,13 @@ public class DatabricksCommonHttpClient implements HttpClient {
                 }
               });
       return new Response(
-          in, statusLine.getStatusCode(), statusLine.getReasonPhrase(), hs, inputStream);
+          in, url, statusLine.getStatusCode(), statusLine.getReasonPhrase(), hs, inputStream);
     }
 
     try (InputStream inputStream = entity.getContent()) {
       String body = IOUtils.toString(inputStream, StandardCharsets.UTF_8);
-      return new Response(in, statusLine.getStatusCode(), statusLine.getReasonPhrase(), hs, body);
+      return new Response(
+          in, url, statusLine.getStatusCode(), statusLine.getReasonPhrase(), hs, body);
     } finally {
       response.close();
     }
@@ -141,6 +187,8 @@ public class DatabricksCommonHttpClient implements HttpClient {
     switch (in.getMethod()) {
       case Request.GET:
         return new HttpGet(in.getUri());
+      case Request.HEAD:
+        return new HttpHead(in.getUri());
       case Request.DELETE:
         return new HttpDelete(in.getUri());
       case Request.POST:

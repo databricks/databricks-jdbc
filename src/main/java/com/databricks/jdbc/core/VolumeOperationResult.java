@@ -60,7 +60,7 @@ class VolumeOperationResult implements IExecutionResult {
   private void initHandler(IExecutionResult resultHandler) throws DatabricksSQLException {
     String operation = getString(resultHandler.getObject(0));
     String presignedUrl = getString(resultHandler.getObject(1));
-    String localFile = getString(resultHandler.getObject(3));
+    String localFile = columnCount > 3 ? getString(resultHandler.getObject(3)) : null;
     Map<String, String> headers = getHeaders(getString(resultHandler.getObject(2)));
     this.volumeOperationExecutor =
         new VolumeOperationExecutor(
@@ -83,11 +83,18 @@ class VolumeOperationResult implements IExecutionResult {
 
   private Map<String, String> getHeaders(String headersVal) throws DatabricksSQLException {
     if (headersVal != null && !headersVal.isEmpty()) {
-      ObjectMapper objectMapper = new ObjectMapper();
-      try {
-        return objectMapper.readValue(headersVal, Map.class);
-      } catch (JsonProcessingException e) {
-        throw new DatabricksSQLException("Failed to parse headers", e);
+      // Map is encoded in extra [] while doing toString
+      String headers =
+          headersVal.charAt(0) == '['
+              ? headersVal.substring(1, headersVal.length() - 1)
+              : headersVal;
+      if (!headers.isEmpty()) {
+        ObjectMapper objectMapper = new ObjectMapper();
+        try {
+          return objectMapper.readValue(headers, Map.class);
+        } catch (JsonProcessingException e) {
+          throw new DatabricksSQLException("Failed to parse headers", e);
+        }
       }
     }
     return new HashMap<>();
@@ -111,7 +118,7 @@ class VolumeOperationResult implements IExecutionResult {
     if (currentRowIndex < 0) {
       throw new DatabricksSQLException("Invalid row access");
     }
-    if (columnIndex == 1) {
+    if (columnIndex == 0) {
       return volumeOperationExecutor.getStatus().name();
     } else {
       throw new DatabricksSQLException("Invalid column access");

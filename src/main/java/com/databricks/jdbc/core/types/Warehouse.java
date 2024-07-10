@@ -25,4 +25,10 @@ public class Warehouse implements ComputeResource {
   public String toString() {
     return String.format("SQL Warehouse with warehouse ID {%s}", warehouseId);
   }
+
+  @Override
+  public String getWorkspaceId() {
+    // TODO: Should return the workspace ID of the warehouse
+    return this.warehouseId;
+  }
 }

@@ -1,10 +1,10 @@
 package com.databricks.jdbc.driver;
 
+import com.databricks.jdbc.commons.LogLevel;
 import com.google.common.annotations.VisibleForTesting;
 import java.util.Map;
 import java.util.Set;
 import java.util.regex.Pattern;
-import org.apache.logging.log4j.Level;
 
 public final class DatabricksJdbcConstants {
 
@@ -27,7 +27,7 @@ public final class DatabricksJdbcConstants {
 
   public static final String JDBC_SCHEMA = "jdbc:databricks://";
 
-  public static final Level DEFAULT_LOG_LEVEL = Level.INFO;
+  public static final LogLevel DEFAULT_LOG_LEVEL = LogLevel.INFO;
 
   public static final String LOG_LEVEL = "loglevel";
 
@@ -48,6 +48,8 @@ public final class DatabricksJdbcConstants {
   public static final String LOG_FILE_COUNT = "LogFileCount";
 
   public static final int DEFAULT_LOG_FILE_COUNT = 10;
+
+  public static final String USER_AGENT_DELIMITER = "-";
 
   public static final String URL_DELIMITER = ";";
 
@@ -83,7 +85,7 @@ public final class DatabricksJdbcConstants {
 
   public static final String USE_PROXY = "useproxy";
 
-  public static final String USE_PROXY_AUTH = "proxyauth";
+  public static final String PROXY_AUTH = "proxyauth";
 
   public static final String USE_SYSTEM_PROXY = "usesystemproxy";
 
@@ -93,13 +95,13 @@ public final class DatabricksJdbcConstants {
 
   public static final String CF_PROXY_PORT = "cfproxyport";
 
-  public static final String USE_CF_PROXY_AUTH = "cfproxyauth";
-
-  public static final String ENABLE_ARROW = "EnableArrow";
+  public static final String CF_PROXY_AUTH = "cfproxyauth";
 
   public static final String CF_PROXY_USER = "cfproxyuid";
 
   public static final String CF_PROXY_PWD = "cfproxypwd";
+
+  public static final String ENABLE_ARROW = "EnableArrow";
 
   public static final String AUTH_FLOW = "auth_flow";
 
@@ -167,14 +169,16 @@ public final class DatabricksJdbcConstants {
 
   public static final String CLIENT_USER_AGENT_PREFIX = "Java";
 
-  public static final String USER_AGENT_SEA_CLIENT = "SQLExecHttpClient/HC";
+  public static final String USER_AGENT_SEA_CLIENT = "SQLExecHttpClient-HC";
 
-  public static final String USER_AGENT_THRIFT_CLIENT = "THttpClient/HC";
+  public static final String USER_AGENT_THRIFT_CLIENT = "THttpClient-HC";
 
   public static final String ALLOWED_VOLUME_INGESTION_PATHS =
       "allowlistedVolumeOperationLocalFilePaths";
 
   public static final String VOLUME_OPERATION_STATUS_COLUMN_NAME = "operation_status";
+
+  public static final String VOLUME_OPERATION_STATUS_SUCCEEDED = "SUCCEEDED";
 
   public static final Map<String, String> ALLOWED_SESSION_CONF_TO_DEFAULT_VALUES_MAP =
       // This map comes from
@@ -223,6 +227,7 @@ public final class DatabricksJdbcConstants {
   static final String RATE_LIMIT_RETRY_TIMEOUT = "RateLimitRetryTimeout";
   public static final String DEFAULT_RATE_LIMIT_RETRY_TIMEOUT = "120";
   static final String IDLE_HTTP_CONNECTION_EXPIRY = "IdleHttpConnectionExpiry";
+  static final String SUPPORT_MANY_PARAMETERS = "supportManyParameters";
   public static final String DEFAULT_IDLE_HTTP_CONNECTION_EXPIRY = "60";
   public static final String CLOUD_FETCH_THREAD_POOL_SIZE = "cloudFetchThreadPoolSize";
   public static final int CLOUD_FETCH_THREAD_POOL_SIZE_DEFAULT = 16;
@@ -253,6 +258,12 @@ public final class DatabricksJdbcConstants {
       Pattern.compile("\\s+EXCEPT\\s+", Pattern.CASE_INSENSITIVE);
   public static final Pattern DECLARE_PATTERN =
       Pattern.compile("^(\\s*\\()*\\s*DECLARE", Pattern.CASE_INSENSITIVE);
+  public static final Pattern PUT_PATTERN =
+      Pattern.compile("^(\\s*\\()*\\s*GET", Pattern.CASE_INSENSITIVE);
+  public static final Pattern GET_PATTERN =
+      Pattern.compile("^(\\s*\\()*\\s*PUT", Pattern.CASE_INSENSITIVE);
+  public static final Pattern REMOVE_PATTERN =
+      Pattern.compile("^(\\s*\\()*\\s*REMOVE", Pattern.CASE_INSENSITIVE);
   static final int DBSQL_MIN_MAJOR_VERSION_FOR_NEW_METADATA = 2024;
   static final int DBSQL_MIN_MINOR_VERSION_FOR_NEW_METADATA = 30;
 
