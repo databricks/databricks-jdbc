@@ -6,6 +6,8 @@ import java.math.BigInteger;
 import java.sql.*;
 import java.time.LocalDate;
 import java.util.*;
+
+import com.databricks.jdbc.client.impl.sdk.DatabricksUCVolumeClient;
 import org.junit.jupiter.api.Test;
 
 public class DriverTester {
@@ -230,5 +232,21 @@ public class DriverTester {
     s.executeQuery("SELECT * from RANGE(10)");
     con.close();
     System.out.println("Connection closed successfully......");
+  }
+
+  @Test
+  void testGet() throws Exception {
+    DriverManager.registerDriver(new com.databricks.jdbc.driver.DatabricksDriver());
+    DriverManager.drivers().forEach(driver -> System.out.println(driver.getClass()));
+    // Getting the connection
+    String jdbcUrl =
+            "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/791ba2a31c7fd70a;uselegacyMetadata=1";
+    Connection con = DriverManager.getConnection(jdbcUrl, "agnipratim.nag@databricks.com", "dapie6557019e280075d7442ac99bb17efb0");
+    System.out.println("Connection established......");
+    con.setClientInfo("allowlistedVolumeOperationLocalFilePaths", "/tmp");
+    DatabricksUCVolumeClient client = new DatabricksUCVolumeClient(con);
+    boolean b = client.getObject("samikshya_hackathon", "agnipratim_test", "abc_volume1", "abc_file3.csv", "/tmp/folder/downloadtest0.csv");
+    System.out.println(b);
+
   }
 }
