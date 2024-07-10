@@ -32,4 +32,9 @@ public class AllPurposeCluster implements ComputeResource {
   public String toString() {
     return String.format("AllPurpose cluster with clusterId {%s} and orgId {%s}", clusterId, orgId);
   }
+
+  @Override
+  public String getWorkspaceId() {
+    return this.orgId;
+  }
 }
