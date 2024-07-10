@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- As we have added dynamic logging configuration, keeping this file minimal
-     Its primary role will be to provide a default configuration that the application can fall back on if needed
+<!--
+Logging configuration for tests
 -->
 <Configuration status="WARN">
     <Appenders>

@@ -235,7 +235,7 @@ public class ArrowStreamResultTest {
     when(httpEntity.getContent()).thenAnswer(invocation -> new FileInputStream(arrowFile));
   }
 
-  private void setupResultChunkMocks() {
+  private void setupResultChunkMocks() throws DatabricksSQLException {
     for (int chunkIndex = 1; chunkIndex < numberOfChunks; chunkIndex++) {
       boolean isLastChunk = (chunkIndex == (numberOfChunks - 1));
       when(mockedSdkClient.getResultChunks(STATEMENT_ID, chunkIndex))

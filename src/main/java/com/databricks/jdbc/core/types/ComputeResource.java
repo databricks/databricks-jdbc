@@ -1,3 +1,5 @@
 package com.databricks.jdbc.core.types;
 
-public interface ComputeResource {}
+public interface ComputeResource {
+  String getWorkspaceId();
+}

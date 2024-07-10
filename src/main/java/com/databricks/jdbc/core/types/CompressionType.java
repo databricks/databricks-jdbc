@@ -1,13 +1,12 @@
 package com.databricks.jdbc.core.types;
 
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
+import com.databricks.jdbc.commons.LogLevel;
+import com.databricks.jdbc.commons.util.LoggingUtil;
 
 public enum CompressionType {
   NONE(0),
   LZ4_COMPRESSION(1);
   private final int compressionTypeVal;
-  private static final Logger LOGGER = LogManager.getLogger(CompressionType.class);
 
   CompressionType(int value) {
     this.compressionTypeVal = value;
@@ -22,9 +21,9 @@ public enum CompressionType {
         }
       }
     } catch (NumberFormatException ignored) {
-      LOGGER.debug("Invalid or no compression type provided as input.");
+      LoggingUtil.log(LogLevel.DEBUG, "Invalid or no compression type provided as input.");
     }
-    LOGGER.debug("Defaulting to no compression for fetching results.");
+    LoggingUtil.log(LogLevel.DEBUG, "Defaulting to no compression for fetching results.");
     return NONE;
   }
 }

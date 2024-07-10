@@ -2,54 +2,88 @@ package com.databricks.jdbc.telemetry;
 
 import com.databricks.jdbc.client.DatabricksHttpException;
 import com.databricks.jdbc.client.http.DatabricksHttpClient;
+import com.databricks.jdbc.commons.LogLevel;
+import com.databricks.jdbc.commons.util.LoggingUtil;
+import com.databricks.jdbc.core.DatabricksSQLException;
 import com.databricks.jdbc.driver.IDatabricksConnectionContext;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Timer;
+import java.util.TimerTask;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import org.apache.http.client.methods.CloseableHttpResponse;
-import org.apache.http.client.methods.HttpGet;
+import org.apache.http.client.methods.HttpPost;
 import org.apache.http.client.methods.HttpUriRequest;
 import org.apache.http.client.utils.URIBuilder;
 import org.apache.http.util.EntityUtils;
 
-public class DatabricksMetrics {
-  private static final String URL =
-      "https://test-shard-bhuvan-v2.dev.azuredatabricks.net/api/2.0/example-v2/exportMetrics";
-  // TODO: Replace ACCESS_TOKEN with your own token - TO BE DECIDED ONCE THE SERVICE IS CREATED
-  private static final String ACCESS_TOKEN = "x";
-  private static final Map<String, Double> gaugeMetrics = new HashMap<>();
+public class DatabricksMetrics implements AutoCloseable {
+  private final String URL =
+      "https://aa87314c1e33d4c1f91a919f8cf9c4ba-387609431.us-west-2.elb.amazonaws.com:443/api/2.0/oss-sql-driver-telemetry/metrics";
+  private final Map<String, Double> gaugeMetrics = new HashMap<>();
+  private final Map<String, Double> counterMetrics = new HashMap<>();
+  private final long intervalDurationForSendingReq =
+      TimeUnit.SECONDS.toMillis(10 * 60); // 10 minutes
+  private final ObjectMapper objectMapper = new ObjectMapper();
+  private final String METRICS_MAP_STRING = "metrics_map";
+  private final String METRICS_TYPE = "metrics_type";
+  private Boolean hasInitialExportOccurred = false;
+  private String workspaceId = null;
+  private final DatabricksHttpClient telemetryClient;
 
-  // counterMetrics is not used in the current implementation will be used in future
-  private static final Map<String, Double> counterMetrics = new HashMap<>();
-
-  private static long lastSuccessfulHttpReq = System.currentTimeMillis();
-
-  private static final long intervalDurationForSendingReq = TimeUnit.SECONDS.toMillis(10 * 60);
-
-  private static long httpLatency = 0;
-
-  private static DatabricksHttpClient telemetryClient = null;
-
-  private static final ObjectMapper objectMapper = new ObjectMapper();
-
-  private static final String metricsMapString = "metrics_map_string";
-
-  public static void instantiateTelemetryClient(IDatabricksConnectionContext context) {
-    telemetryClient = DatabricksHttpClient.getInstance(context);
+  private void setWorkspaceId(String workspaceId) {
+    this.workspaceId = workspaceId;
   }
 
-  private DatabricksMetrics() throws IOException {
-    // Private constructor to prevent instantiation
+  public enum MetricsType {
+    GAUGE,
+    COUNTER
   }
 
-  public static String sendRequest(Map<String, Double> map) throws Exception {
+  private void scheduleExportMetrics() {
+    Timer metricsTimer = new Timer();
+    TimerTask task =
+        new TimerTask() {
+          @Override
+          public void run() {
+            try {
+              sendRequest(gaugeMetrics, MetricsType.GAUGE);
+              sendRequest(counterMetrics, MetricsType.COUNTER);
+            } catch (Exception e) {
+              // Commenting out the exception for now - failing silently
+              // System.out.println(e.getMessage());
+            }
+          }
+        };
+
+    // Schedule the task to run after the specified interval infinitely
+    metricsTimer.schedule(task, 0, intervalDurationForSendingReq);
+  }
+
+  public DatabricksMetrics(IDatabricksConnectionContext context) throws DatabricksSQLException {
+    if (context == null) {
+      throw new DatabricksSQLException("Connection context is null");
+    }
+    String resourceId = context.getComputeResource().getWorkspaceId();
+    setWorkspaceId(resourceId);
+    this.telemetryClient = DatabricksHttpClient.getInstance(context);
+    scheduleExportMetrics();
+  }
+
+  public String sendRequest(Map<String, Double> map, MetricsType metricsType) throws Exception {
     // Check if the telemetry client is set
     if (telemetryClient == null) {
       throw new DatabricksHttpException(
-          "Telemetry client is not set. Initialize the Driver first.");
+          "Telemetry client is not set for resource Id: "
+              + workspaceId
+              + ". Initialize the Driver first.");
+    }
+
+    // Return if the map is empty - prevents sending empty metrics & unnecessary API calls
+    if (map.isEmpty()) {
+      return "Metrics map is empty";
     }
 
     // Convert the map to JSON string
@@ -57,22 +91,25 @@ public class DatabricksMetrics {
 
     // Create the request and adding parameters & headers
     URIBuilder uriBuilder = new URIBuilder(URL);
-    uriBuilder.addParameter(metricsMapString, jsonInputString);
-    HttpUriRequest request = new HttpGet(uriBuilder.build());
-    request.addHeader("Authorization", "Bearer " + ACCESS_TOKEN);
-
-    // Execute the request and get the response
-    CloseableHttpResponse response = telemetryClient.execute(request);
+    uriBuilder.addParameter(METRICS_MAP_STRING, jsonInputString);
+    uriBuilder.addParameter(METRICS_TYPE, metricsType.name().equals("GAUGE") ? "1" : "0");
+    HttpUriRequest request = new HttpPost(uriBuilder.build());
+    // TODO (Bhuvan): Add authentication headers
+    // TODO (Bhuvan): execute request using SSL
+    CloseableHttpResponse response = telemetryClient.executeWithoutSSL(request);
 
     // Error handling
     if (response == null) {
       throw new DatabricksHttpException("Response is null");
     } else if (response.getStatusLine().getStatusCode() != 200) {
       throw new DatabricksHttpException(
-          "Response code is not 200. Response code: "
+          "Response code: "
               + response.getStatusLine().getStatusCode()
               + " Response: "
               + response.getEntity().toString());
+    } else {
+      // Clearing map after successful response
+      map.clear();
     }
 
     // Get the response string
@@ -81,53 +118,58 @@ public class DatabricksMetrics {
     return responseString;
   }
 
-  public static void postMetrics() {
-    CompletableFuture.supplyAsync(
-            () -> {
-              long currentTimeMillis = System.currentTimeMillis();
-
-              if (currentTimeMillis - lastSuccessfulHttpReq >= intervalDurationForSendingReq) {
-                try {
-                  sendRequest(gaugeMetrics);
-                  lastSuccessfulHttpReq = System.currentTimeMillis();
-                  httpLatency += (lastSuccessfulHttpReq - currentTimeMillis);
-                } catch (Exception e) {
-                  // Commenting out the exception for now - failing silently
-                  // System.out.println(e.getMessage());
-                }
-              }
-              return null;
-            })
-        .thenAccept(
-            response -> {
-              if (response != null) {
-                gaugeMetrics.clear();
-              }
-            });
-  }
-
-  public static void setGaugeMetrics(String name, double value) {
+  public void setGaugeMetrics(String name, double value) {
     // TODO: Handling metrics export when multiple users are accessing from the same workspace_id.
     if (!gaugeMetrics.containsKey(name)) {
       gaugeMetrics.put(name, 0.0);
     }
     gaugeMetrics.put(name, value);
-    postMetrics();
   }
 
-  public static void incCounterMetrics(String name, double value) {
+  public void incCounterMetrics(String name, double value) {
     if (!counterMetrics.containsKey(name)) {
       counterMetrics.put(name, 0.0);
     }
-    counterMetrics.put(name, counterMetrics.get(name) + value);
-    postMetrics();
+    counterMetrics.put(name, value);
   }
 
-  public static void record(String name, double value) {
-    setGaugeMetrics(name, value);
+  private void initialExport(Map<String, Double> map, MetricsType metricsType) {
+    hasInitialExportOccurred = true;
+    CompletableFuture.runAsync(
+        () -> {
+          try {
+            sendRequest(map, metricsType);
+          } catch (Exception e) {
+            // Commenting out the exception for now - failing silently
+            // System.out.println(e.getMessage());
+          }
+        });
   }
 
-  public static long getHttpLatency() {
-    return httpLatency;
+  // record() appends the metric to be exported in the gauge metric map
+  public void record(String name, double value) {
+    setGaugeMetrics(name + "_" + workspaceId, value);
+    if (!hasInitialExportOccurred) initialExport(gaugeMetrics, MetricsType.GAUGE);
+  }
+
+  // increment() appends the metric to be exported in the counter metric map
+  public void increment(String name, double value) {
+    incCounterMetrics(name + "_" + workspaceId, value);
+    if (!hasInitialExportOccurred) initialExport(counterMetrics, MetricsType.COUNTER);
+  }
+
+  @Override
+  public void close() {
+    // Flush out metrics when connection is closed
+    if (telemetryClient != null) {
+      try {
+        sendRequest(gaugeMetrics, DatabricksMetrics.MetricsType.GAUGE);
+        sendRequest(counterMetrics, DatabricksMetrics.MetricsType.COUNTER);
+      } catch (Exception e) {
+        LoggingUtil.log(
+            LogLevel.DEBUG,
+            "Failed to export metrics when connection is closed. Error: " + e.getMessage());
+      }
+    }
   }
 }
