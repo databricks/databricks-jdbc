@@ -535,7 +535,8 @@ public class DatabricksStatement implements IDatabricksStatement, Statement {
         || DECLARE_PATTERN.matcher(trimmedQuery).find()
         || PUT_PATTERN.matcher(trimmedQuery).find()
         || GET_PATTERN.matcher(trimmedQuery).find()
-        || REMOVE_PATTERN.matcher(trimmedQuery).find()) {
+        || REMOVE_PATTERN.matcher(trimmedQuery).find()
+        || LIST_PATTERN.matcher(trimmedQuery).find()) {
       return true;
     }
 
