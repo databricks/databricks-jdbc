@@ -365,4 +365,69 @@ public class UCVolumeTests {
             "/tmp/download_hello_world.txt",
             "helloworld"));
   }
+
+  @ParameterizedTest
+  @MethodSource("provideParametersForPutObject")
+  void testPutObject(
+      String catalog,
+      String schema,
+      String volume,
+      String objectPath,
+      String localPath,
+      boolean expected)
+      throws Exception {
+    assertEquals(expected, client.putObject(catalog, schema, volume, objectPath, localPath));
+  }
+
+  private static Stream<Arguments> provideParametersForPutObject() {
+    return Stream.of(
+        Arguments.of(
+            UC_VOLUME_CATALOG,
+            UC_VOLUME_SCHEMA,
+            "test_volume1",
+            "upload1.csv",
+            "/tmp/downloadtest.csv",
+            true),
+        Arguments.of(
+            UC_VOLUME_CATALOG,
+            UC_VOLUME_SCHEMA,
+            "test_volume1",
+            "folder1/folder2/upload2.csv",
+            "/tmp/download2.csv",
+            true));
+  }
+
+  @ParameterizedTest
+  @MethodSource("provideParametersForPutAndGetTest")
+  void testPutAndGet(
+      String catalog,
+      String schema,
+      String volume,
+      String objectPath,
+      String localPathForUpload,
+      String localPathForDownload,
+      String expectedContent)
+      throws Exception {
+
+    Files.write(Paths.get(localPathForUpload), expectedContent.getBytes(StandardCharsets.UTF_8));
+
+    assertTrue(client.putObject(catalog, schema, volume, objectPath, localPathForUpload));
+    assertTrue(client.getObject(catalog, schema, volume, objectPath, localPathForDownload));
+
+    byte[] fileContent = Files.readAllBytes(Paths.get(localPathForDownload));
+    String actualContent = new String(fileContent, StandardCharsets.UTF_8);
+    assertEquals(expectedContent, actualContent);
+  }
+
+  private static Stream<Arguments> provideParametersForPutAndGetTest() {
+    return Stream.of(
+        Arguments.of(
+            UC_VOLUME_CATALOG,
+            UC_VOLUME_SCHEMA,
+            "test_volume1",
+            "hello_world.txt",
+            "/tmp/upload_hello_world.txt",
+            "/tmp/download_hello_world.txt",
+            "helloworld"));
+  }
 }

@@ -46,7 +46,8 @@ public class DatabricksUCVolumeClientTest {
 
   private String createPutObjectQuery(
       String catalog, String schema, String volume, String objectPath, String localPath) {
-    return String.format("PUT '%s' INTO '/Volumes/%s/%s/%s/%s'", localPath, catalog, schema, volume, objectPath);
+    return String.format(
+        "PUT '%s' INTO '/Volumes/%s/%s/%s/%s'", localPath, catalog, schema, volume, objectPath);
   }
 
   @ParameterizedTest
@@ -318,7 +319,12 @@ public class DatabricksUCVolumeClientTest {
   @ParameterizedTest
   @MethodSource("provideParametersForPutObject")
   public void testPutObject(
-      String catalog, String schema, String volume, String objectPath, String localPath, boolean expected)
+      String catalog,
+      String schema,
+      String volume,
+      String objectPath,
+      String localPath,
+      boolean expected)
       throws SQLException {
     DatabricksUCVolumeClient client = new DatabricksUCVolumeClient(connection);
 
@@ -335,6 +341,49 @@ public class DatabricksUCVolumeClientTest {
   }
 
   private static Stream<Arguments> provideParametersForPutObject() {
-    return Stream.of(Arguments.of("test_catalog", "test_schema", "test_volume", "test_objectpath", "test_localpath", true));
+    return Stream.of(
+        Arguments.of(
+            "test_catalog",
+            "test_schema",
+            "test_volume",
+            "test_objectpath",
+            "test_localpath",
+            true));
+  }
+
+  @ParameterizedTest
+  @MethodSource("provideParametersForPutObject_InvalidLocalPath")
+  public void testPutObject_InvalidLocalPath(
+      String catalog,
+      String schema,
+      String volume,
+      String objectPath,
+      String localPath,
+      boolean expected)
+      throws SQLException {
+    DatabricksUCVolumeClient client = new DatabricksUCVolumeClient(connection);
+
+    when(connection.createStatement()).thenReturn(statement);
+    String putObjectQuery = createPutObjectQuery(catalog, schema, volume, objectPath, localPath);
+    when(statement.executeQuery(putObjectQuery))
+        .thenThrow(new SQLException("Invalid local path: File not found or is a directory"));
+
+    assertThrows(
+        SQLException.class,
+        () -> {
+          client.putObject(catalog, schema, volume, objectPath, localPath);
+        });
+    verify(statement).executeQuery(putObjectQuery);
+  }
+
+  private static Stream<Arguments> provideParametersForPutObject_InvalidLocalPath() {
+    return Stream.of(
+        Arguments.of(
+            "test_catalog",
+            "test_schema",
+            "test_volume",
+            "test_objectpath",
+            "invalid_localpath",
+            false));
   }
 }
