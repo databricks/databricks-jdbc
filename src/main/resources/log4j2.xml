@@ -1,19 +1,33 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- As we have added dynamic logging configuration, keeping this file minimal
-     Its primary role will be to provide a default configuration that the application can fall back on if needed
--->
 <Configuration status="WARN">
     <Appenders>
-        <!-- Console appender for default logging -->
+        <!-- Console Appender -->
         <Console name="Console" target="SYSTEM_OUT">
             <PatternLayout pattern="%d{yyyy-MM-dd HH:mm:ss} %-5level %logger{36} - %msg%n"/>
         </Console>
+
+        <!-- Rolling File Appender -->
+        <RollingFile name="RollingFile" fileName="${sys:log_path:-logs/dummy_2.log}"
+                     filePattern="${sys:log_path}-%d{yyyy-MM-dd}-%i.log.gz">
+            <PatternLayout pattern="%d{yyyy-MM-dd HH:mm:ss} %-5level %logger{36} - %msg%n"/>
+            <Policies>
+                <TimeBasedTriggeringPolicy />
+                <SizeBasedTriggeringPolicy size="10MB"/>
+            </Policies>
+            <DefaultRolloverStrategy max="10"/>
+        </RollingFile>
     </Appenders>
 
     <Loggers>
-        <!-- Root logger to catch any logs that don't match other loggers -->
         <Root level="info">
             <AppenderRef ref="Console"/>
+            <AppenderRef ref="RollingFile"/>
         </Root>
+
+        <!-- Example of setting a specific logger level -->
+        <Logger name="com.databricks.jdbc" level="debug" additivity="false">
+            <AppenderRef ref="Console"/>
+            <AppenderRef ref="RollingFile"/>
+        </Logger>
     </Loggers>
 </Configuration>
