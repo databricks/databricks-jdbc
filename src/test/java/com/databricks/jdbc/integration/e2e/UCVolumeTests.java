@@ -451,6 +451,7 @@ public class UCVolumeTests {
 
   private static Stream<Arguments> provideParametersForPutAndDeleteTest() {
     return Stream.of(
+
         Arguments.of(
             UC_VOLUME_CATALOG,
             UC_VOLUME_SCHEMA,
