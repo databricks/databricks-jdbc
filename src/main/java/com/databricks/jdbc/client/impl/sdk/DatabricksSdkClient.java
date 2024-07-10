@@ -3,9 +3,8 @@ package com.databricks.jdbc.client.impl.sdk;
 import static com.databricks.jdbc.client.impl.sdk.PathConstants.*;
 import static com.databricks.jdbc.commons.EnvironmentVariables.DEFAULT_ROW_LIMIT;
 
-import com.databricks.jdbc.annotation.Timed;
-import com.databricks.jdbc.annotation.TimedClass;
-import com.databricks.jdbc.annotation.TimedMethod;
+import com.databricks.jdbc.annotation.DatabricksMetricsTimedClass;
+import com.databricks.jdbc.annotation.DatabricksMetricsTimedMethod;
 import com.databricks.jdbc.client.DatabricksClient;
 import com.databricks.jdbc.client.StatementType;
 import com.databricks.jdbc.client.impl.helper.ClientUtils;
@@ -39,9 +38,23 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 /** Implementation of DatabricksClient interface using Databricks Java SDK. */
-@TimedClass(
+@DatabricksMetricsTimedClass(
     methods = {
-      @TimedMethod(name = "createSession", parameters = "CREATE_SESSION_ANNOTATION"),
+      @DatabricksMetricsTimedMethod(
+          methodName = "createSession",
+          metricName = MetricsList.CREATE_SESSION_SDK),
+      @DatabricksMetricsTimedMethod(
+          methodName = "deleteSession",
+          metricName = MetricsList.DELETE_SESSION_SDK),
+      @DatabricksMetricsTimedMethod(
+          methodName = "executeStatement",
+          metricName = MetricsList.EXECUTE_STATEMENT_SDK),
+      @DatabricksMetricsTimedMethod(
+          methodName = "getResultChunks",
+          metricName = MetricsList.GET_RESULT_CHUNKS_SDK),
+      @DatabricksMetricsTimedMethod(
+          methodName = "getRequest",
+          metricName = MetricsList.GET_REQUEST_SDK)
     })
 public class DatabricksSdkClient implements DatabricksClient {
   private static final String SYNC_TIMEOUT_VALUE = "10s";
@@ -94,7 +107,6 @@ public class DatabricksSdkClient implements DatabricksClient {
         String.format(
             "public Session createSession(String warehouseId = {%s}, String catalog = {%s}, String schema = {%s}, Map<String, String> sessionConf = {%s})",
             ((Warehouse) warehouse).getWarehouseId(), catalog, schema, sessionConf));
-    long startTime = System.currentTimeMillis();
     CreateSessionRequest request =
         new CreateSessionRequest().setWarehouseId(((Warehouse) warehouse).getWarehouseId());
     if (catalog != null) {
@@ -111,23 +123,15 @@ public class DatabricksSdkClient implements DatabricksClient {
             .apiClient()
             .POST(SESSION_PATH, request, CreateSessionResponse.class, getHeaders());
 
-    ImmutableSessionInfo sessionInfo =
-        ImmutableSessionInfo.builder()
-            .computeResource(warehouse)
-            .sessionId(createSessionResponse.getSessionId())
-            .build();
-//    connectionContext
-//        .getMetricsExporter()
-//        .record(MetricsList.CREATE_SESSION.name(), System.currentTimeMillis() - startTime);
-    System.out.println("createSessionFunction");
-    System.out.println(System.currentTimeMillis());
-    return sessionInfo;
+    return ImmutableSessionInfo.builder()
+        .computeResource(warehouse)
+        .sessionId(createSessionResponse.getSessionId())
+        .build();
   }
 
   @Override
   public void deleteSession(IDatabricksSession session, ComputeResource warehouse)
       throws DatabricksSQLException {
-    long startTime = System.currentTimeMillis();
     LoggingUtil.log(
         LogLevel.DEBUG,
         String.format(
@@ -139,9 +143,6 @@ public class DatabricksSdkClient implements DatabricksClient {
     String path = String.format(DELETE_SESSION_PATH_WITH_ID, request.getSessionId());
     Map<String, String> headers = new HashMap<>();
     workspaceClient.apiClient().DELETE(path, request, Void.class, headers);
-    connectionContext
-        .getMetricsExporter()
-        .record(MetricsList.DELETE_SESSION.name(), System.currentTimeMillis() - startTime);
   }
 
   @Override
@@ -153,7 +154,6 @@ public class DatabricksSdkClient implements DatabricksClient {
       IDatabricksSession session,
       IDatabricksStatement parentStatement)
       throws SQLException {
-    long startTime = System.currentTimeMillis();
     LoggingUtil.log(
         LogLevel.DEBUG,
         String.format(
@@ -206,19 +206,14 @@ public class DatabricksSdkClient implements DatabricksClient {
     if (responseState != StatementState.SUCCEEDED) {
       handleFailedExecution(response, statementId, sql);
     }
-    DatabricksResultSet resultSet =
-        new DatabricksResultSet(
-            response.getStatus(),
-            statementId,
-            response.getResult(),
-            response.getManifest(),
-            statementType,
-            session,
-            parentStatement);
-    connectionContext
-        .getMetricsExporter()
-        .record(MetricsList.EXECUTE_STATEMENT.name(), System.currentTimeMillis() - startTime);
-    return resultSet;
+    return new DatabricksResultSet(
+        response.getStatus(),
+        statementId,
+        response.getResult(),
+        response.getManifest(),
+        statementType,
+        session,
+        parentStatement);
   }
 
   private boolean useCloudFetchForResult(StatementType statementType) {
@@ -253,19 +248,13 @@ public class DatabricksSdkClient implements DatabricksClient {
         String.format(
             "public Optional<ExternalLink> getResultChunk(String statementId = {%s}, long chunkIndex = {%s})",
             statementId, chunkIndex));
-    long startTime = System.currentTimeMillis();
     GetStatementResultChunkNRequest request =
         new GetStatementResultChunkNRequest().setStatementId(statementId).setChunkIndex(chunkIndex);
     String path = String.format(RESULT_CHUNK_PATH, statementId, chunkIndex);
-    Collection<ExternalLink> chunkLinks =
-        workspaceClient
-            .apiClient()
-            .GET(path, request, ResultData.class, getHeaders())
-            .getExternalLinks();
-    connectionContext
-        .getMetricsExporter()
-        .record(MetricsList.GET_RESULT_CHUNKS.name(), System.currentTimeMillis() - startTime);
-    return chunkLinks;
+    return workspaceClient
+        .apiClient()
+        .GET(path, request, ResultData.class, getHeaders())
+        .getExternalLinks();
   }
 
   private ExecuteStatementRequest getRequest(
@@ -276,7 +265,6 @@ public class DatabricksSdkClient implements DatabricksClient {
       Map<Integer, ImmutableSqlParameter> parameters,
       IDatabricksStatement parentStatement)
       throws SQLException {
-    long startTime = System.currentTimeMillis();
     Format format = useCloudFetchForResult(statementType) ? Format.ARROW_STREAM : Format.JSON_ARRAY;
     Disposition disposition =
         useCloudFetchForResult(statementType) ? Disposition.EXTERNAL_LINKS : Disposition.INLINE;
@@ -298,9 +286,6 @@ public class DatabricksSdkClient implements DatabricksClient {
     if (maxRows != DEFAULT_ROW_LIMIT) {
       request.setRowLimit(maxRows);
     }
-    connectionContext
-        .getMetricsExporter()
-        .record(MetricsList.GET_REQUEST.name(), System.currentTimeMillis() - startTime);
     return request;
   }
 

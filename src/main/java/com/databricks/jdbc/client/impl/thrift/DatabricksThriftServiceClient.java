@@ -4,6 +4,8 @@ import static com.databricks.jdbc.client.impl.helper.MetadataResultSetBuilder.*;
 import static com.databricks.jdbc.client.impl.thrift.commons.DatabricksThriftHelper.*;
 import static com.databricks.jdbc.commons.EnvironmentVariables.JDBC_THRIFT_VERSION;
 
+import com.databricks.jdbc.annotation.DatabricksMetricsTimedClass;
+import com.databricks.jdbc.annotation.DatabricksMetricsTimedMethod;
 import com.databricks.jdbc.client.DatabricksClient;
 import com.databricks.jdbc.client.DatabricksMetadataClient;
 import com.databricks.jdbc.client.StatementType;
@@ -23,6 +25,42 @@ import java.sql.SQLException;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
 
+@DatabricksMetricsTimedClass(
+    methods = {
+      @DatabricksMetricsTimedMethod(
+          methodName = "createSession",
+          metricName = MetricsList.CREATE_SESSION_THRIFT),
+      @DatabricksMetricsTimedMethod(
+          methodName = "deleteSession",
+          metricName = MetricsList.DELETE_SESSION_THRIFT),
+      @DatabricksMetricsTimedMethod(
+          methodName = "executeStatement",
+          metricName = MetricsList.EXECUTE_STATEMENT_THRIFT),
+      @DatabricksMetricsTimedMethod(
+          methodName = "listTypeInfo",
+          metricName = MetricsList.LIST_TYPE_INFO_THRIFT),
+      @DatabricksMetricsTimedMethod(
+          methodName = "listCatalogs",
+          metricName = MetricsList.LIST_CATALOGS_THRIFT),
+      @DatabricksMetricsTimedMethod(
+          methodName = "listSchemas",
+          metricName = MetricsList.LIST_SCHEMAS_THRIFT),
+      @DatabricksMetricsTimedMethod(
+          methodName = "listTables",
+          metricName = MetricsList.LIST_TABLES_THRIFT),
+      @DatabricksMetricsTimedMethod(
+          methodName = "listColumns",
+          metricName = MetricsList.LIST_COLUMNS_THRIFT),
+      @DatabricksMetricsTimedMethod(
+          methodName = "listFunctions",
+          metricName = MetricsList.LIST_FUNCTIONS_THRIFT),
+      @DatabricksMetricsTimedMethod(
+          methodName = "listPrimaryKeys",
+          metricName = MetricsList.LIST_PRIMARY_KEYS_THRIFT),
+      @DatabricksMetricsTimedMethod(
+          methodName = "getResultChunks",
+          metricName = MetricsList.GET_RESULT_CHUNK_THRIFT)
+    })
 public class DatabricksThriftServiceClient implements DatabricksClient, DatabricksMetadataClient {
 
   private final DatabricksThriftAccessor thriftAccessor;
@@ -38,6 +76,7 @@ public class DatabricksThriftServiceClient implements DatabricksClient, Databric
   public IDatabricksConnectionContext getConnectionContext() {
     return connectionContext;
   }
+
   @VisibleForTesting
   DatabricksThriftServiceClient(
       DatabricksThriftAccessor thriftAccessor, IDatabricksConnectionContext connectionContext) {
@@ -58,7 +97,6 @@ public class DatabricksThriftServiceClient implements DatabricksClient, Databric
         String.format(
             "public Session createSession(Compute cluster = {%s}, String catalog = {%s}, String schema = {%s}, Map<String, String> sessionConf = {%s})",
             cluster.toString(), catalog, schema, sessionConf));
-    long startTime = System.currentTimeMillis();
     TOpenSessionReq openSessionReq =
         new TOpenSessionReq()
             .setInitialNamespace(getNamespace(catalog, schema))
@@ -78,26 +116,16 @@ public class DatabricksThriftServiceClient implements DatabricksClient, Databric
 
     String sessionId = byteBufferToString(response.sessionHandle.getSessionId().guid);
     LoggingUtil.log(LogLevel.DEBUG, String.format("Session created with ID {%s}", sessionId));
-
-    ImmutableSessionInfo sessionInfo =
-        ImmutableSessionInfo.builder()
-            .sessionId(sessionId)
-            .sessionHandle(response.sessionHandle)
-            .computeResource(cluster)
-            .build();
-
-    connectionContext
-        .getMetricsExporter()
-        .record(
-            MetricsList.CREATE_SESSION_THRIFT.name(),
-            (double) (System.currentTimeMillis() - startTime));
-    return sessionInfo;
+    return ImmutableSessionInfo.builder()
+        .sessionId(sessionId)
+        .sessionHandle(response.sessionHandle)
+        .computeResource(cluster)
+        .build();
   }
 
   @Override
   public void deleteSession(IDatabricksSession session, ComputeResource cluster)
       throws DatabricksSQLException {
-    long startTime = System.currentTimeMillis();
     LoggingUtil.log(
         LogLevel.DEBUG,
         String.format(
@@ -109,11 +137,6 @@ public class DatabricksThriftServiceClient implements DatabricksClient, Databric
         (TCloseSessionResp)
             thriftAccessor.getThriftResponse(closeSessionReq, CommandName.CLOSE_SESSION, null);
     verifySuccessStatus(response.status.getStatusCode(), response.toString());
-    connectionContext
-        .getMetricsExporter()
-        .record(
-            MetricsList.DELETE_SESSION_THRIFT.name(),
-            (double) (System.currentTimeMillis() - startTime));
   }
 
   @Override
@@ -126,7 +149,6 @@ public class DatabricksThriftServiceClient implements DatabricksClient, Databric
       IDatabricksStatement parentStatement)
       throws SQLException {
     // Note that prepared statement is not supported by SEA/Thrift flow.
-    long startTime = System.currentTimeMillis();
     LoggingUtil.log(
         LogLevel.DEBUG,
         String.format(
@@ -138,14 +160,7 @@ public class DatabricksThriftServiceClient implements DatabricksClient, Databric
             .setSessionHandle(session.getSessionInfo().sessionHandle())
             .setCanReadArrowResult(this.connectionContext.shouldEnableArrow())
             .setCanDownloadResult(true);
-    DatabricksResultSet resultSet =
-        thriftAccessor.execute(request, parentStatement, session, statementType);
-    connectionContext
-        .getMetricsExporter()
-        .record(
-            MetricsList.EXECUTE_STATEMENT_THRIFT.name(),
-            (double) (System.currentTimeMillis() - startTime));
-    return resultSet;
+    return thriftAccessor.execute(request, parentStatement, session, statementType);
   }
 
   @Override
@@ -173,7 +188,6 @@ public class DatabricksThriftServiceClient implements DatabricksClient, Databric
   @Override
   public Collection<ExternalLink> getResultChunks(String statementId, long chunkIndex)
       throws DatabricksSQLException {
-    long startTime = System.currentTimeMillis();
     String context =
         String.format(
             "public Optional<ExternalLink> getResultChunk(String statementId = {%s}, long chunkIndex = {%s}) for all purpose cluster",
@@ -197,37 +211,23 @@ public class DatabricksThriftServiceClient implements DatabricksClient, Databric
             resultLink -> {
               externalLinks.add(createExternalLink(resultLink, index.getAndIncrement()));
             });
-    connectionContext
-        .getMetricsExporter()
-        .record(
-            MetricsList.GET_RESULT_CHUNK_THRIFT.name(),
-            (double) (System.currentTimeMillis() - startTime));
     return externalLinks;
   }
 
   @Override
   public DatabricksResultSet listTypeInfo(IDatabricksSession session)
       throws DatabricksSQLException {
-    long startTime = System.currentTimeMillis();
     LoggingUtil.log(LogLevel.DEBUG, "public ResultSet getTypeInfo()");
     TGetTypeInfoReq request =
         new TGetTypeInfoReq().setSessionHandle(session.getSessionInfo().sessionHandle());
     TFetchResultsResp response =
         (TFetchResultsResp)
             thriftAccessor.getThriftResponse(request, CommandName.LIST_TYPE_INFO, null);
-    DatabricksResultSet resultSet =
-        getTypeInfoResult(extractValues(response.getResults().getColumns()));
-    connectionContext
-        .getMetricsExporter()
-        .record(
-            MetricsList.LIST_TYPE_INFO_THRIFT.name(),
-            (double) (System.currentTimeMillis() - startTime));
-    return resultSet;
+    return getTypeInfoResult(extractValues(response.getResults().getColumns()));
   }
 
   @Override
   public DatabricksResultSet listCatalogs(IDatabricksSession session) throws SQLException {
-    long startTime = System.currentTimeMillis();
     String context =
         String.format(
             "Fetching catalogs for all purpose cluster. Session {%s}", session.toString());
@@ -237,20 +237,12 @@ public class DatabricksThriftServiceClient implements DatabricksClient, Databric
     TFetchResultsResp response =
         (TFetchResultsResp)
             thriftAccessor.getThriftResponse(request, CommandName.LIST_CATALOGS, null);
-    DatabricksResultSet resultSet =
-        getCatalogsResult(extractValuesColumnar(response.getResults().getColumns()));
-    connectionContext
-        .getMetricsExporter()
-        .record(
-            MetricsList.LIST_CATALOGS_THRIFT.name(),
-            (double) (System.currentTimeMillis() - startTime));
-    return resultSet;
+    return getCatalogsResult(extractValuesColumnar(response.getResults().getColumns()));
   }
 
   @Override
   public DatabricksResultSet listSchemas(
       IDatabricksSession session, String catalog, String schemaNamePattern) throws SQLException {
-    long startTime = System.currentTimeMillis();
     String context =
         String.format(
             "Fetching schemas for all purpose cluster. Session {%s}, catalog {%s}, schemaNamePattern {%s}",
@@ -266,14 +258,7 @@ public class DatabricksThriftServiceClient implements DatabricksClient, Databric
     TFetchResultsResp response =
         (TFetchResultsResp)
             thriftAccessor.getThriftResponse(request, CommandName.LIST_SCHEMAS, null);
-    DatabricksResultSet resultSet =
-        getSchemasResult(extractValuesColumnar(response.getResults().getColumns()));
-    connectionContext
-        .getMetricsExporter()
-        .record(
-            MetricsList.LIST_SCHEMAS_THRIFT.name(),
-            (double) (System.currentTimeMillis() - startTime));
-    return resultSet;
+    return getSchemasResult(extractValuesColumnar(response.getResults().getColumns()));
   }
 
   @Override
@@ -284,7 +269,6 @@ public class DatabricksThriftServiceClient implements DatabricksClient, Databric
       String tableNamePattern,
       String[] tableTypes)
       throws SQLException {
-    long startTime = System.currentTimeMillis();
     String context =
         String.format(
             "Fetching tables for all purpose cluster. Session {%s}, catalog {%s}, schemaNamePattern {%s}, tableNamePattern {%s}",
@@ -302,14 +286,7 @@ public class DatabricksThriftServiceClient implements DatabricksClient, Databric
     TFetchResultsResp response =
         (TFetchResultsResp)
             thriftAccessor.getThriftResponse(request, CommandName.LIST_TABLES, null);
-    DatabricksResultSet resultSet =
-        getTablesResult(extractValuesColumnar(response.getResults().getColumns()));
-    connectionContext
-        .getMetricsExporter()
-        .record(
-            MetricsList.LIST_TABLES_THRIFT.name(),
-            (double) (System.currentTimeMillis() - startTime));
-    return resultSet;
+    return getTablesResult(extractValuesColumnar(response.getResults().getColumns()));
   }
 
   @Override
@@ -329,7 +306,6 @@ public class DatabricksThriftServiceClient implements DatabricksClient, Databric
       String tableNamePattern,
       String columnNamePattern)
       throws DatabricksSQLException {
-    long startTime = System.currentTimeMillis();
     String context =
         String.format(
             "Fetching columns for all purpose cluster. Session {%s}, catalog {%s}, schemaNamePattern {%s}, tableNamePattern {%s}, columnNamePattern {%s}",
@@ -345,14 +321,7 @@ public class DatabricksThriftServiceClient implements DatabricksClient, Databric
     TFetchResultsResp response =
         (TFetchResultsResp)
             thriftAccessor.getThriftResponse(request, CommandName.LIST_COLUMNS, null);
-    DatabricksResultSet resultSet =
-        getColumnsResult(extractValuesColumnar(response.getResults().getColumns()));
-    connectionContext
-        .getMetricsExporter()
-        .record(
-            MetricsList.LIST_COLUMNS_THRIFT.name(),
-            (double) (System.currentTimeMillis() - startTime));
-    return resultSet;
+    return getColumnsResult(extractValuesColumnar(response.getResults().getColumns()));
   }
 
   @Override
@@ -362,7 +331,6 @@ public class DatabricksThriftServiceClient implements DatabricksClient, Databric
       String schemaNamePattern,
       String functionNamePattern)
       throws DatabricksSQLException {
-    long startTime = System.currentTimeMillis();
     String context =
         String.format(
             "Fetching functions for all purpose cluster. Session {%s}, catalog {%s}, schemaNamePattern {%s}, functionNamePattern {%s}.",
@@ -377,20 +345,12 @@ public class DatabricksThriftServiceClient implements DatabricksClient, Databric
     TFetchResultsResp response =
         (TFetchResultsResp)
             thriftAccessor.getThriftResponse(request, CommandName.LIST_FUNCTIONS, null);
-    DatabricksResultSet resultSet =
-        getFunctionsResult(extractValues(response.getResults().getColumns()));
-    connectionContext
-        .getMetricsExporter()
-        .record(
-            MetricsList.LIST_FUNCTIONS_THRIFT.name(),
-            (double) (System.currentTimeMillis() - startTime));
-    return resultSet;
+    return getFunctionsResult(extractValues(response.getResults().getColumns()));
   }
 
   @Override
   public DatabricksResultSet listPrimaryKeys(
       IDatabricksSession session, String catalog, String schema, String table) throws SQLException {
-    long startTime = System.currentTimeMillis();
     String context =
         String.format(
             "Fetching primary keys for all purpose cluster. session {%s}, catalog {%s}, schema {%s}, table {%s}",
@@ -405,13 +365,6 @@ public class DatabricksThriftServiceClient implements DatabricksClient, Databric
     TFetchResultsResp response =
         (TFetchResultsResp)
             thriftAccessor.getThriftResponse(request, CommandName.LIST_PRIMARY_KEYS, null);
-    DatabricksResultSet resultSet =
-        getPrimaryKeysResult(extractValues(response.getResults().getColumns()));
-    connectionContext
-        .getMetricsExporter()
-        .record(
-            MetricsList.LIST_PRIMARY_KEYS_THRIFT.name(),
-            (double) (System.currentTimeMillis() - startTime));
-    return resultSet;
+    return getPrimaryKeysResult(extractValues(response.getResults().getColumns()));
   }
 }

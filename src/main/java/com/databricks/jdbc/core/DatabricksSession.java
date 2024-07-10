@@ -1,7 +1,6 @@
 package com.databricks.jdbc.core;
 
-import com.databricks.jdbc.annotation.TimedProcessor;
-import com.databricks.jdbc.annotation.TimingUtility;
+import com.databricks.jdbc.annotation.DatabricksMetricsTimedProcessor;
 import com.databricks.jdbc.client.DatabricksClient;
 import com.databricks.jdbc.client.DatabricksClientType;
 import com.databricks.jdbc.client.DatabricksMetadataClient;
@@ -24,7 +23,8 @@ import javax.annotation.Nullable;
 public class DatabricksSession implements IDatabricksSession {
   private DatabricksClient databricksClient;
 
-  private DatabricksClient proxyDatabricksClient;
+  private DatabricksMetadataSdkClient databricksMetadataSdkClient;
+  private DatabricksNewMetadataSdkClient databricksNewMetadataSdkClient;
   private DatabricksMetadataClient databricksMetadataClient;
   private final ComputeResource computeResource;
 
@@ -56,6 +56,11 @@ public class DatabricksSession implements IDatabricksSession {
     } else {
       this.databricksClient = new DatabricksSdkClient(connectionContext);
     }
+    this.databricksMetadataSdkClient =
+        new DatabricksMetadataSdkClient((DatabricksSdkClient) databricksClient);
+    this.databricksNewMetadataSdkClient =
+        new DatabricksNewMetadataSdkClient((DatabricksSdkClient) databricksClient);
+    this.databricksClient = DatabricksMetricsTimedProcessor.createProxy(this.databricksClient);
     this.isSessionOpen = false;
     this.sessionInfo = null;
     this.computeResource = connectionContext.getComputeResource();
@@ -74,10 +79,8 @@ public class DatabricksSession implements IDatabricksSession {
     }
     this.databricksMetadataClient =
         useLegacyMetadataClient
-            ? new DatabricksMetadataSdkClient((DatabricksSdkClient) databricksClient)
-            : new DatabricksNewMetadataSdkClient((DatabricksSdkClient) databricksClient);
-    System.out.println("Inside setMetadataClient " + System.currentTimeMillis());
-    databricksClient = TimedProcessor.createProxy(databricksClient);
+            ? this.databricksMetadataSdkClient
+            : this.databricksNewMetadataSdkClient;
   }
 
   /** Constructor method to be used for mocking in a test case. */

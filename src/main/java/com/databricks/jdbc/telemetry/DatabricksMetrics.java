@@ -24,8 +24,7 @@ public class DatabricksMetrics implements AutoCloseable {
       "https://aa87314c1e33d4c1f91a919f8cf9c4ba-387609431.us-west-2.elb.amazonaws.com:443/api/2.0/oss-sql-driver-telemetry/metrics";
   private final Map<String, Double> gaugeMetrics = new HashMap<>();
   private final Map<String, Double> counterMetrics = new HashMap<>();
-  private final long intervalDurationForSendingReq =
-      TimeUnit.SECONDS.toMillis(1); // 10 minutes
+  private final long intervalDurationForSendingReq = TimeUnit.SECONDS.toMillis(1); // 10 minutes
   private final ObjectMapper objectMapper = new ObjectMapper();
   private final String METRICS_MAP_STRING = "metrics_map";
   private final String METRICS_TYPE = "metrics_type";
@@ -59,7 +58,7 @@ public class DatabricksMetrics implements AutoCloseable {
         };
 
     // Schedule the task to run after the specified interval infinitely
-    metricsTimer.schedule(task, 0, intervalDurationForSendingReq/10);
+    metricsTimer.schedule(task, 0, intervalDurationForSendingReq / 10);
   }
 
   public DatabricksMetrics(IDatabricksConnectionContext context) throws DatabricksSQLException {
