@@ -65,7 +65,7 @@ public class VolumeOperationResultTest {
     assertEquals(-1, volumeOperationResult.getCurrentRow());
     assertTrue(volumeOperationResult.next());
     assertEquals(0, volumeOperationResult.getCurrentRow());
-    assertEquals("SUCCEEDED", volumeOperationResult.getObject(1));
+    assertEquals("SUCCEEDED", volumeOperationResult.getObject(0));
     assertFalse(volumeOperationResult.hasNext());
     assertFalse(volumeOperationResult.next());
 
@@ -263,7 +263,7 @@ public class VolumeOperationResultTest {
     assertEquals(-1, volumeOperationResult.getCurrentRow());
     assertTrue(volumeOperationResult.next());
     assertEquals(0, volumeOperationResult.getCurrentRow());
-    assertEquals("SUCCEEDED", volumeOperationResult.getObject(1));
+    assertEquals("SUCCEEDED", volumeOperationResult.getObject(0));
     assertFalse(volumeOperationResult.hasNext());
     assertFalse(volumeOperationResult.next());
     assertTrue(file.delete());
@@ -386,7 +386,7 @@ public class VolumeOperationResultTest {
     assertEquals(-1, volumeOperationResult.getCurrentRow());
     assertTrue(volumeOperationResult.next());
     assertEquals(0, volumeOperationResult.getCurrentRow());
-    assertEquals("SUCCEEDED", volumeOperationResult.getObject(1));
+    assertEquals("SUCCEEDED", volumeOperationResult.getObject(0));
     assertFalse(volumeOperationResult.hasNext());
     assertFalse(volumeOperationResult.next());
     try {

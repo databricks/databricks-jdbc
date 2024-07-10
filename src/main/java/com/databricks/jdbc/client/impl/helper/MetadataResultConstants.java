@@ -251,7 +251,7 @@ public class MetadataResultConstants {
           IS_AUTO_INCREMENT_COLUMN,
           USER_DATA_TYPE_COLUMN,
           IS_GENERATED_COLUMN);
-  public static String NULL_STRING = "null";
+  public static String NULL_STRING = "NULL";
 
   public static List<ResultColumn> TYPE_INFO_COLUMNS =
       List.of(

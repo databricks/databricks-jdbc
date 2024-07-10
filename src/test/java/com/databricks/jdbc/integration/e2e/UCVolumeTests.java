@@ -5,6 +5,9 @@ import static com.databricks.jdbc.integration.IntegrationTestUtil.*;
 import static org.junit.jupiter.api.Assertions.*;
 
 import com.databricks.jdbc.client.impl.sdk.DatabricksUCVolumeClient;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.Arrays;
@@ -21,6 +24,8 @@ public class UCVolumeTests {
   private DatabricksUCVolumeClient client;
   private Connection con;
 
+  private static final String LOCAL_TEST_DIRECTORY = "/tmp";
+
   @BeforeEach
   void setUp() throws SQLException {
     // TODO: Testing is done here using the E2-Dogfood environment. Need to update this to use a
@@ -28,6 +33,7 @@ public class UCVolumeTests {
     con = getDogfoodJDBCConnection();
     System.out.println("Connection established......");
     client = new DatabricksUCVolumeClient(con);
+    con.setClientInfo("allowlistedVolumeOperationLocalFilePaths", LOCAL_TEST_DIRECTORY);
   }
 
   @AfterEach
@@ -299,5 +305,64 @@ public class UCVolumeTests {
             "ab",
             false,
             Arrays.asList("aBC_file3.csv", "abc_file2.csv", "abc_file4.csv")));
+  }
+
+  @ParameterizedTest
+  @MethodSource("provideParametersForGetObject")
+  void testGetObject(
+      String catalog,
+      String schema,
+      String volume,
+      String objectPath,
+      String localPath,
+      boolean expected)
+      throws Exception {
+    assertEquals(expected, client.getObject(catalog, schema, volume, objectPath, localPath));
+  }
+
+  private static Stream<Arguments> provideParametersForGetObject() {
+    return Stream.of(
+        Arguments.of(
+            UC_VOLUME_CATALOG,
+            UC_VOLUME_SCHEMA,
+            "test_volume1",
+            "abc_file2.csv",
+            "/tmp/download1.csv",
+            true),
+        Arguments.of(
+            UC_VOLUME_CATALOG,
+            UC_VOLUME_SCHEMA,
+            "test_volume1",
+            "folder1/folder2/efg_file1.csv",
+            "/tmp/download2.csv",
+            true));
+  }
+
+  @ParameterizedTest
+  @MethodSource("provideParametersForGetObject_FileRead")
+  void testGetObject_FileRead(
+      String catalog,
+      String schema,
+      String volume,
+      String objectPath,
+      String localPath,
+      String expectedContent)
+      throws Exception {
+    byte[] fileContent = Files.readAllBytes(Paths.get(localPath));
+    String actualContent = new String(fileContent, StandardCharsets.UTF_8);
+
+    assertTrue(client.getObject(catalog, schema, volume, objectPath, localPath));
+    assertEquals(expectedContent, actualContent);
+  }
+
+  private static Stream<Arguments> provideParametersForGetObject_FileRead() {
+    return Stream.of(
+        Arguments.of(
+            UC_VOLUME_CATALOG,
+            UC_VOLUME_SCHEMA,
+            "test_volume1",
+            "hello_world.txt",
+            "/tmp/download_hello_world.txt",
+            "helloworld"));
   }
 }

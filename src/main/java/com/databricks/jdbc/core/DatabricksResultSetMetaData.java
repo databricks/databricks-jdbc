@@ -1,5 +1,6 @@
 package com.databricks.jdbc.core;
 
+import static com.databricks.jdbc.client.impl.helper.MetadataResultConstants.NULL_STRING;
 import static com.databricks.jdbc.client.impl.thrift.commons.DatabricksThriftHelper.getTypeFromTypeDesc;
 import static com.databricks.jdbc.driver.DatabricksJdbcConstants.VOLUME_OPERATION_STATUS_COLUMN_NAME;
 
@@ -29,7 +30,6 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
   private final long totalRows;
   private Long chunkCount;
   private static final String DEFAULT_CATALOGUE_NAME = "Spark";
-  private static final String NULL_STRING = "null";
 
   // TODO: Add handling for Arrow stream results
 

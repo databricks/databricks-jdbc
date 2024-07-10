@@ -129,6 +129,7 @@ public class DatabricksThriftHelper {
       case BOOLEAN_TYPE:
         return ColumnInfoTypeName.BOOLEAN;
       case TINYINT_TYPE:
+        return ColumnInfoTypeName.BYTE;
       case SMALLINT_TYPE:
         return ColumnInfoTypeName.SHORT;
       case INT_TYPE:

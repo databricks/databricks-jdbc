@@ -12,6 +12,7 @@ import com.databricks.jdbc.core.types.CompressionType;
 import com.databricks.jdbc.core.types.ComputeResource;
 import com.databricks.jdbc.core.types.Warehouse;
 import com.databricks.jdbc.telemetry.DatabricksMetrics;
+import com.databricks.sdk.core.ProxyConfig;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
 import java.util.*;
@@ -330,7 +331,7 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
             : DatabricksJdbcConstants.USER_AGENT_THRIFT_CLIENT;
     return nullOrEmptyString(customerUserAgent)
         ? clientAgent
-        : clientAgent + " " + customerUserAgent;
+        : clientAgent + USER_AGENT_DELIMITER + customerUserAgent;
   }
 
   // TODO: Make use of compression type
@@ -431,8 +432,9 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   }
 
   @Override
-  public Boolean getUseProxyAuth() {
-    return Objects.equals(getParameter(USE_PROXY_AUTH), "1");
+  public ProxyConfig.ProxyAuthType getProxyAuthType() {
+    int proxyAuthTypeOrdinal = Integer.parseInt(getParameter(PROXY_AUTH, "0"));
+    return ProxyConfig.ProxyAuthType.values()[proxyAuthTypeOrdinal];
   }
 
   @Override
@@ -466,8 +468,9 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   }
 
   @Override
-  public Boolean getUseCloudFetchProxyAuth() {
-    return Objects.equals(getParameter(USE_CF_PROXY_AUTH), "1");
+  public ProxyConfig.ProxyAuthType getCloudFetchProxyAuthType() {
+    int proxyAuthTypeOrdinal = Integer.parseInt(getParameter(CF_PROXY_AUTH, "0"));
+    return ProxyConfig.ProxyAuthType.values()[proxyAuthTypeOrdinal];
   }
 
   @Override
@@ -530,5 +533,10 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   public int getIdleHttpConnectionExpiry() {
     return Integer.parseInt(
         getParameter(IDLE_HTTP_CONNECTION_EXPIRY, DEFAULT_IDLE_HTTP_CONNECTION_EXPIRY));
+  }
+
+  @Override
+  public boolean supportManyParameters() {
+    return getParameter(SUPPORT_MANY_PARAMETERS, "0").equals("1");
   }
 }

@@ -71,6 +71,7 @@ public class ArrowToJavaObjectConverter {
         // Struct and Array are present in Arrow data in the VARCHAR ValueVector format
       case STRUCT:
       case ARRAY:
+      case MAP:
         return convertToString(object);
       case DATE:
         return convertToDate(object);

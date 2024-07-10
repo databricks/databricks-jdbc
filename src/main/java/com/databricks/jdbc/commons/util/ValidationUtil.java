@@ -11,9 +11,8 @@ public class ValidationUtil {
 
   public static void checkIfNonNegative(int number, String fieldName)
       throws DatabricksSQLException {
-    // Todo : Add appropriate exception
     if (number < 0) {
-      throw new DatabricksSQLException(
+      throw new DatabricksValidationException(
           String.format("Invalid input for %s, : %d", fieldName, number));
     }
   }
