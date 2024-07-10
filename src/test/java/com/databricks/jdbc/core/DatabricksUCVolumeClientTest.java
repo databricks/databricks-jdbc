@@ -55,6 +55,7 @@ public class DatabricksUCVolumeClientTest {
     return String.format("REMOVE '/Volumes/%s/%s/%s/%s'", catalog, schema, volume, objectPath);
   }
 
+
   @ParameterizedTest
   @MethodSource("provideParametersForPrefixExists")
   public void testPrefixExists(String volume, String prefix, boolean expected) throws SQLException {
