@@ -39,13 +39,15 @@ public class DatabricksUCVolumeClientTest {
   }
 
   private String createGetObjectQuery(
-      String catalog, String schema, String volume, String localPath) {
-    return String.format("GET '/Volumes/%s/%s/%s/' TO %s", catalog, schema, volume, localPath);
+      String catalog, String schema, String volume, String objectPath, String localPath) {
+    return String.format(
+        "GET '/Volumes/%s/%s/%s/%s' TO '%s'", catalog, schema, volume, objectPath, localPath);
   }
 
   private String createPutObjectQuery(
-      String catalog, String schema, String volume, String localPath) {
-    return String.format("PUT %s INTO '/Volumes/%s/%s/%s/'", localPath, catalog, schema, volume);
+      String catalog, String schema, String volume, String objectPath, String localPath) {
+    return String.format(
+        "PUT '%s' INTO '/Volumes/%s/%s/%s/%s'", localPath, catalog, schema, volume, objectPath);
   }
 
   private String createDeleteObjectQuery(
@@ -251,47 +253,133 @@ public class DatabricksUCVolumeClientTest {
   @ParameterizedTest
   @MethodSource("provideParametersForGetObject")
   public void testGetObject(
-      String catalog, String schema, String volume, String localPath, boolean expected)
+      String catalog,
+      String schema,
+      String volume,
+      String objectPath,
+      String localPath,
+      boolean expected)
       throws SQLException {
     DatabricksUCVolumeClient client = new DatabricksUCVolumeClient(connection);
 
     when(connection.createStatement()).thenReturn(statement);
-    String getObjectQuery = createGetObjectQuery(catalog, schema, volume, localPath);
+    String getObjectQuery = createGetObjectQuery(catalog, schema, volume, objectPath, localPath);
     when(statement.executeQuery(getObjectQuery)).thenReturn(resultSet);
     when(resultSet.next()).thenReturn(true);
     when(resultSet.getString(VOLUME_OPERATION_STATUS_COLUMN_NAME))
         .thenReturn(VOLUME_OPERATION_STATUS_SUCCEEDED);
-    boolean result = client.getObject(catalog, schema, volume, localPath);
+    boolean result = client.getObject(catalog, schema, volume, objectPath, localPath);
 
     assertEquals(expected, result);
     verify(statement).executeQuery(getObjectQuery);
   }
 
   private static Stream<Arguments> provideParametersForGetObject() {
-    return Stream.of(Arguments.of("test_catalog", "test_schema", "test_volume", "test_path", true));
+    return Stream.of(
+        Arguments.of(
+            "test_catalog",
+            "test_schema",
+            "test_volume",
+            "test_objectPath",
+            "test_localPath",
+            true));
+  }
+
+  @ParameterizedTest
+  @MethodSource("provideParametersForGetObject_FileNotFound")
+  public void testGetObject_FileNotFound(
+      String catalog,
+      String schema,
+      String volume,
+      String objectPath,
+      String localPath,
+      boolean expected)
+      throws SQLException {
+    DatabricksUCVolumeClient client = new DatabricksUCVolumeClient(connection);
+
+    when(connection.createStatement()).thenReturn(statement);
+    String getObjectQuery = createGetObjectQuery(catalog, schema, volume, objectPath, localPath);
+    when(statement.executeQuery(getObjectQuery))
+        .thenThrow(new SQLException("Volume operation failed : Failed to download file"));
+
+    assertThrows(
+        SQLException.class,
+        () -> {
+          client.getObject(catalog, schema, volume, objectPath, localPath);
+        });
+    verify(statement).executeQuery(getObjectQuery);
+  }
+
+  private static Stream<Arguments> provideParametersForGetObject_FileNotFound() {
+    return Stream.of(
+        Arguments.of(
+            "test_catalog",
+            "test_schema",
+            "test_volume",
+            "non_existent_file",
+            "test_localPath",
+            false));
   }
 
   @ParameterizedTest
   @MethodSource("provideParametersForPutObject")
   public void testPutObject(
-      String catalog, String schema, String volume, String localPath, boolean expected)
+      String catalog,
+      String schema,
+      String volume,
+      String objectPath,
+      String localPath,
+      boolean expected)
       throws SQLException {
     DatabricksUCVolumeClient client = new DatabricksUCVolumeClient(connection);
 
     when(connection.createStatement()).thenReturn(statement);
-    String putObjectQuery = createPutObjectQuery(catalog, schema, volume, localPath);
+    String putObjectQuery = createPutObjectQuery(catalog, schema, volume, objectPath, localPath);
     when(statement.executeQuery(putObjectQuery)).thenReturn(resultSet);
     when(resultSet.next()).thenReturn(true);
     when(resultSet.getString(VOLUME_OPERATION_STATUS_COLUMN_NAME))
         .thenReturn(VOLUME_OPERATION_STATUS_SUCCEEDED);
-    boolean result = client.putObject(catalog, schema, volume, localPath);
+    boolean result = client.putObject(catalog, schema, volume, objectPath, localPath);
 
     assertEquals(expected, result);
     verify(statement).executeQuery(putObjectQuery);
   }
 
   private static Stream<Arguments> provideParametersForPutObject() {
-    return Stream.of(Arguments.of("test_catalog", "test_schema", "test_volume", "test_path", true));
+    return Stream.of(
+        Arguments.of(
+            "test_catalog",
+            "test_schema",
+            "test_volume",
+            "test_objectpath",
+            "test_localpath",
+            true));
+  }
+
+  @ParameterizedTest
+  @MethodSource("provideParametersForPutObject_InvalidLocalPath")
+  public void testPutObject_InvalidLocalPath(
+      String catalog, String schema, String volume, String objectPath, String localPath)
+      throws SQLException {
+    DatabricksUCVolumeClient client = new DatabricksUCVolumeClient(connection);
+
+    when(connection.createStatement()).thenReturn(statement);
+    String putObjectQuery = createPutObjectQuery(catalog, schema, volume, objectPath, localPath);
+    when(statement.executeQuery(putObjectQuery))
+        .thenThrow(new SQLException("Invalid local path: File not found or is a directory"));
+
+    assertThrows(
+        SQLException.class,
+        () -> {
+          client.putObject(catalog, schema, volume, objectPath, localPath);
+        });
+    verify(statement).executeQuery(putObjectQuery);
+  }
+
+  private static Stream<Arguments> provideParametersForPutObject_InvalidLocalPath() {
+    return Stream.of(
+        Arguments.of(
+            "test_catalog", "test_schema", "test_volume", "test_objectpath", "invalid_localpath"));
   }
 
   @ParameterizedTest

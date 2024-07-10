@@ -1,4 +1,4 @@
-package com.databricks.jdbc.driver;
+package com.databricks.client.jdbc;
 
 import static com.databricks.jdbc.driver.DatabricksJdbcConstants.*;
 
@@ -8,6 +8,9 @@ import com.databricks.jdbc.commons.util.DeviceInfoLogUtil;
 import com.databricks.jdbc.commons.util.LoggingUtil;
 import com.databricks.jdbc.core.DatabricksConnection;
 import com.databricks.jdbc.core.DatabricksSQLException;
+import com.databricks.jdbc.driver.DatabricksConnectionContext;
+import com.databricks.jdbc.driver.DatabricksJdbcConstants;
+import com.databricks.jdbc.driver.IDatabricksConnectionContext;
 import com.databricks.sdk.core.UserAgent;
 import java.sql.*;
 import java.util.Properties;
@@ -16,8 +19,8 @@ import java.util.Properties;
  * Databricks JDBC driver. TODO: Add implementation to accept Urls in format:
  * jdbc:databricks://host:port.
  */
-public class DatabricksDriver implements Driver {
-  private static final DatabricksDriver INSTANCE;
+public class Driver implements java.sql.Driver {
+  private static final Driver INSTANCE;
   private static final int majorVersion = 0;
   private static final int minorVersion = 7;
   private static final int buildVersion = 0;
@@ -25,10 +28,10 @@ public class DatabricksDriver implements Driver {
 
   static {
     try {
-      DriverManager.registerDriver(INSTANCE = new DatabricksDriver());
+      DriverManager.registerDriver(INSTANCE = new Driver());
       System.out.printf("Driver has been registered. instance = %s\n", INSTANCE);
     } catch (SQLException e) {
-      throw new IllegalStateException("Unable to register " + DatabricksDriver.class, e);
+      throw new IllegalStateException("Unable to register " + Driver.class, e);
     }
   }
 
@@ -162,12 +165,12 @@ public class DatabricksDriver implements Driver {
     return null;
   }
 
-  public static DatabricksDriver getInstance() {
+  public static Driver getInstance() {
     return INSTANCE;
   }
 
   public static void main(String[] args) {
-    System.out.printf("The driver {%s} has been initialized.%n", DatabricksDriver.class);
+    System.out.printf("The driver {%s} has been initialized.%n", Driver.class);
   }
 
   private static String getVersion() {

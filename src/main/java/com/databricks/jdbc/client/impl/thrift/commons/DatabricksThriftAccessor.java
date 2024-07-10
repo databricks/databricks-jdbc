@@ -7,6 +7,7 @@ import static com.databricks.jdbc.commons.EnvironmentVariables.*;
 import com.databricks.jdbc.client.DatabricksHttpException;
 import com.databricks.jdbc.client.StatementType;
 import com.databricks.jdbc.client.http.DatabricksHttpClient;
+import com.databricks.jdbc.client.impl.helper.ClientUtils;
 import com.databricks.jdbc.client.impl.thrift.generated.*;
 import com.databricks.jdbc.commons.CommandName;
 import com.databricks.jdbc.commons.LogLevel;
@@ -33,7 +34,9 @@ public class DatabricksThriftAccessor {
   public DatabricksThriftAccessor(IDatabricksConnectionContext connectionContext)
       throws DatabricksParsingException {
     enableDirectResults = connectionContext.getDirectResultMode();
-    this.databricksConfig = new OAuthAuthenticator(connectionContext).getDatabricksConfig();
+    this.databricksConfig = ClientUtils.generateDatabricksConfig(connectionContext);
+    OAuthAuthenticator authenticator = new OAuthAuthenticator(connectionContext);
+    authenticator.setupDatabricksConfig(databricksConfig);
     this.databricksConfig.resolve();
     Map<String, String> authHeaders = databricksConfig.authenticate();
     String endPointUrl = connectionContext.getEndpointURL();

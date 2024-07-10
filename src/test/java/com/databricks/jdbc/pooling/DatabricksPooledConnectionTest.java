@@ -5,6 +5,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 
+import com.databricks.client.jdbc.Driver;
 import com.databricks.jdbc.client.impl.sdk.DatabricksSdkClient;
 import com.databricks.jdbc.core.DatabricksConnection;
 import com.databricks.jdbc.core.DatabricksSQLException;
@@ -131,7 +132,7 @@ public class DatabricksPooledConnectionTest {
         .thenReturn(new DatabricksPooledConnection(databricksConnection));
 
     // Get a pooled connection
-    DriverManager.registerDriver(new com.databricks.jdbc.driver.DatabricksDriver());
+    DriverManager.registerDriver(new Driver());
     DatabricksPooledConnection pooledConnection =
         (DatabricksPooledConnection) poolDataSource.getPooledConnection();
     TestListener listener = new TestListener();
@@ -164,7 +165,7 @@ public class DatabricksPooledConnectionTest {
         .thenReturn(new DatabricksPooledConnection(databricksConnection));
 
     // Get a pooled connection
-    DriverManager.registerDriver(new com.databricks.jdbc.driver.DatabricksDriver());
+    DriverManager.registerDriver(new Driver());
     DatabricksPooledConnection pooledConnection =
         (DatabricksPooledConnection) poolDataSource.getPooledConnection();
     Connection connection = pooledConnection.getConnection();
@@ -190,7 +191,7 @@ public class DatabricksPooledConnectionTest {
         .thenReturn(new DatabricksPooledConnection(databricksConnection));
 
     // Get a pooled connection
-    DriverManager.registerDriver(new com.databricks.jdbc.driver.DatabricksDriver());
+    DriverManager.registerDriver(new Driver());
     DatabricksPooledConnection pooledConnection =
         (DatabricksPooledConnection) poolDataSource.getPooledConnection();
     Connection connection = pooledConnection.getConnection();

@@ -8,6 +8,7 @@ it can be run only by providing a secret for that environment.
 
 package com.databricks.jdbc.sqllogictest;
 
+import com.databricks.client.jdbc.Driver;
 import java.io.IOException;
 import java.security.NoSuchAlgorithmException;
 import java.sql.*;
@@ -56,7 +57,7 @@ public class DbsqlExecutor extends JdbcExecutor {
         () -> {
           DbsqlExecutor result = new DbsqlExecutor(optionsParser.getOptions(), pat.get());
           try {
-            DriverManager.registerDriver(new com.databricks.jdbc.driver.DatabricksDriver());
+            DriverManager.registerDriver(new Driver());
           } catch (SQLException e) {
             throw new RuntimeException(e);
           }

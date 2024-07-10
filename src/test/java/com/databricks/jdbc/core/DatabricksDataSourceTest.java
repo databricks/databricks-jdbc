@@ -3,7 +3,7 @@ package com.databricks.jdbc.core;
 import static com.databricks.jdbc.driver.DatabricksJdbcConstants.AUTH_MECH;
 import static org.junit.jupiter.api.Assertions.*;
 
-import com.databricks.jdbc.driver.DatabricksDriver;
+import com.databricks.client.jdbc.Driver;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
@@ -16,7 +16,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
 public class DatabricksDataSourceTest {
-  @Mock DatabricksDriver databricksDriverMock;
+  @Mock Driver driverMock;
   @Mock DatabricksConnection databricksConnection;
 
   @Test
@@ -38,7 +38,7 @@ public class DatabricksDataSourceTest {
     Properties properties = new Properties();
     properties.setProperty(AUTH_MECH, "3");
 
-    DatabricksDataSource dataSource = new DatabricksDataSource(databricksDriverMock);
+    DatabricksDataSource dataSource = new DatabricksDataSource(driverMock);
     dataSource.setHost("e2-dogfood.staging.cloud.databricks.com");
     dataSource.setPort(443);
     dataSource.setHttpPath("/sql/1.0/warehouses/791ba2a31c7fd70a");
@@ -46,7 +46,7 @@ public class DatabricksDataSourceTest {
     dataSource.setUsername("user");
     dataSource.setPassword("password");
 
-    Mockito.when(databricksDriverMock.connect(dataSource.getUrl(), properties))
+    Mockito.when(driverMock.connect(dataSource.getUrl(), properties))
         .thenReturn(databricksConnection);
     Connection connection = dataSource.getConnection();
     assertNotNull(connection);
