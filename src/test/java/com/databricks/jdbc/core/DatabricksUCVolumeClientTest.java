@@ -314,7 +314,6 @@ public class DatabricksUCVolumeClientTest {
             "test_localPath",
             false));
   }
-
   @ParameterizedTest
   @MethodSource("provideParametersForPutObject")
   public void testPutObject(

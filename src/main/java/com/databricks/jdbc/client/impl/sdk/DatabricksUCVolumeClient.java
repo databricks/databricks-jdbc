@@ -39,11 +39,14 @@ public class DatabricksUCVolumeClient implements IDatabricksUCVolumeClient {
         "GET '/Volumes/%s/%s/%s/%s' TO '%s'", catalog, schema, volume, objectPath, localPath);
   }
 
+<<<<<<< HEAD
   private String createPutObjectQuery(
       String catalog, String schema, String volume, String localPath) {
     return String.format("PUT %s INTO '/Volumes/%s/%s/%s/'", localPath, catalog, schema, volume);
   }
 
+=======
+>>>>>>> origin/main
   public boolean prefixExists(String catalog, String schema, String volume, String prefix)
       throws SQLException {
     return prefixExists(catalog, schema, volume, prefix, true);
@@ -271,7 +274,6 @@ public class DatabricksUCVolumeClient implements IDatabricksUCVolumeClient {
 
     return volumeOperationStatus;
   }
-
   public boolean putObject(String catalog, String schema, String volume, String localPath)
       throws SQLException {
 
