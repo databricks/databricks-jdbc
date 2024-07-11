@@ -9,10 +9,6 @@ public class LoggingUtil {
   private static final String LOGGER_NAME = "databricks-jdbc";
   private static Logger LOGGER;
 
-  public static Logger getInstance() {
-    return LOGGER;
-  }
-
   public static void setupLogger(
       String filePath, int logFileSize, int logFileCount, LogLevel level) {
     // This method can be used to initialize the logger based on the provided parameters.

@@ -59,7 +59,7 @@ public class DriverTester {
     DriverManager.drivers().forEach(driver -> System.out.println(driver.getClass()));
     // Getting the connection
     String jdbcUrl =
-        "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=https;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/791ba2a31c7fd70a;";
+        "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=https;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/791ba2a31c7fd70a;LogPath=/Users/jothi.prakash/Desktop/log_test/check123.log";
     Connection con =
         DriverManager.getConnection(
             jdbcUrl, "jothi.prakash@databricks.com", "xx");
@@ -69,6 +69,19 @@ public class DriverTester {
     //    printResultSet(resultSet);
     resultSet.close();
     con.close();
+
+    Connection con2 =
+        DriverManager.getConnection(
+            jdbcUrl, "jothi.prakash@databricks.com", "xx");
+    System.out.println("Connection established 2 ......");
+
+    ResultSet resultSet2 = con2.getMetaData().getTables("main", ".*", ".*", null);
+    //    printResultSet(resultSet);
+    resultSet.close();
+    resultSet2.close();
+
+
+    con2.close();
   }
 
   @Test

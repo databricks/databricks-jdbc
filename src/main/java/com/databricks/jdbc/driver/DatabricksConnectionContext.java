@@ -4,7 +4,7 @@ import static com.databricks.jdbc.driver.DatabricksJdbcConstants.*;
 
 import com.databricks.jdbc.client.DatabricksClientType;
 import com.databricks.jdbc.commons.LogLevel;
-// import com.databricks.jdbc.commons.util.LoggingUtil;
+import com.databricks.jdbc.commons.util.LoggingUtil;
 import com.databricks.jdbc.core.DatabricksParsingException;
 import com.databricks.jdbc.core.DatabricksSQLException;
 import com.databricks.jdbc.core.types.AllPurposeCluster;
@@ -75,6 +75,7 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
       for (Map.Entry<Object, Object> entry : properties.entrySet()) {
         parametersBuilder.put(entry.getKey().toString().toLowerCase(), entry.getValue().toString());
       }
+
       DatabricksConnectionContext context =
           new DatabricksConnectionContext(hostValue, portValue, schema, parametersBuilder.build());
       metricsExporter = new DatabricksMetrics(context);
@@ -83,6 +84,17 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
       // Should never reach here, since we have already checked for url validity
       throw new IllegalArgumentException("Invalid url " + "incorrect");
     }
+  }
+
+  public void initialLoggerSetup()
+  {
+    // Setting System property to dynamically map the log path in the log4j.xml
+    System.setProperty("log_path", getLogPathString());
+
+    // Initial Logger Setup
+    LoggingUtil.setupLogger(getLogPathString(),
+            getLogFileSize(),
+            getLogFileCount(), LogLevel.INFO);
   }
 
   @Override
@@ -112,6 +124,10 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
     this.port = port;
     this.schema = schema;
     this.parameters = parameters;
+
+    // Setting up the logger
+    initialLoggerSetup();
+
     this.computeResource = buildCompute();
   }
 
@@ -134,7 +150,7 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
 
   @Override
   public String getHostUrl() throws DatabricksParsingException {
-    //    LoggingUtil.log(LogLevel.DEBUG, "public String getHostUrl()");
+        LoggingUtil.log(LogLevel.DEBUG, "public String getHostUrl()");
     // Determine the schema based on the transport mode
     String schema =
         (getSSLMode() != null && getSSLMode().equals("0"))
@@ -154,8 +170,7 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
       // Build the URI and convert to string
       return uriBuilder.build().toString();
     } catch (Exception e) {
-      //      LoggingUtil.log(LogLevel.DEBUG, "URI Building failed with exception: " +
-      // e.getMessage());
+           LoggingUtil.log(LogLevel.DEBUG, "URI Building failed with exception: " + e.getMessage());
       throw new DatabricksParsingException("URI Building failed with exception: " + e.getMessage());
     }
   }
@@ -192,7 +207,7 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   }
 
   public String getHttpPath() {
-    //    LoggingUtil.log(LogLevel.DEBUG, "String getHttpPath()");
+        LoggingUtil.log(LogLevel.DEBUG, "String getHttpPath()");
     return getParameter(DatabricksJdbcConstants.HTTP_PATH);
   }
 
@@ -287,22 +302,20 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   public LogLevel getLogLevel() {
     String logLevel = getParameter(DatabricksJdbcConstants.LOG_LEVEL);
     if (nullOrEmptyString(logLevel)) {
-      //      LoggingUtil.log(LogLevel.DEBUG, "No logLevel given in the input, defaulting to
-      // info.");
+           LoggingUtil.log(LogLevel.DEBUG, "No logLevel given in the input, defaulting to info.");
       return DEFAULT_LOG_LEVEL;
     }
     try {
       return getLogLevel(Integer.parseInt(logLevel));
     } catch (NumberFormatException e) {
-      //      LoggingUtil.log(LogLevel.DEBUG, "Input log level is not an integer, parsing string.");
+            LoggingUtil.log(LogLevel.DEBUG, "Input log level is not an integer, parsing string.");
       logLevel = logLevel.toUpperCase();
     }
 
     try {
       return LogLevel.valueOf(logLevel);
     } catch (Exception e) {
-      //      LoggingUtil.log(LogLevel.DEBUG, "Invalid logLevel given in the input, defaulting to
-      // info.");
+           LoggingUtil.log(LogLevel.DEBUG, "Invalid logLevel given in the input, defaulting to info.");
       return DEFAULT_LOG_LEVEL;
     }
   }
@@ -372,9 +385,7 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
           getParameter(
               CLOUD_FETCH_THREAD_POOL_SIZE, String.valueOf(CLOUD_FETCH_THREAD_POOL_SIZE_DEFAULT)));
     } catch (NumberFormatException e) {
-      //      LoggingUtil.log(
-      //          LogLevel.DEBUG, "Invalid thread pool size, defaulting to default thread pool
-      // size.");
+            LoggingUtil.log(LogLevel.DEBUG, "Invalid thread pool size, defaulting to default thread pool size.");
       return CLOUD_FETCH_THREAD_POOL_SIZE_DEFAULT;
     }
   }
@@ -505,8 +516,7 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
       case 6:
         return LogLevel.TRACE;
       default:
-        //        LoggingUtil.log(LogLevel.INFO, "Invalid logLevel, defaulting to default log
-        // level.");
+                LoggingUtil.log(LogLevel.INFO, "Invalid logLevel, defaulting to default log level.");
         return DEFAULT_LOG_LEVEL;
     }
   }

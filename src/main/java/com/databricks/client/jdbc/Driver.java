@@ -42,13 +42,9 @@ public class Driver implements java.sql.Driver {
 
   @Override
   public Connection connect(String url, Properties info) throws DatabricksSQLException {
+
     IDatabricksConnectionContext connectionContext = DatabricksConnectionContext.parse(url, info);
-    System.setProperty("log_path", "/Users/jothi.prakash/Desktop/log_test/dummy1231.log");
-    LoggingUtil.setupLogger(
-        connectionContext.getLogPathString(),
-        connectionContext.getLogFileSize(),
-        connectionContext.getLogFileCount(),
-        connectionContext.getLogLevel());
+
     setUserAgent(connectionContext);
     DeviceInfoLogUtil.logProperties();
     try {
