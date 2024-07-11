@@ -296,7 +296,6 @@ public class DatabricksUCVolumeClient implements IDatabricksUCVolumeClient {
 
     String putObjectQuery =
         createPutObjectQuery(catalog, schema, volume, objectPath, localPath, toOverwrite);
-    System.out.println(putObjectQuery);
 
     boolean volumeOperationStatus = false;
 
