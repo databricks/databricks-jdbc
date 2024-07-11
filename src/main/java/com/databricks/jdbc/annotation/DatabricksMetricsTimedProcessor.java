@@ -47,9 +47,9 @@ public class DatabricksMetricsTimedProcessor {
 
     @Override
     public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
-      // Check if the method is present in the hashmap
+      // Check if the method is annotated
       if (methodsToTime.containsKey(method.getName())) {
-        // Get the annotation and the metric name
+        // Get the metric name
         DatabricksMetricsTimedMethod databricksMetricsTimedMethod =
             methodsToTime.get(method.getName());
         String metricName = databricksMetricsTimedMethod.metricName().name();

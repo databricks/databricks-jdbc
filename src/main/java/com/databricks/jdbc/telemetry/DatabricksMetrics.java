@@ -1,6 +1,5 @@
 package com.databricks.jdbc.telemetry;
 
-import com.databricks.jdbc.client.DatabricksHttpException;
 import com.databricks.jdbc.client.http.DatabricksHttpClient;
 import com.databricks.jdbc.commons.LogLevel;
 import com.databricks.jdbc.commons.util.LoggingUtil;
@@ -24,13 +23,14 @@ public class DatabricksMetrics implements AutoCloseable {
       "https://aa87314c1e33d4c1f91a919f8cf9c4ba-387609431.us-west-2.elb.amazonaws.com:443/api/2.0/oss-sql-driver-telemetry/metrics";
   private final Map<String, Double> gaugeMetrics = new HashMap<>();
   private final Map<String, Double> counterMetrics = new HashMap<>();
-  private final long intervalDurationForSendingReq = TimeUnit.SECONDS.toMillis(1); // 10 minutes
+  private final long intervalDurationForSendingReq =
+      TimeUnit.SECONDS.toMillis(10 * 60); // 10 minutes
   private final ObjectMapper objectMapper = new ObjectMapper();
   private final String METRICS_MAP_STRING = "metrics_map";
   private final String METRICS_TYPE = "metrics_type";
   private Boolean hasInitialExportOccurred = false;
   private String workspaceId = null;
-  private final DatabricksHttpClient telemetryClient;
+  private DatabricksHttpClient telemetryClient;
 
   private void setWorkspaceId(String workspaceId) {
     this.workspaceId = workspaceId;
@@ -58,63 +58,62 @@ public class DatabricksMetrics implements AutoCloseable {
         };
 
     // Schedule the task to run after the specified interval infinitely
-    metricsTimer.schedule(task, 0, intervalDurationForSendingReq / 10);
+    metricsTimer.schedule(task, 0, intervalDurationForSendingReq);
   }
 
   public DatabricksMetrics(IDatabricksConnectionContext context) throws DatabricksSQLException {
-    if (context == null) {
-      throw new DatabricksSQLException("Connection context is null");
+    if (context != null) {
+      String resourceId = context.getComputeResource().getWorkspaceId();
+      setWorkspaceId(resourceId);
+      this.telemetryClient = DatabricksHttpClient.getInstance(context);
+      scheduleExportMetrics();
     }
-    String resourceId = context.getComputeResource().getWorkspaceId();
-    setWorkspaceId(resourceId);
-    this.telemetryClient = DatabricksHttpClient.getInstance(context);
-    scheduleExportMetrics();
   }
 
-  public String sendRequest(Map<String, Double> map, MetricsType metricsType) throws Exception {
+  public void sendRequest(Map<String, Double> map, MetricsType metricsType) throws Exception {
     // Check if the telemetry client is set
     if (telemetryClient == null) {
-      throw new DatabricksHttpException(
+      LoggingUtil.log(
+          LogLevel.DEBUG,
           "Telemetry client is not set for resource Id: "
               + workspaceId
               + ". Initialize the Driver first.");
-    }
-
-    // Return if the map is empty - prevents sending empty metrics & unnecessary API calls
-    if (map.isEmpty()) {
-      return "Metrics map is empty";
-    }
-
-    // Convert the map to JSON string
-    String jsonInputString = objectMapper.writeValueAsString(map);
-
-    // Create the request and adding parameters & headers
-    URIBuilder uriBuilder = new URIBuilder(URL);
-    uriBuilder.addParameter(METRICS_MAP_STRING, jsonInputString);
-    uriBuilder.addParameter(METRICS_TYPE, metricsType.name().equals("GAUGE") ? "1" : "0");
-    HttpUriRequest request = new HttpPost(uriBuilder.build());
-    // TODO (Bhuvan): Add authentication headers
-    // TODO (Bhuvan): execute request using SSL
-    CloseableHttpResponse response = telemetryClient.executeWithoutSSL(request);
-
-    // Error handling
-    if (response == null) {
-      throw new DatabricksHttpException("Response is null");
-    } else if (response.getStatusLine().getStatusCode() != 200) {
-      throw new DatabricksHttpException(
-          "Response code: "
-              + response.getStatusLine().getStatusCode()
-              + " Response: "
-              + response.getEntity().toString());
     } else {
-      // Clearing map after successful response
-      map.clear();
-    }
+      if (map.isEmpty()) {
+        return;
+      }
+      // Convert the map to JSON string
+      String jsonInputString = objectMapper.writeValueAsString(map);
 
-    // Get the response string
-    String responseString = EntityUtils.toString(response.getEntity());
-    response.close();
-    return responseString;
+      // Create the request and adding parameters & headers
+      URIBuilder uriBuilder = new URIBuilder(URL);
+      uriBuilder.addParameter(METRICS_MAP_STRING, jsonInputString);
+      uriBuilder.addParameter(METRICS_TYPE, metricsType.name().equals("GAUGE") ? "1" : "0");
+      HttpUriRequest request = new HttpPost(uriBuilder.build());
+
+      // TODO (Bhuvan): Add authentication headers
+      // TODO (Bhuvan): execute request using SSL
+      CloseableHttpResponse response = telemetryClient.executeWithoutSSL(request);
+
+      // Error handling
+      if (response == null) {
+        LoggingUtil.log(LogLevel.DEBUG, "Response is null for metrics export.");
+      } else if (response.getStatusLine().getStatusCode() != 200) {
+        LoggingUtil.log(
+            LogLevel.DEBUG,
+            "Response code for metrics export: "
+                + response.getStatusLine().getStatusCode()
+                + " Response: "
+                + response.getEntity().toString());
+      } else {
+        // Clearing map after successful response
+        map.clear();
+
+        // Get the response string
+        LoggingUtil.log(LogLevel.DEBUG, EntityUtils.toString(response.getEntity()));
+        response.close();
+      }
+    }
   }
 
   public void setGaugeMetrics(String name, double value) {

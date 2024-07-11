@@ -16,9 +16,8 @@ public class ErrorHandlingIntegrationTests extends AbstractFakeServiceIntegratio
   @Test
   void testFailureToLoadDriver() {
     Exception exception =
-        assertThrows(
-            ClassNotFoundException.class, () -> Class.forName("incorrect.DatabricksDriver.class"));
-    assertTrue(exception.getMessage().contains("incorrect.DatabricksDriver.class"));
+        assertThrows(ClassNotFoundException.class, () -> Class.forName("incorrect.Driver.class"));
+    assertTrue(exception.getMessage().contains("incorrect.Driver.class"));
   }
 
   @Test

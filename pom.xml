@@ -194,11 +194,6 @@
         </exclusion>
       </exclusions>
     </dependency>
-    <dependency>
-      <groupId>net.bytebuddy</groupId>
-      <artifactId>byte-buddy</artifactId>
-      <version>1.12.8</version>
-    </dependency>
   </dependencies>
 
   <build>
@@ -271,7 +266,7 @@
           <configuration>
             <archive>
               <manifest>
-                <mainClass>com.databricks.jdbc.driver.DatabricksDriver</mainClass>
+                <mainClass>com.databricks.client.jdbc.Driver</mainClass>
                 <addDefaultImplementationEntries>true</addDefaultImplementationEntries>
               </manifest>
             </archive>
