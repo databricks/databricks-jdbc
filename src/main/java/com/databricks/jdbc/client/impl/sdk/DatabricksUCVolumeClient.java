@@ -42,9 +42,15 @@ public class DatabricksUCVolumeClient implements IDatabricksUCVolumeClient {
   }
 
   private String createPutObjectQuery(
-      String catalog, String schema, String volume, String objectPath, String localPath) {
+      String catalog,
+      String schema,
+      String volume,
+      String objectPath,
+      String localPath,
+      boolean toOverwrite) {
     return String.format(
-        "PUT '%s' INTO '/Volumes/%s/%s/%s/%s'", localPath, catalog, schema, volume, objectPath);
+        "PUT '%s' INTO '/Volumes/%s/%s/%s/%s'%s",
+        localPath, catalog, schema, volume, objectPath, toOverwrite ? " OVERWRITE" : "");
   }
 
   public boolean prefixExists(String catalog, String schema, String volume, String prefix)
@@ -276,16 +282,23 @@ public class DatabricksUCVolumeClient implements IDatabricksUCVolumeClient {
   }
 
   public boolean putObject(
-      String catalog, String schema, String volume, String objectPath, String localPath)
+      String catalog,
+      String schema,
+      String volume,
+      String objectPath,
+      String localPath,
+      boolean toOverwrite)
       throws SQLException {
 
     LoggingUtil.log(
         LogLevel.DEBUG,
         String.format(
-            "Entering putObject method with parameters: catalog={%s}, schema={%s}, volume={%s}, objectPath={%s}, localPath={%s}",
-            catalog, schema, volume, objectPath, localPath));
+            "Entering putObject method with parameters: catalog={%s}, schema={%s}, volume={%s}, objectPath={%s}, localPath={%s}, toOverwrite={%s}",
+            catalog, schema, volume, objectPath, localPath, toOverwrite));
 
-    String putObjectQuery = createPutObjectQuery(catalog, schema, volume, objectPath, localPath);
+    String putObjectQuery =
+        createPutObjectQuery(catalog, schema, volume, objectPath, localPath, toOverwrite);
+    System.out.println(putObjectQuery);
 
     boolean volumeOperationStatus = false;
 
