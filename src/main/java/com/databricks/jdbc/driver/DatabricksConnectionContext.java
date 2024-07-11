@@ -90,11 +90,13 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   {
     // Setting System property to dynamically map the log path in the log4j.xml
     System.setProperty("log_path", getLogPathString());
+    System.setProperty("log_level", getLogLevel().toString());
 
     // Initial Logger Setup
     LoggingUtil.setupLogger(getLogPathString(),
             getLogFileSize(),
-            getLogFileCount(), LogLevel.INFO);
+            getLogFileCount(), getLogLevel());
+
   }
 
   @Override
@@ -302,13 +304,13 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   public LogLevel getLogLevel() {
     String logLevel = getParameter(DatabricksJdbcConstants.LOG_LEVEL);
     if (nullOrEmptyString(logLevel)) {
-           LoggingUtil.log(LogLevel.DEBUG, "No logLevel given in the input, defaulting to info.");
+//           LoggingUtil.log(LogLevel.DEBUG, "No logLevel given in the input, defaulting to info.");
       return DEFAULT_LOG_LEVEL;
     }
     try {
       return getLogLevel(Integer.parseInt(logLevel));
     } catch (NumberFormatException e) {
-            LoggingUtil.log(LogLevel.DEBUG, "Input log level is not an integer, parsing string.");
+//            LoggingUtil.log(LogLevel.DEBUG, "Input log level is not an integer, parsing string.");
       logLevel = logLevel.toUpperCase();
     }
 

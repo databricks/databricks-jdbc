@@ -931,7 +931,7 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
       String catalog, String schemaPattern, String tableNamePattern, String[] types)
       throws SQLException {
     LoggingUtil.log(
-        LogLevel.INFO,
+        LogLevel.DEBUG,
         String.format(
             "public ResultSet getTables(String catalog = {%s}, String schemaPattern = {%s}, String tableNamePattern = {%s}, String[] types = {%s})",
             catalog, schemaPattern, tableNamePattern, types));

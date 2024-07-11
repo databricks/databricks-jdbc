@@ -19,6 +19,7 @@ public class LoggingUtil {
     log(level, "Logger setup initiated with file path: " + filePath);
   }
 
+
   public static void log(LogLevel level, String message, String classContext) {
     log(level, String.format("%s - %s", classContext, message));
   }
