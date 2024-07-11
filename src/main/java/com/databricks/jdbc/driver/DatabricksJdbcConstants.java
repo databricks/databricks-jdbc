@@ -257,6 +257,8 @@ public final class DatabricksJdbcConstants {
       Pattern.compile("^(\\s*\\()*\\s*PUT", Pattern.CASE_INSENSITIVE);
   public static final Pattern REMOVE_PATTERN =
       Pattern.compile("^(\\s*\\()*\\s*REMOVE", Pattern.CASE_INSENSITIVE);
+  public static final Pattern LIST_PATTERN =
+      Pattern.compile("^(\\s*\\()*\\s*LIST", Pattern.CASE_INSENSITIVE);
   public static final int DBSQL_MIN_MAJOR_VERSION_FOR_NEW_METADATA = 2024;
   public static final int DBSQL_MIN_MINOR_VERSION_FOR_NEW_METADATA = 30;
 
