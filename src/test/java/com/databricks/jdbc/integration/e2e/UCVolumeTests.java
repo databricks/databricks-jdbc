@@ -327,7 +327,7 @@ public class UCVolumeTests {
             UC_VOLUME_CATALOG,
             UC_VOLUME_SCHEMA,
             "test_volume1",
-            "overwrite_test.txt",
+            "abc_file2.csv",
             "/tmp/download1.csv",
             true),
         Arguments.of(
