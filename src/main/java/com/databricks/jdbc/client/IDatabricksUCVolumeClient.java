@@ -89,9 +89,15 @@ public interface IDatabricksUCVolumeClient {
    * @param objectPath the destination path where the object (file) is to be uploaded from the
    *     volume as the root directory
    * @param localPath the local path from where the data is to be uploaded
+   * @param toOverwrite a boolean indicating whether to overwrite the object if it already exists
    * @return a boolean value indicating status of the PUT operation
    */
   boolean putObject(
-      String catalog, String schema, String volume, String objectPath, String localPath)
+      String catalog,
+      String schema,
+      String volume,
+      String objectPath,
+      String localPath,
+      boolean toOverwrite)
       throws SQLException;
 }

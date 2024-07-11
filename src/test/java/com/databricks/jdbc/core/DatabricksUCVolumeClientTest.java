@@ -45,9 +45,15 @@ public class DatabricksUCVolumeClientTest {
   }
 
   private String createPutObjectQuery(
-      String catalog, String schema, String volume, String objectPath, String localPath) {
+      String catalog,
+      String schema,
+      String volume,
+      String objectPath,
+      String localPath,
+      boolean toOverwrite) {
     return String.format(
-        "PUT '%s' INTO '/Volumes/%s/%s/%s/%s'", localPath, catalog, schema, volume, objectPath);
+        "PUT '%s' INTO '/Volumes/%s/%s/%s/%s'%s",
+        localPath, catalog, schema, volume, objectPath, toOverwrite ? " OVERWRITE" : "");
   }
 
   @ParameterizedTest
@@ -324,17 +330,19 @@ public class DatabricksUCVolumeClientTest {
       String volume,
       String objectPath,
       String localPath,
+      boolean toOverwrite,
       boolean expected)
       throws SQLException {
     DatabricksUCVolumeClient client = new DatabricksUCVolumeClient(connection);
 
     when(connection.createStatement()).thenReturn(statement);
-    String putObjectQuery = createPutObjectQuery(catalog, schema, volume, objectPath, localPath);
+    String putObjectQuery =
+        createPutObjectQuery(catalog, schema, volume, objectPath, localPath, toOverwrite);
     when(statement.executeQuery(putObjectQuery)).thenReturn(resultSet);
     when(resultSet.next()).thenReturn(true);
     when(resultSet.getString(VOLUME_OPERATION_STATUS_COLUMN_NAME))
         .thenReturn(VOLUME_OPERATION_STATUS_SUCCEEDED);
-    boolean result = client.putObject(catalog, schema, volume, objectPath, localPath);
+    boolean result = client.putObject(catalog, schema, volume, objectPath, localPath, toOverwrite);
 
     assertEquals(expected, result);
     verify(statement).executeQuery(putObjectQuery);
@@ -348,25 +356,32 @@ public class DatabricksUCVolumeClientTest {
             "test_volume",
             "test_objectpath",
             "test_localpath",
+            false,
             true));
   }
 
   @ParameterizedTest
   @MethodSource("provideParametersForPutObject_InvalidLocalPath")
   public void testPutObject_InvalidLocalPath(
-      String catalog, String schema, String volume, String objectPath, String localPath)
+      String catalog,
+      String schema,
+      String volume,
+      String objectPath,
+      String localPath,
+      boolean toOverwrite)
       throws SQLException {
     DatabricksUCVolumeClient client = new DatabricksUCVolumeClient(connection);
 
     when(connection.createStatement()).thenReturn(statement);
-    String putObjectQuery = createPutObjectQuery(catalog, schema, volume, objectPath, localPath);
+    String putObjectQuery =
+        createPutObjectQuery(catalog, schema, volume, objectPath, localPath, toOverwrite);
     when(statement.executeQuery(putObjectQuery))
         .thenThrow(new SQLException("Invalid local path: File not found or is a directory"));
 
     assertThrows(
         SQLException.class,
         () -> {
-          client.putObject(catalog, schema, volume, objectPath, localPath);
+          client.putObject(catalog, schema, volume, objectPath, localPath, toOverwrite);
         });
     verify(statement).executeQuery(putObjectQuery);
   }
@@ -374,6 +389,50 @@ public class DatabricksUCVolumeClientTest {
   private static Stream<Arguments> provideParametersForPutObject_InvalidLocalPath() {
     return Stream.of(
         Arguments.of(
-            "test_catalog", "test_schema", "test_volume", "test_objectpath", "invalid_localpath"));
+            "test_catalog",
+            "test_schema",
+            "test_volume",
+            "test_objectpath",
+            "invalid_localpath",
+            false));
+  }
+
+  @ParameterizedTest
+  @MethodSource("provideParametersForPutObject_OverwriteExistingFile")
+  public void testPutObject_OverwriteExistingFile(
+      String catalog,
+      String schema,
+      String volume,
+      String objectPath,
+      String localPath,
+      boolean toOverwrite,
+      boolean expected)
+      throws SQLException {
+    DatabricksUCVolumeClient client = new DatabricksUCVolumeClient(connection);
+
+    when(connection.createStatement()).thenReturn(statement);
+    String putObjectQuery =
+        createPutObjectQuery(catalog, schema, volume, objectPath, localPath, toOverwrite);
+    when(statement.executeQuery(putObjectQuery)).thenReturn(resultSet);
+    when(resultSet.next()).thenReturn(true);
+    when(resultSet.getString(VOLUME_OPERATION_STATUS_COLUMN_NAME))
+        .thenReturn(VOLUME_OPERATION_STATUS_SUCCEEDED);
+
+    boolean result = client.putObject(catalog, schema, volume, objectPath, localPath, toOverwrite);
+
+    assertEquals(expected, result);
+    verify(statement).executeQuery(putObjectQuery);
+  }
+
+  private static Stream<Arguments> provideParametersForPutObject_OverwriteExistingFile() {
+    return Stream.of(
+        Arguments.of(
+            "test_catalog",
+            "test_schema",
+            "test_volume",
+            "existing_objectpath",
+            "valid_localpath",
+            true,
+            true));
   }
 }
