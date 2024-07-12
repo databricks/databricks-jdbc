@@ -19,19 +19,12 @@
     </Appenders>
 
     <Loggers>
-        <Root level="info">
+        <Root level="${sys:log_level}">
             <AppenderRef ref="Console"/>
             <AppenderRef ref="RollingFile"/>
         </Root>
 
-        <!-- Example of setting a specific logger level -->
-        <Logger name="com.databricks.jdbc" level="debug" additivity="false">
-            <AppenderRef ref="Console"/>
-            <AppenderRef ref="RollingFile"/>
-        </Logger>
-
-        <!-- Specific logger configuration for the com.databricks.sdk package -->
-        <Logger name="com.databricks.sdk" level="${sys:log_level}" additivity="false">
+        <Logger name="databricks-jdbc" level="${sys:log_level}" additivity="false">
             <AppenderRef ref="Console"/>
             <AppenderRef ref="RollingFile"/>
         </Logger>

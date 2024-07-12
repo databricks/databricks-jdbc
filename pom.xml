@@ -26,8 +26,8 @@
     <maven.compiler.target>11</maven.compiler.target>
     <mockito.version>5.2.0</mockito.version>
     <jackson.version>2.15.1</jackson.version>
-    <log4j.version>2.20.0</log4j.version>
-    <slf4j.version>2.0.7</slf4j.version>
+    <log4j.version>2.22.1</log4j.version>
+    <slf4j.version>2.0.13</slf4j.version>
     <google.guava.version>33.0.0-jre</google.guava.version>
     <junit.jupiter.version>5.9.2</junit.jupiter.version>
     <google.findbugs.annotations.version>3.0.1</google.findbugs.annotations.version>
@@ -96,16 +96,19 @@
         <groupId>org.apache.logging.log4j</groupId>
         <artifactId>log4j-slf4j2-impl</artifactId>
         <version>${log4j.version}</version>
+        <optional>true</optional>
       </dependency>
     <dependency>
       <groupId>org.apache.logging.log4j</groupId>
       <artifactId>log4j-core</artifactId>
       <version>${log4j.version}</version>
+      <optional>true</optional>
     </dependency>
     <dependency>
       <groupId>org.apache.logging.log4j</groupId>
       <artifactId>log4j-api</artifactId>
       <version>${log4j.version}</version>
+      <optional>true</optional>
     </dependency>
     <dependency>
       <groupId>commons-io</groupId>
