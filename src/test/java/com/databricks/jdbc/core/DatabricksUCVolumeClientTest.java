@@ -56,11 +56,6 @@ public class DatabricksUCVolumeClientTest {
         localPath, catalog, schema, volume, objectPath, toOverwrite ? " OVERWRITE" : "");
   }
 
-  private String createDeleteObjectQuery(
-      String catalog, String schema, String volume, String objectPath) {
-    return String.format("REMOVE '/Volumes/%s/%s/%s/%s'", catalog, schema, volume, objectPath);
-  }
-
   @ParameterizedTest
   @MethodSource("provideParametersForPrefixExists")
   public void testPrefixExists(String volume, String prefix, boolean expected) throws SQLException {
@@ -449,7 +444,8 @@ public class DatabricksUCVolumeClientTest {
     DatabricksUCVolumeClient client = new DatabricksUCVolumeClient(connection);
 
     when(connection.createStatement()).thenReturn(statement);
-    String deleteObjectQuery = createDeleteObjectQuery(catalog, schema, volume, objectPath);
+    String deleteObjectQuery =
+        String.format("REMOVE '/Volumes/%s/%s/%s/%s'", catalog, schema, volume, objectPath);
     when(statement.executeQuery(deleteObjectQuery)).thenReturn(resultSet);
     when(resultSet.next()).thenReturn(true);
     when(resultSet.getString(VOLUME_OPERATION_STATUS_COLUMN_NAME))
@@ -471,7 +467,8 @@ public class DatabricksUCVolumeClientTest {
     DatabricksUCVolumeClient client = new DatabricksUCVolumeClient(connection);
 
     when(connection.createStatement()).thenReturn(statement);
-    String deleteObjectQuery = createDeleteObjectQuery(catalog, schema, volume, objectPath);
+    String deleteObjectQuery =
+        String.format("REMOVE '/Volumes/%s/%s/%s/%s'", catalog, schema, volume, objectPath);
     when(statement.executeQuery(deleteObjectQuery))
         .thenThrow(new SQLException("Invalid object path: Object not found"));
 

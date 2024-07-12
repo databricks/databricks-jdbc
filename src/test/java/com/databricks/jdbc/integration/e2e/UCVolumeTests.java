@@ -438,8 +438,8 @@ public class UCVolumeTests {
             "/tmp/download_hello_world.txt",
             "helloworld"));
   }
-  
-    @ParameterizedTest
+
+  @ParameterizedTest
   @MethodSource("provideParametersForPutAndDeleteTest")
   void testPutAndDelete(
       String catalog,
