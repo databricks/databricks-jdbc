@@ -437,7 +437,8 @@ public class DatabricksUCVolumeClientTest {
     DatabricksUCVolumeClient client = new DatabricksUCVolumeClient(connection);
 
     when(connection.createStatement()).thenReturn(statement);
-    String deleteObjectQuery = String.format("REMOVE '/Volumes/%s/%s/%s/%s'", catalog, schema, volume, objectPath);
+    String deleteObjectQuery =
+        String.format("REMOVE '/Volumes/%s/%s/%s/%s'", catalog, schema, volume, objectPath);
     when(statement.executeQuery(deleteObjectQuery)).thenReturn(resultSet);
     when(resultSet.next()).thenReturn(true);
     when(resultSet.getString(VOLUME_OPERATION_STATUS_COLUMN_NAME))
@@ -459,7 +460,8 @@ public class DatabricksUCVolumeClientTest {
     DatabricksUCVolumeClient client = new DatabricksUCVolumeClient(connection);
 
     when(connection.createStatement()).thenReturn(statement);
-    String deleteObjectQuery = String.format("REMOVE '/Volumes/%s/%s/%s/%s'", catalog, schema, volume, objectPath);
+    String deleteObjectQuery =
+        String.format("REMOVE '/Volumes/%s/%s/%s/%s'", catalog, schema, volume, objectPath);
     when(statement.executeQuery(deleteObjectQuery))
         .thenThrow(new SQLException("Invalid object path: Object not found"));
 

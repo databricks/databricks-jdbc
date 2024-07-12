@@ -442,13 +442,13 @@ public class UCVolumeTests {
   @ParameterizedTest
   @MethodSource("provideParametersForPutAndDeleteTest")
   void testPutAndDelete(
-          String catalog,
-          String schema,
-          String volume,
-          String objectPath,
-          String localPathForUpload,
-          String fileContent)
-          throws Exception {
+      String catalog,
+      String schema,
+      String volume,
+      String objectPath,
+      String localPathForUpload,
+      String fileContent)
+      throws Exception {
 
     Files.write(Paths.get(localPathForUpload), fileContent.getBytes(StandardCharsets.UTF_8));
     assertTrue(client.putObject(catalog, schema, volume, objectPath, localPathForUpload, false));
@@ -459,25 +459,25 @@ public class UCVolumeTests {
 
   private static Stream<Arguments> provideParametersForPutAndDeleteTest() {
     return Stream.of(
-            Arguments.of(
-                    UC_VOLUME_CATALOG,
-                    UC_VOLUME_SCHEMA,
-                    "test_volume1",
-                    "hello_world.txt",
-                    "/tmp/upload_hello_world.txt",
-                    "helloworld"));
+        Arguments.of(
+            UC_VOLUME_CATALOG,
+            UC_VOLUME_SCHEMA,
+            "test_volume1",
+            "hello_world.txt",
+            "/tmp/upload_hello_world.txt",
+            "helloworld"));
   }
 
   @ParameterizedTest
   @MethodSource("provideParametersForPutAndGetOverwriteTest")
   void testPutAndGetOverwrite(
-          String catalog,
-          String schema,
-          String volume,
-          String objectPath,
-          String initialContent,
-          String overwriteContent)
-          throws Exception {
+      String catalog,
+      String schema,
+      String volume,
+      String objectPath,
+      String initialContent,
+      String overwriteContent)
+      throws Exception {
 
     String uniqueId = UUID.randomUUID().toString();
     String localPathForUpload = "/tmp/upload_overwrite_test_" + uniqueId + ".txt";
@@ -505,12 +505,12 @@ public class UCVolumeTests {
 
   private static Stream<Arguments> provideParametersForPutAndGetOverwriteTest() {
     return Stream.of(
-            Arguments.of(
-                    UC_VOLUME_CATALOG,
-                    UC_VOLUME_SCHEMA,
-                    "test_volume1",
-                    "overwrite.txt",
-                    "initialContent",
-                    "overwriteContent"));
+        Arguments.of(
+            UC_VOLUME_CATALOG,
+            UC_VOLUME_SCHEMA,
+            "test_volume1",
+            "overwrite.txt",
+            "initialContent",
+            "overwriteContent"));
   }
 }
