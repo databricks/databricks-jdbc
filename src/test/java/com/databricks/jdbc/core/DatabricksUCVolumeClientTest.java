@@ -428,4 +428,51 @@ public class DatabricksUCVolumeClientTest {
             true,
             true));
   }
+
+  @ParameterizedTest
+  @MethodSource("provideParametersForDeleteObject")
+  public void testDeleteObject(
+      String catalog, String schema, String volume, String objectPath, boolean expected)
+      throws SQLException {
+    DatabricksUCVolumeClient client = new DatabricksUCVolumeClient(connection);
+
+    when(connection.createStatement()).thenReturn(statement);
+    String deleteObjectQuery = String.format("REMOVE '/Volumes/%s/%s/%s/%s'", catalog, schema, volume, objectPath);
+    when(statement.executeQuery(deleteObjectQuery)).thenReturn(resultSet);
+    when(resultSet.next()).thenReturn(true);
+    when(resultSet.getString(VOLUME_OPERATION_STATUS_COLUMN_NAME))
+        .thenReturn(VOLUME_OPERATION_STATUS_SUCCEEDED);
+    boolean result = client.deleteObject(catalog, schema, volume, objectPath);
+
+    assertEquals(expected, result);
+    verify(statement).executeQuery(deleteObjectQuery);
+  }
+
+  private static Stream<Arguments> provideParametersForDeleteObject() {
+    return Stream.of(Arguments.of("test_catalog", "test_schema", "test_volume", "test_path", true));
+  }
+
+  @ParameterizedTest
+  @MethodSource("provideParametersForDeleteObject_InvalidObjectPath")
+  public void testDeleteObject_InvalidObjectPath(
+      String catalog, String schema, String volume, String objectPath) throws SQLException {
+    DatabricksUCVolumeClient client = new DatabricksUCVolumeClient(connection);
+
+    when(connection.createStatement()).thenReturn(statement);
+    String deleteObjectQuery = String.format("REMOVE '/Volumes/%s/%s/%s/%s'", catalog, schema, volume, objectPath);
+    when(statement.executeQuery(deleteObjectQuery))
+        .thenThrow(new SQLException("Invalid object path: Object not found"));
+
+    assertThrows(
+        SQLException.class,
+        () -> {
+          client.deleteObject(catalog, schema, volume, objectPath);
+        });
+    verify(statement).executeQuery(deleteObjectQuery);
+  }
+
+  private static Stream<Arguments> provideParametersForDeleteObject_InvalidObjectPath() {
+    return Stream.of(
+        Arguments.of("test_catalog", "test_schema", "test_volume", "invalid_objectpath"));
+  }
 }
