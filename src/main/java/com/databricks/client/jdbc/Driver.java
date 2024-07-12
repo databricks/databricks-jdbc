@@ -42,7 +42,6 @@ public class Driver implements java.sql.Driver {
 
   @Override
   public Connection connect(String url, Properties info) throws DatabricksSQLException {
-
     IDatabricksConnectionContext connectionContext = DatabricksConnectionContext.parse(url, info);
 
     setUserAgent(connectionContext);

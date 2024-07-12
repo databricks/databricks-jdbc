@@ -28,6 +28,5 @@
             <AppenderRef ref="Console"/>
             <AppenderRef ref="RollingFile"/>
         </Logger>
-
     </Loggers>
 </Configuration>
