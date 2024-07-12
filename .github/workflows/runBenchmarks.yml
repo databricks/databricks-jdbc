@@ -10,17 +10,18 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout benchmark branch
+      - name: Checkout benchmarking branch
         uses: actions/checkout@v2
         with:
-          ref: benchmark-branch
+          ref: benchmarking-branch
 
-      - name: Merge main into benchmark-branch
+      - name: Merge main into benchmarking-branch
         run: |
           git config --global user.email "madhav.sainanee@databricks.com"
           git config --global user.name "madhav-db"
-          git pull origin main
-          git push origin benchmark-branch
+          git config pull.rebase true
+          git fetch origin
+          git rebase -X ours origin/main
 
       - name: Set up Java
         uses: actions/setup-java@v2
@@ -72,4 +73,4 @@ jobs:
 
       - name: Run Benchmark Tests
         run: |
-          mvn -B test -Dtest=com.databricks.jdbc.integration.benchmarking.LargeQueriesBenchmarkingTest,com.databricks.jdbc.integration.benchmarking.MetadataBenchmarkingTests
+          mvn test -Dtest=com.databricks.jdbc.integration.benchmarking.LargeQueriesBenchmarkingTest,com.databricks.jdbc.integration.benchmarking.MetadataBenchmarkingTests

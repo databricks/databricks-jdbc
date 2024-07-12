@@ -2,9 +2,9 @@ package com.databricks.jdbc.core;
 
 import static com.databricks.jdbc.driver.DatabricksJdbcConstants.*;
 
+import com.databricks.client.jdbc.Driver;
 import com.databricks.jdbc.commons.LogLevel;
 import com.databricks.jdbc.commons.util.LoggingUtil;
-import com.databricks.jdbc.driver.DatabricksDriver;
 import com.databricks.jdbc.driver.DatabricksJdbcConstants;
 import com.google.common.annotations.VisibleForTesting;
 import java.io.PrintWriter;
@@ -19,15 +19,15 @@ public class DatabricksDataSource implements DataSource {
   private int port;
   private String httpPath;
   private Properties properties = new Properties();
-  private final DatabricksDriver databricksDriver;
+  private final Driver driver;
 
   public DatabricksDataSource() {
-    this.databricksDriver = DatabricksDriver.getInstance();
+    this.driver = Driver.getInstance();
   }
 
   @VisibleForTesting
-  public DatabricksDataSource(DatabricksDriver databricksDriver) {
-    this.databricksDriver = databricksDriver;
+  public DatabricksDataSource(Driver driver) {
+    this.driver = driver;
   }
 
   @Override
@@ -49,7 +49,7 @@ public class DatabricksDataSource implements DataSource {
     if (password != null) {
       setPassword(password);
     }
-    return databricksDriver.connect(getUrl(), properties);
+    return driver.connect(getUrl(), properties);
   }
 
   @Override

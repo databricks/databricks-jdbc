@@ -200,7 +200,7 @@
           <configuration>
             <archive>
               <manifest>
-                <mainClass>com.databricks.jdbc.driver.DatabricksDriver</mainClass>
+                <mainClass>com.databricks.client.jdbc.Driver</mainClass>
                 <addDefaultImplementationEntries>true</addDefaultImplementationEntries>
               </manifest>
             </archive>
