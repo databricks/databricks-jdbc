@@ -1,19 +1,30 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- As we have added dynamic logging configuration, keeping this file minimal
-     Its primary role will be to provide a default configuration that the application can fall back on if needed
--->
 <Configuration status="WARN">
+    <Properties>
+        <Property name="LOG_PATTERN">%d{yyyy-MM-dd HH:mm:ss.SSS} [%t] %-5level %logger{36} - %msg%n</Property>
+        <Property name="APP_LOG_ROOT">${sys:java.io.tmpdir}</Property>
+    </Properties>
+
     <Appenders>
-        <!-- Console appender for default logging -->
         <Console name="Console" target="SYSTEM_OUT">
-            <PatternLayout pattern="%d{yyyy-MM-dd HH:mm:ss} %-5level %logger{36} - %msg%n"/>
+            <PatternLayout pattern="${LOG_PATTERN}"/>
         </Console>
+
+        <RollingFile name="FileAppender" fileName="${APP_LOG_ROOT}/databricks-sdk.log"
+                     filePattern="${APP_LOG_ROOT}/databricks-sdk-%d{yyyy-MM-dd}-%i.log">
+            <PatternLayout pattern="${LOG_PATTERN}"/>
+            <Policies>
+                <SizeBasedTriggeringPolicy size="10MB"/>
+                <TimeBasedTriggeringPolicy interval="1" modulate="true"/>
+            </Policies>
+            <DefaultRolloverStrategy max="10"/>
+        </RollingFile>
     </Appenders>
 
     <Loggers>
-        <!-- Root logger to catch any logs that don't match other loggers -->
         <Root level="info">
             <AppenderRef ref="Console"/>
+            <AppenderRef ref="FileAppender"/>
         </Root>
     </Loggers>
 </Configuration>
