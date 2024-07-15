@@ -539,4 +539,12 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   public boolean supportManyParameters() {
     return getParameter(SUPPORT_MANY_PARAMETERS, "0").equals("1");
   }
+
+  /** Returns whether the current test is a fake service test. */
+  // TODO: (Bhuvan) This is a temporary solution to enable fake service tests by disabling flushing
+  // of metrics when session is closed. We should remove this
+  @Override
+  public boolean isFakeServiceTest() {
+    return Boolean.parseBoolean(System.getProperty(IS_FAKE_SERVICE_TEST_PROP));
+  }
 }
