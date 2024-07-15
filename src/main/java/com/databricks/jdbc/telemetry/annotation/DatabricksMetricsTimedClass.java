@@ -1,4 +1,4 @@
-package com.databricks.jdbc.annotation;
+package com.databricks.jdbc.telemetry.annotation;
 
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;

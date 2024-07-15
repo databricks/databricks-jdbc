@@ -1,4 +1,4 @@
-package com.databricks.jdbc.annotation;
+package com.databricks.jdbc.telemetry.annotation;
 
 import com.databricks.jdbc.core.DatabricksSession;
 import com.databricks.jdbc.core.IDatabricksSession;
@@ -62,12 +62,12 @@ public class DatabricksMetricsTimedProcessor {
         // Get the connection context
         IDatabricksConnectionContext connectionContext = null;
 
-        boolean isMetricMetadataSea = metricName.endsWith("METADATA_SEA");
+        boolean isMetricMetadataSEA = metricName.endsWith("METADATA_SEA");
         boolean isMetricThrift = metricName.endsWith("THRIFT");
         boolean isMetricSdk = metricName.endsWith("SDK");
-
+        System.out.println("isMetricMetadataSEA: " + isMetricMetadataSEA);
         // Get the connection context based on the metric type
-        if (isMetricMetadataSea && args != null && args[0].getClass() == DatabricksSession.class) {
+        if (isMetricMetadataSEA && args != null && args[0].getClass() == DatabricksSession.class) {
           connectionContext = ((IDatabricksSession) args[0]).getConnectionContext();
         } else if (isMetricThrift || isMetricSdk) {
           connectionContext =
@@ -75,8 +75,9 @@ public class DatabricksMetricsTimedProcessor {
                   target.getClass().getMethod("getConnectionContext").invoke(target);
         }
         // Record the metric
-        assert connectionContext != null;
-        connectionContext.getMetricsExporter().record(metricName, endTime - startTime);
+        if (connectionContext != null) {
+          connectionContext.getMetricsExporter().record(metricName, endTime - startTime);
+        }
         return result;
       } else {
         return method.invoke(target, args);

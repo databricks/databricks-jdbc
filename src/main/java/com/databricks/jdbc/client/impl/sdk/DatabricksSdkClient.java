@@ -3,8 +3,6 @@ package com.databricks.jdbc.client.impl.sdk;
 import static com.databricks.jdbc.client.impl.sdk.PathConstants.*;
 import static com.databricks.jdbc.commons.EnvironmentVariables.DEFAULT_ROW_LIMIT;
 
-import com.databricks.jdbc.annotation.DatabricksMetricsTimedClass;
-import com.databricks.jdbc.annotation.DatabricksMetricsTimedMethod;
 import com.databricks.jdbc.client.DatabricksClient;
 import com.databricks.jdbc.client.StatementType;
 import com.databricks.jdbc.client.impl.helper.ClientUtils;
@@ -17,13 +15,15 @@ import com.databricks.jdbc.client.sqlexec.ExecuteStatementResponse;
 import com.databricks.jdbc.client.sqlexec.ExternalLink;
 import com.databricks.jdbc.client.sqlexec.GetStatementResponse;
 import com.databricks.jdbc.client.sqlexec.ResultData;
-import com.databricks.jdbc.commons.LogLevel;
 import com.databricks.jdbc.commons.CommandLatencyMetrics;
+import com.databricks.jdbc.commons.LogLevel;
 import com.databricks.jdbc.commons.util.LoggingUtil;
 import com.databricks.jdbc.core.*;
 import com.databricks.jdbc.core.types.ComputeResource;
 import com.databricks.jdbc.core.types.Warehouse;
 import com.databricks.jdbc.driver.IDatabricksConnectionContext;
+import com.databricks.jdbc.telemetry.annotation.DatabricksMetricsTimedClass;
+import com.databricks.jdbc.telemetry.annotation.DatabricksMetricsTimedMethod;
 import com.databricks.sdk.WorkspaceClient;
 import com.databricks.sdk.core.ApiClient;
 import com.databricks.sdk.core.DatabricksConfig;
@@ -297,7 +297,7 @@ public class DatabricksSdkClient implements DatabricksClient {
   }
 
   /** Handles a failed execution and throws appropriate exception */
-  private void handleFailedExecution(
+  void handleFailedExecution(
       ExecuteStatementResponse response, String statementId, String statement) throws SQLException {
     StatementState statementState = response.getStatus().getState();
     String errorMessage =

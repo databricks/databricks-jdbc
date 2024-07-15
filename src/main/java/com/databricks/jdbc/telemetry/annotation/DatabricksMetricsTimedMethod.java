@@ -1,4 +1,4 @@
-package com.databricks.jdbc.annotation;
+package com.databricks.jdbc.telemetry.annotation;
 
 import com.databricks.jdbc.commons.CommandLatencyMetrics;
 import java.lang.annotation.ElementType;

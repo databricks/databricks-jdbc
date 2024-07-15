@@ -3,6 +3,7 @@ package com.databricks.jdbc.driver;
 import static com.databricks.jdbc.driver.DatabricksJdbcConstants.*;
 
 import com.databricks.jdbc.client.DatabricksClientType;
+import com.databricks.jdbc.commons.CommandLatencyMetrics;
 import com.databricks.jdbc.commons.LogLevel;
 import com.databricks.jdbc.commons.util.LoggingUtil;
 import com.databricks.jdbc.core.DatabricksParsingException;
@@ -39,6 +40,7 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
       throws DatabricksSQLException {
     if (!isValid(url)) {
       // TODO: handle exceptions properly
+      metricsExporter.increment(CommandLatencyMetrics.INVALID_URL.name(), 1);
       throw new DatabricksParsingException("Invalid url " + url);
     }
     Matcher urlMatcher = JDBC_URL_PATTERN.matcher(url);

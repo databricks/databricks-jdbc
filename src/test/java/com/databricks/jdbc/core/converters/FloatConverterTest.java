@@ -136,4 +136,13 @@ public class FloatConverterTest {
             () -> new FloatConverter(NON_ZERO_OBJECT).convertToDate());
     assertTrue(exception.getMessage().contains("Unsupported conversion operation"));
   }
+
+  @Test
+  public void testConvertToBigInteger() throws DatabricksSQLException {
+    assertEquals(
+        new FloatConverter(NON_ZERO_OBJECT).convertToBigInteger(),
+        new BigDecimal("10.2").toBigInteger());
+    assertEquals(
+        new FloatConverter(ZERO_OBJECT).convertToBigInteger(), new BigDecimal("0").toBigInteger());
+  }
 }

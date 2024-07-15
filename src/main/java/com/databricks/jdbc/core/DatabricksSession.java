@@ -1,6 +1,5 @@
 package com.databricks.jdbc.core;
 
-import com.databricks.jdbc.annotation.DatabricksMetricsTimedProcessor;
 import com.databricks.jdbc.client.DatabricksClient;
 import com.databricks.jdbc.client.DatabricksClientType;
 import com.databricks.jdbc.client.DatabricksMetadataClient;
@@ -13,6 +12,7 @@ import com.databricks.jdbc.commons.util.LoggingUtil;
 import com.databricks.jdbc.core.types.CompressionType;
 import com.databricks.jdbc.core.types.ComputeResource;
 import com.databricks.jdbc.driver.IDatabricksConnectionContext;
+import com.databricks.jdbc.telemetry.annotation.DatabricksMetricsTimedProcessor;
 import com.databricks.sdk.support.ToStringer;
 import com.google.common.annotations.VisibleForTesting;
 import java.util.HashMap;

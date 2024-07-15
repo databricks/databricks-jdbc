@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import com.databricks.jdbc.core.DatabricksSQLException;
 import java.math.BigDecimal;
+import java.math.BigInteger;
 import java.util.Arrays;
 import org.junit.jupiter.api.Test;
 
@@ -100,5 +101,11 @@ public class ByteConverterTest {
         assertThrows(
             DatabricksSQLException.class, () -> new ByteConverter(NON_ZERO_OBJECT).convertToDate());
     assertTrue(exception.getMessage().contains("Unsupported conversion operation"));
+  }
+
+  @Test
+  public void testConvertToBigInteger() throws DatabricksSQLException {
+    assertEquals(new ByteConverter(NON_ZERO_OBJECT).convertToBigInteger(), BigInteger.valueOf(65));
+    assertEquals(new ByteConverter(ZERO_OBJECT).convertToBigInteger(), BigInteger.valueOf(0));
   }
 }

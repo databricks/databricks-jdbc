@@ -24,5 +24,6 @@ public enum CommandLatencyMetrics {
   EXECUTE_STATEMENT_SDK,
   GET_RESULT_CHUNKS_SDK,
   GET_REQUEST_SDK,
-  DEFAULT
+  DEFAULT,
+  INVALID_URL
 }

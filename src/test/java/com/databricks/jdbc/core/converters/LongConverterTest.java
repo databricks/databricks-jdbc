@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import com.databricks.jdbc.core.DatabricksSQLException;
 import java.math.BigDecimal;
+import java.math.BigInteger;
 import java.nio.ByteBuffer;
 import java.sql.Date;
 import java.util.Arrays;
@@ -136,5 +137,11 @@ public class LongConverterTest {
   public void testStringConversion() throws DatabricksSQLException {
     LongConverter longConverter = new LongConverter("123");
     assertEquals(longConverter.convertToInt(), 123);
+  }
+
+  @Test
+  public void testConvertToBigInteger() throws DatabricksSQLException {
+    assertEquals(new LongConverter(NON_ZERO_OBJECT).convertToBigInteger(), BigInteger.valueOf(10));
+    assertEquals(new LongConverter(ZERO_OBJECT).convertToBigInteger(), BigInteger.valueOf(0));
   }
 }

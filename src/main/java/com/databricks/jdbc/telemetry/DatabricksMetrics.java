@@ -14,7 +14,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpPost;
-import org.apache.http.client.methods.HttpUriRequest;
 import org.apache.http.client.utils.URIBuilder;
 import org.apache.http.util.EntityUtils;
 
@@ -87,9 +86,9 @@ public class DatabricksMetrics implements AutoCloseable {
 
       // Create the request and adding parameters & headers
       URIBuilder uriBuilder = new URIBuilder(URL);
-      uriBuilder.addParameter(METRICS_MAP_STRING, jsonInputString);
-      uriBuilder.addParameter(METRICS_TYPE, metricsType.name().equals("GAUGE") ? "1" : "0");
-      HttpUriRequest request = new HttpPost(uriBuilder.build());
+      HttpPost request = new HttpPost(uriBuilder.build());
+      request.setHeader(METRICS_MAP_STRING, jsonInputString);
+      request.setHeader(METRICS_TYPE, metricsType.name().equals("GAUGE") ? "1" : "0");
 
       // TODO (Bhuvan): Add authentication headers
       // TODO (Bhuvan): execute request using SSL
