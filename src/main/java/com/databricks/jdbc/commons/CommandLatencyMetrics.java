@@ -1,6 +1,6 @@
 package com.databricks.jdbc.commons;
 
-public enum MetricsList {
+public enum CommandLatencyMetrics {
   LIST_CATALOGS_METADATA_SEA,
   LIST_SCHEMAS_METADATA_SEA,
   LIST_TABLES_METADATA_SEA,

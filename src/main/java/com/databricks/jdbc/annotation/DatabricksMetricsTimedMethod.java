@@ -1,6 +1,6 @@
 package com.databricks.jdbc.annotation;
 
-import com.databricks.jdbc.commons.MetricsList;
+import com.databricks.jdbc.commons.CommandLatencyMetrics;
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -11,5 +11,5 @@ import java.lang.annotation.Target;
 public @interface DatabricksMetricsTimedMethod {
   String methodName();
 
-  MetricsList metricName() default MetricsList.DEFAULT;
+  CommandLatencyMetrics metricName() default CommandLatencyMetrics.DEFAULT;
 }
