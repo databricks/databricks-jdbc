@@ -137,8 +137,6 @@ public class IntegrationTestUtil {
   }
 
   public static Connection getDogfoodJDBCConnection() throws SQLException {
-    System.out.println("pizza-dogfood jdbc url");
-    System.out.println(getDogfoodJDBCUrl());
     return DriverManager.getConnection(
         getDogfoodJDBCUrl(), getDatabricksUser(), getDatabricksDogfoodToken());
   }
