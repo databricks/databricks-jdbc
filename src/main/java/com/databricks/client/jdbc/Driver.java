@@ -173,7 +173,7 @@ public class Driver implements java.sql.Driver {
     System.out.printf("The driver {%s} has been initialized.%n", Driver.class);
   }
 
-  private static String getVersion() {
+  public static String getVersion() {
     return String.format("%d.%d.%d-%s", majorVersion, minorVersion, buildVersion, qualifier);
   }
 

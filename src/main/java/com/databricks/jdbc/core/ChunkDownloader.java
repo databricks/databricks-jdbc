@@ -1,5 +1,6 @@
 package com.databricks.jdbc.core;
 
+import com.databricks.client.jdbc.Driver;
 import com.databricks.jdbc.client.IDatabricksHttpClient;
 import com.databricks.jdbc.client.http.DatabricksHttpClient;
 import com.databricks.jdbc.client.impl.thrift.generated.TRowSet;
@@ -10,8 +11,12 @@ import com.databricks.jdbc.client.sqlexec.ResultManifest;
 import com.databricks.jdbc.commons.LogLevel;
 import com.databricks.jdbc.commons.util.LoggingUtil;
 import com.databricks.jdbc.core.types.CompressionType;
+import com.databricks.jdbc.driver.IDatabricksConnectionContext;
+import com.databricks.jdbc.telemetry.DatabricksErrorLogging;
 import com.databricks.sdk.service.sql.BaseChunkInfo;
 import com.google.common.annotations.VisibleForTesting;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.Collection;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
@@ -150,6 +155,8 @@ public class ChunkDownloader {
           chunk.wait();
         }
         if (chunk.getStatus() != ArrowResultChunk.ChunkStatus.DOWNLOAD_SUCCEEDED) {
+          DatabricksErrorLogging.exportChunkDownloadErrorLogAndErrorMetric(
+              session, statementId, chunk.getStatus().name(), chunk.getStatus().ordinal());
           throw new DatabricksSQLException(chunk.getErrorMessage());
         }
       } catch (InterruptedException e) {
