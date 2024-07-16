@@ -306,6 +306,7 @@ public class DatabricksThriftServiceClient implements DatabricksClient, Databric
       String tableNamePattern,
       String columnNamePattern)
       throws DatabricksSQLException {
+    System.out.println("public ResultSet getColumns()");
     String context =
         String.format(
             "Fetching columns for all purpose cluster. Session {%s}, catalog {%s}, schemaNamePattern {%s}, tableNamePattern {%s}, columnNamePattern {%s}",

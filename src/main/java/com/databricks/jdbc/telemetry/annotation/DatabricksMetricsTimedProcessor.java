@@ -47,13 +47,15 @@ public class DatabricksMetricsTimedProcessor {
 
     @Override
     public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
+      String methodName = method.getName();
+      System.out.println("methodName invoke: " + methodName);
       // Check if the method is annotated
       if (methodsToTime.containsKey(method.getName())) {
         // Get the metric name
         DatabricksMetricsTimedMethod databricksMetricsTimedMethod =
             methodsToTime.get(method.getName());
         String metricName = databricksMetricsTimedMethod.metricName().name();
-
+        System.out.println("metricName: " + metricName);
         // Record execution time
         long startTime = System.currentTimeMillis();
         Object result = method.invoke(target, args);

@@ -31,25 +31,25 @@ import java.util.Optional;
     methods = {
       @DatabricksMetricsTimedMethod(
           methodName = "listCatalogs",
-          metricName = CommandLatencyMetrics.LIST_CATALOGS_METADATA_SEA),
+          metricName = CommandLatencyMetrics.LIST_CATALOGS_NEW_METADATA_SEA),
       @DatabricksMetricsTimedMethod(
           methodName = "listSchemas",
-          metricName = CommandLatencyMetrics.LIST_SCHEMAS_METADATA_SEA),
+          metricName = CommandLatencyMetrics.LIST_SCHEMAS_NEW_METADATA_SEA),
       @DatabricksMetricsTimedMethod(
           methodName = "listTables",
-          metricName = CommandLatencyMetrics.LIST_TABLES_METADATA_SEA),
+          metricName = CommandLatencyMetrics.LIST_TABLES_NEW_METADATA_SEA),
       @DatabricksMetricsTimedMethod(
           methodName = "listTableTypes",
-          metricName = CommandLatencyMetrics.LIST_TABLE_TYPES_METADATA_SEA),
+          metricName = CommandLatencyMetrics.LIST_TABLE_TYPES_NEW_METADATA_SEA),
       @DatabricksMetricsTimedMethod(
           methodName = "listColumns",
-          metricName = CommandLatencyMetrics.LIST_COLUMNS_METADATA_SEA),
+          metricName = CommandLatencyMetrics.LIST_COLUMNS_NEW_METADATA_SEA),
       @DatabricksMetricsTimedMethod(
           methodName = "listFunctions",
-          metricName = CommandLatencyMetrics.LIST_FUNCTIONS_METADATA_SEA),
+          metricName = CommandLatencyMetrics.LIST_FUNCTIONS_NEW_METADATA_SEA),
       @DatabricksMetricsTimedMethod(
           methodName = "listPrimaryKeys",
-          metricName = CommandLatencyMetrics.LIST_PRIMARY_KEYS_METADATA_SEA)
+          metricName = CommandLatencyMetrics.LIST_PRIMARY_KEYS_NEW_METADATA_SEA)
     })
 public class DatabricksNewMetadataSdkClient implements DatabricksMetadataClient {
   private final DatabricksSdkClient sdkClient;
@@ -76,6 +76,7 @@ public class DatabricksNewMetadataSdkClient implements DatabricksMetadataClient 
   @Override
   public DatabricksResultSet listSchemas(
       IDatabricksSession session, String catalog, String schemaNamePattern) throws SQLException {
+    System.out.println("public ResultSet getSchemas()");
     CommandBuilder commandBuilder =
         new CommandBuilder(catalog, session).setSchemaPattern(schemaNamePattern);
     String SQL = commandBuilder.getSQLString(CommandName.LIST_SCHEMAS);

@@ -23,7 +23,7 @@ public class DatabricksMetrics implements AutoCloseable {
   private final Map<String, Double> gaugeMetrics = new HashMap<>();
   private final Map<String, Double> counterMetrics = new HashMap<>();
   private final long intervalDurationForSendingReq =
-      TimeUnit.SECONDS.toMillis(10 * 60); // 10 minutes
+      TimeUnit.SECONDS.toMillis(1 * 10); // 10 minutes
   private final ObjectMapper objectMapper = new ObjectMapper();
   private final String METRICS_MAP_STRING = "metrics_map";
   private final String METRICS_TYPE = "metrics_type";

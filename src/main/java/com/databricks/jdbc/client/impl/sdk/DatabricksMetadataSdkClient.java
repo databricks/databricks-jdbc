@@ -4,12 +4,15 @@ import static com.databricks.jdbc.client.impl.sdk.ResultConstants.TYPE_INFO_RESU
 
 import com.databricks.jdbc.client.DatabricksMetadataClient;
 import com.databricks.jdbc.client.StatementType;
+import com.databricks.jdbc.commons.CommandLatencyMetrics;
 import com.databricks.jdbc.commons.LogLevel;
 import com.databricks.jdbc.commons.util.LoggingUtil;
 import com.databricks.jdbc.commons.util.WildcardUtil;
 import com.databricks.jdbc.core.DatabricksResultSet;
 import com.databricks.jdbc.core.IDatabricksSession;
 import com.databricks.jdbc.core.ImmutableSqlParameter;
+import com.databricks.jdbc.telemetry.annotation.DatabricksMetricsTimedClass;
+import com.databricks.jdbc.telemetry.annotation.DatabricksMetricsTimedMethod;
 import com.databricks.sdk.service.sql.StatementState;
 import com.databricks.sdk.service.sql.StatementStatus;
 import java.sql.ResultSet;
@@ -21,6 +24,30 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
+@DatabricksMetricsTimedClass(
+    methods = {
+      @DatabricksMetricsTimedMethod(
+          methodName = "listCatalogs",
+          metricName = CommandLatencyMetrics.LIST_CATALOGS_METADATA_SEA),
+      @DatabricksMetricsTimedMethod(
+          methodName = "listSchemas",
+          metricName = CommandLatencyMetrics.LIST_SCHEMAS_METADATA_SEA),
+      @DatabricksMetricsTimedMethod(
+          methodName = "listTables",
+          metricName = CommandLatencyMetrics.LIST_TABLES_METADATA_SEA),
+      @DatabricksMetricsTimedMethod(
+          methodName = "listTableTypes",
+          metricName = CommandLatencyMetrics.LIST_TABLE_TYPES_METADATA_SEA),
+      @DatabricksMetricsTimedMethod(
+          methodName = "listColumns",
+          metricName = CommandLatencyMetrics.LIST_COLUMNS_METADATA_SEA),
+      @DatabricksMetricsTimedMethod(
+          methodName = "listFunctions",
+          metricName = CommandLatencyMetrics.LIST_FUNCTIONS_METADATA_SEA),
+      @DatabricksMetricsTimedMethod(
+          methodName = "listPrimaryKeys",
+          metricName = CommandLatencyMetrics.LIST_PRIMARY_KEYS_METADATA_SEA)
+    })
 /** Implementation for DatabricksMetadataClient using SDK client */
 public class DatabricksMetadataSdkClient implements DatabricksMetadataClient {
 

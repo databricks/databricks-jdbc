@@ -23,8 +23,8 @@ import javax.annotation.Nullable;
 public class DatabricksSession implements IDatabricksSession {
   private DatabricksClient databricksClient;
 
-  private DatabricksMetadataSdkClient databricksMetadataSdkClient;
-  private DatabricksNewMetadataSdkClient databricksNewMetadataSdkClient;
+  private DatabricksMetadataClient databricksMetadataSdkClient;
+  private DatabricksMetadataClient databricksNewMetadataSdkClient;
   private DatabricksMetadataClient databricksMetadataClient;
   private final ComputeResource computeResource;
 
@@ -50,6 +50,7 @@ public class DatabricksSession implements IDatabricksSession {
    */
   public DatabricksSession(IDatabricksConnectionContext connectionContext)
       throws DatabricksSQLException {
+    System.out.println(connectionContext.getClientType());
     if (connectionContext.getClientType() == DatabricksClientType.THRIFT) {
       this.databricksClient = new DatabricksThriftServiceClient(connectionContext);
       this.databricksMetadataClient = null;
@@ -60,7 +61,13 @@ public class DatabricksSession implements IDatabricksSession {
         new DatabricksMetadataSdkClient((DatabricksSdkClient) databricksClient);
     this.databricksNewMetadataSdkClient =
         new DatabricksNewMetadataSdkClient((DatabricksSdkClient) databricksClient);
+
     this.databricksClient = DatabricksMetricsTimedProcessor.createProxy(this.databricksClient);
+    this.databricksNewMetadataSdkClient =
+        DatabricksMetricsTimedProcessor.createProxy(databricksNewMetadataSdkClient);
+    this.databricksMetadataSdkClient =
+        DatabricksMetricsTimedProcessor.createProxy(databricksMetadataSdkClient);
+
     this.isSessionOpen = false;
     this.sessionInfo = null;
     this.computeResource = connectionContext.getComputeResource();
