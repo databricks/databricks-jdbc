@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import com.databricks.jdbc.core.DatabricksSQLException;
 import java.math.BigDecimal;
+import java.math.BigInteger;
 import java.nio.ByteBuffer;
 import java.sql.Date;
 import java.util.Arrays;
@@ -121,8 +122,22 @@ public class IntConverterTest {
   }
 
   @Test
+  public void testConvertToTimestampWithScale() throws DatabricksSQLException {
+    assertThrows(
+        DatabricksSQLException.class,
+        () -> new IntConverter(NON_ZERO_OBJECT).convertToTimestamp(10));
+    assertDoesNotThrow(() -> new IntConverter(NON_ZERO_OBJECT).convertToTimestamp(5));
+  }
+
+  @Test
   public void testConvertToDate() throws DatabricksSQLException {
     assertEquals(new IntConverter(NON_ZERO_OBJECT).convertToDate(), Date.valueOf("1970-01-11"));
     assertEquals(new IntConverter(ZERO_OBJECT).convertToDate(), Date.valueOf("1970-01-01"));
+  }
+
+  @Test
+  public void testConvertToBigInteger() throws DatabricksSQLException {
+    assertEquals(new IntConverter(NON_ZERO_OBJECT).convertToBigInteger(), BigInteger.valueOf(10L));
+    assertEquals(new IntConverter(ZERO_OBJECT).convertToBigInteger(), BigInteger.valueOf(0L));
   }
 }

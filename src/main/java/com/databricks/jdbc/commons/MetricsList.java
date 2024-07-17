@@ -26,4 +26,5 @@ public enum MetricsList {
   EXECUTE_STATEMENT,
   GET_RESULT_CHUNKS,
   GET_REQUEST,
+  INVALID_URL,
 }
