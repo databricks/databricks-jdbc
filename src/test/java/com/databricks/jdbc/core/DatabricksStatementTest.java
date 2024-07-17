@@ -11,6 +11,7 @@ import com.databricks.jdbc.core.types.ComputeResource;
 import com.databricks.jdbc.core.types.Warehouse;
 import com.databricks.jdbc.driver.DatabricksConnectionContext;
 import com.databricks.jdbc.driver.IDatabricksConnectionContext;
+import java.io.InputStream;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.SQLWarning;
@@ -259,5 +260,31 @@ public class DatabricksStatementTest {
     // Verify that get() is called instead of get(long, TimeUnit) for infinite wait
     verify(mockFuture, times(1)).get();
     verify(mockFuture, never()).get(anyLong(), any(TimeUnit.class));
+  }
+
+  @Test
+  public void testInputStreamForVolumeOperation() throws Exception {
+    DatabricksConnection mockConnection = mock(DatabricksConnection.class);
+    InputStream mockStream = mock(InputStream.class);
+    DatabricksStatement statement = new DatabricksStatement(mockConnection);
+
+    assertFalse(statement.isAllowedInputStreamForVolumeOperation());
+    assertNull(statement.getInputStreamForUCVolume());
+    assertThrows(
+        DatabricksSQLException.class, () -> statement.setInputStreamForUCVolume(mockStream));
+
+    statement.allowInputStreamForVolumeOperation(true);
+    statement.setInputStreamForUCVolume(mockStream);
+
+    assertTrue(statement.isAllowedInputStreamForVolumeOperation());
+    assertNotNull(statement.getInputStreamForUCVolume());
+
+    statement.close();
+    assertThrows(DatabricksSQLException.class, statement::getInputStreamForUCVolume);
+    assertThrows(
+        DatabricksSQLException.class, () -> statement.setInputStreamForUCVolume(mockStream));
+    assertThrows(DatabricksSQLException.class, statement::isAllowedInputStreamForVolumeOperation);
+    assertThrows(
+        DatabricksSQLException.class, () -> statement.allowInputStreamForVolumeOperation(false));
   }
 }

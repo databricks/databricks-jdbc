@@ -1,11 +1,14 @@
 package com.databricks.jdbc.commons.util;
 
 import com.databricks.jdbc.commons.LogLevel;
+import com.databricks.jdbc.core.DatabricksSQLException;
+import com.databricks.jdbc.driver.IDatabricksConnectionContext;
+import com.databricks.jdbc.telemetry.DatabricksUsageMetrics;
 import java.nio.charset.Charset;
 
 public class DeviceInfoLogUtil {
 
-  public static void logProperties() {
+  public static void logProperties(IDatabricksConnectionContext context) {
     String jvmName = System.getProperty("java.vm.name");
     String jvmSpecVersion = System.getProperty("java.specification.version");
     String jvmImplVersion = System.getProperty("java.version");
@@ -28,5 +31,22 @@ public class DeviceInfoLogUtil {
     LoggingUtil.log(LogLevel.DEBUG, String.format("Locale Name: {%s}", localeName));
     LoggingUtil.log(
         LogLevel.DEBUG, String.format("Default Charset Encoding: {%s}", charsetEncoding));
+    if (context.enableTelemetry()) {
+      try {
+        DatabricksUsageMetrics.exportUsageMetrics(
+            context,
+            jvmName,
+            jvmSpecVersion,
+            jvmImplVersion,
+            jvmVendor,
+            osName,
+            osVersion,
+            osArch,
+            localeName,
+            charsetEncoding);
+      } catch (DatabricksSQLException e) {
+        LoggingUtil.log(LogLevel.DEBUG, "Failed to export usage metrics: " + e.getMessage());
+      }
+    }
   }
 }

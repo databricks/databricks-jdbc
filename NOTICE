@@ -1,0 +1,88 @@
+Copyright (2024) Databricks, Inc.
+
+This Software includes software developed at Databricks (https://www.databricks.com/) and its use is subject to the included LICENSE file.
+
+________________
+This Software contains code from the following open source projects, licensed under the Apache 2.0 license (https://www.apache.org/licenses/LICENSE-2.0):
+
+databricks/databricks-sdk-java - https://github.com/databricks/databricks-sdk-java
+Copyright (2023) Databricks, Inc.
+Notice - https://github.com/databricks/databricks-sdk-java/blob/main/NOTICE
+
+apache/arrow - https://github.com/apache/arrow/tree/main
+Copyright 2016-2024 The Apache Software Foundation
+Notice - https://github.com/apache/arrow/blob/main/NOTICE.txt
+
+diffplug/spotless - https://github.com/diffplug/spotless/tree/main
+Copyright 2020 DiffPlug
+
+apache/httpcomponents-client - https://github.com/apache/httpcomponents-client
+Copyright 1999-2023 The Apache Software Foundation
+Notice - https://github.com/apache/httpcomponents-client/blob/master/NOTICE.txt
+
+apache/thrift - https://github.com/apache/thrift
+Copyright (C) 2006 - 2019, The Apache Software Foundation
+Notice - https://github.com/apache/thrift/blob/master/NOTICE
+
+apache/commons-io - https://github.com/apache/commons-io
+Copyright 2002-2024 The Apache Software Foundation
+Notice - https://github.com/apache/commons-io/blob/master/NOTICE.txt
+
+google/guava - https://github.com/google/guava
+Copyright guava authors
+
+apache/logging-log4j2 - https://github.com/apache/logging-log4j2
+Copyright 1999-2024 Apache Software Foundation
+Notice - https://github.com/apache/logging-log4j2/blob/2.x/NOTICE.txt
+
+FasterXML/jackson-databind - https://github.com/FasterXML/jackson-databind
+Copyright jackson-databind authors
+
+FasterXML/jackson-annotations - https://github.com/FasterXML/jackson-annotations
+Copyright jackson-annotations authors
+
+FasterXML/jackson-core - https://github.com/FasterXML/jackson-core
+Copyright jackson-core authors
+
+immutables/immutable - https://github.com/immutables/immutables
+Copyright 2013-2024 Immutables Authors and Contributors
+
+lz4/lz4-java - https://github.com/lz4/lz4-java
+Copyright lz4-java authors
+
+wiremock/wiremock - https://github.com/wiremock/wiremock
+Copyright wiremock authors
+Notice - https://github.com/wiremock/wiremock/blob/master/NOTICE.txt
+
+apache/commons-fileupload - https://github.com/apache/commons-fileupload
+Copyright 2002-2024 The Apache Software Foundation
+Notice - https://github.com/apache/commons-fileupload/blob/master/NOTICE.txt
+
+________________
+This Software contains code from the following open source projects, licensed under the MIT license (https://opensource.org/license/mit):
+
+mockito/mockito - https://github.com/mockito/mockito
+Copyright (c) 2007 Mockito contributors
+
+hydromatic/sql-logic-test - https://github.com/hydromatic/sql-logic-test
+Copyright 2022 VMware, Inc.
+Copyright 2023 Julian Hyde
+Notice - https://github.com/hydromatic/sql-logic-test/blob/main/NOTICE
+
+
+________________
+This Software contains code from the following open source projects, licensed under the Eclipse Public License (https://www.eclipse.org/legal/epl-2.0/):
+
+junit-team/junit5 - https://github.com/junit-team/junit5/tree/main
+Copyright junit5 authors
+
+jakartaee/common-annotations-api - https://github.com/jakartaee/common-annotations-api
+Copyright common-annotations-api authors
+Notice - https://github.com/jakartaee/common-annotations-api/blob/master/NOTICE.md
+
+________________
+This Software contains code from the following open source projects, licensed under the GNU Lesser General Public License (https://www.gnu.org/licenses/lgpl-3.0.html):
+
+Findbugs 3.0.1 - https://findbugs.sourceforge.net/
+Copyright annotations 3.0.1 authors
+

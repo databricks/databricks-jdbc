@@ -1,1 +1,1 @@
-com.databricks.jdbc.driver.DatabricksDriver
+com.databricks.client.jdbc.Driver

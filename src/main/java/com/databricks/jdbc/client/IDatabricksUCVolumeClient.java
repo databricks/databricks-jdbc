@@ -79,4 +79,37 @@ public interface IDatabricksUCVolumeClient {
   boolean getObject(
       String catalog, String schema, String volume, String objectPath, String localPath)
       throws SQLException;
+
+  /**
+   * putObject(): Upload data from a local path to a specified path within a UC Volume.
+   *
+   * @param catalog the catalog name of the cloud storage
+   * @param schema the schema name of the cloud storage
+   * @param volume the UC volume name of the cloud storage
+   * @param objectPath the destination path where the object (file) is to be uploaded from the
+   *     volume as the root directory
+   * @param localPath the local path from where the data is to be uploaded
+   * @param toOverwrite a boolean indicating whether to overwrite the object if it already exists
+   * @return a boolean value indicating status of the PUT operation
+   */
+  boolean putObject(
+      String catalog,
+      String schema,
+      String volume,
+      String objectPath,
+      String localPath,
+      boolean toOverwrite)
+      throws SQLException;
+
+  /**
+   * deleteObject(): Remove an object from a specified path within a UC Volume
+   *
+   * @param catalog the catalog name of the cloud storage
+   * @param schema the schema name of the cloud storage
+   * @param volume the UC volume name of the cloud storage
+   * @param objectPath the path of the object (file) from the volume as the root directory to delete
+   * @return a boolean value indicating status of the DELETE operation
+   */
+  boolean deleteObject(String catalog, String schema, String volume, String objectPath)
+      throws SQLException;
 }
