@@ -511,6 +511,6 @@ public class UCVolumeTests {
             "test_volume1",
             "overwrite.txt",
             "initialContent",
-            "overwriteConte=nt"));
+            "overwriteContent"));
   }
 }
