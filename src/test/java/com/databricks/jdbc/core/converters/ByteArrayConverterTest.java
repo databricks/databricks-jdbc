@@ -101,4 +101,11 @@ class ByteArrayConverterTest {
                 converter::convertToBigDecimal,
                 "BigDecimal conversion should throw exception"));
   }
+
+  @Test
+  public void testConvertToBigInteger() {
+    assertThrows(
+        DatabricksSQLException.class,
+        () -> new ByteArrayConverter(new byte[] {}).convertToBigInteger());
+  }
 }

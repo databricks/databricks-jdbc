@@ -298,7 +298,7 @@ public class DatabricksSdkClient implements DatabricksClient {
   }
 
   /** Handles a failed execution and throws appropriate exception */
-  private void handleFailedExecution(
+  void handleFailedExecution(
       ExecuteStatementResponse response, String statementId, String statement) throws SQLException {
     StatementState statementState = response.getStatus().getState();
     String errorMessage =

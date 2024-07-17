@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import com.databricks.jdbc.core.DatabricksSQLException;
 import java.io.*;
 import java.math.BigDecimal;
+import java.math.BigInteger;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import org.junit.jupiter.api.Test;
@@ -170,5 +171,12 @@ public class BigDecimalConverterTest {
         new BufferedReader(new BigDecimalConverter(NON_ZERO_OBJECT).convertToCharacterStream());
     String result = reader.readLine();
     assertEquals(NON_ZERO_OBJECT.toString(), result);
+  }
+
+  @Test
+  public void testConvertToBigInteger() throws DatabricksSQLException {
+    assertEquals(
+        new BigDecimalConverter(NON_ZERO_OBJECT).convertToBigInteger(), BigInteger.valueOf(10));
+    assertEquals(new BigDecimalConverter(ZERO_OBJECT).convertToBigInteger(), BigInteger.valueOf(0));
   }
 }
