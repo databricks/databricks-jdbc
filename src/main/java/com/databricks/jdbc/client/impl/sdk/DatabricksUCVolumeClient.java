@@ -6,15 +6,14 @@ import static com.databricks.jdbc.driver.DatabricksJdbcConstants.VOLUME_OPERATIO
 import com.databricks.jdbc.client.IDatabricksUCVolumeClient;
 import com.databricks.jdbc.commons.LogLevel;
 import com.databricks.jdbc.commons.util.LoggingUtil;
+
+import java.io.InputStream;
 import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
 
 /** Implementation for DatabricksUCVolumeClient */
 public class DatabricksUCVolumeClient implements IDatabricksUCVolumeClient {
-
-  // test
-
   private final Connection connection;
 
   private static final String UC_VOLUME_COLUMN_NAME =
@@ -51,6 +50,17 @@ public class DatabricksUCVolumeClient implements IDatabricksUCVolumeClient {
     return String.format(
         "PUT '%s' INTO '/Volumes/%s/%s/%s/%s'%s",
         localPath, catalog, schema, volume, objectPath, toOverwrite ? " OVERWRITE" : "");
+  }
+
+  private String createPutObjectQueryForInputStream(
+          String catalog,
+          String schema,
+          String volume,
+          String objectPath,
+          boolean toOverwrite) {
+    return String.format(
+            "PUT '__input_stream__' INTO '/Volumes/%s/%s/%s/%s'%s",
+            catalog, schema, volume, objectPath, toOverwrite ? " OVERWRITE" : "");
   }
 
   private String createDeleteObjectQuery(
@@ -315,6 +325,47 @@ public class DatabricksUCVolumeClient implements IDatabricksUCVolumeClient {
             resultSet.getString(VOLUME_OPERATION_STATUS_COLUMN_NAME);
         volumeOperationStatus =
             VOLUME_OPERATION_STATUS_SUCCEEDED.equals(volumeOperationStatusString);
+      }
+    } catch (SQLException e) {
+      LoggingUtil.log(LogLevel.ERROR, "PUT query execution failed " + e);
+      throw e;
+    }
+
+    return volumeOperationStatus;
+  }
+
+  @Override
+  public boolean putObject(
+          String catalog,
+          String schema,
+          String volume,
+          String objectPath,
+          InputStream inputStream,
+          boolean toOverwrite)
+          throws SQLException {
+
+    LoggingUtil.log(
+            LogLevel.DEBUG,
+            String.format(
+                    "Entering putObject method with parameters: catalog={%s}, schema={%s}, volume={%s}, objectPath={%s}, inputStream={%s}, toOverwrite={%s}",
+                    catalog, schema, volume, objectPath, inputStream, toOverwrite));
+
+    String putObjectQueryForInputStream =
+            createPutObjectQueryForInputStream(catalog, schema, volume, objectPath, toOverwrite);
+
+    boolean volumeOperationStatus = false;
+
+    try (Statement statement = connection.createStatement()) {
+      statement.allowInputStreamForVolumeOperation(true);
+      statement.setInputStreamForUCVolume(inputStream);
+      ResultSet resultSet = statement.executeQuery(putObjectQueryForInputStream);
+      LoggingUtil.log(LogLevel.INFO, "PUT query executed successfully");
+
+      if (resultSet.next()) {
+        String volumeOperationStatusString =
+                resultSet.getString(VOLUME_OPERATION_STATUS_COLUMN_NAME);
+        volumeOperationStatus =
+                VOLUME_OPERATION_STATUS_SUCCEEDED.equals(volumeOperationStatusString);
       }
     } catch (SQLException e) {
       LoggingUtil.log(LogLevel.ERROR, "PUT query execution failed " + e);
