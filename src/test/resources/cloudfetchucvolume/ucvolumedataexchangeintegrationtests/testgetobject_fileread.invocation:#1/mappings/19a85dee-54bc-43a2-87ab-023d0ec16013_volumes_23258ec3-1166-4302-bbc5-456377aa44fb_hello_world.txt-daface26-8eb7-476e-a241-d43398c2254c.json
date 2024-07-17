@@ -1,0 +1,25 @@
+{
+  "id" : "daface26-8eb7-476e-a241-d43398c2254c",
+  "name" : "19a85dee-54bc-43a2-87ab-023d0ec16013_volumes_23258ec3-1166-4302-bbc5-456377aa44fb_hello_world.txt",
+  "request" : {
+    "urlPath" : "/19a85dee-54bc-43a2-87ab-023d0ec16013/volumes/23258ec3-1166-4302-bbc5-456377aa44fb/hello_world.txt",
+    "method" : "GET"
+  },
+  "response" : {
+    "status" : 200,
+    "base64Body" : "aGVsbG93b3JsZA==",
+    "headers" : {
+      "Accept-Ranges" : "bytes",
+      "Server" : "AmazonS3",
+      "ETag" : "\"fc5e038d38a57032085441e7fe7010b0\"",
+      "Last-Modified" : "Tue, 16 Jul 2024 06:48:55 GMT",
+      "x-amz-request-id" : "5SB7YD7XVWAMMWXY",
+      "x-amz-server-side-encryption" : "AES256",
+      "x-amz-id-2" : "pPHp+K/quAQihJeWVgn1fsjUbrUN+aKDVT955JCxMX1ed8or0yiDnYNYOXg4FEd7QoLTlOrWiUc=",
+      "Date" : "Wed, 17 Jul 2024 04:19:57 GMT",
+      "Content-Type" : "application/octet-stream"
+    }
+  },
+  "uuid" : "daface26-8eb7-476e-a241-d43398c2254c",
+  "insertionIndex" : 1
+}
