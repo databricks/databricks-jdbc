@@ -126,7 +126,7 @@ public class MetadataResultSetBuilder {
     return rows;
   }
 
-  private static int getCode(String s) {
+  static int getCode(String s) {
     switch (s) {
       case "STRING":
         return 12;

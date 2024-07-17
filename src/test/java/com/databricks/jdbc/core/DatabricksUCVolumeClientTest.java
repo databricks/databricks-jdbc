@@ -12,6 +12,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.stream.Stream;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -21,7 +22,6 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
 public class DatabricksUCVolumeClientTest {
-
   @Mock Connection connection;
 
   @Mock Statement statement;
@@ -43,8 +43,48 @@ public class DatabricksUCVolumeClientTest {
     when(resultSet.getString("name"))
         .thenReturn("aBc_file1", "abC_file2", "def_file1", "efg_file2", "#!#_file3");
 
-    assertEquals(expected, client.objectExists(TEST_CATALOG, TEST_SCHEMA, volume, prefix));
+    assertEquals(expected, client.prefixExists(TEST_CATALOG, TEST_SCHEMA, volume, prefix));
     verify(statement).executeQuery(listFilesSQL);
+  }
+
+  @Test
+  public void testPrefixExistsSQLException() throws Exception {
+    DatabricksUCVolumeClient client = new DatabricksUCVolumeClient(connection);
+    when(connection.createStatement()).thenReturn(statement);
+    when(statement.executeQuery(anyString())).thenThrow(new SQLException("Database error"));
+    assertThrows(
+        SQLException.class,
+        () -> client.prefixExists(TEST_CATALOG, TEST_SCHEMA, "testVolume", "testPrefix", true));
+  }
+
+  @Test
+  public void testObjectExistsSQLException() throws Exception {
+    DatabricksUCVolumeClient client = new DatabricksUCVolumeClient(connection);
+    when(connection.createStatement()).thenReturn(statement);
+    when(statement.executeQuery(anyString())).thenThrow(new SQLException("Database error"));
+    assertThrows(
+        SQLException.class,
+        () -> client.objectExists(TEST_CATALOG, TEST_SCHEMA, "testVolume", "testPrefix", true));
+  }
+
+  @Test
+  public void testVolumeExistsSQLException() throws Exception {
+    DatabricksUCVolumeClient client = new DatabricksUCVolumeClient(connection);
+    when(connection.createStatement()).thenReturn(statement);
+    when(statement.executeQuery(anyString())).thenThrow(new SQLException("Database error"));
+    assertThrows(
+        SQLException.class,
+        () -> client.volumeExists(TEST_CATALOG, TEST_SCHEMA, "nonExistingVolume", true));
+  }
+
+  @Test
+  public void testListObjectsExistsSQLException() throws Exception {
+    DatabricksUCVolumeClient client = new DatabricksUCVolumeClient(connection);
+    when(connection.createStatement()).thenReturn(statement);
+    when(statement.executeQuery(anyString())).thenThrow(new SQLException("Database error"));
+    assertThrows(
+        SQLException.class,
+        () -> client.listObjects(TEST_CATALOG, TEST_SCHEMA, "testVolume", "testPrefix", true));
   }
 
   private static Stream<Arguments> provideParametersForPrefixExists() {

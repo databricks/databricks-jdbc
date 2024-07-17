@@ -184,4 +184,19 @@ public class StringConverterTest {
   public void testConvertToDate() throws DatabricksSQLException {
     assertEquals(new StringConverter(DATE_STRING).convertToDate(), Date.valueOf(DATE_STRING));
   }
+
+  @Test
+  public void testConvertToBigInteger() throws DatabricksSQLException {
+    assertEquals(
+        new StringConverter(NUMERICAL_STRING).convertToBigInteger(),
+        new BigDecimal("10").toBigInteger());
+    assertEquals(
+        new StringConverter(NUMBERICAL_ZERO_STRING).convertToBigInteger(),
+        new BigDecimal("0").toBigInteger());
+    DatabricksSQLException invalidCharactersException =
+        assertThrows(
+            DatabricksSQLException.class,
+            () -> new StringConverter(CHARACTER_STRING).convertToBigInteger());
+    assertTrue(invalidCharactersException.getMessage().contains("Invalid conversion"));
+  }
 }

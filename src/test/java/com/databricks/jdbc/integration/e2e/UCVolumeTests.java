@@ -432,8 +432,8 @@ public class UCVolumeTests {
             UC_VOLUME_CATALOG,
             UC_VOLUME_SCHEMA,
             "test_volume1",
-            false,
             "hello_world.txt",
+            false,
             "/tmp/upload_hello_world.txt",
             "/tmp/download_hello_world.txt",
             "helloworld"));

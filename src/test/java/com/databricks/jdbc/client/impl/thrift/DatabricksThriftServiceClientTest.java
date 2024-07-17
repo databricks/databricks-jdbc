@@ -315,4 +315,15 @@ public class DatabricksThriftServiceClientTest {
         client.listPrimaryKeys(session, TEST_CATALOG, TEST_SCHEMA, TEST_TABLE);
     assertEquals(resultSet.getStatementStatus().getState(), StatementState.SUCCEEDED);
   }
+
+  @Test
+  void testCancelStatement() {
+    assertThrows(
+        DatabricksSQLFeatureNotImplementedException.class,
+        () -> {
+          DatabricksThriftServiceClient client =
+              new DatabricksThriftServiceClient(thriftAccessor, connectionContext);
+          client.cancelStatement(TEST_STATEMENT_ID);
+        });
+  }
 }
