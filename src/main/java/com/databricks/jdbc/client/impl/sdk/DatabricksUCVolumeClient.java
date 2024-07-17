@@ -6,6 +6,8 @@ import static com.databricks.jdbc.driver.DatabricksJdbcConstants.VOLUME_OPERATIO
 import com.databricks.jdbc.client.IDatabricksUCVolumeClient;
 import com.databricks.jdbc.commons.LogLevel;
 import com.databricks.jdbc.commons.util.LoggingUtil;
+import com.databricks.jdbc.core.DatabricksConnection;
+import com.databricks.jdbc.core.DatabricksStatement;
 
 import java.io.InputStream;
 import java.sql.*;
@@ -59,7 +61,7 @@ public class DatabricksUCVolumeClient implements IDatabricksUCVolumeClient {
           String objectPath,
           boolean toOverwrite) {
     return String.format(
-            "PUT '__input_stream__' INTO '/Volumes/%s/%s/%s/%s'%s",
+            "PUT __input_stream__ INTO '/Volumes/%s/%s/%s/%s'%s",
             catalog, schema, volume, objectPath, toOverwrite ? " OVERWRITE" : "");
   }
 
@@ -356,9 +358,11 @@ public class DatabricksUCVolumeClient implements IDatabricksUCVolumeClient {
     boolean volumeOperationStatus = false;
 
     try (Statement statement = connection.createStatement()) {
-      statement.allowInputStreamForVolumeOperation(true);
-      statement.setInputStreamForUCVolume(inputStream);
-      ResultSet resultSet = statement.executeQuery(putObjectQueryForInputStream);
+      DatabricksStatement databricksStatement = (DatabricksStatement) statement;
+      databricksStatement.allowInputStreamForVolumeOperation(true);
+      databricksStatement.setInputStreamForUCVolume(inputStream);
+
+      ResultSet resultSet = databricksStatement.executeQuery(putObjectQueryForInputStream);
       LoggingUtil.log(LogLevel.INFO, "PUT query executed successfully");
 
       if (resultSet.next()) {
