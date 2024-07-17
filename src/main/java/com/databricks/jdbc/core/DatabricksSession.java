@@ -56,17 +56,13 @@ public class DatabricksSession implements IDatabricksSession {
       this.databricksMetadataClient = null;
     } else {
       this.databricksClient = new DatabricksSdkClient(connectionContext);
+      this.databricksMetadataSdkClient =
+          new DatabricksMetadataSdkClient((DatabricksSdkClient) databricksClient);
+      this.databricksNewMetadataSdkClient =
+          new DatabricksNewMetadataSdkClient((DatabricksSdkClient) databricksClient);
     }
-    this.databricksMetadataSdkClient =
-        new DatabricksMetadataSdkClient((DatabricksSdkClient) databricksClient);
-    this.databricksNewMetadataSdkClient =
-        new DatabricksNewMetadataSdkClient((DatabricksSdkClient) databricksClient);
 
     this.databricksClient = DatabricksMetricsTimedProcessor.createProxy(this.databricksClient);
-    this.databricksNewMetadataSdkClient =
-        DatabricksMetricsTimedProcessor.createProxy(databricksNewMetadataSdkClient);
-    this.databricksMetadataSdkClient =
-        DatabricksMetricsTimedProcessor.createProxy(databricksMetadataSdkClient);
 
     this.isSessionOpen = false;
     this.sessionInfo = null;

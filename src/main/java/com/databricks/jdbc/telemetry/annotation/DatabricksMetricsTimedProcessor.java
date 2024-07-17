@@ -6,8 +6,6 @@ import com.databricks.jdbc.driver.IDatabricksConnectionContext;
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
-import java.util.HashMap;
-import java.util.Map;
 
 public class DatabricksMetricsTimedProcessor {
 
@@ -17,73 +15,68 @@ public class DatabricksMetricsTimedProcessor {
   @SuppressWarnings("unchecked")
   public static <T> T createProxy(T obj) {
     Class<?> clazz = obj.getClass();
-    DatabricksMetricsTimedClass databricksMetricsTimedClass =
-        clazz.getAnnotation(DatabricksMetricsTimedClass.class);
+    Class<?>[] interfaces = clazz.getInterfaces();
 
-    if (databricksMetricsTimedClass == null) {
-      throw new IllegalArgumentException(
-          "Class " + clazz.getName() + " is not annotated with @TimedClass");
+    for (Class<?> iface : interfaces) {
+      DatabricksMetricsTimedClass databricksMetricsTimedClass =
+          iface.getAnnotation(DatabricksMetricsTimedClass.class);
+      if (databricksMetricsTimedClass != null) {
+        return (T)
+            Proxy.newProxyInstance(
+                clazz.getClassLoader(), clazz.getInterfaces(), new TimedInvocationHandler<>(obj));
+      }
     }
-    Map<String, DatabricksMetricsTimedMethod> methodsToTime = new HashMap<>();
-    for (DatabricksMetricsTimedMethod timedMethod : databricksMetricsTimedClass.methods()) {
-      methodsToTime.put(timedMethod.methodName(), timedMethod);
-    }
-    return (T)
-        Proxy.newProxyInstance(
-            clazz.getClassLoader(),
-            clazz.getInterfaces(),
-            new TimedInvocationHandler<>(obj, methodsToTime));
+
+    throw new IllegalArgumentException(
+        "Class " + clazz.getName() + " does not implement an interface annotated with @TimedClass");
   }
 
   private static class TimedInvocationHandler<T> implements InvocationHandler {
     private final T target;
-    private final Map<String, DatabricksMetricsTimedMethod> methodsToTime;
 
-    public TimedInvocationHandler(
-        T target, Map<String, DatabricksMetricsTimedMethod> methodsToTime) {
+    public TimedInvocationHandler(T target) {
       this.target = target;
-      this.methodsToTime = methodsToTime;
     }
 
     @Override
     public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
-      String methodName = method.getName();
-      System.out.println("methodName invoke: " + methodName);
-      // Check if the method is annotated
-      if (methodsToTime.containsKey(method.getName())) {
-        // Get the metric name
-        DatabricksMetricsTimedMethod databricksMetricsTimedMethod =
-            methodsToTime.get(method.getName());
-        String metricName = databricksMetricsTimedMethod.metricName().name();
-        System.out.println("metricName: " + metricName);
-        // Record execution time
-        long startTime = System.currentTimeMillis();
-        Object result = method.invoke(target, args);
-        long endTime = System.currentTimeMillis();
+      Class<?> declaringClass = method.getDeclaringClass();
+      DatabricksMetricsTimedClass databricksMetricsTimedClass =
+          declaringClass.getAnnotation(DatabricksMetricsTimedClass.class);
+      if (databricksMetricsTimedClass != null) {
+        for (DatabricksMetricsTimedMethod databricksMetricsTimedMethod :
+            databricksMetricsTimedClass.methods()) {
+          if (method.getName().equals(databricksMetricsTimedMethod.methodName())) {
+            String metricName = databricksMetricsTimedMethod.metricName().name();
 
-        // Get the connection context
-        IDatabricksConnectionContext connectionContext = null;
+            // Record execution time
+            long startTime = System.currentTimeMillis();
+            Object result = method.invoke(target, args);
+            long endTime = System.currentTimeMillis();
 
-        boolean isMetricMetadataSEA = metricName.endsWith("METADATA_SEA");
-        boolean isMetricThrift = metricName.endsWith("THRIFT");
-        boolean isMetricSdk = metricName.endsWith("SDK");
-        System.out.println("isMetricMetadataSEA: " + isMetricMetadataSEA);
-        // Get the connection context based on the metric type
-        if (isMetricMetadataSEA && args != null && args[0].getClass() == DatabricksSession.class) {
-          connectionContext = ((IDatabricksSession) args[0]).getConnectionContext();
-        } else if (isMetricThrift || isMetricSdk) {
-          connectionContext =
-              (IDatabricksConnectionContext)
-                  target.getClass().getMethod("getConnectionContext").invoke(target);
+            // Get the connection context
+            IDatabricksConnectionContext connectionContext = null;
+
+            boolean isMetricMetadata = metricName.startsWith("LIST");
+
+            // Get the connection context based on the metric type
+            if (isMetricMetadata && args != null && args[0].getClass() == DatabricksSession.class) {
+              connectionContext = ((IDatabricksSession) args[0]).getConnectionContext();
+            } else {
+              connectionContext =
+                  (IDatabricksConnectionContext)
+                      target.getClass().getMethod("getConnectionContext").invoke(target);
+            }
+
+            // Record the metric
+            if (connectionContext != null) {
+              connectionContext.getMetricsExporter().record(metricName, endTime - startTime);
+            }
+            return result;
+          }
         }
-        // Record the metric
-        if (connectionContext != null) {
-          connectionContext.getMetricsExporter().record(metricName, endTime - startTime);
-        }
-        return result;
-      } else {
-        return method.invoke(target, args);
       }
+      return method.invoke(target, args);
     }
   }
 }

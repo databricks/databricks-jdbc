@@ -1,6 +1,6 @@
 package com.databricks.jdbc.telemetry.annotation;
 
-import com.databricks.jdbc.commons.CommandLatencyMetrics;
+import com.databricks.jdbc.commons.CommandName;
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -11,5 +11,5 @@ import java.lang.annotation.Target;
 public @interface DatabricksMetricsTimedMethod {
   String methodName();
 
-  CommandLatencyMetrics metricName() default CommandLatencyMetrics.DEFAULT;
+  CommandName metricName();
 }

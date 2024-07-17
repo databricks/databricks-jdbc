@@ -11,56 +11,17 @@ import com.databricks.jdbc.client.impl.helper.MetadataResultSetBuilder;
 import com.databricks.jdbc.client.impl.thrift.commons.DatabricksThriftAccessor;
 import com.databricks.jdbc.client.impl.thrift.generated.*;
 import com.databricks.jdbc.client.sqlexec.ExternalLink;
-import com.databricks.jdbc.commons.CommandLatencyMetrics;
 import com.databricks.jdbc.commons.CommandName;
 import com.databricks.jdbc.commons.LogLevel;
 import com.databricks.jdbc.commons.util.LoggingUtil;
 import com.databricks.jdbc.core.*;
 import com.databricks.jdbc.core.types.ComputeResource;
 import com.databricks.jdbc.driver.IDatabricksConnectionContext;
-import com.databricks.jdbc.telemetry.annotation.DatabricksMetricsTimedClass;
-import com.databricks.jdbc.telemetry.annotation.DatabricksMetricsTimedMethod;
 import com.google.common.annotations.VisibleForTesting;
 import java.sql.SQLException;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
 
-@DatabricksMetricsTimedClass(
-    methods = {
-      @DatabricksMetricsTimedMethod(
-          methodName = "createSession",
-          metricName = CommandLatencyMetrics.CREATE_SESSION_THRIFT),
-      @DatabricksMetricsTimedMethod(
-          methodName = "deleteSession",
-          metricName = CommandLatencyMetrics.DELETE_SESSION_THRIFT),
-      @DatabricksMetricsTimedMethod(
-          methodName = "executeStatement",
-          metricName = CommandLatencyMetrics.EXECUTE_STATEMENT_THRIFT),
-      @DatabricksMetricsTimedMethod(
-          methodName = "listTypeInfo",
-          metricName = CommandLatencyMetrics.LIST_TYPE_INFO_THRIFT),
-      @DatabricksMetricsTimedMethod(
-          methodName = "listCatalogs",
-          metricName = CommandLatencyMetrics.LIST_CATALOGS_THRIFT),
-      @DatabricksMetricsTimedMethod(
-          methodName = "listSchemas",
-          metricName = CommandLatencyMetrics.LIST_SCHEMAS_THRIFT),
-      @DatabricksMetricsTimedMethod(
-          methodName = "listTables",
-          metricName = CommandLatencyMetrics.LIST_TABLES_THRIFT),
-      @DatabricksMetricsTimedMethod(
-          methodName = "listColumns",
-          metricName = CommandLatencyMetrics.LIST_COLUMNS_THRIFT),
-      @DatabricksMetricsTimedMethod(
-          methodName = "listFunctions",
-          metricName = CommandLatencyMetrics.LIST_FUNCTIONS_THRIFT),
-      @DatabricksMetricsTimedMethod(
-          methodName = "listPrimaryKeys",
-          metricName = CommandLatencyMetrics.LIST_PRIMARY_KEYS_THRIFT),
-      @DatabricksMetricsTimedMethod(
-          methodName = "getResultChunks",
-          metricName = CommandLatencyMetrics.GET_RESULT_CHUNK_THRIFT)
-    })
 public class DatabricksThriftServiceClient implements DatabricksClient, DatabricksMetadataClient {
 
   private final DatabricksThriftAccessor thriftAccessor;

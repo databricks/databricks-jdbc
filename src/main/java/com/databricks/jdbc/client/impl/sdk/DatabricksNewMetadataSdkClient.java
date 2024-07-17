@@ -8,14 +8,11 @@ import com.databricks.jdbc.client.StatementType;
 import com.databricks.jdbc.client.impl.helper.CommandBuilder;
 import com.databricks.jdbc.client.impl.helper.CommandName;
 import com.databricks.jdbc.client.impl.helper.MetadataResultSetBuilder;
-import com.databricks.jdbc.commons.CommandLatencyMetrics;
 import com.databricks.jdbc.commons.LogLevel;
 import com.databricks.jdbc.commons.util.LoggingUtil;
 import com.databricks.jdbc.core.DatabricksResultSet;
 import com.databricks.jdbc.core.IDatabricksSession;
 import com.databricks.jdbc.core.ImmutableSqlParameter;
-import com.databricks.jdbc.telemetry.annotation.DatabricksMetricsTimedClass;
-import com.databricks.jdbc.telemetry.annotation.DatabricksMetricsTimedMethod;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.HashMap;
@@ -27,30 +24,6 @@ import java.util.Optional;
  * https://docs.google.com/document/d/1E28o7jyPIp6_byZHGD5Eyc4uwGVSydX5o9PaiSY1V4s/edit#heading=h.681k0yimshae
  * Tracking bug for replacement: (PECO-1502)
  */
-@DatabricksMetricsTimedClass(
-    methods = {
-      @DatabricksMetricsTimedMethod(
-          methodName = "listCatalogs",
-          metricName = CommandLatencyMetrics.LIST_CATALOGS_NEW_METADATA_SEA),
-      @DatabricksMetricsTimedMethod(
-          methodName = "listSchemas",
-          metricName = CommandLatencyMetrics.LIST_SCHEMAS_NEW_METADATA_SEA),
-      @DatabricksMetricsTimedMethod(
-          methodName = "listTables",
-          metricName = CommandLatencyMetrics.LIST_TABLES_NEW_METADATA_SEA),
-      @DatabricksMetricsTimedMethod(
-          methodName = "listTableTypes",
-          metricName = CommandLatencyMetrics.LIST_TABLE_TYPES_NEW_METADATA_SEA),
-      @DatabricksMetricsTimedMethod(
-          methodName = "listColumns",
-          metricName = CommandLatencyMetrics.LIST_COLUMNS_NEW_METADATA_SEA),
-      @DatabricksMetricsTimedMethod(
-          methodName = "listFunctions",
-          metricName = CommandLatencyMetrics.LIST_FUNCTIONS_NEW_METADATA_SEA),
-      @DatabricksMetricsTimedMethod(
-          methodName = "listPrimaryKeys",
-          metricName = CommandLatencyMetrics.LIST_PRIMARY_KEYS_NEW_METADATA_SEA)
-    })
 public class DatabricksNewMetadataSdkClient implements DatabricksMetadataClient {
   private final DatabricksSdkClient sdkClient;
 
@@ -76,7 +49,6 @@ public class DatabricksNewMetadataSdkClient implements DatabricksMetadataClient 
   @Override
   public DatabricksResultSet listSchemas(
       IDatabricksSession session, String catalog, String schemaNamePattern) throws SQLException {
-    System.out.println("public ResultSet getSchemas()");
     CommandBuilder commandBuilder =
         new CommandBuilder(catalog, session).setSchemaPattern(schemaNamePattern);
     String SQL = commandBuilder.getSQLString(CommandName.LIST_SCHEMAS);

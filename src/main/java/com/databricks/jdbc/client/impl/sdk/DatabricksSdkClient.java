@@ -15,15 +15,12 @@ import com.databricks.jdbc.client.sqlexec.ExecuteStatementResponse;
 import com.databricks.jdbc.client.sqlexec.ExternalLink;
 import com.databricks.jdbc.client.sqlexec.GetStatementResponse;
 import com.databricks.jdbc.client.sqlexec.ResultData;
-import com.databricks.jdbc.commons.CommandLatencyMetrics;
 import com.databricks.jdbc.commons.LogLevel;
 import com.databricks.jdbc.commons.util.LoggingUtil;
 import com.databricks.jdbc.core.*;
 import com.databricks.jdbc.core.types.ComputeResource;
 import com.databricks.jdbc.core.types.Warehouse;
 import com.databricks.jdbc.driver.IDatabricksConnectionContext;
-import com.databricks.jdbc.telemetry.annotation.DatabricksMetricsTimedClass;
-import com.databricks.jdbc.telemetry.annotation.DatabricksMetricsTimedMethod;
 import com.databricks.sdk.WorkspaceClient;
 import com.databricks.sdk.core.ApiClient;
 import com.databricks.sdk.core.DatabricksConfig;
@@ -38,24 +35,6 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 /** Implementation of DatabricksClient interface using Databricks Java SDK. */
-@DatabricksMetricsTimedClass(
-    methods = {
-      @DatabricksMetricsTimedMethod(
-          methodName = "createSession",
-          metricName = CommandLatencyMetrics.CREATE_SESSION_SDK),
-      @DatabricksMetricsTimedMethod(
-          methodName = "deleteSession",
-          metricName = CommandLatencyMetrics.DELETE_SESSION_SDK),
-      @DatabricksMetricsTimedMethod(
-          methodName = "executeStatement",
-          metricName = CommandLatencyMetrics.EXECUTE_STATEMENT_SDK),
-      @DatabricksMetricsTimedMethod(
-          methodName = "getResultChunks",
-          metricName = CommandLatencyMetrics.GET_RESULT_CHUNKS_SDK),
-      @DatabricksMetricsTimedMethod(
-          methodName = "getRequest",
-          metricName = CommandLatencyMetrics.GET_REQUEST_SDK)
-    })
 public class DatabricksSdkClient implements DatabricksClient {
   private static final String SYNC_TIMEOUT_VALUE = "10s";
   private final IDatabricksConnectionContext connectionContext;
