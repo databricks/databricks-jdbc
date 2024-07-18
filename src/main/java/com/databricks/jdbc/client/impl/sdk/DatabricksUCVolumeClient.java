@@ -14,6 +14,7 @@ import java.util.List;
 
 /** Implementation for DatabricksUCVolumeClient */
 public class DatabricksUCVolumeClient implements IDatabricksUCVolumeClient {
+
   private final Connection connection;
 
   private static final String UC_VOLUME_COLUMN_NAME =
