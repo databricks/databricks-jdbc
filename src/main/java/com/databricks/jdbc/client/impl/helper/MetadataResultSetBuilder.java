@@ -108,12 +108,12 @@ public class MetadataResultSetBuilder {
             object = getCode(typeVal);
           } else if (column.getColumnName().equals("CHAR_OCTET_LENGTH")) {
             String typeVal = resultSet.getString("columnType");
-            String octetLength = typeVal.contains("(") ? typeVal.substring(typeVal.indexOf('(') + 1) : "";
-            if(octetLength.contains(",")) {
+            String octetLength =
+                typeVal.contains("(") ? typeVal.substring(typeVal.indexOf('(') + 1) : "";
+            if (octetLength.contains(",")) {
               octetLength = octetLength.substring(0, octetLength.indexOf(","));
             }
-            object =
-                octetLength.isEmpty() ? 0 : Integer.parseInt(octetLength);
+            object = octetLength.isEmpty() ? 0 : Integer.parseInt(octetLength);
           } else {
             // Remove non-relevant columns from the obtained result set
             object = null;
