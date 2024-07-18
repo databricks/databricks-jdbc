@@ -6,9 +6,7 @@ import static com.databricks.jdbc.driver.DatabricksJdbcConstants.VOLUME_OPERATIO
 import com.databricks.jdbc.client.IDatabricksUCVolumeClient;
 import com.databricks.jdbc.commons.LogLevel;
 import com.databricks.jdbc.commons.util.LoggingUtil;
-import com.databricks.jdbc.core.DatabricksConnection;
 import com.databricks.jdbc.core.DatabricksStatement;
-
 import java.io.InputStream;
 import java.sql.*;
 import java.util.ArrayList;
@@ -55,14 +53,10 @@ public class DatabricksUCVolumeClient implements IDatabricksUCVolumeClient {
   }
 
   private String createPutObjectQueryForInputStream(
-          String catalog,
-          String schema,
-          String volume,
-          String objectPath,
-          boolean toOverwrite) {
+      String catalog, String schema, String volume, String objectPath, boolean toOverwrite) {
     return String.format(
-            "PUT __input_stream__ INTO '/Volumes/%s/%s/%s/%s'%s",
-            catalog, schema, volume, objectPath, toOverwrite ? " OVERWRITE" : "");
+        "PUT '__input_stream__' INTO '/Volumes/%s/%s/%s/%s'%s",
+        catalog, schema, volume, objectPath, toOverwrite ? " OVERWRITE" : "");
   }
 
   private String createDeleteObjectQuery(
@@ -338,22 +332,22 @@ public class DatabricksUCVolumeClient implements IDatabricksUCVolumeClient {
 
   @Override
   public boolean putObject(
-          String catalog,
-          String schema,
-          String volume,
-          String objectPath,
-          InputStream inputStream,
-          boolean toOverwrite)
-          throws SQLException {
+      String catalog,
+      String schema,
+      String volume,
+      String objectPath,
+      InputStream inputStream,
+      boolean toOverwrite)
+      throws SQLException {
 
     LoggingUtil.log(
-            LogLevel.DEBUG,
-            String.format(
-                    "Entering putObject method with parameters: catalog={%s}, schema={%s}, volume={%s}, objectPath={%s}, inputStream={%s}, toOverwrite={%s}",
-                    catalog, schema, volume, objectPath, inputStream, toOverwrite));
+        LogLevel.DEBUG,
+        String.format(
+            "Entering putObject method with parameters: catalog={%s}, schema={%s}, volume={%s}, objectPath={%s}, inputStream={%s}, toOverwrite={%s}",
+            catalog, schema, volume, objectPath, inputStream, toOverwrite));
 
     String putObjectQueryForInputStream =
-            createPutObjectQueryForInputStream(catalog, schema, volume, objectPath, toOverwrite);
+        createPutObjectQueryForInputStream(catalog, schema, volume, objectPath, toOverwrite);
 
     boolean volumeOperationStatus = false;
 
@@ -367,9 +361,9 @@ public class DatabricksUCVolumeClient implements IDatabricksUCVolumeClient {
 
       if (resultSet.next()) {
         String volumeOperationStatusString =
-                resultSet.getString(VOLUME_OPERATION_STATUS_COLUMN_NAME);
+            resultSet.getString(VOLUME_OPERATION_STATUS_COLUMN_NAME);
         volumeOperationStatus =
-                VOLUME_OPERATION_STATUS_SUCCEEDED.equals(volumeOperationStatusString);
+            VOLUME_OPERATION_STATUS_SUCCEEDED.equals(volumeOperationStatusString);
       }
     } catch (SQLException e) {
       LoggingUtil.log(LogLevel.ERROR, "PUT query execution failed " + e);

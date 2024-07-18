@@ -5,7 +5,6 @@ import static com.databricks.jdbc.integration.IntegrationTestUtil.*;
 import static org.junit.jupiter.api.Assertions.*;
 
 import com.databricks.jdbc.client.impl.sdk.DatabricksUCVolumeClient;
-
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
@@ -526,7 +525,9 @@ public class UCVolumeTests {
     boolean toOverwrite = false;
     boolean expected = true;
 
-    boolean result = client.putObject(UC_VOLUME_CATALOG, UC_VOLUME_SCHEMA, volume, objectPath, inputStream, toOverwrite);
+    boolean result =
+        client.putObject(
+            UC_VOLUME_CATALOG, UC_VOLUME_SCHEMA, volume, objectPath, inputStream, toOverwrite);
     assertEquals(expected, result);
   }
 }

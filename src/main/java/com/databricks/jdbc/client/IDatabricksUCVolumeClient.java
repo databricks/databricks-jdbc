@@ -1,8 +1,8 @@
 package com.databricks.jdbc.client;
 
+import java.io.InputStream;
 import java.sql.SQLException;
 import java.util.List;
-import java.io.InputStream;
 
 public interface IDatabricksUCVolumeClient {
 
@@ -115,13 +115,13 @@ public interface IDatabricksUCVolumeClient {
    * @return a boolean value indicating status of the PUT operation
    */
   boolean putObject(
-          String catalog,
-          String schema,
-          String volume,
-          String objectPath,
-          InputStream inputStream,
-          boolean toOverwrite)
-          throws SQLException;
+      String catalog,
+      String schema,
+      String volume,
+      String objectPath,
+      InputStream inputStream,
+      boolean toOverwrite)
+      throws SQLException;
 
   /**
    * deleteObject(): Remove an object from a specified path within a UC Volume
