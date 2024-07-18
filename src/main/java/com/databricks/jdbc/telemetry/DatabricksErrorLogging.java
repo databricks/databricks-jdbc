@@ -26,14 +26,8 @@ public class DatabricksErrorLogging {
   private static final String DRIVER_VERSION = "driver_version";
   private static final String CONNECTION_CONFIG = "connection_config";
   private static final String ERROR_CODE = "error_code";
-  private static String workspaceId = null;
   private static DatabricksHttpClient telemetryClient;
-
-  private static void initialize(IDatabricksConnectionContext context)
-      throws DatabricksSQLException {
-    workspaceId = context.getComputeResource().getWorkspaceId();
-    telemetryClient = DatabricksHttpClient.getInstance(context);
-  }
+  private static boolean enableTelemetry = false;
 
   private static HttpPost getRequest(
       String workspaceId,
@@ -61,14 +55,14 @@ public class DatabricksErrorLogging {
       String timestamp,
       String driverVersion,
       String connectionConfig,
-      int errorCode)
-      throws DatabricksSQLException {
-    initialize(context);
+      int errorCode) {
+    telemetryClient = DatabricksHttpClient.getInstance(context);
+    enableTelemetry = context.enableTelemetry();
     try {
       HttpPost request =
           getRequest(
               workspaceId, sqlQueryId, timestamp, driverVersion, connectionConfig, errorCode);
-      CloseableHttpResponse response = telemetryClient.executeWithoutSSL(request);
+      CloseableHttpResponse response = telemetryClient.executeWithoutCertVerification(request);
       if (response == null) {
         LoggingUtil.log(LogLevel.DEBUG, "Response is null for error log export.");
       } else if (response.getStatusLine().getStatusCode() != 200) {
@@ -88,16 +82,18 @@ public class DatabricksErrorLogging {
   }
 
   public static void exportChunkDownloadErrorLogAndErrorMetric(IDatabricksSession session, String sqlQueryId, String chunkStatus, int chunkError) throws DatabricksSQLException {
-    IDatabricksConnectionContext connectionContext = session.getConnectionContext();
-    connectionContext.getMetricsExporter().increment("CHUNK_" + chunkStatus, 1);
-    DatabricksErrorLogging.exportErrorLogToLogfood(
-            connectionContext,
-            connectionContext.getComputeResource().getWorkspaceId(),
-            sqlQueryId,
-            LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME),
-            Driver.getVersion(),
-            "connection_config0",
-            chunkError);
-    connectionContext.getMetricsExporter().close();
+    if(enableTelemetry){
+      IDatabricksConnectionContext connectionContext = session.getConnectionContext();
+      connectionContext.getMetricsExporter().increment("CHUNK_" + chunkStatus, 1);
+      DatabricksErrorLogging.exportErrorLogToLogfood(
+              connectionContext,
+              connectionContext.getComputeResource().getWorkspaceId(),
+              sqlQueryId,
+              LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME),
+              Driver.getVersion(),
+              "connection_config0",
+              chunkError);
+      connectionContext.getMetricsExporter().close();
+    }
   }
 }

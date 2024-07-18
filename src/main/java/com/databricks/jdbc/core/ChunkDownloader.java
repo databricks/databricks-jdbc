@@ -9,6 +9,7 @@ import com.databricks.jdbc.client.sqlexec.ExternalLink;
 import com.databricks.jdbc.client.sqlexec.ResultData;
 import com.databricks.jdbc.client.sqlexec.ResultManifest;
 import com.databricks.jdbc.commons.LogLevel;
+import com.databricks.jdbc.commons.util.ErrorCodes;
 import com.databricks.jdbc.commons.util.LoggingUtil;
 import com.databricks.jdbc.core.types.CompressionType;
 import com.databricks.jdbc.driver.IDatabricksConnectionContext;
@@ -156,10 +157,12 @@ public class ChunkDownloader {
         }
         if (chunk.getStatus() != ArrowResultChunk.ChunkStatus.DOWNLOAD_SUCCEEDED) {
           DatabricksErrorLogging.exportChunkDownloadErrorLogAndErrorMetric(
-              session, statementId, chunk.getStatus().name(), chunk.getStatus().ordinal());
+              session, statementId, chunk.getStatus().name(), ErrorCodes.CHUNK_DOWNLOAD_ERROR);
           throw new DatabricksSQLException(chunk.getErrorMessage());
         }
       } catch (InterruptedException e) {
+        DatabricksErrorLogging.exportChunkDownloadErrorLogAndErrorMetric(
+                session, statementId, chunk.getStatus().name(), ErrorCodes.CHUNK_DOWNLOAD_INTERRUPTED);
         LoggingUtil.log(
             LogLevel.ERROR,
             String.format(
