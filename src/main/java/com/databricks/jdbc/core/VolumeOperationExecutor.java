@@ -5,6 +5,7 @@ import com.databricks.jdbc.client.IDatabricksHttpClient;
 import com.databricks.jdbc.commons.LogLevel;
 import com.databricks.jdbc.commons.util.LoggingUtil;
 import java.io.*;
+import java.sql.SQLException;
 import java.util.*;
 import org.apache.http.HttpEntity;
 import org.apache.http.client.methods.CloseableHttpResponse;
@@ -30,9 +31,13 @@ class VolumeOperationExecutor implements Runnable {
   private final String localFilePath;
   private final Map<String, String> headers;
   private final Set<String> allowedVolumeIngestionPaths;
+  private final IDatabricksStatement statement;
+  private final IDatabricksResultSet resultSet;
+  private final IExecutionResult executionResult;
   private VolumeOperationStatus status;
   private IDatabricksHttpClient databricksHttpClient;
   private String errorMessage;
+  private HttpEntity getResponseEntity = null;
 
   VolumeOperationExecutor(
       String operationType,
@@ -40,13 +45,19 @@ class VolumeOperationExecutor implements Runnable {
       Map<String, String> headers,
       String localFilePath,
       String allowedVolumeIngestionPathString,
-      IDatabricksHttpClient databricksHttpClient) {
+      IDatabricksHttpClient databricksHttpClient,
+      IDatabricksStatement statement,
+      IDatabricksResultSet resultSet,
+      IExecutionResult executionResult) {
     this.operationType = operationType;
     this.operationUrl = operationUrl;
     this.localFilePath = localFilePath;
     this.headers = headers;
     this.allowedVolumeIngestionPaths = getAllowedPaths(allowedVolumeIngestionPathString);
     this.databricksHttpClient = databricksHttpClient;
+    this.statement = statement;
+    this.resultSet = resultSet;
+    this.executionResult = executionResult;
     this.status = VolumeOperationStatus.PENDING;
     this.errorMessage = null;
   }
@@ -101,6 +112,9 @@ class VolumeOperationExecutor implements Runnable {
   }
 
   private void validateLocalFilePath() {
+    if (statement.isAllowedInputStreamForVolumeOperation()) {
+      return;
+    }
     if (allowedVolumeIngestionPaths.isEmpty()) {
       LoggingUtil.log(LogLevel.ERROR, "Volume ingestion paths are not set");
       status = VolumeOperationStatus.ABORTED;
@@ -135,6 +149,45 @@ class VolumeOperationExecutor implements Runnable {
   private void executeGetOperation() {
     HttpGet httpGet = new HttpGet(operationUrl);
     headers.forEach(httpGet::addHeader);
+
+    HttpEntity entity = null;
+    try {
+    if (statement.isAllowedInputStreamForVolumeOperation()) {
+      CloseableHttpResponse response = databricksHttpClient.execute(httpGet)) {
+        if (!isSuccessfulHttpResponse(response)) {
+          LoggingUtil.log(
+                  LogLevel.ERROR,
+                  String.format(
+                          "Failed to fetch content from volume with error {} for local file {%s}",
+                          response.getStatusLine().getStatusCode(), localFilePath));
+          status = VolumeOperationStatus.FAILED;
+          errorMessage = "Failed to download file";
+          return;
+        }
+        entity = response.getEntity();
+        if (entity != null) {
+          this.resultSet.setVolumeOperationEntityStream(entity);
+        }
+        status = VolumeOperationStatus.SUCCEDED;
+        return;
+      }
+    }
+    } catch (SQLException | IOException e) {
+      LoggingUtil.log(
+              LogLevel.ERROR,
+              String.format(
+                      "Failed to execute GET operation for input stream",
+                      localFilePath, e.getMessage()));
+      status = VolumeOperationStatus.FAILED;
+      errorMessage = "Failed to execute GET operation for input stream: " + e.getMessage();
+      return;
+      try {
+        EntityUtils.consume(entity);
+      } catch (IOException ioe) {
+        // Do nothing
+        return;
+      }
+    }
 
     File localFile = new File(localFilePath);
     if (localFile.exists()) {

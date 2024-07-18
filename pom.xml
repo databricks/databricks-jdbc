@@ -15,6 +15,33 @@
         <url>https://github.com/databricks/databricks-jdbc/blob/main/LICENSE</url>
       </license>
     </licenses>
+    <developers>
+      <developer>
+        <name>Gopal Lal</name>
+        <email>gopal.lal@databricks.com</email>
+        <organization>Databricks</organization>
+      </developer>
+      <developer>
+        <name>Jayant Singh</name>
+        <email>jayant.singh@databricks.com</email>
+        <organization>Databricks</organization>
+      </developer>
+      <developer>
+        <name>Madhav Sainanee</name>
+        <email>madhav.sainanee@databricks.com</email>
+        <organization>Databricks</organization>
+      </developer>
+      <developer>
+        <name>Samikshya Chand</name>
+        <email>samikshya.chand@databricks.com</email>
+        <organization>Databricks</organization>
+      </developer>
+      <developer>
+        <name>Vikrant Puppala</name>
+        <email>vikrant.puppala@databricks.com</email>
+        <organization>Databricks</organization>
+      </developer>
+    </developers>
     <scm>
         <connection>scm:git:https://github.com/databricks/databricks-jdbc.git</connection>
         <developerConnection>scm:git:https://github.com/databricks/databricks-jdbc.git</developerConnection>

@@ -53,7 +53,7 @@ public class DatabricksResultSet implements ResultSet, IDatabricksResultSet {
     this.statementStatus = statementStatus;
     this.statementId = statementId;
     this.executionResult =
-        ExecutionResultFactory.getResultSet(resultData, resultManifest, statementId, session);
+        ExecutionResultFactory.getResultSet(resultData, resultManifest, statementId, session, this);
     this.resultSetMetaData = new DatabricksResultSetMetaData(statementId, resultManifest);
     this.statementType = statementType;
     this.updateCount = null;
