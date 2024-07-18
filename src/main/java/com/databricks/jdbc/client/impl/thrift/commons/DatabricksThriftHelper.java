@@ -59,7 +59,7 @@ public class DatabricksThriftHelper {
    * In metadata operations, a list of singleton lists is obtained. This function extracts metadata
    * values from these TColumn lists based on the data type set in the column.
    *
-   * @param List<TColumn> columnList the TColumn from which to extract values
+   * @param columnList the TColumn from which to extract values
    * @return a singleton list of metadata result
    */
   public static List<List<Object>> extractValues(List<TColumn> columnList) {
