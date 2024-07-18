@@ -30,6 +30,7 @@ public class DatabricksMetrics implements AutoCloseable {
   private Boolean hasInitialExportOccurred = false;
   private String workspaceId = null;
   private DatabricksHttpClient telemetryClient;
+  private boolean enableTelemetry = false;
 
   private void setWorkspaceId(String workspaceId) {
     this.workspaceId = workspaceId;
@@ -61,7 +62,8 @@ public class DatabricksMetrics implements AutoCloseable {
   }
 
   public DatabricksMetrics(IDatabricksConnectionContext context) throws DatabricksSQLException {
-    if (context != null) {
+    if (context != null && context.enableTelemetry()) {
+      enableTelemetry = true;
       String resourceId = context.getComputeResource().getWorkspaceId();
       setWorkspaceId(resourceId);
       this.telemetryClient = DatabricksHttpClient.getInstance(context);
@@ -69,7 +71,7 @@ public class DatabricksMetrics implements AutoCloseable {
     }
   }
 
-  public void sendRequest(Map<String, Double> map, MetricsType metricsType) throws Exception {
+  private void sendRequest(Map<String, Double> map, MetricsType metricsType) {
     // Check if the telemetry client is set
     if (telemetryClient == null) {
       LoggingUtil.log(
@@ -81,41 +83,45 @@ public class DatabricksMetrics implements AutoCloseable {
       if (map.isEmpty()) {
         return;
       }
-      // Convert the map to JSON string
-      String jsonInputString = objectMapper.writeValueAsString(map);
+      try {
+        // Convert the map to JSON string
+        String jsonInputString = objectMapper.writeValueAsString(map);
 
-      // Create the request and adding parameters & headers
-      URIBuilder uriBuilder = new URIBuilder(URL);
-      HttpPost request = new HttpPost(uriBuilder.build());
-      request.setHeader(METRICS_MAP_STRING, jsonInputString);
-      request.setHeader(METRICS_TYPE, metricsType.name().equals("GAUGE") ? "1" : "0");
+        // Create the request and adding parameters & headers
+        URIBuilder uriBuilder = new URIBuilder(URL);
+        HttpPost request = new HttpPost(uriBuilder.build());
+        request.setHeader(METRICS_MAP_STRING, jsonInputString);
+        request.setHeader(METRICS_TYPE, metricsType.name().equals("GAUGE") ? "1" : "0");
 
-      // TODO (Bhuvan): Add authentication headers
-      // TODO (Bhuvan): execute request using SSL
-      CloseableHttpResponse response = telemetryClient.executeWithoutSSL(request);
+        // TODO (Bhuvan): Add authentication headers
+        // TODO (Bhuvan): execute request using Certificates
+        CloseableHttpResponse response = telemetryClient.executeWithoutCertVerification(request);
 
-      // Error handling
-      if (response == null) {
-        LoggingUtil.log(LogLevel.DEBUG, "Response is null for metrics export.");
-      } else if (response.getStatusLine().getStatusCode() != 200) {
-        LoggingUtil.log(
-            LogLevel.DEBUG,
-            "Response code for metrics export: "
-                + response.getStatusLine().getStatusCode()
-                + " Response: "
-                + response.getEntity().toString());
-      } else {
-        // Clearing map after successful response
-        map.clear();
+        // Error handling
+        if (response == null) {
+          LoggingUtil.log(LogLevel.DEBUG, "Response is null for metrics export.");
+        } else if (response.getStatusLine().getStatusCode() != 200) {
+          LoggingUtil.log(
+              LogLevel.DEBUG,
+              "Response code for metrics export: "
+                  + response.getStatusLine().getStatusCode()
+                  + " Response: "
+                  + response.getEntity().toString());
+        } else {
+          // Clearing map after successful response
+          map.clear();
 
-        // Get the response string
-        LoggingUtil.log(LogLevel.DEBUG, EntityUtils.toString(response.getEntity()));
-        response.close();
+          // Get the response string
+          LoggingUtil.log(LogLevel.DEBUG, EntityUtils.toString(response.getEntity()));
+          response.close();
+        }
+      } catch (Exception e) {
+        LoggingUtil.log(LogLevel.DEBUG, "Failed to export metrics. Error: " + e.getMessage());
       }
     }
   }
 
-  public void setGaugeMetrics(String name, double value) {
+  private void setGaugeMetrics(String name, double value) {
     // TODO: Handling metrics export when multiple users are accessing from the same workspace_id.
     if (!gaugeMetrics.containsKey(name)) {
       gaugeMetrics.put(name, 0.0);
@@ -123,7 +129,7 @@ public class DatabricksMetrics implements AutoCloseable {
     gaugeMetrics.put(name, value);
   }
 
-  public void incCounterMetrics(String name, double value) {
+  private void incCounterMetrics(String name, double value) {
     if (!counterMetrics.containsKey(name)) {
       counterMetrics.put(name, 0.0);
     }
@@ -145,14 +151,18 @@ public class DatabricksMetrics implements AutoCloseable {
 
   // record() appends the metric to be exported in the gauge metric map
   public void record(String name, double value) {
-    setGaugeMetrics(name + "_" + workspaceId, value);
-    if (!hasInitialExportOccurred) initialExport(gaugeMetrics, MetricsType.GAUGE);
+    if (enableTelemetry) {
+      setGaugeMetrics(name + "_" + workspaceId, value);
+      if (!hasInitialExportOccurred) initialExport(gaugeMetrics, MetricsType.GAUGE);
+    }
   }
 
   // increment() appends the metric to be exported in the counter metric map
   public void increment(String name, double value) {
-    incCounterMetrics(name + "_" + workspaceId, value);
-    if (!hasInitialExportOccurred) initialExport(counterMetrics, MetricsType.COUNTER);
+    if (enableTelemetry) {
+      incCounterMetrics(name + "_" + workspaceId, value);
+      if (!hasInitialExportOccurred) initialExport(counterMetrics, MetricsType.COUNTER);
+    }
   }
 
   @Override
