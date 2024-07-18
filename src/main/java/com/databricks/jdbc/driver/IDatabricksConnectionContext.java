@@ -149,4 +149,6 @@ public interface IDatabricksConnectionContext {
   boolean supportManyParameters();
 
   boolean isFakeServiceTest();
+
+  boolean enableTelemetry();
 }

@@ -1,6 +1,7 @@
 package com.databricks.jdbc.core;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import com.databricks.jdbc.client.StatementType;
@@ -14,6 +15,7 @@ import java.util.Calendar;
 import java.util.Collections;
 import java.util.GregorianCalendar;
 import java.util.TimeZone;
+import org.apache.http.HttpEntity;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -706,5 +708,14 @@ public class DatabricksResultSetTest {
     assertFalse(resultSet.isClosed());
     resultSet.close();
     assertTrue(resultSet.isClosed());
+  }
+
+  @Test
+  void testVolumeOperationInputStream() throws Exception {
+    DatabricksResultSet resultSet =
+        getResultSet(StatementState.SUCCEEDED, mockedDatabricksStatement);
+    HttpEntity mockEntity = mock(HttpEntity.class);
+    resultSet.setVolumeOperationEntityStream(mockEntity);
+    assertNotNull(resultSet.getVolumeOperationInputStream());
   }
 }
