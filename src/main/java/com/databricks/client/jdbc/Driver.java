@@ -100,6 +100,16 @@ public class Driver implements java.sql.Driver {
         } else {
           connection.setMetadataClient(false);
         }
+      } else if (dbsqlVersion.equals("")) {
+        // This handles the case when dbsql version is not returned
+        if (connectionContext.getUseLegacyMetadata().equals(true)) {
+          LoggingUtil.log(
+              LogLevel.DEBUG,
+              "Legacy metadata commands are being used due to connection parameter useLegacyMetadata");
+          connection.setMetadataClient(true);
+        } else {
+          connection.setMetadataClient(false);
+        }
       } else {
         LoggingUtil.log(
             LogLevel.DEBUG,
