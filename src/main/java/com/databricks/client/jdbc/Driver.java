@@ -49,7 +49,7 @@ public class Driver implements java.sql.Driver {
         connectionContext.getLogFileCount(),
         connectionContext.getLogLevel());
     setUserAgent(connectionContext);
-    DeviceInfoLogUtil.logProperties();
+    DeviceInfoLogUtil.logProperties(connectionContext);
     try {
       DatabricksConnection connection = new DatabricksConnection(connectionContext);
       if (connectionContext.getClientType() == DatabricksClientType.SQL_EXEC) {
