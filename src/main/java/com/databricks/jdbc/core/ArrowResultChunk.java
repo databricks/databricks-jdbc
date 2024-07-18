@@ -310,7 +310,6 @@ public class ArrowResultChunk {
   }
 
   public void getArrowDataFromInputStream(InputStream inputStream) throws DatabricksSQLException {
-    System.out.println("SAINANEELOGS5 uncomp " + inputStream.toString());
     InputStream decompressedStream = inputStream;
     //    InputStream decompressedStream =
     //        DecompressionUtil.decompress(
@@ -320,7 +319,6 @@ public class ArrowResultChunk {
     //                "Data fetch failed for chunk index [%d] and statement [%s] as decompression
     // was unsuccessful. Algorithm : [%s]",
     //                this.chunkIndex, this.statementId, this.compressionType));
-    System.out.println("SAINANEELOGS5 " + decompressedStream.toString());
     this.isDataInitialized = true;
     // add check to see if input stream has been populated
     initializeRecordBatch(decompressedStream);
