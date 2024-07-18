@@ -35,3 +35,4 @@ jobs:
         run: ${{ matrix.test-command }}
         env:
           DATABRICKS_TOKEN: ${{ secrets[matrix.token-secret] }}
+          DATABRICKS_USER: ${{ secrets.DATABRICKS_USER }}
