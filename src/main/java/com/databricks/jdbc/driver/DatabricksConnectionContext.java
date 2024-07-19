@@ -549,4 +549,9 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   public boolean isFakeServiceTest() {
     return Boolean.parseBoolean(System.getProperty(IS_FAKE_SERVICE_TEST_PROP));
   }
+
+  @Override
+  public boolean enableTelemetry() {
+    return Objects.equals(getParameter(ENABLE_TELEMETRY, "0"), "1");
+  }
 }
