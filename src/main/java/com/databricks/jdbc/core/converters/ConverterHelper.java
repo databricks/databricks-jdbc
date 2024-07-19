@@ -15,7 +15,7 @@ public class ConverterHelper {
       throws DatabricksSQLException {
     switch (columnType) {
       case Types.TINYINT:
-        return new ByteConverter(object).convertToShort();
+        return new ByteConverter(object).convertToByte();
       case Types.SMALLINT:
         return new ShortConverter(object).convertToShort();
       case Types.INTEGER:

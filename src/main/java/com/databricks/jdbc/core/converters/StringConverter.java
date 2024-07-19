@@ -12,7 +12,11 @@ public class StringConverter extends AbstractObjectConverter {
 
   public StringConverter(Object object) throws DatabricksSQLException {
     super(object);
-    this.object = (String) object;
+    if (object instanceof Character) {
+      this.object = object.toString(); // Convert Character to String
+    } else {
+      this.object = (String) object;
+    }
   }
 
   @Override
