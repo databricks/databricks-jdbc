@@ -19,7 +19,7 @@ jobs:
           - test-command: mvn -B clean compile test -Dtest=*IntegrationTests
             token-secret: DATABRICKS_TOKEN
             use-thrift-client: 'false'
-          - test-command: mvn -B clean compile test -Dtest=**/fakeservice/tests/*.java,!**/fakeservice/tests/ConcurrencyIntegrationTests.java,!**/fakeservice/tests/PreparedStatementIntegrationTests.java,!**/fakeservice/tests/UCVolumeIntegrationTests.java
+          - test-command: mvn -B test -Dtest=**/fakeservice/tests/MultiChunkExecutionIntegrationTests.java
             token-secret: THRIFT_DATABRICKS_TOKEN
             use-thrift-client: 'true'
     steps:
@@ -28,6 +28,8 @@ jobs:
         with:
           java-version: 21
           distribution: 'adopt'
+      - name: Build with Maven
+        run: mvn -B clean package --file pom.xml
       - name: Run Integration Tests
         run: ${{ matrix.test-command }}
         env:
