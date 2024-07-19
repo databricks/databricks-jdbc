@@ -4,7 +4,6 @@ import com.databricks.jdbc.core.DatabricksSQLException;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.nio.ByteBuffer;
-import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 
 public class ByteArrayConverter extends AbstractObjectConverter {
@@ -91,6 +90,7 @@ public class ByteArrayConverter extends AbstractObjectConverter {
 
   @Override
   public String convertToString() throws DatabricksSQLException {
-    return new String(this.object, StandardCharsets.UTF_8);
+
+    return Base64.getEncoder().encodeToString(this.object);
   }
 }
