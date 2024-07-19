@@ -3,6 +3,7 @@ package com.databricks.jdbc.core;
 import static com.databricks.jdbc.driver.DatabricksJdbcConstants.AUTH_MECH;
 import static org.junit.jupiter.api.Assertions.*;
 
+import com.databricks.client.jdbc.DataSource;
 import com.databricks.client.jdbc.Driver;
 import java.sql.Connection;
 import java.sql.SQLException;
@@ -21,7 +22,7 @@ public class DatabricksDataSourceTest {
 
   @Test
   public void testGetUrl() {
-    DatabricksDataSource dataSource = new DatabricksDataSource();
+    DataSource dataSource = new DataSource();
     dataSource.setHost("e2-dogfood.staging.cloud.databricks.com");
     dataSource.setPort(443);
     dataSource.setHttpPath("/sql/1.0/warehouses/791ba2a31c7fd70a");
@@ -38,7 +39,7 @@ public class DatabricksDataSourceTest {
     Properties properties = new Properties();
     properties.setProperty(AUTH_MECH, "3");
 
-    DatabricksDataSource dataSource = new DatabricksDataSource(driverMock);
+    DataSource dataSource = new DataSource(driverMock);
     dataSource.setHost("e2-dogfood.staging.cloud.databricks.com");
     dataSource.setPort(443);
     dataSource.setHttpPath("/sql/1.0/warehouses/791ba2a31c7fd70a");
@@ -54,7 +55,7 @@ public class DatabricksDataSourceTest {
 
   @Test
   public void testUnsupportedMethods() {
-    DatabricksDataSource dataSource = new DatabricksDataSource();
+    DataSource dataSource = new DataSource();
     assertThrows(
         SQLFeatureNotSupportedException.class,
         () -> dataSource.getLogWriter(),
@@ -74,7 +75,7 @@ public class DatabricksDataSourceTest {
     Properties properties = new Properties();
     properties.setProperty(AUTH_MECH, "3");
 
-    DatabricksDataSource dataSource = new DatabricksDataSource();
+    DataSource dataSource = new DataSource();
     dataSource.setProperties(properties);
     assertEquals(properties, dataSource.getProperties());
 

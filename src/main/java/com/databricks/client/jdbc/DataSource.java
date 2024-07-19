@@ -1,32 +1,34 @@
-package com.databricks.jdbc.core;
+package com.databricks.client.jdbc;
 
 import static com.databricks.jdbc.driver.DatabricksJdbcConstants.*;
 
-import com.databricks.client.jdbc.Driver;
 import com.databricks.jdbc.commons.LogLevel;
 import com.databricks.jdbc.commons.util.LoggingUtil;
+import com.databricks.jdbc.core.DatabricksSQLException;
 import com.databricks.jdbc.driver.DatabricksJdbcConstants;
+import com.databricks.jdbc.pooling.DatabricksPooledConnection;
 import com.google.common.annotations.VisibleForTesting;
 import java.io.PrintWriter;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
 import java.util.Properties;
-import javax.sql.DataSource;
+import javax.sql.ConnectionPoolDataSource;
+import javax.sql.PooledConnection;
 
-public class DatabricksDataSource implements DataSource {
+public class DataSource implements javax.sql.DataSource, ConnectionPoolDataSource {
   private String host;
   private int port;
   private String httpPath;
   private Properties properties = new Properties();
   private final Driver driver;
 
-  public DatabricksDataSource() {
+  public DataSource() {
     this.driver = Driver.getInstance();
   }
 
   @VisibleForTesting
-  public DatabricksDataSource(Driver driver) {
+  public DataSource(Driver driver) {
     this.driver = driver;
   }
 
@@ -50,6 +52,23 @@ public class DatabricksDataSource implements DataSource {
       setPassword(password);
     }
     return driver.connect(getUrl(), properties);
+  }
+
+  @Override
+  public PooledConnection getPooledConnection() throws DatabricksSQLException {
+    LoggingUtil.log(LogLevel.DEBUG, "public PooledConnection getPooledConnection()");
+    return new DatabricksPooledConnection(getConnection());
+  }
+
+  @Override
+  public PooledConnection getPooledConnection(String user, String password)
+      throws DatabricksSQLException {
+    LoggingUtil.log(
+        LogLevel.DEBUG,
+        String.format(
+            "public PooledConnection getPooledConnection(String user = {%s}, String password = {%s})",
+            user, password));
+    return new DatabricksPooledConnection(getConnection(user, password));
   }
 
   @Override
