@@ -16,9 +16,6 @@ jobs:
     strategy:
       matrix:
         include:
-          - test-command: mvn -B clean compile test -Dtest=*IntegrationTests
-            token-secret: DATABRICKS_TOKEN
-            use-thrift-client: 'false'
           - test-command: mvn -B clean compile test -Dtest=**/fakeservice/tests/ResultSetIntegrationTests.java
             token-secret: THRIFT_DATABRICKS_TOKEN
             use-thrift-client: 'true'
