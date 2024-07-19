@@ -42,11 +42,11 @@ public class DriverTester {
     // Getting the connection
     String jdbcUrl =
         "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=https;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/791ba2a31c7fd70a;";
-    Connection con = DriverManager.getConnection(jdbcUrl, "user", "xx");
+    Connection con = DriverManager.getConnection(jdbcUrl, "user", "x");
     System.out.println("Connection established......");
     Statement statement = con.createStatement();
     statement.setMaxRows(10);
-    ResultSet rs = con.getMetaData().getTables("hive_metastore", "*", "*", null);
+    ResultSet rs = con.getMetaData().getTables("main", "%", "%", null);
     printResultSet(rs);
     rs.close();
     statement.close();
@@ -62,8 +62,7 @@ public class DriverTester {
         "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=https;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/791ba2a31c7fd70a;";
     Connection con = DriverManager.getConnection(jdbcUrl, "user", "x");
     System.out.println("Connection established......");
-    // DatabaseMetaData metaData = con.getMetaData();
-    ResultSet resultSet = con.getMetaData().getTables("main", ".*", ".*", null);
+    ResultSet resultSet = con.getMetaData().getTables("main", "%", "%", null);
     printResultSet(resultSet);
     resultSet.close();
     con.close();
