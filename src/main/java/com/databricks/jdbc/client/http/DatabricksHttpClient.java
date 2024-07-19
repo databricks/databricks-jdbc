@@ -48,8 +48,8 @@ public class DatabricksHttpClient implements IDatabricksHttpClient {
   private static final String TEMP_UNAVAILABLE_RETRY_COUNT_KEY = "tempUnavailableRetryCount";
   private static final String RATE_LIMIT_RETRY_COUNT_KEY = "rateLimitRetryCount";
 
-  private static final int DEFAULT_MAX_HTTP_CONNECTIONS = 1000;
-  private static final int DEFAULT_MAX_HTTP_CONNECTIONS_PER_ROUTE = 1000;
+  private static final int DEFAULT_MAX_HTTP_CONNECTIONS = 1;
+  private static final int DEFAULT_MAX_HTTP_CONNECTIONS_PER_ROUTE = 1;
   private static final int DEFAULT_HTTP_CONNECTION_TIMEOUT = 60 * 1000; // ms
   private static final int DEFAULT_HTTP_CLIENT_SOCKET_TIMEOUT = 300 * 1000; // ms
   public static final int DEFAULT_BACKOFF_FACTOR = 2; // Exponential factor
@@ -107,6 +107,7 @@ public class DatabricksHttpClient implements IDatabricksHttpClient {
     }
     connectionManager.setMaxTotal(DEFAULT_MAX_HTTP_CONNECTIONS);
     connectionManager.setDefaultMaxPerRoute(DEFAULT_MAX_HTTP_CONNECTIONS_PER_ROUTE);
+    connectionManager.setValidateAfterInactivity(10);
   }
 
   private RequestConfig makeRequestConfig() {

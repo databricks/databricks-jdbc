@@ -5,6 +5,7 @@ import static com.databricks.jdbc.integration.fakeservice.FakeServiceConfigLoade
 import static com.github.tomakehurst.wiremock.core.WireMockConfiguration.wireMockConfig;
 
 import com.databricks.jdbc.driver.DatabricksJdbcConstants;
+import com.github.tomakehurst.wiremock.core.Options;
 import com.github.tomakehurst.wiremock.extension.Extension;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.extension.RegisterExtension;
@@ -25,7 +26,11 @@ public abstract class AbstractFakeServiceIntegrationTests {
       new FakeServiceExtension(
           new DatabricksWireMockExtension.Builder()
               .options(
-                  wireMockConfig().dynamicPort().dynamicHttpsPort().extensions(getExtensions())),
+                  wireMockConfig()
+                      .dynamicPort()
+                      .dynamicHttpsPort()
+                      .extensions(getExtensions())
+                      .useChunkedTransferEncoding(Options.ChunkedEncodingPolicy.NEVER)),
           FakeServiceConfigLoader.shouldUseThriftClient
               ? DatabricksJdbcConstants.FakeServiceType.SQL_GATEWAY
               : DatabricksJdbcConstants.FakeServiceType.SQL_EXEC,
@@ -40,7 +45,11 @@ public abstract class AbstractFakeServiceIntegrationTests {
       new FakeServiceExtension(
           new DatabricksWireMockExtension.Builder()
               .options(
-                  wireMockConfig().dynamicPort().dynamicHttpsPort().extensions(getExtensions())),
+                  wireMockConfig()
+                      .dynamicPort()
+                      .dynamicHttpsPort()
+                      .extensions(getExtensions())
+                      .useChunkedTransferEncoding(Options.ChunkedEncodingPolicy.NEVER)),
           FakeServiceConfigLoader.shouldUseThriftClient
               ? DatabricksJdbcConstants.FakeServiceType.CLOUD_FETCH_SQL_GATEWAY
               : DatabricksJdbcConstants.FakeServiceType.CLOUD_FETCH,
