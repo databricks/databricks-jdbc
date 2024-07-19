@@ -22,7 +22,7 @@ import java.util.Properties;
 public class Driver implements java.sql.Driver {
   private static final Driver INSTANCE;
   private static final int majorVersion = 0;
-  private static final int minorVersion = 7;
+  private static final int minorVersion = 9;
   private static final int buildVersion = 0;
   private static final String qualifier = "oss";
 
