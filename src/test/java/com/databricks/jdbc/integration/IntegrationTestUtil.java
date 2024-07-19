@@ -232,7 +232,12 @@ public class IntegrationTestUtil {
     String tableDeletionSQL = "DROP TABLE IF EXISTS " + getFullyQualifiedTableName(tableName);
     executeSQL(tableDeletionSQL);
 
-    String tableCreationSQL =
+      try {
+          Thread.sleep(2000);
+      } catch (InterruptedException e) {
+          throw new RuntimeException(e);
+      }
+      String tableCreationSQL =
         "CREATE TABLE IF NOT EXISTS "
             + getFullyQualifiedTableName(tableName)
             + " (id INT PRIMARY KEY, col1 VARCHAR(255), col2 VARCHAR(255))";

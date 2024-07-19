@@ -265,6 +265,11 @@ public class FakeServiceExtension extends DatabricksWireMockExtension {
       for (StubMapping mapping : stubCollection.getMappingOrMappings()) {
         embedExtractedBodyFile(mapping);
         wireMockRuntimeInfo.getWireMock().register(mapping);
+        try {
+          Thread.sleep(2000);
+        } catch (InterruptedException e) {
+          throw new RuntimeException(e);
+        }
       }
     }
   }
@@ -279,7 +284,7 @@ public class FakeServiceExtension extends DatabricksWireMockExtension {
                 .makeStubsPersistent(false) // manually save stub mappings
                 .extractTextBodiesOver(MAX_STUBBING_TEXT_SIZE)
                 .extractBinaryBodiesOver(MAX_STUBBING_BINARY_SIZE)
-                .transformers(StubMappingCredentialsCleaner.NAME));
+                .transformers(StubMappingCredentialsCleaner.NAME, "keep-alive-disabler"));
   }
 
   /**
