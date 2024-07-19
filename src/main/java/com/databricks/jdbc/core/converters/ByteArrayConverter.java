@@ -90,7 +90,6 @@ public class ByteArrayConverter extends AbstractObjectConverter {
 
   @Override
   public String convertToString() throws DatabricksSQLException {
-
     return Base64.getEncoder().encodeToString(this.object);
   }
 }
