@@ -29,7 +29,7 @@ class ConverterHelperTest {
         Arguments.of(Types.TINYINT, 127, (byte) 127),
         Arguments.of(Types.SMALLINT, 32767, (short) 32767),
         Arguments.of(Types.INTEGER, 123456, 123456),
-        Arguments.of(Types.BIGINT, 123456789012345L, BigInteger.valueOf(123456789012345L)),
+        Arguments.of(Types.BIGINT, 123456789012345L, 123456789012345L),
         Arguments.of(Types.FLOAT, 1.23f, 1.23f),
         Arguments.of(Types.DOUBLE, 1.234567, 1.234567),
         Arguments.of(Types.DECIMAL, new BigDecimal("123.45"), new BigDecimal("123.45")),

@@ -21,7 +21,7 @@ public class ConverterHelper {
       case Types.INTEGER:
         return new IntConverter(object).convertToInt();
       case Types.BIGINT:
-        return new LongConverter(object).convertToBigInteger();
+        return new LongConverter(object).convertToLong();
       case Types.FLOAT:
         return new FloatConverter(object).convertToFloat();
       case Types.DOUBLE:
