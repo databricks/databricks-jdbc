@@ -480,7 +480,12 @@ public class DatabricksResultSet implements ResultSet, IDatabricksResultSet {
   @Override
   public Object getObject(int columnIndex) throws SQLException {
     checkIfClosed();
-    return getObjectInternal(columnIndex);
+    Object obj = getObjectInternal(columnIndex);
+    if (obj == null) {
+      return null;
+    }
+    int columnType = resultSetMetaData.getColumnType(columnIndex);
+    return getConvertedObject(columnType, obj);
   }
 
   @Override
