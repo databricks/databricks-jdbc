@@ -439,10 +439,7 @@ public class DatabricksStatement implements IDatabricksStatement, Statement {
     CompletableFuture<DatabricksResultSet> futureResultSet =
         getFutureResult(sql, params, statementType);
     try {
-      resultSet =
-          timeoutInSeconds == 0
-              ? futureResultSet.get() // Wait indefinitely when timeout is 0
-              : futureResultSet.get(timeoutInSeconds, TimeUnit.SECONDS);
+      resultSet = futureResultSet.get(timeoutInSeconds, TimeUnit.SECONDS);
     } catch (TimeoutException e) {
       this.close(); // Close the statement
       futureResultSet.cancel(true); // Cancel execution run
