@@ -5,6 +5,7 @@ import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
+import java.util.Base64;
 
 public class ByteArrayConverter extends AbstractObjectConverter {
 
@@ -13,7 +14,7 @@ public class ByteArrayConverter extends AbstractObjectConverter {
   public ByteArrayConverter(Object object) throws DatabricksSQLException {
     super(object);
     if (object instanceof String) {
-      this.object = ((String) object).getBytes(StandardCharsets.UTF_8);
+      this.object = Base64.getDecoder().decode((String) object);
     } else if (object instanceof byte[]) {
       this.object = (byte[]) object;
     } else if (object instanceof ByteBuffer) {
