@@ -22,6 +22,7 @@ import java.util.stream.Stream;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -104,38 +105,26 @@ public class UCVolumeDataExchangeIntegrationTests extends AbstractFakeServiceInt
             true));
   }
 
-  @ParameterizedTest
-  @MethodSource("provideParametersForGetObject_FileRead")
-  void testGetObject_FileRead(
-      String catalog,
-      String schema,
-      String volume,
-      String objectPath,
-      String localPath,
-      String expectedContentPath,
-      String expectedContent)
-      throws Exception {
-    byte[] fileContent = Files.readAllBytes(Paths.get(expectedContentPath));
-    String actualContent = new String(fileContent, StandardCharsets.UTF_8);
+  @Test
+  public void testGetObject_FileRead() throws Exception {
+    DatabricksUCVolumeClient client = new DatabricksUCVolumeClient(con);
+
+    String volume = "test_volume1";
+    String objectPath = "hello_world.txt";
+    String localPath = "/tmp/download_hello_world.txt";
+    String expectedContent = "helloworld";
+
     File file = new File(localPath);
     if (file.exists()) {
       file.delete();
     }
 
-    assertTrue(client.getObject(catalog, schema, volume, objectPath, localPath));
-    assertEquals(expectedContent, actualContent);
-  }
+    assertTrue(
+        client.getObject(UC_VOLUME_CATALOG, UC_VOLUME_SCHEMA, volume, objectPath, localPath));
+    byte[] LocalFileContent = Files.readAllBytes(Paths.get(localPath));
+    String actualContent = new String(LocalFileContent, StandardCharsets.UTF_8);
 
-  private static Stream<Arguments> provideParametersForGetObject_FileRead() {
-    return Stream.of(
-        Arguments.of(
-            UC_VOLUME_CATALOG,
-            UC_VOLUME_SCHEMA,
-            "test_volume1",
-            "hello_world.txt",
-            "/tmp/download_hello_world.txt",
-            "/tmp/expected_hello_world.txt",
-            "helloworld"));
+    assertEquals(expectedContent, actualContent);
   }
 
   @ParameterizedTest
@@ -146,6 +135,7 @@ public class UCVolumeDataExchangeIntegrationTests extends AbstractFakeServiceInt
       String volume,
       String objectPath,
       String localPath,
+      String localContent,
       boolean toOverwrite,
       boolean expected)
       throws Exception {
@@ -153,6 +143,7 @@ public class UCVolumeDataExchangeIntegrationTests extends AbstractFakeServiceInt
     if (client.objectExists(catalog, schema, volume, objectPath, false)) {
       assertTrue(client.deleteObject(catalog, schema, volume, objectPath));
     }
+    Files.write(Paths.get(localPath), localContent.getBytes(StandardCharsets.UTF_8));
 
     assertEquals(
         expected, client.putObject(catalog, schema, volume, objectPath, localPath, toOverwrite));
@@ -164,32 +155,34 @@ public class UCVolumeDataExchangeIntegrationTests extends AbstractFakeServiceInt
             UC_VOLUME_CATALOG,
             UC_VOLUME_SCHEMA,
             "test_volume1",
-            "upload1.csv",
-            "/tmp/download1.csv",
+            "upload1.txt",
+            "/tmp/download1.txt",
+            "helloworld",
             false,
             true),
         Arguments.of(
             UC_VOLUME_CATALOG,
             UC_VOLUME_SCHEMA,
             "test_volume1",
-            "folder1/folder2/upload2.csv",
-            "/tmp/download2.csv",
+            "folder1/folder2/upload2.txt",
+            "/tmp/download1.txt",
+            "helloworld",
             false,
             true));
   }
 
-  @ParameterizedTest
-  @MethodSource("provideParametersForPutAndGetTest")
-  void testPutAndGet(
-      String catalog,
-      String schema,
-      String volume,
-      String objectPath,
-      boolean toOverwrite,
-      String localPathForUpload,
-      String localPathForDownload,
-      String expectedContent)
-      throws Exception {
+  @Test
+  public void testPutAndGet() throws Exception {
+    DatabricksUCVolumeClient client = new DatabricksUCVolumeClient(con);
+
+    String catalog = UC_VOLUME_CATALOG;
+    String schema = UC_VOLUME_SCHEMA;
+    String volume = "test_volume1";
+    String objectPath = "hello_world.txt";
+    boolean toOverwrite = false;
+    String localPathForUpload = "/tmp/upload_hello_world.txt";
+    String localPathForDownload = "/tmp/download_hello_world.txt";
+    String expectedContent = "helloworld";
 
     Files.write(Paths.get(localPathForUpload), expectedContent.getBytes(StandardCharsets.UTF_8));
 
@@ -210,29 +203,16 @@ public class UCVolumeDataExchangeIntegrationTests extends AbstractFakeServiceInt
     assertEquals(expectedContent, actualContent);
   }
 
-  private static Stream<Arguments> provideParametersForPutAndGetTest() {
-    return Stream.of(
-        Arguments.of(
-            UC_VOLUME_CATALOG,
-            UC_VOLUME_SCHEMA,
-            "test_volume1",
-            "hello_world.txt",
-            false,
-            "/tmp/upload_hello_world.txt",
-            "/tmp/download_hello_world.txt",
-            "helloworld"));
-  }
+  @Test
+  public void testPutAndDelete() throws Exception {
+    DatabricksUCVolumeClient client = new DatabricksUCVolumeClient(con);
 
-  @ParameterizedTest
-  @MethodSource("provideParametersForPutAndDeleteTest")
-  void testPutAndDelete(
-      String catalog,
-      String schema,
-      String volume,
-      String objectPath,
-      String localPathForUpload,
-      String fileContent)
-      throws Exception {
+    String catalog = UC_VOLUME_CATALOG;
+    String schema = UC_VOLUME_SCHEMA;
+    String volume = "test_volume1";
+    String objectPath = "test_hello_world.txt";
+    String localPathForUpload = "/tmp/upload_hello_world.txt";
+    String fileContent = "helloworld";
 
     Files.write(Paths.get(localPathForUpload), fileContent.getBytes(StandardCharsets.UTF_8));
     assertTrue(client.putObject(catalog, schema, volume, objectPath, localPathForUpload, false));
@@ -241,27 +221,16 @@ public class UCVolumeDataExchangeIntegrationTests extends AbstractFakeServiceInt
     assertFalse(client.objectExists(catalog, schema, volume, objectPath, false));
   }
 
-  private static Stream<Arguments> provideParametersForPutAndDeleteTest() {
-    return Stream.of(
-        Arguments.of(
-            UC_VOLUME_CATALOG,
-            UC_VOLUME_SCHEMA,
-            "test_volume1",
-            "test_hello_world.txt",
-            "/tmp/upload_hello_world.txt",
-            "helloworld"));
-  }
+  @Test
+  public void testPutAndGetOverwrite() throws Exception {
+    DatabricksUCVolumeClient client = new DatabricksUCVolumeClient(con);
 
-  @ParameterizedTest
-  @MethodSource("provideParametersForPutAndGetOverwriteTest")
-  void testPutAndGetOverwrite(
-      String catalog,
-      String schema,
-      String volume,
-      String objectPath,
-      String initialContent,
-      String overwriteContent)
-      throws Exception {
+    String catalog = UC_VOLUME_CATALOG;
+    String schema = UC_VOLUME_SCHEMA;
+    String volume = "test_volume1";
+    String objectPath = "overwrite.txt";
+    String initialContent = "initialContent";
+    String overwriteContent = "overwriteContent";
 
     String localPathForInitialUpload = "/tmp/upload_overwrite_test_1.txt";
     String localPathForInitialDownload = "/tmp/download_overwrite_test_1.txt";
@@ -299,17 +268,6 @@ public class UCVolumeDataExchangeIntegrationTests extends AbstractFakeServiceInt
     fileContent = Files.readAllBytes(Paths.get(localPathForOverwriteDownload));
     actualContent = new String(fileContent, StandardCharsets.UTF_8);
     assertEquals(overwriteContent, actualContent);
-  }
-
-  private static Stream<Arguments> provideParametersForPutAndGetOverwriteTest() {
-    return Stream.of(
-        Arguments.of(
-            UC_VOLUME_CATALOG,
-            UC_VOLUME_SCHEMA,
-            "test_volume1",
-            "overwrite.txt",
-            "initialContent",
-            "overwriteContent"));
   }
 
   private Connection getConnection() throws SQLException {
