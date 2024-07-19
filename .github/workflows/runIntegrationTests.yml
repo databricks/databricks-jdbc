@@ -31,7 +31,7 @@ jobs:
       - uses: actions/cache@v2
         with:
           path: ~/.m2
-          key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
+          key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}-${{ hashFiles('**/src/main/resources/**') }}
           restore-keys: ${{ runner.os }}-m2
       - name: Run Integration Tests
         run: ${{ matrix.test-command }}
