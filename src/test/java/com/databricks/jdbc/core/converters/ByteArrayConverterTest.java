@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.databricks.jdbc.core.DatabricksSQLException;
+import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.sql.Timestamp;
 import java.time.LocalDateTime;
@@ -39,6 +40,14 @@ class ByteArrayConverterTest {
     assertEquals(5, converter.convertToByte());
     assertThrows(
         DatabricksSQLException.class, () -> new ByteArrayConverter(new byte[] {}).convertToByte());
+  }
+
+  @Test
+  public void testByteArrayConverterWithHeapByteBuffer() throws DatabricksSQLException {
+    byte[] byteArray = {5, 6, 7, 8};
+    ByteBuffer buffer = ByteBuffer.wrap(byteArray);
+    ByteArrayConverter converter = new ByteArrayConverter(buffer);
+    assertArrayEquals(byteArray, converter.convertToByteArray());
   }
 
   @Test
