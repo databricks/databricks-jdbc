@@ -103,6 +103,23 @@ public class DriverTester {
   }
 
   @Test
+  void testAllPurposeClustersInline() throws Exception {
+    String jdbcUrl =
+        "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;ssl=1;AuthMech=3;httpPath=sql/protocolv1/o/6051921418418893/1115-130834-ms4m0yv;enableArrow=0";
+    Connection con = DriverManager.getConnection(jdbcUrl, "user", "x");
+    System.out.println("Connection established......");
+    Statement s = con.createStatement();
+    ResultSet rs = s.executeQuery("SELECT unhex('f000')");
+    rs.next();
+    System.out.println(Arrays.toString(rs.getBytes(1))); // should print [-16,0]
+    rs = s.executeQuery("SELECT struct(1 as a, 2 as b)");
+    rs.next();
+    System.out.println(rs.getObject(1)); // should print {"a":1,"b":2}
+    con.close();
+    System.out.println("Connection closed successfully......");
+  }
+
+  @Test
   void testAllPurposeClustersMetadata() throws Exception {
     String jdbcUrl =
         "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;AuthMech=3;httpPath=sql/protocolv1/o/6051921418418893/1115-130834-ms4m0yv";
