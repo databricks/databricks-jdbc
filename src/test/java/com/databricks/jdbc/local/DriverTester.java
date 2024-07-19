@@ -93,11 +93,14 @@ public class DriverTester {
   @Test
   void testAllPurposeClusters() throws Exception {
     String jdbcUrl =
-        "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;ssl=1;AuthMech=3;httpPath=sql/protocolv1/o/6051921418418893/1115-130834-ms4m0yv";
-    Connection con = DriverManager.getConnection(jdbcUrl, "user", "xx");
+        "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;ssl=1;AuthMech=3;httpPath=sql/protocolv1/o/6051921418418893/1115-130834-ms4m0yv;EnableArrow=0";
+    Connection con =
+        DriverManager.getConnection(jdbcUrl, "user", "dapi3c78e2fc857387ad3173dcbad4bd67d0");
     System.out.println("Connection established......");
     Statement s = con.createStatement();
-    s.executeQuery("SELECT *5 from RANGE(100000000)");
+    ResultSet rs = s.executeQuery("SELECT TRUE");
+    rs.next();
+    System.out.println(rs.getObject(1).getClass());
     con.close();
     System.out.println("Connection closed successfully......");
   }

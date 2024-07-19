@@ -78,53 +78,13 @@ public class Driver implements java.sql.Driver {
 
   private void setMetadataClient(
       DatabricksConnection connection, IDatabricksConnectionContext connectionContext) {
-    try {
-      ResultSet getDBSQLVersionInfo =
-          connection.createStatement().executeQuery("SELECT current_version().dbsql_version");
-      getDBSQLVersionInfo.next();
-      String dbsqlVersion = getDBSQLVersionInfo.getString(1);
+    if (connectionContext.getUseLegacyMetadata().equals(true)) {
       LoggingUtil.log(
           LogLevel.DEBUG,
-          String.format("Connected to Databricks DBSQL version: {%s}", dbsqlVersion));
-      if (checkSupportForNewMetadata(dbsqlVersion)) {
-        LoggingUtil.log(
-            LogLevel.DEBUG,
-            String.format(
-                "The Databricks DBSQL version {%s} supports the new metadata commands.",
-                dbsqlVersion));
-        if (connectionContext.getUseLegacyMetadata().equals(true)) {
-          LoggingUtil.log(
-              LogLevel.DEBUG,
-              "The new metadata commands are enabled, but the legacy metadata commands are being used due to connection parameter useLegacyMetadata");
-          connection.setMetadataClient(true);
-        } else {
-          connection.setMetadataClient(false);
-        }
-      } else if (dbsqlVersion.equals("")) {
-        // This handles the case when dbsql version is not returned
-        if (connectionContext.getUseLegacyMetadata().equals(true)) {
-          LoggingUtil.log(
-              LogLevel.DEBUG,
-              "Legacy metadata commands are being used due to connection parameter useLegacyMetadata");
-          connection.setMetadataClient(true);
-        } else {
-          connection.setMetadataClient(false);
-        }
-      } else {
-        LoggingUtil.log(
-            LogLevel.DEBUG,
-            String.format(
-                "The Databricks DBSQL version {%s} does not support the new metadata commands. Falling back to legacy metadata commands.",
-                dbsqlVersion));
-        connection.setMetadataClient(true);
-      }
-    } catch (SQLException e) {
-      LoggingUtil.log(
-          LogLevel.DEBUG,
-          String.format(
-              "Unable to get the DBSQL version. Falling back to legacy metadata commands. Error : %s",
-              e));
+          "The new metadata commands are enabled, but the legacy metadata commands are being used due to connection parameter useLegacyMetadata");
       connection.setMetadataClient(true);
+    } else {
+      connection.setMetadataClient(false);
     }
   }
 
