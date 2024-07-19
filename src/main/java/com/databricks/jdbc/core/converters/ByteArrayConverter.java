@@ -3,6 +3,7 @@ package com.databricks.jdbc.core.converters;
 import com.databricks.jdbc.core.DatabricksSQLException;
 import java.math.BigDecimal;
 import java.math.BigInteger;
+import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 
 public class ByteArrayConverter extends AbstractObjectConverter {
@@ -15,8 +16,17 @@ public class ByteArrayConverter extends AbstractObjectConverter {
       this.object = ((String) object).getBytes(StandardCharsets.UTF_8);
     } else if (object instanceof byte[]) {
       this.object = (byte[]) object;
+    } else if (object instanceof ByteBuffer) {
+      ByteBuffer byteBuffer = (ByteBuffer) object;
+      if (byteBuffer.hasArray()) {
+        this.object = byteBuffer.array();
+      } else {
+        this.object = new byte[byteBuffer.remaining()];
+        byteBuffer.get(this.object);
+      }
     } else {
-      throw new DatabricksSQLException("Unsupported type for ByteArrayConverter");
+      throw new DatabricksSQLException(
+          "Unsupported type for ByteArrayConverter : " + object.getClass());
     }
   }
 
