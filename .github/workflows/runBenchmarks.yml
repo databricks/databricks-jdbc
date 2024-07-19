@@ -65,11 +65,6 @@ jobs:
           echo "DATABRICKS_DOGFOOD_HOST=${DATABRICKS_DOGFOOD_HOST}" >> $GITHUB_ENV
           echo "DATABRICKS_DOGFOOD_TOKEN=${DATABRICKS_DOGFOOD_TOKEN}" >> $GITHUB_ENV
           echo "DATABRICKS_DOGFOOD_HTTP_PATH=${DATABRICKS_DOGFOOD_HTTP_PATH}" >> $GITHUB_ENV
-          
-
-      - name: Build with Maven
-        run: mvn -B package --file pom.xml
-
 
       - name: Run Benchmark Tests
         run: |
