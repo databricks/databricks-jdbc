@@ -26,7 +26,7 @@ public class ByteArrayConverter extends AbstractObjectConverter {
       }
     } else {
       throw new DatabricksSQLException(
-          "Unsupported type for ByteArrayConverter " + object.getClass() + " " + object);
+          "Unsupported type for ByteArrayConverter : " + object.getClass());
     }
   }
 
