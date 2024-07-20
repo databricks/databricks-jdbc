@@ -16,8 +16,8 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
   public static final int DATABASE_MINOR_VERSION = 1;
   public static final int DATABASE_PATCH_VERSION = 1;
   public static final int JDBC_MAJOR_VERSION = 0;
-  public static final int JDBC_MINOR_VERSION = 0;
-  public static final int JDBC_PATCH_VERSION = 1;
+  public static final int JDBC_MINOR_VERSION = 9;
+  public static final int JDBC_PATCH_VERSION = 0;
   public static final Integer MAX_NAME_LENGTH = 128;
   public static final String NUMERIC_FUNCTIONS =
       "ABS,ACOS,ASIN,ATAN,ATAN2,CEILING,COS,COT,DEGREES,EXP,FLOOR,LOG,LOG10,MOD,PI,POWER,RADIANS,RAND,ROUND,SIGN,SIN,SQRT,TAN,TRUNCATE";
