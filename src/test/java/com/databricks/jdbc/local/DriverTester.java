@@ -42,11 +42,11 @@ public class DriverTester {
     // Getting the connection
     String jdbcUrl =
         "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=https;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/791ba2a31c7fd70a;";
-    Connection con = DriverManager.getConnection(jdbcUrl, "user", "xx");
+    Connection con = DriverManager.getConnection(jdbcUrl, "user", "x");
     System.out.println("Connection established......");
     Statement statement = con.createStatement();
     statement.setMaxRows(10);
-    ResultSet rs = con.getMetaData().getTables("hive_metastore", "*", "*", null);
+    ResultSet rs = con.getMetaData().getTables("main", "%", "%", null);
     printResultSet(rs);
     rs.close();
     statement.close();
@@ -62,8 +62,7 @@ public class DriverTester {
         "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=https;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/791ba2a31c7fd70a;";
     Connection con = DriverManager.getConnection(jdbcUrl, "user", "x");
     System.out.println("Connection established......");
-    // DatabaseMetaData metaData = con.getMetaData();
-    ResultSet resultSet = con.getMetaData().getTables("main", ".*", ".*", null);
+    ResultSet resultSet = con.getMetaData().getTables("main", "%", "%", null);
     printResultSet(resultSet);
     resultSet.close();
     con.close();
@@ -99,6 +98,23 @@ public class DriverTester {
     System.out.println("Connection established......");
     Statement s = con.createStatement();
     s.executeQuery("SELECT *5 from RANGE(100000000)");
+    con.close();
+    System.out.println("Connection closed successfully......");
+  }
+
+  @Test
+  void testAllPurposeClustersInline() throws Exception {
+    String jdbcUrl =
+        "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;ssl=1;AuthMech=3;httpPath=sql/protocolv1/o/6051921418418893/1115-130834-ms4m0yv;enableArrow=0";
+    Connection con = DriverManager.getConnection(jdbcUrl, "user", "x");
+    System.out.println("Connection established......");
+    Statement s = con.createStatement();
+    ResultSet rs = s.executeQuery("SELECT unhex('f000')");
+    rs.next();
+    System.out.println(Arrays.toString(rs.getBytes(1))); // should print [-16,0]
+    rs = s.executeQuery("SELECT struct(1 as a, 2 as b)");
+    rs.next();
+    System.out.println(rs.getObject(1)); // should print {"a":1,"b":2}
     con.close();
     System.out.println("Connection closed successfully......");
   }

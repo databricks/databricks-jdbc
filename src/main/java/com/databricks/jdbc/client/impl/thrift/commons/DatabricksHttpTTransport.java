@@ -164,7 +164,6 @@ public class DatabricksHttpTTransport extends TTransport {
     Map<String, String> headers = new HashMap<>();
     headers.put("Content-Type", "application/x-thrift");
     headers.put("Accept", "application/x-thrift");
-    headers.put("User-Agent", "Java/THttpClient/HC"); // TODO : Fix userAgent
     return headers;
   }
 }
