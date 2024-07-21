@@ -1,0 +1,31 @@
+{
+  "id" : "9ed030d2-7f8b-47f2-9aba-3c1ce9a90591",
+  "name" : "sql_protocolv1_o_6051921418418893_1115-130834-ms4m0yv",
+  "request" : {
+    "url" : "/sql/protocolv1/o/6051921418418893/1115-130834-ms4m0yv",
+    "method" : "POST",
+    "bodyPatterns" : [ {
+      "binaryEqualTo" : "gAEAAQAAAAtPcGVuU2Vzc2lvbgAAAAEMAAEIAAH////5DQAECwsAAAAACgUCAAAAAAAApQkMBQQLAAEAAAAFU1BBUksLAAIAAAAHZGVmYXVsdAACBQUBAAA="
+    } ]
+  },
+  "response" : {
+    "status" : 200,
+    "base64Body" : "gAEAAgAAAAtPcGVuU2Vzc2lvbgAAAAEMAAAMAAEIAAEAAAAAAAgAAgAApQgMAAMMAAELAAEAAAAQjeuQ6j3ISp6R6Yi2lf1Q8AsAAgAAABCc6EHu9qROK7LcvV/ZEPOaBg0BAAAACA0BAAClCAANAAQLCwAAAAAMBQQLAAEAAAAFc3BhcmsLAAIAAAAHZGVmYXVsdAACBQUBAAA=",
+    "headers" : {
+      "date" : "Sun, 21 Jul 2024 12:21:27 GMT,Sun, 21 Jul 2024 12:21:27 GMT",
+      "server" : "databricks",
+      "x-databricks-popp-request-id" : "875bc868-d8ef-4778-a0a4-ec79df47e062",
+      "x-content-type-options" : [ "nosniff", "nosniff" ],
+      "x-xss-protection" : "1; mode=block",
+      "x-databricks-shard-debug" : "oregon-staging",
+      "x-frame-options" : "SAMEORIGIN",
+      "x-databricks-popp-shadow-routing-reason" : "deployment-name",
+      "x-databricks-org-id" : "6051921418418893",
+      "x-databricks-popp-routing-reason" : "deployment-name",
+      "content-type" : "application/x-thrift",
+      "strict-transport-security" : [ "max-age=31536000; includeSubDomains; preload", "max-age=31536000; includeSubDomains; preload" ]
+    }
+  },
+  "uuid" : "9ed030d2-7f8b-47f2-9aba-3c1ce9a90591",
+  "insertionIndex" : 31
+}
