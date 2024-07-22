@@ -47,6 +47,16 @@
       <developerConnection>scm:git:https://github.com/databricks/databricks-jdbc.git</developerConnection>
       <url>https://github.com/databricks/databricks-jdbc</url>
   </scm>
+  <issueManagement>
+    <system>GitHub Issues</system>
+    <url>https://github.com/databricks/databricks-jdbc/issues</url>
+  </issueManagement>
+  <distributionManagement>
+    <repository>
+      <id>ossrh</id>
+      <url>https://oss.sonatype.org/service/local/staging/deploy/maven2/</url>
+    </repository>
+  </distributionManagement>
   <properties>
     <arrow.version>13.0.0</arrow.version>
     <maven.compiler.source>11</maven.compiler.source>

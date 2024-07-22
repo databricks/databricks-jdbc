@@ -19,7 +19,7 @@ jobs:
           OSSRH_USERNAME: ${{ secrets.OSSRH_USERNAME }}
           OSSRH_PASSWORD: ${{ secrets.OSSRH_PASSWORD }}
         with:
-          java-version: 8
+          java-version: 11
           server-id: ossrh
           distribution: "adopt"
           server-username: OSSRH_USERNAME
