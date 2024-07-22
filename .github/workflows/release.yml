@@ -14,6 +14,10 @@ jobs:
 
       - name: Set up Java for publishing to Maven Central Repository
         uses: actions/setup-java@v3
+        env:
+          GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
+          OSSRH_USERNAME: ${{ secrets.OSSRH_USERNAME }}
+          OSSRH_PASSWORD: ${{ secrets.OSSRH_PASSWORD }}
         with:
           java-version: 8
           server-id: ossrh
