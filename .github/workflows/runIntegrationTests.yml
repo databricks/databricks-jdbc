@@ -18,8 +18,10 @@ jobs:
         include:
           - test-command: mvn -B compile test -Dtest=*IntegrationTests
             token-secret: DATABRICKS_TOKEN
-          - test-command: mvn -B compile test -Dtest=**/fakeservice/tests/*.java,!**/fakeservice/tests/ConcurrencyIntegrationTests.java,!**/fakeservice/tests/PreparedStatementIntegrationTests.java
+            use-thrift-client: 'false'
+          - test-command: mvn -B compile test -Dtest=**/fakeservice/tests/*.java,!**/fakeservice/tests/ConcurrencyIntegrationTests.java,!**/fakeservice/tests/PreparedStatementIntegrationTests.java,!**/fakeservice/tests/UCVolumeIntegrationTests.java
             token-secret: THRIFT_DATABRICKS_TOKEN
+            use-thrift-client: 'true'
     steps:
       - uses: actions/checkout@v2
       - uses: actions/setup-java@v2
@@ -36,3 +38,4 @@ jobs:
         env:
           DATABRICKS_TOKEN: ${{ secrets[matrix.token-secret] }}
           DATABRICKS_USER: ${{ secrets.DATABRICKS_USER }}
+          USE_THRIFT_CLIENT: ${{ matrix.use-thrift-client }}
