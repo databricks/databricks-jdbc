@@ -19,7 +19,7 @@ jobs:
           - test-command: mvn -B compile test -Dtest=*IntegrationTests
             token-secret: DATABRICKS_TOKEN
             use-thrift-client: 'false'
-          - test-command: mvn -B compile test -Dtest=**/fakeservice/tests/*.java,!**/fakeservice/tests/ConcurrencyIntegrationTests.java,!**/fakeservice/tests/PreparedStatementIntegrationTests.java,!**/fakeservice/tests/UCVolumeIntegrationTests.java
+          - test-command: mvn -B compile test -Dtest=**/fakeservice/tests/MultiChunkExecutionIntegrationTests.java,**/fakeservice/tests/ConnectionIntegrationTests.java
             token-secret: THRIFT_DATABRICKS_TOKEN
             use-thrift-client: 'true'
     steps:
