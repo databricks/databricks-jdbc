@@ -1,5 +1,5 @@
 {
-  "id" : "ca56f26a-736f-4260-a9b5-490d10870320",
+  "id" : "4bcc2a29-adc4-4bc6-935b-bafa7fcd4499",
   "name" : "sql_protocolv1_o_6051921418418893_1115-130834-ms4m0yv",
   "request" : {
     "url" : "/sql/protocolv1/o/6051921418418893/1115-130834-ms4m0yv",
@@ -10,11 +10,11 @@
   },
   "response" : {
     "status" : 200,
-    "base64Body" : "gAEAAgAAAAtPcGVuU2Vzc2lvbgAAAAEMAAAMAAEIAAEAAAAAAAgAAgAApQgMAAMMAAELAAEAAAAQmXYFQSkqRyWngTjjg4eFCgsAAgAAABCO7hwTmAtGO5HmNJxIsXKuBg0BAAAACA0BAAClCAANAAQLCwAAAAAMBQQLAAEAAAAFc3BhcmsLAAIAAAAHZGVmYXVsdAACBQUBAAA=",
+    "base64Body" : "gAEAAgAAAAtPcGVuU2Vzc2lvbgAAAAEMAAAMAAEIAAEAAAAAAAgAAgAApQgMAAMMAAELAAEAAAAQ7K6hewMPQHaCKoZ2o7YJgAsAAgAAABDJvclA0hBNuZPNIyplMlmRBg0BAAAACA0BAAClCAANAAQLCwAAAAAMBQQLAAEAAAAFc3BhcmsLAAIAAAAHZGVmYXVsdAACBQUBAAA=",
     "headers" : {
-      "date" : "Mon, 22 Jul 2024 11:06:34 GMT,Mon, 22 Jul 2024 11:06:35 GMT",
+      "date" : "Mon, 22 Jul 2024 12:12:57 GMT,Mon, 22 Jul 2024 12:12:57 GMT",
       "server" : "databricks",
-      "x-databricks-popp-request-id" : "eb57f4d8-8e76-4bdf-8128-7b70ab31c404",
+      "x-databricks-popp-request-id" : "d0bfbc0b-d7b1-4004-8fd4-68f481ca8cc7",
       "x-content-type-options" : [ "nosniff", "nosniff" ],
       "x-xss-protection" : "1; mode=block",
       "x-databricks-shard-debug" : "oregon-staging",
@@ -26,6 +26,6 @@
       "strict-transport-security" : [ "max-age=31536000; includeSubDomains; preload", "max-age=31536000; includeSubDomains; preload" ]
     }
   },
-  "uuid" : "ca56f26a-736f-4260-a9b5-490d10870320",
-  "insertionIndex" : 3
+  "uuid" : "4bcc2a29-adc4-4bc6-935b-bafa7fcd4499",
+  "insertionIndex" : 7
 }

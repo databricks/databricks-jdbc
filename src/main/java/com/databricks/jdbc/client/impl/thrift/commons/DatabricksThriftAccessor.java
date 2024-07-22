@@ -26,7 +26,7 @@ import org.apache.thrift.protocol.TBinaryProtocol;
 
 public class DatabricksThriftAccessor {
   private final DatabricksConfig databricksConfig;
-  private final ThreadLocal<TCLIService.Client> thriftClient;
+  private final TCLIService.Client newThriftClient;
   private final Boolean enableDirectResults;
   private static final TSparkGetDirectResults DEFAULT_DIRECT_RESULTS =
       new TSparkGetDirectResults().setMaxRows(DEFAULT_ROW_LIMIT).setMaxBytes(DEFAULT_BYTE_LIMIT);
@@ -42,16 +42,12 @@ public class DatabricksThriftAccessor {
     String endPointUrl = connectionContext.getEndpointURL();
     // Create a new thrift client for each thread as client state is not thread safe. Note that the
     // underlying protocol uses the same http client which is thread safe
-    this.thriftClient =
-        ThreadLocal.withInitial(
-            () -> {
-              DatabricksHttpTTransport transport =
-                  new DatabricksHttpTTransport(
-                      DatabricksHttpClient.getInstance(connectionContext), endPointUrl);
-              transport.setCustomHeaders(authHeaders);
-              TBinaryProtocol protocol = new TBinaryProtocol(transport);
-              return new TCLIService.Client(protocol);
-            });
+    DatabricksHttpTTransport transport1 =
+        new DatabricksHttpTTransport(
+            DatabricksHttpClient.getInstance(connectionContext), endPointUrl);
+    transport1.setCustomHeaders(authHeaders);
+    TBinaryProtocol protocol1 = new TBinaryProtocol(transport1);
+    this.newThriftClient = new TCLIService.Client(protocol1);
   }
 
   @VisibleForTesting
@@ -60,7 +56,7 @@ public class DatabricksThriftAccessor {
       DatabricksConfig config,
       IDatabricksConnectionContext connectionContext) {
     this.databricksConfig = config;
-    this.thriftClient = ThreadLocal.withInitial(() -> client);
+    this.newThriftClient = client;
     this.enableDirectResults = connectionContext.getDirectResultMode();
   }
 
@@ -457,6 +453,6 @@ public class DatabricksThriftAccessor {
   }
 
   private TCLIService.Client getThriftClient() {
-    return thriftClient.get();
+    return newThriftClient;
   }
 }

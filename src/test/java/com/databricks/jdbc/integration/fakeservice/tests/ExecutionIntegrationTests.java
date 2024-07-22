@@ -19,18 +19,21 @@ public class ExecutionIntegrationTests extends AbstractFakeServiceIntegrationTes
   void testDeleteStatement() throws SQLException {
     // Insert initial test data
     String tableName = "delete_test_table";
+    setupDatabaseTable(tableName);
+    insertTestData(tableName);
 
     String deleteSQL = "DELETE FROM " + getFullyQualifiedTableName(tableName) + " WHERE id = 1";
     executeSQL(deleteSQL);
 
     ResultSet rs = executeQuery("SELECT * FROM " + getFullyQualifiedTableName(tableName));
     assertFalse(rs.next(), "Expected no rows after delete");
+    deleteTable(tableName);
 
     if (isSqlExecSdkClient()) {
       // At least 6 statement requests are sent: drop, create, insert, delete, select, drop
       getDatabricksApiExtension()
           .verify(
-              new CountMatchingStrategy(CountMatchingStrategy.GREATER_THAN_OR_EQUAL, 2),
+              new CountMatchingStrategy(CountMatchingStrategy.GREATER_THAN_OR_EQUAL, 6),
               postRequestedFor(urlEqualTo(STATEMENT_PATH)));
     }
   }
