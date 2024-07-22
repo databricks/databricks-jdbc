@@ -12,6 +12,10 @@ public class ByteConverter extends AbstractObjectConverter {
     super(object);
     if (object instanceof String) {
       this.object = Byte.parseByte((String) object);
+    } else if (object instanceof Number) {
+      this.object = ((Number) object).byteValue();
+    } else if (object instanceof Boolean) {
+      this.object = (byte) (((Boolean) object) ? 1 : 0);
     } else {
       this.object = (byte) object;
     }

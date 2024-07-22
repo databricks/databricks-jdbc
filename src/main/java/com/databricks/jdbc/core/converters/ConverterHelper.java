@@ -11,6 +11,38 @@ import java.util.Date;
 
 public class ConverterHelper {
 
+  public static Object getConvertedObject(int columnType, Object object)
+      throws DatabricksSQLException {
+    switch (columnType) {
+      case Types.TINYINT:
+        return new ByteConverter(object).convertToByte();
+      case Types.SMALLINT:
+        return new ShortConverter(object).convertToShort();
+      case Types.INTEGER:
+        return new IntConverter(object).convertToInt();
+      case Types.BIGINT:
+        return new LongConverter(object).convertToLong();
+      case Types.FLOAT:
+        return new FloatConverter(object).convertToFloat();
+      case Types.DOUBLE:
+        return new DoubleConverter(object).convertToDouble();
+      case Types.DECIMAL:
+        return new BigDecimalConverter(object).convertToBigDecimal();
+      case Types.BOOLEAN:
+        return new BooleanConverter(object).convertToBoolean();
+      case Types.DATE:
+        return new DateConverter(object).convertToDate();
+      case Types.TIMESTAMP:
+        return new TimestampConverter(object).convertToTimestamp();
+      case Types.BINARY:
+        return new ByteArrayConverter(object).convertToByteArray();
+      case Types.VARCHAR:
+      case Types.CHAR:
+      default:
+        return new StringConverter(object).convertToString();
+    }
+  }
+
   public static Object getConvertedObject(Class<?> javaType, AbstractObjectConverter converter)
       throws DatabricksSQLException {
     if (javaType == String.class) {
