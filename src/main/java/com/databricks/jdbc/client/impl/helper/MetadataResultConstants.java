@@ -46,7 +46,7 @@ public class MetadataResultConstants {
   private static final ResultColumn PROCEDURE_TYPE_COLUMN =
       new ResultColumn("PROCEDURE_TYPE", "procedureType", Types.SMALLINT);
   private static final ResultColumn COLUMN_TYPE_COLUMN =
-      new ResultColumn("DATA_TYPE", "columnType", Types.INTEGER);
+      new ResultColumn("TYPE_NAME", "columnType", Types.VARCHAR);
   private static final ResultColumn BUFFER_LENGTH_COLUMN =
       new ResultColumn("BUFFER_LENGTH", "bufferLength", Types.INTEGER);
   private static final ResultColumn COLUMN_SIZE_COLUMN =
@@ -111,7 +111,7 @@ public class MetadataResultConstants {
   private static final ResultColumn ORDINAL_POSITION_COLUMN =
       new ResultColumn("ORDINAL_POSITION", "ordinalPosition", Types.INTEGER);
   private static final ResultColumn IS_AUTO_INCREMENT_COLUMN =
-      new ResultColumn("IS_AUTOINCREMENT", "isAutoIncrement", Types.INTEGER);
+      new ResultColumn("IS_AUTOINCREMENT", "isAutoIncrement", Types.VARCHAR);
   private static final ResultColumn IS_GENERATED_COLUMN =
       new ResultColumn("IS_GENERATEDCOLUMN", "isGenerated", Types.VARCHAR);
   private static final ResultColumn CASE_SENSITIVE_COLUMN =
