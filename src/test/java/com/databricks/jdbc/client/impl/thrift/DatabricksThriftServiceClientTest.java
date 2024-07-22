@@ -313,4 +313,11 @@ public class DatabricksThriftServiceClientTest {
           client.cancelStatement(TEST_STATEMENT_ID);
         });
   }
+
+  @Test
+  void testConnectionContext() {
+    DatabricksThriftServiceClient client =
+        new DatabricksThriftServiceClient(thriftAccessor, connectionContext);
+    assertEquals(client.getConnectionContext(), connectionContext);
+  }
 }

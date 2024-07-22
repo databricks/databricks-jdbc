@@ -12,8 +12,6 @@ import com.databricks.jdbc.client.impl.sdk.DatabricksNewMetadataSdkClient;
 import com.databricks.jdbc.client.impl.sdk.DatabricksSdkClient;
 import com.databricks.jdbc.core.*;
 import com.databricks.jdbc.core.types.ComputeResource;
-import com.databricks.jdbc.driver.IDatabricksConnectionContext;
-import com.databricks.jdbc.telemetry.DatabricksMetrics;
 import com.databricks.sdk.service.sql.StatementState;
 import java.sql.SQLException;
 import java.util.HashMap;
@@ -33,8 +31,6 @@ public class DatabricksNewMetadataSdkClientTest {
   @Mock private static DatabricksResultSet mockedResultSet;
   @Mock private static IDatabricksSession session;
   @Mock private static ComputeResource mockedComputeResource;
-  @Mock private static DatabricksMetrics databricksMetrics;
-  @Mock private static IDatabricksConnectionContext connectionContext;
 
   private static Stream<Arguments> listTableTestParams() {
     return Stream.of(
