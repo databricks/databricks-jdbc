@@ -122,15 +122,19 @@ public class DriverTester {
   @Test
   void testAllPurposeClustersMetadata() throws Exception {
     String jdbcUrl =
-        "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;AuthMech=3;httpPath=sql/protocolv1/o/6051921418418893/1115-130834-ms4m0yv";
+        "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;AuthMech=3;httpPath=sql/protocolv1/o/6051921418418893/1115-130834-ms4m0yv;connCatalog=uc_1716360380283_cata";
     Connection con = DriverManager.getConnection(jdbcUrl, "user", "x");
+
     System.out.println("Connection established......");
     // ResultSet resultSet = con.getMetaData().getCatalogs();
     // ResultSet resultSet = con.getMetaData().getSchemas("main", "%");
     // ResultSet resultSet = con.getMetaData().getTables("main", "ggm_pk","table_with_pk", null);
     // ResultSet resultSet = con.getMetaData().getTables("%", "%", null, null);
-    ResultSet resultSet = con.getMetaData().getColumns("main", "ggm_pk", "%", "%");
-    // con.getMetaData().getPrimaryKeys("main", "ggm_pk", "table_with_pk");
+    // ResultSet resultSet = con.getMetaData().getColumns("main", "ggm_pk", "%", "%");
+    // ResultSet resultSet = con.getMetaData().getPrimaryKeys("main", "ggm_pk", "table_with_pk");
+    ResultSet resultSet =
+        con.getMetaData()
+            .getFunctions("uc_1716360380283_cata", "uc_1716360380283_db1", "current_%");
     printResultSet(resultSet);
     resultSet.close();
     con.close();
