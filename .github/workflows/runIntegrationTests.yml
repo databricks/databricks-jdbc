@@ -2,10 +2,10 @@ name: Integration Tests Workflow
 
 on:
   push:
-    branches: [ main, benchmarking-branch ]
+    branches: [main, benchmarking-branch]
   pull_request:
     types: [opened, synchronize, reopened]
-    branches: [ main, benchmarking-branch ]
+    branches: [main, benchmarking-branch]
   workflow_dispatch:
 
 jobs:
@@ -13,124 +13,29 @@ jobs:
     name: Build and Run Integration Tests
     runs-on: ubuntu-latest
     environment: azure-prod
+    strategy:
+      matrix:
+        include:
+          - test-command: mvn -B compile test -Dtest=*IntegrationTests
+            token-secret: DATABRICKS_TOKEN
+            use-thrift-client: 'false'
+          - test-command: mvn -B compile test -Dtest=**/fakeservice/tests/MultiChunkExecutionIntegrationTests.java,**/fakeservice/tests/ConnectionIntegrationTests.java
+            token-secret: THRIFT_DATABRICKS_TOKEN
+            use-thrift-client: 'true'
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v2
-
-      - name: Set up JDK 21
-        uses: actions/setup-java@v2
+      - uses: actions/checkout@v2
+      - uses: actions/setup-java@v2
         with:
           java-version: 21
           distribution: 'adopt'
-
-      - name: Cache Maven packages
-        uses: actions/cache@v2
+      - uses: actions/cache@v2
         with:
           path: ~/.m2
           key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
           restore-keys: ${{ runner.os }}-m2
-
-      - name: Set up Warehouse Connection
+      - name: Run Integration Tests
+        run: ${{ matrix.test-command }}
         env:
-          DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
-          DATABRICKS_BENCHFOOD_HOST: ${{ secrets.DATABRICKS_BENCHFOOD_HOST }}
-          DATABRICKS_BENCHMARKING_HOST: ${{ secrets.DATABRICKS_BENCHMARKING_HOST }}
-          DATABRICKS_HTTP_PATH: ${{ secrets.DATABRICKS_HTTP_PATH }}
-          DATABRICKS_BENCHFOOD_HTTP_PATH: ${{ secrets.DATABRICKS_BENCHFOOD_HTTP_PATH }}
-          DATABRICKS_BENCHMARKING_HTTP_PATH: ${{ secrets.DATABRICKS_BENCHMARKING_HTTP_PATH }}
-          DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
-          DATABRICKS_BENCHFOOD_TOKEN: ${{ secrets.DATABRICKS_BENCHFOOD_TOKEN }}
-          DATABRICKS_BENCHMARKING_TOKEN: ${{ secrets.DATABRICKS_BENCHMARKING_TOKEN }}
+          DATABRICKS_TOKEN: ${{ secrets[matrix.token-secret] }}
           DATABRICKS_USER: ${{ secrets.DATABRICKS_USER }}
-          DATABRICKS_CATALOG: ${{ secrets.DATABRICKS_CATALOG }}
-          DATABRICKS_SCHEMA: ${{ secrets.DATABRICKS_SCHEMA }}
-          DATABRICKS_DOGFOOD_HOST: ${{ secrets.DATABRICKS_DOGFOOD_HOST }}
-          DATABRICKS_DOGFOOD_TOKEN: ${{ secrets.DATABRICKS_DOGFOOD_TOKEN }}
-          DATABRICKS_DOGFOOD_HTTP_PATH: ${{ secrets.DATABRICKS_DOGFOOD_HTTP_PATH }}
-        run: |
-          echo "DATABRICKS_HOST=${DATABRICKS_HOST}" >> $GITHUB_ENV
-          echo "DATABRICKS_BENCHFOOD_HOST=${DATABRICKS_BENCHFOOD_HOST}" >> $GITHUB_ENV
-          echo "DATABRICKS_BENCHMARKING_HOST=${DATABRICKS_BENCHMARKING_HOST}" >> $GITHUB_ENV
-          echo "DATABRICKS_HTTP_PATH=${DATABRICKS_HTTP_PATH}" >> $GITHUB_ENV
-          echo "DATABRICKS_BENCHFOOD_HTTP_PATH=${DATABRICKS_BENCHFOOD_HTTP_PATH}" >> $GITHUB_ENV
-          echo "DATABRICKS_BENCHMARKING_HTTP_PATH=${DATABRICKS_BENCHMARKING_HTTP_PATH}" >> $GITHUB_ENV
-          echo "DATABRICKS_TOKEN=${DATABRICKS_TOKEN}" >> $GITHUB_ENV
-          echo "DATABRICKS_BENCHFOOD_TOKEN=${DATABRICKS_BENCHFOOD_TOKEN}" >> $GITHUB_ENV
-          echo "DATABRICKS_BENCHMARKING_TOKEN=${DATABRICKS_BENCHMARKING_TOKEN}" >> $GITHUB_ENV
-          echo "DATABRICKS_USER=${DATABRICKS_USER}" >> $GITHUB_ENV
-          echo "DATABRICKS_CATALOG=${DATABRICKS_CATALOG}" >> $GITHUB_ENV
-          echo "DATABRICKS_SCHEMA=${DATABRICKS_SCHEMA}" >> $GITHUB_ENV
-          echo "DATABRICKS_DOGFOOD_HOST=${DATABRICKS_DOGFOOD_HOST}" >> $GITHUB_ENV
-          echo "DATABRICKS_DOGFOOD_TOKEN=${DATABRICKS_DOGFOOD_TOKEN}" >> $GITHUB_ENV
-          echo "DATABRICKS_DOGFOOD_HTTP_PATH=${DATABRICKS_DOGFOOD_HTTP_PATH}" >> $GITHUB_ENV
-
-      - name: Build with Maven
-        run: mvn -B package --file pom.xml
-
-      - name: Run Integration Tests
-        run: mvn -B test -Dtest=*IntegrationTests
-        env:
-          DATABRICKS_HOST: ${{ env.DATABRICKS_HOST }}
-          DATABRICKS_BENCHFOOD_HOST: ${{ env.DATABRICKS_BENCHFOOD_HOST }}
-          DATABRICKS_BENCHMARKING_HOST: ${{ env.DATABRICKS_BENCHMARKING_HOST }}
-          DATABRICKS_HTTP_PATH: ${{ env.DATABRICKS_HTTP_PATH }}
-          DATABRICKS_BENCHFOOD_HTTP_PATH: ${{ env.DATABRICKS_BENCHFOOD_HTTP_PATH }}
-          DATABRICKS_BENCHMARKING_HTTP_PATH: ${{ env.DATABRICKS_BENCHMARKING_HTTP_PATH }}
-          DATABRICKS_TOKEN: ${{ env.DATABRICKS_TOKEN }}
-          DATABRICKS_BENCHFOOD_TOKEN: ${{ env.DATABRICKS_BENCHFOOD_TOKEN }}
-          DATABRICKS_BENCHMARKING_TOKEN: ${{ env.DATABRICKS_BENCHMARKING_TOKEN }}
-          DATABRICKS_USER: ${{ env.DATABRICKS_USER }}
-          DATABRICKS_CATALOG: ${{ env.DATABRICKS_CATALOG }}
-          DATABRICKS_SCHEMA: ${{ env.DATABRICKS_SCHEMA }}
-          DATABRICKS_DOGFOOD_HOST: ${{ env.DATABRICKS_DOGFOOD_HOST }}
-          DATABRICKS_DOGFOOD_TOKEN: ${{ env.DATABRICKS_DOGFOOD_TOKEN }}
-          DATABRICKS_DOGFOOD_HTTP_PATH: ${{ env.DATABRICKS_DOGFOOD_HTTP_PATH }}
-  build-and-test-thrift:
-    name: Build and Run Integration Tests (Thrift)
-    runs-on: ubuntu-latest
-    environment: azure-prod
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v2
-
-      - name: Set up JDK 21
-        uses: actions/setup-java@v2
-        with:
-          java-version: 21
-          distribution: 'adopt'
-
-      - name: Cache Maven packages
-        uses: actions/cache@v2
-        with:
-          path: ~/.m2
-          key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
-          restore-keys: ${{ runner.os }}-m2
-
-      - name: Set up All purpose Connection
-        env:
-          DATABRICKS_HOST: ${{ secrets.THRIFT_DATABRICKS_HOST }}
-          DATABRICKS_TOKEN: ${{ secrets.THRIFT_DATABRICKS_TOKEN }}
-          DATABRICKS_USER: ${{ secrets.THRIFT_DATABRICKS_USER }}
-          DATABRICKS_HTTP_PATH: ${{ secrets.THRIFT_DATABRICKS_HTTP_PATH }}
-          DATABRICKS_CATALOG: ${{ secrets.DATABRICKS_CATALOG }}
-          DATABRICKS_SCHEMA: ${{ secrets.DATABRICKS_SCHEMA }}
-        run: |
-          echo "DATABRICKS_HOST=${DATABRICKS_HOST}" >> $GITHUB_ENV
-          echo "DATABRICKS_TOKEN=${DATABRICKS_TOKEN}" >> $GITHUB_ENV
-          echo "DATABRICKS_USER=${DATABRICKS_USER}" >> $GITHUB_ENV
-          echo "DATABRICKS_HTTP_PATH=${DATABRICKS_HTTP_PATH}" >> $GITHUB_ENV
-          echo "DATABRICKS_CATALOG=${DATABRICKS_CATALOG}" >> $GITHUB_ENV
-          echo "DATABRICKS_SCHEMA=${DATABRICKS_SCHEMA}" >> $GITHUB_ENV
-
-      - name: Build with Maven
-        run: mvn -B package --file pom.xml
-
-      - name: Run Integration Tests
-        run: mvn -B test -Dtest=**/fakeservice/tests/*.java,!**/fakeservice/tests/ConcurrencyIntegrationTests.java,!**/fakeservice/tests/PreparedStatementIntegrationTests.java
-        env:
-          DATABRICKS_HOST: ${{ env.DATABRICKS_HOST }}
-          DATABRICKS_TOKEN: ${{ env.DATABRICKS_TOKEN }}
-          DATABRICKS_USER: ${{ env.DATABRICKS_USER }}
-          DATABRICKS_HTTP_PATH: ${{ env.DATABRICKS_HTTP_PATH }}
-          DATABRICKS_CATALOG: ${{ env.DATABRICKS_CATALOG }}
-          DATABRICKS_SCHEMA: ${{ env.DATABRICKS_SCHEMA }}
+          USE_THRIFT_CLIENT: ${{ matrix.use-thrift-client }}

@@ -13,6 +13,10 @@ public class ShortConverter extends AbstractObjectConverter {
     super(object);
     if (object instanceof String) {
       this.object = Short.parseShort((String) object);
+    } else if (object instanceof Number) {
+      this.object = ((Number) object).shortValue();
+    } else if (object instanceof Boolean) {
+      this.object = (short) (((Boolean) object) ? 1 : 0);
     } else {
       this.object = (short) object;
     }

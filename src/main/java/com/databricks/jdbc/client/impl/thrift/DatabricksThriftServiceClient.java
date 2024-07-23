@@ -212,7 +212,7 @@ public class DatabricksThriftServiceClient implements DatabricksClient, Databric
         (TFetchResultsResp)
             thriftAccessor.getThriftResponse(request, CommandName.LIST_TYPE_INFO, null);
     DatabricksResultSet resultSet =
-        getTypeInfoResult(extractValues(response.getResults().getColumns()));
+        getTypeInfoResult(extractValuesColumnar(response.getResults().getColumns()));
     connectionContext
         .getMetricsExporter()
         .record(
@@ -374,7 +374,7 @@ public class DatabricksThriftServiceClient implements DatabricksClient, Databric
         (TFetchResultsResp)
             thriftAccessor.getThriftResponse(request, CommandName.LIST_FUNCTIONS, null);
     DatabricksResultSet resultSet =
-        getFunctionsResult(extractValues(response.getResults().getColumns()));
+        getFunctionsResult(extractValuesColumnar(response.getResults().getColumns()));
     connectionContext
         .getMetricsExporter()
         .record(
@@ -402,7 +402,7 @@ public class DatabricksThriftServiceClient implements DatabricksClient, Databric
         (TFetchResultsResp)
             thriftAccessor.getThriftResponse(request, CommandName.LIST_PRIMARY_KEYS, null);
     DatabricksResultSet resultSet =
-        getPrimaryKeysResult(extractValues(response.getResults().getColumns()));
+        getPrimaryKeysResult(extractValuesColumnar(response.getResults().getColumns()));
     connectionContext
         .getMetricsExporter()
         .record(
