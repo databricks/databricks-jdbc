@@ -264,4 +264,5 @@ public final class DatabricksJdbcConstants {
   public static final int DBSQL_MIN_MINOR_VERSION_FOR_NEW_METADATA = 30;
 
   public static final int DEFAULT_RETRY_COUNT = 5;
+  public static final LogLevel TELEMETRY_LOG_LEVEL = LogLevel.OFF;
 }
