@@ -8,7 +8,7 @@ import java.util.stream.Collectors;
 public class InlineJsonResult implements IExecutionResult {
 
   private long currentRow;
-  private List<List<String>> data;
+  private List<List<Object>> data;
 
   private boolean isClosed;
 
@@ -21,34 +21,23 @@ public class InlineJsonResult implements IExecutionResult {
   InlineJsonResult(Object[][] rows) {
     this.data =
         Arrays.stream(rows)
-            .map(
-                a ->
-                    Arrays.stream(a)
-                        .map(o -> o == null ? null : o.toString())
-                        .collect(Collectors.toList()))
+            .map(row -> Arrays.stream(row).collect(Collectors.toList()))
             .collect(Collectors.toList());
     this.currentRow = -1;
     this.isClosed = false;
   }
 
   InlineJsonResult(List<List<Object>> rows) {
-    this.data =
-        rows.stream()
-            .map(
-                a ->
-                    a.stream()
-                        .map(o -> o == null ? null : o.toString())
-                        .collect(Collectors.toList()))
-            .collect(Collectors.toList());
+    this.data = rows.stream().map(ArrayList::new).collect(Collectors.toList());
     this.currentRow = -1;
     this.isClosed = false;
   }
 
-  private static List<List<String>> getDataList(Collection<Collection<String>> dataArray) {
+  private static List<List<Object>> getDataList(Collection<Collection<String>> dataArray) {
     if (dataArray == null) {
       return new ArrayList<>();
     }
-    List<List<String>> dataList = new ArrayList<>();
+    List<List<Object>> dataList = new ArrayList<>();
     for (Collection<String> innerCollection : dataArray) {
       if (innerCollection == null) {
         dataList.add(Collections.emptyList());
