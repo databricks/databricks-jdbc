@@ -22,6 +22,7 @@ import java.util.Properties;
  */
 public class Driver implements java.sql.Driver {
   private static final Driver INSTANCE;
+
   static {
     try {
       DriverManager.registerDriver(INSTANCE = new Driver());
