@@ -33,7 +33,8 @@ public final class DatabricksJdbcConstants {
 
   public static final String LOG_PATH = "logpath";
 
-  public static final String DEFAULT_LOG_PATH = "logs/application.log";
+  public static final String DEFAULT_LOG_PATH =
+      System.getProperty("java.io.tmpdir") + "/logs/application.log";
 
   public static final String LOG_FILE_SIZE = "LogFileSize";
 

@@ -141,7 +141,7 @@ class DatabricksConnectionContextTest {
     assertEquals(7, connectionContext.parameters.size());
     assertEquals(CompressionType.LZ4_COMPRESSION, connectionContext.getCompressionType());
     assertEquals(LogLevel.INFO, connectionContext.getLogLevel());
-    assertEquals(connectionContext.getLogPathString(), "logs/application.log");
+    assertTrue(connectionContext.getLogPathString().contains("logs/application.log"));
     assertEquals("3", connectionContext.parameters.get("authmech"));
     assertNull(connectionContext.getOAuthScopesForU2M());
     assertFalse(connectionContext.isAllPurposeCluster());
