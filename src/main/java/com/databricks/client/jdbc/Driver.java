@@ -5,6 +5,7 @@ import static com.databricks.jdbc.driver.DatabricksJdbcConstants.*;
 import com.databricks.jdbc.client.DatabricksClientType;
 import com.databricks.jdbc.commons.LogLevel;
 import com.databricks.jdbc.commons.util.DeviceInfoLogUtil;
+import com.databricks.jdbc.commons.util.DriverUtil;
 import com.databricks.jdbc.commons.util.LoggingUtil;
 import com.databricks.jdbc.core.DatabricksConnection;
 import com.databricks.jdbc.core.DatabricksSQLException;
@@ -21,10 +22,6 @@ import java.util.Properties;
  */
 public class Driver implements java.sql.Driver {
   private static final Driver INSTANCE;
-  private static final int majorVersion = 0;
-  private static final int minorVersion = 9;
-  private static final int buildVersion = 0;
-  private static final String qualifier = "oss";
 
   static {
     try {
@@ -112,12 +109,12 @@ public class Driver implements java.sql.Driver {
 
   @Override
   public int getMajorVersion() {
-    return majorVersion;
+    return DriverUtil.getMajorVersion();
   }
 
   @Override
   public int getMinorVersion() {
-    return minorVersion;
+    return DriverUtil.getMinorVersion();
   }
 
   @Override
@@ -143,12 +140,8 @@ public class Driver implements java.sql.Driver {
     System.out.printf("The driver {%s} has been initialized.%n", Driver.class);
   }
 
-  private static String getVersion() {
-    return String.format("%d.%d.%d-%s", majorVersion, minorVersion, buildVersion, qualifier);
-  }
-
   public static void setUserAgent(IDatabricksConnectionContext connectionContext) {
-    UserAgent.withProduct(DatabricksJdbcConstants.DEFAULT_USER_AGENT, getVersion());
+    UserAgent.withProduct(DatabricksJdbcConstants.DEFAULT_USER_AGENT, DriverUtil.getVersion());
     UserAgent.withOtherInfo(CLIENT_USER_AGENT_PREFIX, connectionContext.getClientUserAgent());
   }
 }
