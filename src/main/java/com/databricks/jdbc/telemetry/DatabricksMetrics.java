@@ -30,7 +30,7 @@ public class DatabricksMetrics implements AutoCloseable {
   private Boolean hasInitialExportOccurred = false;
   private String workspaceId = null;
 
-  private final LogLevel METRIC_LOG_LEVEL = LogLevel.TRACE;
+  private final LogLevel METRIC_LOG_LEVEL = LogLevel.OFF;
   private DatabricksHttpClient telemetryClient;
   private boolean enableTelemetry = false;
 
