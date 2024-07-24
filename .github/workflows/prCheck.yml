@@ -15,8 +15,8 @@ jobs:
       matrix:
         java-version: [21]  # For formatting, we don't need to run across multiple versions. Only sanity testing is required here, rest is taken care in the build.
     runs-on:
-      group: ubuntu-runners
-      labels: ubuntu-20.04-16core
+      group: databricks-protected-runner-group
+      labels: linux-ubuntu-latest
     steps:
       - name: Set up JDK
         uses: actions/setup-java@v4
