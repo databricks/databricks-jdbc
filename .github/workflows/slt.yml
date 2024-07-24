@@ -19,8 +19,8 @@ jobs:
   build:
 
     runs-on:
-      group: ubuntu-runners
-      labels: ubuntu-20.04-16core
+      group: databricks-protected-runner-group
+      labels: linux-ubuntu-latest
 
     steps:
     - uses: actions/checkout@v3

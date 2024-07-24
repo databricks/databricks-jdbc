@@ -45,8 +45,8 @@ jobs:
         java-version: [11, 17, 21]  # Adding LTS versions here. 21 is the latest LTS
 
     runs-on:
-      group: ubuntu-runners
-      labels: ubuntu-20.04-16core
+      group: databricks-protected-runner-group
+      labels: linux-ubuntu-latest
 
     steps:
       - name: Set up JDK ${{ matrix.java-version }}

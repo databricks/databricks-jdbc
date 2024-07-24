@@ -12,8 +12,8 @@ jobs:
   build-and-test:
     name: Build and Run Integration Tests
     runs-on:
-      group: ubuntu-runners
-      labels: ubuntu-20.04-16core
+      group: databricks-protected-runner-group
+      labels: linux-ubuntu-latest
     environment: azure-prod
     steps:
       - name: Checkout code
