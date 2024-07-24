@@ -17,6 +17,7 @@ import com.databricks.jdbc.core.converters.*;
 import com.databricks.sdk.service.sql.StatementState;
 import com.databricks.sdk.service.sql.StatementStatus;
 import com.google.common.annotations.VisibleForTesting;
+import java.io.IOException;
 import java.io.InputStream;
 import java.io.Reader;
 import java.math.BigDecimal;
@@ -25,6 +26,7 @@ import java.sql.*;
 import java.util.Calendar;
 import java.util.List;
 import java.util.Map;
+import org.apache.http.HttpEntity;
 
 public class DatabricksResultSet implements ResultSet, IDatabricksResultSet {
   private static final String AFFECTED_ROWS_COUNT = "num_affected_rows";
@@ -38,6 +40,7 @@ public class DatabricksResultSet implements ResultSet, IDatabricksResultSet {
   private boolean isClosed;
   private SQLWarning warnings = null;
   private boolean wasNull;
+  private VolumeInputStream volumeInputStream = null;
 
   public DatabricksResultSet(
       StatementStatus statementStatus,
@@ -477,7 +480,12 @@ public class DatabricksResultSet implements ResultSet, IDatabricksResultSet {
   @Override
   public Object getObject(int columnIndex) throws SQLException {
     checkIfClosed();
-    return getObjectInternal(columnIndex);
+    Object obj = getObjectInternal(columnIndex);
+    if (obj == null) {
+      return null;
+    }
+    int columnType = resultSetMetaData.getColumnType(columnIndex);
+    return getConvertedObject(columnType, obj);
   }
 
   @Override
@@ -1607,6 +1615,20 @@ public class DatabricksResultSet implements ResultSet, IDatabricksResultSet {
     }
     return this.resultSetMetaData.getColumnNameIndex(AFFECTED_ROWS_COUNT) > -1
         && this.resultSetMetaData.getTotalRows() == 1;
+  }
+
+  @Override
+  public void setVolumeOperationEntityStream(HttpEntity httpEntity)
+      throws SQLException, IOException {
+    checkIfClosed();
+    this.volumeInputStream =
+        new VolumeInputStream(httpEntity, executionResult, this.parentStatement);
+  }
+
+  @Override
+  public InputStream getVolumeOperationInputStream() throws SQLException {
+    checkIfClosed();
+    return this.volumeInputStream;
   }
 
   private Object getObjectInternal(int columnIndex) throws SQLException {

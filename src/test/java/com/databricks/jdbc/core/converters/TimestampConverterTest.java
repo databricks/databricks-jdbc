@@ -3,6 +3,7 @@ package com.databricks.jdbc.core.converters;
 import static org.junit.jupiter.api.Assertions.*;
 
 import com.databricks.jdbc.core.DatabricksSQLException;
+import java.math.BigInteger;
 import java.sql.Timestamp;
 import java.time.LocalDateTime;
 import java.time.Month;
@@ -33,5 +34,12 @@ public class TimestampConverterTest {
   @Test
   public void testConvertToDate() throws DatabricksSQLException {
     assertEquals(new TimestampConverter(TIMESTAMP).convertToDate().toString(), "2023-09-10");
+  }
+
+  @Test
+  public void testConvertToBigInteger() throws DatabricksSQLException {
+    assertEquals(
+        new TimestampConverter(TIMESTAMP).convertToBigInteger(),
+        BigInteger.valueOf(1694378700000L));
   }
 }

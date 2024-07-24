@@ -85,4 +85,8 @@ public abstract class AbstractFakeServiceIntegrationTests {
   private static Extension[] getExtensions() {
     return new Extension[] {new StubMappingCredentialsCleaner()};
   }
+
+  protected static FakeServiceExtension.FakeServiceMode getFakeServiceMode() {
+    return databricksApiExtension.getFakeServiceMode();
+  }
 }

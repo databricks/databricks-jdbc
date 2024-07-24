@@ -33,7 +33,8 @@ public final class DatabricksJdbcConstants {
 
   public static final String LOG_PATH = "logpath";
 
-  public static final String DEFAULT_LOG_PATH = "logs/application.log";
+  public static final String DEFAULT_LOG_PATH =
+      System.getProperty("java.io.tmpdir") + "/logs/application.log";
 
   public static final String LOG_FILE_SIZE = "LogFileSize";
 
@@ -224,7 +225,7 @@ public final class DatabricksJdbcConstants {
   public static final String DEFAULT_IDLE_HTTP_CONNECTION_EXPIRY = "60";
   public static final String CLOUD_FETCH_THREAD_POOL_SIZE = "cloudFetchThreadPoolSize";
   public static final int CLOUD_FETCH_THREAD_POOL_SIZE_DEFAULT = 16;
-
+  public static final String ENABLE_TELEMETRY = "enableTelemetry";
   public static final Pattern SELECT_PATTERN =
       Pattern.compile("^(\\s*\\()*\\s*SELECT", Pattern.CASE_INSENSITIVE);
   public static final Pattern SHOW_PATTERN =

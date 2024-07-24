@@ -147,4 +147,8 @@ public interface IDatabricksConnectionContext {
   int getIdleHttpConnectionExpiry();
 
   boolean supportManyParameters();
+
+  boolean isFakeServiceTest();
+
+  boolean enableTelemetry();
 }

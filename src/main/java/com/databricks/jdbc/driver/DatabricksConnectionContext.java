@@ -4,6 +4,7 @@ import static com.databricks.jdbc.driver.DatabricksJdbcConstants.*;
 
 import com.databricks.jdbc.client.DatabricksClientType;
 import com.databricks.jdbc.commons.LogLevel;
+import com.databricks.jdbc.commons.MetricsList;
 import com.databricks.jdbc.commons.util.LoggingUtil;
 import com.databricks.jdbc.core.DatabricksParsingException;
 import com.databricks.jdbc.core.DatabricksSQLException;
@@ -39,6 +40,7 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
       throws DatabricksSQLException {
     if (!isValid(url)) {
       // TODO: handle exceptions properly
+      metricsExporter.increment(MetricsList.INVALID_URL.name(), 1);
       throw new DatabricksParsingException("Invalid url " + url);
     }
     Matcher urlMatcher = JDBC_URL_PATTERN.matcher(url);
@@ -538,5 +540,18 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   @Override
   public boolean supportManyParameters() {
     return getParameter(SUPPORT_MANY_PARAMETERS, "0").equals("1");
+  }
+
+  /** Returns whether the current test is a fake service test. */
+  // TODO: (Bhuvan) This is a temporary solution to enable fake service tests by disabling flushing
+  // of metrics when session is closed. We should remove this
+  @Override
+  public boolean isFakeServiceTest() {
+    return Boolean.parseBoolean(System.getProperty(IS_FAKE_SERVICE_TEST_PROP));
+  }
+
+  @Override
+  public boolean enableTelemetry() {
+    return Objects.equals(getParameter(ENABLE_TELEMETRY, "0"), "1");
   }
 }

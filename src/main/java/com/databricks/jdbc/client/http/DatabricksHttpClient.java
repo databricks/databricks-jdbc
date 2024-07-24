@@ -355,7 +355,7 @@ public class DatabricksHttpClient implements IDatabricksHttpClient {
     return null;
   }
 
-  public CloseableHttpResponse executeWithoutSSL(HttpUriRequest request)
+  public CloseableHttpResponse executeWithoutCertVerification(HttpUriRequest request)
       throws DatabricksHttpException {
     LoggingUtil.log(
         LogLevel.DEBUG,

@@ -12,6 +12,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.stream.Stream;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -21,7 +22,6 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
 public class DatabricksUCVolumeClientTest {
-
   @Mock Connection connection;
 
   @Mock Statement statement;
@@ -30,40 +30,61 @@ public class DatabricksUCVolumeClientTest {
   @Mock ResultSet resultSet_abc_volume1;
   @Mock ResultSet resultSet_abc_volume2;
 
-  private String createListQuery(String catalog, String schema, String volume) {
-    return String.format("LIST '/Volumes/%s/%s/%s/'", catalog, schema, volume);
-  }
-
-  private String createShowVolumesQuery(String catalog, String schema) {
-    return String.format("SHOW VOLUMES IN %s.%s", catalog, schema);
-  }
-
-  private String createGetObjectQuery(
-      String catalog, String schema, String volume, String objectPath, String localPath) {
-    return String.format(
-        "GET '/Volumes/%s/%s/%s/%s' TO '%s'", catalog, schema, volume, objectPath, localPath);
-  }
-
-  private String createPutObjectQuery(
-      String catalog, String schema, String volume, String objectPath, String localPath) {
-    return String.format(
-        "PUT '%s' INTO '/Volumes/%s/%s/%s/%s'", localPath, catalog, schema, volume, objectPath);
-  }
-
   @ParameterizedTest
   @MethodSource("provideParametersForPrefixExists")
   public void testPrefixExists(String volume, String prefix, boolean expected) throws SQLException {
     DatabricksUCVolumeClient client = new DatabricksUCVolumeClient(connection);
 
     when(connection.createStatement()).thenReturn(statement);
-    String listFilesSQL = createListQuery(TEST_CATALOG, TEST_SCHEMA, volume);
+    String listFilesSQL =
+        String.format("LIST '/Volumes/%s/%s/%s/'", TEST_CATALOG, TEST_SCHEMA, volume);
     when(statement.executeQuery(listFilesSQL)).thenReturn(resultSet);
     when(resultSet.next()).thenReturn(true, true, true, true, true, false);
     when(resultSet.getString("name"))
         .thenReturn("aBc_file1", "abC_file2", "def_file1", "efg_file2", "#!#_file3");
 
-    assertEquals(expected, client.objectExists(TEST_CATALOG, TEST_SCHEMA, volume, prefix));
+    assertEquals(expected, client.prefixExists(TEST_CATALOG, TEST_SCHEMA, volume, prefix));
     verify(statement).executeQuery(listFilesSQL);
+  }
+
+  @Test
+  public void testPrefixExistsSQLException() throws Exception {
+    DatabricksUCVolumeClient client = new DatabricksUCVolumeClient(connection);
+    when(connection.createStatement()).thenReturn(statement);
+    when(statement.executeQuery(anyString())).thenThrow(new SQLException("Database error"));
+    assertThrows(
+        SQLException.class,
+        () -> client.prefixExists(TEST_CATALOG, TEST_SCHEMA, "testVolume", "testPrefix", true));
+  }
+
+  @Test
+  public void testObjectExistsSQLException() throws Exception {
+    DatabricksUCVolumeClient client = new DatabricksUCVolumeClient(connection);
+    when(connection.createStatement()).thenReturn(statement);
+    when(statement.executeQuery(anyString())).thenThrow(new SQLException("Database error"));
+    assertThrows(
+        SQLException.class,
+        () -> client.objectExists(TEST_CATALOG, TEST_SCHEMA, "testVolume", "testPrefix", true));
+  }
+
+  @Test
+  public void testVolumeExistsSQLException() throws Exception {
+    DatabricksUCVolumeClient client = new DatabricksUCVolumeClient(connection);
+    when(connection.createStatement()).thenReturn(statement);
+    when(statement.executeQuery(anyString())).thenThrow(new SQLException("Database error"));
+    assertThrows(
+        SQLException.class,
+        () -> client.volumeExists(TEST_CATALOG, TEST_SCHEMA, "nonExistingVolume", true));
+  }
+
+  @Test
+  public void testListObjectsExistsSQLException() throws Exception {
+    DatabricksUCVolumeClient client = new DatabricksUCVolumeClient(connection);
+    when(connection.createStatement()).thenReturn(statement);
+    when(statement.executeQuery(anyString())).thenThrow(new SQLException("Database error"));
+    assertThrows(
+        SQLException.class,
+        () -> client.listObjects(TEST_CATALOG, TEST_SCHEMA, "testVolume", "testPrefix", true));
   }
 
   private static Stream<Arguments> provideParametersForPrefixExists() {
@@ -83,9 +104,11 @@ public class DatabricksUCVolumeClientTest {
     DatabricksUCVolumeClient client = new DatabricksUCVolumeClient(connection);
 
     when(connection.createStatement()).thenReturn(statement);
-    String listFilesSQL = createListQuery(TEST_CATALOG, TEST_SCHEMA, volume);
+    String listFilesSQL =
+        String.format("LIST '/Volumes/%s/%s/%s/'", TEST_CATALOG, TEST_SCHEMA, volume);
 
-    when(statement.executeQuery(createListQuery(TEST_CATALOG, TEST_SCHEMA, "abc_volume1")))
+    when(statement.executeQuery(
+            String.format("LIST '/Volumes/%s/%s/%s/'", TEST_CATALOG, TEST_SCHEMA, "abc_volume1")))
         .thenReturn(resultSet_abc_volume1);
     when(resultSet_abc_volume1.next()).thenReturn(true, false);
     when(resultSet_abc_volume1.getString("name")).thenReturn("aBc_file1");
@@ -111,15 +134,18 @@ public class DatabricksUCVolumeClientTest {
     DatabricksUCVolumeClient client = new DatabricksUCVolumeClient(connection);
 
     when(connection.createStatement()).thenReturn(statement);
-    String listFilesSQL = createListQuery(TEST_CATALOG, TEST_SCHEMA, volume);
+    String listFilesSQL =
+        String.format("LIST '/Volumes/%s/%s/%s/'", TEST_CATALOG, TEST_SCHEMA, volume);
 
     if (volume.equals("abc_volume1")) {
-      when(statement.executeQuery(createListQuery(TEST_CATALOG, TEST_SCHEMA, "abc_volume1")))
+      when(statement.executeQuery(
+              String.format("LIST '/Volumes/%s/%s/%s/'", TEST_CATALOG, TEST_SCHEMA, "abc_volume1")))
           .thenReturn(resultSet_abc_volume1);
       when(resultSet_abc_volume1.next()).thenReturn(true, true, false);
       when(resultSet_abc_volume1.getString("name")).thenReturn("abc_file3", "abc_file1");
     } else if (volume.equals("abc_volume2")) {
-      when(statement.executeQuery(createListQuery(TEST_CATALOG, TEST_SCHEMA, "abc_volume2")))
+      when(statement.executeQuery(
+              String.format("LIST '/Volumes/%s/%s/%s/'", TEST_CATALOG, TEST_SCHEMA, "abc_volume2")))
           .thenReturn(resultSet_abc_volume2);
       when(resultSet_abc_volume2.next()).thenReturn(true, true, false);
       when(resultSet_abc_volume2.getString("name")).thenReturn("abc_file4", "abc_file1");
@@ -149,9 +175,11 @@ public class DatabricksUCVolumeClientTest {
     DatabricksUCVolumeClient client = new DatabricksUCVolumeClient(connection);
 
     when(connection.createStatement()).thenReturn(statement);
-    String listFilesSQL = createListQuery(TEST_CATALOG, TEST_SCHEMA, volume);
+    String listFilesSQL =
+        String.format("LIST '/Volumes/%s/%s/%s/'", TEST_CATALOG, TEST_SCHEMA, volume);
 
-    when(statement.executeQuery(createListQuery(TEST_CATALOG, TEST_SCHEMA, "abc_volume1")))
+    when(statement.executeQuery(
+            String.format("LIST '/Volumes/%s/%s/%s/'", TEST_CATALOG, TEST_SCHEMA, "abc_volume1")))
         .thenReturn(resultSet_abc_volume1);
     when(resultSet_abc_volume1.next()).thenReturn(true, true, false);
     when(resultSet_abc_volume1.getString("name")).thenReturn("@!aBc_file1", "#!#_file3");
@@ -177,7 +205,7 @@ public class DatabricksUCVolumeClientTest {
     DatabricksUCVolumeClient client = new DatabricksUCVolumeClient(connection);
 
     when(connection.createStatement()).thenReturn(statement);
-    String showVolumesSQL = createShowVolumesQuery(TEST_CATALOG, TEST_SCHEMA);
+    String showVolumesSQL = String.format("SHOW VOLUMES IN %s.%s", TEST_CATALOG, TEST_SCHEMA);
     when(statement.executeQuery(showVolumesSQL)).thenReturn(resultSet);
     when(resultSet.next()).thenReturn(true, true, true, true, true, false);
     when(resultSet.getString("volume_name"))
@@ -204,7 +232,8 @@ public class DatabricksUCVolumeClientTest {
     DatabricksUCVolumeClient client = new DatabricksUCVolumeClient(connection);
 
     when(connection.createStatement()).thenReturn(statement);
-    String listFilesSQL = createListQuery(TEST_CATALOG, TEST_SCHEMA, volume);
+    String listFilesSQL =
+        String.format("LIST '/Volumes/%s/%s/%s/'", TEST_CATALOG, TEST_SCHEMA, volume);
     when(statement.executeQuery(listFilesSQL)).thenReturn(resultSet);
     when(resultSet.next()).thenReturn(true, true, true, true, true, true, true, false);
     when(resultSet.getString("name"))
@@ -258,7 +287,9 @@ public class DatabricksUCVolumeClientTest {
     DatabricksUCVolumeClient client = new DatabricksUCVolumeClient(connection);
 
     when(connection.createStatement()).thenReturn(statement);
-    String getObjectQuery = createGetObjectQuery(catalog, schema, volume, objectPath, localPath);
+    String getObjectQuery =
+        String.format(
+            "GET '/Volumes/%s/%s/%s/%s' TO '%s'", catalog, schema, volume, objectPath, localPath);
     when(statement.executeQuery(getObjectQuery)).thenReturn(resultSet);
     when(resultSet.next()).thenReturn(true);
     when(resultSet.getString(VOLUME_OPERATION_STATUS_COLUMN_NAME))
@@ -293,7 +324,9 @@ public class DatabricksUCVolumeClientTest {
     DatabricksUCVolumeClient client = new DatabricksUCVolumeClient(connection);
 
     when(connection.createStatement()).thenReturn(statement);
-    String getObjectQuery = createGetObjectQuery(catalog, schema, volume, objectPath, localPath);
+    String getObjectQuery =
+        String.format(
+            "GET '/Volumes/%s/%s/%s/%s' TO '%s'", catalog, schema, volume, objectPath, localPath);
     when(statement.executeQuery(getObjectQuery))
         .thenThrow(new SQLException("Volume operation failed : Failed to download file"));
 
@@ -324,17 +357,21 @@ public class DatabricksUCVolumeClientTest {
       String volume,
       String objectPath,
       String localPath,
+      boolean toOverwrite,
       boolean expected)
       throws SQLException {
     DatabricksUCVolumeClient client = new DatabricksUCVolumeClient(connection);
 
     when(connection.createStatement()).thenReturn(statement);
-    String putObjectQuery = createPutObjectQuery(catalog, schema, volume, objectPath, localPath);
+    String putObjectQuery =
+        String.format(
+            "PUT '%s' INTO '/Volumes/%s/%s/%s/%s'%s",
+            localPath, catalog, schema, volume, objectPath, toOverwrite ? " OVERWRITE" : "");
     when(statement.executeQuery(putObjectQuery)).thenReturn(resultSet);
     when(resultSet.next()).thenReturn(true);
     when(resultSet.getString(VOLUME_OPERATION_STATUS_COLUMN_NAME))
         .thenReturn(VOLUME_OPERATION_STATUS_SUCCEEDED);
-    boolean result = client.putObject(catalog, schema, volume, objectPath, localPath);
+    boolean result = client.putObject(catalog, schema, volume, objectPath, localPath, toOverwrite);
 
     assertEquals(expected, result);
     verify(statement).executeQuery(putObjectQuery);
@@ -348,25 +385,34 @@ public class DatabricksUCVolumeClientTest {
             "test_volume",
             "test_objectpath",
             "test_localpath",
+            false,
             true));
   }
 
   @ParameterizedTest
   @MethodSource("provideParametersForPutObject_InvalidLocalPath")
   public void testPutObject_InvalidLocalPath(
-      String catalog, String schema, String volume, String objectPath, String localPath)
+      String catalog,
+      String schema,
+      String volume,
+      String objectPath,
+      String localPath,
+      boolean toOverwrite)
       throws SQLException {
     DatabricksUCVolumeClient client = new DatabricksUCVolumeClient(connection);
 
     when(connection.createStatement()).thenReturn(statement);
-    String putObjectQuery = createPutObjectQuery(catalog, schema, volume, objectPath, localPath);
+    String putObjectQuery =
+        String.format(
+            "PUT '%s' INTO '/Volumes/%s/%s/%s/%s'%s",
+            localPath, catalog, schema, volume, objectPath, toOverwrite ? " OVERWRITE" : "");
     when(statement.executeQuery(putObjectQuery))
         .thenThrow(new SQLException("Invalid local path: File not found or is a directory"));
 
     assertThrows(
         SQLException.class,
         () -> {
-          client.putObject(catalog, schema, volume, objectPath, localPath);
+          client.putObject(catalog, schema, volume, objectPath, localPath, toOverwrite);
         });
     verify(statement).executeQuery(putObjectQuery);
   }
@@ -374,6 +420,101 @@ public class DatabricksUCVolumeClientTest {
   private static Stream<Arguments> provideParametersForPutObject_InvalidLocalPath() {
     return Stream.of(
         Arguments.of(
-            "test_catalog", "test_schema", "test_volume", "test_objectpath", "invalid_localpath"));
+            "test_catalog",
+            "test_schema",
+            "test_volume",
+            "test_objectpath",
+            "invalid_localpath",
+            false));
+  }
+
+  @ParameterizedTest
+  @MethodSource("provideParametersForPutObject_OverwriteExistingFile")
+  public void testPutObject_OverwriteExistingFile(
+      String catalog,
+      String schema,
+      String volume,
+      String objectPath,
+      String localPath,
+      boolean toOverwrite,
+      boolean expected)
+      throws SQLException {
+    DatabricksUCVolumeClient client = new DatabricksUCVolumeClient(connection);
+
+    when(connection.createStatement()).thenReturn(statement);
+    String putObjectQuery =
+        String.format(
+            "PUT '%s' INTO '/Volumes/%s/%s/%s/%s'%s",
+            localPath, catalog, schema, volume, objectPath, toOverwrite ? " OVERWRITE" : "");
+    when(statement.executeQuery(putObjectQuery)).thenReturn(resultSet);
+    when(resultSet.next()).thenReturn(true);
+    when(resultSet.getString(VOLUME_OPERATION_STATUS_COLUMN_NAME))
+        .thenReturn(VOLUME_OPERATION_STATUS_SUCCEEDED);
+
+    boolean result = client.putObject(catalog, schema, volume, objectPath, localPath, toOverwrite);
+
+    assertEquals(expected, result);
+    verify(statement).executeQuery(putObjectQuery);
+  }
+
+  private static Stream<Arguments> provideParametersForPutObject_OverwriteExistingFile() {
+    return Stream.of(
+        Arguments.of(
+            "test_catalog",
+            "test_schema",
+            "test_volume",
+            "existing_objectpath",
+            "valid_localpath",
+            true,
+            true));
+  }
+
+  @ParameterizedTest
+  @MethodSource("provideParametersForDeleteObject")
+  public void testDeleteObject(
+      String catalog, String schema, String volume, String objectPath, boolean expected)
+      throws SQLException {
+    DatabricksUCVolumeClient client = new DatabricksUCVolumeClient(connection);
+
+    when(connection.createStatement()).thenReturn(statement);
+    String deleteObjectQuery =
+        String.format("REMOVE '/Volumes/%s/%s/%s/%s'", catalog, schema, volume, objectPath);
+    when(statement.executeQuery(deleteObjectQuery)).thenReturn(resultSet);
+    when(resultSet.next()).thenReturn(true);
+    when(resultSet.getString(VOLUME_OPERATION_STATUS_COLUMN_NAME))
+        .thenReturn(VOLUME_OPERATION_STATUS_SUCCEEDED);
+    boolean result = client.deleteObject(catalog, schema, volume, objectPath);
+
+    assertEquals(expected, result);
+    verify(statement).executeQuery(deleteObjectQuery);
+  }
+
+  private static Stream<Arguments> provideParametersForDeleteObject() {
+    return Stream.of(Arguments.of("test_catalog", "test_schema", "test_volume", "test_path", true));
+  }
+
+  @ParameterizedTest
+  @MethodSource("provideParametersForDeleteObject_InvalidObjectPath")
+  public void testDeleteObject_InvalidObjectPath(
+      String catalog, String schema, String volume, String objectPath) throws SQLException {
+    DatabricksUCVolumeClient client = new DatabricksUCVolumeClient(connection);
+
+    when(connection.createStatement()).thenReturn(statement);
+    String deleteObjectQuery =
+        String.format("REMOVE '/Volumes/%s/%s/%s/%s'", catalog, schema, volume, objectPath);
+    when(statement.executeQuery(deleteObjectQuery))
+        .thenThrow(new SQLException("Invalid object path: Object not found"));
+
+    assertThrows(
+        SQLException.class,
+        () -> {
+          client.deleteObject(catalog, schema, volume, objectPath);
+        });
+    verify(statement).executeQuery(deleteObjectQuery);
+  }
+
+  private static Stream<Arguments> provideParametersForDeleteObject_InvalidObjectPath() {
+    return Stream.of(
+        Arguments.of("test_catalog", "test_schema", "test_volume", "invalid_objectpath"));
   }
 }

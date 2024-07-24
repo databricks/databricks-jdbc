@@ -11,6 +11,7 @@ import com.databricks.jdbc.commons.util.LoggingUtil;
 import com.databricks.jdbc.commons.util.StringUtil;
 import com.databricks.jdbc.commons.util.ValidationUtil;
 import com.databricks.jdbc.commons.util.WarningUtil;
+import java.io.InputStream;
 import java.sql.*;
 import java.util.HashMap;
 import java.util.Map;
@@ -27,6 +28,8 @@ public class DatabricksStatement implements IDatabricksStatement, Statement {
   private SQLWarning warnings = null;
   private int maxRows = DEFAULT_ROW_LIMIT;
   private boolean escapeProcessing = DEFAULT_ESCAPE_PROCESSING;
+  private InputStream inputStream = null;
+  private boolean allowInputStreamForUCVolume = false;
 
   public DatabricksStatement(DatabricksConnection connection) {
     this.connection = connection;
@@ -542,5 +545,35 @@ public class DatabricksStatement implements IDatabricksStatement, Statement {
 
     // Otherwise, it should not return a ResultSet
     return false;
+  }
+
+  @Override
+  public void allowInputStreamForVolumeOperation(boolean allowInputStream)
+      throws DatabricksSQLException {
+    checkIfClosed();
+    this.allowInputStreamForUCVolume = allowInputStream;
+  }
+
+  @Override
+  public boolean isAllowedInputStreamForVolumeOperation() throws DatabricksSQLException {
+    checkIfClosed();
+    return this.allowInputStreamForUCVolume;
+  }
+
+  @Override
+  public void setInputStreamForUCVolume(InputStream inputStream) throws DatabricksSQLException {
+    if (isAllowedInputStreamForVolumeOperation()) {
+      this.inputStream = inputStream;
+    } else {
+      throw new DatabricksSQLException("Volume operation not supported for Input Stream");
+    }
+  }
+
+  @Override
+  public InputStream getInputStreamForUCVolume() throws DatabricksSQLException {
+    if (isAllowedInputStreamForVolumeOperation()) {
+      return inputStream;
+    }
+    return null;
   }
 }

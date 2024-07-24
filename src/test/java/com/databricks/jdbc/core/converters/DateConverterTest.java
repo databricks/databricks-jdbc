@@ -3,6 +3,7 @@ package com.databricks.jdbc.core.converters;
 import static org.junit.jupiter.api.Assertions.*;
 
 import com.databricks.jdbc.core.DatabricksSQLException;
+import java.math.BigInteger;
 import java.sql.Date;
 import java.sql.Timestamp;
 import org.junit.jupiter.api.Test;
@@ -53,5 +54,17 @@ public class DateConverterTest {
   @Test
   public void testConvertToDate() throws DatabricksSQLException {
     assertEquals(new DateConverter(DATE).convertToDate(), Timestamp.valueOf("2023-09-10 00:00:00"));
+  }
+
+  @Test
+  public void testConvertToLocalDate() throws DatabricksSQLException {
+    assertEquals(new DateConverter(DATE).convertToLocalDate(), DATE.toLocalDate());
+  }
+
+  @Test
+  public void testConvertToBigInteger() throws DatabricksSQLException {
+    assertEquals(
+        new DateConverter(DATE).convertToBigInteger(),
+        BigInteger.valueOf(DATE.toLocalDate().toEpochDay()));
   }
 }

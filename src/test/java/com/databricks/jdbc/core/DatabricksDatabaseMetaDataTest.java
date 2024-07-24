@@ -92,7 +92,7 @@ public class DatabricksDatabaseMetaDataTest {
   @Test
   public void getJDBCMinorVersion_returnsCorrectVersion() throws Exception {
     int minorVersion = metaData.getJDBCMinorVersion();
-    assertEquals(0, minorVersion);
+    assertEquals(9, minorVersion);
   }
 
   @Test
@@ -762,7 +762,7 @@ public class DatabricksDatabaseMetaDataTest {
   @Test
   public void testGetDriverVersion() throws SQLException {
     String result = metaData.getDriverVersion();
-    assertEquals("0.0.1", result);
+    assertEquals("0.9.0-oss", result);
   }
 
   @Test
