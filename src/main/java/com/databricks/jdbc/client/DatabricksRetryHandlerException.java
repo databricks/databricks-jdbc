@@ -1,5 +1,7 @@
 package com.databricks.jdbc.client;
 
+import com.databricks.jdbc.driver.IDatabricksConnectionContext;
+import com.databricks.jdbc.telemetry.DatabricksErrorLogging;
 import java.io.IOException;
 
 public class DatabricksRetryHandlerException extends IOException {
@@ -8,6 +10,17 @@ public class DatabricksRetryHandlerException extends IOException {
   public DatabricksRetryHandlerException(String message, int errCode) {
     super(message);
     this.errCode = errCode;
+  }
+
+  public DatabricksRetryHandlerException(
+      String message,
+      int errCode,
+      IDatabricksConnectionContext connectionContext,
+      String errorName,
+      String sqlQueryId) {
+    super(message);
+    this.errCode = errCode;
+    DatabricksErrorLogging.exportError(connectionContext, errorName, sqlQueryId, errCode);
   }
 
   public int getErrCode() {

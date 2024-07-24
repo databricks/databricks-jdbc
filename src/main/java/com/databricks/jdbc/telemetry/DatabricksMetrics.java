@@ -2,6 +2,7 @@ package com.databricks.jdbc.telemetry;
 
 import com.databricks.jdbc.client.http.DatabricksHttpClient;
 import com.databricks.jdbc.commons.LogLevel;
+import com.databricks.jdbc.commons.MetricsConstants;
 import com.databricks.jdbc.commons.util.LoggingUtil;
 import com.databricks.jdbc.core.DatabricksSQLException;
 import com.databricks.jdbc.driver.IDatabricksConnectionContext;
@@ -11,22 +12,15 @@ import java.util.Map;
 import java.util.Timer;
 import java.util.TimerTask;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.TimeUnit;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.client.utils.URIBuilder;
 import org.apache.http.util.EntityUtils;
 
 public class DatabricksMetrics implements AutoCloseable {
-  private final String URL =
-      "https://aa87314c1e33d4c1f91a919f8cf9c4ba-387609431.us-west-2.elb.amazonaws.com:443/api/2.0/oss-sql-driver-telemetry/metrics";
   private final Map<String, Double> gaugeMetrics = new HashMap<>();
   private final Map<String, Double> counterMetrics = new HashMap<>();
-  private final long intervalDurationForSendingReq =
-      TimeUnit.SECONDS.toMillis(10 * 60); // 10 minutes
   private final ObjectMapper objectMapper = new ObjectMapper();
-  private final String METRICS_MAP_STRING = "metrics_map";
-  private final String METRICS_TYPE = "metrics_type";
   private Boolean hasInitialExportOccurred = false;
   private String workspaceId = null;
   private DatabricksHttpClient telemetryClient;
@@ -58,7 +52,7 @@ public class DatabricksMetrics implements AutoCloseable {
         };
 
     // Schedule the task to run after the specified interval infinitely
-    metricsTimer.schedule(task, 0, intervalDurationForSendingReq);
+    metricsTimer.schedule(task, 0, MetricsConstants.INTERVAL_DURATION);
   }
 
   public DatabricksMetrics(IDatabricksConnectionContext context) throws DatabricksSQLException {
@@ -88,10 +82,11 @@ public class DatabricksMetrics implements AutoCloseable {
         String jsonInputString = objectMapper.writeValueAsString(map);
 
         // Create the request and adding parameters & headers
-        URIBuilder uriBuilder = new URIBuilder(URL);
+        URIBuilder uriBuilder = new URIBuilder(MetricsConstants.METRICS_URL);
         HttpPost request = new HttpPost(uriBuilder.build());
-        request.setHeader(METRICS_MAP_STRING, jsonInputString);
-        request.setHeader(METRICS_TYPE, metricsType.name().equals("GAUGE") ? "1" : "0");
+        request.setHeader(MetricsConstants.METRICS_MAP_STRING, jsonInputString);
+        request.setHeader(
+            MetricsConstants.METRICS_TYPE, metricsType.name().equals("GAUGE") ? "1" : "0");
 
         // TODO (Bhuvan): Add authentication headers
         // TODO (Bhuvan): execute request using Certificates

@@ -61,7 +61,7 @@ public class DatabricksConnection implements IDatabricksConnection, Connection {
   }
 
   @Override
-  public PreparedStatement prepareStatement(String sql) throws SQLException {
+  public PreparedStatement prepareStatement(String sql) {
     LoggingUtil.log(
         LogLevel.DEBUG,
         String.format("public PreparedStatement prepareStatement(String sql = {%s})", sql));

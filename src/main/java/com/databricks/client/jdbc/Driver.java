@@ -3,8 +3,10 @@ package com.databricks.client.jdbc;
 import static com.databricks.jdbc.driver.DatabricksJdbcConstants.*;
 
 import com.databricks.jdbc.client.DatabricksClientType;
+import com.databricks.jdbc.commons.ErrorTypes;
 import com.databricks.jdbc.commons.LogLevel;
 import com.databricks.jdbc.commons.util.DeviceInfoLogUtil;
+import com.databricks.jdbc.commons.util.ErrorCodes;
 import com.databricks.jdbc.commons.util.LoggingUtil;
 import com.databricks.jdbc.core.DatabricksConnection;
 import com.databricks.jdbc.core.DatabricksSQLException;
@@ -60,19 +62,31 @@ public class Driver implements java.sql.Driver {
       Throwable cause = e;
       while (cause != null) {
         if (cause instanceof DatabricksSQLException) {
-          throw new DatabricksSQLException(
+          String errorMessage =
               "Communication link failure. Failed to connect to server. : "
                   + connectionContext.getHostUrl()
-                  + cause.getMessage(),
-              cause.getCause());
+                  + cause.getMessage();
+          throw new DatabricksSQLException(
+              errorMessage,
+              cause.getCause(),
+              connectionContext,
+              ErrorTypes.COMMUNICATION_FAILURE,
+              null,
+              ErrorCodes.COMMUNICATION_FAILURE);
         }
         cause = cause.getCause();
       }
-      throw new DatabricksSQLException(
-          "Communication link failure. Failed to connect to server. :"
+      String errorMessage =
+          "Communication link failure. Failed to connect to server. : "
               + connectionContext.getHostUrl()
-              + e.getMessage(),
-          e);
+              + e.getMessage();
+      throw new DatabricksSQLException(
+          errorMessage,
+          e,
+          connectionContext,
+          ErrorTypes.COMMUNICATION_FAILURE,
+          null,
+          ErrorCodes.COMMUNICATION_FAILURE);
     }
   }
 
