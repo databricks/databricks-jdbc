@@ -41,7 +41,6 @@ public class AnnotationTest {
   void testInvoke() {
 
     when(mockImpl.getConnectionContext()).thenReturn(connectionContext);
-    when(connectionContext.enableTelemetry()).thenReturn(true);
     when(connectionContext.getMetricsExporter()).thenReturn(metricsExporter);
 
     TestInterface proxy = DatabricksMetricsTimedProcessor.createProxy(mockImpl);

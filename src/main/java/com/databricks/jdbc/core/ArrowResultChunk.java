@@ -321,7 +321,7 @@ public class ArrowResultChunk {
             inputStream,
             this.compressionType,
             String.format(
-                "Data fetch failed for chunk index [%d] and statement [%s] as decompression was unsuccessful. Algorithm : [%s]",
+                "Data fetch for chunk index [%d] and statement [%s] with decompression algorithm : [%s]",
                 this.chunkIndex, this.statementId, this.compressionType));
     this.isDataInitialized = true;
     // add check to see if input stream has been populated

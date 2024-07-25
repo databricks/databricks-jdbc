@@ -167,7 +167,7 @@ public class DatabricksSession implements IDatabricksSession {
         databricksClient.deleteSession(this, computeResource);
         this.sessionInfo = null;
         this.isSessionOpen = false;
-        if (!connectionContext.isFakeServiceTest() && connectionContext.enableTelemetry()) {
+        if (!connectionContext.isFakeServiceTest()) {
           this.connectionContext.getMetricsExporter().close();
         }
       }

@@ -1,7 +1,8 @@
 package com.databricks.jdbc.telemetry;
 
+import static com.databricks.jdbc.driver.DatabricksJdbcConstants.TELEMETRY_LOG_LEVEL;
+
 import com.databricks.jdbc.client.http.DatabricksHttpClient;
-import com.databricks.jdbc.commons.LogLevel;
 import com.databricks.jdbc.commons.util.LoggingUtil;
 import com.databricks.jdbc.core.DatabricksSQLException;
 import com.databricks.jdbc.driver.IDatabricksConnectionContext;
@@ -36,7 +37,7 @@ public class DatabricksMetrics implements AutoCloseable {
     this.workspaceId = workspaceId;
   }
 
-  public enum MetricsType {
+  private enum MetricsType {
     GAUGE,
     COUNTER
   }
@@ -62,8 +63,8 @@ public class DatabricksMetrics implements AutoCloseable {
   }
 
   public DatabricksMetrics(IDatabricksConnectionContext context) throws DatabricksSQLException {
-    if (context != null && context.enableTelemetry()) {
-      enableTelemetry = true;
+    enableTelemetry = (context != null && context.enableTelemetry());
+    if (enableTelemetry) {
       String resourceId = context.getComputeResource().getWorkspaceId();
       setWorkspaceId(resourceId);
       this.telemetryClient = DatabricksHttpClient.getInstance(context);
@@ -72,10 +73,13 @@ public class DatabricksMetrics implements AutoCloseable {
   }
 
   private void sendRequest(Map<String, Double> map, MetricsType metricsType) {
+    if (!enableTelemetry) {
+      return;
+    }
     // Check if the telemetry client is set
     if (telemetryClient == null) {
       LoggingUtil.log(
-          LogLevel.DEBUG,
+          TELEMETRY_LOG_LEVEL,
           "Telemetry client is not set for resource Id: "
               + workspaceId
               + ". Initialize the Driver first.");
@@ -99,10 +103,10 @@ public class DatabricksMetrics implements AutoCloseable {
 
         // Error handling
         if (response == null) {
-          LoggingUtil.log(LogLevel.DEBUG, "Response is null for metrics export.");
+          LoggingUtil.log(TELEMETRY_LOG_LEVEL, "Response is null for metrics export.");
         } else if (response.getStatusLine().getStatusCode() != 200) {
           LoggingUtil.log(
-              LogLevel.DEBUG,
+              TELEMETRY_LOG_LEVEL,
               "Response code for metrics export: "
                   + response.getStatusLine().getStatusCode()
                   + " Response: "
@@ -112,11 +116,11 @@ public class DatabricksMetrics implements AutoCloseable {
           map.clear();
 
           // Get the response string
-          LoggingUtil.log(LogLevel.DEBUG, EntityUtils.toString(response.getEntity()));
+          LoggingUtil.log(TELEMETRY_LOG_LEVEL, EntityUtils.toString(response.getEntity()));
           response.close();
         }
       } catch (Exception e) {
-        LoggingUtil.log(LogLevel.DEBUG, "Failed to export metrics. Error: " + e.getMessage());
+        LoggingUtil.log(TELEMETRY_LOG_LEVEL, "Failed to export metrics. Error: " + e.getMessage());
       }
     }
   }
@@ -144,7 +148,7 @@ public class DatabricksMetrics implements AutoCloseable {
             sendRequest(map, metricsType);
           } catch (Exception e) {
             // Commenting out the exception for now - failing silently
-            // System.out.println(e.getMessage());
+            LoggingUtil.log(TELEMETRY_LOG_LEVEL, "Initial export failed. Error: " + e.getMessage());
           }
         });
   }
@@ -168,13 +172,13 @@ public class DatabricksMetrics implements AutoCloseable {
   @Override
   public void close() {
     // Flush out metrics when connection is closed
-    if (telemetryClient != null) {
+    if (enableTelemetry && telemetryClient != null) {
       try {
         sendRequest(gaugeMetrics, DatabricksMetrics.MetricsType.GAUGE);
         sendRequest(counterMetrics, DatabricksMetrics.MetricsType.COUNTER);
       } catch (Exception e) {
         LoggingUtil.log(
-            LogLevel.DEBUG,
+            TELEMETRY_LOG_LEVEL,
             "Failed to export metrics when connection is closed. Error: " + e.getMessage());
       }
     }

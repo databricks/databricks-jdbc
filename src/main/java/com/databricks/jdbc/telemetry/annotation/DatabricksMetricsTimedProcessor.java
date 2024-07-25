@@ -69,7 +69,7 @@ public class DatabricksMetricsTimedProcessor {
             }
 
             // Record the metric
-            if (connectionContext != null && connectionContext.enableTelemetry()) {
+            if (connectionContext != null) {
               connectionContext.getMetricsExporter().record(metricName, endTime - startTime);
             }
             return result;
