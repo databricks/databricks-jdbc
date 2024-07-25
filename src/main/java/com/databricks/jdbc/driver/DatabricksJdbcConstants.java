@@ -33,7 +33,8 @@ public final class DatabricksJdbcConstants {
 
   public static final String LOG_PATH = "logpath";
 
-  public static final String DEFAULT_LOG_PATH = "logs/application.log";
+  public static final String DEFAULT_LOG_PATH =
+      System.getProperty("java.io.tmpdir") + "/logs/application.log";
 
   public static final String LOG_FILE_SIZE = "LogFileSize";
 
@@ -206,7 +207,8 @@ public final class DatabricksJdbcConstants {
     SQL_EXEC,
     CLOUD_FETCH,
     SQL_GATEWAY,
-    CLOUD_FETCH_SQL_GATEWAY
+    CLOUD_FETCH_SQL_GATEWAY,
+    CLOUD_FETCH_UC_VOLUME
   }
 
   public static final String USE_THRIFT_CLIENT = "usethriftclient";
@@ -263,4 +265,5 @@ public final class DatabricksJdbcConstants {
   public static final int DBSQL_MIN_MINOR_VERSION_FOR_NEW_METADATA = 30;
 
   public static final int DEFAULT_RETRY_COUNT = 5;
+  public static final LogLevel TELEMETRY_LOG_LEVEL = LogLevel.OFF;
 }

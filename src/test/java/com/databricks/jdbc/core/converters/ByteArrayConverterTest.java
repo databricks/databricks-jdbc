@@ -5,9 +5,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.databricks.jdbc.core.DatabricksSQLException;
 import java.nio.ByteBuffer;
-import java.nio.charset.StandardCharsets;
 import java.sql.Timestamp;
 import java.time.LocalDateTime;
+import java.util.Base64;
 import org.junit.jupiter.api.Test;
 
 class ByteArrayConverterTest {
@@ -15,14 +15,13 @@ class ByteArrayConverterTest {
   void testConvertToByteArrayFromString() throws DatabricksSQLException {
     String testString = "Test";
     ByteArrayConverter converter = new ByteArrayConverter(testString);
-    assertArrayEquals(testString.getBytes(StandardCharsets.UTF_8), converter.convertToByteArray());
+    assertArrayEquals(Base64.getDecoder().decode(testString), converter.convertToByteArray());
   }
 
   @Test
   void testConvertToString() throws DatabricksSQLException {
     String testString = "Test";
-    ByteArrayConverter converter =
-        new ByteArrayConverter(testString.getBytes(StandardCharsets.UTF_8));
+    ByteArrayConverter converter = new ByteArrayConverter(testString);
     assertEquals(testString, converter.convertToString());
   }
 

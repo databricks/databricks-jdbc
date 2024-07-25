@@ -2,6 +2,7 @@ package com.databricks.jdbc.core;
 
 import com.databricks.jdbc.client.StatementType;
 import com.databricks.jdbc.commons.LogLevel;
+import com.databricks.jdbc.commons.util.DriverUtil;
 import com.databricks.jdbc.commons.util.LoggingUtil;
 import com.databricks.jdbc.driver.DatabricksJdbcConstants;
 import com.databricks.sdk.service.sql.StatementState;
@@ -15,9 +16,6 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
   public static final int DATABASE_MAJOR_VERSION = 3;
   public static final int DATABASE_MINOR_VERSION = 1;
   public static final int DATABASE_PATCH_VERSION = 1;
-  public static final int JDBC_MAJOR_VERSION = 0;
-  public static final int JDBC_MINOR_VERSION = 0;
-  public static final int JDBC_PATCH_VERSION = 1;
   public static final Integer MAX_NAME_LENGTH = 128;
   public static final String NUMERIC_FUNCTIONS =
       "ABS,ACOS,ASIN,ATAN,ATAN2,CEILING,COS,COT,DEGREES,EXP,FLOOR,LOG,LOG10,MOD,PI,POWER,RADIANS,RAND,ROUND,SIGN,SIN,SQRT,TAN,TRUNCATE";
@@ -126,11 +124,7 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
   public String getDriverVersion() throws SQLException {
     LoggingUtil.log(LogLevel.DEBUG, "public String getDriverVersion()");
     throwExceptionIfConnectionIsClosed();
-    return JDBC_MAJOR_VERSION
-        + DatabricksJdbcConstants.FULL_STOP
-        + JDBC_MINOR_VERSION
-        + DatabricksJdbcConstants.FULL_STOP
-        + JDBC_PATCH_VERSION;
+    return DriverUtil.getVersion();
   }
 
   @Override
@@ -1356,13 +1350,13 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
   @Override
   public int getJDBCMajorVersion() throws SQLException {
     LoggingUtil.log(LogLevel.DEBUG, "public int getJDBCMajorVersion()");
-    return JDBC_MAJOR_VERSION;
+    return DriverUtil.getMajorVersion();
   }
 
   @Override
   public int getJDBCMinorVersion() throws SQLException {
     LoggingUtil.log(LogLevel.DEBUG, "public int getJDBCMinorVersion()");
-    return JDBC_MINOR_VERSION;
+    return DriverUtil.getMinorVersion();
   }
 
   @Override

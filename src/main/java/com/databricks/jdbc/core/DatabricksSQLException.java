@@ -1,7 +1,6 @@
 package com.databricks.jdbc.core;
 
 import com.databricks.jdbc.driver.IDatabricksConnectionContext;
-import com.databricks.jdbc.telemetry.DatabricksErrorLogging;
 import java.sql.SQLException;
 
 /** Top level exception for Databricks driver */
@@ -27,7 +26,9 @@ public class DatabricksSQLException extends SQLException {
       String sqlQueryId,
       int errorCode) {
     super(reason, null, errorCode);
-    DatabricksErrorLogging.exportError(connectionContext, errorName, sqlQueryId, errorCode);
+    connectionContext
+        .getMetricsExporter()
+        .exportError(connectionContext, errorName, sqlQueryId, errorCode);
   }
 
   public DatabricksSQLException(
@@ -38,7 +39,9 @@ public class DatabricksSQLException extends SQLException {
       String sqlQueryId,
       int errorCode) {
     super(reason, cause);
-    DatabricksErrorLogging.exportError(connectionContext, errorName, sqlQueryId, errorCode);
+    connectionContext
+        .getMetricsExporter()
+        .exportError(connectionContext, errorName, sqlQueryId, errorCode);
   }
 
   public DatabricksSQLException(String reason, Throwable cause) {

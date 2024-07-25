@@ -82,7 +82,7 @@ public abstract class AbstractFakeServiceIntegrationTests {
   }
 
   /** Returns the extensions to be used for stubbing. */
-  private static Extension[] getExtensions() {
+  protected static Extension[] getExtensions() {
     return new Extension[] {new StubMappingCredentialsCleaner()};
   }
 
