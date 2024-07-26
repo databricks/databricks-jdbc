@@ -184,7 +184,7 @@ public class DriverTester {
     DriverManager.registerDriver(new Driver());
     String jdbcUrl =
         "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=https;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/791ba2a31c7fd70a;enableTelemetry=1";
-    Connection con = DriverManager.getConnection(jdbcUrl, "token", "x");
+    Connection con = DriverManager.getConnection(jdbcUrl, "user", "x");
     System.out.println("Connection established......");
     con.close();
   }
@@ -196,7 +196,7 @@ public class DriverTester {
 
     String jdbcUrl =
         "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=https;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/791ba2a31c7fd70a;TemporarilyUnavailableRetry=3;";
-    Connection con = DriverManager.getConnection(jdbcUrl, "token", "x");
+    Connection con = DriverManager.getConnection(jdbcUrl, "user", "x");
     System.out.println("Connection established......");
     con.close();
   }
@@ -208,7 +208,7 @@ public class DriverTester {
     // Getting the connection
     String jdbcUrl =
         "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/791ba2a31c7fd70a;uselegacyMetadata=1";
-    Connection con = DriverManager.getConnection(jdbcUrl, "token", "xx");
+    Connection con = DriverManager.getConnection(jdbcUrl, "user", "x");
     System.out.println("Connection established......");
     con.close();
   }
