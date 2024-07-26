@@ -33,6 +33,8 @@ public class DatabricksPreparedStatementTest {
   private static final String WAREHOUSE_ID = "erg6767gg";
   private static final String STATEMENT =
       "SELECT * FROM orders WHERE user_id = ? AND shard = ? AND region_code = ? AND namespace = ?";
+  private static final String BATCH_STATEMENT =
+      "INSERT INTO orders (user_id, shard, region_code, namespace) VALUES (?, ?, ?, ?)";
   private static final String JDBC_URL =
       "jdbc:databricks://adb-565757575.18.azuredatabricks.net:4423/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/erg6767gg;";
   private static final String JDBC_URL_WITH_MANY_PARAMETERS =
@@ -142,6 +144,43 @@ public class DatabricksPreparedStatementTest {
         .thenReturn(resultSet);
     int updateCount = statement.executeUpdate();
     assertEquals(2, updateCount);
+    assertFalse(statement.isClosed());
+    statement.close();
+    assertTrue(statement.isClosed());
+  }
+
+  @Test
+  public void testExecuteBatchStatement() throws Exception {
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContext.parse(JDBC_URL, new Properties());
+    DatabricksConnection connection = new DatabricksConnection(connectionContext, client);
+    DatabricksPreparedStatement statement =
+        new DatabricksPreparedStatement(connection, BATCH_STATEMENT);
+
+    // Setting to execute a batch of 4 statements
+    for (int i = 1; i <= 4; i++) {
+      statement.setLong(1, (long) 100);
+      statement.setShort(2, (short) 10);
+      statement.setByte(3, (byte) 15);
+      statement.setString(4, "value");
+      statement.addBatch();
+    }
+
+    when(client.executeStatement(
+            eq(BATCH_STATEMENT),
+            eq(new Warehouse(WAREHOUSE_ID)),
+            any(HashMap.class),
+            eq(StatementType.UPDATE),
+            any(IDatabricksSession.class),
+            eq(statement)))
+        .thenReturn(resultSet);
+
+    when(resultSet.getUpdateCount()).thenReturn(1L);
+
+    int[] expectedCountsResult = {1, 1, 1, 1};
+    int[] updateCounts = statement.executeBatch();
+
+    assertArrayEquals(expectedCountsResult, updateCounts);
     assertFalse(statement.isClosed());
     statement.close();
     assertTrue(statement.isClosed());
@@ -412,7 +451,6 @@ public class DatabricksPreparedStatementTest {
     assertThrows(
         UnsupportedOperationException.class, () -> preparedStatement.setTime(1, null, null));
     assertThrows(UnsupportedOperationException.class, () -> preparedStatement.setBytes(1, null));
-    assertThrows(UnsupportedOperationException.class, () -> preparedStatement.addBatch());
     assertThrows(
         SQLFeatureNotSupportedException.class, () -> preparedStatement.setObject(1, null, null));
     assertThrows(

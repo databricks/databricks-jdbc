@@ -1,0 +1,28 @@
+{
+  "id" : "fcfbe6b1-04c2-4117-bc65-b431e013bc26",
+  "name" : "19a85dee-54bc-43a2-87ab-023d0ec16013_volumes_23258ec3-1166-4302-bbc5-456377aa44fb_overwrite.txt",
+  "request" : {
+    "urlPath" : "/19a85dee-54bc-43a2-87ab-023d0ec16013/volumes/23258ec3-1166-4302-bbc5-456377aa44fb/overwrite.txt",
+    "method" : "GET"
+  },
+  "response" : {
+    "status" : 200,
+    "base64Body" : "aW5pdGlhbENvbnRlbnQ=",
+    "headers" : {
+      "Accept-Ranges" : "bytes",
+      "Server" : "AmazonS3",
+      "ETag" : "\"46a5d17a126a08f10eb0fd773f1c73ae\"",
+      "Last-Modified" : "Fri, 19 Jul 2024 05:23:18 GMT",
+      "x-amz-request-id" : "TBS7SMMSSRX8S32J",
+      "x-amz-server-side-encryption" : "AES256",
+      "x-amz-id-2" : "osTFevN3KyukZBv9bVSnFt6ZwrIVVexBteTXLB/MB9DOTxXqRzPc3UBM8kEUEd/yQ5yt/BFA8WM=",
+      "Date" : "Fri, 19 Jul 2024 05:23:24 GMT",
+      "Content-Type" : "application/octet-stream"
+    }
+  },
+  "uuid" : "fcfbe6b1-04c2-4117-bc65-b431e013bc26",
+  "scenarioName" : "scenario-1-19a85dee-54bc-43a2-87ab-023d0ec16013_volumes_23258ec3-1166-4302-bbc5-456377aa44fb_overwrite.txt",
+  "requiredScenarioState" : "Started",
+  "newScenarioState" : "scenario-1-19a85dee-54bc-43a2-87ab-023d0ec16013_volumes_23258ec3-1166-4302-bbc5-456377aa44fb_overwrite.txt-2",
+  "insertionIndex" : 3
+}

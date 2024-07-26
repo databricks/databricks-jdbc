@@ -429,7 +429,10 @@ public class DatabricksStatement implements IDatabricksStatement, Statement {
   }
 
   DatabricksResultSet executeInternal(
-      String sql, Map<Integer, ImmutableSqlParameter> params, StatementType statementType)
+      String sql,
+      Map<Integer, ImmutableSqlParameter> params,
+      StatementType statementType,
+      boolean closeStatement)
       throws SQLException {
     String stackTraceMessage =
         format(
@@ -444,7 +447,9 @@ public class DatabricksStatement implements IDatabricksStatement, Statement {
               ? futureResultSet.get() // Wait indefinitely when timeout is 0
               : futureResultSet.get(timeoutInSeconds, TimeUnit.SECONDS);
     } catch (TimeoutException e) {
-      this.close(); // Close the statement
+      if (closeStatement) {
+        this.close(); // Close the statement
+      }
       futureResultSet.cancel(true); // Cancel execution run
       throw new DatabricksTimeoutException(
           "Statement execution timed-out. " + stackTraceMessage, e);
@@ -464,6 +469,12 @@ public class DatabricksStatement implements IDatabricksStatement, Statement {
     }
     LoggingUtil.log(LogLevel.DEBUG, "Result retrieved successfully" + resultSet.toString());
     return resultSet;
+  }
+
+  DatabricksResultSet executeInternal(
+      String sql, Map<Integer, ImmutableSqlParameter> params, StatementType statementType)
+      throws SQLException {
+    return executeInternal(sql, params, statementType, true);
   }
 
   // Todo : Add timeout tests in the subsequent PR

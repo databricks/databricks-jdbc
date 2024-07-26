@@ -1,7 +1,6 @@
 package com.databricks.jdbc.commons.util;
 
 import com.databricks.jdbc.commons.LogLevel;
-import com.databricks.jdbc.core.DatabricksSQLException;
 import com.databricks.jdbc.driver.IDatabricksConnectionContext;
 import com.databricks.jdbc.telemetry.DatabricksUsageMetrics;
 import java.nio.charset.Charset;
@@ -20,32 +19,29 @@ public class DeviceInfoLogUtil {
         System.getProperty("user.language") + "_" + System.getProperty("user.country");
     String charsetEncoding = Charset.defaultCharset().displayName();
 
-    LoggingUtil.log(LogLevel.INFO, String.format("Driver Version: %s", DriverUtil.getVersion()));
-    LoggingUtil.log(LogLevel.INFO, String.format("JVM Name: %s", jvmName));
-    LoggingUtil.log(LogLevel.INFO, String.format("JVM Specification Version: %s", jvmSpecVersion));
-    LoggingUtil.log(LogLevel.INFO, String.format("JVM Implementation Version: %s", jvmImplVersion));
-    LoggingUtil.log(LogLevel.INFO, String.format("JVM Vendor: %s", jvmVendor));
-    LoggingUtil.log(LogLevel.INFO, String.format("Operating System Name: %s", osName));
-    LoggingUtil.log(LogLevel.INFO, String.format("Operating System Version: %s", osVersion));
-    LoggingUtil.log(LogLevel.INFO, String.format("Operating System Architecture: %s", osArch));
-    LoggingUtil.log(LogLevel.INFO, String.format("Locale Name: %s", localeName));
+    LoggingUtil.log(
+        LogLevel.INFO, String.format("JDBC Driver Version: %s", DriverUtil.getVersion()));
+    LoggingUtil.log(
+        LogLevel.INFO,
+        String.format(
+            "JVM Name: %s, Vendor: %s, Specification Version: %s, Version: %s",
+            jvmName, jvmVendor, jvmSpecVersion, jvmImplVersion));
+    LoggingUtil.log(
+        LogLevel.INFO,
+        String.format(
+            "Operating System Name: %s, Version: %s, Architecture: %s, Locale: ",
+            osName, osVersion, osArch, localeName));
     LoggingUtil.log(LogLevel.INFO, String.format("Default Charset Encoding: %s", charsetEncoding));
-    if (context.enableTelemetry()) {
-      try {
-        DatabricksUsageMetrics.exportUsageMetrics(
-            context,
-            jvmName,
-            jvmSpecVersion,
-            jvmImplVersion,
-            jvmVendor,
-            osName,
-            osVersion,
-            osArch,
-            localeName,
-            charsetEncoding);
-      } catch (DatabricksSQLException e) {
-        LoggingUtil.log(LogLevel.DEBUG, "Failed to export usage metrics: " + e.getMessage());
-      }
-    }
+    DatabricksUsageMetrics.exportUsageMetrics(
+        context,
+        jvmName,
+        jvmSpecVersion,
+        jvmImplVersion,
+        jvmVendor,
+        osName,
+        osVersion,
+        osArch,
+        localeName,
+        charsetEncoding);
   }
 }

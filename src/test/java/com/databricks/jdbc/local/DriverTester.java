@@ -250,4 +250,50 @@ public class DriverTester {
     con.close();
     System.out.println("Connection closed successfully......");
   }
+
+  @Test
+  void testSimbaBatchFunction() throws Exception {
+
+    String jdbcUrl =
+        "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/dd43ee29fedd958d;";
+    Connection con = DriverManager.getConnection(jdbcUrl, "jothi.prakash@databricks.com", "xx");
+    System.out.println("Connection established......");
+
+    //
+    // Batch Statement Testing
+    //
+    String sqlStatement =
+        "INSERT INTO ___________________first.`jprakash-test`.diamonds (carat, cut, color, clarity) VALUES (?, ?, ?, ?)";
+    PreparedStatement pstmt = con.prepareStatement(sqlStatement);
+    for (int i = 1; i <= 3; i++) {
+      pstmt.setFloat(1, 0.23f);
+      pstmt.setString(2, "OK");
+      pstmt.setString(3, "E");
+      pstmt.setString(4, "SI2");
+      pstmt.addBatch();
+    }
+
+    pstmt.setString(1, "Shaama");
+    pstmt.setString(2, "Bad");
+    pstmt.setString(3, "F");
+    pstmt.setString(4, "SI6");
+    pstmt.addBatch();
+
+    for (int i = 1; i <= 3; i++) {
+      pstmt.setFloat(1, 0.23f);
+      pstmt.setString(2, "Bad");
+      pstmt.setString(3, "F");
+      pstmt.setString(4, "SI6");
+      pstmt.addBatch();
+    }
+
+    // Execute the batch
+    int[] updateCounts = pstmt.executeBatch();
+
+    // Process the update counts
+    for (int count : updateCounts) {
+      System.out.println("Update count: " + count);
+    }
+    con.close();
+  }
 }

@@ -43,7 +43,6 @@ public class UCVolumeIntegrationTests extends AbstractFakeServiceIntegrationTest
     // TODO: Testing is done here using the E2-Dogfood environment. Need to update this to use a
     // test warehouse.
     con = getConnection();
-    System.out.println("Connection established......");
     client = new DatabricksUCVolumeClient(con);
     con.setClientInfo("allowlistedVolumeOperationLocalFilePaths", LOCAL_TEST_DIRECTORY);
   }

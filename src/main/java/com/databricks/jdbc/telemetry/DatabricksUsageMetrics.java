@@ -1,7 +1,8 @@
 package com.databricks.jdbc.telemetry;
 
+import static com.databricks.jdbc.driver.DatabricksJdbcConstants.TELEMETRY_LOG_LEVEL;
+
 import com.databricks.jdbc.client.http.DatabricksHttpClient;
-import com.databricks.jdbc.commons.LogLevel;
 import com.databricks.jdbc.commons.util.LoggingUtil;
 import com.databricks.jdbc.core.DatabricksSQLException;
 import com.databricks.jdbc.driver.IDatabricksConnectionContext;
@@ -70,10 +71,12 @@ public class DatabricksUsageMetrics {
       String osVersion,
       String osArch,
       String localeName,
-      String charsetEncoding)
-      throws DatabricksSQLException {
-    initialize(context);
+      String charsetEncoding) {
+    if (!context.enableTelemetry()) {
+      return;
+    }
     try {
+      initialize(context);
       HttpUriRequest request =
           getRequest(
               jvmName,
@@ -88,20 +91,20 @@ public class DatabricksUsageMetrics {
       CloseableHttpResponse response = telemetryClient.executeWithoutCertVerification(request);
 
       if (response == null) {
-        LoggingUtil.log(LogLevel.DEBUG, "Response is null for usage metrics export.");
+        LoggingUtil.log(TELEMETRY_LOG_LEVEL, "Response is null for usage metrics export.");
       } else if (response.getStatusLine().getStatusCode() != 200) {
         LoggingUtil.log(
-            LogLevel.DEBUG,
+            TELEMETRY_LOG_LEVEL,
             "Response code for usage metrics export: "
                 + response.getStatusLine().getStatusCode()
                 + " Response: "
                 + response.getEntity().toString());
       } else {
-        LoggingUtil.log(LogLevel.DEBUG, EntityUtils.toString(response.getEntity()));
+        LoggingUtil.log(TELEMETRY_LOG_LEVEL, EntityUtils.toString(response.getEntity()));
         response.close();
       }
     } catch (Exception e) {
-      LoggingUtil.log(LogLevel.DEBUG, e.getMessage());
+      LoggingUtil.log(TELEMETRY_LOG_LEVEL, e.getMessage());
     }
   }
 }
