@@ -43,8 +43,8 @@ public class DataSource implements javax.sql.DataSource, ConnectionPoolDataSourc
     LoggingUtil.log(
         LogLevel.DEBUG,
         String.format(
-            "public Connection getConnection(String username = {%s}, String password = {%s})",
-            username, password));
+            "public Connection getConnection(String username = {%s}, String password = {*redacted*})",
+            username));
     if (username != null) {
       setUsername(username);
     }
@@ -66,7 +66,7 @@ public class DataSource implements javax.sql.DataSource, ConnectionPoolDataSourc
     LoggingUtil.log(
         LogLevel.DEBUG,
         String.format(
-            "public PooledConnection getPooledConnection(String user = {%s}, String password = {%s})",
+            "public PooledConnection getPooledConnection(String user = {%s}, String password = {*redacted*})",
             user, password));
     return new DatabricksPooledConnection(getConnection(user, password));
   }
