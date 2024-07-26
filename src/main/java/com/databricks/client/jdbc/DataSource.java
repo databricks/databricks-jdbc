@@ -40,11 +40,7 @@ public class DataSource implements javax.sql.DataSource, ConnectionPoolDataSourc
 
   @Override
   public Connection getConnection(String username, String password) throws DatabricksSQLException {
-    LoggingUtil.log(
-        LogLevel.DEBUG,
-        String.format(
-            "public Connection getConnection(String username = {%s}, String password = {%s})",
-            username, password));
+    LoggingUtil.log(LogLevel.DEBUG, "public Connection getConnection(String, String)");
     if (username != null) {
       setUsername(username);
     }
@@ -63,11 +59,7 @@ public class DataSource implements javax.sql.DataSource, ConnectionPoolDataSourc
   @Override
   public PooledConnection getPooledConnection(String user, String password)
       throws DatabricksSQLException {
-    LoggingUtil.log(
-        LogLevel.DEBUG,
-        String.format(
-            "public PooledConnection getPooledConnection(String user = {%s}, String password = {%s})",
-            user, password));
+    LoggingUtil.log(LogLevel.DEBUG, "public PooledConnection getPooledConnection(String, String)");
     return new DatabricksPooledConnection(getConnection(user, password));
   }
 
@@ -84,7 +76,7 @@ public class DataSource implements javax.sql.DataSource, ConnectionPoolDataSourc
   @Override
   public void setLoginTimeout(int seconds) {
     LoggingUtil.log(
-        LogLevel.INFO, String.format("public void setLoginTimeout(int seconds = {%s})", seconds));
+        LogLevel.DEBUG, String.format("public void setLoginTimeout(int seconds = {%s})", seconds));
     this.properties.put(DatabricksJdbcConstants.LOGIN_TIMEOUT, seconds);
   }
 
@@ -109,7 +101,7 @@ public class DataSource implements javax.sql.DataSource, ConnectionPoolDataSourc
   }
 
   public String getUrl() {
-    LoggingUtil.log(LogLevel.INFO, "public String getUrl()");
+    LoggingUtil.log(LogLevel.DEBUG, "public String getUrl()");
     StringBuilder urlBuilder = new StringBuilder();
     urlBuilder.append(DatabricksJdbcConstants.JDBC_SCHEMA);
     if (host == null) {
