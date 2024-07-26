@@ -1,6 +1,8 @@
 package com.databricks.jdbc.commons;
 
 public enum CommandName {
+  CREATE_SESSION,
+  DELETE_SESSION,
   OPEN_SESSION,
   CLOSE_SESSION,
   LIST_TYPE_INFO,
@@ -12,5 +14,6 @@ public enum CommandName {
   LIST_COLUMNS,
   LIST_FUNCTIONS,
   EXECUTE_STATEMENT,
-  GET_METADATA
+  GET_RESULT_CHUNKS,
+  DEFAULT
 }

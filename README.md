@@ -11,7 +11,7 @@ You can install Databricks JDBC driver by adding the following to your `pom.xml`
 ```pom.xml
 <dependency>
   <groupId>com.databricks</groupId>
-  <artifactId>databricks-jdbc-oss</artifactId>
+  <artifactId>databricks-jdbc</artifactId>
   <version>0.9.0-oss</version>
 </dependency>
 ```

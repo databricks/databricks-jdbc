@@ -30,10 +30,6 @@ public class DatabricksMetrics implements AutoCloseable {
   private static DatabricksHttpClient telemetryClient;
   private static boolean enableTelemetry = false;
 
-  private void setWorkspaceId(String workspaceId) {
-    this.workspaceId = workspaceId;
-  }
-
   private enum MetricsType {
     GAUGE,
     COUNTER
@@ -49,8 +45,9 @@ public class DatabricksMetrics implements AutoCloseable {
               exportMetrics(gaugeMetrics, MetricsType.GAUGE);
               exportMetrics(counterMetrics, MetricsType.COUNTER);
             } catch (Exception e) {
-              // Commenting out the exception for now - failing silently
-              // System.out.println(e.getMessage());
+              LoggingUtil.log(
+                  TELEMETRY_LOG_LEVEL,
+                  "Error while exporting metrics with scheduleExportMetrics: " + e.getMessage());
             }
           }
         };
@@ -62,8 +59,7 @@ public class DatabricksMetrics implements AutoCloseable {
   public DatabricksMetrics(IDatabricksConnectionContext context) throws DatabricksSQLException {
     enableTelemetry = (context != null && context.enableTelemetry());
     if (enableTelemetry) {
-      String resourceId = context.getComputeResource().getWorkspaceId();
-      setWorkspaceId(resourceId);
+      workspaceId = context.getComputeResource().getWorkspaceId();
       telemetryClient = DatabricksHttpClient.getInstance(context);
       scheduleExportMetrics();
     }
@@ -130,23 +126,20 @@ public class DatabricksMetrics implements AutoCloseable {
     }
   }
 
-  public static void exportError(
-      IDatabricksConnectionContext connectionContext,
-      String errorName,
-      String sqlQueryId,
-      int errorCode) {
+  public void exportError(String errorName, String sqlQueryId, int errorCode) {
     if (!enableTelemetry) {
       return;
     }
-    connectionContext.getMetricsExporter().increment(errorName + errorCode, 1);
+    increment(errorName + errorCode, 1);
     try {
       exportErrorLog(
           sqlQueryId,
           "ConnectionConfig", // This gets redacted to null anyway in logfood because of the
           // sensitive data label for connection_config
           errorCode);
+      close();
     } catch (Exception e) {
-      // Failing silently
+      LoggingUtil.log(TELEMETRY_LOG_LEVEL, "Failed to export log. Error: " + e.getMessage());
     }
   }
 
@@ -177,7 +170,8 @@ public class DatabricksMetrics implements AutoCloseable {
               charsetEncoding);
       responseHandling(request, "usage metrics export");
     } catch (Exception e) {
-      // Fail silently
+      LoggingUtil.log(
+          TELEMETRY_LOG_LEVEL, "Failed to export usage metrics. Error: " + e.getMessage());
     }
   }
 

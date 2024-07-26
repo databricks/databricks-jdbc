@@ -19,6 +19,6 @@ public class DatabricksTimeoutException extends SQLTimeoutException {
     super(reason, cause);
     connectionContext
         .getMetricsExporter()
-        .exportError(connectionContext, ErrorTypes.TIMEOUT_ERROR, sqlQueryId, errorCode);
+        .exportError(ErrorTypes.TIMEOUT_ERROR, sqlQueryId, errorCode);
   }
 }
