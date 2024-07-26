@@ -1,5 +1,8 @@
 package com.databricks.jdbc.telemetry.annotation;
 
+import static com.databricks.jdbc.driver.DatabricksJdbcConstants.TELEMETRY_LOG_LEVEL;
+
+import com.databricks.jdbc.commons.util.LoggingUtil;
 import com.databricks.jdbc.core.DatabricksSession;
 import com.databricks.jdbc.core.IDatabricksSession;
 import com.databricks.jdbc.driver.IDatabricksConnectionContext;
@@ -39,7 +42,7 @@ public class DatabricksMetricsTimedProcessor {
     }
 
     @Override
-    public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
+    public Object invoke(Object proxy, Method method, Object[] args) {
       Class<?> declaringClass = method.getDeclaringClass();
       DatabricksMetricsTimedClass databricksMetricsTimedClass =
           declaringClass.getAnnotation(DatabricksMetricsTimedClass.class);
@@ -51,32 +54,43 @@ public class DatabricksMetricsTimedProcessor {
 
             // Record execution time
             long startTime = System.currentTimeMillis();
-            Object result = method.invoke(target, args);
-            long endTime = System.currentTimeMillis();
+            try {
+              Object result = method.invoke(target, args);
+              long endTime = System.currentTimeMillis();
 
-            // Get the connection context
-            IDatabricksConnectionContext connectionContext = null;
+              // Get the connection context
+              IDatabricksConnectionContext connectionContext = null;
 
-            boolean isMetricMetadata = metricName.startsWith("LIST");
+              boolean isMetricMetadata = metricName.startsWith("LIST");
 
-            // Get the connection context based on the metric type
-            if (isMetricMetadata && args != null && args[0].getClass() == DatabricksSession.class) {
-              connectionContext = ((IDatabricksSession) args[0]).getConnectionContext();
-            } else {
-              connectionContext =
-                  (IDatabricksConnectionContext)
-                      target.getClass().getMethod("getConnectionContext").invoke(target);
+              // Get the connection context based on the metric type
+              if (isMetricMetadata
+                  && args != null
+                  && args[0].getClass() == DatabricksSession.class) {
+                connectionContext = ((IDatabricksSession) args[0]).getConnectionContext();
+              } else {
+                connectionContext =
+                    (IDatabricksConnectionContext)
+                        target.getClass().getMethod("getConnectionContext").invoke(target);
+              }
+
+              // Record the metric
+              if (connectionContext != null) {
+                connectionContext.getMetricsExporter().record(metricName, endTime - startTime);
+              }
+              return result;
+            } catch (Throwable t) {
+              LoggingUtil.log(TELEMETRY_LOG_LEVEL, "Error while recording metric", t.getMessage());
             }
-
-            // Record the metric
-            if (connectionContext != null) {
-              connectionContext.getMetricsExporter().record(metricName, endTime - startTime);
-            }
-            return result;
           }
         }
       }
-      return method.invoke(target, args);
+      try {
+        return method.invoke(target, args);
+      } catch (Throwable t) {
+        LoggingUtil.log(TELEMETRY_LOG_LEVEL, "Error while recording metric", t.getMessage());
+      }
+      return null;
     }
   }
 }
