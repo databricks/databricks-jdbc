@@ -67,7 +67,7 @@ public class DataSource implements javax.sql.DataSource, ConnectionPoolDataSourc
         LogLevel.DEBUG,
         String.format(
             "public PooledConnection getPooledConnection(String user = {%s}, String password = {*redacted*})",
-            user, password));
+            user));
     return new DatabricksPooledConnection(getConnection(user, password));
   }
 
