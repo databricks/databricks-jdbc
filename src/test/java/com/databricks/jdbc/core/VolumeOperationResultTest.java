@@ -8,10 +8,13 @@ import static org.mockito.Mockito.when;
 import com.databricks.jdbc.client.IDatabricksHttpClient;
 import com.databricks.jdbc.client.sqlexec.ResultManifest;
 import com.databricks.sdk.service.sql.ResultSchema;
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
-import java.util.Map;
+import java.util.Collections;
+import java.util.HashMap;
 import org.apache.http.HttpEntity;
 import org.apache.http.StatusLine;
 import org.apache.http.client.methods.CloseableHttpResponse;
@@ -71,8 +74,14 @@ public class VolumeOperationResultTest {
 
     File file = new File(LOCAL_FILE_GET);
     assertTrue(file.exists());
-    try {
-      String fileContent = new String(new FileInputStream(file).readAllBytes());
+    try (FileInputStream fis = new FileInputStream(file);
+        ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
+      byte[] buffer = new byte[1024];
+      int bytesRead;
+      while ((bytesRead = fis.read(buffer)) != -1) {
+        baos.write(buffer, 0, bytesRead);
+      }
+      String fileContent = new String(baos.toByteArray());
       assertEquals("test", fileContent);
     } finally {
       assertTrue(file.delete());
@@ -92,7 +101,15 @@ public class VolumeOperationResultTest {
     when(resultHandler.getObject(2)).thenReturn(HEADERS);
     when(resultHandler.getObject(3)).thenReturn(LOCAL_FILE_GET);
     when(session.getClientInfoProperties())
-        .thenReturn(Map.of(ALLOWED_VOLUME_INGESTION_PATHS.toLowerCase(), ""));
+        .thenReturn(Collections.singletonMap(ALLOWED_VOLUME_INGESTION_PATHS.toLowerCase(), ""));
+    //    when(session.getClientInfoProperties())
+    //        .thenReturn(
+    //            Collections.unmodifiableMap(
+    //                new HashMap<String, String>() {
+    //                  {
+    //                    put(ALLOWED_VOLUME_INGESTION_PATHS.toLowerCase(), ALLOWED_PATHS);
+    //                  }
+    //                }));
 
     VolumeOperationResult volumeOperationResult =
         new VolumeOperationResult(
@@ -179,7 +196,7 @@ public class VolumeOperationResultTest {
     when(resultHandler.getObject(3)).thenReturn(LOCAL_FILE_GET);
 
     File file = new File(LOCAL_FILE_GET);
-    Files.writeString(file.toPath(), "test-put");
+    Files.write(file.toPath(), "test-put".getBytes(StandardCharsets.UTF_8));
 
     VolumeOperationResult volumeOperationResult =
         new VolumeOperationResult(
@@ -253,7 +270,7 @@ public class VolumeOperationResultTest {
     when(mockedStatusLine.getStatusCode()).thenReturn(200);
 
     File file = new File(LOCAL_FILE_PUT);
-    Files.writeString(file.toPath(), "test-put");
+    Files.write(file.toPath(), "test-put".getBytes(StandardCharsets.UTF_8));
 
     VolumeOperationResult volumeOperationResult =
         new VolumeOperationResult(
@@ -280,7 +297,7 @@ public class VolumeOperationResultTest {
     when(mockedStatusLine.getStatusCode()).thenReturn(403);
 
     File file = new File(LOCAL_FILE_PUT);
-    Files.writeString(file.toPath(), "test-put");
+    Files.write(file.toPath(), "test-put".getBytes(StandardCharsets.UTF_8));
 
     VolumeOperationResult volumeOperationResult =
         new VolumeOperationResult(
@@ -307,7 +324,7 @@ public class VolumeOperationResultTest {
     when(resultHandler.getObject(3)).thenReturn(LOCAL_FILE_PUT);
 
     File file = new File(LOCAL_FILE_PUT);
-    Files.writeString(file.toPath(), "");
+    Files.write(file.toPath(), "".getBytes(StandardCharsets.UTF_8));
 
     VolumeOperationResult volumeOperationResult =
         new VolumeOperationResult(
@@ -467,6 +484,12 @@ public class VolumeOperationResultTest {
     when(resultHandler.next()).thenReturn(true).thenReturn(false);
     when(resultHandler.getObject(2)).thenReturn(HEADERS);
     when(session.getClientInfoProperties())
-        .thenReturn(Map.of(ALLOWED_VOLUME_INGESTION_PATHS.toLowerCase(), ALLOWED_PATHS));
+        .thenReturn(
+            Collections.unmodifiableMap(
+                new HashMap<String, String>() {
+                  {
+                    put(ALLOWED_VOLUME_INGESTION_PATHS.toLowerCase(), ALLOWED_PATHS);
+                  }
+                }));
   }
 }

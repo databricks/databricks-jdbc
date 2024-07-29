@@ -9,6 +9,7 @@ import com.databricks.jdbc.client.DatabricksHttpException;
 import com.databricks.jdbc.client.impl.thrift.generated.*;
 import com.databricks.sdk.service.sql.ColumnInfoTypeName;
 import java.nio.ByteBuffer;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
@@ -121,16 +122,16 @@ public class DatabricksThriftHelperTest {
         Arguments.of(
             new TRowSet().setColumns(Collections.singletonList(new TColumn())),
             Collections.singletonList(Collections.singletonList(NULL_STRING))),
-        Arguments.of(boolRowSet, Collections.singletonList(List.of(false))),
-        Arguments.of(byteRowSet, Collections.singletonList(List.of((byte) 5))),
-        Arguments.of(doubleRowSet, Collections.singletonList(List.of(1.0))),
-        Arguments.of(i16RowSet, Collections.singletonList(List.of((short) 1))),
-        Arguments.of(i32RowSet, Collections.singletonList(List.of(1))),
-        Arguments.of(i64RowSet, Collections.singletonList(List.of(1L))),
-        Arguments.of(stringRowSet, Collections.singletonList(List.of(TEST_STRING))),
+        Arguments.of(boolRowSet, Collections.singletonList(Arrays.asList(false))),
+        Arguments.of(byteRowSet, Collections.singletonList(Arrays.asList((byte) 5))),
+        Arguments.of(doubleRowSet, Collections.singletonList(Arrays.asList(1.0))),
+        Arguments.of(i16RowSet, Collections.singletonList(Arrays.asList((short) 1))),
+        Arguments.of(i32RowSet, Collections.singletonList(Arrays.asList(1))),
+        Arguments.of(i64RowSet, Collections.singletonList(Arrays.asList(1L))),
+        Arguments.of(stringRowSet, Collections.singletonList(Arrays.asList(TEST_STRING))),
         Arguments.of(
             binaryRowSet,
-            Collections.singletonList(List.of(ByteBuffer.wrap(TEST_STRING.getBytes())))));
+            Collections.singletonList(Arrays.asList(ByteBuffer.wrap(TEST_STRING.getBytes())))));
   }
 
   @ParameterizedTest

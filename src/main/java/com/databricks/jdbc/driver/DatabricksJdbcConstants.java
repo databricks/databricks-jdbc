@@ -2,6 +2,9 @@ package com.databricks.jdbc.driver;
 
 import com.databricks.jdbc.commons.LogLevel;
 import com.google.common.annotations.VisibleForTesting;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.regex.Pattern;
@@ -182,20 +185,26 @@ public final class DatabricksJdbcConstants {
   public static final String VOLUME_OPERATION_STATUS_SUCCEEDED = "SUCCEEDED";
 
   public static final Map<String, String> ALLOWED_SESSION_CONF_TO_DEFAULT_VALUES_MAP =
-      // This map comes from
-      // https://docs.databricks.com/en/sql/language-manual/sql-ref-parameters.html
-      Map.of(
-          "ANSI_MODE", "TRUE",
-          "ENABLE_PHOTON", "TRUE",
-          "LEGACY_TIME_PARSER_POLICY", "EXCEPTION",
-          "MAX_FILE_PARTITION_BYTES", "128m",
-          "READ_ONLY_EXTERNAL_METASTORE", "FALSE",
-          "STATEMENT_TIMEOUT", "172800",
-          "TIMEZONE", "UTC",
-          "USE_CACHED_RESULT", "TRUE");
+      new HashMap<>();
+
+  static {
+    ALLOWED_SESSION_CONF_TO_DEFAULT_VALUES_MAP.put("ANSI_MODE", "TRUE");
+    ALLOWED_SESSION_CONF_TO_DEFAULT_VALUES_MAP.put("ENABLE_PHOTON", "TRUE");
+    ALLOWED_SESSION_CONF_TO_DEFAULT_VALUES_MAP.put("LEGACY_TIME_PARSER_POLICY", "EXCEPTION");
+    ALLOWED_SESSION_CONF_TO_DEFAULT_VALUES_MAP.put("MAX_FILE_PARTITION_BYTES", "128m");
+    ALLOWED_SESSION_CONF_TO_DEFAULT_VALUES_MAP.put("READ_ONLY_EXTERNAL_METASTORE", "FALSE");
+    ALLOWED_SESSION_CONF_TO_DEFAULT_VALUES_MAP.put("STATEMENT_TIMEOUT", "172800");
+    ALLOWED_SESSION_CONF_TO_DEFAULT_VALUES_MAP.put("TIMEZONE", "UTC");
+    ALLOWED_SESSION_CONF_TO_DEFAULT_VALUES_MAP.put("USE_CACHED_RESULT", "TRUE");
+  }
 
   public static final Set<String> ALLOWED_CLIENT_INFO_PROPERTIES =
-      Set.of(ALLOWED_VOLUME_INGESTION_PATHS);
+      Collections.unmodifiableSet(
+          new HashSet<String>() {
+            {
+              add(ALLOWED_VOLUME_INGESTION_PATHS);
+            }
+          });
 
   @VisibleForTesting public static final String IS_FAKE_SERVICE_TEST_PROP = "isFakeServiceTest";
 

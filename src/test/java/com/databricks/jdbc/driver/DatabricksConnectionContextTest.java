@@ -11,6 +11,7 @@ import com.databricks.jdbc.core.DatabricksParsingException;
 import com.databricks.jdbc.core.DatabricksSQLException;
 import com.databricks.jdbc.core.types.CompressionType;
 import com.databricks.sdk.core.ProxyConfig;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Properties;
 import org.junit.jupiter.api.BeforeAll;
@@ -150,7 +151,7 @@ class DatabricksConnectionContextTest {
     // test aws port
     connectionContext =
         (DatabricksConnectionContext) DatabricksConnectionContext.parse(VALID_URL_3, properties);
-    List<String> expected_scopes = List.of("sql", "offline_access");
+    List<String> expected_scopes = Arrays.asList("sql", "offline_access");
     assertEquals(
         "http://e2-dogfood.staging.cloud.databricks.com:443", connectionContext.getHostUrl());
     assertEquals("/sql/1.0/warehouses/5c89f447c476a5a8", connectionContext.getHttpPath());

@@ -7,7 +7,7 @@ import com.databricks.jdbc.driver.DatabricksJdbcConstants;
 import com.databricks.jdbc.driver.IDatabricksConnectionContext;
 import com.databricks.sdk.WorkspaceClient;
 import com.databricks.sdk.core.DatabricksConfig;
-import java.util.List;
+import java.util.Arrays;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
@@ -91,7 +91,8 @@ public class OAuthAuthenticatorTest {
     when(mockContext.getHostForOAuth()).thenReturn("https://oauth-browser.databricks.com");
     when(mockContext.getClientId()).thenReturn("browser-client-id");
     when(mockContext.getClientSecret()).thenReturn("browser-client-secret");
-    when(mockContext.getOAuthScopesForU2M()).thenReturn(List.of(new String[] {"scope1", "scope2"}));
+    when(mockContext.getOAuthScopesForU2M())
+        .thenReturn(Arrays.asList(new String[] {"scope1", "scope2"}));
 
     WorkspaceClient client = authenticator.getWorkspaceClient(databricksConfig);
     assertNotNull(client);
@@ -100,7 +101,7 @@ public class OAuthAuthenticatorTest {
     assertEquals("https://oauth-browser.databricks.com", config.getHost());
     assertEquals("browser-client-id", config.getClientId());
     assertEquals("browser-client-secret", config.getClientSecret());
-    assertEquals(List.of(new String[] {"scope1", "scope2"}), config.getScopes());
+    assertEquals(Arrays.asList(new String[] {"scope1", "scope2"}), config.getScopes());
     assertEquals(DatabricksJdbcConstants.U2M_AUTH_REDIRECT_URL, config.getOAuthRedirectUrl());
     assertEquals(DatabricksJdbcConstants.U2M_AUTH_TYPE, config.getAuthType());
   }

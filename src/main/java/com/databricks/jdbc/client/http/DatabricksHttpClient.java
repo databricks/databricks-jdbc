@@ -19,8 +19,7 @@ import java.io.IOException;
 import java.security.KeyManagementException;
 import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
-import java.util.Objects;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import javax.net.ssl.SSLContext;
@@ -62,7 +61,8 @@ public class DatabricksHttpClient implements IDatabricksHttpClient {
   private static final String JDBC_HTTP_USER_AGENT = "databricks-jdbc-http";
 
   // TODO: Consider other HTTP codes for retries (408, 425, 500, 502, 504)
-  private static final Set<Integer> RETRYABLE_HTTP_CODES = Set.of(503, 429);
+  private static final Set<Integer> RETRYABLE_HTTP_CODES =
+      Collections.unmodifiableSet(new HashSet<>(Arrays.asList(503, 429)));
 
   private static final ConcurrentHashMap<String, DatabricksHttpClient> instances =
       new ConcurrentHashMap<>();

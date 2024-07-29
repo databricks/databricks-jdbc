@@ -7,7 +7,7 @@ import java.io.StringReader;
 import java.math.BigDecimal;
 import java.sql.*;
 import java.util.Calendar;
-import java.util.Map;
+import java.util.Collections;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -213,7 +213,7 @@ public class EmptyResultSetTest {
 
   @Test
   public void testGetObjectWithMap() throws SQLException {
-    assertNull(resultSet.getObject(1, Map.of()));
+    assertNull(resultSet.getObject(1, Collections.emptyMap()));
   }
 
   @Test
@@ -238,7 +238,7 @@ public class EmptyResultSetTest {
 
   @Test
   public void testGetObjectWithMapAndLabel() throws SQLException {
-    assertNull(resultSet.getObject("column", Map.of()));
+    assertNull(resultSet.getObject("column", Collections.emptyMap()));
   }
 
   @Test

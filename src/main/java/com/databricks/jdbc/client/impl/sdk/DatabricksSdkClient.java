@@ -28,10 +28,7 @@ import com.databricks.sdk.service.sql.*;
 import com.google.common.annotations.VisibleForTesting;
 import java.sql.SQLException;
 import java.time.Instant;
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.stream.Collectors;
 
 /** Implementation of DatabricksClient interface using Databricks Java SDK. */
@@ -47,9 +44,10 @@ public class DatabricksSdkClient implements DatabricksClient {
   }
 
   private static Map<String, String> getHeaders() {
-    return Map.of(
-        "Accept", "application/json",
-        "Content-Type", "application/json");
+    Map<String, String> headers = new HashMap<>();
+    headers.put("Accept", "application/json");
+    headers.put("Content-Type", "application/json");
+    return Collections.unmodifiableMap(headers);
   }
 
   public DatabricksSdkClient(IDatabricksConnectionContext connectionContext)

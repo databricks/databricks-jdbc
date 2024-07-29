@@ -9,10 +9,7 @@ import com.databricks.jdbc.driver.DatabricksJdbcConstants;
 import com.databricks.jdbc.driver.IDatabricksConnectionContext;
 import com.google.common.annotations.VisibleForTesting;
 import java.sql.*;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Properties;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 import java.util.stream.Collectors;
@@ -441,11 +438,15 @@ public class DatabricksConnection implements IDatabricksConnection, Connection {
           .anyMatch(s -> s.equalsIgnoreCase(name))) {
         this.session.setClientInfoProperty(name.toLowerCase(), value);
       } else {
+        Map<String, ClientInfoStatus> clientInfoStatusMap = new HashMap<>();
+        clientInfoStatusMap.put(name, ClientInfoStatus.REASON_UNKNOWN_PROPERTY);
+
+        // Throw the exception with an immutable map
         throw new DatabricksSQLClientInfoException(
             String.format(
                 "Setting client info for %s failed with %s",
                 name, ClientInfoStatus.REASON_UNKNOWN_PROPERTY),
-            Map.of(name, ClientInfoStatus.REASON_UNKNOWN_PROPERTY));
+            Collections.unmodifiableMap(clientInfoStatusMap));
       }
     }
   }

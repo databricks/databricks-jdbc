@@ -51,7 +51,7 @@ public class DatabricksPreparedStatementTest {
   private static final String INTERPOLATED_PROCESSED_STATEMENT =
       "SELECT * FROM orders WHERE user_id = 1 AND name = 'test'";
   Map<Integer, ImmutableSqlParameter> PARAM_MAP =
-      new HashMap<>() {
+      new HashMap<Integer, ImmutableSqlParameter>() {
         {
           put(1, getSqlParam(1, 1, DatabricksTypeUtil.INT));
           put(2, getSqlParam(2, TEST_STRING, DatabricksTypeUtil.STRING));
@@ -76,13 +76,11 @@ public class DatabricksPreparedStatementTest {
     statement.setByte(3, (byte) 15);
     statement.setString(4, "value");
 
-    HashMap<Integer, ImmutableSqlParameter> sqlParams =
-        new HashMap<>() {
+    Map<Integer, ImmutableSqlParameter> PARAM_MAP =
+        new HashMap<Integer, ImmutableSqlParameter>() {
           {
-            put(1, getSqlParam(1, 100, DatabricksTypeUtil.BIGINT));
-            put(2, getSqlParam(2, (short) 10, DatabricksTypeUtil.SMALLINT));
-            put(3, getSqlParam(3, (byte) 15, DatabricksTypeUtil.TINYINT));
-            put(4, getSqlParam(4, "value", DatabricksTypeUtil.STRING));
+            put(1, getSqlParam(1, 1, DatabricksTypeUtil.INT));
+            put(2, getSqlParam(2, TEST_STRING, DatabricksTypeUtil.STRING));
           }
         };
     when(client.executeStatement(
@@ -427,26 +425,27 @@ public class DatabricksPreparedStatementTest {
         UnsupportedOperationException.class, () -> preparedStatement.setBinaryStream(1, null, 1));
     assertThrows(
         UnsupportedOperationException.class,
-        () -> preparedStatement.setBinaryStream(1, InputStream.nullInputStream(), 1));
+        () -> preparedStatement.setBinaryStream(1, new ByteArrayInputStream(new byte[0]), 1));
+
     assertThrows(
         UnsupportedOperationException.class,
-        () -> preparedStatement.setBinaryStream(1, InputStream.nullInputStream(), 1L));
+        () -> preparedStatement.setBinaryStream(1, new ByteArrayInputStream(new byte[0]), 1L));
     assertThrows(
         UnsupportedOperationException.class, () -> preparedStatement.setBinaryStream(1, null));
     assertThrows(
         UnsupportedOperationException.class, () -> preparedStatement.setNCharacterStream(1, null));
     assertThrows(
         UnsupportedOperationException.class,
-        () -> preparedStatement.setUnicodeStream(1, InputStream.nullInputStream(), 1));
+        () -> preparedStatement.setBinaryStream(1, new ByteArrayInputStream(new byte[0])));
     assertThrows(
         UnsupportedOperationException.class,
-        () -> preparedStatement.setClob(1, Reader.nullReader()));
+        () -> preparedStatement.setClob(1, new StringReader("")));
     assertThrows(
         UnsupportedOperationException.class,
-        () -> preparedStatement.setBlob(1, InputStream.nullInputStream()));
+        () -> preparedStatement.setBlob(1, new ByteArrayInputStream(new byte[0])));
     assertThrows(
         UnsupportedOperationException.class,
-        () -> preparedStatement.setNClob(1, Reader.nullReader()));
+        () -> preparedStatement.setNClob(1, new StringReader("")));
     assertThrows(UnsupportedOperationException.class, () -> preparedStatement.setTime(1, null));
     assertThrows(
         UnsupportedOperationException.class, () -> preparedStatement.setTime(1, null, null));

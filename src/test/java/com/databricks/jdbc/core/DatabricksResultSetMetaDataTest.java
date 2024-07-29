@@ -9,8 +9,8 @@ import com.databricks.sdk.service.sql.ColumnInfo;
 import com.databricks.sdk.service.sql.ColumnInfoTypeName;
 import com.databricks.sdk.service.sql.ResultSchema;
 import java.sql.SQLException;
+import java.util.Arrays;
 import java.util.Collections;
-import java.util.List;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -34,7 +34,7 @@ public class DatabricksResultSetMetaDataTest {
     ColumnInfo col2 = getColumn("col2", ColumnInfoTypeName.STRING, "string");
     ColumnInfo col2dup = getColumn("col2", ColumnInfoTypeName.DOUBLE, "double");
     ColumnInfo col3 = getColumn("col5", null, "double");
-    schema.setColumns(List.of(col1, col2, col2dup, col3));
+    schema.setColumns(Arrays.asList(col1, col2, col2dup, col3));
     manifest.setSchema(schema);
     return manifest;
   }
@@ -63,10 +63,10 @@ public class DatabricksResultSetMetaDataTest {
     metaData =
         new DatabricksResultSetMetaData(
             STATEMENT_ID,
-            List.of("col1", "col2", "col2"),
-            List.of("int", "string", "double"),
-            List.of(4, 12, 8),
-            List.of(0, 0, 0),
+            Arrays.asList("col1", "col2", "col2"),
+            Arrays.asList("int", "string", "double"),
+            Arrays.asList(4, 12, 8),
+            Arrays.asList(0, 0, 0),
             10);
     Assertions.assertEquals(3, metaData.getColumnCount());
     Assertions.assertEquals("col1", metaData.getColumnName(1));

@@ -147,10 +147,11 @@ public class DatabricksMetadataSdkClient implements DatabricksMetadataClient {
     if (WildcardUtil.isWildcard(schemaNamePattern) || WildcardUtil.isMatchAnything(catalog)) {
       ResultSet resultSet = listSchemas(session, catalog, schemaNamePattern);
       while (resultSet.next()) {
-        catalogSchemaPairs.add(Map.entry(resultSet.getString(2), resultSet.getString(1)));
+        catalogSchemaPairs.add(
+            new AbstractMap.SimpleEntry<>(resultSet.getString(2), resultSet.getString(1)));
       }
     } else {
-      catalogSchemaPairs.add(Map.entry(catalog, schemaNamePattern));
+      catalogSchemaPairs.add(new AbstractMap.SimpleEntry<>(catalog, schemaNamePattern));
     }
     // TODO: Limit to 15 pairs to run quickly, remove after demo/find workaround
     while (catalogSchemaPairs.size() > 15) catalogSchemaPairs.poll();

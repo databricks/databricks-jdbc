@@ -124,7 +124,7 @@ class VolumeOperationExecutor implements Runnable {
             .map(localFilePath::startsWith)
             .filter(x -> x)
             .findFirst();
-    if (pathMatched.isEmpty() || !pathMatched.get()) {
+    if (!pathMatched.isPresent() || !pathMatched.get()) {
       LoggingUtil.log(
           LogLevel.ERROR, String.format("Local file path is not allowed {%s}", localFilePath));
       status = VolumeOperationStatus.ABORTED;

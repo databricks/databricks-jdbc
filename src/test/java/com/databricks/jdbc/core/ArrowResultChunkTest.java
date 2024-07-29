@@ -11,10 +11,7 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.Random;
+import java.util.*;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.*;
 import org.apache.arrow.vector.dictionary.DictionaryProvider;
@@ -180,7 +177,7 @@ public class ArrowResultChunkTest {
       dummyVector.set(i, i * 10);
     }
     arrowResultChunk.recordBatchList =
-        List.of(List.of(dummyVector), List.of(dummyVector), new ArrayList<>());
+        Arrays.asList(Arrays.asList(dummyVector), Arrays.asList(dummyVector), new ArrayList<>());
     ArrowResultChunk.ArrowResultChunkIterator iterator = arrowResultChunk.getChunkIterator();
     assertTrue(iterator.hasNextRow());
     iterator.nextRow();
@@ -215,7 +212,8 @@ public class ArrowResultChunkTest {
     emptyVector.allocateNew(0);
     emptyVector.setValueCount(0);
     arrowResultChunk.recordBatchList =
-        List.of(List.of(dummyVector), List.of(emptyVector), List.of(dummyVector));
+        Arrays.asList(
+            Arrays.asList(dummyVector), Arrays.asList(emptyVector), Arrays.asList(dummyVector));
     ArrowResultChunk.ArrowResultChunkIterator iterator = arrowResultChunk.getChunkIterator();
     assertTrue(iterator.hasNextRow());
     iterator.nextRow();

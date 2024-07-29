@@ -61,7 +61,7 @@ public class StubMappingCredentialsCleaner extends StubMappingTransformer {
   /** Removes sensitive credentials from the given JSON string. */
   private String removeSensitiveCredentials(String jsonString) {
     Matcher matcher = SENSITIVE_CREDS_PATTERN.matcher(jsonString);
-    StringBuilder buffer = new StringBuilder();
+    StringBuffer buffer = new StringBuffer();
 
     while (matcher.find()) {
       matcher.appendReplacement(buffer, "");

@@ -16,7 +16,7 @@ import java.util.stream.IntStream;
 
 public class DatabricksThriftHelper {
   public static final List<TStatusCode> SUCCESS_STATUS_LIST =
-      List.of(TStatusCode.SUCCESS_STATUS, TStatusCode.SUCCESS_WITH_INFO_STATUS);
+      Arrays.asList(TStatusCode.SUCCESS_STATUS, TStatusCode.SUCCESS_WITH_INFO_STATUS);
 
   public static TNamespace getNamespace(String catalog, String schema) {
     return new TNamespace().setCatalogName(catalog).setSchemaName(schema);
@@ -222,7 +222,7 @@ public class DatabricksThriftHelper {
     return rowSet.getColumns().stream()
         .map(DatabricksThriftHelper::getColumnValues)
         .map(list -> new ArrayList<Object>(list))
-        .collect(Collectors.toUnmodifiableList());
+        .collect(Collectors.collectingAndThen(Collectors.toList(), Collections::unmodifiableList));
   }
 
   public static long getRowCount(TRowSet resultData) {

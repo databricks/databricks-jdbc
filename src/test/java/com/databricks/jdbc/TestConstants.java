@@ -6,8 +6,8 @@ import com.databricks.jdbc.core.types.AllPurposeCluster;
 import com.databricks.jdbc.core.types.ComputeResource;
 import com.databricks.jdbc.core.types.Warehouse;
 import java.nio.ByteBuffer;
+import java.util.Arrays;
 import java.util.Collections;
-import java.util.List;
 import java.util.Map;
 
 /*All the common test constants should be placed here */
@@ -57,39 +57,41 @@ public class TestConstants {
       new TRowSet()
           .setColumns(
               Collections.singletonList(
-                  TColumn.boolVal(new TBoolColumn().setValues(List.of(false, true, false, true)))));
+                  TColumn.boolVal(
+                      new TBoolColumn().setValues(Arrays.asList(false, true, false, true)))));
   public static final TRowSet byteRowSet =
       new TRowSet()
           .setColumns(
               Collections.singletonList(
-                  TColumn.byteVal(new TByteColumn().setValues(List.of((byte) 5)))));
+                  TColumn.byteVal(new TByteColumn().setValues(Arrays.asList((byte) 5)))));
   public static final TRowSet doubleRowSet =
       new TRowSet()
           .setColumns(
               Collections.singletonList(
                   TColumn.doubleVal(
-                      new TDoubleColumn().setValues(List.of(1.0, 2.0, 3.0, 4.0, 5.0, 6.0)))));
+                      new TDoubleColumn().setValues(Arrays.asList(1.0, 2.0, 3.0, 4.0, 5.0, 6.0)))));
   public static final TRowSet i16RowSet =
       new TRowSet()
           .setColumns(
               Collections.singletonList(
-                  TColumn.i16Val(new TI16Column().setValues(List.of((short) 1)))));
+                  TColumn.i16Val(new TI16Column().setValues(Arrays.asList((short) 1)))));
   public static final TRowSet i32RowSet =
       new TRowSet()
           .setColumns(
-              Collections.singletonList(TColumn.i32Val(new TI32Column().setValues(List.of(1)))));
+              Collections.singletonList(
+                  TColumn.i32Val(new TI32Column().setValues(Arrays.asList(1)))));
   public static final TRowSet i64RowSet =
       new TRowSet()
           .setColumns(
               Collections.singletonList(
-                  TColumn.i64Val(new TI64Column().setValues(List.of(1L, 5L)))));
+                  TColumn.i64Val(new TI64Column().setValues(Arrays.asList(1L, 5L)))));
 
   public static final TRowSet stringRowSet =
       new TRowSet()
           .setColumns(
               Collections.singletonList(
                   TColumn.stringVal(
-                      new TStringColumn().setValues(List.of(TEST_STRING, TEST_STRING)))));
+                      new TStringColumn().setValues(Arrays.asList(TEST_STRING, TEST_STRING)))));
 
   private static final TColumnDesc TEST_COLUMN_DESCRIPTION =
       new TColumnDesc().setColumnName("testCol");

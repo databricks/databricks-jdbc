@@ -210,8 +210,18 @@ public class FakeServiceExtension extends DatabricksWireMockExtension {
 
   /** Gets the stubbing directory for the current test class and method. */
   private String getStubbingDir(ExtensionContext context) {
-    String testClassName = context.getTestClass().orElseThrow().getSimpleName().toLowerCase();
-    String testMethodName = context.getTestMethod().orElseThrow().getName().toLowerCase();
+    String testClassName =
+        context
+            .getTestClass()
+            .orElseThrow(() -> new IllegalStateException("Test class not found"))
+            .getSimpleName()
+            .toLowerCase();
+    String testMethodName =
+        context
+            .getTestMethod()
+            .orElseThrow(() -> new IllegalStateException("Test method not found"))
+            .getName()
+            .toLowerCase();
 
     String basePath;
     switch (fakeServiceType) {

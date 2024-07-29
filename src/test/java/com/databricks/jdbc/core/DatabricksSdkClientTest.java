@@ -42,7 +42,7 @@ public class DatabricksSdkClientTest {
   private static final String JDBC_URL =
       "jdbc:databricks://adb-565757575.18.azuredatabricks.net:4423/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/erg6767gg;";
   private static final Map<String, String> headers =
-      new HashMap<>() {
+      new HashMap<String, String>() {
         {
           put("Accept", "application/json");
           put("Content-Type", "application/json");
@@ -57,7 +57,7 @@ public class DatabricksSdkClientTest {
 
   private void setupClientMocks() {
     List<StatementParameterListItem> params =
-        new ArrayList<>() {
+        new ArrayList<StatementParameterListItem>() {
           {
             add(getParam("LONG", "100", 1));
             add(getParam("SHORT", "10", 2));
@@ -147,7 +147,7 @@ public class DatabricksSdkClientTest {
     DatabricksStatement statement = new DatabricksStatement(connection);
     statement.setMaxRows(100);
     HashMap<Integer, ImmutableSqlParameter> sqlParams =
-        new HashMap<>() {
+        new HashMap<Integer, ImmutableSqlParameter>() {
           {
             put(1, getSqlParam(1, 100, DatabricksTypeUtil.BIGINT));
             put(2, getSqlParam(2, (short) 10, DatabricksTypeUtil.SMALLINT));

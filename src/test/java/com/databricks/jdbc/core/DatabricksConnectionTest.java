@@ -33,8 +33,16 @@ public class DatabricksConnectionTest {
   static final String DEFAULT_SCHEMA = "default";
   static final String DEFAULT_CATALOG = "hive_metastore";
   private static final String SESSION_ID = "session_id";
-  private static final Map<String, String> SESSION_CONFIGS =
-      Map.of("ANSI_MODE", "TRUE", "TIMEZONE", "UTC", "MAX_FILE_PARTITION_BYTES", "64m");
+  private static final Map<String, String> SESSION_CONFIGS;
+
+  static {
+    Map<String, String> configs = new HashMap<>();
+    configs.put("ANSI_MODE", "TRUE");
+    configs.put("TIMEZONE", "UTC");
+    configs.put("MAX_FILE_PARTITION_BYTES", "64m");
+    SESSION_CONFIGS = Collections.unmodifiableMap(configs);
+  }
+
   private static final String JDBC_URL =
       "jdbc:databricks://adb-565757575.18.azuredatabricks.net:4423/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/erg6767gg;UserAgentEntry=MyApp";
   private static final String CATALOG_SCHEMA_JDBC_URL =

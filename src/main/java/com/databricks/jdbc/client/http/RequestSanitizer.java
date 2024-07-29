@@ -2,12 +2,13 @@ package com.databricks.jdbc.client.http;
 
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.util.Arrays;
 import java.util.List;
 import org.apache.http.client.methods.HttpUriRequest;
 
 public class RequestSanitizer {
   private static final List<String> SENSITIVE_QUERY_PARAMS =
-      List.of("X-Amz-Security-Token", "X-Amz-Signature", "X-Amz-Credential");
+      Arrays.asList("X-Amz-Security-Token", "X-Amz-Signature", "X-Amz-Credential");
 
   public static String sanitizeRequest(HttpUriRequest request) {
     try {

@@ -132,7 +132,7 @@ public class MetadataResultConstants {
   private static final ResultColumn MAXIMUM_SCALE_COLUMN =
       new ResultColumn("MAXIMUM_SCALE", "maximumScale", Types.SMALLINT);
   public static List<ResultColumn> FUNCTION_COLUMNS =
-      List.of(
+      Arrays.asList(
           FUNCTION_CATALOG_COLUMN,
           FUNCTION_SCHEMA_COLUMN,
           FUNCTION_NAME_COLUMN,
@@ -140,7 +140,7 @@ public class MetadataResultConstants {
           FUNCTION_TYPE_COLUMN,
           SPECIFIC_NAME_COLUMN);
   public static List<ResultColumn> COLUMN_COLUMNS =
-      List.of(
+      Arrays.asList(
           CATALOG_COLUMN,
           SCHEMA_COLUMN,
           TABLE_NAME_COLUMN,
@@ -167,12 +167,12 @@ public class MetadataResultConstants {
           IS_GENERATED_COLUMN);
 
   public static List<ResultColumn> EXTRA_COLUMN_COLUMNS =
-      List.of(NUM_PREC_RADIX_COLUMN, BUFFER_LENGTH_COLUMN);
-  public static List<ResultColumn> CATALOG_COLUMNS = List.of(CATALOG_COLUMN_FOR_GET_CATALOGS);
+      Arrays.asList(NUM_PREC_RADIX_COLUMN, BUFFER_LENGTH_COLUMN);
+  public static List<ResultColumn> CATALOG_COLUMNS = Arrays.asList(CATALOG_COLUMN_FOR_GET_CATALOGS);
   public static List<ResultColumn> SCHEMA_COLUMNS =
-      List.of(SCHEMA_COLUMN_FOR_GET_SCHEMA, CATALOG_FULL_COLUMN);
+      Arrays.asList(SCHEMA_COLUMN_FOR_GET_SCHEMA, CATALOG_FULL_COLUMN);
   public static List<ResultColumn> TABLE_COLUMNS =
-      List.of(
+      Arrays.asList(
           CATALOG_COLUMN,
           SCHEMA_COLUMN,
           TABLE_NAME_COLUMN,
@@ -187,7 +187,7 @@ public class MetadataResultConstants {
           INFORMATION_NAME_COLUMN);
 
   public static List<ResultColumn> TABLE_COLUMNS_ALL_PURPOSE =
-      List.of(
+      Arrays.asList(
           CATALOG_COLUMN,
           SCHEMA_COLUMN,
           TABLE_NAME_COLUMN,
@@ -199,7 +199,7 @@ public class MetadataResultConstants {
           SELF_REFERENCING_COLUMN_NAME,
           REF_GENERATION_COLUMN);
   public static List<ResultColumn> PRIMARY_KEYS_COLUMNS =
-      List.of(
+      Arrays.asList(
           CATALOG_COLUMN,
           SCHEMA_COLUMN,
           TABLE_NAME_COLUMN,
@@ -208,10 +208,10 @@ public class MetadataResultConstants {
           PRIMARY_KEY_NAME_COLUMN,
           PRIMARY_KEY_TYPE_COLUMN);
   public static List<List<Object>> TABLE_TYPES_ROWS =
-      Arrays.asList(List.of("TABLE"), List.of("VIEW"), List.of("SYSTEM TABLE"));
-  public static List<ResultColumn> TABLE_TYPE_COLUMNS = List.of(TABLE_TYPE_COLUMN);
+      Arrays.asList(Arrays.asList("TABLE"), Arrays.asList("VIEW"), Arrays.asList("SYSTEM TABLE"));
+  public static List<ResultColumn> TABLE_TYPE_COLUMNS = Arrays.asList(TABLE_TYPE_COLUMN);
   public static List<ResultColumn> PRIMARY_KEYS_COLUMNS_ALL_PURPOSE =
-      List.of(
+      Arrays.asList(
           CATALOG_COLUMN,
           SCHEMA_COLUMN,
           TABLE_NAME_COLUMN,
@@ -220,7 +220,7 @@ public class MetadataResultConstants {
           PRIMARY_KEY_NAME_COLUMN);
 
   public static List<ResultColumn> FUNCTION_COLUMNS_ALL_PURPOSE =
-      List.of(
+      Arrays.asList(
           FUNCTION_CATALOG_COLUMN,
           FUNCTION_SCHEMA_COLUMN,
           FUNCTION_NAME_COLUMN,
@@ -229,7 +229,7 @@ public class MetadataResultConstants {
           SPECIFIC_NAME_COLUMN);
 
   public static List<ResultColumn> COLUMN_COLUMNS_ALL_PURPOSE =
-      List.of(
+      Arrays.asList(
           CATALOG_COLUMN,
           SCHEMA_COLUMN,
           TABLE_NAME_COLUMN,
@@ -254,7 +254,7 @@ public class MetadataResultConstants {
   public static String NULL_STRING = "NULL";
 
   public static List<ResultColumn> TYPE_INFO_COLUMNS =
-      List.of(
+      Arrays.asList(
           TYPE_NAME_COLUMN,
           DATA_TYPE_COLUMN,
           PRECISION_COLUMN,
