@@ -1,5 +1,6 @@
 package com.databricks.jdbc.commons.util;
 
+// TODO: https://databricks.atlassian.net/browse/PECO-1814
 public class ErrorCodes {
   public static final int CHUNK_DOWNLOAD_ERROR = 1001;
   public static final int EXECUTE_STATEMENT_FAILED = 1003;

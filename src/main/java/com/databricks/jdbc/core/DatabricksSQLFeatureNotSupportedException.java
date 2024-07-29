@@ -7,6 +7,17 @@ import com.databricks.jdbc.telemetry.DatabricksMetrics;
 public class DatabricksSQLFeatureNotSupportedException extends DatabricksSQLException {
   String featureName;
 
+  private void exportError(
+      IDatabricksConnectionContext connectionContext,
+      String errorName,
+      String sqlQueryId,
+      int errorCode) {
+    DatabricksMetrics metricsExporter = connectionContext.getMetricsExporter();
+    if (metricsExporter != null) {
+      metricsExporter.exportError(errorName, sqlQueryId, errorCode);
+    }
+  }
+
   public DatabricksSQLFeatureNotSupportedException(String reason) {
     // TODO: Add proper error code
     super(reason);
@@ -25,10 +36,7 @@ public class DatabricksSQLFeatureNotSupportedException extends DatabricksSQLExce
       String sqlQueryId,
       int errorCode) {
     super(reason, null, errorCode);
-    DatabricksMetrics metricsExporter = connectionContext.getMetricsExporter();
-    if (metricsExporter != null) {
-      metricsExporter.exportError(ErrorTypes.FEATURE_NOT_SUPPORTED, sqlQueryId, errorCode);
-    }
+    exportError(connectionContext, ErrorTypes.FEATURE_NOT_SUPPORTED, sqlQueryId, errorCode);
   }
 
   public DatabricksSQLFeatureNotSupportedException(
@@ -37,11 +45,7 @@ public class DatabricksSQLFeatureNotSupportedException extends DatabricksSQLExce
       IDatabricksConnectionContext connectionContext,
       String sqlQueryId,
       int errorCode) {
-    super(reason, null, errorCode);
+    this(reason, connectionContext, sqlQueryId, errorCode);
     this.featureName = featureName;
-    DatabricksMetrics metricsExporter = connectionContext.getMetricsExporter();
-    if (metricsExporter != null) {
-      metricsExporter.exportError(ErrorTypes.FEATURE_NOT_SUPPORTED, sqlQueryId, errorCode);
-    }
   }
 }

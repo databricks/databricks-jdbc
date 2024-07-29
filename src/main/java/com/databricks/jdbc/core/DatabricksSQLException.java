@@ -6,6 +6,16 @@ import java.sql.SQLException;
 
 /** Top level exception for Databricks driver */
 public class DatabricksSQLException extends SQLException {
+  private void exportError(
+      IDatabricksConnectionContext connectionContext,
+      String errorName,
+      String sqlQueryId,
+      int errorCode) {
+    DatabricksMetrics metricsExporter = connectionContext.getMetricsExporter();
+    if (metricsExporter != null) {
+      metricsExporter.exportError(errorName, sqlQueryId, errorCode);
+    }
+  }
 
   public DatabricksSQLException(String reason, String sqlState, int vendorCode) {
     super(reason, sqlState, vendorCode);
@@ -27,10 +37,7 @@ public class DatabricksSQLException extends SQLException {
       String sqlQueryId,
       int errorCode) {
     super(reason, null, errorCode);
-    DatabricksMetrics metricsExporter = connectionContext.getMetricsExporter();
-    if (metricsExporter != null) {
-      metricsExporter.exportError(errorName, sqlQueryId, errorCode);
-    }
+    exportError(connectionContext, errorName, sqlQueryId, errorCode);
   }
 
   public DatabricksSQLException(
@@ -40,11 +47,8 @@ public class DatabricksSQLException extends SQLException {
       String errorName,
       String sqlQueryId,
       int errorCode) {
-    super(reason, cause);
-    DatabricksMetrics metricsExporter = connectionContext.getMetricsExporter();
-    if (metricsExporter != null) {
-      metricsExporter.exportError(errorName, sqlQueryId, errorCode);
-    }
+    super(reason, sqlQueryId, errorCode, cause);
+    exportError(connectionContext, errorName, sqlQueryId, errorCode);
   }
 
   public DatabricksSQLException(String reason, Throwable cause) {
