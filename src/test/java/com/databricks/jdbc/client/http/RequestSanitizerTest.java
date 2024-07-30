@@ -69,20 +69,4 @@ public class RequestSanitizerTest {
     String result = RequestSanitizer.sanitizeRequest(mockRequest);
     assertTrue(result.startsWith("Error sanitizing URI:"));
   }
-
-  //  @Test
-  //  public void testSanitizeRequest_withErrorInUri() {
-  //    HttpUriRequest mockRequest = mock(HttpUriRequest.class);
-  //    URI invalidUri = null;
-  //    try {
-  //      invalidUri = new URI("https://example.com/path with spaces");
-  //    } catch (URISyntaxException e) {
-  //      // This is expected for the test case
-  //    }
-  //
-  //    when(mockRequest.getURI()).thenReturn(invalidUri);
-  //
-  //    String result = RequestSanitizer.sanitizeRequest(mockRequest);
-  //    assertTrue(result.startsWith("Error sanitizing URI:"));
-  //  }
 }
