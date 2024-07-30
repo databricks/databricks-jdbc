@@ -5,7 +5,7 @@ on:
     branches: [main, benchmarking-branch]
   pull_request:
     types: [opened, synchronize, reopened]
-    branches: [main, benchmarking-branch]
+    branches: [main, benchmarking-branch, jdk-8 ]
   workflow_dispatch:
 
 jobs:
