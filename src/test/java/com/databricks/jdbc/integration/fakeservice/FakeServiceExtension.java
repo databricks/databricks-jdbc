@@ -227,6 +227,9 @@ public class FakeServiceExtension extends DatabricksWireMockExtension {
       case CLOUD_FETCH_SQL_GATEWAY:
         basePath = CLOUD_FETCH_SQL_GATEWAY_API_STUBBING_FILE_PATH;
         break;
+      case CLOUD_FETCH_UC_VOLUME:
+        basePath = "src/test/resources/cloudfetchucvolume";
+        break;
       default:
         throw new IllegalStateException("Unsupported fake service type: " + fakeServiceType);
     }

@@ -1,12 +1,31 @@
 package com.databricks.jdbc.client;
 
 import com.databricks.jdbc.client.sqlexec.ExternalLink;
+import com.databricks.jdbc.commons.CommandName;
 import com.databricks.jdbc.core.*;
 import com.databricks.jdbc.core.types.ComputeResource;
+import com.databricks.jdbc.driver.IDatabricksConnectionContext;
+import com.databricks.jdbc.telemetry.annotation.DatabricksMetricsTimedClass;
+import com.databricks.jdbc.telemetry.annotation.DatabricksMetricsTimedMethod;
 import java.sql.SQLException;
 import java.util.Collection;
 import java.util.Map;
 
+@DatabricksMetricsTimedClass(
+    methods = {
+      @DatabricksMetricsTimedMethod(
+          methodName = "createSession",
+          metricName = CommandName.CREATE_SESSION),
+      @DatabricksMetricsTimedMethod(
+          methodName = "deleteSession",
+          metricName = CommandName.DELETE_SESSION),
+      @DatabricksMetricsTimedMethod(
+          methodName = "executeStatement",
+          metricName = CommandName.EXECUTE_STATEMENT),
+      @DatabricksMetricsTimedMethod(
+          methodName = "getResultChunks",
+          metricName = CommandName.GET_RESULT_CHUNKS)
+    })
 /** Interface for Databricks client which abstracts the integration with Databricks server. */
 public interface DatabricksClient {
 
@@ -77,4 +96,6 @@ public interface DatabricksClient {
    */
   Collection<ExternalLink> getResultChunks(String statementId, long chunkIndex)
       throws DatabricksSQLException;
+
+  IDatabricksConnectionContext getConnectionContext();
 }

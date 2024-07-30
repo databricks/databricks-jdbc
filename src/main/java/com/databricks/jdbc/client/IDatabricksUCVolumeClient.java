@@ -1,5 +1,6 @@
 package com.databricks.jdbc.client;
 
+import java.io.InputStream;
 import java.sql.SQLException;
 import java.util.List;
 
@@ -98,6 +99,27 @@ public interface IDatabricksUCVolumeClient {
       String volume,
       String objectPath,
       String localPath,
+      boolean toOverwrite)
+      throws SQLException;
+
+  /**
+   * putObject(): Upload data from an input stream to a specified path within a UC Volume.
+   *
+   * @param catalog the catalog name of the cloud storage
+   * @param schema the schema name of the cloud storage
+   * @param volume the UC volume name of the cloud storage
+   * @param objectPath the destination path where the object (file) is to be uploaded from the
+   *     volume as the root directory
+   * @param inputStream the input stream from where the data is to be uploaded
+   * @param toOverwrite a boolean indicating whether to overwrite the object if it already exists
+   * @return a boolean value indicating status of the PUT operation
+   */
+  boolean putObject(
+      String catalog,
+      String schema,
+      String volume,
+      String objectPath,
+      InputStream inputStream,
       boolean toOverwrite)
       throws SQLException;
 

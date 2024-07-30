@@ -9,6 +9,7 @@ import com.databricks.jdbc.client.IDatabricksHttpClient;
 import com.databricks.jdbc.client.impl.thrift.generated.TSparkArrowResultLink;
 import com.databricks.jdbc.client.sqlexec.ExternalLink;
 import com.databricks.jdbc.commons.LogLevel;
+import com.databricks.jdbc.commons.util.DecompressionUtil;
 import com.databricks.jdbc.commons.util.LoggingUtil;
 import com.databricks.jdbc.core.types.CompressionType;
 import com.databricks.sdk.service.sql.BaseChunkInfo;
@@ -310,15 +311,19 @@ public class ArrowResultChunk {
   }
 
   public void getArrowDataFromInputStream(InputStream inputStream) throws DatabricksSQLException {
+    LoggingUtil.log(
+        LogLevel.DEBUG,
+        String.format(
+            "Parsing data for chunk index [%s] and statement [%s]",
+            this.chunkIndex, this.statementId));
     InputStream decompressedStream = inputStream;
-    //    InputStream decompressedStream =
-    //        DecompressionUtil.decompress(
-    //            inputStream,
-    //            this.compressionType,
-    //            String.format(
-    //                "Data fetch failed for chunk index [%d] and statement [%s] as decompression
-    // was unsuccessful. Algorithm : [%s]",
-    //                this.chunkIndex, this.statementId, this.compressionType));
+//    InputStream decompressedStream =
+//        DecompressionUtil.decompress(
+//            inputStream,
+//            this.compressionType,
+//            String.format(
+//                "Data fetch for chunk index [%d] and statement [%s] with decompression algorithm : [%s]",
+//                this.chunkIndex, this.statementId, this.compressionType));
     this.isDataInitialized = true;
     // add check to see if input stream has been populated
     initializeRecordBatch(decompressedStream);

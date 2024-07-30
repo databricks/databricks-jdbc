@@ -6,6 +6,8 @@ import static com.databricks.jdbc.driver.DatabricksJdbcConstants.ALLOWED_VOLUME_
 import com.databricks.jdbc.client.IDatabricksHttpClient;
 import com.databricks.jdbc.client.http.DatabricksHttpClient;
 import com.databricks.jdbc.client.sqlexec.ResultManifest;
+import com.databricks.jdbc.commons.ErrorTypes;
+import com.databricks.jdbc.commons.util.ErrorCodes;
 import com.databricks.jdbc.core.VolumeOperationExecutor.VolumeOperationStatus;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -93,7 +95,13 @@ class VolumeOperationResult implements IExecutionResult {
         try {
           return objectMapper.readValue(headers, Map.class);
         } catch (JsonProcessingException e) {
-          throw new DatabricksSQLException("Failed to parse headers", e);
+          throw new DatabricksSQLException(
+              "Failed to parse headers",
+              e,
+              session.getConnectionContext(),
+              ErrorTypes.VOLUME_OPERATION_ERROR,
+              statementId,
+              ErrorCodes.VOLUME_OPERATION_PARSING_ERROR);
         }
       }
     }
