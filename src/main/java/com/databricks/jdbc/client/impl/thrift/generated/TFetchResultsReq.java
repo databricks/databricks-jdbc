@@ -48,9 +48,7 @@ public class TFetchResultsReq
 
   public @org.apache.thrift.annotation.Nullable TOperationHandle operationHandle; // required
 
-  /**
-   * @see TFetchOrientation
-   */
+  /** @see TFetchOrientation */
   public @org.apache.thrift.annotation.Nullable TFetchOrientation orientation; // required
 
   public long maxRows; // required
@@ -65,9 +63,7 @@ public class TFetchResultsReq
    */
   public enum _Fields implements org.apache.thrift.TFieldIdEnum {
     OPERATION_HANDLE((short) 1, "operationHandle"),
-    /**
-     * @see TFetchOrientation
-     */
+    /** @see TFetchOrientation */
     ORIENTATION((short) 2, "orientation"),
     MAX_ROWS((short) 3, "maxRows"),
     FETCH_TYPE((short) 4, "fetchType"),
@@ -295,17 +291,13 @@ public class TFetchResultsReq
     }
   }
 
-  /**
-   * @see TFetchOrientation
-   */
+  /** @see TFetchOrientation */
   @org.apache.thrift.annotation.Nullable
   public TFetchOrientation getOrientation() {
     return this.orientation;
   }
 
-  /**
-   * @see TFetchOrientation
-   */
+  /** @see TFetchOrientation */
   public TFetchResultsReq setOrientation(
       @org.apache.thrift.annotation.Nullable TFetchOrientation orientation) {
     this.orientation = orientation;

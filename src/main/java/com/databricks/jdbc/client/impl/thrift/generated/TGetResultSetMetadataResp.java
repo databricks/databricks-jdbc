@@ -56,17 +56,13 @@ public class TGetResultSetMetadataResp
   public @org.apache.thrift.annotation.Nullable TStatus status; // required
   public @org.apache.thrift.annotation.Nullable TTableSchema schema; // optional
 
-  /**
-   * @see TSparkRowSetType
-   */
+  /** @see TSparkRowSetType */
   public @org.apache.thrift.annotation.Nullable TSparkRowSetType resultFormat; // optional
 
   public boolean lz4Compressed; // optional
   public @org.apache.thrift.annotation.Nullable java.nio.ByteBuffer arrowSchema; // optional
 
-  /**
-   * @see TCacheLookupResult
-   */
+  /** @see TCacheLookupResult */
   public @org.apache.thrift.annotation.Nullable TCacheLookupResult cacheLookupResult; // optional
 
   public long uncompressedBytes; // optional
@@ -80,15 +76,11 @@ public class TGetResultSetMetadataResp
   public enum _Fields implements org.apache.thrift.TFieldIdEnum {
     STATUS((short) 1, "status"),
     SCHEMA((short) 2, "schema"),
-    /**
-     * @see TSparkRowSetType
-     */
+    /** @see TSparkRowSetType */
     RESULT_FORMAT((short) 1281, "resultFormat"),
     LZ4_COMPRESSED((short) 1282, "lz4Compressed"),
     ARROW_SCHEMA((short) 1283, "arrowSchema"),
-    /**
-     * @see TCacheLookupResult
-     */
+    /** @see TCacheLookupResult */
     CACHE_LOOKUP_RESULT((short) 1284, "cacheLookupResult"),
     UNCOMPRESSED_BYTES((short) 1285, "uncompressedBytes"),
     COMPRESSED_BYTES((short) 1286, "compressedBytes"),
@@ -357,17 +349,13 @@ public class TGetResultSetMetadataResp
     }
   }
 
-  /**
-   * @see TSparkRowSetType
-   */
+  /** @see TSparkRowSetType */
   @org.apache.thrift.annotation.Nullable
   public TSparkRowSetType getResultFormat() {
     return this.resultFormat;
   }
 
-  /**
-   * @see TSparkRowSetType
-   */
+  /** @see TSparkRowSetType */
   public TGetResultSetMetadataResp setResultFormat(
       @org.apache.thrift.annotation.Nullable TSparkRowSetType resultFormat) {
     this.resultFormat = resultFormat;
@@ -452,17 +440,13 @@ public class TGetResultSetMetadataResp
     }
   }
 
-  /**
-   * @see TCacheLookupResult
-   */
+  /** @see TCacheLookupResult */
   @org.apache.thrift.annotation.Nullable
   public TCacheLookupResult getCacheLookupResult() {
     return this.cacheLookupResult;
   }
 
-  /**
-   * @see TCacheLookupResult
-   */
+  /** @see TCacheLookupResult */
   public TGetResultSetMetadataResp setCacheLookupResult(
       @org.apache.thrift.annotation.Nullable TCacheLookupResult cacheLookupResult) {
     this.cacheLookupResult = cacheLookupResult;

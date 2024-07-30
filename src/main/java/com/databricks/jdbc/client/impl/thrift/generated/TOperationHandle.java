@@ -39,9 +39,7 @@ public class TOperationHandle
 
   public @org.apache.thrift.annotation.Nullable THandleIdentifier operationId; // required
 
-  /**
-   * @see TOperationType
-   */
+  /** @see TOperationType */
   public @org.apache.thrift.annotation.Nullable TOperationType operationType; // required
 
   public boolean hasResultSet; // required
@@ -53,9 +51,7 @@ public class TOperationHandle
    */
   public enum _Fields implements org.apache.thrift.TFieldIdEnum {
     OPERATION_ID((short) 1, "operationId"),
-    /**
-     * @see TOperationType
-     */
+    /** @see TOperationType */
     OPERATION_TYPE((short) 2, "operationType"),
     HAS_RESULT_SET((short) 3, "hasResultSet"),
     MODIFIED_ROW_COUNT((short) 4, "modifiedRowCount");
@@ -227,17 +223,13 @@ public class TOperationHandle
     }
   }
 
-  /**
-   * @see TOperationType
-   */
+  /** @see TOperationType */
   @org.apache.thrift.annotation.Nullable
   public TOperationType getOperationType() {
     return this.operationType;
   }
 
-  /**
-   * @see TOperationType
-   */
+  /** @see TOperationType */
   public TOperationHandle setOperationType(
       @org.apache.thrift.annotation.Nullable TOperationType operationType) {
     this.operationType = operationType;

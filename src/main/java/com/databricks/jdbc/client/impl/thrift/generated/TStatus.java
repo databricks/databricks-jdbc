@@ -46,9 +46,7 @@ public class TStatus
   private static final org.apache.thrift.scheme.SchemeFactory TUPLE_SCHEME_FACTORY =
       new TStatusTupleSchemeFactory();
 
-  /**
-   * @see TStatusCode
-   */
+  /** @see TStatusCode */
   public @org.apache.thrift.annotation.Nullable TStatusCode statusCode; // required
 
   public @org.apache.thrift.annotation.Nullable java.util.List<java.lang.String>
@@ -64,9 +62,7 @@ public class TStatus
    * manipulating them.
    */
   public enum _Fields implements org.apache.thrift.TFieldIdEnum {
-    /**
-     * @see TStatusCode
-     */
+    /** @see TStatusCode */
     STATUS_CODE((short) 1, "statusCode"),
     INFO_MESSAGES((short) 2, "infoMessages"),
     SQL_STATE((short) 3, "sqlState"),
@@ -261,17 +257,13 @@ public class TStatus
     this.errorDetailsJson = null;
   }
 
-  /**
-   * @see TStatusCode
-   */
+  /** @see TStatusCode */
   @org.apache.thrift.annotation.Nullable
   public TStatusCode getStatusCode() {
     return this.statusCode;
   }
 
-  /**
-   * @see TStatusCode
-   */
+  /** @see TStatusCode */
   public TStatus setStatusCode(@org.apache.thrift.annotation.Nullable TStatusCode statusCode) {
     this.statusCode = statusCode;
     return this;

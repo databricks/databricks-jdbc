@@ -52,9 +52,7 @@ public class TOpenSessionReq
   private static final org.apache.thrift.scheme.SchemeFactory TUPLE_SCHEME_FACTORY =
       new TOpenSessionReqTupleSchemeFactory();
 
-  /**
-   * @see TProtocolVersion
-   */
+  /** @see TProtocolVersion */
   public @org.apache.thrift.annotation.Nullable TProtocolVersion client_protocol; // optional
 
   public @org.apache.thrift.annotation.Nullable java.lang.String username; // optional
@@ -73,9 +71,7 @@ public class TOpenSessionReq
    * manipulating them.
    */
   public enum _Fields implements org.apache.thrift.TFieldIdEnum {
-    /**
-     * @see TProtocolVersion
-     */
+    /** @see TProtocolVersion */
     CLIENT_PROTOCOL((short) 1, "client_protocol"),
     USERNAME((short) 2, "username"),
     PASSWORD((short) 3, "password"),
@@ -317,17 +313,13 @@ public class TOpenSessionReq
     this.canUseMultipleCatalogs = false;
   }
 
-  /**
-   * @see TProtocolVersion
-   */
+  /** @see TProtocolVersion */
   @org.apache.thrift.annotation.Nullable
   public TProtocolVersion getClient_protocol() {
     return this.client_protocol;
   }
 
-  /**
-   * @see TProtocolVersion
-   */
+  /** @see TProtocolVersion */
   public TOpenSessionReq setClient_protocol(
       @org.apache.thrift.annotation.Nullable TProtocolVersion client_protocol) {
     this.client_protocol = client_protocol;

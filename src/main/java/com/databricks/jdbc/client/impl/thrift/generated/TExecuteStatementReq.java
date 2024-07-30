@@ -95,9 +95,7 @@ public class TExecuteStatementReq
   public long maxBytesPerBatch; // optional
   public @org.apache.thrift.annotation.Nullable TStatementConf statementConf; // optional
 
-  /**
-   * @see TResultPersistenceMode
-   */
+  /** @see TResultPersistenceMode */
   public @org.apache.thrift.annotation.Nullable TResultPersistenceMode
       resultPersistenceMode; // optional
 
@@ -123,9 +121,7 @@ public class TExecuteStatementReq
     PARAMETERS((short) 1288, "parameters"),
     MAX_BYTES_PER_BATCH((short) 1289, "maxBytesPerBatch"),
     STATEMENT_CONF((short) 1296, "statementConf"),
-    /**
-     * @see TResultPersistenceMode
-     */
+    /** @see TResultPersistenceMode */
     RESULT_PERSISTENCE_MODE((short) 3335, "resultPersistenceMode"),
     ENFORCE_RESULT_PERSISTENCE_MODE((short) 3344, "enforceResultPersistenceMode");
 
@@ -908,17 +904,13 @@ public class TExecuteStatementReq
     }
   }
 
-  /**
-   * @see TResultPersistenceMode
-   */
+  /** @see TResultPersistenceMode */
   @org.apache.thrift.annotation.Nullable
   public TResultPersistenceMode getResultPersistenceMode() {
     return this.resultPersistenceMode;
   }
 
-  /**
-   * @see TResultPersistenceMode
-   */
+  /** @see TResultPersistenceMode */
   public TExecuteStatementReq setResultPersistenceMode(
       @org.apache.thrift.annotation.Nullable TResultPersistenceMode resultPersistenceMode) {
     this.resultPersistenceMode = resultPersistenceMode;
