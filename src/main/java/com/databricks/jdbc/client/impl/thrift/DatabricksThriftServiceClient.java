@@ -307,7 +307,7 @@ public class DatabricksThriftServiceClient implements DatabricksClient, Databric
     TFetchResultsResp response =
         (TFetchResultsResp)
             thriftAccessor.getThriftResponse(request, CommandName.LIST_FUNCTIONS, null);
-    return getFunctionsResult(extractValues(response.getResults().getColumns()));
+    return getFunctionsResult(extractValuesColumnar(response.getResults().getColumns()));
   }
 
   @Override

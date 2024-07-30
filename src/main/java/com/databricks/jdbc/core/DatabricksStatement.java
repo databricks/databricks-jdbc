@@ -9,6 +9,7 @@ import com.databricks.jdbc.client.StatementType;
 import com.databricks.jdbc.commons.ErrorTypes;
 import com.databricks.jdbc.commons.LogLevel;
 import com.databricks.jdbc.commons.util.*;
+import com.google.common.annotations.VisibleForTesting;
 import java.io.InputStream;
 import java.sql.*;
 import java.util.HashMap;
@@ -606,13 +607,16 @@ public class DatabricksStatement implements IDatabricksStatement, Statement {
     return this;
   }
 
+  @VisibleForTesting
   protected static boolean shouldReturnResultSet(String query) {
     if (query == null || query.trim().isEmpty()) {
       throw new IllegalArgumentException("Query cannot be null or empty");
     }
 
-    // Trim and remove leading comments and whitespaces.
-    String trimmedQuery = query.trim().replaceAll("^(--.*|/\\*.*?\\*/)*", "").trim();
+    // Trim and remove comments and whitespaces.
+    String trimmedQuery = query.trim().replaceAll("(?m)--.*$", "");
+    trimmedQuery = trimmedQuery.replaceAll("/\\*.*?\\*/", "");
+    trimmedQuery = trimmedQuery.replaceAll("\\s+", " ").trim();
 
     // Check if the query matches any of the patterns that return a ResultSet
     if (SELECT_PATTERN.matcher(trimmedQuery).find()

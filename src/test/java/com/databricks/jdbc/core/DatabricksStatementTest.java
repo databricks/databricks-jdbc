@@ -287,4 +287,179 @@ public class DatabricksStatementTest {
     assertThrows(
         DatabricksSQLException.class, () -> statement.allowInputStreamForVolumeOperation(false));
   }
+
+  @Test
+  public void testShouldReturnResultSet_SelectQuery() {
+    String query = "-- comment\nSELECT * FROM table;";
+    assertTrue(DatabricksStatement.shouldReturnResultSet(query));
+  }
+
+  @Test
+  public void testShouldReturnResultSet_ShowQuery() {
+    String query = "SHOW TABLES;";
+    assertTrue(DatabricksStatement.shouldReturnResultSet(query));
+  }
+
+  @Test
+  public void testShouldReturnResultSet_DescribeQuery() {
+    String query = "DESCRIBE table;";
+    assertTrue(DatabricksStatement.shouldReturnResultSet(query));
+  }
+
+  @Test
+  public void testShouldReturnResultSet_ExplainQuery() {
+    String query = "EXPLAIN SELECT * FROM table;";
+    assertTrue(DatabricksStatement.shouldReturnResultSet(query));
+  }
+
+  @Test
+  public void testShouldReturnResultSet_WithQuery() {
+    String query = "WITH cte AS (SELECT * FROM table) SELECT * FROM cte;";
+    assertTrue(DatabricksStatement.shouldReturnResultSet(query));
+  }
+
+  @Test
+  public void testShouldReturnResultSet_SetQuery() {
+    String query = "SET @var = (SELECT COUNT(*) FROM table);";
+    assertTrue(DatabricksStatement.shouldReturnResultSet(query));
+  }
+
+  @Test
+  public void testShouldReturnResultSet_MapQuery() {
+    String query = "MAP table USING some_mapping;";
+    assertTrue(DatabricksStatement.shouldReturnResultSet(query));
+  }
+
+  @Test
+  public void testShouldReturnResultSet_FromQuery() {
+    String query = "SELECT * FROM table;";
+    assertTrue(DatabricksStatement.shouldReturnResultSet(query));
+  }
+
+  @Test
+  public void testShouldReturnResultSet_ValuesQuery() {
+    String query = "VALUES (1, 2, 3);";
+    assertTrue(DatabricksStatement.shouldReturnResultSet(query));
+  }
+
+  @Test
+  public void testShouldReturnResultSet_UnionQuery() {
+    String query = "SELECT * FROM table1 UNION SELECT * FROM table2;";
+    assertTrue(DatabricksStatement.shouldReturnResultSet(query));
+  }
+
+  @Test
+  public void testShouldReturnResultSet_IntersectQuery() {
+    String query = "SELECT * FROM table1 INTERSECT SELECT * FROM table2;";
+    assertTrue(DatabricksStatement.shouldReturnResultSet(query));
+  }
+
+  @Test
+  public void testShouldReturnResultSet_ExceptQuery() {
+    String query = "SELECT * FROM table1 EXCEPT SELECT * FROM table2;";
+    assertTrue(DatabricksStatement.shouldReturnResultSet(query));
+  }
+
+  @Test
+  public void testShouldReturnResultSet_DeclareQuery() {
+    String query = "DECLARE @var INT;";
+    assertTrue(DatabricksStatement.shouldReturnResultSet(query));
+  }
+
+  @Test
+  public void testShouldReturnResultSet_PutQuery() {
+    String query = "PUT some_data INTO table;";
+    assertTrue(DatabricksStatement.shouldReturnResultSet(query));
+  }
+
+  @Test
+  public void testShouldReturnResultSet_GetQuery() {
+    String query = "GET some_data FROM table;";
+    assertTrue(DatabricksStatement.shouldReturnResultSet(query));
+  }
+
+  @Test
+  public void testShouldReturnResultSet_RemoveQuery() {
+    String query = "REMOVE some_data FROM table;";
+    assertTrue(DatabricksStatement.shouldReturnResultSet(query));
+  }
+
+  @Test
+  public void testShouldReturnResultSet_ListQuery() {
+    String query = "LIST TABLES;";
+    assertTrue(DatabricksStatement.shouldReturnResultSet(query));
+  }
+
+  @Test
+  public void testShouldReturnResultSet_UpdateQuery() {
+    String query = "UPDATE table SET column = value;";
+    assertFalse(DatabricksStatement.shouldReturnResultSet(query));
+  }
+
+  @Test
+  public void testShouldReturnResultSet_DeleteQuery() {
+    String query = "DELETE FROM table WHERE condition;";
+    assertFalse(DatabricksStatement.shouldReturnResultSet(query));
+  }
+
+  @Test
+  public void testShouldReturnResultSet_SingleLineCommentAtStart() {
+    String query = "-- This is a comment\nSELECT * FROM table;";
+    assertTrue(DatabricksStatement.shouldReturnResultSet(query));
+  }
+
+  @Test
+  public void testShouldReturnResultSet_SingleLineCommentAtEnd() {
+    String query = "SELECT * FROM table; -- This is a comment";
+    assertTrue(DatabricksStatement.shouldReturnResultSet(query));
+  }
+
+  @Test
+  public void testShouldReturnResultSet_SingleLineCommentInMiddle() {
+    String query = "SELECT * FROM table -- This is a comment\nWHERE id = 1;";
+    assertTrue(DatabricksStatement.shouldReturnResultSet(query));
+  }
+
+  @Test
+  public void testShouldReturnResultSet_MultiLineCommentAtStart() {
+    String query = "/* This is a comment */ SELECT * FROM table;";
+    assertTrue(DatabricksStatement.shouldReturnResultSet(query));
+  }
+
+  @Test
+  public void testShouldReturnResultSet_MultiLineCommentAtEnd() {
+    String query = "SELECT * FROM table; /* This is a comment */";
+    assertTrue(DatabricksStatement.shouldReturnResultSet(query));
+  }
+
+  @Test
+  public void testShouldReturnResultSet_MultiLineCommentInMiddle() {
+    String query = "SELECT * FROM table /* This is a comment */ WHERE id = 1;";
+    assertTrue(DatabricksStatement.shouldReturnResultSet(query));
+  }
+
+  @Test
+  public void testShouldReturnResultSet_MultipleSingleLineComments() {
+    String query = "-- Comment 1\nSELECT * FROM table; -- Comment 2\n-- Comment 3";
+    assertTrue(DatabricksStatement.shouldReturnResultSet(query));
+  }
+
+  @Test
+  public void testShouldReturnResultSet_MultipleMultiLineComments() {
+    String query = "/* Comment 1 */ SELECT * FROM table; /* Comment 2 */ /* Comment 3 */";
+    assertTrue(DatabricksStatement.shouldReturnResultSet(query));
+  }
+
+  @Test
+  public void testShouldReturnResultSet_SingleAndMultiLineComments() {
+    String query = "-- Single-line comment\nSELECT * FROM table; /* Multi-line comment */";
+    assertTrue(DatabricksStatement.shouldReturnResultSet(query));
+  }
+
+  @Test
+  public void testShouldReturnResultSet_CommentSurroundingQuery() {
+    String query =
+        "-- Single-line comment\n/* Multi-line comment */ SELECT * FROM table; /* Another comment */ -- End comment";
+    assertTrue(DatabricksStatement.shouldReturnResultSet(query));
+  }
 }
