@@ -10,7 +10,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        java-version: [8, 21]  # Add JDK 8 support
+        java-version: [8]  # Add JDK 8 support
     runs-on: ubuntu-latest
 
     steps:

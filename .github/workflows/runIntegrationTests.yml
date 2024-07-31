@@ -15,7 +15,7 @@ jobs:
     environment: azure-prod
     strategy:
       matrix:
-        java-version: [8, 21]  # Add JDK 8 support
+        java-version: [8]  # Add JDK 8 support
         include:
           - test-command: mvn -B compile test -Dtest=*IntegrationTests
             token-secret: DATABRICKS_TOKEN

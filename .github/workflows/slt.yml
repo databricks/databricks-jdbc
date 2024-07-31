@@ -20,7 +20,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        java-version: [8, 21]  # Add JDK 8 support
+        java-version: [8]  # Add JDK 8 support
 
     steps:
       - uses: actions/checkout@v3

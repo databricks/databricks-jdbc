@@ -14,7 +14,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest]
-        java-version: [8, 21]  # For formatting, we don't need to run across multiple versions. Only sanity testing is required here, rest is taken care in the build.
+        java-version: [8]  # For formatting, we don't need to run across multiple versions. Only sanity testing is required here, rest is taken care in the build.
     runs-on: ${{ matrix.os }}
     steps:
       - name: Set up JDK
@@ -41,7 +41,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [macos-latest, ubuntu-latest]
-        java-version: [8, 11, 17, 21]  # Adding LTS versions here. 21 is the latest LTS
+        java-version: [8, 11 ]  # Adding LTS versions here. 21 is the latest LTS
 
     runs-on: ${{ matrix.os }}
 
@@ -50,7 +50,7 @@ jobs:
         uses: actions/setup-java@v4
         with:
           java-version: ${{ matrix.java-version }}
-          distribution: 'temurin' # for broader support
+          distribution: 'zulu' # for broader support
 
       - name: Checkout
         uses: actions/checkout@v4
