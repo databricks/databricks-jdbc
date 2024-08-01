@@ -5,6 +5,8 @@ import static com.databricks.jdbc.integration.IntegrationTestUtil.*;
 import static org.junit.jupiter.api.Assertions.*;
 
 import com.databricks.jdbc.client.impl.sdk.DatabricksUCVolumeClient;
+import java.io.ByteArrayInputStream;
+import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Paths;
@@ -16,6 +18,7 @@ import java.util.UUID;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -512,5 +515,19 @@ public class UCVolumeTests {
             "overwrite.txt",
             "initialContent",
             "overwriteContent"));
+  }
+
+  @Test
+  public void testPutObjectWithInputStream() throws Exception {
+    String volume = "test_volume1";
+    String objectPath = "test_inputstream.txt";
+    InputStream inputStream = new ByteArrayInputStream("testdata".getBytes(StandardCharsets.UTF_8));
+    boolean toOverwrite = false;
+    boolean expected = true;
+
+    boolean result =
+        client.putObject(
+            UC_VOLUME_CATALOG, UC_VOLUME_SCHEMA, volume, objectPath, inputStream, toOverwrite);
+    assertEquals(expected, result);
   }
 }

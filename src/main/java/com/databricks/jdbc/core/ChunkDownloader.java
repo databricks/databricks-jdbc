@@ -7,7 +7,9 @@ import com.databricks.jdbc.client.impl.thrift.generated.TSparkArrowResultLink;
 import com.databricks.jdbc.client.sqlexec.ExternalLink;
 import com.databricks.jdbc.client.sqlexec.ResultData;
 import com.databricks.jdbc.client.sqlexec.ResultManifest;
+import com.databricks.jdbc.commons.ErrorTypes;
 import com.databricks.jdbc.commons.LogLevel;
+import com.databricks.jdbc.commons.util.ErrorCodes;
 import com.databricks.jdbc.commons.util.LoggingUtil;
 import com.databricks.jdbc.core.types.CompressionType;
 import com.databricks.sdk.service.sql.BaseChunkInfo;
@@ -150,7 +152,12 @@ public class ChunkDownloader {
           chunk.wait();
         }
         if (chunk.getStatus() != ArrowResultChunk.ChunkStatus.DOWNLOAD_SUCCEEDED) {
-          throw new DatabricksSQLException(chunk.getErrorMessage());
+          throw new DatabricksSQLException(
+              chunk.getErrorMessage(),
+              session.getConnectionContext(),
+              ErrorTypes.CHUNK_DOWNLOAD,
+              statementId,
+              ErrorCodes.CHUNK_DOWNLOAD_ERROR);
         }
       } catch (InterruptedException e) {
         LoggingUtil.log(

@@ -7,6 +7,9 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 import com.databricks.jdbc.client.impl.sdk.DatabricksUCVolumeClient;
+import java.io.ByteArrayInputStream;
+import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.sql.*;
 import java.util.Arrays;
 import java.util.Collections;
@@ -25,6 +28,8 @@ public class DatabricksUCVolumeClientTest {
   @Mock Connection connection;
 
   @Mock Statement statement;
+
+  @Mock DatabricksStatement databricksStatement;
 
   @Mock ResultSet resultSet;
   @Mock ResultSet resultSet_abc_volume1;
@@ -516,5 +521,49 @@ public class DatabricksUCVolumeClientTest {
   private static Stream<Arguments> provideParametersForDeleteObject_InvalidObjectPath() {
     return Stream.of(
         Arguments.of("test_catalog", "test_schema", "test_volume", "invalid_objectpath"));
+  }
+
+  @ParameterizedTest
+  @MethodSource("provideParametersForPutObjectWithInputStream")
+  public void testPutObjectWithInputStream(
+      String catalog,
+      String schema,
+      String volume,
+      String objectPath,
+      InputStream inputStream,
+      boolean toOverwrite,
+      boolean expected)
+      throws SQLException {
+    DatabricksUCVolumeClient client = new DatabricksUCVolumeClient(connection);
+
+    when(connection.createStatement()).thenReturn(databricksStatement);
+    String putObjectQuery =
+        String.format(
+            "PUT '__input_stream__' INTO '/Volumes/%s/%s/%s/%s'%s",
+            catalog, schema, volume, objectPath, toOverwrite ? " OVERWRITE" : "");
+    when(databricksStatement.executeQuery(putObjectQuery)).thenReturn(resultSet);
+    when(resultSet.next()).thenReturn(true);
+    when(resultSet.getString(VOLUME_OPERATION_STATUS_COLUMN_NAME))
+        .thenReturn(VOLUME_OPERATION_STATUS_SUCCEEDED);
+
+    boolean result =
+        client.putObject(catalog, schema, volume, objectPath, inputStream, toOverwrite);
+
+    assertEquals(expected, result);
+    verify(databricksStatement).executeQuery(putObjectQuery);
+  }
+
+  private static Stream<Arguments> provideParametersForPutObjectWithInputStream() {
+    InputStream inputStream =
+        new ByteArrayInputStream("test data".getBytes(StandardCharsets.UTF_8));
+    return Stream.of(
+        Arguments.of(
+            "test_catalog",
+            "test_schema",
+            "test_volume",
+            "test_objectpath",
+            inputStream,
+            false,
+            true));
   }
 }

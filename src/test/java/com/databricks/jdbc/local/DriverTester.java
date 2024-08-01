@@ -42,11 +42,11 @@ public class DriverTester {
     // Getting the connection
     String jdbcUrl =
         "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=https;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/791ba2a31c7fd70a;";
-    Connection con = DriverManager.getConnection(jdbcUrl, "user", "xx");
+    Connection con = DriverManager.getConnection(jdbcUrl, "token", "x");
     System.out.println("Connection established......");
     Statement statement = con.createStatement();
     statement.setMaxRows(10);
-    ResultSet rs = con.getMetaData().getTables("hive_metastore", "*", "*", null);
+    ResultSet rs = con.getMetaData().getTables("main", "%", "%", null);
     printResultSet(rs);
     rs.close();
     statement.close();
@@ -60,10 +60,9 @@ public class DriverTester {
     // Getting the connection
     String jdbcUrl =
         "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=https;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/791ba2a31c7fd70a;";
-    Connection con = DriverManager.getConnection(jdbcUrl, "user", "x");
+    Connection con = DriverManager.getConnection(jdbcUrl, "token", "x");
     System.out.println("Connection established......");
-    // DatabaseMetaData metaData = con.getMetaData();
-    ResultSet resultSet = con.getMetaData().getTables("main", ".*", ".*", null);
+    ResultSet resultSet = con.getMetaData().getTables("main", "%", "%", null);
     printResultSet(resultSet);
     resultSet.close();
     con.close();
@@ -95,7 +94,7 @@ public class DriverTester {
   void testAllPurposeClusters() throws Exception {
     String jdbcUrl =
         "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;ssl=1;AuthMech=3;httpPath=sql/protocolv1/o/6051921418418893/1115-130834-ms4m0yv";
-    Connection con = DriverManager.getConnection(jdbcUrl, "user", "xx");
+    Connection con = DriverManager.getConnection(jdbcUrl, "token", "xx");
     System.out.println("Connection established......");
     Statement s = con.createStatement();
     s.executeQuery("SELECT *5 from RANGE(100000000)");
@@ -104,17 +103,37 @@ public class DriverTester {
   }
 
   @Test
+  void testAllPurposeClustersInline() throws Exception {
+    String jdbcUrl =
+        "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;ssl=1;AuthMech=3;httpPath=sql/protocolv1/o/6051921418418893/1115-130834-ms4m0yv;enableArrow=0";
+    Connection con = DriverManager.getConnection(jdbcUrl, "user", "x");
+    System.out.println("Connection established......");
+    Statement s = con.createStatement();
+    ResultSet rs = s.executeQuery("SELECT unhex('f000')");
+    rs.next();
+    System.out.println(Arrays.toString(rs.getBytes(1))); // should print [-16,0]
+    rs = s.executeQuery("SELECT struct(1 as a, 2 as b)");
+    rs.next();
+    System.out.println(rs.getObject(1)); // should print {"a":1,"b":2}
+    con.close();
+    System.out.println("Connection closed successfully......");
+  }
+
+  @Test
   void testAllPurposeClustersMetadata() throws Exception {
     String jdbcUrl =
         "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;AuthMech=3;httpPath=sql/protocolv1/o/6051921418418893/1115-130834-ms4m0yv";
-    Connection con = DriverManager.getConnection(jdbcUrl, "user", "x");
+    Connection con = DriverManager.getConnection(jdbcUrl, "token", "x");
     System.out.println("Connection established......");
     // ResultSet resultSet = con.getMetaData().getCatalogs();
     // ResultSet resultSet = con.getMetaData().getSchemas("main", "%");
     // ResultSet resultSet = con.getMetaData().getTables("main", "ggm_pk","table_with_pk", null);
     // ResultSet resultSet = con.getMetaData().getTables("%", "%", null, null);
-    ResultSet resultSet = con.getMetaData().getColumns("main", "ggm_pk", "%", "%");
-    // con.getMetaData().getPrimaryKeys("main", "ggm_pk", "table_with_pk");
+    // ResultSet resultSet = con.getMetaData().getColumns("main", "ggm_pk", "%", "%");
+    // ResultSet resultSet = con.getMetaData().getPrimaryKeys("main", "ggm_pk", "table_with_pk");
+    ResultSet resultSet =
+        con.getMetaData()
+            .getFunctions("uc_1716360380283_cata", "uc_1716360380283_db1", "current_%");
     printResultSet(resultSet);
     resultSet.close();
     con.close();
@@ -126,7 +145,7 @@ public class DriverTester {
     DriverManager.drivers().forEach(driver -> System.out.println(driver.getClass()));
     String jdbcUrl =
         "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=https;ssl=1;httpPath=sql/protocolv1/o/6051921418418893/1115-130834-ms4m0yv;AuthMech=3;UID=token;LogLevel=debug;LogPath=beautifulWithoutYOU;LogFileCount=3;LogFileSize=2;";
-    Connection con = DriverManager.getConnection(jdbcUrl, "user", "x");
+    Connection con = DriverManager.getConnection(jdbcUrl, "token", "x");
     System.out.println("Connection established......");
     ResultSet resultSet =
         con.createStatement()
@@ -141,7 +160,7 @@ public class DriverTester {
     DriverManager.registerDriver(new Driver());
     String jdbcUrl =
         "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=https;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/791ba2a31c7fd70a;";
-    Connection con = DriverManager.getConnection(jdbcUrl, "user", "x");
+    Connection con = DriverManager.getConnection(jdbcUrl, "token", "x");
     System.out.println("Connection established......");
     String selectSQL =
         "SELECT id, local_date, big_integer, big_decimal FROM samikshya_catalog_2.default.test_table_2";
@@ -161,10 +180,10 @@ public class DriverTester {
   }
 
   @Test
-  void testIfCreateSessionIsExported() throws Exception {
+  void testEnableTelemetry() throws Exception {
     DriverManager.registerDriver(new Driver());
     String jdbcUrl =
-        "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=https;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/791ba2a31c7fd70a;";
+        "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=https;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/791ba2a31c7fd70a;enableTelemetry=1";
     Connection con = DriverManager.getConnection(jdbcUrl, "user", "x");
     System.out.println("Connection established......");
     con.close();
@@ -189,7 +208,7 @@ public class DriverTester {
     // Getting the connection
     String jdbcUrl =
         "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/791ba2a31c7fd70a;uselegacyMetadata=1";
-    Connection con = DriverManager.getConnection(jdbcUrl, "user", "xx");
+    Connection con = DriverManager.getConnection(jdbcUrl, "user", "x");
     System.out.println("Connection established......");
     con.close();
   }
@@ -224,11 +243,57 @@ public class DriverTester {
   void testAllPurposeClusters_errorHandling() throws Exception {
     String jdbcUrl =
         "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;ssl=1;AuthMech=3;httpPath=sql/protocolv1/o/6051921418418893/1115-130834-ms4m0yv;enableDirectResults=1";
-    Connection con = DriverManager.getConnection(jdbcUrl, "user", "xx");
+    Connection con = DriverManager.getConnection(jdbcUrl, "token", "xx");
     System.out.println("Connection established......");
     Statement s = con.createStatement();
     s.executeQuery("SELECT * from RANGE(10)");
     con.close();
     System.out.println("Connection closed successfully......");
+  }
+
+  @Test
+  void testSimbaBatchFunction() throws Exception {
+
+    String jdbcUrl =
+        "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/dd43ee29fedd958d;";
+    Connection con = DriverManager.getConnection(jdbcUrl, "jothi.prakash@databricks.com", "xx");
+    System.out.println("Connection established......");
+
+    //
+    // Batch Statement Testing
+    //
+    String sqlStatement =
+        "INSERT INTO ___________________first.`jprakash-test`.diamonds (carat, cut, color, clarity) VALUES (?, ?, ?, ?)";
+    PreparedStatement pstmt = con.prepareStatement(sqlStatement);
+    for (int i = 1; i <= 3; i++) {
+      pstmt.setFloat(1, 0.23f);
+      pstmt.setString(2, "OK");
+      pstmt.setString(3, "E");
+      pstmt.setString(4, "SI2");
+      pstmt.addBatch();
+    }
+
+    pstmt.setString(1, "Shaama");
+    pstmt.setString(2, "Bad");
+    pstmt.setString(3, "F");
+    pstmt.setString(4, "SI6");
+    pstmt.addBatch();
+
+    for (int i = 1; i <= 3; i++) {
+      pstmt.setFloat(1, 0.23f);
+      pstmt.setString(2, "Bad");
+      pstmt.setString(3, "F");
+      pstmt.setString(4, "SI6");
+      pstmt.addBatch();
+    }
+
+    // Execute the batch
+    int[] updateCounts = pstmt.executeBatch();
+
+    // Process the update counts
+    for (int count : updateCounts) {
+      System.out.println("Update count: " + count);
+    }
+    con.close();
   }
 }

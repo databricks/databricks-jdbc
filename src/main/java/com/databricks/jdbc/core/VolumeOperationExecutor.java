@@ -14,6 +14,7 @@ import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpPut;
 import org.apache.http.entity.ContentType;
 import org.apache.http.entity.FileEntity;
+import org.apache.http.entity.InputStreamEntity;
 import org.apache.http.util.EntityUtils;
 
 /** Executor for volume operations */
@@ -33,11 +34,9 @@ class VolumeOperationExecutor implements Runnable {
   private final Set<String> allowedVolumeIngestionPaths;
   private final IDatabricksStatement statement;
   private final IDatabricksResultSet resultSet;
-  private final IExecutionResult executionResult;
+  private final IDatabricksHttpClient databricksHttpClient;
   private VolumeOperationStatus status;
-  private IDatabricksHttpClient databricksHttpClient;
   private String errorMessage;
-  private HttpEntity getResponseEntity = null;
 
   VolumeOperationExecutor(
       String operationType,
@@ -47,8 +46,7 @@ class VolumeOperationExecutor implements Runnable {
       String allowedVolumeIngestionPathString,
       IDatabricksHttpClient databricksHttpClient,
       IDatabricksStatement statement,
-      IDatabricksResultSet resultSet,
-      IExecutionResult executionResult) {
+      IDatabricksResultSet resultSet) {
     this.operationType = operationType;
     this.operationUrl = operationUrl;
     this.localFilePath = localFilePath;
@@ -57,7 +55,6 @@ class VolumeOperationExecutor implements Runnable {
     this.databricksHttpClient = databricksHttpClient;
     this.statement = statement;
     this.resultSet = resultSet;
-    this.executionResult = executionResult;
     this.status = VolumeOperationStatus.PENDING;
     this.errorMessage = null;
   }
@@ -112,7 +109,14 @@ class VolumeOperationExecutor implements Runnable {
   }
 
   private void validateLocalFilePath() {
-    if (statement.isAllowedInputStreamForVolumeOperation()) {
+    try {
+      if (statement.isAllowedInputStreamForVolumeOperation()) {
+        return;
+      }
+    } catch (DatabricksSQLException e) {
+      LoggingUtil.log(LogLevel.ERROR, "Statement is closed");
+      status = VolumeOperationStatus.ABORTED;
+      errorMessage = "Volume operation called on closed statement";
       return;
     }
     if (allowedVolumeIngestionPaths.isEmpty()) {
@@ -152,14 +156,15 @@ class VolumeOperationExecutor implements Runnable {
 
     HttpEntity entity = null;
     try {
-    if (statement.isAllowedInputStreamForVolumeOperation()) {
-      CloseableHttpResponse response = databricksHttpClient.execute(httpGet)) {
+      // We return the input stream directly to clients, if they want to consume as input stream
+      if (statement.isAllowedInputStreamForVolumeOperation()) {
+        CloseableHttpResponse response = databricksHttpClient.execute(httpGet);
         if (!isSuccessfulHttpResponse(response)) {
           LoggingUtil.log(
-                  LogLevel.ERROR,
-                  String.format(
-                          "Failed to fetch content from volume with error {} for local file {%s}",
-                          response.getStatusLine().getStatusCode(), localFilePath));
+              LogLevel.ERROR,
+              String.format(
+                  "Failed to fetch content from volume with error {%s} for local file {%s}",
+                  response.getStatusLine().getStatusCode(), localFilePath));
           status = VolumeOperationStatus.FAILED;
           errorMessage = "Failed to download file";
           return;
@@ -168,27 +173,17 @@ class VolumeOperationExecutor implements Runnable {
         if (entity != null) {
           this.resultSet.setVolumeOperationEntityStream(entity);
         }
-        status = VolumeOperationStatus.SUCCEDED;
+        status = VolumeOperationStatus.SUCCEEDED;
         return;
       }
-    }
     } catch (SQLException | IOException e) {
-      LoggingUtil.log(
-              LogLevel.ERROR,
-              String.format(
-                      "Failed to execute GET operation for input stream",
-                      localFilePath, e.getMessage()));
       status = VolumeOperationStatus.FAILED;
       errorMessage = "Failed to execute GET operation for input stream: " + e.getMessage();
+      LoggingUtil.log(LogLevel.ERROR, errorMessage);
       return;
-      try {
-        EntityUtils.consume(entity);
-      } catch (IOException ioe) {
-        // Do nothing
-        return;
-      }
     }
 
+    // Copy the data in local file as requested by user
     File localFile = new File(localFilePath);
     if (localFile.exists()) {
       LoggingUtil.log(
@@ -204,13 +199,13 @@ class VolumeOperationExecutor implements Runnable {
         LoggingUtil.log(
             LogLevel.ERROR,
             String.format(
-                "Failed to fetch content from volume with error {} for local file {%s}",
+                "Failed to fetch content from volume with error {%s} for local file {%s}",
                 response.getStatusLine().getStatusCode(), localFilePath));
         status = VolumeOperationStatus.FAILED;
         errorMessage = "Failed to download file";
         return;
       }
-      HttpEntity entity = response.getEntity();
+      entity = response.getEntity();
       if (entity != null) {
         // Get the content of the HttpEntity
         InputStream inputStream = entity.getContent();
@@ -253,33 +248,52 @@ class VolumeOperationExecutor implements Runnable {
     HttpPut httpPut = new HttpPut(operationUrl);
     headers.forEach(httpPut::addHeader);
 
-    // Set the FileEntity as the request body
-    File file = new File(localFilePath);
-    if (!file.exists() || file.isDirectory()) {
-      LoggingUtil.log(
-          LogLevel.ERROR,
-          String.format("Local file does not exist or is a directory {%s}", localFilePath));
-      status = VolumeOperationStatus.ABORTED;
-      errorMessage = "Local file does not exist or is a directory";
-      return;
-    }
-    if (file.length() == 0) {
+    HttpEntity entity = null;
+    try {
+      if (statement.isAllowedInputStreamForVolumeOperation()) {
+        InputStream inputStream = statement.getInputStreamForUCVolume();
+        if (inputStream == null) {
+          status = VolumeOperationStatus.ABORTED;
+          errorMessage = "InputStream not set for PUT operation";
+          LoggingUtil.log(LogLevel.ERROR, errorMessage);
+          return;
+        }
+        entity = new InputStreamEntity(inputStream);
+      } else {
+        // Set the FileEntity as the request body
+        File file = new File(localFilePath);
+        if (!file.exists() || file.isDirectory()) {
+          LoggingUtil.log(
+              LogLevel.ERROR,
+              String.format("Local file does not exist or is a directory {%s}", localFilePath));
+          status = VolumeOperationStatus.ABORTED;
+          errorMessage = "Local file does not exist or is a directory";
+          return;
+        }
+        if (file.length() == 0) {
 
-      LoggingUtil.log(LogLevel.ERROR, String.format("Local file is empty {%s}", localFilePath));
-      status = VolumeOperationStatus.ABORTED;
-      errorMessage = "Local file is empty";
-      return;
-    }
+          LoggingUtil.log(LogLevel.ERROR, String.format("Local file is empty {%s}", localFilePath));
+          status = VolumeOperationStatus.ABORTED;
+          errorMessage = "Local file is empty";
+          return;
+        }
 
-    if (file.length() > PUT_SIZE_LIMITS) {
-      LoggingUtil.log(LogLevel.ERROR, String.format("Local file too large {%s}", localFilePath));
-      status = VolumeOperationStatus.ABORTED;
-      errorMessage = "Local file too large";
-      return;
-    }
+        if (file.length() > PUT_SIZE_LIMITS) {
+          LoggingUtil.log(
+              LogLevel.ERROR, String.format("Local file too large {%s}", localFilePath));
+          status = VolumeOperationStatus.ABORTED;
+          errorMessage = "Local file too large";
+          return;
+        }
 
-    FileEntity fileEntity = new FileEntity(file, ContentType.DEFAULT_BINARY);
-    httpPut.setEntity(fileEntity);
+        entity = new FileEntity(file, ContentType.DEFAULT_BINARY);
+      }
+    } catch (DatabricksSQLException e) {
+      status = VolumeOperationStatus.ABORTED;
+      errorMessage = "PUT operation called on closed statement";
+      LoggingUtil.log(LogLevel.ERROR, errorMessage);
+    }
+    httpPut.setEntity(entity);
 
     // Execute the request
     try (CloseableHttpResponse response = databricksHttpClient.execute(httpPut)) {

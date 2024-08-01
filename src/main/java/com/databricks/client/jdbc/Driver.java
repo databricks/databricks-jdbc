@@ -3,8 +3,11 @@ package com.databricks.client.jdbc;
 import static com.databricks.jdbc.driver.DatabricksJdbcConstants.*;
 
 import com.databricks.jdbc.client.DatabricksClientType;
+import com.databricks.jdbc.commons.ErrorTypes;
 import com.databricks.jdbc.commons.LogLevel;
 import com.databricks.jdbc.commons.util.DeviceInfoLogUtil;
+import com.databricks.jdbc.commons.util.DriverUtil;
+import com.databricks.jdbc.commons.util.ErrorCodes;
 import com.databricks.jdbc.commons.util.LoggingUtil;
 import com.databricks.jdbc.core.DatabricksConnection;
 import com.databricks.jdbc.core.DatabricksSQLException;
@@ -21,10 +24,6 @@ import java.util.Properties;
  */
 public class Driver implements java.sql.Driver {
   private static final Driver INSTANCE;
-  private static final int majorVersion = 0;
-  private static final int minorVersion = 7;
-  private static final int buildVersion = 0;
-  private static final String qualifier = "oss";
 
   static {
     try {
@@ -49,7 +48,7 @@ public class Driver implements java.sql.Driver {
         connectionContext.getLogFileCount(),
         connectionContext.getLogLevel());
     setUserAgent(connectionContext);
-    DeviceInfoLogUtil.logProperties();
+    DeviceInfoLogUtil.logProperties(connectionContext);
     try {
       DatabricksConnection connection = new DatabricksConnection(connectionContext);
       if (connectionContext.getClientType() == DatabricksClientType.SQL_EXEC) {
@@ -60,61 +59,43 @@ public class Driver implements java.sql.Driver {
       Throwable cause = e;
       while (cause != null) {
         if (cause instanceof DatabricksSQLException) {
-          throw new DatabricksSQLException(
+          String errorMessage =
               "Communication link failure. Failed to connect to server. : "
                   + connectionContext.getHostUrl()
-                  + cause.getMessage(),
-              cause.getCause());
+                  + cause.getMessage();
+          throw new DatabricksSQLException(
+              errorMessage,
+              cause.getCause(),
+              connectionContext,
+              ErrorTypes.COMMUNICATION_FAILURE,
+              null,
+              ErrorCodes.COMMUNICATION_FAILURE);
         }
         cause = cause.getCause();
       }
-      throw new DatabricksSQLException(
-          "Communication link failure. Failed to connect to server. :"
+      String errorMessage =
+          "Communication link failure. Failed to connect to server. : "
               + connectionContext.getHostUrl()
-              + e.getMessage(),
-          e);
+              + e.getMessage();
+      throw new DatabricksSQLException(
+          errorMessage,
+          e,
+          connectionContext,
+          ErrorTypes.COMMUNICATION_FAILURE,
+          null,
+          ErrorCodes.COMMUNICATION_FAILURE);
     }
   }
 
   private void setMetadataClient(
       DatabricksConnection connection, IDatabricksConnectionContext connectionContext) {
-    try {
-      ResultSet getDBSQLVersionInfo =
-          connection.createStatement().executeQuery("SELECT current_version().dbsql_version");
-      getDBSQLVersionInfo.next();
-      String dbsqlVersion = getDBSQLVersionInfo.getString(1);
+    if (connectionContext.getUseLegacyMetadata().equals(true)) {
       LoggingUtil.log(
           LogLevel.DEBUG,
-          String.format("Connected to Databricks DBSQL version: {%s}", dbsqlVersion));
-      if (checkSupportForNewMetadata(dbsqlVersion)) {
-        LoggingUtil.log(
-            LogLevel.DEBUG,
-            String.format(
-                "The Databricks DBSQL version {%s} supports the new metadata commands.",
-                dbsqlVersion));
-        if (connectionContext.getUseLegacyMetadata().equals(true)) {
-          LoggingUtil.log(
-              LogLevel.DEBUG,
-              "The new metadata commands are enabled, but the legacy metadata commands are being used due to connection parameter useLegacyMetadata");
-          connection.setMetadataClient(true);
-        } else {
-          connection.setMetadataClient(false);
-        }
-      } else {
-        LoggingUtil.log(
-            LogLevel.DEBUG,
-            String.format(
-                "The Databricks DBSQL version {%s} does not support the new metadata commands. Falling back to legacy metadata commands.",
-                dbsqlVersion));
-        connection.setMetadataClient(true);
-      }
-    } catch (SQLException e) {
-      LoggingUtil.log(
-          LogLevel.DEBUG,
-          String.format(
-              "Unable to get the DBSQL version. Falling back to legacy metadata commands. Error : %s",
-              e));
+          "The new metadata commands are enabled, but the legacy metadata commands are being used due to connection parameter useLegacyMetadata");
       connection.setMetadataClient(true);
+    } else {
+      connection.setMetadataClient(false);
     }
   }
 
@@ -142,12 +123,12 @@ public class Driver implements java.sql.Driver {
 
   @Override
   public int getMajorVersion() {
-    return majorVersion;
+    return DriverUtil.getMajorVersion();
   }
 
   @Override
   public int getMinorVersion() {
-    return minorVersion;
+    return DriverUtil.getMinorVersion();
   }
 
   @Override
@@ -173,12 +154,8 @@ public class Driver implements java.sql.Driver {
     System.out.printf("The driver {%s} has been initialized.%n", Driver.class);
   }
 
-  private static String getVersion() {
-    return String.format("%d.%d.%d-%s", majorVersion, minorVersion, buildVersion, qualifier);
-  }
-
   public static void setUserAgent(IDatabricksConnectionContext connectionContext) {
-    UserAgent.withProduct(DatabricksJdbcConstants.DEFAULT_USER_AGENT, getVersion());
+    UserAgent.withProduct(DatabricksJdbcConstants.DEFAULT_USER_AGENT, DriverUtil.getVersion());
     UserAgent.withOtherInfo(CLIENT_USER_AGENT_PREFIX, connectionContext.getClientUserAgent());
   }
 }

@@ -8,6 +8,7 @@ import static org.mockito.Mockito.when;
 import com.databricks.jdbc.client.IDatabricksHttpClient;
 import com.databricks.jdbc.client.sqlexec.ResultManifest;
 import com.databricks.sdk.service.sql.ResultSchema;
+import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.nio.file.Files;
@@ -40,6 +41,9 @@ public class VolumeOperationResultTest {
   @Mock StatusLine mockedStatusLine;
   @Mock DatabricksSession session;
   @Mock IExecutionResult resultHandler;
+  @Mock IDatabricksStatement statement;
+  @Mock IDatabricksResultSet resultSet;
+
   private static final ResultManifest RESULT_MANIFEST =
       new ResultManifest()
           .setIsVolumeOperation(true)
@@ -59,7 +63,13 @@ public class VolumeOperationResultTest {
 
     VolumeOperationResult volumeOperationResult =
         new VolumeOperationResult(
-            STATEMENT_ID, RESULT_MANIFEST, session, resultHandler, mockHttpClient);
+            STATEMENT_ID,
+            RESULT_MANIFEST,
+            session,
+            resultHandler,
+            mockHttpClient,
+            statement,
+            resultSet);
 
     assertTrue(volumeOperationResult.hasNext());
     assertEquals(-1, volumeOperationResult.getCurrentRow());
@@ -80,6 +90,41 @@ public class VolumeOperationResultTest {
   }
 
   @Test
+  public void testGetResult_InputStream_Get() throws Exception {
+    setupCommonInteractions();
+    when(resultHandler.getObject(0)).thenReturn("GET");
+    when(resultHandler.getObject(1)).thenReturn(PRESIGNED_URL);
+    when(resultHandler.getObject(3)).thenReturn("__input_stream__");
+    when(mockHttpClient.execute(isA(HttpGet.class))).thenReturn(httpResponse);
+    when(httpResponse.getEntity()).thenReturn(new StringEntity("test"));
+    when(httpResponse.getStatusLine()).thenReturn(mockedStatusLine);
+    when(mockedStatusLine.getStatusCode()).thenReturn(200);
+    when(statement.isAllowedInputStreamForVolumeOperation()).thenReturn(true);
+
+    IDatabricksResultSet fakeResultSet = new EmptyResultSet();
+    VolumeOperationResult volumeOperationResult =
+        new VolumeOperationResult(
+            STATEMENT_ID,
+            RESULT_MANIFEST,
+            session,
+            resultHandler,
+            mockHttpClient,
+            statement,
+            fakeResultSet);
+
+    assertTrue(volumeOperationResult.hasNext());
+    assertEquals(-1, volumeOperationResult.getCurrentRow());
+    assertTrue(volumeOperationResult.next());
+    assertEquals(0, volumeOperationResult.getCurrentRow());
+    assertEquals("SUCCEEDED", volumeOperationResult.getObject(0));
+    assertFalse(volumeOperationResult.hasNext());
+    assertFalse(volumeOperationResult.next());
+
+    assertNotNull(fakeResultSet.getVolumeOperationInputStream());
+    assertEquals("test", new String(fakeResultSet.getVolumeOperationInputStream().readAllBytes()));
+  }
+
+  @Test
   public void testGetResult_Get_PropertyEmpty() throws Exception {
     when(resultHandler.hasNext())
         .thenReturn(true)
@@ -96,7 +141,13 @@ public class VolumeOperationResultTest {
 
     VolumeOperationResult volumeOperationResult =
         new VolumeOperationResult(
-            STATEMENT_ID, RESULT_MANIFEST, session, resultHandler, mockHttpClient);
+            STATEMENT_ID,
+            RESULT_MANIFEST,
+            session,
+            resultHandler,
+            mockHttpClient,
+            statement,
+            resultSet);
 
     assertTrue(volumeOperationResult.hasNext());
     assertEquals(-1, volumeOperationResult.getCurrentRow());
@@ -117,7 +168,13 @@ public class VolumeOperationResultTest {
 
     VolumeOperationResult volumeOperationResult =
         new VolumeOperationResult(
-            STATEMENT_ID, RESULT_MANIFEST, session, resultHandler, mockHttpClient);
+            STATEMENT_ID,
+            RESULT_MANIFEST,
+            session,
+            resultHandler,
+            mockHttpClient,
+            statement,
+            resultSet);
 
     assertTrue(volumeOperationResult.hasNext());
     assertEquals(-1, volumeOperationResult.getCurrentRow());
@@ -138,7 +195,13 @@ public class VolumeOperationResultTest {
 
     VolumeOperationResult volumeOperationResult =
         new VolumeOperationResult(
-            STATEMENT_ID, RESULT_MANIFEST, session, resultHandler, mockHttpClient);
+            STATEMENT_ID,
+            RESULT_MANIFEST,
+            session,
+            resultHandler,
+            mockHttpClient,
+            statement,
+            resultSet);
 
     assertTrue(volumeOperationResult.hasNext());
     assertEquals(-1, volumeOperationResult.getCurrentRow());
@@ -159,7 +222,13 @@ public class VolumeOperationResultTest {
 
     VolumeOperationResult volumeOperationResult =
         new VolumeOperationResult(
-            STATEMENT_ID, RESULT_MANIFEST, session, resultHandler, mockHttpClient);
+            STATEMENT_ID,
+            RESULT_MANIFEST,
+            session,
+            resultHandler,
+            mockHttpClient,
+            statement,
+            resultSet);
 
     assertTrue(volumeOperationResult.hasNext());
     assertEquals(-1, volumeOperationResult.getCurrentRow());
@@ -183,7 +252,13 @@ public class VolumeOperationResultTest {
 
     VolumeOperationResult volumeOperationResult =
         new VolumeOperationResult(
-            STATEMENT_ID, RESULT_MANIFEST, session, resultHandler, mockHttpClient);
+            STATEMENT_ID,
+            RESULT_MANIFEST,
+            session,
+            resultHandler,
+            mockHttpClient,
+            statement,
+            resultSet);
 
     assertTrue(volumeOperationResult.hasNext());
     assertEquals(-1, volumeOperationResult.getCurrentRow());
@@ -206,7 +281,13 @@ public class VolumeOperationResultTest {
 
     VolumeOperationResult volumeOperationResult =
         new VolumeOperationResult(
-            STATEMENT_ID, RESULT_MANIFEST, session, resultHandler, mockHttpClient);
+            STATEMENT_ID,
+            RESULT_MANIFEST,
+            session,
+            resultHandler,
+            mockHttpClient,
+            statement,
+            resultSet);
 
     assertTrue(volumeOperationResult.hasNext());
     assertEquals(-1, volumeOperationResult.getCurrentRow());
@@ -230,7 +311,13 @@ public class VolumeOperationResultTest {
 
     VolumeOperationResult volumeOperationResult =
         new VolumeOperationResult(
-            STATEMENT_ID, RESULT_MANIFEST, session, resultHandler, mockHttpClient);
+            STATEMENT_ID,
+            RESULT_MANIFEST,
+            session,
+            resultHandler,
+            mockHttpClient,
+            statement,
+            resultSet);
 
     assertTrue(volumeOperationResult.hasNext());
     assertEquals(-1, volumeOperationResult.getCurrentRow());
@@ -257,7 +344,13 @@ public class VolumeOperationResultTest {
 
     VolumeOperationResult volumeOperationResult =
         new VolumeOperationResult(
-            STATEMENT_ID, RESULT_MANIFEST, session, resultHandler, mockHttpClient);
+            STATEMENT_ID,
+            RESULT_MANIFEST,
+            session,
+            resultHandler,
+            mockHttpClient,
+            statement,
+            resultSet);
 
     assertTrue(volumeOperationResult.hasNext());
     assertEquals(-1, volumeOperationResult.getCurrentRow());
@@ -267,6 +360,69 @@ public class VolumeOperationResultTest {
     assertFalse(volumeOperationResult.hasNext());
     assertFalse(volumeOperationResult.next());
     assertTrue(file.delete());
+  }
+
+  @Test
+  public void testGetResult_Put_withInputStream() throws Exception {
+    setupCommonInteractions();
+    when(resultHandler.getObject(0)).thenReturn("PUT");
+    when(resultHandler.getObject(1)).thenReturn(PRESIGNED_URL);
+    when(resultHandler.getObject(3)).thenReturn("__input_stream__");
+    when(mockHttpClient.execute(isA(HttpPut.class))).thenReturn(httpResponse);
+    when(httpResponse.getStatusLine()).thenReturn(mockedStatusLine);
+    when(mockedStatusLine.getStatusCode()).thenReturn(200);
+    when(statement.isAllowedInputStreamForVolumeOperation()).thenReturn(true);
+    when(statement.getInputStreamForUCVolume())
+        .thenReturn(new ByteArrayInputStream("test-put".getBytes()));
+
+    VolumeOperationResult volumeOperationResult =
+        new VolumeOperationResult(
+            STATEMENT_ID,
+            RESULT_MANIFEST,
+            session,
+            resultHandler,
+            mockHttpClient,
+            statement,
+            resultSet);
+
+    assertTrue(volumeOperationResult.hasNext());
+    assertEquals(-1, volumeOperationResult.getCurrentRow());
+    assertTrue(volumeOperationResult.next());
+    assertEquals(0, volumeOperationResult.getCurrentRow());
+    assertEquals("SUCCEEDED", volumeOperationResult.getObject(0));
+    assertFalse(volumeOperationResult.hasNext());
+    assertFalse(volumeOperationResult.next());
+  }
+
+  @Test
+  public void testGetResult_Put_withNullInputStream() throws Exception {
+    setupCommonInteractions();
+    when(resultHandler.getObject(0)).thenReturn("PUT");
+    when(resultHandler.getObject(1)).thenReturn(PRESIGNED_URL);
+    when(resultHandler.getObject(3)).thenReturn("__input_stream__");
+    when(statement.isAllowedInputStreamForVolumeOperation()).thenReturn(true);
+    when(statement.getInputStreamForUCVolume()).thenReturn(null);
+
+    VolumeOperationResult volumeOperationResult =
+        new VolumeOperationResult(
+            STATEMENT_ID,
+            RESULT_MANIFEST,
+            session,
+            resultHandler,
+            mockHttpClient,
+            statement,
+            resultSet);
+
+    assertTrue(volumeOperationResult.hasNext());
+    assertEquals(-1, volumeOperationResult.getCurrentRow());
+
+    try {
+      volumeOperationResult.next();
+      fail("Should throw DatabricksSQLException");
+    } catch (DatabricksSQLException e) {
+      assertEquals(
+          "Volume operation aborted: InputStream not set for PUT operation", e.getMessage());
+    }
   }
 
   @Test
@@ -284,7 +440,13 @@ public class VolumeOperationResultTest {
 
     VolumeOperationResult volumeOperationResult =
         new VolumeOperationResult(
-            STATEMENT_ID, RESULT_MANIFEST, session, resultHandler, mockHttpClient);
+            STATEMENT_ID,
+            RESULT_MANIFEST,
+            session,
+            resultHandler,
+            mockHttpClient,
+            statement,
+            resultSet);
 
     assertTrue(volumeOperationResult.hasNext());
     assertEquals(-1, volumeOperationResult.getCurrentRow());
@@ -311,7 +473,13 @@ public class VolumeOperationResultTest {
 
     VolumeOperationResult volumeOperationResult =
         new VolumeOperationResult(
-            STATEMENT_ID, RESULT_MANIFEST, session, resultHandler, mockHttpClient);
+            STATEMENT_ID,
+            RESULT_MANIFEST,
+            session,
+            resultHandler,
+            mockHttpClient,
+            statement,
+            resultSet);
 
     assertTrue(volumeOperationResult.hasNext());
     assertEquals(-1, volumeOperationResult.getCurrentRow());
@@ -334,7 +502,13 @@ public class VolumeOperationResultTest {
 
     VolumeOperationResult volumeOperationResult =
         new VolumeOperationResult(
-            STATEMENT_ID, RESULT_MANIFEST, session, resultHandler, mockHttpClient);
+            STATEMENT_ID,
+            RESULT_MANIFEST,
+            session,
+            resultHandler,
+            mockHttpClient,
+            statement,
+            resultSet);
 
     assertTrue(volumeOperationResult.hasNext());
     assertEquals(-1, volumeOperationResult.getCurrentRow());
@@ -356,7 +530,13 @@ public class VolumeOperationResultTest {
 
     VolumeOperationResult volumeOperationResult =
         new VolumeOperationResult(
-            STATEMENT_ID, RESULT_MANIFEST, session, resultHandler, mockHttpClient);
+            STATEMENT_ID,
+            RESULT_MANIFEST,
+            session,
+            resultHandler,
+            mockHttpClient,
+            statement,
+            resultSet);
 
     assertTrue(volumeOperationResult.hasNext());
     assertEquals(-1, volumeOperationResult.getCurrentRow());
@@ -380,7 +560,13 @@ public class VolumeOperationResultTest {
 
     VolumeOperationResult volumeOperationResult =
         new VolumeOperationResult(
-            STATEMENT_ID, RESULT_MANIFEST, session, resultHandler, mockHttpClient);
+            STATEMENT_ID,
+            RESULT_MANIFEST,
+            session,
+            resultHandler,
+            mockHttpClient,
+            statement,
+            resultSet);
 
     assertTrue(volumeOperationResult.hasNext());
     assertEquals(-1, volumeOperationResult.getCurrentRow());
@@ -409,7 +595,13 @@ public class VolumeOperationResultTest {
 
     VolumeOperationResult volumeOperationResult =
         new VolumeOperationResult(
-            STATEMENT_ID, RESULT_MANIFEST, session, resultHandler, mockHttpClient);
+            STATEMENT_ID,
+            RESULT_MANIFEST,
+            session,
+            resultHandler,
+            mockHttpClient,
+            statement,
+            resultSet);
 
     assertTrue(volumeOperationResult.hasNext());
     assertEquals(-1, volumeOperationResult.getCurrentRow());
@@ -427,7 +619,13 @@ public class VolumeOperationResultTest {
   public void getObject() throws Exception {
     VolumeOperationResult volumeOperationResult =
         new VolumeOperationResult(
-            STATEMENT_ID, RESULT_MANIFEST, session, resultHandler, mockHttpClient);
+            STATEMENT_ID,
+            RESULT_MANIFEST,
+            session,
+            resultHandler,
+            mockHttpClient,
+            statement,
+            resultSet);
 
     try {
       volumeOperationResult.getObject(2);
@@ -446,7 +644,13 @@ public class VolumeOperationResultTest {
 
     VolumeOperationResult volumeOperationResult =
         new VolumeOperationResult(
-            STATEMENT_ID, RESULT_MANIFEST, session, resultHandler, mockHttpClient);
+            STATEMENT_ID,
+            RESULT_MANIFEST,
+            session,
+            resultHandler,
+            mockHttpClient,
+            statement,
+            resultSet);
 
     assertTrue(volumeOperationResult.hasNext());
     assertEquals(-1, volumeOperationResult.getCurrentRow());

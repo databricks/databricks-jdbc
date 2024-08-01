@@ -1,5 +1,7 @@
 package com.databricks.jdbc.core;
 
+import com.databricks.sdk.service.sql.StatementStatus;
+import java.io.IOException;
 import java.io.InputStream;
 import java.io.Reader;
 import java.math.BigDecimal;
@@ -7,10 +9,12 @@ import java.net.URL;
 import java.sql.*;
 import java.util.Calendar;
 import java.util.Map;
+import org.apache.http.HttpEntity;
 
 /** Empty implementation of ResultSet */
-class EmptyResultSet implements ResultSet {
+class EmptyResultSet implements ResultSet, IDatabricksResultSet {
   private boolean isClosed;
+  private HttpEntity httpEntity = null;
 
   EmptyResultSet() {
     isClosed = false;
@@ -1081,5 +1085,40 @@ class EmptyResultSet implements ResultSet {
   public boolean isWrapperFor(Class<?> iface) throws SQLException {
     checkIfClosed();
     return false;
+  }
+
+  @Override
+  public String statementId() {
+    return null;
+  }
+
+  @Override
+  public StatementStatus getStatementStatus() {
+    return null;
+  }
+
+  @Override
+  public long getUpdateCount() throws SQLException {
+    return 0;
+  }
+
+  @Override
+  public boolean hasUpdateCount() throws SQLException {
+    return false;
+  }
+
+  @Override
+  public void setVolumeOperationEntityStream(HttpEntity httpEntity)
+      throws SQLException, IOException {
+    this.httpEntity = httpEntity;
+  }
+
+  @Override
+  public InputStream getVolumeOperationInputStream() throws SQLException {
+    try {
+      return httpEntity.getContent();
+    } catch (IOException e) {
+      return null;
+    }
   }
 }
