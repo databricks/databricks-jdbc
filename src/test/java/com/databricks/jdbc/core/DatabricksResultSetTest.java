@@ -1,5 +1,6 @@
 package com.databricks.jdbc.core;
 
+import static com.databricks.jdbc.core.DatabricksResultSet.AFFECTED_ROWS_COUNT;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -717,5 +718,70 @@ public class DatabricksResultSetTest {
     HttpEntity mockEntity = mock(HttpEntity.class);
     resultSet.setVolumeOperationEntityStream(mockEntity);
     assertNotNull(resultSet.getVolumeOperationInputStream());
+  }
+
+  @Test
+  void testGetUpdateCountForMetadataStatement() throws SQLException {
+    DatabricksResultSet resultSet = getResultSet(StatementState.SUCCEEDED, null);
+    assertEquals(0, resultSet.getUpdateCount());
+  }
+
+  @Test
+  void testGetUpdateCountForQueryStatement() throws SQLException {
+    DatabricksResultSet resultSet =
+        new DatabricksResultSet(
+            new StatementStatus().setState(StatementState.SUCCEEDED),
+            "test-statementID",
+            StatementType.QUERY,
+            null,
+            mockedExecutionResult,
+            mockedResultSetMetadata);
+
+    assertEquals(0, resultSet.getUpdateCount());
+  }
+
+  @Test
+  void testGetUpdateCountForUpdateStatement() throws SQLException {
+    when(mockedResultSetMetadata.getColumnType(1)).thenReturn(Types.BIGINT);
+    when(mockedResultSetMetadata.getColumnNameIndex(AFFECTED_ROWS_COUNT)).thenReturn(1);
+    when(mockedExecutionResult.next()).thenReturn(true).thenReturn(false);
+    when(mockedExecutionResult.getObject(0)).thenReturn(5L);
+
+    DatabricksResultSet resultSet =
+        new DatabricksResultSet(
+            new StatementStatus().setState(StatementState.SUCCEEDED),
+            "test-statementID",
+            StatementType.UPDATE,
+            null,
+            mockedExecutionResult,
+            mockedResultSetMetadata);
+
+    assertEquals(5L, resultSet.getUpdateCount());
+  }
+
+  @Test
+  void testGetUpdateCountForUpdateStatementMultipleRows() throws SQLException {
+    when(mockedResultSetMetadata.getColumnType(1)).thenReturn(Types.BIGINT);
+    when(mockedResultSetMetadata.getColumnNameIndex("num_affected_rows")).thenReturn(1);
+    when(mockedExecutionResult.next()).thenReturn(true).thenReturn(true).thenReturn(false);
+    when(mockedExecutionResult.getObject(0)).thenReturn(3L).thenReturn(2L);
+
+    DatabricksResultSet resultSet =
+        new DatabricksResultSet(
+            new StatementStatus().setState(StatementState.SUCCEEDED),
+            "test-statementID",
+            StatementType.UPDATE,
+            null,
+            mockedExecutionResult,
+            mockedResultSetMetadata);
+
+    assertEquals(5L, resultSet.getUpdateCount());
+  }
+
+  @Test
+  void testGetUpdateCountForClosedResultSet() throws SQLException {
+    DatabricksResultSet resultSet = getResultSet(StatementState.SUCCEEDED, null);
+    resultSet.close();
+    assertThrows(DatabricksSQLException.class, resultSet::getUpdateCount);
   }
 }

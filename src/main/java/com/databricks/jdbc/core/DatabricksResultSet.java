@@ -29,7 +29,7 @@ import java.util.Map;
 import org.apache.http.HttpEntity;
 
 public class DatabricksResultSet implements ResultSet, IDatabricksResultSet {
-  private static final String AFFECTED_ROWS_COUNT = "num_affected_rows";
+  protected static final String AFFECTED_ROWS_COUNT = "num_affected_rows";
   private final StatementStatus statementStatus;
   private final String statementId;
   private final IExecutionResult executionResult;
