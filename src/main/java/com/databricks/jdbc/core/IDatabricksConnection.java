@@ -1,7 +1,6 @@
 package com.databricks.jdbc.core;
 
 import com.databricks.jdbc.client.IDatabricksUCVolumeClient;
-
 import java.sql.Connection;
 
 /** Interface providing Databricks specific Connection APIs. */
