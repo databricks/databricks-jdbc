@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.isA;
 import static org.mockito.Mockito.when;
 
+import com.databricks.jdbc.client.DatabricksHttpException;
 import com.databricks.jdbc.client.IDatabricksHttpClient;
 import com.databricks.jdbc.client.sqlexec.ResultManifest;
 import com.databricks.sdk.service.sql.ResultSchema;
@@ -122,6 +123,37 @@ public class VolumeOperationResultTest {
 
     assertNotNull(fakeResultSet.getVolumeOperationInputStream());
     assertEquals("test", new String(fakeResultSet.getVolumeOperationInputStream().readAllBytes()));
+  }
+
+  @Test
+  public void testGetResult_InputStream_StatementClosed_Get() throws Exception {
+    setupCommonInteractions();
+    when(resultHandler.getObject(0)).thenReturn("GET");
+    when(resultHandler.getObject(1)).thenReturn(PRESIGNED_URL);
+    when(resultHandler.getObject(3)).thenReturn("__input_stream__");
+    when(statement.isAllowedInputStreamForVolumeOperation())
+        .thenThrow(new DatabricksSQLException("statement closed"));
+
+    IDatabricksResultSet fakeResultSet = new EmptyResultSet();
+    VolumeOperationResult volumeOperationResult =
+        new VolumeOperationResult(
+            STATEMENT_ID,
+            RESULT_MANIFEST,
+            session,
+            resultHandler,
+            mockHttpClient,
+            statement,
+            fakeResultSet);
+
+    assertTrue(volumeOperationResult.hasNext());
+    assertEquals(-1, volumeOperationResult.getCurrentRow());
+    try {
+      volumeOperationResult.next();
+      fail("Should throw DatabricksSQLException");
+    } catch (DatabricksSQLException e) {
+      assertEquals(
+          "Volume operation aborted: Volume operation called on closed statement", e.getMessage());
+    }
   }
 
   @Test
@@ -426,6 +458,38 @@ public class VolumeOperationResultTest {
   }
 
   @Test
+  public void testGetResult_Put_withStatementClosed() throws Exception {
+    setupCommonInteractions();
+    when(resultHandler.getObject(0)).thenReturn("PUT");
+    when(resultHandler.getObject(1)).thenReturn(PRESIGNED_URL);
+    when(resultHandler.getObject(3)).thenReturn("__input_stream__");
+    when(statement.isAllowedInputStreamForVolumeOperation()).thenReturn(true);
+    when(statement.getInputStreamForUCVolume())
+        .thenThrow(new DatabricksSQLException("statement closed"));
+
+    VolumeOperationResult volumeOperationResult =
+        new VolumeOperationResult(
+            STATEMENT_ID,
+            RESULT_MANIFEST,
+            session,
+            resultHandler,
+            mockHttpClient,
+            statement,
+            resultSet);
+
+    assertTrue(volumeOperationResult.hasNext());
+    assertEquals(-1, volumeOperationResult.getCurrentRow());
+
+    try {
+      volumeOperationResult.next();
+      fail("Should throw DatabricksSQLException");
+    } catch (DatabricksSQLException e) {
+      assertEquals(
+          "Volume operation aborted: PUT operation called on closed statement", e.getMessage());
+    }
+  }
+
+  @Test
   public void testGetResult_Put_failedHttpResponse() throws Exception {
     setupCommonInteractions();
     when(resultHandler.getObject(0)).thenReturn("PUT");
@@ -613,6 +677,36 @@ public class VolumeOperationResultTest {
       assertEquals("Volume operation failed: Failed to delete volume", e.getMessage());
     }
     assertDoesNotThrow(() -> volumeOperationResult.close());
+  }
+
+  @Test
+  public void testGetResult_RemoveFailedWithException() throws Exception {
+    setupCommonInteractions();
+    when(resultHandler.getObject(0)).thenReturn("REMOVE");
+    when(resultHandler.getObject(1)).thenReturn(PRESIGNED_URL);
+    when(resultHandler.getObject(3)).thenReturn(null);
+    when(mockHttpClient.execute(isA(HttpDelete.class)))
+        .thenThrow(new DatabricksHttpException("exception"));
+
+    VolumeOperationResult volumeOperationResult =
+        new VolumeOperationResult(
+            STATEMENT_ID,
+            RESULT_MANIFEST,
+            session,
+            resultHandler,
+            mockHttpClient,
+            statement,
+            resultSet);
+
+    assertTrue(volumeOperationResult.hasNext());
+    assertEquals(-1, volumeOperationResult.getCurrentRow());
+
+    try {
+      volumeOperationResult.next();
+      fail("Should throw DatabricksSQLException");
+    } catch (DatabricksSQLException e) {
+      assertEquals("Volume operation failed: Failed to delete volume: exception", e.getMessage());
+    }
   }
 
   @Test
