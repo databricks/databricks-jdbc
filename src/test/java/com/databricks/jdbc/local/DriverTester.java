@@ -1,11 +1,18 @@
 package com.databricks.jdbc.local;
 
 import com.databricks.client.jdbc.Driver;
+
+import java.io.File;
+import java.io.FileInputStream;
 import java.math.BigDecimal;
 import java.math.BigInteger;
+import java.nio.file.Files;
 import java.sql.*;
 import java.time.LocalDate;
 import java.util.*;
+
+import com.databricks.jdbc.client.impl.sdk.DatabricksUCVolumeClient;
+import com.databricks.jdbc.core.IDatabricksStatement;
 import org.junit.jupiter.api.Test;
 
 public class DriverTester {
@@ -209,6 +216,32 @@ public class DriverTester {
     String jdbcUrl =
         "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/791ba2a31c7fd70a;uselegacyMetadata=1";
     Connection con = DriverManager.getConnection(jdbcUrl, "user", "x");
+    System.out.println("Connection established......");
+    con.close();
+  }
+
+  @Test
+  void testUCVolumeUsingInputStream() throws Exception {
+    DriverManager.registerDriver(new Driver());
+    DriverManager.drivers().forEach(driver -> System.out.println(driver.getClass()));
+    // Getting the connection
+    String jdbcUrl =
+            "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/791ba2a31c7fd70a;";
+    Connection con = DriverManager.getConnection(jdbcUrl, "token", "dapif72877ab5c2abd052dbb25dad61aeac9");
+    con.setClientInfo("allowlistedVolumeOperationLocalFilePaths", "__");
+    DatabricksUCVolumeClient client = new DatabricksUCVolumeClient(con);
+
+    File file = new File("/tmp/put.txt");
+    Files.writeString(file.toPath(), "test-put");
+    Statement statement = con.createStatement();
+    ((IDatabricksStatement)statement).allowInputStreamForVolumeOperation(true);
+    ((IDatabricksStatement)statement).setInputStreamForUCVolume(new FileInputStream(file));
+
+
+
+    client.putObject("samikshya_hackathon", "default", "gopal-psl", "new-put-file.csv", )
+
+
     System.out.println("Connection established......");
     con.close();
   }
