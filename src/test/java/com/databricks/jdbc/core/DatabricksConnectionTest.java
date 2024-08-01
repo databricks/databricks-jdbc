@@ -147,6 +147,11 @@ public class DatabricksConnectionTest {
   }
 
   @Test
+  public void testGetUCVolumeClient() throws SQLException {
+    assertNotNull(connection.getUCVolumeClient());
+  }
+
+  @Test
   public void testStatement() throws DatabricksSQLException {
     when(databricksClient.createSession(
             new Warehouse(WAREHOUSE_ID), CATALOG, SCHEMA, new HashMap<>()))
