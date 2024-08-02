@@ -114,9 +114,9 @@ class VolumeOperationExecutor implements Runnable {
         return;
       }
     } catch (DatabricksSQLException e) {
-      LoggingUtil.log(LogLevel.ERROR, "Statement is closed");
       status = VolumeOperationStatus.ABORTED;
-      errorMessage = "Volume operation called on closed statement";
+      errorMessage = "Volume operation called on closed statement: " + e.getMessage();
+      LoggingUtil.log(LogLevel.ERROR, errorMessage);
       return;
     }
     if (allowedVolumeIngestionPaths.isEmpty()) {
@@ -160,13 +160,11 @@ class VolumeOperationExecutor implements Runnable {
       if (statement.isAllowedInputStreamForVolumeOperation()) {
         CloseableHttpResponse response = databricksHttpClient.execute(httpGet);
         if (!isSuccessfulHttpResponse(response)) {
-          LoggingUtil.log(
-              LogLevel.ERROR,
-              String.format(
-                  "Failed to fetch content from volume with error {%s} for local file {%s}",
-                  response.getStatusLine().getStatusCode(), localFilePath));
           status = VolumeOperationStatus.FAILED;
-          errorMessage = "Failed to download file";
+          errorMessage = String.format(
+                  "Failed to fetch content from volume with error code {%s} for input stream and error {%s}",
+                  response.getStatusLine().getStatusCode(), response.getStatusLine().getReasonPhrase());
+          LoggingUtil.log(LogLevel.ERROR, errorMessage);
           return;
         }
         entity = response.getEntity();
@@ -261,30 +259,10 @@ class VolumeOperationExecutor implements Runnable {
       } else {
         // Set the FileEntity as the request body
         File file = new File(localFilePath);
-        if (!file.exists() || file.isDirectory()) {
-          LoggingUtil.log(
-              LogLevel.ERROR,
-              String.format("Local file does not exist or is a directory {%s}", localFilePath));
-          status = VolumeOperationStatus.ABORTED;
-          errorMessage = "Local file does not exist or is a directory";
+
+        if (localFileHasErrorForPutOperation(file)) {
           return;
         }
-        if (file.length() == 0) {
-
-          LoggingUtil.log(LogLevel.ERROR, String.format("Local file is empty {%s}", localFilePath));
-          status = VolumeOperationStatus.ABORTED;
-          errorMessage = "Local file is empty";
-          return;
-        }
-
-        if (file.length() > PUT_SIZE_LIMITS) {
-          LoggingUtil.log(
-              LogLevel.ERROR, String.format("Local file too large {%s}", localFilePath));
-          status = VolumeOperationStatus.ABORTED;
-          errorMessage = "Local file too large";
-          return;
-        }
-
         httpPut.setEntity(new FileEntity(file, ContentType.DEFAULT_BINARY));
       }
     } catch (DatabricksSQLException e) {
@@ -317,6 +295,32 @@ class VolumeOperationExecutor implements Runnable {
       status = VolumeOperationStatus.FAILED;
       errorMessage = "Failed to upload file: " + e.getMessage();
     }
+  }
+
+  private boolean localFileHasErrorForPutOperation(File file) {
+    if (!file.exists() || file.isDirectory()) {
+      LoggingUtil.log(
+              LogLevel.ERROR,
+              String.format("Local file does not exist or is a directory {%s}", localFilePath));
+      status = VolumeOperationStatus.ABORTED;
+      errorMessage = "Local file does not exist or is a directory";
+      return true;
+    }
+    if (file.length() == 0) {
+      LoggingUtil.log(LogLevel.ERROR, String.format("Local file is empty {%s}", localFilePath));
+      status = VolumeOperationStatus.ABORTED;
+      errorMessage = "Local file is empty";
+      return true;
+    }
+
+    if (file.length() > PUT_SIZE_LIMITS) {
+      LoggingUtil.log(
+              LogLevel.ERROR, String.format("Local file too large {%s}", localFilePath));
+      status = VolumeOperationStatus.ABORTED;
+      errorMessage = "Local file too large";
+      return true;
+    }
+    return false;
   }
 
   private void executeDeleteOperation() {
