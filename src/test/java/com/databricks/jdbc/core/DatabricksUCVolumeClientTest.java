@@ -30,6 +30,7 @@ public class DatabricksUCVolumeClientTest {
   @Mock Statement statement;
 
   @Mock DatabricksStatement databricksStatement;
+  @Mock DatabricksResultSet databricksResultSet;
 
   @Mock ResultSet resultSet;
   @Mock ResultSet resultSet_abc_volume1;
@@ -524,6 +525,37 @@ public class DatabricksUCVolumeClientTest {
   }
 
   @ParameterizedTest
+  @MethodSource("provideParametersForGetObjectWithInputStream")
+  public void testGetObjectWithInputStream(
+      String catalog, String schema, String volume, String objectPath, InputStream expected)
+      throws SQLException {
+    DatabricksUCVolumeClient client = new DatabricksUCVolumeClient(connection);
+
+    when(connection.createStatement()).thenReturn(databricksStatement);
+
+    String getObjectQuery =
+        String.format(
+            "GET '/Volumes/%s/%s/%s/%s' TO '__input_stream__'",
+            catalog, schema, volume, objectPath);
+    when(databricksStatement.executeQuery(getObjectQuery)).thenReturn(databricksResultSet);
+    when(databricksResultSet.next()).thenReturn(true);
+    when(databricksResultSet.getVolumeOperationInputStream()).thenReturn(expected);
+
+    InputStream result = client.getObject(catalog, schema, volume, objectPath);
+
+    assertEquals(expected, result);
+    verify(databricksStatement).executeQuery(getObjectQuery);
+    verify(databricksStatement).allowInputStreamForVolumeOperation(true);
+  }
+
+  private static Stream<Arguments> provideParametersForGetObjectWithInputStream() {
+    InputStream inputStream =
+        new ByteArrayInputStream("test data".getBytes(StandardCharsets.UTF_8));
+    return Stream.of(
+        Arguments.of("test_catalog", "test_schema", "test_volume", "test_objectpath", inputStream));
+  }
+
+  @ParameterizedTest
   @MethodSource("provideParametersForPutObjectWithInputStream")
   public void testPutObjectWithInputStream(
       String catalog,
@@ -551,6 +583,7 @@ public class DatabricksUCVolumeClientTest {
 
     assertEquals(expected, result);
     verify(databricksStatement).executeQuery(putObjectQuery);
+    verify(databricksStatement).allowInputStreamForVolumeOperation(true);
   }
 
   private static Stream<Arguments> provideParametersForPutObjectWithInputStream() {

@@ -82,6 +82,18 @@ public interface IDatabricksUCVolumeClient {
       throws SQLException;
 
   /**
+   * getObject(): Retrieves an object as input stream from the UC Volume
+   *
+   * @param catalog the catalog name of the cloud storage
+   * @param schema the schema name of the cloud storage
+   * @param volume the UC volume name of the cloud storage
+   * @param objectPath the path of the object (file) from the volume as the root directory
+   * @return an instance of input stream
+   */
+  InputStream getObject(String catalog, String schema, String volume, String objectPath)
+      throws SQLException;
+
+  /**
    * putObject(): Upload data from a local path to a specified path within a UC Volume.
    *
    * @param catalog the catalog name of the cloud storage
