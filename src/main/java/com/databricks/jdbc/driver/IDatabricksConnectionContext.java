@@ -150,4 +150,6 @@ public interface IDatabricksConnectionContext {
   boolean isFakeServiceTest();
 
   boolean enableTelemetry();
+
+  String getConnectionURL();
 }
