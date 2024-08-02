@@ -20,6 +20,7 @@ import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpDelete;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpPut;
+import org.apache.http.entity.InputStreamEntity;
 import org.apache.http.entity.StringEntity;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -122,7 +123,9 @@ public class VolumeOperationResultTest {
     assertFalse(volumeOperationResult.next());
 
     assertNotNull(fakeResultSet.getVolumeOperationInputStream());
-    assertEquals("test", new String(fakeResultSet.getVolumeOperationInputStream().readAllBytes()));
+    assertEquals(
+        "test",
+        new String(fakeResultSet.getVolumeOperationInputStream().getContent().readAllBytes()));
   }
 
   @Test
@@ -405,7 +408,7 @@ public class VolumeOperationResultTest {
     when(mockedStatusLine.getStatusCode()).thenReturn(200);
     when(statement.isAllowedInputStreamForVolumeOperation()).thenReturn(true);
     when(statement.getInputStreamForUCVolume())
-        .thenReturn(new ByteArrayInputStream("test-put".getBytes()));
+        .thenReturn(new InputStreamEntity(new ByteArrayInputStream("test-put".getBytes()), 10L));
 
     VolumeOperationResult volumeOperationResult =
         new VolumeOperationResult(

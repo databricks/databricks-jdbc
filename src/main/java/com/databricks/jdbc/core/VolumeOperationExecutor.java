@@ -248,17 +248,16 @@ class VolumeOperationExecutor implements Runnable {
     HttpPut httpPut = new HttpPut(operationUrl);
     headers.forEach(httpPut::addHeader);
 
-    HttpEntity entity = null;
     try {
       if (statement.isAllowedInputStreamForVolumeOperation()) {
-        InputStream inputStream = statement.getInputStreamForUCVolume();
+        InputStreamEntity inputStream = statement.getInputStreamForUCVolume();
         if (inputStream == null) {
           status = VolumeOperationStatus.ABORTED;
           errorMessage = "InputStream not set for PUT operation";
           LoggingUtil.log(LogLevel.ERROR, errorMessage);
           return;
         }
-        entity = new InputStreamEntity(inputStream);
+        httpPut.setEntity(inputStream);
       } else {
         // Set the FileEntity as the request body
         File file = new File(localFilePath);
@@ -286,14 +285,13 @@ class VolumeOperationExecutor implements Runnable {
           return;
         }
 
-        entity = new FileEntity(file, ContentType.DEFAULT_BINARY);
+        httpPut.setEntity(new FileEntity(file, ContentType.DEFAULT_BINARY));
       }
     } catch (DatabricksSQLException e) {
       status = VolumeOperationStatus.ABORTED;
       errorMessage = "PUT operation called on closed statement";
       LoggingUtil.log(LogLevel.ERROR, errorMessage);
     }
-    httpPut.setEntity(entity);
 
     // Execute the request
     try (CloseableHttpResponse response = databricksHttpClient.execute(httpPut)) {
