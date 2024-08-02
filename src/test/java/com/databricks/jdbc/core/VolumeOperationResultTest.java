@@ -155,7 +155,8 @@ public class VolumeOperationResultTest {
       fail("Should throw DatabricksSQLException");
     } catch (DatabricksSQLException e) {
       assertEquals(
-          "Volume operation aborted: Volume operation called on closed statement", e.getMessage());
+          "Volume operation aborted: Volume operation called on closed statement: statement closed",
+          e.getMessage());
     }
   }
 

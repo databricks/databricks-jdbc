@@ -161,9 +161,11 @@ class VolumeOperationExecutor implements Runnable {
         CloseableHttpResponse response = databricksHttpClient.execute(httpGet);
         if (!isSuccessfulHttpResponse(response)) {
           status = VolumeOperationStatus.FAILED;
-          errorMessage = String.format(
+          errorMessage =
+              String.format(
                   "Failed to fetch content from volume with error code {%s} for input stream and error {%s}",
-                  response.getStatusLine().getStatusCode(), response.getStatusLine().getReasonPhrase());
+                  response.getStatusLine().getStatusCode(),
+                  response.getStatusLine().getReasonPhrase());
           LoggingUtil.log(LogLevel.ERROR, errorMessage);
           return;
         }
@@ -300,8 +302,8 @@ class VolumeOperationExecutor implements Runnable {
   private boolean localFileHasErrorForPutOperation(File file) {
     if (!file.exists() || file.isDirectory()) {
       LoggingUtil.log(
-              LogLevel.ERROR,
-              String.format("Local file does not exist or is a directory {%s}", localFilePath));
+          LogLevel.ERROR,
+          String.format("Local file does not exist or is a directory {%s}", localFilePath));
       status = VolumeOperationStatus.ABORTED;
       errorMessage = "Local file does not exist or is a directory";
       return true;
@@ -314,8 +316,7 @@ class VolumeOperationExecutor implements Runnable {
     }
 
     if (file.length() > PUT_SIZE_LIMITS) {
-      LoggingUtil.log(
-              LogLevel.ERROR, String.format("Local file too large {%s}", localFilePath));
+      LoggingUtil.log(LogLevel.ERROR, String.format("Local file too large {%s}", localFilePath));
       status = VolumeOperationStatus.ABORTED;
       errorMessage = "Local file too large";
       return true;
