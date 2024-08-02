@@ -3,6 +3,7 @@ package com.databricks.jdbc.client;
 import java.io.InputStream;
 import java.sql.SQLException;
 import java.util.List;
+import org.apache.http.entity.InputStreamEntity;
 
 public interface IDatabricksUCVolumeClient {
 
@@ -88,9 +89,9 @@ public interface IDatabricksUCVolumeClient {
    * @param schema the schema name of the cloud storage
    * @param volume the UC volume name of the cloud storage
    * @param objectPath the path of the object (file) from the volume as the root directory
-   * @return an instance of input stream
+   * @return an instance of input stream entity
    */
-  InputStream getObject(String catalog, String schema, String volume, String objectPath)
+  InputStreamEntity getObject(String catalog, String schema, String volume, String objectPath)
       throws SQLException;
 
   /**
@@ -123,6 +124,7 @@ public interface IDatabricksUCVolumeClient {
    * @param objectPath the destination path where the object (file) is to be uploaded from the
    *     volume as the root directory
    * @param inputStream the input stream from where the data is to be uploaded
+   * @param contentLength the length of the input stream
    * @param toOverwrite a boolean indicating whether to overwrite the object if it already exists
    * @return a boolean value indicating status of the PUT operation
    */
@@ -132,6 +134,7 @@ public interface IDatabricksUCVolumeClient {
       String volume,
       String objectPath,
       InputStream inputStream,
+      long contentLength,
       boolean toOverwrite)
       throws SQLException;
 

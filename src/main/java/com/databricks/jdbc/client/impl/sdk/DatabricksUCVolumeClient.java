@@ -12,6 +12,7 @@ import java.io.InputStream;
 import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
+import org.apache.http.entity.InputStreamEntity;
 
 /** Implementation for DatabricksUCVolumeClient */
 public class DatabricksUCVolumeClient implements IDatabricksUCVolumeClient {
@@ -301,8 +302,8 @@ public class DatabricksUCVolumeClient implements IDatabricksUCVolumeClient {
   }
 
   @Override
-  public InputStream getObject(String catalog, String schema, String volume, String objectPath)
-      throws SQLException {
+  public InputStreamEntity getObject(
+      String catalog, String schema, String volume, String objectPath) throws SQLException {
 
     LoggingUtil.log(
         LogLevel.DEBUG,
@@ -375,6 +376,7 @@ public class DatabricksUCVolumeClient implements IDatabricksUCVolumeClient {
       String volume,
       String objectPath,
       InputStream inputStream,
+      long contentLength,
       boolean toOverwrite)
       throws SQLException {
 
@@ -392,7 +394,8 @@ public class DatabricksUCVolumeClient implements IDatabricksUCVolumeClient {
     try (Statement statement = connection.createStatement()) {
       IDatabricksStatement databricksStatement = (IDatabricksStatement) statement;
       databricksStatement.allowInputStreamForVolumeOperation(true);
-      databricksStatement.setInputStreamForUCVolume(inputStream);
+      databricksStatement.setInputStreamForUCVolume(
+          new InputStreamEntity(inputStream, contentLength));
 
       ResultSet resultSet = statement.executeQuery(putObjectQueryForInputStream);
       LoggingUtil.log(LogLevel.INFO, "PUT query executed successfully");

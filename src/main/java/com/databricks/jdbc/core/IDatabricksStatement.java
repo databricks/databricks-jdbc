@@ -1,8 +1,8 @@
 package com.databricks.jdbc.core;
 
-import java.io.InputStream;
 import java.sql.SQLException;
 import java.sql.Statement;
+import org.apache.http.entity.InputStreamEntity;
 
 /** Interface for Databricks specific statement. */
 public interface IDatabricksStatement {
@@ -26,7 +26,7 @@ public interface IDatabricksStatement {
 
   boolean isAllowedInputStreamForVolumeOperation() throws DatabricksSQLException;
 
-  void setInputStreamForUCVolume(InputStream inputStream) throws DatabricksSQLException;
+  void setInputStreamForUCVolume(InputStreamEntity inputStream) throws DatabricksSQLException;
 
-  InputStream getInputStreamForUCVolume() throws DatabricksSQLException;
+  InputStreamEntity getInputStreamForUCVolume() throws DatabricksSQLException;
 }

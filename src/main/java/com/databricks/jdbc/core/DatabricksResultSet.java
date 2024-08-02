@@ -27,6 +27,7 @@ import java.util.Calendar;
 import java.util.List;
 import java.util.Map;
 import org.apache.http.HttpEntity;
+import org.apache.http.entity.InputStreamEntity;
 
 public class DatabricksResultSet implements ResultSet, IDatabricksResultSet {
   protected static final String AFFECTED_ROWS_COUNT = "num_affected_rows";
@@ -41,6 +42,7 @@ public class DatabricksResultSet implements ResultSet, IDatabricksResultSet {
   private SQLWarning warnings = null;
   private boolean wasNull;
   private VolumeInputStream volumeInputStream = null;
+  private long volumeStreamContentLength = -1L;
 
   public DatabricksResultSet(
       StatementStatus statementStatus,
@@ -1623,12 +1625,13 @@ public class DatabricksResultSet implements ResultSet, IDatabricksResultSet {
     checkIfClosed();
     this.volumeInputStream =
         new VolumeInputStream(httpEntity, executionResult, this.parentStatement);
+    this.volumeStreamContentLength = httpEntity.getContentLength();
   }
 
   @Override
-  public InputStream getVolumeOperationInputStream() throws SQLException {
+  public InputStreamEntity getVolumeOperationInputStream() throws SQLException {
     checkIfClosed();
-    return this.volumeInputStream;
+    return new InputStreamEntity(this.volumeInputStream, this.volumeStreamContentLength);
   }
 
   private Object getObjectInternal(int columnIndex) throws SQLException {
