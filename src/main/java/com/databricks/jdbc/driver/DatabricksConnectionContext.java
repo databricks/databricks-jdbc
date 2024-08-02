@@ -24,6 +24,7 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   private final String host;
   @VisibleForTesting final int port;
   private final String schema;
+  private final String connectionURL;
   private final ComputeResource computeResource;
   private static DatabricksMetrics metricsExporter;
   @VisibleForTesting final ImmutableMap<String, String> parameters;
@@ -76,7 +77,8 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
         parametersBuilder.put(entry.getKey().toString().toLowerCase(), entry.getValue().toString());
       }
       DatabricksConnectionContext context =
-          new DatabricksConnectionContext(hostValue, portValue, schema, parametersBuilder.build());
+          new DatabricksConnectionContext(
+              url, hostValue, portValue, schema, parametersBuilder.build());
       metricsExporter = new DatabricksMetrics(context);
       return context;
     } else {
@@ -106,8 +108,13 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   }
 
   private DatabricksConnectionContext(
-      String host, int port, String schema, ImmutableMap<String, String> parameters)
+      String connectionURL,
+      String host,
+      int port,
+      String schema,
+      ImmutableMap<String, String> parameters)
       throws DatabricksSQLException {
+    this.connectionURL = connectionURL;
     this.host = host;
     this.port = port;
     this.schema = schema;
@@ -551,5 +558,10 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   @Override
   public boolean enableTelemetry() {
     return Objects.equals(getParameter(ENABLE_TELEMETRY, "0"), "1");
+  }
+
+  @Override
+  public String getConnectionURL() {
+    return connectionURL;
   }
 }

@@ -202,7 +202,6 @@ public class DatabricksResultSetTest {
   void testGetUnicode() throws SQLException, UnsupportedEncodingException {
     DatabricksResultSet resultSet = getResultSet(StatementState.SUCCEEDED, null);
     String testString = "test";
-    InputStream expectedStream = new java.io.ByteArrayInputStream(testString.getBytes("UTF-16"));
     when(mockedExecutionResult.getObject(0)).thenReturn(testString);
     when(mockedResultSetMetadata.getColumnType(1)).thenReturn(Types.VARCHAR);
     assertNotNull(resultSet.getUnicodeStream(1));
@@ -716,8 +715,10 @@ public class DatabricksResultSetTest {
     DatabricksResultSet resultSet =
         getResultSet(StatementState.SUCCEEDED, mockedDatabricksStatement);
     HttpEntity mockEntity = mock(HttpEntity.class);
+    when(mockEntity.getContentLength()).thenReturn(10L);
     resultSet.setVolumeOperationEntityStream(mockEntity);
     assertNotNull(resultSet.getVolumeOperationInputStream());
+    assertEquals(10L, resultSet.getVolumeOperationInputStream().getContentLength());
   }
 
   @Test

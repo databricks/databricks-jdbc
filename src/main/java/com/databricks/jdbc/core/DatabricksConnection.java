@@ -2,6 +2,8 @@ package com.databricks.jdbc.core;
 
 import com.databricks.client.jdbc.Driver;
 import com.databricks.jdbc.client.DatabricksClient;
+import com.databricks.jdbc.client.IDatabricksUCVolumeClient;
+import com.databricks.jdbc.client.impl.sdk.DatabricksUCVolumeClient;
 import com.databricks.jdbc.commons.LogLevel;
 import com.databricks.jdbc.commons.util.LoggingUtil;
 import com.databricks.jdbc.commons.util.ValidationUtil;
@@ -22,6 +24,8 @@ public class DatabricksConnection implements IDatabricksConnection, Connection {
   private IDatabricksSession session;
   private final Set<IDatabricksStatement> statementSet = ConcurrentHashMap.newKeySet();
   private SQLWarning warnings = null;
+
+  private IDatabricksUCVolumeClient ucVolumeClient = null;
 
   /**
    * Creates an instance of Databricks connection for given connection context.
@@ -561,6 +565,14 @@ public class DatabricksConnection implements IDatabricksConnection, Connection {
   @Override
   public Connection getConnection() {
     return this;
+  }
+
+  @Override
+  public IDatabricksUCVolumeClient getUCVolumeClient() {
+    if (ucVolumeClient == null) {
+      ucVolumeClient = new DatabricksUCVolumeClient(this);
+    }
+    return ucVolumeClient;
   }
 
   private void throwExceptionIfConnectionIsClosed() throws SQLException {

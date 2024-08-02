@@ -49,8 +49,7 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
   @Override
   public String getURL() throws SQLException {
     LoggingUtil.log(LogLevel.DEBUG, "public String getURL()");
-    throw new UnsupportedOperationException(
-        "Not implemented in DatabricksDatabaseMetaData - getURL()");
+    return this.session.getConnectionContext().getConnectionURL();
   }
 
   @Override
