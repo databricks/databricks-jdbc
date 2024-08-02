@@ -1,18 +1,16 @@
 package com.databricks.jdbc.local;
 
 import com.databricks.client.jdbc.Driver;
-
+import com.databricks.jdbc.client.impl.sdk.DatabricksUCVolumeClient;
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.InputStream;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.nio.file.Files;
 import java.sql.*;
 import java.time.LocalDate;
 import java.util.*;
-
-import com.databricks.jdbc.client.impl.sdk.DatabricksUCVolumeClient;
-import com.databricks.jdbc.core.IDatabricksStatement;
 import org.junit.jupiter.api.Test;
 
 public class DriverTester {
@@ -226,23 +224,47 @@ public class DriverTester {
     DriverManager.drivers().forEach(driver -> System.out.println(driver.getClass()));
     // Getting the connection
     String jdbcUrl =
-            "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/791ba2a31c7fd70a;";
-    Connection con = DriverManager.getConnection(jdbcUrl, "token", "dapif72877ab5c2abd052dbb25dad61aeac9");
-    con.setClientInfo("allowlistedVolumeOperationLocalFilePaths", "__");
+        "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/791ba2a31c7fd70a;";
+    Connection con =
+        DriverManager.getConnection(jdbcUrl, "token", "dapif72877ab5c2abd052dbb25dad61aeac9");
+    con.setClientInfo("allowlistedVolumeOperationLocalFilePaths", "/tmp");
     DatabricksUCVolumeClient client = new DatabricksUCVolumeClient(con);
 
     File file = new File("/tmp/put.txt");
     Files.writeString(file.toPath(), "test-put");
+
     Statement statement = con.createStatement();
-    ((IDatabricksStatement)statement).allowInputStreamForVolumeOperation(true);
-    ((IDatabricksStatement)statement).setInputStreamForUCVolume(new FileInputStream(file));
+    ResultSet resultSet =
+        statement.executeQuery(
+            "PUT '/tmp/put.txt' INTO '/Volumes/samikshya_hackathon/default/gopal-psl/new-put.csv' OVERWRITE");
+    printResultSet(resultSet);
 
+    System.out.println(
+        "Object inserted "
+            + client.putObject(
+                "samikshya_hackathon",
+                "default",
+                "gopal-psl",
+                "test-stream.csv",
+                new FileInputStream(file),
+                true));
 
+    InputStream inputStream =
+        client.getObject("samikshya_hackathon", "default", "gopal-psl", "test-stream.csv");
+    System.out.println("Got data " + new String(inputStream.readAllBytes()));
+    inputStream.close();
 
-    client.putObject("samikshya_hackathon", "default", "gopal-psl", "new-put-file.csv", )
+    System.out.println(
+        "Object exists "
+            + client.objectExists(
+                "samikshya_hackathon", "default", "gopal-psl", "test-stream.csv"));
+    client.deleteObject("samikshya_hackathon", "default", "gopal-psl", "test-stream.csv");
+    System.out.println(
+        "Object exists "
+            + client.objectExists(
+                "samikshya_hackathon", "default", "gopal-psl", "test-stream.csv"));
 
-
-    System.out.println("Connection established......");
+    file.delete();
     con.close();
   }
 

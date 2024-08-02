@@ -12,8 +12,6 @@ import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpDelete;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpPut;
-import org.apache.http.entity.ContentType;
-import org.apache.http.entity.FileEntity;
 import org.apache.http.entity.InputStreamEntity;
 import org.apache.http.util.EntityUtils;
 
@@ -248,7 +246,7 @@ class VolumeOperationExecutor implements Runnable {
     HttpPut httpPut = new HttpPut(operationUrl);
     headers.forEach(httpPut::addHeader);
 
-    HttpEntity entity = null;
+    InputStreamEntity entity = null;
     try {
       if (statement.isAllowedInputStreamForVolumeOperation()) {
         InputStream inputStream = statement.getInputStreamForUCVolume();
@@ -286,14 +284,32 @@ class VolumeOperationExecutor implements Runnable {
           return;
         }
 
-        entity = new FileEntity(file, ContentType.DEFAULT_BINARY);
+        entity =
+            new InputStreamEntity(
+                new FileInputStream(
+                    file)); // new FileEntity(file /*, ContentType.DEFAULT_BINARY */);
+        //   entity.setContentType("binary/octet-stream");
+        //  entity.setChunked(true);
       }
-    } catch (DatabricksSQLException e) {
+    } catch (DatabricksSQLException | FileNotFoundException e) {
       status = VolumeOperationStatus.ABORTED;
       errorMessage = "PUT operation called on closed statement";
       LoggingUtil.log(LogLevel.ERROR, errorMessage);
     }
+
+    // try {
+    //  String data = new String(entity.getContent().readAllBytes());
+    //  System.out.println("Put data : " + data);
+
+    //  entity = new StringEntity(data);
+
     httpPut.setEntity(entity);
+    httpPut.setHeader("Content-Type", "application/octet-stream");
+    httpPut.setHeader("Accept", "application/json");
+    System.out.println("Put operation " + httpPut.toString());
+    // } catch (IOException e) {
+    //   System.out.println("got exception " + e);
+    // }
 
     // Execute the request
     try (CloseableHttpResponse response = databricksHttpClient.execute(httpPut)) {
@@ -306,6 +322,7 @@ class VolumeOperationExecutor implements Runnable {
             String.format(
                 "Failed to upload file {%s} with error code: {%s}",
                 localFilePath, response.getStatusLine().getStatusCode()));
+        System.out.println(response);
         // TODO: handle retries
         status = VolumeOperationStatus.FAILED;
         errorMessage =
