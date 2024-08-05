@@ -284,7 +284,6 @@ class VolumeOperationExecutor implements Runnable {
             String.format(
                 "Failed to upload file {%s} with error code: {%s}",
                 localFilePath, response.getStatusLine().getStatusCode()));
-        System.out.println(response);
         // TODO: handle retries
         status = VolumeOperationStatus.FAILED;
         errorMessage =
