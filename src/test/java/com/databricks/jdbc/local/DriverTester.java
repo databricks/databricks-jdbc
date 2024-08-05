@@ -4,13 +4,13 @@ import com.databricks.client.jdbc.Driver;
 import com.databricks.jdbc.client.impl.sdk.DatabricksUCVolumeClient;
 import java.io.File;
 import java.io.FileInputStream;
-import java.io.InputStream;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.nio.file.Files;
 import java.sql.*;
 import java.time.LocalDate;
 import java.util.*;
+import org.apache.http.entity.InputStreamEntity;
 import org.junit.jupiter.api.Test;
 
 public class DriverTester {
@@ -247,12 +247,13 @@ public class DriverTester {
                 "gopal-psl",
                 "test-stream.csv",
                 new FileInputStream(file),
+                10L,
                 true));
 
-    InputStream inputStream =
+    InputStreamEntity inputStream =
         client.getObject("samikshya_hackathon", "default", "gopal-psl", "test-stream.csv");
-    System.out.println("Got data " + new String(inputStream.readAllBytes()));
-    inputStream.close();
+    System.out.println("Got data " + new String(inputStream.getContent().readAllBytes()));
+    inputStream.getContent().close();
 
     System.out.println(
         "Object exists "

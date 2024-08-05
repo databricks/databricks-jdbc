@@ -10,6 +10,7 @@ import java.sql.*;
 import java.util.Calendar;
 import java.util.Map;
 import org.apache.http.HttpEntity;
+import org.apache.http.entity.InputStreamEntity;
 
 /** Empty implementation of ResultSet */
 class EmptyResultSet implements ResultSet, IDatabricksResultSet {
@@ -1114,9 +1115,9 @@ class EmptyResultSet implements ResultSet, IDatabricksResultSet {
   }
 
   @Override
-  public InputStream getVolumeOperationInputStream() throws SQLException {
+  public InputStreamEntity getVolumeOperationInputStream() throws SQLException {
     try {
-      return httpEntity.getContent();
+      return new InputStreamEntity(httpEntity.getContent(), httpEntity.getContentLength());
     } catch (IOException e) {
       return null;
     }

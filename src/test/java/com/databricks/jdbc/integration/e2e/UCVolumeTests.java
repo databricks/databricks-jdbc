@@ -527,7 +527,7 @@ public class UCVolumeTests {
 
     boolean result =
         client.putObject(
-            UC_VOLUME_CATALOG, UC_VOLUME_SCHEMA, volume, objectPath, inputStream, toOverwrite);
+            UC_VOLUME_CATALOG, UC_VOLUME_SCHEMA, volume, objectPath, inputStream, 10L, toOverwrite);
     assertEquals(expected, result);
   }
 }

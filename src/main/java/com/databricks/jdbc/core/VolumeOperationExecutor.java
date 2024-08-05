@@ -12,6 +12,8 @@ import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpDelete;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpPut;
+import org.apache.http.entity.ContentType;
+import org.apache.http.entity.FileEntity;
 import org.apache.http.entity.InputStreamEntity;
 import org.apache.http.util.EntityUtils;
 
@@ -112,9 +114,9 @@ class VolumeOperationExecutor implements Runnable {
         return;
       }
     } catch (DatabricksSQLException e) {
-      LoggingUtil.log(LogLevel.ERROR, "Statement is closed");
       status = VolumeOperationStatus.ABORTED;
-      errorMessage = "Volume operation called on closed statement";
+      errorMessage = "Volume operation called on closed statement: " + e.getMessage();
+      LoggingUtil.log(LogLevel.ERROR, errorMessage);
       return;
     }
     if (allowedVolumeIngestionPaths.isEmpty()) {
@@ -158,13 +160,13 @@ class VolumeOperationExecutor implements Runnable {
       if (statement.isAllowedInputStreamForVolumeOperation()) {
         CloseableHttpResponse response = databricksHttpClient.execute(httpGet);
         if (!isSuccessfulHttpResponse(response)) {
-          LoggingUtil.log(
-              LogLevel.ERROR,
-              String.format(
-                  "Failed to fetch content from volume with error {%s} for local file {%s}",
-                  response.getStatusLine().getStatusCode(), localFilePath));
           status = VolumeOperationStatus.FAILED;
-          errorMessage = "Failed to download file";
+          errorMessage =
+              String.format(
+                  "Failed to fetch content from volume with error code {%s} for input stream and error {%s}",
+                  response.getStatusLine().getStatusCode(),
+                  response.getStatusLine().getReasonPhrase());
+          LoggingUtil.log(LogLevel.ERROR, errorMessage);
           return;
         }
         entity = response.getEntity();
@@ -246,70 +248,30 @@ class VolumeOperationExecutor implements Runnable {
     HttpPut httpPut = new HttpPut(operationUrl);
     headers.forEach(httpPut::addHeader);
 
-    InputStreamEntity entity = null;
     try {
       if (statement.isAllowedInputStreamForVolumeOperation()) {
-        InputStream inputStream = statement.getInputStreamForUCVolume();
+        InputStreamEntity inputStream = statement.getInputStreamForUCVolume();
         if (inputStream == null) {
           status = VolumeOperationStatus.ABORTED;
           errorMessage = "InputStream not set for PUT operation";
           LoggingUtil.log(LogLevel.ERROR, errorMessage);
           return;
         }
-        entity = new InputStreamEntity(inputStream);
+        httpPut.setEntity(inputStream);
       } else {
         // Set the FileEntity as the request body
         File file = new File(localFilePath);
-        if (!file.exists() || file.isDirectory()) {
-          LoggingUtil.log(
-              LogLevel.ERROR,
-              String.format("Local file does not exist or is a directory {%s}", localFilePath));
-          status = VolumeOperationStatus.ABORTED;
-          errorMessage = "Local file does not exist or is a directory";
+
+        if (localFileHasErrorForPutOperation(file)) {
           return;
         }
-        if (file.length() == 0) {
-
-          LoggingUtil.log(LogLevel.ERROR, String.format("Local file is empty {%s}", localFilePath));
-          status = VolumeOperationStatus.ABORTED;
-          errorMessage = "Local file is empty";
-          return;
-        }
-
-        if (file.length() > PUT_SIZE_LIMITS) {
-          LoggingUtil.log(
-              LogLevel.ERROR, String.format("Local file too large {%s}", localFilePath));
-          status = VolumeOperationStatus.ABORTED;
-          errorMessage = "Local file too large";
-          return;
-        }
-
-        entity =
-            new InputStreamEntity(
-                new FileInputStream(
-                    file)); // new FileEntity(file /*, ContentType.DEFAULT_BINARY */);
-        //   entity.setContentType("binary/octet-stream");
-        //  entity.setChunked(true);
+        httpPut.setEntity(new FileEntity(file, ContentType.DEFAULT_BINARY));
       }
-    } catch (DatabricksSQLException | FileNotFoundException e) {
+    } catch (DatabricksSQLException e) {
       status = VolumeOperationStatus.ABORTED;
       errorMessage = "PUT operation called on closed statement";
       LoggingUtil.log(LogLevel.ERROR, errorMessage);
     }
-
-    // try {
-    //  String data = new String(entity.getContent().readAllBytes());
-    //  System.out.println("Put data : " + data);
-
-    //  entity = new StringEntity(data);
-
-    httpPut.setEntity(entity);
-    httpPut.setHeader("Content-Type", "application/octet-stream");
-    httpPut.setHeader("Accept", "application/json");
-    System.out.println("Put operation " + httpPut.toString());
-    // } catch (IOException e) {
-    //   System.out.println("got exception " + e);
-    // }
 
     // Execute the request
     try (CloseableHttpResponse response = databricksHttpClient.execute(httpPut)) {
@@ -336,6 +298,31 @@ class VolumeOperationExecutor implements Runnable {
       status = VolumeOperationStatus.FAILED;
       errorMessage = "Failed to upload file: " + e.getMessage();
     }
+  }
+
+  private boolean localFileHasErrorForPutOperation(File file) {
+    if (!file.exists() || file.isDirectory()) {
+      LoggingUtil.log(
+          LogLevel.ERROR,
+          String.format("Local file does not exist or is a directory {%s}", localFilePath));
+      status = VolumeOperationStatus.ABORTED;
+      errorMessage = "Local file does not exist or is a directory";
+      return true;
+    }
+    if (file.length() == 0) {
+      LoggingUtil.log(LogLevel.ERROR, String.format("Local file is empty {%s}", localFilePath));
+      status = VolumeOperationStatus.ABORTED;
+      errorMessage = "Local file is empty";
+      return true;
+    }
+
+    if (file.length() > PUT_SIZE_LIMITS) {
+      LoggingUtil.log(LogLevel.ERROR, String.format("Local file too large {%s}", localFilePath));
+      status = VolumeOperationStatus.ABORTED;
+      errorMessage = "Local file too large";
+      return true;
+    }
+    return false;
   }
 
   private void executeDeleteOperation() {

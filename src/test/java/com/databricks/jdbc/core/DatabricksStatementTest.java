@@ -20,6 +20,7 @@ import java.util.HashMap;
 import java.util.Properties;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+import org.apache.http.entity.InputStreamEntity;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -271,10 +272,11 @@ public class DatabricksStatementTest {
     assertFalse(statement.isAllowedInputStreamForVolumeOperation());
     assertNull(statement.getInputStreamForUCVolume());
     assertThrows(
-        DatabricksSQLException.class, () -> statement.setInputStreamForUCVolume(mockStream));
+        DatabricksSQLException.class,
+        () -> statement.setInputStreamForUCVolume(new InputStreamEntity(mockStream, -1L)));
 
     statement.allowInputStreamForVolumeOperation(true);
-    statement.setInputStreamForUCVolume(mockStream);
+    statement.setInputStreamForUCVolume(new InputStreamEntity(mockStream));
 
     assertTrue(statement.isAllowedInputStreamForVolumeOperation());
     assertNotNull(statement.getInputStreamForUCVolume());
@@ -282,7 +284,8 @@ public class DatabricksStatementTest {
     statement.close();
     assertThrows(DatabricksSQLException.class, statement::getInputStreamForUCVolume);
     assertThrows(
-        DatabricksSQLException.class, () -> statement.setInputStreamForUCVolume(mockStream));
+        DatabricksSQLException.class,
+        () -> statement.setInputStreamForUCVolume(new InputStreamEntity(mockStream, -1L)));
     assertThrows(DatabricksSQLException.class, statement::isAllowedInputStreamForVolumeOperation);
     assertThrows(
         DatabricksSQLException.class, () -> statement.allowInputStreamForVolumeOperation(false));

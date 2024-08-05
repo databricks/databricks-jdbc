@@ -1,13 +1,16 @@
 package com.databricks.jdbc.core;
 
+import static com.databricks.jdbc.TestConstants.WAREHOUSE_JDBC_URL;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 
 import com.databricks.jdbc.client.DatabricksMetadataClient;
+import com.databricks.jdbc.driver.DatabricksConnectionContext;
 import java.sql.*;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Properties;
 import java.util.concurrent.Callable;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -38,6 +41,8 @@ public class DatabricksDatabaseMetaDataTest {
         .thenReturn(Mockito.mock(DatabricksResultSet.class));
     when(metadataClient.listSchemas(any(), any(), any()))
         .thenReturn(Mockito.mock(DatabricksResultSet.class));
+    when(session.getConnectionContext())
+        .thenReturn(DatabricksConnectionContext.parse(WAREHOUSE_JDBC_URL, new Properties()));
     when(metadataClient.listCatalogs(any())).thenReturn(Mockito.mock(DatabricksResultSet.class));
     when(metadataClient.listTableTypes(any())).thenReturn(Mockito.mock(DatabricksResultSet.class));
     when(metadataClient.listTypeInfo(any())).thenReturn(Mockito.mock(DatabricksResultSet.class));
@@ -880,6 +885,11 @@ public class DatabricksDatabaseMetaDataTest {
   }
 
   @Test
+  public void testGetUrl() throws SQLException {
+    assertEquals(metaData.getURL(), WAREHOUSE_JDBC_URL);
+  }
+
+  @Test
   public void testSupportsAlterTableWithDropColumn() throws SQLException {
     boolean result = metaData.supportsAlterTableWithDropColumn();
     assertFalse(result);
@@ -973,7 +983,6 @@ public class DatabricksDatabaseMetaDataTest {
   public void testUnsupportedOperations() {
     List<Callable<Object>> tasks =
         Arrays.asList(
-            () -> metaData.getURL(),
             () -> metaData.supportsTransactionIsolationLevel(0),
             () -> metaData.getDriverMajorVersion(),
             () -> metaData.getDriverMinorVersion(),

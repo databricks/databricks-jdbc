@@ -377,7 +377,8 @@ public class EmptyResultSetTest {
   public void testUCInputStream() throws Exception {
     HttpEntity entity = new StringEntity("hello");
     resultSet.setVolumeOperationEntityStream(entity);
-    assertEquals("hello", new String(resultSet.getVolumeOperationInputStream().readAllBytes()));
+    assertEquals(
+        "hello", new String(resultSet.getVolumeOperationInputStream().getContent().readAllBytes()));
   }
 
   @Test
