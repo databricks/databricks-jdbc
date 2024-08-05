@@ -1,7 +1,9 @@
 package com.databricks.jdbc.local;
 
 import com.databricks.client.jdbc.Driver;
-import com.databricks.jdbc.client.impl.sdk.DatabricksUCVolumeClient;
+import com.databricks.jdbc.client.IDatabricksUCVolumeClient;
+import com.databricks.jdbc.core.IDatabricksConnection;
+import com.databricks.jdbc.driver.DatabricksJdbcConstants;
 import java.io.File;
 import java.io.FileInputStream;
 import java.math.BigDecimal;
@@ -222,51 +224,51 @@ public class DriverTester {
   void testUCVolumeUsingInputStream() throws Exception {
     DriverManager.registerDriver(new Driver());
     DriverManager.drivers().forEach(driver -> System.out.println(driver.getClass()));
+    System.out.println("Starting test");
     // Getting the connection
     String jdbcUrl =
         "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/791ba2a31c7fd70a;";
     Connection con =
-        DriverManager.getConnection(jdbcUrl, "token",  "");
-    con.setClientInfo("allowlistedVolumeOperationLocalFilePaths", "/tmp");
-    DatabricksUCVolumeClient client = new DatabricksUCVolumeClient(con);
+        DriverManager.getConnection(jdbcUrl, "token", "xx");
+    con.setClientInfo(DatabricksJdbcConstants.ALLOWED_VOLUME_INGESTION_PATHS, "delete");
+    System.out.println("Connection created");
+    IDatabricksUCVolumeClient client = ((IDatabricksConnection) con).getUCVolumeClient();
 
     File file = new File("/tmp/put.txt");
-    Files.writeString(file.toPath(), "test-put");
+    try {
+      Files.writeString(file.toPath(), "test-put");
 
-    Statement statement = con.createStatement();
-    ResultSet resultSet =
-        statement.executeQuery(
-            "PUT '/tmp/put.txt' INTO '/Volumes/samikshya_hackathon/default/gopal-psl/new-put.csv' OVERWRITE");
-    printResultSet(resultSet);
+      System.out.println("File created");
 
-    System.out.println(
-        "Object inserted "
-            + client.putObject(
-                "samikshya_hackathon",
-                "default",
-                "gopal-psl",
-                "test-stream.csv",
-                new FileInputStream(file),
-                10L,
-                true));
+      System.out.println(
+          "Object inserted "
+              + client.putObject(
+                  "samikshya_hackathon",
+                  "default",
+                  "gopal-psl",
+                  "test-stream.csv",
+                  new FileInputStream(file),
+                  file.length(),
+                  true));
 
-    InputStreamEntity inputStream =
-        client.getObject("samikshya_hackathon", "default", "gopal-psl", "test-stream.csv");
-    System.out.println("Got data " + new String(inputStream.getContent().readAllBytes()));
-    inputStream.getContent().close();
+      InputStreamEntity inputStream =
+          client.getObject("samikshya_hackathon", "default", "gopal-psl", "test-stream.csv");
+      System.out.println("Got data " + new String(inputStream.getContent().readAllBytes()));
+      inputStream.getContent().close();
 
-    System.out.println(
-        "Object exists "
-            + client.objectExists(
-                "samikshya_hackathon", "default", "gopal-psl", "test-stream.csv"));
-    client.deleteObject("samikshya_hackathon", "default", "gopal-psl", "test-stream.csv");
-    System.out.println(
-        "Object exists "
-            + client.objectExists(
-                "samikshya_hackathon", "default", "gopal-psl", "test-stream.csv"));
-
-    file.delete();
-    con.close();
+      System.out.println(
+          "Object exists "
+              + client.objectExists(
+                  "samikshya_hackathon", "default", "gopal-psl", "test-stream.csv", false));
+      client.deleteObject("samikshya_hackathon", "default", "gopal-psl", "test-stream.csv");
+      System.out.println(
+          "Object exists "
+              + client.objectExists(
+                  "samikshya_hackathon", "default", "gopal-psl", "test-stream.csv", false));
+    } finally {
+      file.delete();
+      con.close();
+    }
   }
 
   @Test
