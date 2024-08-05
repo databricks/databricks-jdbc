@@ -6,13 +6,12 @@ import static org.junit.jupiter.api.Assertions.*;
 import com.databricks.jdbc.client.IDatabricksUCVolumeClient;
 import com.databricks.jdbc.client.impl.sdk.DatabricksUCVolumeClient;
 import com.databricks.jdbc.core.IDatabricksConnection;
+import com.databricks.jdbc.driver.DatabricksJdbcConstants;
 import java.io.File;
 import java.io.FileInputStream;
 import java.nio.file.Files;
 import java.sql.Connection;
 import java.sql.SQLException;
-
-import com.databricks.jdbc.driver.DatabricksJdbcConstants;
 import org.apache.http.entity.InputStreamEntity;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
