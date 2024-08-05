@@ -226,7 +226,7 @@ public class DriverTester {
     String jdbcUrl =
         "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/791ba2a31c7fd70a;";
     Connection con =
-        DriverManager.getConnection(jdbcUrl, "token",  ""); //"dapif72877ab5c2abd052dbb25dad61aeac9");
+        DriverManager.getConnection(jdbcUrl, "token",  "");
     con.setClientInfo("allowlistedVolumeOperationLocalFilePaths", "/tmp");
     DatabricksUCVolumeClient client = new DatabricksUCVolumeClient(con);
 
