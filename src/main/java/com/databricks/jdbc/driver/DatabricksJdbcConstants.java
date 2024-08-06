@@ -33,7 +33,8 @@ public final class DatabricksJdbcConstants {
 
   public static final String LOG_PATH = "logpath";
 
-  public static final String DEFAULT_LOG_PATH = "logs/application.log";
+  public static final String DEFAULT_LOG_PATH =
+      System.getProperty("java.io.tmpdir") + "/logs/application.log";
 
   public static final String LOG_FILE_SIZE = "LogFileSize";
 
@@ -178,6 +179,8 @@ public final class DatabricksJdbcConstants {
 
   public static final String VOLUME_OPERATION_STATUS_COLUMN_NAME = "operation_status";
 
+  public static final String VOLUME_OPERATION_STATUS_SUCCEEDED = "SUCCEEDED";
+
   public static final Map<String, String> ALLOWED_SESSION_CONF_TO_DEFAULT_VALUES_MAP =
       // This map comes from
       // https://docs.databricks.com/en/sql/language-manual/sql-ref-parameters.html
@@ -204,7 +207,8 @@ public final class DatabricksJdbcConstants {
     SQL_EXEC,
     CLOUD_FETCH,
     SQL_GATEWAY,
-    CLOUD_FETCH_SQL_GATEWAY
+    CLOUD_FETCH_SQL_GATEWAY,
+    CLOUD_FETCH_UC_VOLUME
   }
 
   public static final String USE_THRIFT_CLIENT = "usethriftclient";
@@ -222,7 +226,7 @@ public final class DatabricksJdbcConstants {
   public static final String DEFAULT_IDLE_HTTP_CONNECTION_EXPIRY = "60";
   public static final String CLOUD_FETCH_THREAD_POOL_SIZE = "cloudFetchThreadPoolSize";
   public static final int CLOUD_FETCH_THREAD_POOL_SIZE_DEFAULT = 16;
-
+  public static final String ENABLE_TELEMETRY = "enableTelemetry";
   public static final Pattern SELECT_PATTERN =
       Pattern.compile("^(\\s*\\()*\\s*SELECT", Pattern.CASE_INSENSITIVE);
   public static final Pattern SHOW_PATTERN =
@@ -255,8 +259,11 @@ public final class DatabricksJdbcConstants {
       Pattern.compile("^(\\s*\\()*\\s*PUT", Pattern.CASE_INSENSITIVE);
   public static final Pattern REMOVE_PATTERN =
       Pattern.compile("^(\\s*\\()*\\s*REMOVE", Pattern.CASE_INSENSITIVE);
-  static final int DBSQL_MIN_MAJOR_VERSION_FOR_NEW_METADATA = 2024;
-  static final int DBSQL_MIN_MINOR_VERSION_FOR_NEW_METADATA = 30;
+  public static final Pattern LIST_PATTERN =
+      Pattern.compile("^(\\s*\\()*\\s*LIST", Pattern.CASE_INSENSITIVE);
+  public static final int DBSQL_MIN_MAJOR_VERSION_FOR_NEW_METADATA = 2024;
+  public static final int DBSQL_MIN_MINOR_VERSION_FOR_NEW_METADATA = 30;
 
   public static final int DEFAULT_RETRY_COUNT = 5;
+  public static final LogLevel TELEMETRY_LOG_LEVEL = LogLevel.OFF;
 }

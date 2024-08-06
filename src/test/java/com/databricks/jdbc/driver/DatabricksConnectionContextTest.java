@@ -116,6 +116,7 @@ class DatabricksConnectionContextTest {
         (DatabricksConnectionContext) DatabricksConnectionContext.parse(VALID_URL_1, properties);
     assertEquals(
         "https://adb-565757575.18.azuredatabricks.net:4423", connectionContext.getHostUrl());
+    assertEquals(VALID_URL_1, connectionContext.getConnectionURL());
     assertEquals("/sql/1.0/warehouses/erg6767gg", connectionContext.getHttpPath());
     assertEquals("passwd", connectionContext.getToken());
     assertEquals(
@@ -141,7 +142,7 @@ class DatabricksConnectionContextTest {
     assertEquals(7, connectionContext.parameters.size());
     assertEquals(CompressionType.LZ4_COMPRESSION, connectionContext.getCompressionType());
     assertEquals(LogLevel.INFO, connectionContext.getLogLevel());
-    assertEquals(connectionContext.getLogPathString(), "logs/application.log");
+    assertTrue(connectionContext.getLogPathString().contains("logs/application.log"));
     assertEquals("3", connectionContext.parameters.get("authmech"));
     assertNull(connectionContext.getOAuthScopesForU2M());
     assertFalse(connectionContext.isAllPurposeCluster());

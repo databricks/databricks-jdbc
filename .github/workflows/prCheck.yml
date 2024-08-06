@@ -13,9 +13,10 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest]
         java-version: [21]  # For formatting, we don't need to run across multiple versions. Only sanity testing is required here, rest is taken care in the build.
-    runs-on: ${{ matrix.os }}
+    runs-on:
+      group: databricks-protected-runner-group
+      labels: linux-ubuntu-latest
     steps:
       - name: Set up JDK
         uses: actions/setup-java@v4
@@ -40,10 +41,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [macos-latest, ubuntu-latest]
         java-version: [11, 17, 21]  # Adding LTS versions here. 21 is the latest LTS
 
-    runs-on: ${{ matrix.os }}
+    runs-on:
+      group: databricks-protected-runner-group
+      labels: linux-ubuntu-latest
 
     steps:
       - name: Set up JDK ${{ matrix.java-version }}
@@ -85,10 +87,9 @@ jobs:
         run: |
           BRANCH_COVERAGE=$(cat coverage.txt)
           echo "Branch Coverage: $BRANCH_COVERAGE%"
-          if (( $(echo "$BRANCH_COVERAGE < 80" | bc -l) )); then
-            #TODO: Get the coverage back to 85%
-            echo "Coverage is less than 80%"
+          if (( $(echo "$BRANCH_COVERAGE < 84" | bc -l) )); then
+            echo "Coverage is less than 84%"
             exit 1
           else
-            echo "Coverage is equal to or greater than 85%"
+            echo "Coverage is equal to or greater than 84%"
           fi

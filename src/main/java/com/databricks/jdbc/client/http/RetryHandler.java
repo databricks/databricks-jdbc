@@ -86,7 +86,7 @@ public class RetryHandler {
         retryInterval);
   }
 
-  private static boolean isImmediateRetryNotAllowed(
+  static boolean isImmediateRetryNotAllowed(
       int errCode,
       boolean shouldRetryRateLimitError,
       boolean shouldRetryTemporarilyUnavailableError,
@@ -96,7 +96,7 @@ public class RetryHandler {
             || (errCode == 503 && shouldRetryTemporarilyUnavailableError));
   }
 
-  private static boolean isTemporarilyUnavailableRetryTimeoutExceeded(
+  static boolean isTemporarilyUnavailableRetryTimeoutExceeded(
       int errCode,
       long temporarilyUnavailableRetryCount,
       long retryInterval,
@@ -105,12 +105,12 @@ public class RetryHandler {
         && temporarilyUnavailableRetryCount * retryInterval > temporarilyUnavailableRetryTimeout;
   }
 
-  private static boolean isRateLimitRetryTimeoutExceeded(
+  static boolean isRateLimitRetryTimeoutExceeded(
       int errCode, long rateLimitRetryCount, long retryInterval, long rateLimitRetryTimeout) {
     return (errCode == 429) && rateLimitRetryCount * retryInterval > rateLimitRetryTimeout;
   }
 
-  private static boolean isRetryDisabledButReceivedResponse(
+  static boolean isRetryDisabledButReceivedResponse(
       int errCode,
       boolean shouldRetryTemporarilyUnavailableError,
       boolean shouldRetryRateLimitError,
@@ -119,7 +119,7 @@ public class RetryHandler {
         || (errCode == 429 && !shouldRetryRateLimitError && retryInterval != -1));
   }
 
-  private static boolean isRetryAllowedBasedOnConditions(
+  static boolean isRetryAllowedBasedOnConditions(
       int executionCount,
       HttpContext context,
       int errCode,
@@ -160,6 +160,7 @@ public class RetryHandler {
       Thread.sleep(delay * 1000);
     } catch (InterruptedException e) {
       Thread.currentThread().interrupt(); // Restore the interrupt status
+      throw new RuntimeException("Sleep interrupted", e);
     }
   }
 }

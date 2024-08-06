@@ -21,7 +21,8 @@ import java.util.Calendar;
 
 public class DatabricksPreparedStatement extends DatabricksStatement implements PreparedStatement {
   private final String sql;
-  private final DatabricksParameterMetaData databricksParameterMetaData;
+  private DatabricksParameterMetaData databricksParameterMetaData;
+  List<DatabricksParameterMetaData> databricksBatchParameterMetaData;
   private final boolean supportManyParameters;
 
   private final int CHUNK_SIZE = 8192;
@@ -32,6 +33,7 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
     this.supportManyParameters =
         connection.getSession().getConnectionContext().supportManyParameters();
     this.databricksParameterMetaData = new DatabricksParameterMetaData();
+    this.databricksBatchParameterMetaData = new ArrayList<>();
   }
 
   private void checkLength(int targetLength, int sourceLength) throws SQLException {
@@ -51,6 +53,15 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
           String.format(
               "Unexpected number of bytes read from the stream. Expected: %d, got: %d",
               targetLength, sourceLength);
+      LoggingUtil.log(LogLevel.ERROR, errorMessage);
+      throw new DatabricksSQLException(errorMessage);
+    }
+  }
+
+  private void checkIfBatchOperation() throws DatabricksSQLException {
+    if (!this.databricksBatchParameterMetaData.isEmpty()) {
+      String errorMessage =
+          "Batch must either be executed with executeBatch() or cleared with clearBatch()";
       LoggingUtil.log(LogLevel.ERROR, errorMessage);
       throw new DatabricksSQLException(errorMessage);
     }
@@ -77,14 +88,36 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
   @Override
   public ResultSet executeQuery() throws SQLException {
     LoggingUtil.log(LogLevel.DEBUG, "public ResultSet executeQuery()");
+    checkIfBatchOperation();
     return interpolateIfRequiredAndExecute(StatementType.QUERY);
   }
 
   @Override
   public int executeUpdate() throws SQLException {
     LoggingUtil.log(LogLevel.DEBUG, "public int executeUpdate()");
+    checkIfBatchOperation();
     interpolateIfRequiredAndExecute(StatementType.UPDATE);
     return (int) resultSet.getUpdateCount();
+  }
+
+  @Override
+  public int[] executeBatch() {
+    LoggingUtil.log(LogLevel.DEBUG, "public int executeBatch()");
+    int[] updateCount = new int[databricksBatchParameterMetaData.size()];
+
+    for (int i = 0; i < databricksBatchParameterMetaData.size(); i++) {
+      DatabricksParameterMetaData databricksParameterMetaData =
+          databricksBatchParameterMetaData.get(i);
+      try {
+        executeInternal(
+            sql, databricksParameterMetaData.getParameterBindings(), StatementType.UPDATE, false);
+        updateCount[i] = (int) resultSet.getUpdateCount();
+      } catch (SQLException e) {
+        LoggingUtil.log(LogLevel.ERROR, e.getMessage());
+        updateCount[i] = -1;
+      }
+    }
+    return updateCount;
   }
 
   @Override
@@ -264,15 +297,24 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
   public boolean execute() throws SQLException {
     LoggingUtil.log(LogLevel.DEBUG, "public boolean execute()");
     checkIfClosed();
+    checkIfBatchOperation();
     interpolateIfRequiredAndExecute(StatementType.SQL);
     return shouldReturnResultSet(sql);
   }
 
   @Override
-  public void addBatch() throws SQLException {
+  public void addBatch() {
     LoggingUtil.log(LogLevel.DEBUG, "public void addBatch()");
-    throw new UnsupportedOperationException(
-        "Not implemented in DatabricksPreparedStatement - addBatch()");
+    this.databricksBatchParameterMetaData.add(databricksParameterMetaData);
+    this.databricksParameterMetaData = new DatabricksParameterMetaData();
+  }
+
+  @Override
+  public void clearBatch() throws DatabricksSQLException {
+    LoggingUtil.log(LogLevel.DEBUG, "public void clearBatch()");
+    checkIfClosed();
+    this.databricksParameterMetaData = new DatabricksParameterMetaData();
+    this.databricksBatchParameterMetaData = new ArrayList<>();
   }
 
   @Override

@@ -6,6 +6,8 @@ import static com.databricks.jdbc.driver.DatabricksJdbcConstants.ALLOWED_VOLUME_
 import com.databricks.jdbc.client.IDatabricksHttpClient;
 import com.databricks.jdbc.client.http.DatabricksHttpClient;
 import com.databricks.jdbc.client.sqlexec.ResultManifest;
+import com.databricks.jdbc.commons.ErrorTypes;
+import com.databricks.jdbc.commons.util.ErrorCodes;
 import com.databricks.jdbc.core.VolumeOperationExecutor.VolumeOperationStatus;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -19,6 +21,8 @@ class VolumeOperationResult implements IExecutionResult {
   private final IDatabricksSession session;
   private final String statementId;
   private final IExecutionResult resultHandler;
+  private final IDatabricksResultSet resultSet;
+  private final IDatabricksStatement statement;
   private final IDatabricksHttpClient httpClient;
   private final long rowCount;
   private final long columnCount;
@@ -31,12 +35,16 @@ class VolumeOperationResult implements IExecutionResult {
       long totalRows,
       long totalColumns,
       IDatabricksSession session,
-      IExecutionResult resultHandler) {
+      IExecutionResult resultHandler,
+      IDatabricksStatement statement,
+      IDatabricksResultSet resultSet) {
     this.statementId = statementId;
     this.rowCount = totalRows;
     this.columnCount = totalColumns;
     this.session = session;
     this.resultHandler = resultHandler;
+    this.statement = statement;
+    this.resultSet = resultSet;
     this.httpClient = DatabricksHttpClient.getInstance(session.getConnectionContext());
     this.currentRowIndex = -1;
   }
@@ -47,12 +55,16 @@ class VolumeOperationResult implements IExecutionResult {
       ResultManifest manifest,
       IDatabricksSession session,
       IExecutionResult resultHandler,
-      IDatabricksHttpClient httpClient) {
+      IDatabricksHttpClient httpClient,
+      IDatabricksStatement statement,
+      IDatabricksResultSet resultSet) {
     this.statementId = statementId;
     this.rowCount = manifest.getTotalRowCount();
     this.columnCount = manifest.getSchema().getColumnCount();
     this.session = session;
     this.resultHandler = resultHandler;
+    this.statement = statement;
+    this.resultSet = resultSet;
     this.httpClient = httpClient;
     this.currentRowIndex = -1;
   }
@@ -71,7 +83,9 @@ class VolumeOperationResult implements IExecutionResult {
             session
                 .getClientInfoProperties()
                 .getOrDefault(ALLOWED_VOLUME_INGESTION_PATHS.toLowerCase(), ""),
-            httpClient);
+            httpClient,
+            statement,
+            resultSet);
     Thread thread = new Thread(volumeOperationExecutor);
     thread.setName("VolumeOperationExecutor " + statementId);
     thread.start();
@@ -93,7 +107,13 @@ class VolumeOperationResult implements IExecutionResult {
         try {
           return objectMapper.readValue(headers, Map.class);
         } catch (JsonProcessingException e) {
-          throw new DatabricksSQLException("Failed to parse headers", e);
+          throw new DatabricksSQLException(
+              "Failed to parse headers",
+              e,
+              session.getConnectionContext(),
+              ErrorTypes.VOLUME_OPERATION_ERROR,
+              statementId,
+              ErrorCodes.VOLUME_OPERATION_PARSING_ERROR);
         }
       }
     }

@@ -2,6 +2,7 @@ package com.databricks.jdbc.core;
 
 import java.sql.SQLException;
 import java.sql.Statement;
+import org.apache.http.entity.InputStreamEntity;
 
 /** Interface for Databricks specific statement. */
 public interface IDatabricksStatement {
@@ -20,4 +21,12 @@ public interface IDatabricksStatement {
   String getStatementId();
 
   Statement getStatement();
+
+  void allowInputStreamForVolumeOperation(boolean allowedInputStream) throws DatabricksSQLException;
+
+  boolean isAllowedInputStreamForVolumeOperation() throws DatabricksSQLException;
+
+  void setInputStreamForUCVolume(InputStreamEntity inputStream) throws DatabricksSQLException;
+
+  InputStreamEntity getInputStreamForUCVolume() throws DatabricksSQLException;
 }

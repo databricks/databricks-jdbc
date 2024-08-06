@@ -1,11 +1,12 @@
 package com.databricks.jdbc.commons.util;
 
 import com.databricks.jdbc.commons.LogLevel;
+import com.databricks.jdbc.driver.IDatabricksConnectionContext;
 import java.nio.charset.Charset;
 
 public class DeviceInfoLogUtil {
 
-  public static void logProperties() {
+  public static void logProperties(IDatabricksConnectionContext context) {
     String jvmName = System.getProperty("java.vm.name");
     String jvmSpecVersion = System.getProperty("java.specification.version");
     String jvmImplVersion = System.getProperty("java.version");
@@ -16,17 +17,31 @@ public class DeviceInfoLogUtil {
     String localeName =
         System.getProperty("user.language") + "_" + System.getProperty("user.country");
     String charsetEncoding = Charset.defaultCharset().displayName();
-    LoggingUtil.log(LogLevel.DEBUG, String.format("JVM Name: {%s}", jvmName));
+
     LoggingUtil.log(
-        LogLevel.DEBUG, String.format("JVM Specification Version: {%s}", jvmSpecVersion));
+        LogLevel.INFO, String.format("JDBC Driver Version: %s", DriverUtil.getVersion()));
     LoggingUtil.log(
-        LogLevel.DEBUG, String.format("JVM Implementation Version: {%s}", jvmImplVersion));
-    LoggingUtil.log(LogLevel.DEBUG, String.format("JVM Vendor: {%s}", jvmVendor));
-    LoggingUtil.log(LogLevel.DEBUG, String.format("Operating System Name: {%s}", osName));
-    LoggingUtil.log(LogLevel.DEBUG, String.format("Operating System Version: {%s}", osVersion));
-    LoggingUtil.log(LogLevel.DEBUG, String.format("Operating System Architecture: {%s}", osArch));
-    LoggingUtil.log(LogLevel.DEBUG, String.format("Locale Name: {%s}", localeName));
+        LogLevel.INFO,
+        String.format(
+            "JVM Name: %s, Vendor: %s, Specification Version: %s, Version: %s",
+            jvmName, jvmVendor, jvmSpecVersion, jvmImplVersion));
     LoggingUtil.log(
-        LogLevel.DEBUG, String.format("Default Charset Encoding: {%s}", charsetEncoding));
+        LogLevel.INFO,
+        String.format(
+            "Operating System Name: %s, Version: %s, Architecture: %s, Locale: ",
+            osName, osVersion, osArch, localeName));
+    LoggingUtil.log(LogLevel.INFO, String.format("Default Charset Encoding: %s", charsetEncoding));
+    context
+        .getMetricsExporter()
+        .exportUsageMetrics(
+            jvmName,
+            jvmSpecVersion,
+            jvmImplVersion,
+            jvmVendor,
+            osName,
+            osVersion,
+            osArch,
+            localeName,
+            charsetEncoding);
   }
 }

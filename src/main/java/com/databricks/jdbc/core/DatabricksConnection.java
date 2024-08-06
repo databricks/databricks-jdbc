@@ -1,10 +1,12 @@
 package com.databricks.jdbc.core;
 
+import com.databricks.client.jdbc.Driver;
 import com.databricks.jdbc.client.DatabricksClient;
+import com.databricks.jdbc.client.IDatabricksUCVolumeClient;
+import com.databricks.jdbc.client.impl.sdk.DatabricksUCVolumeClient;
 import com.databricks.jdbc.commons.LogLevel;
 import com.databricks.jdbc.commons.util.LoggingUtil;
 import com.databricks.jdbc.commons.util.ValidationUtil;
-import com.databricks.jdbc.driver.DatabricksDriver;
 import com.databricks.jdbc.driver.DatabricksJdbcConstants;
 import com.databricks.jdbc.driver.IDatabricksConnectionContext;
 import com.google.common.annotations.VisibleForTesting;
@@ -22,6 +24,8 @@ public class DatabricksConnection implements IDatabricksConnection, Connection {
   private IDatabricksSession session;
   private final Set<IDatabricksStatement> statementSet = ConcurrentHashMap.newKeySet();
   private SQLWarning warnings = null;
+
+  private IDatabricksUCVolumeClient ucVolumeClient = null;
 
   /**
    * Creates an instance of Databricks connection for given connection context.
@@ -44,7 +48,7 @@ public class DatabricksConnection implements IDatabricksConnection, Connection {
       throws DatabricksSQLException {
     this.session = new DatabricksSession(connectionContext, databricksClient);
     this.session.open();
-    DatabricksDriver.setUserAgent(connectionContext);
+    Driver.setUserAgent(connectionContext);
   }
 
   @Override
@@ -61,7 +65,7 @@ public class DatabricksConnection implements IDatabricksConnection, Connection {
   }
 
   @Override
-  public PreparedStatement prepareStatement(String sql) throws SQLException {
+  public PreparedStatement prepareStatement(String sql) {
     LoggingUtil.log(
         LogLevel.DEBUG,
         String.format("public PreparedStatement prepareStatement(String sql = {%s})", sql));
@@ -561,6 +565,14 @@ public class DatabricksConnection implements IDatabricksConnection, Connection {
   @Override
   public Connection getConnection() {
     return this;
+  }
+
+  @Override
+  public IDatabricksUCVolumeClient getUCVolumeClient() {
+    if (ucVolumeClient == null) {
+      ucVolumeClient = new DatabricksUCVolumeClient(this);
+    }
+    return ucVolumeClient;
   }
 
   private void throwExceptionIfConnectionIsClosed() throws SQLException {

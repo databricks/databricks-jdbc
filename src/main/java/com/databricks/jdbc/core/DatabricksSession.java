@@ -12,6 +12,7 @@ import com.databricks.jdbc.commons.util.LoggingUtil;
 import com.databricks.jdbc.core.types.CompressionType;
 import com.databricks.jdbc.core.types.ComputeResource;
 import com.databricks.jdbc.driver.IDatabricksConnectionContext;
+import com.databricks.jdbc.telemetry.annotation.DatabricksMetricsTimedProcessor;
 import com.databricks.sdk.support.ToStringer;
 import com.google.common.annotations.VisibleForTesting;
 import java.util.HashMap;
@@ -20,7 +21,10 @@ import javax.annotation.Nullable;
 
 /** Implementation for Session interface, which maintains an underlying session in SQL Gateway. */
 public class DatabricksSession implements IDatabricksSession {
-  private final DatabricksClient databricksClient;
+  private DatabricksClient databricksClient;
+
+  private DatabricksMetadataClient databricksMetadataSdkClient;
+  private DatabricksMetadataClient databricksNewMetadataSdkClient;
   private DatabricksMetadataClient databricksMetadataClient;
   private final ComputeResource computeResource;
 
@@ -46,12 +50,20 @@ public class DatabricksSession implements IDatabricksSession {
    */
   public DatabricksSession(IDatabricksConnectionContext connectionContext)
       throws DatabricksSQLException {
+    System.out.println(connectionContext.getClientType());
     if (connectionContext.getClientType() == DatabricksClientType.THRIFT) {
       this.databricksClient = new DatabricksThriftServiceClient(connectionContext);
       this.databricksMetadataClient = null;
     } else {
       this.databricksClient = new DatabricksSdkClient(connectionContext);
+      this.databricksMetadataSdkClient =
+          new DatabricksMetadataSdkClient((DatabricksSdkClient) databricksClient);
+      this.databricksNewMetadataSdkClient =
+          new DatabricksNewMetadataSdkClient((DatabricksSdkClient) databricksClient);
     }
+
+    this.databricksClient = DatabricksMetricsTimedProcessor.createProxy(this.databricksClient);
+
     this.isSessionOpen = false;
     this.sessionInfo = null;
     this.computeResource = connectionContext.getComputeResource();
@@ -70,8 +82,8 @@ public class DatabricksSession implements IDatabricksSession {
     }
     this.databricksMetadataClient =
         useLegacyMetadataClient
-            ? new DatabricksMetadataSdkClient((DatabricksSdkClient) databricksClient)
-            : new DatabricksNewMetadataSdkClient((DatabricksSdkClient) databricksClient);
+            ? this.databricksMetadataSdkClient
+            : this.databricksNewMetadataSdkClient;
   }
 
   /** Constructor method to be used for mocking in a test case. */
@@ -155,7 +167,9 @@ public class DatabricksSession implements IDatabricksSession {
         databricksClient.deleteSession(this, computeResource);
         this.sessionInfo = null;
         this.isSessionOpen = false;
-        this.connectionContext.getMetricsExporter().close();
+        if (!connectionContext.isFakeServiceTest()) {
+          this.connectionContext.getMetricsExporter().close();
+        }
       }
     }
   }

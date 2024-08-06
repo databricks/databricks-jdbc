@@ -4,9 +4,10 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.databricks.jdbc.core.DatabricksSQLException;
-import java.nio.charset.StandardCharsets;
+import java.nio.ByteBuffer;
 import java.sql.Timestamp;
 import java.time.LocalDateTime;
+import java.util.Base64;
 import org.junit.jupiter.api.Test;
 
 class ByteArrayConverterTest {
@@ -14,14 +15,13 @@ class ByteArrayConverterTest {
   void testConvertToByteArrayFromString() throws DatabricksSQLException {
     String testString = "Test";
     ByteArrayConverter converter = new ByteArrayConverter(testString);
-    assertArrayEquals(testString.getBytes(StandardCharsets.UTF_8), converter.convertToByteArray());
+    assertArrayEquals(Base64.getDecoder().decode(testString), converter.convertToByteArray());
   }
 
   @Test
   void testConvertToString() throws DatabricksSQLException {
     String testString = "Test";
-    ByteArrayConverter converter =
-        new ByteArrayConverter(testString.getBytes(StandardCharsets.UTF_8));
+    ByteArrayConverter converter = new ByteArrayConverter(testString);
     assertEquals(testString, converter.convertToString());
   }
 
@@ -39,6 +39,14 @@ class ByteArrayConverterTest {
     assertEquals(5, converter.convertToByte());
     assertThrows(
         DatabricksSQLException.class, () -> new ByteArrayConverter(new byte[] {}).convertToByte());
+  }
+
+  @Test
+  public void testByteArrayConverterWithHeapByteBuffer() throws DatabricksSQLException {
+    byte[] byteArray = {5, 6, 7, 8};
+    ByteBuffer buffer = ByteBuffer.wrap(byteArray);
+    ByteArrayConverter converter = new ByteArrayConverter(buffer);
+    assertArrayEquals(byteArray, converter.convertToByteArray());
   }
 
   @Test
@@ -100,5 +108,12 @@ class ByteArrayConverterTest {
                 DatabricksSQLException.class,
                 converter::convertToBigDecimal,
                 "BigDecimal conversion should throw exception"));
+  }
+
+  @Test
+  public void testConvertToBigInteger() {
+    assertThrows(
+        DatabricksSQLException.class,
+        () -> new ByteArrayConverter(new byte[] {}).convertToBigInteger());
   }
 }

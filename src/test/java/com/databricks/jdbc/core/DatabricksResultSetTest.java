@@ -1,6 +1,8 @@
 package com.databricks.jdbc.core;
 
+import static com.databricks.jdbc.core.DatabricksResultSet.AFFECTED_ROWS_COUNT;
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import com.databricks.jdbc.client.StatementType;
@@ -14,6 +16,7 @@ import java.util.Calendar;
 import java.util.Collections;
 import java.util.GregorianCalendar;
 import java.util.TimeZone;
+import org.apache.http.HttpEntity;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -199,7 +202,6 @@ public class DatabricksResultSetTest {
   void testGetUnicode() throws SQLException, UnsupportedEncodingException {
     DatabricksResultSet resultSet = getResultSet(StatementState.SUCCEEDED, null);
     String testString = "test";
-    InputStream expectedStream = new java.io.ByteArrayInputStream(testString.getBytes("UTF-16"));
     when(mockedExecutionResult.getObject(0)).thenReturn(testString);
     when(mockedResultSetMetadata.getColumnType(1)).thenReturn(Types.VARCHAR);
     assertNotNull(resultSet.getUnicodeStream(1));
@@ -706,5 +708,81 @@ public class DatabricksResultSetTest {
     assertFalse(resultSet.isClosed());
     resultSet.close();
     assertTrue(resultSet.isClosed());
+  }
+
+  @Test
+  void testVolumeOperationInputStream() throws Exception {
+    DatabricksResultSet resultSet =
+        getResultSet(StatementState.SUCCEEDED, mockedDatabricksStatement);
+    HttpEntity mockEntity = mock(HttpEntity.class);
+    when(mockEntity.getContentLength()).thenReturn(10L);
+    resultSet.setVolumeOperationEntityStream(mockEntity);
+    assertNotNull(resultSet.getVolumeOperationInputStream());
+    assertEquals(10L, resultSet.getVolumeOperationInputStream().getContentLength());
+  }
+
+  @Test
+  void testGetUpdateCountForMetadataStatement() throws SQLException {
+    DatabricksResultSet resultSet = getResultSet(StatementState.SUCCEEDED, null);
+    assertEquals(0, resultSet.getUpdateCount());
+  }
+
+  @Test
+  void testGetUpdateCountForQueryStatement() throws SQLException {
+    DatabricksResultSet resultSet =
+        new DatabricksResultSet(
+            new StatementStatus().setState(StatementState.SUCCEEDED),
+            "test-statementID",
+            StatementType.QUERY,
+            null,
+            mockedExecutionResult,
+            mockedResultSetMetadata);
+
+    assertEquals(0, resultSet.getUpdateCount());
+  }
+
+  @Test
+  void testGetUpdateCountForUpdateStatement() throws SQLException {
+    when(mockedResultSetMetadata.getColumnType(1)).thenReturn(Types.BIGINT);
+    when(mockedResultSetMetadata.getColumnNameIndex(AFFECTED_ROWS_COUNT)).thenReturn(1);
+    when(mockedExecutionResult.next()).thenReturn(true).thenReturn(false);
+    when(mockedExecutionResult.getObject(0)).thenReturn(5L);
+
+    DatabricksResultSet resultSet =
+        new DatabricksResultSet(
+            new StatementStatus().setState(StatementState.SUCCEEDED),
+            "test-statementID",
+            StatementType.UPDATE,
+            null,
+            mockedExecutionResult,
+            mockedResultSetMetadata);
+
+    assertEquals(5L, resultSet.getUpdateCount());
+  }
+
+  @Test
+  void testGetUpdateCountForUpdateStatementMultipleRows() throws SQLException {
+    when(mockedResultSetMetadata.getColumnType(1)).thenReturn(Types.BIGINT);
+    when(mockedResultSetMetadata.getColumnNameIndex("num_affected_rows")).thenReturn(1);
+    when(mockedExecutionResult.next()).thenReturn(true).thenReturn(true).thenReturn(false);
+    when(mockedExecutionResult.getObject(0)).thenReturn(3L).thenReturn(2L);
+
+    DatabricksResultSet resultSet =
+        new DatabricksResultSet(
+            new StatementStatus().setState(StatementState.SUCCEEDED),
+            "test-statementID",
+            StatementType.UPDATE,
+            null,
+            mockedExecutionResult,
+            mockedResultSetMetadata);
+
+    assertEquals(5L, resultSet.getUpdateCount());
+  }
+
+  @Test
+  void testGetUpdateCountForClosedResultSet() throws SQLException {
+    DatabricksResultSet resultSet = getResultSet(StatementState.SUCCEEDED, null);
+    resultSet.close();
+    assertThrows(DatabricksSQLException.class, resultSet::getUpdateCount);
   }
 }

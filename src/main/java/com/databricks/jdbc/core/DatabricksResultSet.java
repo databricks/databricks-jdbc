@@ -17,6 +17,7 @@ import com.databricks.jdbc.core.converters.*;
 import com.databricks.sdk.service.sql.StatementState;
 import com.databricks.sdk.service.sql.StatementStatus;
 import com.google.common.annotations.VisibleForTesting;
+import java.io.IOException;
 import java.io.InputStream;
 import java.io.Reader;
 import java.math.BigDecimal;
@@ -25,9 +26,11 @@ import java.sql.*;
 import java.util.Calendar;
 import java.util.List;
 import java.util.Map;
+import org.apache.http.HttpEntity;
+import org.apache.http.entity.InputStreamEntity;
 
 public class DatabricksResultSet implements ResultSet, IDatabricksResultSet {
-  private static final String AFFECTED_ROWS_COUNT = "num_affected_rows";
+  protected static final String AFFECTED_ROWS_COUNT = "num_affected_rows";
   private final StatementStatus statementStatus;
   private final String statementId;
   private final IExecutionResult executionResult;
@@ -38,6 +41,8 @@ public class DatabricksResultSet implements ResultSet, IDatabricksResultSet {
   private boolean isClosed;
   private SQLWarning warnings = null;
   private boolean wasNull;
+  private VolumeInputStream volumeInputStream = null;
+  private long volumeStreamContentLength = -1L;
 
   public DatabricksResultSet(
       StatementStatus statementStatus,
@@ -50,7 +55,8 @@ public class DatabricksResultSet implements ResultSet, IDatabricksResultSet {
     this.statementStatus = statementStatus;
     this.statementId = statementId;
     this.executionResult =
-        ExecutionResultFactory.getResultSet(resultData, resultManifest, statementId, session);
+        ExecutionResultFactory.getResultSet(
+            resultData, resultManifest, statementId, session, parentStatement, this);
     this.resultSetMetaData = new DatabricksResultSetMetaData(statementId, resultManifest);
     this.statementType = statementType;
     this.updateCount = null;
@@ -94,7 +100,8 @@ public class DatabricksResultSet implements ResultSet, IDatabricksResultSet {
     }
     this.statementId = statementId;
     this.executionResult =
-        ExecutionResultFactory.getResultSet(resultData, resultManifest, statementId, session);
+        ExecutionResultFactory.getResultSet(
+            resultData, resultManifest, statementId, session, parentStatement, this);
     long rowSize = getRowCount(resultData);
     this.resultSetMetaData =
         new DatabricksResultSetMetaData(
@@ -477,7 +484,12 @@ public class DatabricksResultSet implements ResultSet, IDatabricksResultSet {
   @Override
   public Object getObject(int columnIndex) throws SQLException {
     checkIfClosed();
-    return getObjectInternal(columnIndex);
+    Object obj = getObjectInternal(columnIndex);
+    if (obj == null) {
+      return null;
+    }
+    int columnType = resultSetMetaData.getColumnType(columnIndex);
+    return getConvertedObject(columnType, obj);
   }
 
   @Override
@@ -1607,6 +1619,21 @@ public class DatabricksResultSet implements ResultSet, IDatabricksResultSet {
     }
     return this.resultSetMetaData.getColumnNameIndex(AFFECTED_ROWS_COUNT) > -1
         && this.resultSetMetaData.getTotalRows() == 1;
+  }
+
+  @Override
+  public void setVolumeOperationEntityStream(HttpEntity httpEntity)
+      throws SQLException, IOException {
+    checkIfClosed();
+    this.volumeInputStream =
+        new VolumeInputStream(httpEntity, executionResult, this.parentStatement);
+    this.volumeStreamContentLength = httpEntity.getContentLength();
+  }
+
+  @Override
+  public InputStreamEntity getVolumeOperationInputStream() throws SQLException {
+    checkIfClosed();
+    return new InputStreamEntity(this.volumeInputStream, this.volumeStreamContentLength);
   }
 
   private Object getObjectInternal(int columnIndex) throws SQLException {

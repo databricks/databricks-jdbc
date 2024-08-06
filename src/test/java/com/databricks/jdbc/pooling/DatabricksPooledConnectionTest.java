@@ -5,6 +5,8 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 
+import com.databricks.client.jdbc.DataSource;
+import com.databricks.client.jdbc.Driver;
 import com.databricks.jdbc.client.impl.sdk.DatabricksSdkClient;
 import com.databricks.jdbc.core.DatabricksConnection;
 import com.databricks.jdbc.core.DatabricksSQLException;
@@ -45,8 +47,7 @@ public class DatabricksPooledConnectionTest {
 
   @Test
   public void testPooledConnection() throws SQLException {
-    DatabricksConnectionPoolDataSource poolDataSource =
-        Mockito.mock(DatabricksConnectionPoolDataSource.class);
+    DataSource poolDataSource = Mockito.mock(DataSource.class);
     ImmutableSessionInfo session =
         ImmutableSessionInfo.builder().computeResource(warehouse).sessionId(SESSION_ID).build();
     when(databricksClient.createSession(eq(new Warehouse(WAREHOUSE_ID)), any(), any(), any()))
@@ -89,8 +90,7 @@ public class DatabricksPooledConnectionTest {
 
   @Test
   public void testPooledConnectionInvoke() throws SQLException {
-    DatabricksConnectionPoolDataSource poolDataSource =
-        Mockito.mock(DatabricksConnectionPoolDataSource.class);
+    DataSource poolDataSource = Mockito.mock(DataSource.class);
     ImmutableSessionInfo session =
         ImmutableSessionInfo.builder().computeResource(warehouse).sessionId(SESSION_ID).build();
     when(databricksClient.createSession(eq(new Warehouse(WAREHOUSE_ID)), any(), any(), any()))
@@ -118,8 +118,7 @@ public class DatabricksPooledConnectionTest {
 
   @Test
   public void testPooledConnectionReuse() throws SQLException {
-    DatabricksConnectionPoolDataSource poolDataSource =
-        Mockito.mock(DatabricksConnectionPoolDataSource.class);
+    DataSource poolDataSource = Mockito.mock(DataSource.class);
     ImmutableSessionInfo session =
         ImmutableSessionInfo.builder().computeResource(warehouse).sessionId(SESSION_ID).build();
     when(databricksClient.createSession(eq(new Warehouse(WAREHOUSE_ID)), any(), any(), any()))
@@ -131,7 +130,7 @@ public class DatabricksPooledConnectionTest {
         .thenReturn(new DatabricksPooledConnection(databricksConnection));
 
     // Get a pooled connection
-    DriverManager.registerDriver(new com.databricks.jdbc.driver.DatabricksDriver());
+    DriverManager.registerDriver(new Driver());
     DatabricksPooledConnection pooledConnection =
         (DatabricksPooledConnection) poolDataSource.getPooledConnection();
     TestListener listener = new TestListener();
@@ -152,8 +151,7 @@ public class DatabricksPooledConnectionTest {
 
   @Test
   public void testPooledConnectionStatement() throws SQLException {
-    DatabricksConnectionPoolDataSource poolDataSource =
-        Mockito.mock(DatabricksConnectionPoolDataSource.class);
+    DataSource poolDataSource = Mockito.mock(DataSource.class);
     ImmutableSessionInfo session =
         ImmutableSessionInfo.builder().computeResource(warehouse).sessionId(SESSION_ID).build();
     when(databricksClient.createSession(eq(new Warehouse(WAREHOUSE_ID)), any(), any(), any()))
@@ -164,7 +162,7 @@ public class DatabricksPooledConnectionTest {
         .thenReturn(new DatabricksPooledConnection(databricksConnection));
 
     // Get a pooled connection
-    DriverManager.registerDriver(new com.databricks.jdbc.driver.DatabricksDriver());
+    DriverManager.registerDriver(new Driver());
     DatabricksPooledConnection pooledConnection =
         (DatabricksPooledConnection) poolDataSource.getPooledConnection();
     Connection connection = pooledConnection.getConnection();
@@ -178,8 +176,7 @@ public class DatabricksPooledConnectionTest {
 
   @Test
   public void testPooledConnectionStatementInvoke() throws SQLException {
-    DatabricksConnectionPoolDataSource poolDataSource =
-        Mockito.mock(DatabricksConnectionPoolDataSource.class);
+    DataSource poolDataSource = Mockito.mock(DataSource.class);
     ImmutableSessionInfo session =
         ImmutableSessionInfo.builder().computeResource(warehouse).sessionId(SESSION_ID).build();
     when(databricksClient.createSession(eq(new Warehouse(WAREHOUSE_ID)), any(), any(), any()))
@@ -190,7 +187,7 @@ public class DatabricksPooledConnectionTest {
         .thenReturn(new DatabricksPooledConnection(databricksConnection));
 
     // Get a pooled connection
-    DriverManager.registerDriver(new com.databricks.jdbc.driver.DatabricksDriver());
+    DriverManager.registerDriver(new Driver());
     DatabricksPooledConnection pooledConnection =
         (DatabricksPooledConnection) poolDataSource.getPooledConnection();
     Connection connection = pooledConnection.getConnection();

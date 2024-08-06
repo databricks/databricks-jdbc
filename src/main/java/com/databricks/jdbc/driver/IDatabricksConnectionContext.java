@@ -3,7 +3,6 @@ package com.databricks.jdbc.driver;
 import com.databricks.jdbc.client.DatabricksClientType;
 import com.databricks.jdbc.commons.LogLevel;
 import com.databricks.jdbc.core.DatabricksParsingException;
-import com.databricks.jdbc.core.DatabricksSQLException;
 import com.databricks.jdbc.core.types.CompressionType;
 import com.databricks.jdbc.core.types.ComputeResource;
 import com.databricks.jdbc.telemetry.DatabricksMetrics;
@@ -50,7 +49,7 @@ public interface IDatabricksConnectionContext {
    *
    * @return warehouse-Id
    */
-  ComputeResource getComputeResource() throws DatabricksSQLException;
+  ComputeResource getComputeResource();
 
   /**
    * Returns the auth token (personal access token/OAuth token etc)
@@ -147,4 +146,10 @@ public interface IDatabricksConnectionContext {
   int getIdleHttpConnectionExpiry();
 
   boolean supportManyParameters();
+
+  boolean isFakeServiceTest();
+
+  boolean enableTelemetry();
+
+  String getConnectionURL();
 }

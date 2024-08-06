@@ -6,15 +6,15 @@ import static java.lang.String.format;
 
 import com.databricks.jdbc.client.DatabricksClient;
 import com.databricks.jdbc.client.StatementType;
+import com.databricks.jdbc.commons.ErrorTypes;
 import com.databricks.jdbc.commons.LogLevel;
-import com.databricks.jdbc.commons.util.LoggingUtil;
-import com.databricks.jdbc.commons.util.StringUtil;
-import com.databricks.jdbc.commons.util.ValidationUtil;
-import com.databricks.jdbc.commons.util.WarningUtil;
+import com.databricks.jdbc.commons.util.*;
+import com.google.common.annotations.VisibleForTesting;
 import java.sql.*;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.*;
+import org.apache.http.entity.InputStreamEntity;
 
 public class DatabricksStatement implements IDatabricksStatement, Statement {
 
@@ -27,6 +27,8 @@ public class DatabricksStatement implements IDatabricksStatement, Statement {
   private SQLWarning warnings = null;
   private int maxRows = DEFAULT_ROW_LIMIT;
   private boolean escapeProcessing = DEFAULT_ESCAPE_PROCESSING;
+  private InputStreamEntity inputStream = null;
+  private boolean allowInputStreamForUCVolume = false;
 
   public DatabricksStatement(DatabricksConnection connection) {
     this.connection = connection;
@@ -49,11 +51,17 @@ public class DatabricksStatement implements IDatabricksStatement, Statement {
     ResultSet rs =
         executeInternal(sql, new HashMap<Integer, ImmutableSqlParameter>(), StatementType.QUERY);
     if (!shouldReturnResultSet(sql)) {
-      throw new DatabricksSQLException(
+      String errorMessage =
           "A ResultSet was expected but not generated from query: "
               + sql
               + ". However, query "
-              + "execution was successful.");
+              + "execution was successful.";
+      throw new DatabricksSQLException(
+          errorMessage,
+          connection.getSession().getConnectionContext(),
+          ErrorTypes.EXECUTE_STATEMENT,
+          statementId,
+          ErrorCodes.RESULT_SET_ERROR);
     }
     return rs;
   }
@@ -95,7 +103,10 @@ public class DatabricksStatement implements IDatabricksStatement, Statement {
   public int getMaxFieldSize() throws SQLException {
     LoggingUtil.log(LogLevel.DEBUG, "public int getMaxFieldSize()");
     throw new DatabricksSQLFeatureNotSupportedException(
-        "Not implemented in DatabricksStatement - getMaxFieldSize()");
+        "Not implemented in DatabricksStatement - getMaxFieldSize()",
+        connection.getSession().getConnectionContext(),
+        statementId,
+        ErrorCodes.MAX_FIELD_SIZE_EXCEEDED);
   }
 
   @Override
@@ -103,7 +114,10 @@ public class DatabricksStatement implements IDatabricksStatement, Statement {
     LoggingUtil.log(
         LogLevel.DEBUG, String.format("public void setMaxFieldSize(int max = {%s})", max));
     throw new DatabricksSQLFeatureNotSupportedException(
-        "Not implemented in DatabricksStatement - setMaxFieldSize(int max)");
+        "Not implemented in DatabricksStatement - setMaxFieldSize(int max)",
+        connection.getSession().getConnectionContext(),
+        statementId,
+        ErrorCodes.MAX_FIELD_SIZE_EXCEEDED);
   }
 
   @Override
@@ -159,13 +173,13 @@ public class DatabricksStatement implements IDatabricksStatement, Statement {
   }
 
   @Override
-  public SQLWarning getWarnings() throws SQLException {
+  public SQLWarning getWarnings() {
     LoggingUtil.log(LogLevel.DEBUG, "public SQLWarning getWarnings()");
     return warnings;
   }
 
   @Override
-  public void clearWarnings() throws SQLException {
+  public void clearWarnings() {
     LoggingUtil.log(LogLevel.DEBUG, "public void clearWarnings()");
     warnings = null;
   }
@@ -175,7 +189,10 @@ public class DatabricksStatement implements IDatabricksStatement, Statement {
     LoggingUtil.log(
         LogLevel.DEBUG, String.format("public void setCursorName(String name = {%s})", name));
     throw new DatabricksSQLFeatureNotSupportedException(
-        "Not implemented in DatabricksStatement - setCursorName(String name)");
+        "Not implemented in DatabricksStatement - setCursorName(String name)",
+        connection.getSession().getConnectionContext(),
+        statementId,
+        ErrorCodes.CURSOR_NAME_NOT_FOUND);
   }
 
   @Override
@@ -204,7 +221,10 @@ public class DatabricksStatement implements IDatabricksStatement, Statement {
   public boolean getMoreResults() throws SQLException {
     LoggingUtil.log(LogLevel.DEBUG, "public boolean getMoreResults()");
     throw new DatabricksSQLFeatureNotSupportedException(
-        "Not implemented in DatabricksStatement - getMoreResults()");
+        "Not implemented in DatabricksStatement - getMoreResults()",
+        connection.getSession().getConnectionContext(),
+        statementId,
+        ErrorCodes.MORE_RESULTS_UNSUPPORTED);
   }
 
   @Override
@@ -214,7 +234,11 @@ public class DatabricksStatement implements IDatabricksStatement, Statement {
         String.format("public void setFetchDirection(int direction = {%s})", direction));
     checkIfClosed();
     if (direction != ResultSet.FETCH_FORWARD) {
-      throw new DatabricksSQLFeatureNotSupportedException("Not supported");
+      throw new DatabricksSQLFeatureNotSupportedException(
+          "Not supported",
+          connection.getSession().getConnectionContext(),
+          statementId,
+          ErrorCodes.UNSUPPORTED_FETCH_FORWARD);
     }
   }
 
@@ -226,7 +250,7 @@ public class DatabricksStatement implements IDatabricksStatement, Statement {
   }
 
   @Override
-  public void setFetchSize(int rows) throws SQLException {
+  public void setFetchSize(int rows) {
     /* As we fetch chunks of data together,
     setting fetchSize is an overkill.
     Hence, we don't support it.*/
@@ -239,7 +263,7 @@ public class DatabricksStatement implements IDatabricksStatement, Statement {
   }
 
   @Override
-  public int getFetchSize() throws SQLException {
+  public int getFetchSize() {
     LoggingUtil.log(LogLevel.DEBUG, "public int getFetchSize()");
     String warningString =
         "As FetchSize is not supported in the Databricks JDBC, we don't set it in the first place";
@@ -268,21 +292,35 @@ public class DatabricksStatement implements IDatabricksStatement, Statement {
     LoggingUtil.log(LogLevel.DEBUG, String.format("public void addBatch(String sql = {%s})", sql));
     checkIfClosed();
     throw new DatabricksSQLFeatureNotSupportedException(
-        "Method not supported", "addBatch(String sql)");
+        "Method not supported",
+        "addBatch(String sql)",
+        connection.getSession().getConnectionContext(),
+        statementId,
+        ErrorCodes.BATCH_OPERATION_UNSUPPORTED);
   }
 
   @Override
   public void clearBatch() throws SQLException {
     LoggingUtil.log(LogLevel.DEBUG, "public void clearBatch()");
     checkIfClosed();
-    throw new DatabricksSQLFeatureNotSupportedException("Method not supported", "clearBatch()");
+    throw new DatabricksSQLFeatureNotSupportedException(
+        "Method not supported",
+        "clearBatch()",
+        connection.getSession().getConnectionContext(),
+        statementId,
+        ErrorCodes.BATCH_OPERATION_UNSUPPORTED);
   }
 
   @Override
   public int[] executeBatch() throws SQLException {
     LoggingUtil.log(LogLevel.DEBUG, "public int[] executeBatch()");
     checkIfClosed();
-    throw new DatabricksSQLFeatureNotSupportedException("Method not supported", "executeBatch()");
+    throw new DatabricksSQLFeatureNotSupportedException(
+        "Method not supported",
+        "executeBatch()",
+        connection.getSession().getConnectionContext(),
+        statementId,
+        ErrorCodes.BATCH_OPERATION_UNSUPPORTED);
   }
 
   @Override
@@ -297,7 +335,10 @@ public class DatabricksStatement implements IDatabricksStatement, Statement {
         LogLevel.DEBUG,
         String.format("public boolean getMoreResults(int current = {%s})", current));
     throw new DatabricksSQLFeatureNotSupportedException(
-        "Not implemented in DatabricksStatement - getMoreResults(int current)");
+        "Not implemented in DatabricksStatement - getMoreResults(int current)",
+        connection.getSession().getConnectionContext(),
+        statementId,
+        ErrorCodes.MORE_RESULTS_UNSUPPORTED);
   }
 
   @Override
@@ -314,7 +355,11 @@ public class DatabricksStatement implements IDatabricksStatement, Statement {
       return executeUpdate(sql);
     } else {
       throw new DatabricksSQLFeatureNotSupportedException(
-          "Method not supported", "executeUpdate(String sql, int autoGeneratedKeys)");
+          "Method not supported",
+          "executeUpdate(String sql, int autoGeneratedKeys)",
+          connection.getSession().getConnectionContext(),
+          statementId,
+          ErrorCodes.EXECUTE_METHOD_UNSUPPORTED);
     }
   }
 
@@ -322,7 +367,11 @@ public class DatabricksStatement implements IDatabricksStatement, Statement {
   public int executeUpdate(String sql, int[] columnIndexes) throws SQLException {
     checkIfClosed();
     throw new DatabricksSQLFeatureNotSupportedException(
-        "Method not supported", "executeUpdate(String sql, int[] columnIndexes)");
+        "Method not supported",
+        "executeUpdate(String sql, int[] columnIndexes)",
+        connection.getSession().getConnectionContext(),
+        statementId,
+        ErrorCodes.EXECUTE_METHOD_UNSUPPORTED);
   }
 
   @Override
@@ -330,7 +379,11 @@ public class DatabricksStatement implements IDatabricksStatement, Statement {
     LoggingUtil.log(LogLevel.DEBUG, "public int executeUpdate(String sql, String[] columnNames)");
     checkIfClosed();
     throw new DatabricksSQLFeatureNotSupportedException(
-        "Method not supported", "executeUpdate(String sql, String[] columnNames)");
+        "Method not supported",
+        "executeUpdate(String sql, String[] columnNames)",
+        connection.getSession().getConnectionContext(),
+        statementId,
+        ErrorCodes.EXECUTE_METHOD_UNSUPPORTED);
   }
 
   @Override
@@ -340,7 +393,11 @@ public class DatabricksStatement implements IDatabricksStatement, Statement {
       return execute(sql);
     } else {
       throw new DatabricksSQLFeatureNotSupportedException(
-          "Method not supported", "execute(String sql, int autoGeneratedKeys)");
+          "Method not supported",
+          "execute(String sql, int autoGeneratedKeys)",
+          connection.getSession().getConnectionContext(),
+          statementId,
+          ErrorCodes.EXECUTE_METHOD_UNSUPPORTED);
     }
   }
 
@@ -348,18 +405,26 @@ public class DatabricksStatement implements IDatabricksStatement, Statement {
   public boolean execute(String sql, int[] columnIndexes) throws SQLException {
     checkIfClosed();
     throw new DatabricksSQLFeatureNotSupportedException(
-        "Method not supported", "execute(String sql, int[] columnIndexes)");
+        "Method not supported",
+        "execute(String sql, int[] columnIndexes)",
+        connection.getSession().getConnectionContext(),
+        statementId,
+        ErrorCodes.EXECUTE_METHOD_UNSUPPORTED);
   }
 
   @Override
   public boolean execute(String sql, String[] columnNames) throws SQLException {
     checkIfClosed();
     throw new DatabricksSQLFeatureNotSupportedException(
-        "Method not supported", "execute(String sql, String[] columnNames)");
+        "Method not supported",
+        "execute(String sql, String[] columnNames)",
+        connection.getSession().getConnectionContext(),
+        statementId,
+        ErrorCodes.EXECUTE_METHOD_UNSUPPORTED);
   }
 
   @Override
-  public int getResultSetHoldability() throws SQLException {
+  public int getResultSetHoldability() {
     LoggingUtil.log(LogLevel.DEBUG, "public int getResultSetHoldability()");
     return ResultSet.CLOSE_CURSORS_AT_COMMIT;
   }
@@ -378,7 +443,11 @@ public class DatabricksStatement implements IDatabricksStatement, Statement {
     checkIfClosed();
     if (poolable) {
       throw new DatabricksSQLFeatureNotSupportedException(
-          "Method not supported", "setPoolable(boolean poolable)");
+          "Method not supported",
+          "setPoolable(boolean poolable)",
+          connection.getSession().getConnectionContext(),
+          statementId,
+          ErrorCodes.POOLABLE_METHOD_UNSUPPORTED);
     }
   }
 
@@ -407,14 +476,20 @@ public class DatabricksStatement implements IDatabricksStatement, Statement {
   public <T> T unwrap(Class<T> iface) throws SQLException {
     LoggingUtil.log(LogLevel.DEBUG, "public <T> T unwrap(Class<T> iface)");
     throw new DatabricksSQLFeatureNotSupportedException(
-        "Not implemented in DatabricksStatement - unwrap(Class<T> iface)");
+        "Not implemented in DatabricksStatement - unwrap(Class<T> iface)",
+        connection.getSession().getConnectionContext(),
+        statementId,
+        ErrorCodes.STATEMENT_UNWRAP_UNSUPPORTED);
   }
 
   @Override
   public boolean isWrapperFor(Class<?> iface) throws SQLException {
     LoggingUtil.log(LogLevel.DEBUG, "public boolean isWrapperFor(Class<?> iface)");
     throw new DatabricksSQLFeatureNotSupportedException(
-        "Not implemented in DatabricksStatement - isWrapperFor(Class<?> iface)");
+        "Not implemented in DatabricksStatement - isWrapperFor(Class<?> iface)",
+        connection.getSession().getConnectionContext(),
+        statementId,
+        ErrorCodes.STATEMENT_UNWRAP_UNSUPPORTED);
   }
 
   @Override
@@ -426,7 +501,10 @@ public class DatabricksStatement implements IDatabricksStatement, Statement {
   }
 
   DatabricksResultSet executeInternal(
-      String sql, Map<Integer, ImmutableSqlParameter> params, StatementType statementType)
+      String sql,
+      Map<Integer, ImmutableSqlParameter> params,
+      StatementType statementType,
+      boolean closeStatement)
       throws SQLException {
     String stackTraceMessage =
         format(
@@ -441,10 +519,16 @@ public class DatabricksStatement implements IDatabricksStatement, Statement {
               ? futureResultSet.get() // Wait indefinitely when timeout is 0
               : futureResultSet.get(timeoutInSeconds, TimeUnit.SECONDS);
     } catch (TimeoutException e) {
-      this.close(); // Close the statement
+      if (closeStatement) {
+        this.close(); // Close the statement
+      }
       futureResultSet.cancel(true); // Cancel execution run
       throw new DatabricksTimeoutException(
-          "Statement execution timed-out. " + stackTraceMessage, e);
+          "Statement execution timed-out. " + stackTraceMessage,
+          e,
+          connection.getSession().getConnectionContext(),
+          statementId,
+          ErrorCodes.STATEMENT_EXECUTION_TIMEOUT);
     } catch (InterruptedException | ExecutionException e) {
       Throwable cause = e;
       // Look for underlying DatabricksSQL exception
@@ -457,10 +541,22 @@ public class DatabricksStatement implements IDatabricksStatement, Statement {
       LoggingUtil.log(
           LogLevel.ERROR,
           String.format("Error occurred during statement execution: %s. Error : %s", sql, e));
-      throw new DatabricksSQLException("Error occurred during statement execution: " + sql, e);
+      throw new DatabricksSQLException(
+          "Error occurred during statement execution: " + sql,
+          e,
+          connection.getSession().getConnectionContext(),
+          ErrorTypes.EXECUTE_STATEMENT,
+          statementId,
+          ErrorCodes.EXECUTE_STATEMENT_FAILED);
     }
     LoggingUtil.log(LogLevel.DEBUG, "Result retrieved successfully" + resultSet.toString());
     return resultSet;
+  }
+
+  DatabricksResultSet executeInternal(
+      String sql, Map<Integer, ImmutableSqlParameter> params, StatementType statementType)
+      throws SQLException {
+    return executeInternal(sql, params, statementType, true);
   }
 
   // Todo : Add timeout tests in the subsequent PR
@@ -492,7 +588,7 @@ public class DatabricksStatement implements IDatabricksStatement, Statement {
 
   void checkIfClosed() throws DatabricksSQLException {
     if (isClosed) {
-      throw new DatabricksSQLException("Statement is closed");
+      throw new DatabricksSQLException("Statement is closed", ErrorCodes.STATEMENT_CLOSED);
     }
   }
 
@@ -511,13 +607,16 @@ public class DatabricksStatement implements IDatabricksStatement, Statement {
     return this;
   }
 
+  @VisibleForTesting
   protected static boolean shouldReturnResultSet(String query) {
     if (query == null || query.trim().isEmpty()) {
       throw new IllegalArgumentException("Query cannot be null or empty");
     }
 
-    // Trim and remove leading comments and whitespaces.
-    String trimmedQuery = query.trim().replaceAll("^(--.*|/\\*.*?\\*/)*", "").trim();
+    // Trim and remove comments and whitespaces.
+    String trimmedQuery = query.trim().replaceAll("(?m)--.*$", "");
+    trimmedQuery = trimmedQuery.replaceAll("/\\*.*?\\*/", "");
+    trimmedQuery = trimmedQuery.replaceAll("\\s+", " ").trim();
 
     // Check if the query matches any of the patterns that return a ResultSet
     if (SELECT_PATTERN.matcher(trimmedQuery).find()
@@ -535,11 +634,43 @@ public class DatabricksStatement implements IDatabricksStatement, Statement {
         || DECLARE_PATTERN.matcher(trimmedQuery).find()
         || PUT_PATTERN.matcher(trimmedQuery).find()
         || GET_PATTERN.matcher(trimmedQuery).find()
-        || REMOVE_PATTERN.matcher(trimmedQuery).find()) {
+        || REMOVE_PATTERN.matcher(trimmedQuery).find()
+        || LIST_PATTERN.matcher(trimmedQuery).find()) {
       return true;
     }
 
     // Otherwise, it should not return a ResultSet
     return false;
+  }
+
+  @Override
+  public void allowInputStreamForVolumeOperation(boolean allowInputStream)
+      throws DatabricksSQLException {
+    checkIfClosed();
+    this.allowInputStreamForUCVolume = allowInputStream;
+  }
+
+  @Override
+  public boolean isAllowedInputStreamForVolumeOperation() throws DatabricksSQLException {
+    checkIfClosed();
+    return this.allowInputStreamForUCVolume;
+  }
+
+  @Override
+  public void setInputStreamForUCVolume(InputStreamEntity inputStream)
+      throws DatabricksSQLException {
+    if (isAllowedInputStreamForVolumeOperation()) {
+      this.inputStream = inputStream;
+    } else {
+      throw new DatabricksSQLException("Volume operation not supported for Input Stream");
+    }
+  }
+
+  @Override
+  public InputStreamEntity getInputStreamForUCVolume() throws DatabricksSQLException {
+    if (isAllowedInputStreamForVolumeOperation()) {
+      return inputStream;
+    }
+    return null;
   }
 }

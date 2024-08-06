@@ -26,7 +26,6 @@ import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.extension.ExtensionContext;
 
 /**
@@ -210,7 +209,6 @@ public class FakeServiceExtension extends DatabricksWireMockExtension {
   }
 
   /** Gets the stubbing directory for the current test class and method. */
-  @NotNull
   private String getStubbingDir(ExtensionContext context) {
     String testClassName = context.getTestClass().orElseThrow().getSimpleName().toLowerCase();
     String testMethodName = context.getTestMethod().orElseThrow().getName().toLowerCase();
@@ -228,6 +226,9 @@ public class FakeServiceExtension extends DatabricksWireMockExtension {
         break;
       case CLOUD_FETCH_SQL_GATEWAY:
         basePath = CLOUD_FETCH_SQL_GATEWAY_API_STUBBING_FILE_PATH;
+        break;
+      case CLOUD_FETCH_UC_VOLUME:
+        basePath = "src/test/resources/cloudfetchucvolume";
         break;
       default:
         throw new IllegalStateException("Unsupported fake service type: " + fakeServiceType);

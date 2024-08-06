@@ -11,7 +11,9 @@ on:
 jobs:
   build-and-test:
     name: Build and Run Integration Tests
-    runs-on: ubuntu-latest
+    runs-on:
+      group: databricks-protected-runner-group
+      labels: linux-ubuntu-latest
     environment: azure-prod
     steps:
       - name: Checkout code
@@ -29,9 +31,6 @@ jobs:
           path: ~/.m2
           key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
           restore-keys: ${{ runner.os }}-m2
-
-      - name: Build with Maven
-        run: mvn -B package --file pom.xml
 
       - name: Set up constants
         env:
