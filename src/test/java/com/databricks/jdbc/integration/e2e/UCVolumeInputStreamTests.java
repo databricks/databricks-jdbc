@@ -4,7 +4,6 @@ import static com.databricks.jdbc.integration.IntegrationTestUtil.getDogfoodJDBC
 import static org.junit.jupiter.api.Assertions.*;
 
 import com.databricks.jdbc.client.IDatabricksUCVolumeClient;
-import com.databricks.jdbc.client.impl.sdk.DatabricksUCVolumeClient;
 import com.databricks.jdbc.core.IDatabricksConnection;
 import com.databricks.jdbc.driver.DatabricksJdbcConstants;
 import java.io.File;
@@ -19,7 +18,6 @@ import org.junit.jupiter.api.Test;
 
 public class UCVolumeInputStreamTests {
 
-  private DatabricksUCVolumeClient client;
   private Connection con;
 
   private static final String LOCAL_FILE = "/tmp/local-e2e.txt";
@@ -31,8 +29,6 @@ public class UCVolumeInputStreamTests {
 
   @BeforeEach
   void setUp() throws SQLException {
-    // TODO: Testing is done here using the E2-Dogfood environment. Need to update this to use a
-    // test warehouse.
     con = getDogfoodJDBCConnection();
     System.out.println("Connection established......");
   }
@@ -66,7 +62,7 @@ public class UCVolumeInputStreamTests {
 
       InputStreamEntity inputStream =
           client.getObject(VOL_CATALOG, VOL_SCHEMA, VOL_ROOT, VOLUME_FILE);
-      System.out.println("Got data " + new String(inputStream.getContent().readAllBytes()));
+      assertEquals(FILE_CONTENT, new String(inputStream.getContent().readAllBytes()));
       inputStream.getContent().close();
 
       assertTrue(client.objectExists(VOL_CATALOG, VOL_SCHEMA, VOL_ROOT, VOLUME_FILE, false));
