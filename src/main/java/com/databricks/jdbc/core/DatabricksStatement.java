@@ -10,11 +10,11 @@ import com.databricks.jdbc.commons.ErrorTypes;
 import com.databricks.jdbc.commons.LogLevel;
 import com.databricks.jdbc.commons.util.*;
 import com.google.common.annotations.VisibleForTesting;
-import java.io.InputStream;
 import java.sql.*;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.*;
+import org.apache.http.entity.InputStreamEntity;
 
 public class DatabricksStatement implements IDatabricksStatement, Statement {
 
@@ -27,7 +27,7 @@ public class DatabricksStatement implements IDatabricksStatement, Statement {
   private SQLWarning warnings = null;
   private int maxRows = DEFAULT_ROW_LIMIT;
   private boolean escapeProcessing = DEFAULT_ESCAPE_PROCESSING;
-  private InputStream inputStream = null;
+  private InputStreamEntity inputStream = null;
   private boolean allowInputStreamForUCVolume = false;
 
   public DatabricksStatement(DatabricksConnection connection) {
@@ -657,7 +657,8 @@ public class DatabricksStatement implements IDatabricksStatement, Statement {
   }
 
   @Override
-  public void setInputStreamForUCVolume(InputStream inputStream) throws DatabricksSQLException {
+  public void setInputStreamForUCVolume(InputStreamEntity inputStream)
+      throws DatabricksSQLException {
     if (isAllowedInputStreamForVolumeOperation()) {
       this.inputStream = inputStream;
     } else {
@@ -666,7 +667,7 @@ public class DatabricksStatement implements IDatabricksStatement, Statement {
   }
 
   @Override
-  public InputStream getInputStreamForUCVolume() throws DatabricksSQLException {
+  public InputStreamEntity getInputStreamForUCVolume() throws DatabricksSQLException {
     if (isAllowedInputStreamForVolumeOperation()) {
       return inputStream;
     }

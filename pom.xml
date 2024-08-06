@@ -4,7 +4,7 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>com.databricks</groupId>
   <artifactId>databricks-jdbc</artifactId>
-  <version>0.9.0-oss</version>
+  <version>0.9.1-oss</version>
   <packaging>jar</packaging>
   <name>Databricks JDBC Driver</name>
   <description>Databricks JDBC Driver.</description>
@@ -17,29 +17,10 @@
   </licenses>
   <developers>
     <developer>
-      <name>Gopal Lal</name>
-      <email>gopal.lal@databricks.com</email>
+      <name>Databricks JDBC Team</name>
+      <email>eng-oss-sql-driver@databricks.com</email>
       <organization>Databricks</organization>
-    </developer>
-    <developer>
-      <name>Jayant Singh</name>
-      <email>jayant.singh@databricks.com</email>
-      <organization>Databricks</organization>
-    </developer>
-    <developer>
-      <name>Madhav Sainanee</name>
-      <email>madhav.sainanee@databricks.com</email>
-      <organization>Databricks</organization>
-    </developer>
-    <developer>
-      <name>Samikshya Chand</name>
-      <email>samikshya.chand@databricks.com</email>
-      <organization>Databricks</organization>
-    </developer>
-    <developer>
-      <name>Vikrant Puppala</name>
-      <email>vikrant.puppala@databricks.com</email>
-      <organization>Databricks</organization>
+      <organizationUrl>https://www.databricks.com</organizationUrl>
     </developer>
   </developers>
   <scm>

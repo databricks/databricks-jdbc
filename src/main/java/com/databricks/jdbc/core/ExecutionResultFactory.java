@@ -11,7 +11,12 @@ import java.util.List;
 
 class ExecutionResultFactory {
   static IExecutionResult getResultSet(
-      ResultData data, ResultManifest manifest, String statementId, IDatabricksSession session) {
+      ResultData data,
+      ResultManifest manifest,
+      String statementId,
+      IDatabricksSession session,
+      IDatabricksStatement statement,
+      IDatabricksResultSet resultSet) {
     IExecutionResult resultHandler = getResultHandler(data, manifest, statementId, session);
     if (manifest.getIsVolumeOperation() != null && manifest.getIsVolumeOperation()) {
       return new VolumeOperationResult(
@@ -19,7 +24,9 @@ class ExecutionResultFactory {
           manifest.getTotalRowCount(),
           manifest.getSchema().getColumnCount(),
           session,
-          resultHandler);
+          resultHandler,
+          statement,
+          resultSet);
     } else {
       return resultHandler;
     }
@@ -46,7 +53,9 @@ class ExecutionResultFactory {
       TRowSet data,
       TGetResultSetMetadataResp manifest,
       String statementId,
-      IDatabricksSession session)
+      IDatabricksSession session,
+      IDatabricksStatement statement,
+      IDatabricksResultSet resultSet)
       throws DatabricksSQLException {
     IExecutionResult resultHandler = getResultHandler(data, manifest, statementId, session);
     if (manifest.isSetIsStagingOperation() && manifest.isIsStagingOperation()) {
@@ -55,7 +64,9 @@ class ExecutionResultFactory {
           DatabricksThriftHelper.getRowCount(data),
           manifest.getSchema().getColumnsSize(),
           session,
-          resultHandler);
+          resultHandler,
+          statement,
+          resultSet);
     } else {
       return resultHandler;
     }

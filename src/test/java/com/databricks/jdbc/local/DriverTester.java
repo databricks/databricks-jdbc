@@ -1,11 +1,18 @@
 package com.databricks.jdbc.local;
 
 import com.databricks.client.jdbc.Driver;
+import com.databricks.jdbc.client.IDatabricksUCVolumeClient;
+import com.databricks.jdbc.core.IDatabricksConnection;
+import com.databricks.jdbc.driver.DatabricksJdbcConstants;
+import java.io.File;
+import java.io.FileInputStream;
 import java.math.BigDecimal;
 import java.math.BigInteger;
+import java.nio.file.Files;
 import java.sql.*;
 import java.time.LocalDate;
 import java.util.*;
+import org.apache.http.entity.InputStreamEntity;
 import org.junit.jupiter.api.Test;
 
 public class DriverTester {
@@ -211,6 +218,56 @@ public class DriverTester {
     Connection con = DriverManager.getConnection(jdbcUrl, "user", "x");
     System.out.println("Connection established......");
     con.close();
+  }
+
+  @Test
+  void testUCVolumeUsingInputStream() throws Exception {
+    DriverManager.registerDriver(new Driver());
+    DriverManager.drivers().forEach(driver -> System.out.println(driver.getClass()));
+    System.out.println("Starting test");
+    // Getting the connection
+    String jdbcUrl =
+        "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/791ba2a31c7fd70a;";
+    Connection con = DriverManager.getConnection(jdbcUrl, "token", "xx");
+    con.setClientInfo(DatabricksJdbcConstants.ALLOWED_VOLUME_INGESTION_PATHS, "delete");
+    System.out.println("Connection created");
+    IDatabricksUCVolumeClient client = ((IDatabricksConnection) con).getUCVolumeClient();
+
+    File file = new File("/tmp/put.txt");
+    try {
+      Files.writeString(file.toPath(), "test-put");
+
+      System.out.println("File created");
+
+      System.out.println(
+          "Object inserted "
+              + client.putObject(
+                  "samikshya_hackathon",
+                  "default",
+                  "gopal-psl",
+                  "test-stream.csv",
+                  new FileInputStream(file),
+                  file.length(),
+                  true));
+
+      InputStreamEntity inputStream =
+          client.getObject("samikshya_hackathon", "default", "gopal-psl", "test-stream.csv");
+      System.out.println("Got data " + new String(inputStream.getContent().readAllBytes()));
+      inputStream.getContent().close();
+
+      System.out.println(
+          "Object exists "
+              + client.objectExists(
+                  "samikshya_hackathon", "default", "gopal-psl", "test-stream.csv", false));
+      client.deleteObject("samikshya_hackathon", "default", "gopal-psl", "test-stream.csv");
+      System.out.println(
+          "Object exists "
+              + client.objectExists(
+                  "samikshya_hackathon", "default", "gopal-psl", "test-stream.csv", false));
+    } finally {
+      file.delete();
+      con.close();
+    }
   }
 
   @Test

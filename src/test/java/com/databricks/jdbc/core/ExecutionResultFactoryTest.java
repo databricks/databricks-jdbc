@@ -27,6 +27,8 @@ public class ExecutionResultFactoryTest {
   @Mock TGetResultSetMetadataResp resultSetMetadataResp;
   @Mock TRowSet tRowSet;
   @Mock IDatabricksConnectionContext context;
+  @Mock IDatabricksStatement statement;
+  @Mock IDatabricksResultSet resultSet;
 
   @Test
   public void testGetResultSet_jsonInline() {
@@ -34,7 +36,8 @@ public class ExecutionResultFactoryTest {
     manifest.setFormat(Format.JSON_ARRAY);
     ResultData data = new ResultData();
     IExecutionResult result =
-        ExecutionResultFactory.getResultSet(data, manifest, "statementId", session);
+        ExecutionResultFactory.getResultSet(
+            data, manifest, "statementId", session, statement, resultSet);
 
     assertInstanceOf(InlineJsonResult.class, result);
   }
@@ -49,7 +52,8 @@ public class ExecutionResultFactoryTest {
     manifest.setSchema(new ResultSchema().setColumnCount(0L));
     ResultData data = new ResultData();
     IExecutionResult result =
-        ExecutionResultFactory.getResultSet(data, manifest, "statementId", session);
+        ExecutionResultFactory.getResultSet(
+            data, manifest, "statementId", session, statement, resultSet);
 
     assertInstanceOf(ArrowStreamResult.class, result);
   }
@@ -66,7 +70,8 @@ public class ExecutionResultFactoryTest {
             .setTotalRowCount(1L)
             .setSchema(new ResultSchema().setColumnCount(4L));
     IExecutionResult result =
-        ExecutionResultFactory.getResultSet(data, manifest, "statementId", session);
+        ExecutionResultFactory.getResultSet(
+            data, manifest, "statementId", session, statement, resultSet);
 
     assertInstanceOf(VolumeOperationResult.class, result);
   }
@@ -81,7 +86,8 @@ public class ExecutionResultFactoryTest {
 
     ResultData data = new ResultData();
     IExecutionResult result =
-        ExecutionResultFactory.getResultSet(tRowSet, resultSetMetadataResp, "statementId", session);
+        ExecutionResultFactory.getResultSet(
+            tRowSet, resultSetMetadataResp, "statementId", session, statement, resultSet);
 
     assertInstanceOf(VolumeOperationResult.class, result);
   }
@@ -91,7 +97,7 @@ public class ExecutionResultFactoryTest {
     when(resultSetMetadataResp.getResultFormat()).thenReturn(TSparkRowSetType.COLUMN_BASED_SET);
     IExecutionResult result =
         ExecutionResultFactory.getResultSet(
-            tRowSet, resultSetMetadataResp, TEST_STATEMENT_ID, session);
+            tRowSet, resultSetMetadataResp, TEST_STATEMENT_ID, session, statement, resultSet);
     assertInstanceOf(InlineJsonResult.class, result);
   }
 
@@ -102,7 +108,7 @@ public class ExecutionResultFactoryTest {
         DatabricksSQLFeatureNotSupportedException.class,
         () ->
             ExecutionResultFactory.getResultSet(
-                tRowSet, resultSetMetadataResp, TEST_STATEMENT_ID, session));
+                tRowSet, resultSetMetadataResp, TEST_STATEMENT_ID, session, statement, resultSet));
   }
 
   @Test
@@ -112,7 +118,7 @@ public class ExecutionResultFactoryTest {
     when(session.getConnectionContext().getCloudFetchThreadPoolSize()).thenReturn(16);
     IExecutionResult result =
         ExecutionResultFactory.getResultSet(
-            tRowSet, resultSetMetadataResp, TEST_STATEMENT_ID, session);
+            tRowSet, resultSetMetadataResp, TEST_STATEMENT_ID, session, statement, resultSet);
     assertInstanceOf(ArrowStreamResult.class, result);
   }
 
@@ -121,7 +127,7 @@ public class ExecutionResultFactoryTest {
     when(resultSetMetadataResp.getResultFormat()).thenReturn(TSparkRowSetType.ARROW_BASED_SET);
     IExecutionResult result =
         ExecutionResultFactory.getResultSet(
-            tRowSet, resultSetMetadataResp, TEST_STATEMENT_ID, session);
+            tRowSet, resultSetMetadataResp, TEST_STATEMENT_ID, session, statement, resultSet);
     assertInstanceOf(ArrowStreamResult.class, result);
   }
 }
