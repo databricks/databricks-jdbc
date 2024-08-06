@@ -2,9 +2,14 @@ package com.databricks.jdbc.integration.benchmarking;
 
 import static com.databricks.jdbc.integration.IntegrationTestUtil.*;
 
+import java.io.File;
+import java.net.URL;
+import java.net.URLClassLoader;
 import java.sql.*;
 import java.time.LocalDateTime;
 import java.util.Enumeration;
+import java.util.Map;
+import java.util.Properties;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -32,9 +37,12 @@ public class MetadataBenchmarkingTests {
   long totalTimesForSection[][] = new long[2][NUM_SECTIONS];
   double avgTimesForSection[][] = new double[2][NUM_SECTIONS];
 
+  private Driver simbaDriver;
+
   @BeforeEach
   void setUp() throws SQLException {
     // No setup needed here since we will handle connections in the test method
+    loadSimbaDriver();
   }
 
   @AfterEach
@@ -55,7 +63,7 @@ public class MetadataBenchmarkingTests {
     runTestsForDriver(0); // Test for OSS driver
     switchDriver(mode);
     runTestsForDriver(1); // Test for Databricks driver
-    DriverManager.registerDriver(new com.databricks.jdbc.driver.DatabricksDriver());
+    DriverManager.registerDriver(new com.databricks.client.jdbc.Driver());
     insertResultsIntoTable();
   }
 
@@ -63,15 +71,15 @@ public class MetadataBenchmarkingTests {
     switch (mode) {
       case "SEA":
         // Currently using dogfood since we don't have new metadata support in test warehouse
-        connection = getDogfoodJDBCConnection();
+        connection = getValidJDBCConnection();
         RESULTS_TABLE = "main.jdbc_new_metadata_benchmark_schema.benchmarking_results";
         break;
       case "THRIFT":
         connection =
             DriverManager.getConnection(
-                "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;ssl=1;AuthMech=3;httpPath=sql/protocolv1/o/6051921418418893/1115-130834-ms4m0yv",
+                getJDBCUrl(Map.of("usethriftclient", "1")),
                 "token",
-                getDatabricksDogfoodToken());
+                getDatabricksToken());
         RESULTS_TABLE = "main.jdbc_metadata_benchmarking_thrift.benchmarking_results";
         break;
       default:
@@ -94,45 +102,29 @@ public class MetadataBenchmarkingTests {
   }
 
   private void switchDriver(String mode) throws SQLException {
-    connection.close();
-    Enumeration<Driver> drivers = DriverManager.getDrivers();
-
-    while (drivers.hasMoreElements()) {
-      Driver driver = drivers.nextElement();
-      if (driver.getClass().getName().contains("DatabricksDriver")) {
-        DriverManager.deregisterDriver(driver);
-      }
-    }
-
     switch (mode) {
       case "SEA":
-        connection =
-            DriverManager.getConnection(getDogfoodJDBCUrl(), "token", getDatabricksDogfoodToken());
-        break;
       case "THRIFT":
         connection =
-            DriverManager.getConnection(
-                "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;ssl=1;AuthMech=3;httpPath=sql/protocolv1/o/6051921418418893/1115-130834-ms4m0yv",
-                "token",
-                getDatabricksDogfoodToken());
+            getConnectionForSimbaDriver(getJDBCUrl(), "token", getDatabricksToken());
         break;
       default:
         throw new IllegalArgumentException("Invalid testing mode");
     }
   }
 
-  private void setUpSchemas() {
+  private void setUpSchemas() throws SQLException {
     for (int i = 0; i < NUM_SCHEMAS; i++) {
-      executeSQL(
+      connection.createStatement().execute(
           "CREATE SCHEMA IF NOT EXISTS " + getDatabricksCatalog() + "." + BASE_SCHEMA_NAME + i);
       System.out.println("Created schema " + i);
     }
   }
 
-  private void setUpTables() {
+  private void setUpTables() throws SQLException {
     for (int i = 0; i < NUM_SCHEMAS; i++) {
       for (int j = 0; j < NUM_TABLES; j++) {
-        executeSQL(
+        connection.createStatement().execute(
             "CREATE TABLE IF NOT EXISTS "
                 + getDatabricksCatalog()
                 + "."
@@ -278,5 +270,26 @@ public class MetadataBenchmarkingTests {
 
   private String getDatabricksCatalog() {
     return "jdbcbenchmarkingcatalog";
+  }
+
+  private void loadSimbaDriver() {
+    try {
+      File file = new File("src/test/resources/DatabricksJDBC42.jar");
+      URL url = file.toURI().toURL();
+
+      URLClassLoader urlClassLoader = new CustomClassLoader(new URL[]{url}, this.getClass().getClassLoader());
+
+      Class<?> driverClass = Class.forName("com.databricks.client.jdbc.Driver", true, urlClassLoader);
+      simbaDriver = (java.sql.Driver) driverClass.getDeclaredConstructor().newInstance();
+    } catch (Exception e) {
+      e.printStackTrace();
+    }
+  }
+
+  private Connection getConnectionForSimbaDriver(String url, String user, String password) throws SQLException {
+    Properties props = new Properties();
+    props.put("user", user);
+    props.put("password", password);
+    return simbaDriver.connect(url, props);
   }
 }

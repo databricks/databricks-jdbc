@@ -247,6 +247,9 @@
             --add-opens=java.base/java.nio=ALL-UNNAMED
             -Dnet.bytebuddy.experimental=true
           </argLine>
+          <additionalClasspathElements>
+            <additionalClasspathElement>src/test/resources/DatabricksJDBC42.jar</additionalClasspathElement>
+          </additionalClasspathElements>
         </configuration>
       </plugin>
       <plugin>

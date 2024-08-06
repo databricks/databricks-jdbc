@@ -2,11 +2,15 @@ package com.databricks.jdbc.integration.benchmarking;
 
 import static com.databricks.jdbc.integration.IntegrationTestUtil.*;
 
+import java.io.File;
+import java.lang.reflect.InvocationTargetException;
+import java.net.MalformedURLException;
+import java.net.URL;
+import java.net.URLClassLoader;
 import java.sql.*;
 import java.time.LocalDateTime;
-import java.util.Arrays;
-import java.util.Enumeration;
-import java.util.Random;
+import java.util.*;
+import java.util.logging.Logger;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -24,6 +28,8 @@ public class LargeQueriesBenchmarkingTest {
 
   private static final int ROWS = 1000000;
 
+  private Driver simbaDriver;
+
   long timesForOSSDriver[] = new long[ATTEMPTS];
   long timesForDatabricksDriver[] = new long[ATTEMPTS];
 
@@ -33,6 +39,7 @@ public class LargeQueriesBenchmarkingTest {
   @BeforeEach
   void setUp() throws SQLException {
     // No setup needed here since we will handle connections in the test method
+    loadSimbaDriver();
   }
 
   @AfterEach
@@ -50,7 +57,8 @@ public class LargeQueriesBenchmarkingTest {
   @MethodSource("modeProvider")
   void testLargeQueries(String mode) throws SQLException {
     runTestsForMode(mode);
-    DriverManager.registerDriver(new com.databricks.jdbc.driver.DatabricksDriver());
+
+    DriverManager.registerDriver(new com.databricks.client.jdbc.Driver());
     insertBenchmarkingDataIntoBenchfood();
   }
 
@@ -103,23 +111,12 @@ public class LargeQueriesBenchmarkingTest {
     connection.close();
     Enumeration<Driver> drivers = DriverManager.getDrivers();
 
-    while (drivers.hasMoreElements()) {
-      Driver driver = drivers.nextElement();
-      if (driver.getClass().getName().contains("DatabricksDriver")) {
-        DriverManager.deregisterDriver(driver);
-      }
-    }
-
     switch (mode) {
       case "SEA":
-        connection =
-            DriverManager.getConnection(
-                getBenchmarkingJDBCUrl(), "token", getDatabricksBenchmarkingToken());
+        connection = getConnectionForSimbaDriver(getBenchmarkingJDBCUrl(), "token", getDatabricksBenchmarkingToken());
         break;
       case "THRIFT":
-        connection =
-            DriverManager.getConnection(
-                getBenchmarkingJDBCUrlForThrift(), "token", getDatabricksBenchmarkingToken());
+        connection = getConnectionForSimbaDriver(getBenchmarkingJDBCUrlForThrift(), "token", getDatabricksBenchmarkingToken());
         break;
       default:
         throw new IllegalArgumentException("Invalid testing mode");
@@ -137,8 +134,6 @@ public class LargeQueriesBenchmarkingTest {
         ResultSet rs =
             statement.executeQuery(
                 "SELECT * FROM "
-                    + SCHEMA_NAME
-                    + "."
                     + TABLE_NAME
                     + " LIMIT "
                     + ROWS
@@ -188,5 +183,26 @@ public class LargeQueriesBenchmarkingTest {
     } catch (SQLException e) {
       e.printStackTrace();
     }
+  }
+
+  private void loadSimbaDriver() {
+    try {
+      File file = new File("src/test/resources/DatabricksJDBC42.jar");
+      URL url = file.toURI().toURL();
+
+      URLClassLoader urlClassLoader = new CustomClassLoader(new URL[]{url}, this.getClass().getClassLoader());
+
+      Class<?> driverClass = Class.forName("com.databricks.client.jdbc.Driver", true, urlClassLoader);
+      simbaDriver = (java.sql.Driver) driverClass.getDeclaredConstructor().newInstance();
+    } catch (Exception e) {
+      e.printStackTrace();
+    }
+  }
+
+  private Connection getConnectionForSimbaDriver(String url, String user, String password) throws SQLException {
+    Properties props = new Properties();
+    props.put("user", user);
+    props.put("password", password);
+    return simbaDriver.connect(url, props);
   }
 }
