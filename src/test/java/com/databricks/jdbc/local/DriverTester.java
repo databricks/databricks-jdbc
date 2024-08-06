@@ -97,7 +97,7 @@ public class DriverTester {
     Connection con = DriverManager.getConnection(jdbcUrl, "token", "xx");
     System.out.println("Connection established......");
     Statement s = con.createStatement();
-    s.executeQuery("SELECT *5 from RANGE(100000000)");
+    s.executeQuery("SELECT * from RANGE(5)");
     con.close();
     System.out.println("Connection closed successfully......");
   }

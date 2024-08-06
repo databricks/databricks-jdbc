@@ -50,7 +50,6 @@ public class DatabricksSession implements IDatabricksSession {
    */
   public DatabricksSession(IDatabricksConnectionContext connectionContext)
       throws DatabricksSQLException {
-    System.out.println(connectionContext.getClientType());
     if (connectionContext.getClientType() == DatabricksClientType.THRIFT) {
       this.databricksClient = new DatabricksThriftServiceClient(connectionContext);
       this.databricksMetadataClient = null;
