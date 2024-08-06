@@ -1,5 +1,6 @@
 package com.databricks.jdbc.driver;
 
+import static com.databricks.jdbc.TestConstants.*;
 import static com.databricks.jdbc.driver.DatabricksConnectionContext.getLogLevel;
 import static com.databricks.jdbc.driver.DatabricksJdbcConstants.DEFAULT_CATALOG;
 import static com.databricks.jdbc.driver.DatabricksJdbcConstants.DEFAULT_SCHEMA;
@@ -18,85 +19,17 @@ import org.junit.jupiter.api.Test;
 
 class DatabricksConnectionContextTest {
 
-  private static final String VALID_URL_1 =
-      "jdbc:databricks://adb-565757575.18.azuredatabricks.net:4423/default;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/erg6767gg;LogLevel=debug;LogPath=test1/application.log;auth_flow=2";
-  private static final String VALID_URL_2 =
-      "jdbc:databricks://azuredatabricks.net/default;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/fgff575757;LogLevel=invalid;EnableQueryResultLZ4Compression=1;UseThriftClient=0";
-  private static final String VALID_URL_3 =
-      "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=http;ssl=0;AuthMech=3;httpPath=/sql/1.0/warehouses/5c89f447c476a5a8;EnableQueryResultLZ4Compression=0;UseThriftClient=1;LogLevel=1234";
-  private static final String VALID_URL_4 =
-      "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;AuthMech=3;httpPath=/sql/1.0/warehouses/5c89f447c476a5a8;QueryResultCompressionType=1;EnableDirectResults=1;";
-  private static final String VALID_URL_5 =
-      "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:4473;ssl=0;AuthMech=3;httpPath=/sql/1.0/warehouses/5c89f447c476a5a8;QueryResultCompressionType=1;EnableDirectResults=0";
-
-  private static final String VALID_URL_6 =
-      "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:4473/schemaName;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/5c89f447c476a5a8;ConnCatalog=catalogName;QueryResultCompressionType=1";
-
-  private static final String VALID_URL_7 =
-      "jdbc:databricks://adb-565757575.18.azuredatabricks.net:4423/default;ssl=1;AuthMech=3;httpPath=/sql/1.0/endpoints/erg6767gg;LogLevel=debug;LogPath=test1/application.log;auth_flow=2;enablearrow=0";
-
-  private static final String VALID_URL_8 =
-      "jdbc:databricks://adb-565757575.18.azuredatabricks.net:4423/default;ssl=1;port=123;AuthMech=3;httpPath=/sql/1.0/endpoints/erg6767gg;LogLevel=debug;LogPath=test1/application.log;auth_flow=2;enablearrow=0";
-
-  private static final String VALID_URL_WITH_INVALID_COMPRESSION_TYPE =
-      "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/5c89f447c476a5a8;QueryResultCompressionType=234";
-
-  private static final String INVALID_URL_1 =
-      "jdbc:oracle://azuredatabricks.net/default;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/fgff575757;";
-  private static final String INVALID_URL_2 =
-      "http:databricks://azuredatabricks.net/default;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/fgff575757;";
-
-  private static final String INVALID_URL_3 =
-      "jdbc:databricks://adb-565757575.18.azuredatabricks.net:4423/default;ssl=1;port=alphabetical;AuthMech=3;httpPath=/sql/1.0/endpoints/erg6767gg;LogLevel=debug;LogPath=test1/application.log;auth_flow=2;enablearrow=0";
-
-  private static final String VALID_TEST_URL = "jdbc:databricks://test";
-
-  private static final String VALID_CLUSTER_URL =
-      "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;ssl=1;httpPath=sql/protocolv1/o/6051921418418893/1115-130834-ms4m0yv;AuthMech=3;loglevel=3";
-  private static final String INVALID_CLUSTER_URL =
-      "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;ssl=1;httpPath=sql/protocolv1/oo/6051921418418893/1115-130834-ms4m0yv;AuthMech=3";
-  private static final String VALID_BASE_URL_1 =
-      "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;";
-  private static final String VALID_BASE_URL_2 =
-      "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default";
-  private static final String VALID_BASE_URL_3 =
-      "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443";
-  private static final String VALID_URL_WITH_PROXY =
-      "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/5c89f447c476a5a8;UseProxy=1;ProxyHost=127.0.0.1;ProxyPort=8080;ProxyAuth=1;ProxyUID=proxyUser;ProxyPwd=proxyPassword;";
-  private static final String VALID_URL_WITH_PROXY_AND_CF_PROXY =
-      "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/5c89f447c476a5a8;UseSystemProxy=1;UseProxy=1;ProxyHost=127.0.0.1;ProxyPort=8080;ProxyAuth=1;ProxyUID=proxyUser;ProxyPwd=proxyPassword;UseCFProxy=1;CFProxyHost=127.0.1.2;CFProxyPort=8081;CFProxyAuth=2;CFProxyUID=cfProxyUser;CFProxyPwd=cfProxyPassword;";
-
-  private static Properties properties = new Properties();
+  private static final Properties properties = new Properties();
 
   private static final String VALID_URL_POLLING =
       "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:4473;ssl=1;asyncexecpollinterval=500;AuthMech=3;httpPath=/sql/1.0/warehouses/5c89f447c476a5a8;QueryResultCompressionType=1";
 
-  private static Properties properties_with_pwd = new Properties();
+  private static final Properties properties_with_pwd = new Properties();
 
   @BeforeAll
   public static void setUp() {
     properties.setProperty("password", "passwd");
     properties_with_pwd.setProperty("pwd", "passwd2");
-  }
-
-  @Test
-  public void testIsValid() {
-    assertTrue(DatabricksConnectionContext.isValid(VALID_URL_1));
-    assertTrue(DatabricksConnectionContext.isValid(VALID_BASE_URL_1));
-    assertTrue(DatabricksConnectionContext.isValid(VALID_BASE_URL_2));
-    assertTrue(DatabricksConnectionContext.isValid(VALID_BASE_URL_3));
-    assertTrue(DatabricksConnectionContext.isValid(VALID_TEST_URL));
-    assertTrue(DatabricksConnectionContext.isValid(VALID_URL_2));
-    assertTrue(DatabricksConnectionContext.isValid(VALID_URL_3));
-    assertTrue(DatabricksConnectionContext.isValid(VALID_URL_4));
-    assertTrue(DatabricksConnectionContext.isValid(VALID_URL_5));
-    assertTrue(DatabricksConnectionContext.isValid(VALID_URL_6));
-    assertTrue(DatabricksConnectionContext.isValid(VALID_URL_7));
-    assertTrue(DatabricksConnectionContext.isValid(VALID_URL_WITH_INVALID_COMPRESSION_TYPE));
-    assertFalse(DatabricksConnectionContext.isValid(INVALID_URL_1));
-    assertFalse(DatabricksConnectionContext.isValid(INVALID_URL_2));
-    assertTrue(DatabricksConnectionContext.isValid(VALID_CLUSTER_URL));
-    assertFalse(DatabricksConnectionContext.isValid(INVALID_CLUSTER_URL));
   }
 
   @Test

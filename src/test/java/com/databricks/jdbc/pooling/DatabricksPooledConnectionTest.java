@@ -13,7 +13,7 @@ import com.databricks.jdbc.core.DatabricksSQLException;
 import com.databricks.jdbc.core.ImmutableSessionInfo;
 import com.databricks.jdbc.core.types.ComputeResource;
 import com.databricks.jdbc.core.types.Warehouse;
-import com.databricks.jdbc.driver.DatabricksConnectionContext;
+import com.databricks.jdbc.driver.DatabricksConnectionContextFactory;
 import com.databricks.jdbc.driver.IDatabricksConnectionContext;
 import java.sql.*;
 import java.util.ArrayList;
@@ -37,12 +37,12 @@ public class DatabricksPooledConnectionTest {
   private static final String WAREHOUSE_ID = "791ba2a31c7fd70a";
   private static final ComputeResource warehouse = new Warehouse(WAREHOUSE_ID);
   private static final String SESSION_ID = "session_id";
-  @Mock private static DatabricksSdkClient databricksClient;
   private static IDatabricksConnectionContext connectionContext;
+  @Mock private static DatabricksSdkClient databricksClient;
 
   @BeforeAll
   public static void setUp() throws DatabricksSQLException {
-    connectionContext = DatabricksConnectionContext.parse(JDBC_URL, new Properties());
+    connectionContext = DatabricksConnectionContextFactory.create(JDBC_URL, new Properties());
   }
 
   @Test
@@ -203,7 +203,8 @@ public class DatabricksPooledConnectionTest {
     assertTrue(statement.isClosed());
   }
 
-  class TestListener implements ConnectionEventListener {
+  static class TestListener implements ConnectionEventListener {
+
     List<ConnectionEvent> connectionClosedEvents = new ArrayList<>();
     List<ConnectionEvent> connectionErrorEvents = new ArrayList<>();
 

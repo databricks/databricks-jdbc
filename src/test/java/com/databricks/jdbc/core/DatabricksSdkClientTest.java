@@ -15,7 +15,7 @@ import com.databricks.jdbc.client.sqlexec.ResultData;
 import com.databricks.jdbc.client.sqlexec.ResultManifest;
 import com.databricks.jdbc.core.types.ComputeResource;
 import com.databricks.jdbc.core.types.Warehouse;
-import com.databricks.jdbc.driver.DatabricksConnectionContext;
+import com.databricks.jdbc.driver.DatabricksConnectionContextFactory;
 import com.databricks.jdbc.driver.IDatabricksConnectionContext;
 import com.databricks.sdk.core.ApiClient;
 import com.databricks.sdk.service.sql.*;
@@ -25,13 +25,10 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-/*DatabricksSdkClientTest is kept in the core folder as test DatabricksConnection constructor (visible for tests) needs to be used*/
 @ExtendWith(MockitoExtension.class)
 public class DatabricksSdkClientTest {
-  @Mock StatementExecutionService statementExecutionService;
-  @Mock ApiClient apiClient;
-  @Mock ResultData resultData;
-  @Mock DatabricksSession session;
+  // DatabricksSdkClientTest is kept in the core folder as test DatabricksConnection constructor
+  // (visible for tests) needs to be used.
 
   private static final String WAREHOUSE_ID = "erg6767gg";
   private static final ComputeResource warehouse = new Warehouse(WAREHOUSE_ID);
@@ -48,6 +45,95 @@ public class DatabricksSdkClientTest {
           put("Content-Type", "application/json");
         }
       };
+  @Mock StatementExecutionService statementExecutionService;
+  @Mock ApiClient apiClient;
+  @Mock ResultData resultData;
+  @Mock DatabricksSession session;
+
+  @Test
+  public void testCreateSession() throws DatabricksSQLException {
+    setupSessionMocks();
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContextFactory.create(JDBC_URL, new Properties());
+    DatabricksSdkClient databricksSdkClient =
+        new DatabricksSdkClient(connectionContext, statementExecutionService, apiClient);
+    ImmutableSessionInfo sessionInfo =
+        databricksSdkClient.createSession(warehouse, null, null, null);
+    assertEquals(sessionInfo.sessionId(), SESSION_ID);
+    assertEquals(sessionInfo.computeResource(), warehouse);
+  }
+
+  @Test
+  public void testDeleteSession() throws DatabricksSQLException {
+    String path = String.format(DELETE_SESSION_PATH_WITH_ID, SESSION_ID);
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContextFactory.create(JDBC_URL, new Properties());
+    DatabricksSdkClient databricksSdkClient =
+        new DatabricksSdkClient(connectionContext, statementExecutionService, apiClient);
+    when(session.getSessionId()).thenReturn(SESSION_ID);
+    databricksSdkClient.deleteSession(session, warehouse);
+    DeleteSessionRequest request =
+        new DeleteSessionRequest().setSessionId(SESSION_ID).setWarehouseId(WAREHOUSE_ID);
+    verify(apiClient).DELETE(eq(path), eq(request), eq(Void.class), eq(new HashMap<>()));
+  }
+
+  @Test
+  public void testExecuteStatement() throws Exception {
+    setupClientMocks();
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContextFactory.create(JDBC_URL, new Properties());
+    DatabricksSdkClient databricksSdkClient =
+        new DatabricksSdkClient(connectionContext, statementExecutionService, apiClient);
+    DatabricksConnection connection =
+        new DatabricksConnection(connectionContext, databricksSdkClient);
+    DatabricksStatement statement = new DatabricksStatement(connection);
+    statement.setMaxRows(100);
+    HashMap<Integer, ImmutableSqlParameter> sqlParams =
+        new HashMap<>() {
+          {
+            put(1, getSqlParam(1, 100, DatabricksTypeUtil.BIGINT));
+            put(2, getSqlParam(2, (short) 10, DatabricksTypeUtil.SMALLINT));
+            put(3, getSqlParam(3, (byte) 15, DatabricksTypeUtil.TINYINT));
+            put(4, getSqlParam(4, "value", DatabricksTypeUtil.STRING));
+          }
+        };
+
+    DatabricksResultSet resultSet =
+        databricksSdkClient.executeStatement(
+            STATEMENT,
+            warehouse,
+            sqlParams,
+            StatementType.QUERY,
+            connection.getSession(),
+            statement);
+    assertNotNull(resultSet);
+    assertEquals(STATEMENT_ID, statement.getStatementId());
+  }
+
+  @Test
+  public void testCloseStatement() throws DatabricksSQLException {
+    String path = String.format(STATEMENT_PATH_WITH_ID, STATEMENT_ID);
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContextFactory.create(JDBC_URL, new Properties());
+    DatabricksSdkClient databricksSdkClient =
+        new DatabricksSdkClient(connectionContext, statementExecutionService, apiClient);
+    CloseStatementRequest request = new CloseStatementRequest().setStatementId(STATEMENT_ID);
+    databricksSdkClient.closeStatement(STATEMENT_ID);
+
+    verify(apiClient).DELETE(eq(path), eq(request), eq(Void.class), eq(headers));
+  }
+
+  @Test
+  public void testCancelStatement() throws DatabricksSQLException {
+    String path = String.format(CANCEL_STATEMENT_PATH_WITH_ID, STATEMENT_ID);
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContextFactory.create(JDBC_URL, new Properties());
+    DatabricksSdkClient databricksSdkClient =
+        new DatabricksSdkClient(connectionContext, statementExecutionService, apiClient);
+    CancelStatementRequest request = new CancelStatementRequest().setStatementId(STATEMENT_ID);
+    databricksSdkClient.cancelStatement(STATEMENT_ID);
+    verify(apiClient).POST(eq(path), eq(request), eq(Void.class), eq(headers));
+  }
 
   private void setupSessionMocks() {
     CreateSessionResponse response = new CreateSessionResponse().setSessionId(SESSION_ID);
@@ -106,90 +192,6 @@ public class DatabricksSdkClientTest {
               }
               return null;
             });
-  }
-
-  @Test
-  public void testCreateSession() throws DatabricksSQLException {
-    setupSessionMocks();
-    IDatabricksConnectionContext connectionContext =
-        DatabricksConnectionContext.parse(JDBC_URL, new Properties());
-    DatabricksSdkClient databricksSdkClient =
-        new DatabricksSdkClient(connectionContext, statementExecutionService, apiClient);
-    ImmutableSessionInfo sessionInfo =
-        databricksSdkClient.createSession(warehouse, null, null, null);
-    assertEquals(sessionInfo.sessionId(), SESSION_ID);
-    assertEquals(sessionInfo.computeResource(), warehouse);
-  }
-
-  @Test
-  public void testDeleteSession() throws DatabricksSQLException {
-    String path = String.format(DELETE_SESSION_PATH_WITH_ID, SESSION_ID);
-    IDatabricksConnectionContext connectionContext =
-        DatabricksConnectionContext.parse(JDBC_URL, new Properties());
-    DatabricksSdkClient databricksSdkClient =
-        new DatabricksSdkClient(connectionContext, statementExecutionService, apiClient);
-    when(session.getSessionId()).thenReturn(SESSION_ID);
-    databricksSdkClient.deleteSession(session, warehouse);
-    DeleteSessionRequest request =
-        new DeleteSessionRequest().setSessionId(SESSION_ID).setWarehouseId(WAREHOUSE_ID);
-    verify(apiClient).DELETE(eq(path), eq(request), eq(Void.class), eq(new HashMap<>()));
-  }
-
-  @Test
-  public void testExecuteStatement() throws Exception {
-    setupClientMocks();
-    IDatabricksConnectionContext connectionContext =
-        DatabricksConnectionContext.parse(JDBC_URL, new Properties());
-    DatabricksSdkClient databricksSdkClient =
-        new DatabricksSdkClient(connectionContext, statementExecutionService, apiClient);
-    DatabricksConnection connection =
-        new DatabricksConnection(connectionContext, databricksSdkClient);
-    DatabricksStatement statement = new DatabricksStatement(connection);
-    statement.setMaxRows(100);
-    HashMap<Integer, ImmutableSqlParameter> sqlParams =
-        new HashMap<>() {
-          {
-            put(1, getSqlParam(1, 100, DatabricksTypeUtil.BIGINT));
-            put(2, getSqlParam(2, (short) 10, DatabricksTypeUtil.SMALLINT));
-            put(3, getSqlParam(3, (byte) 15, DatabricksTypeUtil.TINYINT));
-            put(4, getSqlParam(4, "value", DatabricksTypeUtil.STRING));
-          }
-        };
-
-    DatabricksResultSet resultSet =
-        databricksSdkClient.executeStatement(
-            STATEMENT,
-            warehouse,
-            sqlParams,
-            StatementType.QUERY,
-            connection.getSession(),
-            statement);
-    assertEquals(STATEMENT_ID, statement.getStatementId());
-  }
-
-  @Test
-  public void testCloseStatement() throws DatabricksSQLException {
-    String path = String.format(STATEMENT_PATH_WITH_ID, STATEMENT_ID);
-    IDatabricksConnectionContext connectionContext =
-        DatabricksConnectionContext.parse(JDBC_URL, new Properties());
-    DatabricksSdkClient databricksSdkClient =
-        new DatabricksSdkClient(connectionContext, statementExecutionService, apiClient);
-    CloseStatementRequest request = new CloseStatementRequest().setStatementId(STATEMENT_ID);
-    databricksSdkClient.closeStatement(STATEMENT_ID);
-
-    verify(apiClient).DELETE(eq(path), eq(request), eq(Void.class), eq(headers));
-  }
-
-  @Test
-  public void testCancelStatement() throws DatabricksSQLException {
-    String path = String.format(CANCEL_STATEMENT_PATH_WITH_ID, STATEMENT_ID);
-    IDatabricksConnectionContext connectionContext =
-        DatabricksConnectionContext.parse(JDBC_URL, new Properties());
-    DatabricksSdkClient databricksSdkClient =
-        new DatabricksSdkClient(connectionContext, statementExecutionService, apiClient);
-    CancelStatementRequest request = new CancelStatementRequest().setStatementId(STATEMENT_ID);
-    databricksSdkClient.cancelStatement(STATEMENT_ID);
-    verify(apiClient).POST(eq(path), eq(request), eq(Void.class), eq(headers));
   }
 
   private StatementParameterListItem getParam(String type, String value, int ordinal) {

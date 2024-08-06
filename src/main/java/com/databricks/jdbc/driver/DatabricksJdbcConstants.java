@@ -156,7 +156,9 @@ public final class DatabricksJdbcConstants {
   public static final String TABLE = "table";
 
   public static final String USER_NAME = "User";
+
   public static final String PORT = "port";
+
   public static final int DEFAULT_PORT = 443;
 
   /** Adding this for backward compatibility only */
@@ -216,54 +218,85 @@ public final class DatabricksJdbcConstants {
   public static final String USE_LEGACY_METADATA = "uselegacymetadata";
 
   static final String TEMPORARILY_UNAVAILABLE_RETRY = "TemporarilyUnavailableRetry";
+
   static final String TEMPORARILY_UNAVAILABLE_RETRY_TIMEOUT = "TemporarilyUnavailableRetryTimeout";
+
   public static final String DEFAULT_TEMPORARILY_UNAVAILABLE_RETRY_TIMEOUT = "900";
+
   static final String RATE_LIMIT_RETRY = "RateLimitRetry";
+
   static final String RATE_LIMIT_RETRY_TIMEOUT = "RateLimitRetryTimeout";
+
   public static final String DEFAULT_RATE_LIMIT_RETRY_TIMEOUT = "120";
+
   static final String IDLE_HTTP_CONNECTION_EXPIRY = "IdleHttpConnectionExpiry";
+
   static final String SUPPORT_MANY_PARAMETERS = "supportManyParameters";
+
   public static final String DEFAULT_IDLE_HTTP_CONNECTION_EXPIRY = "60";
+
   public static final String CLOUD_FETCH_THREAD_POOL_SIZE = "cloudFetchThreadPoolSize";
+
   public static final int CLOUD_FETCH_THREAD_POOL_SIZE_DEFAULT = 16;
+
   public static final String ENABLE_TELEMETRY = "enableTelemetry";
+
   public static final Pattern SELECT_PATTERN =
       Pattern.compile("^(\\s*\\()*\\s*SELECT", Pattern.CASE_INSENSITIVE);
+
   public static final Pattern SHOW_PATTERN =
       Pattern.compile("^(\\s*\\()*\\s*SHOW", Pattern.CASE_INSENSITIVE);
+
   public static final Pattern DESCRIBE_PATTERN =
       Pattern.compile("^(\\s*\\()*\\s*DESCRIBE", Pattern.CASE_INSENSITIVE);
+
   public static final Pattern EXPLAIN_PATTERN =
       Pattern.compile("^(\\s*\\()*\\s*EXPLAIN", Pattern.CASE_INSENSITIVE);
+
   public static final Pattern WITH_PATTERN =
       Pattern.compile("^(\\s*\\()*\\s*WITH", Pattern.CASE_INSENSITIVE);
+
   public static final Pattern SET_PATTERN =
       Pattern.compile("^(\\s*\\()*\\s*SET", Pattern.CASE_INSENSITIVE);
+
   public static final Pattern MAP_PATTERN =
       Pattern.compile("^(\\s*\\()*\\s*MAP", Pattern.CASE_INSENSITIVE);
+
   public static final Pattern FROM_PATTERN =
       Pattern.compile("^(\\s*\\()*\\s*FROM\\s*\\(", Pattern.CASE_INSENSITIVE);
+
   public static final Pattern VALUES_PATTERN =
       Pattern.compile("^(\\s*\\()*\\s*VALUES", Pattern.CASE_INSENSITIVE);
+
   public static final Pattern UNION_PATTERN =
       Pattern.compile("\\s+UNION\\s+", Pattern.CASE_INSENSITIVE);
+
   public static final Pattern INTERSECT_PATTERN =
       Pattern.compile("\\s+INTERSECT\\s+", Pattern.CASE_INSENSITIVE);
+
   public static final Pattern EXCEPT_PATTERN =
       Pattern.compile("\\s+EXCEPT\\s+", Pattern.CASE_INSENSITIVE);
+
   public static final Pattern DECLARE_PATTERN =
       Pattern.compile("^(\\s*\\()*\\s*DECLARE", Pattern.CASE_INSENSITIVE);
+
   public static final Pattern PUT_PATTERN =
       Pattern.compile("^(\\s*\\()*\\s*GET", Pattern.CASE_INSENSITIVE);
+
   public static final Pattern GET_PATTERN =
       Pattern.compile("^(\\s*\\()*\\s*PUT", Pattern.CASE_INSENSITIVE);
+
   public static final Pattern REMOVE_PATTERN =
       Pattern.compile("^(\\s*\\()*\\s*REMOVE", Pattern.CASE_INSENSITIVE);
+
   public static final Pattern LIST_PATTERN =
       Pattern.compile("^(\\s*\\()*\\s*LIST", Pattern.CASE_INSENSITIVE);
+
   public static final int DBSQL_MIN_MAJOR_VERSION_FOR_NEW_METADATA = 2024;
+
   public static final int DBSQL_MIN_MINOR_VERSION_FOR_NEW_METADATA = 30;
 
   public static final int DEFAULT_RETRY_COUNT = 5;
+
   public static final LogLevel TELEMETRY_LOG_LEVEL = LogLevel.OFF;
 }

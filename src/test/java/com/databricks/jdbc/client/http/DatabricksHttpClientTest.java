@@ -10,7 +10,7 @@ import static org.mockito.Mockito.*;
 import com.databricks.client.jdbc.Driver;
 import com.databricks.jdbc.client.DatabricksHttpException;
 import com.databricks.jdbc.client.DatabricksRetryHandlerException;
-import com.databricks.jdbc.driver.DatabricksConnectionContext;
+import com.databricks.jdbc.driver.DatabricksConnectionContextFactory;
 import com.databricks.jdbc.driver.IDatabricksConnectionContext;
 import com.databricks.sdk.core.ProxyConfig;
 import java.io.IOException;
@@ -36,6 +36,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
 public class DatabricksHttpClientTest {
+
   @Mock CloseableHttpClient mockHttpClient;
 
   @Mock HttpUriRequest request;
@@ -50,6 +51,7 @@ public class DatabricksHttpClientTest {
 
   private static final String CLUSTER_JDBC_URL =
       "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=http;ssl=1;httpPath=sql/protocolv1/o/6051921418418893/1115-130834-ms4m0yv;AuthMech=3;UserAgentEntry=MyApp";
+
   private static final String DBSQL_JDBC_URL =
       "jdbc:databricks://adb-565757575.18.azuredatabricks.net:4423/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/erg6767gg;UserAgentEntry=MyApp";
 
@@ -237,7 +239,7 @@ public class DatabricksHttpClientTest {
   void testUserAgent() throws Exception {
     // Thrift
     IDatabricksConnectionContext connectionContext =
-        DatabricksConnectionContext.parse(CLUSTER_JDBC_URL, new Properties());
+        DatabricksConnectionContextFactory.create(CLUSTER_JDBC_URL, new Properties());
     Driver.setUserAgent(connectionContext);
     String userAgent = DatabricksHttpClient.getUserAgent();
     assertTrue(userAgent.contains("DatabricksJDBCDriverOSS/0.9.1-oss"));
@@ -246,7 +248,7 @@ public class DatabricksHttpClientTest {
     assertFalse(userAgent.contains("databricks-sdk-java"));
 
     // SEA
-    connectionContext = DatabricksConnectionContext.parse(DBSQL_JDBC_URL, new Properties());
+    connectionContext = DatabricksConnectionContextFactory.create(DBSQL_JDBC_URL, new Properties());
     Driver.setUserAgent(connectionContext);
     userAgent = DatabricksHttpClient.getUserAgent();
     assertTrue(userAgent.contains("DatabricksJDBCDriverOSS/0.9.1-oss"));

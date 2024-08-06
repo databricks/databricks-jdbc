@@ -11,8 +11,9 @@ import com.databricks.jdbc.client.impl.sdk.DatabricksMetadataSdkClient;
 import com.databricks.jdbc.client.impl.sdk.DatabricksSdkClient;
 import com.databricks.jdbc.client.impl.thrift.DatabricksThriftServiceClient;
 import com.databricks.jdbc.client.impl.thrift.generated.*;
-import com.databricks.jdbc.driver.DatabricksConnectionContext;
+import com.databricks.jdbc.driver.DatabricksConnectionContextFactory;
 import com.databricks.jdbc.driver.IDatabricksConnectionContext;
+import java.util.Objects;
 import java.util.Properties;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -21,34 +22,18 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
 public class DatabricksSessionTest {
-  @Mock DatabricksSdkClient sdkClient;
-  @Mock DatabricksThriftServiceClient thriftClient;
-  @Mock TSessionHandle tSessionHandle;
+
   private static final String JDBC_URL_INVALID =
       "jdbc:databricks://adb-565757575.18.azuredatabricks.net:4423/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehou/erg6767gg;";
-  private static final String WAREHOUSE_ID = "erg6767gg";
   private static final String NEW_CATALOG = "new_catalog";
   private static final String NEW_SCHEMA = "new_schema";
   private static final String SESSION_ID = "session_id";
   private static final String VALID_CLUSTER_URL =
       "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=http;ssl=1;httpPath=sql/protocolv1/o/6051921418418893/1115-130834-ms4m0yv;AuthMech=3;conncatalog=field_demos;connschema=ossjdbc";
   private static IDatabricksConnectionContext connectionContext;
-
-  static void setupWarehouse(boolean useThrift) throws DatabricksSQLException {
-    String url = useThrift ? WAREHOUSE_JDBC_URL_WITH_THRIFT : WAREHOUSE_JDBC_URL;
-    connectionContext = DatabricksConnectionContext.parse(url, new Properties());
-  }
-
-  private void setupCluster() throws DatabricksSQLException {
-    connectionContext = DatabricksConnectionContext.parse(VALID_CLUSTER_URL, new Properties());
-    ImmutableSessionInfo sessionInfo =
-        ImmutableSessionInfo.builder()
-            .sessionHandle(tSessionHandle)
-            .sessionId(SESSION_ID)
-            .computeResource(CLUSTER_COMPUTE)
-            .build();
-    when(thriftClient.createSession(any(), any(), any(), any())).thenReturn(sessionInfo);
-  }
+  @Mock DatabricksSdkClient sdkClient;
+  @Mock DatabricksThriftServiceClient thriftClient;
+  @Mock TSessionHandle tSessionHandle;
 
   @Test
   public void testOpenAndCloseSession() throws DatabricksSQLException {
@@ -66,7 +51,7 @@ public class DatabricksSessionTest {
     session.open();
     assertTrue(session.isOpen());
     assertEquals(SESSION_ID, session.getSessionId());
-    assertTrue(session.getDatabricksMetadataClient() instanceof DatabricksMetadataSdkClient);
+    assertInstanceOf(DatabricksMetadataSdkClient.class, session.getDatabricksMetadataClient());
     assertEquals(WAREHOUSE_COMPUTE, session.getComputeResource());
     session.close();
     assertFalse(session.isOpen());
@@ -89,7 +74,7 @@ public class DatabricksSessionTest {
     session.open();
     assertTrue(session.isOpen());
     assertEquals(SESSION_ID, session.getSessionId());
-    assertEquals(tSessionHandle, session.getSessionInfo().sessionHandle());
+    assertEquals(tSessionHandle, Objects.requireNonNull(session.getSessionInfo()).sessionHandle());
     assertEquals(thriftClient, session.getDatabricksMetadataClient());
     assertEquals(WAREHOUSE_COMPUTE, session.getComputeResource());
     session.close();
@@ -105,7 +90,7 @@ public class DatabricksSessionTest {
     session.open();
     assertTrue(session.isOpen());
     assertEquals(SESSION_ID, session.getSessionId());
-    assertEquals(tSessionHandle, session.getSessionInfo().sessionHandle());
+    assertEquals(tSessionHandle, Objects.requireNonNull(session.getSessionInfo()).sessionHandle());
     assertEquals(thriftClient, session.getDatabricksMetadataClient());
     session.close();
     assertFalse(session.isOpen());
@@ -116,7 +101,7 @@ public class DatabricksSessionTest {
   public void testSessionConstructorForWarehouse() throws DatabricksSQLException {
     DatabricksSession session =
         new DatabricksSession(
-            DatabricksConnectionContext.parse(WAREHOUSE_JDBC_URL, new Properties()));
+            DatabricksConnectionContextFactory.create(WAREHOUSE_JDBC_URL, new Properties()));
     assertFalse(session.isOpen());
   }
 
@@ -126,7 +111,7 @@ public class DatabricksSessionTest {
         DatabricksParsingException.class,
         () ->
             new DatabricksSession(
-                DatabricksConnectionContext.parse(JDBC_URL_INVALID, new Properties())));
+                DatabricksConnectionContextFactory.create(JDBC_URL_INVALID, new Properties())));
   }
 
   @Test
@@ -153,8 +138,26 @@ public class DatabricksSessionTest {
   public void testSetClientInfoProperty() throws DatabricksSQLException {
     DatabricksSession session =
         new DatabricksSession(
-            DatabricksConnectionContext.parse(VALID_CLUSTER_URL, new Properties()), sdkClient);
+            DatabricksConnectionContextFactory.create(VALID_CLUSTER_URL, new Properties()),
+            sdkClient);
     session.setClientInfoProperty("key", "value");
     assertEquals("value", session.getClientInfoProperties().get("key"));
+  }
+
+  private static void setupWarehouse(boolean useThrift) throws DatabricksSQLException {
+    String url = useThrift ? WAREHOUSE_JDBC_URL_WITH_THRIFT : WAREHOUSE_JDBC_URL;
+    connectionContext = DatabricksConnectionContextFactory.create(url, new Properties());
+  }
+
+  private void setupCluster() throws DatabricksSQLException {
+    connectionContext =
+        DatabricksConnectionContextFactory.create(VALID_CLUSTER_URL, new Properties());
+    ImmutableSessionInfo sessionInfo =
+        ImmutableSessionInfo.builder()
+            .sessionHandle(tSessionHandle)
+            .sessionId(SESSION_ID)
+            .computeResource(CLUSTER_COMPUTE)
+            .build();
+    when(thriftClient.createSession(any(), any(), any(), any())).thenReturn(sessionInfo);
   }
 }

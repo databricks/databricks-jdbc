@@ -15,7 +15,7 @@ import com.databricks.jdbc.client.sqlexec.ExternalLink;
 import com.databricks.jdbc.client.sqlexec.ResultData;
 import com.databricks.jdbc.client.sqlexec.ResultManifest;
 import com.databricks.jdbc.core.types.CompressionType;
-import com.databricks.jdbc.driver.DatabricksConnectionContext;
+import com.databricks.jdbc.driver.DatabricksConnectionContextFactory;
 import com.databricks.jdbc.driver.IDatabricksConnectionContext;
 import com.databricks.sdk.service.sql.BaseChunkInfo;
 import com.databricks.sdk.service.sql.ColumnInfo;
@@ -49,26 +49,23 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
 public class ArrowStreamResultTest {
-  private List<BaseChunkInfo> chunkInfos = new ArrayList<>();
 
+  private final List<BaseChunkInfo> chunkInfos = new ArrayList<>();
   @Mock TGetResultSetMetadataResp metadataResp;
   @Mock TRowSet resultData;
   @Mock IDatabricksSession session;
-  private int numberOfChunks = 10;
-  private Random random = new Random();
-
-  private long rowsInChunk = 110L;
-
-  private static final String JDBC_URL =
-      "jdbc:databricks://adb-565757575.18.azuredatabricks.net:4423/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/erg6767gg;";
-  private static final String CHUNK_URL_PREFIX = "chunk.databricks.com/";
-  private static final String STATEMENT_ID = "statement_id";
-
   @Mock DatabricksSdkClient mockedSdkClient;
   @Mock IDatabricksHttpClient mockHttpClient;
   @Mock CloseableHttpResponse httpResponse;
   @Mock HttpEntity httpEntity;
   @Mock StatusLine mockedStatusLine;
+  private final int numberOfChunks = 10;
+  private final Random random = new Random();
+  private final long rowsInChunk = 110L;
+  private static final String JDBC_URL =
+      "jdbc:databricks://adb-565757575.18.azuredatabricks.net:4423/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/erg6767gg;";
+  private static final String CHUNK_URL_PREFIX = "chunk.databricks.com/";
+  private static final String STATEMENT_ID = "statement_id";
 
   @BeforeEach
   public void setup() throws Exception {
@@ -78,7 +75,7 @@ public class ArrowStreamResultTest {
   @Test
   public void testInitEmptyArrowStreamResult() throws Exception {
     IDatabricksConnectionContext connectionContext =
-        DatabricksConnectionContext.parse(JDBC_URL, new Properties());
+        DatabricksConnectionContextFactory.create(JDBC_URL, new Properties());
     when(session.getConnectionContext()).thenReturn(connectionContext);
     ResultManifest resultManifest =
         new ResultManifest()
@@ -106,7 +103,7 @@ public class ArrowStreamResultTest {
     ResultData resultData = new ResultData().setExternalLinks(getChunkLinks(0L, false));
 
     IDatabricksConnectionContext connectionContext =
-        DatabricksConnectionContext.parse(JDBC_URL, new Properties());
+        DatabricksConnectionContextFactory.create(JDBC_URL, new Properties());
     DatabricksSession session = new DatabricksSession(connectionContext, mockedSdkClient);
     setupMockResponse();
     setupResultChunkMocks();
@@ -144,7 +141,7 @@ public class ArrowStreamResultTest {
   @Test
   public void testCloudFetchArrow() throws Exception {
     IDatabricksConnectionContext connectionContext =
-        DatabricksConnectionContext.parse(JDBC_URL, new Properties());
+        DatabricksConnectionContextFactory.create(JDBC_URL, new Properties());
     when(session.getConnectionContext()).thenReturn(connectionContext);
     when(metadataResp.getSchema()).thenReturn(TEST_TABLE_SCHEMA);
     TSparkArrowResultLink resultLink = new TSparkArrowResultLink().setFileLink(TEST_STRING);
@@ -180,7 +177,7 @@ public class ArrowStreamResultTest {
     ResultData resultData = new ResultData().setExternalLinks(getChunkLinks(0L, false));
 
     IDatabricksConnectionContext connectionContext =
-        DatabricksConnectionContext.parse(JDBC_URL, new Properties());
+        DatabricksConnectionContextFactory.create(JDBC_URL, new Properties());
     DatabricksSession session = new DatabricksSession(connectionContext, mockedSdkClient);
 
     setupMockResponse();
@@ -193,8 +190,8 @@ public class ArrowStreamResultTest {
     Object objectInFirstColumn = result.getObject(0);
     Object objectInSecondColumn = result.getObject(1);
 
-    assertTrue(objectInFirstColumn instanceof Integer);
-    assertTrue(objectInSecondColumn instanceof Double);
+    assertInstanceOf(Integer.class, objectInFirstColumn);
+    assertInstanceOf(Double.class, objectInSecondColumn);
   }
 
   private List<ExternalLink> getChunkLinks(long chunkIndex, boolean isLast) {
@@ -211,13 +208,13 @@ public class ArrowStreamResultTest {
     return chunkLinks;
   }
 
-  private void setupChunks() throws Exception {
+  private void setupChunks() {
     for (int i = 0; i < this.numberOfChunks; ++i) {
       BaseChunkInfo chunkInfo =
           new BaseChunkInfo()
               .setChunkIndex((long) i)
               .setByteCount(1000L)
-              .setRowOffset((long) (i * 110L))
+              .setRowOffset(i * 110L)
               .setRowCount(this.rowsInChunk);
       this.chunkInfos.add(chunkInfo);
     }
@@ -235,7 +232,7 @@ public class ArrowStreamResultTest {
     when(httpEntity.getContent()).thenAnswer(invocation -> new FileInputStream(arrowFile));
   }
 
-  private void setupResultChunkMocks() throws DatabricksSQLException {
+  private void setupResultChunkMocks() {
     for (int chunkIndex = 1; chunkIndex < numberOfChunks; chunkIndex++) {
       boolean isLastChunk = (chunkIndex == (numberOfChunks - 1));
       when(mockedSdkClient.getResultChunks(STATEMENT_ID, chunkIndex))

@@ -5,6 +5,7 @@ import static com.databricks.jdbc.driver.DatabricksJdbcConstants.*;
 import com.databricks.jdbc.client.DatabricksClientType;
 import com.databricks.jdbc.commons.LogLevel;
 import com.databricks.jdbc.commons.util.LoggingUtil;
+import com.databricks.jdbc.commons.util.ValidationUtil;
 import com.databricks.jdbc.core.DatabricksParsingException;
 import com.databricks.jdbc.core.DatabricksSQLException;
 import com.databricks.jdbc.core.types.AllPurposeCluster;
@@ -20,7 +21,7 @@ import java.util.regex.Matcher;
 import java.util.stream.Collectors;
 import org.apache.http.client.utils.URIBuilder;
 
-public class DatabricksConnectionContext implements IDatabricksConnectionContext {
+class DatabricksConnectionContext implements IDatabricksConnectionContext {
   private final String host;
   @VisibleForTesting final int port;
   private final String schema;
@@ -36,9 +37,9 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
    * @param properties connection properties
    * @return a connection context
    */
-  public static IDatabricksConnectionContext parse(String url, Properties properties)
+  static IDatabricksConnectionContext parse(String url, Properties properties)
       throws DatabricksSQLException {
-    if (!isValid(url)) {
+    if (!ValidationUtil.isValidJdbcUrl(url)) {
       // TODO: handle exceptions properly
       throw new DatabricksParsingException("Invalid url " + url);
     }
@@ -50,7 +51,7 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
       String hostValue = hostAndPort[0];
       int portValue =
           hostAndPort.length == 2
-              ? Integer.valueOf(hostAndPort[1])
+              ? Integer.parseInt(hostAndPort[1])
               : DatabricksJdbcConstants.DEFAULT_PORT;
 
       ImmutableMap.Builder<String, String> parametersBuilder = ImmutableMap.builder();
@@ -64,9 +65,9 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
         if (pair.length == 1) {
           pair = new String[] {pair[0], ""};
         }
-        if (pair[0].toLowerCase().equals(PORT)) {
+        if (pair[0].equalsIgnoreCase(PORT)) {
           try {
-            portValue = Integer.valueOf(pair[1]);
+            portValue = Integer.parseInt(pair[1]);
           } catch (NumberFormatException e) {
             throw new DatabricksParsingException("Invalid port number " + pair[1]);
           }
@@ -79,32 +80,14 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
       DatabricksConnectionContext context =
           new DatabricksConnectionContext(
               url, hostValue, portValue, schema, parametersBuilder.build());
+
       metricsExporter = new DatabricksMetrics(context);
+
       return context;
     } else {
       // Should never reach here, since we have already checked for url validity
       throw new IllegalArgumentException("Invalid url " + "incorrect");
     }
-  }
-
-  @Override
-  public int hashCode() {
-    return Objects.hash(host, port, schema, parameters);
-  }
-
-  @Override
-  public boolean equals(Object obj) {
-    if (this == obj) return true;
-    if (obj == null || getClass() != obj.getClass()) return false;
-    DatabricksConnectionContext that = (DatabricksConnectionContext) obj;
-    return port == that.port
-        && Objects.equals(host, that.host)
-        && Objects.equals(schema, that.schema)
-        && Objects.equals(parameters, that.parameters);
-  }
-
-  private static void handleInvalidUrl(String url) throws DatabricksParsingException {
-    throw new DatabricksParsingException("Invalid url incorrect: " + url);
   }
 
   private DatabricksConnectionContext(
@@ -120,18 +103,6 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
     this.schema = schema;
     this.parameters = parameters;
     this.computeResource = buildCompute();
-  }
-
-  public static boolean isValid(String url) {
-    if (!JDBC_URL_PATTERN.matcher(url).matches()) {
-      return false;
-    }
-    return HTTP_CLUSTER_PATH_PATTERN.matcher(url).matches()
-        || HTTP_WAREHOUSE_PATH_PATTERN.matcher(url).matches()
-        || HTTP_ENDPOINT_PATH_PATTERN.matcher(url).matches()
-        || TEST_PATH_PATTERN.matcher(url).matches()
-        || BASE_PATTERN.matcher(url).matches()
-        || HTTP_CLI_PATTERN.matcher(url).matches();
   }
 
   @Override
@@ -166,37 +137,12 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
     }
   }
 
-  private String getSSLMode() {
-    return getParameter(DatabricksJdbcConstants.SSL);
-  }
-
   @Override
   public ComputeResource getComputeResource() {
     return computeResource;
   }
 
-  private ComputeResource buildCompute() throws DatabricksSQLException {
-    String httpPath = getHttpPath();
-    Matcher urlMatcher = HTTP_WAREHOUSE_PATH_PATTERN.matcher(httpPath);
-    if (urlMatcher.find()) {
-      return new Warehouse(urlMatcher.group(1));
-    }
-    urlMatcher = HTTP_ENDPOINT_PATH_PATTERN.matcher(httpPath);
-    if (urlMatcher.find()) {
-      return new Warehouse(urlMatcher.group(1));
-    }
-    urlMatcher = HTTP_CLUSTER_PATH_PATTERN.matcher(httpPath);
-    if (urlMatcher.find()) {
-      return new AllPurposeCluster(urlMatcher.group(1), urlMatcher.group(2));
-    }
-    urlMatcher = HTTP_PATH_CLI_PATTERN.matcher(httpPath);
-    if (urlMatcher.find()) {
-      return new AllPurposeCluster("default", "default");
-    }
-    // the control should never reach here, as the parsing already ensured the URL is valid
-    throw new DatabricksParsingException("Invalid HTTP Path provided " + this.getHttpPath());
-  }
-
+  @Override
   public String getHttpPath() {
     LoggingUtil.log(LogLevel.DEBUG, "String getHttpPath()");
     return getParameter(DatabricksJdbcConstants.HTTP_PATH);
@@ -224,19 +170,7 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
 
   @Override
   public Boolean getDirectResultMode() {
-    return getParameter(DIRECT_RESULT) == null || Objects.equals(getParameter(DIRECT_RESULT), "1");
-  }
-
-  public String getCloud() throws DatabricksParsingException {
-    String hostURL = getHostUrl();
-    if (hostURL.contains("azuredatabricks.net")
-        || hostURL.contains(".databricks.azure.cn")
-        || hostURL.contains(".databricks.azure.us")) {
-      return "AAD";
-    } else if (hostURL.contains(".cloud.databricks.com")) {
-      return "AWS";
-    }
-    return "OTHER";
+    return Objects.equals(getParameter(DIRECT_RESULT, "1"), "1");
   }
 
   @Override
@@ -266,14 +200,6 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   @Override
   public String getClientSecret() {
     return getParameter(DatabricksJdbcConstants.CLIENT_SECRET);
-  }
-
-  private String getParameter(String key) {
-    return this.parameters.getOrDefault(key.toLowerCase(), null);
-  }
-
-  private String getParameter(String key, String defaultValue) {
-    return this.parameters.getOrDefault(key.toLowerCase(), defaultValue);
   }
 
   @Override
@@ -341,9 +267,9 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
         : clientAgent + USER_AGENT_DELIMITER + customerUserAgent;
   }
 
-  // TODO: Make use of compression type
   @Override
   public CompressionType getCompressionType() {
+    // TODO: Make use of compression type
     String compressionType =
         Optional.ofNullable(getParameter(DatabricksJdbcConstants.LZ4_COMPRESSION_FLAG))
             .orElse(getParameter(DatabricksJdbcConstants.COMPRESSION_FLAG));
@@ -380,10 +306,6 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
           LogLevel.DEBUG, "Invalid thread pool size, defaulting to default thread pool size.");
       return CLOUD_FETCH_THREAD_POOL_SIZE_DEFAULT;
     }
-  }
-
-  private static boolean nullOrEmptyString(String s) {
-    return s == null || s.isEmpty();
   }
 
   @Override
@@ -548,8 +470,6 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   }
 
   /** Returns whether the current test is a fake service test. */
-  // TODO: (Bhuvan) This is a temporary solution to enable fake service tests by disabling flushing
-  // of metrics when session is closed. We should remove this
   @Override
   public boolean isFakeServiceTest() {
     return Boolean.parseBoolean(System.getProperty(IS_FAKE_SERVICE_TEST_PROP));
@@ -563,5 +483,78 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   @Override
   public String getConnectionURL() {
     return connectionURL;
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hash(host, port, schema, parameters);
+  }
+
+  @Override
+  public boolean equals(Object obj) {
+    if (this == obj) return true;
+    if (obj == null || getClass() != obj.getClass()) return false;
+    DatabricksConnectionContext that = (DatabricksConnectionContext) obj;
+    return port == that.port
+        && Objects.equals(host, that.host)
+        && Objects.equals(schema, that.schema)
+        && Objects.equals(parameters, that.parameters);
+  }
+
+  private String getSSLMode() {
+    return getParameter(DatabricksJdbcConstants.SSL);
+  }
+
+  /**
+   * Builds the compute resource based on the HTTP path.
+   *
+   * @return the compute resource
+   * @throws DatabricksSQLException if the HTTP path is invalid
+   */
+  private ComputeResource buildCompute() throws DatabricksSQLException {
+    String httpPath = getHttpPath();
+    Matcher urlMatcher = HTTP_WAREHOUSE_PATH_PATTERN.matcher(httpPath);
+    if (urlMatcher.find()) {
+      return new Warehouse(urlMatcher.group(1));
+    }
+    urlMatcher = HTTP_ENDPOINT_PATH_PATTERN.matcher(httpPath);
+    if (urlMatcher.find()) {
+      return new Warehouse(urlMatcher.group(1));
+    }
+    urlMatcher = HTTP_CLUSTER_PATH_PATTERN.matcher(httpPath);
+    if (urlMatcher.find()) {
+      return new AllPurposeCluster(urlMatcher.group(1), urlMatcher.group(2));
+    }
+    urlMatcher = HTTP_PATH_CLI_PATTERN.matcher(httpPath);
+    if (urlMatcher.find()) {
+      return new AllPurposeCluster("default", "default");
+    }
+    // the control should never reach here, as the parsing already ensured the URL is valid
+    throw new DatabricksParsingException("Invalid HTTP Path provided " + this.getHttpPath());
+  }
+
+  /** Returns the cloud type based on the host URL. */
+  private String getCloud() throws DatabricksParsingException {
+    String hostURL = getHostUrl();
+    if (hostURL.contains("azuredatabricks.net")
+        || hostURL.contains(".databricks.azure.cn")
+        || hostURL.contains(".databricks.azure.us")) {
+      return "AAD";
+    } else if (hostURL.contains(".cloud.databricks.com")) {
+      return "AWS";
+    }
+    return "OTHER";
+  }
+
+  private String getParameter(String key) {
+    return this.parameters.getOrDefault(key.toLowerCase(), null);
+  }
+
+  private String getParameter(String key, String defaultValue) {
+    return this.parameters.getOrDefault(key.toLowerCase(), defaultValue);
+  }
+
+  private static boolean nullOrEmptyString(String s) {
+    return s == null || s.isEmpty();
   }
 }

@@ -6,7 +6,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 
 import com.databricks.jdbc.client.DatabricksMetadataClient;
-import com.databricks.jdbc.driver.DatabricksConnectionContext;
+import com.databricks.jdbc.driver.DatabricksConnectionContextFactory;
 import java.sql.*;
 import java.util.Arrays;
 import java.util.List;
@@ -14,26 +14,20 @@ import java.util.Properties;
 import java.util.concurrent.Callable;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.mockito.Mock;
 import org.mockito.Mockito;
 
 public class DatabricksDatabaseMetaDataTest {
 
   private IDatabricksConnection connection;
-  private IDatabricksSession session;
   private DatabricksDatabaseMetaData metaData;
-
-  private DatabricksMetadataClient metadataClient;
-
-  @Mock private DatabricksResultSet resultSet;
 
   @BeforeEach
   public void setup() throws SQLException {
     connection = Mockito.mock(IDatabricksConnection.class);
-    session = Mockito.mock(IDatabricksSession.class);
+    IDatabricksSession session = Mockito.mock(IDatabricksSession.class);
     when(connection.getSession()).thenReturn(session);
     metaData = new DatabricksDatabaseMetaData(connection);
-    metadataClient = Mockito.mock(DatabricksMetadataClient.class);
+    DatabricksMetadataClient metadataClient = Mockito.mock(DatabricksMetadataClient.class);
     when(session.getDatabricksMetadataClient()).thenReturn(metadataClient);
     when(metadataClient.listTables(any(), any(), any(), any(), any()))
         .thenReturn(Mockito.mock(DatabricksResultSet.class));
@@ -42,7 +36,8 @@ public class DatabricksDatabaseMetaDataTest {
     when(metadataClient.listSchemas(any(), any(), any()))
         .thenReturn(Mockito.mock(DatabricksResultSet.class));
     when(session.getConnectionContext())
-        .thenReturn(DatabricksConnectionContext.parse(WAREHOUSE_JDBC_URL, new Properties()));
+        .thenReturn(
+            DatabricksConnectionContextFactory.create(WAREHOUSE_JDBC_URL, new Properties()));
     when(metadataClient.listCatalogs(any())).thenReturn(Mockito.mock(DatabricksResultSet.class));
     when(metadataClient.listTableTypes(any())).thenReturn(Mockito.mock(DatabricksResultSet.class));
     when(metadataClient.listTypeInfo(any())).thenReturn(Mockito.mock(DatabricksResultSet.class));
@@ -61,7 +56,7 @@ public class DatabricksDatabaseMetaDataTest {
   }
 
   @Test
-  public void getDatabaseProductName_throwsExceptionWhenConnectionIsClosed() throws Exception {
+  public void getDatabaseProductName_throwsExceptionWhenConnectionIsClosed() {
     when(connection.getSession().isOpen()).thenReturn(false);
     try {
       metaData.getDatabaseProductName();
