@@ -3,14 +3,11 @@ package com.databricks.jdbc.integration.benchmarking;
 import static com.databricks.jdbc.integration.IntegrationTestUtil.*;
 
 import java.io.File;
-import java.lang.reflect.InvocationTargetException;
-import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLClassLoader;
 import java.sql.*;
 import java.time.LocalDateTime;
 import java.util.*;
-import java.util.logging.Logger;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -113,10 +110,14 @@ public class LargeQueriesBenchmarkingTest {
 
     switch (mode) {
       case "SEA":
-        connection = getConnectionForSimbaDriver(getBenchmarkingJDBCUrl(), "token", getDatabricksBenchmarkingToken());
+        connection =
+            getConnectionForSimbaDriver(
+                getBenchmarkingJDBCUrl(), "token", getDatabricksBenchmarkingToken());
         break;
       case "THRIFT":
-        connection = getConnectionForSimbaDriver(getBenchmarkingJDBCUrlForThrift(), "token", getDatabricksBenchmarkingToken());
+        connection =
+            getConnectionForSimbaDriver(
+                getBenchmarkingJDBCUrlForThrift(), "token", getDatabricksBenchmarkingToken());
         break;
       default:
         throw new IllegalArgumentException("Invalid testing mode");
@@ -133,12 +134,7 @@ public class LargeQueriesBenchmarkingTest {
         long startTime = System.currentTimeMillis();
         ResultSet rs =
             statement.executeQuery(
-                "SELECT * FROM "
-                    + TABLE_NAME
-                    + " LIMIT "
-                    + ROWS
-                    + " OFFSET "
-                    + offset);
+                "SELECT * FROM " + TABLE_NAME + " LIMIT " + ROWS + " OFFSET " + offset);
         int cnt = 0;
         while (rs.next()) {
           cnt++;
@@ -190,16 +186,19 @@ public class LargeQueriesBenchmarkingTest {
       File file = new File("src/test/resources/DatabricksJDBC42.jar");
       URL url = file.toURI().toURL();
 
-      URLClassLoader urlClassLoader = new CustomClassLoader(new URL[]{url}, this.getClass().getClassLoader());
+      URLClassLoader urlClassLoader =
+          new CustomClassLoader(new URL[] {url}, this.getClass().getClassLoader());
 
-      Class<?> driverClass = Class.forName("com.databricks.client.jdbc.Driver", true, urlClassLoader);
+      Class<?> driverClass =
+          Class.forName("com.databricks.client.jdbc.Driver", true, urlClassLoader);
       simbaDriver = (java.sql.Driver) driverClass.getDeclaredConstructor().newInstance();
     } catch (Exception e) {
       e.printStackTrace();
     }
   }
 
-  private Connection getConnectionForSimbaDriver(String url, String user, String password) throws SQLException {
+  private Connection getConnectionForSimbaDriver(String url, String user, String password)
+      throws SQLException {
     Properties props = new Properties();
     props.put("user", user);
     props.put("password", password);

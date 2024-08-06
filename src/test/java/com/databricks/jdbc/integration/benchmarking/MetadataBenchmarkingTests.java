@@ -7,7 +7,6 @@ import java.net.URL;
 import java.net.URLClassLoader;
 import java.sql.*;
 import java.time.LocalDateTime;
-import java.util.Enumeration;
 import java.util.Map;
 import java.util.Properties;
 import java.util.stream.Stream;
@@ -77,9 +76,7 @@ public class MetadataBenchmarkingTests {
       case "THRIFT":
         connection =
             DriverManager.getConnection(
-                getJDBCUrl(Map.of("usethriftclient", "1")),
-                "token",
-                getDatabricksToken());
+                getJDBCUrl(Map.of("usethriftclient", "1")), "token", getDatabricksToken());
         RESULTS_TABLE = "main.jdbc_metadata_benchmarking_thrift.benchmarking_results";
         break;
       default:
@@ -105,8 +102,7 @@ public class MetadataBenchmarkingTests {
     switch (mode) {
       case "SEA":
       case "THRIFT":
-        connection =
-            getConnectionForSimbaDriver(getJDBCUrl(), "token", getDatabricksToken());
+        connection = getConnectionForSimbaDriver(getJDBCUrl(), "token", getDatabricksToken());
         break;
       default:
         throw new IllegalArgumentException("Invalid testing mode");
@@ -115,8 +111,10 @@ public class MetadataBenchmarkingTests {
 
   private void setUpSchemas() throws SQLException {
     for (int i = 0; i < NUM_SCHEMAS; i++) {
-      connection.createStatement().execute(
-          "CREATE SCHEMA IF NOT EXISTS " + getDatabricksCatalog() + "." + BASE_SCHEMA_NAME + i);
+      connection
+          .createStatement()
+          .execute(
+              "CREATE SCHEMA IF NOT EXISTS " + getDatabricksCatalog() + "." + BASE_SCHEMA_NAME + i);
       System.out.println("Created schema " + i);
     }
   }
@@ -124,17 +122,19 @@ public class MetadataBenchmarkingTests {
   private void setUpTables() throws SQLException {
     for (int i = 0; i < NUM_SCHEMAS; i++) {
       for (int j = 0; j < NUM_TABLES; j++) {
-        connection.createStatement().execute(
-            "CREATE TABLE IF NOT EXISTS "
-                + getDatabricksCatalog()
-                + "."
-                + BASE_SCHEMA_NAME
-                + i
-                + "."
-                + BASE_TABLE_NAME
-                + j
-                + " "
-                + getColumnString());
+        connection
+            .createStatement()
+            .execute(
+                "CREATE TABLE IF NOT EXISTS "
+                    + getDatabricksCatalog()
+                    + "."
+                    + BASE_SCHEMA_NAME
+                    + i
+                    + "."
+                    + BASE_TABLE_NAME
+                    + j
+                    + " "
+                    + getColumnString());
       }
       System.out.println("Created tables for schema " + i);
     }
@@ -277,16 +277,19 @@ public class MetadataBenchmarkingTests {
       File file = new File("src/test/resources/DatabricksJDBC42.jar");
       URL url = file.toURI().toURL();
 
-      URLClassLoader urlClassLoader = new CustomClassLoader(new URL[]{url}, this.getClass().getClassLoader());
+      URLClassLoader urlClassLoader =
+          new CustomClassLoader(new URL[] {url}, this.getClass().getClassLoader());
 
-      Class<?> driverClass = Class.forName("com.databricks.client.jdbc.Driver", true, urlClassLoader);
+      Class<?> driverClass =
+          Class.forName("com.databricks.client.jdbc.Driver", true, urlClassLoader);
       simbaDriver = (java.sql.Driver) driverClass.getDeclaredConstructor().newInstance();
     } catch (Exception e) {
       e.printStackTrace();
     }
   }
 
-  private Connection getConnectionForSimbaDriver(String url, String user, String password) throws SQLException {
+  private Connection getConnectionForSimbaDriver(String url, String user, String password)
+      throws SQLException {
     Properties props = new Properties();
     props.put("user", user);
     props.put("password", password);
