@@ -38,16 +38,11 @@ public class UCVolumeDataExchangeIntegrationTests extends AbstractFakeServiceInt
                   wireMockConfig().dynamicPort().dynamicHttpsPort().extensions(getExtensions())),
           DatabricksJdbcConstants.FakeServiceType.CLOUD_FETCH_UC_VOLUME,
           "https://us-west-2-extstaging-managed-catalog-test-bucket-1.s3-fips.us-west-2.amazonaws.com");
-
   private DatabricksUCVolumeClient client;
-
   private Connection con;
-
   private static final String jdbcUrlTemplate =
       "jdbc:databricks://%s/default;transportMode=http;ssl=0;AuthMech=3;httpPath=%s;catalog=SPARK";
-
   private static final String HTTP_PATH = "/sql/1.0/warehouses/791ba2a31c7fd70a";
-
   private static final String LOCAL_TEST_DIRECTORY = "/tmp";
 
   @BeforeAll
