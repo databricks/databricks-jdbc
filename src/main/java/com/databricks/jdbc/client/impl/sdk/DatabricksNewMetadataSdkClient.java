@@ -9,16 +9,12 @@ import com.databricks.jdbc.client.impl.helper.CommandBuilder;
 import com.databricks.jdbc.client.impl.helper.CommandName;
 import com.databricks.jdbc.client.impl.helper.MetadataResultSetBuilder;
 import com.databricks.jdbc.commons.LogLevel;
-import com.databricks.jdbc.commons.MetricsList;
 import com.databricks.jdbc.commons.util.LoggingUtil;
-import com.databricks.jdbc.core.*;
 import com.databricks.jdbc.core.DatabricksResultSet;
 import com.databricks.jdbc.core.IDatabricksSession;
 import com.databricks.jdbc.core.ImmutableSqlParameter;
-import com.databricks.jdbc.driver.IDatabricksConnectionContext;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.util.*;
 import java.util.HashMap;
 import java.util.Optional;
 
@@ -43,38 +39,22 @@ public class DatabricksNewMetadataSdkClient implements DatabricksMetadataClient 
 
   @Override
   public DatabricksResultSet listCatalogs(IDatabricksSession session) throws SQLException {
-    long startTime = System.currentTimeMillis();
     CommandBuilder commandBuilder = new CommandBuilder(session);
     String SQL = commandBuilder.getSQLString(CommandName.LIST_CATALOGS);
     LoggingUtil.log(LogLevel.DEBUG, String.format("SQL command to fetch catalogs: {%s}", SQL));
-    DatabricksResultSet resultSet =
-        MetadataResultSetBuilder.getCatalogsResult(
-            getResultSet(SQL, session, StatementType.METADATA));
-    IDatabricksConnectionContext connectionContext = session.getConnectionContext();
-    connectionContext
-        .getMetricsExporter()
-        .record(
-            MetricsList.LIST_CATALOGS_METADATA_SEA.name(), System.currentTimeMillis() - startTime);
-    return resultSet;
+    return MetadataResultSetBuilder.getCatalogsResult(
+        getResultSet(SQL, session, StatementType.METADATA));
   }
 
   @Override
   public DatabricksResultSet listSchemas(
       IDatabricksSession session, String catalog, String schemaNamePattern) throws SQLException {
-    long startTime = System.currentTimeMillis();
     CommandBuilder commandBuilder =
         new CommandBuilder(catalog, session).setSchemaPattern(schemaNamePattern);
     String SQL = commandBuilder.getSQLString(CommandName.LIST_SCHEMAS);
     LoggingUtil.log(LogLevel.DEBUG, String.format("SQL command to fetch schemas: {%s}", SQL));
-    DatabricksResultSet resultSet =
-        MetadataResultSetBuilder.getSchemasResult(
-            getResultSet(SQL, session, StatementType.METADATA), catalog);
-    IDatabricksConnectionContext connectionContext = session.getConnectionContext();
-    connectionContext
-        .getMetricsExporter()
-        .record(
-            MetricsList.LIST_SCHEMAS_METADATA_SEA.name(), System.currentTimeMillis() - startTime);
-    return resultSet;
+    return MetadataResultSetBuilder.getSchemasResult(
+        getResultSet(SQL, session, StatementType.METADATA), catalog);
   }
 
   @Override
@@ -89,36 +69,19 @@ public class DatabricksNewMetadataSdkClient implements DatabricksMetadataClient 
         Optional.ofNullable(tableTypes)
             .filter(types -> types.length > 0)
             .orElse(DEFAULT_TABLE_TYPES);
-    long startTime = System.currentTimeMillis();
     CommandBuilder commandBuilder =
         new CommandBuilder(catalog, session)
             .setSchemaPattern(schemaNamePattern)
             .setTablePattern(tableNamePattern);
     String SQL = commandBuilder.getSQLString(CommandName.LIST_TABLES);
-    DatabricksResultSet resultSet =
-        MetadataResultSetBuilder.getTablesResult(
-            getResultSet(SQL, session, StatementType.METADATA), tableTypes);
-    IDatabricksConnectionContext connectionContext = session.getConnectionContext();
-    connectionContext
-        .getMetricsExporter()
-        .record(
-            MetricsList.LIST_TABLES_METADATA_SEA.name(), System.currentTimeMillis() - startTime);
-    return resultSet;
+    return MetadataResultSetBuilder.getTablesResult(
+        getResultSet(SQL, session, StatementType.METADATA), tableTypes);
   }
 
   @Override
   public DatabricksResultSet listTableTypes(IDatabricksSession session) throws SQLException {
-
     LoggingUtil.log(LogLevel.DEBUG, "Returning list of table types.");
-    long startTime = System.currentTimeMillis();
-    DatabricksResultSet resultSet = MetadataResultSetBuilder.getTableTypesResult();
-    IDatabricksConnectionContext connectionContext = session.getConnectionContext();
-    connectionContext
-        .getMetricsExporter()
-        .record(
-            MetricsList.LIST_TABLE_TYPES_METADATA_SEA.name(),
-            System.currentTimeMillis() - startTime);
-    return resultSet;
+    return MetadataResultSetBuilder.getTableTypesResult();
   }
 
   @Override
@@ -129,21 +92,14 @@ public class DatabricksNewMetadataSdkClient implements DatabricksMetadataClient 
       String tableNamePattern,
       String columnNamePattern)
       throws SQLException {
-    long startTime = System.currentTimeMillis();
     CommandBuilder commandBuilder =
         new CommandBuilder(catalog, session)
             .setSchemaPattern(schemaNamePattern)
             .setTablePattern(tableNamePattern)
             .setColumnPattern(columnNamePattern);
     String SQL = commandBuilder.getSQLString(CommandName.LIST_COLUMNS);
-    DatabricksResultSet resultSet =
-        MetadataResultSetBuilder.getColumnsResult(getResultSet(SQL, session, StatementType.QUERY));
-    IDatabricksConnectionContext connectionContext = session.getConnectionContext();
-    connectionContext
-        .getMetricsExporter()
-        .record(
-            MetricsList.LIST_COLUMNS_METADATA_SEA.name(), System.currentTimeMillis() - startTime);
-    return resultSet;
+    return MetadataResultSetBuilder.getColumnsResult(
+        getResultSet(SQL, session, StatementType.QUERY));
   }
 
   @Override
@@ -153,42 +109,25 @@ public class DatabricksNewMetadataSdkClient implements DatabricksMetadataClient 
       String schemaNamePattern,
       String functionNamePattern)
       throws SQLException {
-    long startTime = System.currentTimeMillis();
     CommandBuilder commandBuilder =
         new CommandBuilder(catalog, session)
             .setSchemaPattern(schemaNamePattern)
             .setFunctionPattern(functionNamePattern);
     String SQL = commandBuilder.getSQLString(CommandName.LIST_FUNCTIONS);
     LoggingUtil.log(LogLevel.DEBUG, String.format("SQL command to fetch functions: {%s}", SQL));
-    DatabricksResultSet resultSet =
-        MetadataResultSetBuilder.getFunctionsResult(
-            getResultSet(SQL, session, StatementType.QUERY), catalog);
-    IDatabricksConnectionContext connectionContext = session.getConnectionContext();
-    connectionContext
-        .getMetricsExporter()
-        .record(
-            MetricsList.LIST_FUNCTIONS_METADATA_SEA.name(), System.currentTimeMillis() - startTime);
-    return resultSet;
+    return MetadataResultSetBuilder.getFunctionsResult(
+        getResultSet(SQL, session, StatementType.QUERY), catalog);
   }
 
   @Override
   public DatabricksResultSet listPrimaryKeys(
       IDatabricksSession session, String catalog, String schema, String table) throws SQLException {
-    long startTime = System.currentTimeMillis();
     CommandBuilder commandBuilder =
         new CommandBuilder(catalog, session).setSchema(schema).setTable(table);
     String SQL = commandBuilder.getSQLString(CommandName.LIST_PRIMARY_KEYS);
     LoggingUtil.log(LogLevel.DEBUG, String.format("SQL command to fetch primary keys: {%s}", SQL));
-    DatabricksResultSet resultSet =
-        MetadataResultSetBuilder.getPrimaryKeysResult(
-            getResultSet(SQL, session, StatementType.METADATA));
-    IDatabricksConnectionContext connectionContext = session.getConnectionContext();
-    connectionContext
-        .getMetricsExporter()
-        .record(
-            MetricsList.LIST_PRIMARY_KEYS_METADATA_SEA.name(),
-            System.currentTimeMillis() - startTime);
-    return resultSet;
+    return MetadataResultSetBuilder.getPrimaryKeysResult(
+        getResultSet(SQL, session, StatementType.METADATA));
   }
 
   private ResultSet getResultSet(

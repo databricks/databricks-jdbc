@@ -1,0 +1,31 @@
+{
+  "id" : "5d8f4a71-62c7-4d77-9a8b-48f0c8dbcd6b",
+  "name" : "sql_protocolv1_o_6051921418418893_1115-130834-ms4m0yv",
+  "request" : {
+    "url" : "/sql/protocolv1/o/6051921418418893/1115-130834-ms4m0yv",
+    "method" : "POST",
+    "bodyPatterns" : [ {
+      "binaryEqualTo" : "gAEAAQAAABBFeGVjdXRlU3RhdGVtZW50AAAAAgwAAQwAAQwAAQsAAQAAABBjIFpp3PVOqKr2FMraltPECwACAAAAEBpWPRkyLkyEiJIBb/wWQqoAAAsAAgAAAI9DUkVBVEUgVEFCTEUgSUYgTk9UIEVYSVNUUyBtYWluLmpkYmNfdGVzdF9zY2hlbWEuYWNjZXNzX2Nsb3NlZF9yZXN1bHRfc2V0X3Rlc3RfdGFibGUgKGlkIElOVCBQUklNQVJZIEtFWSwgY29sMSBWQVJDSEFSKDI1NSksIGNvbDIgVkFSQ0hBUigyNTUpKQwFAQoAAQAAAAAAHoSACgACAAAAABghowAAAgUCAQIFAwEAAA=="
+    } ]
+  },
+  "response" : {
+    "status" : 200,
+    "base64Body" : "gAEAAgAAABBFeGVjdXRlU3RhdGVtZW50AAAAAgwAAAwAAQgAAQAAAAAADAACDAABCwABAAAAEO4nzLLl5kvMmjlL+OuXgFQLAAIAAAAQK22AedipQ6KAg4UaFKJ7sQYNAQAAAAgAAgAAAAACAAMBAAwFAQwAAQwAAQgAAQAAAAAACAACAAAAAggNAgAAAAAADAACDAABCAABAAAAAAAMAAIPAAEMAAAAAQsAAQAAAAZSZXN1bHQMAAIPAAEMAAAAAQwAAQgAAQAAAAcAAAAIAAMAAAABCwAEAAAAAAAACAUBAAAAAAIFAgALBQMAAABI/////0AAAAAQAAAAAAAKAA4ABgANAAgACgAAAAAABAAQAAAAAAEKAAwAAAAIAAQACgAAAAgAAAAIAAAAAAAAAAAAAAAAAAAACAUEAAAAAAoFBQAAAAAAAAAACgUGAAAAAAAAAAACBQcACA0BAAAABQoNBQAAAAAAAAAAAg0RAAAMAAMMAAEIAAEAAAAAAAIAAgAMAAMKAAEAAAAAAAAAAA8AAgwAAAAADwUBDAAAAAAAAAwABAwAAQgAAQAAAAAAAAAAAA==",
+    "headers" : {
+      "date" : "Fri, 19 Jul 2024 08:56:53 GMT,Fri, 19 Jul 2024 08:56:57 GMT",
+      "server" : "databricks",
+      "x-databricks-popp-request-id" : "f31e4b2d-8629-4edf-ad3a-c520d571eb60",
+      "x-content-type-options" : [ "nosniff", "nosniff" ],
+      "x-xss-protection" : "1; mode=block",
+      "x-databricks-shard-debug" : "oregon-staging",
+      "x-frame-options" : "SAMEORIGIN",
+      "x-databricks-popp-shadow-routing-reason" : "deployment-name",
+      "x-databricks-org-id" : "6051921418418893",
+      "x-databricks-popp-routing-reason" : "deployment-name",
+      "content-type" : "application/x-thrift",
+      "strict-transport-security" : [ "max-age=31536000; includeSubDomains; preload", "max-age=31536000; includeSubDomains; preload" ]
+    }
+  },
+  "uuid" : "5d8f4a71-62c7-4d77-9a8b-48f0c8dbcd6b",
+  "insertionIndex" : 4
+}

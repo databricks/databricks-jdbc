@@ -265,18 +265,7 @@ public class DatabricksTypeUtil {
     if (typeName == null) {
       return 0;
     }
-    switch (typeName) {
-      case FLOAT:
-        return 7;
-      case DOUBLE:
-        return 15;
-      case DECIMAL:
-        return 10;
-      case TIMESTAMP:
-        return 6;
-      default:
-        return 0; // Default to 0 if unknown
-    }
+    return typeName == ColumnInfoTypeName.TIMESTAMP ? 9 : 0;
   }
 
   public static boolean isSigned(ColumnInfoTypeName typeName) {

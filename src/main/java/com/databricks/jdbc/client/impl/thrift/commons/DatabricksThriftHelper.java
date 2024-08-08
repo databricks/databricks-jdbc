@@ -169,15 +169,50 @@ public class DatabricksThriftHelper {
    * @return a list of values from the specified column
    */
   private static List<?> getColumnValues(TColumn column) {
-    // TODO : Handle complex data types
-    if (column.isSetBinaryVal()) return column.getBinaryVal().getValues();
-    if (column.isSetBoolVal()) return column.getBoolVal().getValues();
-    if (column.isSetByteVal()) return column.getByteVal().getValues();
-    if (column.isSetDoubleVal()) return column.getDoubleVal().getValues();
-    if (column.isSetI16Val()) return column.getI16Val().getValues();
-    if (column.isSetI32Val()) return column.getI32Val().getValues();
-    if (column.isSetI64Val()) return column.getI64Val().getValues();
-    return column.getStringVal().getValues(); // Default case
+    // TODO: Add support for complex data types
+    if (column.isSetBinaryVal())
+      return getColumnValuesWithNulls(
+          column.getBinaryVal().getValues(), column.getBinaryVal().getNulls());
+    if (column.isSetBoolVal())
+      return getColumnValuesWithNulls(
+          column.getBoolVal().getValues(), column.getBoolVal().getNulls());
+    if (column.isSetByteVal())
+      return getColumnValuesWithNulls(
+          column.getByteVal().getValues(), column.getByteVal().getNulls());
+    if (column.isSetDoubleVal())
+      return getColumnValuesWithNulls(
+          column.getDoubleVal().getValues(), column.getDoubleVal().getNulls());
+    if (column.isSetI16Val())
+      return getColumnValuesWithNulls(
+          column.getI16Val().getValues(), column.getI16Val().getNulls());
+    if (column.isSetI32Val())
+      return getColumnValuesWithNulls(
+          column.getI32Val().getValues(), column.getI32Val().getNulls());
+    if (column.isSetI64Val())
+      return getColumnValuesWithNulls(
+          column.getI64Val().getValues(), column.getI64Val().getNulls());
+    if (column.isSetStringVal())
+      return getColumnValuesWithNulls(
+          column.getStringVal().getValues(), column.getStringVal().getNulls());
+    return getColumnValuesWithNulls(
+        column.getStringVal().getValues(), column.getStringVal().getNulls()); // default to string
+  }
+
+  private static <T> List<T> getColumnValuesWithNulls(List<T> values, byte[] nulls) {
+    List<T> result = new ArrayList<>();
+    if (nulls != null) {
+      BitSet nullBits = BitSet.valueOf(nulls);
+      for (int i = 0; i < values.size(); i++) {
+        if (nullBits.get(i)) {
+          result.add(null); // Add null if the value is null
+        } else {
+          result.add(values.get(i));
+        }
+      }
+    } else {
+      result.addAll(values);
+    }
+    return result;
   }
 
   /**

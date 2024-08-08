@@ -7,6 +7,7 @@ import static io.netty.util.NetUtil.LOCALHOST;
 import com.databricks.jdbc.client.DatabricksHttpException;
 import com.databricks.jdbc.client.DatabricksRetryHandlerException;
 import com.databricks.jdbc.client.IDatabricksHttpClient;
+import com.databricks.jdbc.commons.ErrorTypes;
 import com.databricks.jdbc.commons.LogLevel;
 import com.databricks.jdbc.commons.util.LoggingUtil;
 import com.databricks.jdbc.driver.IDatabricksConnectionContext;
@@ -79,6 +80,7 @@ public class DatabricksHttpClient implements IDatabricksHttpClient {
   private static int rateLimitRetryTimeout;
   protected static int idleHttpConnectionExpiry;
   private CloseableHttpClient httpDisabledSSLClient;
+  private IDatabricksConnectionContext connectionContext;
 
   private DatabricksHttpClient(IDatabricksConnectionContext connectionContext) {
     initializeConnectionManager();
@@ -90,6 +92,7 @@ public class DatabricksHttpClient implements IDatabricksHttpClient {
     httpClient = makeClosableHttpClient(connectionContext);
     httpDisabledSSLClient = makeClosableDisabledSslHttpClient();
     idleHttpConnectionExpiry = connectionContext.getIdleHttpConnectionExpiry();
+    this.connectionContext = connectionContext;
   }
 
   @VisibleForTesting
@@ -235,14 +238,21 @@ public class DatabricksHttpClient implements IDatabricksHttpClient {
       if (httpResponse.containsHeader(THRIFT_ERROR_MESSAGE_HEADER)) {
         String errorMessage = httpResponse.getFirstHeader(THRIFT_ERROR_MESSAGE_HEADER).getValue();
         throw new DatabricksRetryHandlerException(
-            "HTTP Response code: " + errCode + ", Error message: " + errorMessage, errCode);
+            "HTTP Response code: " + errCode + ", Error message: " + errorMessage,
+            errCode,
+            connectionContext,
+            ErrorTypes.HTTP_RETRY_ERROR,
+            "");
       }
       throw new DatabricksRetryHandlerException(
           "HTTP Response code: "
               + errCode
               + ", Error Message: "
               + httpResponse.getStatusLine().getReasonPhrase(),
-          errCode);
+          errCode,
+          connectionContext,
+          ErrorTypes.HTTP_RETRY_ERROR,
+          "");
     }
   }
 

@@ -1,0 +1,25 @@
+{
+  "id" : "ca85f763-f741-4f6b-a1ff-31fe4b4bef4e",
+  "name" : "19a85dee-54bc-43a2-87ab-023d0ec16013_volumes_23258ec3-1166-4302-bbc5-456377aa44fb_hello_world.txt",
+  "request" : {
+    "urlPath" : "/19a85dee-54bc-43a2-87ab-023d0ec16013/volumes/23258ec3-1166-4302-bbc5-456377aa44fb/hello_world.txt",
+    "method" : "GET"
+  },
+  "response" : {
+    "status" : 200,
+    "base64Body" : "aGVsbG93b3JsZA==",
+    "headers" : {
+      "Accept-Ranges" : "bytes",
+      "Server" : "AmazonS3",
+      "ETag" : "\"fc5e038d38a57032085441e7fe7010b0\"",
+      "Last-Modified" : "Fri, 19 Jul 2024 05:09:58 GMT",
+      "x-amz-request-id" : "977AQ30WK0KD5M94",
+      "x-amz-server-side-encryption" : "AES256",
+      "x-amz-id-2" : "DI7woeGQWRX36ccKJr+bjjy5Pj65v4yB0ZW+uL4KZLnbhhErJNmJTEAWQc8L5CgiktEhRY4DQLM=",
+      "Date" : "Fri, 19 Jul 2024 05:24:19 GMT",
+      "Content-Type" : "application/octet-stream"
+    }
+  },
+  "uuid" : "ca85f763-f741-4f6b-a1ff-31fe4b4bef4e",
+  "insertionIndex" : 10
+}
