@@ -8,6 +8,7 @@ import com.databricks.jdbc.core.DatabricksResultSet;
 import com.databricks.jdbc.core.DatabricksSQLException;
 import com.databricks.sdk.service.sql.StatementState;
 import com.databricks.sdk.service.sql.StatementStatus;
+import com.google.common.annotations.VisibleForTesting;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
@@ -75,12 +76,10 @@ public class MetadataResultSetBuilder {
           case "NUM_PREC_RADIX":
             object = 10;
             row.add(object);
-
             continue;
           case "NULLABLE":
             object = 2;
             row.add(object);
-
             continue;
           case "SQL_DATA_TYPE":
           case "SQL_DATETIME_SUB":
@@ -90,13 +89,11 @@ public class MetadataResultSetBuilder {
           case "IS_NULLABLE":
             object = "YES";
             row.add(object);
-
             continue;
           case "IS_AUTOINCREMENT":
           case "IS_GENERATEDCOLUMN":
             object = "";
             row.add(object);
-
             continue;
         }
         try {
@@ -113,6 +110,9 @@ public class MetadataResultSetBuilder {
             // Remove non-relevant columns from the obtained result set
             object = null;
           }
+        }
+        if (column.getColumnName().equals("TYPE_NAME")) {
+          row.add(stripTypeName((String) object));
         }
         if (column.getColumnName().equals("COLUMN_SIZE") && object == null) object = 0;
         row.add(object);
@@ -142,6 +142,19 @@ public class MetadataResultSetBuilder {
     } catch (NumberFormatException e) {
       return 0;
     }
+  }
+
+  @VisibleForTesting
+  static String stripTypeName(String typeName) {
+    if (typeName == null) {
+      return null;
+    }
+    int typeArgumentIndex = typeName.indexOf('(');
+    if (typeArgumentIndex != -1) {
+      return typeName.substring(0, typeName.indexOf('('));
+    }
+
+    return typeName;
   }
 
   static int getCode(String s) {

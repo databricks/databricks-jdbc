@@ -55,6 +55,27 @@ public class MetadataResultSetBuilderTest {
         Arguments.of("VARCHAR(abc)", 0));
   }
 
+  private static Stream<Arguments> stripTypeNameArguments() {
+    return Stream.of(
+        Arguments.of("VARCHAR(100)", "VARCHAR"),
+        Arguments.of("VARCHAR", "VARCHAR"),
+        Arguments.of("CHAR(255)", "CHAR"),
+        Arguments.of("TEXT", "TEXT"),
+        Arguments.of("VARCHAR(", "VARCHAR"),
+        Arguments.of("VARCHAR(100,200)", "VARCHAR"),
+        Arguments.of("CHAR(123)", "CHAR"),
+        Arguments.of(null, null),
+        Arguments.of("", ""),
+        Arguments.of("INTEGER(10,5)", "INTEGER"));
+  }
+
+  @ParameterizedTest
+  @MethodSource("stripTypeNameArguments")
+  public void testStripTypeName(String input, String expected) {
+    String actual = MetadataResultSetBuilder.stripTypeName(input);
+    assertEquals(expected, actual);
+  }
+
   @ParameterizedTest
   @MethodSource("charOctetArguments")
   public void testGetCharOctetLength(String typeVal, int expected) {
