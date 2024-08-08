@@ -108,12 +108,7 @@ public class MetadataResultSetBuilder {
             object = getCode(typeVal);
           } else if (column.getColumnName().equals("CHAR_OCTET_LENGTH")) {
             String typeVal = resultSet.getString("columnType");
-            String octetLength =
-                typeVal.contains("(") ? typeVal.substring(typeVal.indexOf('(') + 1) : "";
-            if (octetLength.contains(",")) {
-              octetLength = octetLength.substring(0, octetLength.indexOf(","));
-            }
-            object = octetLength.isEmpty() ? 0 : Integer.parseInt(octetLength);
+            object = getCharOctetLength(typeVal);
           } else {
             // Remove non-relevant columns from the obtained result set
             object = null;
@@ -125,6 +120,28 @@ public class MetadataResultSetBuilder {
       rows.add(row);
     }
     return rows;
+  }
+
+  /**
+   * Extracts the character octet length from a given SQL type definition. For example, for input
+   * "VARCHAR(100)", it returns 100. For inputs without a specified length or invalid inputs, it
+   * returns 0.
+   *
+   * @param typeVal the SQL type definition
+   * @return the character octet length or 0 if not applicable
+   */
+  static int getCharOctetLength(String typeVal) {
+    if (typeVal == null || !typeVal.contains("(")) return 0;
+    String[] lengthConstraints = typeVal.substring(typeVal.indexOf('(') + 1).split("[,)]");
+    if (lengthConstraints.length == 0) {
+      return 0;
+    }
+    String octetLength = lengthConstraints[0].trim();
+    try {
+      return Integer.parseInt(octetLength);
+    } catch (NumberFormatException e) {
+      return 0;
+    }
   }
 
   static int getCode(String s) {
