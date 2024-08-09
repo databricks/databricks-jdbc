@@ -576,4 +576,15 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   public String getConnectionURL() {
     return connectionURL;
   }
+
+  @Override
+  public boolean checkCertificateRevocation() {
+    return Objects.equals(getParameter(CHECK_CERTIFICATE_REVOCATION, "1"), "1");
+  }
+
+  @Override
+  public boolean acceptUndeterminedCertificateRevocation() {
+    return Objects.equals(getParameter(ACCEPT_UNDETERMINED_CERTIFICATE_REVOCATION, "0"), "1");
+  }
+
 }

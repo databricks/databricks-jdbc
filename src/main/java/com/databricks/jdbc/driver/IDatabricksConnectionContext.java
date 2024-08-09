@@ -152,4 +152,8 @@ public interface IDatabricksConnectionContext {
   boolean enableTelemetry();
 
   String getConnectionURL();
+
+  boolean checkCertificateRevocation();
+
+  boolean acceptUndeterminedCertificateRevocation();
 }

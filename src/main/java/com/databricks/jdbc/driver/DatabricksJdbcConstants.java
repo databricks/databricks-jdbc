@@ -218,6 +218,8 @@ public final class DatabricksJdbcConstants {
   public static final String CLOUD_FETCH_THREAD_POOL_SIZE = "cloudFetchThreadPoolSize";
   public static final int CLOUD_FETCH_THREAD_POOL_SIZE_DEFAULT = 16;
   public static final String ENABLE_TELEMETRY = "enableTelemetry";
+  public static final String CHECK_CERTIFICATE_REVOCATION = "CheckCertificateRevocation";
+  public static final String ACCEPT_UNDETERMINED_CERTIFICATE_REVOCATION = "AcceptUndeterminedRevocation";
   public static final Pattern SELECT_PATTERN =
       Pattern.compile("^(\\s*\\()*\\s*SELECT", Pattern.CASE_INSENSITIVE);
   public static final Pattern SHOW_PATTERN =

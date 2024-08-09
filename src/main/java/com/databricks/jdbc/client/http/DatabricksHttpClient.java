@@ -7,6 +7,7 @@ import static io.netty.util.NetUtil.LOCALHOST;
 import com.databricks.jdbc.client.DatabricksHttpException;
 import com.databricks.jdbc.client.DatabricksRetryHandlerException;
 import com.databricks.jdbc.client.IDatabricksHttpClient;
+import com.databricks.jdbc.client.impl.helper.JdbcSSLSocketFactoryHandler;
 import com.databricks.jdbc.commons.ErrorTypes;
 import com.databricks.jdbc.commons.LogLevel;
 import com.databricks.jdbc.commons.util.LoggingUtil;
@@ -80,6 +81,7 @@ public class DatabricksHttpClient implements IDatabricksHttpClient {
   private static int rateLimitRetryTimeout;
   protected static int idleHttpConnectionExpiry;
   private CloseableHttpClient httpDisabledSSLClient;
+  private JdbcSSLSocketFactoryHandler sslSocketFactoryHandler;
   private IDatabricksConnectionContext connectionContext;
 
   private DatabricksHttpClient(IDatabricksConnectionContext connectionContext) {
@@ -93,6 +95,7 @@ public class DatabricksHttpClient implements IDatabricksHttpClient {
     httpDisabledSSLClient = makeClosableDisabledSslHttpClient();
     idleHttpConnectionExpiry = connectionContext.getIdleHttpConnectionExpiry();
     this.connectionContext = connectionContext;
+    sslSocketFactoryHandler = new JdbcSSLSocketFactoryHandler(connectionContext);
   }
 
   @VisibleForTesting
@@ -148,6 +151,7 @@ public class DatabricksHttpClient implements IDatabricksHttpClient {
             .setRetryHandler(this::handleRetry)
             .addInterceptorFirst(this::handleResponseInterceptor);
     setupProxy(connectionContext, builder);
+    sslSocketFactoryHandler.getCustomSSLSocketFactory().ifPresent(builder::setSSLSocketFactory);
     if (Boolean.parseBoolean(System.getProperty(IS_FAKE_SERVICE_TEST_PROP))) {
       setFakeServiceRouteInHttpClient(builder);
     }
