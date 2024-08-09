@@ -247,7 +247,7 @@ public class DatabricksThriftServiceClient implements DatabricksClient, Databric
     TFetchResultsResp response =
         (TFetchResultsResp)
             thriftAccessor.getThriftResponse(request, CommandName.LIST_TABLES, null);
-    return getTablesResult(extractValuesColumnar(response.getResults().getColumns()));
+    return getTablesResult(catalog, extractValuesColumnar(response.getResults().getColumns()));
   }
 
   @Override
