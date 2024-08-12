@@ -221,7 +221,7 @@ public class DatabricksThriftAccessor {
     try {
       response = getThriftClient().ExecuteStatement(request);
       if (Arrays.asList(ERROR_STATUS, INVALID_HANDLE_STATUS).contains(response.status.statusCode)) {
-        throw new DatabricksSQLException(response.status.errorMessage);
+        throw new DatabricksSQLException(response.status.errorMessage, response.status.sqlState);
       }
       if (response.isSetDirectResults()) {
         if (enableDirectResults) {
@@ -229,7 +229,8 @@ public class DatabricksThriftAccessor {
               && response.getDirectResults().operationStatus.operationState
                   == TOperationState.ERROR_STATE) {
             throw new DatabricksSQLException(
-                response.getDirectResults().getOperationStatus().errorMessage);
+                response.getDirectResults().getOperationStatus().errorMessage,
+                response.getDirectResults().getOperationStatus().sqlState);
           }
         }
         if (((response.status.statusCode == SUCCESS_STATUS)

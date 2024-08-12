@@ -26,6 +26,10 @@ public class DatabricksSQLException extends SQLException {
     super(reason, null, 0);
   }
 
+  public DatabricksSQLException(String reason, String sqlState) {
+    super(reason, sqlState);
+  }
+
   public DatabricksSQLException(String reason, int vendorCode) {
     super(reason, null, vendorCode);
   }
