@@ -576,4 +576,9 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   public String getConnectionURL() {
     return connectionURL;
   }
+
+  @Override
+  public String getNonProxyHosts() {
+    return getParameter(NON_PROXY_HOSTS, EMPTY_STRING);
+  }
 }

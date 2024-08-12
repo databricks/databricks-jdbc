@@ -301,7 +301,8 @@ public class DatabricksHttpClient implements IDatabricksHttpClient {
               .setPort(proxyPort)
               .setUsername(proxyUser)
               .setPassword(proxyPassword)
-              .setProxyAuthType(proxyAuth);
+              .setProxyAuthType(proxyAuth)
+              .setNonProxyHosts(connectionContext.getNonProxyHosts());
       ProxyUtils.setupProxy(proxyConfig, builder);
     }
   }

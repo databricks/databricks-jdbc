@@ -67,6 +67,8 @@ public final class DatabricksJdbcConstants {
 
   public static final String CONN_SCHEMA = "connschema";
 
+  public static final String NON_PROXY_HOSTS = "proxyignorelist";
+
   public static final String PROXY_HOST = "proxyhost";
 
   public static final String PROXY_PORT = "proxyport";
