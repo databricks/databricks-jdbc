@@ -13,9 +13,10 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest]
         java-version: [21]  # For formatting, we don't need to run across multiple versions. Only sanity testing is required here, rest is taken care in the build.
-    runs-on: ${{ matrix.os }}
+    runs-on:
+      group: databricks-protected-runner-group
+      labels: linux-ubuntu-latest
     steps:
       - name: Set up JDK
         uses: actions/setup-java@v4
@@ -40,10 +41,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [macos-latest, ubuntu-latest]
         java-version: [11, 17, 21]  # Adding LTS versions here. 21 is the latest LTS
 
-    runs-on: ${{ matrix.os }}
+    runs-on:
+      group: databricks-protected-runner-group
+      labels: linux-ubuntu-latest
 
     steps:
       - name: Set up JDK ${{ matrix.java-version }}

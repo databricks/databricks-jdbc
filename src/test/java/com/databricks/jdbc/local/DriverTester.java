@@ -1,11 +1,18 @@
 package com.databricks.jdbc.local;
 
 import com.databricks.client.jdbc.Driver;
+import com.databricks.jdbc.client.IDatabricksUCVolumeClient;
+import com.databricks.jdbc.core.IDatabricksConnection;
+import com.databricks.jdbc.driver.DatabricksJdbcConstants;
+import java.io.File;
+import java.io.FileInputStream;
 import java.math.BigDecimal;
 import java.math.BigInteger;
+import java.nio.file.Files;
 import java.sql.*;
 import java.time.LocalDate;
 import java.util.*;
+import org.apache.http.entity.InputStreamEntity;
 import org.junit.jupiter.api.Test;
 
 public class DriverTester {
@@ -47,6 +54,25 @@ public class DriverTester {
     Statement statement = con.createStatement();
     statement.setMaxRows(10);
     ResultSet rs = con.getMetaData().getTables("main", "%", "%", null);
+    printResultSet(rs);
+    rs.close();
+    statement.close();
+    con.close();
+  }
+
+  @Test
+  void testResultSetMetaData() throws Exception {
+    DriverManager.registerDriver(new Driver());
+    String jdbcUrl =
+        "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/58aa1b363649e722";
+
+    Connection con = DriverManager.getConnection(jdbcUrl, "user", "x");
+    System.out.println("Connection established with jdbc driver......");
+    Statement statement = con.createStatement();
+    statement.setMaxRows(10000);
+    ResultSet rs =
+        statement.executeQuery(
+            "select * from ml.feature_store_ol_dynamodb_.test_ft_data_types LIMIT 10");
     printResultSet(rs);
     rs.close();
     statement.close();
@@ -97,7 +123,7 @@ public class DriverTester {
     Connection con = DriverManager.getConnection(jdbcUrl, "token", "xx");
     System.out.println("Connection established......");
     Statement s = con.createStatement();
-    s.executeQuery("SELECT *5 from RANGE(100000000)");
+    s.executeQuery("SELECT * from RANGE(5)");
     con.close();
     System.out.println("Connection closed successfully......");
   }
@@ -144,8 +170,8 @@ public class DriverTester {
     DriverManager.registerDriver(new Driver());
     DriverManager.drivers().forEach(driver -> System.out.println(driver.getClass()));
     String jdbcUrl =
-        "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=https;ssl=1;httpPath=sql/protocolv1/o/6051921418418893/1115-130834-ms4m0yv;AuthMech=3;UID=token;LogLevel=debug;LogPath=beautifulWithoutYOU;LogFileCount=3;LogFileSize=2;";
-    Connection con = DriverManager.getConnection(jdbcUrl, "token", "x");
+        "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=https;ssl=1;httpPath=sql/protocolv1/o/6051921418418893/1115-130834-ms4m0yv;AuthMech=3;UID=token;LogLevel=debug;LogPath=./logDir;LogFileCount=3;LogFileSize=2;";
+    Connection con = DriverManager.getConnection(jdbcUrl, "user", "x");
     System.out.println("Connection established......");
     ResultSet resultSet =
         con.createStatement()
@@ -211,6 +237,56 @@ public class DriverTester {
     Connection con = DriverManager.getConnection(jdbcUrl, "user", "x");
     System.out.println("Connection established......");
     con.close();
+  }
+
+  @Test
+  void testUCVolumeUsingInputStream() throws Exception {
+    DriverManager.registerDriver(new Driver());
+    DriverManager.drivers().forEach(driver -> System.out.println(driver.getClass()));
+    System.out.println("Starting test");
+    // Getting the connection
+    String jdbcUrl =
+        "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/791ba2a31c7fd70a;";
+    Connection con = DriverManager.getConnection(jdbcUrl, "token", "xx");
+    con.setClientInfo(DatabricksJdbcConstants.ALLOWED_VOLUME_INGESTION_PATHS, "delete");
+    System.out.println("Connection created");
+    IDatabricksUCVolumeClient client = ((IDatabricksConnection) con).getUCVolumeClient();
+
+    File file = new File("/tmp/put.txt");
+    try {
+      Files.writeString(file.toPath(), "test-put");
+
+      System.out.println("File created");
+
+      System.out.println(
+          "Object inserted "
+              + client.putObject(
+                  "samikshya_hackathon",
+                  "default",
+                  "gopal-psl",
+                  "test-stream.csv",
+                  new FileInputStream(file),
+                  file.length(),
+                  true));
+
+      InputStreamEntity inputStream =
+          client.getObject("samikshya_hackathon", "default", "gopal-psl", "test-stream.csv");
+      System.out.println("Got data " + new String(inputStream.getContent().readAllBytes()));
+      inputStream.getContent().close();
+
+      System.out.println(
+          "Object exists "
+              + client.objectExists(
+                  "samikshya_hackathon", "default", "gopal-psl", "test-stream.csv", false));
+      client.deleteObject("samikshya_hackathon", "default", "gopal-psl", "test-stream.csv");
+      System.out.println(
+          "Object exists "
+              + client.objectExists(
+                  "samikshya_hackathon", "default", "gopal-psl", "test-stream.csv", false));
+    } finally {
+      file.delete();
+      con.close();
+    }
   }
 
   @Test

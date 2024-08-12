@@ -27,9 +27,10 @@ import java.util.Calendar;
 import java.util.List;
 import java.util.Map;
 import org.apache.http.HttpEntity;
+import org.apache.http.entity.InputStreamEntity;
 
 public class DatabricksResultSet implements ResultSet, IDatabricksResultSet {
-  private static final String AFFECTED_ROWS_COUNT = "num_affected_rows";
+  protected static final String AFFECTED_ROWS_COUNT = "num_affected_rows";
   private final StatementStatus statementStatus;
   private final String statementId;
   private final IExecutionResult executionResult;
@@ -41,6 +42,7 @@ public class DatabricksResultSet implements ResultSet, IDatabricksResultSet {
   private SQLWarning warnings = null;
   private boolean wasNull;
   private VolumeInputStream volumeInputStream = null;
+  private long volumeStreamContentLength = -1L;
 
   public DatabricksResultSet(
       StatementStatus statementStatus,
@@ -53,7 +55,8 @@ public class DatabricksResultSet implements ResultSet, IDatabricksResultSet {
     this.statementStatus = statementStatus;
     this.statementId = statementId;
     this.executionResult =
-        ExecutionResultFactory.getResultSet(resultData, resultManifest, statementId, session);
+        ExecutionResultFactory.getResultSet(
+            resultData, resultManifest, statementId, session, parentStatement, this);
     this.resultSetMetaData = new DatabricksResultSetMetaData(statementId, resultManifest);
     this.statementType = statementType;
     this.updateCount = null;
@@ -97,7 +100,8 @@ public class DatabricksResultSet implements ResultSet, IDatabricksResultSet {
     }
     this.statementId = statementId;
     this.executionResult =
-        ExecutionResultFactory.getResultSet(resultData, resultManifest, statementId, session);
+        ExecutionResultFactory.getResultSet(
+            resultData, resultManifest, statementId, session, parentStatement, this);
     long rowSize = getRowCount(resultData);
     this.resultSetMetaData =
         new DatabricksResultSetMetaData(
@@ -1623,12 +1627,13 @@ public class DatabricksResultSet implements ResultSet, IDatabricksResultSet {
     checkIfClosed();
     this.volumeInputStream =
         new VolumeInputStream(httpEntity, executionResult, this.parentStatement);
+    this.volumeStreamContentLength = httpEntity.getContentLength();
   }
 
   @Override
-  public InputStream getVolumeOperationInputStream() throws SQLException {
+  public InputStreamEntity getVolumeOperationInputStream() throws SQLException {
     checkIfClosed();
-    return this.volumeInputStream;
+    return new InputStreamEntity(this.volumeInputStream, this.volumeStreamContentLength);
   }
 
   private Object getObjectInternal(int columnIndex) throws SQLException {

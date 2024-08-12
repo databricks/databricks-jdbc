@@ -1,6 +1,6 @@
 package com.databricks.jdbc.integration.fakeservice.tests;
 
-import static com.databricks.jdbc.driver.DatabricksJdbcConstants.HTTP_PATH;
+import static com.databricks.jdbc.driver.DatabricksJdbcConstants.*;
 import static com.databricks.jdbc.integration.IntegrationTestUtil.*;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
@@ -10,6 +10,7 @@ import com.databricks.jdbc.integration.fakeservice.FakeServiceConfigLoader;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
+import java.util.Properties;
 import org.junit.jupiter.api.Test;
 
 /** Integration tests for connection to Databricks service. */
@@ -29,7 +30,7 @@ public class ConnectionIntegrationTests extends AbstractFakeServiceIntegrationTe
     DatabricksSQLException e =
         assertThrows(
             DatabricksSQLException.class,
-            () -> DriverManager.getConnection(url, getDatabricksUser(), "bad_token"));
+            () -> DriverManager.getConnection(url, createConnectionProperties("bad_token_1")));
 
     assert e.getMessage().contains("Communication link failure. Failed to connect to server.");
   }
@@ -46,8 +47,18 @@ public class ConnectionIntegrationTests extends AbstractFakeServiceIntegrationTe
     DatabricksSQLException e =
         assertThrows(
             DatabricksSQLException.class,
-            () -> DriverManager.getConnection(url, getDatabricksUser(), "bad_token"));
+            () -> DriverManager.getConnection(url, createConnectionProperties("bad_token_2")));
 
     assert e.getMessage().contains("Communication link failure. Failed to connect to server.");
+  }
+
+  private Properties createConnectionProperties(String password) {
+    Properties connProps = new Properties();
+    connProps.put(USER, getDatabricksUser());
+    connProps.put(PASSWORD, password);
+    connProps.put(CATALOG, FakeServiceConfigLoader.getProperty(CATALOG));
+    connProps.put(CONN_SCHEMA, FakeServiceConfigLoader.getProperty(CONN_SCHEMA));
+
+    return connProps;
   }
 }

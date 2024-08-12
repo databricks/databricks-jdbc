@@ -27,24 +27,15 @@ public final class DatabricksJdbcConstants {
 
   public static final String JDBC_SCHEMA = "jdbc:databricks://";
 
-  public static final LogLevel DEFAULT_LOG_LEVEL = LogLevel.INFO;
+  public static final LogLevel DEFAULT_LOG_LEVEL = LogLevel.OFF;
 
   public static final String LOG_LEVEL = "loglevel";
 
   public static final String LOG_PATH = "logpath";
 
-  public static final String DEFAULT_LOG_PATH =
-      System.getProperty("java.io.tmpdir") + "/logs/application.log";
-
   public static final String LOG_FILE_SIZE = "LogFileSize";
 
   public static final int DEFAULT_LOG_FILE_SIZE_IN_MB = 10;
-
-  public static final String DEFAULT_LOG_PATTERN = "%d{yyyy-MM-dd HH:mm:ss} %p %c{1}:%L - %m%n";
-
-  public static final String DEFAULT_FILE_LOG_PATTERN = "/%d{yyyy-MM-dd}-logfile-%i.log";
-
-  public static final String DEFAULT_LOG_NAME_FILE = "logfile-0.log";
 
   public static final String LOG_FILE_COUNT = "LogFileCount";
 

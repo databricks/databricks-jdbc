@@ -4,7 +4,7 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>com.databricks</groupId>
   <artifactId>databricks-jdbc</artifactId>
-  <version>0.9.0-oss</version>
+  <version>0.9.1-oss</version>
   <packaging>jar</packaging>
   <name>Databricks JDBC Driver</name>
   <description>Databricks JDBC Driver.</description>
@@ -17,29 +17,10 @@
   </licenses>
   <developers>
     <developer>
-      <name>Gopal Lal</name>
-      <email>gopal.lal@databricks.com</email>
+      <name>Databricks JDBC Team</name>
+      <email>eng-oss-sql-driver@databricks.com</email>
       <organization>Databricks</organization>
-    </developer>
-    <developer>
-      <name>Jayant Singh</name>
-      <email>jayant.singh@databricks.com</email>
-      <organization>Databricks</organization>
-    </developer>
-    <developer>
-      <name>Madhav Sainanee</name>
-      <email>madhav.sainanee@databricks.com</email>
-      <organization>Databricks</organization>
-    </developer>
-    <developer>
-      <name>Samikshya Chand</name>
-      <email>samikshya.chand@databricks.com</email>
-      <organization>Databricks</organization>
-    </developer>
-    <developer>
-      <name>Vikrant Puppala</name>
-      <email>vikrant.puppala@databricks.com</email>
-      <organization>Databricks</organization>
+      <organizationUrl>https://www.databricks.com</organizationUrl>
     </developer>
   </developers>
   <scm>
@@ -121,21 +102,25 @@
       <groupId>org.slf4j</groupId>
       <artifactId>slf4j-api</artifactId>
       <version>${slf4j.version}</version>
+      <scope>provided</scope>
     </dependency>
     <dependency>
       <groupId>org.apache.logging.log4j</groupId>
       <artifactId>log4j-slf4j2-impl</artifactId>
       <version>${log4j.version}</version>
+      <scope>test</scope>
     </dependency>
     <dependency>
       <groupId>org.apache.logging.log4j</groupId>
       <artifactId>log4j-core</artifactId>
       <version>${log4j.version}</version>
+      <scope>test</scope>
     </dependency>
     <dependency>
       <groupId>org.apache.logging.log4j</groupId>
       <artifactId>log4j-api</artifactId>
       <version>${log4j.version}</version>
+      <scope>test</scope>
     </dependency>
     <dependency>
       <groupId>commons-io</groupId>
@@ -266,6 +251,10 @@
             --add-opens=java.base/java.nio=ALL-UNNAMED
             -Dnet.bytebuddy.experimental=true
           </argLine>
+          <systemPropertyVariables>
+            <com.databricks.jdbc.loggerImpl>JDKLOGGER</com.databricks.jdbc.loggerImpl>
+            <java.util.logging.config.file>${project.basedir}/src/test/resources/logging.properties</java.util.logging.config.file>
+          </systemPropertyVariables>
         </configuration>
       </plugin>
       <plugin>
@@ -421,12 +410,12 @@
                   <shadedPattern>com.databricks.internal.ini4j</shadedPattern>
                 </relocation>
                 <relocation>
-                  <pattern>org.osgi</pattern>
-                  <shadedPattern>com.databricks.internal.osgi</shadedPattern>
+                  <pattern>org.json</pattern>
+                  <shadedPattern>com.databricks.internal.json</shadedPattern>
                 </relocation>
                 <relocation>
-                  <pattern>org.slf4j</pattern>
-                  <shadedPattern>com.databricks.internal.slf4j</shadedPattern>
+                  <pattern>org.osgi</pattern>
+                  <shadedPattern>com.databricks.internal.osgi</shadedPattern>
                 </relocation>
               </relocations>
               <filters>
@@ -532,6 +521,7 @@
             <configuration>
               <serverId>ossrh</serverId>
               <nexusUrl>https://oss.sonatype.org/</nexusUrl>
+              <autoReleaseAfterClose>true</autoReleaseAfterClose>
             </configuration>
           </plugin>
         </plugins>

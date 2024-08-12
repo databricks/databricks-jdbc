@@ -3,9 +3,11 @@ package com.databricks.client.jdbc;
 import static com.databricks.jdbc.driver.DatabricksJdbcConstants.*;
 
 import com.databricks.jdbc.client.DatabricksClientType;
+import com.databricks.jdbc.commons.ErrorTypes;
 import com.databricks.jdbc.commons.LogLevel;
 import com.databricks.jdbc.commons.util.DeviceInfoLogUtil;
 import com.databricks.jdbc.commons.util.DriverUtil;
+import com.databricks.jdbc.commons.util.ErrorCodes;
 import com.databricks.jdbc.commons.util.LoggingUtil;
 import com.databricks.jdbc.core.DatabricksConnection;
 import com.databricks.jdbc.core.DatabricksSQLException;
@@ -13,6 +15,7 @@ import com.databricks.jdbc.driver.DatabricksConnectionContext;
 import com.databricks.jdbc.driver.DatabricksJdbcConstants;
 import com.databricks.jdbc.driver.IDatabricksConnectionContext;
 import com.databricks.sdk.core.UserAgent;
+import java.io.IOException;
 import java.sql.*;
 import java.util.Properties;
 
@@ -40,11 +43,15 @@ public class Driver implements java.sql.Driver {
   @Override
   public Connection connect(String url, Properties info) throws DatabricksSQLException {
     IDatabricksConnectionContext connectionContext = DatabricksConnectionContext.parse(url, info);
-    LoggingUtil.setupLogger(
-        connectionContext.getLogPathString(),
-        connectionContext.getLogFileSize(),
-        connectionContext.getLogFileCount(),
-        connectionContext.getLogLevel());
+    try {
+      LoggingUtil.setupLogger(
+          connectionContext.getLogPathString(),
+          connectionContext.getLogFileSize(),
+          connectionContext.getLogFileCount(),
+          connectionContext.getLogLevel());
+    } catch (IOException e) {
+      throw new DatabricksSQLException("Error initializing the Java Util Logger (JUL).", e);
+    }
     setUserAgent(connectionContext);
     DeviceInfoLogUtil.logProperties(connectionContext);
     try {
@@ -57,19 +64,31 @@ public class Driver implements java.sql.Driver {
       Throwable cause = e;
       while (cause != null) {
         if (cause instanceof DatabricksSQLException) {
-          throw new DatabricksSQLException(
+          String errorMessage =
               "Communication link failure. Failed to connect to server. : "
                   + connectionContext.getHostUrl()
-                  + cause.getMessage(),
-              cause.getCause());
+                  + cause.getMessage();
+          throw new DatabricksSQLException(
+              errorMessage,
+              cause.getCause(),
+              connectionContext,
+              ErrorTypes.COMMUNICATION_FAILURE,
+              null,
+              ErrorCodes.COMMUNICATION_FAILURE);
         }
         cause = cause.getCause();
       }
-      throw new DatabricksSQLException(
-          "Communication link failure. Failed to connect to server. :"
+      String errorMessage =
+          "Communication link failure. Failed to connect to server. : "
               + connectionContext.getHostUrl()
-              + e.getMessage(),
-          e);
+              + e.getMessage();
+      throw new DatabricksSQLException(
+          errorMessage,
+          e,
+          connectionContext,
+          ErrorTypes.COMMUNICATION_FAILURE,
+          null,
+          ErrorCodes.COMMUNICATION_FAILURE);
     }
   }
 

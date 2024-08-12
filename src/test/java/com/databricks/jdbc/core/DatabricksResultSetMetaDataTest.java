@@ -1,8 +1,9 @@
 package com.databricks.jdbc.core;
 
-import com.databricks.jdbc.client.impl.thrift.generated.TColumnDesc;
-import com.databricks.jdbc.client.impl.thrift.generated.TGetResultSetMetadataResp;
-import com.databricks.jdbc.client.impl.thrift.generated.TTableSchema;
+import static com.databricks.jdbc.client.impl.thrift.commons.DatabricksThriftHelper.getTypeFromTypeDesc;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
+import com.databricks.jdbc.client.impl.thrift.generated.*;
 import com.databricks.jdbc.client.sqlexec.ResultManifest;
 import com.databricks.jdbc.driver.DatabricksJdbcConstants;
 import com.databricks.sdk.service.sql.ColumnInfo;
@@ -10,7 +11,9 @@ import com.databricks.sdk.service.sql.ColumnInfoTypeName;
 import com.databricks.sdk.service.sql.ResultSchema;
 import java.sql.SQLException;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -23,6 +26,21 @@ public class DatabricksResultSetMetaDataTest {
     columnInfo.setTypeName(typeName);
     columnInfo.setTypeText(typeText);
     return columnInfo;
+  }
+
+  public TColumnDesc getThriftColumn(String name, TTypeDesc typeDesc) {
+    TColumnDesc columnDesc = new TColumnDesc();
+    columnDesc.setColumnName(name);
+    columnDesc.setTypeDesc(typeDesc);
+    return columnDesc;
+    //    TTypeDesc typeDesc = new TTypeDesc();
+    //    TTypeEntry typeEntry = new TTypeEntry();
+    //    TPrimitiveTypeEntry primitiveEntry = new TPrimitiveTypeEntry();
+    //    primitiveEntry.setTypeName(typeName);
+    //    typeEntry.setPrimitiveEntry(primitiveEntry);
+    //    typeDesc.setTypes(Collections.singletonList(typeEntry));
+    //    columnDesc.setTypeDesc(typeDesc);
+    //    return columnDesc;
   }
 
   public ResultManifest getResultManifest() {
@@ -108,5 +126,67 @@ public class DatabricksResultSetMetaDataTest {
 
     resultSetMetadataResp.setSchema(new TTableSchema());
     Assertions.assertEquals(0, metaData.getColumnCount());
+  }
+
+  @Test
+  public void testGetScaleAndPrecisionWithColumnInfo() throws SQLException {
+    DatabricksResultSetMetaData metaData =
+        new DatabricksResultSetMetaData(STATEMENT_ID, getResultManifest());
+    ColumnInfo decimalColumnInfo = getColumn("col1", ColumnInfoTypeName.DECIMAL, "decimal");
+    decimalColumnInfo.setTypePrecision(10L);
+    decimalColumnInfo.setTypeScale(2L);
+
+    int[] scaleAndPrecision =
+        metaData.getScaleAndPrecision(decimalColumnInfo, decimalColumnInfo.getTypeName());
+    assertEquals(10, scaleAndPrecision[0]);
+    assertEquals(2, scaleAndPrecision[1]);
+
+    ColumnInfo stringColumnInfo = getColumn("col2", ColumnInfoTypeName.STRING, "string");
+    scaleAndPrecision =
+        metaData.getScaleAndPrecision(stringColumnInfo, stringColumnInfo.getTypeName());
+    assertEquals(255, scaleAndPrecision[0]);
+    assertEquals(0, scaleAndPrecision[1]);
+  }
+
+  @Test
+  public void testGetScaleAndPrecisionWithTColumnDesc() {
+    DatabricksResultSetMetaData metaData =
+        new DatabricksResultSetMetaData(STATEMENT_ID, getResultManifest());
+
+    TColumnDesc columnInfo = new TColumnDesc();
+    TTypeDesc typeDesc = new TTypeDesc();
+    TTypeEntry typeEntry = new TTypeEntry();
+    TPrimitiveTypeEntry primitiveEntry = new TPrimitiveTypeEntry(TTypeId.DECIMAL_TYPE);
+    Map<String, TTypeQualifierValue> qualifiers = new HashMap<>();
+    TTypeQualifierValue scaleValue = new TTypeQualifierValue();
+    scaleValue.setI32Value(2);
+    TTypeQualifierValue precisionValue = new TTypeQualifierValue();
+    precisionValue.setI32Value(10);
+    qualifiers.put("scale", scaleValue);
+    qualifiers.put("precision", precisionValue);
+    TTypeQualifiers typeQualifiers = new TTypeQualifiers().setQualifiers(qualifiers);
+    primitiveEntry.setTypeQualifiers(typeQualifiers);
+    typeEntry.setPrimitiveEntry(primitiveEntry);
+    typeDesc.setTypes(Collections.singletonList(typeEntry));
+    columnInfo.setTypeDesc(typeDesc);
+
+    int[] scaleAndPrecision =
+        metaData.getScaleAndPrecision(columnInfo, getTypeFromTypeDesc(columnInfo.getTypeDesc()));
+    assertEquals(10, scaleAndPrecision[0]);
+    assertEquals(2, scaleAndPrecision[1]);
+
+    // Test with string type
+    columnInfo = new TColumnDesc();
+    typeDesc = new TTypeDesc();
+    typeEntry = new TTypeEntry();
+    primitiveEntry = new TPrimitiveTypeEntry(TTypeId.STRING_TYPE);
+    typeEntry.setPrimitiveEntry(primitiveEntry);
+    typeDesc.setTypes(Collections.singletonList(typeEntry));
+    columnInfo.setTypeDesc(typeDesc);
+
+    scaleAndPrecision =
+        metaData.getScaleAndPrecision(columnInfo, getTypeFromTypeDesc(columnInfo.getTypeDesc()));
+    assertEquals(255, scaleAndPrecision[0]);
+    assertEquals(0, scaleAndPrecision[1]);
   }
 }

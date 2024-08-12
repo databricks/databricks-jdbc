@@ -15,7 +15,9 @@ import com.databricks.jdbc.client.sqlexec.ExecuteStatementResponse;
 import com.databricks.jdbc.client.sqlexec.ExternalLink;
 import com.databricks.jdbc.client.sqlexec.GetStatementResponse;
 import com.databricks.jdbc.client.sqlexec.ResultData;
+import com.databricks.jdbc.commons.ErrorTypes;
 import com.databricks.jdbc.commons.LogLevel;
+import com.databricks.jdbc.commons.util.ErrorCodes;
 import com.databricks.jdbc.commons.util.LoggingUtil;
 import com.databricks.jdbc.core.*;
 import com.databricks.jdbc.core.types.ComputeResource;
@@ -284,15 +286,22 @@ public class DatabricksSdkClient implements DatabricksClient {
             "Statement execution failed %s -> %s\n%s: %s",
             statementId, statement, statementState, response.getStatus().getError().getMessage());
     LoggingUtil.log(LogLevel.DEBUG, errorMessage, this.getClass().getName());
+    int errorCode;
     switch (statementState) {
       case FAILED:
+        errorCode = ErrorCodes.EXECUTE_STATEMENT_FAILED;
+        break;
       case CLOSED:
+        errorCode = ErrorCodes.EXECUTE_STATEMENT_CLOSED;
+        break;
       case CANCELED:
-        // TODO: Handle differently for failed, closed and cancelled with proper error codes
-        throw new DatabricksSQLException(errorMessage);
+        errorCode = ErrorCodes.EXECUTE_STATEMENT_CANCELLED;
+        break;
       default:
         throw new IllegalStateException("Invalid state for error");
     }
+    throw new DatabricksSQLException(
+        errorMessage, connectionContext, ErrorTypes.EXECUTE_STATEMENT, statementId, errorCode);
   }
 
   private ExecuteStatementResponse wrapGetStatementResponse(

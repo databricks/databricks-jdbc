@@ -15,6 +15,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.stream.Stream;
+import org.apache.http.entity.InputStreamEntity;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -30,6 +31,7 @@ public class DatabricksUCVolumeClientTest {
   @Mock Statement statement;
 
   @Mock DatabricksStatement databricksStatement;
+  @Mock DatabricksResultSet databricksResultSet;
 
   @Mock ResultSet resultSet;
   @Mock ResultSet resultSet_abc_volume1;
@@ -524,6 +526,38 @@ public class DatabricksUCVolumeClientTest {
   }
 
   @ParameterizedTest
+  @MethodSource("provideParametersForGetObjectWithInputStream")
+  public void testGetObjectWithInputStream(
+      String catalog, String schema, String volume, String objectPath, InputStreamEntity expected)
+      throws SQLException {
+    DatabricksUCVolumeClient client = new DatabricksUCVolumeClient(connection);
+
+    when(connection.createStatement()).thenReturn(databricksStatement);
+
+    String getObjectQuery =
+        String.format(
+            "GET '/Volumes/%s/%s/%s/%s' TO '__input_stream__'",
+            catalog, schema, volume, objectPath);
+    when(databricksStatement.executeQuery(getObjectQuery)).thenReturn(databricksResultSet);
+    when(databricksResultSet.next()).thenReturn(true);
+    when(databricksResultSet.getVolumeOperationInputStream()).thenReturn(expected);
+
+    InputStreamEntity result = client.getObject(catalog, schema, volume, objectPath);
+
+    assertEquals(expected, result);
+    verify(databricksStatement).executeQuery(getObjectQuery);
+    verify(databricksStatement).allowInputStreamForVolumeOperation(true);
+  }
+
+  private static Stream<Arguments> provideParametersForGetObjectWithInputStream() {
+    InputStreamEntity inputStream =
+        new InputStreamEntity(
+            new ByteArrayInputStream("test data".getBytes(StandardCharsets.UTF_8)), 10L);
+    return Stream.of(
+        Arguments.of("test_catalog", "test_schema", "test_volume", "test_objectpath", inputStream));
+  }
+
+  @ParameterizedTest
   @MethodSource("provideParametersForPutObjectWithInputStream")
   public void testPutObjectWithInputStream(
       String catalog,
@@ -531,6 +565,7 @@ public class DatabricksUCVolumeClientTest {
       String volume,
       String objectPath,
       InputStream inputStream,
+      long length,
       boolean toOverwrite,
       boolean expected)
       throws SQLException {
@@ -547,10 +582,11 @@ public class DatabricksUCVolumeClientTest {
         .thenReturn(VOLUME_OPERATION_STATUS_SUCCEEDED);
 
     boolean result =
-        client.putObject(catalog, schema, volume, objectPath, inputStream, toOverwrite);
+        client.putObject(catalog, schema, volume, objectPath, inputStream, length, toOverwrite);
 
     assertEquals(expected, result);
     verify(databricksStatement).executeQuery(putObjectQuery);
+    verify(databricksStatement).allowInputStreamForVolumeOperation(true);
   }
 
   private static Stream<Arguments> provideParametersForPutObjectWithInputStream() {
@@ -563,6 +599,7 @@ public class DatabricksUCVolumeClientTest {
             "test_volume",
             "test_objectpath",
             inputStream,
+            10L,
             false,
             true));
   }

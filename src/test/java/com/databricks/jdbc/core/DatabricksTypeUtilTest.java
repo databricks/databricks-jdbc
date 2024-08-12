@@ -226,7 +226,7 @@ class DatabricksTypeUtilTest {
   }
 
   @ParameterizedTest
-  @CsvSource({"FLOAT, 7", "DOUBLE, 15", "DECIMAL, 10", "TIMESTAMP, 6", "STRING, 0", "NULL, 0"})
+  @CsvSource({"FLOAT, 0", "DOUBLE, 0", "DECIMAL, 0", "TIMESTAMP, 9", "STRING, 0", "NULL, 0"})
   void testGetScale(ColumnInfoTypeName typeName, int expectedScale) {
     assertEquals(
         expectedScale,

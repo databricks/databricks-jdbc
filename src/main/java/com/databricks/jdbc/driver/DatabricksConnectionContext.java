@@ -24,6 +24,7 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   private final String host;
   @VisibleForTesting final int port;
   private final String schema;
+  private final String connectionURL;
   private final ComputeResource computeResource;
   private static DatabricksMetrics metricsExporter;
   @VisibleForTesting final ImmutableMap<String, String> parameters;
@@ -49,7 +50,7 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
       String hostValue = hostAndPort[0];
       int portValue =
           hostAndPort.length == 2
-              ? Integer.valueOf(hostAndPort[1])
+              ? Integer.parseInt(hostAndPort[1])
               : DatabricksJdbcConstants.DEFAULT_PORT;
 
       ImmutableMap.Builder<String, String> parametersBuilder = ImmutableMap.builder();
@@ -63,9 +64,9 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
         if (pair.length == 1) {
           pair = new String[] {pair[0], ""};
         }
-        if (pair[0].toLowerCase().equals(PORT)) {
+        if (pair[0].equalsIgnoreCase(PORT)) {
           try {
-            portValue = Integer.valueOf(pair[1]);
+            portValue = Integer.parseInt(pair[1]);
           } catch (NumberFormatException e) {
             throw new DatabricksParsingException("Invalid port number " + pair[1]);
           }
@@ -76,7 +77,8 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
         parametersBuilder.put(entry.getKey().toString().toLowerCase(), entry.getValue().toString());
       }
       DatabricksConnectionContext context =
-          new DatabricksConnectionContext(hostValue, portValue, schema, parametersBuilder.build());
+          new DatabricksConnectionContext(
+              url, hostValue, portValue, schema, parametersBuilder.build());
       metricsExporter = new DatabricksMetrics(context);
       return context;
     } else {
@@ -101,13 +103,14 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
         && Objects.equals(parameters, that.parameters);
   }
 
-  private static void handleInvalidUrl(String url) throws DatabricksParsingException {
-    throw new DatabricksParsingException("Invalid url incorrect: " + url);
-  }
-
   private DatabricksConnectionContext(
-      String host, int port, String schema, ImmutableMap<String, String> parameters)
+      String connectionURL,
+      String host,
+      int port,
+      String schema,
+      ImmutableMap<String, String> parameters)
       throws DatabricksSQLException {
+    this.connectionURL = connectionURL;
     this.host = host;
     this.port = port;
     this.schema = schema;
@@ -286,7 +289,9 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   public LogLevel getLogLevel() {
     String logLevel = getParameter(DatabricksJdbcConstants.LOG_LEVEL);
     if (nullOrEmptyString(logLevel)) {
-      LoggingUtil.log(LogLevel.DEBUG, "No logLevel given in the input, defaulting to info.");
+      LoggingUtil.log(
+          LogLevel.DEBUG,
+          "Using default log level " + DEFAULT_LOG_LEVEL + " as none was provided.");
       return DEFAULT_LOG_LEVEL;
     }
     try {
@@ -299,7 +304,9 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
     try {
       return LogLevel.valueOf(logLevel);
     } catch (Exception e) {
-      LoggingUtil.log(LogLevel.DEBUG, "Invalid logLevel given in the input, defaulting to info.");
+      LoggingUtil.log(
+          LogLevel.DEBUG,
+          "Using default log level " + DEFAULT_LOG_LEVEL + " as invalid level was provided.");
       return DEFAULT_LOG_LEVEL;
     }
   }
@@ -307,7 +314,17 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   @Override
   public String getLogPathString() {
     String parameter = getParameter(LOG_PATH);
-    return (parameter == null) ? DEFAULT_LOG_PATH : parameter;
+    if (parameter != null) {
+      return parameter;
+    }
+
+    String userDir = System.getProperty("user.dir");
+    if (userDir != null && !userDir.isEmpty()) {
+      return userDir;
+    }
+
+    // Fallback option if both LOG_PATH and user.dir are unavailable
+    return System.getProperty("java.io.tmpdir", ".");
   }
 
   @Override
@@ -501,7 +518,9 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
       case 6:
         return LogLevel.TRACE;
       default:
-        LoggingUtil.log(LogLevel.INFO, "Invalid logLevel, defaulting to default log level.");
+        LoggingUtil.log(
+            LogLevel.INFO,
+            "Using default log level " + DEFAULT_LOG_LEVEL + " as invalid level was provided.");
         return DEFAULT_LOG_LEVEL;
     }
   }
@@ -541,7 +560,7 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   }
 
   /** Returns whether the current test is a fake service test. */
-  // TODO: (Bhuvan) This is a temporary solution to enable fake service tests by disabling flushing
+  // TODO: This is a temporary solution to enable fake service tests by disabling flushing
   // of metrics when session is closed. We should remove this
   @Override
   public boolean isFakeServiceTest() {
@@ -551,5 +570,10 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   @Override
   public boolean enableTelemetry() {
     return Objects.equals(getParameter(ENABLE_TELEMETRY, "0"), "1");
+  }
+
+  @Override
+  public String getConnectionURL() {
+    return connectionURL;
   }
 }
