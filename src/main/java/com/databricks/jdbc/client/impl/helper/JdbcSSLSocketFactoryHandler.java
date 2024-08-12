@@ -34,19 +34,25 @@ public class JdbcSSLSocketFactoryHandler {
     // Create an SSLContext with the custom TrustManager
     SSLContext sslContext;
     try {
+      PKIXValidator
       sslContext = SSLContext.getInstance("TLS");
-      KeyStore keyStore = KeyStore.getInstance(KeyStore.getDefaultType());
-      keyStore.load(null, null);
-      TrustManagerFactory trustManagerFactory = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
-      PKIXBuilderParameters pkixParams = new PKIXBuilderParameters();
-      pkixParams.setRevocationEnabled(false);
-      CertPathTrustManagerParameters trustManagerParameters = new CertPathTrustManagerParameters(pkixParams);
-      trustManagerFactory.init(trustManagerParameters);
-      sslContext.init(null, trustManagerFactory.getTrustManagers(), new java.security.SecureRandom());
-    } catch (NoSuchAlgorithmException | KeyStoreException | KeyManagementException e) {
+//      KeyStore keyStore = KeyStore.getInstance(KeyStore.getDefaultType());
+//      keyStore.load(null, null);
+//      PKIXBuilderParameters pkixParams = new PKIXBuilderParameters((KeyStore) null, null);
+//      pkixParams.setRevocationEnabled(false);
+//      CertPathTrustManagerParameters trustManagerParameters = new CertPathTrustManagerParameters(pkixParams);
+      CustomX509TrustManager customX509TrustManager = new CustomX509TrustManager(
+              connectionContext.checkCertificateRevocation(),
+              connectionContext.acceptUndeterminedCertificateRevocation()
+      );
+//      X509TrustManager trustManagerFactory = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
+      TrustManager[] trustManagers = new TrustManager[]{customX509TrustManager};
+      sslContext.init(null, trustManagers, new java.security.SecureRandom());
+//      sslContext.init(null, trustManagerFactory.getTrustManagers(), new java.security.SecureRandom());
+    } catch (Exception e) {
       throw new RuntimeException("Failed to create SSLContext", e);
-    } catch (InvalidAlgorithmParameterException | CertificateException | IOException e) {
-      throw new RuntimeException(e);
+//    } catch (InvalidAlgorithmParameterException | CertificateException | IOException e) {
+//      throw new RuntimeException(e);
     }
 
     // Create the SSLConnectionSocketFactory using the SSLContext
@@ -64,13 +70,14 @@ public class JdbcSSLSocketFactoryHandler {
     private final boolean acceptUndeterminedCertificateRevocation;
 
     public CustomX509TrustManager(boolean checkCertificateRevocation, boolean acceptUndeterminedCertificateRevocation) throws NoSuchAlgorithmException, KeyStoreException, InvalidAlgorithmParameterException, CertificateException, IOException {
-      KeyStore keyStore = KeyStore.getInstance(KeyStore.getDefaultType());
-      keyStore.load(null, null);
+//      KeyStore keyStore = KeyStore.getInstance(KeyStore.getDefaultType());
+//      keyStore.load(null, null);
       TrustManagerFactory trustManagerFactory = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
-      PKIXBuilderParameters pkixParams = new PKIXBuilderParameters(keyStore, null);
-      pkixParams.setRevocationEnabled(false);
-      CertPathTrustManagerParameters trustManagerParameters = new CertPathTrustManagerParameters(pkixParams);
-      trustManagerFactory.init(trustManagerParameters);
+//      PKIXBuilderParameters pkixParams = new PKIXBuilderParameters(keyStore, null);
+//      pkixParams.setRevocationEnabled(false);
+//      CertPathTrustManagerParameters trustManagerParameters = new CertPathTrustManagerParameters(pkixParams);
+//      trustManagerFactory.init(trustManagerParameters);
+      trustManagerFactory.init((KeyStore) null);
       this.defaultTrustManager = (X509TrustManager) trustManagerFactory.getTrustManagers()[0];
       this.checkCertificateRevocation = checkCertificateRevocation;
       this.acceptUndeterminedCertificateRevocation = acceptUndeterminedCertificateRevocation;
@@ -84,27 +91,12 @@ public class JdbcSSLSocketFactoryHandler {
 
     @Override
     public void checkServerTrusted(X509Certificate[] chain, String authType) throws CertificateException {
-      // TODO: this function potentially checks more than just revocation so we should not skip everything
-      if (!checkCertificateRevocation) {
-        // Skip revocation check
-        return;
-      }
-      // Only perform revocation check if CRLDP is present
-      for (X509Certificate cert : chain) {
-        try {
-          Set<String> critExtOids = Sets.union(cert.getCriticalExtensionOIDs(), cert.getNonCriticalExtensionOIDs());
-          if (critExtOids.contains("2.5.29.31")) {
-            // CRLDP is present, perform default check
-            defaultTrustManager.checkServerTrusted(chain, authType);
-            LoggingUtil.log(LogLevel.INFO, "CRLDP present, performed revocation check: " + cert.getSubjectDN().getName());
-          } else {
-            // CRLDP not present, skip revocation check
-            LoggingUtil.log(LogLevel.INFO, "CRLDP not present, skipping revocation check: " + cert.getSubjectDN().getName());
-          }
-        } catch (Exception e) {
-          // Handle any exceptions
-          throw new CertificateException("Failed to check CRLDP", e);
-        }
+      try {
+        LoggingUtil.log(LogLevel.INFO, "check certificate");
+        defaultTrustManager.checkServerTrusted(chain, authType);
+      } catch (CertificateException e) {
+        LoggingUtil.log(LogLevel.INFO, "some issue in certificate");
+        throw new CertificateException(e);
       }
     }
 
