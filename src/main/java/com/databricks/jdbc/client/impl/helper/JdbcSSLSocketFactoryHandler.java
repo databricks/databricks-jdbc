@@ -15,6 +15,7 @@ import java.util.Arrays;
 import java.util.EnumSet;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 public class JdbcSSLSocketFactoryHandler {
   public IDatabricksConnectionContext connectionContext;
@@ -34,7 +35,6 @@ public class JdbcSSLSocketFactoryHandler {
     // Create an SSLContext with the custom TrustManager
     SSLContext sslContext;
     try {
-      PKIXValidator
       sslContext = SSLContext.getInstance("TLS");
 //      KeyStore keyStore = KeyStore.getInstance(KeyStore.getDefaultType());
 //      keyStore.load(null, null);
@@ -81,6 +81,14 @@ public class JdbcSSLSocketFactoryHandler {
       this.defaultTrustManager = (X509TrustManager) trustManagerFactory.getTrustManagers()[0];
       this.checkCertificateRevocation = checkCertificateRevocation;
       this.acceptUndeterminedCertificateRevocation = acceptUndeterminedCertificateRevocation;
+      X509Certificate[] certs = this.defaultTrustManager.getAcceptedIssuers();
+      Set<TrustAnchor> trustAnchor = Arrays.stream(certs)
+              .map(cert -> new TrustAnchor(cert, null))
+              .collect(Collectors.toSet());
+      PKIXBuilderParameters pkixBuilderParameters = new PKIXBuilderParameters(trustAnchor, null);
+      pkixBuilderParameters.setRevocationEnabled(checkCertificateRevocation);
+      CertPathTrustManagerParameters trustManagerParameters = new CertPathTrustManagerParameters(pkixBuilderParameters);
+      trustManagerFactory.init(trustManagerParameters);
       LoggingUtil.log(LogLevel.INFO, "set up of ssl factory handler");
     }
 
