@@ -60,10 +60,12 @@ public class DatabricksThriftServiceClient implements DatabricksClient, Databric
             cluster.toString(), catalog, schema, sessionConf));
     TOpenSessionReq openSessionReq =
         new TOpenSessionReq()
-            .setInitialNamespace(getNamespace(catalog, schema))
             .setConfiguration(sessionConf)
             .setCanUseMultipleCatalogs(true)
             .setClient_protocol_i64(JDBC_THRIFT_VERSION.getValue());
+    if (catalog != null && schema != null) {
+      openSessionReq.setInitialNamespace(getNamespace(catalog, schema));
+    }
     TOpenSessionResp response =
         (TOpenSessionResp)
             thriftAccessor.getThriftResponse(openSessionReq, CommandName.OPEN_SESSION, null);

@@ -420,6 +420,10 @@
                   <shadedPattern>com.databricks.internal.ini4j</shadedPattern>
                 </relocation>
                 <relocation>
+                  <pattern>org.json</pattern>
+                  <shadedPattern>com.databricks.internal.json</shadedPattern>
+                </relocation>
+                <relocation>
                   <pattern>org.osgi</pattern>
                   <shadedPattern>com.databricks.internal.osgi</shadedPattern>
                 </relocation>
