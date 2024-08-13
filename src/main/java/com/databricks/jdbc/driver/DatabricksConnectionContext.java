@@ -398,14 +398,12 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
 
   @Override
   public String getCatalog() {
-    return Optional.ofNullable(getParameter(CATALOG, getParameter(CONN_CATALOG)))
-        .orElse(DEFAULT_CATALOG);
+    return getParameter(CATALOG, getParameter(CONN_CATALOG));
   }
 
   @Override
   public String getSchema() {
-    return Optional.ofNullable(getParameter(CONN_SCHEMA, getParameter(SCHEMA)))
-        .orElse(DEFAULT_SCHEMA);
+    return getParameter(CONN_SCHEMA, getParameter(SCHEMA));
   }
 
   @Override

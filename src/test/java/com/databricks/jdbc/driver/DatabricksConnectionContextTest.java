@@ -1,8 +1,6 @@
 package com.databricks.jdbc.driver;
 
 import static com.databricks.jdbc.driver.DatabricksConnectionContext.getLogLevel;
-import static com.databricks.jdbc.driver.DatabricksJdbcConstants.DEFAULT_CATALOG;
-import static com.databricks.jdbc.driver.DatabricksJdbcConstants.DEFAULT_SCHEMA;
 import static org.junit.jupiter.api.Assertions.*;
 
 import com.databricks.jdbc.client.DatabricksClientType;
@@ -30,7 +28,7 @@ class DatabricksConnectionContextTest {
       "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:4473;ssl=0;AuthMech=3;httpPath=/sql/1.0/warehouses/5c89f447c476a5a8;QueryResultCompressionType=1;EnableDirectResults=0";
 
   private static final String VALID_URL_6 =
-      "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:4473/schemaName;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/5c89f447c476a5a8;ConnCatalog=catalogName;QueryResultCompressionType=1";
+      "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:4473/schemaName;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/5c89f447c476a5a8;ConnCatalog=catalogName;ConnSchema=schemaName;QueryResultCompressionType=1";
 
   private static final String VALID_URL_7 =
       "jdbc:databricks://adb-565757575.18.azuredatabricks.net:4423/default;ssl=1;AuthMech=3;httpPath=/sql/1.0/endpoints/erg6767gg;LogLevel=debug;LogPath=./test1;auth_flow=2;enablearrow=0";
@@ -214,11 +212,11 @@ class DatabricksConnectionContextTest {
   public void testFetchSchemaType() throws DatabricksSQLException {
     DatabricksConnectionContext connectionContext =
         (DatabricksConnectionContext) DatabricksConnectionContext.parse(VALID_URL_5, properties);
-    assertEquals(DEFAULT_SCHEMA, connectionContext.getSchema());
+    assertNull(connectionContext.getSchema());
 
     connectionContext =
         (DatabricksConnectionContext) DatabricksConnectionContext.parse(VALID_URL_6, properties);
-    assertEquals("default", connectionContext.getSchema());
+    assertEquals("schemaName", connectionContext.getSchema());
   }
 
   @Test
@@ -243,7 +241,7 @@ class DatabricksConnectionContextTest {
   public void testFetchCatalog() throws DatabricksSQLException {
     DatabricksConnectionContext connectionContext =
         (DatabricksConnectionContext) DatabricksConnectionContext.parse(VALID_URL_5, properties);
-    assertEquals(DEFAULT_CATALOG, connectionContext.getCatalog());
+    assertNull(connectionContext.getCatalog());
 
     connectionContext =
         (DatabricksConnectionContext) DatabricksConnectionContext.parse(VALID_URL_6, properties);
