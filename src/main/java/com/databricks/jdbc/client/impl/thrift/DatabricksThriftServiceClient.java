@@ -46,7 +46,15 @@ public class DatabricksThriftServiceClient implements DatabricksClient, Databric
   }
 
   private TNamespace getNamespace(String catalog, String schema) {
-    return new TNamespace().setCatalogName(catalog).setSchemaName(schema);
+    final TNamespace namespace = new TNamespace();
+    if (catalog != null) {
+      namespace.setCatalogName(catalog);
+    }
+    if (schema != null) {
+      namespace.setSchemaName(schema);
+    }
+
+    return namespace;
   }
 
   @Override
@@ -63,7 +71,7 @@ public class DatabricksThriftServiceClient implements DatabricksClient, Databric
             .setConfiguration(sessionConf)
             .setCanUseMultipleCatalogs(true)
             .setClient_protocol_i64(JDBC_THRIFT_VERSION.getValue());
-    if (catalog != null && schema != null) {
+    if (catalog != null || schema != null) {
       openSessionReq.setInitialNamespace(getNamespace(catalog, schema));
     }
     TOpenSessionResp response =
