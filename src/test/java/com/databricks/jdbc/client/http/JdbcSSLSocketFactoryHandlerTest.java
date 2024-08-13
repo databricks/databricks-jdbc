@@ -25,7 +25,7 @@ public class JdbcSSLSocketFactoryHandlerTest {
 
   @Test
   public void testHttpGetAndCheckCertificate() throws Exception {
-    when(connectionContext.checkCertificateRevocation()).thenReturn(true);
+    when(connectionContext.checkCertificateRevocation()).thenReturn(false);
     when(connectionContext.acceptUndeterminedCertificateRevocation()).thenReturn(true);
     // Create an SSLContext with our existing CustomX509TrustManager
     JdbcSSLSocketFactoryHandler handler = new JdbcSSLSocketFactoryHandler(connectionContext);
