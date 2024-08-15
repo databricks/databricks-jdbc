@@ -1,13 +1,13 @@
 package com.databricks.jdbc.client.impl.sqlexec;
 
-import static com.databricks.jdbc.driver.DatabricksJdbcConstants.VOLUME_OPERATION_STATUS_COLUMN_NAME;
-import static com.databricks.jdbc.driver.DatabricksJdbcConstants.VOLUME_OPERATION_STATUS_SUCCEEDED;
+import static com.databricks.jdbc.common.DatabricksJdbcConstants.VOLUME_OPERATION_STATUS_COLUMN_NAME;
+import static com.databricks.jdbc.common.DatabricksJdbcConstants.VOLUME_OPERATION_STATUS_SUCCEEDED;
 
+import com.databricks.jdbc.api.IDatabricksResultSet;
+import com.databricks.jdbc.api.IDatabricksStatement;
 import com.databricks.jdbc.client.IDatabricksUCVolumeClient;
 import com.databricks.jdbc.common.LogLevel;
 import com.databricks.jdbc.common.util.LoggingUtil;
-import com.databricks.jdbc.core.IDatabricksResultSet;
-import com.databricks.jdbc.core.IDatabricksStatement;
 import java.io.InputStream;
 import java.sql.*;
 import java.util.ArrayList;

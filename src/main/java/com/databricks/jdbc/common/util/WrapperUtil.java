@@ -1,6 +1,6 @@
 package com.databricks.jdbc.common.util;
 
-import com.databricks.jdbc.core.DatabricksSQLException;
+import com.databricks.jdbc.exception.DatabricksSQLException;
 import java.sql.SQLException;
 
 public class WrapperUtil {

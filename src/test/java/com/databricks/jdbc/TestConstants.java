@@ -1,10 +1,10 @@
 package com.databricks.jdbc;
 
+import com.databricks.jdbc.api.impl.ImmutableSessionInfo;
 import com.databricks.jdbc.client.impl.thrift.generated.*;
-import com.databricks.jdbc.core.ImmutableSessionInfo;
-import com.databricks.jdbc.core.types.AllPurposeCluster;
-import com.databricks.jdbc.core.types.ComputeResource;
-import com.databricks.jdbc.core.types.Warehouse;
+import com.databricks.jdbc.common.AllPurposeCluster;
+import com.databricks.jdbc.common.ComputeResource;
+import com.databricks.jdbc.common.Warehouse;
 import java.nio.ByteBuffer;
 import java.util.Collections;
 import java.util.List;

@@ -1,9 +1,9 @@
 package com.databricks.jdbc.common.util;
 
-import com.databricks.jdbc.client.DatabricksHttpException;
 import com.databricks.jdbc.common.LogLevel;
-import com.databricks.jdbc.core.DatabricksSQLException;
-import com.databricks.jdbc.core.DatabricksValidationException;
+import com.databricks.jdbc.exception.DatabricksHttpException;
+import com.databricks.jdbc.exception.DatabricksSQLException;
+import com.databricks.jdbc.exception.DatabricksValidationException;
 import java.util.Map;
 import org.apache.http.HttpResponse;
 

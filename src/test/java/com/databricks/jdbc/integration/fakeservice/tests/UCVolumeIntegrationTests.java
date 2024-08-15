@@ -1,7 +1,7 @@
 package com.databricks.jdbc.integration.fakeservice.tests;
 
 import static com.databricks.jdbc.TestConstants.*;
-import static com.databricks.jdbc.driver.DatabricksJdbcConstants.*;
+import static com.databricks.jdbc.common.DatabricksJdbcConstants.*;
 import static com.databricks.jdbc.integration.IntegrationTestUtil.*;
 import static org.junit.jupiter.api.Assertions.*;
 

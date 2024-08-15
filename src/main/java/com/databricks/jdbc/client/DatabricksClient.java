@@ -1,17 +1,21 @@
 package com.databricks.jdbc.client;
 
-import com.databricks.jdbc.client.sqlexec.ExternalLink;
+import com.databricks.jdbc.api.IDatabricksConnectionContext;
+import com.databricks.jdbc.api.IDatabricksSession;
+import com.databricks.jdbc.api.IDatabricksStatement;
+import com.databricks.jdbc.api.impl.*;
 import com.databricks.jdbc.common.CommandName;
+import com.databricks.jdbc.common.ComputeResource;
 import com.databricks.jdbc.common.StatementType;
-import com.databricks.jdbc.core.*;
-import com.databricks.jdbc.core.types.ComputeResource;
-import com.databricks.jdbc.driver.IDatabricksConnectionContext;
+import com.databricks.jdbc.exception.DatabricksSQLException;
+import com.databricks.jdbc.model.core.ExternalLink;
 import com.databricks.jdbc.telemetry.annotation.DatabricksMetricsTimedClass;
 import com.databricks.jdbc.telemetry.annotation.DatabricksMetricsTimedMethod;
 import java.sql.SQLException;
 import java.util.Collection;
 import java.util.Map;
 
+/** Interface for Databricks client which abstracts the integration with Databricks server. */
 @DatabricksMetricsTimedClass(
     methods = {
       @DatabricksMetricsTimedMethod(
@@ -27,7 +31,6 @@ import java.util.Map;
           methodName = "getResultChunks",
           metricName = CommandName.GET_RESULT_CHUNKS)
     })
-/** Interface for Databricks client which abstracts the integration with Databricks server. */
 public interface DatabricksClient {
 
   /**

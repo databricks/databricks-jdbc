@@ -3,14 +3,14 @@ package com.databricks.jdbc.client.impl.sqlexec;
 import static com.databricks.jdbc.client.impl.sqlexec.ResultConstants.TYPE_INFO_RESULT;
 import static com.databricks.jdbc.common.MetadataResultConstants.DEFAULT_TABLE_TYPES;
 
+import com.databricks.jdbc.api.IDatabricksSession;
+import com.databricks.jdbc.api.impl.DatabricksResultSet;
+import com.databricks.jdbc.api.impl.ImmutableSqlParameter;
 import com.databricks.jdbc.client.DatabricksMetadataClient;
 import com.databricks.jdbc.client.impl.common.MetadataResultSetBuilder;
 import com.databricks.jdbc.common.LogLevel;
 import com.databricks.jdbc.common.StatementType;
 import com.databricks.jdbc.common.util.LoggingUtil;
-import com.databricks.jdbc.core.DatabricksResultSet;
-import com.databricks.jdbc.core.IDatabricksSession;
-import com.databricks.jdbc.core.ImmutableSqlParameter;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.HashMap;

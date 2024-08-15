@@ -3,8 +3,8 @@ package com.databricks.jdbc.telemetry;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.mockito.Mockito.when;
 
-import com.databricks.jdbc.core.types.ComputeResource;
-import com.databricks.jdbc.driver.IDatabricksConnectionContext;
+import com.databricks.jdbc.api.IDatabricksConnectionContext;
+import com.databricks.jdbc.common.ComputeResource;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;

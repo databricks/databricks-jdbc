@@ -2,8 +2,8 @@ package com.databricks.jdbc.client.impl.sqlexec;
 
 import static java.sql.DatabaseMetaData.*;
 
+import com.databricks.jdbc.api.impl.DatabricksResultSet;
 import com.databricks.jdbc.common.StatementType;
-import com.databricks.jdbc.core.DatabricksResultSet;
 import com.databricks.sdk.service.sql.StatementState;
 import com.databricks.sdk.service.sql.StatementStatus;
 import java.sql.Types;

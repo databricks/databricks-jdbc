@@ -1,5 +1,6 @@
 package com.databricks.jdbc.client;
 
+import com.databricks.jdbc.exception.DatabricksHttpException;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpUriRequest;
 

@@ -2,19 +2,22 @@ package com.databricks.jdbc.client.impl.thrift;
 
 import static com.databricks.jdbc.TestConstants.*;
 import static com.databricks.jdbc.client.impl.common.CommandConstants.GET_TABLE_TYPE_STATEMENT_ID;
+import static com.databricks.jdbc.common.DatabricksJdbcConstants.CATALOG;
+import static com.databricks.jdbc.common.DatabricksJdbcConstants.SCHEMA;
 import static com.databricks.jdbc.common.util.DatabricksThriftUtil.getNamespace;
-import static com.databricks.jdbc.driver.DatabricksJdbcConstants.CATALOG;
-import static com.databricks.jdbc.driver.DatabricksJdbcConstants.SCHEMA;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 
+import com.databricks.jdbc.api.IDatabricksConnectionContext;
+import com.databricks.jdbc.api.IDatabricksSession;
+import com.databricks.jdbc.api.impl.*;
 import com.databricks.jdbc.client.impl.thrift.generated.*;
-import com.databricks.jdbc.client.sqlexec.ExternalLink;
 import com.databricks.jdbc.common.CommandName;
 import com.databricks.jdbc.common.StatementType;
-import com.databricks.jdbc.core.*;
-import com.databricks.jdbc.driver.IDatabricksConnectionContext;
+import com.databricks.jdbc.exception.DatabricksSQLException;
+import com.databricks.jdbc.exception.DatabricksSQLFeatureNotImplementedException;
+import com.databricks.jdbc.model.core.ExternalLink;
 import com.databricks.sdk.service.sql.StatementState;
 import java.sql.SQLException;
 import java.util.Arrays;

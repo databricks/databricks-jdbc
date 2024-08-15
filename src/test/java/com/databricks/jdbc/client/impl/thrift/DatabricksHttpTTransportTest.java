@@ -4,8 +4,8 @@ import static com.databricks.jdbc.TestConstants.TEST_STRING;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
-import com.databricks.jdbc.client.DatabricksHttpException;
-import com.databricks.jdbc.client.http.DatabricksHttpClient;
+import com.databricks.jdbc.client.impl.http.DatabricksHttpClient;
+import com.databricks.jdbc.exception.DatabricksHttpException;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.util.HashMap;

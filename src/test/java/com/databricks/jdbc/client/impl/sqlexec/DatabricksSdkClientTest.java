@@ -3,9 +3,9 @@ package com.databricks.jdbc.client.impl.sqlexec;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.when;
 
-import com.databricks.jdbc.client.sqlexec.ExecuteStatementResponse;
-import com.databricks.jdbc.core.DatabricksParsingException;
-import com.databricks.jdbc.driver.IDatabricksConnectionContext;
+import com.databricks.jdbc.api.IDatabricksConnectionContext;
+import com.databricks.jdbc.exception.DatabricksParsingException;
+import com.databricks.jdbc.model.client.sqlexec.ExecuteStatementResponse;
 import com.databricks.sdk.core.ApiClient;
 import com.databricks.sdk.service.sql.ServiceError;
 import com.databricks.sdk.service.sql.StatementExecutionService;

@@ -1,10 +1,10 @@
 package com.databricks.jdbc.client.impl.thrift;
 
-import com.databricks.jdbc.client.DatabricksHttpException;
-import com.databricks.jdbc.client.http.DatabricksHttpClient;
+import com.databricks.jdbc.client.impl.http.DatabricksHttpClient;
 import com.databricks.jdbc.common.LogLevel;
 import com.databricks.jdbc.common.util.LoggingUtil;
 import com.databricks.jdbc.common.util.ValidationUtil;
+import com.databricks.jdbc.exception.DatabricksHttpException;
 import com.google.common.annotations.VisibleForTesting;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;

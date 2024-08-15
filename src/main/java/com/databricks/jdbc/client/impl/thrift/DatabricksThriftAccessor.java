@@ -4,16 +4,21 @@ import static com.databricks.jdbc.client.impl.thrift.generated.TStatusCode.*;
 import static com.databricks.jdbc.common.EnvironmentVariables.*;
 import static com.databricks.jdbc.common.util.DatabricksThriftUtil.*;
 
-import com.databricks.jdbc.client.DatabricksHttpException;
-import com.databricks.jdbc.client.http.DatabricksHttpClient;
+import com.databricks.jdbc.api.IDatabricksConnectionContext;
+import com.databricks.jdbc.api.IDatabricksSession;
+import com.databricks.jdbc.api.IDatabricksStatement;
+import com.databricks.jdbc.api.impl.*;
 import com.databricks.jdbc.client.impl.common.ClientUtils;
+import com.databricks.jdbc.client.impl.http.DatabricksHttpClient;
 import com.databricks.jdbc.client.impl.thrift.generated.*;
 import com.databricks.jdbc.common.CommandName;
 import com.databricks.jdbc.common.LogLevel;
 import com.databricks.jdbc.common.StatementType;
 import com.databricks.jdbc.common.util.LoggingUtil;
-import com.databricks.jdbc.core.*;
-import com.databricks.jdbc.driver.IDatabricksConnectionContext;
+import com.databricks.jdbc.exception.DatabricksHttpException;
+import com.databricks.jdbc.exception.DatabricksParsingException;
+import com.databricks.jdbc.exception.DatabricksSQLException;
+import com.databricks.jdbc.exception.DatabricksSQLFeatureNotSupportedException;
 import com.databricks.sdk.core.DatabricksConfig;
 import com.google.common.annotations.VisibleForTesting;
 import java.sql.SQLException;
@@ -67,10 +72,8 @@ public class DatabricksThriftAccessor {
   public TBase getThriftResponse(
       TBase request, CommandName commandName, IDatabricksStatement parentStatement)
       throws DatabricksSQLException {
-    /*Todo list :
-     *  1. Test out metadata operations.
-     *  2. Handle compression
-     * */
+    // TODO: Test out metadata operations.
+    // TODO: Handle compression.
     refreshHeadersIfRequired();
     DatabricksHttpTTransport transport =
         (DatabricksHttpTTransport) getThriftClient().getInputProtocol().getTransport();

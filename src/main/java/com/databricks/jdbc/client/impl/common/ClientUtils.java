@@ -1,7 +1,7 @@
 package com.databricks.jdbc.client.impl.common;
 
-import com.databricks.jdbc.core.DatabricksParsingException;
-import com.databricks.jdbc.driver.IDatabricksConnectionContext;
+import com.databricks.jdbc.api.IDatabricksConnectionContext;
+import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.sdk.core.DatabricksConfig;
 
 public class ClientUtils {

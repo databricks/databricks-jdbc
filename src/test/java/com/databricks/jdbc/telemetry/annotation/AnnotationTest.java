@@ -3,8 +3,8 @@ package com.databricks.jdbc.telemetry.annotation;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.*;
 
+import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.common.CommandName;
-import com.databricks.jdbc.driver.IDatabricksConnectionContext;
 import com.databricks.jdbc.telemetry.DatabricksMetrics;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;

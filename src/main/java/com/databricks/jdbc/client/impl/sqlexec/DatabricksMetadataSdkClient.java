@@ -2,14 +2,14 @@ package com.databricks.jdbc.client.impl.sqlexec;
 
 import static com.databricks.jdbc.client.impl.sqlexec.ResultConstants.TYPE_INFO_RESULT;
 
+import com.databricks.jdbc.api.IDatabricksSession;
+import com.databricks.jdbc.api.impl.DatabricksResultSet;
+import com.databricks.jdbc.api.impl.ImmutableSqlParameter;
 import com.databricks.jdbc.client.DatabricksMetadataClient;
 import com.databricks.jdbc.common.LogLevel;
 import com.databricks.jdbc.common.StatementType;
 import com.databricks.jdbc.common.util.LoggingUtil;
 import com.databricks.jdbc.common.util.WildcardUtil;
-import com.databricks.jdbc.core.DatabricksResultSet;
-import com.databricks.jdbc.core.IDatabricksSession;
-import com.databricks.jdbc.core.ImmutableSqlParameter;
 import com.databricks.sdk.service.sql.StatementState;
 import com.databricks.sdk.service.sql.StatementStatus;
 import java.sql.ResultSet;

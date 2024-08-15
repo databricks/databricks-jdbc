@@ -1,11 +1,11 @@
 package com.databricks.client.jdbc;
 
-import static com.databricks.jdbc.driver.DatabricksJdbcConstants.*;
+import static com.databricks.jdbc.common.DatabricksJdbcConstants.*;
 
+import com.databricks.jdbc.common.DatabricksJdbcConstants;
 import com.databricks.jdbc.common.LogLevel;
 import com.databricks.jdbc.common.util.LoggingUtil;
-import com.databricks.jdbc.core.DatabricksSQLException;
-import com.databricks.jdbc.driver.DatabricksJdbcConstants;
+import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.pooling.DatabricksPooledConnection;
 import com.google.common.annotations.VisibleForTesting;
 import java.io.PrintWriter;

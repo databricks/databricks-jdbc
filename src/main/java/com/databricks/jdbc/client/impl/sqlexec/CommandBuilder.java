@@ -1,14 +1,14 @@
 package com.databricks.jdbc.client.impl.sqlexec;
 
 import static com.databricks.jdbc.client.impl.common.CommandConstants.*;
+import static com.databricks.jdbc.common.DatabricksJdbcConstants.*;
 import static com.databricks.jdbc.common.util.ValidationUtil.throwErrorIfNull;
-import static com.databricks.jdbc.driver.DatabricksJdbcConstants.*;
 
+import com.databricks.jdbc.api.IDatabricksSession;
 import com.databricks.jdbc.common.LogLevel;
 import com.databricks.jdbc.common.util.LoggingUtil;
 import com.databricks.jdbc.common.util.WildcardUtil;
-import com.databricks.jdbc.core.DatabricksSQLFeatureNotSupportedException;
-import com.databricks.jdbc.core.IDatabricksSession;
+import com.databricks.jdbc.exception.DatabricksSQLFeatureNotSupportedException;
 import java.sql.SQLException;
 import java.util.Collections;
 import java.util.HashMap;

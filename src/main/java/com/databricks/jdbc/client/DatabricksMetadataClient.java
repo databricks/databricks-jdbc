@@ -1,8 +1,8 @@
 package com.databricks.jdbc.client;
 
+import com.databricks.jdbc.api.IDatabricksSession;
+import com.databricks.jdbc.api.impl.DatabricksResultSet;
 import com.databricks.jdbc.common.CommandName;
-import com.databricks.jdbc.core.DatabricksResultSet;
-import com.databricks.jdbc.core.IDatabricksSession;
 import com.databricks.jdbc.telemetry.annotation.DatabricksMetricsTimedClass;
 import com.databricks.jdbc.telemetry.annotation.DatabricksMetricsTimedMethod;
 import java.sql.SQLException;

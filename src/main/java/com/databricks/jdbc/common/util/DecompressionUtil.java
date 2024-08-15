@@ -1,9 +1,9 @@
 package com.databricks.jdbc.common.util;
 
+import com.databricks.jdbc.common.CompressionType;
 import com.databricks.jdbc.common.LogLevel;
-import com.databricks.jdbc.core.DatabricksParsingException;
-import com.databricks.jdbc.core.DatabricksSQLException;
-import com.databricks.jdbc.core.types.CompressionType;
+import com.databricks.jdbc.exception.DatabricksParsingException;
+import com.databricks.jdbc.exception.DatabricksSQLException;
 import java.io.IOException;
 import java.io.InputStream;
 import net.jpountz.lz4.LZ4FrameInputStream;

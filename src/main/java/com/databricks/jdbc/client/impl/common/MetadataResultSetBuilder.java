@@ -3,9 +3,10 @@ package com.databricks.jdbc.client.impl.common;
 import static com.databricks.jdbc.client.impl.common.CommandConstants.*;
 import static com.databricks.jdbc.common.MetadataResultConstants.*;
 
+import com.databricks.jdbc.api.impl.DatabricksResultSet;
 import com.databricks.jdbc.common.StatementType;
-import com.databricks.jdbc.core.DatabricksResultSet;
-import com.databricks.jdbc.core.DatabricksSQLException;
+import com.databricks.jdbc.exception.DatabricksSQLException;
+import com.databricks.jdbc.model.core.ResultColumn;
 import com.databricks.sdk.service.sql.StatementState;
 import com.databricks.sdk.service.sql.StatementStatus;
 import com.google.common.annotations.VisibleForTesting;
