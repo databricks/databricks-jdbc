@@ -9,7 +9,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.databricks.jdbc.client.IDatabricksHttpClient;
-import com.databricks.jdbc.client.impl.sdk.DatabricksSdkClient;
+import com.databricks.jdbc.client.impl.sqlexec.DatabricksSdkClient;
 import com.databricks.jdbc.client.sqlexec.ExternalLink;
 import com.databricks.jdbc.client.sqlexec.ResultData;
 import com.databricks.jdbc.client.sqlexec.ResultManifest;

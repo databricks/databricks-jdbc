@@ -1,7 +1,7 @@
 package com.databricks.jdbc.core;
 
-import static com.databricks.jdbc.client.impl.helper.MetadataResultConstants.NULL_STRING;
-import static com.databricks.jdbc.client.impl.thrift.commons.DatabricksThriftHelper.getTypeFromTypeDesc;
+import static com.databricks.jdbc.common.MetadataResultConstants.NULL_STRING;
+import static com.databricks.jdbc.common.util.DatabricksThriftUtil.getTypeFromTypeDesc;
 import static com.databricks.jdbc.driver.DatabricksJdbcConstants.VOLUME_OPERATION_STATUS_COLUMN_NAME;
 
 import com.databricks.jdbc.client.impl.thrift.generated.TColumnDesc;
@@ -9,9 +9,9 @@ import com.databricks.jdbc.client.impl.thrift.generated.TGetResultSetMetadataRes
 import com.databricks.jdbc.client.impl.thrift.generated.TTypeEntry;
 import com.databricks.jdbc.client.impl.thrift.generated.TTypeQualifierValue;
 import com.databricks.jdbc.client.sqlexec.ResultManifest;
-import com.databricks.jdbc.commons.LogLevel;
-import com.databricks.jdbc.commons.util.LoggingUtil;
-import com.databricks.jdbc.commons.util.WrapperUtil;
+import com.databricks.jdbc.common.LogLevel;
+import com.databricks.jdbc.common.util.LoggingUtil;
+import com.databricks.jdbc.common.util.WrapperUtil;
 import com.databricks.jdbc.core.types.AccessType;
 import com.databricks.jdbc.core.types.Nullable;
 import com.databricks.sdk.service.sql.ColumnInfo;

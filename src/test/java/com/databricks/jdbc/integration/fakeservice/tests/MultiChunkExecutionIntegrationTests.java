@@ -1,6 +1,6 @@
 package com.databricks.jdbc.integration.fakeservice.tests;
 
-import static com.databricks.jdbc.client.impl.sdk.PathConstants.RESULT_CHUNK_PATH;
+import static com.databricks.jdbc.client.impl.sqlexec.PathConstants.RESULT_CHUNK_PATH;
 import static com.databricks.jdbc.integration.IntegrationTestUtil.getValidJDBCConnection;
 import static com.github.tomakehurst.wiremock.client.WireMock.getRequestedFor;
 import static com.github.tomakehurst.wiremock.client.WireMock.urlPathMatching;

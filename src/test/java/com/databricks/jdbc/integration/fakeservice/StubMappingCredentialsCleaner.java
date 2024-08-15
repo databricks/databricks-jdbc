@@ -1,6 +1,6 @@
 package com.databricks.jdbc.integration.fakeservice;
 
-import static com.databricks.jdbc.client.impl.sdk.PathConstants.STATEMENT_PATH;
+import static com.databricks.jdbc.client.impl.sqlexec.PathConstants.STATEMENT_PATH;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.github.tomakehurst.wiremock.common.FileSource;

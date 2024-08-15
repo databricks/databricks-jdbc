@@ -1,7 +1,7 @@
 package com.databricks.jdbc.integration.fakeservice.tests;
 
-import static com.databricks.jdbc.client.impl.sdk.PathConstants.SESSION_PATH;
-import static com.databricks.jdbc.client.impl.sdk.PathConstants.STATEMENT_PATH;
+import static com.databricks.jdbc.client.impl.sqlexec.PathConstants.SESSION_PATH;
+import static com.databricks.jdbc.client.impl.sqlexec.PathConstants.STATEMENT_PATH;
 import static com.databricks.jdbc.driver.DatabricksJdbcConstants.*;
 import static com.databricks.jdbc.integration.IntegrationTestUtil.*;
 import static com.github.tomakehurst.wiremock.client.WireMock.postRequestedFor;

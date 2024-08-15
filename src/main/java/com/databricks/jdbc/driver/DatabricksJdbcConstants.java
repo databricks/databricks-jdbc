@@ -1,6 +1,6 @@
 package com.databricks.jdbc.driver;
 
-import com.databricks.jdbc.commons.LogLevel;
+import com.databricks.jdbc.common.LogLevel;
 import com.google.common.annotations.VisibleForTesting;
 import java.util.Map;
 import java.util.Set;

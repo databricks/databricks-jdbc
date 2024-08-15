@@ -5,8 +5,8 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
-import com.databricks.jdbc.client.StatementType;
-import com.databricks.jdbc.client.impl.sdk.DatabricksSdkClient;
+import com.databricks.jdbc.client.impl.sqlexec.DatabricksSdkClient;
+import com.databricks.jdbc.common.StatementType;
 import com.databricks.jdbc.core.types.ComputeResource;
 import com.databricks.jdbc.core.types.Warehouse;
 import com.databricks.jdbc.driver.DatabricksConnectionContext;

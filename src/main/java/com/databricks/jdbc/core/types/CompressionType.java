@@ -1,7 +1,7 @@
 package com.databricks.jdbc.core.types;
 
-import com.databricks.jdbc.commons.LogLevel;
-import com.databricks.jdbc.commons.util.LoggingUtil;
+import com.databricks.jdbc.common.LogLevel;
+import com.databricks.jdbc.common.util.LoggingUtil;
 
 public enum CompressionType {
   NONE(0),

@@ -1,18 +1,18 @@
 package com.databricks.jdbc.core;
 
-import static com.databricks.jdbc.client.impl.sdk.PathConstants.*;
+import static com.databricks.jdbc.client.impl.sqlexec.PathConstants.*;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
 
-import com.databricks.jdbc.client.StatementType;
-import com.databricks.jdbc.client.impl.sdk.DatabricksSdkClient;
+import com.databricks.jdbc.client.impl.sqlexec.DatabricksSdkClient;
 import com.databricks.jdbc.client.sqlexec.*;
 import com.databricks.jdbc.client.sqlexec.ExecuteStatementRequest;
 import com.databricks.jdbc.client.sqlexec.ExecuteStatementResponse;
 import com.databricks.jdbc.client.sqlexec.ResultData;
 import com.databricks.jdbc.client.sqlexec.ResultManifest;
+import com.databricks.jdbc.common.StatementType;
 import com.databricks.jdbc.core.types.ComputeResource;
 import com.databricks.jdbc.core.types.Warehouse;
 import com.databricks.jdbc.driver.DatabricksConnectionContext;

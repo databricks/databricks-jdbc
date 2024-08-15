@@ -5,7 +5,7 @@ import static com.databricks.jdbc.driver.DatabricksJdbcConstants.*;
 import static com.databricks.jdbc.integration.IntegrationTestUtil.*;
 import static org.junit.jupiter.api.Assertions.*;
 
-import com.databricks.jdbc.client.impl.sdk.DatabricksUCVolumeClient;
+import com.databricks.jdbc.client.impl.sqlexec.DatabricksUCVolumeClient;
 import com.databricks.jdbc.integration.fakeservice.AbstractFakeServiceIntegrationTests;
 import com.databricks.jdbc.integration.fakeservice.FakeServiceConfigLoader;
 import com.databricks.jdbc.integration.fakeservice.FakeServiceExtension;

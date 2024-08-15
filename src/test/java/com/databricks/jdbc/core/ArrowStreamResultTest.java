@@ -7,7 +7,7 @@ import static org.mockito.ArgumentMatchers.isA;
 import static org.mockito.Mockito.when;
 
 import com.databricks.jdbc.client.IDatabricksHttpClient;
-import com.databricks.jdbc.client.impl.sdk.DatabricksSdkClient;
+import com.databricks.jdbc.client.impl.sqlexec.DatabricksSdkClient;
 import com.databricks.jdbc.client.impl.thrift.generated.TGetResultSetMetadataResp;
 import com.databricks.jdbc.client.impl.thrift.generated.TRowSet;
 import com.databricks.jdbc.client.impl.thrift.generated.TSparkArrowResultLink;

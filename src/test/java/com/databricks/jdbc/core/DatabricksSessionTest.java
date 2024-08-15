@@ -6,11 +6,11 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 
-import com.databricks.jdbc.client.DatabricksClientType;
-import com.databricks.jdbc.client.impl.sdk.DatabricksMetadataSdkClient;
-import com.databricks.jdbc.client.impl.sdk.DatabricksSdkClient;
+import com.databricks.jdbc.client.impl.sqlexec.DatabricksMetadataSdkClient;
+import com.databricks.jdbc.client.impl.sqlexec.DatabricksSdkClient;
 import com.databricks.jdbc.client.impl.thrift.DatabricksThriftServiceClient;
 import com.databricks.jdbc.client.impl.thrift.generated.*;
+import com.databricks.jdbc.common.DatabricksClientType;
 import com.databricks.jdbc.driver.DatabricksConnectionContext;
 import com.databricks.jdbc.driver.IDatabricksConnectionContext;
 import java.util.Properties;

@@ -1,6 +1,6 @@
 package com.databricks.jdbc.core;
 
-import com.databricks.jdbc.commons.util.WrapperUtil;
+import com.databricks.jdbc.common.util.WrapperUtil;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.Types;

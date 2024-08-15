@@ -2,8 +2,8 @@ package com.databricks.client.jdbc;
 
 import static com.databricks.jdbc.driver.DatabricksJdbcConstants.*;
 
-import com.databricks.jdbc.commons.LogLevel;
-import com.databricks.jdbc.commons.util.LoggingUtil;
+import com.databricks.jdbc.common.LogLevel;
+import com.databricks.jdbc.common.util.LoggingUtil;
 import com.databricks.jdbc.core.DatabricksSQLException;
 import com.databricks.jdbc.driver.DatabricksJdbcConstants;
 import com.databricks.jdbc.pooling.DatabricksPooledConnection;

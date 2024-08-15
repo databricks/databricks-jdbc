@@ -1,6 +1,6 @@
 package com.databricks.jdbc.client;
 
-import com.databricks.jdbc.commons.CommandName;
+import com.databricks.jdbc.common.CommandName;
 import com.databricks.jdbc.core.DatabricksResultSet;
 import com.databricks.jdbc.core.IDatabricksSession;
 import com.databricks.jdbc.telemetry.annotation.DatabricksMetricsTimedClass;

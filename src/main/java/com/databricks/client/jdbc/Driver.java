@@ -2,13 +2,13 @@ package com.databricks.client.jdbc;
 
 import static com.databricks.jdbc.driver.DatabricksJdbcConstants.*;
 
-import com.databricks.jdbc.client.DatabricksClientType;
-import com.databricks.jdbc.commons.ErrorTypes;
-import com.databricks.jdbc.commons.LogLevel;
-import com.databricks.jdbc.commons.util.DeviceInfoLogUtil;
-import com.databricks.jdbc.commons.util.DriverUtil;
-import com.databricks.jdbc.commons.util.ErrorCodes;
-import com.databricks.jdbc.commons.util.LoggingUtil;
+import com.databricks.jdbc.common.DatabricksClientType;
+import com.databricks.jdbc.common.ErrorTypes;
+import com.databricks.jdbc.common.LogLevel;
+import com.databricks.jdbc.common.util.DeviceInfoLogUtil;
+import com.databricks.jdbc.common.util.DriverUtil;
+import com.databricks.jdbc.common.util.ErrorCodes;
+import com.databricks.jdbc.common.util.LoggingUtil;
 import com.databricks.jdbc.core.DatabricksConnection;
 import com.databricks.jdbc.core.DatabricksSQLException;
 import com.databricks.jdbc.driver.DatabricksConnectionContext;

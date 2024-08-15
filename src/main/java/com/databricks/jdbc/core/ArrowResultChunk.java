@@ -1,16 +1,16 @@
 package com.databricks.jdbc.core;
 
-import static com.databricks.jdbc.client.impl.thrift.commons.DatabricksThriftHelper.createExternalLink;
-import static com.databricks.jdbc.commons.util.ValidationUtil.checkHTTPError;
+import static com.databricks.jdbc.common.util.DatabricksThriftUtil.createExternalLink;
+import static com.databricks.jdbc.common.util.ValidationUtil.checkHTTPError;
 import static com.databricks.jdbc.driver.DatabricksJdbcConstants.IS_FAKE_SERVICE_TEST_PROP;
 
 import com.databricks.jdbc.client.DatabricksHttpException;
 import com.databricks.jdbc.client.IDatabricksHttpClient;
 import com.databricks.jdbc.client.impl.thrift.generated.TSparkArrowResultLink;
 import com.databricks.jdbc.client.sqlexec.ExternalLink;
-import com.databricks.jdbc.commons.LogLevel;
-import com.databricks.jdbc.commons.util.DecompressionUtil;
-import com.databricks.jdbc.commons.util.LoggingUtil;
+import com.databricks.jdbc.common.LogLevel;
+import com.databricks.jdbc.common.util.DecompressionUtil;
+import com.databricks.jdbc.common.util.LoggingUtil;
 import com.databricks.jdbc.core.types.CompressionType;
 import com.databricks.sdk.service.sql.BaseChunkInfo;
 import com.google.common.annotations.VisibleForTesting;

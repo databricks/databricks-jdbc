@@ -1,7 +1,7 @@
 package com.databricks.jdbc.pooling;
 
-import com.databricks.jdbc.commons.LogLevel;
-import com.databricks.jdbc.commons.util.LoggingUtil;
+import com.databricks.jdbc.common.LogLevel;
+import com.databricks.jdbc.common.util.LoggingUtil;
 import com.databricks.jdbc.core.DatabricksSQLException;
 import com.databricks.jdbc.core.IDatabricksConnection;
 import com.databricks.jdbc.core.IDatabricksStatement;

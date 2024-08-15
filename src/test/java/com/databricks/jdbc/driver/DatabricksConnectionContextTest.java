@@ -3,8 +3,8 @@ package com.databricks.jdbc.driver;
 import static com.databricks.jdbc.driver.DatabricksConnectionContext.getLogLevel;
 import static org.junit.jupiter.api.Assertions.*;
 
-import com.databricks.jdbc.client.DatabricksClientType;
-import com.databricks.jdbc.commons.LogLevel;
+import com.databricks.jdbc.common.DatabricksClientType;
+import com.databricks.jdbc.common.LogLevel;
 import com.databricks.jdbc.core.DatabricksParsingException;
 import com.databricks.jdbc.core.DatabricksSQLException;
 import com.databricks.jdbc.core.types.CompressionType;

@@ -7,7 +7,7 @@ import static org.mockito.Mockito.when;
 
 import com.databricks.client.jdbc.DataSource;
 import com.databricks.client.jdbc.Driver;
-import com.databricks.jdbc.client.impl.sdk.DatabricksSdkClient;
+import com.databricks.jdbc.client.impl.sqlexec.DatabricksSdkClient;
 import com.databricks.jdbc.core.DatabricksConnection;
 import com.databricks.jdbc.core.DatabricksSQLException;
 import com.databricks.jdbc.core.ImmutableSessionInfo;

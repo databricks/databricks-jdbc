@@ -1,12 +1,12 @@
 package com.databricks.jdbc.core;
 
-import static com.databricks.jdbc.client.impl.thrift.commons.DatabricksThriftHelper.convertColumnarToRowBased;
+import static com.databricks.jdbc.common.util.DatabricksThriftUtil.convertColumnarToRowBased;
 
-import com.databricks.jdbc.client.impl.thrift.commons.DatabricksThriftHelper;
 import com.databricks.jdbc.client.impl.thrift.generated.TGetResultSetMetadataResp;
 import com.databricks.jdbc.client.impl.thrift.generated.TRowSet;
 import com.databricks.jdbc.client.sqlexec.ResultData;
 import com.databricks.jdbc.client.sqlexec.ResultManifest;
+import com.databricks.jdbc.common.util.DatabricksThriftUtil;
 import java.util.List;
 
 class ExecutionResultFactory {
@@ -61,7 +61,7 @@ class ExecutionResultFactory {
     if (manifest.isSetIsStagingOperation() && manifest.isIsStagingOperation()) {
       return new VolumeOperationResult(
           statementId,
-          DatabricksThriftHelper.getRowCount(data),
+          DatabricksThriftUtil.getRowCount(data),
           manifest.getSchema().getColumnsSize(),
           session,
           resultHandler,

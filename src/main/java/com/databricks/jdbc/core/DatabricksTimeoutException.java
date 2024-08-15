@@ -1,6 +1,6 @@
 package com.databricks.jdbc.core;
 
-import com.databricks.jdbc.commons.ErrorTypes;
+import com.databricks.jdbc.common.ErrorTypes;
 import com.databricks.jdbc.driver.IDatabricksConnectionContext;
 import java.sql.SQLTimeoutException;
 
