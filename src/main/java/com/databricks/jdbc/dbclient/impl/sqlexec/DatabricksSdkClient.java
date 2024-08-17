@@ -186,14 +186,15 @@ public class DatabricksSdkClient implements IDatabricksClient {
     if (responseState != StatementState.SUCCEEDED) {
       handleFailedExecution(response, statementId, sql);
     }
-    return new DatabricksResultSet(
-        response.getStatus(),
-        statementId,
-        response.getResult(),
-        response.getManifest(),
-        statementType,
-        session,
-        parentStatement);
+
+    return DatabricksResultSet.builder()
+        .statementStatus(response.getStatus())
+        .statementId(statementId)
+        .withResultData(response.getResult(), response.getManifest())
+        .statementType(statementType)
+        .session(session)
+        .parentStatement(parentStatement)
+        .build();
   }
 
   private boolean useCloudFetchForResult(StatementType statementType) {

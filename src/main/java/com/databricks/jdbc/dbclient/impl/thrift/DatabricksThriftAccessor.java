@@ -262,14 +262,15 @@ public class DatabricksThriftAccessor {
     } finally {
       transport.close();
     }
-    return new DatabricksResultSet(
-        response.getStatus(),
-        getStatementId(response.getOperationHandle()),
-        resultSet.getResults(),
-        resultSet.getResultSetMetadata(),
-        statementType,
-        parentStatement,
-        session);
+
+    return DatabricksResultSet.builder()
+        .withTStatus(response.getStatus())
+        .statementId(getStatementId(response.getOperationHandle()))
+        .withThriftResultData(resultSet.getResults(), resultSet.getResultSetMetadata())
+        .statementType(statementType)
+        .parentStatement(parentStatement)
+        .session(session)
+        .build();
   }
 
   private TFetchResultsResp listFunctions(TGetFunctionsReq request)

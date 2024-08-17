@@ -37,14 +37,15 @@ public class DatabricksResultSetTest {
   @Mock Statement mockedStatement;
 
   private DatabricksResultSet getResultSet(
-      StatementState statementState, IDatabricksStatement statement) {
-    return new DatabricksResultSet(
-        new StatementStatus().setState(statementState),
-        "test-statementID",
-        StatementType.METADATA,
-        statement,
-        mockedExecutionResult,
-        mockedResultSetMetadata);
+      StatementState statementState, IDatabricksStatement statement) throws DatabricksSQLException {
+    return DatabricksResultSet.builder()
+        .statementStatus(new StatementStatus().setState(statementState))
+        .statementId("test-statementID")
+        .statementType(StatementType.METADATA)
+        .parentStatement(statement)
+        .executionResult(mockedExecutionResult)
+        .resultSetMetaData(mockedResultSetMetadata)
+        .build();
   }
 
   private DatabricksResultSet getThriftResultSetMetadata() throws DatabricksSQLException {
@@ -57,14 +58,15 @@ public class DatabricksResultSetTest {
     TColumnDesc columnDesc = new TColumnDesc().setColumnName("testCol");
     TTableSchema schema = new TTableSchema().setColumns(Collections.singletonList(columnDesc));
     metadataResp.setSchema(schema);
-    return new DatabricksResultSet(
-        new TStatus().setStatusCode(TStatusCode.SUCCESS_STATUS),
-        "test-statementID",
-        rowSet,
-        metadataResp,
-        StatementType.METADATA,
-        mockedDatabricksStatement,
-        session);
+
+    return DatabricksResultSet.builder()
+        .withTStatus(new TStatus().setStatusCode(TStatusCode.SUCCESS_STATUS))
+        .statementId("test-statementID")
+        .withThriftResultData(rowSet, metadataResp)
+        .statementType(StatementType.METADATA)
+        .parentStatement(mockedDatabricksStatement)
+        .session(session)
+        .build();
   }
 
   @Test
@@ -81,7 +83,7 @@ public class DatabricksResultSetTest {
   }
 
   @Test
-  void testGetStatementStatus() {
+  void testGetStatementStatus() throws SQLException {
     DatabricksResultSet resultSet = getResultSet(StatementState.PENDING, null);
     assertEquals(StatementState.PENDING, resultSet.getStatementStatus().getState());
   }
@@ -363,7 +365,7 @@ public class DatabricksResultSetTest {
   }
 
   @Test
-  void testUpdateFunctionsThrowsError() {
+  void testUpdateFunctionsThrowsError() throws SQLException {
     DatabricksResultSet resultSet = getResultSet(StatementState.SUCCEEDED, null);
     assertThrows(
         DatabricksSQLFeatureNotSupportedException.class, () -> resultSet.updateNString(1, "test"));
@@ -603,7 +605,8 @@ public class DatabricksResultSetTest {
   }
 
   @Test
-  void testUnsupportedOperationsThrowDatabricksSQLFeatureNotSupportedException() {
+  void testUnsupportedOperationsThrowDatabricksSQLFeatureNotSupportedException()
+      throws SQLException {
     when(mockedResultSetMetadata.getColumnNameIndex("column")).thenReturn(1);
     DatabricksResultSet resultSet = getResultSet(StatementState.SUCCEEDED, null);
     assertThrows(DatabricksSQLFeatureNotSupportedException.class, resultSet::getHoldability);
@@ -735,13 +738,13 @@ public class DatabricksResultSetTest {
   @Test
   void testGetUpdateCountForQueryStatement() throws SQLException {
     DatabricksResultSet resultSet =
-        new DatabricksResultSet(
-            new StatementStatus().setState(StatementState.SUCCEEDED),
-            "test-statementID",
-            StatementType.QUERY,
-            null,
-            mockedExecutionResult,
-            mockedResultSetMetadata);
+        DatabricksResultSet.builder()
+            .statementStatus(new StatementStatus().setState(StatementState.SUCCEEDED))
+            .statementId("test-statementID")
+            .statementType(StatementType.QUERY)
+            .executionResult(mockedExecutionResult)
+            .resultSetMetaData(mockedResultSetMetadata)
+            .build();
 
     assertEquals(0, resultSet.getUpdateCount());
   }
@@ -754,13 +757,13 @@ public class DatabricksResultSetTest {
     when(mockedExecutionResult.getObject(0)).thenReturn(5L);
 
     DatabricksResultSet resultSet =
-        new DatabricksResultSet(
-            new StatementStatus().setState(StatementState.SUCCEEDED),
-            "test-statementID",
-            StatementType.UPDATE,
-            null,
-            mockedExecutionResult,
-            mockedResultSetMetadata);
+        DatabricksResultSet.builder()
+            .statementStatus(new StatementStatus().setState(StatementState.SUCCEEDED))
+            .statementId("test-statementID")
+            .statementType(StatementType.UPDATE)
+            .executionResult(mockedExecutionResult)
+            .resultSetMetaData(mockedResultSetMetadata)
+            .build();
 
     assertEquals(5L, resultSet.getUpdateCount());
   }
@@ -773,13 +776,13 @@ public class DatabricksResultSetTest {
     when(mockedExecutionResult.getObject(0)).thenReturn(3L).thenReturn(2L);
 
     DatabricksResultSet resultSet =
-        new DatabricksResultSet(
-            new StatementStatus().setState(StatementState.SUCCEEDED),
-            "test-statementID",
-            StatementType.UPDATE,
-            null,
-            mockedExecutionResult,
-            mockedResultSetMetadata);
+        DatabricksResultSet.builder()
+            .statementStatus(new StatementStatus().setState(StatementState.SUCCEEDED))
+            .statementId("test-statementID")
+            .statementType(StatementType.UPDATE)
+            .executionResult(mockedExecutionResult)
+            .resultSetMetaData(mockedResultSetMetadata)
+            .build();
 
     assertEquals(5L, resultSet.getUpdateCount());
   }

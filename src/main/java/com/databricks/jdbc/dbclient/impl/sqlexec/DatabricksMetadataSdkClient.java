@@ -53,15 +53,18 @@ public class DatabricksMetadataSdkClient implements IDatabricksMetadataClient {
     while (rs.next()) {
       rows.add(Collections.singletonList(rs.getString(1)));
     }
-    return new DatabricksResultSet(
-        new StatementStatus().setState(StatementState.SUCCEEDED),
-        "getcatalogs-metadata",
-        Collections.singletonList("TABLE_CAT"),
-        Collections.singletonList("VARCHAR"),
-        Collections.singletonList(Types.VARCHAR),
-        Collections.singletonList(128),
-        rows,
-        StatementType.METADATA);
+
+    return DatabricksResultSet.builder()
+        .statementStatus(new StatementStatus().setState(StatementState.SUCCEEDED))
+        .statementId("getcatalogs-metadata")
+        .withColumnInfoAndRows(
+            Collections.singletonList("TABLE_CAT"),
+            Collections.singletonList("VARCHAR"),
+            Collections.singletonList(Types.VARCHAR),
+            Collections.singletonList(128),
+            rows)
+        .statementType(StatementType.METADATA)
+        .build();
   }
 
   @Override
@@ -123,15 +126,18 @@ public class DatabricksMetadataSdkClient implements IDatabricksMetadataClient {
     rows.sort(
         Comparator.comparing((List<Object> i) -> i.get(1).toString())
             .thenComparing(i -> i.get(0).toString()));
-    return new DatabricksResultSet(
-        new StatementStatus().setState(StatementState.SUCCEEDED),
-        "metadata-statement",
-        Arrays.asList("TABLE_SCHEM", "TABLE_CATALOG"),
-        Arrays.asList("VARCHAR", "VARCHAR"),
-        Arrays.asList(Types.VARCHAR, Types.VARCHAR),
-        Arrays.asList(128, 128),
-        rows,
-        StatementType.METADATA);
+
+    return DatabricksResultSet.builder()
+        .statementStatus(new StatementStatus().setState(StatementState.SUCCEEDED))
+        .statementId("metadata-statement")
+        .withColumnInfoAndRows(
+            Arrays.asList("TABLE_SCHEM", "TABLE_CATALOG"),
+            Arrays.asList("VARCHAR", "VARCHAR"),
+            Arrays.asList(Types.VARCHAR, Types.VARCHAR),
+            Arrays.asList(128, 128),
+            rows)
+        .statementType(StatementType.METADATA)
+        .build();
   }
 
   @Override
@@ -208,37 +214,40 @@ public class DatabricksMetadataSdkClient implements IDatabricksMetadataClient {
             .thenComparing(i -> i.get(0).toString())
             .thenComparing(i -> i.get(1).toString())
             .thenComparing(i -> i.get(2).toString()));
-    return new DatabricksResultSet(
-        new StatementStatus().setState(StatementState.SUCCEEDED),
-        "gettables-metadata",
-        Arrays.asList(
-            "TABLE_CAT",
-            "TABLE_SCHEM",
-            "TABLE_NAME",
-            "TABLE_TYPE",
-            "REMARKS",
-            "TYPE_CAT",
-            "TYPE_SCHEM",
-            "TYPE_NAME",
-            "SELF_REFERENCING_COL_NAME",
-            "REF_GENERATION"),
-        Arrays.asList(
-            "VARCHAR", "VARCHAR", "VARCHAR", "VARCHAR", "VARCHAR", "VARCHAR", "VARCHAR", "VARCHAR",
-            "VARCHAR", "VARCHAR"),
-        Arrays.asList(
-            Types.VARCHAR,
-            Types.VARCHAR,
-            Types.VARCHAR,
-            Types.VARCHAR,
-            Types.VARCHAR,
-            Types.VARCHAR,
-            Types.VARCHAR,
-            Types.VARCHAR,
-            Types.VARCHAR,
-            Types.VARCHAR),
-        Arrays.asList(128, 128, 128, 128, 128, 128, 128, 128, 128, 128),
-        rows,
-        StatementType.METADATA);
+
+    return DatabricksResultSet.builder()
+        .statementStatus(new StatementStatus().setState(StatementState.SUCCEEDED))
+        .statementId("gettables-metadata")
+        .withColumnInfoAndRows(
+            Arrays.asList(
+                "TABLE_CAT",
+                "TABLE_SCHEM",
+                "TABLE_NAME",
+                "TABLE_TYPE",
+                "REMARKS",
+                "TYPE_CAT",
+                "TYPE_SCHEM",
+                "TYPE_NAME",
+                "SELF_REFERENCING_COL_NAME",
+                "REF_GENERATION"),
+            Arrays.asList(
+                "VARCHAR", "VARCHAR", "VARCHAR", "VARCHAR", "VARCHAR", "VARCHAR", "VARCHAR",
+                "VARCHAR", "VARCHAR", "VARCHAR"),
+            Arrays.asList(
+                Types.VARCHAR,
+                Types.VARCHAR,
+                Types.VARCHAR,
+                Types.VARCHAR,
+                Types.VARCHAR,
+                Types.VARCHAR,
+                Types.VARCHAR,
+                Types.VARCHAR,
+                Types.VARCHAR,
+                Types.VARCHAR),
+            Arrays.asList(128, 128, 128, 128, 128, 128, 128, 128, 128, 128),
+            rows)
+        .statementType(StatementType.METADATA)
+        .build();
   }
 
   @Override
@@ -302,15 +311,18 @@ public class DatabricksMetadataSdkClient implements IDatabricksMetadataClient {
         Comparator.comparing((List<Object> i) -> i.get(0).toString())
             .thenComparing(i -> i.get(1).toString())
             .thenComparing(i -> i.get(2).toString()));
-    return new DatabricksResultSet(
-        new StatementStatus().setState(StatementState.SUCCEEDED),
-        "metadata-statement",
-        Arrays.asList("TABLE_CAT", "TABLE_SCHEM", "TABLE_NAME", "COLUMN_NAME"),
-        Arrays.asList("VARCHAR", "VARCHAR", "VARCHAR", "VARCHAR"),
-        Arrays.asList(Types.VARCHAR, Types.VARCHAR, Types.VARCHAR, Types.VARCHAR),
-        Arrays.asList(128, 128, 128, 128),
-        rows,
-        StatementType.METADATA);
+
+    return DatabricksResultSet.builder()
+        .statementStatus(new StatementStatus().setState(StatementState.SUCCEEDED))
+        .statementId("metadata-statement")
+        .withColumnInfoAndRows(
+            Arrays.asList("TABLE_CAT", "TABLE_SCHEM", "TABLE_NAME", "COLUMN_NAME"),
+            Arrays.asList("VARCHAR", "VARCHAR", "VARCHAR", "VARCHAR"),
+            Arrays.asList(Types.VARCHAR, Types.VARCHAR, Types.VARCHAR, Types.VARCHAR),
+            Arrays.asList(128, 128, 128, 128),
+            rows)
+        .statementType(StatementType.METADATA)
+        .build();
   }
 
   @Override

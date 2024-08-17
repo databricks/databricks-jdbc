@@ -268,7 +268,8 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
   }
 
   @Override
-  public DatabricksResultSet listTableTypes(IDatabricksSession session) {
+  public DatabricksResultSet listTableTypes(IDatabricksSession session)
+      throws DatabricksSQLException {
     LoggingUtil.log(
         LogLevel.DEBUG,
         String.format(

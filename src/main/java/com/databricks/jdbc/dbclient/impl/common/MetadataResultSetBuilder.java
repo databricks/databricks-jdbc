@@ -50,15 +50,17 @@ public class MetadataResultSetBuilder {
     return buildResultSet(TABLE_COLUMNS, rows, GET_TABLES_STATEMENT_ID);
   }
 
-  public static DatabricksResultSet getTableTypesResult() {
+  public static DatabricksResultSet getTableTypesResult() throws DatabricksSQLException {
     return buildResultSet(TABLE_TYPE_COLUMNS, TABLE_TYPES_ROWS, GET_TABLE_TYPE_STATEMENT_ID);
   }
 
-  public static DatabricksResultSet getTableTypesResult(List<List<Object>> rows) {
+  public static DatabricksResultSet getTableTypesResult(List<List<Object>> rows)
+      throws DatabricksSQLException {
     return buildResultSet(TABLE_TYPE_COLUMNS, rows, GET_TABLE_TYPE_STATEMENT_ID);
   }
 
-  public static DatabricksResultSet getTypeInfoResult(List<List<Object>> rows) {
+  public static DatabricksResultSet getTypeInfoResult(List<List<Object>> rows)
+      throws DatabricksSQLException {
     return buildResultSet(TYPE_INFO_COLUMNS, rows, GET_TYPE_INFO_STATEMENT_ID);
   }
 
@@ -340,39 +342,49 @@ public class MetadataResultSetBuilder {
   }
 
   private static DatabricksResultSet buildResultSet(
-      List<ResultColumn> columns, List<List<Object>> rows, String statementId) {
-    return new DatabricksResultSet(
-        new StatementStatus().setState(StatementState.SUCCEEDED),
-        statementId,
-        columns.stream().map(ResultColumn::getColumnName).collect(Collectors.toList()),
-        columns.stream().map(ResultColumn::getColumnTypeString).collect(Collectors.toList()),
-        columns.stream().map(ResultColumn::getColumnTypeInt).collect(Collectors.toList()),
-        columns.stream().map(ResultColumn::getColumnPrecision).collect(Collectors.toList()),
-        rows,
-        StatementType.METADATA);
+      List<ResultColumn> columns, List<List<Object>> rows, String statementId)
+      throws DatabricksSQLException {
+
+    return DatabricksResultSet.builder()
+        .statementStatus(new StatementStatus().setState(StatementState.SUCCEEDED))
+        .statementId(statementId)
+        .withColumnInfoAndRows(
+            columns.stream().map(ResultColumn::getColumnName).collect(Collectors.toList()),
+            columns.stream().map(ResultColumn::getColumnTypeString).collect(Collectors.toList()),
+            columns.stream().map(ResultColumn::getColumnTypeInt).collect(Collectors.toList()),
+            columns.stream().map(ResultColumn::getColumnPrecision).collect(Collectors.toList()),
+            rows)
+        .statementType(StatementType.METADATA)
+        .build();
   }
 
-  public static DatabricksResultSet getCatalogsResult(List<List<Object>> rows) {
+  public static DatabricksResultSet getCatalogsResult(List<List<Object>> rows)
+      throws DatabricksSQLException {
     return buildResultSet(CATALOG_COLUMNS, rows, GET_CATALOGS_STATEMENT_ID);
   }
 
-  public static DatabricksResultSet getSchemasResult(List<List<Object>> rows) {
+  public static DatabricksResultSet getSchemasResult(List<List<Object>> rows)
+      throws DatabricksSQLException {
     return buildResultSet(SCHEMA_COLUMNS, rows, METADATA_STATEMENT_ID);
   }
 
-  public static DatabricksResultSet getTablesResult(List<List<Object>> rows) {
+  public static DatabricksResultSet getTablesResult(List<List<Object>> rows)
+      throws DatabricksSQLException {
     return buildResultSet(TABLE_COLUMNS_ALL_PURPOSE, rows, GET_TABLES_STATEMENT_ID);
   }
 
-  public static DatabricksResultSet getColumnsResult(List<List<Object>> rows) {
+  public static DatabricksResultSet getColumnsResult(List<List<Object>> rows)
+      throws DatabricksSQLException {
     return buildResultSet(COLUMN_COLUMNS, rows, METADATA_STATEMENT_ID);
   }
 
-  public static DatabricksResultSet getPrimaryKeysResult(List<List<Object>> rows) {
+  public static DatabricksResultSet getPrimaryKeysResult(List<List<Object>> rows)
+      throws DatabricksSQLException {
     return buildResultSet(PRIMARY_KEYS_COLUMNS_ALL_PURPOSE, rows, METADATA_STATEMENT_ID);
   }
 
-  public static DatabricksResultSet getFunctionsResult(List<List<Object>> rows) {
+  public static DatabricksResultSet getFunctionsResult(List<List<Object>> rows)
+      throws DatabricksSQLException {
     return buildResultSet(FUNCTION_COLUMNS_ALL_PURPOSE, rows, GET_FUNCTIONS_STATEMENT_ID);
   }
 }

@@ -879,35 +879,38 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
             catalog, schemaPattern, procedureNamePattern));
     // TODO: check once, simba returns empty result set as well
     throwExceptionIfConnectionIsClosed();
-    return new DatabricksResultSet(
-        new StatementStatus().setState(StatementState.SUCCEEDED),
-        "getprocedures-metadata",
-        Arrays.asList(
-            "PROCEDURE_CAT",
-            "PROCEDURE_SCHEM",
-            "PROCEDURE_NAME",
-            "NUM_INPUT_PARAMS",
-            "NUM_OUTPUT_PARAMS",
-            "NUM_RESULT_SETS",
-            "REMARKS",
-            "PROCEDURE_TYPE",
-            "SPECIFIC_NAME"),
-        Arrays.asList(
-            "VARCHAR", "VARCHAR", "VARCHAR", "VARCHAR", "VARCHAR", "VARCHAR", "VARCHAR", "VARCHAR",
-            "VARCHAR"),
-        Arrays.asList(
-            Types.VARCHAR,
-            Types.VARCHAR,
-            Types.VARCHAR,
-            Types.VARCHAR,
-            Types.VARCHAR,
-            Types.VARCHAR,
-            Types.VARCHAR,
-            Types.VARCHAR,
-            Types.VARCHAR),
-        Arrays.asList(128, 128, 128, 128, 128, 128, 128, 128, 128),
-        new Object[0][0],
-        StatementType.METADATA);
+
+    return DatabricksResultSet.builder()
+        .statementStatus(new StatementStatus().setState(StatementState.SUCCEEDED))
+        .statementId("getprocedures-metadata")
+        .withColumnInfoAndRows(
+            Arrays.asList(
+                "PROCEDURE_CAT",
+                "PROCEDURE_SCHEM",
+                "PROCEDURE_NAME",
+                "NUM_INPUT_PARAMS",
+                "NUM_OUTPUT_PARAMS",
+                "NUM_RESULT_SETS",
+                "REMARKS",
+                "PROCEDURE_TYPE",
+                "SPECIFIC_NAME"),
+            Arrays.asList(
+                "VARCHAR", "VARCHAR", "VARCHAR", "VARCHAR", "VARCHAR", "VARCHAR", "VARCHAR",
+                "VARCHAR", "VARCHAR"),
+            Arrays.asList(
+                Types.VARCHAR,
+                Types.VARCHAR,
+                Types.VARCHAR,
+                Types.VARCHAR,
+                Types.VARCHAR,
+                Types.VARCHAR,
+                Types.VARCHAR,
+                Types.VARCHAR,
+                Types.VARCHAR),
+            Arrays.asList(128, 128, 128, 128, 128, 128, 128, 128, 128),
+            new Object[0][0])
+        .statementType(StatementType.METADATA)
+        .build();
   }
 
   @Override
@@ -1225,29 +1228,33 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
             catalog, schemaPattern, typeNamePattern, types));
     // TODO: implement, returning only empty set for now
     throwExceptionIfConnectionIsClosed();
-    return new DatabricksResultSet(
-        new StatementStatus().setState(StatementState.SUCCEEDED),
-        "getudts-metadata",
-        Arrays.asList(
-            "TYPE_CAT",
-            "TYPE_SCHEM",
-            "TYPE_NAME",
-            "CLASS_NAME",
-            "DATA_TYPE",
-            "REMAKRS",
-            "BASE_TYPE"),
-        Arrays.asList("VARCHAR", "VARCHAR", "VARCHAR", "VARCHAR", "VARCHAR", "VARCHAR", "VARCHAR"),
-        Arrays.asList(
-            Types.VARCHAR,
-            Types.VARCHAR,
-            Types.VARCHAR,
-            Types.VARCHAR,
-            Types.VARCHAR,
-            Types.VARCHAR,
-            Types.VARCHAR),
-        Arrays.asList(128, 128, 128, 128, 128, 128, 128),
-        new String[0][0],
-        StatementType.METADATA);
+
+    return DatabricksResultSet.builder()
+        .statementStatus(new StatementStatus().setState(StatementState.SUCCEEDED))
+        .statementId("getudts-metadata")
+        .withColumnInfoAndRows(
+            Arrays.asList(
+                "TYPE_CAT",
+                "TYPE_SCHEM",
+                "TYPE_NAME",
+                "CLASS_NAME",
+                "DATA_TYPE",
+                "REMAKRS",
+                "BASE_TYPE"),
+            Arrays.asList(
+                "VARCHAR", "VARCHAR", "VARCHAR", "VARCHAR", "VARCHAR", "VARCHAR", "VARCHAR"),
+            Arrays.asList(
+                Types.VARCHAR,
+                Types.VARCHAR,
+                Types.VARCHAR,
+                Types.VARCHAR,
+                Types.VARCHAR,
+                Types.VARCHAR,
+                Types.VARCHAR),
+            Arrays.asList(128, 128, 128, 128, 128, 128, 128),
+            new String[0][0])
+        .statementType(StatementType.METADATA)
+        .build();
   }
 
   @Override

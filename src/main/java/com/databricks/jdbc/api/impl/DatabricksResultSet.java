@@ -31,6 +31,7 @@ import java.sql.*;
 import java.util.Calendar;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import org.apache.http.HttpEntity;
 import org.apache.http.entity.InputStreamEntity;
 
@@ -38,138 +39,30 @@ public class DatabricksResultSet implements ResultSet, IDatabricksResultSet {
   protected static final String AFFECTED_ROWS_COUNT = "num_affected_rows";
   private final StatementStatus statementStatus;
   private final String statementId;
-  private final IExecutionResult executionResult;
-  private final DatabricksResultSetMetaData resultSetMetaData;
+  private IExecutionResult executionResult;
+  private DatabricksResultSetMetaData resultSetMetaData;
   private final StatementType statementType;
   private final IDatabricksStatement parentStatement;
   private Long updateCount;
   private boolean isClosed;
-  private SQLWarning warnings = null;
+  private SQLWarning warnings;
   private boolean wasNull;
-  private VolumeInputStream volumeInputStream = null;
+  private VolumeInputStream volumeInputStream;
   private long volumeStreamContentLength = -1L;
 
-  public DatabricksResultSet(
-      StatementStatus statementStatus,
-      String statementId,
-      ResultData resultData,
-      ResultManifest resultManifest,
-      StatementType statementType,
-      IDatabricksSession session,
-      IDatabricksStatement parentStatement) {
-    this.statementStatus = statementStatus;
-    this.statementId = statementId;
-    this.executionResult =
-        ExecutionResultFactory.getResultSet(
-            resultData, resultManifest, statementId, session, parentStatement, this);
-    this.resultSetMetaData = new DatabricksResultSetMetaData(statementId, resultManifest);
-    this.statementType = statementType;
-    this.updateCount = null;
-    this.parentStatement = parentStatement;
-    this.isClosed = false;
-    this.wasNull = false;
+  private DatabricksResultSet(Builder builder) throws DatabricksSQLException {
+    this.statementStatus = builder.statementStatus;
+    this.statementId = builder.statementId;
+    this.statementType = builder.statementType;
+    this.parentStatement = builder.parentStatement;
+
+    // Delegate the creation of executionResult and resultSetMetaData to the builder
+    builder.createExecutionResultAndMetaData(this);
   }
 
-  @VisibleForTesting
-  public DatabricksResultSet(
-      StatementStatus statementStatus,
-      String statementId,
-      StatementType statementType,
-      IDatabricksStatement parentStatement,
-      IExecutionResult executionResult,
-      DatabricksResultSetMetaData resultSetMetaData) {
-    this.statementStatus = statementStatus;
-    this.statementId = statementId;
-    this.executionResult = executionResult;
-    this.resultSetMetaData = resultSetMetaData;
-    this.statementType = statementType;
-    this.updateCount = null;
-    this.parentStatement = parentStatement;
-    this.isClosed = false;
-    this.wasNull = false;
-  }
-
-  public DatabricksResultSet(
-      TStatus statementStatus,
-      String statementId,
-      TRowSet resultData,
-      TGetResultSetMetadataResp resultManifest,
-      StatementType statementType,
-      IDatabricksStatement parentStatement,
-      IDatabricksSession session)
-      throws DatabricksSQLException {
-    if (SUCCESS_STATUS_LIST.contains(statementStatus.getStatusCode())) {
-      this.statementStatus = new StatementStatus().setState(StatementState.SUCCEEDED);
-    } else {
-      this.statementStatus = new StatementStatus().setState(StatementState.FAILED);
-    }
-    this.statementId = statementId;
-    this.executionResult =
-        ExecutionResultFactory.getResultSet(
-            resultData, resultManifest, statementId, session, parentStatement, this);
-    long rowSize = getRowCount(resultData);
-    this.resultSetMetaData =
-        new DatabricksResultSetMetaData(
-            statementId, resultManifest, rowSize, resultData.getResultLinksSize());
-    this.statementType = statementType;
-    this.updateCount = null;
-    this.parentStatement = parentStatement;
-    this.isClosed = false;
-    this.wasNull = false;
-  }
-
-  public DatabricksResultSet(
-      StatementStatus statementStatus,
-      String statementId,
-      List<String> columnNames,
-      List<String> columnTypeText,
-      List<Integer> columnTypes,
-      List<Integer> columnTypePrecisions,
-      Object[][] rows,
-      StatementType statementType) {
-    this.statementStatus = statementStatus;
-    this.statementId = statementId;
-    this.executionResult = ExecutionResultFactory.getResultSet(rows);
-    this.resultSetMetaData =
-        new DatabricksResultSetMetaData(
-            statementId,
-            columnNames,
-            columnTypeText,
-            columnTypes,
-            columnTypePrecisions,
-            rows.length);
-    this.statementType = statementType;
-    this.updateCount = null;
-    this.parentStatement = null;
-    this.isClosed = false;
-    this.wasNull = false;
-  }
-
-  public DatabricksResultSet(
-      StatementStatus statementStatus,
-      String statementId,
-      List<String> columnNames,
-      List<String> columnTypeText,
-      List<Integer> columnTypes,
-      List<Integer> columnTypePrecisions,
-      List<List<Object>> rows,
-      StatementType statementType) {
-    this.statementStatus = statementStatus;
-    this.statementId = statementId;
-    this.executionResult = ExecutionResultFactory.getResultSet(rows);
-    this.resultSetMetaData =
-        new DatabricksResultSetMetaData(
-            statementId,
-            columnNames,
-            columnTypeText,
-            columnTypes,
-            columnTypePrecisions,
-            rows.size());
-    this.statementType = statementType;
-    this.updateCount = null;
-    this.parentStatement = null;
-    this.isClosed = false;
-    this.wasNull = false;
+  /** Builder class for DatabricksResultSet. */
+  public static Builder builder() {
+    return new Builder();
   }
 
   @Override
@@ -1037,11 +930,6 @@ public class DatabricksResultSet implements ResultSet, IDatabricksResultSet {
     return null;
   }
 
-  private void addWarningAndLog(String warningMessage) {
-    LoggingUtil.log(LogLevel.WARN, warningMessage);
-    warnings = WarningUtil.addWarning(warnings, warningMessage);
-  }
-
   @Override
   public Ref getRef(int columnIndex) throws SQLException {
     checkIfClosed();
@@ -1657,6 +1545,208 @@ public class DatabricksResultSet implements ResultSet, IDatabricksResultSet {
   private void checkIfClosed() throws SQLException {
     if (this.isClosed) {
       throw new DatabricksSQLException("Operation not allowed - ResultSet is closed");
+    }
+  }
+
+  private void addWarningAndLog(String warningMessage) {
+    LoggingUtil.log(LogLevel.WARN, warningMessage);
+    warnings = WarningUtil.addWarning(warnings, warningMessage);
+  }
+
+  public static class Builder {
+    private StatementStatus statementStatus;
+    private String statementId;
+    private StatementType statementType;
+    private IDatabricksStatement parentStatement;
+    private IDatabricksSession session;
+    private ResultData resultData;
+    private ResultManifest resultManifest;
+    private TRowSet thriftResultData;
+    private TGetResultSetMetadataResp thriftResultManifest;
+    private List<String> columnNames;
+    private List<String> columnTypeText;
+    private List<Integer> columnTypes;
+    private List<Integer> columnTypePrecisions;
+    private Object[][] rows;
+    private List<List<Object>> rowsList;
+
+    // For testing purposes.
+    // These are used to directly set the mocked executionResult and resultSetMetaData.
+    private IExecutionResult executionResult;
+    private DatabricksResultSetMetaData resultSetMetaData;
+
+    public Builder statementStatus(StatementStatus statementStatus) {
+      this.statementStatus = statementStatus;
+      return this;
+    }
+
+    public Builder statementId(String statementId) {
+      this.statementId = statementId;
+      return this;
+    }
+
+    public Builder statementType(StatementType statementType) {
+      this.statementType = statementType;
+      return this;
+    }
+
+    public Builder parentStatement(IDatabricksStatement parentStatement) {
+      this.parentStatement = parentStatement;
+      return this;
+    }
+
+    public Builder session(IDatabricksSession session) {
+      this.session = session;
+      return this;
+    }
+
+    @VisibleForTesting
+    Builder executionResult(IExecutionResult executionResult) {
+      this.executionResult = executionResult;
+      return this;
+    }
+
+    @VisibleForTesting
+    Builder resultSetMetaData(DatabricksResultSetMetaData resultSetMetaData) {
+      this.resultSetMetaData = resultSetMetaData;
+      return this;
+    }
+
+    public Builder withTStatus(TStatus tStatus) {
+      if (tStatus != null) {
+        if (SUCCESS_STATUS_LIST.contains(tStatus.getStatusCode())) {
+          this.statementStatus = new StatementStatus().setState(StatementState.SUCCEEDED);
+        } else {
+          this.statementStatus = new StatementStatus().setState(StatementState.FAILED);
+        }
+      }
+      return this;
+    }
+
+    public Builder withResultData(ResultData resultData, ResultManifest resultManifest) {
+      this.resultData = resultData;
+      this.resultManifest = resultManifest;
+      return this;
+    }
+
+    public Builder withThriftResultData(
+        TRowSet resultData, TGetResultSetMetadataResp resultManifest) {
+      this.thriftResultData = resultData;
+      this.thriftResultManifest = resultManifest;
+      return this;
+    }
+
+    /** Sets the column info and rows for the DatabricksResultSet. */
+    public Builder withColumnInfoAndRows(
+        List<String> columnNames,
+        List<String> columnTypeText,
+        List<Integer> columnTypes,
+        List<Integer> columnTypePrecisions,
+        Object[][] rows) {
+      this.columnNames = columnNames;
+      this.columnTypeText = columnTypeText;
+      this.columnTypes = columnTypes;
+      this.columnTypePrecisions = columnTypePrecisions;
+      this.rows = rows;
+      return this;
+    }
+
+    /** Sets the column info and rows for the DatabricksResultSet. */
+    public Builder withColumnInfoAndRows(
+        List<String> columnNames,
+        List<String> columnTypeText,
+        List<Integer> columnTypes,
+        List<Integer> columnTypePrecisions,
+        List<List<Object>> rows) {
+      this.columnNames = columnNames;
+      this.columnTypeText = columnTypeText;
+      this.columnTypes = columnTypes;
+      this.columnTypePrecisions = columnTypePrecisions;
+      this.rowsList = rows;
+      return this;
+    }
+
+    public DatabricksResultSet build() throws DatabricksSQLException {
+      return new DatabricksResultSet(this);
+    }
+
+    /** Creates the ExecutionResult and ResultSetMetaData for the DatabricksResultSet. */
+    private void createExecutionResultAndMetaData(DatabricksResultSet resultSet)
+        throws DatabricksSQLException {
+      Optional<IExecutionResult> execResult = Optional.ofNullable(executionResult);
+      Optional<DatabricksResultSetMetaData> metaData = Optional.ofNullable(resultSetMetaData);
+
+      if (execResult.isPresent() && metaData.isPresent()) {
+        setExistingResultAndMetaData(resultSet, execResult.get(), metaData.get());
+      } else if (isSqlExecutionApiDataAvailable()) {
+        createFromSqlExecutionApi(resultSet);
+      } else if (isThriftDataAvailable()) {
+        createFromThriftData(resultSet);
+      } else if (isRowDataAvailable()) {
+        createFromColumnInfo(resultSet);
+      } else {
+        throw new IllegalStateException("Insufficient data to create DatabricksResultSet");
+      }
+    }
+
+    private void setExistingResultAndMetaData(
+        DatabricksResultSet resultSet,
+        IExecutionResult execResult,
+        DatabricksResultSetMetaData metaData) {
+      resultSet.executionResult = execResult;
+      resultSet.resultSetMetaData = metaData;
+    }
+
+    private boolean isSqlExecutionApiDataAvailable() {
+      return resultData != null && resultManifest != null;
+    }
+
+    private void createFromSqlExecutionApi(DatabricksResultSet resultSet) {
+      resultSet.executionResult =
+          ExecutionResultFactory.getResultSet(
+              resultData, resultManifest, statementId, session, parentStatement, resultSet);
+      resultSet.resultSetMetaData = new DatabricksResultSetMetaData(statementId, resultManifest);
+    }
+
+    private boolean isThriftDataAvailable() {
+      return thriftResultData != null && thriftResultManifest != null;
+    }
+
+    private void createFromThriftData(DatabricksResultSet resultSet) throws DatabricksSQLException {
+      resultSet.executionResult =
+          ExecutionResultFactory.getResultSet(
+              thriftResultData,
+              thriftResultManifest,
+              statementId,
+              session,
+              parentStatement,
+              resultSet);
+      resultSet.resultSetMetaData =
+          new DatabricksResultSetMetaData(
+              statementId,
+              thriftResultManifest,
+              getRowCount(thriftResultData),
+              thriftResultData.getResultLinksSize());
+    }
+
+    private boolean isRowDataAvailable() {
+      return columnNames != null && (rows != null || rowsList != null);
+    }
+
+    private void createFromColumnInfo(DatabricksResultSet resultSet) {
+      long rowCount = rows != null ? rows.length : rowsList.size();
+      resultSet.executionResult =
+          (rows != null)
+              ? ExecutionResultFactory.getResultSet(rows)
+              : ExecutionResultFactory.getResultSet(rowsList);
+      resultSet.resultSetMetaData =
+          new DatabricksResultSetMetaData(
+              statementId,
+              columnNames,
+              columnTypeText,
+              columnTypes,
+              columnTypePrecisions,
+              rowCount);
     }
   }
 }
