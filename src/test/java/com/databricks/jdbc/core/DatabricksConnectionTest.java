@@ -137,7 +137,7 @@ public class DatabricksConnectionTest {
         SESSION_CONFIGS.entrySet().stream()
             .collect(Collectors.toMap(e -> e.getKey().toLowerCase(), Map.Entry::getValue));
     when(databricksClient.createSession(
-            new Warehouse(WAREHOUSE_ID), DEFAULT_CATALOG, DEFAULT_SCHEMA, lowercaseSessionConfigs))
+            new Warehouse(WAREHOUSE_ID), null, null, lowercaseSessionConfigs))
         .thenReturn(IMMUTABLE_SESSION_INFO);
     IDatabricksConnectionContext connectionContext =
         DatabricksConnectionContext.parse(SESSION_CONF_JDBC_URL, new Properties());
@@ -198,8 +198,7 @@ public class DatabricksConnectionTest {
         DatabricksConnectionContext.parse(JDBC_URL, new Properties());
     ImmutableSessionInfo session =
         ImmutableSessionInfo.builder().computeResource(warehouse).sessionId(SESSION_ID).build();
-    when(databricksClient.createSession(
-            warehouse, DEFAULT_CATALOG, DEFAULT_SCHEMA, new HashMap<>()))
+    when(databricksClient.createSession(warehouse, null, null, new HashMap<>()))
         .thenReturn(session);
     DatabricksConnection connection =
         Mockito.spy(new DatabricksConnection(connectionContext, databricksClient));

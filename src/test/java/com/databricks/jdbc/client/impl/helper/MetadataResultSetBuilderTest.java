@@ -1,6 +1,12 @@
 package com.databricks.jdbc.client.impl.helper;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
+import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
 public class MetadataResultSetBuilderTest {
 
@@ -31,5 +37,50 @@ public class MetadataResultSetBuilderTest {
     assert MetadataResultSetBuilder.getCode("TINYINT") == -6;
     assert MetadataResultSetBuilder.getCode("SMALLINT") == 5;
     assert MetadataResultSetBuilder.getCode("INTEGER") == 4;
+  }
+
+  private static Stream<Arguments> charOctetArguments() {
+    return Stream.of(
+        Arguments.of("VARCHAR(100)", 100),
+        Arguments.of("VARCHAR", 0),
+        Arguments.of("CHAR(255)", 255),
+        Arguments.of("CHAR", 0),
+        Arguments.of("CHAR(123)", 123),
+        Arguments.of("TEXT", 0),
+        Arguments.of("VARCHAR(", 0),
+        Arguments.of("VARCHAR(100,200)", 100),
+        Arguments.of("VARCHAR(50,30)", 50),
+        Arguments.of("INT", 0),
+        Arguments.of("VARCHAR()", 0),
+        Arguments.of("VARCHAR(abc)", 0));
+  }
+
+  private static Stream<Arguments> stripTypeNameArguments() {
+    return Stream.of(
+        Arguments.of("VARCHAR(100)", "VARCHAR"),
+        Arguments.of("VARCHAR", "VARCHAR"),
+        Arguments.of("CHAR(255)", "CHAR"),
+        Arguments.of("TEXT", "TEXT"),
+        Arguments.of("VARCHAR(", "VARCHAR"),
+        Arguments.of("VARCHAR(100,200)", "VARCHAR"),
+        Arguments.of("CHAR(123)", "CHAR"),
+        Arguments.of(null, null),
+        Arguments.of("", ""),
+        Arguments.of("INTEGER(10,5)", "INTEGER"));
+  }
+
+  @ParameterizedTest
+  @MethodSource("stripTypeNameArguments")
+  public void testStripTypeName(String input, String expected) {
+    String actual = MetadataResultSetBuilder.stripTypeName(input);
+    assertEquals(expected, actual);
+  }
+
+  @ParameterizedTest
+  @MethodSource("charOctetArguments")
+  public void testGetCharOctetLength(String typeVal, int expected) {
+    System.out.println("Incorrect getCharOctet for typeVal : " + typeVal);
+    int actual = MetadataResultSetBuilder.getCharOctetLength(typeVal);
+    assertEquals(expected, actual);
   }
 }
