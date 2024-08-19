@@ -335,7 +335,7 @@
         <configuration>
           <excludes>
             <exclude>**/EnvironmentVariables*</exclude>
-            <exclude>**/client/impl/sdk/DatabricksMetadataSdkClient*</exclude> <!-- TODO(PECO-1502): Remove once fixed -->
+            <exclude>**/client/impl/sqlexec/DatabricksMetadataSdkClient*</exclude> <!-- TODO(PECO-1502): Remove once fixed -->
             <exclude>**/*Exception*</exclude>
             <exclude>**/types/**</exclude>
             <exclude>**/client/sqlexec/**</exclude>
