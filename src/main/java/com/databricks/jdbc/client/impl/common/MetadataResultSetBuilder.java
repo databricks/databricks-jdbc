@@ -102,6 +102,7 @@ public class MetadataResultSetBuilder {
                 object = getCode(typeVal);
               } else if (column.getColumnName().equals("CHAR_OCTET_LENGTH")) {
                 String typeVal = resultSet.getString("columnType");
+
                 object = getCharOctetLength(typeVal);
               } else {
                 // Handle other cases where the result set does not contain the expected column
@@ -118,10 +119,10 @@ public class MetadataResultSetBuilder {
             }
 
             if (column.getColumnName().equals("BUFFER_LENGTH")) {
-              object = resultSet.getObject("columnSize");
-              if (object == null) {
-                object = 255;
-              }
+              String typeVal = resultSet.getString("columnType");
+              int columnSize =
+                  (resultSet.getObject("columnSize") == null) ? 0 : resultSet.getInt("columnSize");
+              object = getBufferLength(typeVal, columnSize);
             }
             break;
         }
@@ -142,8 +143,56 @@ public class MetadataResultSetBuilder {
    * @param typeVal the SQL type definition
    * @return the character octet length or 0 if not applicable
    */
+  static int getBufferLength(String typeVal, int columnSize) {
+    if (typeVal == null || typeVal.isEmpty()) {
+      return 0;
+    }
+    if (!typeVal.contains("(")) {
+      if (typeVal.equals("DATE")) {
+        return 6;
+      }
+      if (typeVal.equals("TIMESTAMP")) {
+        return 16;
+      }
+      if (typeVal.equals("BINARY")) {
+        return 32767;
+      }
+      if (typeVal.equals("STRING")) {
+        return 255;
+      }
+      return columnSize;
+    }
+
+    String[] lengthConstraints = typeVal.substring(typeVal.indexOf('(') + 1).split("[,)]");
+    if (lengthConstraints.length == 0) {
+      return 0;
+    }
+    String max_char_length = lengthConstraints[0].trim();
+    try {
+      if (typeVal.contains("CHAR") || typeVal.contains("VARCHAR") || typeVal.contains("STRING"))
+        return Integer.parseInt(max_char_length);
+      else return 4 * Integer.parseInt(max_char_length);
+    } catch (NumberFormatException e) {
+      return 0;
+    }
+  }
+
   static int getCharOctetLength(String typeVal) {
-    if (typeVal == null || !typeVal.contains("(")) return 0;
+    //    if (typeVal == null || !typeVal.contains("(")) return 0;
+    if (typeVal == null
+        || !(typeVal.contains("CHAR")
+            || typeVal.contains("STRING")
+            || typeVal.contains("VARCHAR")
+            || typeVal.contains("TEXT")
+            || typeVal.contains("BINARY"))) return 0;
+
+    if (!typeVal.contains("(")) {
+      if (typeVal.contains("BINARY")) {
+        return 32767;
+      } else {
+        return 255;
+      }
+    }
     String[] lengthConstraints = typeVal.substring(typeVal.indexOf('(') + 1).split("[,)]");
     if (lengthConstraints.length == 0) {
       return 0;

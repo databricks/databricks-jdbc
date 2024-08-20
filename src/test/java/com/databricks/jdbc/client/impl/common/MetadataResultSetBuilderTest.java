@@ -42,11 +42,11 @@ public class MetadataResultSetBuilderTest {
   private static Stream<Arguments> charOctetArguments() {
     return Stream.of(
         Arguments.of("VARCHAR(100)", 100),
-        Arguments.of("VARCHAR", 0),
+        Arguments.of("VARCHAR", 255),
         Arguments.of("CHAR(255)", 255),
-        Arguments.of("CHAR", 0),
+        Arguments.of("CHAR", 255),
         Arguments.of("CHAR(123)", 123),
-        Arguments.of("TEXT", 0),
+        Arguments.of("TEXT", 255),
         Arguments.of("VARCHAR(", 0),
         Arguments.of("VARCHAR(100,200)", 100),
         Arguments.of("VARCHAR(50,30)", 50),
