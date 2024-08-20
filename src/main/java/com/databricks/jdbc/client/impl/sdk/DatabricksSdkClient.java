@@ -6,6 +6,7 @@ import static com.databricks.jdbc.commons.EnvironmentVariables.DEFAULT_ROW_LIMIT
 import com.databricks.jdbc.client.DatabricksClient;
 import com.databricks.jdbc.client.StatementType;
 import com.databricks.jdbc.client.impl.helper.ClientUtils;
+import com.databricks.jdbc.client.impl.helper.JdbcSSLSocketFactoryHandler;
 import com.databricks.jdbc.client.sqlexec.*;
 import com.databricks.jdbc.client.sqlexec.CloseStatementRequest;
 import com.databricks.jdbc.client.sqlexec.CreateSessionRequest;
@@ -26,14 +27,15 @@ import com.databricks.jdbc.driver.IDatabricksConnectionContext;
 import com.databricks.sdk.WorkspaceClient;
 import com.databricks.sdk.core.ApiClient;
 import com.databricks.sdk.core.DatabricksConfig;
+import com.databricks.sdk.core.ProxyConfig;
+import com.databricks.sdk.core.commons.CommonsHttpClient;
 import com.databricks.sdk.service.sql.*;
 import com.google.common.annotations.VisibleForTesting;
+import org.apache.http.conn.ssl.SSLConnectionSocketFactory;
+
 import java.sql.SQLException;
 import java.time.Instant;
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.stream.Collectors;
 
 /** Implementation of DatabricksClient interface using Databricks Java SDK. */
@@ -42,6 +44,7 @@ public class DatabricksSdkClient implements DatabricksClient {
   private final IDatabricksConnectionContext connectionContext;
   private final DatabricksConfig databricksConfig;
   private final WorkspaceClient workspaceClient;
+  private JdbcSSLSocketFactoryHandler sslSocketFactoryHandler;
 
   @Override
   public IDatabricksConnectionContext getConnectionContext() {
@@ -58,6 +61,13 @@ public class DatabricksSdkClient implements DatabricksClient {
       throws DatabricksParsingException {
     this.connectionContext = connectionContext;
     this.databricksConfig = ClientUtils.generateDatabricksConfig(connectionContext);
+    sslSocketFactoryHandler = new JdbcSSLSocketFactoryHandler(connectionContext);
+    ProxyConfig proxyConfig = new ProxyConfig(databricksConfig);
+    Optional<SSLConnectionSocketFactory> sslSocketFactory = sslSocketFactoryHandler.getCustomSSLSocketFactory();
+    if (sslSocketFactory.isPresent()) {
+      CommonsHttpClient commonsHttpClient = new CommonsHttpClient(300, proxyConfig, sslSocketFactory.get());
+      this.databricksConfig.setHttpClient(commonsHttpClient);
+    }
     OAuthAuthenticator authenticator = new OAuthAuthenticator(connectionContext);
     this.workspaceClient = authenticator.getWorkspaceClient(this.databricksConfig);
   }
