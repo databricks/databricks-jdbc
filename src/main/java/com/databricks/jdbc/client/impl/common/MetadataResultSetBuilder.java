@@ -66,7 +66,7 @@ public class MetadataResultSetBuilder {
   }
 
   private static List<List<Object>> getRows(ResultSet resultSet, List<ResultColumn> columns)
-          throws SQLException {
+      throws SQLException {
     List<List<Object>> rows = new ArrayList<>();
 
     while (resultSet.next()) {
@@ -81,22 +81,18 @@ public class MetadataResultSetBuilder {
           default:
             // If column does not match any of the special cases, try to get it from the ResultSet
             try {
-//              if(column.getColumnName().equals("COLUMN_SIZE")) {
-//                System.out.println("scale column");
-//                object = resultSet.getObject(column.getResultSetColumnName());
-//                System.out.println("hello");
-//              }
               object = resultSet.getObject(column.getResultSetColumnName());
-              if(column.getColumnName().equals("IS_NULLABLE")) {
-                if(object.equals("true")) {
-                    object = "YES";
-                    } else {
-                    object = "NO";
+              if (column.getColumnName().equals("IS_NULLABLE")) {
+                if (object == null || object.equals("true")) {
+                  object = "YES";
+                } else {
+                  object = "NO";
                 }
               }
-              if(column.getColumnName().equals("DECIMAL_DIGITS") || column.getColumnName().equals("NUM_PREC_RADIX")) {
-                if(object == null) {
-                    object = 0;
+              if (column.getColumnName().equals("DECIMAL_DIGITS")
+                  || column.getColumnName().equals("NUM_PREC_RADIX")) {
+                if (object == null) {
+                  object = 0;
                 }
               }
             } catch (SQLException e) {
@@ -121,7 +117,7 @@ public class MetadataResultSetBuilder {
               object = 255;
             }
 
-            if(column.getColumnName().equals("BUFFER_LENGTH")) {
+            if (column.getColumnName().equals("BUFFER_LENGTH")) {
               object = resultSet.getObject("columnSize");
               if (object == null) {
                 object = 255;
@@ -137,7 +133,6 @@ public class MetadataResultSetBuilder {
     }
     return rows;
   }
-
 
   /**
    * Extracts the character octet length from a given SQL type definition. For example, for input
