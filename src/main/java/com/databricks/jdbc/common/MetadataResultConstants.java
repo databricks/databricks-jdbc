@@ -73,7 +73,7 @@ public class MetadataResultConstants {
   private static final ResultColumn INFORMATION_NAME_COLUMN =
       new ResultColumn("INFO", "information", Types.VARCHAR);
   private static final ResultColumn NUM_PREC_RADIX_COLUMN =
-      new ResultColumn("NUM_PREC_RADIX", "numPrecRadix", Types.INTEGER);
+      new ResultColumn("NUM_PREC_RADIX", "radix", Types.INTEGER);
   private static final ResultColumn RADIX_COLUMN =
       new ResultColumn("RADIX", "radix", Types.INTEGER);
   private static final ResultColumn IS_NULLABLE_COLUMN =
@@ -108,7 +108,7 @@ public class MetadataResultConstants {
   private static final ResultColumn USER_DATA_TYPE_COLUMN =
       new ResultColumn("USER_DATA_TYPE", "UserDataType", Types.SMALLINT);
   private static final ResultColumn NULLABLE_COLUMN =
-      new ResultColumn("NULLABLE", "isNullable", Types.INTEGER);
+      new ResultColumn("NULLABLE", "isNullable", Types.BIT);
   private static final ResultColumn ORDINAL_POSITION_COLUMN =
       new ResultColumn("ORDINAL_POSITION", "ordinalPosition", Types.INTEGER);
   private static final ResultColumn IS_AUTO_INCREMENT_COLUMN =

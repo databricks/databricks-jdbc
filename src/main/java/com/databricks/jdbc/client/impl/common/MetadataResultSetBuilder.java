@@ -66,61 +66,78 @@ public class MetadataResultSetBuilder {
   }
 
   private static List<List<Object>> getRows(ResultSet resultSet, List<ResultColumn> columns)
-      throws SQLException {
+          throws SQLException {
     List<List<Object>> rows = new ArrayList<>();
+
     while (resultSet.next()) {
       List<Object> row = new ArrayList<>();
       for (ResultColumn column : columns) {
         Object object = null;
         switch (column.getColumnName()) {
-          case "NUM_PREC_RADIX":
-            object = 10;
-            row.add(object);
-            continue;
-          case "NULLABLE":
-            object = 2;
-            row.add(object);
-            continue;
           case "SQL_DATA_TYPE":
           case "SQL_DATETIME_SUB":
             object = 0;
-            row.add(object);
-            continue;
-          case "IS_NULLABLE":
-            object = "YES";
-            row.add(object);
-            continue;
-          case "IS_AUTOINCREMENT":
-          case "IS_GENERATEDCOLUMN":
-            object = "";
-            row.add(object);
-            continue;
+            break;
+          default:
+            // If column does not match any of the special cases, try to get it from the ResultSet
+            try {
+//              if(column.getColumnName().equals("COLUMN_SIZE")) {
+//                System.out.println("scale column");
+//                object = resultSet.getObject(column.getResultSetColumnName());
+//                System.out.println("hello");
+//              }
+              object = resultSet.getObject(column.getResultSetColumnName());
+              if(column.getColumnName().equals("IS_NULLABLE")) {
+                if(object.equals("true")) {
+                    object = "YES";
+                    } else {
+                    object = "NO";
+                }
+              }
+              if(column.getColumnName().equals("DECIMAL_DIGITS") || column.getColumnName().equals("NUM_PREC_RADIX")) {
+                if(object == null) {
+                    object = 0;
+                }
+              }
+            } catch (SQLException e) {
+              if (column.getColumnName().equals("DATA_TYPE")) {
+                String typeVal = resultSet.getString("columnType");
+                if (typeVal.contains("(")) typeVal = typeVal.substring(0, typeVal.indexOf('('));
+                object = getCode(typeVal);
+              } else if (column.getColumnName().equals("CHAR_OCTET_LENGTH")) {
+                String typeVal = resultSet.getString("columnType");
+                object = getCharOctetLength(typeVal);
+              } else {
+                // Handle other cases where the result set does not contain the expected column
+                object = null;
+              }
+            }
+            // Handle TYPE_NAME separately for potential modifications
+            if (column.getColumnName().equals("TYPE_NAME")) {
+              object = stripTypeName((String) object);
+            }
+            // Set COLUMN_SIZE to 255 if it's not present
+            if (column.getColumnName().equals("COLUMN_SIZE") && object == null) {
+              object = 255;
+            }
+
+            if(column.getColumnName().equals("BUFFER_LENGTH")) {
+              object = resultSet.getObject("columnSize");
+              if (object == null) {
+                object = 255;
+              }
+            }
+            break;
         }
-        try {
-          object = resultSet.getObject(column.getResultSetColumnName());
-        } catch (DatabricksSQLException e) {
-          if (column.getColumnName().equals("DATA_TYPE")) {
-            String typeVal = resultSet.getString("columnType");
-            if (typeVal.contains("(")) typeVal = typeVal.substring(0, typeVal.indexOf('('));
-            object = getCode(typeVal);
-          } else if (column.getColumnName().equals("CHAR_OCTET_LENGTH")) {
-            String typeVal = resultSet.getString("columnType");
-            object = getCharOctetLength(typeVal);
-          } else {
-            // Remove non-relevant columns from the obtained result set
-            object = null;
-          }
-        }
-        if (column.getColumnName().equals("TYPE_NAME")) {
-          row.add(stripTypeName((String) object));
-        }
-        if (column.getColumnName().equals("COLUMN_SIZE") && object == null) object = 0;
+
+        // Add the object to the current row
         row.add(object);
       }
       rows.add(row);
     }
     return rows;
   }
+
 
   /**
    * Extracts the character octet length from a given SQL type definition. For example, for input
@@ -294,7 +311,7 @@ public class MetadataResultSetBuilder {
   }
 
   public static DatabricksResultSet getColumnsResult(List<List<Object>> rows) {
-    return buildResultSet(COLUMN_COLUMNS_ALL_PURPOSE, rows, METADATA_STATEMENT_ID);
+    return buildResultSet(COLUMN_COLUMNS, rows, METADATA_STATEMENT_ID);
   }
 
   public static DatabricksResultSet getPrimaryKeysResult(List<List<Object>> rows) {

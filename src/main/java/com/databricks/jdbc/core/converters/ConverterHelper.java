@@ -36,6 +36,8 @@ public class ConverterHelper {
         return new TimestampConverter(object).convertToTimestamp();
       case Types.BINARY:
         return new ByteArrayConverter(object).convertToByteArray();
+      case Types.BIT:
+        return new BitConverter(object).convertToBit();
       case Types.VARCHAR:
       case Types.CHAR:
       default:
