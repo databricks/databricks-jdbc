@@ -102,21 +102,25 @@
       <groupId>org.slf4j</groupId>
       <artifactId>slf4j-api</artifactId>
       <version>${slf4j.version}</version>
+      <scope>provided</scope>
     </dependency>
     <dependency>
       <groupId>org.apache.logging.log4j</groupId>
       <artifactId>log4j-slf4j2-impl</artifactId>
       <version>${log4j.version}</version>
+      <scope>test</scope>
     </dependency>
     <dependency>
       <groupId>org.apache.logging.log4j</groupId>
       <artifactId>log4j-core</artifactId>
       <version>${log4j.version}</version>
+      <scope>test</scope>
     </dependency>
     <dependency>
       <groupId>org.apache.logging.log4j</groupId>
       <artifactId>log4j-api</artifactId>
       <version>${log4j.version}</version>
+      <scope>test</scope>
     </dependency>
     <dependency>
       <groupId>commons-io</groupId>
@@ -247,6 +251,10 @@
             --add-opens=java.base/java.nio=ALL-UNNAMED
             -Dnet.bytebuddy.experimental=true
           </argLine>
+          <systemPropertyVariables>
+            <com.databricks.jdbc.loggerImpl>JDKLOGGER</com.databricks.jdbc.loggerImpl>
+            <java.util.logging.config.file>${project.basedir}/src/test/resources/logging.properties</java.util.logging.config.file>
+          </systemPropertyVariables>
           <additionalClasspathElements>
             <additionalClasspathElement>src/test/resources/DatabricksJDBC42.jar</additionalClasspathElement>
           </additionalClasspathElements>
@@ -405,12 +413,12 @@
                   <shadedPattern>com.databricks.internal.ini4j</shadedPattern>
                 </relocation>
                 <relocation>
-                  <pattern>org.osgi</pattern>
-                  <shadedPattern>com.databricks.internal.osgi</shadedPattern>
+                  <pattern>org.json</pattern>
+                  <shadedPattern>com.databricks.internal.json</shadedPattern>
                 </relocation>
                 <relocation>
-                  <pattern>org.slf4j</pattern>
-                  <shadedPattern>com.databricks.internal.slf4j</shadedPattern>
+                  <pattern>org.osgi</pattern>
+                  <shadedPattern>com.databricks.internal.osgi</shadedPattern>
                 </relocation>
               </relocations>
               <filters>
@@ -516,6 +524,7 @@
             <configuration>
               <serverId>ossrh</serverId>
               <nexusUrl>https://oss.sonatype.org/</nexusUrl>
+              <autoReleaseAfterClose>true</autoReleaseAfterClose>
             </configuration>
           </plugin>
         </plugins>

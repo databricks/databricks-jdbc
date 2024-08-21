@@ -25,10 +25,8 @@ public class UCVolumeIntegrationTests extends AbstractFakeServiceIntegrationTest
 
   private DatabricksUCVolumeClient client;
   private Connection con;
-
   private static final String jdbcUrlTemplate =
       "jdbc:databricks://%s/default;transportMode=http;ssl=0;AuthMech=3;httpPath=%s;catalog=SPARK";
-
   private static final String HTTP_PATH = "/sql/1.0/warehouses/791ba2a31c7fd70a";
   private static final String LOCAL_TEST_DIRECTORY = "/tmp";
 

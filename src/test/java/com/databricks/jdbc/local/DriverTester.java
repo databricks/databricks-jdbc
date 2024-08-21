@@ -61,6 +61,25 @@ public class DriverTester {
   }
 
   @Test
+  void testResultSetMetaData() throws Exception {
+    DriverManager.registerDriver(new Driver());
+    String jdbcUrl =
+        "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/58aa1b363649e722";
+
+    Connection con = DriverManager.getConnection(jdbcUrl, "user", "x");
+    System.out.println("Connection established with jdbc driver......");
+    Statement statement = con.createStatement();
+    statement.setMaxRows(10000);
+    ResultSet rs =
+        statement.executeQuery(
+            "select * from ml.feature_store_ol_dynamodb_.test_ft_data_types LIMIT 10");
+    printResultSet(rs);
+    rs.close();
+    statement.close();
+    con.close();
+  }
+
+  @Test
   void testGetTablesOSS_Metadata() throws Exception {
     DriverManager.registerDriver(new Driver());
     DriverManager.drivers().forEach(driver -> System.out.println(driver.getClass()));
@@ -104,7 +123,7 @@ public class DriverTester {
     Connection con = DriverManager.getConnection(jdbcUrl, "token", "xx");
     System.out.println("Connection established......");
     Statement s = con.createStatement();
-    s.executeQuery("SELECT *5 from RANGE(100000000)");
+    s.executeQuery("SELECT * from RANGE(5)");
     con.close();
     System.out.println("Connection closed successfully......");
   }
@@ -151,8 +170,8 @@ public class DriverTester {
     DriverManager.registerDriver(new Driver());
     DriverManager.drivers().forEach(driver -> System.out.println(driver.getClass()));
     String jdbcUrl =
-        "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=https;ssl=1;httpPath=sql/protocolv1/o/6051921418418893/1115-130834-ms4m0yv;AuthMech=3;UID=token;LogLevel=debug;LogPath=beautifulWithoutYOU;LogFileCount=3;LogFileSize=2;";
-    Connection con = DriverManager.getConnection(jdbcUrl, "token", "x");
+        "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=https;ssl=1;httpPath=sql/protocolv1/o/6051921418418893/1115-130834-ms4m0yv;AuthMech=3;UID=token;LogLevel=debug;LogPath=./logDir;LogFileCount=3;LogFileSize=2;";
+    Connection con = DriverManager.getConnection(jdbcUrl, "user", "x");
     System.out.println("Connection established......");
     ResultSet resultSet =
         con.createStatement()

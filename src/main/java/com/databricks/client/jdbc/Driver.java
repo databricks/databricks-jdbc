@@ -15,6 +15,7 @@ import com.databricks.jdbc.driver.DatabricksConnectionContext;
 import com.databricks.jdbc.driver.DatabricksJdbcConstants;
 import com.databricks.jdbc.driver.IDatabricksConnectionContext;
 import com.databricks.sdk.core.UserAgent;
+import java.io.IOException;
 import java.sql.*;
 import java.util.Properties;
 
@@ -42,11 +43,15 @@ public class Driver implements java.sql.Driver {
   @Override
   public Connection connect(String url, Properties info) throws DatabricksSQLException {
     IDatabricksConnectionContext connectionContext = DatabricksConnectionContext.parse(url, info);
-    LoggingUtil.setupLogger(
-        connectionContext.getLogPathString(),
-        connectionContext.getLogFileSize(),
-        connectionContext.getLogFileCount(),
-        connectionContext.getLogLevel());
+    try {
+      LoggingUtil.setupLogger(
+          connectionContext.getLogPathString(),
+          connectionContext.getLogFileSize(),
+          connectionContext.getLogFileCount(),
+          connectionContext.getLogLevel());
+    } catch (IOException e) {
+      throw new DatabricksSQLException("Error initializing the Java Util Logger (JUL).", e);
+    }
     setUserAgent(connectionContext);
     DeviceInfoLogUtil.logProperties(connectionContext);
     try {
