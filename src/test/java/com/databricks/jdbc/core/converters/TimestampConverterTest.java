@@ -8,12 +8,36 @@ import java.sql.Timestamp;
 import java.time.LocalDateTime;
 import java.time.Month;
 import java.time.ZoneId;
+import java.util.TimeZone;
 import org.junit.jupiter.api.Test;
 
 public class TimestampConverterTest {
   private Timestamp TIMESTAMP =
       Timestamp.from(
           LocalDateTime.of(2023, Month.SEPTEMBER, 10, 20, 45).atZone(ZoneId.of("UTC")).toInstant());
+
+  @Test
+  public void testTimestampInIST() throws DatabricksSQLException {
+    TimeZone defaultTimeZone = TimeZone.getDefault();
+    try {
+      // Create a timestamp in Indian Standard Time (IST)
+      TimeZone.setDefault(TimeZone.getTimeZone("Asia/Kolkata"));
+      Timestamp istTimestamp =
+          Timestamp.from(
+              LocalDateTime.of(2023, Month.SEPTEMBER, 11, 8, 44)
+                  .atZone(ZoneId.of("Asia/Kolkata"))
+                  .toInstant());
+
+      // Test that the converter stores it as UTC
+      TimestampConverter converter = new TimestampConverter(istTimestamp);
+      assertEquals(
+          converter.convertToString(), "2023-09-11T03:14:00Z"); // Should be converted to UTC
+
+    } finally {
+      // Restore the original timezone after the test
+      TimeZone.setDefault(defaultTimeZone);
+    }
+  }
 
   @Test
   public void testConvertToLong() throws DatabricksSQLException {
