@@ -4,7 +4,7 @@ import com.databricks.jdbc.api.impl.ImmutableSessionInfo;
 import com.databricks.jdbc.client.DatabricksClient;
 import com.databricks.jdbc.client.DatabricksMetadataClient;
 import com.databricks.jdbc.common.CompressionType;
-import com.databricks.jdbc.common.ComputeResource;
+import com.databricks.jdbc.common.IDatabricksComputeResource;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import java.util.Map;
 import javax.annotation.Nullable;
@@ -30,7 +30,7 @@ public interface IDatabricksSession {
    *
    * @return warehouse-Id
    */
-  ComputeResource getComputeResource() throws DatabricksSQLException;
+  IDatabricksComputeResource getComputeResource() throws DatabricksSQLException;
 
   /**
    * Checks if session is open and valid.

@@ -13,7 +13,7 @@ import com.databricks.jdbc.client.DatabricksMetadataClient;
 import com.databricks.jdbc.client.impl.common.MetadataResultSetBuilder;
 import com.databricks.jdbc.client.impl.thrift.generated.*;
 import com.databricks.jdbc.common.CommandName;
-import com.databricks.jdbc.common.ComputeResource;
+import com.databricks.jdbc.common.IDatabricksComputeResource;
 import com.databricks.jdbc.common.LogLevel;
 import com.databricks.jdbc.common.StatementType;
 import com.databricks.jdbc.common.util.LoggingUtil;
@@ -63,7 +63,10 @@ public class DatabricksThriftServiceClient implements DatabricksClient, Databric
 
   @Override
   public ImmutableSessionInfo createSession(
-      ComputeResource cluster, String catalog, String schema, Map<String, String> sessionConf)
+      IDatabricksComputeResource cluster,
+      String catalog,
+      String schema,
+      Map<String, String> sessionConf)
       throws DatabricksSQLException {
     LoggingUtil.log(
         LogLevel.DEBUG,
@@ -99,7 +102,7 @@ public class DatabricksThriftServiceClient implements DatabricksClient, Databric
   }
 
   @Override
-  public void deleteSession(IDatabricksSession session, ComputeResource cluster)
+  public void deleteSession(IDatabricksSession session, IDatabricksComputeResource cluster)
       throws DatabricksSQLException {
     LoggingUtil.log(
         LogLevel.DEBUG,
@@ -117,7 +120,7 @@ public class DatabricksThriftServiceClient implements DatabricksClient, Databric
   @Override
   public DatabricksResultSet executeStatement(
       String sql,
-      ComputeResource computeResource,
+      IDatabricksComputeResource computeResource,
       Map<Integer, ImmutableSqlParameter> parameters,
       StatementType statementType,
       IDatabricksSession session,

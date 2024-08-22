@@ -2,7 +2,7 @@ package com.databricks.jdbc.common;
 
 import java.util.Objects;
 
-public class Warehouse implements ComputeResource {
+public class Warehouse implements IDatabricksComputeResource {
   private final String warehouseId;
 
   public Warehouse(String warehouseId) {

@@ -2,7 +2,7 @@ package com.databricks.jdbc.common;
 
 import java.util.Objects;
 
-public class AllPurposeCluster implements ComputeResource {
+public class AllPurposeCluster implements IDatabricksComputeResource {
   private final String clusterId;
   private final String orgId;
 

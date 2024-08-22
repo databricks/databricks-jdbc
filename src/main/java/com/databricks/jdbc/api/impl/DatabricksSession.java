@@ -9,8 +9,8 @@ import com.databricks.jdbc.client.impl.sqlexec.DatabricksNewMetadataSdkClient;
 import com.databricks.jdbc.client.impl.sqlexec.DatabricksSdkClient;
 import com.databricks.jdbc.client.impl.thrift.DatabricksThriftServiceClient;
 import com.databricks.jdbc.common.CompressionType;
-import com.databricks.jdbc.common.ComputeResource;
 import com.databricks.jdbc.common.DatabricksClientType;
+import com.databricks.jdbc.common.IDatabricksComputeResource;
 import com.databricks.jdbc.common.LogLevel;
 import com.databricks.jdbc.common.util.LoggingUtil;
 import com.databricks.jdbc.exception.DatabricksSQLException;
@@ -28,7 +28,7 @@ public class DatabricksSession implements IDatabricksSession {
   private DatabricksMetadataClient databricksMetadataSdkClient;
   private DatabricksMetadataClient databricksNewMetadataSdkClient;
   private DatabricksMetadataClient databricksMetadataClient;
-  private final ComputeResource computeResource;
+  private final IDatabricksComputeResource computeResource;
 
   private boolean isSessionOpen;
   private ImmutableSessionInfo sessionInfo;
@@ -125,7 +125,7 @@ public class DatabricksSession implements IDatabricksSession {
   }
 
   @Override
-  public ComputeResource getComputeResource() {
+  public IDatabricksComputeResource getComputeResource() {
     LoggingUtil.log(LogLevel.DEBUG, "public String getWarehouseId()");
     return this.computeResource;
   }

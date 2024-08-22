@@ -21,7 +21,7 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   @VisibleForTesting final int port;
   private final String schema;
   private final String connectionURL;
-  private final ComputeResource computeResource;
+  private final IDatabricksComputeResource computeResource;
   private static DatabricksMetrics metricsExporter;
   @VisibleForTesting final ImmutableMap<String, String> parameters;
 
@@ -163,11 +163,11 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   }
 
   @Override
-  public ComputeResource getComputeResource() {
+  public IDatabricksComputeResource getComputeResource() {
     return computeResource;
   }
 
-  private ComputeResource buildCompute() throws DatabricksSQLException {
+  private IDatabricksComputeResource buildCompute() throws DatabricksSQLException {
     String httpPath = getHttpPath();
     Matcher urlMatcher = HTTP_WAREHOUSE_PATH_PATTERN.matcher(httpPath);
     if (urlMatcher.find()) {

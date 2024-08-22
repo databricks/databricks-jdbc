@@ -9,12 +9,8 @@ import com.databricks.jdbc.api.IDatabricksStatement;
 import com.databricks.jdbc.api.impl.*;
 import com.databricks.jdbc.client.DatabricksClient;
 import com.databricks.jdbc.client.impl.common.ClientUtils;
-import com.databricks.jdbc.common.ComputeResource;
-import com.databricks.jdbc.common.ErrorCodes;
-import com.databricks.jdbc.common.ErrorTypes;
-import com.databricks.jdbc.common.LogLevel;
-import com.databricks.jdbc.common.StatementType;
-import com.databricks.jdbc.common.Warehouse;
+import com.databricks.jdbc.common.*;
+import com.databricks.jdbc.common.IDatabricksComputeResource;
 import com.databricks.jdbc.common.util.LoggingUtil;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
@@ -83,7 +79,10 @@ public class DatabricksSdkClient implements DatabricksClient {
 
   @Override
   public ImmutableSessionInfo createSession(
-      ComputeResource warehouse, String catalog, String schema, Map<String, String> sessionConf) {
+      IDatabricksComputeResource warehouse,
+      String catalog,
+      String schema,
+      Map<String, String> sessionConf) {
     // TODO: [PECO-1460] Handle sessionConf in public session API
     LoggingUtil.log(
         LogLevel.DEBUG,
@@ -113,7 +112,7 @@ public class DatabricksSdkClient implements DatabricksClient {
   }
 
   @Override
-  public void deleteSession(IDatabricksSession session, ComputeResource warehouse)
+  public void deleteSession(IDatabricksSession session, IDatabricksComputeResource warehouse)
       throws DatabricksSQLException {
     LoggingUtil.log(
         LogLevel.DEBUG,
@@ -131,7 +130,7 @@ public class DatabricksSdkClient implements DatabricksClient {
   @Override
   public DatabricksResultSet executeStatement(
       String sql,
-      ComputeResource computeResource,
+      IDatabricksComputeResource computeResource,
       Map<Integer, ImmutableSqlParameter> parameters,
       StatementType statementType,
       IDatabricksSession session,

@@ -10,7 +10,7 @@ import com.databricks.jdbc.api.IDatabricksSession;
 import com.databricks.jdbc.api.impl.DatabricksResultSet;
 import com.databricks.jdbc.api.impl.DatabricksResultSetMetaData;
 import com.databricks.jdbc.api.impl.ImmutableSqlParameter;
-import com.databricks.jdbc.common.ComputeResource;
+import com.databricks.jdbc.common.IDatabricksComputeResource;
 import com.databricks.jdbc.common.StatementType;
 import com.databricks.jdbc.exception.DatabricksValidationException;
 import com.databricks.jdbc.model.core.ResultColumn;
@@ -32,7 +32,7 @@ public class DatabricksNewMetadataSdkClientTest {
   @Mock private static DatabricksResultSet mockedCatalogResultSet;
   @Mock private static DatabricksResultSet mockedResultSet;
   @Mock private static IDatabricksSession session;
-  @Mock private static ComputeResource mockedComputeResource;
+  @Mock private static IDatabricksComputeResource mockedComputeResource;
 
   private static Stream<Arguments> listTableTestParams() {
     return Stream.of(

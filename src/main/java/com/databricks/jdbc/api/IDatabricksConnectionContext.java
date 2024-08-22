@@ -1,8 +1,8 @@
 package com.databricks.jdbc.api;
 
 import com.databricks.jdbc.common.CompressionType;
-import com.databricks.jdbc.common.ComputeResource;
 import com.databricks.jdbc.common.DatabricksClientType;
+import com.databricks.jdbc.common.IDatabricksComputeResource;
 import com.databricks.jdbc.common.LogLevel;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.telemetry.DatabricksMetrics;
@@ -49,7 +49,7 @@ public interface IDatabricksConnectionContext {
    *
    * @return warehouse-Id
    */
-  ComputeResource getComputeResource();
+  IDatabricksComputeResource getComputeResource();
 
   /**
    * Returns the auth token (personal access token/OAuth token etc)

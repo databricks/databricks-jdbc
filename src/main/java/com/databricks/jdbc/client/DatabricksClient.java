@@ -5,7 +5,7 @@ import com.databricks.jdbc.api.IDatabricksSession;
 import com.databricks.jdbc.api.IDatabricksStatement;
 import com.databricks.jdbc.api.impl.*;
 import com.databricks.jdbc.common.CommandName;
-import com.databricks.jdbc.common.ComputeResource;
+import com.databricks.jdbc.common.IDatabricksComputeResource;
 import com.databricks.jdbc.common.StatementType;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.model.core.ExternalLink;
@@ -43,7 +43,7 @@ public interface DatabricksClient {
    * @return created session
    */
   ImmutableSessionInfo createSession(
-      ComputeResource computeResource,
+      IDatabricksComputeResource computeResource,
       String catalog,
       String schema,
       Map<String, String> sessionConf)
@@ -55,7 +55,7 @@ public interface DatabricksClient {
    * @param session for which the session should be deleted
    * @param computeResource underlying SQL-warehouse or all-purpose cluster
    */
-  void deleteSession(IDatabricksSession session, ComputeResource computeResource)
+  void deleteSession(IDatabricksSession session, IDatabricksComputeResource computeResource)
       throws DatabricksSQLException;
 
   /**
@@ -71,7 +71,7 @@ public interface DatabricksClient {
    */
   DatabricksResultSet executeStatement(
       String sql,
-      ComputeResource computeResource,
+      IDatabricksComputeResource computeResource,
       Map<Integer, ImmutableSqlParameter> parameters,
       StatementType statementType,
       IDatabricksSession session,

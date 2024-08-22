@@ -1,5 +1,5 @@
 package com.databricks.jdbc.common;
 
-public interface ComputeResource {
+public interface IDatabricksComputeResource {
   String getWorkspaceId();
 }

@@ -7,7 +7,7 @@ import static org.mockito.Mockito.*;
 
 import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.client.impl.sqlexec.DatabricksSdkClient;
-import com.databricks.jdbc.common.ComputeResource;
+import com.databricks.jdbc.common.IDatabricksComputeResource;
 import com.databricks.jdbc.common.StatementType;
 import com.databricks.jdbc.common.Warehouse;
 import com.databricks.jdbc.exception.DatabricksSQLException;
@@ -27,7 +27,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 public class DatabricksConnectionTest {
 
   private static final String WAREHOUSE_ID = "erg6767gg";
-  private static final ComputeResource warehouse = new Warehouse(WAREHOUSE_ID);
+  private static final IDatabricksComputeResource warehouse = new Warehouse(WAREHOUSE_ID);
   private static final String CATALOG = "field_demos";
   private static final String SQL = "select 1";
   private static final String SCHEMA = "ossjdbc";

@@ -12,7 +12,7 @@ import com.databricks.jdbc.api.impl.DatabricksConnection;
 import com.databricks.jdbc.api.impl.DatabricksConnectionContext;
 import com.databricks.jdbc.api.impl.ImmutableSessionInfo;
 import com.databricks.jdbc.client.impl.sqlexec.DatabricksSdkClient;
-import com.databricks.jdbc.common.ComputeResource;
+import com.databricks.jdbc.common.IDatabricksComputeResource;
 import com.databricks.jdbc.common.Warehouse;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import java.sql.*;
@@ -35,7 +35,7 @@ public class DatabricksPooledConnectionTest {
   private static final String JDBC_URL =
       "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/791ba2a31c7fd70a;";
   private static final String WAREHOUSE_ID = "791ba2a31c7fd70a";
-  private static final ComputeResource warehouse = new Warehouse(WAREHOUSE_ID);
+  private static final IDatabricksComputeResource warehouse = new Warehouse(WAREHOUSE_ID);
   private static final String SESSION_ID = "session_id";
   @Mock private static DatabricksSdkClient databricksClient;
   private static IDatabricksConnectionContext connectionContext;
