@@ -1,6 +1,6 @@
 package com.databricks.jdbc.core;
 
-import static com.databricks.jdbc.client.impl.thrift.commons.DatabricksThriftHelper.getTypeFromTypeDesc;
+import static com.databricks.jdbc.common.util.DatabricksThriftUtil.getTypeFromTypeDesc;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import com.databricks.jdbc.client.impl.thrift.generated.*;
@@ -26,21 +26,6 @@ public class DatabricksResultSetMetaDataTest {
     columnInfo.setTypeName(typeName);
     columnInfo.setTypeText(typeText);
     return columnInfo;
-  }
-
-  public TColumnDesc getThriftColumn(String name, TTypeDesc typeDesc) {
-    TColumnDesc columnDesc = new TColumnDesc();
-    columnDesc.setColumnName(name);
-    columnDesc.setTypeDesc(typeDesc);
-    return columnDesc;
-    //    TTypeDesc typeDesc = new TTypeDesc();
-    //    TTypeEntry typeEntry = new TTypeEntry();
-    //    TPrimitiveTypeEntry primitiveEntry = new TPrimitiveTypeEntry();
-    //    primitiveEntry.setTypeName(typeName);
-    //    typeEntry.setPrimitiveEntry(primitiveEntry);
-    //    typeDesc.setTypes(Collections.singletonList(typeEntry));
-    //    columnDesc.setTypeDesc(typeDesc);
-    //    return columnDesc;
   }
 
   public ResultManifest getResultManifest() {

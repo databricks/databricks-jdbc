@@ -75,7 +75,8 @@ public abstract class AbstractFakeServiceIntegrationTests {
   }
 
   /**
-   * Returns true if the test uses {@link com.databricks.jdbc.client.impl.sdk.DatabricksSdkClient}.
+   * Returns true if the test uses {@link
+   * com.databricks.jdbc.client.impl.sqlexec.DatabricksSdkClient}.
    */
   protected boolean isSqlExecSdkClient() {
     return !FakeServiceConfigLoader.shouldUseThriftClient;

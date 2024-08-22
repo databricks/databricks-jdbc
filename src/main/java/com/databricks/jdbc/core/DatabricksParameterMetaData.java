@@ -2,9 +2,9 @@ package com.databricks.jdbc.core;
 
 import static com.databricks.jdbc.driver.DatabricksJdbcConstants.EMPTY_STRING;
 
-import com.databricks.jdbc.commons.LogLevel;
-import com.databricks.jdbc.commons.util.LoggingUtil;
-import com.databricks.jdbc.commons.util.WrapperUtil;
+import com.databricks.jdbc.common.LogLevel;
+import com.databricks.jdbc.common.util.LoggingUtil;
+import com.databricks.jdbc.common.util.WrapperUtil;
 import com.databricks.sdk.service.sql.ColumnInfoTypeName;
 import java.sql.ParameterMetaData;
 import java.sql.SQLException;

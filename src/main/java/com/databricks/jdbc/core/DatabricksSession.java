@@ -1,14 +1,14 @@
 package com.databricks.jdbc.core;
 
 import com.databricks.jdbc.client.DatabricksClient;
-import com.databricks.jdbc.client.DatabricksClientType;
 import com.databricks.jdbc.client.DatabricksMetadataClient;
-import com.databricks.jdbc.client.impl.sdk.DatabricksMetadataSdkClient;
-import com.databricks.jdbc.client.impl.sdk.DatabricksNewMetadataSdkClient;
-import com.databricks.jdbc.client.impl.sdk.DatabricksSdkClient;
+import com.databricks.jdbc.client.impl.sqlexec.DatabricksMetadataSdkClient;
+import com.databricks.jdbc.client.impl.sqlexec.DatabricksNewMetadataSdkClient;
+import com.databricks.jdbc.client.impl.sqlexec.DatabricksSdkClient;
 import com.databricks.jdbc.client.impl.thrift.DatabricksThriftServiceClient;
-import com.databricks.jdbc.commons.LogLevel;
-import com.databricks.jdbc.commons.util.LoggingUtil;
+import com.databricks.jdbc.common.DatabricksClientType;
+import com.databricks.jdbc.common.LogLevel;
+import com.databricks.jdbc.common.util.LoggingUtil;
 import com.databricks.jdbc.core.types.CompressionType;
 import com.databricks.jdbc.core.types.ComputeResource;
 import com.databricks.jdbc.driver.IDatabricksConnectionContext;
@@ -232,8 +232,10 @@ public class DatabricksSession implements IDatabricksSession {
 
   @Override
   public void setSessionConfig(String name, String value) {
-    // LoggingUtil.log(LogLevel.DEBUG,String.format("public void setSessionConfig(String name = {},
-    // String value = {%s})", name, value);
+    LoggingUtil.log(
+        LogLevel.DEBUG,
+        String.format(
+            "public void setSessionConfig(String name = {%s}, String value = {%s})", name, value));
     sessionConfigs.put(name, value);
   }
 

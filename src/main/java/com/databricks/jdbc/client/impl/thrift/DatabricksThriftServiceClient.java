@@ -1,19 +1,18 @@
 package com.databricks.jdbc.client.impl.thrift;
 
-import static com.databricks.jdbc.client.impl.helper.MetadataResultSetBuilder.*;
-import static com.databricks.jdbc.client.impl.thrift.commons.DatabricksThriftHelper.*;
-import static com.databricks.jdbc.commons.EnvironmentVariables.JDBC_THRIFT_VERSION;
+import static com.databricks.jdbc.client.impl.common.MetadataResultSetBuilder.*;
+import static com.databricks.jdbc.common.EnvironmentVariables.JDBC_THRIFT_VERSION;
+import static com.databricks.jdbc.common.util.DatabricksThriftUtil.*;
 
 import com.databricks.jdbc.client.DatabricksClient;
 import com.databricks.jdbc.client.DatabricksMetadataClient;
-import com.databricks.jdbc.client.StatementType;
-import com.databricks.jdbc.client.impl.helper.MetadataResultSetBuilder;
-import com.databricks.jdbc.client.impl.thrift.commons.DatabricksThriftAccessor;
+import com.databricks.jdbc.client.impl.common.MetadataResultSetBuilder;
 import com.databricks.jdbc.client.impl.thrift.generated.*;
 import com.databricks.jdbc.client.sqlexec.ExternalLink;
-import com.databricks.jdbc.commons.CommandName;
-import com.databricks.jdbc.commons.LogLevel;
-import com.databricks.jdbc.commons.util.LoggingUtil;
+import com.databricks.jdbc.common.CommandName;
+import com.databricks.jdbc.common.LogLevel;
+import com.databricks.jdbc.common.StatementType;
+import com.databricks.jdbc.common.util.LoggingUtil;
 import com.databricks.jdbc.core.*;
 import com.databricks.jdbc.core.types.ComputeResource;
 import com.databricks.jdbc.driver.IDatabricksConnectionContext;
@@ -46,7 +45,15 @@ public class DatabricksThriftServiceClient implements DatabricksClient, Databric
   }
 
   private TNamespace getNamespace(String catalog, String schema) {
-    return new TNamespace().setCatalogName(catalog).setSchemaName(schema);
+    final TNamespace namespace = new TNamespace();
+    if (catalog != null) {
+      namespace.setCatalogName(catalog);
+    }
+    if (schema != null) {
+      namespace.setSchemaName(schema);
+    }
+
+    return namespace;
   }
 
   @Override
@@ -60,10 +67,12 @@ public class DatabricksThriftServiceClient implements DatabricksClient, Databric
             cluster.toString(), catalog, schema, sessionConf));
     TOpenSessionReq openSessionReq =
         new TOpenSessionReq()
-            .setInitialNamespace(getNamespace(catalog, schema))
             .setConfiguration(sessionConf)
             .setCanUseMultipleCatalogs(true)
             .setClient_protocol_i64(JDBC_THRIFT_VERSION.getValue());
+    if (catalog != null || schema != null) {
+      openSessionReq.setInitialNamespace(getNamespace(catalog, schema));
+    }
     TOpenSessionResp response =
         (TOpenSessionResp)
             thriftAccessor.getThriftResponse(openSessionReq, CommandName.OPEN_SESSION, null);

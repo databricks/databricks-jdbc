@@ -1,12 +1,11 @@
 package com.databricks.jdbc.core;
 
-import static com.databricks.jdbc.commons.util.SQLInterpolator.interpolateSQL;
+import static com.databricks.jdbc.common.util.SQLInterpolator.interpolateSQL;
 import static com.databricks.jdbc.core.DatabricksTypeUtil.*;
-import static com.databricks.jdbc.driver.DatabricksJdbcConstants.*;
 
-import com.databricks.jdbc.client.StatementType;
-import com.databricks.jdbc.commons.LogLevel;
-import com.databricks.jdbc.commons.util.LoggingUtil;
+import com.databricks.jdbc.common.LogLevel;
+import com.databricks.jdbc.common.StatementType;
+import com.databricks.jdbc.common.util.LoggingUtil;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;

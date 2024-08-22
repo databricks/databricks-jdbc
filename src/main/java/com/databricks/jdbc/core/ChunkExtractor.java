@@ -3,8 +3,8 @@ package com.databricks.jdbc.core;
 import static com.databricks.jdbc.core.DatabricksTypeUtil.*;
 
 import com.databricks.jdbc.client.impl.thrift.generated.*;
-import com.databricks.jdbc.commons.LogLevel;
-import com.databricks.jdbc.commons.util.LoggingUtil;
+import com.databricks.jdbc.common.LogLevel;
+import com.databricks.jdbc.common.util.LoggingUtil;
 import com.databricks.jdbc.core.types.CompressionType;
 import com.google.common.annotations.VisibleForTesting;
 import java.io.ByteArrayInputStream;

@@ -1,9 +1,9 @@
 package com.databricks.jdbc.core;
 
-import com.databricks.jdbc.client.StatementType;
-import com.databricks.jdbc.commons.LogLevel;
-import com.databricks.jdbc.commons.util.DriverUtil;
-import com.databricks.jdbc.commons.util.LoggingUtil;
+import com.databricks.jdbc.common.LogLevel;
+import com.databricks.jdbc.common.StatementType;
+import com.databricks.jdbc.common.util.DriverUtil;
+import com.databricks.jdbc.common.util.LoggingUtil;
 import com.databricks.jdbc.driver.DatabricksJdbcConstants;
 import com.databricks.sdk.service.sql.StatementState;
 import com.databricks.sdk.service.sql.StatementStatus;

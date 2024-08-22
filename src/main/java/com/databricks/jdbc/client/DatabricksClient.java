@@ -1,7 +1,8 @@
 package com.databricks.jdbc.client;
 
 import com.databricks.jdbc.client.sqlexec.ExternalLink;
-import com.databricks.jdbc.commons.CommandName;
+import com.databricks.jdbc.common.CommandName;
+import com.databricks.jdbc.common.StatementType;
 import com.databricks.jdbc.core.*;
 import com.databricks.jdbc.core.types.ComputeResource;
 import com.databricks.jdbc.driver.IDatabricksConnectionContext;

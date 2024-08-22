@@ -1,18 +1,18 @@
 package com.databricks.jdbc.core;
 
-import static com.databricks.jdbc.client.impl.thrift.commons.DatabricksThriftHelper.*;
+import static com.databricks.jdbc.common.util.DatabricksThriftUtil.*;
 import static com.databricks.jdbc.core.converters.ConverterHelper.getConvertedObject;
 import static com.databricks.jdbc.core.converters.ConverterHelper.getObjectConverter;
 
-import com.databricks.jdbc.client.StatementType;
 import com.databricks.jdbc.client.impl.thrift.generated.TGetResultSetMetadataResp;
 import com.databricks.jdbc.client.impl.thrift.generated.TRowSet;
 import com.databricks.jdbc.client.impl.thrift.generated.TStatus;
 import com.databricks.jdbc.client.sqlexec.ResultData;
 import com.databricks.jdbc.client.sqlexec.ResultManifest;
-import com.databricks.jdbc.commons.LogLevel;
-import com.databricks.jdbc.commons.util.LoggingUtil;
-import com.databricks.jdbc.commons.util.WarningUtil;
+import com.databricks.jdbc.common.LogLevel;
+import com.databricks.jdbc.common.StatementType;
+import com.databricks.jdbc.common.util.LoggingUtil;
+import com.databricks.jdbc.common.util.WarningUtil;
 import com.databricks.jdbc.core.converters.*;
 import com.databricks.sdk.service.sql.StatementState;
 import com.databricks.sdk.service.sql.StatementStatus;

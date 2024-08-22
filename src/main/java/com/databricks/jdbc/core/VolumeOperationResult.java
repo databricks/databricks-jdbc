@@ -1,13 +1,13 @@
 package com.databricks.jdbc.core;
 
-import static com.databricks.jdbc.commons.EnvironmentVariables.DEFAULT_SLEEP_DELAY;
+import static com.databricks.jdbc.common.EnvironmentVariables.DEFAULT_SLEEP_DELAY;
 import static com.databricks.jdbc.driver.DatabricksJdbcConstants.ALLOWED_VOLUME_INGESTION_PATHS;
 
 import com.databricks.jdbc.client.IDatabricksHttpClient;
 import com.databricks.jdbc.client.http.DatabricksHttpClient;
 import com.databricks.jdbc.client.sqlexec.ResultManifest;
-import com.databricks.jdbc.commons.ErrorTypes;
-import com.databricks.jdbc.commons.util.ErrorCodes;
+import com.databricks.jdbc.common.ErrorTypes;
+import com.databricks.jdbc.common.util.ErrorCodes;
 import com.databricks.jdbc.core.VolumeOperationExecutor.VolumeOperationStatus;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;

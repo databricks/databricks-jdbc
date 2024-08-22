@@ -1,7 +1,7 @@
 package com.databricks.jdbc.core;
 
-import com.databricks.jdbc.commons.LogLevel;
-import com.databricks.jdbc.commons.util.LoggingUtil;
+import com.databricks.jdbc.common.LogLevel;
+import com.databricks.jdbc.common.util.LoggingUtil;
 import java.io.IOException;
 import java.io.InputStream;
 import java.sql.SQLException;

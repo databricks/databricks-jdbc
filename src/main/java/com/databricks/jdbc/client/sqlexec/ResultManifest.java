@@ -9,7 +9,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import java.util.Collection;
 import java.util.Objects;
 
-/*Todo: This file is picked from databricks-sdk-java. Remove this once compression changes are included in API-SPEC */
+/*Todo: This file is picked from databricks-sqlexec-java. Remove this once compression changes are included in API-SPEC */
 
 public class ResultManifest {
   @JsonProperty("chunks")

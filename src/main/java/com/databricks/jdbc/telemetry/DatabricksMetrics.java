@@ -3,9 +3,9 @@ package com.databricks.jdbc.telemetry;
 import static com.databricks.jdbc.driver.DatabricksJdbcConstants.TELEMETRY_LOG_LEVEL;
 
 import com.databricks.jdbc.client.http.DatabricksHttpClient;
-import com.databricks.jdbc.commons.MetricsConstants;
-import com.databricks.jdbc.commons.util.DriverUtil;
-import com.databricks.jdbc.commons.util.LoggingUtil;
+import com.databricks.jdbc.common.MetricsConstants;
+import com.databricks.jdbc.common.util.DriverUtil;
+import com.databricks.jdbc.common.util.LoggingUtil;
 import com.databricks.jdbc.core.DatabricksSQLException;
 import com.databricks.jdbc.driver.IDatabricksConnectionContext;
 import com.fasterxml.jackson.databind.ObjectMapper;

@@ -1,15 +1,15 @@
 package com.databricks.jdbc.client.impl;
 
 import static com.databricks.jdbc.TestConstants.*;
-import static com.databricks.jdbc.client.impl.helper.CommandConstants.*;
-import static com.databricks.jdbc.client.impl.helper.MetadataResultConstants.*;
+import static com.databricks.jdbc.client.impl.common.CommandConstants.*;
+import static com.databricks.jdbc.common.MetadataResultConstants.*;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.when;
 
-import com.databricks.jdbc.client.StatementType;
-import com.databricks.jdbc.client.impl.helper.ResultColumn;
-import com.databricks.jdbc.client.impl.sdk.DatabricksNewMetadataSdkClient;
-import com.databricks.jdbc.client.impl.sdk.DatabricksSdkClient;
+import com.databricks.jdbc.client.impl.common.ResultColumn;
+import com.databricks.jdbc.client.impl.sqlexec.DatabricksNewMetadataSdkClient;
+import com.databricks.jdbc.client.impl.sqlexec.DatabricksSdkClient;
+import com.databricks.jdbc.common.StatementType;
 import com.databricks.jdbc.core.*;
 import com.databricks.jdbc.core.types.ComputeResource;
 import com.databricks.sdk.service.sql.StatementState;

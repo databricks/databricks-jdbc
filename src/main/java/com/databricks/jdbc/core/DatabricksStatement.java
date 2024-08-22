@@ -1,14 +1,14 @@
 package com.databricks.jdbc.core;
 
-import static com.databricks.jdbc.commons.EnvironmentVariables.*;
+import static com.databricks.jdbc.common.EnvironmentVariables.*;
 import static com.databricks.jdbc.driver.DatabricksJdbcConstants.*;
 import static java.lang.String.format;
 
 import com.databricks.jdbc.client.DatabricksClient;
-import com.databricks.jdbc.client.StatementType;
-import com.databricks.jdbc.commons.ErrorTypes;
-import com.databricks.jdbc.commons.LogLevel;
-import com.databricks.jdbc.commons.util.*;
+import com.databricks.jdbc.common.ErrorTypes;
+import com.databricks.jdbc.common.LogLevel;
+import com.databricks.jdbc.common.StatementType;
+import com.databricks.jdbc.common.util.*;
 import com.google.common.annotations.VisibleForTesting;
 import java.sql.*;
 import java.util.HashMap;

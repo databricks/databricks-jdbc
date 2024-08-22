@@ -1,7 +1,7 @@
 package com.databricks.jdbc.driver;
 
-import com.databricks.jdbc.client.DatabricksClientType;
-import com.databricks.jdbc.commons.LogLevel;
+import com.databricks.jdbc.common.DatabricksClientType;
+import com.databricks.jdbc.common.LogLevel;
 import com.databricks.jdbc.core.DatabricksParsingException;
 import com.databricks.jdbc.core.types.CompressionType;
 import com.databricks.jdbc.core.types.ComputeResource;

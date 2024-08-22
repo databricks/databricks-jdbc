@@ -1,7 +1,7 @@
 package com.databricks.jdbc.core.converters;
 
-import com.databricks.jdbc.commons.LogLevel;
-import com.databricks.jdbc.commons.util.LoggingUtil;
+import com.databricks.jdbc.common.LogLevel;
+import com.databricks.jdbc.common.util.LoggingUtil;
 import com.databricks.jdbc.core.DatabricksSQLException;
 import java.math.BigDecimal;
 import java.math.BigInteger;
