@@ -94,6 +94,22 @@ public class DatabricksResultSetMetaDataTest {
   }
 
   @Test
+  public void testColumnsForVolumeOperationForThrift() throws SQLException {
+    TGetResultSetMetadataResp resultManifest = getThriftResultManifest();
+    resultManifest.setIsStagingOperationIsSet(true);
+    resultManifest.setIsStagingOperation(true);
+    DatabricksResultSetMetaData metaData =
+        new DatabricksResultSetMetaData(STATEMENT_ID, resultManifest, 1, 1);
+    Assertions.assertEquals(1, metaData.getColumnCount());
+    Assertions.assertEquals(
+        DatabricksJdbcConstants.VOLUME_OPERATION_STATUS_COLUMN_NAME, metaData.getColumnName(1));
+    Assertions.assertEquals(1, metaData.getTotalRows());
+    Assertions.assertEquals(
+        1,
+        metaData.getColumnNameIndex(DatabricksJdbcConstants.VOLUME_OPERATION_STATUS_COLUMN_NAME));
+  }
+
+  @Test
   public void testThriftColumns() throws SQLException {
     DatabricksResultSetMetaData metaData =
         new DatabricksResultSetMetaData(STATEMENT_ID, getThriftResultManifest(), 10, 1);

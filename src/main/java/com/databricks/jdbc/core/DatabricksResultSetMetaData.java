@@ -94,25 +94,39 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
             "Result manifest for statement {%s} has schema: {%s}",
             statementId, resultManifest.getSchema()));
     int currIndex = 0;
-    if (resultManifest.getSchema() != null && resultManifest.getSchema().getColumnsSize() > 0) {
-      for (TColumnDesc columnInfo : resultManifest.getSchema().getColumns()) {
-        ColumnInfoTypeName columnTypeName = getTypeFromTypeDesc(columnInfo.getTypeDesc());
-        int[] scaleAndPrecision = getScaleAndPrecision(columnInfo, columnTypeName);
-        int precision = scaleAndPrecision[0];
-        int scale = scaleAndPrecision[1];
+    if (resultManifest.isSetIsStagingOperation() && resultManifest.isIsStagingOperation()) {
+      ImmutableDatabricksColumn.Builder columnBuilder = getColumnBuilder();
+      columnBuilder
+          .columnName(VOLUME_OPERATION_STATUS_COLUMN_NAME)
+          .columnType(Types.VARCHAR)
+          .columnTypeText(ColumnInfoTypeName.STRING.name())
+          .typePrecision(0)
+          .columnTypeClassName(DatabricksTypeUtil.getColumnTypeClassName(ColumnInfoTypeName.STRING))
+          .displaySize(DatabricksTypeUtil.getDisplaySize(ColumnInfoTypeName.STRING, 0))
+          .isSigned(DatabricksTypeUtil.isSigned(ColumnInfoTypeName.STRING));
+      columnsBuilder.add(columnBuilder.build());
+      columnNameToIndexMap.putIfAbsent(VOLUME_OPERATION_STATUS_COLUMN_NAME, ++currIndex);
+    } else {
+      if (resultManifest.getSchema() != null && resultManifest.getSchema().getColumnsSize() > 0) {
+        for (TColumnDesc columnInfo : resultManifest.getSchema().getColumns()) {
+          ColumnInfoTypeName columnTypeName = getTypeFromTypeDesc(columnInfo.getTypeDesc());
+          int[] scaleAndPrecision = getScaleAndPrecision(columnInfo, columnTypeName);
+          int precision = scaleAndPrecision[0];
+          int scale = scaleAndPrecision[1];
 
-        ImmutableDatabricksColumn.Builder columnBuilder = getColumnBuilder();
-        columnBuilder
-            .columnName(columnInfo.getColumnName())
-            .columnTypeClassName(DatabricksTypeUtil.getColumnTypeClassName(columnTypeName))
-            .columnType(DatabricksTypeUtil.getColumnType(columnTypeName))
-            .columnTypeText(columnTypeName.name())
-            .typePrecision(precision)
-            .typeScale(scale)
-            .displaySize(DatabricksTypeUtil.getDisplaySize(columnTypeName, precision))
-            .isSigned(DatabricksTypeUtil.isSigned(columnTypeName));
-        columnsBuilder.add(columnBuilder.build());
-        columnNameToIndexMap.putIfAbsent(columnInfo.getColumnName(), ++currIndex);
+          ImmutableDatabricksColumn.Builder columnBuilder = getColumnBuilder();
+          columnBuilder
+              .columnName(columnInfo.getColumnName())
+              .columnTypeClassName(DatabricksTypeUtil.getColumnTypeClassName(columnTypeName))
+              .columnType(DatabricksTypeUtil.getColumnType(columnTypeName))
+              .columnTypeText(columnTypeName.name())
+              .typePrecision(precision)
+              .typeScale(scale)
+              .displaySize(DatabricksTypeUtil.getDisplaySize(columnTypeName, precision))
+              .isSigned(DatabricksTypeUtil.isSigned(columnTypeName));
+          columnsBuilder.add(columnBuilder.build());
+          columnNameToIndexMap.putIfAbsent(columnInfo.getColumnName(), ++currIndex);
+        }
       }
     }
     this.columns = columnsBuilder.build();
