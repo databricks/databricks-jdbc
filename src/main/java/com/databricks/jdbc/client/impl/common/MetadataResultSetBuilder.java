@@ -157,7 +157,10 @@ public class MetadataResultSetBuilder {
       if (typeVal.equals("BINARY")) {
         return 32767;
       }
-      if (typeVal.equals("STRING")) {
+      if (typeVal.equals("STRING")
+          || typeVal.equals("TEXT")
+          || typeVal.equals("CHAR")
+          || typeVal.equals("VARCHAR")) {
         return 255;
       }
       return columnSize;
@@ -169,8 +172,10 @@ public class MetadataResultSetBuilder {
     }
     String max_char_length = lengthConstraints[0].trim();
     try {
-      if (typeVal.contains("CHAR") || typeVal.contains("VARCHAR") || typeVal.contains("STRING"))
-        return Integer.parseInt(max_char_length);
+      if (typeVal.contains("CHAR")
+          || typeVal.contains("VARCHAR")
+          || typeVal.contains("STRING")
+          || typeVal.contains("TEXT")) return Integer.parseInt(max_char_length);
       else return 4 * Integer.parseInt(max_char_length);
     } catch (NumberFormatException e) {
       return 0;
