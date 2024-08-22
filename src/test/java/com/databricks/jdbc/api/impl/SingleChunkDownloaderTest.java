@@ -4,7 +4,7 @@ import static com.databricks.jdbc.TestConstants.TEST_STRING;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.when;
 
-import com.databricks.jdbc.client.IDatabricksHttpClient;
+import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
 import com.databricks.jdbc.exception.DatabricksHttpException;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.exception.DatabricksSQLException;

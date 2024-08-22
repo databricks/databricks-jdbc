@@ -5,7 +5,7 @@ import static com.databricks.jdbc.common.MetadataResultConstants.NULL_STRING;
 import static com.databricks.jdbc.common.util.DatabricksThriftUtil.checkDirectResultsForErrorStatus;
 import static org.junit.jupiter.api.Assertions.*;
 
-import com.databricks.jdbc.client.impl.thrift.generated.*;
+import com.databricks.jdbc.dbclient.impl.thrift.generated.*;
 import com.databricks.jdbc.exception.DatabricksHttpException;
 import com.databricks.sdk.service.sql.ColumnInfoTypeName;
 import java.nio.ByteBuffer;

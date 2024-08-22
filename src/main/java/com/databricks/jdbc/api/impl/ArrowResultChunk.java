@@ -4,12 +4,12 @@ import static com.databricks.jdbc.common.DatabricksJdbcConstants.IS_FAKE_SERVICE
 import static com.databricks.jdbc.common.util.DatabricksThriftUtil.createExternalLink;
 import static com.databricks.jdbc.common.util.ValidationUtil.checkHTTPError;
 
-import com.databricks.jdbc.client.IDatabricksHttpClient;
-import com.databricks.jdbc.client.impl.thrift.generated.TSparkArrowResultLink;
 import com.databricks.jdbc.common.CompressionType;
 import com.databricks.jdbc.common.LogLevel;
 import com.databricks.jdbc.common.util.DecompressionUtil;
 import com.databricks.jdbc.common.util.LoggingUtil;
+import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
+import com.databricks.jdbc.dbclient.impl.thrift.generated.TSparkArrowResultLink;
 import com.databricks.jdbc.exception.DatabricksHttpException;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.exception.DatabricksSQLException;

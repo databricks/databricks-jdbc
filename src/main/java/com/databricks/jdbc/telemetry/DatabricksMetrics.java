@@ -3,9 +3,9 @@ package com.databricks.jdbc.telemetry;
 import static com.databricks.jdbc.common.DatabricksJdbcConstants.TELEMETRY_LOG_LEVEL;
 
 import com.databricks.jdbc.api.IDatabricksConnectionContext;
-import com.databricks.jdbc.client.impl.http.DatabricksHttpClient;
 import com.databricks.jdbc.common.util.DriverUtil;
 import com.databricks.jdbc.common.util.LoggingUtil;
+import com.databricks.jdbc.dbclient.impl.http.DatabricksHttpClient;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;

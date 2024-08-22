@@ -4,16 +4,16 @@ import static com.databricks.jdbc.common.DatabricksJdbcConstants.VOLUME_OPERATIO
 import static com.databricks.jdbc.common.MetadataResultConstants.NULL_STRING;
 import static com.databricks.jdbc.common.util.DatabricksThriftUtil.getTypeFromTypeDesc;
 
-import com.databricks.jdbc.client.impl.thrift.generated.TColumnDesc;
-import com.databricks.jdbc.client.impl.thrift.generated.TGetResultSetMetadataResp;
-import com.databricks.jdbc.client.impl.thrift.generated.TTypeEntry;
-import com.databricks.jdbc.client.impl.thrift.generated.TTypeQualifierValue;
 import com.databricks.jdbc.common.AccessType;
 import com.databricks.jdbc.common.LogLevel;
 import com.databricks.jdbc.common.Nullable;
 import com.databricks.jdbc.common.util.DatabricksTypeUtil;
 import com.databricks.jdbc.common.util.LoggingUtil;
 import com.databricks.jdbc.common.util.WrapperUtil;
+import com.databricks.jdbc.dbclient.impl.thrift.generated.TColumnDesc;
+import com.databricks.jdbc.dbclient.impl.thrift.generated.TGetResultSetMetadataResp;
+import com.databricks.jdbc.dbclient.impl.thrift.generated.TTypeEntry;
+import com.databricks.jdbc.dbclient.impl.thrift.generated.TTypeQualifierValue;
 import com.databricks.jdbc.model.core.ResultManifest;
 import com.databricks.sdk.service.sql.ColumnInfo;
 import com.databricks.sdk.service.sql.ColumnInfoTypeName;

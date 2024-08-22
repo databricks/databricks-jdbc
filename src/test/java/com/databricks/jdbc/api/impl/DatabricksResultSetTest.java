@@ -7,8 +7,8 @@ import static org.mockito.Mockito.when;
 
 import com.databricks.jdbc.api.IDatabricksSession;
 import com.databricks.jdbc.api.IDatabricksStatement;
-import com.databricks.jdbc.client.impl.thrift.generated.*;
 import com.databricks.jdbc.common.StatementType;
+import com.databricks.jdbc.dbclient.impl.thrift.generated.*;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.exception.DatabricksSQLFeatureNotSupportedException;
 import com.databricks.sdk.service.sql.StatementState;

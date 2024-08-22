@@ -8,12 +8,12 @@ import static org.mockito.Mockito.when;
 
 import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.api.IDatabricksSession;
-import com.databricks.jdbc.client.IDatabricksHttpClient;
-import com.databricks.jdbc.client.impl.sqlexec.DatabricksSdkClient;
-import com.databricks.jdbc.client.impl.thrift.generated.TGetResultSetMetadataResp;
-import com.databricks.jdbc.client.impl.thrift.generated.TRowSet;
-import com.databricks.jdbc.client.impl.thrift.generated.TSparkArrowResultLink;
 import com.databricks.jdbc.common.CompressionType;
+import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
+import com.databricks.jdbc.dbclient.impl.sqlexec.DatabricksSdkClient;
+import com.databricks.jdbc.dbclient.impl.thrift.generated.TGetResultSetMetadataResp;
+import com.databricks.jdbc.dbclient.impl.thrift.generated.TRowSet;
+import com.databricks.jdbc.dbclient.impl.thrift.generated.TSparkArrowResultLink;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.model.core.ExternalLink;
 import com.databricks.jdbc.model.core.ResultData;

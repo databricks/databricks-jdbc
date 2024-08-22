@@ -5,9 +5,9 @@ import static com.databricks.jdbc.common.util.DatabricksThriftUtil.convertColumn
 import com.databricks.jdbc.api.IDatabricksResultSet;
 import com.databricks.jdbc.api.IDatabricksSession;
 import com.databricks.jdbc.api.IDatabricksStatement;
-import com.databricks.jdbc.client.impl.thrift.generated.TGetResultSetMetadataResp;
-import com.databricks.jdbc.client.impl.thrift.generated.TRowSet;
 import com.databricks.jdbc.common.util.DatabricksThriftUtil;
+import com.databricks.jdbc.dbclient.impl.thrift.generated.TGetResultSetMetadataResp;
+import com.databricks.jdbc.dbclient.impl.thrift.generated.TRowSet;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.exception.DatabricksSQLFeatureNotImplementedException;
 import com.databricks.jdbc.exception.DatabricksSQLFeatureNotSupportedException;

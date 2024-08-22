@@ -2,11 +2,11 @@ package com.databricks.jdbc.common.util;
 
 import static java.sql.ParameterMetaData.parameterNullable;
 
-import com.databricks.jdbc.client.impl.thrift.generated.TPrimitiveTypeEntry;
-import com.databricks.jdbc.client.impl.thrift.generated.TTypeDesc;
-import com.databricks.jdbc.client.impl.thrift.generated.TTypeEntry;
-import com.databricks.jdbc.client.impl.thrift.generated.TTypeId;
 import com.databricks.jdbc.common.LogLevel;
+import com.databricks.jdbc.dbclient.impl.thrift.generated.TPrimitiveTypeEntry;
+import com.databricks.jdbc.dbclient.impl.thrift.generated.TTypeDesc;
+import com.databricks.jdbc.dbclient.impl.thrift.generated.TTypeEntry;
+import com.databricks.jdbc.dbclient.impl.thrift.generated.TTypeId;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.exception.DatabricksSQLFeatureNotSupportedException;
 import com.databricks.sdk.service.sql.ColumnInfoTypeName;

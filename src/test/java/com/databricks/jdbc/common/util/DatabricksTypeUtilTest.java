@@ -2,7 +2,7 @@ package com.databricks.jdbc.common.util;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-import com.databricks.jdbc.client.impl.thrift.generated.TTypeId;
+import com.databricks.jdbc.dbclient.impl.thrift.generated.TTypeId;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.sdk.service.sql.ColumnInfoTypeName;
 import java.sql.Date;

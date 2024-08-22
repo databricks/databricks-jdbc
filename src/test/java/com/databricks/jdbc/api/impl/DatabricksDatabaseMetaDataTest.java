@@ -7,7 +7,7 @@ import static org.mockito.Mockito.when;
 
 import com.databricks.jdbc.api.IDatabricksConnection;
 import com.databricks.jdbc.api.IDatabricksSession;
-import com.databricks.jdbc.client.DatabricksMetadataClient;
+import com.databricks.jdbc.dbclient.DatabricksMetadataClient;
 import java.sql.*;
 import java.util.Arrays;
 import java.util.List;

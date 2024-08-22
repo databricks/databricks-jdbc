@@ -1,10 +1,10 @@
 package com.databricks.jdbc.api;
 
 import com.databricks.jdbc.api.impl.ImmutableSessionInfo;
-import com.databricks.jdbc.client.DatabricksClient;
-import com.databricks.jdbc.client.DatabricksMetadataClient;
 import com.databricks.jdbc.common.CompressionType;
 import com.databricks.jdbc.common.IDatabricksComputeResource;
+import com.databricks.jdbc.dbclient.DatabricksClient;
+import com.databricks.jdbc.dbclient.DatabricksMetadataClient;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import java.util.Map;
 import javax.annotation.Nullable;

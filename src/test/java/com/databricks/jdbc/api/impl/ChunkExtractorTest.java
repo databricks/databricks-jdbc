@@ -4,8 +4,8 @@ import static com.databricks.jdbc.TestConstants.TEST_TABLE_SCHEMA;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.when;
 
-import com.databricks.jdbc.client.impl.thrift.generated.TGetResultSetMetadataResp;
-import com.databricks.jdbc.client.impl.thrift.generated.TSparkArrowBatch;
+import com.databricks.jdbc.dbclient.impl.thrift.generated.TGetResultSetMetadataResp;
+import com.databricks.jdbc.dbclient.impl.thrift.generated.TSparkArrowBatch;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import java.util.Collections;
 import org.junit.jupiter.api.Test;

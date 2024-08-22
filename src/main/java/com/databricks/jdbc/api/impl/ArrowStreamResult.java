@@ -4,10 +4,10 @@ import static com.databricks.jdbc.common.util.DatabricksThriftUtil.getTypeFromTy
 
 import com.databricks.jdbc.api.IDatabricksSession;
 import com.databricks.jdbc.api.impl.converters.ArrowToJavaObjectConverter;
-import com.databricks.jdbc.client.IDatabricksHttpClient;
-import com.databricks.jdbc.client.impl.thrift.generated.TColumnDesc;
-import com.databricks.jdbc.client.impl.thrift.generated.TGetResultSetMetadataResp;
-import com.databricks.jdbc.client.impl.thrift.generated.TRowSet;
+import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
+import com.databricks.jdbc.dbclient.impl.thrift.generated.TColumnDesc;
+import com.databricks.jdbc.dbclient.impl.thrift.generated.TGetResultSetMetadataResp;
+import com.databricks.jdbc.dbclient.impl.thrift.generated.TRowSet;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.model.core.ResultData;

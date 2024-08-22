@@ -3,8 +3,8 @@ package com.databricks.jdbc.api.impl;
 import static com.databricks.jdbc.common.util.DatabricksThriftUtil.getTypeFromTypeDesc;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-import com.databricks.jdbc.client.impl.thrift.generated.*;
 import com.databricks.jdbc.common.DatabricksJdbcConstants;
+import com.databricks.jdbc.dbclient.impl.thrift.generated.*;
 import com.databricks.jdbc.model.core.ResultManifest;
 import com.databricks.sdk.service.sql.ColumnInfo;
 import com.databricks.sdk.service.sql.ColumnInfoTypeName;
@@ -14,6 +14,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 public class DatabricksResultSetMetaDataTest {

@@ -1,15 +1,15 @@
 package com.databricks.jdbc.api.impl;
 
 import com.databricks.jdbc.api.IDatabricksSession;
-import com.databricks.jdbc.client.IDatabricksHttpClient;
-import com.databricks.jdbc.client.impl.http.DatabricksHttpClient;
-import com.databricks.jdbc.client.impl.thrift.generated.TRowSet;
-import com.databricks.jdbc.client.impl.thrift.generated.TSparkArrowResultLink;
 import com.databricks.jdbc.common.CompressionType;
 import com.databricks.jdbc.common.ErrorCodes;
 import com.databricks.jdbc.common.ErrorTypes;
 import com.databricks.jdbc.common.LogLevel;
 import com.databricks.jdbc.common.util.LoggingUtil;
+import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
+import com.databricks.jdbc.dbclient.impl.http.DatabricksHttpClient;
+import com.databricks.jdbc.dbclient.impl.thrift.generated.TRowSet;
+import com.databricks.jdbc.dbclient.impl.thrift.generated.TSparkArrowResultLink;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.model.core.ExternalLink;
 import com.databricks.jdbc.model.core.ResultData;

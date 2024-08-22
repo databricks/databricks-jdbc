@@ -2,10 +2,10 @@ package com.databricks.jdbc.api.impl;
 
 import static com.databricks.jdbc.common.util.DatabricksTypeUtil.*;
 
-import com.databricks.jdbc.client.impl.thrift.generated.*;
 import com.databricks.jdbc.common.CompressionType;
 import com.databricks.jdbc.common.LogLevel;
 import com.databricks.jdbc.common.util.LoggingUtil;
+import com.databricks.jdbc.dbclient.impl.thrift.generated.*;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.google.common.annotations.VisibleForTesting;
