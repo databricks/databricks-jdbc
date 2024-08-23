@@ -118,11 +118,12 @@ public class DataSource implements javax.sql.DataSource, ConnectionPoolDataSourc
   }
 
   public String getUsername() {
-    return properties.getProperty(DatabricksJdbcConstants.USER, properties.getProperty(UID));
+    LoggingUtil.log(LogLevel.WARN, USERNAME_ERROR);
+    return DEFAULT_USERNAME;
   }
 
   public void setUsername(String username) {
-    properties.put(DatabricksJdbcConstants.USER, username);
+    LoggingUtil.log(LogLevel.WARN, USERNAME_ERROR);
   }
 
   public String getPassword() {

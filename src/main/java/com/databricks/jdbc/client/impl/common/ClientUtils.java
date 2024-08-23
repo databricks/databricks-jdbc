@@ -8,11 +8,7 @@ public class ClientUtils {
   public static DatabricksConfig generateDatabricksConfig(
       IDatabricksConnectionContext connectionContext) throws DatabricksParsingException {
     DatabricksConfig databricksConfig =
-        new DatabricksConfig()
-            .setHost(connectionContext.getHostUrl())
-            .setUsername(connectionContext.getUserName())
-            .setToken(connectionContext.getToken())
-            .setUseSystemPropertiesHttp(connectionContext.getUseSystemProxy());
+        new DatabricksConfig().setUseSystemPropertiesHttp(connectionContext.getUseSystemProxy());
     // Setup proxy settings
     if (connectionContext.getUseProxy()) {
       databricksConfig

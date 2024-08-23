@@ -528,11 +528,6 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   }
 
   @Override
-  public String getUserName() {
-    return getParameter(USER_NAME, getParameter(UID));
-  }
-
-  @Override
   public Boolean shouldRetryRateLimitError() {
     return Objects.equals(getParameter(RATE_LIMIT_RETRY, "1"), "1");
   }

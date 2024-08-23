@@ -152,6 +152,4 @@ public interface IDatabricksConnectionContext {
   boolean enableTelemetry();
 
   String getConnectionURL();
-
-  String getUserName();
 }
