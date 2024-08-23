@@ -104,6 +104,13 @@ public class MetadataResultSetBuilder {
                 String typeVal = resultSet.getString("columnType");
 
                 object = getCharOctetLength(typeVal);
+              } else if (column.getColumnName().equals("BUFFER_LENGTH")) {
+                String typeVal = resultSet.getString("columnType");
+                int columnSize =
+                    (resultSet.getObject("columnSize") == null)
+                        ? 0
+                        : resultSet.getInt("columnSize");
+                object = getBufferLength(typeVal, columnSize);
               } else {
                 // Handle other cases where the result set does not contain the expected column
                 object = null;
@@ -115,15 +122,18 @@ public class MetadataResultSetBuilder {
             }
             // Set COLUMN_SIZE to 255 if it's not present
             if (column.getColumnName().equals("COLUMN_SIZE") && object == null) {
-              object = 255;
+              // check if typeVal is a text related field
+              String typeVal = resultSet.getString("columnType");
+              if (typeVal != null
+                  && (typeVal.contains("TEXT")
+                      || typeVal.contains("CHAR")
+                      || typeVal.contains("VARCHAR") || typeVal.contains("STRING"))) {
+                object = 255;
+              } else {
+                object = 0;
+              }
             }
 
-            if (column.getColumnName().equals("BUFFER_LENGTH")) {
-              String typeVal = resultSet.getString("columnType");
-              int columnSize =
-                  (resultSet.getObject("columnSize") == null) ? 0 : resultSet.getInt("columnSize");
-              object = getBufferLength(typeVal, columnSize);
-            }
             break;
         }
 
@@ -183,7 +193,6 @@ public class MetadataResultSetBuilder {
   }
 
   static int getCharOctetLength(String typeVal) {
-    //    if (typeVal == null || !typeVal.contains("(")) return 0;
     if (typeVal == null
         || !(typeVal.contains("CHAR")
             || typeVal.contains("STRING")
