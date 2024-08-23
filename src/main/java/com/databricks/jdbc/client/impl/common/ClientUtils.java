@@ -10,6 +10,7 @@ public class ClientUtils {
     DatabricksConfig databricksConfig =
         new DatabricksConfig()
             .setHost(connectionContext.getHostUrl())
+            .setUsername(connectionContext.getUserName())
             .setToken(connectionContext.getToken())
             .setUseSystemPropertiesHttp(connectionContext.getUseSystemProxy());
     // Setup proxy settings

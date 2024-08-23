@@ -205,10 +205,8 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
 
   @Override
   public String getToken() {
-    // TODO: decide on token/password from published specs
-    return getParameter(DatabricksJdbcConstants.PWD) == null
-        ? getParameter(DatabricksJdbcConstants.PASSWORD)
-        : getParameter(DatabricksJdbcConstants.PWD);
+    return getParameter(
+        DatabricksJdbcConstants.PWD, getParameter(DatabricksJdbcConstants.PASSWORD));
   }
 
   @Override
@@ -355,8 +353,9 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   @Override
   public CompressionType getCompressionType() {
     String compressionType =
-        Optional.ofNullable(getParameter(DatabricksJdbcConstants.LZ4_COMPRESSION_FLAG))
-            .orElse(getParameter(DatabricksJdbcConstants.COMPRESSION_FLAG));
+        getParameter(
+            DatabricksJdbcConstants.LZ4_COMPRESSION_FLAG,
+            getParameter(DatabricksJdbcConstants.COMPRESSION_FLAG));
     return CompressionType.parseCompressionType(compressionType);
   }
 
@@ -526,6 +525,11 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   @Override
   public Boolean shouldRetryTemporarilyUnavailableError() {
     return Objects.equals(getParameter(TEMPORARILY_UNAVAILABLE_RETRY, "1"), "1");
+  }
+
+  @Override
+  public String getUserName() {
+    return getParameter(USER_NAME, getParameter(UID));
   }
 
   @Override

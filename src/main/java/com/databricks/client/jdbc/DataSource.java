@@ -118,7 +118,7 @@ public class DataSource implements javax.sql.DataSource, ConnectionPoolDataSourc
   }
 
   public String getUsername() {
-    return properties.getProperty(DatabricksJdbcConstants.USER);
+    return properties.getProperty(DatabricksJdbcConstants.USER, properties.getProperty(UID));
   }
 
   public void setUsername(String username) {
@@ -126,7 +126,7 @@ public class DataSource implements javax.sql.DataSource, ConnectionPoolDataSourc
   }
 
   public String getPassword() {
-    return properties.getProperty(DatabricksJdbcConstants.PASSWORD);
+    return properties.getProperty(DatabricksJdbcConstants.PASSWORD, properties.getProperty(PWD));
   }
 
   public void setPassword(String password) {

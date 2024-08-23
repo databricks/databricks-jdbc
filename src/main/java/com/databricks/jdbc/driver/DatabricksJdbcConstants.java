@@ -54,6 +54,7 @@ public final class DatabricksJdbcConstants {
   public static final String PAIR_DELIMITER = "=";
 
   public static final String USER = "user";
+  public static final String UID = "uid";
 
   public static final String PASSWORD = "password";
 

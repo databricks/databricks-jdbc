@@ -69,10 +69,7 @@ public class DatabricksSdkClient implements DatabricksClient {
       ApiClient apiClient)
       throws DatabricksParsingException {
     this.connectionContext = connectionContext;
-    this.databricksConfig =
-        new DatabricksConfig()
-            .setHost(connectionContext.getHostUrl())
-            .setToken(connectionContext.getToken());
+    this.databricksConfig = ClientUtils.generateDatabricksConfig(connectionContext);
 
     this.workspaceClient =
         new WorkspaceClient(true /* mock */, apiClient)
