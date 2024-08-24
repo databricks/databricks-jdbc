@@ -51,7 +51,8 @@ public class DatabricksResultSet implements ResultSet, IDatabricksResultSet {
       ResultManifest resultManifest,
       StatementType statementType,
       IDatabricksSession session,
-      IDatabricksStatement parentStatement) {
+      IDatabricksStatement parentStatement)
+      throws DatabricksParsingException {
     this.statementStatus = statementStatus;
     this.statementId = statementId;
     this.executionResult =

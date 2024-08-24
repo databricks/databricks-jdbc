@@ -44,7 +44,8 @@ public class ChunkDownloader {
       ResultManifest resultManifest,
       ResultData resultData,
       IDatabricksSession session,
-      int chunksDownloaderThreadPoolSize) {
+      int chunksDownloaderThreadPoolSize)
+      throws DatabricksParsingException {
     this(
         statementId,
         resultManifest,
@@ -61,7 +62,8 @@ public class ChunkDownloader {
       ResultData resultData,
       IDatabricksSession session,
       IDatabricksHttpClient httpClient,
-      int chunksDownloaderThreadPoolSize) {
+      int chunksDownloaderThreadPoolSize)
+      throws DatabricksParsingException {
     this.chunksDownloaderThreadPoolSize = chunksDownloaderThreadPoolSize;
     this.chunkDownloaderExecutorService = createChunksDownloaderExecutorService();
     this.httpClient = httpClient;
@@ -76,7 +78,8 @@ public class ChunkDownloader {
       String statementId,
       TRowSet resultData,
       IDatabricksSession session,
-      int chunksDownloaderThreadPoolSize) {
+      int chunksDownloaderThreadPoolSize)
+      throws DatabricksParsingException {
     this(
         statementId,
         resultData,
@@ -91,7 +94,8 @@ public class ChunkDownloader {
       TRowSet resultData,
       IDatabricksSession session,
       IDatabricksHttpClient httpClient,
-      int chunksDownloaderThreadPoolSize) {
+      int chunksDownloaderThreadPoolSize)
+      throws DatabricksParsingException {
     this.chunksDownloaderThreadPoolSize = chunksDownloaderThreadPoolSize;
     this.chunkDownloaderExecutorService = createChunksDownloaderExecutorService();
     this.httpClient = httpClient;
@@ -103,7 +107,7 @@ public class ChunkDownloader {
   }
 
   private static ConcurrentHashMap<Long, ArrowResultChunk> initializeChunksMap(
-      TRowSet resultData, String statementId) {
+      TRowSet resultData, String statementId) throws DatabricksParsingException {
     ConcurrentHashMap<Long, ArrowResultChunk> chunkIndexMap = new ConcurrentHashMap<>();
     long chunkIndex = 0;
     if (resultData.getResultLinksSize() == 0) {
@@ -113,7 +117,11 @@ public class ChunkDownloader {
       // TODO : add compression
       chunkIndexMap.put(
           chunkIndex,
-          new ArrowResultChunk(chunkIndex, resultLink, statementId, CompressionType.NONE));
+          ArrowResultChunk.newBuilder()
+              .statementId(statementId)
+              .compressionType(CompressionType.NONE)
+              .withThriftChunkInfo(chunkIndex, resultLink)
+              .build());
       chunkIndex++;
     }
     return chunkIndexMap;
@@ -270,7 +278,8 @@ public class ChunkDownloader {
   }
 
   private static ConcurrentHashMap<Long, ArrowResultChunk> initializeChunksMap(
-      ResultManifest resultManifest, ResultData resultData, String statementId) {
+      ResultManifest resultManifest, ResultData resultData, String statementId)
+      throws DatabricksParsingException {
     ConcurrentHashMap<Long, ArrowResultChunk> chunkIndexMap = new ConcurrentHashMap<>();
     if (resultManifest.getTotalChunkCount() == 0) {
       return chunkIndexMap;
@@ -281,7 +290,11 @@ public class ChunkDownloader {
       // buffer.
       chunkIndexMap.put(
           chunkInfo.getChunkIndex(),
-          new ArrowResultChunk(chunkInfo, statementId, resultManifest.getCompressionType()));
+          ArrowResultChunk.newBuilder()
+              .statementId(statementId)
+              .compressionType(resultManifest.getCompressionType())
+              .withChunkInfo(chunkInfo)
+              .build());
     }
 
     for (ExternalLink externalLink : resultData.getExternalLinks()) {

@@ -31,7 +31,7 @@ public class ExecutionResultFactoryTest {
   @Mock IDatabricksResultSet resultSet;
 
   @Test
-  public void testGetResultSet_jsonInline() {
+  public void testGetResultSet_jsonInline() throws DatabricksParsingException {
     ResultManifest manifest = new ResultManifest();
     manifest.setFormat(Format.JSON_ARRAY);
     ResultData data = new ResultData();
@@ -43,7 +43,7 @@ public class ExecutionResultFactoryTest {
   }
 
   @Test
-  public void testGetResultSet_externalLink() {
+  public void testGetResultSet_externalLink() throws DatabricksParsingException {
     when(session.getConnectionContext()).thenReturn(connectionContext);
     when(session.getConnectionContext().getCloudFetchThreadPoolSize()).thenReturn(16);
     ResultManifest manifest = new ResultManifest();
@@ -59,7 +59,7 @@ public class ExecutionResultFactoryTest {
   }
 
   @Test
-  public void testGetResultSet_volumeOperation() {
+  public void testGetResultSet_volumeOperation() throws DatabricksParsingException {
     when(session.getConnectionContext()).thenReturn(connectionContext);
 
     ResultData data = new ResultData();

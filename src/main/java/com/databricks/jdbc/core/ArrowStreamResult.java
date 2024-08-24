@@ -34,7 +34,8 @@ class ArrowStreamResult implements IExecutionResult {
       ResultManifest resultManifest,
       ResultData resultData,
       String statementId,
-      IDatabricksSession session) {
+      IDatabricksSession session)
+      throws DatabricksParsingException {
     this(
         resultManifest,
         new ChunkDownloader(
@@ -111,7 +112,8 @@ class ArrowStreamResult implements IExecutionResult {
       ResultData resultData,
       String statementId,
       IDatabricksSession session,
-      IDatabricksHttpClient httpClient) {
+      IDatabricksHttpClient httpClient)
+      throws DatabricksParsingException {
     this(
         resultManifest,
         new ChunkDownloader(

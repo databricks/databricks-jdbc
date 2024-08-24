@@ -1,6 +1,5 @@
 package com.databricks.jdbc.core;
 
-import com.databricks.jdbc.client.DatabricksHttpException;
 import com.databricks.jdbc.client.IDatabricksHttpClient;
 import com.databricks.jdbc.common.LogLevel;
 import com.databricks.jdbc.common.util.LoggingUtil;
@@ -27,7 +26,7 @@ class SingleChunkDownloader implements Callable<Void> {
     }
     try {
       chunk.downloadData(httpClient);
-    } catch (DatabricksHttpException | DatabricksParsingException e) {
+    } catch (DatabricksParsingException e) {
       // TODO: handle retries
     } catch (IOException e) {
       LoggingUtil.log(
