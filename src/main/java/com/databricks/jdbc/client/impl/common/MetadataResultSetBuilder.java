@@ -82,29 +82,29 @@ public class MetadataResultSetBuilder {
             // If column does not match any of the special cases, try to get it from the ResultSet
             try {
               object = resultSet.getObject(column.getResultSetColumnName());
-              if (column.getColumnName().equals("IS_NULLABLE")) {
+              if (column.getColumnName().equals(IS_NULLABLE_COLUMN.getColumnName())) {
                 if (object == null || object.equals("true")) {
                   object = "YES";
                 } else {
                   object = "NO";
                 }
               }
-              if (column.getColumnName().equals("DECIMAL_DIGITS")
-                  || column.getColumnName().equals("NUM_PREC_RADIX")) {
+              if (column.getColumnName().equals(DECIMAL_DIGITS_COLUMN.getColumnName())
+                  || column.getColumnName().equals(NUM_PREC_RADIX_COLUMN.getColumnName())) {
                 if (object == null) {
                   object = 0;
                 }
               }
             } catch (SQLException e) {
-              if (column.getColumnName().equals("DATA_TYPE")) {
+              if (column.getColumnName().equals(DATA_TYPE_COLUMN.getColumnName())) {
                 String typeVal = resultSet.getString("columnType");
                 if (typeVal.contains("(")) typeVal = typeVal.substring(0, typeVal.indexOf('('));
                 object = getCode(typeVal);
-              } else if (column.getColumnName().equals("CHAR_OCTET_LENGTH")) {
+              } else if (column.getColumnName().equals(CHAR_OCTET_LENGTH_COLUMN.getColumnName())) {
                 String typeVal = resultSet.getString("columnType");
 
                 object = getCharOctetLength(typeVal);
-              } else if (column.getColumnName().equals("BUFFER_LENGTH")) {
+              } else if (column.getColumnName().equals(BUFFER_LENGTH_COLUMN.getColumnName())) {
                 String typeVal = resultSet.getString("columnType");
                 int columnSize =
                     (resultSet.getObject("columnSize") == null)
@@ -117,17 +117,19 @@ public class MetadataResultSetBuilder {
               }
             }
             // Handle TYPE_NAME separately for potential modifications
-            if (column.getColumnName().equals("TYPE_NAME")) {
+            if (column.getColumnName().equals(TYPE_NAME_COLUMN.getColumnName())) {
               object = stripTypeName((String) object);
             }
             // Set COLUMN_SIZE to 255 if it's not present
-            if (column.getColumnName().equals("COLUMN_SIZE") && object == null) {
+            if (column.getColumnName().equals(COLUMN_SIZE_COLUMN.getColumnName())
+                && object == null) {
               // check if typeVal is a text related field
               String typeVal = resultSet.getString("columnType");
               if (typeVal != null
                   && (typeVal.contains("TEXT")
                       || typeVal.contains("CHAR")
-                      || typeVal.contains("VARCHAR") || typeVal.contains("STRING"))) {
+                      || typeVal.contains("VARCHAR")
+                      || typeVal.contains("STRING"))) {
                 object = 255;
               } else {
                 object = 0;
