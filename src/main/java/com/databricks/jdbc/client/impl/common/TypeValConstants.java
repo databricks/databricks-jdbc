@@ -13,6 +13,7 @@ public class TypeValConstants {
   static final String ARRAY_TYPE = "ARRAY";
   static final String MAP_TYPE = "MAP";
   static final String STRUCT_TYPE = "STRUCT";
+  static final String UNIONTYPE_TYPE = "UNIONTYPE";
   static final String BYTE_TYPE = "BYTE";
   static final String SHORT_TYPE = "SHORT";
   static final String LONG_TYPE = "LONG";
@@ -22,11 +23,9 @@ public class TypeValConstants {
   static final String VARCHAR_TYPE = "VARCHAR";
   static final String BIGINT_TYPE = "BIGINT";
   static final String TINYINT_TYPE = "TINYINT";
+    static final String SMALLINT_TYPE = "SMALLINT";
   static final String INTEGER_TYPE = "INTEGER";
   static final String NUMERIC_TYPE = "NUMERIC";
   static final String TIME_TYPE = "TIME";
-  static final String INTERVAL_TYPE = "INTERVAL";
-  static final String JAVA_OBJECT_TYPE = "JAVA_OBJECT";
-  static final String DISTINCT_TYPE = "DISTINCT";
   static final String TEXT_TYPE = "TEXT";
 }
