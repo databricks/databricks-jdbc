@@ -97,19 +97,19 @@ public class MetadataResultSetBuilder {
               }
             } catch (SQLException e) {
               if (column.getColumnName().equals(DATA_TYPE_COLUMN.getColumnName())) {
-                String typeVal = resultSet.getString("columnType");
+                String typeVal = resultSet.getString(COLUMN_TYPE_COLUMN.getResultSetColumnName());
                 if (typeVal.contains("(")) typeVal = typeVal.substring(0, typeVal.indexOf('('));
                 object = getCode(typeVal);
               } else if (column.getColumnName().equals(CHAR_OCTET_LENGTH_COLUMN.getColumnName())) {
-                String typeVal = resultSet.getString("columnType");
+                String typeVal = resultSet.getString(COLUMN_TYPE_COLUMN.getResultSetColumnName());
 
                 object = getCharOctetLength(typeVal);
               } else if (column.getColumnName().equals(BUFFER_LENGTH_COLUMN.getColumnName())) {
-                String typeVal = resultSet.getString("columnType");
+                String typeVal = resultSet.getString(COLUMN_TYPE_COLUMN.getResultSetColumnName());
                 int columnSize =
-                    (resultSet.getObject("columnSize") == null)
+                    (resultSet.getObject(COLUMN_SIZE_COLUMN.getResultSetColumnName()) == null)
                         ? 0
-                        : resultSet.getInt("columnSize");
+                        : resultSet.getInt(COLUMN_SIZE_COLUMN.getResultSetColumnName());
                 object = getBufferLength(typeVal, columnSize);
               } else {
                 // Handle other cases where the result set does not contain the expected column
@@ -124,7 +124,7 @@ public class MetadataResultSetBuilder {
             if (column.getColumnName().equals(COLUMN_SIZE_COLUMN.getColumnName())
                 && object == null) {
               // check if typeVal is a text related field
-              String typeVal = resultSet.getString("columnType");
+              String typeVal = resultSet.getString(COLUMN_TYPE_COLUMN.getResultSetColumnName());
               if (typeVal != null
                   && (typeVal.contains("TEXT")
                       || typeVal.contains("CHAR")
