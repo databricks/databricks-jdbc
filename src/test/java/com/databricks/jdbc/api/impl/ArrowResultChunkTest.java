@@ -30,10 +30,9 @@ import org.junit.jupiter.api.Test;
 public class ArrowResultChunkTest {
 
   private static final String STATEMENT_ID = "statement_id";
-  private Random random = new Random();
-  private int rowsInRecordBatch = 20;
-
-  private long totalRows = 110;
+  private final Random random = new Random();
+  private final int rowsInRecordBatch = 20;
+  private final long totalRows = 110;
 
   @Test
   public void testReleaseUnusedChunk() throws Exception {
