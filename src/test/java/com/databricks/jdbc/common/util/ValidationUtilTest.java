@@ -3,8 +3,8 @@ package com.databricks.jdbc.common.util;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.when;
 
-import com.databricks.jdbc.client.DatabricksHttpException;
-import com.databricks.jdbc.core.DatabricksSQLException;
+import com.databricks.jdbc.exception.DatabricksHttpException;
+import com.databricks.jdbc.exception.DatabricksSQLException;
 import org.apache.http.HttpResponse;
 import org.apache.http.StatusLine;
 import org.junit.jupiter.api.Test;

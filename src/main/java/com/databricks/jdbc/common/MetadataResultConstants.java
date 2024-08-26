@@ -1,6 +1,6 @@
 package com.databricks.jdbc.common;
 
-import com.databricks.jdbc.client.impl.common.ResultColumn;
+import com.databricks.jdbc.model.core.ResultColumn;
 import java.sql.Types;
 import java.util.Arrays;
 import java.util.List;

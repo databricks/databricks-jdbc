@@ -2,8 +2,8 @@ package com.databricks.jdbc.common.util;
 
 import static com.databricks.jdbc.common.MetadataResultConstants.NULL_STRING;
 
-import com.databricks.jdbc.core.DatabricksValidationException;
-import com.databricks.jdbc.core.ImmutableSqlParameter;
+import com.databricks.jdbc.api.impl.ImmutableSqlParameter;
+import com.databricks.jdbc.exception.DatabricksValidationException;
 import java.util.Map;
 
 public class SQLInterpolator {

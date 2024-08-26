@@ -1,10 +1,10 @@
 package com.databricks.jdbc;
 
-import com.databricks.jdbc.client.impl.thrift.generated.*;
-import com.databricks.jdbc.core.ImmutableSessionInfo;
-import com.databricks.jdbc.core.types.AllPurposeCluster;
-import com.databricks.jdbc.core.types.ComputeResource;
-import com.databricks.jdbc.core.types.Warehouse;
+import com.databricks.jdbc.api.impl.ImmutableSessionInfo;
+import com.databricks.jdbc.common.AllPurposeCluster;
+import com.databricks.jdbc.common.IDatabricksComputeResource;
+import com.databricks.jdbc.common.Warehouse;
+import com.databricks.jdbc.dbclient.impl.thrift.generated.*;
 import java.nio.ByteBuffer;
 import java.util.Collections;
 import java.util.List;
@@ -17,7 +17,7 @@ public class TestConstants {
   private static final String CATALOG = "field_demos";
   private static final String SCHEMA = "ossjdbc";
   public static final Warehouse WAREHOUSE_COMPUTE = new Warehouse(WAREHOUSE_ID);
-  public static final ComputeResource CLUSTER_COMPUTE =
+  public static final IDatabricksComputeResource CLUSTER_COMPUTE =
       new AllPurposeCluster("6051921418418893", "1115-130834-ms4m0yv");
   public static final String TEST_SCHEMA = "testSchema";
   public static final String TEST_TABLE = "testTable";
