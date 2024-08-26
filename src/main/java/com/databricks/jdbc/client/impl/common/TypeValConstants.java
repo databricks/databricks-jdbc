@@ -1,4 +1,4 @@
-package com.databricks.jdbc.client.impl.helper;
+package com.databricks.jdbc.client.impl.common;
 
 public class TypeValConstants {
   static final String STRING_TYPE = "STRING";
@@ -23,7 +23,7 @@ public class TypeValConstants {
   static final String VARCHAR_TYPE = "VARCHAR";
   static final String BIGINT_TYPE = "BIGINT";
   static final String TINYINT_TYPE = "TINYINT";
-    static final String SMALLINT_TYPE = "SMALLINT";
+  static final String SMALLINT_TYPE = "SMALLINT";
   static final String INTEGER_TYPE = "INTEGER";
   static final String NUMERIC_TYPE = "NUMERIC";
   static final String TIME_TYPE = "TIME";

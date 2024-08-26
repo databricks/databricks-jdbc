@@ -1,8 +1,8 @@
 package com.databricks.jdbc.client.impl.common;
 
-import static com.databricks.jdbc.client.impl.helper.CommandConstants.*;
-import static com.databricks.jdbc.client.impl.helper.MetadataResultConstants.*;
-import static com.databricks.jdbc.client.impl.helper.TypeValConstants.*;
+import static com.databricks.jdbc.client.impl.common.CommandConstants.*;
+import static com.databricks.jdbc.client.impl.common.TypeValConstants.*;
+import static com.databricks.jdbc.common.MetadataResultConstants.*;
 
 import com.databricks.jdbc.common.StatementType;
 import com.databricks.jdbc.core.DatabricksResultSet;
