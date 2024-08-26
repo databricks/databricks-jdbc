@@ -7,7 +7,7 @@ import java.util.List;
 
 public class MetadataResultConstants {
   public static final String[] DEFAULT_TABLE_TYPES = {"TABLE", "VIEW", "SYSTEM TABLE"};
-  public static final ResultColumn CATALOG_COLUMN =
+  private static final ResultColumn CATALOG_COLUMN =
       new ResultColumn("TABLE_CAT", "catalogName", Types.VARCHAR);
   private static final ResultColumn CATALOG_FULL_COLUMN =
       new ResultColumn("TABLE_CATALOG", "catalogName", Types.VARCHAR);
@@ -27,38 +27,38 @@ public class MetadataResultConstants {
       new ResultColumn("PK_NAME", "constraintName", Types.VARCHAR);
   private static final ResultColumn PRIMARY_KEY_TYPE_COLUMN =
       new ResultColumn("PK_TYPE", "constraintType", Types.VARCHAR);
-  public static final ResultColumn TYPE_NAME_COLUMN =
+  private static final ResultColumn TYPE_NAME_COLUMN =
       new ResultColumn("TYPE_NAME", "TYPE_NAME", Types.VARCHAR);
-  public static final ResultColumn SCHEMA_COLUMN =
+  private static final ResultColumn SCHEMA_COLUMN =
       new ResultColumn("TABLE_SCHEM", "namespace", Types.VARCHAR);
 
   private static final ResultColumn SCHEMA_COLUMN_FOR_GET_SCHEMA =
       new ResultColumn("TABLE_SCHEM", "databaseName", Types.VARCHAR);
 
-  public static final ResultColumn TABLE_NAME_COLUMN =
+  private static final ResultColumn TABLE_NAME_COLUMN =
       new ResultColumn("TABLE_NAME", "tableName", Types.VARCHAR);
   private static final ResultColumn TABLE_TYPE_COLUMN =
       new ResultColumn("TABLE_TYPE", "tableType", Types.VARCHAR);
-  public static final ResultColumn REMARKS_COLUMN =
+  private static final ResultColumn REMARKS_COLUMN =
       new ResultColumn("REMARKS", "remarks", Types.VARCHAR);
   private static final ResultColumn COLUMN_NAME_COLUMN =
       new ResultColumn("COLUMN_NAME", "columnName", Types.VARCHAR);
 
   private static final ResultColumn PROCEDURE_TYPE_COLUMN =
       new ResultColumn("PROCEDURE_TYPE", "procedureType", Types.SMALLINT);
-  public static final ResultColumn COLUMN_TYPE_COLUMN =
+  private static final ResultColumn COLUMN_TYPE_COLUMN =
       new ResultColumn("TYPE_NAME", "columnType", Types.VARCHAR);
-  public static final ResultColumn BUFFER_LENGTH_COLUMN =
+  private static final ResultColumn BUFFER_LENGTH_COLUMN =
       new ResultColumn("BUFFER_LENGTH", "bufferLength", Types.SMALLINT);
-  public static final ResultColumn COLUMN_SIZE_COLUMN =
+  private static final ResultColumn COLUMN_SIZE_COLUMN =
       new ResultColumn("COLUMN_SIZE", "columnSize", Types.INTEGER);
   private static final ResultColumn PRECISION_COLUMN =
       new ResultColumn("PRECISION", "precision", Types.INTEGER);
-  public static final ResultColumn COLUMN_DEF_COLUMN =
+  private static final ResultColumn COLUMN_DEF_COLUMN =
       new ResultColumn("COLUMN_DEF", "columnType", Types.VARCHAR);
-  public static final ResultColumn DECIMAL_DIGITS_COLUMN =
+  private static final ResultColumn DECIMAL_DIGITS_COLUMN =
       new ResultColumn("DECIMAL_DIGITS", "decimalDigits", Types.INTEGER);
-  public static final ResultColumn COL_NAME_COLUMN =
+  private static final ResultColumn COL_NAME_COLUMN =
       new ResultColumn("COLUMN_NAME", "col_name", Types.VARCHAR);
   private static final ResultColumn FUNCTION_CATALOG_COLUMN =
       new ResultColumn("FUNCTION_CAT", "catalogName", Types.VARCHAR);
@@ -72,15 +72,15 @@ public class MetadataResultConstants {
       new ResultColumn("SPECIFIC_NAME", "specificName", Types.VARCHAR);
   private static final ResultColumn INFORMATION_NAME_COLUMN =
       new ResultColumn("INFO", "information", Types.VARCHAR);
-  public static final ResultColumn NUM_PREC_RADIX_COLUMN =
-      new ResultColumn("NUM_PREC_RADIX", "radix", Types.INTEGER);
+  private static final ResultColumn NUM_PREC_RADIX_COLUMN =
+      new ResultColumn("NUM_PREC_RADIX", "numPrecRadix", Types.INTEGER);
   private static final ResultColumn RADIX_COLUMN =
       new ResultColumn("RADIX", "radix", Types.INTEGER);
-  public static final ResultColumn IS_NULLABLE_COLUMN =
+  private static final ResultColumn IS_NULLABLE_COLUMN =
       new ResultColumn("IS_NULLABLE", "isNullable", Types.VARCHAR);
-  public static final ResultColumn SQL_DATA_TYPE_COLUMN =
+  private static final ResultColumn SQL_DATA_TYPE_COLUMN =
       new ResultColumn("SQL_DATA_TYPE", "SQLDataType", Types.SMALLINT);
-  public static final ResultColumn DATA_TYPE_COLUMN =
+  private static final ResultColumn DATA_TYPE_COLUMN =
       new ResultColumn("DATA_TYPE", "dataType", Types.INTEGER);
   private static final ResultColumn LITERAL_PREFIX_COLUMN =
       new ResultColumn("LITERAL_PREFIX", "literalPrefix", Types.VARCHAR);
@@ -88,32 +88,32 @@ public class MetadataResultConstants {
       new ResultColumn("LITERAL_SUFFIX", "literalSuffix", Types.VARCHAR);
   private static final ResultColumn CREATE_PARAMS_COLUMN =
       new ResultColumn("CREATE_PARAMS", "createParams", Types.VARCHAR);
-  public static final ResultColumn SQL_DATETIME_SUB_COLUMN =
+  private static final ResultColumn SQL_DATETIME_SUB_COLUMN =
       new ResultColumn("SQL_DATETIME_SUB", "SQLDateTimeSub", Types.SMALLINT);
-  public static final ResultColumn CHAR_OCTET_LENGTH_COLUMN =
+  private static final ResultColumn CHAR_OCTET_LENGTH_COLUMN =
       new ResultColumn("CHAR_OCTET_LENGTH", "CharOctetLength", Types.INTEGER);
 
-  public static final ResultColumn SCOPE_CATALOG_COLUMN =
+  private static final ResultColumn SCOPE_CATALOG_COLUMN =
       new ResultColumn("SCOPE_CATALOG", "ScopeCatalog", Types.VARCHAR);
 
-  public static final ResultColumn SCOPE_SCHEMA_COLUMN =
+  private static final ResultColumn SCOPE_SCHEMA_COLUMN =
       new ResultColumn("SCOPE_SCHEMA", "ScopeSchema", Types.VARCHAR);
 
-  public static final ResultColumn SCOPE_TABLE_COLUMN =
+  private static final ResultColumn SCOPE_TABLE_COLUMN =
       new ResultColumn("SCOPE_TABLE", "ScopeTable", Types.VARCHAR);
 
-  public static final ResultColumn SOURCE_DATA_TYPE_COLUMN =
+  private static final ResultColumn SOURCE_DATA_TYPE_COLUMN =
       new ResultColumn("SOURCE_DATA_TYPE", "SourceDataType", Types.SMALLINT);
 
   private static final ResultColumn USER_DATA_TYPE_COLUMN =
       new ResultColumn("USER_DATA_TYPE", "UserDataType", Types.SMALLINT);
-  public static final ResultColumn NULLABLE_COLUMN =
-      new ResultColumn("NULLABLE", "isNullable", Types.BIT);
-  public static final ResultColumn ORDINAL_POSITION_COLUMN =
+  private static final ResultColumn NULLABLE_COLUMN =
+      new ResultColumn("NULLABLE", "isNullable", Types.INTEGER);
+  private static final ResultColumn ORDINAL_POSITION_COLUMN =
       new ResultColumn("ORDINAL_POSITION", "ordinalPosition", Types.INTEGER);
-  public static final ResultColumn IS_AUTO_INCREMENT_COLUMN =
+  private static final ResultColumn IS_AUTO_INCREMENT_COLUMN =
       new ResultColumn("IS_AUTOINCREMENT", "isAutoIncrement", Types.VARCHAR);
-  public static final ResultColumn IS_GENERATED_COLUMN =
+  private static final ResultColumn IS_GENERATED_COLUMN =
       new ResultColumn("IS_GENERATEDCOLUMN", "isGenerated", Types.VARCHAR);
   private static final ResultColumn CASE_SENSITIVE_COLUMN =
       new ResultColumn("CASE_SENSITIVE", "caseSensitive", Types.BIT);
