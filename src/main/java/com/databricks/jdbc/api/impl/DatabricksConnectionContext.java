@@ -201,10 +201,8 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
 
   @Override
   public String getToken() {
-    // TODO: decide on token/password from published specs
-    return getParameter(DatabricksJdbcConstants.PWD) == null
-        ? getParameter(DatabricksJdbcConstants.PASSWORD)
-        : getParameter(DatabricksJdbcConstants.PWD);
+    return getParameter(
+        DatabricksJdbcConstants.PWD, getParameter(DatabricksJdbcConstants.PASSWORD));
   }
 
   @Override
@@ -351,8 +349,9 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   public CompressionType getCompressionType() {
     // TODO: Make use of compression type
     String compressionType =
-        Optional.ofNullable(getParameter(DatabricksJdbcConstants.LZ4_COMPRESSION_FLAG))
-            .orElse(getParameter(DatabricksJdbcConstants.COMPRESSION_FLAG));
+        getParameter(
+            DatabricksJdbcConstants.LZ4_COMPRESSION_FLAG,
+            getParameter(DatabricksJdbcConstants.COMPRESSION_FLAG));
     return CompressionType.parseCompressionType(compressionType);
   }
 
