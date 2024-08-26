@@ -1,12 +1,12 @@
 package com.databricks.jdbc.common.util;
 
 import static com.databricks.jdbc.common.MetadataResultConstants.NULL_STRING;
-import static com.databricks.jdbc.core.DatabricksTypeUtil.*;
+import static com.databricks.jdbc.common.util.DatabricksTypeUtil.*;
 
-import com.databricks.jdbc.client.DatabricksHttpException;
-import com.databricks.jdbc.client.impl.thrift.generated.*;
-import com.databricks.jdbc.client.sqlexec.ExternalLink;
 import com.databricks.jdbc.common.LogLevel;
+import com.databricks.jdbc.dbclient.impl.thrift.generated.*;
+import com.databricks.jdbc.exception.DatabricksHttpException;
+import com.databricks.jdbc.model.core.ExternalLink;
 import com.databricks.sdk.service.sql.ColumnInfoTypeName;
 import java.nio.ByteBuffer;
 import java.util.*;

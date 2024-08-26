@@ -2,7 +2,7 @@ package com.databricks.jdbc.common.util;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-import com.databricks.jdbc.core.types.CompressionType;
+import com.databricks.jdbc.common.CompressionType;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;

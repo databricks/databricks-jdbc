@@ -1,13 +1,13 @@
 package com.databricks.jdbc.integration.fakeservice.tests;
 
 import static com.databricks.jdbc.TestConstants.*;
-import static com.databricks.jdbc.driver.DatabricksJdbcConstants.*;
+import static com.databricks.jdbc.common.DatabricksJdbcConstants.*;
 import static com.databricks.jdbc.integration.IntegrationTestUtil.*;
 import static com.github.tomakehurst.wiremock.core.WireMockConfiguration.wireMockConfig;
 import static org.junit.jupiter.api.Assertions.*;
 
-import com.databricks.jdbc.client.impl.sqlexec.DatabricksUCVolumeClient;
-import com.databricks.jdbc.driver.DatabricksJdbcConstants;
+import com.databricks.jdbc.common.DatabricksJdbcConstants;
+import com.databricks.jdbc.dbclient.impl.sqlexec.DatabricksUCVolumeClient;
 import com.databricks.jdbc.integration.fakeservice.AbstractFakeServiceIntegrationTests;
 import com.databricks.jdbc.integration.fakeservice.DatabricksWireMockExtension;
 import com.databricks.jdbc.integration.fakeservice.FakeServiceConfigLoader;

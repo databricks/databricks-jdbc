@@ -3,9 +3,9 @@ package com.databricks.jdbc.integration.e2e;
 import static com.databricks.jdbc.integration.IntegrationTestUtil.getDogfoodJDBCConnection;
 import static org.junit.jupiter.api.Assertions.*;
 
-import com.databricks.jdbc.client.IDatabricksUCVolumeClient;
-import com.databricks.jdbc.core.IDatabricksConnection;
-import com.databricks.jdbc.driver.DatabricksJdbcConstants;
+import com.databricks.jdbc.api.IDatabricksConnection;
+import com.databricks.jdbc.common.DatabricksJdbcConstants;
+import com.databricks.jdbc.dbclient.IDatabricksUCVolumeClient;
 import java.io.File;
 import java.io.FileInputStream;
 import java.nio.file.Files;

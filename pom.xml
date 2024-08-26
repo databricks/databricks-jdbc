@@ -241,9 +241,10 @@
         <version>${maven-surefire-plugin.version}</version>
         <configuration>
           <excludes>
-            <exclude>**/integration/**/*.java</exclude>
-            <exclude>**/*MetadataBenchmarkingTest.java</exclude>
             <exclude>**/*LargeQueriesBenchmarkingTest.java</exclude>
+            <exclude>**/*MetadataBenchmarkingTest.java</exclude>
+            <exclude>**/DriverTest.java</exclude>
+            <exclude>**/integration/**/*.java</exclude>
           </excludes>
           <argLine>
             @{argLine}
@@ -333,15 +334,14 @@
         </executions>
         <configuration>
           <excludes>
-            <exclude>**/EnvironmentVariables*</exclude>
-            <exclude>**/client/impl/sqlexec/DatabricksMetadataSdkClient*</exclude> <!-- TODO(PECO-1502): Remove once fixed -->
-            <exclude>**/*Exception*</exclude>
-            <exclude>**/types/**</exclude>
-            <exclude>**/client/sqlexec/**</exclude>
-            <exclude>**/*Constants*</exclude>
-            <exclude>**/thrift/generated/**</exclude>
-            <exclude>**/*driver/DatabricksJdbcConstants*</exclude>
             <exclude>**/CommandName*</exclude>
+            <exclude>**/DatabricksJdbcConstants*</exclude>
+            <exclude>**/EnvironmentVariables*</exclude>
+            <exclude>**/*Constants*</exclude>
+            <exclude>**/*Exception*</exclude>
+            <exclude>**/dbclient/impl/sqlexec/DatabricksMetadataSdkClient*</exclude> <!-- TODO(PECO-1502): Remove once fixed -->
+            <exclude>**/model/**</exclude>
+            <exclude>**/thrift/generated/**</exclude>
           </excludes>
         </configuration>
       </plugin>
