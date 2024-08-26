@@ -4,7 +4,7 @@ import static com.databricks.jdbc.common.util.DatabricksThriftUtil.getTypeFromTy
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import com.databricks.jdbc.common.DatabricksJdbcConstants;
-import com.databricks.jdbc.dbclient.impl.thrift.generated.*;
+import com.databricks.jdbc.model.client.thrift.generated.*;
 import com.databricks.jdbc.model.core.ResultManifest;
 import com.databricks.sdk.service.sql.ColumnInfo;
 import com.databricks.sdk.service.sql.ColumnInfoTypeName;

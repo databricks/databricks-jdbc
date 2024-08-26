@@ -4,7 +4,7 @@ import com.databricks.jdbc.api.impl.ImmutableSessionInfo;
 import com.databricks.jdbc.common.AllPurposeCluster;
 import com.databricks.jdbc.common.IDatabricksComputeResource;
 import com.databricks.jdbc.common.Warehouse;
-import com.databricks.jdbc.dbclient.impl.thrift.generated.*;
+import com.databricks.jdbc.model.client.thrift.generated.*;
 import java.nio.ByteBuffer;
 import java.util.Collections;
 import java.util.List;
