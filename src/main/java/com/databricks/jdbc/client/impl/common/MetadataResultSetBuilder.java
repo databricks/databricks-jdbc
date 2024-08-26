@@ -1,7 +1,8 @@
 package com.databricks.jdbc.client.impl.common;
 
-import static com.databricks.jdbc.client.impl.common.CommandConstants.*;
-import static com.databricks.jdbc.common.MetadataResultConstants.*;
+import static com.databricks.jdbc.client.impl.helper.CommandConstants.*;
+import static com.databricks.jdbc.client.impl.helper.MetadataResultConstants.*;
+import static com.databricks.jdbc.client.impl.helper.TypeValConstants.*;
 
 import com.databricks.jdbc.common.StatementType;
 import com.databricks.jdbc.core.DatabricksResultSet;
@@ -65,6 +66,13 @@ public class MetadataResultSetBuilder {
     return buildResultSet(PRIMARY_KEYS_COLUMNS, rows, METADATA_STATEMENT_ID);
   }
 
+  private static boolean isTextType(String typeVal) {
+    return (typeVal.contains(TEXT_TYPE)
+        || typeVal.contains(CHAR_TYPE)
+        || typeVal.contains(VARCHAR_TYPE)
+        || typeVal.contains(STRING_TYPE));
+  }
+
   private static List<List<Object>> getRows(ResultSet resultSet, List<ResultColumn> columns)
       throws SQLException {
     List<List<Object>> rows = new ArrayList<>();
@@ -125,11 +133,7 @@ public class MetadataResultSetBuilder {
                 && object == null) {
               // check if typeVal is a text related field
               String typeVal = resultSet.getString(COLUMN_TYPE_COLUMN.getResultSetColumnName());
-              if (typeVal != null
-                  && (typeVal.contains("TEXT")
-                      || typeVal.contains("CHAR")
-                      || typeVal.contains("VARCHAR")
-                      || typeVal.contains("STRING"))) {
+              if (typeVal != null && isTextType(typeVal)) {
                 object = 255;
               } else {
                 object = 0;
@@ -147,32 +151,21 @@ public class MetadataResultSetBuilder {
     return rows;
   }
 
-  /**
-   * Extracts the character octet length from a given SQL type definition. For example, for input
-   * "VARCHAR(100)", it returns 100. For inputs without a specified length or invalid inputs, it
-   * returns 0.
-   *
-   * @param typeVal the SQL type definition
-   * @return the character octet length or 0 if not applicable
-   */
   static int getBufferLength(String typeVal, int columnSize) {
     if (typeVal == null || typeVal.isEmpty()) {
       return 0;
     }
     if (!typeVal.contains("(")) {
-      if (typeVal.equals("DATE")) {
+      if (typeVal.equals(DATE_TYPE)) {
         return 6;
       }
-      if (typeVal.equals("TIMESTAMP")) {
+      if (typeVal.equals(TIMESTAMP_TYPE)) {
         return 16;
       }
-      if (typeVal.equals("BINARY")) {
+      if (typeVal.equals(BINARY_TYPE)) {
         return 32767;
       }
-      if (typeVal.equals("STRING")
-          || typeVal.equals("TEXT")
-          || typeVal.equals("CHAR")
-          || typeVal.equals("VARCHAR")) {
+      if (isTextType(typeVal)) {
         return 255;
       }
       return columnSize;
@@ -184,26 +177,26 @@ public class MetadataResultSetBuilder {
     }
     String max_char_length = lengthConstraints[0].trim();
     try {
-      if (typeVal.contains("CHAR")
-          || typeVal.contains("VARCHAR")
-          || typeVal.contains("STRING")
-          || typeVal.contains("TEXT")) return Integer.parseInt(max_char_length);
+      if (isTextType(typeVal)) return Integer.parseInt(max_char_length);
       else return 4 * Integer.parseInt(max_char_length);
     } catch (NumberFormatException e) {
       return 0;
     }
   }
 
+  /**
+   * Extracts the character octet length from a given SQL type definition. For example, for input
+   * "VARCHAR(100)", it returns 100. For inputs without a specified length or invalid inputs, it
+   * returns 0.
+   *
+   * @param typeVal the SQL type definition
+   * @return the character octet length or 0 if not applicable
+   */
   static int getCharOctetLength(String typeVal) {
-    if (typeVal == null
-        || !(typeVal.contains("CHAR")
-            || typeVal.contains("STRING")
-            || typeVal.contains("VARCHAR")
-            || typeVal.contains("TEXT")
-            || typeVal.contains("BINARY"))) return 0;
+    if (typeVal == null || !(isTextType(typeVal) || typeVal.contains(BINARY_TYPE))) return 0;
 
     if (!typeVal.contains("(")) {
-      if (typeVal.contains("BINARY")) {
+      if (typeVal.contains(BINARY_TYPE)) {
         return 32767;
       } else {
         return 255;
