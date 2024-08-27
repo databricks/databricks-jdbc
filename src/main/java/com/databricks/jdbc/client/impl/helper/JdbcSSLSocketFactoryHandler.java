@@ -8,6 +8,10 @@ import javax.net.ssl.CertPathTrustManagerParameters;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.TrustManagerFactory;
 import javax.net.ssl.X509TrustManager;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.io.InputStream;
 import java.security.KeyStore;
 import java.security.SecureRandom;
 import java.security.cert.*;
@@ -18,9 +22,21 @@ import java.util.stream.Collectors;
 
 public class JdbcSSLSocketFactoryHandler {
   public IDatabricksConnectionContext connectionContext;
+  Certificate cert;
 
   public JdbcSSLSocketFactoryHandler(IDatabricksConnectionContext connectionContext) {
     this.connectionContext = connectionContext;
+
+    String pemFilePath = "/Users/vikrant.puppala/IdeaProjects/databricks-jdbc/src/main/resources/RootCA.pem";
+
+    // Load the certificate
+    try {
+      CertificateFactory certFactory = CertificateFactory.getInstance("X.509");
+      InputStream inputStream = new FileInputStream(pemFilePath);
+      cert = certFactory.generateCertificate(inputStream);
+    } catch (Exception e) {
+      throw new RuntimeException(e);
+    }
   }
 
   public Optional<SSLConnectionSocketFactory> getCustomSSLSocketFactory() {
@@ -40,12 +56,14 @@ public class JdbcSSLSocketFactoryHandler {
       defaultTrustManagerFactory.init((KeyStore) null);
       X509TrustManager defaultTrustManager = (X509TrustManager) defaultTrustManagerFactory.getTrustManagers()[0];
       X509Certificate[] certs = defaultTrustManager.getAcceptedIssuers();
-      Set<TrustAnchor> trustAnchor = Arrays.stream(certs)
+      Set<TrustAnchor> trustAnchors = Arrays.stream(certs)
               .map(cert -> new TrustAnchor(cert, null))
               .collect(Collectors.toSet());
 
+      trustAnchors.add(new TrustAnchor((X509Certificate) cert, null));
+
       // Build custom TrustManager based on certificate revocation settings
-      PKIXBuilderParameters pkixBuilderParameters = new PKIXBuilderParameters(trustAnchor, new X509CertSelector());
+      PKIXBuilderParameters pkixBuilderParameters = new PKIXBuilderParameters(trustAnchors, new X509CertSelector());
       pkixBuilderParameters.setRevocationEnabled(checkCertificateRevocation);
       if (acceptUndeterminedCertificateRevocation) {
         CertPathValidator certPathValidator = CertPathValidator.getInstance("PKIX");

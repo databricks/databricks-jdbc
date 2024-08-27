@@ -91,11 +91,11 @@ public class DatabricksHttpClient implements IDatabricksHttpClient {
     temporarilyUnavailableRetryTimeout = connectionContext.getTemporarilyUnavailableRetryTimeout();
     shouldRetryRateLimitError = connectionContext.shouldRetryRateLimitError();
     rateLimitRetryTimeout = connectionContext.getRateLimitRetryTimeout();
+    sslSocketFactoryHandler = new JdbcSSLSocketFactoryHandler(connectionContext);
     httpClient = makeClosableHttpClient(connectionContext);
     httpDisabledSSLClient = makeClosableDisabledSslHttpClient();
     idleHttpConnectionExpiry = connectionContext.getIdleHttpConnectionExpiry();
     this.connectionContext = connectionContext;
-    sslSocketFactoryHandler = new JdbcSSLSocketFactoryHandler(connectionContext);
   }
 
   @VisibleForTesting
