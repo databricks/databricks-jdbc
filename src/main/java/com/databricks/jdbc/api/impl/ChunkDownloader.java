@@ -120,7 +120,7 @@ public class ChunkDownloader {
       // TODO : add compression
       chunkIndexMap.put(
           chunkIndex,
-          ArrowResultChunk.newBuilder()
+          ArrowResultChunk.builder()
               .statementId(statementId)
               .compressionType(CompressionType.NONE)
               .withThriftChunkInfo(chunkIndex, resultLink)
@@ -293,7 +293,7 @@ public class ChunkDownloader {
       // buffer.
       chunkIndexMap.put(
           chunkInfo.getChunkIndex(),
-          ArrowResultChunk.newBuilder()
+          ArrowResultChunk.builder()
               .statementId(statementId)
               .compressionType(resultManifest.getCompressionType())
               .withChunkInfo(chunkInfo)

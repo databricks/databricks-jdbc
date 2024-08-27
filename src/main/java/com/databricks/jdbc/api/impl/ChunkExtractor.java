@@ -35,7 +35,7 @@ public class ChunkExtractor {
     initializeByteStream(arrowBatches, metadata);
     // Todo : Add compression appropriately
     arrowResultChunk =
-        ArrowResultChunk.newBuilder()
+        ArrowResultChunk.builder()
             .compressionType(CompressionType.NONE)
             .withInputStream(byteStream, totalRows)
             .build();

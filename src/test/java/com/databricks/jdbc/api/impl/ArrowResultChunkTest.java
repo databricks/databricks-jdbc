@@ -44,7 +44,7 @@ public class ArrowResultChunkTest {
             .setRowOffset(0L)
             .setRowCount(totalRows);
     ArrowResultChunk arrowResultChunk =
-        ArrowResultChunk.newBuilder()
+        ArrowResultChunk.builder()
             .statementId(STATEMENT_ID)
             .compressionType(CompressionType.NONE)
             .withChunkInfo(chunkInfo)
@@ -65,7 +65,7 @@ public class ArrowResultChunkTest {
             .setRowOffset(0L)
             .setRowCount(totalRows);
     ArrowResultChunk arrowResultChunk =
-        ArrowResultChunk.newBuilder()
+        ArrowResultChunk.builder()
             .statementId(STATEMENT_ID)
             .compressionType(CompressionType.NONE)
             .withChunkInfo(chunkInfo)
@@ -94,7 +94,7 @@ public class ArrowResultChunkTest {
             .setExpiryTime(1000)
             .setBytesNum(200L);
     ArrowResultChunk arrowResultChunk =
-        ArrowResultChunk.newBuilder()
+        ArrowResultChunk.builder()
             .statementId(TEST_STATEMENT_ID)
             .compressionType(CompressionType.NONE)
             .withThriftChunkInfo(0, chunkInfo)
@@ -175,7 +175,7 @@ public class ArrowResultChunkTest {
     BaseChunkInfo emptyChunkInfo =
         new BaseChunkInfo().setChunkIndex(0L).setByteCount(200L).setRowOffset(0L).setRowCount(0L);
     ArrowResultChunk arrowResultChunk =
-        ArrowResultChunk.newBuilder()
+        ArrowResultChunk.builder()
             .statementId(STATEMENT_ID)
             .compressionType(CompressionType.NONE)
             .withChunkInfo(emptyChunkInfo)
@@ -187,7 +187,7 @@ public class ArrowResultChunkTest {
     BaseChunkInfo chunkInfo =
         new BaseChunkInfo().setChunkIndex(18L).setByteCount(200L).setRowOffset(0L).setRowCount(4L);
     arrowResultChunk =
-        ArrowResultChunk.newBuilder()
+        ArrowResultChunk.builder()
             .statementId(STATEMENT_ID)
             .compressionType(CompressionType.NONE)
             .withChunkInfo(chunkInfo)
@@ -223,7 +223,7 @@ public class ArrowResultChunkTest {
     BaseChunkInfo chunkInfo =
         new BaseChunkInfo().setChunkIndex(18L).setByteCount(200L).setRowOffset(0L).setRowCount(4L);
     ArrowResultChunk arrowResultChunk =
-        ArrowResultChunk.newBuilder()
+        ArrowResultChunk.builder()
             .statementId(STATEMENT_ID)
             .compressionType(CompressionType.NONE)
             .withChunkInfo(chunkInfo)
