@@ -1,20 +1,21 @@
 package com.databricks.client.jdbc;
 
-import static com.databricks.jdbc.driver.DatabricksJdbcConstants.*;
+import static com.databricks.jdbc.common.DatabricksJdbcConstants.*;
 
-import com.databricks.jdbc.client.DatabricksClientType;
-import com.databricks.jdbc.commons.ErrorTypes;
-import com.databricks.jdbc.commons.LogLevel;
-import com.databricks.jdbc.commons.util.DeviceInfoLogUtil;
-import com.databricks.jdbc.commons.util.DriverUtil;
-import com.databricks.jdbc.commons.util.ErrorCodes;
-import com.databricks.jdbc.commons.util.LoggingUtil;
-import com.databricks.jdbc.core.DatabricksConnection;
-import com.databricks.jdbc.core.DatabricksSQLException;
-import com.databricks.jdbc.driver.DatabricksConnectionContext;
-import com.databricks.jdbc.driver.DatabricksJdbcConstants;
-import com.databricks.jdbc.driver.IDatabricksConnectionContext;
+import com.databricks.jdbc.api.IDatabricksConnectionContext;
+import com.databricks.jdbc.api.impl.DatabricksConnection;
+import com.databricks.jdbc.api.impl.DatabricksConnectionContext;
+import com.databricks.jdbc.common.DatabricksClientType;
+import com.databricks.jdbc.common.DatabricksJdbcConstants;
+import com.databricks.jdbc.common.ErrorCodes;
+import com.databricks.jdbc.common.ErrorTypes;
+import com.databricks.jdbc.common.LogLevel;
+import com.databricks.jdbc.common.util.DeviceInfoLogUtil;
+import com.databricks.jdbc.common.util.DriverUtil;
+import com.databricks.jdbc.common.util.LoggingUtil;
+import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.sdk.core.UserAgent;
+import java.io.IOException;
 import java.sql.*;
 import java.util.Properties;
 
@@ -42,11 +43,15 @@ public class Driver implements java.sql.Driver {
   @Override
   public Connection connect(String url, Properties info) throws DatabricksSQLException {
     IDatabricksConnectionContext connectionContext = DatabricksConnectionContext.parse(url, info);
-    LoggingUtil.setupLogger(
-        connectionContext.getLogPathString(),
-        connectionContext.getLogFileSize(),
-        connectionContext.getLogFileCount(),
-        connectionContext.getLogLevel());
+    try {
+      LoggingUtil.setupLogger(
+          connectionContext.getLogPathString(),
+          connectionContext.getLogFileSize(),
+          connectionContext.getLogFileCount(),
+          connectionContext.getLogLevel());
+    } catch (IOException e) {
+      throw new DatabricksSQLException("Error initializing the Java Util Logger (JUL).", e);
+    }
     setUserAgent(connectionContext);
     DeviceInfoLogUtil.logProperties(connectionContext);
     try {

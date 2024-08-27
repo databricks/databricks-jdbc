@@ -107,16 +107,19 @@
       <groupId>org.apache.logging.log4j</groupId>
       <artifactId>log4j-slf4j2-impl</artifactId>
       <version>${log4j.version}</version>
+      <scope>test</scope>
     </dependency>
     <dependency>
       <groupId>org.apache.logging.log4j</groupId>
       <artifactId>log4j-core</artifactId>
       <version>${log4j.version}</version>
+      <scope>test</scope>
     </dependency>
     <dependency>
       <groupId>org.apache.logging.log4j</groupId>
       <artifactId>log4j-api</artifactId>
       <version>${log4j.version}</version>
+      <scope>test</scope>
     </dependency>
     <dependency>
       <groupId>commons-io</groupId>
@@ -238,15 +241,20 @@
         <version>${maven-surefire-plugin.version}</version>
         <configuration>
           <excludes>
-            <exclude>**/integration/**/*.java</exclude>
-            <exclude>**/*MetadataBenchmarkingTest.java</exclude>
             <exclude>**/*LargeQueriesBenchmarkingTest.java</exclude>
+            <exclude>**/*MetadataBenchmarkingTest.java</exclude>
+            <exclude>**/DriverTest.java</exclude>
+            <exclude>**/integration/**/*.java</exclude>
           </excludes>
           <argLine>
             @{argLine}
             --add-opens=java.base/java.nio=ALL-UNNAMED
             -Dnet.bytebuddy.experimental=true
           </argLine>
+          <systemPropertyVariables>
+            <com.databricks.jdbc.loggerImpl>JDKLOGGER</com.databricks.jdbc.loggerImpl>
+            <java.util.logging.config.file>${project.basedir}/src/test/resources/logging.properties</java.util.logging.config.file>
+          </systemPropertyVariables>
         </configuration>
       </plugin>
       <plugin>
@@ -326,15 +334,14 @@
         </executions>
         <configuration>
           <excludes>
-            <exclude>**/EnvironmentVariables*</exclude>
-            <exclude>**/client/impl/sdk/DatabricksMetadataSdkClient*</exclude> <!-- TODO(PECO-1502): Remove once fixed -->
-            <exclude>**/*Exception*</exclude>
-            <exclude>**/types/**</exclude>
-            <exclude>**/client/sqlexec/**</exclude>
-            <exclude>**/*Constants*</exclude>
-            <exclude>**/thrift/generated/**</exclude>
-            <exclude>**/*driver/DatabricksJdbcConstants*</exclude>
             <exclude>**/CommandName*</exclude>
+            <exclude>**/DatabricksJdbcConstants*</exclude>
+            <exclude>**/EnvironmentVariables*</exclude>
+            <exclude>**/*Constants*</exclude>
+            <exclude>**/*Exception*</exclude>
+            <exclude>**/dbclient/impl/sqlexec/DatabricksMetadataSdkClient*</exclude> <!-- TODO(PECO-1502): Remove once fixed -->
+            <exclude>**/model/**</exclude>
+            <exclude>**/thrift/generated/**</exclude>
           </excludes>
         </configuration>
       </plugin>
@@ -402,12 +409,12 @@
                   <shadedPattern>com.databricks.internal.ini4j</shadedPattern>
                 </relocation>
                 <relocation>
-                  <pattern>org.osgi</pattern>
-                  <shadedPattern>com.databricks.internal.osgi</shadedPattern>
+                  <pattern>org.json</pattern>
+                  <shadedPattern>com.databricks.internal.json</shadedPattern>
                 </relocation>
                 <relocation>
-                  <pattern>org.slf4j</pattern>
-                  <shadedPattern>com.databricks.internal.slf4j</shadedPattern>
+                  <pattern>org.osgi</pattern>
+                  <shadedPattern>com.databricks.internal.osgi</shadedPattern>
                 </relocation>
               </relocations>
               <filters>
@@ -513,6 +520,7 @@
             <configuration>
               <serverId>ossrh</serverId>
               <nexusUrl>https://oss.sonatype.org/</nexusUrl>
+              <autoReleaseAfterClose>true</autoReleaseAfterClose>
             </configuration>
           </plugin>
         </plugins>
