@@ -2,6 +2,8 @@ package com.databricks.jdbc.api.impl;
 
 import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.common.DatabricksJdbcConstants;
+import com.databricks.jdbc.driver.DatabricksCommonHttpClient;
+import com.databricks.jdbc.driver.SSLConfiguration;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.sdk.WorkspaceClient;
 import com.databricks.sdk.core.DatabricksConfig;

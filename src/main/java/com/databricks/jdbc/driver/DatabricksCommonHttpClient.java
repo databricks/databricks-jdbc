@@ -143,7 +143,7 @@ public class DatabricksCommonHttpClient implements HttpClient {
     URL url = getTargetUrl(context);
     if (entity == null) {
       response.close();
-      return new Response(in, url, statusLine.getStatusCode(), statusLine.getReasonPhrase(), hs);
+      return new Response(in, statusLine.getStatusCode(), statusLine.getReasonPhrase(), hs);
     }
 
     // The Databricks SDK is currently designed to treat all non-application/json responses as
@@ -171,13 +171,12 @@ public class DatabricksCommonHttpClient implements HttpClient {
                 }
               });
       return new Response(
-          in, url, statusLine.getStatusCode(), statusLine.getReasonPhrase(), hs, inputStream);
+          in, statusLine.getStatusCode(), statusLine.getReasonPhrase(), hs, inputStream);
     }
 
     try (InputStream inputStream = entity.getContent()) {
       String body = IOUtils.toString(inputStream, StandardCharsets.UTF_8);
-      return new Response(
-          in, url, statusLine.getStatusCode(), statusLine.getReasonPhrase(), hs, body);
+      return new Response(in, statusLine.getStatusCode(), statusLine.getReasonPhrase(), hs, body);
     } finally {
       response.close();
     }

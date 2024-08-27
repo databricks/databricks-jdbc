@@ -6,7 +6,6 @@ import static com.databricks.jdbc.common.util.ValidationUtil.checkHTTPError;
 
 import com.databricks.jdbc.common.CompressionType;
 import com.databricks.jdbc.common.LogLevel;
-import com.databricks.jdbc.common.util.DecompressionUtil;
 import com.databricks.jdbc.common.util.LoggingUtil;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
 import com.databricks.jdbc.exception.DatabricksHttpException;
@@ -319,13 +318,14 @@ public class ArrowResultChunk {
             "Parsing data for chunk index [%s] and statement [%s]",
             this.chunkIndex, this.statementId));
     InputStream decompressedStream = inputStream;
-//    InputStream decompressedStream =
-//        DecompressionUtil.decompress(
-//            inputStream,
-//            this.compressionType,
-//            String.format(
-//                "Data fetch for chunk index [%d] and statement [%s] with decompression algorithm : [%s]",
-//                this.chunkIndex, this.statementId, this.compressionType));
+    //    InputStream decompressedStream =
+    //        DecompressionUtil.decompress(
+    //            inputStream,
+    //            this.compressionType,
+    //            String.format(
+    //                "Data fetch for chunk index [%d] and statement [%s] with decompression
+    // algorithm : [%s]",
+    //                this.chunkIndex, this.statementId, this.compressionType));
     this.isDataInitialized = true;
     // add check to see if input stream has been populated
     initializeRecordBatch(decompressedStream);
