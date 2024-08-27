@@ -1,4 +1,4 @@
-package com.databricks.jdbc.api.impl;
+package com.databricks.jdbc.api.impl.volume;
 
 import static com.databricks.jdbc.common.DatabricksJdbcConstants.ALLOWED_VOLUME_INGESTION_PATHS;
 import static org.junit.jupiter.api.Assertions.*;
@@ -7,6 +7,9 @@ import static org.mockito.Mockito.when;
 
 import com.databricks.jdbc.api.IDatabricksResultSet;
 import com.databricks.jdbc.api.IDatabricksStatement;
+import com.databricks.jdbc.api.impl.DatabricksSession;
+import com.databricks.jdbc.api.impl.EmptyResultSet;
+import com.databricks.jdbc.api.impl.IExecutionResult;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
 import com.databricks.jdbc.exception.DatabricksHttpException;
 import com.databricks.jdbc.exception.DatabricksSQLException;

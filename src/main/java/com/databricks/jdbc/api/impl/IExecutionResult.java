@@ -4,7 +4,7 @@ import com.databricks.jdbc.exception.DatabricksSQLException;
 import java.sql.SQLException;
 
 /** Interface to provide methods over an underlying statement result */
-interface IExecutionResult {
+public interface IExecutionResult {
 
   /**
    * Get the object for given column index. Here index starts with 0.

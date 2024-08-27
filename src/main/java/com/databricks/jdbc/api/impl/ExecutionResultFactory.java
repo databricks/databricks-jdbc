@@ -5,6 +5,7 @@ import static com.databricks.jdbc.common.util.DatabricksThriftUtil.convertColumn
 import com.databricks.jdbc.api.IDatabricksResultSet;
 import com.databricks.jdbc.api.IDatabricksSession;
 import com.databricks.jdbc.api.IDatabricksStatement;
+import com.databricks.jdbc.api.impl.volume.VolumeOperationResult;
 import com.databricks.jdbc.common.util.DatabricksThriftUtil;
 import com.databricks.jdbc.dbclient.impl.thrift.generated.TGetResultSetMetadataResp;
 import com.databricks.jdbc.dbclient.impl.thrift.generated.TRowSet;

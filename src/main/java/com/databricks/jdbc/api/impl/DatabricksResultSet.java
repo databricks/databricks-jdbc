@@ -7,6 +7,7 @@ import com.databricks.jdbc.api.IDatabricksSession;
 import com.databricks.jdbc.api.IDatabricksStatement;
 import com.databricks.jdbc.api.impl.converters.AbstractObjectConverter;
 import com.databricks.jdbc.api.impl.converters.ConverterHelper;
+import com.databricks.jdbc.api.impl.volume.VolumeInputStream;
 import com.databricks.jdbc.common.LogLevel;
 import com.databricks.jdbc.common.StatementType;
 import com.databricks.jdbc.common.util.LoggingUtil;

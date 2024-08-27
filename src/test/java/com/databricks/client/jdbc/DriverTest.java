@@ -1,8 +1,8 @@
 package com.databricks.client.jdbc;
 
 import com.databricks.jdbc.api.IDatabricksConnection;
+import com.databricks.jdbc.api.IDatabricksUCVolumeClient;
 import com.databricks.jdbc.common.DatabricksJdbcConstants;
-import com.databricks.jdbc.dbclient.IDatabricksUCVolumeClient;
 import java.io.File;
 import java.io.FileInputStream;
 import java.math.BigDecimal;

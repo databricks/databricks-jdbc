@@ -1,10 +1,11 @@
-package com.databricks.jdbc.api.impl;
+package com.databricks.jdbc.api.impl.volume;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.databricks.jdbc.api.IDatabricksStatement;
+import com.databricks.jdbc.api.impl.IExecutionResult;
 import java.io.InputStream;
 import org.apache.http.HttpEntity;
 import org.junit.jupiter.api.Test;

@@ -7,6 +7,7 @@ import static org.mockito.Mockito.when;
 import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.api.IDatabricksResultSet;
 import com.databricks.jdbc.api.IDatabricksStatement;
+import com.databricks.jdbc.api.impl.volume.VolumeOperationResult;
 import com.databricks.jdbc.dbclient.impl.thrift.generated.TGetResultSetMetadataResp;
 import com.databricks.jdbc.dbclient.impl.thrift.generated.TRowSet;
 import com.databricks.jdbc.dbclient.impl.thrift.generated.TSparkRowSetType;

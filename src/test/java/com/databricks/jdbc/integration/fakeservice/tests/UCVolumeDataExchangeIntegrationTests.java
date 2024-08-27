@@ -6,8 +6,8 @@ import static com.databricks.jdbc.integration.IntegrationTestUtil.*;
 import static com.github.tomakehurst.wiremock.core.WireMockConfiguration.wireMockConfig;
 import static org.junit.jupiter.api.Assertions.*;
 
+import com.databricks.jdbc.api.impl.volume.DatabricksUCVolumeClient;
 import com.databricks.jdbc.common.DatabricksJdbcConstants;
-import com.databricks.jdbc.dbclient.impl.sqlexec.DatabricksUCVolumeClient;
 import com.databricks.jdbc.integration.fakeservice.AbstractFakeServiceIntegrationTests;
 import com.databricks.jdbc.integration.fakeservice.DatabricksWireMockExtension;
 import com.databricks.jdbc.integration.fakeservice.FakeServiceConfigLoader;
