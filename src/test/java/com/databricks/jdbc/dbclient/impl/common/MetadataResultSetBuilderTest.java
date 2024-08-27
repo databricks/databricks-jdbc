@@ -42,11 +42,11 @@ public class MetadataResultSetBuilderTest {
   private static Stream<Arguments> charOctetArguments() {
     return Stream.of(
         Arguments.of("VARCHAR(100)", 100),
-        Arguments.of("VARCHAR", 0),
+        Arguments.of("VARCHAR", 255),
         Arguments.of("CHAR(255)", 255),
-        Arguments.of("CHAR", 0),
+        Arguments.of("CHAR", 255),
         Arguments.of("CHAR(123)", 123),
-        Arguments.of("TEXT", 0),
+        Arguments.of("TEXT", 255),
         Arguments.of("VARCHAR(", 0),
         Arguments.of("VARCHAR(100,200)", 100),
         Arguments.of("VARCHAR(50,30)", 50),
@@ -67,6 +67,43 @@ public class MetadataResultSetBuilderTest {
         Arguments.of(null, null),
         Arguments.of("", ""),
         Arguments.of("INTEGER(10,5)", "INTEGER"));
+  }
+
+  private static Stream<Arguments> getBufferLengthArguments() {
+    return Stream.of(
+        // Null or empty typeVal
+        Arguments.of(null, 10, 0),
+        Arguments.of("", 10, 0),
+
+        // Simple types without length specification
+        Arguments.of("DATE", 10, 6),
+        Arguments.of("TIMESTAMP", 10, 16),
+        Arguments.of("BINARY", 10, 32767),
+        Arguments.of("STRING", 10, 255),
+        Arguments.of("INT", 4, 4),
+
+        // Types with length specification
+        Arguments.of("CHAR(10)", 10, 10),
+        Arguments.of("VARCHAR(50)", 10, 50),
+        Arguments.of("DECIMAL(10,2)", 10, 40), // DECIMAL gets multiplied by 4
+        Arguments.of("NUMERIC(20)", 10, 80), // NUMERIC gets multiplied by 4
+
+        // Type with invalid length specification
+        Arguments.of("VARCHAR(abc)", 10, 0),
+        Arguments.of("VARCHAR()", 10, 0),
+        Arguments.of("VARCHAR(100,200)", 10, 100),
+
+        // Types without length but still valid strings
+        Arguments.of("CHAR", 10, 255),
+        Arguments.of("VARCHAR", 10, 255),
+        Arguments.of("TEXT", 10, 255));
+  }
+
+  @ParameterizedTest
+  @MethodSource("getBufferLengthArguments")
+  public void testGetBufferLength(String typeVal, int columnSize, int expected) {
+    int actual = MetadataResultSetBuilder.getBufferLength(typeVal, columnSize);
+    assertEquals(expected, actual);
   }
 
   @ParameterizedTest

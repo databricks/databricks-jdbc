@@ -2,6 +2,7 @@ package com.databricks.jdbc.dbclient.impl.common;
 
 import static com.databricks.jdbc.common.MetadataResultConstants.*;
 import static com.databricks.jdbc.dbclient.impl.common.CommandConstants.*;
+import static com.databricks.jdbc.dbclient.impl.common.TypeValConstants.*;
 
 import com.databricks.jdbc.api.impl.DatabricksResultSet;
 import com.databricks.jdbc.common.StatementType;
@@ -66,61 +67,122 @@ public class MetadataResultSetBuilder {
     return buildResultSet(PRIMARY_KEYS_COLUMNS, rows, METADATA_STATEMENT_ID);
   }
 
+  private static boolean isTextType(String typeVal) {
+    return (typeVal.contains(TEXT_TYPE)
+        || typeVal.contains(CHAR_TYPE)
+        || typeVal.contains(VARCHAR_TYPE)
+        || typeVal.contains(STRING_TYPE));
+  }
+
   private static List<List<Object>> getRows(ResultSet resultSet, List<ResultColumn> columns)
       throws SQLException {
     List<List<Object>> rows = new ArrayList<>();
+
     while (resultSet.next()) {
       List<Object> row = new ArrayList<>();
       for (ResultColumn column : columns) {
         Object object = null;
         switch (column.getColumnName()) {
-          case "NUM_PREC_RADIX":
-            object = 10;
-            row.add(object);
-            continue;
-          case "NULLABLE":
-            object = 2;
-            row.add(object);
-            continue;
           case "SQL_DATA_TYPE":
           case "SQL_DATETIME_SUB":
             object = 0;
-            row.add(object);
-            continue;
-          case "IS_NULLABLE":
-            object = "YES";
-            row.add(object);
-            continue;
-          case "IS_AUTOINCREMENT":
-          case "IS_GENERATEDCOLUMN":
-            object = "";
-            row.add(object);
-            continue;
+            break;
+          default:
+            // If column does not match any of the special cases, try to get it from the ResultSet
+            try {
+              object = resultSet.getObject(column.getResultSetColumnName());
+              if (column.getColumnName().equals(IS_NULLABLE_COLUMN.getColumnName())) {
+                if (object == null || object.equals("true")) {
+                  object = "YES";
+                } else {
+                  object = "NO";
+                }
+              }
+              if (column.getColumnName().equals(DECIMAL_DIGITS_COLUMN.getColumnName())
+                  || column.getColumnName().equals(NUM_PREC_RADIX_COLUMN.getColumnName())) {
+                if (object == null) {
+                  object = 0;
+                }
+              }
+            } catch (SQLException e) {
+              if (column.getColumnName().equals(DATA_TYPE_COLUMN.getColumnName())) {
+                String typeVal = resultSet.getString(COLUMN_TYPE_COLUMN.getResultSetColumnName());
+                if (typeVal.contains("(")) typeVal = typeVal.substring(0, typeVal.indexOf('('));
+                object = getCode(typeVal);
+              } else if (column.getColumnName().equals(CHAR_OCTET_LENGTH_COLUMN.getColumnName())) {
+                String typeVal = resultSet.getString(COLUMN_TYPE_COLUMN.getResultSetColumnName());
+
+                object = getCharOctetLength(typeVal);
+              } else if (column.getColumnName().equals(BUFFER_LENGTH_COLUMN.getColumnName())) {
+                String typeVal = resultSet.getString(COLUMN_TYPE_COLUMN.getResultSetColumnName());
+                int columnSize =
+                    (resultSet.getObject(COLUMN_SIZE_COLUMN.getResultSetColumnName()) == null)
+                        ? 0
+                        : resultSet.getInt(COLUMN_SIZE_COLUMN.getResultSetColumnName());
+                object = getBufferLength(typeVal, columnSize);
+              } else {
+                // Handle other cases where the result set does not contain the expected column
+                object = null;
+              }
+            }
+            // Handle TYPE_NAME separately for potential modifications
+            if (column.getColumnName().equals(TYPE_NAME_COLUMN.getColumnName())) {
+              object = stripTypeName((String) object);
+            }
+            // Set COLUMN_SIZE to 255 if it's not present
+            if (column.getColumnName().equals(COLUMN_SIZE_COLUMN.getColumnName())
+                && object == null) {
+              // check if typeVal is a text related field
+              String typeVal = resultSet.getString(COLUMN_TYPE_COLUMN.getResultSetColumnName());
+              if (typeVal != null && isTextType(typeVal)) {
+                object = 255;
+              } else {
+                object = 0;
+              }
+            }
+
+            break;
         }
-        try {
-          object = resultSet.getObject(column.getResultSetColumnName());
-        } catch (DatabricksSQLException e) {
-          if (column.getColumnName().equals("DATA_TYPE")) {
-            String typeVal = resultSet.getString("columnType");
-            if (typeVal.contains("(")) typeVal = typeVal.substring(0, typeVal.indexOf('('));
-            object = getCode(typeVal);
-          } else if (column.getColumnName().equals("CHAR_OCTET_LENGTH")) {
-            String typeVal = resultSet.getString("columnType");
-            object = getCharOctetLength(typeVal);
-          } else {
-            // Remove non-relevant columns from the obtained result set
-            object = null;
-          }
-        }
-        if (column.getColumnName().equals("TYPE_NAME")) {
-          row.add(stripTypeName((String) object));
-        }
-        if (column.getColumnName().equals("COLUMN_SIZE") && object == null) object = 0;
+
+        // Add the object to the current row
         row.add(object);
       }
       rows.add(row);
     }
     return rows;
+  }
+
+  static int getBufferLength(String typeVal, int columnSize) {
+    if (typeVal == null || typeVal.isEmpty()) {
+      return 0;
+    }
+    if (!typeVal.contains("(")) {
+      if (typeVal.equals(DATE_TYPE)) {
+        return 6;
+      }
+      if (typeVal.equals(TIMESTAMP_TYPE)) {
+        return 16;
+      }
+      if (typeVal.equals(BINARY_TYPE)) {
+        return 32767;
+      }
+      if (isTextType(typeVal)) {
+        return 255;
+      }
+      return columnSize;
+    }
+
+    String[] lengthConstraints = typeVal.substring(typeVal.indexOf('(') + 1).split("[,)]");
+    if (lengthConstraints.length == 0) {
+      return 0;
+    }
+    String max_char_length = lengthConstraints[0].trim();
+    try {
+      if (isTextType(typeVal)) return Integer.parseInt(max_char_length);
+      else return 4 * Integer.parseInt(max_char_length);
+    } catch (NumberFormatException e) {
+      return 0;
+    }
   }
 
   /**
@@ -132,7 +194,15 @@ public class MetadataResultSetBuilder {
    * @return the character octet length or 0 if not applicable
    */
   static int getCharOctetLength(String typeVal) {
-    if (typeVal == null || !typeVal.contains("(")) return 0;
+    if (typeVal == null || !(isTextType(typeVal) || typeVal.contains(BINARY_TYPE))) return 0;
+
+    if (!typeVal.contains("(")) {
+      if (typeVal.contains(BINARY_TYPE)) {
+        return 32767;
+      } else {
+        return 255;
+      }
+    }
     String[] lengthConstraints = typeVal.substring(typeVal.indexOf('(') + 1).split("[,)]");
     if (lengthConstraints.length == 0) {
       return 0;
@@ -295,7 +365,7 @@ public class MetadataResultSetBuilder {
   }
 
   public static DatabricksResultSet getColumnsResult(List<List<Object>> rows) {
-    return buildResultSet(COLUMN_COLUMNS_ALL_PURPOSE, rows, METADATA_STATEMENT_ID);
+    return buildResultSet(COLUMN_COLUMNS, rows, METADATA_STATEMENT_ID);
   }
 
   public static DatabricksResultSet getPrimaryKeysResult(List<List<Object>> rows) {

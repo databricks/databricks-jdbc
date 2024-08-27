@@ -5,8 +5,8 @@ import static java.lang.Math.min;
 import static org.junit.jupiter.api.Assertions.*;
 
 import com.databricks.jdbc.common.CompressionType;
-import com.databricks.jdbc.dbclient.impl.thrift.generated.TSparkArrowResultLink;
 import com.databricks.jdbc.exception.DatabricksParsingException;
+import com.databricks.jdbc.model.client.thrift.generated.TSparkArrowResultLink;
 import com.databricks.sdk.service.sql.BaseChunkInfo;
 import java.io.File;
 import java.io.FileInputStream;

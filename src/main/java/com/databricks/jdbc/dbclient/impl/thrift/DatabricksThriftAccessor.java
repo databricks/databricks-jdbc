@@ -2,7 +2,7 @@ package com.databricks.jdbc.dbclient.impl.thrift;
 
 import static com.databricks.jdbc.common.EnvironmentVariables.*;
 import static com.databricks.jdbc.common.util.DatabricksThriftUtil.*;
-import static com.databricks.jdbc.dbclient.impl.thrift.generated.TStatusCode.*;
+import static com.databricks.jdbc.model.client.thrift.generated.TStatusCode.*;
 
 import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.api.IDatabricksSession;
@@ -14,11 +14,11 @@ import com.databricks.jdbc.common.StatementType;
 import com.databricks.jdbc.common.util.LoggingUtil;
 import com.databricks.jdbc.dbclient.impl.common.ClientUtils;
 import com.databricks.jdbc.dbclient.impl.http.DatabricksHttpClient;
-import com.databricks.jdbc.dbclient.impl.thrift.generated.*;
 import com.databricks.jdbc.exception.DatabricksHttpException;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.exception.DatabricksSQLFeatureNotSupportedException;
+import com.databricks.jdbc.model.client.thrift.generated.*;
 import com.databricks.sdk.core.DatabricksConfig;
 import com.google.common.annotations.VisibleForTesting;
 import java.sql.SQLException;
