@@ -568,4 +568,44 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   public String getConnectionURL() {
     return connectionURL;
   }
+
+  @Override
+  public String getOAuthRefreshToken() {
+    return getParameter(OAUTH_REFRESH_TOKEN);
+  }
+
+  @Override
+  public String getOAuth2ClientID() {
+    return getParameter(OAUTH2_CLIENT_ID);
+  }
+
+  @Override
+  public String getOAuth2TokenEndpoint() {
+    return getParameter(OAUTH2_TOKEN_ENDPOINT);
+  }
+
+  @Override
+  public String getOAuth2Secret() {
+    return getParameter(OAUTH2_SECRET);
+  }
+
+  @Override
+  public String getOAuth2AuthScopeKey() {
+    return getParameter(OAUTH2_AUTH_SCOPE_KEY);
+  }
+
+  @Override
+  public String getAuthAccessToken() {
+    return getParameter(AUTH_ACCESS_TOKEN);
+  }
+
+  @Override
+  public int getTokenRefreshGracePeriodMins() {
+    return Integer.parseInt(getParameter(TOKEN_REFRESH_GRACE_PERIOD_MINS, "0"));
+  }
+
+  @Override
+  public String getJwtPath() {
+    return getParameter(JWT_PATH);
+  }
 }

@@ -152,4 +152,20 @@ public interface IDatabricksConnectionContext {
   boolean enableTelemetry();
 
   String getConnectionURL();
+
+  String getOAuthRefreshToken();
+
+  String getOAuth2ClientID();
+
+  String getOAuth2TokenEndpoint();
+
+  String getOAuth2Secret();
+
+  String getOAuth2AuthScopeKey();
+
+  String getAuthAccessToken();
+
+  int getTokenRefreshGracePeriodMins();
+
+  String getJwtPath();
 }

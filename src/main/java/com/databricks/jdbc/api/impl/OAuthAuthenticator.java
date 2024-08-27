@@ -1,6 +1,7 @@
 package com.databricks.jdbc.api.impl;
 
 import com.databricks.jdbc.api.IDatabricksConnectionContext;
+import com.databricks.jdbc.auth.JWTAndRefreshCredentialsProvider;
 import com.databricks.jdbc.common.DatabricksJdbcConstants;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.sdk.WorkspaceClient;
@@ -32,6 +33,10 @@ public class OAuthAuthenticator {
       switch (this.connectionContext.getAuthFlow()) {
         case TOKEN_PASSTHROUGH:
           setupAccessTokenConfig(databricksConfig);
+          if (connectionContext.getOAuthRefreshToken() != null) {
+            databricksConfig.setCredentialsProvider(
+                new JWTAndRefreshCredentialsProvider(connectionContext));
+          }
           break;
         case CLIENT_CREDENTIALS:
           setupM2MConfig(databricksConfig);
