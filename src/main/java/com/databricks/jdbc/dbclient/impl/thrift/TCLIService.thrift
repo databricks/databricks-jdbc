@@ -1,6 +1,6 @@
 /* This is JDBC version of thrift file - stripped of internal fields */
 
-namespace java com.databricks.jdbc.dbclient.impl.thrift.generated
+namespace java com.databricks.jdbc.model.client.thrift.generated
 enum TProtocolVersion {
   __HIVE_JDBC_WORKAROUND = -7
   __TEST_PROTOCOL_VERSION = 0xFF01

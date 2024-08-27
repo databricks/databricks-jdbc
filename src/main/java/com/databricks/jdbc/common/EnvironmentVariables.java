@@ -1,6 +1,6 @@
 package com.databricks.jdbc.common;
 
-import com.databricks.jdbc.dbclient.impl.thrift.generated.TProtocolVersion;
+import com.databricks.jdbc.model.client.thrift.generated.TProtocolVersion;
 
 public final class EnvironmentVariables {
   public static final int DEFAULT_STATEMENT_TIMEOUT_SECONDS = 300; // Timeout of 5 minutes

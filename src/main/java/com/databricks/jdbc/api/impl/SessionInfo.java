@@ -1,7 +1,7 @@
 package com.databricks.jdbc.api.impl;
 
 import com.databricks.jdbc.common.IDatabricksComputeResource;
-import com.databricks.jdbc.dbclient.impl.thrift.generated.TSessionHandle;
+import com.databricks.jdbc.model.client.thrift.generated.TSessionHandle;
 import javax.annotation.Nullable;
 import org.immutables.value.Value;
 
