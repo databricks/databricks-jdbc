@@ -8,6 +8,7 @@ import static org.mockito.Mockito.*;
 
 import com.databricks.jdbc.api.impl.DatabricksResultSet;
 import com.databricks.jdbc.api.impl.DatabricksStatement;
+import com.databricks.jdbc.api.impl.volume.DatabricksUCVolumeClient;
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;

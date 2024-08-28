@@ -3,8 +3,8 @@ package com.databricks.jdbc.api;
 import com.databricks.jdbc.api.impl.ImmutableSessionInfo;
 import com.databricks.jdbc.common.CompressionType;
 import com.databricks.jdbc.common.IDatabricksComputeResource;
-import com.databricks.jdbc.dbclient.DatabricksClient;
-import com.databricks.jdbc.dbclient.DatabricksMetadataClient;
+import com.databricks.jdbc.dbclient.IDatabricksClient;
+import com.databricks.jdbc.dbclient.IDatabricksMetadataClient;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import java.util.Map;
 import javax.annotation.Nullable;
@@ -46,10 +46,10 @@ public interface IDatabricksSession {
   void close() throws DatabricksSQLException;
 
   /** Returns the client for connecting to Databricks server */
-  DatabricksClient getDatabricksClient();
+  IDatabricksClient getDatabricksClient();
 
   /** Returns the metadata client */
-  DatabricksMetadataClient getDatabricksMetadataClient();
+  IDatabricksMetadataClient getDatabricksMetadataClient();
 
   /** Returns default catalog associated with the session */
   String getCatalog();

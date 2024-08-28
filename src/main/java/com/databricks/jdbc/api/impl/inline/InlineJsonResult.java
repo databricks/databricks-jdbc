@@ -1,5 +1,6 @@
-package com.databricks.jdbc.api.impl;
+package com.databricks.jdbc.api.impl.inline;
 
+import com.databricks.jdbc.api.impl.IExecutionResult;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.model.core.ResultData;
 import com.databricks.jdbc.model.core.ResultManifest;
@@ -13,13 +14,13 @@ public class InlineJsonResult implements IExecutionResult {
 
   private boolean isClosed;
 
-  InlineJsonResult(ResultManifest resultManifest, ResultData resultData) {
+  public InlineJsonResult(ResultManifest resultManifest, ResultData resultData) {
     this.data = getDataList(resultData.getDataArray());
     this.currentRow = -1;
     this.isClosed = false;
   }
 
-  InlineJsonResult(Object[][] rows) {
+  public InlineJsonResult(Object[][] rows) {
     this.data =
         Arrays.stream(rows)
             .map(row -> Arrays.stream(row).collect(Collectors.toList()))
@@ -28,7 +29,7 @@ public class InlineJsonResult implements IExecutionResult {
     this.isClosed = false;
   }
 
-  InlineJsonResult(List<List<Object>> rows) {
+  public InlineJsonResult(List<List<Object>> rows) {
     this.data = rows.stream().map(ArrayList::new).collect(Collectors.toList());
     this.currentRow = -1;
     this.isClosed = false;

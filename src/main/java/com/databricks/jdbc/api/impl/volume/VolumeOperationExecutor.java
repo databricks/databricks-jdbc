@@ -1,4 +1,4 @@
-package com.databricks.jdbc.api.impl;
+package com.databricks.jdbc.api.impl.volume;
 
 import com.databricks.jdbc.api.IDatabricksResultSet;
 import com.databricks.jdbc.api.IDatabricksStatement;

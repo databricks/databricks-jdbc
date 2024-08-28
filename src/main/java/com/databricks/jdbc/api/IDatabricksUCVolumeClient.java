@@ -1,4 +1,4 @@
-package com.databricks.jdbc.dbclient;
+package com.databricks.jdbc.api;
 
 import java.io.InputStream;
 import java.sql.SQLException;

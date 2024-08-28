@@ -1,4 +1,4 @@
-package com.databricks.jdbc.api.impl;
+package com.databricks.jdbc.api.impl.fake;
 
 import com.databricks.jdbc.api.IDatabricksResultSet;
 import com.databricks.jdbc.exception.DatabricksSQLException;
@@ -15,11 +15,11 @@ import org.apache.http.HttpEntity;
 import org.apache.http.entity.InputStreamEntity;
 
 /** Empty implementation of ResultSet */
-class EmptyResultSet implements ResultSet, IDatabricksResultSet {
+public class EmptyResultSet implements ResultSet, IDatabricksResultSet {
   private boolean isClosed;
   private HttpEntity httpEntity = null;
 
-  EmptyResultSet() {
+  public EmptyResultSet() {
     isClosed = false;
   }
 

@@ -6,12 +6,13 @@ import static java.lang.String.format;
 
 import com.databricks.jdbc.api.IDatabricksResultSet;
 import com.databricks.jdbc.api.IDatabricksStatement;
+import com.databricks.jdbc.api.impl.fake.EmptyResultSet;
 import com.databricks.jdbc.common.ErrorCodes;
 import com.databricks.jdbc.common.ErrorTypes;
 import com.databricks.jdbc.common.LogLevel;
 import com.databricks.jdbc.common.StatementType;
 import com.databricks.jdbc.common.util.*;
-import com.databricks.jdbc.dbclient.DatabricksClient;
+import com.databricks.jdbc.dbclient.IDatabricksClient;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.exception.DatabricksSQLFeatureNotSupportedException;
 import com.databricks.jdbc.exception.DatabricksTimeoutException;
@@ -582,7 +583,7 @@ public class DatabricksStatement implements IDatabricksStatement, Statement {
   DatabricksResultSet getResultFromClient(
       String sql, Map<Integer, ImmutableSqlParameter> params, StatementType statementType)
       throws SQLException {
-    DatabricksClient client = connection.getSession().getDatabricksClient();
+    IDatabricksClient client = connection.getSession().getDatabricksClient();
     return client.executeStatement(
         sql,
         connection.getSession().getComputeResource(),
