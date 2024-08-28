@@ -1,9 +1,8 @@
 name: Benchmark Driver
 
 on:
-  on:
-    pull_request:
-      branches: [ main ]
+  pull_request:
+    branches: [ main ]
   schedule:
     - cron: '0 14 * * *'
   workflow_dispatch: # Allows manual triggering
