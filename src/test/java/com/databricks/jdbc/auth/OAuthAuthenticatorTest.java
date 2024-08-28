@@ -1,4 +1,4 @@
-package com.databricks.jdbc.api.impl;
+package com.databricks.jdbc.auth;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.when;

@@ -1,4 +1,4 @@
-package com.databricks.jdbc.api.impl;
+package com.databricks.jdbc.api.impl.arrow;
 
 import static com.databricks.jdbc.TestConstants.TEST_TABLE_SCHEMA;
 import static org.junit.jupiter.api.Assertions.*;

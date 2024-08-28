@@ -89,7 +89,7 @@ public class DatabricksSession implements IDatabricksSession {
 
   /** Constructor method to be used for mocking in a test case. */
   @VisibleForTesting
-  DatabricksSession(
+  public DatabricksSession(
       IDatabricksConnectionContext connectionContext, DatabricksClient databricksClient)
       throws DatabricksSQLException {
     this.databricksClient = databricksClient;

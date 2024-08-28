@@ -1,8 +1,9 @@
-package com.databricks.jdbc.api.impl;
+package com.databricks.jdbc.api.impl.arrow;
 
 import static com.databricks.jdbc.common.util.DatabricksThriftUtil.getTypeFromTypeDesc;
 
 import com.databricks.jdbc.api.IDatabricksSession;
+import com.databricks.jdbc.api.impl.IExecutionResult;
 import com.databricks.jdbc.api.impl.converters.ArrowToJavaObjectConverter;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
 import com.databricks.jdbc.exception.DatabricksParsingException;
@@ -18,7 +19,7 @@ import com.google.common.annotations.VisibleForTesting;
 import java.util.ArrayList;
 import java.util.List;
 
-class ArrowStreamResult implements IExecutionResult {
+public class ArrowStreamResult implements IExecutionResult {
 
   private IDatabricksSession session;
   private ChunkDownloader chunkDownloader;
@@ -34,7 +35,7 @@ class ArrowStreamResult implements IExecutionResult {
 
   List<ColumnInfo> columnInfos;
 
-  ArrowStreamResult(
+  public ArrowStreamResult(
       ResultManifest resultManifest,
       ResultData resultData,
       String statementId,
@@ -50,7 +51,7 @@ class ArrowStreamResult implements IExecutionResult {
         session);
   }
 
-  ArrowStreamResult(
+  public ArrowStreamResult(
       TGetResultSetMetadataResp resultManifest,
       TRowSet resultData,
       boolean isInlineArrow,
@@ -60,7 +61,7 @@ class ArrowStreamResult implements IExecutionResult {
     this(resultManifest, resultData, isInlineArrow, parentStatementId, session, null);
   }
 
-  ArrowStreamResult(
+  public ArrowStreamResult(
       TGetResultSetMetadataResp resultManifest,
       TRowSet resultData,
       boolean isInlineArrow,
