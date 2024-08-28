@@ -4,7 +4,6 @@ import static com.databricks.jdbc.common.DatabricksJdbcConstants.*;
 import static io.netty.util.NetUtil.LOCALHOST;
 
 import com.databricks.jdbc.api.IDatabricksConnectionContext;
-import com.databricks.jdbc.common.DatabricksJdbcConstants;
 import com.databricks.jdbc.common.ErrorTypes;
 import com.databricks.jdbc.common.LogLevel;
 import com.databricks.jdbc.common.util.LoggingUtil;
@@ -273,18 +272,23 @@ public class DatabricksHttpClient implements IDatabricksHttpClient {
   }
 
   /**
-   * Currently, the ODBC driver takes in nonProxyHosts as a comma separated list of suffix of non-proxy hosts i.e.
-   * suffix1|suffix2|suffix3. Whereas, the SDK takes in nonProxyHosts as a list of patterns separated by '|'.
-   * This pattern conforms to the system property format in the Java Proxy Guide.
+   * Currently, the ODBC driver takes in nonProxyHosts as a comma separated list of suffix of
+   * non-proxy hosts i.e. suffix1|suffix2|suffix3. Whereas, the SDK takes in nonProxyHosts as a list
+   * of patterns separated by '|'. This pattern conforms to the system property format in the Java
+   * Proxy Guide.
    *
    * @param nonProxyHosts Comma separated list of suffix of non-proxy hosts
-   * @return nonProxyHosts in system property compliant format from <a href="https://docs.oracle.com/javase/8/docs/technotes/guides/net/proxies.html">Java Proxy Guide</a>
+   * @return nonProxyHosts in system property compliant format from <a
+   *     href="https://docs.oracle.com/javase/8/docs/technotes/guides/net/proxies.html">Java Proxy
+   *     Guide</a>
    */
   public static String convertNonProxyHostConfigToBeSystemPropertyCompliant(String nonProxyHosts) {
     if (nonProxyHosts == null || nonProxyHosts.isEmpty()) {
       return EMPTY_STRING;
     }
-    return Arrays.stream(nonProxyHosts.split(",")).map(suffix -> "*" + suffix).collect(Collectors.joining("|"));
+    return Arrays.stream(nonProxyHosts.split(","))
+        .map(suffix -> "*" + suffix)
+        .collect(Collectors.joining("|"));
   }
 
   @VisibleForTesting
@@ -311,7 +315,9 @@ public class DatabricksHttpClient implements IDatabricksHttpClient {
       proxyAuth = connectionContext.getProxyAuthType();
     }
     if (proxyHost != null || connectionContext.getUseSystemProxy()) {
-      String nonProxyHosts = convertNonProxyHostConfigToBeSystemPropertyCompliant(connectionContext.getNonProxyHosts());
+      String nonProxyHosts =
+          convertNonProxyHostConfigToBeSystemPropertyCompliant(
+              connectionContext.getNonProxyHosts());
       ProxyConfig proxyConfig =
           new ProxyConfig(new DatabricksConfig())
               .setUseSystemProperties(connectionContext.getUseSystemProxy())
