@@ -73,7 +73,3 @@ jobs:
 
       - name: Run Metadata Benchmarking Test
         run: mvn test '-Dtest=**MetadataBenchmarkingTests**'
-
-
-
-
