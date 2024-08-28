@@ -1,7 +1,7 @@
 package com.databricks.jdbc.common.util;
 
+import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.common.LogLevel;
-import com.databricks.jdbc.driver.IDatabricksConnectionContext;
 import java.nio.charset.Charset;
 
 public class DeviceInfoLogUtil {

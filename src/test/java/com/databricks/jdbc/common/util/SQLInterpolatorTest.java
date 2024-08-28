@@ -1,13 +1,12 @@
 package com.databricks.jdbc.common.util;
 
 import static com.databricks.jdbc.TestConstants.TEST_STRING;
-import static com.databricks.jdbc.core.DatabricksPreparedStatementTest.getSqlParam;
+import static com.databricks.jdbc.api.impl.DatabricksPreparedStatementTest.getSqlParam;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
-import com.databricks.jdbc.core.DatabricksTypeUtil;
-import com.databricks.jdbc.core.DatabricksValidationException;
-import com.databricks.jdbc.core.ImmutableSqlParameter;
+import com.databricks.jdbc.api.impl.ImmutableSqlParameter;
+import com.databricks.jdbc.exception.DatabricksValidationException;
 import java.util.HashMap;
 import java.util.Map;
 import org.junit.jupiter.api.Test;

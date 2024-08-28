@@ -1,10 +1,10 @@
 package com.databricks.jdbc.pooling;
 
+import com.databricks.jdbc.api.IDatabricksConnection;
+import com.databricks.jdbc.api.IDatabricksStatement;
 import com.databricks.jdbc.common.LogLevel;
 import com.databricks.jdbc.common.util.LoggingUtil;
-import com.databricks.jdbc.core.DatabricksSQLException;
-import com.databricks.jdbc.core.IDatabricksConnection;
-import com.databricks.jdbc.core.IDatabricksStatement;
+import com.databricks.jdbc.exception.DatabricksSQLException;
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
