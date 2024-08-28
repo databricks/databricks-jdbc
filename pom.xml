@@ -281,8 +281,6 @@
         <artifactId>maven-compiler-plugin</artifactId>
         <configuration>
           <testExcludes>
-            <testExclude>com/databricks/jdbc/integration/benchmarking/MetadataBenchmarkingTest.java</testExclude>
-            <testExclude>com/databricks/jdbc/integration/benchmarking/LargeQueriesBenchmarkingTest.java</testExclude>
           </testExcludes>
           <annotationProcessorPaths>
             <path>
