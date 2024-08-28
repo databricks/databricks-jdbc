@@ -69,9 +69,7 @@ jobs:
           echo "DATABRICKS_DOGFOOD_HTTP_PATH=${DATABRICKS_DOGFOOD_HTTP_PATH}" >> $GITHUB_ENV
 
       - name: Run Large Queries Benchmarking Test
-        run: |
-          mvn test -Dtest=com.databricks.jdbc.integration.benchmarking.LargeQueriesBenchmarkingTest
+        run: mvn test -Dtest=**/integration/benchmarking/LargeQueriesBenchmarkingTest.java
 
       - name: Run Metadata Benchmarking Test
-        run: |
-          mvn test -Dtest=com.databricks.jdbc.integration.benchmarking.MetadataBenchmarkingTests
+        run: mvn test -Dtest=**/integration/benchmarking/MetadataBenchmarkingTests.java
