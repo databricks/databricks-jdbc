@@ -1,6 +1,9 @@
 package com.databricks.client.jdbc;
 
 import com.databricks.jdbc.api.IDatabricksConnection;
+import com.databricks.jdbc.api.impl.DatabricksResultSet;
+import com.databricks.jdbc.api.impl.DatabricksResultSetMetaData;
+import com.databricks.jdbc.api.impl.DatabricksStatement;
 import com.databricks.jdbc.common.DatabricksJdbcConstants;
 import com.databricks.jdbc.dbclient.IDatabricksUCVolumeClient;
 import java.io.File;
@@ -48,12 +51,14 @@ public class DriverTest {
     // Getting the connection
     String jdbcUrl =
         "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=https;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/791ba2a31c7fd70a;";
-    Connection con = DriverManager.getConnection(jdbcUrl, "token", "x");
+    Connection con = DriverManager.getConnection(jdbcUrl, "token", "dapi3c78e2fc857387ad3173dcbad4bd67d0");
     System.out.println("Connection established......");
-    Statement statement = con.createStatement();
-    statement.setMaxRows(10);
-    ResultSet rs = con.getMetaData().getTables("main", "%", "%", null);
-    printResultSet(rs);
+    DatabricksStatement statement = (DatabricksStatement) con.createStatement();
+    DatabricksResultSet rs = (DatabricksResultSet) statement.executeQuery("SELECT * from main.ms_testing_schema.deep_nested_table");
+    System.out.println(((DatabricksResultSetMetaData) rs.getMetaData()).getColumnTypeName(3));
+    rs.next();
+    rs.getStruct(3);
+//    printResultSet(rs);
     rs.close();
     statement.close();
     con.close();

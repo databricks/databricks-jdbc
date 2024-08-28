@@ -1065,8 +1065,53 @@ public class DatabricksResultSet implements ResultSet, IDatabricksResultSet {
   @Override
   public Array getArray(int columnIndex) throws SQLException {
     checkIfClosed();
+    Object obj = getObjectInternal(columnIndex);
+    if (obj == null) {
+      return null;
+    }
+    String columnTypeName = resultSetMetaData.getColumnClassName(columnIndex);
+    if (columnTypeName != "java.sql.Array") {
+      throw new SQLException(
+          "Column type is not ARRAY. Cannot convert to Array. Column type: " + columnTypeName);
+    }
+    System.out.println("HELLOWORLD");
+    System.out.println(obj);
     throw new DatabricksSQLFeatureNotSupportedException(
         "Not implemented in DatabricksResultSet - getArray(int columnIndex)");
+  }
+
+
+  public Struct getStruct(int columnIndex) throws SQLException {
+    checkIfClosed();
+    Object obj = getObjectInternal(columnIndex);
+    if (obj == null) {
+      return null;
+    }
+    String columnTypeName = resultSetMetaData.getColumnClassName(columnIndex);
+    System.out.println(columnTypeName);
+    if (columnTypeName != "java.sql.Struct") {
+      throw new SQLException(
+          "Column type is not STRUCT. Cannot convert to Struct. Column type: " + columnTypeName);
+    }
+    System.out.println("HELLOWORLD");
+    System.out.println(obj);
+    throw new DatabricksSQLFeatureNotSupportedException(
+        "Not implemented in DatabricksResultSet - getStruct(int columnIndex)");
+  }
+
+  public Map getMap(int columnIndex) throws SQLException {
+    checkIfClosed();
+    Object obj = getObjectInternal(columnIndex);
+    if (obj == null) {
+      return null;
+    }
+    String columnTypeName = resultSetMetaData.getColumnClassName(columnIndex);
+    if (columnTypeName != "java.util.Map") {
+      throw new SQLException(
+          "Column type is not MAP. Cannot convert to Map. Column type: " + columnTypeName);
+    }
+    throw new DatabricksSQLFeatureNotSupportedException(
+        "Not implemented in DatabricksResultSet - getMap(int columnIndex)");
   }
 
   @Override
@@ -1096,6 +1141,16 @@ public class DatabricksResultSet implements ResultSet, IDatabricksResultSet {
   public Array getArray(String columnLabel) throws SQLException {
     checkIfClosed();
     return getArray(getColumnNameIndex(columnLabel));
+  }
+
+  public Struct getStruct(String columnLabel) throws SQLException {
+    checkIfClosed();
+    return getStruct(getColumnNameIndex(columnLabel));
+  }
+
+  public Map getMap(String columnLabel) throws SQLException {
+    checkIfClosed();
+    return getMap(getColumnNameIndex(columnLabel));
   }
 
   @Override
