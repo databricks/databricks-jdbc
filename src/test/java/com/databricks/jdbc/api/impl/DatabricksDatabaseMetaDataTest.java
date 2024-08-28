@@ -7,12 +7,13 @@ import static org.mockito.Mockito.when;
 
 import com.databricks.jdbc.api.IDatabricksConnection;
 import com.databricks.jdbc.api.IDatabricksSession;
-import com.databricks.jdbc.dbclient.DatabricksMetadataClient;
+import com.databricks.jdbc.dbclient.IDatabricksMetadataClient;
 import java.sql.*;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Properties;
 import java.util.concurrent.Callable;
+
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
@@ -24,7 +25,7 @@ public class DatabricksDatabaseMetaDataTest {
   private IDatabricksSession session;
   private DatabricksDatabaseMetaData metaData;
 
-  private DatabricksMetadataClient metadataClient;
+  private IDatabricksMetadataClient metadataClient;
 
   @Mock private DatabricksResultSet resultSet;
 
@@ -34,7 +35,7 @@ public class DatabricksDatabaseMetaDataTest {
     session = Mockito.mock(IDatabricksSession.class);
     when(connection.getSession()).thenReturn(session);
     metaData = new DatabricksDatabaseMetaData(connection);
-    metadataClient = Mockito.mock(DatabricksMetadataClient.class);
+    metadataClient = Mockito.mock(IDatabricksMetadataClient.class);
     when(session.getDatabricksMetadataClient()).thenReturn(metadataClient);
     when(metadataClient.listTables(any(), any(), any(), any(), any()))
         .thenReturn(Mockito.mock(DatabricksResultSet.class));

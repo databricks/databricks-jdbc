@@ -9,7 +9,7 @@ import com.databricks.jdbc.common.LogLevel;
 import com.databricks.jdbc.common.StatementType;
 import com.databricks.jdbc.common.util.LoggingUtil;
 import com.databricks.jdbc.common.util.WildcardUtil;
-import com.databricks.jdbc.dbclient.DatabricksMetadataClient;
+import com.databricks.jdbc.dbclient.IDatabricksMetadataClient;
 import com.databricks.sdk.service.sql.StatementState;
 import com.databricks.sdk.service.sql.StatementStatus;
 import java.sql.ResultSet;
@@ -21,8 +21,8 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-/** Implementation for DatabricksMetadataClient using SDK client */
-public class DatabricksMetadataSdkClient implements DatabricksMetadataClient {
+/** Implementation for IDatabricksMetadataClient using SDK client */
+public class DatabricksMetadataSdkClient implements IDatabricksMetadataClient {
 
   private final DatabricksSdkClient sdkClient;
 

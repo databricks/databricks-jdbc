@@ -31,7 +31,7 @@ import java.util.Map;
           methodName = "getResultChunks",
           metricName = CommandName.GET_RESULT_CHUNKS)
     })
-public interface DatabricksClient {
+public interface IDatabricksClient {
 
   /**
    * Creates a new session for given warehouse-Id, catalog and session.

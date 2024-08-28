@@ -10,7 +10,7 @@ import com.databricks.jdbc.api.impl.*;
 import com.databricks.jdbc.common.*;
 import com.databricks.jdbc.common.IDatabricksComputeResource;
 import com.databricks.jdbc.common.util.LoggingUtil;
-import com.databricks.jdbc.dbclient.DatabricksClient;
+import com.databricks.jdbc.dbclient.IDatabricksClient;
 import com.databricks.jdbc.dbclient.impl.common.ClientUtils;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
@@ -34,8 +34,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-/** Implementation of DatabricksClient interface using Databricks Java SDK. */
-public class DatabricksSdkClient implements DatabricksClient {
+/** Implementation of IDatabricksClient interface using Databricks Java SDK. */
+public class DatabricksSdkClient implements IDatabricksClient {
   private static final String SYNC_TIMEOUT_VALUE = "10s";
   private final IDatabricksConnectionContext connectionContext;
   private final DatabricksConfig databricksConfig;

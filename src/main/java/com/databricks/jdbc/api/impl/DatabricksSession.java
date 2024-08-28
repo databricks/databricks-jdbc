@@ -7,8 +7,8 @@ import com.databricks.jdbc.common.DatabricksClientType;
 import com.databricks.jdbc.common.IDatabricksComputeResource;
 import com.databricks.jdbc.common.LogLevel;
 import com.databricks.jdbc.common.util.LoggingUtil;
-import com.databricks.jdbc.dbclient.DatabricksClient;
-import com.databricks.jdbc.dbclient.DatabricksMetadataClient;
+import com.databricks.jdbc.dbclient.IDatabricksClient;
+import com.databricks.jdbc.dbclient.IDatabricksMetadataClient;
 import com.databricks.jdbc.dbclient.impl.sqlexec.DatabricksMetadataSdkClient;
 import com.databricks.jdbc.dbclient.impl.sqlexec.DatabricksNewMetadataSdkClient;
 import com.databricks.jdbc.dbclient.impl.sqlexec.DatabricksSdkClient;
@@ -23,11 +23,11 @@ import javax.annotation.Nullable;
 
 /** Implementation for Session interface, which maintains an underlying session in SQL Gateway. */
 public class DatabricksSession implements IDatabricksSession {
-  private DatabricksClient databricksClient;
+  private IDatabricksClient databricksClient;
 
-  private DatabricksMetadataClient databricksMetadataSdkClient;
-  private DatabricksMetadataClient databricksNewMetadataSdkClient;
-  private DatabricksMetadataClient databricksMetadataClient;
+  private IDatabricksMetadataClient databricksMetadataSdkClient;
+  private IDatabricksMetadataClient databricksNewMetadataSdkClient;
+  private IDatabricksMetadataClient databricksMetadataClient;
   private final IDatabricksComputeResource computeResource;
 
   private boolean isSessionOpen;
@@ -90,7 +90,7 @@ public class DatabricksSession implements IDatabricksSession {
   /** Constructor method to be used for mocking in a test case. */
   @VisibleForTesting
   DatabricksSession(
-      IDatabricksConnectionContext connectionContext, DatabricksClient databricksClient)
+      IDatabricksConnectionContext connectionContext, IDatabricksClient databricksClient)
       throws DatabricksSQLException {
     this.databricksClient = databricksClient;
     if (databricksClient instanceof DatabricksThriftServiceClient) {
@@ -176,16 +176,16 @@ public class DatabricksSession implements IDatabricksSession {
   }
 
   @Override
-  public DatabricksClient getDatabricksClient() {
-    LoggingUtil.log(LogLevel.DEBUG, "public DatabricksClient getDatabricksClient()");
+  public IDatabricksClient getDatabricksClient() {
+    LoggingUtil.log(LogLevel.DEBUG, "public IDatabricksClient getDatabricksClient()");
     return databricksClient;
   }
 
   @Override
-  public DatabricksMetadataClient getDatabricksMetadataClient() {
-    LoggingUtil.log(LogLevel.DEBUG, "public DatabricksClient getDatabricksMetadataClient()");
+  public IDatabricksMetadataClient getDatabricksMetadataClient() {
+    LoggingUtil.log(LogLevel.DEBUG, "public IDatabricksClient getDatabricksMetadataClient()");
     if (this.connectionContext.getClientType() == DatabricksClientType.THRIFT) {
-      return (DatabricksMetadataClient) databricksClient;
+      return (IDatabricksMetadataClient) databricksClient;
     }
     return databricksMetadataClient;
   }
