@@ -575,18 +575,8 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   }
 
   @Override
-  public String getOAuth2ClientID() {
-    return getParameter(OAUTH2_CLIENT_ID);
-  }
-
-  @Override
   public String getOAuth2TokenEndpoint() {
     return getParameter(OAUTH2_TOKEN_ENDPOINT);
-  }
-
-  @Override
-  public String getOAuth2Secret() {
-    return getParameter(OAUTH2_SECRET);
   }
 
   @Override

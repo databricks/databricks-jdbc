@@ -96,9 +96,7 @@ public final class DatabricksJdbcConstants {
   public static final String AUTH_FLOW = "auth_flow";
 
   public static final String OAUTH_REFRESH_TOKEN = "OAuthRefreshToken";
-  public static final String OAUTH2_CLIENT_ID = "OAuth2ClientID";
   public static final String OAUTH2_TOKEN_ENDPOINT = "OAuth2ConnAuthTokenEndpoint";
-  public static final String OAUTH2_SECRET = "OAuth2Secret";
   public static final String OAUTH2_AUTH_SCOPE_KEY = "OAuth2ConnAuthAuthscopeKey";
   public static final String AUTH_ACCESS_TOKEN = "Auth_AccessToken";
   public static final String TOKEN_REFRESH_GRACE_PERIOD_MINS = "TokenRefreshGracePeriodMins";

@@ -32,10 +32,11 @@ public class OAuthAuthenticator {
         .equals(IDatabricksConnectionContext.AuthMech.OAUTH)) {
       switch (this.connectionContext.getAuthFlow()) {
         case TOKEN_PASSTHROUGH:
-          setupAccessTokenConfig(databricksConfig);
           if (connectionContext.getOAuthRefreshToken() != null) {
             databricksConfig.setCredentialsProvider(
                 new JWTAndRefreshCredentialsProvider(connectionContext));
+          } else {
+            setupAccessTokenConfig(databricksConfig);
           }
           break;
         case CLIENT_CREDENTIALS:
