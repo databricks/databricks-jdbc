@@ -98,6 +98,13 @@ public class MetadataResultSetBuilder {
                   object = "NO";
                 }
               }
+              if (column.getColumnName().equals(NULLABLE_COLUMN.getColumnName())) {
+                if (object == null || object.equals("true")) {
+                  object = 1;
+                } else {
+                  object = 0;
+                }
+              }
               if (column.getColumnName().equals(DECIMAL_DIGITS_COLUMN.getColumnName())
                   || column.getColumnName().equals(NUM_PREC_RADIX_COLUMN.getColumnName())) {
                 if (object == null) {

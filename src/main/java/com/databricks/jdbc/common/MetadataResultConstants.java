@@ -108,7 +108,7 @@ public class MetadataResultConstants {
   private static final ResultColumn USER_DATA_TYPE_COLUMN =
       new ResultColumn("USER_DATA_TYPE", "UserDataType", Types.SMALLINT);
   public static final ResultColumn NULLABLE_COLUMN =
-      new ResultColumn("NULLABLE", "isNullable", Types.BIT);
+      new ResultColumn("NULLABLE", "isNullable", Types.INTEGER);
   public static final ResultColumn ORDINAL_POSITION_COLUMN =
       new ResultColumn("ORDINAL_POSITION", "ordinalPosition", Types.INTEGER);
   public static final ResultColumn IS_AUTO_INCREMENT_COLUMN =
