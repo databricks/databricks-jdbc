@@ -1,6 +1,8 @@
 package com.databricks.jdbc.auth;
 
 import com.databricks.jdbc.api.IDatabricksConnectionContext;
+import com.databricks.jdbc.common.LogLevel;
+import com.databricks.jdbc.common.util.LoggingUtil;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.sdk.core.CredentialsProvider;
 import com.databricks.sdk.core.DatabricksConfig;
@@ -47,6 +49,7 @@ public class JWTAndRefreshCredentialsProvider extends RefreshableTokenSource
     try {
       this.jwt = new String(Files.readAllBytes(Paths.get(context.getJwtPath())));
     } catch (IOException e) {
+      LoggingUtil.log(LogLevel.ERROR, "Failed to read jwt file");
       throw new DatabricksException("Failed to read jwt file", e);
     }
   }
@@ -72,10 +75,12 @@ public class JWTAndRefreshCredentialsProvider extends RefreshableTokenSource
   @Override
   protected Token refresh() {
     if (this.token == null) {
+      LoggingUtil.log(LogLevel.ERROR, "oauth2: token is not set");
       throw new DatabricksException("oauth2: token is not set");
     }
     String refreshToken = this.token.getRefreshToken();
     if (refreshToken == null) {
+      LoggingUtil.log(LogLevel.ERROR, "oauth2: token expired and refresh token is not set");
       throw new DatabricksException("oauth2: token expired and refresh token is not set");
     }
 
