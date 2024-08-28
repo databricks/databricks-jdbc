@@ -1,4 +1,4 @@
-package com.databricks.jdbc.api.impl;
+package com.databricks.jdbc.api.impl.fake;
 
 import com.databricks.jdbc.api.IDatabricksResultSet;
 import com.databricks.jdbc.exception.DatabricksSQLException;

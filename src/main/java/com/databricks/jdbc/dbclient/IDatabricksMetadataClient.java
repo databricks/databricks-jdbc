@@ -31,7 +31,7 @@ import java.sql.SQLException;
           methodName = "listPrimaryKeys",
           metricName = CommandName.LIST_PRIMARY_KEYS)
     })
-public interface DatabricksMetadataClient {
+public interface IDatabricksMetadataClient {
 
   /** Returns information about types supported by Databricks server */
   DatabricksResultSet listTypeInfo(IDatabricksSession session) throws SQLException;

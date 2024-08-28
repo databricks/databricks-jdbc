@@ -1,4 +1,4 @@
-package com.databricks.jdbc.api.impl;
+package com.databricks.jdbc.api.impl.fake;
 
 import com.databricks.jdbc.common.util.WrapperUtil;
 import java.sql.ResultSetMetaData;

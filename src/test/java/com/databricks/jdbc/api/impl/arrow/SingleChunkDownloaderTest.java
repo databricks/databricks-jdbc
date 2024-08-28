@@ -1,4 +1,4 @@
-package com.databricks.jdbc.api.impl;
+package com.databricks.jdbc.api.impl.arrow;
 
 import static com.databricks.jdbc.TestConstants.TEST_STRING;
 import static org.mockito.Mockito.doThrow;

@@ -1,4 +1,4 @@
-package com.databricks.jdbc.api.impl;
+package com.databricks.jdbc.api.impl.fake;
 
 import static org.junit.jupiter.api.Assertions.*;
 
