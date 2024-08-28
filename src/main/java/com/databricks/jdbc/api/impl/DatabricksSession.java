@@ -38,12 +38,12 @@ public class DatabricksSession implements IDatabricksSession {
 
   private String schema;
 
-  private Map<String, String> sessionConfigs;
+  private final Map<String, String> sessionConfigs;
 
-  private Map<String, String> clientInfoProperties;
-  private CompressionType compressionType;
+  private final Map<String, String> clientInfoProperties;
+  private final CompressionType compressionType;
 
-  private IDatabricksConnectionContext connectionContext;
+  private final IDatabricksConnectionContext connectionContext;
 
   /**
    * Creates an instance of Databricks session for given connection context
@@ -89,9 +89,8 @@ public class DatabricksSession implements IDatabricksSession {
 
   /** Constructor method to be used for mocking in a test case. */
   @VisibleForTesting
-  DatabricksSession(
-      IDatabricksConnectionContext connectionContext, IDatabricksClient databricksClient)
-      throws DatabricksSQLException {
+  public DatabricksSession(
+      IDatabricksConnectionContext connectionContext, IDatabricksClient databricksClient) {
     this.databricksClient = databricksClient;
     if (databricksClient instanceof DatabricksThriftServiceClient) {
       this.databricksMetadataClient = null;
