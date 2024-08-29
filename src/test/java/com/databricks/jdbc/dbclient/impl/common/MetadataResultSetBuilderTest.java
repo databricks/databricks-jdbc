@@ -70,6 +70,11 @@ public class MetadataResultSetBuilderTest {
         Arguments.of("VARCHAR(", "VARCHAR"),
         Arguments.of("VARCHAR(100,200)", "VARCHAR"),
         Arguments.of("CHAR(123)", "CHAR"),
+        Arguments.of("ARRAY<DOUBLE>", "ARRAY"),
+        Arguments.of("MAP<STRING,INT>", "MAP"),
+        Arguments.of("STRUCT<A:INT,B:STRING>", "STRUCT"),
+        Arguments.of("ARRAY<DOUBLE>(100)", "ARRAY"),
+        Arguments.of("MAP<STRING,INT>(50)", "MAP"),
         Arguments.of(null, null),
         Arguments.of("", ""),
         Arguments.of("INTEGER(10,5)", "INTEGER"));
