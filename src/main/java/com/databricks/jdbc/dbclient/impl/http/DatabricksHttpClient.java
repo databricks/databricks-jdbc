@@ -1,6 +1,7 @@
 package com.databricks.jdbc.dbclient.impl.http;
 
 import static com.databricks.jdbc.common.DatabricksJdbcConstants.*;
+import static com.databricks.jdbc.dbclient.impl.common.ClientUtils.convertNonProxyHostConfigToBeSystemPropertyCompliant;
 import static io.netty.util.NetUtil.LOCALHOST;
 
 import com.databricks.jdbc.api.IDatabricksConnectionContext;
@@ -19,12 +20,10 @@ import java.io.IOException;
 import java.security.KeyManagementException;
 import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
-import java.util.Arrays;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
-import java.util.stream.Collectors;
 import javax.net.ssl.SSLContext;
 import org.apache.http.HttpException;
 import org.apache.http.HttpHost;
@@ -269,26 +268,6 @@ public class DatabricksHttpClient implements IDatabricksHttpClient {
     if (httpContext.getAttribute(RATE_LIMIT_RETRY_COUNT_KEY) == null) {
       httpContext.setAttribute(RATE_LIMIT_RETRY_COUNT_KEY, 0L);
     }
-  }
-
-  /**
-   * Currently, the ODBC driver takes in nonProxyHosts as a comma separated list of suffix of
-   * non-proxy hosts i.e. suffix1|suffix2|suffix3. Whereas, the SDK takes in nonProxyHosts as a list
-   * of patterns separated by '|'. This pattern conforms to the system property format in the Java
-   * Proxy Guide.
-   *
-   * @param nonProxyHosts Comma separated list of suffix of non-proxy hosts
-   * @return nonProxyHosts in system property compliant format from <a
-   *     href="https://docs.oracle.com/javase/8/docs/technotes/guides/net/proxies.html">Java Proxy
-   *     Guide</a>
-   */
-  public static String convertNonProxyHostConfigToBeSystemPropertyCompliant(String nonProxyHosts) {
-    if (nonProxyHosts == null || nonProxyHosts.isEmpty()) {
-      return EMPTY_STRING;
-    }
-    return Arrays.stream(nonProxyHosts.split(","))
-        .map(suffix -> "*" + suffix)
-        .collect(Collectors.joining("|"));
   }
 
   @VisibleForTesting
