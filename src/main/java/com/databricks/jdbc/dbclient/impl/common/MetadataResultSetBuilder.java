@@ -74,7 +74,7 @@ public class MetadataResultSetBuilder {
         || typeVal.contains(STRING_TYPE));
   }
 
-  private static List<List<Object>> getRows(ResultSet resultSet, List<ResultColumn> columns)
+  static List<List<Object>> getRows(ResultSet resultSet, List<ResultColumn> columns)
       throws SQLException {
     List<List<Object>> rows = new ArrayList<>();
 

@@ -1,12 +1,18 @@
 package com.databricks.jdbc.dbclient.impl.common;
 
+import static com.databricks.jdbc.common.MetadataResultConstants.*;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.mockito.Mockito.mock;
 
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.util.List;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.mockito.Mockito;
 
 public class MetadataResultSetBuilderTest {
 
@@ -97,6 +103,26 @@ public class MetadataResultSetBuilderTest {
         Arguments.of("CHAR", 10, 255),
         Arguments.of("VARCHAR", 10, 255),
         Arguments.of("TEXT", 10, 255));
+  }
+
+  private static Stream<Arguments> getRowsNullableColumnArguments() {
+    return Stream.of(Arguments.of("true", 1), Arguments.of("false", 0), Arguments.of(null, 1));
+  }
+
+  @ParameterizedTest
+  @MethodSource("getRowsNullableColumnArguments")
+  void testGetRowsHandlesNullableColumn(String isNullableValue, int expectedNullable)
+      throws SQLException {
+    ResultSet resultSet = mock(ResultSet.class);
+    Mockito.when(resultSet.next()).thenReturn(true).thenReturn(false);
+    Mockito.when(resultSet.getObject(NULLABLE_COLUMN.getResultSetColumnName()))
+        .thenReturn(isNullableValue);
+
+    List<List<Object>> rows = MetadataResultSetBuilder.getRows(resultSet, COLUMN_COLUMNS);
+
+    assertEquals(expectedNullable, rows.get(0).get(10));
+    assertEquals(
+        Integer.class, rows.get(0).get(10).getClass()); // test column type of nullable column
   }
 
   @ParameterizedTest
