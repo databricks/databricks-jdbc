@@ -580,16 +580,6 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   }
 
   @Override
-  public String getOAuth2AuthScopeKey() {
-    return getParameter(OAUTH2_AUTH_SCOPE_KEY);
-  }
-
-  @Override
-  public String getAuthAccessToken() {
-    return getParameter(AUTH_ACCESS_TOKEN);
-  }
-
-  @Override
   public int getTokenRefreshGracePeriodMins() {
     return Integer.parseInt(getParameter(TOKEN_REFRESH_GRACE_PERIOD_MINS, "0"));
   }
