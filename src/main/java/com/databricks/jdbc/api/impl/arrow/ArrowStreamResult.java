@@ -100,13 +100,12 @@ public class ArrowStreamResult implements IExecutionResult {
   }
 
   private void setColumnInfo(TGetResultSetMetadataResp resultManifest) {
-    this.columnInfos = new ArrayList<>();
+    columnInfos = new ArrayList<>();
     if (resultManifest.getSchema() == null) {
       return;
     }
     for (TColumnDesc columnInfo : resultManifest.getSchema().getColumns()) {
-      this.columnInfos.add(
-          new ColumnInfo().setTypeName(getTypeFromTypeDesc(columnInfo.getTypeDesc())));
+      columnInfos.add(new ColumnInfo().setTypeName(getTypeFromTypeDesc(columnInfo.getTypeDesc())));
     }
   }
 
@@ -150,13 +149,13 @@ public class ArrowStreamResult implements IExecutionResult {
     // 2. Interpreted type while reading from the arrow file into the record batches
     // We need to convert the interpreted type into the required type before returning the object
     ColumnInfoTypeName requiredType = columnInfos.get(columnIndex).getTypeName();
-    Object unconvertedObject = this.chunkIterator.getColumnObjectAtCurrentRow(columnIndex);
+    Object unconvertedObject = chunkIterator.getColumnObjectAtCurrentRow(columnIndex);
     return ArrowToJavaObjectConverter.convert(unconvertedObject, requiredType);
   }
 
   @Override
   public long getCurrentRow() {
-    return this.currentRowIndex;
+    return currentRowIndex;
   }
 
   @Override
@@ -164,21 +163,21 @@ public class ArrowStreamResult implements IExecutionResult {
     if (!hasNext()) {
       return false;
     }
-    this.currentRowIndex++;
+    currentRowIndex++;
     if (isInlineArrow) {
       if (chunkIterator == null) {
-        this.chunkIterator = this.chunkExtractor.next().getChunkIterator();
+        chunkIterator = chunkExtractor.next().getChunkIterator();
       }
       return chunkIterator.nextRow();
     }
     // Either this is first chunk or we are crossing chunk boundary
-    if (this.chunkIterator == null || !this.chunkIterator.hasNextRow()) {
-      this.chunkDownloader.next();
-      this.chunkIterator = this.chunkDownloader.getChunk().getChunkIterator();
+    if (chunkIterator == null || !chunkIterator.hasNextRow()) {
+      chunkDownloader.next();
+      chunkIterator = chunkDownloader.getChunk().getChunkIterator();
       return chunkIterator.nextRow();
     }
     // Traversing within a chunk
-    return this.chunkIterator.nextRow();
+    return chunkIterator.nextRow();
   }
 
   @Override
@@ -194,16 +193,16 @@ public class ArrowStreamResult implements IExecutionResult {
 
     // For inline arrow, check if the chunk extractor has more chunks
     // Otherwise, check the chunk downloader
-    return isInlineArrow ? this.chunkExtractor.hasNext() : this.chunkDownloader.hasNextChunk();
+    return isInlineArrow ? chunkExtractor.hasNext() : chunkDownloader.hasNextChunk();
   }
 
   @Override
   public void close() {
-    this.isClosed = true;
+    isClosed = true;
     if (isInlineArrow) {
-      this.chunkExtractor.releaseChunk();
+      chunkExtractor.releaseChunk();
     } else {
-      this.chunkDownloader.releaseAllChunks();
+      chunkDownloader.releaseAllChunks();
     }
   }
 }

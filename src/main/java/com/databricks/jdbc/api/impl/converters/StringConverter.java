@@ -8,45 +8,22 @@ import java.sql.Timestamp;
 
 public class StringConverter extends AbstractObjectConverter {
 
-  private String object;
+  private final String object;
 
   public StringConverter(Object object) throws DatabricksSQLException {
     super(object);
     if (object instanceof Character) {
-      this.object = object.toString(); // Convert Character to String
+      this.object = object.toString();
     } else {
       this.object = (String) object;
     }
   }
 
   @Override
-  public String convertToString() throws DatabricksSQLException {
-    return this.object;
-  }
-
-  @Override
-  public char convertToChar() throws DatabricksSQLException {
-    if (this.object.length() == 1) {
-      return this.object.charAt(0);
-    }
-    throw new DatabricksSQLException("Invalid conversion");
-  }
-
-  @Override
-  public boolean convertToBoolean() throws DatabricksSQLException {
-    if ("0".equals(this.object) || "false".equalsIgnoreCase(this.object)) {
-      return false;
-    } else if ("1".equals(this.object) || "true".equalsIgnoreCase(this.object)) {
-      return true;
-    }
-    throw new DatabricksSQLException("Invalid conversion");
-  }
-
-  @Override
   public byte convertToByte() throws DatabricksSQLException {
-    byte[] byteArray = this.object.getBytes();
+    byte[] byteArray = object.getBytes();
     if (byteArray.length == 1) {
-      return this.object.getBytes()[0];
+      return object.getBytes()[0];
     }
     throw new DatabricksSQLException("Invalid conversion");
   }
@@ -54,7 +31,7 @@ public class StringConverter extends AbstractObjectConverter {
   @Override
   public short convertToShort() throws DatabricksSQLException {
     try {
-      return Short.parseShort(this.object);
+      return Short.parseShort(object);
     } catch (NumberFormatException e) {
       throw new DatabricksSQLException("Invalid conversion");
     }
@@ -63,7 +40,7 @@ public class StringConverter extends AbstractObjectConverter {
   @Override
   public int convertToInt() throws DatabricksSQLException {
     try {
-      return Integer.parseInt(this.object);
+      return Integer.parseInt(object);
     } catch (NumberFormatException e) {
       throw new DatabricksSQLException("Invalid conversion");
     }
@@ -72,21 +49,16 @@ public class StringConverter extends AbstractObjectConverter {
   @Override
   public long convertToLong() throws DatabricksSQLException {
     try {
-      return Long.parseLong(this.object);
+      return Long.parseLong(object);
     } catch (NumberFormatException e) {
       throw new DatabricksSQLException("Invalid conversion");
     }
   }
 
   @Override
-  public BigInteger convertToBigInteger() throws DatabricksSQLException {
-    return BigInteger.valueOf(this.convertToLong());
-  }
-
-  @Override
   public float convertToFloat() throws DatabricksSQLException {
     try {
-      return Float.parseFloat(this.object);
+      return Float.parseFloat(object);
     } catch (NumberFormatException e) {
       throw new DatabricksSQLException("Invalid conversion");
     }
@@ -95,7 +67,7 @@ public class StringConverter extends AbstractObjectConverter {
   @Override
   public double convertToDouble() throws DatabricksSQLException {
     try {
-      return Double.parseDouble(this.object);
+      return Double.parseDouble(object);
     } catch (NumberFormatException e) {
       throw new DatabricksSQLException("Invalid conversion");
     }
@@ -103,21 +75,49 @@ public class StringConverter extends AbstractObjectConverter {
 
   @Override
   public BigDecimal convertToBigDecimal() throws DatabricksSQLException {
-    return new BigDecimal(this.object);
+    return new BigDecimal(object);
+  }
+
+  @Override
+  public BigInteger convertToBigInteger() throws DatabricksSQLException {
+    return BigInteger.valueOf(this.convertToLong());
+  }
+
+  @Override
+  public boolean convertToBoolean() throws DatabricksSQLException {
+    if ("0".equals(object) || "false".equalsIgnoreCase(object)) {
+      return false;
+    } else if ("1".equals(object) || "true".equalsIgnoreCase(object)) {
+      return true;
+    }
+    throw new DatabricksSQLException("Invalid conversion");
   }
 
   @Override
   public byte[] convertToByteArray() throws DatabricksSQLException {
-    return this.object.getBytes();
+    return object.getBytes();
+  }
+
+  @Override
+  public char convertToChar() throws DatabricksSQLException {
+    if (object.length() == 1) {
+      return object.charAt(0);
+    }
+    throw new DatabricksSQLException("Invalid conversion");
+  }
+
+  @Override
+  public String convertToString() throws DatabricksSQLException {
+    return object;
   }
 
   @Override
   public Date convertToDate() throws DatabricksSQLException {
-    return Date.valueOf(this.object);
+    return Date.valueOf(object);
   }
 
   @Override
   public Timestamp convertToTimestamp() throws DatabricksSQLException {
-    return Timestamp.valueOf(this.object);
+    return Timestamp.valueOf(object);
   }
 }

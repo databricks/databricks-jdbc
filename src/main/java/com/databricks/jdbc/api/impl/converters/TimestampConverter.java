@@ -27,28 +27,28 @@ public class TimestampConverter extends AbstractObjectConverter {
   }
 
   @Override
+  public long convertToLong() throws DatabricksSQLException {
+    return object.toInstant().getEpochSecond() * 1000L; // epoch milliseconds
+  }
+
+  @Override
+  public BigInteger convertToBigInteger() throws DatabricksSQLException {
+    return BigInteger.valueOf(this.convertToLong());
+  }
+
+  @Override
+  public String convertToString() throws DatabricksSQLException {
+    return object.toInstant().toString();
+  }
+
+  @Override
   public Timestamp convertToTimestamp() throws DatabricksSQLException {
-    return this.object;
+    return object;
   }
 
   @Override
   public Date convertToDate() throws DatabricksSQLException {
     TimeZone.setDefault(TimeZone.getTimeZone("GMT"));
     return new Date(this.convertToLong());
-  }
-
-  @Override
-  public long convertToLong() throws DatabricksSQLException {
-    return this.object.toInstant().getEpochSecond() * 1000L; // epoch milliseconds
-  }
-
-  @Override
-  public String convertToString() throws DatabricksSQLException {
-    return this.object.toInstant().toString();
-  }
-
-  @Override
-  public BigInteger convertToBigInteger() throws DatabricksSQLException {
-    return BigInteger.valueOf(this.convertToLong());
   }
 }
