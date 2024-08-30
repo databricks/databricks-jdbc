@@ -21,16 +21,15 @@ import java.util.Map;
 
 import static com.databricks.jdbc.auth.AuthConstants.*;
 
-public class OAuthRefreshWithOptionalJwtCredentialsProvider extends RefreshableTokenSource
+public class OAuthRefreshCredentialsProvider extends RefreshableTokenSource
     implements CredentialsProvider {
   IDatabricksConnectionContext context;
   private HttpClient hc;
   private final String tokenUrl;
   private final String clientId;
   private final String clientSecret;
-  private String jwt = null;
 
-  public OAuthRefreshWithOptionalJwtCredentialsProvider(IDatabricksConnectionContext context) {
+  public OAuthRefreshCredentialsProvider(IDatabricksConnectionContext context) {
     this.context = context;
     this.tokenUrl = AuthUtils.getTokenEndpoint(context);
     try {
@@ -44,14 +43,11 @@ public class OAuthRefreshWithOptionalJwtCredentialsProvider extends RefreshableT
         new Token(
             DatabricksJdbcConstants.EMPTY_STRING, DatabricksJdbcConstants.EMPTY_STRING,
                 context.getOAuthRefreshToken(), LocalDateTime.now().minusMinutes(1));
-    if (context.getEncodedJwt() != null) {
-      this.jwt = context.getEncodedJwt();
-    }
   }
 
   @Override
   public String authType() {
-    return "oauth-refresh-with-optional-jwt";
+    return "oauth-refresh";
   }
 
   @Override
@@ -82,10 +78,6 @@ public class OAuthRefreshWithOptionalJwtCredentialsProvider extends RefreshableT
     Map<String, String> params = new HashMap<>();
     params.put(GRANT_TYPE_KEY, GRANT_TYPE_REFRESH_TOKEN_KEY);
     params.put(GRANT_TYPE_REFRESH_TOKEN_KEY, refreshToken);
-    if (this.jwt != null) {
-      params.put(CLIENT_ASSERTION_TYPE_KEY, CLIENT_ASSERTION_TYPE_JWT_OAUTH);
-      params.put(CLIENT_ASSERTION_KEY, this.jwt);
-    }
     Map<String, String> headers = new HashMap<>();
     return retrieveToken(
         hc, clientId, clientSecret, tokenUrl, params, headers, AuthParameterPosition.BODY);

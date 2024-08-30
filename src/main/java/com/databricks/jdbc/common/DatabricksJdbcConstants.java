@@ -97,7 +97,6 @@ public final class DatabricksJdbcConstants {
 
   public static final String OAUTH_REFRESH_TOKEN = "OAuthRefreshToken";
   public static final String OAUTH2_TOKEN_ENDPOINT = "OAuth2ConnAuthTokenEndpoint";
-  public static final String ENCODED_JWT = "EncodedJwt";
 
   /** Only used when AUTH_MECH = 3 */
   public static final String PWD = "pwd";

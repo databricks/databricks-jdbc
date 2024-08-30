@@ -4,6 +4,7 @@ import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.common.DatabricksJdbcConstants;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.sdk.WorkspaceClient;
+import com.databricks.sdk.core.CredentialsProvider;
 import com.databricks.sdk.core.DatabricksConfig;
 
 public class OAuthAuthenticator {
@@ -32,8 +33,10 @@ public class OAuthAuthenticator {
       switch (this.connectionContext.getAuthFlow()) {
         case TOKEN_PASSTHROUGH:
           if (connectionContext.getOAuthRefreshToken() != null) {
-            databricksConfig.setCredentialsProvider(
-                new OAuthRefreshWithOptionalJwtCredentialsProvider(connectionContext));
+            databricksConfig.setHost(connectionContext.getHostForOAuth());
+            CredentialsProvider provider = new OAuthRefreshCredentialsProvider(connectionContext);
+            databricksConfig.setAuthType(provider.authType());
+            databricksConfig.setCredentialsProvider(provider);
           } else {
             setupAccessTokenConfig(databricksConfig);
           }

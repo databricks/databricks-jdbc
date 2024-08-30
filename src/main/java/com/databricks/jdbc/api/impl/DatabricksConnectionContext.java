@@ -578,9 +578,4 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   public String getOAuth2TokenEndpoint() {
     return getParameter(OAUTH2_TOKEN_ENDPOINT);
   }
-
-  @Override
-  public String getEncodedJwt() {
-    return getParameter(ENCODED_JWT);
-  }
 }

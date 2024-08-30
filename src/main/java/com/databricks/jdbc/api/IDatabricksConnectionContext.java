@@ -156,6 +156,4 @@ public interface IDatabricksConnectionContext {
   String getOAuthRefreshToken();
 
   String getOAuth2TokenEndpoint();
-
-  String getEncodedJwt();
 }
