@@ -15,7 +15,7 @@ public class RetryHandler {
     if (exception instanceof DatabricksRetryHandlerException) {
       return ((DatabricksRetryHandlerException) exception).getErrCode();
     }
-    return 0;
+    return 1;
   }
 
   public static boolean isRetryAllowedHttp(

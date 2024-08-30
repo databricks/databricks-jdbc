@@ -11,7 +11,7 @@ public class RequestSanitizer {
 
   public static String sanitizeRequest(HttpUriRequest request) {
     try {
-      URI uri = new URI(request.getURI().toString());
+      URI uri = request.getURI();
       String sanitizedQuery = sanitizeQuery(uri.getRawQuery());
       URI sanitizedUri =
           new URI(
