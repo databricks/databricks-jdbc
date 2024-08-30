@@ -1074,10 +1074,8 @@ public class DatabricksResultSet implements ResultSet, IDatabricksResultSet {
       throw new SQLException(
           "Column type is not ARRAY. Cannot convert to Array. Column type: " + columnTypeName);
     }
-    System.out.println("HELLOWORLD");
-    System.out.println(obj);
-    throw new DatabricksSQLFeatureNotSupportedException(
-        "Not implemented in DatabricksResultSet - getArray(int columnIndex)");
+    ComplexDataTypeParser parser = new ComplexDataTypeParser();
+    return new DatabricksArray("ARRAY", parser.parseToArray(parser.parse(obj.toString())));
   }
 
 
@@ -1088,15 +1086,12 @@ public class DatabricksResultSet implements ResultSet, IDatabricksResultSet {
       return null;
     }
     String columnTypeName = resultSetMetaData.getColumnClassName(columnIndex);
-    System.out.println(columnTypeName);
     if (columnTypeName != "java.sql.Struct") {
       throw new SQLException(
           "Column type is not STRUCT. Cannot convert to Struct. Column type: " + columnTypeName);
     }
-    System.out.println("HELLOWORLD");
-    System.out.println(obj);
-    throw new DatabricksSQLFeatureNotSupportedException(
-        "Not implemented in DatabricksResultSet - getStruct(int columnIndex)");
+    ComplexDataTypeParser parser = new ComplexDataTypeParser();
+    return new DatabricksStruct("STRUCT", parser.parseToMap(obj.toString()));
   }
 
   public Map getMap(int columnIndex) throws SQLException {
@@ -1110,8 +1105,8 @@ public class DatabricksResultSet implements ResultSet, IDatabricksResultSet {
       throw new SQLException(
           "Column type is not MAP. Cannot convert to Map. Column type: " + columnTypeName);
     }
-    throw new DatabricksSQLFeatureNotSupportedException(
-        "Not implemented in DatabricksResultSet - getMap(int columnIndex)");
+    ComplexDataTypeParser parser = new ComplexDataTypeParser();
+    return parser.parseToMap(obj.toString());
   }
 
   @Override

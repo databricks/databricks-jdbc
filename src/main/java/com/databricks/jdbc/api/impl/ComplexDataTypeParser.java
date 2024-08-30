@@ -2,8 +2,7 @@ package com.databricks.jdbc.api.impl;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import java.sql.Array;
-import java.sql.Struct;
+
 import java.util.*;
 
 public class ComplexDataTypeParser {
@@ -13,18 +12,15 @@ public class ComplexDataTypeParser {
         this.objectMapper = new ObjectMapper();
     }
 
-    public Object parseToJavaObject(JsonNode node) {
-        if (node.isObject()) {
-            return parseToStruct(node);
-        } else if (node.isArray()) {
-            return parseToArray(node);
-        } else if (node.isValueNode()) {
-            return node.asText();
+    public JsonNode parse(String json) {
+        try {
+            return objectMapper.readTree(json);
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to parse JSON: " + json, e);
         }
-        return null;
     }
 
-    private Map<String, Object> parseToStruct(JsonNode node) {
+    public Map<String, Object> parseToStruct(JsonNode node) {
         Map<String, Object> structMap = new HashMap<>();
         Iterator<Map.Entry<String, JsonNode>> fields = node.fields();
         while (fields.hasNext()) {
@@ -34,12 +30,23 @@ public class ComplexDataTypeParser {
         return structMap;
     }
 
-    private List<Object> parseToArray(JsonNode node) {
+    public List<Object> parseToArray(JsonNode node) {
         List<Object> arrayList = new ArrayList<>();
         for (JsonNode element : node) {
             arrayList.add(parseToJavaObject(element));
         }
         return arrayList;
+    }
+
+    private Object parseToJavaObject(JsonNode node) {
+        if (node.isObject()) {
+            return parseToStruct(node);
+        } else if (node.isArray()) {
+            return parseToArray(node);
+        } else if (node.isValueNode()) {
+            return node.asText();
+        }
+        return null;
     }
 
     public Map<String, Object> parseToMap(String json) {

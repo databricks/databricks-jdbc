@@ -57,7 +57,9 @@ public class DriverTest {
     DatabricksResultSet rs = (DatabricksResultSet) statement.executeQuery("SELECT * from main.ms_testing_schema.deep_nested_table");
     System.out.println(((DatabricksResultSetMetaData) rs.getMetaData()).getColumnTypeName(3));
     rs.next();
-    rs.getStruct(3);
+    System.out.println("CHECK");
+    System.out.println(rs.getStruct(3));
+//    System.out.println(rs.getStruct(3));
 //    printResultSet(rs);
     rs.close();
     statement.close();
