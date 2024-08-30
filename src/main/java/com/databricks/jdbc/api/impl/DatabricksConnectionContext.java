@@ -580,12 +580,7 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   }
 
   @Override
-  public int getTokenRefreshGracePeriodMins() {
-    return Integer.parseInt(getParameter(TOKEN_REFRESH_GRACE_PERIOD_MINS, "0"));
-  }
-
-  @Override
-  public String getJwtPath() {
-    return getParameter(JWT_PATH);
+  public String getEncodedJwt() {
+    return getParameter(ENCODED_JWT);
   }
 }

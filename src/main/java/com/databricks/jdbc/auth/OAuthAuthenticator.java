@@ -1,7 +1,6 @@
 package com.databricks.jdbc.auth;
 
 import com.databricks.jdbc.api.IDatabricksConnectionContext;
-import com.databricks.jdbc.auth.JWTAndRefreshCredentialsProvider;
 import com.databricks.jdbc.common.DatabricksJdbcConstants;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.sdk.WorkspaceClient;
@@ -34,7 +33,7 @@ public class OAuthAuthenticator {
         case TOKEN_PASSTHROUGH:
           if (connectionContext.getOAuthRefreshToken() != null) {
             databricksConfig.setCredentialsProvider(
-                new JWTAndRefreshCredentialsProvider(connectionContext));
+                new OAuthRefreshOnlyWithOptionalJwtCredentialsProvider(connectionContext));
           } else {
             setupAccessTokenConfig(databricksConfig);
           }

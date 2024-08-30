@@ -16,25 +16,21 @@ import com.databricks.sdk.core.oauth.Token;
 import org.apache.http.HttpHeaders;
 import org.apache.http.client.utils.URIBuilder;
 
-import java.io.IOException;
 import java.net.URISyntaxException;
-import java.nio.file.Files;
-import java.nio.file.Paths;
 import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
 
-public class JWTAndRefreshCredentialsProvider extends RefreshableTokenSource
+public class OAuthRefreshOnlyWithOptionalJwtCredentialsProvider extends RefreshableTokenSource
     implements CredentialsProvider {
   IDatabricksConnectionContext context;
   private HttpClient hc;
   private final String tokenUrl;
   private final String clientId;
   private final String clientSecret;
-  private final int tokenRefreshGracePeriodMins;
   private String jwt = null;
 
-  public JWTAndRefreshCredentialsProvider(IDatabricksConnectionContext context) {
+  public OAuthRefreshOnlyWithOptionalJwtCredentialsProvider(IDatabricksConnectionContext context) {
     this.context = context;
     if (context.getOAuth2TokenEndpoint() != null) {
       this.tokenUrl = context.getOAuth2TokenEndpoint();
@@ -60,15 +56,9 @@ public class JWTAndRefreshCredentialsProvider extends RefreshableTokenSource
         new Token(
             DatabricksJdbcConstants.EMPTY_STRING, DatabricksJdbcConstants.EMPTY_STRING,
                 context.getOAuthRefreshToken(), LocalDateTime.now().minusMinutes(1));
-    if (context.getJwtPath() != null) {
-      try {
-        this.jwt = new String(Files.readAllBytes(Paths.get(context.getJwtPath())));
-      } catch (IOException e) {
-        LoggingUtil.log(LogLevel.ERROR, "Failed to read jwt file");
-        throw new DatabricksException("Failed to read jwt file", e);
-      }
+    if (context.getEncodedJwt() != null) {
+      this.jwt = context.getEncodedJwt();
     }
-    this.tokenRefreshGracePeriodMins = context.getTokenRefreshGracePeriodMins();
   }
 
   @Override
@@ -111,24 +101,5 @@ public class JWTAndRefreshCredentialsProvider extends RefreshableTokenSource
     Map<String, String> headers = new HashMap<>();
     return retrieveToken(
         hc, clientId, clientSecret, tokenUrl, params, headers, AuthParameterPosition.BODY);
-  }
-
-  @Override
-  public synchronized Token getToken() {
-    // If the token will expire within the grace period, refresh it
-    return super.getToken();
-  }
-
-  static class GracePeriodToken extends Token {
-    public GracePeriodToken(String accessToken, String tokenType, String refreshToken, LocalDateTime expirationTime) {
-      super(accessToken, tokenType, refreshToken, expirationTime);
-    }
-
-    @Override
-    public boolean isValid() {
-      return
-//              this.expiry &&
-              super.isValid();
-    }
   }
 }

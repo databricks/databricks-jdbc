@@ -157,7 +157,5 @@ public interface IDatabricksConnectionContext {
 
   String getOAuth2TokenEndpoint();
 
-  int getTokenRefreshGracePeriodMins();
-
-  String getJwtPath();
+  String getEncodedJwt();
 }
