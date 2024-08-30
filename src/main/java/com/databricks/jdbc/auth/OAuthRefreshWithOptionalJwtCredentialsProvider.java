@@ -14,14 +14,14 @@ import com.databricks.sdk.core.oauth.AuthParameterPosition;
 import com.databricks.sdk.core.oauth.RefreshableTokenSource;
 import com.databricks.sdk.core.oauth.Token;
 import org.apache.http.HttpHeaders;
-import org.apache.http.client.utils.URIBuilder;
 
-import java.net.URISyntaxException;
 import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
 
-public class OAuthRefreshOnlyWithOptionalJwtCredentialsProvider extends RefreshableTokenSource
+import static com.databricks.jdbc.auth.AuthConstants.*;
+
+public class OAuthRefreshWithOptionalJwtCredentialsProvider extends RefreshableTokenSource
     implements CredentialsProvider {
   IDatabricksConnectionContext context;
   private HttpClient hc;
@@ -30,21 +30,9 @@ public class OAuthRefreshOnlyWithOptionalJwtCredentialsProvider extends Refresha
   private final String clientSecret;
   private String jwt = null;
 
-  public OAuthRefreshOnlyWithOptionalJwtCredentialsProvider(IDatabricksConnectionContext context) {
+  public OAuthRefreshWithOptionalJwtCredentialsProvider(IDatabricksConnectionContext context) {
     this.context = context;
-    if (context.getOAuth2TokenEndpoint() != null) {
-      this.tokenUrl = context.getOAuth2TokenEndpoint();
-    } else {
-      try {
-        this.tokenUrl = new URIBuilder().setHost(context.getHostForOAuth())
-                .setScheme("https")
-                .setPathSegments("oidc", "v1", "token")
-                .build().toString();
-      } catch (URISyntaxException e) {
-        LoggingUtil.log(LogLevel.ERROR, "Failed to build token url");
-        throw new DatabricksException("Failed to build token url", e);
-      }
-    }
+    this.tokenUrl = AuthUtils.getTokenEndpoint(context);
     try {
       this.clientId = context.getClientId();
     } catch (DatabricksParsingException e) {
@@ -63,7 +51,7 @@ public class OAuthRefreshOnlyWithOptionalJwtCredentialsProvider extends Refresha
 
   @Override
   public String authType() {
-    return "oauth-refresh";
+    return "oauth-refresh-with-optional-jwt";
   }
 
   @Override
@@ -92,11 +80,11 @@ public class OAuthRefreshOnlyWithOptionalJwtCredentialsProvider extends Refresha
     }
 
     Map<String, String> params = new HashMap<>();
-    params.put("grant_type", "refresh_token");
-    params.put("refresh_token", refreshToken);
+    params.put(GRANT_TYPE_KEY, GRANT_TYPE_REFRESH_TOKEN_KEY);
+    params.put(GRANT_TYPE_REFRESH_TOKEN_KEY, refreshToken);
     if (this.jwt != null) {
-      params.put("client_assertion_type", "urn:ietf:params:oauth:client-assertion-type:jwt-bearer");
-      params.put("client_assertion", this.jwt);
+      params.put(CLIENT_ASSERTION_TYPE_KEY, CLIENT_ASSERTION_TYPE_JWT_OAUTH);
+      params.put(CLIENT_ASSERTION_KEY, this.jwt);
     }
     Map<String, String> headers = new HashMap<>();
     return retrieveToken(

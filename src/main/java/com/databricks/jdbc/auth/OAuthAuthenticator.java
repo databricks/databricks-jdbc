@@ -33,7 +33,7 @@ public class OAuthAuthenticator {
         case TOKEN_PASSTHROUGH:
           if (connectionContext.getOAuthRefreshToken() != null) {
             databricksConfig.setCredentialsProvider(
-                new OAuthRefreshOnlyWithOptionalJwtCredentialsProvider(connectionContext));
+                new OAuthRefreshWithOptionalJwtCredentialsProvider(connectionContext));
           } else {
             setupAccessTokenConfig(databricksConfig);
           }
