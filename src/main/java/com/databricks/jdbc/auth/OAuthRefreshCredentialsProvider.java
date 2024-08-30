@@ -1,5 +1,7 @@
 package com.databricks.jdbc.auth;
 
+import static com.databricks.jdbc.auth.AuthConstants.*;
+
 import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.common.DatabricksJdbcConstants;
 import com.databricks.jdbc.common.LogLevel;
@@ -13,13 +15,10 @@ import com.databricks.sdk.core.http.HttpClient;
 import com.databricks.sdk.core.oauth.AuthParameterPosition;
 import com.databricks.sdk.core.oauth.RefreshableTokenSource;
 import com.databricks.sdk.core.oauth.Token;
-import org.apache.http.HttpHeaders;
-
 import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
-
-import static com.databricks.jdbc.auth.AuthConstants.*;
+import org.apache.http.HttpHeaders;
 
 public class OAuthRefreshCredentialsProvider extends RefreshableTokenSource
     implements CredentialsProvider {
@@ -41,8 +40,10 @@ public class OAuthRefreshCredentialsProvider extends RefreshableTokenSource
     // Create an expired dummy token object with the refresh token to use
     this.token =
         new Token(
-            DatabricksJdbcConstants.EMPTY_STRING, DatabricksJdbcConstants.EMPTY_STRING,
-                context.getOAuthRefreshToken(), LocalDateTime.now().minusMinutes(1));
+            DatabricksJdbcConstants.EMPTY_STRING,
+            DatabricksJdbcConstants.EMPTY_STRING,
+            context.getOAuthRefreshToken(),
+            LocalDateTime.now().minusMinutes(1));
   }
 
   @Override
