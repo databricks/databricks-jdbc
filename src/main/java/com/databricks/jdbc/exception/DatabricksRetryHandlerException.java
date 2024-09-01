@@ -5,7 +5,7 @@ import com.databricks.jdbc.telemetry.DatabricksMetrics;
 import java.io.IOException;
 
 public class DatabricksRetryHandlerException extends IOException {
-  private int errCode = 0;
+  private final int errCode;
 
   private void exportError(
       IDatabricksConnectionContext connectionContext,
