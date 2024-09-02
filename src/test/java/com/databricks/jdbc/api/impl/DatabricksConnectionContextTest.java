@@ -33,10 +33,13 @@ class DatabricksConnectionContextTest {
 
   private static final String VALID_URL_7 =
       "jdbc:databricks://adb-565757575.18.azuredatabricks.net:4423/default;ssl=1;AuthMech=3;httpPath=/sql/1.0/endpoints/erg6767gg;LogLevel=debug;LogPath=./test1;auth_flow=2;enablearrow=0";
-
   private static final String VALID_URL_8 =
-      "jdbc:databricks://adb-565757575.18.azuredatabricks.net:4423/default;ssl=1;port=123;AuthMech=3;httpPath=/sql/1.0/endpoints/erg6767gg;LogLevel=debug;LogPath=./test1;auth_flow=2;enablearrow=0";
-
+      "jdbc:databricks://adb-565757575.18.azuredatabricks.net:4423/default;ssl=1;port=123;AuthMech=3;"
+          + "httpPath=/sql/1.0/endpoints/erg6767gg;LogLevel=debug;LogPath=./test1;auth_flow=2;enablearrow=0;"
+          + "OAuth2AuthorizationEndPoint=authEndpoint;OAuth2TokenEndpoint=tokenEndpoint;"
+          + "OAuthDiscoveryURL=testDiscovery;discovery_mode=1;UseJWTAssertion=1;auth_scope=test_scope;"
+          + "auth_kid=test_kid;Auth_JWT_Key_Passphrase=test_phrase;Auth_JWT_Key_File=test_key_file;"
+          + "Auth_JWT_Alg=test_algo";
   private static final String VALID_URL_WITH_INVALID_COMPRESSION_TYPE =
       "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/5c89f447c476a5a8;QueryResultCompressionType=234";
 
@@ -118,6 +121,8 @@ class DatabricksConnectionContextTest {
     assertEquals(VALID_URL_1, connectionContext.getConnectionURL());
     assertEquals("/sql/1.0/warehouses/erg6767gg", connectionContext.getHttpPath());
     assertEquals("passwd", connectionContext.getToken());
+    assertTrue(connectionContext.isOAuthDiscoveryModeEnabled());
+    assertFalse(connectionContext.useJWTAssertion());
     assertEquals(
         connectionContext.getAuthFlow(),
         IDatabricksConnectionContext.AuthFlow.BROWSER_BASED_AUTHENTICATION);
@@ -169,10 +174,18 @@ class DatabricksConnectionContextTest {
   }
 
   @Test
-  public void testPortStringThroughConnectionParameters() throws DatabricksSQLException {
+  public void testPortStringAndAuthEndpointsThroughConnectionParameters()
+      throws DatabricksSQLException {
     DatabricksConnectionContext connectionContext =
         (DatabricksConnectionContext) DatabricksConnectionContext.parse(VALID_URL_8, properties);
     assertEquals(123, connectionContext.port);
+    assertEquals("tokenEndpoint", connectionContext.getTokenEndpoint());
+    assertEquals("authEndpoint", connectionContext.getAuthEndpoint());
+    assertEquals("test_kid", connectionContext.getKID());
+    assertEquals("test_algo", connectionContext.getJWTAlgorithm());
+    assertEquals("test_phrase", connectionContext.getJWTPassphrase());
+    assertEquals("test_key_file", connectionContext.getJWTKeyFile());
+    assertTrue(connectionContext.useJWTAssertion());
     assertThrows(
         DatabricksSQLException.class,
         () -> DatabricksConnectionContext.parse(INVALID_URL_3, properties));
