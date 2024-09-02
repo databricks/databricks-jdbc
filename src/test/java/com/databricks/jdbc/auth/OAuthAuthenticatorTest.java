@@ -4,11 +4,15 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.when;
 
 import com.databricks.jdbc.api.IDatabricksConnectionContext;
+import com.databricks.jdbc.api.impl.DatabricksConnectionContext;
 import com.databricks.jdbc.common.DatabricksJdbcConstants;
 import com.databricks.jdbc.exception.DatabricksParsingException;
+import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.sdk.WorkspaceClient;
+import com.databricks.sdk.core.CredentialsProvider;
 import com.databricks.sdk.core.DatabricksConfig;
 import java.util.List;
+import java.util.Properties;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
@@ -79,6 +83,26 @@ public class OAuthAuthenticatorTest {
     assertEquals("https://oauth-client.databricks.com", config.getHost());
     assertEquals("client-id", config.getClientId());
     assertEquals("client-secret", config.getClientSecret());
+    assertEquals(DatabricksJdbcConstants.M2M_AUTH_TYPE, config.getAuthType());
+  }
+
+  @Test
+  void testM2MWithJWT() throws DatabricksSQLException {
+    String jdbcUrl =
+        "jdbc:databricks://adb-565757575.18.azuredatabricks.net:123/default;ssl=1;port=123;AuthMech=11;"
+            + "httpPath=/sql/1.0/endpoints/erg6767gg;auth_flow=1;UseJWTAssertion=1;auth_scope=test_scope;"
+            + "OAuth2ClientId=test-client;auth_kid=test_kid;Auth_JWT_Key_Passphrase=test_phrase;Auth_JWT_Key_File=test_key_file;"
+            + "Auth_JWT_Alg=test_algo";
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContext.parse(jdbcUrl, new Properties());
+    authenticator = new OAuthAuthenticator(connectionContext);
+    WorkspaceClient client = authenticator.getWorkspaceClient(new DatabricksConfig());
+    assertNotNull(client);
+    DatabricksConfig config = client.config();
+    CredentialsProvider provider = client.config().getCredentialsProvider();
+    assertEquals("https://adb-565757575.18.azuredatabricks.net", config.getHost());
+    assertEquals("test-client", config.getClientId());
+    assertEquals(provider.authType(), "custom-oauth-m2m");
     assertEquals(DatabricksJdbcConstants.M2M_AUTH_TYPE, config.getAuthType());
   }
 

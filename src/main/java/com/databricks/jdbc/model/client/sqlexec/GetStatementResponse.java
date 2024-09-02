@@ -76,7 +76,7 @@ public class GetStatementResponse {
 
   @Override
   public String toString() {
-    return new ToStringer(com.databricks.sdk.service.sql.GetStatementResponse.class)
+    return new ToStringer(GetStatementResponse.class)
         .add("manifest", manifest)
         .add("result", result)
         .add("statementId", statementId)

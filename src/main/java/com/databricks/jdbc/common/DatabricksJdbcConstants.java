@@ -217,6 +217,17 @@ public final class DatabricksJdbcConstants {
   public static final String CLOUD_FETCH_THREAD_POOL_SIZE = "cloudFetchThreadPoolSize";
   public static final int CLOUD_FETCH_THREAD_POOL_SIZE_DEFAULT = 16;
   public static final String ENABLE_TELEMETRY = "enableTelemetry";
+  public static final String TOKEN_ENDPOINT = "OAuth2TokenEndpoint";
+  public static final String AUTH_ENDPOINT = "OAuth2AuthorizationEndPoint";
+  public static final String JWT_KEY_FILE = "Auth_JWT_Key_File";
+  public static final String JWT_ALGORITHM = "Auth_JWT_Alg";
+  public static final String JWT_PASS_PHRASE = "Auth_JWT_Key_Passphrase";
+  public static final String JWT_KID = "Auth_KID";
+  public static final String USE_JWT_ASSERTION = "UseJWTAssertion";
+  public static final String DISCOVERY_MODE = "OAuthDiscoveryMode";
+  public static final String AUTH_SCOPE = "Auth_Scope";
+  public static final String ALL_APIS_SCOPE = "all-apis";
+  public static final String DISCOVERY_URL = "OAuthDiscoveryURL";
   public static final Pattern SELECT_PATTERN =
       Pattern.compile("^(\\s*\\()*\\s*SELECT", Pattern.CASE_INSENSITIVE);
   public static final Pattern SHOW_PATTERN =
