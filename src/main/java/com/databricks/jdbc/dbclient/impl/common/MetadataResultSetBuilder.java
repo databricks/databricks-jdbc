@@ -131,6 +131,12 @@ public class MetadataResultSetBuilder {
                 object = null;
               }
             }
+
+            if (column.getColumnName().equals(TABLE_TYPE_COLUMN.getColumnName())
+                && (object == null || object.equals(""))) {
+              object = "TABLE";
+            }
+
             // Handle TYPE_NAME separately for potential modifications
             if (column.getColumnName().equals(TYPE_NAME_COLUMN.getColumnName())) {
               object = stripTypeName((String) object);
