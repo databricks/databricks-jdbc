@@ -79,5 +79,9 @@ public class OAuthAuthenticator {
         .setHost(connectionContext.getHostForOAuth())
         .setClientId(connectionContext.getClientId())
         .setClientSecret(connectionContext.getClientSecret());
+    if (connectionContext.useJWTAssertion()) {
+      databricksConfig.setCredentialsProvider(
+          new PrivateKeyClientCredentialProvider(connectionContext));
+    }
   }
 }

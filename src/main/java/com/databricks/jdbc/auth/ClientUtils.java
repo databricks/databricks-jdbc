@@ -1,12 +1,11 @@
-package com.databricks.jdbc.dbclient.impl.common;
+package com.databricks.jdbc.auth;
 
 import com.databricks.jdbc.api.IDatabricksConnectionContext;
-import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.sdk.core.DatabricksConfig;
 
 public class ClientUtils {
   public static DatabricksConfig generateDatabricksConfig(
-      IDatabricksConnectionContext connectionContext) throws DatabricksParsingException {
+      IDatabricksConnectionContext connectionContext) {
     DatabricksConfig databricksConfig =
         new DatabricksConfig().setUseSystemPropertiesHttp(connectionContext.getUseSystemProxy());
     // Setup proxy settings

@@ -97,4 +97,25 @@ public class TestConstants {
       new TTableSchema().setColumns(Collections.singletonList(TEST_COLUMN_DESCRIPTION));
   public static final byte[] TEST_BYTES =
       ByteBuffer.allocate(Long.BYTES).putLong(123456789L).array();
+
+  public static final String TEST_CLIENT_ID = "test-client-id";
+  public static final String TEST_TOKEN_URL = "https://test.token.url";
+  public static final String TEST_AUTH_URL = "https://test.auth.url";
+  public static final String TEST_DISCOVERY_URL = "https://test.discovery.url";
+  public static final String TEST_JWT_KID = "test-kid";
+  public static final String TEST_SCOPE = "test-scope";
+  public static final String TEST_JWT_ALGORITHM = "RS256";
+  public static final String TEST_JWT_KEY_FILE = "src/test/resources/private_key.pem";
+  public static final String TEST_ACCESS_TOKEN = "test-access-token";
+  public static final String TEST_OIDC_RESPONSE =
+      "{\n"
+          + "  \"token_endpoint\": \"https://test.token.url\",\n"
+          + "  \"authorization_endpoint\": \"https://test.auth.url\"\n"
+          + "}";
+  public static final String TEST_OAUTH_RESPONSE =
+      "{\n"
+          + "  \"expires_in\": 3600,\n"
+          + "  \"access_token\": \"test-access-token\",\n"
+          + "  \"token_type\": \"Bearer\"\n"
+          + "}";
 }

@@ -570,12 +570,57 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   }
 
   @Override
-  public String getOAuthRefreshToken() {
-    return getParameter(OAUTH_REFRESH_TOKEN);
+  public String getJWTKeyFile() {
+    return getParameter(JWT_KEY_FILE);
   }
 
   @Override
-  public String getOAuth2TokenEndpoint() {
-    return getParameter(OAUTH2_TOKEN_ENDPOINT);
+  public String getKID() {
+    return getParameter(JWT_KID);
+  }
+
+  @Override
+  public String getJWTPassphrase() {
+    return getParameter(JWT_PASS_PHRASE);
+  }
+
+  @Override
+  public String getJWTAlgorithm() {
+    return getParameter(JWT_ALGORITHM);
+  }
+
+  @Override
+  public boolean useJWTAssertion() {
+    return getParameter(USE_JWT_ASSERTION, "0").equals("1");
+  }
+
+  @Override
+  public String getTokenEndpoint() {
+    return getParameter(TOKEN_ENDPOINT);
+  }
+
+  @Override
+  public String getAuthEndpoint() {
+    return getParameter(AUTH_ENDPOINT);
+  }
+
+  @Override
+  public boolean isOAuthDiscoveryModeEnabled() {
+    return getParameter(DISCOVERY_MODE, "1").equals("1");
+  }
+
+  @Override
+  public String getOAuthDiscoveryURL() {
+    return getParameter(DISCOVERY_URL);
+  }
+
+  @Override
+  public String getAuthScope() {
+    return getParameter(AUTH_SCOPE, ALL_APIS_SCOPE);
+  }
+
+  @Override
+  public String getOAuthRefreshToken() {
+    return getParameter(OAUTH_REFRESH_TOKEN);
   }
 }
