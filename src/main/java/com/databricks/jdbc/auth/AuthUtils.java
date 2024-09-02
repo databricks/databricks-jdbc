@@ -5,8 +5,6 @@ import com.databricks.jdbc.common.LogLevel;
 import com.databricks.jdbc.common.util.LoggingUtil;
 import com.databricks.jdbc.dbclient.impl.http.DatabricksHttpClient;
 import com.databricks.jdbc.exception.DatabricksHttpException;
-import com.databricks.jdbc.exception.DatabricksParsingException;
-import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.sdk.core.DatabricksException;
 import com.databricks.sdk.core.oauth.OpenIDConnectEndpoints;
 import com.fasterxml.jackson.databind.ObjectMapper;

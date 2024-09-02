@@ -1,8 +1,15 @@
 package com.databricks.jdbc.auth;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.when;
+
 import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.dbclient.impl.http.DatabricksHttpClient;
 import com.databricks.sdk.core.DatabricksException;
+import java.io.ByteArrayInputStream;
 import org.apache.http.HttpEntity;
 import org.apache.http.StatusLine;
 import org.apache.http.client.methods.CloseableHttpResponse;
@@ -13,31 +20,18 @@ import org.mockito.Mock;
 import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import java.io.ByteArrayInputStream;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.mockStatic;
-import static org.mockito.Mockito.when;
-
 @ExtendWith(MockitoExtension.class)
 public class AuthUtilsTest {
 
-  @Mock
-  IDatabricksConnectionContext context;
+  @Mock IDatabricksConnectionContext context;
 
-  @Mock
-  DatabricksHttpClient httpClient;
+  @Mock DatabricksHttpClient httpClient;
 
-  @Mock
-  CloseableHttpResponse httpResponse;
+  @Mock CloseableHttpResponse httpResponse;
 
-  @Mock
-  StatusLine statusLine;
+  @Mock StatusLine statusLine;
 
-  @Mock
-  HttpEntity entity;
+  @Mock HttpEntity entity;
 
   @Test
   void testGetTokenEndpoint_WithTokenEndpointInContext() {
@@ -57,8 +51,10 @@ public class AuthUtilsTest {
       when(httpResponse.getStatusLine()).thenReturn(statusLine);
       when(statusLine.getStatusCode()).thenReturn(200);
       when(httpResponse.getEntity()).thenReturn(entity);
-      when(entity.getContent()).thenReturn(new ByteArrayInputStream(
-              "{\"token_endpoint\": \"https://token.example.com\"}".getBytes()));
+      when(entity.getContent())
+          .thenReturn(
+              new ByteArrayInputStream(
+                  "{\"token_endpoint\": \"https://token.example.com\"}".getBytes()));
 
       String tokenEndpoint = AuthUtils.getTokenEndpoint(context);
       assertEquals("https://token.example.com", tokenEndpoint);
