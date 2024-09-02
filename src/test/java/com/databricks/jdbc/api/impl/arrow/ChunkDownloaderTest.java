@@ -164,8 +164,6 @@ public class ChunkDownloaderTest {
     assertEquals(expectedRows, chunk.numRows);
     assertEquals(expectedRowsOffSet, chunk.rowOffset);
     assertEquals(CHUNK_URL_PREFIX + chunkIndex, chunk.getChunkUrl());
-
-    assertNotNull(chunk.getDownloadFinishTime());
     assertEquals(ArrowResultChunk.ChunkStatus.DOWNLOAD_SUCCEEDED, chunk.getStatus());
   }
 

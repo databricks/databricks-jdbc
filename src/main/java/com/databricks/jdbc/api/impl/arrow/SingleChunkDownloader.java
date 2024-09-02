@@ -3,7 +3,6 @@ package com.databricks.jdbc.api.impl.arrow;
 import com.databricks.jdbc.common.LogLevel;
 import com.databricks.jdbc.common.util.LoggingUtil;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
-import com.databricks.jdbc.exception.DatabricksHttpException;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import java.io.IOException;
@@ -29,7 +28,7 @@ class SingleChunkDownloader implements Callable<Void> {
     }
     try {
       chunk.downloadData(httpClient);
-    } catch (DatabricksHttpException | DatabricksParsingException e) {
+    } catch (DatabricksParsingException e) {
       // TODO: handle retries
     } catch (IOException e) {
       LoggingUtil.log(
