@@ -86,11 +86,12 @@ def main():
             "majorVersion.minorVersion.buildVersion-qualifier")
         return 1
 
-    driver_util_file_path = "../src/main/java/com/databricks/jdbc/commons/util/DriverUtil.java"
+    driver_util_file_path = "../src/main/java/com/databricks/jdbc/common/util/DriverUtil.java"
     pom_file_path = "../pom.xml"
-    connection_test_file_path = "../src/test/java/com/databricks/jdbc/core/DatabricksConnectionTest.java"
-    database_metadata_test_file_path = "../src/test/java/com/databricks/jdbc/core/DatabricksDatabaseMetaDataTest.java"
-    http_client_test_file_path = "../src/test/java/com/databricks/jdbc/client/http/DatabricksHttpClientTest.java"
+    connection_test_file_path = "../src/test/java/com/databricks/jdbc/api/impl/DatabricksConnectionTest.java"
+    database_metadata_test_file_path = ("../src/test/java/com/databricks/jdbc/api/impl/DatabricksDatabaseMetaDataTest"
+                                        ".java")
+    http_client_test_file_path = "../src/test/java/com/databricks/jdbc/dbclient/impl/http/DatabricksHttpClientTest.java"
 
     try:
         update_driver_util_java(driver_util_file_path, version)

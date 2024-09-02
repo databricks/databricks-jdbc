@@ -1,13 +1,11 @@
 package com.databricks.jdbc.telemetry;
 
-import static com.databricks.jdbc.driver.DatabricksJdbcConstants.TELEMETRY_LOG_LEVEL;
+import static com.databricks.jdbc.common.DatabricksJdbcConstants.TELEMETRY_LOG_LEVEL;
 
-import com.databricks.jdbc.client.http.DatabricksHttpClient;
-import com.databricks.jdbc.commons.MetricsConstants;
-import com.databricks.jdbc.commons.util.DriverUtil;
-import com.databricks.jdbc.commons.util.LoggingUtil;
-import com.databricks.jdbc.core.DatabricksSQLException;
-import com.databricks.jdbc.driver.IDatabricksConnectionContext;
+import com.databricks.jdbc.api.IDatabricksConnectionContext;
+import com.databricks.jdbc.common.util.DriverUtil;
+import com.databricks.jdbc.common.util.LoggingUtil;
+import com.databricks.jdbc.dbclient.impl.http.DatabricksHttpClient;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -56,7 +54,7 @@ public class DatabricksMetrics implements AutoCloseable {
     metricsTimer.schedule(task, 0, MetricsConstants.INTERVAL_DURATION);
   }
 
-  public DatabricksMetrics(IDatabricksConnectionContext context) throws DatabricksSQLException {
+  public DatabricksMetrics(IDatabricksConnectionContext context) {
     enableTelemetry = (context != null && context.enableTelemetry());
     if (enableTelemetry) {
       workspaceId = context.getComputeResource().getWorkspaceId();
