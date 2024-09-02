@@ -58,6 +58,7 @@ public class OAuthRefreshCredentialsProvider extends RefreshableTokenSource
     }
     return () -> {
       Map<String, String> headers = new HashMap<>();
+      // An example header looks like: "Authorization: Bearer <access-token>"
       headers.put(
           HttpHeaders.AUTHORIZATION, getToken().getTokenType() + " " + getToken().getAccessToken());
       return headers;
