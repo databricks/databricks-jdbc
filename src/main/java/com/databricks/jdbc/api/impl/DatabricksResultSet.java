@@ -12,6 +12,7 @@ import com.databricks.jdbc.common.LogLevel;
 import com.databricks.jdbc.common.StatementType;
 import com.databricks.jdbc.common.util.LoggingUtil;
 import com.databricks.jdbc.common.util.WarningUtil;
+import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.exception.DatabricksSQLFeatureNotSupportedException;
 import com.databricks.jdbc.model.client.thrift.generated.TGetResultSetMetadataResp;
@@ -1701,7 +1702,8 @@ public class DatabricksResultSet implements ResultSet, IDatabricksResultSet {
       return resultData != null && resultManifest != null;
     }
 
-    private void createFromSqlExecutionApi(DatabricksResultSet resultSet) {
+    private void createFromSqlExecutionApi(DatabricksResultSet resultSet)
+        throws DatabricksParsingException {
       resultSet.executionResult =
           ExecutionResultFactory.getResultSet(
               resultData, resultManifest, statementId, session, parentStatement, resultSet);
