@@ -36,7 +36,7 @@ def update_assertions_test_file(file_path, new_version):
         else:
             with open(file_path, 'w', encoding='utf-8') as file:
                 file.write(updated_content)
-            print("Successfully updated version in test file.")
+            print("Successfully updated version in test file: {}".format(file_path))
     except re.error as e:
         print("Error in regular expression: {}".format(str(e)), file=sys.stderr)
     except Exception as e:
