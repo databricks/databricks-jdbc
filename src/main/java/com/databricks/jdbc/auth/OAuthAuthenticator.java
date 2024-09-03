@@ -70,14 +70,15 @@ public class OAuthAuthenticator {
         .setToken(connectionContext.getToken());
   }
 
-  public void setupU2MRefreshConfig(DatabricksConfig databricksConfig) throws DatabricksParsingException {
+  public void setupU2MRefreshConfig(DatabricksConfig databricksConfig)
+      throws DatabricksParsingException {
     CredentialsProvider provider = new OAuthRefreshCredentialsProvider(connectionContext);
     databricksConfig
-            .setHost(connectionContext.getHostForOAuth())
-            .setAuthType(provider.authType())
-            .setCredentialsProvider(provider)
-            .setClientId(connectionContext.getClientId())
-            .setClientSecret(connectionContext.getClientSecret());
+        .setHost(connectionContext.getHostForOAuth())
+        .setAuthType(provider.authType())
+        .setCredentialsProvider(provider)
+        .setClientId(connectionContext.getClientId())
+        .setClientSecret(connectionContext.getClientSecret());
   }
 
   public void setupM2MConfig(DatabricksConfig databricksConfig) throws DatabricksParsingException {

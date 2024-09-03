@@ -52,7 +52,8 @@ public class AuthUtils {
   private static String getTokenEndpointFromDiscoveryEndpoint(
       IDatabricksConnectionContext connectionContext) throws DatabricksException {
     if (connectionContext.getOAuthDiscoveryURL() == null) {
-      String exceptionMessage = "If discovery mode is enabled, we also need the discovery URL to be set.";
+      String exceptionMessage =
+          "If discovery mode is enabled, we also need the discovery URL to be set.";
       LoggingUtil.log(LogLevel.ERROR, exceptionMessage);
       throw new DatabricksException(exceptionMessage);
     }
@@ -63,7 +64,8 @@ public class AuthUtils {
       try (CloseableHttpResponse response = httpClient.execute(getRequest)) {
         if (response.getStatusLine().getStatusCode() != 200) {
           String exceptionMessage =
-                  "Error while calling discovery endpoint to fetch token endpoint. Response: " + response;
+              "Error while calling discovery endpoint to fetch token endpoint. Response: "
+                  + response;
           LoggingUtil.log(LogLevel.DEBUG, exceptionMessage);
           throw new DatabricksHttpException(exceptionMessage);
         }
