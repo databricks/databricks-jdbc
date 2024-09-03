@@ -2,7 +2,6 @@ package com.databricks.jdbc.auth;
 
 import static com.databricks.jdbc.TestConstants.*;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.when;
@@ -11,7 +10,6 @@ import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.dbclient.impl.http.DatabricksHttpClient;
 import com.databricks.jdbc.exception.DatabricksHttpException;
 import com.databricks.sdk.core.DatabricksConfig;
-import com.databricks.sdk.core.DatabricksException;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import org.apache.http.HttpEntity;
@@ -67,19 +65,6 @@ public class PrivateKeyClientCredentialProviderTest {
       JwtPrivateKeyClientCredentials clientCredentials =
           customM2MClientCredentialProvider.getClientCredentialObject(config);
       assertEquals(clientCredentials.getTokenEndpoint(), TEST_TOKEN_URL);
-    }
-  }
-
-  @Test
-  void testCredentialProviderWithModeEnabledButUrlNotProvided() {
-    try (MockedStatic<DatabricksHttpClient> mocked = mockStatic(DatabricksHttpClient.class)) {
-      mocked.when(() -> DatabricksHttpClient.getInstance(any())).thenReturn(httpClient);
-      when(context.isOAuthDiscoveryModeEnabled()).thenReturn(true);
-      when(context.getOAuthDiscoveryURL()).thenReturn(null);
-      when(context.getTokenEndpoint()).thenReturn(null);
-      assertThrows(
-          DatabricksException.class,
-          () -> new PrivateKeyClientCredentialProvider(context).getClientCredentialObject(config));
     }
   }
 

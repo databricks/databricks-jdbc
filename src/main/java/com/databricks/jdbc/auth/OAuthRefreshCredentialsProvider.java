@@ -24,13 +24,13 @@ public class OAuthRefreshCredentialsProvider extends RefreshableTokenSource
     implements CredentialsProvider {
   IDatabricksConnectionContext context;
   private HttpClient hc;
-  private final String tokenUrl;
+  private final String tokenEndpoint;
   private final String clientId;
   private final String clientSecret;
 
   public OAuthRefreshCredentialsProvider(IDatabricksConnectionContext context) {
     this.context = context;
-    this.tokenUrl = AuthUtils.getTokenEndpoint(context);
+    this.tokenEndpoint = AuthUtils.getTokenEndpoint(context);
     try {
       this.clientId = context.getClientId();
     } catch (DatabricksParsingException e) {
@@ -86,6 +86,6 @@ public class OAuthRefreshCredentialsProvider extends RefreshableTokenSource
     params.put(GRANT_TYPE_REFRESH_TOKEN_KEY, refreshToken);
     Map<String, String> headers = new HashMap<>();
     return retrieveToken(
-        hc, clientId, clientSecret, tokenUrl, params, headers, AuthParameterPosition.BODY);
+        hc, clientId, clientSecret, tokenEndpoint, params, headers, AuthParameterPosition.BODY);
   }
 }

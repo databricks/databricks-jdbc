@@ -8,12 +8,11 @@ import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.api.IDatabricksSession;
 import com.databricks.jdbc.api.IDatabricksStatement;
 import com.databricks.jdbc.api.impl.*;
-import com.databricks.jdbc.auth.ClientUtils;
-import com.databricks.jdbc.auth.OAuthAuthenticator;
 import com.databricks.jdbc.common.CommandName;
 import com.databricks.jdbc.common.LogLevel;
 import com.databricks.jdbc.common.StatementType;
 import com.databricks.jdbc.common.util.LoggingUtil;
+import com.databricks.jdbc.dbclient.impl.common.ClientConfigurator;
 import com.databricks.jdbc.dbclient.impl.http.DatabricksHttpClient;
 import com.databricks.jdbc.exception.DatabricksHttpException;
 import com.databricks.jdbc.exception.DatabricksParsingException;
@@ -40,10 +39,7 @@ public class DatabricksThriftAccessor {
   public DatabricksThriftAccessor(IDatabricksConnectionContext connectionContext)
       throws DatabricksParsingException {
     enableDirectResults = connectionContext.getDirectResultMode();
-    this.databricksConfig = ClientUtils.generateDatabricksConfig(connectionContext);
-    OAuthAuthenticator authenticator = new OAuthAuthenticator(connectionContext);
-    authenticator.setupDatabricksConfig(databricksConfig);
-    this.databricksConfig.resolve();
+    this.databricksConfig = new ClientConfigurator(connectionContext).getDatabricksConfig();
     Map<String, String> authHeaders = databricksConfig.authenticate();
     String endPointUrl = connectionContext.getEndpointURL();
     // Create a new thrift client for each thread as client state is not thread safe. Note that the

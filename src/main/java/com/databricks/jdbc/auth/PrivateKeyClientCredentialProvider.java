@@ -23,6 +23,7 @@ public class PrivateKeyClientCredentialProvider implements CredentialsProvider {
   public PrivateKeyClientCredentialProvider(IDatabricksConnectionContext connectionContext) {
     this.connectionContext = connectionContext;
     this.httpClient = DatabricksHttpClient.getInstance(connectionContext);
+    this.tokenEndpoint = AuthUtils.getTokenEndpoint(connectionContext);
   }
 
   @Override
@@ -32,7 +33,6 @@ public class PrivateKeyClientCredentialProvider implements CredentialsProvider {
 
   @VisibleForTesting
   JwtPrivateKeyClientCredentials getClientCredentialObject(DatabricksConfig config) {
-    tokenEndpoint = AuthUtils.getTokenEndpoint(connectionContext);
     return new JwtPrivateKeyClientCredentials.Builder()
         .withHttpClient(this.httpClient)
         .withClientId(config.getClientId())

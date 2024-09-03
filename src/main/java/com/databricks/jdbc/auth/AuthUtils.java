@@ -5,9 +5,12 @@ import com.databricks.jdbc.common.LogLevel;
 import com.databricks.jdbc.common.util.LoggingUtil;
 import com.databricks.jdbc.dbclient.impl.http.DatabricksHttpClient;
 import com.databricks.jdbc.exception.DatabricksHttpException;
+import com.databricks.jdbc.exception.DatabricksParsingException;
+import com.databricks.sdk.core.DatabricksConfig;
 import com.databricks.sdk.core.DatabricksException;
 import com.databricks.sdk.core.oauth.OpenIDConnectEndpoints;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.annotations.VisibleForTesting;
 import java.io.IOException;
 import java.net.URISyntaxException;
 import org.apache.http.client.methods.CloseableHttpResponse;
@@ -19,30 +22,28 @@ public class AuthUtils {
     String tokenUrl;
     if (context.getTokenEndpoint() != null) {
       tokenUrl = context.getTokenEndpoint();
-    } else if (context.isOAuthDiscoveryModeEnabled()) {
-      try {
-        tokenUrl = getTokenEndpointFromDiscoveryEndpoint(context);
-      } catch (DatabricksException e) {
-        String exceptionMessage = "Failed to get token endpoint from discovery endpoint";
-        LoggingUtil.log(LogLevel.ERROR, exceptionMessage);
-        throw new DatabricksException(exceptionMessage, e);
-      }
+    } else if (context.isOAuthDiscoveryModeEnabled() && context.getOAuthDiscoveryURL() != null) {
+      tokenUrl = getTokenEndpointFromDiscoveryEndpoint(context);
     } else {
-      try {
-        tokenUrl =
-            new URIBuilder()
-                .setHost(context.getHostForOAuth())
-                .setScheme("https")
-                .setPathSegments("oidc", "v1", "token")
-                .build()
-                .toString();
-      } catch (URISyntaxException e) {
-        String exceptionMessage = "Failed to build token url";
-        LoggingUtil.log(LogLevel.ERROR, exceptionMessage);
-        throw new DatabricksException(exceptionMessage, e);
-      }
+      tokenUrl = getTokenEndpointUsingDatabricksConfig(context);
     }
     return tokenUrl;
+  }
+
+  public static String getTokenEndpointUsingDatabricksConfig(IDatabricksConnectionContext context) {
+    try {
+      return getBarebonesDatabricksConfig(context).getOidcEndpoints().getTokenEndpoint();
+    } catch (DatabricksParsingException | IOException e) {
+      String exceptionMessage = "Failed to build token url";
+      LoggingUtil.log(LogLevel.ERROR, exceptionMessage);
+      throw new DatabricksException(exceptionMessage, e);
+    }
+  }
+
+  @VisibleForTesting
+  public static DatabricksConfig getBarebonesDatabricksConfig(IDatabricksConnectionContext context)
+      throws DatabricksParsingException {
+    return new DatabricksConfig().setHost(context.getHostUrl()).resolve();
   }
 
   /*
@@ -50,13 +51,7 @@ public class AuthUtils {
    * https://github.com/databricks/databricks-sdk-java/pull/336
    * */
   private static String getTokenEndpointFromDiscoveryEndpoint(
-      IDatabricksConnectionContext connectionContext) throws DatabricksException {
-    if (connectionContext.getOAuthDiscoveryURL() == null) {
-      String exceptionMessage =
-          "If discovery mode is enabled, we also need the discovery URL to be set.";
-      LoggingUtil.log(LogLevel.ERROR, exceptionMessage);
-      throw new DatabricksException(exceptionMessage);
-    }
+      IDatabricksConnectionContext connectionContext) {
     try {
       URIBuilder uriBuilder = new URIBuilder(connectionContext.getOAuthDiscoveryURL());
       DatabricksHttpClient httpClient = DatabricksHttpClient.getInstance(connectionContext);

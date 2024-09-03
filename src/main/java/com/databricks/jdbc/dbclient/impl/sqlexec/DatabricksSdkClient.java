@@ -7,12 +7,11 @@ import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.api.IDatabricksSession;
 import com.databricks.jdbc.api.IDatabricksStatement;
 import com.databricks.jdbc.api.impl.*;
-import com.databricks.jdbc.auth.ClientUtils;
-import com.databricks.jdbc.auth.OAuthAuthenticator;
 import com.databricks.jdbc.common.*;
 import com.databricks.jdbc.common.IDatabricksComputeResource;
 import com.databricks.jdbc.common.util.LoggingUtil;
 import com.databricks.jdbc.dbclient.IDatabricksClient;
+import com.databricks.jdbc.dbclient.impl.common.ClientConfigurator;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.exception.DatabricksTimeoutException;
@@ -24,7 +23,6 @@ import com.databricks.jdbc.model.core.ExternalLink;
 import com.databricks.jdbc.model.core.ResultData;
 import com.databricks.sdk.WorkspaceClient;
 import com.databricks.sdk.core.ApiClient;
-import com.databricks.sdk.core.DatabricksConfig;
 import com.databricks.sdk.service.sql.*;
 import com.google.common.annotations.VisibleForTesting;
 import java.sql.SQLException;
@@ -39,7 +37,6 @@ import java.util.stream.Collectors;
 public class DatabricksSdkClient implements IDatabricksClient {
   private static final String SYNC_TIMEOUT_VALUE = "10s";
   private final IDatabricksConnectionContext connectionContext;
-  private final DatabricksConfig databricksConfig;
   private final WorkspaceClient workspaceClient;
 
   @Override
@@ -56,9 +53,7 @@ public class DatabricksSdkClient implements IDatabricksClient {
   public DatabricksSdkClient(IDatabricksConnectionContext connectionContext)
       throws DatabricksParsingException {
     this.connectionContext = connectionContext;
-    this.databricksConfig = ClientUtils.generateDatabricksConfig(connectionContext);
-    OAuthAuthenticator authenticator = new OAuthAuthenticator(connectionContext);
-    this.workspaceClient = authenticator.getWorkspaceClient(this.databricksConfig);
+    this.workspaceClient = new ClientConfigurator(connectionContext).getWorkspaceClient();
   }
 
   @VisibleForTesting
@@ -68,8 +63,6 @@ public class DatabricksSdkClient implements IDatabricksClient {
       ApiClient apiClient)
       throws DatabricksParsingException {
     this.connectionContext = connectionContext;
-    this.databricksConfig = ClientUtils.generateDatabricksConfig(connectionContext);
-
     this.workspaceClient =
         new WorkspaceClient(true /* mock */, apiClient)
             .withStatementExecutionImpl(statementExecutionService);
