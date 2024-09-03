@@ -34,7 +34,9 @@ public class OAuthRefreshCredentialsProvider extends RefreshableTokenSource
     try {
       this.clientId = context.getClientId();
     } catch (DatabricksParsingException e) {
-      throw new DatabricksException("Failed to parse client id", e);
+      String exceptionMessage = "Failed to parse client id";
+      LoggingUtil.log(LogLevel.ERROR, exceptionMessage);
+      throw new DatabricksException(exceptionMessage, e);
     }
     this.clientSecret = context.getClientSecret();
     // Create an expired dummy token object with the refresh token to use
@@ -68,13 +70,15 @@ public class OAuthRefreshCredentialsProvider extends RefreshableTokenSource
   @Override
   protected Token refresh() {
     if (this.token == null) {
-      LoggingUtil.log(LogLevel.ERROR, "oauth2: token is not set");
-      throw new DatabricksException("oauth2: token is not set");
+      String exceptionMessage = "oauth2: token is not set";
+      LoggingUtil.log(LogLevel.ERROR, exceptionMessage);
+      throw new DatabricksException(exceptionMessage);
     }
     String refreshToken = this.token.getRefreshToken();
     if (refreshToken == null) {
-      LoggingUtil.log(LogLevel.ERROR, "oauth2: token expired and refresh token is not set");
-      throw new DatabricksException("oauth2: token expired and refresh token is not set");
+      String exceptionMessage = "oauth2: token expired and refresh token is not set";
+      LoggingUtil.log(LogLevel.ERROR, exceptionMessage);
+      throw new DatabricksException(exceptionMessage);
     }
 
     Map<String, String> params = new HashMap<>();

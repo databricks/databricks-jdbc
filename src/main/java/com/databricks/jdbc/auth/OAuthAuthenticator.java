@@ -33,10 +33,7 @@ public class OAuthAuthenticator {
       switch (this.connectionContext.getAuthFlow()) {
         case TOKEN_PASSTHROUGH:
           if (connectionContext.getOAuthRefreshToken() != null) {
-            databricksConfig.setHost(connectionContext.getHostForOAuth());
-            CredentialsProvider provider = new OAuthRefreshCredentialsProvider(connectionContext);
-            databricksConfig.setAuthType(provider.authType());
-            databricksConfig.setCredentialsProvider(provider);
+            setupU2MRefreshConfig(databricksConfig);
           } else {
             setupAccessTokenConfig(databricksConfig);
           }
@@ -71,6 +68,16 @@ public class OAuthAuthenticator {
         .setAuthType(DatabricksJdbcConstants.ACCESS_TOKEN_AUTH_TYPE)
         .setHost(connectionContext.getHostUrl())
         .setToken(connectionContext.getToken());
+  }
+
+  public void setupU2MRefreshConfig(DatabricksConfig databricksConfig) throws DatabricksParsingException {
+    CredentialsProvider provider = new OAuthRefreshCredentialsProvider(connectionContext);
+    databricksConfig
+            .setHost(connectionContext.getHostForOAuth())
+            .setAuthType(provider.authType())
+            .setCredentialsProvider(provider)
+            .setClientId(connectionContext.getClientId())
+            .setClientSecret(connectionContext.getClientSecret());
   }
 
   public void setupM2MConfig(DatabricksConfig databricksConfig) throws DatabricksParsingException {

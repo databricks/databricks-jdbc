@@ -23,8 +23,9 @@ public class AuthUtils {
       try {
         tokenUrl = getTokenEndpointFromDiscoveryEndpoint(context);
       } catch (DatabricksException e) {
-        LoggingUtil.log(LogLevel.ERROR, "Failed to get token endpoint from discovery endpoint");
-        throw new DatabricksException("Failed to get token endpoint from discovery endpoint", e);
+        String exceptionMessage = "Failed to get token endpoint from discovery endpoint";
+        LoggingUtil.log(LogLevel.ERROR, exceptionMessage);
+        throw new DatabricksException(exceptionMessage, e);
       }
     } else {
       try {
@@ -36,8 +37,9 @@ public class AuthUtils {
                 .build()
                 .toString();
       } catch (URISyntaxException e) {
-        LoggingUtil.log(LogLevel.ERROR, "Failed to build token url");
-        throw new DatabricksException("Failed to build token url", e);
+        String exceptionMessage = "Failed to build token url";
+        LoggingUtil.log(LogLevel.ERROR, exceptionMessage);
+        throw new DatabricksException(exceptionMessage, e);
       }
     }
     return tokenUrl;
@@ -50,11 +52,9 @@ public class AuthUtils {
   private static String getTokenEndpointFromDiscoveryEndpoint(
       IDatabricksConnectionContext connectionContext) throws DatabricksException {
     if (connectionContext.getOAuthDiscoveryURL() == null) {
-      LoggingUtil.log(
-          LogLevel.ERROR,
-          "If discovery mode is enabled, we also need the discovery URL to be set.");
-      throw new DatabricksException(
-          "If discovery mode is enabled, we also need the discovery URL to be set");
+      String exceptionMessage = "If discovery mode is enabled, we also need the discovery URL to be set.";
+      LoggingUtil.log(LogLevel.ERROR, exceptionMessage);
+      throw new DatabricksException(exceptionMessage);
     }
     try {
       URIBuilder uriBuilder = new URIBuilder(connectionContext.getOAuthDiscoveryURL());
@@ -62,13 +62,10 @@ public class AuthUtils {
       HttpGet getRequest = new HttpGet(uriBuilder.build());
       try (CloseableHttpResponse response = httpClient.execute(getRequest)) {
         if (response.getStatusLine().getStatusCode() != 200) {
-          LoggingUtil.log(
-              LogLevel.DEBUG,
-              "Error while calling discovery endpoint to fetch token endpoint. Response: "
-                  + response);
-          throw new DatabricksHttpException(
-              "Error while calling discovery endpoint to fetch token endpoint. Response: "
-                  + response);
+          String exceptionMessage =
+                  "Error while calling discovery endpoint to fetch token endpoint. Response: " + response;
+          LoggingUtil.log(LogLevel.DEBUG, exceptionMessage);
+          throw new DatabricksHttpException(exceptionMessage);
         }
         OpenIDConnectEndpoints openIDConnectEndpoints =
             new ObjectMapper()
@@ -76,11 +73,9 @@ public class AuthUtils {
         return openIDConnectEndpoints.getTokenEndpoint();
       }
     } catch (URISyntaxException | DatabricksHttpException | IOException e) {
-      LoggingUtil.log(
-          LogLevel.ERROR,
-          "Unable to retrieve token and auth endpoint from discovery endpoint. Error " + e);
-      throw new DatabricksException(
-          "Unable to retrieve token and auth endpoint from discovery endpoint. Error " + e);
+      String exceptionMessage = "Failed to get token endpoint from discovery endpoint";
+      LoggingUtil.log(LogLevel.ERROR, exceptionMessage);
+      throw new DatabricksException(exceptionMessage, e);
     }
   }
 }
