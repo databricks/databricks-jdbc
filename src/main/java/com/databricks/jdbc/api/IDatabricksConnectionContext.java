@@ -15,7 +15,6 @@ public interface IDatabricksConnectionContext {
   enum Cloud {
     AWS,
     AZURE,
-    GCP,
     OTHER
   }
 
