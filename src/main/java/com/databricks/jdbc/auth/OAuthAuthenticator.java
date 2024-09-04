@@ -5,6 +5,7 @@ import com.databricks.jdbc.api.impl.SSLConfiguration;
 import com.databricks.jdbc.common.DatabricksJdbcConstants;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.sdk.WorkspaceClient;
+import com.databricks.sdk.core.CredentialsProvider;
 import com.databricks.sdk.core.DatabricksConfig;
 import com.databricks.sdk.core.commons.CommonsHttpClient;
 import com.databricks.sdk.core.http.HttpClient;
@@ -82,7 +83,11 @@ public class OAuthAuthenticator {
         .equals(IDatabricksConnectionContext.AuthMech.OAUTH)) {
       switch (this.connectionContext.getAuthFlow()) {
         case TOKEN_PASSTHROUGH:
-          setupAccessTokenConfig(databricksConfig);
+          if (connectionContext.getOAuthRefreshToken() != null) {
+            setupU2MRefreshConfig(databricksConfig);
+          } else {
+            setupAccessTokenConfig(databricksConfig);
+          }
           break;
         case CLIENT_CREDENTIALS:
           setupM2MConfig(databricksConfig);
@@ -116,12 +121,27 @@ public class OAuthAuthenticator {
         .setToken(connectionContext.getToken());
   }
 
+  public void setupU2MRefreshConfig(DatabricksConfig databricksConfig)
+      throws DatabricksParsingException {
+    CredentialsProvider provider = new OAuthRefreshCredentialsProvider(connectionContext);
+    databricksConfig
+        .setHost(connectionContext.getHostForOAuth())
+        .setAuthType(provider.authType())
+        .setCredentialsProvider(provider)
+        .setClientId(connectionContext.getClientId())
+        .setClientSecret(connectionContext.getClientSecret());
+  }
+
   public void setupM2MConfig(DatabricksConfig databricksConfig) throws DatabricksParsingException {
     databricksConfig
         .setAuthType(DatabricksJdbcConstants.M2M_AUTH_TYPE)
         .setHost(connectionContext.getHostForOAuth())
         .setClientId(connectionContext.getClientId())
         .setClientSecret(connectionContext.getClientSecret());
+    if (connectionContext.useJWTAssertion()) {
+      databricksConfig.setCredentialsProvider(
+          new PrivateKeyClientCredentialProvider(connectionContext));
+    }
   }
 }
 

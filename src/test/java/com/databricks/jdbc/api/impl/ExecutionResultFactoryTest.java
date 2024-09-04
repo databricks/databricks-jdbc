@@ -10,6 +10,7 @@ import com.databricks.jdbc.api.IDatabricksStatement;
 import com.databricks.jdbc.api.impl.arrow.ArrowStreamResult;
 import com.databricks.jdbc.api.impl.inline.InlineJsonResult;
 import com.databricks.jdbc.api.impl.volume.VolumeOperationResult;
+import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.exception.DatabricksSQLFeatureNotSupportedException;
 import com.databricks.jdbc.model.client.thrift.generated.TGetResultSetMetadataResp;
@@ -38,7 +39,7 @@ public class ExecutionResultFactoryTest {
   @Mock IDatabricksResultSet resultSet;
 
   @Test
-  public void testGetResultSet_jsonInline() {
+  public void testGetResultSet_jsonInline() throws DatabricksParsingException {
     ResultManifest manifest = new ResultManifest();
     manifest.setFormat(Format.JSON_ARRAY);
     ResultData data = new ResultData();
@@ -50,7 +51,7 @@ public class ExecutionResultFactoryTest {
   }
 
   @Test
-  public void testGetResultSet_externalLink() {
+  public void testGetResultSet_externalLink() throws DatabricksParsingException {
     when(session.getConnectionContext()).thenReturn(connectionContext);
     when(session.getConnectionContext().getCloudFetchThreadPoolSize()).thenReturn(16);
     ResultManifest manifest = new ResultManifest();
@@ -66,7 +67,7 @@ public class ExecutionResultFactoryTest {
   }
 
   @Test
-  public void testGetResultSet_volumeOperation() {
+  public void testGetResultSet_volumeOperation() throws DatabricksParsingException {
     when(session.getConnectionContext()).thenReturn(connectionContext);
 
     ResultData data = new ResultData();

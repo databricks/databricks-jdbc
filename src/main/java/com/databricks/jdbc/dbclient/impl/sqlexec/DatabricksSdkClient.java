@@ -7,12 +7,12 @@ import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.api.IDatabricksSession;
 import com.databricks.jdbc.api.IDatabricksStatement;
 import com.databricks.jdbc.api.impl.*;
+import com.databricks.jdbc.auth.ClientUtils;
 import com.databricks.jdbc.auth.OAuthAuthenticator;
 import com.databricks.jdbc.common.*;
 import com.databricks.jdbc.common.IDatabricksComputeResource;
 import com.databricks.jdbc.common.util.LoggingUtil;
 import com.databricks.jdbc.dbclient.IDatabricksClient;
-import com.databricks.jdbc.dbclient.impl.common.ClientUtils;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.exception.DatabricksTimeoutException;
@@ -175,6 +175,11 @@ public class DatabricksSdkClient implements IDatabricksClient {
                   .apiClient()
                   .GET(getStatusPath, request, GetStatementResponse.class, getHeaders()));
       responseState = response.getStatus().getState();
+      LoggingUtil.log(
+          LogLevel.DEBUG,
+          String.format(
+              "Executed sql [%s] with status [%s] with retry count [%d]",
+              sql, responseState, pollCount));
       pollCount++;
     }
     long executionEndTime = Instant.now().toEpochMilli();
