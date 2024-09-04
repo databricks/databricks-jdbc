@@ -110,8 +110,7 @@ public class DatabricksSdkClient implements IDatabricksClient {
   }
 
   @Override
-  public void deleteSession(IDatabricksSession session, IDatabricksComputeResource warehouse)
-      throws DatabricksSQLException {
+  public void deleteSession(IDatabricksSession session, IDatabricksComputeResource warehouse) {
     LoggingUtil.log(
         LogLevel.DEBUG,
         String.format(
@@ -156,6 +155,12 @@ public class DatabricksSdkClient implements IDatabricksClient {
             .POST(STATEMENT_PATH, request, ExecuteStatementResponse.class, getHeaders());
 
     String statementId = response.getStatementId();
+    LoggingUtil.log(
+        LogLevel.DEBUG,
+        String.format(
+            "Executing sql %s, statementType %s, compute %s, StatementID %s",
+            sql, statementType, computeResource.toString(), statementId),
+        this.getClass().getName());
     if (parentStatement != null) {
       parentStatement.setStatementId(statementId);
     }
