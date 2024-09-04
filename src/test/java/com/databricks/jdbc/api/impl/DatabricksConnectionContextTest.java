@@ -121,7 +121,7 @@ class DatabricksConnectionContextTest {
     assertEquals(VALID_URL_1, connectionContext.getConnectionURL());
     assertEquals("/sql/1.0/warehouses/erg6767gg", connectionContext.getHttpPath());
     assertEquals("passwd", connectionContext.getToken());
-    assertTrue(connectionContext.isOAuthDiscoveryModeEnabled());
+    assertFalse(connectionContext.isOAuthDiscoveryModeEnabled());
     assertFalse(connectionContext.useJWTAssertion());
     assertEquals(
         connectionContext.getAuthFlow(),
