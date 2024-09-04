@@ -2,7 +2,6 @@ package com.databricks.jdbc.auth;
 
 import static com.databricks.jdbc.TestConstants.*;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.when;
@@ -11,7 +10,6 @@ import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.dbclient.impl.http.DatabricksHttpClient;
 import com.databricks.jdbc.exception.DatabricksHttpException;
 import com.databricks.sdk.core.DatabricksConfig;
-import com.databricks.sdk.core.DatabricksException;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import org.apache.http.HttpEntity;
@@ -80,7 +78,7 @@ public class PrivateKeyClientCredentialProviderTest {
       when(context.getTokenEndpoint()).thenReturn(null);
       when(context.getHostForOAuth()).thenReturn("testHost");
       JwtPrivateKeyClientCredentials clientCredentialObject =
-              new PrivateKeyClientCredentialProvider(context).getClientCredentialObject(config);
+          new PrivateKeyClientCredentialProvider(context).getClientCredentialObject(config);
       assertEquals(clientCredentialObject.getTokenEndpoint(), "https://testHost/oidc/v1/token");
     }
   }

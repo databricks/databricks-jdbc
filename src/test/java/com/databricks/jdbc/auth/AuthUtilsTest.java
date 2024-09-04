@@ -1,14 +1,12 @@
 package com.databricks.jdbc.auth;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.when;
 
 import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.dbclient.impl.http.DatabricksHttpClient;
-import com.databricks.sdk.core.DatabricksException;
 import java.io.ByteArrayInputStream;
 import org.apache.http.HttpEntity;
 import org.apache.http.StatusLine;
