@@ -1,8 +1,8 @@
 package com.databricks.client.jdbc;
 
 import com.databricks.jdbc.api.IDatabricksConnection;
+import com.databricks.jdbc.api.IDatabricksUCVolumeClient;
 import com.databricks.jdbc.common.DatabricksJdbcConstants;
-import com.databricks.jdbc.dbclient.IDatabricksUCVolumeClient;
 import java.io.File;
 import java.io.FileInputStream;
 import java.math.BigDecimal;
@@ -369,6 +369,25 @@ public class DriverTest {
     for (int count : updateCounts) {
       System.out.println("Update count: " + count);
     }
+    con.close();
+  }
+
+  @Test
+  void testM2MJWT() throws SQLException {
+    String jdbcUrl =
+        "jdbc:databricks://mkazia-pl-sandbox.staging.cloud.databricks.com:443/default;"
+            + "httpPath=sql/1.0/warehouses/31e4555776d18496;"
+            + "AuthMech=11;ssl=1;Auth_Flow=1;"
+            + "OAuth2TokenEndpoint=https://dev-591123.oktapreview.com/oauth2/aus1mzu4zk5TWwMvx0h8/v1/token;"
+            + "Auth_Scope=sql;OAuth2ClientId=0oa25wnir4ehnKDj10h8;"
+            + "Auth_KID=EbKQzTAVP1_3E59Bq5P3Uv8krHCpj3hIWTodcmDwQ5k;"
+            + "UseJWTAssertion=1;"
+            + "Auth_JWT_Key_File=jdbc-testing-enc.pem;"
+            + "Auth_JWT_Key_Passphrase=s3cr3t";
+    Connection con = DriverManager.getConnection(jdbcUrl);
+    System.out.println("Connection established......");
+    ResultSet rs = con.createStatement().executeQuery("SELECT 1");
+    printResultSet(rs);
     con.close();
   }
 }

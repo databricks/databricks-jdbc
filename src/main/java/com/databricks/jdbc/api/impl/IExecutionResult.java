@@ -1,17 +1,16 @@
 package com.databricks.jdbc.api.impl;
 
 import com.databricks.jdbc.exception.DatabricksSQLException;
-import java.sql.SQLException;
 
 /** Interface to provide methods over an underlying statement result */
-interface IExecutionResult {
+public interface IExecutionResult {
 
   /**
    * Get the object for given column index. Here index starts with 0.
    *
    * @param columnIndex index of column starting with 0
    * @return object at given index
-   * @throws SQLException
+   * @throws DatabricksSQLException if there is any error in getting object
    */
   Object getObject(int columnIndex) throws DatabricksSQLException;
 

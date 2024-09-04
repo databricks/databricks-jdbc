@@ -7,11 +7,12 @@ import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.api.IDatabricksSession;
 import com.databricks.jdbc.api.IDatabricksStatement;
 import com.databricks.jdbc.api.impl.*;
+import com.databricks.jdbc.auth.ClientUtils;
+import com.databricks.jdbc.auth.OAuthAuthenticator;
 import com.databricks.jdbc.common.*;
 import com.databricks.jdbc.common.IDatabricksComputeResource;
 import com.databricks.jdbc.common.util.LoggingUtil;
-import com.databricks.jdbc.dbclient.DatabricksClient;
-import com.databricks.jdbc.dbclient.impl.common.ClientUtils;
+import com.databricks.jdbc.dbclient.IDatabricksClient;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.exception.DatabricksTimeoutException;
@@ -34,8 +35,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-/** Implementation of DatabricksClient interface using Databricks Java SDK. */
-public class DatabricksSdkClient implements DatabricksClient {
+/** Implementation of IDatabricksClient interface using Databricks Java SDK. */
+public class DatabricksSdkClient implements IDatabricksClient {
   private static final String SYNC_TIMEOUT_VALUE = "10s";
   private final IDatabricksConnectionContext connectionContext;
   private final DatabricksConfig databricksConfig;
@@ -109,8 +110,7 @@ public class DatabricksSdkClient implements DatabricksClient {
   }
 
   @Override
-  public void deleteSession(IDatabricksSession session, IDatabricksComputeResource warehouse)
-      throws DatabricksSQLException {
+  public void deleteSession(IDatabricksSession session, IDatabricksComputeResource warehouse) {
     LoggingUtil.log(
         LogLevel.DEBUG,
         String.format(
@@ -155,6 +155,12 @@ public class DatabricksSdkClient implements DatabricksClient {
             .POST(STATEMENT_PATH, request, ExecuteStatementResponse.class, getHeaders());
 
     String statementId = response.getStatementId();
+    LoggingUtil.log(
+        LogLevel.DEBUG,
+        String.format(
+            "Executing sql %s, statementType %s, compute %s, StatementID %s",
+            sql, statementType, computeResource.toString(), statementId),
+        this.getClass().getName());
     if (parentStatement != null) {
       parentStatement.setStatementId(statementId);
     }
@@ -164,7 +170,11 @@ public class DatabricksSdkClient implements DatabricksClient {
         try {
           Thread.sleep(this.connectionContext.getAsyncExecPollInterval());
         } catch (InterruptedException e) {
-          throw new DatabricksTimeoutException("Thread interrupted due to statement timeout");
+          String timeoutErrorMessage =
+              String.format(
+                  "Thread interrupted due to statement timeout. StatementID %s", statementId);
+          LoggingUtil.log(LogLevel.ERROR, timeoutErrorMessage);
+          throw new DatabricksTimeoutException(timeoutErrorMessage);
         }
       }
       String getStatusPath = String.format(STATEMENT_PATH_WITH_ID, statementId);
@@ -174,6 +184,11 @@ public class DatabricksSdkClient implements DatabricksClient {
                   .apiClient()
                   .GET(getStatusPath, request, GetStatementResponse.class, getHeaders()));
       responseState = response.getStatus().getState();
+      LoggingUtil.log(
+          LogLevel.DEBUG,
+          String.format(
+              "Executed sql [%s] with status [%s] with retry count [%d]",
+              sql, responseState, pollCount));
       pollCount++;
     }
     long executionEndTime = Instant.now().toEpochMilli();
