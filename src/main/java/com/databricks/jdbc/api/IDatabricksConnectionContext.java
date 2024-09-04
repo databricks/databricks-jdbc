@@ -152,4 +152,21 @@ public interface IDatabricksConnectionContext {
   boolean enableTelemetry();
 
   String getConnectionURL();
+
+  // SSL related methods
+  boolean isSSLEnabled();
+
+  String getSSLKeyStorePath();
+
+  String getSSLKeyStorePassword();
+
+  String getSSLKeyStoreType();
+
+  String getSSLTrustStorePath();
+
+  String getSSLTrustStorePassword();
+
+  String getSSLTrustStoreType();
+
+  boolean getAllowSelfSignedCerts();
 }

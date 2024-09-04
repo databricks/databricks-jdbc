@@ -260,4 +260,15 @@ public final class DatabricksJdbcConstants {
       "token"; // This is for PAT. We do not support Basic Auth.
   public static final String USERNAME_ERROR =
       "Username authentication is no longer supported.\n Please use OAuth or access token instead.\n See https://docs.databricks.com/en/integrations/jdbc/oss.html#authenticate-the-driver";
+
+  // SSL properties
+  public static final String AUTH_ACCESSTOKEN = "auth_accesstoken";
+  public static final String SSL_ENABLED = "ssl";
+  public static final String SSL_KEYSTORE_PATH = "sslkeystore";
+  public static final String SSL_KEYSTORE_PASSWORD = "sslkeystorepwd";
+  public static final String SSL_KEYSTORE_TYPE = "sslkeystoretype";
+  public static final String SSL_TRUSTSTORE_PATH = "ssltruststore";
+  public static final String SSL_TRUSTSTORE_PASSWORD = "ssltruststorepwd";
+  public static final String SSL_KEYSTORE_TYPE = "sslkeystoretype";
+  public static final String ALLOW_SELF_SIGNED_CERTS = "allowselfsignedcerts";
 }

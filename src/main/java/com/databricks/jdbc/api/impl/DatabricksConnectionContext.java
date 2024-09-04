@@ -201,8 +201,11 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
 
   @Override
   public String getToken() {
-    return getParameter(
-        DatabricksJdbcConstants.PWD, getParameter(DatabricksJdbcConstants.PASSWORD));
+    return getParameter(DatabricksJdbcConstants.PWD) == null
+        ? (getParameter(DatabricksJdbcConstants.PASSWORD) == null
+            ? getParameter(DatabricksJdbcConstants.AUTH_ACCESSTOKEN)
+            : getParameter(DatabricksJdbcConstants.PASSWORD))
+        : getParameter(DatabricksJdbcConstants.PWD);
   }
 
   @Override
@@ -567,5 +570,47 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   @Override
   public String getConnectionURL() {
     return connectionURL;
+  }
+
+  @Override
+  public boolean isSSLEnabled() {
+    return getParameter(DatabricksJdbcConstants.SSL_ENABLED) != null
+        && Integer.parseInt(getParameter(DatabricksJdbcConstants.SSL_ENABLED)) == 1;
+  }
+
+  @Override
+  public String getSSLKeyStorePath() {
+    return getParameter(DatabricksJdbcConstants.SSL_KEYSTORE_PATH);
+  }
+
+  @Override
+  public String getSSLKeyStorePassword() {
+    return getParameter(DatabricksJdbcConstants.SSL_KEYSTORE_PASSWORD);
+  }
+
+  @Override
+  public String getSSLKeyStoreType() {
+    return getParameter(DatabricksJdbcConstants.SSL_KEYSTORE_TYPE);
+  }
+
+  @Override
+  public String getSSLTrustStorePath() {
+    return getParameter(DatabricksJdbcConstants.SSL_TRUSTSTORE_PATH);
+  }
+
+  @Override
+  public String getSSLTrustStorePassword() {
+    return getParameter(DatabricksJdbcConstants.SSL_TRUSTSTORE_PASSWORD);
+  }
+
+  @Override
+  public String getSSLTrustStoreType() {
+      return getParameter(DatabricksJdbcConstants.SSL_TRUSTSTORE_TYPE);
+  }
+
+  @Override
+  public boolean getAllowSelfSignedCerts() {
+    return getParameter(DatabricksJdbcConstants.ALLOW_SELF_SIGNED_CERTS) != null
+        && Integer.parseInt(getParameter(DatabricksJdbcConstants.ALLOW_SELF_SIGNED_CERTS)) == 1;
   }
 }
