@@ -1,7 +1,5 @@
 package com.databricks.jdbc.log;
 
-import com.databricks.jdbc.common.LogLevel;
-
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;

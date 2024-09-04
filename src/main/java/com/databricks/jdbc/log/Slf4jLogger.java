@@ -1,6 +1,5 @@
 package com.databricks.jdbc.log;
 
-import com.databricks.jdbc.common.LogLevel;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
