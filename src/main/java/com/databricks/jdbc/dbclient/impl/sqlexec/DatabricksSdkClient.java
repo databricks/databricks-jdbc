@@ -175,6 +175,7 @@ public class DatabricksSdkClient implements IDatabricksClient {
                   .apiClient()
                   .GET(getStatusPath, request, GetStatementResponse.class, getHeaders()));
       responseState = response.getStatus().getState();
+      LoggingUtil.log(LogLevel.DEBUG, String.format("Executed sql [%s] with status [%s] with retry count [%d]", sql, responseState, pollCount));
       pollCount++;
     }
     long executionEndTime = Instant.now().toEpochMilli();
