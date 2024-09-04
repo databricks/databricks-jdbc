@@ -170,7 +170,7 @@ public class DriverTest {
     DriverManager.drivers().forEach(driver -> System.out.println(driver.getClass()));
     String jdbcUrl =
         "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=https;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/791ba2a31c7fd70a;LogPath=/Users/jothi.prakash/Desktop/log_test;LogLevel=debug";
-    Connection con = DriverManager.getConnection(jdbcUrl, "jothi.prakash@databricks.com", "dapib0a507b0d18c529b4e3cfbb6041d9082");
+    Connection con = DriverManager.getConnection(jdbcUrl, "jothi.prakash@databricks.com", "x");
     System.out.println("Connection established......");
     ResultSet resultSet =
         con.createStatement()
