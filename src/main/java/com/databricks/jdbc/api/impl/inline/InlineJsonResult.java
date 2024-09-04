@@ -80,7 +80,7 @@ public class InlineJsonResult implements IExecutionResult {
 
   @Override
   public synchronized boolean hasNext() {
-    return !this.isClosed() && currentRow < data.size() - 1;
+    return !isClosed() && currentRow < data.size() - 1;
   }
 
   @Override
