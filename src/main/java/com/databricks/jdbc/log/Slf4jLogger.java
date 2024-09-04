@@ -1,5 +1,6 @@
 package com.databricks.jdbc.log;
 
+import com.databricks.jdbc.common.LogLevel;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -55,5 +56,30 @@ public class Slf4jLogger implements JdbcLogger {
   @Override
   public void error(String message, Throwable throwable) {
     logger.error(message, throwable);
+  }
+
+  /** {@inheritDoc} */
+  @Override
+  public void log(LogLevel level, String message) {
+    switch (level) {
+      case DEBUG:
+        logger.debug(message);
+        break;
+      case ERROR:
+      case FATAL:
+        logger.error(message);
+        break;
+      case INFO:
+        logger.info(message);
+        break;
+      case TRACE:
+        logger.trace(message);
+        break;
+      case WARN:
+        logger.warn(message);
+        break;
+      default:
+        logger.error("Unrecognized log level: " + level + ". Message: " + message);
+    }
   }
 }

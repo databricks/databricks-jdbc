@@ -1,5 +1,7 @@
 package com.databricks.jdbc.log;
 
+import com.databricks.jdbc.common.LogLevel;
+
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -76,6 +78,31 @@ public class JulLogger implements JdbcLogger {
   @Override
   public void error(String message, Throwable throwable) {
     log(Level.SEVERE, message, throwable);
+  }
+
+  /** {@inheritDoc} */
+  @Override
+  public void log(LogLevel level, String message) {
+    switch (level) {
+      case DEBUG:
+        debug(message);
+        break;
+      case ERROR:
+      case FATAL:
+        error(message);
+        break;
+      case INFO:
+        info(message);
+        break;
+      case TRACE:
+        trace(message);
+        break;
+      case WARN:
+        warn(message);
+        break;
+      default:
+        error("Unrecognized log level: " + level + ". Message: " + message);
+    }
   }
 
   /**

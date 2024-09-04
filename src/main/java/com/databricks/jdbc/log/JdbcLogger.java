@@ -1,5 +1,7 @@
 package com.databricks.jdbc.log;
 
+import com.databricks.jdbc.common.LogLevel;
+
 /**
  * The interface defines logging methods for various levels of importance. Implementations of this
  * interface can be used to integrate with different logging frameworks.
@@ -16,4 +18,6 @@ public interface JdbcLogger {
   void error(String message);
 
   void error(String message, Throwable throwable);
+
+  void log(LogLevel level, String message);
 }
