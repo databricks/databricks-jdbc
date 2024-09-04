@@ -165,7 +165,11 @@ public class DatabricksSdkClient implements IDatabricksClient {
         try {
           Thread.sleep(this.connectionContext.getAsyncExecPollInterval());
         } catch (InterruptedException e) {
-          throw new DatabricksTimeoutException("Thread interrupted due to statement timeout");
+          String timeoutErrorMessage =
+              String.format(
+                  "Thread interrupted due to statement timeout. StatementID %s", statementId);
+          LoggingUtil.log(LogLevel.ERROR, timeoutErrorMessage);
+          throw new DatabricksTimeoutException(timeoutErrorMessage);
         }
       }
       String getStatusPath = String.format(STATEMENT_PATH_WITH_ID, statementId);
