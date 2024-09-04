@@ -51,10 +51,6 @@ public class AuthUtils {
    * */
   private static String getTokenEndpointFromDiscoveryEndpoint(
       IDatabricksConnectionContext connectionContext) throws DatabricksException {
-    /* It seems DISCOVERY_MODE is by default true
-      But getOAuthDiscoveryURL is by default null, which makes this function to throw
-      we should change DISCOVERY_MODE to by default false
-    */
     if (connectionContext.getOAuthDiscoveryURL() == null) {
       String exceptionMessage =
           "If discovery mode is enabled, we also need the discovery URL to be set.";
