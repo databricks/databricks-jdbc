@@ -217,25 +217,27 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
     return getParameter(DIRECT_RESULT) == null || Objects.equals(getParameter(DIRECT_RESULT), "1");
   }
 
-  public String getCloud() throws DatabricksParsingException {
+  public Cloud getCloud() throws DatabricksParsingException {
     String hostURL = getHostUrl();
     if (hostURL.contains("azuredatabricks.net")
         || hostURL.contains(".databricks.azure.cn")
         || hostURL.contains(".databricks.azure.us")) {
-      return "AAD";
+      return Cloud.AZURE;
     } else if (hostURL.contains(".cloud.databricks.com")) {
-      return "AWS";
+      return Cloud.AWS;
+    } else if (hostURL.contains(".gcp.databricks.com")) {
+      return Cloud.GCP;
     }
-    return "OTHER";
+    return Cloud.OTHER;
   }
 
   @Override
   public String getClientId() throws DatabricksParsingException {
     String clientId = getParameter(DatabricksJdbcConstants.CLIENT_ID);
     if (nullOrEmptyString(clientId)) {
-      if (getCloud().equals("AWS")) {
+      if (getCloud() == Cloud.AWS || getCloud() == Cloud.GCP) {
         return DatabricksJdbcConstants.AWS_CLIENT_ID;
-      } else if (getCloud().equals("AAD")) {
+      } else if (getCloud() == Cloud.AZURE) {
         return DatabricksJdbcConstants.AAD_CLIENT_ID;
       }
     }
@@ -244,7 +246,7 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
 
   @Override
   public List<String> getOAuthScopesForU2M() throws DatabricksParsingException {
-    if (getCloud().equals("AWS")) {
+    if (getCloud() == Cloud.AWS || getCloud() == Cloud.GCP) {
       return Arrays.asList(
           DatabricksJdbcConstants.SQL_SCOPE, DatabricksJdbcConstants.OFFLINE_ACCESS_SCOPE);
     } else {
@@ -606,7 +608,8 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
 
   @Override
   public boolean isOAuthDiscoveryModeEnabled() {
-    return getParameter(DISCOVERY_MODE, "1").equals("1");
+    // By default false?
+    return getParameter(DISCOVERY_MODE, "0").equals("1");
   }
 
   @Override
