@@ -9,11 +9,11 @@ import com.databricks.jdbc.common.DatabricksClientType;
 import com.databricks.jdbc.common.DatabricksJdbcConstants;
 import com.databricks.jdbc.common.ErrorCodes;
 import com.databricks.jdbc.common.ErrorTypes;
-import com.databricks.jdbc.common.LogLevel;
 import com.databricks.jdbc.common.util.DeviceInfoLogUtil;
 import com.databricks.jdbc.common.util.DriverUtil;
-import com.databricks.jdbc.common.util.LoggingUtil;
 import com.databricks.jdbc.exception.DatabricksSQLException;
+import com.databricks.jdbc.log.JdbcLogger;
+import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.sdk.core.UserAgent;
 import java.io.IOException;
 import java.sql.*;
@@ -24,6 +24,7 @@ import java.util.Properties;
  * jdbc:databricks://host:port.
  */
 public class Driver implements java.sql.Driver {
+  public static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(Driver.class);
   private static final Driver INSTANCE;
 
   static {
@@ -43,15 +44,6 @@ public class Driver implements java.sql.Driver {
   @Override
   public Connection connect(String url, Properties info) throws DatabricksSQLException {
     IDatabricksConnectionContext connectionContext = DatabricksConnectionContext.parse(url, info);
-    try {
-      LoggingUtil.setupLogger(
-          connectionContext.getLogPathString(),
-          connectionContext.getLogFileSize(),
-          connectionContext.getLogFileCount(),
-          connectionContext.getLogLevel());
-    } catch (IOException e) {
-      throw new DatabricksSQLException("Error initializing the Java Util Logger (JUL).", e);
-    }
     setUserAgent(connectionContext);
     DeviceInfoLogUtil.logProperties(connectionContext);
     try {
@@ -95,9 +87,7 @@ public class Driver implements java.sql.Driver {
   private void setMetadataClient(
       DatabricksConnection connection, IDatabricksConnectionContext connectionContext) {
     if (connectionContext.getUseLegacyMetadata().equals(true)) {
-      LoggingUtil.log(
-          LogLevel.DEBUG,
-          "The new metadata commands are enabled, but the legacy metadata commands are being used due to connection parameter useLegacyMetadata");
+      LOGGER.debug("The new metadata commands are enabled, but the legacy metadata commands are being used due to connection parameter useLegacyMetadata");
       connection.setMetadataClient(true);
     } else {
       connection.setMetadataClient(false);
@@ -117,9 +107,7 @@ public class Driver implements java.sql.Driver {
         return false;
       }
     } catch (Exception e) {
-      LoggingUtil.log(
-          LogLevel.DEBUG,
-          String.format(
+      LOGGER.debug(String.format(
               "Unable to parse the DBSQL version {%s}. Falling back to legacy metadata commands.",
               dbsqlVersion));
       return false;

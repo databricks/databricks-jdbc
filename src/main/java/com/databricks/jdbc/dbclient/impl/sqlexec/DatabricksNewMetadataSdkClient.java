@@ -8,7 +8,8 @@ import com.databricks.jdbc.api.impl.DatabricksResultSet;
 import com.databricks.jdbc.api.impl.ImmutableSqlParameter;
 import com.databricks.jdbc.common.LogLevel;
 import com.databricks.jdbc.common.StatementType;
-import com.databricks.jdbc.common.util.LoggingUtil;
+import com.databricks.jdbc.log.JdbcLogger;
+import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.dbclient.DatabricksMetadataClient;
 import com.databricks.jdbc.dbclient.impl.common.MetadataResultSetBuilder;
 import java.sql.ResultSet;
@@ -23,6 +24,7 @@ import java.util.Optional;
  * Tracking bug for replacement: (PECO-1502)
  */
 public class DatabricksNewMetadataSdkClient implements DatabricksMetadataClient {
+  public static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(DatabricksNewMetadataSdkClient.class);
   private final DatabricksSdkClient sdkClient;
 
   public DatabricksNewMetadataSdkClient(DatabricksSdkClient sdkClient) {
@@ -31,7 +33,7 @@ public class DatabricksNewMetadataSdkClient implements DatabricksMetadataClient 
 
   @Override
   public DatabricksResultSet listTypeInfo(IDatabricksSession session) {
-    LoggingUtil.log(LogLevel.DEBUG, "public ResultSet getTypeInfo()");
+    LOGGER.debug("public ResultSet getTypeInfo()");
     return TYPE_INFO_RESULT;
   }
 
@@ -39,7 +41,7 @@ public class DatabricksNewMetadataSdkClient implements DatabricksMetadataClient 
   public DatabricksResultSet listCatalogs(IDatabricksSession session) throws SQLException {
     CommandBuilder commandBuilder = new CommandBuilder(session);
     String SQL = commandBuilder.getSQLString(CommandName.LIST_CATALOGS);
-    LoggingUtil.log(LogLevel.DEBUG, String.format("SQL command to fetch catalogs: {%s}", SQL));
+    LOGGER.debug(String.format("SQL command to fetch catalogs: {%s}", SQL));
     return MetadataResultSetBuilder.getCatalogsResult(
         getResultSet(SQL, session, StatementType.METADATA));
   }
@@ -50,7 +52,7 @@ public class DatabricksNewMetadataSdkClient implements DatabricksMetadataClient 
     CommandBuilder commandBuilder =
         new CommandBuilder(catalog, session).setSchemaPattern(schemaNamePattern);
     String SQL = commandBuilder.getSQLString(CommandName.LIST_SCHEMAS);
-    LoggingUtil.log(LogLevel.DEBUG, String.format("SQL command to fetch schemas: {%s}", SQL));
+    LOGGER.debug(String.format("SQL command to fetch schemas: {%s}", SQL));
     return MetadataResultSetBuilder.getSchemasResult(
         getResultSet(SQL, session, StatementType.METADATA), catalog);
   }
@@ -78,7 +80,7 @@ public class DatabricksNewMetadataSdkClient implements DatabricksMetadataClient 
 
   @Override
   public DatabricksResultSet listTableTypes(IDatabricksSession session) throws SQLException {
-    LoggingUtil.log(LogLevel.DEBUG, "Returning list of table types.");
+    LOGGER.debug("Returning list of table types.");
     return MetadataResultSetBuilder.getTableTypesResult();
   }
 
@@ -112,7 +114,7 @@ public class DatabricksNewMetadataSdkClient implements DatabricksMetadataClient 
             .setSchemaPattern(schemaNamePattern)
             .setFunctionPattern(functionNamePattern);
     String SQL = commandBuilder.getSQLString(CommandName.LIST_FUNCTIONS);
-    LoggingUtil.log(LogLevel.DEBUG, String.format("SQL command to fetch functions: {%s}", SQL));
+    LOGGER.debug(String.format("SQL command to fetch functions: {%s}", SQL));
     return MetadataResultSetBuilder.getFunctionsResult(
         getResultSet(SQL, session, StatementType.QUERY), catalog);
   }
@@ -123,7 +125,7 @@ public class DatabricksNewMetadataSdkClient implements DatabricksMetadataClient 
     CommandBuilder commandBuilder =
         new CommandBuilder(catalog, session).setSchema(schema).setTable(table);
     String SQL = commandBuilder.getSQLString(CommandName.LIST_PRIMARY_KEYS);
-    LoggingUtil.log(LogLevel.DEBUG, String.format("SQL command to fetch primary keys: {%s}", SQL));
+    LOGGER.debug(String.format("SQL command to fetch primary keys: {%s}", SQL));
     return MetadataResultSetBuilder.getPrimaryKeysResult(
         getResultSet(SQL, session, StatementType.METADATA));
   }

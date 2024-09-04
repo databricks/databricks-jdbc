@@ -4,7 +4,8 @@ import static com.databricks.jdbc.common.util.DatabricksTypeUtil.*;
 
 import com.databricks.jdbc.common.CompressionType;
 import com.databricks.jdbc.common.LogLevel;
-import com.databricks.jdbc.common.util.LoggingUtil;
+import com.databricks.jdbc.log.JdbcLogger;
+import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.model.client.thrift.generated.*;
@@ -22,6 +23,7 @@ import org.apache.arrow.vector.util.SchemaUtility;
 
 /** Class to manage inline Arrow chunks */
 public class ChunkExtractor {
+  public static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(ChunkExtractor.class);
   private long totalRows;
   private long currentChunkIndex;
   private ByteArrayInputStream byteStream;
@@ -117,7 +119,7 @@ public class ChunkExtractor {
   @VisibleForTesting
   static void handleError(Exception e) throws DatabricksParsingException {
     String errorMessage = "Cannot process inline arrow format. Error: " + e.getMessage();
-    LoggingUtil.log(LogLevel.ERROR, errorMessage);
+    LOGGER.error(errorMessage);
     throw new DatabricksParsingException(errorMessage, e);
   }
 
