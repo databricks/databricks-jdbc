@@ -19,12 +19,12 @@ import javax.sql.ConnectionPoolDataSource;
 import javax.sql.PooledConnection;
 
 public class DataSource implements javax.sql.DataSource, ConnectionPoolDataSource {
+  public static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(DataSource.class);
   private String host;
   private int port;
   private String httpPath;
   private Properties properties = new Properties();
   private final Driver driver;
-  public static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(DataSource.class);
 
   public DataSource() {
     this.driver = Driver.getInstance();
@@ -37,13 +37,13 @@ public class DataSource implements javax.sql.DataSource, ConnectionPoolDataSourc
 
   @Override
   public Connection getConnection() throws DatabricksSQLException {
-    LOGGER.log(LogLevel.DEBUG, "public Connection getConnection()");
+    LOGGER.debug("public Connection getConnection()");
     return getConnection(this.getUsername(), this.getPassword());
   }
 
   @Override
   public Connection getConnection(String username, String password) throws DatabricksSQLException {
-    LOGGER.log(LogLevel.DEBUG, "public Connection getConnection(String, String)");
+    LOGGER.debug("public Connection getConnection(String, String)");
     if (username != null) {
       setUsername(username);
     }
@@ -55,14 +55,14 @@ public class DataSource implements javax.sql.DataSource, ConnectionPoolDataSourc
 
   @Override
   public PooledConnection getPooledConnection() throws DatabricksSQLException {
-    LOGGER.log(LogLevel.DEBUG, "public PooledConnection getPooledConnection()");
+    LOGGER.debug("public PooledConnection getPooledConnection()");
     return new DatabricksPooledConnection(getConnection());
   }
 
   @Override
   public PooledConnection getPooledConnection(String user, String password)
       throws DatabricksSQLException {
-    LOGGER.log(LogLevel.DEBUG, "public PooledConnection getPooledConnection(String, String)");
+    LOGGER.debug("public PooledConnection getPooledConnection(String, String)");
     return new DatabricksPooledConnection(getConnection(user, password));
   }
 
@@ -78,8 +78,7 @@ public class DataSource implements javax.sql.DataSource, ConnectionPoolDataSourc
 
   @Override
   public void setLoginTimeout(int seconds) {
-    LOGGER.log(
-        LogLevel.DEBUG, String.format("public void setLoginTimeout(int seconds = {%s})", seconds));
+    LOGGER.debug(String.format("public void setLoginTimeout(int seconds = {%s})", seconds));
     this.properties.put(DatabricksJdbcConstants.LOGIN_TIMEOUT, seconds);
   }
 
@@ -104,7 +103,7 @@ public class DataSource implements javax.sql.DataSource, ConnectionPoolDataSourc
   }
 
   public String getUrl() {
-    LOGGER.log(LogLevel.DEBUG, "public String getUrl()");
+    LOGGER.debug("public String getUrl()");
     StringBuilder urlBuilder = new StringBuilder();
     urlBuilder.append(DatabricksJdbcConstants.JDBC_SCHEMA);
     if (host == null) {
@@ -121,12 +120,12 @@ public class DataSource implements javax.sql.DataSource, ConnectionPoolDataSourc
   }
 
   public String getUsername() {
-    LOGGER.log(LogLevel.WARN, USERNAME_ERROR);
+    LOGGER.warn(USERNAME_ERROR);
     return DEFAULT_USERNAME;
   }
 
   public void setUsername(String username) {
-    LOGGER.log(LogLevel.WARN, USERNAME_ERROR);
+    LOGGER.warn(USERNAME_ERROR);
   }
 
   public String getPassword() {

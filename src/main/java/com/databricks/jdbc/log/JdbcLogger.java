@@ -18,6 +18,4 @@ public interface JdbcLogger {
   void error(String message);
 
   void error(String message, Throwable throwable);
-
-  void log(LogLevel level, String message);
 }

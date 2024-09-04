@@ -80,31 +80,6 @@ public class JulLogger implements JdbcLogger {
     log(Level.SEVERE, message, throwable);
   }
 
-  /** {@inheritDoc} */
-  @Override
-  public void log(LogLevel level, String message) {
-    switch (level) {
-      case DEBUG:
-        debug(message);
-        break;
-      case ERROR:
-      case FATAL:
-        error(message);
-        break;
-      case INFO:
-        info(message);
-        break;
-      case TRACE:
-        trace(message);
-        break;
-      case WARN:
-        warn(message);
-        break;
-      default:
-        error("Unrecognized log level: " + level + ". Message: " + message);
-    }
-  }
-
   /**
    * Initializes the logger with the specified configuration. This method is synchronized to prevent
    * concurrent modifications to the logger configuration.
