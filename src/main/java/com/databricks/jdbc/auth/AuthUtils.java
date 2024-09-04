@@ -16,33 +16,45 @@ import org.apache.http.client.utils.URIBuilder;
 
 public class AuthUtils {
   public static String getTokenEndpoint(IDatabricksConnectionContext context) {
-    String tokenUrl;
-    if (context.getTokenEndpoint() != null) {
-      tokenUrl = context.getTokenEndpoint();
-    } else if (context.isOAuthDiscoveryModeEnabled()) {
-      try {
-        tokenUrl = getTokenEndpointFromDiscoveryEndpoint(context);
-      } catch (DatabricksException e) {
-        String exceptionMessage = "Failed to get token endpoint from discovery endpoint";
-        LoggingUtil.log(LogLevel.ERROR, exceptionMessage);
-        throw new DatabricksException(exceptionMessage, e);
-      }
-    } else {
-      try {
-        tokenUrl =
-            new URIBuilder()
-                .setHost(context.getHostForOAuth())
-                .setScheme("https")
-                .setPathSegments("oidc", "v1", "token")
-                .build()
-                .toString();
-      } catch (URISyntaxException e) {
-        String exceptionMessage = "Failed to build token url";
-        LoggingUtil.log(LogLevel.ERROR, exceptionMessage);
-        throw new DatabricksException(exceptionMessage, e);
-      }
+    // Check if the token endpoint is explicitly set
+    String tokenEndpoint = context.getTokenEndpoint();
+    if (tokenEndpoint != null) {
+      return tokenEndpoint;
     }
-    return tokenUrl;
+
+    // If OAuth discovery mode is enabled, try to get the token endpoint from the discovery service
+    if (context.isOAuthDiscoveryModeEnabled()) {
+      return getTokenEndpointWithDiscovery(context);
+    }
+
+    // Fall back to the default token endpoint if no discovery mode or token endpoint is available
+    return getDefaultTokenEndpoint(context);
+  }
+
+  private static String getTokenEndpointWithDiscovery(IDatabricksConnectionContext context) {
+    try {
+      return getTokenEndpointFromDiscoveryEndpoint(context);
+    } catch (DatabricksException e) {
+      String errorMessage =
+          "Failed to get token endpoint from discovery endpoint. Falling back to default token endpoint.";
+      LoggingUtil.log(LogLevel.ERROR, errorMessage);
+      return getDefaultTokenEndpoint(context);
+    }
+  }
+
+  static String getDefaultTokenEndpoint(IDatabricksConnectionContext context) {
+    try {
+      return new URIBuilder()
+          .setHost(context.getHostForOAuth())
+          .setScheme("https")
+          .setPathSegments("oidc", "v1", "token")
+          .build()
+          .toString();
+    } catch (URISyntaxException e) {
+      String errorMessage = "Failed to build default token endpoint URL.";
+      LoggingUtil.log(LogLevel.ERROR, errorMessage);
+      throw new DatabricksException(errorMessage, e);
+    }
   }
 
   /*
