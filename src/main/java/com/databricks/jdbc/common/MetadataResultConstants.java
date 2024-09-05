@@ -249,6 +249,10 @@ public class MetadataResultConstants {
           CHAR_OCTET_LENGTH_COLUMN,
           ORDINAL_POSITION_COLUMN,
           IS_NULLABLE_COLUMN,
+          SCOPE_CATALOG_COLUMN,
+          SCOPE_SCHEMA_COLUMN,
+          SCOPE_TABLE_COLUMN,
+          SOURCE_DATA_TYPE_COLUMN,
           IS_AUTO_INCREMENT_COLUMN,
           IS_GENERATED_COLUMN);
   public static String NULL_STRING = "NULL";
