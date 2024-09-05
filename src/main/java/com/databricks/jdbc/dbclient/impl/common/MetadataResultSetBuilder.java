@@ -397,7 +397,7 @@ public class MetadataResultSetBuilder {
   }
 
   public static DatabricksResultSet getColumnsResult(List<List<Object>> rows) {
-    return buildResultSet(COLUMN_COLUMNS, rows, METADATA_STATEMENT_ID);
+    return buildResultSet(COLUMN_COLUMNS_ALL_PURPOSE, rows, METADATA_STATEMENT_ID);
   }
 
   public static DatabricksResultSet getPrimaryKeysResult(List<List<Object>> rows) {
