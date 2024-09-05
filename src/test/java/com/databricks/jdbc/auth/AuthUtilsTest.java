@@ -58,4 +58,42 @@ public class AuthUtilsTest {
       assertEquals("https://token.example.com", tokenEndpoint);
     }
   }
+
+  @Test
+  void testGetTokenEndpoint_WithOAuthDiscoveryModeEnabledButUrlNotProvided() {
+    when(context.isOAuthDiscoveryModeEnabled()).thenReturn(true);
+    when(context.getOAuthDiscoveryURL()).thenReturn(null);
+    when(context.getTokenEndpoint()).thenReturn(null);
+    when(context.getHostForOAuth()).thenReturn("oauth.example.com");
+
+    String expectedTokenUrl = "https://oauth.example.com/oidc/v1/token";
+    String tokenEndpoint = AuthUtils.getTokenEndpoint(context);
+
+    assertEquals(expectedTokenUrl, tokenEndpoint);
+  }
+
+  @Test
+  void testGetTokenEndpoint_WithOAuthDiscoveryModeAndErrorInDiscoveryEndpoint() {
+    when(context.isOAuthDiscoveryModeEnabled()).thenReturn(true);
+    when(context.getOAuthDiscoveryURL()).thenReturn("https://fake");
+    when(context.getTokenEndpoint()).thenReturn(null);
+    when(context.getHostForOAuth()).thenReturn("oauth.example.com");
+
+    String expectedTokenUrl = "https://oauth.example.com/oidc/v1/token";
+    String tokenEndpoint = AuthUtils.getTokenEndpoint(context);
+
+    assertEquals(expectedTokenUrl, tokenEndpoint);
+  }
+
+  @Test
+  void testGetTokenEndpoint_WithoutOAuthDiscoveryModeAndNoTokenEndpoint() {
+    when(context.isOAuthDiscoveryModeEnabled()).thenReturn(false);
+    when(context.getTokenEndpoint()).thenReturn(null);
+    when(context.getHostForOAuth()).thenReturn("oauth.example.com");
+
+    String expectedTokenUrl = "https://oauth.example.com/oidc/v1/token";
+    String tokenEndpoint = AuthUtils.getTokenEndpoint(context);
+
+    assertEquals(expectedTokenUrl, tokenEndpoint);
+  }
 }

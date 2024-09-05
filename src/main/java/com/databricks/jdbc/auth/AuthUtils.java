@@ -7,42 +7,61 @@ import com.databricks.jdbc.dbclient.impl.http.DatabricksHttpClient;
 import com.databricks.jdbc.exception.DatabricksHttpException;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.sdk.core.DatabricksConfig;
+import com.databricks.jdbc.exception.DatabricksParsingException;
+import com.databricks.sdk.core.DatabricksConfig;
 import com.databricks.sdk.core.DatabricksException;
 import com.databricks.sdk.core.oauth.OpenIDConnectEndpoints;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.annotations.VisibleForTesting;
 import java.io.IOException;
 import java.net.URISyntaxException;
+
+import com.google.common.annotations.VisibleForTesting;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.utils.URIBuilder;
 
 public class AuthUtils {
   public static String getTokenEndpoint(IDatabricksConnectionContext context) {
-    String tokenUrl;
-    if (context.getTokenEndpoint() != null) {
-      tokenUrl = context.getTokenEndpoint();
-    } else if (context.isOAuthDiscoveryModeEnabled() && context.getOAuthDiscoveryURL() != null) {
-      tokenUrl = getTokenEndpointFromDiscoveryEndpoint(context);
-    } else {
-      tokenUrl = getTokenEndpointUsingDatabricksConfig(context);
+    // Check if the token endpoint is explicitly set
+    String tokenEndpoint = context.getTokenEndpoint();
+    if (tokenEndpoint != null) {
+      return tokenEndpoint;
     }
-    return tokenUrl;
+
+    // If OAuth discovery mode is enabled, try to get the token endpoint from the discovery service
+    if (context.isOAuthDiscoveryModeEnabled() && context.getOAuthDiscoveryURL() != null) {
+      return getTokenEndpointWithDiscovery(context);
+    }
+
+    // Fall back to the default token endpoint if no discovery mode or token endpoint is available
+    return getDefaultTokenEndpoint(context);
   }
 
-  public static String getTokenEndpointUsingDatabricksConfig(IDatabricksConnectionContext context) {
+  private static String getTokenEndpointWithDiscovery(IDatabricksConnectionContext context) {
+    try {
+      return getTokenEndpointFromDiscoveryEndpoint(context);
+    } catch (DatabricksException e) {
+      String errorMessage =
+          "Failed to get token endpoint from discovery endpoint. Falling back to default token endpoint.";
+      LoggingUtil.log(LogLevel.ERROR, errorMessage);
+      return getDefaultTokenEndpoint(context);
+    }
+  }
+
+  static String getDefaultTokenEndpoint(IDatabricksConnectionContext context) {
     try {
       return getBarebonesDatabricksConfig(context).getOidcEndpoints().getTokenEndpoint();
     } catch (DatabricksParsingException | IOException e) {
-      String exceptionMessage = "Failed to build token url";
-      LoggingUtil.log(LogLevel.ERROR, exceptionMessage);
-      throw new DatabricksException(exceptionMessage, e);
+      String errorMessage = "Failed to build default token endpoint URL.";
+      LoggingUtil.log(LogLevel.ERROR, errorMessage);
+      throw new DatabricksException(errorMessage, e);
     }
   }
 
   @VisibleForTesting
   public static DatabricksConfig getBarebonesDatabricksConfig(IDatabricksConnectionContext context)
-      throws DatabricksParsingException {
+          throws DatabricksParsingException {
     return new DatabricksConfig().setHost(context.getHostUrl()).resolve();
   }
 

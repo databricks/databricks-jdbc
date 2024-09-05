@@ -69,6 +69,21 @@ public class PrivateKeyClientCredentialProviderTest {
   }
 
   @Test
+  void testCredentialProviderWithModeEnabledButUrlNotProvided() {
+    setup();
+    try (MockedStatic<DatabricksHttpClient> mocked = mockStatic(DatabricksHttpClient.class)) {
+      mocked.when(() -> DatabricksHttpClient.getInstance(any())).thenReturn(httpClient);
+      when(context.isOAuthDiscoveryModeEnabled()).thenReturn(true);
+      when(context.getOAuthDiscoveryURL()).thenReturn(null);
+      when(context.getTokenEndpoint()).thenReturn(null);
+      when(context.getHostForOAuth()).thenReturn("testHost");
+      JwtPrivateKeyClientCredentials clientCredentialObject =
+          new PrivateKeyClientCredentialProvider(context).getClientCredentialObject(config);
+      assertEquals(clientCredentialObject.getTokenEndpoint(), "https://testHost/oidc/v1/token");
+    }
+  }
+
+  @Test
   void testCredentialProviderWithTokenEndpointInContext() {
     setup();
     try (MockedStatic<DatabricksHttpClient> mocked = mockStatic(DatabricksHttpClient.class)) {
