@@ -312,8 +312,8 @@ public class ArrowResultChunk {
     }
     if (isDataInitialized) {
       purgeArrowData(this.recordBatchList);
+      rootAllocator.close();
     }
-    rootAllocator.close();
     setStatus(ChunkStatus.CHUNK_RELEASED);
     return true;
   }
