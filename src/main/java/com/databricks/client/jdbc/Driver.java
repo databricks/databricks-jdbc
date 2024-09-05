@@ -15,7 +15,6 @@ import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.sdk.core.UserAgent;
-import java.io.IOException;
 import java.sql.*;
 import java.util.Properties;
 
@@ -87,7 +86,8 @@ public class Driver implements java.sql.Driver {
   private void setMetadataClient(
       DatabricksConnection connection, IDatabricksConnectionContext connectionContext) {
     if (connectionContext.getUseLegacyMetadata().equals(true)) {
-      LOGGER.debug("The new metadata commands are enabled, but the legacy metadata commands are being used due to connection parameter useLegacyMetadata");
+      LOGGER.debug(
+          "The new metadata commands are enabled, but the legacy metadata commands are being used due to connection parameter useLegacyMetadata");
       connection.setMetadataClient(true);
     } else {
       connection.setMetadataClient(false);
@@ -107,7 +107,8 @@ public class Driver implements java.sql.Driver {
         return false;
       }
     } catch (Exception e) {
-      LOGGER.debug(String.format(
+      LOGGER.debug(
+          String.format(
               "Unable to parse the DBSQL version {%s}. Falling back to legacy metadata commands.",
               dbsqlVersion));
       return false;

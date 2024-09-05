@@ -5,12 +5,11 @@ import static com.databricks.jdbc.dbclient.impl.sqlexec.ResultConstants.TYPE_INF
 import com.databricks.jdbc.api.IDatabricksSession;
 import com.databricks.jdbc.api.impl.DatabricksResultSet;
 import com.databricks.jdbc.api.impl.ImmutableSqlParameter;
-import com.databricks.jdbc.common.LogLevel;
 import com.databricks.jdbc.common.StatementType;
-import com.databricks.jdbc.log.JdbcLogger;
-import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.common.util.WildcardUtil;
 import com.databricks.jdbc.dbclient.DatabricksMetadataClient;
+import com.databricks.jdbc.log.JdbcLogger;
+import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.sdk.service.sql.StatementState;
 import com.databricks.sdk.service.sql.StatementStatus;
 import java.sql.ResultSet;
@@ -24,7 +23,8 @@ import java.util.concurrent.Executors;
 
 /** Implementation for DatabricksMetadataClient using SDK client */
 public class DatabricksMetadataSdkClient implements DatabricksMetadataClient {
-  public static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(DatabricksMetadataSdkClient.class);
+  public static final JdbcLogger LOGGER =
+      JdbcLoggerFactory.getLogger(DatabricksMetadataSdkClient.class);
   private final DatabricksSdkClient sdkClient;
 
   public DatabricksMetadataSdkClient(DatabricksSdkClient sdkClient) {

@@ -5,13 +5,13 @@ import static com.databricks.jdbc.common.util.DatabricksThriftUtil.createExterna
 import static com.databricks.jdbc.common.util.ValidationUtil.checkHTTPError;
 
 import com.databricks.jdbc.common.CompressionType;
-import com.databricks.jdbc.common.LogLevel;
 import com.databricks.jdbc.common.util.DecompressionUtil;
-import com.databricks.jdbc.common.util.LoggingUtil;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
 import com.databricks.jdbc.exception.DatabricksHttpException;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
+import com.databricks.jdbc.log.JdbcLogger;
+import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.model.client.thrift.generated.TSparkArrowResultLink;
 import com.databricks.jdbc.model.core.ExternalLink;
 import com.databricks.sdk.service.sql.BaseChunkInfo;
@@ -78,6 +78,7 @@ public class ArrowResultChunk {
     CHUNK_RELEASED;
   }
 
+  public static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(ArrowResultChunk.class);
   private static final Integer SECONDS_BUFFER_FOR_EXPIRY = 60;
 
   private final long chunkIndex;
@@ -275,8 +276,7 @@ public class ArrowResultChunk {
     if (headers != null) {
       headers.forEach(getRequest::addHeader);
     } else {
-      LoggingUtil.log(
-          LogLevel.DEBUG,
+      LOGGER.debug(
           String.format(
               "No encryption headers present for chunk index [%s] and statement [%s]",
               chunkIndex, statementId));
@@ -313,8 +313,7 @@ public class ArrowResultChunk {
   }
 
   public void getArrowDataFromInputStream(InputStream inputStream) throws DatabricksSQLException {
-    LoggingUtil.log(
-        LogLevel.DEBUG,
+    LOGGER.debug(
         String.format(
             "Parsing data for chunk index [%s] and statement [%s]",
             this.chunkIndex, this.statementId));
@@ -342,14 +341,12 @@ public class ArrowResultChunk {
         this.recordBatchList.add(getVectorsFromSchemaRoot());
         vectorSchemaRoot.clear();
       }
-      LoggingUtil.log(
-          LogLevel.DEBUG,
+      LOGGER.debug(
           String.format(
               "Data parsed for chunk index [%s] and statement [%s]",
               this.chunkIndex, this.statementId));
     } catch (ClosedByInterruptException e) {
-      LoggingUtil.log(
-          LogLevel.ERROR,
+      LOGGER.error(
           String.format(
               "Data parsing interrupted for chunk index [%s] and statement [%s]. Error [%s]",
               this.chunkIndex, this.statementId, e));
@@ -380,7 +377,7 @@ public class ArrowResultChunk {
         String.format(
             "Data parsing failed for chunk index [%d] and statement [%s]. Exception [%s]",
             this.chunkIndex, this.statementId, exception);
-    LoggingUtil.log(LogLevel.ERROR, errMsg);
+    LOGGER.error(errMsg);
     this.setStatus(failedStatus);
     purgeArrowData();
     throw new DatabricksParsingException(errMsg, exception);

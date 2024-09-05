@@ -3,19 +3,19 @@ package com.databricks.jdbc.api.impl;
 import com.databricks.jdbc.api.IDatabricksConnection;
 import com.databricks.jdbc.api.IDatabricksSession;
 import com.databricks.jdbc.common.DatabricksJdbcConstants;
-import com.databricks.jdbc.common.LogLevel;
 import com.databricks.jdbc.common.StatementType;
 import com.databricks.jdbc.common.util.DriverUtil;
+import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
-import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.sdk.service.sql.StatementState;
 import com.databricks.sdk.service.sql.StatementStatus;
 import java.sql.*;
 import java.util.*;
 
 public class DatabricksDatabaseMetaData implements DatabaseMetaData {
-  public static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(DatabricksDatabaseMetaData.class);
+  public static final JdbcLogger LOGGER =
+      JdbcLoggerFactory.getLogger(DatabricksDatabaseMetaData.class);
   public static final String DRIVER_NAME = "DatabricksJDBC";
   public static final String PRODUCT_NAME = "SparkSQL";
   public static final int DATABASE_MAJOR_VERSION = 3;
@@ -1100,8 +1100,7 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
 
   @Override
   public boolean supportsResultSetType(int type) throws SQLException {
-    LOGGER.debug(
-        String.format("public boolean supportsResultSetType(int type = {%s})", type));
+    LOGGER.debug(String.format("public boolean supportsResultSetType(int type = {%s})", type));
     throwExceptionIfConnectionIsClosed();
     return type == ResultSet.TYPE_FORWARD_ONLY;
   }
@@ -1140,16 +1139,14 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
 
   @Override
   public boolean othersUpdatesAreVisible(int type) throws SQLException {
-    LOGGER.debug(
-        String.format("public boolean othersUpdatesAreVisible(int type = {})", type));
+    LOGGER.debug(String.format("public boolean othersUpdatesAreVisible(int type = {})", type));
     throwExceptionIfConnectionIsClosed();
     return false;
   }
 
   @Override
   public boolean othersDeletesAreVisible(int type) throws SQLException {
-    LOGGER.debug(
-        String.format("public boolean othersDeletesAreVisible(int type = {})", type));
+    LOGGER.debug(String.format("public boolean othersDeletesAreVisible(int type = {})", type));
     throwExceptionIfConnectionIsClosed();
     return false;
   }

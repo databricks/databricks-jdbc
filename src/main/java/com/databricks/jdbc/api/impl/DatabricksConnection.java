@@ -8,13 +8,13 @@ import com.databricks.jdbc.api.IDatabricksStatement;
 import com.databricks.jdbc.api.IDatabricksUCVolumeClient;
 import com.databricks.jdbc.api.impl.volume.DatabricksUCVolumeClient;
 import com.databricks.jdbc.common.DatabricksJdbcConstants;
-import com.databricks.jdbc.log.JdbcLogger;
-import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.common.util.ValidationUtil;
 import com.databricks.jdbc.dbclient.DatabricksClient;
 import com.databricks.jdbc.exception.DatabricksSQLClientInfoException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.exception.DatabricksSQLFeatureNotSupportedException;
+import com.databricks.jdbc.log.JdbcLogger;
+import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.google.common.annotations.VisibleForTesting;
 import java.sql.*;
 import java.util.HashMap;
@@ -73,7 +73,8 @@ public class DatabricksConnection implements IDatabricksConnection, Connection {
 
   @Override
   public PreparedStatement prepareStatement(String sql) {
-    LOGGER.debug(String.format("public PreparedStatement prepareStatement(String sql = {%s})", sql));
+    LOGGER.debug(
+        String.format("public PreparedStatement prepareStatement(String sql = {%s})", sql));
     DatabricksPreparedStatement statement = new DatabricksPreparedStatement(this, sql);
     statementSet.add(statement);
     return statement;

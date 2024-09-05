@@ -3,11 +3,10 @@ package com.databricks.jdbc.api.impl;
 import static com.databricks.jdbc.common.util.DatabricksTypeUtil.*;
 
 import com.databricks.jdbc.common.CompressionType;
-import com.databricks.jdbc.common.LogLevel;
-import com.databricks.jdbc.log.JdbcLogger;
-import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
+import com.databricks.jdbc.log.JdbcLogger;
+import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.model.client.thrift.generated.*;
 import com.google.common.annotations.VisibleForTesting;
 import java.io.ByteArrayInputStream;

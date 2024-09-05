@@ -8,13 +8,12 @@ import com.databricks.jdbc.api.IDatabricksStatement;
 import com.databricks.jdbc.api.impl.converters.AbstractObjectConverter;
 import com.databricks.jdbc.api.impl.converters.ConverterHelper;
 import com.databricks.jdbc.api.impl.volume.VolumeInputStream;
-import com.databricks.jdbc.common.LogLevel;
 import com.databricks.jdbc.common.StatementType;
-import com.databricks.jdbc.log.JdbcLogger;
-import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.common.util.WarningUtil;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.exception.DatabricksSQLFeatureNotSupportedException;
+import com.databricks.jdbc.log.JdbcLogger;
+import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.model.client.thrift.generated.TGetResultSetMetadataResp;
 import com.databricks.jdbc.model.client.thrift.generated.TRowSet;
 import com.databricks.jdbc.model.client.thrift.generated.TStatus;
@@ -1039,7 +1038,7 @@ public class DatabricksResultSet implements ResultSet, IDatabricksResultSet {
   }
 
   private void addWarningAndLog(String warningMessage) {
-    LOGGER.warn( warningMessage);
+    LOGGER.warn(warningMessage);
     warnings = WarningUtil.addWarning(warnings, warningMessage);
   }
 

@@ -3,13 +3,12 @@ package com.databricks.jdbc.api.impl;
 import static com.databricks.jdbc.common.util.DatabricksTypeUtil.*;
 import static com.databricks.jdbc.common.util.SQLInterpolator.interpolateSQL;
 
-import com.databricks.jdbc.common.LogLevel;
 import com.databricks.jdbc.common.StatementType;
 import com.databricks.jdbc.common.util.DatabricksTypeUtil;
-import com.databricks.jdbc.log.JdbcLogger;
-import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.exception.DatabricksSQLFeatureNotImplementedException;
+import com.databricks.jdbc.log.JdbcLogger;
+import com.databricks.jdbc.log.JdbcLoggerFactory;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -23,7 +22,8 @@ import java.util.*;
 import java.util.Calendar;
 
 public class DatabricksPreparedStatement extends DatabricksStatement implements PreparedStatement {
-  public static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(DatabricksPreparedStatement.class);
+  public static final JdbcLogger LOGGER =
+      JdbcLoggerFactory.getLogger(DatabricksPreparedStatement.class);
   private final String sql;
   private DatabricksParameterMetaData databricksParameterMetaData;
   List<DatabricksParameterMetaData> databricksBatchParameterMetaData;
@@ -46,7 +46,7 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
           String.format(
               "Unexpected number of bytes read from the stream. Expected: %d, got: %d",
               targetLength, sourceLength);
-      LOGGER.error( errorMessage);
+      LOGGER.error(errorMessage);
       throw new DatabricksSQLException(errorMessage);
     }
   }
@@ -57,7 +57,7 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
           String.format(
               "Unexpected number of bytes read from the stream. Expected: %d, got: %d",
               targetLength, sourceLength);
-      LOGGER.error( errorMessage);
+      LOGGER.error(errorMessage);
       throw new DatabricksSQLException(errorMessage);
     }
   }
@@ -66,7 +66,7 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
     if (!this.databricksBatchParameterMetaData.isEmpty()) {
       String errorMessage =
           "Batch must either be executed with executeBatch() or cleared with clearBatch()";
-      LOGGER.error( errorMessage);
+      LOGGER.error(errorMessage);
       throw new DatabricksSQLException(errorMessage);
     }
   }
@@ -74,7 +74,7 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
   private byte[] readByteStream(InputStream x, int length) throws SQLException {
     if (x == null) {
       String errorMessage = "InputStream cannot be null";
-      LOGGER.error( errorMessage);
+      LOGGER.error(errorMessage);
       throw new DatabricksSQLException(errorMessage);
     }
     byte[] bytes = new byte[length];
@@ -83,7 +83,7 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
       checkLength(bytesRead, length);
     } catch (IOException e) {
       String errorMessage = "Error reading from the InputStream";
-      LOGGER.error( errorMessage);
+      LOGGER.error(errorMessage);
       throw new DatabricksSQLException(errorMessage, e);
     }
     return bytes;
@@ -117,7 +117,7 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
             sql, databricksParameterMetaData.getParameterBindings(), StatementType.UPDATE, false);
         updateCount[i] = (int) resultSet.getUpdateCount();
       } catch (SQLException e) {
-        LOGGER.error( e.getMessage());
+        LOGGER.error(e.getMessage());
         updateCount[i] = -1;
       }
     }
@@ -327,7 +327,7 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
       setObject(parameterIndex, str, DatabricksTypeUtil.STRING);
     } catch (IOException e) {
       String errorMessage = "Error reading from the Reader";
-      LOGGER.error( errorMessage);
+      LOGGER.error(errorMessage);
       throw new DatabricksSQLException(errorMessage, e);
     }
   }
@@ -482,7 +482,8 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
   @Override
   public void setObject(int parameterIndex, Object x, int targetSqlType, int scaleOrLength)
       throws SQLException {
-    LOGGER.debug("public void setObject(int parameterIndex, Object x, int targetSqlType, int scaleOrLength)");
+    LOGGER.debug(
+        "public void setObject(int parameterIndex, Object x, int targetSqlType, int scaleOrLength)");
     throw new UnsupportedOperationException(
         "Not implemented in DatabricksPreparedStatement - setCharacterStream(int parameterIndex, Reader reader)");
   }
@@ -508,7 +509,7 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
       setObject(parameterIndex, asciiString, DatabricksTypeUtil.STRING);
     } catch (IOException e) {
       String errorMessage = "Error reading from the InputStream";
-      LOGGER.error( errorMessage);
+      LOGGER.error(errorMessage);
       throw new DatabricksSQLException(errorMessage, e);
     }
   }
@@ -541,7 +542,7 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
       setObject(parameterIndex, characterString, DatabricksTypeUtil.STRING);
     } catch (IOException e) {
       String errorMessage = "Error reading from the Reader";
-      LOGGER.error( errorMessage);
+      LOGGER.error(errorMessage);
       throw new DatabricksSQLException(errorMessage, e);
     }
   }
@@ -561,7 +562,7 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
       setObject(parameterIndex, asciiString, DatabricksTypeUtil.STRING);
     } catch (IOException e) {
       String errorMessage = "Error reading from the InputStream";
-      LOGGER.error( errorMessage);
+      LOGGER.error(errorMessage);
       throw new DatabricksSQLException(errorMessage, e);
     }
   }
@@ -588,7 +589,7 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
       setObject(parameterIndex, characterString, DatabricksTypeUtil.STRING);
     } catch (IOException e) {
       String errorMessage = "Error reading from the Reader";
-      LOGGER.error( errorMessage);
+      LOGGER.error(errorMessage);
       throw new DatabricksSQLException(errorMessage, e);
     }
   }
