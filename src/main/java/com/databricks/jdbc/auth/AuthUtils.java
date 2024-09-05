@@ -7,22 +7,24 @@ import com.databricks.jdbc.dbclient.impl.http.DatabricksHttpClient;
 import com.databricks.jdbc.exception.DatabricksHttpException;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.sdk.core.DatabricksConfig;
-import com.databricks.jdbc.exception.DatabricksParsingException;
-import com.databricks.sdk.core.DatabricksConfig;
 import com.databricks.sdk.core.DatabricksException;
 import com.databricks.sdk.core.oauth.OpenIDConnectEndpoints;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.annotations.VisibleForTesting;
 import java.io.IOException;
 import java.net.URISyntaxException;
-
-import com.google.common.annotations.VisibleForTesting;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.utils.URIBuilder;
 
 public class AuthUtils {
-  public static String getTokenEndpoint(IDatabricksConnectionContext context) {
+  private final IDatabricksConnectionContext context;
+
+  public AuthUtils(IDatabricksConnectionContext context) {
+    this.context = context;
+  }
+
+  public String getTokenEndpoint() {
     // Check if the token endpoint is explicitly set
     String tokenEndpoint = context.getTokenEndpoint();
     if (tokenEndpoint != null) {
@@ -31,27 +33,27 @@ public class AuthUtils {
 
     // If OAuth discovery mode is enabled, try to get the token endpoint from the discovery service
     if (context.isOAuthDiscoveryModeEnabled() && context.getOAuthDiscoveryURL() != null) {
-      return getTokenEndpointWithDiscovery(context);
+      return getTokenEndpointWithDiscovery();
     }
 
     // Fall back to the default token endpoint if no discovery mode or token endpoint is available
-    return getDefaultTokenEndpoint(context);
+    return getDefaultTokenEndpoint();
   }
 
-  private static String getTokenEndpointWithDiscovery(IDatabricksConnectionContext context) {
+  private String getTokenEndpointWithDiscovery() {
     try {
-      return getTokenEndpointFromDiscoveryEndpoint(context);
+      return getTokenEndpointFromDiscoveryEndpoint();
     } catch (DatabricksException e) {
       String errorMessage =
           "Failed to get token endpoint from discovery endpoint. Falling back to default token endpoint.";
       LoggingUtil.log(LogLevel.ERROR, errorMessage);
-      return getDefaultTokenEndpoint(context);
+      return getDefaultTokenEndpoint();
     }
   }
 
-  static String getDefaultTokenEndpoint(IDatabricksConnectionContext context) {
+  String getDefaultTokenEndpoint() {
     try {
-      return getBarebonesDatabricksConfig(context).getOidcEndpoints().getTokenEndpoint();
+      return getBarebonesDatabricksConfig().getOidcEndpoints().getTokenEndpoint();
     } catch (DatabricksParsingException | IOException e) {
       String errorMessage = "Failed to build default token endpoint URL.";
       LoggingUtil.log(LogLevel.ERROR, errorMessage);
@@ -60,20 +62,18 @@ public class AuthUtils {
   }
 
   @VisibleForTesting
-  public static DatabricksConfig getBarebonesDatabricksConfig(IDatabricksConnectionContext context)
-          throws DatabricksParsingException {
-    return new DatabricksConfig().setHost(context.getHostUrl()).resolve();
+  public DatabricksConfig getBarebonesDatabricksConfig() throws DatabricksParsingException {
+    return new DatabricksConfig().setHost(context.getHostForOAuth()).resolve();
   }
 
   /*
    * TODO : The following will be removed once SDK changes are merged
    * https://github.com/databricks/databricks-sdk-java/pull/336
    * */
-  private static String getTokenEndpointFromDiscoveryEndpoint(
-      IDatabricksConnectionContext connectionContext) {
+  private String getTokenEndpointFromDiscoveryEndpoint() {
     try {
-      URIBuilder uriBuilder = new URIBuilder(connectionContext.getOAuthDiscoveryURL());
-      DatabricksHttpClient httpClient = DatabricksHttpClient.getInstance(connectionContext);
+      URIBuilder uriBuilder = new URIBuilder(context.getOAuthDiscoveryURL());
+      DatabricksHttpClient httpClient = DatabricksHttpClient.getInstance(context);
       HttpGet getRequest = new HttpGet(uriBuilder.build());
       try (CloseableHttpResponse response = httpClient.execute(getRequest)) {
         if (response.getStatusLine().getStatusCode() != 200) {

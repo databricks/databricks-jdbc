@@ -2,8 +2,7 @@ package com.databricks.jdbc.auth;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.mockStatic;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
 import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.api.impl.DatabricksConnectionContext;
@@ -12,6 +11,7 @@ import com.databricks.sdk.core.DatabricksException;
 import com.databricks.sdk.core.HeaderFactory;
 import com.databricks.sdk.core.commons.CommonsHttpClient;
 import com.databricks.sdk.core.http.Response;
+import com.databricks.sdk.core.oauth.OpenIDConnectEndpoints;
 import com.databricks.sdk.core.oauth.Token;
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
@@ -24,7 +24,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.Mock;
-import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
@@ -56,10 +55,18 @@ public class OAuthRefreshCredentialsProviderTest {
   void testRefreshThrowsExceptionWhenRefreshTokenIsNotSet() throws Exception {
     IDatabricksConnectionContext connectionContext =
         DatabricksConnectionContext.parse(REFRESH_TOKEN_URL_DEFAULT, new Properties());
-    credentialsProvider = new OAuthRefreshCredentialsProvider(connectionContext);
+    AuthUtils authUtils = spy(new AuthUtils(connectionContext));
+    when(authUtils.getBarebonesDatabricksConfig()).thenReturn(databricksConfig);
+    when(databricksConfig.getOidcEndpoints())
+        .thenReturn(
+            new OpenIDConnectEndpoints(
+                "https://oauth.example.com/oidc/v1/token",
+                "https://oauth.example.com/oidc/v1/authorize"));
+    credentialsProvider = new OAuthRefreshCredentialsProvider(connectionContext, authUtils);
     when(context.getOAuthRefreshToken()).thenReturn(null);
+    verify(authUtils, times(1)).getDefaultTokenEndpoint();
     OAuthRefreshCredentialsProvider providerWithNullRefreshToken =
-        new OAuthRefreshCredentialsProvider(context);
+        new OAuthRefreshCredentialsProvider(context, authUtils);
     DatabricksException exception =
         assertThrows(DatabricksException.class, providerWithNullRefreshToken::refresh);
     assertEquals("oauth2: token expired and refresh token is not set", exception.getMessage());
@@ -77,7 +84,17 @@ public class OAuthRefreshCredentialsProviderTest {
   void testRefreshSuccess(String refreshTokenUrl) throws Exception {
     IDatabricksConnectionContext connectionContext =
         DatabricksConnectionContext.parse(refreshTokenUrl, new Properties());
-    credentialsProvider = new OAuthRefreshCredentialsProvider(connectionContext);
+    AuthUtils authUtils = spy(new AuthUtils(connectionContext));
+    boolean isDefaultEndpointPath = connectionContext.getTokenEndpoint() == null;
+    if (isDefaultEndpointPath) {
+      when(authUtils.getBarebonesDatabricksConfig()).thenReturn(databricksConfig);
+      when(databricksConfig.getOidcEndpoints())
+          .thenReturn(
+              new OpenIDConnectEndpoints(
+                  "https://oauth.example.com/oidc/v1/token",
+                  "https://oauth.example.com/oidc/v1/authorize"));
+    }
+    credentialsProvider = new OAuthRefreshCredentialsProvider(connectionContext, authUtils);
 
     // Reinitialize the OAUTH_RESPONSE InputStream for each test run
     InputStream oauthResponse =
@@ -101,45 +118,6 @@ public class OAuthRefreshCredentialsProviderTest {
     assertEquals("access-token", refreshedToken.getAccessToken());
     assertEquals("refresh-token", refreshedToken.getRefreshToken());
     assertFalse(refreshedToken.isExpired());
-  private OAuthRefreshCredentialsProvider credentialsProvider;
-
-  @BeforeEach
-  void setup() throws DatabricksParsingException {
-    when(context.getClientId()).thenReturn("client-id");
-    when(context.getClientSecret()).thenReturn("client-secret");
-    when(context.getOAuthRefreshToken()).thenReturn("refresh-token");
-  }
-
-  @Test
-  void testRefreshThrowsExceptionWhenRefreshTokenIsNotSet() {
-    try (MockedStatic<AuthUtils> mocked = mockStatic(AuthUtils.class)) {
-      mocked.when(() -> AuthUtils.getBarebonesDatabricksConfig(any())).thenReturn(databricksConfig);
-      when(context.getOAuthRefreshToken()).thenReturn(null);
-      credentialsProvider = new OAuthRefreshCredentialsProvider(context);
-      OAuthRefreshCredentialsProvider providerWithNullRefreshToken =
-          new OAuthRefreshCredentialsProvider(context);
-      DatabricksException exception =
-          assertThrows(DatabricksException.class, providerWithNullRefreshToken::refresh);
-      assertEquals("oauth2: token expired and refresh token is not set", exception.getMessage());
-    }
-  }
-
-  @Test
-  void testRefreshSuccess() throws IOException {
-    try (MockedStatic<AuthUtils> mocked = mockStatic(AuthUtils.class)) {
-      mocked.when(() -> AuthUtils.getBarebonesDatabricksConfig(any())).thenReturn(databricksConfig);
-      when(databricksConfig.getHttpClient()).thenReturn(httpClient);
-      when(httpClient.execute(any())).thenReturn(httpResponse);
-      when(httpResponse.getBody()).thenReturn(OAUTH_RESPONSE);
-      credentialsProvider = new OAuthRefreshCredentialsProvider(context);
-      HeaderFactory headerFactory = credentialsProvider.configure(databricksConfig);
-      Map<String, String> headers = headerFactory.headers();
-      assertNotNull(headers.get(HttpHeaders.AUTHORIZATION));
-      Token refreshedToken = credentialsProvider.getToken();
-      assertEquals("token-type", refreshedToken.getTokenType());
-      assertEquals("access-token", refreshedToken.getAccessToken());
-      assertEquals("refresh-token", refreshedToken.getRefreshToken());
-      assertFalse(refreshedToken.isExpired());
-    }
+    verify(authUtils, times(isDefaultEndpointPath ? 1 : 0)).getDefaultTokenEndpoint();
   }
 }

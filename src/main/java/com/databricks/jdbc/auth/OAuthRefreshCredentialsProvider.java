@@ -15,6 +15,7 @@ import com.databricks.sdk.core.http.HttpClient;
 import com.databricks.sdk.core.oauth.AuthParameterPosition;
 import com.databricks.sdk.core.oauth.RefreshableTokenSource;
 import com.databricks.sdk.core.oauth.Token;
+import com.google.common.annotations.VisibleForTesting;
 import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
@@ -28,9 +29,11 @@ public class OAuthRefreshCredentialsProvider extends RefreshableTokenSource
   private final String clientId;
   private final String clientSecret;
 
-  public OAuthRefreshCredentialsProvider(IDatabricksConnectionContext context) {
+  @VisibleForTesting
+  public OAuthRefreshCredentialsProvider(
+      IDatabricksConnectionContext context, AuthUtils authUtils) {
     this.context = context;
-    this.tokenEndpoint = AuthUtils.getTokenEndpoint(context);
+    this.tokenEndpoint = authUtils.getTokenEndpoint();
     try {
       this.clientId = context.getClientId();
     } catch (DatabricksParsingException e) {
@@ -46,6 +49,10 @@ public class OAuthRefreshCredentialsProvider extends RefreshableTokenSource
             DatabricksJdbcConstants.EMPTY_STRING,
             context.getOAuthRefreshToken(),
             LocalDateTime.now().minusMinutes(1));
+  }
+
+  public OAuthRefreshCredentialsProvider(IDatabricksConnectionContext context) {
+    this(context, new AuthUtils(context));
   }
 
   @Override
