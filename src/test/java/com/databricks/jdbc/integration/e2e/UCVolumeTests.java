@@ -4,8 +4,8 @@ import static com.databricks.jdbc.TestConstants.*;
 import static com.databricks.jdbc.integration.IntegrationTestUtil.*;
 import static org.junit.jupiter.api.Assertions.*;
 
-import com.databricks.jdbc.client.IDatabricksUCVolumeClient;
-import com.databricks.jdbc.core.IDatabricksConnection;
+import com.databricks.jdbc.api.IDatabricksConnection;
+import com.databricks.jdbc.api.IDatabricksUCVolumeClient;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Paths;

@@ -1,18 +1,20 @@
 package com.databricks.jdbc.integration.fakeservice.tests;
 
 import static com.databricks.jdbc.TestConstants.*;
-import static com.databricks.jdbc.driver.DatabricksJdbcConstants.HTTP_PATH;
+import static com.databricks.jdbc.common.DatabricksJdbcConstants.*;
 import static com.databricks.jdbc.integration.IntegrationTestUtil.*;
 import static org.junit.jupiter.api.Assertions.*;
 
-import com.databricks.jdbc.client.impl.sdk.DatabricksUCVolumeClient;
+import com.databricks.jdbc.api.impl.volume.DatabricksUCVolumeClient;
 import com.databricks.jdbc.integration.fakeservice.AbstractFakeServiceIntegrationTests;
+import com.databricks.jdbc.integration.fakeservice.FakeServiceConfigLoader;
 import com.databricks.jdbc.integration.fakeservice.FakeServiceExtension;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Properties;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
@@ -26,7 +28,7 @@ public class UCVolumeIntegrationTests extends AbstractFakeServiceIntegrationTest
   private DatabricksUCVolumeClient client;
   private Connection con;
   private static final String jdbcUrlTemplate =
-      "jdbc:databricks://%s/default;transportMode=http;ssl=0;AuthMech=3;httpPath=%s;catalog=SPARK";
+      "jdbc:databricks://%s/default;transportMode=http;ssl=0;AuthMech=3;httpPath=%s";
   private static final String HTTP_PATH = "/sql/1.0/warehouses/791ba2a31c7fd70a";
   private static final String LOCAL_TEST_DIRECTORY = "/tmp";
 
@@ -358,6 +360,12 @@ public class UCVolumeIntegrationTests extends AbstractFakeServiceIntegrationTest
   private Connection getConnection() throws SQLException {
     String jdbcUrl = String.format(jdbcUrlTemplate, getFakeServiceHost(), HTTP_PATH);
 
-    return DriverManager.getConnection(jdbcUrl, getDatabricksUser(), getDatabricksToken());
+    Properties connProps = new Properties();
+    connProps.put(USER, getDatabricksUser());
+    connProps.put(PASSWORD, getDatabricksToken());
+    connProps.put(CATALOG, FakeServiceConfigLoader.getProperty(CATALOG));
+    connProps.put(CONN_SCHEMA, FakeServiceConfigLoader.getProperty(CONN_SCHEMA));
+
+    return DriverManager.getConnection(jdbcUrl, connProps);
   }
 }

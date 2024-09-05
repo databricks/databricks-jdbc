@@ -4,7 +4,7 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>com.databricks</groupId>
   <artifactId>databricks-jdbc</artifactId>
-  <version>0.9.1-oss</version>
+  <version>0.9.3-oss</version>
   <packaging>jar</packaging>
   <name>Databricks JDBC Driver</name>
   <description>Databricks JDBC Driver.</description>
@@ -61,6 +61,8 @@
     <slt.executor>dbsql</slt.executor>
     <slt.token>dummy-token</slt.token>
     <wiremock.version>3.5.4</wiremock.version>
+    <nimbusjose.version>9.40</nimbusjose.version>
+    <bouncycastle.version>1.78.1</bouncycastle.version>
   </properties>
   <dependencies>
     <dependency>
@@ -102,7 +104,6 @@
       <groupId>org.slf4j</groupId>
       <artifactId>slf4j-api</artifactId>
       <version>${slf4j.version}</version>
-      <scope>provided</scope>
     </dependency>
     <dependency>
       <groupId>org.apache.logging.log4j</groupId>
@@ -142,6 +143,22 @@
       <artifactId>junit-jupiter</artifactId>
       <version>${junit.jupiter.version}</version>
       <scope>test</scope>
+    </dependency>
+
+    <dependency>
+      <groupId>com.nimbusds</groupId>
+      <artifactId>nimbus-jose-jwt</artifactId>
+      <version>${nimbusjose.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.bouncycastle</groupId>
+      <artifactId>bcprov-jdk18on</artifactId>
+      <version>${bouncycastle.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.bouncycastle</groupId>
+      <artifactId>bcpkix-jdk18on</artifactId>
+      <version>${bouncycastle.version}</version>
     </dependency>
     <dependency>
       <groupId>org.mockito</groupId>
@@ -242,9 +259,8 @@
         <version>${maven-surefire-plugin.version}</version>
         <configuration>
           <excludes>
+            <exclude>**/DriverTest.java</exclude>
             <exclude>**/integration/**/*.java</exclude>
-            <exclude>**/*MetadataBenchmarkingTest.java</exclude>
-            <exclude>**/*LargeQueriesBenchmarkingTest.java</exclude>
           </excludes>
           <argLine>
             @{argLine}
@@ -280,10 +296,6 @@
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-compiler-plugin</artifactId>
         <configuration>
-          <testExcludes>
-            <testExclude>com/databricks/jdbc/integration/benchmarking/MetadataBenchmarkingTest.java</testExclude>
-            <testExclude>com/databricks/jdbc/integration/benchmarking/LargeQueriesBenchmarkingTest.java</testExclude>
-          </testExcludes>
           <annotationProcessorPaths>
             <path>
               <groupId>org.immutables</groupId>
@@ -334,15 +346,14 @@
         </executions>
         <configuration>
           <excludes>
-            <exclude>**/EnvironmentVariables*</exclude>
-            <exclude>**/client/impl/sdk/DatabricksMetadataSdkClient*</exclude> <!-- TODO(PECO-1502): Remove once fixed -->
-            <exclude>**/*Exception*</exclude>
-            <exclude>**/types/**</exclude>
-            <exclude>**/client/sqlexec/**</exclude>
-            <exclude>**/*Constants*</exclude>
-            <exclude>**/thrift/generated/**</exclude>
-            <exclude>**/*driver/DatabricksJdbcConstants*</exclude>
             <exclude>**/CommandName*</exclude>
+            <exclude>**/DatabricksJdbcConstants*</exclude>
+            <exclude>**/EnvironmentVariables*</exclude>
+            <exclude>**/*Constants*</exclude>
+            <exclude>**/*Exception*</exclude>
+            <exclude>**/dbclient/impl/sqlexec/DatabricksMetadataSdkClient*</exclude> <!-- TODO(PECO-1502): Remove once fixed -->
+            <exclude>**/model/**</exclude>
+            <exclude>**/thrift/generated/**</exclude>
           </excludes>
         </configuration>
       </plugin>
