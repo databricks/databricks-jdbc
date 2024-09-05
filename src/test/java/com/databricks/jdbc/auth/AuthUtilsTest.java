@@ -1,14 +1,12 @@
 package com.databricks.jdbc.auth;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.when;
 
 import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.dbclient.impl.http.DatabricksHttpClient;
-import com.databricks.sdk.core.DatabricksException;
 import java.io.ByteArrayInputStream;
 import org.apache.http.HttpEntity;
 import org.apache.http.StatusLine;
@@ -65,18 +63,26 @@ public class AuthUtilsTest {
   void testGetTokenEndpoint_WithOAuthDiscoveryModeEnabledButUrlNotProvided() {
     when(context.isOAuthDiscoveryModeEnabled()).thenReturn(true);
     when(context.getOAuthDiscoveryURL()).thenReturn(null);
+    when(context.getTokenEndpoint()).thenReturn(null);
+    when(context.getHostForOAuth()).thenReturn("oauth.example.com");
 
-    assertThrows(DatabricksException.class, () -> AuthUtils.getTokenEndpoint(context));
+    String expectedTokenUrl = "https://oauth.example.com/oidc/v1/token";
+    String tokenEndpoint = AuthUtils.getTokenEndpoint(context);
+
+    assertEquals(expectedTokenUrl, tokenEndpoint);
   }
 
   @Test
-  void testGetTokenEndpoint_WithOAuthDiscoveryModeAndErrorInDiscoveryEndpoint() throws Exception {
+  void testGetTokenEndpoint_WithOAuthDiscoveryModeAndErrorInDiscoveryEndpoint() {
     when(context.isOAuthDiscoveryModeEnabled()).thenReturn(true);
+    when(context.getOAuthDiscoveryURL()).thenReturn("https://fake");
+    when(context.getTokenEndpoint()).thenReturn(null);
+    when(context.getHostForOAuth()).thenReturn("oauth.example.com");
 
-    try (MockedStatic<DatabricksHttpClient> mocked = mockStatic(DatabricksHttpClient.class)) {
-      mocked.when(() -> DatabricksHttpClient.getInstance(any())).thenReturn(httpClient);
-      assertThrows(DatabricksException.class, () -> AuthUtils.getTokenEndpoint(context));
-    }
+    String expectedTokenUrl = "https://oauth.example.com/oidc/v1/token";
+    String tokenEndpoint = AuthUtils.getTokenEndpoint(context);
+
+    assertEquals(expectedTokenUrl, tokenEndpoint);
   }
 
   @Test

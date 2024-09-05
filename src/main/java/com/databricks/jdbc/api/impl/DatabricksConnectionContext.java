@@ -221,25 +221,25 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
     return getParameter(DIRECT_RESULT) == null || Objects.equals(getParameter(DIRECT_RESULT), "1");
   }
 
-  public String getCloud() throws DatabricksParsingException {
+  public Cloud getCloud() throws DatabricksParsingException {
     String hostURL = getHostUrl();
     if (hostURL.contains("azuredatabricks.net")
         || hostURL.contains(".databricks.azure.cn")
         || hostURL.contains(".databricks.azure.us")) {
-      return "AAD";
+      return Cloud.AZURE;
     } else if (hostURL.contains(".cloud.databricks.com")) {
-      return "AWS";
+      return Cloud.AWS;
     }
-    return "OTHER";
+    return Cloud.OTHER;
   }
 
   @Override
   public String getClientId() throws DatabricksParsingException {
     String clientId = getParameter(DatabricksJdbcConstants.CLIENT_ID);
     if (nullOrEmptyString(clientId)) {
-      if (getCloud().equals("AWS")) {
+      if (getCloud() == Cloud.AWS) {
         return DatabricksJdbcConstants.AWS_CLIENT_ID;
-      } else if (getCloud().equals("AAD")) {
+      } else if (getCloud() == Cloud.AZURE) {
         return DatabricksJdbcConstants.AAD_CLIENT_ID;
       }
     }
@@ -248,7 +248,7 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
 
   @Override
   public List<String> getOAuthScopesForU2M() throws DatabricksParsingException {
-    if (getCloud().equals("AWS")) {
+    if (getCloud() == Cloud.AWS) {
       return Arrays.asList(
           DatabricksJdbcConstants.SQL_SCOPE, DatabricksJdbcConstants.OFFLINE_ACCESS_SCOPE);
     } else {
@@ -632,6 +632,7 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
 
   @Override
   public boolean isOAuthDiscoveryModeEnabled() {
+    // By default to true
     return getParameter(DISCOVERY_MODE, "1").equals("1");
   }
 
