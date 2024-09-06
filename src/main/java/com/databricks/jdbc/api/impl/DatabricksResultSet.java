@@ -1075,7 +1075,7 @@ public class DatabricksResultSet implements ResultSet, IDatabricksResultSet {
           "Column type is not ARRAY. Cannot convert to Array. Column type: " + columnTypeName);
     }
     ComplexDataTypeParser parser = new ComplexDataTypeParser();
-    return new DatabricksArray("ARRAY", parser.parseToArray(parser.parse(obj.toString())));
+    return new DatabricksArray(parser.parseToArray(parser.parse(obj.toString())), resultSetMetaData.getColumnTypeName(columnIndex));
   }
 
 
@@ -1091,7 +1091,7 @@ public class DatabricksResultSet implements ResultSet, IDatabricksResultSet {
           "Column type is not STRUCT. Cannot convert to Struct. Column type: " + columnTypeName);
     }
     ComplexDataTypeParser parser = new ComplexDataTypeParser();
-    return new DatabricksStruct("STRUCT", parser.parseToMap(obj.toString()));
+    return new DatabricksStruct(parser.parseToMap(obj.toString()), resultSetMetaData.getColumnTypeName(columnIndex));
   }
 
   public Map getMap(int columnIndex) throws SQLException {

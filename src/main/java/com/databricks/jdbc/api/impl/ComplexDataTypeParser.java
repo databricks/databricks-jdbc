@@ -21,7 +21,8 @@ public class ComplexDataTypeParser {
     }
 
     public Map<String, Object> parseToStruct(JsonNode node) {
-        Map<String, Object> structMap = new HashMap<>();
+        // Use LinkedHashMap to preserve the order of fields
+        Map<String, Object> structMap = new LinkedHashMap<>();
         Iterator<Map.Entry<String, JsonNode>> fields = node.fields();
         while (fields.hasNext()) {
             Map.Entry<String, JsonNode> entry = fields.next();
@@ -31,6 +32,7 @@ public class ComplexDataTypeParser {
     }
 
     public List<Object> parseToArray(JsonNode node) {
+        // Use ArrayList which preserves order by default
         List<Object> arrayList = new ArrayList<>();
         for (JsonNode element : node) {
             arrayList.add(parseToJavaObject(element));
@@ -44,7 +46,7 @@ public class ComplexDataTypeParser {
         } else if (node.isArray()) {
             return parseToArray(node);
         } else if (node.isValueNode()) {
-            return node.asText();
+            return node.asText();  // or use as appropriate type (e.g., asInt(), asBoolean())
         }
         return null;
     }
@@ -52,7 +54,7 @@ public class ComplexDataTypeParser {
     public Map<String, Object> parseToMap(String json) {
         try {
             JsonNode node = objectMapper.readTree(json);
-            return parseToStruct(node);
+            return parseToStruct(node);  // Uses LinkedHashMap to preserve order
         } catch (Exception e) {
             throw new RuntimeException("Failed to parse JSON: " + json, e);
         }
