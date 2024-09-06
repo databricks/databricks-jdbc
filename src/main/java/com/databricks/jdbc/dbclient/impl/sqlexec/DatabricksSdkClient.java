@@ -16,6 +16,8 @@ import com.databricks.jdbc.dbclient.IDatabricksClient;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.exception.DatabricksTimeoutException;
+import com.databricks.jdbc.log.JdbcLogger;
+import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.model.client.sqlexec.*;
 import com.databricks.jdbc.model.client.sqlexec.ExecuteStatementRequest;
 import com.databricks.jdbc.model.client.sqlexec.ExecuteStatementResponse;
@@ -41,6 +43,7 @@ public class DatabricksSdkClient implements IDatabricksClient {
   private final IDatabricksConnectionContext connectionContext;
   private final DatabricksConfig databricksConfig;
   private final WorkspaceClient workspaceClient;
+  private static final JdbcLogger logger = JdbcLoggerFactory.getLogger(DatabricksSdkClient.class);
 
   @Override
   public IDatabricksConnectionContext getConnectionContext() {
@@ -82,11 +85,10 @@ public class DatabricksSdkClient implements IDatabricksClient {
       String schema,
       Map<String, String> sessionConf) {
     // TODO: [PECO-1460] Handle sessionConf in public session API
-    LoggingUtil.log(
-        LogLevel.DEBUG,
-        String.format(
-            "public Session createSession(String warehouseId = {%s}, String catalog = {%s}, String schema = {%s}, Map<String, String> sessionConf = {%s})",
-            ((Warehouse) warehouse).getWarehouseId(), catalog, schema, sessionConf));
+    logger.debug(
+        "public Session createSession(String warehouseId = {%s}, String catalog = {%s}, String schema = {%s}, Map<String, String> sessionConf = {%s})",
+        ((Warehouse) warehouse).getWarehouseId(), catalog, schema, sessionConf);
+
     CreateSessionRequest request =
         new CreateSessionRequest().setWarehouseId(((Warehouse) warehouse).getWarehouseId());
     if (catalog != null) {
