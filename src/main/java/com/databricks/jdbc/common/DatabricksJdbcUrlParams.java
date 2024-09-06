@@ -33,9 +33,6 @@ public class DatabricksJdbcUrlParams {
   public static final String PWD = "pwd";
 
   public static final String POLL_INTERVAL = "asyncexecpollinterval";
-  public static final int POLL_INTERVAL_DEFAULT = 200;
-  public static final String AWS_CLIENT_ID = "databricks-sql-jdbc";
-  public static final String AAD_CLIENT_ID = "96eecda7-19ea-49cc-abb5-240097d554f5";
   public static final String HTTP_PATH = "httppath";
   public static final String SSL = "ssl";
   public static final String USE_THRIFT_CLIENT = "usethriftclient";

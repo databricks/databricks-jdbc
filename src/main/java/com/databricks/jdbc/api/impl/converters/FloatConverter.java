@@ -7,7 +7,7 @@ import java.nio.ByteBuffer;
 
 public class FloatConverter extends AbstractObjectConverter {
 
-  private float object;
+  private final float object;
 
   public FloatConverter(Object object) throws DatabricksSQLException {
     super(object);
@@ -19,69 +19,69 @@ public class FloatConverter extends AbstractObjectConverter {
   }
 
   @Override
-  public BigInteger convertToBigInteger() throws DatabricksSQLException {
-    return BigInteger.valueOf(this.convertToLong());
-  }
-
-  @Override
-  public float convertToFloat() throws DatabricksSQLException {
-    return this.object;
-  }
-
-  @Override
-  public boolean convertToBoolean() throws DatabricksSQLException {
-    return (this.object == 0f ? false : true);
-  }
-
-  @Override
   public byte convertToByte() throws DatabricksSQLException {
-    if (this.object >= Byte.MIN_VALUE && this.object <= Byte.MAX_VALUE) {
-      return (byte) this.object;
+    if (object >= Byte.MIN_VALUE && object <= Byte.MAX_VALUE) {
+      return (byte) object;
     }
     throw new DatabricksSQLException("Invalid conversion");
   }
 
   @Override
   public short convertToShort() throws DatabricksSQLException {
-    if (this.object >= Short.MIN_VALUE && this.object <= Short.MAX_VALUE) {
-      return (short) this.object;
+    if (object >= Short.MIN_VALUE && object <= Short.MAX_VALUE) {
+      return (short) object;
     }
     throw new DatabricksSQLException("Invalid conversion");
   }
 
   @Override
   public int convertToInt() throws DatabricksSQLException {
-    if (this.object >= Integer.MIN_VALUE && this.object < Integer.MAX_VALUE) {
-      return (int) this.object;
+    if (object >= Integer.MIN_VALUE && object < Integer.MAX_VALUE) {
+      return (int) object;
     }
     throw new DatabricksSQLException("Invalid conversion");
   }
 
   @Override
   public long convertToLong() throws DatabricksSQLException {
-    if (this.object >= Long.MIN_VALUE && this.object < Long.MAX_VALUE) {
-      return (long) this.object;
+    if (object >= Long.MIN_VALUE && object < Long.MAX_VALUE) {
+      return (long) object;
     }
     throw new DatabricksSQLException("Invalid conversion");
   }
 
   @Override
+  public float convertToFloat() throws DatabricksSQLException {
+    return object;
+  }
+
+  @Override
   public double convertToDouble() throws DatabricksSQLException {
-    return (double) this.object;
+    return object;
   }
 
   @Override
   public BigDecimal convertToBigDecimal() throws DatabricksSQLException {
-    return new BigDecimal(Float.toString(this.object));
+    return new BigDecimal(Float.toString(object));
+  }
+
+  @Override
+  public BigInteger convertToBigInteger() throws DatabricksSQLException {
+    return BigInteger.valueOf(this.convertToLong());
+  }
+
+  @Override
+  public boolean convertToBoolean() throws DatabricksSQLException {
+    return (object != 0f);
   }
 
   @Override
   public byte[] convertToByteArray() throws DatabricksSQLException {
-    return ByteBuffer.allocate(4).putFloat(this.object).array();
+    return ByteBuffer.allocate(4).putFloat(object).array();
   }
 
   @Override
   public String convertToString() throws DatabricksSQLException {
-    return String.valueOf(this.object);
+    return String.valueOf(object);
   }
 }

@@ -37,7 +37,7 @@ public class MetadataResultConstants {
 
   public static final ResultColumn TABLE_NAME_COLUMN =
       new ResultColumn("TABLE_NAME", "tableName", Types.VARCHAR);
-  private static final ResultColumn TABLE_TYPE_COLUMN =
+  public static final ResultColumn TABLE_TYPE_COLUMN =
       new ResultColumn("TABLE_TYPE", "tableType", Types.VARCHAR);
   public static final ResultColumn REMARKS_COLUMN =
       new ResultColumn("REMARKS", "remarks", Types.VARCHAR);

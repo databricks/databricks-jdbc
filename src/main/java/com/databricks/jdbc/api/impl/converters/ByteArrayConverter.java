@@ -8,7 +8,7 @@ import java.util.Base64;
 
 public class ByteArrayConverter extends AbstractObjectConverter {
 
-  private byte[] object;
+  private final byte[] object;
 
   public ByteArrayConverter(Object object) throws DatabricksSQLException {
     super(object);
@@ -32,24 +32,10 @@ public class ByteArrayConverter extends AbstractObjectConverter {
 
   @Override
   public byte convertToByte() throws DatabricksSQLException {
-    if (this.object.length > 0) {
-      return this.object[0];
+    if (object.length > 0) {
+      return object[0];
     } else {
       throw new DatabricksSQLException("ByteArray is empty, cannot convert to single byte");
-    }
-  }
-
-  @Override
-  public BigInteger convertToBigInteger() throws DatabricksSQLException {
-    throw new DatabricksSQLException("Conversion from byte[] to BigInteger is not supported");
-  }
-
-  @Override
-  public boolean convertToBoolean() throws DatabricksSQLException {
-    if (this.object.length > 0) {
-      return this.object[0] != 0;
-    } else {
-      return false;
     }
   }
 
@@ -84,12 +70,26 @@ public class ByteArrayConverter extends AbstractObjectConverter {
   }
 
   @Override
+  public BigInteger convertToBigInteger() throws DatabricksSQLException {
+    throw new DatabricksSQLException("Conversion from byte[] to BigInteger is not supported");
+  }
+
+  @Override
+  public boolean convertToBoolean() throws DatabricksSQLException {
+    if (object.length > 0) {
+      return object[0] != 0;
+    } else {
+      return false;
+    }
+  }
+
+  @Override
   public byte[] convertToByteArray() throws DatabricksSQLException {
-    return this.object;
+    return object;
   }
 
   @Override
   public String convertToString() throws DatabricksSQLException {
-    return Base64.getEncoder().encodeToString(this.object);
+    return Base64.getEncoder().encodeToString(object);
   }
 }

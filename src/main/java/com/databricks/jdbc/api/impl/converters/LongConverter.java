@@ -11,7 +11,7 @@ import java.time.LocalDate;
 
 public class LongConverter extends AbstractObjectConverter {
 
-  private long object;
+  private final long object;
 
   public LongConverter(Object object) throws DatabricksSQLException {
     super(object);
@@ -23,73 +23,67 @@ public class LongConverter extends AbstractObjectConverter {
   }
 
   @Override
-  public BigInteger convertToBigInteger() throws DatabricksSQLException {
-    return BigInteger.valueOf(this.object);
-  }
-
-  @Override
-  public long convertToLong() throws DatabricksSQLException {
-    return this.object;
-  }
-
-  @Override
-  public boolean convertToBoolean() throws DatabricksSQLException {
-    return (this.object == 0 ? false : true);
-  }
-
-  @Override
   public byte convertToByte() throws DatabricksSQLException {
-    if (this.object >= Byte.MIN_VALUE && this.object <= Byte.MAX_VALUE) {
-      return (byte) this.object;
+    if (object >= Byte.MIN_VALUE && object <= Byte.MAX_VALUE) {
+      return (byte) object;
     }
     throw new DatabricksSQLException("Invalid conversion");
   }
 
   @Override
   public short convertToShort() throws DatabricksSQLException {
-    if (this.object >= Short.MIN_VALUE && this.object <= Short.MAX_VALUE) {
-      return (short) this.object;
+    if (object >= Short.MIN_VALUE && object <= Short.MAX_VALUE) {
+      return (short) object;
     }
     throw new DatabricksSQLException("Invalid conversion");
   }
 
   @Override
   public int convertToInt() throws DatabricksSQLException {
-    if (this.object >= Integer.MIN_VALUE && this.object <= Integer.MAX_VALUE) {
-      return (int) this.object;
+    if (object >= Integer.MIN_VALUE && object <= Integer.MAX_VALUE) {
+      return (int) object;
     }
     throw new DatabricksSQLException("Invalid conversion");
   }
 
   @Override
+  public long convertToLong() throws DatabricksSQLException {
+    return object;
+  }
+
+  @Override
   public float convertToFloat() throws DatabricksSQLException {
-    return (float) this.object;
+    return (float) object;
   }
 
   @Override
   public double convertToDouble() throws DatabricksSQLException {
-    return (double) this.object;
+    return (double) object;
   }
 
   @Override
   public BigDecimal convertToBigDecimal() throws DatabricksSQLException {
-    return BigDecimal.valueOf(this.object);
+    return BigDecimal.valueOf(object);
+  }
+
+  @Override
+  public BigInteger convertToBigInteger() throws DatabricksSQLException {
+    return BigInteger.valueOf(object);
+  }
+
+  @Override
+  public boolean convertToBoolean() throws DatabricksSQLException {
+    return (object != 0);
   }
 
   @Override
   public byte[] convertToByteArray() throws DatabricksSQLException {
-    return ByteBuffer.allocate(8).putLong(this.object).array();
+    return ByteBuffer.allocate(8).putLong(object).array();
   }
 
   @Override
   public String convertToString() throws DatabricksSQLException {
-    return String.valueOf(this.object);
-  }
-
-  @Override
-  public Date convertToDate() throws DatabricksSQLException {
-    LocalDate localDate = LocalDate.ofEpochDay(this.object);
-    return Date.valueOf(localDate);
+    return String.valueOf(object);
   }
 
   @Override
@@ -102,8 +96,14 @@ public class LongConverter extends AbstractObjectConverter {
     if (scale > 9) {
       throw new DatabricksSQLException("Unsupported scale");
     }
-    long nanoseconds = this.object * super.POWERS_OF_TEN[9 - scale];
+    long nanoseconds = object * super.POWERS_OF_TEN[9 - scale];
     Time time = new Time(nanoseconds / super.POWERS_OF_TEN[6]);
     return new Timestamp(time.getTime());
+  }
+
+  @Override
+  public Date convertToDate() throws DatabricksSQLException {
+    LocalDate localDate = LocalDate.ofEpochDay(object);
+    return Date.valueOf(localDate);
   }
 }

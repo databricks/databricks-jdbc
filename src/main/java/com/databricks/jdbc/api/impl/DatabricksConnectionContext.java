@@ -173,7 +173,7 @@ class DatabricksConnectionContext implements IDatabricksConnectionContext {
   @Override
   public int getAsyncExecPollInterval() {
     return getParameter(DatabricksJdbcUrlParams.POLL_INTERVAL) == null
-        ? DatabricksJdbcUrlParams.POLL_INTERVAL_DEFAULT
+        ? POLL_INTERVAL_DEFAULT
         : Integer.parseInt(getParameter(DatabricksJdbcUrlParams.POLL_INTERVAL));
   }
 
@@ -183,26 +183,26 @@ class DatabricksConnectionContext implements IDatabricksConnectionContext {
         || Objects.equals(getParameter(DatabricksJdbcUrlParams.DIRECT_RESULT), "1");
   }
 
-  public String getCloud() throws DatabricksParsingException {
+  public Cloud getCloud() throws DatabricksParsingException {
     String hostURL = getHostUrl();
     if (hostURL.contains("azuredatabricks.net")
         || hostURL.contains(".databricks.azure.cn")
         || hostURL.contains(".databricks.azure.us")) {
-      return "AAD";
+      return Cloud.AZURE;
     } else if (hostURL.contains(".cloud.databricks.com")) {
-      return "AWS";
+      return Cloud.AWS;
     }
-    return "OTHER";
+    return Cloud.OTHER;
   }
 
   @Override
   public String getClientId() throws DatabricksParsingException {
     String clientId = getParameter(DatabricksJdbcUrlParams.CLIENT_ID);
     if (nullOrEmptyString(clientId)) {
-      if (getCloud().equals("AWS")) {
-        return DatabricksJdbcUrlParams.AWS_CLIENT_ID;
-      } else if (getCloud().equals("AAD")) {
-        return DatabricksJdbcUrlParams.AAD_CLIENT_ID;
+      if (getCloud() == Cloud.AWS) {
+        return DatabricksJdbcConstants.AWS_CLIENT_ID;
+      } else if (getCloud() == Cloud.AZURE) {
+        return DatabricksJdbcConstants.AAD_CLIENT_ID;
       }
     }
     return clientId;
@@ -210,7 +210,7 @@ class DatabricksConnectionContext implements IDatabricksConnectionContext {
 
   @Override
   public List<String> getOAuthScopesForU2M() throws DatabricksParsingException {
-    if (getCloud().equals("AWS")) {
+    if (getCloud() == Cloud.AWS) {
       return Arrays.asList(
           DatabricksJdbcConstants.SQL_SCOPE, DatabricksJdbcConstants.OFFLINE_ACCESS_SCOPE);
     } else {
@@ -568,6 +568,7 @@ class DatabricksConnectionContext implements IDatabricksConnectionContext {
 
   @Override
   public boolean isOAuthDiscoveryModeEnabled() {
+    // By default, set to true
     return getParameter(DatabricksJdbcUrlParams.DISCOVERY_MODE, "1").equals("1");
   }
 

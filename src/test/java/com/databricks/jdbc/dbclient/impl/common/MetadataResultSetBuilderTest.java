@@ -110,6 +110,29 @@ public class MetadataResultSetBuilderTest {
         Arguments.of("TEXT", 10, 255));
   }
 
+  private static Stream<Arguments> getRowsTableTypeColumnArguments() {
+    return Stream.of(
+        Arguments.of("TABLE", "TABLE"),
+        Arguments.of("VIEW", "VIEW"),
+        Arguments.of("SYSTEM TABLE", "SYSTEM TABLE"),
+        Arguments.of("", "TABLE"));
+  }
+
+  @ParameterizedTest
+  @MethodSource("getRowsTableTypeColumnArguments")
+  void testGetRowsHandlesTableTypeColumn(String tableTypeValue, String expectedTableType)
+      throws SQLException {
+    ResultSet resultSet = mock(ResultSet.class);
+    Mockito.when(resultSet.next()).thenReturn(true).thenReturn(false);
+    Mockito.when(resultSet.getObject(TABLE_TYPE_COLUMN.getResultSetColumnName()))
+        .thenReturn(tableTypeValue);
+
+    List<List<Object>> rows = MetadataResultSetBuilder.getRows(resultSet, TABLE_COLUMNS);
+
+    assertEquals(expectedTableType, rows.get(0).get(3));
+    assertEquals(String.class, rows.get(0).get(3).getClass());
+  }
+
   private static Stream<Arguments> getRowsNullableColumnArguments() {
     return Stream.of(Arguments.of("true", 1), Arguments.of("false", 0), Arguments.of(null, 1));
   }

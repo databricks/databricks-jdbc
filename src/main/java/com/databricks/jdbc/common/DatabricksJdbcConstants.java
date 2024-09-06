@@ -67,6 +67,9 @@ public final class DatabricksJdbcConstants {
       Set.of(ALLOWED_VOLUME_INGESTION_PATHS);
   @VisibleForTesting public static final String IS_FAKE_SERVICE_TEST_PROP = "isFakeServiceTest";
   @VisibleForTesting public static final String FAKE_SERVICE_URI_PROP_SUFFIX = ".fakeServiceURI";
+  public static final int POLL_INTERVAL_DEFAULT = 200;
+  public static final String AWS_CLIENT_ID = "databricks-sql-jdbc";
+  public static final String AAD_CLIENT_ID = "96eecda7-19ea-49cc-abb5-240097d554f5";
 
   /** Enum for the services that can be replaced with a fake service in integration tests. */
   @VisibleForTesting
