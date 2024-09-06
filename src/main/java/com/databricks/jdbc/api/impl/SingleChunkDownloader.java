@@ -1,11 +1,11 @@
 package com.databricks.jdbc.api.impl;
 
-import com.databricks.jdbc.log.JdbcLogger;
-import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
 import com.databricks.jdbc.exception.DatabricksHttpException;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
+import com.databricks.jdbc.log.JdbcLogger;
+import com.databricks.jdbc.log.JdbcLoggerFactory;
 import java.io.IOException;
 import java.util.concurrent.Callable;
 

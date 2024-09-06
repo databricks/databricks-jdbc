@@ -10,14 +10,14 @@ import com.databricks.jdbc.api.IDatabricksStatement;
 import com.databricks.jdbc.api.impl.*;
 import com.databricks.jdbc.common.CommandName;
 import com.databricks.jdbc.common.StatementType;
-import com.databricks.jdbc.log.JdbcLogger;
-import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.dbclient.impl.common.ClientUtils;
 import com.databricks.jdbc.dbclient.impl.http.DatabricksHttpClient;
 import com.databricks.jdbc.exception.DatabricksHttpException;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.exception.DatabricksSQLFeatureNotSupportedException;
+import com.databricks.jdbc.log.JdbcLogger;
+import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.model.client.thrift.generated.*;
 import com.databricks.sdk.core.DatabricksConfig;
 import com.google.common.annotations.VisibleForTesting;
@@ -30,7 +30,8 @@ import org.apache.thrift.TException;
 import org.apache.thrift.protocol.TBinaryProtocol;
 
 public class DatabricksThriftAccessor {
-  public static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(DatabricksThriftAccessor.class);
+  public static final JdbcLogger LOGGER =
+      JdbcLoggerFactory.getLogger(DatabricksThriftAccessor.class);
   private final DatabricksConfig databricksConfig;
   private final ThreadLocal<TCLIService.Client> thriftClient;
   private final Boolean enableDirectResults;

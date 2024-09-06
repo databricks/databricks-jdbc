@@ -2,9 +2,9 @@ package com.databricks.jdbc.pooling;
 
 import com.databricks.jdbc.api.IDatabricksConnection;
 import com.databricks.jdbc.api.IDatabricksStatement;
+import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
-import com.databricks.jdbc.exception.DatabricksSQLException;
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
@@ -20,7 +20,8 @@ import javax.sql.PooledConnection;
 import javax.sql.StatementEventListener;
 
 public class DatabricksPooledConnection implements PooledConnection {
-  public static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(DatabricksPooledConnection.class);
+  public static final JdbcLogger LOGGER =
+      JdbcLoggerFactory.getLogger(DatabricksPooledConnection.class);
   private final Set<ConnectionEventListener> listeners = new HashSet<>();
   private Connection physicalConnection;
   private ConnectionHandler connectionHandler;
@@ -52,7 +53,8 @@ public class DatabricksPooledConnection implements PooledConnection {
    * @param e the SQLException to consider
    */
   private void fireConnectionError(SQLException e) {
-    LOGGER.debug(String.format("private void fireConnectionError(SQLException e = {})", e.toString()));
+    LOGGER.debug(
+        String.format("private void fireConnectionError(SQLException e = {})", e.toString()));
     for (ConnectionEventListener listener : this.listeners) {
       listener.connectionErrorOccurred(new ConnectionEvent(this, e));
     }
