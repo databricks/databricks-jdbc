@@ -87,7 +87,7 @@ public class ChunkDownloader {
         statementId,
         resultData,
         session,
-        DatabricksHttpClient.getInstance(session.getConnectionContext()),
+        DatabricksHttpClient.getInstance(session.getConnectionContext(), true),
         chunksDownloaderThreadPoolSize);
   }
 

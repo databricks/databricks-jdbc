@@ -66,6 +66,9 @@ public class DatabricksHttpClient implements IDatabricksHttpClient {
 
   private static final ConcurrentHashMap<String, DatabricksHttpClient> instances =
       new ConcurrentHashMap<>();
+  private static final ConcurrentHashMap<String, DatabricksHttpClient> cloudFetchInstances =
+      new ConcurrentHashMap<>();
+
   private static final String RETRY_AFTER_HEADER = "Retry-After";
   private static final String THRIFT_ERROR_MESSAGE_HEADER = "X-Thriftserver-Error-Message";
 
@@ -77,11 +80,18 @@ public class DatabricksHttpClient implements IDatabricksHttpClient {
   private static int temporarilyUnavailableRetryTimeout;
   private static boolean shouldRetryRateLimitError;
   private static int rateLimitRetryTimeout;
+  // Cloud Fetch will have different retry behavior
+  private boolean isCloudFetchClient;
   protected static int idleHttpConnectionExpiry;
   private CloseableHttpClient httpDisabledSSLClient;
   private IDatabricksConnectionContext connectionContext;
 
   private DatabricksHttpClient(IDatabricksConnectionContext connectionContext) {
+    this(connectionContext, false /* isCloudFetchClient */);
+  }
+
+  private DatabricksHttpClient(
+      IDatabricksConnectionContext connectionContext, boolean isCloudFetchClient) {
     initializeConnectionManager();
     shouldRetryTemporarilyUnavailableError =
         connectionContext.shouldRetryTemporarilyUnavailableError();
@@ -91,6 +101,7 @@ public class DatabricksHttpClient implements IDatabricksHttpClient {
     httpClient = makeClosableHttpClient(connectionContext);
     httpDisabledSSLClient = makeClosableDisabledSslHttpClient();
     idleHttpConnectionExpiry = connectionContext.getIdleHttpConnectionExpiry();
+    this.isCloudFetchClient = isCloudFetchClient;
     this.connectionContext = connectionContext;
   }
 
@@ -100,6 +111,7 @@ public class DatabricksHttpClient implements IDatabricksHttpClient {
       PoolingHttpClientConnectionManager connectionManager) {
     DatabricksHttpClient.connectionManager = connectionManager;
     initializeConnectionManager();
+    this.isCloudFetchClient = false;
     this.httpClient = closeableHttpClient;
   }
 
@@ -348,6 +360,16 @@ public class DatabricksHttpClient implements IDatabricksHttpClient {
   public static synchronized DatabricksHttpClient getInstance(
       IDatabricksConnectionContext context) {
     String contextKey = Integer.toString(context.hashCode());
+    return instances.computeIfAbsent(contextKey, k -> new DatabricksHttpClient(context));
+  }
+
+  public static synchronized DatabricksHttpClient getInstance(
+      IDatabricksConnectionContext context, boolean forCloudFetch) {
+    String contextKey = Integer.toString(context.hashCode());
+    if (forCloudFetch) {
+      return cloudFetchInstances.computeIfAbsent(
+          contextKey, k -> new DatabricksHttpClient(context, true));
+    }
     return instances.computeIfAbsent(contextKey, k -> new DatabricksHttpClient(context));
   }
 
