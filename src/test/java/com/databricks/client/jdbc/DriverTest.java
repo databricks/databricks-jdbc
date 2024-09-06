@@ -396,7 +396,7 @@ public class DriverTest {
   void testChunkDownloadRetry() throws Exception {
     // Enable error injection
     ArrowResultChunk.enableErrorInjection();
-    ArrowResultChunk.setErrorInjectionCountMaxValue(1);
+    ArrowResultChunk.setErrorInjectionCountMaxValue(2);
     String jdbcUrl =
         "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/58aa1b363649e722";
     Connection con = DriverManager.getConnection(jdbcUrl, "token", "xx");

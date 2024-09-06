@@ -44,6 +44,7 @@ class SingleChunkDownloader implements Callable<Void> {
                 String.format(
                     "Failed to download chunk after %d attempts. Chunk index: %d, Error: %s",
                     MAX_RETRIES, chunk.getChunkIndex(), e.getMessage()));
+            chunk.setStatus(ArrowResultChunk.ChunkStatus.DOWNLOAD_FAILED);
             throw new DatabricksSQLException("Failed to download chunk after multiple attempts", e);
           } else {
             LoggingUtil.log(
@@ -51,6 +52,7 @@ class SingleChunkDownloader implements Callable<Void> {
                 String.format(
                     "Retry attempt %d for chunk index: %d, Error: %s",
                     retries, chunk.getChunkIndex(), e.getMessage()));
+            chunk.setStatus(ArrowResultChunk.ChunkStatus.DOWNLOAD_RETRY);
             try {
               Thread.sleep(RETRY_DELAY_MS);
             } catch (InterruptedException ie) {

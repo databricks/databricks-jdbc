@@ -75,7 +75,8 @@ public class ArrowResultChunk {
     /** Download has been cancelled */
     CANCELLED,
     /** Chunk memory has been consumed and released */
-    CHUNK_RELEASED
+    CHUNK_RELEASED,
+    DOWNLOAD_RETRY
   }
 
   private static final Integer SECONDS_BUFFER_FOR_EXPIRY = 60;
@@ -245,6 +246,7 @@ public class ArrowResultChunk {
     // Inject error if enabled for testing
     if (injectError && errorInjectionCount < errorInjectionCountMaxValue) {
       errorInjectionCount++;
+      setStatus(ChunkStatus.DOWNLOAD_FAILED);
       throw new DatabricksParsingException(
           "Injected connection reset", new SocketException("Connection reset"));
     }
