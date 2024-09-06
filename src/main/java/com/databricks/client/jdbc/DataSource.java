@@ -3,6 +3,7 @@ package com.databricks.client.jdbc;
 import static com.databricks.jdbc.common.DatabricksJdbcConstants.*;
 
 import com.databricks.jdbc.common.DatabricksJdbcConstants;
+import com.databricks.jdbc.common.DatabricksJdbcUrlParams;
 import com.databricks.jdbc.common.LogLevel;
 import com.databricks.jdbc.common.util.LoggingUtil;
 import com.databricks.jdbc.exception.DatabricksSQLException;
@@ -112,7 +113,11 @@ public class DataSource implements javax.sql.DataSource, ConnectionPoolDataSourc
       urlBuilder.append(PORT_DELIMITER).append(port);
     }
     if (httpPath != null) {
-      urlBuilder.append(URL_DELIMITER).append(HTTP_PATH).append(PAIR_DELIMITER).append(httpPath);
+      urlBuilder
+          .append(URL_DELIMITER)
+          .append(DatabricksJdbcUrlParams.HTTP_PATH)
+          .append(PAIR_DELIMITER)
+          .append(httpPath);
     }
     return urlBuilder.toString();
   }
@@ -127,11 +132,12 @@ public class DataSource implements javax.sql.DataSource, ConnectionPoolDataSourc
   }
 
   public String getPassword() {
-    return properties.getProperty(DatabricksJdbcConstants.PASSWORD, properties.getProperty(PWD));
+    return properties.getProperty(
+        DatabricksJdbcUrlParams.PASSWORD, properties.getProperty(DatabricksJdbcUrlParams.PWD));
   }
 
   public void setPassword(String password) {
-    properties.put(DatabricksJdbcConstants.PASSWORD, password);
+    properties.put(DatabricksJdbcUrlParams.PASSWORD, password);
   }
 
   public String getHost() {

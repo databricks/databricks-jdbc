@@ -4,7 +4,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.when;
 
 import com.databricks.jdbc.api.IDatabricksConnectionContext;
-import com.databricks.jdbc.api.impl.DatabricksConnectionContext;
+import com.databricks.jdbc.api.impl.DatabricksConnectionContextFactory;
 import com.databricks.jdbc.common.DatabricksJdbcConstants;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
@@ -94,7 +94,7 @@ public class OAuthAuthenticatorTest {
             + "OAuth2ClientId=test-client;auth_kid=test_kid;Auth_JWT_Key_Passphrase=test_phrase;Auth_JWT_Key_File=test_key_file;"
             + "Auth_JWT_Alg=test_algo";
     IDatabricksConnectionContext connectionContext =
-        DatabricksConnectionContext.parse(jdbcUrl, new Properties());
+        DatabricksConnectionContextFactory.create(jdbcUrl, new Properties());
     authenticator = new OAuthAuthenticator(connectionContext);
     WorkspaceClient client = authenticator.getWorkspaceClient(new DatabricksConfig());
     assertNotNull(client);

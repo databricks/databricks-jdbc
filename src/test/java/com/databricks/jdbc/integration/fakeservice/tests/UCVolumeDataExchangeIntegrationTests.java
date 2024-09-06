@@ -8,6 +8,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import com.databricks.jdbc.api.impl.volume.DatabricksUCVolumeClient;
 import com.databricks.jdbc.common.DatabricksJdbcConstants;
+import com.databricks.jdbc.common.DatabricksJdbcUrlParams;
 import com.databricks.jdbc.integration.fakeservice.AbstractFakeServiceIntegrationTests;
 import com.databricks.jdbc.integration.fakeservice.DatabricksWireMockExtension;
 import com.databricks.jdbc.integration.fakeservice.FakeServiceConfigLoader;
@@ -56,8 +57,6 @@ public class UCVolumeDataExchangeIntegrationTests extends AbstractFakeServiceInt
 
   @BeforeEach
   void setUp() throws SQLException {
-    // TODO: Testing is done here using the E2-Dogfood environment. Need to update this to use a
-    // test warehouse.
     con = getConnection();
     client = new DatabricksUCVolumeClient(con);
     con.setClientInfo("allowlistedVolumeOperationLocalFilePaths", LOCAL_TEST_DIRECTORY);
@@ -274,10 +273,12 @@ public class UCVolumeDataExchangeIntegrationTests extends AbstractFakeServiceInt
     String jdbcUrl = String.format(jdbcUrlTemplate, getFakeServiceHost(), HTTP_PATH);
 
     Properties connProps = new Properties();
-    connProps.put(USER, getDatabricksUser());
-    connProps.put(PASSWORD, getDatabricksToken());
+    connProps.put(DatabricksJdbcUrlParams.USER, getDatabricksUser());
+    connProps.put(DatabricksJdbcUrlParams.PASSWORD, getDatabricksToken());
     connProps.put(CATALOG, FakeServiceConfigLoader.getProperty(CATALOG));
-    connProps.put(CONN_SCHEMA, FakeServiceConfigLoader.getProperty(CONN_SCHEMA));
+    connProps.put(
+        DatabricksJdbcUrlParams.CONN_SCHEMA,
+        FakeServiceConfigLoader.getProperty(DatabricksJdbcUrlParams.CONN_SCHEMA));
 
     return DriverManager.getConnection(jdbcUrl, connProps);
   }

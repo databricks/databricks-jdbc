@@ -1,6 +1,6 @@
 package com.databricks.client.jdbc;
 
-import static com.databricks.jdbc.common.DatabricksJdbcConstants.AUTH_MECH;
+import static com.databricks.jdbc.common.DatabricksJdbcUrlParams.AUTH_MECH;
 import static org.junit.jupiter.api.Assertions.*;
 
 import com.databricks.jdbc.api.impl.DatabricksConnection;

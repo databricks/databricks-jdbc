@@ -37,8 +37,8 @@ public interface IDatabricksConnectionContext {
   }
 
   /**
-   * Returns host-Url for Databricks server as parsed from JDBC connection in format
-   * https://server:port
+   * Returns host-Url for Databricks server as parsed from JDBC connection in format <code>
+   * https://server:port</code>
    *
    * @return Databricks host-Url
    */
