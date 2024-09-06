@@ -305,8 +305,12 @@ public class DatabricksSdkClient implements IDatabricksClient {
     ServiceError error = response.getStatus().getError();
     String errorMessage =
         String.format(
-            "Statement execution failed %s -> %s\n%s: %s. Error code thrown: %s",
-            statementId, statement, statementState, error.getMessage(), error.getErrorCode());
+            "Statement execution failed %s -> %s\n%s.", statementId, statement, statementState);
+    if (error != null) {
+      errorMessage +=
+          String.format(
+              " Error Message: %s, Error code: %s", error.getMessage(), error.getErrorCode());
+    }
     LoggingUtil.log(LogLevel.DEBUG, errorMessage, this.getClass().getName());
     int errorCode;
     switch (statementState) {

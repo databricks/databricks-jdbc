@@ -41,7 +41,7 @@ public class DatabricksSdkClientTest {
             () -> databricksSdkClient.handleFailedExecution(response, statementId, statement));
     assertEquals(
         "Statement execution failed statementId -> statement\n"
-            + "CANCELED: Error message. Error code thrown: BAD_REQUEST",
+            + "CANCELED. Error Message: Error message, Error code: BAD_REQUEST",
         thrown.getMessage());
   }
 
