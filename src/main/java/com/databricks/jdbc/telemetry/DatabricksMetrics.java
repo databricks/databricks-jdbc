@@ -20,13 +20,13 @@ import org.apache.http.client.utils.URIBuilder;
 import org.apache.http.util.EntityUtils;
 
 public class DatabricksMetrics implements AutoCloseable {
-  private static final Map<String, Double> gaugeMetrics = new HashMap<>();
-  private static final Map<String, Double> counterMetrics = new HashMap<>();
-  private static final ObjectMapper objectMapper = new ObjectMapper();
-  private static Boolean hasInitialExportOccurred = false;
-  private static String workspaceId = null;
-  private static DatabricksHttpClient telemetryClient;
-  private static boolean enableTelemetry = false;
+  private final Map<String, Double> gaugeMetrics = new HashMap<>();
+  private final Map<String, Double> counterMetrics = new HashMap<>();
+  private final ObjectMapper objectMapper = new ObjectMapper();
+  private Boolean hasInitialExportOccurred = false;
+  private String workspaceId = null;
+  private DatabricksHttpClient telemetryClient;
+  private boolean enableTelemetry = false;
 
   private enum MetricsType {
     GAUGE,
@@ -71,13 +71,13 @@ public class DatabricksMetrics implements AutoCloseable {
     handleResponseMetrics(request, map);
   }
 
-  private static void exportErrorLog(String sqlQueryId, String connectionConfig, int errorCode)
+  private void exportErrorLog(String sqlQueryId, String connectionConfig, int errorCode)
       throws Exception {
     if (!enableTelemetry) {
       return;
     }
     HttpPost request = getErrorLoggingRequest(sqlQueryId, connectionConfig, errorCode);
-    responseHandling(request, "error logging");
+    responseHandling(request, "error logging", telemetryClient);
   }
 
   private void setGaugeMetrics(String name, double value) {
@@ -141,7 +141,7 @@ public class DatabricksMetrics implements AutoCloseable {
     }
   }
 
-  public static void exportUsageMetrics(
+  public void exportUsageMetrics(
       String jvmName,
       String jvmSpecVersion,
       String jvmImplVersion,
@@ -165,15 +165,17 @@ public class DatabricksMetrics implements AutoCloseable {
               osVersion,
               osArch,
               localeName,
-              charsetEncoding);
-      responseHandling(request, "usage metrics export");
+              charsetEncoding,
+              workspaceId);
+      responseHandling(request, "usage metrics export", telemetryClient);
     } catch (Exception e) {
       LoggingUtil.log(
           TELEMETRY_LOG_LEVEL, "Failed to export usage metrics. Error: " + e.getMessage());
     }
   }
 
-  private static boolean responseHandling(HttpPost request, String methodType) {
+  private static boolean responseHandling(
+      HttpPost request, String methodType, DatabricksHttpClient telemetryClient) {
     // TODO (Bhuvan): Add authentication headers
     // TODO (Bhuvan): execute request using Certificates
     try (CloseableHttpResponse response = telemetryClient.executeWithoutCertVerification(request)) {
@@ -197,17 +199,17 @@ public class DatabricksMetrics implements AutoCloseable {
     return false;
   }
 
-  private static void handleResponseMetrics(HttpPost request, Map<String, Double> map) {
+  private void handleResponseMetrics(HttpPost request, Map<String, Double> map) {
     if (map.isEmpty()) {
       return;
     }
-    if (responseHandling(request, "metrics export")) {
+    if (responseHandling(request, "metrics export", telemetryClient)) {
       map.clear();
     }
   }
 
-  private static HttpPost getErrorLoggingRequest(
-      String sqlQueryId, String connectionConfig, int errorCode) throws Exception {
+  private HttpPost getErrorLoggingRequest(String sqlQueryId, String connectionConfig, int errorCode)
+      throws Exception {
     URIBuilder uriBuilder = new URIBuilder(MetricsConstants.ERROR_LOGGING_URL);
     HttpPost request = new HttpPost(uriBuilder.build());
     request.setHeader(MetricsConstants.WORKSPACE_ID, workspaceId);
@@ -221,7 +223,7 @@ public class DatabricksMetrics implements AutoCloseable {
     return request;
   }
 
-  private static HttpPost getMetricsExportRequest(Map<String, Double> map, MetricsType metricsType)
+  private HttpPost getMetricsExportRequest(Map<String, Double> map, MetricsType metricsType)
       throws Exception {
     String jsonInputString = objectMapper.writeValueAsString(map);
     URIBuilder uriBuilder = new URIBuilder(MetricsConstants.METRICS_URL);
@@ -241,7 +243,8 @@ public class DatabricksMetrics implements AutoCloseable {
       String osVersion,
       String osArch,
       String localeName,
-      String charsetEncoding)
+      String charsetEncoding,
+      String workspaceId)
       throws Exception {
     URIBuilder uriBuilder = new URIBuilder(MetricsConstants.USAGE_METRICS_URL);
     HttpPost request = new HttpPost(uriBuilder.build());
