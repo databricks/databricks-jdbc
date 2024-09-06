@@ -445,6 +445,17 @@ public class DatabricksHttpClient implements IDatabricksHttpClient {
             LogLevel.DEBUG, String.format("Caught error while closing http client. Error %s", e));
       }
     }
+
+    DatabricksHttpClient cloudFetchInstance = cloudFetchInstances.remove(contextKey);
+    if (cloudFetchInstance != null) {
+      try {
+        cloudFetchInstance.httpClient.close();
+      } catch (IOException e) {
+        LoggingUtil.log(
+            LogLevel.DEBUG,
+            String.format("Caught error while closing cloud fetch http client. Error %s", e));
+      }
+    }
   }
 
   private static void throwHttpException(Exception e, HttpUriRequest request, LogLevel logLevel)
