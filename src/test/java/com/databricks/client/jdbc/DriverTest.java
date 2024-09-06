@@ -32,13 +32,13 @@ public class DriverTest {
       for (int i = 1; i <= columnsNumber; i++) {
         try {
           Object columnValue = resultSet.getObject(i);
-          // System.out.print(columnValue + "\t\t");
+          System.out.print(columnValue + "\t\t");
         } catch (Exception e) {
           System.out.print(
               "NULL\t\t"); // It is possible for certain columns to be non-existent (edge case)
         }
       }
-      // System.out.println();
+      System.out.println();
     }
   }
 
