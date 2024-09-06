@@ -399,8 +399,7 @@ public class DriverTest {
     ArrowResultChunk.setErrorInjectionCountMaxValue(1);
     String jdbcUrl =
         "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/58aa1b363649e722";
-    Connection con =
-        DriverManager.getConnection(jdbcUrl, "token", "xx");
+    Connection con = DriverManager.getConnection(jdbcUrl, "token", "xx");
     System.out.println("Connection established......");
     Statement s = con.createStatement();
     s.executeQuery("SELECT * from RANGE(37500000)");
