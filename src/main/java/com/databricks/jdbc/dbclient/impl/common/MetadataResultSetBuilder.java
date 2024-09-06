@@ -362,9 +362,11 @@ public class MetadataResultSetBuilder {
   private static DatabricksResultSet buildResultSet(
       List<ResultColumn> columns, List<List<Object>> rows, String statementId) {
     if (rows != null && !rows.isEmpty() && columns.size() > rows.get(0).size()) {
-      // Handle cases where the number of rows is less than expected columns, e.g., missing
-      // isGenerated column.
-      rows.forEach(row -> row.addAll(Collections.nCopies(columns.size() - row.size(), null)));
+      /* Handle cases where the number of rows is less than expected columns, e.g., missing
+      isGenerated column.*/
+      int colSize = columns.size();
+      System.out.println("colsize " + colSize + " " + rows.get(0).size());
+      rows.forEach(row -> row.addAll(Collections.nCopies(colSize - row.size(), null)));
     }
     return new DatabricksResultSet(
         new StatementStatus().setState(StatementState.SUCCEEDED),

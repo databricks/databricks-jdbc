@@ -161,12 +161,6 @@ public class DatabricksThriftAccessor {
       response = getThriftClient().FetchResults(request);
       if (fetchMetadata) {
         response.setResultSetMetadata(getResultSetMetadata(operationHandle));
-        System.out.println("here you go1");
-        response
-            .getResultSetMetadata()
-            .getSchema()
-            .getColumns()
-            .forEach(a -> System.out.println(a));
       }
     } catch (TException e) {
       String errorMessage =
