@@ -432,6 +432,7 @@ public class MetadataResultSetBuilder {
       row.set(index, (int) row.get(index) + 1);
     }
   }
+
   public static DatabricksResultSet getPrimaryKeysResult(List<List<Object>> rows) {
     return buildResultSet(
         PRIMARY_KEYS_COLUMNS_ALL_PURPOSE,
