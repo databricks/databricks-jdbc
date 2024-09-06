@@ -1,5 +1,9 @@
 package com.databricks.jdbc.api.impl;
 
+import java.math.BigDecimal;
+import java.sql.Date;
+import java.sql.Time;
+import java.sql.Timestamp;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -17,11 +21,9 @@ public class DatabricksMap<K, V> implements Map<K, V> {
         String keyType = mapMetadata[0].trim();
         String valueType = mapMetadata[1].trim();
 
-
         for (Map.Entry<K, V> entry : originalMap.entrySet()) {
             K key = convertKey(entry.getKey(), keyType);
             V value = convertValue(entry.getValue(), valueType);
-
             convertedMap.put(key, value);
         }
 
@@ -53,25 +55,46 @@ public class DatabricksMap<K, V> implements Map<K, V> {
                 throw new IllegalArgumentException("Expected a Map for MAP but found: " + value.getClass().getSimpleName());
             }
         } else {
-            // Handle simple types
+            // Handle SQL types conversion
             return convertSimpleValue(value, valueType);
         }
     }
 
     private V convertSimpleValue(V value, String valueType) {
+        if (value == null) {
+            return null;
+        }
+
         switch (valueType.toUpperCase()) {
             case "INT":
             case "INTEGER":
                 return (V) Integer.valueOf(value.toString());
+            case "BIGINT":
+                return (V) Long.valueOf(value.toString());
+            case "SMALLINT":
+                return (V) Short.valueOf(value.toString());
             case "FLOAT":
                 return (V) Float.valueOf(value.toString());
             case "DOUBLE":
                 return (V) Double.valueOf(value.toString());
+            case "DECIMAL":
+            case "NUMERIC":
+                return (V) new BigDecimal(value.toString());
             case "BOOLEAN":
                 return (V) Boolean.valueOf(value.toString());
+            case "DATE":
+                return (V) Date.valueOf(value.toString());
+            case "TIMESTAMP":
+                return (V) Timestamp.valueOf(value.toString());
+            case "TIME":
+                return (V) Time.valueOf(value.toString());
+            case "BINARY":
+                return (V) (value instanceof byte[] ? value : value.toString().getBytes());
             case "STRING":
+            case "VARCHAR":
+            case "CHAR":
             default:
-                return value;
+                return (V) value.toString();
         }
     }
 

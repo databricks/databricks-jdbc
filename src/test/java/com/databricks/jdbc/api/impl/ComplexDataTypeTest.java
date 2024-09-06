@@ -3,9 +3,8 @@ package com.databricks.jdbc.api.impl;
 import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
-import java.sql.Struct;
-import java.sql.Array;
-import java.sql.SQLException;
+import java.math.BigDecimal;
+import java.sql.*;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -596,5 +595,48 @@ public class ComplexDataTypeTest {
         assertEquals(1, innerArrayElements[0]);
         assertEquals(2, innerArrayElements[1]);
         assertEquals(3, innerArrayElements[2]);
+    }
+
+    @Test
+    public void testStructWithSQLTypes() throws SQLException {
+        // Prepare struct with various SQL types
+        Map<String, Object> attributes = new LinkedHashMap<>();
+        attributes.put("intField", "123");
+        attributes.put("bigIntField", "123456789012345");
+        attributes.put("decimalField", "12345.6789");
+        attributes.put("dateField", "2024-08-28");
+        attributes.put("timestampField", "2024-08-28 12:34:56");
+        attributes.put("booleanField", "true");
+        attributes.put("binaryField", "binaryData".getBytes());
+
+        String metadata = "STRUCT<intField:INT, bigIntField:BIGINT, decimalField:DECIMAL, dateField:DATE, timestampField:TIMESTAMP, booleanField:BOOLEAN, binaryField:BINARY>";
+
+        // Create Struct
+        Struct struct = new DatabricksStruct(attributes, metadata);
+
+        // Test getAttributes
+        Object[] attrs = struct.getAttributes();
+        assertEquals(7, attrs.length);
+
+        assertTrue(attrs[0] instanceof Integer);
+        assertEquals(123, attrs[0]);
+
+        assertTrue(attrs[1] instanceof Long);
+        assertEquals(123456789012345L, attrs[1]);
+
+        assertTrue(attrs[2] instanceof BigDecimal);
+        assertEquals(new BigDecimal("12345.6789"), attrs[2]);
+
+        assertTrue(attrs[3] instanceof Date);
+        assertEquals(Date.valueOf("2024-08-28"), attrs[3]);
+
+        assertTrue(attrs[4] instanceof Timestamp);
+        assertEquals(Timestamp.valueOf("2024-08-28 12:34:56"), attrs[4]);
+
+        assertTrue(attrs[5] instanceof Boolean);
+        assertEquals(true, attrs[5]);
+
+        assertTrue(attrs[6] instanceof byte[]);
+        assertArrayEquals("binaryData".getBytes(), (byte[]) attrs[6]);
     }
 }

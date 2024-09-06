@@ -1,7 +1,7 @@
 package com.databricks.jdbc.api.impl;
 
-import java.sql.SQLException;
-import java.sql.Struct;
+import java.math.BigDecimal;
+import java.sql.*;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -47,7 +47,7 @@ public class DatabricksStruct implements Struct {
                         throw new IllegalArgumentException("Expected a Map for MAP but found: " + value.getClass().getSimpleName());
                     }
                 } else {
-                    // Handle simple types like STRING, INT, etc.
+                    // Handle SQL types conversion
                     convertedAttributes[index] = convertValue(value, fieldTypeStr);
                 }
             } else {
@@ -64,17 +64,35 @@ public class DatabricksStruct implements Struct {
         if (value == null) {
             return null;
         }
+
         switch (type.toUpperCase()) {
             case "INT":
             case "INTEGER":
                 return Integer.parseInt(value.toString());
+            case "BIGINT":
+                return Long.parseLong(value.toString());
+            case "SMALLINT":
+                return Short.parseShort(value.toString());
             case "FLOAT":
                 return Float.parseFloat(value.toString());
             case "DOUBLE":
                 return Double.parseDouble(value.toString());
+            case "DECIMAL":
+            case "NUMERIC":
+                return new BigDecimal(value.toString());
             case "BOOLEAN":
                 return Boolean.parseBoolean(value.toString());
+            case "DATE":
+                return Date.valueOf(value.toString());
+            case "TIMESTAMP":
+                return Timestamp.valueOf(value.toString());
+            case "TIME":
+                return Time.valueOf(value.toString());
+            case "BINARY":
+                return value instanceof byte[] ? value : value.toString().getBytes();
             case "STRING":
+            case "VARCHAR":
+            case "CHAR":
             default:
                 return value.toString();
         }
