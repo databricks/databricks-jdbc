@@ -1,11 +1,8 @@
 package com.databricks.client.jdbc;
 
 import com.databricks.jdbc.api.IDatabricksConnection;
-import com.databricks.jdbc.api.impl.DatabricksResultSet;
-import com.databricks.jdbc.api.impl.DatabricksResultSetMetaData;
-import com.databricks.jdbc.api.impl.DatabricksStatement;
+import com.databricks.jdbc.api.IDatabricksUCVolumeClient;
 import com.databricks.jdbc.common.DatabricksJdbcConstants;
-import com.databricks.jdbc.dbclient.IDatabricksUCVolumeClient;
 import java.io.File;
 import java.io.FileInputStream;
 import java.math.BigDecimal;
@@ -51,16 +48,12 @@ public class DriverTest {
     // Getting the connection
     String jdbcUrl =
         "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=https;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/791ba2a31c7fd70a;";
-    Connection con = DriverManager.getConnection(jdbcUrl, "token", "dapi3c78e2fc857387ad3173dcbad4bd67d0");
+    Connection con = DriverManager.getConnection(jdbcUrl, "token", "x");
     System.out.println("Connection established......");
-    DatabricksStatement statement = (DatabricksStatement) con.createStatement();
-    DatabricksResultSet rs = (DatabricksResultSet) statement.executeQuery("SELECT * from main.ms_testing_schema.deep_nested_table");
-    System.out.println(((DatabricksResultSetMetaData) rs.getMetaData()).getColumnTypeName(3));
-    rs.next();
-    System.out.println("CHECK");
-    System.out.println(rs.getStruct(3));
-//    System.out.println(rs.getStruct(3));
-//    printResultSet(rs);
+    Statement statement = con.createStatement();
+    statement.setMaxRows(10);
+    ResultSet rs = con.getMetaData().getTables("main", "%", "%", null);
+    printResultSet(rs);
     rs.close();
     statement.close();
     con.close();
@@ -376,6 +369,25 @@ public class DriverTest {
     for (int count : updateCounts) {
       System.out.println("Update count: " + count);
     }
+    con.close();
+  }
+
+  @Test
+  void testM2MJWT() throws SQLException {
+    String jdbcUrl =
+        "jdbc:databricks://mkazia-pl-sandbox.staging.cloud.databricks.com:443/default;"
+            + "httpPath=sql/1.0/warehouses/31e4555776d18496;"
+            + "AuthMech=11;ssl=1;Auth_Flow=1;"
+            + "OAuth2TokenEndpoint=https://dev-591123.oktapreview.com/oauth2/aus1mzu4zk5TWwMvx0h8/v1/token;"
+            + "Auth_Scope=sql;OAuth2ClientId=0oa25wnir4ehnKDj10h8;"
+            + "Auth_KID=EbKQzTAVP1_3E59Bq5P3Uv8krHCpj3hIWTodcmDwQ5k;"
+            + "UseJWTAssertion=1;"
+            + "Auth_JWT_Key_File=jdbc-testing-enc.pem;"
+            + "Auth_JWT_Key_Passphrase=s3cr3t";
+    Connection con = DriverManager.getConnection(jdbcUrl);
+    System.out.println("Connection established......");
+    ResultSet rs = con.createStatement().executeQuery("SELECT 1");
+    printResultSet(rs);
     con.close();
   }
 }

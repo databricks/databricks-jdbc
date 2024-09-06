@@ -4,8 +4,8 @@ import static com.databricks.jdbc.integration.IntegrationTestUtil.getDogfoodJDBC
 import static org.junit.jupiter.api.Assertions.*;
 
 import com.databricks.jdbc.api.IDatabricksConnection;
+import com.databricks.jdbc.api.IDatabricksUCVolumeClient;
 import com.databricks.jdbc.common.DatabricksJdbcConstants;
-import com.databricks.jdbc.dbclient.IDatabricksUCVolumeClient;
 import java.io.File;
 import java.io.FileInputStream;
 import java.nio.file.Files;

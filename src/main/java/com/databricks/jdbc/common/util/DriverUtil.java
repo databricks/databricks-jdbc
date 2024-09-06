@@ -3,7 +3,7 @@ package com.databricks.jdbc.common.util;
 public class DriverUtil {
   private static final int majorVersion = 0;
   private static final int minorVersion = 9;
-  private static final int buildVersion = 2;
+  private static final int buildVersion = 3;
   private static final String qualifier = "oss";
 
   public static String getVersion() {

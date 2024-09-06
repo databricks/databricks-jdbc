@@ -6,7 +6,7 @@ import java.math.BigInteger;
 
 public class ByteConverter extends AbstractObjectConverter {
 
-  private byte object;
+  private final byte object;
 
   public ByteConverter(Object object) throws DatabricksSQLException {
     super(object);
@@ -23,56 +23,56 @@ public class ByteConverter extends AbstractObjectConverter {
 
   @Override
   public byte convertToByte() throws DatabricksSQLException {
-    return this.object;
-  }
-
-  @Override
-  public boolean convertToBoolean() throws DatabricksSQLException {
-    return (this.object == 0 ? false : true);
+    return object;
   }
 
   @Override
   public short convertToShort() throws DatabricksSQLException {
-    return (short) this.object;
+    return object;
   }
 
   @Override
   public int convertToInt() throws DatabricksSQLException {
-    return (int) this.object;
-  }
-
-  @Override
-  public BigInteger convertToBigInteger() throws DatabricksSQLException {
-    return BigInteger.valueOf(this.object);
+    return object;
   }
 
   @Override
   public long convertToLong() throws DatabricksSQLException {
-    return (long) this.object;
+    return object;
   }
 
   @Override
   public float convertToFloat() throws DatabricksSQLException {
-    return (float) this.object;
+    return object;
   }
 
   @Override
   public double convertToDouble() throws DatabricksSQLException {
-    return (double) this.object;
+    return object;
   }
 
   @Override
   public BigDecimal convertToBigDecimal() throws DatabricksSQLException {
-    return BigDecimal.valueOf((long) this.object);
+    return BigDecimal.valueOf(object);
+  }
+
+  @Override
+  public BigInteger convertToBigInteger() throws DatabricksSQLException {
+    return BigInteger.valueOf(object);
+  }
+
+  @Override
+  public boolean convertToBoolean() throws DatabricksSQLException {
+    return (object != 0);
   }
 
   @Override
   public byte[] convertToByteArray() throws DatabricksSQLException {
-    return new byte[] {this.object};
+    return new byte[] {object};
   }
 
   @Override
   public String convertToString() throws DatabricksSQLException {
-    return new String(new byte[] {this.object});
+    return new String(new byte[] {object});
   }
 }

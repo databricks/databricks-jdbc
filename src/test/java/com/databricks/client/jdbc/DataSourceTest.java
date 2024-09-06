@@ -1,6 +1,6 @@
 package com.databricks.client.jdbc;
 
-import static com.databricks.jdbc.common.DatabricksJdbcConstants.AUTH_MECH;
+import static com.databricks.jdbc.common.DatabricksJdbcUrlParams.AUTH_MECH;
 import static org.junit.jupiter.api.Assertions.*;
 
 import com.databricks.jdbc.api.impl.DatabricksConnection;
@@ -37,7 +37,7 @@ public class DataSourceTest {
   @Test
   public void testGetConnection() throws DatabricksSQLException {
     Properties properties = new Properties();
-    properties.setProperty(AUTH_MECH, "3");
+    properties.setProperty(AUTH_MECH.getParamName(), "3");
 
     DataSource dataSource = new DataSource(driverMock);
     dataSource.setHost("e2-dogfood.staging.cloud.databricks.com");
@@ -73,7 +73,7 @@ public class DataSourceTest {
   @Test
   public void testGettersAndSetters() throws SQLException {
     Properties properties = new Properties();
-    properties.setProperty(AUTH_MECH, "3");
+    properties.setProperty(AUTH_MECH.getParamName(), "3");
 
     DataSource dataSource = new DataSource();
     dataSource.setProperties(properties);

@@ -74,7 +74,7 @@ public class MetadataResultSetBuilder {
         || typeVal.contains(STRING_TYPE));
   }
 
-  private static List<List<Object>> getRows(ResultSet resultSet, List<ResultColumn> columns)
+  static List<List<Object>> getRows(ResultSet resultSet, List<ResultColumn> columns)
       throws SQLException {
     List<List<Object>> rows = new ArrayList<>();
 
@@ -98,6 +98,13 @@ public class MetadataResultSetBuilder {
                   object = "NO";
                 }
               }
+              if (column.getColumnName().equals(NULLABLE_COLUMN.getColumnName())) {
+                if (object == null || object.equals("true")) {
+                  object = 1;
+                } else {
+                  object = 0;
+                }
+              }
               if (column.getColumnName().equals(DECIMAL_DIGITS_COLUMN.getColumnName())
                   || column.getColumnName().equals(NUM_PREC_RADIX_COLUMN.getColumnName())) {
                 if (object == null) {
@@ -107,8 +114,7 @@ public class MetadataResultSetBuilder {
             } catch (SQLException e) {
               if (column.getColumnName().equals(DATA_TYPE_COLUMN.getColumnName())) {
                 String typeVal = resultSet.getString(COLUMN_TYPE_COLUMN.getResultSetColumnName());
-                if (typeVal.contains("(")) typeVal = typeVal.substring(0, typeVal.indexOf('('));
-                object = getCode(typeVal);
+                object = getCode(stripTypeName(typeVal));
               } else if (column.getColumnName().equals(CHAR_OCTET_LENGTH_COLUMN.getColumnName())) {
                 String typeVal = resultSet.getString(COLUMN_TYPE_COLUMN.getResultSetColumnName());
 
@@ -125,6 +131,12 @@ public class MetadataResultSetBuilder {
                 object = null;
               }
             }
+
+            if (column.getColumnName().equals(TABLE_TYPE_COLUMN.getColumnName())
+                && (object == null || object.equals(""))) {
+              object = "TABLE";
+            }
+
             // Handle TYPE_NAME separately for potential modifications
             if (column.getColumnName().equals(TYPE_NAME_COLUMN.getColumnName())) {
               object = stripTypeName((String) object);
@@ -221,8 +233,16 @@ public class MetadataResultSetBuilder {
       return null;
     }
     int typeArgumentIndex = typeName.indexOf('(');
+    int complexTypeIndex = typeName.indexOf('<');
+    // if both are present return the minimum of the two
+    if (typeArgumentIndex != -1 && complexTypeIndex != -1) {
+      return typeName.substring(0, Math.min(typeArgumentIndex, complexTypeIndex));
+    }
     if (typeArgumentIndex != -1) {
-      return typeName.substring(0, typeName.indexOf('('));
+      return typeName.substring(0, typeArgumentIndex);
+    }
+    if (complexTypeIndex != -1) {
+      return typeName.substring(0, complexTypeIndex);
     }
 
     return typeName;
@@ -360,8 +380,20 @@ public class MetadataResultSetBuilder {
     return buildResultSet(SCHEMA_COLUMNS, rows, METADATA_STATEMENT_ID);
   }
 
-  public static DatabricksResultSet getTablesResult(List<List<Object>> rows) {
-    return buildResultSet(TABLE_COLUMNS_ALL_PURPOSE, rows, GET_TABLES_STATEMENT_ID);
+  public static DatabricksResultSet getTablesResult(String catalog, List<List<Object>> rows) {
+    List<List<Object>> updatedRows = new ArrayList<>();
+    for (List<Object> row : rows) {
+      // If the table type is empty, set it to "TABLE"
+      if (row.get(3).equals("")) {
+        row.set(3, "TABLE");
+      }
+      // If the catalog is not null and the catalog does not match, skip the row
+      if (catalog != null && !row.get(0).toString().equals(catalog)) {
+        continue;
+      }
+      updatedRows.add(row);
+    }
+    return buildResultSet(TABLE_COLUMNS_ALL_PURPOSE, updatedRows, GET_TABLES_STATEMENT_ID);
   }
 
   public static DatabricksResultSet getColumnsResult(List<List<Object>> rows) {
