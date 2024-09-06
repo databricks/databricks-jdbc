@@ -14,6 +14,7 @@ import com.google.common.annotations.VisibleForTesting;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -117,7 +118,6 @@ public class MetadataResultSetBuilder {
                 object = getCode(stripTypeName(typeVal));
               } else if (column.getColumnName().equals(CHAR_OCTET_LENGTH_COLUMN.getColumnName())) {
                 String typeVal = resultSet.getString(COLUMN_TYPE_COLUMN.getResultSetColumnName());
-
                 object = getCharOctetLength(typeVal);
               } else if (column.getColumnName().equals(BUFFER_LENGTH_COLUMN.getColumnName())) {
                 String typeVal = resultSet.getString(COLUMN_TYPE_COLUMN.getResultSetColumnName());
@@ -361,6 +361,11 @@ public class MetadataResultSetBuilder {
 
   private static DatabricksResultSet buildResultSet(
       List<ResultColumn> columns, List<List<Object>> rows, String statementId) {
+    if (rows != null && !rows.isEmpty() && columns.size() > rows.get(0).size()) {
+      // Handle cases where the number of rows is less than expected columns, e.g., missing
+      // isGenerated column.
+      rows.forEach(row -> row.addAll(Collections.nCopies(columns.size() - row.size(), null)));
+    }
     return new DatabricksResultSet(
         new StatementStatus().setState(StatementState.SUCCEEDED),
         statementId,
