@@ -348,12 +348,14 @@ class DatabricksConnectionContext implements IDatabricksConnectionContext {
 
   @Override
   public String getCatalog() {
-    return getParameter(CATALOG, getParameter(DatabricksJdbcUrlParams.CONN_CATALOG));
+    return getParameter(
+        DatabricksJdbcUrlParams.CATALOG, getParameter(DatabricksJdbcUrlParams.CONN_CATALOG));
   }
 
   @Override
   public String getSchema() {
-    return getParameter(DatabricksJdbcUrlParams.CONN_SCHEMA, getParameter(SCHEMA));
+    return getParameter(
+        DatabricksJdbcUrlParams.CONN_SCHEMA, getParameter(DatabricksJdbcUrlParams.SCHEMA));
   }
 
   @Override
@@ -617,11 +619,11 @@ class DatabricksConnectionContext implements IDatabricksConnectionContext {
     throw new DatabricksParsingException("Invalid HTTP Path provided " + this.getHttpPath());
   }
 
-  private String getParameter(String key) {
-    return this.parameters.getOrDefault(key.toLowerCase(), null);
+  private String getParameter(DatabricksJdbcUrlParams key) {
+    return this.parameters.getOrDefault(key.getParamName().toLowerCase(), null);
   }
 
-  private String getParameter(String key, String defaultValue) {
-    return this.parameters.getOrDefault(key.toLowerCase(), defaultValue);
+  private String getParameter(DatabricksJdbcUrlParams key, String defaultValue) {
+    return this.parameters.getOrDefault(key.getParamName().toLowerCase(), defaultValue);
   }
 }

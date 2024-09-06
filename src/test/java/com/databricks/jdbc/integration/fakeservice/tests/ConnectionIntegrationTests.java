@@ -46,7 +46,7 @@ public class ConnectionIntegrationTests extends AbstractFakeServiceIntegrationTe
         String.format(
             template,
             getFakeServiceHost(),
-            FakeServiceConfigLoader.getProperty(DatabricksJdbcUrlParams.HTTP_PATH));
+            FakeServiceConfigLoader.getProperty(DatabricksJdbcUrlParams.HTTP_PATH.getParamName()));
     DatabricksSQLException e =
         assertThrows(
             DatabricksSQLException.class,
@@ -57,12 +57,14 @@ public class ConnectionIntegrationTests extends AbstractFakeServiceIntegrationTe
 
   private Properties createConnectionProperties(String password) {
     Properties connProps = new Properties();
-    connProps.put(DatabricksJdbcUrlParams.USER, getDatabricksUser());
-    connProps.put(DatabricksJdbcUrlParams.PASSWORD, password);
-    connProps.put(CATALOG, FakeServiceConfigLoader.getProperty(CATALOG));
+    connProps.put(DatabricksJdbcUrlParams.USER.getParamName(), getDatabricksUser());
+    connProps.put(DatabricksJdbcUrlParams.PASSWORD.getParamName(), password);
     connProps.put(
-        DatabricksJdbcUrlParams.CONN_SCHEMA,
-        FakeServiceConfigLoader.getProperty(DatabricksJdbcUrlParams.CONN_SCHEMA));
+        DatabricksJdbcUrlParams.CATALOG.getParamName(),
+        FakeServiceConfigLoader.getProperty(DatabricksJdbcUrlParams.CATALOG.getParamName()));
+    connProps.put(
+        DatabricksJdbcUrlParams.CONN_SCHEMA.getParamName(),
+        FakeServiceConfigLoader.getProperty(DatabricksJdbcUrlParams.CONN_SCHEMA.getParamName()));
 
     return connProps;
   }

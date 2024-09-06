@@ -195,15 +195,17 @@ public class MetadataIntegrationTests extends AbstractFakeServiceIntegrationTest
         String.format(
             jdbcUrlTemplateWithLegacyMetadata,
             getFakeServiceHost(),
-            FakeServiceConfigLoader.getProperty(DatabricksJdbcUrlParams.HTTP_PATH));
+            FakeServiceConfigLoader.getProperty(DatabricksJdbcUrlParams.HTTP_PATH.getParamName()));
 
     Properties connProps = new Properties();
-    connProps.put(DatabricksJdbcUrlParams.USER, getDatabricksUser());
-    connProps.put(DatabricksJdbcUrlParams.PASSWORD, getDatabricksToken());
-    connProps.put(CATALOG, FakeServiceConfigLoader.getProperty(CATALOG));
+    connProps.put(DatabricksJdbcUrlParams.USER.getParamName(), getDatabricksUser());
+    connProps.put(DatabricksJdbcUrlParams.PASSWORD.getParamName(), getDatabricksToken());
     connProps.put(
-        DatabricksJdbcUrlParams.CONN_SCHEMA,
-        FakeServiceConfigLoader.getProperty(DatabricksJdbcUrlParams.CONN_SCHEMA));
+        DatabricksJdbcUrlParams.CATALOG.getParamName(),
+        FakeServiceConfigLoader.getProperty(DatabricksJdbcUrlParams.CATALOG.getParamName()));
+    connProps.put(
+        DatabricksJdbcUrlParams.CONN_SCHEMA.getParamName(),
+        FakeServiceConfigLoader.getProperty(DatabricksJdbcUrlParams.CONN_SCHEMA.getParamName()));
 
     return DriverManager.getConnection(jdbcUrl, connProps);
   }

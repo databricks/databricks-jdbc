@@ -115,7 +115,7 @@ public class DataSource implements javax.sql.DataSource, ConnectionPoolDataSourc
     if (httpPath != null) {
       urlBuilder
           .append(URL_DELIMITER)
-          .append(DatabricksJdbcUrlParams.HTTP_PATH)
+          .append(DatabricksJdbcUrlParams.HTTP_PATH.getParamName())
           .append(PAIR_DELIMITER)
           .append(httpPath);
     }
@@ -133,11 +133,12 @@ public class DataSource implements javax.sql.DataSource, ConnectionPoolDataSourc
 
   public String getPassword() {
     return properties.getProperty(
-        DatabricksJdbcUrlParams.PASSWORD, properties.getProperty(DatabricksJdbcUrlParams.PWD));
+        DatabricksJdbcUrlParams.PASSWORD.getParamName(),
+        properties.getProperty(DatabricksJdbcUrlParams.PWD.getParamName()));
   }
 
   public void setPassword(String password) {
-    properties.put(DatabricksJdbcUrlParams.PASSWORD, password);
+    properties.put(DatabricksJdbcUrlParams.PASSWORD.getParamName(), password);
   }
 
   public String getHost() {
