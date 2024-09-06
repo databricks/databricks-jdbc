@@ -380,8 +380,20 @@ public class MetadataResultSetBuilder {
     return buildResultSet(SCHEMA_COLUMNS, rows, METADATA_STATEMENT_ID);
   }
 
-  public static DatabricksResultSet getTablesResult(List<List<Object>> rows) {
-    return buildResultSet(TABLE_COLUMNS_ALL_PURPOSE, rows, GET_TABLES_STATEMENT_ID);
+  public static DatabricksResultSet getTablesResult(String catalog, List<List<Object>> rows) {
+    List<List<Object>> updatedRows = new ArrayList<>();
+    for (List<Object> row : rows) {
+      // If the table type is empty, set it to "TABLE"
+      if (row.get(3).equals("")) {
+        row.set(3, "TABLE");
+      }
+      // If the catalog is not null and the catalog does not match, skip the row
+      if (catalog != null && !row.get(0).toString().equals(catalog)) {
+        continue;
+      }
+      updatedRows.add(row);
+    }
+    return buildResultSet(TABLE_COLUMNS_ALL_PURPOSE, updatedRows, GET_TABLES_STATEMENT_ID);
   }
 
   public static DatabricksResultSet getColumnsResult(List<List<Object>> rows) {
