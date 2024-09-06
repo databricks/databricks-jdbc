@@ -79,17 +79,17 @@ public class PrivateKeyClientCredentialProviderTest {
       when(context.getOAuthDiscoveryURL()).thenReturn(null);
       when(context.getTokenEndpoint()).thenReturn(null);
       when(context.getHostForOAuth()).thenReturn("testHost");
-      AuthUtils authUtils = spy(new AuthUtils(context));
-      when(authUtils.getBarebonesDatabricksConfig()).thenReturn(config);
+      OAuthEndpointResolver oAuthEndpointResolver = spy(new OAuthEndpointResolver(context));
+      when(oAuthEndpointResolver.getBarebonesDatabricksConfig()).thenReturn(config);
       when(config.getOidcEndpoints())
           .thenReturn(
               new OpenIDConnectEndpoints(
                   "https://testHost/oidc/v1/token", "https://testHost/oidc/v1/authorize"));
       JwtPrivateKeyClientCredentials clientCredentialObject =
-          new PrivateKeyClientCredentialProvider(context, authUtils)
+          new PrivateKeyClientCredentialProvider(context, oAuthEndpointResolver)
               .getClientCredentialObject(config);
       assertEquals("https://testHost/oidc/v1/token", clientCredentialObject.getTokenEndpoint());
-      verify(authUtils, times(1)).getDefaultTokenEndpoint();
+      verify(oAuthEndpointResolver, times(1)).getDefaultTokenEndpoint();
     }
   }
 

@@ -17,10 +17,10 @@ import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.utils.URIBuilder;
 
-public class AuthUtils {
+public class OAuthEndpointResolver {
   private final IDatabricksConnectionContext context;
 
-  public AuthUtils(IDatabricksConnectionContext context) {
+  public OAuthEndpointResolver(IDatabricksConnectionContext context) {
     this.context = context;
   }
 
@@ -62,7 +62,7 @@ public class AuthUtils {
   }
 
   @VisibleForTesting
-  public DatabricksConfig getBarebonesDatabricksConfig() throws DatabricksParsingException {
+  DatabricksConfig getBarebonesDatabricksConfig() throws DatabricksParsingException {
     return new DatabricksConfig().setHost(context.getHostForOAuth()).resolve();
   }
 

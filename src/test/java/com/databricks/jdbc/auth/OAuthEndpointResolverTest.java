@@ -22,7 +22,7 @@ import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
-public class AuthUtilsTest {
+public class OAuthEndpointResolverTest {
 
   @Mock IDatabricksConnectionContext context;
 
@@ -39,8 +39,8 @@ public class AuthUtilsTest {
   @Test
   void testGetTokenEndpoint_WithTokenEndpointInContext() {
     when(context.getTokenEndpoint()).thenReturn("https://token.example.com");
-    AuthUtils authUtils = new AuthUtils(context);
-    String tokenEndpoint = authUtils.getTokenEndpoint();
+    OAuthEndpointResolver oAuthEndpointResolver = new OAuthEndpointResolver(context);
+    String tokenEndpoint = oAuthEndpointResolver.getTokenEndpoint();
     assertEquals("https://token.example.com", tokenEndpoint);
   }
 
@@ -60,7 +60,7 @@ public class AuthUtilsTest {
               new ByteArrayInputStream(
                   "{\"token_endpoint\": \"https://token.example.com\"}".getBytes()));
 
-      String tokenEndpoint = new AuthUtils(context).getTokenEndpoint();
+      String tokenEndpoint = new OAuthEndpointResolver(context).getTokenEndpoint();
       assertEquals("https://token.example.com", tokenEndpoint);
     }
   }
@@ -72,8 +72,8 @@ public class AuthUtilsTest {
     when(context.getOAuthDiscoveryURL()).thenReturn(null);
     when(context.getTokenEndpoint()).thenReturn(null);
     when(context.getHostForOAuth()).thenReturn("oauth.example.com");
-    AuthUtils authUtils = spy(new AuthUtils(context));
-    when(authUtils.getBarebonesDatabricksConfig()).thenReturn(databricksConfig);
+    OAuthEndpointResolver oAuthEndpointResolver = spy(new OAuthEndpointResolver(context));
+    when(oAuthEndpointResolver.getBarebonesDatabricksConfig()).thenReturn(databricksConfig);
     when(databricksConfig.getOidcEndpoints())
         .thenReturn(
             new OpenIDConnectEndpoints(
@@ -81,9 +81,9 @@ public class AuthUtilsTest {
                 "https://oauth.example.com/oidc/v1/authorize"));
 
     String expectedTokenUrl = "https://oauth.example.com/oidc/v1/token";
-    String tokenEndpoint = authUtils.getTokenEndpoint();
+    String tokenEndpoint = oAuthEndpointResolver.getTokenEndpoint();
 
-    verify(authUtils, times(1)).getDefaultTokenEndpoint();
+    verify(oAuthEndpointResolver, times(1)).getDefaultTokenEndpoint();
     assertEquals(expectedTokenUrl, tokenEndpoint);
   }
 
@@ -94,8 +94,8 @@ public class AuthUtilsTest {
     when(context.getOAuthDiscoveryURL()).thenReturn("https://fake");
     when(context.getTokenEndpoint()).thenReturn(null);
     when(context.getHostForOAuth()).thenReturn("oauth.example.com");
-    AuthUtils authUtils = spy(new AuthUtils(context));
-    when(authUtils.getBarebonesDatabricksConfig()).thenReturn(databricksConfig);
+    OAuthEndpointResolver oAuthEndpointResolver = spy(new OAuthEndpointResolver(context));
+    when(oAuthEndpointResolver.getBarebonesDatabricksConfig()).thenReturn(databricksConfig);
     when(databricksConfig.getOidcEndpoints())
         .thenReturn(
             new OpenIDConnectEndpoints(
@@ -103,9 +103,9 @@ public class AuthUtilsTest {
                 "https://oauth.example.com/oidc/v1/authorize"));
 
     String expectedTokenUrl = "https://oauth.example.com/oidc/v1/token";
-    String tokenEndpoint = authUtils.getTokenEndpoint();
+    String tokenEndpoint = oAuthEndpointResolver.getTokenEndpoint();
 
-    verify(authUtils, times(1)).getDefaultTokenEndpoint();
+    verify(oAuthEndpointResolver, times(1)).getDefaultTokenEndpoint();
     assertEquals(expectedTokenUrl, tokenEndpoint);
   }
 
@@ -115,8 +115,8 @@ public class AuthUtilsTest {
     when(context.isOAuthDiscoveryModeEnabled()).thenReturn(false);
     when(context.getTokenEndpoint()).thenReturn(null);
     when(context.getHostForOAuth()).thenReturn("oauth.example.com");
-    AuthUtils authUtils = spy(new AuthUtils(context));
-    when(authUtils.getBarebonesDatabricksConfig()).thenReturn(databricksConfig);
+    OAuthEndpointResolver oAuthEndpointResolver = spy(new OAuthEndpointResolver(context));
+    when(oAuthEndpointResolver.getBarebonesDatabricksConfig()).thenReturn(databricksConfig);
     when(databricksConfig.getOidcEndpoints())
         .thenReturn(
             new OpenIDConnectEndpoints(
@@ -124,9 +124,9 @@ public class AuthUtilsTest {
                 "https://oauth.example.com/oidc/v1/authorize"));
 
     String expectedTokenUrl = "https://oauth.example.com/oidc/v1/token";
-    String tokenEndpoint = authUtils.getTokenEndpoint();
+    String tokenEndpoint = oAuthEndpointResolver.getTokenEndpoint();
 
-    verify(authUtils, times(1)).getDefaultTokenEndpoint();
+    verify(oAuthEndpointResolver, times(1)).getDefaultTokenEndpoint();
     assertEquals(expectedTokenUrl, tokenEndpoint);
   }
 }

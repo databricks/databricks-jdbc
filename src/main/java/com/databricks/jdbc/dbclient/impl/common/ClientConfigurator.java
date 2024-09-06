@@ -12,6 +12,10 @@ import com.databricks.sdk.core.CredentialsProvider;
 import com.databricks.sdk.core.DatabricksConfig;
 import com.databricks.sdk.core.DatabricksException;
 
+/**
+ * This class is responsible for configuring the Databricks config based on the connection context.
+ * The databricks config is then used to create the SDK or Thrift client.
+ */
 public class ClientConfigurator {
   private final IDatabricksConnectionContext connectionContext;
   private final DatabricksConfig databricksConfig;
@@ -24,6 +28,7 @@ public class ClientConfigurator {
     this.databricksConfig.resolve();
   }
 
+  /** Setup proxy settings in the databricks config. */
   public void setupProxyConfig() {
     this.databricksConfig.setUseSystemPropertiesHttp(connectionContext.getUseSystemProxy());
     // Setup proxy settings
@@ -42,6 +47,7 @@ public class ClientConfigurator {
     return new WorkspaceClient(databricksConfig);
   }
 
+  /** Setup the workspace authentication settings in the databricks config. */
   public void setupAuthConfig() {
     IDatabricksConnectionContext.AuthMech authMech = connectionContext.getAuthMech();
     try {
@@ -60,6 +66,7 @@ public class ClientConfigurator {
     }
   }
 
+  /** Setup the OAuth authentication settings in the databricks config. */
   public void setupOAuthConfig() throws DatabricksParsingException {
     // TODO(Madhav): Revisit these to set JDBC values
     switch (this.connectionContext.getAuthFlow()) {
@@ -79,6 +86,7 @@ public class ClientConfigurator {
     }
   }
 
+  /** Setup the OAuth U2M authentication settings in the databricks config. */
   public void setupU2MConfig() throws DatabricksParsingException {
     databricksConfig
         .setAuthType(DatabricksJdbcConstants.U2M_AUTH_TYPE)
@@ -91,6 +99,7 @@ public class ClientConfigurator {
     }
   }
 
+  /** Setup the PAT authentication settings in the databricks config. */
   public void setupAccessTokenConfig() throws DatabricksParsingException {
     databricksConfig
         .setAuthType(DatabricksJdbcConstants.ACCESS_TOKEN_AUTH_TYPE)
@@ -98,6 +107,7 @@ public class ClientConfigurator {
         .setToken(connectionContext.getToken());
   }
 
+  /** Setup the OAuth U2M refresh token authentication settings in the databricks config. */
   public void setupU2MRefreshConfig() throws DatabricksParsingException {
     CredentialsProvider provider = new OAuthRefreshCredentialsProvider(connectionContext);
     databricksConfig
@@ -108,6 +118,7 @@ public class ClientConfigurator {
         .setClientSecret(connectionContext.getClientSecret());
   }
 
+  /** Setup the OAuth M2M authentication settings in the databricks config. */
   public void setupM2MConfig() throws DatabricksParsingException {
     databricksConfig
         .setAuthType(DatabricksJdbcConstants.M2M_AUTH_TYPE)

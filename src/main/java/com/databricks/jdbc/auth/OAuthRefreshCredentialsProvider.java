@@ -31,9 +31,9 @@ public class OAuthRefreshCredentialsProvider extends RefreshableTokenSource
 
   @VisibleForTesting
   public OAuthRefreshCredentialsProvider(
-      IDatabricksConnectionContext context, AuthUtils authUtils) {
+      IDatabricksConnectionContext context, OAuthEndpointResolver oAuthEndpointResolver) {
     this.context = context;
-    this.tokenEndpoint = authUtils.getTokenEndpoint();
+    this.tokenEndpoint = oAuthEndpointResolver.getTokenEndpoint();
     try {
       this.clientId = context.getClientId();
     } catch (DatabricksParsingException e) {
@@ -52,7 +52,7 @@ public class OAuthRefreshCredentialsProvider extends RefreshableTokenSource
   }
 
   public OAuthRefreshCredentialsProvider(IDatabricksConnectionContext context) {
-    this(context, new AuthUtils(context));
+    this(context, new OAuthEndpointResolver(context));
   }
 
   @Override
