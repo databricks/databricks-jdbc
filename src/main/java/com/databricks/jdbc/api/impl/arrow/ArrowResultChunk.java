@@ -359,6 +359,12 @@ public class ArrowResultChunk {
               "Data parsing interrupted for chunk index [%s] and statement [%s]. Error [%s]",
               chunkIndex, statementId, e));
       purgeArrowData(recordBatchList);
+    } catch (IOException e) {
+      LoggingUtil.log(
+          LogLevel.ERROR,
+          "Error while reading arrow data, purging the local list and rethrowing the exception.");
+      purgeArrowData(recordBatchList);
+      throw e;
     }
 
     return recordBatchList;
