@@ -54,7 +54,7 @@ public class IntegrationTestUtil {
     return String.format(
         jdbcUrlTemplate,
         getFakeServiceHost(),
-        FakeServiceConfigLoader.getProperty(DatabricksJdbcUrlParams.HTTP_PATH));
+        FakeServiceConfigLoader.getProperty(DatabricksJdbcUrlParams.HTTP_PATH.getParamName()));
   }
 
   public static String getDatabricksHost() {
@@ -117,14 +117,16 @@ public class IntegrationTestUtil {
 
   public static Connection getValidJDBCConnection() throws SQLException {
     Properties connectionProperties = new Properties();
-    connectionProperties.put(DatabricksJdbcUrlParams.USER, getDatabricksUser());
-    connectionProperties.put(DatabricksJdbcUrlParams.PASSWORD, getDatabricksToken());
+    connectionProperties.put(DatabricksJdbcUrlParams.USER.getParamName(), getDatabricksUser());
+    connectionProperties.put(DatabricksJdbcUrlParams.PASSWORD.getParamName(), getDatabricksToken());
 
     if (isFakeServiceTest) {
-      connectionProperties.put(CATALOG, FakeServiceConfigLoader.getProperty(CATALOG));
       connectionProperties.put(
-          DatabricksJdbcUrlParams.CONN_SCHEMA,
-          FakeServiceConfigLoader.getProperty(DatabricksJdbcUrlParams.CONN_SCHEMA));
+          DatabricksJdbcUrlParams.CATALOG.getParamName(),
+          FakeServiceConfigLoader.getProperty(DatabricksJdbcUrlParams.CATALOG.getParamName()));
+      connectionProperties.put(
+          DatabricksJdbcUrlParams.CONN_SCHEMA.getParamName(),
+          FakeServiceConfigLoader.getProperty(DatabricksJdbcUrlParams.CONN_SCHEMA.getParamName()));
 
       return DriverManager.getConnection(getFakeServiceJDBCUrl(), connectionProperties);
     }
