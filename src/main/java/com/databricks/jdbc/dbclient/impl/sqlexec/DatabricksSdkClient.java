@@ -9,13 +9,13 @@ import com.databricks.jdbc.api.IDatabricksStatement;
 import com.databricks.jdbc.api.impl.*;
 import com.databricks.jdbc.common.*;
 import com.databricks.jdbc.common.IDatabricksComputeResource;
-import com.databricks.jdbc.log.JdbcLogger;
-import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.dbclient.DatabricksClient;
 import com.databricks.jdbc.dbclient.impl.common.ClientUtils;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.exception.DatabricksTimeoutException;
+import com.databricks.jdbc.log.JdbcLogger;
+import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.model.client.sqlexec.*;
 import com.databricks.jdbc.model.client.sqlexec.ExecuteStatementRequest;
 import com.databricks.jdbc.model.client.sqlexec.ExecuteStatementResponse;
@@ -136,8 +136,7 @@ public class DatabricksSdkClient implements DatabricksClient {
     LOGGER.debug(
         String.format(
             "public DatabricksResultSet executeStatement(String sql = {%s}, compute resource = {%s}, Map<Integer, ImmutableSqlParameter> parameters, StatementType statementType = {%s}, IDatabricksSession session)",
-            sql, computeResource.toString(), statementType),
-        this.getClass().getName());
+            sql, computeResource.toString(), statementType));
     long pollCount = 0;
     long executionStartTime = Instant.now().toEpochMilli();
     ExecuteStatementRequest request =

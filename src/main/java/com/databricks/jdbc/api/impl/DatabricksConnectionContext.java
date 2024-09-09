@@ -4,10 +4,10 @@ import static com.databricks.jdbc.common.DatabricksJdbcConstants.*;
 
 import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.common.*;
-import com.databricks.jdbc.log.JdbcLogger;
-import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
+import com.databricks.jdbc.log.JdbcLogger;
+import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.telemetry.DatabricksMetrics;
 import com.databricks.sdk.core.ProxyConfig;
 import com.google.common.annotations.VisibleForTesting;
@@ -18,7 +18,8 @@ import java.util.stream.Collectors;
 import org.apache.http.client.utils.URIBuilder;
 
 public class DatabricksConnectionContext implements IDatabricksConnectionContext {
-  public static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(DatabricksConnectionContext.class);
+  public static final JdbcLogger LOGGER =
+      JdbcLoggerFactory.getLogger(DatabricksConnectionContext.class);
   private final String host;
   @VisibleForTesting final int port;
   private final String schema;
@@ -285,8 +286,7 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   public LogLevel getLogLevel() {
     String logLevel = getParameter(DatabricksJdbcConstants.LOG_LEVEL);
     if (nullOrEmptyString(logLevel)) {
-      LOGGER.debug(
-          "Using default log level " + DEFAULT_LOG_LEVEL + " as none was provided.");
+      LOGGER.debug("Using default log level " + DEFAULT_LOG_LEVEL + " as none was provided.");
       return DEFAULT_LOG_LEVEL;
     }
     try {
@@ -381,7 +381,7 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
           getParameter(
               CLOUD_FETCH_THREAD_POOL_SIZE, String.valueOf(CLOUD_FETCH_THREAD_POOL_SIZE_DEFAULT)));
     } catch (NumberFormatException e) {
-      LOGGER.debug( "Invalid thread pool size, defaulting to default thread pool size.");
+      LOGGER.debug("Invalid thread pool size, defaulting to default thread pool size.");
       return CLOUD_FETCH_THREAD_POOL_SIZE_DEFAULT;
     }
   }

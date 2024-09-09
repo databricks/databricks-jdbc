@@ -7,9 +7,9 @@ import static com.databricks.jdbc.common.util.DatabricksThriftUtil.getTypeFromTy
 import com.databricks.jdbc.common.AccessType;
 import com.databricks.jdbc.common.Nullable;
 import com.databricks.jdbc.common.util.DatabricksTypeUtil;
+import com.databricks.jdbc.common.util.WrapperUtil;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
-import com.databricks.jdbc.common.util.WrapperUtil;
 import com.databricks.jdbc.model.client.thrift.generated.TColumnDesc;
 import com.databricks.jdbc.model.client.thrift.generated.TGetResultSetMetadataResp;
 import com.databricks.jdbc.model.client.thrift.generated.TTypeEntry;
@@ -27,7 +27,8 @@ import java.util.List;
 import java.util.Map;
 
 public class DatabricksResultSetMetaData implements ResultSetMetaData {
-  public static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(DatabricksResultSetMetaData.class);
+  public static final JdbcLogger LOGGER =
+      JdbcLoggerFactory.getLogger(DatabricksResultSetMetaData.class);
   private final String statementId;
   private final ImmutableList<ImmutableDatabricksColumn> columns;
   private final ImmutableMap<String, Integer> columnNameIndex;

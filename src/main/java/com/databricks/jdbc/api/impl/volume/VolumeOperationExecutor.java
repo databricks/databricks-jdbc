@@ -2,11 +2,11 @@ package com.databricks.jdbc.api.impl.volume;
 
 import com.databricks.jdbc.api.IDatabricksResultSet;
 import com.databricks.jdbc.api.IDatabricksStatement;
-import com.databricks.jdbc.log.JdbcLogger;
-import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
 import com.databricks.jdbc.exception.DatabricksHttpException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
+import com.databricks.jdbc.log.JdbcLogger;
+import com.databricks.jdbc.log.JdbcLoggerFactory;
 import java.io.*;
 import java.sql.SQLException;
 import java.util.*;
@@ -22,7 +22,8 @@ import org.apache.http.util.EntityUtils;
 
 /** Executor for volume operations */
 class VolumeOperationExecutor implements Runnable {
-  public static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(VolumeOperationExecutor.class);
+  public static final JdbcLogger LOGGER =
+      JdbcLoggerFactory.getLogger(VolumeOperationExecutor.class);
   private static final String COMMA_SEPARATOR = ",";
   private static final String PARENT_DIRECTORY_REF = "..";
   private static final String GET_OPERATION = "get";
@@ -133,7 +134,7 @@ class VolumeOperationExecutor implements Runnable {
     if (localFilePath == null
         || localFilePath.isEmpty()
         || localFilePath.contains(PARENT_DIRECTORY_REF)) {
-      LOGGER.error( String.format("Local file path is invalid {%s}", localFilePath));
+      LOGGER.error(String.format("Local file path is invalid {%s}", localFilePath));
       status = VolumeOperationStatus.ABORTED;
       errorMessage = "Local file path is invalid";
       return;
@@ -144,7 +145,7 @@ class VolumeOperationExecutor implements Runnable {
             .filter(x -> x)
             .findFirst();
     if (pathMatched.isEmpty() || !pathMatched.get()) {
-      LOGGER.error( String.format("Local file path is not allowed {%s}", localFilePath));
+      LOGGER.error(String.format("Local file path is not allowed {%s}", localFilePath));
       status = VolumeOperationStatus.ABORTED;
       errorMessage = "Local file path is not allowed";
     }
@@ -333,7 +334,7 @@ class VolumeOperationExecutor implements Runnable {
         errorMessage = "Failed to delete volume";
       }
     } catch (DatabricksHttpException | IOException e) {
-      LOGGER.error( String.format("Failed to delete volume with error {%s}", e.getMessage()));
+      LOGGER.error(String.format("Failed to delete volume with error {%s}", e.getMessage()), e);
       status = VolumeOperationStatus.FAILED;
       errorMessage = "Failed to delete volume: " + e.getMessage();
     }
