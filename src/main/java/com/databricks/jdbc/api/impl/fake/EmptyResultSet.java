@@ -1,4 +1,4 @@
-package com.databricks.jdbc.api.impl;
+package com.databricks.jdbc.api.impl.fake;
 
 import com.databricks.jdbc.api.IDatabricksResultSet;
 import com.databricks.jdbc.exception.DatabricksSQLException;
@@ -72,7 +72,7 @@ public class EmptyResultSet implements ResultSet, IDatabricksResultSet {
   @Override
   public double getDouble(int columnIndex) throws SQLException {
     checkIfClosed();
-    return (double) 0;
+    return 0;
   }
 
   @Override

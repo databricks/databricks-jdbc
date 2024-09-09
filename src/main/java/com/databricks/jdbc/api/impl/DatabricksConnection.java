@@ -9,7 +9,7 @@ import com.databricks.jdbc.api.IDatabricksUCVolumeClient;
 import com.databricks.jdbc.api.impl.volume.DatabricksUCVolumeClient;
 import com.databricks.jdbc.common.DatabricksJdbcConstants;
 import com.databricks.jdbc.common.util.ValidationUtil;
-import com.databricks.jdbc.dbclient.DatabricksClient;
+import com.databricks.jdbc.dbclient.IDatabricksClient;
 import com.databricks.jdbc.exception.DatabricksSQLClientInfoException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.exception.DatabricksSQLFeatureNotSupportedException;
@@ -51,7 +51,7 @@ public class DatabricksConnection implements IDatabricksConnection, Connection {
 
   @VisibleForTesting
   public DatabricksConnection(
-      IDatabricksConnectionContext connectionContext, DatabricksClient databricksClient)
+      IDatabricksConnectionContext connectionContext, IDatabricksClient databricksClient)
       throws DatabricksSQLException {
     this.session = new DatabricksSession(connectionContext, databricksClient);
     this.session.open();

@@ -6,11 +6,12 @@ import static java.lang.String.format;
 
 import com.databricks.jdbc.api.IDatabricksResultSet;
 import com.databricks.jdbc.api.IDatabricksStatement;
+import com.databricks.jdbc.api.impl.fake.EmptyResultSet;
 import com.databricks.jdbc.common.ErrorCodes;
 import com.databricks.jdbc.common.ErrorTypes;
 import com.databricks.jdbc.common.StatementType;
 import com.databricks.jdbc.common.util.*;
-import com.databricks.jdbc.dbclient.DatabricksClient;
+import com.databricks.jdbc.dbclient.IDatabricksClient;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.exception.DatabricksSQLFeatureNotSupportedException;
 import com.databricks.jdbc.exception.DatabricksTimeoutException;
@@ -517,13 +518,19 @@ public class DatabricksStatement implements IDatabricksStatement, Statement {
       if (closeStatement) {
         this.close(); // Close the statement
       }
-      futureResultSet.cancel(true); // Cancel execution run
-      throw new DatabricksTimeoutException(
-          "Statement execution timed-out. " + stackTraceMessage,
+      String timeoutErrorMessage =
+          String.format(
+              "Statement execution timed-out. ErrorMessage %s, statementId %s",
+              stackTraceMessage, statementId);
+      LOGGER.error(timeoutErrorMessage);
+      new DatabricksTimeoutException(
+          timeoutErrorMessage,
           e,
           connection.getSession().getConnectionContext(),
           statementId,
           ErrorCodes.STATEMENT_EXECUTION_TIMEOUT);
+      futureResultSet.cancel(true); // Cancel execution run
+
     } catch (InterruptedException | ExecutionException e) {
       Throwable cause = e;
       // Look for underlying DatabricksSQL exception
@@ -570,7 +577,7 @@ public class DatabricksStatement implements IDatabricksStatement, Statement {
   DatabricksResultSet getResultFromClient(
       String sql, Map<Integer, ImmutableSqlParameter> params, StatementType statementType)
       throws SQLException {
-    DatabricksClient client = connection.getSession().getDatabricksClient();
+    IDatabricksClient client = connection.getSession().getDatabricksClient();
     return client.executeStatement(
         sql,
         connection.getSession().getComputeResource(),

@@ -1,11 +1,15 @@
 package com.databricks.jdbc.common.util;
 
+import static com.databricks.jdbc.common.DatabricksJdbcConstants.*;
+
 import com.databricks.jdbc.exception.DatabricksHttpException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.exception.DatabricksValidationException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
+import java.util.List;
 import java.util.Map;
+import java.util.regex.Pattern;
 import org.apache.http.HttpResponse;
 
 public class ValidationUtil {
@@ -50,5 +54,30 @@ public class ValidationUtil {
         String.format("HTTP request failed by code: %d, status line: %s", statusCode, statusLine);
     throw new DatabricksHttpException(
         "Unable to fetch HTTP response successfully. " + errorMessage);
+  }
+
+  /**
+   * Validates the JDBC URL.
+   *
+   * @param url JDBC URL
+   * @return true if the URL is valid, false otherwise
+   */
+  public static boolean isValidJdbcUrl(String url) {
+    final List<Pattern> PATH_PATTERNS =
+        List.of(
+            HTTP_CLUSTER_PATH_PATTERN,
+            HTTP_WAREHOUSE_PATH_PATTERN,
+            HTTP_ENDPOINT_PATH_PATTERN,
+            TEST_PATH_PATTERN,
+            BASE_PATTERN,
+            HTTP_CLI_PATTERN);
+
+    // check if URL matches the generic format
+    if (!JDBC_URL_PATTERN.matcher(url).matches()) {
+      return false;
+    }
+
+    // check if path in URL matches any of the specific patterns
+    return PATH_PATTERNS.stream().anyMatch(pattern -> pattern.matcher(url).matches());
   }
 }

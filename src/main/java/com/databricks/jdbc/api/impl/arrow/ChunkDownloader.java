@@ -1,4 +1,4 @@
-package com.databricks.jdbc.api.impl;
+package com.databricks.jdbc.api.impl.arrow;
 
 import com.databricks.jdbc.api.IDatabricksSession;
 import com.databricks.jdbc.common.CompressionType;
@@ -6,6 +6,7 @@ import com.databricks.jdbc.common.ErrorCodes;
 import com.databricks.jdbc.common.ErrorTypes;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
 import com.databricks.jdbc.dbclient.impl.http.DatabricksHttpClient;
+import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
@@ -47,7 +48,8 @@ public class ChunkDownloader {
       ResultManifest resultManifest,
       ResultData resultData,
       IDatabricksSession session,
-      int chunksDownloaderThreadPoolSize) {
+      int chunksDownloaderThreadPoolSize)
+      throws DatabricksParsingException {
     this(
         statementId,
         resultManifest,
@@ -64,7 +66,8 @@ public class ChunkDownloader {
       ResultData resultData,
       IDatabricksSession session,
       IDatabricksHttpClient httpClient,
-      int chunksDownloaderThreadPoolSize) {
+      int chunksDownloaderThreadPoolSize)
+      throws DatabricksParsingException {
     this.chunksDownloaderThreadPoolSize = chunksDownloaderThreadPoolSize;
     this.chunkDownloaderExecutorService = createChunksDownloaderExecutorService();
     this.httpClient = httpClient;
@@ -79,7 +82,8 @@ public class ChunkDownloader {
       String statementId,
       TRowSet resultData,
       IDatabricksSession session,
-      int chunksDownloaderThreadPoolSize) {
+      int chunksDownloaderThreadPoolSize)
+      throws DatabricksParsingException {
     this(
         statementId,
         resultData,
@@ -94,7 +98,8 @@ public class ChunkDownloader {
       TRowSet resultData,
       IDatabricksSession session,
       IDatabricksHttpClient httpClient,
-      int chunksDownloaderThreadPoolSize) {
+      int chunksDownloaderThreadPoolSize)
+      throws DatabricksParsingException {
     this.chunksDownloaderThreadPoolSize = chunksDownloaderThreadPoolSize;
     this.chunkDownloaderExecutorService = createChunksDownloaderExecutorService();
     this.httpClient = httpClient;
@@ -106,7 +111,7 @@ public class ChunkDownloader {
   }
 
   private static ConcurrentHashMap<Long, ArrowResultChunk> initializeChunksMap(
-      TRowSet resultData, String statementId) {
+      TRowSet resultData, String statementId) throws DatabricksParsingException {
     ConcurrentHashMap<Long, ArrowResultChunk> chunkIndexMap = new ConcurrentHashMap<>();
     long chunkIndex = 0;
     if (resultData.getResultLinksSize() == 0) {
@@ -116,7 +121,11 @@ public class ChunkDownloader {
       // TODO : add compression
       chunkIndexMap.put(
           chunkIndex,
-          new ArrowResultChunk(chunkIndex, resultLink, statementId, CompressionType.NONE));
+          ArrowResultChunk.builder()
+              .statementId(statementId)
+              .compressionType(CompressionType.NONE)
+              .withThriftChunkInfo(chunkIndex, resultLink)
+              .build());
       chunkIndex++;
     }
     return chunkIndexMap;
@@ -273,7 +282,8 @@ public class ChunkDownloader {
   }
 
   private static ConcurrentHashMap<Long, ArrowResultChunk> initializeChunksMap(
-      ResultManifest resultManifest, ResultData resultData, String statementId) {
+      ResultManifest resultManifest, ResultData resultData, String statementId)
+      throws DatabricksParsingException {
     ConcurrentHashMap<Long, ArrowResultChunk> chunkIndexMap = new ConcurrentHashMap<>();
     if (resultManifest.getTotalChunkCount() == 0) {
       return chunkIndexMap;
@@ -284,7 +294,11 @@ public class ChunkDownloader {
       // buffer.
       chunkIndexMap.put(
           chunkInfo.getChunkIndex(),
-          new ArrowResultChunk(chunkInfo, statementId, resultManifest.getCompressionType()));
+          ArrowResultChunk.builder()
+              .statementId(statementId)
+              .compressionType(resultManifest.getCompressionType())
+              .withChunkInfo(chunkInfo)
+              .build());
     }
 
     for (ExternalLink externalLink : resultData.getExternalLinks()) {

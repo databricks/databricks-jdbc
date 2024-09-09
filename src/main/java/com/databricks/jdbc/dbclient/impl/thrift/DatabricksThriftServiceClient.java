@@ -11,8 +11,8 @@ import com.databricks.jdbc.api.impl.*;
 import com.databricks.jdbc.common.CommandName;
 import com.databricks.jdbc.common.IDatabricksComputeResource;
 import com.databricks.jdbc.common.StatementType;
-import com.databricks.jdbc.dbclient.DatabricksClient;
-import com.databricks.jdbc.dbclient.DatabricksMetadataClient;
+import com.databricks.jdbc.dbclient.IDatabricksClient;
+import com.databricks.jdbc.dbclient.IDatabricksMetadataClient;
 import com.databricks.jdbc.dbclient.impl.common.MetadataResultSetBuilder;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
@@ -26,7 +26,7 @@ import java.sql.SQLException;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
 
-public class DatabricksThriftServiceClient implements DatabricksClient, DatabricksMetadataClient {
+public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabricksMetadataClient {
   public static final JdbcLogger LOGGER =
       JdbcLoggerFactory.getLogger(DatabricksThriftServiceClient.class);
   private final DatabricksThriftAccessor thriftAccessor;
@@ -260,7 +260,7 @@ public class DatabricksThriftServiceClient implements DatabricksClient, Databric
     TFetchResultsResp response =
         (TFetchResultsResp)
             thriftAccessor.getThriftResponse(request, CommandName.LIST_TABLES, null);
-    return getTablesResult(extractValuesColumnar(response.getResults().getColumns()));
+    return getTablesResult(catalog, extractValuesColumnar(response.getResults().getColumns()));
   }
 
   @Override

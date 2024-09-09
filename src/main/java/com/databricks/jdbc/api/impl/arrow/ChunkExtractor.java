@@ -1,4 +1,4 @@
-package com.databricks.jdbc.api.impl;
+package com.databricks.jdbc.api.impl.arrow;
 
 import static com.databricks.jdbc.common.util.DatabricksTypeUtil.*;
 
@@ -35,7 +35,11 @@ public class ChunkExtractor {
     this.totalRows = 0;
     initializeByteStream(arrowBatches, metadata);
     // Todo : Add compression appropriately
-    arrowResultChunk = new ArrowResultChunk(totalRows, null, CompressionType.NONE, byteStream);
+    arrowResultChunk =
+        ArrowResultChunk.builder()
+            .compressionType(CompressionType.NONE)
+            .withInputStream(byteStream, totalRows)
+            .build();
   }
 
   public boolean hasNext() {

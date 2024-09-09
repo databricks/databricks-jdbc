@@ -4,6 +4,7 @@ import static com.databricks.jdbc.common.DatabricksJdbcConstants.*;
 import static com.databricks.jdbc.integration.IntegrationTestUtil.*;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import com.databricks.jdbc.common.DatabricksJdbcUrlParams;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.integration.fakeservice.AbstractFakeServiceIntegrationTests;
 import com.databricks.jdbc.integration.fakeservice.FakeServiceConfigLoader;
@@ -43,7 +44,9 @@ public class ConnectionIntegrationTests extends AbstractFakeServiceIntegrationTe
         "jdbc:databricks://%s/default;transportMode=http;ssl=0;AuthMech=11;AuthFlow=0;httpPath=%s";
     String url =
         String.format(
-            template, getFakeServiceHost(), FakeServiceConfigLoader.getProperty(HTTP_PATH));
+            template,
+            getFakeServiceHost(),
+            FakeServiceConfigLoader.getProperty(DatabricksJdbcUrlParams.HTTP_PATH.getParamName()));
     DatabricksSQLException e =
         assertThrows(
             DatabricksSQLException.class,
@@ -54,10 +57,14 @@ public class ConnectionIntegrationTests extends AbstractFakeServiceIntegrationTe
 
   private Properties createConnectionProperties(String password) {
     Properties connProps = new Properties();
-    connProps.put(USER, getDatabricksUser());
-    connProps.put(PASSWORD, password);
-    connProps.put(CATALOG, FakeServiceConfigLoader.getProperty(CATALOG));
-    connProps.put(CONN_SCHEMA, FakeServiceConfigLoader.getProperty(CONN_SCHEMA));
+    connProps.put(DatabricksJdbcUrlParams.USER.getParamName(), getDatabricksUser());
+    connProps.put(DatabricksJdbcUrlParams.PASSWORD.getParamName(), password);
+    connProps.put(
+        DatabricksJdbcUrlParams.CATALOG.getParamName(),
+        FakeServiceConfigLoader.getProperty(DatabricksJdbcUrlParams.CATALOG.getParamName()));
+    connProps.put(
+        DatabricksJdbcUrlParams.CONN_SCHEMA.getParamName(),
+        FakeServiceConfigLoader.getProperty(DatabricksJdbcUrlParams.CONN_SCHEMA.getParamName()));
 
     return connProps;
   }

@@ -7,7 +7,7 @@ import com.databricks.jdbc.api.IDatabricksSession;
 import com.databricks.jdbc.api.impl.DatabricksResultSet;
 import com.databricks.jdbc.api.impl.ImmutableSqlParameter;
 import com.databricks.jdbc.common.StatementType;
-import com.databricks.jdbc.dbclient.DatabricksMetadataClient;
+import com.databricks.jdbc.dbclient.IDatabricksMetadataClient;
 import com.databricks.jdbc.dbclient.impl.common.MetadataResultSetBuilder;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
@@ -22,7 +22,7 @@ import java.util.Optional;
  * https://docs.google.com/document/d/1E28o7jyPIp6_byZHGD5Eyc4uwGVSydX5o9PaiSY1V4s/edit#heading=h.681k0yimshae
  * Tracking bug for replacement: (PECO-1502)
  */
-public class DatabricksNewMetadataSdkClient implements DatabricksMetadataClient {
+public class DatabricksNewMetadataSdkClient implements IDatabricksMetadataClient {
   public static final JdbcLogger LOGGER =
       JdbcLoggerFactory.getLogger(DatabricksNewMetadataSdkClient.class);
   private final DatabricksSdkClient sdkClient;

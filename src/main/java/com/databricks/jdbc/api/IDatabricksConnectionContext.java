@@ -12,6 +12,12 @@ import java.util.Map;
 
 public interface IDatabricksConnectionContext {
 
+  enum Cloud {
+    AWS,
+    AZURE,
+    OTHER
+  }
+
   enum AuthFlow {
     TOKEN_PASSTHROUGH,
     CLIENT_CREDENTIALS,
@@ -37,8 +43,8 @@ public interface IDatabricksConnectionContext {
   }
 
   /**
-   * Returns host-Url for Databricks server as parsed from JDBC connection in format
-   * https://server:port
+   * Returns host-Url for Databricks server as parsed from JDBC connection in format <code>
+   * https://server:port</code>
    *
    * @return Databricks host-Url
    */
@@ -152,4 +158,36 @@ public interface IDatabricksConnectionContext {
   boolean enableTelemetry();
 
   String getConnectionURL();
+
+  /** Returns the file path to the JWT private key used for signing the JWT. */
+  String getJWTKeyFile();
+
+  /** Returns the Key ID (KID) used in the JWT header, identifying the key. */
+  String getKID();
+
+  /** Returns the passphrase to decrypt the private key if the key is encrypted. */
+  String getJWTPassphrase();
+
+  /** Returns the algorithm used for signing the JWT (e.g., RS256, ES256). */
+  String getJWTAlgorithm();
+
+  /** Returns whether JWT assertion should be used for OAuth2 authentication. */
+  boolean useJWTAssertion();
+
+  /** Returns the OAuth2 token endpoint URL for retrieving tokens. */
+  String getTokenEndpoint();
+
+  /** Returns the OAuth2 authorization endpoint URL for the authorization code flow. */
+  String getAuthEndpoint();
+
+  /** Returns whether OAuth2 discovery mode is enabled, which fetches endpoints dynamically. */
+  boolean isOAuthDiscoveryModeEnabled();
+
+  /** Returns the discovery URL used to obtain the OAuth2 token and authorization endpoints. */
+  String getOAuthDiscoveryURL();
+
+  /** Returns the OAuth2 authentication scope used in the request. */
+  String getAuthScope();
+
+  String getOAuthRefreshToken();
 }

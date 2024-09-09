@@ -7,7 +7,7 @@ import com.databricks.jdbc.api.impl.DatabricksResultSet;
 import com.databricks.jdbc.api.impl.ImmutableSqlParameter;
 import com.databricks.jdbc.common.StatementType;
 import com.databricks.jdbc.common.util.WildcardUtil;
-import com.databricks.jdbc.dbclient.DatabricksMetadataClient;
+import com.databricks.jdbc.dbclient.IDatabricksMetadataClient;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.sdk.service.sql.StatementState;
@@ -21,8 +21,8 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-/** Implementation for DatabricksMetadataClient using SDK client */
-public class DatabricksMetadataSdkClient implements DatabricksMetadataClient {
+/** Implementation for IDatabricksMetadataClient using SDK client */
+public class DatabricksMetadataSdkClient implements IDatabricksMetadataClient {
   public static final JdbcLogger LOGGER =
       JdbcLoggerFactory.getLogger(DatabricksMetadataSdkClient.class);
   private final DatabricksSdkClient sdkClient;

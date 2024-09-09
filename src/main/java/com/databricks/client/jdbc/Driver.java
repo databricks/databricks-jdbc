@@ -4,7 +4,7 @@ import static com.databricks.jdbc.common.DatabricksJdbcConstants.*;
 
 import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.api.impl.DatabricksConnection;
-import com.databricks.jdbc.api.impl.DatabricksConnectionContext;
+import com.databricks.jdbc.api.impl.DatabricksConnectionContextFactory;
 import com.databricks.jdbc.common.DatabricksClientType;
 import com.databricks.jdbc.common.DatabricksJdbcConstants;
 import com.databricks.jdbc.common.ErrorCodes;
@@ -12,6 +12,7 @@ import com.databricks.jdbc.common.ErrorTypes;
 import com.databricks.jdbc.common.util.DeviceInfoLogUtil;
 import com.databricks.jdbc.common.util.DriverUtil;
 import com.databricks.jdbc.common.util.LoggingUtil;
+import com.databricks.jdbc.common.util.ValidationUtil;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
@@ -20,10 +21,7 @@ import java.io.IOException;
 import java.sql.*;
 import java.util.Properties;
 
-/**
- * Databricks JDBC driver. TODO: Add implementation to accept Urls in format:
- * jdbc:databricks://host:port.
- */
+/** Databricks JDBC driver. */
 public class Driver implements java.sql.Driver {
   public static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(Driver.class);
   private static final Driver INSTANCE;
@@ -31,20 +29,29 @@ public class Driver implements java.sql.Driver {
   static {
     try {
       DriverManager.registerDriver(INSTANCE = new Driver());
-      System.out.printf("Driver has been registered. instance = %s\n", INSTANCE);
     } catch (SQLException e) {
       throw new IllegalStateException("Unable to register " + Driver.class, e);
     }
   }
 
+  public static void main(String[] args) {
+    System.out.printf("The driver {%s} has been initialized.%n", Driver.class);
+  }
+
+  public static void setUserAgent(IDatabricksConnectionContext connectionContext) {
+    UserAgent.withProduct(DatabricksJdbcConstants.DEFAULT_USER_AGENT, DriverUtil.getVersion());
+    UserAgent.withOtherInfo(CLIENT_USER_AGENT_PREFIX, connectionContext.getClientUserAgent());
+  }
+
   @Override
   public boolean acceptsURL(String url) {
-    return DatabricksConnectionContext.isValid(url);
+    return ValidationUtil.isValidJdbcUrl(url);
   }
 
   @Override
   public Connection connect(String url, Properties info) throws DatabricksSQLException {
-    IDatabricksConnectionContext connectionContext = DatabricksConnectionContext.parse(url, info);
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContextFactory.create(url, info);
     try {
       LoggingUtil.setupLogger(
           connectionContext.getLogPathString(),
@@ -94,6 +101,35 @@ public class Driver implements java.sql.Driver {
     }
   }
 
+  @Override
+  public int getMajorVersion() {
+    return DriverUtil.getMajorVersion();
+  }
+
+  @Override
+  public int getMinorVersion() {
+    return DriverUtil.getMinorVersion();
+  }
+
+  @Override
+  public DriverPropertyInfo[] getPropertyInfo(String url, Properties info) {
+    throw new UnsupportedOperationException("Not implemented");
+  }
+
+  @Override
+  public boolean jdbcCompliant() {
+    return false;
+  }
+
+  @Override
+  public java.util.logging.Logger getParentLogger() {
+    return null;
+  }
+
+  public static Driver getInstance() {
+    return INSTANCE;
+  }
+
   private void setMetadataClient(
       DatabricksConnection connection, IDatabricksConnectionContext connectionContext) {
     if (connectionContext.getUseLegacyMetadata().equals(true)) {
@@ -124,43 +160,5 @@ public class Driver implements java.sql.Driver {
               dbsqlVersion));
       return false;
     }
-  }
-
-  @Override
-  public int getMajorVersion() {
-    return DriverUtil.getMajorVersion();
-  }
-
-  @Override
-  public int getMinorVersion() {
-    return DriverUtil.getMinorVersion();
-  }
-
-  @Override
-  public DriverPropertyInfo[] getPropertyInfo(String url, Properties info) {
-    throw new UnsupportedOperationException("Not implemented");
-  }
-
-  @Override
-  public boolean jdbcCompliant() {
-    return false;
-  }
-
-  @Override
-  public java.util.logging.Logger getParentLogger() {
-    return null;
-  }
-
-  public static Driver getInstance() {
-    return INSTANCE;
-  }
-
-  public static void main(String[] args) {
-    System.out.printf("The driver {%s} has been initialized.%n", Driver.class);
-  }
-
-  public static void setUserAgent(IDatabricksConnectionContext connectionContext) {
-    UserAgent.withProduct(DatabricksJdbcConstants.DEFAULT_USER_AGENT, DriverUtil.getVersion());
-    UserAgent.withOtherInfo(CLIENT_USER_AGENT_PREFIX, connectionContext.getClientUserAgent());
   }
 }

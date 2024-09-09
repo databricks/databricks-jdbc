@@ -16,6 +16,7 @@ public abstract class AbstractObjectConverter {
     1, 10, 100, 1000, 10000, 100000, 1000000, 10000000, 100000000, 1000000000
   };
 
+  // Assumes that the object is in milliseconds
   int DEFAULT_TIMESTAMP_SCALE = 3;
   Object object;
 
@@ -88,17 +89,16 @@ public abstract class AbstractObjectConverter {
   }
 
   public InputStream convertToBinaryStream() throws DatabricksSQLException {
-    ByteArrayOutputStream bos = new ByteArrayOutputStream();
-    try {
-      ObjectOutputStream out = new ObjectOutputStream(bos);
+    try (ByteArrayOutputStream bos = new ByteArrayOutputStream();
+        ObjectOutputStream out = new ObjectOutputStream(bos)) {
       out.writeObject(object);
       out.flush();
+      byte[] objectBytes = bos.toByteArray();
+      return new ByteArrayInputStream(objectBytes);
     } catch (IOException e) {
       throw new DatabricksSQLException(
           "Could not convert object to binary stream " + object.toString(), e);
     }
-    byte[] objectBytes = bos.toByteArray();
-    return new ByteArrayInputStream(objectBytes);
   }
 
   public InputStream convertToUnicodeStream() throws DatabricksSQLException {

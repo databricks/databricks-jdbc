@@ -37,7 +37,7 @@ public class MetadataResultConstants {
 
   public static final ResultColumn TABLE_NAME_COLUMN =
       new ResultColumn("TABLE_NAME", "tableName", Types.VARCHAR);
-  private static final ResultColumn TABLE_TYPE_COLUMN =
+  public static final ResultColumn TABLE_TYPE_COLUMN =
       new ResultColumn("TABLE_TYPE", "tableType", Types.VARCHAR);
   public static final ResultColumn REMARKS_COLUMN =
       new ResultColumn("REMARKS", "remarks", Types.VARCHAR);
@@ -108,7 +108,7 @@ public class MetadataResultConstants {
   private static final ResultColumn USER_DATA_TYPE_COLUMN =
       new ResultColumn("USER_DATA_TYPE", "UserDataType", Types.SMALLINT);
   public static final ResultColumn NULLABLE_COLUMN =
-      new ResultColumn("NULLABLE", "isNullable", Types.BIT);
+      new ResultColumn("NULLABLE", "isNullable", Types.INTEGER);
   public static final ResultColumn ORDINAL_POSITION_COLUMN =
       new ResultColumn("ORDINAL_POSITION", "ordinalPosition", Types.INTEGER);
   public static final ResultColumn IS_AUTO_INCREMENT_COLUMN =
@@ -249,6 +249,10 @@ public class MetadataResultConstants {
           CHAR_OCTET_LENGTH_COLUMN,
           ORDINAL_POSITION_COLUMN,
           IS_NULLABLE_COLUMN,
+          SCOPE_CATALOG_COLUMN,
+          SCOPE_SCHEMA_COLUMN,
+          SCOPE_TABLE_COLUMN,
+          SOURCE_DATA_TYPE_COLUMN,
           IS_AUTO_INCREMENT_COLUMN,
           IS_GENERATED_COLUMN);
   public static String NULL_STRING = "NULL";
