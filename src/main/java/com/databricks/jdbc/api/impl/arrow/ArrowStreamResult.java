@@ -19,6 +19,10 @@ import com.google.common.annotations.VisibleForTesting;
 import java.util.ArrayList;
 import java.util.List;
 
+/***
+ * consider remove the inline result check and use the chunk extractor/downloader for all cases
+ */
+
 public class ArrowStreamResult implements IExecutionResult {
 
   private IDatabricksSession session;
@@ -166,6 +170,7 @@ public class ArrowStreamResult implements IExecutionResult {
       return false;
     }
     currentRowIndex++;
+    // can we remove the isInlineArrow check?
     if (isInlineArrow) {
       if (chunkIterator == null) {
         chunkIterator = chunkExtractor.next().getChunkIterator();
