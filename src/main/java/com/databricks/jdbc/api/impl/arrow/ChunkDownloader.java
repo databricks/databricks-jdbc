@@ -24,6 +24,8 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.atomic.AtomicInteger;
 
+/** generate comments for this file: consider adding more informational logging * */
+
 /** Class to manage Arrow chunks and fetch them on proactive basis. */
 public class ChunkDownloader {
   private static final String CHUNKS_DOWNLOADER_THREAD_POOL_PREFIX =
@@ -109,6 +111,7 @@ public class ChunkDownloader {
     initializeData();
   }
 
+  /** is it intentional to make the method static? * */
   private static ConcurrentHashMap<Long, ArrowResultChunk> initializeChunksMap(
       TRowSet resultData, String statementId) throws DatabricksParsingException {
     ConcurrentHashMap<Long, ArrowResultChunk> chunkIndexMap = new ConcurrentHashMap<>();
@@ -152,6 +155,7 @@ public class ChunkDownloader {
    * @return the chunk at given index
    */
   public ArrowResultChunk getChunk() throws DatabricksSQLException {
+    // this should be an exception?
     if (currentChunkIndex < 0) {
       return null;
     }
