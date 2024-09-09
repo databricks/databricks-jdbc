@@ -181,20 +181,22 @@ class VolumeOperationExecutor implements Runnable {
     try {
       // We return the input stream directly to clients, if they want to consume as input stream
       if (statement.isAllowedInputStreamForVolumeOperation()) {
-        CloseableHttpResponse response = databricksHttpClient.execute(httpGet);
-        if (!isSuccessfulHttpResponse(response)) {
-          String message =
-              String.format(
-                  "Failed to fetch content from volume with error code {%s} for input stream and error {%s}",
-                  response.getStatusLine().getStatusCode(),
-                  response.getStatusLine().getReasonPhrase());
-          LoggingUtil.log(LogLevel.ERROR, message);
-          updateStatus(VolumeOperationStatus.FAILED, message);
-          return;
-        }
-        entity = response.getEntity();
-        if (entity != null) {
-          this.resultSet.setVolumeOperationEntityStream(entity);
+        try (CloseableHttpResponse response = databricksHttpClient.execute(httpGet)) {
+          if (!isSuccessfulHttpResponse(response)) {
+            String message =
+                String.format(
+                    "Failed to fetch content from volume with error code {%s} for input stream and error {%s}",
+                    response.getStatusLine().getStatusCode(),
+                    response.getStatusLine().getReasonPhrase());
+            LoggingUtil.log(LogLevel.ERROR, message);
+            updateStatus(VolumeOperationStatus.FAILED, message);
+            return;
+          }
+          entity = response.getEntity();
+          if (entity != null) {
+            // Make sure this will be closed by resultset later
+            this.resultSet.setVolumeOperationEntityStream(entity);
+          }
         }
         updateStatus(VolumeOperationStatus.SUCCEEDED);
         return;
@@ -228,16 +230,9 @@ class VolumeOperationExecutor implements Runnable {
       }
       entity = response.getEntity();
       if (entity != null) {
-        // Get the content of the HttpEntity
-        InputStream inputStream = entity.getContent();
         // Create a FileOutputStream to write the content to a file
         try (FileOutputStream outputStream = new FileOutputStream(localFile)) {
-          // Copy the content of the InputStream to the FileOutputStream
-          byte[] buffer = new byte[1024];
-          int length;
-          while ((length = inputStream.read(buffer)) != -1) {
-            outputStream.write(buffer, 0, length);
-          }
+          entity.writeTo(outputStream);
           updateStatus(VolumeOperationStatus.SUCCEEDED);
         } catch (FileNotFoundException e) {
           LoggingUtil.log(
