@@ -6,7 +6,7 @@ import java.math.BigInteger;
 
 public class BigDecimalConverter extends AbstractObjectConverter {
 
-  private BigDecimal object;
+  private final BigDecimal object;
 
   public BigDecimalConverter(Object object) throws DatabricksSQLException {
     super(object);
@@ -18,42 +18,27 @@ public class BigDecimalConverter extends AbstractObjectConverter {
   }
 
   @Override
-  public BigDecimal convertToBigDecimal() throws DatabricksSQLException {
-    return this.object;
-  }
-
-  @Override
   public byte convertToByte() throws DatabricksSQLException {
     try {
-      return this.object.toBigInteger().byteValueExact();
+      return object.toBigInteger().byteValueExact();
     } catch (ArithmeticException e) {
       throw new DatabricksSQLException("Invalid conversion");
     }
-  }
-
-  @Override
-  public byte[] convertToByteArray() throws DatabricksSQLException {
-    return this.object.toBigInteger().toByteArray();
   }
 
   @Override
   public short convertToShort() throws DatabricksSQLException {
     try {
-      return this.object.toBigInteger().shortValueExact();
+      return object.toBigInteger().shortValueExact();
     } catch (ArithmeticException e) {
       throw new DatabricksSQLException("Invalid conversion");
     }
   }
 
   @Override
-  public BigInteger convertToBigInteger() throws DatabricksSQLException {
-    return this.object.toBigInteger();
-  }
-
-  @Override
   public int convertToInt() throws DatabricksSQLException {
     try {
-      return this.object.toBigInteger().intValueExact();
+      return object.toBigInteger().intValueExact();
     } catch (ArithmeticException e) {
       throw new DatabricksSQLException("Invalid conversion");
     }
@@ -62,7 +47,7 @@ public class BigDecimalConverter extends AbstractObjectConverter {
   @Override
   public long convertToLong() throws DatabricksSQLException {
     try {
-      return this.object.toBigInteger().longValueExact();
+      return object.toBigInteger().longValueExact();
     } catch (ArithmeticException e) {
       throw new DatabricksSQLException("Invalid conversion");
     }
@@ -70,21 +55,36 @@ public class BigDecimalConverter extends AbstractObjectConverter {
 
   @Override
   public float convertToFloat() throws DatabricksSQLException {
-    return this.object.floatValue();
+    return object.floatValue();
   }
 
   @Override
   public double convertToDouble() throws DatabricksSQLException {
-    return this.object.doubleValue();
+    return object.doubleValue();
+  }
+
+  @Override
+  public BigDecimal convertToBigDecimal() throws DatabricksSQLException {
+    return object;
+  }
+
+  @Override
+  public BigInteger convertToBigInteger() throws DatabricksSQLException {
+    return object.toBigInteger();
   }
 
   @Override
   public boolean convertToBoolean() throws DatabricksSQLException {
-    return !this.object.equals(BigDecimal.valueOf(0));
+    return !object.equals(BigDecimal.valueOf(0));
+  }
+
+  @Override
+  public byte[] convertToByteArray() throws DatabricksSQLException {
+    return object.toBigInteger().toByteArray();
   }
 
   @Override
   public String convertToString() throws DatabricksSQLException {
-    return String.valueOf(this.object);
+    return String.valueOf(object);
   }
 }

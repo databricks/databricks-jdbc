@@ -1,7 +1,7 @@
 package com.databricks.jdbc.integration.e2e;
 
-import static com.databricks.jdbc.common.DatabricksJdbcConstants.PASSWORD;
-import static com.databricks.jdbc.common.DatabricksJdbcConstants.USER;
+import static com.databricks.jdbc.common.DatabricksJdbcUrlParams.PASSWORD;
+import static com.databricks.jdbc.common.DatabricksJdbcUrlParams.USER;
 import static com.databricks.jdbc.integration.IntegrationTestUtil.*;
 import static org.junit.jupiter.api.Assertions.*;
 

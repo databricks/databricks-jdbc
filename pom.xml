@@ -5,7 +5,7 @@
   <groupId>com.databricks</groupId>
   <artifactId>databricks-jdbc</artifactId>
   <!-- This value may be modified by a release script to reflect the current version of the driver. -->
-  <version>0.9.2-oss</version>
+  <version>0.9.3-oss</version>
   <packaging>jar</packaging>
   <name>Databricks JDBC Driver</name>
   <description>Databricks JDBC Driver.</description>
@@ -53,7 +53,7 @@
     <immutables.value.version>2.9.2</immutables.value.version>
     <httpclient.version>4.5.14</httpclient.version>
     <commons-io.version>2.13.0</commons-io.version>
-    <databricks-sdk.version>0.27.1</databricks-sdk.version>
+    <databricks-sdk.version>0.31.0</databricks-sdk.version>
     <maven-surefire-plugin.version>3.1.2</maven-surefire-plugin.version>
     <sql-logic-test.version>0.3</sql-logic-test.version>
     <lz4-compression.version>1.8.0</lz4-compression.version>
@@ -348,6 +348,7 @@
           <excludes>
             <exclude>**/CommandName*</exclude>
             <exclude>**/DatabricksJdbcConstants*</exclude>
+            <exclude>**/DatabricksJdbcUrlParams*</exclude>
             <exclude>**/EnvironmentVariables*</exclude>
             <exclude>**/*Constants*</exclude>
             <exclude>**/*Exception*</exclude>

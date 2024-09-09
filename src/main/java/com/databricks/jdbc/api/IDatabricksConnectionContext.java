@@ -12,6 +12,12 @@ import java.util.Map;
 
 public interface IDatabricksConnectionContext {
 
+  enum Cloud {
+    AWS,
+    AZURE,
+    OTHER
+  }
+
   enum AuthFlow {
     TOKEN_PASSTHROUGH,
     CLIENT_CREDENTIALS,
@@ -37,8 +43,8 @@ public interface IDatabricksConnectionContext {
   }
 
   /**
-   * Returns host-Url for Databricks server as parsed from JDBC connection in format
-   * https://server:port
+   * Returns host-Url for Databricks server as parsed from JDBC connection in format <code>
+   * https://server:port</code>
    *
    * @return Databricks host-Url
    */
@@ -182,4 +188,6 @@ public interface IDatabricksConnectionContext {
 
   /** Returns the OAuth2 authentication scope used in the request. */
   String getAuthScope();
+
+  String getOAuthRefreshToken();
 }

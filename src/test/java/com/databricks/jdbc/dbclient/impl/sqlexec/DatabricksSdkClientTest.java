@@ -7,10 +7,7 @@ import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.model.client.sqlexec.ExecuteStatementResponse;
 import com.databricks.sdk.core.ApiClient;
-import com.databricks.sdk.service.sql.ServiceError;
-import com.databricks.sdk.service.sql.StatementExecutionService;
-import com.databricks.sdk.service.sql.StatementState;
-import com.databricks.sdk.service.sql.StatementStatus;
+import com.databricks.sdk.service.sql.*;
 import java.sql.SQLException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -34,6 +31,7 @@ public class DatabricksSdkClientTest {
     when(status.getState()).thenReturn(StatementState.CANCELED);
     when(status.getError()).thenReturn(errorInfo);
     when(errorInfo.getMessage()).thenReturn("Error message");
+    when(errorInfo.getErrorCode()).thenReturn(ServiceErrorCode.BAD_REQUEST);
     DatabricksSdkClient databricksSdkClient =
         new DatabricksSdkClient(connectionContext, statementExecutionService, apiClient);
 
@@ -42,7 +40,8 @@ public class DatabricksSdkClientTest {
             SQLException.class,
             () -> databricksSdkClient.handleFailedExecution(response, statementId, statement));
     assertEquals(
-        "Statement execution failed statementId -> statement\n" + "CANCELED: Error message",
+        "Statement execution failed statementId -> statement\n"
+            + "CANCELED. Error Message: Error message, Error code: BAD_REQUEST",
         thrown.getMessage());
   }
 
