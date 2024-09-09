@@ -26,33 +26,6 @@ public class LoggingUtil {
     }
   }
 
-  public static void log(LogLevel level, String message, String classContext) {
-    log(level, String.format("%s - %s", classContext, message));
-  }
-
-  public static void log(LogLevel level, String message) {
-    switch (level) {
-      case DEBUG:
-        LOGGER.debug(message);
-        break;
-      case ERROR:
-      case FATAL:
-        LOGGER.error(message);
-        break;
-      case INFO:
-        LOGGER.info(message);
-        break;
-      case TRACE:
-        LOGGER.trace(message);
-        break;
-      case WARN:
-        LOGGER.warn(message);
-        break;
-      default:
-        LOGGER.error("Unrecognized log level: " + level + ". Message: " + message);
-    }
-  }
-
   /** Converts a {@link LogLevel} to a {@link Level} for Java Util Logging. */
   private static Level toJulLevel(LogLevel level) {
     switch (level) {
