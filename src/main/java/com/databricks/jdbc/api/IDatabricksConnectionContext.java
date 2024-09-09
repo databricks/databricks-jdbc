@@ -18,7 +18,6 @@ public interface IDatabricksConnectionContext {
     OTHER
   }
 
-
   enum AuthFlow {
     TOKEN_PASSTHROUGH,
     CLIENT_CREDENTIALS,
