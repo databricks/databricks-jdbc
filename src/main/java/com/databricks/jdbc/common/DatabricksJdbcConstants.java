@@ -78,24 +78,6 @@ public final class DatabricksJdbcConstants {
     CLOUD_FETCH_UC_VOLUME
   }
 
-  public static final String USE_THRIFT_CLIENT = "usethriftclient";
-
-  public static final String USE_LEGACY_METADATA = "uselegacymetadata";
-
-  static final String TEMPORARILY_UNAVAILABLE_RETRY = "TemporarilyUnavailableRetry";
-  static final String TEMPORARILY_UNAVAILABLE_RETRY_TIMEOUT = "TemporarilyUnavailableRetryTimeout";
-  public static final String DEFAULT_TEMPORARILY_UNAVAILABLE_RETRY_TIMEOUT = "900";
-  static final String RATE_LIMIT_RETRY = "RateLimitRetry";
-  static final String RATE_LIMIT_RETRY_TIMEOUT = "RateLimitRetryTimeout";
-  public static final String DEFAULT_RATE_LIMIT_RETRY_TIMEOUT = "120";
-  static final String IDLE_HTTP_CONNECTION_EXPIRY = "IdleHttpConnectionExpiry";
-  static final String SUPPORT_MANY_PARAMETERS = "supportManyParameters";
-  public static final String DEFAULT_IDLE_HTTP_CONNECTION_EXPIRY = "60";
-  public static final String CLOUD_FETCH_THREAD_POOL_SIZE = "cloudFetchThreadPoolSize";
-  public static final int CLOUD_FETCH_THREAD_POOL_SIZE_DEFAULT = 16;
-  public static final String ENABLE_TELEMETRY = "enableTelemetry";
-  public static final String CHECK_CERTIFICATE_REVOCATION = "CheckCertificateRevocation";
-  public static final String ACCEPT_UNDETERMINED_CERTIFICATE_REVOCATION = "AcceptUndeterminedRevocation";
   public static final Pattern SELECT_PATTERN =
       Pattern.compile("^(\\s*\\()*\\s*SELECT", Pattern.CASE_INSENSITIVE);
   public static final Pattern SHOW_PATTERN =

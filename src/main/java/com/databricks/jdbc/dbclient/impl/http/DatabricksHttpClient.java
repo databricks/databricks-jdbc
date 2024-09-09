@@ -8,6 +8,7 @@ import com.databricks.jdbc.common.ErrorTypes;
 import com.databricks.jdbc.common.LogLevel;
 import com.databricks.jdbc.common.util.LoggingUtil;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
+import com.databricks.jdbc.dbclient.impl.common.JdbcSslSocketFactoryHandler;
 import com.databricks.jdbc.exception.DatabricksHttpException;
 import com.databricks.jdbc.exception.DatabricksRetryHandlerException;
 import com.databricks.sdk.core.DatabricksConfig;
@@ -79,7 +80,7 @@ public class DatabricksHttpClient implements IDatabricksHttpClient {
   private static int rateLimitRetryTimeout;
   protected static int idleHttpConnectionExpiry;
   private CloseableHttpClient httpDisabledSSLClient;
-  private JdbcSSLSocketFactoryHandler sslSocketFactoryHandler;
+  private JdbcSslSocketFactoryHandler sslSocketFactoryHandler;
   private IDatabricksConnectionContext connectionContext;
 
   private DatabricksHttpClient(IDatabricksConnectionContext connectionContext) {
@@ -89,7 +90,7 @@ public class DatabricksHttpClient implements IDatabricksHttpClient {
     temporarilyUnavailableRetryTimeout = connectionContext.getTemporarilyUnavailableRetryTimeout();
     shouldRetryRateLimitError = connectionContext.shouldRetryRateLimitError();
     rateLimitRetryTimeout = connectionContext.getRateLimitRetryTimeout();
-    sslSocketFactoryHandler = new JdbcSSLSocketFactoryHandler(connectionContext);
+    sslSocketFactoryHandler = new JdbcSslSocketFactoryHandler(connectionContext);
     httpClient = makeClosableHttpClient(connectionContext);
     httpDisabledSSLClient = makeClosableDisabledSslHttpClient();
     idleHttpConnectionExpiry = connectionContext.getIdleHttpConnectionExpiry();
