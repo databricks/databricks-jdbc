@@ -244,6 +244,11 @@ public class ChunkDownloader {
     return totalChunksInMemory;
   }
 
+  /**
+   * PR comments: 1. can we avoid create executor service with threads for each request? 2. consider
+   * using global thread pooling 3. we are rely on user code to clean up the created thread, which
+   * may cause thread leak if user code is not well written.
+   */
   /** Release all chunks from memory. This would be called when result-set has been closed. */
   void releaseAllChunks() {
     this.isClosed = true;
