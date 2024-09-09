@@ -3,9 +3,9 @@ package com.databricks.jdbc.integration.fakeservice.tests;
 import static com.databricks.jdbc.integration.IntegrationTestUtil.*;
 import static org.junit.jupiter.api.Assertions.*;
 
-import com.databricks.jdbc.core.DatabricksParsingException;
-import com.databricks.jdbc.core.DatabricksSQLException;
-import com.databricks.jdbc.core.DatabricksSQLFeatureNotSupportedException;
+import com.databricks.jdbc.exception.DatabricksParsingException;
+import com.databricks.jdbc.exception.DatabricksSQLException;
+import com.databricks.jdbc.exception.DatabricksSQLFeatureNotSupportedException;
 import com.databricks.jdbc.integration.fakeservice.AbstractFakeServiceIntegrationTests;
 import java.sql.*;
 import org.junit.jupiter.api.Test;

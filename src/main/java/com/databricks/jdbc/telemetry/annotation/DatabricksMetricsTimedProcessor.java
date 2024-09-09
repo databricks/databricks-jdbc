@@ -1,8 +1,8 @@
 package com.databricks.jdbc.telemetry.annotation;
 
-import com.databricks.jdbc.core.DatabricksSession;
-import com.databricks.jdbc.core.IDatabricksSession;
-import com.databricks.jdbc.driver.IDatabricksConnectionContext;
+import com.databricks.jdbc.api.IDatabricksConnectionContext;
+import com.databricks.jdbc.api.IDatabricksSession;
+import com.databricks.jdbc.api.impl.DatabricksSession;
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;

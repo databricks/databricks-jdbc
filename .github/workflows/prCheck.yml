@@ -65,7 +65,7 @@ jobs:
           restore-keys: ${{ runner.os }}-m2
 
       - name: Check Unit Tests
-        run: mvn test -Dtest=!**/integration/**,!**/local/**
+        run: mvn test -Dtest=!**/integration/**,!**/DriverTest.java
 
       - name: Install xmllint
         if: runner.os == 'Linux'

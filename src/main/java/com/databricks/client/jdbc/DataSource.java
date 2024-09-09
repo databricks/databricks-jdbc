@@ -1,11 +1,12 @@
 package com.databricks.client.jdbc;
 
-import static com.databricks.jdbc.driver.DatabricksJdbcConstants.*;
+import static com.databricks.jdbc.common.DatabricksJdbcConstants.*;
 
-import com.databricks.jdbc.commons.LogLevel;
-import com.databricks.jdbc.commons.util.LoggingUtil;
-import com.databricks.jdbc.core.DatabricksSQLException;
-import com.databricks.jdbc.driver.DatabricksJdbcConstants;
+import com.databricks.jdbc.common.DatabricksJdbcConstants;
+import com.databricks.jdbc.common.DatabricksJdbcUrlParams;
+import com.databricks.jdbc.common.LogLevel;
+import com.databricks.jdbc.common.util.LoggingUtil;
+import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.pooling.DatabricksPooledConnection;
 import com.google.common.annotations.VisibleForTesting;
 import java.io.PrintWriter;
@@ -112,25 +113,32 @@ public class DataSource implements javax.sql.DataSource, ConnectionPoolDataSourc
       urlBuilder.append(PORT_DELIMITER).append(port);
     }
     if (httpPath != null) {
-      urlBuilder.append(URL_DELIMITER).append(HTTP_PATH).append(PAIR_DELIMITER).append(httpPath);
+      urlBuilder
+          .append(URL_DELIMITER)
+          .append(DatabricksJdbcUrlParams.HTTP_PATH.getParamName())
+          .append(PAIR_DELIMITER)
+          .append(httpPath);
     }
     return urlBuilder.toString();
   }
 
   public String getUsername() {
-    return properties.getProperty(DatabricksJdbcConstants.USER);
+    LoggingUtil.log(LogLevel.WARN, USERNAME_ERROR);
+    return DEFAULT_USERNAME;
   }
 
   public void setUsername(String username) {
-    properties.put(DatabricksJdbcConstants.USER, username);
+    LoggingUtil.log(LogLevel.WARN, USERNAME_ERROR);
   }
 
   public String getPassword() {
-    return properties.getProperty(DatabricksJdbcConstants.PASSWORD);
+    return properties.getProperty(
+        DatabricksJdbcUrlParams.PASSWORD.getParamName(),
+        properties.getProperty(DatabricksJdbcUrlParams.PWD.getParamName()));
   }
 
   public void setPassword(String password) {
-    properties.put(DatabricksJdbcConstants.PASSWORD, password);
+    properties.put(DatabricksJdbcUrlParams.PASSWORD.getParamName(), password);
   }
 
   public String getHost() {

@@ -7,14 +7,14 @@ import static org.mockito.Mockito.when;
 
 import com.databricks.client.jdbc.DataSource;
 import com.databricks.client.jdbc.Driver;
-import com.databricks.jdbc.client.impl.sdk.DatabricksSdkClient;
-import com.databricks.jdbc.core.DatabricksConnection;
-import com.databricks.jdbc.core.DatabricksSQLException;
-import com.databricks.jdbc.core.ImmutableSessionInfo;
-import com.databricks.jdbc.core.types.ComputeResource;
-import com.databricks.jdbc.core.types.Warehouse;
-import com.databricks.jdbc.driver.DatabricksConnectionContext;
-import com.databricks.jdbc.driver.IDatabricksConnectionContext;
+import com.databricks.jdbc.api.IDatabricksConnectionContext;
+import com.databricks.jdbc.api.impl.DatabricksConnection;
+import com.databricks.jdbc.api.impl.DatabricksConnectionContextFactory;
+import com.databricks.jdbc.api.impl.ImmutableSessionInfo;
+import com.databricks.jdbc.common.IDatabricksComputeResource;
+import com.databricks.jdbc.common.Warehouse;
+import com.databricks.jdbc.dbclient.impl.sqlexec.DatabricksSdkClient;
+import com.databricks.jdbc.exception.DatabricksSQLException;
 import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
@@ -35,14 +35,14 @@ public class DatabricksPooledConnectionTest {
   private static final String JDBC_URL =
       "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/791ba2a31c7fd70a;";
   private static final String WAREHOUSE_ID = "791ba2a31c7fd70a";
-  private static final ComputeResource warehouse = new Warehouse(WAREHOUSE_ID);
+  private static final IDatabricksComputeResource warehouse = new Warehouse(WAREHOUSE_ID);
   private static final String SESSION_ID = "session_id";
   @Mock private static DatabricksSdkClient databricksClient;
   private static IDatabricksConnectionContext connectionContext;
 
   @BeforeAll
   public static void setUp() throws DatabricksSQLException {
-    connectionContext = DatabricksConnectionContext.parse(JDBC_URL, new Properties());
+    connectionContext = DatabricksConnectionContextFactory.create(JDBC_URL, new Properties());
   }
 
   @Test
@@ -203,7 +203,7 @@ public class DatabricksPooledConnectionTest {
     assertTrue(statement.isClosed());
   }
 
-  class TestListener implements ConnectionEventListener {
+  static class TestListener implements ConnectionEventListener {
     List<ConnectionEvent> connectionClosedEvents = new ArrayList<>();
     List<ConnectionEvent> connectionErrorEvents = new ArrayList<>();
 
@@ -219,10 +219,6 @@ public class DatabricksPooledConnectionTest {
 
     public List<ConnectionEvent> getConnectionClosedEvents() {
       return connectionClosedEvents;
-    }
-
-    public List<ConnectionEvent> getConnectionErrorEvents() {
-      return connectionErrorEvents;
     }
   }
 }

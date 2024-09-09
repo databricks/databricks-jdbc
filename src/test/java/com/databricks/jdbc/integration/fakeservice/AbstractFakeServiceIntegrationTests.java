@@ -4,15 +4,15 @@ import static com.databricks.jdbc.integration.fakeservice.FakeServiceConfigLoade
 import static com.databricks.jdbc.integration.fakeservice.FakeServiceConfigLoader.DATABRICKS_HOST_PROP;
 import static com.github.tomakehurst.wiremock.core.WireMockConfiguration.wireMockConfig;
 
-import com.databricks.jdbc.driver.DatabricksJdbcConstants;
+import com.databricks.jdbc.common.DatabricksJdbcConstants;
 import com.github.tomakehurst.wiremock.extension.Extension;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
 /**
  * Base class for integration tests that use {@link FakeServiceExtension} for simulating {@link
- * com.databricks.jdbc.driver.DatabricksJdbcConstants.FakeServiceType#SQL_EXEC} and {@link
- * com.databricks.jdbc.driver.DatabricksJdbcConstants.FakeServiceType#CLOUD_FETCH}.
+ * DatabricksJdbcConstants.FakeServiceType#SQL_EXEC} and {@link
+ * DatabricksJdbcConstants.FakeServiceType#CLOUD_FETCH}.
  */
 public abstract class AbstractFakeServiceIntegrationTests {
 
@@ -75,7 +75,8 @@ public abstract class AbstractFakeServiceIntegrationTests {
   }
 
   /**
-   * Returns true if the test uses {@link com.databricks.jdbc.client.impl.sdk.DatabricksSdkClient}.
+   * Returns true if the test uses {@link
+   * com.databricks.jdbc.dbclient.impl.sqlexec.DatabricksSdkClient}.
    */
   protected boolean isSqlExecSdkClient() {
     return !FakeServiceConfigLoader.shouldUseThriftClient;
