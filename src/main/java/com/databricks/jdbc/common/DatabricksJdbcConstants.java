@@ -17,8 +17,6 @@ public final class DatabricksJdbcConstants {
   public static final Pattern HTTP_CLUSTER_PATH_PATTERN = Pattern.compile(".*/o/(.+)/(.+)");
   public static final String JDBC_SCHEMA = "jdbc:databricks://";
   public static final LogLevel DEFAULT_LOG_LEVEL = LogLevel.OFF;
-  public static final int DEFAULT_LOG_FILE_SIZE_IN_MB = 10;
-  public static final int DEFAULT_LOG_FILE_COUNT = 10;
   public static final String USER_AGENT_DELIMITER = "-";
   public static final String URL_DELIMITER = ";";
   public static final String PORT_DELIMITER = ":";
@@ -67,7 +65,6 @@ public final class DatabricksJdbcConstants {
       Set.of(ALLOWED_VOLUME_INGESTION_PATHS);
   @VisibleForTesting public static final String IS_FAKE_SERVICE_TEST_PROP = "isFakeServiceTest";
   @VisibleForTesting public static final String FAKE_SERVICE_URI_PROP_SUFFIX = ".fakeServiceURI";
-  public static final int POLL_INTERVAL_DEFAULT = 200;
   public static final String AWS_CLIENT_ID = "databricks-sql-jdbc";
   public static final String AAD_CLIENT_ID = "96eecda7-19ea-49cc-abb5-240097d554f5";
 
@@ -81,11 +78,6 @@ public final class DatabricksJdbcConstants {
     CLOUD_FETCH_UC_VOLUME
   }
 
-  public static final String DEFAULT_TEMPORARILY_UNAVAILABLE_RETRY_TIMEOUT = "900";
-  public static final String DEFAULT_RATE_LIMIT_RETRY_TIMEOUT = "120";
-  public static final String DEFAULT_IDLE_HTTP_CONNECTION_EXPIRY = "60";
-  public static final int CLOUD_FETCH_THREAD_POOL_SIZE_DEFAULT = 16;
-  public static final String ALL_APIS_SCOPE = "all-apis";
   public static final Pattern SELECT_PATTERN =
       Pattern.compile("^(\\s*\\()*\\s*SELECT", Pattern.CASE_INSENSITIVE);
   public static final Pattern SHOW_PATTERN =

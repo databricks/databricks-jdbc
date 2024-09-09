@@ -190,4 +190,12 @@ public interface IDatabricksConnectionContext {
   String getAuthScope();
 
   String getOAuthRefreshToken();
+
+  String getSSLTrustStore();
+
+  String getSSLTrustStoreProvider();
+
+  String getSSLTrustStorePassword();
+
+  String getSSLTrustStoreType();
 }

@@ -11,6 +11,19 @@ import com.databricks.sdk.WorkspaceClient;
 import com.databricks.sdk.core.CredentialsProvider;
 import com.databricks.sdk.core.DatabricksConfig;
 import com.databricks.sdk.core.DatabricksException;
+import com.databricks.sdk.core.ProxyConfig;
+import com.databricks.sdk.core.commons.CommonsHttpClient;
+import org.apache.http.config.Registry;
+import org.apache.http.config.RegistryBuilder;
+import org.apache.http.conn.socket.ConnectionSocketFactory;
+import org.apache.http.conn.socket.PlainConnectionSocketFactory;
+import org.apache.http.conn.ssl.SSLConnectionSocketFactory;
+import org.apache.http.impl.conn.PoolingHttpClientConnectionManager;
+
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.TrustManagerFactory;
+import java.io.FileInputStream;
+import java.security.KeyStore;
 
 /**
  * This class is responsible for configuring the Databricks config based on the connection context.
@@ -23,24 +36,64 @@ public class ClientConfigurator {
   public ClientConfigurator(IDatabricksConnectionContext connectionContext) {
     this.connectionContext = connectionContext;
     this.databricksConfig = new DatabricksConfig();
-    setupProxyConfig();
+    CommonsHttpClient.Builder httpClientBuilder = new CommonsHttpClient.Builder();
+    setupProxyConfig(httpClientBuilder);
+    setupSSLConfig(httpClientBuilder);
     setupAuthConfig();
-    this.databricksConfig.resolve();
+    this.databricksConfig.setHttpClient(httpClientBuilder.build()).resolve();
+  }
+
+  private void setupSSLConfig(CommonsHttpClient.Builder httpClientBuilder) {
+    if (this.connectionContext.getSSLTrustStore() == null) {
+      return;
+    }
+    TrustManagerFactory trustManagerFactory;
+    try {
+      KeyStore trustStore = KeyStore.getInstance(this.connectionContext.getSSLTrustStoreType());
+      try (FileInputStream trustStoreStream =
+          new FileInputStream(this.connectionContext.getSSLTrustStore())) {
+        char[] password = null;
+        if (this.connectionContext.getSSLTrustStorePassword() != null) {
+          password = this.connectionContext.getSSLTrustStorePassword().toCharArray();
+        }
+        trustStore.load(trustStoreStream, password);
+        trustManagerFactory = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
+        trustManagerFactory.init(trustStore);
+      }
+      SSLContext sslContext = SSLContext.getInstance("TLS");
+      sslContext.init(null, trustManagerFactory.getTrustManagers(), null);
+
+
+      SSLConnectionSocketFactory sslSocketFactory = new SSLConnectionSocketFactory(sslContext);
+      Registry<ConnectionSocketFactory> socketFactoryRegistry =
+              RegistryBuilder.<ConnectionSocketFactory>create()
+                      .register("https", sslSocketFactory)
+                      .register("http", new PlainConnectionSocketFactory())
+                      .build();
+      PoolingHttpClientConnectionManager connManager = new PoolingHttpClientConnectionManager(socketFactoryRegistry);
+      connManager.setMaxTotal(100);
+      httpClientBuilder.withConnectionManager(connManager);
+    } catch (Exception e) {
+      throw new DatabricksException("Error while loading truststore", e);
+    }
   }
 
   /** Setup proxy settings in the databricks config. */
-  public void setupProxyConfig() {
-    this.databricksConfig.setUseSystemPropertiesHttp(connectionContext.getUseSystemProxy());
-    // Setup proxy settings
+  public void setupProxyConfig(CommonsHttpClient.Builder httpClientBuilder) {
+    ProxyConfig proxyConfig =
+        new ProxyConfig().setUseSystemProperties(connectionContext.getUseSystemProxy());
     if (connectionContext.getUseProxy()) {
-      databricksConfig
-          .setProxyHost(connectionContext.getProxyHost())
-          .setProxyPort(connectionContext.getProxyPort());
+      proxyConfig
+          .setHost(connectionContext.getProxyHost())
+          .setPort(connectionContext.getProxyPort());
     }
-    databricksConfig
-        .setProxyAuthType(connectionContext.getProxyAuthType())
-        .setProxyUsername(connectionContext.getProxyUser())
-        .setProxyPassword(connectionContext.getProxyPassword());
+    if (connectionContext.getUseProxy() || connectionContext.getUseSystemProxy()) {
+      proxyConfig
+          .setUsername(connectionContext.getProxyUser())
+          .setPassword(connectionContext.getProxyPassword())
+          .setProxyAuthType(connectionContext.getProxyAuthType());
+    }
+    httpClientBuilder.withProxyConfig(proxyConfig);
   }
 
   public WorkspaceClient getWorkspaceClient() {
