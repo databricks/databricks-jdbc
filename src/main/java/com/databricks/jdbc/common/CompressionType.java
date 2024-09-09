@@ -1,6 +1,5 @@
 package com.databricks.jdbc.common;
 
-import com.databricks.client.jdbc.Driver;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 

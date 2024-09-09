@@ -5,10 +5,10 @@ import static com.databricks.jdbc.common.util.ValidationUtil.throwErrorIfNull;
 import static com.databricks.jdbc.dbclient.impl.common.CommandConstants.*;
 
 import com.databricks.jdbc.api.IDatabricksSession;
-import com.databricks.jdbc.log.JdbcLogger;
-import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.common.util.WildcardUtil;
 import com.databricks.jdbc.exception.DatabricksSQLFeatureNotSupportedException;
+import com.databricks.jdbc.log.JdbcLogger;
+import com.databricks.jdbc.log.JdbcLoggerFactory;
 import java.sql.SQLException;
 import java.util.Collections;
 import java.util.HashMap;
@@ -46,22 +46,19 @@ public class CommandBuilder {
 
   public CommandBuilder setSchemaPattern(String pattern) {
     this.schemaPattern = WildcardUtil.jdbcPatternToHive(pattern);
-    LOGGER.debug(
-        String.format("Schema pattern conversion {%s} -> {%s}", pattern, schemaPattern));
+    LOGGER.debug(String.format("Schema pattern conversion {%s} -> {%s}", pattern, schemaPattern));
     return this;
   }
 
   public CommandBuilder setTablePattern(String pattern) {
     this.tablePattern = WildcardUtil.jdbcPatternToHive(pattern);
-    LOGGER.debug(
-        String.format("Table pattern conversion {%s} -> {%s}", pattern, tablePattern));
+    LOGGER.debug(String.format("Table pattern conversion {%s} -> {%s}", pattern, tablePattern));
     return this;
   }
 
   public CommandBuilder setColumnPattern(String pattern) {
     this.columnPattern = WildcardUtil.jdbcPatternToHive(pattern);
-    LOGGER.debug(
-        String.format("Column pattern conversion {%s} -> {%s}", pattern, columnPattern));
+    LOGGER.debug(String.format("Column pattern conversion {%s} -> {%s}", pattern, columnPattern));
     return this;
   }
 

@@ -4,9 +4,10 @@ import static com.databricks.jdbc.common.DatabricksJdbcConstants.*;
 
 import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.common.*;
-import com.databricks.jdbc.common.util.LoggingUtil;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
+import com.databricks.jdbc.log.JdbcLogger;
+import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.telemetry.DatabricksMetrics;
 import com.databricks.sdk.core.ProxyConfig;
 import com.google.common.annotations.VisibleForTesting;
@@ -17,6 +18,8 @@ import java.util.stream.Collectors;
 import org.apache.http.client.utils.URIBuilder;
 
 public class DatabricksConnectionContext implements IDatabricksConnectionContext {
+  public static final JdbcLogger LOGGER =
+      JdbcLoggerFactory.getLogger(DatabricksConnectionContext.class);
   private final String host;
   @VisibleForTesting final int port;
   private final String schema;
@@ -133,7 +136,7 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
 
   @Override
   public String getHostUrl() throws DatabricksParsingException {
-    LoggingUtil.log(LogLevel.DEBUG, "public String getHostUrl()");
+    LOGGER.debug("public String getHostUrl()");
     // Determine the schema based on the transport mode
     String schema =
         (getSSLMode() != null && getSSLMode().equals("0"))
@@ -153,7 +156,7 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
       // Build the URI and convert to string
       return uriBuilder.build().toString();
     } catch (Exception e) {
-      LoggingUtil.log(LogLevel.DEBUG, "URI Building failed with exception: " + e.getMessage());
+      LOGGER.debug("URI Building failed with exception: " + e.getMessage());
       throw new DatabricksParsingException("URI Building failed with exception: " + e.getMessage());
     }
   }
@@ -190,7 +193,7 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   }
 
   public String getHttpPath() {
-    LoggingUtil.log(LogLevel.DEBUG, "String getHttpPath()");
+    LOGGER.debug("String getHttpPath()");
     return getParameter(DatabricksJdbcConstants.HTTP_PATH);
   }
 
@@ -283,23 +286,20 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   public LogLevel getLogLevel() {
     String logLevel = getParameter(DatabricksJdbcConstants.LOG_LEVEL);
     if (nullOrEmptyString(logLevel)) {
-      LoggingUtil.log(
-          LogLevel.DEBUG,
-          "Using default log level " + DEFAULT_LOG_LEVEL + " as none was provided.");
+      LOGGER.debug("Using default log level " + DEFAULT_LOG_LEVEL + " as none was provided.");
       return DEFAULT_LOG_LEVEL;
     }
     try {
       return getLogLevel(Integer.parseInt(logLevel));
     } catch (NumberFormatException e) {
-      LoggingUtil.log(LogLevel.DEBUG, "Input log level is not an integer, parsing string.");
+      LOGGER.debug("Input log level is not an integer, parsing string.");
       logLevel = logLevel.toUpperCase();
     }
 
     try {
       return LogLevel.valueOf(logLevel);
     } catch (Exception e) {
-      LoggingUtil.log(
-          LogLevel.DEBUG,
+      LOGGER.debug(
           "Using default log level " + DEFAULT_LOG_LEVEL + " as invalid level was provided.");
       return DEFAULT_LOG_LEVEL;
     }
@@ -381,8 +381,7 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
           getParameter(
               CLOUD_FETCH_THREAD_POOL_SIZE, String.valueOf(CLOUD_FETCH_THREAD_POOL_SIZE_DEFAULT)));
     } catch (NumberFormatException e) {
-      LoggingUtil.log(
-          LogLevel.DEBUG, "Invalid thread pool size, defaulting to default thread pool size.");
+      LOGGER.debug("Invalid thread pool size, defaulting to default thread pool size.");
       return CLOUD_FETCH_THREAD_POOL_SIZE_DEFAULT;
     }
   }
@@ -511,8 +510,7 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
       case 6:
         return LogLevel.TRACE;
       default:
-        LoggingUtil.log(
-            LogLevel.INFO,
+        LOGGER.info(
             "Using default log level " + DEFAULT_LOG_LEVEL + " as invalid level was provided.");
         return DEFAULT_LOG_LEVEL;
     }

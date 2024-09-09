@@ -16,7 +16,8 @@ import org.apache.http.entity.InputStreamEntity;
 
 /** Implementation for DatabricksUCVolumeClient */
 public class DatabricksUCVolumeClient implements IDatabricksUCVolumeClient {
-  public static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(DatabricksUCVolumeClient.class);
+  public static final JdbcLogger LOGGER =
+      JdbcLoggerFactory.getLogger(DatabricksUCVolumeClient.class);
   private final Connection connection;
 
   private static final String UC_VOLUME_COLUMN_NAME =
