@@ -34,7 +34,9 @@ class SingleChunkDownloader implements Callable<Void> {
       // TODO: handle retries
     } catch (IOException e) {
       LOGGER.error(
-          String.format("Unable to close response, there might be a connection leak. %s", e.getMessage()), e);
+          String.format(
+              "Unable to close response, there might be a connection leak. %s", e.getMessage()),
+          e);
     } finally {
       chunkDownloader.downloadProcessed(chunk.getChunkIndex());
     }

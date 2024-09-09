@@ -435,7 +435,7 @@ public class DatabricksHttpClient implements IDatabricksHttpClient {
         String.format(
             "Caught error while executing http request: [%s]. Error Message: [%s]",
             RequestSanitizer.sanitizeRequest(request), e);
-    if(logLevel == LogLevel.DEBUG) {
+    if (logLevel == LogLevel.DEBUG) {
       LOGGER.debug(errorMsg);
     } else {
       LOGGER.error(errorMsg, e);
