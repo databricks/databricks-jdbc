@@ -166,7 +166,7 @@ public class ChunkDownloader {
         LOGGER.error(
             String.format(
                 "Caught interrupted exception while waiting for chunk [%s] for statement [%s]. Exception [%s]",
-                chunk.getChunkIndex(), statementId, e));
+                chunk.getChunkIndex(), statementId, e), e);
       }
     }
 

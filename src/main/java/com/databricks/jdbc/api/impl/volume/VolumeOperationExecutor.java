@@ -334,7 +334,7 @@ class VolumeOperationExecutor implements Runnable {
         errorMessage = "Failed to delete volume";
       }
     } catch (DatabricksHttpException | IOException e) {
-      LOGGER.error(String.format("Failed to delete volume with error {%s}", e.getMessage()));
+      LOGGER.error(String.format("Failed to delete volume with error {%s}", e.getMessage()), e);
       status = VolumeOperationStatus.FAILED;
       errorMessage = "Failed to delete volume: " + e.getMessage();
     }
