@@ -18,10 +18,10 @@ import java.util.HashMap;
 import java.util.Optional;
 
 /** Implementation for {@link IDatabricksMetadataClient} using {@link IDatabricksClient}. */
-public class DatabricksNewMetadataSdkClient implements IDatabricksMetadataClient {
+public class DatabricksMetadataSdkClient implements IDatabricksMetadataClient {
   private final IDatabricksClient sdkClient;
 
-  public DatabricksNewMetadataSdkClient(IDatabricksClient sdkClient) {
+  public DatabricksMetadataSdkClient(IDatabricksClient sdkClient) {
     this.sdkClient = sdkClient;
   }
 

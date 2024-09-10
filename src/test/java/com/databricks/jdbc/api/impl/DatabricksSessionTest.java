@@ -8,7 +8,7 @@ import static org.mockito.Mockito.when;
 
 import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.common.DatabricksClientType;
-import com.databricks.jdbc.dbclient.impl.sqlexec.DatabricksNewMetadataSdkClient;
+import com.databricks.jdbc.dbclient.impl.sqlexec.DatabricksMetadataSdkClient;
 import com.databricks.jdbc.dbclient.impl.sqlexec.DatabricksSdkClient;
 import com.databricks.jdbc.dbclient.impl.thrift.DatabricksThriftServiceClient;
 import com.databricks.jdbc.exception.DatabricksParsingException;
@@ -67,7 +67,7 @@ public class DatabricksSessionTest {
     session.open();
     assertTrue(session.isOpen());
     assertEquals(SESSION_ID, session.getSessionId());
-    assertTrue(session.getDatabricksMetadataClient() instanceof DatabricksNewMetadataSdkClient);
+    assertTrue(session.getDatabricksMetadataClient() instanceof DatabricksMetadataSdkClient);
     assertEquals(WAREHOUSE_COMPUTE, session.getComputeResource());
     session.close();
     assertFalse(session.isOpen());

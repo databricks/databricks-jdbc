@@ -9,7 +9,7 @@ import com.databricks.jdbc.common.LogLevel;
 import com.databricks.jdbc.common.util.LoggingUtil;
 import com.databricks.jdbc.dbclient.IDatabricksClient;
 import com.databricks.jdbc.dbclient.IDatabricksMetadataClient;
-import com.databricks.jdbc.dbclient.impl.sqlexec.DatabricksNewMetadataSdkClient;
+import com.databricks.jdbc.dbclient.impl.sqlexec.DatabricksMetadataSdkClient;
 import com.databricks.jdbc.dbclient.impl.sqlexec.DatabricksSdkClient;
 import com.databricks.jdbc.dbclient.impl.thrift.DatabricksThriftServiceClient;
 import com.databricks.jdbc.exception.DatabricksSQLException;
@@ -52,7 +52,7 @@ public class DatabricksSession implements IDatabricksSession {
       this.databricksMetadataClient = null;
     } else {
       this.databricksClient = new DatabricksSdkClient(connectionContext);
-      this.databricksMetadataClient = new DatabricksNewMetadataSdkClient(databricksClient);
+      this.databricksMetadataClient = new DatabricksMetadataSdkClient(databricksClient);
     }
 
     this.databricksClient = DatabricksMetricsTimedProcessor.createProxy(this.databricksClient);
@@ -76,7 +76,7 @@ public class DatabricksSession implements IDatabricksSession {
     if (databricksClient instanceof DatabricksThriftServiceClient) {
       this.databricksMetadataClient = null;
     } else {
-      this.databricksMetadataClient = new DatabricksNewMetadataSdkClient(databricksClient);
+      this.databricksMetadataClient = new DatabricksMetadataSdkClient(databricksClient);
     }
     this.isSessionOpen = false;
     this.sessionInfo = null;
