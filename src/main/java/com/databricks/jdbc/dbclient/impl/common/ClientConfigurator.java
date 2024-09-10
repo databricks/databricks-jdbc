@@ -15,8 +15,14 @@ import com.databricks.sdk.core.ProxyConfig;
 import com.databricks.sdk.core.commons.CommonsHttpClient;
 import java.io.FileInputStream;
 import java.security.KeyStore;
+import java.security.cert.*;
+import java.util.Arrays;
+import java.util.Set;
+import java.util.stream.Collectors;
+import javax.net.ssl.CertPathTrustManagerParameters;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.TrustManagerFactory;
+import javax.net.ssl.X509TrustManager;
 import org.apache.http.config.Registry;
 import org.apache.http.config.RegistryBuilder;
 import org.apache.http.conn.socket.ConnectionSocketFactory;
@@ -43,11 +49,9 @@ public class ClientConfigurator {
   }
 
   private void setupSSLConfig(CommonsHttpClient.Builder httpClientBuilder) {
-    if (this.connectionContext.getSSLTrustStore() == null) {
-      return;
-    }
     try {
-      PoolingHttpClientConnectionManager connManager = new PoolingHttpClientConnectionManager(
+      PoolingHttpClientConnectionManager connManager =
+          new PoolingHttpClientConnectionManager(
               getConnectionSocketFactoryRegistry(this.connectionContext));
       connManager.setMaxTotal(100);
       httpClientBuilder.withConnectionManager(connManager);
@@ -56,32 +60,69 @@ public class ClientConfigurator {
     }
   }
 
-  public static Registry<ConnectionSocketFactory> getConnectionSocketFactoryRegistry(IDatabricksConnectionContext connectionContext) {
-    try {
-      TrustManagerFactory trustManagerFactory;
-      try (FileInputStream trustStoreStream =
-                   new FileInputStream(connectionContext.getSSLTrustStore())) {
-        char[] password = null;
-        if (connectionContext.getSSLTrustStorePassword() != null) {
-          password = connectionContext.getSSLTrustStorePassword().toCharArray();
+  public static Registry<ConnectionSocketFactory> getConnectionSocketFactoryRegistry(
+      IDatabricksConnectionContext connectionContext) {
+    // if truststore is not provided, null will use default truststore
+    KeyStore trustStore = null;
+    if (connectionContext.getSSLTrustStore() != null) {
+      // Flow to provide custom SSL truststore
+      try {
+        try (FileInputStream trustStoreStream =
+            new FileInputStream(connectionContext.getSSLTrustStore())) {
+          char[] password = null;
+          if (connectionContext.getSSLTrustStorePassword() != null) {
+            password = connectionContext.getSSLTrustStorePassword().toCharArray();
+          }
+          trustStore = KeyStore.getInstance(connectionContext.getSSLTrustStoreType());
+          trustStore.load(trustStoreStream, password);
         }
-        KeyStore trustStore = KeyStore.getInstance(connectionContext.getSSLTrustStoreType());
-        trustStore.load(trustStoreStream, password);
-        trustManagerFactory =
-            TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
-        trustManagerFactory.init(trustStore);
+      } catch (Exception e) {
+        throw new DatabricksException("Error while loading truststore", e);
       }
-      SSLContext sslContext = SSLContext.getInstance("TLS");
-      sslContext.init(null, trustManagerFactory.getTrustManagers(), null);
+    }
+    Set<TrustAnchor> trustAnchors = getTrustAnchorsFromTrustStore(trustStore);
 
+    // Build custom TrustManager based on above SSL trust store and certificate revocation settings from context
+    try {
+      PKIXBuilderParameters pkixBuilderParameters =
+          new PKIXBuilderParameters(trustAnchors, new X509CertSelector());
+      pkixBuilderParameters.setRevocationEnabled(connectionContext.checkCertificateRevocation());
+      if (connectionContext.acceptUndeterminedCertificateRevocation()) {
+        CertPathValidator certPathValidator = CertPathValidator.getInstance("PKIX");
+        PKIXRevocationChecker revocationChecker =
+            (PKIXRevocationChecker) certPathValidator.getRevocationChecker();
+        revocationChecker.setOptions(Set.of(PKIXRevocationChecker.Option.SOFT_FAIL, PKIXRevocationChecker.Option.NO_FALLBACK, PKIXRevocationChecker.Option.PREFER_CRLS));
+        pkixBuilderParameters.addCertPathChecker(revocationChecker);
+      }
+      CertPathTrustManagerParameters trustManagerParameters =
+          new CertPathTrustManagerParameters(pkixBuilderParameters);
+      TrustManagerFactory customTrustManagerFactory =
+          TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
+      customTrustManagerFactory.init(trustManagerParameters);
+      SSLContext sslContext = SSLContext.getInstance("TLS");
+      sslContext.init(null, customTrustManagerFactory.getTrustManagers(), null);
       SSLConnectionSocketFactory sslSocketFactory = new SSLConnectionSocketFactory(sslContext);
-      return
-              RegistryBuilder.<ConnectionSocketFactory>create()
-                      .register("https", sslSocketFactory)
-                      .register("http", new PlainConnectionSocketFactory())
-                      .build();
+      return RegistryBuilder.<ConnectionSocketFactory>create()
+          .register("https", sslSocketFactory)
+          .register("http", new PlainConnectionSocketFactory())
+          .build();
     } catch (Exception e) {
-      throw new DatabricksException("Error while loading truststore", e);
+      throw new DatabricksException("Error while building trust manager parameters", e);
+    }
+  }
+
+  public static Set<TrustAnchor> getTrustAnchorsFromTrustStore(KeyStore trustStore) {
+    try {
+      TrustManagerFactory trustManagerFactory =
+          TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
+      trustManagerFactory.init(trustStore);
+      X509TrustManager trustManager = (X509TrustManager) trustManagerFactory.getTrustManagers()[0];
+      X509Certificate[] certs = trustManager.getAcceptedIssuers();
+      return Arrays.stream(certs)
+          .map(cert -> new TrustAnchor(cert, null))
+          .collect(Collectors.toSet());
+    } catch (Exception e) {
+      throw new DatabricksException("Error while getting trust anchors from trust store", e);
     }
   }
 

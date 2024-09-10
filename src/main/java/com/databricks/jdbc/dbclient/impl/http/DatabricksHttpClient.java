@@ -9,7 +9,6 @@ import com.databricks.jdbc.common.LogLevel;
 import com.databricks.jdbc.common.util.LoggingUtil;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
 import com.databricks.jdbc.dbclient.impl.common.ClientConfigurator;
-import com.databricks.jdbc.dbclient.impl.common.JdbcSslSocketFactoryHandler;
 import com.databricks.jdbc.exception.DatabricksHttpException;
 import com.databricks.jdbc.exception.DatabricksRetryHandlerException;
 import com.databricks.sdk.core.DatabricksConfig;
@@ -81,7 +80,6 @@ public class DatabricksHttpClient implements IDatabricksHttpClient {
   private static int rateLimitRetryTimeout;
   protected static int idleHttpConnectionExpiry;
   private CloseableHttpClient httpDisabledSSLClient;
-  private JdbcSslSocketFactoryHandler sslSocketFactoryHandler;
   private IDatabricksConnectionContext connectionContext;
 
   private DatabricksHttpClient(IDatabricksConnectionContext connectionContext) {
@@ -92,7 +90,6 @@ public class DatabricksHttpClient implements IDatabricksHttpClient {
     temporarilyUnavailableRetryTimeout = connectionContext.getTemporarilyUnavailableRetryTimeout();
     shouldRetryRateLimitError = connectionContext.shouldRetryRateLimitError();
     rateLimitRetryTimeout = connectionContext.getRateLimitRetryTimeout();
-    sslSocketFactoryHandler = new JdbcSslSocketFactoryHandler(connectionContext);
     httpClient = makeClosableHttpClient(connectionContext);
     httpDisabledSSLClient = makeClosableDisabledSslHttpClient();
     idleHttpConnectionExpiry = connectionContext.getIdleHttpConnectionExpiry();
@@ -109,8 +106,9 @@ public class DatabricksHttpClient implements IDatabricksHttpClient {
 
   private static void initializeConnectionManager(IDatabricksConnectionContext connectionContext) {
     if (connectionManager == null) {
-      if (connectionContext.getSSLTrustStore() != null) {
-        connectionManager = new PoolingHttpClientConnectionManager(
+      if (connectionContext != null) {
+        connectionManager =
+            new PoolingHttpClientConnectionManager(
                 ClientConfigurator.getConnectionSocketFactoryRegistry(connectionContext));
       } else {
         connectionManager = new PoolingHttpClientConnectionManager();
@@ -156,7 +154,6 @@ public class DatabricksHttpClient implements IDatabricksHttpClient {
             .setRetryHandler(this::handleRetry)
             .addInterceptorFirst(this::handleResponseInterceptor);
     setupProxy(connectionContext, builder);
-    sslSocketFactoryHandler.getCustomSSLSocketFactory().ifPresent(builder::setSSLSocketFactory);
     if (Boolean.parseBoolean(System.getProperty(IS_FAKE_SERVICE_TEST_PROP))) {
       setFakeServiceRouteInHttpClient(builder);
     }
