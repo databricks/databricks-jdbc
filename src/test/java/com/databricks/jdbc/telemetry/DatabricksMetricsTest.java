@@ -26,7 +26,7 @@ public class DatabricksMetricsTest {
   @Mock StatusLine statusLine;
 
   @Test
-  void testExportMetrics() throws DatabricksHttpException {
+  void testExportRuntimeMetrics() throws DatabricksHttpException {
     when(connectionContext.enableTelemetry()).thenReturn(true);
     when(connectionContext.getComputeResource()).thenReturn(computeResource);
     when(computeResource.getWorkspaceId()).thenReturn("workspaceId");
@@ -49,29 +49,65 @@ public class DatabricksMetricsTest {
             }
           });
 
-      // Verify that HTTP client was called for metrics export
-      verify(httpClient, atLeastOnce()).executeWithoutCertVerification(any(HttpPost.class));
+      // Verify that HTTP client was called for test export
+      verify(httpClient, atLeast(2)).executeWithoutCertVerification(any(HttpPost.class));
+    }
+  }
+
+  @Test
+  void testExportUsageMetrics() throws DatabricksHttpException {
+    when(connectionContext.enableTelemetry()).thenReturn(true);
+    when(connectionContext.getComputeResource()).thenReturn(computeResource);
+    when(computeResource.getWorkspaceId()).thenReturn("workspaceId");
+
+    try (MockedStatic<DatabricksHttpClient> mockedStatic = mockStatic(DatabricksHttpClient.class)) {
+      mockedStatic
+          .when(() -> DatabricksHttpClient.getInstance(any(IDatabricksConnectionContext.class)))
+          .thenReturn(httpClient);
+
+      when(httpResponse.getStatusLine()).thenReturn(statusLine);
+      when(statusLine.getStatusCode()).thenReturn(200);
+      when(httpClient.executeWithoutCertVerification(any(HttpPost.class))).thenReturn(httpResponse);
 
       // Usage metrics
       assertDoesNotThrow(
           () -> {
-            DatabricksMetrics.exportUsageMetrics(
-                "jvmName",
-                "jvmSpecVersion",
-                "jvmImplVersion",
-                "jvmVendor",
-                "osName",
-                "osVersion",
-                "osArch",
-                "localeName",
-                "charsetEncoding");
+            try (DatabricksMetrics metricsExporter = new DatabricksMetrics(connectionContext)) {
+              metricsExporter.exportUsageMetrics(
+                  "jvmName",
+                  "jvmSpecVersion",
+                  "jvmImplVersion",
+                  "jvmVendor",
+                  "osName",
+                  "osVersion",
+                  "osArch",
+                  "localeName",
+                  "charsetEncoding");
+            }
           });
 
       // Verify that HTTP client was called for usage metrics
-      verify(httpClient, atLeastOnce())
+      verify(httpClient, atLeast(1))
           .executeWithoutCertVerification(
               argThat(
                   request -> request != null && request.getFirstHeader("workspace_id") != null));
+    }
+  }
+
+  @Test
+  void testExportErrorLogs() throws DatabricksHttpException {
+    when(connectionContext.enableTelemetry()).thenReturn(true);
+    when(connectionContext.getComputeResource()).thenReturn(computeResource);
+    when(computeResource.getWorkspaceId()).thenReturn("workspaceId");
+
+    try (MockedStatic<DatabricksHttpClient> mockedStatic = mockStatic(DatabricksHttpClient.class)) {
+      mockedStatic
+          .when(() -> DatabricksHttpClient.getInstance(any(IDatabricksConnectionContext.class)))
+          .thenReturn(httpClient);
+
+      when(httpResponse.getStatusLine()).thenReturn(statusLine);
+      when(statusLine.getStatusCode()).thenReturn(200);
+      when(httpClient.executeWithoutCertVerification(any(HttpPost.class))).thenReturn(httpResponse);
 
       // Error logs
       assertDoesNotThrow(
@@ -82,7 +118,7 @@ public class DatabricksMetricsTest {
           });
 
       // Verify that HTTP client was called for error logging
-      verify(httpClient, atLeastOnce())
+      verify(httpClient, atLeast(1))
           .executeWithoutCertVerification(
               argThat(
                   request -> request != null && request.getFirstHeader("workspace_id") != null));
