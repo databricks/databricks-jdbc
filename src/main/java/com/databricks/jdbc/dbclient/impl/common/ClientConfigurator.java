@@ -82,7 +82,8 @@ public class ClientConfigurator {
     }
     Set<TrustAnchor> trustAnchors = getTrustAnchorsFromTrustStore(trustStore);
 
-    // Build custom TrustManager based on above SSL trust store and certificate revocation settings from context
+    // Build custom TrustManager based on above SSL trust store and certificate revocation settings
+    // from context
     try {
       PKIXBuilderParameters pkixBuilderParameters =
           new PKIXBuilderParameters(trustAnchors, new X509CertSelector());
@@ -91,7 +92,11 @@ public class ClientConfigurator {
         CertPathValidator certPathValidator = CertPathValidator.getInstance("PKIX");
         PKIXRevocationChecker revocationChecker =
             (PKIXRevocationChecker) certPathValidator.getRevocationChecker();
-        revocationChecker.setOptions(Set.of(PKIXRevocationChecker.Option.SOFT_FAIL, PKIXRevocationChecker.Option.NO_FALLBACK, PKIXRevocationChecker.Option.PREFER_CRLS));
+        revocationChecker.setOptions(
+            Set.of(
+                PKIXRevocationChecker.Option.SOFT_FAIL,
+                PKIXRevocationChecker.Option.NO_FALLBACK,
+                PKIXRevocationChecker.Option.PREFER_CRLS));
         pkixBuilderParameters.addCertPathChecker(revocationChecker);
       }
       CertPathTrustManagerParameters trustManagerParameters =
