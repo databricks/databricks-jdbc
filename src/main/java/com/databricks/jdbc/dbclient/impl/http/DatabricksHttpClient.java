@@ -8,6 +8,7 @@ import com.databricks.jdbc.common.ErrorTypes;
 import com.databricks.jdbc.common.LogLevel;
 import com.databricks.jdbc.common.util.LoggingUtil;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
+import com.databricks.jdbc.dbclient.impl.common.ClientConfigurator;
 import com.databricks.jdbc.exception.DatabricksHttpException;
 import com.databricks.jdbc.exception.DatabricksRetryHandlerException;
 import com.databricks.sdk.core.DatabricksConfig;
@@ -82,7 +83,8 @@ public class DatabricksHttpClient implements IDatabricksHttpClient {
   private IDatabricksConnectionContext connectionContext;
 
   private DatabricksHttpClient(IDatabricksConnectionContext connectionContext) {
-    initializeConnectionManager();
+    this.connectionContext = connectionContext;
+    initializeConnectionManager(connectionContext);
     shouldRetryTemporarilyUnavailableError =
         connectionContext.shouldRetryTemporarilyUnavailableError();
     temporarilyUnavailableRetryTimeout = connectionContext.getTemporarilyUnavailableRetryTimeout();
@@ -91,7 +93,6 @@ public class DatabricksHttpClient implements IDatabricksHttpClient {
     httpClient = makeClosableHttpClient(connectionContext);
     httpDisabledSSLClient = makeClosableDisabledSslHttpClient();
     idleHttpConnectionExpiry = connectionContext.getIdleHttpConnectionExpiry();
-    this.connectionContext = connectionContext;
   }
 
   @VisibleForTesting
@@ -99,13 +100,18 @@ public class DatabricksHttpClient implements IDatabricksHttpClient {
       CloseableHttpClient closeableHttpClient,
       PoolingHttpClientConnectionManager connectionManager) {
     DatabricksHttpClient.connectionManager = connectionManager;
-    initializeConnectionManager();
+    initializeConnectionManager(null);
     this.httpClient = closeableHttpClient;
   }
 
-  private static void initializeConnectionManager() {
+  private static void initializeConnectionManager(IDatabricksConnectionContext connectionContext) {
     if (connectionManager == null) {
-      connectionManager = new PoolingHttpClientConnectionManager();
+      if (connectionContext.getSSLTrustStore() != null) {
+        connectionManager = new PoolingHttpClientConnectionManager(
+                ClientConfigurator.getConnectionSocketFactoryRegistry(connectionContext));
+      } else {
+        connectionManager = new PoolingHttpClientConnectionManager();
+      }
     }
     connectionManager.setMaxTotal(DEFAULT_MAX_HTTP_CONNECTIONS);
     connectionManager.setDefaultMaxPerRoute(DEFAULT_MAX_HTTP_CONNECTIONS_PER_ROUTE);
