@@ -46,15 +46,26 @@ public class ClientConfigurator {
     if (this.connectionContext.getSSLTrustStore() == null) {
       return;
     }
-    TrustManagerFactory trustManagerFactory;
     try {
-      KeyStore trustStore = KeyStore.getInstance(this.connectionContext.getSSLTrustStoreType());
+      PoolingHttpClientConnectionManager connManager = new PoolingHttpClientConnectionManager(
+              getConnectionSocketFactoryRegistry(this.connectionContext));
+      connManager.setMaxTotal(100);
+      httpClientBuilder.withConnectionManager(connManager);
+    } catch (Exception e) {
+      throw new DatabricksException("Error while loading truststore", e);
+    }
+  }
+
+  public static Registry<ConnectionSocketFactory> getConnectionSocketFactoryRegistry(IDatabricksConnectionContext connectionContext) {
+    try {
+      TrustManagerFactory trustManagerFactory;
       try (FileInputStream trustStoreStream =
-          new FileInputStream(this.connectionContext.getSSLTrustStore())) {
+                   new FileInputStream(connectionContext.getSSLTrustStore())) {
         char[] password = null;
-        if (this.connectionContext.getSSLTrustStorePassword() != null) {
-          password = this.connectionContext.getSSLTrustStorePassword().toCharArray();
+        if (connectionContext.getSSLTrustStorePassword() != null) {
+          password = connectionContext.getSSLTrustStorePassword().toCharArray();
         }
+        KeyStore trustStore = KeyStore.getInstance(connectionContext.getSSLTrustStoreType());
         trustStore.load(trustStoreStream, password);
         trustManagerFactory =
             TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
@@ -64,15 +75,11 @@ public class ClientConfigurator {
       sslContext.init(null, trustManagerFactory.getTrustManagers(), null);
 
       SSLConnectionSocketFactory sslSocketFactory = new SSLConnectionSocketFactory(sslContext);
-      Registry<ConnectionSocketFactory> socketFactoryRegistry =
-          RegistryBuilder.<ConnectionSocketFactory>create()
-              .register("https", sslSocketFactory)
-              .register("http", new PlainConnectionSocketFactory())
-              .build();
-      PoolingHttpClientConnectionManager connManager =
-          new PoolingHttpClientConnectionManager(socketFactoryRegistry);
-      connManager.setMaxTotal(100);
-      httpClientBuilder.withConnectionManager(connManager);
+      return
+              RegistryBuilder.<ConnectionSocketFactory>create()
+                      .register("https", sslSocketFactory)
+                      .register("http", new PlainConnectionSocketFactory())
+                      .build();
     } catch (Exception e) {
       throw new DatabricksException("Error while loading truststore", e);
     }
