@@ -22,6 +22,7 @@ import java.util.*;
 import java.util.Calendar;
 
 public class DatabricksPreparedStatement extends DatabricksStatement implements PreparedStatement {
+
   public static final JdbcLogger LOGGER =
       JdbcLoggerFactory.getLogger(DatabricksPreparedStatement.class);
   private final String sql;

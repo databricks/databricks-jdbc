@@ -23,6 +23,7 @@ import java.util.concurrent.Executors;
 
 /** Implementation for IDatabricksMetadataClient using SDK client */
 public class DatabricksMetadataSdkClient implements IDatabricksMetadataClient {
+
   public static final JdbcLogger LOGGER =
       JdbcLoggerFactory.getLogger(DatabricksMetadataSdkClient.class);
   private final DatabricksSdkClient sdkClient;

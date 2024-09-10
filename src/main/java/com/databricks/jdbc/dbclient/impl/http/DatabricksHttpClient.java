@@ -43,6 +43,7 @@ import org.apache.http.ssl.SSLContextBuilder;
 
 /** Http client implementation to be used for executing http requests. */
 public class DatabricksHttpClient implements IDatabricksHttpClient {
+
   public static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(DatabricksHttpClient.class);
 
   // Context attribute keys

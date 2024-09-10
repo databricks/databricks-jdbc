@@ -15,6 +15,7 @@ import java.sql.*;
 import java.util.*;
 
 public class DatabricksDatabaseMetaData implements DatabaseMetaData {
+
   public static final JdbcLogger LOGGER =
       JdbcLoggerFactory.getLogger(DatabricksDatabaseMetaData.class);
   public static final String DRIVER_NAME = "DatabricksJDBC";
@@ -307,8 +308,6 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
 
   @Override
   public boolean supportsConvert(int fromType, int toType) throws SQLException {
-    // LOGGER.debug(
-    //     "public boolean supportsConvert(int fromType = {}, int toType = {})", fromType, toType);
     throw new UnsupportedOperationException(
         "Not implemented in DatabricksDatabaseMetaData - supportsConvert(int fromType, int toType)");
   }
@@ -1154,8 +1153,6 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
 
   @Override
   public boolean othersInsertsAreVisible(int type) throws SQLException {
-    // LOGGER.debug("public boolean othersInsertsAreVisible(int type = {})",
-    // type);
     throwExceptionIfConnectionIsClosed();
     return false;
   }

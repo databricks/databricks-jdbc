@@ -19,6 +19,7 @@ import java.util.stream.Collectors;
 import org.apache.http.client.utils.URIBuilder;
 
 public class DatabricksConnectionContext implements IDatabricksConnectionContext {
+
   public static final JdbcLogger LOGGER =
       JdbcLoggerFactory.getLogger(DatabricksConnectionContext.class);
   private final String host;

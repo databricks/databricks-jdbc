@@ -13,6 +13,7 @@ import java.util.regex.Pattern;
 import org.apache.http.HttpResponse;
 
 public class ValidationUtil {
+
   public static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(ValidationUtil.class);
 
   public static void checkIfNonNegative(int number, String fieldName)

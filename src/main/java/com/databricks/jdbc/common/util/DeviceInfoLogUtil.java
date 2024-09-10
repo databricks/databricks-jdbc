@@ -6,6 +6,7 @@ import com.databricks.jdbc.log.JdbcLoggerFactory;
 import java.nio.charset.Charset;
 
 public class DeviceInfoLogUtil {
+
   public static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(DeviceInfoLogUtil.class);
 
   public static void logProperties(IDatabricksConnectionContext context) {

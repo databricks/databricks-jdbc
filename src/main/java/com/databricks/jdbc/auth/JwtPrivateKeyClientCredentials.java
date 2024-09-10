@@ -53,6 +53,7 @@ import org.bouncycastle.pkcs.PKCSException;
  * type.
  */
 public class JwtPrivateKeyClientCredentials extends RefreshableTokenSource {
+
   public static final JdbcLogger LOGGER =
       JdbcLoggerFactory.getLogger(JwtPrivateKeyClientCredentials.class);
 

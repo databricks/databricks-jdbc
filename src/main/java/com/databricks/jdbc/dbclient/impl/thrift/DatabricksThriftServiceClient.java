@@ -27,6 +27,7 @@ import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabricksMetadataClient {
+
   public static final JdbcLogger LOGGER =
       JdbcLoggerFactory.getLogger(DatabricksThriftServiceClient.class);
   private final DatabricksThriftAccessor thriftAccessor;

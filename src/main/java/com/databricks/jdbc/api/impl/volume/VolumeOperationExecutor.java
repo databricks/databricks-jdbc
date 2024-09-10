@@ -22,6 +22,7 @@ import org.apache.http.util.EntityUtils;
 
 /** Executor for volume operations */
 class VolumeOperationExecutor implements Runnable {
+
   public static final JdbcLogger LOGGER =
       JdbcLoggerFactory.getLogger(VolumeOperationExecutor.class);
   private static final String COMMA_SEPARATOR = ",";

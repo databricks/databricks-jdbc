@@ -2891,6 +2891,7 @@ public class TCLIService {
 
     public static class GetTypeInfo<I extends AsyncIface>
         extends org.apache.thrift.AsyncProcessFunction<I, GetTypeInfo_args, TGetTypeInfoResp> {
+
       public static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(GetTypeInfo.class);
 
       public GetTypeInfo() {
@@ -2970,6 +2971,7 @@ public class TCLIService {
 
     public static class GetCatalogs<I extends AsyncIface>
         extends org.apache.thrift.AsyncProcessFunction<I, GetCatalogs_args, TGetCatalogsResp> {
+
       public static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(GetCatalogs.class);
 
       public GetCatalogs() {
@@ -3049,6 +3051,7 @@ public class TCLIService {
 
     public static class GetSchemas<I extends AsyncIface>
         extends org.apache.thrift.AsyncProcessFunction<I, GetSchemas_args, TGetSchemasResp> {
+
       public static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(GetSchemas.class);
 
       public GetSchemas() {
@@ -3128,6 +3131,7 @@ public class TCLIService {
 
     public static class GetTables<I extends AsyncIface>
         extends org.apache.thrift.AsyncProcessFunction<I, GetTables_args, TGetTablesResp> {
+
       public static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(GetTables.class);
 
       public GetTables() {
@@ -3207,6 +3211,7 @@ public class TCLIService {
 
     public static class GetTableTypes<I extends AsyncIface>
         extends org.apache.thrift.AsyncProcessFunction<I, GetTableTypes_args, TGetTableTypesResp> {
+
       public static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(GetTableTypes.class);
 
       public GetTableTypes() {
@@ -3286,6 +3291,7 @@ public class TCLIService {
 
     public static class GetColumns<I extends AsyncIface>
         extends org.apache.thrift.AsyncProcessFunction<I, GetColumns_args, TGetColumnsResp> {
+
       public static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(GetColumns.class);
 
       public GetColumns() {
@@ -3365,6 +3371,7 @@ public class TCLIService {
 
     public static class GetFunctions<I extends AsyncIface>
         extends org.apache.thrift.AsyncProcessFunction<I, GetFunctions_args, TGetFunctionsResp> {
+
       public static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(GetFunctions.class);
 
       public GetFunctions() {
@@ -3445,6 +3452,7 @@ public class TCLIService {
     public static class GetPrimaryKeys<I extends AsyncIface>
         extends org.apache.thrift.AsyncProcessFunction<
             I, GetPrimaryKeys_args, TGetPrimaryKeysResp> {
+
       public static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(GetPrimaryKeys.class);
 
       public GetPrimaryKeys() {
@@ -3525,6 +3533,7 @@ public class TCLIService {
     public static class GetCrossReference<I extends AsyncIface>
         extends org.apache.thrift.AsyncProcessFunction<
             I, GetCrossReference_args, TGetCrossReferenceResp> {
+
       public static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(GetCrossReference.class);
 
       public GetCrossReference() {
@@ -3605,6 +3614,7 @@ public class TCLIService {
     public static class GetOperationStatus<I extends AsyncIface>
         extends org.apache.thrift.AsyncProcessFunction<
             I, GetOperationStatus_args, TGetOperationStatusResp> {
+
       public static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(GetOperationStatus.class);
 
       public GetOperationStatus() {
@@ -3685,6 +3695,7 @@ public class TCLIService {
     public static class CancelOperation<I extends AsyncIface>
         extends org.apache.thrift.AsyncProcessFunction<
             I, CancelOperation_args, TCancelOperationResp> {
+
       public static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(CancelOperation.class);
 
       public CancelOperation() {
@@ -3765,6 +3776,7 @@ public class TCLIService {
     public static class CloseOperation<I extends AsyncIface>
         extends org.apache.thrift.AsyncProcessFunction<
             I, CloseOperation_args, TCloseOperationResp> {
+
       public static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(CloseOperation.class);
 
       public CloseOperation() {
@@ -3845,6 +3857,7 @@ public class TCLIService {
     public static class GetResultSetMetadata<I extends AsyncIface>
         extends org.apache.thrift.AsyncProcessFunction<
             I, GetResultSetMetadata_args, TGetResultSetMetadataResp> {
+
       public static final JdbcLogger LOGGER =
           JdbcLoggerFactory.getLogger(GetResultSetMetadata.class);
 
@@ -3926,6 +3939,7 @@ public class TCLIService {
 
     public static class FetchResults<I extends AsyncIface>
         extends org.apache.thrift.AsyncProcessFunction<I, FetchResults_args, TFetchResultsResp> {
+
       public static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(FetchResults.class);
 
       public FetchResults() {
@@ -4006,6 +4020,7 @@ public class TCLIService {
     public static class GetDelegationToken<I extends AsyncIface>
         extends org.apache.thrift.AsyncProcessFunction<
             I, GetDelegationToken_args, TGetDelegationTokenResp> {
+
       public static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(GetDelegationToken.class);
 
       public GetDelegationToken() {
@@ -4086,6 +4101,7 @@ public class TCLIService {
     public static class CancelDelegationToken<I extends AsyncIface>
         extends org.apache.thrift.AsyncProcessFunction<
             I, CancelDelegationToken_args, TCancelDelegationTokenResp> {
+
       public static final JdbcLogger LOGGER =
           JdbcLoggerFactory.getLogger(CancelDelegationToken.class);
 
@@ -4168,6 +4184,7 @@ public class TCLIService {
     public static class RenewDelegationToken<I extends AsyncIface>
         extends org.apache.thrift.AsyncProcessFunction<
             I, RenewDelegationToken_args, TRenewDelegationTokenResp> {
+
       public static final JdbcLogger LOGGER =
           JdbcLoggerFactory.getLogger(RenewDelegationToken.class);
 

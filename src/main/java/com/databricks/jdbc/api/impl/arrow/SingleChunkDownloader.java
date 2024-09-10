@@ -10,6 +10,7 @@ import java.util.concurrent.Callable;
 
 /** Task class to manage download for a single chunk. */
 class SingleChunkDownloader implements Callable<Void> {
+
   public static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(SingleChunkDownloader.class);
   private static final int MAX_RETRIES = 3;
   private static final long RETRY_DELAY_MS = 1000; // 1 second

@@ -23,6 +23,7 @@ import java.util.Properties;
 
 /** Databricks JDBC driver. */
 public class Driver implements java.sql.Driver {
+
   public static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(Driver.class);
   private static final Driver INSTANCE;
 

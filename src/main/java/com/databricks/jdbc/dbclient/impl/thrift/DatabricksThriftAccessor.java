@@ -30,6 +30,7 @@ import org.apache.thrift.TException;
 import org.apache.thrift.protocol.TBinaryProtocol;
 
 public class DatabricksThriftAccessor {
+
   public static final JdbcLogger LOGGER =
       JdbcLoggerFactory.getLogger(DatabricksThriftAccessor.class);
   private final DatabricksConfig databricksConfig;

@@ -20,6 +20,7 @@ import org.apache.thrift.transport.TTransport;
 import org.apache.thrift.transport.TTransportException;
 
 public class DatabricksHttpTTransport extends TTransport {
+
   public static final JdbcLogger LOGGER =
       JdbcLoggerFactory.getLogger(DatabricksHttpTTransport.class);
   private final DatabricksHttpClient httpClient;

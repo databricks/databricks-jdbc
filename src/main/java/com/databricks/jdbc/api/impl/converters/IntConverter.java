@@ -12,6 +12,7 @@ import java.sql.Timestamp;
 import java.time.LocalDate;
 
 public class IntConverter extends AbstractObjectConverter {
+
   public static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(IntConverter.class);
   private final int object;
 

@@ -17,6 +17,7 @@ import com.databricks.sdk.core.DatabricksException;
  * The databricks config is then used to create the SDK or Thrift client.
  */
 public class ClientConfigurator {
+
   public static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(ClientConfigurator.class);
   private final IDatabricksConnectionContext connectionContext;
   private final DatabricksConfig databricksConfig;

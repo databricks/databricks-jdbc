@@ -25,6 +25,7 @@ import java.util.concurrent.*;
 import org.apache.http.entity.InputStreamEntity;
 
 public class DatabricksStatement implements IDatabricksStatement, Statement {
+
   public static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(DatabricksStatement.class);
   private int timeoutInSeconds;
   private final DatabricksConnection connection;

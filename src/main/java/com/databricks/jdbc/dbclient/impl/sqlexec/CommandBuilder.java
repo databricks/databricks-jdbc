@@ -14,6 +14,7 @@ import java.util.Collections;
 import java.util.HashMap;
 
 public class CommandBuilder {
+
   public static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(CommandBuilder.class);
   private String catalogName = null;
   private String schemaName = null;

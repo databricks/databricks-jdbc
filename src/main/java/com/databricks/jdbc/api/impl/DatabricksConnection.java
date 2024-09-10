@@ -95,8 +95,6 @@ public class DatabricksConnection implements IDatabricksConnection, Connection {
 
   @Override
   public void setAutoCommit(boolean autoCommit) throws SQLException {
-    // LOGGER.debug("public void setAutoCommit(boolean autoCommit = {})",
-    // autoCommit);
     throw new DatabricksSQLFeatureNotSupportedException(
         "Not implemented in DatabricksConnection - setAutoCommit(boolean autoCommit)");
   }
@@ -363,7 +361,6 @@ public class DatabricksConnection implements IDatabricksConnection, Connection {
 
   @Override
   public boolean isValid(int timeout) throws SQLException {
-    // LOGGER.debug("public boolean isValid(int timeout = {})", timeout);
     ValidationUtil.checkIfNonNegative(timeout, "timeout");
     try {
       DatabricksStatement statement = new DatabricksStatement(this);
@@ -432,9 +429,6 @@ public class DatabricksConnection implements IDatabricksConnection, Connection {
 
   @Override
   public void setClientInfo(String name, String value) throws SQLClientInfoException {
-    // LOGGER.debug("public void setClientInfo(String name = {}, String value =
-    // {})",
-    // name, value);
     if (DatabricksJdbcConstants.ALLOWED_SESSION_CONF_TO_DEFAULT_VALUES_MAP.keySet().stream()
         .map(String::toLowerCase)
         .anyMatch(s -> s.equalsIgnoreCase(name))) {

@@ -23,6 +23,7 @@ import javax.annotation.Nullable;
 
 /** Implementation for Session interface, which maintains an underlying session in SQL Gateway. */
 public class DatabricksSession implements IDatabricksSession {
+
   public static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(DatabricksSession.class);
   private IDatabricksClient databricksClient;
 

@@ -23,6 +23,7 @@ import java.util.Optional;
  * Tracking bug for replacement: (PECO-1502)
  */
 public class DatabricksNewMetadataSdkClient implements IDatabricksMetadataClient {
+
   public static final JdbcLogger LOGGER =
       JdbcLoggerFactory.getLogger(DatabricksNewMetadataSdkClient.class);
   private final DatabricksSdkClient sdkClient;

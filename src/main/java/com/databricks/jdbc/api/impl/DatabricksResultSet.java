@@ -36,6 +36,7 @@ import org.apache.http.HttpEntity;
 import org.apache.http.entity.InputStreamEntity;
 
 public class DatabricksResultSet implements ResultSet, IDatabricksResultSet {
+
   public static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(DatabricksResultSet.class);
   protected static final String AFFECTED_ROWS_COUNT = "num_affected_rows";
   private final StatementStatus statementStatus;
