@@ -14,10 +14,12 @@ class SingleChunkDownloader implements Callable<Void> {
   private static final long RETRY_DELAY_MS = 1000; // 1 second
   private final ArrowResultChunk chunk;
   private final IDatabricksHttpClient httpClient;
-  private final ChunkDownloader chunkDownloader;
+  private final ChunkDownloadCallback chunkDownloader;
 
   SingleChunkDownloader(
-      ArrowResultChunk chunk, IDatabricksHttpClient httpClient, ChunkDownloader chunkDownloader) {
+      ArrowResultChunk chunk,
+      IDatabricksHttpClient httpClient,
+      ChunkDownloadCallback chunkDownloader) {
     this.chunk = chunk;
     this.httpClient = httpClient;
     this.chunkDownloader = chunkDownloader;
