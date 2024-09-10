@@ -1,21 +1,12 @@
 package com.databricks.client.jdbc;
 
-import static com.databricks.jdbc.common.DatabricksJdbcConstants.*;
-
 import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.api.impl.DatabricksConnection;
 import com.databricks.jdbc.api.impl.DatabricksConnectionContextFactory;
-import com.databricks.jdbc.common.DatabricksClientType;
-import com.databricks.jdbc.common.DatabricksJdbcConstants;
 import com.databricks.jdbc.common.ErrorCodes;
 import com.databricks.jdbc.common.ErrorTypes;
-import com.databricks.jdbc.common.LogLevel;
-import com.databricks.jdbc.common.util.DeviceInfoLogUtil;
-import com.databricks.jdbc.common.util.DriverUtil;
-import com.databricks.jdbc.common.util.LoggingUtil;
-import com.databricks.jdbc.common.util.ValidationUtil;
+import com.databricks.jdbc.common.util.*;
 import com.databricks.jdbc.exception.DatabricksSQLException;
-import com.databricks.sdk.core.UserAgent;
 import java.io.IOException;
 import java.sql.*;
 import java.util.Properties;
@@ -36,11 +27,6 @@ public class Driver implements java.sql.Driver {
     System.out.printf("The driver {%s} has been initialized.%n", Driver.class);
   }
 
-  public static void setUserAgent(IDatabricksConnectionContext connectionContext) {
-    UserAgent.withProduct(DatabricksJdbcConstants.DEFAULT_USER_AGENT, DriverUtil.getVersion());
-    UserAgent.withOtherInfo(CLIENT_USER_AGENT_PREFIX, connectionContext.getClientUserAgent());
-  }
-
   @Override
   public boolean acceptsURL(String url) {
     return ValidationUtil.isValidJdbcUrl(url);
@@ -50,48 +36,28 @@ public class Driver implements java.sql.Driver {
   public Connection connect(String url, Properties info) throws DatabricksSQLException {
     IDatabricksConnectionContext connectionContext =
         DatabricksConnectionContextFactory.create(url, info);
-    try {
-      LoggingUtil.setupLogger(
-          connectionContext.getLogPathString(),
-          connectionContext.getLogFileSize(),
-          connectionContext.getLogFileCount(),
-          connectionContext.getLogLevel());
-    } catch (IOException e) {
-      throw new DatabricksSQLException("Error initializing the Java Util Logger (JUL).", e);
-    }
-    setUserAgent(connectionContext);
+
+    setUpLogging(connectionContext);
+    UserAgentManager.setUserAgent(connectionContext);
     DeviceInfoLogUtil.logProperties(connectionContext);
     try {
-      DatabricksConnection connection = new DatabricksConnection(connectionContext);
-      if (connectionContext.getClientType() == DatabricksClientType.SQL_EXEC) {
-        setMetadataClient(connection, connectionContext);
-      }
-      return connection;
+      return new DatabricksConnection(connectionContext);
     } catch (Exception e) {
-      Throwable cause = e;
-      while (cause != null) {
-        if (cause instanceof DatabricksSQLException) {
-          String errorMessage =
-              "Communication link failure. Failed to connect to server. : "
-                  + connectionContext.getHostUrl()
-                  + cause.getMessage();
-          throw new DatabricksSQLException(
-              errorMessage,
-              cause.getCause(),
-              connectionContext,
-              ErrorTypes.COMMUNICATION_FAILURE,
-              null,
-              ErrorCodes.COMMUNICATION_FAILURE);
-        }
-        cause = cause.getCause();
-      }
       String errorMessage =
-          "Communication link failure. Failed to connect to server. : "
-              + connectionContext.getHostUrl()
-              + e.getMessage();
+          String.format(
+              "Communication link failure. Failed to connect to server: %s",
+              connectionContext.getHostUrl());
+      Throwable rootCause = getRootCause(e);
+
+      if (rootCause instanceof DatabricksSQLException) {
+        errorMessage += rootCause.getMessage();
+      } else {
+        errorMessage += e.getMessage();
+      }
+
       throw new DatabricksSQLException(
           errorMessage,
-          e,
+          rootCause,
           connectionContext,
           ErrorTypes.COMMUNICATION_FAILURE,
           null,
@@ -128,37 +94,24 @@ public class Driver implements java.sql.Driver {
     return INSTANCE;
   }
 
-  private void setMetadataClient(
-      DatabricksConnection connection, IDatabricksConnectionContext connectionContext) {
-    if (connectionContext.getUseLegacyMetadata().equals(true)) {
-      LoggingUtil.log(
-          LogLevel.DEBUG,
-          "The new metadata commands are enabled, but the legacy metadata commands are being used due to connection parameter useLegacyMetadata");
-      connection.setMetadataClient(true);
-    } else {
-      connection.setMetadataClient(false);
+  private static void setUpLogging(IDatabricksConnectionContext connectionContext)
+      throws DatabricksSQLException {
+    try {
+      LoggingUtil.setupLogger(
+          connectionContext.getLogPathString(),
+          connectionContext.getLogFileSize(),
+          connectionContext.getLogFileCount(),
+          connectionContext.getLogLevel());
+    } catch (IOException e) {
+      throw new DatabricksSQLException("Error initializing the Java Util Logger (JUL).", e);
     }
   }
 
-  private boolean checkSupportForNewMetadata(String dbsqlVersion) {
-    try {
-      int majorVersion = Integer.parseInt(dbsqlVersion.split("\\.")[0]);
-      int minorVersion = Integer.parseInt(dbsqlVersion.split("\\.")[1]);
-
-      if (majorVersion > DBSQL_MIN_MAJOR_VERSION_FOR_NEW_METADATA) {
-        return true;
-      } else if (majorVersion == DBSQL_MIN_MAJOR_VERSION_FOR_NEW_METADATA) {
-        return minorVersion >= DBSQL_MIN_MINOR_VERSION_FOR_NEW_METADATA;
-      } else {
-        return false;
-      }
-    } catch (Exception e) {
-      LoggingUtil.log(
-          LogLevel.DEBUG,
-          String.format(
-              "Unable to parse the DBSQL version {%s}. Falling back to legacy metadata commands.",
-              dbsqlVersion));
-      return false;
+  private static Throwable getRootCause(Throwable throwable) {
+    Throwable cause;
+    while ((cause = throwable.getCause()) != null && cause != throwable) {
+      throwable = cause;
     }
+    return throwable;
   }
 }

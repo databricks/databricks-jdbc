@@ -9,7 +9,6 @@ import com.databricks.jdbc.common.LogLevel;
 import com.databricks.jdbc.common.util.LoggingUtil;
 import com.databricks.jdbc.dbclient.IDatabricksClient;
 import com.databricks.jdbc.dbclient.IDatabricksMetadataClient;
-import com.databricks.jdbc.dbclient.impl.sqlexec.DatabricksMetadataSdkClient;
 import com.databricks.jdbc.dbclient.impl.sqlexec.DatabricksNewMetadataSdkClient;
 import com.databricks.jdbc.dbclient.impl.sqlexec.DatabricksSdkClient;
 import com.databricks.jdbc.dbclient.impl.thrift.DatabricksThriftServiceClient;
@@ -21,28 +20,24 @@ import java.util.HashMap;
 import java.util.Map;
 import javax.annotation.Nullable;
 
-/** Implementation for Session interface, which maintains an underlying session in SQL Gateway. */
+/**
+ * Implementation of {@link IDatabricksSession}, which maintains an underlying session in SQL
+ * Gateway.
+ */
 public class DatabricksSession implements IDatabricksSession {
   private IDatabricksClient databricksClient;
-
-  private IDatabricksMetadataClient databricksMetadataSdkClient;
-  private IDatabricksMetadataClient databricksNewMetadataSdkClient;
-  private IDatabricksMetadataClient databricksMetadataClient;
+  private final IDatabricksMetadataClient databricksMetadataClient;
   private final IDatabricksComputeResource computeResource;
-
   private boolean isSessionOpen;
   private ImmutableSessionInfo sessionInfo;
 
-  // For context based commands
+  /** For context based commands */
   private String catalog;
 
   private String schema;
-
   private final Map<String, String> sessionConfigs;
-
   private final Map<String, String> clientInfoProperties;
   private final CompressionType compressionType;
-
   private final IDatabricksConnectionContext connectionContext;
 
   /**
@@ -57,10 +52,7 @@ public class DatabricksSession implements IDatabricksSession {
       this.databricksMetadataClient = null;
     } else {
       this.databricksClient = new DatabricksSdkClient(connectionContext);
-      this.databricksMetadataSdkClient =
-          new DatabricksMetadataSdkClient((DatabricksSdkClient) databricksClient);
-      this.databricksNewMetadataSdkClient =
-          new DatabricksNewMetadataSdkClient((DatabricksSdkClient) databricksClient);
+      this.databricksMetadataClient = new DatabricksNewMetadataSdkClient(databricksClient);
     }
 
     this.databricksClient = DatabricksMetricsTimedProcessor.createProxy(this.databricksClient);
@@ -76,17 +68,6 @@ public class DatabricksSession implements IDatabricksSession {
     this.connectionContext = connectionContext;
   }
 
-  @Override
-  public void setMetadataClient(boolean useLegacyMetadataClient) {
-    if (connectionContext.getClientType() == DatabricksClientType.THRIFT) {
-      return;
-    }
-    this.databricksMetadataClient =
-        useLegacyMetadataClient
-            ? this.databricksMetadataSdkClient
-            : this.databricksNewMetadataSdkClient;
-  }
-
   /** Constructor method to be used for mocking in a test case. */
   @VisibleForTesting
   public DatabricksSession(
@@ -95,8 +76,7 @@ public class DatabricksSession implements IDatabricksSession {
     if (databricksClient instanceof DatabricksThriftServiceClient) {
       this.databricksMetadataClient = null;
     } else {
-      this.databricksMetadataClient =
-          new DatabricksMetadataSdkClient((DatabricksSdkClient) databricksClient);
+      this.databricksMetadataClient = new DatabricksNewMetadataSdkClient(databricksClient);
     }
     this.isSessionOpen = false;
     this.sessionInfo = null;

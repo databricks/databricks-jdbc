@@ -9,6 +9,7 @@ import com.databricks.jdbc.api.impl.ImmutableSqlParameter;
 import com.databricks.jdbc.common.LogLevel;
 import com.databricks.jdbc.common.StatementType;
 import com.databricks.jdbc.common.util.LoggingUtil;
+import com.databricks.jdbc.dbclient.IDatabricksClient;
 import com.databricks.jdbc.dbclient.IDatabricksMetadataClient;
 import com.databricks.jdbc.dbclient.impl.common.MetadataResultSetBuilder;
 import java.sql.ResultSet;
@@ -16,16 +17,11 @@ import java.sql.SQLException;
 import java.util.HashMap;
 import java.util.Optional;
 
-/**
- * This is for the new SQL commands added in runtime. Note that the DatabricksMetadataSdkClient will
- * be replaced by this class once runtime code is merged and this class is tested end to end.
- * https://docs.google.com/document/d/1E28o7jyPIp6_byZHGD5Eyc4uwGVSydX5o9PaiSY1V4s/edit#heading=h.681k0yimshae
- * Tracking bug for replacement: (PECO-1502)
- */
+/** Implementation for {@link IDatabricksMetadataClient} using {@link IDatabricksClient}. */
 public class DatabricksNewMetadataSdkClient implements IDatabricksMetadataClient {
-  private final DatabricksSdkClient sdkClient;
+  private final IDatabricksClient sdkClient;
 
-  public DatabricksNewMetadataSdkClient(DatabricksSdkClient sdkClient) {
+  public DatabricksNewMetadataSdkClient(IDatabricksClient sdkClient) {
     this.sdkClient = sdkClient;
   }
 

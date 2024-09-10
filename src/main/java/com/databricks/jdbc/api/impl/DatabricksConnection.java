@@ -1,6 +1,5 @@
 package com.databricks.jdbc.api.impl;
 
-import com.databricks.client.jdbc.Driver;
 import com.databricks.jdbc.api.IDatabricksConnection;
 import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.api.IDatabricksSession;
@@ -10,6 +9,7 @@ import com.databricks.jdbc.api.impl.volume.DatabricksUCVolumeClient;
 import com.databricks.jdbc.common.DatabricksJdbcConstants;
 import com.databricks.jdbc.common.LogLevel;
 import com.databricks.jdbc.common.util.LoggingUtil;
+import com.databricks.jdbc.common.util.UserAgentManager;
 import com.databricks.jdbc.common.util.ValidationUtil;
 import com.databricks.jdbc.dbclient.IDatabricksClient;
 import com.databricks.jdbc.exception.DatabricksSQLClientInfoException;
@@ -27,10 +27,9 @@ import java.util.stream.Collectors;
 
 /** Implementation for Databricks specific connection. */
 public class DatabricksConnection implements IDatabricksConnection, Connection {
-  private IDatabricksSession session;
+  private final IDatabricksSession session;
   private final Set<IDatabricksStatement> statementSet = ConcurrentHashMap.newKeySet();
   private SQLWarning warnings = null;
-
   private IDatabricksUCVolumeClient ucVolumeClient = null;
 
   /**
@@ -44,17 +43,13 @@ public class DatabricksConnection implements IDatabricksConnection, Connection {
     this.session.open();
   }
 
-  public void setMetadataClient(boolean useLegacyMetadataClient) {
-    this.session.setMetadataClient(useLegacyMetadataClient);
-  }
-
   @VisibleForTesting
   public DatabricksConnection(
       IDatabricksConnectionContext connectionContext, IDatabricksClient databricksClient)
       throws DatabricksSQLException {
     this.session = new DatabricksSession(connectionContext, databricksClient);
     this.session.open();
-    Driver.setUserAgent(connectionContext);
+    UserAgentManager.setUserAgent(connectionContext);
   }
 
   @Override
@@ -96,8 +91,6 @@ public class DatabricksConnection implements IDatabricksConnection, Connection {
 
   @Override
   public void setAutoCommit(boolean autoCommit) throws SQLException {
-    // LoggingUtil.log(LogLevel.DEBUG,"public void setAutoCommit(boolean autoCommit = {})",
-    // autoCommit);
     throw new DatabricksSQLFeatureNotSupportedException(
         "Not implemented in DatabricksConnection - setAutoCommit(boolean autoCommit)");
   }

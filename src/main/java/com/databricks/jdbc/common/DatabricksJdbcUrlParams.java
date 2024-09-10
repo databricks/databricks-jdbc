@@ -49,7 +49,6 @@ public enum DatabricksJdbcUrlParams {
   LZ4_COMPRESSION_FLAG("EnableQueryResultLZ4Compression"), // Backward compatibility
   COMPRESSION_FLAG("QueryResultCompressionType"),
   USER_AGENT_ENTRY("useragententry"),
-  USE_LEGACY_METADATA("uselegacymetadata"),
   TEMPORARILY_UNAVAILABLE_RETRY("TemporarilyUnavailableRetry"),
   TEMPORARILY_UNAVAILABLE_RETRY_TIMEOUT("TemporarilyUnavailableRetryTimeout"),
   RATE_LIMIT_RETRY("RateLimitRetry"),

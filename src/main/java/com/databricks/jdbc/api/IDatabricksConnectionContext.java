@@ -132,8 +132,6 @@ public interface IDatabricksConnectionContext {
 
   DatabricksClientType getClientType();
 
-  Boolean getUseLegacyMetadata();
-
   /** Returns the number of threads to be used for fetching data from cloud storage */
   int getCloudFetchThreadPoolSize();
 

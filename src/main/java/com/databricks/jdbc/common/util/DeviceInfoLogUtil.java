@@ -28,20 +28,8 @@ public class DeviceInfoLogUtil {
     LoggingUtil.log(
         LogLevel.INFO,
         String.format(
-            "Operating System Name: %s, Version: %s, Architecture: %s, Locale: ",
+            "Operating System Name: %s, Version: %s, Architecture: %s, Locale: %s",
             osName, osVersion, osArch, localeName));
     LoggingUtil.log(LogLevel.INFO, String.format("Default Charset Encoding: %s", charsetEncoding));
-    context
-        .getMetricsExporter()
-        .exportUsageMetrics(
-            jvmName,
-            jvmSpecVersion,
-            jvmImplVersion,
-            jvmVendor,
-            osName,
-            osVersion,
-            osArch,
-            localeName,
-            charsetEncoding);
   }
 }
