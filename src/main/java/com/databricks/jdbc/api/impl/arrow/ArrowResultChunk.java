@@ -16,6 +16,7 @@ import com.databricks.sdk.service.sql.BaseChunkInfo;
 import com.google.common.annotations.VisibleForTesting;
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.SocketException;
 import java.net.URISyntaxException;
 import java.nio.channels.ClosedByInterruptException;
 import java.time.Instant;
@@ -73,7 +74,8 @@ public class ArrowResultChunk {
     /** Download has been cancelled */
     CANCELLED,
     /** Chunk memory has been consumed and released */
-    CHUNK_RELEASED
+    CHUNK_RELEASED,
+    DOWNLOAD_RETRY
   }
 
   private static final Integer SECONDS_BUFFER_FOR_EXPIRY = 60;
@@ -89,6 +91,9 @@ public class ArrowResultChunk {
   private String errorMessage;
   private boolean isDataInitialized;
   private final CompressionType compressionType;
+  private static boolean injectError = false;
+  private static int errorInjectionCountMaxValue = 0;
+  private int errorInjectionCount = 0;
 
   private ArrowResultChunk(Builder builder) throws DatabricksParsingException {
     this.chunkIndex = builder.chunkIndex;
@@ -237,6 +242,14 @@ public class ArrowResultChunk {
 
   void downloadData(IDatabricksHttpClient httpClient)
       throws DatabricksParsingException, IOException {
+    // Inject error if enabled for testing
+    if (injectError && errorInjectionCount < errorInjectionCountMaxValue) {
+      errorInjectionCount++;
+      setStatus(ChunkStatus.DOWNLOAD_FAILED);
+      throw new DatabricksParsingException(
+          "Injected connection reset", new SocketException("Connection reset"));
+    }
+
     CloseableHttpResponse response = null;
     try {
       URIBuilder uriBuilder = new URIBuilder(chunkLink.getExternalLink());
@@ -360,6 +373,12 @@ public class ArrowResultChunk {
               "Data parsing interrupted for chunk index [%s] and statement [%s]. Error [%s]",
               chunkIndex, statementId, e));
       purgeArrowData(recordBatchList);
+    } catch (IOException e) {
+      LoggingUtil.log(
+          LogLevel.ERROR,
+          "Error while reading arrow data, purging the local list and rethrowing the exception.");
+      purgeArrowData(recordBatchList);
+      throw e;
     }
 
     return recordBatchList;
@@ -431,5 +450,19 @@ public class ArrowResultChunk {
     public ArrowResultChunk build() throws DatabricksParsingException {
       return new ArrowResultChunk(this);
     }
+  }
+
+  /** Method to enable error injection for testing */
+  public static void enableErrorInjection() {
+    injectError = true;
+  }
+
+  /** Method to disable error injection after testing */
+  public static void disableErrorInjection() {
+    injectError = false;
+  }
+
+  public static void setErrorInjectionCountMaxValue(int errorInjectionCountMaxValue) {
+    ArrowResultChunk.errorInjectionCountMaxValue = errorInjectionCountMaxValue;
   }
 }

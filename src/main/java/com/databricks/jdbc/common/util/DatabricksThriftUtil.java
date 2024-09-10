@@ -63,7 +63,7 @@ public class DatabricksThriftUtil {
    */
   public static List<List<Object>> extractValues(List<TColumn> columnList) {
     if (columnList == null) {
-      return Collections.singletonList(Collections.emptyList());
+      return new ArrayList<>(List.of(new ArrayList<>()));
     }
     List<Object> obj =
         columnList.stream()
@@ -77,12 +77,12 @@ public class DatabricksThriftUtil {
                   }
                 })
             .collect(Collectors.toList());
-    return Collections.singletonList(obj);
+    return new ArrayList<>(Collections.singletonList(obj));
   }
 
   public static List<List<Object>> extractValuesColumnar(List<TColumn> columnList) {
     if (columnList == null || columnList.isEmpty()) {
-      return Collections.singletonList(Collections.emptyList());
+      return new ArrayList<>(List.of(new ArrayList<>()));
     }
     int numberOfItems = columnList.get(0).getStringVal().getValuesSize();
     return IntStream.range(0, numberOfItems)

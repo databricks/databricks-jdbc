@@ -75,7 +75,8 @@ public class MultiChunkExecutionIntegrationTests extends AbstractFakeServiceInte
           getCloudFetchApiExtension()
               .countRequestsMatching(getRequestedFor(urlPathMatching(".*")).build())
               .getCount();
-      assertEquals(metaData.getChunkCount(), cloudFetchCalls);
+      // cloud fetch calls can be retried
+      assertTrue(cloudFetchCalls >= metaData.getChunkCount());
 
       if (isSqlExecSdkClient()) {
         // Number of requests to fetch external links should be one less than the total number of

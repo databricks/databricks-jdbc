@@ -20,10 +20,7 @@ import com.databricks.jdbc.model.client.thrift.generated.*;
 import com.databricks.jdbc.model.core.ExternalLink;
 import com.databricks.sdk.service.sql.StatementState;
 import java.sql.SQLException;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.List;
+import java.util.*;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -252,7 +249,7 @@ public class DatabricksThriftServiceClientTest {
             .setStatus(new TStatus().setStatusCode(TStatusCode.SUCCESS_STATUS))
             .setResults(resultData)
             .setResultSetMetadata(resultMetadataData);
-    when(resultData.getColumns()).thenReturn(Collections.emptyList());
+    when(resultData.getColumns()).thenReturn(new ArrayList<>());
     when(thriftAccessor.getThriftResponse(request, CommandName.LIST_COLUMNS, null))
         .thenReturn(response);
     DatabricksResultSet resultSet =

@@ -3,6 +3,7 @@ package com.databricks.jdbc.api.impl;
 import static com.databricks.jdbc.api.impl.DatabricksConnectionContext.getLogLevel;
 import static org.junit.jupiter.api.Assertions.*;
 
+import com.databricks.jdbc.TestConstants;
 import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.common.CompressionType;
 import com.databricks.jdbc.common.DatabricksClientType;
@@ -17,62 +18,7 @@ import org.junit.jupiter.api.Test;
 
 class DatabricksConnectionContextTest {
 
-  private static final String VALID_URL_1 =
-      "jdbc:databricks://adb-565757575.18.azuredatabricks.net:4423/default;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/erg6767gg;LogLevel=debug;LogPath=./test1;auth_flow=2";
-  private static final String VALID_URL_2 =
-      "jdbc:databricks://azuredatabricks.net/default;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/fgff575757;LogLevel=invalid;EnableQueryResultLZ4Compression=1;UseThriftClient=0";
-  private static final String VALID_URL_3 =
-      "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=http;ssl=0;AuthMech=3;httpPath=/sql/1.0/warehouses/5c89f447c476a5a8;EnableQueryResultLZ4Compression=0;UseThriftClient=1;LogLevel=1234";
-  private static final String VALID_URL_4 =
-      "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;AuthMech=3;httpPath=/sql/1.0/warehouses/5c89f447c476a5a8;QueryResultCompressionType=1;EnableDirectResults=1;";
-  private static final String VALID_URL_5 =
-      "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:4473;ssl=0;AuthMech=3;httpPath=/sql/1.0/warehouses/5c89f447c476a5a8;QueryResultCompressionType=1;EnableDirectResults=0";
-
-  private static final String VALID_URL_6 =
-      "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:4473/schemaName;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/5c89f447c476a5a8;ConnCatalog=catalogName;ConnSchema=schemaName;QueryResultCompressionType=1";
-
-  private static final String VALID_URL_7 =
-      "jdbc:databricks://adb-565757575.18.azuredatabricks.net:4423/default;ssl=1;AuthMech=3;httpPath=/sql/1.0/endpoints/erg6767gg;LogLevel=debug;LogPath=./test1;auth_flow=2;enablearrow=0";
-  private static final String VALID_URL_8 =
-      "jdbc:databricks://adb-565757575.18.azuredatabricks.net:4423/default;ssl=1;port=123;AuthMech=3;"
-          + "httpPath=/sql/1.0/endpoints/erg6767gg;LogLevel=debug;LogPath=./test1;auth_flow=2;enablearrow=0;"
-          + "OAuth2AuthorizationEndPoint=authEndpoint;OAuth2TokenEndpoint=tokenEndpoint;"
-          + "OAuthDiscoveryURL=testDiscovery;discovery_mode=1;UseJWTAssertion=1;auth_scope=test_scope;"
-          + "auth_kid=test_kid;Auth_JWT_Key_Passphrase=test_phrase;Auth_JWT_Key_File=test_key_file;"
-          + "Auth_JWT_Alg=test_algo";
-  private static final String VALID_URL_WITH_INVALID_COMPRESSION_TYPE =
-      "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/5c89f447c476a5a8;QueryResultCompressionType=234";
-
-  private static final String INVALID_URL_1 =
-      "jdbc:oracle://azuredatabricks.net/default;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/fgff575757;";
-  private static final String INVALID_URL_2 =
-      "http:databricks://azuredatabricks.net/default;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/fgff575757;";
-
-  private static final String INVALID_URL_3 =
-      "jdbc:databricks://adb-565757575.18.azuredatabricks.net:4423/default;ssl=1;port=alphabetical;AuthMech=3;httpPath=/sql/1.0/endpoints/erg6767gg;LogLevel=debug;LogPath=./test1;auth_flow=2;enablearrow=0";
-
-  private static final String VALID_TEST_URL = "jdbc:databricks://test";
-
-  private static final String VALID_CLUSTER_URL =
-      "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;ssl=1;httpPath=sql/protocolv1/o/6051921418418893/1115-130834-ms4m0yv;AuthMech=3;loglevel=3";
-  private static final String INVALID_CLUSTER_URL =
-      "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;ssl=1;httpPath=sql/protocolv1/oo/6051921418418893/1115-130834-ms4m0yv;AuthMech=3";
-  private static final String VALID_BASE_URL_1 =
-      "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;";
-  private static final String VALID_BASE_URL_2 =
-      "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default";
-  private static final String VALID_BASE_URL_3 =
-      "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443";
-  private static final String VALID_URL_WITH_PROXY =
-      "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/5c89f447c476a5a8;UseProxy=1;ProxyHost=127.0.0.1;ProxyPort=8080;ProxyAuth=1;ProxyUID=proxyUser;ProxyPwd=proxyPassword;";
-  private static final String VALID_URL_WITH_PROXY_AND_CF_PROXY =
-      "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/5c89f447c476a5a8;UseSystemProxy=1;UseProxy=1;ProxyHost=127.0.0.1;ProxyPort=8080;ProxyAuth=1;ProxyUID=proxyUser;ProxyPwd=proxyPassword;UseCFProxy=1;CFProxyHost=127.0.1.2;CFProxyPort=8081;CFProxyAuth=2;CFProxyUID=cfProxyUser;CFProxyPwd=cfProxyPassword;";
-
   private static final Properties properties = new Properties();
-
-  private static final String VALID_URL_POLLING =
-      "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:4473;ssl=1;asyncexecpollinterval=500;AuthMech=3;httpPath=/sql/1.0/warehouses/5c89f447c476a5a8;QueryResultCompressionType=1";
-
   private static final Properties properties_with_pwd = new Properties();
 
   @BeforeAll
@@ -82,43 +28,24 @@ class DatabricksConnectionContextTest {
   }
 
   @Test
-  public void testIsValid() {
-    assertTrue(DatabricksConnectionContext.isValid(VALID_URL_1));
-    assertTrue(DatabricksConnectionContext.isValid(VALID_BASE_URL_1));
-    assertTrue(DatabricksConnectionContext.isValid(VALID_BASE_URL_2));
-    assertTrue(DatabricksConnectionContext.isValid(VALID_BASE_URL_3));
-    assertTrue(DatabricksConnectionContext.isValid(VALID_TEST_URL));
-    assertTrue(DatabricksConnectionContext.isValid(VALID_URL_2));
-    assertTrue(DatabricksConnectionContext.isValid(VALID_URL_3));
-    assertTrue(DatabricksConnectionContext.isValid(VALID_URL_4));
-    assertTrue(DatabricksConnectionContext.isValid(VALID_URL_5));
-    assertTrue(DatabricksConnectionContext.isValid(VALID_URL_6));
-    assertTrue(DatabricksConnectionContext.isValid(VALID_URL_7));
-    assertTrue(DatabricksConnectionContext.isValid(VALID_URL_WITH_INVALID_COMPRESSION_TYPE));
-    assertFalse(DatabricksConnectionContext.isValid(INVALID_URL_1));
-    assertFalse(DatabricksConnectionContext.isValid(INVALID_URL_2));
-    assertTrue(DatabricksConnectionContext.isValid(VALID_CLUSTER_URL));
-    assertFalse(DatabricksConnectionContext.isValid(INVALID_CLUSTER_URL));
-  }
-
-  @Test
   public void testParseInvalid() {
     assertThrows(
         DatabricksParsingException.class,
-        () -> DatabricksConnectionContext.parse(INVALID_URL_1, properties));
+        () -> DatabricksConnectionContext.parse(TestConstants.INVALID_URL_1, properties));
     assertThrows(
         DatabricksParsingException.class,
-        () -> DatabricksConnectionContext.parse(INVALID_URL_2, properties));
+        () -> DatabricksConnectionContext.parse(TestConstants.INVALID_URL_2, properties));
   }
 
   @Test
   public void testParseValid() throws DatabricksSQLException {
     // test provided port
     DatabricksConnectionContext connectionContext =
-        (DatabricksConnectionContext) DatabricksConnectionContext.parse(VALID_URL_1, properties);
+        (DatabricksConnectionContext)
+            DatabricksConnectionContext.parse(TestConstants.VALID_URL_1, properties);
     assertEquals(
         "https://adb-565757575.18.azuredatabricks.net:4423", connectionContext.getHostUrl());
-    assertEquals(VALID_URL_1, connectionContext.getConnectionURL());
+    assertEquals(TestConstants.VALID_URL_1, connectionContext.getConnectionURL());
     assertEquals("/sql/1.0/warehouses/erg6767gg", connectionContext.getHttpPath());
     assertEquals("passwd", connectionContext.getToken());
     assertTrue(connectionContext.isOAuthDiscoveryModeEnabled());
@@ -138,7 +65,7 @@ class DatabricksConnectionContextTest {
     // test default port
     connectionContext =
         (DatabricksConnectionContext)
-            DatabricksConnectionContext.parse(VALID_URL_2, properties_with_pwd);
+            DatabricksConnectionContext.parse(TestConstants.VALID_URL_2, properties_with_pwd);
     assertEquals("https://azuredatabricks.net:443", connectionContext.getHostUrl());
     assertEquals("/sql/1.0/warehouses/fgff575757", connectionContext.getHttpPath());
     assertEquals("passwd2", connectionContext.getToken());
@@ -154,7 +81,8 @@ class DatabricksConnectionContextTest {
 
     // test aws port
     connectionContext =
-        (DatabricksConnectionContext) DatabricksConnectionContext.parse(VALID_URL_3, properties);
+        (DatabricksConnectionContext)
+            DatabricksConnectionContext.parse(TestConstants.VALID_URL_3, properties);
     List<String> expected_scopes = List.of("sql", "offline_access");
     assertEquals(
         "http://e2-dogfood.staging.cloud.databricks.com:443", connectionContext.getHostUrl());
@@ -177,7 +105,8 @@ class DatabricksConnectionContextTest {
   public void testPortStringAndAuthEndpointsThroughConnectionParameters()
       throws DatabricksSQLException {
     DatabricksConnectionContext connectionContext =
-        (DatabricksConnectionContext) DatabricksConnectionContext.parse(VALID_URL_8, properties);
+        (DatabricksConnectionContext)
+            DatabricksConnectionContext.parse(TestConstants.VALID_URL_8, properties);
     assertEquals(123, connectionContext.port);
     assertEquals("tokenEndpoint", connectionContext.getTokenEndpoint());
     assertEquals("authEndpoint", connectionContext.getAuthEndpoint());
@@ -188,17 +117,19 @@ class DatabricksConnectionContextTest {
     assertTrue(connectionContext.useJWTAssertion());
     assertThrows(
         DatabricksSQLException.class,
-        () -> DatabricksConnectionContext.parse(INVALID_URL_3, properties));
+        () -> DatabricksConnectionContext.parse(TestConstants.INVALID_URL_3, properties));
   }
 
   @Test
   public void testCompressionTypeParsing() throws DatabricksSQLException {
     DatabricksConnectionContext connectionContext =
-        (DatabricksConnectionContext) DatabricksConnectionContext.parse(VALID_URL_4, properties);
+        (DatabricksConnectionContext)
+            DatabricksConnectionContext.parse(TestConstants.VALID_URL_4, properties);
     assertEquals(CompressionType.LZ4_COMPRESSION, connectionContext.getCompressionType());
     connectionContext =
         (DatabricksConnectionContext)
-            DatabricksConnectionContext.parse(VALID_URL_WITH_INVALID_COMPRESSION_TYPE, properties);
+            DatabricksConnectionContext.parse(
+                TestConstants.VALID_URL_WITH_INVALID_COMPRESSION_TYPE, properties);
     assertEquals(CompressionType.NONE, connectionContext.getCompressionType());
   }
 
@@ -225,18 +156,21 @@ class DatabricksConnectionContextTest {
   @Test
   public void testFetchSchemaType() throws DatabricksSQLException {
     DatabricksConnectionContext connectionContext =
-        (DatabricksConnectionContext) DatabricksConnectionContext.parse(VALID_URL_5, properties);
+        (DatabricksConnectionContext)
+            DatabricksConnectionContext.parse(TestConstants.VALID_URL_5, properties);
     assertNull(connectionContext.getSchema());
 
     connectionContext =
-        (DatabricksConnectionContext) DatabricksConnectionContext.parse(VALID_URL_6, properties);
+        (DatabricksConnectionContext)
+            DatabricksConnectionContext.parse(TestConstants.VALID_URL_6, properties);
     assertEquals("schemaName", connectionContext.getSchema());
   }
 
   @Test
   public void testEndpointHttpPathParsing() throws DatabricksSQLException {
     DatabricksConnectionContext connectionContext =
-        (DatabricksConnectionContext) DatabricksConnectionContext.parse(VALID_URL_7, properties);
+        (DatabricksConnectionContext)
+            DatabricksConnectionContext.parse(TestConstants.VALID_URL_7, properties);
     assertEquals("/sql/1.0/endpoints/erg6767gg", connectionContext.getHttpPath());
   }
 
@@ -244,8 +178,7 @@ class DatabricksConnectionContextTest {
   public void testEndpointURL() throws DatabricksSQLException {
     DatabricksConnectionContext connectionContext =
         (DatabricksConnectionContext)
-            DatabricksConnectionContext.parse(VALID_CLUSTER_URL, properties);
-    //  assertEquals(connectionContext.getLogLevel(), LogLevel.WARN);
+            DatabricksConnectionContext.parse(TestConstants.VALID_CLUSTER_URL, properties);
     assertEquals(
         "https://e2-dogfood.staging.cloud.databricks.com:443/sql/protocolv1/o/6051921418418893/1115-130834-ms4m0yv",
         connectionContext.getEndpointURL());
@@ -254,21 +187,25 @@ class DatabricksConnectionContextTest {
   @Test
   public void testFetchCatalog() throws DatabricksSQLException {
     DatabricksConnectionContext connectionContext =
-        (DatabricksConnectionContext) DatabricksConnectionContext.parse(VALID_URL_5, properties);
+        (DatabricksConnectionContext)
+            DatabricksConnectionContext.parse(TestConstants.VALID_URL_5, properties);
     assertNull(connectionContext.getCatalog());
 
     connectionContext =
-        (DatabricksConnectionContext) DatabricksConnectionContext.parse(VALID_URL_6, properties);
+        (DatabricksConnectionContext)
+            DatabricksConnectionContext.parse(TestConstants.VALID_URL_6, properties);
     assertEquals("catalogName", connectionContext.getCatalog());
   }
 
   @Test
   public void testEnableCloudFetch() throws DatabricksSQLException {
     DatabricksConnectionContext connectionContext =
-        (DatabricksConnectionContext) DatabricksConnectionContext.parse(VALID_URL_5, properties);
+        (DatabricksConnectionContext)
+            DatabricksConnectionContext.parse(TestConstants.VALID_URL_5, properties);
     assertTrue(connectionContext.shouldEnableArrow());
     connectionContext =
-        (DatabricksConnectionContext) DatabricksConnectionContext.parse(VALID_URL_7, properties);
+        (DatabricksConnectionContext)
+            DatabricksConnectionContext.parse(TestConstants.VALID_URL_7, properties);
     assertFalse(connectionContext.shouldEnableArrow());
   }
 
@@ -276,7 +213,7 @@ class DatabricksConnectionContextTest {
   public void testAllPurposeClusterParsing() throws DatabricksSQLException {
     DatabricksConnectionContext connectionContext =
         (DatabricksConnectionContext)
-            DatabricksConnectionContext.parse(VALID_CLUSTER_URL, properties);
+            DatabricksConnectionContext.parse(TestConstants.VALID_CLUSTER_URL, properties);
     assertEquals(
         "https://e2-dogfood.staging.cloud.databricks.com:443", connectionContext.getHostUrl());
     assertEquals(
@@ -292,7 +229,8 @@ class DatabricksConnectionContextTest {
   @Test
   public void testParsingOfUrlWithoutDefault() throws DatabricksSQLException {
     DatabricksConnectionContext connectionContext =
-        (DatabricksConnectionContext) DatabricksConnectionContext.parse(VALID_URL_5, properties);
+        (DatabricksConnectionContext)
+            DatabricksConnectionContext.parse(TestConstants.VALID_URL_5, properties);
     assertEquals("/sql/1.0/warehouses/5c89f447c476a5a8", connectionContext.getHttpPath());
     assertEquals("passwd", connectionContext.getToken());
     assertEquals(CompressionType.LZ4_COMPRESSION, connectionContext.getCompressionType());
@@ -305,36 +243,40 @@ class DatabricksConnectionContextTest {
   @Test
   public void testPollingInterval() throws DatabricksSQLException {
     DatabricksConnectionContext connectionContext =
-        (DatabricksConnectionContext) DatabricksConnectionContext.parse(VALID_URL_5, properties);
+        (DatabricksConnectionContext)
+            DatabricksConnectionContext.parse(TestConstants.VALID_URL_5, properties);
     assertEquals(200, connectionContext.getAsyncExecPollInterval());
 
     DatabricksConnectionContext connectionContextWithPoll =
         (DatabricksConnectionContext)
-            DatabricksConnectionContext.parse(VALID_URL_POLLING, properties);
+            DatabricksConnectionContext.parse(TestConstants.VALID_URL_POLLING, properties);
     assertEquals(500, connectionContextWithPoll.getAsyncExecPollInterval());
   }
 
   @Test
   public void testParsingOfUrlWithEnableDirectResultsFlag() throws DatabricksSQLException {
     DatabricksConnectionContext connectionContext =
-        (DatabricksConnectionContext) DatabricksConnectionContext.parse(VALID_URL_5, properties);
+        (DatabricksConnectionContext)
+            DatabricksConnectionContext.parse(TestConstants.VALID_URL_5, properties);
     assertEquals(false, connectionContext.getDirectResultMode());
     DatabricksConnectionContext connectionContext2 =
-        (DatabricksConnectionContext) DatabricksConnectionContext.parse(VALID_URL_4, properties);
+        (DatabricksConnectionContext)
+            DatabricksConnectionContext.parse(TestConstants.VALID_URL_4, properties);
     assertEquals(true, connectionContext2.getDirectResultMode());
   }
 
   @Test
   public void testWithNoEnableDirectResultsFlag() throws DatabricksSQLException {
     DatabricksConnectionContext connectionContext =
-        (DatabricksConnectionContext) DatabricksConnectionContext.parse(VALID_URL_3, properties);
+        (DatabricksConnectionContext)
+            DatabricksConnectionContext.parse(TestConstants.VALID_URL_3, properties);
     assertEquals(true, connectionContext.getDirectResultMode());
   }
 
   @Test
   public void testParsingOfUrlWithProxy() throws DatabricksSQLException {
     IDatabricksConnectionContext connectionContext =
-        DatabricksConnectionContext.parse(VALID_URL_WITH_PROXY, properties);
+        DatabricksConnectionContext.parse(TestConstants.VALID_URL_WITH_PROXY, properties);
     assertTrue(connectionContext.getUseProxy());
     assertEquals("127.0.0.1", connectionContext.getProxyHost());
     assertEquals(8080, connectionContext.getProxyPort());
@@ -345,7 +287,8 @@ class DatabricksConnectionContextTest {
     System.setProperty("https.proxyHost", "localhost");
     System.setProperty("https.proxyPort", "8080");
     IDatabricksConnectionContext connectionContextWithCFProxy =
-        DatabricksConnectionContext.parse(VALID_URL_WITH_PROXY_AND_CF_PROXY, properties);
+        DatabricksConnectionContext.parse(
+            TestConstants.VALID_URL_WITH_PROXY_AND_CF_PROXY, properties);
     assertTrue(connectionContextWithCFProxy.getUseSystemProxy());
     assertTrue(connectionContextWithCFProxy.getUseProxy());
     assertEquals("127.0.1.2", connectionContextWithCFProxy.getCloudFetchProxyHost());

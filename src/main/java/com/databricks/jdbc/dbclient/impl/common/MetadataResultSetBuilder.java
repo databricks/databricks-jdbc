@@ -14,6 +14,7 @@ import com.google.common.annotations.VisibleForTesting;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -52,10 +53,6 @@ public class MetadataResultSetBuilder {
 
   public static DatabricksResultSet getTableTypesResult() {
     return buildResultSet(TABLE_TYPE_COLUMNS, TABLE_TYPES_ROWS, GET_TABLE_TYPE_STATEMENT_ID);
-  }
-
-  public static DatabricksResultSet getTableTypesResult(List<List<Object>> rows) {
-    return buildResultSet(TABLE_TYPE_COLUMNS, rows, GET_TABLE_TYPE_STATEMENT_ID);
   }
 
   public static DatabricksResultSet getTypeInfoResult(List<List<Object>> rows) {
@@ -97,15 +94,13 @@ public class MetadataResultSetBuilder {
                 } else {
                   object = "NO";
                 }
-              }
-              if (column.getColumnName().equals(NULLABLE_COLUMN.getColumnName())) {
+              } else if (column.getColumnName().equals(NULLABLE_COLUMN.getColumnName())) {
                 if (object == null || object.equals("true")) {
                   object = 1;
                 } else {
                   object = 0;
                 }
-              }
-              if (column.getColumnName().equals(DECIMAL_DIGITS_COLUMN.getColumnName())
+              } else if (column.getColumnName().equals(DECIMAL_DIGITS_COLUMN.getColumnName())
                   || column.getColumnName().equals(NUM_PREC_RADIX_COLUMN.getColumnName())) {
                 if (object == null) {
                   object = 0;
@@ -117,7 +112,6 @@ public class MetadataResultSetBuilder {
                 object = getCode(stripTypeName(typeVal));
               } else if (column.getColumnName().equals(CHAR_OCTET_LENGTH_COLUMN.getColumnName())) {
                 String typeVal = resultSet.getString(COLUMN_TYPE_COLUMN.getResultSetColumnName());
-
                 object = getCharOctetLength(typeVal);
               } else if (column.getColumnName().equals(BUFFER_LENGTH_COLUMN.getColumnName())) {
                 String typeVal = resultSet.getString(COLUMN_TYPE_COLUMN.getResultSetColumnName());
@@ -361,6 +355,12 @@ public class MetadataResultSetBuilder {
 
   private static DatabricksResultSet buildResultSet(
       List<ResultColumn> columns, List<List<Object>> rows, String statementId) {
+    if (rows != null && !rows.isEmpty() && columns.size() > rows.get(0).size()) {
+      /* Handle cases where the number of rows is less than expected columns, e.g., missing
+      isGenerated column.*/
+      int colSize = columns.size();
+      rows.forEach(row -> row.addAll(Collections.nCopies(colSize - row.size(), null)));
+    }
     return new DatabricksResultSet(
         new StatementStatus().setState(StatementState.SUCCEEDED),
         statementId,
@@ -373,11 +373,12 @@ public class MetadataResultSetBuilder {
   }
 
   public static DatabricksResultSet getCatalogsResult(List<List<Object>> rows) {
-    return buildResultSet(CATALOG_COLUMNS, rows, GET_CATALOGS_STATEMENT_ID);
+    return buildResultSet(
+        CATALOG_COLUMNS, buildRows(rows, CATALOG_COLUMNS), GET_CATALOGS_STATEMENT_ID);
   }
 
   public static DatabricksResultSet getSchemasResult(List<List<Object>> rows) {
-    return buildResultSet(SCHEMA_COLUMNS, rows, METADATA_STATEMENT_ID);
+    return buildResultSet(SCHEMA_COLUMNS, buildRows(rows, SCHEMA_COLUMNS), METADATA_STATEMENT_ID);
   }
 
   public static DatabricksResultSet getTablesResult(String catalog, List<List<Object>> rows) {
@@ -393,18 +394,56 @@ public class MetadataResultSetBuilder {
       }
       updatedRows.add(row);
     }
-    return buildResultSet(TABLE_COLUMNS_ALL_PURPOSE, updatedRows, GET_TABLES_STATEMENT_ID);
+    return buildResultSet(
+        TABLE_COLUMNS_ALL_PURPOSE,
+        buildRows(updatedRows, TABLE_COLUMNS_ALL_PURPOSE),
+        GET_TABLES_STATEMENT_ID);
   }
 
   public static DatabricksResultSet getColumnsResult(List<List<Object>> rows) {
-    return buildResultSet(COLUMN_COLUMNS, rows, METADATA_STATEMENT_ID);
+    return buildResultSet(
+        COLUMN_COLUMNS_ALL_PURPOSE,
+        buildRows(buildRows(rows, COLUMN_COLUMNS_ALL_PURPOSE), COLUMN_COLUMNS_ALL_PURPOSE),
+        METADATA_STATEMENT_ID);
+  }
+
+  static List<List<Object>> buildRows(List<List<Object>> rows, List<ResultColumn> columns) {
+    if (rows == null) {
+      return new ArrayList<>();
+    }
+    List<List<Object>> updatedRows = new ArrayList<>(rows.size());
+
+    int ordinalPositionIndex = columns.indexOf(ORDINAL_POSITION_COLUMN);
+    boolean hasOrdinalPosition = ordinalPositionIndex != -1;
+
+    for (List<Object> row : rows) {
+      if (hasOrdinalPosition) {
+        incrementValueAtIndex(row, ordinalPositionIndex);
+      }
+      // TODO: Add more client-side manipulations
+      updatedRows.add(row);
+    }
+
+    return updatedRows;
+  }
+
+  private static void incrementValueAtIndex(List<Object> row, int index) {
+    if (row.size() > index) {
+      row.set(index, (int) row.get(index) + 1);
+    }
   }
 
   public static DatabricksResultSet getPrimaryKeysResult(List<List<Object>> rows) {
-    return buildResultSet(PRIMARY_KEYS_COLUMNS_ALL_PURPOSE, rows, METADATA_STATEMENT_ID);
+    return buildResultSet(
+        PRIMARY_KEYS_COLUMNS_ALL_PURPOSE,
+        buildRows(rows, PRIMARY_KEYS_COLUMNS_ALL_PURPOSE),
+        METADATA_STATEMENT_ID);
   }
 
   public static DatabricksResultSet getFunctionsResult(List<List<Object>> rows) {
-    return buildResultSet(FUNCTION_COLUMNS_ALL_PURPOSE, rows, GET_FUNCTIONS_STATEMENT_ID);
+    return buildResultSet(
+        FUNCTION_COLUMNS_ALL_PURPOSE,
+        buildRows(rows, FUNCTION_COLUMNS_ALL_PURPOSE),
+        GET_FUNCTIONS_STATEMENT_ID);
   }
 }
