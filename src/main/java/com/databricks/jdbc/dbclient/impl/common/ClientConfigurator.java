@@ -88,15 +88,17 @@ public class ClientConfigurator {
       PKIXBuilderParameters pkixBuilderParameters =
           new PKIXBuilderParameters(trustAnchors, new X509CertSelector());
       pkixBuilderParameters.setRevocationEnabled(connectionContext.checkCertificateRevocation());
+      CertPathValidator certPathValidator = CertPathValidator.getInstance("PKIX");
+      PKIXRevocationChecker revocationChecker =
+              (PKIXRevocationChecker) certPathValidator.getRevocationChecker();
       if (connectionContext.acceptUndeterminedCertificateRevocation()) {
-        CertPathValidator certPathValidator = CertPathValidator.getInstance("PKIX");
-        PKIXRevocationChecker revocationChecker =
-            (PKIXRevocationChecker) certPathValidator.getRevocationChecker();
         revocationChecker.setOptions(
             Set.of(
                 PKIXRevocationChecker.Option.SOFT_FAIL,
                 PKIXRevocationChecker.Option.NO_FALLBACK,
                 PKIXRevocationChecker.Option.PREFER_CRLS));
+      }
+      if (connectionContext.checkCertificateRevocation()) {
         pkixBuilderParameters.addCertPathChecker(revocationChecker);
       }
       CertPathTrustManagerParameters trustManagerParameters =
