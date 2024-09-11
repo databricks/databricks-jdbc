@@ -534,14 +534,13 @@ public class DatabricksStatement implements IDatabricksStatement, Statement {
               "Statement execution timed-out. ErrorMessage %s, statementId %s",
               stackTraceMessage, statementId);
       LoggingUtil.log(LogLevel.ERROR, timeoutErrorMessage);
-      new DatabricksTimeoutException(
+      futureResultSet.cancel(true); // Cancel execution run
+      throw new DatabricksTimeoutException(
           timeoutErrorMessage,
           e,
           connection.getSession().getConnectionContext(),
           statementId,
           ErrorCodes.STATEMENT_EXECUTION_TIMEOUT);
-      futureResultSet.cancel(true); // Cancel execution run
-
     } catch (InterruptedException | ExecutionException e) {
       Throwable cause = e;
       // Look for underlying DatabricksSQL exception
