@@ -9,12 +9,13 @@ import com.databricks.jdbc.common.DatabricksClientType;
 import com.databricks.jdbc.common.DatabricksJdbcConstants;
 import com.databricks.jdbc.common.ErrorCodes;
 import com.databricks.jdbc.common.ErrorTypes;
-import com.databricks.jdbc.common.LogLevel;
 import com.databricks.jdbc.common.util.DeviceInfoLogUtil;
 import com.databricks.jdbc.common.util.DriverUtil;
 import com.databricks.jdbc.common.util.LoggingUtil;
 import com.databricks.jdbc.common.util.ValidationUtil;
 import com.databricks.jdbc.exception.DatabricksSQLException;
+import com.databricks.jdbc.log.JdbcLogger;
+import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.sdk.core.UserAgent;
 import java.io.IOException;
 import java.sql.*;
@@ -22,6 +23,8 @@ import java.util.Properties;
 
 /** Databricks JDBC driver. */
 public class Driver implements java.sql.Driver {
+
+  public static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(Driver.class);
   private static final Driver INSTANCE;
 
   static {
@@ -131,8 +134,7 @@ public class Driver implements java.sql.Driver {
   private void setMetadataClient(
       DatabricksConnection connection, IDatabricksConnectionContext connectionContext) {
     if (connectionContext.getUseLegacyMetadata().equals(true)) {
-      LoggingUtil.log(
-          LogLevel.DEBUG,
+      LOGGER.debug(
           "The new metadata commands are enabled, but the legacy metadata commands are being used due to connection parameter useLegacyMetadata");
       connection.setMetadataClient(true);
     } else {
@@ -153,8 +155,7 @@ public class Driver implements java.sql.Driver {
         return false;
       }
     } catch (Exception e) {
-      LoggingUtil.log(
-          LogLevel.DEBUG,
+      LOGGER.debug(
           String.format(
               "Unable to parse the DBSQL version {%s}. Falling back to legacy metadata commands.",
               dbsqlVersion));

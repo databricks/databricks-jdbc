@@ -6,10 +6,11 @@ import static io.netty.util.NetUtil.LOCALHOST;
 import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.common.ErrorTypes;
 import com.databricks.jdbc.common.LogLevel;
-import com.databricks.jdbc.common.util.LoggingUtil;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
 import com.databricks.jdbc.exception.DatabricksHttpException;
 import com.databricks.jdbc.exception.DatabricksRetryHandlerException;
+import com.databricks.jdbc.log.JdbcLogger;
+import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.sdk.core.DatabricksConfig;
 import com.databricks.sdk.core.ProxyConfig;
 import com.databricks.sdk.core.UserAgent;
@@ -42,6 +43,8 @@ import org.apache.http.ssl.SSLContextBuilder;
 
 /** Http client implementation to be used for executing http requests. */
 public class DatabricksHttpClient implements IDatabricksHttpClient {
+
+  public static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(DatabricksHttpClient.class);
 
   // Context attribute keys
   private static final String RETRY_INTERVAL_KEY = "retryInterval";
@@ -165,8 +168,7 @@ public class DatabricksHttpClient implements IDatabricksHttpClient {
           .setSSLHostnameVerifier(new NoopHostnameVerifier())
           .build();
     } catch (NoSuchAlgorithmException | KeyManagementException | KeyStoreException e) {
-      LoggingUtil.log(
-          LogLevel.DEBUG,
+      LOGGER.debug(
           String.format(
               "Error in creating HttpClient with the SSL context [{%s}]", e.getMessage()));
     }
@@ -353,8 +355,7 @@ public class DatabricksHttpClient implements IDatabricksHttpClient {
 
   @Override
   public CloseableHttpResponse execute(HttpUriRequest request) throws DatabricksHttpException {
-    LoggingUtil.log(
-        LogLevel.DEBUG,
+    LOGGER.debug(
         String.format("Executing HTTP request [{%s}]", RequestSanitizer.sanitizeRequest(request)));
     try {
       return httpClient.execute(request);
@@ -366,8 +367,7 @@ public class DatabricksHttpClient implements IDatabricksHttpClient {
 
   public CloseableHttpResponse executeWithoutCertVerification(HttpUriRequest request)
       throws DatabricksHttpException {
-    LoggingUtil.log(
-        LogLevel.DEBUG,
+    LOGGER.debug(
         String.format("Executing HTTP request [{%s}]", RequestSanitizer.sanitizeRequest(request)));
     try {
       return httpDisabledSSLClient.execute(request);
@@ -381,8 +381,7 @@ public class DatabricksHttpClient implements IDatabricksHttpClient {
   public void closeExpiredAndIdleConnections() {
     if (connectionManager != null) {
       synchronized (connectionManager) {
-        LoggingUtil.log(
-            LogLevel.DEBUG,
+        LOGGER.debug(
             String.format("connection pool stats: {%s}", connectionManager.getTotalStats()));
         connectionManager.closeExpiredConnections();
         connectionManager.closeIdleConnections(idleHttpConnectionExpiry, TimeUnit.SECONDS);
@@ -419,8 +418,7 @@ public class DatabricksHttpClient implements IDatabricksHttpClient {
       try {
         instance.httpClient.close();
       } catch (IOException e) {
-        LoggingUtil.log(
-            LogLevel.DEBUG, String.format("Caught error while closing http client. Error %s", e));
+        LOGGER.debug(String.format("Caught error while closing http client. Error %s", e));
       }
     }
   }
@@ -438,7 +436,11 @@ public class DatabricksHttpClient implements IDatabricksHttpClient {
         String.format(
             "Caught error while executing http request: [%s]. Error Message: [%s]",
             RequestSanitizer.sanitizeRequest(request), e);
-    LoggingUtil.log(logLevel, errorMsg);
+    if (logLevel == LogLevel.DEBUG) {
+      LOGGER.debug(errorMsg);
+    } else {
+      LOGGER.error(errorMsg, e);
+    }
     throw new DatabricksHttpException(errorMsg, e);
   }
 }
