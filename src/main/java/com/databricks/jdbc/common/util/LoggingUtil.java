@@ -9,11 +9,7 @@ import com.databricks.jdbc.log.JulLogger;
 import java.io.IOException;
 import java.util.logging.Level;
 
-/**
- * A centralised utility class for logging messages at different levels of importance.
- *
- * <p>TODO: switch to de-centralised logging with each class having its own logger.
- */
+/** A centralised utility class for logging messages at different levels of importance. */
 public class LoggingUtil {
 
   private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(LoggingUtil.class);
