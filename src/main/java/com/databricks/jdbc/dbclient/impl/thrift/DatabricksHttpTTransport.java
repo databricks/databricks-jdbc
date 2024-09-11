@@ -27,6 +27,11 @@ public class DatabricksHttpTTransport extends TTransport {
   private final String url;
   private Map<String, String> customHeaders = Collections.emptyMap();
   private final ByteArrayOutputStream requestBuffer;
+  /***
+   * The life cycle of inputStream seems to be unconventional here. It looks like the client has to manually call flush() or
+   * setInputStream() to even populate the inputStream, otherwise it'll error out everywhere with null inputStream.
+   * Can you explain why the class is designed to be used like this? Shouldn't we make
+   */
   private InputStream inputStream = null;
   private CloseableHttpResponse response = null;
   private static final Map<String, String> DEFAULT_HEADERS =
@@ -50,9 +55,15 @@ public class DatabricksHttpTTransport extends TTransport {
     // Opening is not required for HTTP transport
   }
 
+  /***
+   * Is it a good idea to swallow the exception here? Shouldn't it make more sense the throw IOException from InputStream?
+   */
   @Override
   public void close() {
     this.httpClient.closeExpiredAndIdleConnections();
+    /***
+     * It is best practice to tear down in reverse order. In this case, response should be closed first.
+     */
     if (inputStream != null) {
       try {
         inputStream.close();
@@ -117,6 +128,9 @@ public class DatabricksHttpTTransport extends TTransport {
     requestBuffer.write(buf, off, len);
   }
 
+  /***
+   * Refer to the questions above. Does the client need to manually invoke flush()?
+   */
   @Override
   public void flush() throws TTransportException {
     try {
