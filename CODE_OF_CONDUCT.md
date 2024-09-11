@@ -60,7 +60,7 @@ representative at an online or offline event.
 
 Instances of abusive, harassing, or otherwise unacceptable behavior may be
 reported to the community leaders responsible for enforcement at
-samikshya.chand@databricks.com.
+eng-oss-sql-driver@databricks.com.
 
 All complaints will be reviewed and investigated promptly and fairly.
 
