@@ -2,9 +2,10 @@ package com.databricks.jdbc.common.util;
 
 import static java.sql.ParameterMetaData.parameterNullable;
 
-import com.databricks.jdbc.common.LogLevel;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.exception.DatabricksSQLFeatureNotSupportedException;
+import com.databricks.jdbc.log.JdbcLogger;
+import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.model.client.thrift.generated.TPrimitiveTypeEntry;
 import com.databricks.jdbc.model.client.thrift.generated.TTypeDesc;
 import com.databricks.jdbc.model.client.thrift.generated.TTypeEntry;
@@ -27,6 +28,7 @@ import org.apache.arrow.vector.types.pojo.ArrowType;
  */
 public class DatabricksTypeUtil {
 
+  public static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(DatabricksTypeUtil.class);
   public static final String BIGINT = "BIGINT";
   public static final String BINARY = "BINARY";
   public static final String BOOLEAN = "BOOLEAN";
@@ -142,7 +144,7 @@ public class DatabricksTypeUtil {
       case USER_DEFINED_TYPE:
         return Types.OTHER;
       default:
-        LoggingUtil.log(LogLevel.ERROR, "Unknown column type: " + typeName);
+        LOGGER.error("Unknown column type: " + typeName);
         throw new IllegalStateException("Unknown column type: " + typeName);
     }
   }
@@ -186,7 +188,7 @@ public class DatabricksTypeUtil {
       case MAP:
         return "java.util.Map";
       default:
-        LoggingUtil.log(LogLevel.ERROR, "Unknown column type class name: " + typeName);
+        LOGGER.error("Unknown column type class name: " + typeName);
         throw new IllegalStateException("Unknown column type class name: " + typeName);
     }
   }

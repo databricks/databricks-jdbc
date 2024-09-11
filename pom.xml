@@ -349,6 +349,7 @@
             <exclude>**/CommandName*</exclude>
             <exclude>**/DatabricksJdbcConstants*</exclude>
             <exclude>**/DatabricksJdbcUrlParams*</exclude>
+            <exclude>**/Driver*</exclude>
             <exclude>**/EnvironmentVariables*</exclude>
             <exclude>**/*Constants*</exclude>
             <exclude>**/*Exception*</exclude>

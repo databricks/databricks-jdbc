@@ -8,13 +8,13 @@ import com.databricks.jdbc.api.IDatabricksStatement;
 import com.databricks.jdbc.api.impl.converters.AbstractObjectConverter;
 import com.databricks.jdbc.api.impl.converters.ConverterHelper;
 import com.databricks.jdbc.api.impl.volume.VolumeInputStream;
-import com.databricks.jdbc.common.LogLevel;
 import com.databricks.jdbc.common.StatementType;
-import com.databricks.jdbc.common.util.LoggingUtil;
 import com.databricks.jdbc.common.util.WarningUtil;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.exception.DatabricksSQLFeatureNotSupportedException;
+import com.databricks.jdbc.log.JdbcLogger;
+import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.model.client.thrift.generated.TGetResultSetMetadataResp;
 import com.databricks.jdbc.model.client.thrift.generated.TRowSet;
 import com.databricks.jdbc.model.client.thrift.generated.TStatus;
@@ -36,6 +36,8 @@ import org.apache.http.HttpEntity;
 import org.apache.http.entity.InputStreamEntity;
 
 public class DatabricksResultSet implements ResultSet, IDatabricksResultSet {
+
+  public static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(DatabricksResultSet.class);
   protected static final String AFFECTED_ROWS_COUNT = "num_affected_rows";
   private final StatementStatus statementStatus;
   private final String statementId;
@@ -638,15 +640,14 @@ public class DatabricksResultSet implements ResultSet, IDatabricksResultSet {
     /* As we fetch chunks of data together,
     setting fetchSize is an overkill.
     Hence, we don't support it.*/
-    LoggingUtil.log(
-        LogLevel.DEBUG, String.format("public void setFetchSize(int rows = {%s})", rows));
+    LOGGER.debug(String.format("public void setFetchSize(int rows = {%s})", rows));
     checkIfClosed();
     addWarningAndLog("As FetchSize is not supported in the Databricks JDBC, ignoring it");
   }
 
   @Override
   public int getFetchSize() throws SQLException {
-    LoggingUtil.log(LogLevel.DEBUG, "public int getFetchSize()");
+    LOGGER.debug("public int getFetchSize()");
     checkIfClosed();
     addWarningAndLog(
         "As FetchSize is not supported in the Databricks JDBC, we don't set it in the first place");
@@ -1040,7 +1041,7 @@ public class DatabricksResultSet implements ResultSet, IDatabricksResultSet {
   }
 
   private void addWarningAndLog(String warningMessage) {
-    LoggingUtil.log(LogLevel.WARN, warningMessage);
+    LOGGER.warn(warningMessage);
     warnings = WarningUtil.addWarning(warnings, warningMessage);
   }
 
@@ -1566,7 +1567,7 @@ public class DatabricksResultSet implements ResultSet, IDatabricksResultSet {
           String.format(
               "Exception occurred while converting object into corresponding return object type using getObject(int columnIndex, Class<T> type). ErrorMessage: %s",
               e.getMessage());
-      LoggingUtil.log(LogLevel.ERROR, errorMessage);
+      LOGGER.error(errorMessage);
       throw new DatabricksSQLException(errorMessage, e);
     }
   }

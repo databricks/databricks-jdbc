@@ -1,15 +1,17 @@
 package com.databricks.jdbc.api.impl.arrow;
 
-import com.databricks.jdbc.common.LogLevel;
-import com.databricks.jdbc.common.util.LoggingUtil;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
+import com.databricks.jdbc.log.JdbcLogger;
+import com.databricks.jdbc.log.JdbcLoggerFactory;
 import java.io.IOException;
 import java.util.concurrent.Callable;
 
 /** Task class to manage download for a single chunk. */
 class SingleChunkDownloader implements Callable<Void> {
+
+  public static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(SingleChunkDownloader.class);
   private static final int MAX_RETRIES = 3;
   private static final long RETRY_DELAY_MS = 1000; // 1 second
   private final ArrowResultChunk chunk;
@@ -39,16 +41,14 @@ class SingleChunkDownloader implements Callable<Void> {
         } catch (DatabricksParsingException | IOException e) {
           retries++;
           if (retries >= MAX_RETRIES) {
-            LoggingUtil.log(
-                LogLevel.ERROR,
+            LOGGER.error(
                 String.format(
                     "Failed to download chunk after %d attempts. Chunk index: %d, Error: %s",
                     MAX_RETRIES, chunk.getChunkIndex(), e.getMessage()));
             chunk.setStatus(ArrowResultChunk.ChunkStatus.DOWNLOAD_FAILED);
             throw new DatabricksSQLException("Failed to download chunk after multiple attempts", e);
           } else {
-            LoggingUtil.log(
-                LogLevel.WARN,
+            LOGGER.warn(
                 String.format(
                     "Retry attempt %d for chunk index: %d, Error: %s",
                     retries, chunk.getChunkIndex(), e.getMessage()));
