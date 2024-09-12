@@ -128,13 +128,13 @@ public class DatabricksSession implements IDatabricksSession {
 
   @Override
   public IDatabricksComputeResource getComputeResource() {
-    LOGGER.debug("public String getWarehouseId()");
+    LOGGER.debug("public String getComputeResource()");
     return this.computeResource;
   }
 
   @Override
   public CompressionType getCompressionType() {
-    LOGGER.debug("public String getWarehouseId()");
+    LOGGER.debug("public String getCompressionType()");
     return compressionType;
   }
 
