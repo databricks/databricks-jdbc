@@ -246,7 +246,7 @@ public class DatabricksSdkClient implements IDatabricksClient {
   }
 
   @Override
-  public void resetAccessToken(String newAccessToken) {
+  public synchronized void resetAccessToken(String newAccessToken) {
     this.clientConfigurator.resetAccessTokenInConfig(newAccessToken);
     this.workspaceClient = clientConfigurator.getWorkspaceClient();
   }

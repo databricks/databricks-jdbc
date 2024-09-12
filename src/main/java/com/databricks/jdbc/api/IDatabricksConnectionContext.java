@@ -66,6 +66,7 @@ public interface IDatabricksConnectionContext {
 
   /**
    * Returns the pass through access token
+   *
    * @return access token
    */
   String getPassThroughAccessToken();
