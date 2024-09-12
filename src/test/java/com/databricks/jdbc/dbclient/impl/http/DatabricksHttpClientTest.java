@@ -234,7 +234,7 @@ public class DatabricksHttpClientTest {
         DatabricksConnectionContextFactory.create(CLUSTER_JDBC_URL, new Properties());
     Driver.setUserAgent(connectionContext);
     String userAgent = DatabricksHttpClient.getUserAgent();
-    assertTrue(userAgent.contains("DatabricksJDBCDriverOSS/0.9.3-oss"));
+    assertTrue(userAgent.contains("DatabricksJDBCDriverOSS/0.9.4-oss"));
     assertTrue(userAgent.contains(" Java/THttpClient-HC-MyApp"));
     assertTrue(userAgent.contains(" databricks-jdbc-http "));
     assertFalse(userAgent.contains("databricks-sdk-java"));
@@ -243,7 +243,7 @@ public class DatabricksHttpClientTest {
     connectionContext = DatabricksConnectionContextFactory.create(DBSQL_JDBC_URL, new Properties());
     Driver.setUserAgent(connectionContext);
     userAgent = DatabricksHttpClient.getUserAgent();
-    assertTrue(userAgent.contains("DatabricksJDBCDriverOSS/0.9.3-oss"));
+    assertTrue(userAgent.contains("DatabricksJDBCDriverOSS/0.9.4-oss"));
     assertTrue(userAgent.contains(" Java/SQLExecHttpClient-HC-MyApp"));
     assertTrue(userAgent.contains(" databricks-jdbc-http "));
     assertFalse(userAgent.contains("databricks-sdk-java"));
