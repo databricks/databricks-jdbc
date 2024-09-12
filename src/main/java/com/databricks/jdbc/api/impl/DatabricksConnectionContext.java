@@ -175,6 +175,11 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   }
 
   @Override
+  public String getPassThroughAccessToken() {
+    return getParameter(DatabricksJdbcUrlParams.AUTH_ACCESS_TOKEN);
+  }
+
+  @Override
   public int getAsyncExecPollInterval() {
     return getParameter(DatabricksJdbcUrlParams.POLL_INTERVAL) == null
         ? POLL_INTERVAL_DEFAULT

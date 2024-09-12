@@ -11,6 +11,7 @@ public enum DatabricksJdbcUrlParams {
   CLIENT_ID("OAuth2ClientId"),
   CLIENT_SECRET("OAuth2Secret"),
   AUTH_MECH("authmech"),
+  AUTH_ACCESS_TOKEN("Auth_AccessToken"),
   CONN_CATALOG("conncatalog"),
   CONN_SCHEMA("connschema"),
   PROXY_HOST("proxyhost"),

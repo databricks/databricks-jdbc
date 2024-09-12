@@ -29,9 +29,9 @@ import org.apache.thrift.TBase;
 import org.apache.thrift.TException;
 import org.apache.thrift.protocol.TBinaryProtocol;
 
-public class DatabricksThriftAccessor {
+final class DatabricksThriftAccessor {
 
-  public static final JdbcLogger LOGGER =
+  private static final JdbcLogger LOGGER =
       JdbcLoggerFactory.getLogger(DatabricksThriftAccessor.class);
   private final DatabricksConfig databricksConfig;
   private final ThreadLocal<TCLIService.Client> thriftClient;
@@ -39,7 +39,7 @@ public class DatabricksThriftAccessor {
   private static final TSparkGetDirectResults DEFAULT_DIRECT_RESULTS =
       new TSparkGetDirectResults().setMaxRows(DEFAULT_ROW_LIMIT).setMaxBytes(DEFAULT_BYTE_LIMIT);
 
-  public DatabricksThriftAccessor(IDatabricksConnectionContext connectionContext)
+  DatabricksThriftAccessor(IDatabricksConnectionContext connectionContext)
       throws DatabricksParsingException {
     enableDirectResults = connectionContext.getDirectResultMode();
     this.databricksConfig = new ClientConfigurator(connectionContext).getDatabricksConfig();
@@ -69,7 +69,7 @@ public class DatabricksThriftAccessor {
     this.enableDirectResults = connectionContext.getDirectResultMode();
   }
 
-  public TBase getThriftResponse(
+  TBase getThriftResponse(
       TBase request, CommandName commandName, IDatabricksStatement parentStatement)
       throws DatabricksSQLException {
     // TODO: Test out metadata operations.
@@ -131,7 +131,7 @@ public class DatabricksThriftAccessor {
     }
   }
 
-  public TFetchResultsResp getResultSetResp(TOperationHandle operationHandle, String context)
+  TFetchResultsResp getResultSetResp(TOperationHandle operationHandle, String context)
       throws DatabricksHttpException {
     refreshHeadersIfRequired();
     return getResultSetResp(SUCCESS_STATUS, operationHandle, context, DEFAULT_ROW_LIMIT, false);
@@ -203,7 +203,7 @@ public class DatabricksThriftAccessor {
     }
   }
 
-  public DatabricksResultSet execute(
+  DatabricksResultSet execute(
       TExecuteStatementReq request,
       IDatabricksStatement parentStatement,
       IDatabricksSession session,
@@ -268,6 +268,10 @@ public class DatabricksThriftAccessor {
         statementType,
         parentStatement,
         session);
+  }
+
+  void resetAccessToken(String newAccessToken) {
+    this.databricksConfig.setToken(newAccessToken);
   }
 
   private TFetchResultsResp listFunctions(TGetFunctionsReq request)

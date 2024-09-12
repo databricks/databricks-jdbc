@@ -48,7 +48,7 @@ public class ClientConfiguratorTest {
     when(mockContext.getAuthFlow())
         .thenReturn(IDatabricksConnectionContext.AuthFlow.TOKEN_PASSTHROUGH);
     when(mockContext.getHostUrl()).thenReturn("https://oauth-token.databricks.com");
-    when(mockContext.getToken()).thenReturn("oauth-token");
+    when(mockContext.getPassThroughAccessToken()).thenReturn("oauth-token");
     configurator = new ClientConfigurator(mockContext);
 
     WorkspaceClient client = configurator.getWorkspaceClient();

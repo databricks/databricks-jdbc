@@ -64,6 +64,8 @@ public interface IDatabricksConnectionContext {
    */
   String getToken();
 
+  String getPassThroughAccessToken();
+
   String getHostForOAuth();
 
   String getClientId() throws DatabricksParsingException;

@@ -44,6 +44,11 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
     return connectionContext;
   }
 
+  @Override
+  public void resetAccessToken(String newAccessToken) {
+    this.thriftAccessor.resetAccessToken(newAccessToken);
+  }
+
   @VisibleForTesting
   DatabricksThriftServiceClient(
       DatabricksThriftAccessor thriftAccessor, IDatabricksConnectionContext connectionContext) {
