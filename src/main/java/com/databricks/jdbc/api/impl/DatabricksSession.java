@@ -252,10 +252,11 @@ public class DatabricksSession implements IDatabricksSession {
         String.format(
             "public void setClientInfoProperty(String name = {%s}, String value = {%s})",
             name, value));
-    clientInfoProperties.put(name, value);
     if (name.equalsIgnoreCase(DatabricksJdbcUrlParams.AUTH_ACCESS_TOKEN.getParamName())) {
       // refresh the access token if provided a new value in client info
       this.databricksClient.resetAccessToken(value);
+    } else {
+      clientInfoProperties.put(name, value);
     }
   }
 
