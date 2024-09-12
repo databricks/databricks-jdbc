@@ -37,8 +37,6 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
   private Long chunkCount;
   private static final String DEFAULT_CATALOGUE_NAME = "Spark";
 
-  // TODO: Add handling for Arrow stream results
-
   public DatabricksResultSetMetaData(String statementId, ResultManifest resultManifest) {
     this.statementId = statementId;
     Map<String, Integer> columnNameToIndexMap = new HashMap<>();
