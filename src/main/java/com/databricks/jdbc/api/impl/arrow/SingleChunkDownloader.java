@@ -12,7 +12,7 @@ import java.util.concurrent.Callable;
 class SingleChunkDownloader implements Callable<Void> {
 
   public static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(SingleChunkDownloader.class);
-  private static final int MAX_RETRIES = 5;
+  public static final int MAX_RETRIES = 5;
   private static final long RETRY_DELAY_MS = 1500; // 1.5 seconds
   private final ArrowResultChunk chunk;
   private final IDatabricksHttpClient httpClient;
