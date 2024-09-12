@@ -80,7 +80,7 @@ public class ClientConfigurator {
         if (connectionContext.getOAuthRefreshToken() != null) {
           setupU2MRefreshConfig();
         } else {
-          setupAccessTokenConfig();
+          setupOAuthAccessTokenConfig();
         }
         break;
       case CLIENT_CREDENTIALS:
@@ -128,6 +128,17 @@ public class ClientConfigurator {
         .setHost(connectionContext.getHostUrl())
         .setToken(connectionContext.getToken())
         .setHttpClient(new DatabricksCommonHttpClient(300, sslContext));
+  }
+
+  public void setupOAuthAccessTokenConfig() throws DatabricksParsingException {
+    databricksConfig
+        .setAuthType(DatabricksJdbcConstants.ACCESS_TOKEN_AUTH_TYPE)
+        .setHost(connectionContext.getHostUrl())
+        .setToken(connectionContext.getPassThroughAccessToken());
+  }
+
+  public void resetAccessTokenInConfig(String newAccessToken) {
+    databricksConfig.setToken(newAccessToken);
   }
 
   /** Setup the OAuth U2M refresh token authentication settings in the databricks config. */

@@ -4,6 +4,7 @@ import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.api.IDatabricksSession;
 import com.databricks.jdbc.common.CompressionType;
 import com.databricks.jdbc.common.DatabricksClientType;
+import com.databricks.jdbc.common.DatabricksJdbcUrlParams;
 import com.databricks.jdbc.common.IDatabricksComputeResource;
 import com.databricks.jdbc.dbclient.IDatabricksClient;
 import com.databricks.jdbc.dbclient.IDatabricksMetadataClient;
@@ -127,13 +128,13 @@ public class DatabricksSession implements IDatabricksSession {
 
   @Override
   public IDatabricksComputeResource getComputeResource() {
-    LOGGER.debug("public String getWarehouseId()");
+    LOGGER.debug("public String getComputeResource()");
     return this.computeResource;
   }
 
   @Override
   public CompressionType getCompressionType() {
-    LOGGER.debug("public String getWarehouseId()");
+    LOGGER.debug("public String getCompressionType()");
     return compressionType;
   }
 
@@ -251,7 +252,12 @@ public class DatabricksSession implements IDatabricksSession {
         String.format(
             "public void setClientInfoProperty(String name = {%s}, String value = {%s})",
             name, value));
-    clientInfoProperties.put(name, value);
+    if (name.equalsIgnoreCase(DatabricksJdbcUrlParams.AUTH_ACCESS_TOKEN.getParamName())) {
+      // refresh the access token if provided a new value in client info
+      this.databricksClient.resetAccessToken(value);
+    } else {
+      clientInfoProperties.put(name, value);
+    }
   }
 
   @Override

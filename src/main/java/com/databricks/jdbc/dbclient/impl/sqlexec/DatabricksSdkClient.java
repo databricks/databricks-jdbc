@@ -40,7 +40,8 @@ public class DatabricksSdkClient implements IDatabricksClient {
   public static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(DatabricksSdkClient.class);
   private static final String SYNC_TIMEOUT_VALUE = "10s";
   private final IDatabricksConnectionContext connectionContext;
-  private final WorkspaceClient workspaceClient;
+  private final ClientConfigurator clientConfigurator;
+  private volatile WorkspaceClient workspaceClient;
 
   @Override
   public IDatabricksConnectionContext getConnectionContext() {
@@ -56,7 +57,8 @@ public class DatabricksSdkClient implements IDatabricksClient {
   public DatabricksSdkClient(IDatabricksConnectionContext connectionContext)
       throws DatabricksParsingException {
     this.connectionContext = connectionContext;
-    this.workspaceClient = new ClientConfigurator(connectionContext).getWorkspaceClient();
+    this.clientConfigurator = new ClientConfigurator(connectionContext);
+    this.workspaceClient = clientConfigurator.getWorkspaceClient();
   }
 
   @VisibleForTesting
@@ -66,6 +68,7 @@ public class DatabricksSdkClient implements IDatabricksClient {
       ApiClient apiClient)
       throws DatabricksParsingException {
     this.connectionContext = connectionContext;
+    this.clientConfigurator = new ClientConfigurator(connectionContext);
     this.workspaceClient =
         new WorkspaceClient(true /* mock */, apiClient)
             .withStatementExecutionImpl(statementExecutionService);
@@ -240,6 +243,12 @@ public class DatabricksSdkClient implements IDatabricksClient {
         .apiClient()
         .GET(path, request, ResultData.class, getHeaders())
         .getExternalLinks();
+  }
+
+  @Override
+  public synchronized void resetAccessToken(String newAccessToken) {
+    this.clientConfigurator.resetAccessTokenInConfig(newAccessToken);
+    this.workspaceClient = clientConfigurator.getWorkspaceClient();
   }
 
   private ExecuteStatementRequest getRequest(

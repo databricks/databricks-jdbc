@@ -49,6 +49,7 @@ public final class DatabricksJdbcConstants {
   public static final String USER_AGENT_THRIFT_CLIENT = "THttpClient-HC";
   public static final String ALLOWED_VOLUME_INGESTION_PATHS =
       "allowlistedVolumeOperationLocalFilePaths";
+  public static final String ALLOWED_STAGING_INGESTION_PATHS = "StagingAllowedLocalPaths";
   public static final String VOLUME_OPERATION_STATUS_COLUMN_NAME = "operation_status";
   public static final String VOLUME_OPERATION_STATUS_SUCCEEDED = "SUCCEEDED";
   public static final Map<String, String> ALLOWED_SESSION_CONF_TO_DEFAULT_VALUES_MAP =
@@ -64,7 +65,10 @@ public final class DatabricksJdbcConstants {
           "TIMEZONE", "UTC",
           "USE_CACHED_RESULT", "TRUE");
   public static final Set<String> ALLOWED_CLIENT_INFO_PROPERTIES =
-      Set.of(ALLOWED_VOLUME_INGESTION_PATHS);
+      Set.of(
+          ALLOWED_VOLUME_INGESTION_PATHS,
+          ALLOWED_STAGING_INGESTION_PATHS,
+          DatabricksJdbcUrlParams.AUTH_ACCESS_TOKEN.getParamName());
   @VisibleForTesting public static final String IS_FAKE_SERVICE_TEST_PROP = "isFakeServiceTest";
   @VisibleForTesting public static final String FAKE_SERVICE_URI_PROP_SUFFIX = ".fakeServiceURI";
   public static final int POLL_INTERVAL_DEFAULT = 200;

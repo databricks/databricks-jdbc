@@ -20,6 +20,7 @@ import com.databricks.sdk.core.UserAgent;
 import java.io.IOException;
 import java.sql.*;
 import java.util.Properties;
+import java.util.TimeZone;
 
 /** Databricks JDBC driver. */
 public class Driver implements java.sql.Driver {
@@ -36,6 +37,8 @@ public class Driver implements java.sql.Driver {
   }
 
   public static void main(String[] args) {
+    TimeZone.setDefault(
+        TimeZone.getTimeZone("UTC")); // Logging, timestamps are in UTC across the application
     System.out.printf("The driver {%s} has been initialized.%n", Driver.class);
   }
 

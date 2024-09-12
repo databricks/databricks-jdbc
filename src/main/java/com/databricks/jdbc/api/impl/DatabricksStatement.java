@@ -560,13 +560,12 @@ public class DatabricksStatement implements IDatabricksStatement, Statement {
     return executeInternal(sql, params, statementType, true);
   }
 
-  // Todo : Add timeout tests in the subsequent PR
   CompletableFuture<DatabricksResultSet> getFutureResult(
       String sql, Map<Integer, ImmutableSqlParameter> params, StatementType statementType) {
     return CompletableFuture.supplyAsync(
         () -> {
           try {
-            String SQLString = escapeProcessing ? StringUtil.getProcessedEscapeSequence(sql) : sql;
+            String SQLString = escapeProcessing ? StringUtil.convertJdbcEscapeSequences(sql) : sql;
             return getResultFromClient(SQLString, params, statementType);
           } catch (SQLException e) {
             throw new RuntimeException(e);

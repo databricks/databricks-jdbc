@@ -58,11 +58,18 @@ public interface IDatabricksConnectionContext {
   IDatabricksComputeResource getComputeResource();
 
   /**
-   * Returns the auth token (personal access token/OAuth token etc)
+   * Returns the auth token (personal access token)
    *
    * @return auth token
    */
   String getToken();
+
+  /**
+   * Returns the pass through access token
+   *
+   * @return access token
+   */
+  String getPassThroughAccessToken();
 
   String getHostForOAuth();
 

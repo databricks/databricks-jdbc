@@ -3,6 +3,7 @@ package com.databricks.jdbc.api.impl;
 import static com.databricks.jdbc.common.util.DatabricksTypeUtil.*;
 import static com.databricks.jdbc.common.util.SQLInterpolator.interpolateSQL;
 
+import com.databricks.jdbc.common.AllPurposeCluster;
 import com.databricks.jdbc.common.StatementType;
 import com.databricks.jdbc.common.util.DatabricksTypeUtil;
 import com.databricks.jdbc.exception.DatabricksSQLException;
@@ -28,15 +29,17 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
   private final String sql;
   private DatabricksParameterMetaData databricksParameterMetaData;
   List<DatabricksParameterMetaData> databricksBatchParameterMetaData;
-  private final boolean supportManyParameters;
+  private final boolean interpolateParameters;
 
   private final int CHUNK_SIZE = 8192;
 
   public DatabricksPreparedStatement(DatabricksConnection connection, String sql) {
     super(connection);
     this.sql = sql;
-    this.supportManyParameters =
-        connection.getSession().getConnectionContext().supportManyParameters();
+    this.interpolateParameters =
+        connection.getSession().getConnectionContext().supportManyParameters()
+            || connection.getSession().getConnectionContext().getComputeResource()
+                instanceof AllPurposeCluster;
     this.databricksParameterMetaData = new DatabricksParameterMetaData();
     this.databricksBatchParameterMetaData = new ArrayList<>();
   }
@@ -671,11 +674,11 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
   private DatabricksResultSet interpolateIfRequiredAndExecute(StatementType statementType)
       throws SQLException {
     String interpolatedSql =
-        this.supportManyParameters
+        this.interpolateParameters
             ? interpolateSQL(sql, this.databricksParameterMetaData.getParameterBindings())
             : sql;
     Map<Integer, ImmutableSqlParameter> paramMap =
-        this.supportManyParameters
+        this.interpolateParameters
             ? new HashMap<>()
             : this.databricksParameterMetaData.getParameterBindings();
     return executeInternal(interpolatedSql, paramMap, statementType);
