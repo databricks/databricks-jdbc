@@ -290,9 +290,7 @@ public class ChunkDownloader {
       return chunkIndexMap;
     }
     for (BaseChunkInfo chunkInfo : resultManifest.getChunks()) {
-      // TODO: Add logging to check data (in bytes) from server and in root allocator.
-      //  If they are close, we can directly assign the number of bytes as the limit with a small
-      // buffer.
+      LOGGER.debug("Manifest telemetry: " + chunkInfo.toString());
       chunkIndexMap.put(
           chunkInfo.getChunkIndex(),
           ArrowResultChunk.builder()

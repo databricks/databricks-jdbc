@@ -323,6 +323,7 @@ public class ArrowResultChunk {
       return false;
     }
     if (isDataInitialized) {
+      logAllocatorStats("BeforeRelease");
       purgeArrowData(this.recordBatchList);
       rootAllocator.close();
     }
@@ -395,6 +396,19 @@ public class ArrowResultChunk {
   private static void purgeArrowData(List<List<ValueVector>> recordBatchList) {
     recordBatchList.forEach(vectors -> vectors.forEach(ValueVector::close));
     recordBatchList.clear();
+  }
+
+  private void logAllocatorStats(String event) {
+    long allocatedMemory = rootAllocator.getAllocatedMemory();
+    long peakMemory = rootAllocator.getPeakMemoryAllocation();
+    long headRoom = rootAllocator.getHeadroom();
+    long initReservation = rootAllocator.getInitReservation();
+
+    String telemetryLog =
+        String.format(
+            "Chunk telemetry - Event: %s, Chunk Index: %s, Allocated Memory: %s, Peak Memory: %s, Headroom: %s, Init Reservation: %s",
+            event, chunkIndex, allocatedMemory, peakMemory, headRoom, initReservation);
+    LOGGER.debug(telemetryLog);
   }
 
   public static class Builder {
