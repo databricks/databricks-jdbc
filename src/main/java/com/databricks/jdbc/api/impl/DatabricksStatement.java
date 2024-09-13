@@ -577,7 +577,8 @@ public class DatabricksStatement implements IDatabricksStatement, Statement {
           } catch (SQLException e) {
             throw new RuntimeException(e);
           }
-        }, executor);
+        },
+        executor);
   }
 
   DatabricksResultSet getResultFromClient(
