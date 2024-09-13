@@ -1,111 +1,108 @@
 package com.databricks.jdbc.api.impl.converters;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import java.math.BigDecimal;
 import java.math.BigInteger;
-import java.util.Arrays;
 import org.junit.jupiter.api.Test;
 
 public class ByteConverterTest {
-
-  private byte NON_ZERO_OBJECT = 65;
-  private byte ZERO_OBJECT = 0;
+  private final byte NON_ZERO_OBJECT = 65;
+  private final byte ZERO_OBJECT = 0;
 
   @Test
   public void testConvertToByte() throws DatabricksSQLException {
-    assertEquals(new ByteConverter(NON_ZERO_OBJECT).convertToByte(), (byte) 65);
-    assertEquals(new ByteConverter(ZERO_OBJECT).convertToByte(), (byte) 0);
+    assertEquals(new ByteConverter().toByte(NON_ZERO_OBJECT), (byte) 65);
+    assertEquals(new ByteConverter().toByte(ZERO_OBJECT), (byte) 0);
   }
 
   @Test
   public void testConvertToShort() throws DatabricksSQLException {
-    assertEquals(new ByteConverter(NON_ZERO_OBJECT).convertToShort(), (short) 65);
-    assertEquals(new ByteConverter(ZERO_OBJECT).convertToShort(), (short) 0);
+    assertEquals(new ByteConverter().toShort(NON_ZERO_OBJECT), (short) 65);
+    assertEquals(new ByteConverter().toShort(ZERO_OBJECT), (short) 0);
   }
 
   @Test
   public void testConvertToInt() throws DatabricksSQLException {
-    assertEquals(new ByteConverter(NON_ZERO_OBJECT).convertToInt(), (int) 65);
-    assertEquals(new ByteConverter(ZERO_OBJECT).convertToInt(), (int) 0);
+    assertEquals(new ByteConverter().toInt(NON_ZERO_OBJECT), 65);
+    assertEquals(new ByteConverter().toInt(ZERO_OBJECT), 0);
   }
 
   @Test
   public void testConvertToLong() throws DatabricksSQLException {
-    assertEquals(new ByteConverter(NON_ZERO_OBJECT).convertToLong(), 65L);
-    assertEquals(new ByteConverter(ZERO_OBJECT).convertToLong(), 0L);
+    assertEquals(new ByteConverter().toLong(NON_ZERO_OBJECT), 65L);
+    assertEquals(new ByteConverter().toLong(ZERO_OBJECT), 0L);
   }
 
   @Test
   public void testConvertToFloat() throws DatabricksSQLException {
-    assertEquals(new ByteConverter(NON_ZERO_OBJECT).convertToFloat(), 65f);
-    assertEquals(new ByteConverter(ZERO_OBJECT).convertToFloat(), 0f);
+    assertEquals(new ByteConverter().toFloat(NON_ZERO_OBJECT), 65f);
+    assertEquals(new ByteConverter().toFloat(ZERO_OBJECT), 0f);
   }
 
   @Test
   public void testConvertToDouble() throws DatabricksSQLException {
-    assertEquals(new ByteConverter(NON_ZERO_OBJECT).convertToDouble(), (double) 65);
-    assertEquals(new ByteConverter(ZERO_OBJECT).convertToDouble(), (double) 0);
+    assertEquals(new ByteConverter().toDouble(NON_ZERO_OBJECT), 65);
+    assertEquals(new ByteConverter().toDouble(ZERO_OBJECT), 0);
   }
 
   @Test
   public void testConvertToBigDecimal() throws DatabricksSQLException {
-    assertEquals(new ByteConverter(NON_ZERO_OBJECT).convertToBigDecimal(), BigDecimal.valueOf(65));
-    assertEquals(new ByteConverter(ZERO_OBJECT).convertToBigDecimal(), BigDecimal.valueOf(0));
+    assertEquals(new ByteConverter().toBigDecimal(NON_ZERO_OBJECT), BigDecimal.valueOf(65));
+    assertEquals(new ByteConverter().toBigDecimal(ZERO_OBJECT), BigDecimal.valueOf(0));
   }
 
   @Test
   public void testConvertToBoolean() throws DatabricksSQLException {
-    assertEquals(new ByteConverter(NON_ZERO_OBJECT).convertToBoolean(), true);
-    assertEquals(new ByteConverter(ZERO_OBJECT).convertToBoolean(), false);
+    assertTrue(new ByteConverter().toBoolean(NON_ZERO_OBJECT));
+    assertFalse(new ByteConverter().toBoolean(ZERO_OBJECT));
   }
 
   @Test
   public void testConvertToByteArray() throws DatabricksSQLException {
-    assertTrue(
-        Arrays.equals(new ByteConverter(NON_ZERO_OBJECT).convertToByteArray(), new byte[] {65}));
-    assertTrue(Arrays.equals(new ByteConverter(ZERO_OBJECT).convertToByteArray(), new byte[] {0}));
+    assertArrayEquals(new ByteConverter().toByteArray(NON_ZERO_OBJECT), new byte[] {65});
+    assertArrayEquals(new ByteConverter().toByteArray(ZERO_OBJECT), new byte[] {0});
   }
 
   @Test
   public void testConvertToChar() throws DatabricksSQLException {
     DatabricksSQLException exception =
         assertThrows(
-            DatabricksSQLException.class, () -> new ByteConverter(NON_ZERO_OBJECT).convertToChar());
-    assertTrue(exception.getMessage().contains("Unsupported conversion operation"));
+            DatabricksSQLException.class, () -> new ByteConverter().toChar(NON_ZERO_OBJECT));
+    assertTrue(exception.getMessage().contains("Unsupported char conversion operation"));
   }
 
   @Test
   public void testConvertToString() throws DatabricksSQLException {
-    assertEquals(new ByteConverter(NON_ZERO_OBJECT).convertToString(), "A");
+    assertEquals(new ByteConverter().toString(NON_ZERO_OBJECT), "A");
   }
 
   @Test
   public void testConvertFromString() throws DatabricksSQLException {
-    assertEquals(new ByteConverter("65").convertToInt(), 65);
+    assertEquals(new ByteConverter().toInt("65"), 65);
   }
 
   @Test
   public void testConvertToTimestamp() throws DatabricksSQLException {
     DatabricksSQLException exception =
         assertThrows(
-            DatabricksSQLException.class,
-            () -> new ByteConverter(NON_ZERO_OBJECT).convertToTimestamp());
-    assertTrue(exception.getMessage().contains("Unsupported conversion operation"));
+            DatabricksSQLException.class, () -> new ByteConverter().toTimestamp(NON_ZERO_OBJECT));
+    assertTrue(exception.getMessage().contains("Unsupported Timestamp conversion operation"));
   }
 
   @Test
   public void testConvertToDate() throws DatabricksSQLException {
     DatabricksSQLException exception =
         assertThrows(
-            DatabricksSQLException.class, () -> new ByteConverter(NON_ZERO_OBJECT).convertToDate());
-    assertTrue(exception.getMessage().contains("Unsupported conversion operation"));
+            DatabricksSQLException.class, () -> new ByteConverter().toDate(NON_ZERO_OBJECT));
+    assertTrue(exception.getMessage().contains("Unsupported Date conversion operation"));
   }
 
   @Test
   public void testConvertToBigInteger() throws DatabricksSQLException {
-    assertEquals(new ByteConverter(NON_ZERO_OBJECT).convertToBigInteger(), BigInteger.valueOf(65));
-    assertEquals(new ByteConverter(ZERO_OBJECT).convertToBigInteger(), BigInteger.valueOf(0));
+    assertEquals(new ByteConverter().toBigInteger(NON_ZERO_OBJECT), BigInteger.valueOf(65));
+    assertEquals(new ByteConverter().toBigInteger(ZERO_OBJECT), BigInteger.valueOf(0));
   }
 }

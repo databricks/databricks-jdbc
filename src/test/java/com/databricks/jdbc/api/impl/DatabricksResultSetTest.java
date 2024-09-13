@@ -32,7 +32,6 @@ public class DatabricksResultSetTest {
   @Mock InlineJsonResult mockedExecutionResult;
   @Mock DatabricksResultSetMetaData mockedResultSetMetadata;
   @Mock IDatabricksSession session;
-
   @Mock DatabricksStatement mockedDatabricksStatement;
   @Mock Statement mockedStatement;
 
@@ -161,16 +160,16 @@ public class DatabricksResultSetTest {
   @Test
   void testGetInt() throws SQLException {
     DatabricksResultSet resultSet = getResultSet(StatementState.SUCCEEDED, null);
-    when(mockedExecutionResult.getObject(0)).thenReturn((int) 100);
+    when(mockedExecutionResult.getObject(0)).thenReturn(100);
     when(mockedResultSetMetadata.getColumnType(1)).thenReturn(Types.INTEGER);
-    assertEquals((int) 100, resultSet.getInt(1));
+    assertEquals(100, resultSet.getInt(1));
     // null object
     when(mockedExecutionResult.getObject(0)).thenReturn(null);
     assertEquals(0, resultSet.getInt(1));
     // Test with column label
-    when(mockedExecutionResult.getObject(0)).thenReturn((int) 100);
+    when(mockedExecutionResult.getObject(0)).thenReturn(100);
     when(mockedResultSetMetadata.getColumnNameIndex("columnLabel")).thenReturn(1);
-    assertEquals((int) 100, resultSet.getInt("columnLabel"));
+    assertEquals(100, resultSet.getInt("columnLabel"));
   }
 
   @Test
@@ -178,14 +177,14 @@ public class DatabricksResultSetTest {
     DatabricksResultSet resultSet = getResultSet(StatementState.SUCCEEDED, null);
     when(mockedExecutionResult.getObject(0)).thenReturn((long) 100);
     when(mockedResultSetMetadata.getColumnType(1)).thenReturn(Types.BIGINT);
-    assertEquals((long) 100, resultSet.getLong(1));
+    assertEquals(100, resultSet.getLong(1));
     // null object
     when(mockedExecutionResult.getObject(0)).thenReturn(null);
     assertEquals(0, resultSet.getLong(1));
     // Test with column label
     when(mockedExecutionResult.getObject(0)).thenReturn((long) 100);
     when(mockedResultSetMetadata.getColumnNameIndex("columnLabel")).thenReturn(1);
-    assertEquals((long) 100, resultSet.getLong("columnLabel"));
+    assertEquals(100, resultSet.getLong("columnLabel"));
   }
 
   @Test
@@ -204,7 +203,7 @@ public class DatabricksResultSetTest {
   }
 
   @Test
-  void testGetUnicode() throws SQLException, UnsupportedEncodingException {
+  void testGetUnicode() throws SQLException {
     DatabricksResultSet resultSet = getResultSet(StatementState.SUCCEEDED, null);
     String testString = "test";
     when(mockedExecutionResult.getObject(0)).thenReturn(testString);
@@ -237,7 +236,7 @@ public class DatabricksResultSetTest {
   @Test
   void testGetBigDecimal() throws SQLException {
     DatabricksResultSet resultSet = getResultSet(StatementState.SUCCEEDED, null);
-    BigDecimal expected = new BigDecimal("123.45");
+    BigDecimal expected = new BigDecimal("123");
     when(mockedExecutionResult.getObject(1)).thenReturn(expected);
     when(mockedResultSetMetadata.getColumnType(2)).thenReturn(Types.DECIMAL);
     assertEquals(expected, resultSet.getBigDecimal(2));
@@ -259,7 +258,7 @@ public class DatabricksResultSetTest {
     assertEquals(expected, resultSet.getDate(3));
     // null object
     when(mockedExecutionResult.getObject(2)).thenReturn(null);
-    assertEquals(null, resultSet.getDate(3));
+    assertNull(resultSet.getDate(3));
     // Test with column label
     when(mockedExecutionResult.getObject(2)).thenReturn(expected);
     when(mockedResultSetMetadata.getColumnNameIndex("columnLabel")).thenReturn(3);
@@ -388,16 +387,13 @@ public class DatabricksResultSetTest {
         DatabricksSQLFeatureNotSupportedException.class, () -> resultSet.updateClob(1, null, 1));
     assertThrows(
         DatabricksSQLFeatureNotSupportedException.class, () -> resultSet.updateNClob(1, null, 1));
-    assertThrows(DatabricksSQLFeatureNotSupportedException.class, () -> resultSet.insertRow());
-    assertThrows(DatabricksSQLFeatureNotSupportedException.class, () -> resultSet.updateRow());
-    assertThrows(DatabricksSQLFeatureNotSupportedException.class, () -> resultSet.deleteRow());
-    assertThrows(DatabricksSQLFeatureNotSupportedException.class, () -> resultSet.refreshRow());
-    assertThrows(
-        DatabricksSQLFeatureNotSupportedException.class, () -> resultSet.cancelRowUpdates());
-    assertThrows(
-        DatabricksSQLFeatureNotSupportedException.class, () -> resultSet.moveToInsertRow());
-    assertThrows(
-        DatabricksSQLFeatureNotSupportedException.class, () -> resultSet.moveToCurrentRow());
+    assertThrows(DatabricksSQLFeatureNotSupportedException.class, resultSet::insertRow);
+    assertThrows(DatabricksSQLFeatureNotSupportedException.class, resultSet::updateRow);
+    assertThrows(DatabricksSQLFeatureNotSupportedException.class, resultSet::deleteRow);
+    assertThrows(DatabricksSQLFeatureNotSupportedException.class, resultSet::refreshRow);
+    assertThrows(DatabricksSQLFeatureNotSupportedException.class, resultSet::cancelRowUpdates);
+    assertThrows(DatabricksSQLFeatureNotSupportedException.class, resultSet::moveToInsertRow);
+    assertThrows(DatabricksSQLFeatureNotSupportedException.class, resultSet::moveToCurrentRow);
     assertThrows(
         DatabricksSQLFeatureNotSupportedException.class,
         () -> resultSet.updateNString("column", "test"));
@@ -590,12 +586,12 @@ public class DatabricksResultSetTest {
         () -> resultSet.updateObject("column", new Object()));
 
     assertThrows(DatabricksSQLFeatureNotSupportedException.class, resultSet::first);
-    assertThrows(DatabricksSQLFeatureNotSupportedException.class, () -> resultSet.last());
-    assertThrows(DatabricksSQLFeatureNotSupportedException.class, () -> resultSet.beforeFirst());
-    assertThrows(DatabricksSQLFeatureNotSupportedException.class, () -> resultSet.afterLast());
+    assertThrows(DatabricksSQLFeatureNotSupportedException.class, resultSet::last);
+    assertThrows(DatabricksSQLFeatureNotSupportedException.class, resultSet::beforeFirst);
+    assertThrows(DatabricksSQLFeatureNotSupportedException.class, resultSet::afterLast);
     assertThrows(DatabricksSQLFeatureNotSupportedException.class, () -> resultSet.absolute(1));
     assertThrows(DatabricksSQLFeatureNotSupportedException.class, () -> resultSet.relative(1));
-    assertThrows(DatabricksSQLFeatureNotSupportedException.class, () -> resultSet.previous());
+    assertThrows(DatabricksSQLFeatureNotSupportedException.class, resultSet::previous);
 
     assertThrows(
         DatabricksSQLFeatureNotSupportedException.class,

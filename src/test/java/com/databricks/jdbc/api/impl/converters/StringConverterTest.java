@@ -1,202 +1,181 @@
 package com.databricks.jdbc.api.impl.converters;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import java.math.BigDecimal;
 import java.sql.Date;
 import java.sql.Timestamp;
-import java.util.Arrays;
 import org.junit.jupiter.api.Test;
 
 public class StringConverterTest {
 
-  private String NUMERICAL_STRING = "10";
-  private String NUMBERICAL_ZERO_STRING = "0";
-
-  private String CHARACTER_STRING = "ABC";
-
-  private String TIME_STAMP_STRING = "2023-09-10 00:00:00";
-
-  private String DATE_STRING = "2023-09-10";
+  private final String NUMERICAL_STRING = "10";
+  private final String NUMBERICAL_ZERO_STRING = "0";
+  private final String CHARACTER_STRING = "ABC";
+  private final String TIME_STAMP_STRING = "2023-09-10 00:00:00";
+  private final String DATE_STRING = "2023-09-10";
 
   @Test
   public void testConvertToByte() throws DatabricksSQLException {
     String singleCharacterString = "A";
-    assertEquals(new StringConverter(singleCharacterString).convertToByte(), (byte) 'A');
+    assertEquals(new StringConverter().toByte(singleCharacterString), (byte) 'A');
 
     DatabricksSQLException tooManyCharactersException =
         assertThrows(
-            DatabricksSQLException.class,
-            () -> new StringConverter(CHARACTER_STRING).convertToByte());
+            DatabricksSQLException.class, () -> new StringConverter().toByte(CHARACTER_STRING));
     assertTrue(tooManyCharactersException.getMessage().contains("Invalid conversion"));
   }
 
   @Test
   public void testConvertToShort() throws DatabricksSQLException {
-    assertEquals(new StringConverter(NUMERICAL_STRING).convertToShort(), (short) 10);
-    assertEquals(new StringConverter(NUMBERICAL_ZERO_STRING).convertToShort(), (short) 0);
+    assertEquals(new StringConverter().toShort(NUMERICAL_STRING), (short) 10);
+    assertEquals(new StringConverter().toShort(NUMBERICAL_ZERO_STRING), (short) 0);
 
     String stringThatDoesNotFitInShort = "32768";
     DatabricksSQLException outOfRangeException =
         assertThrows(
             DatabricksSQLException.class,
-            () -> new StringConverter(stringThatDoesNotFitInShort).convertToShort());
+            () -> new StringConverter().toShort(stringThatDoesNotFitInShort));
     assertTrue(outOfRangeException.getMessage().contains("Invalid conversion"));
     DatabricksSQLException invalidCharactersException =
         assertThrows(
-            DatabricksSQLException.class,
-            () -> new StringConverter(CHARACTER_STRING).convertToShort());
+            DatabricksSQLException.class, () -> new StringConverter().toShort(CHARACTER_STRING));
     assertTrue(invalidCharactersException.getMessage().contains("Invalid conversion"));
   }
 
   @Test
   public void testConvertToInt() throws DatabricksSQLException {
-    assertEquals(new StringConverter(NUMERICAL_STRING).convertToInt(), (int) 10);
-    assertEquals(new StringConverter(NUMBERICAL_ZERO_STRING).convertToInt(), (int) 0);
+    assertEquals(new StringConverter().toInt(NUMERICAL_STRING), 10);
+    assertEquals(new StringConverter().toInt(NUMBERICAL_ZERO_STRING), 0);
 
     String stringThatDoesNotFitInInt = "2147483648";
     DatabricksSQLException outOfRangeException =
         assertThrows(
             DatabricksSQLException.class,
-            () -> new StringConverter(stringThatDoesNotFitInInt).convertToInt());
+            () -> new StringConverter().toInt(stringThatDoesNotFitInInt));
     assertTrue(outOfRangeException.getMessage().contains("Invalid conversion"));
     DatabricksSQLException invalidCharactersException =
         assertThrows(
-            DatabricksSQLException.class,
-            () -> new StringConverter(CHARACTER_STRING).convertToInt());
+            DatabricksSQLException.class, () -> new StringConverter().toInt(CHARACTER_STRING));
     assertTrue(invalidCharactersException.getMessage().contains("Invalid conversion"));
   }
 
   @Test
   public void testConvertToLong() throws DatabricksSQLException {
-    assertEquals(new StringConverter(NUMERICAL_STRING).convertToLong(), (long) 10);
-    assertEquals(new StringConverter(NUMBERICAL_ZERO_STRING).convertToLong(), (long) 0);
+    assertEquals(new StringConverter().toLong(NUMERICAL_STRING), 10);
+    assertEquals(new StringConverter().toLong(NUMBERICAL_ZERO_STRING), 0);
 
     String stringThatDoesNotFitInLong = "9223372036854775808";
     DatabricksSQLException outOfRangeException =
         assertThrows(
             DatabricksSQLException.class,
-            () -> new StringConverter(stringThatDoesNotFitInLong).convertToLong());
+            () -> new StringConverter().toLong(stringThatDoesNotFitInLong));
     assertTrue(outOfRangeException.getMessage().contains("Invalid conversion"));
     DatabricksSQLException invalidCharactersException =
         assertThrows(
-            DatabricksSQLException.class,
-            () -> new StringConverter(CHARACTER_STRING).convertToLong());
+            DatabricksSQLException.class, () -> new StringConverter().toLong(CHARACTER_STRING));
     assertTrue(invalidCharactersException.getMessage().contains("Invalid conversion"));
   }
 
   @Test
   public void testConvertToFloat() throws DatabricksSQLException {
-    assertEquals(new StringConverter(NUMERICAL_STRING).convertToFloat(), 10f);
-    assertEquals(new StringConverter(NUMBERICAL_ZERO_STRING).convertToFloat(), 0f);
+    assertEquals(new StringConverter().toFloat(NUMERICAL_STRING), 10f);
+    assertEquals(new StringConverter().toFloat(NUMBERICAL_ZERO_STRING), 0f);
     DatabricksSQLException invalidCharactersException =
         assertThrows(
-            DatabricksSQLException.class,
-            () -> new StringConverter(CHARACTER_STRING).convertToFloat());
+            DatabricksSQLException.class, () -> new StringConverter().toFloat(CHARACTER_STRING));
     assertTrue(invalidCharactersException.getMessage().contains("Invalid conversion"));
   }
 
   @Test
   public void testConvertToDouble() throws DatabricksSQLException {
-    assertEquals(new StringConverter(NUMERICAL_STRING).convertToDouble(), (double) 10);
-    assertEquals(new StringConverter(NUMBERICAL_ZERO_STRING).convertToDouble(), (double) 0);
+    assertEquals(new StringConverter().toDouble(NUMERICAL_STRING), 10);
+    assertEquals(new StringConverter().toDouble(NUMBERICAL_ZERO_STRING), 0);
     DatabricksSQLException invalidCharactersException =
         assertThrows(
-            DatabricksSQLException.class,
-            () -> new StringConverter(CHARACTER_STRING).convertToDouble());
+            DatabricksSQLException.class, () -> new StringConverter().toDouble(CHARACTER_STRING));
     assertTrue(invalidCharactersException.getMessage().contains("Invalid conversion"));
   }
 
   @Test
   public void testConvertToBigDecimal() throws DatabricksSQLException {
-    assertEquals(new StringConverter(NUMERICAL_STRING).convertToBigDecimal(), new BigDecimal("10"));
-    assertEquals(
-        new StringConverter(NUMBERICAL_ZERO_STRING).convertToBigDecimal(), new BigDecimal("0"));
+    assertEquals(new StringConverter().toBigDecimal(NUMERICAL_STRING), new BigDecimal("10"));
+    assertEquals(new StringConverter().toBigDecimal(NUMBERICAL_ZERO_STRING), new BigDecimal("0"));
     DatabricksSQLException invalidCharactersException =
         assertThrows(
-            DatabricksSQLException.class,
-            () -> new StringConverter(CHARACTER_STRING).convertToLong());
+            DatabricksSQLException.class, () -> new StringConverter().toLong(CHARACTER_STRING));
     assertTrue(invalidCharactersException.getMessage().contains("Invalid conversion"));
   }
 
   @Test
   public void testConvertToBoolean() throws DatabricksSQLException {
-    assertEquals(new StringConverter("1").convertToBoolean(), true);
-    assertEquals(new StringConverter(NUMBERICAL_ZERO_STRING).convertToBoolean(), false);
-    assertEquals(new StringConverter("true").convertToBoolean(), true);
-    assertEquals(new StringConverter("false").convertToBoolean(), false);
+    assertTrue(new StringConverter().toBoolean("1"));
+    assertFalse(new StringConverter().toBoolean(NUMBERICAL_ZERO_STRING));
+    assertTrue(new StringConverter().toBoolean("true"));
+    assertFalse(new StringConverter().toBoolean("false"));
 
     DatabricksSQLException invalidCharactersException =
         assertThrows(
-            DatabricksSQLException.class,
-            () -> new StringConverter(CHARACTER_STRING).convertToBoolean());
+            DatabricksSQLException.class, () -> new StringConverter().toBoolean(CHARACTER_STRING));
     assertTrue(invalidCharactersException.getMessage().contains("Invalid conversion"));
 
     DatabricksSQLException invalidNumberException =
         assertThrows(
-            DatabricksSQLException.class,
-            () -> new StringConverter(NUMERICAL_STRING).convertToBoolean());
+            DatabricksSQLException.class, () -> new StringConverter().toBoolean(NUMERICAL_STRING));
     assertTrue(invalidNumberException.getMessage().contains("Invalid conversion"));
   }
 
   @Test
   public void testConvertToByteArray() throws DatabricksSQLException {
-    assertTrue(
-        Arrays.equals(
-            new StringConverter(NUMERICAL_STRING).convertToByteArray(),
-            NUMERICAL_STRING.getBytes()));
-    assertTrue(
-        Arrays.equals(
-            new StringConverter(NUMBERICAL_ZERO_STRING).convertToByteArray(),
-            NUMBERICAL_ZERO_STRING.getBytes()));
-    assertTrue(
-        Arrays.equals(
-            new StringConverter(CHARACTER_STRING).convertToByteArray(),
-            CHARACTER_STRING.getBytes()));
+    assertArrayEquals(
+        new StringConverter().toByteArray(NUMERICAL_STRING), NUMERICAL_STRING.getBytes());
+    assertArrayEquals(
+        new StringConverter().toByteArray(NUMBERICAL_ZERO_STRING),
+        NUMBERICAL_ZERO_STRING.getBytes());
+    assertArrayEquals(
+        new StringConverter().toByteArray(CHARACTER_STRING), CHARACTER_STRING.getBytes());
   }
 
   @Test
   public void testConvertToChar() throws DatabricksSQLException {
-    assertEquals(new StringConverter(NUMBERICAL_ZERO_STRING).convertToChar(), '0');
+    assertEquals(new StringConverter().toChar(NUMBERICAL_ZERO_STRING), '0');
     DatabricksSQLException exception =
         assertThrows(
-            DatabricksSQLException.class,
-            () -> new StringConverter(NUMERICAL_STRING).convertToChar());
+            DatabricksSQLException.class, () -> new StringConverter().toChar(NUMERICAL_STRING));
     assertTrue(exception.getMessage().contains("Invalid conversion"));
   }
 
   @Test
   public void testConvertToString() throws DatabricksSQLException {
-    assertEquals(new StringConverter(NUMERICAL_STRING).convertToString(), "10");
-    assertEquals(new StringConverter(NUMBERICAL_ZERO_STRING).convertToString(), "0");
-    assertEquals(new StringConverter(CHARACTER_STRING).convertToString(), "ABC");
+    assertEquals(new StringConverter().toString(NUMERICAL_STRING), "10");
+    assertEquals(new StringConverter().toString(NUMBERICAL_ZERO_STRING), "0");
+    assertEquals(new StringConverter().toString(CHARACTER_STRING), "ABC");
   }
 
   @Test
   public void testConvertToTimestamp() throws DatabricksSQLException {
     assertEquals(
-        new StringConverter(TIME_STAMP_STRING).convertToTimestamp(),
-        Timestamp.valueOf(TIME_STAMP_STRING));
+        new StringConverter().toTimestamp(TIME_STAMP_STRING), Timestamp.valueOf(TIME_STAMP_STRING));
   }
 
   @Test
   public void testConvertToDate() throws DatabricksSQLException {
-    assertEquals(new StringConverter(DATE_STRING).convertToDate(), Date.valueOf(DATE_STRING));
+    assertEquals(new StringConverter().toDate(DATE_STRING), Date.valueOf(DATE_STRING));
   }
 
   @Test
   public void testConvertToBigInteger() throws DatabricksSQLException {
     assertEquals(
-        new StringConverter(NUMERICAL_STRING).convertToBigInteger(),
-        new BigDecimal("10").toBigInteger());
+        new StringConverter().toBigInteger(NUMERICAL_STRING), new BigDecimal("10").toBigInteger());
     assertEquals(
-        new StringConverter(NUMBERICAL_ZERO_STRING).convertToBigInteger(),
+        new StringConverter().toBigInteger(NUMBERICAL_ZERO_STRING),
         new BigDecimal("0").toBigInteger());
     DatabricksSQLException invalidCharactersException =
         assertThrows(
             DatabricksSQLException.class,
-            () -> new StringConverter(CHARACTER_STRING).convertToBigInteger());
+            () -> new StringConverter().toBigInteger(CHARACTER_STRING));
     assertTrue(invalidCharactersException.getMessage().contains("Invalid conversion"));
   }
 }

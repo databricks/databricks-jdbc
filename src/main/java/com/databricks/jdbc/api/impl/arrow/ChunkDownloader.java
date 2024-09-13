@@ -5,7 +5,6 @@ import com.databricks.jdbc.common.CompressionType;
 import com.databricks.jdbc.common.ErrorCodes;
 import com.databricks.jdbc.common.ErrorTypes;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
-import com.databricks.jdbc.dbclient.impl.http.DatabricksHttpClient;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.log.JdbcLogger;
@@ -16,7 +15,6 @@ import com.databricks.jdbc.model.core.ExternalLink;
 import com.databricks.jdbc.model.core.ResultData;
 import com.databricks.jdbc.model.core.ResultManifest;
 import com.databricks.sdk.service.sql.BaseChunkInfo;
-import com.google.common.annotations.VisibleForTesting;
 import java.util.Collection;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
@@ -41,26 +39,8 @@ public class ChunkDownloader {
   private Long totalChunksInMemory;
   private long allowedChunksInMemory;
   private boolean isClosed;
-
   ConcurrentHashMap<Long, ArrowResultChunk> chunkIndexToChunksMap;
 
-  ChunkDownloader(
-      String statementId,
-      ResultManifest resultManifest,
-      ResultData resultData,
-      IDatabricksSession session,
-      int chunksDownloaderThreadPoolSize)
-      throws DatabricksParsingException {
-    this(
-        statementId,
-        resultManifest,
-        resultData,
-        session,
-        DatabricksHttpClient.getInstance(session.getConnectionContext()),
-        chunksDownloaderThreadPoolSize);
-  }
-
-  @VisibleForTesting
   ChunkDownloader(
       String statementId,
       ResultManifest resultManifest,
@@ -79,21 +59,6 @@ public class ChunkDownloader {
     initializeData();
   }
 
-  ChunkDownloader(
-      String statementId,
-      TRowSet resultData,
-      IDatabricksSession session,
-      int chunksDownloaderThreadPoolSize)
-      throws DatabricksParsingException {
-    this(
-        statementId,
-        resultData,
-        session,
-        DatabricksHttpClient.getInstance(session.getConnectionContext()),
-        chunksDownloaderThreadPoolSize);
-  }
-
-  @VisibleForTesting
   ChunkDownloader(
       String statementId,
       TRowSet resultData,

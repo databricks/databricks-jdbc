@@ -1,7 +1,7 @@
 package com.databricks.jdbc.api.impl.converters;
 
 import static org.junit.jupiter.api.Assertions.*;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import java.nio.ByteBuffer;
@@ -10,110 +10,102 @@ import java.time.LocalDateTime;
 import java.util.Base64;
 import org.junit.jupiter.api.Test;
 
-class ByteArrayConverterTest {
+public class ByteArrayConverterTest {
+
+  private final ByteArrayConverter converter = new ByteArrayConverter();
+
   @Test
   void testConvertToByteArrayFromString() throws DatabricksSQLException {
     String testString = "Test";
-    ByteArrayConverter converter = new ByteArrayConverter(testString);
-    assertArrayEquals(Base64.getDecoder().decode(testString), converter.convertToByteArray());
+    assertArrayEquals(Base64.getDecoder().decode(testString), converter.toByteArray(testString));
   }
 
   @Test
   void testConvertToString() throws DatabricksSQLException {
     String testString = "Test";
-    ByteArrayConverter converter = new ByteArrayConverter(testString);
-    assertEquals(testString, converter.convertToString());
+    assertEquals(testString, converter.toString(testString));
   }
 
   @Test
   void testConvertFromString() throws DatabricksSQLException {
     String testString = "Test";
-    ByteArrayConverter converter = new ByteArrayConverter(testString);
-    assertEquals(converter.convertToString(), testString);
+    assertEquals(converter.toString(testString), testString);
   }
 
   @Test
   void testConvertToByte() throws DatabricksSQLException {
     byte[] byteArray = {5};
-    ByteArrayConverter converter = new ByteArrayConverter(byteArray);
-    assertEquals(5, converter.convertToByte());
-    assertThrows(
-        DatabricksSQLException.class, () -> new ByteArrayConverter(new byte[] {}).convertToByte());
+    assertEquals(5, converter.toByte(byteArray));
+    assertThrows(DatabricksSQLException.class, () -> converter.toByte(new byte[] {}));
   }
 
   @Test
   public void testByteArrayConverterWithHeapByteBuffer() throws DatabricksSQLException {
     byte[] byteArray = {5, 6, 7, 8};
     ByteBuffer buffer = ByteBuffer.wrap(byteArray);
-    ByteArrayConverter converter = new ByteArrayConverter(buffer);
-    assertArrayEquals(byteArray, converter.convertToByteArray());
+    assertArrayEquals(byteArray, converter.toByteArray(buffer));
   }
 
   @Test
   void testConvertToBooleanTrue() throws DatabricksSQLException {
     byte[] byteArray = {1};
-    ByteArrayConverter converter = new ByteArrayConverter(byteArray);
-    assertTrue(converter.convertToBoolean());
+    assertTrue(converter.toBoolean(byteArray));
     byteArray = new byte[] {};
-    converter = new ByteArrayConverter(byteArray);
-    assertFalse(converter.convertToBoolean());
+    assertFalse(converter.toBoolean(byteArray));
   }
 
   @Test
   void testConvertToBooleanFalse() throws DatabricksSQLException {
     byte[] byteArray = {0};
-    ByteArrayConverter converter = new ByteArrayConverter(byteArray);
-    assertFalse(converter.convertToBoolean());
+    assertFalse(converter.toBoolean(byteArray));
   }
 
   @Test
   void testConvertThrowsException() {
     assertThrows(
         DatabricksSQLException.class,
-        () -> new ByteArrayConverter(Timestamp.valueOf(LocalDateTime.now())));
+        () -> converter.toByteArray(Timestamp.valueOf(LocalDateTime.now())));
   }
 
   @Test
   void testUnsupportedConversions() throws DatabricksSQLException {
-    ByteArrayConverter converter = new ByteArrayConverter(new byte[] {});
+    ByteArrayConverter converter = new ByteArrayConverter();
     assertAll(
         "Unsupported Conversions",
         () ->
             assertThrows(
                 DatabricksSQLException.class,
-                converter::convertToShort,
+                () -> converter.toShort(new byte[] {}),
                 "Short conversion should throw exception"),
         () ->
             assertThrows(
                 DatabricksSQLException.class,
-                converter::convertToInt,
+                () -> converter.toInt(new byte[] {}),
                 "Int conversion should throw exception"),
         () ->
             assertThrows(
                 DatabricksSQLException.class,
-                converter::convertToLong,
+                () -> converter.toLong(new byte[] {}),
                 "Long conversion should throw exception"),
         () ->
             assertThrows(
                 DatabricksSQLException.class,
-                converter::convertToFloat,
+                () -> converter.toFloat(new byte[] {}),
                 "Float conversion should throw exception"),
         () ->
             assertThrows(
                 DatabricksSQLException.class,
-                converter::convertToDouble,
+                () -> converter.toDouble(new byte[] {}),
                 "Double conversion should throw exception"),
         () ->
             assertThrows(
                 DatabricksSQLException.class,
-                converter::convertToBigDecimal,
+                () -> converter.toBigDecimal(new byte[] {}),
                 "BigDecimal conversion should throw exception"));
   }
 
   @Test
-  public void testConvertToBigInteger() {
-    assertThrows(
-        DatabricksSQLException.class,
-        () -> new ByteArrayConverter(new byte[] {}).convertToBigInteger());
+  void testConvertToBigInteger() {
+    assertThrows(DatabricksSQLException.class, () -> converter.toBigInteger(new byte[] {}));
   }
 }
