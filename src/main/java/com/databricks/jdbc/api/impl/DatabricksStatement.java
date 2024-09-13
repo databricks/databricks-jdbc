@@ -39,6 +39,8 @@ public class DatabricksStatement implements IDatabricksStatement, Statement {
   private InputStreamEntity inputStream = null;
   private boolean allowInputStreamForUCVolume = false;
 
+  private final int DEFAULT_FORK_JOIN_POOL_SIZE = 64;
+
   public DatabricksStatement(DatabricksConnection connection) {
     this.connection = connection;
     this.resultSet = null;
@@ -562,6 +564,11 @@ public class DatabricksStatement implements IDatabricksStatement, Statement {
 
   CompletableFuture<DatabricksResultSet> getFutureResult(
       String sql, Map<Integer, ImmutableSqlParameter> params, StatementType statementType) {
+    int poolSize = Runtime.getRuntime().availableProcessors() * 2;
+    if (poolSize == 0) {
+      poolSize = DEFAULT_FORK_JOIN_POOL_SIZE;
+    }
+    ExecutorService executor = Executors.newFixedThreadPool(poolSize);
     return CompletableFuture.supplyAsync(
         () -> {
           try {
@@ -570,7 +577,7 @@ public class DatabricksStatement implements IDatabricksStatement, Statement {
           } catch (SQLException e) {
             throw new RuntimeException(e);
           }
-        });
+        }, executor);
   }
 
   DatabricksResultSet getResultFromClient(
