@@ -8,6 +8,7 @@ import static com.github.tomakehurst.wiremock.client.WireMock.postRequestedFor;
 import static com.github.tomakehurst.wiremock.client.WireMock.urlEqualTo;
 import static org.junit.jupiter.api.Assertions.*;
 
+import com.databricks.jdbc.common.DatabricksJdbcUrlParams;
 import com.databricks.jdbc.integration.fakeservice.AbstractFakeServiceIntegrationTests;
 import com.databricks.jdbc.integration.fakeservice.FakeServiceConfigLoader;
 import com.github.tomakehurst.wiremock.client.CountMatchingStrategy;
@@ -194,13 +195,17 @@ public class MetadataIntegrationTests extends AbstractFakeServiceIntegrationTest
         String.format(
             jdbcUrlTemplateWithLegacyMetadata,
             getFakeServiceHost(),
-            FakeServiceConfigLoader.getProperty(HTTP_PATH));
+            FakeServiceConfigLoader.getProperty(DatabricksJdbcUrlParams.HTTP_PATH.getParamName()));
 
     Properties connProps = new Properties();
-    connProps.put(USER, getDatabricksUser());
-    connProps.put(PASSWORD, getDatabricksToken());
-    connProps.put(CATALOG, FakeServiceConfigLoader.getProperty(CATALOG));
-    connProps.put(CONN_SCHEMA, FakeServiceConfigLoader.getProperty(CONN_SCHEMA));
+    connProps.put(DatabricksJdbcUrlParams.USER.getParamName(), getDatabricksUser());
+    connProps.put(DatabricksJdbcUrlParams.PASSWORD.getParamName(), getDatabricksToken());
+    connProps.put(
+        DatabricksJdbcUrlParams.CATALOG.getParamName(),
+        FakeServiceConfigLoader.getProperty(DatabricksJdbcUrlParams.CATALOG.getParamName()));
+    connProps.put(
+        DatabricksJdbcUrlParams.CONN_SCHEMA.getParamName(),
+        FakeServiceConfigLoader.getProperty(DatabricksJdbcUrlParams.CONN_SCHEMA.getParamName()));
 
     return DriverManager.getConnection(jdbcUrl, connProps);
   }

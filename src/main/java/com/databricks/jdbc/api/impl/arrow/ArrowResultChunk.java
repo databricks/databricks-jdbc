@@ -5,18 +5,19 @@ import static com.databricks.jdbc.common.util.DatabricksThriftUtil.createExterna
 import static com.databricks.jdbc.common.util.ValidationUtil.checkHTTPError;
 
 import com.databricks.jdbc.common.CompressionType;
-import com.databricks.jdbc.common.LogLevel;
 import com.databricks.jdbc.common.util.DecompressionUtil;
-import com.databricks.jdbc.common.util.LoggingUtil;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
+import com.databricks.jdbc.log.JdbcLogger;
+import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.model.client.thrift.generated.TSparkArrowResultLink;
 import com.databricks.jdbc.model.core.ExternalLink;
 import com.databricks.sdk.service.sql.BaseChunkInfo;
 import com.google.common.annotations.VisibleForTesting;
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.SocketException;
 import java.net.URISyntaxException;
 import java.nio.channels.ClosedByInterruptException;
 import java.time.Instant;
@@ -36,6 +37,8 @@ import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.utils.URIBuilder;
 
 public class ArrowResultChunk {
+
+  public static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(ArrowResultChunk.class);
 
   /**
    * The status of a chunk would proceed in following path:
@@ -74,7 +77,8 @@ public class ArrowResultChunk {
     /** Download has been cancelled */
     CANCELLED,
     /** Chunk memory has been consumed and released */
-    CHUNK_RELEASED
+    CHUNK_RELEASED,
+    DOWNLOAD_RETRY
   }
 
   private static final Integer SECONDS_BUFFER_FOR_EXPIRY = 60;
@@ -90,6 +94,9 @@ public class ArrowResultChunk {
   private String errorMessage;
   private boolean isDataInitialized;
   private final CompressionType compressionType;
+  private static boolean injectError = false;
+  private static int errorInjectionCountMaxValue = 0;
+  private int errorInjectionCount = 0;
 
   private ArrowResultChunk(Builder builder) throws DatabricksParsingException {
     this.chunkIndex = builder.chunkIndex;
@@ -224,8 +231,7 @@ public class ArrowResultChunk {
     if (headers != null) {
       headers.forEach(getRequest::addHeader);
     } else {
-      LoggingUtil.log(
-          LogLevel.DEBUG,
+      LOGGER.debug(
           String.format(
               "No encryption headers present for chunk index [%s] and statement [%s]",
               chunkIndex, statementId));
@@ -238,6 +244,14 @@ public class ArrowResultChunk {
 
   void downloadData(IDatabricksHttpClient httpClient)
       throws DatabricksParsingException, IOException {
+    // Inject error if enabled for testing
+    if (injectError && errorInjectionCount < errorInjectionCountMaxValue) {
+      errorInjectionCount++;
+      setStatus(ChunkStatus.DOWNLOAD_FAILED);
+      throw new DatabricksParsingException(
+          "Injected connection reset", new SocketException("Connection reset"));
+    }
+
     CloseableHttpResponse response = null;
     try {
       URIBuilder uriBuilder = new URIBuilder(chunkLink.getExternalLink());
@@ -267,8 +281,7 @@ public class ArrowResultChunk {
    * @throws IOException if reading from the stream fails
    */
   void initializeData(InputStream inputStream) throws DatabricksSQLException, IOException {
-    LoggingUtil.log(
-        LogLevel.DEBUG,
+    LOGGER.debug(
         String.format(
             "Parsing data for chunk index [%s] and statement [%s]",
             this.chunkIndex, this.statementId));
@@ -282,8 +295,7 @@ public class ArrowResultChunk {
     this.recordBatchList =
         getRecordBatchList(
             decompressedStream, this.rootAllocator, this.statementId, this.chunkIndex);
-    LoggingUtil.log(
-        LogLevel.DEBUG,
+    LOGGER.debug(
         String.format(
             "Data parsed for chunk index [%s] and statement [%s]",
             this.chunkIndex, this.statementId));
@@ -296,7 +308,7 @@ public class ArrowResultChunk {
         String.format(
             "Data parsing failed for chunk index [%d] and statement [%s]. Exception [%s]",
             this.chunkIndex, this.statementId, exception);
-    LoggingUtil.log(LogLevel.ERROR, this.errorMessage);
+    LOGGER.error(this.errorMessage);
     setStatus(failedStatus);
     throw new DatabricksParsingException(this.errorMessage, exception);
   }
@@ -311,9 +323,10 @@ public class ArrowResultChunk {
       return false;
     }
     if (isDataInitialized) {
+      logAllocatorStats("BeforeRelease");
       purgeArrowData(this.recordBatchList);
+      rootAllocator.close();
     }
-    rootAllocator.close();
     setStatus(ChunkStatus.CHUNK_RELEASED);
     return true;
   }
@@ -353,12 +366,16 @@ public class ArrowResultChunk {
       }
     } catch (ClosedByInterruptException e) {
       // release resources if thread is interrupted when reading arrow data
-      LoggingUtil.log(
-          LogLevel.ERROR,
+      LOGGER.error(
           String.format(
               "Data parsing interrupted for chunk index [%s] and statement [%s]. Error [%s]",
               chunkIndex, statementId, e));
       purgeArrowData(recordBatchList);
+    } catch (IOException e) {
+      LOGGER.error(
+          "Error while reading arrow data, purging the local list and rethrowing the exception.");
+      purgeArrowData(recordBatchList);
+      throw e;
     }
 
     return recordBatchList;
@@ -379,6 +396,19 @@ public class ArrowResultChunk {
   private static void purgeArrowData(List<List<ValueVector>> recordBatchList) {
     recordBatchList.forEach(vectors -> vectors.forEach(ValueVector::close));
     recordBatchList.clear();
+  }
+
+  private void logAllocatorStats(String event) {
+    long allocatedMemory = rootAllocator.getAllocatedMemory();
+    long peakMemory = rootAllocator.getPeakMemoryAllocation();
+    long headRoom = rootAllocator.getHeadroom();
+    long initReservation = rootAllocator.getInitReservation();
+
+    String telemetryLog =
+        String.format(
+            "Chunk telemetry - Event: %s, Chunk Index: %s, Allocated Memory: %s, Peak Memory: %s, Headroom: %s, Init Reservation: %s",
+            event, chunkIndex, allocatedMemory, peakMemory, headRoom, initReservation);
+    LOGGER.debug(telemetryLog);
   }
 
   public static class Builder {
@@ -430,5 +460,19 @@ public class ArrowResultChunk {
     public ArrowResultChunk build() throws DatabricksParsingException {
       return new ArrowResultChunk(this);
     }
+  }
+
+  /** Method to enable error injection for testing */
+  public static void enableErrorInjection() {
+    injectError = true;
+  }
+
+  /** Method to disable error injection after testing */
+  public static void disableErrorInjection() {
+    injectError = false;
+  }
+
+  public static void setErrorInjectionCountMaxValue(int errorInjectionCountMaxValue) {
+    ArrowResultChunk.errorInjectionCountMaxValue = errorInjectionCountMaxValue;
   }
 }

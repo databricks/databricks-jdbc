@@ -12,6 +12,12 @@ import java.util.Map;
 
 public interface IDatabricksConnectionContext {
 
+  enum Cloud {
+    AWS,
+    AZURE,
+    OTHER
+  }
+
   enum AuthFlow {
     TOKEN_PASSTHROUGH,
     CLIENT_CREDENTIALS,
@@ -37,8 +43,8 @@ public interface IDatabricksConnectionContext {
   }
 
   /**
-   * Returns host-Url for Databricks server as parsed from JDBC connection in format
-   * https://server:port
+   * Returns host-Url for Databricks server as parsed from JDBC connection in format <code>
+   * https://server:port</code>
    *
    * @return Databricks host-Url
    */
@@ -52,11 +58,18 @@ public interface IDatabricksConnectionContext {
   IDatabricksComputeResource getComputeResource();
 
   /**
-   * Returns the auth token (personal access token/OAuth token etc)
+   * Returns the auth token (personal access token)
    *
    * @return auth token
    */
   String getToken();
+
+  /**
+   * Returns the pass through access token
+   *
+   * @return access token
+   */
+  String getPassThroughAccessToken();
 
   String getHostForOAuth();
 
@@ -182,4 +195,13 @@ public interface IDatabricksConnectionContext {
 
   /** Returns the OAuth2 authentication scope used in the request. */
   String getAuthScope();
+
+  /**
+   * Returns the OAuth2 refresh token used to obtain a new access token when the current one
+   * expires.
+   */
+  String getOAuthRefreshToken();
+
+  /** Returns the non-proxy hosts that should be excluded from proxying. */
+  String getNonProxyHosts();
 }

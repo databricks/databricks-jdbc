@@ -1,14 +1,16 @@
 package com.databricks.jdbc.dbclient.impl.http;
 
 import static com.databricks.jdbc.common.DatabricksJdbcConstants.*;
+import static com.databricks.jdbc.dbclient.impl.common.ClientConfigurator.convertNonProxyHostConfigToBeSystemPropertyCompliant;
 import static io.netty.util.NetUtil.LOCALHOST;
 
 import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.common.LogLevel;
-import com.databricks.jdbc.common.util.LoggingUtil;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
 import com.databricks.jdbc.exception.DatabricksHttpException;
 import com.databricks.jdbc.exception.DatabricksRetryHandlerException;
+import com.databricks.jdbc.log.JdbcLogger;
+import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.sdk.core.DatabricksConfig;
 import com.databricks.sdk.core.ProxyConfig;
 import com.databricks.sdk.core.UserAgent;
@@ -37,6 +39,8 @@ import org.apache.http.ssl.SSLContextBuilder;
 
 /** Http client implementation to be used for executing http requests. */
 public class DatabricksHttpClient implements IDatabricksHttpClient {
+
+  public static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(DatabricksHttpClient.class);
   private static final int DEFAULT_MAX_HTTP_CONNECTIONS = 1000;
   private static final int DEFAULT_MAX_HTTP_CONNECTIONS_PER_ROUTE = 1000;
   private static final int DEFAULT_HTTP_CONNECTION_TIMEOUT = 60 * 1000; // ms
@@ -112,8 +116,7 @@ public class DatabricksHttpClient implements IDatabricksHttpClient {
           .setSSLHostnameVerifier(new NoopHostnameVerifier())
           .build();
     } catch (NoSuchAlgorithmException | KeyManagementException | KeyStoreException e) {
-      LoggingUtil.log(
-          LogLevel.DEBUG,
+      LOGGER.debug(
           String.format(
               "Error in creating HttpClient with the SSL context [{%s}]", e.getMessage()));
     }
@@ -144,6 +147,9 @@ public class DatabricksHttpClient implements IDatabricksHttpClient {
       proxyAuth = connectionContext.getProxyAuthType();
     }
     if (proxyHost != null || connectionContext.getUseSystemProxy()) {
+      String nonProxyHosts =
+          convertNonProxyHostConfigToBeSystemPropertyCompliant(
+              connectionContext.getNonProxyHosts());
       ProxyConfig proxyConfig =
           new ProxyConfig(new DatabricksConfig())
               .setUseSystemProperties(connectionContext.getUseSystemProxy())
@@ -151,7 +157,8 @@ public class DatabricksHttpClient implements IDatabricksHttpClient {
               .setPort(proxyPort)
               .setUsername(proxyUser)
               .setPassword(proxyPassword)
-              .setProxyAuthType(proxyAuth);
+              .setProxyAuthType(proxyAuth)
+              .setNonProxyHosts(nonProxyHosts);
       ProxyUtils.setupProxy(proxyConfig, builder);
     }
   }
@@ -192,8 +199,7 @@ public class DatabricksHttpClient implements IDatabricksHttpClient {
 
   @Override
   public CloseableHttpResponse execute(HttpUriRequest request) throws DatabricksHttpException {
-    LoggingUtil.log(
-        LogLevel.DEBUG,
+    LOGGER.debug(
         String.format("Executing HTTP request [{%s}]", RequestSanitizer.sanitizeRequest(request)));
     try {
       return httpClient.execute(request);
@@ -205,8 +211,7 @@ public class DatabricksHttpClient implements IDatabricksHttpClient {
 
   public CloseableHttpResponse executeWithoutCertVerification(HttpUriRequest request)
       throws DatabricksHttpException {
-    LoggingUtil.log(
-        LogLevel.DEBUG,
+    LOGGER.debug(
         String.format("Executing HTTP request [{%s}]", RequestSanitizer.sanitizeRequest(request)));
     try {
       return httpDisabledSSLClient.execute(request);
@@ -220,8 +225,7 @@ public class DatabricksHttpClient implements IDatabricksHttpClient {
   public void closeExpiredAndIdleConnections() {
     if (connectionManager != null) {
       synchronized (connectionManager) {
-        LoggingUtil.log(
-            LogLevel.DEBUG,
+        LOGGER.debug(
             String.format("connection pool stats: {%s}", connectionManager.getTotalStats()));
         connectionManager.closeExpiredConnections();
         connectionManager.closeIdleConnections(idleHttpConnectionExpiry, TimeUnit.SECONDS);
@@ -258,8 +262,7 @@ public class DatabricksHttpClient implements IDatabricksHttpClient {
       try {
         instance.httpClient.close();
       } catch (IOException e) {
-        LoggingUtil.log(
-            LogLevel.DEBUG, String.format("Caught error while closing http client. Error %s", e));
+        LOGGER.debug(String.format("Caught error while closing http client. Error %s", e));
       }
     }
   }
@@ -277,7 +280,11 @@ public class DatabricksHttpClient implements IDatabricksHttpClient {
         String.format(
             "Caught error while executing http request: [%s]. Error Message: [%s]",
             RequestSanitizer.sanitizeRequest(request), e);
-    LoggingUtil.log(logLevel, errorMsg);
+    if (logLevel == LogLevel.DEBUG) {
+      LOGGER.debug(errorMsg);
+    } else {
+      LOGGER.error(errorMsg, e);
+    }
     throw new DatabricksHttpException(errorMsg, e);
   }
 }

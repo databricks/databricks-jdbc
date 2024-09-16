@@ -2,9 +2,9 @@ package com.databricks.jdbc.dbclient.impl.http;
 
 import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.common.ErrorTypes;
-import com.databricks.jdbc.common.LogLevel;
-import com.databricks.jdbc.common.util.LoggingUtil;
 import com.databricks.jdbc.exception.DatabricksRetryHandlerException;
+import com.databricks.jdbc.log.JdbcLogger;
+import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.google.common.annotations.VisibleForTesting;
 import java.io.IOException;
 import java.util.Objects;
@@ -20,6 +20,9 @@ import org.apache.http.protocol.HttpContext;
 
 public class DatabricksHttpRetryHandler
     implements HttpResponseInterceptor, HttpRequestRetryHandler {
+
+  public static final JdbcLogger LOGGER =
+      JdbcLoggerFactory.getLogger(DatabricksHttpRetryHandler.class);
   private static final String RETRY_INTERVAL_KEY = "retryInterval";
   private static final String TEMP_UNAVAILABLE_RETRY_COUNT_KEY = "tempUnavailableRetryCount";
   private static final String RATE_LIMIT_RETRY_COUNT_KEY = "rateLimitRetryCount";
@@ -110,8 +113,7 @@ public class DatabricksHttpRetryHandler
     if (statusCode == HttpStatus.SC_SERVICE_UNAVAILABLE
         && tempUnavailableRetryCount * retryInterval
             > connectionContext.getTemporarilyUnavailableRetryTimeout()) {
-      LoggingUtil.log(
-          LogLevel.WARN,
+      LOGGER.warn(
           "TemporarilyUnavailableRetry timeout "
               + connectionContext.getTemporarilyUnavailableRetryTimeout()
               + " has been hit for the error: "
@@ -122,8 +124,7 @@ public class DatabricksHttpRetryHandler
     // check if retry timeout has been hit for error code 429
     if (statusCode == HttpStatus.SC_TOO_MANY_REQUESTS
         && rateLimitRetryCount * retryInterval > connectionContext.getRateLimitRetryTimeout()) {
-      LoggingUtil.log(
-          LogLevel.WARN,
+      LOGGER.warn(
           "RateLimitRetry timeout "
               + connectionContext.getTemporarilyUnavailableRetryTimeout()
               + " has been hit for the error: "

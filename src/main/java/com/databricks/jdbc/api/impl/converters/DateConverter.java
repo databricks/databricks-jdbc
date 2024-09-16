@@ -9,7 +9,7 @@ import java.time.temporal.ChronoUnit;
 
 public class DateConverter extends AbstractObjectConverter {
 
-  private Date object;
+  private final Date object;
 
   public DateConverter(Object object) throws DatabricksSQLException {
     super(object);
@@ -18,22 +18,6 @@ public class DateConverter extends AbstractObjectConverter {
     } else {
       this.object = (Date) object;
     }
-  }
-
-  @Override
-  public BigInteger convertToBigInteger() throws DatabricksSQLException {
-    long epochDays = convertToLong();
-    return BigInteger.valueOf(epochDays);
-  }
-
-  @Override
-  public LocalDate convertToLocalDate() throws DatabricksSQLException {
-    return this.object.toLocalDate();
-  }
-
-  @Override
-  public Date convertToDate() throws DatabricksSQLException {
-    return this.object;
   }
 
   @Override
@@ -54,16 +38,32 @@ public class DateConverter extends AbstractObjectConverter {
   @Override
   public long convertToLong() throws DatabricksSQLException {
     LocalDate localStartDate = LocalDate.ofEpochDay(0);
-    return ChronoUnit.DAYS.between(localStartDate, this.object.toLocalDate());
+    return ChronoUnit.DAYS.between(localStartDate, object.toLocalDate());
+  }
+
+  @Override
+  public BigInteger convertToBigInteger() throws DatabricksSQLException {
+    long epochDays = convertToLong();
+    return BigInteger.valueOf(epochDays);
+  }
+
+  @Override
+  public LocalDate convertToLocalDate() throws DatabricksSQLException {
+    return object.toLocalDate();
   }
 
   @Override
   public String convertToString() throws DatabricksSQLException {
-    return this.object.toString();
+    return object.toString();
   }
 
   @Override
   public Timestamp convertToTimestamp() throws DatabricksSQLException {
-    return Timestamp.valueOf(this.object.toLocalDate().atStartOfDay());
+    return Timestamp.valueOf(object.toLocalDate().atStartOfDay());
+  }
+
+  @Override
+  public Date convertToDate() throws DatabricksSQLException {
+    return object;
   }
 }
