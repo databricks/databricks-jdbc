@@ -2,8 +2,8 @@ package com.databricks.jdbc.api.impl.volume;
 
 import com.databricks.jdbc.api.IDatabricksStatement;
 import com.databricks.jdbc.api.impl.IExecutionResult;
-import com.databricks.jdbc.common.LogLevel;
-import com.databricks.jdbc.common.util.LoggingUtil;
+import com.databricks.jdbc.log.JdbcLogger;
+import com.databricks.jdbc.log.JdbcLoggerFactory;
 import java.io.IOException;
 import java.io.InputStream;
 import java.sql.SQLException;
@@ -12,6 +12,7 @@ import org.apache.http.util.EntityUtils;
 
 public class VolumeInputStream extends InputStream {
 
+  public static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(VolumeInputStream.class);
   private final InputStream httpContent;
   private final IExecutionResult resultHandler;
   private final IDatabricksStatement statement;
@@ -74,10 +75,7 @@ public class VolumeInputStream extends InputStream {
       this.statement.close(true);
     } catch (SQLException e) {
       // Ignore exception while closing
-      LoggingUtil.log(
-          LogLevel.ERROR,
-          "Exception while release volume resources: " + e.getMessage(),
-          VolumeInputStream.class.getName());
+      LOGGER.error("Exception while release volume resources: " + e.getMessage());
     }
   }
 }

@@ -4,7 +4,8 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>com.databricks</groupId>
   <artifactId>databricks-jdbc</artifactId>
-  <version>0.9.2-oss</version>
+  <!-- This value may be modified by a release script to reflect the current version of the driver. -->
+  <version>0.9.4-oss</version>
   <packaging>jar</packaging>
   <name>Databricks JDBC Driver</name>
   <description>Databricks JDBC Driver.</description>
@@ -52,7 +53,7 @@
     <immutables.value.version>2.9.2</immutables.value.version>
     <httpclient.version>4.5.14</httpclient.version>
     <commons-io.version>2.13.0</commons-io.version>
-    <databricks-sdk.version>0.27.1</databricks-sdk.version>
+    <databricks-sdk.version>0.31.0</databricks-sdk.version>
     <maven-surefire-plugin.version>3.1.2</maven-surefire-plugin.version>
     <sql-logic-test.version>0.3</sql-logic-test.version>
     <lz4-compression.version>1.8.0</lz4-compression.version>
@@ -61,6 +62,8 @@
     <slt.executor>dbsql</slt.executor>
     <slt.token>dummy-token</slt.token>
     <wiremock.version>3.5.4</wiremock.version>
+    <nimbusjose.version>9.40</nimbusjose.version>
+    <bouncycastle.version>1.78.1</bouncycastle.version>
   </properties>
   <dependencies>
     <dependency>
@@ -141,6 +144,21 @@
       <artifactId>junit-jupiter</artifactId>
       <version>${junit.jupiter.version}</version>
       <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>com.nimbusds</groupId>
+      <artifactId>nimbus-jose-jwt</artifactId>
+      <version>${nimbusjose.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.bouncycastle</groupId>
+      <artifactId>bcprov-jdk18on</artifactId>
+      <version>${bouncycastle.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.bouncycastle</groupId>
+      <artifactId>bcpkix-jdk18on</artifactId>
+      <version>${bouncycastle.version}</version>
     </dependency>
     <dependency>
       <groupId>org.mockito</groupId>
@@ -241,8 +259,6 @@
         <version>${maven-surefire-plugin.version}</version>
         <configuration>
           <excludes>
-            <exclude>**/*LargeQueriesBenchmarkingTest.java</exclude>
-            <exclude>**/*MetadataBenchmarkingTest.java</exclude>
             <exclude>**/DriverTest.java</exclude>
             <exclude>**/integration/**/*.java</exclude>
           </excludes>
@@ -280,10 +296,6 @@
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-compiler-plugin</artifactId>
         <configuration>
-          <testExcludes>
-            <testExclude>com/databricks/jdbc/integration/benchmarking/MetadataBenchmarkingTest.java</testExclude>
-            <testExclude>com/databricks/jdbc/integration/benchmarking/LargeQueriesBenchmarkingTest.java</testExclude>
-          </testExcludes>
           <annotationProcessorPaths>
             <path>
               <groupId>org.immutables</groupId>
@@ -336,6 +348,8 @@
           <excludes>
             <exclude>**/CommandName*</exclude>
             <exclude>**/DatabricksJdbcConstants*</exclude>
+            <exclude>**/DatabricksJdbcUrlParams*</exclude>
+            <exclude>**/Driver*</exclude>
             <exclude>**/EnvironmentVariables*</exclude>
             <exclude>**/*Constants*</exclude>
             <exclude>**/*Exception*</exclude>

@@ -2,6 +2,7 @@ package com.databricks.client.jdbc;
 
 import com.databricks.jdbc.api.IDatabricksConnection;
 import com.databricks.jdbc.api.IDatabricksUCVolumeClient;
+import com.databricks.jdbc.api.impl.arrow.ArrowResultChunk;
 import com.databricks.jdbc.common.DatabricksJdbcConstants;
 import java.io.File;
 import java.io.FileInputStream;
@@ -370,5 +371,42 @@ public class DriverTest {
       System.out.println("Update count: " + count);
     }
     con.close();
+  }
+
+  @Test
+  void testM2MJWT() throws SQLException {
+    String jdbcUrl =
+        "jdbc:databricks://mkazia-pl-sandbox.staging.cloud.databricks.com:443/default;"
+            + "httpPath=sql/1.0/warehouses/31e4555776d18496;"
+            + "AuthMech=11;ssl=1;Auth_Flow=1;"
+            + "OAuth2TokenEndpoint=https://dev-591123.oktapreview.com/oauth2/aus1mzu4zk5TWwMvx0h8/v1/token;"
+            + "Auth_Scope=sql;OAuth2ClientId=0oa25wnir4ehnKDj10h8;"
+            + "Auth_KID=EbKQzTAVP1_3E59Bq5P3Uv8krHCpj3hIWTodcmDwQ5k;"
+            + "UseJWTAssertion=1;"
+            + "Auth_JWT_Key_File=jdbc-testing-enc.pem;"
+            + "Auth_JWT_Key_Passphrase=s3cr3t";
+    Connection con = DriverManager.getConnection(jdbcUrl);
+    System.out.println("Connection established......");
+    ResultSet rs = con.createStatement().executeQuery("SELECT 1");
+    printResultSet(rs);
+    con.close();
+  }
+
+  @Test
+  void testChunkDownloadRetry() throws Exception {
+    // Enable error injection
+    ArrowResultChunk.enableErrorInjection();
+    ArrowResultChunk.setErrorInjectionCountMaxValue(2);
+    String jdbcUrl =
+        "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/58aa1b363649e722";
+    Connection con = DriverManager.getConnection(jdbcUrl, "token", "xx");
+    System.out.println("Connection established......");
+    Statement s = con.createStatement();
+    s.executeQuery("SELECT * from RANGE(37500000)");
+    printResultSet(s.getResultSet());
+    con.close();
+    System.out.println("Connection closed successfully......");
+    // Disable error injection after the test (not strictly needed as test launches a new JVM)
+    ArrowResultChunk.disableErrorInjection();
   }
 }

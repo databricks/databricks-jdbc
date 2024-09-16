@@ -1,5 +1,6 @@
 package com.databricks.jdbc.api.impl.volume;
 
+import static com.databricks.jdbc.common.DatabricksJdbcConstants.ALLOWED_STAGING_INGESTION_PATHS;
 import static com.databricks.jdbc.common.DatabricksJdbcConstants.ALLOWED_VOLUME_INGESTION_PATHS;
 import static com.databricks.jdbc.common.EnvironmentVariables.DEFAULT_SLEEP_DELAY;
 
@@ -16,6 +17,7 @@ import com.databricks.jdbc.model.core.ResultManifest;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Strings;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -78,21 +80,30 @@ public class VolumeOperationResult implements IExecutionResult {
     String presignedUrl = getString(resultHandler.getObject(1));
     String localFile = columnCount > 3 ? getString(resultHandler.getObject(3)) : null;
     Map<String, String> headers = getHeaders(getString(resultHandler.getObject(2)));
+    String allowedVolumeIngestionPaths = getAllowedVolumeIngestionPaths();
     this.volumeOperationExecutor =
         new VolumeOperationExecutor(
             operation,
             presignedUrl,
             headers,
             localFile,
-            session
-                .getClientInfoProperties()
-                .getOrDefault(ALLOWED_VOLUME_INGESTION_PATHS.toLowerCase(), ""),
+            allowedVolumeIngestionPaths,
             httpClient,
             statement,
             resultSet);
     Thread thread = new Thread(volumeOperationExecutor);
     thread.setName("VolumeOperationExecutor " + statementId);
     thread.start();
+  }
+
+  private String getAllowedVolumeIngestionPaths() {
+    String allowedPaths =
+        session.getClientInfoProperties().get(ALLOWED_VOLUME_INGESTION_PATHS.toLowerCase());
+    if (Strings.isNullOrEmpty(allowedPaths)) {
+      allowedPaths =
+          session.getClientInfoProperties().getOrDefault(ALLOWED_STAGING_INGESTION_PATHS, "");
+    }
+    return allowedPaths;
   }
 
   private String getString(Object obj) {

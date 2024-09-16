@@ -1,12 +1,18 @@
 package com.databricks.jdbc.dbclient.impl.common;
 
+import static com.databricks.jdbc.common.MetadataResultConstants.*;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.mockito.Mockito.mock;
 
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.util.List;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.mockito.Mockito;
 
 public class MetadataResultSetBuilderTest {
 
@@ -64,6 +70,11 @@ public class MetadataResultSetBuilderTest {
         Arguments.of("VARCHAR(", "VARCHAR"),
         Arguments.of("VARCHAR(100,200)", "VARCHAR"),
         Arguments.of("CHAR(123)", "CHAR"),
+        Arguments.of("ARRAY<DOUBLE>", "ARRAY"),
+        Arguments.of("MAP<STRING,INT>", "MAP"),
+        Arguments.of("STRUCT<A:INT,B:STRING>", "STRUCT"),
+        Arguments.of("ARRAY<DOUBLE>(100)", "ARRAY"),
+        Arguments.of("MAP<STRING,INT>(50)", "MAP"),
         Arguments.of(null, null),
         Arguments.of("", ""),
         Arguments.of("INTEGER(10,5)", "INTEGER"));
@@ -97,6 +108,49 @@ public class MetadataResultSetBuilderTest {
         Arguments.of("CHAR", 10, 255),
         Arguments.of("VARCHAR", 10, 255),
         Arguments.of("TEXT", 10, 255));
+  }
+
+  private static Stream<Arguments> getRowsTableTypeColumnArguments() {
+    return Stream.of(
+        Arguments.of("TABLE", "TABLE"),
+        Arguments.of("VIEW", "VIEW"),
+        Arguments.of("SYSTEM TABLE", "SYSTEM TABLE"),
+        Arguments.of("", "TABLE"));
+  }
+
+  @ParameterizedTest
+  @MethodSource("getRowsTableTypeColumnArguments")
+  void testGetRowsHandlesTableTypeColumn(String tableTypeValue, String expectedTableType)
+      throws SQLException {
+    ResultSet resultSet = mock(ResultSet.class);
+    Mockito.when(resultSet.next()).thenReturn(true).thenReturn(false);
+    Mockito.when(resultSet.getObject(TABLE_TYPE_COLUMN.getResultSetColumnName()))
+        .thenReturn(tableTypeValue);
+
+    List<List<Object>> rows = MetadataResultSetBuilder.getRows(resultSet, TABLE_COLUMNS);
+
+    assertEquals(expectedTableType, rows.get(0).get(3));
+    assertEquals(String.class, rows.get(0).get(3).getClass());
+  }
+
+  private static Stream<Arguments> getRowsNullableColumnArguments() {
+    return Stream.of(Arguments.of("true", 1), Arguments.of("false", 0), Arguments.of(null, 1));
+  }
+
+  @ParameterizedTest
+  @MethodSource("getRowsNullableColumnArguments")
+  void testGetRowsHandlesNullableColumn(String isNullableValue, int expectedNullable)
+      throws SQLException {
+    ResultSet resultSet = mock(ResultSet.class);
+    Mockito.when(resultSet.next()).thenReturn(true).thenReturn(false);
+    Mockito.when(resultSet.getObject(NULLABLE_COLUMN.getResultSetColumnName()))
+        .thenReturn(isNullableValue);
+
+    List<List<Object>> rows = MetadataResultSetBuilder.getRows(resultSet, COLUMN_COLUMNS);
+
+    assertEquals(expectedNullable, rows.get(0).get(10));
+    assertEquals(
+        Integer.class, rows.get(0).get(10).getClass()); // test column type of nullable column
   }
 
   @ParameterizedTest
