@@ -130,4 +130,13 @@ public class ClientConfiguratorTest {
     DatabricksConfig config = configurator.getDatabricksConfig();
     assertEquals(DatabricksJdbcConstants.ACCESS_TOKEN_AUTH_TYPE, config.getAuthType());
   }
+
+  @Test
+  void testNonProxyHostsFormatConversion() {
+    String nonProxyHostsInput = ".example.com,.blabla.net,.xyz.abc";
+    assertEquals(
+        "*.example.com|*.blabla.net|*.xyz.abc",
+        ClientConfigurator.convertNonProxyHostConfigToBeSystemPropertyCompliant(
+            nonProxyHostsInput));
+  }
 }
