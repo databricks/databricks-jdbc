@@ -90,7 +90,7 @@ public class ClientConfigurator {
       pkixBuilderParameters.setRevocationEnabled(connectionContext.checkCertificateRevocation());
       CertPathValidator certPathValidator = CertPathValidator.getInstance("PKIX");
       PKIXRevocationChecker revocationChecker =
-              (PKIXRevocationChecker) certPathValidator.getRevocationChecker();
+          (PKIXRevocationChecker) certPathValidator.getRevocationChecker();
       if (connectionContext.acceptUndeterminedCertificateRevocation()) {
         revocationChecker.setOptions(
             Set.of(
