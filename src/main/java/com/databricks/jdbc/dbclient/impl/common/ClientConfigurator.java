@@ -172,8 +172,18 @@ public class ClientConfigurator {
     if (nonProxyHosts == null || nonProxyHosts.isEmpty()) {
       return EMPTY_STRING;
     }
+    if (nonProxyHosts.contains("|")) {
+      // Already in system property compliant format
+      return nonProxyHosts;
+    }
     return Arrays.stream(nonProxyHosts.split(","))
-        .map(suffix -> "*" + suffix)
+        .map(
+            suffix -> {
+              if (suffix.startsWith(".")) {
+                return "*" + suffix;
+              }
+              return suffix;
+            })
         .collect(Collectors.joining("|"));
   }
 
