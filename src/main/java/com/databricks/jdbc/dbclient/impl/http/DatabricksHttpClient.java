@@ -1,7 +1,7 @@
 package com.databricks.jdbc.dbclient.impl.http;
 
 import static com.databricks.jdbc.common.DatabricksJdbcConstants.*;
-import static com.databricks.jdbc.dbclient.impl.common.ClientUtils.convertNonProxyHostConfigToBeSystemPropertyCompliant;
+import static com.databricks.jdbc.dbclient.impl.common.ClientConfigurator.convertNonProxyHostConfigToBeSystemPropertyCompliant;
 import static io.netty.util.NetUtil.LOCALHOST;
 
 import com.databricks.jdbc.api.IDatabricksConnectionContext;
