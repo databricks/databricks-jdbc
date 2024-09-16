@@ -593,6 +593,11 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
     return getParameter(DatabricksJdbcUrlParams.OAUTH_REFRESH_TOKEN);
   }
 
+  @Override
+  public String getNonProxyHosts() {
+    return getParameter(DatabricksJdbcUrlParams.NON_PROXY_HOSTS, EMPTY_STRING);
+  }
+
   private static boolean nullOrEmptyString(String s) {
     return s == null || s.isEmpty();
   }

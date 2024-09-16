@@ -1,6 +1,7 @@
 package com.databricks.jdbc.dbclient.impl.http;
 
 import static com.databricks.jdbc.common.DatabricksJdbcConstants.*;
+import static com.databricks.jdbc.dbclient.impl.common.ClientConfigurator.convertNonProxyHostConfigToBeSystemPropertyCompliant;
 import static io.netty.util.NetUtil.LOCALHOST;
 
 import com.databricks.jdbc.api.IDatabricksConnectionContext;
@@ -295,6 +296,9 @@ public class DatabricksHttpClient implements IDatabricksHttpClient {
       proxyAuth = connectionContext.getProxyAuthType();
     }
     if (proxyHost != null || connectionContext.getUseSystemProxy()) {
+      String nonProxyHosts =
+          convertNonProxyHostConfigToBeSystemPropertyCompliant(
+              connectionContext.getNonProxyHosts());
       ProxyConfig proxyConfig =
           new ProxyConfig(new DatabricksConfig())
               .setUseSystemProperties(connectionContext.getUseSystemProxy())
@@ -302,7 +306,8 @@ public class DatabricksHttpClient implements IDatabricksHttpClient {
               .setPort(proxyPort)
               .setUsername(proxyUser)
               .setPassword(proxyPassword)
-              .setProxyAuthType(proxyAuth);
+              .setProxyAuthType(proxyAuth)
+              .setNonProxyHosts(nonProxyHosts);
       ProxyUtils.setupProxy(proxyConfig, builder);
     }
   }

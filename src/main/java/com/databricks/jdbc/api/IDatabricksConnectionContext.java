@@ -196,5 +196,12 @@ public interface IDatabricksConnectionContext {
   /** Returns the OAuth2 authentication scope used in the request. */
   String getAuthScope();
 
+  /**
+   * Returns the OAuth2 refresh token used to obtain a new access token when the current one
+   * expires.
+   */
   String getOAuthRefreshToken();
+
+  /** Returns the non-proxy hosts that should be excluded from proxying. */
+  String getNonProxyHosts();
 }
