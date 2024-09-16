@@ -246,9 +246,9 @@ public class DatabricksHttpRetryHandler
     }
   }
 
-  private static void sleepForDelay(long delay) {
+  private static void sleepForDelay(long delayInSeconds) {
     try {
-      Thread.sleep(delay * 1000);
+      Thread.sleep(delayInSeconds * 1000);
     } catch (InterruptedException e) {
       Thread.currentThread().interrupt(); // Restore the interrupt status
       throw new RuntimeException("Sleep interrupted", e);
