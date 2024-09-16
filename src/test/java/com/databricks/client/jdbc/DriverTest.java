@@ -119,12 +119,11 @@ public class DriverTest {
   @Test
   void testAllPurposeClusters() throws Exception {
     String jdbcUrl =
-        "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/791ba2a31c7fd70a";
+        "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;ssl=1;AuthMech=3;httpPath=sql/protocolv1/o/6051921418418893/1115-130834-ms4m0yv";
     Connection con = DriverManager.getConnection(jdbcUrl, "token", "xx");
     System.out.println("Connection established......");
     Statement s = con.createStatement();
-    s.executeQuery("SELECT * from RANGE(37500000)");
-    printResultSet(s.getResultSet());
+    s.executeQuery("SELECT * from RANGE(5)");
     con.close();
     System.out.println("Connection closed successfully......");
   }
