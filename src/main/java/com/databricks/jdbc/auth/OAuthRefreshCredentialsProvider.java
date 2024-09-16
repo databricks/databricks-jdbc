@@ -4,9 +4,9 @@ import static com.databricks.jdbc.auth.AuthConstants.*;
 
 import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.common.DatabricksJdbcConstants;
-import com.databricks.jdbc.common.LogLevel;
-import com.databricks.jdbc.common.util.LoggingUtil;
 import com.databricks.jdbc.exception.DatabricksParsingException;
+import com.databricks.jdbc.log.JdbcLogger;
+import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.sdk.core.CredentialsProvider;
 import com.databricks.sdk.core.DatabricksConfig;
 import com.databricks.sdk.core.DatabricksException;
@@ -23,6 +23,9 @@ import org.apache.http.HttpHeaders;
 
 public class OAuthRefreshCredentialsProvider extends RefreshableTokenSource
     implements CredentialsProvider {
+
+  public static final JdbcLogger LOGGER =
+      JdbcLoggerFactory.getLogger(OAuthRefreshCredentialsProvider.class);
   IDatabricksConnectionContext context;
   private HttpClient hc;
   private final String tokenEndpoint;
@@ -38,7 +41,7 @@ public class OAuthRefreshCredentialsProvider extends RefreshableTokenSource
       this.clientId = context.getClientId();
     } catch (DatabricksParsingException e) {
       String exceptionMessage = "Failed to parse client id";
-      LoggingUtil.log(LogLevel.ERROR, exceptionMessage);
+      LOGGER.error(exceptionMessage);
       throw new DatabricksException(exceptionMessage, e);
     }
     this.clientSecret = context.getClientSecret();
@@ -78,13 +81,13 @@ public class OAuthRefreshCredentialsProvider extends RefreshableTokenSource
   protected Token refresh() {
     if (this.token == null) {
       String exceptionMessage = "oauth2: token is not set";
-      LoggingUtil.log(LogLevel.ERROR, exceptionMessage);
+      LOGGER.error(exceptionMessage);
       throw new DatabricksException(exceptionMessage);
     }
     String refreshToken = this.token.getRefreshToken();
     if (refreshToken == null) {
       String exceptionMessage = "oauth2: token expired and refresh token is not set";
-      LoggingUtil.log(LogLevel.ERROR, exceptionMessage);
+      LOGGER.error(exceptionMessage);
       throw new DatabricksException(exceptionMessage);
     }
 

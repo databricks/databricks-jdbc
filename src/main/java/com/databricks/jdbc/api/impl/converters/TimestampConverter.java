@@ -13,7 +13,6 @@ public class TimestampConverter extends AbstractObjectConverter {
 
   public TimestampConverter(Object object) throws DatabricksSQLException {
     super(object);
-    TimeZone.setDefault(TimeZone.getTimeZone("UTC"));
     if (object instanceof String) {
       try {
         this.object = Timestamp.valueOf((String) object);

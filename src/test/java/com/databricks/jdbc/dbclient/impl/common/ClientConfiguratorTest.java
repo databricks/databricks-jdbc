@@ -48,7 +48,7 @@ public class ClientConfiguratorTest {
     when(mockContext.getAuthFlow())
         .thenReturn(IDatabricksConnectionContext.AuthFlow.TOKEN_PASSTHROUGH);
     when(mockContext.getHostUrl()).thenReturn("https://oauth-token.databricks.com");
-    when(mockContext.getToken()).thenReturn("oauth-token");
+    when(mockContext.getPassThroughAccessToken()).thenReturn("oauth-token");
     configurator = new ClientConfigurator(mockContext);
 
     WorkspaceClient client = configurator.getWorkspaceClient();
@@ -129,5 +129,26 @@ public class ClientConfiguratorTest {
     configurator = new ClientConfigurator(mockContext);
     DatabricksConfig config = configurator.getDatabricksConfig();
     assertEquals(DatabricksJdbcConstants.ACCESS_TOKEN_AUTH_TYPE, config.getAuthType());
+  }
+
+  @Test
+  void testNonProxyHostsFormatConversion() {
+    String nonProxyHostsInput = ".example.com,.blabla.net,.xyz.abc";
+    assertEquals(
+        "*.example.com|*.blabla.net|*.xyz.abc",
+        ClientConfigurator.convertNonProxyHostConfigToBeSystemPropertyCompliant(
+            nonProxyHostsInput));
+
+    String nonProxyHostsInput2 = "example.com,.blabla.net,123.xyz.abc";
+    assertEquals(
+        "example.com|*.blabla.net|123.xyz.abc",
+        ClientConfigurator.convertNonProxyHostConfigToBeSystemPropertyCompliant(
+            nonProxyHostsInput2));
+
+    String nonProxyHostsInput3 = "staging.example.*|blabla.net|*.xyz.abc";
+    assertEquals(
+        "staging.example.*|blabla.net|*.xyz.abc",
+        ClientConfigurator.convertNonProxyHostConfigToBeSystemPropertyCompliant(
+            nonProxyHostsInput3));
   }
 }

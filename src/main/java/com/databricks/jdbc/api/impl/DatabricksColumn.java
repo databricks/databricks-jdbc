@@ -26,6 +26,7 @@ public interface DatabricksColumn {
 
   boolean isSigned();
 
+  @javax.annotation.Nullable
   String schemaName();
 
   boolean isCurrency();
@@ -46,6 +47,7 @@ public interface DatabricksColumn {
 
   String columnTypeClassName();
 
+  @javax.annotation.Nullable
   String tableName();
 
   String catalogName();
