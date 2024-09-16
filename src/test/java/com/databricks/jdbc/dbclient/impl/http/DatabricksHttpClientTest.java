@@ -2,8 +2,6 @@ package com.databricks.jdbc.dbclient.impl.http;
 
 import static com.databricks.jdbc.common.DatabricksJdbcConstants.FAKE_SERVICE_URI_PROP_SUFFIX;
 import static com.databricks.jdbc.common.DatabricksJdbcConstants.IS_FAKE_SERVICE_TEST_PROP;
-import static com.databricks.jdbc.dbclient.impl.http.DatabricksHttpClient.isErrorCodeRetryable;
-import static com.databricks.jdbc.dbclient.impl.http.DatabricksHttpClient.isRetryAllowed;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
@@ -209,22 +207,6 @@ public class DatabricksHttpClientTest {
   void TestCloseExpiredAndIdleConnectionsForNull() {
     DatabricksHttpClient databricksHttpClient = new DatabricksHttpClient(mockHttpClient, null);
     assertDoesNotThrow(databricksHttpClient::closeExpiredAndIdleConnections);
-  }
-
-  @Test
-  void testIsRetryAllowed() {
-    assertTrue(isRetryAllowed("GET"), "GET requests should be allowed for retry");
-    assertTrue(isRetryAllowed("POST"), "POST requests should  be allowed for retry");
-    assertTrue(isRetryAllowed("PUT"), "PUT requests should be allowed for retry");
-    assertFalse(isRetryAllowed("DELETE"), "DELETE requests should not be allowed for retry");
-  }
-
-  @Test
-  void testIsErrorCodeRetryable() {
-    assertFalse(isErrorCodeRetryable(408), "HTTP 408 Request Timeout should not be retryable");
-    assertTrue(isErrorCodeRetryable(503), "HTTP 503 Service Unavailable should be retryable");
-    assertTrue(isErrorCodeRetryable(429), "HTTP 429 Too Many Requests should be retryable");
-    assertFalse(isErrorCodeRetryable(401), "HTTP 401 Unauthorized should not be retryable");
   }
 
   @Test

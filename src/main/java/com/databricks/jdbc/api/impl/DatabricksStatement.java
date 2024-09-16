@@ -2,6 +2,7 @@ package com.databricks.jdbc.api.impl;
 
 import static com.databricks.jdbc.common.DatabricksJdbcConstants.*;
 import static com.databricks.jdbc.common.EnvironmentVariables.*;
+import static java.lang.Runtime.getRuntime;
 import static java.lang.String.format;
 
 import com.databricks.jdbc.api.IDatabricksResultSet;
@@ -562,6 +563,8 @@ public class DatabricksStatement implements IDatabricksStatement, Statement {
 
   CompletableFuture<DatabricksResultSet> getFutureResult(
       String sql, Map<Integer, ImmutableSqlParameter> params, StatementType statementType) {
+    int poolSize = getRuntime().availableProcessors() * 2;
+    ExecutorService executor = Executors.newFixedThreadPool(poolSize);
     return CompletableFuture.supplyAsync(
         () -> {
           try {
@@ -570,7 +573,8 @@ public class DatabricksStatement implements IDatabricksStatement, Statement {
           } catch (SQLException e) {
             throw new RuntimeException(e);
           }
-        });
+        },
+        executor);
   }
 
   DatabricksResultSet getResultFromClient(

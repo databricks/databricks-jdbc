@@ -126,8 +126,6 @@ public final class DatabricksJdbcConstants {
       Pattern.compile("^(\\s*\\()*\\s*LIST", Pattern.CASE_INSENSITIVE);
   public static final int DBSQL_MIN_MAJOR_VERSION_FOR_NEW_METADATA = 2024;
   public static final int DBSQL_MIN_MINOR_VERSION_FOR_NEW_METADATA = 30;
-  public static final int DEFAULT_RETRY_COUNT = 5;
-  public static final LogLevel TELEMETRY_LOG_LEVEL = LogLevel.OFF;
   public static final String DEFAULT_USERNAME =
       "token"; // This is for PAT. We do not support Basic Auth.
   public static final String USERNAME_ERROR =
