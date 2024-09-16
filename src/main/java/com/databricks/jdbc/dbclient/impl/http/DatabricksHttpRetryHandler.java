@@ -39,9 +39,30 @@ public class DatabricksHttpRetryHandler
   }
 
   /**
-   * {@inheritDoc}
+   * Processes an HTTP response to handle retryable status codes and set up retry logic.
    *
-   * <p>Processing related to HTTP retry.
+   * <p>This method is responsible for examining the HTTP response, determining if it's retryable,
+   * and setting up the necessary context for potential retry attempts.
+   *
+   * @param httpResponse The HTTP response to be processed.
+   * @param httpContext The HTTP context associated with the request and response.
+   * @throws IOException If there's an issue processing the response.
+   * @throws DatabricksRetryHandlerException If the status code is retryable, triggering the retry
+   *     mechanism.
+   * @implNote The method performs the following steps:
+   *     <ul>
+   *       <li>Checks if the status code is retryable.
+   *       <li>Extracts the retry interval from the response for status codes 503 and 429.
+   *       <li>Sets up the context state for retry logic.
+   *       <li>Throws a {@code DatabricksRetryHandlerException} to trigger the retry mechanism,
+   *           including relevant error information from the response.
+   *     </ul>
+   *
+   * @implSpec This method adheres to the contract specified by its parent interface or class. It's
+   *     designed to be called as part of the HTTP response handling pipeline.
+   * @see #isStatusCodeRetryable(int)
+   * @see #initializeRetryCountsIfNotExist(HttpContext)
+   * @see DatabricksRetryHandlerException
    */
   @Override
   public void process(HttpResponse httpResponse, HttpContext httpContext) throws IOException {
@@ -85,7 +106,34 @@ public class DatabricksHttpRetryHandler
     }
   }
 
-  /** {@inheritDoc} */
+  /**
+   * Determines whether a request should be retried after encountering an IOException.
+   *
+   * <p>This method implements a comprehensive retry strategy for HTTP requests, considering various
+   * factors such as status codes, retry intervals, and execution counts.
+   *
+   * @param exception The IOException encountered during the request execution.
+   * @param executionCount The number of times this request has been executed.
+   * @param context The HttpContext containing attributes related to the request and retry logic.
+   * @return boolean True if the request should be retried, false otherwise.
+   * @throws RuntimeException If an invalid retry interval is found in the context for status codes
+   *     503 (Service Unavailable) or 429 (Too Many Requests).
+   * @implNote The method performs the following checks:
+   *     <ul>
+   *       <li>Verifies if the status code is retryable.
+   *       <li>Checks the validity of retry intervals for specific status codes.
+   *       <li>Ensures retry timeouts haven't been exceeded for temporary unavailability (503) and
+   *           rate limiting (429).
+   *       <li>Verifies that the execution count hasn't exceeded the maximum allowed retries.
+   *       <li>Confirms that the HTTP method of the request is retryable.
+   *     </ul>
+   *     If all checks pass, the method updates retry counters, calculates a delay, and sleeps for
+   *     the calculated duration before allowing a retry.
+   * @see #isStatusCodeRetryable(int)
+   * @see #isRequestMethodRetryable(String)
+   * @see #calculateDelay(int, int, int)
+   * @see #sleepForDelay(long)
+   */
   @Override
   public boolean retryRequest(IOException exception, int executionCount, HttpContext context) {
     // check if retrying this status code is supported
