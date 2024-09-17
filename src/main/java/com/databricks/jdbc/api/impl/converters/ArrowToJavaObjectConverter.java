@@ -41,7 +41,6 @@ public class ArrowToJavaObjectConverter {
           DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.S"),
           DateTimeFormatter.RFC_1123_DATE_TIME);
 
-  // TODO (Madhav): Check Arrow to JSON conversion
   public static Object convert(Object object, ColumnInfoTypeName requiredType)
       throws DatabricksSQLException {
     if (object == null) {

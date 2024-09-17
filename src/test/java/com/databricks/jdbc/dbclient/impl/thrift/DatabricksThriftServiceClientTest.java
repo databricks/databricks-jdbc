@@ -7,6 +7,7 @@ import static com.databricks.jdbc.common.util.DatabricksThriftUtil.getNamespace;
 import static com.databricks.jdbc.dbclient.impl.common.CommandConstants.GET_TABLE_TYPE_STATEMENT_ID;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.databricks.jdbc.api.IDatabricksConnectionContext;
@@ -20,10 +21,7 @@ import com.databricks.jdbc.model.client.thrift.generated.*;
 import com.databricks.jdbc.model.core.ExternalLink;
 import com.databricks.sdk.service.sql.StatementState;
 import java.sql.SQLException;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.List;
+import java.util.*;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -31,6 +29,8 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
 public class DatabricksThriftServiceClientTest {
+
+  private static final String NEW_ACCESS_TOKEN = "new-access-token";
   @Mock DatabricksThriftAccessor thriftAccessor;
   @Mock IDatabricksSession session;
   @Mock TRowSet resultData;
@@ -252,7 +252,7 @@ public class DatabricksThriftServiceClientTest {
             .setStatus(new TStatus().setStatusCode(TStatusCode.SUCCESS_STATUS))
             .setResults(resultData)
             .setResultSetMetadata(resultMetadataData);
-    when(resultData.getColumns()).thenReturn(Collections.emptyList());
+    when(resultData.getColumns()).thenReturn(new ArrayList<>());
     when(thriftAccessor.getThriftResponse(request, CommandName.LIST_COLUMNS, null))
         .thenReturn(response);
     DatabricksResultSet resultSet =
@@ -324,5 +324,13 @@ public class DatabricksThriftServiceClientTest {
     DatabricksThriftServiceClient client =
         new DatabricksThriftServiceClient(thriftAccessor, connectionContext);
     assertEquals(client.getConnectionContext(), connectionContext);
+  }
+
+  @Test
+  void testResetAccessToken() throws Exception {
+    DatabricksThriftServiceClient client =
+        new DatabricksThriftServiceClient(thriftAccessor, connectionContext);
+    client.resetAccessToken(NEW_ACCESS_TOKEN);
+    verify(thriftAccessor).resetAccessToken(NEW_ACCESS_TOKEN);
   }
 }

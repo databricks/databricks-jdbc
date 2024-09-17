@@ -5,8 +5,7 @@ import static com.databricks.jdbc.common.EnvironmentVariables.DEFAULT_BYTE_LIMIT
 import static com.databricks.jdbc.common.EnvironmentVariables.DEFAULT_ROW_LIMIT;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.mockito.Mockito.doNothing;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
 import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.api.IDatabricksStatement;
@@ -68,6 +67,8 @@ public class DatabricksThriftAccessorTest {
                   .setStatus(new TStatus().setStatusCode(TStatusCode.SUCCESS_STATUS)));
   private static final TGetResultSetMetadataResp metadataResp =
       new TGetResultSetMetadataResp().setResultFormat(TSparkRowSetType.COLUMN_BASED_SET);
+
+  private static final String NEW_ACCESS_TOKEN = "new-access-token";
 
   void setup(Boolean directResultsEnabled) {
     when(connectionContext.getDirectResultMode()).thenReturn(directResultsEnabled);
@@ -460,5 +461,12 @@ public class DatabricksThriftAccessorTest {
     assertThrows(
         DatabricksSQLException.class,
         () -> accessor.getThriftResponse(request, CommandName.LIST_TABLES, null));
+  }
+
+  @Test
+  void testResetAccessToken() throws Exception {
+    accessor = new DatabricksThriftAccessor(thriftClient, config, connectionContext);
+    accessor.resetAccessToken(NEW_ACCESS_TOKEN);
+    verify(config).setToken(NEW_ACCESS_TOKEN);
   }
 }

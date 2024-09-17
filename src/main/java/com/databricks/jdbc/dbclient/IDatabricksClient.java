@@ -102,4 +102,11 @@ public interface IDatabricksClient {
       throws DatabricksSQLException;
 
   IDatabricksConnectionContext getConnectionContext();
+
+  /**
+   * Update the access token based on new value provided by the customer
+   *
+   * @param newAccessToken new access token value
+   */
+  void resetAccessToken(String newAccessToken);
 }

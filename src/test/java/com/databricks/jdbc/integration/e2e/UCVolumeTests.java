@@ -30,8 +30,6 @@ public class UCVolumeTests {
 
   @BeforeEach
   void setUp() throws SQLException {
-    // TODO: Testing is done here using the E2-Dogfood environment. Need to update this to use a
-    // test warehouse.
     con = getDogfoodJDBCConnection();
     System.out.println("Connection established......");
     client = ((IDatabricksConnection) con).getUCVolumeClient();

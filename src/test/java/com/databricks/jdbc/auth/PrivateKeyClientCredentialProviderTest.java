@@ -3,13 +3,14 @@ package com.databricks.jdbc.auth;
 import static com.databricks.jdbc.TestConstants.*;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.mockStatic;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
 import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.dbclient.impl.http.DatabricksHttpClient;
 import com.databricks.jdbc.exception.DatabricksHttpException;
+import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.sdk.core.DatabricksConfig;
+import com.databricks.sdk.core.oauth.OpenIDConnectEndpoints;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import org.apache.http.HttpEntity;
@@ -69,7 +70,8 @@ public class PrivateKeyClientCredentialProviderTest {
   }
 
   @Test
-  void testCredentialProviderWithModeEnabledButUrlNotProvided() {
+  void testCredentialProviderWithModeEnabledButUrlNotProvided()
+      throws DatabricksParsingException, IOException {
     setup();
     try (MockedStatic<DatabricksHttpClient> mocked = mockStatic(DatabricksHttpClient.class)) {
       mocked.when(() -> DatabricksHttpClient.getInstance(any())).thenReturn(httpClient);
@@ -77,9 +79,17 @@ public class PrivateKeyClientCredentialProviderTest {
       when(context.getOAuthDiscoveryURL()).thenReturn(null);
       when(context.getTokenEndpoint()).thenReturn(null);
       when(context.getHostForOAuth()).thenReturn("testHost");
+      OAuthEndpointResolver oAuthEndpointResolver = spy(new OAuthEndpointResolver(context));
+      when(oAuthEndpointResolver.getBarebonesDatabricksConfig()).thenReturn(config);
+      when(config.getOidcEndpoints())
+          .thenReturn(
+              new OpenIDConnectEndpoints(
+                  "https://testHost/oidc/v1/token", "https://testHost/oidc/v1/authorize"));
       JwtPrivateKeyClientCredentials clientCredentialObject =
-          new PrivateKeyClientCredentialProvider(context).getClientCredentialObject(config);
-      assertEquals(clientCredentialObject.getTokenEndpoint(), "https://testHost/oidc/v1/token");
+          new PrivateKeyClientCredentialProvider(context, oAuthEndpointResolver)
+              .getClientCredentialObject(config);
+      assertEquals("https://testHost/oidc/v1/token", clientCredentialObject.getTokenEndpoint());
+      verify(oAuthEndpointResolver, times(1)).getDefaultTokenEndpoint();
     }
   }
 
