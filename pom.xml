@@ -387,6 +387,14 @@
                   <shadedPattern>com.databricks.internal.codegen</shadedPattern>
                 </relocation>
                 <relocation>
+                  <pattern>com.nimbusds</pattern>
+                  <shadedPattern>com.databricks.shaded.nimbusds</shadedPattern>
+                </relocation>
+                <relocation>
+                  <pattern>org.bouncycastle</pattern>
+                  <shadedPattern>com.databricks.shaded.bouncycastle</shadedPattern>
+                </relocation>
+                <relocation>
                   <pattern>com.databricks.sdk</pattern>
                   <shadedPattern>com.databricks.internal.sdk</shadedPattern>
                 </relocation>
