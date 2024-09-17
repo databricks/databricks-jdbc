@@ -23,6 +23,7 @@ public class DatabricksPooledConnection implements PooledConnection {
 
   public static final JdbcLogger LOGGER =
       JdbcLoggerFactory.getLogger(DatabricksPooledConnection.class);
+  // Consider change listeners to thread safe version CopyOnWriteArraySet or mark all modification methods as synchronized to avoid ConcurrentModification
   private final Set<ConnectionEventListener> listeners = new HashSet<>();
   private Connection physicalConnection;
   private ConnectionHandler connectionHandler;
@@ -107,6 +108,7 @@ public class DatabricksPooledConnection implements PooledConnection {
    * handle to the connection at a time, so if there is a previous handle active when this is
    * called, the previous one is forcibly closed.
    */
+  // Consider mark this one and previous one close() as synchronized to avoid ConcurrentModification for pysicalConnection, connectionHandler
   @Override
   public Connection getConnection() throws SQLException {
     LOGGER.debug("public PooledConnection getConnection()");
@@ -174,10 +176,14 @@ public class DatabricksPooledConnection implements PooledConnection {
       }
 
       if (methodName.equals("isClosed")) {
+        // sync for inner and outer class since physicalConnection exists in both place
+        //synchronized (DatabricksPooledConnection.this)
         return physicalConnection == null || physicalConnection.isClosed();
       }
       // Do not close the physical connection, remove reference and fire close event
       if (methodName.equals("close")) {
+        // sync for inner and outer class since physicalConnection, connectionHandler exists in both place
+        //synchronized (DatabricksPooledConnection.this)
         if (physicalConnection != null) {
           physicalConnection = null;
           virtualConnection = null;
@@ -186,6 +192,7 @@ public class DatabricksPooledConnection implements PooledConnection {
         }
         return null;
       }
+      //synchronized (DatabricksPooledConnection.this)
       if (physicalConnection == null || physicalConnection.isClosed()) {
         throw new DatabricksSQLException("Connection has been closed.");
       }
@@ -271,9 +278,11 @@ public class DatabricksPooledConnection implements PooledConnection {
       }
 
       if (methodName.equals("isClosed")) {
+        //synchronized (this)
         return physicalStatement == null || physicalStatement.isClosed();
       }
       if (methodName.equals("close")) {
+        //synchronized (this)
         if (physicalStatement == null || physicalStatement.isClosed()) {
           return null;
         }
@@ -282,6 +291,7 @@ public class DatabricksPooledConnection implements PooledConnection {
         physicalStatement = null;
         return null;
       }
+      //synchronized (this)
       if (physicalStatement == null || physicalStatement.isClosed()) {
         throw new DatabricksSQLException("Statement has been closed.");
       }
