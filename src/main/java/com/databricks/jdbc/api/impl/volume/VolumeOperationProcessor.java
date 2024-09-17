@@ -268,6 +268,7 @@ class VolumeOperationProcessor {
       status = VolumeOperationStatus.ABORTED;
       errorMessage = "PUT operation called on closed statement";
       LOGGER.error(errorMessage);
+      return;
     }
 
     // Execute the request
