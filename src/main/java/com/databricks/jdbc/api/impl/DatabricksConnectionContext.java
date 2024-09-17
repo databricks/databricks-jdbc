@@ -27,7 +27,7 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   private final String schema;
   private final String connectionURL;
   private final IDatabricksComputeResource computeResource;
-  private static DatabricksMetrics metricsExporter;
+  private final DatabricksMetrics metricsExporter;
   @VisibleForTesting final ImmutableMap<String, String> parameters;
 
   private DatabricksConnectionContext(
@@ -43,6 +43,7 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
     this.schema = schema;
     this.parameters = parameters;
     this.computeResource = buildCompute();
+    this.metricsExporter = new DatabricksMetrics(this);
   }
 
   /**
@@ -91,14 +92,8 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
       for (Map.Entry<Object, Object> entry : properties.entrySet()) {
         parametersBuilder.put(entry.getKey().toString().toLowerCase(), entry.getValue().toString());
       }
-      DatabricksConnectionContext context =
-          new DatabricksConnectionContext(
-              url, hostValue, portValue, schema, parametersBuilder.build());
-
-      // Initialize metrics exporter
-      metricsExporter = new DatabricksMetrics(context);
-
-      return context;
+      return new DatabricksConnectionContext(
+          url, hostValue, portValue, schema, parametersBuilder.build());
     } else {
       // Should never reach here, since we have already checked for url validity
       throw new IllegalArgumentException("Invalid url " + "incorrect");
