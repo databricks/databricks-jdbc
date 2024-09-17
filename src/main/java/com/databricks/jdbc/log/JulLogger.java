@@ -23,6 +23,8 @@ import java.util.stream.Stream;
  */
 public class JulLogger implements JdbcLogger {
 
+  private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(JulLogger.class);
+
   public static final String STDOUT = "STDOUT";
 
   public static final String PARENT_CLASS_PREFIX = "com.databricks.jdbc";
@@ -161,9 +163,12 @@ public class JulLogger implements JdbcLogger {
     Path dirPath = Paths.get(logDir);
     if (Files.notExists(dirPath)) {
       try {
+        LOGGER.info("Creating log directory for JUL logging: " + dirPath);
         Files.createDirectories(dirPath);
       } catch (IOException e) {
         // If the directory cannot be created, log to the console instead
+        LOGGER.info(
+            "Error creating log directory " + dirPath + " for JUL logging." + e.getMessage());
         return STDOUT;
       }
     }
