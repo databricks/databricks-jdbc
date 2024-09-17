@@ -22,8 +22,6 @@ import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.Mockito;
 
 class ConverterHelperTest {
-  ConverterHelper converterHelper;
-
   private static Stream<Arguments> provideParametersForGetConvertedObject() {
     return Stream.of(
         Arguments.of(Types.TINYINT, 127, (byte) 127),
@@ -156,66 +154,68 @@ class ConverterHelperTest {
 
   @Test
   void getObjectConverterForInt() throws DatabricksSQLException {
-    assertTrue(converterHelper.getObjectConverter(123, Types.INTEGER) instanceof IntConverter);
+    assertInstanceOf(IntConverter.class, ConverterHelper.getObjectConverter(123, Types.INTEGER));
   }
 
   @Test
   void getObjectConverterForString() throws DatabricksSQLException {
-    assertTrue(converterHelper.getObjectConverter("abc", Types.VARCHAR) instanceof StringConverter);
+    assertInstanceOf(
+        StringConverter.class, ConverterHelper.getObjectConverter("abc", Types.VARCHAR));
   }
 
   @Test
   void getObjectConverterForBigDecimal() throws DatabricksSQLException {
-    assertTrue(
-        converterHelper.getObjectConverter(BigDecimal.ONE, Types.DECIMAL)
-            instanceof BigDecimalConverter);
+    assertInstanceOf(
+        BigDecimalConverter.class,
+        ConverterHelper.getObjectConverter(BigDecimal.ONE, Types.DECIMAL));
   }
 
   @Test
   void getObjectConverterForBoolean() throws DatabricksSQLException {
-    assertTrue(converterHelper.getObjectConverter(true, Types.BOOLEAN) instanceof BooleanConverter);
+    assertInstanceOf(
+        BooleanConverter.class, ConverterHelper.getObjectConverter(true, Types.BOOLEAN));
   }
 
   @Test
   void getObjectConverterForDate() throws DatabricksSQLException {
-    assertTrue(
-        converterHelper.getObjectConverter(new Date(System.currentTimeMillis()), Types.DATE)
-            instanceof DateConverter);
+    assertInstanceOf(
+        DateConverter.class,
+        ConverterHelper.getObjectConverter(new Date(System.currentTimeMillis()), Types.DATE));
   }
 
   @Test
   void getObjectConverterForTimestamp() throws DatabricksSQLException {
-    assertTrue(
-        converterHelper.getObjectConverter(
-                new Timestamp(System.currentTimeMillis()), Types.TIMESTAMP)
-            instanceof TimestampConverter);
+    assertInstanceOf(
+        TimestampConverter.class,
+        ConverterHelper.getObjectConverter(
+            new Timestamp(System.currentTimeMillis()), Types.TIMESTAMP));
   }
 
   @Test
   void whenColumnTypeIsFloat_thenGetFloatConverter() throws DatabricksSQLException {
     Object object = 1.23f;
-    AbstractObjectConverter converter = converterHelper.getObjectConverter(object, Types.FLOAT);
-    assertTrue(converter instanceof FloatConverter);
+    AbstractObjectConverter converter = ConverterHelper.getObjectConverter(object, Types.FLOAT);
+    assertInstanceOf(FloatConverter.class, converter);
   }
 
   @Test
   void whenColumnTypeIsDouble_thenGetDoubleConverter() throws DatabricksSQLException {
     Object object = 1.23d;
-    AbstractObjectConverter converter = converterHelper.getObjectConverter(object, Types.DOUBLE);
-    assertTrue(converter instanceof DoubleConverter);
+    AbstractObjectConverter converter = ConverterHelper.getObjectConverter(object, Types.DOUBLE);
+    assertInstanceOf(DoubleConverter.class, converter);
   }
 
   @Test
   void whenColumnTypeIsDecimal_thenGetBigDecimalConverter() throws DatabricksSQLException {
     Object object = new BigDecimal("123.45");
-    AbstractObjectConverter converter = converterHelper.getObjectConverter(object, Types.DECIMAL);
-    assertTrue(converter instanceof BigDecimalConverter);
+    AbstractObjectConverter converter = ConverterHelper.getObjectConverter(object, Types.DECIMAL);
+    assertInstanceOf(BigDecimalConverter.class, converter);
   }
 
   @Test
   void whenColumnType_Other() throws DatabricksSQLException {
     Object object = new BigDecimal("123.45");
-    AbstractObjectConverter converter = converterHelper.getObjectConverter(object, Types.DECIMAL);
-    assertTrue(converter instanceof BigDecimalConverter);
+    AbstractObjectConverter converter = ConverterHelper.getObjectConverter(object, Types.DECIMAL);
+    assertInstanceOf(BigDecimalConverter.class, converter);
   }
 }
