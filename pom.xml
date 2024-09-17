@@ -387,14 +387,6 @@
                   <shadedPattern>com.databricks.internal.codegen</shadedPattern>
                 </relocation>
                 <relocation>
-                  <pattern>com.nimbusds</pattern>
-                  <shadedPattern>com.databricks.shaded.nimbusds</shadedPattern>
-                </relocation>
-                <relocation>
-                  <pattern>org.bouncycastle</pattern>
-                  <shadedPattern>com.databricks.shaded.bouncycastle</shadedPattern>
-                </relocation>
-                <relocation>
                   <pattern>com.databricks.sdk</pattern>
                   <shadedPattern>com.databricks.internal.sdk</shadedPattern>
                 </relocation>
@@ -405,6 +397,10 @@
                 <relocation>
                   <pattern>com.google</pattern>
                   <shadedPattern>com.databricks.internal.google</shadedPattern>
+                </relocation>
+                <relocation>
+                  <pattern>com.nimbusds</pattern>
+                  <shadedPattern>com.databricks.internal.nimbusds</shadedPattern>
                 </relocation>
                 <relocation>
                   <pattern>io</pattern>
@@ -421,6 +417,10 @@
                 <relocation>
                   <pattern>org.apache</pattern>
                   <shadedPattern>com.databricks.internal.apache</shadedPattern>
+                </relocation>
+                <relocation>
+                  <pattern>org.bouncycastle</pattern>
+                  <shadedPattern>com.databricks.internal.bouncycastle</shadedPattern>
                 </relocation>
                 <relocation>
                   <pattern>org.checkerframework</pattern>
