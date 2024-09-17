@@ -4,6 +4,7 @@ import static com.databricks.jdbc.common.util.DatabricksThriftUtil.getTypeFromTy
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import com.databricks.jdbc.common.DatabricksJdbcConstants;
+import com.databricks.jdbc.common.util.DatabricksTypeUtil;
 import com.databricks.jdbc.model.client.thrift.generated.*;
 import com.databricks.jdbc.model.core.ResultManifest;
 import com.databricks.sdk.service.sql.ColumnInfo;
@@ -138,13 +139,15 @@ public class DatabricksResultSetMetaDataTest {
     decimalColumnInfo.setTypeScale(2L);
 
     int[] scaleAndPrecision =
-        metaData.getScaleAndPrecision(decimalColumnInfo, decimalColumnInfo.getTypeName());
+        metaData.getScaleAndPrecision(
+            decimalColumnInfo, DatabricksTypeUtil.getColumnType(decimalColumnInfo.getTypeName()));
     assertEquals(10, scaleAndPrecision[0]);
     assertEquals(2, scaleAndPrecision[1]);
 
     ColumnInfo stringColumnInfo = getColumn("col2", ColumnInfoTypeName.STRING, "string");
     scaleAndPrecision =
-        metaData.getScaleAndPrecision(stringColumnInfo, stringColumnInfo.getTypeName());
+        metaData.getScaleAndPrecision(
+            stringColumnInfo, DatabricksTypeUtil.getColumnType(stringColumnInfo.getTypeName()));
     assertEquals(255, scaleAndPrecision[0]);
     assertEquals(0, scaleAndPrecision[1]);
   }
@@ -172,7 +175,9 @@ public class DatabricksResultSetMetaDataTest {
     columnInfo.setTypeDesc(typeDesc);
 
     int[] scaleAndPrecision =
-        metaData.getScaleAndPrecision(columnInfo, getTypeFromTypeDesc(columnInfo.getTypeDesc()));
+        metaData.getScaleAndPrecision(
+            columnInfo,
+            DatabricksTypeUtil.getColumnType(getTypeFromTypeDesc(columnInfo.getTypeDesc())));
     assertEquals(10, scaleAndPrecision[0]);
     assertEquals(2, scaleAndPrecision[1]);
 
@@ -186,7 +191,9 @@ public class DatabricksResultSetMetaDataTest {
     columnInfo.setTypeDesc(typeDesc);
 
     scaleAndPrecision =
-        metaData.getScaleAndPrecision(columnInfo, getTypeFromTypeDesc(columnInfo.getTypeDesc()));
+        metaData.getScaleAndPrecision(
+            columnInfo,
+            DatabricksTypeUtil.getColumnType(getTypeFromTypeDesc(columnInfo.getTypeDesc())));
     assertEquals(255, scaleAndPrecision[0]);
     assertEquals(0, scaleAndPrecision[1]);
   }

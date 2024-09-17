@@ -11,13 +11,13 @@ import java.time.LocalDate;
 
 public abstract class AbstractObjectConverter {
 
-  // TODO (Madhav): Ensure proper handling of null values in the conversions.
-  long[] POWERS_OF_TEN = {
+  static long[] POWERS_OF_TEN = {
     1, 10, 100, 1000, 10000, 100000, 1000000, 10000000, 100000000, 1000000000
   };
 
-  // Assumes that the object is in milliseconds
-  int DEFAULT_TIMESTAMP_SCALE = 3;
+  /** Assumes that the object is in milliseconds. */
+  static int DEFAULT_TIMESTAMP_SCALE = 3;
+
   Object object;
 
   AbstractObjectConverter(Object object) throws DatabricksSQLException {

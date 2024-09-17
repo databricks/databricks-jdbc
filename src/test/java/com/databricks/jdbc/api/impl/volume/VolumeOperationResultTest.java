@@ -20,7 +20,6 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.nio.file.Files;
 import java.util.Map;
-import org.apache.http.HttpEntity;
 import org.apache.http.StatusLine;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpDelete;
@@ -42,16 +41,13 @@ public class VolumeOperationResultTest {
   private static final String PRESIGNED_URL = "http://presignedUrl.site";
   private static final String ALLOWED_PATHS = "getVolFile,putVolFile";
   private static final String HEADERS = "{\"header1\":\"value1\"}";
-
   @Mock IDatabricksHttpClient mockHttpClient;
   @Mock CloseableHttpResponse httpResponse;
-  @Mock HttpEntity httpEntity;
   @Mock StatusLine mockedStatusLine;
   @Mock DatabricksSession session;
   @Mock IExecutionResult resultHandler;
   @Mock IDatabricksStatement statement;
   @Mock IDatabricksResultSet resultSet;
-
   private static final ResultManifest RESULT_MANIFEST =
       new ResultManifest()
           .setIsVolumeOperation(true)
@@ -686,7 +682,7 @@ public class VolumeOperationResultTest {
     } catch (DatabricksSQLException e) {
       assertEquals("Volume operation failed: Failed to delete volume", e.getMessage());
     }
-    assertDoesNotThrow(() -> volumeOperationResult.close());
+    assertDoesNotThrow(volumeOperationResult::close);
   }
 
   @Test

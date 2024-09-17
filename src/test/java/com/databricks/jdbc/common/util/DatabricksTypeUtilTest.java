@@ -106,15 +106,15 @@ class DatabricksTypeUtilTest {
 
   @Test
   void testGetPrecision() {
-    assertEquals(15, DatabricksTypeUtil.getPrecision(ColumnInfoTypeName.DOUBLE));
-    assertEquals(19, DatabricksTypeUtil.getPrecision(ColumnInfoTypeName.LONG));
-    assertEquals(1, DatabricksTypeUtil.getPrecision(ColumnInfoTypeName.BOOLEAN));
-    assertEquals(7, DatabricksTypeUtil.getPrecision(ColumnInfoTypeName.FLOAT));
-    assertEquals(29, DatabricksTypeUtil.getPrecision(ColumnInfoTypeName.TIMESTAMP));
-    assertEquals(255, DatabricksTypeUtil.getPrecision(ColumnInfoTypeName.STRUCT));
-    assertEquals(255, DatabricksTypeUtil.getPrecision(ColumnInfoTypeName.INTERVAL));
-    assertEquals(5, DatabricksTypeUtil.getPrecision(ColumnInfoTypeName.BYTE));
-    assertEquals(5, DatabricksTypeUtil.getPrecision(ColumnInfoTypeName.SHORT));
+    assertEquals(15, DatabricksTypeUtil.getPrecision(Types.DOUBLE));
+    assertEquals(19, DatabricksTypeUtil.getPrecision(Types.BIGINT));
+    assertEquals(1, DatabricksTypeUtil.getPrecision(Types.BOOLEAN));
+    assertEquals(7, DatabricksTypeUtil.getPrecision(Types.FLOAT));
+    assertEquals(29, DatabricksTypeUtil.getPrecision(Types.TIMESTAMP));
+    assertEquals(255, DatabricksTypeUtil.getPrecision(Types.STRUCT));
+    assertEquals(255, DatabricksTypeUtil.getPrecision(Types.ARRAY));
+    assertEquals(5, DatabricksTypeUtil.getPrecision(Types.TINYINT));
+    assertEquals(5, DatabricksTypeUtil.getPrecision(Types.SMALLINT));
   }
 
   @Test
@@ -226,12 +226,13 @@ class DatabricksTypeUtilTest {
             inputTypeName, expectedTypeName, DatabricksTypeUtil.getColumnInfoType(inputTypeName)));
   }
 
-  @ParameterizedTest
-  @CsvSource({"FLOAT, 0", "DOUBLE, 0", "DECIMAL, 0", "TIMESTAMP, 9", "STRING, 0", "NULL, 0"})
-  void testGetScale(ColumnInfoTypeName typeName, int expectedScale) {
-    assertEquals(
-        expectedScale,
-        DatabricksTypeUtil.getScale(typeName),
-        "Scale did not match for type: " + typeName);
+  @Test
+  void testGetScale() {
+    assertEquals(0, DatabricksTypeUtil.getScale(Types.DOUBLE));
+    assertEquals(0, DatabricksTypeUtil.getScale(Types.FLOAT));
+    assertEquals(9, DatabricksTypeUtil.getScale(Types.TIMESTAMP));
+    assertEquals(0, DatabricksTypeUtil.getScale(Types.DECIMAL));
+    assertEquals(0, DatabricksTypeUtil.getScale(Types.VARCHAR));
+    assertEquals(0, DatabricksTypeUtil.getScale(null));
   }
 }

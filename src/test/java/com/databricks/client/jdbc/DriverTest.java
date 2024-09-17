@@ -2,6 +2,7 @@ package com.databricks.client.jdbc;
 
 import com.databricks.jdbc.api.IDatabricksConnection;
 import com.databricks.jdbc.api.IDatabricksUCVolumeClient;
+import com.databricks.jdbc.api.impl.arrow.ArrowResultChunk;
 import com.databricks.jdbc.common.DatabricksJdbcConstants;
 import java.io.File;
 import java.io.FileInputStream;
@@ -389,5 +390,23 @@ public class DriverTest {
     ResultSet rs = con.createStatement().executeQuery("SELECT 1");
     printResultSet(rs);
     con.close();
+  }
+
+  @Test
+  void testChunkDownloadRetry() throws Exception {
+    // Enable error injection
+    ArrowResultChunk.enableErrorInjection();
+    ArrowResultChunk.setErrorInjectionCountMaxValue(2);
+    String jdbcUrl =
+        "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/58aa1b363649e722";
+    Connection con = DriverManager.getConnection(jdbcUrl, "token", "xx");
+    System.out.println("Connection established......");
+    Statement s = con.createStatement();
+    s.executeQuery("SELECT * from RANGE(37500000)");
+    printResultSet(s.getResultSet());
+    con.close();
+    System.out.println("Connection closed successfully......");
+    // Disable error injection after the test (not strictly needed as test launches a new JVM)
+    ArrowResultChunk.disableErrorInjection();
   }
 }
