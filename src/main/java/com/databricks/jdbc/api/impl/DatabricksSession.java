@@ -9,6 +9,7 @@ import com.databricks.jdbc.common.LogLevel;
 import com.databricks.jdbc.common.util.LoggingUtil;
 import com.databricks.jdbc.dbclient.IDatabricksClient;
 import com.databricks.jdbc.dbclient.IDatabricksMetadataClient;
+import com.databricks.jdbc.dbclient.impl.DatabricksEmptyMetadataClient;
 import com.databricks.jdbc.dbclient.impl.sqlexec.DatabricksMetadataSdkClient;
 import com.databricks.jdbc.dbclient.impl.sqlexec.DatabricksSdkClient;
 import com.databricks.jdbc.dbclient.impl.thrift.DatabricksThriftServiceClient;
@@ -26,7 +27,7 @@ import javax.annotation.Nullable;
  */
 public class DatabricksSession implements IDatabricksSession {
   private IDatabricksClient databricksClient;
-  private final IDatabricksMetadataClient databricksMetadataClient;
+  private IDatabricksMetadataClient databricksMetadataClient;
   private final IDatabricksComputeResource computeResource;
   private boolean isSessionOpen;
   private ImmutableSessionInfo sessionInfo;
@@ -49,14 +50,11 @@ public class DatabricksSession implements IDatabricksSession {
       throws DatabricksSQLException {
     if (connectionContext.getClientType() == DatabricksClientType.THRIFT) {
       this.databricksClient = new DatabricksThriftServiceClient(connectionContext);
-      this.databricksMetadataClient = null;
     } else {
       this.databricksClient = new DatabricksSdkClient(connectionContext);
       this.databricksMetadataClient = new DatabricksMetadataSdkClient(databricksClient);
     }
-
     this.databricksClient = DatabricksMetricsTimedProcessor.createProxy(this.databricksClient);
-
     this.isSessionOpen = false;
     this.sessionInfo = null;
     this.computeResource = connectionContext.getComputeResource();
@@ -73,9 +71,7 @@ public class DatabricksSession implements IDatabricksSession {
   public DatabricksSession(
       IDatabricksConnectionContext connectionContext, IDatabricksClient databricksClient) {
     this.databricksClient = databricksClient;
-    if (databricksClient instanceof DatabricksThriftServiceClient) {
-      this.databricksMetadataClient = null;
-    } else {
+    if (databricksClient instanceof DatabricksSdkClient) {
       this.databricksMetadataClient = new DatabricksMetadataSdkClient(databricksClient);
     }
     this.isSessionOpen = false;
@@ -239,5 +235,10 @@ public class DatabricksSession implements IDatabricksSession {
   @Override
   public IDatabricksConnectionContext getConnectionContext() {
     return this.connectionContext;
+  }
+
+  @Override
+  public void setEmptyMetadataClient() {
+    databricksMetadataClient = new DatabricksEmptyMetadataClient();
   }
 }

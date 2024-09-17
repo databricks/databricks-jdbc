@@ -80,4 +80,6 @@ public interface IDatabricksSession {
   void setClientInfoProperty(String name, String value);
 
   IDatabricksConnectionContext getConnectionContext();
+
+  void setEmptyMetadataClient();
 }

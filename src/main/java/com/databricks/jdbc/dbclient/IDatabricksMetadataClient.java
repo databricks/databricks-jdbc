@@ -1,10 +1,10 @@
 package com.databricks.jdbc.dbclient;
 
 import com.databricks.jdbc.api.IDatabricksSession;
-import com.databricks.jdbc.api.impl.DatabricksResultSet;
 import com.databricks.jdbc.common.CommandName;
 import com.databricks.jdbc.telemetry.annotation.DatabricksMetricsTimedClass;
 import com.databricks.jdbc.telemetry.annotation.DatabricksMetricsTimedMethod;
+import java.sql.ResultSet;
 import java.sql.SQLException;
 
 @DatabricksMetricsTimedClass(
@@ -34,10 +34,10 @@ import java.sql.SQLException;
 public interface IDatabricksMetadataClient {
 
   /** Returns information about types supported by Databricks server */
-  DatabricksResultSet listTypeInfo(IDatabricksSession session) throws SQLException;
+  ResultSet listTypeInfo(IDatabricksSession session) throws SQLException;
 
   /** Returns the list of catalogs */
-  DatabricksResultSet listCatalogs(IDatabricksSession session) throws SQLException;
+  ResultSet listCatalogs(IDatabricksSession session) throws SQLException;
 
   /**
    * Returns the list of schemas
@@ -48,8 +48,8 @@ public interface IDatabricksMetadataClient {
    *     absolute name)
    * @return a DatabricksResultSet representing list of schemas
    */
-  DatabricksResultSet listSchemas(
-      IDatabricksSession session, String catalog, String schemaNamePattern) throws SQLException;
+  ResultSet listSchemas(IDatabricksSession session, String catalog, String schemaNamePattern)
+      throws SQLException;
 
   /**
    * Returns the list of tables
@@ -62,7 +62,7 @@ public interface IDatabricksMetadataClient {
    *     absolute name)
    * @return a DatabricksResultSet representing list of tables
    */
-  DatabricksResultSet listTables(
+  ResultSet listTables(
       IDatabricksSession session,
       String catalog,
       String schemaNamePattern,
@@ -71,7 +71,7 @@ public interface IDatabricksMetadataClient {
       throws SQLException;
 
   /** Returns list of table types */
-  DatabricksResultSet listTableTypes(IDatabricksSession session) throws SQLException;
+  ResultSet listTableTypes(IDatabricksSession session) throws SQLException;
 
   /**
    * Returns the list of columns
@@ -86,7 +86,7 @@ public interface IDatabricksMetadataClient {
    *     absolute name)
    * @return a DatabricksResultSet representing list of columns
    */
-  DatabricksResultSet listColumns(
+  ResultSet listColumns(
       IDatabricksSession session,
       String catalog,
       String schemaNamePattern,
@@ -105,7 +105,7 @@ public interface IDatabricksMetadataClient {
    *     absolute name)
    * @return a DatabricksResultSet representing list of functions
    */
-  DatabricksResultSet listFunctions(
+  ResultSet listFunctions(
       IDatabricksSession session,
       String catalog,
       String schemaNamePattern,
@@ -121,6 +121,6 @@ public interface IDatabricksMetadataClient {
    * @param table must match to a table in database
    * @return a DatabricksResultSet representing list of functions
    */
-  DatabricksResultSet listPrimaryKeys(
-      IDatabricksSession session, String catalog, String schema, String table) throws SQLException;
+  ResultSet listPrimaryKeys(IDatabricksSession session, String catalog, String schema, String table)
+      throws SQLException;
 }

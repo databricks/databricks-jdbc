@@ -582,6 +582,12 @@ class DatabricksConnectionContext implements IDatabricksConnectionContext {
     return getParameter(DatabricksJdbcUrlParams.OAUTH_REFRESH_TOKEN);
   }
 
+  @Override
+  public Boolean getUseEmptyMetadata() {
+    String param = getParameter(DatabricksJdbcUrlParams.USE_EMPTY_METADATA);
+    return param != null && param.equals("1");
+  }
+
   private static boolean nullOrEmptyString(String s) {
     return s == null || s.isEmpty();
   }

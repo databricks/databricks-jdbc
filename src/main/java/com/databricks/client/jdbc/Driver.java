@@ -1,18 +1,23 @@
 package com.databricks.client.jdbc;
 
+import com.databricks.jdbc.api.IDatabricksConnection;
 import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.api.impl.DatabricksConnection;
 import com.databricks.jdbc.api.impl.DatabricksConnectionContextFactory;
+import com.databricks.jdbc.common.DatabricksClientType;
 import com.databricks.jdbc.common.ErrorCodes;
 import com.databricks.jdbc.common.ErrorTypes;
 import com.databricks.jdbc.common.util.*;
 import com.databricks.jdbc.exception.DatabricksSQLException;
+import com.databricks.jdbc.log.JdbcLogger;
+import com.databricks.jdbc.log.JdbcLoggerFactory;
 import java.io.IOException;
 import java.sql.*;
 import java.util.Properties;
 
 /** Databricks JDBC driver. */
 public class Driver implements java.sql.Driver {
+  private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(Driver.class);
   private static final Driver INSTANCE;
 
   static {
@@ -41,7 +46,9 @@ public class Driver implements java.sql.Driver {
     UserAgentManager.setUserAgent(connectionContext);
     DeviceInfoLogUtil.logProperties(connectionContext);
     try {
-      return new DatabricksConnection(connectionContext);
+      DatabricksConnection connection = new DatabricksConnection(connectionContext);
+      resolveMetadataClient(connection, connectionContext);
+      return connection;
     } catch (Exception e) {
       String errorMessage =
           String.format(
@@ -113,5 +120,14 @@ public class Driver implements java.sql.Driver {
       throwable = cause;
     }
     return throwable;
+  }
+
+  private static void resolveMetadataClient(
+      IDatabricksConnection connection, IDatabricksConnectionContext connectionContext) {
+    if (connectionContext.getClientType() == DatabricksClientType.SQL_EXEC
+        && connectionContext.getUseEmptyMetadata()) {
+      LOGGER.warn("Empty metadata client is being used.");
+      connection.getSession().setEmptyMetadataClient();
+    }
   }
 }
