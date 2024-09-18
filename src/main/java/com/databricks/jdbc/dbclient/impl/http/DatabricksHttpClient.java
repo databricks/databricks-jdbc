@@ -12,7 +12,6 @@ import com.databricks.jdbc.exception.DatabricksHttpException;
 import com.databricks.jdbc.exception.DatabricksRetryHandlerException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
-import com.databricks.sdk.core.DatabricksConfig;
 import com.databricks.sdk.core.ProxyConfig;
 import com.databricks.sdk.core.UserAgent;
 import com.databricks.sdk.core.utils.ProxyUtils;
@@ -57,7 +56,6 @@ public class DatabricksHttpClient implements IDatabricksHttpClient {
   private DatabricksHttpRetryHandler retryHandler;
 
   private DatabricksHttpClient(IDatabricksConnectionContext connectionContext) {
-    this.connectionContext = connectionContext;
     initializeConnectionManager(connectionContext);
     httpClient = makeClosableHttpClient(connectionContext);
     httpDisabledSSLClient = makeClosableDisabledSslHttpClient();
@@ -76,8 +74,9 @@ public class DatabricksHttpClient implements IDatabricksHttpClient {
 
   private static void initializeConnectionManager(IDatabricksConnectionContext connectionContext) {
     if (connectionManager == null) {
-      if (connectionContext.getSSLTrustStore() != null) {
-        connectionManager = new PoolingHttpClientConnectionManager(
+      if (connectionContext != null && connectionContext.getSSLTrustStore() != null) {
+        connectionManager =
+            new PoolingHttpClientConnectionManager(
                 ClientConfigurator.getConnectionSocketFactoryRegistry(connectionContext));
       } else {
         connectionManager = new PoolingHttpClientConnectionManager();
@@ -158,7 +157,7 @@ public class DatabricksHttpClient implements IDatabricksHttpClient {
           convertNonProxyHostConfigToBeSystemPropertyCompliant(
               connectionContext.getNonProxyHosts());
       ProxyConfig proxyConfig =
-          new ProxyConfig(new DatabricksConfig())
+          new ProxyConfig()
               .setUseSystemProperties(connectionContext.getUseSystemProxy())
               .setHost(proxyHost)
               .setPort(proxyPort)

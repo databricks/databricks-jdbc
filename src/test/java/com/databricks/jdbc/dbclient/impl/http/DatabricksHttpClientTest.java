@@ -194,7 +194,7 @@ public class DatabricksHttpClientTest {
   }
 
   @Test
-  void TestCloseExpiredAndIdleConnections() {
+  void testCloseExpiredAndIdleConnections() {
     DatabricksHttpClient databricksHttpClient =
         new DatabricksHttpClient(mockHttpClient, connectionManager);
     databricksHttpClient.closeExpiredAndIdleConnections();
@@ -204,7 +204,7 @@ public class DatabricksHttpClientTest {
   }
 
   @Test
-  void TestCloseExpiredAndIdleConnectionsForNull() {
+  void testCloseExpiredAndIdleConnectionsForNull() {
     DatabricksHttpClient databricksHttpClient = new DatabricksHttpClient(mockHttpClient, null);
     assertDoesNotThrow(databricksHttpClient::closeExpiredAndIdleConnections);
   }

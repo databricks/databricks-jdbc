@@ -15,17 +15,18 @@ import com.databricks.sdk.core.DatabricksConfig;
 import com.databricks.sdk.core.DatabricksException;
 import com.databricks.sdk.core.ProxyConfig;
 import com.databricks.sdk.core.commons.CommonsHttpClient;
+import java.io.FileInputStream;
+import java.security.KeyStore;
+import java.util.Arrays;
+import java.util.stream.Collectors;
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.TrustManagerFactory;
 import org.apache.http.config.Registry;
 import org.apache.http.config.RegistryBuilder;
 import org.apache.http.conn.socket.ConnectionSocketFactory;
 import org.apache.http.conn.socket.PlainConnectionSocketFactory;
 import org.apache.http.conn.ssl.SSLConnectionSocketFactory;
 import org.apache.http.impl.conn.PoolingHttpClientConnectionManager;
-
-import javax.net.ssl.SSLContext;
-import javax.net.ssl.TrustManagerFactory;
-import java.io.FileInputStream;
-import java.security.KeyStore;
 
 /**
  * This class is responsible for configuring the Databricks config based on the connection context.
@@ -52,7 +53,8 @@ public class ClientConfigurator {
       return;
     }
     try {
-      PoolingHttpClientConnectionManager connManager = new PoolingHttpClientConnectionManager(
+      PoolingHttpClientConnectionManager connManager =
+          new PoolingHttpClientConnectionManager(
               getConnectionSocketFactoryRegistry(this.connectionContext));
       connManager.setMaxTotal(100);
       httpClientBuilder.withConnectionManager(connManager);
@@ -61,29 +63,30 @@ public class ClientConfigurator {
     }
   }
 
-  public static Registry<ConnectionSocketFactory> getConnectionSocketFactoryRegistry(IDatabricksConnectionContext connectionContext) {
+  public static Registry<ConnectionSocketFactory> getConnectionSocketFactoryRegistry(
+      IDatabricksConnectionContext connectionContext) {
     try {
       TrustManagerFactory trustManagerFactory;
       try (FileInputStream trustStoreStream =
-                   new FileInputStream(connectionContext.getSSLTrustStore())) {
+          new FileInputStream(connectionContext.getSSLTrustStore())) {
         char[] password = null;
         if (connectionContext.getSSLTrustStorePassword() != null) {
           password = connectionContext.getSSLTrustStorePassword().toCharArray();
         }
         KeyStore trustStore = KeyStore.getInstance(connectionContext.getSSLTrustStoreType());
         trustStore.load(trustStoreStream, password);
-        trustManagerFactory = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
+        trustManagerFactory =
+            TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
         trustManagerFactory.init(trustStore);
       }
       SSLContext sslContext = SSLContext.getInstance("TLS");
       sslContext.init(null, trustManagerFactory.getTrustManagers(), null);
 
       SSLConnectionSocketFactory sslSocketFactory = new SSLConnectionSocketFactory(sslContext);
-      return
-              RegistryBuilder.<ConnectionSocketFactory>create()
-                      .register("https", sslSocketFactory)
-                      .register("http", new PlainConnectionSocketFactory())
-                      .build();
+      return RegistryBuilder.<ConnectionSocketFactory>create()
+          .register("https", sslSocketFactory)
+          .register("http", new PlainConnectionSocketFactory())
+          .build();
     } catch (Exception e) {
       throw new DatabricksException("Error while loading truststore", e);
     }

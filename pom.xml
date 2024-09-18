@@ -53,7 +53,7 @@
     <immutables.value.version>2.9.2</immutables.value.version>
     <httpclient.version>4.5.14</httpclient.version>
     <commons-io.version>2.13.0</commons-io.version>
-    <databricks-sdk.version>0.31.0</databricks-sdk.version>
+    <databricks-sdk.version>0.31.1</databricks-sdk.version>
     <maven-surefire-plugin.version>3.1.2</maven-surefire-plugin.version>
     <sql-logic-test.version>0.3</sql-logic-test.version>
     <lz4-compression.version>1.8.0</lz4-compression.version>
