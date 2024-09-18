@@ -399,6 +399,10 @@
                   <shadedPattern>com.databricks.internal.google</shadedPattern>
                 </relocation>
                 <relocation>
+                  <pattern>com.nimbusds</pattern>
+                  <shadedPattern>com.databricks.internal.nimbusds</shadedPattern>
+                </relocation>
+                <relocation>
                   <pattern>io</pattern>
                   <shadedPattern>com.databricks.internal.io</shadedPattern>
                 </relocation>
@@ -413,6 +417,10 @@
                 <relocation>
                   <pattern>org.apache</pattern>
                   <shadedPattern>com.databricks.internal.apache</shadedPattern>
+                </relocation>
+                <relocation>
+                  <pattern>org.bouncycastle</pattern>
+                  <shadedPattern>com.databricks.internal.bouncycastle</shadedPattern>
                 </relocation>
                 <relocation>
                   <pattern>org.checkerframework</pattern>

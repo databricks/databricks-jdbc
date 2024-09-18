@@ -3,7 +3,7 @@ package com.databricks.jdbc.exception;
 import java.io.IOException;
 
 public class DatabricksRetryHandlerException extends IOException {
-  private int errCode = 0;
+  private final int errCode;
 
   public DatabricksRetryHandlerException(String message, int errCode) {
     super(message);

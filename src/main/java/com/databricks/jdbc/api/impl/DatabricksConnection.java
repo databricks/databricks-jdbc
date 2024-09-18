@@ -32,7 +32,7 @@ public class DatabricksConnection implements IDatabricksConnection, Connection {
   private final Set<IDatabricksStatement> statementSet = ConcurrentHashMap.newKeySet();
   private SQLWarning warnings = null;
 
-  private IDatabricksUCVolumeClient ucVolumeClient = null;
+  private volatile IDatabricksUCVolumeClient ucVolumeClient = null;
 
   /**
    * Creates an instance of Databricks connection for given connection context.
@@ -362,8 +362,7 @@ public class DatabricksConnection implements IDatabricksConnection, Connection {
   @Override
   public boolean isValid(int timeout) throws SQLException {
     ValidationUtil.checkIfNonNegative(timeout, "timeout");
-    try {
-      DatabricksStatement statement = new DatabricksStatement(this);
+    try (DatabricksStatement statement = new DatabricksStatement(this)) {
       statement.setQueryTimeout(timeout);
       // simple query to check whether connection is working
       statement.execute("SELECT 1");
@@ -566,7 +565,11 @@ public class DatabricksConnection implements IDatabricksConnection, Connection {
   @Override
   public IDatabricksUCVolumeClient getUCVolumeClient() {
     if (ucVolumeClient == null) {
-      ucVolumeClient = new DatabricksUCVolumeClient(this);
+      synchronized (this) {
+        if (ucVolumeClient == null) {
+          ucVolumeClient = new DatabricksUCVolumeClient(this);
+        }
+      }
     }
     return ucVolumeClient;
   }
