@@ -54,13 +54,14 @@ public class DatabricksParameterMetaData implements ParameterMetaData {
   @Override
   public int getPrecision(int param) throws SQLException {
     LOGGER.warn("This feature is not fully implemented in the driver yet.");
-    return DatabricksTypeUtil.getPrecision(getObject(param).type());
+    return DatabricksTypeUtil.getPrecision(
+        DatabricksTypeUtil.getColumnType(getObject(param).type()));
   }
 
   @Override
   public int getScale(int param) throws SQLException {
     LOGGER.warn("This feature is not fully implemented in the driver yet.");
-    return DatabricksTypeUtil.getScale(getObject(param).type());
+    return DatabricksTypeUtil.getScale(DatabricksTypeUtil.getColumnType(getObject(param).type()));
   }
 
   @Override

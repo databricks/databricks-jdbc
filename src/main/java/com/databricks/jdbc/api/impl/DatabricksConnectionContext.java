@@ -325,24 +325,25 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
 
   @Override
   public boolean isSSLEnabled() {
-    return getParameter(DatabricksJdbcConstants.SSL_ENABLED) != null
-        && Integer.parseInt(getParameter(DatabricksJdbcConstants.SSL_ENABLED)) == 1;
+    return this.parameters.get(DatabricksJdbcConstants.SSL_ENABLED) != null
+        && Integer.parseInt(this.parameters.get(DatabricksJdbcConstants.SSL_ENABLED)) == 1;
   }
 
   @Override
   public String getSSLKeyStorePath() {
-    return getParameter(DatabricksJdbcConstants.SSL_KEYSTORE_PATH);
+    return this.parameters.get(DatabricksJdbcConstants.SSL_KEYSTORE_PATH);
   }
 
   @Override
   public String getSSLKeyStorePassword() {
-    return getParameter(DatabricksJdbcConstants.SSL_KEYSTORE_PASSWORD);
+    return this.parameters.get(DatabricksJdbcConstants.SSL_KEYSTORE_PASSWORD);
   }
 
   @Override
   public boolean getAllowSelfSignedCerts() {
-    return getParameter(DatabricksJdbcConstants.ALLOW_SELF_SIGNED_CERTS) != null
-        && Integer.parseInt(getParameter(DatabricksJdbcConstants.ALLOW_SELF_SIGNED_CERTS)) == 1;
+    return this.parameters.get(DatabricksJdbcConstants.ALLOW_SELF_SIGNED_CERTS) != null
+        && Integer.parseInt(this.parameters.get(DatabricksJdbcConstants.ALLOW_SELF_SIGNED_CERTS))
+            == 1;
   }
 
   @Override
@@ -617,6 +618,11 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   @Override
   public String getOAuthRefreshToken() {
     return getParameter(DatabricksJdbcUrlParams.OAUTH_REFRESH_TOKEN);
+  }
+
+  @Override
+  public String getNonProxyHosts() {
+    return getParameter(DatabricksJdbcUrlParams.NON_PROXY_HOSTS, EMPTY_STRING);
   }
 
   private static boolean nullOrEmptyString(String s) {

@@ -4,6 +4,7 @@ import com.databricks.jdbc.model.core.ResultColumn;
 import java.sql.Types;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 
 public class MetadataResultConstants {
   public static final String[] DEFAULT_TABLE_TYPES = {"TABLE", "VIEW", "SYSTEM TABLE"};
@@ -11,21 +12,21 @@ public class MetadataResultConstants {
       new ResultColumn("TABLE_CAT", "catalogName", Types.VARCHAR);
   private static final ResultColumn CATALOG_FULL_COLUMN =
       new ResultColumn("TABLE_CATALOG", "catalogName", Types.VARCHAR);
-  private static final ResultColumn CATALOG_COLUMN_FOR_GET_CATALOGS =
+  public static final ResultColumn CATALOG_COLUMN_FOR_GET_CATALOGS =
       new ResultColumn("TABLE_CAT", "catalog", Types.VARCHAR);
-  private static final ResultColumn TYPE_CATALOG_COLUMN =
+  public static final ResultColumn TYPE_CATALOG_COLUMN =
       new ResultColumn("TYPE_CAT", "TYPE_CATALOG_COLUMN", Types.VARCHAR);
-  private static final ResultColumn TYPE_SCHEMA_COLUMN =
+  public static final ResultColumn TYPE_SCHEMA_COLUMN =
       new ResultColumn("TYPE_SCHEM", "TYPE_SCHEMA_COLUMN", Types.VARCHAR);
-  private static final ResultColumn SELF_REFERENCING_COLUMN_NAME =
+  public static final ResultColumn SELF_REFERENCING_COLUMN_NAME =
       new ResultColumn("SELF_REFERENCING_COL_NAME", "SELF_REFERENCING_COLUMN_NAME", Types.VARCHAR);
-  private static final ResultColumn REF_GENERATION_COLUMN =
+  public static final ResultColumn REF_GENERATION_COLUMN =
       new ResultColumn("REF_GENERATION", "REF_GENERATION_COLUMN", Types.VARCHAR);
-  private static final ResultColumn KEY_SEQUENCE_COLUMN =
+  public static final ResultColumn KEY_SEQUENCE_COLUMN =
       new ResultColumn("KEY_SEQ", "keySeq", Types.INTEGER);
-  private static final ResultColumn PRIMARY_KEY_NAME_COLUMN =
+  public static final ResultColumn PRIMARY_KEY_NAME_COLUMN =
       new ResultColumn("PK_NAME", "constraintName", Types.VARCHAR);
-  private static final ResultColumn PRIMARY_KEY_TYPE_COLUMN =
+  public static final ResultColumn PRIMARY_KEY_TYPE_COLUMN =
       new ResultColumn("PK_TYPE", "constraintType", Types.VARCHAR);
   public static final ResultColumn TYPE_NAME_COLUMN =
       new ResultColumn("TYPE_NAME", "TYPE_NAME", Types.VARCHAR);
@@ -60,18 +61,16 @@ public class MetadataResultConstants {
       new ResultColumn("DECIMAL_DIGITS", "decimalDigits", Types.INTEGER);
   public static final ResultColumn COL_NAME_COLUMN =
       new ResultColumn("COLUMN_NAME", "col_name", Types.VARCHAR);
-  private static final ResultColumn FUNCTION_CATALOG_COLUMN =
+  public static final ResultColumn FUNCTION_CATALOG_COLUMN =
       new ResultColumn("FUNCTION_CAT", "catalogName", Types.VARCHAR);
-  private static final ResultColumn FUNCTION_SCHEMA_COLUMN =
+  public static final ResultColumn FUNCTION_SCHEMA_COLUMN =
       new ResultColumn("FUNCTION_SCHEM", "namespace", Types.VARCHAR);
-  private static final ResultColumn FUNCTION_NAME_COLUMN =
+  public static final ResultColumn FUNCTION_NAME_COLUMN =
       new ResultColumn("FUNCTION_NAME", "functionName", Types.VARCHAR);
-  private static final ResultColumn FUNCTION_TYPE_COLUMN =
+  public static final ResultColumn FUNCTION_TYPE_COLUMN =
       new ResultColumn("FUNCTION_TYPE", "functionType", Types.SMALLINT);
-  private static final ResultColumn SPECIFIC_NAME_COLUMN =
+  public static final ResultColumn SPECIFIC_NAME_COLUMN =
       new ResultColumn("SPECIFIC_NAME", "specificName", Types.VARCHAR);
-  private static final ResultColumn INFORMATION_NAME_COLUMN =
-      new ResultColumn("INFO", "information", Types.VARCHAR);
   public static final ResultColumn NUM_PREC_RADIX_COLUMN =
       new ResultColumn("NUM_PREC_RADIX", "radix", Types.INTEGER);
   private static final ResultColumn RADIX_COLUMN =
@@ -184,8 +183,7 @@ public class MetadataResultConstants {
           TYPE_NAME_COLUMN,
           // Note that a few fields like the following is for backward compatibility
           SELF_REFERENCING_COLUMN_NAME,
-          REF_GENERATION_COLUMN,
-          INFORMATION_NAME_COLUMN);
+          REF_GENERATION_COLUMN);
 
   public static List<ResultColumn> TABLE_COLUMNS_ALL_PURPOSE =
       List.of(
@@ -277,4 +275,37 @@ public class MetadataResultConstants {
           SQL_DATA_TYPE_COLUMN,
           SQL_DATETIME_SUB_COLUMN,
           NUM_PREC_RADIX_COLUMN);
+
+  public static final Map<CommandName, List<ResultColumn>> NON_NULLABLE_COLUMNS_MAP =
+      Map.of(
+          CommandName.LIST_TYPE_INFO,
+              List.of(
+                  MetadataResultConstants.TYPE_NAME_COLUMN,
+                  MetadataResultConstants.DATA_TYPE_COLUMN,
+                  MetadataResultConstants
+                      .PRECISION_COLUMN // Assuming COLUMN_SIZE_COLUMN maps to precision
+                  ),
+          CommandName.LIST_CATALOGS,
+              List.of(MetadataResultConstants.CATALOG_COLUMN_FOR_GET_CATALOGS),
+          CommandName.LIST_TABLES, List.of(MetadataResultConstants.TABLE_NAME_COLUMN),
+          CommandName.LIST_PRIMARY_KEYS,
+              List.of(
+                  MetadataResultConstants.TABLE_NAME_COLUMN,
+                  MetadataResultConstants.COLUMN_NAME_COLUMN),
+          CommandName.LIST_SCHEMAS, List.of(MetadataResultConstants.SCHEMA_COLUMN),
+          CommandName.LIST_TABLE_TYPES, List.of(MetadataResultConstants.TABLE_TYPE_COLUMN),
+          CommandName.LIST_COLUMNS,
+              List.of(
+                  MetadataResultConstants.TABLE_NAME_COLUMN,
+                  MetadataResultConstants.COLUMN_NAME_COLUMN,
+                  MetadataResultConstants.DATA_TYPE_COLUMN,
+                  MetadataResultConstants.TYPE_NAME_COLUMN,
+                  MetadataResultConstants.NULLABLE_COLUMN,
+                  MetadataResultConstants.SQL_DATA_TYPE_COLUMN,
+                  MetadataResultConstants.ORDINAL_POSITION_COLUMN,
+                  MetadataResultConstants.IS_NULLABLE_COLUMN),
+          CommandName.LIST_FUNCTIONS,
+              List.of(
+                  MetadataResultConstants.FUNCTION_NAME_COLUMN,
+                  MetadataResultConstants.SPECIFIC_NAME_COLUMN));
 }

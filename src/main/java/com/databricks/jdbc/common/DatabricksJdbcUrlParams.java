@@ -20,6 +20,7 @@ public enum DatabricksJdbcUrlParams {
   PROXY_PWD("proxypwd"),
   USE_PROXY("useproxy"),
   PROXY_AUTH("proxyauth"),
+  NON_PROXY_HOSTS("proxyignorelist"),
   USE_SYSTEM_PROXY("usesystemproxy"),
   USE_CF_PROXY("usecfproxy"),
   CF_PROXY_HOST("cfproxyhost"),
@@ -59,7 +60,8 @@ public enum DatabricksJdbcUrlParams {
   CLOUD_FETCH_THREAD_POOL_SIZE("cloudFetchThreadPoolSize"),
   ENABLE_TELEMETRY("enableTelemetry"),
   TOKEN_ENDPOINT("OAuth2TokenEndpoint"),
-  AUTH_ENDPOINT("OAuth2AuthorizationEndPoint");
+  AUTH_ENDPOINT("OAuth2AuthorizationEndPoint"),
+  AUTH_ACCESSTOKEN("Auth_AccessToken");
 
   private final String paramName;
 

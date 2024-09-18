@@ -18,6 +18,7 @@ import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.model.client.thrift.generated.TGetResultSetMetadataResp;
 import com.databricks.jdbc.model.client.thrift.generated.TRowSet;
 import com.databricks.jdbc.model.client.thrift.generated.TStatus;
+import com.databricks.jdbc.model.core.ColumnMetadata;
 import com.databricks.jdbc.model.core.ResultData;
 import com.databricks.jdbc.model.core.ResultManifest;
 import com.databricks.sdk.service.sql.StatementState;
@@ -169,6 +170,24 @@ public class DatabricksResultSet implements ResultSet, IDatabricksResultSet {
             columnTypes,
             columnTypePrecisions,
             rows.size());
+    this.statementType = statementType;
+    this.updateCount = null;
+    this.parentStatement = null;
+    this.isClosed = false;
+    this.wasNull = false;
+  }
+
+  public DatabricksResultSet(
+      StatementStatus statementStatus,
+      String statementId,
+      List<ColumnMetadata> columnMetadataList,
+      List<List<Object>> rows,
+      StatementType statementType) {
+    this.statementStatus = statementStatus;
+    this.statementId = statementId;
+    this.executionResult = ExecutionResultFactory.getResultSet(rows);
+    this.resultSetMetaData =
+        new DatabricksResultSetMetaData(statementId, columnMetadataList, rows.size());
     this.statementType = statementType;
     this.updateCount = null;
     this.parentStatement = null;

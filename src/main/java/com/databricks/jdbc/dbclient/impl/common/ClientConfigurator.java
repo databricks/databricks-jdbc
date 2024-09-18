@@ -1,9 +1,12 @@
 package com.databricks.jdbc.dbclient.impl.common;
 
+import static com.databricks.jdbc.common.DatabricksJdbcConstants.EMPTY_STRING;
+
 import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.auth.OAuthRefreshCredentialsProvider;
 import com.databricks.jdbc.auth.PrivateKeyClientCredentialProvider;
 import com.databricks.jdbc.common.DatabricksJdbcConstants;
+import com.databricks.jdbc.driver.SSLConfiguration;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
@@ -11,10 +14,18 @@ import com.databricks.sdk.WorkspaceClient;
 import com.databricks.sdk.core.CredentialsProvider;
 import com.databricks.sdk.core.DatabricksConfig;
 import com.databricks.sdk.core.DatabricksException;
-import com.databricks.jdbc.driver.DatabricksCommonHttpClient;
-import com.databricks.jdbc.driver.SSLConfiguration;
+import com.databricks.sdk.core.ProxyConfig;
+import com.databricks.sdk.core.commons.CommonsHttpClient;
 import java.security.NoSuchAlgorithmException;
+import java.util.Arrays;
+import java.util.stream.Collectors;
 import javax.net.ssl.SSLContext;
+import org.apache.http.config.RegistryBuilder;
+import org.apache.http.conn.socket.ConnectionSocketFactory;
+import org.apache.http.conn.socket.PlainConnectionSocketFactory;
+import org.apache.http.conn.ssl.NoopHostnameVerifier;
+import org.apache.http.conn.ssl.SSLConnectionSocketFactory;
+import org.apache.http.impl.conn.PoolingHttpClientConnectionManager;
 
 /**
  * This class is responsible for configuring the Databricks config based on the connection context.
@@ -29,24 +40,58 @@ public class ClientConfigurator {
   public ClientConfigurator(IDatabricksConnectionContext connectionContext) {
     this.connectionContext = connectionContext;
     this.databricksConfig = new DatabricksConfig();
-    setupProxyConfig();
+    CommonsHttpClient.Builder httpClientBuilder = new CommonsHttpClient.Builder();
+    setupProxyConfig(httpClientBuilder);
     setupAuthConfig();
-    this.databricksConfig.resolve();
+    SSLContext sslContext = null;
+    try {
+      sslContext = SSLContext.getDefault();
+    } catch (NoSuchAlgorithmException e) {
+
+    }
+    if (connectionContext.isSSLEnabled()) {
+      try {
+        sslContext =
+            SSLConfiguration.configureSslContext(
+                this.connectionContext.getSSLKeyStorePath(),
+                this.connectionContext.getSSLKeyStorePassword());
+      } catch (Exception e) {
+
+      }
+    }
+
+    SSLConnectionSocketFactory sslSocketFactory =
+        new SSLConnectionSocketFactory(sslContext, NoopHostnameVerifier.INSTANCE);
+    httpClientBuilder
+        .withSslSocketFactory(sslSocketFactory)
+        .withConnectionManager(
+            new PoolingHttpClientConnectionManager(
+                RegistryBuilder.<ConnectionSocketFactory>create()
+                    .register("https", sslSocketFactory)
+                    .register("http", new PlainConnectionSocketFactory())
+                    .build()));
+    this.databricksConfig.setHttpClient(httpClientBuilder.build()).resolve();
   }
 
   /** Setup proxy settings in the databricks config. */
-  public void setupProxyConfig() {
-    this.databricksConfig.setUseSystemPropertiesHttp(connectionContext.getUseSystemProxy());
-    // Setup proxy settings
+  public void setupProxyConfig(CommonsHttpClient.Builder httpClientBuilder) {
+    ProxyConfig proxyConfig =
+        new ProxyConfig().setUseSystemProperties(connectionContext.getUseSystemProxy());
     if (connectionContext.getUseProxy()) {
-      databricksConfig
-          .setProxyHost(connectionContext.getProxyHost())
-          .setProxyPort(connectionContext.getProxyPort());
+      proxyConfig
+          .setHost(connectionContext.getProxyHost())
+          .setPort(connectionContext.getProxyPort());
     }
-    databricksConfig
-        .setProxyAuthType(connectionContext.getProxyAuthType())
-        .setProxyUsername(connectionContext.getProxyUser())
-        .setProxyPassword(connectionContext.getProxyPassword());
+    if (connectionContext.getUseProxy() || connectionContext.getUseSystemProxy()) {
+      proxyConfig
+          .setUsername(connectionContext.getProxyUser())
+          .setPassword(connectionContext.getProxyPassword())
+          .setProxyAuthType(connectionContext.getProxyAuthType())
+          .setNonProxyHosts(
+              convertNonProxyHostConfigToBeSystemPropertyCompliant(
+                  connectionContext.getNonProxyHosts()));
+    }
+    httpClientBuilder.withProxyConfig(proxyConfig);
   }
 
   public WorkspaceClient getWorkspaceClient() {
@@ -107,27 +152,10 @@ public class ClientConfigurator {
 
   /** Setup the PAT authentication settings in the databricks config. */
   public void setupAccessTokenConfig() throws DatabricksParsingException {
-    SSLContext sslContext = null;
-    try {
-      sslContext = SSLContext.getDefault();
-    } catch (NoSuchAlgorithmException e) {
-
-    }
-    if (connectionContext.isSSLEnabled()) {
-      try {
-        sslContext =
-                SSLConfiguration.configureSslContext(
-                        this.connectionContext.getSSLKeyStorePath(),
-                        this.connectionContext.getSSLKeyStorePassword());
-      } catch (Exception e) {
-
-      }
-    }
     databricksConfig
         .setAuthType(DatabricksJdbcConstants.ACCESS_TOKEN_AUTH_TYPE)
         .setHost(connectionContext.getHostUrl())
-        .setToken(connectionContext.getToken())
-        .setHttpClient(new DatabricksCommonHttpClient(300, sslContext));
+        .setToken(connectionContext.getToken());
   }
 
   public void setupOAuthAccessTokenConfig() throws DatabricksParsingException {
@@ -163,6 +191,36 @@ public class ClientConfigurator {
       databricksConfig.setCredentialsProvider(
           new PrivateKeyClientCredentialProvider(connectionContext));
     }
+  }
+
+  /**
+   * Currently, the ODBC driver takes in nonProxyHosts as a comma separated list of suffix of
+   * non-proxy hosts i.e. suffix1|suffix2|suffix3. Whereas, the SDK takes in nonProxyHosts as a list
+   * of patterns separated by '|'. This pattern conforms to the system property format in the Java
+   * Proxy Guide.
+   *
+   * @param nonProxyHosts Comma separated list of suffix of non-proxy hosts
+   * @return nonProxyHosts in system property compliant format from <a
+   *     href="https://docs.oracle.com/javase/8/docs/technotes/guides/net/proxies.html">Java Proxy
+   *     Guide</a>
+   */
+  public static String convertNonProxyHostConfigToBeSystemPropertyCompliant(String nonProxyHosts) {
+    if (nonProxyHosts == null || nonProxyHosts.isEmpty()) {
+      return EMPTY_STRING;
+    }
+    if (nonProxyHosts.contains("|")) {
+      // Already in system property compliant format
+      return nonProxyHosts;
+    }
+    return Arrays.stream(nonProxyHosts.split(","))
+        .map(
+            suffix -> {
+              if (suffix.startsWith(".")) {
+                return "*" + suffix;
+              }
+              return suffix;
+            })
+        .collect(Collectors.joining("|"));
   }
 
   public DatabricksConfig getDatabricksConfig() {

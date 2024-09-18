@@ -2,6 +2,7 @@ package com.databricks.jdbc.common.util;
 
 import static java.sql.ParameterMetaData.parameterNullable;
 
+import com.databricks.jdbc.common.Nullable;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.exception.DatabricksSQLFeatureNotSupportedException;
 import com.databricks.jdbc.log.JdbcLogger;
@@ -227,33 +228,32 @@ public class DatabricksTypeUtil {
     }
   }
 
-  public static int getPrecision(ColumnInfoTypeName typeName) {
-    if (typeName == null) {
+  public static int getPrecision(Integer columnType) {
+    if (columnType == null) {
       return 0;
     }
-    switch (typeName) {
-      case BYTE:
-      case SHORT:
+    switch (columnType) {
+      case Types.TINYINT:
+      case Types.SMALLINT:
         return 5;
-      case INT:
-      case DATE:
-      case DECIMAL:
+      case Types.DATE:
+      case Types.DECIMAL:
         return 10;
-      case LONG:
+      case Types.BIGINT:
         return 19;
-      case CHAR:
-      case BOOLEAN:
-      case BINARY:
+      case Types.CHAR:
+      case Types.BOOLEAN:
+      case Types.BINARY:
         return 1;
-      case FLOAT:
+      case Types.FLOAT:
         return 7;
-      case DOUBLE:
+      case Types.DOUBLE:
         return 15;
-      case TIMESTAMP:
+      case Types.TIMESTAMP:
         return 29;
-      case ARRAY:
-      case STRING:
-      case STRUCT:
+      case Types.ARRAY:
+      case Types.LONGNVARCHAR:
+      case Types.STRUCT:
       default:
         return 255;
     }
@@ -264,15 +264,27 @@ public class DatabricksTypeUtil {
     return parameterNullable;
   }
 
-  public static int getScale(ColumnInfoTypeName typeName) {
-    if (typeName == null) {
+  public static int getScale(Integer columnType) {
+    if (columnType == null) {
       return 0;
     }
-    return typeName == ColumnInfoTypeName.TIMESTAMP ? 9 : 0;
+    return columnType == Types.TIMESTAMP ? 9 : 0;
   }
 
   public static boolean isSigned(ColumnInfoTypeName typeName) {
     return SIGNED_TYPES.contains(typeName);
+  }
+
+  public static Nullable getNullableFromValue(Integer isNullable) {
+    if (isNullable == null) {
+      return Nullable.UNKNOWN;
+    } else if (isNullable == 0) {
+      return Nullable.NO_NULLS;
+    } else if (isNullable == 1) {
+      return Nullable.NULLABLE;
+    } else {
+      return Nullable.UNKNOWN;
+    }
   }
 
   /**
