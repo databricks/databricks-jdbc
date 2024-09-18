@@ -48,6 +48,11 @@ public class ClientConfigurator {
     this.databricksConfig.setHttpClient(httpClientBuilder.build()).resolve();
   }
 
+  /**
+   * Setup the SSL configuration in the httpClientBuilder.
+   *
+   * @param httpClientBuilder The builder to which the SSL configuration should be added.
+   */
   private void setupSSLConfig(CommonsHttpClient.Builder httpClientBuilder) {
     if (this.connectionContext.getSSLTrustStore() == null) {
       return;
@@ -63,6 +68,13 @@ public class ClientConfigurator {
     }
   }
 
+  /**
+   * This function returns the registry of connection socket factories based on the truststore in
+   * the connection context.
+   *
+   * @param connectionContext The connection context to use to get the truststore.
+   * @return The registry of connection socket factories.
+   */
   public static Registry<ConnectionSocketFactory> getConnectionSocketFactoryRegistry(
       IDatabricksConnectionContext connectionContext) {
     try {
