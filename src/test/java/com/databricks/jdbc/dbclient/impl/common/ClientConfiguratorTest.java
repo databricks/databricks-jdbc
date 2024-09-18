@@ -14,6 +14,10 @@ import com.databricks.sdk.core.CredentialsProvider;
 import com.databricks.sdk.core.DatabricksConfig;
 import java.util.List;
 import java.util.Properties;
+import org.apache.http.config.Registry;
+import org.apache.http.conn.socket.ConnectionSocketFactory;
+import org.apache.http.conn.socket.PlainConnectionSocketFactory;
+import org.apache.http.conn.ssl.SSLConnectionSocketFactory;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -150,5 +154,17 @@ public class ClientConfiguratorTest {
         "staging.example.*|blabla.net|*.xyz.abc",
         ClientConfigurator.convertNonProxyHostConfigToBeSystemPropertyCompliant(
             nonProxyHostsInput3));
+  }
+
+  @Test
+  void testGetConnectionSocketFactoryRegistry() {
+    when(mockContext.getSSLTrustStore())
+        .thenReturn("src/test/resources/ssltruststore/empty-truststore.jks");
+    when(mockContext.getSSLTrustStorePassword()).thenReturn("changeit");
+    when(mockContext.getSSLTrustStoreType()).thenReturn("PKCS12");
+    Registry<ConnectionSocketFactory> registry =
+        ClientConfigurator.getConnectionSocketFactoryRegistry(mockContext);
+    assertInstanceOf(SSLConnectionSocketFactory.class, registry.lookup("https"));
+    assertInstanceOf(PlainConnectionSocketFactory.class, registry.lookup("http"));
   }
 }
