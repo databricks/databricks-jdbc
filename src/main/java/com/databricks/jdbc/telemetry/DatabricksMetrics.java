@@ -9,11 +9,11 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.annotations.VisibleForTesting;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Timer;
 import java.util.TimerTask;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentHashMap;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.client.utils.URIBuilder;
@@ -22,9 +22,9 @@ import org.apache.http.util.EntityUtils;
 public class DatabricksMetrics implements AutoCloseable {
 
   public static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(DatabricksMetrics.class);
-  private final ConcurrentHashMap<String, Double> gaugeMetrics = new ConcurrentHashMap<>();
-  private final ConcurrentHashMap<String, Double> counterMetrics = new ConcurrentHashMap<>();
-  private final ObjectMapper objectMapper = new ObjectMapper();
+  private static final Map<String, Double> gaugeMetrics = new HashMap<>();
+  private static final Map<String, Double> counterMetrics = new HashMap<>();
+  private static final ObjectMapper objectMapper = new ObjectMapper();
   private Boolean hasInitialExportOccurred = false;
   private String workspaceId = null;
   private DatabricksHttpClient telemetryClient;
