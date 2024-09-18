@@ -3,7 +3,6 @@ package com.databricks.jdbc.common.util;
 import static java.sql.ParameterMetaData.parameterNullable;
 
 import com.databricks.jdbc.common.Nullable;
-import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.exception.DatabricksSQLFeatureNotSupportedException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
@@ -13,6 +12,7 @@ import com.databricks.jdbc.model.client.thrift.generated.TTypeEntry;
 import com.databricks.jdbc.model.client.thrift.generated.TTypeId;
 import com.databricks.sdk.service.sql.ColumnInfoTypeName;
 import java.sql.Date;
+import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.sql.Types;
 import java.util.ArrayList;
@@ -380,7 +380,7 @@ public class DatabricksTypeUtil {
         .orElse(TTypeId.STRING_TYPE);
   }
 
-  public static ArrowType mapThriftToArrowType(TTypeId typeId) throws DatabricksSQLException {
+  public static ArrowType mapThriftToArrowType(TTypeId typeId) throws SQLException {
     switch (typeId) {
       case BOOLEAN_TYPE:
         return ArrowType.Bool.INSTANCE;

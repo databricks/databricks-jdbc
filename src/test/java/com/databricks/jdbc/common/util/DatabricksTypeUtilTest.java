@@ -2,10 +2,10 @@ package com.databricks.jdbc.common.util;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.model.client.thrift.generated.TTypeId;
 import com.databricks.sdk.service.sql.ColumnInfoTypeName;
 import java.sql.Date;
+import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.sql.Types;
 import java.util.stream.Stream;
@@ -47,8 +47,7 @@ class DatabricksTypeUtilTest {
 
   @ParameterizedTest
   @MethodSource("dataProvider")
-  public void testMapToArrowType(TTypeId typeId, ArrowType expectedArrowType)
-      throws DatabricksSQLException {
+  public void testMapToArrowType(TTypeId typeId, ArrowType expectedArrowType) throws SQLException {
     DatabricksTypeUtil typeUtil = new DatabricksTypeUtil(); // code coverage of constructor too
     ArrowType result = typeUtil.mapThriftToArrowType(typeId);
     assertEquals(expectedArrowType, result);

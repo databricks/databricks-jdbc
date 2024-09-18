@@ -170,6 +170,7 @@ public class DatabricksStatementTest {
     assertEquals(statement.getStatementId(), STATEMENT_ID);
     doNothing().when(client).closeStatement(STATEMENT_ID);
     statement.close(true);
+    assertTrue(statement.isWrapperFor(Statement.class));
   }
 
   @Test
@@ -199,12 +200,7 @@ public class DatabricksStatementTest {
         () -> statement.execute("sql", new String[0]));
     assertThrows(
         DatabricksSQLFeatureNotSupportedException.class, () -> statement.setPoolable(true));
-    assertThrows(
-        DatabricksSQLFeatureNotSupportedException.class,
-        () -> statement.unwrap(java.sql.Connection.class));
-    assertThrows(
-        DatabricksSQLFeatureNotSupportedException.class,
-        () -> statement.isWrapperFor(java.sql.Connection.class));
+    assertThrows(DatabricksSQLException.class, () -> statement.unwrap(java.sql.Connection.class));
     assertThrows(
         DatabricksSQLFeatureNotSupportedException.class, () -> statement.setCursorName("name"));
     assertThrows(DatabricksSQLFeatureNotSupportedException.class, statement::getMaxFieldSize);

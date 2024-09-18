@@ -102,7 +102,7 @@ public class DatabricksResultSet implements ResultSet, IDatabricksResultSet {
       StatementType statementType,
       IDatabricksStatement parentStatement,
       IDatabricksSession session)
-      throws DatabricksSQLException {
+      throws SQLException {
     if (SUCCESS_STATUS_LIST.contains(statementStatus.getStatusCode())) {
       this.statementStatus = new StatementStatus().setState(StatementState.SUCCEEDED);
     } else {

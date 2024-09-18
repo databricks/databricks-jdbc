@@ -9,7 +9,6 @@ import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
-import com.databricks.jdbc.telemetry.DatabricksMetrics;
 import com.databricks.sdk.core.ProxyConfig;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
@@ -27,7 +26,7 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   private final String schema;
   private final String connectionURL;
   private final IDatabricksComputeResource computeResource;
-  private final DatabricksMetrics metricsExporter;
+
   @VisibleForTesting final ImmutableMap<String, String> parameters;
 
   private DatabricksConnectionContext(
@@ -43,7 +42,6 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
     this.schema = schema;
     this.parameters = parameters;
     this.computeResource = buildCompute();
-    this.metricsExporter = new DatabricksMetrics(this);
   }
 
   /**
@@ -114,11 +112,6 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
         && Objects.equals(host, that.host)
         && Objects.equals(schema, that.schema)
         && Objects.equals(parameters, that.parameters);
-  }
-
-  @Override
-  public DatabricksMetrics getMetricsExporter() {
-    return metricsExporter;
   }
 
   @Override

@@ -1,8 +1,7 @@
 package com.databricks.jdbc.telemetry.annotation;
 
-import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.api.IDatabricksSession;
-import com.databricks.jdbc.api.impl.DatabricksSession;
+import com.databricks.jdbc.telemetry.DatabricksMetrics;
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
@@ -13,7 +12,7 @@ public class DatabricksMetricsTimedProcessor {
   // The proxy object will intercept the method calls and record the time taken to execute the
   // method.
   @SuppressWarnings("unchecked")
-  public static <T> T createProxy(T obj) {
+  public static <T> T createProxy(T obj, DatabricksMetrics metricsExporter) {
     Class<?> clazz = obj.getClass();
     Class<?>[] interfaces = clazz.getInterfaces();
 
@@ -23,7 +22,9 @@ public class DatabricksMetricsTimedProcessor {
       if (databricksMetricsTimedClass != null) {
         return (T)
             Proxy.newProxyInstance(
-                clazz.getClassLoader(), clazz.getInterfaces(), new TimedInvocationHandler<>(obj));
+                clazz.getClassLoader(),
+                clazz.getInterfaces(),
+                new TimedInvocationHandler<>(obj, metricsExporter));
       }
     }
 
@@ -33,9 +34,11 @@ public class DatabricksMetricsTimedProcessor {
 
   private static class TimedInvocationHandler<T> implements InvocationHandler {
     private final T target;
+    private final DatabricksMetrics metricsExporter;
 
-    public TimedInvocationHandler(T target) {
+    public TimedInvocationHandler(T target, DatabricksMetrics metricsExporter) {
       this.target = target;
+      this.metricsExporter = metricsExporter;
     }
 
     @Override
@@ -56,23 +59,10 @@ public class DatabricksMetricsTimedProcessor {
             long endTime = System.currentTimeMillis();
 
             // Get the connection context
-            IDatabricksConnectionContext connectionContext = null;
-
-            boolean isMetricMetadata = metricName.startsWith("LIST");
-
-            // Get the connection context based on the metric type
-            if (isMetricMetadata && args != null && args[0].getClass() == DatabricksSession.class) {
-              connectionContext = ((IDatabricksSession) args[0]).getConnectionContext();
-            } else {
-              connectionContext =
-                  (IDatabricksConnectionContext)
-                      target.getClass().getMethod("getConnectionContext").invoke(target);
-            }
+            IDatabricksSession session = null;
 
             // Record the metric
-            if (connectionContext != null) {
-              connectionContext.getMetricsExporter().record(metricName, endTime - startTime);
-            }
+            metricsExporter.record(metricName, endTime - startTime);
             return result;
           }
         }

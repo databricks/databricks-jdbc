@@ -6,11 +6,13 @@ import static io.netty.util.NetUtil.LOCALHOST;
 import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.common.ErrorTypes;
 import com.databricks.jdbc.common.LogLevel;
+import com.databricks.jdbc.common.util.MetricsUtil;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
 import com.databricks.jdbc.exception.DatabricksHttpException;
 import com.databricks.jdbc.exception.DatabricksRetryHandlerException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
+import com.databricks.jdbc.telemetry.DatabricksMetrics;
 import com.databricks.sdk.core.DatabricksConfig;
 import com.databricks.sdk.core.ProxyConfig;
 import com.databricks.sdk.core.UserAgent;
@@ -236,24 +238,19 @@ public class DatabricksHttpClient implements IDatabricksHttpClient {
 
       initializeRetryCounts(httpContext);
 
+      MetricsUtil.exportError(
+          new DatabricksMetrics(connectionContext), ErrorTypes.HTTP_RETRY_ERROR, "", errCode);
       if (httpResponse.containsHeader(THRIFT_ERROR_MESSAGE_HEADER)) {
         String errorMessage = httpResponse.getFirstHeader(THRIFT_ERROR_MESSAGE_HEADER).getValue();
         throw new DatabricksRetryHandlerException(
-            "HTTP Response code: " + errCode + ", Error message: " + errorMessage,
-            errCode,
-            connectionContext,
-            ErrorTypes.HTTP_RETRY_ERROR,
-            "");
+            "HTTP Response code: " + errCode + ", Error message: " + errorMessage, errCode);
       }
       throw new DatabricksRetryHandlerException(
           "HTTP Response code: "
               + errCode
               + ", Error Message: "
               + httpResponse.getStatusLine().getReasonPhrase(),
-          errCode,
-          connectionContext,
-          ErrorTypes.HTTP_RETRY_ERROR,
-          "");
+          errCode);
     }
   }
 

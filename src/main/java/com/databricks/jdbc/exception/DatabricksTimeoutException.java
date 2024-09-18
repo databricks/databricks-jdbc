@@ -1,7 +1,5 @@
 package com.databricks.jdbc.exception;
 
-import com.databricks.jdbc.api.IDatabricksConnectionContext;
-import com.databricks.jdbc.common.ErrorTypes;
 import java.sql.SQLTimeoutException;
 
 /** Top level exception for Databricks driver */
@@ -10,15 +8,7 @@ public class DatabricksTimeoutException extends SQLTimeoutException {
     super(message);
   }
 
-  public DatabricksTimeoutException(
-      String reason,
-      Throwable cause,
-      IDatabricksConnectionContext connectionContext,
-      String sqlQueryId,
-      int errorCode) {
+  public DatabricksTimeoutException(String reason, Throwable cause) {
     super(reason, cause);
-    connectionContext
-        .getMetricsExporter()
-        .exportError(ErrorTypes.TIMEOUT_ERROR, sqlQueryId, errorCode);
   }
 }

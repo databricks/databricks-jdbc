@@ -12,6 +12,7 @@ import com.google.common.annotations.VisibleForTesting;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 import org.apache.arrow.vector.types.pojo.ArrowType;
@@ -102,7 +103,7 @@ public class ChunkExtractor {
               columnDesc -> {
                 try {
                   fields.add(getArrowField(columnDesc));
-                } catch (DatabricksSQLException e) {
+                } catch (SQLException e) {
                   throw new RuntimeException(e);
                 }
               });
@@ -112,7 +113,7 @@ public class ChunkExtractor {
     return new Schema(fields);
   }
 
-  private static Field getArrowField(TColumnDesc columnDesc) throws DatabricksSQLException {
+  private static Field getArrowField(TColumnDesc columnDesc) throws SQLException {
     TTypeId thriftType = getThriftTypeFromTypeDesc(columnDesc.getTypeDesc());
     ArrowType arrowType = null;
     arrowType = mapThriftToArrowType(thriftType);

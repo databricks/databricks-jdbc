@@ -15,6 +15,7 @@ import com.databricks.jdbc.dbclient.impl.thrift.DatabricksThriftServiceClient;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
+import com.databricks.jdbc.telemetry.DatabricksMetrics;
 import com.databricks.jdbc.telemetry.annotation.DatabricksMetricsTimedProcessor;
 import com.databricks.sdk.support.ToStringer;
 import com.google.common.annotations.VisibleForTesting;
@@ -47,6 +48,7 @@ public class DatabricksSession implements IDatabricksSession {
   private final CompressionType compressionType;
 
   private final IDatabricksConnectionContext connectionContext;
+  private final DatabricksMetrics metricsExporter;
 
   /**
    * Creates an instance of Databricks session for given connection context
@@ -66,8 +68,6 @@ public class DatabricksSession implements IDatabricksSession {
           new DatabricksNewMetadataSdkClient((DatabricksSdkClient) databricksClient);
     }
 
-    this.databricksClient = DatabricksMetricsTimedProcessor.createProxy(this.databricksClient);
-
     this.isSessionOpen = false;
     this.sessionInfo = null;
     this.computeResource = connectionContext.getComputeResource();
@@ -77,6 +77,9 @@ public class DatabricksSession implements IDatabricksSession {
     this.clientInfoProperties = new HashMap<>();
     this.compressionType = connectionContext.getCompressionType();
     this.connectionContext = connectionContext;
+    this.metricsExporter = new DatabricksMetrics(connectionContext);
+    this.databricksClient =
+        DatabricksMetricsTimedProcessor.createProxy(this.databricksClient, metricsExporter);
   }
 
   @Override
@@ -109,6 +112,7 @@ public class DatabricksSession implements IDatabricksSession {
     this.sessionConfigs = connectionContext.getSessionConfigs();
     this.clientInfoProperties = new HashMap<>();
     this.compressionType = connectionContext.getCompressionType();
+    this.metricsExporter = new DatabricksMetrics(connectionContext);
     this.connectionContext = connectionContext;
   }
 
@@ -171,7 +175,7 @@ public class DatabricksSession implements IDatabricksSession {
         this.sessionInfo = null;
         this.isSessionOpen = false;
         if (!connectionContext.isFakeServiceTest()) {
-          this.connectionContext.getMetricsExporter().close();
+          this.getMetricsExporter().close();
         }
       }
     }
@@ -263,5 +267,10 @@ public class DatabricksSession implements IDatabricksSession {
   @Override
   public IDatabricksConnectionContext getConnectionContext() {
     return this.connectionContext;
+  }
+
+  @Override
+  public DatabricksMetrics getMetricsExporter() {
+    return this.metricsExporter;
   }
 }

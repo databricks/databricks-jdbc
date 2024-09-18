@@ -10,13 +10,13 @@ import com.databricks.jdbc.api.impl.inline.InlineJsonResult;
 import com.databricks.jdbc.api.impl.volume.VolumeOperationResult;
 import com.databricks.jdbc.common.util.DatabricksThriftUtil;
 import com.databricks.jdbc.exception.DatabricksParsingException;
-import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.exception.DatabricksSQLFeatureNotImplementedException;
 import com.databricks.jdbc.exception.DatabricksSQLFeatureNotSupportedException;
 import com.databricks.jdbc.model.client.thrift.generated.TGetResultSetMetadataResp;
 import com.databricks.jdbc.model.client.thrift.generated.TRowSet;
 import com.databricks.jdbc.model.core.ResultData;
 import com.databricks.jdbc.model.core.ResultManifest;
+import java.sql.SQLException;
 import java.util.List;
 
 class ExecutionResultFactory {
@@ -68,7 +68,7 @@ class ExecutionResultFactory {
       IDatabricksSession session,
       IDatabricksStatement statement,
       IDatabricksResultSet resultSet)
-      throws DatabricksSQLException {
+      throws SQLException {
     IExecutionResult resultHandler = getResultHandler(data, manifest, statementId, session);
     if (manifest.isSetIsStagingOperation() && manifest.isIsStagingOperation()) {
       return new VolumeOperationResult(
@@ -89,7 +89,7 @@ class ExecutionResultFactory {
       TGetResultSetMetadataResp manifest,
       String statementId,
       IDatabricksSession session)
-      throws DatabricksSQLException {
+      throws SQLException {
     switch (manifest.getResultFormat()) {
       case COLUMN_BASED_SET:
         return getResultSet(convertColumnarToRowBased(data));
