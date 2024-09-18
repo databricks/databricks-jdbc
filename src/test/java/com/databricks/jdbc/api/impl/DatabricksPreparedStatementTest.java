@@ -1,6 +1,6 @@
 package com.databricks.jdbc.api.impl;
 
-import static com.databricks.jdbc.TestConstants.TEST_STRING;
+import static com.databricks.jdbc.TestConstants.*;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -12,6 +12,7 @@ import com.databricks.jdbc.common.StatementType;
 import com.databricks.jdbc.common.Warehouse;
 import com.databricks.jdbc.common.util.DatabricksTypeUtil;
 import com.databricks.jdbc.dbclient.impl.sqlexec.DatabricksSdkClient;
+import com.databricks.jdbc.dbclient.impl.thrift.DatabricksThriftServiceClient;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
@@ -41,10 +42,14 @@ public class DatabricksPreparedStatementTest {
       "jdbc:databricks://adb-565757575.18.azuredatabricks.net:4423/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/erg6767gg;";
   private static final String JDBC_URL_WITH_MANY_PARAMETERS =
       "jdbc:databricks://adb-565757575.18.azuredatabricks.net:4423/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/erg6767gg;supportManyParameters=1;";
+  private static final String JDBC_CLUSTER_URL_WITH_MANY_PARAMETERS =
+      VALID_CLUSTER_URL + ";supportManyParameters=1;";
 
   @Mock DatabricksResultSet resultSet;
 
   @Mock DatabricksSdkClient client;
+
+  @Mock DatabricksThriftServiceClient thriftClient;
   @Mock DatabricksConnection connection;
   @Mock DatabricksSession session;
 
@@ -115,6 +120,31 @@ public class DatabricksPreparedStatementTest {
     when(client.executeStatement(
             eq(INTERPOLATED_PROCESSED_STATEMENT),
             eq(new Warehouse(WAREHOUSE_ID)),
+            any(HashMap.class),
+            eq(StatementType.QUERY),
+            any(IDatabricksSession.class),
+            eq(statement)))
+        .thenReturn(resultSet);
+
+    DatabricksResultSet newResultSet = (DatabricksResultSet) statement.executeQuery();
+    assertFalse(statement.isClosed());
+    assertEquals(resultSet, newResultSet);
+    statement.close();
+    assertTrue(statement.isClosed());
+  }
+
+  @Test
+  public void testAllPurposeExecuteStatementWithManyParameters() throws Exception {
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContext.parse(JDBC_CLUSTER_URL_WITH_MANY_PARAMETERS, new Properties());
+    DatabricksConnection connection = new DatabricksConnection(connectionContext, thriftClient);
+    DatabricksPreparedStatement statement =
+        new DatabricksPreparedStatement(connection, INTERPOLATED_INITIAL_STATEMENT);
+    statement.setInt(1, 1);
+    statement.setString(2, TEST_STRING);
+    when(thriftClient.executeStatement(
+            eq(INTERPOLATED_PROCESSED_STATEMENT),
+            any(),
             any(HashMap.class),
             eq(StatementType.QUERY),
             any(IDatabricksSession.class),

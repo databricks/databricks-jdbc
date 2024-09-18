@@ -2,12 +2,12 @@ package com.databricks.jdbc.auth;
 
 import static com.nimbusds.jose.JWSAlgorithm.*;
 
-import com.databricks.jdbc.common.LogLevel;
-import com.databricks.jdbc.common.util.LoggingUtil;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
 import com.databricks.jdbc.exception.DatabricksHttpException;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
+import com.databricks.jdbc.log.JdbcLogger;
+import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.sdk.core.DatabricksException;
 import com.databricks.sdk.core.oauth.OAuthResponse;
 import com.databricks.sdk.core.oauth.RefreshableTokenSource;
@@ -53,6 +53,10 @@ import org.bouncycastle.pkcs.PKCSException;
  * type.
  */
 public class JwtPrivateKeyClientCredentials extends RefreshableTokenSource {
+
+  public static final JdbcLogger LOGGER =
+      JdbcLoggerFactory.getLogger(JwtPrivateKeyClientCredentials.class);
+
   public static class Builder {
     private String clientId;
     private String tokenUrl;
@@ -177,7 +181,7 @@ public class JwtPrivateKeyClientCredentials extends RefreshableTokenSource {
       return new Token(resp.getAccessToken(), resp.getTokenType(), resp.getRefreshToken(), expiry);
     } catch (IOException | URISyntaxException | DatabricksHttpException e) {
       String errorMessage = "Failed to retrieve custom M2M token: " + e.getMessage();
-      LoggingUtil.log(LogLevel.ERROR, errorMessage);
+      LOGGER.error(errorMessage);
       throw new DatabricksException(errorMessage, e);
     }
   }
@@ -220,9 +224,7 @@ public class JwtPrivateKeyClientCredentials extends RefreshableTokenSource {
       case "ES256":
         return JWSAlgorithm.ES256;
       default:
-        LoggingUtil.log(
-            LogLevel.DEBUG,
-            "Defaulting to RS256. Provided JWT algorithm not supported " + jwtAlgorithm);
+        LOGGER.debug("Defaulting to RS256. Provided JWT algorithm not supported " + jwtAlgorithm);
         return RS256;
     }
   }
@@ -237,7 +239,7 @@ public class JwtPrivateKeyClientCredentials extends RefreshableTokenSource {
       }
     } catch (DatabricksSQLException | IOException e) {
       String errorMessage = "Failed to parse private key: " + e.getMessage();
-      LoggingUtil.log(LogLevel.ERROR, errorMessage);
+      LOGGER.error(errorMessage);
       throw new DatabricksException(errorMessage, e);
     }
   }
@@ -267,7 +269,7 @@ public class JwtPrivateKeyClientCredentials extends RefreshableTokenSource {
       return keyConverter.getPrivateKey(privateKeyInfo);
     } catch (OperatorCreationException | PKCSException | PEMException e) {
       String errorMessage = "Cannot decrypt private JWT key " + e.getMessage();
-      LoggingUtil.log(LogLevel.ERROR, errorMessage);
+      LOGGER.error(errorMessage);
       throw new DatabricksParsingException(errorMessage);
     }
   }
@@ -284,7 +286,7 @@ public class JwtPrivateKeyClientCredentials extends RefreshableTokenSource {
         signer = new ECDSASigner((ECPrivateKey) privateKey);
       } else {
         String errorMessage = "Unsupported private key type: " + privateKey.getClass().getName();
-        LoggingUtil.log(LogLevel.ERROR, errorMessage);
+        LOGGER.error(errorMessage);
         throw new DatabricksException(errorMessage);
       }
 
@@ -304,7 +306,7 @@ public class JwtPrivateKeyClientCredentials extends RefreshableTokenSource {
       return signedJWT;
     } catch (JOSEException e) {
       String errorMessage = "Error signing the JWT: " + e.getMessage();
-      LoggingUtil.log(LogLevel.ERROR, errorMessage);
+      LOGGER.error(errorMessage);
       throw new DatabricksException(errorMessage, e);
     }
   }

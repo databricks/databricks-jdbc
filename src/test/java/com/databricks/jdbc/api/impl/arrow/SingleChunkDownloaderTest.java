@@ -62,7 +62,7 @@ public class SingleChunkDownloaderTest {
         .downloadData(httpClient);
 
     assertThrows(DatabricksSQLException.class, () -> singleChunkDownloader.call());
-    verify(chunk, times(3)).downloadData(httpClient);
+    verify(chunk, times(SingleChunkDownloader.MAX_RETRIES)).downloadData(httpClient);
     verify(chunkDownloader, times(1)).downloadProcessed(7L);
   }
 }

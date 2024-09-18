@@ -27,6 +27,9 @@ public class DatabricksSdkClientTest {
   void testHandleFailedExecution() throws SQLException {
     String statementId = "statementId";
     String statement = "statement";
+    when(connectionContext.getAuthMech()).thenReturn(IDatabricksConnectionContext.AuthMech.PAT);
+    when(connectionContext.getHostUrl()).thenReturn("https://pat.databricks.com");
+    when(connectionContext.getToken()).thenReturn("pat-token");
     when(response.getStatus()).thenReturn(status);
     when(status.getState()).thenReturn(StatementState.CANCELED);
     when(status.getError()).thenReturn(errorInfo);
@@ -51,6 +54,9 @@ public class DatabricksSdkClientTest {
     when(status.getState()).thenReturn(StatementState.PENDING); // Assuming PENDING is not handled
     when(status.getError()).thenReturn(errorInfo);
     when(errorInfo.getMessage()).thenReturn("This error should not occur");
+    when(connectionContext.getAuthMech()).thenReturn(IDatabricksConnectionContext.AuthMech.PAT);
+    when(connectionContext.getHostUrl()).thenReturn("https://pat.databricks.com");
+    when(connectionContext.getToken()).thenReturn("pat-token");
 
     DatabricksSdkClient databricksSdkClient =
         new DatabricksSdkClient(connectionContext, statementExecutionService, apiClient);
