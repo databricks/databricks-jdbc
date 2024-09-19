@@ -2,9 +2,7 @@ package com.databricks.jdbc.common;
 
 import com.databricks.jdbc.model.core.ResultColumn;
 import java.sql.Types;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 public class MetadataResultConstants {
   public static final String[] DEFAULT_TABLE_TYPES = {"TABLE", "VIEW", "SYSTEM TABLE"};
@@ -276,36 +274,49 @@ public class MetadataResultConstants {
           SQL_DATETIME_SUB_COLUMN,
           NUM_PREC_RADIX_COLUMN);
 
-  public static final Map<CommandName, List<ResultColumn>> NON_NULLABLE_COLUMNS_MAP =
-      Map.of(
-          CommandName.LIST_TYPE_INFO,
-              List.of(
-                  MetadataResultConstants.TYPE_NAME_COLUMN,
-                  MetadataResultConstants.DATA_TYPE_COLUMN,
-                  MetadataResultConstants
-                      .PRECISION_COLUMN // Assuming COLUMN_SIZE_COLUMN maps to precision
-                  ),
-          CommandName.LIST_CATALOGS,
-              List.of(MetadataResultConstants.CATALOG_COLUMN_FOR_GET_CATALOGS),
-          CommandName.LIST_TABLES, List.of(MetadataResultConstants.TABLE_NAME_COLUMN),
-          CommandName.LIST_PRIMARY_KEYS,
-              List.of(
-                  MetadataResultConstants.TABLE_NAME_COLUMN,
-                  MetadataResultConstants.COLUMN_NAME_COLUMN),
-          CommandName.LIST_SCHEMAS, List.of(MetadataResultConstants.SCHEMA_COLUMN),
-          CommandName.LIST_TABLE_TYPES, List.of(MetadataResultConstants.TABLE_TYPE_COLUMN),
-          CommandName.LIST_COLUMNS,
-              List.of(
-                  MetadataResultConstants.TABLE_NAME_COLUMN,
-                  MetadataResultConstants.COLUMN_NAME_COLUMN,
-                  MetadataResultConstants.DATA_TYPE_COLUMN,
-                  MetadataResultConstants.TYPE_NAME_COLUMN,
-                  MetadataResultConstants.NULLABLE_COLUMN,
-                  MetadataResultConstants.SQL_DATA_TYPE_COLUMN,
-                  MetadataResultConstants.ORDINAL_POSITION_COLUMN,
-                  MetadataResultConstants.IS_NULLABLE_COLUMN),
-          CommandName.LIST_FUNCTIONS,
-              List.of(
-                  MetadataResultConstants.FUNCTION_NAME_COLUMN,
-                  MetadataResultConstants.SPECIFIC_NAME_COLUMN));
+  public static final Map<CommandName, List<ResultColumn>> NON_NULLABLE_COLUMNS_MAP;
+
+  static {
+    Map<CommandName, List<ResultColumn>> tempMap = new HashMap<>();
+    tempMap.put(
+        CommandName.LIST_TYPE_INFO,
+        Arrays.asList(
+            MetadataResultConstants.TYPE_NAME_COLUMN,
+            MetadataResultConstants.DATA_TYPE_COLUMN,
+            MetadataResultConstants
+                .PRECISION_COLUMN // Assuming COLUMN_SIZE_COLUMN maps to precision
+            ));
+    tempMap.put(
+        CommandName.LIST_CATALOGS,
+        Collections.singletonList(MetadataResultConstants.CATALOG_COLUMN_FOR_GET_CATALOGS));
+    tempMap.put(
+        CommandName.LIST_TABLES,
+        Collections.singletonList(MetadataResultConstants.TABLE_NAME_COLUMN));
+    tempMap.put(
+        CommandName.LIST_PRIMARY_KEYS,
+        Arrays.asList(
+            MetadataResultConstants.TABLE_NAME_COLUMN, MetadataResultConstants.COLUMN_NAME_COLUMN));
+    tempMap.put(
+        CommandName.LIST_SCHEMAS, Collections.singletonList(MetadataResultConstants.SCHEMA_COLUMN));
+    tempMap.put(
+        CommandName.LIST_TABLE_TYPES,
+        Collections.singletonList(MetadataResultConstants.TABLE_TYPE_COLUMN));
+    tempMap.put(
+        CommandName.LIST_COLUMNS,
+        Arrays.asList(
+            MetadataResultConstants.TABLE_NAME_COLUMN,
+            MetadataResultConstants.COLUMN_NAME_COLUMN,
+            MetadataResultConstants.DATA_TYPE_COLUMN,
+            MetadataResultConstants.TYPE_NAME_COLUMN,
+            MetadataResultConstants.NULLABLE_COLUMN,
+            MetadataResultConstants.SQL_DATA_TYPE_COLUMN,
+            MetadataResultConstants.ORDINAL_POSITION_COLUMN,
+            MetadataResultConstants.IS_NULLABLE_COLUMN));
+    tempMap.put(
+        CommandName.LIST_FUNCTIONS,
+        Arrays.asList(
+            MetadataResultConstants.FUNCTION_NAME_COLUMN,
+            MetadataResultConstants.SPECIFIC_NAME_COLUMN));
+    NON_NULLABLE_COLUMNS_MAP = Collections.unmodifiableMap(tempMap);
+  }
 }

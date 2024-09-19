@@ -67,7 +67,7 @@ public class DatabricksThriftUtil {
    */
   public static List<List<Object>> extractValues(List<TColumn> columnList) {
     if (columnList == null) {
-      return new ArrayList<>(List.of(new ArrayList<>()));
+      return new ArrayList<>(Arrays.asList(new ArrayList<>()));
     }
     List<Object> obj =
         columnList.stream()
@@ -86,7 +86,7 @@ public class DatabricksThriftUtil {
 
   public static List<List<Object>> extractValuesColumnar(List<TColumn> columnList) {
     if (columnList == null || columnList.isEmpty()) {
-      return new ArrayList<>(List.of(new ArrayList<>()));
+      return new ArrayList<>(Arrays.asList(new ArrayList<>()));
     }
     int numberOfItems = columnList.get(0).getStringVal().getValuesSize();
     return IntStream.range(0, numberOfItems)

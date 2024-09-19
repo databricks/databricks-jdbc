@@ -7,6 +7,7 @@ import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.exception.DatabricksValidationException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.regex.Pattern;
@@ -66,7 +67,7 @@ public class ValidationUtil {
    */
   public static boolean isValidJdbcUrl(String url) {
     final List<Pattern> PATH_PATTERNS =
-        List.of(
+        Arrays.asList(
             HTTP_CLUSTER_PATH_PATTERN,
             HTTP_WAREHOUSE_PATH_PATTERN,
             HTTP_ENDPOINT_PATH_PATTERN,

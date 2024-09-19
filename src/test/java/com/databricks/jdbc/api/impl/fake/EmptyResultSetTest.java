@@ -2,13 +2,12 @@ package com.databricks.jdbc.api.impl.fake;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-import java.io.ByteArrayInputStream;
-import java.io.StringReader;
+import com.databricks.jdbc.api.impl.TestUtils;
+import java.io.*;
 import java.math.BigDecimal;
 import java.sql.*;
 import java.util.Calendar;
 import java.util.Collections;
-import java.util.Map;
 import org.apache.http.HttpEntity;
 import org.apache.http.entity.StringEntity;
 import org.junit.jupiter.api.BeforeEach;
@@ -378,8 +377,12 @@ public class EmptyResultSetTest {
   public void testUCInputStream() throws Exception {
     HttpEntity entity = new StringEntity("hello");
     resultSet.setVolumeOperationEntityStream(entity);
-    assertEquals(
-        "hello", new String(resultSet.getVolumeOperationInputStream().getContent().readAllBytes()));
+
+    // Convert InputStream to String using Java 8 approach
+    InputStream inputStream = resultSet.getVolumeOperationInputStream().getContent();
+    String result = TestUtils.convertInputStreamToString(inputStream);
+
+    assertEquals("hello", result);
   }
 
   @Test

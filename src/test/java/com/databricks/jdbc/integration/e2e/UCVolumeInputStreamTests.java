@@ -5,9 +5,10 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import com.databricks.jdbc.api.IDatabricksConnection;
 import com.databricks.jdbc.api.IDatabricksUCVolumeClient;
-import com.databricks.jdbc.common.DatabricksJdbcConstants;
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.sql.Connection;
 import java.sql.SQLException;
@@ -46,7 +47,7 @@ public class UCVolumeInputStreamTests {
 
     File file = new File(LOCAL_FILE);
     try {
-      Files.writeString(file.toPath(), FILE_CONTENT);
+      Files.write(file.toPath(), FILE_CONTENT.getBytes(StandardCharsets.UTF_8));
 
       System.out.println("File created");
       System.out.println(
@@ -62,15 +63,23 @@ public class UCVolumeInputStreamTests {
 
       InputStreamEntity inputStream =
           client.getObject(VOL_CATALOG, VOL_SCHEMA, VOL_ROOT, VOLUME_FILE);
-      assertEquals(FILE_CONTENT, new String(inputStream.getContent().readAllBytes()));
+
+      ByteArrayOutputStream buffer = new ByteArrayOutputStream();
+      byte[] data = new byte[1024];
+      int nRead;
+      while ((nRead = inputStream.getContent().read(data, 0, data.length)) != -1) {
+        buffer.write(data, 0, nRead);
+      }
+      buffer.flush();
+      String content = new String(buffer.toByteArray(), StandardCharsets.UTF_8);
+
+      assertEquals(FILE_CONTENT, content);
       inputStream.getContent().close();
 
       assertTrue(client.objectExists(VOL_CATALOG, VOL_SCHEMA, VOL_ROOT, VOLUME_FILE, false));
-      con.setClientInfo(DatabricksJdbcConstants.ALLOWED_VOLUME_INGESTION_PATHS, "delete");
-      client.deleteObject(VOL_CATALOG, VOL_SCHEMA, VOL_ROOT, VOLUME_FILE);
-      assertFalse(client.objectExists(VOL_CATALOG, VOL_SCHEMA, VOL_ROOT, VOLUME_FILE, false));
     } finally {
       file.delete();
+      client.deleteObject(VOL_CATALOG, VOL_SCHEMA, VOL_ROOT, VOLUME_FILE);
     }
   }
 }

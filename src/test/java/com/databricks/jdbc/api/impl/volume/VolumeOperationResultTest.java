@@ -1,5 +1,6 @@
 package com.databricks.jdbc.api.impl.volume;
 
+import static com.databricks.jdbc.api.impl.TestUtils.convertInputStreamToString;
 import static com.databricks.jdbc.common.DatabricksJdbcConstants.ALLOWED_VOLUME_INGESTION_PATHS;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.isA;
@@ -15,16 +16,11 @@ import com.databricks.jdbc.exception.DatabricksHttpException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.model.core.ResultManifest;
 import com.databricks.sdk.service.sql.ResultSchema;
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.File;
-import java.io.FileInputStream;
+import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
-import java.util.Map;
 import java.util.Collections;
 import java.util.HashMap;
-import org.apache.http.HttpEntity;
 import org.apache.http.StatusLine;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpDelete;
@@ -136,9 +132,13 @@ public class VolumeOperationResultTest {
     assertFalse(volumeOperationResult.next());
 
     assertNotNull(fakeResultSet.getVolumeOperationInputStream());
-    assertEquals(
-        "test",
-        new String(fakeResultSet.getVolumeOperationInputStream().getContent().readAllBytes()));
+    InputStream inputStream = fakeResultSet.getVolumeOperationInputStream().getContent();
+
+    // Convert the InputStream to a String using a helper method
+    String result = convertInputStreamToString(inputStream);
+
+    // Assert that the result is as expected
+    assertEquals("test", result);
   }
 
   @Test

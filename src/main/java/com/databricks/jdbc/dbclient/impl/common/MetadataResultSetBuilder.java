@@ -64,7 +64,7 @@ public class MetadataResultSetBuilder {
 
   public static DatabricksResultSet getTablesResult(ResultSet resultSet, String[] tableTypes)
       throws SQLException {
-    List<String> allowedTableTypes = List.of(tableTypes);
+    List<String> allowedTableTypes = Arrays.asList(tableTypes);
     List<List<Object>> rows =
         getRows(resultSet, TABLE_COLUMNS).stream()
             .filter(row -> allowedTableTypes.contains(row.get(3))) // Filtering based on table type

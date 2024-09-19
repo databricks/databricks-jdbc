@@ -4,9 +4,10 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.Collections;
+import java.util.HashSet;
 import java.util.Set;
 import java.util.logging.*;
-import java.util.stream.Stream;
 
 /**
  * The {@code JulLogger} class provides an implementation of the {@link JdbcLogger} interface using
@@ -33,7 +34,17 @@ public class JulLogger implements JdbcLogger {
 
   public static final String JAVA_UTIL_LOGGING_CONFIG_FILE = "java.util.logging.config.file";
 
-  private static final Set<String> logMethods = Set.of("debug", "error", "info", "trace", "warn");
+  private static final Set<String> logMethods;
+
+  static {
+    Set<String> tempSet = new HashSet<>();
+    tempSet.add("debug");
+    tempSet.add("error");
+    tempSet.add("info");
+    tempSet.add("trace");
+    tempSet.add("warn");
+    logMethods = Collections.unmodifiableSet(tempSet);
+  }
 
   protected Logger logger;
 
@@ -169,15 +180,16 @@ public class JulLogger implements JdbcLogger {
    * </ol>
    */
   protected static String[] getCaller() {
-    return Stream.of(Thread.currentThread().getStackTrace())
-        .dropWhile(stackTrace -> !logMethods.contains(stackTrace.getMethodName()))
-        .dropWhile(stackTrace -> logMethods.contains(stackTrace.getMethodName()))
-        .findFirst()
-        .map(stackTrace -> new String[] {stackTrace.getClassName(), stackTrace.getMethodName()})
-        .orElse(
-            new String[] {
-              "unknownClass", "unknownMethod"
-            }); // lost in the stack trace wonderland :)
+    StackTraceElement[] stackTrace = Thread.currentThread().getStackTrace();
+    boolean foundLoggingMethod = false;
+    for (StackTraceElement element : stackTrace) {
+      if (logMethods.contains(element.getMethodName())) {
+        foundLoggingMethod = true;
+      } else if (foundLoggingMethod) {
+        return new String[] {element.getClassName(), element.getMethodName()};
+      }
+    }
+    return new String[] {"unknownClass", "unknownMethod"}; // lost in the stack trace wonderland :)
   }
 
   /**

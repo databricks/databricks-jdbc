@@ -19,13 +19,13 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.math.BigInteger;
 import java.nio.file.Files;
-import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.security.*;
 import java.security.cert.CertificateException;
 import java.security.cert.TrustAnchor;
 import java.security.cert.X509Certificate;
+import java.util.Arrays;
 import java.util.Date;
-import java.util.List;
 import java.util.Properties;
 import java.util.Set;
 import org.apache.http.config.Registry;
@@ -131,12 +131,12 @@ public class ClientConfiguratorTest {
   @AfterAll
   static void cleanup() {
     try {
-      Files.delete(Path.of(EMPTY_TRUST_STORE_PATH));
+      Files.delete(Paths.get(EMPTY_TRUST_STORE_PATH));
     } catch (IOException e) {
       LOGGER.info("Failed to delete empty trust store file: " + e.getMessage());
     }
     try {
-      Files.delete(Path.of(DUMMY_TRUST_STORE_PATH));
+      Files.delete(Paths.get(DUMMY_TRUST_STORE_PATH));
     } catch (IOException e) {
       LOGGER.info("Failed to delete dummy trust store file: " + e.getMessage());
     }
@@ -226,7 +226,8 @@ public class ClientConfiguratorTest {
     when(mockContext.getHostForOAuth()).thenReturn("https://oauth-browser.databricks.com");
     when(mockContext.getClientId()).thenReturn("browser-client-id");
     when(mockContext.getClientSecret()).thenReturn("browser-client-secret");
-    when(mockContext.getOAuthScopesForU2M()).thenReturn(List.of(new String[] {"scope1", "scope2"}));
+    when(mockContext.getOAuthScopesForU2M())
+        .thenReturn(Arrays.asList(new String[] {"scope1", "scope2"}));
     configurator = new ClientConfigurator(mockContext);
     WorkspaceClient client = configurator.getWorkspaceClient();
     assertNotNull(client);
@@ -235,7 +236,7 @@ public class ClientConfiguratorTest {
     assertEquals("https://oauth-browser.databricks.com", config.getHost());
     assertEquals("browser-client-id", config.getClientId());
     assertEquals("browser-client-secret", config.getClientSecret());
-    assertEquals(List.of(new String[] {"scope1", "scope2"}), config.getScopes());
+    assertEquals(Arrays.asList(new String[] {"scope1", "scope2"}), config.getScopes());
     assertEquals(DatabricksJdbcConstants.U2M_AUTH_REDIRECT_URL, config.getOAuthRedirectUrl());
     assertEquals(DatabricksJdbcConstants.U2M_AUTH_TYPE, config.getAuthType());
   }

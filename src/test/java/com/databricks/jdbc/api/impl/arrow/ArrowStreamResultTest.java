@@ -24,7 +24,6 @@ import com.databricks.sdk.service.sql.BaseChunkInfo;
 import com.databricks.sdk.service.sql.ColumnInfo;
 import com.databricks.sdk.service.sql.ColumnInfoTypeName;
 import com.databricks.sdk.service.sql.ResultSchema;
-import com.google.common.collect.ImmutableList;
 import java.io.*;
 import java.time.Instant;
 import java.util.*;
@@ -171,7 +170,7 @@ public class ArrowStreamResultTest {
             .setSchema(
                 new ResultSchema()
                     .setColumns(
-                        ImmutableList.of(
+                        Arrays.asList(
                             new ColumnInfo().setTypeName(ColumnInfoTypeName.INT),
                             new ColumnInfo().setTypeName(ColumnInfoTypeName.DOUBLE)))
                     .setColumnCount(2L));
