@@ -9,16 +9,39 @@ import com.databricks.jdbc.auth.PrivateKeyClientCredentialProvider;
 import com.databricks.jdbc.common.DatabricksJdbcConstants;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
+import com.databricks.jdbc.log.JdbcLogger;
+import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.sdk.WorkspaceClient;
 import com.databricks.sdk.core.CredentialsProvider;
 import com.databricks.sdk.core.DatabricksConfig;
 import com.databricks.sdk.core.DatabricksException;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.math.BigInteger;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.security.*;
+import java.security.cert.CertificateException;
+import java.security.cert.TrustAnchor;
+import java.security.cert.X509Certificate;
+import java.util.Date;
 import java.util.List;
 import java.util.Properties;
+import java.util.Set;
 import org.apache.http.config.Registry;
 import org.apache.http.conn.socket.ConnectionSocketFactory;
 import org.apache.http.conn.socket.PlainConnectionSocketFactory;
 import org.apache.http.conn.ssl.SSLConnectionSocketFactory;
+import org.bouncycastle.asn1.x500.X500Name;
+import org.bouncycastle.cert.X509CertificateHolder;
+import org.bouncycastle.cert.jcajce.JcaX509CertificateConverter;
+import org.bouncycastle.cert.jcajce.JcaX509v3CertificateBuilder;
+import org.bouncycastle.jce.provider.BouncyCastleProvider;
+import org.bouncycastle.operator.ContentSigner;
+import org.bouncycastle.operator.jcajce.JcaContentSignerBuilder;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -26,9 +49,97 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
 public class ClientConfiguratorTest {
-
+  private static final JdbcLogger LOGGER =
+      JdbcLoggerFactory.getLogger(ClientConfiguratorTest.class);
   @Mock private IDatabricksConnectionContext mockContext;
   private ClientConfigurator configurator;
+  private static String baseTrustStorePath = "src/test/resources/";
+  private static String emptyTrustStorePath = baseTrustStorePath + "empty-truststore.jks";
+  private static String dummyTrustStorePath = baseTrustStorePath + "dummy-truststore.jks";
+
+  @BeforeAll
+  static void setup() throws Exception {
+    createEmptyTrustStore();
+    createDummyTrustStore();
+  }
+
+  public static void createEmptyTrustStore()
+      throws KeyStoreException,
+          CertificateException,
+          IOException,
+          NoSuchAlgorithmException { // Path to save the trust store
+    String password = "changeit"; // Password for the trust store
+    // Create an empty JKS keystore
+    KeyStore keyStore = KeyStore.getInstance("PKCS12");
+    keyStore.load(null, password.toCharArray());
+
+    // Save the empty keystore to a file
+    try (FileOutputStream fos = new FileOutputStream(emptyTrustStorePath)) {
+      keyStore.store(fos, password.toCharArray());
+    }
+  }
+
+  public static void createDummyTrustStore() throws Exception {
+    String trustStorePassword = "changeit"; // Password for the trust store
+    String alias = "dummy-cert"; // Alias for the dummy certificate
+
+    // Create an empty JKS keystore
+    KeyStore keyStore = KeyStore.getInstance("PKCS12");
+    keyStore.load(null, trustStorePassword.toCharArray());
+
+    // Generate a key pair (public and private keys)
+    KeyPairGenerator keyPairGen = KeyPairGenerator.getInstance("RSA");
+    keyPairGen.initialize(2048);
+    KeyPair keyPair = keyPairGen.generateKeyPair();
+
+    // Create a self-signed certificate
+    X509Certificate certificate = generateBarebonesCertificate(keyPair);
+
+    // Add the certificate to the keystore
+    keyStore.setCertificateEntry(alias, certificate);
+
+    // Save the keystore to a file
+    try (FileOutputStream fos = new FileOutputStream(dummyTrustStorePath)) {
+      keyStore.store(fos, trustStorePassword.toCharArray());
+    }
+  }
+
+  private static X509Certificate generateBarebonesCertificate(KeyPair keyPair) throws Exception {
+    // Certificate details
+    X500Name issuer = new X500Name("CN=MinimalCertificate");
+    BigInteger serialNumber = BigInteger.valueOf(System.currentTimeMillis());
+    Date startDate = new Date();
+    Date endDate = new Date(startDate.getTime() + (365L * 24 * 60 * 60 * 1000)); // 1 year validity
+
+    // Build the certificate
+    JcaX509v3CertificateBuilder certBuilder =
+        new JcaX509v3CertificateBuilder(
+            issuer, serialNumber, startDate, endDate, issuer, keyPair.getPublic());
+
+    // Sign the certificate
+    ContentSigner signer = new JcaContentSignerBuilder("SHA256withRSA").build(keyPair.getPrivate());
+    X509CertificateHolder certHolder = certBuilder.build(signer);
+
+    // Add BouncyCastle as a security provider
+    BouncyCastleProvider provider = new BouncyCastleProvider();
+    Security.addProvider(provider);
+    // Convert the certificate holder to X509Certificate
+    return new JcaX509CertificateConverter().setProvider(provider).getCertificate(certHolder);
+  }
+
+  @AfterAll
+  static void cleanup() {
+    try {
+      Files.delete(Path.of(emptyTrustStorePath));
+    } catch (IOException e) {
+      LOGGER.info("Failed to delete empty trust store file: " + e.getMessage());
+    }
+    try {
+      Files.delete(Path.of(dummyTrustStorePath));
+    } catch (IOException e) {
+      LOGGER.info("Failed to delete dummy trust store file: " + e.getMessage());
+    }
+  }
 
   @Test
   void getWorkspaceClient_PAT_AuthenticatesWithAccessToken() throws DatabricksParsingException {
@@ -161,20 +272,40 @@ public class ClientConfiguratorTest {
   void testGetConnectionSocketFactoryRegistry() {
     when(mockContext.getSSLTrustStorePassword()).thenReturn("changeit");
     when(mockContext.getSSLTrustStoreType()).thenReturn("PKCS12");
-    when(mockContext.getSSLTrustStore())
-        .thenReturn("src/test/resources/ssltruststore/empty-truststore.jks");
+    when(mockContext.getSSLTrustStore()).thenReturn(emptyTrustStorePath);
     assertThrows(
         DatabricksException.class,
         () -> ClientConfigurator.getConnectionSocketFactoryRegistry(mockContext),
         "the trustAnchors parameter must be non-empty");
 
-    when(mockContext.getSSLTrustStore())
-        .thenReturn("src/test/resources/ssltruststore/dummy-truststore.jks");
+    when(mockContext.getSSLTrustStore()).thenReturn(dummyTrustStorePath);
     Registry<ConnectionSocketFactory> registry =
         ClientConfigurator.getConnectionSocketFactoryRegistry(mockContext);
     assertInstanceOf(
         SSLConnectionSocketFactory.class, registry.lookup(DatabricksJdbcConstants.HTTPS));
     assertInstanceOf(
         PlainConnectionSocketFactory.class, registry.lookup(DatabricksJdbcConstants.HTTP));
+  }
+
+  @Test
+  void testGetTrustAnchorsFromTrustStore()
+      throws IOException, KeyStoreException, CertificateException, NoSuchAlgorithmException {
+    when(mockContext.getSSLTrustStorePassword()).thenReturn("changeit");
+    when(mockContext.getSSLTrustStoreType()).thenReturn("PKCS12");
+    when(mockContext.getSSLTrustStore()).thenReturn(dummyTrustStorePath);
+    KeyStore trustStore = null;
+    try (FileInputStream trustStoreStream = new FileInputStream(mockContext.getSSLTrustStore())) {
+      char[] password = null;
+      if (mockContext.getSSLTrustStorePassword() != null) {
+        password = mockContext.getSSLTrustStorePassword().toCharArray();
+      }
+      trustStore = KeyStore.getInstance(mockContext.getSSLTrustStoreType());
+      trustStore.load(trustStoreStream, password);
+    }
+    Set<TrustAnchor> trustAnchors = ClientConfigurator.getTrustAnchorsFromTrustStore(trustStore);
+    assertTrue(
+        trustAnchors.stream()
+            .anyMatch(
+                ta -> ta.getTrustedCert().getIssuerDN().toString().contains("MinimalCertificate")));
   }
 }

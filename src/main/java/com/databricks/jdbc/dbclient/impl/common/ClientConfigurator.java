@@ -16,7 +16,9 @@ import com.databricks.sdk.core.DatabricksException;
 import com.databricks.sdk.core.ProxyConfig;
 import com.databricks.sdk.core.commons.CommonsHttpClient;
 import java.io.FileInputStream;
+import java.security.InvalidAlgorithmParameterException;
 import java.security.KeyStore;
+import java.security.NoSuchAlgorithmException;
 import java.security.cert.*;
 import java.util.Arrays;
 import java.util.Set;
@@ -98,24 +100,11 @@ public class ClientConfigurator {
     // Build custom TrustManager based on above SSL trust store and certificate revocation settings
     // from context
     try {
-      PKIXBuilderParameters pkixBuilderParameters =
-          new PKIXBuilderParameters(trustAnchors, new X509CertSelector());
-      pkixBuilderParameters.setRevocationEnabled(connectionContext.checkCertificateRevocation());
-      CertPathValidator certPathValidator = CertPathValidator.getInstance("PKIX");
-      PKIXRevocationChecker revocationChecker =
-          (PKIXRevocationChecker) certPathValidator.getRevocationChecker();
-      if (connectionContext.acceptUndeterminedCertificateRevocation()) {
-        revocationChecker.setOptions(
-            Set.of(
-                PKIXRevocationChecker.Option.SOFT_FAIL,
-                PKIXRevocationChecker.Option.NO_FALLBACK,
-                PKIXRevocationChecker.Option.PREFER_CRLS));
-      }
-      if (connectionContext.checkCertificateRevocation()) {
-        pkixBuilderParameters.addCertPathChecker(revocationChecker);
-      }
       CertPathTrustManagerParameters trustManagerParameters =
-          new CertPathTrustManagerParameters(pkixBuilderParameters);
+          getTrustManagerParameters(
+              trustAnchors,
+              connectionContext.checkCertificateRevocation(),
+              connectionContext.acceptUndeterminedCertificateRevocation());
       TrustManagerFactory customTrustManagerFactory =
           TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
       customTrustManagerFactory.init(trustManagerParameters);
@@ -133,6 +122,30 @@ public class ClientConfigurator {
     }
   }
 
+  public static CertPathTrustManagerParameters getTrustManagerParameters(
+      Set<TrustAnchor> trustAnchors,
+      boolean checkCertificateRevocation,
+      boolean acceptUndeterminedCertificateRevocation)
+      throws InvalidAlgorithmParameterException, NoSuchAlgorithmException {
+    PKIXBuilderParameters pkixBuilderParameters =
+        new PKIXBuilderParameters(trustAnchors, new X509CertSelector());
+    pkixBuilderParameters.setRevocationEnabled(checkCertificateRevocation);
+    CertPathValidator certPathValidator = CertPathValidator.getInstance(DatabricksJdbcConstants.PKIX);
+    PKIXRevocationChecker revocationChecker =
+        (PKIXRevocationChecker) certPathValidator.getRevocationChecker();
+    if (acceptUndeterminedCertificateRevocation) {
+      revocationChecker.setOptions(
+          Set.of(
+              PKIXRevocationChecker.Option.SOFT_FAIL,
+              PKIXRevocationChecker.Option.NO_FALLBACK,
+              PKIXRevocationChecker.Option.PREFER_CRLS));
+    }
+    if (checkCertificateRevocation) {
+      pkixBuilderParameters.addCertPathChecker(revocationChecker);
+    }
+    return new CertPathTrustManagerParameters(pkixBuilderParameters);
+  }
+
   public static Set<TrustAnchor> getTrustAnchorsFromTrustStore(KeyStore trustStore) {
     try {
       TrustManagerFactory trustManagerFactory =
@@ -144,7 +157,9 @@ public class ClientConfigurator {
           .map(cert -> new TrustAnchor(cert, null))
           .collect(Collectors.toSet());
     } catch (Exception e) {
-      throw new DatabricksException("Error while getting trust anchors from trust store", e);
+      String errorMessage = "Error while getting trust anchors from trust store";
+      LOGGER.error(errorMessage, e);
+      throw new DatabricksException(errorMessage, e);
     }
   }
 

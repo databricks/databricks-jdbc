@@ -23,6 +23,7 @@ public final class DatabricksJdbcConstants {
   public static final String DEFAULT_SCHEMA = "default";
   public static final String PAIR_DELIMITER = "=";
   public static final String SCHEMA_DELIMITER = "://";
+  public static final String PKIX = "PKIX";
   public static final String TLS = "TLS";
   public static final String HTTP = "http";
   public static final String HTTPS = "https";
