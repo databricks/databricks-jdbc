@@ -6,7 +6,6 @@ import static com.databricks.jdbc.dbclient.impl.sqlexec.ResultConstants.TYPE_INF
 import com.databricks.jdbc.api.IDatabricksSession;
 import com.databricks.jdbc.api.impl.DatabricksResultSet;
 import com.databricks.jdbc.common.StatementType;
-import com.databricks.jdbc.dbclient.IDatabricksClient;
 import com.databricks.jdbc.dbclient.IDatabricksMetadataClient;
 import com.databricks.jdbc.dbclient.impl.common.MetadataResultSetBuilder;
 import com.databricks.jdbc.log.JdbcLogger;
@@ -38,8 +37,7 @@ public class DatabricksMetadataSdkClient implements IDatabricksMetadataClient {
     CommandBuilder commandBuilder = new CommandBuilder(session);
     String SQL = commandBuilder.getSQLString(CommandName.LIST_CATALOGS);
     LOGGER.debug(String.format("SQL command to fetch catalogs: {%s}", SQL));
-    return MetadataResultSetBuilder.getCatalogsResult(
-        getResultSet(SQL, session, StatementType.METADATA));
+    return MetadataResultSetBuilder.getCatalogsResult(getResultSet(SQL, session));
   }
 
   @Override
@@ -49,8 +47,7 @@ public class DatabricksMetadataSdkClient implements IDatabricksMetadataClient {
         new CommandBuilder(catalog, session).setSchemaPattern(schemaNamePattern);
     String SQL = commandBuilder.getSQLString(CommandName.LIST_SCHEMAS);
     LOGGER.debug(String.format("SQL command to fetch schemas: {%s}", SQL));
-    return MetadataResultSetBuilder.getSchemasResult(
-        getResultSet(SQL, session, StatementType.METADATA), catalog);
+    return MetadataResultSetBuilder.getSchemasResult(getResultSet(SQL, session), catalog);
   }
 
   @Override
@@ -61,7 +58,7 @@ public class DatabricksMetadataSdkClient implements IDatabricksMetadataClient {
       String tableNamePattern,
       String[] tableTypes)
       throws SQLException {
-    tableTypes =
+    String[] validatedTableTypes =
         Optional.ofNullable(tableTypes)
             .filter(types -> types.length > 0)
             .orElse(DEFAULT_TABLE_TYPES);
@@ -70,8 +67,9 @@ public class DatabricksMetadataSdkClient implements IDatabricksMetadataClient {
             .setSchemaPattern(schemaNamePattern)
             .setTablePattern(tableNamePattern);
     String SQL = commandBuilder.getSQLString(CommandName.LIST_TABLES);
+    LOGGER.debug(String.format("SQL command to fetch tables: {%s}", SQL));
     return MetadataResultSetBuilder.getTablesResult(
-        getResultSet(SQL, session, StatementType.METADATA), tableTypes);
+            getResultSet(SQL, session), validatedTableTypes);
   }
 
   @Override
@@ -94,8 +92,8 @@ public class DatabricksMetadataSdkClient implements IDatabricksMetadataClient {
             .setTablePattern(tableNamePattern)
             .setColumnPattern(columnNamePattern);
     String SQL = commandBuilder.getSQLString(CommandName.LIST_COLUMNS);
-    return MetadataResultSetBuilder.getColumnsResult(
-        getResultSet(SQL, session, StatementType.QUERY));
+    LOGGER.debug(String.format("SQL command to fetch columns: {%s}", SQL));
+    return MetadataResultSetBuilder.getColumnsResult(getResultSet(SQL, session));
   }
 
   @Override
@@ -111,8 +109,7 @@ public class DatabricksMetadataSdkClient implements IDatabricksMetadataClient {
             .setFunctionPattern(functionNamePattern);
     String SQL = commandBuilder.getSQLString(CommandName.LIST_FUNCTIONS);
     LOGGER.debug(String.format("SQL command to fetch functions: {%s}", SQL));
-    return MetadataResultSetBuilder.getFunctionsResult(
-        getResultSet(SQL, session, StatementType.QUERY), catalog);
+    return MetadataResultSetBuilder.getFunctionsResult(getResultSet(SQL, session), catalog);
   }
 
   @Override
@@ -122,17 +119,15 @@ public class DatabricksMetadataSdkClient implements IDatabricksMetadataClient {
         new CommandBuilder(catalog, session).setSchema(schema).setTable(table);
     String SQL = commandBuilder.getSQLString(CommandName.LIST_PRIMARY_KEYS);
     LOGGER.debug(String.format("SQL command to fetch primary keys: {%s}", SQL));
-    return MetadataResultSetBuilder.getPrimaryKeysResult(
-        getResultSet(SQL, session, StatementType.METADATA));
+    return MetadataResultSetBuilder.getPrimaryKeysResult(getResultSet(SQL, session));
   }
 
-  private ResultSet getResultSet(
-      String SQL, IDatabricksSession session, StatementType statementType) throws SQLException {
+  private ResultSet getResultSet(String SQL, IDatabricksSession session) throws SQLException {
     return sdkClient.executeStatement(
         SQL,
         session.getComputeResource(),
         new HashMap<>(),
-        statementType,
+        StatementType.METADATA,
         session,
         null /* parentStatement */);
   }

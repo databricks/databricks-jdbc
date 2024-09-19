@@ -124,7 +124,7 @@ public class DatabricksSdkClientTest {
 
   @Test
   public void testDeleteSession() throws DatabricksSQLException {
-    String path = String.format(DELETE_SESSION_PATH_WITH_ID, SESSION_ID);
+    String path = String.format(SESSION_PATH_WITH_ID, SESSION_ID);
     IDatabricksConnectionContext connectionContext =
         DatabricksConnectionContext.parse(JDBC_URL, new Properties());
     DatabricksSdkClient databricksSdkClient =
