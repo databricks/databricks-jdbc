@@ -4,10 +4,12 @@ import com.databricks.jdbc.api.IDatabricksConnection;
 import com.databricks.jdbc.api.IDatabricksUCVolumeClient;
 import com.databricks.jdbc.api.impl.arrow.ArrowResultChunk;
 import com.databricks.jdbc.common.DatabricksJdbcConstants;
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.math.BigDecimal;
 import java.math.BigInteger;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.sql.*;
 import java.time.LocalDate;
@@ -67,7 +69,7 @@ public class DriverTest {
     String jdbcUrl =
         "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/58aa1b363649e722";
 
-    Connection con = DriverManager.getConnection(jdbcUrl, "token", "x");
+    Connection con = DriverManager.getConnection(jdbcUrl, "token", "xx");
     System.out.println("Connection established with jdbc driver......");
     Statement statement = con.createStatement();
     statement.setMaxRows(10000);
@@ -248,7 +250,8 @@ public class DriverTest {
   @Test
   void testUCVolumeUsingInputStream() throws Exception {
     DriverManager.registerDriver(new Driver());
-    DriverManager.drivers().forEach(driver -> System.out.println(driver.getClass()));
+    Collections.list(DriverManager.getDrivers())
+        .forEach(driver -> System.out.println(driver.getClass()));
     System.out.println("Starting test");
     // Getting the connection
     String jdbcUrl =
@@ -260,7 +263,7 @@ public class DriverTest {
 
     File file = new File("/tmp/put.txt");
     try {
-      Files.writeString(file.toPath(), "test-put");
+      Files.write(file.toPath(), "test-put".getBytes(StandardCharsets.UTF_8));
 
       System.out.println("File created");
 
@@ -277,7 +280,14 @@ public class DriverTest {
 
       InputStreamEntity inputStream =
           client.getObject("samikshya_hackathon", "default", "gopal-psl", "test-stream.csv");
-      System.out.println("Got data " + new String(inputStream.getContent().readAllBytes()));
+      ByteArrayOutputStream buffer = new ByteArrayOutputStream();
+      byte[] data = new byte[1024];
+      int nRead;
+      while ((nRead = inputStream.getContent().read(data, 0, data.length)) != -1) {
+        buffer.write(data, 0, nRead);
+      }
+      buffer.flush();
+      System.out.println("Got data " + new String(buffer.toByteArray(), StandardCharsets.UTF_8));
       inputStream.getContent().close();
 
       System.out.println(
