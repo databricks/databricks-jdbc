@@ -290,20 +290,11 @@ public class ClientConfiguratorTest {
   }
 
   @Test
-  void testGetTrustAnchorsFromTrustStore()
-      throws IOException, KeyStoreException, CertificateException, NoSuchAlgorithmException {
+  void testGetTrustAnchorsFromTrustStore() {
     when(mockContext.getSSLTrustStorePassword()).thenReturn(TRUST_STORE_PASSWORD);
     when(mockContext.getSSLTrustStoreType()).thenReturn(TRUST_STORE_TYPE);
     when(mockContext.getSSLTrustStore()).thenReturn(DUMMY_TRUST_STORE_PATH);
-    KeyStore trustStore = null;
-    try (FileInputStream trustStoreStream = new FileInputStream(mockContext.getSSLTrustStore())) {
-      char[] password = null;
-      if (mockContext.getSSLTrustStorePassword() != null) {
-        password = mockContext.getSSLTrustStorePassword().toCharArray();
-      }
-      trustStore = KeyStore.getInstance(mockContext.getSSLTrustStoreType());
-      trustStore.load(trustStoreStream, password);
-    }
+    KeyStore trustStore = ClientConfigurator.loadTruststoreOrNull(mockContext);
     Set<TrustAnchor> trustAnchors = ClientConfigurator.getTrustAnchorsFromTrustStore(trustStore);
     assertTrue(
         trustAnchors.stream()
