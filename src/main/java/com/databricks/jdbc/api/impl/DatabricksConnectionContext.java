@@ -4,10 +4,11 @@ import static com.databricks.jdbc.common.DatabricksJdbcConstants.*;
 
 import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.common.*;
-import com.databricks.jdbc.common.util.LoggingUtil;
 import com.databricks.jdbc.common.util.ValidationUtil;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
+import com.databricks.jdbc.log.JdbcLogger;
+import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.telemetry.DatabricksMetrics;
 import com.databricks.sdk.core.ProxyConfig;
 import com.google.common.annotations.VisibleForTesting;
@@ -17,7 +18,10 @@ import java.util.regex.Matcher;
 import java.util.stream.Collectors;
 import org.apache.http.client.utils.URIBuilder;
 
-class DatabricksConnectionContext implements IDatabricksConnectionContext {
+public class DatabricksConnectionContext implements IDatabricksConnectionContext {
+
+  public static final JdbcLogger LOGGER =
+      JdbcLoggerFactory.getLogger(DatabricksConnectionContext.class);
   private final String host;
   @VisibleForTesting final int port;
   private final String schema;
@@ -124,7 +128,7 @@ class DatabricksConnectionContext implements IDatabricksConnectionContext {
 
   @Override
   public String getHostUrl() throws DatabricksParsingException {
-    LoggingUtil.log(LogLevel.DEBUG, "public String getHostUrl()");
+    LOGGER.debug("public String getHostUrl()");
     // Determine the schema based on the transport mode
     String schema =
         (getSSLMode() != null && getSSLMode().equals("0"))
@@ -144,7 +148,7 @@ class DatabricksConnectionContext implements IDatabricksConnectionContext {
       // Build the URI and convert to string
       return uriBuilder.build().toString();
     } catch (Exception e) {
-      LoggingUtil.log(LogLevel.DEBUG, "URI Building failed with exception: " + e.getMessage());
+      LOGGER.debug("URI Building failed with exception: " + e.getMessage());
       throw new DatabricksParsingException("URI Building failed with exception: " + e.getMessage());
     }
   }
@@ -155,7 +159,7 @@ class DatabricksConnectionContext implements IDatabricksConnectionContext {
   }
 
   public String getHttpPath() {
-    LoggingUtil.log(LogLevel.DEBUG, "String getHttpPath()");
+    LOGGER.debug("String getHttpPath()");
     return getParameter(DatabricksJdbcUrlParams.HTTP_PATH);
   }
 
@@ -168,6 +172,11 @@ class DatabricksConnectionContext implements IDatabricksConnectionContext {
   public String getToken() {
     return getParameter(
         DatabricksJdbcUrlParams.PWD, getParameter(DatabricksJdbcUrlParams.PASSWORD));
+  }
+
+  @Override
+  public String getPassThroughAccessToken() {
+    return getParameter(DatabricksJdbcUrlParams.AUTH_ACCESS_TOKEN);
   }
 
   @Override
@@ -238,23 +247,20 @@ class DatabricksConnectionContext implements IDatabricksConnectionContext {
   public LogLevel getLogLevel() {
     String logLevel = getParameter(DatabricksJdbcUrlParams.LOG_LEVEL);
     if (nullOrEmptyString(logLevel)) {
-      LoggingUtil.log(
-          LogLevel.DEBUG,
-          "Using default log level " + DEFAULT_LOG_LEVEL + " as none was provided.");
+      LOGGER.debug("Using default log level " + DEFAULT_LOG_LEVEL + " as none was provided.");
       return DEFAULT_LOG_LEVEL;
     }
     try {
       return getLogLevel(Integer.parseInt(logLevel));
     } catch (NumberFormatException e) {
-      LoggingUtil.log(LogLevel.DEBUG, "Input log level is not an integer, parsing string.");
+      LOGGER.debug("Input log level is not an integer, parsing string.");
       logLevel = logLevel.toUpperCase();
     }
 
     try {
       return LogLevel.valueOf(logLevel);
     } catch (Exception e) {
-      LoggingUtil.log(
-          LogLevel.DEBUG,
+      LOGGER.debug(
           "Using default log level " + DEFAULT_LOG_LEVEL + " as invalid level was provided.");
       return DEFAULT_LOG_LEVEL;
     }
@@ -456,8 +462,7 @@ class DatabricksConnectionContext implements IDatabricksConnectionContext {
       case 6:
         return LogLevel.TRACE;
       default:
-        LoggingUtil.log(
-            LogLevel.INFO,
+        LOGGER.info(
             "Using default log level " + DEFAULT_LOG_LEVEL + " as invalid level was provided.");
         return DEFAULT_LOG_LEVEL;
     }
@@ -576,6 +581,11 @@ class DatabricksConnectionContext implements IDatabricksConnectionContext {
   @Override
   public String getOAuthRefreshToken() {
     return getParameter(DatabricksJdbcUrlParams.OAUTH_REFRESH_TOKEN);
+  }
+
+  @Override
+  public String getNonProxyHosts() {
+    return getParameter(DatabricksJdbcUrlParams.NON_PROXY_HOSTS);
   }
 
   @Override

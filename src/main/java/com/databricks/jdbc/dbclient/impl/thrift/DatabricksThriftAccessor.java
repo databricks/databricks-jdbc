@@ -8,16 +8,15 @@ import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.api.IDatabricksSession;
 import com.databricks.jdbc.api.IDatabricksStatement;
 import com.databricks.jdbc.api.impl.*;
-import com.databricks.jdbc.common.CommandName;
-import com.databricks.jdbc.common.LogLevel;
 import com.databricks.jdbc.common.StatementType;
-import com.databricks.jdbc.common.util.LoggingUtil;
 import com.databricks.jdbc.dbclient.impl.common.ClientConfigurator;
 import com.databricks.jdbc.dbclient.impl.http.DatabricksHttpClient;
 import com.databricks.jdbc.exception.DatabricksHttpException;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.exception.DatabricksSQLFeatureNotSupportedException;
+import com.databricks.jdbc.log.JdbcLogger;
+import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.model.client.thrift.generated.*;
 import com.databricks.sdk.core.DatabricksConfig;
 import com.google.common.annotations.VisibleForTesting;
@@ -29,14 +28,17 @@ import org.apache.thrift.TBase;
 import org.apache.thrift.TException;
 import org.apache.thrift.protocol.TBinaryProtocol;
 
-public class DatabricksThriftAccessor {
+final class DatabricksThriftAccessor {
+
+  private static final JdbcLogger LOGGER =
+      JdbcLoggerFactory.getLogger(DatabricksThriftAccessor.class);
   private final DatabricksConfig databricksConfig;
   private final ThreadLocal<TCLIService.Client> thriftClient;
   private final Boolean enableDirectResults;
   private static final TSparkGetDirectResults DEFAULT_DIRECT_RESULTS =
       new TSparkGetDirectResults().setMaxRows(DEFAULT_ROW_LIMIT).setMaxBytes(DEFAULT_BYTE_LIMIT);
 
-  public DatabricksThriftAccessor(IDatabricksConnectionContext connectionContext)
+  DatabricksThriftAccessor(IDatabricksConnectionContext connectionContext)
       throws DatabricksParsingException {
     enableDirectResults = connectionContext.getDirectResultMode();
     this.databricksConfig = new ClientConfigurator(connectionContext).getDatabricksConfig();
@@ -66,48 +68,42 @@ public class DatabricksThriftAccessor {
     this.enableDirectResults = connectionContext.getDirectResultMode();
   }
 
-  public TBase getThriftResponse(
-      TBase request, CommandName commandName, IDatabricksStatement parentStatement)
+  TBase getThriftResponse(TBase request, IDatabricksStatement parentStatement)
       throws DatabricksSQLException {
     // TODO: Test out metadata operations.
     // TODO: Handle compression.
     refreshHeadersIfRequired();
     DatabricksHttpTTransport transport =
         (DatabricksHttpTTransport) getThriftClient().getInputProtocol().getTransport();
-    LoggingUtil.log(
-        LogLevel.DEBUG,
-        String.format(
-            "Fetching thrift response for request {%s}, CommandName {%s}",
-            request.toString(), commandName.name()));
+    LOGGER.debug(String.format("Fetching thrift response for request {%s}", request.toString()));
     try {
-      switch (commandName) {
-        case OPEN_SESSION:
-          return getThriftClient().OpenSession((TOpenSessionReq) request);
-        case CLOSE_SESSION:
-          return getThriftClient().CloseSession((TCloseSessionReq) request);
-        case LIST_PRIMARY_KEYS:
-          return listPrimaryKeys((TGetPrimaryKeysReq) request);
-        case LIST_FUNCTIONS:
-          return listFunctions((TGetFunctionsReq) request);
-        case LIST_SCHEMAS:
-          return listSchemas((TGetSchemasReq) request);
-        case LIST_COLUMNS:
-          return listColumns((TGetColumnsReq) request);
-        case LIST_CATALOGS:
-          return getCatalogs((TGetCatalogsReq) request);
-        case LIST_TABLES:
-          return getTables((TGetTablesReq) request);
-        case LIST_TABLE_TYPES:
-          return getTableTypes((TGetTableTypesReq) request);
-        case LIST_TYPE_INFO:
-          return getTypeInfo((TGetTypeInfoReq) request);
-        default:
-          String errorMessage =
-              String.format(
-                  "No implementation for fetching thrift response for CommandName {%s}.  Request {%s}",
-                  commandName, request.toString());
-          LoggingUtil.log(LogLevel.ERROR, errorMessage);
-          throw new DatabricksSQLFeatureNotSupportedException(errorMessage);
+      if (request instanceof TOpenSessionReq) {
+        return getThriftClient().OpenSession((TOpenSessionReq) request);
+      } else if (request instanceof TCloseSessionReq) {
+        return getThriftClient().CloseSession((TCloseSessionReq) request);
+      } else if (request instanceof TGetPrimaryKeysReq) {
+        return listPrimaryKeys((TGetPrimaryKeysReq) request);
+      } else if (request instanceof TGetFunctionsReq) {
+        return listFunctions((TGetFunctionsReq) request);
+      } else if (request instanceof TGetSchemasReq) {
+        return listSchemas((TGetSchemasReq) request);
+      } else if (request instanceof TGetColumnsReq) {
+        return listColumns((TGetColumnsReq) request);
+      } else if (request instanceof TGetCatalogsReq) {
+        return getCatalogs((TGetCatalogsReq) request);
+      } else if (request instanceof TGetTablesReq) {
+        return getTables((TGetTablesReq) request);
+      } else if (request instanceof TGetTableTypesReq) {
+        return getTableTypes((TGetTableTypesReq) request);
+      } else if (request instanceof TGetTypeInfoReq) {
+        return getTypeInfo((TGetTypeInfoReq) request);
+      } else {
+        String errorMessage =
+            String.format(
+                "No implementation for fetching thrift response for Request {%s}",
+                request.toString());
+        LOGGER.error(errorMessage);
+        throw new DatabricksSQLFeatureNotSupportedException(errorMessage);
       }
     } catch (TException | SQLException e) {
       Throwable cause = e;
@@ -121,7 +117,7 @@ public class DatabricksThriftAccessor {
           String.format(
               "Error while receiving response from Thrift server. Request {%s}, Error {%s}",
               request.toString(), e.toString());
-      LoggingUtil.log(LogLevel.ERROR, errorMessage);
+      LOGGER.error(errorMessage);
       throw new DatabricksSQLException(errorMessage, e);
     } finally {
       // Ensure resources are closed after use
@@ -129,7 +125,7 @@ public class DatabricksThriftAccessor {
     }
   }
 
-  public TFetchResultsResp getResultSetResp(TOperationHandle operationHandle, String context)
+  TFetchResultsResp getResultSetResp(TOperationHandle operationHandle, String context)
       throws DatabricksHttpException {
     refreshHeadersIfRequired();
     return getResultSetResp(SUCCESS_STATUS, operationHandle, context, DEFAULT_ROW_LIMIT, false);
@@ -163,7 +159,7 @@ public class DatabricksThriftAccessor {
           String.format(
               "Error while fetching results from Thrift server. Request {%s}, Error {%s}",
               request.toString(), e.toString());
-      LoggingUtil.log(LogLevel.ERROR, errorMessage);
+      LOGGER.error(errorMessage);
       throw new DatabricksHttpException(errorMessage, e);
     } finally {
       transport.close();
@@ -201,7 +197,7 @@ public class DatabricksThriftAccessor {
     }
   }
 
-  public DatabricksResultSet execute(
+  DatabricksResultSet execute(
       TExecuteStatementReq request,
       IDatabricksStatement parentStatement,
       IDatabricksSession session,
@@ -253,7 +249,7 @@ public class DatabricksThriftAccessor {
           String.format(
               "Error while receiving response from Thrift server. Request {%s}, Error {%s}",
               request.toString(), e.toString());
-      LoggingUtil.log(LogLevel.ERROR, errorMessage);
+      LOGGER.error(errorMessage);
       throw new DatabricksHttpException(errorMessage, e);
     } finally {
       transport.close();
@@ -266,6 +262,10 @@ public class DatabricksThriftAccessor {
         statementType,
         parentStatement,
         session);
+  }
+
+  void resetAccessToken(String newAccessToken) {
+    this.databricksConfig.setToken(newAccessToken);
   }
 
   private TFetchResultsResp listFunctions(TGetFunctionsReq request)

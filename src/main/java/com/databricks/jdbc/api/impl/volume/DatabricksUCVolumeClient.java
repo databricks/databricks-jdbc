@@ -6,8 +6,8 @@ import static com.databricks.jdbc.common.DatabricksJdbcConstants.VOLUME_OPERATIO
 import com.databricks.jdbc.api.IDatabricksResultSet;
 import com.databricks.jdbc.api.IDatabricksStatement;
 import com.databricks.jdbc.api.IDatabricksUCVolumeClient;
-import com.databricks.jdbc.common.LogLevel;
-import com.databricks.jdbc.common.util.LoggingUtil;
+import com.databricks.jdbc.log.JdbcLogger;
+import com.databricks.jdbc.log.JdbcLoggerFactory;
 import java.io.InputStream;
 import java.sql.*;
 import java.util.ArrayList;
@@ -17,6 +17,8 @@ import org.apache.http.entity.InputStreamEntity;
 /** Implementation for DatabricksUCVolumeClient */
 public class DatabricksUCVolumeClient implements IDatabricksUCVolumeClient {
 
+  public static final JdbcLogger LOGGER =
+      JdbcLoggerFactory.getLogger(DatabricksUCVolumeClient.class);
   private final Connection connection;
 
   private static final String UC_VOLUME_COLUMN_NAME =
@@ -83,8 +85,7 @@ public class DatabricksUCVolumeClient implements IDatabricksUCVolumeClient {
       String catalog, String schema, String volume, String prefix, boolean caseSensitive)
       throws SQLException {
 
-    LoggingUtil.log(
-        LogLevel.DEBUG,
+    LOGGER.debug(
         String.format(
             "Entering prefixExists method with parameters: catalog={%s}, schema={%s}, volume={%s}, prefix={%s}, caseSensitive={%s}",
             catalog, schema, volume, prefix, caseSensitive));
@@ -102,8 +103,7 @@ public class DatabricksUCVolumeClient implements IDatabricksUCVolumeClient {
 
     try (Statement statement = connection.createStatement()) {
       try (ResultSet resultSet = statement.executeQuery(listFilesSQLQuery)) {
-        LoggingUtil.log(LogLevel.INFO, "SQL query executed successfully");
-
+        LOGGER.info("SQL query executed successfully");
         boolean exists = false;
         while (resultSet.next()) {
           String fileName = resultSet.getString("name");
@@ -120,7 +120,7 @@ public class DatabricksUCVolumeClient implements IDatabricksUCVolumeClient {
         return exists;
       }
     } catch (SQLException e) {
-      LoggingUtil.log(LogLevel.ERROR, "SQL query execution failed " + e);
+      LOGGER.error("SQL query execution failed " + e);
       throw e;
     }
   }
@@ -130,8 +130,7 @@ public class DatabricksUCVolumeClient implements IDatabricksUCVolumeClient {
       String catalog, String schema, String volume, String objectPath, boolean caseSensitive)
       throws SQLException {
 
-    LoggingUtil.log(
-        LogLevel.INFO,
+    LOGGER.info(
         String.format(
             "Entering objectExists method with parameters: catalog={%s}, schema={%s}, volume={%s}, objectPath={%s}, caseSensitive={%s}",
             catalog, schema, volume, objectPath, caseSensitive));
@@ -153,8 +152,7 @@ public class DatabricksUCVolumeClient implements IDatabricksUCVolumeClient {
 
     try (Statement statement = connection.createStatement()) {
       try (ResultSet resultSet = statement.executeQuery(listFilesSQLQuery)) {
-        LoggingUtil.log(LogLevel.INFO, "SQL query executed successfully");
-
+        LOGGER.info("SQL query executed successfully");
         boolean exists = false;
         while (resultSet.next()) {
           String fileName = resultSet.getString(UC_VOLUME_COLUMN_NAME);
@@ -172,7 +170,7 @@ public class DatabricksUCVolumeClient implements IDatabricksUCVolumeClient {
       }
 
     } catch (SQLException e) {
-      LoggingUtil.log(LogLevel.ERROR, "SQL query execution failed " + e);
+      LOGGER.error("SQL query execution failed " + e);
       throw e;
     }
   }
@@ -186,8 +184,7 @@ public class DatabricksUCVolumeClient implements IDatabricksUCVolumeClient {
   public boolean volumeExists(
       String catalog, String schema, String volumeName, boolean caseSensitive) throws SQLException {
 
-    LoggingUtil.log(
-        LogLevel.INFO,
+    LOGGER.info(
         String.format(
             "Entering volumeExists method with parameters: catalog={%s}, schema={%s}, volumeName={%s}, caseSensitive={%s}",
             catalog, schema, volumeName, caseSensitive));
@@ -196,8 +193,7 @@ public class DatabricksUCVolumeClient implements IDatabricksUCVolumeClient {
 
     try (Statement statement = connection.createStatement()) {
       try (ResultSet resultSet = statement.executeQuery(showVolumesSQLQuery)) {
-        LoggingUtil.log(LogLevel.INFO, "SQL query executed successfully");
-
+        LOGGER.info("SQL query executed successfully");
         boolean exists = false;
         while (resultSet.next()) {
           String volume = resultSet.getString(UC_VOLUME_NAME);
@@ -214,7 +210,7 @@ public class DatabricksUCVolumeClient implements IDatabricksUCVolumeClient {
         return exists;
       }
     } catch (SQLException e) {
-      LoggingUtil.log(LogLevel.ERROR, "SQL query execution failed " + e);
+      LOGGER.error("SQL query execution failed " + e);
       throw e;
     }
   }
@@ -229,8 +225,7 @@ public class DatabricksUCVolumeClient implements IDatabricksUCVolumeClient {
       String catalog, String schema, String volume, String prefix, boolean caseSensitive)
       throws SQLException {
 
-    LoggingUtil.log(
-        LogLevel.INFO,
+    LOGGER.info(
         String.format(
             "Entering listObjects method with parameters: catalog={%s}, schema={%s}, volume={%s}, prefix={%s}, caseSensitive={%s}",
             catalog, schema, volume, prefix, caseSensitive));
@@ -248,8 +243,7 @@ public class DatabricksUCVolumeClient implements IDatabricksUCVolumeClient {
 
     try (Statement statement = connection.createStatement()) {
       try (ResultSet resultSet = statement.executeQuery(listFilesSQLQuery)) {
-        LoggingUtil.log(LogLevel.INFO, "SQL query executed successfully");
-
+        LOGGER.info("SQL query executed successfully");
         List<String> filenames = new ArrayList<>();
         while (resultSet.next()) {
           String fileName = resultSet.getString("name");
@@ -265,7 +259,7 @@ public class DatabricksUCVolumeClient implements IDatabricksUCVolumeClient {
         return filenames;
       }
     } catch (SQLException e) {
-      LoggingUtil.log(LogLevel.ERROR, "SQL query execution failed" + e);
+      LOGGER.error("SQL query execution failed" + e);
       throw e;
     }
   }
@@ -278,8 +272,7 @@ public class DatabricksUCVolumeClient implements IDatabricksUCVolumeClient {
   public boolean getObject(
       String catalog, String schema, String volume, String objectPath, String localPath)
       throws SQLException {
-    LoggingUtil.log(
-        LogLevel.DEBUG,
+    LOGGER.debug(
         String.format(
             "Entering getObject method with parameters: catalog={%s}, schema={%s}, volume={%s}, objectPath={%s}, localPath={%s}",
             catalog, schema, volume, objectPath, localPath));
@@ -290,8 +283,7 @@ public class DatabricksUCVolumeClient implements IDatabricksUCVolumeClient {
 
     try (Statement statement = connection.createStatement()) {
       try (ResultSet resultSet = statement.executeQuery(getObjectQuery)) {
-        LoggingUtil.log(LogLevel.INFO, "GET query executed successfully");
-
+        LOGGER.info("GET query executed successfully");
         if (resultSet.next()) {
           String volumeOperationStatusString =
               resultSet.getString(VOLUME_OPERATION_STATUS_COLUMN_NAME);
@@ -300,7 +292,7 @@ public class DatabricksUCVolumeClient implements IDatabricksUCVolumeClient {
         }
       }
     } catch (SQLException e) {
-      LoggingUtil.log(LogLevel.ERROR, "GET query execution failed " + e);
+      LOGGER.error("GET query execution failed " + e);
       throw e;
     }
 
@@ -311,8 +303,7 @@ public class DatabricksUCVolumeClient implements IDatabricksUCVolumeClient {
   public InputStreamEntity getObject(
       String catalog, String schema, String volume, String objectPath) throws SQLException {
 
-    LoggingUtil.log(
-        LogLevel.DEBUG,
+    LOGGER.debug(
         String.format(
             "Entering getObject method with parameters: catalog={%s}, schema={%s}, volume={%s}, objectPath={%s}",
             catalog, schema, volume, objectPath));
@@ -324,15 +315,14 @@ public class DatabricksUCVolumeClient implements IDatabricksUCVolumeClient {
       databricksStatement.allowInputStreamForVolumeOperation(true);
 
       try (ResultSet resultSet = statement.executeQuery(getObjectQuery)) {
-        LoggingUtil.log(LogLevel.INFO, "GET query executed successfully");
-
+        LOGGER.info("GET query executed successfully");
         if (resultSet.next()) {
           return ((IDatabricksResultSet) resultSet).getVolumeOperationInputStream();
         } else {
           return null;
         }
       } catch (SQLException e) {
-        LoggingUtil.log(LogLevel.ERROR, "GET query execution failed " + e);
+        LOGGER.error("GET query execution failed " + e);
         throw e;
       }
     }
@@ -347,8 +337,7 @@ public class DatabricksUCVolumeClient implements IDatabricksUCVolumeClient {
       boolean toOverwrite)
       throws SQLException {
 
-    LoggingUtil.log(
-        LogLevel.DEBUG,
+    LOGGER.debug(
         String.format(
             "Entering putObject method with parameters: catalog={%s}, schema={%s}, volume={%s}, objectPath={%s}, localPath={%s}, toOverwrite={%s}",
             catalog, schema, volume, objectPath, localPath, toOverwrite));
@@ -360,8 +349,7 @@ public class DatabricksUCVolumeClient implements IDatabricksUCVolumeClient {
 
     try (Statement statement = connection.createStatement()) {
       try (ResultSet resultSet = statement.executeQuery(putObjectQuery)) {
-        LoggingUtil.log(LogLevel.INFO, "PUT query executed successfully");
-
+        LOGGER.info("PUT query executed successfully");
         if (resultSet.next()) {
           String volumeOperationStatusString =
               resultSet.getString(VOLUME_OPERATION_STATUS_COLUMN_NAME);
@@ -370,7 +358,7 @@ public class DatabricksUCVolumeClient implements IDatabricksUCVolumeClient {
         }
       }
     } catch (SQLException e) {
-      LoggingUtil.log(LogLevel.ERROR, "PUT query execution failed " + e);
+      LOGGER.error("PUT query execution failed " + e);
       throw e;
     }
 
@@ -388,8 +376,7 @@ public class DatabricksUCVolumeClient implements IDatabricksUCVolumeClient {
       boolean toOverwrite)
       throws SQLException {
 
-    LoggingUtil.log(
-        LogLevel.DEBUG,
+    LOGGER.debug(
         String.format(
             "Entering putObject method with parameters: catalog={%s}, schema={%s}, volume={%s}, objectPath={%s}, inputStream={%s}, toOverwrite={%s}",
             catalog, schema, volume, objectPath, inputStream, toOverwrite));
@@ -406,8 +393,7 @@ public class DatabricksUCVolumeClient implements IDatabricksUCVolumeClient {
           new InputStreamEntity(inputStream, contentLength));
 
       try (ResultSet resultSet = statement.executeQuery(putObjectQueryForInputStream)) {
-        LoggingUtil.log(LogLevel.INFO, "PUT query executed successfully");
-
+        LOGGER.info("PUT query executed successfully");
         if (resultSet.next()) {
           String volumeOperationStatusString =
               resultSet.getString(VOLUME_OPERATION_STATUS_COLUMN_NAME);
@@ -416,7 +402,7 @@ public class DatabricksUCVolumeClient implements IDatabricksUCVolumeClient {
         }
       }
     } catch (SQLException e) {
-      LoggingUtil.log(LogLevel.ERROR, "PUT query execution failed " + e);
+      LOGGER.error("PUT query execution failed " + e);
       throw e;
     }
 
@@ -426,8 +412,7 @@ public class DatabricksUCVolumeClient implements IDatabricksUCVolumeClient {
   public boolean deleteObject(String catalog, String schema, String volume, String objectPath)
       throws SQLException {
 
-    LoggingUtil.log(
-        LogLevel.DEBUG,
+    LOGGER.debug(
         String.format(
             "Entering deleteObject method with parameters: catalog={%s}, schema={%s}, volume={%s}, objectPath={%s}",
             catalog, schema, volume, objectPath));
@@ -438,8 +423,7 @@ public class DatabricksUCVolumeClient implements IDatabricksUCVolumeClient {
 
     try (Statement statement = connection.createStatement()) {
       try (ResultSet resultSet = statement.executeQuery(deleteObjectQuery)) {
-        LoggingUtil.log(LogLevel.INFO, "SQL query executed successfully");
-
+        LOGGER.info("SQL query executed successfully");
         if (resultSet.next()) {
           String volumeOperationStatusString =
               resultSet.getString(VOLUME_OPERATION_STATUS_COLUMN_NAME);
@@ -448,7 +432,7 @@ public class DatabricksUCVolumeClient implements IDatabricksUCVolumeClient {
         }
       }
     } catch (SQLException e) {
-      LoggingUtil.log(LogLevel.ERROR, "SQL query execution failed " + e);
+      LOGGER.error("SQL query execution failed " + e);
       throw e;
     }
 

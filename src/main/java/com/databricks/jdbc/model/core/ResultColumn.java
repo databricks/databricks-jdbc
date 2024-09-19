@@ -1,5 +1,6 @@
 package com.databricks.jdbc.model.core;
 
+import com.databricks.jdbc.common.util.DatabricksTypeUtil;
 import java.sql.Types;
 
 public class ResultColumn {
@@ -38,6 +39,10 @@ public class ResultColumn {
   }
 
   public Integer getColumnPrecision() {
-    return 128; // Todo : fix the precisions
+    return DatabricksTypeUtil.getPrecision(columnType);
+  }
+
+  public Integer getColumnScale() {
+    return DatabricksTypeUtil.getScale(columnType);
   }
 }

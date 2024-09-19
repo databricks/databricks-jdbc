@@ -58,11 +58,18 @@ public interface IDatabricksConnectionContext {
   IDatabricksComputeResource getComputeResource();
 
   /**
-   * Returns the auth token (personal access token/OAuth token etc)
+   * Returns the auth token (personal access token)
    *
    * @return auth token
    */
   String getToken();
+
+  /**
+   * Returns the pass through access token
+   *
+   * @return access token
+   */
+  String getPassThroughAccessToken();
 
   String getHostForOAuth();
 
@@ -193,13 +200,24 @@ public interface IDatabricksConnectionContext {
   /** Returns the OAuth2 authentication scope used in the request. */
   String getAuthScope();
 
+  /**
+   * Returns the OAuth2 refresh token used to obtain a new access token when the current one
+   * expires.
+   */
   String getOAuthRefreshToken();
 
+  /** Returns the non-proxy hosts that should be excluded from proxying. */
+  String getNonProxyHosts();
+
+  /** Returns the SSL trust store file path used for SSL connections. */
   String getSSLTrustStore();
 
+  /** Returns the SSL trust store provider of the trust store file. */
   String getSSLTrustStoreProvider();
 
+  /** Returns the SSL trust store password of the trust store file. */
   String getSSLTrustStorePassword();
 
+  /** Returns the SSL trust store type of the trust store file. */
   String getSSLTrustStoreType();
 }

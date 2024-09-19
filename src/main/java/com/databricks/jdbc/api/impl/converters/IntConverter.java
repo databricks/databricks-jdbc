@@ -1,6 +1,8 @@
 package com.databricks.jdbc.api.impl.converters;
 
 import com.databricks.jdbc.exception.DatabricksSQLException;
+import com.databricks.jdbc.log.JdbcLogger;
+import com.databricks.jdbc.log.JdbcLoggerFactory;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.nio.ByteBuffer;
@@ -11,6 +13,7 @@ import java.time.LocalDate;
 
 public class IntConverter extends AbstractObjectConverter {
 
+  public static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(IntConverter.class);
   private final int object;
 
   public IntConverter(Object object) throws DatabricksSQLException {
@@ -95,6 +98,7 @@ public class IntConverter extends AbstractObjectConverter {
     }
     long nanoseconds = (long) object * super.POWERS_OF_TEN[9 - scale];
     Time time = new Time(nanoseconds / super.POWERS_OF_TEN[6]);
+    LOGGER.info("check timestamp " + time.toString() + " " + time.toLocalTime().toString());
     return new Timestamp(time.getTime());
   }
 
