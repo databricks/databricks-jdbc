@@ -53,9 +53,14 @@ public class ClientConfiguratorTest {
       JdbcLoggerFactory.getLogger(ClientConfiguratorTest.class);
   @Mock private IDatabricksConnectionContext mockContext;
   private ClientConfigurator configurator;
-  private static String baseTrustStorePath = "src/test/resources/";
-  private static String emptyTrustStorePath = baseTrustStorePath + "empty-truststore.jks";
-  private static String dummyTrustStorePath = baseTrustStorePath + "dummy-truststore.jks";
+  private static final String BASE_TRUST_STORE_PATH = "src/test/resources/";
+  private static final String EMPTY_TRUST_STORE_PATH =
+      BASE_TRUST_STORE_PATH + "empty-truststore.jks";
+  private static final String DUMMY_TRUST_STORE_PATH =
+      BASE_TRUST_STORE_PATH + "dummy-truststore.jks";
+  private static final String CERTIFICATE_CN = "MinimalCertificate";
+  private static final String TRUST_STORE_TYPE = "PKCS12";
+  private static final String TRUST_STORE_PASSWORD = "changeit";
 
   @BeforeAll
   static void setup() throws Exception {
@@ -64,27 +69,24 @@ public class ClientConfiguratorTest {
   }
 
   public static void createEmptyTrustStore()
-      throws KeyStoreException,
-          CertificateException,
-          IOException,
-          NoSuchAlgorithmException { // Path to save the trust store
-    String password = "changeit"; // Password for the trust store
+      throws KeyStoreException, CertificateException, IOException, NoSuchAlgorithmException {
+    String password = TRUST_STORE_PASSWORD;
     // Create an empty JKS keystore
-    KeyStore keyStore = KeyStore.getInstance("PKCS12");
+    KeyStore keyStore = KeyStore.getInstance(TRUST_STORE_TYPE);
     keyStore.load(null, password.toCharArray());
 
     // Save the empty keystore to a file
-    try (FileOutputStream fos = new FileOutputStream(emptyTrustStorePath)) {
+    try (FileOutputStream fos = new FileOutputStream(EMPTY_TRUST_STORE_PATH)) {
       keyStore.store(fos, password.toCharArray());
     }
   }
 
   public static void createDummyTrustStore() throws Exception {
-    String trustStorePassword = "changeit"; // Password for the trust store
+    String trustStorePassword = TRUST_STORE_PASSWORD; // Password for the trust store
     String alias = "dummy-cert"; // Alias for the dummy certificate
 
     // Create an empty JKS keystore
-    KeyStore keyStore = KeyStore.getInstance("PKCS12");
+    KeyStore keyStore = KeyStore.getInstance(TRUST_STORE_TYPE);
     keyStore.load(null, trustStorePassword.toCharArray());
 
     // Generate a key pair (public and private keys)
@@ -99,14 +101,14 @@ public class ClientConfiguratorTest {
     keyStore.setCertificateEntry(alias, certificate);
 
     // Save the keystore to a file
-    try (FileOutputStream fos = new FileOutputStream(dummyTrustStorePath)) {
+    try (FileOutputStream fos = new FileOutputStream(DUMMY_TRUST_STORE_PATH)) {
       keyStore.store(fos, trustStorePassword.toCharArray());
     }
   }
 
   private static X509Certificate generateBarebonesCertificate(KeyPair keyPair) throws Exception {
     // Certificate details
-    X500Name issuer = new X500Name("CN=MinimalCertificate");
+    X500Name issuer = new X500Name("CN=" + CERTIFICATE_CN);
     BigInteger serialNumber = BigInteger.valueOf(System.currentTimeMillis());
     Date startDate = new Date();
     Date endDate = new Date(startDate.getTime() + (365L * 24 * 60 * 60 * 1000)); // 1 year validity
@@ -130,12 +132,12 @@ public class ClientConfiguratorTest {
   @AfterAll
   static void cleanup() {
     try {
-      Files.delete(Path.of(emptyTrustStorePath));
+      Files.delete(Path.of(EMPTY_TRUST_STORE_PATH));
     } catch (IOException e) {
       LOGGER.info("Failed to delete empty trust store file: " + e.getMessage());
     }
     try {
-      Files.delete(Path.of(dummyTrustStorePath));
+      Files.delete(Path.of(DUMMY_TRUST_STORE_PATH));
     } catch (IOException e) {
       LOGGER.info("Failed to delete dummy trust store file: " + e.getMessage());
     }
@@ -270,15 +272,15 @@ public class ClientConfiguratorTest {
 
   @Test
   void testGetConnectionSocketFactoryRegistry() {
-    when(mockContext.getSSLTrustStorePassword()).thenReturn("changeit");
-    when(mockContext.getSSLTrustStoreType()).thenReturn("PKCS12");
-    when(mockContext.getSSLTrustStore()).thenReturn(emptyTrustStorePath);
+    when(mockContext.getSSLTrustStorePassword()).thenReturn(TRUST_STORE_PASSWORD);
+    when(mockContext.getSSLTrustStoreType()).thenReturn(TRUST_STORE_TYPE);
+    when(mockContext.getSSLTrustStore()).thenReturn(EMPTY_TRUST_STORE_PATH);
     assertThrows(
         DatabricksException.class,
         () -> ClientConfigurator.getConnectionSocketFactoryRegistry(mockContext),
         "the trustAnchors parameter must be non-empty");
 
-    when(mockContext.getSSLTrustStore()).thenReturn(dummyTrustStorePath);
+    when(mockContext.getSSLTrustStore()).thenReturn(DUMMY_TRUST_STORE_PATH);
     Registry<ConnectionSocketFactory> registry =
         ClientConfigurator.getConnectionSocketFactoryRegistry(mockContext);
     assertInstanceOf(
@@ -290,9 +292,9 @@ public class ClientConfiguratorTest {
   @Test
   void testGetTrustAnchorsFromTrustStore()
       throws IOException, KeyStoreException, CertificateException, NoSuchAlgorithmException {
-    when(mockContext.getSSLTrustStorePassword()).thenReturn("changeit");
-    when(mockContext.getSSLTrustStoreType()).thenReturn("PKCS12");
-    when(mockContext.getSSLTrustStore()).thenReturn(dummyTrustStorePath);
+    when(mockContext.getSSLTrustStorePassword()).thenReturn(TRUST_STORE_PASSWORD);
+    when(mockContext.getSSLTrustStoreType()).thenReturn(TRUST_STORE_TYPE);
+    when(mockContext.getSSLTrustStore()).thenReturn(DUMMY_TRUST_STORE_PATH);
     KeyStore trustStore = null;
     try (FileInputStream trustStoreStream = new FileInputStream(mockContext.getSSLTrustStore())) {
       char[] password = null;
@@ -305,7 +307,6 @@ public class ClientConfiguratorTest {
     Set<TrustAnchor> trustAnchors = ClientConfigurator.getTrustAnchorsFromTrustStore(trustStore);
     assertTrue(
         trustAnchors.stream()
-            .anyMatch(
-                ta -> ta.getTrustedCert().getIssuerDN().toString().contains("MinimalCertificate")));
+            .anyMatch(ta -> ta.getTrustedCert().getIssuerDN().toString().contains(CERTIFICATE_CN)));
   }
 }
