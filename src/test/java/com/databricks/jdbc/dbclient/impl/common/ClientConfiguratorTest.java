@@ -12,6 +12,7 @@ import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.sdk.WorkspaceClient;
 import com.databricks.sdk.core.CredentialsProvider;
 import com.databricks.sdk.core.DatabricksConfig;
+import com.databricks.sdk.core.DatabricksException;
 import java.util.List;
 import java.util.Properties;
 import org.apache.http.config.Registry;
@@ -158,13 +159,22 @@ public class ClientConfiguratorTest {
 
   @Test
   void testGetConnectionSocketFactoryRegistry() {
-    when(mockContext.getSSLTrustStore())
-        .thenReturn("src/test/resources/ssltruststore/empty-truststore.jks");
     when(mockContext.getSSLTrustStorePassword()).thenReturn("changeit");
     when(mockContext.getSSLTrustStoreType()).thenReturn("PKCS12");
+    when(mockContext.getSSLTrustStore())
+        .thenReturn("src/test/resources/ssltruststore/empty-truststore.jks");
+    assertThrows(
+        DatabricksException.class,
+        () -> ClientConfigurator.getConnectionSocketFactoryRegistry(mockContext),
+        "the trustAnchors parameter must be non-empty");
+
+    when(mockContext.getSSLTrustStore())
+        .thenReturn("src/test/resources/ssltruststore/dummy-truststore.jks");
     Registry<ConnectionSocketFactory> registry =
         ClientConfigurator.getConnectionSocketFactoryRegistry(mockContext);
-    assertInstanceOf(SSLConnectionSocketFactory.class, registry.lookup("https"));
-    assertInstanceOf(PlainConnectionSocketFactory.class, registry.lookup("http"));
+    assertInstanceOf(
+        SSLConnectionSocketFactory.class, registry.lookup(DatabricksJdbcConstants.HTTPS));
+    assertInstanceOf(
+        PlainConnectionSocketFactory.class, registry.lookup(DatabricksJdbcConstants.HTTP));
   }
 }
