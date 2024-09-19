@@ -27,9 +27,13 @@ import org.apache.http.HttpHost;
 import org.apache.http.client.config.RequestConfig;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpUriRequest;
+import org.apache.http.config.RegistryBuilder;
 import org.apache.http.conn.UnsupportedSchemeException;
 import org.apache.http.conn.routing.HttpRoute;
+import org.apache.http.conn.socket.ConnectionSocketFactory;
+import org.apache.http.conn.socket.PlainConnectionSocketFactory;
 import org.apache.http.conn.ssl.NoopHostnameVerifier;
+import org.apache.http.conn.ssl.SSLConnectionSocketFactory;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClientBuilder;
 import org.apache.http.impl.conn.DefaultSchemePortResolver;
@@ -72,8 +76,20 @@ public class DatabricksHttpClient implements IDatabricksHttpClient {
   }
 
   private static void initializeConnectionManager() {
-    if (connectionManager == null) {
-      connectionManager = new PoolingHttpClientConnectionManager();
+    try {
+      SSLContext sslContext =
+          new SSLContextBuilder().loadTrustMaterial(null, (chain, authType) -> true).build();
+      SSLConnectionSocketFactory sslSocketFactory =
+          new SSLConnectionSocketFactory(sslContext, NoopHostnameVerifier.INSTANCE);
+      if (connectionManager == null) {
+        connectionManager =
+            new PoolingHttpClientConnectionManager(
+                RegistryBuilder.<ConnectionSocketFactory>create()
+                    .register("https", sslSocketFactory)
+                    .register("http", new PlainConnectionSocketFactory())
+                    .build());
+      }
+    } catch (Exception e) {
     }
     connectionManager.setMaxTotal(DEFAULT_MAX_HTTP_CONNECTIONS);
     connectionManager.setDefaultMaxPerRoute(DEFAULT_MAX_HTTP_CONNECTIONS_PER_ROUTE);
