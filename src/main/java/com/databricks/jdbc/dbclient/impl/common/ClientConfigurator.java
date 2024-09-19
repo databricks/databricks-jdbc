@@ -6,7 +6,6 @@ import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.auth.OAuthRefreshCredentialsProvider;
 import com.databricks.jdbc.auth.PrivateKeyClientCredentialProvider;
 import com.databricks.jdbc.common.DatabricksJdbcConstants;
-import com.databricks.jdbc.driver.SSLConfiguration;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
@@ -16,14 +15,22 @@ import com.databricks.sdk.core.DatabricksConfig;
 import com.databricks.sdk.core.DatabricksException;
 import com.databricks.sdk.core.ProxyConfig;
 import com.databricks.sdk.core.commons.CommonsHttpClient;
+import java.io.FileInputStream;
+import java.security.InvalidAlgorithmParameterException;
+import java.security.KeyStore;
 import java.security.NoSuchAlgorithmException;
+import java.security.cert.*;
 import java.util.Arrays;
+import java.util.Set;
 import java.util.stream.Collectors;
+import javax.net.ssl.CertPathTrustManagerParameters;
 import javax.net.ssl.SSLContext;
+import javax.net.ssl.TrustManagerFactory;
+import javax.net.ssl.X509TrustManager;
+import org.apache.http.config.Registry;
 import org.apache.http.config.RegistryBuilder;
 import org.apache.http.conn.socket.ConnectionSocketFactory;
 import org.apache.http.conn.socket.PlainConnectionSocketFactory;
-import org.apache.http.conn.ssl.NoopHostnameVerifier;
 import org.apache.http.conn.ssl.SSLConnectionSocketFactory;
 import org.apache.http.impl.conn.PoolingHttpClientConnectionManager;
 
@@ -42,35 +49,145 @@ public class ClientConfigurator {
     this.databricksConfig = new DatabricksConfig();
     CommonsHttpClient.Builder httpClientBuilder = new CommonsHttpClient.Builder();
     setupProxyConfig(httpClientBuilder);
+    setupSSLConfig(httpClientBuilder);
     setupAuthConfig();
-    SSLContext sslContext = null;
-    try {
-      sslContext = SSLContext.getDefault();
-    } catch (NoSuchAlgorithmException e) {
-
-    }
-    if (connectionContext.isSSLEnabled()) {
-      try {
-        sslContext =
-            SSLConfiguration.configureSslContext(
-                this.connectionContext.getSSLKeyStorePath(),
-                this.connectionContext.getSSLKeyStorePassword());
-      } catch (Exception e) {
-
-      }
-    }
-
-    SSLConnectionSocketFactory sslSocketFactory =
-        new SSLConnectionSocketFactory(sslContext, NoopHostnameVerifier.INSTANCE);
-    httpClientBuilder
-        .withSslSocketFactory(sslSocketFactory)
-        .withConnectionManager(
-            new PoolingHttpClientConnectionManager(
-                RegistryBuilder.<ConnectionSocketFactory>create()
-                    .register("https", sslSocketFactory)
-                    .register("http", new PlainConnectionSocketFactory())
-                    .build()));
     this.databricksConfig.setHttpClient(httpClientBuilder.build()).resolve();
+  }
+
+  /**
+   * Setup the SSL configuration in the httpClientBuilder.
+   *
+   * @param httpClientBuilder The builder to which the SSL configuration should be added.
+   */
+  private void setupSSLConfig(CommonsHttpClient.Builder httpClientBuilder) {
+    PoolingHttpClientConnectionManager connManager =
+        new PoolingHttpClientConnectionManager(
+            getConnectionSocketFactoryRegistry(this.connectionContext));
+    // This is consistent with the value in the SDK
+    connManager.setMaxTotal(100);
+    httpClientBuilder.withConnectionManager(connManager);
+  }
+
+  /**
+   * This function returns the registry of connection socket factories based on the truststore and
+   * properties set in the connection context.
+   *
+   * @param connectionContext The connection context to use to get the truststore, certificate
+   *     revocation settings.
+   * @return The registry of connection socket factories.
+   */
+  public static Registry<ConnectionSocketFactory> getConnectionSocketFactoryRegistry(
+      IDatabricksConnectionContext connectionContext) {
+    // if truststore is not provided, null will use default truststore
+    KeyStore trustStore = loadTruststoreOrNull(connectionContext);
+    Set<TrustAnchor> trustAnchors = getTrustAnchorsFromTrustStore(trustStore);
+    CertPathTrustManagerParameters trustManagerParameters =
+        buildTrustManagerParameters(
+            trustAnchors,
+            connectionContext.checkCertificateRevocation(),
+            connectionContext.acceptUndeterminedCertificateRevocation());
+    // Build custom TrustManager based on above SSL trust store and certificate revocation settings
+    // from context
+    try {
+      TrustManagerFactory customTrustManagerFactory =
+          TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
+      customTrustManagerFactory.init(trustManagerParameters);
+      SSLContext sslContext = SSLContext.getInstance(DatabricksJdbcConstants.TLS);
+      sslContext.init(null, customTrustManagerFactory.getTrustManagers(), null);
+      SSLConnectionSocketFactory sslSocketFactory = new SSLConnectionSocketFactory(sslContext);
+      return RegistryBuilder.<ConnectionSocketFactory>create()
+          .register(DatabricksJdbcConstants.HTTPS, sslSocketFactory)
+          .register(DatabricksJdbcConstants.HTTP, new PlainConnectionSocketFactory())
+          .build();
+    } catch (Exception e) {
+      String errorMessage = "Error while building trust manager parameters";
+      LOGGER.error(errorMessage, e);
+      throw new DatabricksException(errorMessage, e);
+    }
+  }
+
+  /**
+   * @param connectionContext The connection context to use to get the truststore.
+   * @return The truststore loaded from the connection context or null if the truststore is not set.
+   */
+  public static KeyStore loadTruststoreOrNull(IDatabricksConnectionContext connectionContext) {
+    if (connectionContext.getSSLTrustStore() == null) {
+      return null;
+    }
+    // Flow to provide custom SSL truststore
+    try {
+      try (FileInputStream trustStoreStream =
+          new FileInputStream(connectionContext.getSSLTrustStore())) {
+        char[] password = null;
+        if (connectionContext.getSSLTrustStorePassword() != null) {
+          password = connectionContext.getSSLTrustStorePassword().toCharArray();
+        }
+        KeyStore trustStore = KeyStore.getInstance(connectionContext.getSSLTrustStoreType());
+        trustStore.load(trustStoreStream, password);
+        return trustStore;
+      }
+    } catch (Exception e) {
+      String errorMessage = "Error while loading truststore";
+      LOGGER.error(errorMessage, e);
+      throw new DatabricksException(errorMessage, e);
+    }
+  }
+
+  /**
+   * @param trustAnchors The trust anchors to use in the trust manager.
+   * @param checkCertificateRevocation Whether to check certificate revocation.
+   * @param acceptUndeterminedCertificateRevocation Whether to accept undetermined certificate
+   * @return The trust manager parameters based on the input parameters.
+   */
+  public static CertPathTrustManagerParameters buildTrustManagerParameters(
+      Set<TrustAnchor> trustAnchors,
+      boolean checkCertificateRevocation,
+      boolean acceptUndeterminedCertificateRevocation) {
+    try {
+      PKIXBuilderParameters pkixBuilderParameters =
+          new PKIXBuilderParameters(trustAnchors, new X509CertSelector());
+      pkixBuilderParameters.setRevocationEnabled(checkCertificateRevocation);
+      CertPathValidator certPathValidator =
+          CertPathValidator.getInstance(DatabricksJdbcConstants.PKIX);
+      PKIXRevocationChecker revocationChecker =
+          (PKIXRevocationChecker) certPathValidator.getRevocationChecker();
+      if (acceptUndeterminedCertificateRevocation) {
+        revocationChecker.setOptions(
+            Set.of(
+                PKIXRevocationChecker.Option.SOFT_FAIL,
+                PKIXRevocationChecker.Option.NO_FALLBACK,
+                PKIXRevocationChecker.Option.PREFER_CRLS));
+      }
+      if (checkCertificateRevocation) {
+        pkixBuilderParameters.addCertPathChecker(revocationChecker);
+      }
+      return new CertPathTrustManagerParameters(pkixBuilderParameters);
+    } catch (NoSuchAlgorithmException | InvalidAlgorithmParameterException e) {
+      String errorMessage = "Error while building trust manager parameters";
+      LOGGER.error(errorMessage, e);
+      throw new DatabricksException(errorMessage, e);
+    }
+  }
+
+  /**
+   * @param trustStore The trust store from which to get the trust anchors.
+   * @return The set of trust anchors from the trust store.
+   */
+  public static Set<TrustAnchor> getTrustAnchorsFromTrustStore(KeyStore trustStore) {
+    try {
+      TrustManagerFactory trustManagerFactory =
+          TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
+      trustManagerFactory.init(trustStore);
+      X509TrustManager trustManager = (X509TrustManager) trustManagerFactory.getTrustManagers()[0];
+      X509Certificate[] certs = trustManager.getAcceptedIssuers();
+      return Arrays.stream(certs)
+          .map(cert -> new TrustAnchor(cert, null))
+          .collect(Collectors.toSet());
+    } catch (Exception e) {
+      String errorMessage = "Error while getting trust anchors from trust store";
+      LOGGER.error(errorMessage, e);
+      throw new DatabricksException(errorMessage, e);
+    }
   }
 
   /** Setup proxy settings in the databricks config. */
@@ -208,19 +325,19 @@ public class ClientConfigurator {
     if (nonProxyHosts == null || nonProxyHosts.isEmpty()) {
       return EMPTY_STRING;
     }
-    if (nonProxyHosts.contains("|")) {
+    if (nonProxyHosts.contains(DatabricksJdbcConstants.PIPE)) {
       // Already in system property compliant format
       return nonProxyHosts;
     }
-    return Arrays.stream(nonProxyHosts.split(","))
+    return Arrays.stream(nonProxyHosts.split(DatabricksJdbcConstants.COMMA))
         .map(
             suffix -> {
-              if (suffix.startsWith(".")) {
-                return "*" + suffix;
+              if (suffix.startsWith(DatabricksJdbcConstants.FULL_STOP)) {
+                return DatabricksJdbcConstants.ASTERISK + suffix;
               }
               return suffix;
             })
-        .collect(Collectors.joining("|"));
+        .collect(Collectors.joining(DatabricksJdbcConstants.PIPE));
   }
 
   public DatabricksConfig getDatabricksConfig() {

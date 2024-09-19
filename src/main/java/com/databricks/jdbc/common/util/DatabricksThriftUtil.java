@@ -153,7 +153,7 @@ public class DatabricksThriftUtil {
       case DECIMAL_TYPE:
         return ColumnInfoTypeName.DECIMAL;
       case NULL_TYPE:
-        return ColumnInfoTypeName.NULL;
+        return ColumnInfoTypeName.STRING;
       case DATE_TYPE:
         return ColumnInfoTypeName.DATE;
       case CHAR_TYPE:

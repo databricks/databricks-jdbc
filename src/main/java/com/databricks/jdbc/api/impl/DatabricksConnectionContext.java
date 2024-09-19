@@ -185,15 +185,12 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
 
   @Override
   public int getAsyncExecPollInterval() {
-    return getParameter(DatabricksJdbcUrlParams.POLL_INTERVAL) == null
-        ? POLL_INTERVAL_DEFAULT
-        : Integer.parseInt(getParameter(DatabricksJdbcUrlParams.POLL_INTERVAL));
+    return Integer.parseInt(getParameter(DatabricksJdbcUrlParams.POLL_INTERVAL));
   }
 
   @Override
   public Boolean getDirectResultMode() {
-    return getParameter(DatabricksJdbcUrlParams.DIRECT_RESULT) == null
-        || Objects.equals(getParameter(DatabricksJdbcUrlParams.DIRECT_RESULT), "1");
+    return Objects.equals(getParameter(DatabricksJdbcUrlParams.DIRECT_RESULT), "1");
   }
 
   public Cloud getCloud() throws DatabricksParsingException {
@@ -291,14 +288,12 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
 
   @Override
   public int getLogFileSize() {
-    String parameter = getParameter(DatabricksJdbcUrlParams.LOG_FILE_SIZE);
-    return (parameter == null) ? DEFAULT_LOG_FILE_SIZE_IN_MB : Integer.parseInt(parameter);
+    return Integer.parseInt(getParameter(DatabricksJdbcUrlParams.LOG_FILE_SIZE));
   }
 
   @Override
   public int getLogFileCount() {
-    String parameter = getParameter(DatabricksJdbcUrlParams.LOG_FILE_COUNT);
-    return (parameter == null) ? DEFAULT_LOG_FILE_COUNT : Integer.parseInt(parameter);
+    return Integer.parseInt(getParameter(DatabricksJdbcUrlParams.LOG_FILE_COUNT));
   }
 
   @Override
@@ -325,25 +320,24 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
 
   @Override
   public boolean isSSLEnabled() {
-    return this.parameters.get(DatabricksJdbcConstants.SSL_ENABLED) != null
-        && Integer.parseInt(this.parameters.get(DatabricksJdbcConstants.SSL_ENABLED)) == 1;
+    return getParameter(DatabricksJdbcUrlParams.SSL_ENABLED) != null
+        && Integer.parseInt(getParameter(DatabricksJdbcUrlParams.SSL_ENABLED)) == 1;
   }
 
   @Override
   public String getSSLKeyStorePath() {
-    return this.parameters.get(DatabricksJdbcConstants.SSL_KEYSTORE_PATH);
+    return getParameter(DatabricksJdbcUrlParams.SSL_KEYSTORE_PATH);
   }
 
   @Override
   public String getSSLKeyStorePassword() {
-    return this.parameters.get(DatabricksJdbcConstants.SSL_KEYSTORE_PASSWORD);
+    return getParameter(DatabricksJdbcUrlParams.SSL_KEYSTORE_PASSWORD);
   }
 
   @Override
   public boolean getAllowSelfSignedCerts() {
-    return this.parameters.get(DatabricksJdbcConstants.ALLOW_SELF_SIGNED_CERTS) != null
-        && Integer.parseInt(this.parameters.get(DatabricksJdbcConstants.ALLOW_SELF_SIGNED_CERTS))
-            == 1;
+    return getParameter(DatabricksJdbcUrlParams.ALLOW_SELF_SIGNED_CERTS) != null
+        && Integer.parseInt(getParameter(DatabricksJdbcUrlParams.ALLOW_SELF_SIGNED_CERTS)) == 1;
   }
 
   @Override
@@ -367,15 +361,7 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
 
   @Override
   public int getCloudFetchThreadPoolSize() {
-    try {
-      return Integer.parseInt(
-          getParameter(
-              DatabricksJdbcUrlParams.CLOUD_FETCH_THREAD_POOL_SIZE,
-              String.valueOf(CLOUD_FETCH_THREAD_POOL_SIZE_DEFAULT)));
-    } catch (NumberFormatException e) {
-      LOGGER.debug("Invalid thread pool size, defaulting to default thread pool size.");
-      return CLOUD_FETCH_THREAD_POOL_SIZE_DEFAULT;
-    }
+    return Integer.parseInt(getParameter(DatabricksJdbcUrlParams.CLOUD_FETCH_THREAD_POOL_SIZE));
   }
 
   @Override
@@ -470,13 +456,13 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   @Override
   public ProxyConfig.ProxyAuthType getCloudFetchProxyAuthType() {
     int proxyAuthTypeOrdinal =
-        Integer.parseInt(getParameter(DatabricksJdbcUrlParams.CF_PROXY_AUTH, "0"));
+        Integer.parseInt(getParameter(DatabricksJdbcUrlParams.CF_PROXY_AUTH));
     return ProxyConfig.ProxyAuthType.values()[proxyAuthTypeOrdinal];
   }
 
   @Override
   public Boolean shouldEnableArrow() {
-    return Objects.equals(getParameter(DatabricksJdbcUrlParams.ENABLE_ARROW, "1"), "1");
+    return Objects.equals(getParameter(DatabricksJdbcUrlParams.ENABLE_ARROW), "1");
   }
 
   @Override
@@ -510,41 +496,33 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
 
   @Override
   public Boolean shouldRetryTemporarilyUnavailableError() {
-    return Objects.equals(
-        getParameter(DatabricksJdbcUrlParams.TEMPORARILY_UNAVAILABLE_RETRY, "1"), "1");
+    return Objects.equals(getParameter(DatabricksJdbcUrlParams.TEMPORARILY_UNAVAILABLE_RETRY), "1");
   }
 
   @Override
   public Boolean shouldRetryRateLimitError() {
-    return Objects.equals(getParameter(DatabricksJdbcUrlParams.RATE_LIMIT_RETRY, "1"), "1");
+    return Objects.equals(getParameter(DatabricksJdbcUrlParams.RATE_LIMIT_RETRY), "1");
   }
 
   @Override
   public int getTemporarilyUnavailableRetryTimeout() {
     return Integer.parseInt(
-        getParameter(
-            DatabricksJdbcUrlParams.TEMPORARILY_UNAVAILABLE_RETRY_TIMEOUT,
-            DEFAULT_TEMPORARILY_UNAVAILABLE_RETRY_TIMEOUT));
+        getParameter(DatabricksJdbcUrlParams.TEMPORARILY_UNAVAILABLE_RETRY_TIMEOUT));
   }
 
   @Override
   public int getRateLimitRetryTimeout() {
-    return Integer.parseInt(
-        getParameter(
-            DatabricksJdbcUrlParams.RATE_LIMIT_RETRY_TIMEOUT, DEFAULT_RATE_LIMIT_RETRY_TIMEOUT));
+    return Integer.parseInt(getParameter(DatabricksJdbcUrlParams.RATE_LIMIT_RETRY_TIMEOUT));
   }
 
   @Override
   public int getIdleHttpConnectionExpiry() {
-    return Integer.parseInt(
-        getParameter(
-            DatabricksJdbcUrlParams.IDLE_HTTP_CONNECTION_EXPIRY,
-            DEFAULT_IDLE_HTTP_CONNECTION_EXPIRY));
+    return Integer.parseInt(getParameter(DatabricksJdbcUrlParams.IDLE_HTTP_CONNECTION_EXPIRY));
   }
 
   @Override
   public boolean supportManyParameters() {
-    return getParameter(DatabricksJdbcUrlParams.SUPPORT_MANY_PARAMETERS, "0").equals("1");
+    return getParameter(DatabricksJdbcUrlParams.SUPPORT_MANY_PARAMETERS).equals("1");
   }
 
   /** Returns whether the current test is a fake service test. */
@@ -556,12 +534,23 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
 
   @Override
   public boolean enableTelemetry() {
-    return Objects.equals(getParameter(DatabricksJdbcUrlParams.ENABLE_TELEMETRY, "0"), "1");
+    return Objects.equals(getParameter(DatabricksJdbcUrlParams.ENABLE_TELEMETRY), "1");
   }
 
   @Override
   public String getConnectionURL() {
     return connectionURL;
+  }
+
+  @Override
+  public boolean checkCertificateRevocation() {
+    return Objects.equals(getParameter(DatabricksJdbcUrlParams.CHECK_CERTIFICATE_REVOCATION), "1");
+  }
+
+  @Override
+  public boolean acceptUndeterminedCertificateRevocation() {
+    return Objects.equals(
+        getParameter(DatabricksJdbcUrlParams.ACCEPT_UNDETERMINED_CERTIFICATE_REVOCATION), "1");
   }
 
   @Override
@@ -586,7 +575,7 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
 
   @Override
   public boolean useJWTAssertion() {
-    return getParameter(DatabricksJdbcUrlParams.USE_JWT_ASSERTION, "0").equals("1");
+    return getParameter(DatabricksJdbcUrlParams.USE_JWT_ASSERTION).equals("1");
   }
 
   @Override
@@ -602,7 +591,7 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   @Override
   public boolean isOAuthDiscoveryModeEnabled() {
     // By default, set to true
-    return getParameter(DatabricksJdbcUrlParams.DISCOVERY_MODE, "1").equals("1");
+    return getParameter(DatabricksJdbcUrlParams.DISCOVERY_MODE).equals("1");
   }
 
   @Override
@@ -612,7 +601,7 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
 
   @Override
   public String getAuthScope() {
-    return getParameter(DatabricksJdbcUrlParams.AUTH_SCOPE, ALL_APIS_SCOPE);
+    return getParameter(DatabricksJdbcUrlParams.AUTH_SCOPE);
   }
 
   @Override
@@ -622,7 +611,27 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
 
   @Override
   public String getNonProxyHosts() {
-    return getParameter(DatabricksJdbcUrlParams.NON_PROXY_HOSTS, EMPTY_STRING);
+    return getParameter(DatabricksJdbcUrlParams.NON_PROXY_HOSTS);
+  }
+
+  @Override
+  public String getSSLTrustStore() {
+    return getParameter(DatabricksJdbcUrlParams.SSL_TRUST_STORE);
+  }
+
+  @Override
+  public String getSSLTrustStoreProvider() {
+    return getParameter(DatabricksJdbcUrlParams.SSL_TRUST_STORE_PROVIDER);
+  }
+
+  @Override
+  public String getSSLTrustStorePassword() {
+    return getParameter(DatabricksJdbcUrlParams.SSL_TRUST_STORE_PASSWORD);
+  }
+
+  @Override
+  public String getSSLTrustStoreType() {
+    return getParameter(DatabricksJdbcUrlParams.SSL_TRUST_STORE_TYPE);
   }
 
   private static boolean nullOrEmptyString(String s) {
@@ -656,7 +665,7 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   }
 
   private String getParameter(DatabricksJdbcUrlParams key) {
-    return this.parameters.getOrDefault(key.getParamName().toLowerCase(), null);
+    return this.parameters.getOrDefault(key.getParamName().toLowerCase(), key.getDefaultValue());
   }
 
   private String getParameter(DatabricksJdbcUrlParams key, String defaultValue) {

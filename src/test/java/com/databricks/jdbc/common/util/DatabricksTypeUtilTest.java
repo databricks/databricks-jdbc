@@ -68,7 +68,7 @@ class DatabricksTypeUtilTest {
     assertEquals(Types.DATE, DatabricksTypeUtil.getColumnType(ColumnInfoTypeName.DATE));
     assertEquals(Types.STRUCT, DatabricksTypeUtil.getColumnType(ColumnInfoTypeName.STRUCT));
     assertEquals(Types.ARRAY, DatabricksTypeUtil.getColumnType(ColumnInfoTypeName.ARRAY));
-    assertEquals(Types.NULL, DatabricksTypeUtil.getColumnType(ColumnInfoTypeName.NULL));
+    assertEquals(Types.VARCHAR, DatabricksTypeUtil.getColumnType(ColumnInfoTypeName.NULL));
     assertEquals(
         Types.OTHER, DatabricksTypeUtil.getColumnType(ColumnInfoTypeName.USER_DEFINED_TYPE));
   }

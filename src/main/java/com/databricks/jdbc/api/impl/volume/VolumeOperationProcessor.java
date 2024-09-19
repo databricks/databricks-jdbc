@@ -21,10 +21,10 @@ import org.apache.http.entity.InputStreamEntity;
 import org.apache.http.util.EntityUtils;
 
 /** Executor for volume operations */
-class VolumeOperationExecutor implements Runnable {
+class VolumeOperationProcessor {
 
   public static final JdbcLogger LOGGER =
-      JdbcLoggerFactory.getLogger(VolumeOperationExecutor.class);
+      JdbcLoggerFactory.getLogger(VolumeOperationProcessor.class);
   private static final String COMMA_SEPARATOR = ",";
   private static final String PARENT_DIRECTORY_REF = "..";
   private static final String GET_OPERATION = "get";
@@ -43,7 +43,7 @@ class VolumeOperationExecutor implements Runnable {
   private VolumeOperationStatus status;
   private String errorMessage;
 
-  VolumeOperationExecutor(
+  VolumeOperationProcessor(
       String operationType,
       String operationUrl,
       Map<String, String> headers,
@@ -71,8 +71,7 @@ class VolumeOperationExecutor implements Runnable {
     return new HashSet<>(Arrays.asList(allowedVolumeIngestionPathString.split(COMMA_SEPARATOR)));
   }
 
-  @Override
-  public void run() {
+  void process() {
     LOGGER.debug(
         String.format(
             "Running volume operation {%s} on local file {%s}",
@@ -269,6 +268,7 @@ class VolumeOperationExecutor implements Runnable {
       status = VolumeOperationStatus.ABORTED;
       errorMessage = "PUT operation called on closed statement";
       LOGGER.error(errorMessage);
+      return;
     }
 
     // Execute the request

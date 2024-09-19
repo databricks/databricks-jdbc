@@ -174,6 +174,10 @@ public interface IDatabricksConnectionContext {
 
   String getConnectionURL();
 
+  boolean checkCertificateRevocation();
+
+  boolean acceptUndeterminedCertificateRevocation();
+
   /** Returns the file path to the JWT private key used for signing the JWT. */
   String getJWTKeyFile();
 
@@ -212,4 +216,16 @@ public interface IDatabricksConnectionContext {
 
   /** Returns the non-proxy hosts that should be excluded from proxying. */
   String getNonProxyHosts();
+
+  /** Returns the SSL trust store file path used for SSL connections. */
+  String getSSLTrustStore();
+
+  /** Returns the SSL trust store provider of the trust store file. */
+  String getSSLTrustStoreProvider();
+
+  /** Returns the SSL trust store password of the trust store file. */
+  String getSSLTrustStorePassword();
+
+  /** Returns the SSL trust store type of the trust store file. */
+  String getSSLTrustStoreType();
 }
