@@ -57,15 +57,11 @@ public class ClientConfigurator {
     if (this.connectionContext.getSSLTrustStore() == null) {
       return;
     }
-    try {
-      PoolingHttpClientConnectionManager connManager =
-          new PoolingHttpClientConnectionManager(
-              getConnectionSocketFactoryRegistry(this.connectionContext));
-      connManager.setMaxTotal(100);
-      httpClientBuilder.withConnectionManager(connManager);
-    } catch (Exception e) {
-      throw new DatabricksException("Error while loading truststore", e);
-    }
+    PoolingHttpClientConnectionManager connManager =
+        new PoolingHttpClientConnectionManager(
+            getConnectionSocketFactoryRegistry(this.connectionContext));
+    connManager.setMaxTotal(100);
+    httpClientBuilder.withConnectionManager(connManager);
   }
 
   /**
@@ -91,16 +87,18 @@ public class ClientConfigurator {
             TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
         trustManagerFactory.init(trustStore);
       }
-      SSLContext sslContext = SSLContext.getInstance("TLS");
+      SSLContext sslContext = SSLContext.getInstance(DatabricksJdbcConstants.TLS);
       sslContext.init(null, trustManagerFactory.getTrustManagers(), null);
 
       SSLConnectionSocketFactory sslSocketFactory = new SSLConnectionSocketFactory(sslContext);
       return RegistryBuilder.<ConnectionSocketFactory>create()
-          .register("https", sslSocketFactory)
-          .register("http", new PlainConnectionSocketFactory())
+          .register(DatabricksJdbcConstants.HTTPS, sslSocketFactory)
+          .register(DatabricksJdbcConstants.HTTP, new PlainConnectionSocketFactory())
           .build();
     } catch (Exception e) {
-      throw new DatabricksException("Error while loading truststore", e);
+      String errorMessage = "Error while loading truststore to set up SSL configuration.";
+      LOGGER.error(errorMessage, e);
+      throw new DatabricksException(errorMessage, e);
     }
   }
 
@@ -239,19 +237,19 @@ public class ClientConfigurator {
     if (nonProxyHosts == null || nonProxyHosts.isEmpty()) {
       return EMPTY_STRING;
     }
-    if (nonProxyHosts.contains("|")) {
+    if (nonProxyHosts.contains(DatabricksJdbcConstants.PIPE)) {
       // Already in system property compliant format
       return nonProxyHosts;
     }
-    return Arrays.stream(nonProxyHosts.split(","))
+    return Arrays.stream(nonProxyHosts.split(DatabricksJdbcConstants.COMMA))
         .map(
             suffix -> {
-              if (suffix.startsWith(".")) {
-                return "*" + suffix;
+              if (suffix.startsWith(DatabricksJdbcConstants.FULL_STOP)) {
+                return DatabricksJdbcConstants.ASTERISK + suffix;
               }
               return suffix;
             })
-        .collect(Collectors.joining("|"));
+        .collect(Collectors.joining(DatabricksJdbcConstants.PIPE));
   }
 
   public DatabricksConfig getDatabricksConfig() {

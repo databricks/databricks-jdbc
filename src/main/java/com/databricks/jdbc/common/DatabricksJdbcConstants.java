@@ -22,8 +22,12 @@ public final class DatabricksJdbcConstants {
   public static final String PORT_DELIMITER = ":";
   public static final String DEFAULT_SCHEMA = "default";
   public static final String PAIR_DELIMITER = "=";
-  public static final String HTTP_SCHEMA = "http://";
-  public static final String HTTPS_SCHEMA = "https://";
+  public static final String SCHEMA_DELIMITER = "://";
+  public static final String TLS = "TLS";
+  public static final String HTTP = "http";
+  public static final String HTTPS = "https";
+  public static final String HTTP_SCHEMA = HTTP + SCHEMA_DELIMITER;
+  public static final String HTTPS_SCHEMA = HTTPS + SCHEMA_DELIMITER;
   public static final String LOGIN_TIMEOUT = "loginTimeout";
   public static final String U2M_AUTH_TYPE = "external-browser";
   public static final String M2M_AUTH_TYPE = "oauth-m2m";
@@ -32,6 +36,9 @@ public final class DatabricksJdbcConstants {
   public static final String SQL_SCOPE = "sql";
   public static final String OFFLINE_ACCESS_SCOPE = "offline_access";
   public static final String FULL_STOP = ".";
+  public static final String COMMA = ",";
+  public static final String PIPE = "|";
+  public static final String ASTERISK = "*";
   public static final String EMPTY_STRING = "";
   public static final String IDENTIFIER_QUOTE_STRING = "`";
   public static final String CATALOG = "catalog";
