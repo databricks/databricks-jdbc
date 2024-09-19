@@ -81,17 +81,17 @@ public class MetadataIntegrationTests extends AbstractFakeServiceIntegrationTest
             + "name VARCHAR(255), "
             + "age INT"
             + ");";
-    setupDatabaseTable(tableName, createTableSQL);
+    setupDatabaseTable(connection, tableName, createTableSQL);
 
     String insertSQL =
         "INSERT INTO "
             + getFullyQualifiedTableName(tableName)
             + " (id, name, age) VALUES (1, 'Madhav', 24)";
-    executeSQL(insertSQL);
+    executeSQL(connection, insertSQL);
 
     String query = "SELECT id, name, age FROM " + getFullyQualifiedTableName(tableName);
 
-    ResultSet resultSet = executeQuery(query);
+    ResultSet resultSet = executeQuery(connection, query);
     ResultSetMetaData resultSetMetaData = resultSet.getMetaData();
 
     // Check the number of columns
@@ -120,7 +120,7 @@ public class MetadataIntegrationTests extends AbstractFakeServiceIntegrationTest
           "Column " + i + " should be nullable");
     }
     String SQL = "DROP TABLE IF EXISTS " + getFullyQualifiedTableName(tableName);
-    executeSQL(SQL);
+    executeSQL(connection, SQL);
 
     if (isSqlExecSdkClient()) {
       // At least 5 statement requests are sent: drop, create, insert, select, drop
@@ -157,7 +157,7 @@ public class MetadataIntegrationTests extends AbstractFakeServiceIntegrationTest
     String catalog = "main";
     String schemaPattern = "jdbc_test_schema";
     String tableName = "catalog_and_schema_test_table";
-    setupDatabaseTable(tableName);
+    setupDatabaseTable(connection, tableName);
     try (ResultSet tables = metaData.getTables(catalog, schemaPattern, "%", null)) {
       assertTrue(
           tables.next(), "There should be at least one table in the specified catalog and schema");
@@ -177,7 +177,7 @@ public class MetadataIntegrationTests extends AbstractFakeServiceIntegrationTest
             tableName, fetchedTableName, "Table name should match the specified table name");
       } while (tables.next());
     }
-    deleteTable(tableName);
+    deleteTable(connection, tableName);
 
     if (isSqlExecSdkClient()) {
       // At least 7 statement requests are sent:

@@ -51,7 +51,7 @@ public class ConcurrencyIntegrationTests extends AbstractFakeServiceIntegrationT
     }
     String insertSQL =
         "INSERT INTO " + getFullyQualifiedTableName(tableName) + " (id, counter) VALUES (1, 0)";
-    executeSQL(insertSQL);
+    executeSQL(connection, insertSQL);
   }
 
   private void dropTestTable() throws SQLException {
@@ -90,7 +90,7 @@ public class ConcurrencyIntegrationTests extends AbstractFakeServiceIntegrationT
 
     String selectSQL =
         "SELECT counter FROM " + getFullyQualifiedTableName(tableName) + " WHERE id = 1";
-    ResultSet rs = executeQuery(selectSQL);
+    ResultSet rs = executeQuery(connection, selectSQL);
     rs.next();
     String r = rs.getString("counter");
     assertEquals(r, "1");
