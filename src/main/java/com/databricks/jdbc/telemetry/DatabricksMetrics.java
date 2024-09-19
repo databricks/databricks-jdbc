@@ -1,13 +1,10 @@
 package com.databricks.jdbc.telemetry;
 
-import static com.databricks.jdbc.driver.DatabricksJdbcConstants.TELEMETRY_LOG_LEVEL;
-
-import com.databricks.jdbc.client.http.DatabricksHttpClient;
-import com.databricks.jdbc.commons.MetricsConstants;
-import com.databricks.jdbc.commons.util.DriverUtil;
-import com.databricks.jdbc.commons.util.LoggingUtil;
-import com.databricks.jdbc.core.DatabricksSQLException;
-import com.databricks.jdbc.driver.IDatabricksConnectionContext;
+import com.databricks.jdbc.api.IDatabricksConnectionContext;
+import com.databricks.jdbc.common.util.DriverUtil;
+import com.databricks.jdbc.dbclient.impl.http.DatabricksHttpClient;
+import com.databricks.jdbc.log.JdbcLogger;
+import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -22,6 +19,8 @@ import org.apache.http.client.utils.URIBuilder;
 import org.apache.http.util.EntityUtils;
 
 public class DatabricksMetrics implements AutoCloseable {
+
+  public static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(DatabricksMetrics.class);
   private static final Map<String, Double> gaugeMetrics = new HashMap<>();
   private static final Map<String, Double> counterMetrics = new HashMap<>();
   private static final ObjectMapper objectMapper = new ObjectMapper();
@@ -45,8 +44,7 @@ public class DatabricksMetrics implements AutoCloseable {
               exportMetrics(gaugeMetrics, MetricsType.GAUGE);
               exportMetrics(counterMetrics, MetricsType.COUNTER);
             } catch (Exception e) {
-              LoggingUtil.log(
-                  TELEMETRY_LOG_LEVEL,
+              LOGGER.error(
                   "Error while exporting metrics with scheduleExportMetrics: " + e.getMessage());
             }
           }
@@ -56,7 +54,7 @@ public class DatabricksMetrics implements AutoCloseable {
     metricsTimer.schedule(task, 0, MetricsConstants.INTERVAL_DURATION);
   }
 
-  public DatabricksMetrics(IDatabricksConnectionContext context) throws DatabricksSQLException {
+  public DatabricksMetrics(IDatabricksConnectionContext context) {
     enableTelemetry = (context != null && context.enableTelemetry());
     if (enableTelemetry) {
       workspaceId = context.getComputeResource().getWorkspaceId();
@@ -105,7 +103,7 @@ public class DatabricksMetrics implements AutoCloseable {
             exportMetrics(map, metricsType);
           } catch (Exception e) {
             // Commenting out the exception for now - failing silently
-            LoggingUtil.log(TELEMETRY_LOG_LEVEL, "Initial export failed. Error: " + e.getMessage());
+            LOGGER.error("Initial export failed. Error: " + e.getMessage());
           }
         });
   }
@@ -139,7 +137,7 @@ public class DatabricksMetrics implements AutoCloseable {
           errorCode);
       close();
     } catch (Exception e) {
-      LoggingUtil.log(TELEMETRY_LOG_LEVEL, "Failed to export log. Error: " + e.getMessage());
+      LOGGER.error("Failed to export log. Error: " + e.getMessage());
     }
   }
 
@@ -170,8 +168,7 @@ public class DatabricksMetrics implements AutoCloseable {
               charsetEncoding);
       responseHandling(request, "usage metrics export");
     } catch (Exception e) {
-      LoggingUtil.log(
-          TELEMETRY_LOG_LEVEL, "Failed to export usage metrics. Error: " + e.getMessage());
+      LOGGER.error("Failed to export usage metrics. Error: " + e.getMessage());
     }
   }
 
@@ -180,21 +177,20 @@ public class DatabricksMetrics implements AutoCloseable {
     // TODO (Bhuvan): execute request using Certificates
     try (CloseableHttpResponse response = telemetryClient.executeWithoutCertVerification(request)) {
       if (response == null) {
-        LoggingUtil.log(TELEMETRY_LOG_LEVEL, "Response is null for " + methodType);
+        LOGGER.error("Response is null for " + methodType);
       } else if (response.getStatusLine().getStatusCode() != 200) {
-        LoggingUtil.log(
-            TELEMETRY_LOG_LEVEL,
+        LOGGER.error(
             "Response code for "
                 + methodType
                 + response.getStatusLine().getStatusCode()
                 + " Response: "
                 + response.getEntity().toString());
       } else {
-        LoggingUtil.log(TELEMETRY_LOG_LEVEL, EntityUtils.toString(response.getEntity()));
+        LOGGER.error(EntityUtils.toString(response.getEntity()));
         return true;
       }
     } catch (Exception e) {
-      LoggingUtil.log(TELEMETRY_LOG_LEVEL, e.getMessage());
+      LOGGER.error(e.getMessage());
     }
     return false;
   }
@@ -268,8 +264,7 @@ public class DatabricksMetrics implements AutoCloseable {
         exportMetrics(gaugeMetrics, DatabricksMetrics.MetricsType.GAUGE);
         exportMetrics(counterMetrics, DatabricksMetrics.MetricsType.COUNTER);
       } catch (Exception e) {
-        LoggingUtil.log(
-            TELEMETRY_LOG_LEVEL,
+        LOGGER.error(
             "Failed to export metrics when connection is closed. Error: " + e.getMessage());
       }
     }

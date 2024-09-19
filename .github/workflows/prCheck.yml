@@ -13,9 +13,10 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest]
         java-version: [8]  # For formatting, we don't need to run across multiple versions. Only sanity testing is required here, rest is taken care in the build.
-    runs-on: ${{ matrix.os }}
+    runs-on:
+      group: databricks-protected-runner-group
+      labels: linux-ubuntu-latest
     steps:
       - name: Set up JDK
         uses: actions/setup-java@v4
@@ -43,7 +44,9 @@ jobs:
         os: [macos-latest, ubuntu-latest]
         java-version: [8, 11 ]  # Adding LTS versions here. 21 is the latest LTS
 
-    runs-on: ${{ matrix.os }}
+    runs-on:
+      group: databricks-protected-runner-group
+      labels: linux-ubuntu-latest
 
     steps:
       - name: Set up JDK ${{ matrix.java-version }}
@@ -63,7 +66,7 @@ jobs:
           restore-keys: ${{ runner.os }}-m2
 
       - name: Check Unit Tests
-        run: mvn test -Dtest=!**/integration/**,!**/local/**
+        run: mvn test -Dtest=!**/integration/**,!**/DriverTest.java
 
       - name: Install xmllint
         if: runner.os == 'Linux'

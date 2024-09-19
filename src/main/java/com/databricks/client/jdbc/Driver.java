@@ -1,52 +1,71 @@
 package com.databricks.client.jdbc;
 
-import static com.databricks.jdbc.driver.DatabricksJdbcConstants.*;
+import static com.databricks.jdbc.common.DatabricksJdbcConstants.*;
 
-import com.databricks.jdbc.client.DatabricksClientType;
-import com.databricks.jdbc.commons.ErrorTypes;
-import com.databricks.jdbc.commons.LogLevel;
-import com.databricks.jdbc.commons.util.DeviceInfoLogUtil;
-import com.databricks.jdbc.commons.util.DriverUtil;
-import com.databricks.jdbc.commons.util.ErrorCodes;
-import com.databricks.jdbc.commons.util.LoggingUtil;
-import com.databricks.jdbc.core.DatabricksConnection;
-import com.databricks.jdbc.core.DatabricksSQLException;
-import com.databricks.jdbc.driver.DatabricksConnectionContext;
-import com.databricks.jdbc.driver.DatabricksJdbcConstants;
-import com.databricks.jdbc.driver.IDatabricksConnectionContext;
+import com.databricks.jdbc.api.IDatabricksConnectionContext;
+import com.databricks.jdbc.api.impl.DatabricksConnection;
+import com.databricks.jdbc.api.impl.DatabricksConnectionContextFactory;
+import com.databricks.jdbc.common.DatabricksClientType;
+import com.databricks.jdbc.common.DatabricksJdbcConstants;
+import com.databricks.jdbc.common.ErrorCodes;
+import com.databricks.jdbc.common.ErrorTypes;
+import com.databricks.jdbc.common.util.DeviceInfoLogUtil;
+import com.databricks.jdbc.common.util.DriverUtil;
+import com.databricks.jdbc.common.util.LoggingUtil;
+import com.databricks.jdbc.common.util.ValidationUtil;
+import com.databricks.jdbc.exception.DatabricksSQLException;
+import com.databricks.jdbc.log.JdbcLogger;
+import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.sdk.core.UserAgent;
+import java.io.IOException;
 import java.sql.*;
 import java.util.Properties;
+import java.util.TimeZone;
 
-/**
- * Databricks JDBC driver. TODO: Add implementation to accept Urls in format:
- * jdbc:databricks://host:port.
- */
+/** Databricks JDBC driver. */
 public class Driver implements java.sql.Driver {
+
+  public static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(Driver.class);
   private static final Driver INSTANCE;
 
   static {
     try {
       DriverManager.registerDriver(INSTANCE = new Driver());
-      System.out.printf("Driver has been registered. instance = %s\n", INSTANCE);
     } catch (SQLException e) {
       throw new IllegalStateException("Unable to register " + Driver.class, e);
     }
   }
 
+  public static void main(String[] args) {
+    TimeZone.setDefault(
+        TimeZone.getTimeZone("UTC")); // Logging, timestamps are in UTC across the application
+    System.out.printf("The driver {%s} has been initialized.%n", Driver.class);
+  }
+
+  public static void setUserAgent(IDatabricksConnectionContext connectionContext) {
+    UserAgent.withProduct(DatabricksJdbcConstants.DEFAULT_USER_AGENT, DriverUtil.getVersion());
+    UserAgent.withOtherInfo(CLIENT_USER_AGENT_PREFIX, connectionContext.getClientUserAgent());
+  }
+
   @Override
   public boolean acceptsURL(String url) {
-    return DatabricksConnectionContext.isValid(url);
+    return ValidationUtil.isValidJdbcUrl(url);
   }
 
   @Override
   public Connection connect(String url, Properties info) throws DatabricksSQLException {
-    IDatabricksConnectionContext connectionContext = DatabricksConnectionContext.parse(url, info);
-    LoggingUtil.setupLogger(
-        connectionContext.getLogPathString(),
-        connectionContext.getLogFileSize(),
-        connectionContext.getLogFileCount(),
-        connectionContext.getLogLevel());
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContextFactory.create(url, info);
+    try {
+      LoggingUtil.setupLogger(
+          connectionContext.getLogPathString(),
+          connectionContext.getLogFileSize(),
+          connectionContext.getLogFileCount(),
+          connectionContext.getLogLevel());
+    } catch (IOException e) {
+      LOGGER.error("Error initializing the Java Util Logger (JUL).", e);
+      throw new DatabricksSQLException("Error initializing the Java Util Logger (JUL).", e);
+    }
     setUserAgent(connectionContext);
     DeviceInfoLogUtil.logProperties(connectionContext);
     try {
@@ -87,40 +106,6 @@ public class Driver implements java.sql.Driver {
     }
   }
 
-  private void setMetadataClient(
-      DatabricksConnection connection, IDatabricksConnectionContext connectionContext) {
-    if (connectionContext.getUseLegacyMetadata().equals(true)) {
-      LoggingUtil.log(
-          LogLevel.DEBUG,
-          "The new metadata commands are enabled, but the legacy metadata commands are being used due to connection parameter useLegacyMetadata");
-      connection.setMetadataClient(true);
-    } else {
-      connection.setMetadataClient(false);
-    }
-  }
-
-  private boolean checkSupportForNewMetadata(String dbsqlVersion) {
-    try {
-      int majorVersion = Integer.parseInt(dbsqlVersion.split("\\.")[0]);
-      int minorVersion = Integer.parseInt(dbsqlVersion.split("\\.")[1]);
-
-      if (majorVersion > DBSQL_MIN_MAJOR_VERSION_FOR_NEW_METADATA) {
-        return true;
-      } else if (majorVersion == DBSQL_MIN_MAJOR_VERSION_FOR_NEW_METADATA) {
-        return minorVersion >= DBSQL_MIN_MINOR_VERSION_FOR_NEW_METADATA;
-      } else {
-        return false;
-      }
-    } catch (Exception e) {
-      LoggingUtil.log(
-          LogLevel.DEBUG,
-          String.format(
-              "Unable to parse the DBSQL version {%s}. Falling back to legacy metadata commands.",
-              dbsqlVersion));
-      return false;
-    }
-  }
-
   @Override
   public int getMajorVersion() {
     return DriverUtil.getMajorVersion();
@@ -150,12 +135,35 @@ public class Driver implements java.sql.Driver {
     return INSTANCE;
   }
 
-  public static void main(String[] args) {
-    System.out.printf("The driver {%s} has been initialized.%n", Driver.class);
+  private void setMetadataClient(
+      DatabricksConnection connection, IDatabricksConnectionContext connectionContext) {
+    if (connectionContext.getUseLegacyMetadata().equals(true)) {
+      LOGGER.debug(
+          "The new metadata commands are enabled, but the legacy metadata commands are being used due to connection parameter useLegacyMetadata");
+      connection.setMetadataClient(true);
+    } else {
+      connection.setMetadataClient(false);
+    }
   }
 
-  public static void setUserAgent(IDatabricksConnectionContext connectionContext) {
-    UserAgent.withProduct(DatabricksJdbcConstants.DEFAULT_USER_AGENT, DriverUtil.getVersion());
-    UserAgent.withOtherInfo(CLIENT_USER_AGENT_PREFIX, connectionContext.getClientUserAgent());
+  private boolean checkSupportForNewMetadata(String dbsqlVersion) {
+    try {
+      int majorVersion = Integer.parseInt(dbsqlVersion.split("\\.")[0]);
+      int minorVersion = Integer.parseInt(dbsqlVersion.split("\\.")[1]);
+
+      if (majorVersion > DBSQL_MIN_MAJOR_VERSION_FOR_NEW_METADATA) {
+        return true;
+      } else if (majorVersion == DBSQL_MIN_MAJOR_VERSION_FOR_NEW_METADATA) {
+        return minorVersion >= DBSQL_MIN_MINOR_VERSION_FOR_NEW_METADATA;
+      } else {
+        return false;
+      }
+    } catch (Exception e) {
+      LOGGER.debug(
+          String.format(
+              "Unable to parse the DBSQL version {%s}. Falling back to legacy metadata commands.",
+              dbsqlVersion));
+      return false;
+    }
   }
 }

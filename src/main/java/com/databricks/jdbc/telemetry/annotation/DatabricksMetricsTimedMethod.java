@@ -1,6 +1,6 @@
 package com.databricks.jdbc.telemetry.annotation;
 
-import com.databricks.jdbc.commons.CommandName;
+import com.databricks.jdbc.common.CommandName;
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;

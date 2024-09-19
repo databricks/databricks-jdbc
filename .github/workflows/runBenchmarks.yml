@@ -7,11 +7,9 @@ on:
 
 jobs:
   benchmark:
-    strategy:
-      fail-fast: false
-      matrix:
-        java-version: [8]  # Add JDK 8 support
-    runs-on: ubuntu-latest
+    runs-on:
+      group: databricks-protected-runner-group
+      labels: linux-ubuntu-latest
 
     steps:
       - name: Checkout benchmarking branch
@@ -27,10 +25,10 @@ jobs:
           git fetch origin
           git rebase -X ours origin/main
 
-      - name: Set up Java ${{ matrix.java-version }}
+      - name: Set up Java
         uses: actions/setup-java@v2
         with:
-          java-version: ${{ matrix.java-version }}
+          java-version: '8'
           distribution: 'adopt'
 
       - name: Set up Maven
@@ -70,6 +68,8 @@ jobs:
           echo "DATABRICKS_DOGFOOD_TOKEN=${DATABRICKS_DOGFOOD_TOKEN}" >> $GITHUB_ENV
           echo "DATABRICKS_DOGFOOD_HTTP_PATH=${DATABRICKS_DOGFOOD_HTTP_PATH}" >> $GITHUB_ENV
 
-      - name: Run Benchmark Tests
-        run: |
-          mvn test -Dtest=com.databricks.jdbc.integration.benchmarking.LargeQueriesBenchmarkingTest,com.databricks.jdbc.integration.benchmarking.MetadataBenchmarkingTests
+      - name: Run Large Queries Benchmarking Test
+        run: mvn test '-Dtest=**LargeQueriesBenchmarkingTest**'
+
+      - name: Run Metadata Benchmarking Test
+        run: mvn test '-Dtest=**MetadataBenchmarkingTests**'

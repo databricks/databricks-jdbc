@@ -1,12 +1,12 @@
 package com.databricks.jdbc.integration.fakeservice.tests;
 
 import static com.databricks.jdbc.TestConstants.*;
-import static com.databricks.jdbc.driver.DatabricksJdbcConstants.*;
-import static com.databricks.jdbc.driver.DatabricksJdbcConstants.CONN_SCHEMA;
+import static com.databricks.jdbc.common.DatabricksJdbcConstants.*;
 import static com.databricks.jdbc.integration.IntegrationTestUtil.*;
 import static org.junit.jupiter.api.Assertions.*;
 
-import com.databricks.jdbc.client.impl.sdk.DatabricksUCVolumeClient;
+import com.databricks.jdbc.api.impl.volume.DatabricksUCVolumeClient;
+import com.databricks.jdbc.common.DatabricksJdbcUrlParams;
 import com.databricks.jdbc.integration.fakeservice.AbstractFakeServiceIntegrationTests;
 import com.databricks.jdbc.integration.fakeservice.FakeServiceConfigLoader;
 import com.databricks.jdbc.integration.fakeservice.FakeServiceExtension;
@@ -28,10 +28,8 @@ public class UCVolumeIntegrationTests extends AbstractFakeServiceIntegrationTest
 
   private DatabricksUCVolumeClient client;
   private Connection con;
-
   private static final String jdbcUrlTemplate =
       "jdbc:databricks://%s/default;transportMode=http;ssl=0;AuthMech=3;httpPath=%s";
-
   private static final String HTTP_PATH = "/sql/1.0/warehouses/791ba2a31c7fd70a";
   private static final String LOCAL_TEST_DIRECTORY = "/tmp";
 
@@ -43,8 +41,6 @@ public class UCVolumeIntegrationTests extends AbstractFakeServiceIntegrationTest
 
   @BeforeEach
   void setUp() throws SQLException {
-    // TODO: Testing is done here using the E2-Dogfood environment. Need to update this to use a
-    // test warehouse.
     con = getConnection();
     client = new DatabricksUCVolumeClient(con);
     con.setClientInfo("allowlistedVolumeOperationLocalFilePaths", LOCAL_TEST_DIRECTORY);
@@ -364,10 +360,14 @@ public class UCVolumeIntegrationTests extends AbstractFakeServiceIntegrationTest
     String jdbcUrl = String.format(jdbcUrlTemplate, getFakeServiceHost(), HTTP_PATH);
 
     Properties connProps = new Properties();
-    connProps.put(USER, getDatabricksUser());
-    connProps.put(PASSWORD, getDatabricksToken());
-    connProps.put(CATALOG, FakeServiceConfigLoader.getProperty(CATALOG));
-    connProps.put(CONN_SCHEMA, FakeServiceConfigLoader.getProperty(CONN_SCHEMA));
+    connProps.put(DatabricksJdbcUrlParams.USER.getParamName(), getDatabricksUser());
+    connProps.put(DatabricksJdbcUrlParams.PASSWORD.getParamName(), getDatabricksToken());
+    connProps.put(
+        DatabricksJdbcUrlParams.CATALOG.getParamName(),
+        FakeServiceConfigLoader.getProperty(DatabricksJdbcUrlParams.CATALOG.getParamName()));
+    connProps.put(
+        DatabricksJdbcUrlParams.CONN_SCHEMA.getParamName(),
+        FakeServiceConfigLoader.getProperty(DatabricksJdbcUrlParams.CONN_SCHEMA.getParamName()));
 
     return DriverManager.getConnection(jdbcUrl, connProps);
   }
