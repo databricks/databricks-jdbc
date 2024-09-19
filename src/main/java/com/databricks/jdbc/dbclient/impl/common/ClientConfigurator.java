@@ -60,6 +60,7 @@ public class ClientConfigurator {
     PoolingHttpClientConnectionManager connManager =
         new PoolingHttpClientConnectionManager(
             getConnectionSocketFactoryRegistry(this.connectionContext));
+    // This is consistent with the value in the SDK
     connManager.setMaxTotal(100);
     httpClientBuilder.withConnectionManager(connManager);
   }
