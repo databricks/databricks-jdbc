@@ -1,6 +1,7 @@
 package com.databricks.jdbc.api.impl.arrow;
 
 import static com.databricks.jdbc.common.util.DatabricksTypeUtil.*;
+import static com.databricks.jdbc.common.util.DecompressionUtil.decompress;
 
 import com.databricks.jdbc.common.CompressionType;
 import com.databricks.jdbc.exception.DatabricksParsingException;
@@ -30,17 +31,13 @@ public class ChunkExtractor {
 
   ArrowResultChunk arrowResultChunk; // There is only one packet of data in case of inline arrow
 
-  ChunkExtractor(List<TSparkArrowBatch> arrowBatches, TGetResultSetMetadataResp metadata)
+  ChunkExtractor(
+      List<TSparkArrowBatch> arrowBatches, TGetResultSetMetadataResp metadata, String statementId)
       throws DatabricksParsingException {
     this.currentChunkIndex = -1;
     this.totalRows = 0;
-    initializeByteStream(arrowBatches, metadata);
-    // Todo : Add compression appropriately
-    arrowResultChunk =
-        ArrowResultChunk.builder()
-            .compressionType(CompressionType.NONE)
-            .withInputStream(byteStream, totalRows)
-            .build();
+    initializeByteStream(arrowBatches, metadata, statementId);
+    arrowResultChunk = ArrowResultChunk.builder().withInputStream(byteStream, totalRows).build();
   }
 
   public boolean hasNext() {
@@ -56,15 +53,22 @@ public class ChunkExtractor {
   }
 
   private void initializeByteStream(
-      List<TSparkArrowBatch> arrowBatches, TGetResultSetMetadataResp metadata)
+      List<TSparkArrowBatch> arrowBatches, TGetResultSetMetadataResp metadata, String statementId)
       throws DatabricksParsingException {
     ByteArrayOutputStream baos = new ByteArrayOutputStream();
+    CompressionType compressionType = CompressionType.getCompressionMapping(metadata);
     try {
       byte[] serializedSchema = getSerializedSchema(metadata);
       if (serializedSchema != null) {
         baos.write(serializedSchema);
       }
       for (TSparkArrowBatch arrowBatch : arrowBatches) {
+        decompress(
+            arrowBatch.getBatch(),
+            compressionType,
+            String.format(
+                "Data fetch for inline arrow batch [%d] and statement [%s] with decompression algorithm : [%s]",
+                arrowBatch.getRowCount(), statementId, compressionType));
         totalRows += arrowBatch.getRowCount();
         baos.write(arrowBatch.getBatch());
       }

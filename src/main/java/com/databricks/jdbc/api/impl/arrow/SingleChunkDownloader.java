@@ -38,7 +38,7 @@ class SingleChunkDownloader implements Callable<Void> {
           if (chunk.isChunkLinkInvalid()) {
             chunkDownloader.downloadLinks(chunk.getChunkIndex());
           }
-          chunk.downloadData(httpClient);
+          chunk.downloadData(httpClient, chunkDownloader.getCompressionType());
           downloadSuccessful = true;
         } catch (DatabricksParsingException | IOException e) {
           retries++;

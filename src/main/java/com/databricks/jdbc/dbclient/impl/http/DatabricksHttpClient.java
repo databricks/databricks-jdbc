@@ -208,6 +208,7 @@ public class DatabricksHttpClient implements IDatabricksHttpClient {
     LOGGER.debug(
         String.format("Executing HTTP request [{%s}]", RequestSanitizer.sanitizeRequest(request)));
     try {
+      request.setHeader("Content-Encoding", "gzip");
       return httpClient.execute(request);
     } catch (IOException e) {
       throwHttpException(e, request, LogLevel.ERROR);

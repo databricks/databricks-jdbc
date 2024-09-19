@@ -68,10 +68,7 @@ final class DatabricksThriftAccessor {
     this.enableDirectResults = connectionContext.getDirectResultMode();
   }
 
-  TBase getThriftResponse(TBase request, IDatabricksStatement parentStatement)
-      throws DatabricksSQLException {
-    // TODO: Test out metadata operations.
-    // TODO: Handle compression.
+  TBase getThriftResponse(TBase request) throws DatabricksSQLException {
     refreshHeadersIfRequired();
     DatabricksHttpTTransport transport =
         (DatabricksHttpTTransport) getThriftClient().getInputProtocol().getTransport();
