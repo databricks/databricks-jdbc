@@ -16,17 +16,15 @@ accepting changes. We are excited to work with the open source communities in th
 
 ## Communication
 
-- Before starting work on a major feature, please reach out to us via GitHub, e-mail, etc. We will make sure no one else
-  is already working on it and ask you to open a GitHub issue.
-- A "major feature" is defined as any change that is > 100 LOC altered (not including tests), or changes any user-facing
-  behavior.
+- Before starting work on a major feature, please reach out to us via GitHub, [E-Mail](mailto:eng-oss-sql-driver@databricks.com), etc.
+  We will make sure no one else is already working on it and ask you to open a GitHub issue.
+- A "major feature" is defined as any change that is > 100 lines of code altered (not including tests), or changes any
+  user-facing behavior.
 - We will use the GitHub issue to discuss the feature and come to agreement.
-- This is to prevent your time being wasted, as well as ours.
 - The GitHub review process for major features is also important so that organizations with write access can come to
   agreement on design.
 - If it is appropriate to write a design document, the document must be hosted either in the GitHub tracking issue, or
   linked to from the issue and hosted in a world-readable location.
-- Specifically, if the goal is to add a new extension, please read the extension policy.
 - Small patches and bug fixes don't need prior communication. If you have identified a bug and have ways to solve it,
   please create an issue or create a pull request.
 
@@ -50,7 +48,8 @@ Databricks JDBC Driver development, set up a GitHub account. Then:
   git checkout -b new-branch-name
   ```
 
-- Work on your new code. Write tests and run the Spotless code formatting (google guide) plugin.
+- Work on your new code. Write tests and run the Spotless code formatting plugin. The Spotless plugin also runs
+  automatically during the build process.
 
   ```bash
   mvn test
@@ -96,44 +95,18 @@ Once you have IntelliJ installed, open the Databricks JDBC Driver project by sel
 ## Debugging
 
 The Databricks JDBC Driver uses both [SLF4J](https://www.slf4j.org/) and [JUL](https://docs.oracle.com/javase/8/docs/api/java/util/logging/package-summary.html)
-logging framework. By default, the driver uses the JUL logging framework.
+logging framework. By default, the driver uses the JUL logging framework. For more information on logging, refer to the
+repository's [README.md](https://github.com/databricks/databricks-jdbc/blob/main/README.md).
 
 The easiest and recommended way to enable debug logging is via JDBC URL which will automatically use the JUL logging
-framework.
+framework. This will send the logs to the file pattern `databricks_jdbc.log.%i` under the specified `LogPath`.
 
 ```
 jdbc:databricks:<host:port>/default;transportMode=https;ssl=1;AuthMech=3;httpPath=<http path>;LogPath=/Users/spiderman;LogLevel=debug
 ```
 
-To enable SLF4j logging via JDBC URL, include the `log4j-slf4j2-impl` dependency in `pom.xml` and set the following
-property:
-
-```
--Dcom.databricks.jdbc.loggerImpl=SLF4JLOGGER
-```
-
-To enable `FINEST` logging in the JUL via config file, add the following line to your `logging.properties` file and set
-the following properties:
-
-```
-com.databricks.jdbc.level=FINEST
-```
-
-```
--Dcom.databricks.jdbc.loggerImpl=JDKLOGGER
--Djava.util.logging.config.file=<path to logging.properties file>
-```
-
-To enable `DEBUG` logging in the SLF4J via config file, add the following line to your `log4j2.properties` file, include
-the `log4j-slf4j2-impl` dependency in `pom.xml`, and set the following property:
-
-```
-rootLogger.level=debug
-```
-
-```
--Dcom.databricks.jdbc.loggerImpl=SLF4JLOGGER
-```
+Note that when running the repository tests using maven or editor, logs will be printed to the console as per the
+`logging.properties` in `src/test/resources`.
 
 ## Testing
 
@@ -145,7 +118,7 @@ rootLogger.level=debug
 
 ## Coding Style
 
-- We generally follow the [Google Java Style Guide](https://google.github.io/styleguide/javaguide.html).
+- We generally follow this [Java Style Guide](https://google.github.io/styleguide/javaguide.html).
 
 ## Sign Your Work
 
