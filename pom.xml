@@ -349,7 +349,6 @@
             <exclude>**/*Constants*</exclude>
             <exclude>**/*Exception*</exclude>
             <exclude>**/CommandName*</exclude>
-            <exclude>**/DatabricksEmptyMetadataClient*</exclude>
             <exclude>**/DatabricksJdbcConstants*</exclude>
             <exclude>**/DatabricksJdbcUrlParams*</exclude>
             <exclude>**/Driver*</exclude>
