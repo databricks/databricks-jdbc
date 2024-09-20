@@ -51,9 +51,9 @@ public class DatabricksConnection implements IDatabricksConnection, Connection {
 
   @VisibleForTesting
   public DatabricksConnection(
-      IDatabricksConnectionContext connectionContext, IDatabricksClient databricksClient)
+      IDatabricksConnectionContext connectionContext, IDatabricksClient databricksClientForTest)
       throws DatabricksSQLException {
-    this.session = new DatabricksSession(connectionContext, databricksClient);
+    this.session = new DatabricksSession(connectionContext, databricksClientForTest);
     this.session.open();
     Driver.setUserAgent(connectionContext);
   }

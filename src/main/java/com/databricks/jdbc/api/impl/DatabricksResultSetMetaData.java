@@ -37,6 +37,7 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
   private Long chunkCount;
   private static final String DEFAULT_CATALOGUE_NAME = "Spark";
 
+  // Add java doc for public constructors about where they are used for
   public DatabricksResultSetMetaData(String statementId, ResultManifest resultManifest) {
     this.statementId = statementId;
     Map<String, Integer> columnNameToIndexMap = new HashMap<>();

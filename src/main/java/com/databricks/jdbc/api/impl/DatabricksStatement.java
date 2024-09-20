@@ -564,6 +564,8 @@ public class DatabricksStatement implements IDatabricksStatement, Statement {
   CompletableFuture<DatabricksResultSet> getFutureResult(
       String sql, Map<Integer, ImmutableSqlParameter> params, StatementType statementType) {
     int poolSize = getRuntime().availableProcessors() * 2;
+    // This seems a red flag since we are creating a new thread pool for each query we execute on a single statement object
+    // We should move the executor initialization to the constructor and reuse that executor for all queries
     ExecutorService executor = Executors.newFixedThreadPool(poolSize);
     return CompletableFuture.supplyAsync(
         () -> {

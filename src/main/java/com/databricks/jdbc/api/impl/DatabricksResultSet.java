@@ -53,6 +53,8 @@ public class DatabricksResultSet implements ResultSet, IDatabricksResultSet {
   private VolumeInputStream volumeInputStream = null;
   private long volumeStreamContentLength = -1L;
 
+  // We should add annotation to these public constructors of what they are using for.
+  // E.g. this is used for sql exec api result set, etc
   public DatabricksResultSet(
       StatementStatus statementStatus,
       String statementId,

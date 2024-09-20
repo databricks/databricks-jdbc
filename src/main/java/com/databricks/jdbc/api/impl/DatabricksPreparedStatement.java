@@ -44,17 +44,6 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
     this.databricksBatchParameterMetaData = new ArrayList<>();
   }
 
-  private void checkLength(int targetLength, int sourceLength) throws SQLException {
-    if (targetLength != sourceLength) {
-      String errorMessage =
-          String.format(
-              "Unexpected number of bytes read from the stream. Expected: %d, got: %d",
-              targetLength, sourceLength);
-      LOGGER.error(errorMessage);
-      throw new DatabricksSQLException(errorMessage);
-    }
-  }
-
   private void checkLength(long targetLength, long sourceLength) throws SQLException {
     if (targetLength != sourceLength) {
       String errorMessage =
@@ -492,6 +481,33 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
         "Not implemented in DatabricksPreparedStatement - setCharacterStream(int parameterIndex, Reader reader)");
   }
 
+  /* Can we use this as a template and make other functions that needs to read from a InputStream use the same impl?
+     We need to close the byteArryOutputStream either in final or in a try-with-resources block or it may leak memory.
+   E.g.
+   private String readInputStream(InputStream inputStream, long length, Charset charset) throws SQLException {
+    if (inputStream == null) {
+        String errorMessage = "InputStream cannot be null";
+        LOGGER.error(errorMessage);
+        throw new DatabricksSQLException(errorMessage);
+    }
+    try (ByteArrayOutputStream buffer = new ByteArrayOutputStream()) {
+        byte[] chunk = new byte[CHUNK_SIZE];
+        long bytesRead = 0;
+        int nRead;
+        while (bytesRead < length && (nRead = inputStream.read(chunk)) != -1) {
+            buffer.write(chunk, 0, nRead);
+            bytesRead += nRead;
+        }
+        checkLength(length, bytesRead);
+        return new String(buffer.toByteArray(), charset);
+    } catch (IOException e) {
+        String errorMessage = "Error reading from the InputStream";
+        LOGGER.error(errorMessage);
+        throw new DatabricksSQLException(errorMessage, e);
+    }
+}
+
+   */
   @Override
   public void setAsciiStream(int parameterIndex, InputStream x, long length) throws SQLException {
     LOGGER.debug("public void setAsciiStream(int parameterIndex, InputStream x, long length)");
@@ -525,6 +541,32 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
         "Not implemented in DatabricksPreparedStatement - setBinaryStream(int parameterIndex, InputStream x, long length)");
   }
 
+  /*
+  Similar for reader we can abstract it to a common one:
+  private String readReader(Reader reader, long length) throws SQLException {
+    if (reader == null) {
+        String errorMessage = "Reader cannot be null";
+        LOGGER.error(errorMessage);
+        throw new DatabricksSQLException(errorMessage);
+    }
+    try {
+        StringBuilder buffer = new StringBuilder();
+        char[] chunk = new char[CHUNK_SIZE];
+        long charsRead = 0;
+        int nRead;
+        while (charsRead < length && (nRead = reader.read(chunk)) != -1) {
+            buffer.append(chunk, 0, nRead);
+            charsRead += nRead;
+        }
+        checkLength(length, charsRead);
+        return buffer.toString();
+    } catch (IOException e) {
+        String errorMessage = "Error reading from the Reader";
+        LOGGER.error(errorMessage);
+        throw new DatabricksSQLException(errorMessage, e);
+    }
+}
+   */
   public void setCharacterStream(int parameterIndex, Reader reader, long length)
       throws SQLException {
     LOGGER.debug("public void setCharacterStream(int parameterIndex, Reader reader, long length)");

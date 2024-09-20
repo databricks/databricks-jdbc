@@ -214,6 +214,7 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
         return DatabricksJdbcConstants.AAD_CLIENT_ID;
       }
     }
+    // TODO: We should add GCP support as well, and it support OAuth out of the box like AWS
     return clientId;
   }
 
@@ -224,6 +225,7 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
           DatabricksJdbcConstants.SQL_SCOPE, DatabricksJdbcConstants.OFFLINE_ACCESS_SCOPE);
     } else {
       // Default scope is already being set for Azure in databricks-sdk.
+      // TODO: We should lean towards using inHouse OAuth for Azure instead of AAD
       return null;
     }
   }

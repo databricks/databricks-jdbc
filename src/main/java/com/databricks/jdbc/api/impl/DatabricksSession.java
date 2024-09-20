@@ -91,15 +91,16 @@ public class DatabricksSession implements IDatabricksSession {
   }
 
   /** Constructor method to be used for mocking in a test case. */
+  // I rename it to databricksClientForTest to make it more clear it's ONLY for testing
   @VisibleForTesting
   public DatabricksSession(
-      IDatabricksConnectionContext connectionContext, IDatabricksClient databricksClient) {
-    this.databricksClient = databricksClient;
-    if (databricksClient instanceof DatabricksThriftServiceClient) {
+      IDatabricksConnectionContext connectionContext, IDatabricksClient databricksClientForTest) {
+    this.databricksClient = databricksClientForTest;
+    if (databricksClientForTest instanceof DatabricksThriftServiceClient) {
       this.databricksMetadataClient = null;
     } else {
       this.databricksMetadataClient =
-          new DatabricksMetadataSdkClient((DatabricksSdkClient) databricksClient);
+          new DatabricksMetadataSdkClient((DatabricksSdkClient) databricksClientForTest);
     }
     this.isSessionOpen = false;
     this.sessionInfo = null;
