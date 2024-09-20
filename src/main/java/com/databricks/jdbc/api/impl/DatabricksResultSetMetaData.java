@@ -1,5 +1,6 @@
 package com.databricks.jdbc.api.impl;
 
+import static com.databricks.jdbc.common.DatabricksJdbcConstants.EMPTY_STRING;
 import static com.databricks.jdbc.common.DatabricksJdbcConstants.VOLUME_OPERATION_STATUS_COLUMN_NAME;
 import static com.databricks.jdbc.common.util.DatabricksThriftUtil.getTypeFromTypeDesc;
 
@@ -379,9 +380,9 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
         .nullable(Nullable.NULLABLE)
         .accessType(AccessType.READ_ONLY)
         .isDefinitelyWritable(false)
-        .schemaName("")
-        .tableName("")
-        .catalogName("")
+        .schemaName(EMPTY_STRING)
+        .tableName(EMPTY_STRING)
+        .catalogName(EMPTY_STRING)
         .isCurrency(false)
         .typeScale(0)
         .isCaseSensitive(false);
