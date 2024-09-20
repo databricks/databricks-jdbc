@@ -95,7 +95,7 @@ public class DatabricksResultSet implements ResultSet, IDatabricksResultSet {
     this.wasNull = false;
   }
 
-  // constructor for thrift result set
+  // Constructor for thrift result set
   public DatabricksResultSet(
       TStatus statementStatus,
       String statementId,
