@@ -1,7 +1,7 @@
 package com.databricks.jdbc.api.impl.volume;
 
+import static com.databricks.jdbc.common.DatabricksJdbcConstants.ALLOWED_STAGING_INGESTION_PATHS;
 import static com.databricks.jdbc.common.DatabricksJdbcConstants.ALLOWED_VOLUME_INGESTION_PATHS;
-import static com.databricks.jdbc.common.EnvironmentVariables.DEFAULT_SLEEP_DELAY;
 
 import com.databricks.jdbc.api.IDatabricksResultSet;
 import com.databricks.jdbc.api.IDatabricksSession;
@@ -16,6 +16,7 @@ import com.databricks.jdbc.model.core.ResultManifest;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Strings;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -31,7 +32,7 @@ public class VolumeOperationResult implements IExecutionResult {
   private final long rowCount;
   private final long columnCount;
 
-  private VolumeOperationExecutor volumeOperationExecutor;
+  private VolumeOperationProcessor volumeOperationProcessor;
   private int currentRowIndex;
 
   public VolumeOperationResult(
@@ -78,21 +79,27 @@ public class VolumeOperationResult implements IExecutionResult {
     String presignedUrl = getString(resultHandler.getObject(1));
     String localFile = columnCount > 3 ? getString(resultHandler.getObject(3)) : null;
     Map<String, String> headers = getHeaders(getString(resultHandler.getObject(2)));
-    this.volumeOperationExecutor =
-        new VolumeOperationExecutor(
+    String allowedVolumeIngestionPaths = getAllowedVolumeIngestionPaths();
+    this.volumeOperationProcessor =
+        new VolumeOperationProcessor(
             operation,
             presignedUrl,
             headers,
             localFile,
-            session
-                .getClientInfoProperties()
-                .getOrDefault(ALLOWED_VOLUME_INGESTION_PATHS.toLowerCase(), ""),
+            allowedVolumeIngestionPaths,
             httpClient,
             statement,
             resultSet);
-    Thread thread = new Thread(volumeOperationExecutor);
-    thread.setName("VolumeOperationExecutor " + statementId);
-    thread.start();
+  }
+
+  private String getAllowedVolumeIngestionPaths() {
+    String allowedPaths =
+        session.getClientInfoProperties().get(ALLOWED_VOLUME_INGESTION_PATHS.toLowerCase());
+    if (Strings.isNullOrEmpty(allowedPaths)) {
+      allowedPaths =
+          session.getClientInfoProperties().getOrDefault(ALLOWED_STAGING_INGESTION_PATHS, "");
+    }
+    return allowedPaths;
   }
 
   private String getString(Object obj) {
@@ -143,7 +150,7 @@ public class VolumeOperationResult implements IExecutionResult {
       throw new DatabricksSQLException("Invalid row access");
     }
     if (columnIndex == 0) {
-      return volumeOperationExecutor.getStatus().name();
+      return volumeOperationProcessor.getStatus().name();
     } else {
       throw new DatabricksSQLException("Invalid column access");
     }
@@ -160,37 +167,22 @@ public class VolumeOperationResult implements IExecutionResult {
       validateMetadata();
       resultHandler.next();
       initHandler(resultHandler);
+      volumeOperationProcessor.process();
 
-      poll();
+      if (volumeOperationProcessor.getStatus()
+          == VolumeOperationProcessor.VolumeOperationStatus.FAILED) {
+        throw new DatabricksSQLException(
+            "Volume operation failed: " + volumeOperationProcessor.getErrorMessage());
+      }
+      if (volumeOperationProcessor.getStatus()
+          == VolumeOperationProcessor.VolumeOperationStatus.ABORTED) {
+        throw new DatabricksSQLException(
+            "Volume operation aborted: " + volumeOperationProcessor.getErrorMessage());
+      }
       currentRowIndex++;
       return true;
     } else {
       return false;
-    }
-  }
-
-  private void poll() throws DatabricksSQLException {
-    // TODO: handle timeouts
-    while (volumeOperationExecutor.getStatus()
-            == VolumeOperationExecutor.VolumeOperationStatus.PENDING
-        || volumeOperationExecutor.getStatus()
-            == VolumeOperationExecutor.VolumeOperationStatus.RUNNING) {
-      try {
-        Thread.sleep(DEFAULT_SLEEP_DELAY);
-      } catch (InterruptedException e) {
-        throw new DatabricksSQLException(
-            "Thread interrupted while waiting for volume operation to complete", e);
-      }
-    }
-    if (volumeOperationExecutor.getStatus()
-        == VolumeOperationExecutor.VolumeOperationStatus.FAILED) {
-      throw new DatabricksSQLException(
-          "Volume operation failed: " + volumeOperationExecutor.getErrorMessage());
-    }
-    if (volumeOperationExecutor.getStatus()
-        == VolumeOperationExecutor.VolumeOperationStatus.ABORTED) {
-      throw new DatabricksSQLException(
-          "Volume operation aborted: " + volumeOperationExecutor.getErrorMessage());
     }
   }
 

@@ -1,11 +1,11 @@
 package com.databricks.jdbc.auth;
 
 import com.databricks.jdbc.api.IDatabricksConnectionContext;
-import com.databricks.jdbc.common.LogLevel;
-import com.databricks.jdbc.common.util.LoggingUtil;
 import com.databricks.jdbc.dbclient.impl.http.DatabricksHttpClient;
 import com.databricks.jdbc.exception.DatabricksHttpException;
 import com.databricks.jdbc.exception.DatabricksParsingException;
+import com.databricks.jdbc.log.JdbcLogger;
+import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.sdk.core.DatabricksConfig;
 import com.databricks.sdk.core.DatabricksException;
 import com.databricks.sdk.core.oauth.OpenIDConnectEndpoints;
@@ -18,6 +18,8 @@ import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.utils.URIBuilder;
 
 public class OAuthEndpointResolver {
+
+  public static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(OAuthEndpointResolver.class);
   private final IDatabricksConnectionContext context;
 
   public OAuthEndpointResolver(IDatabricksConnectionContext context) {
@@ -46,7 +48,7 @@ public class OAuthEndpointResolver {
     } catch (DatabricksException e) {
       String errorMessage =
           "Failed to get token endpoint from discovery endpoint. Falling back to default token endpoint.";
-      LoggingUtil.log(LogLevel.ERROR, errorMessage);
+      LOGGER.error(errorMessage);
       return getDefaultTokenEndpoint();
     }
   }
@@ -56,7 +58,7 @@ public class OAuthEndpointResolver {
       return getBarebonesDatabricksConfig().getOidcEndpoints().getTokenEndpoint();
     } catch (DatabricksParsingException | IOException e) {
       String errorMessage = "Failed to build default token endpoint URL.";
-      LoggingUtil.log(LogLevel.ERROR, errorMessage);
+      LOGGER.error(errorMessage);
       throw new DatabricksException(errorMessage, e);
     }
   }
@@ -80,7 +82,7 @@ public class OAuthEndpointResolver {
           String exceptionMessage =
               "Error while calling discovery endpoint to fetch token endpoint. Response: "
                   + response;
-          LoggingUtil.log(LogLevel.DEBUG, exceptionMessage);
+          LOGGER.debug(exceptionMessage);
           throw new DatabricksHttpException(exceptionMessage);
         }
         OpenIDConnectEndpoints openIDConnectEndpoints =
@@ -90,7 +92,7 @@ public class OAuthEndpointResolver {
       }
     } catch (URISyntaxException | DatabricksHttpException | IOException e) {
       String exceptionMessage = "Failed to get token endpoint from discovery endpoint";
-      LoggingUtil.log(LogLevel.ERROR, exceptionMessage);
+      LOGGER.error(exceptionMessage);
       throw new DatabricksException(exceptionMessage, e);
     }
   }

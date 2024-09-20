@@ -1,19 +1,19 @@
 package com.databricks.jdbc.api.impl;
 
 import static com.databricks.jdbc.common.DatabricksJdbcConstants.VOLUME_OPERATION_STATUS_COLUMN_NAME;
-import static com.databricks.jdbc.common.MetadataResultConstants.NULL_STRING;
 import static com.databricks.jdbc.common.util.DatabricksThriftUtil.getTypeFromTypeDesc;
 
 import com.databricks.jdbc.common.AccessType;
-import com.databricks.jdbc.common.LogLevel;
 import com.databricks.jdbc.common.Nullable;
 import com.databricks.jdbc.common.util.DatabricksTypeUtil;
-import com.databricks.jdbc.common.util.LoggingUtil;
 import com.databricks.jdbc.common.util.WrapperUtil;
+import com.databricks.jdbc.log.JdbcLogger;
+import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.model.client.thrift.generated.TColumnDesc;
 import com.databricks.jdbc.model.client.thrift.generated.TGetResultSetMetadataResp;
 import com.databricks.jdbc.model.client.thrift.generated.TTypeEntry;
 import com.databricks.jdbc.model.client.thrift.generated.TTypeQualifierValue;
+import com.databricks.jdbc.model.core.ColumnMetadata;
 import com.databricks.jdbc.model.core.ResultManifest;
 import com.databricks.sdk.service.sql.ColumnInfo;
 import com.databricks.sdk.service.sql.ColumnInfoTypeName;
@@ -27,14 +27,14 @@ import java.util.List;
 import java.util.Map;
 
 public class DatabricksResultSetMetaData implements ResultSetMetaData {
+
+  public static final JdbcLogger LOGGER =
+      JdbcLoggerFactory.getLogger(DatabricksResultSetMetaData.class);
   private final String statementId;
   private final ImmutableList<ImmutableDatabricksColumn> columns;
   private final ImmutableMap<String, Integer> columnNameIndex;
   private final long totalRows;
   private Long chunkCount;
-  private static final String DEFAULT_CATALOGUE_NAME = "Spark";
-
-  // TODO: Add handling for Arrow stream results
 
   public DatabricksResultSetMetaData(String statementId, ResultManifest resultManifest) {
     this.statementId = statementId;
@@ -58,20 +58,20 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
       if (resultManifest.getSchema().getColumnCount() > 0) {
         for (ColumnInfo columnInfo : resultManifest.getSchema().getColumns()) {
           ColumnInfoTypeName columnTypeName = columnInfo.getTypeName();
-          int[] scaleAndPrecision = getScaleAndPrecision(columnInfo, columnTypeName);
+          int columnType = DatabricksTypeUtil.getColumnType(columnTypeName);
+          int[] scaleAndPrecision = getScaleAndPrecision(columnInfo, columnType);
           int precision = scaleAndPrecision[0];
           int scale = scaleAndPrecision[1];
           ImmutableDatabricksColumn.Builder columnBuilder = getColumnBuilder();
           columnBuilder
               .columnName(columnInfo.getName())
               .columnTypeClassName(DatabricksTypeUtil.getColumnTypeClassName(columnTypeName))
-              .columnType(DatabricksTypeUtil.getColumnType(columnTypeName))
+              .columnType(columnType)
               .columnTypeText(columnInfo.getTypeText())
               .typePrecision(precision)
               .typeScale(scale)
               .displaySize(DatabricksTypeUtil.getDisplaySize(columnTypeName, precision))
               .isSigned(DatabricksTypeUtil.isSigned(columnTypeName));
-
           columnsBuilder.add(columnBuilder.build());
           // Keep index starting from 1, to be consistent with JDBC convention
           columnNameToIndexMap.putIfAbsent(columnInfo.getName(), ++currIndex);
@@ -89,8 +89,7 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
     this.statementId = statementId;
     Map<String, Integer> columnNameToIndexMap = new HashMap<>();
     ImmutableList.Builder<ImmutableDatabricksColumn> columnsBuilder = ImmutableList.builder();
-    LoggingUtil.log(
-        LogLevel.DEBUG,
+    LOGGER.debug(
         String.format(
             "Result manifest for statement {%s} has schema: {%s}",
             statementId, resultManifest.getSchema()));
@@ -111,7 +110,8 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
       if (resultManifest.getSchema() != null && resultManifest.getSchema().getColumnsSize() > 0) {
         for (TColumnDesc columnInfo : resultManifest.getSchema().getColumns()) {
           ColumnInfoTypeName columnTypeName = getTypeFromTypeDesc(columnInfo.getTypeDesc());
-          int[] scaleAndPrecision = getScaleAndPrecision(columnInfo, columnTypeName);
+          int columnType = DatabricksTypeUtil.getColumnType(columnTypeName);
+          int[] scaleAndPrecision = getScaleAndPrecision(columnInfo, columnType);
           int precision = scaleAndPrecision[0];
           int scale = scaleAndPrecision[1];
 
@@ -119,7 +119,7 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
           columnBuilder
               .columnName(columnInfo.getColumnName())
               .columnTypeClassName(DatabricksTypeUtil.getColumnTypeClassName(columnTypeName))
-              .columnType(DatabricksTypeUtil.getColumnType(columnTypeName))
+              .columnType(columnType)
               .columnTypeText(columnTypeName.name())
               .typePrecision(precision)
               .typeScale(scale)
@@ -134,6 +134,38 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
     this.columnNameIndex = ImmutableMap.copyOf(columnNameToIndexMap);
     this.totalRows = rows;
     this.chunkCount = chunkCount;
+  }
+
+  public DatabricksResultSetMetaData(
+      String statementId, List<ColumnMetadata> columnMetadataList, long totalRows) {
+    this.statementId = statementId;
+    Map<String, Integer> columnNameToIndexMap = new HashMap<>();
+    ImmutableList.Builder<ImmutableDatabricksColumn> columnsBuilder = ImmutableList.builder();
+
+    for (int i = 0; i < columnMetadataList.size(); i++) {
+      ColumnMetadata metadata = columnMetadataList.get(i);
+      ColumnInfoTypeName columnTypeName =
+          ColumnInfoTypeName.valueOf(
+              DatabricksTypeUtil.getDatabricksTypeFromSQLType(metadata.getTypeInt()));
+      ImmutableDatabricksColumn.Builder columnBuilder = getColumnBuilder();
+      columnBuilder
+          .columnName(metadata.getName())
+          .columnType(metadata.getTypeInt())
+          .columnTypeText(metadata.getTypeText())
+          .typePrecision(metadata.getPrecision())
+          .columnTypeClassName(DatabricksTypeUtil.getColumnTypeClassName(columnTypeName))
+          .typeScale(metadata.getScale())
+          .nullable(DatabricksTypeUtil.getNullableFromValue(metadata.getNullable()))
+          .displaySize(DatabricksTypeUtil.getDisplaySize(columnTypeName, metadata.getPrecision()))
+          .isSigned(DatabricksTypeUtil.isSigned(columnTypeName));
+
+      columnsBuilder.add(columnBuilder.build());
+      columnNameToIndexMap.putIfAbsent(metadata.getName(), i + 1); // JDBC index starts from 1
+    }
+
+    this.columns = columnsBuilder.build();
+    this.columnNameIndex = ImmutableMap.copyOf(columnNameToIndexMap);
+    this.totalRows = totalRows;
   }
 
   public DatabricksResultSetMetaData(
@@ -313,9 +345,9 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
     return chunkCount;
   }
 
-  public int[] getScaleAndPrecision(ColumnInfo columnInfo, ColumnInfoTypeName columnTypeName) {
-    int precision = DatabricksTypeUtil.getPrecision(columnTypeName);
-    int scale = DatabricksTypeUtil.getScale(columnTypeName);
+  public int[] getScaleAndPrecision(ColumnInfo columnInfo, int columnType) {
+    int precision = DatabricksTypeUtil.getPrecision(columnType);
+    int scale = DatabricksTypeUtil.getScale(columnType);
     if (columnInfo.getTypePrecision() != null) {
       precision = Math.toIntExact(columnInfo.getTypePrecision());
       scale = Math.toIntExact(columnInfo.getTypeScale());
@@ -323,9 +355,9 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
     return new int[] {precision, scale};
   }
 
-  public int[] getScaleAndPrecision(TColumnDesc columnInfo, ColumnInfoTypeName columnTypeName) {
-    int precision = DatabricksTypeUtil.getPrecision(columnTypeName);
-    int scale = DatabricksTypeUtil.getScale(columnTypeName);
+  public int[] getScaleAndPrecision(TColumnDesc columnInfo, int columnType) {
+    int precision = DatabricksTypeUtil.getPrecision(columnType);
+    int scale = DatabricksTypeUtil.getScale(columnType);
     if (columnInfo.getTypeDesc() != null && columnInfo.getTypeDesc().getTypesSize() > 0) {
       TTypeEntry tTypeEntry = columnInfo.getTypeDesc().getTypes().get(0);
       if (tTypeEntry.isSetPrimitiveEntry()
@@ -343,13 +375,13 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
   private ImmutableDatabricksColumn.Builder getColumnBuilder() {
     return ImmutableDatabricksColumn.builder()
         .isAutoIncrement(false)
-        .isSearchable(true)
+        .isSearchable(false)
         .nullable(Nullable.NULLABLE)
         .accessType(AccessType.READ_ONLY)
         .isDefinitelyWritable(false)
-        .schemaName(NULL_STRING)
-        .tableName(NULL_STRING)
-        .catalogName(DEFAULT_CATALOGUE_NAME)
+        .schemaName("")
+        .tableName("")
+        .catalogName("")
         .isCurrency(false)
         .typeScale(0)
         .isCaseSensitive(false);

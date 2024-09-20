@@ -17,15 +17,18 @@ public final class DatabricksJdbcConstants {
   public static final Pattern HTTP_CLUSTER_PATH_PATTERN = Pattern.compile(".*/o/(.+)/(.+)");
   public static final String JDBC_SCHEMA = "jdbc:databricks://";
   public static final LogLevel DEFAULT_LOG_LEVEL = LogLevel.OFF;
-  public static final int DEFAULT_LOG_FILE_SIZE_IN_MB = 10;
-  public static final int DEFAULT_LOG_FILE_COUNT = 10;
   public static final String USER_AGENT_DELIMITER = "-";
   public static final String URL_DELIMITER = ";";
   public static final String PORT_DELIMITER = ":";
   public static final String DEFAULT_SCHEMA = "default";
   public static final String PAIR_DELIMITER = "=";
-  public static final String HTTP_SCHEMA = "http://";
-  public static final String HTTPS_SCHEMA = "https://";
+  public static final String SCHEMA_DELIMITER = "://";
+  public static final String PKIX = "PKIX";
+  public static final String TLS = "TLS";
+  public static final String HTTP = "http";
+  public static final String HTTPS = "https";
+  public static final String HTTP_SCHEMA = HTTP + SCHEMA_DELIMITER;
+  public static final String HTTPS_SCHEMA = HTTPS + SCHEMA_DELIMITER;
   public static final String LOGIN_TIMEOUT = "loginTimeout";
   public static final String U2M_AUTH_TYPE = "external-browser";
   public static final String M2M_AUTH_TYPE = "oauth-m2m";
@@ -34,6 +37,9 @@ public final class DatabricksJdbcConstants {
   public static final String SQL_SCOPE = "sql";
   public static final String OFFLINE_ACCESS_SCOPE = "offline_access";
   public static final String FULL_STOP = ".";
+  public static final String COMMA = ",";
+  public static final String PIPE = "|";
+  public static final String ASTERISK = "*";
   public static final String EMPTY_STRING = "";
   public static final String IDENTIFIER_QUOTE_STRING = "`";
   public static final String CATALOG = "catalog";
@@ -49,6 +55,7 @@ public final class DatabricksJdbcConstants {
   public static final String USER_AGENT_THRIFT_CLIENT = "THttpClient-HC";
   public static final String ALLOWED_VOLUME_INGESTION_PATHS =
       "allowlistedVolumeOperationLocalFilePaths";
+  public static final String ALLOWED_STAGING_INGESTION_PATHS = "StagingAllowedLocalPaths";
   public static final String VOLUME_OPERATION_STATUS_COLUMN_NAME = "operation_status";
   public static final String VOLUME_OPERATION_STATUS_SUCCEEDED = "SUCCEEDED";
   public static final Map<String, String> ALLOWED_SESSION_CONF_TO_DEFAULT_VALUES_MAP =
@@ -64,10 +71,12 @@ public final class DatabricksJdbcConstants {
           "TIMEZONE", "UTC",
           "USE_CACHED_RESULT", "TRUE");
   public static final Set<String> ALLOWED_CLIENT_INFO_PROPERTIES =
-      Set.of(ALLOWED_VOLUME_INGESTION_PATHS);
+      Set.of(
+          ALLOWED_VOLUME_INGESTION_PATHS,
+          ALLOWED_STAGING_INGESTION_PATHS,
+          DatabricksJdbcUrlParams.AUTH_ACCESS_TOKEN.getParamName());
   @VisibleForTesting public static final String IS_FAKE_SERVICE_TEST_PROP = "isFakeServiceTest";
   @VisibleForTesting public static final String FAKE_SERVICE_URI_PROP_SUFFIX = ".fakeServiceURI";
-  public static final int POLL_INTERVAL_DEFAULT = 200;
   public static final String AWS_CLIENT_ID = "databricks-sql-jdbc";
   public static final String AAD_CLIENT_ID = "96eecda7-19ea-49cc-abb5-240097d554f5";
 
@@ -81,11 +90,6 @@ public final class DatabricksJdbcConstants {
     CLOUD_FETCH_UC_VOLUME
   }
 
-  public static final String DEFAULT_TEMPORARILY_UNAVAILABLE_RETRY_TIMEOUT = "900";
-  public static final String DEFAULT_RATE_LIMIT_RETRY_TIMEOUT = "120";
-  public static final String DEFAULT_IDLE_HTTP_CONNECTION_EXPIRY = "60";
-  public static final int CLOUD_FETCH_THREAD_POOL_SIZE_DEFAULT = 16;
-  public static final String ALL_APIS_SCOPE = "all-apis";
   public static final Pattern SELECT_PATTERN =
       Pattern.compile("^(\\s*\\()*\\s*SELECT", Pattern.CASE_INSENSITIVE);
   public static final Pattern SHOW_PATTERN =
@@ -122,8 +126,6 @@ public final class DatabricksJdbcConstants {
       Pattern.compile("^(\\s*\\()*\\s*LIST", Pattern.CASE_INSENSITIVE);
   public static final int DBSQL_MIN_MAJOR_VERSION_FOR_NEW_METADATA = 2024;
   public static final int DBSQL_MIN_MINOR_VERSION_FOR_NEW_METADATA = 30;
-  public static final int DEFAULT_RETRY_COUNT = 5;
-  public static final LogLevel TELEMETRY_LOG_LEVEL = LogLevel.OFF;
   public static final String DEFAULT_USERNAME =
       "token"; // This is for PAT. We do not support Basic Auth.
   public static final String USERNAME_ERROR =

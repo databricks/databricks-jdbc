@@ -4,10 +4,12 @@ import static com.databricks.jdbc.TestConstants.*;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.common.DatabricksClientType;
+import com.databricks.jdbc.common.DatabricksJdbcUrlParams;
 import com.databricks.jdbc.dbclient.impl.sqlexec.DatabricksMetadataSdkClient;
 import com.databricks.jdbc.dbclient.impl.sqlexec.DatabricksSdkClient;
 import com.databricks.jdbc.dbclient.impl.thrift.DatabricksThriftServiceClient;
@@ -157,5 +159,25 @@ public class DatabricksSessionTest {
             DatabricksConnectionContext.parse(VALID_CLUSTER_URL, new Properties()), sdkClient);
     session.setClientInfoProperty("key", "value");
     assertEquals("value", session.getClientInfoProperties().get("key"));
+  }
+
+  @Test
+  public void testSetClientInfoProperty_AuthAccessToken() throws DatabricksSQLException {
+    DatabricksSession session =
+        new DatabricksSession(
+            DatabricksConnectionContext.parse(VALID_CLUSTER_URL, new Properties()), sdkClient);
+    session.setClientInfoProperty(
+        DatabricksJdbcUrlParams.AUTH_ACCESS_TOKEN.getParamName(), "token");
+    verify(sdkClient).resetAccessToken("token");
+  }
+
+  @Test
+  public void testSetClientInfoProperty_AuthAccessTokenThrift() throws DatabricksSQLException {
+    DatabricksSession session =
+        new DatabricksSession(
+            DatabricksConnectionContext.parse(VALID_CLUSTER_URL, new Properties()), thriftClient);
+    session.setClientInfoProperty(
+        DatabricksJdbcUrlParams.AUTH_ACCESS_TOKEN.getParamName(), "token");
+    verify(thriftClient).resetAccessToken("token");
   }
 }

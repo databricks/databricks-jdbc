@@ -1,10 +1,13 @@
 package com.databricks.jdbc.common.util;
 
 import com.databricks.jdbc.api.IDatabricksConnectionContext;
-import com.databricks.jdbc.common.LogLevel;
+import com.databricks.jdbc.log.JdbcLogger;
+import com.databricks.jdbc.log.JdbcLoggerFactory;
 import java.nio.charset.Charset;
 
 public class DeviceInfoLogUtil {
+
+  public static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(DeviceInfoLogUtil.class);
 
   public static void logProperties(IDatabricksConnectionContext context) {
     String jvmName = System.getProperty("java.vm.name");
@@ -18,19 +21,16 @@ public class DeviceInfoLogUtil {
         System.getProperty("user.language") + "_" + System.getProperty("user.country");
     String charsetEncoding = Charset.defaultCharset().displayName();
 
-    LoggingUtil.log(
-        LogLevel.INFO, String.format("JDBC Driver Version: %s", DriverUtil.getVersion()));
-    LoggingUtil.log(
-        LogLevel.INFO,
+    LOGGER.info(String.format("JDBC Driver Version: %s", DriverUtil.getVersion()));
+    LOGGER.info(
         String.format(
             "JVM Name: %s, Vendor: %s, Specification Version: %s, Version: %s",
             jvmName, jvmVendor, jvmSpecVersion, jvmImplVersion));
-    LoggingUtil.log(
-        LogLevel.INFO,
+    LOGGER.info(
         String.format(
             "Operating System Name: %s, Version: %s, Architecture: %s, Locale: ",
             osName, osVersion, osArch, localeName));
-    LoggingUtil.log(LogLevel.INFO, String.format("Default Charset Encoding: %s", charsetEncoding));
+    LOGGER.info(String.format("Default Charset Encoding: %s", charsetEncoding));
     context
         .getMetricsExporter()
         .exportUsageMetrics(
