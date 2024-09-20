@@ -6,6 +6,7 @@ import com.databricks.jdbc.common.IDatabricksComputeResource;
 import com.databricks.jdbc.dbclient.IDatabricksClient;
 import com.databricks.jdbc.dbclient.IDatabricksMetadataClient;
 import com.databricks.jdbc.exception.DatabricksSQLException;
+import com.databricks.jdbc.telemetry.DatabricksMetrics;
 import java.util.Map;
 import javax.annotation.Nullable;
 
@@ -79,7 +80,11 @@ public interface IDatabricksSession {
   /** Sets the client info property */
   void setClientInfoProperty(String name, String value);
 
+  /** Returns the associated connection context for the session */
   IDatabricksConnectionContext getConnectionContext();
 
   void setEmptyMetadataClient();
+
+  /** Returns the metrics exporter for the session */
+  DatabricksMetrics getMetricsExporter();
 }

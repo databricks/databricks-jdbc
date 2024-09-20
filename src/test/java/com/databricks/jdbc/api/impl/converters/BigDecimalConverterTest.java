@@ -7,13 +7,12 @@ import java.io.*;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.nio.charset.StandardCharsets;
-import java.util.Arrays;
 import org.junit.jupiter.api.Test;
 
 public class BigDecimalConverterTest {
 
-  private BigDecimal NON_ZERO_OBJECT = BigDecimal.valueOf(10.2);
-  private BigDecimal ZERO_OBJECT = BigDecimal.valueOf(0);
+  private final BigDecimal NON_ZERO_OBJECT = BigDecimal.valueOf(10.2);
+  private final BigDecimal ZERO_OBJECT = BigDecimal.valueOf(0);
 
   @Test
   public void testConvertToByte() throws DatabricksSQLException {
@@ -43,8 +42,8 @@ public class BigDecimalConverterTest {
 
   @Test
   public void testConvertToInt() throws DatabricksSQLException {
-    assertEquals(new BigDecimalConverter(NON_ZERO_OBJECT).convertToInt(), (int) 10);
-    assertEquals(new BigDecimalConverter(ZERO_OBJECT).convertToInt(), (int) 0);
+    assertEquals(new BigDecimalConverter(NON_ZERO_OBJECT).convertToInt(), 10);
+    assertEquals(new BigDecimalConverter(ZERO_OBJECT).convertToInt(), 0);
 
     BigDecimal bigDecimalThatDoesNotFitInInt = BigDecimal.valueOf(2147483648.1);
     DatabricksSQLException exception =
@@ -75,8 +74,8 @@ public class BigDecimalConverterTest {
 
   @Test
   public void testConvertToDouble() throws DatabricksSQLException {
-    assertEquals(new BigDecimalConverter(NON_ZERO_OBJECT).convertToDouble(), (double) 10.2);
-    assertEquals(new BigDecimalConverter(ZERO_OBJECT).convertToDouble(), (double) 0);
+    assertEquals(new BigDecimalConverter(NON_ZERO_OBJECT).convertToDouble(), 10.2);
+    assertEquals(new BigDecimalConverter(ZERO_OBJECT).convertToDouble(), 0);
   }
 
   @Test
@@ -91,20 +90,18 @@ public class BigDecimalConverterTest {
 
   @Test
   public void testConvertToBoolean() throws DatabricksSQLException {
-    assertEquals(new BigDecimalConverter(NON_ZERO_OBJECT).convertToBoolean(), true);
-    assertEquals(new BigDecimalConverter(ZERO_OBJECT).convertToBoolean(), false);
+    assertTrue(new BigDecimalConverter(NON_ZERO_OBJECT).convertToBoolean());
+    assertFalse(new BigDecimalConverter(ZERO_OBJECT).convertToBoolean());
   }
 
   @Test
   public void testConvertToByteArray() throws DatabricksSQLException {
-    assertTrue(
-        Arrays.equals(
-            new BigDecimalConverter(NON_ZERO_OBJECT).convertToByteArray(),
-            BigDecimal.valueOf(10.2).toBigInteger().toByteArray()));
-    assertTrue(
-        Arrays.equals(
-            new BigDecimalConverter(ZERO_OBJECT).convertToByteArray(),
-            BigDecimal.valueOf(0).toBigInteger().toByteArray()));
+    assertArrayEquals(
+        new BigDecimalConverter(NON_ZERO_OBJECT).convertToByteArray(),
+        BigDecimal.valueOf(10.2).toBigInteger().toByteArray());
+    assertArrayEquals(
+        new BigDecimalConverter(ZERO_OBJECT).convertToByteArray(),
+        BigDecimal.valueOf(0).toBigInteger().toByteArray());
   }
 
   @Test

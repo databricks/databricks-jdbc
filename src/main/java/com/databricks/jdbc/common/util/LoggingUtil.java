@@ -9,11 +9,7 @@ import com.databricks.jdbc.log.JulLogger;
 import java.io.IOException;
 import java.util.logging.Level;
 
-/**
- * A centralised utility class for logging messages at different levels of importance.
- *
- * <p>TODO: switch to de-centralised logging with each class having its own logger.
- */
+/** A centralised utility class for logging messages at different levels of importance. */
 public class LoggingUtil {
 
   private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(LoggingUtil.class);
@@ -22,34 +18,8 @@ public class LoggingUtil {
       throws IOException {
     if (LOGGER instanceof JulLogger && System.getProperty(JAVA_UTIL_LOGGING_CONFIG_FILE) == null) {
       // Only configure JUL logger if it's not already configured via external properties file
+      LOGGER.info("Setting up JUL logger");
       JulLogger.initLogger(toJulLevel(level), logDir, logFileSizeMB * 1024 * 1024, logFileCount);
-    }
-  }
-
-  public static void log(LogLevel level, String message, String classContext) {
-    log(level, String.format("%s - %s", classContext, message));
-  }
-
-  public static void log(LogLevel level, String message) {
-    switch (level) {
-      case DEBUG:
-        LOGGER.debug(message);
-        break;
-      case ERROR:
-      case FATAL:
-        LOGGER.error(message);
-        break;
-      case INFO:
-        LOGGER.info(message);
-        break;
-      case TRACE:
-        LOGGER.trace(message);
-        break;
-      case WARN:
-        LOGGER.warn(message);
-        break;
-      default:
-        LOGGER.error("Unrecognized log level: " + level + ". Message: " + message);
     }
   }
 

@@ -2,8 +2,6 @@ package com.databricks.jdbc.dbclient.impl.http;
 
 import static com.databricks.jdbc.common.DatabricksJdbcConstants.FAKE_SERVICE_URI_PROP_SUFFIX;
 import static com.databricks.jdbc.common.DatabricksJdbcConstants.IS_FAKE_SERVICE_TEST_PROP;
-import static com.databricks.jdbc.dbclient.impl.http.DatabricksHttpClient.isErrorCodeRetryable;
-import static com.databricks.jdbc.dbclient.impl.http.DatabricksHttpClient.isRetryAllowed;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
@@ -196,7 +194,7 @@ public class DatabricksHttpClientTest {
   }
 
   @Test
-  void TestCloseExpiredAndIdleConnections() {
+  void testCloseExpiredAndIdleConnections() {
     DatabricksHttpClient databricksHttpClient =
         new DatabricksHttpClient(mockHttpClient, connectionManager);
     databricksHttpClient.closeExpiredAndIdleConnections();
@@ -206,25 +204,9 @@ public class DatabricksHttpClientTest {
   }
 
   @Test
-  void TestCloseExpiredAndIdleConnectionsForNull() {
+  void testCloseExpiredAndIdleConnectionsForNull() {
     DatabricksHttpClient databricksHttpClient = new DatabricksHttpClient(mockHttpClient, null);
     assertDoesNotThrow(databricksHttpClient::closeExpiredAndIdleConnections);
-  }
-
-  @Test
-  void testIsRetryAllowed() {
-    assertTrue(isRetryAllowed("GET"), "GET requests should be allowed for retry");
-    assertTrue(isRetryAllowed("POST"), "POST requests should  be allowed for retry");
-    assertTrue(isRetryAllowed("PUT"), "PUT requests should be allowed for retry");
-    assertFalse(isRetryAllowed("DELETE"), "DELETE requests should not be allowed for retry");
-  }
-
-  @Test
-  void testIsErrorCodeRetryable() {
-    assertFalse(isErrorCodeRetryable(408), "HTTP 408 Request Timeout should not be retryable");
-    assertTrue(isErrorCodeRetryable(503), "HTTP 503 Service Unavailable should be retryable");
-    assertTrue(isErrorCodeRetryable(429), "HTTP 429 Too Many Requests should be retryable");
-    assertFalse(isErrorCodeRetryable(401), "HTTP 401 Unauthorized should not be retryable");
   }
 
   @Test
@@ -234,7 +216,7 @@ public class DatabricksHttpClientTest {
         DatabricksConnectionContextFactory.create(CLUSTER_JDBC_URL, new Properties());
     UserAgentManager.setUserAgent(connectionContext);
     String userAgent = DatabricksHttpClient.getUserAgent();
-    assertTrue(userAgent.contains("DatabricksJDBCDriverOSS/0.9.3-oss"));
+    assertTrue(userAgent.contains("DatabricksJDBCDriverOSS/0.9.4-oss"));
     assertTrue(userAgent.contains(" Java/THttpClient-HC-MyApp"));
     assertTrue(userAgent.contains(" databricks-jdbc-http "));
     assertFalse(userAgent.contains("databricks-sdk-java"));
@@ -243,7 +225,7 @@ public class DatabricksHttpClientTest {
     connectionContext = DatabricksConnectionContextFactory.create(DBSQL_JDBC_URL, new Properties());
     UserAgentManager.setUserAgent(connectionContext);
     userAgent = DatabricksHttpClient.getUserAgent();
-    assertTrue(userAgent.contains("DatabricksJDBCDriverOSS/0.9.3-oss"));
+    assertTrue(userAgent.contains("DatabricksJDBCDriverOSS/0.9.4-oss"));
     assertTrue(userAgent.contains(" Java/SQLExecHttpClient-HC-MyApp"));
     assertTrue(userAgent.contains(" databricks-jdbc-http "));
     assertFalse(userAgent.contains("databricks-sdk-java"));

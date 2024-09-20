@@ -14,10 +14,11 @@ import com.databricks.jdbc.log.JdbcLoggerFactory;
 import java.io.IOException;
 import java.sql.*;
 import java.util.Properties;
+import java.util.TimeZone;
 
 /** Databricks JDBC driver. */
 public class Driver implements java.sql.Driver {
-  private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(Driver.class);
+  public static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(Driver.class);
   private static final Driver INSTANCE;
 
   static {
@@ -29,6 +30,8 @@ public class Driver implements java.sql.Driver {
   }
 
   public static void main(String[] args) {
+    TimeZone.setDefault(
+        TimeZone.getTimeZone("UTC")); // Logging, timestamps are in UTC across the application
     System.out.printf("The driver {%s} has been initialized.%n", Driver.class);
   }
 
@@ -44,9 +47,10 @@ public class Driver implements java.sql.Driver {
 
     setUpLogging(connectionContext);
     UserAgentManager.setUserAgent(connectionContext);
-    DeviceInfoLogUtil.logProperties(connectionContext);
+    DeviceInfoLogUtil.logProperties();
     try {
       DatabricksConnection connection = new DatabricksConnection(connectionContext);
+      DeviceInfoLogUtil.exportDeviceProperties(connection.getSession());
       resolveMetadataClient(connection, connectionContext);
       return connection;
     } catch (Exception e) {
@@ -62,12 +66,12 @@ public class Driver implements java.sql.Driver {
         errorMessage += e.getMessage();
       }
 
+      MetricsUtil.exportErrorWithoutAuth(
+          ErrorTypes.COMMUNICATION_FAILURE, null, ErrorCodes.COMMUNICATION_FAILURE);
       throw new DatabricksSQLException(
           errorMessage,
           rootCause,
-          connectionContext,
           ErrorTypes.COMMUNICATION_FAILURE,
-          null,
           ErrorCodes.COMMUNICATION_FAILURE);
     }
   }
@@ -110,7 +114,11 @@ public class Driver implements java.sql.Driver {
           connectionContext.getLogFileCount(),
           connectionContext.getLogLevel());
     } catch (IOException e) {
-      throw new DatabricksSQLException("Error initializing the Java Util Logger (JUL).", e);
+      String errMsg =
+          String.format(
+              "Error initializing the Java Util Logger (JUL) with error: {%s}", e.getMessage());
+      LOGGER.error(errMsg, e);
+      throw new DatabricksSQLException(errMsg, e);
     }
   }
 

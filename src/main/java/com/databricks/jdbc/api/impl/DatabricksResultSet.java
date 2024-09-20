@@ -8,16 +8,17 @@ import com.databricks.jdbc.api.IDatabricksStatement;
 import com.databricks.jdbc.api.impl.converters.AbstractObjectConverter;
 import com.databricks.jdbc.api.impl.converters.ConverterHelper;
 import com.databricks.jdbc.api.impl.volume.VolumeInputStream;
-import com.databricks.jdbc.common.LogLevel;
 import com.databricks.jdbc.common.StatementType;
-import com.databricks.jdbc.common.util.LoggingUtil;
 import com.databricks.jdbc.common.util.WarningUtil;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.exception.DatabricksSQLFeatureNotSupportedException;
+import com.databricks.jdbc.log.JdbcLogger;
+import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.model.client.thrift.generated.TGetResultSetMetadataResp;
 import com.databricks.jdbc.model.client.thrift.generated.TRowSet;
 import com.databricks.jdbc.model.client.thrift.generated.TStatus;
+import com.databricks.jdbc.model.core.ColumnMetadata;
 import com.databricks.jdbc.model.core.ResultData;
 import com.databricks.jdbc.model.core.ResultManifest;
 import com.databricks.sdk.service.sql.StatementState;
@@ -36,6 +37,8 @@ import org.apache.http.HttpEntity;
 import org.apache.http.entity.InputStreamEntity;
 
 public class DatabricksResultSet implements ResultSet, IDatabricksResultSet {
+
+  public static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(DatabricksResultSet.class);
   protected static final String AFFECTED_ROWS_COUNT = "num_affected_rows";
   private final StatementStatus statementStatus;
   private final String statementId;
@@ -50,6 +53,7 @@ public class DatabricksResultSet implements ResultSet, IDatabricksResultSet {
   private VolumeInputStream volumeInputStream = null;
   private long volumeStreamContentLength = -1L;
 
+  // Constructor for SEA result set
   public DatabricksResultSet(
       StatementStatus statementStatus,
       String statementId,
@@ -91,6 +95,7 @@ public class DatabricksResultSet implements ResultSet, IDatabricksResultSet {
     this.wasNull = false;
   }
 
+  // Constructor for thrift result set
   public DatabricksResultSet(
       TStatus statementStatus,
       String statementId,
@@ -99,7 +104,7 @@ public class DatabricksResultSet implements ResultSet, IDatabricksResultSet {
       StatementType statementType,
       IDatabricksStatement parentStatement,
       IDatabricksSession session)
-      throws DatabricksSQLException {
+      throws SQLException {
     if (SUCCESS_STATUS_LIST.contains(statementStatus.getStatusCode())) {
       this.statementStatus = new StatementStatus().setState(StatementState.SUCCEEDED);
     } else {
@@ -120,6 +125,7 @@ public class DatabricksResultSet implements ResultSet, IDatabricksResultSet {
     this.wasNull = false;
   }
 
+  // Constructing results for getUDTs, getTypeInfo, getProcedures metadata calls
   public DatabricksResultSet(
       StatementStatus statementStatus,
       String statementId,
@@ -147,6 +153,7 @@ public class DatabricksResultSet implements ResultSet, IDatabricksResultSet {
     this.wasNull = false;
   }
 
+  // Constructing metadata result set in thrift flow
   public DatabricksResultSet(
       StatementStatus statementStatus,
       String statementId,
@@ -167,6 +174,25 @@ public class DatabricksResultSet implements ResultSet, IDatabricksResultSet {
             columnTypes,
             columnTypePrecisions,
             rows.size());
+    this.statementType = statementType;
+    this.updateCount = null;
+    this.parentStatement = null;
+    this.isClosed = false;
+    this.wasNull = false;
+  }
+
+  // Constructing metadata result set in SEA flow
+  public DatabricksResultSet(
+      StatementStatus statementStatus,
+      String statementId,
+      List<ColumnMetadata> columnMetadataList,
+      List<List<Object>> rows,
+      StatementType statementType) {
+    this.statementStatus = statementStatus;
+    this.statementId = statementId;
+    this.executionResult = ExecutionResultFactory.getResultSet(rows);
+    this.resultSetMetaData =
+        new DatabricksResultSetMetaData(statementId, columnMetadataList, rows.size());
     this.statementType = statementType;
     this.updateCount = null;
     this.parentStatement = null;
@@ -638,15 +664,14 @@ public class DatabricksResultSet implements ResultSet, IDatabricksResultSet {
     /* As we fetch chunks of data together,
     setting fetchSize is an overkill.
     Hence, we don't support it.*/
-    LoggingUtil.log(
-        LogLevel.DEBUG, String.format("public void setFetchSize(int rows = {%s})", rows));
+    LOGGER.debug(String.format("public void setFetchSize(int rows = {%s})", rows));
     checkIfClosed();
     addWarningAndLog("As FetchSize is not supported in the Databricks JDBC, ignoring it");
   }
 
   @Override
   public int getFetchSize() throws SQLException {
-    LoggingUtil.log(LogLevel.DEBUG, "public int getFetchSize()");
+    LOGGER.debug("public int getFetchSize()");
     checkIfClosed();
     addWarningAndLog(
         "As FetchSize is not supported in the Databricks JDBC, we don't set it in the first place");
@@ -1040,7 +1065,7 @@ public class DatabricksResultSet implements ResultSet, IDatabricksResultSet {
   }
 
   private void addWarningAndLog(String warningMessage) {
-    LoggingUtil.log(LogLevel.WARN, warningMessage);
+    LOGGER.warn(warningMessage);
     warnings = WarningUtil.addWarning(warnings, warningMessage);
   }
 
@@ -1566,7 +1591,7 @@ public class DatabricksResultSet implements ResultSet, IDatabricksResultSet {
           String.format(
               "Exception occurred while converting object into corresponding return object type using getObject(int columnIndex, Class<T> type). ErrorMessage: %s",
               e.getMessage());
-      LoggingUtil.log(LogLevel.ERROR, errorMessage);
+      LOGGER.error(errorMessage);
       throw new DatabricksSQLException(errorMessage, e);
     }
   }

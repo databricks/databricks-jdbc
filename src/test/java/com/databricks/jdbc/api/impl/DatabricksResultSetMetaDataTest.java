@@ -2,13 +2,16 @@ package com.databricks.jdbc.api.impl;
 
 import static com.databricks.jdbc.common.util.DatabricksThriftUtil.getTypeFromTypeDesc;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 
 import com.databricks.jdbc.common.DatabricksJdbcConstants;
+import com.databricks.jdbc.common.util.DatabricksTypeUtil;
 import com.databricks.jdbc.model.client.thrift.generated.*;
 import com.databricks.jdbc.model.core.ResultManifest;
 import com.databricks.sdk.service.sql.ColumnInfo;
 import com.databricks.sdk.service.sql.ColumnInfoTypeName;
 import com.databricks.sdk.service.sql.ResultSchema;
+import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.util.Collections;
 import java.util.HashMap;
@@ -138,15 +141,42 @@ public class DatabricksResultSetMetaDataTest {
     decimalColumnInfo.setTypeScale(2L);
 
     int[] scaleAndPrecision =
-        metaData.getScaleAndPrecision(decimalColumnInfo, decimalColumnInfo.getTypeName());
+        metaData.getScaleAndPrecision(
+            decimalColumnInfo, DatabricksTypeUtil.getColumnType(decimalColumnInfo.getTypeName()));
     assertEquals(10, scaleAndPrecision[0]);
     assertEquals(2, scaleAndPrecision[1]);
 
     ColumnInfo stringColumnInfo = getColumn("col2", ColumnInfoTypeName.STRING, "string");
     scaleAndPrecision =
-        metaData.getScaleAndPrecision(stringColumnInfo, stringColumnInfo.getTypeName());
+        metaData.getScaleAndPrecision(
+            stringColumnInfo, DatabricksTypeUtil.getColumnType(stringColumnInfo.getTypeName()));
     assertEquals(255, scaleAndPrecision[0]);
     assertEquals(0, scaleAndPrecision[1]);
+  }
+
+  @Test
+  public void testColumnBuilderDefaultMetadata() throws SQLException {
+    ResultManifest resultManifest = getResultManifest();
+    DatabricksResultSetMetaData metaData =
+        new DatabricksResultSetMetaData(STATEMENT_ID, resultManifest);
+    assertEquals(4, metaData.getColumnCount());
+    verifyDefaultMetadataProperties(metaData);
+
+    metaData =
+        new DatabricksResultSetMetaData(
+            STATEMENT_ID,
+            List.of("col1", "col2", "col2"),
+            List.of("int", "string", "double"),
+            List.of(4, 12, 8),
+            List.of(0, 0, 0),
+            10);
+    assertEquals(3, metaData.getColumnCount());
+    verifyDefaultMetadataProperties(metaData);
+
+    TGetResultSetMetadataResp thriftResultManifest = getThriftResultManifest();
+    metaData = new DatabricksResultSetMetaData(STATEMENT_ID, thriftResultManifest, 1, 1);
+    assertEquals(1, metaData.getColumnCount());
+    verifyDefaultMetadataProperties(metaData);
   }
 
   @Test
@@ -172,7 +202,9 @@ public class DatabricksResultSetMetaDataTest {
     columnInfo.setTypeDesc(typeDesc);
 
     int[] scaleAndPrecision =
-        metaData.getScaleAndPrecision(columnInfo, getTypeFromTypeDesc(columnInfo.getTypeDesc()));
+        metaData.getScaleAndPrecision(
+            columnInfo,
+            DatabricksTypeUtil.getColumnType(getTypeFromTypeDesc(columnInfo.getTypeDesc())));
     assertEquals(10, scaleAndPrecision[0]);
     assertEquals(2, scaleAndPrecision[1]);
 
@@ -186,8 +218,27 @@ public class DatabricksResultSetMetaDataTest {
     columnInfo.setTypeDesc(typeDesc);
 
     scaleAndPrecision =
-        metaData.getScaleAndPrecision(columnInfo, getTypeFromTypeDesc(columnInfo.getTypeDesc()));
+        metaData.getScaleAndPrecision(
+            columnInfo,
+            DatabricksTypeUtil.getColumnType(getTypeFromTypeDesc(columnInfo.getTypeDesc())));
     assertEquals(255, scaleAndPrecision[0]);
     assertEquals(0, scaleAndPrecision[1]);
+  }
+
+  private void verifyDefaultMetadataProperties(DatabricksResultSetMetaData metaData)
+      throws SQLException {
+    for (int i = 1; i <= metaData.getColumnCount(); i++) {
+      // verify metadata properties default value
+      assertFalse(metaData.isAutoIncrement(i));
+      assertFalse(metaData.isSearchable(i));
+      assertEquals(ResultSetMetaData.columnNullable, metaData.isNullable(i));
+      assertFalse(metaData.isDefinitelyWritable(i));
+      assertEquals("", metaData.getSchemaName(i));
+      assertEquals("", metaData.getTableName(i));
+      assertEquals("", metaData.getCatalogName(i));
+      assertFalse(metaData.isCurrency(i));
+      assertEquals(0, metaData.getScale(i));
+      assertFalse(metaData.isCaseSensitive(i));
+    }
   }
 }

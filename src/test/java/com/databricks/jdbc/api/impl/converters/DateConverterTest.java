@@ -10,7 +10,7 @@ import org.junit.jupiter.api.Test;
 
 public class DateConverterTest {
 
-  private Date DATE = Date.valueOf("2023-09-10");
+  private final Date DATE = Date.valueOf("2023-09-10");
 
   @Test
   public void testConvertToShort() throws DatabricksSQLException {
@@ -34,7 +34,6 @@ public class DateConverterTest {
     assertEquals(new DateConverter(DATE).convertToLong(), 19610L);
   }
 
-  //
   @Test
   public void testConvertToString() throws DatabricksSQLException {
     assertEquals(new DateConverter(DATE).convertToString(), "2023-09-10");
@@ -53,7 +52,9 @@ public class DateConverterTest {
 
   @Test
   public void testConvertToDate() throws DatabricksSQLException {
-    assertEquals(new DateConverter(DATE).convertToDate(), Timestamp.valueOf("2023-09-10 00:00:00"));
+    assertEquals(
+        new DateConverter(DATE).convertToDate(),
+        new Date(Timestamp.valueOf("2023-09-10 00:00:00").getTime()));
   }
 
   @Test

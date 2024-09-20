@@ -27,7 +27,7 @@ public class ArrowToJavaObjectConverterTest {
     Object convertedObject =
         ArrowToJavaObjectConverter.convert(unconvertedObject, ColumnInfoTypeName.BYTE);
 
-    assertEquals(convertedObject, null);
+    assertNull(convertedObject);
   }
 
   @Test
@@ -39,7 +39,7 @@ public class ArrowToJavaObjectConverterTest {
     Object convertedObject =
         ArrowToJavaObjectConverter.convert(unconvertedObject, ColumnInfoTypeName.BYTE);
 
-    assertTrue(convertedObject instanceof Byte);
+    assertInstanceOf(Byte.class, convertedObject);
     assertEquals(convertedObject, (byte) 65);
   }
 
@@ -52,7 +52,7 @@ public class ArrowToJavaObjectConverterTest {
     Object convertedObject =
         ArrowToJavaObjectConverter.convert(unconvertedObject, ColumnInfoTypeName.SHORT);
 
-    assertTrue(convertedObject instanceof Short);
+    assertInstanceOf(Short.class, convertedObject);
     assertEquals(convertedObject, (short) 4);
   }
 
@@ -65,7 +65,7 @@ public class ArrowToJavaObjectConverterTest {
     Object convertedObject =
         ArrowToJavaObjectConverter.convert(unconvertedObject, ColumnInfoTypeName.INT);
 
-    assertTrue(convertedObject instanceof Integer);
+    assertInstanceOf(Integer.class, convertedObject);
     assertEquals(convertedObject, 1111111111);
   }
 
@@ -78,7 +78,7 @@ public class ArrowToJavaObjectConverterTest {
     Object convertedObject =
         ArrowToJavaObjectConverter.convert(unconvertedObject, ColumnInfoTypeName.LONG);
 
-    assertTrue(convertedObject instanceof Long);
+    assertInstanceOf(Long.class, convertedObject);
     assertEquals(convertedObject, 1111111111111111111L);
   }
 
@@ -91,7 +91,7 @@ public class ArrowToJavaObjectConverterTest {
     Object convertedObject =
         ArrowToJavaObjectConverter.convert(unconvertedObject, ColumnInfoTypeName.FLOAT);
 
-    assertTrue(convertedObject instanceof Float);
+    assertInstanceOf(Float.class, convertedObject);
     assertEquals(convertedObject, 4.2f);
   }
 
@@ -104,7 +104,7 @@ public class ArrowToJavaObjectConverterTest {
     Object convertedObject =
         ArrowToJavaObjectConverter.convert(unconvertedObject, ColumnInfoTypeName.DOUBLE);
 
-    assertTrue(convertedObject instanceof Double);
+    assertInstanceOf(Double.class, convertedObject);
     assertEquals(convertedObject, 4.11111111);
   }
 
@@ -117,7 +117,7 @@ public class ArrowToJavaObjectConverterTest {
     Object convertedObject =
         ArrowToJavaObjectConverter.convert(unconvertedObject, ColumnInfoTypeName.DECIMAL);
 
-    assertTrue(convertedObject instanceof BigDecimal);
+    assertInstanceOf(BigDecimal.class, convertedObject);
     assertEquals(convertedObject, BigDecimal.valueOf(4.1111111111));
   }
 
@@ -130,7 +130,7 @@ public class ArrowToJavaObjectConverterTest {
     Object convertedObject =
         ArrowToJavaObjectConverter.convert(unconvertedObject, ColumnInfoTypeName.BINARY);
 
-    assertTrue(convertedObject instanceof byte[]);
+    assertInstanceOf(byte[].class, convertedObject);
     assertArrayEquals((byte[]) convertedObject, "ABC".getBytes());
   }
 
@@ -147,8 +147,8 @@ public class ArrowToJavaObjectConverterTest {
     Object convertedTrueObject =
         ArrowToJavaObjectConverter.convert(unconvertedTrueObject, ColumnInfoTypeName.BOOLEAN);
 
-    assertTrue(unconvertedTrueObject instanceof Boolean);
-    assertTrue(unconvertedFalseObject instanceof Boolean);
+    assertInstanceOf(Boolean.class, unconvertedTrueObject);
+    assertInstanceOf(Boolean.class, unconvertedFalseObject);
     assertEquals(convertedFalseObject, false);
     assertEquals(convertedTrueObject, true);
   }
@@ -162,7 +162,7 @@ public class ArrowToJavaObjectConverterTest {
     Object convertedObject =
         ArrowToJavaObjectConverter.convert(unconvertedObject, ColumnInfoTypeName.CHAR);
 
-    assertTrue(convertedObject instanceof Character);
+    assertInstanceOf(Character.class, convertedObject);
     assertEquals(convertedObject, 'A');
   }
 
@@ -175,7 +175,7 @@ public class ArrowToJavaObjectConverterTest {
     Object convertedObject =
         ArrowToJavaObjectConverter.convert(unconvertedObject, ColumnInfoTypeName.STRING);
 
-    assertTrue(convertedObject instanceof String);
+    assertInstanceOf(String.class, convertedObject);
     assertEquals(convertedObject, "ABC");
   }
 
@@ -188,7 +188,7 @@ public class ArrowToJavaObjectConverterTest {
     Object convertedObject =
         ArrowToJavaObjectConverter.convert(unconvertedObject, ColumnInfoTypeName.DATE);
 
-    assertTrue(convertedObject instanceof Date);
+    assertInstanceOf(Date.class, convertedObject);
     assertEquals(convertedObject, Date.valueOf("2023-08-29"));
   }
 
@@ -207,9 +207,9 @@ public class ArrowToJavaObjectConverterTest {
     Object convertedFromBigIntObject =
         ArrowToJavaObjectConverter.convert(unconvertedBigIntObject, ColumnInfoTypeName.TIMESTAMP);
 
-    assertTrue(convertedFromIntObject instanceof Timestamp);
+    assertInstanceOf(Timestamp.class, convertedFromIntObject);
     assertEquals(((Timestamp) convertedFromIntObject).toInstant(), Instant.ofEpochMilli(4));
-    assertTrue(convertedFromBigIntObject instanceof Timestamp);
+    assertInstanceOf(Timestamp.class, convertedFromBigIntObject);
     assertEquals(
         ((Timestamp) convertedFromBigIntObject).toInstant(), Instant.ofEpochMilli(1693312639000L));
   }
@@ -224,13 +224,13 @@ public class ArrowToJavaObjectConverterTest {
     Object unconvertedObject = varCharVector.getObject(0);
     Object convertedObject =
         ArrowToJavaObjectConverter.convert(unconvertedObject, ColumnInfoTypeName.STRUCT);
-    assertTrue(convertedObject instanceof String);
+    assertInstanceOf(String.class, convertedObject);
     assertEquals(convertedObject, "{key=value}");
   }
 
   @Test
   public void testArrayConversion() throws SQLException {
-    ArrayList<String> list = new ArrayList();
+    ArrayList<String> list = new ArrayList<>();
     list.add("A");
     list.add("B");
     VarCharVector varCharVector = new VarCharVector("varCharVector", this.bufferAllocator);
@@ -240,7 +240,7 @@ public class ArrowToJavaObjectConverterTest {
     Object convertedObject =
         ArrowToJavaObjectConverter.convert(unconvertedObject, ColumnInfoTypeName.STRUCT);
 
-    assertTrue(convertedObject instanceof String);
+    assertInstanceOf(String.class, convertedObject);
     assertEquals(convertedObject, "[A, B]");
   }
 }

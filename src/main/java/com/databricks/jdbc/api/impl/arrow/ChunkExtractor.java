@@ -3,15 +3,16 @@ package com.databricks.jdbc.api.impl.arrow;
 import static com.databricks.jdbc.common.util.DatabricksTypeUtil.*;
 
 import com.databricks.jdbc.common.CompressionType;
-import com.databricks.jdbc.common.LogLevel;
-import com.databricks.jdbc.common.util.LoggingUtil;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
+import com.databricks.jdbc.log.JdbcLogger;
+import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.model.client.thrift.generated.*;
 import com.google.common.annotations.VisibleForTesting;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 import org.apache.arrow.vector.types.pojo.ArrowType;
@@ -22,6 +23,8 @@ import org.apache.arrow.vector.util.SchemaUtility;
 
 /** Class to manage inline Arrow chunks */
 public class ChunkExtractor {
+
+  public static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(ChunkExtractor.class);
   private long totalRows;
   private long currentChunkIndex;
   private ByteArrayInputStream byteStream;
@@ -100,7 +103,7 @@ public class ChunkExtractor {
               columnDesc -> {
                 try {
                   fields.add(getArrowField(columnDesc));
-                } catch (DatabricksSQLException e) {
+                } catch (SQLException e) {
                   throw new RuntimeException(e);
                 }
               });
@@ -110,7 +113,7 @@ public class ChunkExtractor {
     return new Schema(fields);
   }
 
-  private static Field getArrowField(TColumnDesc columnDesc) throws DatabricksSQLException {
+  private static Field getArrowField(TColumnDesc columnDesc) throws SQLException {
     TTypeId thriftType = getThriftTypeFromTypeDesc(columnDesc.getTypeDesc());
     ArrowType arrowType = null;
     arrowType = mapThriftToArrowType(thriftType);
@@ -121,7 +124,7 @@ public class ChunkExtractor {
   @VisibleForTesting
   static void handleError(Exception e) throws DatabricksParsingException {
     String errorMessage = "Cannot process inline arrow format. Error: " + e.getMessage();
-    LoggingUtil.log(LogLevel.ERROR, errorMessage);
+    LOGGER.error(errorMessage);
     throw new DatabricksParsingException(errorMessage, e);
   }
 

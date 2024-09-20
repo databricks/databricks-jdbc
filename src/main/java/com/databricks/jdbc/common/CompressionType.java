@@ -1,6 +1,7 @@
 package com.databricks.jdbc.common;
 
-import com.databricks.jdbc.common.util.LoggingUtil;
+import com.databricks.jdbc.log.JdbcLogger;
+import com.databricks.jdbc.log.JdbcLoggerFactory;
 
 public enum CompressionType {
   NONE(0),
@@ -11,6 +12,8 @@ public enum CompressionType {
     this.compressionTypeVal = value;
   }
 
+  public static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(CompressionType.class);
+
   public static CompressionType parseCompressionType(String compressionType) {
     try {
       int value = Integer.parseInt(compressionType);
@@ -20,9 +23,9 @@ public enum CompressionType {
         }
       }
     } catch (NumberFormatException ignored) {
-      LoggingUtil.log(LogLevel.DEBUG, "Invalid or no compression type provided as input.");
+      LOGGER.debug("Invalid or no compression type provided as input.");
     }
-    LoggingUtil.log(LogLevel.DEBUG, "Defaulting to no compression for fetching results.");
+    LOGGER.debug("Defaulting to no compression for fetching results.");
     return NONE;
   }
 }
