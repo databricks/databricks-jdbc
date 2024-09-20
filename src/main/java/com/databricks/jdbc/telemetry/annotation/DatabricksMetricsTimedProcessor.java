@@ -1,6 +1,5 @@
 package com.databricks.jdbc.telemetry.annotation;
 
-import com.databricks.jdbc.api.IDatabricksSession;
 import com.databricks.jdbc.telemetry.DatabricksMetrics;
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;

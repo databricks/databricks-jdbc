@@ -1,14 +1,16 @@
-package com.databricks.jdbc.dbclient.impl;
+package com.databricks.jdbc.dbclient.impl.sqlexec;
 
 import static com.databricks.jdbc.dbclient.impl.sqlexec.ResultConstants.TYPE_INFO_RESULT;
 
 import com.databricks.jdbc.api.IDatabricksSession;
-import com.databricks.jdbc.api.impl.fake.EmptyResultSet;
+import com.databricks.jdbc.api.impl.DatabricksResultSet;
 import com.databricks.jdbc.dbclient.IDatabricksMetadataClient;
+import com.databricks.jdbc.dbclient.impl.common.MetadataResultSetBuilder;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
-import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.List;
 
 public class DatabricksEmptyMetadataClient implements IDatabricksMetadataClient {
 
@@ -16,26 +18,26 @@ public class DatabricksEmptyMetadataClient implements IDatabricksMetadataClient 
       JdbcLoggerFactory.getLogger(DatabricksEmptyMetadataClient.class);
 
   @Override
-  public ResultSet listTypeInfo(IDatabricksSession session) throws SQLException {
+  public DatabricksResultSet listTypeInfo(IDatabricksSession session) throws SQLException {
     LOGGER.debug("public ResultSet getTypeInfo()");
     return TYPE_INFO_RESULT;
   }
 
   @Override
-  public ResultSet listCatalogs(IDatabricksSession session) throws SQLException {
+  public DatabricksResultSet listCatalogs(IDatabricksSession session) throws SQLException {
     LOGGER.warn("Empty metadata implementation for listCatalogs.");
-    return new EmptyResultSet();
+    return MetadataResultSetBuilder.getCatalogsResult((List<List<Object>>) null);
   }
 
   @Override
-  public ResultSet listSchemas(IDatabricksSession session, String catalog, String schemaNamePattern)
-      throws SQLException {
+  public DatabricksResultSet listSchemas(
+      IDatabricksSession session, String catalog, String schemaNamePattern) throws SQLException {
     LOGGER.warn("Empty metadata implementation for listSchemas.");
-    return new EmptyResultSet();
+    return MetadataResultSetBuilder.getSchemasResult(null);
   }
 
   @Override
-  public ResultSet listTables(
+  public DatabricksResultSet listTables(
       IDatabricksSession session,
       String catalog,
       String schemaNamePattern,
@@ -43,17 +45,17 @@ public class DatabricksEmptyMetadataClient implements IDatabricksMetadataClient 
       String[] tableTypes)
       throws SQLException {
     LOGGER.warn("Empty metadata implementation for listTables.");
-    return new EmptyResultSet();
+    return MetadataResultSetBuilder.getTablesResult(catalog, new ArrayList<>());
   }
 
   @Override
-  public ResultSet listTableTypes(IDatabricksSession session) {
-    LOGGER.warn("Empty metadata implementation for listTableTypes.");
-    return new EmptyResultSet();
+  public DatabricksResultSet listTableTypes(IDatabricksSession session) {
+    LOGGER.debug("public ResultSet listTableTypes()");
+    return MetadataResultSetBuilder.getTableTypesResult();
   }
 
   @Override
-  public ResultSet listColumns(
+  public DatabricksResultSet listColumns(
       IDatabricksSession session,
       String catalog,
       String schemaNamePattern,
@@ -61,24 +63,24 @@ public class DatabricksEmptyMetadataClient implements IDatabricksMetadataClient 
       String columnNamePattern)
       throws SQLException {
     LOGGER.warn("Empty metadata implementation for listColumns.");
-    return new EmptyResultSet();
+    return MetadataResultSetBuilder.getColumnsResult((List<List<Object>>) null);
   }
 
   @Override
-  public ResultSet listFunctions(
+  public DatabricksResultSet listFunctions(
       IDatabricksSession session,
       String catalog,
       String schemaNamePattern,
       String functionNamePattern)
       throws SQLException {
     LOGGER.warn("Empty metadata implementation for listFunctions.");
-    return new EmptyResultSet();
+    return MetadataResultSetBuilder.getFunctionsResult(null);
   }
 
   @Override
-  public ResultSet listPrimaryKeys(
+  public DatabricksResultSet listPrimaryKeys(
       IDatabricksSession session, String catalog, String schema, String table) throws SQLException {
     LOGGER.warn("Empty metadata implementation for listPrimaryKeys.");
-    return new EmptyResultSet();
+    return MetadataResultSetBuilder.getPrimaryKeysResult((List<List<Object>>) null);
   }
 }

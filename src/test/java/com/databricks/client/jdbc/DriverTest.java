@@ -286,7 +286,7 @@ public class DriverTest {
     for (int i = 0; i < 300; i++) {
       joiner.add("?");
     }
-    sql.append(joiner.toString()).append(")");
+    sql.append(joiner).append(")");
     System.out.println("here is SQL " + sql);
     String jdbcUrl =
         "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=https;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/791ba2a31c7fd70a;supportManyParameters=1";
