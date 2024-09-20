@@ -2,9 +2,11 @@ package com.databricks.jdbc.dbclient.impl.http;
 
 import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.common.ErrorTypes;
+import com.databricks.jdbc.common.util.MetricsUtil;
 import com.databricks.jdbc.exception.DatabricksRetryHandlerException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
+import com.databricks.jdbc.telemetry.DatabricksMetrics;
 import com.google.common.annotations.VisibleForTesting;
 import java.io.IOException;
 import java.util.Objects;
@@ -82,27 +84,24 @@ public class DatabricksHttpRetryHandler
     httpContext.setAttribute(RETRY_INTERVAL_KEY, retryInterval);
     initializeRetryCountsIfNotExist(httpContext);
 
+    MetricsUtil.exportError(
+        new DatabricksMetrics(connectionContext), ErrorTypes.HTTP_RETRY_ERROR, "", statusCode);
     // Throw an exception to trigger the retry mechanism
     if (httpResponse.containsHeader(THRIFT_ERROR_MESSAGE_HEADER)) {
+
       throw new DatabricksRetryHandlerException(
           "HTTP Response code: "
               + statusCode
               + ", Error message: "
               + httpResponse.getFirstHeader(THRIFT_ERROR_MESSAGE_HEADER).getValue(),
-          statusCode,
-          connectionContext,
-          ErrorTypes.HTTP_RETRY_ERROR,
-          "");
+          statusCode);
     } else {
       throw new DatabricksRetryHandlerException(
           "HTTP Response code: "
               + statusCode
               + ", Error Message: "
               + httpResponse.getStatusLine().getReasonPhrase(),
-          statusCode,
-          connectionContext,
-          ErrorTypes.HTTP_RETRY_ERROR,
-          "");
+          statusCode);
     }
   }
 

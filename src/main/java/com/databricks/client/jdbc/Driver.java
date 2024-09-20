@@ -60,7 +60,8 @@ public class Driver implements java.sql.Driver {
           connectionContext.getLogFileCount(),
           connectionContext.getLogLevel());
     } catch (IOException e) {
-      String errMsg = String.format(
+      String errMsg =
+          String.format(
               "Error initializing the Java Util Logger (JUL) with error: {%s}", e.getMessage());
       LOGGER.error(errMsg, e);
       throw new DatabricksSQLException(errMsg, e);
