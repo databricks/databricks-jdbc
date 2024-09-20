@@ -1,5 +1,7 @@
 package com.databricks.jdbc.dbclient.impl;
 
+import static com.databricks.jdbc.dbclient.impl.sqlexec.ResultConstants.TYPE_INFO_RESULT;
+
 import com.databricks.jdbc.api.IDatabricksSession;
 import com.databricks.jdbc.api.impl.fake.EmptyResultSet;
 import com.databricks.jdbc.dbclient.IDatabricksMetadataClient;
@@ -15,8 +17,8 @@ public class DatabricksEmptyMetadataClient implements IDatabricksMetadataClient 
 
   @Override
   public ResultSet listTypeInfo(IDatabricksSession session) throws SQLException {
-    LOGGER.warn("Empty metadata implementation for listTypeInfo.");
-    return new EmptyResultSet();
+    LOGGER.debug("public ResultSet getTypeInfo()");
+    return TYPE_INFO_RESULT;
   }
 
   @Override
