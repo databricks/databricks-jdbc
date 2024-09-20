@@ -6,6 +6,7 @@ import static com.databricks.jdbc.dbclient.impl.sqlexec.ResultConstants.TYPE_INF
 import com.databricks.jdbc.api.IDatabricksSession;
 import com.databricks.jdbc.api.impl.DatabricksResultSet;
 import com.databricks.jdbc.common.StatementType;
+import com.databricks.jdbc.dbclient.IDatabricksClient;
 import com.databricks.jdbc.dbclient.IDatabricksMetadataClient;
 import com.databricks.jdbc.dbclient.impl.common.MetadataResultSetBuilder;
 import com.databricks.jdbc.log.JdbcLogger;
@@ -69,7 +70,7 @@ public class DatabricksMetadataSdkClient implements IDatabricksMetadataClient {
     String SQL = commandBuilder.getSQLString(CommandName.LIST_TABLES);
     LOGGER.debug(String.format("SQL command to fetch tables: {%s}", SQL));
     return MetadataResultSetBuilder.getTablesResult(
-            getResultSet(SQL, session), validatedTableTypes);
+        getResultSet(SQL, session), validatedTableTypes);
   }
 
   @Override
