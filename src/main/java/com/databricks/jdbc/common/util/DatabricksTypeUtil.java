@@ -141,7 +141,7 @@ public class DatabricksTypeUtil {
       case ARRAY:
         return Types.ARRAY;
       case NULL:
-        return Types.NULL;
+        return Types.VARCHAR;
       case USER_DEFINED_TYPE:
         return Types.OTHER;
       default:

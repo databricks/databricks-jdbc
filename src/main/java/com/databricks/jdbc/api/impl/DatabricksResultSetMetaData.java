@@ -35,7 +35,6 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
   private final ImmutableMap<String, Integer> columnNameIndex;
   private final long totalRows;
   private Long chunkCount;
-  private static final String DEFAULT_CATALOGUE_NAME = "Spark";
 
   public DatabricksResultSetMetaData(String statementId, ResultManifest resultManifest) {
     this.statementId = statementId;
@@ -376,13 +375,13 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
   private ImmutableDatabricksColumn.Builder getColumnBuilder() {
     return ImmutableDatabricksColumn.builder()
         .isAutoIncrement(false)
-        .isSearchable(true)
+        .isSearchable(false)
         .nullable(Nullable.NULLABLE)
         .accessType(AccessType.READ_ONLY)
         .isDefinitelyWritable(false)
-        .schemaName(null)
-        .tableName(null)
-        .catalogName(DEFAULT_CATALOGUE_NAME)
+        .schemaName("")
+        .tableName("")
+        .catalogName("")
         .isCurrency(false)
         .typeScale(0)
         .isCaseSensitive(false);

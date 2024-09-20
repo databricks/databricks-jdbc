@@ -5,13 +5,12 @@ import static org.junit.jupiter.api.Assertions.*;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import java.math.BigDecimal;
 import java.math.BigInteger;
-import java.util.Arrays;
 import org.junit.jupiter.api.Test;
 
 public class ByteConverterTest {
 
-  private byte NON_ZERO_OBJECT = 65;
-  private byte ZERO_OBJECT = 0;
+  private final byte NON_ZERO_OBJECT = 65;
+  private final byte ZERO_OBJECT = 0;
 
   @Test
   public void testConvertToByte() throws DatabricksSQLException {
@@ -27,8 +26,8 @@ public class ByteConverterTest {
 
   @Test
   public void testConvertToInt() throws DatabricksSQLException {
-    assertEquals(new ByteConverter(NON_ZERO_OBJECT).convertToInt(), (int) 65);
-    assertEquals(new ByteConverter(ZERO_OBJECT).convertToInt(), (int) 0);
+    assertEquals(new ByteConverter(NON_ZERO_OBJECT).convertToInt(), 65);
+    assertEquals(new ByteConverter(ZERO_OBJECT).convertToInt(), 0);
   }
 
   @Test
@@ -45,8 +44,8 @@ public class ByteConverterTest {
 
   @Test
   public void testConvertToDouble() throws DatabricksSQLException {
-    assertEquals(new ByteConverter(NON_ZERO_OBJECT).convertToDouble(), (double) 65);
-    assertEquals(new ByteConverter(ZERO_OBJECT).convertToDouble(), (double) 0);
+    assertEquals(new ByteConverter(NON_ZERO_OBJECT).convertToDouble(), 65);
+    assertEquals(new ByteConverter(ZERO_OBJECT).convertToDouble(), 0);
   }
 
   @Test
@@ -57,15 +56,14 @@ public class ByteConverterTest {
 
   @Test
   public void testConvertToBoolean() throws DatabricksSQLException {
-    assertEquals(new ByteConverter(NON_ZERO_OBJECT).convertToBoolean(), true);
-    assertEquals(new ByteConverter(ZERO_OBJECT).convertToBoolean(), false);
+    assertTrue(new ByteConverter(NON_ZERO_OBJECT).convertToBoolean());
+    assertFalse(new ByteConverter(ZERO_OBJECT).convertToBoolean());
   }
 
   @Test
   public void testConvertToByteArray() throws DatabricksSQLException {
-    assertTrue(
-        Arrays.equals(new ByteConverter(NON_ZERO_OBJECT).convertToByteArray(), new byte[] {65}));
-    assertTrue(Arrays.equals(new ByteConverter(ZERO_OBJECT).convertToByteArray(), new byte[] {0}));
+    assertArrayEquals(new ByteConverter(NON_ZERO_OBJECT).convertToByteArray(), new byte[] {65});
+    assertArrayEquals(new ByteConverter(ZERO_OBJECT).convertToByteArray(), new byte[] {0});
   }
 
   @Test

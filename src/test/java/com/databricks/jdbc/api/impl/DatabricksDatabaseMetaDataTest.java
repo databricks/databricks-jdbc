@@ -1,6 +1,7 @@
 package com.databricks.jdbc.api.impl;
 
 import static com.databricks.jdbc.TestConstants.WAREHOUSE_JDBC_URL;
+import static com.databricks.jdbc.TestConstants.WAREHOUSE_JDBC_URL_WITH_THRIFT;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
@@ -15,7 +16,6 @@ import java.util.Properties;
 import java.util.concurrent.Callable;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.mockito.Mock;
 import org.mockito.Mockito;
 
 public class DatabricksDatabaseMetaDataTest {
@@ -23,10 +23,7 @@ public class DatabricksDatabaseMetaDataTest {
   private IDatabricksConnection connection;
   private IDatabricksSession session;
   private DatabricksDatabaseMetaData metaData;
-
   private IDatabricksMetadataClient metadataClient;
-
-  @Mock private DatabricksResultSet resultSet;
 
   @BeforeEach
   public void setup() throws SQLException {
@@ -664,7 +661,24 @@ public class DatabricksDatabaseMetaDataTest {
   }
 
   @Test
-  public void testGetSchemas() throws SQLException {
+  public void testGetSchemas_SqlExec() throws SQLException {
+    ResultSet resultSet = metaData.getSchemas();
+    assertNotNull(resultSet);
+
+    // Result set should have 2 columns; TABLE_SCHEM and TABLE_CATALOG
+    assertEquals(2, resultSet.getMetaData().getColumnCount());
+    assertSame("TABLE_SCHEM", resultSet.getMetaData().getColumnName(1));
+    assertSame("TABLE_CATALOG", resultSet.getMetaData().getColumnName(2));
+
+    // For SQL_EXEC execution, result set data should be empty
+    assertFalse(resultSet.next());
+  }
+
+  @Test
+  public void testGetSchemas_Thrift() throws SQLException {
+    when(session.getConnectionContext())
+        .thenReturn(
+            DatabricksConnectionContext.parse(WAREHOUSE_JDBC_URL_WITH_THRIFT, new Properties()));
     ResultSet resultSet = metaData.getSchemas(null, null);
     assertNotNull(resultSet);
   }
@@ -985,8 +999,6 @@ public class DatabricksDatabaseMetaDataTest {
     List<Callable<Object>> tasks =
         Arrays.asList(
             () -> metaData.supportsTransactionIsolationLevel(0),
-            () -> metaData.getDriverMajorVersion(),
-            () -> metaData.getDriverMinorVersion(),
             () -> metaData.getSearchStringEscape(),
             () -> metaData.getProcedureColumns(null, null, null, null),
             () -> metaData.getBestRowIdentifier(null, null, null, 0, false),

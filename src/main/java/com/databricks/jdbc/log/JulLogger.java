@@ -50,10 +50,20 @@ public class JulLogger implements JdbcLogger {
     log(Level.FINEST, message, null);
   }
 
+  @Override
+  public void trace(String format, Object... arguments) {
+    trace(String.format(format, arguments));
+  }
+
   /** {@inheritDoc} */
   @Override
   public void debug(String message) {
     log(Level.FINE, message, null);
+  }
+
+  @Override
+  public void debug(String format, Object... arguments) {
+    debug(String.format(format, arguments));
   }
 
   /** {@inheritDoc} */
@@ -62,10 +72,20 @@ public class JulLogger implements JdbcLogger {
     log(Level.INFO, message, null);
   }
 
+  @Override
+  public void info(String format, Object... arguments) {
+    info(String.format(format, arguments));
+  }
+
   /** {@inheritDoc} */
   @Override
   public void warn(String message) {
     log(Level.WARNING, message, null);
+  }
+
+  @Override
+  public void warn(String format, Object... arguments) {
+    warn(String.format(format, arguments));
   }
 
   /** {@inheritDoc} */
@@ -74,10 +94,20 @@ public class JulLogger implements JdbcLogger {
     log(Level.SEVERE, message, null);
   }
 
+  @Override
+  public void error(String format, Object... arguments) {
+    error(String.format(format, arguments));
+  }
+
   /** {@inheritDoc} */
   @Override
   public void error(String message, Throwable throwable) {
     log(Level.SEVERE, message, throwable);
+  }
+
+  @Override
+  public void error(String format, Throwable throwable, Object... arguments) {
+    error(String.format(format, arguments), throwable);
   }
 
   /**

@@ -5,13 +5,12 @@ import static org.junit.jupiter.api.Assertions.*;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import java.math.BigDecimal;
 import java.nio.ByteBuffer;
-import java.util.Arrays;
 import org.junit.jupiter.api.Test;
 
 public class FloatConverterTest {
 
-  private float NON_ZERO_OBJECT = 10.2f;
-  private float ZERO_OBJECT = 0f;
+  private final float NON_ZERO_OBJECT = 10.2f;
+  private final float ZERO_OBJECT = 0f;
 
   @Test
   public void testConvertToByte() throws DatabricksSQLException {
@@ -41,8 +40,8 @@ public class FloatConverterTest {
 
   @Test
   public void testConvertToInt() throws DatabricksSQLException {
-    assertEquals(new FloatConverter(NON_ZERO_OBJECT).convertToInt(), (int) 10);
-    assertEquals(new FloatConverter(ZERO_OBJECT).convertToInt(), (int) 0);
+    assertEquals(new FloatConverter(NON_ZERO_OBJECT).convertToInt(), 10);
+    assertEquals(new FloatConverter(ZERO_OBJECT).convertToInt(), 0);
 
     float floatThatDoesNotFitInInt = 2147483648.5f;
     DatabricksSQLException exception =
@@ -73,8 +72,8 @@ public class FloatConverterTest {
 
   @Test
   public void testConvertToDouble() throws DatabricksSQLException {
-    assertEquals(new FloatConverter(NON_ZERO_OBJECT).convertToDouble(), (double) 10.2f);
-    assertEquals(new FloatConverter(ZERO_OBJECT).convertToDouble(), (double) 0);
+    assertEquals(new FloatConverter(NON_ZERO_OBJECT).convertToDouble(), 10.2f);
+    assertEquals(new FloatConverter(ZERO_OBJECT).convertToDouble(), 0);
   }
 
   @Test
@@ -88,20 +87,18 @@ public class FloatConverterTest {
 
   @Test
   public void testConvertToBoolean() throws DatabricksSQLException {
-    assertEquals(new FloatConverter(NON_ZERO_OBJECT).convertToBoolean(), true);
-    assertEquals(new FloatConverter(ZERO_OBJECT).convertToBoolean(), false);
+    assertTrue(new FloatConverter(NON_ZERO_OBJECT).convertToBoolean());
+    assertFalse(new FloatConverter(ZERO_OBJECT).convertToBoolean());
   }
 
   @Test
   public void testConvertToByteArray() throws DatabricksSQLException {
-    assertTrue(
-        Arrays.equals(
-            new FloatConverter(NON_ZERO_OBJECT).convertToByteArray(),
-            ByteBuffer.allocate(4).putFloat(10.2f).array()));
-    assertTrue(
-        Arrays.equals(
-            new FloatConverter(ZERO_OBJECT).convertToByteArray(),
-            ByteBuffer.allocate(4).putFloat(0f).array()));
+    assertArrayEquals(
+        new FloatConverter(NON_ZERO_OBJECT).convertToByteArray(),
+        ByteBuffer.allocate(4).putFloat(10.2f).array());
+    assertArrayEquals(
+        new FloatConverter(ZERO_OBJECT).convertToByteArray(),
+        ByteBuffer.allocate(4).putFloat(0f).array());
   }
 
   @Test
