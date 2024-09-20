@@ -8,6 +8,7 @@ import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.common.LogLevel;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
 import com.databricks.jdbc.dbclient.impl.common.ClientConfigurator;
+import com.databricks.jdbc.driver.SSLConfiguration;
 import com.databricks.jdbc.exception.DatabricksHttpException;
 import com.databricks.jdbc.exception.DatabricksRetryHandlerException;
 import com.databricks.jdbc.log.JdbcLogger;
@@ -28,9 +29,13 @@ import org.apache.http.HttpHost;
 import org.apache.http.client.config.RequestConfig;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpUriRequest;
+import org.apache.http.config.RegistryBuilder;
 import org.apache.http.conn.UnsupportedSchemeException;
 import org.apache.http.conn.routing.HttpRoute;
+import org.apache.http.conn.socket.ConnectionSocketFactory;
+import org.apache.http.conn.socket.PlainConnectionSocketFactory;
 import org.apache.http.conn.ssl.NoopHostnameVerifier;
+import org.apache.http.conn.ssl.SSLConnectionSocketFactory;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClientBuilder;
 import org.apache.http.impl.conn.DefaultSchemePortResolver;
@@ -75,9 +80,24 @@ public class DatabricksHttpClient implements IDatabricksHttpClient {
   private static void initializeConnectionManager(IDatabricksConnectionContext connectionContext) {
     if (connectionManager == null) {
       if (connectionContext != null) {
-        connectionManager =
-            new PoolingHttpClientConnectionManager(
-                ClientConfigurator.getConnectionSocketFactoryRegistry(connectionContext));
+        try {
+          SSLContext sslContext =
+              SSLConfiguration.configureSslContext(
+                  connectionContext.getSSLKeyStorePath(),
+                  connectionContext.getSSLKeyStorePassword());
+          SSLConnectionSocketFactory sslSocketFactory =
+              new SSLConnectionSocketFactory(sslContext, NoopHostnameVerifier.INSTANCE);
+          connectionManager =
+              new PoolingHttpClientConnectionManager(
+                  RegistryBuilder.<ConnectionSocketFactory>create()
+                      .register("https", sslSocketFactory)
+                      .register("http", new PlainConnectionSocketFactory())
+                      .build());
+        } catch (Exception e) {
+          connectionManager =
+              new PoolingHttpClientConnectionManager(
+                  ClientConfigurator.getConnectionSocketFactoryRegistry(connectionContext));
+        }
       } else {
         connectionManager = new PoolingHttpClientConnectionManager();
       }

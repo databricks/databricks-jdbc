@@ -6,6 +6,7 @@ import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.auth.OAuthRefreshCredentialsProvider;
 import com.databricks.jdbc.auth.PrivateKeyClientCredentialProvider;
 import com.databricks.jdbc.common.DatabricksJdbcConstants;
+import com.databricks.jdbc.driver.SSLConfiguration;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
@@ -31,6 +32,7 @@ import org.apache.http.config.Registry;
 import org.apache.http.config.RegistryBuilder;
 import org.apache.http.conn.socket.ConnectionSocketFactory;
 import org.apache.http.conn.socket.PlainConnectionSocketFactory;
+import org.apache.http.conn.ssl.NoopHostnameVerifier;
 import org.apache.http.conn.ssl.SSLConnectionSocketFactory;
 import org.apache.http.impl.conn.PoolingHttpClientConnectionManager;
 
@@ -60,12 +62,33 @@ public class ClientConfigurator {
    * @param httpClientBuilder The builder to which the SSL configuration should be added.
    */
   private void setupSSLConfig(CommonsHttpClient.Builder httpClientBuilder) {
-    PoolingHttpClientConnectionManager connManager =
-        new PoolingHttpClientConnectionManager(
-            getConnectionSocketFactoryRegistry(this.connectionContext));
-    // This is consistent with the value in the SDK
-    connManager.setMaxTotal(100);
-    httpClientBuilder.withConnectionManager(connManager);
+    SSLContext sslContext = null;
+    try {
+      sslContext = SSLContext.getDefault();
+    } catch (NoSuchAlgorithmException e) {
+
+    }
+    if (connectionContext.isSSLEnabled()) {
+      try {
+        sslContext =
+            SSLConfiguration.configureSslContext(
+                this.connectionContext.getSSLKeyStorePath(),
+                this.connectionContext.getSSLKeyStorePassword());
+      } catch (Exception e) {
+
+      }
+    }
+
+    SSLConnectionSocketFactory sslSocketFactory =
+        new SSLConnectionSocketFactory(sslContext, NoopHostnameVerifier.INSTANCE);
+    httpClientBuilder
+        .withSslSocketFactory(sslSocketFactory)
+        .withConnectionManager(
+            new PoolingHttpClientConnectionManager(
+                RegistryBuilder.<ConnectionSocketFactory>create()
+                    .register("https", sslSocketFactory)
+                    .register("http", new PlainConnectionSocketFactory())
+                    .build()));
   }
 
   /**
