@@ -27,7 +27,6 @@ public class ChunkExtractor {
   public static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(ChunkExtractor.class);
   private long totalRows;
   private long currentChunkIndex;
-  private ByteArrayInputStream byteStream;
 
   ArrowResultChunk arrowResultChunk; // There is only one packet of data in case of inline arrow
 
@@ -36,7 +35,7 @@ public class ChunkExtractor {
       throws DatabricksParsingException {
     this.currentChunkIndex = -1;
     this.totalRows = 0;
-    initializeByteStream(arrowBatches, metadata, statementId);
+    ByteArrayInputStream byteStream = initializeByteStream(arrowBatches, metadata, statementId);
     arrowResultChunk = ArrowResultChunk.builder().withInputStream(byteStream, totalRows).build();
   }
 
@@ -52,7 +51,7 @@ public class ChunkExtractor {
     return arrowResultChunk;
   }
 
-  private void initializeByteStream(
+  private ByteArrayInputStream initializeByteStream(
       List<TSparkArrowBatch> arrowBatches, TGetResultSetMetadataResp metadata, String statementId)
       throws DatabricksParsingException {
     ByteArrayOutputStream baos = new ByteArrayOutputStream();
@@ -63,19 +62,21 @@ public class ChunkExtractor {
         baos.write(serializedSchema);
       }
       for (TSparkArrowBatch arrowBatch : arrowBatches) {
-        decompress(
-            arrowBatch.getBatch(),
-            compressionType,
-            String.format(
-                "Data fetch for inline arrow batch [%d] and statement [%s] with decompression algorithm : [%s]",
-                arrowBatch.getRowCount(), statementId, compressionType));
+        byte[] decompressedBytes =
+            decompress(
+                arrowBatch.getBatch(),
+                compressionType,
+                String.format(
+                    "Data fetch for inline arrow batch [%d] and statement [%s] with decompression algorithm : [%s]",
+                    arrowBatch.getRowCount(), statementId, compressionType));
         totalRows += arrowBatch.getRowCount();
-        baos.write(arrowBatch.getBatch());
+        baos.write(decompressedBytes);
       }
-      this.byteStream = new ByteArrayInputStream(baos.toByteArray());
+      return new ByteArrayInputStream(baos.toByteArray());
     } catch (DatabricksSQLException | IOException e) {
       handleError(e);
     }
+    return null;
   }
 
   private byte[] getSerializedSchema(TGetResultSetMetadataResp metadata)

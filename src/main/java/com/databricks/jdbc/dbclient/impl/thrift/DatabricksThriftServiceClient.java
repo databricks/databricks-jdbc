@@ -135,8 +135,8 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
     TExecuteStatementReq request =
         new TExecuteStatementReq()
             .setStatement(sql)
-            .setCanDecompressLZ4Result(true)
             .setSessionHandle(session.getSessionInfo().sessionHandle())
+            .setCanDecompressLZ4Result(true)
             .setCanReadArrowResult(this.connectionContext.shouldEnableArrow())
             .setCanDownloadResult(true);
     return thriftAccessor.execute(request, parentStatement, session, statementType);

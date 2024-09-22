@@ -34,7 +34,7 @@ public class DecompressionUtil {
       throws DatabricksSQLException {
     if (compressedInput == null) {
       LOGGER.debug("compressedInputBytes is `NULL`. Skipping compression.");
-      return null;
+      return compressedInput;
     }
     switch (compressionType) {
       case NONE:

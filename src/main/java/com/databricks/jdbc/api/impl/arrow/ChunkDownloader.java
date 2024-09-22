@@ -296,7 +296,7 @@ public class ChunkDownloader implements ChunkDownloadCallback {
       return chunkIndexMap;
     }
     for (BaseChunkInfo chunkInfo : resultManifest.getChunks()) {
-      LOGGER.debug("Manifest telemetry: " + chunkInfo.toString());
+      LOGGER.debug("Manifest chunk information: " + chunkInfo.toString());
       chunkIndexMap.put(
           chunkInfo.getChunkIndex(),
           ArrowResultChunk.builder().statementId(statementId).withChunkInfo(chunkInfo).build());
