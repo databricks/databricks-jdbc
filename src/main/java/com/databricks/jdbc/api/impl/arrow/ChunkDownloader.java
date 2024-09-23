@@ -4,6 +4,7 @@ import com.databricks.jdbc.api.IDatabricksSession;
 import com.databricks.jdbc.common.CompressionType;
 import com.databricks.jdbc.common.ErrorCodes;
 import com.databricks.jdbc.common.ErrorTypes;
+import com.databricks.jdbc.common.util.MetricsUtil;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
 import com.databricks.jdbc.dbclient.impl.http.DatabricksHttpClient;
 import com.databricks.jdbc.exception.DatabricksParsingException;
@@ -147,12 +148,9 @@ public class ChunkDownloader implements ChunkDownloadCallback {
           chunk.wait();
         }
         if (chunk.getStatus() != ArrowResultChunk.ChunkStatus.DOWNLOAD_SUCCEEDED) {
-          throw new DatabricksSQLException(
-              chunk.getErrorMessage(),
-              session.getConnectionContext(),
-              ErrorTypes.CHUNK_DOWNLOAD,
-              statementId,
-              ErrorCodes.CHUNK_DOWNLOAD_ERROR);
+          MetricsUtil.exportError(
+              session, ErrorTypes.CHUNK_DOWNLOAD, statementId, ErrorCodes.CHUNK_DOWNLOAD_ERROR);
+          throw new DatabricksSQLException(chunk.getErrorMessage());
         }
       } catch (InterruptedException e) {
         LOGGER.error(

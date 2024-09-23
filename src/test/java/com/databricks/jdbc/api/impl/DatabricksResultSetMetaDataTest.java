@@ -154,23 +154,6 @@ public class DatabricksResultSetMetaDataTest {
     assertEquals(0, scaleAndPrecision[1]);
   }
 
-  public void verifyDefaultMetadataProperties(DatabricksResultSetMetaData metaData)
-      throws SQLException {
-    for (int i = 1; i <= metaData.getColumnCount(); i++) {
-      // verify metadata properties default value
-      assertFalse(metaData.isAutoIncrement(i));
-      assertFalse(metaData.isSearchable(i));
-      assertEquals(ResultSetMetaData.columnNullable, metaData.isNullable(i));
-      assertFalse(metaData.isDefinitelyWritable(i));
-      assertEquals("", metaData.getSchemaName(i));
-      assertEquals("", metaData.getTableName(i));
-      assertEquals("", metaData.getCatalogName(i));
-      assertFalse(metaData.isCurrency(i));
-      assertEquals(0, metaData.getScale(i));
-      assertFalse(metaData.isCaseSensitive(i));
-    }
-  }
-
   @Test
   public void testColumnBuilderDefaultMetadata() throws SQLException {
     ResultManifest resultManifest = getResultManifest();
@@ -240,5 +223,22 @@ public class DatabricksResultSetMetaDataTest {
             DatabricksTypeUtil.getColumnType(getTypeFromTypeDesc(columnInfo.getTypeDesc())));
     assertEquals(255, scaleAndPrecision[0]);
     assertEquals(0, scaleAndPrecision[1]);
+  }
+
+  private void verifyDefaultMetadataProperties(DatabricksResultSetMetaData metaData)
+      throws SQLException {
+    for (int i = 1; i <= metaData.getColumnCount(); i++) {
+      // verify metadata properties default value
+      assertFalse(metaData.isAutoIncrement(i));
+      assertFalse(metaData.isSearchable(i));
+      assertEquals(ResultSetMetaData.columnNullable, metaData.isNullable(i));
+      assertFalse(metaData.isDefinitelyWritable(i));
+      assertEquals("", metaData.getSchemaName(i));
+      assertEquals("", metaData.getTableName(i));
+      assertEquals("", metaData.getCatalogName(i));
+      assertFalse(metaData.isCurrency(i));
+      assertEquals(0, metaData.getScale(i));
+      assertFalse(metaData.isCaseSensitive(i));
+    }
   }
 }

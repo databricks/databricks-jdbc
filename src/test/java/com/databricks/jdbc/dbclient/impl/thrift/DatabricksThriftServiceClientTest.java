@@ -3,6 +3,7 @@ package com.databricks.jdbc.dbclient.impl.thrift;
 import static com.databricks.jdbc.TestConstants.*;
 import static com.databricks.jdbc.common.DatabricksJdbcConstants.CATALOG;
 import static com.databricks.jdbc.common.DatabricksJdbcConstants.SCHEMA;
+import static com.databricks.jdbc.common.MetadataResultConstants.*;
 import static com.databricks.jdbc.common.util.DatabricksThriftUtil.getNamespace;
 import static com.databricks.jdbc.dbclient.impl.common.CommandConstants.GET_TABLE_TYPE_STATEMENT_ID;
 import static org.junit.jupiter.api.Assertions.*;
@@ -18,6 +19,7 @@ import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.exception.DatabricksSQLFeatureNotImplementedException;
 import com.databricks.jdbc.model.client.thrift.generated.*;
 import com.databricks.jdbc.model.core.ExternalLink;
+import com.databricks.jdbc.model.core.ResultColumn;
 import com.databricks.sdk.service.sql.StatementState;
 import java.sql.SQLException;
 import java.util.*;
@@ -250,6 +252,15 @@ public class DatabricksThriftServiceClientTest {
     DatabricksResultSet resultSet =
         client.listColumns(session, TEST_CATALOG, TEST_SCHEMA, TEST_TABLE, TEST_STRING);
     assertEquals(resultSet.getStatementStatus().getState(), StatementState.SUCCEEDED);
+    DatabricksResultSetMetaData metaData = (DatabricksResultSetMetaData) resultSet.getMetaData();
+    assertEquals(metaData.getColumnCount(), COLUMN_COLUMNS_ALL_PURPOSE.size());
+    for (int i = 0; i < COLUMN_COLUMNS_ALL_PURPOSE.size(); i++) {
+      ResultColumn resultColumn = COLUMN_COLUMNS_ALL_PURPOSE.get(i);
+      assertEquals(metaData.getColumnName(i + 1), resultColumn.getColumnName());
+      assertEquals(metaData.getColumnType(i + 1), resultColumn.getColumnTypeInt());
+      assertEquals(metaData.getColumnTypeName(i + 1), resultColumn.getColumnTypeString());
+      assertEquals(metaData.getPrecision(i + 1), resultColumn.getColumnPrecision());
+    }
   }
 
   @Test

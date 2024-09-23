@@ -3,7 +3,6 @@ package com.databricks.jdbc.telemetry.annotation;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.*;
 
-import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.common.CommandName;
 import com.databricks.jdbc.telemetry.DatabricksMetrics;
 import org.junit.jupiter.api.Test;
@@ -23,27 +22,18 @@ interface TestInterface {
 
 class TestInterfaceImpl implements TestInterface {
   public void annotatedMethod() {}
-
-  public IDatabricksConnectionContext getConnectionContext() {
-    return null;
-  }
 }
 
 class NonAnnotatedClass {}
 
 @ExtendWith(MockitoExtension.class)
 public class AnnotationTest {
-  @Mock private IDatabricksConnectionContext connectionContext;
   @Mock private DatabricksMetrics metricsExporter;
   @Mock private TestInterfaceImpl mockImpl;
 
   @Test
   void testInvoke() {
-
-    when(mockImpl.getConnectionContext()).thenReturn(connectionContext);
-    when(connectionContext.getMetricsExporter()).thenReturn(metricsExporter);
-
-    TestInterface proxy = DatabricksMetricsTimedProcessor.createProxy(mockImpl);
+    TestInterface proxy = DatabricksMetricsTimedProcessor.createProxy(mockImpl, metricsExporter);
     proxy.annotatedMethod();
 
     verify(mockImpl, times(1)).annotatedMethod();
@@ -56,7 +46,7 @@ public class AnnotationTest {
     assertThrows(
         IllegalArgumentException.class,
         () -> {
-          DatabricksMetricsTimedProcessor.createProxy(nonAnnotatedInstance);
+          DatabricksMetricsTimedProcessor.createProxy(nonAnnotatedInstance, metricsExporter);
         });
   }
 }

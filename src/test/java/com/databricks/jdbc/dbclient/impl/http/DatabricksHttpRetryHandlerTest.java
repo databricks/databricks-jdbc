@@ -57,9 +57,7 @@ public class DatabricksHttpRetryHandlerTest {
 
   @Test
   void retryRequestWithNonRetryableStatusCode() {
-    IOException exception =
-        new DatabricksRetryHandlerException(
-            "Test", HttpStatus.SC_BAD_REQUEST, mockConnectionContext, null, "");
+    IOException exception = new DatabricksRetryHandlerException("Test", HttpStatus.SC_BAD_REQUEST);
     assertFalse(retryHandler.retryRequest(exception, 1, mockHttpContext));
   }
 
@@ -73,8 +71,7 @@ public class DatabricksHttpRetryHandlerTest {
     when(mockHttpContext.getRequest()).thenReturn(createMockRequest());
 
     IOException exception =
-        new DatabricksRetryHandlerException(
-            "Test", HttpStatus.SC_SERVICE_UNAVAILABLE, mockConnectionContext, null, "");
+        new DatabricksRetryHandlerException("Test", HttpStatus.SC_SERVICE_UNAVAILABLE);
     assertTrue(retryHandler.retryRequest(exception, 1, mockHttpContext));
   }
 
@@ -88,8 +85,7 @@ public class DatabricksHttpRetryHandlerTest {
     when(mockHttpContext.getRequest()).thenReturn(createMockRequest());
 
     IOException exception =
-        new DatabricksRetryHandlerException(
-            "Test", HttpStatus.SC_SERVICE_UNAVAILABLE, mockConnectionContext, null, "");
+        new DatabricksRetryHandlerException("Test", HttpStatus.SC_SERVICE_UNAVAILABLE);
     assertFalse(retryHandler.retryRequest(exception, 6, mockHttpContext));
   }
 

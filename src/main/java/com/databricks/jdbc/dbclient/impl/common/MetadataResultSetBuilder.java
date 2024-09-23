@@ -424,7 +424,8 @@ public class MetadataResultSetBuilder {
     for (ResultColumn column : columns) {
       String columnName = column.getColumnName();
       String resultSetColumnName = column.getResultSetColumnName();
-
+      String typeText = column.getColumnTypeString();
+      int typeInt = column.getColumnTypeInt();
       // Lookup the column index in the metadata using the map
       Integer metaColumnIndex = metaDataColumnMap.get(resultSetColumnName);
 
@@ -435,16 +436,6 @@ public class MetadataResultSetBuilder {
               : ResultSetMetaData.columnNullable;
 
       // Fetch metadata from ResultSetMetaData or use default values from the ResultColumn
-      String typeText =
-          metaColumnIndex != null && metaData.getColumnTypeName(metaColumnIndex) != null
-              ? metaData.getColumnTypeName(metaColumnIndex)
-              : column.getColumnTypeString();
-
-      int typeInt =
-          metaColumnIndex != null && metaData.getColumnType(metaColumnIndex) != 0
-              ? metaData.getColumnType(metaColumnIndex)
-              : column.getColumnTypeInt();
-
       int precision =
           metaColumnIndex != null && metaData.getPrecision(metaColumnIndex) != 0
               ? metaData.getPrecision(metaColumnIndex)

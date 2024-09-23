@@ -23,11 +23,9 @@ public class MetadataResultConstants {
   public static final ResultColumn REF_GENERATION_COLUMN =
       new ResultColumn("REF_GENERATION", "REF_GENERATION_COLUMN", Types.VARCHAR);
   public static final ResultColumn KEY_SEQUENCE_COLUMN =
-      new ResultColumn("KEY_SEQ", "keySeq", Types.INTEGER);
+      new ResultColumn("KEY_SEQ", "keySeq", Types.SMALLINT);
   public static final ResultColumn PRIMARY_KEY_NAME_COLUMN =
       new ResultColumn("PK_NAME", "constraintName", Types.VARCHAR);
-  public static final ResultColumn PRIMARY_KEY_TYPE_COLUMN =
-      new ResultColumn("PK_TYPE", "constraintType", Types.VARCHAR);
   public static final ResultColumn TYPE_NAME_COLUMN =
       new ResultColumn("TYPE_NAME", "TYPE_NAME", Types.VARCHAR);
   public static final ResultColumn SCHEMA_COLUMN =
@@ -50,7 +48,7 @@ public class MetadataResultConstants {
   public static final ResultColumn COLUMN_TYPE_COLUMN =
       new ResultColumn("TYPE_NAME", "columnType", Types.VARCHAR);
   public static final ResultColumn BUFFER_LENGTH_COLUMN =
-      new ResultColumn("BUFFER_LENGTH", "bufferLength", Types.SMALLINT);
+      new ResultColumn("BUFFER_LENGTH", "bufferLength", Types.INTEGER);
   public static final ResultColumn COLUMN_SIZE_COLUMN =
       new ResultColumn("COLUMN_SIZE", "columnSize", Types.INTEGER);
   private static final ResultColumn PRECISION_COLUMN =
@@ -78,7 +76,7 @@ public class MetadataResultConstants {
   public static final ResultColumn IS_NULLABLE_COLUMN =
       new ResultColumn("IS_NULLABLE", "isNullable", Types.VARCHAR);
   public static final ResultColumn SQL_DATA_TYPE_COLUMN =
-      new ResultColumn("SQL_DATA_TYPE", "SQLDataType", Types.SMALLINT);
+      new ResultColumn("SQL_DATA_TYPE", "SQLDataType", Types.INTEGER);
   public static final ResultColumn DATA_TYPE_COLUMN =
       new ResultColumn("DATA_TYPE", "dataType", Types.INTEGER);
   private static final ResultColumn LITERAL_PREFIX_COLUMN =
@@ -88,7 +86,7 @@ public class MetadataResultConstants {
   private static final ResultColumn CREATE_PARAMS_COLUMN =
       new ResultColumn("CREATE_PARAMS", "createParams", Types.VARCHAR);
   public static final ResultColumn SQL_DATETIME_SUB_COLUMN =
-      new ResultColumn("SQL_DATETIME_SUB", "SQLDateTimeSub", Types.SMALLINT);
+      new ResultColumn("SQL_DATETIME_SUB", "SQLDateTimeSub", Types.INTEGER);
   public static final ResultColumn CHAR_OCTET_LENGTH_COLUMN =
       new ResultColumn("CHAR_OCTET_LENGTH", "CharOctetLength", Types.INTEGER);
 
@@ -102,12 +100,12 @@ public class MetadataResultConstants {
       new ResultColumn("SCOPE_TABLE", "ScopeTable", Types.VARCHAR);
 
   public static final ResultColumn SOURCE_DATA_TYPE_COLUMN =
-      new ResultColumn("SOURCE_DATA_TYPE", "SourceDataType", Types.SMALLINT);
+      new ResultColumn("SOURCE_DATA_TYPE", "SourceDataType", Types.INTEGER);
 
   private static final ResultColumn USER_DATA_TYPE_COLUMN =
       new ResultColumn("USER_DATA_TYPE", "UserDataType", Types.SMALLINT);
   public static final ResultColumn NULLABLE_COLUMN =
-      new ResultColumn("NULLABLE", "isNullable", Types.INTEGER);
+      new ResultColumn("NULLABLE", "Nullable", Types.INTEGER);
   public static final ResultColumn ORDINAL_POSITION_COLUMN =
       new ResultColumn("ORDINAL_POSITION", "ordinalPosition", Types.INTEGER);
   public static final ResultColumn IS_AUTO_INCREMENT_COLUMN =
@@ -204,8 +202,7 @@ public class MetadataResultConstants {
           TABLE_NAME_COLUMN,
           COLUMN_NAME_COLUMN,
           KEY_SEQUENCE_COLUMN,
-          PRIMARY_KEY_NAME_COLUMN,
-          PRIMARY_KEY_TYPE_COLUMN);
+          PRIMARY_KEY_NAME_COLUMN);
   public static List<List<Object>> TABLE_TYPES_ROWS =
       Arrays.asList(List.of("TABLE"), List.of("VIEW"), List.of("SYSTEM TABLE"));
   public static List<ResultColumn> TABLE_TYPE_COLUMNS = List.of(TABLE_TYPE_COLUMN);
@@ -297,9 +294,9 @@ public class MetadataResultConstants {
           CommandName.LIST_COLUMNS,
               List.of(
                   MetadataResultConstants.TABLE_NAME_COLUMN,
-                  MetadataResultConstants.COLUMN_NAME_COLUMN,
+                  MetadataResultConstants.COL_NAME_COLUMN,
                   MetadataResultConstants.DATA_TYPE_COLUMN,
-                  MetadataResultConstants.TYPE_NAME_COLUMN,
+                  MetadataResultConstants.COLUMN_TYPE_COLUMN,
                   MetadataResultConstants.NULLABLE_COLUMN,
                   MetadataResultConstants.SQL_DATA_TYPE_COLUMN,
                   MetadataResultConstants.ORDINAL_POSITION_COLUMN,
