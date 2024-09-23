@@ -221,8 +221,6 @@ public class DatabricksResultSet implements ResultSet, IDatabricksResultSet {
     return this.wasNull;
   }
 
-  // TODO (Madhav): Clean up code by removing code duplicity by having common functions that branch
-  // out and to reuse converter objects.
   @Override
   public String getString(int columnIndex) throws SQLException {
     checkIfClosed();
@@ -318,7 +316,6 @@ public class DatabricksResultSet implements ResultSet, IDatabricksResultSet {
     return converter.convertToDouble();
   }
 
-  // TODO (Madhav): Handle case when scale is not provided when getScale is implemented.
   @Override
   public BigDecimal getBigDecimal(int columnIndex, int scale) throws SQLException {
     checkIfClosed();

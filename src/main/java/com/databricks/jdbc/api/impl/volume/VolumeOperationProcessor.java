@@ -223,7 +223,7 @@ class VolumeOperationProcessor {
           status = VolumeOperationStatus.FAILED;
           errorMessage = "Local file path is invalid or a directory";
         } catch (IOException e) {
-          // TODO: handle retries
+          // TODO: Add retries
           LOGGER.error(
               String.format(
                   "Failed to write to local file {%s} with error {%s}",
@@ -281,7 +281,7 @@ class VolumeOperationProcessor {
             String.format(
                 "Failed to upload file {%s} with error code: {%s}",
                 localFilePath, response.getStatusLine().getStatusCode()));
-        // TODO: handle retries
+        // TODO: Add retries
         status = VolumeOperationStatus.FAILED;
         errorMessage =
             "Failed to upload file with error code: " + response.getStatusLine().getStatusCode();
@@ -320,7 +320,7 @@ class VolumeOperationProcessor {
   }
 
   private void executeDeleteOperation() {
-    // TODO: Check for AWS specific handling
+    // TODO: Implement AWS-specific logic if required
     HttpDelete httpDelete = new HttpDelete(operationUrl);
     headers.forEach(httpDelete::addHeader);
     try (CloseableHttpResponse response = databricksHttpClient.execute(httpDelete)) {

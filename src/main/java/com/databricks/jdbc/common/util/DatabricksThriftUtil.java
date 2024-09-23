@@ -172,7 +172,6 @@ public class DatabricksThriftUtil {
    * @return a list of values from the specified column
    */
   private static List<?> getColumnValues(TColumn column) {
-    // TODO: Add support for complex data types
     if (column.isSetBinaryVal())
       return getColumnValuesWithNulls(
           column.getBinaryVal().getValues(), column.getBinaryVal().getNulls());

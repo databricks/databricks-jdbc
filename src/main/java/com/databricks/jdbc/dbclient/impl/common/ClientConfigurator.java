@@ -236,7 +236,6 @@ public class ClientConfigurator {
 
   /** Setup the OAuth authentication settings in the databricks config. */
   public void setupOAuthConfig() throws DatabricksParsingException {
-    // TODO(Madhav): Revisit these to set JDBC values
     switch (this.connectionContext.getAuthFlow()) {
       case TOKEN_PASSTHROUGH:
         if (connectionContext.getOAuthRefreshToken() != null) {

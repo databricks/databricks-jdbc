@@ -36,22 +36,11 @@ import java.util.stream.Collectors;
 /** Implementation of IDatabricksClient interface using Databricks Java SDK. */
 public class DatabricksSdkClient implements IDatabricksClient {
 
-  public static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(DatabricksSdkClient.class);
+  private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(DatabricksSdkClient.class);
   private static final String SYNC_TIMEOUT_VALUE = "10s";
   private final IDatabricksConnectionContext connectionContext;
   private final ClientConfigurator clientConfigurator;
   private volatile WorkspaceClient workspaceClient;
-
-  @Override
-  public IDatabricksConnectionContext getConnectionContext() {
-    return connectionContext;
-  }
-
-  private static Map<String, String> getHeaders() {
-    return Map.of(
-        "Accept", "application/json",
-        "Content-Type", "application/json");
-  }
 
   public DatabricksSdkClient(IDatabricksConnectionContext connectionContext)
       throws DatabricksParsingException {
@@ -74,12 +63,17 @@ public class DatabricksSdkClient implements IDatabricksClient {
   }
 
   @Override
+  public IDatabricksConnectionContext getConnectionContext() {
+    return connectionContext;
+  }
+
+  @Override
   public ImmutableSessionInfo createSession(
       IDatabricksComputeResource warehouse,
       String catalog,
       String schema,
       Map<String, String> sessionConf) {
-    // TODO: [PECO-1460] Handle sessionConf in public session API
+    // TODO (PECO-1460): Handle sessionConf in public session API
     LOGGER.debug(
         String.format(
             "public Session createSession(String warehouseId = {%s}, String catalog = {%s}, String schema = {%s}, Map<String, String> sessionConf = {%s})",
@@ -206,11 +200,6 @@ public class DatabricksSdkClient implements IDatabricksClient {
         parentStatement);
   }
 
-  private boolean useCloudFetchForResult(StatementType statementType) {
-    return this.connectionContext.shouldEnableArrow()
-        && (statementType == StatementType.QUERY || statementType == StatementType.SQL);
-  }
-
   @Override
   public void closeStatement(String statementId) {
     LOGGER.debug(
@@ -248,6 +237,17 @@ public class DatabricksSdkClient implements IDatabricksClient {
   public synchronized void resetAccessToken(String newAccessToken) {
     this.clientConfigurator.resetAccessTokenInConfig(newAccessToken);
     this.workspaceClient = clientConfigurator.getWorkspaceClient();
+  }
+
+  private static Map<String, String> getHeaders() {
+    return Map.of(
+        "Accept", "application/json",
+        "Content-Type", "application/json");
+  }
+
+  private boolean useCloudFetchForResult(StatementType statementType) {
+    return this.connectionContext.shouldEnableArrow()
+        && (statementType == StatementType.QUERY || statementType == StatementType.SQL);
   }
 
   private ExecuteStatementRequest getRequest(
@@ -292,7 +292,6 @@ public class DatabricksSdkClient implements IDatabricksClient {
   /** Handles a failed execution and throws appropriate exception */
   void handleFailedExecution(
       ExecuteStatementResponse response, String statementId, String statement) throws SQLException {
-    // TODO : Add retries here.
     StatementState statementState = response.getStatus().getState();
     ServiceError error = response.getStatus().getError();
     String errorMessage =

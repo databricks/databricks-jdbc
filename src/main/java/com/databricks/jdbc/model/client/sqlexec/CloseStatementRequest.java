@@ -29,7 +29,7 @@ public class CloseStatementRequest {
   }
 
   public int hashCode() {
-    return Objects.hash(new Object[] {this.statementId});
+    return Objects.hash(this.statementId);
   }
 
   public String toString() {

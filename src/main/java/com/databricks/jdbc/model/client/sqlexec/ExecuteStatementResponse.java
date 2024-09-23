@@ -7,7 +7,11 @@ import com.databricks.sdk.support.ToStringer;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import java.util.Objects;
 
-/* TODO: This file is picked from databricks-sdk-java. Remove this once arclight changes are included in API-SPEC */
+/**
+ * Execute statement response POJO
+ *
+ * <p>TODO: Replace this class with the corresponding SDK implementation once it becomes available
+ */
 public class ExecuteStatementResponse {
   @JsonProperty("manifest")
   private ResultManifest manifest;

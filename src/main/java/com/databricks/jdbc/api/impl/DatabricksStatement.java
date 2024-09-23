@@ -55,11 +55,9 @@ public class DatabricksStatement implements IDatabricksStatement, Statement {
 
   @Override
   public ResultSet executeQuery(String sql) throws SQLException {
-    // TODO(PECO-1731): Revisit this to see if we can fail fast if the statement does not return a
-    // result set.
+    // TODO (PECO-1731): Can it fail fast without executing SQL query?
     checkIfClosed();
-    ResultSet rs =
-        executeInternal(sql, new HashMap<Integer, ImmutableSqlParameter>(), StatementType.QUERY);
+    ResultSet rs = executeInternal(sql, new HashMap<>(), StatementType.QUERY);
     if (!shouldReturnResultSet(sql)) {
       String errorMessage =
           "A ResultSet was expected but not generated from query: "

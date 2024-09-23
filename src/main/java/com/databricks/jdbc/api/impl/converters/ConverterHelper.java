@@ -72,7 +72,6 @@ public class ConverterHelper {
     } else if (javaType == byte.class || javaType == Byte.class) {
       return converter.convertToShort();
     }
-    // TODO : add more types if required.
     return converter.convertToString(); // By default, convert to string
   }
 

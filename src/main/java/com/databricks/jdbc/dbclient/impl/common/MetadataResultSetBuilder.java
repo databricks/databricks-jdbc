@@ -358,7 +358,8 @@ public class MetadataResultSetBuilder {
 
   private static List<List<Object>> getRowsForSchemas(
       ResultSet resultSet, List<ResultColumn> columns, String catalog) throws SQLException {
-    // TODO(PECO-1677): Remove this method once the server side ResultSet metadata contains catalogs
+    // TODO (PECO-1677): Deprecate/remove this method once the server-side ResultSet metadata
+    //                   includes catalog information
     List<List<Object>> rows = new ArrayList<>();
     while (resultSet.next()) {
       List<Object> row = new ArrayList<>();
@@ -515,7 +516,6 @@ public class MetadataResultSetBuilder {
       if (hasOrdinalPosition) {
         incrementValueAtIndex(row, ordinalPositionIndex);
       }
-      // TODO: Add more client-side manipulations
       updatedRows.add(row);
     }
 
