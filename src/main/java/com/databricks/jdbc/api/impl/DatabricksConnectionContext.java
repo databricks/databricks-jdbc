@@ -315,13 +315,6 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   }
 
   @Override
-  public Boolean getUseLegacyMetadata() {
-    // Defaults to use legacy metadata client
-    String param = getParameter(DatabricksJdbcUrlParams.USE_LEGACY_METADATA);
-    return param != null && param.equals("1");
-  }
-
-  @Override
   public int getCloudFetchThreadPoolSize() {
     return Integer.parseInt(getParameter(DatabricksJdbcUrlParams.CLOUD_FETCH_THREAD_POOL_SIZE));
   }
@@ -572,6 +565,11 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   }
 
   @Override
+  public Boolean getUseEmptyMetadata() {
+    String param = getParameter(DatabricksJdbcUrlParams.USE_EMPTY_METADATA);
+    return param != null && param.equals("1");
+  }
+
   public String getNonProxyHosts() {
     return getParameter(DatabricksJdbcUrlParams.NON_PROXY_HOSTS);
   }

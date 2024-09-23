@@ -109,7 +109,7 @@ public class MetadataResultSetBuilder {
     while (resultSet.next()) {
       List<Object> row = new ArrayList<>();
       for (ResultColumn column : columns) {
-        Object object = null;
+        Object object;
         switch (column.getColumnName()) {
           case "SQL_DATA_TYPE":
           case "SQL_DATETIME_SUB":
@@ -276,8 +276,10 @@ public class MetadataResultSetBuilder {
   static int getCode(String s) {
     switch (s) {
       case "STRING":
+      case "VARCHAR":
         return 12;
       case "INT":
+      case "INTEGER":
         return 4;
       case "DOUBLE":
         return 8;
@@ -296,35 +298,24 @@ public class MetadataResultSetBuilder {
       case "ARRAY":
         return 2003;
       case "MAP":
-        return 2002;
       case "STRUCT":
-        return 2002;
       case "UNIONTYPE":
         return 2002;
       case "BYTE":
+      case "TINYINT":
         return -6;
       case "SHORT":
+      case "SMALLINT":
         return 5;
       case "LONG":
+      case "BIGINT":
         return -5;
       case "NULL":
-        return 0;
       case "VOID":
         return 0;
       case "CHAR":
-        return 1;
-      case "VARCHAR":
-        return 12;
       case "CHARACTER":
         return 1;
-      case "BIGINT":
-        return -5;
-      case "TINYINT":
-        return -6;
-      case "SMALLINT":
-        return 5;
-      case "INTEGER":
-        return 4;
     }
     return 0;
   }
@@ -387,8 +378,8 @@ public class MetadataResultSetBuilder {
   private static DatabricksResultSet buildResultSet(
       List<ResultColumn> columns, List<List<Object>> rows, String statementId) {
     if (rows != null && !rows.isEmpty() && columns.size() > rows.get(0).size()) {
-      /* Handle cases where the number of rows is less than expected columns, e.g., missing
-      isGenerated column.*/
+      // Handle cases where the number of rows is less than expected columns, e.g., missing
+      // isGenerated column.
       int colSize = columns.size();
       rows.forEach(row -> row.addAll(Collections.nCopies(colSize - row.size(), null)));
     }
@@ -490,15 +481,13 @@ public class MetadataResultSetBuilder {
       updatedRows.add(row);
     }
     return buildResultSet(
-        TABLE_COLUMNS_ALL_PURPOSE,
-        buildRows(updatedRows, TABLE_COLUMNS_ALL_PURPOSE),
-        GET_TABLES_STATEMENT_ID);
+        TABLE_COLUMNS, buildRows(updatedRows, TABLE_COLUMNS), GET_TABLES_STATEMENT_ID);
   }
 
   public static DatabricksResultSet getColumnsResult(List<List<Object>> rows) {
     return buildResultSet(
-        COLUMN_COLUMNS_ALL_PURPOSE,
-        buildRows(buildRows(rows, COLUMN_COLUMNS_ALL_PURPOSE), COLUMN_COLUMNS_ALL_PURPOSE),
+        COLUMN_COLUMNS,
+        buildRows(buildRows(rows, COLUMN_COLUMNS), COLUMN_COLUMNS),
         METADATA_STATEMENT_ID);
   }
 
@@ -530,15 +519,11 @@ public class MetadataResultSetBuilder {
 
   public static DatabricksResultSet getPrimaryKeysResult(List<List<Object>> rows) {
     return buildResultSet(
-        PRIMARY_KEYS_COLUMNS_ALL_PURPOSE,
-        buildRows(rows, PRIMARY_KEYS_COLUMNS_ALL_PURPOSE),
-        METADATA_STATEMENT_ID);
+        PRIMARY_KEYS_COLUMNS, buildRows(rows, PRIMARY_KEYS_COLUMNS), METADATA_STATEMENT_ID);
   }
 
   public static DatabricksResultSet getFunctionsResult(List<List<Object>> rows) {
     return buildResultSet(
-        FUNCTION_COLUMNS_ALL_PURPOSE,
-        buildRows(rows, FUNCTION_COLUMNS_ALL_PURPOSE),
-        GET_FUNCTIONS_STATEMENT_ID);
+        FUNCTION_COLUMNS, buildRows(rows, FUNCTION_COLUMNS), GET_FUNCTIONS_STATEMENT_ID);
   }
 }

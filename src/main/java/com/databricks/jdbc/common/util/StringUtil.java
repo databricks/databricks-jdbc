@@ -14,4 +14,18 @@ public class StringUtil {
             .replaceAll("\\{call ([^}]*)\\}", "CALL $1"); // Stored Procedure escape sequence
     return sql;
   }
+
+  /**
+   * Escape sql string literal which is enclosed in a single quote, it replaces single quote with
+   * doubled single quotes.
+   *
+   * <p>Please always use prepareStatement to bind variables if possible, only use it when
+   * prepareStatement is not applicable, e.g. some DDL statement
+   */
+  public static String escapeStringLiteral(String str) {
+    if (str == null) {
+      return null;
+    }
+    return str.replace("'", "''");
+  }
 }

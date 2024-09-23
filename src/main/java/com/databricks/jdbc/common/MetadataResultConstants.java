@@ -30,10 +30,8 @@ public class MetadataResultConstants {
       new ResultColumn("TYPE_NAME", "TYPE_NAME", Types.VARCHAR);
   public static final ResultColumn SCHEMA_COLUMN =
       new ResultColumn("TABLE_SCHEM", "namespace", Types.VARCHAR);
-
   private static final ResultColumn SCHEMA_COLUMN_FOR_GET_SCHEMA =
       new ResultColumn("TABLE_SCHEM", "databaseName", Types.VARCHAR);
-
   public static final ResultColumn TABLE_NAME_COLUMN =
       new ResultColumn("TABLE_NAME", "tableName", Types.VARCHAR);
   public static final ResultColumn TABLE_TYPE_COLUMN =
@@ -42,9 +40,6 @@ public class MetadataResultConstants {
       new ResultColumn("REMARKS", "remarks", Types.VARCHAR);
   private static final ResultColumn COLUMN_NAME_COLUMN =
       new ResultColumn("COLUMN_NAME", "columnName", Types.VARCHAR);
-
-  private static final ResultColumn PROCEDURE_TYPE_COLUMN =
-      new ResultColumn("PROCEDURE_TYPE", "procedureType", Types.SMALLINT);
   public static final ResultColumn COLUMN_TYPE_COLUMN =
       new ResultColumn("TYPE_NAME", "columnType", Types.VARCHAR);
   public static final ResultColumn BUFFER_LENGTH_COLUMN =
@@ -71,8 +66,6 @@ public class MetadataResultConstants {
       new ResultColumn("SPECIFIC_NAME", "specificName", Types.VARCHAR);
   public static final ResultColumn NUM_PREC_RADIX_COLUMN =
       new ResultColumn("NUM_PREC_RADIX", "radix", Types.INTEGER);
-  private static final ResultColumn RADIX_COLUMN =
-      new ResultColumn("RADIX", "radix", Types.INTEGER);
   public static final ResultColumn IS_NULLABLE_COLUMN =
       new ResultColumn("IS_NULLABLE", "isNullable", Types.VARCHAR);
   public static final ResultColumn SQL_DATA_TYPE_COLUMN =
@@ -89,21 +82,14 @@ public class MetadataResultConstants {
       new ResultColumn("SQL_DATETIME_SUB", "SQLDateTimeSub", Types.INTEGER);
   public static final ResultColumn CHAR_OCTET_LENGTH_COLUMN =
       new ResultColumn("CHAR_OCTET_LENGTH", "CharOctetLength", Types.INTEGER);
-
   public static final ResultColumn SCOPE_CATALOG_COLUMN =
       new ResultColumn("SCOPE_CATALOG", "ScopeCatalog", Types.VARCHAR);
-
   public static final ResultColumn SCOPE_SCHEMA_COLUMN =
       new ResultColumn("SCOPE_SCHEMA", "ScopeSchema", Types.VARCHAR);
-
   public static final ResultColumn SCOPE_TABLE_COLUMN =
       new ResultColumn("SCOPE_TABLE", "ScopeTable", Types.VARCHAR);
-
   public static final ResultColumn SOURCE_DATA_TYPE_COLUMN =
       new ResultColumn("SOURCE_DATA_TYPE", "SourceDataType", Types.INTEGER);
-
-  private static final ResultColumn USER_DATA_TYPE_COLUMN =
-      new ResultColumn("USER_DATA_TYPE", "UserDataType", Types.SMALLINT);
   public static final ResultColumn NULLABLE_COLUMN =
       new ResultColumn("NULLABLE", "Nullable", Types.INTEGER);
   public static final ResultColumn ORDINAL_POSITION_COLUMN =
@@ -120,7 +106,6 @@ public class MetadataResultConstants {
       new ResultColumn("UNSIGNED_ATTRIBUTE", "unsignedAttribute", Types.BIT);
   private static final ResultColumn FIXED_PREC_SCALE_COLUMN =
       new ResultColumn("FIXED_PREC_SCALE", "fixedPrecScale", Types.BIT);
-
   private static final ResultColumn AUTO_INCREMENT_COLUMN =
       new ResultColumn("AUTO_INCREMENT", "autoIncrement", Types.BIT);
   private static final ResultColumn LOCAL_TYPE_NAME_COLUMN =
@@ -163,9 +148,6 @@ public class MetadataResultConstants {
           SOURCE_DATA_TYPE_COLUMN,
           IS_AUTO_INCREMENT_COLUMN,
           IS_GENERATED_COLUMN);
-
-  public static List<ResultColumn> EXTRA_COLUMN_COLUMNS =
-      List.of(NUM_PREC_RADIX_COLUMN, BUFFER_LENGTH_COLUMN);
   public static List<ResultColumn> CATALOG_COLUMNS = List.of(CATALOG_COLUMN_FOR_GET_CATALOGS);
   public static List<ResultColumn> SCHEMA_COLUMNS =
       List.of(SCHEMA_COLUMN_FOR_GET_SCHEMA, CATALOG_FULL_COLUMN);
@@ -182,19 +164,6 @@ public class MetadataResultConstants {
           // Note that a few fields like the following is for backward compatibility
           SELF_REFERENCING_COLUMN_NAME,
           REF_GENERATION_COLUMN);
-
-  public static List<ResultColumn> TABLE_COLUMNS_ALL_PURPOSE =
-      List.of(
-          CATALOG_COLUMN,
-          SCHEMA_COLUMN,
-          TABLE_NAME_COLUMN,
-          TABLE_TYPE_COLUMN,
-          REMARKS_COLUMN,
-          TYPE_CATALOG_COLUMN,
-          TYPE_SCHEMA_COLUMN,
-          TYPE_NAME_COLUMN,
-          SELF_REFERENCING_COLUMN_NAME,
-          REF_GENERATION_COLUMN);
   public static List<ResultColumn> PRIMARY_KEYS_COLUMNS =
       List.of(
           CATALOG_COLUMN,
@@ -206,52 +175,7 @@ public class MetadataResultConstants {
   public static List<List<Object>> TABLE_TYPES_ROWS =
       Arrays.asList(List.of("TABLE"), List.of("VIEW"), List.of("SYSTEM TABLE"));
   public static List<ResultColumn> TABLE_TYPE_COLUMNS = List.of(TABLE_TYPE_COLUMN);
-  public static List<ResultColumn> PRIMARY_KEYS_COLUMNS_ALL_PURPOSE =
-      List.of(
-          CATALOG_COLUMN,
-          SCHEMA_COLUMN,
-          TABLE_NAME_COLUMN,
-          COLUMN_NAME_COLUMN,
-          KEY_SEQUENCE_COLUMN,
-          PRIMARY_KEY_NAME_COLUMN);
-
-  public static List<ResultColumn> FUNCTION_COLUMNS_ALL_PURPOSE =
-      List.of(
-          FUNCTION_CATALOG_COLUMN,
-          FUNCTION_SCHEMA_COLUMN,
-          FUNCTION_NAME_COLUMN,
-          REMARKS_COLUMN,
-          FUNCTION_TYPE_COLUMN,
-          SPECIFIC_NAME_COLUMN);
-
-  public static List<ResultColumn> COLUMN_COLUMNS_ALL_PURPOSE =
-      List.of(
-          CATALOG_COLUMN,
-          SCHEMA_COLUMN,
-          TABLE_NAME_COLUMN,
-          COLUMN_NAME_COLUMN,
-          DATA_TYPE_COLUMN,
-          COLUMN_TYPE_COLUMN,
-          COLUMN_SIZE_COLUMN,
-          BUFFER_LENGTH_COLUMN,
-          DECIMAL_DIGITS_COLUMN,
-          NUM_PREC_RADIX_COLUMN,
-          NULLABLE_COLUMN,
-          REMARKS_COLUMN,
-          COLUMN_DEF_COLUMN,
-          SQL_DATA_TYPE_COLUMN,
-          SQL_DATETIME_SUB_COLUMN,
-          CHAR_OCTET_LENGTH_COLUMN,
-          ORDINAL_POSITION_COLUMN,
-          IS_NULLABLE_COLUMN,
-          SCOPE_CATALOG_COLUMN,
-          SCOPE_SCHEMA_COLUMN,
-          SCOPE_TABLE_COLUMN,
-          SOURCE_DATA_TYPE_COLUMN,
-          IS_AUTO_INCREMENT_COLUMN,
-          IS_GENERATED_COLUMN);
   public static String NULL_STRING = "NULL";
-
   public static List<ResultColumn> TYPE_INFO_COLUMNS =
       List.of(
           TYPE_NAME_COLUMN,
@@ -272,7 +196,6 @@ public class MetadataResultConstants {
           SQL_DATA_TYPE_COLUMN,
           SQL_DATETIME_SUB_COLUMN,
           NUM_PREC_RADIX_COLUMN);
-
   public static final Map<CommandName, List<ResultColumn>> NON_NULLABLE_COLUMNS_MAP =
       Map.of(
           CommandName.LIST_TYPE_INFO,

@@ -1,6 +1,5 @@
 package com.databricks.jdbc.common.util;
 
-import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.api.IDatabricksSession;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
@@ -20,7 +19,7 @@ public class DeviceInfoLogUtil {
       System.getProperty("user.language") + '_' + System.getProperty("user.country");
   private static final String CHARSET_ENCODING = Charset.defaultCharset().displayName();
 
-  public static void logProperties(IDatabricksConnectionContext context) {
+  public static void logProperties() {
     LOGGER.info(String.format("JDBC Driver Version: %s", DriverUtil.getVersion()));
     LOGGER.info(
         String.format(
@@ -28,7 +27,7 @@ public class DeviceInfoLogUtil {
             JVM_NAME, JVM_VENDOR, JVM_SPEC_VERSION, JVM_IMPL_VERSION));
     LOGGER.info(
         String.format(
-            "Operating System Name: %s, Version: %s, Architecture: %s, Locale: ",
+            "Operating System Name: %s, Version: %s, Architecture: %s, Locale: %s",
             OS_NAME, OS_VERSION, OS_ARCH, LOCALE_NAME));
     LOGGER.info(String.format("Default Charset Encoding: %s", CHARSET_ENCODING));
   }

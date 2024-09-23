@@ -1,6 +1,5 @@
 package com.databricks.jdbc.telemetry.annotation;
 
-import com.databricks.jdbc.api.IDatabricksSession;
 import com.databricks.jdbc.telemetry.DatabricksMetrics;
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;
@@ -54,15 +53,12 @@ public class DatabricksMetricsTimedProcessor {
 
             // Record execution time
             long startTime = System.currentTimeMillis();
-
             Object result = method.invoke(target, args);
             long endTime = System.currentTimeMillis();
 
-            // Get the connection context
-            IDatabricksSession session = null;
-
             // Record the metric
             metricsExporter.record(metricName, endTime - startTime);
+
             return result;
           }
         }

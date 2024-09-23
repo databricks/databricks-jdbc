@@ -5,9 +5,9 @@ import static com.databricks.jdbc.common.DatabricksJdbcConstants.IS_FAKE_SERVICE
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
-import com.databricks.client.jdbc.Driver;
 import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.api.impl.DatabricksConnectionContextFactory;
+import com.databricks.jdbc.common.util.UserAgentManager;
 import com.databricks.jdbc.exception.DatabricksHttpException;
 import com.databricks.jdbc.exception.DatabricksRetryHandlerException;
 import com.databricks.sdk.core.ProxyConfig;
@@ -214,7 +214,7 @@ public class DatabricksHttpClientTest {
     // Thrift
     IDatabricksConnectionContext connectionContext =
         DatabricksConnectionContextFactory.create(CLUSTER_JDBC_URL, new Properties());
-    Driver.setUserAgent(connectionContext);
+    UserAgentManager.setUserAgent(connectionContext);
     String userAgent = DatabricksHttpClient.getUserAgent();
     assertTrue(userAgent.contains("DatabricksJDBCDriverOSS/0.9.4-oss"));
     assertTrue(userAgent.contains(" Java/THttpClient-HC-MyApp"));
@@ -223,7 +223,7 @@ public class DatabricksHttpClientTest {
 
     // SEA
     connectionContext = DatabricksConnectionContextFactory.create(DBSQL_JDBC_URL, new Properties());
-    Driver.setUserAgent(connectionContext);
+    UserAgentManager.setUserAgent(connectionContext);
     userAgent = DatabricksHttpClient.getUserAgent();
     assertTrue(userAgent.contains("DatabricksJDBCDriverOSS/0.9.4-oss"));
     assertTrue(userAgent.contains(" Java/SQLExecHttpClient-HC-MyApp"));
