@@ -22,6 +22,7 @@ import org.junit.platform.commons.support.AnnotationSupport;
  * <p>TODO: Switch to OSS version once the <a
  * href="https://github.com/wiremock/wiremock/pull/1981">PR</a> is merged.
  */
+
 public class DatabricksWireMockExtension extends DslWrapper
     implements ParameterResolver,
         BeforeAllCallback,
