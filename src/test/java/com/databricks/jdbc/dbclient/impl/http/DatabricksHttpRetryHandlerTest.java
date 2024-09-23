@@ -13,6 +13,7 @@ import org.apache.http.HttpRequest;
 import org.apache.http.HttpResponse;
 import org.apache.http.HttpStatus;
 import org.apache.http.ProtocolVersion;
+import org.apache.http.client.methods.HttpPost;
 import org.apache.http.client.protocol.HttpClientContext;
 import org.apache.http.message.BasicHttpRequest;
 import org.apache.http.message.BasicHttpResponse;
@@ -33,7 +34,7 @@ public class DatabricksHttpRetryHandlerTest {
 
   @BeforeEach
   public void setUp() {
-    retryHandler = new DatabricksHttpRetryHandler(mockConnectionContext);
+    retryHandler = new DatabricksHttpRetryHandler(mockConnectionContext, false);
   }
 
   @Test
@@ -57,10 +58,32 @@ public class DatabricksHttpRetryHandlerTest {
 
   @Test
   void retryRequestWithNonRetryableStatusCode() {
-    IOException exception =
-        new DatabricksRetryHandlerException(
-            "Test", HttpStatus.SC_BAD_REQUEST, mockConnectionContext, null, "");
+    IOException exception = getRetryHandlerException(HttpStatus.SC_BAD_REQUEST);
     assertFalse(retryHandler.retryRequest(exception, 1, mockHttpContext));
+  }
+
+  @Test
+  void retryRequest_cloudFetch() {
+    when(mockHttpContext.getAttribute(anyString())).thenReturn(0);
+    when(mockHttpContext.getRequest()).thenReturn(new HttpPost());
+    retryHandler = new DatabricksHttpRetryHandler(mockConnectionContext, true, 0, 0);
+    IOException exception = getRetryHandlerException(HttpStatus.SC_BAD_REQUEST);
+    assertFalse(retryHandler.retryRequest(exception, 1, mockHttpContext));
+
+    exception = getRetryHandlerException(HttpStatus.SC_SERVICE_UNAVAILABLE);
+    assertTrue(retryHandler.retryRequest(exception, 1, mockHttpContext));
+
+    exception = getRetryHandlerException(HttpStatus.SC_REQUEST_TIMEOUT);
+    assertTrue(retryHandler.retryRequest(exception, 1, mockHttpContext));
+
+    exception = getRetryHandlerException(HttpStatus.SC_TOO_MANY_REQUESTS);
+    assertTrue(retryHandler.retryRequest(exception, 1, mockHttpContext));
+
+    exception = getRetryHandlerException(HttpStatus.SC_INTERNAL_SERVER_ERROR);
+    assertTrue(retryHandler.retryRequest(exception, 1, mockHttpContext));
+
+    exception = getRetryHandlerException(HttpStatus.SC_GATEWAY_TIMEOUT);
+    assertTrue(retryHandler.retryRequest(exception, 1, mockHttpContext));
   }
 
   @Test
@@ -87,9 +110,7 @@ public class DatabricksHttpRetryHandlerTest {
     when(mockHttpContext.getAttribute("rateLimitRetryCount")).thenReturn(0);
     when(mockHttpContext.getRequest()).thenReturn(createMockRequest());
 
-    IOException exception =
-        new DatabricksRetryHandlerException(
-            "Test", HttpStatus.SC_SERVICE_UNAVAILABLE, mockConnectionContext, null, "");
+    IOException exception = getRetryHandlerException(HttpStatus.SC_SERVICE_UNAVAILABLE);
     assertFalse(retryHandler.retryRequest(exception, 6, mockHttpContext));
   }
 
@@ -104,17 +125,12 @@ public class DatabricksHttpRetryHandlerTest {
 
   @Test
   void calculateDelay() {
-    assertEquals(
-        5000,
-        DatabricksHttpRetryHandler.calculateDelay(HttpStatus.SC_SERVICE_UNAVAILABLE, 1, 5000));
-    assertEquals(
-        5000, DatabricksHttpRetryHandler.calculateDelay(HttpStatus.SC_TOO_MANY_REQUESTS, 1, 5000));
-    assertTrue(
-        DatabricksHttpRetryHandler.calculateDelay(HttpStatus.SC_INTERNAL_SERVER_ERROR, 1, 0)
-            >= 1000);
-    assertTrue(
-        DatabricksHttpRetryHandler.calculateDelay(HttpStatus.SC_INTERNAL_SERVER_ERROR, 5, 0)
-            <= 10000);
+    DatabricksHttpRetryHandler retryHandler =
+        new DatabricksHttpRetryHandler(mockConnectionContext, false);
+    assertEquals(5000, retryHandler.calculateDelay(HttpStatus.SC_SERVICE_UNAVAILABLE, 1, 5000));
+    assertEquals(5000, retryHandler.calculateDelay(HttpStatus.SC_TOO_MANY_REQUESTS, 1, 5000));
+    assertTrue(retryHandler.calculateDelay(HttpStatus.SC_INTERNAL_SERVER_ERROR, 1, 0) >= 1000);
+    assertTrue(retryHandler.calculateDelay(HttpStatus.SC_INTERNAL_SERVER_ERROR, 5, 0) <= 10000);
   }
 
   private HttpResponse createMockResponse(int statusCode) {
@@ -125,5 +141,10 @@ public class DatabricksHttpRetryHandlerTest {
   private HttpRequest createMockRequest() {
     return new BasicHttpRequest(
         new BasicRequestLine("GET", "http://databricks", new ProtocolVersion("HTTP", 1, 1)));
+  }
+
+  private DatabricksRetryHandlerException getRetryHandlerException(int httpErrorCode) {
+    return new DatabricksRetryHandlerException(
+        "Test", httpErrorCode, mockConnectionContext, null, "");
   }
 }

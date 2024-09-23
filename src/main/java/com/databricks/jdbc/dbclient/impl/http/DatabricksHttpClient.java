@@ -58,7 +58,6 @@ public class DatabricksHttpClient implements IDatabricksHttpClient {
   private static PoolingHttpClientConnectionManager connectionManager;
   private final CloseableHttpClient httpClient;
   // Cloud Fetch will have different retry behavior
-  private boolean isCloudFetchClient;
   protected static int idleHttpConnectionExpiry;
   private CloseableHttpClient httpDisabledSSLClient;
   private DatabricksHttpRetryHandler retryHandler;
@@ -73,8 +72,7 @@ public class DatabricksHttpClient implements IDatabricksHttpClient {
     httpClient = makeClosableHttpClient(connectionContext);
     httpDisabledSSLClient = makeClosableDisabledSslHttpClient();
     idleHttpConnectionExpiry = connectionContext.getIdleHttpConnectionExpiry();
-    this.isCloudFetchClient = isCloudFetchClient;
-    retryHandler = new DatabricksHttpRetryHandler(connectionContext);
+    retryHandler = new DatabricksHttpRetryHandler(connectionContext, isCloudFetchClient);
   }
 
   @VisibleForTesting
@@ -83,7 +81,6 @@ public class DatabricksHttpClient implements IDatabricksHttpClient {
       PoolingHttpClientConnectionManager connectionManager) {
     DatabricksHttpClient.connectionManager = connectionManager;
     initializeConnectionManager(null);
-    this.isCloudFetchClient = false;
     this.httpClient = closeableHttpClient;
   }
 

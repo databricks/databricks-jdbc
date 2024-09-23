@@ -8,6 +8,7 @@ import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.google.common.annotations.VisibleForTesting;
 import java.io.IOException;
 import java.util.Objects;
+import java.util.Set;
 import org.apache.http.HttpResponse;
 import org.apache.http.HttpResponseInterceptor;
 import org.apache.http.HttpStatus;
@@ -33,9 +34,35 @@ public class DatabricksHttpRetryHandler
   private static final int MAX_RETRY_INTERVAL = 10 * 1000; // 10s
   public static final int DEFAULT_RETRY_COUNT = 5;
   private final IDatabricksConnectionContext connectionContext;
+  private final boolean isCloudFetchClient;
+  private final int minBackoffInterval;
+  private final int maxRetryInterval;
+  private static final Set<Integer> CLOUD_FETCH_RETRYABLE_CODES =
+      Set.of(
+          HttpStatus.SC_REQUEST_TIMEOUT,
+          HttpStatus.SC_TOO_MANY_REQUESTS,
+          HttpStatus.SC_INTERNAL_SERVER_ERROR,
+          HttpStatus.SC_SERVICE_UNAVAILABLE,
+          HttpStatus.SC_GATEWAY_TIMEOUT);
 
-  public DatabricksHttpRetryHandler(IDatabricksConnectionContext connectionContext) {
+  public DatabricksHttpRetryHandler(
+      IDatabricksConnectionContext connectionContext, boolean isCloudFetchClient) {
     this.connectionContext = connectionContext;
+    this.isCloudFetchClient = isCloudFetchClient;
+    this.minBackoffInterval = MIN_BACKOFF_INTERVAL;
+    this.maxRetryInterval = MAX_RETRY_INTERVAL;
+  }
+
+  @VisibleForTesting
+  DatabricksHttpRetryHandler(
+      IDatabricksConnectionContext connectionContext,
+      boolean isCloudFetchClient,
+      int minBackoffInterval,
+      int maxRetryInterval) {
+    this.connectionContext = connectionContext;
+    this.isCloudFetchClient = isCloudFetchClient;
+    this.minBackoffInterval = minBackoffInterval;
+    this.maxRetryInterval = maxRetryInterval;
   }
 
   /**
@@ -214,7 +241,7 @@ public class DatabricksHttpRetryHandler
   }
 
   @VisibleForTesting
-  static long calculateDelay(int errorCode, int executionCount, int retryInterval) {
+  long calculateDelay(int errorCode, int executionCount, int retryInterval) {
     switch (errorCode) {
       case HttpStatus.SC_SERVICE_UNAVAILABLE:
       case HttpStatus.SC_TOO_MANY_REQUESTS:
@@ -224,10 +251,10 @@ public class DatabricksHttpRetryHandler
     }
   }
 
-  private static long calculateExponentialBackoff(int executionCount) {
+  private long calculateExponentialBackoff(int executionCount) {
     return Math.min(
-        MIN_BACKOFF_INTERVAL * (long) Math.pow(DEFAULT_BACKOFF_FACTOR, executionCount),
-        MAX_RETRY_INTERVAL);
+        minBackoffInterval * (long) Math.pow(DEFAULT_BACKOFF_FACTOR, executionCount),
+        maxRetryInterval);
   }
 
   private static int getErrorCodeFromException(IOException exception) {
@@ -257,9 +284,18 @@ public class DatabricksHttpRetryHandler
 
   /** Check if the request is retryable based on the status code and any connection preferences. */
   private boolean isStatusCodeRetryable(int statusCode) {
-    return (statusCode == HttpStatus.SC_SERVICE_UNAVAILABLE
+    return isStatusCodeRetryableForDatabricks(statusCode)
+        || (isCloudFetchClient && isStatusCodeRetryableForCloudFetch(statusCode));
+  }
+
+  private boolean isStatusCodeRetryableForDatabricks(int statusCode) {
+    return ((statusCode == HttpStatus.SC_SERVICE_UNAVAILABLE
             && connectionContext.shouldRetryTemporarilyUnavailableError())
         || (statusCode == HttpStatus.SC_TOO_MANY_REQUESTS
-            && connectionContext.shouldRetryRateLimitError());
+            && connectionContext.shouldRetryRateLimitError()));
+  }
+
+  private boolean isStatusCodeRetryableForCloudFetch(int statusCode) {
+    return CLOUD_FETCH_RETRYABLE_CODES.contains(statusCode);
   }
 }
