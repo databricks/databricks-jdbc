@@ -9,10 +9,7 @@ import com.databricks.jdbc.common.DatabricksClientType;
 import com.databricks.jdbc.common.DatabricksJdbcConstants;
 import com.databricks.jdbc.common.ErrorCodes;
 import com.databricks.jdbc.common.ErrorTypes;
-import com.databricks.jdbc.common.util.DeviceInfoLogUtil;
-import com.databricks.jdbc.common.util.DriverUtil;
-import com.databricks.jdbc.common.util.LoggingUtil;
-import com.databricks.jdbc.common.util.ValidationUtil;
+import com.databricks.jdbc.common.util.*;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
@@ -63,13 +60,17 @@ public class Driver implements java.sql.Driver {
           connectionContext.getLogFileCount(),
           connectionContext.getLogLevel());
     } catch (IOException e) {
-      LOGGER.error("Error initializing the Java Util Logger (JUL).", e);
-      throw new DatabricksSQLException("Error initializing the Java Util Logger (JUL).", e);
+      String errMsg =
+          String.format(
+              "Error initializing the Java Util Logger (JUL) with error: {%s}", e.getMessage());
+      LOGGER.error(errMsg, e);
+      throw new DatabricksSQLException(errMsg, e);
     }
     setUserAgent(connectionContext);
     DeviceInfoLogUtil.logProperties(connectionContext);
     try {
       DatabricksConnection connection = new DatabricksConnection(connectionContext);
+      DeviceInfoLogUtil.exportDeviceProperties(connection.getSession());
       if (connectionContext.getClientType() == DatabricksClientType.SQL_EXEC) {
         setMetadataClient(connection, connectionContext);
       }
@@ -82,12 +83,12 @@ public class Driver implements java.sql.Driver {
               "Communication link failure. Failed to connect to server. : "
                   + connectionContext.getHostUrl()
                   + cause.getMessage();
+          MetricsUtil.exportErrorWithoutAuth(
+              ErrorTypes.COMMUNICATION_FAILURE, null, ErrorCodes.COMMUNICATION_FAILURE);
           throw new DatabricksSQLException(
               errorMessage,
               cause.getCause(),
-              connectionContext,
               ErrorTypes.COMMUNICATION_FAILURE,
-              null,
               ErrorCodes.COMMUNICATION_FAILURE);
         }
         cause = cause.getCause();
@@ -96,13 +97,10 @@ public class Driver implements java.sql.Driver {
           "Communication link failure. Failed to connect to server. : "
               + connectionContext.getHostUrl()
               + e.getMessage();
+      MetricsUtil.exportErrorWithoutAuth(
+          ErrorTypes.COMMUNICATION_FAILURE, null, ErrorCodes.COMMUNICATION_FAILURE);
       throw new DatabricksSQLException(
-          errorMessage,
-          e,
-          connectionContext,
-          ErrorTypes.COMMUNICATION_FAILURE,
-          null,
-          ErrorCodes.COMMUNICATION_FAILURE);
+          errorMessage, e, ErrorTypes.COMMUNICATION_FAILURE, ErrorCodes.COMMUNICATION_FAILURE);
     }
   }
 

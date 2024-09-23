@@ -11,6 +11,7 @@ import com.databricks.jdbc.api.IDatabricksSession;
 import com.databricks.jdbc.api.impl.DatabricksResultSet;
 import com.databricks.jdbc.api.impl.DatabricksResultSetMetaData;
 import com.databricks.jdbc.api.impl.ImmutableSqlParameter;
+import com.databricks.jdbc.common.CommandName;
 import com.databricks.jdbc.common.IDatabricksComputeResource;
 import com.databricks.jdbc.common.StatementType;
 import com.databricks.jdbc.exception.DatabricksValidationException;
@@ -20,6 +21,7 @@ import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.Types;
 import java.util.HashMap;
+import java.util.List;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -179,8 +181,6 @@ public class DatabricksNewMetadataSdkClientTest {
     doReturn(CATALOG_COLUMN_FOR_GET_CATALOGS.getResultSetColumnName())
         .when(mockedMetaData)
         .getColumnName(1);
-    doReturn(Types.VARCHAR).when(mockedMetaData).getColumnType(1);
-    doReturn("STRING").when(mockedMetaData).getColumnTypeName(1);
     doReturn(255).when(mockedMetaData).getPrecision(1);
     doReturn(0).when(mockedMetaData).getScale(1);
     when(mockedCatalogResultSet.getMetaData()).thenReturn(mockedMetaData);
@@ -213,14 +213,10 @@ public class DatabricksNewMetadataSdkClientTest {
     doReturn(7).when(mockedMetaData).getColumnCount();
 
     doReturn(SCHEMA_COLUMN.getResultSetColumnName()).when(mockedMetaData).getColumnName(1);
-    doReturn(Types.VARCHAR).when(mockedMetaData).getColumnType(1);
-    doReturn("STRING").when(mockedMetaData).getColumnTypeName(1);
     doReturn(255).when(mockedMetaData).getPrecision(1);
     doReturn(0).when(mockedMetaData).getScale(1);
 
     doReturn(TABLE_NAME_COLUMN.getResultSetColumnName()).when(mockedMetaData).getColumnName(2);
-    doReturn(Types.VARCHAR).when(mockedMetaData).getColumnType(2);
-    doReturn("STRING").when(mockedMetaData).getColumnTypeName(2);
     doReturn(255).when(mockedMetaData).getPrecision(2);
     doReturn(0).when(mockedMetaData).getScale(2);
 
@@ -228,20 +224,14 @@ public class DatabricksNewMetadataSdkClientTest {
     doReturn("information").when(mockedMetaData).getColumnName(4);
 
     doReturn(CATALOG_COLUMN.getResultSetColumnName()).when(mockedMetaData).getColumnName(5);
-    doReturn(Types.VARCHAR).when(mockedMetaData).getColumnType(5);
-    doReturn("STRING").when(mockedMetaData).getColumnTypeName(5);
     doReturn(255).when(mockedMetaData).getPrecision(5);
     doReturn(0).when(mockedMetaData).getScale(5);
 
     doReturn(TABLE_TYPE_COLUMN.getResultSetColumnName()).when(mockedMetaData).getColumnName(6);
-    doReturn(Types.VARCHAR).when(mockedMetaData).getColumnType(6);
-    doReturn("STRING").when(mockedMetaData).getColumnTypeName(6);
     doReturn(255).when(mockedMetaData).getPrecision(6);
     doReturn(0).when(mockedMetaData).getScale(6);
 
     doReturn(REMARKS_COLUMN.getResultSetColumnName()).when(mockedMetaData).getColumnName(7);
-    doReturn(Types.VARCHAR).when(mockedMetaData).getColumnType(7);
-    doReturn("STRING").when(mockedMetaData).getColumnTypeName(7);
     doReturn(255).when(mockedMetaData).getPrecision(7);
     doReturn(0).when(mockedMetaData).getScale(7);
 
@@ -360,6 +350,24 @@ public class DatabricksNewMetadataSdkClientTest {
     assertEquals(actualResult.statementId(), METADATA_STATEMENT_ID, description);
     assertEquals(
         ((DatabricksResultSetMetaData) actualResult.getMetaData()).getTotalRows(), 1, description);
+
+    // verify metadata properties
+    ResultSetMetaData actualMetaData = actualResult.getMetaData();
+    assertEquals(actualMetaData.getColumnCount(), COLUMN_COLUMNS.size());
+    List<ResultColumn> non_nullable_columns =
+        NON_NULLABLE_COLUMNS_MAP.get(CommandName.LIST_COLUMNS);
+    for (int i = 0; i < COLUMN_COLUMNS.size(); i++) {
+      ResultColumn resultColumn = COLUMN_COLUMNS.get(i);
+      assertEquals(actualMetaData.getColumnName(i + 1), resultColumn.getColumnName());
+      assertEquals(actualMetaData.getColumnType(i + 1), resultColumn.getColumnTypeInt());
+      assertEquals(actualMetaData.getColumnTypeName(i + 1), resultColumn.getColumnTypeString());
+      assertEquals(actualMetaData.getPrecision(i + 1), resultColumn.getColumnPrecision());
+      if (non_nullable_columns.contains(resultColumn)) {
+        assertEquals(actualMetaData.isNullable(i + 1), ResultSetMetaData.columnNoNulls);
+      } else {
+        assertEquals(actualMetaData.isNullable(i + 1), ResultSetMetaData.columnNullable);
+      }
+    }
   }
 
   @ParameterizedTest
@@ -406,7 +414,7 @@ public class DatabricksNewMetadataSdkClientTest {
       when(mockedResultSet.getObject(resultColumn.getResultSetColumnName()))
           .thenReturn(TEST_COLUMN);
     }
-    doReturn(7).when(mockedMetaData).getColumnCount();
+    doReturn(6).when(mockedMetaData).getColumnCount();
     doReturn(CATALOG_COLUMN.getResultSetColumnName()).when(mockedMetaData).getColumnName(1);
     doReturn(SCHEMA_COLUMN.getResultSetColumnName()).when(mockedMetaData).getColumnName(2);
     doReturn(TABLE_NAME_COLUMN.getResultSetColumnName()).when(mockedMetaData).getColumnName(3);
@@ -415,9 +423,6 @@ public class DatabricksNewMetadataSdkClientTest {
     doReturn(PRIMARY_KEY_NAME_COLUMN.getResultSetColumnName())
         .when(mockedMetaData)
         .getColumnName(6);
-    doReturn(PRIMARY_KEY_TYPE_COLUMN.getResultSetColumnName())
-        .when(mockedMetaData)
-        .getColumnName(7);
     when(mockedResultSet.getMetaData()).thenReturn(mockedMetaData);
     DatabricksResultSet actualResult =
         metadataClient.listPrimaryKeys(session, TEST_CATALOG, TEST_SCHEMA, TEST_TABLE);

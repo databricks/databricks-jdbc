@@ -47,7 +47,7 @@ public class DatabricksResultSetTest {
         mockedResultSetMetadata);
   }
 
-  private DatabricksResultSet getThriftResultSetMetadata() throws DatabricksSQLException {
+  private DatabricksResultSet getThriftResultSetMetadata() throws SQLException {
     TColumnValue columnValue = new TColumnValue();
     columnValue.setStringVal(new TStringValue().setValue("testString"));
     TRow row = new TRow().setColVals(Collections.singletonList(columnValue));

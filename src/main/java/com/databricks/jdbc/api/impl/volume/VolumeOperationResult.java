@@ -9,6 +9,7 @@ import com.databricks.jdbc.api.IDatabricksStatement;
 import com.databricks.jdbc.api.impl.IExecutionResult;
 import com.databricks.jdbc.common.ErrorCodes;
 import com.databricks.jdbc.common.ErrorTypes;
+import com.databricks.jdbc.common.util.MetricsUtil;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
 import com.databricks.jdbc.dbclient.impl.http.DatabricksHttpClient;
 import com.databricks.jdbc.exception.DatabricksSQLException;
@@ -118,12 +119,15 @@ public class VolumeOperationResult implements IExecutionResult {
         try {
           return objectMapper.readValue(headers, Map.class);
         } catch (JsonProcessingException e) {
+          MetricsUtil.exportError(
+              session,
+              ErrorTypes.VOLUME_OPERATION_ERROR,
+              statementId,
+              ErrorCodes.VOLUME_OPERATION_PARSING_ERROR);
           throw new DatabricksSQLException(
               "Failed to parse headers",
               e,
-              session.getConnectionContext(),
               ErrorTypes.VOLUME_OPERATION_ERROR,
-              statementId,
               ErrorCodes.VOLUME_OPERATION_PARSING_ERROR);
         }
       }

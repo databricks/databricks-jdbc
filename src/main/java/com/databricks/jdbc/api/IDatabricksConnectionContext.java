@@ -5,7 +5,6 @@ import com.databricks.jdbc.common.DatabricksClientType;
 import com.databricks.jdbc.common.IDatabricksComputeResource;
 import com.databricks.jdbc.common.LogLevel;
 import com.databricks.jdbc.exception.DatabricksParsingException;
-import com.databricks.jdbc.telemetry.DatabricksMetrics;
 import com.databricks.sdk.core.ProxyConfig;
 import java.util.List;
 import java.util.Map;
@@ -145,8 +144,6 @@ public interface IDatabricksConnectionContext {
   int getCloudFetchThreadPoolSize();
 
   Boolean getDirectResultMode();
-
-  DatabricksMetrics getMetricsExporter();
 
   Boolean shouldRetryTemporarilyUnavailableError();
 

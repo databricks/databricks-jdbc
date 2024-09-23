@@ -1,5 +1,6 @@
 package com.databricks.jdbc.api.impl;
 
+import static com.databricks.jdbc.common.DatabricksJdbcConstants.EMPTY_STRING;
 import static com.databricks.jdbc.common.DatabricksJdbcConstants.VOLUME_OPERATION_STATUS_COLUMN_NAME;
 import static com.databricks.jdbc.common.util.DatabricksThriftUtil.getTypeFromTypeDesc;
 
@@ -36,6 +37,13 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
   private final long totalRows;
   private Long chunkCount;
 
+  /**
+   * Constructs a {@code DatabricksResultSetMetaData} object for a SEA result set.
+   *
+   * @param statementId the unique identifier of the SQL statement execution
+   * @param resultManifest the manifest containing metadata about the result set, including column
+   *     information and types
+   */
   public DatabricksResultSetMetaData(String statementId, ResultManifest resultManifest) {
     this.statementId = statementId;
     Map<String, Integer> columnNameToIndexMap = new HashMap<>();
@@ -84,6 +92,15 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
     this.chunkCount = resultManifest.getTotalChunkCount();
   }
 
+  /**
+   * Constructs a {@code DatabricksResultSetMetaData} object for a Thrift-based result set.
+   *
+   * @param statementId the unique identifier of the SQL statement execution
+   * @param resultManifest the response containing metadata about the result set, including column
+   *     information and types, obtained through the Thrift protocol
+   * @param rows the total number of rows in the result set
+   * @param chunkCount the total number of data chunks in the result set
+   */
   public DatabricksResultSetMetaData(
       String statementId, TGetResultSetMetadataResp resultManifest, long rows, long chunkCount) {
     this.statementId = statementId;
@@ -136,6 +153,14 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
     this.chunkCount = chunkCount;
   }
 
+  /**
+   * Constructs a {@code DatabricksResultSetMetaData} object for metadata result set (SEA Flow)
+   *
+   * @param statementId the unique identifier of the SQL statement execution
+   * @param columnMetadataList the list containing metadata for each column in the result set, such
+   *     as column names, types, and precision
+   * @param totalRows the total number of rows in the result set
+   */
   public DatabricksResultSetMetaData(
       String statementId, List<ColumnMetadata> columnMetadataList, long totalRows) {
     this.statementId = statementId;
@@ -168,6 +193,16 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
     this.totalRows = totalRows;
   }
 
+  /**
+   * Constructs a {@code DatabricksResultSetMetaData} object for metadata result set (Thrift Flow)
+   *
+   * @param statementId the unique identifier of the SQL statement execution
+   * @param columnNames names of each column
+   * @param columnTypeText type text of each column
+   * @param columnTypes types of each column
+   * @param columnTypePrecisions precisions of each column
+   * @param totalRows total number of rows in result set
+   */
   public DatabricksResultSetMetaData(
       String statementId,
       List<String> columnNames,
@@ -379,9 +414,9 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
         .nullable(Nullable.NULLABLE)
         .accessType(AccessType.READ_ONLY)
         .isDefinitelyWritable(false)
-        .schemaName("")
-        .tableName("")
-        .catalogName("")
+        .schemaName(EMPTY_STRING)
+        .tableName(EMPTY_STRING)
+        .catalogName(EMPTY_STRING)
         .isCurrency(false)
         .typeScale(0)
         .isCaseSensitive(false);

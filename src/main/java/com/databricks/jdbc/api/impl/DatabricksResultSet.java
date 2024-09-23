@@ -53,6 +53,7 @@ public class DatabricksResultSet implements ResultSet, IDatabricksResultSet {
   private VolumeInputStream volumeInputStream = null;
   private long volumeStreamContentLength = -1L;
 
+  // Constructor for SEA result set
   public DatabricksResultSet(
       StatementStatus statementStatus,
       String statementId,
@@ -94,6 +95,7 @@ public class DatabricksResultSet implements ResultSet, IDatabricksResultSet {
     this.wasNull = false;
   }
 
+  // Constructor for thrift result set
   public DatabricksResultSet(
       TStatus statementStatus,
       String statementId,
@@ -102,7 +104,7 @@ public class DatabricksResultSet implements ResultSet, IDatabricksResultSet {
       StatementType statementType,
       IDatabricksStatement parentStatement,
       IDatabricksSession session)
-      throws DatabricksSQLException {
+      throws SQLException {
     if (SUCCESS_STATUS_LIST.contains(statementStatus.getStatusCode())) {
       this.statementStatus = new StatementStatus().setState(StatementState.SUCCEEDED);
     } else {
@@ -123,6 +125,7 @@ public class DatabricksResultSet implements ResultSet, IDatabricksResultSet {
     this.wasNull = false;
   }
 
+  // Constructing results for getUDTs, getTypeInfo, getProcedures metadata calls
   public DatabricksResultSet(
       StatementStatus statementStatus,
       String statementId,
@@ -150,6 +153,7 @@ public class DatabricksResultSet implements ResultSet, IDatabricksResultSet {
     this.wasNull = false;
   }
 
+  // Constructing metadata result set in thrift flow
   public DatabricksResultSet(
       StatementStatus statementStatus,
       String statementId,
@@ -177,6 +181,7 @@ public class DatabricksResultSet implements ResultSet, IDatabricksResultSet {
     this.wasNull = false;
   }
 
+  // Constructing metadata result set in SEA flow
   public DatabricksResultSet(
       StatementStatus statementStatus,
       String statementId,
