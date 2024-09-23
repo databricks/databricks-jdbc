@@ -1,7 +1,5 @@
 package com.databricks.jdbc.common.util;
 
-import org.apache.commons.lang3.StringUtils;
-
 public class StringUtil {
   public static String convertJdbcEscapeSequences(String sql) {
     // Replace JDBC escape sequences;
@@ -17,11 +15,17 @@ public class StringUtil {
     return sql;
   }
 
-  // Escape sql value string by replacing single-quotes with doubled single-quotes
-  public static String escapeSqlValue(String str) {
+  /**
+   * Escape sql string literal which is enclosed in a single quote, it replaces single quote with
+   * doubled single quotes.
+   *
+   * <p>Please always use prepareStatement to bind variables if possible, only use it when
+   * prepareStatement is not applicable, e.g. some DDL statement
+   */
+  public static String escapeStringLiteral(String str) {
     if (str == null) {
       return null;
     }
-    return StringUtils.replace(str, "'", "''");
+    return str.replace("'", "''");
   }
 }

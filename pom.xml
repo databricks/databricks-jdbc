@@ -53,7 +53,6 @@
     <immutables.value.version>2.9.2</immutables.value.version>
     <httpclient.version>4.5.14</httpclient.version>
     <commons-io.version>2.13.0</commons-io.version>
-    <commons-lang3.version>3.17.0</commons-lang3.version>
     <databricks-sdk.version>0.31.1</databricks-sdk.version>
     <maven-surefire-plugin.version>3.1.2</maven-surefire-plugin.version>
     <sql-logic-test.version>0.3</sql-logic-test.version>
@@ -129,11 +128,6 @@
       <groupId>commons-io</groupId>
       <artifactId>commons-io</artifactId>
       <version>${commons-io.version}</version>
-    </dependency>
-    <dependency>
-      <groupId>org.apache.commons</groupId>
-      <artifactId>commons-lang3</artifactId>
-      <version>${commons-lang3.version}</version>
     </dependency>
     <dependency>
       <groupId>com.google.code.findbugs</groupId>
@@ -352,14 +346,13 @@
         </executions>
         <configuration>
           <excludes>
+            <exclude>**/*Constants*</exclude>
+            <exclude>**/*Exception*</exclude>
             <exclude>**/CommandName*</exclude>
             <exclude>**/DatabricksJdbcConstants*</exclude>
             <exclude>**/DatabricksJdbcUrlParams*</exclude>
             <exclude>**/Driver*</exclude>
             <exclude>**/EnvironmentVariables*</exclude>
-            <exclude>**/*Constants*</exclude>
-            <exclude>**/*Exception*</exclude>
-            <exclude>**/dbclient/impl/sqlexec/DatabricksMetadataSdkClient*</exclude> <!-- TODO(PECO-1502): Remove once fixed -->
             <exclude>**/model/**</exclude>
             <exclude>**/thrift/generated/**</exclude>
           </excludes>

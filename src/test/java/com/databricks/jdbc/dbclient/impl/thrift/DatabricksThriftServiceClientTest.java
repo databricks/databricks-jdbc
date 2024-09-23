@@ -253,9 +253,9 @@ public class DatabricksThriftServiceClientTest {
         client.listColumns(session, TEST_CATALOG, TEST_SCHEMA, TEST_TABLE, TEST_STRING);
     assertEquals(resultSet.getStatementStatus().getState(), StatementState.SUCCEEDED);
     DatabricksResultSetMetaData metaData = (DatabricksResultSetMetaData) resultSet.getMetaData();
-    assertEquals(metaData.getColumnCount(), COLUMN_COLUMNS_ALL_PURPOSE.size());
-    for (int i = 0; i < COLUMN_COLUMNS_ALL_PURPOSE.size(); i++) {
-      ResultColumn resultColumn = COLUMN_COLUMNS_ALL_PURPOSE.get(i);
+    assertEquals(metaData.getColumnCount(), COLUMN_COLUMNS.size());
+    for (int i = 0; i < COLUMN_COLUMNS.size(); i++) {
+      ResultColumn resultColumn = COLUMN_COLUMNS.get(i);
       assertEquals(metaData.getColumnName(i + 1), resultColumn.getColumnName());
       assertEquals(metaData.getColumnType(i + 1), resultColumn.getColumnTypeInt());
       assertEquals(metaData.getColumnTypeName(i + 1), resultColumn.getColumnTypeString());

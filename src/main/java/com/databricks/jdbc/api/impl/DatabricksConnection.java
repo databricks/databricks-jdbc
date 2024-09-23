@@ -1,6 +1,5 @@
 package com.databricks.jdbc.api.impl;
 
-import com.databricks.client.jdbc.Driver;
 import com.databricks.jdbc.api.IDatabricksConnection;
 import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.api.IDatabricksSession;
@@ -8,6 +7,7 @@ import com.databricks.jdbc.api.IDatabricksStatement;
 import com.databricks.jdbc.api.IDatabricksUCVolumeClient;
 import com.databricks.jdbc.api.impl.volume.DatabricksUCVolumeClient;
 import com.databricks.jdbc.common.DatabricksJdbcConstants;
+import com.databricks.jdbc.common.util.UserAgentManager;
 import com.databricks.jdbc.common.util.ValidationUtil;
 import com.databricks.jdbc.dbclient.IDatabricksClient;
 import com.databricks.jdbc.exception.DatabricksSQLClientInfoException;
@@ -31,7 +31,6 @@ public class DatabricksConnection implements IDatabricksConnection, Connection {
   private IDatabricksSession session;
   private final Set<IDatabricksStatement> statementSet = ConcurrentHashMap.newKeySet();
   private SQLWarning warnings = null;
-
   private volatile IDatabricksUCVolumeClient ucVolumeClient = null;
 
   /**
@@ -45,17 +44,13 @@ public class DatabricksConnection implements IDatabricksConnection, Connection {
     this.session.open();
   }
 
-  public void setMetadataClient(boolean useLegacyMetadataClient) {
-    this.session.setMetadataClient(useLegacyMetadataClient);
-  }
-
   @VisibleForTesting
   public DatabricksConnection(
       IDatabricksConnectionContext connectionContext, IDatabricksClient databricksClient)
       throws DatabricksSQLException {
     this.session = new DatabricksSession(connectionContext, databricksClient);
     this.session.open();
-    Driver.setUserAgent(connectionContext);
+    UserAgentManager.setUserAgent(connectionContext);
   }
 
   @Override
@@ -372,60 +367,6 @@ public class DatabricksConnection implements IDatabricksConnection, Connection {
     }
   }
 
-  /**
-   * This function creates the exception message for the failed setClientInfo command
-   *
-   * @param failedProperties contains the map for the failed properties
-   * @return the exception message
-   */
-  public static String getFailedPropertiesExceptionMessage(
-      Map<String, ClientInfoStatus> failedProperties) {
-    return failedProperties.entrySet().stream()
-        .map(e -> String.format("Setting config %s failed with %s", e.getKey(), e.getValue()))
-        .collect(Collectors.joining("\n"));
-  }
-
-  /**
-   * This function determines the reason for the failure of setting a session config form the
-   * exception message
-   *
-   * @param key for which set command failed
-   * @param value for which set command failed
-   * @param e exception thrown by the set command
-   * @return the reason for the failure in ClientInfoStatus
-   */
-  public static ClientInfoStatus determineClientInfoStatus(String key, String value, Throwable e) {
-    String invalidConfigMessage = String.format("Configuration %s is not available", key);
-    String invalidValueMessage = String.format("Unsupported configuration %s=%s", key, value);
-    String errorMessage = e.getCause().getMessage();
-    if (errorMessage.contains(invalidConfigMessage))
-      return ClientInfoStatus.REASON_UNKNOWN_PROPERTY;
-    else if (errorMessage.contains(invalidValueMessage))
-      return ClientInfoStatus.REASON_VALUE_INVALID;
-    return ClientInfoStatus.REASON_UNKNOWN;
-  }
-
-  /**
-   * This function sets the session config for the given key and value. If the setting fails, the
-   * key and the reason for failure are added to the failedProperties map.
-   *
-   * @param key for the session conf
-   * @param value for the session conf
-   * @param failedProperties to add the key to, if the set command fails
-   */
-  public void setSessionConfig(
-      String key, String value, Map<String, ClientInfoStatus> failedProperties) {
-    //  LOGGER.debug("public void setSessionConfig(String key = {}, String value =
-    // {})", key, value);
-    try {
-      this.createStatement().execute(String.format("SET %s = %s", key, value));
-      this.session.setSessionConfig(key, value);
-    } catch (SQLException e) {
-      ClientInfoStatus status = determineClientInfoStatus(key, value, e);
-      failedProperties.put(key, status);
-    }
-  }
-
   @Override
   public void setClientInfo(String name, String value) throws SQLClientInfoException {
     if (DatabricksJdbcConstants.ALLOWED_SESSION_CONF_TO_DEFAULT_VALUES_MAP.keySet().stream()
@@ -572,6 +513,60 @@ public class DatabricksConnection implements IDatabricksConnection, Connection {
       }
     }
     return ucVolumeClient;
+  }
+
+  /**
+   * This function creates the exception message for the failed setClientInfo command
+   *
+   * @param failedProperties contains the map for the failed properties
+   * @return the exception message
+   */
+  private static String getFailedPropertiesExceptionMessage(
+      Map<String, ClientInfoStatus> failedProperties) {
+    return failedProperties.entrySet().stream()
+        .map(e -> String.format("Setting config %s failed with %s", e.getKey(), e.getValue()))
+        .collect(Collectors.joining("\n"));
+  }
+
+  /**
+   * This function determines the reason for the failure of setting a session config form the
+   * exception message
+   *
+   * @param key for which set command failed
+   * @param value for which set command failed
+   * @param e exception thrown by the set command
+   * @return the reason for the failure in ClientInfoStatus
+   */
+  private static ClientInfoStatus determineClientInfoStatus(String key, String value, Throwable e) {
+    String invalidConfigMessage = String.format("Configuration %s is not available", key);
+    String invalidValueMessage = String.format("Unsupported configuration %s=%s", key, value);
+    String errorMessage = e.getCause().getMessage();
+    if (errorMessage.contains(invalidConfigMessage))
+      return ClientInfoStatus.REASON_UNKNOWN_PROPERTY;
+    else if (errorMessage.contains(invalidValueMessage))
+      return ClientInfoStatus.REASON_VALUE_INVALID;
+    return ClientInfoStatus.REASON_UNKNOWN;
+  }
+
+  /**
+   * This function sets the session config for the given key and value. If the setting fails, the
+   * key and the reason for failure are added to the failedProperties map.
+   *
+   * @param key for the session conf
+   * @param value for the session conf
+   * @param failedProperties to add the key to, if the set command fails
+   */
+  private void setSessionConfig(
+      String key, String value, Map<String, ClientInfoStatus> failedProperties) {
+    //  LoggingUtil.log(LogLevel.DEBUG,"public void setSessionConfig(String key = {}, String value =
+    // {})", key, value);
+    try {
+      this.createStatement().execute(String.format("SET %s = %s", key, value));
+      this.session.setSessionConfig(key, value);
+    } catch (SQLException e) {
+      ClientInfoStatus status = determineClientInfoStatus(key, value, e);
+      failedProperties.put(key, status);
+    }
   }
 
   private void throwExceptionIfConnectionIsClosed() throws SQLException {
