@@ -1,5 +1,7 @@
 package com.databricks.jdbc.common.util;
 
+import org.apache.commons.lang3.StringUtils;
+
 public class StringUtil {
   public static String convertJdbcEscapeSequences(String sql) {
     // Replace JDBC escape sequences;
@@ -13,5 +15,13 @@ public class StringUtil {
             .replaceAll("\\{oj ([^}]*)\\}", "$1") // OUTER JOIN escape sequence
             .replaceAll("\\{call ([^}]*)\\}", "CALL $1"); // Stored Procedure escape sequence
     return sql;
+  }
+
+  // Escape sql value string by replacing single-quotes with doubled single-quotes
+  public static String escapeSqlValue(String str) {
+    if (str == null) {
+      return null;
+    }
+    return StringUtils.replace(str, "'", "''");
   }
 }

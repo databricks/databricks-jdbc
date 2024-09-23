@@ -2,6 +2,7 @@ package com.databricks.jdbc.api.impl.volume;
 
 import static com.databricks.jdbc.common.DatabricksJdbcConstants.VOLUME_OPERATION_STATUS_COLUMN_NAME;
 import static com.databricks.jdbc.common.DatabricksJdbcConstants.VOLUME_OPERATION_STATUS_SUCCEEDED;
+import static com.databricks.jdbc.common.util.StringUtil.escapeSqlValue;
 
 import com.databricks.jdbc.api.IDatabricksResultSet;
 import com.databricks.jdbc.api.IDatabricksStatement;
@@ -31,8 +32,18 @@ public class DatabricksUCVolumeClient implements IDatabricksUCVolumeClient {
     this.connection = connection;
   }
 
+  private String getVolumePath(String catalog, String schema, String volume) {
+    // We need to escape '' to prevent SQL injection
+    return escapeSqlValue(String.format("/Volumes/%s/%s/%s/", catalog, schema, volume));
+  }
+
+  private String getObjectFullPath(
+      String catalog, String schema, String volume, String objectPath) {
+    return getVolumePath(catalog, schema, volume) + escapeSqlValue(objectPath);
+  }
+
   private String createListQuery(String catalog, String schema, String volume) {
-    return String.format("LIST '/Volumes/%s/%s/%s/'", catalog, schema, volume);
+    return String.format("LIST '%s'", getVolumePath(catalog, schema, volume));
   }
 
   private String createShowVolumesQuery(String catalog, String schema) {
@@ -42,13 +53,14 @@ public class DatabricksUCVolumeClient implements IDatabricksUCVolumeClient {
   private String createGetObjectQuery(
       String catalog, String schema, String volume, String objectPath, String localPath) {
     return String.format(
-        "GET '/Volumes/%s/%s/%s/%s' TO '%s'", catalog, schema, volume, objectPath, localPath);
+        "GET '%s' TO '%s'",
+        getObjectFullPath(catalog, schema, volume, objectPath), escapeSqlValue(localPath));
   }
 
   private String createGetObjectQueryForInputStream(
       String catalog, String schema, String volume, String objectPath) {
     return String.format(
-        "GET '/Volumes/%s/%s/%s/%s' TO '__input_stream__'", catalog, schema, volume, objectPath);
+        "GET '%s' TO '__input_stream__'", getObjectFullPath(catalog, schema, volume, objectPath));
   }
 
   private String createPutObjectQuery(
@@ -59,20 +71,22 @@ public class DatabricksUCVolumeClient implements IDatabricksUCVolumeClient {
       String localPath,
       boolean toOverwrite) {
     return String.format(
-        "PUT '%s' INTO '/Volumes/%s/%s/%s/%s'%s",
-        localPath, catalog, schema, volume, objectPath, toOverwrite ? " OVERWRITE" : "");
+        "PUT '%s' INTO '%s'%s",
+        escapeSqlValue(localPath),
+        getObjectFullPath(catalog, schema, volume, objectPath),
+        toOverwrite ? " OVERWRITE" : "");
   }
 
   private String createPutObjectQueryForInputStream(
       String catalog, String schema, String volume, String objectPath, boolean toOverwrite) {
     return String.format(
-        "PUT '__input_stream__' INTO '/Volumes/%s/%s/%s/%s'%s",
-        catalog, schema, volume, objectPath, toOverwrite ? " OVERWRITE" : "");
+        "PUT '__input_stream__' INTO '%s'%s",
+        getObjectFullPath(catalog, schema, volume, objectPath), toOverwrite ? " OVERWRITE" : "");
   }
 
   private String createDeleteObjectQuery(
       String catalog, String schema, String volume, String objectPath) {
-    return String.format("REMOVE '/Volumes/%s/%s/%s/%s'", catalog, schema, volume, objectPath);
+    return String.format("REMOVE '%s'", getObjectFullPath(catalog, schema, volume, objectPath));
   }
 
   public boolean prefixExists(String catalog, String schema, String volume, String prefix)
