@@ -2,7 +2,7 @@ package com.databricks.jdbc.api.impl.volume;
 
 import static com.databricks.jdbc.common.DatabricksJdbcConstants.VOLUME_OPERATION_STATUS_COLUMN_NAME;
 import static com.databricks.jdbc.common.DatabricksJdbcConstants.VOLUME_OPERATION_STATUS_SUCCEEDED;
-import static com.databricks.jdbc.common.util.StringUtil.escapeSqlValue;
+import static com.databricks.jdbc.common.util.StringUtil.escapeStringLiteral;
 
 import com.databricks.jdbc.api.IDatabricksResultSet;
 import com.databricks.jdbc.api.IDatabricksStatement;
@@ -34,12 +34,12 @@ public class DatabricksUCVolumeClient implements IDatabricksUCVolumeClient {
 
   private String getVolumePath(String catalog, String schema, String volume) {
     // We need to escape '' to prevent SQL injection
-    return escapeSqlValue(String.format("/Volumes/%s/%s/%s/", catalog, schema, volume));
+    return escapeStringLiteral(String.format("/Volumes/%s/%s/%s/", catalog, schema, volume));
   }
 
   private String getObjectFullPath(
       String catalog, String schema, String volume, String objectPath) {
-    return getVolumePath(catalog, schema, volume) + escapeSqlValue(objectPath);
+    return getVolumePath(catalog, schema, volume) + escapeStringLiteral(objectPath);
   }
 
   private String createListQuery(String catalog, String schema, String volume) {
@@ -54,7 +54,7 @@ public class DatabricksUCVolumeClient implements IDatabricksUCVolumeClient {
       String catalog, String schema, String volume, String objectPath, String localPath) {
     return String.format(
         "GET '%s' TO '%s'",
-        getObjectFullPath(catalog, schema, volume, objectPath), escapeSqlValue(localPath));
+        getObjectFullPath(catalog, schema, volume, objectPath), escapeStringLiteral(localPath));
   }
 
   private String createGetObjectQueryForInputStream(
@@ -72,7 +72,7 @@ public class DatabricksUCVolumeClient implements IDatabricksUCVolumeClient {
       boolean toOverwrite) {
     return String.format(
         "PUT '%s' INTO '%s'%s",
-        escapeSqlValue(localPath),
+        escapeStringLiteral(localPath),
         getObjectFullPath(catalog, schema, volume, objectPath),
         toOverwrite ? " OVERWRITE" : "");
   }
