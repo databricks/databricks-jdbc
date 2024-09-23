@@ -8,13 +8,14 @@ import com.databricks.jdbc.common.DatabricksJdbcUrlParams;
 import com.databricks.jdbc.common.IDatabricksComputeResource;
 import com.databricks.jdbc.dbclient.IDatabricksClient;
 import com.databricks.jdbc.dbclient.IDatabricksMetadataClient;
+import com.databricks.jdbc.dbclient.impl.sqlexec.DatabricksEmptyMetadataClient;
 import com.databricks.jdbc.dbclient.impl.sqlexec.DatabricksMetadataSdkClient;
-import com.databricks.jdbc.dbclient.impl.sqlexec.DatabricksNewMetadataSdkClient;
 import com.databricks.jdbc.dbclient.impl.sqlexec.DatabricksSdkClient;
 import com.databricks.jdbc.dbclient.impl.thrift.DatabricksThriftServiceClient;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
+import com.databricks.jdbc.telemetry.DatabricksMetrics;
 import com.databricks.jdbc.telemetry.annotation.DatabricksMetricsTimedProcessor;
 import com.databricks.sdk.support.ToStringer;
 import com.google.common.annotations.VisibleForTesting;
@@ -22,31 +23,28 @@ import java.util.HashMap;
 import java.util.Map;
 import javax.annotation.Nullable;
 
-/** Implementation for Session interface, which maintains an underlying session in SQL Gateway. */
+/**
+ * Implementation of {@link IDatabricksSession}, which maintains an underlying session in SQL
+ * Gateway.
+ */
 public class DatabricksSession implements IDatabricksSession {
 
   public static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(DatabricksSession.class);
   private IDatabricksClient databricksClient;
-
-  private IDatabricksMetadataClient databricksMetadataSdkClient;
-  private IDatabricksMetadataClient databricksNewMetadataSdkClient;
   private IDatabricksMetadataClient databricksMetadataClient;
   private final IDatabricksComputeResource computeResource;
-
   private boolean isSessionOpen;
   private ImmutableSessionInfo sessionInfo;
 
-  // For context based commands
+  /** For context based commands */
   private String catalog;
 
   private String schema;
-
   private final Map<String, String> sessionConfigs;
-
   private final Map<String, String> clientInfoProperties;
   private final CompressionType compressionType;
-
   private final IDatabricksConnectionContext connectionContext;
+  private final DatabricksMetrics metricsExporter;
 
   /**
    * Creates an instance of Databricks session for given connection context
@@ -57,17 +55,10 @@ public class DatabricksSession implements IDatabricksSession {
       throws DatabricksSQLException {
     if (connectionContext.getClientType() == DatabricksClientType.THRIFT) {
       this.databricksClient = new DatabricksThriftServiceClient(connectionContext);
-      this.databricksMetadataClient = null;
     } else {
       this.databricksClient = new DatabricksSdkClient(connectionContext);
-      this.databricksMetadataSdkClient =
-          new DatabricksMetadataSdkClient((DatabricksSdkClient) databricksClient);
-      this.databricksNewMetadataSdkClient =
-          new DatabricksNewMetadataSdkClient((DatabricksSdkClient) databricksClient);
+      this.databricksMetadataClient = new DatabricksMetadataSdkClient(databricksClient);
     }
-
-    this.databricksClient = DatabricksMetricsTimedProcessor.createProxy(this.databricksClient);
-
     this.isSessionOpen = false;
     this.sessionInfo = null;
     this.computeResource = connectionContext.getComputeResource();
@@ -77,17 +68,9 @@ public class DatabricksSession implements IDatabricksSession {
     this.clientInfoProperties = new HashMap<>();
     this.compressionType = connectionContext.getCompressionType();
     this.connectionContext = connectionContext;
-  }
-
-  @Override
-  public void setMetadataClient(boolean useLegacyMetadataClient) {
-    if (connectionContext.getClientType() == DatabricksClientType.THRIFT) {
-      return;
-    }
-    this.databricksMetadataClient =
-        useLegacyMetadataClient
-            ? this.databricksMetadataSdkClient
-            : this.databricksNewMetadataSdkClient;
+    this.metricsExporter = new DatabricksMetrics(connectionContext);
+    this.databricksClient =
+        DatabricksMetricsTimedProcessor.createProxy(this.databricksClient, metricsExporter);
   }
 
   /** Constructor method to be used for mocking in a test case. */
@@ -95,11 +78,8 @@ public class DatabricksSession implements IDatabricksSession {
   public DatabricksSession(
       IDatabricksConnectionContext connectionContext, IDatabricksClient databricksClient) {
     this.databricksClient = databricksClient;
-    if (databricksClient instanceof DatabricksThriftServiceClient) {
-      this.databricksMetadataClient = null;
-    } else {
-      this.databricksMetadataClient =
-          new DatabricksMetadataSdkClient((DatabricksSdkClient) databricksClient);
+    if (databricksClient instanceof DatabricksSdkClient) {
+      this.databricksMetadataClient = new DatabricksMetadataSdkClient(databricksClient);
     }
     this.isSessionOpen = false;
     this.sessionInfo = null;
@@ -109,6 +89,7 @@ public class DatabricksSession implements IDatabricksSession {
     this.sessionConfigs = connectionContext.getSessionConfigs();
     this.clientInfoProperties = new HashMap<>();
     this.compressionType = connectionContext.getCompressionType();
+    this.metricsExporter = new DatabricksMetrics(connectionContext);
     this.connectionContext = connectionContext;
   }
 
@@ -171,7 +152,7 @@ public class DatabricksSession implements IDatabricksSession {
         this.sessionInfo = null;
         this.isSessionOpen = false;
         if (!connectionContext.isFakeServiceTest()) {
-          this.connectionContext.getMetricsExporter().close();
+          this.getMetricsExporter().close();
         }
       }
     }
@@ -263,5 +244,14 @@ public class DatabricksSession implements IDatabricksSession {
   @Override
   public IDatabricksConnectionContext getConnectionContext() {
     return this.connectionContext;
+  }
+
+  @Override
+  public void setEmptyMetadataClient() {
+    databricksMetadataClient = new DatabricksEmptyMetadataClient();
+  }
+
+  public DatabricksMetrics getMetricsExporter() {
+    return this.metricsExporter;
   }
 }

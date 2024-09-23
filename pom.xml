@@ -346,14 +346,13 @@
         </executions>
         <configuration>
           <excludes>
+            <exclude>**/*Constants*</exclude>
+            <exclude>**/*Exception*</exclude>
             <exclude>**/CommandName*</exclude>
             <exclude>**/DatabricksJdbcConstants*</exclude>
             <exclude>**/DatabricksJdbcUrlParams*</exclude>
             <exclude>**/Driver*</exclude>
             <exclude>**/EnvironmentVariables*</exclude>
-            <exclude>**/*Constants*</exclude>
-            <exclude>**/*Exception*</exclude>
-            <exclude>**/dbclient/impl/sqlexec/DatabricksMetadataSdkClient*</exclude> <!-- TODO(PECO-1502): Remove once fixed -->
             <exclude>**/model/**</exclude>
             <exclude>**/thrift/generated/**</exclude>
           </excludes>

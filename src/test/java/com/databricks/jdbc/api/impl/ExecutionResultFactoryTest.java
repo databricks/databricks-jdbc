@@ -11,7 +11,6 @@ import com.databricks.jdbc.api.impl.arrow.ArrowStreamResult;
 import com.databricks.jdbc.api.impl.inline.InlineJsonResult;
 import com.databricks.jdbc.api.impl.volume.VolumeOperationResult;
 import com.databricks.jdbc.exception.DatabricksParsingException;
-import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.exception.DatabricksSQLFeatureNotSupportedException;
 import com.databricks.jdbc.model.client.thrift.generated.TGetResultSetMetadataResp;
 import com.databricks.jdbc.model.client.thrift.generated.TRowSet;
@@ -21,6 +20,7 @@ import com.databricks.jdbc.model.core.ResultData;
 import com.databricks.jdbc.model.core.ResultManifest;
 import com.databricks.sdk.service.sql.Format;
 import com.databricks.sdk.service.sql.ResultSchema;
+import java.sql.SQLException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -101,7 +101,7 @@ public class ExecutionResultFactoryTest {
   }
 
   @Test
-  public void testGetResultSet_thriftColumnar() throws DatabricksSQLException {
+  public void testGetResultSet_thriftColumnar() throws SQLException {
     when(resultSetMetadataResp.getResultFormat()).thenReturn(TSparkRowSetType.COLUMN_BASED_SET);
     IExecutionResult result =
         ExecutionResultFactory.getResultSet(
@@ -120,7 +120,7 @@ public class ExecutionResultFactoryTest {
   }
 
   @Test
-  public void testGetResultSet_thriftURL() throws DatabricksSQLException {
+  public void testGetResultSet_thriftURL() throws SQLException {
     when(resultSetMetadataResp.getResultFormat()).thenReturn(TSparkRowSetType.URL_BASED_SET);
     when(session.getConnectionContext()).thenReturn(context);
     when(session.getConnectionContext().getCloudFetchThreadPoolSize()).thenReturn(16);
@@ -131,7 +131,7 @@ public class ExecutionResultFactoryTest {
   }
 
   @Test
-  public void testGetResultSet_thriftInlineArrow() throws DatabricksSQLException {
+  public void testGetResultSet_thriftInlineArrow() throws SQLException {
     when(resultSetMetadataResp.getResultFormat()).thenReturn(TSparkRowSetType.ARROW_BASED_SET);
     IExecutionResult result =
         ExecutionResultFactory.getResultSet(

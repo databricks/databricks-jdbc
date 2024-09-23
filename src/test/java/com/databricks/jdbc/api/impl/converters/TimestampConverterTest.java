@@ -13,7 +13,7 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 public class TimestampConverterTest {
-  private Timestamp TIMESTAMP =
+  private final Timestamp TIMESTAMP =
       Timestamp.from(
           LocalDateTime.of(2023, Month.SEPTEMBER, 10, 20, 45).atZone(ZoneId.of("UTC")).toInstant());
 

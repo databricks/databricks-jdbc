@@ -9,6 +9,7 @@ import com.databricks.jdbc.api.IDatabricksStatement;
 import com.databricks.jdbc.api.impl.*;
 import com.databricks.jdbc.common.*;
 import com.databricks.jdbc.common.IDatabricksComputeResource;
+import com.databricks.jdbc.common.util.MetricsUtil;
 import com.databricks.jdbc.dbclient.IDatabricksClient;
 import com.databricks.jdbc.dbclient.impl.common.ClientConfigurator;
 import com.databricks.jdbc.exception.DatabricksParsingException;
@@ -22,6 +23,7 @@ import com.databricks.jdbc.model.client.sqlexec.ExecuteStatementResponse;
 import com.databricks.jdbc.model.client.sqlexec.GetStatementResponse;
 import com.databricks.jdbc.model.core.ExternalLink;
 import com.databricks.jdbc.model.core.ResultData;
+import com.databricks.jdbc.telemetry.DatabricksMetrics;
 import com.databricks.sdk.WorkspaceClient;
 import com.databricks.sdk.core.ApiClient;
 import com.databricks.sdk.service.sql.*;
@@ -316,8 +318,12 @@ public class DatabricksSdkClient implements IDatabricksClient {
       default:
         throw new IllegalStateException("Invalid state for error");
     }
-    throw new DatabricksSQLException(
-        errorMessage, connectionContext, ErrorTypes.EXECUTE_STATEMENT, statementId, errorCode);
+    MetricsUtil.exportError(
+        new DatabricksMetrics(connectionContext),
+        ErrorTypes.EXECUTE_STATEMENT,
+        statementId,
+        errorCode);
+    throw new DatabricksSQLException(errorMessage);
   }
 
   private ExecuteStatementResponse wrapGetStatementResponse(

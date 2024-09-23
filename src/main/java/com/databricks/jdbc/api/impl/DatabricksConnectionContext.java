@@ -9,7 +9,6 @@ import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
-import com.databricks.jdbc.telemetry.DatabricksMetrics;
 import com.databricks.sdk.core.ProxyConfig;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
@@ -27,7 +26,7 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   private final String schema;
   private final String connectionURL;
   private final IDatabricksComputeResource computeResource;
-  private static DatabricksMetrics metricsExporter;
+
   @VisibleForTesting final ImmutableMap<String, String> parameters;
 
   private DatabricksConnectionContext(
@@ -91,14 +90,8 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
       for (Map.Entry<Object, Object> entry : properties.entrySet()) {
         parametersBuilder.put(entry.getKey().toString().toLowerCase(), entry.getValue().toString());
       }
-      DatabricksConnectionContext context =
-          new DatabricksConnectionContext(
-              url, hostValue, portValue, schema, parametersBuilder.build());
-
-      // Initialize metrics exporter
-      metricsExporter = new DatabricksMetrics(context);
-
-      return context;
+      return new DatabricksConnectionContext(
+          url, hostValue, portValue, schema, parametersBuilder.build());
     } else {
       // Should never reach here, since we have already checked for url validity
       throw new IllegalArgumentException("Invalid url " + "incorrect");
@@ -119,11 +112,6 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
         && Objects.equals(host, that.host)
         && Objects.equals(schema, that.schema)
         && Objects.equals(parameters, that.parameters);
-  }
-
-  @Override
-  public DatabricksMetrics getMetricsExporter() {
-    return metricsExporter;
   }
 
   @Override
@@ -324,13 +312,6 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
       return DatabricksClientType.THRIFT;
     }
     return DatabricksClientType.SQL_EXEC;
-  }
-
-  @Override
-  public Boolean getUseLegacyMetadata() {
-    // Defaults to use legacy metadata client
-    String param = getParameter(DatabricksJdbcUrlParams.USE_LEGACY_METADATA);
-    return param != null && param.equals("1");
   }
 
   @Override
@@ -584,6 +565,11 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   }
 
   @Override
+  public Boolean getUseEmptyMetadata() {
+    String param = getParameter(DatabricksJdbcUrlParams.USE_EMPTY_METADATA);
+    return param != null && param.equals("1");
+  }
+
   public String getNonProxyHosts() {
     return getParameter(DatabricksJdbcUrlParams.NON_PROXY_HOSTS);
   }

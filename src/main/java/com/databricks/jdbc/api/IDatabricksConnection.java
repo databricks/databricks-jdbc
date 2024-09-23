@@ -11,7 +11,7 @@ public interface IDatabricksConnection {
   /**
    * Closes a statement from the connection's active set.
    *
-   * @param statement
+   * @param statement {@link IDatabricksStatement} to be closed
    */
   void closeStatement(IDatabricksStatement statement);
 
