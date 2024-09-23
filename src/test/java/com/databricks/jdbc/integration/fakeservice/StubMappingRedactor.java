@@ -12,12 +12,11 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * A custom {@link StubMappingTransformer} that removes sensitive credentials from the stub
- * mappings.
+ * A custom {@link StubMappingTransformer} that redacts sensitive credentials in the stub mappings.
  */
-public class StubMappingCredentialsCleaner extends StubMappingTransformer {
+public class StubMappingRedactor extends StubMappingTransformer {
 
-  public static final String NAME = "stub-mapping-credentials-cleaner";
+  public static final String NAME = "stub-mapping-redactor";
 
   private static final String SERVER_HEADER_NAME = "Server";
 
@@ -42,7 +41,7 @@ public class StubMappingCredentialsCleaner extends StubMappingTransformer {
       // Clean credentials from statement requests (embedded S3 links) and Amazon S3 responses.
       try {
         final String jsonString = getJsonStringFromStubMapping(stubMapping);
-        final String transformedJsonString = removeSensitiveCredentials(jsonString);
+        final String transformedJsonString = redactCredentials(jsonString);
         return getStubMappingFromJsonString(transformedJsonString);
       } catch (JsonProcessingException e) {
         throw new RuntimeException(e);
@@ -59,12 +58,12 @@ public class StubMappingCredentialsCleaner extends StubMappingTransformer {
   }
 
   /** Removes sensitive credentials from the given JSON string. */
-  private String removeSensitiveCredentials(String jsonString) {
+  private String redactCredentials(String jsonString) {
     Matcher matcher = SENSITIVE_CREDS_PATTERN.matcher(jsonString);
     StringBuilder buffer = new StringBuilder();
 
     while (matcher.find()) {
-      matcher.appendReplacement(buffer, "");
+      matcher.appendReplacement(buffer, "[REDACTED]");
     }
     matcher.appendTail(buffer);
 
