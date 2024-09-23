@@ -15,7 +15,7 @@ import java.util.Map;
 public class DatabricksParameterMetaData implements ParameterMetaData {
 
   // TODO : this class is not fully implemented. Tracked in PECO-1738
-  public static final JdbcLogger LOGGER =
+  private static final JdbcLogger LOGGER =
       JdbcLoggerFactory.getLogger(DatabricksParameterMetaData.class);
   private final Map<Integer, ImmutableSqlParameter> parameterBindings;
 

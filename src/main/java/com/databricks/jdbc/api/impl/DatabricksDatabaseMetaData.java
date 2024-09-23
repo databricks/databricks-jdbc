@@ -18,7 +18,7 @@ import java.util.*;
 
 public class DatabricksDatabaseMetaData implements DatabaseMetaData {
 
-  public static final JdbcLogger LOGGER =
+  private static final JdbcLogger LOGGER =
       JdbcLoggerFactory.getLogger(DatabricksDatabaseMetaData.class);
   public static final String DRIVER_NAME = "DatabricksJDBC";
   public static final String PRODUCT_NAME = "SparkSQL";

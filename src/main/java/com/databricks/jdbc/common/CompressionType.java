@@ -12,7 +12,7 @@ public enum CompressionType {
     this.compressionTypeVal = value;
   }
 
-  public static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(CompressionType.class);
+  private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(CompressionType.class);
 
   public static CompressionType parseCompressionType(String compressionType) {
     try {

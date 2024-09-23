@@ -36,7 +36,7 @@ import java.util.stream.Collectors;
 /** Implementation of IDatabricksClient interface using Databricks Java SDK. */
 public class DatabricksSdkClient implements IDatabricksClient {
 
-  public static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(DatabricksSdkClient.class);
+  private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(DatabricksSdkClient.class);
   private static final String SYNC_TIMEOUT_VALUE = "10s";
   private final IDatabricksConnectionContext connectionContext;
   private final ClientConfigurator clientConfigurator;

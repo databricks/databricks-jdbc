@@ -25,7 +25,7 @@ import org.apache.http.HttpHeaders;
 public class OAuthRefreshCredentialsProvider extends RefreshableTokenSource
     implements CredentialsProvider {
 
-  public static final JdbcLogger LOGGER =
+  private static final JdbcLogger LOGGER =
       JdbcLoggerFactory.getLogger(OAuthRefreshCredentialsProvider.class);
   IDatabricksConnectionContext context;
   private HttpClient hc;

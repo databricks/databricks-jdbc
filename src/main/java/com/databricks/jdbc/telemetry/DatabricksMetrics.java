@@ -21,7 +21,7 @@ import org.apache.http.util.EntityUtils;
 
 public class DatabricksMetrics implements AutoCloseable {
 
-  public static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(DatabricksMetrics.class);
+  private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(DatabricksMetrics.class);
   private static final Map<String, Double> gaugeMetrics = new HashMap<>();
   private static final Map<String, Double> counterMetrics = new HashMap<>();
   private static final ObjectMapper objectMapper = new ObjectMapper();

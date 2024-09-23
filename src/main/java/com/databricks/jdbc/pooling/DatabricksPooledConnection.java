@@ -21,7 +21,7 @@ import javax.sql.StatementEventListener;
 
 public class DatabricksPooledConnection implements PooledConnection {
 
-  public static final JdbcLogger LOGGER =
+  private static final JdbcLogger LOGGER =
       JdbcLoggerFactory.getLogger(DatabricksPooledConnection.class);
   private final Set<ConnectionEventListener> listeners = new HashSet<>();
   private Connection physicalConnection;

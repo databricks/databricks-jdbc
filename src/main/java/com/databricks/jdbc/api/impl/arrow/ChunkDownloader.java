@@ -28,7 +28,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 /** Class to manage Arrow chunks and fetch them on proactive basis. */
 public class ChunkDownloader implements ChunkDownloadCallback {
 
-  public static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(ChunkDownloader.class);
+  private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(ChunkDownloader.class);
   private static final String CHUNKS_DOWNLOADER_THREAD_POOL_PREFIX =
       "databricks-jdbc-chunks-downloader-";
   private final IDatabricksSession session;

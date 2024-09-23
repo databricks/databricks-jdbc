@@ -19,7 +19,7 @@ import java.util.Optional;
 /** Implementation for {@link IDatabricksMetadataClient} using {@link IDatabricksClient}. */
 public class DatabricksMetadataSdkClient implements IDatabricksMetadataClient {
 
-  public static final JdbcLogger LOGGER =
+  private static final JdbcLogger LOGGER =
       JdbcLoggerFactory.getLogger(DatabricksMetadataSdkClient.class);
   private final IDatabricksClient sdkClient;
 

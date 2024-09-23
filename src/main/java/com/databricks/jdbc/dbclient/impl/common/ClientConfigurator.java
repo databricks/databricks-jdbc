@@ -40,7 +40,7 @@ import org.apache.http.impl.conn.PoolingHttpClientConnectionManager;
  */
 public class ClientConfigurator {
 
-  public static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(ClientConfigurator.class);
+  private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(ClientConfigurator.class);
   private final IDatabricksConnectionContext connectionContext;
   private final DatabricksConfig databricksConfig;
 

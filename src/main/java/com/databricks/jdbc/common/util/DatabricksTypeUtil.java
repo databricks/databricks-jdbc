@@ -29,7 +29,7 @@ import org.apache.arrow.vector.types.pojo.ArrowType;
  */
 public class DatabricksTypeUtil {
 
-  public static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(DatabricksTypeUtil.class);
+  private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(DatabricksTypeUtil.class);
   public static final String BIGINT = "BIGINT";
   public static final String BINARY = "BINARY";
   public static final String BOOLEAN = "BOOLEAN";

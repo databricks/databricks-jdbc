@@ -16,7 +16,7 @@ import java.util.stream.IntStream;
 
 public class DatabricksThriftUtil {
 
-  public static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(DatabricksThriftUtil.class);
+  private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(DatabricksThriftUtil.class);
 
   public static final List<TStatusCode> SUCCESS_STATUS_LIST =
       List.of(TStatusCode.SUCCESS_STATUS, TStatusCode.SUCCESS_WITH_INFO_STATUS);

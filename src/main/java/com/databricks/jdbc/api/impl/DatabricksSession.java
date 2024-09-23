@@ -29,7 +29,7 @@ import javax.annotation.Nullable;
  */
 public class DatabricksSession implements IDatabricksSession {
 
-  public static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(DatabricksSession.class);
+  private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(DatabricksSession.class);
   private IDatabricksClient databricksClient;
   private IDatabricksMetadataClient databricksMetadataClient;
   private final IDatabricksComputeResource computeResource;
