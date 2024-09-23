@@ -18,6 +18,7 @@ import java.util.TimeZone;
 
 /** Databricks JDBC driver. */
 public class Driver implements java.sql.Driver {
+
   private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(Driver.class);
   private static final Driver INSTANCE;
 
