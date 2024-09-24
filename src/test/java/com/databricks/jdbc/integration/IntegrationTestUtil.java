@@ -212,7 +212,9 @@ public class IntegrationTestUtil {
   public static Connection getBenchmarkingJDBCConnectionForThriftAllPurposeCluster()
       throws SQLException {
     return DriverManager.getConnection(
-        getAllPurposeDatabricksHTTPPath(), getThriftDatabricksUser(), getThriftDatabricksToken());
+        getBenchmarkingJDBCUrlForThriftAllPurposeCluster(),
+        getThriftDatabricksUser(),
+        getThriftDatabricksToken());
   }
 
   public static void resetJDBCConnection() {
