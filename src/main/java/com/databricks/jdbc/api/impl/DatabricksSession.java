@@ -142,9 +142,7 @@ public class DatabricksSession implements IDatabricksSession {
   @Override
   public void close() throws DatabricksSQLException {
     LOGGER.debug("public void close()");
-    // TODO: check for any pending query executions
     if (isSessionOpen) {
-      // TODO: handle closed connections by server
       try {
         databricksClient.deleteSession(this, computeResource);
         this.sessionInfo = null;
