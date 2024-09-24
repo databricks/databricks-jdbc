@@ -75,6 +75,15 @@ public class IntegrationTestUtil {
     return System.getenv("DATABRICKS_DOGFOOD_HOST");
   }
 
+  public static String getDatabricksBenchmarkingHost() {
+    // includes port
+    return System.getenv("DATABRICKS_BENCHMARKING_HOST");
+  }
+
+  public static String getAllPurposeDatabricksHost() {
+    return System.getenv("THRIFT_DATABRICKS_HOST");
+  }
+
   public static String getDatabricksToken() {
     return System.getenv("DATABRICKS_TOKEN");
   }
@@ -87,6 +96,14 @@ public class IntegrationTestUtil {
     return System.getenv("DATABRICKS_BENCHFOOD_TOKEN");
   }
 
+  public static String getDatabricksBenchmarkingToken() {
+    return System.getenv("DATABRICKS_BENCHMARKING_TOKEN");
+  }
+
+  public static String getThriftDatabricksToken() {
+    return System.getenv("THRIFT_DATABRICKS_TOKEN");
+  }
+
   public static String getDatabricksHTTPPath() {
     return System.getenv("DATABRICKS_HTTP_PATH");
   }
@@ -97,6 +114,18 @@ public class IntegrationTestUtil {
 
   public static String getDatabricksDogfoodHTTPPath() {
     return System.getenv("DATABRICKS_DOGFOOD_HTTP_PATH");
+  }
+
+  public static String getDatabricksBenchmarkingHTTPPath() {
+    return System.getenv("DATABRICKS_BENCHMARKING_HTTP_PATH");
+  }
+
+  public static String getDatabricksBenchmarkingHTTPPathForThrift() {
+    return System.getenv("DATABRICKS_BENCHMARKING_HTTP_PATH_THRIFT");
+  }
+
+  public static String getAllPurposeDatabricksHTTPPath() {
+    return System.getenv("THRIFT_DATABRICKS_HTTP_PATH");
   }
 
   public static String getDatabricksCatalog() {
@@ -113,6 +142,10 @@ public class IntegrationTestUtil {
 
   public static String getDatabricksUser() {
     return System.getenv("DATABRICKS_USER");
+  }
+
+  public static String getThriftDatabricksUser() {
+    return System.getenv("THRIFT_DATABRICKS_USER");
   }
 
   public static Connection getValidJDBCConnection() throws SQLException {
@@ -166,6 +199,21 @@ public class IntegrationTestUtil {
         getBenchfoodJDBCUrl(), getDatabricksUser(), getDatabricksBenchfoodToken());
   }
 
+  public static Connection getBenchmarkingJDBCConnection() throws SQLException {
+    return DriverManager.getConnection(
+        getBenchmarkingJDBCUrl(), getDatabricksUser(), getDatabricksBenchmarkingToken());
+  }
+
+  public static Connection getBenchmarkingJDBCConnectionForThrift() throws SQLException {
+    return DriverManager.getConnection(
+        getBenchmarkingJDBCUrlForThrift(), getDatabricksUser(), getDatabricksBenchmarkingToken());
+  }
+
+  public static Connection getBenchmarkingJDBCConnectionAllPurpose() throws SQLException {
+    return DriverManager.getConnection(
+        getAllPurposeDatabricksHTTPPath(), getThriftDatabricksUser(), getThriftDatabricksToken());
+  }
+
   public static void resetJDBCConnection() {
     JDBCConnection = null;
   }
@@ -209,6 +257,32 @@ public class IntegrationTestUtil {
         "jdbc:databricks://%s/default;transportMode=http;ssl=1;AuthMech=3;httpPath=%s";
     String host = getDatabricksDogfoodHost();
     String httpPath = getDatabricksDogfoodHTTPPath();
+
+    return String.format(template, host, httpPath);
+  }
+
+  public static String getBenchmarkingJDBCUrl() {
+    String template =
+        "jdbc:databricks://%s/default;transportMode=http;ssl=1;AuthMech=3;httpPath=%s";
+    String host = getDatabricksBenchmarkingHost();
+    String httpPath = getDatabricksBenchmarkingHTTPPath();
+
+    return String.format(template, host, httpPath);
+  }
+
+  public static String getBenchmarkingJDBCUrlForThrift() {
+    String template = "jdbc:databricks://%s/default;ssl=1;AuthMech=3;httpPath=%s";
+    String host = getDatabricksBenchmarkingHost();
+    String httpPath = getDatabricksBenchmarkingHTTPPathForThrift();
+
+    return String.format(template, host, httpPath);
+  }
+
+  // define a function for the all-purpose connection
+  public static String getBenchmarkingAllPurposeDatabricksHTTPPath() {
+    String template = "jdbc:databricks://%s/default;ssl=1;AuthMech=3;httpPath=%s";
+    String host = getAllPurposeDatabricksHost();
+    String httpPath = getAllPurposeDatabricksHTTPPath();
 
     return String.format(template, host, httpPath);
   }
