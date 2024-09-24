@@ -249,6 +249,7 @@ public class ChunkDownloader implements ChunkDownloadCallback {
       return chunkIndexMap;
     }
     for (TSparkArrowResultLink resultLink : resultData.getResultLinks()) {
+      LOGGER.debug("Manifest telemetry: " + resultLink.toString());
       // TODO : add compression
       chunkIndexMap.put(
           chunkIndex,

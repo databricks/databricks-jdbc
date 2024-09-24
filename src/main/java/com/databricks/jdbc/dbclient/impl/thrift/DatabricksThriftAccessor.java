@@ -1,5 +1,6 @@
 package com.databricks.jdbc.dbclient.impl.thrift;
 
+import static com.databricks.jdbc.common.DatabricksJdbcConstants.IS_FAKE_SERVICE_TEST_PROP;
 import static com.databricks.jdbc.common.EnvironmentVariables.*;
 import static com.databricks.jdbc.common.util.DatabricksThriftUtil.*;
 import static com.databricks.jdbc.model.client.thrift.generated.TStatusCode.*;
@@ -44,18 +45,19 @@ final class DatabricksThriftAccessor {
     this.databricksConfig = new ClientConfigurator(connectionContext).getDatabricksConfig();
     Map<String, String> authHeaders = databricksConfig.authenticate();
     String endPointUrl = connectionContext.getEndpointURL();
-    // Create a new thrift client for each thread as client state is not thread safe. Note that the
-    // underlying protocol uses the same http client which is thread safe
-    this.thriftClient =
-        ThreadLocal.withInitial(
-            () -> {
-              DatabricksHttpTTransport transport =
-                  new DatabricksHttpTTransport(
-                      DatabricksHttpClient.getInstance(connectionContext), endPointUrl);
-              transport.setCustomHeaders(authHeaders);
-              TBinaryProtocol protocol = new TBinaryProtocol(transport);
-              return new TCLIService.Client(protocol);
-            });
+
+    final boolean isFakeServiceTest =
+        Boolean.parseBoolean(System.getProperty(IS_FAKE_SERVICE_TEST_PROP));
+    if (!isFakeServiceTest) {
+      // Create a new thrift client for each thread as client state is not thread safe. Note that
+      // the underlying protocol uses the same http client which is thread safe
+      this.thriftClient =
+          ThreadLocal.withInitial(
+              () -> createThriftClient(endPointUrl, authHeaders, connectionContext));
+    } else {
+      TCLIService.Client client = createThriftClient(endPointUrl, authHeaders, connectionContext);
+      this.thriftClient = ThreadLocal.withInitial(() -> client);
+    }
   }
 
   @VisibleForTesting
@@ -458,5 +460,25 @@ final class DatabricksThriftAccessor {
 
   private TCLIService.Client getThriftClient() {
     return thriftClient.get();
+  }
+
+  /**
+   * Creates a new thrift client for the given endpoint URL and authentication headers.
+   *
+   * @param endPointUrl endpoint URL
+   * @param authHeaders authentication headers
+   * @param connectionContext connection context
+   */
+  private TCLIService.Client createThriftClient(
+      String endPointUrl,
+      Map<String, String> authHeaders,
+      IDatabricksConnectionContext connectionContext) {
+    DatabricksHttpTTransport transport =
+        new DatabricksHttpTTransport(
+            DatabricksHttpClient.getInstance(connectionContext), endPointUrl);
+    transport.setCustomHeaders(authHeaders);
+    TBinaryProtocol protocol = new TBinaryProtocol(transport);
+
+    return new TCLIService.Client(protocol);
   }
 }
