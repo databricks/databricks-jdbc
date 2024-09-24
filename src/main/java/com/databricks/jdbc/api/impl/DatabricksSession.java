@@ -145,11 +145,19 @@ public class DatabricksSession implements IDatabricksSession {
     // TODO: check for any pending query executions
     if (isSessionOpen) {
       // TODO: handle closed connections by server
-      databricksClient.deleteSession(this, computeResource);
-      this.sessionInfo = null;
-      this.isSessionOpen = false;
-      if (!connectionContext.isFakeServiceTest()) {
-        this.getMetricsExporter().close();
+      try {
+        databricksClient.deleteSession(this, computeResource);
+        this.sessionInfo = null;
+        this.isSessionOpen = false;
+        if (!connectionContext.isFakeServiceTest()) {
+          this.getMetricsExporter().close();
+        }
+      } catch (DatabricksSQLException e) {
+        LOGGER.error(
+            String.format(
+                "Error while closing the session {%s}, error message: {%s}",
+                getSessionId(), e.getMessage()),
+            e);
       }
     }
   }
