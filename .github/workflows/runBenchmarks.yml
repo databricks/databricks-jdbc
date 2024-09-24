@@ -15,7 +15,7 @@ jobs:
       - name: Checkout benchmarking branch
         uses: actions/checkout@v2
         with:
-          ref: benchmarking-new
+          ref: shivam2680/benchmarking-new
 
       - name: Merge main into benchmarking-branch
         run: |
