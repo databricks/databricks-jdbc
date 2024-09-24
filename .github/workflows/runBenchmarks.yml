@@ -15,7 +15,7 @@ jobs:
       - name: Checkout benchmarking branch
         uses: actions/checkout@v2
         with:
-          ref: benchmarking-branch
+          ref: benchmarking-new
 
       - name: Merge main into benchmarking-branch
         run: |
@@ -51,6 +51,10 @@ jobs:
           DATABRICKS_DOGFOOD_HOST: ${{ secrets.DATABRICKS_DOGFOOD_HOST }}
           DATABRICKS_DOGFOOD_TOKEN: ${{ secrets.DATABRICKS_DOGFOOD_TOKEN }}
           DATABRICKS_DOGFOOD_HTTP_PATH: ${{ secrets.DATABRICKS_DOGFOOD_HTTP_PATH }}
+          THRIFT_DATABRICKS_HTTP_PATH: ${{ secrets.THRIFT_DATABRICKS_HTTP_PATH }}
+          THRIFT_DATABRICKS_HOST: ${{ secrets.THRIFT_DATABRICKS_HOST }}
+          THRIFT_DATABRICKS_TOKEN: ${{ secrets.THRIFT_DATABRICKS_TOKEN }}
+          THRIFT_DATABRICKS_USER: ${{ secrets.THRIFT_DATABRICKS_USER }}
         run: |
           echo "DATABRICKS_HOST=${DATABRICKS_HOST}" >> $GITHUB_ENV
           echo "DATABRICKS_BENCHFOOD_HOST=${DATABRICKS_BENCHFOOD_HOST}" >> $GITHUB_ENV
@@ -67,6 +71,11 @@ jobs:
           echo "DATABRICKS_DOGFOOD_HOST=${DATABRICKS_DOGFOOD_HOST}" >> $GITHUB_ENV
           echo "DATABRICKS_DOGFOOD_TOKEN=${DATABRICKS_DOGFOOD_TOKEN}" >> $GITHUB_ENV
           echo "DATABRICKS_DOGFOOD_HTTP_PATH=${DATABRICKS_DOGFOOD_HTTP_PATH}" >> $GITHUB_ENV
+          echo "THRIFT_DATABRICKS_HTTP_PATH=${THRIFT_DATABRICKS_HTTP_PATH}" >> $GITHUB_ENV
+          echo "THRIFT_DATABRICKS_HOST=${THRIFT_DATABRICKS_HOST}" >> $GITHUB_ENV
+          echo "THRIFT_DATABRICKS_TOKEN=${THRIFT_DATABRICKS_TOKEN}" >> $GITHUB_ENV
+          echo "THRIFT_DATABRICKS_USER=${THRIFT_DATABRICKS_USER}" >> $GITHUB_ENV
+          
 
       - name: Run Large Queries Benchmarking Test
         run: mvn test '-Dtest=**LargeQueriesBenchmarkingTest**'

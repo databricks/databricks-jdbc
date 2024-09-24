@@ -52,7 +52,7 @@ public class MetadataBenchmarkingTests {
   }
 
   static Stream<String> modeProvider() {
-    return Stream.of("SEA", "THRIFT");
+    return Stream.of("SEA", "THRIFT", "THRIFT_ALL_PURPOSE_CLUSTER");
   }
 
   @ParameterizedTest
@@ -79,6 +79,9 @@ public class MetadataBenchmarkingTests {
                 getJDBCUrl(Map.of("usethriftclient", "1")), "token", getDatabricksToken());
         RESULTS_TABLE = "main.jdbc_metadata_benchmarking_thrift.benchmarking_results";
         break;
+      case "THRIFT_ALL_PURPOSE_CLUSTER":
+        connection = getBenchmarkingJDBCConnectionForThriftAllPurposeCluster();
+        RESULTS_TABLE = "main.jdbc_metadata_benchmarking_thrift.benchmarking_results";
       default:
         throw new IllegalArgumentException("Invalid testing mode");
     }
@@ -104,6 +107,12 @@ public class MetadataBenchmarkingTests {
       case "THRIFT":
         connection = getConnectionForSimbaDriver(getJDBCUrl(), "token", getDatabricksToken());
         break;
+      case "THRIFT_ALL_PURPOSE_CLUSTER":
+        connection =
+            getConnectionForSimbaDriver(
+                getBenchmarkingJDBCUrlForThriftAllPurposeCluster(),
+                "token",
+                getThriftDatabricksToken());
       default:
         throw new IllegalArgumentException("Invalid testing mode");
     }

@@ -47,7 +47,7 @@ public class LargeQueriesBenchmarkingTest {
   }
 
   static Stream<String> modeProvider() {
-    return Stream.of("SEA", "THRIFT");
+    return Stream.of("SEA", "THRIFT", "THRIFT_ALL_PURPOSE_CLUSTER");
   }
 
   @ParameterizedTest
@@ -67,6 +67,10 @@ public class LargeQueriesBenchmarkingTest {
         break;
       case "THRIFT":
         connection = getBenchmarkingJDBCConnectionForThrift();
+        RESULTS_TABLE = "main.jdbc_thrift_large_queries_benchmarking_schema.benchmarking_results";
+        break;
+      case "THRIFT_ALL_PURPOSE_CLUSTER":
+        connection = getBenchmarkingJDBCConnectionForThriftAllPurposeCluster();
         RESULTS_TABLE = "main.jdbc_thrift_large_queries_benchmarking_schema.benchmarking_results";
         break;
       default:
@@ -117,6 +121,12 @@ public class LargeQueriesBenchmarkingTest {
             getConnectionForSimbaDriver(
                 getBenchmarkingJDBCUrlForThrift(), "token", getDatabricksBenchmarkingToken());
         break;
+      case "THRIFT_ALL_PURPOSE_CLUSTER":
+        connection =
+            getConnectionForSimbaDriver(
+                getBenchmarkingJDBCUrlForThriftAllPurposeCluster(),
+                "token",
+                getThriftDatabricksToken());
       default:
         throw new IllegalArgumentException("Invalid testing mode");
     }

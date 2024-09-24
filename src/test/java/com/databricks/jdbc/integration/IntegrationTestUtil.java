@@ -209,7 +209,8 @@ public class IntegrationTestUtil {
         getBenchmarkingJDBCUrlForThrift(), getDatabricksUser(), getDatabricksBenchmarkingToken());
   }
 
-  public static Connection getBenchmarkingJDBCConnectionAllPurpose() throws SQLException {
+  public static Connection getBenchmarkingJDBCConnectionForThriftAllPurposeCluster()
+      throws SQLException {
     return DriverManager.getConnection(
         getAllPurposeDatabricksHTTPPath(), getThriftDatabricksUser(), getThriftDatabricksToken());
   }
@@ -279,7 +280,7 @@ public class IntegrationTestUtil {
   }
 
   // define a function for the all-purpose connection
-  public static String getBenchmarkingAllPurposeDatabricksHTTPPath() {
+  public static String getBenchmarkingJDBCUrlForThriftAllPurposeCluster() {
     String template = "jdbc:databricks://%s/default;ssl=1;AuthMech=3;httpPath=%s";
     String host = getAllPurposeDatabricksHost();
     String httpPath = getAllPurposeDatabricksHTTPPath();
