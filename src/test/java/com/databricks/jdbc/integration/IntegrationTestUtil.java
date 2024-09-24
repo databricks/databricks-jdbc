@@ -245,8 +245,8 @@ public class IntegrationTestUtil {
   public static String getBenchmarkingJDBCUrlForThrift() {
     String template = "jdbc:databricks://%s/default;ssl=1;AuthMech=3;httpPath=%s";
     String host = getDatabricksBenchmarkingHost();
-    String httpPath = getDatabricksBenchmarkingHTTPPathForThrift();
-
+//    String httpPath = getDatabricksBenchmarkingHTTPPathForThrift();
+    String httpPath = "sql/protocolv1/o/6051921418418893/1115-130834-ms4m0yv";
     return String.format(template, host, httpPath);
   }
 

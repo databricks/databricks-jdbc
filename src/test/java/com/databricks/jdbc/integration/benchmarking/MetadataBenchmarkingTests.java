@@ -75,8 +75,10 @@ public class MetadataBenchmarkingTests {
         break;
       case "THRIFT":
         connection =
-            DriverManager.getConnection(
-                getJDBCUrl(Map.of("usethriftclient", "1")), "token", getDatabricksToken());
+//            DriverManager.getConnection(
+//                getJDBCUrl(Map.of("usethriftclient", "1")), "token", getDatabricksToken());
+                DriverManager.getConnection(
+                        getBenchmarkingJDBCUrlForThrift(), "token", getDatabricksBenchmarkingToken());
         RESULTS_TABLE = "main.jdbc_metadata_benchmarking_thrift.benchmarking_results";
         break;
       default:
