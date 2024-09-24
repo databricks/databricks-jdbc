@@ -130,14 +130,12 @@ public class DatabricksSession implements IDatabricksSession {
   public void open() throws DatabricksSQLException {
     LOGGER.debug("public void open()");
     // TODO: check for expired sessions
-    synchronized (this) {
-      if (!isSessionOpen) {
-        // TODO: handle errors
-        this.sessionInfo =
-            databricksClient.createSession(
-                this.computeResource, this.catalog, this.schema, this.sessionConfigs);
-        this.isSessionOpen = true;
-      }
+    if (!isSessionOpen) {
+      // TODO: handle errors
+      this.sessionInfo =
+          databricksClient.createSession(
+              this.computeResource, this.catalog, this.schema, this.sessionConfigs);
+      this.isSessionOpen = true;
     }
   }
 
@@ -145,15 +143,13 @@ public class DatabricksSession implements IDatabricksSession {
   public void close() throws DatabricksSQLException {
     LOGGER.debug("public void close()");
     // TODO: check for any pending query executions
-    synchronized (this) {
-      if (isSessionOpen) {
-        // TODO: handle closed connections by server
-        databricksClient.deleteSession(this, computeResource);
-        this.sessionInfo = null;
-        this.isSessionOpen = false;
-        if (!connectionContext.isFakeServiceTest()) {
-          this.getMetricsExporter().close();
-        }
+    if (isSessionOpen) {
+      // TODO: handle closed connections by server
+      databricksClient.deleteSession(this, computeResource);
+      this.sessionInfo = null;
+      this.isSessionOpen = false;
+      if (!connectionContext.isFakeServiceTest()) {
+        this.getMetricsExporter().close();
       }
     }
   }

@@ -11,9 +11,9 @@ public interface IDatabricksStatement {
   /** Returns the underlying session-Id for the statement. */
   String getSessionId();
 
-  void close(boolean removeFromSession) throws SQLException;
+  void close(boolean removeFromSession) throws DatabricksSQLException;
 
-  void handleResultSetClose(IDatabricksResultSet resultSet) throws SQLException;
+  void handleResultSetClose(IDatabricksResultSet resultSet) throws DatabricksSQLException;
 
   int getMaxRows() throws SQLException;
 

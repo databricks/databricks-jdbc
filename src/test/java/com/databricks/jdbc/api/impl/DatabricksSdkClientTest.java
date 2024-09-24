@@ -145,6 +145,7 @@ public class DatabricksSdkClientTest {
         new DatabricksSdkClient(connectionContext, statementExecutionService, apiClient);
     DatabricksConnection connection =
         new DatabricksConnection(connectionContext, databricksSdkClient);
+    connection.open();
     DatabricksStatement statement = new DatabricksStatement(connection);
     statement.setMaxRows(100);
     HashMap<Integer, ImmutableSqlParameter> sqlParams =
