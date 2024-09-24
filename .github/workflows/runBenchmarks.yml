@@ -17,13 +17,13 @@ jobs:
         with:
           ref: shivam2680/benchmarking-new
 
-      - name: Merge main into benchmarking-branch
-        run: |
-          git config --global user.email "madhav.sainanee@databricks.com"
-          git config --global user.name "madhav-db"
-          git config pull.rebase true
-          git fetch origin
-          git rebase -X ours origin/main
+#      - name: Merge main into benchmarking-branch
+#        run: |
+#          git config --global user.email "madhav.sainanee@databricks.com"
+#          git config --global user.name "madhav-db"
+#          git config pull.rebase true
+#          git fetch origin
+#          git rebase -X ours origin/main
 
       - name: Set up Java
         uses: actions/setup-java@v2
