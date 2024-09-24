@@ -2,7 +2,7 @@
   "id" : "a60a0240-37cc-44aa-9fd2-be875bf90d1c",
   "name" : "oregon-staging_6051921418418893.jobs_sql_2024-09-24_07_results_2024-09-24t071551z_278dd40e-1fb4-4926-bbae-34619c0385ae",
   "request" : {
-    "urlPathPattern" : "/oregon-staging/6051921418418893.jobs/sql/2024-09-24/07/results_.*/*",
+    "urlPathPattern" : "/oregon-staging/6051921418418893.jobs/sql/.*/results_.*/*",
     "method" : "GET"
   },
   "response" : {
