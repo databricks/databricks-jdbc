@@ -66,7 +66,7 @@ public class DatabricksHttpRetryHandlerTest {
   void retryRequest_cloudFetch() {
     when(mockHttpContext.getAttribute(anyString())).thenReturn(0);
     when(mockHttpContext.getRequest()).thenReturn(new HttpPost());
-    retryHandler = new DatabricksHttpRetryHandler(mockConnectionContext, true, 0, 0);
+    retryHandler = new DatabricksHttpRetryHandler(mockConnectionContext, true, 100, 200);
     IOException exception = getRetryHandlerException(HttpStatus.SC_BAD_REQUEST);
     assertFalse(retryHandler.retryRequest(exception, 1, mockHttpContext));
 
