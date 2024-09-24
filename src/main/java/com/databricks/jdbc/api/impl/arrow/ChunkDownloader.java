@@ -249,7 +249,12 @@ public class ChunkDownloader implements ChunkDownloadCallback {
       return chunkIndexMap;
     }
     for (TSparkArrowResultLink resultLink : resultData.getResultLinks()) {
-      LOGGER.debug("Manifest telemetry: " + resultLink.toString());
+      String telemetryLog =
+          String.format(
+              "Manifest telemetry - Row Offset: %s, Row Count: %s, Expiry Time: %s",
+              resultLink.getStartRowOffset(), resultLink.getRowCount(), resultLink.getExpiryTime());
+      LOGGER.debug(telemetryLog);
+
       // TODO : add compression
       chunkIndexMap.put(
           chunkIndex,
