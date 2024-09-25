@@ -281,12 +281,11 @@ public class IntegrationTestUtil {
     return String.format(template, host, httpPath);
   }
 
-  // define a function for the all-purpose connection
   public static String getBenchmarkingJDBCUrlForThriftAllPurposeCluster() {
-    String template = "jdbc:databricks://%s/default;ssl=1;AuthMech=3;httpPath=%s";
+    String template =
+        "jdbc:databricks://%s:443/default;transportMode=http;ssl=1;httpPath=%s;AuthMech=3;UID=token";
     String host = getAllPurposeDatabricksHost();
     String httpPath = getAllPurposeDatabricksHTTPPath();
-
     return String.format(template, host, httpPath);
   }
 

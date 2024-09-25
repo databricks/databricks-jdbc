@@ -127,6 +127,7 @@ public class LargeQueriesBenchmarkingTest {
                 getBenchmarkingJDBCUrlForThriftAllPurposeCluster(),
                 "token",
                 getThriftDatabricksToken());
+        break;
       default:
         throw new IllegalArgumentException("Invalid testing mode");
     }
