@@ -133,7 +133,7 @@ public class DatabricksSdkClientTest {
     databricksSdkClient.deleteSession(session, warehouse);
     DeleteSessionRequest request =
         new DeleteSessionRequest().setSessionId(SESSION_ID).setWarehouseId(WAREHOUSE_ID);
-    verify(apiClient).DELETE(eq(path), eq(request), eq(Void.class), eq(new HashMap<>()));
+    verify(apiClient).DELETE(eq(path), eq(request), eq(Void.class), eq(headers));
   }
 
   @Test
