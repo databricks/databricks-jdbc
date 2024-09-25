@@ -8,7 +8,6 @@ import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.api.IDatabricksResultSet;
 import com.databricks.jdbc.api.IDatabricksStatement;
 import com.databricks.jdbc.api.impl.arrow.ArrowStreamResult;
-import com.databricks.jdbc.api.impl.inline.InlineJsonResult;
 import com.databricks.jdbc.api.impl.volume.VolumeOperationResult;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.exception.DatabricksSQLFeatureNotSupportedException;
