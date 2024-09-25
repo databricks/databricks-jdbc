@@ -1010,7 +1010,7 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
       throws SQLException {
     LOGGER.debug(
         String.format(
-            "public ResultSet getVersionColumns(String catalog = {}, String schema = {}, String table = {})",
+            "public ResultSet getVersionColumns(String catalog = {%s}, String schema = {%s}, String table = {%s})",
             catalog,
             schema,
             table));
@@ -1022,7 +1022,7 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
   public ResultSet getPrimaryKeys(String catalog, String schema, String table) throws SQLException {
     LOGGER.debug(
         String.format(
-            "public ResultSet getPrimaryKeys(String catalog = {}, String schema = {}, String table = {})",
+            "public ResultSet getPrimaryKeys(String catalog = {%s}, String schema = {%s}, String table = {%s})",
             catalog,
             schema,
             table));
@@ -1035,7 +1035,7 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
       throws SQLException {
     LOGGER.debug(
         String.format(
-            "public ResultSet getImportedKeys(String catalog = {}, String schema = {}, String table = {})",
+            "public ResultSet getImportedKeys(String catalog = {%s}, String schema = {%s}, String table = {%s})",
             catalog,
             schema,
             table));
@@ -1048,7 +1048,7 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
       throws SQLException {
     LOGGER.debug(
         String.format(
-            "public ResultSet getExportedKeys(String catalog = {}, String schema = {}, String table = {})",
+            "public ResultSet getExportedKeys(String catalog = {%s}, String schema = {%s}, String table = {%s})",
             catalog,
             schema,
             table));
@@ -1067,7 +1067,7 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
       throws SQLException {
     LOGGER.debug(
         String.format(
-            "public ResultSet getCrossReference(String parentCatalog = {}, String parentSchema = {}, String parentTable = {}, String foreignCatalog = {}, String foreignSchema = {}, String foreignTable = {})",
+            "public ResultSet getCrossReference(String parentCatalog = {%s}, String parentSchema = {%s}, String parentTable = {%s}, String foreignCatalog = {%s}, String foreignSchema = {%s}, String foreignTable = {%s})",
             parentCatalog,
             parentSchema,
             parentTable,
@@ -1090,7 +1090,7 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
       String catalog, String schema, String table, boolean unique, boolean approximate) {
     LOGGER.debug(
         String.format(
-            "public ResultSet getIndexInfo(String catalog = {}, String schema = {}, String table = {}, boolean unique = {}, boolean approximate = {})",
+            "public ResultSet getIndexInfo(String catalog = {%s}, String schema = {%s}, String table = {%s}, boolean unique = {%s}, boolean approximate = {%s})",
             catalog,
             schema,
             table,
@@ -1111,7 +1111,7 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
   public boolean supportsResultSetConcurrency(int type, int concurrency) throws SQLException {
     LOGGER.debug(
         String.format(
-            "public boolean supportsResultSetConcurrency(int type = {}, int concurrency = {})",
+            "public boolean supportsResultSetConcurrency(int type = {%s}, int concurrency = {%s})",
             type,
             concurrency));
     throwExceptionIfConnectionIsClosed();
@@ -1120,35 +1120,35 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
 
   @Override
   public boolean ownUpdatesAreVisible(int type) throws SQLException {
-    LOGGER.debug(String.format("public boolean ownUpdatesAreVisible(int type = {})", type));
+    LOGGER.debug(String.format("public boolean ownUpdatesAreVisible(int type = {%s})", type));
     throwExceptionIfConnectionIsClosed();
     return false;
   }
 
   @Override
   public boolean ownDeletesAreVisible(int type) throws SQLException {
-    LOGGER.debug(String.format("public boolean ownDeletesAreVisible(int type = {})", type));
+    LOGGER.debug(String.format("public boolean ownDeletesAreVisible(int type = {%s})", type));
     throwExceptionIfConnectionIsClosed();
     return false;
   }
 
   @Override
   public boolean ownInsertsAreVisible(int type) throws SQLException {
-    LOGGER.debug(String.format("public boolean ownInsertsAreVisible(int type = {})", type));
+    LOGGER.debug(String.format("public boolean ownInsertsAreVisible(int type = {%s})", type));
     throwExceptionIfConnectionIsClosed();
     return false;
   }
 
   @Override
   public boolean othersUpdatesAreVisible(int type) throws SQLException {
-    LOGGER.debug(String.format("public boolean othersUpdatesAreVisible(int type = {})", type));
+    LOGGER.debug(String.format("public boolean othersUpdatesAreVisible(int type = {%s})", type));
     throwExceptionIfConnectionIsClosed();
     return false;
   }
 
   @Override
   public boolean othersDeletesAreVisible(int type) throws SQLException {
-    LOGGER.debug(String.format("public boolean othersDeletesAreVisible(int type = {})", type));
+    LOGGER.debug(String.format("public boolean othersDeletesAreVisible(int type = {%s})", type));
     throwExceptionIfConnectionIsClosed();
     return false;
   }
