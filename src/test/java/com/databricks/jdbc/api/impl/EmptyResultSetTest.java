@@ -1,9 +1,7 @@
-package com.databricks.jdbc.api.impl.fake;
+package com.databricks.jdbc.api.impl;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-import com.databricks.jdbc.api.impl.EmptyResultSet;
-import com.databricks.jdbc.api.impl.EmptyResultSetMetaData;
 import java.io.ByteArrayInputStream;
 import java.io.StringReader;
 import java.math.BigDecimal;
