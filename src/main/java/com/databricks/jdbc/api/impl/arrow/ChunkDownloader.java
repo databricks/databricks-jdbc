@@ -154,10 +154,10 @@ public class ChunkDownloader implements ChunkDownloadCallback {
         }
       } catch (InterruptedException e) {
         LOGGER.error(
+                e,
             String.format(
                 "Caught interrupted exception while waiting for chunk [%s] for statement [%s]. Exception [%s]",
-                chunk.getChunkIndex(), statementId, e),
-            e);
+                chunk.getChunkIndex(), statementId, e));
       }
     }
 

@@ -117,7 +117,7 @@ public class Driver implements java.sql.Driver {
       String errMsg =
           String.format(
               "Error initializing the Java Util Logger (JUL) with error: {%s}", e.getMessage());
-      LOGGER.error(errMsg, e);
+      LOGGER.error(e, errMsg);
       throw new DatabricksSQLException(errMsg, e);
     }
   }

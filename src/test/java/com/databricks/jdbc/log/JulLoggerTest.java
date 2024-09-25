@@ -92,7 +92,7 @@ public class JulLoggerTest {
   @Test
   void testErrorWithThrowable() {
     Exception exception = new Exception("Test exception");
-    julLogger.error("Test error message", exception);
+    julLogger.error(exception, "Test error message");
     verify(mockLogger)
         .logp(
             Level.SEVERE,

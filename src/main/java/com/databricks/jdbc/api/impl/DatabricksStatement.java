@@ -561,7 +561,7 @@ public class DatabricksStatement implements IDatabricksStatement, Statement {
       String errMsg =
           String.format(
               "Error occurred during statement execution: %s. Error : %s", sql, e.getMessage());
-      LOGGER.error(errMsg, e);
+      LOGGER.error(e, errMsg);
       MetricsUtil.exportError(
           this.connection.getSession(),
           ErrorTypes.EXECUTE_STATEMENT,

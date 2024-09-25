@@ -289,7 +289,7 @@ public class DatabricksHttpClient implements IDatabricksHttpClient {
     if (logLevel == LogLevel.DEBUG) {
       LOGGER.debug(errorMsg);
     } else {
-      LOGGER.error(errorMsg, e);
+      LOGGER.error(e, errorMsg);
     }
     throw new DatabricksHttpException(errorMsg, e);
   }

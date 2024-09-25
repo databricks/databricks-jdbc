@@ -269,7 +269,6 @@
           </argLine>
           <systemPropertyVariables>
             <com.databricks.jdbc.loggerImpl>JDKLOGGER</com.databricks.jdbc.loggerImpl>
-            <java.util.logging.config.file>${project.basedir}/src/test/resources/logging.properties</java.util.logging.config.file>
           </systemPropertyVariables>
         </configuration>
       </plugin>
