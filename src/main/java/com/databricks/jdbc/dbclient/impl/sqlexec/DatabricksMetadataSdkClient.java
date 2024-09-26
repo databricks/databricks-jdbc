@@ -5,19 +5,39 @@ import static com.databricks.jdbc.dbclient.impl.sqlexec.ResultConstants.TYPE_INF
 
 import com.databricks.jdbc.api.IDatabricksSession;
 import com.databricks.jdbc.api.impl.DatabricksResultSet;
+<<<<<<<< HEAD:src/main/java/com/databricks/jdbc/dbclient/impl/sqlexec/DatabricksMetadataSdkClient.java
 import com.databricks.jdbc.common.StatementType;
 import com.databricks.jdbc.dbclient.IDatabricksClient;
 import com.databricks.jdbc.dbclient.IDatabricksMetadataClient;
 import com.databricks.jdbc.dbclient.impl.common.MetadataResultSetBuilder;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
+========
+import com.databricks.jdbc.api.impl.ImmutableSqlParameter;
+import com.databricks.jdbc.common.LogLevel;
+import com.databricks.jdbc.common.StatementType;
+import com.databricks.jdbc.common.util.LoggingUtil;
+import com.databricks.jdbc.dbclient.IDatabricksMetadataClient;
+import com.databricks.jdbc.dbclient.impl.common.MetadataResultSetBuilder;
+>>>>>>>> databricks/benchmarking-branch:src/main/java/com/databricks/jdbc/dbclient/impl/sqlexec/DatabricksNewMetadataSdkClient.java
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.HashMap;
 import java.util.Optional;
 
+<<<<<<<< HEAD:src/main/java/com/databricks/jdbc/dbclient/impl/sqlexec/DatabricksMetadataSdkClient.java
 /** Implementation for {@link IDatabricksMetadataClient} using {@link IDatabricksClient}. */
 public class DatabricksMetadataSdkClient implements IDatabricksMetadataClient {
+========
+/**
+ * This is for the new SQL commands added in runtime. Note that the DatabricksMetadataSdkClient will
+ * be replaced by this class once runtime code is merged and this class is tested end to end.
+ * https://docs.google.com/document/d/1E28o7jyPIp6_byZHGD5Eyc4uwGVSydX5o9PaiSY1V4s/edit#heading=h.681k0yimshae
+ * Tracking bug for replacement: (PECO-1502)
+ */
+public class DatabricksNewMetadataSdkClient implements IDatabricksMetadataClient {
+  private final DatabricksSdkClient sdkClient;
+>>>>>>>> databricks/benchmarking-branch:src/main/java/com/databricks/jdbc/dbclient/impl/sqlexec/DatabricksNewMetadataSdkClient.java
 
   public static final JdbcLogger LOGGER =
       JdbcLoggerFactory.getLogger(DatabricksMetadataSdkClient.class);

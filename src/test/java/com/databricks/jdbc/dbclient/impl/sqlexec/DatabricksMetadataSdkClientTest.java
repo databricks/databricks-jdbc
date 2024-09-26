@@ -11,7 +11,10 @@ import com.databricks.jdbc.api.IDatabricksSession;
 import com.databricks.jdbc.api.impl.DatabricksResultSet;
 import com.databricks.jdbc.api.impl.DatabricksResultSetMetaData;
 import com.databricks.jdbc.api.impl.ImmutableSqlParameter;
+<<<<<<<< HEAD:src/test/java/com/databricks/jdbc/dbclient/impl/sqlexec/DatabricksMetadataSdkClientTest.java
 import com.databricks.jdbc.common.CommandName;
+========
+>>>>>>>> databricks/benchmarking-branch:src/test/java/com/databricks/jdbc/dbclient/impl/sqlexec/DatabricksNewMetadataSdkClientTest.java
 import com.databricks.jdbc.common.IDatabricksComputeResource;
 import com.databricks.jdbc.common.StatementType;
 import com.databricks.jdbc.exception.DatabricksValidationException;
@@ -38,7 +41,10 @@ public class DatabricksMetadataSdkClientTest {
   @Mock private static DatabricksResultSet mockedResultSet;
   @Mock private static IDatabricksSession session;
   @Mock private static IDatabricksComputeResource mockedComputeResource;
+<<<<<<<< HEAD:src/test/java/com/databricks/jdbc/dbclient/impl/sqlexec/DatabricksMetadataSdkClientTest.java
   @Mock private static ResultSetMetaData mockedMetaData;
+========
+>>>>>>>> databricks/benchmarking-branch:src/test/java/com/databricks/jdbc/dbclient/impl/sqlexec/DatabricksNewMetadataSdkClientTest.java
 
   private static Stream<Arguments> listTableTestParams() {
     return Stream.of(
