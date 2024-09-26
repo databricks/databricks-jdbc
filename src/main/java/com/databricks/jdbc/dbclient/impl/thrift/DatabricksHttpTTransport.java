@@ -1,7 +1,7 @@
 package com.databricks.jdbc.dbclient.impl.thrift;
 
 import com.databricks.jdbc.common.util.ValidationUtil;
-import com.databricks.jdbc.dbclient.impl.http.DatabricksHttpClient;
+import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
 import com.databricks.jdbc.exception.DatabricksHttpException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
@@ -23,7 +23,7 @@ public class DatabricksHttpTTransport extends TTransport {
 
   private static final JdbcLogger LOGGER =
       JdbcLoggerFactory.getLogger(DatabricksHttpTTransport.class);
-  private final DatabricksHttpClient httpClient;
+  private final IDatabricksHttpClient httpClient;
   private final String url;
   private Map<String, String> customHeaders = Collections.emptyMap();
   private final ByteArrayOutputStream requestBuffer;
@@ -32,7 +32,7 @@ public class DatabricksHttpTTransport extends TTransport {
   private static final Map<String, String> DEFAULT_HEADERS =
       Collections.unmodifiableMap(getDefaultHeaders());
 
-  public DatabricksHttpTTransport(DatabricksHttpClient httpClient, String url) {
+  public DatabricksHttpTTransport(IDatabricksHttpClient httpClient, String url) {
     this.httpClient = httpClient;
     this.httpClient.closeExpiredAndIdleConnections();
     this.url = url;

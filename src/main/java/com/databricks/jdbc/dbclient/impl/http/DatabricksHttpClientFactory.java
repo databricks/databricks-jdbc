@@ -1,6 +1,7 @@
 package com.databricks.jdbc.dbclient.impl.http;
 
 import com.databricks.jdbc.api.IDatabricksConnectionContext;
+import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import java.io.IOException;
@@ -21,7 +22,7 @@ public class DatabricksHttpClientFactory {
     return INSTANCE;
   }
 
-  public DatabricksHttpClient getClient(IDatabricksConnectionContext context) {
+  public IDatabricksHttpClient getClient(IDatabricksConnectionContext context) {
     String contextKey = Integer.toString(context.hashCode());
     return instances.computeIfAbsent(contextKey, k -> new DatabricksHttpClient(context));
   }

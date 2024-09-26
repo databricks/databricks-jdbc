@@ -60,7 +60,8 @@ public class DatabricksMetrics implements AutoCloseable {
     enableTelemetry = (context != null && context.enableTelemetry());
     if (enableTelemetry) {
       workspaceId = context.getComputeResource().getWorkspaceId();
-      telemetryClient = DatabricksHttpClientFactory.getInstance().getClient(context);
+      telemetryClient =
+          (DatabricksHttpClient) DatabricksHttpClientFactory.getInstance().getClient(context);
       scheduleExportMetrics();
     }
   }

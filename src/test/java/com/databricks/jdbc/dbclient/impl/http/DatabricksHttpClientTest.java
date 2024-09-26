@@ -8,6 +8,7 @@ import static org.mockito.Mockito.*;
 import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.api.impl.DatabricksConnectionContextFactory;
 import com.databricks.jdbc.common.util.UserAgentManager;
+import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
 import com.databricks.jdbc.exception.DatabricksHttpException;
 import com.databricks.jdbc.exception.DatabricksRetryHandlerException;
 import com.databricks.sdk.core.ProxyConfig;
@@ -241,9 +242,9 @@ public class DatabricksHttpClientTest {
     when(connectionContext2.getUseCloudFetchProxy()).thenReturn(false);
 
     // Get instances of DatabricksHttpClient for each context
-    DatabricksHttpClient client1 =
+    IDatabricksHttpClient client1 =
         DatabricksHttpClientFactory.getInstance().getClient(connectionContext1);
-    DatabricksHttpClient client2 =
+    IDatabricksHttpClient client2 =
         DatabricksHttpClientFactory.getInstance().getClient(connectionContext2);
 
     assertNotNull(client1);
@@ -256,7 +257,7 @@ public class DatabricksHttpClientTest {
     DatabricksHttpClientFactory.getInstance().removeClient(connectionContext1);
 
     // Get a new instance for the first context
-    DatabricksHttpClient newClient1 =
+    IDatabricksHttpClient newClient1 =
         DatabricksHttpClientFactory.getInstance().getClient(connectionContext1);
 
     assertNotNull(newClient1);
@@ -264,7 +265,7 @@ public class DatabricksHttpClientTest {
     assertNotSame(client1, newClient1);
 
     // Ensure that the second context's instance remains the same
-    DatabricksHttpClient sameClient2 =
+    IDatabricksHttpClient sameClient2 =
         DatabricksHttpClientFactory.getInstance().getClient(connectionContext2);
     assertSame(client2, sameClient2);
 
