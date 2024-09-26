@@ -2,19 +2,11 @@ package com.databricks.jdbc.api.impl.volume;
 
 import com.databricks.jdbc.api.IDatabricksResultSet;
 import com.databricks.jdbc.api.IDatabricksStatement;
-<<<<<<<< HEAD:src/main/java/com/databricks/jdbc/api/impl/volume/VolumeOperationProcessor.java
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
 import com.databricks.jdbc.exception.DatabricksHttpException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
-========
-import com.databricks.jdbc.common.LogLevel;
-import com.databricks.jdbc.common.util.LoggingUtil;
-import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
-import com.databricks.jdbc.exception.DatabricksHttpException;
-import com.databricks.jdbc.exception.DatabricksSQLException;
->>>>>>>> databricks/benchmarking-branch:src/main/java/com/databricks/jdbc/api/impl/volume/VolumeOperationExecutor.java
 import java.io.*;
 import java.sql.SQLException;
 import java.util.*;
