@@ -11,7 +11,7 @@ import com.databricks.jdbc.api.IDatabricksStatement;
 import com.databricks.jdbc.api.impl.*;
 import com.databricks.jdbc.common.StatementType;
 import com.databricks.jdbc.dbclient.impl.common.ClientConfigurator;
-import com.databricks.jdbc.dbclient.impl.http.DatabricksHttpClient;
+import com.databricks.jdbc.dbclient.impl.http.DatabricksHttpClientFactory;
 import com.databricks.jdbc.exception.DatabricksHttpException;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
@@ -475,7 +475,7 @@ final class DatabricksThriftAccessor {
       IDatabricksConnectionContext connectionContext) {
     DatabricksHttpTTransport transport =
         new DatabricksHttpTTransport(
-            DatabricksHttpClient.getInstance(connectionContext), endPointUrl);
+            DatabricksHttpClientFactory.getInstance().getClient(connectionContext), endPointUrl);
     transport.setCustomHeaders(authHeaders);
     TBinaryProtocol protocol = new TBinaryProtocol(transport);
 

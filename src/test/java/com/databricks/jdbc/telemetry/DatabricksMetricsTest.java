@@ -7,6 +7,7 @@ import static org.mockito.Mockito.*;
 import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.common.IDatabricksComputeResource;
 import com.databricks.jdbc.dbclient.impl.http.DatabricksHttpClient;
+import com.databricks.jdbc.dbclient.impl.http.DatabricksHttpClientFactory;
 import com.databricks.jdbc.exception.DatabricksHttpException;
 import org.apache.http.StatusLine;
 import org.apache.http.client.methods.CloseableHttpResponse;
@@ -40,10 +41,11 @@ public class DatabricksMetricsTest {
   void testExportRuntimeMetrics() throws DatabricksHttpException {
     runTestWithMockedClient(
         () -> {
-          DatabricksMetrics metricsExporter = new DatabricksMetrics(connectionContext);
-          metricsExporter.setHttpClient(httpClient);
-          metricsExporter.record("metricName", 1.0);
-          metricsExporter.increment("metricName", 1.0);
+          try (DatabricksMetrics metricsExporter = new DatabricksMetrics(connectionContext)) {
+            metricsExporter.setHttpClient(httpClient);
+            metricsExporter.record("metricName", 1.0);
+            metricsExporter.increment("metricName", 1.0);
+          }
         });
 
     verify(httpClient, atLeast(2)).executeWithoutCertVerification(any(HttpPost.class));
@@ -53,17 +55,18 @@ public class DatabricksMetricsTest {
   void testExportUsageMetrics() throws DatabricksHttpException {
     runTestWithMockedClient(
         () -> {
-          DatabricksMetrics metricsExporter = new DatabricksMetrics(connectionContext);
-          metricsExporter.exportUsageMetrics(
-              "jvmName",
-              "jvmSpecVersion",
-              "jvmImplVersion",
-              "jvmVendor",
-              "osName",
-              "osVersion",
-              "osArch",
-              "localeName",
-              "charsetEncoding");
+          try (DatabricksMetrics metricsExporter = new DatabricksMetrics(connectionContext)) {
+            metricsExporter.exportUsageMetrics(
+                "jvmName",
+                "jvmSpecVersion",
+                "jvmImplVersion",
+                "jvmVendor",
+                "osName",
+                "osVersion",
+                "osArch",
+                "localeName",
+                "charsetEncoding");
+          }
         });
 
     verify(httpClient, atLeast(1))
@@ -75,9 +78,10 @@ public class DatabricksMetricsTest {
   void testExportErrorLogs() throws DatabricksHttpException {
     runTestWithMockedClient(
         () -> {
-          DatabricksMetrics metricsExporter = new DatabricksMetrics(connectionContext);
-          metricsExporter.setHttpClient(httpClient);
-          metricsExporter.exportError("errorName", "statementId", 100);
+          try (DatabricksMetrics metricsExporter = new DatabricksMetrics(connectionContext)) {
+            metricsExporter.setHttpClient(httpClient);
+            metricsExporter.exportError("errorName", "statementId", 100);
+          }
         });
 
     verify(httpClient, atLeast(1))
@@ -86,10 +90,11 @@ public class DatabricksMetricsTest {
   }
 
   private void runTestWithMockedClient(Runnable testLogic) {
-    try (MockedStatic<DatabricksHttpClient> mockedStatic = mockStatic(DatabricksHttpClient.class)) {
-      mockedStatic
-          .when(() -> DatabricksHttpClient.getInstance(any(IDatabricksConnectionContext.class)))
-          .thenReturn(httpClient);
+    try (MockedStatic<DatabricksHttpClientFactory> factoryMocked =
+        mockStatic(DatabricksHttpClientFactory.class)) {
+      DatabricksHttpClientFactory mockFactory = mock(DatabricksHttpClientFactory.class);
+      factoryMocked.when(DatabricksHttpClientFactory::getInstance).thenReturn(mockFactory);
+      when(mockFactory.getClient(any())).thenReturn(httpClient);
 
       assertDoesNotThrow(
           () -> {

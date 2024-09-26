@@ -11,7 +11,7 @@ import com.databricks.jdbc.common.ErrorCodes;
 import com.databricks.jdbc.common.ErrorTypes;
 import com.databricks.jdbc.common.util.MetricsUtil;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
-import com.databricks.jdbc.dbclient.impl.http.DatabricksHttpClient;
+import com.databricks.jdbc.dbclient.impl.http.DatabricksHttpClientFactory;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.model.core.ResultManifest;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -51,7 +51,8 @@ public class VolumeOperationResult implements IExecutionResult {
     this.resultHandler = resultHandler;
     this.statement = statement;
     this.resultSet = resultSet;
-    this.httpClient = DatabricksHttpClient.getInstance(session.getConnectionContext());
+    this.httpClient =
+        DatabricksHttpClientFactory.getInstance().getClient(session.getConnectionContext());
     this.currentRowIndex = -1;
   }
 

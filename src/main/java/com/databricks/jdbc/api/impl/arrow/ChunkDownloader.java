@@ -6,7 +6,7 @@ import com.databricks.jdbc.common.ErrorCodes;
 import com.databricks.jdbc.common.ErrorTypes;
 import com.databricks.jdbc.common.util.MetricsUtil;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
-import com.databricks.jdbc.dbclient.impl.http.DatabricksHttpClient;
+import com.databricks.jdbc.dbclient.impl.http.DatabricksHttpClientFactory;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.log.JdbcLogger;
@@ -56,7 +56,7 @@ public class ChunkDownloader implements ChunkDownloadCallback {
         resultManifest,
         resultData,
         session,
-        DatabricksHttpClient.getInstance(session.getConnectionContext()),
+        DatabricksHttpClientFactory.getInstance().getClient(session.getConnectionContext()),
         chunksDownloaderThreadPoolSize);
   }
 
@@ -89,7 +89,7 @@ public class ChunkDownloader implements ChunkDownloadCallback {
         statementId,
         resultData,
         session,
-        DatabricksHttpClient.getInstance(session.getConnectionContext()),
+        DatabricksHttpClientFactory.getInstance().getClient(session.getConnectionContext()),
         chunksDownloaderThreadPoolSize);
   }
 

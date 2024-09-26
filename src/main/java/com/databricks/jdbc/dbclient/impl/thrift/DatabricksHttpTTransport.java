@@ -53,22 +53,28 @@ public class DatabricksHttpTTransport extends TTransport {
   @Override
   public void close() {
     this.httpClient.closeExpiredAndIdleConnections();
+
+    // Close response first, which also handles closing the input stream
+    if (response != null) {
+      try {
+        response.close();
+      } catch (IOException e) {
+        LOGGER.error(String.format("Failed to close response with error {%s}", e.toString()));
+      } finally {
+        response = null;
+      }
+    }
+
+    // Close input stream only if response closure didn't already handle it
     if (inputStream != null) {
       try {
         inputStream.close();
       } catch (IOException e) {
         LOGGER.error(
             String.format("Failed to close inputStream with error {%s}. Skipping the close.", e));
+      } finally {
+        inputStream = null;
       }
-      inputStream = null;
-    }
-    if (response != null) {
-      try {
-        response.close();
-      } catch (IOException e) {
-        LOGGER.error(String.format("Failed to close response with error {%s}", e.toString()));
-      }
-      response = null;
     }
   }
 

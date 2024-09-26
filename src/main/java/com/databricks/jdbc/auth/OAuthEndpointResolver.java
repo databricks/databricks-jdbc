@@ -2,6 +2,7 @@ package com.databricks.jdbc.auth;
 
 import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.dbclient.impl.http.DatabricksHttpClient;
+import com.databricks.jdbc.dbclient.impl.http.DatabricksHttpClientFactory;
 import com.databricks.jdbc.exception.DatabricksHttpException;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.log.JdbcLogger;
@@ -75,7 +76,8 @@ public class OAuthEndpointResolver {
   private String getTokenEndpointFromDiscoveryEndpoint() {
     try {
       URIBuilder uriBuilder = new URIBuilder(context.getOAuthDiscoveryURL());
-      DatabricksHttpClient httpClient = DatabricksHttpClient.getInstance(context);
+      DatabricksHttpClient httpClient =
+          DatabricksHttpClientFactory.getInstance().getClient(context);
       HttpGet getRequest = new HttpGet(uriBuilder.build());
       try (CloseableHttpResponse response = httpClient.execute(getRequest)) {
         if (response.getStatusLine().getStatusCode() != 200) {

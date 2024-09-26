@@ -3,6 +3,7 @@ package com.databricks.jdbc.telemetry;
 import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.common.util.DriverUtil;
 import com.databricks.jdbc.dbclient.impl.http.DatabricksHttpClient;
+import com.databricks.jdbc.dbclient.impl.http.DatabricksHttpClientFactory;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -59,7 +60,7 @@ public class DatabricksMetrics implements AutoCloseable {
     enableTelemetry = (context != null && context.enableTelemetry());
     if (enableTelemetry) {
       workspaceId = context.getComputeResource().getWorkspaceId();
-      telemetryClient = DatabricksHttpClient.getInstance(context);
+      telemetryClient = DatabricksHttpClientFactory.getInstance().getClient(context);
       scheduleExportMetrics();
     }
   }
