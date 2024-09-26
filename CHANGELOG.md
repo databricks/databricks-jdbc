@@ -9,11 +9,12 @@
 
 ### Updated
 - `getTables` Thrift call to align with JDBC standards.
-- Improved accuracy of column metadata, fixing issues with empty table types, null pointer in `IS_GENERATEDCOLUMN`, and ordinal position.
+- Improved metadata functions.
 
 ### Fixed
 - Fixed memory leaks and made chunk download thread-safe.
 - Fixed issues with prepared statements in Thrift and set default timestamps.
+- Fixed issues with empty table types, null pointer in `IS_GENERATEDCOLUMN`, and ordinal position.
 - Increased retry attempts for chunk downloads to enhance resilience.
 - Fixed exceptions being thrown for statement timeouts and cancel futures.
 - Improved UC Volume code.
