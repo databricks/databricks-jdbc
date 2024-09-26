@@ -1,5 +1,6 @@
 package com.databricks.jdbc.dbclient.impl.thrift;
 
+import static com.databricks.jdbc.common.DatabricksJdbcConstants.IS_FAKE_SERVICE_TEST_PROP;
 import static com.databricks.jdbc.common.EnvironmentVariables.*;
 import static com.databricks.jdbc.common.util.DatabricksThriftUtil.*;
 import static com.databricks.jdbc.model.client.thrift.generated.TStatusCode.*;
@@ -8,7 +9,6 @@ import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.api.IDatabricksSession;
 import com.databricks.jdbc.api.IDatabricksStatement;
 import com.databricks.jdbc.api.impl.*;
-import com.databricks.jdbc.common.CommandName;
 import com.databricks.jdbc.common.StatementType;
 import com.databricks.jdbc.dbclient.impl.common.ClientConfigurator;
 import com.databricks.jdbc.dbclient.impl.http.DatabricksHttpClient;
@@ -45,18 +45,19 @@ final class DatabricksThriftAccessor {
     this.databricksConfig = new ClientConfigurator(connectionContext).getDatabricksConfig();
     Map<String, String> authHeaders = databricksConfig.authenticate();
     String endPointUrl = connectionContext.getEndpointURL();
-    // Create a new thrift client for each thread as client state is not thread safe. Note that the
-    // underlying protocol uses the same http client which is thread safe
-    this.thriftClient =
-        ThreadLocal.withInitial(
-            () -> {
-              DatabricksHttpTTransport transport =
-                  new DatabricksHttpTTransport(
-                      DatabricksHttpClient.getInstance(connectionContext), endPointUrl);
-              transport.setCustomHeaders(authHeaders);
-              TBinaryProtocol protocol = new TBinaryProtocol(transport);
-              return new TCLIService.Client(protocol);
-            });
+
+    final boolean isFakeServiceTest =
+        Boolean.parseBoolean(System.getProperty(IS_FAKE_SERVICE_TEST_PROP));
+    if (!isFakeServiceTest) {
+      // Create a new thrift client for each thread as client state is not thread safe. Note that
+      // the underlying protocol uses the same http client which is thread safe
+      this.thriftClient =
+          ThreadLocal.withInitial(
+              () -> createThriftClient(endPointUrl, authHeaders, connectionContext));
+    } else {
+      TCLIService.Client client = createThriftClient(endPointUrl, authHeaders, connectionContext);
+      this.thriftClient = ThreadLocal.withInitial(() -> client);
+    }
   }
 
   @VisibleForTesting
@@ -69,47 +70,42 @@ final class DatabricksThriftAccessor {
     this.enableDirectResults = connectionContext.getDirectResultMode();
   }
 
-  TBase getThriftResponse(
-      TBase request, CommandName commandName, IDatabricksStatement parentStatement)
+  TBase getThriftResponse(TBase request, IDatabricksStatement parentStatement)
       throws DatabricksSQLException {
     // TODO: Test out metadata operations.
     // TODO: Handle compression.
     refreshHeadersIfRequired();
     DatabricksHttpTTransport transport =
         (DatabricksHttpTTransport) getThriftClient().getInputProtocol().getTransport();
-    LOGGER.debug(
-        String.format(
-            "Fetching thrift response for request {%s}, CommandName {%s}",
-            request.toString(), commandName.name()));
+    LOGGER.debug(String.format("Fetching thrift response for request {%s}", request.toString()));
     try {
-      switch (commandName) {
-        case OPEN_SESSION:
-          return getThriftClient().OpenSession((TOpenSessionReq) request);
-        case CLOSE_SESSION:
-          return getThriftClient().CloseSession((TCloseSessionReq) request);
-        case LIST_PRIMARY_KEYS:
-          return listPrimaryKeys((TGetPrimaryKeysReq) request);
-        case LIST_FUNCTIONS:
-          return listFunctions((TGetFunctionsReq) request);
-        case LIST_SCHEMAS:
-          return listSchemas((TGetSchemasReq) request);
-        case LIST_COLUMNS:
-          return listColumns((TGetColumnsReq) request);
-        case LIST_CATALOGS:
-          return getCatalogs((TGetCatalogsReq) request);
-        case LIST_TABLES:
-          return getTables((TGetTablesReq) request);
-        case LIST_TABLE_TYPES:
-          return getTableTypes((TGetTableTypesReq) request);
-        case LIST_TYPE_INFO:
-          return getTypeInfo((TGetTypeInfoReq) request);
-        default:
-          String errorMessage =
-              String.format(
-                  "No implementation for fetching thrift response for CommandName {%s}.  Request {%s}",
-                  commandName, request.toString());
-          LOGGER.error(errorMessage);
-          throw new DatabricksSQLFeatureNotSupportedException(errorMessage);
+      if (request instanceof TOpenSessionReq) {
+        return getThriftClient().OpenSession((TOpenSessionReq) request);
+      } else if (request instanceof TCloseSessionReq) {
+        return getThriftClient().CloseSession((TCloseSessionReq) request);
+      } else if (request instanceof TGetPrimaryKeysReq) {
+        return listPrimaryKeys((TGetPrimaryKeysReq) request);
+      } else if (request instanceof TGetFunctionsReq) {
+        return listFunctions((TGetFunctionsReq) request);
+      } else if (request instanceof TGetSchemasReq) {
+        return listSchemas((TGetSchemasReq) request);
+      } else if (request instanceof TGetColumnsReq) {
+        return listColumns((TGetColumnsReq) request);
+      } else if (request instanceof TGetCatalogsReq) {
+        return getCatalogs((TGetCatalogsReq) request);
+      } else if (request instanceof TGetTablesReq) {
+        return getTables((TGetTablesReq) request);
+      } else if (request instanceof TGetTableTypesReq) {
+        return getTableTypes((TGetTableTypesReq) request);
+      } else if (request instanceof TGetTypeInfoReq) {
+        return getTypeInfo((TGetTypeInfoReq) request);
+      } else {
+        String errorMessage =
+            String.format(
+                "No implementation for fetching thrift response for Request {%s}",
+                request.toString());
+        LOGGER.error(errorMessage);
+        throw new DatabricksSQLFeatureNotSupportedException(errorMessage);
       }
     } catch (TException | SQLException e) {
       Throwable cause = e;
@@ -464,5 +460,25 @@ final class DatabricksThriftAccessor {
 
   private TCLIService.Client getThriftClient() {
     return thriftClient.get();
+  }
+
+  /**
+   * Creates a new thrift client for the given endpoint URL and authentication headers.
+   *
+   * @param endPointUrl endpoint URL
+   * @param authHeaders authentication headers
+   * @param connectionContext connection context
+   */
+  private TCLIService.Client createThriftClient(
+      String endPointUrl,
+      Map<String, String> authHeaders,
+      IDatabricksConnectionContext connectionContext) {
+    DatabricksHttpTTransport transport =
+        new DatabricksHttpTTransport(
+            DatabricksHttpClient.getInstance(connectionContext), endPointUrl);
+    transport.setCustomHeaders(authHeaders);
+    TBinaryProtocol protocol = new TBinaryProtocol(transport);
+
+    return new TCLIService.Client(protocol);
   }
 }

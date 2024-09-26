@@ -15,7 +15,7 @@ import java.util.Map;
 public class DatabricksParameterMetaData implements ParameterMetaData {
 
   // TODO : this class is not fully implemented. Tracked in PECO-1738
-  public static final JdbcLogger LOGGER =
+  private static final JdbcLogger LOGGER =
       JdbcLoggerFactory.getLogger(DatabricksParameterMetaData.class);
   private final Map<Integer, ImmutableSqlParameter> parameterBindings;
 
@@ -54,13 +54,14 @@ public class DatabricksParameterMetaData implements ParameterMetaData {
   @Override
   public int getPrecision(int param) throws SQLException {
     LOGGER.warn("This feature is not fully implemented in the driver yet.");
-    return DatabricksTypeUtil.getPrecision(getObject(param).type());
+    return DatabricksTypeUtil.getPrecision(
+        DatabricksTypeUtil.getColumnType(getObject(param).type()));
   }
 
   @Override
   public int getScale(int param) throws SQLException {
     LOGGER.warn("This feature is not fully implemented in the driver yet.");
-    return DatabricksTypeUtil.getScale(getObject(param).type());
+    return DatabricksTypeUtil.getScale(DatabricksTypeUtil.getColumnType(getObject(param).type()));
   }
 
   @Override

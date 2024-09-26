@@ -86,7 +86,7 @@ public class JdbcLoggerFactory {
   /**
    * Resolves the logger implementation to be used. This method checks the system property {@value
    * #LOGGER_IMPL_PROPERTY} to determine the logger implementation. If the property is not set, it
-   * defaults to {@link LoggerImpl#SLF4JLOGGER}.
+   * defaults to {@link LoggerImpl#JDKLOGGER}.
    */
   private static void resolveLoggerImpl() {
     if (loggerImpl == null) {

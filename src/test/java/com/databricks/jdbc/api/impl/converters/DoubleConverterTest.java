@@ -5,13 +5,12 @@ import static org.junit.jupiter.api.Assertions.*;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import java.math.BigDecimal;
 import java.nio.ByteBuffer;
-import java.util.Arrays;
 import org.junit.jupiter.api.Test;
 
 public class DoubleConverterTest {
 
-  private double NON_ZERO_OBJECT = 10.2;
-  private double ZERO_OBJECT = 0;
+  private final double NON_ZERO_OBJECT = 10.2;
+  private final double ZERO_OBJECT = 0;
 
   @Test
   public void testConvertToByte() throws DatabricksSQLException {
@@ -41,8 +40,8 @@ public class DoubleConverterTest {
 
   @Test
   public void testConvertToInt() throws DatabricksSQLException {
-    assertEquals(new DoubleConverter(NON_ZERO_OBJECT).convertToInt(), (int) 10);
-    assertEquals(new DoubleConverter(ZERO_OBJECT).convertToInt(), (int) 0);
+    assertEquals(new DoubleConverter(NON_ZERO_OBJECT).convertToInt(), 10);
+    assertEquals(new DoubleConverter(ZERO_OBJECT).convertToInt(), 0);
 
     double doubleThatDoesNotFitInInt = 2147483648.5;
     DatabricksSQLException exception =
@@ -80,8 +79,8 @@ public class DoubleConverterTest {
 
   @Test
   public void testConvertToDouble() throws DatabricksSQLException {
-    assertEquals(new DoubleConverter(NON_ZERO_OBJECT).convertToDouble(), (double) 10.2);
-    assertEquals(new DoubleConverter(ZERO_OBJECT).convertToDouble(), (double) 0);
+    assertEquals(new DoubleConverter(NON_ZERO_OBJECT).convertToDouble(), 10.2);
+    assertEquals(new DoubleConverter(ZERO_OBJECT).convertToDouble(), 0);
   }
 
   @Test
@@ -95,20 +94,18 @@ public class DoubleConverterTest {
 
   @Test
   public void testConvertToBoolean() throws DatabricksSQLException {
-    assertEquals(new DoubleConverter(NON_ZERO_OBJECT).convertToBoolean(), true);
-    assertEquals(new DoubleConverter(ZERO_OBJECT).convertToBoolean(), false);
+    assertTrue(new DoubleConverter(NON_ZERO_OBJECT).convertToBoolean());
+    assertFalse(new DoubleConverter(ZERO_OBJECT).convertToBoolean());
   }
 
   @Test
   public void testConvertToByteArray() throws DatabricksSQLException {
-    assertTrue(
-        Arrays.equals(
-            new DoubleConverter(NON_ZERO_OBJECT).convertToByteArray(),
-            ByteBuffer.allocate(8).putDouble(10.2).array()));
-    assertTrue(
-        Arrays.equals(
-            new DoubleConverter(ZERO_OBJECT).convertToByteArray(),
-            ByteBuffer.allocate(8).putDouble(0).array()));
+    assertArrayEquals(
+        new DoubleConverter(NON_ZERO_OBJECT).convertToByteArray(),
+        ByteBuffer.allocate(8).putDouble(10.2).array());
+    assertArrayEquals(
+        new DoubleConverter(ZERO_OBJECT).convertToByteArray(),
+        ByteBuffer.allocate(8).putDouble(0).array());
   }
 
   @Test
@@ -148,7 +145,7 @@ public class DoubleConverterTest {
   public void testConvertToBigInteger() throws DatabricksSQLException {
     assertEquals(
         new DoubleConverter(NON_ZERO_OBJECT).convertToBigInteger(),
-        new BigDecimal(10.2).toBigInteger());
+        BigDecimal.valueOf(10.2).toBigInteger());
     assertEquals(
         new DoubleConverter(ZERO_OBJECT).convertToBigInteger(), new BigDecimal(0).toBigInteger());
   }

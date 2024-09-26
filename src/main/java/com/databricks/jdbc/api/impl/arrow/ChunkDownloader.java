@@ -4,6 +4,7 @@ import com.databricks.jdbc.api.IDatabricksSession;
 import com.databricks.jdbc.common.CompressionType;
 import com.databricks.jdbc.common.ErrorCodes;
 import com.databricks.jdbc.common.ErrorTypes;
+import com.databricks.jdbc.common.util.MetricsUtil;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
 import com.databricks.jdbc.dbclient.impl.http.DatabricksHttpClient;
 import com.databricks.jdbc.exception.DatabricksParsingException;
@@ -25,9 +26,9 @@ import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /** Class to manage Arrow chunks and fetch them on proactive basis. */
-public class ChunkDownloader {
+public class ChunkDownloader implements ChunkDownloadCallback {
 
-  public static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(ChunkDownloader.class);
+  private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(ChunkDownloader.class);
   private static final String CHUNKS_DOWNLOADER_THREAD_POOL_PREFIX =
       "databricks-jdbc-chunks-downloader-";
   private final IDatabricksSession session;
@@ -41,8 +42,7 @@ public class ChunkDownloader {
   private Long totalChunksInMemory;
   private long allowedChunksInMemory;
   private boolean isClosed;
-
-  ConcurrentHashMap<Long, ArrowResultChunk> chunkIndexToChunksMap;
+  private final ConcurrentHashMap<Long, ArrowResultChunk> chunkIndexToChunksMap;
 
   ChunkDownloader(
       String statementId,
@@ -69,7 +69,7 @@ public class ChunkDownloader {
       IDatabricksHttpClient httpClient,
       int chunksDownloaderThreadPoolSize)
       throws DatabricksParsingException {
-    this.chunksDownloaderThreadPoolSize = chunksDownloaderThreadPoolSize;
+    ChunkDownloader.chunksDownloaderThreadPoolSize = chunksDownloaderThreadPoolSize;
     this.chunkDownloaderExecutorService = createChunksDownloaderExecutorService();
     this.httpClient = httpClient;
     this.session = session;
@@ -101,7 +101,7 @@ public class ChunkDownloader {
       IDatabricksHttpClient httpClient,
       int chunksDownloaderThreadPoolSize)
       throws DatabricksParsingException {
-    this.chunksDownloaderThreadPoolSize = chunksDownloaderThreadPoolSize;
+    ChunkDownloader.chunksDownloaderThreadPoolSize = chunksDownloaderThreadPoolSize;
     this.chunkDownloaderExecutorService = createChunksDownloaderExecutorService();
     this.httpClient = httpClient;
     this.session = session;
@@ -111,40 +111,23 @@ public class ChunkDownloader {
     initializeData();
   }
 
-  private static ConcurrentHashMap<Long, ArrowResultChunk> initializeChunksMap(
-      TRowSet resultData, String statementId) throws DatabricksParsingException {
-    ConcurrentHashMap<Long, ArrowResultChunk> chunkIndexMap = new ConcurrentHashMap<>();
-    long chunkIndex = 0;
-    if (resultData.getResultLinksSize() == 0) {
-      return chunkIndexMap;
+  /** {@inheritDoc} */
+  @Override
+  public void downloadProcessed(long chunkIndex) {
+    ArrowResultChunk chunk = chunkIndexToChunksMap.get(chunkIndex);
+    synchronized (chunk) {
+      chunk.notify();
     }
-    for (TSparkArrowResultLink resultLink : resultData.getResultLinks()) {
-      // TODO : add compression
-      chunkIndexMap.put(
-          chunkIndex,
-          ArrowResultChunk.builder()
-              .statementId(statementId)
-              .compressionType(CompressionType.NONE)
-              .withThriftChunkInfo(chunkIndex, resultLink)
-              .build());
-      chunkIndex++;
-    }
-    return chunkIndexMap;
   }
 
-  private static ExecutorService createChunksDownloaderExecutorService() {
-    ThreadFactory threadFactory =
-        new ThreadFactory() {
-          private AtomicInteger threadCount = new AtomicInteger(1);
-
-          public Thread newThread(final Runnable r) {
-            final Thread thread = new Thread(r);
-            thread.setName(CHUNKS_DOWNLOADER_THREAD_POOL_PREFIX + threadCount.getAndIncrement());
-            thread.setDaemon(true);
-            return thread;
-          }
-        };
-    return Executors.newFixedThreadPool(chunksDownloaderThreadPoolSize, threadFactory);
+  /** {@inheritDoc} */
+  @Override
+  public void downloadLinks(long chunkIndexToDownloadLink) throws DatabricksSQLException {
+    Collection<ExternalLink> chunks =
+        session.getDatabricksClient().getResultChunks(statementId, chunkIndexToDownloadLink);
+    for (ExternalLink chunkLink : chunks) {
+      setChunkLink(chunkLink);
+    }
   }
 
   /**
@@ -153,7 +136,7 @@ public class ChunkDownloader {
    *
    * @return the chunk at given index
    */
-  public ArrowResultChunk getChunk() throws DatabricksSQLException {
+  ArrowResultChunk getChunk() throws DatabricksSQLException {
     if (currentChunkIndex < 0) {
       return null;
     }
@@ -165,12 +148,9 @@ public class ChunkDownloader {
           chunk.wait();
         }
         if (chunk.getStatus() != ArrowResultChunk.ChunkStatus.DOWNLOAD_SUCCEEDED) {
-          throw new DatabricksSQLException(
-              chunk.getErrorMessage(),
-              session.getConnectionContext(),
-              ErrorTypes.CHUNK_DOWNLOAD,
-              statementId,
-              ErrorCodes.CHUNK_DOWNLOAD_ERROR);
+          MetricsUtil.exportError(
+              session, ErrorTypes.CHUNK_DOWNLOAD, statementId, ErrorCodes.CHUNK_DOWNLOAD_ERROR);
+          throw new DatabricksSQLException(chunk.getErrorMessage());
         }
       } catch (InterruptedException e) {
         LOGGER.error(
@@ -201,29 +181,8 @@ public class ChunkDownloader {
     return true;
   }
 
-  private boolean isDownloadComplete(ArrowResultChunk.ChunkStatus status) {
-    return status == ArrowResultChunk.ChunkStatus.DOWNLOAD_SUCCEEDED
-        || status == ArrowResultChunk.ChunkStatus.DOWNLOAD_FAILED
-        || status == ArrowResultChunk.ChunkStatus.DOWNLOAD_FAILED_ABORTED;
-  }
-
-  void downloadProcessed(long chunkIndex) {
-    ArrowResultChunk chunk = chunkIndexToChunksMap.get(chunkIndex);
-    synchronized (chunk) {
-      chunk.notify();
-    }
-  }
-
-  void downloadLinks(long chunkIndexToDownloadLink) throws DatabricksSQLException {
-    Collection<ExternalLink> chunks =
-        session.getDatabricksClient().getResultChunks(statementId, chunkIndexToDownloadLink);
-    for (ExternalLink chunkLink : chunks) {
-      setChunkLink(chunkLink);
-    }
-  }
-
   /** Release the memory for previous chunk since it is already consumed */
-  public void releaseChunk() {
+  void releaseChunk() {
     if (chunkIndexToChunksMap.get(currentChunkIndex).releaseChunk()) {
       totalChunksInMemory--;
       downloadNextChunks();
@@ -250,7 +209,7 @@ public class ChunkDownloader {
   void releaseAllChunks() {
     this.isClosed = true;
     this.chunkDownloaderExecutorService.shutdownNow();
-    this.chunkIndexToChunksMap.values().forEach(chunk -> chunk.releaseChunk());
+    this.chunkIndexToChunksMap.values().forEach(ArrowResultChunk::releaseChunk);
     httpClient.closeExpiredAndIdleConnections();
   }
 
@@ -283,6 +242,48 @@ public class ChunkDownloader {
   }
 
   private static ConcurrentHashMap<Long, ArrowResultChunk> initializeChunksMap(
+      TRowSet resultData, String statementId) throws DatabricksParsingException {
+    ConcurrentHashMap<Long, ArrowResultChunk> chunkIndexMap = new ConcurrentHashMap<>();
+    long chunkIndex = 0;
+    if (resultData.getResultLinksSize() == 0) {
+      return chunkIndexMap;
+    }
+    for (TSparkArrowResultLink resultLink : resultData.getResultLinks()) {
+      String telemetryLog =
+          String.format(
+              "Manifest telemetry - Row Offset: %s, Row Count: %s, Expiry Time: %s",
+              resultLink.getStartRowOffset(), resultLink.getRowCount(), resultLink.getExpiryTime());
+      LOGGER.debug(telemetryLog);
+
+      // TODO : add compression
+      chunkIndexMap.put(
+          chunkIndex,
+          ArrowResultChunk.builder()
+              .statementId(statementId)
+              .compressionType(CompressionType.NONE)
+              .withThriftChunkInfo(chunkIndex, resultLink)
+              .build());
+      chunkIndex++;
+    }
+    return chunkIndexMap;
+  }
+
+  private static ExecutorService createChunksDownloaderExecutorService() {
+    ThreadFactory threadFactory =
+        new ThreadFactory() {
+          private final AtomicInteger threadCount = new AtomicInteger(1);
+
+          public Thread newThread(final Runnable r) {
+            final Thread thread = new Thread(r);
+            thread.setName(CHUNKS_DOWNLOADER_THREAD_POOL_PREFIX + threadCount.getAndIncrement());
+            thread.setDaemon(true);
+            return thread;
+          }
+        };
+    return Executors.newFixedThreadPool(chunksDownloaderThreadPoolSize, threadFactory);
+  }
+
+  private static ConcurrentHashMap<Long, ArrowResultChunk> initializeChunksMap(
       ResultManifest resultManifest, ResultData resultData, String statementId)
       throws DatabricksParsingException {
     ConcurrentHashMap<Long, ArrowResultChunk> chunkIndexMap = new ConcurrentHashMap<>();
@@ -304,5 +305,11 @@ public class ChunkDownloader {
       chunkIndexMap.get(externalLink.getChunkIndex()).setChunkLink(externalLink);
     }
     return chunkIndexMap;
+  }
+
+  private boolean isDownloadComplete(ArrowResultChunk.ChunkStatus status) {
+    return status == ArrowResultChunk.ChunkStatus.DOWNLOAD_SUCCEEDED
+        || status == ArrowResultChunk.ChunkStatus.DOWNLOAD_FAILED
+        || status == ArrowResultChunk.ChunkStatus.DOWNLOAD_FAILED_ABORTED;
   }
 }

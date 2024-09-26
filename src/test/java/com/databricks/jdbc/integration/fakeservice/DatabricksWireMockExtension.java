@@ -45,38 +45,12 @@ public class DatabricksWireMockExtension extends DslWrapper
 
   private Boolean proxyMode;
 
-  DatabricksWireMockExtension() {
-    configureStaticDsl = true;
-    failOnUnmatchedRequests = false;
-    isDeclarative = true;
-  }
-
   protected DatabricksWireMockExtension(DatabricksWireMockExtension.Builder builder) {
     this.options = builder.options;
     this.configureStaticDsl = builder.configureStaticDsl;
     this.failOnUnmatchedRequests = builder.failOnUnmatchedRequests;
     this.proxyMode = builder.proxyMode;
     this.isDeclarative = false;
-  }
-
-  private DatabricksWireMockExtension(
-      Options options,
-      boolean configureStaticDsl,
-      boolean failOnUnmatchedRequests,
-      boolean proxyMode) {
-    this.options = options;
-    this.configureStaticDsl = configureStaticDsl;
-    this.failOnUnmatchedRequests = failOnUnmatchedRequests;
-    this.proxyMode = proxyMode;
-    this.isDeclarative = false;
-  }
-
-  public static DatabricksWireMockExtension.Builder extensionOptions() {
-    return newInstance();
-  }
-
-  public static DatabricksWireMockExtension.Builder newInstance() {
-    return new DatabricksWireMockExtension.Builder();
   }
 
   /**
@@ -301,8 +275,7 @@ public class DatabricksWireMockExtension extends DslWrapper
         ((WireMockConfiguration) options).enableBrowserProxying(true);
       }
 
-      return new DatabricksWireMockExtension(
-          options, configureStaticDsl, failOnUnmatchedRequests, proxyMode);
+      return new DatabricksWireMockExtension(this);
     }
   }
 }

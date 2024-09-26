@@ -17,15 +17,18 @@ public final class DatabricksJdbcConstants {
   public static final Pattern HTTP_CLUSTER_PATH_PATTERN = Pattern.compile(".*/o/(.+)/(.+)");
   public static final String JDBC_SCHEMA = "jdbc:databricks://";
   public static final LogLevel DEFAULT_LOG_LEVEL = LogLevel.OFF;
-  public static final int DEFAULT_LOG_FILE_SIZE_IN_MB = 10;
-  public static final int DEFAULT_LOG_FILE_COUNT = 10;
   public static final String USER_AGENT_DELIMITER = "-";
   public static final String URL_DELIMITER = ";";
   public static final String PORT_DELIMITER = ":";
   public static final String DEFAULT_SCHEMA = "default";
   public static final String PAIR_DELIMITER = "=";
-  public static final String HTTP_SCHEMA = "http://";
-  public static final String HTTPS_SCHEMA = "https://";
+  public static final String SCHEMA_DELIMITER = "://";
+  public static final String PKIX = "PKIX";
+  public static final String TLS = "TLS";
+  public static final String HTTP = "http";
+  public static final String HTTPS = "https";
+  public static final String HTTP_SCHEMA = HTTP + SCHEMA_DELIMITER;
+  public static final String HTTPS_SCHEMA = HTTPS + SCHEMA_DELIMITER;
   public static final String LOGIN_TIMEOUT = "loginTimeout";
   public static final String U2M_AUTH_TYPE = "external-browser";
   public static final String M2M_AUTH_TYPE = "oauth-m2m";
@@ -34,6 +37,9 @@ public final class DatabricksJdbcConstants {
   public static final String SQL_SCOPE = "sql";
   public static final String OFFLINE_ACCESS_SCOPE = "offline_access";
   public static final String FULL_STOP = ".";
+  public static final String COMMA = ",";
+  public static final String PIPE = "|";
+  public static final String ASTERISK = "*";
   public static final String EMPTY_STRING = "";
   public static final String IDENTIFIER_QUOTE_STRING = "`";
   public static final String CATALOG = "catalog";
@@ -71,7 +77,6 @@ public final class DatabricksJdbcConstants {
           DatabricksJdbcUrlParams.AUTH_ACCESS_TOKEN.getParamName());
   @VisibleForTesting public static final String IS_FAKE_SERVICE_TEST_PROP = "isFakeServiceTest";
   @VisibleForTesting public static final String FAKE_SERVICE_URI_PROP_SUFFIX = ".fakeServiceURI";
-  public static final int POLL_INTERVAL_DEFAULT = 200;
   public static final String AWS_CLIENT_ID = "databricks-sql-jdbc";
   public static final String AAD_CLIENT_ID = "96eecda7-19ea-49cc-abb5-240097d554f5";
 
@@ -104,6 +109,7 @@ public final class DatabricksJdbcConstants {
   public static final String DEFAULT_IDLE_HTTP_CONNECTION_EXPIRY = "60";
   public static final int CLOUD_FETCH_THREAD_POOL_SIZE_DEFAULT = 16;
   public static final String ALL_APIS_SCOPE = "all-apis";
+
   public static final Pattern SELECT_PATTERN =
       Pattern.compile("^(\\s*\\()*\\s*SELECT", Pattern.CASE_INSENSITIVE);
   public static final Pattern SHOW_PATTERN =
@@ -138,10 +144,6 @@ public final class DatabricksJdbcConstants {
       Pattern.compile("^(\\s*\\()*\\s*REMOVE", Pattern.CASE_INSENSITIVE);
   public static final Pattern LIST_PATTERN =
       Pattern.compile("^(\\s*\\()*\\s*LIST", Pattern.CASE_INSENSITIVE);
-  public static final int DBSQL_MIN_MAJOR_VERSION_FOR_NEW_METADATA = 2024;
-  public static final int DBSQL_MIN_MINOR_VERSION_FOR_NEW_METADATA = 30;
-  public static final int DEFAULT_RETRY_COUNT = 5;
-  public static final LogLevel TELEMETRY_LOG_LEVEL = LogLevel.OFF;
   public static final String DEFAULT_USERNAME =
       "token"; // This is for PAT. We do not support Basic Auth.
   public static final String USERNAME_ERROR =

@@ -14,6 +14,6 @@ public class DeviceInfoLogUtilTest {
 
   @Test
   public void testLogProperties() {
-    assertDoesNotThrow(() -> DeviceInfoLogUtil.logProperties(context));
+    assertDoesNotThrow(() -> DeviceInfoLogUtil.logProperties());
   }
 }

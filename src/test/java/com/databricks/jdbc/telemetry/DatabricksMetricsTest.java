@@ -41,6 +41,7 @@ public class DatabricksMetricsTest {
     runTestWithMockedClient(
         () -> {
           DatabricksMetrics metricsExporter = new DatabricksMetrics(connectionContext);
+          metricsExporter.setHttpClient(httpClient);
           metricsExporter.record("metricName", 1.0);
           metricsExporter.increment("metricName", 1.0);
         });
@@ -75,6 +76,7 @@ public class DatabricksMetricsTest {
     runTestWithMockedClient(
         () -> {
           DatabricksMetrics metricsExporter = new DatabricksMetrics(connectionContext);
+          metricsExporter.setHttpClient(httpClient);
           metricsExporter.exportError("errorName", "statementId", 100);
         });
 

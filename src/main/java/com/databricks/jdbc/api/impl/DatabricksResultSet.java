@@ -18,6 +18,7 @@ import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.model.client.thrift.generated.TGetResultSetMetadataResp;
 import com.databricks.jdbc.model.client.thrift.generated.TRowSet;
 import com.databricks.jdbc.model.client.thrift.generated.TStatus;
+import com.databricks.jdbc.model.core.ColumnMetadata;
 import com.databricks.jdbc.model.core.ResultData;
 import com.databricks.jdbc.model.core.ResultManifest;
 import com.databricks.sdk.service.sql.StatementState;
@@ -37,7 +38,7 @@ import org.apache.http.entity.InputStreamEntity;
 
 public class DatabricksResultSet implements ResultSet, IDatabricksResultSet {
 
-  public static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(DatabricksResultSet.class);
+  private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(DatabricksResultSet.class);
   protected static final String AFFECTED_ROWS_COUNT = "num_affected_rows";
   private final StatementStatus statementStatus;
   private final String statementId;
@@ -52,6 +53,7 @@ public class DatabricksResultSet implements ResultSet, IDatabricksResultSet {
   private VolumeInputStream volumeInputStream = null;
   private long volumeStreamContentLength = -1L;
 
+  // Constructor for SEA result set
   public DatabricksResultSet(
       StatementStatus statementStatus,
       String statementId,
@@ -93,6 +95,7 @@ public class DatabricksResultSet implements ResultSet, IDatabricksResultSet {
     this.wasNull = false;
   }
 
+  // Constructor for thrift result set
   public DatabricksResultSet(
       TStatus statementStatus,
       String statementId,
@@ -101,7 +104,7 @@ public class DatabricksResultSet implements ResultSet, IDatabricksResultSet {
       StatementType statementType,
       IDatabricksStatement parentStatement,
       IDatabricksSession session)
-      throws DatabricksSQLException {
+      throws SQLException {
     if (SUCCESS_STATUS_LIST.contains(statementStatus.getStatusCode())) {
       this.statementStatus = new StatementStatus().setState(StatementState.SUCCEEDED);
     } else {
@@ -122,6 +125,7 @@ public class DatabricksResultSet implements ResultSet, IDatabricksResultSet {
     this.wasNull = false;
   }
 
+  // Constructing results for getUDTs, getTypeInfo, getProcedures metadata calls
   public DatabricksResultSet(
       StatementStatus statementStatus,
       String statementId,
@@ -149,6 +153,7 @@ public class DatabricksResultSet implements ResultSet, IDatabricksResultSet {
     this.wasNull = false;
   }
 
+  // Constructing metadata result set in thrift flow
   public DatabricksResultSet(
       StatementStatus statementStatus,
       String statementId,
@@ -176,6 +181,25 @@ public class DatabricksResultSet implements ResultSet, IDatabricksResultSet {
     this.wasNull = false;
   }
 
+  // Constructing metadata result set in SEA flow
+  public DatabricksResultSet(
+      StatementStatus statementStatus,
+      String statementId,
+      List<ColumnMetadata> columnMetadataList,
+      List<List<Object>> rows,
+      StatementType statementType) {
+    this.statementStatus = statementStatus;
+    this.statementId = statementId;
+    this.executionResult = ExecutionResultFactory.getResultSet(rows);
+    this.resultSetMetaData =
+        new DatabricksResultSetMetaData(statementId, columnMetadataList, rows.size());
+    this.statementType = statementType;
+    this.updateCount = null;
+    this.parentStatement = null;
+    this.isClosed = false;
+    this.wasNull = false;
+  }
+
   @Override
   public boolean next() throws SQLException {
     checkIfClosed();
@@ -183,7 +207,7 @@ public class DatabricksResultSet implements ResultSet, IDatabricksResultSet {
   }
 
   @Override
-  public void close() throws SQLException {
+  public void close() throws DatabricksSQLException {
     isClosed = true;
     this.executionResult.close();
     if (parentStatement != null) {

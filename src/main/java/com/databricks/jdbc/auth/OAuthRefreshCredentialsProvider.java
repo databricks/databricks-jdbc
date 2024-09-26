@@ -1,6 +1,7 @@
 package com.databricks.jdbc.auth;
 
-import static com.databricks.jdbc.auth.AuthConstants.*;
+import static com.databricks.jdbc.auth.AuthConstants.GRANT_TYPE_KEY;
+import static com.databricks.jdbc.auth.AuthConstants.GRANT_TYPE_REFRESH_TOKEN_KEY;
 
 import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.common.DatabricksJdbcConstants;
@@ -24,7 +25,7 @@ import org.apache.http.HttpHeaders;
 public class OAuthRefreshCredentialsProvider extends RefreshableTokenSource
     implements CredentialsProvider {
 
-  public static final JdbcLogger LOGGER =
+  private static final JdbcLogger LOGGER =
       JdbcLoggerFactory.getLogger(OAuthRefreshCredentialsProvider.class);
   IDatabricksConnectionContext context;
   private HttpClient hc;

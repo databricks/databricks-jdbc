@@ -5,13 +5,12 @@ import static org.junit.jupiter.api.Assertions.*;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import java.math.BigDecimal;
 import java.math.BigInteger;
-import java.util.Arrays;
 import org.junit.jupiter.api.Test;
 
 public class BooleanConverterTest {
 
-  private boolean TRUE_OBJECT = true;
-  private boolean FALSE_OBJECT = false;
+  private final boolean TRUE_OBJECT = true;
+  private final boolean FALSE_OBJECT = false;
 
   @Test
   public void testConvertToByte() throws DatabricksSQLException {
@@ -27,8 +26,8 @@ public class BooleanConverterTest {
 
   @Test
   public void testConvertToInt() throws DatabricksSQLException {
-    assertEquals(new BooleanConverter(TRUE_OBJECT).convertToInt(), (int) 1);
-    assertEquals(new BooleanConverter(FALSE_OBJECT).convertToInt(), (int) 0);
+    assertEquals(new BooleanConverter(TRUE_OBJECT).convertToInt(), 1);
+    assertEquals(new BooleanConverter(FALSE_OBJECT).convertToInt(), 0);
   }
 
   @Test
@@ -45,8 +44,8 @@ public class BooleanConverterTest {
 
   @Test
   public void testConvertToDouble() throws DatabricksSQLException {
-    assertEquals(new BooleanConverter(TRUE_OBJECT).convertToDouble(), (double) 1);
-    assertEquals(new BooleanConverter(FALSE_OBJECT).convertToDouble(), (double) 0);
+    assertEquals(new BooleanConverter(TRUE_OBJECT).convertToDouble(), 1);
+    assertEquals(new BooleanConverter(FALSE_OBJECT).convertToDouble(), 0);
   }
 
   @Test
@@ -57,16 +56,14 @@ public class BooleanConverterTest {
 
   @Test
   public void testConvertToBoolean() throws DatabricksSQLException {
-    assertEquals(new BooleanConverter(TRUE_OBJECT).convertToBoolean(), true);
-    assertEquals(new BooleanConverter(FALSE_OBJECT).convertToBoolean(), false);
+    assertTrue(new BooleanConverter(TRUE_OBJECT).convertToBoolean());
+    assertFalse(new BooleanConverter(FALSE_OBJECT).convertToBoolean());
   }
 
   @Test
   public void testConvertToByteArray() throws DatabricksSQLException {
-    assertTrue(
-        Arrays.equals(new BooleanConverter(TRUE_OBJECT).convertToByteArray(), new byte[] {1}));
-    assertTrue(
-        Arrays.equals(new BooleanConverter(FALSE_OBJECT).convertToByteArray(), new byte[] {0}));
+    assertArrayEquals(new BooleanConverter(TRUE_OBJECT).convertToByteArray(), new byte[] {1});
+    assertArrayEquals(new BooleanConverter(FALSE_OBJECT).convertToByteArray(), new byte[] {0});
   }
 
   @Test

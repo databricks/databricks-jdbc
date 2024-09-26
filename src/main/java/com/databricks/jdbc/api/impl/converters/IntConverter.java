@@ -13,7 +13,7 @@ import java.time.LocalDate;
 
 public class IntConverter extends AbstractObjectConverter {
 
-  public static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(IntConverter.class);
+  private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(IntConverter.class);
   private final int object;
 
   public IntConverter(Object object) throws DatabricksSQLException {
