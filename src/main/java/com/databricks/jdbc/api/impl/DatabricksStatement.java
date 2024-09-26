@@ -7,6 +7,7 @@ import static java.lang.String.format;
 
 import com.databricks.jdbc.api.IDatabricksResultSet;
 import com.databricks.jdbc.api.IDatabricksStatement;
+import com.databricks.jdbc.api.callback.IDatabricksStatementHandle;
 import com.databricks.jdbc.api.impl.fake.EmptyResultSet;
 import com.databricks.jdbc.common.ErrorCodes;
 import com.databricks.jdbc.common.ErrorTypes;
@@ -14,6 +15,7 @@ import com.databricks.jdbc.common.StatementType;
 import com.databricks.jdbc.common.util.*;
 import com.databricks.jdbc.dbclient.IDatabricksClient;
 import com.databricks.jdbc.exception.DatabricksSQLException;
+import com.databricks.jdbc.exception.DatabricksSQLFeatureNotImplementedException;
 import com.databricks.jdbc.exception.DatabricksSQLFeatureNotSupportedException;
 import com.databricks.jdbc.exception.DatabricksTimeoutException;
 import com.databricks.jdbc.log.JdbcLogger;
@@ -25,7 +27,8 @@ import java.util.Map;
 import java.util.concurrent.*;
 import org.apache.http.entity.InputStreamEntity;
 
-public class DatabricksStatement implements IDatabricksStatement, Statement {
+public class DatabricksStatement
+    implements IDatabricksStatement, IDatabricksStatementHandle, Statement {
 
   public static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(DatabricksStatement.class);
   private int timeoutInSeconds;
@@ -46,11 +49,6 @@ public class DatabricksStatement implements IDatabricksStatement, Statement {
     this.statementId = null;
     this.isClosed = false;
     this.timeoutInSeconds = DEFAULT_STATEMENT_TIMEOUT_SECONDS;
-  }
-
-  @Override
-  public String getSessionId() {
-    return connection.getSession().getSessionId();
   }
 
   @Override
@@ -694,5 +692,15 @@ public class DatabricksStatement implements IDatabricksStatement, Statement {
       return inputStream;
     }
     return null;
+  }
+
+  @Override
+  public IDatabricksResultSet executeAsync(String sql) throws DatabricksSQLException {
+    throw new DatabricksSQLFeatureNotImplementedException("Not implemented");
+  }
+
+  @Override
+  public IDatabricksResultSet getExecutionResult() throws DatabricksSQLException {
+    throw new DatabricksSQLFeatureNotImplementedException("Not implemented");
   }
 }

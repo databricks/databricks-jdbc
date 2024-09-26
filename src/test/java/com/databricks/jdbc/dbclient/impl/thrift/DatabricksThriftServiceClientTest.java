@@ -161,7 +161,7 @@ public class DatabricksThriftServiceClientTest {
         new DatabricksThriftServiceClient(thriftAccessor, connectionContext);
     DatabricksResultSet actualResult = client.listTableTypes(session);
     assertEquals(actualResult.getStatementStatus().getState(), StatementState.SUCCEEDED);
-    assertEquals(actualResult.statementId(), GET_TABLE_TYPE_STATEMENT_ID);
+    assertEquals(actualResult.getStatementId(), GET_TABLE_TYPE_STATEMENT_ID);
     assertEquals(((DatabricksResultSetMetaData) actualResult.getMetaData()).getTotalRows(), 3);
   }
 

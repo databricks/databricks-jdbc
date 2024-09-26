@@ -6,7 +6,7 @@ import static com.databricks.jdbc.dbclient.impl.common.MetadataResultSetBuilder.
 
 import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.api.IDatabricksSession;
-import com.databricks.jdbc.api.IDatabricksStatement;
+import com.databricks.jdbc.api.callback.IDatabricksStatementHandle;
 import com.databricks.jdbc.api.impl.*;
 import com.databricks.jdbc.common.IDatabricksComputeResource;
 import com.databricks.jdbc.common.StatementType;
@@ -126,7 +126,7 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
       Map<Integer, ImmutableSqlParameter> parameters,
       StatementType statementType,
       IDatabricksSession session,
-      IDatabricksStatement parentStatement)
+      IDatabricksStatementHandle parentStatement)
       throws SQLException {
     // Note that prepared statement is not supported by SEA/Thrift flow.
     LOGGER.debug(

@@ -4,7 +4,8 @@ import static com.databricks.jdbc.common.util.DatabricksThriftUtil.*;
 
 import com.databricks.jdbc.api.IDatabricksResultSet;
 import com.databricks.jdbc.api.IDatabricksSession;
-import com.databricks.jdbc.api.IDatabricksStatement;
+import com.databricks.jdbc.api.callback.IDatabricksResultSetHandle;
+import com.databricks.jdbc.api.callback.IDatabricksStatementHandle;
 import com.databricks.jdbc.api.impl.converters.AbstractObjectConverter;
 import com.databricks.jdbc.api.impl.converters.ConverterHelper;
 import com.databricks.jdbc.api.impl.volume.VolumeInputStream;
@@ -36,7 +37,8 @@ import java.util.Map;
 import org.apache.http.HttpEntity;
 import org.apache.http.entity.InputStreamEntity;
 
-public class DatabricksResultSet implements ResultSet, IDatabricksResultSet {
+public class DatabricksResultSet
+    implements ResultSet, IDatabricksResultSet, IDatabricksResultSetHandle {
 
   public static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(DatabricksResultSet.class);
   protected static final String AFFECTED_ROWS_COUNT = "num_affected_rows";
@@ -45,7 +47,7 @@ public class DatabricksResultSet implements ResultSet, IDatabricksResultSet {
   private final IExecutionResult executionResult;
   private final DatabricksResultSetMetaData resultSetMetaData;
   private final StatementType statementType;
-  private final IDatabricksStatement parentStatement;
+  private final IDatabricksStatementHandle parentStatement;
   private Long updateCount;
   private boolean isClosed;
   private SQLWarning warnings = null;
@@ -61,7 +63,7 @@ public class DatabricksResultSet implements ResultSet, IDatabricksResultSet {
       ResultManifest resultManifest,
       StatementType statementType,
       IDatabricksSession session,
-      IDatabricksStatement parentStatement)
+      IDatabricksStatementHandle parentStatement)
       throws DatabricksParsingException {
     this.statementStatus = statementStatus;
     this.statementId = statementId;
@@ -81,7 +83,7 @@ public class DatabricksResultSet implements ResultSet, IDatabricksResultSet {
       StatementStatus statementStatus,
       String statementId,
       StatementType statementType,
-      IDatabricksStatement parentStatement,
+      IDatabricksStatementHandle parentStatement,
       IExecutionResult executionResult,
       DatabricksResultSetMetaData resultSetMetaData) {
     this.statementStatus = statementStatus;
@@ -102,7 +104,7 @@ public class DatabricksResultSet implements ResultSet, IDatabricksResultSet {
       TRowSet resultData,
       TGetResultSetMetadataResp resultManifest,
       StatementType statementType,
-      IDatabricksStatement parentStatement,
+      IDatabricksStatementHandle parentStatement,
       IDatabricksSession session)
       throws SQLException {
     if (SUCCESS_STATUS_LIST.contains(statementStatus.getStatusCode())) {
@@ -1603,18 +1605,23 @@ public class DatabricksResultSet implements ResultSet, IDatabricksResultSet {
 
   @Override
   public <T> T unwrap(Class<T> iface) throws SQLException {
-    throw new DatabricksSQLFeatureNotSupportedException(
-        "Not implemented in DatabricksResultSet - unwrap(Class<T> iface)");
+    LOGGER.debug("public <T> T unwrap(Class<T> iface)");
+    if (iface.isInstance(this)) {
+      return (T) this;
+    }
+    throw new DatabricksSQLException(
+        String.format(
+            "Class {%s} cannot be wrapped from {%s}", this.getClass().getName(), iface.getName()));
   }
 
   @Override
   public boolean isWrapperFor(Class<?> iface) throws SQLException {
-    throw new DatabricksSQLFeatureNotSupportedException(
-        "Not implemented in DatabricksResultSet - isWrapperFor(Class<?> iface)");
+    LOGGER.debug("public boolean isWrapperFor(Class<?> iface)");
+    return iface.isInstance(this);
   }
 
   @Override
-  public String statementId() {
+  public String getStatementId() {
     return statementId;
   }
 

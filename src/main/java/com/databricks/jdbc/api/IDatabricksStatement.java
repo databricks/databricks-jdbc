@@ -1,33 +1,24 @@
 package com.databricks.jdbc.api;
 
 import com.databricks.jdbc.exception.DatabricksSQLException;
-import java.sql.SQLException;
-import java.sql.Statement;
-import org.apache.http.entity.InputStreamEntity;
 
 /** Interface for Databricks specific statement. */
 public interface IDatabricksStatement {
 
-  /** Returns the underlying session-Id for the statement. */
-  String getSessionId();
+  /**
+   * Executes the given SQL command in async mode
+   *
+   * @param sql SQL command to be executed
+   * @return result set handle
+   * @throws DatabricksSQLException in case of error
+   */
+  IDatabricksResultSet executeAsync(String sql) throws DatabricksSQLException;
 
-  void close(boolean removeFromSession) throws DatabricksSQLException;
-
-  void handleResultSetClose(IDatabricksResultSet resultSet) throws DatabricksSQLException;
-
-  int getMaxRows() throws SQLException;
-
-  void setStatementId(String statementId);
-
-  String getStatementId();
-
-  Statement getStatement();
-
-  void allowInputStreamForVolumeOperation(boolean allowedInputStream) throws DatabricksSQLException;
-
-  boolean isAllowedInputStreamForVolumeOperation() throws DatabricksSQLException;
-
-  void setInputStreamForUCVolume(InputStreamEntity inputStream) throws DatabricksSQLException;
-
-  InputStreamEntity getInputStreamForUCVolume() throws DatabricksSQLException;
+  /**
+   * Returns result set response for the executed statement
+   *
+   * @return result set handle
+   * @throws DatabricksSQLException if statement was never executed
+   */
+  IDatabricksResultSet getExecutionResult() throws DatabricksSQLException;
 }

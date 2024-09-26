@@ -3,9 +3,9 @@ package com.databricks.jdbc.api.impl.volume;
 import static com.databricks.jdbc.common.DatabricksJdbcConstants.ALLOWED_STAGING_INGESTION_PATHS;
 import static com.databricks.jdbc.common.DatabricksJdbcConstants.ALLOWED_VOLUME_INGESTION_PATHS;
 
-import com.databricks.jdbc.api.IDatabricksResultSet;
 import com.databricks.jdbc.api.IDatabricksSession;
-import com.databricks.jdbc.api.IDatabricksStatement;
+import com.databricks.jdbc.api.callback.IDatabricksResultSetHandle;
+import com.databricks.jdbc.api.callback.IDatabricksStatementHandle;
 import com.databricks.jdbc.api.impl.IExecutionResult;
 import com.databricks.jdbc.common.ErrorCodes;
 import com.databricks.jdbc.common.ErrorTypes;
@@ -27,8 +27,8 @@ public class VolumeOperationResult implements IExecutionResult {
   private final IDatabricksSession session;
   private final String statementId;
   private final IExecutionResult resultHandler;
-  private final IDatabricksResultSet resultSet;
-  private final IDatabricksStatement statement;
+  private final IDatabricksResultSetHandle resultSet;
+  private final IDatabricksStatementHandle statement;
   private final IDatabricksHttpClient httpClient;
   private final long rowCount;
   private final long columnCount;
@@ -42,8 +42,8 @@ public class VolumeOperationResult implements IExecutionResult {
       long totalColumns,
       IDatabricksSession session,
       IExecutionResult resultHandler,
-      IDatabricksStatement statement,
-      IDatabricksResultSet resultSet) {
+      IDatabricksStatementHandle statement,
+      IDatabricksResultSetHandle resultSet) {
     this.statementId = statementId;
     this.rowCount = totalRows;
     this.columnCount = totalColumns;
@@ -62,8 +62,8 @@ public class VolumeOperationResult implements IExecutionResult {
       IDatabricksSession session,
       IExecutionResult resultHandler,
       IDatabricksHttpClient httpClient,
-      IDatabricksStatement statement,
-      IDatabricksResultSet resultSet) {
+      IDatabricksStatementHandle statement,
+      IDatabricksResultSetHandle resultSet) {
     this.statementId = statementId;
     this.rowCount = manifest.getTotalRowCount();
     this.columnCount = manifest.getSchema().getColumnCount();

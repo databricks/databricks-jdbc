@@ -419,7 +419,7 @@ public class EmptyResultSetTest {
 
     // For getBigDecimal(int) - assuming 1 as a placeholder for column index
     assertNull(resultSet.getBigDecimal(1));
-    assertNull(resultSet.statementId());
+    assertNull(resultSet.getStatementId());
     assertNull(resultSet.getStatementStatus());
     assertEquals(0, resultSet.getUpdateCount());
     assertFalse(resultSet.hasUpdateCount());

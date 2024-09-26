@@ -6,8 +6,8 @@ import static com.databricks.jdbc.common.DatabricksJdbcConstants.VOLUME_OPERATIO
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
-import com.databricks.jdbc.api.impl.DatabricksResultSet;
-import com.databricks.jdbc.api.impl.DatabricksStatement;
+import com.databricks.jdbc.api.callback.IDatabricksResultSetHandle;
+import com.databricks.jdbc.api.callback.IDatabricksStatementHandle;
 import com.databricks.jdbc.api.impl.volume.DatabricksUCVolumeClient;
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
@@ -32,8 +32,8 @@ public class DatabricksUCVolumeClientTest {
 
   @Mock Statement statement;
 
-  @Mock DatabricksStatement databricksStatement;
-  @Mock DatabricksResultSet databricksResultSet;
+  @Mock IDatabricksStatementHandle databricksStatement;
+  @Mock IDatabricksResultSetHandle databricksResultSet;
 
   @Mock ResultSet resultSet;
   @Mock ResultSet resultSet_abc_volume1;
@@ -534,20 +534,22 @@ public class DatabricksUCVolumeClientTest {
       throws SQLException {
     DatabricksUCVolumeClient client = new DatabricksUCVolumeClient(connection);
 
-    when(connection.createStatement()).thenReturn(databricksStatement);
+    when(connection.createStatement()).thenReturn(statement);
+    when(statement.unwrap(IDatabricksStatementHandle.class)).thenReturn(databricksStatement);
 
     String getObjectQuery =
         String.format(
             "GET '/Volumes/%s/%s/%s/%s' TO '__input_stream__'",
             catalog, schema, volume, objectPath);
-    when(databricksStatement.executeQuery(getObjectQuery)).thenReturn(databricksResultSet);
-    when(databricksResultSet.next()).thenReturn(true);
+    when(statement.executeQuery(getObjectQuery)).thenReturn(resultSet);
+    when(resultSet.next()).thenReturn(true);
+    when(resultSet.unwrap(IDatabricksResultSetHandle.class)).thenReturn(databricksResultSet);
     when(databricksResultSet.getVolumeOperationInputStream()).thenReturn(expected);
 
     InputStreamEntity result = client.getObject(catalog, schema, volume, objectPath);
 
     assertEquals(expected, result);
-    verify(databricksStatement).executeQuery(getObjectQuery);
+    verify(statement).executeQuery(getObjectQuery);
     verify(databricksStatement).allowInputStreamForVolumeOperation(true);
   }
 
@@ -573,12 +575,13 @@ public class DatabricksUCVolumeClientTest {
       throws SQLException {
     DatabricksUCVolumeClient client = new DatabricksUCVolumeClient(connection);
 
-    when(connection.createStatement()).thenReturn(databricksStatement);
+    when(connection.createStatement()).thenReturn(statement);
     String putObjectQuery =
         String.format(
             "PUT '__input_stream__' INTO '/Volumes/%s/%s/%s/%s'%s",
             catalog, schema, volume, objectPath, toOverwrite ? " OVERWRITE" : "");
-    when(databricksStatement.executeQuery(putObjectQuery)).thenReturn(resultSet);
+    when(statement.executeQuery(putObjectQuery)).thenReturn(resultSet);
+    when(statement.unwrap(IDatabricksStatementHandle.class)).thenReturn(databricksStatement);
     when(resultSet.next()).thenReturn(true);
     when(resultSet.getString(VOLUME_OPERATION_STATUS_COLUMN_NAME))
         .thenReturn(VOLUME_OPERATION_STATUS_SUCCEEDED);
@@ -587,7 +590,7 @@ public class DatabricksUCVolumeClientTest {
         client.putObject(catalog, schema, volume, objectPath, inputStream, length, toOverwrite);
 
     assertEquals(expected, result);
-    verify(databricksStatement).executeQuery(putObjectQuery);
+    verify(statement).executeQuery(putObjectQuery);
     verify(databricksStatement).allowInputStreamForVolumeOperation(true);
   }
 

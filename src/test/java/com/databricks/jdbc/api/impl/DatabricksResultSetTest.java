@@ -5,8 +5,10 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import com.databricks.jdbc.api.IDatabricksResultSet;
 import com.databricks.jdbc.api.IDatabricksSession;
-import com.databricks.jdbc.api.IDatabricksStatement;
+import com.databricks.jdbc.api.callback.IDatabricksResultSetHandle;
+import com.databricks.jdbc.api.callback.IDatabricksStatementHandle;
 import com.databricks.jdbc.api.impl.inline.InlineJsonResult;
 import com.databricks.jdbc.common.StatementType;
 import com.databricks.jdbc.exception.DatabricksSQLException;
@@ -37,7 +39,7 @@ public class DatabricksResultSetTest {
   @Mock Statement mockedStatement;
 
   private DatabricksResultSet getResultSet(
-      StatementState statementState, IDatabricksStatement statement) {
+      StatementState statementState, IDatabricksStatementHandle statement) {
     return new DatabricksResultSet(
         new StatementStatus().setState(statementState),
         "test-statementID",
@@ -603,7 +605,7 @@ public class DatabricksResultSetTest {
   }
 
   @Test
-  void testUnsupportedOperationsThrowDatabricksSQLFeatureNotSupportedException() {
+  void testUnsupportedOperationsThrowDatabricksSQLFeatureNotSupportedException() throws Exception {
     when(mockedResultSetMetadata.getColumnNameIndex("column")).thenReturn(1);
     DatabricksResultSet resultSet = getResultSet(StatementState.SUCCEEDED, null);
     assertThrows(DatabricksSQLFeatureNotSupportedException.class, resultSet::getHoldability);
@@ -694,9 +696,9 @@ public class DatabricksResultSetTest {
     assertThrows(
         DatabricksSQLFeatureNotSupportedException.class,
         () -> resultSet.updateCharacterStream("column", null, 1));
-    assertThrows(DatabricksSQLFeatureNotSupportedException.class, () -> resultSet.unwrap(null));
-    assertThrows(
-        DatabricksSQLFeatureNotSupportedException.class, () -> resultSet.isWrapperFor(null));
+    assertNotNull(resultSet.unwrap(IDatabricksResultSet.class));
+    assertTrue(resultSet.isWrapperFor(IDatabricksResultSet.class));
+    assertTrue(resultSet.isWrapperFor(IDatabricksResultSetHandle.class));
   }
 
   @Test

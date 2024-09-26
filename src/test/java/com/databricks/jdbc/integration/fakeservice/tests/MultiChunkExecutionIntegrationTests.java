@@ -81,7 +81,7 @@ public class MultiChunkExecutionIntegrationTests extends AbstractFakeServiceInte
       if (isSqlExecSdkClient()) {
         // Number of requests to fetch external links should be one less than the total number of
         // chunks as first chunk link is already fetched
-        final String statementId = ((DatabricksResultSet) rs).statementId();
+        final String statementId = ((DatabricksResultSet) rs).getStatementId();
         final String resultChunkPathRegex = String.format(RESULT_CHUNK_PATH, statementId, ".*");
         getDatabricksApiExtension()
             .verify(

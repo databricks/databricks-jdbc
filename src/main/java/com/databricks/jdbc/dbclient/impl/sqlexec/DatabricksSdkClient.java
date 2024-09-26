@@ -5,7 +5,7 @@ import static com.databricks.jdbc.dbclient.impl.sqlexec.PathConstants.*;
 
 import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.api.IDatabricksSession;
-import com.databricks.jdbc.api.IDatabricksStatement;
+import com.databricks.jdbc.api.callback.IDatabricksStatementHandle;
 import com.databricks.jdbc.api.impl.*;
 import com.databricks.jdbc.common.*;
 import com.databricks.jdbc.common.IDatabricksComputeResource;
@@ -127,7 +127,7 @@ public class DatabricksSdkClient implements IDatabricksClient {
       Map<Integer, ImmutableSqlParameter> parameters,
       StatementType statementType,
       IDatabricksSession session,
-      IDatabricksStatement parentStatement)
+      IDatabricksStatementHandle parentStatement)
       throws SQLException {
     LOGGER.debug(
         String.format(
@@ -256,7 +256,7 @@ public class DatabricksSdkClient implements IDatabricksClient {
       String warehouseId,
       IDatabricksSession session,
       Map<Integer, ImmutableSqlParameter> parameters,
-      IDatabricksStatement parentStatement)
+      IDatabricksStatementHandle parentStatement)
       throws SQLException {
     Format format = useCloudFetchForResult(statementType) ? Format.ARROW_STREAM : Format.JSON_ARRAY;
     Disposition disposition =

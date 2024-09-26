@@ -4,9 +4,9 @@ import static com.databricks.jdbc.common.DatabricksJdbcConstants.VOLUME_OPERATIO
 import static com.databricks.jdbc.common.DatabricksJdbcConstants.VOLUME_OPERATION_STATUS_SUCCEEDED;
 import static com.databricks.jdbc.common.util.StringUtil.escapeStringLiteral;
 
-import com.databricks.jdbc.api.IDatabricksResultSet;
-import com.databricks.jdbc.api.IDatabricksStatement;
 import com.databricks.jdbc.api.IDatabricksUCVolumeClient;
+import com.databricks.jdbc.api.callback.IDatabricksResultSetHandle;
+import com.databricks.jdbc.api.callback.IDatabricksStatementHandle;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import java.io.InputStream;
@@ -325,13 +325,14 @@ public class DatabricksUCVolumeClient implements IDatabricksUCVolumeClient {
     String getObjectQuery = createGetObjectQueryForInputStream(catalog, schema, volume, objectPath);
 
     try (Statement statement = connection.createStatement()) {
-      IDatabricksStatement databricksStatement = (IDatabricksStatement) statement;
+      IDatabricksStatementHandle databricksStatement =
+          statement.unwrap(IDatabricksStatementHandle.class);
       databricksStatement.allowInputStreamForVolumeOperation(true);
 
       try (ResultSet resultSet = statement.executeQuery(getObjectQuery)) {
         LOGGER.info("GET query executed successfully");
         if (resultSet.next()) {
-          return ((IDatabricksResultSet) resultSet).getVolumeOperationInputStream();
+          return resultSet.unwrap(IDatabricksResultSetHandle.class).getVolumeOperationInputStream();
         } else {
           return null;
         }
@@ -401,7 +402,8 @@ public class DatabricksUCVolumeClient implements IDatabricksUCVolumeClient {
     boolean volumeOperationStatus = false;
 
     try (Statement statement = connection.createStatement()) {
-      IDatabricksStatement databricksStatement = (IDatabricksStatement) statement;
+      IDatabricksStatementHandle databricksStatement =
+          statement.unwrap(IDatabricksStatementHandle.class);
       databricksStatement.allowInputStreamForVolumeOperation(true);
       databricksStatement.setInputStreamForUCVolume(
           new InputStreamEntity(inputStream, contentLength));
