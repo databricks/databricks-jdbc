@@ -315,7 +315,7 @@ public class DatabricksMetadataSdkClientTest {
             sqlStatement,
             mockedComputeResource,
             new HashMap<Integer, ImmutableSqlParameter>(),
-            StatementType.QUERY,
+            StatementType.METADATA,
             session,
             null))
         .thenReturn(mockedResultSet);
@@ -442,7 +442,7 @@ public class DatabricksMetadataSdkClientTest {
             sql,
             WAREHOUSE_COMPUTE,
             new HashMap<Integer, ImmutableSqlParameter>(),
-            StatementType.QUERY,
+            StatementType.METADATA,
             session,
             null))
         .thenReturn(mockedResultSet);
