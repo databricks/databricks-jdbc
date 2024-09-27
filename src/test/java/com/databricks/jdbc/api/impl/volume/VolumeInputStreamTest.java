@@ -24,8 +24,7 @@ public class VolumeInputStreamTest {
   @Test
   void testInputStream() throws Exception {
     when(httpEntity.getContent()).thenReturn(inputStream);
-    VolumeInputStream volumeInputStream =
-        new VolumeInputStream(httpEntity, resultHandler, statement);
+    VolumeInputStream volumeInputStream = new VolumeInputStream(httpEntity);
 
     when(inputStream.available()).thenReturn(1);
     assertEquals(1, volumeInputStream.available());

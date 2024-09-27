@@ -1657,8 +1657,7 @@ public class DatabricksResultSet implements ResultSet, IDatabricksResultSet {
   public void setVolumeOperationEntityStream(HttpEntity httpEntity)
       throws SQLException, IOException {
     checkIfClosed();
-    this.volumeInputStream =
-        new VolumeInputStream(httpEntity, executionResult, this.parentStatement);
+    this.volumeInputStream = new VolumeInputStream(httpEntity);
     this.volumeStreamContentLength = httpEntity.getContentLength();
   }
 
