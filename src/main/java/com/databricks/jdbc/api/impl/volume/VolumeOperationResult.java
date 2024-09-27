@@ -205,6 +205,6 @@ public class VolumeOperationResult implements IExecutionResult {
 
   @Override
   public void close() {
-    // TODO: handle close, shall we abort the operation?
+    resultHandler.close();
   }
 }
