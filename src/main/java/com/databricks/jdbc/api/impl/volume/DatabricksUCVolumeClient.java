@@ -59,8 +59,9 @@ public class DatabricksUCVolumeClient implements IDatabricksUCVolumeClient {
 
   private static String createListQuery(
       String catalog, String schema, String volume, String folder) {
-    return String.format(
-        "LIST '%s'", getVolumePath(catalog, schema, volume) + escapeStringLiteral(folder));
+    return (folder.isEmpty())
+        ? createListQuery(catalog, schema, volume)
+        : createListQuery(catalog, schema, volume + "/" + folder);
   }
 
   private static String createShowVolumesQuery(String catalog, String schema) {
