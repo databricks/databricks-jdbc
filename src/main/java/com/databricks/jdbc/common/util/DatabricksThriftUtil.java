@@ -194,9 +194,7 @@ public class DatabricksThriftUtil {
     if (column.isSetI64Val())
       return getColumnValuesWithNulls(
           column.getI64Val().getValues(), column.getI64Val().getNulls());
-    if (column.isSetStringVal())
-      return getColumnValuesWithNulls(
-          column.getStringVal().getValues(), column.getStringVal().getNulls());
+
     return getColumnValuesWithNulls(
         column.getStringVal().getValues(), column.getStringVal().getNulls()); // default to string
   }
@@ -266,16 +264,16 @@ public class DatabricksThriftUtil {
   public static long getRowCount(TRowSet resultData) {
     if (resultData == null) {
       return 0;
-    }
-
-    if (resultData.isSetColumns()) {
+    } else if (resultData.isSetColumns()) {
       List<TColumn> columns = resultData.getColumns();
-      return columns == null || columns.isEmpty()
-          ? 0
-          : getColumnValues(resultData.getColumns().get(0)).size();
+      return columns == null || columns.isEmpty() ? 0 : getColumnValues(columns.get(0)).size();
     } else if (resultData.isSetResultLinks()) {
       return resultData.getResultLinks().stream()
           .mapToLong(link -> link.isSetRowCount() ? link.getRowCount() : 0)
+          .sum();
+    } else if (resultData.isSetArrowBatches()) {
+      return resultData.getArrowBatches().stream()
+          .mapToLong(batch -> batch.isSetRowCount() ? batch.getRowCount() : 0)
           .sum();
     }
 

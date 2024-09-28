@@ -28,10 +28,11 @@ import java.util.stream.Collectors;
 /** Implementation for Databricks specific connection. */
 public class DatabricksConnection implements IDatabricksConnection, Connection {
   private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(DatabricksConnection.class);
-  private IDatabricksSession session;
+  private final IDatabricksSession session;
   private final Set<IDatabricksStatement> statementSet = ConcurrentHashMap.newKeySet();
   private SQLWarning warnings = null;
   private volatile IDatabricksUCVolumeClient ucVolumeClient = null;
+  private final IDatabricksConnectionContext connectionContext;
 
   /**
    * Creates an instance of Databricks connection for given connection context.
@@ -40,6 +41,7 @@ public class DatabricksConnection implements IDatabricksConnection, Connection {
    */
   public DatabricksConnection(IDatabricksConnectionContext connectionContext)
       throws DatabricksSQLException {
+    this.connectionContext = connectionContext;
     this.session = new DatabricksSession(connectionContext);
   }
 
@@ -47,6 +49,7 @@ public class DatabricksConnection implements IDatabricksConnection, Connection {
   public DatabricksConnection(
       IDatabricksConnectionContext connectionContext, IDatabricksClient databricksClient)
       throws DatabricksSQLException {
+    this.connectionContext = connectionContext;
     this.session = new DatabricksSession(connectionContext, databricksClient);
     UserAgentManager.setUserAgent(connectionContext);
   }
@@ -516,6 +519,11 @@ public class DatabricksConnection implements IDatabricksConnection, Connection {
       }
     }
     return ucVolumeClient;
+  }
+
+  @Override
+  public IDatabricksConnectionContext getConnectionContext() {
+    return connectionContext;
   }
 
   /**

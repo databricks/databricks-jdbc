@@ -4,10 +4,14 @@ import static com.databricks.jdbc.common.util.DatabricksTypeUtil.*;
 import static com.databricks.jdbc.common.util.SQLInterpolator.interpolateSQL;
 
 import com.databricks.jdbc.common.AllPurposeCluster;
+import com.databricks.jdbc.common.ErrorCodes;
+import com.databricks.jdbc.common.ErrorTypes;
 import com.databricks.jdbc.common.StatementType;
 import com.databricks.jdbc.common.util.DatabricksTypeUtil;
+import com.databricks.jdbc.common.util.MetricsUtil;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.exception.DatabricksSQLFeatureNotImplementedException;
+import com.databricks.jdbc.exception.DatabricksSQLFeatureNotSupportedException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import java.io.ByteArrayOutputStream;
@@ -37,9 +41,8 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
     super(connection);
     this.sql = sql;
     this.interpolateParameters =
-        connection.getSession().getConnectionContext().supportManyParameters()
-            || connection.getSession().getConnectionContext().getComputeResource()
-                instanceof AllPurposeCluster;
+        connection.getConnectionContext().supportManyParameters()
+            || connection.getConnectionContext().getComputeResource() instanceof AllPurposeCluster;
     this.databricksParameterMetaData = new DatabricksParameterMetaData();
     this.databricksBatchParameterMetaData = new ArrayList<>();
   }
@@ -67,7 +70,7 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
   }
 
   private void checkIfBatchOperation() throws DatabricksSQLException {
-    if (!this.databricksBatchParameterMetaData.isEmpty()) {
+    if (!databricksBatchParameterMetaData.isEmpty()) {
       String errorMessage =
           "Batch must either be executed with executeBatch() or cleared with clearBatch()";
       LOGGER.error(errorMessage);
@@ -253,7 +256,7 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
   public void clearParameters() throws SQLException {
     LOGGER.debug("public void clearParameters()");
     checkIfClosed();
-    this.databricksParameterMetaData.getParameterBindings().clear();
+    databricksParameterMetaData.getParameterBindings().clear();
   }
 
   @Override
@@ -285,7 +288,7 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
   }
 
   private void setObject(int parameterIndex, Object x, String databricksType) {
-    this.databricksParameterMetaData.put(
+    databricksParameterMetaData.put(
         parameterIndex,
         ImmutableSqlParameter.builder()
             .type(DatabricksTypeUtil.getColumnInfoType(databricksType))
@@ -306,16 +309,16 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
   @Override
   public void addBatch() {
     LOGGER.debug("public void addBatch()");
-    this.databricksBatchParameterMetaData.add(databricksParameterMetaData);
-    this.databricksParameterMetaData = new DatabricksParameterMetaData();
+    databricksBatchParameterMetaData.add(databricksParameterMetaData);
+    databricksParameterMetaData = new DatabricksParameterMetaData();
   }
 
   @Override
   public void clearBatch() throws DatabricksSQLException {
     LOGGER.debug("public void clearBatch()");
     checkIfClosed();
-    this.databricksParameterMetaData = new DatabricksParameterMetaData();
-    this.databricksBatchParameterMetaData = new ArrayList<>();
+    databricksParameterMetaData = new DatabricksParameterMetaData();
+    databricksBatchParameterMetaData = new ArrayList<>();
   }
 
   @Override
@@ -422,7 +425,7 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
   @Override
   public ParameterMetaData getParameterMetaData() throws SQLException {
     LOGGER.debug("public ParameterMetaData getParameterMetaData()");
-    return this.databricksParameterMetaData;
+    return databricksParameterMetaData;
   }
 
   @Override
@@ -671,16 +674,30 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
     throw new DatabricksSQLException("Method not supported in PreparedStatement");
   }
 
+  /** {@inheritDoc} */
+  @Override
+  public void addBatch(String sql) throws SQLException {
+    LOGGER.debug(String.format("public void addBatch(String sql = {%s})", sql));
+    checkIfClosed();
+    MetricsUtil.exportError(
+        ((DatabricksConnection) getConnection()).getSession(),
+        ErrorTypes.FEATURE_NOT_SUPPORTED,
+        getStatementId(),
+        ErrorCodes.BATCH_OPERATION_UNSUPPORTED);
+    throw new DatabricksSQLFeatureNotSupportedException(
+        "Method not supported: addBatch(String sql)");
+  }
+
   private DatabricksResultSet interpolateIfRequiredAndExecute(StatementType statementType)
       throws SQLException {
     String interpolatedSql =
-        this.interpolateParameters
-            ? interpolateSQL(sql, this.databricksParameterMetaData.getParameterBindings())
+        interpolateParameters
+            ? interpolateSQL(sql, databricksParameterMetaData.getParameterBindings())
             : sql;
     Map<Integer, ImmutableSqlParameter> paramMap =
-        this.interpolateParameters
+        interpolateParameters
             ? new HashMap<>()
-            : this.databricksParameterMetaData.getParameterBindings();
+            : databricksParameterMetaData.getParameterBindings();
     return executeInternal(interpolatedSql, paramMap, statementType);
   }
 }

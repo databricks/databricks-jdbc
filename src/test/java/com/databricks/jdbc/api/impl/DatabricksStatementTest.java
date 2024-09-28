@@ -38,7 +38,6 @@ public class DatabricksStatementTest {
   private static final IDatabricksComputeResource WAREHOUSE_COMPUTE = new Warehouse(WAREHOUSE_ID);
   private static final String JDBC_URL =
       "jdbc:databricks://adb-565757575.18.azuredatabricks.net:4423/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/erg6767gg;";
-
   @Mock DatabricksSdkClient client;
   @Mock DatabricksResultSet resultSet;
 
@@ -52,7 +51,7 @@ public class DatabricksStatementTest {
     when(client.executeStatement(
             eq(STATEMENT),
             eq(new Warehouse(WAREHOUSE_ID)),
-            eq(new HashMap<Integer, ImmutableSqlParameter>()),
+            eq(new HashMap<>()),
             eq(StatementType.QUERY),
             any(IDatabricksSession.class),
             eq(statement)))
@@ -76,7 +75,7 @@ public class DatabricksStatementTest {
     when(client.executeStatement(
             eq(STATEMENT),
             eq(new Warehouse(WAREHOUSE_ID)),
-            eq(new HashMap<Integer, ImmutableSqlParameter>()),
+            eq(new HashMap<>()),
             eq(StatementType.SQL),
             any(IDatabricksSession.class),
             eq(statement)))
@@ -89,7 +88,7 @@ public class DatabricksStatementTest {
     statement.cancel();
 
     statement.close();
-    assertThrows(DatabricksSQLException.class, () -> statement.cancel());
+    assertThrows(DatabricksSQLException.class, statement::cancel);
   }
 
   @Test
@@ -102,7 +101,7 @@ public class DatabricksStatementTest {
     when(client.executeStatement(
             eq(STATEMENT),
             eq(new Warehouse(WAREHOUSE_ID)),
-            eq(new HashMap<Integer, ImmutableSqlParameter>()),
+            eq(new HashMap<>()),
             eq(StatementType.UPDATE),
             any(IDatabricksSession.class),
             eq(statement)))
@@ -155,7 +154,7 @@ public class DatabricksStatementTest {
     when(client.executeStatement(
             eq(STATEMENT),
             eq(new Warehouse(WAREHOUSE_ID)),
-            eq(new HashMap<Integer, ImmutableSqlParameter>()),
+            eq(new HashMap<>()),
             eq(StatementType.SQL),
             any(IDatabricksSession.class),
             eq(statement)))
@@ -180,11 +179,9 @@ public class DatabricksStatementTest {
         DatabricksConnectionContext.parse(JDBC_URL, new Properties());
     DatabricksConnection connection = new DatabricksConnection(connectionContext, client);
     DatabricksStatement statement = new DatabricksStatement(connection);
-    assertThrows(DatabricksSQLFeatureNotSupportedException.class, () -> statement.addBatch("sql"));
-    assertThrows(DatabricksSQLFeatureNotSupportedException.class, statement::clearBatch);
-    assertThrows(DatabricksSQLFeatureNotSupportedException.class, statement::executeBatch);
     assertThrows(
-        DatabricksSQLFeatureNotSupportedException.class, () -> statement.executeUpdate("sql", 23));
+        DatabricksSQLFeatureNotSupportedException.class,
+        () -> statement.executeUpdate("sql", Statement.RETURN_GENERATED_KEYS));
     assertThrows(
         DatabricksSQLFeatureNotSupportedException.class,
         () -> statement.executeUpdate("sql", new int[0]));
@@ -192,7 +189,8 @@ public class DatabricksStatementTest {
         DatabricksSQLFeatureNotSupportedException.class,
         () -> statement.executeUpdate("sql", new String[0]));
     assertThrows(
-        DatabricksSQLFeatureNotSupportedException.class, () -> statement.execute("sql", 23));
+        DatabricksSQLFeatureNotSupportedException.class,
+        () -> statement.execute("sql", Statement.RETURN_GENERATED_KEYS));
     assertThrows(
         DatabricksSQLFeatureNotSupportedException.class,
         () -> statement.execute("sql", new int[0]));
@@ -207,7 +205,8 @@ public class DatabricksStatementTest {
     assertThrows(DatabricksSQLFeatureNotSupportedException.class, statement::getMaxFieldSize);
     assertThrows(DatabricksSQLFeatureNotSupportedException.class, statement::getMoreResults);
     assertThrows(
-        DatabricksSQLFeatureNotSupportedException.class, () -> statement.getMoreResults(5));
+        DatabricksSQLFeatureNotSupportedException.class,
+        () -> statement.getMoreResults(Statement.CLOSE_CURRENT_RESULT));
     assertThrows(
         DatabricksSQLFeatureNotSupportedException.class, () -> statement.setMaxFieldSize(5));
     assertThrows(
@@ -241,7 +240,10 @@ public class DatabricksStatementTest {
 
   @Test
   public void testExecuteInternalWithZeroTimeout() throws Exception {
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContext.parse(JDBC_URL, new Properties());
     DatabricksConnection mockConnection = mock(DatabricksConnection.class);
+    when(mockConnection.getConnectionContext()).thenReturn(connectionContext);
     DatabricksStatement statement = new DatabricksStatement(mockConnection);
 
     // Set timeout to 0 for infinite wait
@@ -264,7 +266,10 @@ public class DatabricksStatementTest {
 
   @Test
   public void testInputStreamForVolumeOperation() throws Exception {
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContext.parse(JDBC_URL, new Properties());
     DatabricksConnection mockConnection = mock(DatabricksConnection.class);
+    when(mockConnection.getConnectionContext()).thenReturn(connectionContext);
     InputStream mockStream = mock(InputStream.class);
     DatabricksStatement statement = new DatabricksStatement(mockConnection);
 
