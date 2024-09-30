@@ -80,7 +80,7 @@ public class ShortConverterTest {
   }
 
   @Test
-  public void testConvertToChar() throws DatabricksSQLException {
+  public void testConvertToChar() {
     DatabricksSQLException exception =
         assertThrows(
             DatabricksSQLException.class, () -> new ShortConverter().toChar(NON_ZERO_OBJECT));

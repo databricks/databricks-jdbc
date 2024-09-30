@@ -68,7 +68,7 @@ public class ByteArrayConverterTest {
   }
 
   @Test
-  void testUnsupportedConversions() throws DatabricksSQLException {
+  void testUnsupportedConversions() {
     ByteArrayConverter converter = new ByteArrayConverter();
     assertAll(
         "Unsupported Conversions",

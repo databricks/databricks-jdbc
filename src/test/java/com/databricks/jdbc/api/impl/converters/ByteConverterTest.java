@@ -67,7 +67,7 @@ public class ByteConverterTest {
   }
 
   @Test
-  public void testConvertToChar() throws DatabricksSQLException {
+  public void testConvertToChar() {
     DatabricksSQLException exception =
         assertThrows(
             DatabricksSQLException.class, () -> new ByteConverter().toChar(NON_ZERO_OBJECT));

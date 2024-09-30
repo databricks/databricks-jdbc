@@ -100,7 +100,7 @@ public class FloatConverterTest {
   }
 
   @Test
-  public void testConvertToChar() throws DatabricksSQLException {
+  public void testConvertToChar() {
     DatabricksSQLException exception =
         assertThrows(
             DatabricksSQLException.class, () -> new FloatConverter().toChar(NON_ZERO_OBJECT));

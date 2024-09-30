@@ -93,7 +93,7 @@ public class LongConverterTest {
   }
 
   @Test
-  public void testConvertToChar() throws DatabricksSQLException {
+  public void testConvertToChar() {
     DatabricksSQLException exception =
         assertThrows(
             DatabricksSQLException.class, () -> new LongConverter().toChar(NON_ZERO_OBJECT));

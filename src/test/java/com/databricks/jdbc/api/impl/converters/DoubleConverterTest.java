@@ -108,7 +108,7 @@ public class DoubleConverterTest {
   }
 
   @Test
-  public void testConvertToChar() throws DatabricksSQLException {
+  public void testConvertToChar() {
     DatabricksSQLException exception =
         assertThrows(
             DatabricksSQLException.class, () -> new DoubleConverter().toChar(NON_ZERO_OBJECT));
