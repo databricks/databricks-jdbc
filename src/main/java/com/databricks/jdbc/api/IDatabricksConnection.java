@@ -1,5 +1,6 @@
 package com.databricks.jdbc.api;
 
+import com.databricks.jdbc.exception.DatabricksSQLException;
 import java.sql.Connection;
 
 /** Interface providing Databricks specific Connection APIs. */
@@ -20,4 +21,7 @@ public interface IDatabricksConnection {
 
   /** Returns a UC Volume client instance */
   IDatabricksUCVolumeClient getUCVolumeClient();
+
+  /** Opens the connection and initiates the underlying session */
+  void open() throws DatabricksSQLException;
 }

@@ -150,6 +150,7 @@ public class DatabricksStatementTest {
             .build();
     when(client.createSession(any(), any(), any(), any())).thenReturn(sessionInfo);
     DatabricksConnection connection = new DatabricksConnection(connectionContext, client);
+    connection.open();
     DatabricksStatement statement = new DatabricksStatement(connection);
     when(client.executeStatement(
             eq(STATEMENT),

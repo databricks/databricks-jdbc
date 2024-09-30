@@ -109,9 +109,8 @@ public class DatabricksSdkClient implements IDatabricksClient {
         new DeleteSessionRequest()
             .setSessionId(session.getSessionId())
             .setWarehouseId(((Warehouse) warehouse).getWarehouseId());
-    String path = String.format(DELETE_SESSION_PATH_WITH_ID, request.getSessionId());
-    Map<String, String> headers = new HashMap<>();
-    workspaceClient.apiClient().DELETE(path, request, Void.class, headers);
+    String path = String.format(SESSION_PATH_WITH_ID, request.getSessionId());
+    workspaceClient.apiClient().DELETE(path, request, Void.class, getHeaders());
   }
 
   @Override
@@ -146,13 +145,13 @@ public class DatabricksSdkClient implements IDatabricksClient {
       LOGGER.error(
           String.format(
               "Empty Statement ID for sql %s, statementType %s, compute %s",
-              sql, statementType, computeResource.toString()));
+              sql, statementType, computeResource));
       handleFailedExecution(response, statementId, sql);
     }
     LOGGER.debug(
         String.format(
             "Executing sql %s, statementType %s, compute %s, StatementID %s",
-            sql, statementType, computeResource.toString(), statementId));
+            sql, statementType, computeResource, statementId));
     if (parentStatement != null) {
       parentStatement.setStatementId(statementId);
     }
@@ -160,7 +159,7 @@ public class DatabricksSdkClient implements IDatabricksClient {
     while (responseState == StatementState.PENDING || responseState == StatementState.RUNNING) {
       if (pollCount > 0) { // First poll happens without a delay
         try {
-          Thread.sleep(this.connectionContext.getAsyncExecPollInterval());
+          Thread.sleep(connectionContext.getAsyncExecPollInterval());
         } catch (InterruptedException e) {
           String timeoutErrorMessage =
               String.format(
@@ -263,7 +262,7 @@ public class DatabricksSdkClient implements IDatabricksClient {
         useCloudFetchForResult(statementType) ? Disposition.EXTERNAL_LINKS : Disposition.INLINE;
     long maxRows = (parentStatement == null) ? DEFAULT_ROW_LIMIT : parentStatement.getMaxRows();
 
-    List<StatementParameterListItem> collect =
+    List<StatementParameterListItem> parameterListItems =
         parameters.values().stream().map(this::mapToParameterListItem).collect(Collectors.toList());
     ExecuteStatementRequest request =
         new ExecuteStatementRequest()
@@ -275,7 +274,7 @@ public class DatabricksSdkClient implements IDatabricksClient {
             .setCompressionType(session.getCompressionType())
             .setWaitTimeout(SYNC_TIMEOUT_VALUE)
             .setOnWaitTimeout(ExecuteStatementRequestOnWaitTimeout.CONTINUE)
-            .setParameters(collect);
+            .setParameters(parameterListItems);
     if (maxRows != DEFAULT_ROW_LIMIT) {
       request.setRowLimit(maxRows);
     }

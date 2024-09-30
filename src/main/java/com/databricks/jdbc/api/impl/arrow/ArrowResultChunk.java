@@ -38,7 +38,7 @@ import org.apache.http.client.utils.URIBuilder;
 
 public class ArrowResultChunk {
 
-  public static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(ArrowResultChunk.class);
+  private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(ArrowResultChunk.class);
 
   /**
    * The status of a chunk would proceed in following path:

@@ -23,7 +23,7 @@ import org.apache.http.util.EntityUtils;
 /** Executor for volume operations */
 class VolumeOperationProcessor {
 
-  public static final JdbcLogger LOGGER =
+  private static final JdbcLogger LOGGER =
       JdbcLoggerFactory.getLogger(VolumeOperationProcessor.class);
   private static final String COMMA_SEPARATOR = ",";
   private static final String PARENT_DIRECTORY_REF = "..";

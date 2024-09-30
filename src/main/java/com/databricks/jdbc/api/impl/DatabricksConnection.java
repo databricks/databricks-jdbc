@@ -41,7 +41,6 @@ public class DatabricksConnection implements IDatabricksConnection, Connection {
   public DatabricksConnection(IDatabricksConnectionContext connectionContext)
       throws DatabricksSQLException {
     this.session = new DatabricksSession(connectionContext);
-    this.session.open();
   }
 
   @VisibleForTesting
@@ -49,8 +48,12 @@ public class DatabricksConnection implements IDatabricksConnection, Connection {
       IDatabricksConnectionContext connectionContext, IDatabricksClient databricksClient)
       throws DatabricksSQLException {
     this.session = new DatabricksSession(connectionContext, databricksClient);
-    this.session.open();
     UserAgentManager.setUserAgent(connectionContext);
+  }
+
+  @Override
+  public void open() throws DatabricksSQLException {
+    this.session.open();
   }
 
   @Override
@@ -116,7 +119,7 @@ public class DatabricksConnection implements IDatabricksConnection, Connection {
   }
 
   @Override
-  public void close() throws SQLException {
+  public void close() throws DatabricksSQLException {
     LOGGER.debug("public void close()");
     for (IDatabricksStatement statement : statementSet) {
       statement.close(false);

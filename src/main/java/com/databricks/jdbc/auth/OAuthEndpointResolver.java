@@ -19,7 +19,7 @@ import org.apache.http.client.utils.URIBuilder;
 
 public class OAuthEndpointResolver {
 
-  public static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(OAuthEndpointResolver.class);
+  private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(OAuthEndpointResolver.class);
   private final IDatabricksConnectionContext context;
 
   public OAuthEndpointResolver(IDatabricksConnectionContext context) {

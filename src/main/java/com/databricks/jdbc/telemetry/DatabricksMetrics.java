@@ -165,7 +165,7 @@ public class DatabricksMetrics implements AutoCloseable {
 
   private void setGaugeMetrics(String name, double value) {
     // TODO: Update metric representation to differentiate between users sharing the same
-    //       workspace_id.
+    //       workspace_id
     if (!gaugeMetrics.containsKey(name)) {
       gaugeMetrics.put(name, 0.0);
     }
@@ -193,7 +193,7 @@ public class DatabricksMetrics implements AutoCloseable {
   }
 
   private boolean responseHandling(HttpPost request, String methodType) {
-    // TODO: Use SSL/TLS for secure communication.
+    // TODO: Use SSL/TLS for secure communication
     try (CloseableHttpResponse response = telemetryClient.executeWithoutCertVerification(request)) {
       if (response == null) {
         LOGGER.error("Response is null for " + methodType);
