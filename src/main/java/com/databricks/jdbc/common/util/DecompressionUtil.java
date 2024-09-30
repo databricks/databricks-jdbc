@@ -11,7 +11,7 @@ import net.jpountz.lz4.LZ4FrameInputStream;
 
 public class DecompressionUtil {
 
-  public static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(DecompressionUtil.class);
+  private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(DecompressionUtil.class);
 
   public static InputStream decompressLZ4Frame(InputStream compressedInputStream, String context)
       throws DatabricksSQLException {

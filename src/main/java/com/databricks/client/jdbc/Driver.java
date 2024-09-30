@@ -18,7 +18,8 @@ import java.util.TimeZone;
 
 /** Databricks JDBC driver. */
 public class Driver implements java.sql.Driver {
-  public static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(Driver.class);
+
+  private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(Driver.class);
   private static final Driver INSTANCE;
 
   static {
@@ -48,12 +49,19 @@ public class Driver implements java.sql.Driver {
     setUpLogging(connectionContext);
     UserAgentManager.setUserAgent(connectionContext);
     DeviceInfoLogUtil.logProperties();
+    DatabricksConnection connection = new DatabricksConnection(connectionContext);
+    boolean isConnectionOpen = false;
     try {
-      DatabricksConnection connection = new DatabricksConnection(connectionContext);
-      DeviceInfoLogUtil.exportDeviceProperties(connection.getSession());
+      connection.open();
+      isConnectionOpen = true;
+      // TODO (PECO-1957): Export properties asynchronously
+      // DeviceInfoLogUtil.exportDeviceProperties(connection.getSession());
       resolveMetadataClient(connection, connectionContext);
       return connection;
     } catch (Exception e) {
+      if (!isConnectionOpen) {
+        connection.close();
+      }
       String errorMessage =
           String.format(
               "Communication link failure. Failed to connect to server: %s",

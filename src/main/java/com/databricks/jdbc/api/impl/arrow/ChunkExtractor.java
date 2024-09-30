@@ -24,7 +24,7 @@ import org.apache.arrow.vector.util.SchemaUtility;
 /** Class to manage inline Arrow chunks */
 public class ChunkExtractor {
 
-  public static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(ChunkExtractor.class);
+  private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(ChunkExtractor.class);
   private long totalRows;
   private long currentChunkIndex;
   private ByteArrayInputStream byteStream;
@@ -36,7 +36,6 @@ public class ChunkExtractor {
     this.currentChunkIndex = -1;
     this.totalRows = 0;
     initializeByteStream(arrowBatches, metadata);
-    // Todo : Add compression appropriately
     arrowResultChunk =
         ArrowResultChunk.builder()
             .compressionType(CompressionType.NONE)

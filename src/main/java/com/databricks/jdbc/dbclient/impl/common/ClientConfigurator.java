@@ -40,7 +40,7 @@ import org.apache.http.impl.conn.PoolingHttpClientConnectionManager;
  */
 public class ClientConfigurator {
 
-  public static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(ClientConfigurator.class);
+  private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(ClientConfigurator.class);
   private final IDatabricksConnectionContext connectionContext;
   private final DatabricksConfig databricksConfig;
 
@@ -236,7 +236,6 @@ public class ClientConfigurator {
 
   /** Setup the OAuth authentication settings in the databricks config. */
   public void setupOAuthConfig() throws DatabricksParsingException {
-    // TODO(Madhav): Revisit these to set JDBC values
     switch (this.connectionContext.getAuthFlow()) {
       case TOKEN_PASSTHROUGH:
         if (connectionContext.getOAuthRefreshToken() != null) {

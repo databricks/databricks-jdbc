@@ -8,103 +8,128 @@ import java.sql.Types;
 import java.time.LocalDate;
 import java.util.Calendar;
 import java.util.Date;
+import java.util.HashMap;
+import java.util.Map;
 
 public class ConverterHelper {
 
-  public static Object getConvertedObject(int columnType, Object object)
+  private static final Map<Integer, ObjectConverter> CONVERTER_CACHE = new HashMap<>();
+
+  static {
+    CONVERTER_CACHE.put(Types.TINYINT, new ByteConverter());
+    CONVERTER_CACHE.put(Types.SMALLINT, new ShortConverter());
+    CONVERTER_CACHE.put(Types.INTEGER, new IntConverter());
+    CONVERTER_CACHE.put(Types.BIGINT, new LongConverter());
+    CONVERTER_CACHE.put(Types.FLOAT, new FloatConverter());
+    CONVERTER_CACHE.put(Types.DOUBLE, new DoubleConverter());
+    CONVERTER_CACHE.put(Types.DECIMAL, new BigDecimalConverter());
+    CONVERTER_CACHE.put(Types.BOOLEAN, new BooleanConverter());
+    CONVERTER_CACHE.put(Types.DATE, new DateConverter());
+    CONVERTER_CACHE.put(Types.TIMESTAMP, new TimestampConverter());
+    CONVERTER_CACHE.put(Types.BINARY, new ByteArrayConverter());
+    CONVERTER_CACHE.put(Types.BIT, new BitConverter());
+    CONVERTER_CACHE.put(Types.VARCHAR, new StringConverter());
+    CONVERTER_CACHE.put(Types.CHAR, new StringConverter());
+  }
+
+  /**
+   * Converts a SQL object to the appropriate Java object based on the SQL type.
+   *
+   * @param columnSqlType The SQL type of the column, as defined in java.sql.Types
+   * @param object The object to be converted
+   * @return The converted Java object
+   * @throws DatabricksSQLException If there's an error during the conversion process
+   */
+  public static Object convertSqlTypeToJavaType(int columnSqlType, Object object)
       throws DatabricksSQLException {
-    switch (columnType) {
+    switch (columnSqlType) {
       case Types.TINYINT:
-        return new ByteConverter(object).convertToByte();
+        // specific java type, sql type, object
+        return convertSqlTypeToSpecificJavaType(Byte.class, Types.TINYINT, object);
       case Types.SMALLINT:
-        return new ShortConverter(object).convertToShort();
+        return convertSqlTypeToSpecificJavaType(Short.class, Types.SMALLINT, object);
       case Types.INTEGER:
-        return new IntConverter(object).convertToInt();
+        return convertSqlTypeToSpecificJavaType(Integer.class, Types.INTEGER, object);
       case Types.BIGINT:
-        return new LongConverter(object).convertToLong();
+        return convertSqlTypeToSpecificJavaType(Long.class, Types.BIGINT, object);
       case Types.FLOAT:
-        return new FloatConverter(object).convertToFloat();
+        return convertSqlTypeToSpecificJavaType(Float.class, Types.FLOAT, object);
       case Types.DOUBLE:
-        return new DoubleConverter(object).convertToDouble();
+        return convertSqlTypeToSpecificJavaType(Double.class, Types.DOUBLE, object);
       case Types.DECIMAL:
-        return new BigDecimalConverter(object).convertToBigDecimal();
+        return convertSqlTypeToSpecificJavaType(BigDecimal.class, Types.DECIMAL, object);
       case Types.BOOLEAN:
-        return new BooleanConverter(object).convertToBoolean();
+        return convertSqlTypeToSpecificJavaType(Boolean.class, Types.BOOLEAN, object);
       case Types.DATE:
-        return new DateConverter(object).convertToDate();
+        return convertSqlTypeToSpecificJavaType(Date.class, Types.DATE, object);
       case Types.TIMESTAMP:
-        return new TimestampConverter(object).convertToTimestamp();
+        return convertSqlTypeToSpecificJavaType(Timestamp.class, Types.TIMESTAMP, object);
       case Types.BINARY:
-        return new ByteArrayConverter(object).convertToByteArray();
+        return convertSqlTypeToSpecificJavaType(byte[].class, Types.BINARY, object);
       case Types.BIT:
-        return new BitConverter(object).convertToBit();
+        return convertSqlTypeToSpecificJavaType(Boolean.class, Types.BIT, object);
       case Types.VARCHAR:
       case Types.CHAR:
       default:
-        return new StringConverter(object).convertToString();
+        return convertSqlTypeToSpecificJavaType(String.class, Types.VARCHAR, object);
     }
   }
 
-  public static Object getConvertedObject(Class<?> javaType, AbstractObjectConverter converter)
-      throws DatabricksSQLException {
+  /**
+   * Converts an object to a specific Java type based on the provided SQL type and desired Java
+   * class.
+   *
+   * @param javaType The Class object representing the desired Java type
+   * @param columnSqlType The SQL type of the column, as defined in java.sql.Types
+   * @param obj The object to be converted
+   * @return The converted object of the specified Java type
+   * @throws DatabricksSQLException If there's an error during the conversion process
+   */
+  public static Object convertSqlTypeToSpecificJavaType(
+      Class<?> javaType, int columnSqlType, Object obj) throws DatabricksSQLException {
+    // Get the appropriate converter for the SQL type
+    ObjectConverter converter = getConverterForSqlType(columnSqlType);
     if (javaType == String.class) {
-      return converter.convertToString();
+      return converter.toString(obj);
     } else if (javaType == BigDecimal.class) {
-      return converter.convertToBigDecimal();
+      return converter.toBigDecimal(obj);
     } else if (javaType == Boolean.class || javaType == boolean.class) {
-      return converter.convertToBoolean();
+      return converter.toBoolean(obj);
     } else if (javaType == Integer.class || javaType == int.class) {
-      return converter.convertToInt();
+      return converter.toInt(obj);
     } else if (javaType == Long.class || javaType == long.class) {
-      return converter.convertToLong();
+      return converter.toLong(obj);
     } else if (javaType == Float.class || javaType == float.class) {
-      return converter.convertToFloat();
+      return converter.toFloat(obj);
     } else if (javaType == Double.class || javaType == double.class) {
-      return converter.convertToDouble();
+      return converter.toDouble(obj);
     } else if (javaType == LocalDate.class) {
-      return converter.convertToLocalDate();
+      return converter.toLocalDate(obj);
     } else if (javaType == BigInteger.class) {
-      return converter.convertToBigInteger();
+      return converter.toBigInteger(obj);
     } else if (javaType == Date.class || javaType == java.sql.Date.class) {
-      return converter.convertToDate();
+      return converter.toDate(obj);
     } else if (javaType == Timestamp.class || javaType == Calendar.class) {
-      return converter.convertToTimestamp();
+      return converter.toTimestamp(obj);
     } else if (javaType == byte.class || javaType == Byte.class) {
-      return converter.convertToShort();
+      return converter.toByte(obj);
+    } else if (javaType == short.class || javaType == Short.class) {
+      return converter.toShort(obj);
+    } else if (javaType == byte[].class) {
+      return converter.toByteArray(obj);
+    } else if (javaType == char.class || javaType == Character.class) {
+      return converter.toChar(obj);
     }
-    // TODO : add more types if required.
-    return converter.convertToString(); // By default, convert to string
+    return converter.toString(obj); // By default, convert to string
   }
 
-  public static AbstractObjectConverter getObjectConverter(Object object, int columnType)
-      throws DatabricksSQLException {
-    switch (columnType) {
-      case Types.TINYINT:
-        return new ByteConverter(object);
-      case Types.SMALLINT:
-        return new ShortConverter(object);
-      case Types.INTEGER:
-        return new IntConverter(object);
-      case Types.BIGINT:
-        return new LongConverter(object);
-      case Types.FLOAT:
-        return new FloatConverter(object);
-      case Types.DOUBLE:
-        return new DoubleConverter(object);
-      case Types.DECIMAL:
-        return new BigDecimalConverter(object);
-      case Types.BOOLEAN:
-        return new BooleanConverter(object);
-      case Types.DATE:
-        return new DateConverter(object);
-      case Types.TIMESTAMP:
-        return new TimestampConverter(object);
-      case Types.BINARY:
-        return new ByteArrayConverter(object);
-      case Types.VARCHAR:
-      case Types.CHAR:
-      default:
-        return new StringConverter(object);
-    }
+  /**
+   * Retrieves the appropriate ObjectConverter for a given SQL type.
+   *
+   * @param columnSqlType The SQL type of the column, as defined in java.sql.Types
+   * @return An ObjectConverter suitable for the specified SQL type
+   */
+  public static ObjectConverter getConverterForSqlType(int columnSqlType) {
+    return CONVERTER_CACHE.getOrDefault(columnSqlType, CONVERTER_CACHE.get(Types.VARCHAR));
   }
 }

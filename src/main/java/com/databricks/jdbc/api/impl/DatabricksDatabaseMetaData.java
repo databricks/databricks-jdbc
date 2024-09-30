@@ -2,7 +2,6 @@ package com.databricks.jdbc.api.impl;
 
 import com.databricks.jdbc.api.IDatabricksConnection;
 import com.databricks.jdbc.api.IDatabricksSession;
-import com.databricks.jdbc.api.impl.fake.EmptyResultSet;
 import com.databricks.jdbc.common.DatabricksClientType;
 import com.databricks.jdbc.common.DatabricksJdbcConstants;
 import com.databricks.jdbc.common.StatementType;
@@ -18,7 +17,7 @@ import java.util.*;
 
 public class DatabricksDatabaseMetaData implements DatabaseMetaData {
 
-  public static final JdbcLogger LOGGER =
+  private static final JdbcLogger LOGGER =
       JdbcLoggerFactory.getLogger(DatabricksDatabaseMetaData.class);
   public static final String DRIVER_NAME = "DatabricksJDBC";
   public static final String PRODUCT_NAME = "SparkSQL";
@@ -1033,7 +1032,7 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
         String.format(
             "public ResultSet getImportedKeys(String catalog = {%s}, String schema = {%s}, String table = {%s})",
             catalog, schema, table));
-    // TODO(PECO-1696): Implement this
+    // TODO (PECO-1696): Implement getImportedKeys
     return new EmptyResultSet();
   }
 
@@ -1044,7 +1043,7 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
         String.format(
             "public ResultSet getExportedKeys(String catalog = {%s}, String schema = {%s}, String table = {%s})",
             catalog, schema, table));
-    // TODO(PECO-1696): Implement this
+    // TODO (PECO-1696): Implement getExportedKeys
     return new EmptyResultSet();
   }
 
@@ -1176,8 +1175,7 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
     LOGGER.debug(
         String.format(
             "public ResultSet getUDTs(String catalog = {%s}, String schemaPattern = {%s}, String typeNamePattern = {%s}, int[] types = {%s})",
-            catalog, schemaPattern, typeNamePattern, types));
-    // TODO: implement, returning only empty set for now
+            catalog, schemaPattern, typeNamePattern, Arrays.toString(types)));
     throwExceptionIfConnectionIsClosed();
     return new DatabricksResultSet(
         new StatementStatus().setState(StatementState.SUCCEEDED),
