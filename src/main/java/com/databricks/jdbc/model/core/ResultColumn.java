@@ -34,6 +34,10 @@ public class ResultColumn {
   public String getColumnTypeString() {
     if (columnType.equals(Types.VARCHAR)) {
       return "VARCHAR";
+    } else if (columnType.equals(Types.SMALLINT)) {
+      return "SMALLINT";
+    } else if (columnType.equals(Types.BIT)) {
+      return "BIT";
     }
     return "INTEGER"; // Currently we have only Varchar and Int metadata fields.
   }

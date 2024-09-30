@@ -1,6 +1,5 @@
 package com.databricks.jdbc.integration.fakeservice.tests;
 
-import static com.databricks.jdbc.common.DatabricksJdbcConstants.*;
 import static com.databricks.jdbc.integration.IntegrationTestUtil.*;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
@@ -33,7 +32,7 @@ public class ConnectionIntegrationTests extends AbstractFakeServiceIntegrationTe
             DatabricksSQLException.class,
             () -> DriverManager.getConnection(url, createConnectionProperties("bad_token_1")));
 
-    assert e.getMessage().contains("Communication link failure. Failed to connect to server.");
+    assert e.getMessage().contains("Communication link failure. Failed to connect to server");
   }
 
   @Test
@@ -52,7 +51,7 @@ public class ConnectionIntegrationTests extends AbstractFakeServiceIntegrationTe
             DatabricksSQLException.class,
             () -> DriverManager.getConnection(url, createConnectionProperties("bad_token_2")));
 
-    assert e.getMessage().contains("Communication link failure. Failed to connect to server.");
+    assert e.getMessage().contains("Communication link failure. Failed to connect to server");
   }
 
   private Properties createConnectionProperties(String password) {

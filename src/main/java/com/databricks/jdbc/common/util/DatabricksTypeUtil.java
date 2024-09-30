@@ -3,7 +3,6 @@ package com.databricks.jdbc.common.util;
 import static java.sql.ParameterMetaData.parameterNullable;
 
 import com.databricks.jdbc.common.Nullable;
-import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.exception.DatabricksSQLFeatureNotSupportedException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
@@ -13,6 +12,7 @@ import com.databricks.jdbc.model.client.thrift.generated.TTypeEntry;
 import com.databricks.jdbc.model.client.thrift.generated.TTypeId;
 import com.databricks.sdk.service.sql.ColumnInfoTypeName;
 import java.sql.Date;
+import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.sql.Types;
 import java.util.ArrayList;
@@ -29,7 +29,7 @@ import org.apache.arrow.vector.types.pojo.ArrowType;
  */
 public class DatabricksTypeUtil {
 
-  public static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(DatabricksTypeUtil.class);
+  private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(DatabricksTypeUtil.class);
   public static final String BIGINT = "BIGINT";
   public static final String BINARY = "BINARY";
   public static final String BOOLEAN = "BOOLEAN";
@@ -141,7 +141,7 @@ public class DatabricksTypeUtil {
       case ARRAY:
         return Types.ARRAY;
       case NULL:
-        return Types.NULL;
+        return Types.VARCHAR;
       case USER_DEFINED_TYPE:
         return Types.OTHER;
       default:
@@ -236,6 +236,8 @@ public class DatabricksTypeUtil {
       case Types.TINYINT:
       case Types.SMALLINT:
         return 5;
+      case Types.INTEGER:
+        return 10;
       case Types.DATE:
       case Types.DECIMAL:
         return 10;
@@ -380,7 +382,7 @@ public class DatabricksTypeUtil {
         .orElse(TTypeId.STRING_TYPE);
   }
 
-  public static ArrowType mapThriftToArrowType(TTypeId typeId) throws DatabricksSQLException {
+  public static ArrowType mapThriftToArrowType(TTypeId typeId) throws SQLException {
     switch (typeId) {
       case BOOLEAN_TYPE:
         return ArrowType.Bool.INSTANCE;

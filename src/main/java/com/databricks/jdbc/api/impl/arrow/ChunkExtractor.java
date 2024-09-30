@@ -12,6 +12,7 @@ import com.google.common.annotations.VisibleForTesting;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 import org.apache.arrow.vector.types.pojo.ArrowType;
@@ -23,7 +24,7 @@ import org.apache.arrow.vector.util.SchemaUtility;
 /** Class to manage inline Arrow chunks */
 public class ChunkExtractor {
 
-  public static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(ChunkExtractor.class);
+  private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(ChunkExtractor.class);
   private long totalRows;
   private long currentChunkIndex;
   private ByteArrayInputStream byteStream;
@@ -102,7 +103,7 @@ public class ChunkExtractor {
               columnDesc -> {
                 try {
                   fields.add(getArrowField(columnDesc));
-                } catch (DatabricksSQLException e) {
+                } catch (SQLException e) {
                   throw new RuntimeException(e);
                 }
               });
@@ -112,7 +113,7 @@ public class ChunkExtractor {
     return new Schema(fields);
   }
 
-  private static Field getArrowField(TColumnDesc columnDesc) throws DatabricksSQLException {
+  private static Field getArrowField(TColumnDesc columnDesc) throws SQLException {
     TTypeId thriftType = getThriftTypeFromTypeDesc(columnDesc.getTypeDesc());
     ArrowType arrowType = null;
     arrowType = mapThriftToArrowType(thriftType);

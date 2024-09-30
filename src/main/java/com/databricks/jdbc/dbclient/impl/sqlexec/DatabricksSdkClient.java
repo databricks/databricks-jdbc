@@ -9,6 +9,7 @@ import com.databricks.jdbc.api.IDatabricksStatement;
 import com.databricks.jdbc.api.impl.*;
 import com.databricks.jdbc.common.*;
 import com.databricks.jdbc.common.IDatabricksComputeResource;
+import com.databricks.jdbc.common.util.MetricsUtil;
 import com.databricks.jdbc.dbclient.IDatabricksClient;
 import com.databricks.jdbc.dbclient.impl.common.ClientConfigurator;
 import com.databricks.jdbc.exception.DatabricksParsingException;
@@ -22,22 +23,20 @@ import com.databricks.jdbc.model.client.sqlexec.ExecuteStatementResponse;
 import com.databricks.jdbc.model.client.sqlexec.GetStatementResponse;
 import com.databricks.jdbc.model.core.ExternalLink;
 import com.databricks.jdbc.model.core.ResultData;
+import com.databricks.jdbc.telemetry.DatabricksMetrics;
 import com.databricks.sdk.WorkspaceClient;
 import com.databricks.sdk.core.ApiClient;
 import com.databricks.sdk.service.sql.*;
 import com.google.common.annotations.VisibleForTesting;
 import java.sql.SQLException;
 import java.time.Instant;
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.stream.Collectors;
 
 /** Implementation of IDatabricksClient interface using Databricks Java SDK. */
 public class DatabricksSdkClient implements IDatabricksClient {
 
-  public static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(DatabricksSdkClient.class);
+  private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(DatabricksSdkClient.class);
   private static final String SYNC_TIMEOUT_VALUE = "10s";
   private final IDatabricksConnectionContext connectionContext;
   private final ClientConfigurator clientConfigurator;
@@ -116,9 +115,9 @@ public class DatabricksSdkClient implements IDatabricksClient {
         new DeleteSessionRequest()
             .setSessionId(session.getSessionId())
             .setWarehouseId(((Warehouse) warehouse).getWarehouseId());
-    String path = String.format(DELETE_SESSION_PATH_WITH_ID, request.getSessionId());
+    String path = String.format(SESSION_PATH_WITH_ID, request.getSessionId());
     Map<String, String> headers = new HashMap<>();
-    workspaceClient.apiClient().DELETE(path, request, Void.class, headers);
+    workspaceClient.apiClient().DELETE(path, request, Void.class, getHeaders());
   }
 
   @Override
@@ -167,7 +166,7 @@ public class DatabricksSdkClient implements IDatabricksClient {
     while (responseState == StatementState.PENDING || responseState == StatementState.RUNNING) {
       if (pollCount > 0) { // First poll happens without a delay
         try {
-          Thread.sleep(this.connectionContext.getAsyncExecPollInterval());
+          Thread.sleep(connectionContext.getAsyncExecPollInterval());
         } catch (InterruptedException e) {
           String timeoutErrorMessage =
               String.format(
@@ -208,7 +207,7 @@ public class DatabricksSdkClient implements IDatabricksClient {
   }
 
   private boolean useCloudFetchForResult(StatementType statementType) {
-    return this.connectionContext.shouldEnableArrow()
+    return connectionContext.shouldEnableArrow()
         && (statementType == StatementType.QUERY || statementType == StatementType.SQL);
   }
 
@@ -264,7 +263,7 @@ public class DatabricksSdkClient implements IDatabricksClient {
         useCloudFetchForResult(statementType) ? Disposition.EXTERNAL_LINKS : Disposition.INLINE;
     long maxRows = (parentStatement == null) ? DEFAULT_ROW_LIMIT : parentStatement.getMaxRows();
 
-    List<StatementParameterListItem> collect =
+    List<StatementParameterListItem> parameterListItems =
         parameters.values().stream().map(this::mapToParameterListItem).collect(Collectors.toList());
     ExecuteStatementRequest request =
         new ExecuteStatementRequest()
@@ -276,7 +275,7 @@ public class DatabricksSdkClient implements IDatabricksClient {
             .setCompressionType(session.getCompressionType())
             .setWaitTimeout(SYNC_TIMEOUT_VALUE)
             .setOnWaitTimeout(ExecuteStatementRequestOnWaitTimeout.CONTINUE)
-            .setParameters(collect);
+            .setParameters(parameterListItems);
     if (maxRows != DEFAULT_ROW_LIMIT) {
       request.setRowLimit(maxRows);
     }
@@ -319,8 +318,12 @@ public class DatabricksSdkClient implements IDatabricksClient {
       default:
         throw new IllegalStateException("Invalid state for error");
     }
-    throw new DatabricksSQLException(
-        errorMessage, connectionContext, ErrorTypes.EXECUTE_STATEMENT, statementId, errorCode);
+    MetricsUtil.exportError(
+        new DatabricksMetrics(connectionContext),
+        ErrorTypes.EXECUTE_STATEMENT,
+        statementId,
+        errorCode);
+    throw new DatabricksSQLException(errorMessage);
   }
 
   private ExecuteStatementResponse wrapGetStatementResponse(

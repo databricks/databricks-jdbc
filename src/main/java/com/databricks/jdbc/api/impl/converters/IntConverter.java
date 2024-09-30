@@ -13,7 +13,7 @@ import java.time.LocalDate;
 
 public class IntConverter implements ObjectConverter {
 
-  public static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(IntConverter.class);
+  private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(IntConverter.class);
 
   @Override
   public int toInt(Object object) throws DatabricksSQLException {

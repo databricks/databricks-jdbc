@@ -4,6 +4,7 @@ import com.databricks.jdbc.api.IDatabricksSession;
 import com.databricks.jdbc.common.CompressionType;
 import com.databricks.jdbc.common.ErrorCodes;
 import com.databricks.jdbc.common.ErrorTypes;
+import com.databricks.jdbc.common.util.MetricsUtil;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
@@ -25,7 +26,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 /** Class to manage Arrow chunks and fetch them on proactive basis. */
 public class ChunkDownloader implements ChunkDownloadCallback {
 
-  public static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(ChunkDownloader.class);
+  private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(ChunkDownloader.class);
   private static final String CHUNKS_DOWNLOADER_THREAD_POOL_PREFIX =
       "databricks-jdbc-chunks-downloader-";
   private final IDatabricksSession session;
@@ -113,12 +114,9 @@ public class ChunkDownloader implements ChunkDownloadCallback {
           chunk.wait();
         }
         if (chunk.getStatus() != ArrowResultChunk.ChunkStatus.DOWNLOAD_SUCCEEDED) {
-          throw new DatabricksSQLException(
-              chunk.getErrorMessage(),
-              session.getConnectionContext(),
-              ErrorTypes.CHUNK_DOWNLOAD,
-              statementId,
-              ErrorCodes.CHUNK_DOWNLOAD_ERROR);
+          MetricsUtil.exportError(
+              session, ErrorTypes.CHUNK_DOWNLOAD, statementId, ErrorCodes.CHUNK_DOWNLOAD_ERROR);
+          throw new DatabricksSQLException(chunk.getErrorMessage());
         }
       } catch (InterruptedException e) {
         LOGGER.error(
@@ -217,6 +215,12 @@ public class ChunkDownloader implements ChunkDownloadCallback {
       return chunkIndexMap;
     }
     for (TSparkArrowResultLink resultLink : resultData.getResultLinks()) {
+      String telemetryLog =
+          String.format(
+              "Manifest telemetry - Row Offset: %s, Row Count: %s, Expiry Time: %s",
+              resultLink.getStartRowOffset(), resultLink.getRowCount(), resultLink.getExpiryTime());
+      LOGGER.debug(telemetryLog);
+
       // TODO : add compression
       chunkIndexMap.put(
           chunkIndex,

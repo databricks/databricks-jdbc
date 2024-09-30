@@ -12,7 +12,7 @@ import org.apache.http.util.EntityUtils;
 
 public class VolumeInputStream extends InputStream {
 
-  public static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(VolumeInputStream.class);
+  private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(VolumeInputStream.class);
   private final InputStream httpContent;
   private final IExecutionResult resultHandler;
   private final IDatabricksStatement statement;

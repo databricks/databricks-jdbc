@@ -14,7 +14,7 @@ import org.apache.http.HttpResponse;
 
 public class ValidationUtil {
 
-  public static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(ValidationUtil.class);
+  private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(ValidationUtil.class);
 
   public static void checkIfNonNegative(int number, String fieldName)
       throws DatabricksSQLException {
@@ -28,6 +28,7 @@ public class ValidationUtil {
       throws DatabricksSQLException {
     for (Map.Entry<String, String> field : fields.entrySet()) {
       if (field.getValue() == null) {
+        LOGGER.debug("Field %s is null", field.getKey());
         throw new DatabricksValidationException(
             String.format(
                 "Unsupported Input for field {%s}. Context: {%s}", field.getKey(), context));

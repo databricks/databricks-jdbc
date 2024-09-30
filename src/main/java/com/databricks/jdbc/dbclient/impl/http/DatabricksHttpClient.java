@@ -7,11 +7,11 @@ import static io.netty.util.NetUtil.LOCALHOST;
 import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.common.LogLevel;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
+import com.databricks.jdbc.dbclient.impl.common.ClientConfigurator;
 import com.databricks.jdbc.exception.DatabricksHttpException;
 import com.databricks.jdbc.exception.DatabricksRetryHandlerException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
-import com.databricks.sdk.core.DatabricksConfig;
 import com.databricks.sdk.core.ProxyConfig;
 import com.databricks.sdk.core.UserAgent;
 import com.databricks.sdk.core.utils.ProxyUtils;
@@ -40,7 +40,7 @@ import org.apache.http.ssl.SSLContextBuilder;
 /** Http client implementation to be used for executing http requests. */
 public class DatabricksHttpClient implements IDatabricksHttpClient {
 
-  public static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(DatabricksHttpClient.class);
+  private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(DatabricksHttpClient.class);
   private static final int DEFAULT_MAX_HTTP_CONNECTIONS = 1000;
   private static final int DEFAULT_MAX_HTTP_CONNECTIONS_PER_ROUTE = 1000;
   private static final int DEFAULT_HTTP_CONNECTION_TIMEOUT = 60 * 1000; // ms
@@ -56,7 +56,7 @@ public class DatabricksHttpClient implements IDatabricksHttpClient {
   private DatabricksHttpRetryHandler retryHandler;
 
   private DatabricksHttpClient(IDatabricksConnectionContext connectionContext) {
-    initializeConnectionManager();
+    initializeConnectionManager(connectionContext);
     httpClient = makeClosableHttpClient(connectionContext);
     httpDisabledSSLClient = makeClosableDisabledSslHttpClient();
     idleHttpConnectionExpiry = connectionContext.getIdleHttpConnectionExpiry();
@@ -68,13 +68,19 @@ public class DatabricksHttpClient implements IDatabricksHttpClient {
       CloseableHttpClient closeableHttpClient,
       PoolingHttpClientConnectionManager connectionManager) {
     DatabricksHttpClient.connectionManager = connectionManager;
-    initializeConnectionManager();
+    initializeConnectionManager(null);
     this.httpClient = closeableHttpClient;
   }
 
-  private static void initializeConnectionManager() {
+  private static void initializeConnectionManager(IDatabricksConnectionContext connectionContext) {
     if (connectionManager == null) {
-      connectionManager = new PoolingHttpClientConnectionManager();
+      if (connectionContext != null) {
+        connectionManager =
+            new PoolingHttpClientConnectionManager(
+                ClientConfigurator.getConnectionSocketFactoryRegistry(connectionContext));
+      } else {
+        connectionManager = new PoolingHttpClientConnectionManager();
+      }
     }
     connectionManager.setMaxTotal(DEFAULT_MAX_HTTP_CONNECTIONS);
     connectionManager.setDefaultMaxPerRoute(DEFAULT_MAX_HTTP_CONNECTIONS_PER_ROUTE);
@@ -151,7 +157,7 @@ public class DatabricksHttpClient implements IDatabricksHttpClient {
           convertNonProxyHostConfigToBeSystemPropertyCompliant(
               connectionContext.getNonProxyHosts());
       ProxyConfig proxyConfig =
-          new ProxyConfig(new DatabricksConfig())
+          new ProxyConfig()
               .setUseSystemProperties(connectionContext.getUseSystemProxy())
               .setHost(proxyHost)
               .setPort(proxyPort)

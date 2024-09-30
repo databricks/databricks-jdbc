@@ -7,7 +7,7 @@ public class DriverUtil {
    * <p>This value may be modified by a release script to reflect the current version of the driver.
    * It is used to format the version information available through this utility class.
    */
-  private static final String VERSION = "0.9.4-oss";
+  private static final String VERSION = "0.9.5-oss";
 
   private static final String[] VERSION_PARTS = VERSION.split("[.-]");
 
