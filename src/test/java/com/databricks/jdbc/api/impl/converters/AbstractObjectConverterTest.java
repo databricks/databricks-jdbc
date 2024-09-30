@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import com.databricks.jdbc.exception.DatabricksSQLException;
+import java.io.IOException;
 import java.io.InputStream;
 import java.io.ObjectInputStream;
 import org.junit.jupiter.api.Test;
@@ -47,13 +48,18 @@ public class AbstractObjectConverterTest {
     ObjectInputStream objectInputStream = new ObjectInputStream(inputStream);
     Object deserializedObject = objectInputStream.readObject();
 
-    assertInstanceOf(String.class, deserializedObject, "Deserialized object should be a String");
+    assertTrue(deserializedObject instanceof String, "Deserialized object should be a String");
     assertEquals(testString, deserializedObject, "Deserialized object should match the original");
   }
 
   @Test
   void testConvertToBinaryStreamWithException() throws DatabricksSQLException {
-    Object nonSerializableObject = new Object();
+    Object nonSerializableObject =
+        new Object() {
+          private void writeObject(java.io.ObjectOutputStream out) throws IOException {
+            throw new IOException("Serialization failed");
+          }
+        };
     TestableAbstractObjectConverter objectConverter =
         new TestableAbstractObjectConverter(nonSerializableObject);
 

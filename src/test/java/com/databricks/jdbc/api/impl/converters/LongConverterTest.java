@@ -7,12 +7,13 @@ import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.nio.ByteBuffer;
 import java.sql.Date;
+import java.util.Arrays;
 import org.junit.jupiter.api.Test;
 
 public class LongConverterTest {
 
-  private final long NON_ZERO_OBJECT = 10L;
-  private final long ZERO_OBJECT = 0;
+  private long NON_ZERO_OBJECT = 10L;
+  private long ZERO_OBJECT = 0;
 
   @Test
   public void testConvertToByte() throws DatabricksSQLException {
@@ -42,8 +43,8 @@ public class LongConverterTest {
 
   @Test
   public void testConvertToInt() throws DatabricksSQLException {
-    assertEquals(new LongConverter(NON_ZERO_OBJECT).convertToInt(), 10);
-    assertEquals(new LongConverter(ZERO_OBJECT).convertToInt(), 0);
+    assertEquals(new LongConverter(NON_ZERO_OBJECT).convertToInt(), (int) 10);
+    assertEquals(new LongConverter(ZERO_OBJECT).convertToInt(), (int) 0);
 
     long longThatDoesNotFitInInt = 2147483648L;
     DatabricksSQLException exception =
@@ -67,8 +68,8 @@ public class LongConverterTest {
 
   @Test
   public void testConvertToDouble() throws DatabricksSQLException {
-    assertEquals(new LongConverter(NON_ZERO_OBJECT).convertToDouble(), 10);
-    assertEquals(new LongConverter(ZERO_OBJECT).convertToDouble(), 0);
+    assertEquals(new LongConverter(NON_ZERO_OBJECT).convertToDouble(), (double) 10);
+    assertEquals(new LongConverter(ZERO_OBJECT).convertToDouble(), (double) 0);
   }
 
   @Test
@@ -79,18 +80,20 @@ public class LongConverterTest {
 
   @Test
   public void testConvertToBoolean() throws DatabricksSQLException {
-    assertTrue(new LongConverter(NON_ZERO_OBJECT).convertToBoolean());
-    assertFalse(new LongConverter(ZERO_OBJECT).convertToBoolean());
+    assertEquals(new LongConverter(NON_ZERO_OBJECT).convertToBoolean(), true);
+    assertEquals(new LongConverter(ZERO_OBJECT).convertToBoolean(), false);
   }
 
   @Test
   public void testConvertToByteArray() throws DatabricksSQLException {
-    assertArrayEquals(
-        new LongConverter(NON_ZERO_OBJECT).convertToByteArray(),
-        ByteBuffer.allocate(8).putLong(10L).array());
-    assertArrayEquals(
-        new LongConverter(ZERO_OBJECT).convertToByteArray(),
-        ByteBuffer.allocate(8).putLong(0).array());
+    assertTrue(
+        Arrays.equals(
+            new LongConverter(NON_ZERO_OBJECT).convertToByteArray(),
+            ByteBuffer.allocate(8).putLong(10L).array()));
+    assertTrue(
+        Arrays.equals(
+            new LongConverter(ZERO_OBJECT).convertToByteArray(),
+            ByteBuffer.allocate(8).putLong(0).array()));
   }
 
   @Test

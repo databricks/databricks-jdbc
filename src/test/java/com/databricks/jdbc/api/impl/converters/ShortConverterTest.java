@@ -6,12 +6,13 @@ import com.databricks.jdbc.exception.DatabricksSQLException;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.nio.ByteBuffer;
+import java.util.Arrays;
 import org.junit.jupiter.api.Test;
 
 public class ShortConverterTest {
 
-  private final short NON_ZERO_OBJECT = 10;
-  private final short ZERO_OBJECT = 0;
+  private short NON_ZERO_OBJECT = 10;
+  private short ZERO_OBJECT = 0;
 
   @Test
   public void testConvertToByte() throws DatabricksSQLException {
@@ -34,8 +35,8 @@ public class ShortConverterTest {
 
   @Test
   public void testConvertToInt() throws DatabricksSQLException {
-    assertEquals(new ShortConverter(NON_ZERO_OBJECT).convertToInt(), 10);
-    assertEquals(new ShortConverter(ZERO_OBJECT).convertToInt(), 0);
+    assertEquals(new ShortConverter(NON_ZERO_OBJECT).convertToInt(), (int) 10);
+    assertEquals(new ShortConverter(ZERO_OBJECT).convertToInt(), (int) 0);
   }
 
   @Test
@@ -52,8 +53,8 @@ public class ShortConverterTest {
 
   @Test
   public void testConvertToDouble() throws DatabricksSQLException {
-    assertEquals(new ShortConverter(NON_ZERO_OBJECT).convertToDouble(), 10);
-    assertEquals(new ShortConverter(ZERO_OBJECT).convertToDouble(), 0);
+    assertEquals(new ShortConverter(NON_ZERO_OBJECT).convertToDouble(), (double) 10);
+    assertEquals(new ShortConverter(ZERO_OBJECT).convertToDouble(), (double) 0);
   }
 
   @Test
@@ -64,18 +65,20 @@ public class ShortConverterTest {
 
   @Test
   public void testConvertToBoolean() throws DatabricksSQLException {
-    assertTrue(new ShortConverter(NON_ZERO_OBJECT).convertToBoolean());
-    assertFalse(new ShortConverter(ZERO_OBJECT).convertToBoolean());
+    assertEquals(new ShortConverter(NON_ZERO_OBJECT).convertToBoolean(), true);
+    assertEquals(new ShortConverter(ZERO_OBJECT).convertToBoolean(), false);
   }
 
   @Test
   public void testConvertToByteArray() throws DatabricksSQLException {
-    assertArrayEquals(
-        new ShortConverter(NON_ZERO_OBJECT).convertToByteArray(),
-        ByteBuffer.allocate(2).putShort((short) 10).array());
-    assertArrayEquals(
-        new ShortConverter(ZERO_OBJECT).convertToByteArray(),
-        ByteBuffer.allocate(2).putShort((short) 0).array());
+    assertTrue(
+        Arrays.equals(
+            new ShortConverter(NON_ZERO_OBJECT).convertToByteArray(),
+            ByteBuffer.allocate(2).putShort((short) 10).array()));
+    assertTrue(
+        Arrays.equals(
+            new ShortConverter(ZERO_OBJECT).convertToByteArray(),
+            ByteBuffer.allocate(2).putShort((short) 0).array()));
   }
 
   @Test

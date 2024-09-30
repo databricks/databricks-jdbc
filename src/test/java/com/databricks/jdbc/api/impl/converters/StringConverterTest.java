@@ -6,14 +6,19 @@ import com.databricks.jdbc.exception.DatabricksSQLException;
 import java.math.BigDecimal;
 import java.sql.Date;
 import java.sql.Timestamp;
+import java.util.Arrays;
 import org.junit.jupiter.api.Test;
 
 public class StringConverterTest {
 
-  private final String NUMERICAL_STRING = "10";
-  private final String NUMBERICAL_ZERO_STRING = "0";
+  private String NUMERICAL_STRING = "10";
+  private String NUMBERICAL_ZERO_STRING = "0";
 
-  private final String CHARACTER_STRING = "ABC";
+  private String CHARACTER_STRING = "ABC";
+
+  private String TIME_STAMP_STRING = "2023-09-10 00:00:00";
+
+  private String DATE_STRING = "2023-09-10";
 
   @Test
   public void testConvertToByte() throws DatabricksSQLException {
@@ -117,10 +122,10 @@ public class StringConverterTest {
 
   @Test
   public void testConvertToBoolean() throws DatabricksSQLException {
-    assertTrue(new StringConverter("1").convertToBoolean());
-    assertFalse(new StringConverter(NUMBERICAL_ZERO_STRING).convertToBoolean());
-    assertTrue(new StringConverter("true").convertToBoolean());
-    assertFalse(new StringConverter("false").convertToBoolean());
+    assertEquals(new StringConverter("1").convertToBoolean(), true);
+    assertEquals(new StringConverter(NUMBERICAL_ZERO_STRING).convertToBoolean(), false);
+    assertEquals(new StringConverter("true").convertToBoolean(), true);
+    assertEquals(new StringConverter("false").convertToBoolean(), false);
 
     DatabricksSQLException invalidCharactersException =
         assertThrows(
@@ -137,13 +142,18 @@ public class StringConverterTest {
 
   @Test
   public void testConvertToByteArray() throws DatabricksSQLException {
-    assertArrayEquals(
-        new StringConverter(NUMERICAL_STRING).convertToByteArray(), NUMERICAL_STRING.getBytes());
-    assertArrayEquals(
-        new StringConverter(NUMBERICAL_ZERO_STRING).convertToByteArray(),
-        NUMBERICAL_ZERO_STRING.getBytes());
-    assertArrayEquals(
-        new StringConverter(CHARACTER_STRING).convertToByteArray(), CHARACTER_STRING.getBytes());
+    assertTrue(
+        Arrays.equals(
+            new StringConverter(NUMERICAL_STRING).convertToByteArray(),
+            NUMERICAL_STRING.getBytes()));
+    assertTrue(
+        Arrays.equals(
+            new StringConverter(NUMBERICAL_ZERO_STRING).convertToByteArray(),
+            NUMBERICAL_ZERO_STRING.getBytes()));
+    assertTrue(
+        Arrays.equals(
+            new StringConverter(CHARACTER_STRING).convertToByteArray(),
+            CHARACTER_STRING.getBytes()));
   }
 
   @Test
@@ -165,7 +175,6 @@ public class StringConverterTest {
 
   @Test
   public void testConvertToTimestamp() throws DatabricksSQLException {
-    String TIME_STAMP_STRING = "2023-09-10 00:00:00";
     assertEquals(
         new StringConverter(TIME_STAMP_STRING).convertToTimestamp(),
         Timestamp.valueOf(TIME_STAMP_STRING));
@@ -173,7 +182,6 @@ public class StringConverterTest {
 
   @Test
   public void testConvertToDate() throws DatabricksSQLException {
-    String DATE_STRING = "2023-09-10";
     assertEquals(new StringConverter(DATE_STRING).convertToDate(), Date.valueOf(DATE_STRING));
   }
 
