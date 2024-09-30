@@ -5,78 +5,71 @@ import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.nio.ByteBuffer;
 
-public class ShortConverter extends AbstractObjectConverter {
-
-  private final short object;
-
-  public ShortConverter(Object object) throws DatabricksSQLException {
-    super(object);
+public class ShortConverter implements ObjectConverter {
+  @Override
+  public short toShort(Object object) throws DatabricksSQLException {
     if (object instanceof String) {
-      this.object = Short.parseShort((String) object);
+      return Short.parseShort((String) object);
     } else if (object instanceof Number) {
-      this.object = ((Number) object).shortValue();
+      return ((Number) object).shortValue();
     } else if (object instanceof Boolean) {
-      this.object = (short) (((Boolean) object) ? 1 : 0);
+      return (short) (((Boolean) object) ? 1 : 0);
     } else {
-      this.object = (short) object;
+      return (short) object;
     }
   }
 
   @Override
-  public byte convertToByte() throws DatabricksSQLException {
-    if (object >= Byte.MIN_VALUE && object <= Byte.MAX_VALUE) {
-      return (byte) object;
+  public byte toByte(Object object) throws DatabricksSQLException {
+    short value = toShort(object);
+    if (value >= Byte.MIN_VALUE && value <= Byte.MAX_VALUE) {
+      return (byte) value;
     }
-    throw new DatabricksSQLException("Invalid conversion");
+    throw new DatabricksSQLException("Invalid conversion to byte: value out of range");
   }
 
   @Override
-  public short convertToShort() throws DatabricksSQLException {
-    return object;
+  public int toInt(Object object) throws DatabricksSQLException {
+    return toShort(object);
   }
 
   @Override
-  public int convertToInt() throws DatabricksSQLException {
-    return object;
+  public long toLong(Object object) throws DatabricksSQLException {
+    return toShort(object);
   }
 
   @Override
-  public long convertToLong() throws DatabricksSQLException {
-    return object;
+  public float toFloat(Object object) throws DatabricksSQLException {
+    return toShort(object);
   }
 
   @Override
-  public float convertToFloat() throws DatabricksSQLException {
-    return object;
+  public double toDouble(Object object) throws DatabricksSQLException {
+    return toShort(object);
   }
 
   @Override
-  public double convertToDouble() throws DatabricksSQLException {
-    return object;
+  public BigDecimal toBigDecimal(Object object) throws DatabricksSQLException {
+    return BigDecimal.valueOf(toShort(object));
   }
 
   @Override
-  public BigDecimal convertToBigDecimal() throws DatabricksSQLException {
-    return BigDecimal.valueOf(object);
+  public BigInteger toBigInteger(Object object) throws DatabricksSQLException {
+    return BigInteger.valueOf(toShort(object));
   }
 
   @Override
-  public BigInteger convertToBigInteger() throws DatabricksSQLException {
-    return BigInteger.valueOf(object);
+  public boolean toBoolean(Object object) throws DatabricksSQLException {
+    return toShort(object) != 0;
   }
 
   @Override
-  public boolean convertToBoolean() throws DatabricksSQLException {
-    return (object != 0);
+  public byte[] toByteArray(Object object) throws DatabricksSQLException {
+    return ByteBuffer.allocate(2).putShort(toShort(object)).array();
   }
 
   @Override
-  public byte[] convertToByteArray() throws DatabricksSQLException {
-    return ByteBuffer.allocate(2).putShort(object).array();
-  }
-
-  @Override
-  public String convertToString() throws DatabricksSQLException {
-    return String.valueOf(object);
+  public String toString(Object object) throws DatabricksSQLException {
+    return String.valueOf(toShort(object));
   }
 }
