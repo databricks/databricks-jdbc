@@ -1011,9 +1011,7 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
     LOGGER.debug(
         String.format(
             "public ResultSet getVersionColumns(String catalog = {%s}, String schema = {%s}, String table = {%s})",
-            catalog,
-            schema,
-            table));
+            catalog, schema, table));
     throw new UnsupportedOperationException(
         "Not implemented in DatabricksDatabaseMetaData - getVersionColumns(String catalog, String schema, String table)");
   }
@@ -1023,9 +1021,7 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
     LOGGER.debug(
         String.format(
             "public ResultSet getPrimaryKeys(String catalog = {%s}, String schema = {%s}, String table = {%s})",
-            catalog,
-            schema,
-            table));
+            catalog, schema, table));
     throwExceptionIfConnectionIsClosed();
     return session.getDatabricksMetadataClient().listPrimaryKeys(session, catalog, schema, table);
   }
@@ -1036,9 +1032,7 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
     LOGGER.debug(
         String.format(
             "public ResultSet getImportedKeys(String catalog = {%s}, String schema = {%s}, String table = {%s})",
-            catalog,
-            schema,
-            table));
+            catalog, schema, table));
     // TODO(PECO-1696): Implement this
     return new EmptyResultSet();
   }
@@ -1049,9 +1043,7 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
     LOGGER.debug(
         String.format(
             "public ResultSet getExportedKeys(String catalog = {%s}, String schema = {%s}, String table = {%s})",
-            catalog,
-            schema,
-            table));
+            catalog, schema, table));
     // TODO(PECO-1696): Implement this
     return new EmptyResultSet();
   }
@@ -1068,12 +1060,7 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
     LOGGER.debug(
         String.format(
             "public ResultSet getCrossReference(String parentCatalog = {%s}, String parentSchema = {%s}, String parentTable = {%s}, String foreignCatalog = {%s}, String foreignSchema = {%s}, String foreignTable = {%s})",
-            parentCatalog,
-            parentSchema,
-            parentTable,
-            foreignCatalog,
-            foreignSchema,
-            foreignTable));
+            parentCatalog, parentSchema, parentTable, foreignCatalog, foreignSchema, foreignTable));
     throw new UnsupportedOperationException(
         "Not implemented in DatabricksDatabaseMetaData - getCrossReference(String parentCatalog, String parentSchema, String parentTable, String foreignCatalog, String foreignSchema, String foreignTable)");
   }
@@ -1091,11 +1078,7 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
     LOGGER.debug(
         String.format(
             "public ResultSet getIndexInfo(String catalog = {%s}, String schema = {%s}, String table = {%s}, boolean unique = {%s}, boolean approximate = {%s})",
-            catalog,
-            schema,
-            table,
-            unique,
-            approximate));
+            catalog, schema, table, unique, approximate));
     throw new UnsupportedOperationException(
         "Not implemented in DatabricksDatabaseMetaData - getIndexInfo(String catalog, String schema, String table, boolean unique, boolean approximate)");
   }
@@ -1112,8 +1095,7 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
     LOGGER.debug(
         String.format(
             "public boolean supportsResultSetConcurrency(int type = {%s}, int concurrency = {%s})",
-            type,
-            concurrency));
+            type, concurrency));
     throwExceptionIfConnectionIsClosed();
     return type == ResultSet.TYPE_FORWARD_ONLY && concurrency == ResultSet.CONCUR_READ_ONLY;
   }
