@@ -206,6 +206,73 @@ public class DatabricksSdkClient implements IDatabricksClient {
         parentStatement);
   }
 
+  @Override
+  public DatabricksResultSet executeStatementAsync(
+      String sql,
+      IDatabricksComputeResource computeResource,
+      Map<Integer, ImmutableSqlParameter> parameters,
+      IDatabricksSession session,
+      IDatabricksStatementHandle parentStatement)
+      throws SQLException {
+    LOGGER.debug(
+        String.format(
+            "public DatabricksResultSet executeStatementAsync(String sql = {%s}, compute resource = {%s}, Map<Integer, ImmutableSqlParameter> parameters, IDatabricksSession session)",
+            sql, computeResource.toString()));
+    ExecuteStatementRequest request =
+        getRequest(
+            StatementType.SQL,
+            sql,
+            ((Warehouse) computeResource).getWarehouseId(),
+            session,
+            parameters,
+            parentStatement);
+    ExecuteStatementResponse response =
+        workspaceClient
+            .apiClient()
+            .POST(STATEMENT_PATH, request, ExecuteStatementResponse.class, getHeaders());
+    String statementId = response.getStatementId();
+    if (statementId == null) {
+      LOGGER.error(
+          String.format(
+              "Empty Statement ID for sql %s, compute %s", sql, computeResource.toString()));
+      handleFailedExecution(response, statementId, sql);
+    }
+    if (parentStatement != null) {
+      parentStatement.setStatementId(statementId);
+    }
+    LOGGER.debug(
+        String.format("Executed sql [%s] with status [%s]", sql, response.getStatus().getState()));
+
+    return new DatabricksResultSet(
+        response.getStatus(),
+        statementId,
+        response.getResult(),
+        response.getManifest(),
+        StatementType.SQL,
+        session,
+        parentStatement);
+  }
+
+  @Override
+  public DatabricksResultSet getStatementResult(
+      String statementId, IDatabricksSession session, IDatabricksStatementHandle parentStatement)
+      throws DatabricksSQLException {
+    GetStatementRequest request = new GetStatementRequest().setStatementId(statementId);
+    String getStatusPath = String.format(STATEMENT_PATH_WITH_ID, statementId);
+    GetStatementResponse response =
+        workspaceClient
+            .apiClient()
+            .GET(getStatusPath, request, GetStatementResponse.class, getHeaders());
+    return new DatabricksResultSet(
+        response.getStatus(),
+        statementId,
+        response.getResult(),
+        response.getManifest(),
+        StatementType.SQL,
+        session,
+        parentStatement);
+  }
+
   private boolean useCloudFetchForResult(StatementType statementType) {
     return this.connectionContext.shouldEnableArrow()
         && (statementType == StatementType.QUERY || statementType == StatementType.SQL);

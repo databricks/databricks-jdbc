@@ -310,14 +310,11 @@ public class DatabricksThriftServiceClientTest {
   }
 
   @Test
-  void testCancelStatement() {
-    assertThrows(
-        DatabricksSQLFeatureNotImplementedException.class,
-        () -> {
-          DatabricksThriftServiceClient client =
-              new DatabricksThriftServiceClient(thriftAccessor, connectionContext);
-          client.cancelStatement(TEST_STATEMENT_ID);
-        });
+  void testCancelStatement() throws Exception {
+    DatabricksThriftServiceClient client =
+        new DatabricksThriftServiceClient(thriftAccessor, connectionContext);
+    client.cancelStatement(TEST_STATEMENT_ID);
+    verify(thriftAccessor).cancelOperation(any());
   }
 
   @Test

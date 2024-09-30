@@ -79,6 +79,24 @@ public interface IDatabricksClient {
       throws SQLException;
 
   /**
+   * Executes a statement in Databricks server asynchronously
+   *
+   * @param sql SQL statement that needs to be executed
+   * @param computeResource underlying SQL-warehouse or all-purpose cluster
+   * @param parameters SQL parameters for the statement
+   * @param session underlying session
+   * @param parentStatement statement instance if called from a statement
+   * @return response for statement execution
+   */
+  DatabricksResultSet executeStatementAsync(
+      String sql,
+      IDatabricksComputeResource computeResource,
+      Map<Integer, ImmutableSqlParameter> parameters,
+      IDatabricksSession session,
+      IDatabricksStatementHandle parentStatement)
+      throws SQLException;
+
+  /**
    * Closes a statement in Databricks server
    *
    * @param statementId statement which should be closed
@@ -91,6 +109,17 @@ public interface IDatabricksClient {
    * @param statementId statement which should be aborted
    */
   void cancelStatement(String statementId) throws DatabricksSQLException;
+
+  /**
+   * Fetches result for underlying statement-Id
+   *
+   * @param statementId statement which should be checked for status
+   * @param session underlying session
+   * @param parentStatement statement instance
+   */
+  DatabricksResultSet getStatementResult(
+      String statementId, IDatabricksSession session, IDatabricksStatementHandle parentStatement)
+      throws SQLException;
 
   /**
    * Fetches the chunk details for given chunk index and statement-Id.

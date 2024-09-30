@@ -143,6 +143,27 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
   }
 
   @Override
+  public DatabricksResultSet executeStatementAsync(
+      String sql,
+      IDatabricksComputeResource computeResource,
+      Map<Integer, ImmutableSqlParameter> parameters,
+      IDatabricksSession session,
+      IDatabricksStatementHandle parentStatement)
+      throws SQLException {
+    LOGGER.debug(
+        String.format(
+            "public DatabricksResultSet executeStatement(String sql = {%s}, Compute cluster = {%s}, Map<Integer, ImmutableSqlParameter> parameters = {%s})",
+            sql, computeResource.toString(), parameters.toString()));
+    TExecuteStatementReq request =
+        new TExecuteStatementReq()
+            .setStatement(sql)
+            .setSessionHandle(session.getSessionInfo().sessionHandle())
+            .setCanReadArrowResult(this.connectionContext.shouldEnableArrow())
+            .setCanDownloadResult(true);
+    return thriftAccessor.executeAsync(request, parentStatement, session, StatementType.SQL);
+  }
+
+  @Override
   public void closeStatement(String statementId) throws DatabricksSQLException {
     LOGGER.debug(
         String.format(
@@ -158,8 +179,19 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
         String.format(
             "public void cancelStatement(String statementId = {%s}) for all purpose cluster",
             statementId));
-    throw new DatabricksSQLFeatureNotImplementedException(
-        "abortStatement for all purpose cluster not implemented");
+    THandleIdentifier handleIdentifier = new THandleIdentifier().setGuid(statementId.getBytes());
+    TOperationHandle operationHandle = new TOperationHandle().setOperationId(handleIdentifier);
+    TCancelOperationReq request = new TCancelOperationReq().setOperationHandle(operationHandle);
+    thriftAccessor.cancelOperation(request);
+  }
+
+  @Override
+  public DatabricksResultSet getStatementResult(
+      String statementId, IDatabricksSession session, IDatabricksStatementHandle parentStatement)
+      throws SQLException {
+    THandleIdentifier handleIdentifier = new THandleIdentifier().setGuid(statementId.getBytes());
+    TOperationHandle operationHandle = new TOperationHandle().setOperationId(handleIdentifier);
+    return thriftAccessor.getStatementResult(operationHandle, parentStatement, session);
   }
 
   @Override

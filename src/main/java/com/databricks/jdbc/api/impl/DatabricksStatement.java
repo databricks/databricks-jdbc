@@ -51,6 +51,15 @@ public class DatabricksStatement
     this.timeoutInSeconds = DEFAULT_STATEMENT_TIMEOUT_SECONDS;
   }
 
+  DatabricksStatement(DatabricksConnection connection, String statementId) {
+    this.connection = connection;
+    this.statementId = statementId;
+    this.resultSet = null;
+    this.statementId = null;
+    this.isClosed = false;
+    this.timeoutInSeconds = DEFAULT_STATEMENT_TIMEOUT_SECONDS;
+  }
+
   @Override
   public ResultSet executeQuery(String sql) throws SQLException {
     // TODO(PECO-1731): Revisit this to see if we can fail fast if the statement does not return a

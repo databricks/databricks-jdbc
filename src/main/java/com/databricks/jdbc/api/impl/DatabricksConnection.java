@@ -59,7 +59,7 @@ public class DatabricksConnection implements IDatabricksConnection, Connection {
 
   @Override
   public Statement getStatement(String statementId) throws SQLException {
-    throw new DatabricksSQLFeatureNotSupportedException("Not implemented");
+    return new DatabricksStatement(this, statementId);
   }
 
   @Override

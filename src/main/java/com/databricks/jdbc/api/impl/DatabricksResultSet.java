@@ -52,6 +52,7 @@ public class DatabricksResultSet
   private boolean isClosed;
   private SQLWarning warnings = null;
   private boolean wasNull;
+  private boolean isResultInitialized = true;
   private VolumeInputStream volumeInputStream = null;
   private long volumeStreamContentLength = -1L;
 
@@ -67,10 +68,16 @@ public class DatabricksResultSet
       throws DatabricksParsingException {
     this.statementStatus = statementStatus;
     this.statementId = statementId;
-    this.executionResult =
-        ExecutionResultFactory.getResultSet(
-            resultData, resultManifest, statementId, session, parentStatement, this);
-    this.resultSetMetaData = new DatabricksResultSetMetaData(statementId, resultManifest);
+    if (resultData != null) {
+      this.executionResult =
+          ExecutionResultFactory.getResultSet(
+              resultData, resultManifest, statementId, session, parentStatement, this);
+      this.resultSetMetaData = new DatabricksResultSetMetaData(statementId, resultManifest);
+    } else {
+      executionResult = null;
+      resultSetMetaData = null;
+      isResultInitialized = false;
+    }
     this.statementType = statementType;
     this.updateCount = null;
     this.parentStatement = parentStatement;
@@ -113,13 +120,19 @@ public class DatabricksResultSet
       this.statementStatus = new StatementStatus().setState(StatementState.FAILED);
     }
     this.statementId = statementId;
-    this.executionResult =
-        ExecutionResultFactory.getResultSet(
-            resultData, resultManifest, statementId, session, parentStatement, this);
-    long rowSize = getRowCount(resultData);
-    this.resultSetMetaData =
-        new DatabricksResultSetMetaData(
-            statementId, resultManifest, rowSize, resultData.getResultLinksSize());
+    if (resultData != null) {
+      this.executionResult =
+          ExecutionResultFactory.getResultSet(
+              resultData, resultManifest, statementId, session, parentStatement, this);
+      long rowSize = getRowCount(resultData);
+      this.resultSetMetaData =
+          new DatabricksResultSetMetaData(
+              statementId, resultManifest, rowSize, resultData.getResultLinksSize());
+    } else {
+      this.executionResult = null;
+      this.resultSetMetaData = null;
+      this.isResultInitialized = false;
+    }
     this.statementType = statementType;
     this.updateCount = null;
     this.parentStatement = parentStatement;

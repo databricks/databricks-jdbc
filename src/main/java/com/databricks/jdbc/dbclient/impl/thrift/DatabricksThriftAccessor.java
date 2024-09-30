@@ -132,6 +132,21 @@ final class DatabricksThriftAccessor {
     return getResultSetResp(SUCCESS_STATUS, operationHandle, context, DEFAULT_ROW_LIMIT, false);
   }
 
+  TCancelOperationResp cancelOperation(TCancelOperationReq req) throws DatabricksHttpException {
+    refreshHeadersIfRequired();
+    try (DatabricksHttpTTransport transport =
+        (DatabricksHttpTTransport) getThriftClient().getInputProtocol().getTransport()) {
+      return getThriftClient().CancelOperation(req);
+    } catch (TException e) {
+      String errorMessage =
+          String.format(
+              "Error while canceling operation from Thrift server. Request {%s}, Error {%s}",
+              req.toString(), e.getMessage());
+      LOGGER.error(errorMessage);
+      throw new DatabricksHttpException(errorMessage, e);
+    }
+  }
+
   private TFetchResultsResp getResultSetResp(
       TStatusCode responseCode,
       TOperationHandle operationHandle,
@@ -261,6 +276,89 @@ final class DatabricksThriftAccessor {
         resultSet.getResults(),
         resultSet.getResultSetMetadata(),
         statementType,
+        parentStatement,
+        session);
+  }
+
+  DatabricksResultSet executeAsync(
+      TExecuteStatementReq request,
+      IDatabricksStatementHandle parentStatement,
+      IDatabricksSession session,
+      StatementType statementType)
+      throws SQLException {
+    refreshHeadersIfRequired();
+    int maxRows = (parentStatement == null) ? DEFAULT_ROW_LIMIT : parentStatement.getMaxRows();
+    TExecuteStatementResp response = null;
+    TFetchResultsResp resultSet = null;
+    DatabricksHttpTTransport transport =
+        (DatabricksHttpTTransport) getThriftClient().getInputProtocol().getTransport();
+    try {
+      response = getThriftClient().ExecuteStatement(request);
+      if (Arrays.asList(ERROR_STATUS, INVALID_HANDLE_STATUS).contains(response.status.statusCode)) {
+        throw new DatabricksSQLException(response.status.errorMessage);
+      }
+    } catch (TException e) {
+      String errorMessage =
+          String.format(
+              "Error while receiving response from Thrift server. Request {%s}, Error {%s}",
+              request.toString(), e.toString());
+      LOGGER.error(errorMessage);
+      throw new DatabricksHttpException(errorMessage, e);
+    } finally {
+      transport.close();
+    }
+    return new DatabricksResultSet(
+        response.getStatus(),
+        getStatementId(response.getOperationHandle()),
+        null,
+        null,
+        statementType,
+        parentStatement,
+        session);
+  }
+
+  DatabricksResultSet getStatementResult(
+      TOperationHandle operationHandle,
+      IDatabricksStatementHandle parentStatement,
+      IDatabricksSession session)
+      throws SQLException {
+    TGetOperationStatusReq request =
+        new TGetOperationStatusReq()
+            .setOperationHandle(operationHandle)
+            .setGetProgressUpdate(false);
+    TGetOperationStatusResp response;
+    TStatusCode statusCode;
+    TFetchResultsResp resultSet = null;
+    DatabricksHttpTTransport transport =
+        (DatabricksHttpTTransport) getThriftClient().getInputProtocol().getTransport();
+    try {
+      response = getThriftClient().GetOperationStatus(request);
+      statusCode = response.getStatus().getStatusCode();
+      if (statusCode == SUCCESS_STATUS || statusCode == SUCCESS_WITH_INFO_STATUS) {
+        resultSet =
+            getResultSetResp(
+                response.getStatus().getStatusCode(),
+                operationHandle,
+                response.toString(),
+                -1,
+                true);
+      }
+    } catch (TException e) {
+      String errorMessage =
+          String.format(
+              "Error while receiving response from Thrift server. Request {%s}, Error {%s}",
+              request.toString(), e.toString());
+      LOGGER.error(errorMessage);
+      throw new DatabricksHttpException(errorMessage, e);
+    } finally {
+      transport.close();
+    }
+    return new DatabricksResultSet(
+        response.getStatus(),
+        getStatementId(operationHandle),
+        resultSet == null ? null : resultSet.getResults(),
+        resultSet == null ? null : resultSet.getResultSetMetadata(),
+        StatementType.SQL,
         parentStatement,
         session);
   }
