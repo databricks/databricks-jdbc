@@ -238,17 +238,17 @@ public class DatabricksUCVolumeClient implements IDatabricksUCVolumeClient {
    * This functions lists all the files that fall under the specified prefix within the target folder
    * in the specified volume.
    * The prefix is checked with the word after the last / in the input
-   * Ex - foo/bar will list all the files within foo folder
+   * Ex - foo/bar will list all the files within foo folder having bar as prefix
    *      foo/bar/f will list all the files within the bar folder with prefix f
    *      foo/bar/ will list all the files within the bar folder with all prefix
+   *
    * @param catalog the catalog name of the cloud storage
    * @param schema the schema name of the cloud storage
    * @param volume the UC volume name of the cloud storage
    * @param prefix the prefix of the filenames to list. This includes the relative path from the
    *     volume as the root directory
    * @param caseSensitive a boolean indicating whether the check should be case-sensitive or not
-   * @return
-   * @throws SQLException
+   * @return List<String> a list of strings indicating the filenames that start with the specified prefix
    */
   @Override
   public List<String> listObjects(
