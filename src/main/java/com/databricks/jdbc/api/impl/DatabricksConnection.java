@@ -406,7 +406,6 @@ public class DatabricksConnection implements IDatabricksConnection, Connection {
 
   @Override
   public String getClientInfo(String name) throws SQLException {
-    //  LOGGER.debug("public String getClientInfo(String name = {})", name);
     // Return session conf if set
     if (this.session.getSessionConfigs().containsKey(name)) {
       return this.session.getSessionConfigs().get(name);
@@ -448,7 +447,6 @@ public class DatabricksConnection implements IDatabricksConnection, Connection {
 
   @Override
   public void setSchema(String schema) throws SQLException {
-    //  LOGGER.debug("public void setSchema(String schema = {})", schema);
     session.setSchema(schema);
     Statement statement = this.createStatement();
     statement.execute("USE SCHEMA " + schema);
@@ -561,8 +559,6 @@ public class DatabricksConnection implements IDatabricksConnection, Connection {
    */
   private void setSessionConfig(
       String key, String value, Map<String, ClientInfoStatus> failedProperties) {
-    //  LoggingUtil.log(LogLevel.DEBUG,"public void setSessionConfig(String key = {}, String value =
-    // {})", key, value);
     try {
       this.createStatement().execute(String.format("SET %s = %s", key, value));
       this.session.setSessionConfig(key, value);
