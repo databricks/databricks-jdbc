@@ -1,4 +1,26 @@
 # Version Changelog
+## [v0.9.5-oss] - 2024-09-25
+### Added
+- Support proxy ignore list.
+- OSS Readiness improvements.
+- Improve Logging.
+- Add SSL Truststore URL params to allow configuring custom SSL truststore.
+- Accept Pass-through access token as part of JDBC connector parameter.
+
+### Updated
+- `getTables` Thrift call to align with JDBC standards.
+- Improved metadata functions.
+
+### Fixed
+- Fixed memory leaks and made chunk download thread-safe.
+- Fixed issues with prepared statements in Thrift and set default timestamps.
+- Fixed issues with empty table types, null pointer in `IS_GENERATEDCOLUMN`, and ordinal position.
+- Increased retry attempts for chunk downloads to enhance resilience.
+- Fixed exceptions being thrown for statement timeouts and cancel futures.
+- Improved UC Volume code.
+- Remove cyclic dependencies in package
+
+---
 
 ## [v0.9.4-oss] - 2024-09-13
 ### Added

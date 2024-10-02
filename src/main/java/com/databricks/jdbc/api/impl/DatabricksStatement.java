@@ -8,7 +8,6 @@ import static java.lang.String.format;
 import com.databricks.jdbc.api.IDatabricksResultSet;
 import com.databricks.jdbc.api.IDatabricksStatement;
 import com.databricks.jdbc.api.callback.IDatabricksStatementHandle;
-import com.databricks.jdbc.api.impl.fake.EmptyResultSet;
 import com.databricks.jdbc.common.ErrorCodes;
 import com.databricks.jdbc.common.ErrorTypes;
 import com.databricks.jdbc.common.StatementType;
@@ -29,7 +28,7 @@ import org.apache.http.entity.InputStreamEntity;
 public class DatabricksStatement
     implements IDatabricksStatement, IDatabricksStatementHandle, Statement {
 
-  public static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(DatabricksStatement.class);
+  private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(DatabricksStatement.class);
   private int timeoutInSeconds;
   private final DatabricksConnection connection;
   DatabricksResultSet resultSet;
@@ -60,11 +59,9 @@ public class DatabricksStatement
 
   @Override
   public ResultSet executeQuery(String sql) throws SQLException {
-    // TODO(PECO-1731): Revisit this to see if we can fail fast if the statement does not return a
-    // result set.
+    // TODO (PECO-1731): Can it fail fast without executing SQL query?
     checkIfClosed();
-    ResultSet rs =
-        executeInternal(sql, new HashMap<Integer, ImmutableSqlParameter>(), StatementType.QUERY);
+    ResultSet rs = executeInternal(sql, new HashMap<>(), StatementType.QUERY);
     if (!shouldReturnResultSet(sql)) {
       String errorMessage =
           "A ResultSet was expected but not generated from query: "
@@ -566,7 +563,7 @@ public class DatabricksStatement
       String errMsg =
           String.format(
               "Error occurred during statement execution: %s. Error : %s", sql, e.getMessage());
-      LOGGER.error(errMsg, e);
+      LOGGER.error(e, errMsg);
       MetricsUtil.exportError(
           this.connection.getSession(),
           ErrorTypes.EXECUTE_STATEMENT,

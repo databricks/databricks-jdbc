@@ -65,7 +65,7 @@ public class Slf4jLoggerTest {
   public void testErrorWithThrowable() {
     String message = "error message";
     Throwable throwable = new RuntimeException("error");
-    slf4jLogger.error(message, throwable);
+    slf4jLogger.error(throwable, message);
     verify(mockLogger, times(1)).error(message, throwable);
   }
 

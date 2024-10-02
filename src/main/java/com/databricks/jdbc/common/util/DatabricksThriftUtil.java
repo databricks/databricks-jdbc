@@ -19,7 +19,7 @@ import java.util.stream.IntStream;
 
 public class DatabricksThriftUtil {
 
-  public static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(DatabricksThriftUtil.class);
+  private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(DatabricksThriftUtil.class);
 
   private static Charset CHARSETS = StandardCharsets.UTF_8;
 
@@ -244,7 +244,6 @@ public class DatabricksThriftUtil {
    * @return a list of values from the specified column
    */
   private static List<?> getColumnValues(TColumn column) {
-    // TODO: Add support for complex data types
     if (column.isSetBinaryVal())
       return getColumnValuesWithNulls(
           column.getBinaryVal().getValues(), column.getBinaryVal().getNulls());

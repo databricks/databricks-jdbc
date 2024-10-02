@@ -128,6 +128,9 @@ public class ArrowStreamResultTest {
 
   @Test
   public void testInlineArrow() throws DatabricksSQLException {
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContextFactory.create(JDBC_URL, new Properties());
+    when(session.getConnectionContext()).thenReturn(connectionContext);
     when(metadataResp.getSchema()).thenReturn(TEST_TABLE_SCHEMA);
     ArrowStreamResult result =
         new ArrowStreamResult(metadataResp, resultData, true, TEST_STATEMENT_ID, session);

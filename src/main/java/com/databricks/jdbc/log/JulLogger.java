@@ -101,12 +101,12 @@ public class JulLogger implements JdbcLogger {
 
   /** {@inheritDoc} */
   @Override
-  public void error(String message, Throwable throwable) {
+  public void error(Throwable throwable, String message) {
     log(Level.SEVERE, message, throwable);
   }
 
   @Override
-  public void error(String format, Throwable throwable, Object... arguments) {
+  public void error(Throwable throwable, String format, Object... arguments) {
     error(String.format(format, arguments), throwable);
   }
 
