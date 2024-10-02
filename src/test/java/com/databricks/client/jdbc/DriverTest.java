@@ -321,8 +321,7 @@ public class DriverTest {
   void testAllPurposeClusters_async() throws Exception {
     String jdbcUrl =
         "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;ssl=1;AuthMech=3;httpPath=sql/protocolv1/o/6051921418418893/1115-130834-ms4m0yv;enableDirectResults=1";
-    Connection con =
-        DriverManager.getConnection(jdbcUrl, "token", "xx");
+    Connection con = DriverManager.getConnection(jdbcUrl, "token", "xx");
     System.out.println("Connection established...... con1");
     Statement s = con.createStatement();
     IDatabricksStatement ids = s.unwrap(IDatabricksStatement.class);
@@ -334,8 +333,7 @@ public class DriverTest {
 
     System.out.println("StatementId " + rs.getStatementId());
 
-    Connection con2 =
-        DriverManager.getConnection(jdbcUrl, "token", "xx");
+    Connection con2 = DriverManager.getConnection(jdbcUrl, "token", "xx");
     System.out.println("Connection established......con2");
     IDatabricksConnection idc = con2.unwrap(IDatabricksConnection.class);
     Statement stm = idc.getStatement(rs.getStatementId());
