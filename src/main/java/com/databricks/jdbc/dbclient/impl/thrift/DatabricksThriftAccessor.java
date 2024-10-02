@@ -147,6 +147,21 @@ final class DatabricksThriftAccessor {
     }
   }
 
+  TCloseOperationResp closeOperation(TCloseOperationReq req) throws DatabricksHttpException {
+    refreshHeadersIfRequired();
+    try (DatabricksHttpTTransport transport =
+        (DatabricksHttpTTransport) getThriftClient().getInputProtocol().getTransport()) {
+      return getThriftClient().CloseOperation(req);
+    } catch (TException e) {
+      String errorMessage =
+          String.format(
+              "Error while closing operation from Thrift server. Request {%s}, Error {%s}",
+              req.toString(), e.getMessage());
+      LOGGER.error(errorMessage);
+      throw new DatabricksHttpException(errorMessage, e);
+    }
+  }
+
   private TFetchResultsResp getResultSetResp(
       TStatusCode responseCode,
       TOperationHandle operationHandle,
@@ -270,9 +285,14 @@ final class DatabricksThriftAccessor {
     } finally {
       transport.close();
     }
+    String statementId =
+        ThriftStatementId.fromOperationHandle(response.getOperationHandle()).toString();
+    if (parentStatement != null) {
+      parentStatement.setStatementId(statementId);
+    }
     return new DatabricksResultSet(
         response.getStatus(),
-        getStatementId(response.getOperationHandle()),
+        statementId,
         resultSet.getResults(),
         resultSet.getResultSetMetadata(),
         statementType,
@@ -307,14 +327,13 @@ final class DatabricksThriftAccessor {
     } finally {
       transport.close();
     }
+    String statementId =
+        ThriftStatementId.fromOperationHandle(response.getOperationHandle()).toString();
+    if (parentStatement != null) {
+      parentStatement.setStatementId(statementId);
+    }
     return new DatabricksResultSet(
-        response.getStatus(),
-        getStatementId(response.getOperationHandle()),
-        null,
-        null,
-        statementType,
-        parentStatement,
-        session);
+        response.getStatus(), statementId, null, null, statementType, parentStatement, session);
   }
 
   DatabricksResultSet getStatementResult(
@@ -322,6 +341,7 @@ final class DatabricksThriftAccessor {
       IDatabricksStatementHandle parentStatement,
       IDatabricksSession session)
       throws SQLException {
+    LOGGER.debug("Operation handle {%s}", operationHandle);
     TGetOperationStatusReq request =
         new TGetOperationStatusReq()
             .setOperationHandle(operationHandle)
@@ -353,9 +373,11 @@ final class DatabricksThriftAccessor {
     } finally {
       transport.close();
     }
+    String statementId = ThriftStatementId.fromOperationHandle(operationHandle).toString();
+    LOGGER.debug("outgoing stmt-Id " + statementId + " status " + response.operationState);
     return new DatabricksResultSet(
         response.getStatus(),
-        getStatementId(operationHandle),
+        statementId,
         resultSet == null ? null : resultSet.getResults(),
         resultSet == null ? null : resultSet.getResultSetMetadata(),
         StatementType.SQL,

@@ -15,7 +15,6 @@ import com.databricks.jdbc.common.StatementType;
 import com.databricks.jdbc.common.util.*;
 import com.databricks.jdbc.dbclient.IDatabricksClient;
 import com.databricks.jdbc.exception.DatabricksSQLException;
-import com.databricks.jdbc.exception.DatabricksSQLFeatureNotImplementedException;
 import com.databricks.jdbc.exception.DatabricksSQLFeatureNotSupportedException;
 import com.databricks.jdbc.exception.DatabricksTimeoutException;
 import com.databricks.jdbc.log.JdbcLogger;
@@ -55,7 +54,6 @@ public class DatabricksStatement
     this.connection = connection;
     this.statementId = statementId;
     this.resultSet = null;
-    this.statementId = null;
     this.isClosed = false;
     this.timeoutInSeconds = DEFAULT_STATEMENT_TIMEOUT_SECONDS;
   }
@@ -623,6 +621,7 @@ public class DatabricksStatement
 
   @Override
   public void setStatementId(String statementId) {
+    LOGGER.debug("void setStatementId {%s}", statementId);
     this.statementId = statementId;
   }
 
@@ -704,12 +703,27 @@ public class DatabricksStatement
   }
 
   @Override
-  public IDatabricksResultSet executeAsync(String sql) throws DatabricksSQLException {
-    throw new DatabricksSQLFeatureNotImplementedException("Not implemented");
+  public IDatabricksResultSet executeAsync(String sql) throws SQLException {
+    checkIfClosed();
+
+    IDatabricksClient client = connection.getSession().getDatabricksClient();
+    return client.executeStatementAsync(
+        sql,
+        connection.getSession().getComputeResource(),
+        new HashMap<Integer, ImmutableSqlParameter>(),
+        connection.getSession(),
+        this);
   }
 
   @Override
-  public IDatabricksResultSet getExecutionResult() throws DatabricksSQLException {
-    throw new DatabricksSQLFeatureNotImplementedException("Not implemented");
+  public IDatabricksResultSet getExecutionResult() throws SQLException {
+    LOGGER.debug("ResultSet getExecutionResult() for statementId {%s}", statementId);
+    System.out.println("Statement Id " + statementId);
+    LOGGER.debug("statement Id stm " + statementId);
+    checkIfClosed();
+    return connection
+        .getSession()
+        .getDatabricksClient()
+        .getStatementResult(statementId, connection.getSession(), this);
   }
 }

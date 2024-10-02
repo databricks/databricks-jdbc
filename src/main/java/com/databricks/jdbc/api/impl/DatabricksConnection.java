@@ -490,15 +490,18 @@ public class DatabricksConnection implements IDatabricksConnection, Connection {
   @Override
   public <T> T unwrap(Class<T> iface) throws SQLException {
     LOGGER.debug("public <T> T unwrap(Class<T> iface)");
-    throw new DatabricksSQLFeatureNotSupportedException(
-        "Not implemented in DatabricksConnection - unwrap(Class<T> iface)");
+    if (iface.isInstance(this)) {
+      return (T) this;
+    }
+    throw new DatabricksSQLException(
+        String.format(
+            "Class {%s} cannot be wrapped from {%s}", this.getClass().getName(), iface.getName()));
   }
 
   @Override
   public boolean isWrapperFor(Class<?> iface) throws SQLException {
     LOGGER.debug("public boolean isWrapperFor(Class<?> iface)");
-    throw new DatabricksSQLFeatureNotSupportedException(
-        "Not implemented in DatabricksConnection - isWrapperFor(Class<?> iface)");
+    return iface.isInstance(this);
   }
 
   @Override

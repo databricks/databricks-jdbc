@@ -1,6 +1,5 @@
 package com.databricks.jdbc.dbclient.impl.thrift;
 
-import static com.databricks.jdbc.TestConstants.TEST_BYTES;
 import static com.databricks.jdbc.common.EnvironmentVariables.DEFAULT_BYTE_LIMIT;
 import static com.databricks.jdbc.common.EnvironmentVariables.DEFAULT_ROW_LIMIT;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -35,7 +34,10 @@ public class DatabricksThriftAccessorTest {
   @Mock IDatabricksStatementHandle statement;
   @Mock IDatabricksConnectionContext connectionContext;
   static DatabricksThriftAccessor accessor;
-  static THandleIdentifier handleIdentifier = new THandleIdentifier().setGuid(TEST_BYTES);
+
+  private static final String TEST_STMT_ID = "MIIWiOiGTESQt3+6xIDA0A|vq8muWugTKm+ZsjNGZdauw";
+  static THandleIdentifier handleIdentifier =
+      ThriftStatementId.fromBase64String(TEST_STMT_ID).toHandleIdentifier();
   private static final TOperationHandle tOperationHandle =
       new TOperationHandle().setOperationId(handleIdentifier).setHasResultSet(false);
   private static final TFetchResultsReq fetchResultsReq =
