@@ -266,11 +266,6 @@ public class DatabricksSdkClient implements IDatabricksClient {
         parentStatement);
   }
 
-  private boolean useCloudFetchForResult(StatementType statementType) {
-    return this.connectionContext.shouldEnableArrow()
-        && (statementType == StatementType.QUERY || statementType == StatementType.SQL);
-  }
-
   @Override
   public void closeStatement(String statementId) {
     LOGGER.debug(
