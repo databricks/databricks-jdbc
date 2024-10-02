@@ -194,8 +194,6 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
         String.format(
             "public DatabricksResultSet getStatementResult(String statementId = {%s}) for all purpose cluster",
             statementId));
-    System.out.println("statement id " + statementId);
-    LOGGER.debug("statement Id " + statementId);
     TOperationHandle operationHandle =
         ThriftStatementId.fromBase64String(statementId).toOperationHandle();
     return thriftAccessor.getStatementResult(operationHandle, parentStatement, session);

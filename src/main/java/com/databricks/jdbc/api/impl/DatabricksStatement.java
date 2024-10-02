@@ -718,8 +718,6 @@ public class DatabricksStatement
   @Override
   public IDatabricksResultSet getExecutionResult() throws SQLException {
     LOGGER.debug("ResultSet getExecutionResult() for statementId {%s}", statementId);
-    System.out.println("Statement Id " + statementId);
-    LOGGER.debug("statement Id stm " + statementId);
     checkIfClosed();
     return connection
         .getSession()
