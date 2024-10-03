@@ -125,6 +125,10 @@ public class ResultManifest {
     return this.isVolumeOperation;
   }
 
+  public Boolean getIsFormatArrowStream() {
+    return getFormat() == Format.ARROW_STREAM;
+  }
+
   public boolean equals(Object o) {
     if (this == o) {
       return true;

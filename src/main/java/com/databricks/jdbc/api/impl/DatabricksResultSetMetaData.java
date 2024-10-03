@@ -36,6 +36,7 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
   private final ImmutableMap<String, Integer> columnNameIndex;
   private final long totalRows;
   private Long chunkCount;
+  private final boolean isCloudFetched;
 
   /**
    * Constructs a {@code DatabricksResultSetMetaData} object for a SEA result set.
@@ -90,6 +91,7 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
     this.columnNameIndex = ImmutableMap.copyOf(columnNameToIndexMap);
     this.totalRows = resultManifest.getTotalRowCount();
     this.chunkCount = resultManifest.getTotalChunkCount();
+    this.isCloudFetched = resultManifest.getIsFormatArrowStream();
   }
 
   /**
@@ -151,6 +153,7 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
     this.columnNameIndex = ImmutableMap.copyOf(columnNameToIndexMap);
     this.totalRows = rows;
     this.chunkCount = chunkCount;
+    this.isCloudFetched = resultManifest.isSetArrowSchema();
   }
 
   /**
@@ -191,6 +194,7 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
     this.columns = columnsBuilder.build();
     this.columnNameIndex = ImmutableMap.copyOf(columnNameToIndexMap);
     this.totalRows = totalRows;
+    this.isCloudFetched = false;
   }
 
   /**
@@ -235,6 +239,7 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
     this.columns = columnsBuilder.build();
     this.columnNameIndex = ImmutableMap.copyOf(columnNameToIndexMap);
     this.totalRows = totalRows;
+    this.isCloudFetched = false;
   }
 
   @Override
@@ -405,6 +410,10 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
       }
     }
     return new int[] {precision, scale};
+  }
+
+  public boolean isCloudFetched() {
+    return this.isCloudFetched;
   }
 
   private ImmutableDatabricksColumn.Builder getColumnBuilder() {
