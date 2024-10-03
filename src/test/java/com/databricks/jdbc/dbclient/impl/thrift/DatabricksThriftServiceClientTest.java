@@ -16,7 +16,6 @@ import com.databricks.jdbc.api.IDatabricksSession;
 import com.databricks.jdbc.api.impl.*;
 import com.databricks.jdbc.common.StatementType;
 import com.databricks.jdbc.exception.DatabricksSQLException;
-import com.databricks.jdbc.exception.DatabricksSQLFeatureNotImplementedException;
 import com.databricks.jdbc.model.client.thrift.generated.*;
 import com.databricks.jdbc.model.core.ExternalLink;
 import com.databricks.jdbc.model.core.ResultColumn;
@@ -90,15 +89,6 @@ public class DatabricksThriftServiceClientTest {
         client.executeStatement(
             TEST_STRING, CLUSTER_COMPUTE, Collections.emptyMap(), StatementType.SQL, session, null);
     assertEquals(resultSet, actualResultSet);
-  }
-
-  @Test
-  void testUnsupportedFunctions() {
-    DatabricksThriftServiceClient client =
-        new DatabricksThriftServiceClient(thriftAccessor, connectionContext);
-    assertThrows(
-        DatabricksSQLFeatureNotImplementedException.class,
-        () -> client.closeStatement(TEST_STRING));
   }
 
   @Test
@@ -310,14 +300,27 @@ public class DatabricksThriftServiceClientTest {
   }
 
   @Test
-  void testCancelStatement() {
-    assertThrows(
-        DatabricksSQLFeatureNotImplementedException.class,
-        () -> {
-          DatabricksThriftServiceClient client =
-              new DatabricksThriftServiceClient(thriftAccessor, connectionContext);
-          client.cancelStatement(TEST_STATEMENT_ID);
-        });
+  void testCancelStatement() throws DatabricksSQLException {
+    DatabricksThriftServiceClient client =
+        new DatabricksThriftServiceClient(thriftAccessor, connectionContext);
+    TCancelOperationResp cancelResponse =
+        new TCancelOperationResp()
+            .setStatus(new TStatus().setStatusCode(TStatusCode.SUCCESS_STATUS));
+    when(thriftAccessor.getThriftResponse(any(TCancelOperationReq.class), any()))
+        .thenReturn(cancelResponse);
+    assertDoesNotThrow(() -> client.cancelStatement(TEST_STATEMENT_ID));
+  }
+
+  @Test
+  void testCloseStatement() throws DatabricksSQLException {
+    DatabricksThriftServiceClient client =
+        new DatabricksThriftServiceClient(thriftAccessor, connectionContext);
+    TCloseOperationResp closeResponse =
+        new TCloseOperationResp()
+            .setStatus(new TStatus().setStatusCode(TStatusCode.SUCCESS_STATUS));
+    when(thriftAccessor.getThriftResponse(any(TCloseOperationReq.class), any()))
+        .thenReturn(closeResponse);
+    assertDoesNotThrow(() -> client.closeStatement(TEST_STATEMENT_ID));
   }
 
   @Test
@@ -328,7 +331,7 @@ public class DatabricksThriftServiceClientTest {
   }
 
   @Test
-  void testResetAccessToken() throws Exception {
+  void testResetAccessToken() {
     DatabricksThriftServiceClient client =
         new DatabricksThriftServiceClient(thriftAccessor, connectionContext);
     client.resetAccessToken(NEW_ACCESS_TOKEN);

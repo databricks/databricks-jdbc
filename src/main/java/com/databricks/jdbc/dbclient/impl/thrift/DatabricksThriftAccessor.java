@@ -97,6 +97,10 @@ final class DatabricksThriftAccessor {
         return getTableTypes((TGetTableTypesReq) request);
       } else if (request instanceof TGetTypeInfoReq) {
         return getTypeInfo((TGetTypeInfoReq) request);
+      } else if (request instanceof TCloseOperationReq) {
+        return getThriftClient().CloseOperation((TCloseOperationReq) request);
+      } else if (request instanceof TCancelOperationReq) {
+        return getThriftClient().CancelOperation((TCancelOperationReq) request);
       } else {
         String errorMessage =
             String.format(

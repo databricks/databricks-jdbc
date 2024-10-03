@@ -15,7 +15,6 @@ import com.databricks.jdbc.dbclient.IDatabricksMetadataClient;
 import com.databricks.jdbc.dbclient.impl.common.MetadataResultSetBuilder;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
-import com.databricks.jdbc.exception.DatabricksSQLFeatureNotImplementedException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.model.client.thrift.generated.*;
@@ -148,8 +147,11 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
         String.format(
             "public void closeStatement(String statementId = {%s}) for all purpose cluster",
             statementId));
-    throw new DatabricksSQLFeatureNotImplementedException(
-        "closeStatement for all purpose cluster not implemented");
+    TCloseOperationReq request =
+        new TCloseOperationReq().setOperationHandle(getOperationHandle(statementId));
+    TCloseOperationResp response =
+        (TCloseOperationResp) thriftAccessor.getThriftResponse(request, null);
+    verifySuccessStatus(response.getStatus().getStatusCode(), response.toString());
   }
 
   @Override
@@ -158,8 +160,11 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
         String.format(
             "public void cancelStatement(String statementId = {%s}) for all purpose cluster",
             statementId));
-    throw new DatabricksSQLFeatureNotImplementedException(
-        "abortStatement for all purpose cluster not implemented");
+    TCancelOperationReq request =
+        new TCancelOperationReq().setOperationHandle(getOperationHandle(statementId));
+    TCancelOperationResp response =
+        (TCancelOperationResp) thriftAccessor.getThriftResponse(request, null);
+    verifySuccessStatus(response.getStatus().getStatusCode(), response.toString());
   }
 
   @Override
@@ -170,10 +175,8 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
             "public Optional<ExternalLink> getResultChunk(String statementId = {%s}, long chunkIndex = {%s}) for all purpose cluster",
             statementId, chunkIndex);
     LOGGER.debug(context);
-    THandleIdentifier handleIdentifier = new THandleIdentifier().setGuid(statementId.getBytes());
-    TOperationHandle operationHandle =
-        new TOperationHandle().setOperationId(handleIdentifier).setHasResultSet(false);
-    TFetchResultsResp fetchResultsResp = thriftAccessor.getResultSetResp(operationHandle, context);
+    TFetchResultsResp fetchResultsResp =
+        thriftAccessor.getResultSetResp(getOperationHandle(statementId), context);
     if (chunkIndex < 0 || fetchResultsResp.getResults().getResultLinksSize() <= chunkIndex) {
       String error = String.format("Out of bounds error for chunkIndex. Context: %s", context);
       LOGGER.error(error);

@@ -25,6 +25,11 @@ public class DatabricksThriftUtil {
     return new TNamespace().setCatalogName(catalog).setSchemaName(schema);
   }
 
+  public static TOperationHandle getOperationHandle(String statementId) {
+    THandleIdentifier handleIdentifier = new THandleIdentifier().setGuid(statementId.getBytes());
+    return new TOperationHandle().setOperationId(handleIdentifier).setHasResultSet(false);
+  }
+
   public static String byteBufferToString(ByteBuffer buffer) {
     ByteBuffer newBuffer = buffer.duplicate(); // This is to avoid a BufferUnderflowException
     long sigBits = newBuffer.getLong();
