@@ -59,8 +59,7 @@ public class DecompressionUtil {
       return compressedStream;
     }
     byte[] compressedBytes = IOUtils.toByteArray(compressedStream);
-    byte[] uncompressedBytes =
-        DecompressionUtil.decompress(compressedBytes, compressionType, context);
+    byte[] uncompressedBytes = decompress(compressedBytes, compressionType, context);
     return new ByteArrayInputStream(uncompressedBytes);
   }
 }

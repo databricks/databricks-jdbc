@@ -34,8 +34,6 @@ public enum CompressionType {
     if (!metadataResp.isSetLz4Compressed()) {
       return CompressionType.NONE;
     }
-    return metadataResp.isSetLz4Compressed()
-        ? CompressionType.LZ4_COMPRESSION
-        : CompressionType.NONE;
+    return metadataResp.isLz4Compressed() ? CompressionType.LZ4_COMPRESSION : CompressionType.NONE;
   }
 }
