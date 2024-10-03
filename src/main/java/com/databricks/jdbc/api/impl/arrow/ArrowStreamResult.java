@@ -100,16 +100,16 @@ public class ArrowStreamResult implements IExecutionResult {
       this.chunkDownloader = null;
     } else {
       CompressionType compressionType = CompressionType.getCompressionMapping(resultManifest);
-        this.chunkDownloader =
-            new ChunkDownloader(
-                statementId,
-                resultData,
-                session,
-                session.getConnectionContext().getCloudFetchThreadPoolSize(),
-                compressionType);
-      }
+      this.chunkDownloader =
+          new ChunkDownloader(
+              statementId,
+              resultData,
+              session,
+              httpClient,
+              session.getConnectionContext().getCloudFetchThreadPoolSize(),
+              compressionType);
       this.chunkExtractor = null;
-  }
+    }
   }
 
   /** {@inheritDoc} */
