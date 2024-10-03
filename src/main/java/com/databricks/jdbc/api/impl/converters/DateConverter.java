@@ -7,63 +7,57 @@ import java.sql.Timestamp;
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
 
-public class DateConverter extends AbstractObjectConverter {
-
-  private final Date object;
-
-  public DateConverter(Object object) throws DatabricksSQLException {
-    super(object);
+public class DateConverter implements ObjectConverter {
+  @Override
+  public Date toDate(Object object) throws DatabricksSQLException {
     if (object instanceof String) {
-      this.object = Date.valueOf((String) object);
+      return Date.valueOf((String) object);
+    } else if (object instanceof Date) {
+      return (Date) object;
     } else {
-      this.object = (Date) object;
+      throw new DatabricksSQLException(
+          "Unsupported type for DateObjectConverter: " + object.getClass());
     }
   }
 
   @Override
-  public short convertToShort() throws DatabricksSQLException {
-    long epochDays = convertToLong();
+  public long toLong(Object object) throws DatabricksSQLException {
+    LocalDate localStartDate = LocalDate.ofEpochDay(0);
+    return ChronoUnit.DAYS.between(localStartDate, toDate(object).toLocalDate());
+  }
+
+  @Override
+  public short toShort(Object object) throws DatabricksSQLException {
+    long epochDays = toLong(object);
     if ((short) epochDays == epochDays) {
       return (short) epochDays;
     }
-    throw new DatabricksSQLException("Invalid conversion");
+    throw new DatabricksSQLException("Invalid conversion: Date value out of short range");
   }
 
   @Override
-  public int convertToInt() throws DatabricksSQLException {
-    long epochDays = convertToLong();
-    return (int) epochDays; // the convertToLong will always be within integer limits
+  public int toInt(Object object) throws DatabricksSQLException {
+    // the convertToLong will always be within integer limits
+    return (int) toLong(object);
   }
 
   @Override
-  public long convertToLong() throws DatabricksSQLException {
-    LocalDate localStartDate = LocalDate.ofEpochDay(0);
-    return ChronoUnit.DAYS.between(localStartDate, object.toLocalDate());
+  public BigInteger toBigInteger(Object object) throws DatabricksSQLException {
+    return BigInteger.valueOf(toLong(object));
   }
 
   @Override
-  public BigInteger convertToBigInteger() throws DatabricksSQLException {
-    long epochDays = convertToLong();
-    return BigInteger.valueOf(epochDays);
+  public LocalDate toLocalDate(Object object) throws DatabricksSQLException {
+    return toDate(object).toLocalDate();
   }
 
   @Override
-  public LocalDate convertToLocalDate() throws DatabricksSQLException {
-    return object.toLocalDate();
+  public String toString(Object object) throws DatabricksSQLException {
+    return toDate(object).toString();
   }
 
   @Override
-  public String convertToString() throws DatabricksSQLException {
-    return object.toString();
-  }
-
-  @Override
-  public Timestamp convertToTimestamp() throws DatabricksSQLException {
-    return Timestamp.valueOf(object.toLocalDate().atStartOfDay());
-  }
-
-  @Override
-  public Date convertToDate() throws DatabricksSQLException {
-    return object;
+  public Timestamp toTimestamp(Object object) throws DatabricksSQLException {
+    return Timestamp.valueOf(toDate(object).toLocalDate().atStartOfDay());
   }
 }

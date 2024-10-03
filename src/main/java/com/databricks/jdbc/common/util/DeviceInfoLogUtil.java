@@ -7,7 +7,7 @@ import java.nio.charset.Charset;
 
 public class DeviceInfoLogUtil {
 
-  public static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(DeviceInfoLogUtil.class);
+  private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(DeviceInfoLogUtil.class);
   private static final String JVM_NAME = System.getProperty("java.vm.name");
   private static final String JVM_SPEC_VERSION = System.getProperty("java.specification.version");
   private static final String JVM_IMPL_VERSION = System.getProperty("java.version");

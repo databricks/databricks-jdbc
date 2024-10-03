@@ -13,7 +13,7 @@ import org.apache.commons.io.IOUtils;
 
 public class DecompressionUtil {
 
-  public static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(DecompressionUtil.class);
+  private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(DecompressionUtil.class);
 
   private static byte[] decompressLZ4Frame(byte[] compressedInput, String context)
       throws DatabricksSQLException {

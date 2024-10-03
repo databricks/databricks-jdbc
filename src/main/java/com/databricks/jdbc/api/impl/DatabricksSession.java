@@ -29,7 +29,7 @@ import javax.annotation.Nullable;
  */
 public class DatabricksSession implements IDatabricksSession {
 
-  public static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(DatabricksSession.class);
+  private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(DatabricksSession.class);
   private IDatabricksClient databricksClient;
   private IDatabricksMetadataClient databricksMetadataClient;
   private final IDatabricksComputeResource computeResource;
@@ -122,17 +122,15 @@ public class DatabricksSession implements IDatabricksSession {
   @Override
   public boolean isOpen() {
     LOGGER.debug("public boolean isOpen()");
-    // TODO: check for expired sessions
+    // TODO (PECO-1949): Check for expired sessions
     return isSessionOpen;
   }
 
   @Override
   public void open() throws DatabricksSQLException {
     LOGGER.debug("public void open()");
-    // TODO: check for expired sessions
     synchronized (this) {
       if (!isSessionOpen) {
-        // TODO: handle errors
         this.sessionInfo =
             databricksClient.createSession(
                 this.computeResource, this.catalog, this.schema, this.sessionConfigs);
@@ -144,16 +142,12 @@ public class DatabricksSession implements IDatabricksSession {
   @Override
   public void close() throws DatabricksSQLException {
     LOGGER.debug("public void close()");
-    // TODO: check for any pending query executions
     synchronized (this) {
       if (isSessionOpen) {
-        // TODO: handle closed connections by server
         databricksClient.deleteSession(this, computeResource);
         this.sessionInfo = null;
         this.isSessionOpen = false;
-        if (!connectionContext.isFakeServiceTest()) {
-          this.getMetricsExporter().close();
-        }
+        this.getMetricsExporter().close();
       }
     }
   }

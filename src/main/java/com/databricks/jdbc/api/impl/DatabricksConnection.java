@@ -41,7 +41,6 @@ public class DatabricksConnection implements IDatabricksConnection, Connection {
   public DatabricksConnection(IDatabricksConnectionContext connectionContext)
       throws DatabricksSQLException {
     this.session = new DatabricksSession(connectionContext);
-    this.session.open();
   }
 
   @VisibleForTesting
@@ -49,8 +48,12 @@ public class DatabricksConnection implements IDatabricksConnection, Connection {
       IDatabricksConnectionContext connectionContext, IDatabricksClient databricksClient)
       throws DatabricksSQLException {
     this.session = new DatabricksSession(connectionContext, databricksClient);
-    this.session.open();
     UserAgentManager.setUserAgent(connectionContext);
+  }
+
+  @Override
+  public void open() throws DatabricksSQLException {
+    this.session.open();
   }
 
   @Override
@@ -116,7 +119,7 @@ public class DatabricksConnection implements IDatabricksConnection, Connection {
   }
 
   @Override
-  public void close() throws SQLException {
+  public void close() throws DatabricksSQLException {
     LOGGER.debug("public void close()");
     for (IDatabricksStatement statement : statementSet) {
       statement.close(false);
@@ -403,7 +406,6 @@ public class DatabricksConnection implements IDatabricksConnection, Connection {
 
   @Override
   public String getClientInfo(String name) throws SQLException {
-    //  LOGGER.debug("public String getClientInfo(String name = {})", name);
     // Return session conf if set
     if (this.session.getSessionConfigs().containsKey(name)) {
       return this.session.getSessionConfigs().get(name);
@@ -445,7 +447,6 @@ public class DatabricksConnection implements IDatabricksConnection, Connection {
 
   @Override
   public void setSchema(String schema) throws SQLException {
-    //  LOGGER.debug("public void setSchema(String schema = {})", schema);
     session.setSchema(schema);
     Statement statement = this.createStatement();
     statement.execute("USE SCHEMA " + schema);
@@ -558,8 +559,6 @@ public class DatabricksConnection implements IDatabricksConnection, Connection {
    */
   private void setSessionConfig(
       String key, String value, Map<String, ClientInfoStatus> failedProperties) {
-    //  LoggingUtil.log(LogLevel.DEBUG,"public void setSessionConfig(String key = {}, String value =
-    // {})", key, value);
     try {
       this.createStatement().execute(String.format("SET %s = %s", key, value));
       this.session.setSessionConfig(key, value);

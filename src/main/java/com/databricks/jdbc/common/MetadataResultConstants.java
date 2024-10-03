@@ -212,7 +212,7 @@ public class MetadataResultConstants {
               List.of(
                   MetadataResultConstants.TABLE_NAME_COLUMN,
                   MetadataResultConstants.COLUMN_NAME_COLUMN),
-          CommandName.LIST_SCHEMAS, List.of(MetadataResultConstants.SCHEMA_COLUMN),
+          CommandName.LIST_SCHEMAS, List.of(MetadataResultConstants.SCHEMA_COLUMN_FOR_GET_SCHEMA),
           CommandName.LIST_TABLE_TYPES, List.of(MetadataResultConstants.TABLE_TYPE_COLUMN),
           CommandName.LIST_COLUMNS,
               List.of(

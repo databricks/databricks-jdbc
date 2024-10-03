@@ -7,13 +7,13 @@ import com.databricks.jdbc.model.client.thrift.generated.TGetResultSetMetadataRe
 public enum CompressionType {
   NONE(0),
   LZ4_COMPRESSION(1);
+
+  private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(CompressionType.class);
   private final int compressionTypeVal;
 
   CompressionType(int value) {
     this.compressionTypeVal = value;
   }
-
-  public static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(CompressionType.class);
 
   public static CompressionType parseCompressionType(String compressionType) {
     try {
