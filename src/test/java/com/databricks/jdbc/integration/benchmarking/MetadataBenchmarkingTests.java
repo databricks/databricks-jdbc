@@ -81,7 +81,7 @@ public class MetadataBenchmarkingTests {
         break;
       case "THRIFT_ALL_PURPOSE_CLUSTER":
         connection = getBenchmarkingJDBCConnectionForThriftAllPurposeCluster();
-        RESULTS_TABLE = "main.jdbc_metadata_benchmarking_thrift.benchmarking_results";
+        RESULTS_TABLE = "main.jdbc_metadata_benchmarking_thrift.benchmarking_results_all_purpose";
       default:
         throw new IllegalArgumentException("Invalid testing mode");
     }
