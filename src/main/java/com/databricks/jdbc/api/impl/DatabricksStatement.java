@@ -692,12 +692,12 @@ public class DatabricksStatement
   }
 
   @Override
-  public IDatabricksResultSet executeAsync(String sql) throws DatabricksSQLException {
+  public ResultSet executeAsync(String sql) throws DatabricksSQLException {
     throw new DatabricksSQLFeatureNotImplementedException("Not implemented");
   }
 
   @Override
-  public IDatabricksResultSet getExecutionResult() throws DatabricksSQLException {
+  public ResultSet getExecutionResult() throws DatabricksSQLException {
     throw new DatabricksSQLFeatureNotImplementedException("Not implemented");
   }
 }
