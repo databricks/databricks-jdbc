@@ -71,7 +71,8 @@ public class LargeQueriesBenchmarkingTest {
         break;
       case "THRIFT_ALL_PURPOSE_CLUSTER":
         connection = getBenchmarkingJDBCConnectionForThriftAllPurposeCluster();
-        RESULTS_TABLE = "main.jdbc_thrift_large_queries_benchmarking_schema.benchmarking_results_all_purpose";
+        RESULTS_TABLE =
+            "main.jdbc_thrift_large_queries_benchmarking_schema.benchmarking_results_all_purpose";
         break;
       default:
         throw new IllegalArgumentException("Invalid testing mode");
