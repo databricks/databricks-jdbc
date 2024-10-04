@@ -10,7 +10,7 @@ public class DatabricksSQLException extends SQLException {
   }
 
   public DatabricksSQLException(String reason) {
-    // TODO: Add proper error code
+    // TODO: Add vendor-specific (databricks) exception code
     super(reason, null, 0);
   }
 

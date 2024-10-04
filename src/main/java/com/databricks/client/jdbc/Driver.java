@@ -18,7 +18,8 @@ import java.util.TimeZone;
 
 /** Databricks JDBC driver. */
 public class Driver implements java.sql.Driver {
-  public static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(Driver.class);
+
+  private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(Driver.class);
   private static final Driver INSTANCE;
 
   static {
@@ -53,7 +54,7 @@ public class Driver implements java.sql.Driver {
     try {
       connection.open();
       isConnectionOpen = true;
-      // TODO(PECO-1957): enable exporting driver properties after fixing the bug
+      // TODO (PECO-1957): Export properties asynchronously
       // DeviceInfoLogUtil.exportDeviceProperties(connection.getSession());
       resolveMetadataClient(connection, connectionContext);
       return connection;
@@ -124,7 +125,7 @@ public class Driver implements java.sql.Driver {
       String errMsg =
           String.format(
               "Error initializing the Java Util Logger (JUL) with error: {%s}", e.getMessage());
-      LOGGER.error(errMsg, e);
+      LOGGER.error(e, errMsg);
       throw new DatabricksSQLException(errMsg, e);
     }
   }

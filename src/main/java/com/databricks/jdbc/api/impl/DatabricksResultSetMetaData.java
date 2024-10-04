@@ -29,7 +29,7 @@ import java.util.Map;
 
 public class DatabricksResultSetMetaData implements ResultSetMetaData {
 
-  public static final JdbcLogger LOGGER =
+  private static final JdbcLogger LOGGER =
       JdbcLoggerFactory.getLogger(DatabricksResultSetMetaData.class);
   private final String statementId;
   private final ImmutableList<ImmutableDatabricksColumn> columns;

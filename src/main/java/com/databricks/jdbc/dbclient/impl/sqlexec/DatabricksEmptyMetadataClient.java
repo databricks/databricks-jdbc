@@ -14,7 +14,7 @@ import java.util.List;
 
 public class DatabricksEmptyMetadataClient implements IDatabricksMetadataClient {
 
-  public static final JdbcLogger LOGGER =
+  private static final JdbcLogger LOGGER =
       JdbcLoggerFactory.getLogger(DatabricksEmptyMetadataClient.class);
 
   @Override

@@ -31,7 +31,6 @@ public class ExecutionResultFactoryTest {
 
   @Mock DatabricksSession session;
   @Mock IDatabricksConnectionContext connectionContext;
-
   @Mock TGetResultSetMetadataResp resultSetMetadataResp;
   @Mock TRowSet tRowSet;
   @Mock IDatabricksConnectionContext context;
@@ -133,6 +132,7 @@ public class ExecutionResultFactoryTest {
   @Test
   public void testGetResultSet_thriftInlineArrow() throws SQLException {
     when(resultSetMetadataResp.getResultFormat()).thenReturn(TSparkRowSetType.ARROW_BASED_SET);
+    when(session.getConnectionContext()).thenReturn(context);
     IExecutionResult result =
         ExecutionResultFactory.getResultSet(
             tRowSet, resultSetMetadataResp, TEST_STATEMENT_ID, session, statement, resultSet);

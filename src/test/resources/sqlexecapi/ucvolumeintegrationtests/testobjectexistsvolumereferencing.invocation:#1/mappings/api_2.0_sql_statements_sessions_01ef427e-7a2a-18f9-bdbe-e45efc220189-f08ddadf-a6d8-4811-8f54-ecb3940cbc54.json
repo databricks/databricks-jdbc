@@ -2,7 +2,7 @@
   "id" : "f08ddadf-a6d8-4811-8f54-ecb3940cbc54",
   "name" : "api_2.0_sql_statements_sessions_01ef427e-7a2a-18f9-bdbe-e45efc220189",
   "request" : {
-    "url" : "/api/2.0/sql/statements/sessions/01ef427e-7a2a-18f9-bdbe-e45efc220189?warehouse_id=791ba2a31c7fd70a",
+    "url" : "/api/2.0/sql/sessions/01ef427e-7a2a-18f9-bdbe-e45efc220189?warehouse_id=791ba2a31c7fd70a",
     "method" : "DELETE"
   },
   "response" : {
