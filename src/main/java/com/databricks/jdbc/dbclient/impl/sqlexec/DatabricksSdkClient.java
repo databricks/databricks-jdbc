@@ -9,7 +9,6 @@ import com.databricks.jdbc.api.callback.IDatabricksStatementHandle;
 import com.databricks.jdbc.api.impl.*;
 import com.databricks.jdbc.common.*;
 import com.databricks.jdbc.common.IDatabricksComputeResource;
-import com.databricks.jdbc.common.util.MetricsUtil;
 import com.databricks.jdbc.dbclient.IDatabricksClient;
 import com.databricks.jdbc.dbclient.impl.common.ClientConfigurator;
 import com.databricks.jdbc.exception.DatabricksParsingException;
@@ -23,7 +22,6 @@ import com.databricks.jdbc.model.client.sqlexec.ExecuteStatementResponse;
 import com.databricks.jdbc.model.client.sqlexec.GetStatementResponse;
 import com.databricks.jdbc.model.core.ExternalLink;
 import com.databricks.jdbc.model.core.ResultData;
-import com.databricks.jdbc.telemetry.DatabricksMetrics;
 import com.databricks.sdk.WorkspaceClient;
 import com.databricks.sdk.core.ApiClient;
 import com.databricks.sdk.service.sql.*;
@@ -302,25 +300,6 @@ public class DatabricksSdkClient implements IDatabricksClient {
               " Error Message: %s, Error code: %s", error.getMessage(), error.getErrorCode());
     }
     LOGGER.debug(errorMessage);
-    int errorCode;
-    switch (statementState) {
-      case FAILED:
-        errorCode = ErrorCodes.EXECUTE_STATEMENT_FAILED;
-        break;
-      case CLOSED:
-        errorCode = ErrorCodes.EXECUTE_STATEMENT_CLOSED;
-        break;
-      case CANCELED:
-        errorCode = ErrorCodes.EXECUTE_STATEMENT_CANCELLED;
-        break;
-      default:
-        throw new IllegalStateException("Invalid state for error");
-    }
-    MetricsUtil.exportError(
-        new DatabricksMetrics(connectionContext),
-        ErrorTypes.EXECUTE_STATEMENT,
-        statementId,
-        errorCode);
     throw new DatabricksSQLException(errorMessage);
   }
 

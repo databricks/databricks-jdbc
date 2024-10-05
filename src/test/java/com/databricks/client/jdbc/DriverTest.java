@@ -206,16 +206,6 @@ public class DriverTest {
   }
 
   @Test
-  void testEnableTelemetry() throws Exception {
-    DriverManager.registerDriver(new Driver());
-    String jdbcUrl =
-        "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=https;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/791ba2a31c7fd70a;enableTelemetry=1";
-    Connection con = DriverManager.getConnection(jdbcUrl, "token", "x");
-    System.out.println("Connection established......");
-    con.close();
-  }
-
-  @Test
   void testHttpFlags() throws Exception {
     DriverManager.registerDriver(new Driver());
     DriverManager.drivers().forEach(driver -> System.out.println(driver.getClass()));

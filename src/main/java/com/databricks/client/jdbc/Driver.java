@@ -74,8 +74,6 @@ public class Driver implements java.sql.Driver {
         errorMessage += e.getMessage();
       }
 
-      MetricsUtil.exportErrorWithoutAuth(
-          ErrorTypes.COMMUNICATION_FAILURE, null, ErrorCodes.COMMUNICATION_FAILURE);
       throw new DatabricksSQLException(
           errorMessage,
           rootCause,

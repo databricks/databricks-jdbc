@@ -398,11 +398,11 @@ public class ArrowResultChunk {
     long headRoom = rootAllocator.getHeadroom();
     long initReservation = rootAllocator.getInitReservation();
 
-    String telemetryLog =
+    String allocatorStatsLog =
         String.format(
-            "Chunk telemetry - Event: %s, Chunk Index: %s, Allocated Memory: %s, Peak Memory: %s, Headroom: %s, Init Reservation: %s",
+            "Chunk allocator stats Log - Event: %s, Chunk Index: %s, Allocated Memory: %s, Peak Memory: %s, Headroom: %s, Init Reservation: %s",
             event, chunkIndex, allocatedMemory, peakMemory, headRoom, initReservation);
-    LOGGER.debug(telemetryLog);
+    LOGGER.debug(allocatorStatsLog);
   }
 
   public static class Builder {

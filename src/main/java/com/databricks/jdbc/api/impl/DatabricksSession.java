@@ -15,8 +15,6 @@ import com.databricks.jdbc.dbclient.impl.thrift.DatabricksThriftServiceClient;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
-import com.databricks.jdbc.telemetry.DatabricksMetrics;
-import com.databricks.jdbc.telemetry.annotation.DatabricksMetricsTimedProcessor;
 import com.databricks.sdk.support.ToStringer;
 import com.google.common.annotations.VisibleForTesting;
 import java.util.HashMap;
@@ -44,7 +42,6 @@ public class DatabricksSession implements IDatabricksSession {
   private final Map<String, String> clientInfoProperties;
   private final CompressionType compressionType;
   private final IDatabricksConnectionContext connectionContext;
-  private final DatabricksMetrics metricsExporter;
 
   /**
    * Creates an instance of Databricks session for given connection context
@@ -68,9 +65,6 @@ public class DatabricksSession implements IDatabricksSession {
     this.clientInfoProperties = new HashMap<>();
     this.compressionType = connectionContext.getCompressionType();
     this.connectionContext = connectionContext;
-    this.metricsExporter = new DatabricksMetrics(connectionContext);
-    this.databricksClient =
-        DatabricksMetricsTimedProcessor.createProxy(this.databricksClient, metricsExporter);
   }
 
   /** Constructor method to be used for mocking in a test case. */
@@ -89,7 +83,6 @@ public class DatabricksSession implements IDatabricksSession {
     this.sessionConfigs = connectionContext.getSessionConfigs();
     this.clientInfoProperties = new HashMap<>();
     this.compressionType = connectionContext.getCompressionType();
-    this.metricsExporter = new DatabricksMetrics(connectionContext);
     this.connectionContext = connectionContext;
   }
 
@@ -147,7 +140,6 @@ public class DatabricksSession implements IDatabricksSession {
         databricksClient.deleteSession(this, computeResource);
         this.sessionInfo = null;
         this.isSessionOpen = false;
-        this.getMetricsExporter().close();
       }
     }
   }
@@ -243,9 +235,5 @@ public class DatabricksSession implements IDatabricksSession {
   @Override
   public void setEmptyMetadataClient() {
     databricksMetadataClient = new DatabricksEmptyMetadataClient();
-  }
-
-  public DatabricksMetrics getMetricsExporter() {
-    return this.metricsExporter;
   }
 }
