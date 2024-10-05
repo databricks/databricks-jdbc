@@ -5,6 +5,7 @@ import static com.databricks.jdbc.common.util.DatabricksThriftUtil.getTypeFromTy
 import com.databricks.jdbc.api.IDatabricksSession;
 import com.databricks.jdbc.api.impl.IExecutionResult;
 import com.databricks.jdbc.api.impl.converters.ArrowToJavaObjectConverter;
+import com.databricks.jdbc.common.CompressionType;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
 import com.databricks.jdbc.dbclient.impl.http.DatabricksHttpClient;
 import com.databricks.jdbc.exception.DatabricksParsingException;
@@ -94,15 +95,20 @@ public class ArrowStreamResult implements IExecutionResult {
     setColumnInfo(resultManifest);
     this.isInlineArrow = isInlineArrow;
     if (isInlineArrow) {
-      this.chunkExtractor = new ChunkExtractor(resultData.getArrowBatches(), resultManifest);
+      this.chunkExtractor =
+          new ChunkExtractor(resultData.getArrowBatches(), resultManifest, statementId);
+      this.chunkDownloader = null;
     } else {
+      CompressionType compressionType = CompressionType.getCompressionMapping(resultManifest);
       this.chunkDownloader =
           new ChunkDownloader(
               statementId,
               resultData,
               session,
               httpClient,
-              session.getConnectionContext().getCloudFetchThreadPoolSize());
+              session.getConnectionContext().getCloudFetchThreadPoolSize(),
+              compressionType);
+      this.chunkExtractor = null;
     }
   }
 

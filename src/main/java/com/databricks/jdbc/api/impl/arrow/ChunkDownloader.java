@@ -6,6 +6,7 @@ import com.databricks.jdbc.common.ErrorCodes;
 import com.databricks.jdbc.common.ErrorTypes;
 import com.databricks.jdbc.common.util.MetricsUtil;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
+import com.databricks.jdbc.dbclient.impl.http.DatabricksHttpClient;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.log.JdbcLogger;
@@ -16,6 +17,7 @@ import com.databricks.jdbc.model.core.ExternalLink;
 import com.databricks.jdbc.model.core.ResultData;
 import com.databricks.jdbc.model.core.ResultManifest;
 import com.databricks.sdk.service.sql.BaseChunkInfo;
+import com.google.common.annotations.VisibleForTesting;
 import java.util.Collection;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
@@ -40,6 +42,7 @@ public class ChunkDownloader implements ChunkDownloadCallback {
   private Long totalChunksInMemory;
   private long allowedChunksInMemory;
   private boolean isClosed;
+  private final CompressionType compressionType;
   private final ConcurrentHashMap<Long, ArrowResultChunk> chunkIndexToChunksMap;
 
   ChunkDownloader(
@@ -57,6 +60,7 @@ public class ChunkDownloader implements ChunkDownloadCallback {
     this.statementId = statementId;
     this.totalChunks = resultManifest.getTotalChunkCount();
     this.chunkIndexToChunksMap = initializeChunksMap(resultManifest, resultData, statementId);
+    this.compressionType = CompressionType.NONE; // TODO: handle compression in this flow.
     initializeData();
   }
 
@@ -64,12 +68,31 @@ public class ChunkDownloader implements ChunkDownloadCallback {
       String statementId,
       TRowSet resultData,
       IDatabricksSession session,
+      int chunksDownloaderThreadPoolSize,
+      CompressionType compressionType)
+      throws DatabricksParsingException {
+    this(
+        statementId,
+        resultData,
+        session,
+        DatabricksHttpClient.getInstance(session.getConnectionContext()),
+        chunksDownloaderThreadPoolSize,
+        compressionType);
+  }
+
+  @VisibleForTesting
+  ChunkDownloader(
+      String statementId,
+      TRowSet resultData,
+      IDatabricksSession session,
       IDatabricksHttpClient httpClient,
-      int chunksDownloaderThreadPoolSize)
+      int chunksDownloaderThreadPoolSize,
+      CompressionType compressionType)
       throws DatabricksParsingException {
     ChunkDownloader.chunksDownloaderThreadPoolSize = chunksDownloaderThreadPoolSize;
     this.chunkDownloaderExecutorService = createChunksDownloaderExecutorService();
     this.httpClient = httpClient;
+    this.compressionType = compressionType;
     this.session = session;
     this.statementId = statementId;
     this.totalChunks = resultData.getResultLinksSize();
@@ -128,6 +151,11 @@ public class ChunkDownloader implements ChunkDownloadCallback {
     }
 
     return chunk;
+  }
+
+  @Override
+  public CompressionType getCompressionType() {
+    return compressionType;
   }
 
   boolean hasNextChunk() {
@@ -215,12 +243,10 @@ public class ChunkDownloader implements ChunkDownloadCallback {
               "Manifest telemetry - Row Offset: %s, Row Count: %s, Expiry Time: %s",
               resultLink.getStartRowOffset(), resultLink.getRowCount(), resultLink.getExpiryTime());
       LOGGER.debug(telemetryLog);
-
       chunkIndexMap.put(
           chunkIndex,
           ArrowResultChunk.builder()
               .statementId(statementId)
-              .compressionType(CompressionType.NONE)
               .withThriftChunkInfo(chunkIndex, resultLink)
               .build());
       chunkIndex++;
@@ -251,14 +277,10 @@ public class ChunkDownloader implements ChunkDownloadCallback {
       return chunkIndexMap;
     }
     for (BaseChunkInfo chunkInfo : resultManifest.getChunks()) {
-      LOGGER.debug("Manifest telemetry: " + chunkInfo.toString());
+      LOGGER.debug("Manifest chunk information: " + chunkInfo.toString());
       chunkIndexMap.put(
           chunkInfo.getChunkIndex(),
-          ArrowResultChunk.builder()
-              .statementId(statementId)
-              .compressionType(resultManifest.getCompressionType())
-              .withChunkInfo(chunkInfo)
-              .build());
+          ArrowResultChunk.builder().statementId(statementId).withChunkInfo(chunkInfo).build());
     }
 
     for (ExternalLink externalLink : resultData.getExternalLinks()) {

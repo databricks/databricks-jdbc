@@ -31,7 +31,6 @@ import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.ipc.ArrowStreamReader;
 import org.apache.arrow.vector.util.TransferPair;
-import org.apache.http.HttpEntity;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.utils.URIBuilder;
@@ -93,7 +92,6 @@ public class ArrowResultChunk {
   private final BufferAllocator rootAllocator;
   private String errorMessage;
   private boolean isDataInitialized;
-  private final CompressionType compressionType;
   private static boolean injectError = false;
   private static int errorInjectionCountMaxValue = 0;
   private int errorInjectionCount = 0;
@@ -106,7 +104,6 @@ public class ArrowResultChunk {
     this.statementId = builder.statementId;
     this.expiryTime = builder.expiryTime;
     this.status = builder.status;
-    this.compressionType = builder.compressionType;
     this.rootAllocator = new RootAllocator(/* limit= */ Integer.MAX_VALUE);
     if (builder.inputStream != null) {
       // Data is already available
@@ -242,7 +239,7 @@ public class ArrowResultChunk {
     return this.errorMessage;
   }
 
-  void downloadData(IDatabricksHttpClient httpClient)
+  void downloadData(IDatabricksHttpClient httpClient, CompressionType compressionType)
       throws DatabricksParsingException, IOException {
     // Inject error if enabled for testing
     if (injectError && errorInjectionCount < errorInjectionCountMaxValue) {
@@ -260,8 +257,13 @@ public class ArrowResultChunk {
       // Retry would be done in http client, we should not bother about that here
       response = httpClient.execute(getRequest);
       checkHTTPError(response);
-      HttpEntity entity = response.getEntity();
-      initializeData(entity.getContent());
+      String context =
+          String.format(
+              "Data decompression for chunk index [%d] and statement [%s]",
+              this.chunkIndex, this.statementId);
+      InputStream uncompressedStream =
+          DecompressionUtil.decompress(response.getEntity().getContent(), compressionType, context);
+      initializeData(uncompressedStream);
       setStatus(ChunkStatus.DOWNLOAD_SUCCEEDED);
     } catch (IOException | DatabricksSQLException | URISyntaxException e) {
       handleFailure(e, ChunkStatus.DOWNLOAD_FAILED);
@@ -285,16 +287,8 @@ public class ArrowResultChunk {
         String.format(
             "Parsing data for chunk index [%s] and statement [%s]",
             this.chunkIndex, this.statementId));
-    InputStream decompressedStream =
-        DecompressionUtil.decompress(
-            inputStream,
-            this.compressionType,
-            String.format(
-                "Data fetch for chunk index [%d] and statement [%s] with decompression algorithm : [%s]",
-                this.chunkIndex, this.statementId, this.compressionType));
     this.recordBatchList =
-        getRecordBatchList(
-            decompressedStream, this.rootAllocator, this.statementId, this.chunkIndex);
+        getRecordBatchList(inputStream, this.rootAllocator, this.statementId, this.chunkIndex);
     LOGGER.debug(
         String.format(
             "Data parsed for chunk index [%s] and statement [%s]",
@@ -419,16 +413,10 @@ public class ArrowResultChunk {
     private String statementId;
     private Instant expiryTime;
     private ChunkStatus status;
-    private CompressionType compressionType;
     private InputStream inputStream;
 
     public Builder statementId(String statementId) {
       this.statementId = statementId;
-      return this;
-    }
-
-    public Builder compressionType(CompressionType compressionType) {
-      this.compressionType = compressionType;
       return this;
     }
 

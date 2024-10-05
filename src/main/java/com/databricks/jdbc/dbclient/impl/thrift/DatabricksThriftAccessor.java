@@ -71,8 +71,7 @@ final class DatabricksThriftAccessor {
     this.enableDirectResults = connectionContext.getDirectResultMode();
   }
 
-  TBase getThriftResponse(TBase request, IDatabricksStatement parentStatement)
-      throws DatabricksSQLException {
+  TBase getThriftResponse(TBase request) throws DatabricksSQLException {
     refreshHeadersIfRequired();
     DatabricksHttpTTransport transport =
         (DatabricksHttpTTransport) getThriftClient().getInputProtocol().getTransport();

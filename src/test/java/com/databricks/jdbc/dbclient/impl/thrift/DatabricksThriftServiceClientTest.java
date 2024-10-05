@@ -54,7 +54,7 @@ public class DatabricksThriftServiceClientTest {
             .setSessionHandle(SESSION_HANDLE)
             .setServerProtocolVersion(TProtocolVersion.SPARK_CLI_SERVICE_PROTOCOL_V9)
             .setStatus(new TStatus().setStatusCode(TStatusCode.SUCCESS_STATUS));
-    when(thriftAccessor.getThriftResponse(openSessionReq, null)).thenReturn(openSessionResp);
+    when(thriftAccessor.getThriftResponse(openSessionReq)).thenReturn(openSessionResp);
     ImmutableSessionInfo actualResponse =
         client.createSession(CLUSTER_COMPUTE, CATALOG, SCHEMA, EMPTY_MAP);
     assertEquals(actualResponse.sessionHandle(), SESSION_HANDLE);
@@ -68,7 +68,7 @@ public class DatabricksThriftServiceClientTest {
     TCloseSessionReq closeSessionReq = new TCloseSessionReq().setSessionHandle(SESSION_HANDLE);
     TCloseSessionResp closeSessionResp =
         new TCloseSessionResp().setStatus(new TStatus().setStatusCode(TStatusCode.SUCCESS_STATUS));
-    when(thriftAccessor.getThriftResponse(closeSessionReq, null)).thenReturn(closeSessionResp);
+    when(thriftAccessor.getThriftResponse(closeSessionReq)).thenReturn(closeSessionResp);
     assertDoesNotThrow(() -> client.deleteSession(session, CLUSTER_COMPUTE));
   }
 
@@ -83,6 +83,7 @@ public class DatabricksThriftServiceClientTest {
             .setStatement(TEST_STRING)
             .setSessionHandle(SESSION_HANDLE)
             .setCanReadArrowResult(true)
+            .setCanDecompressLZ4Result(true)
             .setCanDownloadResult(true);
     when(thriftAccessor.execute(executeStatementReq, null, session, StatementType.SQL))
         .thenReturn(resultSet);
@@ -115,7 +116,7 @@ public class DatabricksThriftServiceClientTest {
     TColumn tColumn = new TColumn();
     tColumn.setStringVal(new TStringColumn().setValues(Collections.singletonList(TEST_CATALOG)));
     when(resultData.getColumns()).thenReturn(Collections.singletonList(tColumn));
-    when(thriftAccessor.getThriftResponse(request, null)).thenReturn(response);
+    when(thriftAccessor.getThriftResponse(request)).thenReturn(response);
     DatabricksResultSet resultSet = client.listCatalogs(session);
     assertEquals(resultSet.getStatementStatus().getState(), StatementState.SUCCEEDED);
   }
@@ -177,7 +178,7 @@ public class DatabricksThriftServiceClientTest {
             .setResults(resultData)
             .setResultSetMetadata(resultMetadataData);
     when(resultData.getColumns()).thenReturn(Collections.emptyList());
-    when(thriftAccessor.getThriftResponse(request, null)).thenReturn(response);
+    when(thriftAccessor.getThriftResponse(request)).thenReturn(response);
     DatabricksResultSet resultSet = client.listTypeInfo(session);
     assertEquals(resultSet.getStatementStatus().getState(), StatementState.SUCCEEDED);
   }
@@ -198,7 +199,7 @@ public class DatabricksThriftServiceClientTest {
             .setResults(resultData)
             .setResultSetMetadata(resultMetadataData);
     when(resultData.getColumns()).thenReturn(Collections.emptyList());
-    when(thriftAccessor.getThriftResponse(request, null)).thenReturn(response);
+    when(thriftAccessor.getThriftResponse(request)).thenReturn(response);
     DatabricksResultSet resultSet = client.listSchemas(session, TEST_CATALOG, TEST_SCHEMA);
     assertEquals(resultSet.getStatementStatus().getState(), StatementState.SUCCEEDED);
   }
@@ -224,7 +225,7 @@ public class DatabricksThriftServiceClientTest {
     TColumn tColumn = new TColumn();
     tColumn.setStringVal(new TStringColumn().setValues(Collections.singletonList("")));
     when(resultData.getColumns()).thenReturn(List.of(tColumn, tColumn, tColumn, tColumn));
-    when(thriftAccessor.getThriftResponse(request, null)).thenReturn(response);
+    when(thriftAccessor.getThriftResponse(request)).thenReturn(response);
     DatabricksResultSet resultSet =
         client.listTables(session, TEST_CATALOG, TEST_SCHEMA, TEST_TABLE, tableTypes);
     assertEquals(resultSet.getStatementStatus().getState(), StatementState.SUCCEEDED);
@@ -248,7 +249,7 @@ public class DatabricksThriftServiceClientTest {
             .setResults(resultData)
             .setResultSetMetadata(resultMetadataData);
     when(resultData.getColumns()).thenReturn(new ArrayList<>());
-    when(thriftAccessor.getThriftResponse(request, null)).thenReturn(response);
+    when(thriftAccessor.getThriftResponse(request)).thenReturn(response);
     DatabricksResultSet resultSet =
         client.listColumns(session, TEST_CATALOG, TEST_SCHEMA, TEST_TABLE, TEST_STRING);
     assertEquals(resultSet.getStatementStatus().getState(), StatementState.SUCCEEDED);
@@ -280,7 +281,7 @@ public class DatabricksThriftServiceClientTest {
             .setResults(resultData)
             .setResultSetMetadata(resultMetadataData);
     when(resultData.getColumns()).thenReturn(null);
-    when(thriftAccessor.getThriftResponse(request, null)).thenReturn(response);
+    when(thriftAccessor.getThriftResponse(request)).thenReturn(response);
     DatabricksResultSet resultSet =
         client.listFunctions(session, TEST_CATALOG, TEST_SCHEMA, TEST_STRING);
     assertEquals(resultSet.getStatementStatus().getState(), StatementState.SUCCEEDED);
@@ -303,7 +304,7 @@ public class DatabricksThriftServiceClientTest {
             .setResults(resultData)
             .setResultSetMetadata(resultMetadataData);
     when(resultData.getColumns()).thenReturn(null);
-    when(thriftAccessor.getThriftResponse(request, null)).thenReturn(response);
+    when(thriftAccessor.getThriftResponse(request)).thenReturn(response);
     DatabricksResultSet resultSet =
         client.listPrimaryKeys(session, TEST_CATALOG, TEST_SCHEMA, TEST_TABLE);
     assertEquals(resultSet.getStatementStatus().getState(), StatementState.SUCCEEDED);
