@@ -20,6 +20,7 @@ import javax.sql.PooledConnection;
 public class DataSource implements javax.sql.DataSource, ConnectionPoolDataSource {
 
   private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(DataSource.class);
+  private String user = DEFAULT_USERNAME;
   private String host;
   private int port;
   private String httpPath;
@@ -124,12 +125,11 @@ public class DataSource implements javax.sql.DataSource, ConnectionPoolDataSourc
   }
 
   public String getUsername() {
-    LOGGER.warn(USERNAME_ERROR);
-    return DEFAULT_USERNAME;
+    return user;
   }
 
-  public void setUsername(String username) {
-    LOGGER.warn(USERNAME_ERROR);
+  public void setUsername(String user) {
+    this.user = user;
   }
 
   public String getPassword() {
