@@ -294,7 +294,6 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
 
   @Override
   public CompressionType getCompressionType() {
-    // TODO: Make use of compression type
     String compressionType =
         getParameter(
             DatabricksJdbcUrlParams.LZ4_COMPRESSION_FLAG,
@@ -478,13 +477,6 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   @Override
   public boolean supportManyParameters() {
     return getParameter(DatabricksJdbcUrlParams.SUPPORT_MANY_PARAMETERS).equals("1");
-  }
-
-  /** Returns whether the current test is a fake service test. */
-  @Override
-  public boolean isFakeServiceTest() {
-    // TODO: introduce driver config/properties
-    return Boolean.parseBoolean(System.getProperty(IS_FAKE_SERVICE_TEST_PROP));
   }
 
   @Override

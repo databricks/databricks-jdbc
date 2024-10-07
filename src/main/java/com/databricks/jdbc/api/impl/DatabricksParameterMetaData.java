@@ -12,9 +12,9 @@ import java.sql.SQLException;
 import java.util.HashMap;
 import java.util.Map;
 
+// TODO (PECO-1738): Implement ParameterMetaData
 public class DatabricksParameterMetaData implements ParameterMetaData {
 
-  // TODO : this class is not fully implemented. Tracked in PECO-1738
   private static final JdbcLogger LOGGER =
       JdbcLoggerFactory.getLogger(DatabricksParameterMetaData.class);
   private final Map<Integer, ImmutableSqlParameter> parameterBindings;
@@ -42,7 +42,8 @@ public class DatabricksParameterMetaData implements ParameterMetaData {
 
   @Override
   public int isNullable(int param) throws SQLException {
-    return (DatabricksTypeUtil.isNullable(getObject(param).type()));
+    // TODO (PECO-1711): Implement isNullable
+    return ParameterMetaData.parameterNullableUnknown;
   }
 
   @Override

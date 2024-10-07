@@ -1,6 +1,6 @@
 package com.databricks.jdbc.api.impl.volume;
 
-import com.databricks.jdbc.api.IDatabricksStatement;
+import com.databricks.jdbc.api.callback.IDatabricksStatementHandle;
 import com.databricks.jdbc.api.impl.IExecutionResult;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
@@ -15,11 +15,11 @@ public class VolumeInputStream extends InputStream {
   private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(VolumeInputStream.class);
   private final InputStream httpContent;
   private final IExecutionResult resultHandler;
-  private final IDatabricksStatement statement;
+  private final IDatabricksStatementHandle statement;
   private final HttpEntity httpEntity;
 
   public VolumeInputStream(
-      HttpEntity httpEntity, IExecutionResult resultHandler, IDatabricksStatement statement)
+      HttpEntity httpEntity, IExecutionResult resultHandler, IDatabricksStatementHandle statement)
       throws IOException {
     this.httpContent = httpEntity.getContent();
     this.httpEntity = httpEntity;

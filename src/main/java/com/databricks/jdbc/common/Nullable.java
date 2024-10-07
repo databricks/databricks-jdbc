@@ -5,10 +5,9 @@ public enum Nullable {
   NULLABLE(1),
   UNKNOWN(2);
 
-  private int nullableValue;
+  private final int nullableValue;
 
   Nullable(int value) {
-    // Todo throw error for invalid value
     this.nullableValue = value;
   }
 

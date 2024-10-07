@@ -217,7 +217,6 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
       setObject(parameterIndex, x, databricksType);
       return;
     }
-    // TODO: handle other types
     throw new DatabricksSQLFeatureNotImplementedException(
         "Not implemented in DatabricksPreparedStatement - setObject(int parameterIndex, Object x, int targetSqlType)");
   }
@@ -231,7 +230,6 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
       setObject(parameterIndex, x, type);
       return;
     }
-    // TODO: handle other types and generic objects
     throw new UnsupportedOperationException(
         "Not implemented in DatabricksPreparedStatement - setObject(int parameterIndex, Object x)");
   }
@@ -319,9 +317,7 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
   @Override
   public void setDate(int parameterIndex, Date x, Calendar cal) throws SQLException {
     LOGGER.debug("public void setDate(int parameterIndex, Date x, Calendar cal)");
-    // TODO[PECO-1702]: Integrate the calendar object since Simba implementation appears to be
-    // incorrect - they
-    // clear the calendar before using it
+    // TODO (PECO-1702): Use the calendar object
     checkIfClosed();
     setObject(parameterIndex, x, DatabricksTypeUtil.DATE);
   }

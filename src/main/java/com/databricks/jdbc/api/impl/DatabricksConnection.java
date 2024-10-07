@@ -5,6 +5,7 @@ import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.api.IDatabricksSession;
 import com.databricks.jdbc.api.IDatabricksStatement;
 import com.databricks.jdbc.api.IDatabricksUCVolumeClient;
+import com.databricks.jdbc.api.callback.IDatabricksStatementHandle;
 import com.databricks.jdbc.api.impl.volume.DatabricksUCVolumeClient;
 import com.databricks.jdbc.common.DatabricksJdbcConstants;
 import com.databricks.jdbc.common.util.UserAgentManager;
@@ -29,7 +30,7 @@ import java.util.stream.Collectors;
 public class DatabricksConnection implements IDatabricksConnection, Connection {
   private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(DatabricksConnection.class);
   private IDatabricksSession session;
-  private final Set<IDatabricksStatement> statementSet = ConcurrentHashMap.newKeySet();
+  private final Set<IDatabricksStatementHandle> statementSet = ConcurrentHashMap.newKeySet();
   private SQLWarning warnings = null;
   private volatile IDatabricksUCVolumeClient ucVolumeClient = null;
 
@@ -54,6 +55,11 @@ public class DatabricksConnection implements IDatabricksConnection, Connection {
   @Override
   public void open() throws DatabricksSQLException {
     this.session.open();
+  }
+
+  @Override
+  public Statement getStatement(String statementId) throws SQLException {
+    throw new DatabricksSQLFeatureNotSupportedException("Not implemented");
   }
 
   @Override
@@ -121,7 +127,7 @@ public class DatabricksConnection implements IDatabricksConnection, Connection {
   @Override
   public void close() throws DatabricksSQLException {
     LOGGER.debug("public void close()");
-    for (IDatabricksStatement statement : statementSet) {
+    for (IDatabricksStatementHandle statement : statementSet) {
       statement.close(false);
       statementSet.remove(statement);
     }
@@ -406,7 +412,6 @@ public class DatabricksConnection implements IDatabricksConnection, Connection {
 
   @Override
   public String getClientInfo(String name) throws SQLException {
-    //  LOGGER.debug("public String getClientInfo(String name = {})", name);
     // Return session conf if set
     if (this.session.getSessionConfigs().containsKey(name)) {
       return this.session.getSessionConfigs().get(name);
@@ -448,7 +453,6 @@ public class DatabricksConnection implements IDatabricksConnection, Connection {
 
   @Override
   public void setSchema(String schema) throws SQLException {
-    //  LOGGER.debug("public void setSchema(String schema = {})", schema);
     session.setSchema(schema);
     Statement statement = this.createStatement();
     statement.execute("USE SCHEMA " + schema);
@@ -561,8 +565,6 @@ public class DatabricksConnection implements IDatabricksConnection, Connection {
    */
   private void setSessionConfig(
       String key, String value, Map<String, ClientInfoStatus> failedProperties) {
-    //  LoggingUtil.log(LogLevel.DEBUG,"public void setSessionConfig(String key = {}, String value =
-    // {})", key, value);
     try {
       this.createStatement().execute(String.format("SET %s = %s", key, value));
       this.session.setSessionConfig(key, value);

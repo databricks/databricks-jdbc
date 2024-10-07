@@ -1,5 +1,7 @@
 package com.databricks.jdbc.telemetry;
 
+import static com.databricks.jdbc.common.DatabricksJdbcConstants.IS_FAKE_SERVICE_TEST_PROP;
+
 import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.common.util.DriverUtil;
 import com.databricks.jdbc.dbclient.impl.http.DatabricksHttpClient;
@@ -26,37 +28,19 @@ public class DatabricksMetrics implements AutoCloseable {
   private static final Map<String, Double> counterMetrics = new HashMap<>();
   private static final ObjectMapper objectMapper = new ObjectMapper();
   private Boolean hasInitialExportOccurred = false;
-  private String workspaceId = null;
+  private String workspaceId;
   private DatabricksHttpClient telemetryClient;
-  private boolean enableTelemetry = false;
+  private final boolean enableTelemetry;
+  private final boolean isFakeServiceTest;
 
   private enum MetricsType {
     GAUGE,
     COUNTER
   }
 
-  private void scheduleExportMetrics() {
-    Timer metricsTimer = new Timer();
-    TimerTask task =
-        new TimerTask() {
-          @Override
-          public void run() {
-            try {
-              exportMetrics(gaugeMetrics, MetricsType.GAUGE);
-              exportMetrics(counterMetrics, MetricsType.COUNTER);
-            } catch (Exception e) {
-              LOGGER.error(
-                  "Error while exporting metrics with scheduleExportMetrics: " + e.getMessage());
-            }
-          }
-        };
-
-    // Schedule the task to run after the specified interval infinitely
-    metricsTimer.schedule(task, 0, MetricsConstants.INTERVAL_DURATION);
-  }
-
   public DatabricksMetrics(IDatabricksConnectionContext context) {
-    enableTelemetry = (context != null && context.enableTelemetry());
+    enableTelemetry = context.enableTelemetry();
+    isFakeServiceTest = Boolean.parseBoolean(System.getProperty(IS_FAKE_SERVICE_TEST_PROP));
     if (enableTelemetry) {
       workspaceId = context.getComputeResource().getWorkspaceId();
       telemetryClient = DatabricksHttpClient.getInstance(context);
@@ -64,52 +48,7 @@ public class DatabricksMetrics implements AutoCloseable {
     }
   }
 
-  private void exportMetrics(Map<String, Double> map, MetricsType metricsType) throws Exception {
-    if (!enableTelemetry) {
-      return;
-    }
-    HttpPost request = getMetricsExportRequest(map, metricsType);
-    handleResponseMetrics(request, map);
-  }
-
-  private void exportErrorLog(String sqlQueryId, String connectionConfig, int errorCode)
-      throws Exception {
-    if (!enableTelemetry) {
-      return;
-    }
-    HttpPost request = getErrorLoggingRequest(sqlQueryId, connectionConfig, errorCode);
-    responseHandling(request, "error logging");
-  }
-
-  private void setGaugeMetrics(String name, double value) {
-    // TODO: Handling metrics export when multiple users are accessing from the same workspace_id.
-    if (!gaugeMetrics.containsKey(name)) {
-      gaugeMetrics.put(name, 0.0);
-    }
-    gaugeMetrics.put(name, value);
-  }
-
-  private void incCounterMetrics(String name, double value) {
-    if (!counterMetrics.containsKey(name)) {
-      counterMetrics.put(name, 0.0);
-    }
-    counterMetrics.put(name, value);
-  }
-
-  private void initialExport(Map<String, Double> map, MetricsType metricsType) {
-    hasInitialExportOccurred = true;
-    CompletableFuture.runAsync(
-        () -> {
-          try {
-            exportMetrics(map, metricsType);
-          } catch (Exception e) {
-            // Commenting out the exception for now - failing silently
-            LOGGER.error("Initial export failed. Error: " + e.getMessage());
-          }
-        });
-  }
-
-  // record() appends the metric to be exported in the gauge metric map
+  /** Appends the metric to be exported in the gauge metric map. */
   public void record(String name, double value) {
     if (enableTelemetry) {
       setGaugeMetrics(name + "_" + workspaceId, value);
@@ -117,7 +56,7 @@ public class DatabricksMetrics implements AutoCloseable {
     }
   }
 
-  // increment() appends the metric to be exported in the counter metric map
+  /** Appends the metric to be exported in the counter metric map. */
   public void increment(String name, double value) {
     if (enableTelemetry) {
       incCounterMetrics(name + "_" + workspaceId, value);
@@ -173,9 +112,88 @@ public class DatabricksMetrics implements AutoCloseable {
     }
   }
 
+  @Override
+  public void close() {
+    // Flush out metrics when connection is closed
+    if (enableTelemetry && !isFakeServiceTest && telemetryClient != null) {
+      try {
+        exportMetrics(gaugeMetrics, DatabricksMetrics.MetricsType.GAUGE);
+        exportMetrics(counterMetrics, DatabricksMetrics.MetricsType.COUNTER);
+      } catch (Exception e) {
+        LOGGER.error(
+            "Failed to export metrics when connection is closed. Error: " + e.getMessage());
+      }
+    }
+  }
+
+  private void scheduleExportMetrics() {
+    Timer metricsTimer = new Timer();
+    TimerTask task =
+        new TimerTask() {
+          @Override
+          public void run() {
+            try {
+              exportMetrics(gaugeMetrics, MetricsType.GAUGE);
+              exportMetrics(counterMetrics, MetricsType.COUNTER);
+            } catch (Exception e) {
+              LOGGER.error(
+                  "Error while exporting metrics with scheduleExportMetrics: " + e.getMessage());
+            }
+          }
+        };
+
+    // Schedule the task to run after the specified interval infinitely
+    metricsTimer.schedule(task, 0, MetricsConstants.INTERVAL_DURATION);
+  }
+
+  private void exportMetrics(Map<String, Double> map, MetricsType metricsType) throws Exception {
+    if (!enableTelemetry) {
+      return;
+    }
+    HttpPost request = getMetricsExportRequest(map, metricsType);
+    handleResponseMetrics(request, map);
+  }
+
+  private void exportErrorLog(String sqlQueryId, String connectionConfig, int errorCode)
+      throws Exception {
+    if (!enableTelemetry) {
+      return;
+    }
+    HttpPost request = getErrorLoggingRequest(sqlQueryId, connectionConfig, errorCode);
+    responseHandling(request, "error logging");
+  }
+
+  private void setGaugeMetrics(String name, double value) {
+    // TODO: Update metric representation to differentiate between users sharing the same
+    //       workspace_id
+    if (!gaugeMetrics.containsKey(name)) {
+      gaugeMetrics.put(name, 0.0);
+    }
+    gaugeMetrics.put(name, value);
+  }
+
+  private void incCounterMetrics(String name, double value) {
+    if (!counterMetrics.containsKey(name)) {
+      counterMetrics.put(name, 0.0);
+    }
+    counterMetrics.put(name, value);
+  }
+
+  private void initialExport(Map<String, Double> map, MetricsType metricsType) {
+    hasInitialExportOccurred = true;
+    CompletableFuture.runAsync(
+        () -> {
+          try {
+            exportMetrics(map, metricsType);
+          } catch (Exception e) {
+            // Commenting out the exception for now - failing silently
+            LOGGER.error("Initial export failed. Error: " + e.getMessage());
+          }
+        });
+  }
+
   private boolean responseHandling(HttpPost request, String methodType) {
-    // TODO (Bhuvan): Add authentication headers
-    // TODO (Bhuvan): execute request using Certificates
+    // TODO: Use SSL/TLS for secure communication
     try (CloseableHttpResponse response = telemetryClient.executeWithoutCertVerification(request)) {
       if (response == null) {
         LOGGER.error("Response is null for " + methodType);
@@ -260,19 +278,5 @@ public class DatabricksMetrics implements AutoCloseable {
   @VisibleForTesting
   void setHttpClient(DatabricksHttpClient httpClient) {
     this.telemetryClient = httpClient;
-  }
-
-  @Override
-  public void close() {
-    // Flush out metrics when connection is closed
-    if (enableTelemetry && telemetryClient != null) {
-      try {
-        exportMetrics(gaugeMetrics, DatabricksMetrics.MetricsType.GAUGE);
-        exportMetrics(counterMetrics, DatabricksMetrics.MetricsType.COUNTER);
-      } catch (Exception e) {
-        LOGGER.error(
-            "Failed to export metrics when connection is closed. Error: " + e.getMessage());
-      }
-    }
   }
 }

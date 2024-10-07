@@ -122,40 +122,32 @@ public class DatabricksSession implements IDatabricksSession {
   @Override
   public boolean isOpen() {
     LOGGER.debug("public boolean isOpen()");
-    // TODO: check for expired sessions
+    // TODO (PECO-1949): Check for expired sessions
     return isSessionOpen;
   }
 
   @Override
   public void open() throws DatabricksSQLException {
     LOGGER.debug("public void open()");
-    // TODO: check for expired sessions
-    if (!isSessionOpen) {
-      // TODO: handle errors
-      this.sessionInfo =
-          databricksClient.createSession(
-              this.computeResource, this.catalog, this.schema, this.sessionConfigs);
-      this.isSessionOpen = true;
+    synchronized (this) {
+      if (!isSessionOpen) {
+        this.sessionInfo =
+            databricksClient.createSession(
+                this.computeResource, this.catalog, this.schema, this.sessionConfigs);
+        this.isSessionOpen = true;
+      }
     }
   }
 
   @Override
   public void close() throws DatabricksSQLException {
     LOGGER.debug("public void close()");
-    if (isSessionOpen) {
-      try {
+    synchronized (this) {
+      if (isSessionOpen) {
         databricksClient.deleteSession(this, computeResource);
         this.sessionInfo = null;
         this.isSessionOpen = false;
-        if (!connectionContext.isFakeServiceTest()) {
-          this.getMetricsExporter().close();
-        }
-      } catch (DatabricksSQLException e) {
-        LOGGER.error(
-            String.format(
-                "Error while closing the session {%s}, error message: {%s}",
-                getSessionId(), e.getMessage()),
-            e);
+        this.getMetricsExporter().close();
       }
     }
   }

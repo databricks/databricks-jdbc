@@ -88,7 +88,6 @@ public class DatabricksHttpRetryHandler
         new DatabricksMetrics(connectionContext), ErrorTypes.HTTP_RETRY_ERROR, "", statusCode);
     // Throw an exception to trigger the retry mechanism
     if (httpResponse.containsHeader(THRIFT_ERROR_MESSAGE_HEADER)) {
-
       throw new DatabricksRetryHandlerException(
           "HTTP Response code: "
               + statusCode

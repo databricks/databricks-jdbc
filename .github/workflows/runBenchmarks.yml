@@ -1,0 +1,77 @@
+name: Benchmark Driver
+
+on:
+  schedule:
+    - cron: '0 14 * * *'
+  workflow_dispatch: # Allows manual triggering
+
+jobs:
+  benchmark:
+    runs-on:
+      group: databricks-protected-runner-group
+      labels: linux-ubuntu-latest
+
+    steps:
+      - name: Checkout benchmarking branch
+        uses: actions/checkout@v2
+        with:
+          ref: benchmarking-branch
+
+      - name: Set up Java
+        uses: actions/setup-java@v2
+        with:
+          java-version: '21'
+          distribution: 'adopt'
+
+      - name: Set up Maven
+        run: mvn -version
+
+      - name: Set up Warehouse Connection
+        env:
+          DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
+          DATABRICKS_BENCHFOOD_HOST: ${{ secrets.DATABRICKS_BENCHFOOD_HOST }}
+          DATABRICKS_BENCHMARKING_HOST: ${{ secrets.DATABRICKS_BENCHMARKING_HOST }}
+          DATABRICKS_HTTP_PATH: ${{ secrets.DATABRICKS_HTTP_PATH }}
+          DATABRICKS_BENCHFOOD_HTTP_PATH: ${{ secrets.DATABRICKS_BENCHFOOD_HTTP_PATH }}
+          DATABRICKS_BENCHMARKING_HTTP_PATH: ${{ secrets.DATABRICKS_BENCHMARKING_HTTP_PATH }}
+          DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
+          DATABRICKS_BENCHFOOD_TOKEN: ${{ secrets.DATABRICKS_BENCHFOOD_TOKEN }}
+          DATABRICKS_BENCHMARKING_TOKEN: ${{ secrets.DATABRICKS_BENCHMARKING_TOKEN }}
+          DATABRICKS_USER: ${{ secrets.DATABRICKS_USER }}
+          DATABRICKS_CATALOG: ${{ secrets.DATABRICKS_CATALOG }}
+          DATABRICKS_SCHEMA: ${{ secrets.DATABRICKS_SCHEMA }}
+          DATABRICKS_DOGFOOD_HOST: ${{ secrets.DATABRICKS_DOGFOOD_HOST }}
+          DATABRICKS_DOGFOOD_TOKEN: ${{ secrets.DATABRICKS_DOGFOOD_TOKEN }}
+          DATABRICKS_DOGFOOD_HTTP_PATH: ${{ secrets.DATABRICKS_DOGFOOD_HTTP_PATH }}
+          THRIFT_DATABRICKS_HTTP_PATH: ${{ secrets.THRIFT_DATABRICKS_HTTP_PATH }}
+          THRIFT_DATABRICKS_HOST: ${{ secrets.THRIFT_DATABRICKS_HOST }}
+          THRIFT_DATABRICKS_TOKEN: ${{ secrets.THRIFT_DATABRICKS_TOKEN }}
+          THRIFT_DATABRICKS_USER: ${{ secrets.THRIFT_DATABRICKS_USER }}
+          DATABRICKS_BENCHMARKING_HTTP_PATH_THRIFT: ${{ secrets.DATABRICKS_BENCHMARKING_HTTP_PATH_THRIFT }}
+        run: |
+          echo "DATABRICKS_HOST=${DATABRICKS_HOST}" >> $GITHUB_ENV
+          echo "DATABRICKS_BENCHFOOD_HOST=${DATABRICKS_BENCHFOOD_HOST}" >> $GITHUB_ENV
+          echo "DATABRICKS_BENCHMARKING_HOST=${DATABRICKS_BENCHMARKING_HOST}" >> $GITHUB_ENV
+          echo "DATABRICKS_HTTP_PATH=${DATABRICKS_HTTP_PATH}" >> $GITHUB_ENV
+          echo "DATABRICKS_BENCHFOOD_HTTP_PATH=${DATABRICKS_BENCHFOOD_HTTP_PATH}" >> $GITHUB_ENV
+          echo "DATABRICKS_BENCHMARKING_HTTP_PATH=${DATABRICKS_BENCHMARKING_HTTP_PATH}" >> $GITHUB_ENV
+          echo "DATABRICKS_TOKEN=${DATABRICKS_TOKEN}" >> $GITHUB_ENV
+          echo "DATABRICKS_BENCHFOOD_TOKEN=${DATABRICKS_BENCHFOOD_TOKEN}" >> $GITHUB_ENV
+          echo "DATABRICKS_BENCHMARKING_TOKEN=${DATABRICKS_BENCHMARKING_TOKEN}" >> $GITHUB_ENV
+          echo "DATABRICKS_USER=${DATABRICKS_USER}" >> $GITHUB_ENV
+          echo "DATABRICKS_CATALOG=${DATABRICKS_CATALOG}" >> $GITHUB_ENV
+          echo "DATABRICKS_SCHEMA=${DATABRICKS_SCHEMA}" >> $GITHUB_ENV
+          echo "DATABRICKS_DOGFOOD_HOST=${DATABRICKS_DOGFOOD_HOST}" >> $GITHUB_ENV
+          echo "DATABRICKS_DOGFOOD_TOKEN=${DATABRICKS_DOGFOOD_TOKEN}" >> $GITHUB_ENV
+          echo "DATABRICKS_DOGFOOD_HTTP_PATH=${DATABRICKS_DOGFOOD_HTTP_PATH}" >> $GITHUB_ENV
+          echo "THRIFT_DATABRICKS_HTTP_PATH=${THRIFT_DATABRICKS_HTTP_PATH}" >> $GITHUB_ENV
+          echo "THRIFT_DATABRICKS_HOST=${THRIFT_DATABRICKS_HOST}" >> $GITHUB_ENV
+          echo "THRIFT_DATABRICKS_TOKEN=${THRIFT_DATABRICKS_TOKEN}" >> $GITHUB_ENV
+          echo "THRIFT_DATABRICKS_USER=${THRIFT_DATABRICKS_USER}" >> $GITHUB_ENV
+
+
+      - name: Run Large Queries Benchmarking Test
+        run: mvn test '-Dtest=**LargeQueriesBenchmarkingTest**'
+
+      - name: Run Metadata Benchmarking Test
+        run: mvn test '-Dtest=**MetadataBenchmarkingTests**'
