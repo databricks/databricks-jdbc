@@ -1,9 +1,8 @@
 package com.databricks.jdbc.api.impl.converters;
 
 import static com.databricks.jdbc.TestConstants.TEST_BYTES;
-import static com.databricks.jdbc.api.impl.converters.ConverterHelper.getConvertedObject;
+import static com.databricks.jdbc.api.impl.converters.ConverterHelper.convertSqlTypeToSpecificJavaType;
 import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.Mockito.when;
 
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import java.math.BigDecimal;
@@ -19,7 +18,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
-import org.mockito.Mockito;
 
 class ConverterHelperTest {
   ConverterHelper converterHelper;
@@ -48,174 +46,148 @@ class ConverterHelperTest {
   @MethodSource("provideParametersForGetConvertedObject")
   public void testGetConvertedObject(int columnType, Object input, Object expected)
       throws DatabricksSQLException {
-    assertEquals(expected, getConvertedObject(columnType, input));
+    assertEquals(expected, ConverterHelper.convertSqlTypeToJavaType(columnType, input));
   }
 
   @Test
   void testConvertToString() throws DatabricksSQLException {
-    AbstractObjectConverter converter = Mockito.mock(AbstractObjectConverter.class);
-    when(converter.convertToString()).thenReturn("Test String");
-    assertEquals("Test String", getConvertedObject(String.class, converter));
+    assertEquals(
+        "Test String",
+        convertSqlTypeToSpecificJavaType(String.class, Types.VARCHAR, "Test String"));
   }
 
   @Test
   void testConvertToBigDecimal() throws DatabricksSQLException {
-    AbstractObjectConverter converter = Mockito.mock(AbstractObjectConverter.class);
     BigDecimal expected = new BigDecimal("123.456");
-    when(converter.convertToBigDecimal()).thenReturn(expected);
-    assertEquals(expected, getConvertedObject(BigDecimal.class, converter));
+    assertEquals(
+        expected, convertSqlTypeToSpecificJavaType(BigDecimal.class, Types.DECIMAL, "123.456"));
   }
 
   @Test
   void testConvertToBoolean() throws DatabricksSQLException {
-    AbstractObjectConverter converter = Mockito.mock(AbstractObjectConverter.class);
-    when(converter.convertToBoolean()).thenReturn(true);
-    assertEquals(true, getConvertedObject(Boolean.class, converter));
-    assertEquals(true, getConvertedObject(boolean.class, converter));
+    assertEquals(true, convertSqlTypeToSpecificJavaType(Boolean.class, Types.BOOLEAN, true));
+    assertEquals(true, convertSqlTypeToSpecificJavaType(boolean.class, Types.BOOLEAN, true));
   }
 
   @Test
   void testConvertToInt() throws DatabricksSQLException {
-    AbstractObjectConverter converter = Mockito.mock(AbstractObjectConverter.class);
-    when(converter.convertToInt()).thenReturn(123);
-    assertEquals(123, getConvertedObject(Integer.class, converter));
-    assertEquals(123, getConvertedObject(int.class, converter));
+    assertEquals(123, convertSqlTypeToSpecificJavaType(Integer.class, Types.INTEGER, "123"));
+    assertEquals(123, convertSqlTypeToSpecificJavaType(int.class, Types.INTEGER, "123"));
   }
 
   @Test
   void testConvertToLong() throws DatabricksSQLException {
-    AbstractObjectConverter converter = Mockito.mock(AbstractObjectConverter.class);
-    when(converter.convertToLong()).thenReturn(123L);
-    assertEquals(123L, getConvertedObject(Long.class, converter));
-    assertEquals(123L, getConvertedObject(long.class, converter));
+    assertEquals(123L, convertSqlTypeToSpecificJavaType(Long.class, Types.BIGINT, "123"));
+    assertEquals(123L, convertSqlTypeToSpecificJavaType(long.class, Types.BIGINT, "123"));
   }
 
   @Test
   void testConvertToFloat() throws DatabricksSQLException {
-    AbstractObjectConverter converter = Mockito.mock(AbstractObjectConverter.class);
-    when(converter.convertToFloat()).thenReturn(1.23f);
-    assertEquals(1.23f, getConvertedObject(Float.class, converter));
-    assertEquals(1.23f, getConvertedObject(float.class, converter));
+    assertEquals(1.23f, convertSqlTypeToSpecificJavaType(Float.class, Types.FLOAT, "1.23"));
+    assertEquals(1.23f, convertSqlTypeToSpecificJavaType(float.class, Types.FLOAT, "1.23"));
   }
 
   @Test
   void testConvertToDouble() throws DatabricksSQLException {
-    AbstractObjectConverter converter = Mockito.mock(AbstractObjectConverter.class);
-    when(converter.convertToDouble()).thenReturn(1.234);
-    assertEquals(1.234, getConvertedObject(Double.class, converter));
-    assertEquals(1.234, getConvertedObject(double.class, converter));
+    assertEquals(1.234, convertSqlTypeToSpecificJavaType(Double.class, Types.DOUBLE, "1.234"));
+    assertEquals(1.234, convertSqlTypeToSpecificJavaType(double.class, Types.DOUBLE, 1.234));
   }
 
   @Test
   void testConvertToDate() throws DatabricksSQLException {
-    AbstractObjectConverter converter = Mockito.mock(AbstractObjectConverter.class);
-    Date expected = new Date(System.currentTimeMillis());
-    when(converter.convertToDate()).thenReturn(expected);
-    assertEquals(expected, getConvertedObject(Date.class, converter));
+    Date current = new Date(System.currentTimeMillis());
+    assertEquals(current, convertSqlTypeToSpecificJavaType(Date.class, Types.DATE, current));
   }
 
   @Test
   void testConvertToLocalDate() throws DatabricksSQLException {
-    AbstractObjectConverter converter = Mockito.mock(AbstractObjectConverter.class);
-    LocalDate expected = LocalDate.now();
-    when(converter.convertToLocalDate()).thenReturn(expected);
-    assertEquals(expected, getConvertedObject(LocalDate.class, converter));
+    LocalDate current = LocalDate.now();
+    assertEquals(
+        current.toString(),
+        convertSqlTypeToSpecificJavaType(LocalDate.class, Types.DATE, current.toString())
+            .toString());
   }
 
   @Test
   void testConvertToBigInteger() throws DatabricksSQLException {
-    AbstractObjectConverter converter = Mockito.mock(AbstractObjectConverter.class);
     BigInteger expected = BigInteger.ONE;
-    when(converter.convertToBigInteger()).thenReturn(expected);
-    assertEquals(expected, getConvertedObject(BigInteger.class, converter));
+    assertEquals(expected, convertSqlTypeToSpecificJavaType(BigInteger.class, Types.BIGINT, "1"));
   }
 
   @Test
   void testConvertToTimestamp() throws DatabricksSQLException {
-    AbstractObjectConverter converter = Mockito.mock(AbstractObjectConverter.class);
-    Timestamp expected = new Timestamp(System.currentTimeMillis());
-    when(converter.convertToTimestamp()).thenReturn(expected);
-    assertEquals(expected, getConvertedObject(Timestamp.class, converter));
-    assertEquals(expected, getConvertedObject(Calendar.class, converter));
+    Timestamp current = new Timestamp(System.currentTimeMillis());
+    assertEquals(
+        current, convertSqlTypeToSpecificJavaType(Timestamp.class, Types.TIMESTAMP, current));
+    assertEquals(
+        current, convertSqlTypeToSpecificJavaType(Calendar.class, Types.TIMESTAMP, current));
   }
 
   @Test
   void testConvertToShort() throws DatabricksSQLException {
-    AbstractObjectConverter converter = Mockito.mock(AbstractObjectConverter.class);
-    when(converter.convertToShort()).thenReturn((short) 123);
-    assertEquals((short) 123, getConvertedObject(Byte.class, converter));
-    assertEquals((short) 123, getConvertedObject(byte.class, converter));
+    assertEquals((byte) 123, convertSqlTypeToSpecificJavaType(Byte.class, Types.TINYINT, "123"));
+    assertEquals((byte) 123, convertSqlTypeToSpecificJavaType(byte.class, Types.TINYINT, "123"));
   }
 
   @Test
   void testConvertToOther() throws DatabricksSQLException {
-    AbstractObjectConverter converter = Mockito.mock(AbstractObjectConverter.class);
-    when(converter.convertToString()).thenReturn("otherString");
-    assertEquals("otherString", getConvertedObject(Year.class, converter));
+    assertEquals(
+        "otherString", convertSqlTypeToSpecificJavaType(Year.class, Types.VARCHAR, "otherString"));
   }
 
   @Test
-  void getObjectConverterForInt() throws DatabricksSQLException {
-    assertTrue(converterHelper.getObjectConverter(123, Types.INTEGER) instanceof IntConverter);
+  void getObjectConverterForInt() {
+    assertInstanceOf(IntConverter.class, converterHelper.getConverterForSqlType(Types.INTEGER));
   }
 
   @Test
-  void getObjectConverterForString() throws DatabricksSQLException {
-    assertTrue(converterHelper.getObjectConverter("abc", Types.VARCHAR) instanceof StringConverter);
+  void getObjectConverterForString() {
+    assertInstanceOf(StringConverter.class, converterHelper.getConverterForSqlType(Types.VARCHAR));
   }
 
   @Test
-  void getObjectConverterForBigDecimal() throws DatabricksSQLException {
-    assertTrue(
-        converterHelper.getObjectConverter(BigDecimal.ONE, Types.DECIMAL)
-            instanceof BigDecimalConverter);
+  void getObjectConverterForBigDecimal() {
+    assertInstanceOf(
+        BigDecimalConverter.class, converterHelper.getConverterForSqlType(Types.DECIMAL));
   }
 
   @Test
-  void getObjectConverterForBoolean() throws DatabricksSQLException {
-    assertTrue(converterHelper.getObjectConverter(true, Types.BOOLEAN) instanceof BooleanConverter);
+  void getObjectConverterForBoolean() {
+    assertInstanceOf(BooleanConverter.class, converterHelper.getConverterForSqlType(Types.BOOLEAN));
   }
 
   @Test
-  void getObjectConverterForDate() throws DatabricksSQLException {
-    assertTrue(
-        converterHelper.getObjectConverter(new Date(System.currentTimeMillis()), Types.DATE)
-            instanceof DateConverter);
+  void getObjectConverterForDate() {
+    assertInstanceOf(DateConverter.class, converterHelper.getConverterForSqlType(Types.DATE));
   }
 
   @Test
-  void getObjectConverterForTimestamp() throws DatabricksSQLException {
-    assertTrue(
-        converterHelper.getObjectConverter(
-                new Timestamp(System.currentTimeMillis()), Types.TIMESTAMP)
-            instanceof TimestampConverter);
+  void getObjectConverterForTimestamp() {
+    assertInstanceOf(
+        TimestampConverter.class, converterHelper.getConverterForSqlType(Types.TIMESTAMP));
   }
 
   @Test
-  void whenColumnTypeIsFloat_thenGetFloatConverter() throws DatabricksSQLException {
-    Object object = 1.23f;
-    AbstractObjectConverter converter = converterHelper.getObjectConverter(object, Types.FLOAT);
-    assertTrue(converter instanceof FloatConverter);
+  void whenColumnTypeIsFloat_thenGetFloatConverter() {
+    ObjectConverter converter = converterHelper.getConverterForSqlType(Types.FLOAT);
+    assertInstanceOf(FloatConverter.class, converter);
   }
 
   @Test
-  void whenColumnTypeIsDouble_thenGetDoubleConverter() throws DatabricksSQLException {
-    Object object = 1.23d;
-    AbstractObjectConverter converter = converterHelper.getObjectConverter(object, Types.DOUBLE);
-    assertTrue(converter instanceof DoubleConverter);
+  void whenColumnTypeIsDouble_thenGetDoubleConverter() {
+    ObjectConverter converter = converterHelper.getConverterForSqlType(Types.DOUBLE);
+    assertInstanceOf(DoubleConverter.class, converter);
   }
 
   @Test
-  void whenColumnTypeIsDecimal_thenGetBigDecimalConverter() throws DatabricksSQLException {
-    Object object = new BigDecimal("123.45");
-    AbstractObjectConverter converter = converterHelper.getObjectConverter(object, Types.DECIMAL);
-    assertTrue(converter instanceof BigDecimalConverter);
+  void whenColumnTypeIsDecimal_thenGetBigDecimalConverter() {
+    ObjectConverter converter = converterHelper.getConverterForSqlType(Types.DECIMAL);
+    assertInstanceOf(BigDecimalConverter.class, converter);
   }
 
   @Test
-  void whenColumnType_Other() throws DatabricksSQLException {
-    Object object = new BigDecimal("123.45");
-    AbstractObjectConverter converter = converterHelper.getObjectConverter(object, Types.DECIMAL);
-    assertTrue(converter instanceof BigDecimalConverter);
+  void whenColumnType_Other() {
+    ObjectConverter converter = converterHelper.getConverterForSqlType(Types.DECIMAL);
+    assertInstanceOf(BigDecimalConverter.class, converter);
   }
 }

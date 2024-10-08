@@ -1,10 +1,14 @@
 package com.databricks.jdbc.common;
 
-import com.databricks.jdbc.common.util.LoggingUtil;
+import com.databricks.jdbc.log.JdbcLogger;
+import com.databricks.jdbc.log.JdbcLoggerFactory;
+import com.databricks.jdbc.model.client.thrift.generated.TGetResultSetMetadataResp;
 
 public enum CompressionType {
   NONE(0),
   LZ4_COMPRESSION(1);
+
+  private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(CompressionType.class);
   private final int compressionTypeVal;
 
   CompressionType(int value) {
@@ -20,9 +24,16 @@ public enum CompressionType {
         }
       }
     } catch (NumberFormatException ignored) {
-      LoggingUtil.log(LogLevel.DEBUG, "Invalid or no compression type provided as input.");
+      LOGGER.debug("Invalid or no compression type provided as input.");
     }
-    LoggingUtil.log(LogLevel.DEBUG, "Defaulting to no compression for fetching results.");
+    LOGGER.debug("Defaulting to no compression for fetching results.");
     return NONE;
+  }
+
+  public static CompressionType getCompressionMapping(TGetResultSetMetadataResp metadataResp) {
+    if (!metadataResp.isSetLz4Compressed()) {
+      return CompressionType.NONE;
+    }
+    return metadataResp.isLz4Compressed() ? CompressionType.LZ4_COMPRESSION : CompressionType.NONE;
   }
 }

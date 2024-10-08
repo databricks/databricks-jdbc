@@ -23,6 +23,8 @@ import java.util.stream.Stream;
  */
 public class JulLogger implements JdbcLogger {
 
+  private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(JulLogger.class);
+
   public static final String STDOUT = "STDOUT";
 
   public static final String PARENT_CLASS_PREFIX = "com.databricks.jdbc";
@@ -48,10 +50,20 @@ public class JulLogger implements JdbcLogger {
     log(Level.FINEST, message, null);
   }
 
+  @Override
+  public void trace(String format, Object... arguments) {
+    trace(String.format(format, arguments));
+  }
+
   /** {@inheritDoc} */
   @Override
   public void debug(String message) {
     log(Level.FINE, message, null);
+  }
+
+  @Override
+  public void debug(String format, Object... arguments) {
+    debug(String.format(format, arguments));
   }
 
   /** {@inheritDoc} */
@@ -60,10 +72,20 @@ public class JulLogger implements JdbcLogger {
     log(Level.INFO, message, null);
   }
 
+  @Override
+  public void info(String format, Object... arguments) {
+    info(String.format(format, arguments));
+  }
+
   /** {@inheritDoc} */
   @Override
   public void warn(String message) {
     log(Level.WARNING, message, null);
+  }
+
+  @Override
+  public void warn(String format, Object... arguments) {
+    warn(String.format(format, arguments));
   }
 
   /** {@inheritDoc} */
@@ -72,10 +94,20 @@ public class JulLogger implements JdbcLogger {
     log(Level.SEVERE, message, null);
   }
 
+  @Override
+  public void error(String format, Object... arguments) {
+    error(String.format(format, arguments));
+  }
+
   /** {@inheritDoc} */
   @Override
-  public void error(String message, Throwable throwable) {
+  public void error(Throwable throwable, String message) {
     log(Level.SEVERE, message, throwable);
+  }
+
+  @Override
+  public void error(Throwable throwable, String format, Object... arguments) {
+    error(String.format(format, arguments), throwable);
   }
 
   /**
@@ -161,9 +193,12 @@ public class JulLogger implements JdbcLogger {
     Path dirPath = Paths.get(logDir);
     if (Files.notExists(dirPath)) {
       try {
+        LOGGER.info("Creating log directory for JUL logging: " + dirPath);
         Files.createDirectories(dirPath);
       } catch (IOException e) {
         // If the directory cannot be created, log to the console instead
+        LOGGER.info(
+            "Error creating log directory " + dirPath + " for JUL logging." + e.getMessage());
         return STDOUT;
       }
     }

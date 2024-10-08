@@ -12,6 +12,7 @@ import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.Arrays;
 import java.util.List;
+import java.util.function.Function;
 import org.apache.arrow.vector.util.Text;
 
 public class ArrowToJavaObjectConverter {
@@ -41,7 +42,6 @@ public class ArrowToJavaObjectConverter {
           DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.S"),
           DateTimeFormatter.RFC_1123_DATE_TIME);
 
-  // TODO (Madhav): Check Arrow to JSON conversion
   public static Object convert(Object object, ColumnInfoTypeName requiredType)
       throws DatabricksSQLException {
     if (object == null) {
@@ -49,19 +49,20 @@ public class ArrowToJavaObjectConverter {
     }
     switch (requiredType) {
       case BYTE:
-        return convertToByte(object);
+        return convertToNumber(object, Byte::parseByte, Number::byteValue);
       case SHORT:
-        return convertToShort(object);
+        return convertToNumber(object, Short::parseShort, Number::shortValue);
       case INT:
-        return convertToInteger(object);
+        return convertToNumber(object, Integer::parseInt, Number::intValue);
       case LONG:
-        return convertToLong(object);
+        return convertToNumber(object, Long::parseLong, Number::longValue);
       case FLOAT:
-        return convertToFloat(object);
+        return convertToNumber(object, Float::parseFloat, Number::floatValue);
       case DOUBLE:
-        return convertToDouble(object);
+        return convertToNumber(object, Double::parseDouble, Number::doubleValue);
       case DECIMAL:
-        return convertToBigDecimal(object);
+        return convertToNumber(
+            object, BigDecimal::new, num -> BigDecimal.valueOf(num.doubleValue()));
       case BINARY:
         return convertToByteArray(object);
       case BOOLEAN:
@@ -144,70 +145,16 @@ public class ArrowToJavaObjectConverter {
     return (byte[]) object;
   }
 
-  private static byte convertToByte(Object object) {
+  private static <T extends Number> T convertToNumber(
+      Object object, Function<String, T> parseFunc, Function<Number, T> convertFunc)
+      throws DatabricksSQLException {
     if (object instanceof Text) {
-      return Byte.parseByte(object.toString());
+      return parseFunc.apply(object.toString());
     }
     if (object instanceof Number) {
-      return ((Number) object).byteValue();
+      return convertFunc.apply((Number) object);
     }
-    return (byte) object;
-  }
-
-  private static short convertToShort(Object object) {
-    if (object instanceof Text) {
-      return Short.parseShort(object.toString());
-    }
-    if (object instanceof Number) {
-      return ((Number) object).shortValue();
-    }
-    return (short) object;
-  }
-
-  private static BigDecimal convertToBigDecimal(Object object) {
-    if (object instanceof Text) {
-      return new BigDecimal(object.toString());
-    }
-    return (BigDecimal) object;
-  }
-
-  private static double convertToDouble(Object object) {
-    if (object instanceof Text) {
-      return Double.parseDouble(object.toString());
-    }
-    if (object instanceof Number) {
-      return ((Number) object).doubleValue();
-    }
-    return (double) object;
-  }
-
-  private static float convertToFloat(Object object) {
-    if (object instanceof Text) {
-      return Float.parseFloat(object.toString());
-    }
-    if (object instanceof Number) {
-      return ((Number) object).floatValue();
-    }
-    return (float) object;
-  }
-
-  private static int convertToInteger(Object object) {
-    if (object instanceof Text) {
-      return Integer.parseInt(object.toString());
-    }
-    if (object instanceof Number) {
-      return ((Number) object).intValue();
-    }
-    return (int) object;
-  }
-
-  private static long convertToLong(Object object) {
-    if (object instanceof Text) {
-      return Long.parseLong(object.toString());
-    }
-    if (object instanceof Number) {
-      return ((Number) object).longValue();
-    }
-    return (long) object;
+    throw new DatabricksSQLException(
+        "Unsupported object type for number conversion: " + object.getClass());
   }
 }

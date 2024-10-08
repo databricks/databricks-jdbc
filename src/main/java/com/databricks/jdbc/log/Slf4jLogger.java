@@ -27,10 +27,20 @@ public class Slf4jLogger implements JdbcLogger {
     logger.trace(message);
   }
 
+  @Override
+  public void trace(String format, Object... arguments) {
+    logger.trace(format, arguments);
+  }
+
   /** {@inheritDoc} */
   @Override
   public void debug(String message) {
     logger.debug(message);
+  }
+
+  @Override
+  public void debug(String format, Object... arguments) {
+    logger.debug(format, arguments);
   }
 
   /** {@inheritDoc} */
@@ -39,10 +49,20 @@ public class Slf4jLogger implements JdbcLogger {
     logger.info(message);
   }
 
+  @Override
+  public void info(String format, Object... arguments) {
+    logger.info(format, arguments);
+  }
+
   /** {@inheritDoc} */
   @Override
   public void warn(String message) {
     logger.warn(message);
+  }
+
+  @Override
+  public void warn(String format, Object... arguments) {
+    logger.warn(format, arguments);
   }
 
   /** {@inheritDoc} */
@@ -51,9 +71,19 @@ public class Slf4jLogger implements JdbcLogger {
     logger.error(message);
   }
 
+  @Override
+  public void error(String format, Object... arguments) {
+    logger.error(format, arguments);
+  }
+
   /** {@inheritDoc} */
   @Override
-  public void error(String message, Throwable throwable) {
+  public void error(Throwable throwable, String message) {
     logger.error(message, throwable);
+  }
+
+  @Override
+  public void error(Throwable throwable, String format, Object... arguments) {
+    logger.error(format, throwable, arguments);
   }
 }

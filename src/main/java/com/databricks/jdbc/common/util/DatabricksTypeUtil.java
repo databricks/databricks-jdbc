@@ -1,16 +1,16 @@
 package com.databricks.jdbc.common.util;
 
-import static java.sql.ParameterMetaData.parameterNullable;
-
-import com.databricks.jdbc.common.LogLevel;
-import com.databricks.jdbc.exception.DatabricksSQLException;
+import com.databricks.jdbc.common.Nullable;
 import com.databricks.jdbc.exception.DatabricksSQLFeatureNotSupportedException;
+import com.databricks.jdbc.log.JdbcLogger;
+import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.model.client.thrift.generated.TPrimitiveTypeEntry;
 import com.databricks.jdbc.model.client.thrift.generated.TTypeDesc;
 import com.databricks.jdbc.model.client.thrift.generated.TTypeEntry;
 import com.databricks.jdbc.model.client.thrift.generated.TTypeId;
 import com.databricks.sdk.service.sql.ColumnInfoTypeName;
 import java.sql.Date;
+import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.sql.Types;
 import java.util.ArrayList;
@@ -22,11 +22,13 @@ import org.apache.arrow.vector.types.TimeUnit;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 
 /**
- * Databricks types as supported in
- * https://docs.databricks.com/en/sql/language-manual/sql-ref-datatypes.html
+ * Utility class for handling various type conversions and mappings between <a
+ * href="https://docs.databricks.com/en/sql/language-manual/sql-ref-datatypes.html">Databricks-specific</a>
+ * data types, SQL types, and Arrow types.
  */
 public class DatabricksTypeUtil {
 
+  private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(DatabricksTypeUtil.class);
   public static final String BIGINT = "BIGINT";
   public static final String BINARY = "BINARY";
   public static final String BOOLEAN = "BOOLEAN";
@@ -46,7 +48,6 @@ public class DatabricksTypeUtil {
   public static final String MAP = "MAP";
   public static final String ARRAY = "ARRAY";
   public static final String STRUCT = "STRUCT";
-
   private static final ArrayList<ColumnInfoTypeName> SIGNED_TYPES =
       new ArrayList<>(
           Arrays.asList(
@@ -56,8 +57,6 @@ public class DatabricksTypeUtil {
               ColumnInfoTypeName.INT,
               ColumnInfoTypeName.LONG,
               ColumnInfoTypeName.SHORT));
-  private static final ArrayList<ColumnInfoTypeName> CASE_SENSITIVE_TYPES =
-      new ArrayList<>(Arrays.asList(ColumnInfoTypeName.CHAR, ColumnInfoTypeName.STRING));
 
   public static ColumnInfoTypeName getColumnInfoType(String typeName) {
     switch (typeName) {
@@ -125,9 +124,9 @@ public class DatabricksTypeUtil {
       case CHAR:
         return Types.CHAR;
       case STRING:
-        // TODO: Handle complex data types
       case MAP:
       case INTERVAL:
+      case NULL:
         return Types.VARCHAR;
       case TIMESTAMP:
         return Types.TIMESTAMP;
@@ -137,12 +136,10 @@ public class DatabricksTypeUtil {
         return Types.STRUCT;
       case ARRAY:
         return Types.ARRAY;
-      case NULL:
-        return Types.NULL;
       case USER_DEFINED_TYPE:
         return Types.OTHER;
       default:
-        LoggingUtil.log(LogLevel.ERROR, "Unknown column type: " + typeName);
+        LOGGER.error("Unknown column type: " + typeName);
         throw new IllegalStateException("Unknown column type: " + typeName);
     }
   }
@@ -169,7 +166,6 @@ public class DatabricksTypeUtil {
         return "java.lang.Boolean";
       case CHAR:
       case STRING:
-        // TODO: Handle complex data types
       case INTERVAL:
       case USER_DEFINED_TYPE:
         return "java.lang.String";
@@ -186,7 +182,7 @@ public class DatabricksTypeUtil {
       case MAP:
         return "java.util.Map";
       default:
-        LoggingUtil.log(LogLevel.ERROR, "Unknown column type class name: " + typeName);
+        LOGGER.error("Unknown column type class name: " + typeName);
         throw new IllegalStateException("Unknown column type class name: " + typeName);
     }
   }
@@ -225,57 +221,64 @@ public class DatabricksTypeUtil {
     }
   }
 
-  public static int getPrecision(ColumnInfoTypeName typeName) {
-    if (typeName == null) {
+  public static int getPrecision(Integer columnType) {
+    if (columnType == null) {
       return 0;
     }
-    switch (typeName) {
-      case BYTE:
-      case SHORT:
+    switch (columnType) {
+      case Types.TINYINT:
+      case Types.SMALLINT:
         return 5;
-      case INT:
-      case DATE:
-      case DECIMAL:
+      case Types.INTEGER:
+      case Types.DATE:
+      case Types.DECIMAL:
         return 10;
-      case LONG:
+      case Types.BIGINT:
         return 19;
-      case CHAR:
-      case BOOLEAN:
-      case BINARY:
+      case Types.CHAR:
+      case Types.BOOLEAN:
+      case Types.BINARY:
         return 1;
-      case FLOAT:
+      case Types.FLOAT:
         return 7;
-      case DOUBLE:
+      case Types.DOUBLE:
         return 15;
-      case TIMESTAMP:
+      case Types.TIMESTAMP:
         return 29;
-      case ARRAY:
-      case STRING:
-      case STRUCT:
+      case Types.ARRAY:
+      case Types.LONGNVARCHAR:
+      case Types.STRUCT:
       default:
         return 255;
     }
   }
 
-  public static int isNullable(ColumnInfoTypeName typeName) {
-    // Todo : we need to figure out schema fetch [PECO-1711]
-    return parameterNullable;
-  }
-
-  public static int getScale(ColumnInfoTypeName typeName) {
-    if (typeName == null) {
+  public static int getScale(Integer columnType) {
+    if (columnType == null) {
       return 0;
     }
-    return typeName == ColumnInfoTypeName.TIMESTAMP ? 9 : 0;
+    return columnType == Types.TIMESTAMP ? 9 : 0;
   }
 
   public static boolean isSigned(ColumnInfoTypeName typeName) {
     return SIGNED_TYPES.contains(typeName);
   }
 
+  public static Nullable getNullableFromValue(Integer isNullable) {
+    if (isNullable == null) {
+      return Nullable.UNKNOWN;
+    } else if (isNullable == 0) {
+      return Nullable.NO_NULLS;
+    } else if (isNullable == 1) {
+      return Nullable.NULLABLE;
+    } else {
+      return Nullable.UNKNOWN;
+    }
+  }
+
   /**
-   * Converts SQL type into Databricks type as defined in
-   * https://docs.databricks.com/en/sql/language-manual/sql-ref-datatypes.html
+   * Converts SQL type into Databricks type as defined <a
+   * href="https://docs.databricks.com/en/sql/language-manual/sql-ref-datatypes.html">here</a>
    *
    * @param sqlType SQL type input
    * @return databricks type
@@ -318,14 +321,14 @@ public class DatabricksTypeUtil {
       case Types.SMALLINT:
         return SMALLINT;
       default:
-        // TODO: handle more types
+        // TODO: Handle more SQL types
         return NULL;
     }
   }
 
   /**
-   * Infers Databricks type from class of given object as defined in
-   * https://docs.databricks.com/en/sql/language-manual/sql-ref-datatypes.html
+   * Infers Databricks type from class of given object as defined in <a
+   * href="https://docs.databricks.com/en/sql/language-manual/sql-ref-datatypes.html">here</a>
    *
    * @param obj input object
    * @return inferred Databricks type
@@ -353,7 +356,7 @@ public class DatabricksTypeUtil {
     } else if (obj instanceof Double) {
       type = DOUBLE;
     }
-    // TODO: handle more types
+    // TODO: Handle more object types
     return type;
   }
 
@@ -366,7 +369,7 @@ public class DatabricksTypeUtil {
         .orElse(TTypeId.STRING_TYPE);
   }
 
-  public static ArrowType mapThriftToArrowType(TTypeId typeId) throws DatabricksSQLException {
+  public static ArrowType mapThriftToArrowType(TTypeId typeId) throws SQLException {
     switch (typeId) {
       case BOOLEAN_TYPE:
         return ArrowType.Bool.INSTANCE;

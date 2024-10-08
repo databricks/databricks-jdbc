@@ -1,11 +1,15 @@
-// TODO: Remove these classes when available in the sdk
 package com.databricks.jdbc.model.client.sqlexec;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 
-/** create session response */
+/**
+ * Create session response
+ *
+ * <p>TODO: Replace this class with the corresponding SDK implementation once it becomes available
+ */
 public class CreateSessionResponse {
-  /** session id for the session created */
+
+  /** session_id for the session created */
   @JsonProperty("session_id")
   private String sessionId;
 

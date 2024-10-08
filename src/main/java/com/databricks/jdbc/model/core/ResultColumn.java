@@ -1,5 +1,6 @@
 package com.databricks.jdbc.model.core;
 
+import com.databricks.jdbc.common.util.DatabricksTypeUtil;
 import java.sql.Types;
 
 public class ResultColumn {
@@ -33,11 +34,19 @@ public class ResultColumn {
   public String getColumnTypeString() {
     if (columnType.equals(Types.VARCHAR)) {
       return "VARCHAR";
+    } else if (columnType.equals(Types.SMALLINT)) {
+      return "SMALLINT";
+    } else if (columnType.equals(Types.BIT)) {
+      return "BIT";
     }
     return "INTEGER"; // Currently we have only Varchar and Int metadata fields.
   }
 
   public Integer getColumnPrecision() {
-    return 128; // Todo : fix the precisions
+    return DatabricksTypeUtil.getPrecision(columnType);
+  }
+
+  public Integer getColumnScale() {
+    return DatabricksTypeUtil.getScale(columnType);
   }
 }

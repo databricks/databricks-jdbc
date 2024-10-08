@@ -74,3 +74,75 @@ tests in `RECORD` mode using `SQL_EXEC`:
 DATABRICKS_TOKEN=<personal-access-token> USE_THRIFT_CLIENT=false FAKE_SERVICE_TEST_MODE=record mvn -Dtest=com.databricks.jdbc.integration.fakeservice.tests.ExecutionIntegrationTests test
 ```
 This will replace the recorded responses with the new responses from the production services.
+
+## Logging
+
+The driver supports both [SLF4J](https://www.slf4j.org/) and [JUL](https://docs.oracle.com/javase/8/docs/api/java/util/logging/package-summary.html) logging frameworks.
+
+- __SLF4J__: SLF4J logging can be enabled by setting the system property `-Dcom.databricks.jdbc.loggerImpl=SLF4JLOGGER`.
+  Customers need to provide the SLF4J binding implementation and corresponding configuration file in the classpath.
+  The intention is to give freedom to customers to adapt the JDBC logging as per their needs.
+  Example of using SLF4J with Log4j2; dependencies and configuration in `pom.xml` and `log4j2.xml` respectively:
+
+  ```
+  <dependency>
+    <groupId>org.apache.logging.log4j</groupId>
+    <artifactId>log4j-slf4j2-impl</artifactId>
+    <version>${log4j.version}</version>
+  </dependency>
+  <dependency>
+    <groupId>org.apache.logging.log4j</groupId>
+    <artifactId>log4j-core</artifactId>
+    <version>${log4j.version}</version>
+  </dependency>
+  <dependency>
+    <groupId>org.apache.logging.log4j</groupId>
+    <artifactId>log4j-api</artifactId>
+    <version>${log4j.version}</version>
+  </dependency>
+  ```
+
+  ```
+   <?xml version="1.0" encoding="UTF-8"?>
+   <Configuration status="WARN">
+       <Appenders>
+           <!-- Console appender for default logging -->
+           <Console name="Console" target="SYSTEM_OUT">
+               <PatternLayout pattern="%d{yyyy-MM-dd HH:mm:ss} %-5level %logger{36} - %msg%n"/>
+           </Console>
+       </Appenders>
+   
+       <Loggers>
+           <!-- Root logger to catch any logs that don't match other loggers -->
+           <Root level="info">
+               <AppenderRef ref="Console"/>
+           </Root>
+       </Loggers>
+   </Configuration>
+  ```
+
+- __Java Util Logging (JUL)__: JUL logging can be enabled by setting the system property
+  `-Dcom.databricks.jdbc.loggerImpl=JDKLOGGER`. By default, JDBC driver uses the JUL logging framework. The intention is
+  to provide an out-of-the-box logging implementation without dependencies external to the JDK. There are two ways to
+  configure JUL logging in the JDBC driver:
+  - __JDBC URL__: Standard logging parameters namely, `logLevel`, `logPath`, `logFileSize` (MB), and `logFileCount`can
+    be passed in the JDBC URL. Example:
+
+    ```
+    jdbc:databricks://your-databricks-host:443;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/your-warehouse-id;UID=token;logLevel=DEBUG;logPath=/path/to/dir;logFileSize=10;logFileCount=5
+    ```
+
+  - __Configuration File__: The logging properties can also be set in a `logging.properties` file. The file should be
+    present in the classpath. Example:
+
+    ```
+    handlers=java.util.logging.FileHandler, java.util.logging.ConsoleHandler
+    .level=INFO
+    java.util.logging.FileHandler.level=ALL
+    java.util.logging.FileHandler.pattern=/path/to/dir/databricks-jdbc.log
+    java.util.logging.FileHandler.limit=10000000
+    java.util.logging.FileHandler.count=5
+    java.util.logging.FileHandler.formatter=java.util.logging.SimpleFormatter
+    java.util.logging.ConsoleHandler.level=ALL
+    java.util.logging.ConsoleHandler.formatter=java.util.logging.SimpleFormatter
+    ```

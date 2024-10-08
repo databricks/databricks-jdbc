@@ -45,6 +45,8 @@ public class DecompressionUtilTest {
     assertEquals(
         decompressionUtil.decompress(compressedInputStream, CompressionType.NONE, CONTEXT),
         compressedInputStream);
-    assertNull(DecompressionUtil.decompress(null, CompressionType.LZ4_COMPRESSION, CONTEXT));
+    assertNull(
+        DecompressionUtil.decompress(
+            (ByteArrayInputStream) null, CompressionType.LZ4_COMPRESSION, CONTEXT));
   }
 }

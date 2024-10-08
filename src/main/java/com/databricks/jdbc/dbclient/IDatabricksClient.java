@@ -2,35 +2,17 @@ package com.databricks.jdbc.dbclient;
 
 import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.api.IDatabricksSession;
-import com.databricks.jdbc.api.IDatabricksStatement;
+import com.databricks.jdbc.api.callback.IDatabricksStatementHandle;
 import com.databricks.jdbc.api.impl.*;
-import com.databricks.jdbc.common.CommandName;
 import com.databricks.jdbc.common.IDatabricksComputeResource;
 import com.databricks.jdbc.common.StatementType;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.model.core.ExternalLink;
-import com.databricks.jdbc.telemetry.annotation.DatabricksMetricsTimedClass;
-import com.databricks.jdbc.telemetry.annotation.DatabricksMetricsTimedMethod;
 import java.sql.SQLException;
 import java.util.Collection;
 import java.util.Map;
 
 /** Interface for Databricks client which abstracts the integration with Databricks server. */
-@DatabricksMetricsTimedClass(
-    methods = {
-      @DatabricksMetricsTimedMethod(
-          methodName = "createSession",
-          metricName = CommandName.CREATE_SESSION),
-      @DatabricksMetricsTimedMethod(
-          methodName = "deleteSession",
-          metricName = CommandName.DELETE_SESSION),
-      @DatabricksMetricsTimedMethod(
-          methodName = "executeStatement",
-          metricName = CommandName.EXECUTE_STATEMENT),
-      @DatabricksMetricsTimedMethod(
-          methodName = "getResultChunks",
-          metricName = CommandName.GET_RESULT_CHUNKS)
-    })
 public interface IDatabricksClient {
 
   /**
@@ -75,7 +57,7 @@ public interface IDatabricksClient {
       Map<Integer, ImmutableSqlParameter> parameters,
       StatementType statementType,
       IDatabricksSession session,
-      IDatabricksStatement parentStatement)
+      IDatabricksStatementHandle parentStatement)
       throws SQLException;
 
   /**
@@ -102,4 +84,11 @@ public interface IDatabricksClient {
       throws DatabricksSQLException;
 
   IDatabricksConnectionContext getConnectionContext();
+
+  /**
+   * Update the access token based on new value provided by the customer
+   *
+   * @param newAccessToken new access token value
+   */
+  void resetAccessToken(String newAccessToken);
 }

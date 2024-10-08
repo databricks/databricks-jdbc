@@ -2,16 +2,19 @@ package com.databricks.jdbc.common.util;
 
 import static com.databricks.jdbc.common.DatabricksJdbcConstants.*;
 
-import com.databricks.jdbc.common.LogLevel;
 import com.databricks.jdbc.exception.DatabricksHttpException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.exception.DatabricksValidationException;
+import com.databricks.jdbc.log.JdbcLogger;
+import com.databricks.jdbc.log.JdbcLoggerFactory;
 import java.util.List;
 import java.util.Map;
 import java.util.regex.Pattern;
 import org.apache.http.HttpResponse;
 
 public class ValidationUtil {
+
+  private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(ValidationUtil.class);
 
   public static void checkIfNonNegative(int number, String fieldName)
       throws DatabricksSQLException {
@@ -25,6 +28,7 @@ public class ValidationUtil {
       throws DatabricksSQLException {
     for (Map.Entry<String, String> field : fields.entrySet()) {
       if (field.getValue() == null) {
+        LOGGER.debug("Field %s is null", field.getKey());
         throw new DatabricksValidationException(
             String.format(
                 "Unsupported Input for field {%s}. Context: {%s}", field.getKey(), context));
@@ -38,7 +42,7 @@ public class ValidationUtil {
     if (statusCode >= 200 && statusCode < 300) {
       return;
     }
-    LoggingUtil.log(LogLevel.DEBUG, "Response has failure HTTP Code");
+    LOGGER.debug("Response has failure HTTP Code");
     String thriftErrorHeader = "X-Thriftserver-Error-Message";
     if (response.containsHeader(thriftErrorHeader)) {
       String errorMessage = response.getFirstHeader(thriftErrorHeader).getValue();

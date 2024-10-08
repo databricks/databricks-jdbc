@@ -3,8 +3,9 @@ package com.databricks.jdbc.common.util;
 import static com.databricks.jdbc.common.MetadataResultConstants.NULL_STRING;
 import static com.databricks.jdbc.common.util.DatabricksTypeUtil.*;
 
-import com.databricks.jdbc.common.LogLevel;
 import com.databricks.jdbc.exception.DatabricksHttpException;
+import com.databricks.jdbc.log.JdbcLogger;
+import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.model.client.thrift.generated.*;
 import com.databricks.jdbc.model.core.ExternalLink;
 import com.databricks.sdk.service.sql.ColumnInfoTypeName;
@@ -14,6 +15,9 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 public class DatabricksThriftUtil {
+
+  private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(DatabricksThriftUtil.class);
+
   public static final List<TStatusCode> SUCCESS_STATUS_LIST =
       List.of(TStatusCode.SUCCESS_STATUS, TStatusCode.SUCCESS_WITH_INFO_STATUS);
 
@@ -42,7 +46,7 @@ public class DatabricksThriftUtil {
       throws DatabricksHttpException {
     if (!SUCCESS_STATUS_LIST.contains(statusCode)) {
       String errorMessage = "Error thrift response received. " + errorContext;
-      LoggingUtil.log(LogLevel.ERROR, errorMessage);
+      LOGGER.error(errorMessage);
       throw new DatabricksHttpException(errorMessage);
     }
   }
@@ -63,7 +67,7 @@ public class DatabricksThriftUtil {
    */
   public static List<List<Object>> extractValues(List<TColumn> columnList) {
     if (columnList == null) {
-      return Collections.singletonList(Collections.emptyList());
+      return new ArrayList<>(List.of(new ArrayList<>()));
     }
     List<Object> obj =
         columnList.stream()
@@ -77,12 +81,12 @@ public class DatabricksThriftUtil {
                   }
                 })
             .collect(Collectors.toList());
-    return Collections.singletonList(obj);
+    return new ArrayList<>(Collections.singletonList(obj));
   }
 
   public static List<List<Object>> extractValuesColumnar(List<TColumn> columnList) {
     if (columnList == null || columnList.isEmpty()) {
-      return Collections.singletonList(Collections.emptyList());
+      return new ArrayList<>(List.of(new ArrayList<>()));
     }
     int numberOfItems = columnList.get(0).getStringVal().getValuesSize();
     return IntStream.range(0, numberOfItems)
@@ -149,7 +153,7 @@ public class DatabricksThriftUtil {
       case DECIMAL_TYPE:
         return ColumnInfoTypeName.DECIMAL;
       case NULL_TYPE:
-        return ColumnInfoTypeName.NULL;
+        return ColumnInfoTypeName.STRING;
       case DATE_TYPE:
         return ColumnInfoTypeName.DATE;
       case CHAR_TYPE:
@@ -168,7 +172,6 @@ public class DatabricksThriftUtil {
    * @return a list of values from the specified column
    */
   private static List<?> getColumnValues(TColumn column) {
-    // TODO: Add support for complex data types
     if (column.isSetBinaryVal())
       return getColumnValuesWithNulls(
           column.getBinaryVal().getValues(), column.getBinaryVal().getNulls());
@@ -281,22 +284,19 @@ public class DatabricksThriftUtil {
   public static void checkDirectResultsForErrorStatus(
       TSparkDirectResults directResults, String context) throws DatabricksHttpException {
     if (directResults.isSetOperationStatus()) {
-      LoggingUtil.log(
-          LogLevel.DEBUG, "direct result operation status being verified for success response");
+      LOGGER.debug("direct result operation status being verified for success response");
       verifySuccessStatus(directResults.getOperationStatus().getStatus().getStatusCode(), context);
     }
     if (directResults.isSetResultSetMetadata()) {
-      LoggingUtil.log(
-          LogLevel.DEBUG, "direct results metadata being verified for success response");
+      LOGGER.debug("direct results metadata being verified for success response");
       verifySuccessStatus(directResults.getResultSetMetadata().status.getStatusCode(), context);
     }
     if (directResults.isSetCloseOperation()) {
-      LoggingUtil.log(
-          LogLevel.DEBUG, "direct results close operation verified for success response");
+      LOGGER.debug("direct results close operation verified for success response");
       verifySuccessStatus(directResults.getCloseOperation().status.getStatusCode(), context);
     }
     if (directResults.isSetResultSet()) {
-      LoggingUtil.log(LogLevel.DEBUG, "direct result set being verified for success response");
+      LOGGER.debug("direct result set being verified for success response");
       verifySuccessStatus(directResults.getResultSet().status.getStatusCode(), context);
     }
   }

@@ -102,7 +102,7 @@ public class DatabricksThriftUtilTest {
         Arguments.of(TTypeId.TIMESTAMP_TYPE, ColumnInfoTypeName.TIMESTAMP),
         Arguments.of(TTypeId.BINARY_TYPE, ColumnInfoTypeName.BINARY),
         Arguments.of(TTypeId.DECIMAL_TYPE, ColumnInfoTypeName.DECIMAL),
-        Arguments.of(TTypeId.NULL_TYPE, ColumnInfoTypeName.NULL),
+        Arguments.of(TTypeId.NULL_TYPE, ColumnInfoTypeName.STRING),
         Arguments.of(TTypeId.DATE_TYPE, ColumnInfoTypeName.DATE),
         Arguments.of(TTypeId.CHAR_TYPE, ColumnInfoTypeName.CHAR),
         Arguments.of(TTypeId.INTERVAL_YEAR_MONTH_TYPE, ColumnInfoTypeName.INTERVAL),

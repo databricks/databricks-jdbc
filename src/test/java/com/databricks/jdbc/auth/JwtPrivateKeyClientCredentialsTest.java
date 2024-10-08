@@ -94,7 +94,8 @@ public class JwtPrivateKeyClientCredentialsTest {
   @Test
   void testFetchSignedJWTWithRSAKey() throws Exception {
     when(rsaPrivateKey.getAlgorithm()).thenReturn("RSA");
-    when(rsaPrivateKey.getModulus()).thenReturn(new BigInteger(2050, new SecureRandom()));
+    when(rsaPrivateKey.getModulus())
+        .thenReturn(new BigInteger(2048, new SecureRandom()).setBit(2047));
     when(rsaPrivateKey.getPrivateExponent()).thenReturn(new BigInteger(10, new SecureRandom()));
     SignedJWT signedJWT = clientCredentials.fetchSignedJWT(rsaPrivateKey);
     assertNotNull(signedJWT);

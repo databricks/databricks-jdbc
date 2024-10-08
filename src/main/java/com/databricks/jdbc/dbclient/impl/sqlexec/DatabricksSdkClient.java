@@ -5,16 +5,17 @@ import static com.databricks.jdbc.dbclient.impl.sqlexec.PathConstants.*;
 
 import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.api.IDatabricksSession;
-import com.databricks.jdbc.api.IDatabricksStatement;
+import com.databricks.jdbc.api.callback.IDatabricksStatementHandle;
 import com.databricks.jdbc.api.impl.*;
 import com.databricks.jdbc.common.*;
 import com.databricks.jdbc.common.IDatabricksComputeResource;
-import com.databricks.jdbc.common.util.LoggingUtil;
 import com.databricks.jdbc.dbclient.IDatabricksClient;
 import com.databricks.jdbc.dbclient.impl.common.ClientConfigurator;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.exception.DatabricksTimeoutException;
+import com.databricks.jdbc.log.JdbcLogger;
+import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.model.client.sqlexec.*;
 import com.databricks.jdbc.model.client.sqlexec.ExecuteStatementRequest;
 import com.databricks.jdbc.model.client.sqlexec.ExecuteStatementResponse;
@@ -27,33 +28,23 @@ import com.databricks.sdk.service.sql.*;
 import com.google.common.annotations.VisibleForTesting;
 import java.sql.SQLException;
 import java.time.Instant;
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.stream.Collectors;
 
 /** Implementation of IDatabricksClient interface using Databricks Java SDK. */
 public class DatabricksSdkClient implements IDatabricksClient {
+
+  private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(DatabricksSdkClient.class);
   private static final String SYNC_TIMEOUT_VALUE = "10s";
   private final IDatabricksConnectionContext connectionContext;
-  private final WorkspaceClient workspaceClient;
-
-  @Override
-  public IDatabricksConnectionContext getConnectionContext() {
-    return connectionContext;
-  }
-
-  private static Map<String, String> getHeaders() {
-    return Map.of(
-        "Accept", "application/json",
-        "Content-Type", "application/json");
-  }
+  private final ClientConfigurator clientConfigurator;
+  private volatile WorkspaceClient workspaceClient;
 
   public DatabricksSdkClient(IDatabricksConnectionContext connectionContext)
       throws DatabricksParsingException {
     this.connectionContext = connectionContext;
-    this.workspaceClient = new ClientConfigurator(connectionContext).getWorkspaceClient();
+    this.clientConfigurator = new ClientConfigurator(connectionContext);
+    this.workspaceClient = clientConfigurator.getWorkspaceClient();
   }
 
   @VisibleForTesting
@@ -63,9 +54,15 @@ public class DatabricksSdkClient implements IDatabricksClient {
       ApiClient apiClient)
       throws DatabricksParsingException {
     this.connectionContext = connectionContext;
+    this.clientConfigurator = new ClientConfigurator(connectionContext);
     this.workspaceClient =
         new WorkspaceClient(true /* mock */, apiClient)
             .withStatementExecutionImpl(statementExecutionService);
+  }
+
+  @Override
+  public IDatabricksConnectionContext getConnectionContext() {
+    return connectionContext;
   }
 
   @Override
@@ -74,9 +71,8 @@ public class DatabricksSdkClient implements IDatabricksClient {
       String catalog,
       String schema,
       Map<String, String> sessionConf) {
-    // TODO: [PECO-1460] Handle sessionConf in public session API
-    LoggingUtil.log(
-        LogLevel.DEBUG,
+    // TODO (PECO-1460): Handle sessionConf in public session API
+    LOGGER.debug(
         String.format(
             "public Session createSession(String warehouseId = {%s}, String catalog = {%s}, String schema = {%s}, Map<String, String> sessionConf = {%s})",
             ((Warehouse) warehouse).getWarehouseId(), catalog, schema, sessionConf));
@@ -104,17 +100,15 @@ public class DatabricksSdkClient implements IDatabricksClient {
 
   @Override
   public void deleteSession(IDatabricksSession session, IDatabricksComputeResource warehouse) {
-    LoggingUtil.log(
-        LogLevel.DEBUG,
+    LOGGER.debug(
         String.format(
             "public void deleteSession(String sessionId = {%s})", session.getSessionId()));
     DeleteSessionRequest request =
         new DeleteSessionRequest()
             .setSessionId(session.getSessionId())
             .setWarehouseId(((Warehouse) warehouse).getWarehouseId());
-    String path = String.format(DELETE_SESSION_PATH_WITH_ID, request.getSessionId());
-    Map<String, String> headers = new HashMap<>();
-    workspaceClient.apiClient().DELETE(path, request, Void.class, headers);
+    String path = String.format(SESSION_PATH_WITH_ID, request.getSessionId());
+    workspaceClient.apiClient().DELETE(path, request, Void.class, getHeaders());
   }
 
   @Override
@@ -124,14 +118,12 @@ public class DatabricksSdkClient implements IDatabricksClient {
       Map<Integer, ImmutableSqlParameter> parameters,
       StatementType statementType,
       IDatabricksSession session,
-      IDatabricksStatement parentStatement)
+      IDatabricksStatementHandle parentStatement)
       throws SQLException {
-    LoggingUtil.log(
-        LogLevel.DEBUG,
+    LOGGER.debug(
         String.format(
             "public DatabricksResultSet executeStatement(String sql = {%s}, compute resource = {%s}, Map<Integer, ImmutableSqlParameter> parameters, StatementType statementType = {%s}, IDatabricksSession session)",
-            sql, computeResource.toString(), statementType),
-        this.getClass().getName());
+            sql, computeResource.toString(), statementType));
     long pollCount = 0;
     long executionStartTime = Instant.now().toEpochMilli();
     ExecuteStatementRequest request =
@@ -146,14 +138,18 @@ public class DatabricksSdkClient implements IDatabricksClient {
         workspaceClient
             .apiClient()
             .POST(STATEMENT_PATH, request, ExecuteStatementResponse.class, getHeaders());
-
     String statementId = response.getStatementId();
-    LoggingUtil.log(
-        LogLevel.DEBUG,
+    if (statementId == null) {
+      LOGGER.error(
+          String.format(
+              "Empty Statement ID for sql %s, statementType %s, compute %s",
+              sql, statementType, computeResource));
+      handleFailedExecution(response, statementId, sql);
+    }
+    LOGGER.debug(
         String.format(
             "Executing sql %s, statementType %s, compute %s, StatementID %s",
-            sql, statementType, computeResource.toString(), statementId),
-        this.getClass().getName());
+            sql, statementType, computeResource, statementId));
     if (parentStatement != null) {
       parentStatement.setStatementId(statementId);
     }
@@ -161,12 +157,12 @@ public class DatabricksSdkClient implements IDatabricksClient {
     while (responseState == StatementState.PENDING || responseState == StatementState.RUNNING) {
       if (pollCount > 0) { // First poll happens without a delay
         try {
-          Thread.sleep(this.connectionContext.getAsyncExecPollInterval());
+          Thread.sleep(connectionContext.getAsyncExecPollInterval());
         } catch (InterruptedException e) {
           String timeoutErrorMessage =
               String.format(
                   "Thread interrupted due to statement timeout. StatementID %s", statementId);
-          LoggingUtil.log(LogLevel.ERROR, timeoutErrorMessage);
+          LOGGER.error(timeoutErrorMessage);
           throw new DatabricksTimeoutException(timeoutErrorMessage);
         }
       }
@@ -177,16 +173,14 @@ public class DatabricksSdkClient implements IDatabricksClient {
                   .apiClient()
                   .GET(getStatusPath, request, GetStatementResponse.class, getHeaders()));
       responseState = response.getStatus().getState();
-      LoggingUtil.log(
-          LogLevel.DEBUG,
+      LOGGER.debug(
           String.format(
               "Executed sql [%s] with status [%s] with retry count [%d]",
               sql, responseState, pollCount));
       pollCount++;
     }
     long executionEndTime = Instant.now().toEpochMilli();
-    LoggingUtil.log(
-        LogLevel.DEBUG,
+    LOGGER.debug(
         String.format(
             "Executed sql [%s] with status [%s], total time taken [%s] and pollCount [%s]",
             sql, responseState, (executionEndTime - executionStartTime), pollCount));
@@ -203,15 +197,9 @@ public class DatabricksSdkClient implements IDatabricksClient {
         parentStatement);
   }
 
-  private boolean useCloudFetchForResult(StatementType statementType) {
-    return this.connectionContext.shouldEnableArrow()
-        && (statementType == StatementType.QUERY || statementType == StatementType.SQL);
-  }
-
   @Override
   public void closeStatement(String statementId) {
-    LoggingUtil.log(
-        LogLevel.DEBUG,
+    LOGGER.debug(
         String.format("public void closeStatement(String statementId = {%s})", statementId));
     CloseStatementRequest request = new CloseStatementRequest().setStatementId(statementId);
     String path = String.format(STATEMENT_PATH_WITH_ID, request.getStatementId());
@@ -220,8 +208,7 @@ public class DatabricksSdkClient implements IDatabricksClient {
 
   @Override
   public void cancelStatement(String statementId) {
-    LoggingUtil.log(
-        LogLevel.DEBUG,
+    LOGGER.debug(
         String.format("public void cancelStatement(String statementId = {%s})", statementId));
     CancelStatementRequest request = new CancelStatementRequest().setStatementId(statementId);
     String path = String.format(CANCEL_STATEMENT_PATH_WITH_ID, request.getStatementId());
@@ -230,8 +217,7 @@ public class DatabricksSdkClient implements IDatabricksClient {
 
   @Override
   public Collection<ExternalLink> getResultChunks(String statementId, long chunkIndex) {
-    LoggingUtil.log(
-        LogLevel.DEBUG,
+    LOGGER.debug(
         String.format(
             "public Optional<ExternalLink> getResultChunk(String statementId = {%s}, long chunkIndex = {%s})",
             statementId, chunkIndex));
@@ -244,20 +230,37 @@ public class DatabricksSdkClient implements IDatabricksClient {
         .getExternalLinks();
   }
 
+  @Override
+  public synchronized void resetAccessToken(String newAccessToken) {
+    this.clientConfigurator.resetAccessTokenInConfig(newAccessToken);
+    this.workspaceClient = clientConfigurator.getWorkspaceClient();
+  }
+
+  private static Map<String, String> getHeaders() {
+    return Map.of(
+        "Accept", "application/json",
+        "Content-Type", "application/json");
+  }
+
+  private boolean useCloudFetchForResult(StatementType statementType) {
+    return this.connectionContext.shouldEnableArrow()
+        && (statementType == StatementType.QUERY || statementType == StatementType.SQL);
+  }
+
   private ExecuteStatementRequest getRequest(
       StatementType statementType,
       String sql,
       String warehouseId,
       IDatabricksSession session,
       Map<Integer, ImmutableSqlParameter> parameters,
-      IDatabricksStatement parentStatement)
+      IDatabricksStatementHandle parentStatement)
       throws SQLException {
     Format format = useCloudFetchForResult(statementType) ? Format.ARROW_STREAM : Format.JSON_ARRAY;
     Disposition disposition =
         useCloudFetchForResult(statementType) ? Disposition.EXTERNAL_LINKS : Disposition.INLINE;
     long maxRows = (parentStatement == null) ? DEFAULT_ROW_LIMIT : parentStatement.getMaxRows();
 
-    List<StatementParameterListItem> collect =
+    List<StatementParameterListItem> parameterListItems =
         parameters.values().stream().map(this::mapToParameterListItem).collect(Collectors.toList());
     ExecuteStatementRequest request =
         new ExecuteStatementRequest()
@@ -269,7 +272,7 @@ public class DatabricksSdkClient implements IDatabricksClient {
             .setCompressionType(session.getCompressionType())
             .setWaitTimeout(SYNC_TIMEOUT_VALUE)
             .setOnWaitTimeout(ExecuteStatementRequestOnWaitTimeout.CONTINUE)
-            .setParameters(collect);
+            .setParameters(parameterListItems);
     if (maxRows != DEFAULT_ROW_LIMIT) {
       request.setRowLimit(maxRows);
     }
@@ -287,27 +290,17 @@ public class DatabricksSdkClient implements IDatabricksClient {
   void handleFailedExecution(
       ExecuteStatementResponse response, String statementId, String statement) throws SQLException {
     StatementState statementState = response.getStatus().getState();
+    ServiceError error = response.getStatus().getError();
     String errorMessage =
         String.format(
-            "Statement execution failed %s -> %s\n%s: %s",
-            statementId, statement, statementState, response.getStatus().getError().getMessage());
-    LoggingUtil.log(LogLevel.DEBUG, errorMessage, this.getClass().getName());
-    int errorCode;
-    switch (statementState) {
-      case FAILED:
-        errorCode = ErrorCodes.EXECUTE_STATEMENT_FAILED;
-        break;
-      case CLOSED:
-        errorCode = ErrorCodes.EXECUTE_STATEMENT_CLOSED;
-        break;
-      case CANCELED:
-        errorCode = ErrorCodes.EXECUTE_STATEMENT_CANCELLED;
-        break;
-      default:
-        throw new IllegalStateException("Invalid state for error");
+            "Statement execution failed %s -> %s\n%s.", statementId, statement, statementState);
+    if (error != null) {
+      errorMessage +=
+          String.format(
+              " Error Message: %s, Error code: %s", error.getMessage(), error.getErrorCode());
     }
-    throw new DatabricksSQLException(
-        errorMessage, connectionContext, ErrorTypes.EXECUTE_STATEMENT, statementId, errorCode);
+    LOGGER.debug(errorMessage);
+    throw new DatabricksSQLException(errorMessage);
   }
 
   private ExecuteStatementResponse wrapGetStatementResponse(

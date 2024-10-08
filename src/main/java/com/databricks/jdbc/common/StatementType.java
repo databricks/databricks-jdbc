@@ -10,5 +10,5 @@ public enum StatementType {
   /** DML statement */
   UPDATE,
   /** Metadata statement, this is similar to query, but provided internally and not user provided */
-  METADATA;
+  METADATA
 }

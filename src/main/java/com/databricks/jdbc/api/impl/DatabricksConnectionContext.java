@@ -4,11 +4,11 @@ import static com.databricks.jdbc.common.DatabricksJdbcConstants.*;
 
 import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.common.*;
-import com.databricks.jdbc.common.util.LoggingUtil;
 import com.databricks.jdbc.common.util.ValidationUtil;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
-import com.databricks.jdbc.telemetry.DatabricksMetrics;
+import com.databricks.jdbc.log.JdbcLogger;
+import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.sdk.core.ProxyConfig;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
@@ -17,13 +17,16 @@ import java.util.regex.Matcher;
 import java.util.stream.Collectors;
 import org.apache.http.client.utils.URIBuilder;
 
-class DatabricksConnectionContext implements IDatabricksConnectionContext {
+public class DatabricksConnectionContext implements IDatabricksConnectionContext {
+
+  private static final JdbcLogger LOGGER =
+      JdbcLoggerFactory.getLogger(DatabricksConnectionContext.class);
   private final String host;
   @VisibleForTesting final int port;
   private final String schema;
   private final String connectionURL;
   private final IDatabricksComputeResource computeResource;
-  private static DatabricksMetrics metricsExporter;
+
   @VisibleForTesting final ImmutableMap<String, String> parameters;
 
   private DatabricksConnectionContext(
@@ -87,14 +90,8 @@ class DatabricksConnectionContext implements IDatabricksConnectionContext {
       for (Map.Entry<Object, Object> entry : properties.entrySet()) {
         parametersBuilder.put(entry.getKey().toString().toLowerCase(), entry.getValue().toString());
       }
-      DatabricksConnectionContext context =
-          new DatabricksConnectionContext(
-              url, hostValue, portValue, schema, parametersBuilder.build());
-
-      // Initialize metrics exporter
-      metricsExporter = new DatabricksMetrics(context);
-
-      return context;
+      return new DatabricksConnectionContext(
+          url, hostValue, portValue, schema, parametersBuilder.build());
     } else {
       // Should never reach here, since we have already checked for url validity
       throw new IllegalArgumentException("Invalid url " + "incorrect");
@@ -118,13 +115,8 @@ class DatabricksConnectionContext implements IDatabricksConnectionContext {
   }
 
   @Override
-  public DatabricksMetrics getMetricsExporter() {
-    return metricsExporter;
-  }
-
-  @Override
   public String getHostUrl() throws DatabricksParsingException {
-    LoggingUtil.log(LogLevel.DEBUG, "public String getHostUrl()");
+    LOGGER.debug("public String getHostUrl()");
     // Determine the schema based on the transport mode
     String schema =
         (getSSLMode() != null && getSSLMode().equals("0"))
@@ -144,7 +136,7 @@ class DatabricksConnectionContext implements IDatabricksConnectionContext {
       // Build the URI and convert to string
       return uriBuilder.build().toString();
     } catch (Exception e) {
-      LoggingUtil.log(LogLevel.DEBUG, "URI Building failed with exception: " + e.getMessage());
+      LOGGER.debug("URI Building failed with exception: " + e.getMessage());
       throw new DatabricksParsingException("URI Building failed with exception: " + e.getMessage());
     }
   }
@@ -155,7 +147,7 @@ class DatabricksConnectionContext implements IDatabricksConnectionContext {
   }
 
   public String getHttpPath() {
-    LoggingUtil.log(LogLevel.DEBUG, "String getHttpPath()");
+    LOGGER.debug("String getHttpPath()");
     return getParameter(DatabricksJdbcUrlParams.HTTP_PATH);
   }
 
@@ -171,16 +163,18 @@ class DatabricksConnectionContext implements IDatabricksConnectionContext {
   }
 
   @Override
+  public String getPassThroughAccessToken() {
+    return getParameter(DatabricksJdbcUrlParams.AUTH_ACCESS_TOKEN);
+  }
+
+  @Override
   public int getAsyncExecPollInterval() {
-    return getParameter(DatabricksJdbcUrlParams.POLL_INTERVAL) == null
-        ? POLL_INTERVAL_DEFAULT
-        : Integer.parseInt(getParameter(DatabricksJdbcUrlParams.POLL_INTERVAL));
+    return Integer.parseInt(getParameter(DatabricksJdbcUrlParams.POLL_INTERVAL));
   }
 
   @Override
   public Boolean getDirectResultMode() {
-    return getParameter(DatabricksJdbcUrlParams.DIRECT_RESULT) == null
-        || Objects.equals(getParameter(DatabricksJdbcUrlParams.DIRECT_RESULT), "1");
+    return Objects.equals(getParameter(DatabricksJdbcUrlParams.DIRECT_RESULT), "1");
   }
 
   public Cloud getCloud() throws DatabricksParsingException {
@@ -241,23 +235,20 @@ class DatabricksConnectionContext implements IDatabricksConnectionContext {
   public LogLevel getLogLevel() {
     String logLevel = getParameter(DatabricksJdbcUrlParams.LOG_LEVEL);
     if (nullOrEmptyString(logLevel)) {
-      LoggingUtil.log(
-          LogLevel.DEBUG,
-          "Using default log level " + DEFAULT_LOG_LEVEL + " as none was provided.");
+      LOGGER.debug("Using default log level " + DEFAULT_LOG_LEVEL + " as none was provided.");
       return DEFAULT_LOG_LEVEL;
     }
     try {
       return getLogLevel(Integer.parseInt(logLevel));
     } catch (NumberFormatException e) {
-      LoggingUtil.log(LogLevel.DEBUG, "Input log level is not an integer, parsing string.");
+      LOGGER.debug("Input log level is not an integer, parsing string.");
       logLevel = logLevel.toUpperCase();
     }
 
     try {
       return LogLevel.valueOf(logLevel);
     } catch (Exception e) {
-      LoggingUtil.log(
-          LogLevel.DEBUG,
+      LOGGER.debug(
           "Using default log level " + DEFAULT_LOG_LEVEL + " as invalid level was provided.");
       return DEFAULT_LOG_LEVEL;
     }
@@ -281,14 +272,12 @@ class DatabricksConnectionContext implements IDatabricksConnectionContext {
 
   @Override
   public int getLogFileSize() {
-    String parameter = getParameter(DatabricksJdbcUrlParams.LOG_FILE_SIZE);
-    return (parameter == null) ? DEFAULT_LOG_FILE_SIZE_IN_MB : Integer.parseInt(parameter);
+    return Integer.parseInt(getParameter(DatabricksJdbcUrlParams.LOG_FILE_SIZE));
   }
 
   @Override
   public int getLogFileCount() {
-    String parameter = getParameter(DatabricksJdbcUrlParams.LOG_FILE_COUNT);
-    return (parameter == null) ? DEFAULT_LOG_FILE_COUNT : Integer.parseInt(parameter);
+    return Integer.parseInt(getParameter(DatabricksJdbcUrlParams.LOG_FILE_COUNT));
   }
 
   @Override
@@ -305,7 +294,6 @@ class DatabricksConnectionContext implements IDatabricksConnectionContext {
 
   @Override
   public CompressionType getCompressionType() {
-    // TODO: Make use of compression type
     String compressionType =
         getParameter(
             DatabricksJdbcUrlParams.LZ4_COMPRESSION_FLAG,
@@ -326,24 +314,8 @@ class DatabricksConnectionContext implements IDatabricksConnectionContext {
   }
 
   @Override
-  public Boolean getUseLegacyMetadata() {
-    // Defaults to use legacy metadata client
-    String param = getParameter(DatabricksJdbcUrlParams.USE_LEGACY_METADATA);
-    return param != null && param.equals("1");
-  }
-
-  @Override
   public int getCloudFetchThreadPoolSize() {
-    try {
-      return Integer.parseInt(
-          getParameter(
-              DatabricksJdbcUrlParams.CLOUD_FETCH_THREAD_POOL_SIZE,
-              String.valueOf(CLOUD_FETCH_THREAD_POOL_SIZE_DEFAULT)));
-    } catch (NumberFormatException e) {
-      LoggingUtil.log(
-          LogLevel.DEBUG, "Invalid thread pool size, defaulting to default thread pool size.");
-      return CLOUD_FETCH_THREAD_POOL_SIZE_DEFAULT;
-    }
+    return Integer.parseInt(getParameter(DatabricksJdbcUrlParams.CLOUD_FETCH_THREAD_POOL_SIZE));
   }
 
   @Override
@@ -438,13 +410,13 @@ class DatabricksConnectionContext implements IDatabricksConnectionContext {
   @Override
   public ProxyConfig.ProxyAuthType getCloudFetchProxyAuthType() {
     int proxyAuthTypeOrdinal =
-        Integer.parseInt(getParameter(DatabricksJdbcUrlParams.CF_PROXY_AUTH, "0"));
+        Integer.parseInt(getParameter(DatabricksJdbcUrlParams.CF_PROXY_AUTH));
     return ProxyConfig.ProxyAuthType.values()[proxyAuthTypeOrdinal];
   }
 
   @Override
   public Boolean shouldEnableArrow() {
-    return Objects.equals(getParameter(DatabricksJdbcUrlParams.ENABLE_ARROW, "1"), "1");
+    return Objects.equals(getParameter(DatabricksJdbcUrlParams.ENABLE_ARROW), "1");
   }
 
   @Override
@@ -470,8 +442,7 @@ class DatabricksConnectionContext implements IDatabricksConnectionContext {
       case 6:
         return LogLevel.TRACE;
       default:
-        LoggingUtil.log(
-            LogLevel.INFO,
+        LOGGER.info(
             "Using default log level " + DEFAULT_LOG_LEVEL + " as invalid level was provided.");
         return DEFAULT_LOG_LEVEL;
     }
@@ -479,58 +450,49 @@ class DatabricksConnectionContext implements IDatabricksConnectionContext {
 
   @Override
   public Boolean shouldRetryTemporarilyUnavailableError() {
-    return Objects.equals(
-        getParameter(DatabricksJdbcUrlParams.TEMPORARILY_UNAVAILABLE_RETRY, "1"), "1");
+    return Objects.equals(getParameter(DatabricksJdbcUrlParams.TEMPORARILY_UNAVAILABLE_RETRY), "1");
   }
 
   @Override
   public Boolean shouldRetryRateLimitError() {
-    return Objects.equals(getParameter(DatabricksJdbcUrlParams.RATE_LIMIT_RETRY, "1"), "1");
+    return Objects.equals(getParameter(DatabricksJdbcUrlParams.RATE_LIMIT_RETRY), "1");
   }
 
   @Override
   public int getTemporarilyUnavailableRetryTimeout() {
     return Integer.parseInt(
-        getParameter(
-            DatabricksJdbcUrlParams.TEMPORARILY_UNAVAILABLE_RETRY_TIMEOUT,
-            DEFAULT_TEMPORARILY_UNAVAILABLE_RETRY_TIMEOUT));
+        getParameter(DatabricksJdbcUrlParams.TEMPORARILY_UNAVAILABLE_RETRY_TIMEOUT));
   }
 
   @Override
   public int getRateLimitRetryTimeout() {
-    return Integer.parseInt(
-        getParameter(
-            DatabricksJdbcUrlParams.RATE_LIMIT_RETRY_TIMEOUT, DEFAULT_RATE_LIMIT_RETRY_TIMEOUT));
+    return Integer.parseInt(getParameter(DatabricksJdbcUrlParams.RATE_LIMIT_RETRY_TIMEOUT));
   }
 
   @Override
   public int getIdleHttpConnectionExpiry() {
-    return Integer.parseInt(
-        getParameter(
-            DatabricksJdbcUrlParams.IDLE_HTTP_CONNECTION_EXPIRY,
-            DEFAULT_IDLE_HTTP_CONNECTION_EXPIRY));
+    return Integer.parseInt(getParameter(DatabricksJdbcUrlParams.IDLE_HTTP_CONNECTION_EXPIRY));
   }
 
   @Override
   public boolean supportManyParameters() {
-    return getParameter(DatabricksJdbcUrlParams.SUPPORT_MANY_PARAMETERS, "0").equals("1");
-  }
-
-  /** Returns whether the current test is a fake service test. */
-  @Override
-  public boolean isFakeServiceTest() {
-    // TODO: introduce driver config/properties
-    return Boolean.parseBoolean(System.getProperty(IS_FAKE_SERVICE_TEST_PROP));
-  }
-
-  @Override
-  public boolean enableTelemetry() {
-    return Objects.equals(getParameter(DatabricksJdbcUrlParams.ENABLE_TELEMETRY, "0"), "1");
+    return getParameter(DatabricksJdbcUrlParams.SUPPORT_MANY_PARAMETERS).equals("1");
   }
 
   @Override
   public String getConnectionURL() {
     return connectionURL;
+  }
+
+  @Override
+  public boolean checkCertificateRevocation() {
+    return Objects.equals(getParameter(DatabricksJdbcUrlParams.CHECK_CERTIFICATE_REVOCATION), "1");
+  }
+
+  @Override
+  public boolean acceptUndeterminedCertificateRevocation() {
+    return Objects.equals(
+        getParameter(DatabricksJdbcUrlParams.ACCEPT_UNDETERMINED_CERTIFICATE_REVOCATION), "1");
   }
 
   @Override
@@ -555,7 +517,7 @@ class DatabricksConnectionContext implements IDatabricksConnectionContext {
 
   @Override
   public boolean useJWTAssertion() {
-    return getParameter(DatabricksJdbcUrlParams.USE_JWT_ASSERTION, "0").equals("1");
+    return getParameter(DatabricksJdbcUrlParams.USE_JWT_ASSERTION).equals("1");
   }
 
   @Override
@@ -571,7 +533,7 @@ class DatabricksConnectionContext implements IDatabricksConnectionContext {
   @Override
   public boolean isOAuthDiscoveryModeEnabled() {
     // By default, set to true
-    return getParameter(DatabricksJdbcUrlParams.DISCOVERY_MODE, "1").equals("1");
+    return getParameter(DatabricksJdbcUrlParams.DISCOVERY_MODE).equals("1");
   }
 
   @Override
@@ -581,12 +543,42 @@ class DatabricksConnectionContext implements IDatabricksConnectionContext {
 
   @Override
   public String getAuthScope() {
-    return getParameter(DatabricksJdbcUrlParams.AUTH_SCOPE, ALL_APIS_SCOPE);
+    return getParameter(DatabricksJdbcUrlParams.AUTH_SCOPE);
   }
 
   @Override
   public String getOAuthRefreshToken() {
     return getParameter(DatabricksJdbcUrlParams.OAUTH_REFRESH_TOKEN);
+  }
+
+  @Override
+  public Boolean getUseEmptyMetadata() {
+    String param = getParameter(DatabricksJdbcUrlParams.USE_EMPTY_METADATA);
+    return param != null && param.equals("1");
+  }
+
+  public String getNonProxyHosts() {
+    return getParameter(DatabricksJdbcUrlParams.NON_PROXY_HOSTS);
+  }
+
+  @Override
+  public String getSSLTrustStore() {
+    return getParameter(DatabricksJdbcUrlParams.SSL_TRUST_STORE);
+  }
+
+  @Override
+  public String getSSLTrustStoreProvider() {
+    return getParameter(DatabricksJdbcUrlParams.SSL_TRUST_STORE_PROVIDER);
+  }
+
+  @Override
+  public String getSSLTrustStorePassword() {
+    return getParameter(DatabricksJdbcUrlParams.SSL_TRUST_STORE_PASSWORD);
+  }
+
+  @Override
+  public String getSSLTrustStoreType() {
+    return getParameter(DatabricksJdbcUrlParams.SSL_TRUST_STORE_TYPE);
   }
 
   private static boolean nullOrEmptyString(String s) {
@@ -620,7 +612,7 @@ class DatabricksConnectionContext implements IDatabricksConnectionContext {
   }
 
   private String getParameter(DatabricksJdbcUrlParams key) {
-    return this.parameters.getOrDefault(key.getParamName().toLowerCase(), null);
+    return this.parameters.getOrDefault(key.getParamName().toLowerCase(), key.getDefaultValue());
   }
 
   private String getParameter(DatabricksJdbcUrlParams key, String defaultValue) {
