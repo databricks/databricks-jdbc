@@ -4,8 +4,8 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import com.databricks.jdbc.api.callback.IDatabricksStatementHandle;
 import com.databricks.jdbc.api.impl.IExecutionResult;
+import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
 import java.io.InputStream;
 import org.apache.http.HttpEntity;
 import org.junit.jupiter.api.Test;
@@ -19,7 +19,7 @@ public class VolumeInputStreamTest {
   @Mock HttpEntity httpEntity;
   @Mock InputStream inputStream;
   @Mock IExecutionResult resultHandler;
-  @Mock IDatabricksStatementHandle statement;
+  @Mock IDatabricksStatementInternal statement;
 
   @Test
   void testInputStream() throws Exception {

@@ -7,9 +7,9 @@ import static org.mockito.Mockito.when;
 
 import com.databricks.jdbc.api.IDatabricksResultSet;
 import com.databricks.jdbc.api.IDatabricksSession;
-import com.databricks.jdbc.api.callback.IDatabricksResultSetHandle;
-import com.databricks.jdbc.api.callback.IDatabricksStatementHandle;
 import com.databricks.jdbc.api.impl.inline.InlineJsonResult;
+import com.databricks.jdbc.api.internal.IDatabricksResultSetInternal;
+import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
 import com.databricks.jdbc.common.StatementType;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.exception.DatabricksSQLFeatureNotSupportedException;
@@ -38,7 +38,7 @@ public class DatabricksResultSetTest {
   @Mock Statement mockedStatement;
 
   private DatabricksResultSet getResultSet(
-      StatementState statementState, IDatabricksStatementHandle statement) {
+      StatementState statementState, IDatabricksStatementInternal statement) {
     return new DatabricksResultSet(
         new StatementStatus().setState(statementState),
         "test-statementID",
@@ -694,7 +694,7 @@ public class DatabricksResultSetTest {
         () -> resultSet.updateCharacterStream("column", null, 1));
     assertNotNull(resultSet.unwrap(IDatabricksResultSet.class));
     assertTrue(resultSet.isWrapperFor(IDatabricksResultSet.class));
-    assertTrue(resultSet.isWrapperFor(IDatabricksResultSetHandle.class));
+    assertTrue(resultSet.isWrapperFor(IDatabricksResultSetInternal.class));
   }
 
   @Test

@@ -5,11 +5,11 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.when;
 
 import com.databricks.jdbc.api.IDatabricksConnectionContext;
-import com.databricks.jdbc.api.callback.IDatabricksResultSetHandle;
-import com.databricks.jdbc.api.callback.IDatabricksStatementHandle;
 import com.databricks.jdbc.api.impl.arrow.ArrowStreamResult;
 import com.databricks.jdbc.api.impl.inline.InlineJsonResult;
 import com.databricks.jdbc.api.impl.volume.VolumeOperationResult;
+import com.databricks.jdbc.api.internal.IDatabricksResultSetInternal;
+import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.exception.DatabricksSQLFeatureNotSupportedException;
 import com.databricks.jdbc.model.client.thrift.generated.TGetResultSetMetadataResp;
@@ -34,8 +34,8 @@ public class ExecutionResultFactoryTest {
   @Mock TGetResultSetMetadataResp resultSetMetadataResp;
   @Mock TRowSet tRowSet;
   @Mock IDatabricksConnectionContext context;
-  @Mock IDatabricksStatementHandle statement;
-  @Mock IDatabricksResultSetHandle resultSet;
+  @Mock IDatabricksStatementInternal statement;
+  @Mock IDatabricksResultSetInternal resultSet;
 
   @Test
   public void testGetResultSet_jsonInline() throws DatabricksParsingException {

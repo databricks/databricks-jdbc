@@ -1,25 +1,25 @@
 package com.databricks.jdbc.api;
 
-import com.databricks.jdbc.exception.DatabricksSQLException;
+import java.sql.ResultSet;
 import java.sql.SQLException;
 
 /** Interface for Databricks specific statement. */
 public interface IDatabricksStatement {
 
   /**
-   * Executes the given SQL command in async mode
+   * Executes the given SQL command in async mode, and returns a lightweight instance of result set
    *
    * @param sql SQL command to be executed
-   * @return result set handle
-   * @throws DatabricksSQLException in case of error
+   * @return result set for given execution
+   * @throws SQLException in case of error
    */
-  IDatabricksResultSet executeAsync(String sql) throws SQLException;
+  ResultSet executeAsync(String sql) throws SQLException;
 
   /**
    * Returns result set response for the executed statement
    *
-   * @return result set handle
-   * @throws DatabricksSQLException if statement was never executed
+   * @return result set for underlying execution
+   * @throws SQLException if statement was never executed
    */
-  IDatabricksResultSet getExecutionResult() throws SQLException;
+  ResultSet getExecutionResult() throws SQLException;
 }

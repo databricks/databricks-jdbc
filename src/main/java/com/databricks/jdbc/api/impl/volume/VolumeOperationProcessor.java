@@ -1,7 +1,7 @@
 package com.databricks.jdbc.api.impl.volume;
 
-import com.databricks.jdbc.api.callback.IDatabricksResultSetHandle;
-import com.databricks.jdbc.api.callback.IDatabricksStatementHandle;
+import com.databricks.jdbc.api.internal.IDatabricksResultSetInternal;
+import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
 import com.databricks.jdbc.exception.DatabricksHttpException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
@@ -37,8 +37,8 @@ class VolumeOperationProcessor {
   private final String localFilePath;
   private final Map<String, String> headers;
   private final Set<String> allowedVolumeIngestionPaths;
-  private final IDatabricksStatementHandle statement;
-  private final IDatabricksResultSetHandle resultSet;
+  private final IDatabricksStatementInternal statement;
+  private final IDatabricksResultSetInternal resultSet;
   private final IDatabricksHttpClient databricksHttpClient;
   private VolumeOperationStatus status;
   private String errorMessage;
@@ -50,8 +50,8 @@ class VolumeOperationProcessor {
       String localFilePath,
       String allowedVolumeIngestionPathString,
       IDatabricksHttpClient databricksHttpClient,
-      IDatabricksStatementHandle statement,
-      IDatabricksResultSetHandle resultSet) {
+      IDatabricksStatementInternal statement,
+      IDatabricksResultSetInternal resultSet) {
     this.operationType = operationType;
     this.operationUrl = operationUrl;
     this.localFilePath = localFilePath;

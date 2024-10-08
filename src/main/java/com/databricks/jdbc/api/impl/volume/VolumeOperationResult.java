@@ -4,9 +4,9 @@ import static com.databricks.jdbc.common.DatabricksJdbcConstants.ALLOWED_STAGING
 import static com.databricks.jdbc.common.DatabricksJdbcConstants.ALLOWED_VOLUME_INGESTION_PATHS;
 
 import com.databricks.jdbc.api.IDatabricksSession;
-import com.databricks.jdbc.api.callback.IDatabricksResultSetHandle;
-import com.databricks.jdbc.api.callback.IDatabricksStatementHandle;
 import com.databricks.jdbc.api.impl.IExecutionResult;
+import com.databricks.jdbc.api.internal.IDatabricksResultSetInternal;
+import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
 import com.databricks.jdbc.common.ErrorCodes;
 import com.databricks.jdbc.common.ErrorTypes;
 import com.databricks.jdbc.common.util.MetricsUtil;
@@ -27,8 +27,8 @@ public class VolumeOperationResult implements IExecutionResult {
   private final IDatabricksSession session;
   private final String statementId;
   private final IExecutionResult resultHandler;
-  private final IDatabricksResultSetHandle resultSet;
-  private final IDatabricksStatementHandle statement;
+  private final IDatabricksResultSetInternal resultSet;
+  private final IDatabricksStatementInternal statement;
   private final IDatabricksHttpClient httpClient;
   private final long rowCount;
   private final long columnCount;
@@ -42,8 +42,8 @@ public class VolumeOperationResult implements IExecutionResult {
       long totalColumns,
       IDatabricksSession session,
       IExecutionResult resultHandler,
-      IDatabricksStatementHandle statement,
-      IDatabricksResultSetHandle resultSet) {
+      IDatabricksStatementInternal statement,
+      IDatabricksResultSetInternal resultSet) {
     this.statementId = statementId;
     this.rowCount = totalRows;
     this.columnCount = totalColumns;
@@ -62,8 +62,8 @@ public class VolumeOperationResult implements IExecutionResult {
       IDatabricksSession session,
       IExecutionResult resultHandler,
       IDatabricksHttpClient httpClient,
-      IDatabricksStatementHandle statement,
-      IDatabricksResultSetHandle resultSet) {
+      IDatabricksStatementInternal statement,
+      IDatabricksResultSetInternal resultSet) {
     this.statementId = statementId;
     this.rowCount = manifest.getTotalRowCount();
     this.columnCount = manifest.getSchema().getColumnCount();

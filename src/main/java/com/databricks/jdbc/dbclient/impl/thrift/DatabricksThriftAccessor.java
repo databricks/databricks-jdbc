@@ -8,8 +8,8 @@ import static com.databricks.jdbc.model.client.thrift.generated.TStatusCode.*;
 import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.api.IDatabricksSession;
 import com.databricks.jdbc.api.IDatabricksStatement;
-import com.databricks.jdbc.api.callback.IDatabricksStatementHandle;
 import com.databricks.jdbc.api.impl.*;
+import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
 import com.databricks.jdbc.common.StatementType;
 import com.databricks.jdbc.dbclient.impl.common.ClientConfigurator;
 import com.databricks.jdbc.dbclient.impl.http.DatabricksHttpClient;
@@ -230,7 +230,7 @@ final class DatabricksThriftAccessor {
 
   DatabricksResultSet execute(
       TExecuteStatementReq request,
-      IDatabricksStatementHandle parentStatement,
+      IDatabricksStatementInternal parentStatement,
       IDatabricksSession session,
       StatementType statementType)
       throws SQLException {
@@ -302,7 +302,7 @@ final class DatabricksThriftAccessor {
 
   DatabricksResultSet executeAsync(
       TExecuteStatementReq request,
-      IDatabricksStatementHandle parentStatement,
+      IDatabricksStatementInternal parentStatement,
       IDatabricksSession session,
       StatementType statementType)
       throws SQLException {
@@ -338,7 +338,7 @@ final class DatabricksThriftAccessor {
 
   DatabricksResultSet getStatementResult(
       TOperationHandle operationHandle,
-      IDatabricksStatementHandle parentStatement,
+      IDatabricksStatementInternal parentStatement,
       IDatabricksSession session)
       throws SQLException {
     LOGGER.debug("Operation handle {%s}", operationHandle);

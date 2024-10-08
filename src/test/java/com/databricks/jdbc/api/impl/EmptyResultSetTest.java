@@ -2,6 +2,7 @@ package com.databricks.jdbc.api.impl;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+import com.databricks.sdk.service.sql.StatementState;
 import java.io.ByteArrayInputStream;
 import java.io.StringReader;
 import java.math.BigDecimal;
@@ -419,8 +420,8 @@ public class EmptyResultSetTest {
 
     // For getBigDecimal(int) - assuming 1 as a placeholder for column index
     assertNull(resultSet.getBigDecimal(1));
-    assertNull(resultSet.getStatementId());
-    assertNull(resultSet.getStatementStatus());
+    assertTrue(resultSet.getStatementId().isEmpty());
+    assertEquals(StatementState.SUCCEEDED, resultSet.getStatementStatus().getState());
     assertEquals(0, resultSet.getUpdateCount());
     assertFalse(resultSet.hasUpdateCount());
   }

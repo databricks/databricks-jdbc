@@ -4,11 +4,11 @@ import static com.databricks.jdbc.common.util.DatabricksThriftUtil.*;
 
 import com.databricks.jdbc.api.IDatabricksResultSet;
 import com.databricks.jdbc.api.IDatabricksSession;
-import com.databricks.jdbc.api.callback.IDatabricksResultSetHandle;
-import com.databricks.jdbc.api.callback.IDatabricksStatementHandle;
 import com.databricks.jdbc.api.impl.converters.ConverterHelper;
 import com.databricks.jdbc.api.impl.converters.ObjectConverter;
 import com.databricks.jdbc.api.impl.volume.VolumeInputStream;
+import com.databricks.jdbc.api.internal.IDatabricksResultSetInternal;
+import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
 import com.databricks.jdbc.common.StatementType;
 import com.databricks.jdbc.common.util.WarningUtil;
 import com.databricks.jdbc.exception.DatabricksParsingException;
@@ -40,7 +40,7 @@ import org.apache.http.HttpEntity;
 import org.apache.http.entity.InputStreamEntity;
 
 public class DatabricksResultSet
-    implements ResultSet, IDatabricksResultSet, IDatabricksResultSetHandle {
+    implements ResultSet, IDatabricksResultSet, IDatabricksResultSetInternal {
 
   private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(DatabricksResultSet.class);
   protected static final String AFFECTED_ROWS_COUNT = "num_affected_rows";
@@ -49,7 +49,7 @@ public class DatabricksResultSet
   private final IExecutionResult executionResult;
   private final DatabricksResultSetMetaData resultSetMetaData;
   private final StatementType statementType;
-  private final IDatabricksStatementHandle parentStatement;
+  private final IDatabricksStatementInternal parentStatement;
   private Long updateCount;
   private boolean isClosed;
   private SQLWarning warnings = null;
@@ -66,7 +66,7 @@ public class DatabricksResultSet
       ResultManifest resultManifest,
       StatementType statementType,
       IDatabricksSession session,
-      IDatabricksStatementHandle parentStatement)
+      IDatabricksStatementInternal parentStatement)
       throws DatabricksParsingException {
     this.statementStatus = statementStatus;
     this.statementId = statementId;
@@ -92,7 +92,7 @@ public class DatabricksResultSet
       StatementStatus statementStatus,
       String statementId,
       StatementType statementType,
-      IDatabricksStatementHandle parentStatement,
+      IDatabricksStatementInternal parentStatement,
       IExecutionResult executionResult,
       DatabricksResultSetMetaData resultSetMetaData) {
     this.statementStatus = statementStatus;
@@ -113,7 +113,7 @@ public class DatabricksResultSet
       TRowSet resultData,
       TGetResultSetMetadataResp resultManifest,
       StatementType statementType,
-      IDatabricksStatementHandle parentStatement,
+      IDatabricksStatementInternal parentStatement,
       IDatabricksSession session)
       throws SQLException {
     if (SUCCESS_STATUS_LIST.contains(statementStatus.getStatusCode())) {

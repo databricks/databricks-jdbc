@@ -5,8 +5,8 @@ import static com.databricks.jdbc.dbclient.impl.sqlexec.PathConstants.*;
 
 import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.api.IDatabricksSession;
-import com.databricks.jdbc.api.callback.IDatabricksStatementHandle;
 import com.databricks.jdbc.api.impl.*;
+import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
 import com.databricks.jdbc.common.*;
 import com.databricks.jdbc.common.IDatabricksComputeResource;
 import com.databricks.jdbc.common.util.MetricsUtil;
@@ -120,7 +120,7 @@ public class DatabricksSdkClient implements IDatabricksClient {
       Map<Integer, ImmutableSqlParameter> parameters,
       StatementType statementType,
       IDatabricksSession session,
-      IDatabricksStatementHandle parentStatement)
+      IDatabricksStatementInternal parentStatement)
       throws SQLException {
     LOGGER.debug(
         String.format(
@@ -205,7 +205,7 @@ public class DatabricksSdkClient implements IDatabricksClient {
       IDatabricksComputeResource computeResource,
       Map<Integer, ImmutableSqlParameter> parameters,
       IDatabricksSession session,
-      IDatabricksStatementHandle parentStatement)
+      IDatabricksStatementInternal parentStatement)
       throws SQLException {
     LOGGER.debug(
         String.format(
@@ -248,7 +248,7 @@ public class DatabricksSdkClient implements IDatabricksClient {
 
   @Override
   public DatabricksResultSet getStatementResult(
-      String statementId, IDatabricksSession session, IDatabricksStatementHandle parentStatement)
+      String statementId, IDatabricksSession session, IDatabricksStatementInternal parentStatement)
       throws DatabricksSQLException {
     GetStatementRequest request = new GetStatementRequest().setStatementId(statementId);
     String getStatusPath = String.format(STATEMENT_PATH_WITH_ID, statementId);
@@ -322,7 +322,7 @@ public class DatabricksSdkClient implements IDatabricksClient {
       String warehouseId,
       IDatabricksSession session,
       Map<Integer, ImmutableSqlParameter> parameters,
-      IDatabricksStatementHandle parentStatement)
+      IDatabricksStatementInternal parentStatement)
       throws SQLException {
     Format format = useCloudFetchForResult(statementType) ? Format.ARROW_STREAM : Format.JSON_ARRAY;
     Disposition disposition =

@@ -4,6 +4,7 @@ import java.nio.ByteBuffer;
 import java.util.Base64;
 import java.util.UUID;
 
+/** Utility class to handle UUIDs used in Thrift identifiers. */
 class ResourceId {
   private final UUID uuid;
 
@@ -16,22 +17,18 @@ class ResourceId {
     return uuidToBase64(uuid);
   }
 
-  public byte[] toBytes() {
-    return uuidToBytes(uuid);
-  }
-
-  public UUID getId() {
+  UUID getId() {
     return uuid;
   }
 
-  public static byte[] uuidToBytes(UUID uuid) {
+  static byte[] uuidToBytes(UUID uuid) {
     ByteBuffer buffer = ByteBuffer.allocate(16);
     buffer.putLong(uuid.getMostSignificantBits());
     buffer.putLong(uuid.getLeastSignificantBits());
     return buffer.array();
   }
 
-  public static UUID uuidFromBytes(byte[] bytes) {
+  static UUID uuidFromBytes(byte[] bytes) {
     ByteBuffer buf = ByteBuffer.wrap(bytes);
     return new UUID(buf.getLong(), buf.getLong());
   }
@@ -44,11 +41,11 @@ class ResourceId {
     return uuidFromBytes(Base64.getDecoder().decode(str));
   }
 
-  public static ResourceId fromBytes(byte[] bytes) {
+  static ResourceId fromBytes(byte[] bytes) {
     return new ResourceId(uuidFromBytes(bytes));
   }
 
-  public static ResourceId fromBase64(String str) {
+  static ResourceId fromBase64(String str) {
     return new ResourceId(uuidFromBase64(str));
   }
 }

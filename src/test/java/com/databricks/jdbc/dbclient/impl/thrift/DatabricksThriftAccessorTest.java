@@ -7,8 +7,8 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.*;
 
 import com.databricks.jdbc.api.IDatabricksConnectionContext;
-import com.databricks.jdbc.api.callback.IDatabricksStatementHandle;
 import com.databricks.jdbc.api.impl.DatabricksResultSet;
+import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
 import com.databricks.jdbc.common.StatementType;
 import com.databricks.jdbc.exception.DatabricksHttpException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
@@ -31,7 +31,7 @@ public class DatabricksThriftAccessorTest {
   @Mock TProtocol protocol;
   @Mock DatabricksHttpTTransport transport;
   @Mock DatabricksConfig config;
-  @Mock IDatabricksStatementHandle statement;
+  @Mock IDatabricksStatementInternal statement;
   @Mock IDatabricksConnectionContext connectionContext;
   static DatabricksThriftAccessor accessor;
 

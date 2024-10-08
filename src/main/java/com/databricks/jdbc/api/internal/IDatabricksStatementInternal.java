@@ -1,4 +1,4 @@
-package com.databricks.jdbc.api.callback;
+package com.databricks.jdbc.api.internal;
 
 import com.databricks.jdbc.api.IDatabricksResultSet;
 import com.databricks.jdbc.exception.DatabricksSQLException;
@@ -7,7 +7,8 @@ import java.sql.Statement;
 import org.apache.http.entity.InputStreamEntity;
 
 /** Extended callback handle for java.sql.Statement interface */
-public interface IDatabricksStatementHandle {
+public interface IDatabricksStatementInternal {
+
   void close(boolean removeFromSession) throws DatabricksSQLException;
 
   void handleResultSetClose(IDatabricksResultSet resultSet) throws DatabricksSQLException;

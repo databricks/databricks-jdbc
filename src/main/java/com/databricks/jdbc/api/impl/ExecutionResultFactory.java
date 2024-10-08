@@ -3,11 +3,11 @@ package com.databricks.jdbc.api.impl;
 import static com.databricks.jdbc.common.util.DatabricksThriftUtil.convertColumnarToRowBased;
 
 import com.databricks.jdbc.api.IDatabricksSession;
-import com.databricks.jdbc.api.callback.IDatabricksResultSetHandle;
-import com.databricks.jdbc.api.callback.IDatabricksStatementHandle;
 import com.databricks.jdbc.api.impl.arrow.ArrowStreamResult;
 import com.databricks.jdbc.api.impl.inline.InlineJsonResult;
 import com.databricks.jdbc.api.impl.volume.VolumeOperationResult;
+import com.databricks.jdbc.api.internal.IDatabricksResultSetInternal;
+import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
 import com.databricks.jdbc.common.util.DatabricksThriftUtil;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.exception.DatabricksSQLFeatureNotImplementedException;
@@ -25,8 +25,8 @@ class ExecutionResultFactory {
       ResultManifest manifest,
       String statementId,
       IDatabricksSession session,
-      IDatabricksStatementHandle statement,
-      IDatabricksResultSetHandle resultSet)
+      IDatabricksStatementInternal statement,
+      IDatabricksResultSetInternal resultSet)
       throws DatabricksParsingException {
     IExecutionResult resultHandler = getResultHandler(data, manifest, statementId, session);
     if (manifest.getIsVolumeOperation() != null && manifest.getIsVolumeOperation()) {
@@ -66,8 +66,8 @@ class ExecutionResultFactory {
       TGetResultSetMetadataResp manifest,
       String statementId,
       IDatabricksSession session,
-      IDatabricksStatementHandle statement,
-      IDatabricksResultSetHandle resultSet)
+      IDatabricksStatementInternal statement,
+      IDatabricksResultSetInternal resultSet)
       throws SQLException {
     IExecutionResult resultHandler = getResultHandler(data, manifest, statementId, session);
     if (manifest.isSetIsStagingOperation() && manifest.isIsStagingOperation()) {

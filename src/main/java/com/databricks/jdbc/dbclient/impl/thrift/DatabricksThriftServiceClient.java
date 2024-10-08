@@ -6,8 +6,8 @@ import static com.databricks.jdbc.dbclient.impl.common.MetadataResultSetBuilder.
 
 import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.api.IDatabricksSession;
-import com.databricks.jdbc.api.callback.IDatabricksStatementHandle;
 import com.databricks.jdbc.api.impl.*;
+import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
 import com.databricks.jdbc.common.IDatabricksComputeResource;
 import com.databricks.jdbc.common.StatementType;
 import com.databricks.jdbc.dbclient.IDatabricksClient;
@@ -125,7 +125,7 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
       Map<Integer, ImmutableSqlParameter> parameters,
       StatementType statementType,
       IDatabricksSession session,
-      IDatabricksStatementHandle parentStatement)
+      IDatabricksStatementInternal parentStatement)
       throws SQLException {
     // Note that prepared statement is not supported by SEA/Thrift flow.
     LOGGER.debug(
@@ -147,7 +147,7 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
       IDatabricksComputeResource computeResource,
       Map<Integer, ImmutableSqlParameter> parameters,
       IDatabricksSession session,
-      IDatabricksStatementHandle parentStatement)
+      IDatabricksStatementInternal parentStatement)
       throws SQLException {
     LOGGER.debug(
         String.format(
@@ -171,7 +171,8 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
     TOperationHandle operationHandle =
         ThriftStatementId.fromBase64String(statementId).toOperationHandle();
     TCloseOperationReq request = new TCloseOperationReq().setOperationHandle(operationHandle);
-    thriftAccessor.closeOperation(request);
+    TCloseOperationResp resp = thriftAccessor.closeOperation(request);
+    //   LOGGER.debug("Statement {%s} closed with status {%s}", statementId, resp.getStatus());
   }
 
   @Override
@@ -183,12 +184,13 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
     TOperationHandle operationHandle =
         ThriftStatementId.fromBase64String(statementId).toOperationHandle();
     TCancelOperationReq request = new TCancelOperationReq().setOperationHandle(operationHandle);
-    thriftAccessor.cancelOperation(request);
+    TCancelOperationResp resp = thriftAccessor.cancelOperation(request);
+    //    LOGGER.debug("Statement {%s} cancelled with status {%s}", statementId, resp.getStatus());
   }
 
   @Override
   public DatabricksResultSet getStatementResult(
-      String statementId, IDatabricksSession session, IDatabricksStatementHandle parentStatement)
+      String statementId, IDatabricksSession session, IDatabricksStatementInternal parentStatement)
       throws SQLException {
     LOGGER.debug(
         String.format(

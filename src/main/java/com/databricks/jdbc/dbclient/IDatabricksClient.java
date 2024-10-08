@@ -2,8 +2,8 @@ package com.databricks.jdbc.dbclient;
 
 import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.api.IDatabricksSession;
-import com.databricks.jdbc.api.callback.IDatabricksStatementHandle;
 import com.databricks.jdbc.api.impl.*;
+import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
 import com.databricks.jdbc.common.CommandName;
 import com.databricks.jdbc.common.IDatabricksComputeResource;
 import com.databricks.jdbc.common.StatementType;
@@ -75,7 +75,7 @@ public interface IDatabricksClient {
       Map<Integer, ImmutableSqlParameter> parameters,
       StatementType statementType,
       IDatabricksSession session,
-      IDatabricksStatementHandle parentStatement)
+      IDatabricksStatementInternal parentStatement)
       throws SQLException;
 
   /**
@@ -93,7 +93,7 @@ public interface IDatabricksClient {
       IDatabricksComputeResource computeResource,
       Map<Integer, ImmutableSqlParameter> parameters,
       IDatabricksSession session,
-      IDatabricksStatementHandle parentStatement)
+      IDatabricksStatementInternal parentStatement)
       throws SQLException;
 
   /**
@@ -118,7 +118,7 @@ public interface IDatabricksClient {
    * @param parentStatement statement instance
    */
   DatabricksResultSet getStatementResult(
-      String statementId, IDatabricksSession session, IDatabricksStatementHandle parentStatement)
+      String statementId, IDatabricksSession session, IDatabricksStatementInternal parentStatement)
       throws SQLException;
 
   /**

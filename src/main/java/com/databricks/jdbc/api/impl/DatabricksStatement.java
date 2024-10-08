@@ -7,7 +7,7 @@ import static java.lang.String.format;
 
 import com.databricks.jdbc.api.IDatabricksResultSet;
 import com.databricks.jdbc.api.IDatabricksStatement;
-import com.databricks.jdbc.api.callback.IDatabricksStatementHandle;
+import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
 import com.databricks.jdbc.common.ErrorCodes;
 import com.databricks.jdbc.common.ErrorTypes;
 import com.databricks.jdbc.common.StatementType;
@@ -26,7 +26,7 @@ import java.util.concurrent.*;
 import org.apache.http.entity.InputStreamEntity;
 
 public class DatabricksStatement
-    implements IDatabricksStatement, IDatabricksStatementHandle, Statement {
+    implements IDatabricksStatement, IDatabricksStatementInternal, Statement {
 
   private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(DatabricksStatement.class);
   private int timeoutInSeconds;
@@ -700,7 +700,7 @@ public class DatabricksStatement
   }
 
   @Override
-  public IDatabricksResultSet executeAsync(String sql) throws SQLException {
+  public ResultSet executeAsync(String sql) throws SQLException {
     checkIfClosed();
 
     IDatabricksClient client = connection.getSession().getDatabricksClient();
@@ -713,7 +713,7 @@ public class DatabricksStatement
   }
 
   @Override
-  public IDatabricksResultSet getExecutionResult() throws SQLException {
+  public ResultSet getExecutionResult() throws SQLException {
     LOGGER.debug("ResultSet getExecutionResult() for statementId {%s}", statementId);
     checkIfClosed();
     return connection

@@ -5,7 +5,7 @@ import com.databricks.jdbc.model.client.thrift.generated.TOperationHandle;
 import com.databricks.jdbc.model.client.thrift.generated.TOperationType;
 import java.nio.ByteBuffer;
 
-public class ThriftStatementId {
+class ThriftStatementId {
   ResourceId guid;
   ResourceId secret;
 
@@ -14,13 +14,13 @@ public class ThriftStatementId {
     this.secret = secret;
   }
 
-  public static ThriftStatementId fromOperationHandle(TOperationHandle operationHandle) {
+  static ThriftStatementId fromOperationHandle(TOperationHandle operationHandle) {
     ResourceId guid = ResourceId.fromBytes(operationHandle.getOperationId().getGuid());
     ResourceId secret = ResourceId.fromBytes(operationHandle.getOperationId().getSecret());
     return new ThriftStatementId(guid, secret);
   }
 
-  public static ThriftStatementId fromBase64String(String statementId) {
+  static ThriftStatementId fromBase64String(String statementId) {
     String[] parts = statementId.split("\\|");
     ResourceId guid = ResourceId.fromBase64(parts[0]);
     ResourceId secret = ResourceId.fromBase64(parts[1]);
@@ -32,7 +32,7 @@ public class ThriftStatementId {
     return String.format("%s|%s", guid.toString(), secret.toString());
   }
 
-  public THandleIdentifier toHandleIdentifier() {
+  THandleIdentifier toHandleIdentifier() {
     byte[] publicId = new byte[16];
     byte[] secretId = new byte[16];
     ByteBuffer publicIdBB = ByteBuffer.wrap(publicId);
@@ -45,7 +45,7 @@ public class ThriftStatementId {
     return new THandleIdentifier(ByteBuffer.wrap(publicId), ByteBuffer.wrap(secretId));
   }
 
-  public TOperationHandle toOperationHandle() {
+  TOperationHandle toOperationHandle() {
     return new TOperationHandle()
         .setOperationId(toHandleIdentifier())
         .setOperationType(TOperationType.UNKNOWN);

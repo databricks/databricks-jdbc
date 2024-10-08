@@ -5,11 +5,11 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.isA;
 import static org.mockito.Mockito.when;
 
-import com.databricks.jdbc.api.callback.IDatabricksResultSetHandle;
-import com.databricks.jdbc.api.callback.IDatabricksStatementHandle;
 import com.databricks.jdbc.api.impl.DatabricksSession;
 import com.databricks.jdbc.api.impl.EmptyResultSet;
 import com.databricks.jdbc.api.impl.IExecutionResult;
+import com.databricks.jdbc.api.internal.IDatabricksResultSetInternal;
+import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
 import com.databricks.jdbc.exception.DatabricksHttpException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
@@ -46,8 +46,8 @@ public class VolumeOperationResultTest {
   @Mock StatusLine mockedStatusLine;
   @Mock DatabricksSession session;
   @Mock IExecutionResult resultHandler;
-  @Mock IDatabricksStatementHandle statement;
-  @Mock IDatabricksResultSetHandle resultSet;
+  @Mock IDatabricksStatementInternal statement;
+  @Mock IDatabricksResultSetInternal resultSet;
   private static final ResultManifest RESULT_MANIFEST =
       new ResultManifest()
           .setIsVolumeOperation(true)
@@ -105,7 +105,7 @@ public class VolumeOperationResultTest {
     when(mockedStatusLine.getStatusCode()).thenReturn(200);
     when(statement.isAllowedInputStreamForVolumeOperation()).thenReturn(true);
 
-    IDatabricksResultSetHandle fakeResultSet = new EmptyResultSet();
+    IDatabricksResultSetInternal fakeResultSet = new EmptyResultSet();
     VolumeOperationResult volumeOperationResult =
         new VolumeOperationResult(
             STATEMENT_ID,
@@ -139,7 +139,7 @@ public class VolumeOperationResultTest {
     when(statement.isAllowedInputStreamForVolumeOperation())
         .thenThrow(new DatabricksSQLException("statement closed"));
 
-    IDatabricksResultSetHandle fakeResultSet = new EmptyResultSet();
+    IDatabricksResultSetInternal fakeResultSet = new EmptyResultSet();
     VolumeOperationResult volumeOperationResult =
         new VolumeOperationResult(
             STATEMENT_ID,
