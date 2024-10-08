@@ -10,19 +10,19 @@ import com.databricks.jdbc.common.util.DatabricksTypeUtil;
 import com.databricks.jdbc.common.util.WrapperUtil;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
-import com.databricks.jdbc.model.client.thrift.generated.TColumnDesc;
-import com.databricks.jdbc.model.client.thrift.generated.TGetResultSetMetadataResp;
-import com.databricks.jdbc.model.client.thrift.generated.TTypeEntry;
-import com.databricks.jdbc.model.client.thrift.generated.TTypeQualifierValue;
+import com.databricks.jdbc.model.client.thrift.generated.*;
 import com.databricks.jdbc.model.core.ColumnMetadata;
 import com.databricks.jdbc.model.core.ResultManifest;
+import com.databricks.sdk.service.sql.BaseChunkInfo;
 import com.databricks.sdk.service.sql.ColumnInfo;
 import com.databricks.sdk.service.sql.ColumnInfoTypeName;
+import com.databricks.sdk.service.sql.Disposition;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.Types;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -36,6 +36,7 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
   private final ImmutableMap<String, Integer> columnNameIndex;
   private final long totalRows;
   private Long chunkCount;
+  private final Disposition disposition;
 
   /**
    * Constructs a {@code DatabricksResultSetMetaData} object for a SEA result set.
@@ -90,6 +91,7 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
     this.columnNameIndex = ImmutableMap.copyOf(columnNameToIndexMap);
     this.totalRows = resultManifest.getTotalRowCount();
     this.chunkCount = resultManifest.getTotalChunkCount();
+    this.disposition = getDispositionSdk(resultManifest);
   }
 
   /**
@@ -151,6 +153,7 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
     this.columnNameIndex = ImmutableMap.copyOf(columnNameToIndexMap);
     this.totalRows = rows;
     this.chunkCount = chunkCount;
+    this.disposition = getDispositionThrift(resultManifest);
   }
 
   /**
@@ -191,6 +194,7 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
     this.columns = columnsBuilder.build();
     this.columnNameIndex = ImmutableMap.copyOf(columnNameToIndexMap);
     this.totalRows = totalRows;
+    this.disposition = Disposition.INLINE;
   }
 
   /**
@@ -235,6 +239,7 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
     this.columns = columnsBuilder.build();
     this.columnNameIndex = ImmutableMap.copyOf(columnNameToIndexMap);
     this.totalRows = totalRows;
+    this.disposition = Disposition.INLINE;
   }
 
   @Override
@@ -376,6 +381,10 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
     return totalRows;
   }
 
+  public Disposition getDisposition() {
+    return disposition;
+  }
+
   public Long getChunkCount() {
     return chunkCount;
   }
@@ -420,5 +429,22 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
         .isCurrency(false)
         .typeScale(0)
         .isCaseSensitive(false);
+  }
+
+  private Disposition getDispositionSdk(ResultManifest resultManifest) {
+    Collection<BaseChunkInfo> chunkInfos = resultManifest.getChunks();
+    if (chunkInfos != null && !chunkInfos.isEmpty()) {
+      BaseChunkInfo chunkInfo = chunkInfos.iterator().next();
+      if (chunkInfo.getByteCount() != null && chunkInfo.getByteCount() > 0) {
+        return Disposition.EXTERNAL_LINKS;
+      }
+    }
+    return Disposition.INLINE;
+  }
+
+  private Disposition getDispositionThrift(TGetResultSetMetadataResp resultManifest) {
+    return resultManifest.getResultFormat() == TSparkRowSetType.URL_BASED_SET
+        ? Disposition.EXTERNAL_LINKS
+        : Disposition.INLINE;
   }
 }

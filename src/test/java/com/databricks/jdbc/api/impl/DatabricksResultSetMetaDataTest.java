@@ -8,15 +8,10 @@ import com.databricks.jdbc.common.DatabricksJdbcConstants;
 import com.databricks.jdbc.common.util.DatabricksTypeUtil;
 import com.databricks.jdbc.model.client.thrift.generated.*;
 import com.databricks.jdbc.model.core.ResultManifest;
-import com.databricks.sdk.service.sql.ColumnInfo;
-import com.databricks.sdk.service.sql.ColumnInfoTypeName;
-import com.databricks.sdk.service.sql.ResultSchema;
+import com.databricks.sdk.service.sql.*;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -223,6 +218,52 @@ public class DatabricksResultSetMetaDataTest {
             DatabricksTypeUtil.getColumnType(getTypeFromTypeDesc(columnInfo.getTypeDesc())));
     assertEquals(255, scaleAndPrecision[0]);
     assertEquals(0, scaleAndPrecision[1]);
+  }
+
+  @Test
+  public void testGetDispositionThrift() {
+    TGetResultSetMetadataResp thriftResultManifest = getThriftResultManifest();
+    // set result format to ARROW_BASED_SET, COLUMN_BASED_SET, ROW_BASED_SET, URL_BASED_SET
+    thriftResultManifest.setResultFormat(TSparkRowSetType.ARROW_BASED_SET);
+    DatabricksResultSetMetaData metaData =
+        new DatabricksResultSetMetaData(STATEMENT_ID, thriftResultManifest, 1, 1);
+    assertEquals(metaData.getDisposition(), Disposition.INLINE);
+
+    thriftResultManifest.setResultFormat(TSparkRowSetType.COLUMN_BASED_SET);
+    metaData = new DatabricksResultSetMetaData(STATEMENT_ID, thriftResultManifest, 1, 1);
+    assertEquals(metaData.getDisposition(), Disposition.INLINE);
+
+    thriftResultManifest.setResultFormat(TSparkRowSetType.ROW_BASED_SET);
+    metaData = new DatabricksResultSetMetaData(STATEMENT_ID, thriftResultManifest, 1, 1);
+    assertEquals(metaData.getDisposition(), Disposition.INLINE);
+
+    thriftResultManifest.setResultFormat(TSparkRowSetType.URL_BASED_SET);
+    metaData = new DatabricksResultSetMetaData(STATEMENT_ID, thriftResultManifest, 1, 1);
+    assertEquals(metaData.getDisposition(), Disposition.EXTERNAL_LINKS);
+  }
+
+  @Test
+  public void testDispositionSdk() {
+    ResultManifest resultManifest = getResultManifest();
+
+    // Case 1: Null chunks should return INLINE
+    resultManifest.setChunks(null);
+    DatabricksResultSetMetaData metaData =
+        new DatabricksResultSetMetaData(STATEMENT_ID, resultManifest);
+    assertEquals(Disposition.INLINE, metaData.getDisposition());
+
+    // Case 2: Non-zero byte count should return EXTERNAL_LINKS
+    BaseChunkInfo chunkInfo = new BaseChunkInfo();
+    chunkInfo.setByteCount(81848L); // Non-zero byte count
+    resultManifest.setChunks(List.of(chunkInfo));
+    metaData = new DatabricksResultSetMetaData(STATEMENT_ID, resultManifest);
+    assertEquals(Disposition.EXTERNAL_LINKS, metaData.getDisposition());
+
+    // Case 3: Zero byte count should return INLINE
+    chunkInfo.setByteCount(0L); // Zero byte count
+    resultManifest.setChunks(List.of(chunkInfo));
+    metaData = new DatabricksResultSetMetaData(STATEMENT_ID, resultManifest);
+    assertEquals(Disposition.INLINE, metaData.getDisposition());
   }
 
   private void verifyDefaultMetadataProperties(DatabricksResultSetMetaData metaData)
