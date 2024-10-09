@@ -5,8 +5,8 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.when;
 
 import com.databricks.jdbc.api.IDatabricksConnectionContext;
-import com.databricks.jdbc.api.IDatabricksResultSet;
-import com.databricks.jdbc.api.IDatabricksStatement;
+import com.databricks.jdbc.api.callback.IDatabricksResultSetHandle;
+import com.databricks.jdbc.api.callback.IDatabricksStatementHandle;
 import com.databricks.jdbc.api.impl.arrow.ArrowStreamResult;
 import com.databricks.jdbc.api.impl.volume.VolumeOperationResult;
 import com.databricks.jdbc.exception.DatabricksParsingException;
@@ -30,12 +30,11 @@ public class ExecutionResultFactoryTest {
 
   @Mock DatabricksSession session;
   @Mock IDatabricksConnectionContext connectionContext;
-
   @Mock TGetResultSetMetadataResp resultSetMetadataResp;
   @Mock TRowSet tRowSet;
   @Mock IDatabricksConnectionContext context;
-  @Mock IDatabricksStatement statement;
-  @Mock IDatabricksResultSet resultSet;
+  @Mock IDatabricksStatementHandle statement;
+  @Mock IDatabricksResultSetHandle resultSet;
 
   @Test
   public void testGetResultSet_jsonInline() throws DatabricksParsingException {
@@ -132,6 +131,7 @@ public class ExecutionResultFactoryTest {
   @Test
   public void testGetResultSet_thriftInlineArrow() throws SQLException {
     when(resultSetMetadataResp.getResultFormat()).thenReturn(TSparkRowSetType.ARROW_BASED_SET);
+    when(session.getConnectionContext()).thenReturn(context);
     IExecutionResult result =
         ExecutionResultFactory.getResultSet(
             tRowSet, resultSetMetadataResp, TEST_STATEMENT_ID, session, statement, resultSet);

@@ -5,7 +5,11 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import java.util.Map;
 import java.util.Objects;
 
-/* TODO: This file is picked from databricks-sdk-java. Remove this once arclight changes are included in API-SPEC */
+/**
+ * External link POJO
+ *
+ * <p>TODO: Replace this class with the corresponding SDK implementation once it becomes available
+ */
 public class ExternalLink {
   @JsonProperty("byte_count")
   private Long byteCount;

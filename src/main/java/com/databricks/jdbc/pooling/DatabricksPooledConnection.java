@@ -21,7 +21,7 @@ import javax.sql.StatementEventListener;
 
 public class DatabricksPooledConnection implements PooledConnection {
 
-  public static final JdbcLogger LOGGER =
+  private static final JdbcLogger LOGGER =
       JdbcLoggerFactory.getLogger(DatabricksPooledConnection.class);
   private final Set<ConnectionEventListener> listeners = new HashSet<>();
   private Connection physicalConnection;
@@ -55,7 +55,7 @@ public class DatabricksPooledConnection implements PooledConnection {
    */
   private void fireConnectionError(SQLException e) {
     LOGGER.debug(
-        String.format("private void fireConnectionError(SQLException e = {})", e.toString()));
+        String.format("private void fireConnectionError(SQLException e = {%s})", e.toString()));
     for (ConnectionEventListener listener : this.listeners) {
       listener.connectionErrorOccurred(new ConnectionEvent(this, e));
     }

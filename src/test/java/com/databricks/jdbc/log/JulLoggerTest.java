@@ -92,7 +92,7 @@ public class JulLoggerTest {
   @Test
   void testErrorWithThrowable() {
     Exception exception = new Exception("Test exception");
-    julLogger.error("Test error message", exception);
+    julLogger.error(exception, "Test error message");
     verify(mockLogger)
         .logp(
             Level.SEVERE,
@@ -107,7 +107,7 @@ public class JulLoggerTest {
     JulLogger.initLogger(Level.INFO, JulLogger.STDOUT, 1024, 1);
     Logger jdbcLogger = Logger.getLogger(JulLogger.PARENT_CLASS_PREFIX);
     assertEquals(Level.INFO, jdbcLogger.getLevel());
-    assertInstanceOf(ConsoleHandler.class, jdbcLogger.getHandlers()[0]);
+    assertInstanceOf(StreamHandler.class, jdbcLogger.getHandlers()[0]);
   }
 
   @Test

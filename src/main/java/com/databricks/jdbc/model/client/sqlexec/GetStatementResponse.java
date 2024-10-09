@@ -7,7 +7,11 @@ import com.databricks.sdk.support.ToStringer;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import java.util.Objects;
 
-/* TODO: This file is picked from databricks-sdk-java. Remove this once compression changes are included in  in API-SPEC */
+/**
+ * Get statement response POJO
+ *
+ * <p>TODO: Replace this class with the corresponding SDK implementation once it becomes available
+ */
 public class GetStatementResponse {
   @JsonProperty("manifest")
   private ResultManifest manifest;

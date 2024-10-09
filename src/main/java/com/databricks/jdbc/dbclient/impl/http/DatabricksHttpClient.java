@@ -40,7 +40,7 @@ import org.apache.http.ssl.SSLContextBuilder;
 /** Http client implementation to be used for executing http requests. */
 public class DatabricksHttpClient implements IDatabricksHttpClient {
 
-  public static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(DatabricksHttpClient.class);
+  private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(DatabricksHttpClient.class);
   private static final int DEFAULT_MAX_HTTP_CONNECTIONS = 1000;
   private static final int DEFAULT_MAX_HTTP_CONNECTIONS_PER_ROUTE = 1000;
   private static final int DEFAULT_HTTP_CONNECTION_TIMEOUT = 60 * 1000; // ms
@@ -207,6 +207,10 @@ public class DatabricksHttpClient implements IDatabricksHttpClient {
   public CloseableHttpResponse execute(HttpUriRequest request) throws DatabricksHttpException {
     LOGGER.debug(
         String.format("Executing HTTP request [{%s}]", RequestSanitizer.sanitizeRequest(request)));
+    if (!Boolean.parseBoolean(System.getProperty(IS_FAKE_SERVICE_TEST_PROP))) {
+      // TODO : allow gzip in wiremock
+      request.setHeader("Content-Encoding", "gzip");
+    }
     try {
       return httpClient.execute(request);
     } catch (IOException e) {
@@ -289,7 +293,7 @@ public class DatabricksHttpClient implements IDatabricksHttpClient {
     if (logLevel == LogLevel.DEBUG) {
       LOGGER.debug(errorMsg);
     } else {
-      LOGGER.error(errorMsg, e);
+      LOGGER.error(e, errorMsg);
     }
     throw new DatabricksHttpException(errorMsg, e);
   }

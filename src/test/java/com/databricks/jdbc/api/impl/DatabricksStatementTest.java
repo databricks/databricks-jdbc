@@ -89,7 +89,7 @@ public class DatabricksStatementTest {
     statement.cancel();
 
     statement.close();
-    assertThrows(DatabricksSQLException.class, () -> statement.cancel());
+    assertThrows(DatabricksSQLException.class, statement::cancel);
   }
 
   @Test
@@ -150,6 +150,7 @@ public class DatabricksStatementTest {
             .build();
     when(client.createSession(any(), any(), any(), any())).thenReturn(sessionInfo);
     DatabricksConnection connection = new DatabricksConnection(connectionContext, client);
+    connection.open();
     DatabricksStatement statement = new DatabricksStatement(connection);
     when(client.executeStatement(
             eq(STATEMENT),
@@ -166,7 +167,6 @@ public class DatabricksStatementTest {
     statement.setEscapeProcessing(true);
     assertEquals(statement.getQueryTimeout(), 10);
     assertEquals(statement.getStatement(), statement);
-    assertEquals(statement.getSessionId(), SESSION_ID);
     assertEquals(statement.getStatementId(), STATEMENT_ID);
     doNothing().when(client).closeStatement(STATEMENT_ID);
     statement.close(true);
