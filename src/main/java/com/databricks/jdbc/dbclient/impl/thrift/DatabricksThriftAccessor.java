@@ -373,7 +373,6 @@ final class DatabricksThriftAccessor {
       transport.close();
     }
     StatementId statementId = StatementId.fromOperationIdentifier(operationHandle.getOperationId());
-    LOGGER.debug("outgoing stmt-Id " + statementId + " status " + response.operationState);
     return new DatabricksResultSet(
         response.getStatus(),
         statementId,
