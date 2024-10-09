@@ -286,7 +286,7 @@ final class DatabricksThriftAccessor {
       transport.close();
     }
     String statementId =
-        ThriftStatementId.fromOperationHandle(response.getOperationHandle()).toString();
+        .fromOperationHandle(response.getOperationHandle()).toString();
     if (parentStatement != null) {
       parentStatement.setStatementId(statementId);
     }

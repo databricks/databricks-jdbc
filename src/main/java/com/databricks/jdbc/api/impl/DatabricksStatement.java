@@ -13,6 +13,7 @@ import com.databricks.jdbc.common.ErrorTypes;
 import com.databricks.jdbc.common.StatementType;
 import com.databricks.jdbc.common.util.*;
 import com.databricks.jdbc.dbclient.IDatabricksClient;
+import com.databricks.jdbc.dbclient.impl.common.StatementId;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.exception.DatabricksSQLFeatureNotSupportedException;
 import com.databricks.jdbc.exception.DatabricksTimeoutException;
@@ -32,7 +33,7 @@ public class DatabricksStatement
   private int timeoutInSeconds;
   private final DatabricksConnection connection;
   DatabricksResultSet resultSet;
-  private String statementId;
+  private StatementId statementId;
   private boolean isClosed;
   private boolean closeOnCompletion;
   private SQLWarning warnings = null;
@@ -49,7 +50,7 @@ public class DatabricksStatement
     this.timeoutInSeconds = DEFAULT_STATEMENT_TIMEOUT_SECONDS;
   }
 
-  DatabricksStatement(DatabricksConnection connection, String statementId) {
+  DatabricksStatement(DatabricksConnection connection, StatementId statementId) {
     this.connection = connection;
     this.statementId = statementId;
     this.resultSet = null;
@@ -71,7 +72,7 @@ public class DatabricksStatement
       MetricsUtil.exportError(
           connection.getSession(),
           ErrorTypes.EXECUTE_STATEMENT,
-          statementId,
+          statementId.toString(),
           ErrorCodes.RESULT_SET_ERROR);
       throw new DatabricksSQLException(errorMessage, ErrorCodes.RESULT_SET_ERROR);
     }
@@ -117,7 +118,7 @@ public class DatabricksStatement
     MetricsUtil.exportError(
         connection.getSession(),
         ErrorTypes.FEATURE_NOT_SUPPORTED,
-        statementId,
+        statementId.toString(),
         ErrorCodes.MAX_FIELD_SIZE_EXCEEDED);
     throw new DatabricksSQLFeatureNotSupportedException(
         "Not implemented in DatabricksStatement - getMaxFieldSize()");
@@ -129,7 +130,7 @@ public class DatabricksStatement
     MetricsUtil.exportError(
         connection.getSession(),
         ErrorTypes.FEATURE_NOT_SUPPORTED,
-        statementId,
+        statementId.toString(),
         ErrorCodes.MAX_FIELD_SIZE_EXCEEDED);
     throw new DatabricksSQLFeatureNotSupportedException(
         "Not implemented in DatabricksStatement - setMaxFieldSize(int max)");
@@ -617,7 +618,7 @@ public class DatabricksStatement
   }
 
   @Override
-  public void setStatementId(String statementId) {
+  public void setStatementId(StatementId statementId) {
     LOGGER.debug("void setStatementId {%s}", statementId);
     this.statementId = statementId;
   }

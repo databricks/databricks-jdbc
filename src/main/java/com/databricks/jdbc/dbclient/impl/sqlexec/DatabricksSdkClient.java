@@ -12,6 +12,7 @@ import com.databricks.jdbc.common.IDatabricksComputeResource;
 import com.databricks.jdbc.common.util.MetricsUtil;
 import com.databricks.jdbc.dbclient.IDatabricksClient;
 import com.databricks.jdbc.dbclient.impl.common.ClientConfigurator;
+import com.databricks.jdbc.dbclient.impl.common.StatementId;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.exception.DatabricksTimeoutException;
@@ -146,14 +147,14 @@ public class DatabricksSdkClient implements IDatabricksClient {
           String.format(
               "Empty Statement ID for sql %s, statementType %s, compute %s",
               sql, statementType, computeResource));
-      handleFailedExecution(response, statementId, sql);
+      handleFailedExecution(response, "", sql);
     }
     LOGGER.debug(
         String.format(
             "Executing sql %s, statementType %s, compute %s, StatementID %s",
             sql, statementType, computeResource, statementId));
     if (parentStatement != null) {
-      parentStatement.setStatementId(statementId);
+      parentStatement.setStatementId(StatementId.fromSQLExecStatementId(statementId));
     }
     StatementState responseState = response.getStatus().getState();
     while (responseState == StatementState.PENDING || responseState == StatementState.RUNNING) {

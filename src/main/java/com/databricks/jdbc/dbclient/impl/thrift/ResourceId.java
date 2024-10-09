@@ -5,7 +5,7 @@ import java.util.Base64;
 import java.util.UUID;
 
 /** Utility class to handle UUIDs used in Thrift identifiers. */
-class ResourceId {
+public class ResourceId {
   private final UUID uuid;
 
   ResourceId(UUID uuid) {
@@ -19,6 +19,10 @@ class ResourceId {
 
   UUID getId() {
     return uuid;
+  }
+
+  public byte[] toBytes() {
+    return uuidToBytes(uuid);
   }
 
   static byte[] uuidToBytes(UUID uuid) {
@@ -41,11 +45,11 @@ class ResourceId {
     return uuidFromBytes(Base64.getDecoder().decode(str));
   }
 
-  static ResourceId fromBytes(byte[] bytes) {
+  public static ResourceId fromBytes(byte[] bytes) {
     return new ResourceId(uuidFromBytes(bytes));
   }
 
-  static ResourceId fromBase64(String str) {
+  public static ResourceId fromBase64(String str) {
     return new ResourceId(uuidFromBase64(str));
   }
 }

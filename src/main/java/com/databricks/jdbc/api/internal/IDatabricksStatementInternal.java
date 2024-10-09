@@ -1,6 +1,7 @@
 package com.databricks.jdbc.api.internal;
 
 import com.databricks.jdbc.api.IDatabricksResultSet;
+import com.databricks.jdbc.dbclient.impl.common.StatementId;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import java.sql.SQLException;
 import java.sql.Statement;
@@ -15,7 +16,7 @@ public interface IDatabricksStatementInternal {
 
   int getMaxRows() throws SQLException;
 
-  void setStatementId(String statementId);
+  void setStatementId(StatementId statementId);
 
   String getStatementId();
 

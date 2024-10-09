@@ -11,6 +11,7 @@ import com.databricks.jdbc.api.internal.IDatabricksResultSetInternal;
 import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
 import com.databricks.jdbc.common.StatementType;
 import com.databricks.jdbc.common.util.WarningUtil;
+import com.databricks.jdbc.dbclient.impl.common.StatementId;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.exception.DatabricksSQLFeatureNotSupportedException;
@@ -45,7 +46,7 @@ public class DatabricksResultSet
   private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(DatabricksResultSet.class);
   protected static final String AFFECTED_ROWS_COUNT = "num_affected_rows";
   private final StatementStatus statementStatus;
-  private final String statementId;
+  private final StatementId statementId;
   private final IExecutionResult executionResult;
   private final DatabricksResultSetMetaData resultSetMetaData;
   private final StatementType statementType;
@@ -61,7 +62,7 @@ public class DatabricksResultSet
   // Constructor for SEA result set
   public DatabricksResultSet(
       StatementStatus statementStatus,
-      String statementId,
+      StatementId statementId,
       ResultData resultData,
       ResultManifest resultManifest,
       StatementType statementType,
