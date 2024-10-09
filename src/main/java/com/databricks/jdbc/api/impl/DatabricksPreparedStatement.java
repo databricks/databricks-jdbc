@@ -1,6 +1,7 @@
 package com.databricks.jdbc.api.impl;
 
-import static com.databricks.jdbc.common.util.DatabricksTypeUtil.*;
+import static com.databricks.jdbc.common.util.DatabricksTypeUtil.getDatabricksTypeFromSQLType;
+import static com.databricks.jdbc.common.util.DatabricksTypeUtil.inferDatabricksType;
 import static com.databricks.jdbc.common.util.SQLInterpolator.interpolateSQL;
 
 import com.databricks.jdbc.common.AllPurposeCluster;
@@ -16,6 +17,7 @@ import java.io.InputStream;
 import java.io.Reader;
 import java.math.BigDecimal;
 import java.net.URL;
+import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.sql.*;
 import java.sql.Date;
@@ -28,9 +30,8 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
       JdbcLoggerFactory.getLogger(DatabricksPreparedStatement.class);
   private final String sql;
   private DatabricksParameterMetaData databricksParameterMetaData;
-  List<DatabricksParameterMetaData> databricksBatchParameterMetaData;
+  private List<DatabricksParameterMetaData> databricksBatchParameterMetaData;
   private final boolean interpolateParameters;
-
   private final int CHUNK_SIZE = 8192;
 
   public DatabricksPreparedStatement(DatabricksConnection connection, String sql) {
@@ -42,55 +43,6 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
                 instanceof AllPurposeCluster;
     this.databricksParameterMetaData = new DatabricksParameterMetaData();
     this.databricksBatchParameterMetaData = new ArrayList<>();
-  }
-
-  private void checkLength(int targetLength, int sourceLength) throws SQLException {
-    if (targetLength != sourceLength) {
-      String errorMessage =
-          String.format(
-              "Unexpected number of bytes read from the stream. Expected: %d, got: %d",
-              targetLength, sourceLength);
-      LOGGER.error(errorMessage);
-      throw new DatabricksSQLException(errorMessage);
-    }
-  }
-
-  private void checkLength(long targetLength, long sourceLength) throws SQLException {
-    if (targetLength != sourceLength) {
-      String errorMessage =
-          String.format(
-              "Unexpected number of bytes read from the stream. Expected: %d, got: %d",
-              targetLength, sourceLength);
-      LOGGER.error(errorMessage);
-      throw new DatabricksSQLException(errorMessage);
-    }
-  }
-
-  private void checkIfBatchOperation() throws DatabricksSQLException {
-    if (!this.databricksBatchParameterMetaData.isEmpty()) {
-      String errorMessage =
-          "Batch must either be executed with executeBatch() or cleared with clearBatch()";
-      LOGGER.error(errorMessage);
-      throw new DatabricksSQLException(errorMessage);
-    }
-  }
-
-  private byte[] readByteStream(InputStream x, int length) throws SQLException {
-    if (x == null) {
-      String errorMessage = "InputStream cannot be null";
-      LOGGER.error(errorMessage);
-      throw new DatabricksSQLException(errorMessage);
-    }
-    byte[] bytes = new byte[length];
-    try {
-      int bytesRead = x.read(bytes);
-      checkLength(bytesRead, length);
-    } catch (IOException e) {
-      String errorMessage = "Error reading from the InputStream";
-      LOGGER.error(errorMessage);
-      throw new DatabricksSQLException(errorMessage, e);
-    }
-    return bytes;
   }
 
   @Override
@@ -230,7 +182,7 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
   public void setAsciiStream(int parameterIndex, InputStream x, int length) throws SQLException {
     LOGGER.debug("public void setAsciiStream(int parameterIndex, InputStream x, int length)");
     checkIfClosed();
-    byte[] bytes = readByteStream(x, length);
+    byte[] bytes = readBytesFromInputStream(x, length);
     String asciiString = new String(bytes, StandardCharsets.US_ASCII);
     setObject(parameterIndex, asciiString, DatabricksTypeUtil.STRING);
   }
@@ -280,16 +232,6 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
     }
     throw new UnsupportedOperationException(
         "Not implemented in DatabricksPreparedStatement - setObject(int parameterIndex, Object x)");
-  }
-
-  private void setObject(int parameterIndex, Object x, String databricksType) {
-    this.databricksParameterMetaData.put(
-        parameterIndex,
-        ImmutableSqlParameter.builder()
-            .type(DatabricksTypeUtil.getColumnInfoType(databricksType))
-            .value(x)
-            .cardinal(parameterIndex)
-            .build());
   }
 
   @Override
@@ -492,26 +434,10 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
   public void setAsciiStream(int parameterIndex, InputStream x, long length) throws SQLException {
     LOGGER.debug("public void setAsciiStream(int parameterIndex, InputStream x, long length)");
     checkIfClosed();
-    try {
-      ByteArrayOutputStream buffer = new ByteArrayOutputStream();
-      int nRead;
-      byte[] chunk =
-          new byte[CHUNK_SIZE]; // read the stream in 8KB chunks since an int sized array may be
-      // insufficient
-      // to store the entire stream
-      long bytesRead = 0;
-      while (bytesRead < length && (nRead = x.read(chunk)) != -1) {
-        buffer.write(chunk, 0, nRead);
-        bytesRead += nRead;
-      }
-      checkLength(bytesRead, length);
-      String asciiString = new String(buffer.toByteArray(), StandardCharsets.US_ASCII);
-      setObject(parameterIndex, asciiString, DatabricksTypeUtil.STRING);
-    } catch (IOException e) {
-      String errorMessage = "Error reading from the InputStream";
-      LOGGER.error(errorMessage);
-      throw new DatabricksSQLException(errorMessage, e);
-    }
+    setObject(
+        parameterIndex,
+        readStringFromInputStream(x, length, StandardCharsets.US_ASCII),
+        DatabricksTypeUtil.STRING);
   }
 
   @Override
@@ -521,50 +447,22 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
         "Not implemented in DatabricksPreparedStatement - setBinaryStream(int parameterIndex, InputStream x, long length)");
   }
 
+  @Override
   public void setCharacterStream(int parameterIndex, Reader reader, long length)
       throws SQLException {
     LOGGER.debug("public void setCharacterStream(int parameterIndex, Reader reader, long length)");
     checkIfClosed();
-    try {
-      StringBuilder buffer = new StringBuilder();
-      int nRead;
-      char[] chunk =
-          new char[CHUNK_SIZE]; // read the stream in 8KB chunks since an int sized array may be
-      // insufficient
-      // to store the entire stream
-      long charsRead = 0;
-      while (charsRead < length && (nRead = reader.read(chunk)) != -1) {
-        buffer.append(chunk, 0, nRead);
-        charsRead += nRead;
-      }
-      checkLength(charsRead, length);
-      String characterString = buffer.toString();
-      setObject(parameterIndex, characterString, DatabricksTypeUtil.STRING);
-    } catch (IOException e) {
-      String errorMessage = "Error reading from the Reader";
-      LOGGER.error(errorMessage);
-      throw new DatabricksSQLException(errorMessage, e);
-    }
+    setObject(parameterIndex, readStringFromReader(reader, length), DatabricksTypeUtil.STRING);
   }
 
   @Override
   public void setAsciiStream(int parameterIndex, InputStream x) throws SQLException {
     LOGGER.debug("public void setAsciiStream(int parameterIndex, InputStream x)");
     checkIfClosed();
-    try {
-      ByteArrayOutputStream buffer = new ByteArrayOutputStream();
-      int nRead;
-      byte[] chunk = new byte[CHUNK_SIZE]; // read the stream in 8KB chunks
-      while ((nRead = x.read(chunk)) != -1) {
-        buffer.write(chunk, 0, nRead);
-      }
-      String asciiString = new String(buffer.toByteArray(), StandardCharsets.US_ASCII);
-      setObject(parameterIndex, asciiString, DatabricksTypeUtil.STRING);
-    } catch (IOException e) {
-      String errorMessage = "Error reading from the InputStream";
-      LOGGER.error(errorMessage);
-      throw new DatabricksSQLException(errorMessage, e);
-    }
+    setObject(
+        parameterIndex,
+        readStringFromInputStream(x, -1, StandardCharsets.US_ASCII),
+        DatabricksTypeUtil.STRING);
   }
 
   @Override
@@ -578,20 +476,7 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
   public void setCharacterStream(int parameterIndex, Reader reader) throws SQLException {
     LOGGER.debug("public void setCharacterStream(int parameterIndex, Reader reader)");
     checkIfClosed();
-    try {
-      StringBuilder buffer = new StringBuilder();
-      int nRead;
-      char[] chunk = new char[CHUNK_SIZE]; // read the stream in 8KB chunks
-      while ((nRead = reader.read(chunk)) != -1) {
-        buffer.append(chunk, 0, nRead);
-      }
-      String characterString = buffer.toString();
-      setObject(parameterIndex, characterString, DatabricksTypeUtil.STRING);
-    } catch (IOException e) {
-      String errorMessage = "Error reading from the Reader";
-      LOGGER.error(errorMessage);
-      throw new DatabricksSQLException(errorMessage, e);
-    }
+    setObject(parameterIndex, readStringFromReader(reader, -1), DatabricksTypeUtil.STRING);
   }
 
   @Override
@@ -665,6 +550,125 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
   @Override
   public boolean execute(String sql, String[] columnNames) throws SQLException {
     throw new DatabricksSQLException("Method not supported in PreparedStatement");
+  }
+
+  private void checkLength(long targetLength, long sourceLength) throws SQLException {
+    if (targetLength != sourceLength) {
+      String errorMessage =
+          String.format(
+              "Unexpected number of bytes read from the stream. Expected: %d, got: %d",
+              targetLength, sourceLength);
+      LOGGER.error(errorMessage);
+      throw new DatabricksSQLException(errorMessage);
+    }
+  }
+
+  private void checkIfBatchOperation() throws DatabricksSQLException {
+    if (!this.databricksBatchParameterMetaData.isEmpty()) {
+      String errorMessage =
+          "Batch must either be executed with executeBatch() or cleared with clearBatch()";
+      LOGGER.error(errorMessage);
+      throw new DatabricksSQLException(errorMessage);
+    }
+  }
+
+  private byte[] readBytesFromInputStream(InputStream x, int length) throws SQLException {
+    if (x == null) {
+      String errorMessage = "InputStream cannot be null";
+      LOGGER.error(errorMessage);
+      throw new DatabricksSQLException(errorMessage);
+    }
+    byte[] bytes = new byte[length];
+    try {
+      int bytesRead = x.read(bytes);
+      checkLength(bytesRead, length);
+    } catch (IOException e) {
+      String errorMessage = "Error reading from the InputStream";
+      LOGGER.error(errorMessage);
+      throw new DatabricksSQLException(errorMessage, e);
+    }
+    return bytes;
+  }
+
+  /**
+   * Reads bytes from the provided {@link InputStream} up to the specified length and returns them
+   * as a {@link String} decoded using the specified {@link Charset}. If the specified length is -1,
+   * reads until the end of the stream.
+   *
+   * @param inputStream the {@link InputStream} to read from; must not be null.
+   * @param length the maximum number of bytes to read; if -1, reads until EOF.
+   * @param charset the {@link Charset} to use for decoding the bytes into a string; must not be
+   *     null.
+   * @return a {@link String} containing the decoded bytes from the input stream.
+   * @throws SQLException if the inputStream or charset is null, or if an I/O error occurs.
+   */
+  private String readStringFromInputStream(InputStream inputStream, long length, Charset charset)
+      throws SQLException {
+    if (inputStream == null) {
+      String message = "InputStream cannot be null";
+      LOGGER.error(message);
+      throw new DatabricksSQLException(message);
+    }
+    try (ByteArrayOutputStream buffer = new ByteArrayOutputStream()) {
+      byte[] chunk = new byte[CHUNK_SIZE];
+      long bytesRead = 0;
+      int nRead;
+      while ((length != -1 && bytesRead < length) && (nRead = inputStream.read(chunk)) != -1) {
+        buffer.write(chunk, 0, nRead);
+        bytesRead += nRead;
+      }
+      if (length != -1) {
+        checkLength(length, bytesRead);
+      }
+      return buffer.toString(charset);
+    } catch (IOException e) {
+      String message = "Error reading from the InputStream";
+      LOGGER.error(message);
+      throw new DatabricksSQLException(message, e);
+    }
+  }
+
+  /**
+   * Reads characters from the provided {@link Reader} up to the specified length and returns them
+   * as a {@link String}. If the specified length is -1, reads until the end of the stream.
+   *
+   * @param reader the {@link Reader} to read from; must not be null.
+   * @param length the maximum number of characters to read; if -1, reads until EOF.
+   * @return a {@link String} containing the characters read from the reader.
+   * @throws SQLException if the reader is null or if an I/O error occurs.
+   */
+  private String readStringFromReader(Reader reader, long length) throws SQLException {
+    if (reader == null) {
+      String message = "Reader cannot be null";
+      LOGGER.error(message);
+      throw new DatabricksSQLException(message);
+    }
+    try {
+      StringBuilder buffer = new StringBuilder();
+      char[] chunk = new char[CHUNK_SIZE];
+      long charsRead = 0;
+      int nRead;
+      while ((length != -1 && charsRead < length) && (nRead = reader.read(chunk)) != -1) {
+        buffer.append(chunk, 0, nRead);
+        charsRead += nRead;
+      }
+      if (length != -1) {
+        checkLength(length, charsRead);
+      }
+      return buffer.toString();
+    } catch (IOException e) {
+      throw new RuntimeException(e);
+    }
+  }
+
+  private void setObject(int parameterIndex, Object x, String databricksType) {
+    this.databricksParameterMetaData.put(
+        parameterIndex,
+        ImmutableSqlParameter.builder()
+            .type(DatabricksTypeUtil.getColumnInfoType(databricksType))
+            .value(x)
+            .cardinal(parameterIndex)
+            .build());
   }
 
   private DatabricksResultSet interpolateIfRequiredAndExecute(StatementType statementType)

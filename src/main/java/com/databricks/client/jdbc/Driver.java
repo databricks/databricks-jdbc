@@ -54,8 +54,6 @@ public class Driver implements java.sql.Driver {
     try {
       connection.open();
       isConnectionOpen = true;
-      // TODO (PECO-1957): Export properties asynchronously
-      // DeviceInfoLogUtil.exportDeviceProperties(connection.getSession());
       resolveMetadataClient(connection, connectionContext);
       return connection;
     } catch (Exception e) {
@@ -74,8 +72,6 @@ public class Driver implements java.sql.Driver {
         errorMessage += e.getMessage();
       }
 
-      MetricsUtil.exportErrorWithoutAuth(
-          ErrorTypes.COMMUNICATION_FAILURE, null, ErrorCodes.COMMUNICATION_FAILURE);
       throw new DatabricksSQLException(
           errorMessage,
           rootCause,

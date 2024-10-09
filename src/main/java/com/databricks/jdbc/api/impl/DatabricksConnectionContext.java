@@ -480,11 +480,6 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   }
 
   @Override
-  public boolean enableTelemetry() {
-    return Objects.equals(getParameter(DatabricksJdbcUrlParams.ENABLE_TELEMETRY), "1");
-  }
-
-  @Override
   public String getConnectionURL() {
     return connectionURL;
   }

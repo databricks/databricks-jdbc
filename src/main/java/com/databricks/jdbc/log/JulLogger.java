@@ -130,11 +130,20 @@ public class JulLogger implements JdbcLogger {
       Logger jdbcJulLogger = Logger.getLogger(PARENT_CLASS_PREFIX);
 
       jdbcJulLogger.setLevel(level);
+      jdbcJulLogger.setUseParentHandlers(false);
 
       String logPattern = getLogPattern(logDir);
       Handler handler;
       if (logPattern.equalsIgnoreCase(STDOUT)) {
-        handler = new ConsoleHandler();
+        handler =
+            new StreamHandler(System.out, new Slf4jFormatter()) {
+              @Override
+              public void publish(LogRecord record) {
+                super.publish(record);
+                // prompt flushing; full send >>> 🚀
+                flush();
+              }
+            };
       } else {
         handler = new FileHandler(logPattern, logFileSizeBytes, logFileCount, true);
       }

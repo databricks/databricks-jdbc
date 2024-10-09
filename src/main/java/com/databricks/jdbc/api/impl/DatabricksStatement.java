@@ -9,7 +9,6 @@ import com.databricks.jdbc.api.IDatabricksResultSet;
 import com.databricks.jdbc.api.IDatabricksStatement;
 import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
 import com.databricks.jdbc.common.ErrorCodes;
-import com.databricks.jdbc.common.ErrorTypes;
 import com.databricks.jdbc.common.StatementType;
 import com.databricks.jdbc.common.util.*;
 import com.databricks.jdbc.dbclient.IDatabricksClient;
@@ -69,11 +68,6 @@ public class DatabricksStatement
               + sql
               + ". However, query "
               + "execution was successful.";
-      MetricsUtil.exportError(
-          connection.getSession(),
-          ErrorTypes.EXECUTE_STATEMENT,
-          statementId.toString(),
-          ErrorCodes.RESULT_SET_ERROR);
       throw new DatabricksSQLException(errorMessage, ErrorCodes.RESULT_SET_ERROR);
     }
     return rs;
@@ -115,11 +109,6 @@ public class DatabricksStatement
   @Override
   public int getMaxFieldSize() throws SQLException {
     LOGGER.debug("public int getMaxFieldSize()");
-    MetricsUtil.exportError(
-        connection.getSession(),
-        ErrorTypes.FEATURE_NOT_SUPPORTED,
-        statementId.toString(),
-        ErrorCodes.MAX_FIELD_SIZE_EXCEEDED);
     throw new DatabricksSQLFeatureNotSupportedException(
         "Not implemented in DatabricksStatement - getMaxFieldSize()");
   }
@@ -127,11 +116,6 @@ public class DatabricksStatement
   @Override
   public void setMaxFieldSize(int max) throws SQLException {
     LOGGER.debug(String.format("public void setMaxFieldSize(int max = {%s})", max));
-    MetricsUtil.exportError(
-        connection.getSession(),
-        ErrorTypes.FEATURE_NOT_SUPPORTED,
-        statementId.toString(),
-        ErrorCodes.MAX_FIELD_SIZE_EXCEEDED);
     throw new DatabricksSQLFeatureNotSupportedException(
         "Not implemented in DatabricksStatement - setMaxFieldSize(int max)");
   }
@@ -200,11 +184,6 @@ public class DatabricksStatement
   @Override
   public void setCursorName(String name) throws SQLException {
     LOGGER.debug(String.format("public void setCursorName(String name = {%s})", name));
-    MetricsUtil.exportError(
-        connection.getSession(),
-        ErrorTypes.FEATURE_NOT_SUPPORTED,
-        statementId,
-        ErrorCodes.CURSOR_NAME_NOT_FOUND);
     throw new DatabricksSQLFeatureNotSupportedException(
         "Not implemented in DatabricksStatement - setCursorName(String name)");
   }
@@ -234,11 +213,6 @@ public class DatabricksStatement
   @Override
   public boolean getMoreResults() throws SQLException {
     LOGGER.debug("public boolean getMoreResults()");
-    MetricsUtil.exportError(
-        connection.getSession(),
-        ErrorTypes.FEATURE_NOT_SUPPORTED,
-        statementId,
-        ErrorCodes.MORE_RESULTS_UNSUPPORTED);
     throw new DatabricksSQLFeatureNotSupportedException(
         "Not implemented in DatabricksStatement - getMoreResults()");
   }
@@ -248,11 +222,6 @@ public class DatabricksStatement
     LOGGER.debug(String.format("public void setFetchDirection(int direction = {%s})", direction));
     checkIfClosed();
     if (direction != ResultSet.FETCH_FORWARD) {
-      MetricsUtil.exportError(
-          connection.getSession(),
-          ErrorTypes.FEATURE_NOT_SUPPORTED,
-          statementId,
-          ErrorCodes.UNSUPPORTED_FETCH_FORWARD);
       throw new DatabricksSQLFeatureNotSupportedException("Not supported: ResultSet.FetchForward");
     }
   }
@@ -305,11 +274,6 @@ public class DatabricksStatement
   public void addBatch(String sql) throws SQLException {
     LOGGER.debug(String.format("public void addBatch(String sql = {%s})", sql));
     checkIfClosed();
-    MetricsUtil.exportError(
-        connection.getSession(),
-        ErrorTypes.FEATURE_NOT_SUPPORTED,
-        statementId,
-        ErrorCodes.BATCH_OPERATION_UNSUPPORTED);
     throw new DatabricksSQLFeatureNotSupportedException(
         "Method not supported: addBatch(String sql)");
   }
@@ -318,11 +282,6 @@ public class DatabricksStatement
   public void clearBatch() throws SQLException {
     LOGGER.debug("public void clearBatch()");
     checkIfClosed();
-    MetricsUtil.exportError(
-        connection.getSession(),
-        ErrorTypes.FEATURE_NOT_SUPPORTED,
-        statementId,
-        ErrorCodes.BATCH_OPERATION_UNSUPPORTED);
     throw new DatabricksSQLFeatureNotSupportedException("Method not supported: clearBatch()");
   }
 
@@ -330,11 +289,6 @@ public class DatabricksStatement
   public int[] executeBatch() throws SQLException {
     LOGGER.debug("public int[] executeBatch()");
     checkIfClosed();
-    MetricsUtil.exportError(
-        connection.getSession(),
-        ErrorTypes.FEATURE_NOT_SUPPORTED,
-        statementId,
-        ErrorCodes.BATCH_OPERATION_UNSUPPORTED);
     throw new DatabricksSQLFeatureNotSupportedException("Method not supported: executeBatch()");
   }
 
@@ -347,11 +301,6 @@ public class DatabricksStatement
   @Override
   public boolean getMoreResults(int current) throws SQLException {
     LOGGER.debug(String.format("public boolean getMoreResults(int current = {%s})", current));
-    MetricsUtil.exportError(
-        connection.getSession(),
-        ErrorTypes.FEATURE_NOT_SUPPORTED,
-        statementId,
-        ErrorCodes.MORE_RESULTS_UNSUPPORTED);
     throw new DatabricksSQLFeatureNotSupportedException(
         "Not implemented in DatabricksStatement - getMoreResults(int current)");
   }
@@ -369,11 +318,6 @@ public class DatabricksStatement
     if (autoGeneratedKeys == Statement.NO_GENERATED_KEYS) {
       return executeUpdate(sql);
     } else {
-      MetricsUtil.exportError(
-          connection.getSession(),
-          ErrorTypes.FEATURE_NOT_SUPPORTED,
-          statementId,
-          ErrorCodes.EXECUTE_METHOD_UNSUPPORTED);
       throw new DatabricksSQLFeatureNotSupportedException(
           "Method not supported: executeUpdate(String sql, int autoGeneratedKeys)");
     }
@@ -382,11 +326,6 @@ public class DatabricksStatement
   @Override
   public int executeUpdate(String sql, int[] columnIndexes) throws SQLException {
     checkIfClosed();
-    MetricsUtil.exportError(
-        connection.getSession(),
-        ErrorTypes.FEATURE_NOT_SUPPORTED,
-        statementId,
-        ErrorCodes.EXECUTE_METHOD_UNSUPPORTED);
     throw new DatabricksSQLFeatureNotSupportedException(
         "Method not supported: executeUpdate(String sql, int[] columnIndexes)");
   }
@@ -395,11 +334,6 @@ public class DatabricksStatement
   public int executeUpdate(String sql, String[] columnNames) throws SQLException {
     LOGGER.debug("public int executeUpdate(String sql, String[] columnNames)");
     checkIfClosed();
-    MetricsUtil.exportError(
-        connection.getSession(),
-        ErrorTypes.FEATURE_NOT_SUPPORTED,
-        statementId,
-        ErrorCodes.EXECUTE_METHOD_UNSUPPORTED);
     throw new DatabricksSQLFeatureNotSupportedException(
         "Method not supported: executeUpdate(String sql, String[] columnNames)");
   }
@@ -410,11 +344,6 @@ public class DatabricksStatement
     if (autoGeneratedKeys == Statement.NO_GENERATED_KEYS) {
       return execute(sql);
     } else {
-      MetricsUtil.exportError(
-          connection.getSession(),
-          ErrorTypes.FEATURE_NOT_SUPPORTED,
-          statementId,
-          ErrorCodes.EXECUTE_METHOD_UNSUPPORTED);
       throw new DatabricksSQLFeatureNotSupportedException(
           "Method not supported: execute(String sql, int autoGeneratedKeys)");
     }
@@ -423,11 +352,6 @@ public class DatabricksStatement
   @Override
   public boolean execute(String sql, int[] columnIndexes) throws SQLException {
     checkIfClosed();
-    MetricsUtil.exportError(
-        connection.getSession(),
-        ErrorTypes.FEATURE_NOT_SUPPORTED,
-        statementId,
-        ErrorCodes.EXECUTE_METHOD_UNSUPPORTED);
     throw new DatabricksSQLFeatureNotSupportedException(
         "Method not supported: execute(String sql, int[] columnIndexes)");
   }
@@ -435,11 +359,6 @@ public class DatabricksStatement
   @Override
   public boolean execute(String sql, String[] columnNames) throws SQLException {
     checkIfClosed();
-    MetricsUtil.exportError(
-        connection.getSession(),
-        ErrorTypes.FEATURE_NOT_SUPPORTED,
-        statementId,
-        ErrorCodes.EXECUTE_METHOD_UNSUPPORTED);
     throw new DatabricksSQLFeatureNotSupportedException(
         "Method not supported: execute(String sql, String[] columnNames)");
   }
@@ -461,11 +380,6 @@ public class DatabricksStatement
     LOGGER.debug(String.format("public void setPoolable(boolean poolable = {%s})", poolable));
     checkIfClosed();
     if (poolable) {
-      MetricsUtil.exportError(
-          connection.getSession(),
-          ErrorTypes.FEATURE_NOT_SUPPORTED,
-          statementId,
-          ErrorCodes.POOLABLE_METHOD_UNSUPPORTED);
       throw new DatabricksSQLFeatureNotSupportedException(
           "Method not supported: setPoolable(boolean poolable)");
     }
@@ -546,11 +460,6 @@ public class DatabricksStatement
               stackTraceMessage, statementId);
       LOGGER.error(timeoutErrorMessage);
       futureResultSet.cancel(true); // Cancel execution run
-      MetricsUtil.exportError(
-          this.connection.getSession(),
-          ErrorTypes.TIMEOUT_ERROR,
-          statementId,
-          ErrorCodes.STATEMENT_EXECUTION_TIMEOUT);
       throw new DatabricksTimeoutException(timeoutErrorMessage, e);
     } catch (InterruptedException | ExecutionException e) {
       Throwable cause = e;
@@ -565,11 +474,6 @@ public class DatabricksStatement
           String.format(
               "Error occurred during statement execution: %s. Error : %s", sql, e.getMessage());
       LOGGER.error(e, errMsg);
-      MetricsUtil.exportError(
-          this.connection.getSession(),
-          ErrorTypes.EXECUTE_STATEMENT,
-          "",
-          ErrorCodes.EXECUTE_STATEMENT_FAILED);
       throw new DatabricksSQLException(errMsg, e, "", ErrorCodes.EXECUTE_STATEMENT_FAILED);
     }
     LOGGER.debug("Result retrieved successfully" + resultSet.toString());
