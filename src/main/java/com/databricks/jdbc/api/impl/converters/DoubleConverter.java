@@ -5,86 +5,86 @@ import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.nio.ByteBuffer;
 
-public class DoubleConverter extends AbstractObjectConverter {
-
-  private final double object;
-
-  public DoubleConverter(Object object) throws DatabricksSQLException {
-    super(object);
+public class DoubleConverter implements ObjectConverter {
+  @Override
+  public double toDouble(Object object) throws DatabricksSQLException {
     if (object instanceof String) {
-      this.object = Double.parseDouble((String) object);
+      return Double.parseDouble((String) object);
+    } else if (object instanceof Number) {
+      return ((Number) object).doubleValue();
     } else {
-      this.object = (double) object;
+      throw new DatabricksSQLException(
+          "Unsupported type for DoubleObjectConverter: " + object.getClass());
     }
   }
 
   @Override
-  public boolean convertToBoolean() throws DatabricksSQLException {
-    return (object != 0f);
+  public boolean toBoolean(Object object) throws DatabricksSQLException {
+    return toDouble(object) != 0.0;
   }
 
   @Override
-  public byte convertToByte() throws DatabricksSQLException {
-    if (object >= Byte.MIN_VALUE && object <= Byte.MAX_VALUE) {
-      return (byte) object;
+  public byte toByte(Object object) throws DatabricksSQLException {
+    double value = toDouble(object);
+    if (value >= Byte.MIN_VALUE && value <= Byte.MAX_VALUE) {
+      return (byte) value;
     }
-    throw new DatabricksSQLException("Invalid conversion");
+    throw new DatabricksSQLException("Invalid conversion: Double value out of byte range");
   }
 
   @Override
-  public short convertToShort() throws DatabricksSQLException {
-    if (object >= Short.MIN_VALUE && object <= Short.MAX_VALUE) {
-      return (short) object;
+  public short toShort(Object object) throws DatabricksSQLException {
+    double value = toDouble(object);
+    if (value >= Short.MIN_VALUE && value <= Short.MAX_VALUE) {
+      return (short) value;
     }
-    throw new DatabricksSQLException("Invalid conversion");
+    throw new DatabricksSQLException("Invalid conversion: Double value out of short range");
   }
 
   @Override
-  public int convertToInt() throws DatabricksSQLException {
-    if (object >= Integer.MIN_VALUE && object <= Integer.MAX_VALUE) {
-      return (int) object;
+  public int toInt(Object object) throws DatabricksSQLException {
+    double value = toDouble(object);
+    if (value >= Integer.MIN_VALUE && value <= Integer.MAX_VALUE) {
+      return (int) value;
     }
-    throw new DatabricksSQLException("Invalid conversion");
+    throw new DatabricksSQLException("Invalid conversion: Double value out of int range");
   }
 
   @Override
-  public long convertToLong() throws DatabricksSQLException {
-    if (object >= Long.MIN_VALUE && object < Long.MAX_VALUE) {
-      return (long) object;
+  public long toLong(Object object) throws DatabricksSQLException {
+    double value = toDouble(object);
+    if (value >= Long.MIN_VALUE && value <= Long.MAX_VALUE) {
+      return (long) value;
     }
-    throw new DatabricksSQLException("Invalid conversion");
+    throw new DatabricksSQLException("Invalid conversion: Double value out of long range");
   }
 
   @Override
-  public float convertToFloat() throws DatabricksSQLException {
-    if (object >= -Float.MAX_VALUE && object <= Float.MAX_VALUE) {
-      return (float) object;
+  public float toFloat(Object object) throws DatabricksSQLException {
+    double value = toDouble(object);
+    if (value >= -Float.MAX_VALUE && value <= Float.MAX_VALUE) {
+      return (float) value;
     }
-    throw new DatabricksSQLException("Invalid conversion");
+    throw new DatabricksSQLException("Invalid conversion: Double value out of float range");
   }
 
   @Override
-  public double convertToDouble() throws DatabricksSQLException {
-    return object;
+  public BigDecimal toBigDecimal(Object object) throws DatabricksSQLException {
+    return BigDecimal.valueOf(toDouble(object));
   }
 
   @Override
-  public BigDecimal convertToBigDecimal() throws DatabricksSQLException {
-    return new BigDecimal(Double.toString(object));
+  public BigInteger toBigInteger(Object object) throws DatabricksSQLException {
+    return BigInteger.valueOf(toLong(object));
   }
 
   @Override
-  public BigInteger convertToBigInteger() throws DatabricksSQLException {
-    return BigInteger.valueOf(this.convertToLong());
+  public byte[] toByteArray(Object object) throws DatabricksSQLException {
+    return ByteBuffer.allocate(8).putDouble(toDouble(object)).array();
   }
 
   @Override
-  public byte[] convertToByteArray() throws DatabricksSQLException {
-    return ByteBuffer.allocate(8).putDouble(object).array();
-  }
-
-  @Override
-  public String convertToString() throws DatabricksSQLException {
-    return String.valueOf(object);
+  public String toString(Object object) throws DatabricksSQLException {
+    return String.valueOf(toDouble(object));
   }
 }

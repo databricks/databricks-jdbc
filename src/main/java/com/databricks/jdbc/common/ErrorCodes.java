@@ -1,6 +1,5 @@
 package com.databricks.jdbc.common;
 
-// TODO: https://databricks.atlassian.net/browse/PECO-1814
 public class ErrorCodes {
   public static final int CHUNK_DOWNLOAD_ERROR = 1001;
   public static final int EXECUTE_STATEMENT_FAILED = 1003;
@@ -15,7 +14,6 @@ public class ErrorCodes {
   public static final int BATCH_OPERATION_UNSUPPORTED = 1010;
   public static final int EXECUTE_METHOD_UNSUPPORTED = 1011;
   public static final int POOLABLE_METHOD_UNSUPPORTED = 1012;
-  public static final int STATEMENT_UNWRAP_UNSUPPORTED = 1013;
   public static final int STATEMENT_EXECUTION_TIMEOUT = 1014;
   public static final int STATEMENT_CLOSED = 1015;
   public static final int VOLUME_OPERATION_PARSING_ERROR = 1015;

@@ -419,7 +419,7 @@ public class EmptyResultSetTest {
 
     // For getBigDecimal(int) - assuming 1 as a placeholder for column index
     assertNull(resultSet.getBigDecimal(1));
-    assertNull(resultSet.statementId());
+    assertNull(resultSet.getStatementId());
     assertNull(resultSet.getStatementStatus());
     assertEquals(0, resultSet.getUpdateCount());
     assertFalse(resultSet.hasUpdateCount());
@@ -453,11 +453,11 @@ public class EmptyResultSetTest {
     assertDoesNotThrow(() -> resultSet.updateString("columnIndex", ""));
     assertDoesNotThrow(() -> resultSet.updateBytes("columnIndex", new byte[0]));
 
-    assertDoesNotThrow(() -> resultSet.beforeFirst());
-    assertDoesNotThrow(() -> resultSet.afterLast());
+    assertDoesNotThrow(resultSet::beforeFirst);
+    assertDoesNotThrow(resultSet::afterLast);
     assertDoesNotThrow(() -> resultSet.setFetchDirection(ResultSet.FETCH_FORWARD));
     assertDoesNotThrow(() -> resultSet.setFetchSize(0));
-    assertDoesNotThrow(() -> resultSet.clearWarnings());
+    assertDoesNotThrow(resultSet::clearWarnings);
 
     // Object and stream updates
     assertDoesNotThrow(() -> resultSet.updateDate(1, Date.valueOf("2020-01-01")));
@@ -498,13 +498,13 @@ public class EmptyResultSetTest {
     assertDoesNotThrow(() -> resultSet.updateSQLXML("columnIndex", null));
 
     // Row updates
-    assertDoesNotThrow(() -> resultSet.insertRow());
-    assertDoesNotThrow(() -> resultSet.updateRow());
-    assertDoesNotThrow(() -> resultSet.deleteRow());
-    assertDoesNotThrow(() -> resultSet.refreshRow());
-    assertDoesNotThrow(() -> resultSet.cancelRowUpdates());
-    assertDoesNotThrow(() -> resultSet.moveToInsertRow());
-    assertDoesNotThrow(() -> resultSet.moveToCurrentRow());
+    assertDoesNotThrow(resultSet::insertRow);
+    assertDoesNotThrow(resultSet::updateRow);
+    assertDoesNotThrow(resultSet::deleteRow);
+    assertDoesNotThrow(resultSet::refreshRow);
+    assertDoesNotThrow(resultSet::cancelRowUpdates);
+    assertDoesNotThrow(resultSet::moveToInsertRow);
+    assertDoesNotThrow(resultSet::moveToCurrentRow);
 
     // Stream updates with length
     assertDoesNotThrow(() -> resultSet.updateBlob(1, null, 0L));

@@ -1,7 +1,5 @@
 package com.databricks.jdbc.api.impl.volume;
 
-import com.databricks.jdbc.log.JdbcLogger;
-import com.databricks.jdbc.log.JdbcLoggerFactory;
 import java.io.IOException;
 import java.io.InputStream;
 import org.apache.http.HttpEntity;
@@ -9,7 +7,6 @@ import org.apache.http.util.EntityUtils;
 
 public class VolumeInputStream extends InputStream {
 
-  private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(VolumeInputStream.class);
   private final InputStream httpContent;
   private final HttpEntity httpEntity;
 

@@ -1,6 +1,7 @@
 package com.databricks.jdbc.api.impl;
 
 import com.databricks.jdbc.api.IDatabricksResultSet;
+import com.databricks.jdbc.api.callback.IDatabricksResultSetHandle;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.sdk.service.sql.StatementStatus;
 import java.io.IOException;
@@ -15,7 +16,7 @@ import org.apache.http.HttpEntity;
 import org.apache.http.entity.InputStreamEntity;
 
 /** Empty implementation of ResultSet */
-public class EmptyResultSet implements ResultSet, IDatabricksResultSet {
+public class EmptyResultSet implements ResultSet, IDatabricksResultSet, IDatabricksResultSetHandle {
   private boolean isClosed;
   private HttpEntity httpEntity = null;
 
@@ -1091,7 +1092,7 @@ public class EmptyResultSet implements ResultSet, IDatabricksResultSet {
   }
 
   @Override
-  public String statementId() {
+  public String getStatementId() {
     return null;
   }
 

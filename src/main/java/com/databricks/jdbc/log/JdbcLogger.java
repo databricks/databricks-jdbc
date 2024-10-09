@@ -25,7 +25,7 @@ public interface JdbcLogger {
 
   void error(String format, Object... arguments);
 
-  void error(String message, Throwable throwable);
+  void error(Throwable throwable, String message);
 
-  void error(String format, Throwable throwable, Object... arguments);
+  void error(Throwable throwable, String format, Object... arguments);
 }

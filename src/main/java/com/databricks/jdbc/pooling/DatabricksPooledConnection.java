@@ -55,7 +55,7 @@ public class DatabricksPooledConnection implements PooledConnection {
    */
   private void fireConnectionError(SQLException e) {
     LOGGER.debug(
-        String.format("private void fireConnectionError(SQLException e = {})", e.toString()));
+        String.format("private void fireConnectionError(SQLException e = {%s})", e.toString()));
     for (ConnectionEventListener listener : this.listeners) {
       listener.connectionErrorOccurred(new ConnectionEvent(this, e));
     }

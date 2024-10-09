@@ -174,13 +174,13 @@ struct TStringValue {
   1: optional string value
 }
 union TColumnValue {
-  1: TBoolValue   boolVal      
-  2: TByteValue   byteVal      
-  3: TI16Value    i16Val       
-  4: TI32Value    i32Val       
-  5: TI64Value    i64Val       
-  6: TDoubleValue doubleVal    
-  7: TStringValue stringVal    
+  1: TBoolValue   boolVal
+  2: TByteValue   byteVal
+  3: TI16Value    i16Val
+  4: TI32Value    i32Val
+  5: TI64Value    i64Val
+  6: TDoubleValue doubleVal
+  7: TStringValue stringVal
 }
 struct TRow {
   1: required list<TColumnValue> colVals
@@ -218,14 +218,14 @@ struct TBinaryColumn {
   2: required binary nulls
 }
 union TColumn {
-  1: TBoolColumn   boolVal      
-  2: TByteColumn   byteVal      
-  3: TI16Column    i16Val       
-  4: TI32Column    i32Val       
-  5: TI64Column    i64Val       
-  6: TDoubleColumn doubleVal    
-  7: TStringColumn stringVal    
-  8: TBinaryColumn binaryVal    
+  1: TBoolColumn   boolVal
+  2: TByteColumn   byteVal
+  3: TI16Column    i16Val
+  4: TI32Column    i32Val
+  5: TI64Column    i64Val
+  6: TDoubleColumn doubleVal
+  7: TStringColumn stringVal
+  8: TBinaryColumn binaryVal
 }
 enum TSparkRowSetType {
   ARROW_BASED_SET,
@@ -245,8 +245,8 @@ struct TDBSqlCsvFormat {
   1: optional TDBSqlCompressionCodec compressionCodec
 }
 enum TDBSqlArrowLayout {
-  ARROW_BATCH, 
-  ARROW_STREAMING 
+  ARROW_BATCH,
+  ARROW_STREAMING
 }
 struct TDBSqlArrowFormat {
   1: optional TDBSqlArrowLayout arrowLayout
@@ -351,8 +351,8 @@ enum TStatusCode {
 struct TStatus {
   1: required TStatusCode statusCode
   2: optional list<string> infoMessages
-  3: optional string sqlState  
-  4: optional i32 errorCode    
+  3: optional string sqlState
+  4: optional i32 errorCode
   5: optional string errorMessage
   6: optional string displayMessage
   0x501: optional string errorDetailsJson
@@ -516,7 +516,6 @@ struct TExecuteStatementReq {
   1: required TSessionHandle sessionHandle
   2: required string statement
   3: optional map<string, string> confOverlay
-  (deprecated)
   4: optional bool runAsync = false
   0x501: optional TSparkGetDirectResults getDirectResults
   5: optional i64 queryTimeout = 0
@@ -529,8 +528,6 @@ struct TExecuteStatementReq {
   0x508: optional TSparkParameterList parameters
   0x509: optional i64 maxBytesPerBatch
   0x510: optional TStatementConf statementConf
-  0xD07: optional TResultPersistenceMode resultPersistenceMode
-  0xD10: optional bool enforceResultPersistenceMode
 }
 struct TDBSqlStatement {
   1: optional string statement
@@ -540,11 +537,17 @@ union TSparkParameterValue {
   2: double doubleValue
   3: bool booleanValue
 }
+struct TSparkParameterValueArg {
+   1: optional string type
+   2: optional string value
+   3: optional list<TSparkParameterValueArg> arguments
+}
 struct TSparkParameter {
   1: optional i32 ordinal
   2: optional string name
   3: optional string type
   4: optional TSparkParameterValue value
+  5: optional list<TSparkParameterValueArg> arguments
 }
 typedef list<TSparkParameter> TSparkParameterList
 struct TStatementConf {
@@ -679,9 +682,8 @@ struct TGetOperationStatusResp {
   2: optional TOperationState operationState
   3: optional string sqlState
   4: optional i32 errorCode
-  
+
   5: optional string errorMessage
-  (deprecated)
   6: optional string taskStatus
   7: optional i64 operationStarted
   8: optional i64 operationCompleted

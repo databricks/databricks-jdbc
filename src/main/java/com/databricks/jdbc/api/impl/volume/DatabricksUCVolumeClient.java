@@ -4,9 +4,9 @@ import static com.databricks.jdbc.common.DatabricksJdbcConstants.VOLUME_OPERATIO
 import static com.databricks.jdbc.common.DatabricksJdbcConstants.VOLUME_OPERATION_STATUS_SUCCEEDED;
 import static com.databricks.jdbc.common.util.StringUtil.escapeStringLiteral;
 
-import com.databricks.jdbc.api.IDatabricksResultSet;
-import com.databricks.jdbc.api.IDatabricksStatement;
 import com.databricks.jdbc.api.IDatabricksUCVolumeClient;
+import com.databricks.jdbc.api.callback.IDatabricksResultSetHandle;
+import com.databricks.jdbc.api.callback.IDatabricksStatementHandle;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import java.io.InputStream;
@@ -25,45 +25,63 @@ public class DatabricksUCVolumeClient implements IDatabricksUCVolumeClient {
   private static final String UC_VOLUME_COLUMN_NAME =
       "name"; // Column name for the file names within a volume
 
-  private static final String UC_VOLUME_NAME =
+  private static final String UC_VOLUME_COLUMN_VOLUME_NAME =
       "volume_name"; // Column name for the volume names within a schema
+
+  private static class FilePath {
+    public FilePath(String path) {
+      int lastSlashIndex = path.lastIndexOf("/");
+      folder = (lastSlashIndex >= 0) ? path.substring(0, lastSlashIndex) : "";
+      basename = (lastSlashIndex >= 0) ? path.substring(lastSlashIndex + 1) : path;
+    }
+
+    public String folder;
+    public String basename;
+  }
 
   public DatabricksUCVolumeClient(Connection connection) {
     this.connection = connection;
   }
 
-  private String getVolumePath(String catalog, String schema, String volume) {
+  private static String getVolumePath(String catalog, String schema, String volume) {
     // We need to escape '' to prevent SQL injection
     return escapeStringLiteral(String.format("/Volumes/%s/%s/%s/", catalog, schema, volume));
   }
 
-  private String getObjectFullPath(
+  private static String getObjectFullPath(
       String catalog, String schema, String volume, String objectPath) {
     return getVolumePath(catalog, schema, volume) + escapeStringLiteral(objectPath);
   }
 
-  private String createListQuery(String catalog, String schema, String volume) {
+  private static String createListQuery(String catalog, String schema, String volume) {
     return String.format("LIST '%s'", getVolumePath(catalog, schema, volume));
   }
 
-  private String createShowVolumesQuery(String catalog, String schema) {
+  private static String createListQuery(
+      String catalog, String schema, String volume, String folder) {
+    return (folder.isEmpty())
+        ? createListQuery(catalog, schema, volume)
+        : createListQuery(catalog, schema, volume + "/" + folder);
+  }
+
+  private static String createShowVolumesQuery(String catalog, String schema) {
     return String.format("SHOW VOLUMES IN %s.%s", catalog, schema);
   }
 
-  private String createGetObjectQuery(
+  private static String createGetObjectQuery(
       String catalog, String schema, String volume, String objectPath, String localPath) {
     return String.format(
         "GET '%s' TO '%s'",
         getObjectFullPath(catalog, schema, volume, objectPath), escapeStringLiteral(localPath));
   }
 
-  private String createGetObjectQueryForInputStream(
+  private static String createGetObjectQueryForInputStream(
       String catalog, String schema, String volume, String objectPath) {
     return String.format(
         "GET '%s' TO '__input_stream__'", getObjectFullPath(catalog, schema, volume, objectPath));
   }
 
-  private String createPutObjectQuery(
+  private static String createPutObjectQuery(
       String catalog,
       String schema,
       String volume,
@@ -77,14 +95,14 @@ public class DatabricksUCVolumeClient implements IDatabricksUCVolumeClient {
         toOverwrite ? " OVERWRITE" : "");
   }
 
-  private String createPutObjectQueryForInputStream(
+  private static String createPutObjectQueryForInputStream(
       String catalog, String schema, String volume, String objectPath, boolean toOverwrite) {
     return String.format(
         "PUT '__input_stream__' INTO '%s'%s",
         getObjectFullPath(catalog, schema, volume, objectPath), toOverwrite ? " OVERWRITE" : "");
   }
 
-  private String createDeleteObjectQuery(
+  private static String createDeleteObjectQuery(
       String catalog, String schema, String volume, String objectPath) {
     return String.format("REMOVE '%s'", getObjectFullPath(catalog, schema, volume, objectPath));
   }
@@ -99,34 +117,31 @@ public class DatabricksUCVolumeClient implements IDatabricksUCVolumeClient {
       String catalog, String schema, String volume, String prefix, boolean caseSensitive)
       throws SQLException {
 
+    if (prefix.isEmpty()) {
+      return false;
+    }
+
     LOGGER.debug(
         String.format(
             "Entering prefixExists method with parameters: catalog={%s}, schema={%s}, volume={%s}, prefix={%s}, caseSensitive={%s}",
             catalog, schema, volume, prefix, caseSensitive));
 
-    // Extract the sub-folder and append to volume to use LIST at the correct location, prefix is
-    // checked for after listing
-    int lastSlashIndex = prefix.lastIndexOf("/");
-    if (lastSlashIndex != -1) {
-      String folder = prefix.substring(0, lastSlashIndex);
-      volume = volume + "/" + folder;
-      prefix = prefix.substring(lastSlashIndex + 1);
-    }
+    FilePath filePath = new FilePath(prefix);
 
-    String listFilesSQLQuery = createListQuery(catalog, schema, volume);
+    String listFilesSQLQuery = createListQuery(catalog, schema, volume, filePath.folder);
 
     try (Statement statement = connection.createStatement()) {
       try (ResultSet resultSet = statement.executeQuery(listFilesSQLQuery)) {
-        LOGGER.info("SQL query executed successfully");
+        LOGGER.debug("SQL query executed successfully");
         boolean exists = false;
         while (resultSet.next()) {
-          String fileName = resultSet.getString("name");
+          String fileName = resultSet.getString(UC_VOLUME_COLUMN_NAME);
           if (fileName.regionMatches(
               /* ignoreCase= */ !caseSensitive,
               /* targetOffset= */ 0,
-              /* StringToCheck= */ prefix,
+              /* StringToCheck= */ filePath.basename,
               /* sourceOffset= */ 0,
-              /* lengthToMatch= */ prefix.length())) {
+              /* lengthToMatch= */ filePath.basename.length())) {
             exists = true;
             break;
           }
@@ -144,25 +159,18 @@ public class DatabricksUCVolumeClient implements IDatabricksUCVolumeClient {
       String catalog, String schema, String volume, String objectPath, boolean caseSensitive)
       throws SQLException {
 
+    if (objectPath.isEmpty()) {
+      return false;
+    }
+
     LOGGER.info(
         String.format(
             "Entering objectExists method with parameters: catalog={%s}, schema={%s}, volume={%s}, objectPath={%s}, caseSensitive={%s}",
             catalog, schema, volume, objectPath, caseSensitive));
 
-    // Extract the sub-folder and append to volume to use LIST at the correct location, objectName
-    // is checked for after listing
-    String objectName;
+    FilePath filePath = new FilePath(objectPath);
 
-    int lastSlashIndex = objectPath.lastIndexOf("/");
-    if (lastSlashIndex != -1) {
-      String folder = objectPath.substring(0, lastSlashIndex);
-      volume = volume + "/" + folder;
-      objectName = objectPath.substring(lastSlashIndex + 1);
-    } else {
-      objectName = objectPath;
-    }
-
-    String listFilesSQLQuery = createListQuery(catalog, schema, volume);
+    String listFilesSQLQuery = createListQuery(catalog, schema, volume, filePath.folder);
 
     try (Statement statement = connection.createStatement()) {
       try (ResultSet resultSet = statement.executeQuery(listFilesSQLQuery)) {
@@ -173,9 +181,9 @@ public class DatabricksUCVolumeClient implements IDatabricksUCVolumeClient {
           if (fileName.regionMatches(
               /* ignoreCase= */ !caseSensitive,
               /* targetOffset= */ 0,
-              /* StringToCheck= */ objectName,
+              /* StringToCheck= */ filePath.basename,
               /* sourceOffset= */ 0,
-              /* lengthToMatch= */ objectName.length())) {
+              /* lengthToMatch= */ filePath.basename.length())) {
             exists = true;
             break;
           }
@@ -203,6 +211,10 @@ public class DatabricksUCVolumeClient implements IDatabricksUCVolumeClient {
             "Entering volumeExists method with parameters: catalog={%s}, schema={%s}, volumeName={%s}, caseSensitive={%s}",
             catalog, schema, volumeName, caseSensitive));
 
+    if (volumeName.isEmpty()) {
+      return false;
+    }
+
     String showVolumesSQLQuery = createShowVolumesQuery(catalog, schema);
 
     try (Statement statement = connection.createStatement()) {
@@ -210,7 +222,7 @@ public class DatabricksUCVolumeClient implements IDatabricksUCVolumeClient {
         LOGGER.info("SQL query executed successfully");
         boolean exists = false;
         while (resultSet.next()) {
-          String volume = resultSet.getString(UC_VOLUME_NAME);
+          String volume = resultSet.getString(UC_VOLUME_COLUMN_VOLUME_NAME);
           if (volume.regionMatches(
               /* ignoreCase= */ !caseSensitive,
               /* targetOffset= */ 0,
@@ -234,6 +246,22 @@ public class DatabricksUCVolumeClient implements IDatabricksUCVolumeClient {
     return volumeExists(catalog, schema, volumeName, true);
   }
 
+  /**
+   * This functions lists all the files that fall under the specified prefix within the target
+   * folder in the specified volume. The prefix is checked with the word after the last / in the
+   * input Ex - 1. foo/bar will list all the files within foo folder having bar as prefix | 2.
+   * foo/bar/f will list all the files within the bar folder with prefix f | 3. foo/bar/ will list
+   * all the files within the bar folder with all prefix
+   *
+   * @param catalog the catalog name of the cloud storage
+   * @param schema the schema name of the cloud storage
+   * @param volume the UC volume name of the cloud storage
+   * @param prefix the prefix of the filenames to list. This includes the relative path from the
+   *     volume as the root directory
+   * @param caseSensitive a boolean indicating whether the check should be case-sensitive or not
+   * @return List<String> a list of strings indicating the filenames that start with the specified
+   *     prefix
+   */
   @Override
   public List<String> listObjects(
       String catalog, String schema, String volume, String prefix, boolean caseSensitive)
@@ -244,16 +272,9 @@ public class DatabricksUCVolumeClient implements IDatabricksUCVolumeClient {
             "Entering listObjects method with parameters: catalog={%s}, schema={%s}, volume={%s}, prefix={%s}, caseSensitive={%s}",
             catalog, schema, volume, prefix, caseSensitive));
 
-    // Extract the sub-folder and append to volume to use LIST at the correct location, prefix is
-    // checked for after listing
-    int lastSlashIndex = prefix.lastIndexOf("/");
-    if (lastSlashIndex != -1) {
-      String folder = prefix.substring(0, lastSlashIndex);
-      volume = volume + "/" + folder;
-      prefix = prefix.substring(lastSlashIndex + 1);
-    }
+    FilePath filePath = new FilePath(prefix);
 
-    String listFilesSQLQuery = createListQuery(catalog, schema, volume);
+    String listFilesSQLQuery = createListQuery(catalog, schema, volume, filePath.folder);
 
     try (Statement statement = connection.createStatement()) {
       try (ResultSet resultSet = statement.executeQuery(listFilesSQLQuery)) {
@@ -261,12 +282,13 @@ public class DatabricksUCVolumeClient implements IDatabricksUCVolumeClient {
         List<String> filenames = new ArrayList<>();
         while (resultSet.next()) {
           String fileName = resultSet.getString("name");
-          if (fileName.regionMatches(
-              /* ignoreCase= */ !caseSensitive,
-              /* targetOffset= */ 0,
-              /* StringToCheck= */ prefix,
-              /* sourceOffset= */ 0,
-              /* lengthToMatch= */ prefix.length())) {
+          if (filePath.basename.isEmpty()
+              || fileName.regionMatches(
+                  /* ignoreCase= */ !caseSensitive,
+                  /* targetOffset= */ 0,
+                  /* StringToCheck= */ filePath.basename,
+                  /* sourceOffset= */ 0,
+                  /* lengthToMatch= */ filePath.basename.length())) {
             filenames.add(fileName);
           }
         }
@@ -325,13 +347,14 @@ public class DatabricksUCVolumeClient implements IDatabricksUCVolumeClient {
     String getObjectQuery = createGetObjectQueryForInputStream(catalog, schema, volume, objectPath);
 
     try (Statement statement = connection.createStatement()) {
-      IDatabricksStatement databricksStatement = (IDatabricksStatement) statement;
+      IDatabricksStatementHandle databricksStatement =
+          statement.unwrap(IDatabricksStatementHandle.class);
       databricksStatement.allowInputStreamForVolumeOperation(true);
 
       try (ResultSet resultSet = statement.executeQuery(getObjectQuery)) {
         LOGGER.info("GET query executed successfully");
         if (resultSet.next()) {
-          return ((IDatabricksResultSet) resultSet).getVolumeOperationInputStream();
+          return resultSet.unwrap(IDatabricksResultSetHandle.class).getVolumeOperationInputStream();
         } else {
           return null;
         }
@@ -359,7 +382,7 @@ public class DatabricksUCVolumeClient implements IDatabricksUCVolumeClient {
     String putObjectQuery =
         createPutObjectQuery(catalog, schema, volume, objectPath, localPath, toOverwrite);
 
-    boolean volumeOperationStatus = false;
+    boolean isOperationSucceeded = false;
 
     try (Statement statement = connection.createStatement()) {
       try (ResultSet resultSet = statement.executeQuery(putObjectQuery)) {
@@ -367,7 +390,7 @@ public class DatabricksUCVolumeClient implements IDatabricksUCVolumeClient {
         if (resultSet.next()) {
           String volumeOperationStatusString =
               resultSet.getString(VOLUME_OPERATION_STATUS_COLUMN_NAME);
-          volumeOperationStatus =
+          isOperationSucceeded =
               VOLUME_OPERATION_STATUS_SUCCEEDED.equals(volumeOperationStatusString);
         }
       }
@@ -376,7 +399,7 @@ public class DatabricksUCVolumeClient implements IDatabricksUCVolumeClient {
       throw e;
     }
 
-    return volumeOperationStatus;
+    return isOperationSucceeded;
   }
 
   @Override
@@ -398,10 +421,11 @@ public class DatabricksUCVolumeClient implements IDatabricksUCVolumeClient {
     String putObjectQueryForInputStream =
         createPutObjectQueryForInputStream(catalog, schema, volume, objectPath, toOverwrite);
 
-    boolean volumeOperationStatus = false;
+    boolean isOperationSucceeded = false;
 
     try (Statement statement = connection.createStatement()) {
-      IDatabricksStatement databricksStatement = (IDatabricksStatement) statement;
+      IDatabricksStatementHandle databricksStatement =
+          statement.unwrap(IDatabricksStatementHandle.class);
       databricksStatement.allowInputStreamForVolumeOperation(true);
       databricksStatement.setInputStreamForUCVolume(
           new InputStreamEntity(inputStream, contentLength));
@@ -411,7 +435,7 @@ public class DatabricksUCVolumeClient implements IDatabricksUCVolumeClient {
         if (resultSet.next()) {
           String volumeOperationStatusString =
               resultSet.getString(VOLUME_OPERATION_STATUS_COLUMN_NAME);
-          volumeOperationStatus =
+          isOperationSucceeded =
               VOLUME_OPERATION_STATUS_SUCCEEDED.equals(volumeOperationStatusString);
         }
       }
@@ -420,7 +444,7 @@ public class DatabricksUCVolumeClient implements IDatabricksUCVolumeClient {
       throw e;
     }
 
-    return volumeOperationStatus;
+    return isOperationSucceeded;
   }
 
   public boolean deleteObject(String catalog, String schema, String volume, String objectPath)
@@ -433,7 +457,7 @@ public class DatabricksUCVolumeClient implements IDatabricksUCVolumeClient {
 
     String deleteObjectQuery = createDeleteObjectQuery(catalog, schema, volume, objectPath);
 
-    boolean volumeOperationStatus = false;
+    boolean isOperationSucceeded = false;
 
     try (Statement statement = connection.createStatement()) {
       try (ResultSet resultSet = statement.executeQuery(deleteObjectQuery)) {
@@ -441,7 +465,7 @@ public class DatabricksUCVolumeClient implements IDatabricksUCVolumeClient {
         if (resultSet.next()) {
           String volumeOperationStatusString =
               resultSet.getString(VOLUME_OPERATION_STATUS_COLUMN_NAME);
-          volumeOperationStatus =
+          isOperationSucceeded =
               VOLUME_OPERATION_STATUS_SUCCEEDED.equals(volumeOperationStatusString);
         }
       }
@@ -450,6 +474,6 @@ public class DatabricksUCVolumeClient implements IDatabricksUCVolumeClient {
       throw e;
     }
 
-    return volumeOperationStatus;
+    return isOperationSucceeded;
   }
 }
