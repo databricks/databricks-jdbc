@@ -306,7 +306,7 @@ public class DriverTest {
   }
 
   @Test
-  void testSimbaBatchFunction() throws Exception {
+  void testBatchFunction() throws Exception {
 
     String jdbcUrl =
         "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/dd43ee29fedd958d;";
