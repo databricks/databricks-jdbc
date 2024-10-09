@@ -14,69 +14,82 @@ public class TCLIServiceConstants {
       java.util.EnumSet.noneOf(TTypeId.class);
 
   static {
-    PRIMITIVE_TYPES.add(TTypeId.BOOLEAN_TYPE);
-    PRIMITIVE_TYPES.add(TTypeId.TINYINT_TYPE);
-    PRIMITIVE_TYPES.add(TTypeId.SMALLINT_TYPE);
-    PRIMITIVE_TYPES.add(TTypeId.INT_TYPE);
-    PRIMITIVE_TYPES.add(TTypeId.BIGINT_TYPE);
-    PRIMITIVE_TYPES.add(TTypeId.FLOAT_TYPE);
-    PRIMITIVE_TYPES.add(TTypeId.DOUBLE_TYPE);
-    PRIMITIVE_TYPES.add(TTypeId.STRING_TYPE);
-    PRIMITIVE_TYPES.add(TTypeId.TIMESTAMP_TYPE);
-    PRIMITIVE_TYPES.add(TTypeId.BINARY_TYPE);
-    PRIMITIVE_TYPES.add(TTypeId.DECIMAL_TYPE);
-    PRIMITIVE_TYPES.add(TTypeId.NULL_TYPE);
-    PRIMITIVE_TYPES.add(TTypeId.DATE_TYPE);
-    PRIMITIVE_TYPES.add(TTypeId.VARCHAR_TYPE);
-    PRIMITIVE_TYPES.add(TTypeId.CHAR_TYPE);
-    PRIMITIVE_TYPES.add(TTypeId.INTERVAL_YEAR_MONTH_TYPE);
-    PRIMITIVE_TYPES.add(TTypeId.INTERVAL_DAY_TIME_TYPE);
+    PRIMITIVE_TYPES.add(com.databricks.jdbc.model.client.thrift.generated.TTypeId.BOOLEAN_TYPE);
+    PRIMITIVE_TYPES.add(com.databricks.jdbc.model.client.thrift.generated.TTypeId.TINYINT_TYPE);
+    PRIMITIVE_TYPES.add(com.databricks.jdbc.model.client.thrift.generated.TTypeId.SMALLINT_TYPE);
+    PRIMITIVE_TYPES.add(com.databricks.jdbc.model.client.thrift.generated.TTypeId.INT_TYPE);
+    PRIMITIVE_TYPES.add(com.databricks.jdbc.model.client.thrift.generated.TTypeId.BIGINT_TYPE);
+    PRIMITIVE_TYPES.add(com.databricks.jdbc.model.client.thrift.generated.TTypeId.FLOAT_TYPE);
+    PRIMITIVE_TYPES.add(com.databricks.jdbc.model.client.thrift.generated.TTypeId.DOUBLE_TYPE);
+    PRIMITIVE_TYPES.add(com.databricks.jdbc.model.client.thrift.generated.TTypeId.STRING_TYPE);
+    PRIMITIVE_TYPES.add(com.databricks.jdbc.model.client.thrift.generated.TTypeId.TIMESTAMP_TYPE);
+    PRIMITIVE_TYPES.add(com.databricks.jdbc.model.client.thrift.generated.TTypeId.BINARY_TYPE);
+    PRIMITIVE_TYPES.add(com.databricks.jdbc.model.client.thrift.generated.TTypeId.DECIMAL_TYPE);
+    PRIMITIVE_TYPES.add(com.databricks.jdbc.model.client.thrift.generated.TTypeId.NULL_TYPE);
+    PRIMITIVE_TYPES.add(com.databricks.jdbc.model.client.thrift.generated.TTypeId.DATE_TYPE);
+    PRIMITIVE_TYPES.add(com.databricks.jdbc.model.client.thrift.generated.TTypeId.VARCHAR_TYPE);
+    PRIMITIVE_TYPES.add(com.databricks.jdbc.model.client.thrift.generated.TTypeId.CHAR_TYPE);
+    PRIMITIVE_TYPES.add(
+        com.databricks.jdbc.model.client.thrift.generated.TTypeId.INTERVAL_YEAR_MONTH_TYPE);
+    PRIMITIVE_TYPES.add(
+        com.databricks.jdbc.model.client.thrift.generated.TTypeId.INTERVAL_DAY_TIME_TYPE);
   }
 
   public static final java.util.Set<TTypeId> COMPLEX_TYPES =
       java.util.EnumSet.noneOf(TTypeId.class);
 
   static {
-    COMPLEX_TYPES.add(TTypeId.ARRAY_TYPE);
-    COMPLEX_TYPES.add(TTypeId.MAP_TYPE);
-    COMPLEX_TYPES.add(TTypeId.STRUCT_TYPE);
-    COMPLEX_TYPES.add(TTypeId.UNION_TYPE);
-    COMPLEX_TYPES.add(TTypeId.USER_DEFINED_TYPE);
+    COMPLEX_TYPES.add(com.databricks.jdbc.model.client.thrift.generated.TTypeId.ARRAY_TYPE);
+    COMPLEX_TYPES.add(com.databricks.jdbc.model.client.thrift.generated.TTypeId.MAP_TYPE);
+    COMPLEX_TYPES.add(com.databricks.jdbc.model.client.thrift.generated.TTypeId.STRUCT_TYPE);
+    COMPLEX_TYPES.add(com.databricks.jdbc.model.client.thrift.generated.TTypeId.UNION_TYPE);
+    COMPLEX_TYPES.add(com.databricks.jdbc.model.client.thrift.generated.TTypeId.USER_DEFINED_TYPE);
   }
 
   public static final java.util.Set<TTypeId> COLLECTION_TYPES =
       java.util.EnumSet.noneOf(TTypeId.class);
 
   static {
-    COLLECTION_TYPES.add(TTypeId.ARRAY_TYPE);
-    COLLECTION_TYPES.add(TTypeId.MAP_TYPE);
+    COLLECTION_TYPES.add(com.databricks.jdbc.model.client.thrift.generated.TTypeId.ARRAY_TYPE);
+    COLLECTION_TYPES.add(com.databricks.jdbc.model.client.thrift.generated.TTypeId.MAP_TYPE);
   }
 
   public static final java.util.Map<TTypeId, java.lang.String> TYPE_NAMES =
       new java.util.EnumMap<TTypeId, java.lang.String>(TTypeId.class);
 
   static {
-    TYPE_NAMES.put(TTypeId.ARRAY_TYPE, "ARRAY");
-    TYPE_NAMES.put(TTypeId.BIGINT_TYPE, "BIGINT");
-    TYPE_NAMES.put(TTypeId.BINARY_TYPE, "BINARY");
-    TYPE_NAMES.put(TTypeId.BOOLEAN_TYPE, "BOOLEAN");
-    TYPE_NAMES.put(TTypeId.CHAR_TYPE, "CHAR");
-    TYPE_NAMES.put(TTypeId.DATE_TYPE, "DATE");
-    TYPE_NAMES.put(TTypeId.DECIMAL_TYPE, "DECIMAL");
-    TYPE_NAMES.put(TTypeId.DOUBLE_TYPE, "DOUBLE");
-    TYPE_NAMES.put(TTypeId.FLOAT_TYPE, "FLOAT");
-    TYPE_NAMES.put(TTypeId.INTERVAL_DAY_TIME_TYPE, "INTERVAL_DAY_TIME");
-    TYPE_NAMES.put(TTypeId.INTERVAL_YEAR_MONTH_TYPE, "INTERVAL_YEAR_MONTH");
-    TYPE_NAMES.put(TTypeId.INT_TYPE, "INT");
-    TYPE_NAMES.put(TTypeId.MAP_TYPE, "MAP");
-    TYPE_NAMES.put(TTypeId.NULL_TYPE, "NULL");
-    TYPE_NAMES.put(TTypeId.SMALLINT_TYPE, "SMALLINT");
-    TYPE_NAMES.put(TTypeId.STRING_TYPE, "STRING");
-    TYPE_NAMES.put(TTypeId.STRUCT_TYPE, "STRUCT");
-    TYPE_NAMES.put(TTypeId.TIMESTAMP_TYPE, "TIMESTAMP");
-    TYPE_NAMES.put(TTypeId.TINYINT_TYPE, "TINYINT");
-    TYPE_NAMES.put(TTypeId.UNION_TYPE, "UNIONTYPE");
-    TYPE_NAMES.put(TTypeId.VARCHAR_TYPE, "VARCHAR");
+    TYPE_NAMES.put(com.databricks.jdbc.model.client.thrift.generated.TTypeId.ARRAY_TYPE, "ARRAY");
+    TYPE_NAMES.put(com.databricks.jdbc.model.client.thrift.generated.TTypeId.BIGINT_TYPE, "BIGINT");
+    TYPE_NAMES.put(com.databricks.jdbc.model.client.thrift.generated.TTypeId.BINARY_TYPE, "BINARY");
+    TYPE_NAMES.put(
+        com.databricks.jdbc.model.client.thrift.generated.TTypeId.BOOLEAN_TYPE, "BOOLEAN");
+    TYPE_NAMES.put(com.databricks.jdbc.model.client.thrift.generated.TTypeId.CHAR_TYPE, "CHAR");
+    TYPE_NAMES.put(com.databricks.jdbc.model.client.thrift.generated.TTypeId.DATE_TYPE, "DATE");
+    TYPE_NAMES.put(
+        com.databricks.jdbc.model.client.thrift.generated.TTypeId.DECIMAL_TYPE, "DECIMAL");
+    TYPE_NAMES.put(com.databricks.jdbc.model.client.thrift.generated.TTypeId.DOUBLE_TYPE, "DOUBLE");
+    TYPE_NAMES.put(com.databricks.jdbc.model.client.thrift.generated.TTypeId.FLOAT_TYPE, "FLOAT");
+    TYPE_NAMES.put(
+        com.databricks.jdbc.model.client.thrift.generated.TTypeId.INTERVAL_DAY_TIME_TYPE,
+        "INTERVAL_DAY_TIME");
+    TYPE_NAMES.put(
+        com.databricks.jdbc.model.client.thrift.generated.TTypeId.INTERVAL_YEAR_MONTH_TYPE,
+        "INTERVAL_YEAR_MONTH");
+    TYPE_NAMES.put(com.databricks.jdbc.model.client.thrift.generated.TTypeId.INT_TYPE, "INT");
+    TYPE_NAMES.put(com.databricks.jdbc.model.client.thrift.generated.TTypeId.MAP_TYPE, "MAP");
+    TYPE_NAMES.put(com.databricks.jdbc.model.client.thrift.generated.TTypeId.NULL_TYPE, "NULL");
+    TYPE_NAMES.put(
+        com.databricks.jdbc.model.client.thrift.generated.TTypeId.SMALLINT_TYPE, "SMALLINT");
+    TYPE_NAMES.put(com.databricks.jdbc.model.client.thrift.generated.TTypeId.STRING_TYPE, "STRING");
+    TYPE_NAMES.put(com.databricks.jdbc.model.client.thrift.generated.TTypeId.STRUCT_TYPE, "STRUCT");
+    TYPE_NAMES.put(
+        com.databricks.jdbc.model.client.thrift.generated.TTypeId.TIMESTAMP_TYPE, "TIMESTAMP");
+    TYPE_NAMES.put(
+        com.databricks.jdbc.model.client.thrift.generated.TTypeId.TINYINT_TYPE, "TINYINT");
+    TYPE_NAMES.put(
+        com.databricks.jdbc.model.client.thrift.generated.TTypeId.UNION_TYPE, "UNIONTYPE");
+    TYPE_NAMES.put(
+        com.databricks.jdbc.model.client.thrift.generated.TTypeId.VARCHAR_TYPE, "VARCHAR");
   }
 
   public static final java.lang.String CHARACTER_MAXIMUM_LENGTH = "characterMaximumLength";
