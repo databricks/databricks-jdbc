@@ -11,6 +11,7 @@ import com.databricks.jdbc.common.IDatabricksComputeResource;
 import com.databricks.jdbc.common.StatementType;
 import com.databricks.jdbc.common.Warehouse;
 import com.databricks.jdbc.common.util.DatabricksTypeUtil;
+import com.databricks.jdbc.dbclient.impl.common.StatementId;
 import com.databricks.jdbc.dbclient.impl.sqlexec.DatabricksSdkClient;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.model.client.sqlexec.*;
@@ -37,7 +38,7 @@ public class DatabricksSdkClientTest {
   private static final String WAREHOUSE_ID = "erg6767gg";
   private static final IDatabricksComputeResource warehouse = new Warehouse(WAREHOUSE_ID);
   private static final String SESSION_ID = "session_id";
-  private static final String STATEMENT_ID = "statement_id";
+  private static final StatementId STATEMENT_ID = StatementId.fromSQLExecStatementId("statementId");
   private static final String STATEMENT =
       "SELECT * FROM orders WHERE user_id = ? AND shard = ? AND region_code = ? AND namespace = ?";
   private static final String JDBC_URL =
@@ -81,7 +82,7 @@ public class DatabricksSdkClientTest {
             .setParameters(params);
     ExecuteStatementResponse response =
         new ExecuteStatementResponse()
-            .setStatementId(STATEMENT_ID)
+            .setStatementId(STATEMENT_ID.toSQLExecStatementId())
             .setStatus(statementStatus)
             .setResult(resultData)
             .setManifest(
@@ -166,7 +167,7 @@ public class DatabricksSdkClientTest {
             StatementType.QUERY,
             connection.getSession(),
             statement);
-    assertEquals(STATEMENT_ID, statement.getStatementId());
+    assertEquals(STATEMENT_ID.toString(), statement.getStatementId());
   }
 
   @Test
@@ -176,7 +177,8 @@ public class DatabricksSdkClientTest {
         DatabricksConnectionContext.parse(JDBC_URL, new Properties());
     DatabricksSdkClient databricksSdkClient =
         new DatabricksSdkClient(connectionContext, statementExecutionService, apiClient);
-    CloseStatementRequest request = new CloseStatementRequest().setStatementId(STATEMENT_ID);
+    CloseStatementRequest request =
+        new CloseStatementRequest().setStatementId(STATEMENT_ID.toSQLExecStatementId());
     databricksSdkClient.closeStatement(STATEMENT_ID);
 
     verify(apiClient).DELETE(eq(path), eq(request), eq(Void.class), eq(headers));
@@ -189,7 +191,8 @@ public class DatabricksSdkClientTest {
         DatabricksConnectionContext.parse(JDBC_URL, new Properties());
     DatabricksSdkClient databricksSdkClient =
         new DatabricksSdkClient(connectionContext, statementExecutionService, apiClient);
-    CancelStatementRequest request = new CancelStatementRequest().setStatementId(STATEMENT_ID);
+    CancelStatementRequest request =
+        new CancelStatementRequest().setStatementId(STATEMENT_ID.toSQLExecStatementId());
     databricksSdkClient.cancelStatement(STATEMENT_ID);
     verify(apiClient).POST(eq(path), eq(request), eq(Void.class), eq(headers));
   }

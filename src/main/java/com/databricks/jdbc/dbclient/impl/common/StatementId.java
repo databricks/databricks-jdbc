@@ -72,4 +72,9 @@ public class StatementId {
         .setGuid(ResourceId.fromBase64(guid).toBytes())
         .setSecret(ResourceId.fromBase64(secret).toBytes());
   }
+
+  /** Returns a SQL Exec statement handle for the given StatementId */
+  public String toSQLExecStatementId() {
+    return guid;
+  }
 }

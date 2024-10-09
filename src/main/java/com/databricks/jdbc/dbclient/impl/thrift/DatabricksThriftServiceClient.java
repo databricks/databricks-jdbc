@@ -13,6 +13,7 @@ import com.databricks.jdbc.common.StatementType;
 import com.databricks.jdbc.dbclient.IDatabricksClient;
 import com.databricks.jdbc.dbclient.IDatabricksMetadataClient;
 import com.databricks.jdbc.dbclient.impl.common.MetadataResultSetBuilder;
+import com.databricks.jdbc.dbclient.impl.common.StatementId;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.log.JdbcLogger;
@@ -163,54 +164,61 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
   }
 
   @Override
-  public void closeStatement(String statementId) throws DatabricksSQLException {
+  public void closeStatement(StatementId statementId) throws DatabricksSQLException {
     LOGGER.debug(
         String.format(
             "public void closeStatement(String statementId = {%s}) for all purpose cluster",
             statementId));
     TOperationHandle operationHandle =
-        ThriftStatementId.fromBase64String(statementId).toOperationHandle();
+        new TOperationHandle()
+            .setOperationId(statementId.toOperationIdentifier())
+            .setOperationType(TOperationType.UNKNOWN);
     TCloseOperationReq request = new TCloseOperationReq().setOperationHandle(operationHandle);
     TCloseOperationResp resp = thriftAccessor.closeOperation(request);
-    //   LOGGER.debug("Statement {%s} closed with status {%s}", statementId, resp.getStatus());
+    LOGGER.debug("Statement {%s} closed with status {%s}", statementId, resp.getStatus());
   }
 
   @Override
-  public void cancelStatement(String statementId) throws DatabricksSQLException {
+  public void cancelStatement(StatementId statementId) throws DatabricksSQLException {
     LOGGER.debug(
         String.format(
             "public void cancelStatement(String statementId = {%s}) for all purpose cluster",
             statementId));
     TOperationHandle operationHandle =
-        ThriftStatementId.fromBase64String(statementId).toOperationHandle();
+        new TOperationHandle()
+            .setOperationId(statementId.toOperationIdentifier())
+            .setOperationType(TOperationType.UNKNOWN);
     TCancelOperationReq request = new TCancelOperationReq().setOperationHandle(operationHandle);
     TCancelOperationResp resp = thriftAccessor.cancelOperation(request);
-    //    LOGGER.debug("Statement {%s} cancelled with status {%s}", statementId, resp.getStatus());
+    LOGGER.debug("Statement {%s} cancelled with status {%s}", statementId, resp.getStatus());
   }
 
   @Override
   public DatabricksResultSet getStatementResult(
-      String statementId, IDatabricksSession session, IDatabricksStatementInternal parentStatement)
+      StatementId statementId,
+      IDatabricksSession session,
+      IDatabricksStatementInternal parentStatement)
       throws SQLException {
     LOGGER.debug(
         String.format(
             "public DatabricksResultSet getStatementResult(String statementId = {%s}) for all purpose cluster",
             statementId));
     TOperationHandle operationHandle =
-        ThriftStatementId.fromBase64String(statementId).toOperationHandle();
+        new TOperationHandle()
+            .setOperationId(statementId.toOperationIdentifier())
+            .setOperationType(TOperationType.UNKNOWN);
     return thriftAccessor.getStatementResult(operationHandle, parentStatement, session);
   }
 
   @Override
-  public Collection<ExternalLink> getResultChunks(String statementId, long chunkIndex)
+  public Collection<ExternalLink> getResultChunks(StatementId statementId, long chunkIndex)
       throws DatabricksSQLException {
     String context =
         String.format(
             "public Optional<ExternalLink> getResultChunk(String statementId = {%s}, long chunkIndex = {%s}) for all purpose cluster",
             statementId, chunkIndex);
     LOGGER.debug(context);
-    THandleIdentifier handleIdentifier =
-        ThriftStatementId.fromBase64String(statementId).toHandleIdentifier();
+    THandleIdentifier handleIdentifier = statementId.toOperationIdentifier();
     TOperationHandle operationHandle =
         new TOperationHandle()
             .setOperationId(handleIdentifier)

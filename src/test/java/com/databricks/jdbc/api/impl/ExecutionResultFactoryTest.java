@@ -1,6 +1,5 @@
 package com.databricks.jdbc.api.impl;
 
-import static com.databricks.jdbc.TestConstants.TEST_STATEMENT_ID;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.when;
 
@@ -10,6 +9,7 @@ import com.databricks.jdbc.api.impl.inline.InlineJsonResult;
 import com.databricks.jdbc.api.impl.volume.VolumeOperationResult;
 import com.databricks.jdbc.api.internal.IDatabricksResultSetInternal;
 import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
+import com.databricks.jdbc.dbclient.impl.common.StatementId;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.exception.DatabricksSQLFeatureNotSupportedException;
 import com.databricks.jdbc.model.client.thrift.generated.TGetResultSetMetadataResp;
@@ -29,6 +29,8 @@ import org.mockito.junit.jupiter.MockitoExtension;
 @ExtendWith(MockitoExtension.class)
 public class ExecutionResultFactoryTest {
 
+  private static final StatementId STATEMENT_ID = StatementId.fromSQLExecStatementId("statementId");
+
   @Mock DatabricksSession session;
   @Mock IDatabricksConnectionContext connectionContext;
   @Mock TGetResultSetMetadataResp resultSetMetadataResp;
@@ -44,7 +46,7 @@ public class ExecutionResultFactoryTest {
     ResultData data = new ResultData();
     IExecutionResult result =
         ExecutionResultFactory.getResultSet(
-            data, manifest, "statementId", session, statement, resultSet);
+            data, manifest, STATEMENT_ID, session, statement, resultSet);
 
     assertInstanceOf(InlineJsonResult.class, result);
   }
@@ -60,7 +62,7 @@ public class ExecutionResultFactoryTest {
     ResultData data = new ResultData();
     IExecutionResult result =
         ExecutionResultFactory.getResultSet(
-            data, manifest, "statementId", session, statement, resultSet);
+            data, manifest, STATEMENT_ID, session, statement, resultSet);
 
     assertInstanceOf(ArrowStreamResult.class, result);
   }
@@ -78,7 +80,7 @@ public class ExecutionResultFactoryTest {
             .setSchema(new ResultSchema().setColumnCount(4L));
     IExecutionResult result =
         ExecutionResultFactory.getResultSet(
-            data, manifest, "statementId", session, statement, resultSet);
+            data, manifest, STATEMENT_ID, session, statement, resultSet);
 
     assertInstanceOf(VolumeOperationResult.class, result);
   }
@@ -94,7 +96,7 @@ public class ExecutionResultFactoryTest {
     ResultData data = new ResultData();
     IExecutionResult result =
         ExecutionResultFactory.getResultSet(
-            tRowSet, resultSetMetadataResp, "statementId", session, statement, resultSet);
+            tRowSet, resultSetMetadataResp, STATEMENT_ID, session, statement, resultSet);
 
     assertInstanceOf(VolumeOperationResult.class, result);
   }
@@ -104,7 +106,7 @@ public class ExecutionResultFactoryTest {
     when(resultSetMetadataResp.getResultFormat()).thenReturn(TSparkRowSetType.COLUMN_BASED_SET);
     IExecutionResult result =
         ExecutionResultFactory.getResultSet(
-            tRowSet, resultSetMetadataResp, TEST_STATEMENT_ID, session, statement, resultSet);
+            tRowSet, resultSetMetadataResp, STATEMENT_ID, session, statement, resultSet);
     assertInstanceOf(InlineJsonResult.class, result);
   }
 
@@ -115,7 +117,7 @@ public class ExecutionResultFactoryTest {
         DatabricksSQLFeatureNotSupportedException.class,
         () ->
             ExecutionResultFactory.getResultSet(
-                tRowSet, resultSetMetadataResp, TEST_STATEMENT_ID, session, statement, resultSet));
+                tRowSet, resultSetMetadataResp, STATEMENT_ID, session, statement, resultSet));
   }
 
   @Test
@@ -125,7 +127,7 @@ public class ExecutionResultFactoryTest {
     when(session.getConnectionContext().getCloudFetchThreadPoolSize()).thenReturn(16);
     IExecutionResult result =
         ExecutionResultFactory.getResultSet(
-            tRowSet, resultSetMetadataResp, TEST_STATEMENT_ID, session, statement, resultSet);
+            tRowSet, resultSetMetadataResp, STATEMENT_ID, session, statement, resultSet);
     assertInstanceOf(ArrowStreamResult.class, result);
   }
 
@@ -135,7 +137,7 @@ public class ExecutionResultFactoryTest {
     when(session.getConnectionContext()).thenReturn(context);
     IExecutionResult result =
         ExecutionResultFactory.getResultSet(
-            tRowSet, resultSetMetadataResp, TEST_STATEMENT_ID, session, statement, resultSet);
+            tRowSet, resultSetMetadataResp, STATEMENT_ID, session, statement, resultSet);
     assertInstanceOf(ArrowStreamResult.class, result);
   }
 }

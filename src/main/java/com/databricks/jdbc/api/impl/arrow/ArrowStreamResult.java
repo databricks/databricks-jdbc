@@ -7,6 +7,7 @@ import com.databricks.jdbc.api.impl.IExecutionResult;
 import com.databricks.jdbc.api.impl.converters.ArrowToJavaObjectConverter;
 import com.databricks.jdbc.common.CompressionType;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
+import com.databricks.jdbc.dbclient.impl.common.StatementId;
 import com.databricks.jdbc.dbclient.impl.http.DatabricksHttpClient;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
@@ -34,7 +35,7 @@ public class ArrowStreamResult implements IExecutionResult {
   public ArrowStreamResult(
       ResultManifest resultManifest,
       ResultData resultData,
-      String statementId,
+      StatementId statementId,
       IDatabricksSession session)
       throws DatabricksParsingException {
     this(
@@ -49,7 +50,7 @@ public class ArrowStreamResult implements IExecutionResult {
   ArrowStreamResult(
       ResultManifest resultManifest,
       ResultData resultData,
-      String statementId,
+      StatementId statementId,
       IDatabricksSession session,
       IDatabricksHttpClient httpClient)
       throws DatabricksParsingException {
@@ -71,7 +72,7 @@ public class ArrowStreamResult implements IExecutionResult {
       TGetResultSetMetadataResp resultManifest,
       TRowSet resultData,
       boolean isInlineArrow,
-      String parentStatementId,
+      StatementId parentStatementId,
       IDatabricksSession session)
       throws DatabricksParsingException {
     this(
@@ -88,7 +89,7 @@ public class ArrowStreamResult implements IExecutionResult {
       TGetResultSetMetadataResp resultManifest,
       TRowSet resultData,
       boolean isInlineArrow,
-      String statementId,
+      StatementId statementId,
       IDatabricksSession session,
       IDatabricksHttpClient httpClient)
       throws DatabricksParsingException {
@@ -96,7 +97,7 @@ public class ArrowStreamResult implements IExecutionResult {
     this.isInlineArrow = isInlineArrow;
     if (isInlineArrow) {
       this.chunkExtractor =
-          new ChunkExtractor(resultData.getArrowBatches(), resultManifest, statementId);
+          new ChunkExtractor(resultData.getArrowBatches(), resultManifest, statementId.serialize());
       this.chunkDownloader = null;
     } else {
       CompressionType compressionType = CompressionType.getCompressionMapping(resultManifest);

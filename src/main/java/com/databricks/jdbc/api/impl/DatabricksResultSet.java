@@ -91,7 +91,7 @@ public class DatabricksResultSet
   @VisibleForTesting
   public DatabricksResultSet(
       StatementStatus statementStatus,
-      String statementId,
+      StatementId statementId,
       StatementType statementType,
       IDatabricksStatementInternal parentStatement,
       IExecutionResult executionResult,
@@ -110,7 +110,7 @@ public class DatabricksResultSet
   // Constructor for thrift result set
   public DatabricksResultSet(
       TStatus statementStatus,
-      String statementId,
+      StatementId statementId,
       TRowSet resultData,
       TGetResultSetMetadataResp resultManifest,
       StatementType statementType,
@@ -146,7 +146,7 @@ public class DatabricksResultSet
   // Constructing results for getUDTs, getTypeInfo, getProcedures metadata calls
   public DatabricksResultSet(
       StatementStatus statementStatus,
-      String statementId,
+      StatementId statementId,
       List<String> columnNames,
       List<String> columnTypeText,
       List<Integer> columnTypes,
@@ -174,7 +174,7 @@ public class DatabricksResultSet
   // Constructing metadata result set in thrift flow
   public DatabricksResultSet(
       StatementStatus statementStatus,
-      String statementId,
+      StatementId statementId,
       List<String> columnNames,
       List<String> columnTypeText,
       List<Integer> columnTypes,
@@ -202,7 +202,7 @@ public class DatabricksResultSet
   // Constructing metadata result set in SEA flow
   public DatabricksResultSet(
       StatementStatus statementStatus,
-      String statementId,
+      StatementId statementId,
       List<ColumnMetadata> columnMetadataList,
       List<List<Object>> rows,
       StatementType statementType) {
@@ -1531,7 +1531,7 @@ public class DatabricksResultSet
 
   @Override
   public String getStatementId() {
-    return statementId;
+    return statementId.serialize();
   }
 
   @Override

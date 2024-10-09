@@ -101,7 +101,9 @@ public interface IDatabricksClient {
    * @param parentStatement statement instance
    */
   DatabricksResultSet getStatementResult(
-      StatementId statementId, IDatabricksSession session, IDatabricksStatementInternal parentStatement)
+      StatementId statementId,
+      IDatabricksSession session,
+      IDatabricksStatementInternal parentStatement)
       throws SQLException;
 
   /**

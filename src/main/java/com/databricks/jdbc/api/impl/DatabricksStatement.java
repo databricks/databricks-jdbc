@@ -529,7 +529,7 @@ public class DatabricksStatement
 
   @Override
   public String getStatementId() {
-    return this.statementId;
+    return this.statementId.serialize();
   }
 
   @Override

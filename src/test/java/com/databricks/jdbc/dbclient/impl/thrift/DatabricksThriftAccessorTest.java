@@ -10,6 +10,7 @@ import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.api.impl.DatabricksResultSet;
 import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
 import com.databricks.jdbc.common.StatementType;
+import com.databricks.jdbc.dbclient.impl.common.StatementId;
 import com.databricks.jdbc.exception.DatabricksHttpException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.model.client.thrift.generated.*;
@@ -37,7 +38,7 @@ public class DatabricksThriftAccessorTest {
 
   private static final String TEST_STMT_ID = "MIIWiOiGTESQt3+6xIDA0A|vq8muWugTKm+ZsjNGZdauw";
   static THandleIdentifier handleIdentifier =
-      ThriftStatementId.fromBase64String(TEST_STMT_ID).toHandleIdentifier();
+      StatementId.deserialize(TEST_STMT_ID).toOperationIdentifier();
   private static final TOperationHandle tOperationHandle =
       new TOperationHandle().setOperationId(handleIdentifier).setHasResultSet(false);
   private static final TFetchResultsReq fetchResultsReq =

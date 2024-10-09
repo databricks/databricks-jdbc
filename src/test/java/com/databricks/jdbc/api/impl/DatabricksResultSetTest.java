@@ -11,6 +11,7 @@ import com.databricks.jdbc.api.impl.inline.InlineJsonResult;
 import com.databricks.jdbc.api.internal.IDatabricksResultSetInternal;
 import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
 import com.databricks.jdbc.common.StatementType;
+import com.databricks.jdbc.dbclient.impl.common.StatementId;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.exception.DatabricksSQLFeatureNotSupportedException;
 import com.databricks.jdbc.model.client.thrift.generated.*;
@@ -31,6 +32,11 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
 public class DatabricksResultSetTest {
+
+  private static final StatementId STATEMENT_ID = StatementId.fromSQLExecStatementId("statementId");
+  private static final StatementId THRIFT_STATEMENT_ID =
+      StatementId.deserialize("MIIWiOiGTESQt3+6xIDA0A|vq8muWugTKm+ZsjNGZdauw");
+
   @Mock InlineJsonResult mockedExecutionResult;
   @Mock DatabricksResultSetMetaData mockedResultSetMetadata;
   @Mock IDatabricksSession session;
@@ -41,7 +47,7 @@ public class DatabricksResultSetTest {
       StatementState statementState, IDatabricksStatementInternal statement) {
     return new DatabricksResultSet(
         new StatementStatus().setState(statementState),
-        "test-statementID",
+        STATEMENT_ID,
         StatementType.METADATA,
         statement,
         mockedExecutionResult,
@@ -60,7 +66,7 @@ public class DatabricksResultSetTest {
     metadataResp.setSchema(schema);
     return new DatabricksResultSet(
         new TStatus().setStatusCode(TStatusCode.SUCCESS_STATUS),
-        "test-statementID",
+        THRIFT_STATEMENT_ID,
         rowSet,
         metadataResp,
         StatementType.METADATA,
@@ -735,7 +741,7 @@ public class DatabricksResultSetTest {
     DatabricksResultSet resultSet =
         new DatabricksResultSet(
             new StatementStatus().setState(StatementState.SUCCEEDED),
-            "test-statementID",
+            STATEMENT_ID,
             StatementType.QUERY,
             null,
             mockedExecutionResult,
@@ -754,7 +760,7 @@ public class DatabricksResultSetTest {
     DatabricksResultSet resultSet =
         new DatabricksResultSet(
             new StatementStatus().setState(StatementState.SUCCEEDED),
-            "test-statementID",
+            STATEMENT_ID,
             StatementType.UPDATE,
             null,
             mockedExecutionResult,
@@ -773,7 +779,7 @@ public class DatabricksResultSetTest {
     DatabricksResultSet resultSet =
         new DatabricksResultSet(
             new StatementStatus().setState(StatementState.SUCCEEDED),
-            "test-statementID",
+            STATEMENT_ID,
             StatementType.UPDATE,
             null,
             mockedExecutionResult,

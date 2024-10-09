@@ -24,7 +24,6 @@ import java.util.Map;
 public class VolumeOperationResult implements IExecutionResult {
 
   private final IDatabricksSession session;
-  private final String statementId;
   private final IExecutionResult resultHandler;
   private final IDatabricksResultSetInternal resultSet;
   private final IDatabricksStatementInternal statement;
@@ -36,14 +35,12 @@ public class VolumeOperationResult implements IExecutionResult {
   private int currentRowIndex;
 
   public VolumeOperationResult(
-      String statementId,
       long totalRows,
       long totalColumns,
       IDatabricksSession session,
       IExecutionResult resultHandler,
       IDatabricksStatementInternal statement,
       IDatabricksResultSetInternal resultSet) {
-    this.statementId = statementId;
     this.rowCount = totalRows;
     this.columnCount = totalColumns;
     this.session = session;
@@ -56,14 +53,12 @@ public class VolumeOperationResult implements IExecutionResult {
 
   @VisibleForTesting
   VolumeOperationResult(
-      String statementId,
       ResultManifest manifest,
       IDatabricksSession session,
       IExecutionResult resultHandler,
       IDatabricksHttpClient httpClient,
       IDatabricksStatementInternal statement,
       IDatabricksResultSetInternal resultSet) {
-    this.statementId = statementId;
     this.rowCount = manifest.getTotalRowCount();
     this.columnCount = manifest.getSchema().getColumnCount();
     this.session = session;

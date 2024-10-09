@@ -8,6 +8,7 @@ import com.databricks.jdbc.common.AccessType;
 import com.databricks.jdbc.common.Nullable;
 import com.databricks.jdbc.common.util.DatabricksTypeUtil;
 import com.databricks.jdbc.common.util.WrapperUtil;
+import com.databricks.jdbc.dbclient.impl.common.StatementId;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.model.client.thrift.generated.TColumnDesc;
@@ -31,7 +32,7 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
 
   private static final JdbcLogger LOGGER =
       JdbcLoggerFactory.getLogger(DatabricksResultSetMetaData.class);
-  private final String statementId;
+  private final StatementId statementId;
   private final ImmutableList<ImmutableDatabricksColumn> columns;
   private final ImmutableMap<String, Integer> columnNameIndex;
   private final long totalRows;
@@ -44,7 +45,7 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
    * @param resultManifest the manifest containing metadata about the result set, including column
    *     information and types
    */
-  public DatabricksResultSetMetaData(String statementId, ResultManifest resultManifest) {
+  public DatabricksResultSetMetaData(StatementId statementId, ResultManifest resultManifest) {
     this.statementId = statementId;
     Map<String, Integer> columnNameToIndexMap = new HashMap<>();
     ImmutableList.Builder<ImmutableDatabricksColumn> columnsBuilder = ImmutableList.builder();
@@ -102,7 +103,10 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
    * @param chunkCount the total number of data chunks in the result set
    */
   public DatabricksResultSetMetaData(
-      String statementId, TGetResultSetMetadataResp resultManifest, long rows, long chunkCount) {
+      StatementId statementId,
+      TGetResultSetMetadataResp resultManifest,
+      long rows,
+      long chunkCount) {
     this.statementId = statementId;
     Map<String, Integer> columnNameToIndexMap = new HashMap<>();
     ImmutableList.Builder<ImmutableDatabricksColumn> columnsBuilder = ImmutableList.builder();
@@ -162,7 +166,7 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
    * @param totalRows the total number of rows in the result set
    */
   public DatabricksResultSetMetaData(
-      String statementId, List<ColumnMetadata> columnMetadataList, long totalRows) {
+      StatementId statementId, List<ColumnMetadata> columnMetadataList, long totalRows) {
     this.statementId = statementId;
     Map<String, Integer> columnNameToIndexMap = new HashMap<>();
     ImmutableList.Builder<ImmutableDatabricksColumn> columnsBuilder = ImmutableList.builder();
@@ -204,7 +208,7 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
    * @param totalRows total number of rows in result set
    */
   public DatabricksResultSetMetaData(
-      String statementId,
+      StatementId statementId,
       List<String> columnNames,
       List<String> columnTypeText,
       List<Integer> columnTypes,

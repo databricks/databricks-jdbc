@@ -10,6 +10,7 @@ import com.databricks.jdbc.api.IDatabricksSession;
 import com.databricks.jdbc.common.IDatabricksComputeResource;
 import com.databricks.jdbc.common.StatementType;
 import com.databricks.jdbc.common.Warehouse;
+import com.databricks.jdbc.dbclient.impl.common.StatementId;
 import com.databricks.jdbc.dbclient.impl.sqlexec.DatabricksSdkClient;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.exception.DatabricksSQLFeatureNotSupportedException;
@@ -33,7 +34,8 @@ public class DatabricksStatementTest {
 
   private static final String WAREHOUSE_ID = "erg6767gg";
   private static final String STATEMENT = "select 1";
-  private static final String STATEMENT_ID = "statement_id";
+  private static final StatementId STATEMENT_ID =
+      StatementId.fromSQLExecStatementId("statement_id");
   private static final String SESSION_ID = "session_id";
   private static final IDatabricksComputeResource WAREHOUSE_COMPUTE = new Warehouse(WAREHOUSE_ID);
   private static final String JDBC_URL =
@@ -167,7 +169,7 @@ public class DatabricksStatementTest {
     statement.setEscapeProcessing(true);
     assertEquals(statement.getQueryTimeout(), 10);
     assertEquals(statement.getStatement(), statement);
-    assertEquals(statement.getStatementId(), STATEMENT_ID);
+    assertEquals(statement.getStatementId(), STATEMENT_ID.serialize());
     doNothing().when(client).closeStatement(STATEMENT_ID);
     statement.close(true);
     assertTrue(statement.isWrapperFor(Statement.class));

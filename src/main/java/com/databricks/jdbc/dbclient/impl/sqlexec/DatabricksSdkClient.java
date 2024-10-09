@@ -151,8 +151,9 @@ public class DatabricksSdkClient implements IDatabricksClient {
         String.format(
             "Executing sql %s, statementType %s, compute %s, StatementID %s",
             sql, statementType, computeResource, statementId));
+    StatementId typedStatementId = StatementId.fromSQLExecStatementId(statementId);
     if (parentStatement != null) {
-      parentStatement.setStatementId(StatementId.fromSQLExecStatementId(statementId));
+      parentStatement.setStatementId(typedStatementId);
     }
     StatementState responseState = response.getStatus().getState();
     while (responseState == StatementState.PENDING || responseState == StatementState.RUNNING) {
@@ -190,7 +191,7 @@ public class DatabricksSdkClient implements IDatabricksClient {
     }
     return new DatabricksResultSet(
         response.getStatus(),
-        statementId,
+        typedStatementId,
         response.getResult(),
         response.getManifest(),
         statementType,
@@ -227,17 +228,18 @@ public class DatabricksSdkClient implements IDatabricksClient {
       LOGGER.error(
           String.format(
               "Empty Statement ID for sql %s, compute %s", sql, computeResource.toString()));
-      handleFailedExecution(response, statementId, sql);
+      handleFailedExecution(response, "", sql);
     }
+    StatementId typedStatementId = StatementId.fromSQLExecStatementId(statementId);
     if (parentStatement != null) {
-      parentStatement.setStatementId(statementId);
+      parentStatement.setStatementId(typedStatementId);
     }
     LOGGER.debug(
         String.format("Executed sql [%s] with status [%s]", sql, response.getStatus().getState()));
 
     return new DatabricksResultSet(
         response.getStatus(),
-        statementId,
+        typedStatementId,
         response.getResult(),
         response.getManifest(),
         StatementType.SQL,
@@ -247,8 +249,11 @@ public class DatabricksSdkClient implements IDatabricksClient {
 
   @Override
   public DatabricksResultSet getStatementResult(
-      String statementId, IDatabricksSession session, IDatabricksStatementInternal parentStatement)
+      StatementId typedStatementId,
+      IDatabricksSession session,
+      IDatabricksStatementInternal parentStatement)
       throws DatabricksSQLException {
+    String statementId = typedStatementId.toSQLExecStatementId();
     GetStatementRequest request = new GetStatementRequest().setStatementId(statementId);
     String getStatusPath = String.format(STATEMENT_PATH_WITH_ID, statementId);
     GetStatementResponse response =
@@ -257,7 +262,7 @@ public class DatabricksSdkClient implements IDatabricksClient {
             .GET(getStatusPath, request, GetStatementResponse.class, getHeaders());
     return new DatabricksResultSet(
         response.getStatus(),
-        statementId,
+        typedStatementId,
         response.getResult(),
         response.getManifest(),
         StatementType.SQL,
@@ -266,7 +271,8 @@ public class DatabricksSdkClient implements IDatabricksClient {
   }
 
   @Override
-  public void closeStatement(String statementId) {
+  public void closeStatement(StatementId typedStatementId) {
+    String statementId = typedStatementId.toSQLExecStatementId();
     LOGGER.debug(
         String.format("public void closeStatement(String statementId = {%s})", statementId));
     CloseStatementRequest request = new CloseStatementRequest().setStatementId(statementId);
@@ -275,7 +281,8 @@ public class DatabricksSdkClient implements IDatabricksClient {
   }
 
   @Override
-  public void cancelStatement(String statementId) {
+  public void cancelStatement(StatementId typedStatementId) {
+    String statementId = typedStatementId.toSQLExecStatementId();
     LOGGER.debug(
         String.format("public void cancelStatement(String statementId = {%s})", statementId));
     CancelStatementRequest request = new CancelStatementRequest().setStatementId(statementId);
@@ -284,7 +291,8 @@ public class DatabricksSdkClient implements IDatabricksClient {
   }
 
   @Override
-  public Collection<ExternalLink> getResultChunks(String statementId, long chunkIndex) {
+  public Collection<ExternalLink> getResultChunks(StatementId typedStatementId, long chunkIndex) {
+    String statementId = typedStatementId.toSQLExecStatementId();
     LOGGER.debug(
         String.format(
             "public Optional<ExternalLink> getResultChunk(String statementId = {%s}, long chunkIndex = {%s})",

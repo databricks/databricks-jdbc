@@ -11,6 +11,7 @@ import com.databricks.jdbc.common.DatabricksJdbcConstants;
 import com.databricks.jdbc.common.util.UserAgentManager;
 import com.databricks.jdbc.common.util.ValidationUtil;
 import com.databricks.jdbc.dbclient.IDatabricksClient;
+import com.databricks.jdbc.dbclient.impl.common.StatementId;
 import com.databricks.jdbc.exception.DatabricksSQLClientInfoException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.exception.DatabricksSQLFeatureNotSupportedException;
@@ -59,7 +60,7 @@ public class DatabricksConnection implements IDatabricksConnection, Connection {
 
   @Override
   public Statement getStatement(String statementId) throws SQLException {
-    return new DatabricksStatement(this, statementId);
+    return new DatabricksStatement(this, StatementId.deserialize(statementId));
   }
 
   @Override

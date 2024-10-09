@@ -4,15 +4,12 @@ import static com.databricks.jdbc.common.MetadataResultConstants.NULL_STRING;
 import static com.databricks.jdbc.common.util.DatabricksTypeUtil.*;
 
 import com.databricks.jdbc.exception.DatabricksHttpException;
-import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.model.client.thrift.generated.*;
 import com.databricks.jdbc.model.core.ExternalLink;
 import com.databricks.sdk.service.sql.ColumnInfoTypeName;
 import java.nio.ByteBuffer;
-import java.nio.charset.Charset;
-import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -20,8 +17,6 @@ import java.util.stream.IntStream;
 public class DatabricksThriftUtil {
 
   private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(DatabricksThriftUtil.class);
-
-  private static Charset CHARSETS = StandardCharsets.UTF_8;
 
   public static final List<TStatusCode> SUCCESS_STATUS_LIST =
       List.of(TStatusCode.SUCCESS_STATUS, TStatusCode.SUCCESS_WITH_INFO_STATUS);
@@ -41,77 +36,6 @@ public class DatabricksThriftUtil {
         .setExternalLink(chunkInfo.getFileLink())
         .setChunkIndex(chunkIndex)
         .setExpiration(Long.toString(chunkInfo.getExpiryTime()));
-  }
-
-  public static String getStatementId(TOperationHandle operationHandle) {
-    String statementId =
-        String.format(
-            "%s|%s",
-            byteBufferToString(operationHandle.getOperationId().guid),
-            byteBufferToString(operationHandle.getOperationId().secret));
-    LOGGER.debug("opn handle " + statementId + " stacktrace ");
-    return statementId;
-  }
-
-  public static String toStatementId(TOperationHandle operationHandle)
-      throws DatabricksParsingException {
-    String statementId =
-        String.format(
-            "%s|%s",
-            toString(operationHandle.getOperationId().guid),
-            toString(operationHandle.getOperationId().secret));
-    LOGGER.debug(
-        "Parsed statementId {%s} from operation handle {%s}", statementId, operationHandle);
-    return statementId;
-  }
-
-  public static TOperationHandle toOperationHandle(String statementId)
-      throws DatabricksParsingException {
-    String[] parts = statementId.split("\\|");
-    TOperationHandle operationHandle =
-        new TOperationHandle()
-            .setOperationId(
-                new THandleIdentifier()
-                    .setGuid(toByteBuffer(parts[0]))
-                    .setSecret(toByteBuffer(parts[1])))
-            .setOperationType(TOperationType.EXECUTE_STATEMENT);
-    LOGGER.debug(
-        "Extracted Operation Handle {%s} from statementId {%s}", operationHandle, statementId);
-    return operationHandle;
-  }
-
-  private static String toString(ByteBuffer byteBuffer) throws DatabricksParsingException {
-    String data = "";
-    try {
-      ByteBuffer newBuffer = byteBuffer.duplicate(); // This is to avoid a BufferUnderflowException
-      int old_position = newBuffer.position();
-      data =
-          new String(
-              newBuffer.array(),
-              StandardCharsets.UTF_8); // CHARSETS.newDecoder().decode(newBuffer).toString();
-      // reset buffer's position to its original so it is not altered:
-      newBuffer.position(old_position);
-    } catch (Exception e) {
-      String msg = String.format("Error parsing Operation Handle with error {%s}", e.getMessage());
-      LOGGER.error(msg);
-      throw new DatabricksParsingException(msg, e);
-    }
-    return data;
-  }
-
-  private static ByteBuffer toByteBuffer(String value) throws DatabricksParsingException {
-    try {
-      return ByteBuffer.wrap(
-          value.getBytes(
-              StandardCharsets.UTF_8)); //  CHARSETS.newEncoder().encode(CharBuffer.wrap(value));
-    } catch (Exception e) {
-      String msg =
-          String.format(
-              "Error converting statement-Id {%s} into Operation Handle with error {%s}",
-              value, e.getMessage());
-      LOGGER.error(msg);
-      throw new DatabricksParsingException(msg, e);
-    }
   }
 
   public static void verifySuccessStatus(TStatusCode statusCode, String errorContext)

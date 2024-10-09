@@ -11,6 +11,7 @@ import com.databricks.jdbc.api.impl.*;
 import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
 import com.databricks.jdbc.common.StatementType;
 import com.databricks.jdbc.dbclient.impl.common.ClientConfigurator;
+import com.databricks.jdbc.dbclient.impl.common.StatementId;
 import com.databricks.jdbc.dbclient.impl.http.DatabricksHttpClient;
 import com.databricks.jdbc.exception.DatabricksHttpException;
 import com.databricks.jdbc.exception.DatabricksParsingException;
@@ -283,8 +284,8 @@ final class DatabricksThriftAccessor {
     } finally {
       transport.close();
     }
-    String statementId =
-        .fromOperationHandle(response.getOperationHandle()).toString();
+    StatementId statementId =
+        StatementId.fromOperationIdentifier(response.getOperationHandle().operationId);
     if (parentStatement != null) {
       parentStatement.setStatementId(statementId);
     }
@@ -325,8 +326,8 @@ final class DatabricksThriftAccessor {
     } finally {
       transport.close();
     }
-    String statementId =
-        ThriftStatementId.fromOperationHandle(response.getOperationHandle()).toString();
+    StatementId statementId =
+        StatementId.fromOperationIdentifier(response.getOperationHandle().operationId);
     if (parentStatement != null) {
       parentStatement.setStatementId(statementId);
     }
@@ -371,7 +372,7 @@ final class DatabricksThriftAccessor {
     } finally {
       transport.close();
     }
-    String statementId = ThriftStatementId.fromOperationHandle(operationHandle).toString();
+    StatementId statementId = StatementId.fromOperationIdentifier(operationHandle.getOperationId());
     LOGGER.debug("outgoing stmt-Id " + statementId + " status " + response.operationState);
     return new DatabricksResultSet(
         response.getStatus(),

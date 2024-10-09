@@ -15,6 +15,7 @@ import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.api.IDatabricksSession;
 import com.databricks.jdbc.api.impl.*;
 import com.databricks.jdbc.common.StatementType;
+import com.databricks.jdbc.dbclient.impl.common.StatementId;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.model.client.thrift.generated.*;
 import com.databricks.jdbc.model.core.ExternalLink;
@@ -31,7 +32,8 @@ import org.mockito.junit.jupiter.MockitoExtension;
 public class DatabricksThriftServiceClientTest {
 
   private static final String NEW_ACCESS_TOKEN = "new-access-token";
-  private static final String TEST_STMT_ID = "MIIWiOiGTESQt3+6xIDA0A|vq8muWugTKm+ZsjNGZdauw";
+  private static final StatementId TEST_STMT_ID =
+      StatementId.deserialize("MIIWiOiGTESQt3+6xIDA0A|vq8muWugTKm+ZsjNGZdauw");
   @Mock DatabricksThriftAccessor thriftAccessor;
   @Mock IDatabricksSession session;
   @Mock TRowSet resultData;
@@ -94,9 +96,13 @@ public class DatabricksThriftServiceClientTest {
   }
 
   @Test
-  void testUnsupportedFunctions() throws Exception {
+  void testCloseStatement() throws Exception {
     DatabricksThriftServiceClient client =
         new DatabricksThriftServiceClient(thriftAccessor, connectionContext);
+    when(thriftAccessor.closeOperation(any()))
+        .thenReturn(
+            new TCloseOperationResp()
+                .setStatus(new TStatus().setStatusCode(TStatusCode.SUCCESS_STATUS)));
     client.closeStatement(TEST_STMT_ID);
     verify(thriftAccessor).closeOperation(any());
   }
@@ -313,6 +319,10 @@ public class DatabricksThriftServiceClientTest {
   void testCancelStatement() throws Exception {
     DatabricksThriftServiceClient client =
         new DatabricksThriftServiceClient(thriftAccessor, connectionContext);
+    when(thriftAccessor.cancelOperation(any()))
+        .thenReturn(
+            new TCancelOperationResp()
+                .setStatus(new TStatus().setStatusCode(TStatusCode.SUCCESS_STATUS)));
     client.cancelStatement(TEST_STMT_ID);
     verify(thriftAccessor).cancelOperation(any());
   }
