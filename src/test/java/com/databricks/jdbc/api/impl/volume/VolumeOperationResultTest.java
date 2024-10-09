@@ -156,9 +156,7 @@ public class VolumeOperationResultTest {
       volumeOperationResult.next();
       fail("Should throw DatabricksSQLException");
     } catch (DatabricksSQLException e) {
-      assertEquals(
-          "Volume operation aborted: Volume operation called on closed statement: statement closed",
-          e.getMessage());
+      assertEquals("statement closed", e.getMessage());
     }
   }
 
@@ -490,8 +488,7 @@ public class VolumeOperationResultTest {
       volumeOperationResult.next();
       fail("Should throw DatabricksSQLException");
     } catch (DatabricksSQLException e) {
-      assertEquals(
-          "Volume operation aborted: PUT operation called on closed statement", e.getMessage());
+      assertEquals("statement closed", e.getMessage());
     }
   }
 

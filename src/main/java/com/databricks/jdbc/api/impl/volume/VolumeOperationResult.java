@@ -87,9 +87,17 @@ public class VolumeOperationResult implements IExecutionResult {
             headers,
             localFile,
             allowedVolumeIngestionPaths,
+            statement.isAllowedInputStreamForVolumeOperation(),
+            statement.getInputStreamForUCVolume(),
             httpClient,
-            statement,
-            resultSet);
+            (entity) -> {
+              try {
+                this.resultSet.setVolumeOperationEntityStream(entity);
+              } catch (Exception e) {
+                throw new RuntimeException(
+                    "Failed to set result set volumeOperationEntityStream", e);
+              }
+            });
   }
 
   private String getAllowedVolumeIngestionPaths() {
@@ -191,6 +199,6 @@ public class VolumeOperationResult implements IExecutionResult {
 
   @Override
   public void close() {
-    // TODO: Implement close method - consider whether to abort the current operation
+    resultHandler.close();
   }
 }
