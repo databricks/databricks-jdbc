@@ -121,7 +121,7 @@ public class IntegrationTestUtil {
   }
 
   public static String getDatabricksBenchmarkingHTTPPathForThrift() {
-    return System.getenv("DATABRICKS_BENCHMARKING_HTTP_PATH_THRIFT");
+    return System.getenv("DATABRICKS_BENCHMARKING_HTTP_PATH_ALL_PURPOSE");
   }
 
   public static String getAllPurposeDatabricksHTTPPath() {
@@ -142,10 +142,6 @@ public class IntegrationTestUtil {
 
   public static String getDatabricksUser() {
     return System.getenv("DATABRICKS_USER");
-  }
-
-  public static String getThriftDatabricksUser() {
-    return System.getenv("THRIFT_DATABRICKS_USER");
   }
 
   public static Connection getValidJDBCConnection() throws SQLException {
@@ -213,7 +209,7 @@ public class IntegrationTestUtil {
       throws SQLException {
     return DriverManager.getConnection(
         getBenchmarkingJDBCUrlForThriftAllPurposeCluster(),
-        getThriftDatabricksUser(),
+        getDatabricksUser(),
         getThriftDatabricksToken());
   }
 
