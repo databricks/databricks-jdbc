@@ -1,7 +1,8 @@
 name: 'Close stale issues and PRs'
 on:
   schedule:
-    - cron: "30 6 * * *" #Run at 06:30 GMT everyday
+    # Run at 06:30 GMT everyday
+    - cron: "30 6 * * *"
 jobs:
   stale:
     runs-on:

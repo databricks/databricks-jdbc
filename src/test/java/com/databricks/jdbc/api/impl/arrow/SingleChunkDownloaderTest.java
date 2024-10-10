@@ -3,6 +3,7 @@ package com.databricks.jdbc.api.impl.arrow;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.*;
 
+import com.databricks.jdbc.common.CompressionType;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
@@ -31,6 +32,7 @@ public class SingleChunkDownloaderTest {
   void testRetryLogicWithSocketException() throws Exception {
     when(chunk.isChunkLinkInvalid()).thenReturn(false);
     when(chunk.getChunkIndex()).thenReturn(7L);
+    when(chunkDownloader.getCompressionType()).thenReturn(CompressionType.NONE);
 
     // Simulate SocketException for the first two attempts, then succeed
     doThrow(
@@ -41,11 +43,11 @@ public class SingleChunkDownloaderTest {
                 "Connection reset", new SocketException("Connection reset")))
         .doNothing()
         .when(chunk)
-        .downloadData(httpClient);
+        .downloadData(httpClient, CompressionType.NONE);
 
     singleChunkDownloader.call();
 
-    verify(chunk, times(3)).downloadData(httpClient);
+    verify(chunk, times(3)).downloadData(httpClient, CompressionType.NONE);
     verify(chunkDownloader, times(1)).downloadProcessed(7L);
   }
 
@@ -53,16 +55,18 @@ public class SingleChunkDownloaderTest {
   void testRetryLogicExhaustedWithSocketException() throws Exception {
     when(chunk.isChunkLinkInvalid()).thenReturn(false);
     when(chunk.getChunkIndex()).thenReturn(7L);
+    when(chunkDownloader.getCompressionType()).thenReturn(CompressionType.NONE);
 
     // Simulate SocketException for all attempts
     doThrow(
             new DatabricksParsingException(
                 "Connection reset", new SocketException("Connection reset")))
         .when(chunk)
-        .downloadData(httpClient);
+        .downloadData(httpClient, CompressionType.NONE);
 
     assertThrows(DatabricksSQLException.class, () -> singleChunkDownloader.call());
-    verify(chunk, times(SingleChunkDownloader.MAX_RETRIES)).downloadData(httpClient);
+    verify(chunk, times(SingleChunkDownloader.MAX_RETRIES))
+        .downloadData(httpClient, CompressionType.NONE);
     verify(chunkDownloader, times(1)).downloadProcessed(7L);
   }
 }

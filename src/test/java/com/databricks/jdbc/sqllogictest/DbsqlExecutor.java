@@ -199,9 +199,8 @@ public class DbsqlExecutor extends JdbcExecutor {
   }
 
   List<String> getViewList() {
-    List<String> result = new ArrayList<>();
-    // TODO: Add implementation once getTables allows fetching VIEWS
-    return result;
+    // TODO: Add implementation once getTables allows fetching VIEW(s)
+    return new ArrayList<>();
   }
 
   List<String> getTableList() throws SQLException {

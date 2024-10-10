@@ -1,13 +1,12 @@
 package com.databricks.jdbc.common.util;
 
-import com.databricks.jdbc.api.IDatabricksSession;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import java.nio.charset.Charset;
 
 public class DeviceInfoLogUtil {
 
-  public static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(DeviceInfoLogUtil.class);
+  private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(DeviceInfoLogUtil.class);
   private static final String JVM_NAME = System.getProperty("java.vm.name");
   private static final String JVM_SPEC_VERSION = System.getProperty("java.specification.version");
   private static final String JVM_IMPL_VERSION = System.getProperty("java.version");
@@ -30,20 +29,5 @@ public class DeviceInfoLogUtil {
             "Operating System Name: %s, Version: %s, Architecture: %s, Locale: %s",
             OS_NAME, OS_VERSION, OS_ARCH, LOCALE_NAME));
     LOGGER.info(String.format("Default Charset Encoding: %s", CHARSET_ENCODING));
-  }
-
-  public static void exportDeviceProperties(IDatabricksSession session) {
-    session
-        .getMetricsExporter()
-        .exportUsageMetrics(
-            JVM_NAME,
-            JVM_SPEC_VERSION,
-            JVM_IMPL_VERSION,
-            JVM_VENDOR,
-            OS_NAME,
-            OS_VERSION,
-            OS_ARCH,
-            LOCALE_NAME,
-            CHARSET_ENCODING);
   }
 }

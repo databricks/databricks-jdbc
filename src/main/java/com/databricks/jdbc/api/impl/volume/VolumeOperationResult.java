@@ -3,13 +3,12 @@ package com.databricks.jdbc.api.impl.volume;
 import static com.databricks.jdbc.common.DatabricksJdbcConstants.ALLOWED_STAGING_INGESTION_PATHS;
 import static com.databricks.jdbc.common.DatabricksJdbcConstants.ALLOWED_VOLUME_INGESTION_PATHS;
 
-import com.databricks.jdbc.api.IDatabricksResultSet;
 import com.databricks.jdbc.api.IDatabricksSession;
-import com.databricks.jdbc.api.IDatabricksStatement;
+import com.databricks.jdbc.api.callback.IDatabricksResultSetHandle;
+import com.databricks.jdbc.api.callback.IDatabricksStatementHandle;
 import com.databricks.jdbc.api.impl.IExecutionResult;
 import com.databricks.jdbc.common.ErrorCodes;
 import com.databricks.jdbc.common.ErrorTypes;
-import com.databricks.jdbc.common.util.MetricsUtil;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
 import com.databricks.jdbc.dbclient.impl.http.DatabricksHttpClient;
 import com.databricks.jdbc.exception.DatabricksSQLException;
@@ -27,8 +26,8 @@ public class VolumeOperationResult implements IExecutionResult {
   private final IDatabricksSession session;
   private final String statementId;
   private final IExecutionResult resultHandler;
-  private final IDatabricksResultSet resultSet;
-  private final IDatabricksStatement statement;
+  private final IDatabricksResultSetHandle resultSet;
+  private final IDatabricksStatementHandle statement;
   private final IDatabricksHttpClient httpClient;
   private final long rowCount;
   private final long columnCount;
@@ -42,8 +41,8 @@ public class VolumeOperationResult implements IExecutionResult {
       long totalColumns,
       IDatabricksSession session,
       IExecutionResult resultHandler,
-      IDatabricksStatement statement,
-      IDatabricksResultSet resultSet) {
+      IDatabricksStatementHandle statement,
+      IDatabricksResultSetHandle resultSet) {
     this.statementId = statementId;
     this.rowCount = totalRows;
     this.columnCount = totalColumns;
@@ -62,8 +61,8 @@ public class VolumeOperationResult implements IExecutionResult {
       IDatabricksSession session,
       IExecutionResult resultHandler,
       IDatabricksHttpClient httpClient,
-      IDatabricksStatement statement,
-      IDatabricksResultSet resultSet) {
+      IDatabricksStatementHandle statement,
+      IDatabricksResultSetHandle resultSet) {
     this.statementId = statementId;
     this.rowCount = manifest.getTotalRowCount();
     this.columnCount = manifest.getSchema().getColumnCount();
@@ -119,11 +118,6 @@ public class VolumeOperationResult implements IExecutionResult {
         try {
           return objectMapper.readValue(headers, Map.class);
         } catch (JsonProcessingException e) {
-          MetricsUtil.exportError(
-              session,
-              ErrorTypes.VOLUME_OPERATION_ERROR,
-              statementId,
-              ErrorCodes.VOLUME_OPERATION_PARSING_ERROR);
           throw new DatabricksSQLException(
               "Failed to parse headers",
               e,
@@ -197,6 +191,6 @@ public class VolumeOperationResult implements IExecutionResult {
 
   @Override
   public void close() {
-    // TODO: handle close, shall we abort the operation?
+    // TODO: Implement close method - consider whether to abort the current operation
   }
 }

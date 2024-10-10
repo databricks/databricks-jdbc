@@ -78,12 +78,12 @@ public class Slf4jLogger implements JdbcLogger {
 
   /** {@inheritDoc} */
   @Override
-  public void error(String message, Throwable throwable) {
+  public void error(Throwable throwable, String message) {
     logger.error(message, throwable);
   }
 
   @Override
-  public void error(String format, Throwable throwable, Object... arguments) {
+  public void error(Throwable throwable, String format, Object... arguments) {
     logger.error(format, throwable, arguments);
   }
 }

@@ -40,7 +40,7 @@ import org.apache.http.impl.conn.PoolingHttpClientConnectionManager;
  */
 public class ClientConfigurator {
 
-  public static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(ClientConfigurator.class);
+  private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(ClientConfigurator.class);
   private final IDatabricksConnectionContext connectionContext;
   private final DatabricksConfig databricksConfig;
 
@@ -101,7 +101,7 @@ public class ClientConfigurator {
           .build();
     } catch (Exception e) {
       String errorMessage = "Error while building trust manager parameters";
-      LOGGER.error(errorMessage, e);
+      LOGGER.error(e, errorMessage);
       throw new DatabricksException(errorMessage, e);
     }
   }
@@ -128,7 +128,7 @@ public class ClientConfigurator {
       }
     } catch (Exception e) {
       String errorMessage = "Error while loading truststore";
-      LOGGER.error(errorMessage, e);
+      LOGGER.error(e, errorMessage);
       throw new DatabricksException(errorMessage, e);
     }
   }
@@ -164,7 +164,7 @@ public class ClientConfigurator {
       return new CertPathTrustManagerParameters(pkixBuilderParameters);
     } catch (NoSuchAlgorithmException | InvalidAlgorithmParameterException e) {
       String errorMessage = "Error while building trust manager parameters";
-      LOGGER.error(errorMessage, e);
+      LOGGER.error(e, errorMessage);
       throw new DatabricksException(errorMessage, e);
     }
   }
@@ -185,7 +185,7 @@ public class ClientConfigurator {
           .collect(Collectors.toSet());
     } catch (Exception e) {
       String errorMessage = "Error while getting trust anchors from trust store";
-      LOGGER.error(errorMessage, e);
+      LOGGER.error(e, errorMessage);
       throw new DatabricksException(errorMessage, e);
     }
   }
@@ -236,7 +236,6 @@ public class ClientConfigurator {
 
   /** Setup the OAuth authentication settings in the databricks config. */
   public void setupOAuthConfig() throws DatabricksParsingException {
-    // TODO(Madhav): Revisit these to set JDBC values
     switch (this.connectionContext.getAuthFlow()) {
       case TOKEN_PASSTHROUGH:
         if (connectionContext.getOAuthRefreshToken() != null) {

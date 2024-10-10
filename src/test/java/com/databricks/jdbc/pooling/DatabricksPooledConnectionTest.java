@@ -55,6 +55,7 @@ public class DatabricksPooledConnectionTest {
 
     DatabricksConnection databricksConnection =
         new DatabricksConnection(connectionContext, databricksClient);
+    databricksConnection.open();
     Mockito.when(poolDataSource.getPooledConnection())
         .thenReturn(new DatabricksPooledConnection(databricksConnection));
 
@@ -98,6 +99,7 @@ public class DatabricksPooledConnectionTest {
 
     DatabricksConnection databricksConnection =
         new DatabricksConnection(connectionContext, databricksClient);
+    databricksConnection.open();
     Mockito.when(poolDataSource.getPooledConnection())
         .thenReturn(new DatabricksPooledConnection(databricksConnection));
 
@@ -126,6 +128,7 @@ public class DatabricksPooledConnectionTest {
 
     DatabricksConnection databricksConnection =
         new DatabricksConnection(connectionContext, databricksClient);
+    databricksConnection.open();
     Mockito.when(poolDataSource.getPooledConnection())
         .thenReturn(new DatabricksPooledConnection(databricksConnection));
 
@@ -158,6 +161,7 @@ public class DatabricksPooledConnectionTest {
         .thenReturn(session);
     DatabricksConnection databricksConnection =
         new DatabricksConnection(connectionContext, databricksClient);
+    databricksConnection.open();
     Mockito.when(poolDataSource.getPooledConnection())
         .thenReturn(new DatabricksPooledConnection(databricksConnection));
 
@@ -183,6 +187,7 @@ public class DatabricksPooledConnectionTest {
         .thenReturn(session);
     DatabricksConnection databricksConnection =
         new DatabricksConnection(connectionContext, databricksClient);
+    databricksConnection.open();
     Mockito.when(poolDataSource.getPooledConnection())
         .thenReturn(new DatabricksPooledConnection(databricksConnection));
 

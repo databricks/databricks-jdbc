@@ -28,7 +28,7 @@ public class Warehouse implements IDatabricksComputeResource {
 
   @Override
   public String getWorkspaceId() {
-    // TODO: Should return the workspace ID of the warehouse
+    // TODO: Return workspace ID instead of warehouse ID
     return this.warehouseId;
   }
 }

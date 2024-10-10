@@ -157,10 +157,6 @@ public interface IDatabricksConnectionContext {
 
   boolean supportManyParameters();
 
-  boolean isFakeServiceTest();
-
-  boolean enableTelemetry();
-
   String getConnectionURL();
 
   boolean checkCertificateRevocation();
