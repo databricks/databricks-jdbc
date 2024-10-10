@@ -71,7 +71,7 @@ jobs:
           
 
       - name: Run Large Queries Benchmarking Test
-        run: mvn test '-Dtest=**LargeQueriesBenchmarkingTest**'
+        run: mvn test -Dtest=com.databricks.jdbc.integration.benchmarking.LargeQueriesBenchmarkingTest
 
       - name: Run Metadata Benchmarking Test
-        run: mvn test '-Dtest=**MetadataBenchmarkingTests**'
+        run: mvn test -Dtest=com.databricks.jdbc.integration.benchmarking.MetadataBenchmarkingTests
