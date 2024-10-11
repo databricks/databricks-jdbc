@@ -121,7 +121,7 @@ public class IntegrationTestUtil {
   }
 
   public static String getDatabricksBenchmarkingHTTPPathForThrift() {
-    return System.getenv("DATABRICKS_BENCHMARKING_HTTP_PATH_ALL_PURPOSE");
+    return System.getenv("DATABRICKS_BENCHMARKING_HTTP_PATH_THRIFT");
   }
 
   public static String getAllPurposeDatabricksHTTPPath() {
