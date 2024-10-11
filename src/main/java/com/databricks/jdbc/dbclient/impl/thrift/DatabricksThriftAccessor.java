@@ -172,18 +172,17 @@ final class DatabricksThriftAccessor {
     TFetchResultsReq request =
         new TFetchResultsReq()
             .setOperationHandle(operationHandle)
-            .setIncludeResultSetMetadata(true)
             .setFetchType((short) 0) // 0 represents Query output. 1 represents Log
             .setMaxRows(maxRows)
             .setMaxBytes(DEFAULT_BYTE_LIMIT);
+    if (fetchMetadata) {
+      request.setIncludeResultSetMetadata(true);
+    }
     TFetchResultsResp response = null;
     DatabricksHttpTTransport transport =
         (DatabricksHttpTTransport) getThriftClient().getInputProtocol().getTransport();
     try {
       response = getThriftClient().FetchResults(request);
-      if (fetchMetadata) {
-        response.setResultSetMetadata(getResultSetMetadata(operationHandle));
-      }
     } catch (TException e) {
       String errorMessage =
           String.format(
@@ -535,7 +534,7 @@ final class DatabricksThriftAccessor {
           response.getOperationHandle(),
           response.toString(),
           DEFAULT_ROW_LIMIT,
-          true);
+          false);
     } finally {
       transport.close();
     }
