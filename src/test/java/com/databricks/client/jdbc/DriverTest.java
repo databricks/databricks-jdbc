@@ -269,42 +269,37 @@ public class DriverTest {
   }
 
   @Test
-  void testDBFSVolumeOperation() throws Exception
-  {
+  void testDBFSVolumeOperation() throws Exception {
     DriverManager.registerDriver(new Driver());
     DriverManager.drivers().forEach(driver -> System.out.println(driver.getClass()));
     System.out.println("Starting test");
     // Getting the connection
     String jdbcUrl =
-            "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/dd43ee29fedd958d;Loglevel=debug";
+        "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/dd43ee29fedd958d;Loglevel=debug";
     Connection con = DriverManager.getConnection(jdbcUrl, "jothi.prakash@databricks.com", "xx");
+    System.out.println("Connection created");
 
     DBFSVolumeClient client = new DBFSVolumeClient(con);
 
-    System.out.println("Connection created");
-
     File file = new File("/tmp/put.txt");
-
-    try{
-      Files.writeString(file.toPath(), "test-put12sdfsdfsf32432342352352352");
-
+    try {
+      Files.writeString(file.toPath(), "test-put");
       System.out.println("File created");
-     // ___________________first.jprakash-test.jprakash_volume
-      System.out.println(
-              "Object inserted "
-                      + client.putObject(
-                      "___________________first",
-                      "jprakash-test",
-                      "jprakash_volume",
-                      "test-stream.csv",
-                      "/tmp/put.txt",false));
 
-    } catch(Exception e)
-    {
-        e.printStackTrace();
-        } finally {
-        file.delete();
-        con.close();
+      System.out.println(
+          "Object inserted "
+              + client.putObject(
+                  "___________________first",
+                  "jprakash-test",
+                  "jprakash_volume",
+                  "test-stream.csv",
+                  "/tmp/put.txt"));
+
+    } catch (Exception e) {
+      e.printStackTrace();
+    } finally {
+      file.delete();
+      con.close();
     }
   }
 

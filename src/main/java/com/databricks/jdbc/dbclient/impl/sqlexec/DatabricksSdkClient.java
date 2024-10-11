@@ -197,20 +197,18 @@ public class DatabricksSdkClient implements IDatabricksClient {
         parentStatement);
   }
 
-  public CreateUploadUrlResponse createUploadUrl(String path) throws SQLException
-  {
-    LOGGER.debug(
-        String.format("public void createUploadUrl(String path = {%s})", path));
+  public CreateUploadUrlResponse createUploadUrl(String path) throws SQLException {
+    LOGGER.debug(String.format("public void createUploadUrl(String path = {%s})", path));
     CreateUploadUrlRequest request = new CreateUploadUrlRequest(path);
     try {
-      return workspaceClient.apiClient().POST(CREATE_UPLOAD_URL_PATH, request, CreateUploadUrlResponse.class, getHeaders());
-    } catch(Exception e)
-    {
-        LOGGER.error("Failed to get the created upload url - {%s}", e.getMessage());
-        throw e;
+      return workspaceClient
+          .apiClient()
+          .POST(CREATE_UPLOAD_URL_PATH, request, CreateUploadUrlResponse.class, getHeaders());
+    } catch (Exception e) {
+      LOGGER.error("Failed to get the created upload url - {%s}", e.getMessage());
+      throw e;
     }
   }
-
 
   @Override
   public void closeStatement(String statementId) {
