@@ -127,7 +127,6 @@ public class ChunkDownloader implements ChunkDownloadCallback {
       return null;
     }
     ArrowResultChunk chunk = chunkIndexToChunksMap.get(currentChunkIndex);
-    httpClient.closeExpiredAndIdleConnections();
     synchronized (chunk) {
       try {
         while (!isDownloadComplete(chunk.getStatus())) {
@@ -194,7 +193,6 @@ public class ChunkDownloader implements ChunkDownloadCallback {
     this.isClosed = true;
     this.chunkDownloaderExecutorService.shutdownNow();
     this.chunkIndexToChunksMap.values().forEach(ArrowResultChunk::releaseChunk);
-    httpClient.closeExpiredAndIdleConnections();
   }
 
   void downloadNextChunks() {

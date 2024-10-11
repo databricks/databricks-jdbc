@@ -39,14 +39,12 @@ public class DatabricksThriftAccessorTest {
   private static final TOperationHandle tOperationHandle =
       new TOperationHandle().setOperationId(handleIdentifier).setHasResultSet(false);
   private static final TRowSet rowSet = new TRowSet().setResultLinks(new ArrayList<>(2));
-
   private static final TFetchResultsResp response =
       new TFetchResultsResp()
           .setStatus(new TStatus().setStatusCode(TStatusCode.SUCCESS_STATUS))
           .setResultSetMetadata(
               new TGetResultSetMetadataResp().setResultFormat(TSparkRowSetType.COLUMN_BASED_SET))
           .setResults(rowSet);
-
   private static final TSparkDirectResults directResults =
       new TSparkDirectResults()
           .setResultSet(response)
@@ -54,7 +52,6 @@ public class DatabricksThriftAccessorTest {
               new TGetResultSetMetadataResp()
                   .setResultFormat(TSparkRowSetType.COLUMN_BASED_SET)
                   .setStatus(new TStatus().setStatusCode(TStatusCode.SUCCESS_STATUS)));
-
   private static final String NEW_ACCESS_TOKEN = "new-access-token";
 
   void setup(Boolean directResultsEnabled) {

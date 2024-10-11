@@ -14,7 +14,6 @@ import com.databricks.sdk.core.ProxyConfig;
 import java.io.IOException;
 import java.net.URI;
 import java.util.Properties;
-import java.util.concurrent.TimeUnit;
 import org.apache.http.HttpException;
 import org.apache.http.HttpHost;
 import org.apache.http.client.methods.CloseableHttpResponse;
@@ -191,22 +190,6 @@ public class DatabricksHttpClientTest {
     when(request.getURI()).thenReturn(URI.create("TestURI"));
     when(mockHttpClient.execute(request)).thenReturn(closeableHttpResponse);
     assertEquals(closeableHttpResponse, databricksHttpClient.execute(request));
-  }
-
-  @Test
-  void testCloseExpiredAndIdleConnections() {
-    DatabricksHttpClient databricksHttpClient =
-        new DatabricksHttpClient(mockHttpClient, connectionManager);
-    databricksHttpClient.closeExpiredAndIdleConnections();
-    verify(connectionManager).closeExpiredConnections();
-    verify(connectionManager)
-        .closeIdleConnections(DatabricksHttpClient.idleHttpConnectionExpiry, TimeUnit.SECONDS);
-  }
-
-  @Test
-  void testCloseExpiredAndIdleConnectionsForNull() {
-    DatabricksHttpClient databricksHttpClient = new DatabricksHttpClient(mockHttpClient, null);
-    assertDoesNotThrow(databricksHttpClient::closeExpiredAndIdleConnections);
   }
 
   @Test
