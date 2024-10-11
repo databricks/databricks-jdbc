@@ -240,13 +240,17 @@
         </configuration>
         <executions>
           <execution>
-            <id>default-jar</id>
+            <id>attach-thin-jar</id>
             <phase>package</phase>
             <goals>
               <goal>jar</goal>
             </goals>
+            <configuration>
+              <classifier>thin</classifier>
+            </configuration>
           </execution>
           <execution>
+            <id>attach-test-jar</id>
             <goals>
               <goal>test-jar</goal>
             </goals>
@@ -378,8 +382,7 @@
             </goals>
             <configuration>
               <createDependencyReducedPom>false</createDependencyReducedPom>
-              <shadedArtifactAttached>true</shadedArtifactAttached>
-              <shadedClassifierName>UBER</shadedClassifierName>
+              <shadedArtifactAttached>false</shadedArtifactAttached>
               <relocations>
                 <relocation>
                   <pattern>codegen</pattern>
