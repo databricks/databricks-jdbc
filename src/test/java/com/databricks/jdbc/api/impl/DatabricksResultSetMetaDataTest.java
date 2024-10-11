@@ -246,24 +246,12 @@ public class DatabricksResultSetMetaDataTest {
   public void testDispositionSdk() {
     ResultManifest resultManifest = getResultManifest();
 
-    // Case 1: Null chunks should return INLINE
-    resultManifest.setChunks(null);
     DatabricksResultSetMetaData metaData =
-        new DatabricksResultSetMetaData(STATEMENT_ID, resultManifest);
+        new DatabricksResultSetMetaData(STATEMENT_ID, resultManifest, true);
     assertEquals(Disposition.INLINE, metaData.getDisposition());
 
-    // Case 2: Non-zero byte count should return EXTERNAL_LINKS
-    BaseChunkInfo chunkInfo = new BaseChunkInfo();
-    chunkInfo.setByteCount(81848L); // Non-zero byte count
-    resultManifest.setChunks(List.of(chunkInfo));
-    metaData = new DatabricksResultSetMetaData(STATEMENT_ID, resultManifest);
+    metaData = new DatabricksResultSetMetaData(STATEMENT_ID, resultManifest, false);
     assertEquals(Disposition.EXTERNAL_LINKS, metaData.getDisposition());
-
-    // Case 3: Zero byte count should return INLINE
-    chunkInfo.setByteCount(0L); // Zero byte count
-    resultManifest.setChunks(List.of(chunkInfo));
-    metaData = new DatabricksResultSetMetaData(STATEMENT_ID, resultManifest);
-    assertEquals(Disposition.INLINE, metaData.getDisposition());
   }
 
   private void verifyDefaultMetadataProperties(DatabricksResultSetMetaData metaData)
