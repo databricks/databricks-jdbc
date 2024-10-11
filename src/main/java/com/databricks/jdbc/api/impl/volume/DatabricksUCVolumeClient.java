@@ -48,7 +48,7 @@ public class DatabricksUCVolumeClient implements IDatabricksUCVolumeClient {
     return escapeStringLiteral(String.format("/Volumes/%s/%s/%s/", catalog, schema, volume));
   }
 
-  private static String getObjectFullPath(
+  public static String getObjectFullPath(
       String catalog, String schema, String volume, String objectPath) {
     return getVolumePath(catalog, schema, volume) + escapeStringLiteral(objectPath);
   }

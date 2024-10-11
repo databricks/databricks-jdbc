@@ -3,6 +3,7 @@ package com.databricks.client.jdbc;
 import com.databricks.jdbc.api.IDatabricksConnection;
 import com.databricks.jdbc.api.IDatabricksUCVolumeClient;
 import com.databricks.jdbc.api.impl.arrow.ArrowResultChunk;
+import com.databricks.jdbc.api.impl.volume.DBFSVolumeClient;
 import com.databricks.jdbc.common.DatabricksJdbcConstants;
 import java.io.File;
 import java.io.FileInputStream;
@@ -264,6 +265,46 @@ public class DriverTest {
     } finally {
       file.delete();
       con.close();
+    }
+  }
+
+  @Test
+  void testDBFSVolumeOperation() throws Exception
+  {
+    DriverManager.registerDriver(new Driver());
+    DriverManager.drivers().forEach(driver -> System.out.println(driver.getClass()));
+    System.out.println("Starting test");
+    // Getting the connection
+    String jdbcUrl =
+            "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/dd43ee29fedd958d;Loglevel=debug";
+    Connection con = DriverManager.getConnection(jdbcUrl, "jothi.prakash@databricks.com", "dapiac2fbfbdda30ae00bc4a117381c46ca1");
+
+    DBFSVolumeClient client = new DBFSVolumeClient(con);
+
+    System.out.println("Connection created");
+
+    File file = new File("/tmp/put.txt");
+
+    try{
+      Files.writeString(file.toPath(), "test-put12sdfsdfsf32432342352352352");
+
+      System.out.println("File created");
+     // ___________________first.jprakash-test.jprakash_volume
+      System.out.println(
+              "Object inserted "
+                      + client.putObject(
+                      "___________________first",
+                      "jprakash-test",
+                      "jprakash_volume",
+                      "test-stream.csv",
+                      "/tmp/put.txt",false));
+
+    } catch(Exception e)
+    {
+        e.printStackTrace();
+        } finally {
+        file.delete();
+        con.close();
     }
   }
 
