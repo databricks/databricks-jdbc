@@ -14,6 +14,7 @@ import static org.mockito.Mockito.when;
 import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.api.IDatabricksSession;
 import com.databricks.jdbc.api.impl.*;
+import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
 import com.databricks.jdbc.common.StatementType;
 import com.databricks.jdbc.dbclient.impl.common.StatementId;
 import com.databricks.jdbc.exception.DatabricksSQLException;
@@ -40,6 +41,7 @@ public class DatabricksThriftServiceClientTest {
   @Mock TGetResultSetMetadataResp resultMetadataData;
   @Mock DatabricksResultSet resultSet;
   @Mock IDatabricksConnectionContext connectionContext;
+  @Mock IDatabricksStatementInternal parentStatement;
 
   @Test
   void testCreateSession() throws DatabricksSQLException {
@@ -92,6 +94,28 @@ public class DatabricksThriftServiceClientTest {
     DatabricksResultSet actualResultSet =
         client.executeStatement(
             TEST_STRING, CLUSTER_COMPUTE, Collections.emptyMap(), StatementType.SQL, session, null);
+    assertEquals(resultSet, actualResultSet);
+  }
+
+  @Test
+  void testExecuteAsync() throws SQLException {
+    when(connectionContext.shouldEnableArrow()).thenReturn(true);
+    DatabricksThriftServiceClient client =
+        new DatabricksThriftServiceClient(thriftAccessor, connectionContext);
+    when(session.getSessionInfo()).thenReturn(SESSION_INFO);
+    TExecuteStatementReq executeStatementReq =
+        new TExecuteStatementReq()
+            .setStatement(TEST_STRING)
+            .setSessionHandle(SESSION_HANDLE)
+            .setCanReadArrowResult(true)
+            .setCanDecompressLZ4Result(true)
+            .setCanDownloadResult(true);
+    when(thriftAccessor.executeAsync(
+            executeStatementReq, parentStatement, session, StatementType.SQL))
+        .thenReturn(resultSet);
+    DatabricksResultSet actualResultSet =
+        client.executeStatementAsync(
+            TEST_STRING, CLUSTER_COMPUTE, Collections.emptyMap(), session, parentStatement);
     assertEquals(resultSet, actualResultSet);
   }
 

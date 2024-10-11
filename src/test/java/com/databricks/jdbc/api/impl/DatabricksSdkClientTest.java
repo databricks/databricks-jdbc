@@ -57,7 +57,7 @@ public class DatabricksSdkClientTest {
         .thenReturn(response);
   }
 
-  private void setupClientMocks() {
+  private void setupClientMocks(boolean includeResults) {
     List<StatementParameterListItem> params =
         new ArrayList<>() {
           {
@@ -83,13 +83,16 @@ public class DatabricksSdkClientTest {
     ExecuteStatementResponse response =
         new ExecuteStatementResponse()
             .setStatementId(STATEMENT_ID.toSQLExecStatementId())
-            .setStatus(statementStatus)
-            .setResult(resultData)
-            .setManifest(
-                new ResultManifest()
-                    .setFormat(Format.JSON_ARRAY)
-                    .setSchema(new ResultSchema().setColumns(new ArrayList<>()).setColumnCount(0L))
-                    .setTotalRowCount(0L));
+            .setStatus(statementStatus);
+    if (includeResults) {
+      response
+          .setResult(resultData)
+          .setManifest(
+              new ResultManifest()
+                  .setFormat(Format.JSON_ARRAY)
+                  .setSchema(new ResultSchema().setColumns(new ArrayList<>()).setColumnCount(0L))
+                  .setTotalRowCount(0L));
+    }
 
     when(apiClient.POST(anyString(), any(), any(), any()))
         .thenAnswer(
@@ -139,7 +142,7 @@ public class DatabricksSdkClientTest {
 
   @Test
   public void testExecuteStatement() throws Exception {
-    setupClientMocks();
+    setupClientMocks(true);
     IDatabricksConnectionContext connectionContext =
         DatabricksConnectionContext.parse(JDBC_URL, new Properties());
     DatabricksSdkClient databricksSdkClient =
@@ -168,6 +171,36 @@ public class DatabricksSdkClientTest {
             connection.getSession(),
             statement);
     assertEquals(STATEMENT_ID.toString(), statement.getStatementId());
+    assertNotNull(resultSet.getMetaData());
+  }
+
+  @Test
+  public void testExecuteStatementAsync() throws Exception {
+    setupClientMocks(false);
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContext.parse(JDBC_URL, new Properties());
+    DatabricksSdkClient databricksSdkClient =
+        new DatabricksSdkClient(connectionContext, statementExecutionService, apiClient);
+    DatabricksConnection connection =
+        new DatabricksConnection(connectionContext, databricksSdkClient);
+    connection.open();
+    DatabricksStatement statement = new DatabricksStatement(connection);
+    statement.setMaxRows(100);
+    HashMap<Integer, ImmutableSqlParameter> sqlParams =
+        new HashMap<>() {
+          {
+            put(1, getSqlParam(1, 100, DatabricksTypeUtil.BIGINT));
+            put(2, getSqlParam(2, (short) 10, DatabricksTypeUtil.SMALLINT));
+            put(3, getSqlParam(3, (byte) 15, DatabricksTypeUtil.TINYINT));
+            put(4, getSqlParam(4, "value", DatabricksTypeUtil.STRING));
+          }
+        };
+
+    DatabricksResultSet resultSet =
+        databricksSdkClient.executeStatementAsync(
+            STATEMENT, warehouse, sqlParams, connection.getSession(), statement);
+    assertEquals(STATEMENT_ID.toString(), statement.getStatementId());
+    assertNull(resultSet.getMetaData());
   }
 
   @Test

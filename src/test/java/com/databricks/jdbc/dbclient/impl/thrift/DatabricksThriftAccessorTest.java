@@ -34,11 +34,14 @@ public class DatabricksThriftAccessorTest {
   @Mock DatabricksConfig config;
   @Mock IDatabricksStatementInternal statement;
   @Mock IDatabricksConnectionContext connectionContext;
+  @Mock IDatabricksStatementInternal parentStatement;
   static DatabricksThriftAccessor accessor;
 
   private static final String TEST_STMT_ID = "MIIWiOiGTESQt3+6xIDA0A|vq8muWugTKm+ZsjNGZdauw";
   static THandleIdentifier handleIdentifier =
       StatementId.deserialize(TEST_STMT_ID).toOperationIdentifier();
+  private static final StatementId STATEMENT_ID =
+      StatementId.fromOperationIdentifier(handleIdentifier);
   private static final TOperationHandle tOperationHandle =
       new TOperationHandle().setOperationId(handleIdentifier).setHasResultSet(false);
   private static final TFetchResultsReq fetchResultsReq =
@@ -110,6 +113,7 @@ public class DatabricksThriftAccessorTest {
     when(thriftClient.GetResultSetMetadata(resultSetMetadataReq)).thenReturn(metadataResp);
     when(thriftClient.FetchResults(fetchResultsReq)).thenReturn(response);
     when(thriftClient.ExecuteStatement(request)).thenReturn(tExecuteStatementResp);
+    when(parentStatement.getMaxRows()).thenReturn(DEFAULT_ROW_LIMIT);
     TGetOperationStatusReq operationStatusReq =
         new TGetOperationStatusReq()
             .setOperationHandle(tOperationHandle)
@@ -118,7 +122,31 @@ public class DatabricksThriftAccessorTest {
         .thenReturn(
             new TGetOperationStatusResp()
                 .setStatus(new TStatus().setStatusCode(TStatusCode.SUCCESS_STATUS)));
-    DatabricksResultSet resultSet = accessor.execute(request, null, null, StatementType.SQL);
+    DatabricksResultSet resultSet =
+        accessor.execute(request, parentStatement, null, StatementType.SQL);
+    assertEquals(resultSet.getStatementStatus().getState(), StatementState.SUCCEEDED);
+  }
+
+  @Test
+  void testExecuteAsync() throws TException, SQLException {
+    setup(true);
+    TExecuteStatementReq request = new TExecuteStatementReq();
+    TExecuteStatementResp tExecuteStatementResp =
+        new TExecuteStatementResp()
+            .setOperationHandle(tOperationHandle)
+            .setStatus(new TStatus().setStatusCode(TStatusCode.SUCCESS_STATUS));
+    when(thriftClient.ExecuteStatement(request)).thenReturn(tExecuteStatementResp);
+    when(parentStatement.getMaxRows()).thenReturn(DEFAULT_ROW_LIMIT);
+    TGetOperationStatusReq operationStatusReq =
+        new TGetOperationStatusReq()
+            .setOperationHandle(tOperationHandle)
+            .setGetProgressUpdate(false);
+    when(thriftClient.GetOperationStatus(operationStatusReq))
+        .thenReturn(
+            new TGetOperationStatusResp()
+                .setStatus(new TStatus().setStatusCode(TStatusCode.SUCCESS_STATUS)));
+    DatabricksResultSet resultSet =
+        accessor.executeAsync(request, parentStatement, null, StatementType.SQL);
     assertEquals(resultSet.getStatementStatus().getState(), StatementState.SUCCEEDED);
   }
 
