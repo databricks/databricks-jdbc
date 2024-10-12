@@ -1,8 +1,7 @@
 package com.databricks.jdbc.api.impl;
 
 import static com.databricks.jdbc.common.util.DatabricksThriftUtil.getTypeFromTypeDesc;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.*;
 
 import com.databricks.jdbc.common.DatabricksJdbcConstants;
 import com.databricks.jdbc.common.util.DatabricksTypeUtil;
@@ -227,19 +226,19 @@ public class DatabricksResultSetMetaDataTest {
     thriftResultManifest.setResultFormat(TSparkRowSetType.ARROW_BASED_SET);
     DatabricksResultSetMetaData metaData =
         new DatabricksResultSetMetaData(STATEMENT_ID, thriftResultManifest, 1, 1);
-    assertEquals(metaData.getDisposition(), Disposition.INLINE);
+    assertFalse(metaData.getIsCloudFetched());
 
     thriftResultManifest.setResultFormat(TSparkRowSetType.COLUMN_BASED_SET);
     metaData = new DatabricksResultSetMetaData(STATEMENT_ID, thriftResultManifest, 1, 1);
-    assertEquals(metaData.getDisposition(), Disposition.INLINE);
+    assertFalse(metaData.getIsCloudFetched());
 
     thriftResultManifest.setResultFormat(TSparkRowSetType.ROW_BASED_SET);
     metaData = new DatabricksResultSetMetaData(STATEMENT_ID, thriftResultManifest, 1, 1);
-    assertEquals(metaData.getDisposition(), Disposition.INLINE);
+    assertFalse(metaData.getIsCloudFetched());
 
     thriftResultManifest.setResultFormat(TSparkRowSetType.URL_BASED_SET);
     metaData = new DatabricksResultSetMetaData(STATEMENT_ID, thriftResultManifest, 1, 1);
-    assertEquals(metaData.getDisposition(), Disposition.EXTERNAL_LINKS);
+    assertTrue(metaData.getIsCloudFetched());
   }
 
   @Test
@@ -248,10 +247,10 @@ public class DatabricksResultSetMetaDataTest {
 
     DatabricksResultSetMetaData metaData =
         new DatabricksResultSetMetaData(STATEMENT_ID, resultManifest, true);
-    assertEquals(Disposition.INLINE, metaData.getDisposition());
+    assertFalse(metaData.getIsCloudFetched());
 
     metaData = new DatabricksResultSetMetaData(STATEMENT_ID, resultManifest, false);
-    assertEquals(Disposition.EXTERNAL_LINKS, metaData.getDisposition());
+    assertTrue(metaData.getIsCloudFetched());
   }
 
   private void verifyDefaultMetadataProperties(DatabricksResultSetMetaData metaData)

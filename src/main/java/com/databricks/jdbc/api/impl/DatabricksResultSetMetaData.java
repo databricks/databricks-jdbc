@@ -15,7 +15,6 @@ import com.databricks.jdbc.model.core.ColumnMetadata;
 import com.databricks.jdbc.model.core.ResultManifest;
 import com.databricks.sdk.service.sql.ColumnInfo;
 import com.databricks.sdk.service.sql.ColumnInfoTypeName;
-import com.databricks.sdk.service.sql.Disposition;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import java.sql.ResultSetMetaData;
@@ -34,7 +33,7 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
   private final ImmutableMap<String, Integer> columnNameIndex;
   private final long totalRows;
   private Long chunkCount;
-  private final Disposition disposition;
+  private final boolean isCloudFetched;
 
   /**
    * Constructs a {@code DatabricksResultSetMetaData} object for a SEA result set.
@@ -93,7 +92,7 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
     this.columnNameIndex = ImmutableMap.copyOf(columnNameToIndexMap);
     this.totalRows = resultManifest.getTotalRowCount();
     this.chunkCount = resultManifest.getTotalChunkCount();
-    this.disposition = getDispositionSdk(isExternalLinksNull);
+    this.isCloudFetched = !isExternalLinksNull;
   }
 
   /**
@@ -155,7 +154,7 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
     this.columnNameIndex = ImmutableMap.copyOf(columnNameToIndexMap);
     this.totalRows = rows;
     this.chunkCount = chunkCount;
-    this.disposition = getDispositionThrift(resultManifest);
+    this.isCloudFetched = resultManifest.getResultFormat() == TSparkRowSetType.URL_BASED_SET;
   }
 
   /**
@@ -196,7 +195,7 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
     this.columns = columnsBuilder.build();
     this.columnNameIndex = ImmutableMap.copyOf(columnNameToIndexMap);
     this.totalRows = totalRows;
-    this.disposition = Disposition.INLINE;
+    this.isCloudFetched = false;
   }
 
   /**
@@ -241,7 +240,7 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
     this.columns = columnsBuilder.build();
     this.columnNameIndex = ImmutableMap.copyOf(columnNameToIndexMap);
     this.totalRows = totalRows;
-    this.disposition = Disposition.INLINE;
+    this.isCloudFetched = false;
   }
 
   @Override
@@ -383,8 +382,8 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
     return totalRows;
   }
 
-  public Disposition getDisposition() {
-    return disposition;
+  public boolean getIsCloudFetched() {
+    return isCloudFetched;
   }
 
   public Long getChunkCount() {
@@ -431,18 +430,5 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
         .isCurrency(false)
         .typeScale(0)
         .isCaseSensitive(false);
-  }
-
-  private Disposition getDispositionSdk(Boolean isExternalLinksNull) {
-    if (isExternalLinksNull) {
-      return Disposition.INLINE;
-    }
-    return Disposition.EXTERNAL_LINKS;
-  }
-
-  private Disposition getDispositionThrift(TGetResultSetMetadataResp resultManifest) {
-    return resultManifest.getResultFormat() == TSparkRowSetType.URL_BASED_SET
-        ? Disposition.EXTERNAL_LINKS
-        : Disposition.INLINE;
   }
 }

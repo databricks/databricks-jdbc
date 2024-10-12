@@ -109,7 +109,8 @@ public class DriverTest {
     ResultSet resultSetArrowEnabled = conArrowEnabled.createStatement().executeQuery(query);
     DatabricksResultSetMetaData rmsdArrowEnabled =
         (DatabricksResultSetMetaData) resultSetArrowEnabled.getMetaData();
-    System.out.println("Disposition: " + rmsdArrowEnabled.getDisposition());
+    System.out.println(
+        "isCloudFetched when arrow is enabled: " + rmsdArrowEnabled.getIsCloudFetched());
     resultSetArrowEnabled.close();
     conArrowEnabled.close();
 
@@ -119,7 +120,8 @@ public class DriverTest {
     ResultSet resultSetArrowDisabled = conArrowDisabled.createStatement().executeQuery(query);
     DatabricksResultSetMetaData rmsdArrowDisabled =
         (DatabricksResultSetMetaData) resultSetArrowDisabled.getMetaData();
-    System.out.println("Disposition: " + rmsdArrowDisabled.getDisposition());
+    System.out.println(
+        "isCloudFetched when arrow is disabled: " + rmsdArrowDisabled.getIsCloudFetched());
     resultSetArrowDisabled.close();
     conArrowDisabled.close();
   }
@@ -129,14 +131,14 @@ public class DriverTest {
     DriverManager.registerDriver(new Driver());
     DriverManager.drivers().forEach(driver -> System.out.println(driver.getClass()));
     String jdbcUrl =
-        "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=https;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/791ba2a31c7fd70a;usethriftclient=1";
+        "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=https;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/791ba2a31c7fd70a;usethriftclient=1;";
 
     Connection con1 =
         DriverManager.getConnection(jdbcUrl, "token", "xx"); // Default connection, arrow enabled.
     System.out.println("Connection established ......");
     ResultSet resultSet1 = con1.createStatement().executeQuery("SELECT * FROM RANGE(10)");
     DatabricksResultSetMetaData rmsd1 = (DatabricksResultSetMetaData) resultSet1.getMetaData();
-    System.out.println("Disposition in case of small result set: " + rmsd1.getDisposition());
+    System.out.println("isCloudFetched in case of small result set: " + rmsd1.getIsCloudFetched());
     resultSet1.close();
     con1.close();
 
@@ -144,7 +146,7 @@ public class DriverTest {
     System.out.println("Connection established ......");
     ResultSet resultSet2 = con2.createStatement().executeQuery("SELECT * FROM RANGE(10000000)");
     DatabricksResultSetMetaData rmsd2 = (DatabricksResultSetMetaData) resultSet2.getMetaData();
-    System.out.println("Disposition in case of large result set: " + rmsd2.getDisposition());
+    System.out.println("isCloudFetched in case of large result set: " + rmsd2.getIsCloudFetched());
     resultSet2.close();
     con2.close();
   }
