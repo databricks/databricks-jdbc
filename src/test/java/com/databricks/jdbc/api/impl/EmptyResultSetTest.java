@@ -2,7 +2,6 @@ package com.databricks.jdbc.api.impl;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-import com.databricks.jdbc.api.impl.TestUtils;
 import java.io.*;
 import java.math.BigDecimal;
 import java.sql.*;

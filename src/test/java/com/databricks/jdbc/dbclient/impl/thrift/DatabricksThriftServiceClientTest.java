@@ -224,7 +224,7 @@ public class DatabricksThriftServiceClientTest {
             .setResultSetMetadata(resultMetadataData);
     TColumn tColumn = new TColumn();
     tColumn.setStringVal(new TStringColumn().setValues(Collections.singletonList("")));
-    when(resultData.getColumns()).thenReturn(List.of(tColumn, tColumn, tColumn, tColumn));
+    when(resultData.getColumns()).thenReturn(Arrays.asList(tColumn, tColumn, tColumn, tColumn));
     when(thriftAccessor.getThriftResponse(request)).thenReturn(response);
     DatabricksResultSet resultSet =
         client.listTables(session, TEST_CATALOG, TEST_SCHEMA, TEST_TABLE, tableTypes);

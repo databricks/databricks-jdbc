@@ -620,7 +620,7 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
       if (length != -1) {
         checkLength(length, bytesRead);
       }
-      return buffer.toString(charset);
+      return new String(buffer.toByteArray(), charset);
     } catch (IOException e) {
       String message = "Error reading from the InputStream";
       LOGGER.error(message);
@@ -679,7 +679,7 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
             : sql;
     Map<Integer, ImmutableSqlParameter> paramMap =
         this.interpolateParameters
-            ? new HashMap<>()
+            ? new HashMap<Integer, ImmutableSqlParameter>()
             : this.databricksParameterMetaData.getParameterBindings();
     return executeInternal(interpolatedSql, paramMap, statementType);
   }

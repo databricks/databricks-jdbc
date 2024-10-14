@@ -236,10 +236,17 @@ public class DatabricksSdkClient implements IDatabricksClient {
     this.workspaceClient = clientConfigurator.getWorkspaceClient();
   }
 
+  private static final Map<String, String> HEADERS;
+
+  static {
+    Map<String, String> headers = new HashMap<>();
+    headers.put("Accept", "application/json");
+    headers.put("Content-Type", "application/json");
+    HEADERS = Collections.unmodifiableMap(headers);
+  }
+
   private static Map<String, String> getHeaders() {
-    return Map.of(
-        "Accept", "application/json",
-        "Content-Type", "application/json");
+    return HEADERS;
   }
 
   private boolean useCloudFetchForResult(StatementType statementType) {

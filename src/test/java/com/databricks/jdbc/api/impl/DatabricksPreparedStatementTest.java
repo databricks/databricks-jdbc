@@ -427,26 +427,26 @@ public class DatabricksPreparedStatementTest {
         UnsupportedOperationException.class, () -> preparedStatement.setBinaryStream(1, null, 1));
     assertThrows(
         UnsupportedOperationException.class,
-        () -> preparedStatement.setBinaryStream(1, InputStream.nullInputStream(), 1));
+        () -> preparedStatement.setBinaryStream(1, (InputStream) null, 1));
     assertThrows(
         UnsupportedOperationException.class,
-        () -> preparedStatement.setBinaryStream(1, InputStream.nullInputStream(), 1L));
-    assertThrows(
-        UnsupportedOperationException.class, () -> preparedStatement.setBinaryStream(1, null));
-    assertThrows(
-        UnsupportedOperationException.class, () -> preparedStatement.setNCharacterStream(1, null));
+        () -> preparedStatement.setBinaryStream(1, (InputStream) null, 1L));
     assertThrows(
         UnsupportedOperationException.class,
-        () -> preparedStatement.setUnicodeStream(1, InputStream.nullInputStream(), 1));
+        () -> preparedStatement.setBinaryStream(1, (InputStream) null));
     assertThrows(
         UnsupportedOperationException.class,
-        () -> preparedStatement.setClob(1, Reader.nullReader()));
+        () -> preparedStatement.setNCharacterStream(1, (Reader) null));
     assertThrows(
         UnsupportedOperationException.class,
-        () -> preparedStatement.setBlob(1, InputStream.nullInputStream()));
+        () -> preparedStatement.setUnicodeStream(1, (InputStream) null, 1));
+    assertThrows(
+        UnsupportedOperationException.class, () -> preparedStatement.setClob(1, (Reader) null));
     assertThrows(
         UnsupportedOperationException.class,
-        () -> preparedStatement.setNClob(1, Reader.nullReader()));
+        () -> preparedStatement.setBlob(1, (InputStream) null));
+    assertThrows(
+        UnsupportedOperationException.class, () -> preparedStatement.setNClob(1, (Reader) null));
     assertThrows(UnsupportedOperationException.class, () -> preparedStatement.setTime(1, null));
     assertThrows(
         UnsupportedOperationException.class, () -> preparedStatement.setTime(1, null, null));
