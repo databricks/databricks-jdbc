@@ -80,10 +80,6 @@ public class IntegrationTestUtil {
     return System.getenv("DATABRICKS_BENCHMARKING_HOST");
   }
 
-  public static String getAllPurposeDatabricksHost() {
-    return System.getenv("THRIFT_DATABRICKS_HOST");
-  }
-
   public static String getDatabricksToken() {
     return System.getenv("DATABRICKS_TOKEN");
   }
@@ -270,7 +266,8 @@ public class IntegrationTestUtil {
   }
 
   public static String getBenchmarkingJDBCUrlForThrift() {
-    String template = "jdbc:databricks://%s/default;ssl=1;AuthMech=3;httpPath=%s";
+    String template =
+        "jdbc:databricks://%s/default;ssl=1;AuthMech=3;httpPath=%s;usethriftclient=1;";
     String host = getDatabricksBenchmarkingHost();
     String httpPath = getDatabricksBenchmarkingHTTPPathForThrift();
 
@@ -280,7 +277,7 @@ public class IntegrationTestUtil {
   public static String getBenchmarkingJDBCUrlForThriftAllPurposeCluster() {
     String template =
         "jdbc:databricks://%s:443/default;transportMode=http;ssl=1;httpPath=%s;AuthMech=3;UID=token";
-    String host = getAllPurposeDatabricksHost();
+    String host = getDatabricksBenchmarkingHost();
     String httpPath = getAllPurposeDatabricksHTTPPath();
     return String.format(template, host, httpPath);
   }

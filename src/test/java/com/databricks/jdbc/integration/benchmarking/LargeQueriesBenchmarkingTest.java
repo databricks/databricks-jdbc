@@ -1,6 +1,7 @@
 package com.databricks.jdbc.integration.benchmarking;
 
 import static com.databricks.jdbc.integration.IntegrationTestUtil.*;
+import static com.databricks.jdbc.integration.IntegrationTestUtil.getBenchmarkingJDBCConnection;
 
 import java.io.File;
 import java.net.URL;
@@ -118,10 +119,6 @@ public class LargeQueriesBenchmarkingTest {
                 getBenchmarkingJDBCUrl(), "token", getDatabricksBenchmarkingToken());
         break;
       case "THRIFT":
-        connection =
-            getConnectionForSimbaDriver(
-                getBenchmarkingJDBCUrlForThrift(), "token", getDatabricksBenchmarkingToken());
-        break;
       case "THRIFT_ALL_PURPOSE_CLUSTER":
         connection =
             getConnectionForSimbaDriver(
@@ -151,6 +148,12 @@ public class LargeQueriesBenchmarkingTest {
         }
         System.out.println("Number of rows fetched: " + cnt);
         long endTime = System.currentTimeMillis();
+        System.out.println(
+            "Time taken to execute large queries by "
+                + (recording == 1 ? "OSS" : "Databricks")
+                + " Driver: "
+                + (endTime - startTime)
+                + "ms");
         if (recording == 1) {
           timesForOSSDriver[i] = endTime - startTime;
         } else {

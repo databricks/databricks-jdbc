@@ -7,7 +7,6 @@ import java.net.URL;
 import java.net.URLClassLoader;
 import java.sql.*;
 import java.time.LocalDateTime;
-import java.util.Map;
 import java.util.Properties;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.AfterEach;
@@ -70,18 +69,17 @@ public class MetadataBenchmarkingTests {
     switch (mode) {
       case "SEA":
         // Currently using dogfood since we don't have new metadata support in test warehouse
-        connection = getValidJDBCConnection();
+        connection = getBenchmarkingJDBCConnection();
         RESULTS_TABLE = "main.jdbc_new_metadata_benchmark_schema.benchmarking_results";
         break;
       case "THRIFT":
-        connection =
-            DriverManager.getConnection(
-                getJDBCUrl(Map.of("usethriftclient", "1")), "token", getDatabricksToken());
+        connection = getBenchmarkingJDBCConnectionForThrift();
         RESULTS_TABLE = "main.jdbc_metadata_benchmarking_thrift.benchmarking_results";
         break;
       case "THRIFT_ALL_PURPOSE_CLUSTER":
         connection = getBenchmarkingJDBCConnectionForThriftAllPurposeCluster();
         RESULTS_TABLE = "main.jdbc_metadata_benchmarking_thrift.benchmarking_results_all_purpose";
+        break;
       default:
         throw new IllegalArgumentException("Invalid testing mode");
     }
@@ -102,17 +100,21 @@ public class MetadataBenchmarkingTests {
   }
 
   private void switchDriver(String mode) throws SQLException {
+    connection.close();
     switch (mode) {
       case "SEA":
-      case "THRIFT":
-        connection = getConnectionForSimbaDriver(getJDBCUrl(), "token", getDatabricksToken());
+        connection =
+            getConnectionForSimbaDriver(
+                getBenchmarkingJDBCUrl(), "token", getDatabricksBenchmarkingToken());
         break;
+      case "THRIFT":
       case "THRIFT_ALL_PURPOSE_CLUSTER":
         connection =
             getConnectionForSimbaDriver(
                 getBenchmarkingJDBCUrlForThriftAllPurposeCluster(),
                 "token",
                 getThriftDatabricksToken());
+        break;
       default:
         throw new IllegalArgumentException("Invalid testing mode");
     }
@@ -278,7 +280,7 @@ public class MetadataBenchmarkingTests {
   }
 
   private String getDatabricksCatalog() {
-    return "jdbcbenchmarkingcatalog";
+    return "jdbc_metadata_benchmarking";
   }
 
   private void loadSimbaDriver() {
