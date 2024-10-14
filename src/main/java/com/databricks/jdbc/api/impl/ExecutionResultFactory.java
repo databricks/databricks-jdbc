@@ -2,21 +2,20 @@ package com.databricks.jdbc.api.impl;
 
 import static com.databricks.jdbc.common.util.DatabricksThriftUtil.convertColumnarToRowBased;
 
-import com.databricks.jdbc.api.IDatabricksResultSet;
 import com.databricks.jdbc.api.IDatabricksSession;
-import com.databricks.jdbc.api.IDatabricksStatement;
+import com.databricks.jdbc.api.callback.IDatabricksResultSetHandle;
+import com.databricks.jdbc.api.callback.IDatabricksStatementHandle;
 import com.databricks.jdbc.api.impl.arrow.ArrowStreamResult;
-import com.databricks.jdbc.api.impl.inline.InlineJsonResult;
 import com.databricks.jdbc.api.impl.volume.VolumeOperationResult;
 import com.databricks.jdbc.common.util.DatabricksThriftUtil;
 import com.databricks.jdbc.exception.DatabricksParsingException;
-import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.exception.DatabricksSQLFeatureNotImplementedException;
 import com.databricks.jdbc.exception.DatabricksSQLFeatureNotSupportedException;
 import com.databricks.jdbc.model.client.thrift.generated.TGetResultSetMetadataResp;
 import com.databricks.jdbc.model.client.thrift.generated.TRowSet;
 import com.databricks.jdbc.model.core.ResultData;
 import com.databricks.jdbc.model.core.ResultManifest;
+import java.sql.SQLException;
 import java.util.List;
 
 class ExecutionResultFactory {
@@ -25,8 +24,8 @@ class ExecutionResultFactory {
       ResultManifest manifest,
       String statementId,
       IDatabricksSession session,
-      IDatabricksStatement statement,
-      IDatabricksResultSet resultSet)
+      IDatabricksStatementHandle statement,
+      IDatabricksResultSetHandle resultSet)
       throws DatabricksParsingException {
     IExecutionResult resultHandler = getResultHandler(data, manifest, statementId, session);
     if (manifest.getIsVolumeOperation() != null && manifest.getIsVolumeOperation()) {
@@ -66,9 +65,9 @@ class ExecutionResultFactory {
       TGetResultSetMetadataResp manifest,
       String statementId,
       IDatabricksSession session,
-      IDatabricksStatement statement,
-      IDatabricksResultSet resultSet)
-      throws DatabricksSQLException {
+      IDatabricksStatementHandle statement,
+      IDatabricksResultSetHandle resultSet)
+      throws SQLException {
     IExecutionResult resultHandler = getResultHandler(data, manifest, statementId, session);
     if (manifest.isSetIsStagingOperation() && manifest.isIsStagingOperation()) {
       return new VolumeOperationResult(
@@ -89,7 +88,7 @@ class ExecutionResultFactory {
       TGetResultSetMetadataResp manifest,
       String statementId,
       IDatabricksSession session)
-      throws DatabricksSQLException {
+      throws SQLException {
     switch (manifest.getResultFormat()) {
       case COLUMN_BASED_SET:
         return getResultSet(convertColumnarToRowBased(data));

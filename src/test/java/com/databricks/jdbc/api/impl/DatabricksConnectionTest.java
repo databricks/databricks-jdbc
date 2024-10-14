@@ -77,10 +77,11 @@ public class DatabricksConnectionTest {
             new Warehouse(WAREHOUSE_ID), CATALOG, SCHEMA, new HashMap<>()))
         .thenReturn(IMMUTABLE_SESSION_INFO);
     connection = new DatabricksConnection(connectionContext, databricksClient);
+    connection.open();
     assertFalse(connection.isClosed());
     assertEquals(connection.getSession().getSessionId(), SESSION_ID);
     String userAgent = UserAgent.asString();
-    assertTrue(userAgent.contains("DatabricksJDBCDriverOSS/0.9.4-oss"));
+    assertTrue(userAgent.contains("DatabricksJDBCDriverOSS/0.9.5-oss"));
     assertTrue(userAgent.contains("Java/SQLExecHttpClient-HC"));
 
     // close the connection
@@ -95,6 +96,7 @@ public class DatabricksConnectionTest {
             new Warehouse(WAREHOUSE_ID), CATALOG, SCHEMA, new HashMap<>()))
         .thenReturn(IMMUTABLE_SESSION_INFO);
     connection = new DatabricksConnection(connectionContext, databricksClient);
+    connection.open();
     when(databricksClient.executeStatement(
             eq("SET CATALOG hive_metastore"),
             eq(new Warehouse(WAREHOUSE_ID)),
@@ -125,6 +127,7 @@ public class DatabricksConnectionTest {
             new Warehouse(WAREHOUSE_ID), CATALOG, SCHEMA, new HashMap<>()))
         .thenReturn(IMMUTABLE_SESSION_INFO);
     connection = new DatabricksConnection(connectionContext, databricksClient);
+    connection.open();
     assertFalse(connection.isClosed());
     assertEquals(connection.getSession().getCatalog(), CATALOG);
     assertEquals(connection.getSession().getSchema(), SCHEMA);
@@ -136,6 +139,7 @@ public class DatabricksConnectionTest {
             new Warehouse(WAREHOUSE_ID), CATALOG, SCHEMA, new HashMap<>()))
         .thenReturn(IMMUTABLE_SESSION_INFO);
     connection = new DatabricksConnection(connectionContext, databricksClient);
+    connection.open();
     connection.close();
     assertThrows(DatabricksSQLException.class, connection::isReadOnly);
   }
@@ -151,6 +155,7 @@ public class DatabricksConnectionTest {
     IDatabricksConnectionContext connectionContext =
         DatabricksConnectionContext.parse(SESSION_CONF_JDBC_URL, new Properties());
     DatabricksConnection connection = new DatabricksConnection(connectionContext, databricksClient);
+    connection.open();
     assertFalse(connection.isClosed());
     assertEquals(connection.getSession().getSessionConfigs(), lowercaseSessionConfigs);
   }
@@ -160,6 +165,7 @@ public class DatabricksConnectionTest {
     IDatabricksConnectionContext connectionContext =
         DatabricksConnectionContext.parse(SESSION_CONF_JDBC_URL, new Properties());
     DatabricksConnection connection = new DatabricksConnection(connectionContext, databricksClient);
+    connection.open();
     assertNotNull(connection.getUCVolumeClient());
   }
 
@@ -169,6 +175,7 @@ public class DatabricksConnectionTest {
             new Warehouse(WAREHOUSE_ID), CATALOG, SCHEMA, new HashMap<>()))
         .thenReturn(IMMUTABLE_SESSION_INFO);
     connection = new DatabricksConnection(connectionContext, databricksClient);
+    connection.open();
     assertThrows(
         DatabricksSQLFeatureNotSupportedException.class,
         () -> {
@@ -200,6 +207,7 @@ public class DatabricksConnectionTest {
             new Warehouse(WAREHOUSE_ID), CATALOG, SCHEMA, new HashMap<>()))
         .thenReturn(IMMUTABLE_SESSION_INFO);
     connection = new DatabricksConnection(connectionContext, databricksClient);
+    connection.open();
     Properties properties = new Properties();
     properties.put("ENABLE_PHOTON", "TRUE");
     properties.put("TIMEZONE", "UTC");
@@ -211,6 +219,7 @@ public class DatabricksConnectionTest {
         .thenReturn(session);
     DatabricksConnection connection =
         Mockito.spy(new DatabricksConnection(connectionContext, databricksClient));
+    connection.open();
     DatabricksStatement statement = Mockito.spy(new DatabricksStatement(connection));
     Mockito.doReturn(statement).when(connection).createStatement();
     Mockito.doReturn(true).when(statement).execute("SET ENABLE_PHOTON = TRUE");
@@ -239,6 +248,7 @@ public class DatabricksConnectionTest {
             new Warehouse(WAREHOUSE_ID), CATALOG, SCHEMA, new HashMap<>()))
         .thenReturn(IMMUTABLE_SESSION_INFO);
     connection = new DatabricksConnection(connectionContext, databricksClient);
+    connection.open();
     assertThrows(
         DatabricksSQLFeatureNotSupportedException.class, () -> connection.prepareCall(SQL));
     assertThrows(DatabricksSQLFeatureNotSupportedException.class, () -> connection.nativeSQL(SQL));
@@ -312,6 +322,7 @@ public class DatabricksConnectionTest {
             new Warehouse(WAREHOUSE_ID), CATALOG, SCHEMA, new HashMap<>()))
         .thenReturn(IMMUTABLE_SESSION_INFO);
     connection = new DatabricksConnection(connectionContext, databricksClient);
+    connection.open();
     assertFalse(connection.isReadOnly());
     assertNull(connection.getWarnings());
     connection.clearWarnings();

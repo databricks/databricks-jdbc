@@ -9,7 +9,11 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import java.util.Collection;
 import java.util.Objects;
 
-/* TODO: This file is picked from databricks-sqlexec-java. Remove this once compression changes are included in API-SPEC */
+/**
+ * Result manifest POJO
+ *
+ * <p>TODO: Replace this class with the corresponding SDK implementation once it becomes available
+ */
 public class ResultManifest {
   @JsonProperty("chunks")
   private Collection<BaseChunkInfo> chunks;
@@ -141,16 +145,14 @@ public class ResultManifest {
 
   public int hashCode() {
     return Objects.hash(
-        new Object[] {
-          this.chunks,
-          this.format,
-          this.schema,
-          this.totalByteCount,
-          this.totalChunkCount,
-          this.totalRowCount,
-          this.truncated,
-          this.isVolumeOperation
-        });
+        this.chunks,
+        this.format,
+        this.schema,
+        this.totalByteCount,
+        this.totalChunkCount,
+        this.totalRowCount,
+        this.truncated,
+        this.isVolumeOperation);
   }
 
   public String toString() {

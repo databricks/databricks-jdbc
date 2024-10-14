@@ -1,6 +1,5 @@
 package com.databricks.jdbc.integration.fakeservice.tests;
 
-import static com.databricks.jdbc.common.DatabricksJdbcConstants.*;
 import static com.databricks.jdbc.dbclient.impl.sqlexec.PathConstants.SESSION_PATH;
 import static com.databricks.jdbc.dbclient.impl.sqlexec.PathConstants.STATEMENT_PATH;
 import static com.databricks.jdbc.integration.IntegrationTestUtil.*;
@@ -8,28 +7,28 @@ import static com.github.tomakehurst.wiremock.client.WireMock.postRequestedFor;
 import static com.github.tomakehurst.wiremock.client.WireMock.urlEqualTo;
 import static org.junit.jupiter.api.Assertions.*;
 
-import com.databricks.jdbc.common.DatabricksJdbcUrlParams;
 import com.databricks.jdbc.integration.fakeservice.AbstractFakeServiceIntegrationTests;
-import com.databricks.jdbc.integration.fakeservice.FakeServiceConfigLoader;
 import com.github.tomakehurst.wiremock.client.CountMatchingStrategy;
 import java.sql.*;
-import java.util.Properties;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 /** Integration tests for metadata retrieval. */
 public class MetadataIntegrationTests extends AbstractFakeServiceIntegrationTests {
 
-  /** TODO: switch to new metadata client when it is available in Azure test env. */
-  private static final String jdbcUrlTemplateWithLegacyMetadata =
-      "jdbc:databricks://%s/default;transportMode=http;ssl=0;AuthMech=3;httpPath=%s;useLegacyMetadata=1";
-
   private Connection connection;
+
+  @BeforeAll
+  static void beforeAll() {
+    setDatabricksApiTargetUrl("https://e2-dogfood.staging.cloud.databricks.com");
+    setCloudFetchApiTargetUrl("https://e2-dogfood-core.s3.us-west-2.amazonaws.com");
+  }
 
   @BeforeEach
   void setUp() throws SQLException {
-    connection = getConnection();
+    connection = getValidJDBCConnection();
   }
 
   @AfterEach
@@ -92,6 +91,7 @@ public class MetadataIntegrationTests extends AbstractFakeServiceIntegrationTest
     String query = "SELECT id, name, age FROM " + getFullyQualifiedTableName(tableName);
 
     ResultSet resultSet = executeQuery(query);
+    assert resultSet != null;
     ResultSetMetaData resultSetMetaData = resultSet.getMetaData();
 
     // Check the number of columns
@@ -188,25 +188,5 @@ public class MetadataIntegrationTests extends AbstractFakeServiceIntegrationTest
               new CountMatchingStrategy(CountMatchingStrategy.GREATER_THAN_OR_EQUAL, 7),
               postRequestedFor(urlEqualTo(STATEMENT_PATH)));
     }
-  }
-
-  private Connection getConnection() throws SQLException {
-    String jdbcUrl =
-        String.format(
-            jdbcUrlTemplateWithLegacyMetadata,
-            getFakeServiceHost(),
-            FakeServiceConfigLoader.getProperty(DatabricksJdbcUrlParams.HTTP_PATH.getParamName()));
-
-    Properties connProps = new Properties();
-    connProps.put(DatabricksJdbcUrlParams.USER.getParamName(), getDatabricksUser());
-    connProps.put(DatabricksJdbcUrlParams.PASSWORD.getParamName(), getDatabricksToken());
-    connProps.put(
-        DatabricksJdbcUrlParams.CATALOG.getParamName(),
-        FakeServiceConfigLoader.getProperty(DatabricksJdbcUrlParams.CATALOG.getParamName()));
-    connProps.put(
-        DatabricksJdbcUrlParams.CONN_SCHEMA.getParamName(),
-        FakeServiceConfigLoader.getProperty(DatabricksJdbcUrlParams.CONN_SCHEMA.getParamName()));
-
-    return DriverManager.getConnection(jdbcUrl, connProps);
   }
 }

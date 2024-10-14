@@ -7,47 +7,45 @@ import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.TimeZone;
 
-public class TimestampConverter extends AbstractObjectConverter {
-  /* We are not accounting for local Timezone in this class. We are storing GMT timestamp only (for uniformity) */
-  private Timestamp object;
-
-  public TimestampConverter(Object object) throws DatabricksSQLException {
-    super(object);
-    if (object instanceof String) {
+public class TimestampConverter implements ObjectConverter {
+  @Override
+  public Timestamp toTimestamp(Object object) throws DatabricksSQLException {
+    if (object instanceof Timestamp) {
+      return (Timestamp) object;
+    } else if (object instanceof String) {
       try {
-        this.object = Timestamp.valueOf((String) object);
-      } catch (Exception e) {
-        Instant instant = Instant.parse((String) object);
-        this.object = Timestamp.from(instant);
+        return Timestamp.valueOf((String) object);
+      } catch (IllegalArgumentException e) {
+        try {
+          Instant instant = Instant.parse((String) object);
+          return Timestamp.from(instant);
+        } catch (Exception ex) {
+          throw new DatabricksSQLException("Invalid conversion to Timestamp", ex);
+        }
       }
-    } else {
-      this.object = (Timestamp) object;
     }
+    throw new DatabricksSQLException(
+        "Unsupported conversion to Timestamp for type: " + object.getClass().getName());
   }
 
   @Override
-  public long convertToLong() throws DatabricksSQLException {
-    return object.toInstant().getEpochSecond() * 1000L; // epoch milliseconds
+  public long toLong(Object object) throws DatabricksSQLException {
+    return toTimestamp(object).toInstant().toEpochMilli();
   }
 
   @Override
-  public BigInteger convertToBigInteger() throws DatabricksSQLException {
-    return BigInteger.valueOf(this.convertToLong());
+  public BigInteger toBigInteger(Object object) throws DatabricksSQLException {
+    return BigInteger.valueOf(toLong(object));
   }
 
   @Override
-  public String convertToString() throws DatabricksSQLException {
-    return object.toInstant().toString();
+  public String toString(Object object) throws DatabricksSQLException {
+    return toTimestamp(object).toInstant().toString();
   }
 
   @Override
-  public Timestamp convertToTimestamp() throws DatabricksSQLException {
-    return object;
-  }
-
-  @Override
-  public Date convertToDate() throws DatabricksSQLException {
+  public Date toDate(Object object) throws DatabricksSQLException {
     TimeZone.setDefault(TimeZone.getTimeZone("GMT"));
-    return new Date(this.convertToLong());
+    return new Date(toLong(object));
   }
 }

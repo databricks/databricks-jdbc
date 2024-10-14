@@ -124,7 +124,7 @@ public class DatabricksSdkClientTest {
 
   @Test
   public void testDeleteSession() throws DatabricksSQLException {
-    String path = String.format(DELETE_SESSION_PATH_WITH_ID, SESSION_ID);
+    String path = String.format(SESSION_PATH_WITH_ID, SESSION_ID);
     IDatabricksConnectionContext connectionContext =
         DatabricksConnectionContext.parse(JDBC_URL, new Properties());
     DatabricksSdkClient databricksSdkClient =
@@ -133,7 +133,7 @@ public class DatabricksSdkClientTest {
     databricksSdkClient.deleteSession(session, warehouse);
     DeleteSessionRequest request =
         new DeleteSessionRequest().setSessionId(SESSION_ID).setWarehouseId(WAREHOUSE_ID);
-    verify(apiClient).DELETE(eq(path), eq(request), eq(Void.class), eq(new HashMap<>()));
+    verify(apiClient).DELETE(eq(path), eq(request), eq(Void.class), eq(headers));
   }
 
   @Test
@@ -145,6 +145,7 @@ public class DatabricksSdkClientTest {
         new DatabricksSdkClient(connectionContext, statementExecutionService, apiClient);
     DatabricksConnection connection =
         new DatabricksConnection(connectionContext, databricksSdkClient);
+    connection.open();
     DatabricksStatement statement = new DatabricksStatement(connection);
     statement.setMaxRows(100);
     HashMap<Integer, ImmutableSqlParameter> sqlParams =

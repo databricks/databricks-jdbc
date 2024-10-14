@@ -4,7 +4,6 @@ import static com.databricks.jdbc.TestConstants.*;
 import static java.lang.Math.min;
 import static org.junit.jupiter.api.Assertions.*;
 
-import com.databricks.jdbc.common.CompressionType;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.model.client.thrift.generated.TSparkArrowResultLink;
 import com.databricks.sdk.service.sql.BaseChunkInfo;
@@ -41,11 +40,7 @@ public class ArrowResultChunkTest {
             .setRowOffset(0L)
             .setRowCount(totalRows);
     ArrowResultChunk arrowResultChunk =
-        ArrowResultChunk.builder()
-            .statementId(STATEMENT_ID)
-            .compressionType(CompressionType.NONE)
-            .withChunkInfo(chunkInfo)
-            .build();
+        ArrowResultChunk.builder().statementId(STATEMENT_ID).withChunkInfo(chunkInfo).build();
 
     // Assert
     assert (arrowResultChunk.getRecordBatchCountInChunk() == 0);
@@ -62,11 +57,7 @@ public class ArrowResultChunkTest {
             .setRowOffset(0L)
             .setRowCount(totalRows);
     ArrowResultChunk arrowResultChunk =
-        ArrowResultChunk.builder()
-            .statementId(STATEMENT_ID)
-            .compressionType(CompressionType.NONE)
-            .withChunkInfo(chunkInfo)
-            .build();
+        ArrowResultChunk.builder().statementId(STATEMENT_ID).withChunkInfo(chunkInfo).build();
     Schema schema = createTestSchema();
     Object[][] testData = createTestData(schema, (int) totalRows);
     File arrowFile =
@@ -93,7 +84,6 @@ public class ArrowResultChunkTest {
     ArrowResultChunk arrowResultChunk =
         ArrowResultChunk.builder()
             .statementId(TEST_STATEMENT_ID)
-            .compressionType(CompressionType.NONE)
             .withThriftChunkInfo(0, chunkInfo)
             .build();
     assertNull(arrowResultChunk.getErrorMessage());
@@ -172,11 +162,7 @@ public class ArrowResultChunkTest {
     BaseChunkInfo emptyChunkInfo =
         new BaseChunkInfo().setChunkIndex(0L).setByteCount(200L).setRowOffset(0L).setRowCount(0L);
     ArrowResultChunk arrowResultChunk =
-        ArrowResultChunk.builder()
-            .statementId(STATEMENT_ID)
-            .compressionType(CompressionType.NONE)
-            .withChunkInfo(emptyChunkInfo)
-            .build();
+        ArrowResultChunk.builder().statementId(STATEMENT_ID).withChunkInfo(emptyChunkInfo).build();
     arrowResultChunk.setIsDataInitialized(true);
     arrowResultChunk.recordBatchList = Collections.nCopies(3, new ArrayList<>());
     assertFalse(arrowResultChunk.getChunkIterator().hasNextRow());
@@ -184,11 +170,7 @@ public class ArrowResultChunkTest {
     BaseChunkInfo chunkInfo =
         new BaseChunkInfo().setChunkIndex(18L).setByteCount(200L).setRowOffset(0L).setRowCount(4L);
     arrowResultChunk =
-        ArrowResultChunk.builder()
-            .statementId(STATEMENT_ID)
-            .compressionType(CompressionType.NONE)
-            .withChunkInfo(chunkInfo)
-            .build();
+        ArrowResultChunk.builder().statementId(STATEMENT_ID).withChunkInfo(chunkInfo).build();
     arrowResultChunk.setIsDataInitialized(true);
     int size = 2;
     IntVector dummyVector = new IntVector("dummy_vector", new RootAllocator());
@@ -220,11 +202,7 @@ public class ArrowResultChunkTest {
     BaseChunkInfo chunkInfo =
         new BaseChunkInfo().setChunkIndex(18L).setByteCount(200L).setRowOffset(0L).setRowCount(4L);
     ArrowResultChunk arrowResultChunk =
-        ArrowResultChunk.builder()
-            .statementId(STATEMENT_ID)
-            .compressionType(CompressionType.NONE)
-            .withChunkInfo(chunkInfo)
-            .build();
+        ArrowResultChunk.builder().statementId(STATEMENT_ID).withChunkInfo(chunkInfo).build();
     arrowResultChunk.setIsDataInitialized(true);
     int size = 2;
     IntVector dummyVector = new IntVector("dummy_vector", new RootAllocator());

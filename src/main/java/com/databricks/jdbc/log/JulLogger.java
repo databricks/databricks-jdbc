@@ -112,12 +112,12 @@ public class JulLogger implements JdbcLogger {
 
   /** {@inheritDoc} */
   @Override
-  public void error(String message, Throwable throwable) {
+  public void error(Throwable throwable, String message) {
     log(Level.SEVERE, message, throwable);
   }
 
   @Override
-  public void error(String format, Throwable throwable, Object... arguments) {
+  public void error(Throwable throwable, String format, Object... arguments) {
     error(String.format(format, arguments), throwable);
   }
 
@@ -141,11 +141,20 @@ public class JulLogger implements JdbcLogger {
       Logger jdbcJulLogger = Logger.getLogger(PARENT_CLASS_PREFIX);
 
       jdbcJulLogger.setLevel(level);
+      jdbcJulLogger.setUseParentHandlers(false);
 
       String logPattern = getLogPattern(logDir);
       Handler handler;
       if (logPattern.equalsIgnoreCase(STDOUT)) {
-        handler = new ConsoleHandler();
+        handler =
+            new StreamHandler(System.out, new Slf4jFormatter()) {
+              @Override
+              public void publish(LogRecord record) {
+                super.publish(record);
+                // prompt flushing; full send >>> 🚀
+                flush();
+              }
+            };
       } else {
         handler = new FileHandler(logPattern, logFileSizeBytes, logFileCount, true);
       }

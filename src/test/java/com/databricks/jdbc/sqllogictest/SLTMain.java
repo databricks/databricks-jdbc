@@ -33,7 +33,7 @@ public class SLTMain {
       System.err.println("SQL Logic tests directory not found");
       return null;
     }
-    // TODO: Add these files back once getTables is supported for views
+    // TODO: Add these files once getTables allows fetching VIEW(s)
     Set<String> testFilesToSkip =
         new HashSet<>(
             Arrays.asList(
