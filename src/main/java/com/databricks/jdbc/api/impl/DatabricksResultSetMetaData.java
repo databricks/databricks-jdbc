@@ -33,7 +33,7 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
   private final ImmutableMap<String, Integer> columnNameIndex;
   private final long totalRows;
   private Long chunkCount;
-  private final boolean isCloudFetched;
+  private final boolean isCloudFetchUsed;
 
   /**
    * Constructs a {@code DatabricksResultSetMetaData} object for a SEA result set.
@@ -84,6 +84,7 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
               .displaySize(DatabricksTypeUtil.getDisplaySize(columnTypeName, precision))
               .isSigned(DatabricksTypeUtil.isSigned(columnTypeName));
           columnsBuilder.add(columnBuilder.build());
+          // Keep index starting from 1, to be consistent with JDBC convention
           columnNameToIndexMap.putIfAbsent(columnInfo.getName(), ++currIndex);
         }
       }
@@ -92,7 +93,7 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
     this.columnNameIndex = ImmutableMap.copyOf(columnNameToIndexMap);
     this.totalRows = resultManifest.getTotalRowCount();
     this.chunkCount = resultManifest.getTotalChunkCount();
-    this.isCloudFetched = !isExternalLinksNull;
+    this.isCloudFetchUsed = !isExternalLinksNull;
   }
 
   /**
@@ -154,7 +155,7 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
     this.columnNameIndex = ImmutableMap.copyOf(columnNameToIndexMap);
     this.totalRows = rows;
     this.chunkCount = chunkCount;
-    this.isCloudFetched = resultManifest.getResultFormat() == TSparkRowSetType.URL_BASED_SET;
+    this.isCloudFetchUsed = resultManifest.getResultFormat() == TSparkRowSetType.URL_BASED_SET;
   }
 
   /**
@@ -195,7 +196,7 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
     this.columns = columnsBuilder.build();
     this.columnNameIndex = ImmutableMap.copyOf(columnNameToIndexMap);
     this.totalRows = totalRows;
-    this.isCloudFetched = false;
+    this.isCloudFetchUsed = false;
   }
 
   /**
@@ -240,7 +241,7 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
     this.columns = columnsBuilder.build();
     this.columnNameIndex = ImmutableMap.copyOf(columnNameToIndexMap);
     this.totalRows = totalRows;
-    this.isCloudFetched = false;
+    this.isCloudFetchUsed = false;
   }
 
   @Override
@@ -382,8 +383,8 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
     return totalRows;
   }
 
-  public boolean getIsCloudFetched() {
-    return isCloudFetched;
+  public boolean getisCloudFetchUsed() {
+    return isCloudFetchUsed;
   }
 
   public Long getChunkCount() {

@@ -226,19 +226,19 @@ public class DatabricksResultSetMetaDataTest {
     thriftResultManifest.setResultFormat(TSparkRowSetType.ARROW_BASED_SET);
     DatabricksResultSetMetaData metaData =
         new DatabricksResultSetMetaData(STATEMENT_ID, thriftResultManifest, 1, 1);
-    assertFalse(metaData.getIsCloudFetched());
+    assertFalse(metaData.getisCloudFetchUsed());
 
     thriftResultManifest.setResultFormat(TSparkRowSetType.COLUMN_BASED_SET);
     metaData = new DatabricksResultSetMetaData(STATEMENT_ID, thriftResultManifest, 1, 1);
-    assertFalse(metaData.getIsCloudFetched());
+    assertFalse(metaData.getisCloudFetchUsed());
 
     thriftResultManifest.setResultFormat(TSparkRowSetType.ROW_BASED_SET);
     metaData = new DatabricksResultSetMetaData(STATEMENT_ID, thriftResultManifest, 1, 1);
-    assertFalse(metaData.getIsCloudFetched());
+    assertFalse(metaData.getisCloudFetchUsed());
 
     thriftResultManifest.setResultFormat(TSparkRowSetType.URL_BASED_SET);
     metaData = new DatabricksResultSetMetaData(STATEMENT_ID, thriftResultManifest, 1, 1);
-    assertTrue(metaData.getIsCloudFetched());
+    assertTrue(metaData.getisCloudFetchUsed());
   }
 
   @Test
@@ -247,10 +247,10 @@ public class DatabricksResultSetMetaDataTest {
 
     DatabricksResultSetMetaData metaData =
         new DatabricksResultSetMetaData(STATEMENT_ID, resultManifest, true);
-    assertFalse(metaData.getIsCloudFetched());
+    assertFalse(metaData.getisCloudFetchUsed());
 
     metaData = new DatabricksResultSetMetaData(STATEMENT_ID, resultManifest, false);
-    assertTrue(metaData.getIsCloudFetched());
+    assertTrue(metaData.getisCloudFetchUsed());
   }
 
   private void verifyDefaultMetadataProperties(DatabricksResultSetMetaData metaData)

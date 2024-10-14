@@ -110,7 +110,7 @@ public class DriverTest {
     DatabricksResultSetMetaData rmsdArrowEnabled =
         (DatabricksResultSetMetaData) resultSetArrowEnabled.getMetaData();
     System.out.println(
-        "isCloudFetched when arrow is enabled: " + rmsdArrowEnabled.getIsCloudFetched());
+        "isCloudFetchUsed when arrow is enabled: " + rmsdArrowEnabled.getisCloudFetchUsed());
     resultSetArrowEnabled.close();
     conArrowEnabled.close();
 
@@ -121,7 +121,7 @@ public class DriverTest {
     DatabricksResultSetMetaData rmsdArrowDisabled =
         (DatabricksResultSetMetaData) resultSetArrowDisabled.getMetaData();
     System.out.println(
-        "isCloudFetched when arrow is disabled: " + rmsdArrowDisabled.getIsCloudFetched());
+        "isCloudFetchUsed when arrow is disabled: " + rmsdArrowDisabled.getisCloudFetchUsed());
     resultSetArrowDisabled.close();
     conArrowDisabled.close();
   }
@@ -138,7 +138,8 @@ public class DriverTest {
     System.out.println("Connection established ......");
     ResultSet resultSet1 = con1.createStatement().executeQuery("SELECT * FROM RANGE(10)");
     DatabricksResultSetMetaData rmsd1 = (DatabricksResultSetMetaData) resultSet1.getMetaData();
-    System.out.println("isCloudFetched in case of small result set: " + rmsd1.getIsCloudFetched());
+    System.out.println(
+        "isCloudFetchUsed in case of small result set: " + rmsd1.getisCloudFetchUsed());
     resultSet1.close();
     con1.close();
 
@@ -146,7 +147,8 @@ public class DriverTest {
     System.out.println("Connection established ......");
     ResultSet resultSet2 = con2.createStatement().executeQuery("SELECT * FROM RANGE(10000000)");
     DatabricksResultSetMetaData rmsd2 = (DatabricksResultSetMetaData) resultSet2.getMetaData();
-    System.out.println("isCloudFetched in case of large result set: " + rmsd2.getIsCloudFetched());
+    System.out.println(
+        "isCloudFetchUsed in case of large result set: " + rmsd2.getisCloudFetchUsed());
     resultSet2.close();
     con2.close();
   }
