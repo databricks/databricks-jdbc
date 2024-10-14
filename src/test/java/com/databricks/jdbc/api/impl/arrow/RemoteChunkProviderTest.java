@@ -11,7 +11,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
-public class ChunkDownloaderTest {
+public class RemoteChunkProviderTest {
   private static final String STATEMENT_ID = "statement_id";
 
   @Test
@@ -22,6 +22,6 @@ public class ChunkDownloaderTest {
             .setSchema(new ResultSchema().setColumns(new ArrayList<>()));
     ResultData resultData = new ResultData().setExternalLinks(new ArrayList<>());
     assertDoesNotThrow(
-        () -> new ChunkDownloader(STATEMENT_ID, resultManifest, resultData, null, null, 4));
+        () -> new RemoteChunkProvider(STATEMENT_ID, resultManifest, resultData, null, null, 4));
   }
 }

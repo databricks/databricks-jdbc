@@ -23,17 +23,17 @@ import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /** Class to manage Arrow chunks and fetch them on proactive basis. */
-public class ChunkDownloader implements ChunkDownloadCallback {
+public class RemoteChunkProvider implements ChunkProvider, ChunkDownloadCallback {
 
-  private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(ChunkDownloader.class);
+  private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(RemoteChunkProvider.class);
   private static final String CHUNKS_DOWNLOADER_THREAD_POOL_PREFIX =
       "databricks-jdbc-chunks-downloader-";
+  private static int chunksDownloaderThreadPoolSize;
   private final IDatabricksSession session;
   private final String statementId;
   private final long totalChunks;
   private final ExecutorService chunkDownloaderExecutorService;
   private final IDatabricksHttpClient httpClient;
-  private static int chunksDownloaderThreadPoolSize;
   private Long currentChunkIndex;
   private long nextChunkToDownload;
   private Long totalChunksInMemory;
@@ -42,7 +42,7 @@ public class ChunkDownloader implements ChunkDownloadCallback {
   private final CompressionType compressionType;
   private final ConcurrentHashMap<Long, ArrowResultChunk> chunkIndexToChunksMap;
 
-  ChunkDownloader(
+  RemoteChunkProvider(
       String statementId,
       ResultManifest resultManifest,
       ResultData resultData,
@@ -50,7 +50,7 @@ public class ChunkDownloader implements ChunkDownloadCallback {
       IDatabricksHttpClient httpClient,
       int chunksDownloaderThreadPoolSize)
       throws DatabricksParsingException {
-    ChunkDownloader.chunksDownloaderThreadPoolSize = chunksDownloaderThreadPoolSize;
+    RemoteChunkProvider.chunksDownloaderThreadPoolSize = chunksDownloaderThreadPoolSize;
     this.chunkDownloaderExecutorService = createChunksDownloaderExecutorService();
     this.httpClient = httpClient;
     this.session = session;
@@ -61,7 +61,7 @@ public class ChunkDownloader implements ChunkDownloadCallback {
     initializeData();
   }
 
-  ChunkDownloader(
+  RemoteChunkProvider(
       String statementId,
       TRowSet resultData,
       IDatabricksSession session,
@@ -78,7 +78,7 @@ public class ChunkDownloader implements ChunkDownloadCallback {
   }
 
   @VisibleForTesting
-  ChunkDownloader(
+  RemoteChunkProvider(
       String statementId,
       TRowSet resultData,
       IDatabricksSession session,
@@ -86,7 +86,7 @@ public class ChunkDownloader implements ChunkDownloadCallback {
       int chunksDownloaderThreadPoolSize,
       CompressionType compressionType)
       throws DatabricksParsingException {
-    ChunkDownloader.chunksDownloaderThreadPoolSize = chunksDownloaderThreadPoolSize;
+    RemoteChunkProvider.chunksDownloaderThreadPoolSize = chunksDownloaderThreadPoolSize;
     this.chunkDownloaderExecutorService = createChunksDownloaderExecutorService();
     this.httpClient = httpClient;
     this.compressionType = compressionType;
@@ -117,12 +117,15 @@ public class ChunkDownloader implements ChunkDownloadCallback {
   }
 
   /**
-   * Fetches the chunk for the given index. If chunk is not already downloaded, will download the
+   * {@inheritDoc}
+   *
+   * <p>Fetches the chunk for the given index. If chunk is not already downloaded, will download the
    * chunk first
    *
    * @return the chunk at given index
    */
-  ArrowResultChunk getChunk() throws DatabricksSQLException {
+  @Override
+  public ArrowResultChunk getChunk() throws DatabricksSQLException {
     if (currentChunkIndex < 0) {
       return null;
     }
@@ -153,11 +156,15 @@ public class ChunkDownloader implements ChunkDownloadCallback {
     return compressionType;
   }
 
-  boolean hasNextChunk() {
+  /** {@inheritDoc} */
+  @Override
+  public boolean hasNextChunk() {
     return currentChunkIndex < totalChunks - 1;
   }
 
-  boolean next() {
+  /** {@inheritDoc} */
+  @Override
+  public boolean next() {
     if (currentChunkIndex >= 0) {
       // release current chunk
       releaseChunk();
@@ -168,6 +175,19 @@ public class ChunkDownloader implements ChunkDownloadCallback {
     // go to next chunk
     currentChunkIndex++;
     return true;
+  }
+
+  /**
+   * {@inheritDoc}
+   *
+   * <p>Release all chunks from memory. This would be called when result-set has been closed.
+   */
+  @Override
+  public void close() {
+    this.isClosed = true;
+    this.chunkDownloaderExecutorService.shutdownNow();
+    this.chunkIndexToChunksMap.values().forEach(ArrowResultChunk::releaseChunk);
+    httpClient.closeExpiredAndIdleConnections();
   }
 
   /** Release the memory for previous chunk since it is already consumed */
@@ -189,22 +209,13 @@ public class ChunkDownloader implements ChunkDownloadCallback {
     }
   }
 
-  /** Release all chunks from memory. This would be called when result-set has been closed. */
-  void releaseAllChunks() {
-    this.isClosed = true;
-    this.chunkDownloaderExecutorService.shutdownNow();
-    this.chunkIndexToChunksMap.values().forEach(ArrowResultChunk::releaseChunk);
-    httpClient.closeExpiredAndIdleConnections();
-  }
-
   void downloadNextChunks() {
     while (!this.isClosed
         && nextChunkToDownload < totalChunks
         && totalChunksInMemory < allowedChunksInMemory) {
       ArrowResultChunk chunk = chunkIndexToChunksMap.get(nextChunkToDownload);
       if (chunk.getStatus() != ArrowResultChunk.ChunkStatus.DOWNLOAD_SUCCEEDED) {
-        this.chunkDownloaderExecutorService.submit(
-            new SingleChunkDownloader(chunk, httpClient, this));
+        this.chunkDownloaderExecutorService.submit(new ChunkDownloadTask(chunk, httpClient, this));
         totalChunksInMemory++;
       }
       nextChunkToDownload++;
