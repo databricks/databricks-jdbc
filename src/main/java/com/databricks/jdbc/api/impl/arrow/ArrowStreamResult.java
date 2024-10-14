@@ -97,7 +97,7 @@ public class ArrowStreamResult implements IExecutionResult {
     this.isInlineArrow = isInlineArrow;
     if (isInlineArrow) {
       this.chunkExtractor =
-          new ChunkExtractor(resultData.getArrowBatches(), resultManifest, statementId.serialize());
+          new ChunkExtractor(resultData.getArrowBatches(), resultManifest, statementId.toString());
       this.chunkDownloader = null;
     } else {
       CompressionType compressionType = CompressionType.getCompressionMapping(resultManifest);

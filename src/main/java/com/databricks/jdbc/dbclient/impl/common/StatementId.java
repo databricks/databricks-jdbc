@@ -47,8 +47,8 @@ public class StatementId {
     }
   }
 
-  /** Serializes a StatementId into a string */
-  public String serialize() {
+  @Override
+  public String toString() {
     switch (clientType) {
       case SQL_EXEC:
         return guid;
@@ -56,11 +56,6 @@ public class StatementId {
         return String.format("%s|%s", guid, secret);
     }
     return guid;
-  }
-
-  @Override
-  public String toString() {
-    return serialize();
   }
 
   /** Returns a Thrift operation handle for the given StatementId */

@@ -117,11 +117,18 @@ public class DatabricksResultSet
       IDatabricksStatementInternal parentStatement,
       IDatabricksSession session)
       throws SQLException {
-    if (SUCCESS_STATUS_LIST.contains(statementStatus.getStatusCode())) {
-      this.statementStatus = new StatementStatus().setState(StatementState.SUCCEEDED);
-    } else {
-      this.statementStatus = new StatementStatus().setState(StatementState.FAILED);
+    switch (statementStatus.getStatusCode()) {
+      case SUCCESS_STATUS:
+      case SUCCESS_WITH_INFO_STATUS:
+        this.statementStatus = new StatementStatus().setState(StatementState.SUCCEEDED);
+        break;
+      case STILL_EXECUTING_STATUS:
+        this.statementStatus = new StatementStatus().setState(StatementState.RUNNING);
+        break;
+      default:
+        this.statementStatus = new StatementStatus().setState(StatementState.FAILED);
     }
+
     this.statementId = statementId;
     if (resultData != null) {
       this.executionResult =
@@ -1531,7 +1538,7 @@ public class DatabricksResultSet
 
   @Override
   public String getStatementId() {
-    return statementId.serialize();
+    return statementId.toString();
   }
 
   @Override

@@ -20,6 +20,7 @@ import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.google.common.annotations.VisibleForTesting;
 import java.sql.*;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.*;
@@ -529,7 +530,7 @@ public class DatabricksStatement
 
   @Override
   public String getStatementId() {
-    return this.statementId.serialize();
+    return this.statementId.toString();
   }
 
   @Override
@@ -606,13 +607,13 @@ public class DatabricksStatement
 
   @Override
   public ResultSet executeAsync(String sql) throws SQLException {
+    LOGGER.debug("ResultSet executeAsync() for statement {%s}", sql);
     checkIfClosed();
-
     IDatabricksClient client = connection.getSession().getDatabricksClient();
     return client.executeStatementAsync(
         sql,
         connection.getSession().getComputeResource(),
-        new HashMap<Integer, ImmutableSqlParameter>(),
+        Collections.emptyMap(),
         connection.getSession(),
         this);
   }
@@ -621,6 +622,10 @@ public class DatabricksStatement
   public ResultSet getExecutionResult() throws SQLException {
     LOGGER.debug("ResultSet getExecutionResult() for statementId {%s}", statementId);
     checkIfClosed();
+
+    if (statementId == null) {
+      throw new DatabricksSQLException("No execution available for statement");
+    }
     return connection
         .getSession()
         .getDatabricksClient()

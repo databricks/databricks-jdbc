@@ -2,8 +2,7 @@ package com.databricks.jdbc.dbclient.impl.thrift;
 
 import static com.databricks.jdbc.common.EnvironmentVariables.DEFAULT_BYTE_LIMIT;
 import static com.databricks.jdbc.common.EnvironmentVariables.DEFAULT_ROW_LIMIT;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 import com.databricks.jdbc.api.IDatabricksConnectionContext;
@@ -130,6 +129,16 @@ public class DatabricksThriftAccessorTest {
   }
 
   @Test
+  void testExecuteAsync_error() throws TException, SQLException {
+    setup(true);
+    TExecuteStatementReq request = new TExecuteStatementReq();
+    when(thriftClient.ExecuteStatement(request)).thenThrow(new TException("failed"));
+    assertThrows(
+        DatabricksHttpException.class,
+        () -> accessor.executeAsync(request, null, null, StatementType.SQL));
+  }
+
+  @Test
   void testExecuteThrowsThriftError() throws TException {
     setup(true);
     accessor = new DatabricksThriftAccessor(thriftClient, config, connectionContext);
@@ -203,6 +212,120 @@ public class DatabricksThriftAccessorTest {
             DatabricksSQLException.class,
             () -> accessor.execute(request, null, null, StatementType.SQL));
     assert (e.getMessage().contains("Test Error Message"));
+  }
+
+  @Test
+  void testCancelOperation() throws TException, DatabricksSQLException {
+    setup(true);
+    TCancelOperationReq request =
+        new TCancelOperationReq()
+            .setOperationHandle(
+                new TOperationHandle()
+                    .setOperationId(handleIdentifier)
+                    .setOperationType(TOperationType.UNKNOWN));
+    TCancelOperationResp response =
+        new TCancelOperationResp()
+            .setStatus(new TStatus().setStatusCode(TStatusCode.SUCCESS_STATUS));
+    when(thriftClient.CancelOperation(request)).thenReturn(response);
+    assertEquals(accessor.cancelOperation(request), response);
+  }
+
+  @Test
+  void testCloseOperation() throws TException, DatabricksSQLException {
+    setup(true);
+    TCloseOperationReq request =
+        new TCloseOperationReq()
+            .setOperationHandle(
+                new TOperationHandle()
+                    .setOperationId(handleIdentifier)
+                    .setOperationType(TOperationType.UNKNOWN));
+    TCloseOperationResp response =
+        new TCloseOperationResp()
+            .setStatus(new TStatus().setStatusCode(TStatusCode.SUCCESS_STATUS));
+    when(thriftClient.CloseOperation(request)).thenReturn(response);
+    assertEquals(accessor.closeOperation(request), response);
+  }
+
+  @Test
+  void testCancelOperation_error() throws TException, DatabricksSQLException {
+    setup(true);
+    TCancelOperationReq request =
+        new TCancelOperationReq()
+            .setOperationHandle(
+                new TOperationHandle()
+                    .setOperationId(handleIdentifier)
+                    .setOperationType(TOperationType.UNKNOWN));
+    when(thriftClient.CancelOperation(request)).thenThrow(new TException("failed"));
+    assertThrows(
+        DatabricksHttpException.class,
+        () -> {
+          accessor.cancelOperation(request);
+        });
+  }
+
+  @Test
+  void testCloseOperation_error() throws TException, DatabricksSQLException {
+    setup(true);
+    TCloseOperationReq request =
+        new TCloseOperationReq()
+            .setOperationHandle(
+                new TOperationHandle()
+                    .setOperationId(handleIdentifier)
+                    .setOperationType(TOperationType.UNKNOWN));
+    when(thriftClient.CloseOperation(request)).thenThrow(new TException("failed"));
+    assertThrows(
+        DatabricksHttpException.class,
+        () -> {
+          accessor.closeOperation(request);
+        });
+  }
+
+  @Test
+  void testGetStatementResult_success() throws Exception {
+    when(connectionContext.getDirectResultMode()).thenReturn(false);
+    when(thriftClient.getInputProtocol()).thenReturn(protocol);
+    when(protocol.getTransport()).thenReturn(transport);
+    accessor = new DatabricksThriftAccessor(thriftClient, config, connectionContext);
+    TGetOperationStatusReq request =
+        new TGetOperationStatusReq()
+            .setOperationHandle(tOperationHandle)
+            .setGetProgressUpdate(false);
+    TGetOperationStatusResp resp =
+        new TGetOperationStatusResp()
+            .setStatus(new TStatus().setStatusCode(TStatusCode.SUCCESS_STATUS));
+    when(thriftClient.GetOperationStatus(request)).thenReturn(resp);
+
+    TFetchResultsReq fetchReq =
+        new TFetchResultsReq()
+            .setOperationHandle(tOperationHandle)
+            .setFetchType((short) 0) // 0 represents Query output. 1 represents Log
+            .setMaxRows(-1)
+            .setIncludeResultSetMetadata(true)
+            .setMaxBytes(DEFAULT_BYTE_LIMIT);
+    when(thriftClient.FetchResults(fetchReq)).thenReturn(response);
+    DatabricksResultSet resultSet = accessor.getStatementResult(tOperationHandle, null, null);
+    assertEquals(StatementState.SUCCEEDED, resultSet.getStatementStatus().getState());
+    assertNotNull(resultSet.getMetaData());
+  }
+
+  @Test
+  void testGetStatementResult_pending() throws Exception {
+    when(connectionContext.getDirectResultMode()).thenReturn(false);
+    when(thriftClient.getInputProtocol()).thenReturn(protocol);
+    when(protocol.getTransport()).thenReturn(transport);
+    accessor = new DatabricksThriftAccessor(thriftClient, config, connectionContext);
+    TGetOperationStatusReq request =
+        new TGetOperationStatusReq()
+            .setOperationHandle(tOperationHandle)
+            .setGetProgressUpdate(false);
+    TGetOperationStatusResp resp =
+        new TGetOperationStatusResp()
+            .setStatus(new TStatus().setStatusCode(TStatusCode.STILL_EXECUTING_STATUS));
+    when(thriftClient.GetOperationStatus(request)).thenReturn(resp);
+
+    DatabricksResultSet resultSet = accessor.getStatementResult(tOperationHandle, null, null);
+    assertEquals(StatementState.RUNNING, resultSet.getStatementStatus().getState());
+    assertNull(resultSet.getMetaData());
   }
 
   @Test
