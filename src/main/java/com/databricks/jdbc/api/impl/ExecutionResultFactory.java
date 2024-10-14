@@ -5,7 +5,6 @@ import static com.databricks.jdbc.common.util.DatabricksThriftUtil.convertColumn
 import com.databricks.jdbc.api.IDatabricksSession;
 import com.databricks.jdbc.api.impl.arrow.ArrowStreamResult;
 import com.databricks.jdbc.api.impl.volume.VolumeOperationResult;
-import com.databricks.jdbc.api.internal.IDatabricksResultSetInternal;
 import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
 import com.databricks.jdbc.common.util.DatabricksThriftUtil;
 import com.databricks.jdbc.dbclient.impl.common.StatementId;
@@ -25,8 +24,7 @@ class ExecutionResultFactory {
       ResultManifest manifest,
       StatementId statementId,
       IDatabricksSession session,
-      IDatabricksStatementInternal statement,
-      IDatabricksResultSetInternal resultSet)
+      IDatabricksStatementInternal statement)
       throws DatabricksParsingException {
     IExecutionResult resultHandler = getResultHandler(data, manifest, statementId, session);
     if (manifest.getIsVolumeOperation() != null && manifest.getIsVolumeOperation()) {
@@ -35,8 +33,7 @@ class ExecutionResultFactory {
           manifest.getSchema().getColumnCount(),
           session,
           resultHandler,
-          statement,
-          resultSet);
+          statement);
     } else {
       return resultHandler;
     }
@@ -65,8 +62,7 @@ class ExecutionResultFactory {
       TGetResultSetMetadataResp manifest,
       StatementId statementId,
       IDatabricksSession session,
-      IDatabricksStatementInternal statement,
-      IDatabricksResultSetInternal resultSet)
+      IDatabricksStatementInternal statement)
       throws SQLException {
     IExecutionResult resultHandler = getResultHandler(data, manifest, statementId, session);
     if (manifest.isSetIsStagingOperation() && manifest.isIsStagingOperation()) {
@@ -75,8 +71,7 @@ class ExecutionResultFactory {
           manifest.getSchema().getColumnsSize(),
           session,
           resultHandler,
-          statement,
-          resultSet);
+          statement);
     } else {
       return resultHandler;
     }

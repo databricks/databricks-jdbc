@@ -9,8 +9,6 @@ import java.math.BigDecimal;
 import java.sql.*;
 import java.util.Calendar;
 import java.util.Map;
-import org.apache.http.HttpEntity;
-import org.apache.http.entity.StringEntity;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -372,14 +370,6 @@ public class EmptyResultSetTest {
   @Test
   public void testGetAsciiStreamWithLabel() throws SQLException {
     assertNull(resultSet.getAsciiStream("column"));
-  }
-
-  @Test
-  public void testUCInputStream() throws Exception {
-    HttpEntity entity = new StringEntity("hello");
-    resultSet.setVolumeOperationEntityStream(entity);
-    assertEquals(
-        "hello", new String(resultSet.getVolumeOperationInputStream().getContent().readAllBytes()));
   }
 
   @Test

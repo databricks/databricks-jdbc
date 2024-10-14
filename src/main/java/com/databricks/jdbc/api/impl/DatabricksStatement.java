@@ -50,7 +50,7 @@ public class DatabricksStatement
     this.timeoutInSeconds = DEFAULT_STATEMENT_TIMEOUT_SECONDS;
   }
 
-  DatabricksStatement(DatabricksConnection connection, StatementId statementId) {
+  public DatabricksStatement(DatabricksConnection connection, StatementId statementId) {
     this.connection = connection;
     this.statementId = statementId;
     this.resultSet = null;

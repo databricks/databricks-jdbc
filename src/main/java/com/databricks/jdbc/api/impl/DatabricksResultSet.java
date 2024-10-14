@@ -6,7 +6,7 @@ import com.databricks.jdbc.api.IDatabricksResultSet;
 import com.databricks.jdbc.api.IDatabricksSession;
 import com.databricks.jdbc.api.impl.converters.ConverterHelper;
 import com.databricks.jdbc.api.impl.converters.ObjectConverter;
-import com.databricks.jdbc.api.impl.volume.VolumeInputStream;
+import com.databricks.jdbc.api.impl.volume.VolumeOperationResult;
 import com.databricks.jdbc.api.internal.IDatabricksResultSetInternal;
 import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
 import com.databricks.jdbc.common.StatementType;
@@ -26,7 +26,6 @@ import com.databricks.jdbc.model.core.ResultManifest;
 import com.databricks.sdk.service.sql.StatementState;
 import com.databricks.sdk.service.sql.StatementStatus;
 import com.google.common.annotations.VisibleForTesting;
-import java.io.IOException;
 import java.io.InputStream;
 import java.io.Reader;
 import java.math.BigDecimal;
@@ -37,7 +36,6 @@ import java.util.Calendar;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Supplier;
-import org.apache.http.HttpEntity;
 import org.apache.http.entity.InputStreamEntity;
 
 public class DatabricksResultSet
@@ -56,8 +54,6 @@ public class DatabricksResultSet
   private SQLWarning warnings = null;
   private boolean wasNull;
   private boolean isResultInitialized = true;
-  private VolumeInputStream volumeInputStream = null;
-  private long volumeStreamContentLength = -1L;
 
   // Constructor for SEA result set
   public DatabricksResultSet(
@@ -74,7 +70,7 @@ public class DatabricksResultSet
     if (resultData != null) {
       this.executionResult =
           ExecutionResultFactory.getResultSet(
-              resultData, resultManifest, statementId, session, parentStatement, this);
+              resultData, resultManifest, statementId, session, parentStatement);
       this.resultSetMetaData = new DatabricksResultSetMetaData(statementId, resultManifest);
     } else {
       executionResult = null;
@@ -133,7 +129,7 @@ public class DatabricksResultSet
     if (resultData != null) {
       this.executionResult =
           ExecutionResultFactory.getResultSet(
-              resultData, resultManifest, statementId, session, parentStatement, this);
+              resultData, resultManifest, statementId, session, parentStatement);
       long rowSize = getRowCount(resultData);
       this.resultSetMetaData =
           new DatabricksResultSetMetaData(
@@ -1577,17 +1573,12 @@ public class DatabricksResultSet
   }
 
   @Override
-  public void setVolumeOperationEntityStream(HttpEntity httpEntity)
-      throws SQLException, IOException {
-    checkIfClosed();
-    this.volumeInputStream = new VolumeInputStream(httpEntity);
-    this.volumeStreamContentLength = httpEntity.getContentLength();
-  }
-
-  @Override
   public InputStreamEntity getVolumeOperationInputStream() throws SQLException {
     checkIfClosed();
-    return new InputStreamEntity(this.volumeInputStream, this.volumeStreamContentLength);
+    if (executionResult instanceof VolumeOperationResult) {
+      return ((VolumeOperationResult) executionResult).getVolumeOperationInputStream();
+    }
+    throw new DatabricksSQLException("Invalid volume operation");
   }
 
   private void addWarningAndLog(String warningMessage) {

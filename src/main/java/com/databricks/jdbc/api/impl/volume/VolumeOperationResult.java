@@ -5,7 +5,6 @@ import static com.databricks.jdbc.common.DatabricksJdbcConstants.ALLOWED_VOLUME_
 
 import com.databricks.jdbc.api.IDatabricksSession;
 import com.databricks.jdbc.api.impl.IExecutionResult;
-import com.databricks.jdbc.api.internal.IDatabricksResultSetInternal;
 import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
 import com.databricks.jdbc.common.ErrorCodes;
 import com.databricks.jdbc.common.ErrorTypes;
@@ -17,15 +16,18 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Strings;
+import java.io.IOException;
+import java.sql.SQLException;
 import java.util.HashMap;
 import java.util.Map;
+import org.apache.http.HttpEntity;
+import org.apache.http.entity.InputStreamEntity;
 
 /** Class to handle the result of a volume operation */
 public class VolumeOperationResult implements IExecutionResult {
 
   private final IDatabricksSession session;
   private final IExecutionResult resultHandler;
-  private final IDatabricksResultSetInternal resultSet;
   private final IDatabricksStatementInternal statement;
   private final IDatabricksHttpClient httpClient;
   private final long rowCount;
@@ -33,20 +35,20 @@ public class VolumeOperationResult implements IExecutionResult {
 
   private VolumeOperationProcessor volumeOperationProcessor;
   private int currentRowIndex;
+  private VolumeInputStream volumeInputStream = null;
+  private long volumeStreamContentLength = -1L;
 
   public VolumeOperationResult(
       long totalRows,
       long totalColumns,
       IDatabricksSession session,
       IExecutionResult resultHandler,
-      IDatabricksStatementInternal statement,
-      IDatabricksResultSetInternal resultSet) {
+      IDatabricksStatementInternal statement) {
     this.rowCount = totalRows;
     this.columnCount = totalColumns;
     this.session = session;
     this.resultHandler = resultHandler;
     this.statement = statement;
-    this.resultSet = resultSet;
     this.httpClient = DatabricksHttpClient.getInstance(session.getConnectionContext());
     this.currentRowIndex = -1;
   }
@@ -57,14 +59,12 @@ public class VolumeOperationResult implements IExecutionResult {
       IDatabricksSession session,
       IExecutionResult resultHandler,
       IDatabricksHttpClient httpClient,
-      IDatabricksStatementInternal statement,
-      IDatabricksResultSetInternal resultSet) {
+      IDatabricksStatementInternal statement) {
     this.rowCount = manifest.getTotalRowCount();
     this.columnCount = manifest.getSchema().getColumnCount();
     this.session = session;
     this.resultHandler = resultHandler;
     this.statement = statement;
-    this.resultSet = resultSet;
     this.httpClient = httpClient;
     this.currentRowIndex = -1;
   }
@@ -87,7 +87,7 @@ public class VolumeOperationResult implements IExecutionResult {
             httpClient,
             (entity) -> {
               try {
-                this.resultSet.setVolumeOperationEntityStream(entity);
+                this.setVolumeOperationEntityStream(entity);
               } catch (Exception e) {
                 throw new RuntimeException(
                     "Failed to set result set volumeOperationEntityStream", e);
@@ -185,6 +185,15 @@ public class VolumeOperationResult implements IExecutionResult {
     } else {
       return false;
     }
+  }
+
+  public void setVolumeOperationEntityStream(HttpEntity httpEntity) throws IOException {
+    this.volumeInputStream = new VolumeInputStream(httpEntity);
+    this.volumeStreamContentLength = httpEntity.getContentLength();
+  }
+
+  public InputStreamEntity getVolumeOperationInputStream() throws SQLException {
+    return new InputStreamEntity(this.volumeInputStream, this.volumeStreamContentLength);
   }
 
   @Override

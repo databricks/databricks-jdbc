@@ -2,11 +2,11 @@ package com.databricks.jdbc.api.impl;
 
 import static com.databricks.jdbc.api.impl.DatabricksResultSet.AFFECTED_ROWS_COUNT;
 import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import com.databricks.jdbc.api.IDatabricksResultSet;
 import com.databricks.jdbc.api.IDatabricksSession;
+import com.databricks.jdbc.api.impl.volume.VolumeOperationResult;
 import com.databricks.jdbc.api.internal.IDatabricksResultSetInternal;
 import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
 import com.databricks.jdbc.common.StatementType;
@@ -23,7 +23,7 @@ import java.util.Calendar;
 import java.util.Collections;
 import java.util.GregorianCalendar;
 import java.util.TimeZone;
-import org.apache.http.HttpEntity;
+import org.apache.http.entity.InputStreamEntity;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -37,6 +37,7 @@ public class DatabricksResultSetTest {
       StatementId.deserialize("MIIWiOiGTESQt3+6xIDA0A|vq8muWugTKm+ZsjNGZdauw");
 
   @Mock InlineJsonResult mockedExecutionResult;
+  @Mock VolumeOperationResult mockedVolumeResult;
   @Mock DatabricksResultSetMetaData mockedResultSetMetadata;
   @Mock IDatabricksSession session;
   @Mock DatabricksStatement mockedDatabricksStatement;
@@ -721,10 +722,17 @@ public class DatabricksResultSetTest {
   @Test
   void testVolumeOperationInputStream() throws Exception {
     DatabricksResultSet resultSet =
-        getResultSet(StatementState.SUCCEEDED, mockedDatabricksStatement);
-    HttpEntity mockEntity = mock(HttpEntity.class);
-    when(mockEntity.getContentLength()).thenReturn(10L);
-    resultSet.setVolumeOperationEntityStream(mockEntity);
+        new DatabricksResultSet(
+            new StatementStatus().setState(StatementState.SUCCEEDED),
+            STATEMENT_ID,
+            StatementType.METADATA,
+            mockedDatabricksStatement,
+            mockedVolumeResult,
+            mockedResultSetMetadata);
+    String fakeInput = "Hello World\n42\n";
+
+    when(mockedVolumeResult.getVolumeOperationInputStream())
+        .thenReturn(new InputStreamEntity(new ByteArrayInputStream(fakeInput.getBytes()), 10L));
     assertNotNull(resultSet.getVolumeOperationInputStream());
     assertEquals(10L, resultSet.getVolumeOperationInputStream().getContentLength());
   }
