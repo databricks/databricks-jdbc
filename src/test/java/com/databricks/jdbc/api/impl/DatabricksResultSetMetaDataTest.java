@@ -226,31 +226,36 @@ public class DatabricksResultSetMetaDataTest {
     thriftResultManifest.setResultFormat(TSparkRowSetType.ARROW_BASED_SET);
     DatabricksResultSetMetaData metaData =
         new DatabricksResultSetMetaData(STATEMENT_ID, thriftResultManifest, 1, 1);
-    assertFalse(metaData.getisCloudFetchUsed());
+    assertFalse(metaData.getIsCloudFetchUsed());
 
     thriftResultManifest.setResultFormat(TSparkRowSetType.COLUMN_BASED_SET);
     metaData = new DatabricksResultSetMetaData(STATEMENT_ID, thriftResultManifest, 1, 1);
-    assertFalse(metaData.getisCloudFetchUsed());
+    assertFalse(metaData.getIsCloudFetchUsed());
 
     thriftResultManifest.setResultFormat(TSparkRowSetType.ROW_BASED_SET);
     metaData = new DatabricksResultSetMetaData(STATEMENT_ID, thriftResultManifest, 1, 1);
-    assertFalse(metaData.getisCloudFetchUsed());
+    assertFalse(metaData.getIsCloudFetchUsed());
 
     thriftResultManifest.setResultFormat(TSparkRowSetType.URL_BASED_SET);
     metaData = new DatabricksResultSetMetaData(STATEMENT_ID, thriftResultManifest, 1, 1);
-    assertTrue(metaData.getisCloudFetchUsed());
+    assertTrue(metaData.getIsCloudFetchUsed());
   }
 
   @Test
   public void testDispositionSdk() {
     ResultManifest resultManifest = getResultManifest();
-
+    resultManifest.setFormat(Format.ARROW_STREAM);
     DatabricksResultSetMetaData metaData =
-        new DatabricksResultSetMetaData(STATEMENT_ID, resultManifest, true);
-    assertFalse(metaData.getisCloudFetchUsed());
+        new DatabricksResultSetMetaData(STATEMENT_ID, resultManifest);
+    assertTrue(metaData.getIsCloudFetchUsed());
 
-    metaData = new DatabricksResultSetMetaData(STATEMENT_ID, resultManifest, false);
-    assertTrue(metaData.getisCloudFetchUsed());
+    resultManifest.setFormat(Format.CSV);
+    metaData = new DatabricksResultSetMetaData(STATEMENT_ID, resultManifest);
+    assertFalse(metaData.getIsCloudFetchUsed());
+
+    resultManifest.setFormat(Format.JSON_ARRAY);
+    metaData = new DatabricksResultSetMetaData(STATEMENT_ID, resultManifest);
+    assertFalse(metaData.getIsCloudFetchUsed());
   }
 
   private void verifyDefaultMetadataProperties(DatabricksResultSetMetaData metaData)

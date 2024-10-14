@@ -96,7 +96,7 @@ public class DriverTest {
   }
 
   @Test
-  void testGetDispositionSdkClient() throws Exception {
+  void testGetDisposition() throws Exception {
     DriverManager.registerDriver(new Driver());
     DriverManager.drivers().forEach(driver -> System.out.println(driver.getClass()));
     String jdbcUrlBase =
@@ -110,7 +110,7 @@ public class DriverTest {
     DatabricksResultSetMetaData rmsdArrowEnabled =
         (DatabricksResultSetMetaData) resultSetArrowEnabled.getMetaData();
     System.out.println(
-        "isCloudFetchUsed when arrow is enabled: " + rmsdArrowEnabled.getisCloudFetchUsed());
+        "isCloudFetchUsed when arrow is enabled: " + rmsdArrowEnabled.getIsCloudFetchUsed());
     resultSetArrowEnabled.close();
     conArrowEnabled.close();
 
@@ -121,36 +121,9 @@ public class DriverTest {
     DatabricksResultSetMetaData rmsdArrowDisabled =
         (DatabricksResultSetMetaData) resultSetArrowDisabled.getMetaData();
     System.out.println(
-        "isCloudFetchUsed when arrow is disabled: " + rmsdArrowDisabled.getisCloudFetchUsed());
+        "isCloudFetchUsed when arrow is disabled: " + rmsdArrowDisabled.getIsCloudFetchUsed());
     resultSetArrowDisabled.close();
     conArrowDisabled.close();
-  }
-
-  @Test
-  void testGetDispositionThrift() throws Exception {
-    DriverManager.registerDriver(new Driver());
-    DriverManager.drivers().forEach(driver -> System.out.println(driver.getClass()));
-    String jdbcUrl =
-        "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=https;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/791ba2a31c7fd70a;usethriftclient=1;";
-
-    Connection con1 =
-        DriverManager.getConnection(jdbcUrl, "token", "xx"); // Default connection, arrow enabled.
-    System.out.println("Connection established ......");
-    ResultSet resultSet1 = con1.createStatement().executeQuery("SELECT * FROM RANGE(10)");
-    DatabricksResultSetMetaData rmsd1 = (DatabricksResultSetMetaData) resultSet1.getMetaData();
-    System.out.println(
-        "isCloudFetchUsed in case of small result set: " + rmsd1.getisCloudFetchUsed());
-    resultSet1.close();
-    con1.close();
-
-    Connection con2 = DriverManager.getConnection(jdbcUrl, "token", "xx");
-    System.out.println("Connection established ......");
-    ResultSet resultSet2 = con2.createStatement().executeQuery("SELECT * FROM RANGE(10000000)");
-    DatabricksResultSetMetaData rmsd2 = (DatabricksResultSetMetaData) resultSet2.getMetaData();
-    System.out.println(
-        "isCloudFetchUsed in case of large result set: " + rmsd2.getisCloudFetchUsed());
-    resultSet2.close();
-    con2.close();
   }
 
   @Test

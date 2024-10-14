@@ -72,9 +72,7 @@ public class DatabricksResultSet
     this.executionResult =
         ExecutionResultFactory.getResultSet(
             resultData, resultManifest, statementId, session, parentStatement, this);
-    this.resultSetMetaData =
-        new DatabricksResultSetMetaData(
-            statementId, resultManifest, resultData.getExternalLinks() == null);
+    this.resultSetMetaData = new DatabricksResultSetMetaData(statementId, resultManifest);
     this.statementType = statementType;
     this.updateCount = null;
     this.parentStatement = parentStatement;

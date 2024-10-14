@@ -15,6 +15,7 @@ import com.databricks.jdbc.model.core.ColumnMetadata;
 import com.databricks.jdbc.model.core.ResultManifest;
 import com.databricks.sdk.service.sql.ColumnInfo;
 import com.databricks.sdk.service.sql.ColumnInfoTypeName;
+import com.databricks.sdk.service.sql.Format;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import java.sql.ResultSetMetaData;
@@ -43,11 +44,6 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
    *     information and types
    */
   public DatabricksResultSetMetaData(String statementId, ResultManifest resultManifest) {
-    this(statementId, resultManifest, false);
-  }
-
-  public DatabricksResultSetMetaData(
-      String statementId, ResultManifest resultManifest, Boolean isExternalLinksNull) {
     this.statementId = statementId;
     Map<String, Integer> columnNameToIndexMap = new HashMap<>();
     ImmutableList.Builder<ImmutableDatabricksColumn> columnsBuilder = ImmutableList.builder();
@@ -93,7 +89,7 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
     this.columnNameIndex = ImmutableMap.copyOf(columnNameToIndexMap);
     this.totalRows = resultManifest.getTotalRowCount();
     this.chunkCount = resultManifest.getTotalChunkCount();
-    this.isCloudFetchUsed = !isExternalLinksNull;
+    this.isCloudFetchUsed = getIsCloudFetchFromManifest(resultManifest);
   }
 
   /**
@@ -155,7 +151,7 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
     this.columnNameIndex = ImmutableMap.copyOf(columnNameToIndexMap);
     this.totalRows = rows;
     this.chunkCount = chunkCount;
-    this.isCloudFetchUsed = resultManifest.getResultFormat() == TSparkRowSetType.URL_BASED_SET;
+    this.isCloudFetchUsed = getIsCloudFetchFromManifest(resultManifest);
   }
 
   /**
@@ -383,8 +379,16 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
     return totalRows;
   }
 
-  public boolean getisCloudFetchUsed() {
+  public boolean getIsCloudFetchUsed() {
     return isCloudFetchUsed;
+  }
+
+  private boolean getIsCloudFetchFromManifest(ResultManifest resultManifest) {
+    return resultManifest.getFormat() == Format.ARROW_STREAM;
+  }
+
+  private boolean getIsCloudFetchFromManifest(TGetResultSetMetadataResp resultManifest) {
+    return resultManifest.getResultFormat() == TSparkRowSetType.URL_BASED_SET;
   }
 
   public Long getChunkCount() {
