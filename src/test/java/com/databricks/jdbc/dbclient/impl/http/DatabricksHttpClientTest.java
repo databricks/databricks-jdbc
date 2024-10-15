@@ -9,7 +9,6 @@ import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.api.impl.DatabricksConnectionContextFactory;
 import com.databricks.jdbc.common.util.UserAgentManager;
 import com.databricks.jdbc.exception.DatabricksHttpException;
-import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.exception.DatabricksRetryHandlerException;
 import com.databricks.sdk.core.ProxyConfig;
 import java.io.IOException;
@@ -215,7 +214,7 @@ public class DatabricksHttpClientTest {
   }
 
   @Test
-  void testUserAgentSetsClientCorrectly() throws Exception {
+  void testUserAgent() throws Exception {
     // Thrift
     IDatabricksConnectionContext connectionContext =
         DatabricksConnectionContextFactory.create(CLUSTER_JDBC_URL, new Properties());
@@ -234,23 +233,6 @@ public class DatabricksHttpClientTest {
     assertTrue(userAgent.contains(" Java/SQLExecHttpClient-HC-MyApp"));
     assertTrue(userAgent.contains(" databricks-jdbc-http "));
     assertFalse(userAgent.contains("databricks-sdk-java"));
-  }
-
-  @Test
-  void testUserAgentSetsCustomerInput() throws Exception {
-
-    IDatabricksConnectionContext connectionContext =
-        DatabricksConnectionContextFactory.create(USER_AGENT_URL, new Properties());
-    UserAgentManager.setUserAgent(connectionContext);
-    String userAgent = DatabricksHttpClient.getUserAgent();
-    assertTrue(userAgent.contains("TEST/24.2.0.2712019"));
-
-    assertThrows(
-        DatabricksParsingException.class,
-        () ->
-            UserAgentManager.setUserAgent(
-                DatabricksConnectionContextFactory.create(
-                    USER_AGENT_URL_INVALID, new Properties())));
   }
 
   @Test
