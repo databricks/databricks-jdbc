@@ -9,6 +9,7 @@ import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.api.impl.DatabricksConnectionContextFactory;
 import com.databricks.jdbc.common.util.UserAgentManager;
 import com.databricks.jdbc.exception.DatabricksHttpException;
+import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.exception.DatabricksRetryHandlerException;
 import com.databricks.sdk.core.ProxyConfig;
 import java.io.IOException;
@@ -44,6 +45,10 @@ public class DatabricksHttpClientTest {
       "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=http;ssl=1;httpPath=sql/protocolv1/o/6051921418418893/1115-130834-ms4m0yv;AuthMech=3;UserAgentEntry=MyApp";
   private static final String DBSQL_JDBC_URL =
       "jdbc:databricks://adb-565757575.18.azuredatabricks.net:4423/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/erg6767gg;UserAgentEntry=MyApp";
+  private static final String USER_AGENT_URL =
+      "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=http;ssl=1;httpPath=sql/protocolv1/o/6051921418418893/1115-130834-ms4m0yv;AuthMech=3;UserAgentEntry=TEST/24.2.0.2712019";
+  private static final String USER_AGENT_URL_INVALID =
+      "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=http;ssl=1;httpPath=sql/protocolv1/o/6051921418418893/1115-130834-ms4m0yv;AuthMech=3;UserAgentEntry=TEST/24.2.0.2712019/hello";
 
   @Test
   public void testSetProxyDetailsIntoHttpClient() {
@@ -210,7 +215,7 @@ public class DatabricksHttpClientTest {
   }
 
   @Test
-  void testUserAgent() throws Exception {
+  void testUserAgentSetsClientCorrectly() throws Exception {
     // Thrift
     IDatabricksConnectionContext connectionContext =
         DatabricksConnectionContextFactory.create(CLUSTER_JDBC_URL, new Properties());
@@ -229,6 +234,23 @@ public class DatabricksHttpClientTest {
     assertTrue(userAgent.contains(" Java/SQLExecHttpClient-HC-MyApp"));
     assertTrue(userAgent.contains(" databricks-jdbc-http "));
     assertFalse(userAgent.contains("databricks-sdk-java"));
+  }
+
+  @Test
+  void testUserAgentSetsCustomerInput() throws Exception {
+
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContextFactory.create(USER_AGENT_URL, new Properties());
+    UserAgentManager.setUserAgent(connectionContext);
+    String userAgent = DatabricksHttpClient.getUserAgent();
+    assertTrue(userAgent.contains("TEST/24.2.0.2712019"));
+
+    assertThrows(
+        DatabricksParsingException.class,
+        () ->
+            UserAgentManager.setUserAgent(
+                DatabricksConnectionContextFactory.create(
+                    USER_AGENT_URL_INVALID, new Properties())));
   }
 
   @Test

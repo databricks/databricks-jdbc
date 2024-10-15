@@ -84,7 +84,7 @@ public class DatabricksThriftUtil {
     return new ArrayList<>(Collections.singletonList(obj));
   }
 
-  public static List<List<Object>> extractValuesColumnar(List<TColumn> columnList) {
+  private static List<List<Object>> extractValuesColumnar(List<TColumn> columnList) {
     if (columnList == null || columnList.isEmpty()) {
       return new ArrayList<>(List.of(new ArrayList<>()));
     }
@@ -96,6 +96,14 @@ public class DatabricksThriftUtil {
                     .map(column -> getObjectInColumn(column, i))
                     .collect(Collectors.toList()))
         .collect(Collectors.toList());
+  }
+
+  public static List<List<Object>> extractValuesColumnar(TFetchResultsResp fetchResultsResp) {
+    List<List<Object>> answerSet = new ArrayList<>(Collections.emptyList());
+    do {
+      answerSet.addAll(extractValuesColumnar(fetchResultsResp.getResults().getColumns()));
+    } while (fetchResultsResp.hasMoreRows);
+    return answerSet;
   }
 
   private static Object getObjectInColumn(TColumn column, int index) {
@@ -285,6 +293,9 @@ public class DatabricksThriftUtil {
       TSparkDirectResults directResults, String context) throws DatabricksHttpException {
     if (directResults.isSetOperationStatus()) {
       LOGGER.debug("direct result operation status being verified for success response");
+      if (directResults.getOperationStatus().getOperationState() == TOperationState.ERROR_STATE) {
+        throw new DatabricksHttpException(directResults.getOperationStatus().errorMessage);
+      }
       verifySuccessStatus(directResults.getOperationStatus().getStatus().getStatusCode(), context);
     }
     if (directResults.isSetResultSetMetadata()) {

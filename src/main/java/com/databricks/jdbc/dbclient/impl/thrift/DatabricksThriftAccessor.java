@@ -218,20 +218,9 @@ final class DatabricksThriftAccessor {
         throw new DatabricksSQLException(response.status.errorMessage);
       }
       if (response.isSetDirectResults()) {
-        if (enableDirectResults) {
-          if (response.getDirectResults().isSetOperationStatus()
-              && response.getDirectResults().operationStatus.operationState
-                  == TOperationState.ERROR_STATE) {
-            throw new DatabricksSQLException(
-                response.getDirectResults().getOperationStatus().errorMessage);
-          }
-        }
-        if (((response.status.statusCode == SUCCESS_STATUS)
-            || (response.status.statusCode == SUCCESS_WITH_INFO_STATUS))) {
-          checkDirectResultsForErrorStatus(response.getDirectResults(), response.toString());
-          resultSet = response.getDirectResults().getResultSet();
-          resultSet.setResultSetMetadata(response.getDirectResults().getResultSetMetadata());
-        }
+        checkDirectResultsForErrorStatus(response.getDirectResults(), response.toString());
+        resultSet = response.getDirectResults().getResultSet();
+        resultSet.setResultSetMetadata(response.getDirectResults().getResultSetMetadata());
       } else {
         longPolling(response.getOperationHandle());
         resultSet =
