@@ -610,9 +610,6 @@ public class DatabricksResultSetTest {
     assertThrows(DatabricksSQLFeatureNotSupportedException.class, () -> resultSet.getClob(1));
     assertThrows(
         DatabricksSQLFeatureNotSupportedException.class, () -> resultSet.getClob("column"));
-    assertThrows(DatabricksSQLFeatureNotSupportedException.class, () -> resultSet.getArray(1));
-    assertThrows(
-        DatabricksSQLFeatureNotSupportedException.class, () -> resultSet.getArray("column"));
     assertThrows(
         DatabricksSQLFeatureNotSupportedException.class,
         () -> resultSet.getDate(1, new GregorianCalendar()));
