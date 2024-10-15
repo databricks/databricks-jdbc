@@ -1,6 +1,5 @@
-package com.databricks.jdbc.api.impl.inline;
+package com.databricks.jdbc.api.impl;
 
-import com.databricks.jdbc.api.impl.IExecutionResult;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.model.core.ResultData;
 import com.databricks.jdbc.model.core.ResultManifest;
@@ -15,18 +14,14 @@ public class InlineJsonResult implements IExecutionResult {
   private boolean isClosed;
 
   public InlineJsonResult(ResultManifest resultManifest, ResultData resultData) {
-    this.data = getDataList(resultData.getDataArray());
-    this.currentRow = -1;
-    this.isClosed = false;
+    this(getDataList(resultData.getDataArray()));
   }
 
   public InlineJsonResult(Object[][] rows) {
-    this.data =
+    this(
         Arrays.stream(rows)
             .map(row -> Arrays.stream(row).collect(Collectors.toList()))
-            .collect(Collectors.toList());
-    this.currentRow = -1;
-    this.isClosed = false;
+            .collect(Collectors.toList()));
   }
 
   public InlineJsonResult(List<List<Object>> rows) {
@@ -53,7 +48,7 @@ public class InlineJsonResult implements IExecutionResult {
   @Override
   public Object getObject(int columnIndex) throws DatabricksSQLException {
     if (isClosed()) {
-      throw new DatabricksSQLException("Method called on closed result");
+      throw new DatabricksSQLException("Result is already closed");
     }
     if (currentRow == -1) {
       throw new DatabricksSQLException("Cursor is before first row");

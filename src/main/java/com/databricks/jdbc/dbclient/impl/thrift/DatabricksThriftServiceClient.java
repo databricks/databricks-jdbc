@@ -198,7 +198,7 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
     TGetTypeInfoReq request =
         new TGetTypeInfoReq().setSessionHandle(session.getSessionInfo().sessionHandle());
     TFetchResultsResp response = (TFetchResultsResp) thriftAccessor.getThriftResponse(request);
-    return getTypeInfoResult(extractValues(response.getResults().getColumns()));
+    return getTypeInfoResult(extractValuesColumnar(response.getResults().getColumns()));
   }
 
   @Override

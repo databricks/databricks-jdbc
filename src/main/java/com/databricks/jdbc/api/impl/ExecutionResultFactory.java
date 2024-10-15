@@ -6,7 +6,6 @@ import com.databricks.jdbc.api.IDatabricksSession;
 import com.databricks.jdbc.api.callback.IDatabricksResultSetHandle;
 import com.databricks.jdbc.api.callback.IDatabricksStatementHandle;
 import com.databricks.jdbc.api.impl.arrow.ArrowStreamResult;
-import com.databricks.jdbc.api.impl.inline.InlineJsonResult;
 import com.databricks.jdbc.api.impl.volume.VolumeOperationResult;
 import com.databricks.jdbc.common.util.DatabricksThriftUtil;
 import com.databricks.jdbc.exception.DatabricksParsingException;
