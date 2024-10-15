@@ -61,6 +61,22 @@ public class DriverTest {
   }
 
   @Test
+  void testComplexDataTypes() throws Exception {
+    DriverManager.registerDriver(new Driver());
+    DriverManager.drivers().forEach(driver -> System.out.println(driver.getClass()));
+    // Getting the connection
+    String jdbcUrl =
+        "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=https;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/791ba2a31c7fd70a;";
+    Connection con = DriverManager.getConnection(jdbcUrl, "token", "dapi7be7545dd38fb2a77e924a084ecd8b4d");
+    System.out.println("Connection established......");
+    ResultSet resultSet =
+        con.createStatement().executeQuery("SELECT array(1, 4, 2, 5, 3, 6)");
+    printResultSet(resultSet);
+    resultSet.close();
+    con.close();
+  }
+
+  @Test
   void testResultSetMetaData() throws Exception {
     DriverManager.registerDriver(new Driver());
     String jdbcUrl =
