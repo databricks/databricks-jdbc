@@ -11,11 +11,26 @@ import com.databricks.sdk.service.sql.*;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.util.*;
+import java.util.stream.Stream;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 
 public class DatabricksResultSetMetaDataTest {
   private static final String STATEMENT_ID = "statementId";
+
+  static Stream<TSparkRowSetType> thriftResultFormats() {
+    return Stream.of(
+        TSparkRowSetType.ARROW_BASED_SET,
+        TSparkRowSetType.COLUMN_BASED_SET,
+        TSparkRowSetType.ROW_BASED_SET,
+        TSparkRowSetType.URL_BASED_SET);
+  }
+
+  static Stream<Format> sdkResultFormats() {
+    return Stream.of(Format.ARROW_STREAM, Format.CSV, Format.JSON_ARRAY);
+  }
 
   public ColumnInfo getColumn(String name, ColumnInfoTypeName typeName, String typeText) {
     ColumnInfo columnInfo = new ColumnInfo();
@@ -219,43 +234,34 @@ public class DatabricksResultSetMetaDataTest {
     assertEquals(0, scaleAndPrecision[1]);
   }
 
-  @Test
-  public void testGetDispositionThrift() {
+  @ParameterizedTest
+  @MethodSource("thriftResultFormats")
+  public void testGetDispositionThrift(TSparkRowSetType resultFormat) {
     TGetResultSetMetadataResp thriftResultManifest = getThriftResultManifest();
-    // set result format to ARROW_BASED_SET, COLUMN_BASED_SET, ROW_BASED_SET, URL_BASED_SET
-    thriftResultManifest.setResultFormat(TSparkRowSetType.ARROW_BASED_SET);
+    thriftResultManifest.setResultFormat(resultFormat);
     DatabricksResultSetMetaData metaData =
         new DatabricksResultSetMetaData(STATEMENT_ID, thriftResultManifest, 1, 1);
-    assertFalse(metaData.getIsCloudFetchUsed());
 
-    thriftResultManifest.setResultFormat(TSparkRowSetType.COLUMN_BASED_SET);
-    metaData = new DatabricksResultSetMetaData(STATEMENT_ID, thriftResultManifest, 1, 1);
-    assertFalse(metaData.getIsCloudFetchUsed());
-
-    thriftResultManifest.setResultFormat(TSparkRowSetType.ROW_BASED_SET);
-    metaData = new DatabricksResultSetMetaData(STATEMENT_ID, thriftResultManifest, 1, 1);
-    assertFalse(metaData.getIsCloudFetchUsed());
-
-    thriftResultManifest.setResultFormat(TSparkRowSetType.URL_BASED_SET);
-    metaData = new DatabricksResultSetMetaData(STATEMENT_ID, thriftResultManifest, 1, 1);
-    assertTrue(metaData.getIsCloudFetchUsed());
+    if (resultFormat == TSparkRowSetType.URL_BASED_SET) {
+      assertTrue(metaData.getIsCloudFetchUsed());
+    } else {
+      assertFalse(metaData.getIsCloudFetchUsed());
+    }
   }
 
-  @Test
-  public void testDispositionSdk() {
+  @ParameterizedTest
+  @MethodSource("sdkResultFormats")
+  public void testDispositionSdk(Format format) {
     ResultManifest resultManifest = getResultManifest();
-    resultManifest.setFormat(Format.ARROW_STREAM);
+    resultManifest.setFormat(format);
     DatabricksResultSetMetaData metaData =
         new DatabricksResultSetMetaData(STATEMENT_ID, resultManifest);
-    assertTrue(metaData.getIsCloudFetchUsed());
 
-    resultManifest.setFormat(Format.CSV);
-    metaData = new DatabricksResultSetMetaData(STATEMENT_ID, resultManifest);
-    assertFalse(metaData.getIsCloudFetchUsed());
-
-    resultManifest.setFormat(Format.JSON_ARRAY);
-    metaData = new DatabricksResultSetMetaData(STATEMENT_ID, resultManifest);
-    assertFalse(metaData.getIsCloudFetchUsed());
+    if (format == Format.ARROW_STREAM) {
+      assertTrue(metaData.getIsCloudFetchUsed());
+    } else {
+      assertFalse(metaData.getIsCloudFetchUsed());
+    }
   }
 
   private void verifyDefaultMetadataProperties(DatabricksResultSetMetaData metaData)
