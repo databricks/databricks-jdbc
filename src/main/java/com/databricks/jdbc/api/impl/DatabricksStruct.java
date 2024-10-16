@@ -10,52 +10,57 @@ public class DatabricksStruct implements Struct {
   private final String typeName;
 
   public DatabricksStruct(Map<String, Object> attributes, String metadata) {
-    Map<String, Object> typeMap = MetadataParser.parseStructMetadata(metadata);
+    // Parse the metadata into a type map
+    Map<String, String> typeMap = MetadataParser.parseStructMetadata(metadata);
     this.attributes = convertAttributes(attributes, typeMap);
     this.typeName = metadata;
   }
 
-  private Object[] convertAttributes(Map<String, Object> attributes, Map<String, Object> typeMap) {
+  private Object[] convertAttributes(Map<String, Object> attributes, Map<String, String> typeMap) {
     Object[] convertedAttributes = new Object[typeMap.size()];
     int index = 0;
 
-    for (Map.Entry<String, Object> entry : typeMap.entrySet()) {
+    for (Map.Entry<String, String> entry : typeMap.entrySet()) {
       String fieldName = entry.getKey();
-      Object fieldType = entry.getValue();
+      String fieldType = entry.getValue();
       Object value = attributes.get(fieldName);
 
-      if (fieldType instanceof String) {
-        String fieldTypeStr = (String) fieldType;
-
-        if (fieldTypeStr.startsWith("STRUCT")) {
-          if (value instanceof Map) {
-            convertedAttributes[index] =
-                new DatabricksStruct((Map<String, Object>) value, fieldTypeStr);
-          } else {
-            throw new IllegalArgumentException(
-                "Expected a Map for STRUCT but found: " + value.getClass().getSimpleName());
-          }
-        } else if (fieldTypeStr.startsWith("ARRAY")) {
-          if (value instanceof List) {
-            convertedAttributes[index] = new DatabricksArray((List<Object>) value, fieldTypeStr);
-          } else {
-            throw new IllegalArgumentException(
-                "Expected a List for ARRAY but found: " + value.getClass().getSimpleName());
-          }
-        } else if (fieldTypeStr.startsWith("MAP")) {
-          if (value instanceof Map) {
-            convertedAttributes[index] =
-                new DatabricksMap<>((Map<String, Object>) value, fieldTypeStr);
-          } else {
-            throw new IllegalArgumentException(
-                "Expected a Map for MAP but found: " + value.getClass().getSimpleName());
-          }
+      if (fieldType.startsWith("STRUCT")) {
+        if (value instanceof Map) {
+          convertedAttributes[index] = new DatabricksStruct((Map<String, Object>) value, fieldType);
+        } else if (value instanceof String) {
+          // Parse the JSON string for the nested struct
+          ComplexDataTypeParser parser = new ComplexDataTypeParser();
+          Map<String, Object> structMap = parser.parseToStruct(parser.parse((String) value), MetadataParser.parseStructMetadata(fieldType));
+          convertedAttributes[index] = new DatabricksStruct(structMap, fieldType);
         } else {
-          // Handle SQL types conversion
-          convertedAttributes[index] = convertValue(value, fieldTypeStr);
+          throw new IllegalArgumentException("Expected a Map or String for STRUCT but found: " + value.getClass().getSimpleName());
+        }
+      } else if (fieldType.startsWith("ARRAY")) {
+        if (value instanceof List) {
+          convertedAttributes[index] = new DatabricksArray((List<Object>) value, fieldType);
+        } else if (value instanceof String) {
+          // Parse the JSON string for the array
+          ComplexDataTypeParser parser = new ComplexDataTypeParser();
+          List<Object> arrayList = parser.parseToArray(parser.parse((String) value), MetadataParser.parseArrayMetadata(fieldType));
+          convertedAttributes[index] = new DatabricksArray(arrayList, fieldType);
+        } else {
+          throw new IllegalArgumentException("Expected a List or String for ARRAY but found: " + value.getClass().getSimpleName());
+        }
+      } else if (fieldType.startsWith("MAP")) {
+        if (value instanceof Map) {
+          convertedAttributes[index] = new DatabricksMap<>((Map<String, Object>) value, fieldType);
+        } else if (value instanceof String) {
+          // Parse the JSON string for the map
+          ComplexDataTypeParser parser = new ComplexDataTypeParser();
+          Map<String, Object> map = parser.parseToMap((String) value, fieldType);
+          convertedAttributes[index] = new DatabricksMap<>(map, fieldType);
+        } else {
+          throw new IllegalArgumentException("Expected a Map or String for MAP but found: " + value.getClass().getSimpleName());
         }
       } else {
-        convertedAttributes[index] = value;
+        // Handle SQL types conversion for simple fields
+        convertedAttributes[index] = convertSimpleValue(value, fieldType);
       }
 
       index++;
@@ -64,7 +69,7 @@ public class DatabricksStruct implements Struct {
     return convertedAttributes;
   }
 
-  private Object convertValue(Object value, String type) {
+  private Object convertSimpleValue(Object value, String type) {
     if (value == null) {
       return null;
     }

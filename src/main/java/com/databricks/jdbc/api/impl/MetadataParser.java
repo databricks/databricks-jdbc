@@ -5,25 +5,24 @@ import java.util.Map;
 
 public class MetadataParser {
 
-  public static Map<String, Object> parseStructMetadata(String metadata) {
-    Map<String, Object> typeMap = new LinkedHashMap<>();
+  public static Map<String, String> parseStructMetadata(String metadata) {
+    Map<String, String> typeMap = new LinkedHashMap<>();
     metadata = metadata.substring("STRUCT<".length(), metadata.length() - 1);
     String[] fields = splitFields(metadata);
 
     for (String field : fields) {
       String[] parts = field.split(":", 2);
       String fieldName = parts[0].trim();
-      String fieldType = parts[1].trim();
+      String fieldType = cleanTypeName(parts[1].trim());
 
-      // Avoid adding an extra STRUCT<...> when already inside a nested structure
       if (fieldType.startsWith("STRUCT")) {
-        typeMap.put(fieldName, fieldType); // Don't add another STRUCT<...> wrapper
+        typeMap.put(fieldName, fieldType);
       } else if (fieldType.startsWith("ARRAY")) {
         typeMap.put(fieldName, "ARRAY<" + parseArrayMetadata(fieldType) + ">");
       } else if (fieldType.startsWith("MAP")) {
         typeMap.put(fieldName, "MAP<" + parseMapMetadata(fieldType) + ">");
       } else {
-        typeMap.put(fieldName, fieldType); // Handle basic types (STRING, INT, etc.)
+        typeMap.put(fieldName, fieldType);
       }
     }
 
@@ -31,7 +30,7 @@ public class MetadataParser {
   }
 
   public static String parseArrayMetadata(String metadata) {
-    return metadata.substring("ARRAY<".length(), metadata.length() - 1).trim();
+    return cleanTypeName(metadata.substring("ARRAY<".length(), metadata.length() - 1).trim());
   }
 
   public static String parseMapMetadata(String metadata) {
@@ -48,7 +47,6 @@ public class MetadataParser {
         depth--;
       }
 
-      // Only split at the top-level comma, not inside nested structures
       if (ch == ',' && depth == 0) {
         splitIndex = i;
         break;
@@ -59,10 +57,8 @@ public class MetadataParser {
       throw new IllegalArgumentException("Invalid MAP metadata: " + metadata);
     }
 
-    // The key type is before the top-level comma
-    String keyType = metadata.substring(0, splitIndex).trim();
-    // The value type is after the top-level comma
-    String valueType = metadata.substring(splitIndex + 1).trim();
+    String keyType = cleanTypeName(metadata.substring(0, splitIndex).trim());
+    String valueType = cleanTypeName(metadata.substring(splitIndex + 1).trim());
 
     return keyType + ", " + valueType;
   }
@@ -88,5 +84,9 @@ public class MetadataParser {
     }
     fields.add(currentField.toString().trim());
     return fields.toArray(new String[0]);
+  }
+
+  private static String cleanTypeName(String typeName) {
+    return typeName.replaceAll(" NOT NULL", "").trim();
   }
 }

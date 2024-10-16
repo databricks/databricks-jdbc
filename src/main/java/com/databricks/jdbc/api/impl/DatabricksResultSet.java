@@ -996,22 +996,17 @@ public class DatabricksResultSet
       return null;
     }
 
-    // Check column type using getColumnTypeName()
     String columnTypeName = resultSetMetaData.getColumnTypeName(columnIndex);
-    if (!"ARRAY".equalsIgnoreCase(columnTypeName)) {
-      throw new SQLException(
-          "Column type is not ARRAY. Cannot convert to Array. Column type: " + columnTypeName);
+    if (!columnTypeName.toUpperCase().startsWith("ARRAY")) {
+      throw new SQLException("Column type is not ARRAY. Cannot convert to Array. Column type: " + columnTypeName);
     }
 
-    // Parse the object into an array
     ComplexDataTypeParser parser = new ComplexDataTypeParser();
-    List<Object> arrayList = parser.parseToArray(parser.parse(obj.toString()));
+    List<Object> arrayList = parser.parseToArray(parser.parse(obj.toString()), MetadataParser.parseArrayMetadata(columnTypeName));
 
-    // Return a new DatabricksArray with the parsed array and its metadata
-    return new DatabricksArray(arrayList, resultSetMetaData.getColumnTypeName(columnIndex));
+    return new DatabricksArray(arrayList, columnTypeName);
   }
 
-  // getStruct implementation
   public Struct getStruct(int columnIndex) throws SQLException {
     checkIfClosed();
     Object obj = getObjectInternal(columnIndex);
@@ -1019,20 +1014,19 @@ public class DatabricksResultSet
       return null;
     }
 
-    // Get the column type
     String columnTypeName = resultSetMetaData.getColumnTypeName(columnIndex);
-    if (!"STRUCT".equalsIgnoreCase(columnTypeName)) {
-      throw new SQLException(
-          "Column type is not STRUCT. Cannot convert to Struct. Column type: " + columnTypeName);
+    if (!columnTypeName.toUpperCase().startsWith("STRUCT")) {
+      throw new SQLException("Column type is not STRUCT. Cannot convert to Struct. Column type: " + columnTypeName);
     }
 
-    // Parse the object into a map for struct handling
+    Map<String, String> typeMap = MetadataParser.parseStructMetadata(columnTypeName);
+
     ComplexDataTypeParser parser = new ComplexDataTypeParser();
-    Map<String, Object> structMap = parser.parseToMap(obj.toString());
-    return new DatabricksStruct(structMap, resultSetMetaData.getColumnTypeName(columnIndex));
+    Map<String, Object> structMap = parser.parseToStruct(parser.parse(obj.toString()), typeMap);
+
+    return new DatabricksStruct(structMap, columnTypeName);
   }
 
-  // getMap implementation
   public Map<String, Object> getMap(int columnIndex) throws SQLException {
     checkIfClosed();
     Object obj = getObjectInternal(columnIndex);
@@ -1040,16 +1034,13 @@ public class DatabricksResultSet
       return null;
     }
 
-    // Get the column type
     String columnTypeName = resultSetMetaData.getColumnTypeName(columnIndex);
-    if (!"MAP".equalsIgnoreCase(columnTypeName)) {
-      throw new SQLException(
-          "Column type is not MAP. Cannot convert to Map. Column type: " + columnTypeName);
+    if (!columnTypeName.toUpperCase().startsWith("MAP")) {
+      throw new SQLException("Column type is not MAP. Cannot convert to Map. Column type: " + columnTypeName);
     }
 
-    // Parse the object into a map
     ComplexDataTypeParser parser = new ComplexDataTypeParser();
-    return parser.parseToMap(obj.toString());
+    return parser.parseToMap(obj.toString(), columnTypeName);
   }
 
   @Override

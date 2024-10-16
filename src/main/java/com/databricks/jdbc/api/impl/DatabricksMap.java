@@ -31,7 +31,6 @@ public class DatabricksMap<K, V> implements Map<K, V> {
   }
 
   private K convertKey(K key, String keyType) {
-    // Handle key conversion based on keyType if necessary
     return key;
   }
 
@@ -41,24 +40,23 @@ public class DatabricksMap<K, V> implements Map<K, V> {
         return (V) new DatabricksStruct((Map<String, Object>) value, valueType);
       } else {
         throw new IllegalArgumentException(
-            "Expected a Map for STRUCT but found: " + value.getClass().getSimpleName());
+                "Expected a Map for STRUCT but found: " + value.getClass().getSimpleName());
       }
     } else if (valueType.startsWith("ARRAY")) {
       if (value instanceof List) {
         return (V) new DatabricksArray((List<Object>) value, valueType);
       } else {
         throw new IllegalArgumentException(
-            "Expected a List for ARRAY but found: " + value.getClass().getSimpleName());
+                "Expected a List for ARRAY but found: " + value.getClass().getSimpleName());
       }
     } else if (valueType.startsWith("MAP")) {
       if (value instanceof Map) {
         return (V) new DatabricksMap<>((Map<String, Object>) value, valueType);
       } else {
         throw new IllegalArgumentException(
-            "Expected a Map for MAP but found: " + value.getClass().getSimpleName());
+                "Expected a Map for MAP but found: " + value.getClass().getSimpleName());
       }
     } else {
-      // Handle SQL types conversion
       return convertSimpleValue(value, valueType);
     }
   }
