@@ -37,8 +37,7 @@ public class DatabricksStatementTest {
 
   private static final String WAREHOUSE_ID = "erg6767gg";
   private static final String STATEMENT = "select 1";
-  private static final StatementId STATEMENT_ID =
-      StatementId.fromSQLExecStatementId("statement_id");
+  private static final StatementId STATEMENT_ID = new StatementId("statement_id");
   private static final String SESSION_ID = "session_id";
   private static final IDatabricksComputeResource WAREHOUSE_COMPUTE = new Warehouse(WAREHOUSE_ID);
   private static final String JDBC_URL =

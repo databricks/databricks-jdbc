@@ -38,7 +38,7 @@ public class DatabricksSdkClientTest {
   private static final String WAREHOUSE_ID = "erg6767gg";
   private static final IDatabricksComputeResource warehouse = new Warehouse(WAREHOUSE_ID);
   private static final String SESSION_ID = "session_id";
-  private static final StatementId STATEMENT_ID = StatementId.fromSQLExecStatementId("statementId");
+  private static final StatementId STATEMENT_ID = new StatementId("statementId");
   private static final String STATEMENT =
       "SELECT * FROM orders WHERE user_id = ? AND shard = ? AND region_code = ? AND namespace = ?";
   private static final String JDBC_URL =

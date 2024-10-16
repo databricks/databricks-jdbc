@@ -151,7 +151,7 @@ public class DatabricksSdkClient implements IDatabricksClient {
         String.format(
             "Executing sql %s, statementType %s, compute %s, StatementID %s",
             sql, statementType, computeResource, statementId));
-    StatementId typedStatementId = StatementId.fromSQLExecStatementId(statementId);
+    StatementId typedStatementId = new StatementId(statementId);
     if (parentStatement != null) {
       parentStatement.setStatementId(typedStatementId);
     }
@@ -208,9 +208,8 @@ public class DatabricksSdkClient implements IDatabricksClient {
       IDatabricksStatementInternal parentStatement)
       throws SQLException {
     LOGGER.debug(
-        String.format(
-            "public DatabricksResultSet executeStatementAsync(String sql = {%s}, compute resource = {%s}, Map<Integer, ImmutableSqlParameter> parameters, IDatabricksSession session)",
-            sql, computeResource.toString()));
+        "public DatabricksResultSet executeStatementAsync(String sql = {%s}, compute resource = {%s}, Map<Integer, ImmutableSqlParameter> parameters, IDatabricksSession session)",
+        sql, computeResource.toString());
     ExecuteStatementRequest request =
         getRequest(
             StatementType.SQL,
@@ -230,12 +229,11 @@ public class DatabricksSdkClient implements IDatabricksClient {
               "Empty Statement ID for sql %s, compute %s", sql, computeResource.toString()));
       handleFailedExecution(response, "", sql);
     }
-    StatementId typedStatementId = StatementId.fromSQLExecStatementId(statementId);
+    StatementId typedStatementId = new StatementId(statementId);
     if (parentStatement != null) {
       parentStatement.setStatementId(typedStatementId);
     }
-    LOGGER.debug(
-        String.format("Executed sql [%s] with status [%s]", sql, response.getStatus().getState()));
+    LOGGER.debug("Executed sql [%s] with status [%s]", sql, response.getStatus().getState());
 
     return new DatabricksResultSet(
         response.getStatus(),

@@ -14,7 +14,7 @@ public class ResultConstants {
   public static final DatabricksResultSet TYPE_INFO_RESULT =
       new DatabricksResultSet(
           new StatementStatus().setState(StatementState.SUCCEEDED),
-          StatementId.fromSQLExecStatementId("typeinfo-metadata"),
+          new StatementId("typeinfo-metadata"),
           Arrays.asList(
               "TYPE_NAME",
               "DATA_TYPE",

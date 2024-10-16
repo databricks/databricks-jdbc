@@ -27,7 +27,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 @ExtendWith(MockitoExtension.class)
 public class ExecutionResultFactoryTest {
 
-  private static final StatementId STATEMENT_ID = StatementId.fromSQLExecStatementId("statementId");
+  private static final StatementId STATEMENT_ID = new StatementId("statementId");
 
   @Mock DatabricksSession session;
   @Mock IDatabricksConnectionContext connectionContext;

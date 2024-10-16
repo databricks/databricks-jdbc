@@ -39,8 +39,7 @@ public class DatabricksThriftAccessorTest {
   private static final String TEST_STMT_ID = "MIIWiOiGTESQt3+6xIDA0A|vq8muWugTKm+ZsjNGZdauw";
   static THandleIdentifier handleIdentifier =
       StatementId.deserialize(TEST_STMT_ID).toOperationIdentifier();
-  private static final StatementId STATEMENT_ID =
-      StatementId.fromOperationIdentifier(handleIdentifier);
+  private static final StatementId STATEMENT_ID = new StatementId(handleIdentifier);
   private static final TOperationHandle tOperationHandle =
       new TOperationHandle().setOperationId(handleIdentifier).setHasResultSet(false);
   private static final TRowSet rowSet = new TRowSet().setResultLinks(new ArrayList<>(2));

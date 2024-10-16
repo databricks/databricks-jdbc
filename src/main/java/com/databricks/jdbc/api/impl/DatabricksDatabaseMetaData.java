@@ -878,7 +878,7 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
     throwExceptionIfConnectionIsClosed();
     return new DatabricksResultSet(
         new StatementStatus().setState(StatementState.SUCCEEDED),
-        StatementId.fromSQLExecStatementId("getprocedures-metadata"),
+        new StatementId("getprocedures-metadata"),
         Arrays.asList(
             "PROCEDURE_CAT",
             "PROCEDURE_SCHEM",
@@ -1180,7 +1180,7 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
     throwExceptionIfConnectionIsClosed();
     return new DatabricksResultSet(
         new StatementStatus().setState(StatementState.SUCCEEDED),
-        StatementId.fromSQLExecStatementId("getudts-metadata"),
+        new StatementId("getudts-metadata"),
         Arrays.asList(
             "TYPE_CAT",
             "TYPE_SCHEM",

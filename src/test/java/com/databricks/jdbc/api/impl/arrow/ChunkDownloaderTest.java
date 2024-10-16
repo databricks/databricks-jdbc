@@ -13,8 +13,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
 public class ChunkDownloaderTest {
-  private static final StatementId STATEMENT_ID =
-      StatementId.fromSQLExecStatementId("statement_id");
+  private static final StatementId STATEMENT_ID = new StatementId("statement_id");
 
   @Test
   public void testInitEmptyChunkDownloader() {

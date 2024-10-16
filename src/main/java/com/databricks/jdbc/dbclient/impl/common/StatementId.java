@@ -21,14 +21,14 @@ public class StatementId {
     this.secret = secret;
   }
 
-  /** Returns a StatementId identifier for a given SQl Exec statement-Id */
-  public static StatementId fromSQLExecStatementId(String statementId) {
-    return new StatementId(DatabricksClientType.SQL_EXEC, statementId, null);
+  /** Constructs a StatementId identifier for a given SQl Exec statement-Id */
+  public StatementId(String statementId) {
+    this(DatabricksClientType.SQL_EXEC, statementId, null);
   }
 
-  /** Returns a StatementId identifier for a given Thrift Server operation handle */
-  public static StatementId fromOperationIdentifier(THandleIdentifier identifier) {
-    return new StatementId(
+  /** Constructs a StatementId identifier for a given Thrift Server operation handle */
+  public StatementId(THandleIdentifier identifier) {
+    this(
         DatabricksClientType.THRIFT,
         ResourceId.fromBytes(identifier.getGuid()).toString(),
         ResourceId.fromBytes(identifier.getSecret()).toString());

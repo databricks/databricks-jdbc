@@ -133,8 +133,7 @@ final class DatabricksThriftAccessor {
 
   TCancelOperationResp cancelOperation(TCancelOperationReq req) throws DatabricksHttpException {
     refreshHeadersIfRequired();
-    try (DatabricksHttpTTransport transport =
-        (DatabricksHttpTTransport) getThriftClient().getInputProtocol().getTransport()) {
+    try {
       return getThriftClient().CancelOperation(req);
     } catch (TException e) {
       String errorMessage =
@@ -148,8 +147,7 @@ final class DatabricksThriftAccessor {
 
   TCloseOperationResp closeOperation(TCloseOperationReq req) throws DatabricksHttpException {
     refreshHeadersIfRequired();
-    try (DatabricksHttpTTransport transport =
-        (DatabricksHttpTTransport) getThriftClient().getInputProtocol().getTransport()) {
+    try {
       return getThriftClient().CloseOperation(req);
     } catch (TException e) {
       String errorMessage =
@@ -181,6 +179,7 @@ final class DatabricksThriftAccessor {
     TFetchResultsResp response = null;
     DatabricksHttpTTransport transport =
         (DatabricksHttpTTransport) getThriftClient().getInputProtocol().getTransport();
+
     try {
       response = getThriftClient().FetchResults(request);
     } catch (TException e) {
@@ -283,8 +282,7 @@ final class DatabricksThriftAccessor {
     } finally {
       transport.close();
     }
-    StatementId statementId =
-        StatementId.fromOperationIdentifier(response.getOperationHandle().operationId);
+    StatementId statementId = new StatementId(response.getOperationHandle().operationId);
     if (parentStatement != null) {
       parentStatement.setStatementId(statementId);
     }
@@ -325,8 +323,7 @@ final class DatabricksThriftAccessor {
     } finally {
       transport.close();
     }
-    StatementId statementId =
-        StatementId.fromOperationIdentifier(response.getOperationHandle().operationId);
+    StatementId statementId = new StatementId(response.getOperationHandle().operationId);
     if (parentStatement != null) {
       parentStatement.setStatementId(statementId);
     }
@@ -371,7 +368,7 @@ final class DatabricksThriftAccessor {
     } finally {
       transport.close();
     }
-    StatementId statementId = StatementId.fromOperationIdentifier(operationHandle.getOperationId());
+    StatementId statementId = new StatementId(operationHandle.getOperationId());
     return new DatabricksResultSet(
         response.getStatus(),
         statementId,

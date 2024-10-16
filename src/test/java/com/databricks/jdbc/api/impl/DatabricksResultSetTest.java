@@ -32,7 +32,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 @ExtendWith(MockitoExtension.class)
 public class DatabricksResultSetTest {
 
-  private static final StatementId STATEMENT_ID = StatementId.fromSQLExecStatementId("statementId");
+  private static final StatementId STATEMENT_ID = new StatementId("statementId");
   private static final StatementId THRIFT_STATEMENT_ID =
       StatementId.deserialize("MIIWiOiGTESQt3+6xIDA0A|vq8muWugTKm+ZsjNGZdauw");
 

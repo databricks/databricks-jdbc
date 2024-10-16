@@ -22,7 +22,7 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 public class DatabricksResultSetMetaDataTest {
-  private static final StatementId STATEMENT_ID = StatementId.fromSQLExecStatementId("statementId");
+  private static final StatementId STATEMENT_ID = new StatementId("statementId");
   private static final StatementId THRIFT_STATEMENT_ID =
       StatementId.deserialize("MIIWiOiGTESQt3+6xIDA0A|vq8muWugTKm+ZsjNGZdauw");
 

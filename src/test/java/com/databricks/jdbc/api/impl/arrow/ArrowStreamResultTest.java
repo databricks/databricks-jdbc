@@ -63,8 +63,7 @@ public class ArrowStreamResultTest {
   private static final String JDBC_URL =
       "jdbc:databricks://adb-565757575.18.azuredatabricks.net:4423/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/erg6767gg;";
   private static final String CHUNK_URL_PREFIX = "chunk.databricks.com/";
-  private static final StatementId STATEMENT_ID =
-      StatementId.fromSQLExecStatementId("statement_id");
+  private static final StatementId STATEMENT_ID = new StatementId("statement_id");
   @Mock DatabricksSdkClient mockedSdkClient;
   @Mock IDatabricksHttpClient mockHttpClient;
   @Mock CloseableHttpResponse httpResponse;
