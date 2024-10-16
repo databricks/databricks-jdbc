@@ -105,8 +105,8 @@ public class MetadataBenchmarkingTests {
       case "SEA":
       case "THRIFT":
         connection =
-                getConnectionForSimbaDriver(
-                        getBenchmarkingJDBCUrl(), "token", getDatabricksBenchmarkingToken());
+            getConnectionForSimbaDriver(
+                getBenchmarkingJDBCUrl(), "token", getDatabricksBenchmarkingToken());
         break;
       case "THRIFT_ALL_PURPOSE_CLUSTER":
         connection =
