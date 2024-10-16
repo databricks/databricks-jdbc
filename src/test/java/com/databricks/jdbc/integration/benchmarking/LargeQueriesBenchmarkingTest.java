@@ -114,11 +114,11 @@ public class LargeQueriesBenchmarkingTest {
 
     switch (mode) {
       case "SEA":
-        connection =
-            getConnectionForSimbaDriver(
-                getBenchmarkingJDBCUrl(), "token", getDatabricksBenchmarkingToken());
-        break;
       case "THRIFT":
+        connection =
+                getConnectionForSimbaDriver(
+                        getBenchmarkingJDBCUrl(), "token", getDatabricksBenchmarkingToken());
+        break;
       case "THRIFT_ALL_PURPOSE_CLUSTER":
         connection =
             getConnectionForSimbaDriver(
