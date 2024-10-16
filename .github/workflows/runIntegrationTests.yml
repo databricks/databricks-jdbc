@@ -18,6 +18,7 @@ jobs:
     strategy:
       matrix:
         java-version: [8]  # Add JDK 8 support
+        distribution: ['semeru', 'adopt']
         include:
           - test-command: mvn -B compile test -Dtest=*IntegrationTests
             token-secret: DATABRICKS_TOKEN
@@ -30,7 +31,7 @@ jobs:
       - uses: actions/setup-java@v4
         with:
           java-version: ${{ matrix.java-version }}
-          distribution: 'semeru'
+          distribution: ${{ matrix.distribution }}
       - uses: actions/cache@v2
         with:
           path: ~/.m2
