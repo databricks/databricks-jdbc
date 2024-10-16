@@ -303,7 +303,6 @@ final class DatabricksThriftAccessor {
       StatementType statementType)
       throws SQLException {
     refreshHeadersIfRequired();
-    int maxRows = (parentStatement == null) ? DEFAULT_ROW_LIMIT : parentStatement.getMaxRows();
     TExecuteStatementResp response = null;
     TFetchResultsResp resultSet = null;
     DatabricksHttpTTransport transport =

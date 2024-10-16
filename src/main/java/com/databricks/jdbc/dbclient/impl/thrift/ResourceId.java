@@ -16,23 +16,19 @@ public class ResourceId {
   public String toString() {
     return uuidToBase64(uuid);
   }
-
-  UUID getId() {
-    return uuid;
-  }
-
+  
   public byte[] toBytes() {
     return uuidToBytes(uuid);
   }
 
-  static byte[] uuidToBytes(UUID uuid) {
+  private static byte[] uuidToBytes(UUID uuid) {
     ByteBuffer buffer = ByteBuffer.allocate(16);
     buffer.putLong(uuid.getMostSignificantBits());
     buffer.putLong(uuid.getLeastSignificantBits());
     return buffer.array();
   }
 
-  static UUID uuidFromBytes(byte[] bytes) {
+  private static UUID uuidFromBytes(byte[] bytes) {
     ByteBuffer buf = ByteBuffer.wrap(bytes);
     return new UUID(buf.getLong(), buf.getLong());
   }
