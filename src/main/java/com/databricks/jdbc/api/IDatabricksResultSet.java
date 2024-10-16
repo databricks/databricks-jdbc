@@ -1,11 +1,10 @@
 package com.databricks.jdbc.api;
 
 import com.databricks.sdk.service.sql.StatementStatus;
-import java.sql.ResultSet;
 import java.sql.SQLException;
 
 /** Extension to java.sql.ResultSet interface */
-public interface IDatabricksResultSet extends ResultSet {
+public interface IDatabricksResultSet {
 
   /**
    * Returns statement-Id of associated statement

@@ -6,7 +6,7 @@ import java.sql.SQLException;
 import java.sql.Statement;
 
 /** Interface providing Databricks specific Connection APIs. */
-public interface IDatabricksConnection extends Connection {
+public interface IDatabricksConnection {
 
   /** Returns the underlying session for the connection. */
   IDatabricksSession getSession();

@@ -16,7 +16,7 @@ public class ResourceId {
   public String toString() {
     return uuidToBase64(uuid);
   }
-  
+
   public byte[] toBytes() {
     return uuidToBytes(uuid);
   }

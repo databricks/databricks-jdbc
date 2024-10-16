@@ -121,7 +121,6 @@ public class DatabricksThriftAccessorTest {
             .setOperationHandle(tOperationHandle)
             .setStatus(new TStatus().setStatusCode(TStatusCode.SUCCESS_STATUS));
     when(thriftClient.ExecuteStatement(request)).thenReturn(tExecuteStatementResp);
-    when(parentStatement.getMaxRows()).thenReturn(DEFAULT_ROW_LIMIT);
     DatabricksResultSet resultSet =
         accessor.executeAsync(request, parentStatement, null, StatementType.SQL);
     assertEquals(resultSet.getStatementStatus().getState(), StatementState.SUCCEEDED);
