@@ -4,6 +4,7 @@ import com.databricks.jdbc.api.IDatabricksConnection;
 import com.databricks.jdbc.api.IDatabricksResultSet;
 import com.databricks.jdbc.api.IDatabricksStatement;
 import com.databricks.jdbc.api.IDatabricksUCVolumeClient;
+import com.databricks.jdbc.api.impl.DatabricksResultSetMetaData;
 import com.databricks.jdbc.api.impl.arrow.ArrowResultChunk;
 import com.databricks.jdbc.common.DatabricksJdbcConstants;
 import java.io.File;
@@ -92,6 +93,23 @@ public class DriverTest {
     System.out.println("Connection established......");
     ResultSet resultSet = con.getMetaData().getTables("main", "%", "%", null);
     printResultSet(resultSet);
+    resultSet.close();
+    con.close();
+  }
+
+  @Test
+  void testGetDisposition() throws Exception {
+    DriverManager.registerDriver(new Driver());
+    DriverManager.drivers().forEach(driver -> System.out.println(driver.getClass()));
+    String jdbcUrl =
+        "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=https;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/791ba2a31c7fd70a;";
+    Connection con =
+        DriverManager.getConnection(jdbcUrl, "token", "xx"); // Default connection, arrow enabled.
+    System.out.println("Connection established with default params. Arrow is enabled ......");
+    String query = "SELECT * FROM RANGE(10)";
+    ResultSet resultSet = con.createStatement().executeQuery(query);
+    DatabricksResultSetMetaData rsmd = (DatabricksResultSetMetaData) resultSet.getMetaData();
+    System.out.println("isCloudFetchUsed when arrow is enabled: " + rsmd.getIsCloudFetchUsed());
     resultSet.close();
     con.close();
   }

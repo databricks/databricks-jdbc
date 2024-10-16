@@ -23,15 +23,15 @@ import org.apache.arrow.vector.types.pojo.Schema;
 import org.apache.arrow.vector.util.SchemaUtility;
 
 /** Class to manage inline Arrow chunks */
-public class ChunkExtractor {
+public class InlineChunkProvider implements ChunkProvider {
 
-  private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(ChunkExtractor.class);
+  private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(InlineChunkProvider.class);
   private long totalRows;
   private long currentChunkIndex;
 
   ArrowResultChunk arrowResultChunk; // There is only one packet of data in case of inline arrow
 
-  ChunkExtractor(
+  InlineChunkProvider(
       List<TSparkArrowBatch> arrowBatches, TGetResultSetMetadataResp metadata, String statementId)
       throws DatabricksParsingException {
     this.currentChunkIndex = -1;
@@ -40,16 +40,32 @@ public class ChunkExtractor {
     arrowResultChunk = ArrowResultChunk.builder().withInputStream(byteStream, totalRows).build();
   }
 
-  public boolean hasNext() {
+  /** {@inheritDoc} */
+  @Override
+  public boolean hasNextChunk() {
     return this.currentChunkIndex == -1;
   }
 
-  public ArrowResultChunk next() {
-    if (this.currentChunkIndex != -1) {
-      return null;
+  /** {@inheritDoc} */
+  @Override
+  public boolean next() {
+    if (!hasNextChunk()) {
+      return false;
     }
     this.currentChunkIndex++;
+    return true;
+  }
+
+  /** {@inheritDoc} */
+  @Override
+  public ArrowResultChunk getChunk() {
     return arrowResultChunk;
+  }
+
+  /** {@inheritDoc} */
+  @Override
+  public void close() {
+    arrowResultChunk.releaseChunk();
   }
 
   private ByteArrayInputStream initializeByteStream(
@@ -120,8 +136,7 @@ public class ChunkExtractor {
 
   private static Field getArrowField(TColumnDesc columnDesc) throws SQLException {
     TTypeId thriftType = getThriftTypeFromTypeDesc(columnDesc.getTypeDesc());
-    ArrowType arrowType = null;
-    arrowType = mapThriftToArrowType(thriftType);
+    ArrowType arrowType = mapThriftToArrowType(thriftType);
     FieldType fieldType = new FieldType(true, arrowType, null);
     return new Field(columnDesc.getColumnName(), fieldType, null);
   }
@@ -131,9 +146,5 @@ public class ChunkExtractor {
     String errorMessage = "Cannot process inline arrow format. Error: " + e.getMessage();
     LOGGER.error(errorMessage);
     throw new DatabricksParsingException(errorMessage, e);
-  }
-
-  public void releaseChunk() {
-    this.arrowResultChunk.releaseChunk();
   }
 }

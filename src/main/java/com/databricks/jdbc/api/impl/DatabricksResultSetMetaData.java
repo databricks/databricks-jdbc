@@ -11,14 +11,12 @@ import com.databricks.jdbc.common.util.WrapperUtil;
 import com.databricks.jdbc.dbclient.impl.common.StatementId;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
-import com.databricks.jdbc.model.client.thrift.generated.TColumnDesc;
-import com.databricks.jdbc.model.client.thrift.generated.TGetResultSetMetadataResp;
-import com.databricks.jdbc.model.client.thrift.generated.TTypeEntry;
-import com.databricks.jdbc.model.client.thrift.generated.TTypeQualifierValue;
+import com.databricks.jdbc.model.client.thrift.generated.*;
 import com.databricks.jdbc.model.core.ColumnMetadata;
 import com.databricks.jdbc.model.core.ResultManifest;
 import com.databricks.sdk.service.sql.ColumnInfo;
 import com.databricks.sdk.service.sql.ColumnInfoTypeName;
+import com.databricks.sdk.service.sql.Format;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import java.sql.ResultSetMetaData;
@@ -37,6 +35,7 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
   private final ImmutableMap<String, Integer> columnNameIndex;
   private final long totalRows;
   private Long chunkCount;
+  private final boolean isCloudFetchUsed;
 
   /**
    * Constructs a {@code DatabricksResultSetMetaData} object for a SEA result set.
@@ -91,6 +90,7 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
     this.columnNameIndex = ImmutableMap.copyOf(columnNameToIndexMap);
     this.totalRows = resultManifest.getTotalRowCount();
     this.chunkCount = resultManifest.getTotalChunkCount();
+    this.isCloudFetchUsed = getIsCloudFetchFromManifest(resultManifest);
   }
 
   /**
@@ -155,6 +155,7 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
     this.columnNameIndex = ImmutableMap.copyOf(columnNameToIndexMap);
     this.totalRows = rows;
     this.chunkCount = chunkCount;
+    this.isCloudFetchUsed = getIsCloudFetchFromManifest(resultManifest);
   }
 
   /**
@@ -195,6 +196,7 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
     this.columns = columnsBuilder.build();
     this.columnNameIndex = ImmutableMap.copyOf(columnNameToIndexMap);
     this.totalRows = totalRows;
+    this.isCloudFetchUsed = false;
   }
 
   /**
@@ -239,6 +241,7 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
     this.columns = columnsBuilder.build();
     this.columnNameIndex = ImmutableMap.copyOf(columnNameToIndexMap);
     this.totalRows = totalRows;
+    this.isCloudFetchUsed = false;
   }
 
   @Override
@@ -378,6 +381,18 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
 
   public long getTotalRows() {
     return totalRows;
+  }
+
+  public boolean getIsCloudFetchUsed() {
+    return isCloudFetchUsed;
+  }
+
+  private boolean getIsCloudFetchFromManifest(ResultManifest resultManifest) {
+    return resultManifest.getFormat() == Format.ARROW_STREAM;
+  }
+
+  private boolean getIsCloudFetchFromManifest(TGetResultSetMetadataResp resultManifest) {
+    return resultManifest.getResultFormat() == TSparkRowSetType.URL_BASED_SET;
   }
 
   public Long getChunkCount() {

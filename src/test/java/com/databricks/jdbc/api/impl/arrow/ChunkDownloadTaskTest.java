@@ -16,23 +16,23 @@ import org.mockito.MockitoAnnotations;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
-public class SingleChunkDownloaderTest {
+public class ChunkDownloadTaskTest {
   @Mock ArrowResultChunk chunk;
   @Mock IDatabricksHttpClient httpClient;
-  @Mock ChunkDownloader chunkDownloader;
-  private SingleChunkDownloader singleChunkDownloader;
+  @Mock RemoteChunkProvider remoteChunkProvider;
+  private ChunkDownloadTask chunkDownloadTask;
 
   @BeforeEach
   void setUp() {
     MockitoAnnotations.openMocks(this);
-    singleChunkDownloader = new SingleChunkDownloader(chunk, httpClient, chunkDownloader);
+    chunkDownloadTask = new ChunkDownloadTask(chunk, httpClient, remoteChunkProvider);
   }
 
   @Test
   void testRetryLogicWithSocketException() throws Exception {
     when(chunk.isChunkLinkInvalid()).thenReturn(false);
     when(chunk.getChunkIndex()).thenReturn(7L);
-    when(chunkDownloader.getCompressionType()).thenReturn(CompressionType.NONE);
+    when(remoteChunkProvider.getCompressionType()).thenReturn(CompressionType.NONE);
 
     // Simulate SocketException for the first two attempts, then succeed
     doThrow(
@@ -45,17 +45,17 @@ public class SingleChunkDownloaderTest {
         .when(chunk)
         .downloadData(httpClient, CompressionType.NONE);
 
-    singleChunkDownloader.call();
+    chunkDownloadTask.call();
 
     verify(chunk, times(3)).downloadData(httpClient, CompressionType.NONE);
-    verify(chunkDownloader, times(1)).downloadProcessed(7L);
+    verify(remoteChunkProvider, times(1)).downloadProcessed(7L);
   }
 
   @Test
   void testRetryLogicExhaustedWithSocketException() throws Exception {
     when(chunk.isChunkLinkInvalid()).thenReturn(false);
     when(chunk.getChunkIndex()).thenReturn(7L);
-    when(chunkDownloader.getCompressionType()).thenReturn(CompressionType.NONE);
+    when(remoteChunkProvider.getCompressionType()).thenReturn(CompressionType.NONE);
 
     // Simulate SocketException for all attempts
     doThrow(
@@ -64,9 +64,9 @@ public class SingleChunkDownloaderTest {
         .when(chunk)
         .downloadData(httpClient, CompressionType.NONE);
 
-    assertThrows(DatabricksSQLException.class, () -> singleChunkDownloader.call());
-    verify(chunk, times(SingleChunkDownloader.MAX_RETRIES))
+    assertThrows(DatabricksSQLException.class, () -> chunkDownloadTask.call());
+    verify(chunk, times(ChunkDownloadTask.MAX_RETRIES))
         .downloadData(httpClient, CompressionType.NONE);
-    verify(chunkDownloader, times(1)).downloadProcessed(7L);
+    verify(remoteChunkProvider, times(1)).downloadProcessed(7L);
   }
 }
