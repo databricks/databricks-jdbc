@@ -12,6 +12,14 @@ public class ResourceId {
     this.uuid = uuid;
   }
 
+  public static ResourceId fromBytes(byte[] bytes) {
+    return new ResourceId(uuidFromBytes(bytes));
+  }
+
+  public static ResourceId fromBase64(String str) {
+    return new ResourceId(uuidFromBase64(str));
+  }
+
   @Override
   public String toString() {
     return uuidToBase64(uuid);
@@ -39,13 +47,5 @@ public class ResourceId {
 
   private static UUID uuidFromBase64(String str) {
     return uuidFromBytes(Base64.getDecoder().decode(str));
-  }
-
-  public static ResourceId fromBytes(byte[] bytes) {
-    return new ResourceId(uuidFromBytes(bytes));
-  }
-
-  public static ResourceId fromBase64(String str) {
-    return new ResourceId(uuidFromBase64(str));
   }
 }
