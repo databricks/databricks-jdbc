@@ -280,7 +280,7 @@ public class MetadataBenchmarkingTests {
   }
 
   private String getDatabricksCatalog() {
-    return "jdbc_metadata_benchmarking";
+    return "main";
   }
 
   private void loadSimbaDriver() {
