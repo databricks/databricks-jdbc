@@ -311,14 +311,17 @@ final class DatabricksThriftAccessor {
     try {
       response = getThriftClient().ExecuteStatement(request);
       if (Arrays.asList(ERROR_STATUS, INVALID_HANDLE_STATUS).contains(response.status.statusCode)) {
+        LOGGER.error(
+            "Received error response {%s} from Thrift Server for request {%s}",
+            response, request.toString());
         throw new DatabricksSQLException(response.status.errorMessage);
       }
     } catch (TException e) {
       String errorMessage =
           String.format(
               "Error while receiving response from Thrift server. Request {%s}, Error {%s}",
-              request.toString(), e.toString());
-      LOGGER.error(errorMessage);
+              request.toString(), e.getMessage());
+      LOGGER.error(e, errorMessage);
       throw new DatabricksHttpException(errorMessage, e);
     } finally {
       transport.close();
