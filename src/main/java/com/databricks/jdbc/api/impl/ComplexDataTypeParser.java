@@ -2,7 +2,6 @@ package com.databricks.jdbc.api.impl;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-
 import java.math.BigDecimal;
 import java.sql.Date;
 import java.sql.Timestamp;
@@ -86,7 +85,8 @@ public class ComplexDataTypeParser {
       } else if (node.isArray()) {
         return convertArrayToMap(node, metadata);
       } else {
-        throw new IllegalArgumentException("Expected JSON object or array for Map, but got: " + node);
+        throw new IllegalArgumentException(
+            "Expected JSON object or array for Map, but got: " + node);
       }
     } catch (Exception e) {
       throw new RuntimeException("Failed to parse JSON: " + json, e);
@@ -105,7 +105,8 @@ public class ComplexDataTypeParser {
         Object value = convertValueNode(element.get("value"), valueType);
         map.put(key.toString(), value);
       } else {
-        throw new IllegalArgumentException("Expected array elements with 'key' and 'value' fields, but got: " + element);
+        throw new IllegalArgumentException(
+            "Expected array elements with 'key' and 'value' fields, but got: " + element);
       }
     }
 

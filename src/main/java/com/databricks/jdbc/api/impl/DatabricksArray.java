@@ -32,7 +32,9 @@ public class DatabricksArray implements Array {
           Map<String, Object> structMap = parser.parseToMap((String) element, elementType);
           convertedElements[i] = new DatabricksStruct(structMap, elementType);
         } else {
-          throw new IllegalArgumentException("Expected a Map or String for STRUCT but found: " + element.getClass().getSimpleName());
+          throw new IllegalArgumentException(
+              "Expected a Map or String for STRUCT but found: "
+                  + element.getClass().getSimpleName());
         }
       } else if (elementType.startsWith("ARRAY")) {
         if (element instanceof List) {
@@ -42,7 +44,9 @@ public class DatabricksArray implements Array {
           List<Object> arrayList = parser.parseToArray(parser.parse((String) element), elementType);
           convertedElements[i] = new DatabricksArray(arrayList, elementType);
         } else {
-          throw new IllegalArgumentException("Expected a List or String for ARRAY but found: " + element.getClass().getSimpleName());
+          throw new IllegalArgumentException(
+              "Expected a List or String for ARRAY but found: "
+                  + element.getClass().getSimpleName());
         }
       } else if (elementType.startsWith("MAP")) {
         if (element instanceof Map) {
@@ -52,7 +56,8 @@ public class DatabricksArray implements Array {
           Map<String, Object> map = parser.parseToMap((String) element, elementType);
           convertedElements[i] = new DatabricksMap<>(map, elementType);
         } else {
-          throw new IllegalArgumentException("Expected a Map or String for MAP but found: " + element.getClass().getSimpleName());
+          throw new IllegalArgumentException(
+              "Expected a Map or String for MAP but found: " + element.getClass().getSimpleName());
         }
       } else {
         convertedElements[i] = convertValue(element, elementType);
@@ -141,7 +146,8 @@ public class DatabricksArray implements Array {
 
   @Override
   public java.sql.ResultSet getResultSet(Map<String, Class<?>> map) throws SQLException {
-    throw new UnsupportedOperationException("getResultSet(Map<String, Class<?>> map) not implemented");
+    throw new UnsupportedOperationException(
+        "getResultSet(Map<String, Class<?>> map) not implemented");
   }
 
   @Override
@@ -151,7 +157,8 @@ public class DatabricksArray implements Array {
 
   @Override
   public java.sql.ResultSet getResultSet(long index, int count, Map<String, Class<?>> map)
-          throws SQLException {
-    throw new UnsupportedOperationException("getResultSet(long index, int count, Map<String, Class<?>> map) not implemented");
+      throws SQLException {
+    throw new UnsupportedOperationException(
+        "getResultSet(long index, int count, Map<String, Class<?>> map) not implemented");
   }
 }

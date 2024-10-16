@@ -998,11 +998,14 @@ public class DatabricksResultSet
 
     String columnTypeName = resultSetMetaData.getColumnTypeName(columnIndex);
     if (!columnTypeName.toUpperCase().startsWith("ARRAY")) {
-      throw new SQLException("Column type is not ARRAY. Cannot convert to Array. Column type: " + columnTypeName);
+      throw new SQLException(
+          "Column type is not ARRAY. Cannot convert to Array. Column type: " + columnTypeName);
     }
 
     ComplexDataTypeParser parser = new ComplexDataTypeParser();
-    List<Object> arrayList = parser.parseToArray(parser.parse(obj.toString()), MetadataParser.parseArrayMetadata(columnTypeName));
+    List<Object> arrayList =
+        parser.parseToArray(
+            parser.parse(obj.toString()), MetadataParser.parseArrayMetadata(columnTypeName));
 
     return new DatabricksArray(arrayList, columnTypeName);
   }
@@ -1016,7 +1019,8 @@ public class DatabricksResultSet
 
     String columnTypeName = resultSetMetaData.getColumnTypeName(columnIndex);
     if (!columnTypeName.toUpperCase().startsWith("STRUCT")) {
-      throw new SQLException("Column type is not STRUCT. Cannot convert to Struct. Column type: " + columnTypeName);
+      throw new SQLException(
+          "Column type is not STRUCT. Cannot convert to Struct. Column type: " + columnTypeName);
     }
 
     Map<String, String> typeMap = MetadataParser.parseStructMetadata(columnTypeName);
@@ -1036,7 +1040,8 @@ public class DatabricksResultSet
 
     String columnTypeName = resultSetMetaData.getColumnTypeName(columnIndex);
     if (!columnTypeName.toUpperCase().startsWith("MAP")) {
-      throw new SQLException("Column type is not MAP. Cannot convert to Map. Column type: " + columnTypeName);
+      throw new SQLException(
+          "Column type is not MAP. Cannot convert to Map. Column type: " + columnTypeName);
     }
 
     ComplexDataTypeParser parser = new ComplexDataTypeParser();
