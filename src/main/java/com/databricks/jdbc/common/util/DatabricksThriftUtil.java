@@ -38,10 +38,6 @@ public class DatabricksThriftUtil {
         .setExpiration(Long.toString(chunkInfo.getExpiryTime()));
   }
 
-  public static String getStatementId(TOperationHandle operationHandle) {
-    return byteBufferToString(operationHandle.getOperationId().guid);
-  }
-
   public static void verifySuccessStatus(TStatusCode statusCode, String errorContext)
       throws DatabricksHttpException {
     if (!SUCCESS_STATUS_LIST.contains(statusCode)) {
@@ -172,7 +168,6 @@ public class DatabricksThriftUtil {
    * @return a list of values from the specified column
    */
   private static List<?> getColumnValues(TColumn column) {
-    // TODO: Add support for complex data types
     if (column.isSetBinaryVal())
       return getColumnValuesWithNulls(
           column.getBinaryVal().getValues(), column.getBinaryVal().getNulls());

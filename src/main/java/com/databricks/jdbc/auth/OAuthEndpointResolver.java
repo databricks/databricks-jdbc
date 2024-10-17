@@ -68,10 +68,12 @@ public class OAuthEndpointResolver {
     return new DatabricksConfig().setHost(context.getHostForOAuth()).resolve();
   }
 
-  /*
-   * TODO : The following will be removed once SDK changes are merged
-   * https://github.com/databricks/databricks-sdk-java/pull/336
-   * */
+  /**
+   * Fetches the token endpoint from the discovery endpoint.
+   *
+   * <p>TODO: Remove once the <a
+   * href="https://github.com/databricks/databricks-sdk-java/pull/336">PR</a> is merged
+   */
   private String getTokenEndpointFromDiscoveryEndpoint() {
     try {
       URIBuilder uriBuilder = new URIBuilder(context.getOAuthDiscoveryURL());

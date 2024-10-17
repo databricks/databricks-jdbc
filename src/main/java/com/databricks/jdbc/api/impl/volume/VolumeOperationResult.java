@@ -3,13 +3,11 @@ package com.databricks.jdbc.api.impl.volume;
 import static com.databricks.jdbc.common.DatabricksJdbcConstants.ALLOWED_STAGING_INGESTION_PATHS;
 import static com.databricks.jdbc.common.DatabricksJdbcConstants.ALLOWED_VOLUME_INGESTION_PATHS;
 
-import com.databricks.jdbc.api.IDatabricksResultSet;
 import com.databricks.jdbc.api.IDatabricksSession;
-import com.databricks.jdbc.api.IDatabricksStatement;
 import com.databricks.jdbc.api.impl.IExecutionResult;
+import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
 import com.databricks.jdbc.common.ErrorCodes;
 import com.databricks.jdbc.common.ErrorTypes;
-import com.databricks.jdbc.common.util.MetricsUtil;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
 import com.databricks.jdbc.dbclient.impl.http.DatabricksHttpClient;
 import com.databricks.jdbc.exception.DatabricksSQLException;
@@ -18,59 +16,55 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Strings;
+import java.io.IOException;
+import java.sql.SQLException;
 import java.util.HashMap;
 import java.util.Map;
+import org.apache.http.HttpEntity;
+import org.apache.http.entity.InputStreamEntity;
 
 /** Class to handle the result of a volume operation */
 public class VolumeOperationResult implements IExecutionResult {
 
   private final IDatabricksSession session;
-  private final String statementId;
   private final IExecutionResult resultHandler;
-  private final IDatabricksResultSet resultSet;
-  private final IDatabricksStatement statement;
+  private final IDatabricksStatementInternal statement;
   private final IDatabricksHttpClient httpClient;
   private final long rowCount;
   private final long columnCount;
 
   private VolumeOperationProcessor volumeOperationProcessor;
   private int currentRowIndex;
+  private VolumeInputStream volumeInputStream = null;
+  private long volumeStreamContentLength = -1L;
 
   public VolumeOperationResult(
-      String statementId,
       long totalRows,
       long totalColumns,
       IDatabricksSession session,
       IExecutionResult resultHandler,
-      IDatabricksStatement statement,
-      IDatabricksResultSet resultSet) {
-    this.statementId = statementId;
+      IDatabricksStatementInternal statement) {
     this.rowCount = totalRows;
     this.columnCount = totalColumns;
     this.session = session;
     this.resultHandler = resultHandler;
     this.statement = statement;
-    this.resultSet = resultSet;
     this.httpClient = DatabricksHttpClient.getInstance(session.getConnectionContext());
     this.currentRowIndex = -1;
   }
 
   @VisibleForTesting
   VolumeOperationResult(
-      String statementId,
       ResultManifest manifest,
       IDatabricksSession session,
       IExecutionResult resultHandler,
       IDatabricksHttpClient httpClient,
-      IDatabricksStatement statement,
-      IDatabricksResultSet resultSet) {
-    this.statementId = statementId;
+      IDatabricksStatementInternal statement) {
     this.rowCount = manifest.getTotalRowCount();
     this.columnCount = manifest.getSchema().getColumnCount();
     this.session = session;
     this.resultHandler = resultHandler;
     this.statement = statement;
-    this.resultSet = resultSet;
     this.httpClient = httpClient;
     this.currentRowIndex = -1;
   }
@@ -88,9 +82,17 @@ public class VolumeOperationResult implements IExecutionResult {
             headers,
             localFile,
             allowedVolumeIngestionPaths,
+            statement.isAllowedInputStreamForVolumeOperation(),
+            statement.getInputStreamForUCVolume(),
             httpClient,
-            statement,
-            resultSet);
+            (entity) -> {
+              try {
+                this.setVolumeOperationEntityStream(entity);
+              } catch (Exception e) {
+                throw new RuntimeException(
+                    "Failed to set result set volumeOperationEntityStream", e);
+              }
+            });
   }
 
   private String getAllowedVolumeIngestionPaths() {
@@ -119,11 +121,6 @@ public class VolumeOperationResult implements IExecutionResult {
         try {
           return objectMapper.readValue(headers, Map.class);
         } catch (JsonProcessingException e) {
-          MetricsUtil.exportError(
-              session,
-              ErrorTypes.VOLUME_OPERATION_ERROR,
-              statementId,
-              ErrorCodes.VOLUME_OPERATION_PARSING_ERROR);
           throw new DatabricksSQLException(
               "Failed to parse headers",
               e,
@@ -190,6 +187,15 @@ public class VolumeOperationResult implements IExecutionResult {
     }
   }
 
+  public void setVolumeOperationEntityStream(HttpEntity httpEntity) throws IOException {
+    this.volumeInputStream = new VolumeInputStream(httpEntity);
+    this.volumeStreamContentLength = httpEntity.getContentLength();
+  }
+
+  public InputStreamEntity getVolumeOperationInputStream() throws SQLException {
+    return new InputStreamEntity(this.volumeInputStream, this.volumeStreamContentLength);
+  }
+
   @Override
   public boolean hasNext() {
     return resultHandler.hasNext();
@@ -197,6 +203,6 @@ public class VolumeOperationResult implements IExecutionResult {
 
   @Override
   public void close() {
-    // TODO: handle close, shall we abort the operation?
+    resultHandler.close();
   }
 }

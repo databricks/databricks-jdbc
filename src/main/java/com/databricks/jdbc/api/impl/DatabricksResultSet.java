@@ -4,12 +4,14 @@ import static com.databricks.jdbc.common.util.DatabricksThriftUtil.*;
 
 import com.databricks.jdbc.api.IDatabricksResultSet;
 import com.databricks.jdbc.api.IDatabricksSession;
-import com.databricks.jdbc.api.IDatabricksStatement;
 import com.databricks.jdbc.api.impl.converters.ConverterHelper;
 import com.databricks.jdbc.api.impl.converters.ObjectConverter;
-import com.databricks.jdbc.api.impl.volume.VolumeInputStream;
+import com.databricks.jdbc.api.impl.volume.VolumeOperationResult;
+import com.databricks.jdbc.api.internal.IDatabricksResultSetInternal;
+import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
 import com.databricks.jdbc.common.StatementType;
 import com.databricks.jdbc.common.util.WarningUtil;
+import com.databricks.jdbc.dbclient.impl.common.StatementId;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.exception.DatabricksSQLFeatureNotSupportedException;
@@ -24,7 +26,6 @@ import com.databricks.jdbc.model.core.ResultManifest;
 import com.databricks.sdk.service.sql.StatementState;
 import com.databricks.sdk.service.sql.StatementStatus;
 import com.google.common.annotations.VisibleForTesting;
-import java.io.IOException;
 import java.io.InputStream;
 import java.io.Reader;
 import java.math.BigDecimal;
@@ -35,42 +36,47 @@ import java.util.Calendar;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Supplier;
-import org.apache.http.HttpEntity;
 import org.apache.http.entity.InputStreamEntity;
 
-public class DatabricksResultSet implements ResultSet, IDatabricksResultSet {
+public class DatabricksResultSet
+    implements ResultSet, IDatabricksResultSet, IDatabricksResultSetInternal {
 
   private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(DatabricksResultSet.class);
   protected static final String AFFECTED_ROWS_COUNT = "num_affected_rows";
   private final StatementStatus statementStatus;
-  private final String statementId;
+  private final StatementId statementId;
   private final IExecutionResult executionResult;
   private final DatabricksResultSetMetaData resultSetMetaData;
   private final StatementType statementType;
-  private final IDatabricksStatement parentStatement;
+  private final IDatabricksStatementInternal parentStatement;
   private Long updateCount;
   private boolean isClosed;
   private SQLWarning warnings = null;
   private boolean wasNull;
-  private VolumeInputStream volumeInputStream = null;
-  private long volumeStreamContentLength = -1L;
+  private boolean isResultInitialized = true;
 
   // Constructor for SEA result set
   public DatabricksResultSet(
       StatementStatus statementStatus,
-      String statementId,
+      StatementId statementId,
       ResultData resultData,
       ResultManifest resultManifest,
       StatementType statementType,
       IDatabricksSession session,
-      IDatabricksStatement parentStatement)
+      IDatabricksStatementInternal parentStatement)
       throws DatabricksParsingException {
     this.statementStatus = statementStatus;
     this.statementId = statementId;
-    this.executionResult =
-        ExecutionResultFactory.getResultSet(
-            resultData, resultManifest, statementId, session, parentStatement, this);
-    this.resultSetMetaData = new DatabricksResultSetMetaData(statementId, resultManifest);
+    if (resultData != null) {
+      this.executionResult =
+          ExecutionResultFactory.getResultSet(
+              resultData, resultManifest, statementId, session, parentStatement);
+      this.resultSetMetaData = new DatabricksResultSetMetaData(statementId, resultManifest);
+    } else {
+      executionResult = null;
+      resultSetMetaData = null;
+      isResultInitialized = false;
+    }
     this.statementType = statementType;
     this.updateCount = null;
     this.parentStatement = parentStatement;
@@ -81,9 +87,9 @@ public class DatabricksResultSet implements ResultSet, IDatabricksResultSet {
   @VisibleForTesting
   public DatabricksResultSet(
       StatementStatus statementStatus,
-      String statementId,
+      StatementId statementId,
       StatementType statementType,
-      IDatabricksStatement parentStatement,
+      IDatabricksStatementInternal parentStatement,
       IExecutionResult executionResult,
       DatabricksResultSetMetaData resultSetMetaData) {
     this.statementStatus = statementStatus;
@@ -100,26 +106,39 @@ public class DatabricksResultSet implements ResultSet, IDatabricksResultSet {
   // Constructor for thrift result set
   public DatabricksResultSet(
       TStatus statementStatus,
-      String statementId,
+      StatementId statementId,
       TRowSet resultData,
       TGetResultSetMetadataResp resultManifest,
       StatementType statementType,
-      IDatabricksStatement parentStatement,
+      IDatabricksStatementInternal parentStatement,
       IDatabricksSession session)
       throws SQLException {
-    if (SUCCESS_STATUS_LIST.contains(statementStatus.getStatusCode())) {
-      this.statementStatus = new StatementStatus().setState(StatementState.SUCCEEDED);
-    } else {
-      this.statementStatus = new StatementStatus().setState(StatementState.FAILED);
+    switch (statementStatus.getStatusCode()) {
+      case SUCCESS_STATUS:
+      case SUCCESS_WITH_INFO_STATUS:
+        this.statementStatus = new StatementStatus().setState(StatementState.SUCCEEDED);
+        break;
+      case STILL_EXECUTING_STATUS:
+        this.statementStatus = new StatementStatus().setState(StatementState.RUNNING);
+        break;
+      default:
+        this.statementStatus = new StatementStatus().setState(StatementState.FAILED);
     }
+
     this.statementId = statementId;
-    this.executionResult =
-        ExecutionResultFactory.getResultSet(
-            resultData, resultManifest, statementId, session, parentStatement, this);
-    long rowSize = getRowCount(resultData);
-    this.resultSetMetaData =
-        new DatabricksResultSetMetaData(
-            statementId, resultManifest, rowSize, resultData.getResultLinksSize());
+    if (resultData != null) {
+      this.executionResult =
+          ExecutionResultFactory.getResultSet(
+              resultData, resultManifest, statementId, session, parentStatement);
+      long rowSize = getRowCount(resultData);
+      this.resultSetMetaData =
+          new DatabricksResultSetMetaData(
+              statementId, resultManifest, rowSize, resultData.getResultLinksSize());
+    } else {
+      this.executionResult = null;
+      this.resultSetMetaData = null;
+      this.isResultInitialized = false;
+    }
     this.statementType = statementType;
     this.updateCount = null;
     this.parentStatement = parentStatement;
@@ -130,7 +149,7 @@ public class DatabricksResultSet implements ResultSet, IDatabricksResultSet {
   // Constructing results for getUDTs, getTypeInfo, getProcedures metadata calls
   public DatabricksResultSet(
       StatementStatus statementStatus,
-      String statementId,
+      StatementId statementId,
       List<String> columnNames,
       List<String> columnTypeText,
       List<Integer> columnTypes,
@@ -158,7 +177,7 @@ public class DatabricksResultSet implements ResultSet, IDatabricksResultSet {
   // Constructing metadata result set in thrift flow
   public DatabricksResultSet(
       StatementStatus statementStatus,
-      String statementId,
+      StatementId statementId,
       List<String> columnNames,
       List<String> columnTypeText,
       List<Integer> columnTypes,
@@ -186,7 +205,7 @@ public class DatabricksResultSet implements ResultSet, IDatabricksResultSet {
   // Constructing metadata result set in SEA flow
   public DatabricksResultSet(
       StatementStatus statementStatus,
-      String statementId,
+      StatementId statementId,
       List<ColumnMetadata> columnMetadataList,
       List<List<Object>> rows,
       StatementType statementType) {
@@ -1498,19 +1517,24 @@ public class DatabricksResultSet implements ResultSet, IDatabricksResultSet {
 
   @Override
   public <T> T unwrap(Class<T> iface) throws SQLException {
-    throw new DatabricksSQLFeatureNotSupportedException(
-        "Not implemented in DatabricksResultSet - unwrap(Class<T> iface)");
+    LOGGER.debug("public <T> T unwrap(Class<T> iface)");
+    if (iface.isInstance(this)) {
+      return (T) this;
+    }
+    throw new DatabricksSQLException(
+        String.format(
+            "Class {%s} cannot be wrapped from {%s}", this.getClass().getName(), iface.getName()));
   }
 
   @Override
   public boolean isWrapperFor(Class<?> iface) throws SQLException {
-    throw new DatabricksSQLFeatureNotSupportedException(
-        "Not implemented in DatabricksResultSet - isWrapperFor(Class<?> iface)");
+    LOGGER.debug("public boolean isWrapperFor(Class<?> iface)");
+    return iface.isInstance(this);
   }
 
   @Override
-  public String statementId() {
-    return statementId;
+  public String getStatementId() {
+    return statementId.toString();
   }
 
   @Override
@@ -1549,18 +1573,12 @@ public class DatabricksResultSet implements ResultSet, IDatabricksResultSet {
   }
 
   @Override
-  public void setVolumeOperationEntityStream(HttpEntity httpEntity)
-      throws SQLException, IOException {
-    checkIfClosed();
-    this.volumeInputStream =
-        new VolumeInputStream(httpEntity, executionResult, this.parentStatement);
-    this.volumeStreamContentLength = httpEntity.getContentLength();
-  }
-
-  @Override
   public InputStreamEntity getVolumeOperationInputStream() throws SQLException {
     checkIfClosed();
-    return new InputStreamEntity(this.volumeInputStream, this.volumeStreamContentLength);
+    if (executionResult instanceof VolumeOperationResult) {
+      return ((VolumeOperationResult) executionResult).getVolumeOperationInputStream();
+    }
+    throw new DatabricksSQLException("Invalid volume operation");
   }
 
   private void addWarningAndLog(String warningMessage) {

@@ -4,9 +4,9 @@ import static com.databricks.jdbc.common.DatabricksJdbcConstants.VOLUME_OPERATIO
 import static com.databricks.jdbc.common.DatabricksJdbcConstants.VOLUME_OPERATION_STATUS_SUCCEEDED;
 import static com.databricks.jdbc.common.util.StringUtil.escapeStringLiteral;
 
-import com.databricks.jdbc.api.IDatabricksResultSet;
-import com.databricks.jdbc.api.IDatabricksStatement;
 import com.databricks.jdbc.api.IDatabricksUCVolumeClient;
+import com.databricks.jdbc.api.internal.IDatabricksResultSetInternal;
+import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import java.io.InputStream;
@@ -246,6 +246,22 @@ public class DatabricksUCVolumeClient implements IDatabricksUCVolumeClient {
     return volumeExists(catalog, schema, volumeName, true);
   }
 
+  /**
+   * This functions lists all the files that fall under the specified prefix within the target
+   * folder in the specified volume. The prefix is checked with the word after the last / in the
+   * input Ex - 1. foo/bar will list all the files within foo folder having bar as prefix | 2.
+   * foo/bar/f will list all the files within the bar folder with prefix f | 3. foo/bar/ will list
+   * all the files within the bar folder with all prefix
+   *
+   * @param catalog the catalog name of the cloud storage
+   * @param schema the schema name of the cloud storage
+   * @param volume the UC volume name of the cloud storage
+   * @param prefix the prefix of the filenames to list. This includes the relative path from the
+   *     volume as the root directory
+   * @param caseSensitive a boolean indicating whether the check should be case-sensitive or not
+   * @return List<String> a list of strings indicating the filenames that start with the specified
+   *     prefix
+   */
   @Override
   public List<String> listObjects(
       String catalog, String schema, String volume, String prefix, boolean caseSensitive)
@@ -331,13 +347,16 @@ public class DatabricksUCVolumeClient implements IDatabricksUCVolumeClient {
     String getObjectQuery = createGetObjectQueryForInputStream(catalog, schema, volume, objectPath);
 
     try (Statement statement = connection.createStatement()) {
-      IDatabricksStatement databricksStatement = (IDatabricksStatement) statement;
+      IDatabricksStatementInternal databricksStatement =
+          statement.unwrap(IDatabricksStatementInternal.class);
       databricksStatement.allowInputStreamForVolumeOperation(true);
 
       try (ResultSet resultSet = statement.executeQuery(getObjectQuery)) {
         LOGGER.info("GET query executed successfully");
         if (resultSet.next()) {
-          return ((IDatabricksResultSet) resultSet).getVolumeOperationInputStream();
+          return resultSet
+              .unwrap(IDatabricksResultSetInternal.class)
+              .getVolumeOperationInputStream();
         } else {
           return null;
         }
@@ -407,7 +426,8 @@ public class DatabricksUCVolumeClient implements IDatabricksUCVolumeClient {
     boolean isOperationSucceeded = false;
 
     try (Statement statement = connection.createStatement()) {
-      IDatabricksStatement databricksStatement = (IDatabricksStatement) statement;
+      IDatabricksStatementInternal databricksStatement =
+          statement.unwrap(IDatabricksStatementInternal.class);
       databricksStatement.allowInputStreamForVolumeOperation(true);
       databricksStatement.setInputStreamForUCVolume(
           new InputStreamEntity(inputStream, contentLength));

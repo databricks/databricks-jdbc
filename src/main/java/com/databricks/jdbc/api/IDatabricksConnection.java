@@ -2,6 +2,8 @@ package com.databricks.jdbc.api;
 
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import java.sql.Connection;
+import java.sql.SQLException;
+import java.sql.Statement;
 
 /** Interface providing Databricks specific Connection APIs. */
 public interface IDatabricksConnection {
@@ -27,4 +29,7 @@ public interface IDatabricksConnection {
 
   /** Returns the connection context associated with the connection. */
   IDatabricksConnectionContext getConnectionContext();
+
+  /** Returns the statement handle for given statement-Id */
+  Statement getStatement(String statementId) throws SQLException;
 }

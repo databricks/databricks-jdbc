@@ -2,35 +2,8 @@ package com.databricks.jdbc.dbclient;
 
 import com.databricks.jdbc.api.IDatabricksSession;
 import com.databricks.jdbc.api.impl.DatabricksResultSet;
-import com.databricks.jdbc.common.CommandName;
-import com.databricks.jdbc.telemetry.annotation.DatabricksMetricsTimedClass;
-import com.databricks.jdbc.telemetry.annotation.DatabricksMetricsTimedMethod;
 import java.sql.SQLException;
 
-@DatabricksMetricsTimedClass(
-    methods = {
-      @DatabricksMetricsTimedMethod(
-          methodName = "listCatalogs",
-          metricName = CommandName.LIST_CATALOGS),
-      @DatabricksMetricsTimedMethod(
-          methodName = "listSchemas",
-          metricName = CommandName.LIST_SCHEMAS),
-      @DatabricksMetricsTimedMethod(
-          methodName = "listTables",
-          metricName = CommandName.LIST_TABLES),
-      @DatabricksMetricsTimedMethod(
-          methodName = "listTableTypes",
-          metricName = CommandName.LIST_TABLE_TYPES),
-      @DatabricksMetricsTimedMethod(
-          methodName = "listColumns",
-          metricName = CommandName.LIST_COLUMNS),
-      @DatabricksMetricsTimedMethod(
-          methodName = "listFunctions",
-          metricName = CommandName.LIST_FUNCTIONS),
-      @DatabricksMetricsTimedMethod(
-          methodName = "listPrimaryKeys",
-          metricName = CommandName.LIST_PRIMARY_KEYS)
-    })
 public interface IDatabricksMetadataClient {
 
   /** Returns information about types supported by Databricks server */

@@ -1,7 +1,5 @@
 package com.databricks.jdbc.common.util;
 
-import static java.sql.ParameterMetaData.parameterNullable;
-
 import com.databricks.jdbc.common.Nullable;
 import com.databricks.jdbc.exception.DatabricksSQLFeatureNotSupportedException;
 import com.databricks.jdbc.log.JdbcLogger;
@@ -24,8 +22,9 @@ import org.apache.arrow.vector.types.TimeUnit;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 
 /**
- * Databricks types as supported in
- * https://docs.databricks.com/en/sql/language-manual/sql-ref-datatypes.html
+ * Utility class for handling various type conversions and mappings between <a
+ * href="https://docs.databricks.com/en/sql/language-manual/sql-ref-datatypes.html">Databricks-specific</a>
+ * data types, SQL types, and Arrow types.
  */
 public class DatabricksTypeUtil {
 
@@ -49,7 +48,6 @@ public class DatabricksTypeUtil {
   public static final String MAP = "MAP";
   public static final String ARRAY = "ARRAY";
   public static final String STRUCT = "STRUCT";
-
   private static final ArrayList<ColumnInfoTypeName> SIGNED_TYPES =
       new ArrayList<>(
           Arrays.asList(
@@ -59,8 +57,6 @@ public class DatabricksTypeUtil {
               ColumnInfoTypeName.INT,
               ColumnInfoTypeName.LONG,
               ColumnInfoTypeName.SHORT));
-  private static final ArrayList<ColumnInfoTypeName> CASE_SENSITIVE_TYPES =
-      new ArrayList<>(Arrays.asList(ColumnInfoTypeName.CHAR, ColumnInfoTypeName.STRING));
 
   public static ColumnInfoTypeName getColumnInfoType(String typeName) {
     switch (typeName) {
@@ -128,9 +124,9 @@ public class DatabricksTypeUtil {
       case CHAR:
         return Types.CHAR;
       case STRING:
-        // TODO: Handle complex data types
       case MAP:
       case INTERVAL:
+      case NULL:
         return Types.VARCHAR;
       case TIMESTAMP:
         return Types.TIMESTAMP;
@@ -140,8 +136,6 @@ public class DatabricksTypeUtil {
         return Types.STRUCT;
       case ARRAY:
         return Types.ARRAY;
-      case NULL:
-        return Types.VARCHAR;
       case USER_DEFINED_TYPE:
         return Types.OTHER;
       default:
@@ -172,7 +166,6 @@ public class DatabricksTypeUtil {
         return "java.lang.Boolean";
       case CHAR:
       case STRING:
-        // TODO: Handle complex data types
       case INTERVAL:
       case USER_DEFINED_TYPE:
         return "java.lang.String";
@@ -237,7 +230,6 @@ public class DatabricksTypeUtil {
       case Types.SMALLINT:
         return 5;
       case Types.INTEGER:
-        return 10;
       case Types.DATE:
       case Types.DECIMAL:
         return 10;
@@ -259,11 +251,6 @@ public class DatabricksTypeUtil {
       default:
         return 255;
     }
-  }
-
-  public static int isNullable(ColumnInfoTypeName typeName) {
-    // Todo : we need to figure out schema fetch [PECO-1711]
-    return parameterNullable;
   }
 
   public static int getScale(Integer columnType) {
@@ -290,8 +277,8 @@ public class DatabricksTypeUtil {
   }
 
   /**
-   * Converts SQL type into Databricks type as defined in
-   * https://docs.databricks.com/en/sql/language-manual/sql-ref-datatypes.html
+   * Converts SQL type into Databricks type as defined <a
+   * href="https://docs.databricks.com/en/sql/language-manual/sql-ref-datatypes.html">here</a>
    *
    * @param sqlType SQL type input
    * @return databricks type
@@ -334,14 +321,14 @@ public class DatabricksTypeUtil {
       case Types.SMALLINT:
         return SMALLINT;
       default:
-        // TODO: handle more types
+        // TODO: Handle more SQL types
         return NULL;
     }
   }
 
   /**
-   * Infers Databricks type from class of given object as defined in
-   * https://docs.databricks.com/en/sql/language-manual/sql-ref-datatypes.html
+   * Infers Databricks type from class of given object as defined in <a
+   * href="https://docs.databricks.com/en/sql/language-manual/sql-ref-datatypes.html">here</a>
    *
    * @param obj input object
    * @return inferred Databricks type
@@ -369,7 +356,7 @@ public class DatabricksTypeUtil {
     } else if (obj instanceof Double) {
       type = DOUBLE;
     }
-    // TODO: handle more types
+    // TODO: Handle more object types
     return type;
   }
 
