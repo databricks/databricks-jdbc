@@ -7,7 +7,7 @@ import static java.lang.String.format;
 
 import com.databricks.jdbc.api.IDatabricksResultSet;
 import com.databricks.jdbc.api.IDatabricksStatement;
-import com.databricks.jdbc.api.impl.batch.BatchExecutor;
+import com.databricks.jdbc.api.impl.batch.DatabricksBatchExecutor;
 import com.databricks.jdbc.common.ErrorCodes;
 import com.databricks.jdbc.common.ErrorTypes;
 import com.databricks.jdbc.common.StatementType;
@@ -39,7 +39,7 @@ public class DatabricksStatement implements IDatabricksStatement, Statement {
   private boolean escapeProcessing = DEFAULT_ESCAPE_PROCESSING;
   private InputStreamEntity inputStream = null;
   private boolean allowInputStreamForUCVolume = false;
-  private final BatchExecutor batchExecutor;
+  private final DatabricksBatchExecutor databricksBatchExecutor;
 
   public DatabricksStatement(DatabricksConnection connection) {
     this.connection = connection;
@@ -47,8 +47,8 @@ public class DatabricksStatement implements IDatabricksStatement, Statement {
     this.statementId = null;
     this.isClosed = false;
     this.timeoutInSeconds = DEFAULT_STATEMENT_TIMEOUT_SECONDS;
-    this.batchExecutor =
-        new BatchExecutor(this, connection.getConnectionContext().getMaxBatchSize());
+    this.databricksBatchExecutor =
+        new DatabricksBatchExecutor(this, connection.getConnectionContext().getMaxBatchSize());
   }
 
   @Override
@@ -94,12 +94,12 @@ public class DatabricksStatement implements IDatabricksStatement, Statement {
   @Override
   public void close(boolean removeFromSession) throws DatabricksSQLException {
     LOGGER.debug("public void close(boolean removeFromSession)");
-    isClosed = true;
+    this.isClosed = true;
     if (statementId != null) {
-      connection.getSession().getDatabricksClient().closeStatement(statementId);
+      this.connection.getSession().getDatabricksClient().closeStatement(statementId);
       if (resultSet != null) {
-        resultSet.close();
-        resultSet = null;
+        this.resultSet.close();
+        this.resultSet = null;
       }
     } else {
       warnings =
@@ -108,7 +108,7 @@ public class DatabricksStatement implements IDatabricksStatement, Statement {
       return;
     }
     if (removeFromSession) {
-      connection.closeStatement(this);
+      this.connection.closeStatement(this);
     }
   }
 
@@ -148,13 +148,13 @@ public class DatabricksStatement implements IDatabricksStatement, Statement {
     LOGGER.debug(String.format("public void setMaxRows(int max = {%s})", max));
     checkIfClosed();
     ValidationUtil.checkIfNonNegative(max, "maxRows");
-    maxRows = max;
+    this.maxRows = max;
   }
 
   @Override
   public void setEscapeProcessing(boolean enable) throws SQLException {
     LOGGER.debug(String.format("public void setEscapeProcessing(boolean enable = {%s})", enable));
-    escapeProcessing = enable;
+    this.escapeProcessing = enable;
   }
 
   @Override
@@ -169,7 +169,7 @@ public class DatabricksStatement implements IDatabricksStatement, Statement {
     LOGGER.debug(String.format("public void setQueryTimeout(int seconds = {%s})", seconds));
     checkIfClosed();
     ValidationUtil.checkIfNonNegative(seconds, "queryTimeout");
-    timeoutInSeconds = seconds;
+    this.timeoutInSeconds = seconds;
   }
 
   @Override
@@ -178,7 +178,7 @@ public class DatabricksStatement implements IDatabricksStatement, Statement {
     checkIfClosed();
 
     if (statementId != null) {
-      connection.getSession().getDatabricksClient().cancelStatement(statementId);
+      this.connection.getSession().getDatabricksClient().cancelStatement(statementId);
     } else {
       warnings =
           WarningUtil.addWarning(
@@ -306,7 +306,7 @@ public class DatabricksStatement implements IDatabricksStatement, Statement {
   public void addBatch(String sql) throws SQLException {
     LOGGER.debug(String.format("public void addBatch(String sql = {%s})", sql));
     checkIfClosed();
-    batchExecutor.addCommand(sql);
+    databricksBatchExecutor.addCommand(sql);
   }
 
   /** {@inheritDoc} */
@@ -314,7 +314,7 @@ public class DatabricksStatement implements IDatabricksStatement, Statement {
   public void clearBatch() throws SQLException {
     LOGGER.debug("public void clearBatch()");
     checkIfClosed();
-    batchExecutor.clearCommands();
+    databricksBatchExecutor.clearCommands();
   }
 
   /** {@inheritDoc} */
@@ -322,7 +322,7 @@ public class DatabricksStatement implements IDatabricksStatement, Statement {
   public int[] executeBatch() throws SQLException {
     LOGGER.debug("public int[] executeBatch()");
     checkIfClosed();
-    return batchExecutor.executeBatch();
+    return databricksBatchExecutor.executeBatch();
   }
 
   @Override
@@ -469,7 +469,7 @@ public class DatabricksStatement implements IDatabricksStatement, Statement {
   public void closeOnCompletion() throws SQLException {
     LOGGER.debug("public void closeOnCompletion()");
     checkIfClosed();
-    closeOnCompletion = true;
+    this.closeOnCompletion = true;
   }
 
   @Override
@@ -520,39 +520,6 @@ public class DatabricksStatement implements IDatabricksStatement, Statement {
     return this;
   }
 
-  @VisibleForTesting
-  protected static boolean shouldReturnResultSet(String query) {
-    if (query == null || query.trim().isEmpty()) {
-      throw new IllegalArgumentException("Query cannot be null or empty");
-    }
-
-    // Trim and remove comments and whitespaces.
-    String trimmedQuery = query.trim().replaceAll("(?m)--.*$", "");
-    trimmedQuery = trimmedQuery.replaceAll("/\\*.*?\\*/", "");
-    trimmedQuery = trimmedQuery.replaceAll("\\s+", " ").trim();
-
-    // Check if the query matches any of the patterns that return a ResultSet
-    return SELECT_PATTERN.matcher(trimmedQuery).find()
-        || SHOW_PATTERN.matcher(trimmedQuery).find()
-        || DESCRIBE_PATTERN.matcher(trimmedQuery).find()
-        || EXPLAIN_PATTERN.matcher(trimmedQuery).find()
-        || WITH_PATTERN.matcher(trimmedQuery).find()
-        || SET_PATTERN.matcher(trimmedQuery).find()
-        || MAP_PATTERN.matcher(trimmedQuery).find()
-        || FROM_PATTERN.matcher(trimmedQuery).find()
-        || VALUES_PATTERN.matcher(trimmedQuery).find()
-        || UNION_PATTERN.matcher(trimmedQuery).find()
-        || INTERSECT_PATTERN.matcher(trimmedQuery).find()
-        || EXCEPT_PATTERN.matcher(trimmedQuery).find()
-        || DECLARE_PATTERN.matcher(trimmedQuery).find()
-        || PUT_PATTERN.matcher(trimmedQuery).find()
-        || GET_PATTERN.matcher(trimmedQuery).find()
-        || REMOVE_PATTERN.matcher(trimmedQuery).find()
-        || LIST_PATTERN.matcher(trimmedQuery).find();
-
-    // Otherwise, it should not return a ResultSet
-  }
-
   @Override
   public void allowInputStreamForVolumeOperation(boolean allowInputStream)
       throws DatabricksSQLException {
@@ -582,6 +549,39 @@ public class DatabricksStatement implements IDatabricksStatement, Statement {
       return inputStream;
     }
     return null;
+  }
+
+  @VisibleForTesting
+  static boolean shouldReturnResultSet(String query) {
+    if (query == null || query.trim().isEmpty()) {
+      throw new IllegalArgumentException("Query cannot be null or empty");
+    }
+
+    // Trim and remove comments and whitespaces.
+    String trimmedQuery = query.trim().replaceAll("(?m)--.*$", "");
+    trimmedQuery = trimmedQuery.replaceAll("/\\*.*?\\*/", "");
+    trimmedQuery = trimmedQuery.replaceAll("\\s+", " ").trim();
+
+    // Check if the query matches any of the patterns that return a ResultSet
+    return SELECT_PATTERN.matcher(trimmedQuery).find()
+        || SHOW_PATTERN.matcher(trimmedQuery).find()
+        || DESCRIBE_PATTERN.matcher(trimmedQuery).find()
+        || EXPLAIN_PATTERN.matcher(trimmedQuery).find()
+        || WITH_PATTERN.matcher(trimmedQuery).find()
+        || SET_PATTERN.matcher(trimmedQuery).find()
+        || MAP_PATTERN.matcher(trimmedQuery).find()
+        || FROM_PATTERN.matcher(trimmedQuery).find()
+        || VALUES_PATTERN.matcher(trimmedQuery).find()
+        || UNION_PATTERN.matcher(trimmedQuery).find()
+        || INTERSECT_PATTERN.matcher(trimmedQuery).find()
+        || EXCEPT_PATTERN.matcher(trimmedQuery).find()
+        || DECLARE_PATTERN.matcher(trimmedQuery).find()
+        || PUT_PATTERN.matcher(trimmedQuery).find()
+        || GET_PATTERN.matcher(trimmedQuery).find()
+        || REMOVE_PATTERN.matcher(trimmedQuery).find()
+        || LIST_PATTERN.matcher(trimmedQuery).find();
+
+    // Otherwise, it should not return a ResultSet
   }
 
   DatabricksResultSet executeInternal(

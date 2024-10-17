@@ -11,31 +11,32 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
-public class BatchExecutorTest {
+public class DatabricksBatchExecutorTest {
 
   private Statement mockStatement;
-  private BatchExecutor batchExecutor;
+  private DatabricksBatchExecutor databricksBatchExecutor;
   private final int MAX_BATCH_SIZE = 5;
 
   @BeforeEach
   public void setUp() {
     mockStatement = mock(Statement.class);
-    batchExecutor = new BatchExecutor(mockStatement, MAX_BATCH_SIZE);
+    databricksBatchExecutor = new DatabricksBatchExecutor(mockStatement, MAX_BATCH_SIZE);
   }
 
   /** Test adding valid commands to the batch. */
   @Test
   public void testAddCommand_Success() throws SQLException {
-    batchExecutor.addCommand("INSERT INTO table1 VALUES (1)");
-    batchExecutor.addCommand("UPDATE table2 SET column='value'");
+    databricksBatchExecutor.addCommand("INSERT INTO table1 VALUES (1)");
+    databricksBatchExecutor.addCommand("UPDATE table2 SET column='value'");
     // No exception should be thrown
-    assertEquals(2, batchExecutor.commands.size());
+    assertEquals(2, databricksBatchExecutor.commands.size());
   }
 
   /** Test adding a null command to the batch. */
   @Test
   public void testAddCommand_NullCommand() {
-    SQLException exception = assertThrows(SQLException.class, () -> batchExecutor.addCommand(null));
+    SQLException exception =
+        assertThrows(SQLException.class, () -> databricksBatchExecutor.addCommand(null));
     assertEquals("SQL command cannot be null", exception.getMessage());
   }
 
@@ -43,12 +44,13 @@ public class BatchExecutorTest {
   @Test
   public void testAddCommand_ExceedsBatchSizeLimit() throws SQLException {
     for (int i = 0; i < MAX_BATCH_SIZE; i++) {
-      batchExecutor.addCommand("INSERT INTO table VALUES (" + i + ")");
+      databricksBatchExecutor.addCommand("INSERT INTO table VALUES (" + i + ")");
     }
     // Next command should throw an exception
     SQLException exception =
         assertThrows(
-            SQLException.class, () -> batchExecutor.addCommand("INSERT INTO table VALUES (999)"));
+            SQLException.class,
+            () -> databricksBatchExecutor.addCommand("INSERT INTO table VALUES (999)"));
     assertEquals(
         "Batch size limit exceeded. Maximum allowed is " + MAX_BATCH_SIZE, exception.getMessage());
   }
@@ -56,47 +58,47 @@ public class BatchExecutorTest {
   /** Test clearing the batch commands. */
   @Test
   public void testClearCommands() throws SQLException {
-    batchExecutor.addCommand("INSERT INTO table1 VALUES (1)");
-    batchExecutor.addCommand("INSERT INTO table1 VALUES (2)");
-    assertEquals(2, batchExecutor.commands.size());
+    databricksBatchExecutor.addCommand("INSERT INTO table1 VALUES (1)");
+    databricksBatchExecutor.addCommand("INSERT INTO table1 VALUES (2)");
+    assertEquals(2, databricksBatchExecutor.commands.size());
 
-    batchExecutor.clearCommands();
-    assertEquals(0, batchExecutor.commands.size());
+    databricksBatchExecutor.clearCommands();
+    assertEquals(0, databricksBatchExecutor.commands.size());
   }
 
   /** Test executing an empty batch. */
   @Test
   public void testExecuteBatch_EmptyBatch() throws SQLException {
-    int[] updateCounts = batchExecutor.executeBatch();
+    int[] updateCounts = databricksBatchExecutor.executeBatch();
     assertEquals(0, updateCounts.length);
   }
 
   /** Test executing a batch where all commands succeed. */
   @Test
   public void testExecuteBatch_AllCommandsSucceed() throws SQLException {
-    batchExecutor.addCommand("INSERT INTO table1 VALUES (1)");
-    batchExecutor.addCommand("UPDATE table2 SET column='value'");
-    batchExecutor.addCommand("DELETE FROM table3 WHERE id=3");
+    databricksBatchExecutor.addCommand("INSERT INTO table1 VALUES (1)");
+    databricksBatchExecutor.addCommand("UPDATE table2 SET column='value'");
+    databricksBatchExecutor.addCommand("DELETE FROM table3 WHERE id=3");
 
     when(mockStatement.execute(anyString())).thenReturn(false);
     when(mockStatement.getUpdateCount()).thenReturn(1);
 
-    int[] updateCounts = batchExecutor.executeBatch();
+    int[] updateCounts = databricksBatchExecutor.executeBatch();
 
     assertEquals(3, updateCounts.length);
     assertArrayEquals(new int[] {1, 1, 1}, updateCounts);
 
     verify(mockStatement, times(3)).execute(anyString());
     verify(mockStatement, times(3)).getUpdateCount();
-    assertEquals(0, batchExecutor.commands.size());
+    assertEquals(0, databricksBatchExecutor.commands.size());
   }
 
   /** Test executing a batch where a command fails with SQLException. */
   @Test
   public void testExecuteBatch_CommandFails() throws SQLException {
-    batchExecutor.addCommand("INSERT INTO table1 VALUES (1)");
-    batchExecutor.addCommand("BAD SQL COMMAND");
-    batchExecutor.addCommand("INSERT INTO table1 VALUES (3)");
+    databricksBatchExecutor.addCommand("INSERT INTO table1 VALUES (1)");
+    databricksBatchExecutor.addCommand("BAD SQL COMMAND");
+    databricksBatchExecutor.addCommand("INSERT INTO table1 VALUES (3)");
 
     when(mockStatement.execute(anyString()))
         .thenReturn(false)
@@ -105,22 +107,22 @@ public class BatchExecutorTest {
     when(mockStatement.getUpdateCount()).thenReturn(1);
 
     BatchUpdateException exception =
-        assertThrows(BatchUpdateException.class, () -> batchExecutor.executeBatch());
+        assertThrows(BatchUpdateException.class, () -> databricksBatchExecutor.executeBatch());
 
     assertEquals("Batch execution failed at command 1: Syntax error", exception.getMessage());
     assertArrayEquals(new int[] {1}, exception.getUpdateCounts());
 
     verify(mockStatement, times(2)).execute(anyString());
     verify(mockStatement, times(1)).getUpdateCount();
-    assertEquals(0, batchExecutor.commands.size());
+    assertEquals(0, databricksBatchExecutor.commands.size());
   }
 
   /** Test executing a batch where a command returns a ResultSet. */
   @Test
   public void testExecuteBatch_CommandReturnsResultSet() throws SQLException {
-    batchExecutor.addCommand("INSERT INTO table1 VALUES (1)");
-    batchExecutor.addCommand("SELECT * FROM table1");
-    batchExecutor.addCommand("INSERT INTO table1 VALUES (3)");
+    databricksBatchExecutor.addCommand("INSERT INTO table1 VALUES (1)");
+    databricksBatchExecutor.addCommand("SELECT * FROM table1");
+    databricksBatchExecutor.addCommand("INSERT INTO table1 VALUES (3)");
 
     when(mockStatement.execute(anyString()))
         .thenReturn(false)
@@ -129,7 +131,7 @@ public class BatchExecutorTest {
     when(mockStatement.getUpdateCount()).thenReturn(1);
 
     BatchUpdateException exception =
-        assertThrows(BatchUpdateException.class, () -> batchExecutor.executeBatch());
+        assertThrows(BatchUpdateException.class, () -> databricksBatchExecutor.executeBatch());
 
     assertEquals(
         "Batch execution failed at command 1: Command 1 in the batch attempted to return a ResultSet",
@@ -138,37 +140,37 @@ public class BatchExecutorTest {
 
     verify(mockStatement, times(2)).execute(anyString());
     verify(mockStatement, times(2)).getUpdateCount();
-    assertEquals(0, batchExecutor.commands.size());
+    assertEquals(0, databricksBatchExecutor.commands.size());
   }
 
   /** Test that after executing a batch, the batch is cleared. */
   @Test
   public void testBatchClearedAfterExecution() throws SQLException {
-    batchExecutor.addCommand("INSERT INTO table1 VALUES (1)");
-    batchExecutor.addCommand("INSERT INTO table1 VALUES (2)");
+    databricksBatchExecutor.addCommand("INSERT INTO table1 VALUES (1)");
+    databricksBatchExecutor.addCommand("INSERT INTO table1 VALUES (2)");
 
     when(mockStatement.execute(anyString())).thenReturn(false);
     when(mockStatement.getUpdateCount()).thenReturn(1);
 
-    batchExecutor.executeBatch();
+    databricksBatchExecutor.executeBatch();
 
-    assertEquals(0, batchExecutor.commands.size());
+    assertEquals(0, databricksBatchExecutor.commands.size());
   }
 
   /** Test that telemetry methods are invoked. */
   @Test
   public void testTelemetryMethodsInvoked() throws SQLException {
-    batchExecutor.addCommand("INSERT INTO table1 VALUES (1)");
+    databricksBatchExecutor.addCommand("INSERT INTO table1 VALUES (1)");
 
     when(mockStatement.execute(anyString())).thenReturn(false);
     when(mockStatement.getUpdateCount()).thenReturn(1);
 
-    // Spy on the batchExecutor to verify method calls
-    BatchExecutor spyBatchExecutor = Mockito.spy(batchExecutor);
+    // Spy on the databricksBatchExecutor to verify method calls
+    DatabricksBatchExecutor spyDatabricksBatchExecutor = Mockito.spy(databricksBatchExecutor);
 
-    spyBatchExecutor.executeBatch();
+    spyDatabricksBatchExecutor.executeBatch();
 
-    verify(spyBatchExecutor, times(1))
+    verify(spyDatabricksBatchExecutor, times(1))
         .logCommandExecutionTime(anyInt(), any(Instant.class), eq(true));
   }
 }

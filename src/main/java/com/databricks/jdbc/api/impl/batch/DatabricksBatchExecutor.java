@@ -1,8 +1,10 @@
 package com.databricks.jdbc.api.impl.batch;
 
+import com.databricks.jdbc.exception.DatabricksBatchUpdateException;
+import com.databricks.jdbc.exception.DatabricksSQLException;
+import com.databricks.jdbc.exception.DatabricksValidationException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
-import java.sql.BatchUpdateException;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.time.Duration;
@@ -12,8 +14,8 @@ import java.util.Arrays;
 import java.util.List;
 
 /**
- * The {@code BatchExecutor} class handles the execution of batch SQL commands. It encapsulates
- * batch logic, maintains the list of commands, and manages the execution flow.
+ * The {@code DatabricksBatchExecutor} class handles the execution of batch SQL commands. It
+ * encapsulates batch logic, maintains the list of commands, and manages the execution flow.
  *
  * <p>This class is responsible for:
  *
@@ -25,22 +27,23 @@ import java.util.List;
  *   <li>Enforcing a maximum batch size limit.
  * </ul>
  */
-public class BatchExecutor {
+public class DatabricksBatchExecutor {
 
-  private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(BatchExecutor.class);
+  private static final JdbcLogger LOGGER =
+      JdbcLoggerFactory.getLogger(DatabricksBatchExecutor.class);
 
   final Statement parentStatement;
   final List<BatchCommand> commands = new ArrayList<>();
   final int maxBatchSize;
 
   /**
-   * Constructs a {@code BatchExecutor} with the specified parent {@code Statement} and maximum
-   * batch size.
+   * Constructs a {@code DatabricksBatchExecutor} with the specified parent {@code Statement} and
+   * maximum batch size.
    *
    * @param parentStatement the parent {@code Statement} that will execute the commands
    * @param maxBatchSize the maximum number of commands allowed in the batch
    */
-  public BatchExecutor(Statement parentStatement, int maxBatchSize) {
+  public DatabricksBatchExecutor(Statement parentStatement, int maxBatchSize) {
     this.parentStatement = parentStatement;
     this.maxBatchSize = maxBatchSize;
   }
@@ -49,14 +52,16 @@ public class BatchExecutor {
    * Adds a new SQL command to the batch.
    *
    * @param sql the SQL command to be added
-   * @throws SQLException if the SQL command is null or the batch size limit is exceeded
+   * @throws DatabricksValidationException if the SQL command is null or the batch size limit is
+   *     exceeded
    */
-  public void addCommand(String sql) throws SQLException {
+  public void addCommand(String sql) throws DatabricksValidationException {
     if (sql == null) {
-      throw new SQLException("SQL command cannot be null");
+      throw new DatabricksValidationException("SQL command cannot be null");
     }
     if (commands.size() >= maxBatchSize) {
-      throw new SQLException("Batch size limit exceeded. Maximum allowed is " + maxBatchSize);
+      throw new DatabricksValidationException(
+          "Batch size limit exceeded. Maximum allowed is " + maxBatchSize);
     }
     commands.add(ImmutableBatchCommand.builder().sql(sql).build());
   }
@@ -75,10 +80,12 @@ public class BatchExecutor {
    * command and total batch time.
    *
    * @return an array of update counts for each command in the batch
-   * @throws SQLException if a database access error occurs or batch execution fails
+   * @throws DatabricksBatchUpdateException if a database access error occurs or batch execution
+   *     fails
    */
-  public int[] executeBatch() throws SQLException {
+  public int[] executeBatch() throws DatabricksBatchUpdateException {
     if (commands.isEmpty()) {
+      LOGGER.warn("No commands to execute in the batch");
       return new int[0];
     }
 
@@ -128,7 +135,7 @@ public class BatchExecutor {
       LOGGER.debug(String.format("Total batch execution time: %d ms", batchDuration.toMillis()));
 
       return updateCounts;
-    } catch (BatchUpdateException e) {
+    } catch (DatabricksBatchUpdateException e) {
       LOGGER.error(String.format("BatchUpdateException occurred: %s", e.getMessage()), e);
       throw e;
     }
@@ -151,7 +158,7 @@ public class BatchExecutor {
 
   /**
    * Handles a failure during batch execution by logging the failure details, clearing the remaining
-   * commands, and throwing a {@link BatchUpdateException}.
+   * commands, and throwing a {@link DatabricksBatchUpdateException}.
    *
    * @param updateCounts an array containing the update counts for the commands executed so far
    * @param commandIndex the index of the command that caused the failure
@@ -159,7 +166,7 @@ public class BatchExecutor {
    * @param message a descriptive message explaining the failure
    * @param cause the {@link SQLException} that caused the failure, or {@code null} if not
    *     applicable
-   * @throws BatchUpdateException always thrown to indicate batch execution failure
+   * @throws DatabricksBatchUpdateException always thrown to indicate batch execution failure
    */
   void handleBatchFailure(
       int[] updateCounts,
@@ -167,7 +174,7 @@ public class BatchExecutor {
       Instant batchStartTime,
       String message,
       SQLException cause)
-      throws BatchUpdateException {
+      throws DatabricksBatchUpdateException {
     int[] countsSoFar = Arrays.copyOf(updateCounts, commandIndex);
     clearCommands();
 
@@ -175,13 +182,15 @@ public class BatchExecutor {
     LOGGER.debug(
         String.format("Total batch execution time until failure: %d ms", batchDuration.toMillis()));
 
-    BatchUpdateException exception;
+    DatabricksBatchUpdateException exception;
     if (cause != null) {
       exception =
-          new BatchUpdateException(
+          new DatabricksBatchUpdateException(
               message, cause.getSQLState(), cause.getErrorCode(), countsSoFar, cause);
     } else {
-      exception = new BatchUpdateException(message, countsSoFar, new SQLException(message));
+      exception =
+          new DatabricksBatchUpdateException(
+              message, countsSoFar, new DatabricksSQLException(message));
     }
 
     throw exception;
