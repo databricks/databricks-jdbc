@@ -16,7 +16,7 @@ import java.util.stream.IntStream;
 
 public class DatabricksThriftUtil {
 
-  public static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(DatabricksThriftUtil.class);
+  private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(DatabricksThriftUtil.class);
 
   public static final List<TStatusCode> SUCCESS_STATUS_LIST =
       List.of(TStatusCode.SUCCESS_STATUS, TStatusCode.SUCCESS_WITH_INFO_STATUS);
@@ -36,10 +36,6 @@ public class DatabricksThriftUtil {
         .setExternalLink(chunkInfo.getFileLink())
         .setChunkIndex(chunkIndex)
         .setExpiration(Long.toString(chunkInfo.getExpiryTime()));
-  }
-
-  public static String getStatementId(TOperationHandle operationHandle) {
-    return byteBufferToString(operationHandle.getOperationId().guid);
   }
 
   public static void verifySuccessStatus(TStatusCode statusCode, String errorContext)
@@ -153,7 +149,7 @@ public class DatabricksThriftUtil {
       case DECIMAL_TYPE:
         return ColumnInfoTypeName.DECIMAL;
       case NULL_TYPE:
-        return ColumnInfoTypeName.NULL;
+        return ColumnInfoTypeName.STRING;
       case DATE_TYPE:
         return ColumnInfoTypeName.DATE;
       case CHAR_TYPE:
@@ -172,7 +168,6 @@ public class DatabricksThriftUtil {
    * @return a list of values from the specified column
    */
   private static List<?> getColumnValues(TColumn column) {
-    // TODO: Add support for complex data types
     if (column.isSetBinaryVal())
       return getColumnValuesWithNulls(
           column.getBinaryVal().getValues(), column.getBinaryVal().getNulls());

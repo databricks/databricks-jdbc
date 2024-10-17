@@ -1,5 +1,6 @@
 package com.databricks.jdbc.api.impl;
 
+import static com.databricks.jdbc.common.DatabricksJdbcConstants.EMPTY_STRING;
 import static com.databricks.jdbc.common.DatabricksJdbcConstants.VOLUME_OPERATION_STATUS_COLUMN_NAME;
 import static com.databricks.jdbc.common.util.DatabricksThriftUtil.getTypeFromTypeDesc;
 
@@ -7,16 +8,15 @@ import com.databricks.jdbc.common.AccessType;
 import com.databricks.jdbc.common.Nullable;
 import com.databricks.jdbc.common.util.DatabricksTypeUtil;
 import com.databricks.jdbc.common.util.WrapperUtil;
+import com.databricks.jdbc.dbclient.impl.common.StatementId;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
-import com.databricks.jdbc.model.client.thrift.generated.TColumnDesc;
-import com.databricks.jdbc.model.client.thrift.generated.TGetResultSetMetadataResp;
-import com.databricks.jdbc.model.client.thrift.generated.TTypeEntry;
-import com.databricks.jdbc.model.client.thrift.generated.TTypeQualifierValue;
+import com.databricks.jdbc.model.client.thrift.generated.*;
 import com.databricks.jdbc.model.core.ColumnMetadata;
 import com.databricks.jdbc.model.core.ResultManifest;
 import com.databricks.sdk.service.sql.ColumnInfo;
 import com.databricks.sdk.service.sql.ColumnInfoTypeName;
+import com.databricks.sdk.service.sql.Format;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import java.sql.ResultSetMetaData;
@@ -28,16 +28,23 @@ import java.util.Map;
 
 public class DatabricksResultSetMetaData implements ResultSetMetaData {
 
-  public static final JdbcLogger LOGGER =
+  private static final JdbcLogger LOGGER =
       JdbcLoggerFactory.getLogger(DatabricksResultSetMetaData.class);
-  private final String statementId;
+  private final StatementId statementId;
   private final ImmutableList<ImmutableDatabricksColumn> columns;
   private final ImmutableMap<String, Integer> columnNameIndex;
   private final long totalRows;
   private Long chunkCount;
-  private static final String DEFAULT_CATALOGUE_NAME = "Spark";
+  private final boolean isCloudFetchUsed;
 
-  public DatabricksResultSetMetaData(String statementId, ResultManifest resultManifest) {
+  /**
+   * Constructs a {@code DatabricksResultSetMetaData} object for a SEA result set.
+   *
+   * @param statementId the unique identifier of the SQL statement execution
+   * @param resultManifest the manifest containing metadata about the result set, including column
+   *     information and types
+   */
+  public DatabricksResultSetMetaData(StatementId statementId, ResultManifest resultManifest) {
     this.statementId = statementId;
     Map<String, Integer> columnNameToIndexMap = new HashMap<>();
     ImmutableList.Builder<ImmutableDatabricksColumn> columnsBuilder = ImmutableList.builder();
@@ -83,10 +90,23 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
     this.columnNameIndex = ImmutableMap.copyOf(columnNameToIndexMap);
     this.totalRows = resultManifest.getTotalRowCount();
     this.chunkCount = resultManifest.getTotalChunkCount();
+    this.isCloudFetchUsed = getIsCloudFetchFromManifest(resultManifest);
   }
 
+  /**
+   * Constructs a {@code DatabricksResultSetMetaData} object for a Thrift-based result set.
+   *
+   * @param statementId the unique identifier of the SQL statement execution
+   * @param resultManifest the response containing metadata about the result set, including column
+   *     information and types, obtained through the Thrift protocol
+   * @param rows the total number of rows in the result set
+   * @param chunkCount the total number of data chunks in the result set
+   */
   public DatabricksResultSetMetaData(
-      String statementId, TGetResultSetMetadataResp resultManifest, long rows, long chunkCount) {
+      StatementId statementId,
+      TGetResultSetMetadataResp resultManifest,
+      long rows,
+      long chunkCount) {
     this.statementId = statementId;
     Map<String, Integer> columnNameToIndexMap = new HashMap<>();
     ImmutableList.Builder<ImmutableDatabricksColumn> columnsBuilder = ImmutableList.builder();
@@ -135,10 +155,19 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
     this.columnNameIndex = ImmutableMap.copyOf(columnNameToIndexMap);
     this.totalRows = rows;
     this.chunkCount = chunkCount;
+    this.isCloudFetchUsed = getIsCloudFetchFromManifest(resultManifest);
   }
 
+  /**
+   * Constructs a {@code DatabricksResultSetMetaData} object for metadata result set (SEA Flow)
+   *
+   * @param statementId the unique identifier of the SQL statement execution
+   * @param columnMetadataList the list containing metadata for each column in the result set, such
+   *     as column names, types, and precision
+   * @param totalRows the total number of rows in the result set
+   */
   public DatabricksResultSetMetaData(
-      String statementId, List<ColumnMetadata> columnMetadataList, long totalRows) {
+      StatementId statementId, List<ColumnMetadata> columnMetadataList, long totalRows) {
     this.statementId = statementId;
     Map<String, Integer> columnNameToIndexMap = new HashMap<>();
     ImmutableList.Builder<ImmutableDatabricksColumn> columnsBuilder = ImmutableList.builder();
@@ -167,10 +196,21 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
     this.columns = columnsBuilder.build();
     this.columnNameIndex = ImmutableMap.copyOf(columnNameToIndexMap);
     this.totalRows = totalRows;
+    this.isCloudFetchUsed = false;
   }
 
+  /**
+   * Constructs a {@code DatabricksResultSetMetaData} object for metadata result set (Thrift Flow)
+   *
+   * @param statementId the unique identifier of the SQL statement execution
+   * @param columnNames names of each column
+   * @param columnTypeText type text of each column
+   * @param columnTypes types of each column
+   * @param columnTypePrecisions precisions of each column
+   * @param totalRows total number of rows in result set
+   */
   public DatabricksResultSetMetaData(
-      String statementId,
+      StatementId statementId,
       List<String> columnNames,
       List<String> columnTypeText,
       List<Integer> columnTypes,
@@ -201,6 +241,7 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
     this.columns = columnsBuilder.build();
     this.columnNameIndex = ImmutableMap.copyOf(columnNameToIndexMap);
     this.totalRows = totalRows;
+    this.isCloudFetchUsed = false;
   }
 
   @Override
@@ -342,6 +383,18 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
     return totalRows;
   }
 
+  public boolean getIsCloudFetchUsed() {
+    return isCloudFetchUsed;
+  }
+
+  private boolean getIsCloudFetchFromManifest(ResultManifest resultManifest) {
+    return resultManifest.getFormat() == Format.ARROW_STREAM;
+  }
+
+  private boolean getIsCloudFetchFromManifest(TGetResultSetMetadataResp resultManifest) {
+    return resultManifest.getResultFormat() == TSparkRowSetType.URL_BASED_SET;
+  }
+
   public Long getChunkCount() {
     return chunkCount;
   }
@@ -376,13 +429,13 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
   private ImmutableDatabricksColumn.Builder getColumnBuilder() {
     return ImmutableDatabricksColumn.builder()
         .isAutoIncrement(false)
-        .isSearchable(true)
+        .isSearchable(false)
         .nullable(Nullable.NULLABLE)
         .accessType(AccessType.READ_ONLY)
         .isDefinitelyWritable(false)
-        .schemaName(null)
-        .tableName(null)
-        .catalogName(DEFAULT_CATALOGUE_NAME)
+        .schemaName(EMPTY_STRING)
+        .tableName(EMPTY_STRING)
+        .catalogName(EMPTY_STRING)
         .isCurrency(false)
         .typeScale(0)
         .isCaseSensitive(false);

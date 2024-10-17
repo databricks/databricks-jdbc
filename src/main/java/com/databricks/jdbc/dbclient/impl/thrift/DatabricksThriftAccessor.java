@@ -1,15 +1,17 @@
 package com.databricks.jdbc.dbclient.impl.thrift;
 
+import static com.databricks.jdbc.common.DatabricksJdbcConstants.IS_FAKE_SERVICE_TEST_PROP;
 import static com.databricks.jdbc.common.EnvironmentVariables.*;
 import static com.databricks.jdbc.common.util.DatabricksThriftUtil.*;
 import static com.databricks.jdbc.model.client.thrift.generated.TStatusCode.*;
 
 import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.api.IDatabricksSession;
-import com.databricks.jdbc.api.IDatabricksStatement;
 import com.databricks.jdbc.api.impl.*;
+import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
 import com.databricks.jdbc.common.StatementType;
 import com.databricks.jdbc.dbclient.impl.common.ClientConfigurator;
+import com.databricks.jdbc.dbclient.impl.common.StatementId;
 import com.databricks.jdbc.dbclient.impl.http.DatabricksHttpClient;
 import com.databricks.jdbc.exception.DatabricksHttpException;
 import com.databricks.jdbc.exception.DatabricksParsingException;
@@ -44,18 +46,19 @@ final class DatabricksThriftAccessor {
     this.databricksConfig = new ClientConfigurator(connectionContext).getDatabricksConfig();
     Map<String, String> authHeaders = databricksConfig.authenticate();
     String endPointUrl = connectionContext.getEndpointURL();
-    // Create a new thrift client for each thread as client state is not thread safe. Note that the
-    // underlying protocol uses the same http client which is thread safe
-    this.thriftClient =
-        ThreadLocal.withInitial(
-            () -> {
-              DatabricksHttpTTransport transport =
-                  new DatabricksHttpTTransport(
-                      DatabricksHttpClient.getInstance(connectionContext), endPointUrl);
-              transport.setCustomHeaders(authHeaders);
-              TBinaryProtocol protocol = new TBinaryProtocol(transport);
-              return new TCLIService.Client(protocol);
-            });
+
+    final boolean isFakeServiceTest =
+        Boolean.parseBoolean(System.getProperty(IS_FAKE_SERVICE_TEST_PROP));
+    if (!isFakeServiceTest) {
+      // Create a new thrift client for each thread as client state is not thread safe. Note that
+      // the underlying protocol uses the same http client which is thread safe
+      this.thriftClient =
+          ThreadLocal.withInitial(
+              () -> createThriftClient(endPointUrl, authHeaders, connectionContext));
+    } else {
+      TCLIService.Client client = createThriftClient(endPointUrl, authHeaders, connectionContext);
+      this.thriftClient = ThreadLocal.withInitial(() -> client);
+    }
   }
 
   @VisibleForTesting
@@ -68,10 +71,7 @@ final class DatabricksThriftAccessor {
     this.enableDirectResults = connectionContext.getDirectResultMode();
   }
 
-  TBase getThriftResponse(TBase request, IDatabricksStatement parentStatement)
-      throws DatabricksSQLException {
-    // TODO: Test out metadata operations.
-    // TODO: Handle compression.
+  TBase getThriftResponse(TBase request) throws DatabricksSQLException {
     refreshHeadersIfRequired();
     DatabricksHttpTTransport transport =
         (DatabricksHttpTTransport) getThriftClient().getInputProtocol().getTransport();
@@ -131,6 +131,34 @@ final class DatabricksThriftAccessor {
     return getResultSetResp(SUCCESS_STATUS, operationHandle, context, DEFAULT_ROW_LIMIT, false);
   }
 
+  TCancelOperationResp cancelOperation(TCancelOperationReq req) throws DatabricksHttpException {
+    refreshHeadersIfRequired();
+    try {
+      return getThriftClient().CancelOperation(req);
+    } catch (TException e) {
+      String errorMessage =
+          String.format(
+              "Error while canceling operation from Thrift server. Request {%s}, Error {%s}",
+              req.toString(), e.getMessage());
+      LOGGER.error(errorMessage);
+      throw new DatabricksHttpException(errorMessage, e);
+    }
+  }
+
+  TCloseOperationResp closeOperation(TCloseOperationReq req) throws DatabricksHttpException {
+    refreshHeadersIfRequired();
+    try {
+      return getThriftClient().CloseOperation(req);
+    } catch (TException e) {
+      String errorMessage =
+          String.format(
+              "Error while closing operation from Thrift server. Request {%s}, Error {%s}",
+              req.toString(), e.getMessage());
+      LOGGER.error(errorMessage);
+      throw new DatabricksHttpException(errorMessage, e);
+    }
+  }
+
   private TFetchResultsResp getResultSetResp(
       TStatusCode responseCode,
       TOperationHandle operationHandle,
@@ -142,18 +170,18 @@ final class DatabricksThriftAccessor {
     TFetchResultsReq request =
         new TFetchResultsReq()
             .setOperationHandle(operationHandle)
-            .setIncludeResultSetMetadata(true)
             .setFetchType((short) 0) // 0 represents Query output. 1 represents Log
             .setMaxRows(maxRows)
             .setMaxBytes(DEFAULT_BYTE_LIMIT);
+    if (fetchMetadata) {
+      request.setIncludeResultSetMetadata(true);
+    }
     TFetchResultsResp response = null;
     DatabricksHttpTTransport transport =
         (DatabricksHttpTTransport) getThriftClient().getInputProtocol().getTransport();
+
     try {
       response = getThriftClient().FetchResults(request);
-      if (fetchMetadata) {
-        response.setResultSetMetadata(getResultSetMetadata(operationHandle));
-      }
     } catch (TException e) {
       String errorMessage =
           String.format(
@@ -199,7 +227,7 @@ final class DatabricksThriftAccessor {
 
   DatabricksResultSet execute(
       TExecuteStatementReq request,
-      IDatabricksStatement parentStatement,
+      IDatabricksStatementInternal parentStatement,
       IDatabricksSession session,
       StatementType statementType)
       throws SQLException {
@@ -254,12 +282,101 @@ final class DatabricksThriftAccessor {
     } finally {
       transport.close();
     }
+    StatementId statementId = new StatementId(response.getOperationHandle().operationId);
+    if (parentStatement != null) {
+      parentStatement.setStatementId(statementId);
+    }
     return new DatabricksResultSet(
         response.getStatus(),
-        getStatementId(response.getOperationHandle()),
+        statementId,
         resultSet.getResults(),
         resultSet.getResultSetMetadata(),
         statementType,
+        parentStatement,
+        session);
+  }
+
+  DatabricksResultSet executeAsync(
+      TExecuteStatementReq request,
+      IDatabricksStatementInternal parentStatement,
+      IDatabricksSession session,
+      StatementType statementType)
+      throws SQLException {
+    refreshHeadersIfRequired();
+    TExecuteStatementResp response = null;
+    TFetchResultsResp resultSet = null;
+    DatabricksHttpTTransport transport =
+        (DatabricksHttpTTransport) getThriftClient().getInputProtocol().getTransport();
+    try {
+      response = getThriftClient().ExecuteStatement(request);
+      if (Arrays.asList(ERROR_STATUS, INVALID_HANDLE_STATUS).contains(response.status.statusCode)) {
+        LOGGER.error(
+            "Received error response {%s} from Thrift Server for request {%s}",
+            response, request.toString());
+        throw new DatabricksSQLException(response.status.errorMessage);
+      }
+    } catch (TException e) {
+      String errorMessage =
+          String.format(
+              "Error while receiving response from Thrift server. Request {%s}, Error {%s}",
+              request.toString(), e.getMessage());
+      LOGGER.error(e, errorMessage);
+      throw new DatabricksHttpException(errorMessage, e);
+    } finally {
+      transport.close();
+    }
+    StatementId statementId = new StatementId(response.getOperationHandle().operationId);
+    if (parentStatement != null) {
+      parentStatement.setStatementId(statementId);
+    }
+    return new DatabricksResultSet(
+        response.getStatus(), statementId, null, null, statementType, parentStatement, session);
+  }
+
+  DatabricksResultSet getStatementResult(
+      TOperationHandle operationHandle,
+      IDatabricksStatementInternal parentStatement,
+      IDatabricksSession session)
+      throws SQLException {
+    LOGGER.debug("Operation handle {%s}", operationHandle);
+    TGetOperationStatusReq request =
+        new TGetOperationStatusReq()
+            .setOperationHandle(operationHandle)
+            .setGetProgressUpdate(false);
+    TGetOperationStatusResp response;
+    TStatusCode statusCode;
+    TFetchResultsResp resultSet = null;
+    DatabricksHttpTTransport transport =
+        (DatabricksHttpTTransport) getThriftClient().getInputProtocol().getTransport();
+    try {
+      response = getThriftClient().GetOperationStatus(request);
+      statusCode = response.getStatus().getStatusCode();
+      if (statusCode == SUCCESS_STATUS || statusCode == SUCCESS_WITH_INFO_STATUS) {
+        resultSet =
+            getResultSetResp(
+                response.getStatus().getStatusCode(),
+                operationHandle,
+                response.toString(),
+                -1,
+                true);
+      }
+    } catch (TException e) {
+      String errorMessage =
+          String.format(
+              "Error while receiving response from Thrift server. Request {%s}, Error {%s}",
+              request.toString(), e.toString());
+      LOGGER.error(errorMessage);
+      throw new DatabricksHttpException(errorMessage, e);
+    } finally {
+      transport.close();
+    }
+    StatementId statementId = new StatementId(operationHandle.getOperationId());
+    return new DatabricksResultSet(
+        response.getStatus(),
+        statementId,
+        resultSet == null ? null : resultSet.getResults(),
+        resultSet == null ? null : resultSet.getResultSetMetadata(),
+        StatementType.SQL,
         parentStatement,
         session);
   }
@@ -416,7 +533,7 @@ final class DatabricksThriftAccessor {
           response.getOperationHandle(),
           response.toString(),
           DEFAULT_ROW_LIMIT,
-          true);
+          false);
     } finally {
       transport.close();
     }
@@ -458,5 +575,25 @@ final class DatabricksThriftAccessor {
 
   private TCLIService.Client getThriftClient() {
     return thriftClient.get();
+  }
+
+  /**
+   * Creates a new thrift client for the given endpoint URL and authentication headers.
+   *
+   * @param endPointUrl endpoint URL
+   * @param authHeaders authentication headers
+   * @param connectionContext connection context
+   */
+  private TCLIService.Client createThriftClient(
+      String endPointUrl,
+      Map<String, String> authHeaders,
+      IDatabricksConnectionContext connectionContext) {
+    DatabricksHttpTTransport transport =
+        new DatabricksHttpTTransport(
+            DatabricksHttpClient.getInstance(connectionContext), endPointUrl);
+    transport.setCustomHeaders(authHeaders);
+    TBinaryProtocol protocol = new TBinaryProtocol(transport);
+
+    return new TCLIService.Client(protocol);
   }
 }

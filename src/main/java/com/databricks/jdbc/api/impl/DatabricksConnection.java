@@ -1,15 +1,17 @@
 package com.databricks.jdbc.api.impl;
 
-import com.databricks.client.jdbc.Driver;
 import com.databricks.jdbc.api.IDatabricksConnection;
 import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.api.IDatabricksSession;
 import com.databricks.jdbc.api.IDatabricksStatement;
 import com.databricks.jdbc.api.IDatabricksUCVolumeClient;
 import com.databricks.jdbc.api.impl.volume.DatabricksUCVolumeClient;
+import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
 import com.databricks.jdbc.common.DatabricksJdbcConstants;
+import com.databricks.jdbc.common.util.UserAgentManager;
 import com.databricks.jdbc.common.util.ValidationUtil;
 import com.databricks.jdbc.dbclient.IDatabricksClient;
+import com.databricks.jdbc.dbclient.impl.common.StatementId;
 import com.databricks.jdbc.exception.DatabricksSQLClientInfoException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.exception.DatabricksSQLFeatureNotSupportedException;
@@ -29,9 +31,8 @@ import java.util.stream.Collectors;
 public class DatabricksConnection implements IDatabricksConnection, Connection {
   private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(DatabricksConnection.class);
   private IDatabricksSession session;
-  private final Set<IDatabricksStatement> statementSet = ConcurrentHashMap.newKeySet();
+  private final Set<IDatabricksStatementInternal> statementSet = ConcurrentHashMap.newKeySet();
   private SQLWarning warnings = null;
-
   private volatile IDatabricksUCVolumeClient ucVolumeClient = null;
 
   /**
@@ -42,20 +43,24 @@ public class DatabricksConnection implements IDatabricksConnection, Connection {
   public DatabricksConnection(IDatabricksConnectionContext connectionContext)
       throws DatabricksSQLException {
     this.session = new DatabricksSession(connectionContext);
-    this.session.open();
-  }
-
-  public void setMetadataClient(boolean useLegacyMetadataClient) {
-    this.session.setMetadataClient(useLegacyMetadataClient);
   }
 
   @VisibleForTesting
   public DatabricksConnection(
-      IDatabricksConnectionContext connectionContext, IDatabricksClient databricksClient)
+      IDatabricksConnectionContext connectionContext, IDatabricksClient testDatabricksClient)
       throws DatabricksSQLException {
-    this.session = new DatabricksSession(connectionContext, databricksClient);
+    this.session = new DatabricksSession(connectionContext, testDatabricksClient);
+    UserAgentManager.setUserAgent(connectionContext);
+  }
+
+  @Override
+  public void open() throws DatabricksSQLException {
     this.session.open();
-    Driver.setUserAgent(connectionContext);
+  }
+
+  @Override
+  public Statement getStatement(String statementId) throws SQLException {
+    return new DatabricksStatement(this, StatementId.deserialize(statementId));
   }
 
   @Override
@@ -121,9 +126,9 @@ public class DatabricksConnection implements IDatabricksConnection, Connection {
   }
 
   @Override
-  public void close() throws SQLException {
+  public void close() throws DatabricksSQLException {
     LOGGER.debug("public void close()");
-    for (IDatabricksStatement statement : statementSet) {
+    for (IDatabricksStatementInternal statement : statementSet) {
       statement.close(false);
       statementSet.remove(statement);
     }
@@ -372,60 +377,6 @@ public class DatabricksConnection implements IDatabricksConnection, Connection {
     }
   }
 
-  /**
-   * This function creates the exception message for the failed setClientInfo command
-   *
-   * @param failedProperties contains the map for the failed properties
-   * @return the exception message
-   */
-  public static String getFailedPropertiesExceptionMessage(
-      Map<String, ClientInfoStatus> failedProperties) {
-    return failedProperties.entrySet().stream()
-        .map(e -> String.format("Setting config %s failed with %s", e.getKey(), e.getValue()))
-        .collect(Collectors.joining("\n"));
-  }
-
-  /**
-   * This function determines the reason for the failure of setting a session config form the
-   * exception message
-   *
-   * @param key for which set command failed
-   * @param value for which set command failed
-   * @param e exception thrown by the set command
-   * @return the reason for the failure in ClientInfoStatus
-   */
-  public static ClientInfoStatus determineClientInfoStatus(String key, String value, Throwable e) {
-    String invalidConfigMessage = String.format("Configuration %s is not available", key);
-    String invalidValueMessage = String.format("Unsupported configuration %s=%s", key, value);
-    String errorMessage = e.getCause().getMessage();
-    if (errorMessage.contains(invalidConfigMessage))
-      return ClientInfoStatus.REASON_UNKNOWN_PROPERTY;
-    else if (errorMessage.contains(invalidValueMessage))
-      return ClientInfoStatus.REASON_VALUE_INVALID;
-    return ClientInfoStatus.REASON_UNKNOWN;
-  }
-
-  /**
-   * This function sets the session config for the given key and value. If the setting fails, the
-   * key and the reason for failure are added to the failedProperties map.
-   *
-   * @param key for the session conf
-   * @param value for the session conf
-   * @param failedProperties to add the key to, if the set command fails
-   */
-  public void setSessionConfig(
-      String key, String value, Map<String, ClientInfoStatus> failedProperties) {
-    //  LOGGER.debug("public void setSessionConfig(String key = {}, String value =
-    // {})", key, value);
-    try {
-      this.createStatement().execute(String.format("SET %s = %s", key, value));
-      this.session.setSessionConfig(key, value);
-    } catch (SQLException e) {
-      ClientInfoStatus status = determineClientInfoStatus(key, value, e);
-      failedProperties.put(key, status);
-    }
-  }
-
   @Override
   public void setClientInfo(String name, String value) throws SQLClientInfoException {
     if (DatabricksJdbcConstants.ALLOWED_SESSION_CONF_TO_DEFAULT_VALUES_MAP.keySet().stream()
@@ -462,7 +413,6 @@ public class DatabricksConnection implements IDatabricksConnection, Connection {
 
   @Override
   public String getClientInfo(String name) throws SQLException {
-    //  LOGGER.debug("public String getClientInfo(String name = {})", name);
     // Return session conf if set
     if (this.session.getSessionConfigs().containsKey(name)) {
       return this.session.getSessionConfigs().get(name);
@@ -504,7 +454,6 @@ public class DatabricksConnection implements IDatabricksConnection, Connection {
 
   @Override
   public void setSchema(String schema) throws SQLException {
-    //  LOGGER.debug("public void setSchema(String schema = {})", schema);
     session.setSchema(schema);
     Statement statement = this.createStatement();
     statement.execute("USE SCHEMA " + schema);
@@ -540,15 +489,18 @@ public class DatabricksConnection implements IDatabricksConnection, Connection {
   @Override
   public <T> T unwrap(Class<T> iface) throws SQLException {
     LOGGER.debug("public <T> T unwrap(Class<T> iface)");
-    throw new DatabricksSQLFeatureNotSupportedException(
-        "Not implemented in DatabricksConnection - unwrap(Class<T> iface)");
+    if (iface.isInstance(this)) {
+      return (T) this;
+    }
+    throw new DatabricksSQLException(
+        String.format(
+            "Class {%s} cannot be wrapped from {%s}", this.getClass().getName(), iface.getName()));
   }
 
   @Override
   public boolean isWrapperFor(Class<?> iface) throws SQLException {
     LOGGER.debug("public boolean isWrapperFor(Class<?> iface)");
-    throw new DatabricksSQLFeatureNotSupportedException(
-        "Not implemented in DatabricksConnection - isWrapperFor(Class<?> iface)");
+    return iface.isInstance(this);
   }
 
   @Override
@@ -572,6 +524,58 @@ public class DatabricksConnection implements IDatabricksConnection, Connection {
       }
     }
     return ucVolumeClient;
+  }
+
+  /**
+   * This function creates the exception message for the failed setClientInfo command
+   *
+   * @param failedProperties contains the map for the failed properties
+   * @return the exception message
+   */
+  private static String getFailedPropertiesExceptionMessage(
+      Map<String, ClientInfoStatus> failedProperties) {
+    return failedProperties.entrySet().stream()
+        .map(e -> String.format("Setting config %s failed with %s", e.getKey(), e.getValue()))
+        .collect(Collectors.joining("\n"));
+  }
+
+  /**
+   * This function determines the reason for the failure of setting a session config form the
+   * exception message
+   *
+   * @param key for which set command failed
+   * @param value for which set command failed
+   * @param e exception thrown by the set command
+   * @return the reason for the failure in ClientInfoStatus
+   */
+  private static ClientInfoStatus determineClientInfoStatus(String key, String value, Throwable e) {
+    String invalidConfigMessage = String.format("Configuration %s is not available", key);
+    String invalidValueMessage = String.format("Unsupported configuration %s=%s", key, value);
+    String errorMessage = e.getCause().getMessage();
+    if (errorMessage.contains(invalidConfigMessage))
+      return ClientInfoStatus.REASON_UNKNOWN_PROPERTY;
+    else if (errorMessage.contains(invalidValueMessage))
+      return ClientInfoStatus.REASON_VALUE_INVALID;
+    return ClientInfoStatus.REASON_UNKNOWN;
+  }
+
+  /**
+   * This function sets the session config for the given key and value. If the setting fails, the
+   * key and the reason for failure are added to the failedProperties map.
+   *
+   * @param key for the session conf
+   * @param value for the session conf
+   * @param failedProperties to add the key to, if the set command fails
+   */
+  private void setSessionConfig(
+      String key, String value, Map<String, ClientInfoStatus> failedProperties) {
+    try {
+      this.createStatement().execute(String.format("SET %s = %s", key, value));
+      this.session.setSessionConfig(key, value);
+    } catch (SQLException e) {
+      ClientInfoStatus status = determineClientInfoStatus(key, value, e);
+      failedProperties.put(key, status);
+    }
   }
 
   private void throwExceptionIfConnectionIsClosed() throws SQLException {

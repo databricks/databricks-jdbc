@@ -2,10 +2,12 @@ package com.databricks.jdbc.api.impl;
 
 import com.databricks.jdbc.api.IDatabricksConnection;
 import com.databricks.jdbc.api.IDatabricksSession;
-import com.databricks.jdbc.api.impl.fake.EmptyResultSet;
+import com.databricks.jdbc.common.DatabricksClientType;
 import com.databricks.jdbc.common.DatabricksJdbcConstants;
 import com.databricks.jdbc.common.StatementType;
 import com.databricks.jdbc.common.util.DriverUtil;
+import com.databricks.jdbc.dbclient.impl.common.MetadataResultSetBuilder;
+import com.databricks.jdbc.dbclient.impl.common.StatementId;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
@@ -16,7 +18,7 @@ import java.util.*;
 
 public class DatabricksDatabaseMetaData implements DatabaseMetaData {
 
-  public static final JdbcLogger LOGGER =
+  private static final JdbcLogger LOGGER =
       JdbcLoggerFactory.getLogger(DatabricksDatabaseMetaData.class);
   public static final String DRIVER_NAME = "DatabricksJDBC";
   public static final String PRODUCT_NAME = "SparkSQL";
@@ -135,14 +137,12 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
 
   @Override
   public int getDriverMajorVersion() {
-    throw new UnsupportedOperationException(
-        "Not implemented in DatabricksDatabaseMetaData - getDriverMajorVersion()");
+    return DriverUtil.getMajorVersion();
   }
 
   @Override
   public int getDriverMinorVersion() {
-    throw new UnsupportedOperationException(
-        "Not implemented in DatabricksDatabaseMetaData - getDriverMinorVersion()");
+    return DriverUtil.getMinorVersion();
   }
 
   @Override
@@ -875,11 +875,10 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
         String.format(
             "public ResultSet getProcedures(String catalog = {%s}, String schemaPattern = {%s}, String procedureNamePattern = {%s})",
             catalog, schemaPattern, procedureNamePattern));
-    // TODO: check once, simba returns empty result set as well
     throwExceptionIfConnectionIsClosed();
     return new DatabricksResultSet(
         new StatementStatus().setState(StatementState.SUCCEEDED),
-        "getprocedures-metadata",
+        new StatementId("getprocedures-metadata"),
         Arrays.asList(
             "PROCEDURE_CAT",
             "PROCEDURE_SCHEM",
@@ -937,6 +936,9 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
   @Override
   public ResultSet getSchemas() throws SQLException {
     LOGGER.debug("public ResultSet getSchemas()");
+    if (session.getConnectionContext().getClientType() == DatabricksClientType.SQL_EXEC) {
+      return MetadataResultSetBuilder.getSchemasResult(null);
+    }
     return getSchemas(null /* catalog */, null /* schema pattern */);
   }
 
@@ -1008,10 +1010,8 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
       throws SQLException {
     LOGGER.debug(
         String.format(
-            "public ResultSet getVersionColumns(String catalog = {}, String schema = {}, String table = {})",
-            catalog,
-            schema,
-            table));
+            "public ResultSet getVersionColumns(String catalog = {%s}, String schema = {%s}, String table = {%s})",
+            catalog, schema, table));
     throw new UnsupportedOperationException(
         "Not implemented in DatabricksDatabaseMetaData - getVersionColumns(String catalog, String schema, String table)");
   }
@@ -1020,10 +1020,8 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
   public ResultSet getPrimaryKeys(String catalog, String schema, String table) throws SQLException {
     LOGGER.debug(
         String.format(
-            "public ResultSet getPrimaryKeys(String catalog = {}, String schema = {}, String table = {})",
-            catalog,
-            schema,
-            table));
+            "public ResultSet getPrimaryKeys(String catalog = {%s}, String schema = {%s}, String table = {%s})",
+            catalog, schema, table));
     throwExceptionIfConnectionIsClosed();
     return session.getDatabricksMetadataClient().listPrimaryKeys(session, catalog, schema, table);
   }
@@ -1033,11 +1031,9 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
       throws SQLException {
     LOGGER.debug(
         String.format(
-            "public ResultSet getImportedKeys(String catalog = {}, String schema = {}, String table = {})",
-            catalog,
-            schema,
-            table));
-    // TODO(PECO-1696): Implement this
+            "public ResultSet getImportedKeys(String catalog = {%s}, String schema = {%s}, String table = {%s})",
+            catalog, schema, table));
+    // TODO (PECO-1696): Implement getImportedKeys
     return new EmptyResultSet();
   }
 
@@ -1046,11 +1042,9 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
       throws SQLException {
     LOGGER.debug(
         String.format(
-            "public ResultSet getExportedKeys(String catalog = {}, String schema = {}, String table = {})",
-            catalog,
-            schema,
-            table));
-    // TODO(PECO-1696): Implement this
+            "public ResultSet getExportedKeys(String catalog = {%s}, String schema = {%s}, String table = {%s})",
+            catalog, schema, table));
+    // TODO (PECO-1696): Implement getExportedKeys
     return new EmptyResultSet();
   }
 
@@ -1065,13 +1059,8 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
       throws SQLException {
     LOGGER.debug(
         String.format(
-            "public ResultSet getCrossReference(String parentCatalog = {}, String parentSchema = {}, String parentTable = {}, String foreignCatalog = {}, String foreignSchema = {}, String foreignTable = {})",
-            parentCatalog,
-            parentSchema,
-            parentTable,
-            foreignCatalog,
-            foreignSchema,
-            foreignTable));
+            "public ResultSet getCrossReference(String parentCatalog = {%s}, String parentSchema = {%s}, String parentTable = {%s}, String foreignCatalog = {%s}, String foreignSchema = {%s}, String foreignTable = {%s})",
+            parentCatalog, parentSchema, parentTable, foreignCatalog, foreignSchema, foreignTable));
     throw new UnsupportedOperationException(
         "Not implemented in DatabricksDatabaseMetaData - getCrossReference(String parentCatalog, String parentSchema, String parentTable, String foreignCatalog, String foreignSchema, String foreignTable)");
   }
@@ -1088,12 +1077,8 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
       String catalog, String schema, String table, boolean unique, boolean approximate) {
     LOGGER.debug(
         String.format(
-            "public ResultSet getIndexInfo(String catalog = {}, String schema = {}, String table = {}, boolean unique = {}, boolean approximate = {})",
-            catalog,
-            schema,
-            table,
-            unique,
-            approximate));
+            "public ResultSet getIndexInfo(String catalog = {%s}, String schema = {%s}, String table = {%s}, boolean unique = {%s}, boolean approximate = {%s})",
+            catalog, schema, table, unique, approximate));
     throw new UnsupportedOperationException(
         "Not implemented in DatabricksDatabaseMetaData - getIndexInfo(String catalog, String schema, String table, boolean unique, boolean approximate)");
   }
@@ -1109,44 +1094,43 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
   public boolean supportsResultSetConcurrency(int type, int concurrency) throws SQLException {
     LOGGER.debug(
         String.format(
-            "public boolean supportsResultSetConcurrency(int type = {}, int concurrency = {})",
-            type,
-            concurrency));
+            "public boolean supportsResultSetConcurrency(int type = {%s}, int concurrency = {%s})",
+            type, concurrency));
     throwExceptionIfConnectionIsClosed();
     return type == ResultSet.TYPE_FORWARD_ONLY && concurrency == ResultSet.CONCUR_READ_ONLY;
   }
 
   @Override
   public boolean ownUpdatesAreVisible(int type) throws SQLException {
-    LOGGER.debug(String.format("public boolean ownUpdatesAreVisible(int type = {})", type));
+    LOGGER.debug(String.format("public boolean ownUpdatesAreVisible(int type = {%s})", type));
     throwExceptionIfConnectionIsClosed();
     return false;
   }
 
   @Override
   public boolean ownDeletesAreVisible(int type) throws SQLException {
-    LOGGER.debug(String.format("public boolean ownDeletesAreVisible(int type = {})", type));
+    LOGGER.debug(String.format("public boolean ownDeletesAreVisible(int type = {%s})", type));
     throwExceptionIfConnectionIsClosed();
     return false;
   }
 
   @Override
   public boolean ownInsertsAreVisible(int type) throws SQLException {
-    LOGGER.debug(String.format("public boolean ownInsertsAreVisible(int type = {})", type));
+    LOGGER.debug(String.format("public boolean ownInsertsAreVisible(int type = {%s})", type));
     throwExceptionIfConnectionIsClosed();
     return false;
   }
 
   @Override
   public boolean othersUpdatesAreVisible(int type) throws SQLException {
-    LOGGER.debug(String.format("public boolean othersUpdatesAreVisible(int type = {})", type));
+    LOGGER.debug(String.format("public boolean othersUpdatesAreVisible(int type = {%s})", type));
     throwExceptionIfConnectionIsClosed();
     return false;
   }
 
   @Override
   public boolean othersDeletesAreVisible(int type) throws SQLException {
-    LOGGER.debug(String.format("public boolean othersDeletesAreVisible(int type = {})", type));
+    LOGGER.debug(String.format("public boolean othersDeletesAreVisible(int type = {%s})", type));
     throwExceptionIfConnectionIsClosed();
     return false;
   }
@@ -1192,12 +1176,11 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
     LOGGER.debug(
         String.format(
             "public ResultSet getUDTs(String catalog = {%s}, String schemaPattern = {%s}, String typeNamePattern = {%s}, int[] types = {%s})",
-            catalog, schemaPattern, typeNamePattern, types));
-    // TODO: implement, returning only empty set for now
+            catalog, schemaPattern, typeNamePattern, Arrays.toString(types)));
     throwExceptionIfConnectionIsClosed();
     return new DatabricksResultSet(
         new StatementStatus().setState(StatementState.SUCCEEDED),
-        "getudts-metadata",
+        new StatementId("getudts-metadata"),
         Arrays.asList(
             "TYPE_CAT",
             "TYPE_SCHEM",

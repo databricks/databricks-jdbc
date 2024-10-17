@@ -279,7 +279,7 @@ public class FakeServiceExtension extends DatabricksWireMockExtension {
                 .makeStubsPersistent(false) // manually save stub mappings
                 .extractTextBodiesOver(MAX_STUBBING_TEXT_SIZE)
                 .extractBinaryBodiesOver(MAX_STUBBING_BINARY_SIZE)
-                .transformers(StubMappingCredentialsCleaner.NAME));
+                .transformers(StubMappingRedactor.NAME));
   }
 
   /**

@@ -23,7 +23,6 @@ import java.nio.charset.StandardCharsets;
 import java.sql.*;
 import java.util.Calendar;
 import java.util.HashMap;
-import java.util.Map;
 import java.util.Properties;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -44,26 +43,15 @@ public class DatabricksPreparedStatementTest {
       "jdbc:databricks://adb-565757575.18.azuredatabricks.net:4423/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/erg6767gg;supportManyParameters=1;";
   private static final String JDBC_CLUSTER_URL_WITH_MANY_PARAMETERS =
       VALID_CLUSTER_URL + ";supportManyParameters=1;";
-
   @Mock DatabricksResultSet resultSet;
-
   @Mock DatabricksSdkClient client;
-
   @Mock DatabricksThriftServiceClient thriftClient;
   @Mock DatabricksConnection connection;
   @Mock DatabricksSession session;
-
   private static final String INTERPOLATED_INITIAL_STATEMENT =
       "SELECT * FROM orders WHERE user_id = ? AND name = ?";
   private static final String INTERPOLATED_PROCESSED_STATEMENT =
       "SELECT * FROM orders WHERE user_id = 1 AND name = 'test'";
-  Map<Integer, ImmutableSqlParameter> PARAM_MAP =
-      new HashMap<>() {
-        {
-          put(1, getSqlParam(1, 1, DatabricksTypeUtil.INT));
-          put(2, getSqlParam(2, TEST_STRING, DatabricksTypeUtil.STRING));
-        }
-      };
 
   void setupMocks() throws DatabricksSQLException {
     IDatabricksConnectionContext connectionContext =
@@ -78,20 +66,10 @@ public class DatabricksPreparedStatementTest {
         DatabricksConnectionContext.parse(JDBC_URL, new Properties());
     DatabricksConnection connection = new DatabricksConnection(connectionContext, client);
     DatabricksPreparedStatement statement = new DatabricksPreparedStatement(connection, STATEMENT);
-    statement.setLong(1, (long) 100);
+    statement.setLong(1, 100);
     statement.setShort(2, (short) 10);
     statement.setByte(3, (byte) 15);
     statement.setString(4, "value");
-
-    HashMap<Integer, ImmutableSqlParameter> sqlParams =
-        new HashMap<>() {
-          {
-            put(1, getSqlParam(1, 100, DatabricksTypeUtil.BIGINT));
-            put(2, getSqlParam(2, (short) 10, DatabricksTypeUtil.SMALLINT));
-            put(3, getSqlParam(3, (byte) 15, DatabricksTypeUtil.TINYINT));
-            put(4, getSqlParam(4, "value", DatabricksTypeUtil.STRING));
-          }
-        };
     when(client.executeStatement(
             eq(STATEMENT),
             eq(new Warehouse(WAREHOUSE_ID)),
@@ -164,7 +142,6 @@ public class DatabricksPreparedStatementTest {
         DatabricksConnectionContext.parse(JDBC_URL, new Properties());
     DatabricksConnection connection = new DatabricksConnection(connectionContext, client);
     DatabricksPreparedStatement statement = new DatabricksPreparedStatement(connection, STATEMENT);
-
     when(resultSet.getUpdateCount()).thenReturn(2L);
     when(client.executeStatement(
             eq(STATEMENT),
@@ -174,6 +151,7 @@ public class DatabricksPreparedStatementTest {
             any(IDatabricksSession.class),
             eq(statement)))
         .thenReturn(resultSet);
+
     int updateCount = statement.executeUpdate();
     assertEquals(2, updateCount);
     assertFalse(statement.isClosed());
@@ -188,16 +166,14 @@ public class DatabricksPreparedStatementTest {
     DatabricksConnection connection = new DatabricksConnection(connectionContext, client);
     DatabricksPreparedStatement statement =
         new DatabricksPreparedStatement(connection, BATCH_STATEMENT);
-
     // Setting to execute a batch of 4 statements
     for (int i = 1; i <= 4; i++) {
-      statement.setLong(1, (long) 100);
+      statement.setLong(1, 100);
       statement.setShort(2, (short) 10);
       statement.setByte(3, (byte) 15);
       statement.setString(4, "value");
       statement.addBatch();
     }
-
     when(client.executeStatement(
             eq(BATCH_STATEMENT),
             eq(new Warehouse(WAREHOUSE_ID)),
@@ -206,12 +182,10 @@ public class DatabricksPreparedStatementTest {
             any(IDatabricksSession.class),
             eq(statement)))
         .thenReturn(resultSet);
-
     when(resultSet.getUpdateCount()).thenReturn(1L);
 
     int[] expectedCountsResult = {1, 1, 1, 1};
     int[] updateCounts = statement.executeBatch();
-
     assertArrayEquals(expectedCountsResult, updateCounts);
     assertFalse(statement.isClosed());
     statement.close();
@@ -356,10 +330,7 @@ public class DatabricksPreparedStatementTest {
     byte[] bytes = {0x01, 0x02, 0x03, 0x04};
     InputStream asciiStream = new ByteArrayInputStream(bytes);
 
-    assertDoesNotThrow(
-        () -> {
-          preparedStatement.setAsciiStream(1, asciiStream, bytes.length);
-        });
+    assertDoesNotThrow(() -> preparedStatement.setAsciiStream(1, asciiStream, bytes.length));
   }
 
   @Test
@@ -371,10 +342,7 @@ public class DatabricksPreparedStatementTest {
     byte[] bytes = {0x01, 0x02, 0x03, 0x04};
     InputStream asciiStream = new ByteArrayInputStream(bytes);
 
-    assertDoesNotThrow(
-        () -> {
-          preparedStatement.setAsciiStream(1, asciiStream, (long) bytes.length);
-        });
+    assertDoesNotThrow(() -> preparedStatement.setAsciiStream(1, asciiStream, (long) bytes.length));
   }
 
   @Test

@@ -1,7 +1,10 @@
 package com.databricks.client.jdbc;
 
 import com.databricks.jdbc.api.IDatabricksConnection;
+import com.databricks.jdbc.api.IDatabricksResultSet;
+import com.databricks.jdbc.api.IDatabricksStatement;
 import com.databricks.jdbc.api.IDatabricksUCVolumeClient;
+import com.databricks.jdbc.api.impl.DatabricksResultSetMetaData;
 import com.databricks.jdbc.api.impl.arrow.ArrowResultChunk;
 import com.databricks.jdbc.common.DatabricksJdbcConstants;
 import java.io.File;
@@ -90,6 +93,23 @@ public class DriverTest {
     System.out.println("Connection established......");
     ResultSet resultSet = con.getMetaData().getTables("main", "%", "%", null);
     printResultSet(resultSet);
+    resultSet.close();
+    con.close();
+  }
+
+  @Test
+  void testGetDisposition() throws Exception {
+    DriverManager.registerDriver(new Driver());
+    DriverManager.drivers().forEach(driver -> System.out.println(driver.getClass()));
+    String jdbcUrl =
+        "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=https;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/791ba2a31c7fd70a;";
+    Connection con =
+        DriverManager.getConnection(jdbcUrl, "token", "xx"); // Default connection, arrow enabled.
+    System.out.println("Connection established with default params. Arrow is enabled ......");
+    String query = "SELECT * FROM RANGE(10)";
+    ResultSet resultSet = con.createStatement().executeQuery(query);
+    DatabricksResultSetMetaData rsmd = (DatabricksResultSetMetaData) resultSet.getMetaData();
+    System.out.println("isCloudFetchUsed when arrow is enabled: " + rsmd.getIsCloudFetchUsed());
     resultSet.close();
     con.close();
   }
@@ -206,34 +226,12 @@ public class DriverTest {
   }
 
   @Test
-  void testEnableTelemetry() throws Exception {
-    DriverManager.registerDriver(new Driver());
-    String jdbcUrl =
-        "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=https;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/791ba2a31c7fd70a;enableTelemetry=1";
-    Connection con = DriverManager.getConnection(jdbcUrl, "token", "x");
-    System.out.println("Connection established......");
-    con.close();
-  }
-
-  @Test
   void testHttpFlags() throws Exception {
     DriverManager.registerDriver(new Driver());
     DriverManager.drivers().forEach(driver -> System.out.println(driver.getClass()));
 
     String jdbcUrl =
         "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=https;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/791ba2a31c7fd70a;TemporarilyUnavailableRetry=3;";
-    Connection con = DriverManager.getConnection(jdbcUrl, "token", "x");
-    System.out.println("Connection established......");
-    con.close();
-  }
-
-  @Test
-  void testGetMetadataTypeBasedOnDBSQLVersion() throws Exception {
-    DriverManager.registerDriver(new Driver());
-    DriverManager.drivers().forEach(driver -> System.out.println(driver.getClass()));
-    // Getting the connection
-    String jdbcUrl =
-        "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/791ba2a31c7fd70a;uselegacyMetadata=1";
     Connection con = DriverManager.getConnection(jdbcUrl, "token", "x");
     System.out.println("Connection established......");
     con.close();
@@ -298,7 +296,7 @@ public class DriverTest {
     for (int i = 0; i < 300; i++) {
       joiner.add("?");
     }
-    sql.append(joiner.toString()).append(")");
+    sql.append(joiner).append(")");
     System.out.println("here is SQL " + sql);
     String jdbcUrl =
         "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=https;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/791ba2a31c7fd70a;supportManyParameters=1";
@@ -328,7 +326,43 @@ public class DriverTest {
   }
 
   @Test
-  void testSimbaBatchFunction() throws Exception {
+  void testAllPurposeClusters_async() throws Exception {
+    String jdbcUrl =
+        "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;ssl=1;AuthMech=3;httpPath=sql/protocolv1/o/6051921418418893/1115-130834-ms4m0yv;enableDirectResults=1";
+    Connection con = DriverManager.getConnection(jdbcUrl, "token", "token");
+    System.out.println("Connection established...... con1");
+    Statement s = con.createStatement();
+    IDatabricksStatement ids = s.unwrap(IDatabricksStatement.class);
+    ResultSet rs = ids.executeAsync("SELECT * from RANGE(10)");
+    System.out.println(
+        "1Status of async execution " + rs.unwrap(IDatabricksResultSet.class).getStatementStatus());
+
+    ResultSet rs3 = s.unwrap(IDatabricksStatement.class).getExecutionResult();
+    System.out.println(
+        "2Status of async execution "
+            + rs3.unwrap(IDatabricksResultSet.class).getStatementStatus());
+
+    System.out.println("StatementId " + rs.unwrap(IDatabricksResultSet.class).getStatementId());
+
+    Connection con2 = DriverManager.getConnection(jdbcUrl, "token", "token");
+    System.out.println("Connection established......con2");
+    IDatabricksConnection idc = con2.unwrap(IDatabricksConnection.class);
+    Statement stm = idc.getStatement(rs.unwrap(IDatabricksResultSet.class).getStatementId());
+    ResultSet rs2 = stm.unwrap(IDatabricksStatement.class).getExecutionResult();
+    System.out.println(
+        "3Status of async execution "
+            + rs2.unwrap(IDatabricksResultSet.class).getStatementStatus());
+    stm.cancel();
+    System.out.println("Statement cancelled using con2");
+    s.close();
+    System.out.println("Statement cancelled using con1");
+    con2.close();
+    con.close();
+    System.out.println("Connection closed successfully......");
+  }
+
+  @Test
+  void testBatchFunction() throws Exception {
 
     String jdbcUrl =
         "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/dd43ee29fedd958d;";

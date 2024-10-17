@@ -1,106 +1,103 @@
 package com.databricks.jdbc.api.impl.converters;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import java.math.BigDecimal;
 import java.math.BigInteger;
-import java.util.Arrays;
 import org.junit.jupiter.api.Test;
 
 public class BooleanConverterTest {
 
-  private boolean TRUE_OBJECT = true;
-  private boolean FALSE_OBJECT = false;
+  private final boolean TRUE_OBJECT = true;
+  private final boolean FALSE_OBJECT = false;
 
   @Test
   public void testConvertToByte() throws DatabricksSQLException {
-    assertEquals(new BooleanConverter(TRUE_OBJECT).convertToByte(), (byte) 1);
-    assertEquals(new BooleanConverter(FALSE_OBJECT).convertToByte(), (byte) 0);
+    assertEquals(new BooleanConverter().toByte(TRUE_OBJECT), (byte) 1);
+    assertEquals(new BooleanConverter().toByte(FALSE_OBJECT), (byte) 0);
   }
 
   @Test
   public void testConvertToShort() throws DatabricksSQLException {
-    assertEquals(new BooleanConverter(TRUE_OBJECT).convertToShort(), (short) 1);
-    assertEquals(new BooleanConverter(FALSE_OBJECT).convertToShort(), (short) 0);
+    assertEquals(new BooleanConverter().toShort(TRUE_OBJECT), (short) 1);
+    assertEquals(new BooleanConverter().toShort(FALSE_OBJECT), (short) 0);
   }
 
   @Test
   public void testConvertToInt() throws DatabricksSQLException {
-    assertEquals(new BooleanConverter(TRUE_OBJECT).convertToInt(), (int) 1);
-    assertEquals(new BooleanConverter(FALSE_OBJECT).convertToInt(), (int) 0);
+    assertEquals(new BooleanConverter().toInt(TRUE_OBJECT), 1);
+    assertEquals(new BooleanConverter().toInt(FALSE_OBJECT), 0);
   }
 
   @Test
   public void testConvertToLong() throws DatabricksSQLException {
-    assertEquals(new BooleanConverter(TRUE_OBJECT).convertToLong(), 1L);
-    assertEquals(new BooleanConverter(FALSE_OBJECT).convertToLong(), 0L);
+    assertEquals(new BooleanConverter().toLong(TRUE_OBJECT), 1L);
+    assertEquals(new BooleanConverter().toLong(FALSE_OBJECT), 0L);
   }
 
   @Test
   public void testConvertToFloat() throws DatabricksSQLException {
-    assertEquals(new BooleanConverter(TRUE_OBJECT).convertToFloat(), 1f);
-    assertEquals(new BooleanConverter(FALSE_OBJECT).convertToFloat(), 0f);
+    assertEquals(new BooleanConverter().toFloat(TRUE_OBJECT), 1f);
+    assertEquals(new BooleanConverter().toFloat(FALSE_OBJECT), 0f);
   }
 
   @Test
   public void testConvertToDouble() throws DatabricksSQLException {
-    assertEquals(new BooleanConverter(TRUE_OBJECT).convertToDouble(), (double) 1);
-    assertEquals(new BooleanConverter(FALSE_OBJECT).convertToDouble(), (double) 0);
+    assertEquals(new BooleanConverter().toDouble(TRUE_OBJECT), 1);
+    assertEquals(new BooleanConverter().toDouble(FALSE_OBJECT), 0);
   }
 
   @Test
   public void testConvertToBigDecimal() throws DatabricksSQLException {
-    assertEquals(new BooleanConverter(TRUE_OBJECT).convertToBigDecimal(), BigDecimal.valueOf(1));
-    assertEquals(new BooleanConverter(FALSE_OBJECT).convertToBigDecimal(), BigDecimal.valueOf(0));
+    assertEquals(new BooleanConverter().toBigDecimal(TRUE_OBJECT), BigDecimal.valueOf(1));
+    assertEquals(new BooleanConverter().toBigDecimal(FALSE_OBJECT), BigDecimal.valueOf(0));
   }
 
   @Test
   public void testConvertToBoolean() throws DatabricksSQLException {
-    assertEquals(new BooleanConverter(TRUE_OBJECT).convertToBoolean(), true);
-    assertEquals(new BooleanConverter(FALSE_OBJECT).convertToBoolean(), false);
+    assertTrue(new BooleanConverter().toBoolean(TRUE_OBJECT));
+    assertFalse(new BooleanConverter().toBoolean(FALSE_OBJECT));
   }
 
   @Test
   public void testConvertToByteArray() throws DatabricksSQLException {
-    assertTrue(
-        Arrays.equals(new BooleanConverter(TRUE_OBJECT).convertToByteArray(), new byte[] {1}));
-    assertTrue(
-        Arrays.equals(new BooleanConverter(FALSE_OBJECT).convertToByteArray(), new byte[] {0}));
+    assertArrayEquals(new BooleanConverter().toByteArray(TRUE_OBJECT), new byte[] {1});
+    assertArrayEquals(new BooleanConverter().toByteArray(FALSE_OBJECT), new byte[] {0});
   }
 
   @Test
   public void testConvertToChar() throws DatabricksSQLException {
-    assertEquals(new BooleanConverter(TRUE_OBJECT).convertToChar(), '1');
-    assertEquals(new BooleanConverter(FALSE_OBJECT).convertToChar(), '0');
+    assertEquals(new BooleanConverter().toChar(TRUE_OBJECT), '1');
+    assertEquals(new BooleanConverter().toChar(FALSE_OBJECT), '0');
   }
 
   @Test
   public void testConvertToString() throws DatabricksSQLException {
-    assertEquals(new BooleanConverter(TRUE_OBJECT).convertToString(), "true");
-    assertEquals(new BooleanConverter(FALSE_OBJECT).convertToString(), "false");
+    assertEquals(new BooleanConverter().toString(TRUE_OBJECT), "true");
+    assertEquals(new BooleanConverter().toString(FALSE_OBJECT), "false");
   }
 
   @Test
   public void testConvertToTimestamp() throws DatabricksSQLException {
     DatabricksSQLException exception =
         assertThrows(
-            DatabricksSQLException.class,
-            () -> new BooleanConverter(TRUE_OBJECT).convertToTimestamp());
-    assertTrue(exception.getMessage().contains("Unsupported conversion operation"));
+            DatabricksSQLException.class, () -> new BooleanConverter().toTimestamp(TRUE_OBJECT));
+    assertTrue(exception.getMessage().contains("Unsupported Timestamp conversion operation"));
   }
 
   @Test
   public void testConvertToDate() throws DatabricksSQLException {
     DatabricksSQLException exception =
         assertThrows(
-            DatabricksSQLException.class, () -> new BooleanConverter(TRUE_OBJECT).convertToDate());
-    assertTrue(exception.getMessage().contains("Unsupported conversion operation"));
+            DatabricksSQLException.class, () -> new BooleanConverter().toDate(TRUE_OBJECT));
+    assertTrue(exception.getMessage().contains("Unsupported Date conversion operation"));
   }
 
   @Test
   public void testConvertToBigInteger() throws DatabricksSQLException {
-    assertEquals(new BooleanConverter(TRUE_OBJECT).convertToBigInteger(), BigInteger.valueOf(1));
-    assertEquals(new BooleanConverter(FALSE_OBJECT).convertToBigInteger(), BigInteger.valueOf(0));
+    assertEquals(new BooleanConverter().toBigInteger(TRUE_OBJECT), BigInteger.valueOf(1));
+    assertEquals(new BooleanConverter().toBigInteger(FALSE_OBJECT), BigInteger.valueOf(0));
   }
 }

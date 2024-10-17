@@ -5,7 +5,6 @@ import com.databricks.jdbc.common.DatabricksClientType;
 import com.databricks.jdbc.common.IDatabricksComputeResource;
 import com.databricks.jdbc.common.LogLevel;
 import com.databricks.jdbc.exception.DatabricksParsingException;
-import com.databricks.jdbc.telemetry.DatabricksMetrics;
 import com.databricks.sdk.core.ProxyConfig;
 import java.util.List;
 import java.util.Map;
@@ -139,14 +138,12 @@ public interface IDatabricksConnectionContext {
 
   DatabricksClientType getClientType();
 
-  Boolean getUseLegacyMetadata();
+  Boolean getUseEmptyMetadata();
 
   /** Returns the number of threads to be used for fetching data from cloud storage */
   int getCloudFetchThreadPoolSize();
 
   Boolean getDirectResultMode();
-
-  DatabricksMetrics getMetricsExporter();
 
   Boolean shouldRetryTemporarilyUnavailableError();
 
@@ -160,11 +157,11 @@ public interface IDatabricksConnectionContext {
 
   boolean supportManyParameters();
 
-  boolean isFakeServiceTest();
-
-  boolean enableTelemetry();
-
   String getConnectionURL();
+
+  boolean checkCertificateRevocation();
+
+  boolean acceptUndeterminedCertificateRevocation();
 
   /** Returns the file path to the JWT private key used for signing the JWT. */
   String getJWTKeyFile();
@@ -204,4 +201,16 @@ public interface IDatabricksConnectionContext {
 
   /** Returns the non-proxy hosts that should be excluded from proxying. */
   String getNonProxyHosts();
+
+  /** Returns the SSL trust store file path used for SSL connections. */
+  String getSSLTrustStore();
+
+  /** Returns the SSL trust store provider of the trust store file. */
+  String getSSLTrustStoreProvider();
+
+  /** Returns the SSL trust store password of the trust store file. */
+  String getSSLTrustStorePassword();
+
+  /** Returns the SSL trust store type of the trust store file. */
+  String getSSLTrustStoreType();
 }
