@@ -9,14 +9,14 @@ import com.google.common.annotations.VisibleForTesting;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.io.InputStream;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
-import org.apache.commons.io.IOUtils;
+import org.apache.http.HttpEntity;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.entity.ByteArrayEntity;
+import org.apache.http.util.EntityUtils;
 import org.apache.thrift.TConfiguration;
 import org.apache.thrift.transport.TTransport;
 import org.apache.thrift.transport.TTransportException;
@@ -84,14 +84,15 @@ public class DatabricksHttpTTransport extends TTransport {
     request.setEntity(new ByteArrayEntity(requestBuffer.toByteArray()));
 
     // Execute the request and handle the response
-    try (CloseableHttpResponse response = httpClient.execute(request);
-        InputStream responseStream = response.getEntity().getContent()) {
-
+    try (CloseableHttpResponse response = httpClient.execute(request)) {
       ValidationUtil.checkHTTPError(response);
 
       // Read the response
-      byte[] responseBytes = IOUtils.toByteArray(responseStream);
-      responseBuffer = new ByteArrayInputStream(responseBytes);
+      HttpEntity entity = response.getEntity();
+      if (entity != null) {
+        byte[] responseBytes = EntityUtils.toByteArray(entity);
+        responseBuffer = new ByteArrayInputStream(responseBytes);
+      }
     } catch (DatabricksHttpException | IOException e) {
       String errorMessage = "Failed to flush data to server: " + e.getMessage();
       LOGGER.error(errorMessage);
