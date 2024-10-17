@@ -5,12 +5,13 @@ import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.api.IDatabricksSession;
 import com.databricks.jdbc.api.IDatabricksStatement;
 import com.databricks.jdbc.api.IDatabricksUCVolumeClient;
-import com.databricks.jdbc.api.callback.IDatabricksStatementHandle;
 import com.databricks.jdbc.api.impl.volume.DatabricksUCVolumeClient;
+import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
 import com.databricks.jdbc.common.DatabricksJdbcConstants;
 import com.databricks.jdbc.common.util.UserAgentManager;
 import com.databricks.jdbc.common.util.ValidationUtil;
 import com.databricks.jdbc.dbclient.IDatabricksClient;
+import com.databricks.jdbc.dbclient.impl.common.StatementId;
 import com.databricks.jdbc.exception.DatabricksSQLClientInfoException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.exception.DatabricksSQLFeatureNotSupportedException;
@@ -30,7 +31,7 @@ import java.util.stream.Collectors;
 public class DatabricksConnection implements IDatabricksConnection, Connection {
   private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(DatabricksConnection.class);
   private IDatabricksSession session;
-  private final Set<IDatabricksStatementHandle> statementSet = ConcurrentHashMap.newKeySet();
+  private final Set<IDatabricksStatementInternal> statementSet = ConcurrentHashMap.newKeySet();
   private SQLWarning warnings = null;
   private volatile IDatabricksUCVolumeClient ucVolumeClient = null;
 
@@ -59,7 +60,7 @@ public class DatabricksConnection implements IDatabricksConnection, Connection {
 
   @Override
   public Statement getStatement(String statementId) throws SQLException {
-    throw new DatabricksSQLFeatureNotSupportedException("Not implemented");
+    return new DatabricksStatement(this, StatementId.deserialize(statementId));
   }
 
   @Override
@@ -127,7 +128,7 @@ public class DatabricksConnection implements IDatabricksConnection, Connection {
   @Override
   public void close() throws DatabricksSQLException {
     LOGGER.debug("public void close()");
-    for (IDatabricksStatementHandle statement : statementSet) {
+    for (IDatabricksStatementInternal statement : statementSet) {
       statement.close(false);
       statementSet.remove(statement);
     }
@@ -488,15 +489,18 @@ public class DatabricksConnection implements IDatabricksConnection, Connection {
   @Override
   public <T> T unwrap(Class<T> iface) throws SQLException {
     LOGGER.debug("public <T> T unwrap(Class<T> iface)");
-    throw new DatabricksSQLFeatureNotSupportedException(
-        "Not implemented in DatabricksConnection - unwrap(Class<T> iface)");
+    if (iface.isInstance(this)) {
+      return (T) this;
+    }
+    throw new DatabricksSQLException(
+        String.format(
+            "Class {%s} cannot be wrapped from {%s}", this.getClass().getName(), iface.getName()));
   }
 
   @Override
   public boolean isWrapperFor(Class<?> iface) throws SQLException {
     LOGGER.debug("public boolean isWrapperFor(Class<?> iface)");
-    throw new DatabricksSQLFeatureNotSupportedException(
-        "Not implemented in DatabricksConnection - isWrapperFor(Class<?> iface)");
+    return iface.isInstance(this);
   }
 
   @Override

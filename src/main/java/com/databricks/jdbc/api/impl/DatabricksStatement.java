@@ -7,32 +7,33 @@ import static java.lang.String.format;
 
 import com.databricks.jdbc.api.IDatabricksResultSet;
 import com.databricks.jdbc.api.IDatabricksStatement;
-import com.databricks.jdbc.api.callback.IDatabricksStatementHandle;
+import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
 import com.databricks.jdbc.common.ErrorCodes;
 import com.databricks.jdbc.common.StatementType;
 import com.databricks.jdbc.common.util.*;
 import com.databricks.jdbc.dbclient.IDatabricksClient;
+import com.databricks.jdbc.dbclient.impl.common.StatementId;
 import com.databricks.jdbc.exception.DatabricksSQLException;
-import com.databricks.jdbc.exception.DatabricksSQLFeatureNotImplementedException;
 import com.databricks.jdbc.exception.DatabricksSQLFeatureNotSupportedException;
 import com.databricks.jdbc.exception.DatabricksTimeoutException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.google.common.annotations.VisibleForTesting;
 import java.sql.*;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.*;
 import org.apache.http.entity.InputStreamEntity;
 
 public class DatabricksStatement
-    implements IDatabricksStatement, IDatabricksStatementHandle, Statement {
+    implements IDatabricksStatement, IDatabricksStatementInternal, Statement {
 
   private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(DatabricksStatement.class);
   private int timeoutInSeconds;
   private final DatabricksConnection connection;
   DatabricksResultSet resultSet;
-  private String statementId;
+  private StatementId statementId;
   private boolean isClosed;
   private boolean closeOnCompletion;
   private SQLWarning warnings = null;
@@ -45,6 +46,14 @@ public class DatabricksStatement
     this.connection = connection;
     this.resultSet = null;
     this.statementId = null;
+    this.isClosed = false;
+    this.timeoutInSeconds = DEFAULT_STATEMENT_TIMEOUT_SECONDS;
+  }
+
+  public DatabricksStatement(DatabricksConnection connection, StatementId statementId) {
+    this.connection = connection;
+    this.statementId = statementId;
+    this.resultSet = null;
     this.isClosed = false;
     this.timeoutInSeconds = DEFAULT_STATEMENT_TIMEOUT_SECONDS;
   }
@@ -514,13 +523,14 @@ public class DatabricksStatement
   }
 
   @Override
-  public void setStatementId(String statementId) {
+  public void setStatementId(StatementId statementId) {
+    LOGGER.debug("void setStatementId {%s}", statementId);
     this.statementId = statementId;
   }
 
   @Override
   public String getStatementId() {
-    return this.statementId;
+    return this.statementId.toString();
   }
 
   @Override
@@ -596,12 +606,29 @@ public class DatabricksStatement
   }
 
   @Override
-  public ResultSet executeAsync(String sql) throws DatabricksSQLException {
-    throw new DatabricksSQLFeatureNotImplementedException("Not implemented");
+  public ResultSet executeAsync(String sql) throws SQLException {
+    LOGGER.debug("ResultSet executeAsync() for statement {%s}", sql);
+    checkIfClosed();
+    IDatabricksClient client = connection.getSession().getDatabricksClient();
+    return client.executeStatementAsync(
+        sql,
+        connection.getSession().getComputeResource(),
+        Collections.emptyMap(),
+        connection.getSession(),
+        this);
   }
 
   @Override
-  public ResultSet getExecutionResult() throws DatabricksSQLException {
-    throw new DatabricksSQLFeatureNotImplementedException("Not implemented");
+  public ResultSet getExecutionResult() throws SQLException {
+    LOGGER.debug("ResultSet getExecutionResult() for statementId {%s}", statementId);
+    checkIfClosed();
+
+    if (statementId == null) {
+      throw new DatabricksSQLException("No execution available for statement");
+    }
+    return connection
+        .getSession()
+        .getDatabricksClient()
+        .getStatementResult(statementId, connection.getSession(), this);
   }
 }

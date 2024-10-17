@@ -1,7 +1,7 @@
 package com.databricks.jdbc.api;
 
-import com.databricks.jdbc.exception.DatabricksSQLException;
 import java.sql.ResultSet;
+import java.sql.SQLException;
 
 /** Interface for Databricks specific statement. */
 public interface IDatabricksStatement {
@@ -11,15 +11,15 @@ public interface IDatabricksStatement {
    *
    * @param sql SQL command to be executed
    * @return result set for given execution
-   * @throws DatabricksSQLException in case of error
+   * @throws SQLException in case of error
    */
-  ResultSet executeAsync(String sql) throws DatabricksSQLException;
+  ResultSet executeAsync(String sql) throws SQLException;
 
   /**
    * Returns result set response for the executed statement
    *
    * @return result set for underlying execution
-   * @throws DatabricksSQLException if statement was never executed
+   * @throws SQLException if statement was never executed
    */
-  ResultSet getExecutionResult() throws DatabricksSQLException;
+  ResultSet getExecutionResult() throws SQLException;
 }

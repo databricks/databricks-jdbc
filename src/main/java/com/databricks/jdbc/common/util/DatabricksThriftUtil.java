@@ -38,10 +38,6 @@ public class DatabricksThriftUtil {
         .setExpiration(Long.toString(chunkInfo.getExpiryTime()));
   }
 
-  public static String getStatementId(TOperationHandle operationHandle) {
-    return byteBufferToString(operationHandle.getOperationId().guid);
-  }
-
   public static void verifySuccessStatus(TStatusCode statusCode, String errorContext)
       throws DatabricksHttpException {
     if (!SUCCESS_STATUS_LIST.contains(statusCode)) {

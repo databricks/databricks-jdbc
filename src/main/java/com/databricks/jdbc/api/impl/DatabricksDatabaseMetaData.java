@@ -7,6 +7,7 @@ import com.databricks.jdbc.common.DatabricksJdbcConstants;
 import com.databricks.jdbc.common.StatementType;
 import com.databricks.jdbc.common.util.DriverUtil;
 import com.databricks.jdbc.dbclient.impl.common.MetadataResultSetBuilder;
+import com.databricks.jdbc.dbclient.impl.common.StatementId;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
@@ -877,7 +878,7 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
     throwExceptionIfConnectionIsClosed();
     return new DatabricksResultSet(
         new StatementStatus().setState(StatementState.SUCCEEDED),
-        "getprocedures-metadata",
+        new StatementId("getprocedures-metadata"),
         Arrays.asList(
             "PROCEDURE_CAT",
             "PROCEDURE_SCHEM",
@@ -1179,7 +1180,7 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
     throwExceptionIfConnectionIsClosed();
     return new DatabricksResultSet(
         new StatementStatus().setState(StatementState.SUCCEEDED),
-        "getudts-metadata",
+        new StatementId("getudts-metadata"),
         Arrays.asList(
             "TYPE_CAT",
             "TYPE_SCHEM",
