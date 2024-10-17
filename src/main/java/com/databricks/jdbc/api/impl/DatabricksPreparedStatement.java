@@ -4,11 +4,8 @@ import static com.databricks.jdbc.common.util.DatabricksTypeUtil.*;
 import static com.databricks.jdbc.common.util.SQLInterpolator.interpolateSQL;
 
 import com.databricks.jdbc.common.AllPurposeCluster;
-import com.databricks.jdbc.common.ErrorCodes;
-import com.databricks.jdbc.common.ErrorTypes;
 import com.databricks.jdbc.common.StatementType;
 import com.databricks.jdbc.common.util.DatabricksTypeUtil;
-import com.databricks.jdbc.common.util.MetricsUtil;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.exception.DatabricksSQLFeatureNotImplementedException;
 import com.databricks.jdbc.exception.DatabricksSQLFeatureNotSupportedException;
@@ -70,7 +67,7 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
   }
 
   private void checkIfBatchOperation() throws DatabricksSQLException {
-    if (!databricksBatchParameterMetaData.isEmpty()) {
+    if (!this.databricksBatchParameterMetaData.isEmpty()) {
       String errorMessage =
           "Batch must either be executed with executeBatch() or cleared with clearBatch()";
       LOGGER.error(errorMessage);
@@ -256,7 +253,7 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
   public void clearParameters() throws SQLException {
     LOGGER.debug("public void clearParameters()");
     checkIfClosed();
-    databricksParameterMetaData.getParameterBindings().clear();
+    this.databricksParameterMetaData.getParameterBindings().clear();
   }
 
   @Override
@@ -288,7 +285,7 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
   }
 
   private void setObject(int parameterIndex, Object x, String databricksType) {
-    databricksParameterMetaData.put(
+    this.databricksParameterMetaData.put(
         parameterIndex,
         ImmutableSqlParameter.builder()
             .type(DatabricksTypeUtil.getColumnInfoType(databricksType))
@@ -309,16 +306,16 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
   @Override
   public void addBatch() {
     LOGGER.debug("public void addBatch()");
-    databricksBatchParameterMetaData.add(databricksParameterMetaData);
-    databricksParameterMetaData = new DatabricksParameterMetaData();
+    this.databricksBatchParameterMetaData.add(databricksParameterMetaData);
+    this.databricksParameterMetaData = new DatabricksParameterMetaData();
   }
 
   @Override
   public void clearBatch() throws DatabricksSQLException {
     LOGGER.debug("public void clearBatch()");
     checkIfClosed();
-    databricksParameterMetaData = new DatabricksParameterMetaData();
-    databricksBatchParameterMetaData = new ArrayList<>();
+    this.databricksParameterMetaData = new DatabricksParameterMetaData();
+    this.databricksBatchParameterMetaData = new ArrayList<>();
   }
 
   @Override
@@ -425,7 +422,7 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
   @Override
   public ParameterMetaData getParameterMetaData() throws SQLException {
     LOGGER.debug("public ParameterMetaData getParameterMetaData()");
-    return databricksParameterMetaData;
+    return this.databricksParameterMetaData;
   }
 
   @Override
@@ -679,11 +676,6 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
   public void addBatch(String sql) throws SQLException {
     LOGGER.debug(String.format("public void addBatch(String sql = {%s})", sql));
     checkIfClosed();
-    MetricsUtil.exportError(
-        ((DatabricksConnection) getConnection()).getSession(),
-        ErrorTypes.FEATURE_NOT_SUPPORTED,
-        getStatementId(),
-        ErrorCodes.BATCH_OPERATION_UNSUPPORTED);
     throw new DatabricksSQLFeatureNotSupportedException(
         "Method not supported: addBatch(String sql)");
   }
@@ -691,13 +683,13 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
   private DatabricksResultSet interpolateIfRequiredAndExecute(StatementType statementType)
       throws SQLException {
     String interpolatedSql =
-        interpolateParameters
-            ? interpolateSQL(sql, databricksParameterMetaData.getParameterBindings())
+        this.interpolateParameters
+            ? interpolateSQL(sql, this.databricksParameterMetaData.getParameterBindings())
             : sql;
     Map<Integer, ImmutableSqlParameter> paramMap =
-        interpolateParameters
+        this.interpolateParameters
             ? new HashMap<>()
-            : databricksParameterMetaData.getParameterBindings();
+            : this.databricksParameterMetaData.getParameterBindings();
     return executeInternal(interpolatedSql, paramMap, statementType);
   }
 }
