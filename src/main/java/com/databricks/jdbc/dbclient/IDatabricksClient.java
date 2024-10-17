@@ -2,10 +2,11 @@ package com.databricks.jdbc.dbclient;
 
 import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.api.IDatabricksSession;
-import com.databricks.jdbc.api.callback.IDatabricksStatementHandle;
 import com.databricks.jdbc.api.impl.*;
+import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
 import com.databricks.jdbc.common.IDatabricksComputeResource;
 import com.databricks.jdbc.common.StatementType;
+import com.databricks.jdbc.dbclient.impl.common.StatementId;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.model.core.ExternalLink;
 import java.sql.SQLException;
@@ -57,7 +58,25 @@ public interface IDatabricksClient {
       Map<Integer, ImmutableSqlParameter> parameters,
       StatementType statementType,
       IDatabricksSession session,
-      IDatabricksStatementHandle parentStatement)
+      IDatabricksStatementInternal parentStatement)
+      throws SQLException;
+
+  /**
+   * Executes a statement in Databricks server asynchronously
+   *
+   * @param sql SQL statement that needs to be executed
+   * @param computeResource underlying SQL-warehouse or all-purpose cluster
+   * @param parameters SQL parameters for the statement
+   * @param session underlying session
+   * @param parentStatement statement instance if called from a statement
+   * @return response for statement execution
+   */
+  DatabricksResultSet executeStatementAsync(
+      String sql,
+      IDatabricksComputeResource computeResource,
+      Map<Integer, ImmutableSqlParameter> parameters,
+      IDatabricksSession session,
+      IDatabricksStatementInternal parentStatement)
       throws SQLException;
 
   /**
@@ -65,14 +84,27 @@ public interface IDatabricksClient {
    *
    * @param statementId statement which should be closed
    */
-  void closeStatement(String statementId) throws DatabricksSQLException;
+  void closeStatement(StatementId statementId) throws DatabricksSQLException;
 
   /**
    * Cancels a statement in Databricks server
    *
    * @param statementId statement which should be aborted
    */
-  void cancelStatement(String statementId) throws DatabricksSQLException;
+  void cancelStatement(StatementId statementId) throws DatabricksSQLException;
+
+  /**
+   * Fetches result for underlying statement-Id
+   *
+   * @param statementId statement which should be checked for status
+   * @param session underlying session
+   * @param parentStatement statement instance
+   */
+  DatabricksResultSet getStatementResult(
+      StatementId statementId,
+      IDatabricksSession session,
+      IDatabricksStatementInternal parentStatement)
+      throws SQLException;
 
   /**
    * Fetches the chunk details for given chunk index and statement-Id.
@@ -80,7 +112,7 @@ public interface IDatabricksClient {
    * @param statementId statement-Id for which chunk should be fetched
    * @param chunkIndex chunkIndex for which chunk should be fetched
    */
-  Collection<ExternalLink> getResultChunks(String statementId, long chunkIndex)
+  Collection<ExternalLink> getResultChunks(StatementId statementId, long chunkIndex)
       throws DatabricksSQLException;
 
   IDatabricksConnectionContext getConnectionContext();

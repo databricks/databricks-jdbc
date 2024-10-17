@@ -9,30 +9,48 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import com.databricks.jdbc.integration.fakeservice.AbstractFakeServiceIntegrationTests;
 import com.github.tomakehurst.wiremock.client.CountMatchingStrategy;
+import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 /** Integration tests for SQL statement execution. */
 public class ExecutionIntegrationTests extends AbstractFakeServiceIntegrationTests {
 
+  private Connection connection;
+
+  @BeforeEach
+  void setUp() throws SQLException {
+    connection = getValidJDBCConnection();
+  }
+
+  @AfterEach
+  void cleanUp() throws SQLException {
+    if (connection != null) {
+      connection.close();
+    }
+  }
+
   @Test
   void testInsertStatement() throws SQLException {
     String tableName = "insert_test_table";
-    setupDatabaseTable(tableName);
+    setupDatabaseTable(connection, tableName);
     String SQL =
         "INSERT INTO "
             + getFullyQualifiedTableName(tableName)
             + " (id, col1, col2) VALUES (1, 'value1', 'value2')";
-    assertDoesNotThrow(() -> executeSQL(SQL), "Error executing SQL");
+    assertDoesNotThrow(() -> executeSQL(connection, SQL), "Error executing SQL");
 
-    ResultSet rs = executeQuery("SELECT * FROM " + getFullyQualifiedTableName(tableName));
+    ResultSet rs =
+        executeQuery(connection, "SELECT * FROM " + getFullyQualifiedTableName(tableName));
     int rows = 0;
     while (rs != null && rs.next()) {
       rows++;
     }
     assertEquals(1, rows, "Expected 1 row, got " + rows);
-    deleteTable(tableName);
+    deleteTable(connection, tableName);
 
     if (isSqlExecSdkClient()) {
       // Run validations for SQL_EXEC fake service
@@ -51,21 +69,23 @@ public class ExecutionIntegrationTests extends AbstractFakeServiceIntegrationTes
   void testUpdateStatement() throws SQLException {
     // Insert initial test data
     String tableName = "update_test_table";
-    setupDatabaseTable(tableName);
-    insertTestData(tableName);
+    setupDatabaseTable(connection, tableName);
+    insertTestData(connection, tableName);
 
     String updateSQL =
         "UPDATE "
             + getFullyQualifiedTableName(tableName)
             + " SET col1 = 'updatedValue1' WHERE id = 1";
-    executeSQL(updateSQL);
+    executeSQL(connection, updateSQL);
 
     ResultSet rs =
-        executeQuery("SELECT col1 FROM " + getFullyQualifiedTableName(tableName) + " WHERE id = 1");
+        executeQuery(
+            connection,
+            "SELECT col1 FROM " + getFullyQualifiedTableName(tableName) + " WHERE id = 1");
     assertTrue(
         rs.next() && "updatedValue1".equals(rs.getString("col1")),
         "Expected 'updatedValue1', got " + rs.getString("col1"));
-    deleteTable(tableName);
+    deleteTable(connection, tableName);
 
     if (isSqlExecSdkClient()) {
       // Run validations for SQL_EXEC fake service
@@ -84,15 +104,16 @@ public class ExecutionIntegrationTests extends AbstractFakeServiceIntegrationTes
   void testDeleteStatement() throws SQLException {
     // Insert initial test data
     String tableName = "delete_test_table";
-    setupDatabaseTable(tableName);
-    insertTestData(tableName);
+    setupDatabaseTable(connection, tableName);
+    insertTestData(connection, tableName);
 
     String deleteSQL = "DELETE FROM " + getFullyQualifiedTableName(tableName) + " WHERE id = 1";
-    executeSQL(deleteSQL);
+    executeSQL(connection, deleteSQL);
 
-    ResultSet rs = executeQuery("SELECT * FROM " + getFullyQualifiedTableName(tableName));
+    ResultSet rs =
+        executeQuery(connection, "SELECT * FROM " + getFullyQualifiedTableName(tableName));
     assertFalse(rs.next(), "Expected no rows after delete");
-    deleteTable(tableName);
+    deleteTable(connection, tableName);
 
     if (isSqlExecSdkClient()) {
       // At least 6 statement requests are sent: drop, create, insert, delete, select, drop
@@ -107,31 +128,33 @@ public class ExecutionIntegrationTests extends AbstractFakeServiceIntegrationTes
   void testCompoundStatements() throws SQLException {
     // Insert for compound test
     String tableName = "compound_test_table";
-    setupDatabaseTable(tableName);
-    insertTestData(tableName);
+    setupDatabaseTable(connection, tableName);
+    insertTestData(connection, tableName);
 
     // Update operation as part of compound test
     String updateSQL =
         "UPDATE "
             + getFullyQualifiedTableName(tableName)
             + " SET col2 = 'updatedValue2' WHERE id = 1";
-    executeSQL(updateSQL);
+    executeSQL(connection, updateSQL);
 
     // Verify update operation
     ResultSet rs =
-        executeQuery("SELECT col2 FROM " + getFullyQualifiedTableName(tableName) + " WHERE id = 1");
+        executeQuery(
+            connection,
+            "SELECT col2 FROM " + getFullyQualifiedTableName(tableName) + " WHERE id = 1");
     assertTrue(
         rs.next() && "updatedValue2".equals(rs.getString("col2")),
         "Expected 'updatedValue2', got " + rs.getString("col2"));
 
     // Delete operation as part of compound test
     String deleteSQL = "DELETE FROM " + getFullyQualifiedTableName(tableName) + " WHERE id = 1";
-    executeSQL(deleteSQL);
+    executeSQL(connection, deleteSQL);
 
     // Verify delete operation
-    rs = executeQuery("SELECT * FROM " + getFullyQualifiedTableName(tableName));
+    rs = executeQuery(connection, "SELECT * FROM " + getFullyQualifiedTableName(tableName));
     assertFalse(rs.next(), "Expected no rows after delete");
-    deleteTable(tableName);
+    deleteTable(connection, tableName);
 
     if (isSqlExecSdkClient()) {
       // At least 8 statement requests are sent:
@@ -148,9 +171,9 @@ public class ExecutionIntegrationTests extends AbstractFakeServiceIntegrationTes
   void testComplexQueryJoins() throws SQLException {
     String table1Name = "table1_cqj";
     String table2Name = "table2_cqj";
-    setupDatabaseTable(table1Name);
-    setupDatabaseTable(table2Name);
-    insertTestDataForJoins(table1Name, table2Name);
+    setupDatabaseTable(connection, table1Name);
+    setupDatabaseTable(connection, table2Name);
+    insertTestDataForJoins(connection, table1Name, table2Name);
 
     String joinSQL =
         "SELECT t1.id, t2.col2 FROM "
@@ -160,10 +183,10 @@ public class ExecutionIntegrationTests extends AbstractFakeServiceIntegrationTes
             + getFullyQualifiedTableName(table2Name)
             + " t2 "
             + "ON t1.id = t2.id";
-    ResultSet rs = executeQuery(joinSQL);
+    ResultSet rs = executeQuery(connection, joinSQL);
     assertTrue(rs.next(), "Expected at least one row from JOIN query");
-    deleteTable(table1Name);
-    deleteTable(table2Name);
+    deleteTable(connection, table1Name);
+    deleteTable(connection, table2Name);
 
     if (isSqlExecSdkClient()) {
       // At least 11 statement requests are sent:
@@ -179,8 +202,8 @@ public class ExecutionIntegrationTests extends AbstractFakeServiceIntegrationTes
   @Test
   void testComplexQuerySubqueries() throws SQLException {
     String tableName = "subquery_test_table";
-    setupDatabaseTable(tableName);
-    insertTestData(tableName);
+    setupDatabaseTable(connection, tableName);
+    insertTestData(connection, tableName);
 
     String subquerySQL =
         "SELECT id FROM "
@@ -188,9 +211,9 @@ public class ExecutionIntegrationTests extends AbstractFakeServiceIntegrationTes
             + " WHERE id IN (SELECT id FROM "
             + getFullyQualifiedTableName(tableName)
             + " WHERE col1 = 'value1')";
-    ResultSet rs = executeQuery(subquerySQL);
+    ResultSet rs = executeQuery(connection, subquerySQL);
     assertTrue(rs.next(), "Expected at least one row from subquery");
-    deleteTable(tableName);
+    deleteTable(connection, tableName);
 
     if (isSqlExecSdkClient()) {
       // At least 5 statement requests are sent: drop, create, insert, select, drop

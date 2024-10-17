@@ -224,6 +224,13 @@
   </dependencies>
 
   <build>
+    <!-- The build process produces the following artifacts in the target directory:
+       - Shaded uber JAR (default): ${project.artifactId}-${project.version}.jar
+       - Thin JAR without dependencies: ${project.artifactId}-${project.version}-thin.jar
+       - Test JAR containing test classes: ${project.artifactId}-${project.version}-tests.jar
+       - Sources JAR (when 'release' profile is active): ${project.artifactId}-${project.version}-sources.jar
+       - Javadoc JAR (when 'release' profile is active): ${project.artifactId}-${project.version}-javadoc.jar
+    -->
     <finalName>${project.artifactId}-${project.version}</finalName>
     <plugins>
       <plugin>
@@ -240,13 +247,17 @@
         </configuration>
         <executions>
           <execution>
-            <id>default-jar</id>
+            <id>attach-thin-jar</id>
             <phase>package</phase>
             <goals>
               <goal>jar</goal>
             </goals>
+            <configuration>
+              <classifier>thin</classifier>
+            </configuration>
           </execution>
           <execution>
+            <id>attach-test-jar</id>
             <goals>
               <goal>test-jar</goal>
             </goals>
@@ -377,9 +388,9 @@
               <goal>shade</goal>
             </goals>
             <configuration>
+              <!-- The shaded uber jar is the default jar produced by this build -->
               <createDependencyReducedPom>false</createDependencyReducedPom>
-              <shadedArtifactAttached>true</shadedArtifactAttached>
-              <shadedClassifierName>UBER</shadedClassifierName>
+              <shadedArtifactAttached>false</shadedArtifactAttached>
               <relocations>
                 <relocation>
                   <pattern>codegen</pattern>

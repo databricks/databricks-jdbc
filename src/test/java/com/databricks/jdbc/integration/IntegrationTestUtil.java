@@ -24,8 +24,6 @@ public class IntegrationTestUtil {
   private static final boolean isFakeServiceTest =
       Boolean.parseBoolean(System.getProperty(IS_FAKE_SERVICE_TEST_PROP));
 
-  private static Connection JDBCConnection;
-
   /** Get the host of the embedded web server of fake service to be used in the tests. */
   public static String getFakeServiceHost() {
     // Target base URL of the fake service type
@@ -166,10 +164,6 @@ public class IntegrationTestUtil {
         getBenchfoodJDBCUrl(), getDatabricksUser(), getDatabricksBenchfoodToken());
   }
 
-  public static void resetJDBCConnection() {
-    JDBCConnection = null;
-  }
-
   public static String getJDBCUrl() {
     String template = "jdbc:databricks://%s/default;ssl=1;AuthMech=3;httpPath=%s";
     String host = getDatabricksHost();
@@ -213,10 +207,9 @@ public class IntegrationTestUtil {
     return String.format(template, host, httpPath);
   }
 
-  public static boolean executeSQL(String sql) {
+  public static boolean executeSQL(Connection conn, String sql) {
     try {
-      if (JDBCConnection == null) JDBCConnection = getValidJDBCConnection();
-      JDBCConnection.createStatement().execute(sql);
+      conn.createStatement().execute(sql);
       return true;
     } catch (SQLException e) {
       System.out.println("Error executing SQL: " + e.getMessage());
@@ -224,10 +217,9 @@ public class IntegrationTestUtil {
     }
   }
 
-  public static ResultSet executeQuery(String sql) {
+  public static ResultSet executeQuery(Connection conn, String sql) {
     try {
-      if (JDBCConnection == null) JDBCConnection = getValidJDBCConnection();
-      ResultSet rs = JDBCConnection.createStatement().executeQuery(sql);
+      ResultSet rs = conn.createStatement().executeQuery(sql);
       return rs;
     } catch (SQLException e) {
       System.out.println("Error executing SQL: " + e.getMessage());
@@ -235,67 +227,68 @@ public class IntegrationTestUtil {
     }
   }
 
-  public static void setupDatabaseTable(String tableName) {
+  public static void setupDatabaseTable(Connection conn, String tableName) {
     String tableDeletionSQL = "DROP TABLE IF EXISTS " + getFullyQualifiedTableName(tableName);
-    executeSQL(tableDeletionSQL);
+    executeSQL(conn, tableDeletionSQL);
 
     String tableCreationSQL =
         "CREATE TABLE IF NOT EXISTS "
             + getFullyQualifiedTableName(tableName)
             + " (id INT PRIMARY KEY, col1 VARCHAR(255), col2 VARCHAR(255))";
 
-    executeSQL(tableCreationSQL);
+    executeSQL(conn, tableCreationSQL);
   }
 
-  public static void setupDatabaseTable(String tableName, String tableCreationSQL) {
+  public static void setupDatabaseTable(
+      Connection conn, String tableName, String tableCreationSQL) {
     String tableDeletionSQL = "DROP TABLE IF EXISTS " + getFullyQualifiedTableName(tableName);
 
-    executeSQL(tableDeletionSQL);
-    executeSQL(tableCreationSQL);
+    executeSQL(conn, tableDeletionSQL);
+    executeSQL(conn, tableCreationSQL);
   }
 
-  public static void deleteTable(String tableName) {
+  public static void deleteTable(Connection conn, String tableName) {
     String SQL = "DROP TABLE IF EXISTS " + getFullyQualifiedTableName(tableName);
-    executeSQL(SQL);
+    executeSQL(conn, SQL);
   }
 
   public static String getFullyQualifiedTableName(String tableName) {
     return getDatabricksCatalog() + "." + getDatabricksSchema() + "." + tableName;
   }
 
-  public static void insertTestDataForJoins(String table1Name, String table2Name) {
+  public static void insertTestDataForJoins(Connection conn, String table1Name, String table2Name) {
     // Insert data into the first table
     String insertTable1SQL1 =
         "INSERT INTO "
             + getFullyQualifiedTableName(table1Name)
             + " (id, col1, col2) VALUES (1, 'value1_table1', 'value2_table1')";
-    executeSQL(insertTable1SQL1);
+    executeSQL(conn, insertTable1SQL1);
 
     String insertTable1SQL2 =
         "INSERT INTO "
             + getFullyQualifiedTableName(table1Name)
             + " (id, col1, col2) VALUES (2, 'value3_table1', 'value4_table1')";
-    executeSQL(insertTable1SQL2);
+    executeSQL(conn, insertTable1SQL2);
 
     // Insert related data into the second table
     String insertTable2SQL1 =
         "INSERT INTO "
             + getFullyQualifiedTableName(table2Name)
             + " (id, col1, col2) VALUES (1, 'related_value1_table2', 'related_value2_table2')";
-    executeSQL(insertTable2SQL1);
+    executeSQL(conn, insertTable2SQL1);
 
     String insertTable2SQL2 =
         "INSERT INTO "
             + getFullyQualifiedTableName(table2Name)
             + " (id, col1, col2) VALUES (2, 'related_value3_table2', 'related_value4_table2')";
-    executeSQL(insertTable2SQL2);
+    executeSQL(conn, insertTable2SQL2);
   }
 
-  public static void insertTestData(String tableName) {
+  public static void insertTestData(Connection conn, String tableName) {
     String insertSQL =
         "INSERT INTO "
             + getFullyQualifiedTableName(tableName)
             + " (id, col1, col2) VALUES (1, 'value1', 'value2')";
-    executeSQL(insertSQL);
+    executeSQL(conn, insertSQL);
   }
 }

@@ -4,9 +4,8 @@ import static com.databricks.jdbc.common.DatabricksJdbcConstants.ALLOWED_STAGING
 import static com.databricks.jdbc.common.DatabricksJdbcConstants.ALLOWED_VOLUME_INGESTION_PATHS;
 
 import com.databricks.jdbc.api.IDatabricksSession;
-import com.databricks.jdbc.api.callback.IDatabricksResultSetHandle;
-import com.databricks.jdbc.api.callback.IDatabricksStatementHandle;
 import com.databricks.jdbc.api.impl.IExecutionResult;
+import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
 import com.databricks.jdbc.common.ErrorCodes;
 import com.databricks.jdbc.common.ErrorTypes;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
@@ -17,59 +16,55 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Strings;
+import java.io.IOException;
+import java.sql.SQLException;
 import java.util.HashMap;
 import java.util.Map;
+import org.apache.http.HttpEntity;
+import org.apache.http.entity.InputStreamEntity;
 
 /** Class to handle the result of a volume operation */
 public class VolumeOperationResult implements IExecutionResult {
 
   private final IDatabricksSession session;
-  private final String statementId;
   private final IExecutionResult resultHandler;
-  private final IDatabricksResultSetHandle resultSet;
-  private final IDatabricksStatementHandle statement;
+  private final IDatabricksStatementInternal statement;
   private final IDatabricksHttpClient httpClient;
   private final long rowCount;
   private final long columnCount;
 
   private VolumeOperationProcessor volumeOperationProcessor;
   private int currentRowIndex;
+  private VolumeInputStream volumeInputStream = null;
+  private long volumeStreamContentLength = -1L;
 
   public VolumeOperationResult(
-      String statementId,
       long totalRows,
       long totalColumns,
       IDatabricksSession session,
       IExecutionResult resultHandler,
-      IDatabricksStatementHandle statement,
-      IDatabricksResultSetHandle resultSet) {
-    this.statementId = statementId;
+      IDatabricksStatementInternal statement) {
     this.rowCount = totalRows;
     this.columnCount = totalColumns;
     this.session = session;
     this.resultHandler = resultHandler;
     this.statement = statement;
-    this.resultSet = resultSet;
     this.httpClient = DatabricksHttpClient.getInstance(session.getConnectionContext());
     this.currentRowIndex = -1;
   }
 
   @VisibleForTesting
   VolumeOperationResult(
-      String statementId,
       ResultManifest manifest,
       IDatabricksSession session,
       IExecutionResult resultHandler,
       IDatabricksHttpClient httpClient,
-      IDatabricksStatementHandle statement,
-      IDatabricksResultSetHandle resultSet) {
-    this.statementId = statementId;
+      IDatabricksStatementInternal statement) {
     this.rowCount = manifest.getTotalRowCount();
     this.columnCount = manifest.getSchema().getColumnCount();
     this.session = session;
     this.resultHandler = resultHandler;
     this.statement = statement;
-    this.resultSet = resultSet;
     this.httpClient = httpClient;
     this.currentRowIndex = -1;
   }
@@ -92,7 +87,7 @@ public class VolumeOperationResult implements IExecutionResult {
             httpClient,
             (entity) -> {
               try {
-                this.resultSet.setVolumeOperationEntityStream(entity);
+                this.setVolumeOperationEntityStream(entity);
               } catch (Exception e) {
                 throw new RuntimeException(
                     "Failed to set result set volumeOperationEntityStream", e);
@@ -190,6 +185,15 @@ public class VolumeOperationResult implements IExecutionResult {
     } else {
       return false;
     }
+  }
+
+  public void setVolumeOperationEntityStream(HttpEntity httpEntity) throws IOException {
+    this.volumeInputStream = new VolumeInputStream(httpEntity);
+    this.volumeStreamContentLength = httpEntity.getContentLength();
+  }
+
+  public InputStreamEntity getVolumeOperationInputStream() throws SQLException {
+    return new InputStreamEntity(this.volumeInputStream, this.volumeStreamContentLength);
   }
 
   @Override

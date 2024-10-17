@@ -1,27 +1,39 @@
 package com.databricks.jdbc.api.impl;
 
 import static com.databricks.jdbc.common.util.DatabricksThriftUtil.getTypeFromTypeDesc;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.*;
 
 import com.databricks.jdbc.common.DatabricksJdbcConstants;
 import com.databricks.jdbc.common.util.DatabricksTypeUtil;
+import com.databricks.jdbc.dbclient.impl.common.StatementId;
 import com.databricks.jdbc.model.client.thrift.generated.*;
 import com.databricks.jdbc.model.core.ResultManifest;
-import com.databricks.sdk.service.sql.ColumnInfo;
-import com.databricks.sdk.service.sql.ColumnInfoTypeName;
-import com.databricks.sdk.service.sql.ResultSchema;
+import com.databricks.sdk.service.sql.*;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
+import java.util.stream.Stream;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 
 public class DatabricksResultSetMetaDataTest {
-  private static final String STATEMENT_ID = "statementId";
+  private static final StatementId STATEMENT_ID = new StatementId("statementId");
+  private static final StatementId THRIFT_STATEMENT_ID =
+      StatementId.deserialize("MIIWiOiGTESQt3+6xIDA0A|vq8muWugTKm+ZsjNGZdauw");
+
+  static Stream<TSparkRowSetType> thriftResultFormats() {
+    return Stream.of(
+        TSparkRowSetType.ARROW_BASED_SET,
+        TSparkRowSetType.COLUMN_BASED_SET,
+        TSparkRowSetType.ROW_BASED_SET,
+        TSparkRowSetType.URL_BASED_SET);
+  }
+
+  static Stream<Format> sdkResultFormats() {
+    return Stream.of(Format.ARROW_STREAM, Format.CSV, Format.JSON_ARRAY);
+  }
 
   public ColumnInfo getColumn(String name, ColumnInfoTypeName typeName, String typeText) {
     ColumnInfo columnInfo = new ColumnInfo();
@@ -102,7 +114,7 @@ public class DatabricksResultSetMetaDataTest {
     resultManifest.setIsStagingOperationIsSet(true);
     resultManifest.setIsStagingOperation(true);
     DatabricksResultSetMetaData metaData =
-        new DatabricksResultSetMetaData(STATEMENT_ID, resultManifest, 1, 1);
+        new DatabricksResultSetMetaData(THRIFT_STATEMENT_ID, resultManifest, 1, 1);
     Assertions.assertEquals(1, metaData.getColumnCount());
     Assertions.assertEquals(
         DatabricksJdbcConstants.VOLUME_OPERATION_STATUS_COLUMN_NAME, metaData.getColumnName(1));
@@ -115,7 +127,7 @@ public class DatabricksResultSetMetaDataTest {
   @Test
   public void testThriftColumns() throws SQLException {
     DatabricksResultSetMetaData metaData =
-        new DatabricksResultSetMetaData(STATEMENT_ID, getThriftResultManifest(), 10, 1);
+        new DatabricksResultSetMetaData(THRIFT_STATEMENT_ID, getThriftResultManifest(), 10, 1);
     assertEquals(10, metaData.getTotalRows());
     assertEquals(1, metaData.getColumnCount());
     assertEquals("testCol", metaData.getColumnName(1));
@@ -125,7 +137,7 @@ public class DatabricksResultSetMetaDataTest {
   public void testEmptyAndNullThriftColumns() throws SQLException {
     TGetResultSetMetadataResp resultSetMetadataResp = new TGetResultSetMetadataResp();
     DatabricksResultSetMetaData metaData =
-        new DatabricksResultSetMetaData(STATEMENT_ID, resultSetMetadataResp, 0, 1);
+        new DatabricksResultSetMetaData(THRIFT_STATEMENT_ID, resultSetMetadataResp, 0, 1);
     assertEquals(0, metaData.getColumnCount());
 
     resultSetMetadataResp.setSchema(new TTableSchema());
@@ -182,7 +194,7 @@ public class DatabricksResultSetMetaDataTest {
   @Test
   public void testGetScaleAndPrecisionWithTColumnDesc() {
     DatabricksResultSetMetaData metaData =
-        new DatabricksResultSetMetaData(STATEMENT_ID, getResultManifest());
+        new DatabricksResultSetMetaData(THRIFT_STATEMENT_ID, getResultManifest());
 
     TColumnDesc columnInfo = new TColumnDesc();
     TTypeDesc typeDesc = new TTypeDesc();
@@ -223,6 +235,36 @@ public class DatabricksResultSetMetaDataTest {
             DatabricksTypeUtil.getColumnType(getTypeFromTypeDesc(columnInfo.getTypeDesc())));
     assertEquals(255, scaleAndPrecision[0]);
     assertEquals(0, scaleAndPrecision[1]);
+  }
+
+  @ParameterizedTest
+  @MethodSource("thriftResultFormats")
+  public void testGetDispositionThrift(TSparkRowSetType resultFormat) {
+    TGetResultSetMetadataResp thriftResultManifest = getThriftResultManifest();
+    thriftResultManifest.setResultFormat(resultFormat);
+    DatabricksResultSetMetaData metaData =
+        new DatabricksResultSetMetaData(STATEMENT_ID, thriftResultManifest, 1, 1);
+
+    if (resultFormat == TSparkRowSetType.URL_BASED_SET) {
+      assertTrue(metaData.getIsCloudFetchUsed());
+    } else {
+      assertFalse(metaData.getIsCloudFetchUsed());
+    }
+  }
+
+  @ParameterizedTest
+  @MethodSource("sdkResultFormats")
+  public void testDispositionSdk(Format format) {
+    ResultManifest resultManifest = getResultManifest();
+    resultManifest.setFormat(format);
+    DatabricksResultSetMetaData metaData =
+        new DatabricksResultSetMetaData(STATEMENT_ID, resultManifest);
+
+    if (format == Format.ARROW_STREAM) {
+      assertTrue(metaData.getIsCloudFetchUsed());
+    } else {
+      assertFalse(metaData.getIsCloudFetchUsed());
+    }
   }
 
   private void verifyDefaultMetadataProperties(DatabricksResultSetMetaData metaData)

@@ -7,6 +7,7 @@ import com.databricks.jdbc.api.impl.IExecutionResult;
 import com.databricks.jdbc.api.impl.converters.ArrowToJavaObjectConverter;
 import com.databricks.jdbc.common.CompressionType;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
+import com.databricks.jdbc.dbclient.impl.common.StatementId;
 import com.databricks.jdbc.dbclient.impl.http.DatabricksHttpClient;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
@@ -23,10 +24,8 @@ import java.util.List;
 
 public class ArrowStreamResult implements IExecutionResult {
 
-  private ChunkDownloader chunkDownloader;
-  private ChunkExtractor chunkExtractor;
+  private final ChunkProvider chunkProvider;
   private long currentRowIndex = -1;
-  private boolean isInlineArrow;
   private boolean isClosed;
   private ArrowResultChunk.ArrowResultChunkIterator chunkIterator;
   private List<ColumnInfo> columnInfos;
@@ -34,7 +33,7 @@ public class ArrowStreamResult implements IExecutionResult {
   public ArrowStreamResult(
       ResultManifest resultManifest,
       ResultData resultData,
-      String statementId,
+      StatementId statementId,
       IDatabricksSession session)
       throws DatabricksParsingException {
     this(
@@ -49,12 +48,12 @@ public class ArrowStreamResult implements IExecutionResult {
   ArrowStreamResult(
       ResultManifest resultManifest,
       ResultData resultData,
-      String statementId,
+      StatementId statementId,
       IDatabricksSession session,
       IDatabricksHttpClient httpClient)
       throws DatabricksParsingException {
-    this.chunkDownloader =
-        new ChunkDownloader(
+    this.chunkProvider =
+        new RemoteChunkProvider(
             statementId,
             resultManifest,
             resultData,
@@ -71,7 +70,7 @@ public class ArrowStreamResult implements IExecutionResult {
       TGetResultSetMetadataResp resultManifest,
       TRowSet resultData,
       boolean isInlineArrow,
-      String parentStatementId,
+      StatementId parentStatementId,
       IDatabricksSession session)
       throws DatabricksParsingException {
     this(
@@ -88,27 +87,25 @@ public class ArrowStreamResult implements IExecutionResult {
       TGetResultSetMetadataResp resultManifest,
       TRowSet resultData,
       boolean isInlineArrow,
-      String statementId,
+      StatementId statementId,
       IDatabricksSession session,
       IDatabricksHttpClient httpClient)
       throws DatabricksParsingException {
     setColumnInfo(resultManifest);
-    this.isInlineArrow = isInlineArrow;
     if (isInlineArrow) {
-      this.chunkExtractor =
-          new ChunkExtractor(resultData.getArrowBatches(), resultManifest, statementId);
-      this.chunkDownloader = null;
+      this.chunkProvider =
+          new InlineChunkProvider(
+              resultData.getArrowBatches(), resultManifest, statementId.toString());
     } else {
       CompressionType compressionType = CompressionType.getCompressionMapping(resultManifest);
-      this.chunkDownloader =
-          new ChunkDownloader(
+      this.chunkProvider =
+          new RemoteChunkProvider(
               statementId,
               resultData,
               session,
               httpClient,
               session.getConnectionContext().getCloudFetchThreadPoolSize(),
               compressionType);
-      this.chunkExtractor = null;
     }
   }
 
@@ -132,20 +129,13 @@ public class ArrowStreamResult implements IExecutionResult {
     if (!hasNext()) {
       return false;
     }
+
     currentRowIndex++;
-    if (isInlineArrow) {
-      if (chunkIterator == null) {
-        chunkIterator = chunkExtractor.next().getChunkIterator();
-      }
-      return chunkIterator.nextRow();
-    }
-    // Either this is first chunk or we are crossing chunk boundary
     if (chunkIterator == null || !chunkIterator.hasNextRow()) {
-      chunkDownloader.next();
-      chunkIterator = chunkDownloader.getChunk().getChunkIterator();
-      return chunkIterator.nextRow();
+      chunkProvider.next();
+      chunkIterator = chunkProvider.getChunk().getChunkIterator();
     }
-    // Traversing within a chunk
+
     return chunkIterator.nextRow();
   }
 
@@ -163,18 +153,14 @@ public class ArrowStreamResult implements IExecutionResult {
 
     // For inline arrow, check if the chunk extractor has more chunks
     // Otherwise, check the chunk downloader
-    return isInlineArrow ? chunkExtractor.hasNext() : chunkDownloader.hasNextChunk();
+    return chunkProvider.hasNextChunk();
   }
 
   /** {@inheritDoc} */
   @Override
   public void close() {
     isClosed = true;
-    if (isInlineArrow) {
-      chunkExtractor.releaseChunk();
-    } else {
-      chunkDownloader.releaseAllChunks();
-    }
+    chunkProvider.close();
   }
 
   private void setColumnInfo(TGetResultSetMetadataResp resultManifest) {
