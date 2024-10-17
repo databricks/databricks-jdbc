@@ -23,7 +23,6 @@ import java.sql.SQLException;
 import java.util.Properties;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
@@ -48,12 +47,6 @@ public class UCVolumeDataExchangeIntegrationTests extends AbstractFakeServiceInt
       "jdbc:databricks://%s/default;transportMode=http;ssl=0;AuthMech=3;httpPath=%s";
   private static final String HTTP_PATH = "/sql/1.0/warehouses/791ba2a31c7fd70a";
   private static final String LOCAL_TEST_DIRECTORY = "/tmp";
-
-  @BeforeAll
-  static void beforeAll() {
-    setDatabricksApiTargetUrl("https://e2-dogfood.staging.cloud.databricks.com");
-    setCloudFetchApiTargetUrl("https://e2-dogfood-core.s3.us-west-2.amazonaws.com");
-  }
 
   @BeforeEach
   void setUp() throws SQLException {

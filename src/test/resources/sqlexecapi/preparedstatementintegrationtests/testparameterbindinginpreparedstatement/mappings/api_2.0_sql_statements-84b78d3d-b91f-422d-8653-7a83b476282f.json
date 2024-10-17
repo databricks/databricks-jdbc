@@ -1,0 +1,32 @@
+{
+  "id" : "84b78d3d-b91f-422d-8653-7a83b476282f",
+  "name" : "api_2.0_sql_statements",
+  "request" : {
+    "url" : "/api/2.0/sql/statements/",
+    "method" : "POST",
+    "bodyPatterns" : [ {
+      "equalToJson" : "{\"statement\":\"INSERT INTO main.jdbc_test_schema.parameter_binding_test_table (id, col1, col2) VALUES (?, ?, ?)\",\"warehouse_id\":\"dd43ee29fedd958d\",\"session_id\":\"01ef8c5c-3178-132f-852f-ac3a52b1184d\",\"disposition\":\"INLINE\",\"format\":\"JSON_ARRAY\",\"on_wait_timeout\":\"CONTINUE\",\"wait_timeout\":\"10s\",\"parameters\":[{\"type\":\"INT\",\"value\":\"2\",\"ordinal\":1},{\"type\":\"STRING\",\"value\":\"value1\",\"ordinal\":2},{\"type\":\"STRING\",\"value\":\"value2\",\"ordinal\":3}],\"compression_codec\":\"NONE\"}",
+      "ignoreArrayOrder" : true,
+      "ignoreExtraElements" : true
+    } ]
+  },
+  "response" : {
+    "status" : 200,
+    "body" : "{\"statement_id\":\"01ef8c5c-355f-1e93-a10b-32d0f585f37e\",\"status\":{\"state\":\"SUCCEEDED\"},\"manifest\":{\"format\":\"JSON_ARRAY\",\"schema\":{\"column_count\":2,\"columns\":[{\"name\":\"num_affected_rows\",\"type_text\":\"BIGINT\",\"type_name\":\"LONG\",\"position\":0},{\"name\":\"num_inserted_rows\",\"type_text\":\"BIGINT\",\"type_name\":\"LONG\",\"position\":1}]},\"total_chunk_count\":1,\"chunks\":[{\"chunk_index\":0,\"row_offset\":0,\"row_count\":1}],\"total_row_count\":1,\"truncated\":false},\"result\":{\"chunk_index\":0,\"row_offset\":0,\"row_count\":1,\"data_array\":[[\"1\",\"1\"]]}}",
+    "headers" : {
+      "x-request-id" : "49904fc2-4000-4154-a7f0-841c5c1be43d",
+      "date" : "Thu, 17 Oct 2024 07:48:35 GMT",
+      "server" : "databricks",
+      "x-content-type-options" : "nosniff",
+      "x-databricks-shard-debug" : "oregon-staging",
+      "vary" : "Accept-Encoding",
+      "x-databricks-popp-shadow-routing-reason" : "deployment-name",
+      "x-databricks-org-id" : "6051921418418893",
+      "x-databricks-popp-routing-reason" : "deployment-name",
+      "content-type" : "application/json",
+      "strict-transport-security" : "max-age=31536000; includeSubDomains; preload"
+    }
+  },
+  "uuid" : "84b78d3d-b91f-422d-8653-7a83b476282f",
+  "insertionIndex" : 37
+}

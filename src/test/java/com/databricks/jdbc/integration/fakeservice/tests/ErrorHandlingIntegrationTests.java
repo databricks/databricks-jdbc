@@ -8,10 +8,26 @@ import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.exception.DatabricksSQLFeatureNotSupportedException;
 import com.databricks.jdbc.integration.fakeservice.AbstractFakeServiceIntegrationTests;
 import java.sql.*;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 /** Integration tests for error handling scenarios. */
 public class ErrorHandlingIntegrationTests extends AbstractFakeServiceIntegrationTests {
+
+  private Connection connection;
+
+  @BeforeEach
+  void setUp() throws SQLException {
+    connection = getValidJDBCConnection();
+  }
+
+  @AfterEach
+  void cleanUp() throws SQLException {
+    if (connection != null) {
+      connection.close();
+    }
+  }
 
   @Test
   void testFailureToLoadDriver() {
@@ -43,7 +59,7 @@ public class ErrorHandlingIntegrationTests extends AbstractFakeServiceIntegratio
   @Test
   void testQuerySyntaxError() {
     String tableName = "query_syntax_error_test_table";
-    setupDatabaseTable(tableName);
+    setupDatabaseTable(connection, tableName);
     DatabricksSQLException e =
         assertThrows(
             DatabricksSQLException.class,
@@ -57,31 +73,33 @@ public class ErrorHandlingIntegrationTests extends AbstractFakeServiceIntegratio
               statement.executeQuery(sql);
             });
     assertTrue(e.getMessage().contains("Syntax error"));
-    deleteTable(tableName);
+    deleteTable(connection, tableName);
   }
 
   @Test
   void testAccessingClosedResultSet() {
     String tableName = "access_closed_result_set_test_table";
-    setupDatabaseTable(tableName);
+    setupDatabaseTable(connection, tableName);
     executeSQL(
+        connection,
         "INSERT INTO "
             + getFullyQualifiedTableName(tableName)
             + " (id, col1, col2) VALUES (1, 'value1', 'value2')");
-    ResultSet resultSet = executeQuery("SELECT * FROM " + getFullyQualifiedTableName(tableName));
+    ResultSet resultSet =
+        executeQuery(connection, "SELECT * FROM " + getFullyQualifiedTableName(tableName));
     try {
       resultSet.close();
       assertThrows(SQLException.class, resultSet::next);
     } catch (SQLException e) {
       fail("Unexpected exception: " + e.getMessage());
     }
-    deleteTable(tableName);
+    deleteTable(connection, tableName);
   }
 
   @Test
   void testCallingUnsupportedSQLFeature() {
     String tableName = "unsupported_sql_feature_test_table";
-    setupDatabaseTable(tableName);
+    setupDatabaseTable(connection, tableName);
     assertThrows(
         DatabricksSQLFeatureNotSupportedException.class,
         () -> {
@@ -91,7 +109,7 @@ public class ErrorHandlingIntegrationTests extends AbstractFakeServiceIntegratio
           ResultSet resultSet = statement.executeQuery(sql);
           resultSet.first(); // Currently unsupported method
         });
-    deleteTable(tableName);
+    deleteTable(connection, tableName);
   }
 
   private void getConnection(String url) throws SQLException {
