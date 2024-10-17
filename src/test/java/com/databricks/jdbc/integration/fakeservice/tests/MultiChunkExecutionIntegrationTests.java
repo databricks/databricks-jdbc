@@ -24,12 +24,6 @@ public class MultiChunkExecutionIntegrationTests extends AbstractFakeServiceInte
 
   private Connection connection;
 
-  @BeforeAll
-  static void beforeAll() {
-    setDatabricksApiTargetUrl("https://e2-dogfood.staging.cloud.databricks.com");
-    setCloudFetchApiTargetUrl("https://e2-dogfood-core.s3.us-west-2.amazonaws.com");
-  }
-
   @BeforeEach
   void setUp() throws SQLException {
     connection = getValidJDBCConnection();

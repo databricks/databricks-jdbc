@@ -49,12 +49,6 @@ public class UCVolumeDataExchangeIntegrationTests extends AbstractFakeServiceInt
   private static final String HTTP_PATH = "/sql/1.0/warehouses/791ba2a31c7fd70a";
   private static final String LOCAL_TEST_DIRECTORY = "/tmp";
 
-  @BeforeAll
-  static void beforeAll() {
-    setDatabricksApiTargetUrl("https://e2-dogfood.staging.cloud.databricks.com");
-    setCloudFetchApiTargetUrl("https://e2-dogfood-core.s3.us-west-2.amazonaws.com");
-  }
-
   @BeforeEach
   void setUp() throws SQLException {
     con = getConnection();
