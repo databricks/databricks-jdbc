@@ -1,14 +1,17 @@
 package com.databricks.jdbc.api.impl.arrow;
 
 import com.databricks.jdbc.api.IDatabricksSession;
+import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
 import com.databricks.jdbc.common.CompressionType;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
 import com.databricks.jdbc.dbclient.impl.common.StatementId;
 import com.databricks.jdbc.dbclient.impl.http.DatabricksHttpClient;
+import com.databricks.jdbc.dbclient.impl.thrift.DatabricksThriftServiceClient;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
+import com.databricks.jdbc.model.client.thrift.generated.TFetchResultsResp;
 import com.databricks.jdbc.model.client.thrift.generated.TRowSet;
 import com.databricks.jdbc.model.client.thrift.generated.TSparkArrowResultLink;
 import com.databricks.jdbc.model.core.ExternalLink;
@@ -32,7 +35,7 @@ public class RemoteChunkProvider implements ChunkProvider, ChunkDownloadCallback
   private static int chunksDownloaderThreadPoolSize;
   private final IDatabricksSession session;
   private final StatementId statementId;
-  private final long totalChunks;
+  private long totalChunks;
   private final ExecutorService chunkDownloaderExecutorService;
   private final IDatabricksHttpClient httpClient;
   private Long currentChunkIndex;
@@ -63,15 +66,15 @@ public class RemoteChunkProvider implements ChunkProvider, ChunkDownloadCallback
   }
 
   RemoteChunkProvider(
-      StatementId statementId,
-      TRowSet resultData,
+      IDatabricksStatementInternal parentStatement,
+      TFetchResultsResp resultsResp,
       IDatabricksSession session,
       int chunksDownloaderThreadPoolSize,
       CompressionType compressionType)
-      throws DatabricksParsingException {
+          throws DatabricksSQLException {
     this(
-        statementId,
-        resultData,
+            parentStatement,
+            resultsResp,
         session,
         DatabricksHttpClient.getInstance(session.getConnectionContext()),
         chunksDownloaderThreadPoolSize,
@@ -80,21 +83,20 @@ public class RemoteChunkProvider implements ChunkProvider, ChunkDownloadCallback
 
   @VisibleForTesting
   RemoteChunkProvider(
-      StatementId statementId,
-      TRowSet resultData,
+      IDatabricksStatementInternal parentStatement,
+      TFetchResultsResp resultsResp,
       IDatabricksSession session,
       IDatabricksHttpClient httpClient,
       int chunksDownloaderThreadPoolSize,
       CompressionType compressionType)
-      throws DatabricksParsingException {
+          throws DatabricksSQLException {
     RemoteChunkProvider.chunksDownloaderThreadPoolSize = chunksDownloaderThreadPoolSize;
     this.chunkDownloaderExecutorService = createChunksDownloaderExecutorService();
     this.httpClient = httpClient;
     this.compressionType = compressionType;
     this.session = session;
-    this.statementId = statementId;
-    this.totalChunks = resultData.getResultLinksSize();
-    this.chunkIndexToChunksMap = initializeChunksMap(resultData, statementId);
+    this.statementId = parentStatement.getStatementId();
+    this.chunkIndexToChunksMap = initializeChunksMap(resultsResp,parentStatement, session);
     initializeData();
   }
 
@@ -237,28 +239,38 @@ public class RemoteChunkProvider implements ChunkProvider, ChunkDownloadCallback
     this.downloadNextChunks();
   }
 
-  private static ConcurrentHashMap<Long, ArrowResultChunk> initializeChunksMap(
-      TRowSet resultData, StatementId statementId) throws DatabricksParsingException {
+  private ConcurrentHashMap<Long, ArrowResultChunk> initializeChunksMap(
+          TFetchResultsResp resultsResp,
+          IDatabricksStatementInternal parentStatement,
+          IDatabricksSession session) throws DatabricksSQLException {
     ConcurrentHashMap<Long, ArrowResultChunk> chunkIndexMap = new ConcurrentHashMap<>();
-    long chunkIndex = 0;
-    if (resultData.getResultLinksSize() == 0) {
-      return chunkIndexMap;
+    populateChunkIndexMap(resultsResp.getResults(), chunkIndexMap);
+    while (resultsResp.hasMoreRows) {
+      resultsResp = ((DatabricksThriftServiceClient) session.getDatabricksClient())
+              .getMoreResults(parentStatement);
+      populateChunkIndexMap(resultsResp.getResults(), chunkIndexMap);
     }
+    return chunkIndexMap;
+  }
+
+  private void populateChunkIndexMap(
+          TRowSet resultData,
+          ConcurrentHashMap<Long, ArrowResultChunk> chunkIndexMap) throws DatabricksParsingException {
+    long chunkCounter = this.totalChunks;  // Renamed for clarity: tracks chunk count so far
     for (TSparkArrowResultLink resultLink : resultData.getResultLinks()) {
-      String chunkInformationLog =
-          String.format(
+      String chunkInformationLog = String.format(
               "Chunk information log - Row Offset: %s, Row Count: %s, Expiry Time: %s",
               resultLink.getStartRowOffset(), resultLink.getRowCount(), resultLink.getExpiryTime());
       LOGGER.debug(chunkInformationLog);
       chunkIndexMap.put(
-          chunkIndex,
-          ArrowResultChunk.builder()
-              .statementId(statementId.toString())
-              .withThriftChunkInfo(chunkIndex, resultLink)
-              .build());
-      chunkIndex++;
+              chunkCounter,
+              ArrowResultChunk.builder()
+                      .statementId(statementId.toString())
+                      .withThriftChunkInfo(chunkCounter, resultLink)
+                      .build());
+      chunkCounter++;
     }
-    return chunkIndexMap;
+    this.totalChunks = chunkCounter;  // Update total chunks after processing
   }
 
   private static ExecutorService createChunksDownloaderExecutorService() {

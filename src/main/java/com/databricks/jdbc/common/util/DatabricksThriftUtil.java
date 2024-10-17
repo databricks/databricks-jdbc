@@ -3,7 +3,12 @@ package com.databricks.jdbc.common.util;
 import static com.databricks.jdbc.common.MetadataResultConstants.NULL_STRING;
 import static com.databricks.jdbc.common.util.DatabricksTypeUtil.*;
 
+import com.databricks.jdbc.api.IDatabricksSession;
+import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
+import com.databricks.jdbc.dbclient.impl.common.StatementId;
+import com.databricks.jdbc.dbclient.impl.thrift.DatabricksThriftServiceClient;
 import com.databricks.jdbc.exception.DatabricksHttpException;
+import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.model.client.thrift.generated.*;
@@ -228,7 +233,7 @@ public class DatabricksThriftUtil {
    * @return a list where each sublist represents a row with column values, or an empty list if
    *     rowSet is empty
    */
-  public static List<List<Object>> convertColumnarToRowBased(TRowSet rowSet) {
+  private static List<List<Object>> convertColumnarToRowBased(TRowSet rowSet) {
     List<List<Object>> columnarData = extractValuesFromRowSet(rowSet);
     if (columnarData.isEmpty()) {
       return Collections.emptyList();
@@ -247,6 +252,19 @@ public class DatabricksThriftUtil {
     return rowBasedData;
   }
 
+  public static List<List<Object>> convertColumnarToRowBased(TFetchResultsResp resultsResp, IDatabricksStatementInternal parentStatement, IDatabricksSession session) throws DatabricksSQLException {
+    List<List<Object>> columnarData = convertColumnarToRowBased(resultsResp.getResults());
+    while(resultsResp.hasMoreRows){
+      resultsResp = ((DatabricksThriftServiceClient)session.getDatabricksClient()).getMoreResults(parentStatement);
+      columnarData.addAll(convertColumnarToRowBased(resultsResp.getResults()));
+    }
+    return columnarData;
+  }
+  public static TOperationHandle getOperationHandle(StatementId statementId){
+    return new TOperationHandle()
+                    .setOperationId(statementId.toOperationIdentifier())
+                    .setOperationType(TOperationType.UNKNOWN);
+  }
   /**
    * Extracts and returns the values from each column of a TRowSet as a list of lists. Each sublist
    * represents a column of values. Returns an empty list if the input is null or contains no

@@ -4,6 +4,7 @@ import static com.databricks.jdbc.common.util.DatabricksTypeUtil.*;
 import static com.databricks.jdbc.common.util.DecompressionUtil.decompress;
 
 import com.databricks.jdbc.common.CompressionType;
+import com.databricks.jdbc.dbclient.impl.common.StatementId;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.log.JdbcLogger;
@@ -32,11 +33,11 @@ public class InlineChunkProvider implements ChunkProvider {
   ArrowResultChunk arrowResultChunk; // There is only one packet of data in case of inline arrow
 
   InlineChunkProvider(
-      List<TSparkArrowBatch> arrowBatches, TGetResultSetMetadataResp metadata, String statementId)
+      TFetchResultsResp resultsResp, StatementId statementId)
       throws DatabricksParsingException {
     this.currentChunkIndex = -1;
     this.totalRows = 0;
-    ByteArrayInputStream byteStream = initializeByteStream(arrowBatches, metadata, statementId);
+    ByteArrayInputStream byteStream = initializeByteStream(resultsResp, statementId);
     arrowResultChunk = ArrowResultChunk.builder().withInputStream(byteStream, totalRows).build();
   }
 
@@ -69,31 +70,35 @@ public class InlineChunkProvider implements ChunkProvider {
   }
 
   private ByteArrayInputStream initializeByteStream(
-      List<TSparkArrowBatch> arrowBatches, TGetResultSetMetadataResp metadata, String statementId)
+      TFetchResultsResp resultsResp, String statementId)
       throws DatabricksParsingException {
     ByteArrayOutputStream baos = new ByteArrayOutputStream();
-    CompressionType compressionType = CompressionType.getCompressionMapping(metadata);
+    CompressionType compressionType = CompressionType.getCompressionMapping(resultsResp.getResultSetMetadata());
     try {
-      byte[] serializedSchema = getSerializedSchema(metadata);
+      byte[] serializedSchema = getSerializedSchema(resultsResp.getResultSetMetadata());
       if (serializedSchema != null) {
         baos.write(serializedSchema);
       }
-      for (TSparkArrowBatch arrowBatch : arrowBatches) {
-        byte[] decompressedBytes =
-            decompress(
-                arrowBatch.getBatch(),
-                compressionType,
-                String.format(
-                    "Data fetch for inline arrow batch [%d] and statement [%s] with decompression algorithm : [%s]",
-                    arrowBatch.getRowCount(), statementId, compressionType));
-        totalRows += arrowBatch.getRowCount();
-        baos.write(decompressedBytes);
-      }
+      writeToByteOutputStream(compressionType,statementId);
       return new ByteArrayInputStream(baos.toByteArray());
     } catch (DatabricksSQLException | IOException e) {
       handleError(e);
     }
     return null;
+  }
+
+  void writeToByteOutputStream(CompressionType compressionType, String statementId){
+    for (TSparkArrowBatch arrowBatch : ) {
+      byte[] decompressedBytes =
+              decompress(
+                      arrowBatch.getBatch(),
+                      compressionType,
+                      String.format(
+                              "Data fetch for inline arrow batch [%d] and statement [%s] with decompression algorithm : [%s]",
+                              arrowBatch.getRowCount(), statementId, compressionType));
+      totalRows += arrowBatch.getRowCount();
+      baos.write(decompressedBytes);
+    }
   }
 
   private byte[] getSerializedSchema(TGetResultSetMetadataResp metadata)

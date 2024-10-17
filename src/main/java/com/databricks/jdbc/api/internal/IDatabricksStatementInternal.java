@@ -14,11 +14,11 @@ public interface IDatabricksStatementInternal {
 
   void handleResultSetClose(IDatabricksResultSet resultSet) throws DatabricksSQLException;
 
-  int getMaxRows() throws SQLException;
+  int getMaxRows() throws DatabricksSQLException;
 
   void setStatementId(StatementId statementId);
 
-  String getStatementId();
+  StatementId getStatementId();
 
   Statement getStatement();
 

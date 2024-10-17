@@ -5,6 +5,7 @@ import static com.databricks.jdbc.common.util.DatabricksThriftUtil.getTypeFromTy
 import com.databricks.jdbc.api.IDatabricksSession;
 import com.databricks.jdbc.api.impl.IExecutionResult;
 import com.databricks.jdbc.api.impl.converters.ArrowToJavaObjectConverter;
+import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
 import com.databricks.jdbc.common.CompressionType;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
 import com.databricks.jdbc.dbclient.impl.common.StatementId;
@@ -12,6 +13,7 @@ import com.databricks.jdbc.dbclient.impl.http.DatabricksHttpClient;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.model.client.thrift.generated.TColumnDesc;
+import com.databricks.jdbc.model.client.thrift.generated.TFetchResultsResp;
 import com.databricks.jdbc.model.client.thrift.generated.TGetResultSetMetadataResp;
 import com.databricks.jdbc.model.client.thrift.generated.TRowSet;
 import com.databricks.jdbc.model.core.ResultData;
@@ -31,14 +33,13 @@ public class ArrowStreamResult implements IExecutionResult {
   private List<ColumnInfo> columnInfos;
 
   public ArrowStreamResult(
-      ResultManifest resultManifest,
-      ResultData resultData,
+          ResultManifest resultManifest,
+          ResultData resultData,
       StatementId statementId,
       IDatabricksSession session)
       throws DatabricksParsingException {
-    this(
-        resultManifest,
-        resultData,
+    this(resultManifest,
+    resultData,
         statementId,
         session,
         DatabricksHttpClient.getInstance(session.getConnectionContext()));
@@ -67,15 +68,12 @@ public class ArrowStreamResult implements IExecutionResult {
   }
 
   public ArrowStreamResult(
-      TGetResultSetMetadataResp resultManifest,
-      TRowSet resultData,
+      TFetchResultsResp resultsResp,
       boolean isInlineArrow,
       StatementId parentStatementId,
       IDatabricksSession session)
       throws DatabricksParsingException {
-    this(
-        resultManifest,
-        resultData,
+    this(resultsResp,
         isInlineArrow,
         parentStatementId,
         session,
@@ -84,24 +82,22 @@ public class ArrowStreamResult implements IExecutionResult {
 
   @VisibleForTesting
   ArrowStreamResult(
-      TGetResultSetMetadataResp resultManifest,
-      TRowSet resultData,
+      TFetchResultsResp resultsResp,
       boolean isInlineArrow,
-      StatementId statementId,
+      IDatabricksStatementInternal parentStatement,
       IDatabricksSession session,
       IDatabricksHttpClient httpClient)
-      throws DatabricksParsingException {
-    setColumnInfo(resultManifest);
+          throws DatabricksSQLException {
+    setColumnInfo(resultsResp.getResultSetMetadata());
     if (isInlineArrow) {
       this.chunkProvider =
-          new InlineChunkProvider(
-              resultData.getArrowBatches(), resultManifest, statementId.toString());
+          new InlineChunkProvider(resultsResp, parentStatement.getStatementId());
     } else {
-      CompressionType compressionType = CompressionType.getCompressionMapping(resultManifest);
+      CompressionType compressionType = CompressionType.getCompressionMapping(resultsResp.getResultSetMetadata());
       this.chunkProvider =
           new RemoteChunkProvider(
-              statementId,
-              resultData,
+              parentStatement,
+              resultsResp,
               session,
               httpClient,
               session.getConnectionContext().getCloudFetchThreadPoolSize(),
