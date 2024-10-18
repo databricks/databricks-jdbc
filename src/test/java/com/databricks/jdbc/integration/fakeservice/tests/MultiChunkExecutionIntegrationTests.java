@@ -15,7 +15,6 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -23,12 +22,6 @@ import org.junit.jupiter.api.Test;
 public class MultiChunkExecutionIntegrationTests extends AbstractFakeServiceIntegrationTests {
 
   private Connection connection;
-
-  @BeforeAll
-  static void beforeAll() {
-    setDatabricksApiTargetUrl("https://e2-dogfood.staging.cloud.databricks.com");
-    setCloudFetchApiTargetUrl("https://e2-dogfood-core.s3.us-west-2.amazonaws.com");
-  }
 
   @BeforeEach
   void setUp() throws SQLException {

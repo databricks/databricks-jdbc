@@ -27,6 +27,9 @@ public interface IDatabricksConnection {
   /** Opens the connection and initiates the underlying session */
   void open() throws DatabricksSQLException;
 
+  /** Returns the connection context associated with the connection. */
+  IDatabricksConnectionContext getConnectionContext();
+
   /** Returns the statement handle for given statement-Id */
   Statement getStatement(String statementId) throws SQLException;
 }

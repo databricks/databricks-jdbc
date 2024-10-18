@@ -213,4 +213,7 @@ public interface IDatabricksConnectionContext {
 
   /** Returns the SSL trust store type of the trust store file. */
   String getSSLTrustStoreType();
+
+  /** Returns the maximum number of commands that can be executed in a single batch. */
+  int getMaxBatchSize();
 }

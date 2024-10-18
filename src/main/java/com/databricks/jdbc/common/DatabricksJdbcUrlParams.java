@@ -65,7 +65,8 @@ public enum DatabricksJdbcUrlParams {
   SSL_TRUST_STORE_PASSWORD("SSLTrustStorePwd"),
   SSL_TRUST_STORE_TYPE("SSLTrustStoreType", "JKS"),
   CHECK_CERTIFICATE_REVOCATION("CheckCertificateRevocation", "1"),
-  ACCEPT_UNDETERMINED_CERTIFICATE_REVOCATION("AcceptUndeterminedRevocation", "0");
+  ACCEPT_UNDETERMINED_CERTIFICATE_REVOCATION("AcceptUndeterminedRevocation", "0"),
+  MAX_BATCH_SIZE("MaxBatchSize", "500");
 
   private final String paramName;
   private final String defaultValue;

@@ -1,5 +1,7 @@
 package com.databricks.client.jdbc;
 
+import static com.databricks.jdbc.integration.IntegrationTestUtil.getFullyQualifiedTableName;
+
 import com.databricks.jdbc.api.IDatabricksConnection;
 import com.databricks.jdbc.api.IDatabricksResultSet;
 import com.databricks.jdbc.api.IDatabricksStatement;
@@ -442,5 +444,42 @@ public class DriverTest {
     System.out.println("Connection closed successfully......");
     // Disable error injection after the test (not strictly needed as test launches a new JVM)
     ArrowResultChunk.disableErrorInjection();
+  }
+
+  @Test
+  void testBatchAllPurposeClusters() throws Exception {
+    String jdbcUrl =
+        "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;ssl=1;AuthMech=3;httpPath=sql/protocolv1/o/6051921418418893/1115-130834-ms4m0yv;MaxBatchSize=4";
+    String tableName = "batch_test_table";
+    Connection con = DriverManager.getConnection(jdbcUrl, "token", "xx");
+    System.out.println("Connection established......");
+    Statement s = con.createStatement();
+    s.addBatch("DROP TABLE IF EXISTS " + getFullyQualifiedTableName(tableName));
+    s.addBatch(
+        "CREATE TABLE IF NOT EXISTS "
+            + getFullyQualifiedTableName(tableName)
+            + " (id INT PRIMARY KEY, col1 VARCHAR(255), col2 VARCHAR(255))");
+    s.executeBatch();
+    s.clearBatch();
+    s.addBatch(
+        "INSERT INTO "
+            + getFullyQualifiedTableName(tableName)
+            + " (id, col1, col2) VALUES (1, 'value1', 'value2')");
+    s.addBatch(
+        "INSERT INTO "
+            + getFullyQualifiedTableName(tableName)
+            + " (id, col1, col2) VALUES (2, 'value3', 'value4')");
+    s.addBatch(
+        "INSERT INTO "
+            + getFullyQualifiedTableName(tableName)
+            + " (id, col1, col2) VALUES (3, 'value5', 'value6')");
+    s.addBatch(
+        "UPDATE "
+            + getFullyQualifiedTableName(tableName)
+            + " SET col1 = 'updatedValue1' WHERE id = 1");
+    System.out.println(Arrays.toString(s.executeBatch()));
+    s.clearBatch();
+    con.close();
+    System.out.println("Connection closed successfully......");
   }
 }

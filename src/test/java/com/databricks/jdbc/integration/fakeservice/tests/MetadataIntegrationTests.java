@@ -11,7 +11,6 @@ import com.databricks.jdbc.integration.fakeservice.AbstractFakeServiceIntegratio
 import com.github.tomakehurst.wiremock.client.CountMatchingStrategy;
 import java.sql.*;
 import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -19,12 +18,6 @@ import org.junit.jupiter.api.Test;
 public class MetadataIntegrationTests extends AbstractFakeServiceIntegrationTests {
 
   private Connection connection;
-
-  @BeforeAll
-  static void beforeAll() {
-    setDatabricksApiTargetUrl("https://e2-dogfood.staging.cloud.databricks.com");
-    setCloudFetchApiTargetUrl("https://e2-dogfood-core.s3.us-west-2.amazonaws.com");
-  }
 
   @BeforeEach
   void setUp() throws SQLException {
@@ -80,17 +73,17 @@ public class MetadataIntegrationTests extends AbstractFakeServiceIntegrationTest
             + "name VARCHAR(255), "
             + "age INT"
             + ");";
-    setupDatabaseTable(tableName, createTableSQL);
+    setupDatabaseTable(connection, tableName, createTableSQL);
 
     String insertSQL =
         "INSERT INTO "
             + getFullyQualifiedTableName(tableName)
             + " (id, name, age) VALUES (1, 'Madhav', 24)";
-    executeSQL(insertSQL);
+    executeSQL(connection, insertSQL);
 
     String query = "SELECT id, name, age FROM " + getFullyQualifiedTableName(tableName);
 
-    ResultSet resultSet = executeQuery(query);
+    ResultSet resultSet = executeQuery(connection, query);
     assert resultSet != null;
     ResultSetMetaData resultSetMetaData = resultSet.getMetaData();
 
@@ -120,7 +113,7 @@ public class MetadataIntegrationTests extends AbstractFakeServiceIntegrationTest
           "Column " + i + " should be nullable");
     }
     String SQL = "DROP TABLE IF EXISTS " + getFullyQualifiedTableName(tableName);
-    executeSQL(SQL);
+    executeSQL(connection, SQL);
 
     if (isSqlExecSdkClient()) {
       // At least 5 statement requests are sent: drop, create, insert, select, drop
@@ -157,7 +150,7 @@ public class MetadataIntegrationTests extends AbstractFakeServiceIntegrationTest
     String catalog = "main";
     String schemaPattern = "jdbc_test_schema";
     String tableName = "catalog_and_schema_test_table";
-    setupDatabaseTable(tableName);
+    setupDatabaseTable(connection, tableName);
     try (ResultSet tables = metaData.getTables(catalog, schemaPattern, "%", null)) {
       assertTrue(
           tables.next(), "There should be at least one table in the specified catalog and schema");
@@ -177,7 +170,7 @@ public class MetadataIntegrationTests extends AbstractFakeServiceIntegrationTest
             tableName, fetchedTableName, "Table name should match the specified table name");
       } while (tables.next());
     }
-    deleteTable(tableName);
+    deleteTable(connection, tableName);
 
     if (isSqlExecSdkClient()) {
       // At least 7 statement requests are sent:

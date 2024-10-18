@@ -61,17 +61,17 @@ public class MetadataTests {
             + "name VARCHAR(255), "
             + "age INT"
             + ");";
-    setupDatabaseTable(tableName, createTableSQL);
+    setupDatabaseTable(connection, tableName, createTableSQL);
 
     String insertSQL =
         "INSERT INTO "
             + getFullyQualifiedTableName(tableName)
             + " (id, name, age) VALUES (1, 'Madhav', 24)";
-    executeSQL(insertSQL);
+    executeSQL(connection, insertSQL);
 
     String query = "SELECT id, name, age FROM " + getFullyQualifiedTableName(tableName);
 
-    ResultSet resultSet = executeQuery(query);
+    ResultSet resultSet = executeQuery(connection, query);
     ResultSetMetaData resultSetMetaData = resultSet.getMetaData();
 
     // Check the number of columns
@@ -106,7 +106,7 @@ public class MetadataTests {
           "Column " + i + " should be nullable");
     }
     String SQL = "DROP TABLE IF EXISTS " + getFullyQualifiedTableName(tableName);
-    executeSQL(SQL);
+    executeSQL(connection, SQL);
   }
 
   @Test
@@ -141,7 +141,7 @@ public class MetadataTests {
     String catalog = "main";
     String schemaPattern = "jdbc_test_schema";
     String tableName = "catalog_and_schema_test_table";
-    setupDatabaseTable(tableName);
+    setupDatabaseTable(connection, tableName);
     try (ResultSet tables = metaData.getTables(catalog, schemaPattern, "%", null)) {
       assertTrue(
           tables.next(), "There should be at least one table in the specified catalog and schema");
@@ -150,7 +150,7 @@ public class MetadataTests {
         assertNotNull(fetchedTableName, "Table name should not be null");
       } while (tables.next());
     }
-    deleteTable(tableName);
+    deleteTable(connection, tableName);
   }
 
   @Test
@@ -159,7 +159,7 @@ public class MetadataTests {
     String catalog = "main";
     String schemaPattern = "jdbc_test_schema";
     String tableName = "catalog_and_schema_test_table";
-    setupDatabaseTable(tableName);
+    setupDatabaseTable(connection, tableName);
     try (ResultSet tables = metaData.getTables(catalog, schemaPattern, tableName, null)) {
       assertTrue(
           tables.next(), "There should be at least one table in the specified catalog and schema");
@@ -169,6 +169,6 @@ public class MetadataTests {
             tableName, fetchedTableName, "Table name should match the specified table name");
       } while (tables.next());
     }
-    deleteTable(tableName);
+    deleteTable(connection, tableName);
   }
 }
