@@ -2,9 +2,10 @@ package com.databricks.jdbc.api;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Statement;
 
 /** Interface for Databricks specific statement. */
-public interface IDatabricksStatement {
+public interface IDatabricksStatement extends Statement {
 
   /**
    * Executes the given SQL command in async mode, and returns a lightweight instance of result set
