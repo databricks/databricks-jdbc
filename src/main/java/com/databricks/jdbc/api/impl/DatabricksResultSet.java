@@ -38,8 +38,7 @@ import java.util.Map;
 import java.util.function.Supplier;
 import org.apache.http.entity.InputStreamEntity;
 
-public class DatabricksResultSet
-    implements ResultSet, IDatabricksResultSet, IDatabricksResultSetInternal {
+public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksResultSetInternal {
 
   private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(DatabricksResultSet.class);
   protected static final String AFFECTED_ROWS_COUNT = "num_affected_rows";
