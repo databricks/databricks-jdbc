@@ -1,11 +1,8 @@
 package com.databricks.jdbc.api.impl;
 
-import com.databricks.jdbc.api.IDatabricksConnection;
-import com.databricks.jdbc.api.IDatabricksConnectionContext;
-import com.databricks.jdbc.api.IDatabricksSession;
-import com.databricks.jdbc.api.IDatabricksStatement;
-import com.databricks.jdbc.api.IDatabricksUCVolumeClient;
+import com.databricks.jdbc.api.*;
 import com.databricks.jdbc.api.callback.IDatabricksStatementHandle;
+import com.databricks.jdbc.api.impl.volume.DBFSVolumeClient;
 import com.databricks.jdbc.api.impl.volume.DatabricksUCVolumeClient;
 import com.databricks.jdbc.common.DatabricksJdbcConstants;
 import com.databricks.jdbc.common.util.UserAgentManager;
@@ -33,6 +30,7 @@ public class DatabricksConnection implements IDatabricksConnection, Connection {
   private final Set<IDatabricksStatementHandle> statementSet = ConcurrentHashMap.newKeySet();
   private SQLWarning warnings = null;
   private volatile IDatabricksUCVolumeClient ucVolumeClient = null;
+  private volatile IDBFSVolumeClient dbfsVolumeClient = null;
 
   /**
    * Creates an instance of Databricks connection for given connection context.
@@ -520,6 +518,18 @@ public class DatabricksConnection implements IDatabricksConnection, Connection {
       }
     }
     return ucVolumeClient;
+  }
+
+  @Override
+  public IDBFSVolumeClient getDBFSVolumeClient() {
+    if (dbfsVolumeClient == null) {
+      synchronized (this) {
+        if (dbfsVolumeClient == null) {
+          dbfsVolumeClient = new DBFSVolumeClient(this);
+        }
+      }
+    }
+    return dbfsVolumeClient;
   }
 
   /**

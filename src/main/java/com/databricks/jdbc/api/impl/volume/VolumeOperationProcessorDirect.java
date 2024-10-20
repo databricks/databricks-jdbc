@@ -42,7 +42,6 @@ public class VolumeOperationProcessorDirect {
 
   public void executePutOperation() {
     HttpPut httpPut = new HttpPut(operationUrl);
-    //        headers.forEach(httpPut::addHeader);
 
     // Set the FileEntity as the request body
     File file = new File(localFilePath);

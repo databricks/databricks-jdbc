@@ -1,4 +1,4 @@
-package com.databricks.jdbc.model.client.sqlexec;
+package com.databricks.jdbc.model.client.filesystem;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import java.util.List;
