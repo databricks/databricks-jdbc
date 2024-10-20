@@ -4,7 +4,6 @@ import com.databricks.jdbc.api.IDBFSVolumeClient;
 import com.databricks.jdbc.api.IDatabricksConnection;
 import com.databricks.jdbc.api.IDatabricksUCVolumeClient;
 import com.databricks.jdbc.api.impl.arrow.ArrowResultChunk;
-import com.databricks.jdbc.api.impl.volume.DBFSVolumeClient;
 import com.databricks.jdbc.common.DatabricksJdbcConstants;
 import java.io.File;
 import java.io.FileInputStream;

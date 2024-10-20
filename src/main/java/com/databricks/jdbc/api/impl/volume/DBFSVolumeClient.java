@@ -8,13 +8,11 @@ import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.api.impl.DatabricksConnection;
 import com.databricks.jdbc.dbclient.IDatabricksClient;
 import com.databricks.jdbc.dbclient.impl.common.ClientConfigurator;
-import com.databricks.jdbc.dbclient.impl.sqlexec.DatabricksSdkClient;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.model.client.filesystem.CreateUploadUrlRequest;
 import com.databricks.jdbc.model.client.filesystem.CreateUploadUrlResponse;
 import com.databricks.sdk.WorkspaceClient;
-
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.Map;
@@ -30,8 +28,8 @@ public class DBFSVolumeClient implements IDBFSVolumeClient {
 
   private Map<String, String> getHeaders() {
     return Map.of(
-            "Accept", "application/json",
-            "Content-Type", "application/json");
+        "Accept", "application/json",
+        "Content-Type", "application/json");
   }
 
   private CreateUploadUrlResponse getCreateUploadUrlResponse(String objectPath)
@@ -42,16 +40,17 @@ public class DBFSVolumeClient implements IDBFSVolumeClient {
             objectPath));
     IDatabricksClient client = connection.getSession().getDatabricksClient();
     IDatabricksConnectionContext connectionContext = client.getConnectionContext();
-    WorkspaceClient workspaceClient = new ClientConfigurator(connectionContext).getWorkspaceClient();
+    WorkspaceClient workspaceClient =
+        new ClientConfigurator(connectionContext).getWorkspaceClient();
 
     CreateUploadUrlRequest request = new CreateUploadUrlRequest(objectPath);
-    try
-    {
+    try {
       return workspaceClient
-              .apiClient()
-              .POST(CREATE_UPLOAD_URL_PATH, request, CreateUploadUrlResponse.class, getHeaders());
+          .apiClient()
+          .POST(CREATE_UPLOAD_URL_PATH, request, CreateUploadUrlResponse.class, getHeaders());
     } catch (Exception e) {
-      LOGGER.error(String.format("Failed to get create upload url response - {%s}", e.getMessage()));
+      LOGGER.error(
+          String.format("Failed to get create upload url response - {%s}", e.getMessage()));
       throw e;
     }
   }
