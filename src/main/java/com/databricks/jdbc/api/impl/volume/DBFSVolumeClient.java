@@ -48,9 +48,9 @@ public class DBFSVolumeClient implements IDBFSVolumeClient {
               CreateUploadUrlResponse.class,
               ClientUtil.getHeaders());
     } catch (DatabricksException e) {
-      LOGGER.error(
-          String.format("Failed to get create upload url response - {%s}", e.getMessage()));
-      throw new DatabricksVolumeOperationException(e.getMessage(), e);
+      String errorMessage = String.format("Failed to get create upload url response - {%s}", e.getMessage());
+      LOGGER.error(errorMessage);
+      throw new DatabricksVolumeOperationException(errorMessage, e);
     }
   }
 
@@ -75,7 +75,8 @@ public class DBFSVolumeClient implements IDBFSVolumeClient {
       volumeOperationProcessorDirect.executePutOperation();
       isOperationSucceeded = true;
     } catch (DatabricksVolumeOperationException e) {
-      LOGGER.error(String.format("Failed to put object - {%s}", e.getMessage()));
+      String errorMessage = String.format("Failed to put object - {%s}", e.getMessage());
+      LOGGER.error(errorMessage);
       throw e;
     }
     return isOperationSucceeded;
