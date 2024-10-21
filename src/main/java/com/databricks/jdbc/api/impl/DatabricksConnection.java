@@ -28,7 +28,7 @@ import java.util.concurrent.Executor;
 import java.util.stream.Collectors;
 
 /** Implementation for Databricks specific connection. */
-public class DatabricksConnection implements IDatabricksConnection, Connection {
+public class DatabricksConnection implements IDatabricksConnection {
   private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(DatabricksConnection.class);
   private final IDatabricksSession session;
   private final Set<IDatabricksStatementInternal> statementSet = ConcurrentHashMap.newKeySet();
