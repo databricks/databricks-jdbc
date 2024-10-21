@@ -85,7 +85,7 @@ public class DatabricksThriftUtil {
     return new ArrayList<>(Collections.singletonList(obj));
   }
 
-  private static List<List<Object>> extractValuesColumnar(List<TColumn> columnList) {
+  public static List<List<Object>> extractValuesColumnar(List<TColumn> columnList) {
     if (columnList == null || columnList.isEmpty()) {
       return new ArrayList<>(List.of(new ArrayList<>()));
     }
@@ -97,14 +97,6 @@ public class DatabricksThriftUtil {
                     .map(column -> getObjectInColumn(column, i))
                     .collect(Collectors.toList()))
         .collect(Collectors.toList());
-  }
-
-  public static List<List<Object>> extractValuesColumnar(TFetchResultsResp fetchResultsResp) {
-    List<List<Object>> answerSet = new ArrayList<>(Collections.emptyList());
-    do {
-      answerSet.addAll(extractValuesColumnar(fetchResultsResp.getResults().getColumns()));
-    } while (fetchResultsResp.hasMoreRows);
-    return answerSet;
   }
 
   private static Object getObjectInColumn(TColumn column, int index) {
@@ -231,7 +223,7 @@ public class DatabricksThriftUtil {
    * @return a list where each sublist represents a row with column values, or an empty list if
    *     rowSet is empty
    */
-  private static List<List<Object>> convertColumnarToRowBased(TRowSet rowSet) {
+  private static List<List<Object>> convertRowSetToList(TRowSet rowSet) {
     List<List<Object>> columnarData = extractValuesFromRowSet(rowSet);
     if (columnarData.isEmpty()) {
       return Collections.emptyList();
@@ -255,12 +247,12 @@ public class DatabricksThriftUtil {
       IDatabricksStatementInternal parentStatement,
       IDatabricksSession session)
       throws DatabricksSQLException {
-    List<List<Object>> columnarData = convertColumnarToRowBased(resultsResp.getResults());
+    List<List<Object>> columnarData = convertRowSetToList(resultsResp.getResults());
     while (resultsResp.hasMoreRows) {
       resultsResp =
           ((DatabricksThriftServiceClient) session.getDatabricksClient())
               .getMoreResults(parentStatement);
-      columnarData.addAll(convertColumnarToRowBased(resultsResp.getResults()));
+      columnarData.addAll(convertRowSetToList(resultsResp.getResults()));
     }
     return columnarData;
   }

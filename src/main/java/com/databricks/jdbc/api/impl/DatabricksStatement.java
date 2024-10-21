@@ -448,8 +448,8 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
   }
 
   @Override
-  public String getStatementId() {
-    return this.statementId.toString();
+  public StatementId getStatementId() {
+    return this.statementId;
   }
 
   @Override
