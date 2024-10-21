@@ -21,6 +21,7 @@ public class RemoteChunkProviderTest {
     ResultManifest resultManifest =
         new ResultManifest()
             .setTotalChunkCount(0L)
+            .setTotalRowCount(0L)
             .setSchema(new ResultSchema().setColumns(new ArrayList<>()));
     ResultData resultData = new ResultData().setExternalLinks(new ArrayList<>());
     assertDoesNotThrow(

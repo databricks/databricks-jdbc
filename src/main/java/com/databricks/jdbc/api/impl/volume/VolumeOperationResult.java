@@ -205,4 +205,14 @@ public class VolumeOperationResult implements IExecutionResult {
   public void close() {
     resultHandler.close();
   }
+
+  @Override
+  public long getRowCount() {
+    return 0;
+  }
+
+  @Override
+  public int getChunkCount() {
+    return 0;
+  }
 }

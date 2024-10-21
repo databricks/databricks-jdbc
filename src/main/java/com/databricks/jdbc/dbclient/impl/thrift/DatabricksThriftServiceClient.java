@@ -170,7 +170,8 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
         String.format(
             "public void closeStatement(String statementId = {%s}) for all purpose cluster",
             statementId));
-    TCloseOperationReq request = new TCloseOperationReq().setOperationHandle(getOperationHandle(statementId));
+    TCloseOperationReq request =
+        new TCloseOperationReq().setOperationHandle(getOperationHandle(statementId));
     TCloseOperationResp resp = thriftAccessor.closeOperation(request);
     LOGGER.debug("Statement {%s} closed with status {%s}", statementId, resp.getStatus());
   }
@@ -181,7 +182,8 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
         String.format(
             "public void cancelStatement(String statementId = {%s}) for all purpose cluster",
             statementId));
-    TCancelOperationReq request = new TCancelOperationReq().setOperationHandle(getOperationHandle(statementId));
+    TCancelOperationReq request =
+        new TCancelOperationReq().setOperationHandle(getOperationHandle(statementId));
     TCancelOperationResp resp = thriftAccessor.cancelOperation(request);
     LOGGER.debug("Statement {%s} cancelled with status {%s}", statementId, resp.getStatus());
   }
@@ -196,7 +198,8 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
         String.format(
             "public DatabricksResultSet getStatementResult(String statementId = {%s}) for all purpose cluster",
             statementId));
-    return thriftAccessor.getStatementResult(getOperationHandle(statementId), parentStatement, session);
+    return thriftAccessor.getStatementResult(
+        getOperationHandle(statementId), parentStatement, session);
   }
 
   @Override
@@ -210,15 +213,15 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
     TFetchResultsResp fetchResultsResp;
     List<ExternalLink> externalLinks = new ArrayList<>();
     AtomicInteger index = new AtomicInteger(0);
-    do{
-    fetchResultsResp= thriftAccessor.getResultSetResp(getOperationHandle(statementId), context);
+    do {
+      fetchResultsResp = thriftAccessor.getResultSetResp(getOperationHandle(statementId), context);
       fetchResultsResp
-              .getResults()
-              .getResultLinks()
-              .forEach(
-                      resultLink ->
-                              externalLinks.add(createExternalLink(resultLink, index.getAndIncrement())));
-    }while (fetchResultsResp.hasMoreRows);
+          .getResults()
+          .getResultLinks()
+          .forEach(
+              resultLink ->
+                  externalLinks.add(createExternalLink(resultLink, index.getAndIncrement())));
+    } while (fetchResultsResp.hasMoreRows);
     if (chunkIndex < 0 || externalLinks.size() <= chunkIndex) {
       String error = String.format("Out of bounds error for chunkIndex. Context: %s", context);
       LOGGER.error(error);
@@ -367,7 +370,8 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
     return getPrimaryKeysResult(extractValues(response.getResults().getColumns()));
   }
 
-  public TFetchResultsResp getMoreResults(IDatabricksStatementInternal parentStatement) throws DatabricksSQLException {
+  public TFetchResultsResp getMoreResults(IDatabricksStatementInternal parentStatement)
+      throws DatabricksSQLException {
     return thriftAccessor.getMoreResults(parentStatement);
   }
 }

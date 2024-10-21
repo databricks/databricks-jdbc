@@ -170,7 +170,7 @@ public class DatabricksStatementTest {
     statement.setEscapeProcessing(true);
     assertEquals(statement.getQueryTimeout(), 10);
     assertEquals(statement.getStatement(), statement);
-    assertEquals(statement.getStatementId(), STATEMENT_ID.toString());
+    assertEquals(statement.getStatementId(), STATEMENT_ID);
     doNothing().when(client).closeStatement(STATEMENT_ID);
     statement.close(true);
     assertTrue(statement.isWrapperFor(Statement.class));
@@ -305,7 +305,7 @@ public class DatabricksStatementTest {
         DatabricksConnectionContextFactory.create(JDBC_URL, new Properties());
     when(mockConnection.getConnectionContext()).thenReturn(connectionContext);
     DatabricksStatement statement = new DatabricksStatement(mockConnection, STATEMENT_ID);
-    assertEquals("statement_id", statement.getStatementId());
+    assertEquals(STATEMENT_ID, statement.getStatementId());
   }
 
   @Test

@@ -7,7 +7,6 @@ import static com.databricks.jdbc.model.client.thrift.generated.TStatusCode.*;
 
 import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.api.IDatabricksSession;
-import com.databricks.jdbc.api.IDatabricksStatement;
 import com.databricks.jdbc.api.impl.*;
 import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
 import com.databricks.jdbc.common.StatementType;
@@ -160,12 +159,19 @@ final class DatabricksThriftAccessor {
     }
   }
 
-  TFetchResultsResp getMoreResults(
-          IDatabricksStatementInternal parentStatement)
-          throws DatabricksSQLException {
-          String context = String.format("Fetching more results as it has more rows %s", parentStatement.getStatementId().toSQLExecStatementId());
+  TFetchResultsResp getMoreResults(IDatabricksStatementInternal parentStatement)
+      throws DatabricksSQLException {
+    String context =
+        String.format(
+            "Fetching more results as it has more rows %s",
+            parentStatement.getStatementId().toSQLExecStatementId());
     int maxRows = (parentStatement == null) ? DEFAULT_ROW_LIMIT : parentStatement.getMaxRows();
-    return getResultSetResp(SUCCESS_STATUS,getOperationHandle(parentStatement.getStatementId()),context,maxRows,true);
+    return getResultSetResp(
+        SUCCESS_STATUS,
+        getOperationHandle(parentStatement.getStatementId()),
+        context,
+        maxRows,
+        true);
   }
 
   private TFetchResultsResp getResultSetResp(
@@ -285,12 +291,7 @@ final class DatabricksThriftAccessor {
       parentStatement.setStatementId(statementId);
     }
     return new DatabricksResultSet(
-        response.getStatus(),
-        statementId,
-        resultSet,
-        statementType,
-        parentStatement,
-        session);
+        response.getStatus(), statementId, resultSet, statementType, parentStatement, session);
   }
 
   DatabricksResultSet executeAsync(
@@ -368,12 +369,7 @@ final class DatabricksThriftAccessor {
     }
     StatementId statementId = new StatementId(operationHandle.getOperationId());
     return new DatabricksResultSet(
-        response.getStatus(),
-        statementId,
-        resultSet,
-        StatementType.SQL,
-        parentStatement,
-        session);
+        response.getStatus(), statementId, resultSet, StatementType.SQL, parentStatement, session);
   }
 
   void resetAccessToken(String newAccessToken) {

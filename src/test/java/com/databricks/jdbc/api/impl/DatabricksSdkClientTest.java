@@ -170,7 +170,7 @@ public class DatabricksSdkClientTest {
             StatementType.QUERY,
             connection.getSession(),
             statement);
-    assertEquals(STATEMENT_ID.toString(), statement.getStatementId());
+    assertEquals(STATEMENT_ID, statement.getStatementId());
     assertNotNull(resultSet.getMetaData());
   }
 
@@ -199,7 +199,7 @@ public class DatabricksSdkClientTest {
     DatabricksResultSet resultSet =
         databricksSdkClient.executeStatementAsync(
             STATEMENT, warehouse, sqlParams, connection.getSession(), statement);
-    assertEquals(STATEMENT_ID.toString(), statement.getStatementId());
+    assertEquals(STATEMENT_ID, statement.getStatementId());
     assertNull(resultSet.getMetaData());
   }
 

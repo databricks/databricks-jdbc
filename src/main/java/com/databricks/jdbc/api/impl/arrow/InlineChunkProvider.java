@@ -3,8 +3,10 @@ package com.databricks.jdbc.api.impl.arrow;
 import static com.databricks.jdbc.common.util.DatabricksTypeUtil.*;
 import static com.databricks.jdbc.common.util.DecompressionUtil.decompress;
 
+import com.databricks.jdbc.api.IDatabricksSession;
+import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
 import com.databricks.jdbc.common.CompressionType;
-import com.databricks.jdbc.dbclient.impl.common.StatementId;
+import com.databricks.jdbc.dbclient.impl.thrift.DatabricksThriftServiceClient;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.log.JdbcLogger;
@@ -33,11 +35,13 @@ public class InlineChunkProvider implements ChunkProvider {
   ArrowResultChunk arrowResultChunk; // There is only one packet of data in case of inline arrow
 
   InlineChunkProvider(
-      TFetchResultsResp resultsResp, StatementId statementId)
+      TFetchResultsResp resultsResp,
+      IDatabricksStatementInternal parentStatement,
+      IDatabricksSession session)
       throws DatabricksParsingException {
     this.currentChunkIndex = -1;
     this.totalRows = 0;
-    ByteArrayInputStream byteStream = initializeByteStream(resultsResp, statementId);
+    ByteArrayInputStream byteStream = initializeByteStream(resultsResp, session, parentStatement);
     arrowResultChunk = ArrowResultChunk.builder().withInputStream(byteStream, totalRows).build();
   }
 
@@ -69,17 +73,38 @@ public class InlineChunkProvider implements ChunkProvider {
     arrowResultChunk.releaseChunk();
   }
 
+  @Override
+  public long getRowCount() {
+    return totalRows;
+  }
+
+  @Override
+  public long getChunkCount() {
+    return 0;
+  }
+
   private ByteArrayInputStream initializeByteStream(
-      TFetchResultsResp resultsResp, String statementId)
+      TFetchResultsResp resultsResp,
+      IDatabricksSession session,
+      IDatabricksStatementInternal parentStatement)
       throws DatabricksParsingException {
     ByteArrayOutputStream baos = new ByteArrayOutputStream();
-    CompressionType compressionType = CompressionType.getCompressionMapping(resultsResp.getResultSetMetadata());
+    CompressionType compressionType =
+        CompressionType.getCompressionMapping(resultsResp.getResultSetMetadata());
     try {
       byte[] serializedSchema = getSerializedSchema(resultsResp.getResultSetMetadata());
       if (serializedSchema != null) {
         baos.write(serializedSchema);
       }
-      writeToByteOutputStream(compressionType,statementId);
+      writeToByteOutputStream(
+          compressionType, parentStatement, resultsResp.getResults().getArrowBatches(), baos);
+      while (resultsResp.hasMoreRows) {
+        resultsResp =
+            ((DatabricksThriftServiceClient) session.getDatabricksClient())
+                .getMoreResults(parentStatement);
+        writeToByteOutputStream(
+            compressionType, parentStatement, resultsResp.getResults().getArrowBatches(), baos);
+      }
       return new ByteArrayInputStream(baos.toByteArray());
     } catch (DatabricksSQLException | IOException e) {
       handleError(e);
@@ -87,15 +112,20 @@ public class InlineChunkProvider implements ChunkProvider {
     return null;
   }
 
-  void writeToByteOutputStream(CompressionType compressionType, String statementId){
-    for (TSparkArrowBatch arrowBatch : ) {
+  void writeToByteOutputStream(
+      CompressionType compressionType,
+      IDatabricksStatementInternal parentStatement,
+      List<TSparkArrowBatch> arrowBatchList,
+      ByteArrayOutputStream baos)
+      throws DatabricksSQLException, IOException {
+    for (TSparkArrowBatch arrowBatch : arrowBatchList) {
       byte[] decompressedBytes =
-              decompress(
-                      arrowBatch.getBatch(),
-                      compressionType,
-                      String.format(
-                              "Data fetch for inline arrow batch [%d] and statement [%s] with decompression algorithm : [%s]",
-                              arrowBatch.getRowCount(), statementId, compressionType));
+          decompress(
+              arrowBatch.getBatch(),
+              compressionType,
+              String.format(
+                  "Data fetch for inline arrow batch [%d] and statement [%s] with decompression algorithm : [%s]",
+                  arrowBatch.getRowCount(), parentStatement, compressionType));
       totalRows += arrowBatch.getRowCount();
       baos.write(decompressedBytes);
     }

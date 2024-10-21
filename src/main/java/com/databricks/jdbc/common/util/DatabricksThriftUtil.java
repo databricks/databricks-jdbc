@@ -250,19 +250,27 @@ public class DatabricksThriftUtil {
     return rowBasedData;
   }
 
-  public static List<List<Object>> convertColumnarToRowBased(TFetchResultsResp resultsResp, IDatabricksStatementInternal parentStatement, IDatabricksSession session) throws DatabricksSQLException {
+  public static List<List<Object>> convertColumnarToRowBased(
+      TFetchResultsResp resultsResp,
+      IDatabricksStatementInternal parentStatement,
+      IDatabricksSession session)
+      throws DatabricksSQLException {
     List<List<Object>> columnarData = convertColumnarToRowBased(resultsResp.getResults());
-    while(resultsResp.hasMoreRows){
-      resultsResp = ((DatabricksThriftServiceClient)session.getDatabricksClient()).getMoreResults(parentStatement);
+    while (resultsResp.hasMoreRows) {
+      resultsResp =
+          ((DatabricksThriftServiceClient) session.getDatabricksClient())
+              .getMoreResults(parentStatement);
       columnarData.addAll(convertColumnarToRowBased(resultsResp.getResults()));
     }
     return columnarData;
   }
-  public static TOperationHandle getOperationHandle(StatementId statementId){
+
+  public static TOperationHandle getOperationHandle(StatementId statementId) {
     return new TOperationHandle()
-                    .setOperationId(statementId.toOperationIdentifier())
-                    .setOperationType(TOperationType.UNKNOWN);
+        .setOperationId(statementId.toOperationIdentifier())
+        .setOperationType(TOperationType.UNKNOWN);
   }
+
   /**
    * Extracts and returns the values from each column of a TRowSet as a list of lists. Each sublist
    * represents a column of values. Returns an empty list if the input is null or contains no

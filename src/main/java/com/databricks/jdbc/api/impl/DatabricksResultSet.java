@@ -18,8 +18,6 @@ import com.databricks.jdbc.exception.DatabricksSQLFeatureNotSupportedException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.model.client.thrift.generated.TFetchResultsResp;
-import com.databricks.jdbc.model.client.thrift.generated.TGetResultSetMetadataResp;
-import com.databricks.jdbc.model.client.thrift.generated.TRowSet;
 import com.databricks.jdbc.model.client.thrift.generated.TStatus;
 import com.databricks.jdbc.model.core.ColumnMetadata;
 import com.databricks.jdbc.model.core.ResultData;
@@ -128,11 +126,14 @@ public class DatabricksResultSet
     this.statementId = statementId;
     if (resultsResp != null) {
       this.executionResult =
-          ExecutionResultFactory.getResultSet(resultsResp, statementId, session, parentStatement);
-      long rowSize = getRowCount(resultData);
+          ExecutionResultFactory.getResultSet(resultsResp, session, parentStatement);
+      long rowSize = executionResult.getRowCount();
       this.resultSetMetaData =
           new DatabricksResultSetMetaData(
-              statementId, resultManifest, rowSize, resultData.getResultLinksSize());
+              statementId,
+              resultsResp.getResultSetMetadata(),
+              rowSize,
+              executionResult.getChunkCount());
     } else {
       this.executionResult = null;
       this.resultSetMetaData = null;

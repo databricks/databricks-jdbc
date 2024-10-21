@@ -160,7 +160,6 @@ public class DatabricksThriftServiceClientTest {
             .setResults(resultData)
             .setResultSetMetadata(resultMetadataData);
     when(thriftAccessor.getResultSetResp(any(), any())).thenReturn(response);
-    when(resultData.getResultLinksSize()).thenReturn(1);
     when(resultData.getResultLinks())
         .thenReturn(
             Collections.singletonList(new TSparkArrowResultLink().setFileLink(TEST_STRING)));
@@ -179,7 +178,6 @@ public class DatabricksThriftServiceClientTest {
             .setResults(resultData)
             .setResultSetMetadata(resultMetadataData);
     when(thriftAccessor.getResultSetResp(any(), any())).thenReturn(response);
-    when(resultData.getResultLinksSize()).thenReturn(1);
     assertThrows(DatabricksSQLException.class, () -> client.getResultChunks(TEST_STMT_ID, -1));
     assertThrows(DatabricksSQLException.class, () -> client.getResultChunks(TEST_STMT_ID, 2));
     assertThrows(DatabricksSQLException.class, () -> client.getResultChunks(TEST_STMT_ID, 1));
