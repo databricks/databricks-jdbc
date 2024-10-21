@@ -48,7 +48,8 @@ public class DBFSVolumeClient implements IDBFSVolumeClient {
               CreateUploadUrlResponse.class,
               ClientUtil.getHeaders());
     } catch (DatabricksException e) {
-      String errorMessage = String.format("Failed to get create upload url response - {%s}", e.getMessage());
+      String errorMessage =
+          String.format("Failed to get create upload url response - {%s}", e.getMessage());
       LOGGER.error(errorMessage);
       throw new DatabricksVolumeOperationException(errorMessage, e);
     }
