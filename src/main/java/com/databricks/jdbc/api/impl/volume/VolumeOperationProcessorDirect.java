@@ -15,6 +15,10 @@ import org.apache.http.entity.ContentType;
 import org.apache.http.entity.FileEntity;
 import org.apache.http.message.BasicHeader;
 
+/**
+ * VolumeOperationProcessorDirect is a class that performs the volume operation directly into the
+ * DBFS using the pre signed url
+ */
 public class VolumeOperationProcessorDirect {
   private static final JdbcLogger LOGGER =
       JdbcLoggerFactory.getLogger(VolumeOperationProcessorDirect.class);

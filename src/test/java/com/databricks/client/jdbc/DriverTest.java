@@ -276,7 +276,8 @@ public class DriverTest {
     // Getting the connection
     String jdbcUrl =
         "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/dd43ee29fedd958d;Loglevel=debug";
-    Connection con = DriverManager.getConnection(jdbcUrl, "token", "xx");
+    Connection con =
+        DriverManager.getConnection(jdbcUrl, "token", "xx");
     System.out.println("Connection created");
 
     IDBFSVolumeClient client = ((IDatabricksConnection) con).getDBFSVolumeClient();

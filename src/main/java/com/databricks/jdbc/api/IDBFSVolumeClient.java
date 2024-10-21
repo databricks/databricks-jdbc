@@ -2,6 +2,12 @@ package com.databricks.jdbc.api;
 
 import java.sql.SQLException;
 
+/**
+ * This interface is for performing volume operations on the Databricks File System (DBFS) volumes.
+ * Compared to the existing UC Volume client interface, here we optimise the first step of getting
+ * the pre signed url by not executing an SQL Query and instead directly calling the API to get the
+ * pre signed url. This reduces the step of starting a warehouse to just get the pre signed url
+ */
 public interface IDBFSVolumeClient {
 
   /**

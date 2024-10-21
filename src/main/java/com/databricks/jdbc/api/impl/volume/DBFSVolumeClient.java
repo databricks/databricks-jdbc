@@ -6,16 +6,17 @@ import static com.databricks.jdbc.dbclient.impl.sqlexec.PathConstants.CREATE_UPL
 import com.databricks.jdbc.api.IDBFSVolumeClient;
 import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.api.impl.DatabricksConnection;
+import com.databricks.jdbc.common.util.ClientUtil;
 import com.databricks.jdbc.dbclient.IDatabricksClient;
 import com.databricks.jdbc.dbclient.impl.common.ClientConfigurator;
+import com.databricks.jdbc.exception.DatabricksVolumeOperationException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.model.client.filesystem.CreateUploadUrlRequest;
 import com.databricks.jdbc.model.client.filesystem.CreateUploadUrlResponse;
 import com.databricks.sdk.WorkspaceClient;
+import com.databricks.sdk.core.DatabricksException;
 import java.sql.Connection;
-import java.sql.SQLException;
-import java.util.Map;
 
 public class DBFSVolumeClient implements IDBFSVolumeClient {
 
@@ -26,14 +27,8 @@ public class DBFSVolumeClient implements IDBFSVolumeClient {
     this.connection = (DatabricksConnection) connection;
   }
 
-  private Map<String, String> getHeaders() {
-    return Map.of(
-        "Accept", "application/json",
-        "Content-Type", "application/json");
-  }
-
   private CreateUploadUrlResponse getCreateUploadUrlResponse(String objectPath)
-      throws SQLException {
+      throws DatabricksVolumeOperationException {
     LOGGER.debug(
         String.format(
             "Entering getCreateUploadUrlResponse method with parameters: objectPath={%s}",
@@ -47,17 +42,21 @@ public class DBFSVolumeClient implements IDBFSVolumeClient {
     try {
       return workspaceClient
           .apiClient()
-          .POST(CREATE_UPLOAD_URL_PATH, request, CreateUploadUrlResponse.class, getHeaders());
-    } catch (Exception e) {
+          .POST(
+              CREATE_UPLOAD_URL_PATH,
+              request,
+              CreateUploadUrlResponse.class,
+              ClientUtil.getHeaders());
+    } catch (DatabricksException e) {
       LOGGER.error(
           String.format("Failed to get create upload url response - {%s}", e.getMessage()));
-      throw e;
+      throw new DatabricksVolumeOperationException(e.getMessage(), e);
     }
   }
 
   public boolean putObject(
       String catalog, String schema, String volume, String objectPath, String localPath)
-      throws SQLException {
+      throws DatabricksVolumeOperationException {
 
     LOGGER.debug(
         String.format(
@@ -75,7 +74,7 @@ public class DBFSVolumeClient implements IDBFSVolumeClient {
               response.getUrl(), localPath, response.getHeaders(), connection.getSession());
       volumeOperationProcessorDirect.executePutOperation();
       isOperationSucceeded = true;
-    } catch (Exception e) {
+    } catch (DatabricksVolumeOperationException e) {
       LOGGER.error(String.format("Failed to put object - {%s}", e.getMessage()));
       throw e;
     }
