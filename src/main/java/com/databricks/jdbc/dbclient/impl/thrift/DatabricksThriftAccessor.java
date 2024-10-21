@@ -113,8 +113,8 @@ final class DatabricksThriftAccessor {
       String errorMessage =
           String.format(
               "Error while receiving response from Thrift server. Request {%s}, Error {%s}",
-              request, e);
-      LOGGER.error(errorMessage);
+              request, e.getMessage());
+      LOGGER.error(e, errorMessage);
       throw new DatabricksSQLException(errorMessage, e);
     }
   }
@@ -134,7 +134,7 @@ final class DatabricksThriftAccessor {
           String.format(
               "Error while canceling operation from Thrift server. Request {%s}, Error {%s}",
               req.toString(), e.getMessage());
-      LOGGER.error(errorMessage);
+      LOGGER.error(e, errorMessage);
       throw new DatabricksHttpException(errorMessage, e);
     }
   }
@@ -148,7 +148,7 @@ final class DatabricksThriftAccessor {
           String.format(
               "Error while closing operation from Thrift server. Request {%s}, Error {%s}",
               req.toString(), e.getMessage());
-      LOGGER.error(errorMessage);
+      LOGGER.error(e, errorMessage);
       throw new DatabricksHttpException(errorMessage, e);
     }
   }
@@ -177,8 +177,8 @@ final class DatabricksThriftAccessor {
       String errorMessage =
           String.format(
               "Error while fetching results from Thrift server. Request {%s}, Error {%s}",
-              request.toString(), e);
-      LOGGER.error(errorMessage);
+              request.toString(), e.getMessage());
+      LOGGER.error(e, errorMessage);
       throw new DatabricksHttpException(errorMessage, e);
     }
     verifySuccessStatus(
@@ -257,8 +257,8 @@ final class DatabricksThriftAccessor {
       String errorMessage =
           String.format(
               "Error while receiving response from Thrift server. Request {%s}, Error {%s}",
-              request.toString(), e);
-      LOGGER.error(errorMessage);
+              request.toString(), e.getMessage());
+      LOGGER.error(e, errorMessage);
       throw new DatabricksHttpException(errorMessage, e);
     }
     StatementId statementId = new StatementId(response.getOperationHandle().operationId);
@@ -336,8 +336,8 @@ final class DatabricksThriftAccessor {
       String errorMessage =
           String.format(
               "Error while receiving response from Thrift server. Request {%s}, Error {%s}",
-              request.toString(), e);
-      LOGGER.error(errorMessage);
+              request.toString(), e.getMessage());
+      LOGGER.error(e, errorMessage);
       throw new DatabricksHttpException(errorMessage, e);
     }
     StatementId statementId = new StatementId(operationHandle.getOperationId());
