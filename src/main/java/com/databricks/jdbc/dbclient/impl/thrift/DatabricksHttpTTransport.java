@@ -57,10 +57,12 @@ public class DatabricksHttpTTransport extends TTransport {
   @Override
   public int read(byte[] buf, int off, int len) throws TTransportException {
     if (responseBuffer == null) {
+      LOGGER.error("Response buffer is empty, no response.");
       throw new TTransportException("Response buffer is empty, no response.");
     }
     int numBytes = responseBuffer.read(buf, off, len);
     if (numBytes == -1) {
+      LOGGER.error("No data available to read.");
       throw new TTransportException("No more data available.");
     }
     return numBytes;
@@ -95,7 +97,7 @@ public class DatabricksHttpTTransport extends TTransport {
       }
     } catch (DatabricksHttpException | IOException e) {
       String errorMessage = "Failed to flush data to server: " + e.getMessage();
-      LOGGER.error(errorMessage);
+      LOGGER.error(e, errorMessage);
       throw new TTransportException(TTransportException.UNKNOWN, errorMessage);
     }
 

@@ -12,6 +12,7 @@ import com.databricks.jdbc.common.util.UserAgentManager;
 import com.databricks.jdbc.common.util.ValidationUtil;
 import com.databricks.jdbc.dbclient.IDatabricksClient;
 import com.databricks.jdbc.dbclient.impl.common.StatementId;
+import com.databricks.jdbc.dbclient.impl.http.DatabricksHttpClient;
 import com.databricks.jdbc.exception.DatabricksSQLClientInfoException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.exception.DatabricksSQLFeatureNotSupportedException;
@@ -137,6 +138,7 @@ public class DatabricksConnection implements IDatabricksConnection {
     }
 
     this.session.close();
+    DatabricksHttpClient.removeInstance(this.connectionContext);
   }
 
   @Override
