@@ -53,14 +53,12 @@ public class DatabricksHttpClient implements IDatabricksHttpClient {
   private static PoolingHttpClientConnectionManager connectionManager;
   private final CloseableHttpClient httpClient;
   protected static int idleHttpConnectionExpiry;
-  private CloseableHttpClient httpDisabledSSLClient;
   private DatabricksHttpRetryHandler retryHandler;
   private IdleConnectionEvictor idleConnectionEvictor;
 
   private DatabricksHttpClient(IDatabricksConnectionContext connectionContext) {
     initializeConnectionManager(connectionContext);
     httpClient = makeClosableHttpClient(connectionContext);
-    httpDisabledSSLClient = makeClosableDisabledSslHttpClient();
     idleHttpConnectionExpiry = connectionContext.getIdleHttpConnectionExpiry();
     retryHandler = new DatabricksHttpRetryHandler(connectionContext);
     idleConnectionEvictor =
@@ -220,18 +218,6 @@ public class DatabricksHttpClient implements IDatabricksHttpClient {
       return httpClient.execute(request);
     } catch (IOException e) {
       throwHttpException(e, request, LogLevel.ERROR);
-    }
-    return null;
-  }
-
-  public CloseableHttpResponse executeWithoutCertVerification(HttpUriRequest request)
-      throws DatabricksHttpException {
-    LOGGER.debug(
-        String.format("Executing HTTP request [{%s}]", RequestSanitizer.sanitizeRequest(request)));
-    try {
-      return httpDisabledSSLClient.execute(request);
-    } catch (Exception e) {
-      throwHttpException(e, request, LogLevel.DEBUG);
     }
     return null;
   }
