@@ -47,9 +47,8 @@ public class OAuthEndpointResolver {
     try {
       return getTokenEndpointFromDiscoveryEndpoint();
     } catch (DatabricksException e) {
-      String errorMessage =
-          "Failed to get token endpoint from discovery endpoint. Falling back to default token endpoint.";
-      LOGGER.error(errorMessage);
+      LOGGER.error(
+          "Failed to get token endpoint from discovery endpoint. Falling back to default token endpoint.");
       return getDefaultTokenEndpoint();
     }
   }

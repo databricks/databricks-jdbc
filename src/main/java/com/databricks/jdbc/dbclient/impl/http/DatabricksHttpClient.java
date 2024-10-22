@@ -5,7 +5,6 @@ import static com.databricks.jdbc.dbclient.impl.common.ClientConfigurator.conver
 import static io.netty.util.NetUtil.LOCALHOST;
 
 import com.databricks.jdbc.api.IDatabricksConnectionContext;
-import com.databricks.jdbc.common.LogLevel;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
 import com.databricks.jdbc.dbclient.impl.common.ClientConfigurator;
 import com.databricks.jdbc.exception.DatabricksHttpException;
@@ -76,7 +75,7 @@ public class DatabricksHttpClient implements IDatabricksHttpClient, Closeable {
     try {
       return httpClient.execute(request);
     } catch (IOException e) {
-      throwHttpException(e, request, LogLevel.ERROR);
+      throwHttpException(e, request);
     }
     return null;
   }
@@ -128,7 +127,7 @@ public class DatabricksHttpClient implements IDatabricksHttpClient, Closeable {
     return builder.build();
   }
 
-  private static void throwHttpException(Exception e, HttpUriRequest request, LogLevel logLevel)
+  private static void throwHttpException(Exception e, HttpUriRequest request)
       throws DatabricksHttpException {
     Throwable cause = e;
     while (cause != null) {
@@ -141,11 +140,7 @@ public class DatabricksHttpClient implements IDatabricksHttpClient, Closeable {
         String.format(
             "Caught error while executing http request: [%s]. Error Message: [%s]",
             RequestSanitizer.sanitizeRequest(request), e);
-    if (logLevel == LogLevel.DEBUG) {
-      LOGGER.debug(errorMsg);
-    } else {
-      LOGGER.error(e, errorMsg);
-    }
+    LOGGER.error(e, errorMsg);
     throw new DatabricksHttpException(errorMsg, e);
   }
 

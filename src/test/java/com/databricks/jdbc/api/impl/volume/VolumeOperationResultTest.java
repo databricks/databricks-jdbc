@@ -75,8 +75,8 @@ public class VolumeOperationResultTest {
 
     File file = new File(LOCAL_FILE_GET);
     assertTrue(file.exists());
-    try {
-      String fileContent = new String(new FileInputStream(file).readAllBytes());
+    try (FileInputStream fis = new FileInputStream(file)) {
+      String fileContent = new String(fis.readAllBytes());
       assertEquals("test", fileContent);
     } finally {
       assertTrue(file.delete());
@@ -162,7 +162,7 @@ public class VolumeOperationResultTest {
       volumeOperationResult.next();
       fail("Should throw DatabricksSQLException");
     } catch (DatabricksSQLException e) {
-      assertEquals("Volume operation aborted: Volume operation not supported", e.getMessage());
+      assertEquals("Volume operation aborted: Volume ingestion paths are not set", e.getMessage());
     }
   }
 

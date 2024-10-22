@@ -120,8 +120,7 @@ public class DatabricksBatchExecutor {
 
           logCommandExecutionTime(i, commandStartTime, false);
 
-          LOGGER.error(
-              String.format("Error executing batch command at index %d: %s", i, e.getMessage()), e);
+          LOGGER.error(e, "Error executing batch command at index %d: %s", i, e.getMessage());
 
           String message =
               String.format("Batch execution failed at command %d: %s", i, e.getMessage());
@@ -136,7 +135,7 @@ public class DatabricksBatchExecutor {
 
       return updateCounts;
     } catch (DatabricksBatchUpdateException e) {
-      LOGGER.error(String.format("BatchUpdateException occurred: %s", e.getMessage()), e);
+      LOGGER.error(e, "BatchUpdateException occurred: %s", e.getMessage());
       throw e;
     }
   }

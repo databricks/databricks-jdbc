@@ -44,9 +44,11 @@ class ChunkDownloadTask implements Callable<Void> {
           retries++;
           if (retries >= MAX_RETRIES) {
             LOGGER.error(
-                String.format(
-                    "Failed to download chunk after %d attempts. Chunk index: %d, Error: %s",
-                    MAX_RETRIES, chunk.getChunkIndex(), e.getMessage()));
+                e,
+                "Failed to download chunk after %d attempts. Chunk index: %d, Error: %s",
+                MAX_RETRIES,
+                chunk.getChunkIndex(),
+                e.getMessage());
             chunk.setStatus(ArrowResultChunk.ChunkStatus.DOWNLOAD_FAILED);
             throw new DatabricksSQLException("Failed to download chunk after multiple attempts", e);
           } else {

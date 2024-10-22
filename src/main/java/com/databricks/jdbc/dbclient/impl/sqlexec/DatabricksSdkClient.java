@@ -142,9 +142,8 @@ public class DatabricksSdkClient implements IDatabricksClient {
     String statementId = response.getStatementId();
     if (statementId == null) {
       LOGGER.error(
-          String.format(
-              "Empty Statement ID for sql %s, statementType %s, compute %s",
-              sql, statementType, computeResource));
+          "Empty Statement ID for sql %s, statementType %s, compute %s",
+          sql, statementType, computeResource);
       handleFailedExecution(response, "", sql);
     }
     LOGGER.debug(
@@ -224,9 +223,7 @@ public class DatabricksSdkClient implements IDatabricksClient {
             .POST(STATEMENT_PATH, request, ExecuteStatementResponse.class, getHeaders());
     String statementId = response.getStatementId();
     if (statementId == null) {
-      LOGGER.error(
-          String.format(
-              "Empty Statement ID for sql %s, compute %s", sql, computeResource.toString()));
+      LOGGER.error("Empty Statement ID for sql %s, compute %s", sql, computeResource.toString());
       handleFailedExecution(response, "", sql);
     }
     StatementId typedStatementId = new StatementId(statementId);
