@@ -17,7 +17,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Strings;
 import java.io.IOException;
-import java.sql.SQLException;
 import java.util.HashMap;
 import java.util.Map;
 import org.apache.http.HttpEntity;
@@ -134,7 +133,7 @@ public class VolumeOperationResult implements IExecutionResult {
   }
 
   private void validateMetadata() throws DatabricksSQLException {
-    // For now we only support one row for Volume operation
+    // For now, we only support one row for Volume operation
     if (rowCount > 1) {
       throw new DatabricksSQLException("Too many rows for Volume Operation");
     }
@@ -193,7 +192,7 @@ public class VolumeOperationResult implements IExecutionResult {
     this.volumeStreamContentLength = httpEntity.getContentLength();
   }
 
-  public InputStreamEntity getVolumeOperationInputStream() throws SQLException {
+  public InputStreamEntity getVolumeOperationInputStream() {
     return new InputStreamEntity(this.volumeInputStream, this.volumeStreamContentLength);
   }
 
