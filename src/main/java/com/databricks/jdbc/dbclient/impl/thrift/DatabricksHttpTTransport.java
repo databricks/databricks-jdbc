@@ -26,7 +26,7 @@ public class DatabricksHttpTTransport extends TTransport {
   private static final JdbcLogger LOGGER =
       JdbcLoggerFactory.getLogger(DatabricksHttpTTransport.class);
   private static final Map<String, String> DEFAULT_HEADERS =
-          Collections.unmodifiableMap(getDefaultHeaders());
+      Collections.unmodifiableMap(getDefaultHeaders());
   private final IDatabricksHttpClient httpClient;
   private final String url;
   private Map<String, String> customHeaders = Collections.emptyMap();

@@ -18,11 +18,7 @@ import com.databricks.sdk.core.utils.ProxyUtils;
 import com.google.common.annotations.VisibleForTesting;
 import java.io.Closeable;
 import java.io.IOException;
-import java.security.KeyManagementException;
-import java.security.KeyStoreException;
-import java.security.NoSuchAlgorithmException;
 import java.util.concurrent.TimeUnit;
-import javax.net.ssl.SSLContext;
 import org.apache.http.HttpException;
 import org.apache.http.HttpHost;
 import org.apache.http.client.config.RequestConfig;
@@ -30,13 +26,11 @@ import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpUriRequest;
 import org.apache.http.conn.UnsupportedSchemeException;
 import org.apache.http.conn.routing.HttpRoute;
-import org.apache.http.conn.ssl.NoopHostnameVerifier;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClientBuilder;
 import org.apache.http.impl.client.IdleConnectionEvictor;
 import org.apache.http.impl.conn.DefaultSchemePortResolver;
 import org.apache.http.impl.conn.PoolingHttpClientConnectionManager;
-import org.apache.http.ssl.SSLContextBuilder;
 
 /** Http client implementation to be used for executing http requests. */
 public class DatabricksHttpClient implements IDatabricksHttpClient, Closeable {
@@ -58,7 +52,8 @@ public class DatabricksHttpClient implements IDatabricksHttpClient, Closeable {
     httpClient = makeClosableHttpClient(connectionContext);
     retryHandler = new DatabricksHttpRetryHandler(connectionContext);
     idleConnectionEvictor =
-        new IdleConnectionEvictor(connectionManager, connectionContext.getIdleHttpConnectionExpiry(), TimeUnit.SECONDS);
+        new IdleConnectionEvictor(
+            connectionManager, connectionContext.getIdleHttpConnectionExpiry(), TimeUnit.SECONDS);
     idleConnectionEvictor.start();
   }
 
@@ -73,7 +68,7 @@ public class DatabricksHttpClient implements IDatabricksHttpClient, Closeable {
   @Override
   public CloseableHttpResponse execute(HttpUriRequest request) throws DatabricksHttpException {
     LOGGER.debug(
-            String.format("Executing HTTP request [{%s}]", RequestSanitizer.sanitizeRequest(request)));
+        String.format("Executing HTTP request [{%s}]", RequestSanitizer.sanitizeRequest(request)));
     if (!Boolean.parseBoolean(System.getProperty(IS_FAKE_SERVICE_TEST_PROP))) {
       // TODO : allow gzip in wiremock
       request.setHeader("Content-Encoding", "gzip");
@@ -134,7 +129,7 @@ public class DatabricksHttpClient implements IDatabricksHttpClient, Closeable {
   }
 
   private static void throwHttpException(Exception e, HttpUriRequest request, LogLevel logLevel)
-          throws DatabricksHttpException {
+      throws DatabricksHttpException {
     Throwable cause = e;
     while (cause != null) {
       if (cause instanceof DatabricksRetryHandlerException) {
@@ -143,9 +138,9 @@ public class DatabricksHttpClient implements IDatabricksHttpClient, Closeable {
       cause = cause.getCause();
     }
     String errorMsg =
-            String.format(
-                    "Caught error while executing http request: [%s]. Error Message: [%s]",
-                    RequestSanitizer.sanitizeRequest(request), e);
+        String.format(
+            "Caught error while executing http request: [%s]. Error Message: [%s]",
+            RequestSanitizer.sanitizeRequest(request), e);
     if (logLevel == LogLevel.DEBUG) {
       LOGGER.debug(errorMsg);
     } else {
