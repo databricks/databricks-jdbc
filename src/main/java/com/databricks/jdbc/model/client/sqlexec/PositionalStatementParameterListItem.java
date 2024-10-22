@@ -7,7 +7,6 @@ import java.util.Objects;
 
 public class PositionalStatementParameterListItem extends StatementParameterListItem {
 
-  /** session-id */
   @JsonProperty("ordinal")
   private int ordinal;
 

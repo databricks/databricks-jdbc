@@ -8,12 +8,10 @@ import org.apache.http.client.methods.HttpUriRequest;
 public interface IDatabricksHttpClient {
 
   /**
-   * Executes the given http request and returns the response TODO: add error handling
+   * Executes the given http request and returns the response
    *
    * @param request underlying http request
    * @return http response
    */
   CloseableHttpResponse execute(HttpUriRequest request) throws DatabricksHttpException;
-
-  void closeExpiredAndIdleConnections();
 }

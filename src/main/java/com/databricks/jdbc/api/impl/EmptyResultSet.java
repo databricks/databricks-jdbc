@@ -1,9 +1,10 @@
 package com.databricks.jdbc.api.impl;
 
 import com.databricks.jdbc.api.IDatabricksResultSet;
+import com.databricks.jdbc.api.internal.IDatabricksResultSetInternal;
 import com.databricks.jdbc.exception.DatabricksSQLException;
+import com.databricks.sdk.service.sql.StatementState;
 import com.databricks.sdk.service.sql.StatementStatus;
-import java.io.IOException;
 import java.io.InputStream;
 import java.io.Reader;
 import java.math.BigDecimal;
@@ -11,13 +12,12 @@ import java.net.URL;
 import java.sql.*;
 import java.util.Calendar;
 import java.util.Map;
-import org.apache.http.HttpEntity;
 import org.apache.http.entity.InputStreamEntity;
 
 /** Empty implementation of ResultSet */
-public class EmptyResultSet implements ResultSet, IDatabricksResultSet {
+public class EmptyResultSet
+    implements ResultSet, IDatabricksResultSet, IDatabricksResultSetInternal {
   private boolean isClosed;
-  private HttpEntity httpEntity = null;
 
   public EmptyResultSet() {
     isClosed = false;
@@ -1091,13 +1091,13 @@ public class EmptyResultSet implements ResultSet, IDatabricksResultSet {
   }
 
   @Override
-  public String statementId() {
-    return null;
+  public String getStatementId() {
+    return "";
   }
 
   @Override
   public StatementStatus getStatementStatus() {
-    return null;
+    return new StatementStatus().setState(StatementState.SUCCEEDED);
   }
 
   @Override
@@ -1111,17 +1111,7 @@ public class EmptyResultSet implements ResultSet, IDatabricksResultSet {
   }
 
   @Override
-  public void setVolumeOperationEntityStream(HttpEntity httpEntity)
-      throws SQLException, IOException {
-    this.httpEntity = httpEntity;
-  }
-
-  @Override
   public InputStreamEntity getVolumeOperationInputStream() throws SQLException {
-    try {
-      return new InputStreamEntity(httpEntity.getContent(), httpEntity.getContentLength());
-    } catch (IOException e) {
-      return null;
-    }
+    return null;
   }
 }

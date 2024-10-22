@@ -15,8 +15,6 @@ import com.databricks.jdbc.dbclient.impl.thrift.DatabricksThriftServiceClient;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
-import com.databricks.jdbc.telemetry.DatabricksMetrics;
-import com.databricks.jdbc.telemetry.annotation.DatabricksMetricsTimedProcessor;
 import com.databricks.sdk.support.ToStringer;
 import com.google.common.annotations.VisibleForTesting;
 import java.util.HashMap;
@@ -44,7 +42,6 @@ public class DatabricksSession implements IDatabricksSession {
   private final Map<String, String> clientInfoProperties;
   private final CompressionType compressionType;
   private final IDatabricksConnectionContext connectionContext;
-  private final DatabricksMetrics metricsExporter;
 
   /**
    * Creates an instance of Databricks session for given connection context
@@ -68,16 +65,13 @@ public class DatabricksSession implements IDatabricksSession {
     this.clientInfoProperties = new HashMap<>();
     this.compressionType = connectionContext.getCompressionType();
     this.connectionContext = connectionContext;
-    this.metricsExporter = new DatabricksMetrics(connectionContext);
-    this.databricksClient =
-        DatabricksMetricsTimedProcessor.createProxy(this.databricksClient, metricsExporter);
   }
 
   /** Constructor method to be used for mocking in a test case. */
   @VisibleForTesting
   public DatabricksSession(
-      IDatabricksConnectionContext connectionContext, IDatabricksClient databricksClient) {
-    this.databricksClient = databricksClient;
+      IDatabricksConnectionContext connectionContext, IDatabricksClient testDatabricksClient) {
+    this.databricksClient = testDatabricksClient;
     if (databricksClient instanceof DatabricksSdkClient) {
       this.databricksMetadataClient = new DatabricksMetadataSdkClient(databricksClient);
     }
@@ -89,7 +83,6 @@ public class DatabricksSession implements IDatabricksSession {
     this.sessionConfigs = connectionContext.getSessionConfigs();
     this.clientInfoProperties = new HashMap<>();
     this.compressionType = connectionContext.getCompressionType();
-    this.metricsExporter = new DatabricksMetrics(connectionContext);
     this.connectionContext = connectionContext;
   }
 
@@ -122,40 +115,31 @@ public class DatabricksSession implements IDatabricksSession {
   @Override
   public boolean isOpen() {
     LOGGER.debug("public boolean isOpen()");
-    // TODO: check for expired sessions
+    // TODO (PECO-1949): Check for expired sessions
     return isSessionOpen;
   }
 
   @Override
   public void open() throws DatabricksSQLException {
     LOGGER.debug("public void open()");
-    // TODO: check for expired sessions
-    if (!isSessionOpen) {
-      // TODO: handle errors
-      this.sessionInfo =
-          databricksClient.createSession(
-              this.computeResource, this.catalog, this.schema, this.sessionConfigs);
-      this.isSessionOpen = true;
+    synchronized (this) {
+      if (!isSessionOpen) {
+        this.sessionInfo =
+            databricksClient.createSession(
+                this.computeResource, this.catalog, this.schema, this.sessionConfigs);
+        this.isSessionOpen = true;
+      }
     }
   }
 
   @Override
   public void close() throws DatabricksSQLException {
     LOGGER.debug("public void close()");
-    if (isSessionOpen) {
-      try {
+    synchronized (this) {
+      if (isSessionOpen) {
         databricksClient.deleteSession(this, computeResource);
         this.sessionInfo = null;
         this.isSessionOpen = false;
-        if (!connectionContext.isFakeServiceTest()) {
-          this.getMetricsExporter().close();
-        }
-      } catch (DatabricksSQLException e) {
-        LOGGER.error(
-            String.format(
-                "Error while closing the session {%s}, error message: {%s}",
-                getSessionId(), e.getMessage()),
-            e);
       }
     }
   }
@@ -251,9 +235,5 @@ public class DatabricksSession implements IDatabricksSession {
   @Override
   public void setEmptyMetadataClient() {
     databricksMetadataClient = new DatabricksEmptyMetadataClient();
-  }
-
-  public DatabricksMetrics getMetricsExporter() {
-    return this.metricsExporter;
   }
 }

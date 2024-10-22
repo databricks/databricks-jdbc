@@ -58,7 +58,6 @@ public enum DatabricksJdbcUrlParams {
   IDLE_HTTP_CONNECTION_EXPIRY("IdleHttpConnectionExpiry", "60"),
   SUPPORT_MANY_PARAMETERS("supportManyParameters", "0"),
   CLOUD_FETCH_THREAD_POOL_SIZE("cloudFetchThreadPoolSize", "16"),
-  ENABLE_TELEMETRY("enableTelemetry", "0"),
   TOKEN_ENDPOINT("OAuth2TokenEndpoint"),
   AUTH_ENDPOINT("OAuth2AuthorizationEndPoint"),
   SSL_TRUST_STORE("SSLTrustStore"),
@@ -66,7 +65,8 @@ public enum DatabricksJdbcUrlParams {
   SSL_TRUST_STORE_PASSWORD("SSLTrustStorePwd"),
   SSL_TRUST_STORE_TYPE("SSLTrustStoreType", "JKS"),
   CHECK_CERTIFICATE_REVOCATION("CheckCertificateRevocation", "1"),
-  ACCEPT_UNDETERMINED_CERTIFICATE_REVOCATION("AcceptUndeterminedRevocation", "0");
+  ACCEPT_UNDETERMINED_CERTIFICATE_REVOCATION("AcceptUndeterminedRevocation", "0"),
+  MAX_BATCH_SIZE("MaxBatchSize", "500");
 
   private final String paramName;
   private final String defaultValue;

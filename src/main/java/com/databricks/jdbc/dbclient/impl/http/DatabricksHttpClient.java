@@ -33,6 +33,7 @@ import org.apache.http.conn.routing.HttpRoute;
 import org.apache.http.conn.ssl.NoopHostnameVerifier;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClientBuilder;
+import org.apache.http.impl.client.IdleConnectionEvictor;
 import org.apache.http.impl.conn.DefaultSchemePortResolver;
 import org.apache.http.impl.conn.PoolingHttpClientConnectionManager;
 import org.apache.http.ssl.SSLContextBuilder;
@@ -49,16 +50,16 @@ public class DatabricksHttpClient implements IDatabricksHttpClient, Closeable {
   private static final String JDBC_HTTP_USER_AGENT = "databricks-jdbc-http";
   private final PoolingHttpClientConnectionManager connectionManager;
   private final CloseableHttpClient httpClient;
-  private int idleHttpConnectionExpiry;
-  private CloseableHttpClient httpDisabledSSLClient;
   private DatabricksHttpRetryHandler retryHandler;
+  private IdleConnectionEvictor idleConnectionEvictor;
 
   DatabricksHttpClient(IDatabricksConnectionContext connectionContext) {
     connectionManager = initializeConnectionManager(connectionContext);
     httpClient = makeClosableHttpClient(connectionContext);
-    httpDisabledSSLClient = makeClosableDisabledSslHttpClient();
-    idleHttpConnectionExpiry = connectionContext.getIdleHttpConnectionExpiry();
     retryHandler = new DatabricksHttpRetryHandler(connectionContext);
+    idleConnectionEvictor =
+        new IdleConnectionEvictor(connectionManager, connectionContext.getIdleHttpConnectionExpiry(), TimeUnit.SECONDS);
+    idleConnectionEvictor.start();
   }
 
   @VisibleForTesting
@@ -72,7 +73,11 @@ public class DatabricksHttpClient implements IDatabricksHttpClient, Closeable {
   @Override
   public CloseableHttpResponse execute(HttpUriRequest request) throws DatabricksHttpException {
     LOGGER.debug(
-        String.format("Executing HTTP request [{%s}]", RequestSanitizer.sanitizeRequest(request)));
+            String.format("Executing HTTP request [{%s}]", RequestSanitizer.sanitizeRequest(request)));
+    if (!Boolean.parseBoolean(System.getProperty(IS_FAKE_SERVICE_TEST_PROP))) {
+      // TODO : allow gzip in wiremock
+      request.setHeader("Content-Encoding", "gzip");
+    }
     try {
       return httpClient.execute(request);
     } catch (IOException e) {
@@ -82,41 +87,16 @@ public class DatabricksHttpClient implements IDatabricksHttpClient, Closeable {
   }
 
   @Override
-  public void closeExpiredAndIdleConnections() {
-    synchronized (connectionManager) {
-      LOGGER.debug(String.format("Connection pool stats: {%s}", connectionManager.getTotalStats()));
-      connectionManager.closeExpiredConnections();
-      connectionManager.closeIdleConnections(idleHttpConnectionExpiry, TimeUnit.SECONDS);
-    }
-  }
-
-  @Override
   public void close() throws IOException {
+    if (idleConnectionEvictor != null) {
+      idleConnectionEvictor.shutdown();
+    }
     if (httpClient != null) {
       httpClient.close();
-    }
-    if (httpDisabledSSLClient != null) {
-      httpDisabledSSLClient.close();
     }
     if (connectionManager != null) {
       connectionManager.shutdown();
     }
-  }
-
-  public CloseableHttpResponse executeWithoutCertVerification(HttpUriRequest request)
-      throws DatabricksHttpException {
-    LOGGER.debug(
-        String.format("Executing HTTP request [{%s}]", RequestSanitizer.sanitizeRequest(request)));
-    try {
-      return httpDisabledSSLClient.execute(request);
-    } catch (Exception e) {
-      throwHttpException(e, request, LogLevel.DEBUG);
-    }
-    return null;
-  }
-
-  public int getIdleHttpConnectionExpiry() {
-    return idleHttpConnectionExpiry;
   }
 
   private PoolingHttpClientConnectionManager initializeConnectionManager(
@@ -137,25 +117,6 @@ public class DatabricksHttpClient implements IDatabricksHttpClient, Closeable {
         .build();
   }
 
-  private CloseableHttpClient makeClosableDisabledSslHttpClient() {
-    try {
-      // Create SSL context that trusts all certificates
-      SSLContext sslContext =
-          new SSLContextBuilder().loadTrustMaterial(null, (chain, authType) -> true).build();
-
-      // Create HttpClient with the SSL context
-      return HttpClientBuilder.create()
-          .setSSLContext(sslContext)
-          .setSSLHostnameVerifier(new NoopHostnameVerifier())
-          .build();
-    } catch (NoSuchAlgorithmException | KeyManagementException | KeyStoreException e) {
-      LOGGER.debug(
-          String.format(
-              "Error in creating HttpClient with the SSL context [{%s}]", e.getMessage()));
-    }
-    return null;
-  }
-
   private CloseableHttpClient makeClosableHttpClient(
       IDatabricksConnectionContext connectionContext) {
     HttpClientBuilder builder =
@@ -172,8 +133,8 @@ public class DatabricksHttpClient implements IDatabricksHttpClient, Closeable {
     return builder.build();
   }
 
-  private void throwHttpException(Exception e, HttpUriRequest request, LogLevel logLevel)
-      throws DatabricksHttpException {
+  private static void throwHttpException(Exception e, HttpUriRequest request, LogLevel logLevel)
+          throws DatabricksHttpException {
     Throwable cause = e;
     while (cause != null) {
       if (cause instanceof DatabricksRetryHandlerException) {
@@ -182,13 +143,13 @@ public class DatabricksHttpClient implements IDatabricksHttpClient, Closeable {
       cause = cause.getCause();
     }
     String errorMsg =
-        String.format(
-            "Caught error while executing http request: [%s]. Error Message: [%s]",
-            RequestSanitizer.sanitizeRequest(request), e);
+            String.format(
+                    "Caught error while executing http request: [%s]. Error Message: [%s]",
+                    RequestSanitizer.sanitizeRequest(request), e);
     if (logLevel == LogLevel.DEBUG) {
       LOGGER.debug(errorMsg);
     } else {
-      LOGGER.error(errorMsg, e);
+      LOGGER.error(e, errorMsg);
     }
     throw new DatabricksHttpException(errorMsg, e);
   }

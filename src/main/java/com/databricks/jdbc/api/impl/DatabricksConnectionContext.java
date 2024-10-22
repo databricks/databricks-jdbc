@@ -294,7 +294,6 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
 
   @Override
   public CompressionType getCompressionType() {
-    // TODO: Make use of compression type
     String compressionType =
         getParameter(
             DatabricksJdbcUrlParams.LZ4_COMPRESSION_FLAG,
@@ -480,18 +479,6 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
     return getParameter(DatabricksJdbcUrlParams.SUPPORT_MANY_PARAMETERS).equals("1");
   }
 
-  /** Returns whether the current test is a fake service test. */
-  @Override
-  public boolean isFakeServiceTest() {
-    // TODO: introduce driver config/properties
-    return Boolean.parseBoolean(System.getProperty(IS_FAKE_SERVICE_TEST_PROP));
-  }
-
-  @Override
-  public boolean enableTelemetry() {
-    return Objects.equals(getParameter(DatabricksJdbcUrlParams.ENABLE_TELEMETRY), "1");
-  }
-
   @Override
   public String getConnectionURL() {
     return connectionURL;
@@ -592,6 +579,11 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   @Override
   public String getSSLTrustStoreType() {
     return getParameter(DatabricksJdbcUrlParams.SSL_TRUST_STORE_TYPE);
+  }
+
+  @Override
+  public int getMaxBatchSize() {
+    return Integer.parseInt(getParameter(DatabricksJdbcUrlParams.MAX_BATCH_SIZE));
   }
 
   private static boolean nullOrEmptyString(String s) {

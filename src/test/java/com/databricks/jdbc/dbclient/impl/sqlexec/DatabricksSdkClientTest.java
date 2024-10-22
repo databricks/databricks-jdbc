@@ -4,7 +4,6 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.when;
 
 import com.databricks.jdbc.api.IDatabricksConnectionContext;
-import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.model.client.sqlexec.ExecuteStatementResponse;
 import com.databricks.sdk.core.ApiClient;
 import com.databricks.sdk.service.sql.*;
@@ -46,27 +45,5 @@ public class DatabricksSdkClientTest {
         "Statement execution failed statementId -> statement\n"
             + "CANCELED. Error Message: Error message, Error code: BAD_REQUEST",
         thrown.getMessage());
-  }
-
-  @Test
-  void testHandleFailedExecutionWithInvalidState() throws DatabricksParsingException {
-    when(response.getStatus()).thenReturn(status);
-    when(status.getState()).thenReturn(StatementState.PENDING); // Assuming PENDING is not handled
-    when(status.getError()).thenReturn(errorInfo);
-    when(errorInfo.getMessage()).thenReturn("This error should not occur");
-    when(connectionContext.getAuthMech()).thenReturn(IDatabricksConnectionContext.AuthMech.PAT);
-    when(connectionContext.getHostUrl()).thenReturn("https://pat.databricks.com");
-    when(connectionContext.getToken()).thenReturn("pat-token");
-
-    DatabricksSdkClient databricksSdkClient =
-        new DatabricksSdkClient(connectionContext, statementExecutionService, apiClient);
-
-    IllegalStateException thrown =
-        assertThrows(
-            IllegalStateException.class,
-            () ->
-                databricksSdkClient.handleFailedExecution(
-                    response, "statementId", "SELECT * FROM table"));
-    assertEquals("Invalid state for error", thrown.getMessage());
   }
 }

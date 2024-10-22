@@ -4,12 +4,14 @@ import static com.databricks.jdbc.common.util.DatabricksThriftUtil.*;
 
 import com.databricks.jdbc.api.IDatabricksResultSet;
 import com.databricks.jdbc.api.IDatabricksSession;
-import com.databricks.jdbc.api.IDatabricksStatement;
-import com.databricks.jdbc.api.impl.converters.AbstractObjectConverter;
 import com.databricks.jdbc.api.impl.converters.ConverterHelper;
-import com.databricks.jdbc.api.impl.volume.VolumeInputStream;
+import com.databricks.jdbc.api.impl.converters.ObjectConverter;
+import com.databricks.jdbc.api.impl.volume.VolumeOperationResult;
+import com.databricks.jdbc.api.internal.IDatabricksResultSetInternal;
+import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
 import com.databricks.jdbc.common.StatementType;
 import com.databricks.jdbc.common.util.WarningUtil;
+import com.databricks.jdbc.dbclient.impl.common.StatementId;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.exception.DatabricksSQLFeatureNotSupportedException;
@@ -24,51 +26,56 @@ import com.databricks.jdbc.model.core.ResultManifest;
 import com.databricks.sdk.service.sql.StatementState;
 import com.databricks.sdk.service.sql.StatementStatus;
 import com.google.common.annotations.VisibleForTesting;
-import java.io.IOException;
 import java.io.InputStream;
 import java.io.Reader;
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.net.URL;
 import java.sql.*;
 import java.util.Calendar;
 import java.util.List;
 import java.util.Map;
-import org.apache.http.HttpEntity;
+import java.util.function.Supplier;
 import org.apache.http.entity.InputStreamEntity;
 
-public class DatabricksResultSet implements ResultSet, IDatabricksResultSet {
+public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksResultSetInternal {
 
   private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(DatabricksResultSet.class);
   protected static final String AFFECTED_ROWS_COUNT = "num_affected_rows";
   private final StatementStatus statementStatus;
-  private final String statementId;
+  private final StatementId statementId;
   private final IExecutionResult executionResult;
   private final DatabricksResultSetMetaData resultSetMetaData;
   private final StatementType statementType;
-  private final IDatabricksStatement parentStatement;
+  private final IDatabricksStatementInternal parentStatement;
   private Long updateCount;
   private boolean isClosed;
   private SQLWarning warnings = null;
   private boolean wasNull;
-  private VolumeInputStream volumeInputStream = null;
-  private long volumeStreamContentLength = -1L;
+  private boolean isResultInitialized = true;
 
   // Constructor for SEA result set
   public DatabricksResultSet(
       StatementStatus statementStatus,
-      String statementId,
+      StatementId statementId,
       ResultData resultData,
       ResultManifest resultManifest,
       StatementType statementType,
       IDatabricksSession session,
-      IDatabricksStatement parentStatement)
+      IDatabricksStatementInternal parentStatement)
       throws DatabricksParsingException {
     this.statementStatus = statementStatus;
     this.statementId = statementId;
-    this.executionResult =
-        ExecutionResultFactory.getResultSet(
-            resultData, resultManifest, statementId, session, parentStatement, this);
-    this.resultSetMetaData = new DatabricksResultSetMetaData(statementId, resultManifest);
+    if (resultData != null) {
+      this.executionResult =
+          ExecutionResultFactory.getResultSet(
+              resultData, resultManifest, statementId, session, parentStatement);
+      this.resultSetMetaData = new DatabricksResultSetMetaData(statementId, resultManifest);
+    } else {
+      executionResult = null;
+      resultSetMetaData = null;
+      isResultInitialized = false;
+    }
     this.statementType = statementType;
     this.updateCount = null;
     this.parentStatement = parentStatement;
@@ -79,9 +86,9 @@ public class DatabricksResultSet implements ResultSet, IDatabricksResultSet {
   @VisibleForTesting
   public DatabricksResultSet(
       StatementStatus statementStatus,
-      String statementId,
+      StatementId statementId,
       StatementType statementType,
-      IDatabricksStatement parentStatement,
+      IDatabricksStatementInternal parentStatement,
       IExecutionResult executionResult,
       DatabricksResultSetMetaData resultSetMetaData) {
     this.statementStatus = statementStatus;
@@ -98,26 +105,39 @@ public class DatabricksResultSet implements ResultSet, IDatabricksResultSet {
   // Constructor for thrift result set
   public DatabricksResultSet(
       TStatus statementStatus,
-      String statementId,
+      StatementId statementId,
       TRowSet resultData,
       TGetResultSetMetadataResp resultManifest,
       StatementType statementType,
-      IDatabricksStatement parentStatement,
+      IDatabricksStatementInternal parentStatement,
       IDatabricksSession session)
       throws SQLException {
-    if (SUCCESS_STATUS_LIST.contains(statementStatus.getStatusCode())) {
-      this.statementStatus = new StatementStatus().setState(StatementState.SUCCEEDED);
-    } else {
-      this.statementStatus = new StatementStatus().setState(StatementState.FAILED);
+    switch (statementStatus.getStatusCode()) {
+      case SUCCESS_STATUS:
+      case SUCCESS_WITH_INFO_STATUS:
+        this.statementStatus = new StatementStatus().setState(StatementState.SUCCEEDED);
+        break;
+      case STILL_EXECUTING_STATUS:
+        this.statementStatus = new StatementStatus().setState(StatementState.RUNNING);
+        break;
+      default:
+        this.statementStatus = new StatementStatus().setState(StatementState.FAILED);
     }
+
     this.statementId = statementId;
-    this.executionResult =
-        ExecutionResultFactory.getResultSet(
-            resultData, resultManifest, statementId, session, parentStatement, this);
-    long rowSize = getRowCount(resultData);
-    this.resultSetMetaData =
-        new DatabricksResultSetMetaData(
-            statementId, resultManifest, rowSize, resultData.getResultLinksSize());
+    if (resultData != null) {
+      this.executionResult =
+          ExecutionResultFactory.getResultSet(
+              resultData, resultManifest, statementId, session, parentStatement);
+      long rowSize = getRowCount(resultData);
+      this.resultSetMetaData =
+          new DatabricksResultSetMetaData(
+              statementId, resultManifest, rowSize, resultData.getResultLinksSize());
+    } else {
+      this.executionResult = null;
+      this.resultSetMetaData = null;
+      this.isResultInitialized = false;
+    }
     this.statementType = statementType;
     this.updateCount = null;
     this.parentStatement = parentStatement;
@@ -128,7 +148,7 @@ public class DatabricksResultSet implements ResultSet, IDatabricksResultSet {
   // Constructing results for getUDTs, getTypeInfo, getProcedures metadata calls
   public DatabricksResultSet(
       StatementStatus statementStatus,
-      String statementId,
+      StatementId statementId,
       List<String> columnNames,
       List<String> columnTypeText,
       List<Integer> columnTypes,
@@ -156,7 +176,7 @@ public class DatabricksResultSet implements ResultSet, IDatabricksResultSet {
   // Constructing metadata result set in thrift flow
   public DatabricksResultSet(
       StatementStatus statementStatus,
-      String statementId,
+      StatementId statementId,
       List<String> columnNames,
       List<String> columnTypeText,
       List<Integer> columnTypes,
@@ -184,7 +204,7 @@ public class DatabricksResultSet implements ResultSet, IDatabricksResultSet {
   // Constructing metadata result set in SEA flow
   public DatabricksResultSet(
       StatementStatus statementStatus,
-      String statementId,
+      StatementId statementId,
       List<ColumnMetadata> columnMetadataList,
       List<List<Object>> rows,
       StatementType statementType) {
@@ -221,138 +241,65 @@ public class DatabricksResultSet implements ResultSet, IDatabricksResultSet {
     return this.wasNull;
   }
 
-  // TODO (Madhav): Clean up code by removing code duplicity by having common functions that branch
-  // out and to reuse converter objects.
   @Override
   public String getString(int columnIndex) throws SQLException {
-    checkIfClosed();
-    Object obj = getObjectInternal(columnIndex);
-    if (obj == null) {
-      return null;
-    }
-    int columnType = resultSetMetaData.getColumnType(columnIndex);
-    AbstractObjectConverter converter = ConverterHelper.getObjectConverter(obj, columnType);
-    return converter.convertToString();
+    return getConvertedObject(columnIndex, ObjectConverter::toString, () -> null);
   }
 
   @Override
   public boolean getBoolean(int columnIndex) throws SQLException {
-    Object obj = getObjectInternal(columnIndex);
-    if (obj == null) {
-      return false;
-    }
-    int columnType = resultSetMetaData.getColumnType(columnIndex);
-    AbstractObjectConverter converter = ConverterHelper.getObjectConverter(obj, columnType);
-    return converter.convertToBoolean();
+    return getConvertedObject(columnIndex, ObjectConverter::toBoolean, () -> false);
   }
 
   @Override
   public byte getByte(int columnIndex) throws SQLException {
-    checkIfClosed();
-    Object obj = getObjectInternal(columnIndex);
-    if (obj == null) {
-      return 0;
-    }
-    int columnType = resultSetMetaData.getColumnType(columnIndex);
-    AbstractObjectConverter converter = ConverterHelper.getObjectConverter(obj, columnType);
-    return converter.convertToByte();
+    return getConvertedObject(columnIndex, ObjectConverter::toByte, () -> (byte) 0);
   }
 
   @Override
   public short getShort(int columnIndex) throws SQLException {
-    checkIfClosed();
-    Object obj = getObjectInternal(columnIndex);
-    if (obj == null) {
-      return 0;
-    }
-    int columnType = resultSetMetaData.getColumnType(columnIndex);
-    AbstractObjectConverter converter = ConverterHelper.getObjectConverter(obj, columnType);
-    return converter.convertToShort();
+    return getConvertedObject(columnIndex, ObjectConverter::toShort, () -> (short) 0);
   }
 
   @Override
   public int getInt(int columnIndex) throws SQLException {
-    checkIfClosed();
-    Object obj = getObjectInternal(columnIndex);
-    if (obj == null) {
-      return 0;
-    }
-    int columnType = resultSetMetaData.getColumnType(columnIndex);
-    AbstractObjectConverter converter = ConverterHelper.getObjectConverter(obj, columnType);
-    return converter.convertToInt();
+    return getConvertedObject(columnIndex, ObjectConverter::toInt, () -> 0);
   }
 
   @Override
   public long getLong(int columnIndex) throws SQLException {
-    checkIfClosed();
-    Object obj = getObjectInternal(columnIndex);
-    if (obj == null) {
-      return 0;
-    }
-    int columnType = resultSetMetaData.getColumnType(columnIndex);
-    AbstractObjectConverter converter = ConverterHelper.getObjectConverter(obj, columnType);
-    return converter.convertToLong();
+    return getConvertedObject(columnIndex, ObjectConverter::toLong, () -> 0L);
   }
 
   @Override
   public float getFloat(int columnIndex) throws SQLException {
-    checkIfClosed();
-    Object obj = getObjectInternal(columnIndex);
-    if (obj == null) {
-      return 0f;
-    }
-    int columnType = resultSetMetaData.getColumnType(columnIndex);
-    AbstractObjectConverter converter = ConverterHelper.getObjectConverter(obj, columnType);
-    return converter.convertToFloat();
+    return getConvertedObject(columnIndex, ObjectConverter::toLong, () -> 0L);
   }
 
   @Override
   public double getDouble(int columnIndex) throws SQLException {
-    checkIfClosed();
-    Object obj = getObjectInternal(columnIndex);
-    if (obj == null) {
-      return 0;
-    }
-    int columnType = resultSetMetaData.getColumnType(columnIndex);
-    AbstractObjectConverter converter = ConverterHelper.getObjectConverter(obj, columnType);
-    return converter.convertToDouble();
+    return getConvertedObject(columnIndex, ObjectConverter::toDouble, () -> 0.0);
   }
 
-  // TODO (Madhav): Handle case when scale is not provided when getScale is implemented.
   @Override
   public BigDecimal getBigDecimal(int columnIndex, int scale) throws SQLException {
-    checkIfClosed();
-    Object obj = getObjectInternal(columnIndex);
-    if (obj == null) {
-      return BigDecimal.ZERO;
-    }
-    int columnType = resultSetMetaData.getColumnType(columnIndex);
-    AbstractObjectConverter converter = ConverterHelper.getObjectConverter(obj, columnType);
-    return converter.convertToBigDecimal();
+    return getConvertedObject(
+        columnIndex,
+        (converter, object) -> {
+          BigDecimal bd = converter.toBigDecimal(object);
+          return (bd != null) ? bd.setScale(scale, RoundingMode.HALF_UP) : null;
+        },
+        () -> BigDecimal.ZERO.setScale(scale, RoundingMode.HALF_UP));
   }
 
   @Override
   public byte[] getBytes(int columnIndex) throws SQLException {
-    checkIfClosed();
-    Object obj = getObjectInternal(columnIndex);
-    if (obj == null) {
-      return null;
-    }
-    int columnType = resultSetMetaData.getColumnType(columnIndex);
-    AbstractObjectConverter converter = ConverterHelper.getObjectConverter(obj, columnType);
-    return converter.convertToByteArray();
+    return getConvertedObject(columnIndex, ObjectConverter::toByteArray, () -> null);
   }
 
   @Override
   public Date getDate(int columnIndex) throws SQLException {
-    checkIfClosed();
-    Object obj = getObjectInternal(columnIndex);
-    if (obj == null) {
-      return null;
-    }
-    int columnType = resultSetMetaData.getColumnType(columnIndex);
-    AbstractObjectConverter converter = ConverterHelper.getObjectConverter(obj, columnType);
-    return converter.convertToDate();
+    return getConvertedObject(columnIndex, ObjectConverter::toDate, () -> null);
   }
 
   @Override
@@ -364,50 +311,22 @@ public class DatabricksResultSet implements ResultSet, IDatabricksResultSet {
 
   @Override
   public Timestamp getTimestamp(int columnIndex) throws SQLException {
-    checkIfClosed();
-    Object obj = getObjectInternal(columnIndex);
-    if (obj == null) {
-      return null;
-    }
-    int columnType = resultSetMetaData.getColumnType(columnIndex);
-    AbstractObjectConverter converter = ConverterHelper.getObjectConverter(obj, columnType);
-    return converter.convertToTimestamp();
+    return getConvertedObject(columnIndex, ObjectConverter::toTimestamp, () -> null);
   }
 
   @Override
   public InputStream getAsciiStream(int columnIndex) throws SQLException {
-    checkIfClosed();
-    Object obj = getObjectInternal(columnIndex);
-    if (obj == null) {
-      return null;
-    }
-    int columnType = resultSetMetaData.getColumnType(columnIndex);
-    AbstractObjectConverter converter = ConverterHelper.getObjectConverter(obj, columnType);
-    return converter.convertToAsciiStream();
+    return getConvertedObject(columnIndex, ObjectConverter::toAsciiStream, () -> null);
   }
 
   @Override
   public InputStream getUnicodeStream(int columnIndex) throws SQLException {
-    checkIfClosed();
-    Object obj = getObjectInternal(columnIndex);
-    if (obj == null) {
-      return null;
-    }
-    int columnType = resultSetMetaData.getColumnType(columnIndex);
-    AbstractObjectConverter converter = ConverterHelper.getObjectConverter(obj, columnType);
-    return converter.convertToUnicodeStream();
+    return getConvertedObject(columnIndex, ObjectConverter::toUnicodeStream, () -> null);
   }
 
   @Override
   public InputStream getBinaryStream(int columnIndex) throws SQLException {
-    checkIfClosed();
-    Object obj = getObjectInternal(columnIndex);
-    if (obj == null) {
-      return null;
-    }
-    int columnType = resultSetMetaData.getColumnType(columnIndex);
-    AbstractObjectConverter converter = ConverterHelper.getObjectConverter(obj, columnType);
-    return converter.convertToBinaryStream();
+    return getConvertedObject(columnIndex, ObjectConverter::toBinaryStream, () -> null);
   }
 
   @Override
@@ -522,7 +441,7 @@ public class DatabricksResultSet implements ResultSet, IDatabricksResultSet {
       return null;
     }
     int columnType = resultSetMetaData.getColumnType(columnIndex);
-    return ConverterHelper.getConvertedObject(columnType, obj);
+    return ConverterHelper.convertSqlTypeToJavaType(columnType, obj);
   }
 
   @Override
@@ -545,8 +464,8 @@ public class DatabricksResultSet implements ResultSet, IDatabricksResultSet {
       return null;
     }
     int columnType = resultSetMetaData.getColumnType(columnIndex);
-    AbstractObjectConverter converter = ConverterHelper.getObjectConverter(obj, columnType);
-    return converter.convertToCharacterStream();
+    ObjectConverter converter = ConverterHelper.getConverterForSqlType(columnType);
+    return converter.toCharacterStream(obj);
   }
 
   @Override
@@ -1044,13 +963,13 @@ public class DatabricksResultSet implements ResultSet, IDatabricksResultSet {
     if (obj == null) {
       return null;
     }
-    int columnType = resultSetMetaData.getColumnType(columnIndex);
+    int columnSqlType = resultSetMetaData.getColumnType(columnIndex);
     String columnTypeText = resultSetMetaData.getColumnTypeName(columnIndex);
     Class<?> returnObjectType = map.get(columnTypeText);
     if (returnObjectType != null) {
       try {
-        AbstractObjectConverter converter = ConverterHelper.getObjectConverter(obj, columnType);
-        return ConverterHelper.getConvertedObject(returnObjectType, converter);
+        return ConverterHelper.convertSqlTypeToSpecificJavaType(
+            returnObjectType, columnSqlType, obj);
       } catch (Exception e) {
         addWarningAndLog(
             "Exception occurred while converting object into corresponding return object type using getObject(int columnIndex, Map<String, Class<?>> map). Returning null. Exception: "
@@ -1062,11 +981,6 @@ public class DatabricksResultSet implements ResultSet, IDatabricksResultSet {
         "Corresponding return object type not found while using getObject(int columnIndex, Map<String, Class<?>> map). Returning null. Object type: "
             + columnTypeText);
     return null;
-  }
-
-  private void addWarningAndLog(String warningMessage) {
-    LOGGER.warn(warningMessage);
-    warnings = WarningUtil.addWarning(warnings, warningMessage);
   }
 
   @Override
@@ -1582,10 +1496,9 @@ public class DatabricksResultSet implements ResultSet, IDatabricksResultSet {
   public <T> T getObject(int columnIndex, Class<T> type) throws SQLException {
     checkIfClosed();
     Object obj = getObjectInternal(columnIndex);
-    int columnType = resultSetMetaData.getColumnType(columnIndex);
+    int columnSqlType = resultSetMetaData.getColumnType(columnIndex);
     try {
-      AbstractObjectConverter converter = ConverterHelper.getObjectConverter(obj, columnType);
-      return (T) ConverterHelper.getConvertedObject(type, converter);
+      return (T) ConverterHelper.convertSqlTypeToSpecificJavaType(type, columnSqlType, obj);
     } catch (Exception e) {
       String errorMessage =
           String.format(
@@ -1603,19 +1516,24 @@ public class DatabricksResultSet implements ResultSet, IDatabricksResultSet {
 
   @Override
   public <T> T unwrap(Class<T> iface) throws SQLException {
-    throw new DatabricksSQLFeatureNotSupportedException(
-        "Not implemented in DatabricksResultSet - unwrap(Class<T> iface)");
+    LOGGER.debug("public <T> T unwrap(Class<T> iface)");
+    if (iface.isInstance(this)) {
+      return (T) this;
+    }
+    throw new DatabricksSQLException(
+        String.format(
+            "Class {%s} cannot be wrapped from {%s}", this.getClass().getName(), iface.getName()));
   }
 
   @Override
   public boolean isWrapperFor(Class<?> iface) throws SQLException {
-    throw new DatabricksSQLFeatureNotSupportedException(
-        "Not implemented in DatabricksResultSet - isWrapperFor(Class<?> iface)");
+    LOGGER.debug("public boolean isWrapperFor(Class<?> iface)");
+    return iface.isInstance(this);
   }
 
   @Override
-  public String statementId() {
-    return statementId;
+  public String getStatementId() {
+    return statementId.toString();
   }
 
   @Override
@@ -1654,18 +1572,17 @@ public class DatabricksResultSet implements ResultSet, IDatabricksResultSet {
   }
 
   @Override
-  public void setVolumeOperationEntityStream(HttpEntity httpEntity)
-      throws SQLException, IOException {
-    checkIfClosed();
-    this.volumeInputStream =
-        new VolumeInputStream(httpEntity, executionResult, this.parentStatement);
-    this.volumeStreamContentLength = httpEntity.getContentLength();
-  }
-
-  @Override
   public InputStreamEntity getVolumeOperationInputStream() throws SQLException {
     checkIfClosed();
-    return new InputStreamEntity(this.volumeInputStream, this.volumeStreamContentLength);
+    if (executionResult instanceof VolumeOperationResult) {
+      return ((VolumeOperationResult) executionResult).getVolumeOperationInputStream();
+    }
+    throw new DatabricksSQLException("Invalid volume operation");
+  }
+
+  private void addWarningAndLog(String warningMessage) {
+    LOGGER.warn(warningMessage);
+    warnings = WarningUtil.addWarning(warnings, warningMessage);
   }
 
   private Object getObjectInternal(int columnIndex) throws SQLException {
@@ -1685,5 +1602,23 @@ public class DatabricksResultSet implements ResultSet, IDatabricksResultSet {
     if (this.isClosed) {
       throw new DatabricksSQLException("Operation not allowed - ResultSet is closed");
     }
+  }
+
+  @FunctionalInterface
+  private interface ConverterFunction<T> {
+    T apply(ObjectConverter converter, Object obj) throws SQLException;
+  }
+
+  private <T> T getConvertedObject(
+      int columnIndex, ConverterFunction<T> convertMethod, Supplier<T> defaultValue)
+      throws SQLException {
+    checkIfClosed();
+    Object obj = getObjectInternal(columnIndex);
+    if (obj == null) {
+      return defaultValue.get();
+    }
+    int columnType = resultSetMetaData.getColumnType(columnIndex);
+    ObjectConverter converter = ConverterHelper.getConverterForSqlType(columnType);
+    return convertMethod.apply(converter, obj);
   }
 }

@@ -186,7 +186,7 @@ public class DatabricksMetadataSdkClientTest {
     when(mockedCatalogResultSet.getMetaData()).thenReturn(mockedMetaData);
     DatabricksResultSet actualResult = metadataClient.listCatalogs(session);
     assertEquals(actualResult.getStatementStatus().getState(), StatementState.SUCCEEDED);
-    assertEquals(actualResult.statementId(), GET_CATALOGS_STATEMENT_ID);
+    assertEquals(actualResult.getStatementId(), GET_CATALOGS_STATEMENT_ID);
     assertEquals(((DatabricksResultSetMetaData) actualResult.getMetaData()).getTotalRows(), 2);
   }
 
@@ -195,7 +195,7 @@ public class DatabricksMetadataSdkClientTest {
     DatabricksMetadataSdkClient metadataClient = new DatabricksMetadataSdkClient(mockClient);
     DatabricksResultSet actualResult = metadataClient.listTableTypes(session);
     assertEquals(actualResult.getStatementStatus().getState(), StatementState.SUCCEEDED);
-    assertEquals(actualResult.statementId(), GET_TABLE_TYPE_STATEMENT_ID);
+    assertEquals(actualResult.getStatementId(), GET_TABLE_TYPE_STATEMENT_ID);
     assertEquals(((DatabricksResultSetMetaData) actualResult.getMetaData()).getTotalRows(), 3);
   }
 
@@ -266,7 +266,7 @@ public class DatabricksMetadataSdkClientTest {
     // Validate the result set and metadata
     assertEquals(
         actualResult.getStatementStatus().getState(), StatementState.SUCCEEDED, description);
-    assertEquals(actualResult.statementId(), GET_TABLES_STATEMENT_ID, description);
+    assertEquals(actualResult.getStatementId(), GET_TABLES_STATEMENT_ID, description);
     assertEquals(
         ((DatabricksResultSetMetaData) actualResult.getMetaData()).getTotalRows(), 1, description);
 
@@ -347,7 +347,7 @@ public class DatabricksMetadataSdkClientTest {
 
     assertEquals(
         actualResult.getStatementStatus().getState(), StatementState.SUCCEEDED, description);
-    assertEquals(actualResult.statementId(), METADATA_STATEMENT_ID, description);
+    assertEquals(actualResult.getStatementId(), METADATA_STATEMENT_ID, description);
     assertEquals(
         ((DatabricksResultSetMetaData) actualResult.getMetaData()).getTotalRows(), 1, description);
 
@@ -392,7 +392,7 @@ public class DatabricksMetadataSdkClientTest {
     DatabricksResultSet actualResult = metadataClient.listSchemas(session, TEST_CATALOG, schema);
     assertEquals(
         actualResult.getStatementStatus().getState(), StatementState.SUCCEEDED, description);
-    assertEquals(actualResult.statementId(), METADATA_STATEMENT_ID, description);
+    assertEquals(actualResult.getStatementId(), METADATA_STATEMENT_ID, description);
     assertEquals(
         ((DatabricksResultSetMetaData) actualResult.getMetaData()).getTotalRows(), 1, description);
   }
@@ -427,7 +427,7 @@ public class DatabricksMetadataSdkClientTest {
     DatabricksResultSet actualResult =
         metadataClient.listPrimaryKeys(session, TEST_CATALOG, TEST_SCHEMA, TEST_TABLE);
     assertEquals(actualResult.getStatementStatus().getState(), StatementState.SUCCEEDED);
-    assertEquals(actualResult.statementId(), METADATA_STATEMENT_ID);
+    assertEquals(actualResult.getStatementId(), METADATA_STATEMENT_ID);
     assertEquals(((DatabricksResultSetMetaData) actualResult.getMetaData()).getTotalRows(), 1);
   }
 
@@ -462,7 +462,7 @@ public class DatabricksMetadataSdkClientTest {
 
     assertEquals(
         actualResult.getStatementStatus().getState(), StatementState.SUCCEEDED, description);
-    assertEquals(actualResult.statementId(), GET_FUNCTIONS_STATEMENT_ID, description);
+    assertEquals(actualResult.getStatementId(), GET_FUNCTIONS_STATEMENT_ID, description);
     assertEquals(
         ((DatabricksResultSetMetaData) actualResult.getMetaData()).getTotalRows(), 1, description);
   }

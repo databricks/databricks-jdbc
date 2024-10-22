@@ -2,14 +2,13 @@ package com.databricks.jdbc.api.impl;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+import com.databricks.sdk.service.sql.StatementState;
 import java.io.ByteArrayInputStream;
 import java.io.StringReader;
 import java.math.BigDecimal;
 import java.sql.*;
 import java.util.Calendar;
 import java.util.Map;
-import org.apache.http.HttpEntity;
-import org.apache.http.entity.StringEntity;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -374,14 +373,6 @@ public class EmptyResultSetTest {
   }
 
   @Test
-  public void testUCInputStream() throws Exception {
-    HttpEntity entity = new StringEntity("hello");
-    resultSet.setVolumeOperationEntityStream(entity);
-    assertEquals(
-        "hello", new String(resultSet.getVolumeOperationInputStream().getContent().readAllBytes()));
-  }
-
-  @Test
   public void testGetMethodsReturnZeroOrEquivalent() throws SQLException {
     EmptyResultSet resultSet =
         new EmptyResultSet(); // Assuming the constructor doesn't throw SQLException
@@ -419,8 +410,8 @@ public class EmptyResultSetTest {
 
     // For getBigDecimal(int) - assuming 1 as a placeholder for column index
     assertNull(resultSet.getBigDecimal(1));
-    assertNull(resultSet.statementId());
-    assertNull(resultSet.getStatementStatus());
+    assertTrue(resultSet.getStatementId().isEmpty());
+    assertEquals(StatementState.SUCCEEDED, resultSet.getStatementStatus().getState());
     assertEquals(0, resultSet.getUpdateCount());
     assertFalse(resultSet.hasUpdateCount());
   }
@@ -453,11 +444,11 @@ public class EmptyResultSetTest {
     assertDoesNotThrow(() -> resultSet.updateString("columnIndex", ""));
     assertDoesNotThrow(() -> resultSet.updateBytes("columnIndex", new byte[0]));
 
-    assertDoesNotThrow(() -> resultSet.beforeFirst());
-    assertDoesNotThrow(() -> resultSet.afterLast());
+    assertDoesNotThrow(resultSet::beforeFirst);
+    assertDoesNotThrow(resultSet::afterLast);
     assertDoesNotThrow(() -> resultSet.setFetchDirection(ResultSet.FETCH_FORWARD));
     assertDoesNotThrow(() -> resultSet.setFetchSize(0));
-    assertDoesNotThrow(() -> resultSet.clearWarnings());
+    assertDoesNotThrow(resultSet::clearWarnings);
 
     // Object and stream updates
     assertDoesNotThrow(() -> resultSet.updateDate(1, Date.valueOf("2020-01-01")));
@@ -498,13 +489,13 @@ public class EmptyResultSetTest {
     assertDoesNotThrow(() -> resultSet.updateSQLXML("columnIndex", null));
 
     // Row updates
-    assertDoesNotThrow(() -> resultSet.insertRow());
-    assertDoesNotThrow(() -> resultSet.updateRow());
-    assertDoesNotThrow(() -> resultSet.deleteRow());
-    assertDoesNotThrow(() -> resultSet.refreshRow());
-    assertDoesNotThrow(() -> resultSet.cancelRowUpdates());
-    assertDoesNotThrow(() -> resultSet.moveToInsertRow());
-    assertDoesNotThrow(() -> resultSet.moveToCurrentRow());
+    assertDoesNotThrow(resultSet::insertRow);
+    assertDoesNotThrow(resultSet::updateRow);
+    assertDoesNotThrow(resultSet::deleteRow);
+    assertDoesNotThrow(resultSet::refreshRow);
+    assertDoesNotThrow(resultSet::cancelRowUpdates);
+    assertDoesNotThrow(resultSet::moveToInsertRow);
+    assertDoesNotThrow(resultSet::moveToCurrentRow);
 
     // Stream updates with length
     assertDoesNotThrow(() -> resultSet.updateBlob(1, null, 0L));

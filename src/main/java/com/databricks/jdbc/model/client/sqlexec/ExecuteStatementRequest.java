@@ -10,7 +10,11 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import java.util.Collection;
 import java.util.Objects;
 
-/* TODO: This file is picked from databricks-sdk-java. Remove this once arclight changes are included in API-SPEC */
+/**
+ * Execute statement request POJO
+ *
+ * <p>TODO: Replace this class with the corresponding SDK implementation once it becomes available
+ */
 public class ExecuteStatementRequest {
   @JsonProperty("statement")
   private String statement;
