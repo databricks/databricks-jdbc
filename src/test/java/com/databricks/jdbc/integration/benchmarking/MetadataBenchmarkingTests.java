@@ -280,7 +280,7 @@ public class MetadataBenchmarkingTests {
   }
 
   private String getDatabricksCatalog() {
-    return "hive_metastore";
+    return "main";
   }
 
   private void loadSimbaDriver() {
