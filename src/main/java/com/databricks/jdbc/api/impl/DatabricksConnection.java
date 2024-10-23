@@ -30,7 +30,7 @@ public class DatabricksConnection implements IDatabricksConnection, Connection {
   private final Set<IDatabricksStatementHandle> statementSet = ConcurrentHashMap.newKeySet();
   private SQLWarning warnings = null;
   private volatile IDatabricksUCVolumeClient ucVolumeClient = null;
-  private volatile IDBFSVolumeClient dbfsVolumeClient = null;
+  private volatile IDatabricksUCVolumeClient dbfsVolumeClient = null;
 
   /**
    * Creates an instance of Databricks connection for given connection context.
@@ -521,7 +521,7 @@ public class DatabricksConnection implements IDatabricksConnection, Connection {
   }
 
   @Override
-  public IDBFSVolumeClient getDBFSVolumeClient() {
+  public IDatabricksUCVolumeClient getDBFSVolumeClient() {
     if (dbfsVolumeClient == null) {
       synchronized (this) {
         if (dbfsVolumeClient == null) {

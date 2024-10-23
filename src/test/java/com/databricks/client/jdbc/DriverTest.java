@@ -1,6 +1,5 @@
 package com.databricks.client.jdbc;
 
-import com.databricks.jdbc.api.IDBFSVolumeClient;
 import com.databricks.jdbc.api.IDatabricksConnection;
 import com.databricks.jdbc.api.IDatabricksUCVolumeClient;
 import com.databricks.jdbc.api.impl.arrow.ArrowResultChunk;
@@ -279,7 +278,7 @@ public class DriverTest {
     Connection con = DriverManager.getConnection(jdbcUrl, "token", "xx");
     System.out.println("Connection created");
 
-    IDBFSVolumeClient client = ((IDatabricksConnection) con).getDBFSVolumeClient();
+    IDatabricksUCVolumeClient client = ((IDatabricksConnection) con).getDBFSVolumeClient();
 
     File file = new File("/tmp/put.txt");
     try {
@@ -293,7 +292,8 @@ public class DriverTest {
                   "jprakash-test",
                   "jprakash_volume",
                   "test-stream.csv",
-                  "/tmp/put.txt"));
+                  "/tmp/put.txt",
+                  true));
 
     } catch (Exception e) {
       e.printStackTrace();

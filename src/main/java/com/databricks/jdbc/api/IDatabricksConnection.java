@@ -25,7 +25,7 @@ public interface IDatabricksConnection {
   IDatabricksUCVolumeClient getUCVolumeClient();
 
   /** Returns a DBFS Volume client instance */
-  IDBFSVolumeClient getDBFSVolumeClient();
+  IDatabricksUCVolumeClient getDBFSVolumeClient();
 
   /** Opens the connection and initiates the underlying session */
   void open() throws DatabricksSQLException;
