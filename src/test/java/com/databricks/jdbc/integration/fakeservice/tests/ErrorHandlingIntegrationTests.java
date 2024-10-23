@@ -3,7 +3,6 @@ package com.databricks.jdbc.integration.fakeservice.tests;
 import static com.databricks.jdbc.integration.IntegrationTestUtil.*;
 import static org.junit.jupiter.api.Assertions.*;
 
-import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.exception.DatabricksSQLFeatureNotSupportedException;
 import com.databricks.jdbc.integration.fakeservice.AbstractFakeServiceIntegrationTests;
@@ -39,10 +38,8 @@ public class ErrorHandlingIntegrationTests extends AbstractFakeServiceIntegratio
   @Test
   void testInvalidURL() {
     Exception exception =
-        assertThrows(
-            DatabricksParsingException.class,
-            () -> getConnection("jdbc:abcde://invalidhost:0000/db"));
-    assertTrue(exception.getMessage().contains("Invalid url"));
+        assertThrows(SQLException.class, () -> getConnection("jdbc:abcde://invalidhost:0000/db"));
+    assertTrue(exception.getMessage().contains("No suitable driver found for"));
   }
 
   @Test
