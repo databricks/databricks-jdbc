@@ -31,38 +31,11 @@ public class DBFSVolumeClient implements IDatabricksUCVolumeClient {
     this.connection = (DatabricksConnection) connection;
   }
 
-  private CreateUploadUrlResponse getCreateUploadUrlResponse(String objectPath)
-      throws DatabricksVolumeOperationException {
-    LOGGER.debug(
-        String.format(
-            "Entering getCreateUploadUrlResponse method with parameters: objectPath={%s}",
-            objectPath));
-    IDatabricksClient client = connection.getSession().getDatabricksClient();
-    IDatabricksConnectionContext connectionContext = client.getConnectionContext();
-    WorkspaceClient workspaceClient =
-        new ClientConfigurator(connectionContext).getWorkspaceClient();
-
-    CreateUploadUrlRequest request = new CreateUploadUrlRequest(objectPath);
-    try {
-      return workspaceClient
-          .apiClient()
-          .POST(
-              CREATE_UPLOAD_URL_PATH,
-              request,
-              CreateUploadUrlResponse.class,
-              ClientUtil.getHeaders());
-    } catch (DatabricksException e) {
-      String errorMessage =
-          String.format("Failed to get create upload url response - {%s}", e.getMessage());
-      LOGGER.error(errorMessage);
-      throw new DatabricksVolumeOperationException(errorMessage, e);
-    }
-  }
-
   public boolean prefixExists(
       String catalog, String schema, String volume, String prefix, boolean caseSensitive)
       throws SQLException {
     String errorMessage = "prefixExists function is unsupported in DBFSVolumeClient";
+    LOGGER.error(errorMessage);
     throw new SQLException(errorMessage);
   }
 
@@ -70,12 +43,14 @@ public class DBFSVolumeClient implements IDatabricksUCVolumeClient {
       String catalog, String schema, String volume, String objectPath, boolean caseSensitive)
       throws SQLException {
     String errorMessage = "objectExists function is unsupported in DBFSVolumeClient";
+    LOGGER.error(errorMessage);
     throw new SQLException(errorMessage);
   }
 
   public boolean volumeExists(
       String catalog, String schema, String volumeName, boolean caseSensitive) throws SQLException {
     String errorMessage = "volumeExists function is unsupported in DBFSVolumeClient";
+    LOGGER.error(errorMessage);
     throw new SQLException(errorMessage);
   }
 
@@ -83,6 +58,7 @@ public class DBFSVolumeClient implements IDatabricksUCVolumeClient {
       String catalog, String schema, String volume, String prefix, boolean caseSensitive)
       throws SQLException {
     String errorMessage = "listObjects function is unsupported in DBFSVolumeClient";
+    LOGGER.error(errorMessage);
     throw new SQLException(errorMessage);
   }
 
@@ -90,6 +66,7 @@ public class DBFSVolumeClient implements IDatabricksUCVolumeClient {
       String catalog, String schema, String volume, String objectPath, String localPath)
       throws SQLException {
     String errorMessage = "getObject returning boolean function is unsupported in DBFSVolumeClient";
+    LOGGER.error(errorMessage);
     throw new SQLException(errorMessage);
   }
 
@@ -97,6 +74,7 @@ public class DBFSVolumeClient implements IDatabricksUCVolumeClient {
       String catalog, String schema, String volume, String objectPath) throws SQLException {
     String errorMessage =
         "getObject returning InputStreamEntity function is unsupported in DBFSVolumeClient";
+    LOGGER.error(errorMessage);
     throw new SQLException(errorMessage);
   }
 
@@ -143,12 +121,42 @@ public class DBFSVolumeClient implements IDatabricksUCVolumeClient {
       boolean toOverwrite)
       throws SQLException {
     String errorMessage = "putObject for InputStream function is unsupported in DBFSVolumeClient";
+    LOGGER.error(errorMessage);
     throw new SQLException(errorMessage);
   }
 
   public boolean deleteObject(String catalog, String schema, String volume, String objectPath)
       throws SQLException {
     String errorMessage = "deleteObject function is unsupported in DBFSVolumeClient";
+    LOGGER.error(errorMessage);
     throw new SQLException(errorMessage);
+  }
+
+  private CreateUploadUrlResponse getCreateUploadUrlResponse(String objectPath)
+      throws DatabricksVolumeOperationException {
+    LOGGER.debug(
+        String.format(
+            "Entering getCreateUploadUrlResponse method with parameters: objectPath={%s}",
+            objectPath));
+    IDatabricksClient client = connection.getSession().getDatabricksClient();
+    IDatabricksConnectionContext connectionContext = client.getConnectionContext();
+    WorkspaceClient workspaceClient =
+        new ClientConfigurator(connectionContext).getWorkspaceClient();
+
+    CreateUploadUrlRequest request = new CreateUploadUrlRequest(objectPath);
+    try {
+      return workspaceClient
+          .apiClient()
+          .POST(
+              CREATE_UPLOAD_URL_PATH,
+              request,
+              CreateUploadUrlResponse.class,
+              ClientUtil.getHeaders());
+    } catch (DatabricksException e) {
+      String errorMessage =
+          String.format("Failed to get create upload url response - {%s}", e.getMessage());
+      LOGGER.error(errorMessage);
+      throw new DatabricksVolumeOperationException(errorMessage, e);
+    }
   }
 }
