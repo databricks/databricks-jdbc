@@ -139,8 +139,9 @@ public class DatabricksTypeUtil {
       case USER_DEFINED_TYPE:
         return Types.OTHER;
       default:
-        LOGGER.error("Unknown column type: " + typeName);
-        throw new IllegalStateException("Unknown column type: " + typeName);
+        String errorMsg = "Unknown column type: " + typeName;
+        LOGGER.error(errorMsg);
+        throw new IllegalStateException(errorMsg);
     }
   }
 
@@ -182,8 +183,9 @@ public class DatabricksTypeUtil {
       case MAP:
         return "java.util.Map";
       default:
-        LOGGER.error("Unknown column type class name: " + typeName);
-        throw new IllegalStateException("Unknown column type class name: " + typeName);
+        String errorMsg = "Unknown column type class name: " + typeName;
+        LOGGER.error(errorMsg);
+        throw new IllegalStateException(errorMsg);
     }
   }
 
