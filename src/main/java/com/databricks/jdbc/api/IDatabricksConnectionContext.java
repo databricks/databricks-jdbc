@@ -11,12 +11,6 @@ import java.util.Map;
 
 public interface IDatabricksConnectionContext {
 
-  enum Cloud {
-    AWS,
-    AZURE,
-    OTHER
-  }
-
   enum AuthFlow {
     TOKEN_PASSTHROUGH,
     CLIENT_CREDENTIALS,
