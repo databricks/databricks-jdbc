@@ -1,4 +1,26 @@
 # Version Changelog
+## [v0.9.6-oss] - 2024-10-24
+### Added
+* Added compression in the Thrift protocol flow.
+* Added support for asynchronous query execution.
+* Implemented `executeBatch` for batch operations.
+* Added a method to extract disposition from result set metadata.
+### Updated
+* Optimised memory allocation for type converters.
+* Enhanced logging for better traceability.
+* Improved performance in the Thrift protocol flow.
+* Upgraded `commons-io` to address security vulnerability (CVE mitigation).
+* Ensured thread safety in `DatabricksPooledConnection`.
+* Set UBER jar as the default jar for distribution.
+* Refined result chunk management for better efficiency.
+* Enhanced integration tests for broader coverage.
+* Increased unit test coverage threshold to 85%.
+* Improved interaction with Thrift-server client.
+### Fixed
+* Fixed compatibility issue with other drivers in the driver manager.
+
+---
+
 ## [v0.9.5-oss] - 2024-09-25
 ### Added
 - Support proxy ignore list.
