@@ -30,6 +30,11 @@ import org.apache.http.entity.InputStreamEntity;
 public class DatabricksStatement implements IDatabricksStatement, IDatabricksStatementInternal {
 
   private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(DatabricksStatement.class);
+
+  /** ExecutorService for handling asynchronous execution of statements. */
+  private final ExecutorService executor =
+      Executors.newFixedThreadPool(getRuntime().availableProcessors() * 2);
+
   private int timeoutInSeconds;
   private final DatabricksConnection connection;
   DatabricksResultSet resultSet;
@@ -111,6 +116,7 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
     if (removeFromSession) {
       this.connection.closeStatement(this);
     }
+    shutDownExecutor();
   }
 
   @Override
@@ -604,8 +610,6 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
 
   CompletableFuture<DatabricksResultSet> getFutureResult(
       String sql, Map<Integer, ImmutableSqlParameter> params, StatementType statementType) {
-    int poolSize = getRuntime().availableProcessors() * 2;
-    ExecutorService executor = Executors.newFixedThreadPool(poolSize);
     return CompletableFuture.supplyAsync(
         () -> {
           try {
@@ -634,6 +638,27 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
   void checkIfClosed() throws DatabricksSQLException {
     if (isClosed) {
       throw new DatabricksSQLException("Statement is closed", ErrorCodes.STATEMENT_CLOSED);
+    }
+  }
+
+  /**
+   * Shuts down the ExecutorService used for asynchronous execution.
+   *
+   * <p>Initiates an orderly shutdown of the executor, waiting up to 60 seconds for currently
+   * executing tasks to terminate. If the executor does not terminate within the timeout, it is
+   * forcefully shut down. This method is called when the statement is closed to ensure that all
+   * threads are properly terminated, preventing the JVM from hanging due to lingering non-daemon
+   * threads.
+   */
+  private void shutDownExecutor() {
+    executor.shutdown();
+    try {
+      if (!executor.awaitTermination(60, TimeUnit.SECONDS)) {
+        executor.shutdownNow();
+      }
+    } catch (InterruptedException e) {
+      executor.shutdownNow();
+      Thread.currentThread().interrupt();
     }
   }
 }
