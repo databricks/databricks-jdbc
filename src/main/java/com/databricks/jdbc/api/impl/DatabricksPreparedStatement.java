@@ -9,6 +9,7 @@ import com.databricks.jdbc.common.StatementType;
 import com.databricks.jdbc.common.util.DatabricksTypeUtil;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.exception.DatabricksSQLFeatureNotImplementedException;
+import com.databricks.jdbc.exception.DatabricksSQLFeatureNotSupportedException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import java.io.ByteArrayOutputStream;
@@ -38,9 +39,8 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
     super(connection);
     this.sql = sql;
     this.interpolateParameters =
-        connection.getSession().getConnectionContext().supportManyParameters()
-            || connection.getSession().getConnectionContext().getComputeResource()
-                instanceof AllPurposeCluster;
+        connection.getConnectionContext().supportManyParameters()
+            || connection.getConnectionContext().getComputeResource() instanceof AllPurposeCluster;
     this.databricksParameterMetaData = new DatabricksParameterMetaData();
     this.databricksBatchParameterMetaData = new ArrayList<>();
   }
@@ -73,7 +73,7 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
             sql, databricksParameterMetaData.getParameterBindings(), StatementType.UPDATE, false);
         updateCount[i] = (int) resultSet.getUpdateCount();
       } catch (SQLException e) {
-        LOGGER.error(e.getMessage());
+        LOGGER.error(e, e.getMessage());
         updateCount[i] = -1;
       }
     }
@@ -550,6 +550,15 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
   @Override
   public boolean execute(String sql, String[] columnNames) throws SQLException {
     throw new DatabricksSQLException("Method not supported in PreparedStatement");
+  }
+
+  /** {@inheritDoc} */
+  @Override
+  public void addBatch(String sql) throws SQLException {
+    LOGGER.debug(String.format("public void addBatch(String sql = {%s})", sql));
+    checkIfClosed();
+    throw new DatabricksSQLFeatureNotSupportedException(
+        "Method not supported: addBatch(String sql)");
   }
 
   private void checkLength(long targetLength, long sourceLength) throws SQLException {

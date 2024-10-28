@@ -5,6 +5,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
+import com.databricks.jdbc.api.IDatabricksConnection;
 import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.common.IDatabricksComputeResource;
 import com.databricks.jdbc.common.StatementType;
@@ -73,7 +74,7 @@ public class DatabricksConnectionTest {
     assertFalse(connection.isClosed());
     assertEquals(connection.getSession().getSessionId(), SESSION_ID);
     String userAgent = UserAgent.asString();
-    assertTrue(userAgent.contains("DatabricksJDBCDriverOSS/0.9.5-oss"));
+    assertTrue(userAgent.contains("DatabricksJDBCDriverOSS/0.9.6-oss"));
     assertTrue(userAgent.contains("Java/SQLExecHttpClient-HC"));
 
     // close the connection
@@ -235,7 +236,7 @@ public class DatabricksConnectionTest {
   }
 
   @Test
-  void testUnsupportedOperations() throws DatabricksSQLException {
+  void testUnsupportedOperations() throws SQLException {
     when(databricksClient.createSession(
             new Warehouse(WAREHOUSE_ID), CATALOG, SCHEMA, new HashMap<>()))
         .thenReturn(IMMUTABLE_SESSION_INFO);
@@ -296,11 +297,8 @@ public class DatabricksConnectionTest {
         () -> connection.setNetworkTimeout(null, 1));
     assertThrows(
         DatabricksSQLFeatureNotSupportedException.class, () -> connection.getNetworkTimeout());
-    assertThrows(DatabricksSQLFeatureNotSupportedException.class, () -> connection.unwrap(null));
-    assertThrows(
-        DatabricksSQLFeatureNotSupportedException.class, () -> connection.isWrapperFor(null));
-    assertThrows(
-        DatabricksSQLFeatureNotSupportedException.class, () -> connection.isWrapperFor(null));
+    assertInstanceOf(IDatabricksConnection.class, connection.unwrap(IDatabricksConnection.class));
+    assertTrue(connection.isWrapperFor(IDatabricksConnection.class));
     assertThrows(
         DatabricksSQLFeatureNotSupportedException.class,
         () -> connection.createArrayOf(null, null));

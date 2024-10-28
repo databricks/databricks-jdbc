@@ -1,0 +1,32 @@
+{
+  "id" : "f1f95d82-ba2e-4f07-b931-ac1207ec37ed",
+  "name" : "api_2.0_sql_statements",
+  "request" : {
+    "url" : "/api/2.0/sql/statements/",
+    "method" : "POST",
+    "bodyPatterns" : [ {
+      "equalToJson" : "{\"statement\":\"SHOW TABLES IN CATALOG main SCHEMA LIKE 'jdbc.test.schema' LIKE '*'\",\"warehouse_id\":\"dd43ee29fedd958d\",\"session_id\":\"01ef8c5b-d9ea-1c53-9601-4361dd6a72a1\",\"disposition\":\"INLINE\",\"format\":\"JSON_ARRAY\",\"on_wait_timeout\":\"CONTINUE\",\"wait_timeout\":\"10s\",\"parameters\":[],\"compression_codec\":\"NONE\"}",
+      "ignoreArrayOrder" : true,
+      "ignoreExtraElements" : true
+    } ]
+  },
+  "response" : {
+    "status" : 200,
+    "body" : "{\"statement_id\":\"01ef8c5b-e185-15f7-badd-0435dbded87f\",\"status\":{\"state\":\"SUCCEEDED\"},\"manifest\":{\"format\":\"JSON_ARRAY\",\"schema\":{\"column_count\":7,\"columns\":[{\"name\":\"namespace\",\"type_text\":\"STRING\",\"type_name\":\"STRING\",\"position\":0},{\"name\":\"tableName\",\"type_text\":\"STRING\",\"type_name\":\"STRING\",\"position\":1},{\"name\":\"isTemporary\",\"type_text\":\"BOOLEAN\",\"type_name\":\"BOOLEAN\",\"position\":2},{\"name\":\"information\",\"type_text\":\"STRING\",\"type_name\":\"STRING\",\"position\":3},{\"name\":\"catalogName\",\"type_text\":\"STRING\",\"type_name\":\"STRING\",\"position\":4},{\"name\":\"tableType\",\"type_text\":\"STRING\",\"type_name\":\"STRING\",\"position\":5},{\"name\":\"remarks\",\"type_text\":\"STRING\",\"type_name\":\"STRING\",\"position\":6}]},\"total_chunk_count\":1,\"chunks\":[{\"chunk_index\":0,\"row_offset\":0,\"row_count\":8}],\"total_row_count\":8,\"truncated\":false},\"result\":{\"chunk_index\":0,\"row_offset\":0,\"row_count\":8,\"data_array\":[[\"jdbc_test_schema\",\"akjhdahjs\",\"false\",\"\",\"main\",\"TABLE\",\"\"],[\"jdbc_test_schema\",\"batch_test_table\",\"false\",\"\",\"main\",\"TABLE\",\"\"],[\"jdbc_test_schema\",\"catalog_and_schema_test_table\",\"false\",\"\",\"main\",\"TABLE\",\"\"],[\"jdbc_test_schema\",\"complex_data_types_table_test\",\"false\",\"\",\"main\",\"TABLE\",\"\"],[\"jdbc_test_schema\",\"complex_data_types_test\",\"false\",\"\",\"main\",\"TABLE\",\"\"],[\"jdbc_test_schema\",\"parameter_binding_test_table_jayant\",\"false\",\"\",\"main\",\"TABLE\",\"\"],[\"jdbc_test_schema\",\"prepared_statement_test_table_jayant\",\"false\",\"\",\"main\",\"TABLE\",\"\"],[\"jdbc_test_schema\",\"sparkjdbcbasicsuite181130576469166_insert_jdbc_df_jay\",\"false\",\"\",\"main\",\"TABLE\",\"\"]]}}",
+    "headers" : {
+      "x-request-id" : "f1231117-ac29-4d49-b569-bc052ba2b81a",
+      "date" : "Thu, 17 Oct 2024 07:46:13 GMT",
+      "server" : "databricks",
+      "x-content-type-options" : "nosniff",
+      "x-databricks-shard-debug" : "oregon-staging",
+      "vary" : "Accept-Encoding",
+      "x-databricks-popp-shadow-routing-reason" : "deployment-name",
+      "x-databricks-org-id" : "6051921418418893",
+      "x-databricks-popp-routing-reason" : "deployment-name",
+      "content-type" : "application/json",
+      "strict-transport-security" : "max-age=31536000; includeSubDomains; preload"
+    }
+  },
+  "uuid" : "f1f95d82-ba2e-4f07-b931-ac1207ec37ed",
+  "insertionIndex" : 23
+}

@@ -6,9 +6,9 @@ import static com.databricks.jdbc.common.DatabricksJdbcConstants.VOLUME_OPERATIO
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
-import com.databricks.jdbc.api.callback.IDatabricksResultSetHandle;
-import com.databricks.jdbc.api.callback.IDatabricksStatementHandle;
 import com.databricks.jdbc.api.impl.volume.DatabricksUCVolumeClient;
+import com.databricks.jdbc.api.internal.IDatabricksResultSetInternal;
+import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
@@ -32,8 +32,8 @@ public class DatabricksUCVolumeClientTest {
 
   @Mock Statement statement;
 
-  @Mock IDatabricksStatementHandle databricksStatement;
-  @Mock IDatabricksResultSetHandle databricksResultSet;
+  @Mock IDatabricksStatementInternal databricksStatement;
+  @Mock IDatabricksResultSetInternal databricksResultSet;
 
   @Mock ResultSet resultSet;
   @Mock ResultSet resultSet_abc_volume1;
@@ -535,7 +535,7 @@ public class DatabricksUCVolumeClientTest {
     DatabricksUCVolumeClient client = new DatabricksUCVolumeClient(connection);
 
     when(connection.createStatement()).thenReturn(statement);
-    when(statement.unwrap(IDatabricksStatementHandle.class)).thenReturn(databricksStatement);
+    when(statement.unwrap(IDatabricksStatementInternal.class)).thenReturn(databricksStatement);
 
     String getObjectQuery =
         String.format(
@@ -543,7 +543,7 @@ public class DatabricksUCVolumeClientTest {
             catalog, schema, volume, objectPath);
     when(statement.executeQuery(getObjectQuery)).thenReturn(resultSet);
     when(resultSet.next()).thenReturn(true);
-    when(resultSet.unwrap(IDatabricksResultSetHandle.class)).thenReturn(databricksResultSet);
+    when(resultSet.unwrap(IDatabricksResultSetInternal.class)).thenReturn(databricksResultSet);
     when(databricksResultSet.getVolumeOperationInputStream()).thenReturn(expected);
 
     InputStreamEntity result = client.getObject(catalog, schema, volume, objectPath);
@@ -581,7 +581,7 @@ public class DatabricksUCVolumeClientTest {
             "PUT '__input_stream__' INTO '/Volumes/%s/%s/%s/%s'%s",
             catalog, schema, volume, objectPath, toOverwrite ? " OVERWRITE" : "");
     when(statement.executeQuery(putObjectQuery)).thenReturn(resultSet);
-    when(statement.unwrap(IDatabricksStatementHandle.class)).thenReturn(databricksStatement);
+    when(statement.unwrap(IDatabricksStatementInternal.class)).thenReturn(databricksStatement);
     when(resultSet.next()).thenReturn(true);
     when(resultSet.getString(VOLUME_OPERATION_STATUS_COLUMN_NAME))
         .thenReturn(VOLUME_OPERATION_STATUS_SUCCEEDED);

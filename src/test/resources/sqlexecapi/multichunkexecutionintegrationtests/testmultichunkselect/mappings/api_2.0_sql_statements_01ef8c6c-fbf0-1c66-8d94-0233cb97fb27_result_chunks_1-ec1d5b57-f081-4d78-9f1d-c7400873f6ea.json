@@ -1,0 +1,27 @@
+{
+  "id" : "ec1d5b57-f081-4d78-9f1d-c7400873f6ea",
+  "name" : "api_2.0_sql_statements_01ef8c6c-fbf0-1c66-8d94-0233cb97fb27_result_chunks_1",
+  "request" : {
+    "url" : "/api/2.0/sql/statements/01ef8c6c-fbf0-1c66-8d94-0233cb97fb27/result/chunks/1",
+    "method" : "GET"
+  },
+  "response" : {
+    "status" : 200,
+    "body" : "{\"external_links\":[{\"chunk_index\":1,\"row_offset\":122880,\"row_count\":20,\"byte_count\":5720,\"external_link\":\"https://e2-dogfood-core.s3.us-west-2.amazonaws.com/oregon-staging/6051921418418893.jobs/sql/extended/results_2024-10-18T10%3A48%3A43Z_af4d5779-b9e4-4550-bc0b-43b7879c2adb?[REDACTED]X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Date=20241017T094844Z&X-Amz-SignedHeaders=host&X-Amz-Expires=899&[REDACTED]X-Amz-Signature=cfb983ec12750d1f4f3f3bbc38e9de10a516d7789e5fdd07165866a10a4d255c\",\"expiration\":\"2024-10-17T10:03:44.947Z\"}]}",
+    "headers" : {
+      "x-request-id" : "3a2573f8-f141-45ec-91d2-57f78c054291",
+      "date" : "Thu, 17 Oct 2024 09:48:44 GMT",
+      "server" : "databricks",
+      "x-content-type-options" : "nosniff",
+      "x-databricks-shard-debug" : "oregon-staging",
+      "vary" : "Accept-Encoding",
+      "x-databricks-popp-shadow-routing-reason" : "deployment-name",
+      "x-databricks-org-id" : "6051921418418893",
+      "x-databricks-popp-routing-reason" : "deployment-name",
+      "content-type" : "application/json",
+      "strict-transport-security" : "max-age=31536000; includeSubDomains; preload"
+    }
+  },
+  "uuid" : "ec1d5b57-f081-4d78-9f1d-c7400873f6ea",
+  "insertionIndex" : 3
+}

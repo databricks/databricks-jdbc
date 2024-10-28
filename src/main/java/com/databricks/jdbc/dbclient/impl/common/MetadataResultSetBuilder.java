@@ -384,7 +384,7 @@ public class MetadataResultSetBuilder {
     }
     return new DatabricksResultSet(
         new StatementStatus().setState(StatementState.SUCCEEDED),
-        statementId,
+        new StatementId(statementId),
         columns.stream().map(ResultColumn::getColumnName).collect(Collectors.toList()),
         columns.stream().map(ResultColumn::getColumnTypeString).collect(Collectors.toList()),
         columns.stream().map(ResultColumn::getColumnTypeInt).collect(Collectors.toList()),
@@ -451,7 +451,7 @@ public class MetadataResultSetBuilder {
 
     return new DatabricksResultSet(
         new StatementStatus().setState(StatementState.SUCCEEDED),
-        statementId,
+        new StatementId(statementId),
         columnMetadataList,
         rows,
         StatementType.METADATA);

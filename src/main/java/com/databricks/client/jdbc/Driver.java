@@ -43,6 +43,10 @@ public class Driver implements java.sql.Driver {
 
   @Override
   public Connection connect(String url, Properties info) throws DatabricksSQLException {
+    if (!acceptsURL(url)) {
+      // Return null connection if URL is not accepted - as per JDBC standard.
+      return null;
+    }
     IDatabricksConnectionContext connectionContext =
         DatabricksConnectionContextFactory.create(url, info);
 

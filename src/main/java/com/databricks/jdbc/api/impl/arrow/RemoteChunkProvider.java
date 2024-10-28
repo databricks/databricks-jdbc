@@ -3,7 +3,7 @@ package com.databricks.jdbc.api.impl.arrow;
 import com.databricks.jdbc.api.IDatabricksSession;
 import com.databricks.jdbc.common.CompressionType;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
-import com.databricks.jdbc.dbclient.impl.http.DatabricksHttpClient;
+import com.databricks.jdbc.dbclient.impl.common.StatementId;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.log.JdbcLogger;
@@ -14,7 +14,6 @@ import com.databricks.jdbc.model.core.ExternalLink;
 import com.databricks.jdbc.model.core.ResultData;
 import com.databricks.jdbc.model.core.ResultManifest;
 import com.databricks.sdk.service.sql.BaseChunkInfo;
-import com.google.common.annotations.VisibleForTesting;
 import java.util.Collection;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
@@ -30,7 +29,7 @@ public class RemoteChunkProvider implements ChunkProvider, ChunkDownloadCallback
       "databricks-jdbc-chunks-downloader-";
   private static int chunksDownloaderThreadPoolSize;
   private final IDatabricksSession session;
-  private final String statementId;
+  private final StatementId statementId;
   private final long totalChunks;
   private final ExecutorService chunkDownloaderExecutorService;
   private final IDatabricksHttpClient httpClient;
@@ -43,7 +42,7 @@ public class RemoteChunkProvider implements ChunkProvider, ChunkDownloadCallback
   private final ConcurrentHashMap<Long, ArrowResultChunk> chunkIndexToChunksMap;
 
   RemoteChunkProvider(
-      String statementId,
+      StatementId statementId,
       ResultManifest resultManifest,
       ResultData resultData,
       IDatabricksSession session,
@@ -62,24 +61,7 @@ public class RemoteChunkProvider implements ChunkProvider, ChunkDownloadCallback
   }
 
   RemoteChunkProvider(
-      String statementId,
-      TRowSet resultData,
-      IDatabricksSession session,
-      int chunksDownloaderThreadPoolSize,
-      CompressionType compressionType)
-      throws DatabricksParsingException {
-    this(
-        statementId,
-        resultData,
-        session,
-        DatabricksHttpClient.getInstance(session.getConnectionContext()),
-        chunksDownloaderThreadPoolSize,
-        compressionType);
-  }
-
-  @VisibleForTesting
-  RemoteChunkProvider(
-      String statementId,
+      StatementId statementId,
       TRowSet resultData,
       IDatabricksSession session,
       IDatabricksHttpClient httpClient,
@@ -130,7 +112,6 @@ public class RemoteChunkProvider implements ChunkProvider, ChunkDownloadCallback
       return null;
     }
     ArrowResultChunk chunk = chunkIndexToChunksMap.get(currentChunkIndex);
-    httpClient.closeExpiredAndIdleConnections();
     synchronized (chunk) {
       try {
         while (!isDownloadComplete(chunk.getStatus())) {
@@ -142,9 +123,10 @@ public class RemoteChunkProvider implements ChunkProvider, ChunkDownloadCallback
       } catch (InterruptedException e) {
         LOGGER.error(
             e,
-            String.format(
-                "Caught interrupted exception while waiting for chunk [%s] for statement [%s]. Exception [%s]",
-                chunk.getChunkIndex(), statementId, e));
+            "Caught interrupted exception while waiting for chunk [%s] for statement [%s]. Exception [%s]",
+            chunk.getChunkIndex(),
+            statementId,
+            e.getMessage());
       }
     }
 
@@ -187,7 +169,6 @@ public class RemoteChunkProvider implements ChunkProvider, ChunkDownloadCallback
     this.isClosed = true;
     this.chunkDownloaderExecutorService.shutdownNow();
     this.chunkIndexToChunksMap.values().forEach(ArrowResultChunk::releaseChunk);
-    httpClient.closeExpiredAndIdleConnections();
   }
 
   /** Release the memory for previous chunk since it is already consumed */
@@ -237,7 +218,7 @@ public class RemoteChunkProvider implements ChunkProvider, ChunkDownloadCallback
   }
 
   private static ConcurrentHashMap<Long, ArrowResultChunk> initializeChunksMap(
-      TRowSet resultData, String statementId) throws DatabricksParsingException {
+      TRowSet resultData, StatementId statementId) throws DatabricksParsingException {
     ConcurrentHashMap<Long, ArrowResultChunk> chunkIndexMap = new ConcurrentHashMap<>();
     long chunkIndex = 0;
     if (resultData.getResultLinksSize() == 0) {
@@ -252,7 +233,7 @@ public class RemoteChunkProvider implements ChunkProvider, ChunkDownloadCallback
       chunkIndexMap.put(
           chunkIndex,
           ArrowResultChunk.builder()
-              .statementId(statementId)
+              .statementId(statementId.toString())
               .withThriftChunkInfo(chunkIndex, resultLink)
               .build());
       chunkIndex++;
@@ -276,7 +257,7 @@ public class RemoteChunkProvider implements ChunkProvider, ChunkDownloadCallback
   }
 
   private static ConcurrentHashMap<Long, ArrowResultChunk> initializeChunksMap(
-      ResultManifest resultManifest, ResultData resultData, String statementId)
+      ResultManifest resultManifest, ResultData resultData, StatementId statementId)
       throws DatabricksParsingException {
     ConcurrentHashMap<Long, ArrowResultChunk> chunkIndexMap = new ConcurrentHashMap<>();
     if (resultManifest.getTotalChunkCount() == 0) {
@@ -286,7 +267,10 @@ public class RemoteChunkProvider implements ChunkProvider, ChunkDownloadCallback
       LOGGER.debug("Manifest chunk information: " + chunkInfo.toString());
       chunkIndexMap.put(
           chunkInfo.getChunkIndex(),
-          ArrowResultChunk.builder().statementId(statementId).withChunkInfo(chunkInfo).build());
+          ArrowResultChunk.builder()
+              .statementId(statementId.toString())
+              .withChunkInfo(chunkInfo)
+              .build());
     }
 
     for (ExternalLink externalLink : resultData.getExternalLinks()) {

@@ -361,9 +361,11 @@ public class ArrowResultChunk {
     } catch (ClosedByInterruptException e) {
       // release resources if thread is interrupted when reading arrow data
       LOGGER.error(
-          String.format(
-              "Data parsing interrupted for chunk index [%s] and statement [%s]. Error [%s]",
-              chunkIndex, statementId, e));
+          e,
+          "Data parsing interrupted for chunk index [%s] and statement [%s]. Error [%s]",
+          chunkIndex,
+          statementId,
+          e.getMessage());
       purgeArrowData(recordBatchList);
     } catch (IOException e) {
       LOGGER.error(

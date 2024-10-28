@@ -2,6 +2,7 @@ package com.databricks.jdbc.api.impl.arrow;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+import com.databricks.jdbc.dbclient.impl.common.StatementId;
 import com.databricks.jdbc.model.core.ResultData;
 import com.databricks.jdbc.model.core.ResultManifest;
 import com.databricks.sdk.service.sql.ResultSchema;
@@ -12,7 +13,8 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
 public class RemoteChunkProviderTest {
-  private static final String STATEMENT_ID = "statement_id";
+
+  private static final StatementId STATEMENT_ID = new StatementId("statement_id");
 
   @Test
   public void testInitEmptyChunkDownloader() {

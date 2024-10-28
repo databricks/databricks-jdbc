@@ -6,16 +6,16 @@ import static com.databricks.jdbc.dbclient.impl.common.MetadataResultSetBuilder.
 
 import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.api.IDatabricksSession;
-import com.databricks.jdbc.api.callback.IDatabricksStatementHandle;
 import com.databricks.jdbc.api.impl.*;
+import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
 import com.databricks.jdbc.common.IDatabricksComputeResource;
 import com.databricks.jdbc.common.StatementType;
 import com.databricks.jdbc.dbclient.IDatabricksClient;
 import com.databricks.jdbc.dbclient.IDatabricksMetadataClient;
 import com.databricks.jdbc.dbclient.impl.common.MetadataResultSetBuilder;
+import com.databricks.jdbc.dbclient.impl.common.StatementId;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
-import com.databricks.jdbc.exception.DatabricksSQLFeatureNotImplementedException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.model.client.thrift.generated.*;
@@ -125,7 +125,7 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
       Map<Integer, ImmutableSqlParameter> parameters,
       StatementType statementType,
       IDatabricksSession session,
-      IDatabricksStatementHandle parentStatement)
+      IDatabricksStatementInternal parentStatement)
       throws SQLException {
     // Note that prepared statement is not supported by SEA/Thrift flow.
     LOGGER.debug(
@@ -143,36 +143,88 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
   }
 
   @Override
-  public void closeStatement(String statementId) throws DatabricksSQLException {
+  public DatabricksResultSet executeStatementAsync(
+      String sql,
+      IDatabricksComputeResource computeResource,
+      Map<Integer, ImmutableSqlParameter> parameters,
+      IDatabricksSession session,
+      IDatabricksStatementInternal parentStatement)
+      throws SQLException {
+    LOGGER.debug(
+        String.format(
+            "public DatabricksResultSet executeStatementAsync(String sql = {%s}, Compute cluster = {%s}, Map<Integer, ImmutableSqlParameter> parameters = {%s})",
+            sql, computeResource.toString(), parameters.toString()));
+    TExecuteStatementReq request =
+        new TExecuteStatementReq()
+            .setStatement(sql)
+            .setSessionHandle(session.getSessionInfo().sessionHandle())
+            .setCanDecompressLZ4Result(true)
+            .setCanReadArrowResult(this.connectionContext.shouldEnableArrow())
+            .setCanDownloadResult(true);
+    return thriftAccessor.executeAsync(request, parentStatement, session, StatementType.SQL);
+  }
+
+  @Override
+  public void closeStatement(StatementId statementId) throws DatabricksSQLException {
     LOGGER.debug(
         String.format(
             "public void closeStatement(String statementId = {%s}) for all purpose cluster",
             statementId));
-    throw new DatabricksSQLFeatureNotImplementedException(
-        "closeStatement for all purpose cluster not implemented");
+    TOperationHandle operationHandle =
+        new TOperationHandle()
+            .setOperationId(statementId.toOperationIdentifier())
+            .setOperationType(TOperationType.UNKNOWN);
+    TCloseOperationReq request = new TCloseOperationReq().setOperationHandle(operationHandle);
+    TCloseOperationResp resp = thriftAccessor.closeOperation(request);
+    LOGGER.debug("Statement {%s} closed with status {%s}", statementId, resp.getStatus());
   }
 
   @Override
-  public void cancelStatement(String statementId) throws DatabricksSQLException {
+  public void cancelStatement(StatementId statementId) throws DatabricksSQLException {
     LOGGER.debug(
         String.format(
             "public void cancelStatement(String statementId = {%s}) for all purpose cluster",
             statementId));
-    throw new DatabricksSQLFeatureNotImplementedException(
-        "abortStatement for all purpose cluster not implemented");
+    TOperationHandle operationHandle =
+        new TOperationHandle()
+            .setOperationId(statementId.toOperationIdentifier())
+            .setOperationType(TOperationType.UNKNOWN);
+    TCancelOperationReq request = new TCancelOperationReq().setOperationHandle(operationHandle);
+    TCancelOperationResp resp = thriftAccessor.cancelOperation(request);
+    LOGGER.debug("Statement {%s} cancelled with status {%s}", statementId, resp.getStatus());
   }
 
   @Override
-  public Collection<ExternalLink> getResultChunks(String statementId, long chunkIndex)
+  public DatabricksResultSet getStatementResult(
+      StatementId statementId,
+      IDatabricksSession session,
+      IDatabricksStatementInternal parentStatement)
+      throws SQLException {
+    LOGGER.debug(
+        String.format(
+            "public DatabricksResultSet getStatementResult(String statementId = {%s}) for all purpose cluster",
+            statementId));
+    TOperationHandle operationHandle =
+        new TOperationHandle()
+            .setOperationId(statementId.toOperationIdentifier())
+            .setOperationType(TOperationType.UNKNOWN);
+    return thriftAccessor.getStatementResult(operationHandle, parentStatement, session);
+  }
+
+  @Override
+  public Collection<ExternalLink> getResultChunks(StatementId statementId, long chunkIndex)
       throws DatabricksSQLException {
     String context =
         String.format(
             "public Optional<ExternalLink> getResultChunk(String statementId = {%s}, long chunkIndex = {%s}) for all purpose cluster",
             statementId, chunkIndex);
     LOGGER.debug(context);
-    THandleIdentifier handleIdentifier = new THandleIdentifier().setGuid(statementId.getBytes());
+    THandleIdentifier handleIdentifier = statementId.toOperationIdentifier();
     TOperationHandle operationHandle =
-        new TOperationHandle().setOperationId(handleIdentifier).setHasResultSet(false);
+        new TOperationHandle()
+            .setOperationId(handleIdentifier)
+            .setHasResultSet(false)
+            .setOperationType(TOperationType.UNKNOWN);
     TFetchResultsResp fetchResultsResp = thriftAccessor.getResultSetResp(operationHandle, context);
     if (chunkIndex < 0 || fetchResultsResp.getResults().getResultLinksSize() <= chunkIndex) {
       String error = String.format("Out of bounds error for chunkIndex. Context: %s", context);

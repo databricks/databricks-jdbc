@@ -39,7 +39,6 @@ public class DatabricksHttpTTransportTest {
   public void close_ClosesInputStreamWithoutError() {
     DatabricksHttpTTransport transport = new DatabricksHttpTTransport(mockedHttpClient, testUrl);
     transport.close();
-    assertNull(transport.getInputStream());
     assertDoesNotThrow(() -> transport.open());
   }
 
@@ -62,13 +61,12 @@ public class DatabricksHttpTTransportTest {
     DatabricksHttpTTransport transport = new DatabricksHttpTTransport(mockedHttpClient, testUrl);
     byte[] testData = TEST_STRING.getBytes();
     transport.write(testData, 0, testData.length);
-    transport.setInputStream(new ByteArrayInputStream(testData));
+    transport.setResponseBuffer(new ByteArrayInputStream(testData));
     byte[] buffer = new byte[testData.length];
     int bytesRead = transport.read(buffer, 0, buffer.length);
     assertEquals(testData.length, bytesRead);
     assertArrayEquals(testData, buffer);
     transport.close();
-    assertNull(transport.getInputStream());
   }
 
   @Test

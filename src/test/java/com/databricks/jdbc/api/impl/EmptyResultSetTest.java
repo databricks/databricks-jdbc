@@ -2,14 +2,13 @@ package com.databricks.jdbc.api.impl;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+import com.databricks.sdk.service.sql.StatementState;
 import java.io.ByteArrayInputStream;
 import java.io.StringReader;
 import java.math.BigDecimal;
 import java.sql.*;
 import java.util.Calendar;
 import java.util.Map;
-import org.apache.http.HttpEntity;
-import org.apache.http.entity.StringEntity;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -374,14 +373,6 @@ public class EmptyResultSetTest {
   }
 
   @Test
-  public void testUCInputStream() throws Exception {
-    HttpEntity entity = new StringEntity("hello");
-    resultSet.setVolumeOperationEntityStream(entity);
-    assertEquals(
-        "hello", new String(resultSet.getVolumeOperationInputStream().getContent().readAllBytes()));
-  }
-
-  @Test
   public void testGetMethodsReturnZeroOrEquivalent() throws SQLException {
     EmptyResultSet resultSet =
         new EmptyResultSet(); // Assuming the constructor doesn't throw SQLException
@@ -419,8 +410,8 @@ public class EmptyResultSetTest {
 
     // For getBigDecimal(int) - assuming 1 as a placeholder for column index
     assertNull(resultSet.getBigDecimal(1));
-    assertNull(resultSet.getStatementId());
-    assertNull(resultSet.getStatementStatus());
+    assertTrue(resultSet.getStatementId().isEmpty());
+    assertEquals(StatementState.SUCCEEDED, resultSet.getStatementStatus().getState());
     assertEquals(0, resultSet.getUpdateCount());
     assertFalse(resultSet.hasUpdateCount());
   }

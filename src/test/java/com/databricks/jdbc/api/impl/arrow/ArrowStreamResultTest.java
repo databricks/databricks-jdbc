@@ -12,6 +12,7 @@ import com.databricks.jdbc.api.impl.DatabricksConnectionContextFactory;
 import com.databricks.jdbc.api.impl.DatabricksSession;
 import com.databricks.jdbc.common.CompressionType;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
+import com.databricks.jdbc.dbclient.impl.common.StatementId;
 import com.databricks.jdbc.dbclient.impl.sqlexec.DatabricksSdkClient;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.model.client.thrift.generated.TGetResultSetMetadataResp;
@@ -62,7 +63,7 @@ public class ArrowStreamResultTest {
   private static final String JDBC_URL =
       "jdbc:databricks://adb-565757575.18.azuredatabricks.net:4423/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/erg6767gg;";
   private static final String CHUNK_URL_PREFIX = "chunk.databricks.com/";
-  private static final String STATEMENT_ID = "statement_id";
+  private static final StatementId STATEMENT_ID = new StatementId("statement_id");
   @Mock DatabricksSdkClient mockedSdkClient;
   @Mock IDatabricksHttpClient mockHttpClient;
   @Mock CloseableHttpResponse httpResponse;
@@ -133,7 +134,7 @@ public class ArrowStreamResultTest {
     when(session.getConnectionContext()).thenReturn(connectionContext);
     when(metadataResp.getSchema()).thenReturn(TEST_TABLE_SCHEMA);
     ArrowStreamResult result =
-        new ArrowStreamResult(metadataResp, resultData, true, TEST_STATEMENT_ID, session);
+        new ArrowStreamResult(metadataResp, resultData, true, STATEMENT_ID, session);
     assertEquals(-1, result.getCurrentRow());
     assertTrue(result.hasNext());
     assertFalse(result.next());
@@ -154,7 +155,7 @@ public class ArrowStreamResultTest {
     when(resultData.getResultLinksSize()).thenReturn(1);
     ArrowStreamResult result =
         new ArrowStreamResult(
-            metadataResp, resultData, false, TEST_STATEMENT_ID, session, mockHttpClient);
+            metadataResp, resultData, false, STATEMENT_ID, session, mockHttpClient);
     assertEquals(-1, result.getCurrentRow());
     assertTrue(result.hasNext());
     assertDoesNotThrow(result::close);
