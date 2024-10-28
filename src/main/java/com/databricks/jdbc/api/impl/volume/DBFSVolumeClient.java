@@ -1,12 +1,12 @@
 package com.databricks.jdbc.api.impl.volume;
 
 import static com.databricks.jdbc.api.impl.volume.DatabricksUCVolumeClient.getObjectFullPath;
+import static com.databricks.jdbc.common.DatabricksJdbcConstants.JSON_HTTP_HEADERS;
 import static com.databricks.jdbc.dbclient.impl.sqlexec.PathConstants.CREATE_UPLOAD_URL_PATH;
 
 import com.databricks.jdbc.api.IDatabricksConnectionContext;
-import com.databricks.jdbc.api.IDatabricksUCVolumeClient;
+import com.databricks.jdbc.api.IDatabricksVolumeClient;
 import com.databricks.jdbc.api.impl.DatabricksConnection;
-import com.databricks.jdbc.common.util.ClientUtil;
 import com.databricks.jdbc.dbclient.IDatabricksClient;
 import com.databricks.jdbc.dbclient.impl.common.ClientConfigurator;
 import com.databricks.jdbc.exception.DatabricksVolumeOperationException;
@@ -22,7 +22,7 @@ import java.sql.SQLException;
 import java.util.List;
 import org.apache.http.entity.InputStreamEntity;
 
-public class DBFSVolumeClient implements IDatabricksUCVolumeClient {
+public class DBFSVolumeClient implements IDatabricksVolumeClient {
 
   private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(DBFSVolumeClient.class);
   private final DatabricksConnection connection;
@@ -151,7 +151,7 @@ public class DBFSVolumeClient implements IDatabricksUCVolumeClient {
               CREATE_UPLOAD_URL_PATH,
               request,
               CreateUploadUrlResponse.class,
-              ClientUtil.getHeaders());
+              JSON_HTTP_HEADERS);
     } catch (DatabricksException e) {
       String errorMessage =
           String.format("Failed to get create upload url response - {%s}", e.getMessage());

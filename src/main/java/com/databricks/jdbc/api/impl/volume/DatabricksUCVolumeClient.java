@@ -4,7 +4,7 @@ import static com.databricks.jdbc.common.DatabricksJdbcConstants.VOLUME_OPERATIO
 import static com.databricks.jdbc.common.DatabricksJdbcConstants.VOLUME_OPERATION_STATUS_SUCCEEDED;
 import static com.databricks.jdbc.common.util.StringUtil.escapeStringLiteral;
 
-import com.databricks.jdbc.api.IDatabricksUCVolumeClient;
+import com.databricks.jdbc.api.IDatabricksVolumeClient;
 import com.databricks.jdbc.api.callback.IDatabricksResultSetHandle;
 import com.databricks.jdbc.api.callback.IDatabricksStatementHandle;
 import com.databricks.jdbc.log.JdbcLogger;
@@ -16,7 +16,7 @@ import java.util.List;
 import org.apache.http.entity.InputStreamEntity;
 
 /** Implementation for DatabricksUCVolumeClient */
-public class DatabricksUCVolumeClient implements IDatabricksUCVolumeClient {
+public class DatabricksUCVolumeClient implements IDatabricksVolumeClient {
 
   private static final JdbcLogger LOGGER =
       JdbcLoggerFactory.getLogger(DatabricksUCVolumeClient.class);

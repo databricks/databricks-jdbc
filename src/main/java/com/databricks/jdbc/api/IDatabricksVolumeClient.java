@@ -5,7 +5,7 @@ import java.sql.SQLException;
 import java.util.List;
 import org.apache.http.entity.InputStreamEntity;
 
-public interface IDatabricksUCVolumeClient {
+public interface IDatabricksVolumeClient {
 
   /**
    * prefixExists(): Determines if a specific prefix (folder-like structure) exists in the UC Volume

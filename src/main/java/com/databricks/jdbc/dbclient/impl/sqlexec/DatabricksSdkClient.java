@@ -1,5 +1,6 @@
 package com.databricks.jdbc.dbclient.impl.sqlexec;
 
+import static com.databricks.jdbc.common.DatabricksJdbcConstants.JSON_HTTP_HEADERS;
 import static com.databricks.jdbc.common.EnvironmentVariables.DEFAULT_ROW_LIMIT;
 import static com.databricks.jdbc.dbclient.impl.sqlexec.PathConstants.*;
 
@@ -9,7 +10,6 @@ import com.databricks.jdbc.api.callback.IDatabricksStatementHandle;
 import com.databricks.jdbc.api.impl.*;
 import com.databricks.jdbc.common.*;
 import com.databricks.jdbc.common.IDatabricksComputeResource;
-import com.databricks.jdbc.common.util.ClientUtil;
 import com.databricks.jdbc.dbclient.IDatabricksClient;
 import com.databricks.jdbc.dbclient.impl.common.ClientConfigurator;
 import com.databricks.jdbc.exception.DatabricksParsingException;
@@ -91,7 +91,7 @@ public class DatabricksSdkClient implements IDatabricksClient {
     CreateSessionResponse createSessionResponse =
         workspaceClient
             .apiClient()
-            .POST(SESSION_PATH, request, CreateSessionResponse.class, ClientUtil.getHeaders());
+            .POST(SESSION_PATH, request, CreateSessionResponse.class, JSON_HTTP_HEADERS);
 
     return ImmutableSessionInfo.builder()
         .computeResource(warehouse)
@@ -109,7 +109,7 @@ public class DatabricksSdkClient implements IDatabricksClient {
             .setSessionId(session.getSessionId())
             .setWarehouseId(((Warehouse) warehouse).getWarehouseId());
     String path = String.format(SESSION_PATH_WITH_ID, request.getSessionId());
-    workspaceClient.apiClient().DELETE(path, request, Void.class, ClientUtil.getHeaders());
+    workspaceClient.apiClient().DELETE(path, request, Void.class, JSON_HTTP_HEADERS);
   }
 
   @Override
@@ -138,7 +138,7 @@ public class DatabricksSdkClient implements IDatabricksClient {
     ExecuteStatementResponse response =
         workspaceClient
             .apiClient()
-            .POST(STATEMENT_PATH, request, ExecuteStatementResponse.class, ClientUtil.getHeaders());
+            .POST(STATEMENT_PATH, request, ExecuteStatementResponse.class, JSON_HTTP_HEADERS);
     String statementId = response.getStatementId();
     if (statementId == null) {
       LOGGER.error(
@@ -173,7 +173,7 @@ public class DatabricksSdkClient implements IDatabricksClient {
               workspaceClient
                   .apiClient()
                   .GET(
-                      getStatusPath, request, GetStatementResponse.class, ClientUtil.getHeaders()));
+                      getStatusPath, request, GetStatementResponse.class, JSON_HTTP_HEADERS));
       responseState = response.getStatus().getState();
       LOGGER.debug(
           String.format(
@@ -205,7 +205,7 @@ public class DatabricksSdkClient implements IDatabricksClient {
         String.format("public void closeStatement(String statementId = {%s})", statementId));
     CloseStatementRequest request = new CloseStatementRequest().setStatementId(statementId);
     String path = String.format(STATEMENT_PATH_WITH_ID, request.getStatementId());
-    workspaceClient.apiClient().DELETE(path, request, Void.class, ClientUtil.getHeaders());
+    workspaceClient.apiClient().DELETE(path, request, Void.class, JSON_HTTP_HEADERS);
   }
 
   @Override
@@ -214,7 +214,7 @@ public class DatabricksSdkClient implements IDatabricksClient {
         String.format("public void cancelStatement(String statementId = {%s})", statementId));
     CancelStatementRequest request = new CancelStatementRequest().setStatementId(statementId);
     String path = String.format(CANCEL_STATEMENT_PATH_WITH_ID, request.getStatementId());
-    workspaceClient.apiClient().POST(path, request, Void.class, ClientUtil.getHeaders());
+    workspaceClient.apiClient().POST(path, request, Void.class, JSON_HTTP_HEADERS);
   }
 
   @Override
@@ -228,7 +228,7 @@ public class DatabricksSdkClient implements IDatabricksClient {
     String path = String.format(RESULT_CHUNK_PATH, statementId, chunkIndex);
     return workspaceClient
         .apiClient()
-        .GET(path, request, ResultData.class, ClientUtil.getHeaders())
+        .GET(path, request, ResultData.class, JSON_HTTP_HEADERS)
         .getExternalLinks();
   }
 

@@ -29,8 +29,7 @@ public class DatabricksConnection implements IDatabricksConnection, Connection {
   private IDatabricksSession session;
   private final Set<IDatabricksStatementHandle> statementSet = ConcurrentHashMap.newKeySet();
   private SQLWarning warnings = null;
-  private volatile IDatabricksUCVolumeClient ucVolumeClient = null;
-  private volatile IDatabricksUCVolumeClient dbfsVolumeClient = null;
+  private volatile IDatabricksVolumeClient volumeClient = null;
 
   /**
    * Creates an instance of Databricks connection for given connection context.
@@ -509,27 +508,20 @@ public class DatabricksConnection implements IDatabricksConnection, Connection {
   }
 
   @Override
-  public IDatabricksUCVolumeClient getUCVolumeClient() {
-    if (ucVolumeClient == null) {
+  public IDatabricksVolumeClient getVolumeClient()
+  {
+    if (volumeClient == null) {
       synchronized (this) {
-        if (ucVolumeClient == null) {
-          ucVolumeClient = new DatabricksUCVolumeClient(this);
+        if (volumeClient == null) {
+          if(this.session.getConnectionContext().useFileSystemAPI()) {
+            volumeClient = new DBFSVolumeClient(this);
+          } else {
+            volumeClient = new DatabricksUCVolumeClient(this);
+          }
         }
       }
     }
-    return ucVolumeClient;
-  }
-
-  @Override
-  public IDatabricksUCVolumeClient getDBFSVolumeClient() {
-    if (dbfsVolumeClient == null) {
-      synchronized (this) {
-        if (dbfsVolumeClient == null) {
-          dbfsVolumeClient = new DBFSVolumeClient(this);
-        }
-      }
-    }
-    return dbfsVolumeClient;
+    return volumeClient;
   }
 
   /**

@@ -1,7 +1,7 @@
 package com.databricks.client.jdbc;
 
 import com.databricks.jdbc.api.IDatabricksConnection;
-import com.databricks.jdbc.api.IDatabricksUCVolumeClient;
+import com.databricks.jdbc.api.IDatabricksVolumeClient;
 import com.databricks.jdbc.api.impl.arrow.ArrowResultChunk;
 import com.databricks.jdbc.common.DatabricksJdbcConstants;
 import java.io.File;
@@ -225,10 +225,10 @@ public class DriverTest {
     // Getting the connection
     String jdbcUrl =
         "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/791ba2a31c7fd70a;";
-    Connection con = DriverManager.getConnection(jdbcUrl, "token", "xx");
+    Connection con = DriverManager.getConnection(jdbcUrl, "token", "dapiac2fbfbdda30ae00bc4a117381c46ca1");
     con.setClientInfo(DatabricksJdbcConstants.ALLOWED_VOLUME_INGESTION_PATHS, "delete");
     System.out.println("Connection created");
-    IDatabricksUCVolumeClient client = ((IDatabricksConnection) con).getUCVolumeClient();
+    IDatabricksVolumeClient client = ((IDatabricksConnection) con).getVolumeClient();
 
     File file = new File("/tmp/put.txt");
     try {
@@ -274,11 +274,11 @@ public class DriverTest {
     System.out.println("Starting test");
     // Getting the connection
     String jdbcUrl =
-        "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/dd43ee29fedd958d;Loglevel=debug";
-    Connection con = DriverManager.getConnection(jdbcUrl, "token", "xx");
+        "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/dd43ee29fedd958d;Loglevel=debug;useFileSystemAPI=1";
+    Connection con = DriverManager.getConnection(jdbcUrl, "token", "dapiac2fbfbdda30ae00bc4a117381c46ca1");
     System.out.println("Connection created");
 
-    IDatabricksUCVolumeClient client = ((IDatabricksConnection) con).getDBFSVolumeClient();
+    IDatabricksVolumeClient client = ((IDatabricksConnection) con).getVolumeClient();
 
     File file = new File("/tmp/put.txt");
     try {

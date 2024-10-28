@@ -157,6 +157,8 @@ public interface IDatabricksConnectionContext {
 
   boolean supportManyParameters();
 
+  boolean useFileSystemAPI();
+
   String getConnectionURL();
 
   boolean checkCertificateRevocation();
