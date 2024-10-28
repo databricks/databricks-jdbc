@@ -508,12 +508,11 @@ public class DatabricksConnection implements IDatabricksConnection, Connection {
   }
 
   @Override
-  public IDatabricksVolumeClient getVolumeClient()
-  {
+  public IDatabricksVolumeClient getVolumeClient() {
     if (volumeClient == null) {
       synchronized (this) {
         if (volumeClient == null) {
-          if(this.session.getConnectionContext().useFileSystemAPI()) {
+          if (this.session.getConnectionContext().useFileSystemAPI()) {
             volumeClient = new DBFSVolumeClient(this);
           } else {
             volumeClient = new DatabricksUCVolumeClient(this);

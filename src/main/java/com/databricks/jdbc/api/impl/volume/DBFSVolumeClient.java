@@ -9,6 +9,7 @@ import com.databricks.jdbc.api.IDatabricksVolumeClient;
 import com.databricks.jdbc.api.impl.DatabricksConnection;
 import com.databricks.jdbc.dbclient.IDatabricksClient;
 import com.databricks.jdbc.dbclient.impl.common.ClientConfigurator;
+import com.databricks.jdbc.exception.DatabricksSQLFeatureNotSupportedException;
 import com.databricks.jdbc.exception.DatabricksVolumeOperationException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
@@ -18,7 +19,6 @@ import com.databricks.sdk.WorkspaceClient;
 import com.databricks.sdk.core.DatabricksException;
 import java.io.InputStream;
 import java.sql.Connection;
-import java.sql.SQLException;
 import java.util.List;
 import org.apache.http.entity.InputStreamEntity;
 
@@ -33,49 +33,51 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient {
 
   public boolean prefixExists(
       String catalog, String schema, String volume, String prefix, boolean caseSensitive)
-      throws SQLException {
+      throws DatabricksSQLFeatureNotSupportedException {
     String errorMessage = "prefixExists function is unsupported in DBFSVolumeClient";
     LOGGER.error(errorMessage);
-    throw new SQLException(errorMessage);
+    throw new DatabricksSQLFeatureNotSupportedException(errorMessage);
   }
 
   public boolean objectExists(
       String catalog, String schema, String volume, String objectPath, boolean caseSensitive)
-      throws SQLException {
+      throws DatabricksSQLFeatureNotSupportedException {
     String errorMessage = "objectExists function is unsupported in DBFSVolumeClient";
     LOGGER.error(errorMessage);
-    throw new SQLException(errorMessage);
+    throw new DatabricksSQLFeatureNotSupportedException(errorMessage);
   }
 
   public boolean volumeExists(
-      String catalog, String schema, String volumeName, boolean caseSensitive) throws SQLException {
+      String catalog, String schema, String volumeName, boolean caseSensitive)
+      throws DatabricksSQLFeatureNotSupportedException {
     String errorMessage = "volumeExists function is unsupported in DBFSVolumeClient";
     LOGGER.error(errorMessage);
-    throw new SQLException(errorMessage);
+    throw new DatabricksSQLFeatureNotSupportedException(errorMessage);
   }
 
   public List<String> listObjects(
       String catalog, String schema, String volume, String prefix, boolean caseSensitive)
-      throws SQLException {
+      throws DatabricksSQLFeatureNotSupportedException {
     String errorMessage = "listObjects function is unsupported in DBFSVolumeClient";
     LOGGER.error(errorMessage);
-    throw new SQLException(errorMessage);
+    throw new DatabricksSQLFeatureNotSupportedException(errorMessage);
   }
 
   public boolean getObject(
       String catalog, String schema, String volume, String objectPath, String localPath)
-      throws SQLException {
+      throws DatabricksSQLFeatureNotSupportedException {
     String errorMessage = "getObject returning boolean function is unsupported in DBFSVolumeClient";
     LOGGER.error(errorMessage);
-    throw new SQLException(errorMessage);
+    throw new DatabricksSQLFeatureNotSupportedException(errorMessage);
   }
 
   public InputStreamEntity getObject(
-      String catalog, String schema, String volume, String objectPath) throws SQLException {
+      String catalog, String schema, String volume, String objectPath)
+      throws DatabricksSQLFeatureNotSupportedException {
     String errorMessage =
         "getObject returning InputStreamEntity function is unsupported in DBFSVolumeClient";
     LOGGER.error(errorMessage);
-    throw new SQLException(errorMessage);
+    throw new DatabricksSQLFeatureNotSupportedException(errorMessage);
   }
 
   public boolean putObject(
@@ -119,17 +121,17 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient {
       InputStream inputStream,
       long contentLength,
       boolean toOverwrite)
-      throws SQLException {
+      throws DatabricksSQLFeatureNotSupportedException {
     String errorMessage = "putObject for InputStream function is unsupported in DBFSVolumeClient";
     LOGGER.error(errorMessage);
-    throw new SQLException(errorMessage);
+    throw new DatabricksSQLFeatureNotSupportedException(errorMessage);
   }
 
   public boolean deleteObject(String catalog, String schema, String volume, String objectPath)
-      throws SQLException {
+      throws DatabricksSQLFeatureNotSupportedException {
     String errorMessage = "deleteObject function is unsupported in DBFSVolumeClient";
     LOGGER.error(errorMessage);
-    throw new SQLException(errorMessage);
+    throw new DatabricksSQLFeatureNotSupportedException(errorMessage);
   }
 
   private CreateUploadUrlResponse getCreateUploadUrlResponse(String objectPath)
@@ -147,11 +149,7 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient {
     try {
       return workspaceClient
           .apiClient()
-          .POST(
-              CREATE_UPLOAD_URL_PATH,
-              request,
-              CreateUploadUrlResponse.class,
-              JSON_HTTP_HEADERS);
+          .POST(CREATE_UPLOAD_URL_PATH, request, CreateUploadUrlResponse.class, JSON_HTTP_HEADERS);
     } catch (DatabricksException e) {
       String errorMessage =
           String.format("Failed to get create upload url response - {%s}", e.getMessage());

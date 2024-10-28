@@ -172,8 +172,7 @@ public class DatabricksSdkClient implements IDatabricksClient {
           wrapGetStatementResponse(
               workspaceClient
                   .apiClient()
-                  .GET(
-                      getStatusPath, request, GetStatementResponse.class, JSON_HTTP_HEADERS));
+                  .GET(getStatusPath, request, GetStatementResponse.class, JSON_HTTP_HEADERS));
       responseState = response.getStatus().getState();
       LOGGER.debug(
           String.format(
