@@ -225,7 +225,7 @@ public class DriverTest {
     // Getting the connection
     String jdbcUrl =
         "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/791ba2a31c7fd70a;";
-    Connection con = DriverManager.getConnection(jdbcUrl, "token", "dapiac2fbfbdda30ae00bc4a117381c46ca1");
+    Connection con = DriverManager.getConnection(jdbcUrl, "token", "xx");
     con.setClientInfo(DatabricksJdbcConstants.ALLOWED_VOLUME_INGESTION_PATHS, "delete");
     System.out.println("Connection created");
     IDatabricksVolumeClient client = ((IDatabricksConnection) con).getVolumeClient();
@@ -275,7 +275,7 @@ public class DriverTest {
     // Getting the connection
     String jdbcUrl =
         "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/dd43ee29fedd958d;Loglevel=debug;useFileSystemAPI=1";
-    Connection con = DriverManager.getConnection(jdbcUrl, "token", "dapiac2fbfbdda30ae00bc4a117381c46ca1");
+    Connection con = DriverManager.getConnection(jdbcUrl, "token", "xx");
     System.out.println("Connection created");
 
     IDatabricksVolumeClient client = ((IDatabricksConnection) con).getVolumeClient();
