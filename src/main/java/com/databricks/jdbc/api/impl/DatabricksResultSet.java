@@ -1008,16 +1008,17 @@ public class DatabricksResultSet
 
     String columnTypeName = resultSetMetaData.getColumnTypeName(columnIndex);
     if (!columnTypeName.toUpperCase().startsWith("ARRAY")) {
-      LOGGER.error("Column type is not ARRAY. Cannot convert to Array. Column type: {}", columnTypeName);
+      LOGGER.error(
+          "Column type is not ARRAY. Cannot convert to Array. Column type: {}", columnTypeName);
       throw new SQLException(
-              "Column type is not ARRAY. Cannot convert to Array. Column type: " + columnTypeName);
+          "Column type is not ARRAY. Cannot convert to Array. Column type: " + columnTypeName);
     }
 
     LOGGER.trace("Parsing Array data for column with type name: {}", columnTypeName);
     ComplexDataTypeParser parser = new ComplexDataTypeParser();
     List<Object> arrayList =
-            parser.parseToArray(
-                    parser.parse(obj.toString()), MetadataParser.parseArrayMetadata(columnTypeName));
+        parser.parseToArray(
+            parser.parse(obj.toString()), MetadataParser.parseArrayMetadata(columnTypeName));
 
     LOGGER.debug("Returning DatabricksArray for column index: {}", columnIndex);
     return new DatabricksArray(arrayList, columnTypeName);
@@ -1042,9 +1043,10 @@ public class DatabricksResultSet
 
     String columnTypeName = resultSetMetaData.getColumnTypeName(columnIndex);
     if (!columnTypeName.toUpperCase().startsWith("STRUCT")) {
-      LOGGER.error("Column type is not STRUCT. Cannot convert to Struct. Column type: {}", columnTypeName);
+      LOGGER.error(
+          "Column type is not STRUCT. Cannot convert to Struct. Column type: {}", columnTypeName);
       throw new SQLException(
-              "Column type is not STRUCT. Cannot convert to Struct. Column type: " + columnTypeName);
+          "Column type is not STRUCT. Cannot convert to Struct. Column type: " + columnTypeName);
     }
 
     LOGGER.trace("Parsing Struct data for column with type name: {}", columnTypeName);
@@ -1075,9 +1077,10 @@ public class DatabricksResultSet
 
     String columnTypeName = resultSetMetaData.getColumnTypeName(columnIndex);
     if (!columnTypeName.toUpperCase().startsWith("MAP")) {
-      LOGGER.error("Column type is not MAP. Cannot convert to Map. Column type: {}", columnTypeName);
+      LOGGER.error(
+          "Column type is not MAP. Cannot convert to Map. Column type: {}", columnTypeName);
       throw new SQLException(
-              "Column type is not MAP. Cannot convert to Map. Column type: " + columnTypeName);
+          "Column type is not MAP. Cannot convert to Map. Column type: " + columnTypeName);
     }
 
     LOGGER.trace("Parsing Map data for column with type name: {}", columnTypeName);

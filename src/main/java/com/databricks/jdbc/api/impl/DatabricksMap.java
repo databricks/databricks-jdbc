@@ -2,7 +2,6 @@ package com.databricks.jdbc.api.impl;
 
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
-
 import java.math.BigDecimal;
 import java.sql.Date;
 import java.sql.Time;
@@ -53,7 +52,7 @@ public class DatabricksMap<K, V> implements Map<K, V> {
         } else {
           LOGGER.error("Expected a Map for STRUCT but found: {}", value.getClass().getSimpleName());
           throw new IllegalArgumentException(
-                  "Expected a Map for STRUCT but found: " + value.getClass().getSimpleName());
+              "Expected a Map for STRUCT but found: " + value.getClass().getSimpleName());
         }
       } else if (valueType.startsWith("ARRAY")) {
         if (value instanceof List) {
@@ -62,7 +61,7 @@ public class DatabricksMap<K, V> implements Map<K, V> {
         } else {
           LOGGER.error("Expected a List for ARRAY but found: {}", value.getClass().getSimpleName());
           throw new IllegalArgumentException(
-                  "Expected a List for ARRAY but found: " + value.getClass().getSimpleName());
+              "Expected a List for ARRAY but found: " + value.getClass().getSimpleName());
         }
       } else if (valueType.startsWith("MAP")) {
         if (value instanceof Map) {
@@ -71,7 +70,7 @@ public class DatabricksMap<K, V> implements Map<K, V> {
         } else {
           LOGGER.error("Expected a Map for MAP but found: {}", value.getClass().getSimpleName());
           throw new IllegalArgumentException(
-                  "Expected a Map for MAP but found: " + value.getClass().getSimpleName());
+              "Expected a Map for MAP but found: " + value.getClass().getSimpleName());
         }
       } else {
         return convertSimpleValue(value, valueType);
@@ -123,7 +122,7 @@ public class DatabricksMap<K, V> implements Map<K, V> {
     } catch (Exception e) {
       LOGGER.error("Error converting simple value of type {}: {}", valueType, e.getMessage(), e);
       throw new IllegalArgumentException(
-              "Failed to convert value " + value + " to type " + valueType, e);
+          "Failed to convert value " + value + " to type " + valueType, e);
     }
   }
 
