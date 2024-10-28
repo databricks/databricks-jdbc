@@ -9,6 +9,7 @@ public class DatabricksStruct implements Struct {
   private final Object[] attributes;
   private final String typeName;
 
+  /** Class for representation of Struct complex object. */
   public DatabricksStruct(Map<String, Object> attributes, String metadata) {
     // Parse the metadata into a type map
     Map<String, String> typeMap = MetadataParser.parseStructMetadata(metadata);

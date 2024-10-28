@@ -989,63 +989,103 @@ public class DatabricksResultSet
   }
 
   @Override
+  /**
+   * Retrieves the SQL `Array` from the specified column index in the result set.
+   *
+   * @param columnIndex the index of the column in the result set (1-based)
+   * @return an `Array` object if the column contains an array; `null` if the value is SQL `NULL`
+   * @throws SQLException if the column is not of `ARRAY` type or if any SQL error occurs
+   */
   public Array getArray(int columnIndex) throws SQLException {
+    LOGGER.debug("Getting Array from column index: {}", columnIndex);
     checkIfClosed();
     Object obj = getObjectInternal(columnIndex);
+
     if (obj == null) {
+      LOGGER.debug("Column at index {} is NULL, returning null", columnIndex);
       return null;
     }
 
     String columnTypeName = resultSetMetaData.getColumnTypeName(columnIndex);
     if (!columnTypeName.toUpperCase().startsWith("ARRAY")) {
+      LOGGER.error("Column type is not ARRAY. Cannot convert to Array. Column type: {}", columnTypeName);
       throw new SQLException(
-          "Column type is not ARRAY. Cannot convert to Array. Column type: " + columnTypeName);
+              "Column type is not ARRAY. Cannot convert to Array. Column type: " + columnTypeName);
     }
 
+    LOGGER.trace("Parsing Array data for column with type name: {}", columnTypeName);
     ComplexDataTypeParser parser = new ComplexDataTypeParser();
     List<Object> arrayList =
-        parser.parseToArray(
-            parser.parse(obj.toString()), MetadataParser.parseArrayMetadata(columnTypeName));
+            parser.parseToArray(
+                    parser.parse(obj.toString()), MetadataParser.parseArrayMetadata(columnTypeName));
 
+    LOGGER.debug("Returning DatabricksArray for column index: {}", columnIndex);
     return new DatabricksArray(arrayList, columnTypeName);
   }
 
+  /**
+   * Retrieves the SQL `Struct` from the specified column index in the result set.
+   *
+   * @param columnIndex the index of the column in the result set (1-based)
+   * @return a `Struct` object if the column contains a struct; `null` if the value is SQL `NULL`
+   * @throws SQLException if the column is not of `STRUCT` type or if any SQL error occurs
+   */
   public Struct getStruct(int columnIndex) throws SQLException {
+    LOGGER.debug("Getting Struct from column index: {}", columnIndex);
     checkIfClosed();
     Object obj = getObjectInternal(columnIndex);
+
     if (obj == null) {
+      LOGGER.debug("Column at index {} is NULL, returning null", columnIndex);
       return null;
     }
 
     String columnTypeName = resultSetMetaData.getColumnTypeName(columnIndex);
     if (!columnTypeName.toUpperCase().startsWith("STRUCT")) {
+      LOGGER.error("Column type is not STRUCT. Cannot convert to Struct. Column type: {}", columnTypeName);
       throw new SQLException(
-          "Column type is not STRUCT. Cannot convert to Struct. Column type: " + columnTypeName);
+              "Column type is not STRUCT. Cannot convert to Struct. Column type: " + columnTypeName);
     }
 
+    LOGGER.trace("Parsing Struct data for column with type name: {}", columnTypeName);
     Map<String, String> typeMap = MetadataParser.parseStructMetadata(columnTypeName);
-
     ComplexDataTypeParser parser = new ComplexDataTypeParser();
     Map<String, Object> structMap = parser.parseToStruct(parser.parse(obj.toString()), typeMap);
 
+    LOGGER.debug("Returning DatabricksStruct for column index: {}", columnIndex);
     return new DatabricksStruct(structMap, columnTypeName);
   }
 
+  /**
+   * Retrieves the SQL `Map` from the specified column index in the result set.
+   *
+   * @param columnIndex the index of the column in the result set (1-based)
+   * @return a `Map<String, Object>` if the column contains a map; `null` if the value is SQL `NULL`
+   * @throws SQLException if the column is not of `MAP` type or if any SQL error occurs
+   */
   public Map<String, Object> getMap(int columnIndex) throws SQLException {
+    LOGGER.debug("Getting Map from column index: {}", columnIndex);
     checkIfClosed();
     Object obj = getObjectInternal(columnIndex);
+
     if (obj == null) {
+      LOGGER.debug("Column at index {} is NULL, returning null", columnIndex);
       return null;
     }
 
     String columnTypeName = resultSetMetaData.getColumnTypeName(columnIndex);
     if (!columnTypeName.toUpperCase().startsWith("MAP")) {
+      LOGGER.error("Column type is not MAP. Cannot convert to Map. Column type: {}", columnTypeName);
       throw new SQLException(
-          "Column type is not MAP. Cannot convert to Map. Column type: " + columnTypeName);
+              "Column type is not MAP. Cannot convert to Map. Column type: " + columnTypeName);
     }
 
+    LOGGER.trace("Parsing Map data for column with type name: {}", columnTypeName);
     ComplexDataTypeParser parser = new ComplexDataTypeParser();
-    return parser.parseToMap(obj.toString(), columnTypeName);
+    Map<String, Object> map = parser.parseToMap(obj.toString(), columnTypeName);
+
+    LOGGER.debug("Returning parsed Map for column index: {}", columnIndex);
+    return map;
   }
 
   @Override

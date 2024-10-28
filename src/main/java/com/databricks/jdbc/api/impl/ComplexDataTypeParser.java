@@ -7,13 +7,16 @@ import java.sql.Date;
 import java.sql.Timestamp;
 import java.util.*;
 
+/** Utility class for parsing complex data type objects (map, array, struct). */
 public class ComplexDataTypeParser {
   private final ObjectMapper objectMapper;
 
+  /** Constructor class for ComplexDataTypeParser. */
   public ComplexDataTypeParser() {
     this.objectMapper = new ObjectMapper();
   }
 
+  /** Parsing JSON string to JsonNode. */
   public JsonNode parse(String json) {
     try {
       return objectMapper.readTree(json);
@@ -22,6 +25,7 @@ public class ComplexDataTypeParser {
     }
   }
 
+  /** Parsing JsonNode to Struct using parsed type map */
   public Map<String, Object> parseToStruct(JsonNode node, Map<String, String> typeMap) {
     if (!node.isObject()) {
       throw new IllegalArgumentException("Expected JSON object, but got: " + node);
@@ -53,6 +57,7 @@ public class ComplexDataTypeParser {
     return structMap;
   }
 
+  /** Parsing JsonNode to Array using element type of array */
   public List<Object> parseToArray(JsonNode node, String elementType) {
     if (!node.isArray()) {
       throw new IllegalArgumentException("Expected JSON array, but got: " + node);
@@ -77,6 +82,7 @@ public class ComplexDataTypeParser {
     return arrayList;
   }
 
+  /** Parsing JSON string to Map. */
   public Map<String, Object> parseToMap(String json, String metadata) {
     try {
       JsonNode node = objectMapper.readTree(json);
