@@ -6,14 +6,31 @@ import static org.junit.jupiter.api.Assertions.*;
 import com.databricks.jdbc.api.impl.DatabricksResultSet;
 import java.sql.*;
 import java.util.Map;
+
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 public class ComplexTypeQueryTests {
 
+  private Connection connection;
+
+  @BeforeEach
+  void setUp() throws SQLException {
+    connection = getValidJDBCConnection();
+  }
+
+  @AfterEach
+  void cleanUp() throws SQLException {
+    if (connection != null) {
+      connection.close();
+    }
+  }
+
   @Test
   void testQueryYieldingStruct() throws SQLException {
     String structQuerySQL = "SELECT named_struct('age', 30, 'name', 'John Doe') AS person";
-    DatabricksResultSet rs = (DatabricksResultSet) executeQuery(structQuerySQL);
+    DatabricksResultSet rs = (DatabricksResultSet) executeQuery(connection, structQuerySQL);
 
     assertNotNull(rs, "ResultSet should not be null");
 
@@ -32,7 +49,7 @@ public class ComplexTypeQueryTests {
   @Test
   void testQueryYieldingArray() throws SQLException {
     String arrayQuerySQL = "SELECT array(1, 2, 3, 4, 5) AS numbers";
-    ResultSet rs = executeQuery(arrayQuerySQL);
+    ResultSet rs = executeQuery(connection, arrayQuerySQL);
 
     assertNotNull(rs, "ResultSet should not be null");
 
@@ -50,7 +67,7 @@ public class ComplexTypeQueryTests {
   void testQueryYieldingMap() throws SQLException {
     // Assuming the database supports maps, adjust the SQL syntax accordingly
     String mapQuerySQL = "SELECT map('key1', 100, 'key2', 200) AS keyValuePairs";
-    DatabricksResultSet rs = (DatabricksResultSet) executeQuery(mapQuerySQL);
+    DatabricksResultSet rs = (DatabricksResultSet) executeQuery(connection, mapQuerySQL);
 
     assertNotNull(rs, "ResultSet should not be null");
 
@@ -68,7 +85,7 @@ public class ComplexTypeQueryTests {
   void testQueryYieldingNestedStructs() throws SQLException {
     String nestedStructQuerySQL =
         "SELECT named_struct('person', named_struct('age', 30, 'name', 'John Doe')) AS personInfo";
-    DatabricksResultSet rs = (DatabricksResultSet) executeQuery(nestedStructQuerySQL);
+    DatabricksResultSet rs = (DatabricksResultSet) executeQuery(connection, nestedStructQuerySQL);
 
     assertNotNull(rs, "ResultSet should not be null");
 
@@ -93,7 +110,7 @@ public class ComplexTypeQueryTests {
   void testQueryYieldingArrayOfStructs() throws SQLException {
     String arrayOfStructsSQL =
         "SELECT array(named_struct('age', 30, 'name', 'John'), named_struct('age', 40, 'name', 'Jane')) AS persons";
-    ResultSet rs = executeQuery(arrayOfStructsSQL);
+    ResultSet rs = executeQuery(connection, arrayOfStructsSQL);
 
     assertNotNull(rs, "ResultSet should not be null");
 
