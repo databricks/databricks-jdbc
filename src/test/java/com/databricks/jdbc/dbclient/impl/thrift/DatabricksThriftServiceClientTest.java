@@ -42,6 +42,7 @@ public class DatabricksThriftServiceClientTest {
   @Mock DatabricksResultSet resultSet;
   @Mock IDatabricksConnectionContext connectionContext;
   @Mock IDatabricksStatementInternal parentStatement;
+  @Mock DatabricksStatement statement;
 
   @Test
   void testCreateSession() throws DatabricksSQLException {
@@ -82,18 +83,26 @@ public class DatabricksThriftServiceClientTest {
     DatabricksThriftServiceClient client =
         new DatabricksThriftServiceClient(thriftAccessor, connectionContext);
     when(session.getSessionInfo()).thenReturn(SESSION_INFO);
+    when(parentStatement.getStatement()).thenReturn(statement);
+    when(statement.getQueryTimeout()).thenReturn(10);
     TExecuteStatementReq executeStatementReq =
         new TExecuteStatementReq()
             .setStatement(TEST_STRING)
             .setSessionHandle(SESSION_HANDLE)
             .setCanReadArrowResult(true)
+            .setQueryTimeout(10)
             .setCanDecompressLZ4Result(true)
             .setCanDownloadResult(true);
-    when(thriftAccessor.execute(executeStatementReq, null, session, StatementType.SQL))
+    when(thriftAccessor.execute(executeStatementReq, parentStatement, session, StatementType.SQL))
         .thenReturn(resultSet);
     DatabricksResultSet actualResultSet =
         client.executeStatement(
-            TEST_STRING, CLUSTER_COMPUTE, Collections.emptyMap(), StatementType.SQL, session, null);
+            TEST_STRING,
+            CLUSTER_COMPUTE,
+            Collections.emptyMap(),
+            StatementType.SQL,
+            session,
+            parentStatement);
     assertEquals(resultSet, actualResultSet);
   }
 
@@ -103,9 +112,12 @@ public class DatabricksThriftServiceClientTest {
     DatabricksThriftServiceClient client =
         new DatabricksThriftServiceClient(thriftAccessor, connectionContext);
     when(session.getSessionInfo()).thenReturn(SESSION_INFO);
+    when(parentStatement.getStatement()).thenReturn(statement);
+    when(statement.getQueryTimeout()).thenReturn(20);
     TExecuteStatementReq executeStatementReq =
         new TExecuteStatementReq()
             .setStatement(TEST_STRING)
+            .setQueryTimeout(20)
             .setSessionHandle(SESSION_HANDLE)
             .setCanReadArrowResult(true)
             .setCanDecompressLZ4Result(true)
