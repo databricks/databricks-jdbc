@@ -5,7 +5,6 @@ import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
 import com.databricks.jdbc.common.CompressionType;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
 import com.databricks.jdbc.dbclient.impl.common.StatementId;
-import com.databricks.jdbc.dbclient.impl.http.DatabricksHttpClient;
 import com.databricks.jdbc.dbclient.impl.thrift.DatabricksThriftServiceClient;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
@@ -18,6 +17,7 @@ import com.databricks.jdbc.model.core.ExternalLink;
 import com.databricks.jdbc.model.core.ResultData;
 import com.databricks.jdbc.model.core.ResultManifest;
 import com.databricks.sdk.service.sql.BaseChunkInfo;
+import com.google.common.annotations.VisibleForTesting;
 import java.util.Collection;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
@@ -64,22 +64,6 @@ public class RemoteChunkProvider implements ChunkProvider, ChunkDownloadCallback
     this.chunkIndexToChunksMap = initializeChunksMap(resultManifest, resultData, statementId);
     this.compressionType = CompressionType.NONE; // TODO: handle compression in this flow.
     initializeData();
-  }
-
-  RemoteChunkProvider(
-      IDatabricksStatementInternal parentStatement,
-      TFetchResultsResp resultsResp,
-      IDatabricksSession session,
-      int chunksDownloaderThreadPoolSize,
-      CompressionType compressionType)
-      throws DatabricksSQLException {
-    this(
-        parentStatement,
-        resultsResp,
-        session,
-        DatabricksHttpClient.getInstance(session.getConnectionContext()),
-        chunksDownloaderThreadPoolSize,
-        compressionType);
   }
 
   @VisibleForTesting
