@@ -31,7 +31,6 @@ public class Driver implements java.sql.Driver {
   }
 
   public static void main(String[] args) {
-    System.out.println("SAMIKSHYAAAAAAAAAAA-main");
     TimeZone.setDefault(
         TimeZone.getTimeZone("UTC")); // Logging, timestamps are in UTC across the application
     System.out.printf("The driver {%s} has been initialized.%n", Driver.class);
@@ -50,7 +49,6 @@ public class Driver implements java.sql.Driver {
     }
     IDatabricksConnectionContext connectionContext =
         DatabricksConnectionContextFactory.create(url, info);
-    System.out.println("SAMIKSHYAAAAAAAAAAA");
     setUpLogging(connectionContext);
     UserAgentManager.setUserAgent(connectionContext);
     DeviceInfoLogUtil.logProperties();
