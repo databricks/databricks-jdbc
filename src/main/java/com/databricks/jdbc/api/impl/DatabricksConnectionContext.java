@@ -9,9 +9,12 @@ import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
+import com.databricks.sdk.core.DatabricksEnvironment;
 import com.databricks.sdk.core.ProxyConfig;
+import com.databricks.sdk.core.utils.Cloud;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
+import java.net.URI;
 import java.util.*;
 import java.util.regex.Matcher;
 import java.util.stream.Collectors;
@@ -179,23 +182,18 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
 
   public Cloud getCloud() throws DatabricksParsingException {
     String hostURL = getHostUrl();
-    if (hostURL.contains("azuredatabricks.net")
-        || hostURL.contains(".databricks.azure.cn")
-        || hostURL.contains(".databricks.azure.us")) {
-      return Cloud.AZURE;
-    } else if (hostURL.contains(".cloud.databricks.com")) {
-      return Cloud.AWS;
-    }
-    return Cloud.OTHER;
+    String hostName = URI.create(hostURL).getHost();
+    return DatabricksEnvironment.getEnvironmentFromHostname(hostName).getCloud();
   }
 
   @Override
   public String getClientId() throws DatabricksParsingException {
     String clientId = getParameter(DatabricksJdbcUrlParams.CLIENT_ID);
     if (nullOrEmptyString(clientId)) {
-      if (getCloud() == Cloud.AWS) {
+      Cloud cloud = getCloud();
+      if (cloud == Cloud.AWS) {
         return DatabricksJdbcConstants.AWS_CLIENT_ID;
-      } else if (getCloud() == Cloud.AZURE) {
+      } else if (cloud == Cloud.AZURE) {
         return DatabricksJdbcConstants.AAD_CLIENT_ID;
       }
     }

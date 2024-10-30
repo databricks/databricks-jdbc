@@ -73,7 +73,7 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
             sql, databricksParameterMetaData.getParameterBindings(), StatementType.UPDATE, false);
         updateCount[i] = (int) resultSet.getUpdateCount();
       } catch (SQLException e) {
-        LOGGER.error(e.getMessage());
+        LOGGER.error(e, e.getMessage());
         updateCount[i] = -1;
       }
     }

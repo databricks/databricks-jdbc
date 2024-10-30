@@ -9,7 +9,7 @@ import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
 import com.databricks.jdbc.common.ErrorCodes;
 import com.databricks.jdbc.common.ErrorTypes;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
-import com.databricks.jdbc.dbclient.impl.http.DatabricksHttpClient;
+import com.databricks.jdbc.dbclient.impl.http.DatabricksHttpClientFactory;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.model.core.ResultManifest;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -17,7 +17,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Strings;
 import java.io.IOException;
-import java.sql.SQLException;
 import java.util.HashMap;
 import java.util.Map;
 import org.apache.http.HttpEntity;
@@ -49,7 +48,8 @@ public class VolumeOperationResult implements IExecutionResult {
     this.session = session;
     this.resultHandler = resultHandler;
     this.statement = statement;
-    this.httpClient = DatabricksHttpClient.getInstance(session.getConnectionContext());
+    this.httpClient =
+        DatabricksHttpClientFactory.getInstance().getClient(session.getConnectionContext());
     this.currentRowIndex = -1;
   }
 
@@ -133,7 +133,7 @@ public class VolumeOperationResult implements IExecutionResult {
   }
 
   private void validateMetadata() throws DatabricksSQLException {
-    // For now we only support one row for Volume operation
+    // For now, we only support one row for Volume operation
     if (rowCount > 1) {
       throw new DatabricksSQLException("Too many rows for Volume Operation");
     }
@@ -192,7 +192,7 @@ public class VolumeOperationResult implements IExecutionResult {
     this.volumeStreamContentLength = httpEntity.getContentLength();
   }
 
-  public InputStreamEntity getVolumeOperationInputStream() throws SQLException {
+  public InputStreamEntity getVolumeOperationInputStream() {
     return new InputStreamEntity(this.volumeInputStream, this.volumeStreamContentLength);
   }
 

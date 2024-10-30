@@ -18,7 +18,6 @@ import com.databricks.jdbc.model.core.ExternalLink;
 import com.databricks.jdbc.model.core.ResultData;
 import com.databricks.jdbc.model.core.ResultManifest;
 import com.databricks.sdk.service.sql.BaseChunkInfo;
-import com.google.common.annotations.VisibleForTesting;
 import java.util.Collection;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
@@ -136,7 +135,6 @@ public class RemoteChunkProvider implements ChunkProvider, ChunkDownloadCallback
       return null;
     }
     ArrowResultChunk chunk = chunkIndexToChunksMap.get(currentChunkIndex);
-    httpClient.closeExpiredAndIdleConnections();
     synchronized (chunk) {
       try {
         while (!isDownloadComplete(chunk.getStatus())) {
@@ -148,9 +146,10 @@ public class RemoteChunkProvider implements ChunkProvider, ChunkDownloadCallback
       } catch (InterruptedException e) {
         LOGGER.error(
             e,
-            String.format(
-                "Caught interrupted exception while waiting for chunk [%s] for statement [%s]. Exception [%s]",
-                chunk.getChunkIndex(), statementId, e));
+            "Caught interrupted exception while waiting for chunk [%s] for statement [%s]. Exception [%s]",
+            chunk.getChunkIndex(),
+            statementId,
+            e.getMessage());
       }
     }
 
@@ -193,7 +192,6 @@ public class RemoteChunkProvider implements ChunkProvider, ChunkDownloadCallback
     this.isClosed = true;
     this.chunkDownloaderExecutorService.shutdownNow();
     this.chunkIndexToChunksMap.values().forEach(ArrowResultChunk::releaseChunk);
-    httpClient.closeExpiredAndIdleConnections();
   }
 
   @Override

@@ -9,7 +9,7 @@ import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
 import com.databricks.jdbc.common.CompressionType;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
 import com.databricks.jdbc.dbclient.impl.common.StatementId;
-import com.databricks.jdbc.dbclient.impl.http.DatabricksHttpClient;
+import com.databricks.jdbc.dbclient.impl.http.DatabricksHttpClientFactory;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.model.client.thrift.generated.TColumnDesc;
@@ -43,7 +43,7 @@ public class ArrowStreamResult implements IExecutionResult {
         resultData,
         statementId,
         session,
-        DatabricksHttpClient.getInstance(session.getConnectionContext()));
+        DatabricksHttpClientFactory.getInstance().getClient(session.getConnectionContext()));
   }
 
   @VisibleForTesting
@@ -79,7 +79,7 @@ public class ArrowStreamResult implements IExecutionResult {
         isInlineArrow,
         parentStatementId,
         session,
-        DatabricksHttpClient.getInstance(session.getConnectionContext()));
+        DatabricksHttpClientFactory.getInstance().getClient(session.getConnectionContext()));
   }
 
   @VisibleForTesting

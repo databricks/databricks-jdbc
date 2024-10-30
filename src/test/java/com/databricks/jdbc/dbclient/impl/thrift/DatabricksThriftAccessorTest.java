@@ -35,22 +35,18 @@ public class DatabricksThriftAccessorTest {
   @Mock IDatabricksConnectionContext connectionContext;
   @Mock IDatabricksStatementInternal parentStatement;
   static DatabricksThriftAccessor accessor;
-
   private static final String TEST_STMT_ID = "MIIWiOiGTESQt3+6xIDA0A|vq8muWugTKm+ZsjNGZdauw";
   static THandleIdentifier handleIdentifier =
       StatementId.deserialize(TEST_STMT_ID).toOperationIdentifier();
-  private static final StatementId STATEMENT_ID = new StatementId(handleIdentifier);
   private static final TOperationHandle tOperationHandle =
       new TOperationHandle().setOperationId(handleIdentifier).setHasResultSet(false);
   private static final TRowSet rowSet = new TRowSet().setResultLinks(new ArrayList<>(2));
-
   private static final TFetchResultsResp response =
       new TFetchResultsResp()
           .setStatus(new TStatus().setStatusCode(TStatusCode.SUCCESS_STATUS))
           .setResultSetMetadata(
               new TGetResultSetMetadataResp().setResultFormat(TSparkRowSetType.COLUMN_BASED_SET))
           .setResults(rowSet);
-
   private static final TSparkDirectResults directResults =
       new TSparkDirectResults()
           .setResultSet(response)
@@ -58,7 +54,6 @@ public class DatabricksThriftAccessorTest {
               new TGetResultSetMetadataResp()
                   .setResultFormat(TSparkRowSetType.COLUMN_BASED_SET)
                   .setStatus(new TStatus().setStatusCode(TStatusCode.SUCCESS_STATUS)));
-
   private static final String NEW_ACCESS_TOKEN = "new-access-token";
 
   void setup(Boolean directResultsEnabled) {
@@ -127,7 +122,7 @@ public class DatabricksThriftAccessorTest {
   }
 
   @Test
-  void testExecuteAsync_error() throws TException, SQLException {
+  void testExecuteAsync_error() throws TException {
     setup(true);
     TExecuteStatementReq request = new TExecuteStatementReq();
     when(thriftClient.ExecuteStatement(request)).thenThrow(new TException("failed"));
@@ -245,7 +240,7 @@ public class DatabricksThriftAccessorTest {
   }
 
   @Test
-  void testCancelOperation_error() throws TException, DatabricksSQLException {
+  void testCancelOperation_error() throws TException {
     setup(true);
     TCancelOperationReq request =
         new TCancelOperationReq()
@@ -254,15 +249,11 @@ public class DatabricksThriftAccessorTest {
                     .setOperationId(handleIdentifier)
                     .setOperationType(TOperationType.UNKNOWN));
     when(thriftClient.CancelOperation(request)).thenThrow(new TException("failed"));
-    assertThrows(
-        DatabricksHttpException.class,
-        () -> {
-          accessor.cancelOperation(request);
-        });
+    assertThrows(DatabricksHttpException.class, () -> accessor.cancelOperation(request));
   }
 
   @Test
-  void testCloseOperation_error() throws TException, DatabricksSQLException {
+  void testCloseOperation_error() throws TException {
     setup(true);
     TCloseOperationReq request =
         new TCloseOperationReq()
@@ -271,18 +262,12 @@ public class DatabricksThriftAccessorTest {
                     .setOperationId(handleIdentifier)
                     .setOperationType(TOperationType.UNKNOWN));
     when(thriftClient.CloseOperation(request)).thenThrow(new TException("failed"));
-    assertThrows(
-        DatabricksHttpException.class,
-        () -> {
-          accessor.closeOperation(request);
-        });
+    assertThrows(DatabricksHttpException.class, () -> accessor.closeOperation(request));
   }
 
   @Test
   void testGetStatementResult_success() throws Exception {
     when(connectionContext.getDirectResultMode()).thenReturn(false);
-    when(thriftClient.getInputProtocol()).thenReturn(protocol);
-    when(protocol.getTransport()).thenReturn(transport);
     accessor = new DatabricksThriftAccessor(thriftClient, config, connectionContext);
     TGetOperationStatusReq request =
         new TGetOperationStatusReq()
@@ -309,8 +294,6 @@ public class DatabricksThriftAccessorTest {
   @Test
   void testGetStatementResult_pending() throws Exception {
     when(connectionContext.getDirectResultMode()).thenReturn(false);
-    when(thriftClient.getInputProtocol()).thenReturn(protocol);
-    when(protocol.getTransport()).thenReturn(transport);
     accessor = new DatabricksThriftAccessor(thriftClient, config, connectionContext);
     TGetOperationStatusReq request =
         new TGetOperationStatusReq()
