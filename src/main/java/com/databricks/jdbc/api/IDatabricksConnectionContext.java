@@ -1,6 +1,9 @@
 package com.databricks.jdbc.api;
 
-import com.databricks.jdbc.common.*;
+import com.databricks.jdbc.common.CompressionType;
+import com.databricks.jdbc.common.DatabricksClientType;
+import com.databricks.jdbc.common.IDatabricksComputeResource;
+import com.databricks.jdbc.common.LogLevel;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.sdk.core.ProxyConfig;
 import java.util.List;
@@ -207,6 +210,4 @@ public interface IDatabricksConnectionContext {
 
   /** Returns the maximum number of commands that can be executed in a single batch. */
   int getMaxBatchSize();
-
-  boolean isParameterSet(DatabricksJdbcUrlParams param);
 }
