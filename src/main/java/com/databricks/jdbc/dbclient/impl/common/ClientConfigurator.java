@@ -6,6 +6,7 @@ import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.auth.OAuthRefreshCredentialsProvider;
 import com.databricks.jdbc.auth.PrivateKeyClientCredentialProvider;
 import com.databricks.jdbc.common.DatabricksJdbcConstants;
+import com.databricks.jdbc.common.DatabricksJdbcUrlParams;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
@@ -60,6 +61,11 @@ public class ClientConfigurator {
    * @param httpClientBuilder The builder to which the SSL configuration should be added.
    */
   private void setupSSLConfig(CommonsHttpClient.Builder httpClientBuilder) {
+    if (!this.connectionContext.isParameterSet(DatabricksJdbcUrlParams.SSL_TRUST_STORE)
+          && !this.connectionContext.isParameterSet(DatabricksJdbcUrlParams.CHECK_CERTIFICATE_REVOCATION)
+          && !this.connectionContext.isParameterSet(DatabricksJdbcUrlParams.ACCEPT_UNDETERMINED_CERTIFICATE_REVOCATION)) {
+      return;
+    }
     PoolingHttpClientConnectionManager connManager =
         new PoolingHttpClientConnectionManager(
             getConnectionSocketFactoryRegistry(this.connectionContext));
@@ -81,17 +87,25 @@ public class ClientConfigurator {
     // if truststore is not provided, null will use default truststore
     KeyStore trustStore = loadTruststoreOrNull(connectionContext);
     Set<TrustAnchor> trustAnchors = getTrustAnchorsFromTrustStore(trustStore);
-    CertPathTrustManagerParameters trustManagerParameters =
-        buildTrustManagerParameters(
-            trustAnchors,
-            connectionContext.checkCertificateRevocation(),
-            connectionContext.acceptUndeterminedCertificateRevocation());
     // Build custom TrustManager based on above SSL trust store and certificate revocation settings
     // from context
     try {
       TrustManagerFactory customTrustManagerFactory =
           TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
-      customTrustManagerFactory.init(trustManagerParameters);
+      if (!connectionContext.isParameterSet(DatabricksJdbcUrlParams.CHECK_CERTIFICATE_REVOCATION)
+              && !connectionContext.isParameterSet(
+              DatabricksJdbcUrlParams.ACCEPT_UNDETERMINED_CERTIFICATE_REVOCATION)) {
+        // Only a custom trust store is provided, no parameters for certificate revocation
+        customTrustManagerFactory.init(trustStore);
+      } else {
+        // Custom trust store and certificate revocation parameters are provided
+        CertPathTrustManagerParameters trustManagerParameters =
+                buildTrustManagerParameters(
+                        trustAnchors,
+                        connectionContext.checkCertificateRevocation(),
+                        connectionContext.acceptUndeterminedCertificateRevocation());
+        customTrustManagerFactory.init(trustManagerParameters);
+      }
       SSLContext sslContext = SSLContext.getInstance(DatabricksJdbcConstants.TLS);
       sslContext.init(null, customTrustManagerFactory.getTrustManagers(), null);
       SSLConnectionSocketFactory sslSocketFactory = new SSLConnectionSocketFactory(sslContext);
