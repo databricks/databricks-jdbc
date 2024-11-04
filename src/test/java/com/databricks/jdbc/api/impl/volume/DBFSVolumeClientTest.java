@@ -7,7 +7,6 @@ import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.api.impl.DatabricksConnection;
 import com.databricks.jdbc.api.impl.DatabricksConnectionContextFactory;
 import com.databricks.jdbc.dbclient.impl.sqlexec.DatabricksSdkClient;
-import com.databricks.jdbc.exception.DatabricksSQLFeatureNotSupportedException;
 import java.sql.SQLException;
 import java.util.Properties;
 import org.junit.jupiter.api.Test;
@@ -40,28 +39,28 @@ public class DBFSVolumeClientTest {
     DBFSVolumeClient volumeClient = (DBFSVolumeClient) connection.getVolumeClient();
 
     assertThrows(
-        DatabricksSQLFeatureNotSupportedException.class,
+        UnsupportedOperationException.class,
         () -> volumeClient.prefixExists("catalog", "schema", "volume", "prefix", true));
     assertThrows(
-        DatabricksSQLFeatureNotSupportedException.class,
+        UnsupportedOperationException.class,
         () -> volumeClient.objectExists("catalog", "schema", "volume", "objectPath", true));
     assertThrows(
-        DatabricksSQLFeatureNotSupportedException.class,
+        UnsupportedOperationException.class,
         () -> volumeClient.volumeExists("catalog", "schema", "volume", true));
     assertThrows(
-        DatabricksSQLFeatureNotSupportedException.class,
+        UnsupportedOperationException.class,
         () -> volumeClient.listObjects("catalog", "schema", "volume", "foo", true));
     assertThrows(
-        DatabricksSQLFeatureNotSupportedException.class,
+        UnsupportedOperationException.class,
         () -> volumeClient.getObject("catalog", "schema", "volume", "objectPath"));
     assertThrows(
-        DatabricksSQLFeatureNotSupportedException.class,
+        UnsupportedOperationException.class,
         () -> volumeClient.getObject("catalog", "schema", "volume", "objectPath", "localPath"));
     assertThrows(
-        DatabricksSQLFeatureNotSupportedException.class,
+        UnsupportedOperationException.class,
         () -> volumeClient.putObject("catalog", "schema", "volume", "objectPath", null, 0L, true));
     assertThrows(
-        DatabricksSQLFeatureNotSupportedException.class,
+        UnsupportedOperationException.class,
         () -> volumeClient.deleteObject("catalog", "schema", "volume", "objectPath"));
   }
 }
