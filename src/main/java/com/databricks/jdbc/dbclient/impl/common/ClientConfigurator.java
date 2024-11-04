@@ -23,12 +23,14 @@ import java.security.cert.*;
 import java.util.Arrays;
 import java.util.Set;
 import java.util.stream.Collectors;
-import javax.net.ssl.*;
+import javax.net.ssl.CertPathTrustManagerParameters;
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.TrustManagerFactory;
+import javax.net.ssl.X509TrustManager;
 import org.apache.http.config.Registry;
 import org.apache.http.config.RegistryBuilder;
 import org.apache.http.conn.socket.ConnectionSocketFactory;
 import org.apache.http.conn.socket.PlainConnectionSocketFactory;
-import org.apache.http.conn.ssl.NoopHostnameVerifier;
 import org.apache.http.conn.ssl.SSLConnectionSocketFactory;
 import org.apache.http.impl.conn.PoolingHttpClientConnectionManager;
 
@@ -87,22 +89,12 @@ public class ClientConfigurator {
     // Build custom TrustManager based on above SSL trust store and certificate revocation settings
     // from context
     try {
-      TrustManager[] trustAllCerts =
-          new TrustManager[] {
-            new X509TrustManager() {
-              public X509Certificate[] getAcceptedIssuers() {
-                return null;
-              }
-
-              public void checkClientTrusted(X509Certificate[] certs, String authType) {}
-
-              public void checkServerTrusted(X509Certificate[] certs, String authType) {}
-            }
-          };
+      TrustManagerFactory customTrustManagerFactory =
+          TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
+      customTrustManagerFactory.init(trustManagerParameters);
       SSLContext sslContext = SSLContext.getInstance(DatabricksJdbcConstants.TLS);
-      sslContext.init(null, trustAllCerts, null);
-      SSLConnectionSocketFactory sslSocketFactory =
-          new SSLConnectionSocketFactory(sslContext, NoopHostnameVerifier.INSTANCE);
+      sslContext.init(null, customTrustManagerFactory.getTrustManagers(), null);
+      SSLConnectionSocketFactory sslSocketFactory = new SSLConnectionSocketFactory(sslContext);
       return RegistryBuilder.<ConnectionSocketFactory>create()
           .register(DatabricksJdbcConstants.HTTPS, sslSocketFactory)
           .register(DatabricksJdbcConstants.HTTP, new PlainConnectionSocketFactory())
