@@ -208,11 +208,11 @@ public class VolumeOperationResult implements IExecutionResult {
 
   @Override
   public long getRowCount() {
-    return 0;
+    return rowCount;
   }
 
   @Override
-  public int getChunkCount() {
+  public long getChunkCount() {
     return 0;
   }
 }

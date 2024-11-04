@@ -167,8 +167,8 @@ public class ArrowStreamResult implements IExecutionResult {
   }
 
   @Override
-  public int getChunkCount() {
-    return 0;
+  public long getChunkCount() {
+    return chunkProvider.getChunkCount();
   }
 
   private void setColumnInfo(TGetResultSetMetadataResp resultManifest) {

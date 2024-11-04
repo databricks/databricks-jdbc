@@ -49,6 +49,7 @@ public class Driver implements java.sql.Driver {
     }
     IDatabricksConnectionContext connectionContext =
         DatabricksConnectionContextFactory.create(url, info);
+
     setUpLogging(connectionContext);
     UserAgentManager.setUserAgent(connectionContext);
     DeviceInfoLogUtil.logProperties();

@@ -90,7 +90,7 @@ public class InlineJsonResult implements IExecutionResult {
   }
 
   @Override
-  public int getChunkCount() {
+  public long getChunkCount() {
     return 0;
   }
 

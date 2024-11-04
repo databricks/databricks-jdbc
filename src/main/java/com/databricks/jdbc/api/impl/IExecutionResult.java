@@ -36,5 +36,5 @@ public interface IExecutionResult {
 
   long getRowCount();
 
-  int getChunkCount();
+  long getChunkCount();
 }
