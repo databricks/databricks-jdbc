@@ -1,9 +1,11 @@
 package com.databricks.jdbc.api.impl.volume;
 
 import com.databricks.jdbc.api.IDatabricksSession;
+import com.databricks.jdbc.common.util.HttpUtil;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
 import com.databricks.jdbc.dbclient.impl.http.DatabricksHttpClient;
 import com.databricks.jdbc.exception.DatabricksHttpException;
+import com.databricks.jdbc.exception.DatabricksVolumeOperationException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import java.io.File;
@@ -39,12 +41,7 @@ public class VolumeOperationProcessorDirect {
     this.databricksHttpClient = DatabricksHttpClient.getInstance(session.getConnectionContext());
   }
 
-  private boolean isSuccessfulHttpResponse(CloseableHttpResponse response) {
-    return response.getStatusLine().getStatusCode() >= 200
-        && response.getStatusLine().getStatusCode() < 300;
-  }
-
-  public void executePutOperation() {
+  public void executePutOperation() throws DatabricksVolumeOperationException {
     HttpPut httpPut = new HttpPut(operationUrl);
 
     // Set the FileEntity as the request body
@@ -54,7 +51,7 @@ public class VolumeOperationProcessorDirect {
     // Execute the request
     try (CloseableHttpResponse response = databricksHttpClient.execute(httpPut)) {
       // Process the response
-      if (isSuccessfulHttpResponse(response)) {
+      if (HttpUtil.isSuccessfulHttpResponse(response)) {
         LOGGER.debug(String.format("Successfully uploaded file: {%s}", localFilePath));
       } else {
         LOGGER.error(
@@ -63,9 +60,11 @@ public class VolumeOperationProcessorDirect {
                 localFilePath, response.getStatusLine().getStatusCode()));
       }
     } catch (IOException | DatabricksHttpException e) {
-      LOGGER.error(
+      String errorMessage =
           String.format(
-              "Failed to upload file {%s} with error {%s}", localFilePath, e.getMessage()));
+              "Failed to upload file {%s} with error {%s}", localFilePath, e.getMessage());
+      LOGGER.error(e, errorMessage);
+      throw new DatabricksVolumeOperationException(errorMessage, e);
     }
   }
 }
