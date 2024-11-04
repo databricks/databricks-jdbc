@@ -1,10 +1,8 @@
 package com.databricks.client.jdbc;
 
-import com.databricks.jdbc.api.IDatabricksConnection;
 import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.api.impl.DatabricksConnection;
 import com.databricks.jdbc.api.impl.DatabricksConnectionContextFactory;
-import com.databricks.jdbc.common.DatabricksClientType;
 import com.databricks.jdbc.common.ErrorCodes;
 import com.databricks.jdbc.common.ErrorTypes;
 import com.databricks.jdbc.common.util.*;
@@ -58,7 +56,7 @@ public class Driver implements java.sql.Driver {
     try {
       connection.open();
       isConnectionOpen = true;
-      resolveMetadataClient(connection, connectionContext);
+      DriverUtil.resolveMetadataClient(connection);
       return connection;
     } catch (Exception e) {
       if (!isConnectionOpen) {
@@ -136,14 +134,5 @@ public class Driver implements java.sql.Driver {
       throwable = cause;
     }
     return throwable;
-  }
-
-  private static void resolveMetadataClient(
-      IDatabricksConnection connection, IDatabricksConnectionContext connectionContext) {
-    if (connectionContext.getClientType() == DatabricksClientType.SQL_EXEC
-        && connectionContext.getUseEmptyMetadata()) {
-      LOGGER.warn("Empty metadata client is being used.");
-      connection.getSession().setEmptyMetadataClient();
-    }
   }
 }
