@@ -3,6 +3,7 @@ package com.databricks.jdbc.api.impl.arrow;
 import com.databricks.jdbc.api.IDatabricksSession;
 import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
 import com.databricks.jdbc.common.CompressionType;
+import com.databricks.jdbc.common.util.DatabricksThriftUtil;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
 import com.databricks.jdbc.dbclient.impl.common.StatementId;
 import com.databricks.jdbc.dbclient.impl.thrift.DatabricksThriftServiceClient;
@@ -255,6 +256,7 @@ public class RemoteChunkProvider implements ChunkProvider, ChunkDownloadCallback
   private void populateChunkIndexMap(
       TRowSet resultData, ConcurrentHashMap<Long, ArrowResultChunk> chunkIndexMap)
       throws DatabricksParsingException {
+    rowCount += DatabricksThriftUtil.getRowCount(resultData);
     for (TSparkArrowResultLink resultLink : resultData.getResultLinks()) {
       String chunkInformationLog =
           String.format(
@@ -268,7 +270,6 @@ public class RemoteChunkProvider implements ChunkProvider, ChunkDownloadCallback
               .withThriftChunkInfo(chunkCount, resultLink)
               .build());
       this.chunkCount++;
-      rowCount += resultData.getRowsSize();
     }
   }
 
