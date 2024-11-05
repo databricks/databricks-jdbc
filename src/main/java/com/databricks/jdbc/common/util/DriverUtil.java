@@ -1,5 +1,7 @@
 package com.databricks.jdbc.common.util;
 
+import static com.databricks.jdbc.common.DatabricksJdbcConstants.IS_FAKE_SERVICE_TEST_PROP;
+
 import com.databricks.jdbc.api.IDatabricksConnection;
 import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.common.DatabricksClientType;
@@ -83,7 +85,8 @@ public class DriverUtil {
   @VisibleForTesting
   static void ensureUpdatedDBRVersionInUse(IDatabricksConnection connection)
       throws DatabricksValidationException {
-    if (connection.getConnectionContext().getClientType() != DatabricksClientType.SQL_EXEC) {
+    if (connection.getConnectionContext().getClientType() != DatabricksClientType.SQL_EXEC
+        || Boolean.parseBoolean(System.getProperty(IS_FAKE_SERVICE_TEST_PROP))) {
       // Check applicable only for SEA flow
       return;
     }
