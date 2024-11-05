@@ -25,6 +25,9 @@ import com.google.common.annotations.VisibleForTesting;
 import java.sql.SQLException;
 import java.util.Arrays;
 import java.util.Map;
+import java.util.Optional;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import org.apache.http.HttpException;
 import org.apache.thrift.TBase;
 import org.apache.thrift.TException;
@@ -115,7 +118,12 @@ final class DatabricksThriftAccessor {
               "Error while receiving response from Thrift server. Request {%s}, Error {%s}",
               request, e.getMessage());
       LOGGER.error(e, errorMessage);
-      throw new DatabricksSQLException(errorMessage, e);
+      String sqlState =
+          Optional.of(Pattern.compile("sqlState:(\\w+)").matcher(errorMessage))
+              .filter(Matcher::find)
+              .map(m -> m.group(1))
+              .orElse(null);
+      throw new DatabricksSQLException(errorMessage, sqlState);
     }
   }
 
@@ -289,7 +297,7 @@ final class DatabricksThriftAccessor {
         LOGGER.error(
             "Received error response {%s} from Thrift Server for request {%s}",
             response, request.toString());
-        throw new DatabricksSQLException(response.status.errorMessage);
+        throw new DatabricksSQLException(response.status.errorMessage, response.status.sqlState);
       }
     } catch (TException e) {
       String errorMessage =
