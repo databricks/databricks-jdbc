@@ -12,9 +12,10 @@ import java.io.IOException;
 import java.sql.ResultSet;
 
 /**
- * Utility class for common operations related to the Databricks JDBC driver.
+ * Utility class for operations related to the Databricks JDBC driver.
  *
- * <p>This class provides methods for retrieving version information and resolving metadata clients
+ * <p>This class provides methods for retrieving version information, setting up logging and
+ * resolving metadata clients.
  */
 public class DriverUtil {
 

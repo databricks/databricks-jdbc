@@ -7,12 +7,15 @@ import com.databricks.jdbc.api.impl.DatabricksConnection;
 import com.databricks.jdbc.api.impl.DatabricksConnectionContextFactory;
 import com.databricks.jdbc.common.util.*;
 import com.databricks.jdbc.exception.DatabricksSQLException;
+import com.databricks.jdbc.log.JdbcLogger;
+import com.databricks.jdbc.log.JdbcLoggerFactory;
 import java.sql.*;
 import java.util.Properties;
 import java.util.TimeZone;
 
 /** Databricks JDBC driver. */
 public class Driver implements java.sql.Driver {
+  private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(Driver.class);
   private static final Driver INSTANCE;
 
   static {
@@ -58,8 +61,9 @@ public class Driver implements java.sql.Driver {
       }
       String errorMessage =
           String.format(
-              "Connection failure while using OSS Databricks JDBC driver. Failed to connect to server: %s\n%s",
+              "Connection failure while using the OSS Databricks JDBC driver. Failed to connect to server: %s\n%s",
               connectionContext.getHostUrl(), getRootCauseMessage(e));
+      LOGGER.error(errorMessage);
       throw new DatabricksSQLException(errorMessage);
     }
   }
