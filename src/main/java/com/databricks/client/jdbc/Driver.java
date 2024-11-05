@@ -6,7 +6,6 @@ import com.databricks.jdbc.api.impl.DatabricksConnection;
 import com.databricks.jdbc.api.impl.DatabricksConnectionContextFactory;
 import com.databricks.jdbc.common.DatabricksClientType;
 import com.databricks.jdbc.common.ErrorCodes;
-import com.databricks.jdbc.common.ErrorTypes;
 import com.databricks.jdbc.common.util.*;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.log.JdbcLogger;
@@ -76,11 +75,7 @@ public class Driver implements java.sql.Driver {
         errorMessage += e.getMessage();
       }
 
-      throw new DatabricksSQLException(
-          errorMessage,
-          rootCause,
-          ErrorTypes.COMMUNICATION_FAILURE,
-          ErrorCodes.COMMUNICATION_FAILURE);
+      throw new DatabricksSQLException(errorMessage, rootCause, ErrorCodes.COMMUNICATION_FAILURE);
     }
   }
 

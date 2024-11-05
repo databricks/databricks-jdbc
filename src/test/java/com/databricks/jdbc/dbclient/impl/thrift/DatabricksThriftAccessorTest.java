@@ -208,6 +208,31 @@ public class DatabricksThriftAccessorTest {
   }
 
   @Test
+  void testExecuteThrowsSQLExceptionWithSqlState() throws TException {
+    setup(true);
+    TExecuteStatementReq request = new TExecuteStatementReq();
+    TExecuteStatementResp tExecuteStatementResp =
+        new TExecuteStatementResp()
+            .setStatus(
+                new TStatus()
+                    .setStatusCode(TStatusCode.ERROR_STATUS) // Simulate an error
+                    .setErrorMessage("Error executing statement")
+                    .setSqlState("42000")); // Example SQL state
+
+    when(thriftClient.ExecuteStatement(request)).thenReturn(tExecuteStatementResp);
+
+    DatabricksSQLException exception =
+        assertThrows(
+            DatabricksSQLException.class,
+            () -> {
+              accessor.execute(request, null, null, StatementType.SQL);
+            });
+
+    assertEquals("Error executing statement", exception.getMessage());
+    assertEquals("42000", exception.getSQLState());
+  }
+
+  @Test
   void testCancelOperation() throws TException, DatabricksSQLException {
     setup(true);
     TCancelOperationReq request =

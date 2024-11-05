@@ -241,7 +241,7 @@ final class DatabricksThriftAccessor {
     try {
       response = getThriftClient().ExecuteStatement(request);
       if (Arrays.asList(ERROR_STATUS, INVALID_HANDLE_STATUS).contains(response.status.statusCode)) {
-        throw new DatabricksSQLException(response.status.errorMessage);
+        throw new DatabricksSQLException(response.status.errorMessage, response.status.sqlState);
       }
       if (response.isSetDirectResults()) {
         checkDirectResultsForErrorStatus(response.getDirectResults(), response.toString());
