@@ -1,5 +1,7 @@
 package com.databricks.jdbc.common.util;
 
+import static com.databricks.jdbc.common.DatabricksJdbcConstants.IS_FAKE_SERVICE_TEST_PROP;
+
 public class DriverUtil {
   /**
    * The version string of the JDBC driver.
@@ -29,5 +31,9 @@ public class DriverUtil {
 
   public static String getQualifier() {
     return VERSION.split("-")[1];
+  }
+
+  public static boolean isRunningAgainstFake() {
+    return Boolean.parseBoolean(System.getProperty(IS_FAKE_SERVICE_TEST_PROP));
   }
 }

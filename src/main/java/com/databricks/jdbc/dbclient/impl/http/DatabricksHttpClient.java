@@ -5,6 +5,7 @@ import static com.databricks.jdbc.dbclient.impl.common.ClientConfigurator.conver
 import static io.netty.util.NetUtil.LOCALHOST;
 
 import com.databricks.jdbc.api.IDatabricksConnectionContext;
+import com.databricks.jdbc.common.util.DriverUtil;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
 import com.databricks.jdbc.dbclient.impl.common.ClientConfigurator;
 import com.databricks.jdbc.exception.DatabricksHttpException;
@@ -68,7 +69,7 @@ public class DatabricksHttpClient implements IDatabricksHttpClient, Closeable {
   public CloseableHttpResponse execute(HttpUriRequest request) throws DatabricksHttpException {
     LOGGER.debug(
         String.format("Executing HTTP request [{%s}]", RequestSanitizer.sanitizeRequest(request)));
-    if (!Boolean.parseBoolean(System.getProperty(IS_FAKE_SERVICE_TEST_PROP))) {
+    if (!DriverUtil.isRunningAgainstFake()) {
       // TODO : allow gzip in wiremock
       request.setHeader("Content-Encoding", "gzip");
     }
@@ -121,7 +122,7 @@ public class DatabricksHttpClient implements IDatabricksHttpClient, Closeable {
             .setRetryHandler(retryHandler)
             .addInterceptorFirst(retryHandler);
     setupProxy(connectionContext, builder);
-    if (Boolean.parseBoolean(System.getProperty(IS_FAKE_SERVICE_TEST_PROP))) {
+    if (DriverUtil.isRunningAgainstFake()) {
       setFakeServiceRouteInHttpClient(builder);
     }
     return builder.build();

@@ -305,22 +305,20 @@ public class DatabricksThriftUtil {
       TSparkDirectResults directResults, String context) throws DatabricksHttpException {
     if (directResults.isSetOperationStatus()) {
       LOGGER.debug("direct result operation status being verified for success response");
-      if (directResults.getOperationStatus().getOperationState() == TOperationState.ERROR_STATE) {
-        throw new DatabricksHttpException(directResults.getOperationStatus().errorMessage);
-      }
       verifySuccessStatus(directResults.getOperationStatus().getStatus().getStatusCode(), context);
     }
     if (directResults.isSetResultSetMetadata()) {
       LOGGER.debug("direct results metadata being verified for success response");
-      verifySuccessStatus(directResults.getResultSetMetadata().status.getStatusCode(), context);
+      verifySuccessStatus(
+          directResults.getResultSetMetadata().getStatus().getStatusCode(), context);
     }
     if (directResults.isSetCloseOperation()) {
       LOGGER.debug("direct results close operation verified for success response");
-      verifySuccessStatus(directResults.getCloseOperation().status.getStatusCode(), context);
+      verifySuccessStatus(directResults.getCloseOperation().getStatus().getStatusCode(), context);
     }
     if (directResults.isSetResultSet()) {
       LOGGER.debug("direct result set being verified for success response");
-      verifySuccessStatus(directResults.getResultSet().status.getStatusCode(), context);
+      verifySuccessStatus(directResults.getResultSet().getStatus().getStatusCode(), context);
     }
   }
 }
