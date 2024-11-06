@@ -15,7 +15,7 @@ import java.util.ArrayList;
 import java.util.List;
 import org.apache.http.entity.InputStreamEntity;
 
-/** Implementation for DatabricksUCVolumeClient */
+/** Implementation of the VolumeClient that uses SQL query to perform the Volume Operations */
 public class DatabricksUCVolumeClient implements IDatabricksVolumeClient {
 
   private static final JdbcLogger LOGGER =

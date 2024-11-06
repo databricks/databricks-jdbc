@@ -21,6 +21,7 @@ import java.sql.Connection;
 import java.util.List;
 import org.apache.http.entity.InputStreamEntity;
 
+/** Implementation of Volume Client that directly calls SQL Exec API for the Volume Operations */
 public class DBFSVolumeClient implements IDatabricksVolumeClient {
 
   private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(DBFSVolumeClient.class);
@@ -30,6 +31,8 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient {
     this.connection = (DatabricksConnection) connection;
   }
 
+  /** {@inheritDoc} */
+  @Override
   public boolean prefixExists(
       String catalog, String schema, String volume, String prefix, boolean caseSensitive)
       throws UnsupportedOperationException {
@@ -38,6 +41,8 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient {
     throw new UnsupportedOperationException(errorMessage);
   }
 
+  /** {@inheritDoc} */
+  @Override
   public boolean objectExists(
       String catalog, String schema, String volume, String objectPath, boolean caseSensitive)
       throws UnsupportedOperationException {
@@ -46,6 +51,8 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient {
     throw new UnsupportedOperationException(errorMessage);
   }
 
+  /** {@inheritDoc} */
+  @Override
   public boolean volumeExists(
       String catalog, String schema, String volumeName, boolean caseSensitive)
       throws UnsupportedOperationException {
@@ -54,6 +61,8 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient {
     throw new UnsupportedOperationException(errorMessage);
   }
 
+  /** {@inheritDoc} */
+  @Override
   public List<String> listObjects(
       String catalog, String schema, String volume, String prefix, boolean caseSensitive)
       throws UnsupportedOperationException {
@@ -62,6 +71,8 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient {
     throw new UnsupportedOperationException(errorMessage);
   }
 
+  /** {@inheritDoc} */
+  @Override
   public boolean getObject(
       String catalog, String schema, String volume, String objectPath, String localPath)
       throws UnsupportedOperationException {
@@ -70,6 +81,8 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient {
     throw new UnsupportedOperationException(errorMessage);
   }
 
+  /** {@inheritDoc} */
+  @Override
   public InputStreamEntity getObject(
       String catalog, String schema, String volume, String objectPath)
       throws UnsupportedOperationException {
@@ -79,6 +92,8 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient {
     throw new UnsupportedOperationException(errorMessage);
   }
 
+  /** {@inheritDoc} */
+  @Override
   public boolean putObject(
       String catalog,
       String schema,
@@ -112,6 +127,8 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient {
     return isOperationSucceeded;
   }
 
+  /** {@inheritDoc} */
+  @Override
   public boolean putObject(
       String catalog,
       String schema,
@@ -126,6 +143,8 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient {
     throw new UnsupportedOperationException(errorMessage);
   }
 
+  /** {@inheritDoc} */
+  @Override
   public boolean deleteObject(String catalog, String schema, String volume, String objectPath)
       throws UnsupportedOperationException {
     String errorMessage = "deleteObject function is unsupported in DBFSVolumeClient";
@@ -133,6 +152,13 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient {
     throw new UnsupportedOperationException(errorMessage);
   }
 
+  /**
+   * Fetches the pre signed url using the SQL Exec API
+   *
+   * @param objectPath
+   * @return CreateUploadUrlResponse
+   * @throws DatabricksVolumeOperationException
+   */
   private CreateUploadUrlResponse getCreateUploadUrlResponse(String objectPath)
       throws DatabricksVolumeOperationException {
     LOGGER.debug(

@@ -22,7 +22,7 @@ public interface IDatabricksConnection {
   Connection getConnection();
 
   /**
-   * Returns the respective volume client instance Currently supports - UCVolumeClient and
+   * Returns the respective volume client instance. Currently supports - UCVolumeClient and
    * DBFSVolumeClient
    */
   IDatabricksVolumeClient getVolumeClient();
