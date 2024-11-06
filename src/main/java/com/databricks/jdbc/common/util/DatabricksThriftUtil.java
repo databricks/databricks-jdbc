@@ -43,12 +43,12 @@ public class DatabricksThriftUtil {
         .setExpiration(Long.toString(chunkInfo.getExpiryTime()));
   }
 
-  public static void verifySuccessStatus(TStatusCode statusCode, String errorContext)
+  public static void verifySuccessStatus(TStatus status, String errorContext)
       throws DatabricksHttpException {
-    if (!SUCCESS_STATUS_LIST.contains(statusCode)) {
+    if (!SUCCESS_STATUS_LIST.contains(status.getStatusCode())) {
       String errorMessage = "Error thrift response received. " + errorContext;
       LOGGER.error(errorMessage);
-      throw new DatabricksHttpException(errorMessage);
+      throw new DatabricksHttpException(errorMessage, status.getSqlState());
     }
   }
 
@@ -308,19 +308,19 @@ public class DatabricksThriftUtil {
       if (directResults.getOperationStatus().getOperationState() == TOperationState.ERROR_STATE) {
         throw new DatabricksHttpException(directResults.getOperationStatus().errorMessage);
       }
-      verifySuccessStatus(directResults.getOperationStatus().getStatus().getStatusCode(), context);
+      verifySuccessStatus(directResults.getOperationStatus().getStatus(), context);
     }
     if (directResults.isSetResultSetMetadata()) {
       LOGGER.debug("direct results metadata being verified for success response");
-      verifySuccessStatus(directResults.getResultSetMetadata().status.getStatusCode(), context);
+      verifySuccessStatus(directResults.getResultSetMetadata().status, context);
     }
     if (directResults.isSetCloseOperation()) {
       LOGGER.debug("direct results close operation verified for success response");
-      verifySuccessStatus(directResults.getCloseOperation().status.getStatusCode(), context);
+      verifySuccessStatus(directResults.getCloseOperation().status, context);
     }
     if (directResults.isSetResultSet()) {
       LOGGER.debug("direct result set being verified for success response");
-      verifySuccessStatus(directResults.getResultSet().status.getStatusCode(), context);
+      verifySuccessStatus(directResults.getResultSet().status, context);
     }
   }
 }

@@ -47,13 +47,18 @@ public class DatabricksThriftUtilTest {
   @Test
   void testVerifySuccessStatus() {
     assertDoesNotThrow(
-        () -> DatabricksThriftUtil.verifySuccessStatus(TStatusCode.SUCCESS_STATUS, "test"));
+        () ->
+            DatabricksThriftUtil.verifySuccessStatus(
+                new TStatus().setStatusCode(TStatusCode.SUCCESS_STATUS), "test"));
     assertDoesNotThrow(
         () ->
-            DatabricksThriftUtil.verifySuccessStatus(TStatusCode.SUCCESS_WITH_INFO_STATUS, "test"));
+            DatabricksThriftUtil.verifySuccessStatus(
+                new TStatus().setStatusCode(TStatusCode.SUCCESS_WITH_INFO_STATUS), "test"));
     assertThrows(
         DatabricksHttpException.class,
-        () -> DatabricksThriftUtil.verifySuccessStatus(TStatusCode.ERROR_STATUS, "test"));
+        () ->
+            DatabricksThriftUtil.verifySuccessStatus(
+                new TStatus().setStatusCode(TStatusCode.ERROR_STATUS), "test"));
   }
 
   private static Stream<Arguments> resultDataTypes() {
