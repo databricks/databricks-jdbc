@@ -32,7 +32,8 @@ public class ConnectionIntegrationTests extends AbstractFakeServiceIntegrationTe
             DatabricksSQLException.class,
             () -> DriverManager.getConnection(url, createConnectionProperties("bad_token_1")));
 
-    assert e.getMessage().contains("Communication link failure. Failed to connect to server");
+    assert e.getMessage()
+        .contains("Connection failure while using the OSS Databricks JDBC driver.");
   }
 
   @Test
@@ -51,7 +52,8 @@ public class ConnectionIntegrationTests extends AbstractFakeServiceIntegrationTe
             DatabricksSQLException.class,
             () -> DriverManager.getConnection(url, createConnectionProperties("bad_token_2")));
 
-    assert e.getMessage().contains("Communication link failure. Failed to connect to server");
+    assert e.getMessage()
+        .contains("Connection failure while using the OSS Databricks JDBC driver.");
   }
 
   private Properties createConnectionProperties(String password) {
