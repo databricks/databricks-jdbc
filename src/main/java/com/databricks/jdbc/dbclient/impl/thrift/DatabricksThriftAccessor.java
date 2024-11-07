@@ -197,7 +197,6 @@ final class DatabricksThriftAccessor {
     TFetchResultsResp response;
     try {
       response = getThriftClient().FetchResults(request);
-      System.out.println("response getResultSetResp");
     } catch (TException e) {
       String errorMessage =
           String.format(
@@ -300,13 +299,17 @@ final class DatabricksThriftAccessor {
             response, request.toString());
         throw new DatabricksSQLException(response.status.errorMessage, response.status.sqlState);
       }
-    } catch (TException e) {
+    } catch (DatabricksSQLException | TException e) {
       String errorMessage =
           String.format(
               "Error while receiving response from Thrift server. Request {%s}, Error {%s}",
               request.toString(), e.getMessage());
       LOGGER.error(e, errorMessage);
-      throw new DatabricksHttpException(errorMessage, e);
+      if (e instanceof DatabricksSQLException) {
+        throw new DatabricksHttpException(errorMessage, ((DatabricksSQLException) e).getSQLState());
+      } else {
+        throw new DatabricksHttpException(errorMessage, e);
+      }
     }
     StatementId statementId = new StatementId(response.getOperationHandle().operationId);
     if (parentStatement != null) {
