@@ -85,7 +85,7 @@ public class DriverUtil {
   static void ensureUpdatedDBRVersionInUse(IDatabricksConnection connection)
       throws DatabricksValidationException {
     if (connection.getConnectionContext().getClientType() != DatabricksClientType.SQL_EXEC
-        || Boolean.parseBoolean(System.getProperty(IS_FAKE_SERVICE_TEST_PROP))) {
+        || isRunningAgainstFake()) {
       // Check applicable only for SEA flow
       return;
     }
