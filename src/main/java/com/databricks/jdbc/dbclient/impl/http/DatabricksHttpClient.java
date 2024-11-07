@@ -7,7 +7,7 @@ import static io.netty.util.NetUtil.LOCALHOST;
 import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.common.util.DriverUtil;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
-import com.databricks.jdbc.dbclient.impl.common.ClientConfigurator;
+import com.databricks.jdbc.dbclient.impl.common.ConfiguratorUtils;
 import com.databricks.jdbc.exception.DatabricksHttpException;
 import com.databricks.jdbc.exception.DatabricksRetryHandlerException;
 import com.databricks.jdbc.log.JdbcLogger;
@@ -97,8 +97,7 @@ public class DatabricksHttpClient implements IDatabricksHttpClient, Closeable {
   private PoolingHttpClientConnectionManager initializeConnectionManager(
       IDatabricksConnectionContext connectionContext) {
     PoolingHttpClientConnectionManager connectionManager =
-        new PoolingHttpClientConnectionManager(
-            ClientConfigurator.getConnectionSocketFactoryRegistry(connectionContext));
+        ConfiguratorUtils.getBaseConnectionManager(connectionContext);
     connectionManager.setMaxTotal(DEFAULT_MAX_HTTP_CONNECTIONS);
     connectionManager.setDefaultMaxPerRoute(DEFAULT_MAX_HTTP_CONNECTIONS_PER_ROUTE);
     return connectionManager;
