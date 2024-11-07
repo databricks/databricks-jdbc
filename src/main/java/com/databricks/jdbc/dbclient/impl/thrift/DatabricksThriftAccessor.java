@@ -242,7 +242,7 @@ final class DatabricksThriftAccessor {
 
       if (hasResultDataInDirectResults(response)) {
         // The first response has result data
-        // There is no polling in this case as status was already finsihed
+        // There is no polling in this case as status was already finished
         resultSet = response.getDirectResults().getResultSet();
         resultSet.setResultSetMetadata(response.getDirectResults().getResultSetMetadata());
       } else {
