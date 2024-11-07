@@ -31,39 +31,43 @@ public class UCMetadataTests {
     // Change connection to actual test warehouse once it supports latest runtime
     connection = getDogfoodJDBCConnection(Arrays.asList(Arrays.asList("useLegacyMetadata", "0")));
 
-    executeSQL("CREATE CATALOG IF NOT EXISTS " + catA);
-    executeSQL("USE CATALOG " + catA);
-    executeSQL("CREATE DATABASE IF NOT EXISTS " + db1);
-    executeSQL("CREATE DATABASE IF NOT EXISTS " + db2);
+    executeSQL(connection, "CREATE CATALOG IF NOT EXISTS " + catA);
+    executeSQL(connection, "USE CATALOG " + catA);
+    executeSQL(connection, "CREATE DATABASE IF NOT EXISTS " + db1);
+    executeSQL(connection, "CREATE DATABASE IF NOT EXISTS " + db2);
 
-    executeSQL("USE " + db1);
+    executeSQL(connection, "USE " + db1);
     executeSQL(
+        connection,
         "CREATE TABLE IF NOT EXISTS a_1 AS (SELECT 1 AS col_1, '"
             + catA
             + "."
             + db1
             + ".a_1' AS col_2)");
     executeSQL(
+        connection,
         "CREATE TABLE IF NOT EXISTS a_2 AS (SELECT 1 AS col_1, '"
             + catA
             + "."
             + db1
             + ".a_2' AS col_2)");
 
-    executeSQL("USE " + db2);
+    executeSQL(connection, "USE " + db2);
     executeSQL(
+        connection,
         "CREATE TABLE IF NOT EXISTS a_1 AS (SELECT 1 AS col_1, '"
             + catA
             + "."
             + db2
             + ".a_1' AS col_2)");
 
-    executeSQL("USE CATALOG " + mainCatalog);
-    executeSQL("CREATE DATABASE IF NOT EXISTS " + db1);
-    executeSQL("CREATE DATABASE IF NOT EXISTS " + db2);
+    executeSQL(connection, "USE CATALOG " + mainCatalog);
+    executeSQL(connection, "CREATE DATABASE IF NOT EXISTS " + db1);
+    executeSQL(connection, "CREATE DATABASE IF NOT EXISTS " + db2);
 
-    executeSQL("USE " + db1);
+    executeSQL(connection, "USE " + db1);
     executeSQL(
+        connection,
         "CREATE TABLE IF NOT EXISTS "
             + mainDb1Table1
             + " AS (SELECT 1 AS col_1, 'main."
@@ -72,10 +76,11 @@ public class UCMetadataTests {
             + mainDb1Table1
             + "' AS col_2)");
 
-    executeSQL("USE CATALOG " + hiveCatalog);
-    executeSQL("CREATE DATABASE IF NOT EXISTS " + db2);
-    executeSQL("USE " + db2);
+    executeSQL(connection, "USE CATALOG " + hiveCatalog);
+    executeSQL(connection, "CREATE DATABASE IF NOT EXISTS " + db2);
+    executeSQL(connection, "USE " + db2);
     executeSQL(
+        connection,
         "CREATE TABLE IF NOT EXISTS "
             + table1
             + " AS (SELECT 1 AS col_1, '"
@@ -86,6 +91,7 @@ public class UCMetadataTests {
             + table1
             + "' AS col_2)");
     executeSQL(
+        connection,
         "CREATE TABLE IF NOT EXISTS "
             + table2
             + " AS (SELECT 1 AS col_1, '"
@@ -111,20 +117,20 @@ public class UCMetadataTests {
   @AfterAll
   static void cleanUp() throws SQLException {
     // Cleanup
-    executeSQL("USE CATALOG " + catA);
-    executeSQL("DROP DATABASE " + db1 + " CASCADE");
-    executeSQL("DROP DATABASE " + db2 + " CASCADE");
-    executeSQL("DROP DATABASE IF EXISTS default CASCADE");
-    executeSQL("DROP CATALOG " + catA);
+    executeSQL(connection, "USE CATALOG " + catA);
+    executeSQL(connection, "DROP DATABASE " + db1 + " CASCADE");
+    executeSQL(connection, "DROP DATABASE " + db2 + " CASCADE");
+    executeSQL(connection, "DROP DATABASE IF EXISTS default CASCADE");
+    executeSQL(connection, "DROP CATALOG " + catA);
 
     // Cleanup main catalog
-    executeSQL("USE CATALOG " + mainCatalog);
-    executeSQL("DROP DATABASE " + db1 + " CASCADE");
-    executeSQL("DROP DATABASE " + db2 + " CASCADE");
+    executeSQL(connection, "USE CATALOG " + mainCatalog);
+    executeSQL(connection, "DROP DATABASE " + db1 + " CASCADE");
+    executeSQL(connection, "DROP DATABASE " + db2 + " CASCADE");
 
     // Cleanup legacy catalog
-    executeSQL("USE CATALOG " + hiveCatalog);
-    executeSQL("DROP DATABASE " + db2 + " CASCADE");
+    executeSQL(connection, "USE CATALOG " + hiveCatalog);
+    executeSQL(connection, "DROP DATABASE " + db2 + " CASCADE");
 
     if (connection != null) {
       connection.close();
@@ -140,7 +146,7 @@ public class UCMetadataTests {
 
   @Test
   void testGetSchemas() throws SQLException {
-    executeSQL("USE CATALOG hive_metastore");
+    executeSQL(connection, "USE CATALOG hive_metastore");
     ResultSet r = connection.getMetaData().getSchemas("hive_metastore", "%");
     verifyContainsSchemas(
         r,

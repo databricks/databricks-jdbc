@@ -56,8 +56,7 @@ public class DatabricksPreparedStatementTest {
   void setupMocks() throws DatabricksSQLException {
     IDatabricksConnectionContext connectionContext =
         DatabricksConnectionContext.parse(JDBC_URL, new Properties());
-    when(connection.getSession()).thenReturn(session);
-    when(session.getConnectionContext()).thenReturn(connectionContext);
+    when(connection.getConnectionContext()).thenReturn(connectionContext);
   }
 
   @Test

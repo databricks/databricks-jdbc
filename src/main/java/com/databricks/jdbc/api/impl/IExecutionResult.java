@@ -33,4 +33,8 @@ public interface IExecutionResult {
 
   /** Closes the result set and releases any in-memory chunks or data */
   void close();
+
+  long getRowCount();
+
+  long getChunkCount();
 }

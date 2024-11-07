@@ -95,7 +95,7 @@ public class ResultManifest {
   }
 
   public Long getTotalChunkCount() {
-    return this.totalChunkCount;
+    return totalChunkCount;
   }
 
   public ResultManifest setTotalRowCount(Long totalRowCount) {

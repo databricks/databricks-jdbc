@@ -6,6 +6,7 @@ import static org.mockito.Mockito.*;
 
 import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.dbclient.impl.http.DatabricksHttpClient;
+import com.databricks.jdbc.dbclient.impl.http.DatabricksHttpClientFactory;
 import com.databricks.jdbc.exception.DatabricksHttpException;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.sdk.core.DatabricksConfig;
@@ -50,8 +51,11 @@ public class OAuthEndpointResolverTest {
     when(context.isOAuthDiscoveryModeEnabled()).thenReturn(true);
     when(context.getOAuthDiscoveryURL()).thenReturn("https://discovery.example.com");
 
-    try (MockedStatic<DatabricksHttpClient> mocked = mockStatic(DatabricksHttpClient.class)) {
-      mocked.when(() -> DatabricksHttpClient.getInstance(any())).thenReturn(httpClient);
+    try (MockedStatic<DatabricksHttpClientFactory> factoryMocked =
+        mockStatic(DatabricksHttpClientFactory.class)) {
+      DatabricksHttpClientFactory mockFactory = mock(DatabricksHttpClientFactory.class);
+      factoryMocked.when(DatabricksHttpClientFactory::getInstance).thenReturn(mockFactory);
+      when(mockFactory.getClient(any())).thenReturn(httpClient);
       when(httpClient.execute(any(HttpGet.class))).thenReturn(httpResponse);
       when(httpResponse.getStatusLine()).thenReturn(statusLine);
       when(statusLine.getStatusCode()).thenReturn(200);
@@ -91,8 +95,11 @@ public class OAuthEndpointResolverTest {
   @Test
   void testGetTokenEndpoint_WithOAuthDiscoveryModeAndErrorInDiscoveryEndpoint()
       throws DatabricksParsingException, IOException, DatabricksHttpException {
-    try (MockedStatic<DatabricksHttpClient> mocked = mockStatic(DatabricksHttpClient.class)) {
-      mocked.when(() -> DatabricksHttpClient.getInstance(any())).thenReturn(httpClient);
+    try (MockedStatic<DatabricksHttpClientFactory> factoryMocked =
+        mockStatic(DatabricksHttpClientFactory.class)) {
+      DatabricksHttpClientFactory mockFactory = mock(DatabricksHttpClientFactory.class);
+      factoryMocked.when(DatabricksHttpClientFactory::getInstance).thenReturn(mockFactory);
+      when(mockFactory.getClient(any())).thenReturn(httpClient);
       when(httpClient.execute(any(HttpGet.class)))
           .thenThrow(
               new DatabricksHttpException("Error fetching token endpoint from discovery endpoint"));

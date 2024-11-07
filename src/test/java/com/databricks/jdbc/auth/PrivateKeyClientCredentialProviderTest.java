@@ -7,6 +7,7 @@ import static org.mockito.Mockito.*;
 
 import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.dbclient.impl.http.DatabricksHttpClient;
+import com.databricks.jdbc.dbclient.impl.http.DatabricksHttpClientFactory;
 import com.databricks.jdbc.exception.DatabricksHttpException;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.sdk.core.DatabricksConfig;
@@ -48,8 +49,11 @@ public class PrivateKeyClientCredentialProviderTest {
   @Test
   void testCredentialProviderWithDiscoveryMode() throws DatabricksHttpException, IOException {
     setup();
-    try (MockedStatic<DatabricksHttpClient> mocked = mockStatic(DatabricksHttpClient.class)) {
-      mocked.when(() -> DatabricksHttpClient.getInstance(any())).thenReturn(httpClient);
+    try (MockedStatic<DatabricksHttpClientFactory> factoryMocked =
+        mockStatic(DatabricksHttpClientFactory.class)) {
+      DatabricksHttpClientFactory mockFactory = mock(DatabricksHttpClientFactory.class);
+      factoryMocked.when(DatabricksHttpClientFactory::getInstance).thenReturn(mockFactory);
+      when(mockFactory.getClient(any())).thenReturn(httpClient);
       when(httpClient.execute(any())).thenReturn(httpResponse);
       when(httpResponse.getStatusLine()).thenReturn(statusLine);
       when(context.getTokenEndpoint()).thenReturn(null);
@@ -73,19 +77,21 @@ public class PrivateKeyClientCredentialProviderTest {
   void testCredentialProviderWithModeEnabledButUrlNotProvided()
       throws DatabricksParsingException, IOException {
     setup();
-    try (MockedStatic<DatabricksHttpClient> mocked = mockStatic(DatabricksHttpClient.class)) {
-      mocked.when(() -> DatabricksHttpClient.getInstance(any())).thenReturn(httpClient);
-      doReturn(true).when(context).isOAuthDiscoveryModeEnabled();
-      doReturn(null).when(context).getOAuthDiscoveryURL();
-      doReturn(null).when(context).getTokenEndpoint();
-      //      doReturn("testHost").when(context).getHostForOAuth();
+    try (MockedStatic<DatabricksHttpClientFactory> factoryMocked =
+        mockStatic(DatabricksHttpClientFactory.class)) {
+      DatabricksHttpClientFactory mockFactory = mock(DatabricksHttpClientFactory.class);
+      factoryMocked.when(DatabricksHttpClientFactory::getInstance).thenReturn(mockFactory);
+      when(mockFactory.getClient(any())).thenReturn(httpClient);
+      when(context.isOAuthDiscoveryModeEnabled()).thenReturn(true);
+      when(context.getOAuthDiscoveryURL()).thenReturn(null);
+      when(context.getTokenEndpoint()).thenReturn(null);
+      when(context.getHostForOAuth()).thenReturn("testHost");
       OAuthEndpointResolver oAuthEndpointResolver = spy(new OAuthEndpointResolver(context));
-      doReturn(config).when(oAuthEndpointResolver).getBarebonesDatabricksConfig();
-      doReturn(
+      when(oAuthEndpointResolver.getBarebonesDatabricksConfig()).thenReturn(config);
+      when(config.getOidcEndpoints())
+          .thenReturn(
               new OpenIDConnectEndpoints(
-                  "https://testHost/oidc/v1/token", "https://testHost/oidc/v1/authorize"))
-          .when(config)
-          .getOidcEndpoints();
+                  "https://testHost/oidc/v1/token", "https://testHost/oidc/v1/authorize"));
       JwtPrivateKeyClientCredentials clientCredentialObject =
           new PrivateKeyClientCredentialProvider(context, oAuthEndpointResolver)
               .getClientCredentialObject(config);
@@ -97,8 +103,11 @@ public class PrivateKeyClientCredentialProviderTest {
   @Test
   void testCredentialProviderWithTokenEndpointInContext() {
     setup();
-    try (MockedStatic<DatabricksHttpClient> mocked = mockStatic(DatabricksHttpClient.class)) {
-      mocked.when(() -> DatabricksHttpClient.getInstance(any())).thenReturn(httpClient);
+    try (MockedStatic<DatabricksHttpClientFactory> factoryMocked =
+        mockStatic(DatabricksHttpClientFactory.class)) {
+      DatabricksHttpClientFactory mockFactory = mock(DatabricksHttpClientFactory.class);
+      factoryMocked.when(DatabricksHttpClientFactory::getInstance).thenReturn(mockFactory);
+      when(mockFactory.getClient(any())).thenReturn(httpClient);
       when(context.getTokenEndpoint()).thenReturn(TEST_TOKEN_URL);
       JwtPrivateKeyClientCredentials clientCredentialObject =
           new PrivateKeyClientCredentialProvider(context).getClientCredentialObject(config);
