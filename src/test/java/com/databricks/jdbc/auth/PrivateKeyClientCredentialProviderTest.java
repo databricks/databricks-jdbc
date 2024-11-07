@@ -82,16 +82,26 @@ public class PrivateKeyClientCredentialProviderTest {
       DatabricksHttpClientFactory mockFactory = mock(DatabricksHttpClientFactory.class);
       factoryMocked.when(DatabricksHttpClientFactory::getInstance).thenReturn(mockFactory);
       when(mockFactory.getClient(any())).thenReturn(httpClient);
-      when(context.isOAuthDiscoveryModeEnabled()).thenReturn(true);
-      when(context.getOAuthDiscoveryURL()).thenReturn(null);
-      when(context.getTokenEndpoint()).thenReturn(null);
-      when(context.getHostForOAuth()).thenReturn("testHost");
+      //      when(context.isOAuthDiscoveryModeEnabled()).thenReturn(true);
+      //      when(context.getOAuthDiscoveryURL()).thenReturn(null);
+      //      when(context.getTokenEndpoint()).thenReturn(null);
+      doReturn(true).when(context).isOAuthDiscoveryModeEnabled();
+      doReturn(null).when(context).getOAuthDiscoveryURL();
+      doReturn(null).when(context).getTokenEndpoint();
+
+      //            doReturn("testHost").when(context).getHostForOAuth();
       OAuthEndpointResolver oAuthEndpointResolver = spy(new OAuthEndpointResolver(context));
-      when(oAuthEndpointResolver.getBarebonesDatabricksConfig()).thenReturn(config);
-      when(config.getOidcEndpoints())
-          .thenReturn(
+      //      when(oAuthEndpointResolver.getBarebonesDatabricksConfig()).thenReturn(config);
+      doReturn(config).when(oAuthEndpointResolver).getBarebonesDatabricksConfig();
+      doReturn(
               new OpenIDConnectEndpoints(
-                  "https://testHost/oidc/v1/token", "https://testHost/oidc/v1/authorize"));
+                  "https://testHost/oidc/v1/token", "https://testHost/oidc/v1/authorize"))
+          .when(config)
+          .getOidcEndpoints();
+      //      when(config.getOidcEndpoints())
+      //          .thenReturn(
+      //              new OpenIDConnectEndpoints(
+      //                  "https://testHost/oidc/v1/token", "https://testHost/oidc/v1/authorize"));
       JwtPrivateKeyClientCredentials clientCredentialObject =
           new PrivateKeyClientCredentialProvider(context, oAuthEndpointResolver)
               .getClientCredentialObject(config);

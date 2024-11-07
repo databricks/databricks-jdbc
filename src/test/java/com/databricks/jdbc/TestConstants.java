@@ -8,6 +8,7 @@ import com.databricks.jdbc.model.client.thrift.generated.*;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 
 /** TestConstants class contains all the constants that are used in the test classes. */

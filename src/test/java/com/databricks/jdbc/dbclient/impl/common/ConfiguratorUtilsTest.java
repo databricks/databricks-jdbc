@@ -13,7 +13,7 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.math.BigInteger;
 import java.nio.file.Files;
-import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.security.*;
 import java.security.cert.CertificateException;
 import java.security.cert.TrustAnchor;
@@ -123,12 +123,12 @@ public class ConfiguratorUtilsTest {
   @AfterAll
   static void cleanup() {
     try {
-      Files.delete(Path.of(EMPTY_TRUST_STORE_PATH));
+      Files.delete(Paths.get(EMPTY_TRUST_STORE_PATH));
     } catch (IOException e) {
       LOGGER.info("Failed to delete empty trust store file: " + e.getMessage());
     }
     try {
-      Files.delete(Path.of(DUMMY_TRUST_STORE_PATH));
+      Files.delete(Paths.get(DUMMY_TRUST_STORE_PATH));
     } catch (IOException e) {
       LOGGER.info("Failed to delete dummy trust store file: " + e.getMessage());
     }

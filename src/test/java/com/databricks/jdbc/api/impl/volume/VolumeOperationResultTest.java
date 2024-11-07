@@ -13,11 +13,9 @@ import com.databricks.jdbc.exception.DatabricksHttpException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.model.core.ResultManifest;
 import com.databricks.sdk.service.sql.ResultSchema;
-import java.io.ByteArrayInputStream;
-import java.io.File;
-import java.io.FileInputStream;
-import java.nio.file.Files;
-import java.util.Map;
+import java.io.*;
+import java.nio.charset.StandardCharsets;
+import java.util.Collections;
 import org.apache.http.StatusLine;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpDelete;
@@ -76,7 +74,9 @@ public class VolumeOperationResultTest {
     File file = new File(LOCAL_FILE_GET);
     assertTrue(file.exists());
     try (FileInputStream fis = new FileInputStream(file)) {
-      String fileContent = new String(fis.readAllBytes());
+      byte[] fileBytes = new byte[(int) file.length()];
+      fis.read(fileBytes);
+      String fileContent = new String(fileBytes);
       assertEquals("test", fileContent);
     } finally {
       assertTrue(file.delete());
@@ -108,10 +108,16 @@ public class VolumeOperationResultTest {
     assertFalse(volumeOperationResult.next());
 
     assertNotNull(volumeOperationResult.getVolumeOperationInputStream());
-    assertEquals(
-        "test",
-        new String(
-            volumeOperationResult.getVolumeOperationInputStream().getContent().readAllBytes()));
+    InputStream inputStream = volumeOperationResult.getVolumeOperationInputStream().getContent();
+    ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
+    byte[] buffer = new byte[1024];
+    int length;
+    while ((length = inputStream.read(buffer)) != -1) {
+      byteArrayOutputStream.write(buffer, 0, length);
+    }
+    String content = new String(byteArrayOutputStream.toByteArray(), StandardCharsets.UTF_8);
+
+    assertEquals("test", content);
   }
 
   @Test
@@ -150,8 +156,7 @@ public class VolumeOperationResultTest {
     when(resultHandler.getObject(2)).thenReturn(HEADERS);
     when(resultHandler.getObject(3)).thenReturn(LOCAL_FILE_GET);
     when(session.getClientInfoProperties())
-        .thenReturn(Map.of(ALLOWED_VOLUME_INGESTION_PATHS.toLowerCase(), ""));
-
+        .thenReturn(Collections.singletonMap(ALLOWED_VOLUME_INGESTION_PATHS.toLowerCase(), ""));
     VolumeOperationResult volumeOperationResult =
         new VolumeOperationResult(
             RESULT_MANIFEST, session, resultHandler, mockHttpClient, statement);
@@ -237,7 +242,9 @@ public class VolumeOperationResultTest {
     when(resultHandler.getObject(3)).thenReturn(LOCAL_FILE_GET);
 
     File file = new File(LOCAL_FILE_GET);
-    Files.writeString(file.toPath(), "test-put");
+    try (BufferedWriter writer = new BufferedWriter(new FileWriter(file))) {
+      writer.write("test-put");
+    }
 
     VolumeOperationResult volumeOperationResult =
         new VolumeOperationResult(
@@ -311,7 +318,9 @@ public class VolumeOperationResultTest {
     when(mockedStatusLine.getStatusCode()).thenReturn(200);
 
     File file = new File(LOCAL_FILE_PUT);
-    Files.writeString(file.toPath(), "test-put");
+    try (BufferedWriter writer = new BufferedWriter(new FileWriter(file))) {
+      writer.write("test-put");
+    }
 
     VolumeOperationResult volumeOperationResult =
         new VolumeOperationResult(
@@ -414,7 +423,9 @@ public class VolumeOperationResultTest {
     when(mockedStatusLine.getStatusCode()).thenReturn(403);
 
     File file = new File(LOCAL_FILE_PUT);
-    Files.writeString(file.toPath(), "test-put");
+    try (BufferedWriter writer = new BufferedWriter(new FileWriter(file))) {
+      writer.write("test-put");
+    }
 
     VolumeOperationResult volumeOperationResult =
         new VolumeOperationResult(
@@ -441,7 +452,9 @@ public class VolumeOperationResultTest {
     when(resultHandler.getObject(3)).thenReturn(LOCAL_FILE_PUT);
 
     File file = new File(LOCAL_FILE_PUT);
-    Files.writeString(file.toPath(), "");
+    try (BufferedWriter writer = new BufferedWriter(new FileWriter(file))) {
+      writer.write("");
+    }
 
     VolumeOperationResult volumeOperationResult =
         new VolumeOperationResult(
@@ -625,6 +638,7 @@ public class VolumeOperationResultTest {
     when(resultHandler.next()).thenReturn(true).thenReturn(false);
     when(resultHandler.getObject(2)).thenReturn(HEADERS);
     when(session.getClientInfoProperties())
-        .thenReturn(Map.of(ALLOWED_VOLUME_INGESTION_PATHS.toLowerCase(), ALLOWED_PATHS));
+        .thenReturn(
+            Collections.singletonMap(ALLOWED_VOLUME_INGESTION_PATHS.toLowerCase(), ALLOWED_PATHS));
   }
 }

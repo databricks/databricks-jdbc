@@ -11,6 +11,7 @@ import java.security.KeyStore;
 import java.security.NoSuchAlgorithmException;
 import java.security.cert.*;
 import java.util.Arrays;
+import java.util.HashSet;
 import java.util.Set;
 import java.util.stream.Collectors;
 import javax.net.ssl.CertPathTrustManagerParameters;
@@ -136,10 +137,11 @@ public class ConfiguratorUtils {
           (PKIXRevocationChecker) certPathValidator.getRevocationChecker();
       if (acceptUndeterminedCertificateRevocation) {
         revocationChecker.setOptions(
-            Set.of(
-                PKIXRevocationChecker.Option.SOFT_FAIL,
-                PKIXRevocationChecker.Option.NO_FALLBACK,
-                PKIXRevocationChecker.Option.PREFER_CRLS));
+            new HashSet<>(
+                Arrays.asList(
+                    PKIXRevocationChecker.Option.SOFT_FAIL,
+                    PKIXRevocationChecker.Option.NO_FALLBACK,
+                    PKIXRevocationChecker.Option.PREFER_CRLS)));
       }
       if (checkCertificateRevocation) {
         pkixBuilderParameters.addCertPathChecker(revocationChecker);

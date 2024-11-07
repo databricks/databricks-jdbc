@@ -187,7 +187,7 @@ public class DatabricksSdkClientTest {
     DatabricksStatement statement = new DatabricksStatement(connection);
     statement.setMaxRows(100);
     HashMap<Integer, ImmutableSqlParameter> sqlParams =
-        new HashMap<>() {
+        new HashMap<Integer, ImmutableSqlParameter>() {
           {
             put(1, getSqlParam(1, 100, DatabricksTypeUtil.BIGINT));
             put(2, getSqlParam(2, (short) 10, DatabricksTypeUtil.SMALLINT));

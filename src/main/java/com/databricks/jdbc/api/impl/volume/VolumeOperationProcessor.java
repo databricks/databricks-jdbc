@@ -137,7 +137,7 @@ class VolumeOperationProcessor {
             .map(localFilePath::startsWith)
             .filter(x -> x)
             .findFirst();
-    if (pathMatched.isEmpty() || !pathMatched.get()) {
+    if (!pathMatched.isPresent() || !pathMatched.get()) {
       LOGGER.error("Local file path is not allowed {%s}", localFilePath);
       status = VolumeOperationStatus.ABORTED;
       errorMessage = "Local file path is not allowed";
