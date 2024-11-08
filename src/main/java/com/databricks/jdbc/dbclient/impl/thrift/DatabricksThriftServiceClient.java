@@ -87,7 +87,7 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
       openSessionReq.setInitialNamespace(getNamespace(catalog, schema));
     }
     TOpenSessionResp response = (TOpenSessionResp) thriftAccessor.getThriftResponse(openSessionReq);
-    verifySuccessStatus(response.status.getStatusCode(), response.toString());
+    verifySuccessStatus(response.status, response.toString());
 
     TProtocolVersion serverProtocol = response.getServerProtocolVersion();
     if (serverProtocol.getValue() <= TProtocolVersion.HIVE_CLI_SERVICE_PROTOCOL_V10.getValue()) {
@@ -115,7 +115,7 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
         new TCloseSessionReq().setSessionHandle(session.getSessionInfo().sessionHandle());
     TCloseSessionResp response =
         (TCloseSessionResp) thriftAccessor.getThriftResponse(closeSessionReq);
-    verifySuccessStatus(response.status.getStatusCode(), response.toString());
+    verifySuccessStatus(response.status, response.toString());
   }
 
   @Override

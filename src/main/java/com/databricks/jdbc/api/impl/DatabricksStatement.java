@@ -596,7 +596,7 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
           String.format(
               "Error occurred during statement execution: %s. Error : %s", sql, e.getMessage());
       LOGGER.error(e, errMsg);
-      throw new DatabricksSQLException(errMsg, e, "", ErrorCodes.EXECUTE_STATEMENT_FAILED);
+      throw new DatabricksSQLException(errMsg, e, ErrorCodes.EXECUTE_STATEMENT_FAILED);
     }
     LOGGER.debug("Result retrieved successfully" + resultSet.toString());
     return resultSet;

@@ -140,7 +140,7 @@ public class DatabricksHttpClient implements IDatabricksHttpClient, Closeable {
             "Caught error while executing http request: [%s]. Error Message: [%s]",
             RequestSanitizer.sanitizeRequest(request), e);
     LOGGER.error(e, errorMsg);
-    throw new DatabricksHttpException(errorMsg, e);
+    throw new DatabricksHttpException(errorMsg, DEFAULT_HTTP_EXCEPTION_SQLSTATE);
   }
 
   @VisibleForTesting
