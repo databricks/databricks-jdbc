@@ -258,8 +258,11 @@ public class DatabricksThriftUtil {
   }
 
   public static TOperationHandle getOperationHandle(StatementId statementId) {
+    THandleIdentifier identifier = statementId.toOperationIdentifier();
+    // This will help logging the statement-Id in readable format for debugging purposes
+    LOGGER.debug("getOperationHandle {%s} for operationId {%s}", statementId, byteBufferToString(identifier.guid));
     return new TOperationHandle()
-        .setOperationId(statementId.toOperationIdentifier())
+        .setOperationId(identifier)
         .setOperationType(TOperationType.UNKNOWN);
   }
 
