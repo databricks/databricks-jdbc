@@ -1,6 +1,6 @@
 package com.databricks.jdbc.model.client.sqlexec;
 
-import com.databricks.jdbc.common.CompressionType;
+import com.databricks.jdbc.common.CompressionCodec;
 import com.databricks.sdk.service.sql.Disposition;
 import com.databricks.sdk.service.sql.ExecuteStatementRequestOnWaitTimeout;
 import com.databricks.sdk.service.sql.Format;
@@ -43,8 +43,8 @@ public class ExecuteStatementRequest {
   @JsonProperty("parameters")
   private Collection<StatementParameterListItem> parameters;
 
-  @JsonProperty("compression_codec")
-  private CompressionType compressionType;
+  @JsonProperty("result_compression")
+  private CompressionCodec resultCompression;
 
   public String getStatement() {
     return statement;
@@ -82,8 +82,8 @@ public class ExecuteStatementRequest {
     return parameters;
   }
 
-  public CompressionType getCompressionType() {
-    return compressionType;
+  public CompressionCodec getResultCompression() {
+    return resultCompression;
   }
 
   // Setters
@@ -92,8 +92,8 @@ public class ExecuteStatementRequest {
     return this;
   }
 
-  public ExecuteStatementRequest setCompressionType(CompressionType compressionType) {
-    this.compressionType = compressionType;
+  public ExecuteStatementRequest setResultCompression(CompressionCodec compressionCodec) {
+    this.resultCompression = compressionCodec;
     return this;
   }
 

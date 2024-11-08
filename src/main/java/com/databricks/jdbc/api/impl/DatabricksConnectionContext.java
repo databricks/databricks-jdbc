@@ -291,12 +291,12 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   }
 
   @Override
-  public CompressionType getCompressionType() {
+  public CompressionCodec getCompressionCodec() {
     String compressionType =
         getParameter(
             DatabricksJdbcUrlParams.LZ4_COMPRESSION_FLAG,
             getParameter(DatabricksJdbcUrlParams.COMPRESSION_FLAG));
-    return CompressionType.parseCompressionType(compressionType);
+    return CompressionCodec.parseCompressionType(compressionType);
   }
 
   @Override

@@ -1,6 +1,6 @@
 package com.databricks.jdbc.api;
 
-import com.databricks.jdbc.common.CompressionType;
+import com.databricks.jdbc.common.CompressionCodec;
 import com.databricks.jdbc.common.DatabricksClientType;
 import com.databricks.jdbc.common.IDatabricksComputeResource;
 import com.databricks.jdbc.common.LogLevel;
@@ -86,7 +86,7 @@ public interface IDatabricksConnectionContext {
 
   String getClientUserAgent();
 
-  CompressionType getCompressionType();
+  CompressionCodec getCompressionCodec();
 
   String getCatalog();
 

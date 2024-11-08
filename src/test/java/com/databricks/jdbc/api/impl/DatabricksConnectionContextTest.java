@@ -5,7 +5,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import com.databricks.jdbc.TestConstants;
 import com.databricks.jdbc.api.IDatabricksConnectionContext;
-import com.databricks.jdbc.common.CompressionType;
+import com.databricks.jdbc.common.CompressionCodec;
 import com.databricks.jdbc.common.DatabricksClientType;
 import com.databricks.jdbc.common.LogLevel;
 import com.databricks.jdbc.exception.DatabricksParsingException;
@@ -54,7 +54,7 @@ class DatabricksConnectionContextTest {
         connectionContext.getAuthFlow(),
         IDatabricksConnectionContext.AuthFlow.BROWSER_BASED_AUTHENTICATION);
     assertEquals(7, connectionContext.parameters.size());
-    assertEquals(CompressionType.NONE, connectionContext.getCompressionType());
+    assertEquals(CompressionCodec.LZ4_FRAME, connectionContext.getCompressionCodec());
     assertEquals(LogLevel.DEBUG, connectionContext.getLogLevel());
     assertNull(connectionContext.getClientSecret());
     assertEquals("./test1", connectionContext.getLogPathString());
@@ -71,7 +71,7 @@ class DatabricksConnectionContextTest {
     assertEquals("passwd2", connectionContext.getToken());
     assertEquals("96eecda7-19ea-49cc-abb5-240097d554f5", connectionContext.getClientId());
     assertEquals(7, connectionContext.parameters.size());
-    assertEquals(CompressionType.LZ4_COMPRESSION, connectionContext.getCompressionType());
+    assertEquals(CompressionCodec.LZ4_FRAME, connectionContext.getCompressionCodec());
     assertEquals(LogLevel.OFF, connectionContext.getLogLevel());
     assertEquals(System.getProperty("user.dir"), connectionContext.getLogPathString());
     assertEquals("3", connectionContext.parameters.get("authmech"));
@@ -93,7 +93,7 @@ class DatabricksConnectionContextTest {
     assertEquals(
         IDatabricksConnectionContext.AuthFlow.TOKEN_PASSTHROUGH, connectionContext.getAuthFlow());
     assertEquals(IDatabricksConnectionContext.AuthMech.PAT, connectionContext.getAuthMech());
-    assertEquals(CompressionType.NONE, connectionContext.getCompressionType());
+    assertEquals(CompressionCodec.NONE, connectionContext.getCompressionCodec());
     assertEquals(8, connectionContext.parameters.size());
     assertEquals(LogLevel.OFF, connectionContext.getLogLevel());
     assertEquals(connectionContext.getOAuthScopesForU2M(), expected_scopes);
@@ -125,12 +125,12 @@ class DatabricksConnectionContextTest {
     DatabricksConnectionContext connectionContext =
         (DatabricksConnectionContext)
             DatabricksConnectionContext.parse(TestConstants.VALID_URL_4, properties);
-    assertEquals(CompressionType.LZ4_COMPRESSION, connectionContext.getCompressionType());
+    assertEquals(CompressionCodec.LZ4_FRAME, connectionContext.getCompressionCodec());
     connectionContext =
         (DatabricksConnectionContext)
             DatabricksConnectionContext.parse(
                 TestConstants.VALID_URL_WITH_INVALID_COMPRESSION_TYPE, properties);
-    assertEquals(CompressionType.NONE, connectionContext.getCompressionType());
+    assertEquals(CompressionCodec.LZ4_FRAME, connectionContext.getCompressionCodec());
   }
 
   @Test
@@ -219,7 +219,7 @@ class DatabricksConnectionContextTest {
     assertEquals(
         "sql/protocolv1/o/6051921418418893/1115-130834-ms4m0yv", connectionContext.getHttpPath());
     assertEquals("passwd", connectionContext.getToken());
-    assertEquals(CompressionType.NONE, connectionContext.getCompressionType());
+    assertEquals(CompressionCodec.LZ4_FRAME, connectionContext.getCompressionCodec());
     assertEquals(5, connectionContext.parameters.size());
     assertEquals(LogLevel.WARN, connectionContext.getLogLevel());
     assertTrue(connectionContext.isAllPurposeCluster());
@@ -233,7 +233,7 @@ class DatabricksConnectionContextTest {
             DatabricksConnectionContext.parse(TestConstants.VALID_URL_5, properties);
     assertEquals("/sql/1.0/warehouses/5c89f447c476a5a8", connectionContext.getHttpPath());
     assertEquals("passwd", connectionContext.getToken());
-    assertEquals(CompressionType.LZ4_COMPRESSION, connectionContext.getCompressionType());
+    assertEquals(CompressionCodec.LZ4_FRAME, connectionContext.getCompressionCodec());
     assertEquals(6, connectionContext.parameters.size());
     assertEquals(
         "http://e2-dogfood.staging.cloud.databricks.com:4473", connectionContext.getHostUrl());

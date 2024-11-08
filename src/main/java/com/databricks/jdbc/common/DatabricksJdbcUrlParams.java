@@ -48,7 +48,7 @@ public enum DatabricksJdbcUrlParams {
   DISCOVERY_URL("OAuthDiscoveryURL"),
   ENABLE_ARROW("EnableArrow", "1"),
   DIRECT_RESULT("EnableDirectResults", "1"),
-  LZ4_COMPRESSION_FLAG("EnableQueryResultLZ4Compression"), // Backward compatibility
+  LZ4_COMPRESSION_FLAG("EnableQueryResultLZ4Compression"),
   COMPRESSION_FLAG("QueryResultCompressionType"),
   USER_AGENT_ENTRY("useragententry"),
   USE_EMPTY_METADATA("useemptymetadata"),
