@@ -23,27 +23,28 @@ import com.databricks.sdk.core.DatabricksConfig;
 import com.google.common.annotations.VisibleForTesting;
 import java.sql.SQLException;
 import java.util.Arrays;
-import java.util.Map;
 import org.apache.http.HttpException;
 import org.apache.thrift.TBase;
 import org.apache.thrift.TException;
+import org.apache.thrift.TFieldIdEnum;
 import org.apache.thrift.protocol.TBinaryProtocol;
 
 final class DatabricksThriftAccessor {
 
   private static final JdbcLogger LOGGER =
       JdbcLoggerFactory.getLogger(DatabricksThriftAccessor.class);
-  private final DatabricksConfig databricksConfig;
-  private final ThreadLocal<TCLIService.Client> thriftClient;
-  private final Boolean enableDirectResults;
   private static final TSparkGetDirectResults DEFAULT_DIRECT_RESULTS =
       new TSparkGetDirectResults().setMaxRows(DEFAULT_ROW_LIMIT).setMaxBytes(DEFAULT_BYTE_LIMIT);
+  private static final int directResultsFieldId = 1281;
+  private static final int operationHandleFieldId = 2;
+  private final ThreadLocal<TCLIService.Client> thriftClient;
+  private final boolean enableDirectResults;
 
   DatabricksThriftAccessor(IDatabricksConnectionContext connectionContext)
       throws DatabricksParsingException {
-    enableDirectResults = connectionContext.getDirectResultMode();
-    this.databricksConfig = new ClientConfigurator(connectionContext).getDatabricksConfig();
-    Map<String, String> authHeaders = databricksConfig.authenticate();
+    this.enableDirectResults = connectionContext.getDirectResultMode();
+    DatabricksConfig databricksConfig =
+        new ClientConfigurator(connectionContext).getDatabricksConfig();
     String endPointUrl = connectionContext.getEndpointURL();
 
     if (!DriverUtil.isRunningAgainstFake()) {
@@ -51,25 +52,23 @@ final class DatabricksThriftAccessor {
       // the underlying protocol uses the same http client which is thread safe
       this.thriftClient =
           ThreadLocal.withInitial(
-              () -> createThriftClient(endPointUrl, authHeaders, connectionContext));
+              () -> createThriftClient(endPointUrl, databricksConfig, connectionContext));
     } else {
-      TCLIService.Client client = createThriftClient(endPointUrl, authHeaders, connectionContext);
+      TCLIService.Client client =
+          createThriftClient(endPointUrl, databricksConfig, connectionContext);
       this.thriftClient = ThreadLocal.withInitial(() -> client);
     }
   }
 
   @VisibleForTesting
   DatabricksThriftAccessor(
-      TCLIService.Client client,
-      DatabricksConfig config,
-      IDatabricksConnectionContext connectionContext) {
-    this.databricksConfig = config;
+      TCLIService.Client client, IDatabricksConnectionContext connectionContext) {
     this.thriftClient = ThreadLocal.withInitial(() -> client);
     this.enableDirectResults = connectionContext.getDirectResultMode();
   }
 
+  @SuppressWarnings("rawtypes")
   TBase getThriftResponse(TBase request) throws DatabricksSQLException {
-    refreshHeadersIfRequired();
     LOGGER.debug(String.format("Fetching thrift response for request {%s}", request.toString()));
     try {
       if (request instanceof TOpenSessionReq) {
@@ -118,13 +117,11 @@ final class DatabricksThriftAccessor {
 
   TFetchResultsResp getResultSetResp(TOperationHandle operationHandle, String context)
       throws DatabricksHttpException {
-    refreshHeadersIfRequired();
     return getResultSetResp(
         TStatusCode.SUCCESS_STATUS, operationHandle, context, DEFAULT_ROW_LIMIT, false);
   }
 
   TCancelOperationResp cancelOperation(TCancelOperationReq req) throws DatabricksHttpException {
-    refreshHeadersIfRequired();
     try {
       return getThriftClient().CancelOperation(req);
     } catch (TException e) {
@@ -138,7 +135,6 @@ final class DatabricksThriftAccessor {
   }
 
   TCloseOperationResp closeOperation(TCloseOperationReq req) throws DatabricksHttpException {
-    refreshHeadersIfRequired();
     try {
       return getThriftClient().CloseOperation(req);
     } catch (TException e) {
@@ -208,13 +204,14 @@ final class DatabricksThriftAccessor {
       IDatabricksSession session,
       StatementType statementType)
       throws SQLException {
-    refreshHeadersIfRequired();
 
     // Set direct result configuration
     int maxRows = (parentStatement == null) ? DEFAULT_ROW_LIMIT : parentStatement.getMaxRows();
-    TSparkGetDirectResults directResults =
-        new TSparkGetDirectResults().setMaxBytes(DEFAULT_BYTE_LIMIT).setMaxRows(maxRows);
-    request.setGetDirectResults(directResults);
+    if (enableDirectResults) {
+      TSparkGetDirectResults directResults =
+          new TSparkGetDirectResults().setMaxBytes(DEFAULT_BYTE_LIMIT).setMaxRows(maxRows);
+      request.setGetDirectResults(directResults);
+    }
 
     TExecuteStatementResp response;
     TFetchResultsResp resultSet;
@@ -277,7 +274,6 @@ final class DatabricksThriftAccessor {
       IDatabricksSession session,
       StatementType statementType)
       throws SQLException {
-    refreshHeadersIfRequired();
     TExecuteStatementResp response;
     try {
       response = getThriftClient().ExecuteStatement(request);
@@ -343,178 +339,144 @@ final class DatabricksThriftAccessor {
         response.getStatus(), statementId, resultSet, StatementType.SQL, parentStatement, session);
   }
 
-  void resetAccessToken(String newAccessToken) {
-    this.databricksConfig.setToken(newAccessToken);
+  TCLIService.Client getThriftClient() {
+    return thriftClient.get();
   }
 
   private TFetchResultsResp listFunctions(TGetFunctionsReq request)
-      throws DatabricksHttpException, TException {
+      throws TException, DatabricksSQLException {
     if (enableDirectResults) request.setGetDirectResults(DEFAULT_DIRECT_RESULTS);
     TGetFunctionsResp response = getThriftClient().GetFunctions(request);
-    if (response.isSetDirectResults()) {
-      checkDirectResultsForErrorStatus(response.getDirectResults(), response.toString());
-      return response.getDirectResults().getResultSet();
-    }
-    return getResultSetResp(
-        response.getStatus().getStatusCode(),
-        response.getOperationHandle(),
-        response.toString(),
-        DEFAULT_ROW_LIMIT,
-        false);
+    return fetchMetadataResults(response, response.toString());
   }
 
   private TFetchResultsResp listPrimaryKeys(TGetPrimaryKeysReq request)
-      throws DatabricksHttpException, TException {
+      throws TException, DatabricksSQLException {
     if (enableDirectResults) request.setGetDirectResults(DEFAULT_DIRECT_RESULTS);
     TGetPrimaryKeysResp response = getThriftClient().GetPrimaryKeys(request);
-    if (response.isSetDirectResults()) {
-      checkDirectResultsForErrorStatus(response.getDirectResults(), response.toString());
-      return response.getDirectResults().getResultSet();
-    }
-    return getResultSetResp(
-        response.getStatus().getStatusCode(),
-        response.getOperationHandle(),
-        response.toString(),
-        DEFAULT_ROW_LIMIT,
-        false);
+    return fetchMetadataResults(response, response.toString());
   }
 
   private TFetchResultsResp getTables(TGetTablesReq request)
-      throws TException, DatabricksHttpException {
+      throws TException, DatabricksSQLException {
     if (enableDirectResults) request.setGetDirectResults(DEFAULT_DIRECT_RESULTS);
     TGetTablesResp response = getThriftClient().GetTables(request);
-    if (response.isSetDirectResults()) {
-      checkDirectResultsForErrorStatus(response.getDirectResults(), response.toString());
-      return response.getDirectResults().getResultSet();
-    }
-    return getResultSetResp(
-        response.getStatus().getStatusCode(),
-        response.getOperationHandle(),
-        response.toString(),
-        DEFAULT_ROW_LIMIT,
-        false);
+    return fetchMetadataResults(response, response.toString());
   }
 
   private TFetchResultsResp getTableTypes(TGetTableTypesReq request)
-      throws TException, DatabricksHttpException {
+      throws TException, DatabricksSQLException {
     if (enableDirectResults) request.setGetDirectResults(DEFAULT_DIRECT_RESULTS);
     TGetTableTypesResp response = getThriftClient().GetTableTypes(request);
-    if (response.isSetDirectResults()) {
-      checkDirectResultsForErrorStatus(response.getDirectResults(), response.toString());
-      return response.getDirectResults().getResultSet();
-    }
-    return getResultSetResp(
-        response.getStatus().getStatusCode(),
-        response.getOperationHandle(),
-        response.toString(),
-        DEFAULT_ROW_LIMIT,
-        false);
+    return fetchMetadataResults(response, response.toString());
   }
 
   private TFetchResultsResp getCatalogs(TGetCatalogsReq request)
-      throws TException, DatabricksHttpException {
+      throws TException, DatabricksSQLException {
     if (enableDirectResults) request.setGetDirectResults(DEFAULT_DIRECT_RESULTS);
     TGetCatalogsResp response = getThriftClient().GetCatalogs(request);
-    if (response.isSetDirectResults()) {
-      checkDirectResultsForErrorStatus(response.getDirectResults(), response.toString());
-      return response.getDirectResults().getResultSet();
-    }
-    return getResultSetResp(
-        response.getStatus().getStatusCode(),
-        response.getOperationHandle(),
-        response.toString(),
-        DEFAULT_ROW_LIMIT,
-        false);
+    return fetchMetadataResults(response, response.toString());
   }
 
   private TFetchResultsResp listSchemas(TGetSchemasReq request)
-      throws TException, DatabricksHttpException {
+      throws TException, DatabricksSQLException {
     if (enableDirectResults) request.setGetDirectResults(DEFAULT_DIRECT_RESULTS);
     TGetSchemasResp response = getThriftClient().GetSchemas(request);
-    if (response.isSetDirectResults()) {
-      checkDirectResultsForErrorStatus(response.getDirectResults(), response.toString());
-      return response.getDirectResults().getResultSet();
-    }
-    return getResultSetResp(
-        response.getStatus().getStatusCode(),
-        response.getOperationHandle(),
-        response.toString(),
-        DEFAULT_ROW_LIMIT,
-        false);
+    return fetchMetadataResults(response, response.toString());
   }
 
   private TFetchResultsResp getTypeInfo(TGetTypeInfoReq request)
-      throws TException, DatabricksHttpException {
+      throws TException, DatabricksSQLException {
     if (enableDirectResults) request.setGetDirectResults(DEFAULT_DIRECT_RESULTS);
     TGetTypeInfoResp response = getThriftClient().GetTypeInfo(request);
-    if (response.isSetDirectResults()) {
-      checkDirectResultsForErrorStatus(response.getDirectResults(), response.toString());
-      return response.getDirectResults().getResultSet();
-    }
-    return getResultSetResp(
-        response.getStatus().getStatusCode(),
-        response.getOperationHandle(),
-        response.toString(),
-        DEFAULT_ROW_LIMIT,
-        false);
+    return fetchMetadataResults(response, response.toString());
   }
 
   private TFetchResultsResp listColumns(TGetColumnsReq request)
-      throws TException, DatabricksHttpException {
+      throws TException, DatabricksSQLException {
     if (enableDirectResults) request.setGetDirectResults(DEFAULT_DIRECT_RESULTS);
     TGetColumnsResp response = getThriftClient().GetColumns(request);
-    if (response.isSetDirectResults()) {
-      checkDirectResultsForErrorStatus(response.getDirectResults(), response.toString());
-      return response.getDirectResults().getResultSet();
-    }
-    return getResultSetResp(
-        response.getStatus().getStatusCode(),
-        response.getOperationHandle(),
-        response.toString(),
-        DEFAULT_ROW_LIMIT,
-        false);
-  }
-
-  private void refreshHeadersIfRequired() {
-    ((DatabricksHttpTTransport) getThriftClient().getInputProtocol().getTransport())
-        .setCustomHeaders(databricksConfig.authenticate());
-  }
-
-  private TCLIService.Client getThriftClient() {
-    return thriftClient.get();
+    return fetchMetadataResults(response, response.toString());
   }
 
   /**
    * Creates a new thrift client for the given endpoint URL and authentication headers.
    *
    * @param endPointUrl endpoint URL
-   * @param authHeaders authentication headers
+   * @param databricksConfig SDK config object required for authentication headers
    * @param connectionContext connection context
    */
   private TCLIService.Client createThriftClient(
       String endPointUrl,
-      Map<String, String> authHeaders,
+      DatabricksConfig databricksConfig,
       IDatabricksConnectionContext connectionContext) {
     DatabricksHttpTTransport transport =
         new DatabricksHttpTTransport(
-            DatabricksHttpClientFactory.getInstance().getClient(connectionContext), endPointUrl);
-    transport.setCustomHeaders(authHeaders);
+            DatabricksHttpClientFactory.getInstance().getClient(connectionContext),
+            endPointUrl,
+            databricksConfig);
     TBinaryProtocol protocol = new TBinaryProtocol(transport);
 
     return new TCLIService.Client(protocol);
   }
 
-  private void checkResponseForErrors(TExecuteStatementResp response) throws SQLException {
-    if (!response.isSetOperationHandle()) {
+  private <TResp extends TBase<TResp, FResp>, FResp extends TFieldIdEnum>
+      TFetchResultsResp fetchMetadataResults(TResp response, String contextDescription)
+          throws TException, DatabricksSQLException {
+    checkResponseForErrors(response);
+
+    // Handle directResults
+    TGetOperationStatusResp statusResp = null;
+    FResp directResultsField = response.fieldForId(directResultsFieldId);
+    if (response.isSet(directResultsField)) {
+      TSparkDirectResults directResults =
+          (TSparkDirectResults) response.getFieldValue(directResultsField);
+      checkDirectResultsForErrorStatus(directResults, contextDescription);
+      statusResp = directResults.getOperationStatus();
+      checkOperationStatusForErrors(statusResp);
+    }
+
+    FResp operationHandleField = response.fieldForId(operationHandleFieldId);
+    TOperationHandle operationHandle =
+        (TOperationHandle) response.getFieldValue(operationHandleField);
+
+    TGetOperationStatusReq statusReq =
+        new TGetOperationStatusReq()
+            .setOperationHandle(operationHandle)
+            .setGetProgressUpdate(false);
+    while (shouldContinuePolling(statusResp)) {
+      statusResp = getThriftClient().GetOperationStatus(statusReq);
+      checkOperationStatusForErrors(statusResp);
+    }
+
+    if (hasResultDataInDirectResults(response)) {
+      // The first response has result data
+      TSparkDirectResults directResults =
+          (TSparkDirectResults) response.getFieldValue(directResultsField);
+      return directResults.getResultSet();
+    } else {
+      FResp statusField = response.fieldForId(1); // Field ID for 'status'
+      TStatus status = (TStatus) response.getFieldValue(statusField);
+      return getResultSetResp(
+          status.getStatusCode(), operationHandle, contextDescription, DEFAULT_ROW_LIMIT, false);
+    }
+  }
+
+  private <T extends TBase<T, F>, F extends TFieldIdEnum> void checkResponseForErrors(
+      TBase<T, F> response) throws DatabricksSQLException {
+    F operationHandleField = response.fieldForId(operationHandleFieldId);
+    if (!response.isSet(operationHandleField)) {
       throw new DatabricksSQLException("Operation handle not set");
     }
-    if (isErrorStatusCode(response.status.statusCode)) {
-      throw new DatabricksSQLException(response.status.errorMessage);
+    F statusField = response.fieldForId(1); // Field ID 1 corresponds to 'status'
+    TStatus status = (TStatus) response.getFieldValue(statusField);
+    if (isErrorStatusCode(status.statusCode)) {
+      throw new DatabricksSQLException(status.errorMessage);
     }
   }
 
   private void checkOperationStatusForErrors(TGetOperationStatusResp statusResp)
-      throws SQLException {
+      throws DatabricksSQLException {
     if (statusResp != null
         && statusResp.isSetOperationState()
         && isErrorOperationState(statusResp.getOperationState())) {
@@ -528,10 +490,15 @@ final class DatabricksThriftAccessor {
         || isPendingOperationState(statusResp.getOperationState());
   }
 
-  private boolean hasResultDataInDirectResults(TExecuteStatementResp response) {
-    return response.isSetDirectResults()
-        && response.getDirectResults().isSetResultSet()
-        && response.getDirectResults().isSetResultSetMetadata();
+  private <T extends TBase<T, F>, F extends TFieldIdEnum> boolean hasResultDataInDirectResults(
+      TBase<T, F> response) {
+    F directResultsField = response.fieldForId(directResultsFieldId);
+    if (!response.isSet(directResultsField)) {
+      return false;
+    }
+    TSparkDirectResults directResults =
+        (TSparkDirectResults) response.getFieldValue(directResultsField);
+    return directResults.isSetResultSet() && directResults.isSetResultSetMetadata();
   }
 
   private boolean isErrorStatusCode(TStatusCode statusCode) {
