@@ -20,8 +20,9 @@ public class PrivateKeyClientCredentialProvider implements CredentialsProvider {
 
   IDatabricksHttpClient httpClient;
 
-  public PrivateKeyClientCredentialProvider(IDatabricksConnectionContext connectionContext) {
-    this(connectionContext, new OAuthEndpointResolver(connectionContext));
+  public PrivateKeyClientCredentialProvider(
+      IDatabricksConnectionContext connectionContext, DatabricksConfig databricksConfig) {
+    this(connectionContext, new OAuthEndpointResolver(connectionContext, databricksConfig));
   }
 
   @VisibleForTesting

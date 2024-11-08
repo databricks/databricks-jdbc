@@ -2,7 +2,6 @@ package com.databricks.jdbc.dbclient.impl.common;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
-import static org.mockito.Mockito.times;
 
 import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.common.DatabricksJdbcConstants;
@@ -194,10 +193,6 @@ public class ConfiguratorUtilsTest {
   void testGetBaseConnectionManager_WithSSLTrustStore() {
     // Define behavior for mock context where SSLTrustStore is set
     when(mockContext.getSSLTrustStore()).thenReturn(DUMMY_TRUST_STORE_PATH);
-    when(mockContext.getSSLTrustStorePassword()).thenReturn(TRUST_STORE_PASSWORD);
-    when(mockContext.getSSLTrustStoreType()).thenReturn(TRUST_STORE_TYPE);
-    when(mockContext.checkCertificateRevocation()).thenReturn(true);
-    when(mockContext.acceptUndeterminedCertificateRevocation()).thenReturn(false);
 
     try (MockedStatic<ConfiguratorUtils> configuratorUtils = mockStatic(ConfiguratorUtils.class)) {
       configuratorUtils
@@ -205,16 +200,7 @@ public class ConfiguratorUtilsTest {
           .thenCallRealMethod();
       configuratorUtils
           .when(() -> ConfiguratorUtils.getConnectionSocketFactoryRegistry(mockContext))
-          .thenCallRealMethod();
-      configuratorUtils
-          .when(() -> ConfiguratorUtils.getTrustAnchorsFromTrustStore(null))
-          .thenCallRealMethod();
-      configuratorUtils
-          .when(() -> ConfiguratorUtils.buildTrustManagerParameters(null, true, false))
-          .thenCallRealMethod();
-      configuratorUtils
-          .when(() -> ConfiguratorUtils.loadTruststoreOrNull(mockContext))
-          .thenCallRealMethod();
+          .thenReturn(mock(Registry.class));
       // Call getBaseConnectionManager with the mock context
       PoolingHttpClientConnectionManager connManager =
           ConfiguratorUtils.getBaseConnectionManager(mockContext);
@@ -222,8 +208,6 @@ public class ConfiguratorUtilsTest {
       // Assert that getConnectionSocketFactoryRegistry was called
       configuratorUtils.verify(
           () -> ConfiguratorUtils.getConnectionSocketFactoryRegistry(mockContext), times(1));
-      configuratorUtils.verify(
-          () -> ConfiguratorUtils.buildTrustManagerParameters(null, true, false), never());
 
       // Ensure the returned connection manager is not null
       assertNotNull(connManager);

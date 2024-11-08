@@ -49,13 +49,13 @@ public class OAuthRefreshCredentialsProviderTest {
   void testRefreshThrowsExceptionWhenRefreshTokenIsNotSet() throws Exception {
     IDatabricksConnectionContext connectionContext =
         DatabricksConnectionContextFactory.create(REFRESH_TOKEN_URL_DEFAULT, new Properties());
-    OAuthEndpointResolver oAuthEndpointResolver = spy(new OAuthEndpointResolver(connectionContext));
-    when(oAuthEndpointResolver.getBarebonesDatabricksConfig()).thenReturn(databricksConfig);
     when(databricksConfig.getOidcEndpoints())
         .thenReturn(
             new OpenIDConnectEndpoints(
                 "https://oauth.example.com/oidc/v1/token",
                 "https://oauth.example.com/oidc/v1/authorize"));
+    OAuthEndpointResolver oAuthEndpointResolver =
+        spy(new OAuthEndpointResolver(connectionContext, databricksConfig));
     credentialsProvider =
         new OAuthRefreshCredentialsProvider(connectionContext, oAuthEndpointResolver);
     when(context.getOAuthRefreshToken()).thenReturn(null);
@@ -79,16 +79,16 @@ public class OAuthRefreshCredentialsProviderTest {
   void testRefreshSuccess(String refreshTokenUrl) throws Exception {
     IDatabricksConnectionContext connectionContext =
         DatabricksConnectionContextFactory.create(refreshTokenUrl, new Properties());
-    OAuthEndpointResolver oAuthEndpointResolver = spy(new OAuthEndpointResolver(connectionContext));
     boolean isDefaultEndpointPath = connectionContext.getTokenEndpoint() == null;
     if (isDefaultEndpointPath) {
-      when(oAuthEndpointResolver.getBarebonesDatabricksConfig()).thenReturn(databricksConfig);
       when(databricksConfig.getOidcEndpoints())
           .thenReturn(
               new OpenIDConnectEndpoints(
                   "https://oauth.example.com/oidc/v1/token",
                   "https://oauth.example.com/oidc/v1/authorize"));
     }
+    OAuthEndpointResolver oAuthEndpointResolver =
+        spy(new OAuthEndpointResolver(connectionContext, databricksConfig));
     credentialsProvider =
         new OAuthRefreshCredentialsProvider(connectionContext, oAuthEndpointResolver);
 

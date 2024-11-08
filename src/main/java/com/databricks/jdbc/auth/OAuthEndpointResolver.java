@@ -4,14 +4,12 @@ import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
 import com.databricks.jdbc.dbclient.impl.http.DatabricksHttpClientFactory;
 import com.databricks.jdbc.exception.DatabricksHttpException;
-import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.sdk.core.DatabricksConfig;
 import com.databricks.sdk.core.DatabricksException;
 import com.databricks.sdk.core.oauth.OpenIDConnectEndpoints;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.google.common.annotations.VisibleForTesting;
 import java.io.IOException;
 import java.net.URISyntaxException;
 import org.apache.http.client.methods.CloseableHttpResponse;
@@ -22,9 +20,12 @@ public class OAuthEndpointResolver {
 
   private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(OAuthEndpointResolver.class);
   private final IDatabricksConnectionContext context;
+  private final DatabricksConfig databricksConfig;
 
-  public OAuthEndpointResolver(IDatabricksConnectionContext context) {
+  public OAuthEndpointResolver(
+      IDatabricksConnectionContext context, DatabricksConfig databricksConfig) {
     this.context = context;
+    this.databricksConfig = databricksConfig;
   }
 
   public String getTokenEndpoint() {
@@ -55,17 +56,12 @@ public class OAuthEndpointResolver {
 
   String getDefaultTokenEndpoint() {
     try {
-      return getBarebonesDatabricksConfig().getOidcEndpoints().getTokenEndpoint();
-    } catch (DatabricksParsingException | IOException e) {
+      return databricksConfig.getOidcEndpoints().getTokenEndpoint();
+    } catch (IOException e) {
       String errorMessage = "Failed to build default token endpoint URL.";
       LOGGER.error(errorMessage);
       throw new DatabricksException(errorMessage, e);
     }
-  }
-
-  @VisibleForTesting
-  DatabricksConfig getBarebonesDatabricksConfig() throws DatabricksParsingException {
-    return new DatabricksConfig().setHost(context.getHostForOAuth()).resolve();
   }
 
   /**
