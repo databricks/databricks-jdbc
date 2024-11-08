@@ -9,7 +9,6 @@ import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.dbclient.impl.http.DatabricksHttpClient;
 import com.databricks.jdbc.dbclient.impl.http.DatabricksHttpClientFactory;
 import com.databricks.jdbc.exception.DatabricksHttpException;
-import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.sdk.core.DatabricksConfig;
 import com.databricks.sdk.core.oauth.OpenIDConnectEndpoints;
 import java.io.ByteArrayInputStream;
@@ -74,8 +73,7 @@ public class PrivateKeyClientCredentialProviderTest {
   }
 
   @Test
-  void testCredentialProviderWithModeEnabledButUrlNotProvided()
-      throws DatabricksParsingException, IOException {
+  void testCredentialProviderWithModeEnabledButUrlNotProvided() throws IOException {
     setup();
     try (MockedStatic<DatabricksHttpClientFactory> factoryMocked =
         mockStatic(DatabricksHttpClientFactory.class)) {
