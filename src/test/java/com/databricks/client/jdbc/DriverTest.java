@@ -9,6 +9,7 @@ import com.databricks.jdbc.api.IDatabricksUCVolumeClient;
 import com.databricks.jdbc.api.impl.DatabricksResultSetMetaData;
 import com.databricks.jdbc.api.impl.arrow.ArrowResultChunk;
 import com.databricks.jdbc.common.DatabricksJdbcConstants;
+import com.databricks.jdbc.exception.DatabricksSQLException;
 import java.io.File;
 import java.io.FileInputStream;
 import java.math.BigDecimal;
@@ -135,6 +136,24 @@ public class DriverTest {
     System.out.println("printing is done......");
     rs.close();
     statement.close();
+    con.close();
+  }
+
+  @Test
+  void testThriftSqlState() throws Exception {
+    String jdbcUrl =
+        "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;ssl=1;AuthMech=3;httpPath=sql/protocolv1/o/6051921418418893/1115-130834-ms4m0yv";
+    Connection con = DriverManager.getConnection(jdbcUrl, "token", "xx");
+    System.out.println("Connection established......");
+    Statement s = con.createStatement();
+    try {
+      s.executeQuery("some fake sql");
+    } catch (DatabricksSQLException e) {
+      System.out.println("Error message: " + e.getMessage());
+      if (e.getSQLState() != null && !Objects.equals(e.getSQLState(), "")) {
+        System.out.println("SQL State: " + e.getSQLState());
+      }
+    }
     con.close();
   }
 
