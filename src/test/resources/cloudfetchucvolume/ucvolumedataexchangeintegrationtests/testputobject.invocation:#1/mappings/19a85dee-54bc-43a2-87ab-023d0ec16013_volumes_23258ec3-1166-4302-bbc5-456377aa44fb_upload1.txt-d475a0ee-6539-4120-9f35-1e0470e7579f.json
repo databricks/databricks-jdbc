@@ -1,0 +1,24 @@
+{
+  "id" : "d475a0ee-6539-4120-9f35-1e0470e7579f",
+  "name" : "19a85dee-54bc-43a2-87ab-023d0ec16013_volumes_23258ec3-1166-4302-bbc5-456377aa44fb_upload1.txt",
+  "request" : {
+    "url" : "/19a85dee-54bc-43a2-87ab-023d0ec16013/volumes/23258ec3-1166-4302-bbc5-456377aa44fb/upload1.txt?[REDACTED]X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Date=20241108T233935Z&X-Amz-SignedHeaders=host&X-Amz-Expires=1799&[REDACTED]X-Amz-Signature=0964aede45967282e0d3cdea680cd6cbda17835f06b05d9c4ea9fa1f17e18676",
+    "method" : "PUT",
+    "bodyPatterns" : [ {
+      "binaryEqualTo" : "aGVsbG93b3JsZA=="
+    } ]
+  },
+  "response" : {
+    "status" : 200,
+    "headers" : {
+      "Server" : "AmazonS3",
+      "ETag" : "\"fc5e038d38a57032085441e7fe7010b0\"",
+      "x-amz-request-id" : "TMK81Y1HBYEWTNP4",
+      "x-amz-server-side-encryption" : "AES256",
+      "x-amz-id-2" : "Z4/k/Tdr8Eyhm923XWQlRRIyZjdNVz7hH5mavTnylgBL+nfjEpTvDCn3vGfMST2QAdY2zthP+8Q=",
+      "Date" : "Fri, 08 Nov 2024 23:39:38 GMT"
+    }
+  },
+  "uuid" : "d475a0ee-6539-4120-9f35-1e0470e7579f",
+  "insertionIndex" : 16
+}

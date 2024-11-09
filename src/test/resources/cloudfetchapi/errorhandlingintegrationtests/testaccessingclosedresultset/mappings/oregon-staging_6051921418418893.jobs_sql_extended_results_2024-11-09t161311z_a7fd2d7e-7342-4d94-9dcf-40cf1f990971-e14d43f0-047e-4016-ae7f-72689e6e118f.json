@@ -1,0 +1,25 @@
+{
+  "id" : "e14d43f0-047e-4016-ae7f-72689e6e118f",
+  "name" : "oregon-staging_6051921418418893.jobs_sql_extended_results_2024-11-09t161311z_a7fd2d7e-7342-4d94-9dcf-40cf1f990971",
+  "request" : {
+    "url" : "/oregon-staging/6051921418418893.jobs/sql/extended/results_2024-11-09T16%3A13%3A11Z_a7fd2d7e-7342-4d94-9dcf-40cf1f990971?[REDACTED]X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Date=20241108T151311Z&X-Amz-SignedHeaders=host&X-Amz-Expires=899&[REDACTED]X-Amz-Signature=ccaaf6355650e46c94cade3a5c25a9db5657968d21acc086e96d1f91a6ee9796",
+    "method" : "GET"
+  },
+  "response" : {
+    "status" : 200,
+    "base64Body" : "BCJNGGBwc7EAAACg/////+gAAAAQAAEAsAoADgAGAA0ACAAKDwAiAAQYAKEBCgAMAAAACAAEGAARCAwAASEAYQACAAAAXCoApAAAvv///xQAAAAEAFAAAAIBGAcAAwIA9Rys////AAAAAUAAAAARAAAAbnVtX2luc2VydGVkX3Jvd3MAEgAYABQAEwAScAAXElAAERxIADECASAIAAICAHQIAAwACAAHkAAJXABVYWZmZWNcAGAAAAAAAAAAAAAABCJNGGBwc4AAAACi/////7gAAAAUAAEA8gIMABYADgAVABAABAAMAAAAIBcAYAAAAAQAEAgAwwMKABgADAAIAAQACjgAUFgAAAABHAADAgATBAgAAAIABBgAEAgNAAcIAAFMAAc4ABEYDgAGIAAAAgAXAiAABAIABFAABAIABBAADwgAAFAAAAAAAAAAAAAEIk0YYHBzCAAAgP////8AAAAAAAAAAA==",
+    "headers" : {
+      "Accept-Ranges" : "bytes",
+      "Server" : "AmazonS3",
+      "ETag" : "\"01c00a7a5c52c2b6ff301f4f91b5bd70\"",
+      "Last-Modified" : "Fri, 08 Nov 2024 15:13:12 GMT",
+      "x-amz-request-id" : "APPS39YDZ5CYSADM",
+      "x-amz-server-side-encryption" : "AES256",
+      "x-amz-id-2" : "7Yqx1rsLZtkOTU4wSaPDfPvhSC+Zo/dY6qnAdJT0t9MmytyBa4+e+JcXxGvpFw/1RupB+5igYjk=",
+      "Date" : "Fri, 08 Nov 2024 15:13:13 GMT",
+      "Content-Type" : "binary/octet-stream"
+    }
+  },
+  "uuid" : "e14d43f0-047e-4016-ae7f-72689e6e118f",
+  "insertionIndex" : 52
+}

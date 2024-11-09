@@ -1,0 +1,29 @@
+{
+  "id" : "4dae0a5c-8dd4-4d66-89b4-3d69183f2003",
+  "name" : "api_2.0_sql_sessions",
+  "request" : {
+    "url" : "/api/2.0/sql/sessions/",
+    "method" : "POST",
+    "bodyPatterns" : [ {
+      "equalToJson" : "{\"warehouse_id\":\"dd43ee29fedd958d\",\"schema\":\"default\",\"catalog\":\"SPARK\"}",
+      "ignoreArrayOrder" : true,
+      "ignoreExtraElements" : true
+    } ]
+  },
+  "response" : {
+    "status" : 403,
+    "body" : "{\"error_code\":403,\"message\":\"Invalid access token.\"}",
+    "headers" : {
+      "date" : "Fri, 08 Nov 2024 15:17:29 GMT",
+      "x-request-id" : "db7a00f7-7685-41d6-bc7e-7319d986ed7c",
+      "server" : "databricks",
+      "x-databricks-shard-debug" : "oregon-staging",
+      "vary" : "Accept-Encoding",
+      "x-databricks-popp-routing-reason" : "deployment-name",
+      "content-type" : "application/json; charset=utf-8",
+      "x-databricks-reason-phrase" : "Invalid access token."
+    }
+  },
+  "uuid" : "4dae0a5c-8dd4-4d66-89b4-3d69183f2003",
+  "insertionIndex" : 453
+}
