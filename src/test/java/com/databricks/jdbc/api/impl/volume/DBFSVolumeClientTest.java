@@ -1,7 +1,6 @@
 package com.databricks.jdbc.api.impl.volume;
 
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.*;
 
 import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.api.impl.DatabricksConnection;
@@ -18,7 +17,6 @@ import org.mockito.junit.jupiter.MockitoExtension;
 public class DBFSVolumeClientTest {
   private static final String JDBC_URL =
       "jdbc:databricks://adb-565757575.18.azuredatabricks.net:4423/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/erg6767gg;useFileSystemAPI=1";
-
   @Mock DatabricksSdkClient client;
 
   @Test
@@ -27,7 +25,7 @@ public class DBFSVolumeClientTest {
         DatabricksConnectionContextFactory.create(JDBC_URL, new Properties());
     DatabricksConnection connection = new DatabricksConnection(connectionContext, client);
 
-    assertTrue(connection.getVolumeClient() instanceof DBFSVolumeClient);
+    assertInstanceOf(DBFSVolumeClient.class, connection.getVolumeClient());
   }
 
   @Test

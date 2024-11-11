@@ -10,12 +10,10 @@ import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import java.io.File;
 import java.io.IOException;
-import java.util.List;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpPut;
 import org.apache.http.entity.ContentType;
 import org.apache.http.entity.FileEntity;
-import org.apache.http.message.BasicHeader;
 
 /**
  * VolumeOperationProcessorDirect is a class that performs the volume operation directly into the
@@ -24,20 +22,14 @@ import org.apache.http.message.BasicHeader;
 public class VolumeOperationProcessorDirect {
   private static final JdbcLogger LOGGER =
       JdbcLoggerFactory.getLogger(VolumeOperationProcessorDirect.class);
-
   private final String operationUrl;
   private final String localFilePath;
-  private final List<BasicHeader> headers;
   private final IDatabricksHttpClient databricksHttpClient;
 
   public VolumeOperationProcessorDirect(
-      String operationUrl,
-      String localFilePath,
-      List<BasicHeader> headers,
-      IDatabricksSession session) {
+      String operationUrl, String localFilePath, IDatabricksSession session) {
     this.operationUrl = operationUrl;
     this.localFilePath = localFilePath;
-    this.headers = headers;
     this.databricksHttpClient =
         DatabricksHttpClientFactory.getInstance().getClient(session.getConnectionContext());
   }

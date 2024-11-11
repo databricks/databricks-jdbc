@@ -115,8 +115,7 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient {
 
       // Uploading the object to the Pre Signed Url
       VolumeOperationProcessorDirect volumeOperationProcessorDirect =
-          new VolumeOperationProcessorDirect(
-              response.getUrl(), localPath, response.getHeaders(), connection.getSession());
+          new VolumeOperationProcessorDirect(response.getUrl(), localPath, connection.getSession());
       volumeOperationProcessorDirect.executePutOperation();
       isOperationSucceeded = true;
     } catch (DatabricksVolumeOperationException e) {
@@ -152,13 +151,7 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient {
     throw new UnsupportedOperationException(errorMessage);
   }
 
-  /**
-   * Fetches the pre signed url using the SQL Exec API
-   *
-   * @param objectPath
-   * @return CreateUploadUrlResponse
-   * @throws DatabricksVolumeOperationException
-   */
+  /** Fetches the pre signed url using the SQL Exec API */
   private CreateUploadUrlResponse getCreateUploadUrlResponse(String objectPath)
       throws DatabricksVolumeOperationException {
     LOGGER.debug(
