@@ -15,7 +15,7 @@ jobs:
       - name: Checkout benchmarking branch
         uses: actions/checkout@v2
         with:
-          ref: shivam2680/benchmarking-new
+          ref: benchmarking-branch
 
       - name: Set up Java
         uses: actions/setup-java@v2
