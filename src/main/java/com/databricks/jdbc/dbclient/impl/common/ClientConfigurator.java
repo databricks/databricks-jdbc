@@ -36,8 +36,9 @@ public class ClientConfigurator {
     CommonsHttpClient.Builder httpClientBuilder = new CommonsHttpClient.Builder();
     setupProxyConfig(httpClientBuilder);
     setupConnectionManager(httpClientBuilder);
+    this.databricksConfig.setHttpClient(httpClientBuilder.build());
     setupAuthConfig();
-    this.databricksConfig.setHttpClient(httpClientBuilder.build()).resolve();
+    this.databricksConfig.resolve();
   }
 
   /**
@@ -150,7 +151,8 @@ public class ClientConfigurator {
 
   /** Setup the OAuth U2M refresh token authentication settings in the databricks config. */
   public void setupU2MRefreshConfig() throws DatabricksParsingException {
-    CredentialsProvider provider = new OAuthRefreshCredentialsProvider(connectionContext);
+    CredentialsProvider provider =
+        new OAuthRefreshCredentialsProvider(connectionContext, databricksConfig);
     databricksConfig
         .setHost(connectionContext.getHostForOAuth())
         .setAuthType(provider.authType())
@@ -168,7 +170,7 @@ public class ClientConfigurator {
         .setClientSecret(connectionContext.getClientSecret());
     if (connectionContext.useJWTAssertion()) {
       databricksConfig.setCredentialsProvider(
-          new PrivateKeyClientCredentialProvider(connectionContext));
+          new PrivateKeyClientCredentialProvider(connectionContext, databricksConfig));
     }
   }
 

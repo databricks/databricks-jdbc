@@ -79,7 +79,6 @@ public final class DatabricksJdbcConstants {
       Map.of(
           "Accept", "application/json",
           "Content-Type", "application/json");
-
   @VisibleForTesting public static final String IS_FAKE_SERVICE_TEST_PROP = "isFakeServiceTest";
   @VisibleForTesting public static final String FAKE_SERVICE_URI_PROP_SUFFIX = ".fakeServiceURI";
   public static final String AWS_CLIENT_ID = "databricks-sql-jdbc";
