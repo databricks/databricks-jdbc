@@ -5,16 +5,16 @@ import static com.databricks.jdbc.integration.IntegrationTestUtil.getFullyQualif
 import com.databricks.jdbc.api.IDatabricksConnection;
 import com.databricks.jdbc.api.IDatabricksResultSet;
 import com.databricks.jdbc.api.IDatabricksStatement;
-import com.databricks.jdbc.api.IDatabricksUCVolumeClient;
+import com.databricks.jdbc.api.IDatabricksVolumeClient;
 import com.databricks.jdbc.api.impl.DatabricksResultSetMetaData;
 import com.databricks.jdbc.api.impl.arrow.ArrowResultChunk;
 import com.databricks.jdbc.common.DatabricksJdbcConstants;
+import com.databricks.jdbc.exception.DatabricksSQLException;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.math.BigDecimal;
 import java.math.BigInteger;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.sql.*;
 import java.time.LocalDate;
@@ -137,6 +137,24 @@ public class DriverTest {
   }
 
   @Test
+  void testThriftSqlState() throws Exception {
+    String jdbcUrl =
+        "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;ssl=1;AuthMech=3;httpPath=sql/protocolv1/o/6051921418418893/1115-130834-ms4m0yv";
+    Connection con = DriverManager.getConnection(jdbcUrl, "token", "xx");
+    System.out.println("Connection established......");
+    Statement s = con.createStatement();
+    try {
+      s.executeQuery("some fake sql");
+    } catch (DatabricksSQLException e) {
+      System.out.println("Error message: " + e.getMessage());
+      if (e.getSQLState() != null && !Objects.equals(e.getSQLState(), "")) {
+        System.out.println("SQL State: " + e.getSQLState());
+      }
+    }
+    con.close();
+  }
+
+  @Test
   void testAllPurposeClusters() throws Exception {
     String jdbcUrl =
         "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;ssl=1;AuthMech=3;httpPath=sql/protocolv1/o/6051921418418893/1115-130834-ms4m0yv";
@@ -245,11 +263,11 @@ public class DriverTest {
     Connection con = DriverManager.getConnection(jdbcUrl, "token", "xx");
     con.setClientInfo(DatabricksJdbcConstants.ALLOWED_VOLUME_INGESTION_PATHS, "delete");
     System.out.println("Connection created");
-    IDatabricksUCVolumeClient client = ((IDatabricksConnection) con).getUCVolumeClient();
+    IDatabricksVolumeClient client = ((IDatabricksConnection) con).getVolumeClient();
 
     File file = new File("/tmp/put.txt");
     try {
-      Files.write(file.toPath(), "test-put".getBytes(StandardCharsets.UTF_8));
+      Files.write(file.toPath(), "test-put".getBytes());
 
       System.out.println("File created");
 
@@ -266,14 +284,14 @@ public class DriverTest {
 
       InputStreamEntity inputStream =
           client.getObject("samikshya_hackathon", "default", "gopal-psl", "test-stream.csv");
-      ByteArrayOutputStream buffer = new ByteArrayOutputStream();
-      byte[] data = new byte[1024];
-      int nRead;
-      while ((nRead = inputStream.getContent().read(data, 0, data.length)) != -1) {
-        buffer.write(data, 0, nRead);
+      ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
+      byte[] buffer = new byte[1024];
+      int length;
+      while ((length = inputStream.getContent().read(buffer)) != -1) {
+        byteArrayOutputStream.write(buffer, 0, length);
       }
-      buffer.flush();
-      System.out.println("Got data " + new String(buffer.toByteArray(), StandardCharsets.UTF_8));
+      String content = new String(byteArrayOutputStream.toByteArray(), "UTF-8");
+      System.out.println("Got data " + content);
       inputStream.getContent().close();
 
       System.out.println(
@@ -285,6 +303,41 @@ public class DriverTest {
           "Object exists "
               + client.objectExists(
                   "samikshya_hackathon", "default", "gopal-psl", "test-stream.csv", false));
+    } finally {
+      file.delete();
+      con.close();
+    }
+  }
+
+  @Test
+  void testDBFSVolumeOperation() throws Exception {
+    DriverManager.registerDriver(new Driver());
+    System.out.println("Starting test");
+    // Getting the connection
+    String jdbcUrl =
+        "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/dd43ee29fedd958d;Loglevel=debug;useFileSystemAPI=1";
+    Connection con = DriverManager.getConnection(jdbcUrl, "token", "xx");
+    System.out.println("Connection created");
+
+    IDatabricksVolumeClient client = ((IDatabricksConnection) con).getVolumeClient();
+
+    File file = new File("/tmp/put.txt");
+    try {
+      Files.write(file.toPath(), "put string check".getBytes());
+      System.out.println("File created");
+
+      System.out.println(
+          "Object inserted "
+              + client.putObject(
+                  "___________________first",
+                  "jprakash-test",
+                  "jprakash_volume",
+                  "test-stream.csv",
+                  "/tmp/put.txt",
+                  true));
+
+    } catch (Exception e) {
+      e.printStackTrace();
     } finally {
       file.delete();
       con.close();

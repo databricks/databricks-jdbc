@@ -291,12 +291,12 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   }
 
   @Override
-  public CompressionType getCompressionType() {
+  public CompressionCodec getCompressionCodec() {
     String compressionType =
         getParameter(
             DatabricksJdbcUrlParams.LZ4_COMPRESSION_FLAG,
             getParameter(DatabricksJdbcUrlParams.COMPRESSION_FLAG));
-    return CompressionType.parseCompressionType(compressionType);
+    return CompressionCodec.parseCompressionType(compressionType);
   }
 
   @Override
@@ -475,6 +475,11 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   @Override
   public boolean supportManyParameters() {
     return getParameter(DatabricksJdbcUrlParams.SUPPORT_MANY_PARAMETERS).equals("1");
+  }
+
+  @Override
+  public boolean useFileSystemAPI() {
+    return getParameter(DatabricksJdbcUrlParams.USE_FILE_SYSTEM_API).equals("1");
   }
 
   @Override

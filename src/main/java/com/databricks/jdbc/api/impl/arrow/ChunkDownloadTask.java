@@ -38,7 +38,7 @@ class ChunkDownloadTask implements Callable<Void> {
           if (chunk.isChunkLinkInvalid()) {
             chunkDownloader.downloadLinks(chunk.getChunkIndex());
           }
-          chunk.downloadData(httpClient, chunkDownloader.getCompressionType());
+          chunk.downloadData(httpClient, chunkDownloader.getCompressionCodec());
           downloadSuccessful = true;
         } catch (DatabricksParsingException | IOException e) {
           retries++;

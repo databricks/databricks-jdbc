@@ -14,4 +14,9 @@ public class DatabricksHttpException extends DatabricksSQLException {
     super(message);
     this.cause = cause;
   }
+
+  public DatabricksHttpException(String message, String sqlState) {
+    super(message, sqlState);
+    this.cause = null;
+  }
 }

@@ -1,6 +1,6 @@
 package com.databricks.jdbc.common.util;
 
-import com.databricks.jdbc.common.CompressionType;
+import com.databricks.jdbc.common.CompressionCodec;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.log.JdbcLogger;
@@ -30,36 +30,36 @@ public class DecompressionUtil {
   }
 
   public static byte[] decompress(
-      byte[] compressedInput, CompressionType compressionType, String context)
+      byte[] compressedInput, CompressionCodec compressionCodec, String context)
       throws DatabricksSQLException {
     if (compressedInput == null) {
       LOGGER.debug("compressedInputBytes is `NULL`. Skipping compression.");
       return compressedInput;
     }
-    switch (compressionType) {
+    switch (compressionCodec) {
       case NONE:
         LOGGER.debug("Compression type is `NONE`. Skipping compression.");
         return compressedInput;
-      case LZ4_COMPRESSION:
+      case LZ4_FRAME:
         return decompressLZ4Frame(compressedInput, context);
       default:
         String errorMessage =
-            String.format("Unknown compression type: %s. Context : %s", compressionType, context);
+            String.format("Unknown compression type: %s. Context : %s", compressionCodec, context);
         LOGGER.error(errorMessage);
         throw new DatabricksSQLException(errorMessage);
     }
   }
 
   public static InputStream decompress(
-      InputStream compressedStream, CompressionType compressionType, String context)
+      InputStream compressedStream, CompressionCodec compressionCodec, String context)
       throws IOException, DatabricksSQLException {
-    if (compressionType.equals(CompressionType.NONE) || compressedStream == null) {
+    if (compressionCodec.equals(CompressionCodec.NONE) || compressedStream == null) {
       // Save the time to convert to byte array if compression type is none.
       LOGGER.debug("Compression is NONE /InputStream is `NULL`. Skipping compression.");
       return compressedStream;
     }
     byte[] compressedBytes = IOUtils.toByteArray(compressedStream);
-    byte[] uncompressedBytes = decompress(compressedBytes, compressionType, context);
+    byte[] uncompressedBytes = decompress(compressedBytes, compressionCodec, context);
     return new ByteArrayInputStream(uncompressedBytes);
   }
 }

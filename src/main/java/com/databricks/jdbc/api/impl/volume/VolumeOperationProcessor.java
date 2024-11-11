@@ -1,5 +1,6 @@
 package com.databricks.jdbc.api.impl.volume;
 
+import com.databricks.jdbc.common.util.HttpUtil;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
 import com.databricks.jdbc.exception.DatabricksHttpException;
 import com.databricks.jdbc.log.JdbcLogger;
@@ -167,7 +168,7 @@ class VolumeOperationProcessor {
       // We return the input stream directly to clients, if they want to consume as input stream
       if (isAllowedInputStreamForVolumeOperation) {
         responseStream = databricksHttpClient.execute(httpGet);
-        if (!isSuccessfulHttpResponse(responseStream)) {
+        if (!HttpUtil.isSuccessfulHttpResponse(responseStream)) {
           status = VolumeOperationStatus.FAILED;
           errorMessage =
               String.format(
@@ -200,7 +201,7 @@ class VolumeOperationProcessor {
     }
 
     try (CloseableHttpResponse response = databricksHttpClient.execute(httpGet)) {
-      if (!isSuccessfulHttpResponse(response)) {
+      if (!HttpUtil.isSuccessfulHttpResponse(response)) {
         LOGGER.error(
             "Failed to fetch content from volume with error {%s} for local file {%s}",
             response.getStatusLine().getStatusCode(), localFilePath);
@@ -270,7 +271,7 @@ class VolumeOperationProcessor {
     // Execute the request
     try (CloseableHttpResponse response = databricksHttpClient.execute(httpPut)) {
       // Process the response
-      if (isSuccessfulHttpResponse(response)) {
+      if (HttpUtil.isSuccessfulHttpResponse(response)) {
         status = VolumeOperationStatus.SUCCEEDED;
       } else {
         LOGGER.error(
@@ -316,7 +317,7 @@ class VolumeOperationProcessor {
     HttpDelete httpDelete = new HttpDelete(operationUrl);
     headers.forEach(httpDelete::addHeader);
     try (CloseableHttpResponse response = databricksHttpClient.execute(httpDelete)) {
-      if (isSuccessfulHttpResponse(response)) {
+      if (HttpUtil.isSuccessfulHttpResponse(response)) {
         status = VolumeOperationStatus.SUCCEEDED;
       } else {
         LOGGER.error(

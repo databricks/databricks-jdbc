@@ -1,7 +1,10 @@
 package com.databricks.jdbc.common;
 
 import com.google.common.annotations.VisibleForTesting;
-import java.util.*;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
 import java.util.regex.Pattern;
 
 public final class DatabricksJdbcConstants {
@@ -60,32 +63,39 @@ public final class DatabricksJdbcConstants {
   public static final Map<String, String> ALLOWED_SESSION_CONF_TO_DEFAULT_VALUES_MAP;
 
   static {
-    Map<String, String> tempMap = new HashMap<>();
-    tempMap.put("ANSI_MODE", "TRUE");
-    tempMap.put("ENABLE_PHOTON", "TRUE");
-    tempMap.put("LEGACY_TIME_PARSER_POLICY", "EXCEPTION");
-    tempMap.put("MAX_FILE_PARTITION_BYTES", "128m");
-    tempMap.put("READ_ONLY_EXTERNAL_METASTORE", "FALSE");
-    tempMap.put("STATEMENT_TIMEOUT", "172800");
-    tempMap.put("TIMEZONE", "UTC");
-    tempMap.put("USE_CACHED_RESULT", "TRUE");
-    ALLOWED_SESSION_CONF_TO_DEFAULT_VALUES_MAP = Collections.unmodifiableMap(tempMap);
+    ALLOWED_SESSION_CONF_TO_DEFAULT_VALUES_MAP = new HashMap<>();
+    ALLOWED_SESSION_CONF_TO_DEFAULT_VALUES_MAP.put("ANSI_MODE", "TRUE");
+    ALLOWED_SESSION_CONF_TO_DEFAULT_VALUES_MAP.put("ENABLE_PHOTON", "TRUE");
+    ALLOWED_SESSION_CONF_TO_DEFAULT_VALUES_MAP.put("LEGACY_TIME_PARSER_POLICY", "EXCEPTION");
+    ALLOWED_SESSION_CONF_TO_DEFAULT_VALUES_MAP.put("MAX_FILE_PARTITION_BYTES", "128m");
+    ALLOWED_SESSION_CONF_TO_DEFAULT_VALUES_MAP.put("READ_ONLY_EXTERNAL_METASTORE", "FALSE");
+    ALLOWED_SESSION_CONF_TO_DEFAULT_VALUES_MAP.put("STATEMENT_TIMEOUT", "172800");
+    ALLOWED_SESSION_CONF_TO_DEFAULT_VALUES_MAP.put("TIMEZONE", "UTC");
+    ALLOWED_SESSION_CONF_TO_DEFAULT_VALUES_MAP.put("USE_CACHED_RESULT", "TRUE");
   }
 
   public static final Set<String> ALLOWED_CLIENT_INFO_PROPERTIES;
 
   static {
-    Set<String> tempSet = new HashSet<>();
-    tempSet.add(ALLOWED_VOLUME_INGESTION_PATHS);
-    tempSet.add(ALLOWED_STAGING_INGESTION_PATHS);
-    tempSet.add(DatabricksJdbcUrlParams.AUTH_ACCESS_TOKEN.getParamName());
-    ALLOWED_CLIENT_INFO_PROPERTIES = Collections.unmodifiableSet(tempSet);
+    ALLOWED_CLIENT_INFO_PROPERTIES = new HashSet<>();
+    ALLOWED_CLIENT_INFO_PROPERTIES.add(ALLOWED_VOLUME_INGESTION_PATHS);
+    ALLOWED_CLIENT_INFO_PROPERTIES.add(ALLOWED_STAGING_INGESTION_PATHS);
+    ALLOWED_CLIENT_INFO_PROPERTIES.add(DatabricksJdbcUrlParams.AUTH_ACCESS_TOKEN.getParamName());
+  }
+
+  public static final Map<String, String> JSON_HTTP_HEADERS;
+
+  static {
+    JSON_HTTP_HEADERS = new HashMap<>();
+    JSON_HTTP_HEADERS.put("Accept", "application/json");
+    JSON_HTTP_HEADERS.put("Content-Type", "application/json");
   }
 
   @VisibleForTesting public static final String IS_FAKE_SERVICE_TEST_PROP = "isFakeServiceTest";
   @VisibleForTesting public static final String FAKE_SERVICE_URI_PROP_SUFFIX = ".fakeServiceURI";
   public static final String AWS_CLIENT_ID = "databricks-sql-jdbc";
   public static final String AAD_CLIENT_ID = "96eecda7-19ea-49cc-abb5-240097d554f5";
+  public static final String DEFAULT_HTTP_EXCEPTION_SQLSTATE = "08000";
 
   /** Enum for the services that can be replaced with a fake service in integration tests. */
   @VisibleForTesting

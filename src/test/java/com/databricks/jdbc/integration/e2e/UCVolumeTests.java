@@ -5,7 +5,7 @@ import static com.databricks.jdbc.integration.IntegrationTestUtil.*;
 import static org.junit.jupiter.api.Assertions.*;
 
 import com.databricks.jdbc.api.IDatabricksConnection;
-import com.databricks.jdbc.api.IDatabricksUCVolumeClient;
+import com.databricks.jdbc.api.IDatabricksVolumeClient;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Paths;
@@ -23,7 +23,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 
 public class UCVolumeTests {
 
-  private IDatabricksUCVolumeClient client;
+  private IDatabricksVolumeClient client;
   private Connection con;
 
   private static final String LOCAL_TEST_DIRECTORY = "/tmp";
@@ -32,7 +32,7 @@ public class UCVolumeTests {
   void setUp() throws SQLException {
     con = getDogfoodJDBCConnection();
     System.out.println("Connection established......");
-    client = ((IDatabricksConnection) con).getUCVolumeClient();
+    client = ((IDatabricksConnection) con).getVolumeClient();
     con.setClientInfo("allowlistedVolumeOperationLocalFilePaths", LOCAL_TEST_DIRECTORY);
   }
 

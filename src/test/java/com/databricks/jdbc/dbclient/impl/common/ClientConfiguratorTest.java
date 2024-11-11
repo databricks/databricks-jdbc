@@ -1,6 +1,5 @@
 package com.databricks.jdbc.dbclient.impl.common;
 
-import static com.databricks.jdbc.dbclient.impl.common.ConfiguratorUtilsTest.*;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.mockito.Mockito.*;

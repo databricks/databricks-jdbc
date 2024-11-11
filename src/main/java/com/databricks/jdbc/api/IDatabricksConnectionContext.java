@@ -1,6 +1,6 @@
 package com.databricks.jdbc.api;
 
-import com.databricks.jdbc.common.CompressionType;
+import com.databricks.jdbc.common.CompressionCodec;
 import com.databricks.jdbc.common.DatabricksClientType;
 import com.databricks.jdbc.common.IDatabricksComputeResource;
 import com.databricks.jdbc.common.LogLevel;
@@ -86,7 +86,7 @@ public interface IDatabricksConnectionContext {
 
   String getClientUserAgent();
 
-  CompressionType getCompressionType();
+  CompressionCodec getCompressionCodec();
 
   String getCatalog();
 
@@ -150,6 +150,12 @@ public interface IDatabricksConnectionContext {
   int getIdleHttpConnectionExpiry();
 
   boolean supportManyParameters();
+
+  /**
+   * If set true then DBFSVolumeClient will be used otherwise DatabricksUCVolumeClient will be used
+   * for Volume Operations
+   */
+  boolean useFileSystemAPI();
 
   String getConnectionURL();
 

@@ -167,7 +167,7 @@ public class DatabricksConnectionTest {
         DatabricksConnectionContext.parse(SESSION_CONF_JDBC_URL, new Properties());
     DatabricksConnection connection = new DatabricksConnection(connectionContext, databricksClient);
     connection.open();
-    assertNotNull(connection.getUCVolumeClient());
+    assertNotNull(connection.getVolumeClient());
   }
 
   @Test

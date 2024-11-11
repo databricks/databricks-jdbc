@@ -27,7 +27,6 @@ public class OAuthRefreshCredentialsProvider extends RefreshableTokenSource
 
   private static final JdbcLogger LOGGER =
       JdbcLoggerFactory.getLogger(OAuthRefreshCredentialsProvider.class);
-  IDatabricksConnectionContext context;
   private HttpClient hc;
   private final String tokenEndpoint;
   private final String clientId;
@@ -36,7 +35,6 @@ public class OAuthRefreshCredentialsProvider extends RefreshableTokenSource
   @VisibleForTesting
   public OAuthRefreshCredentialsProvider(
       IDatabricksConnectionContext context, OAuthEndpointResolver oAuthEndpointResolver) {
-    this.context = context;
     this.tokenEndpoint = oAuthEndpointResolver.getTokenEndpoint();
     try {
       this.clientId = context.getClientId();
@@ -55,8 +53,9 @@ public class OAuthRefreshCredentialsProvider extends RefreshableTokenSource
             LocalDateTime.now().minusMinutes(1));
   }
 
-  public OAuthRefreshCredentialsProvider(IDatabricksConnectionContext context) {
-    this(context, new OAuthEndpointResolver(context));
+  public OAuthRefreshCredentialsProvider(
+      IDatabricksConnectionContext context, DatabricksConfig databricksConfig) {
+    this(context, new OAuthEndpointResolver(context, databricksConfig));
   }
 
   @Override

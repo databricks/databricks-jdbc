@@ -4,7 +4,7 @@ import static com.databricks.jdbc.common.DatabricksJdbcConstants.IS_FAKE_SERVICE
 import static com.databricks.jdbc.common.util.DatabricksThriftUtil.createExternalLink;
 import static com.databricks.jdbc.common.util.ValidationUtil.checkHTTPError;
 
-import com.databricks.jdbc.common.CompressionType;
+import com.databricks.jdbc.common.CompressionCodec;
 import com.databricks.jdbc.common.util.DecompressionUtil;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
 import com.databricks.jdbc.exception.DatabricksParsingException;
@@ -239,7 +239,7 @@ public class ArrowResultChunk {
     return this.errorMessage;
   }
 
-  void downloadData(IDatabricksHttpClient httpClient, CompressionType compressionType)
+  void downloadData(IDatabricksHttpClient httpClient, CompressionCodec compressionCodec)
       throws DatabricksParsingException, IOException {
     // Inject error if enabled for testing
     if (injectError && errorInjectionCount < errorInjectionCountMaxValue) {
@@ -262,7 +262,8 @@ public class ArrowResultChunk {
               "Data decompression for chunk index [%d] and statement [%s]",
               this.chunkIndex, this.statementId);
       InputStream uncompressedStream =
-          DecompressionUtil.decompress(response.getEntity().getContent(), compressionType, context);
+          DecompressionUtil.decompress(
+              response.getEntity().getContent(), compressionCodec, context);
       initializeData(uncompressedStream);
       setStatus(ChunkStatus.DOWNLOAD_SUCCEEDED);
     } catch (IOException | DatabricksSQLException | URISyntaxException e) {

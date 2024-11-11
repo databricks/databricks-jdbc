@@ -1,7 +1,7 @@
 package com.databricks.jdbc.api;
 
 import com.databricks.jdbc.api.impl.ImmutableSessionInfo;
-import com.databricks.jdbc.common.CompressionType;
+import com.databricks.jdbc.common.CompressionCodec;
 import com.databricks.jdbc.common.IDatabricksComputeResource;
 import com.databricks.jdbc.dbclient.IDatabricksClient;
 import com.databricks.jdbc.dbclient.IDatabricksMetadataClient;
@@ -53,7 +53,7 @@ public interface IDatabricksSession {
   String getCatalog();
 
   /** Returns the compression algorithm used on results data */
-  CompressionType getCompressionType();
+  CompressionCodec getCompressionCodec();
 
   /** Returns default schema associated with the session */
   String getSchema();

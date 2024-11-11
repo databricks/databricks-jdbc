@@ -6,7 +6,7 @@ import com.databricks.jdbc.api.IDatabricksSession;
 import com.databricks.jdbc.api.impl.IExecutionResult;
 import com.databricks.jdbc.api.impl.converters.ArrowToJavaObjectConverter;
 import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
-import com.databricks.jdbc.common.CompressionType;
+import com.databricks.jdbc.common.CompressionCodec;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
 import com.databricks.jdbc.dbclient.impl.common.StatementId;
 import com.databricks.jdbc.dbclient.impl.http.DatabricksHttpClientFactory;
@@ -94,8 +94,8 @@ public class ArrowStreamResult implements IExecutionResult {
     if (isInlineArrow) {
       this.chunkProvider = new InlineChunkProvider(resultsResp, parentStatement, session);
     } else {
-      CompressionType compressionType =
-          CompressionType.getCompressionMapping(resultsResp.getResultSetMetadata());
+      CompressionCodec compressionCodec =
+          CompressionCodec.getCompressionMapping(resultsResp.getResultSetMetadata());
       this.chunkProvider =
           new RemoteChunkProvider(
               parentStatement,
@@ -103,7 +103,7 @@ public class ArrowStreamResult implements IExecutionResult {
               session,
               httpClient,
               session.getConnectionContext().getCloudFetchThreadPoolSize(),
-              compressionType);
+              compressionCodec);
     }
   }
 
