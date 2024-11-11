@@ -3,9 +3,9 @@ package com.databricks.client.jdbc;
 import static com.databricks.jdbc.integration.IntegrationTestUtil.getFullyQualifiedTableName;
 
 import com.databricks.jdbc.api.IDatabricksConnection;
-import com.databricks.jdbc.api.IDatabricksVolumeClient;
 import com.databricks.jdbc.api.IDatabricksResultSet;
-import com.databricks.jdbc.api.IDatabricksStatement;;
+import com.databricks.jdbc.api.IDatabricksStatement;
+import com.databricks.jdbc.api.IDatabricksVolumeClient;
 import com.databricks.jdbc.api.impl.DatabricksResultSetMetaData;
 import com.databricks.jdbc.api.impl.arrow.ArrowResultChunk;
 import com.databricks.jdbc.common.DatabricksJdbcConstants;
@@ -316,7 +316,7 @@ public class DriverTest {
     // Getting the connection
     String jdbcUrl =
         "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/dd43ee29fedd958d;Loglevel=debug;useFileSystemAPI=1";
-    Connection con = DriverManager.getConnection(jdbcUrl, "token", "dapiac2fbfbdda30ae00bc4a117381c46ca1");
+    Connection con = DriverManager.getConnection(jdbcUrl, "token", "xx");
     System.out.println("Connection created");
 
     IDatabricksVolumeClient client = ((IDatabricksConnection) con).getVolumeClient();

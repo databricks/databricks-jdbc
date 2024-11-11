@@ -3,7 +3,6 @@ package com.databricks.jdbc.api.impl.volume;
 import com.databricks.jdbc.api.IDatabricksSession;
 import com.databricks.jdbc.common.util.HttpUtil;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
-import com.databricks.jdbc.dbclient.impl.http.DatabricksHttpClient;
 import com.databricks.jdbc.dbclient.impl.http.DatabricksHttpClientFactory;
 import com.databricks.jdbc.exception.DatabricksHttpException;
 import com.databricks.jdbc.exception.DatabricksVolumeOperationException;
@@ -39,7 +38,8 @@ public class VolumeOperationProcessorDirect {
     this.operationUrl = operationUrl;
     this.localFilePath = localFilePath;
     this.headers = headers;
-    this.databricksHttpClient = DatabricksHttpClientFactory.getInstance().getClient(session.getConnectionContext());
+    this.databricksHttpClient =
+        DatabricksHttpClientFactory.getInstance().getClient(session.getConnectionContext());
   }
 
   public void executePutOperation() throws DatabricksVolumeOperationException {
