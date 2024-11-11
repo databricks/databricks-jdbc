@@ -62,7 +62,6 @@ public enum DatabricksJdbcUrlParams {
   TOKEN_ENDPOINT("OAuth2TokenEndpoint"),
   AUTH_ENDPOINT("OAuth2AuthorizationEndPoint"),
   SSL_TRUST_STORE("SSLTrustStore"),
-  SSL_TRUST_STORE_PROVIDER("SSLTrustStoreProvider"),
   SSL_TRUST_STORE_PASSWORD("SSLTrustStorePwd"),
   SSL_TRUST_STORE_TYPE("SSLTrustStoreType", "JKS"),
   CHECK_CERTIFICATE_REVOCATION("CheckCertificateRevocation", "1"),

@@ -14,7 +14,8 @@ import com.databricks.jdbc.exception.DatabricksRetryHandlerException;
 import com.databricks.sdk.core.ProxyConfig;
 import java.io.IOException;
 import java.net.URI;
-import java.util.Properties;
+import java.util.*;
+import java.util.concurrent.*;
 import org.apache.http.HttpException;
 import org.apache.http.HttpHost;
 import org.apache.http.client.methods.CloseableHttpResponse;
@@ -223,14 +224,12 @@ public class DatabricksHttpClientTest {
     // Create the first mock connection context
     IDatabricksConnectionContext connectionContext1 =
         Mockito.mock(IDatabricksConnectionContext.class);
-    when(connectionContext1.getUseProxy()).thenReturn(false);
-    when(connectionContext1.getUseCloudFetchProxy()).thenReturn(false);
+    when(connectionContext1.getConnectionUuid()).thenReturn("sample-uuid-1");
 
     // Create the second mock connection context
     IDatabricksConnectionContext connectionContext2 =
         Mockito.mock(IDatabricksConnectionContext.class);
-    when(connectionContext2.getUseProxy()).thenReturn(false);
-    when(connectionContext2.getUseCloudFetchProxy()).thenReturn(false);
+    when(connectionContext2.getConnectionUuid()).thenReturn("sample-uuid-2");
 
     // Get instances of DatabricksHttpClient for each context
     IDatabricksHttpClient client1 =
@@ -261,5 +260,52 @@ public class DatabricksHttpClientTest {
     assertSame(client2, sameClient2);
 
     System.clearProperty(IS_FAKE_SERVICE_TEST_PROP);
+  }
+
+  @Test
+  public void testConcurrentClientCreation() throws InterruptedException, ExecutionException {
+    int numThreads = 10;
+    ExecutorService executorService = Executors.newFixedThreadPool(numThreads);
+    Set<IDatabricksHttpClient> clientSet = ConcurrentHashMap.newKeySet();
+    List<Future<Void>> futures = new ArrayList<>();
+
+    // create http clients in different threads simulating parallel connections
+    for (int i = 0; i < numThreads; i++) {
+      Future<Void> future =
+          executorService.submit(
+              () -> {
+                IDatabricksConnectionContext connectionContext =
+                    mock(IDatabricksConnectionContext.class);
+                when(connectionContext.getConnectionUuid())
+                    .thenReturn(UUID.randomUUID().toString());
+                IDatabricksHttpClient client =
+                    DatabricksHttpClientFactory.getInstance().getClient(connectionContext);
+                clientSet.add(client);
+                return null;
+              });
+      futures.add(future);
+    }
+
+    for (Future<Void> future : futures) {
+      future.get();
+    }
+
+    executorService.shutdown();
+    executorService.awaitTermination(1, TimeUnit.MINUTES);
+
+    // verify that we have as many unique clients as threads
+    assertEquals(
+        numThreads, clientSet.size(), "Each thread should have a unique HTTP client instance");
+
+    // additionally, ensure that no two clients are the same instance
+    List<IDatabricksHttpClient> clientList = new ArrayList<>(clientSet);
+    for (int i = 0; i < clientList.size(); i++) {
+      for (int j = i + 1; j < clientList.size(); j++) {
+        assertNotSame(
+            clientList.get(i),
+            clientList.get(j),
+            "HTTP client instances should be unique per connection");
+      }
+    }
   }
 }

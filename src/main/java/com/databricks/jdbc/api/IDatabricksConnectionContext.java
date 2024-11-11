@@ -205,9 +205,6 @@ public interface IDatabricksConnectionContext {
   /** Returns the SSL trust store file path used for SSL connections. */
   String getSSLTrustStore();
 
-  /** Returns the SSL trust store provider of the trust store file. */
-  String getSSLTrustStoreProvider();
-
   /** Returns the SSL trust store password of the trust store file. */
   String getSSLTrustStorePassword();
 
@@ -216,4 +213,12 @@ public interface IDatabricksConnectionContext {
 
   /** Returns the maximum number of commands that can be executed in a single batch. */
   int getMaxBatchSize();
+
+  /**
+   * Returns a unique identifier for this connection context.
+   *
+   * <p>This UUID is generated when the connection context is instantiated and serves as a unique
+   * internal identifier for each JDBC connection.
+   */
+  String getConnectionUuid();
 }

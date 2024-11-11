@@ -29,8 +29,8 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   private final String schema;
   private final String connectionURL;
   private final IDatabricksComputeResource computeResource;
-
   @VisibleForTesting final ImmutableMap<String, String> parameters;
+  @VisibleForTesting final String connectionUuid;
 
   private DatabricksConnectionContext(
       String connectionURL,
@@ -45,6 +45,7 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
     this.schema = schema;
     this.parameters = parameters;
     this.computeResource = buildCompute();
+    this.connectionUuid = UUID.randomUUID().toString();
   }
 
   /**
@@ -570,11 +571,6 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   }
 
   @Override
-  public String getSSLTrustStoreProvider() {
-    return getParameter(DatabricksJdbcUrlParams.SSL_TRUST_STORE_PROVIDER);
-  }
-
-  @Override
   public String getSSLTrustStorePassword() {
     return getParameter(DatabricksJdbcUrlParams.SSL_TRUST_STORE_PASSWORD);
   }
@@ -587,6 +583,11 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   @Override
   public int getMaxBatchSize() {
     return Integer.parseInt(getParameter(DatabricksJdbcUrlParams.MAX_BATCH_SIZE));
+  }
+
+  @Override
+  public String getConnectionUuid() {
+    return connectionUuid;
   }
 
   private static boolean nullOrEmptyString(String s) {
