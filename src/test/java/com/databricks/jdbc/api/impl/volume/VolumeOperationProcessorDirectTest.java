@@ -59,15 +59,12 @@ public class VolumeOperationProcessorDirectTest {
 
   @Test
   void testExecutePutOperation_Success() throws Exception {
-    // Setup
     when(mockHttpClient.execute(any(HttpPut.class))).thenReturn(mockResponse);
     when(mockResponse.getStatusLine()).thenReturn(mockStatusLine);
     when(mockStatusLine.getStatusCode()).thenReturn(200); // HTTP 200 OK
 
-    // Execute
     processor.executePutOperation();
 
-    // Verify
     ArgumentCaptor<HttpPut> httpPutCaptor = ArgumentCaptor.forClass(HttpPut.class);
     verify(mockHttpClient).execute(httpPutCaptor.capture());
 
@@ -78,25 +75,20 @@ public class VolumeOperationProcessorDirectTest {
 
   @Test
   void testExecutePutOperation_HttpFailure() throws Exception {
-    // Setup
     when(mockHttpClient.execute(any(HttpPut.class))).thenReturn(mockResponse);
     when(mockResponse.getStatusLine()).thenReturn(mockStatusLine);
     when(mockStatusLine.getStatusCode()).thenReturn(500); // HTTP 500 Internal Server Error
 
-    // Execute
     processor.executePutOperation();
 
-    // Verify
     verify(mockHttpClient).execute(any(HttpPut.class));
   }
 
   @Test
   void testExecutePutOperation_IOException() throws Exception {
-    // Setup
     when(mockHttpClient.execute(any(HttpPut.class)))
         .thenThrow(new DatabricksHttpException("IO error"));
 
-    // Execute & Verify
     DatabricksVolumeOperationException exception =
         assertThrows(
             DatabricksVolumeOperationException.class, () -> processor.executePutOperation());
@@ -106,11 +98,9 @@ public class VolumeOperationProcessorDirectTest {
 
   @Test
   void testExecutePutOperation_DatabricksHttpException() throws Exception {
-    // Setup
     when(mockHttpClient.execute(any(HttpPut.class)))
         .thenThrow(new DatabricksHttpException("HTTP error"));
 
-    // Execute & Verify
     DatabricksVolumeOperationException exception =
         assertThrows(
             DatabricksVolumeOperationException.class, () -> processor.executePutOperation());
