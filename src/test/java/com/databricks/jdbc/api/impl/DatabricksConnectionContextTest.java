@@ -66,7 +66,7 @@ class DatabricksConnectionContextTest {
     connectionContext =
         (DatabricksConnectionContext)
             DatabricksConnectionContext.parse(TestConstants.VALID_URL_2, properties_with_pwd);
-    assertEquals("https://azuredatabricks.net:443", connectionContext.getHostUrl());
+    assertEquals("https://adb-565656.azuredatabricks.net:443", connectionContext.getHostUrl());
     assertEquals("/sql/1.0/warehouses/fgff575757", connectionContext.getHttpPath());
     assertEquals("passwd2", connectionContext.getToken());
     assertEquals("96eecda7-19ea-49cc-abb5-240097d554f5", connectionContext.getClientId());

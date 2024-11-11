@@ -4,6 +4,7 @@ import static java.sql.DatabaseMetaData.*;
 
 import com.databricks.jdbc.api.impl.DatabricksResultSet;
 import com.databricks.jdbc.common.StatementType;
+import com.databricks.jdbc.dbclient.impl.common.StatementId;
 import com.databricks.sdk.service.sql.StatementState;
 import com.databricks.sdk.service.sql.StatementStatus;
 import java.sql.Types;
@@ -13,7 +14,7 @@ public class ResultConstants {
   public static final DatabricksResultSet TYPE_INFO_RESULT =
       new DatabricksResultSet(
           new StatementStatus().setState(StatementState.SUCCEEDED),
-          "typeinfo-metadata",
+          new StatementId("typeinfo-metadata"),
           Arrays.asList(
               "TYPE_NAME",
               "DATA_TYPE",

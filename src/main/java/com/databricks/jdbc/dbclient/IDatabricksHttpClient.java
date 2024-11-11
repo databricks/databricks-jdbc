@@ -14,6 +14,4 @@ public interface IDatabricksHttpClient {
    * @return http response
    */
   CloseableHttpResponse execute(HttpUriRequest request) throws DatabricksHttpException;
-
-  void closeExpiredAndIdleConnections();
 }

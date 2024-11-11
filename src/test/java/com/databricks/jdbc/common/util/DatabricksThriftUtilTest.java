@@ -4,8 +4,12 @@ import static com.databricks.jdbc.TestConstants.*;
 import static com.databricks.jdbc.common.MetadataResultConstants.NULL_STRING;
 import static com.databricks.jdbc.common.util.DatabricksThriftUtil.checkDirectResultsForErrorStatus;
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.when;
 
+import com.databricks.jdbc.api.IDatabricksSession;
+import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
 import com.databricks.jdbc.exception.DatabricksHttpException;
+import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.model.client.thrift.generated.*;
 import com.databricks.sdk.service.sql.ColumnInfoTypeName;
 import java.nio.ByteBuffer;
@@ -14,11 +18,20 @@ import java.util.List;
 import java.util.UUID;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
 
+@ExtendWith(MockitoExtension.class)
 public class DatabricksThriftUtilTest {
+
+  @Mock TFetchResultsResp fetchResultsResp;
+  @Mock IDatabricksStatementInternal parentStatement;
+  @Mock IDatabricksSession session;
+
   @Test
   void testByteBufferToString() {
     DatabricksThriftUtil helper = new DatabricksThriftUtil(); // cover the constructors too
@@ -162,16 +175,21 @@ public class DatabricksThriftUtilTest {
   }
 
   @Test
-  public void testConvertColumnarToRowBased() {
-    List<List<Object>> rowBasedData = DatabricksThriftUtil.convertColumnarToRowBased(boolRowSet);
+  public void testConvertColumnarToRowBased() throws DatabricksSQLException {
+    when(fetchResultsResp.getResults()).thenReturn(boolRowSet);
+    List<List<Object>> rowBasedData =
+        DatabricksThriftUtil.convertColumnarToRowBased(fetchResultsResp, parentStatement, session);
     assertEquals(rowBasedData.size(), 4);
 
-    rowBasedData = DatabricksThriftUtil.convertColumnarToRowBased(null);
+    when(fetchResultsResp.getResults()).thenReturn(null);
+    rowBasedData =
+        DatabricksThriftUtil.convertColumnarToRowBased(fetchResultsResp, parentStatement, session);
     assertEquals(rowBasedData.size(), 0);
 
+    when(fetchResultsResp.getResults())
+        .thenReturn(new TRowSet().setColumns(Collections.emptyList()));
     rowBasedData =
-        DatabricksThriftUtil.convertColumnarToRowBased(
-            new TRowSet().setColumns(Collections.emptyList()));
+        DatabricksThriftUtil.convertColumnarToRowBased(fetchResultsResp, parentStatement, session);
     assertEquals(rowBasedData.size(), 0);
   }
 

@@ -8,13 +8,13 @@ import static org.mockito.Mockito.*;
 import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.api.impl.DatabricksConnectionContextFactory;
 import com.databricks.jdbc.common.util.UserAgentManager;
+import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
 import com.databricks.jdbc.exception.DatabricksHttpException;
 import com.databricks.jdbc.exception.DatabricksRetryHandlerException;
 import com.databricks.sdk.core.ProxyConfig;
 import java.io.IOException;
 import java.net.URI;
 import java.util.Properties;
-import java.util.concurrent.TimeUnit;
 import org.apache.http.HttpException;
 import org.apache.http.HttpHost;
 import org.apache.http.client.methods.CloseableHttpResponse;
@@ -25,6 +25,7 @@ import org.apache.http.conn.routing.HttpRoutePlanner;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClientBuilder;
 import org.apache.http.impl.conn.PoolingHttpClientConnectionManager;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -34,38 +35,44 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
 public class DatabricksHttpClientTest {
-  @Mock CloseableHttpClient mockHttpClient;
-  @Mock HttpUriRequest request;
-  @Mock PoolingHttpClientConnectionManager connectionManager;
-  @Mock CloseableHttpResponse closeableHttpResponse;
-  @Mock IDatabricksConnectionContext connectionContext;
-  @Mock HttpClientBuilder httpClientBuilder;
   private static final String CLUSTER_JDBC_URL =
       "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=http;ssl=1;httpPath=sql/protocolv1/o/6051921418418893/1115-130834-ms4m0yv;AuthMech=3;UserAgentEntry=MyApp";
   private static final String DBSQL_JDBC_URL =
       "jdbc:databricks://adb-565757575.18.azuredatabricks.net:4423/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/erg6767gg;UserAgentEntry=MyApp";
+  @Mock CloseableHttpClient mockHttpClient;
+  @Mock HttpUriRequest mockRequest;
+  @Mock PoolingHttpClientConnectionManager mockConnectionManager;
+  @Mock CloseableHttpResponse mockCloseableHttpResponse;
+  @Mock IDatabricksConnectionContext mockConnectionContext;
+  @Mock HttpClientBuilder mockHttpClientBuilder;
+  private DatabricksHttpClient databricksHttpClient;
+
+  @BeforeEach
+  public void setUp() {
+    databricksHttpClient = new DatabricksHttpClient(mockHttpClient, mockConnectionManager);
+  }
 
   @Test
   public void testSetProxyDetailsIntoHttpClient() {
     HttpClientBuilder builder = HttpClientBuilder.create();
 
-    doReturn(true).when(connectionContext).getUseProxy();
-    doReturn("proxyHost").when(connectionContext).getProxyHost();
-    doReturn(1234).when(connectionContext).getProxyPort();
-    doReturn("proxyUser").when(connectionContext).getProxyUser();
-    doReturn("proxyPassword").when(connectionContext).getProxyPassword();
-    doReturn(ProxyConfig.ProxyAuthType.BASIC).when(connectionContext).getProxyAuthType();
+    doReturn(true).when(mockConnectionContext).getUseProxy();
+    doReturn("proxyHost").when(mockConnectionContext).getProxyHost();
+    doReturn(1234).when(mockConnectionContext).getProxyPort();
+    doReturn("proxyUser").when(mockConnectionContext).getProxyUser();
+    doReturn("proxyPassword").when(mockConnectionContext).getProxyPassword();
+    doReturn(ProxyConfig.ProxyAuthType.BASIC).when(mockConnectionContext).getProxyAuthType();
 
-    assertDoesNotThrow(() -> DatabricksHttpClient.setupProxy(connectionContext, builder));
+    assertDoesNotThrow(() -> databricksHttpClient.setupProxy(mockConnectionContext, builder));
 
-    doReturn(ProxyConfig.ProxyAuthType.NONE).when(connectionContext).getProxyAuthType();
-    assertDoesNotThrow(() -> DatabricksHttpClient.setupProxy(connectionContext, builder));
+    doReturn(ProxyConfig.ProxyAuthType.NONE).when(mockConnectionContext).getProxyAuthType();
+    assertDoesNotThrow(() -> databricksHttpClient.setupProxy(mockConnectionContext, builder));
 
-    doReturn(ProxyConfig.ProxyAuthType.BASIC).when(connectionContext).getProxyAuthType();
-    doReturn(null).when(connectionContext).getProxyUser();
+    doReturn(ProxyConfig.ProxyAuthType.BASIC).when(mockConnectionContext).getProxyAuthType();
+    doReturn(null).when(mockConnectionContext).getProxyUser();
     assertThrows(
         IllegalArgumentException.class,
-        () -> DatabricksHttpClient.setupProxy(connectionContext, builder));
+        () -> databricksHttpClient.setupProxy(mockConnectionContext, builder));
   }
 
   @Test
@@ -77,10 +84,10 @@ public class DatabricksHttpClientTest {
     ArgumentCaptor<HttpRoutePlanner> routePlannerCaptor =
         ArgumentCaptor.forClass(HttpRoutePlanner.class);
 
-    DatabricksHttpClient.setFakeServiceRouteInHttpClient(httpClientBuilder);
+    databricksHttpClient.setFakeServiceRouteInHttpClient(mockHttpClientBuilder);
 
     // Capture the route planner set in builder
-    Mockito.verify(httpClientBuilder).setRoutePlanner(routePlannerCaptor.capture());
+    Mockito.verify(mockHttpClientBuilder).setRoutePlanner(routePlannerCaptor.capture());
     HttpRoutePlanner capturedRoutePlanner = routePlannerCaptor.getValue();
 
     // Create a request and determine the route
@@ -102,9 +109,9 @@ public class DatabricksHttpClientTest {
     ArgumentCaptor<HttpRoutePlanner> routePlannerCaptor =
         ArgumentCaptor.forClass(HttpRoutePlanner.class);
 
-    DatabricksHttpClient.setFakeServiceRouteInHttpClient(httpClientBuilder);
+    databricksHttpClient.setFakeServiceRouteInHttpClient(mockHttpClientBuilder);
 
-    Mockito.verify(httpClientBuilder).setRoutePlanner(routePlannerCaptor.capture());
+    Mockito.verify(mockHttpClientBuilder).setRoutePlanner(routePlannerCaptor.capture());
     HttpRoutePlanner capturedRoutePlanner = routePlannerCaptor.getValue();
 
     HttpGet request = new HttpGet("http://localhost:53423");
@@ -123,9 +130,9 @@ public class DatabricksHttpClientTest {
     ArgumentCaptor<HttpRoutePlanner> routePlannerCaptor =
         ArgumentCaptor.forClass(HttpRoutePlanner.class);
 
-    DatabricksHttpClient.setFakeServiceRouteInHttpClient(httpClientBuilder);
+    databricksHttpClient.setFakeServiceRouteInHttpClient(mockHttpClientBuilder);
 
-    Mockito.verify(httpClientBuilder).setRoutePlanner(routePlannerCaptor.capture());
+    Mockito.verify(mockHttpClientBuilder).setRoutePlanner(routePlannerCaptor.capture());
     HttpRoutePlanner capturedRoutePlanner = routePlannerCaptor.getValue();
 
     HttpGet request = new HttpGet(testTargetURI);
@@ -148,9 +155,9 @@ public class DatabricksHttpClientTest {
     ArgumentCaptor<HttpRoutePlanner> routePlannerCaptor =
         ArgumentCaptor.forClass(HttpRoutePlanner.class);
 
-    DatabricksHttpClient.setFakeServiceRouteInHttpClient(httpClientBuilder);
+    databricksHttpClient.setFakeServiceRouteInHttpClient(mockHttpClientBuilder);
 
-    Mockito.verify(httpClientBuilder).setRoutePlanner(routePlannerCaptor.capture());
+    Mockito.verify(mockHttpClientBuilder).setRoutePlanner(routePlannerCaptor.capture());
     HttpRoutePlanner capturedRoutePlanner = routePlannerCaptor.getValue();
 
     HttpGet request = new HttpGet(testTargetURI);
@@ -167,46 +174,24 @@ public class DatabricksHttpClientTest {
 
   @Test
   void testExecuteThrowsError() throws IOException {
-    DatabricksHttpClient databricksHttpClient =
-        new DatabricksHttpClient(mockHttpClient, connectionManager);
-    when(request.getURI()).thenReturn(URI.create("https://databricks.com"));
-    when(mockHttpClient.execute(request)).thenThrow(new IOException());
-    assertThrows(DatabricksHttpException.class, () -> databricksHttpClient.execute(request));
+    when(mockRequest.getURI()).thenReturn(URI.create("https://databricks.com"));
+    when(mockHttpClient.execute(mockRequest)).thenThrow(new IOException());
+    assertThrows(DatabricksHttpException.class, () -> databricksHttpClient.execute(mockRequest));
   }
 
   @Test
   void testRetryHandlerWithTemporarilyUnavailableRetryInterval() throws IOException {
-    DatabricksHttpClient databricksHttpClient =
-        new DatabricksHttpClient(mockHttpClient, connectionManager);
-    when(request.getURI()).thenReturn(URI.create("TestURI"));
-    when(mockHttpClient.execute(request))
+    when(mockRequest.getURI()).thenReturn(URI.create("TestURI"));
+    when(mockHttpClient.execute(mockRequest))
         .thenThrow(new DatabricksRetryHandlerException("Retry http request.Error code: ", 503));
-    assertThrows(DatabricksHttpException.class, () -> databricksHttpClient.execute(request));
+    assertThrows(DatabricksHttpException.class, () -> databricksHttpClient.execute(mockRequest));
   }
 
   @Test
   void testExecute() throws IOException, DatabricksHttpException {
-    DatabricksHttpClient databricksHttpClient =
-        new DatabricksHttpClient(mockHttpClient, connectionManager);
-    when(request.getURI()).thenReturn(URI.create("TestURI"));
-    when(mockHttpClient.execute(request)).thenReturn(closeableHttpResponse);
-    assertEquals(closeableHttpResponse, databricksHttpClient.execute(request));
-  }
-
-  @Test
-  void testCloseExpiredAndIdleConnections() {
-    DatabricksHttpClient databricksHttpClient =
-        new DatabricksHttpClient(mockHttpClient, connectionManager);
-    databricksHttpClient.closeExpiredAndIdleConnections();
-    verify(connectionManager).closeExpiredConnections();
-    verify(connectionManager)
-        .closeIdleConnections(DatabricksHttpClient.idleHttpConnectionExpiry, TimeUnit.SECONDS);
-  }
-
-  @Test
-  void testCloseExpiredAndIdleConnectionsForNull() {
-    DatabricksHttpClient databricksHttpClient = new DatabricksHttpClient(mockHttpClient, null);
-    assertDoesNotThrow(databricksHttpClient::closeExpiredAndIdleConnections);
+    when(mockRequest.getURI()).thenReturn(URI.create("TestURI"));
+    when(mockHttpClient.execute(mockRequest)).thenReturn(mockCloseableHttpResponse);
+    assertEquals(mockCloseableHttpResponse, databricksHttpClient.execute(mockRequest));
   }
 
   @Test
@@ -215,8 +200,8 @@ public class DatabricksHttpClientTest {
     IDatabricksConnectionContext connectionContext =
         DatabricksConnectionContextFactory.create(CLUSTER_JDBC_URL, new Properties());
     UserAgentManager.setUserAgent(connectionContext);
-    String userAgent = DatabricksHttpClient.getUserAgent();
-    assertTrue(userAgent.contains("DatabricksJDBCDriverOSS/0.9.5-oss"));
+    String userAgent = databricksHttpClient.getUserAgent();
+    assertTrue(userAgent.contains("DatabricksJDBCDriverOSS/0.9.6-oss"));
     assertTrue(userAgent.contains(" Java/THttpClient-HC-MyApp"));
     assertTrue(userAgent.contains(" databricks-jdbc-http "));
     assertFalse(userAgent.contains("databricks-sdk-java"));
@@ -224,8 +209,8 @@ public class DatabricksHttpClientTest {
     // SEA
     connectionContext = DatabricksConnectionContextFactory.create(DBSQL_JDBC_URL, new Properties());
     UserAgentManager.setUserAgent(connectionContext);
-    userAgent = DatabricksHttpClient.getUserAgent();
-    assertTrue(userAgent.contains("DatabricksJDBCDriverOSS/0.9.5-oss"));
+    userAgent = databricksHttpClient.getUserAgent();
+    assertTrue(userAgent.contains("DatabricksJDBCDriverOSS/0.9.6-oss"));
     assertTrue(userAgent.contains(" Java/SQLExecHttpClient-HC-MyApp"));
     assertTrue(userAgent.contains(" databricks-jdbc-http "));
     assertFalse(userAgent.contains("databricks-sdk-java"));
@@ -248,8 +233,10 @@ public class DatabricksHttpClientTest {
     when(connectionContext2.getUseCloudFetchProxy()).thenReturn(false);
 
     // Get instances of DatabricksHttpClient for each context
-    DatabricksHttpClient client1 = DatabricksHttpClient.getInstance(connectionContext1);
-    DatabricksHttpClient client2 = DatabricksHttpClient.getInstance(connectionContext2);
+    IDatabricksHttpClient client1 =
+        DatabricksHttpClientFactory.getInstance().getClient(connectionContext1);
+    IDatabricksHttpClient client2 =
+        DatabricksHttpClientFactory.getInstance().getClient(connectionContext2);
 
     assertNotNull(client1);
     assertNotNull(client2);
@@ -258,17 +245,19 @@ public class DatabricksHttpClientTest {
     assertNotSame(client1, client2);
 
     // Reset the instance for the first context
-    DatabricksHttpClient.removeInstance(connectionContext1);
+    DatabricksHttpClientFactory.getInstance().removeClient(connectionContext1);
 
     // Get a new instance for the first context
-    DatabricksHttpClient newClient1 = DatabricksHttpClient.getInstance(connectionContext1);
+    IDatabricksHttpClient newClient1 =
+        DatabricksHttpClientFactory.getInstance().getClient(connectionContext1);
 
     assertNotNull(newClient1);
     // The new instance should be different after reset
     assertNotSame(client1, newClient1);
 
     // Ensure that the second context's instance remains the same
-    DatabricksHttpClient sameClient2 = DatabricksHttpClient.getInstance(connectionContext2);
+    IDatabricksHttpClient sameClient2 =
+        DatabricksHttpClientFactory.getInstance().getClient(connectionContext2);
     assertSame(client2, sameClient2);
 
     System.clearProperty(IS_FAKE_SERVICE_TEST_PROP);

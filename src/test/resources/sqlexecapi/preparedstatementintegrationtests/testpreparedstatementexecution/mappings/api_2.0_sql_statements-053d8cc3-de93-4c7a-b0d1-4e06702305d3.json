@@ -1,0 +1,32 @@
+{
+  "id" : "053d8cc3-de93-4c7a-b0d1-4e06702305d3",
+  "name" : "api_2.0_sql_statements",
+  "request" : {
+    "url" : "/api/2.0/sql/statements/",
+    "method" : "POST",
+    "bodyPatterns" : [ {
+      "equalToJson" : "{\"statement\":\"SELECT * FROM main.jdbc_test_schema.prepared_statement_test_table WHERE id = ?\",\"warehouse_id\":\"dd43ee29fedd958d\",\"session_id\":\"01ef8c5c-3fd1-1438-b4a8-d1cdaa13e07c\",\"disposition\":\"EXTERNAL_LINKS\",\"format\":\"ARROW_STREAM\",\"on_wait_timeout\":\"CONTINUE\",\"wait_timeout\":\"10s\",\"parameters\":[{\"type\":\"INT\",\"value\":\"1\",\"ordinal\":1}],\"compression_codec\":\"NONE\"}",
+      "ignoreArrayOrder" : true,
+      "ignoreExtraElements" : true
+    } ]
+  },
+  "response" : {
+    "status" : 200,
+    "body" : "{\"statement_id\":\"01ef8c5c-459a-1d9e-81ad-a8f15e89edbf\",\"status\":{\"state\":\"SUCCEEDED\"},\"manifest\":{\"format\":\"ARROW_STREAM\",\"schema\":{\"column_count\":3,\"columns\":[{\"name\":\"id\",\"type_text\":\"INT\",\"type_name\":\"INT\",\"position\":0},{\"name\":\"col1\",\"type_text\":\"STRING\",\"type_name\":\"STRING\",\"position\":1},{\"name\":\"col2\",\"type_text\":\"STRING\",\"type_name\":\"STRING\",\"position\":2}]},\"total_chunk_count\":1,\"chunks\":[{\"chunk_index\":0,\"row_offset\":0,\"row_count\":1,\"byte_count\":616}],\"total_row_count\":1,\"total_byte_count\":616,\"truncated\":false},\"result\":{\"external_links\":[{\"chunk_index\":0,\"row_offset\":0,\"row_count\":1,\"byte_count\":616,\"external_link\":\"https://e2-dogfood-core.s3.us-west-2.amazonaws.com/oregon-staging/6051921418418893.jobs/sql/extended/results_2024-10-18T08%3A49%3A00Z_eea9bc3b-ba99-4b7a-a58c-fb9986ecb9d0?[REDACTED]X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Date=20241017T074901Z&X-Amz-SignedHeaders=host&X-Amz-Expires=899&[REDACTED]X-Amz-Signature=e790222893ff4485551bc74dd8443dc5b1df5503c983636a8519e1d425588f64\",\"expiration\":\"2024-10-17T08:04:01.080Z\"}]}}",
+    "headers" : {
+      "x-request-id" : "770500da-4ed9-47e2-800e-be60bdf125ad",
+      "date" : "Thu, 17 Oct 2024 07:49:01 GMT",
+      "server" : "databricks",
+      "x-content-type-options" : "nosniff",
+      "x-databricks-shard-debug" : "oregon-staging",
+      "vary" : "Accept-Encoding",
+      "x-databricks-popp-shadow-routing-reason" : "deployment-name",
+      "x-databricks-org-id" : "6051921418418893",
+      "x-databricks-popp-routing-reason" : "deployment-name",
+      "content-type" : "application/json",
+      "strict-transport-security" : "max-age=31536000; includeSubDomains; preload"
+    }
+  },
+  "uuid" : "053d8cc3-de93-4c7a-b0d1-4e06702305d3",
+  "insertionIndex" : 49
+}

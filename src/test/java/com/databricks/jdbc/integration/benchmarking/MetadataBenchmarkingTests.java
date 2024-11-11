@@ -161,18 +161,6 @@ public class MetadataBenchmarkingTests {
     return sb.toString();
   }
 
-  private void tearDownSchemas() {
-    for (int i = 0; i < NUM_SCHEMAS; i++) {
-      executeSQL(
-          "DROP SCHEMA IF EXISTS "
-              + getDatabricksCatalog()
-              + "."
-              + BASE_SCHEMA_NAME
-              + i
-              + " CASCADE");
-    }
-  }
-
   void measureMetadataPerformance(int recording) throws SQLException {
     DatabaseMetaData metaData = connection.getMetaData();
     System.out.println("STARTED MEASURING METADATA PERFORMANCE...");

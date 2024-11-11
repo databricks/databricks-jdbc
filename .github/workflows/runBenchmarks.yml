@@ -17,13 +17,6 @@ jobs:
         with:
           ref: benchmarking-branch
 
-      - name: Merge main into benchmarking branch
-        run: |
-          git config --global user.email "shivam.raj@databricks.com"
-          git config --global user.name "shivam2680"
-          git fetch origin main
-          git merge -X theirs origin/main
-
       - name: Set up Java
         uses: actions/setup-java@v2
         with:

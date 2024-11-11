@@ -8,16 +8,15 @@ import com.databricks.jdbc.common.AccessType;
 import com.databricks.jdbc.common.Nullable;
 import com.databricks.jdbc.common.util.DatabricksTypeUtil;
 import com.databricks.jdbc.common.util.WrapperUtil;
+import com.databricks.jdbc.dbclient.impl.common.StatementId;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
-import com.databricks.jdbc.model.client.thrift.generated.TColumnDesc;
-import com.databricks.jdbc.model.client.thrift.generated.TGetResultSetMetadataResp;
-import com.databricks.jdbc.model.client.thrift.generated.TTypeEntry;
-import com.databricks.jdbc.model.client.thrift.generated.TTypeQualifierValue;
+import com.databricks.jdbc.model.client.thrift.generated.*;
 import com.databricks.jdbc.model.core.ColumnMetadata;
 import com.databricks.jdbc.model.core.ResultManifest;
 import com.databricks.sdk.service.sql.ColumnInfo;
 import com.databricks.sdk.service.sql.ColumnInfoTypeName;
+import com.databricks.sdk.service.sql.Format;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import java.sql.ResultSetMetaData;
@@ -31,11 +30,12 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
 
   private static final JdbcLogger LOGGER =
       JdbcLoggerFactory.getLogger(DatabricksResultSetMetaData.class);
-  private final String statementId;
+  private final StatementId statementId;
   private final ImmutableList<ImmutableDatabricksColumn> columns;
   private final ImmutableMap<String, Integer> columnNameIndex;
   private final long totalRows;
   private Long chunkCount;
+  private final boolean isCloudFetchUsed;
 
   /**
    * Constructs a {@code DatabricksResultSetMetaData} object for a SEA result set.
@@ -44,7 +44,7 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
    * @param resultManifest the manifest containing metadata about the result set, including column
    *     information and types
    */
-  public DatabricksResultSetMetaData(String statementId, ResultManifest resultManifest) {
+  public DatabricksResultSetMetaData(StatementId statementId, ResultManifest resultManifest) {
     this.statementId = statementId;
     Map<String, Integer> columnNameToIndexMap = new HashMap<>();
     ImmutableList.Builder<ImmutableDatabricksColumn> columnsBuilder = ImmutableList.builder();
@@ -90,6 +90,7 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
     this.columnNameIndex = ImmutableMap.copyOf(columnNameToIndexMap);
     this.totalRows = resultManifest.getTotalRowCount();
     this.chunkCount = resultManifest.getTotalChunkCount();
+    this.isCloudFetchUsed = getIsCloudFetchFromManifest(resultManifest);
   }
 
   /**
@@ -102,7 +103,10 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
    * @param chunkCount the total number of data chunks in the result set
    */
   public DatabricksResultSetMetaData(
-      String statementId, TGetResultSetMetadataResp resultManifest, long rows, long chunkCount) {
+      StatementId statementId,
+      TGetResultSetMetadataResp resultManifest,
+      long rows,
+      long chunkCount) {
     this.statementId = statementId;
     Map<String, Integer> columnNameToIndexMap = new HashMap<>();
     ImmutableList.Builder<ImmutableDatabricksColumn> columnsBuilder = ImmutableList.builder();
@@ -151,6 +155,7 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
     this.columnNameIndex = ImmutableMap.copyOf(columnNameToIndexMap);
     this.totalRows = rows;
     this.chunkCount = chunkCount;
+    this.isCloudFetchUsed = getIsCloudFetchFromManifest(resultManifest);
   }
 
   /**
@@ -162,7 +167,7 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
    * @param totalRows the total number of rows in the result set
    */
   public DatabricksResultSetMetaData(
-      String statementId, List<ColumnMetadata> columnMetadataList, long totalRows) {
+      StatementId statementId, List<ColumnMetadata> columnMetadataList, long totalRows) {
     this.statementId = statementId;
     Map<String, Integer> columnNameToIndexMap = new HashMap<>();
     ImmutableList.Builder<ImmutableDatabricksColumn> columnsBuilder = ImmutableList.builder();
@@ -191,6 +196,7 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
     this.columns = columnsBuilder.build();
     this.columnNameIndex = ImmutableMap.copyOf(columnNameToIndexMap);
     this.totalRows = totalRows;
+    this.isCloudFetchUsed = false;
   }
 
   /**
@@ -204,7 +210,7 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
    * @param totalRows total number of rows in result set
    */
   public DatabricksResultSetMetaData(
-      String statementId,
+      StatementId statementId,
       List<String> columnNames,
       List<String> columnTypeText,
       List<Integer> columnTypes,
@@ -235,6 +241,7 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
     this.columns = columnsBuilder.build();
     this.columnNameIndex = ImmutableMap.copyOf(columnNameToIndexMap);
     this.totalRows = totalRows;
+    this.isCloudFetchUsed = false;
   }
 
   @Override
@@ -374,6 +381,18 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
 
   public long getTotalRows() {
     return totalRows;
+  }
+
+  public boolean getIsCloudFetchUsed() {
+    return isCloudFetchUsed;
+  }
+
+  private boolean getIsCloudFetchFromManifest(ResultManifest resultManifest) {
+    return resultManifest.getFormat() == Format.ARROW_STREAM;
+  }
+
+  private boolean getIsCloudFetchFromManifest(TGetResultSetMetadataResp resultManifest) {
+    return resultManifest.getResultFormat() == TSparkRowSetType.URL_BASED_SET;
   }
 
   public Long getChunkCount() {
