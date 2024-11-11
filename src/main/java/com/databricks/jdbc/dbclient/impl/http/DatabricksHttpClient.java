@@ -5,9 +5,8 @@ import static com.databricks.jdbc.dbclient.impl.common.ClientConfigurator.conver
 import static io.netty.util.NetUtil.LOCALHOST;
 
 import com.databricks.jdbc.api.IDatabricksConnectionContext;
-import com.databricks.jdbc.common.LogLevel;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
-import com.databricks.jdbc.dbclient.impl.common.ClientConfigurator;
+import com.databricks.jdbc.dbclient.impl.common.ConfiguratorUtils;
 import com.databricks.jdbc.exception.DatabricksHttpException;
 import com.databricks.jdbc.exception.DatabricksRetryHandlerException;
 import com.databricks.jdbc.log.JdbcLogger;
@@ -16,13 +15,9 @@ import com.databricks.sdk.core.ProxyConfig;
 import com.databricks.sdk.core.UserAgent;
 import com.databricks.sdk.core.utils.ProxyUtils;
 import com.google.common.annotations.VisibleForTesting;
+import java.io.Closeable;
 import java.io.IOException;
-import java.security.KeyManagementException;
-import java.security.KeyStoreException;
-import java.security.NoSuchAlgorithmException;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
-import javax.net.ssl.SSLContext;
 import org.apache.http.HttpException;
 import org.apache.http.HttpHost;
 import org.apache.http.client.config.RequestConfig;
@@ -30,15 +25,14 @@ import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpUriRequest;
 import org.apache.http.conn.UnsupportedSchemeException;
 import org.apache.http.conn.routing.HttpRoute;
-import org.apache.http.conn.ssl.NoopHostnameVerifier;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClientBuilder;
+import org.apache.http.impl.client.IdleConnectionEvictor;
 import org.apache.http.impl.conn.DefaultSchemePortResolver;
 import org.apache.http.impl.conn.PoolingHttpClientConnectionManager;
-import org.apache.http.ssl.SSLContextBuilder;
 
 /** Http client implementation to be used for executing http requests. */
-public class DatabricksHttpClient implements IDatabricksHttpClient {
+public class DatabricksHttpClient implements IDatabricksHttpClient, Closeable {
 
   private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(DatabricksHttpClient.class);
   private static final int DEFAULT_MAX_HTTP_CONNECTIONS = 1000;
@@ -47,43 +41,65 @@ public class DatabricksHttpClient implements IDatabricksHttpClient {
   private static final int DEFAULT_HTTP_CLIENT_SOCKET_TIMEOUT = 300 * 1000; // ms
   private static final String SDK_USER_AGENT = "databricks-sdk-java";
   private static final String JDBC_HTTP_USER_AGENT = "databricks-jdbc-http";
-  private static final ConcurrentHashMap<String, DatabricksHttpClient> instances =
-      new ConcurrentHashMap<>();
-  private static PoolingHttpClientConnectionManager connectionManager;
+  private final PoolingHttpClientConnectionManager connectionManager;
   private final CloseableHttpClient httpClient;
-  protected static int idleHttpConnectionExpiry;
-  private CloseableHttpClient httpDisabledSSLClient;
   private DatabricksHttpRetryHandler retryHandler;
+  private IdleConnectionEvictor idleConnectionEvictor;
 
-  private DatabricksHttpClient(IDatabricksConnectionContext connectionContext) {
-    initializeConnectionManager(connectionContext);
+  DatabricksHttpClient(IDatabricksConnectionContext connectionContext) {
+    connectionManager = initializeConnectionManager(connectionContext);
     httpClient = makeClosableHttpClient(connectionContext);
-    httpDisabledSSLClient = makeClosableDisabledSslHttpClient();
-    idleHttpConnectionExpiry = connectionContext.getIdleHttpConnectionExpiry();
     retryHandler = new DatabricksHttpRetryHandler(connectionContext);
+    idleConnectionEvictor =
+        new IdleConnectionEvictor(
+            connectionManager, connectionContext.getIdleHttpConnectionExpiry(), TimeUnit.SECONDS);
+    idleConnectionEvictor.start();
   }
 
   @VisibleForTesting
   DatabricksHttpClient(
-      CloseableHttpClient closeableHttpClient,
-      PoolingHttpClientConnectionManager connectionManager) {
-    DatabricksHttpClient.connectionManager = connectionManager;
-    initializeConnectionManager(null);
-    this.httpClient = closeableHttpClient;
+      CloseableHttpClient testCloseableHttpClient,
+      PoolingHttpClientConnectionManager testConnectionManager) {
+    httpClient = testCloseableHttpClient;
+    connectionManager = testConnectionManager;
   }
 
-  private static void initializeConnectionManager(IDatabricksConnectionContext connectionContext) {
-    if (connectionManager == null) {
-      if (connectionContext != null) {
-        connectionManager =
-            new PoolingHttpClientConnectionManager(
-                ClientConfigurator.getConnectionSocketFactoryRegistry(connectionContext));
-      } else {
-        connectionManager = new PoolingHttpClientConnectionManager();
-      }
+  @Override
+  public CloseableHttpResponse execute(HttpUriRequest request) throws DatabricksHttpException {
+    LOGGER.debug(
+        String.format("Executing HTTP request [{%s}]", RequestSanitizer.sanitizeRequest(request)));
+    if (!Boolean.parseBoolean(System.getProperty(IS_FAKE_SERVICE_TEST_PROP))) {
+      // TODO : allow gzip in wiremock
+      request.setHeader("Content-Encoding", "gzip");
     }
+    try {
+      return httpClient.execute(request);
+    } catch (IOException e) {
+      throwHttpException(e, request);
+    }
+    return null;
+  }
+
+  @Override
+  public void close() throws IOException {
+    if (idleConnectionEvictor != null) {
+      idleConnectionEvictor.shutdown();
+    }
+    if (httpClient != null) {
+      httpClient.close();
+    }
+    if (connectionManager != null) {
+      connectionManager.shutdown();
+    }
+  }
+
+  private PoolingHttpClientConnectionManager initializeConnectionManager(
+      IDatabricksConnectionContext connectionContext) {
+    PoolingHttpClientConnectionManager connectionManager =
+        ConfiguratorUtils.getBaseConnectionManager(connectionContext);
     connectionManager.setMaxTotal(DEFAULT_MAX_HTTP_CONNECTIONS);
     connectionManager.setDefaultMaxPerRoute(DEFAULT_MAX_HTTP_CONNECTIONS_PER_ROUTE);
+    return connectionManager;
   }
 
   private RequestConfig makeRequestConfig() {
@@ -110,28 +126,25 @@ public class DatabricksHttpClient implements IDatabricksHttpClient {
     return builder.build();
   }
 
-  private CloseableHttpClient makeClosableDisabledSslHttpClient() {
-    try {
-      // Create SSL context that trusts all certificates
-      SSLContext sslContext =
-          new SSLContextBuilder().loadTrustMaterial(null, (chain, authType) -> true).build();
-
-      // Create HttpClient with the SSL context
-      return HttpClientBuilder.create()
-          .setSSLContext(sslContext)
-          .setSSLHostnameVerifier(new NoopHostnameVerifier())
-          .build();
-    } catch (NoSuchAlgorithmException | KeyManagementException | KeyStoreException e) {
-      LOGGER.debug(
-          String.format(
-              "Error in creating HttpClient with the SSL context [{%s}]", e.getMessage()));
+  private static void throwHttpException(Exception e, HttpUriRequest request)
+      throws DatabricksHttpException {
+    Throwable cause = e;
+    while (cause != null) {
+      if (cause instanceof DatabricksRetryHandlerException) {
+        throw new DatabricksHttpException(cause.getMessage(), cause);
+      }
+      cause = cause.getCause();
     }
-    return null;
+    String errorMsg =
+        String.format(
+            "Caught error while executing http request: [%s]. Error Message: [%s]",
+            RequestSanitizer.sanitizeRequest(request), e);
+    LOGGER.error(e, errorMsg);
+    throw new DatabricksHttpException(errorMsg, DEFAULT_HTTP_EXCEPTION_SQLSTATE);
   }
 
   @VisibleForTesting
-  public static void setupProxy(
-      IDatabricksConnectionContext connectionContext, HttpClientBuilder builder) {
+  void setupProxy(IDatabricksConnectionContext connectionContext, HttpClientBuilder builder) {
     String proxyHost = null;
     Integer proxyPort = null;
     String proxyUser = null;
@@ -170,7 +183,7 @@ public class DatabricksHttpClient implements IDatabricksHttpClient {
   }
 
   @VisibleForTesting
-  static void setFakeServiceRouteInHttpClient(HttpClientBuilder builder) {
+  void setFakeServiceRouteInHttpClient(HttpClientBuilder builder) {
     builder.setRoutePlanner(
         (host, request, context) -> {
           final HttpHost target;
@@ -197,53 +210,7 @@ public class DatabricksHttpClient implements IDatabricksHttpClient {
         });
   }
 
-  public static synchronized DatabricksHttpClient getInstance(
-      IDatabricksConnectionContext context) {
-    String contextKey = Integer.toString(context.hashCode());
-    return instances.computeIfAbsent(contextKey, k -> new DatabricksHttpClient(context));
-  }
-
-  @Override
-  public CloseableHttpResponse execute(HttpUriRequest request) throws DatabricksHttpException {
-    LOGGER.debug(
-        String.format("Executing HTTP request [{%s}]", RequestSanitizer.sanitizeRequest(request)));
-    if (!Boolean.parseBoolean(System.getProperty(IS_FAKE_SERVICE_TEST_PROP))) {
-      // TODO : allow gzip in wiremock
-      request.setHeader("Content-Encoding", "gzip");
-    }
-    try {
-      return httpClient.execute(request);
-    } catch (IOException e) {
-      throwHttpException(e, request, LogLevel.ERROR);
-    }
-    return null;
-  }
-
-  public CloseableHttpResponse executeWithoutCertVerification(HttpUriRequest request)
-      throws DatabricksHttpException {
-    LOGGER.debug(
-        String.format("Executing HTTP request [{%s}]", RequestSanitizer.sanitizeRequest(request)));
-    try {
-      return httpDisabledSSLClient.execute(request);
-    } catch (Exception e) {
-      throwHttpException(e, request, LogLevel.DEBUG);
-    }
-    return null;
-  }
-
-  @Override
-  public void closeExpiredAndIdleConnections() {
-    if (connectionManager != null) {
-      synchronized (connectionManager) {
-        LOGGER.debug(
-            String.format("connection pool stats: {%s}", connectionManager.getTotalStats()));
-        connectionManager.closeExpiredConnections();
-        connectionManager.closeIdleConnections(idleHttpConnectionExpiry, TimeUnit.SECONDS);
-      }
-    }
-  }
-
-  static String getUserAgent() {
+  String getUserAgent() {
     String sdkUserAgent = UserAgent.asString();
     // Split the string into parts
     String[] parts = sdkUserAgent.split("\\s+");
@@ -263,38 +230,5 @@ public class DatabricksHttpClient implements IDatabricksHttpClient {
       }
     }
     return mergedString.toString();
-  }
-
-  public static synchronized void removeInstance(IDatabricksConnectionContext context) {
-    String contextKey = Integer.toString(context.hashCode());
-    DatabricksHttpClient instance = instances.remove(contextKey);
-    if (instance != null) {
-      try {
-        instance.httpClient.close();
-      } catch (IOException e) {
-        LOGGER.debug(String.format("Caught error while closing http client. Error %s", e));
-      }
-    }
-  }
-
-  private static void throwHttpException(Exception e, HttpUriRequest request, LogLevel logLevel)
-      throws DatabricksHttpException {
-    Throwable cause = e;
-    while (cause != null) {
-      if (cause instanceof DatabricksRetryHandlerException) {
-        throw new DatabricksHttpException(cause.getMessage(), cause);
-      }
-      cause = cause.getCause();
-    }
-    String errorMsg =
-        String.format(
-            "Caught error while executing http request: [%s]. Error Message: [%s]",
-            RequestSanitizer.sanitizeRequest(request), e);
-    if (logLevel == LogLevel.DEBUG) {
-      LOGGER.debug(errorMsg);
-    } else {
-      LOGGER.error(e, errorMsg);
-    }
-    throw new DatabricksHttpException(errorMsg, e);
   }
 }

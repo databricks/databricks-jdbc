@@ -87,9 +87,9 @@ jobs:
         run: |
           BRANCH_COVERAGE=$(cat coverage.txt)
           echo "Branch Coverage: $BRANCH_COVERAGE%"
-          if (( $(echo "$BRANCH_COVERAGE < 84" | bc -l) )); then
-            echo "Coverage is less than 84%"
+          if (( $(echo "$BRANCH_COVERAGE < 85" | bc -l) )); then
+            echo "Coverage is less than 85%"
             exit 1
           else
-            echo "Coverage is equal to or greater than 84%"
+            echo "Coverage is equal to or greater than 85%"
           fi

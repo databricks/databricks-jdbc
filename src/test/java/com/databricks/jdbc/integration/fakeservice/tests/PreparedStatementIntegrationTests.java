@@ -30,18 +30,18 @@ public class PreparedStatementIntegrationTests extends AbstractFakeServiceIntegr
     }
   }
 
-  private static void insertTestData(String tableName) {
+  private void insertTestData(String tableName) {
     String insertSQL =
         "INSERT INTO "
             + getFullyQualifiedTableName(tableName)
             + " (id, col1, col2) VALUES (1, 'value1', 'value2')";
-    executeSQL(insertSQL);
+    executeSQL(connection, insertSQL);
   }
 
   @Test
   void testPreparedStatementExecution() throws SQLException {
     String tableName = "prepared_statement_test_table";
-    setupDatabaseTable(tableName);
+    setupDatabaseTable(connection, tableName);
     insertTestData(tableName);
 
     String selectSQL = "SELECT * FROM " + getFullyQualifiedTableName(tableName) + " WHERE id = ?";
@@ -54,13 +54,13 @@ public class PreparedStatementIntegrationTests extends AbstractFakeServiceIntegr
       }
     }
 
-    deleteTable(tableName);
+    deleteTable(connection, tableName);
   }
 
   @Test
   void testParameterBindingInPreparedStatement() throws SQLException {
     String tableName = "parameter_binding_test_table";
-    setupDatabaseTable(tableName);
+    setupDatabaseTable(connection, tableName);
 
     String insertSQL =
         "INSERT INTO "
@@ -75,13 +75,13 @@ public class PreparedStatementIntegrationTests extends AbstractFakeServiceIntegr
     }
 
     verifyInsertedData(tableName, 2, "value1", "value2");
-    deleteTable(tableName);
+    deleteTable(connection, tableName);
   }
 
   @Test
   void testPreparedStatementComplexQueryExecution() throws SQLException {
     String tableName = "prepared_statement_complex_query_test_table";
-    setupDatabaseTable(tableName);
+    setupDatabaseTable(connection, tableName);
     insertTestData(tableName);
 
     String updateSQL =
@@ -94,13 +94,13 @@ public class PreparedStatementIntegrationTests extends AbstractFakeServiceIntegr
     }
 
     verifyInsertedData(tableName, 1, "Updated value", "value2");
-    deleteTable(tableName);
+    deleteTable(connection, tableName);
   }
 
   @Test
   void testHandlingNullValuesWithPreparedStatement() throws SQLException {
     String tableName = "prepared_statement_null_handling_test_table";
-    setupDatabaseTable(tableName);
+    setupDatabaseTable(connection, tableName);
 
     String insertSQL =
         "INSERT INTO "
@@ -115,7 +115,7 @@ public class PreparedStatementIntegrationTests extends AbstractFakeServiceIntegr
     }
 
     verifyInsertedData(tableName, 6, null, "value1");
-    deleteTable(tableName);
+    deleteTable(connection, tableName);
   }
 
   private void verifyInsertedData(

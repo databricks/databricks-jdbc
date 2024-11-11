@@ -3,7 +3,12 @@ package com.databricks.jdbc.common.util;
 import static com.databricks.jdbc.common.MetadataResultConstants.NULL_STRING;
 import static com.databricks.jdbc.common.util.DatabricksTypeUtil.*;
 
+import com.databricks.jdbc.api.IDatabricksSession;
+import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
+import com.databricks.jdbc.dbclient.impl.common.StatementId;
+import com.databricks.jdbc.dbclient.impl.thrift.DatabricksThriftServiceClient;
 import com.databricks.jdbc.exception.DatabricksHttpException;
+import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.model.client.thrift.generated.*;
@@ -38,16 +43,12 @@ public class DatabricksThriftUtil {
         .setExpiration(Long.toString(chunkInfo.getExpiryTime()));
   }
 
-  public static String getStatementId(TOperationHandle operationHandle) {
-    return byteBufferToString(operationHandle.getOperationId().guid);
-  }
-
-  public static void verifySuccessStatus(TStatusCode statusCode, String errorContext)
+  public static void verifySuccessStatus(TStatus status, String errorContext)
       throws DatabricksHttpException {
-    if (!SUCCESS_STATUS_LIST.contains(statusCode)) {
+    if (!SUCCESS_STATUS_LIST.contains(status.getStatusCode())) {
       String errorMessage = "Error thrift response received. " + errorContext;
       LOGGER.error(errorMessage);
-      throw new DatabricksHttpException(errorMessage);
+      throw new DatabricksHttpException(errorMessage, status.getSqlState());
     }
   }
 
@@ -193,9 +194,7 @@ public class DatabricksThriftUtil {
     if (column.isSetI64Val())
       return getColumnValuesWithNulls(
           column.getI64Val().getValues(), column.getI64Val().getNulls());
-    if (column.isSetStringVal())
-      return getColumnValuesWithNulls(
-          column.getStringVal().getValues(), column.getStringVal().getNulls());
+
     return getColumnValuesWithNulls(
         column.getStringVal().getValues(), column.getStringVal().getNulls()); // default to string
   }
@@ -224,7 +223,7 @@ public class DatabricksThriftUtil {
    * @return a list where each sublist represents a row with column values, or an empty list if
    *     rowSet is empty
    */
-  public static List<List<Object>> convertColumnarToRowBased(TRowSet rowSet) {
+  private static List<List<Object>> convertRowSetToList(TRowSet rowSet) {
     List<List<Object>> columnarData = extractValuesFromRowSet(rowSet);
     if (columnarData.isEmpty()) {
       return Collections.emptyList();
@@ -241,6 +240,32 @@ public class DatabricksThriftUtil {
       }
     }
     return rowBasedData;
+  }
+
+  public static List<List<Object>> convertColumnarToRowBased(
+      TFetchResultsResp resultsResp,
+      IDatabricksStatementInternal parentStatement,
+      IDatabricksSession session)
+      throws DatabricksSQLException {
+    List<List<Object>> columnarData = convertRowSetToList(resultsResp.getResults());
+    while (resultsResp.hasMoreRows) {
+      resultsResp =
+          ((DatabricksThriftServiceClient) session.getDatabricksClient())
+              .getMoreResults(parentStatement);
+      columnarData.addAll(convertRowSetToList(resultsResp.getResults()));
+    }
+    return columnarData;
+  }
+
+  public static TOperationHandle getOperationHandle(StatementId statementId) {
+    THandleIdentifier identifier = statementId.toOperationIdentifier();
+    // This will help logging the statement-Id in readable format for debugging purposes
+    LOGGER.debug(
+        "getOperationHandle {%s} for statementId {%s}",
+        statementId, byteBufferToString(identifier.guid));
+    return new TOperationHandle()
+        .setOperationId(identifier)
+        .setOperationType(TOperationType.UNKNOWN);
   }
 
   /**
@@ -265,16 +290,16 @@ public class DatabricksThriftUtil {
   public static long getRowCount(TRowSet resultData) {
     if (resultData == null) {
       return 0;
-    }
-
-    if (resultData.isSetColumns()) {
+    } else if (resultData.isSetColumns()) {
       List<TColumn> columns = resultData.getColumns();
-      return columns == null || columns.isEmpty()
-          ? 0
-          : getColumnValues(resultData.getColumns().get(0)).size();
+      return columns == null || columns.isEmpty() ? 0 : getColumnValues(columns.get(0)).size();
     } else if (resultData.isSetResultLinks()) {
       return resultData.getResultLinks().stream()
           .mapToLong(link -> link.isSetRowCount() ? link.getRowCount() : 0)
+          .sum();
+    } else if (resultData.isSetArrowBatches()) {
+      return resultData.getArrowBatches().stream()
+          .mapToLong(batch -> batch.isSetRowCount() ? batch.getRowCount() : 0)
           .sum();
     }
 
@@ -285,19 +310,22 @@ public class DatabricksThriftUtil {
       TSparkDirectResults directResults, String context) throws DatabricksHttpException {
     if (directResults.isSetOperationStatus()) {
       LOGGER.debug("direct result operation status being verified for success response");
-      verifySuccessStatus(directResults.getOperationStatus().getStatus().getStatusCode(), context);
+      if (directResults.getOperationStatus().getOperationState() == TOperationState.ERROR_STATE) {
+        throw new DatabricksHttpException(directResults.getOperationStatus().errorMessage);
+      }
+      verifySuccessStatus(directResults.getOperationStatus().getStatus(), context);
     }
     if (directResults.isSetResultSetMetadata()) {
       LOGGER.debug("direct results metadata being verified for success response");
-      verifySuccessStatus(directResults.getResultSetMetadata().status.getStatusCode(), context);
+      verifySuccessStatus(directResults.getResultSetMetadata().status, context);
     }
     if (directResults.isSetCloseOperation()) {
       LOGGER.debug("direct results close operation verified for success response");
-      verifySuccessStatus(directResults.getCloseOperation().status.getStatusCode(), context);
+      verifySuccessStatus(directResults.getCloseOperation().status, context);
     }
     if (directResults.isSetResultSet()) {
       LOGGER.debug("direct result set being verified for success response");
-      verifySuccessStatus(directResults.getResultSet().status.getStatusCode(), context);
+      verifySuccessStatus(directResults.getResultSet().status, context);
     }
   }
 }

@@ -2,7 +2,7 @@ package com.databricks.jdbc.auth;
 
 import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
-import com.databricks.jdbc.dbclient.impl.http.DatabricksHttpClient;
+import com.databricks.jdbc.dbclient.impl.http.DatabricksHttpClientFactory;
 import com.databricks.sdk.core.CredentialsProvider;
 import com.databricks.sdk.core.DatabricksConfig;
 import com.databricks.sdk.core.HeaderFactory;
@@ -28,7 +28,7 @@ public class PrivateKeyClientCredentialProvider implements CredentialsProvider {
   public PrivateKeyClientCredentialProvider(
       IDatabricksConnectionContext connectionContext, OAuthEndpointResolver oAuthEndpointResolver) {
     this.connectionContext = connectionContext;
-    this.httpClient = DatabricksHttpClient.getInstance(connectionContext);
+    this.httpClient = DatabricksHttpClientFactory.getInstance().getClient(connectionContext);
     this.tokenEndpoint = oAuthEndpointResolver.getTokenEndpoint();
   }
 

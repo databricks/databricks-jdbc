@@ -1,30 +1,18 @@
 package com.databricks.jdbc.api.impl.volume;
 
-import com.databricks.jdbc.api.callback.IDatabricksStatementHandle;
-import com.databricks.jdbc.api.impl.IExecutionResult;
-import com.databricks.jdbc.log.JdbcLogger;
-import com.databricks.jdbc.log.JdbcLoggerFactory;
 import java.io.IOException;
 import java.io.InputStream;
-import java.sql.SQLException;
 import org.apache.http.HttpEntity;
 import org.apache.http.util.EntityUtils;
 
 public class VolumeInputStream extends InputStream {
 
-  private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(VolumeInputStream.class);
   private final InputStream httpContent;
-  private final IExecutionResult resultHandler;
-  private final IDatabricksStatementHandle statement;
   private final HttpEntity httpEntity;
 
-  public VolumeInputStream(
-      HttpEntity httpEntity, IExecutionResult resultHandler, IDatabricksStatementHandle statement)
-      throws IOException {
+  public VolumeInputStream(HttpEntity httpEntity) throws IOException {
     this.httpContent = httpEntity.getContent();
     this.httpEntity = httpEntity;
-    this.resultHandler = resultHandler;
-    this.statement = statement;
   }
 
   @Override
@@ -69,13 +57,7 @@ public class VolumeInputStream extends InputStream {
 
   @Override
   public void close() throws IOException {
+    // Make sure close the stream
     EntityUtils.consume(httpEntity);
-    try {
-      this.resultHandler.close();
-      this.statement.close(true);
-    } catch (SQLException e) {
-      // Ignore exception while closing
-      LOGGER.error("Exception while release volume resources: " + e.getMessage());
-    }
   }
 }

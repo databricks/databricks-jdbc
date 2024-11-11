@@ -2,15 +2,15 @@ package com.databricks.jdbc.api.impl;
 
 import static com.databricks.jdbc.api.impl.DatabricksResultSet.AFFECTED_ROWS_COUNT;
 import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import com.databricks.jdbc.api.IDatabricksResultSet;
 import com.databricks.jdbc.api.IDatabricksSession;
-import com.databricks.jdbc.api.callback.IDatabricksResultSetHandle;
-import com.databricks.jdbc.api.callback.IDatabricksStatementHandle;
-import com.databricks.jdbc.api.impl.inline.InlineJsonResult;
+import com.databricks.jdbc.api.impl.volume.VolumeOperationResult;
+import com.databricks.jdbc.api.internal.IDatabricksResultSetInternal;
+import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
 import com.databricks.jdbc.common.StatementType;
+import com.databricks.jdbc.dbclient.impl.common.StatementId;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.exception.DatabricksSQLFeatureNotSupportedException;
 import com.databricks.jdbc.model.client.thrift.generated.*;
@@ -23,7 +23,7 @@ import java.util.Calendar;
 import java.util.Collections;
 import java.util.GregorianCalendar;
 import java.util.TimeZone;
-import org.apache.http.HttpEntity;
+import org.apache.http.entity.InputStreamEntity;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -31,17 +31,24 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
 public class DatabricksResultSetTest {
+
+  private static final StatementId STATEMENT_ID = new StatementId("statementId");
+  private static final StatementId THRIFT_STATEMENT_ID =
+      StatementId.deserialize("MIIWiOiGTESQt3+6xIDA0A|vq8muWugTKm+ZsjNGZdauw");
+
   @Mock InlineJsonResult mockedExecutionResult;
+  @Mock TFetchResultsResp fetchResultsResp;
+  @Mock VolumeOperationResult mockedVolumeResult;
   @Mock DatabricksResultSetMetaData mockedResultSetMetadata;
   @Mock IDatabricksSession session;
   @Mock DatabricksStatement mockedDatabricksStatement;
   @Mock Statement mockedStatement;
 
   private DatabricksResultSet getResultSet(
-      StatementState statementState, IDatabricksStatementHandle statement) {
+      StatementState statementState, IDatabricksStatementInternal statement) {
     return new DatabricksResultSet(
         new StatementStatus().setState(statementState),
-        "test-statementID",
+        STATEMENT_ID,
         StatementType.METADATA,
         statement,
         mockedExecutionResult,
@@ -58,11 +65,12 @@ public class DatabricksResultSetTest {
     TColumnDesc columnDesc = new TColumnDesc().setColumnName("testCol");
     TTableSchema schema = new TTableSchema().setColumns(Collections.singletonList(columnDesc));
     metadataResp.setSchema(schema);
+    when(fetchResultsResp.getResults()).thenReturn(rowSet);
+    when(fetchResultsResp.getResultSetMetadata()).thenReturn(metadataResp);
     return new DatabricksResultSet(
         new TStatus().setStatusCode(TStatusCode.SUCCESS_STATUS),
-        "test-statementID",
-        rowSet,
-        metadataResp,
+        THRIFT_STATEMENT_ID,
+        fetchResultsResp,
         StatementType.METADATA,
         mockedDatabricksStatement,
         session);
@@ -694,7 +702,7 @@ public class DatabricksResultSetTest {
         () -> resultSet.updateCharacterStream("column", null, 1));
     assertNotNull(resultSet.unwrap(IDatabricksResultSet.class));
     assertTrue(resultSet.isWrapperFor(IDatabricksResultSet.class));
-    assertTrue(resultSet.isWrapperFor(IDatabricksResultSetHandle.class));
+    assertTrue(resultSet.isWrapperFor(IDatabricksResultSetInternal.class));
   }
 
   @Test
@@ -716,10 +724,17 @@ public class DatabricksResultSetTest {
   @Test
   void testVolumeOperationInputStream() throws Exception {
     DatabricksResultSet resultSet =
-        getResultSet(StatementState.SUCCEEDED, mockedDatabricksStatement);
-    HttpEntity mockEntity = mock(HttpEntity.class);
-    when(mockEntity.getContentLength()).thenReturn(10L);
-    resultSet.setVolumeOperationEntityStream(mockEntity);
+        new DatabricksResultSet(
+            new StatementStatus().setState(StatementState.SUCCEEDED),
+            STATEMENT_ID,
+            StatementType.METADATA,
+            mockedDatabricksStatement,
+            mockedVolumeResult,
+            mockedResultSetMetadata);
+    String fakeInput = "Hello World\n42\n";
+
+    when(mockedVolumeResult.getVolumeOperationInputStream())
+        .thenReturn(new InputStreamEntity(new ByteArrayInputStream(fakeInput.getBytes()), 10L));
     assertNotNull(resultSet.getVolumeOperationInputStream());
     assertEquals(10L, resultSet.getVolumeOperationInputStream().getContentLength());
   }
@@ -735,7 +750,7 @@ public class DatabricksResultSetTest {
     DatabricksResultSet resultSet =
         new DatabricksResultSet(
             new StatementStatus().setState(StatementState.SUCCEEDED),
-            "test-statementID",
+            STATEMENT_ID,
             StatementType.QUERY,
             null,
             mockedExecutionResult,
@@ -754,7 +769,7 @@ public class DatabricksResultSetTest {
     DatabricksResultSet resultSet =
         new DatabricksResultSet(
             new StatementStatus().setState(StatementState.SUCCEEDED),
-            "test-statementID",
+            STATEMENT_ID,
             StatementType.UPDATE,
             null,
             mockedExecutionResult,
@@ -773,7 +788,7 @@ public class DatabricksResultSetTest {
     DatabricksResultSet resultSet =
         new DatabricksResultSet(
             new StatementStatus().setState(StatementState.SUCCEEDED),
-            "test-statementID",
+            STATEMENT_ID,
             StatementType.UPDATE,
             null,
             mockedExecutionResult,

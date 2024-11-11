@@ -3,17 +3,34 @@ package com.databricks.jdbc.integration.e2e;
 import static com.databricks.jdbc.integration.IntegrationTestUtil.*;
 import static org.junit.jupiter.api.Assertions.*;
 
+import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 public class LargeQueryExecutionTests {
+  private Connection connection;
+
+  @BeforeEach
+  void setUp() throws SQLException {
+    connection = getValidJDBCConnection();
+  }
+
+  @AfterEach
+  void cleanUp() throws SQLException {
+    if (connection != null) {
+      connection.close();
+    }
+  }
+
   @Test
   void testQueryYieldingLargeNarrowResultSet() throws SQLException {
     String largeQuerySQL = "SELECT * FROM range(37500000)"; // ~300MB of data
-    ResultSet rs = executeQuery(largeQuerySQL);
+    ResultSet rs = executeQuery(connection, largeQuerySQL);
     int rows = 0;
     while (rs != null && rs.next()) {
       rows++;
@@ -36,7 +53,7 @@ public class LargeQueryExecutionTests {
 
     // Create the SQL query
     String query = String.format("SELECT id, %s FROM RANGE(%d)", uuids, rows);
-    ResultSet rs = executeQuery(query);
+    ResultSet rs = executeQuery(connection, query);
     int rowCount = 0;
     while (rs != null && rs.next()) {
       assertEquals(rs.getInt("id"), rowCount, "Expected id to be equal to row number");

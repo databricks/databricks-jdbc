@@ -4,20 +4,20 @@ import static com.databricks.jdbc.common.util.DatabricksThriftUtil.*;
 
 import com.databricks.jdbc.api.IDatabricksResultSet;
 import com.databricks.jdbc.api.IDatabricksSession;
-import com.databricks.jdbc.api.callback.IDatabricksResultSetHandle;
-import com.databricks.jdbc.api.callback.IDatabricksStatementHandle;
 import com.databricks.jdbc.api.impl.converters.ConverterHelper;
 import com.databricks.jdbc.api.impl.converters.ObjectConverter;
-import com.databricks.jdbc.api.impl.volume.VolumeInputStream;
+import com.databricks.jdbc.api.impl.volume.VolumeOperationResult;
+import com.databricks.jdbc.api.internal.IDatabricksResultSetInternal;
+import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
 import com.databricks.jdbc.common.StatementType;
 import com.databricks.jdbc.common.util.WarningUtil;
+import com.databricks.jdbc.dbclient.impl.common.StatementId;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.exception.DatabricksSQLFeatureNotSupportedException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
-import com.databricks.jdbc.model.client.thrift.generated.TGetResultSetMetadataResp;
-import com.databricks.jdbc.model.client.thrift.generated.TRowSet;
+import com.databricks.jdbc.model.client.thrift.generated.TFetchResultsResp;
 import com.databricks.jdbc.model.client.thrift.generated.TStatus;
 import com.databricks.jdbc.model.core.ColumnMetadata;
 import com.databricks.jdbc.model.core.ResultData;
@@ -25,7 +25,6 @@ import com.databricks.jdbc.model.core.ResultManifest;
 import com.databricks.sdk.service.sql.StatementState;
 import com.databricks.sdk.service.sql.StatementStatus;
 import com.google.common.annotations.VisibleForTesting;
-import java.io.IOException;
 import java.io.InputStream;
 import java.io.Reader;
 import java.math.BigDecimal;
@@ -36,43 +35,46 @@ import java.util.Calendar;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Supplier;
-import org.apache.http.HttpEntity;
 import org.apache.http.entity.InputStreamEntity;
 
-public class DatabricksResultSet
-    implements ResultSet, IDatabricksResultSet, IDatabricksResultSetHandle {
+public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksResultSetInternal {
 
   private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(DatabricksResultSet.class);
   protected static final String AFFECTED_ROWS_COUNT = "num_affected_rows";
   private final StatementStatus statementStatus;
-  private final String statementId;
+  private final StatementId statementId;
   private final IExecutionResult executionResult;
   private final DatabricksResultSetMetaData resultSetMetaData;
   private final StatementType statementType;
-  private final IDatabricksStatementHandle parentStatement;
+  private final IDatabricksStatementInternal parentStatement;
   private Long updateCount;
   private boolean isClosed;
   private SQLWarning warnings = null;
   private boolean wasNull;
-  private VolumeInputStream volumeInputStream = null;
-  private long volumeStreamContentLength = -1L;
+  private boolean isResultInitialized = true;
 
   // Constructor for SEA result set
   public DatabricksResultSet(
       StatementStatus statementStatus,
-      String statementId,
+      StatementId statementId,
       ResultData resultData,
       ResultManifest resultManifest,
       StatementType statementType,
       IDatabricksSession session,
-      IDatabricksStatementHandle parentStatement)
+      IDatabricksStatementInternal parentStatement)
       throws DatabricksParsingException {
     this.statementStatus = statementStatus;
     this.statementId = statementId;
-    this.executionResult =
-        ExecutionResultFactory.getResultSet(
-            resultData, resultManifest, statementId, session, parentStatement, this);
-    this.resultSetMetaData = new DatabricksResultSetMetaData(statementId, resultManifest);
+    if (resultData != null) {
+      this.executionResult =
+          ExecutionResultFactory.getResultSet(
+              resultData, resultManifest, statementId, session, parentStatement);
+      this.resultSetMetaData = new DatabricksResultSetMetaData(statementId, resultManifest);
+    } else {
+      executionResult = null;
+      resultSetMetaData = null;
+      isResultInitialized = false;
+    }
     this.statementType = statementType;
     this.updateCount = null;
     this.parentStatement = parentStatement;
@@ -83,9 +85,9 @@ public class DatabricksResultSet
   @VisibleForTesting
   public DatabricksResultSet(
       StatementStatus statementStatus,
-      String statementId,
+      StatementId statementId,
       StatementType statementType,
-      IDatabricksStatementHandle parentStatement,
+      IDatabricksStatementInternal parentStatement,
       IExecutionResult executionResult,
       DatabricksResultSetMetaData resultSetMetaData) {
     this.statementStatus = statementStatus;
@@ -102,26 +104,40 @@ public class DatabricksResultSet
   // Constructor for thrift result set
   public DatabricksResultSet(
       TStatus statementStatus,
-      String statementId,
-      TRowSet resultData,
-      TGetResultSetMetadataResp resultManifest,
+      StatementId statementId,
+      TFetchResultsResp resultsResp,
       StatementType statementType,
-      IDatabricksStatementHandle parentStatement,
+      IDatabricksStatementInternal parentStatement,
       IDatabricksSession session)
       throws SQLException {
-    if (SUCCESS_STATUS_LIST.contains(statementStatus.getStatusCode())) {
-      this.statementStatus = new StatementStatus().setState(StatementState.SUCCEEDED);
-    } else {
-      this.statementStatus = new StatementStatus().setState(StatementState.FAILED);
+    switch (statementStatus.getStatusCode()) {
+      case SUCCESS_STATUS:
+      case SUCCESS_WITH_INFO_STATUS:
+        this.statementStatus = new StatementStatus().setState(StatementState.SUCCEEDED);
+        break;
+      case STILL_EXECUTING_STATUS:
+        this.statementStatus = new StatementStatus().setState(StatementState.RUNNING);
+        break;
+      default:
+        this.statementStatus = new StatementStatus().setState(StatementState.FAILED);
     }
+
     this.statementId = statementId;
-    this.executionResult =
-        ExecutionResultFactory.getResultSet(
-            resultData, resultManifest, statementId, session, parentStatement, this);
-    long rowSize = getRowCount(resultData);
-    this.resultSetMetaData =
-        new DatabricksResultSetMetaData(
-            statementId, resultManifest, rowSize, resultData.getResultLinksSize());
+    if (resultsResp != null) {
+      this.executionResult =
+          ExecutionResultFactory.getResultSet(resultsResp, session, parentStatement);
+      long rowSize = executionResult.getRowCount();
+      this.resultSetMetaData =
+          new DatabricksResultSetMetaData(
+              statementId,
+              resultsResp.getResultSetMetadata(),
+              rowSize,
+              executionResult.getChunkCount());
+    } else {
+      this.executionResult = null;
+      this.resultSetMetaData = null;
+      this.isResultInitialized = false;
+    }
     this.statementType = statementType;
     this.updateCount = null;
     this.parentStatement = parentStatement;
@@ -132,7 +148,7 @@ public class DatabricksResultSet
   // Constructing results for getUDTs, getTypeInfo, getProcedures metadata calls
   public DatabricksResultSet(
       StatementStatus statementStatus,
-      String statementId,
+      StatementId statementId,
       List<String> columnNames,
       List<String> columnTypeText,
       List<Integer> columnTypes,
@@ -160,7 +176,7 @@ public class DatabricksResultSet
   // Constructing metadata result set in thrift flow
   public DatabricksResultSet(
       StatementStatus statementStatus,
-      String statementId,
+      StatementId statementId,
       List<String> columnNames,
       List<String> columnTypeText,
       List<Integer> columnTypes,
@@ -188,7 +204,7 @@ public class DatabricksResultSet
   // Constructing metadata result set in SEA flow
   public DatabricksResultSet(
       StatementStatus statementStatus,
-      String statementId,
+      StatementId statementId,
       List<ColumnMetadata> columnMetadataList,
       List<List<Object>> rows,
       StatementType statementType) {
@@ -1517,7 +1533,7 @@ public class DatabricksResultSet
 
   @Override
   public String getStatementId() {
-    return statementId;
+    return statementId.toString();
   }
 
   @Override
@@ -1556,18 +1572,12 @@ public class DatabricksResultSet
   }
 
   @Override
-  public void setVolumeOperationEntityStream(HttpEntity httpEntity)
-      throws SQLException, IOException {
-    checkIfClosed();
-    this.volumeInputStream =
-        new VolumeInputStream(httpEntity, executionResult, this.parentStatement);
-    this.volumeStreamContentLength = httpEntity.getContentLength();
-  }
-
-  @Override
   public InputStreamEntity getVolumeOperationInputStream() throws SQLException {
     checkIfClosed();
-    return new InputStreamEntity(this.volumeInputStream, this.volumeStreamContentLength);
+    if (executionResult instanceof VolumeOperationResult) {
+      return ((VolumeOperationResult) executionResult).getVolumeOperationInputStream();
+    }
+    throw new DatabricksSQLException("Invalid volume operation");
   }
 
   private void addWarningAndLog(String warningMessage) {
