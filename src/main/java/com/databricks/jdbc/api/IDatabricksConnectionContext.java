@@ -151,6 +151,12 @@ public interface IDatabricksConnectionContext {
 
   boolean supportManyParameters();
 
+  /**
+   * If set true then DBFSVolumeClient will be used otherwise DatabricksUCVolumeClient will be used
+   * for Volume Operations
+   */
+  boolean useFileSystemAPI();
+
   String getConnectionURL();
 
   boolean checkCertificateRevocation();

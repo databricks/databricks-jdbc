@@ -1,5 +1,6 @@
 package com.databricks.jdbc.dbclient.impl.sqlexec;
 
+import static com.databricks.jdbc.common.DatabricksJdbcConstants.JSON_HTTP_HEADERS;
 import static com.databricks.jdbc.common.EnvironmentVariables.DEFAULT_ROW_LIMIT;
 import static com.databricks.jdbc.dbclient.impl.sqlexec.PathConstants.*;
 
@@ -91,7 +92,7 @@ public class DatabricksSdkClient implements IDatabricksClient {
     CreateSessionResponse createSessionResponse =
         workspaceClient
             .apiClient()
-            .POST(SESSION_PATH, request, CreateSessionResponse.class, getHeaders());
+            .POST(SESSION_PATH, request, CreateSessionResponse.class, JSON_HTTP_HEADERS);
 
     return ImmutableSessionInfo.builder()
         .computeResource(warehouse)
@@ -109,7 +110,7 @@ public class DatabricksSdkClient implements IDatabricksClient {
             .setSessionId(session.getSessionId())
             .setWarehouseId(((Warehouse) warehouse).getWarehouseId());
     String path = String.format(SESSION_PATH_WITH_ID, request.getSessionId());
-    workspaceClient.apiClient().DELETE(path, request, Void.class, getHeaders());
+    workspaceClient.apiClient().DELETE(path, request, Void.class, JSON_HTTP_HEADERS);
   }
 
   @Override
@@ -138,7 +139,7 @@ public class DatabricksSdkClient implements IDatabricksClient {
     ExecuteStatementResponse response =
         workspaceClient
             .apiClient()
-            .POST(STATEMENT_PATH, request, ExecuteStatementResponse.class, getHeaders());
+            .POST(STATEMENT_PATH, request, ExecuteStatementResponse.class, JSON_HTTP_HEADERS);
     String statementId = response.getStatementId();
     if (statementId == null) {
       LOGGER.error(
@@ -172,7 +173,7 @@ public class DatabricksSdkClient implements IDatabricksClient {
           wrapGetStatementResponse(
               workspaceClient
                   .apiClient()
-                  .GET(getStatusPath, request, GetStatementResponse.class, getHeaders()));
+                  .GET(getStatusPath, request, GetStatementResponse.class, JSON_HTTP_HEADERS));
       responseState = response.getStatus().getState();
       LOGGER.debug(
           String.format(
@@ -220,7 +221,7 @@ public class DatabricksSdkClient implements IDatabricksClient {
     ExecuteStatementResponse response =
         workspaceClient
             .apiClient()
-            .POST(STATEMENT_PATH, request, ExecuteStatementResponse.class, getHeaders());
+            .POST(STATEMENT_PATH, request, ExecuteStatementResponse.class, JSON_HTTP_HEADERS);
     String statementId = response.getStatementId();
     if (statementId == null) {
       LOGGER.error("Empty Statement ID for sql %s, compute %s", sql, computeResource.toString());
@@ -254,7 +255,7 @@ public class DatabricksSdkClient implements IDatabricksClient {
     GetStatementResponse response =
         workspaceClient
             .apiClient()
-            .GET(getStatusPath, request, GetStatementResponse.class, getHeaders());
+            .GET(getStatusPath, request, GetStatementResponse.class, JSON_HTTP_HEADERS);
     return new DatabricksResultSet(
         response.getStatus(),
         typedStatementId,
@@ -272,7 +273,7 @@ public class DatabricksSdkClient implements IDatabricksClient {
         String.format("public void closeStatement(String statementId = {%s})", statementId));
     CloseStatementRequest request = new CloseStatementRequest().setStatementId(statementId);
     String path = String.format(STATEMENT_PATH_WITH_ID, request.getStatementId());
-    workspaceClient.apiClient().DELETE(path, request, Void.class, getHeaders());
+    workspaceClient.apiClient().DELETE(path, request, Void.class, JSON_HTTP_HEADERS);
   }
 
   @Override
@@ -282,7 +283,7 @@ public class DatabricksSdkClient implements IDatabricksClient {
         String.format("public void cancelStatement(String statementId = {%s})", statementId));
     CancelStatementRequest request = new CancelStatementRequest().setStatementId(statementId);
     String path = String.format(CANCEL_STATEMENT_PATH_WITH_ID, request.getStatementId());
-    workspaceClient.apiClient().POST(path, request, Void.class, getHeaders());
+    workspaceClient.apiClient().POST(path, request, Void.class, JSON_HTTP_HEADERS);
   }
 
   @Override
@@ -297,7 +298,7 @@ public class DatabricksSdkClient implements IDatabricksClient {
     String path = String.format(RESULT_CHUNK_PATH, statementId, chunkIndex);
     return workspaceClient
         .apiClient()
-        .GET(path, request, ResultData.class, getHeaders())
+        .GET(path, request, ResultData.class, JSON_HTTP_HEADERS)
         .getExternalLinks();
   }
 
@@ -305,12 +306,6 @@ public class DatabricksSdkClient implements IDatabricksClient {
   public synchronized void resetAccessToken(String newAccessToken) {
     this.clientConfigurator.resetAccessTokenInConfig(newAccessToken);
     this.workspaceClient = clientConfigurator.getWorkspaceClient();
-  }
-
-  private static Map<String, String> getHeaders() {
-    return Map.of(
-        "Accept", "application/json",
-        "Content-Type", "application/json");
   }
 
   private boolean useCloudFetchForResult(StatementType statementType) {

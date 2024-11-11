@@ -75,6 +75,11 @@ public final class DatabricksJdbcConstants {
           ALLOWED_VOLUME_INGESTION_PATHS,
           ALLOWED_STAGING_INGESTION_PATHS,
           DatabricksJdbcUrlParams.AUTH_ACCESS_TOKEN.getParamName());
+  public static final Map<String, String> JSON_HTTP_HEADERS =
+      Map.of(
+          "Accept", "application/json",
+          "Content-Type", "application/json");
+
   @VisibleForTesting public static final String IS_FAKE_SERVICE_TEST_PROP = "isFakeServiceTest";
   @VisibleForTesting public static final String FAKE_SERVICE_URI_PROP_SUFFIX = ".fakeServiceURI";
   public static final String AWS_CLIENT_ID = "databricks-sql-jdbc";

@@ -5,7 +5,7 @@ import static com.databricks.jdbc.integration.IntegrationTestUtil.getFullyQualif
 import com.databricks.jdbc.api.IDatabricksConnection;
 import com.databricks.jdbc.api.IDatabricksResultSet;
 import com.databricks.jdbc.api.IDatabricksStatement;
-import com.databricks.jdbc.api.IDatabricksUCVolumeClient;
+import com.databricks.jdbc.api.IDatabricksVolumeClient;
 import com.databricks.jdbc.api.impl.DatabricksResultSetMetaData;
 import com.databricks.jdbc.api.impl.arrow.ArrowResultChunk;
 import com.databricks.jdbc.common.DatabricksJdbcConstants;
@@ -269,7 +269,7 @@ public class DriverTest {
     Connection con = DriverManager.getConnection(jdbcUrl, "token", "xx");
     con.setClientInfo(DatabricksJdbcConstants.ALLOWED_VOLUME_INGESTION_PATHS, "delete");
     System.out.println("Connection created");
-    IDatabricksUCVolumeClient client = ((IDatabricksConnection) con).getUCVolumeClient();
+    IDatabricksVolumeClient client = ((IDatabricksConnection) con).getVolumeClient();
 
     File file = new File("/tmp/put.txt");
     try {
@@ -302,6 +302,42 @@ public class DriverTest {
           "Object exists "
               + client.objectExists(
                   "samikshya_hackathon", "default", "gopal-psl", "test-stream.csv", false));
+    } finally {
+      file.delete();
+      con.close();
+    }
+  }
+
+  @Test
+  void testDBFSVolumeOperation() throws Exception {
+    DriverManager.registerDriver(new Driver());
+    DriverManager.drivers().forEach(driver -> System.out.println(driver.getClass()));
+    System.out.println("Starting test");
+    // Getting the connection
+    String jdbcUrl =
+        "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/dd43ee29fedd958d;Loglevel=debug;useFileSystemAPI=1";
+    Connection con = DriverManager.getConnection(jdbcUrl, "token", "xx");
+    System.out.println("Connection created");
+
+    IDatabricksVolumeClient client = ((IDatabricksConnection) con).getVolumeClient();
+
+    File file = new File("/tmp/put.txt");
+    try {
+      Files.writeString(file.toPath(), "put string check");
+      System.out.println("File created");
+
+      System.out.println(
+          "Object inserted "
+              + client.putObject(
+                  "___________________first",
+                  "jprakash-test",
+                  "jprakash_volume",
+                  "test-stream.csv",
+                  "/tmp/put.txt",
+                  true));
+
+    } catch (Exception e) {
+      e.printStackTrace();
     } finally {
       file.delete();
       con.close();

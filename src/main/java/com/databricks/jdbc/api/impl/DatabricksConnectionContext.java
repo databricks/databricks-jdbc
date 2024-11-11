@@ -478,6 +478,11 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   }
 
   @Override
+  public boolean useFileSystemAPI() {
+    return getParameter(DatabricksJdbcUrlParams.USE_FILE_SYSTEM_API).equals("1");
+  }
+
+  @Override
   public String getConnectionURL() {
     return connectionURL;
   }
