@@ -12,7 +12,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import org.junit.jupiter.api.Test;
 
-public class ConcurrentExecutionIntegrationTests {
+public class ConcurrentExecutionTests {
   private static final int NUM_THREADS = 20;
 
   @Test
