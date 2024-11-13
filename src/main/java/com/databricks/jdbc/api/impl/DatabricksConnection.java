@@ -20,10 +20,7 @@ import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.google.common.annotations.VisibleForTesting;
 import java.sql.*;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Properties;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 import java.util.stream.Collectors;
@@ -36,7 +33,7 @@ public class DatabricksConnection implements IDatabricksConnection {
   private SQLWarning warnings = null;
   private volatile IDatabricksUCVolumeClient ucVolumeClient = null;
   private final IDatabricksConnectionContext connectionContext;
-
+  private List<DriverPropertyInfo> missingProperties;
   /**
    * Creates an instance of Databricks connection for given connection context.
    *
@@ -46,6 +43,7 @@ public class DatabricksConnection implements IDatabricksConnection {
       throws DatabricksSQLException {
     this.connectionContext = connectionContext;
     this.session = new DatabricksSession(connectionContext);
+    missingProperties = session.checkProperties();
   }
 
   @VisibleForTesting

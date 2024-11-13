@@ -12,6 +12,7 @@ import com.databricks.jdbc.log.JdbcLoggerFactory;
 import java.sql.*;
 import java.util.Properties;
 import java.util.TimeZone;
+import java.util.logging.Logger;
 
 /** Databricks JDBC driver. */
 public class Driver implements java.sql.Driver {
@@ -79,8 +80,16 @@ public class Driver implements java.sql.Driver {
   }
 
   @Override
-  public DriverPropertyInfo[] getPropertyInfo(String url, Properties info) {
-    throw new UnsupportedOperationException("Not implemented");
+  public DriverPropertyInfo[] getPropertyInfo(String url, Properties info) throws DatabricksSQLException {
+    DriverPropertyInfo[] propertyInfos = null;
+    if(url == null || url.isEmpty()) {
+        propertyInfos = new DriverPropertyInfo[1];
+        propertyInfos[0] = new DriverPropertyInfo("jdbcUrl", null);
+        propertyInfos[0].description = "JDBC URL in form of <protocol>://<host or domain>:<port number>/<path of resource>";
+        return propertyInfos;
+    }
+    Connection con = new DatabricksConnection(DatabricksConnectionContextFactory.create(url, info));
+    return propertyInfos;
   }
 
   @Override
@@ -89,7 +98,7 @@ public class Driver implements java.sql.Driver {
   }
 
   @Override
-  public java.util.logging.Logger getParentLogger() {
+  public Logger getParentLogger() {
     return null;
   }
 

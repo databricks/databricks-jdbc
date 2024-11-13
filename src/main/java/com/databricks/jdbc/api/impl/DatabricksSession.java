@@ -17,7 +17,11 @@ import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.sdk.support.ToStringer;
 import com.google.common.annotations.VisibleForTesting;
+
+import java.sql.DriverPropertyInfo;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import javax.annotation.Nullable;
 
@@ -42,7 +46,6 @@ public class DatabricksSession implements IDatabricksSession {
   private final Map<String, String> clientInfoProperties;
   private final CompressionType compressionType;
   private final IDatabricksConnectionContext connectionContext;
-
   /**
    * Creates an instance of Databricks session for given connection context
    *
@@ -235,5 +238,11 @@ public class DatabricksSession implements IDatabricksSession {
   @Override
   public void setEmptyMetadataClient() {
     databricksMetadataClient = new DatabricksEmptyMetadataClient();
+  }
+
+  @Override
+  public List<DriverPropertyInfo> checkProperties() {
+      LOGGER.debug("public List<DriverPropertyInfo> checkProperties()");
+      return new ArrayList<>();
   }
 }
