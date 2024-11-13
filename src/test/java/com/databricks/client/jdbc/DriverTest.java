@@ -86,6 +86,21 @@ public class DriverTest {
   }
 
   @Test
+  void testGetPropertyInfo() throws Exception {
+    DriverManager.registerDriver(new Driver());
+    String jdbcUrl =
+        "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=http;ssl=1;AuthMech=11;Auth_Flow=1;httpPath=/sql/1.0/warehouses/58aa1b363649e722";
+    DriverPropertyInfo[] driverPropertyInfos =
+        DriverManager.getDriver(jdbcUrl).getPropertyInfo(jdbcUrl, new Properties());
+
+    for (DriverPropertyInfo driverPropertyInfo : driverPropertyInfos) {
+      if (driverPropertyInfo.required) {
+        System.out.println(driverPropertyInfo.name + " " + driverPropertyInfo.description);
+      }
+    }
+  }
+
+  @Test
   void testGetTablesOSS_Metadata() throws Exception {
     DriverManager.registerDriver(new Driver());
     DriverManager.drivers().forEach(driver -> System.out.println(driver.getClass()));

@@ -2,14 +2,18 @@ package com.databricks.jdbc.api;
 
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import java.sql.Connection;
+import java.sql.DriverPropertyInfo;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.List;
 
 /** Interface providing Databricks specific Connection APIs. */
 public interface IDatabricksConnection extends Connection {
 
   /** Returns the underlying session for the connection. */
   IDatabricksSession getSession();
+
+  List<DriverPropertyInfo> getMissingProperties();
 
   /**
    * Closes a statement from the connection's active set.

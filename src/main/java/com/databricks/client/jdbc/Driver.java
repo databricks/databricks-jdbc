@@ -10,6 +10,7 @@ import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import java.sql.*;
+import java.util.List;
 import java.util.Properties;
 import java.util.TimeZone;
 import java.util.logging.Logger;
@@ -80,15 +81,21 @@ public class Driver implements java.sql.Driver {
   }
 
   @Override
-  public DriverPropertyInfo[] getPropertyInfo(String url, Properties info) throws DatabricksSQLException {
+  public DriverPropertyInfo[] getPropertyInfo(String url, Properties info) throws SQLException {
     DriverPropertyInfo[] propertyInfos = null;
-    if(url == null || url.isEmpty()) {
-        propertyInfos = new DriverPropertyInfo[1];
-        propertyInfos[0] = new DriverPropertyInfo("jdbcUrl", null);
-        propertyInfos[0].description = "JDBC URL in form of <protocol>://<host or domain>:<port number>/<path of resource>";
-        return propertyInfos;
+    if (url == null || url.isEmpty()) {
+      propertyInfos = new DriverPropertyInfo[1];
+      propertyInfos[0] = new DriverPropertyInfo("jdbcUrl", null);
+      propertyInfos[0].description =
+          "JDBC URL in form of <protocol>://<host or domain>:<port number>/<path of resource>";
+      return propertyInfos;
     }
-    Connection con = new DatabricksConnection(DatabricksConnectionContextFactory.create(url, info));
+    DatabricksConnection con =
+        new DatabricksConnection(DatabricksConnectionContextFactory.create(url, info));
+    List<DriverPropertyInfo> missingProperties = con.getMissingProperties();
+    con.close();
+    propertyInfos = new DriverPropertyInfo[missingProperties.size()];
+    propertyInfos = missingProperties.toArray(propertyInfos);
     return propertyInfos;
   }
 

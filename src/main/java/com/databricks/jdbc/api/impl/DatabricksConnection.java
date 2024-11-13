@@ -34,6 +34,7 @@ public class DatabricksConnection implements IDatabricksConnection {
   private volatile IDatabricksUCVolumeClient ucVolumeClient = null;
   private final IDatabricksConnectionContext connectionContext;
   private List<DriverPropertyInfo> missingProperties;
+
   /**
    * Creates an instance of Databricks connection for given connection context.
    *
@@ -465,6 +466,11 @@ public class DatabricksConnection implements IDatabricksConnection {
   public String getSchema() throws SQLException {
     LOGGER.debug("public String getSchema()");
     return session.getSchema();
+  }
+
+  @Override
+  public List<DriverPropertyInfo> getMissingProperties() {
+    return missingProperties;
   }
 
   @Override
