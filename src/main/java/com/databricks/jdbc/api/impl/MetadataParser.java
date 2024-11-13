@@ -3,8 +3,15 @@ package com.databricks.jdbc.api.impl;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
+/** Utility class for parsing metadata descriptions into structured type mappings. */
 public class MetadataParser {
 
+  /**
+   * Parses STRUCT metadata to extract field types.
+   *
+   * @param metadata the metadata string representing a STRUCT type
+   * @return a map where each key is a field name, and the value is the field's data type
+   */
   public static Map<String, String> parseStructMetadata(String metadata) {
     Map<String, String> typeMap = new LinkedHashMap<>();
     metadata = metadata.substring("STRUCT<".length(), metadata.length() - 1);
@@ -29,10 +36,23 @@ public class MetadataParser {
     return typeMap;
   }
 
+  /**
+   * Parses ARRAY metadata to retrieve the element type.
+   *
+   * @param metadata the metadata string representing an ARRAY type
+   * @return the element type contained within the array
+   */
   public static String parseArrayMetadata(String metadata) {
     return cleanTypeName(metadata.substring("ARRAY<".length(), metadata.length() - 1).trim());
   }
 
+  /**
+   * Parses MAP metadata to retrieve key and value types.
+   *
+   * @param metadata the metadata string representing a MAP type
+   * @return a string formatted as "keyType, valueType"
+   * @throws IllegalArgumentException if the MAP metadata format is invalid
+   */
   public static String parseMapMetadata(String metadata) {
     metadata = metadata.substring("MAP<".length(), metadata.length() - 1).trim();
 
@@ -63,6 +83,12 @@ public class MetadataParser {
     return keyType + ", " + valueType;
   }
 
+  /**
+   * Splits fields in a STRUCT metadata string, accounting for nested types.
+   *
+   * @param metadata the STRUCT metadata string to split
+   * @return an array of field definitions in the STRUCT
+   */
   private static String[] splitFields(String metadata) {
     int depth = 0;
     StringBuilder currentField = new StringBuilder();
@@ -86,6 +112,12 @@ public class MetadataParser {
     return fields.toArray(new String[0]);
   }
 
+  /**
+   * Removes any "NOT NULL" constraints and trims the type name.
+   *
+   * @param typeName the type name to clean
+   * @return the cleaned type name without "NOT NULL" constraints
+   */
   private static String cleanTypeName(String typeName) {
     return typeName.replaceAll(" NOT NULL", "").trim();
   }
