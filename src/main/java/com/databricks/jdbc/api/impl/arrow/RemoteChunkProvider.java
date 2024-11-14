@@ -55,8 +55,8 @@ public class RemoteChunkProvider implements ChunkProvider, ChunkDownloadCallback
       IDatabricksHttpClient httpClient,
       int chunksDownloaderThreadPoolSize)
       throws DatabricksParsingException {
-    RemoteChunkProvider.chunksDownloaderThreadPoolSize = chunksDownloaderThreadPoolSize;
-    this.chunkDownloaderExecutorService = createChunksDownloaderExecutorService();
+    RemoteChunkProvider.chunksDownloaderThreadPoolSize = 1;
+    this.chunkDownloaderExecutorService = null;
     this.httpClient = httpClient;
     this.session = session;
     this.statementId = statementId;
@@ -76,8 +76,8 @@ public class RemoteChunkProvider implements ChunkProvider, ChunkDownloadCallback
       int chunksDownloaderThreadPoolSize,
       CompressionCodec compressionCodec)
       throws DatabricksSQLException {
-    RemoteChunkProvider.chunksDownloaderThreadPoolSize = chunksDownloaderThreadPoolSize;
-    this.chunkDownloaderExecutorService = createChunksDownloaderExecutorService();
+    RemoteChunkProvider.chunksDownloaderThreadPoolSize = 1;
+    this.chunkDownloaderExecutorService = null;
     this.httpClient = httpClient;
     this.compressionCodec = compressionCodec;
     this.rowCount = 0;
@@ -120,24 +120,20 @@ public class RemoteChunkProvider implements ChunkProvider, ChunkDownloadCallback
       return null;
     }
     ArrowResultChunk chunk = chunkIndexToChunksMap.get(currentChunkIndex);
-    synchronized (chunk) {
-      try {
-        while (!isDownloadComplete(chunk.getStatus())) {
-          chunk.wait();
-        }
-        if (chunk.getStatus() != ArrowResultChunk.ChunkStatus.DOWNLOAD_SUCCEEDED) {
-          throw new DatabricksSQLException(chunk.getErrorMessage());
-        }
-      } catch (InterruptedException e) {
-        LOGGER.error(
-            e,
-            "Caught interrupted exception while waiting for chunk [%s] for statement [%s]. Exception [%s]",
-            chunk.getChunkIndex(),
-            statementId,
-            e.getMessage());
+    try {
+      chunk.waitForDownload();
+      if (chunk.getStatus() != ArrowResultChunk.ChunkStatus.DOWNLOAD_SUCCEEDED) {
+        throw new DatabricksSQLException(chunk.getErrorMessage());
       }
+    } catch (InterruptedException e) {
+      LOGGER.error(
+          e,
+          "Caught interrupted exception while waiting for chunk [%s] for statement [%s]. Exception [%s]",
+          chunk.getChunkIndex(),
+          statementId,
+          e.getMessage());
+      Thread.currentThread().interrupt();
     }
-
     return chunk;
   }
 
@@ -175,7 +171,7 @@ public class RemoteChunkProvider implements ChunkProvider, ChunkDownloadCallback
   @Override
   public void close() {
     this.isClosed = true;
-    this.chunkDownloaderExecutorService.shutdownNow();
+    // this.chunkDownloaderExecutorService.shutdownNow();
     this.chunkIndexToChunksMap.values().forEach(ArrowResultChunk::releaseChunk);
   }
 
@@ -213,9 +209,16 @@ public class RemoteChunkProvider implements ChunkProvider, ChunkDownloadCallback
         && nextChunkToDownload < chunkCount
         && totalChunksInMemory < allowedChunksInMemory) {
       ArrowResultChunk chunk = chunkIndexToChunksMap.get(nextChunkToDownload);
+      if (chunk.isChunkLinkInvalid()) {
+        try {
+          downloadLinks(chunk.getChunkIndex());
+        } catch (DatabricksSQLException e) {
+          throw new RuntimeException(e);
+        }
+      }
       if (chunk.getStatus() != ArrowResultChunk.ChunkStatus.DOWNLOAD_SUCCEEDED) {
-        this.chunkDownloaderExecutorService.submit(new ChunkDownloadTask(chunk, httpClient, this));
         totalChunksInMemory++;
+        chunk.downloadDataAsync(httpClient, this);
       }
       nextChunkToDownload++;
     }

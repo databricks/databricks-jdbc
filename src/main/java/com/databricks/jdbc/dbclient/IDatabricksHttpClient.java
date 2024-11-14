@@ -1,6 +1,7 @@
 package com.databricks.jdbc.dbclient;
 
 import com.databricks.jdbc.exception.DatabricksHttpException;
+import org.apache.hc.client5.http.impl.async.CloseableHttpAsyncClient;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpUriRequest;
 
@@ -14,4 +15,6 @@ public interface IDatabricksHttpClient {
    * @return http response
    */
   CloseableHttpResponse execute(HttpUriRequest request) throws DatabricksHttpException;
+
+  CloseableHttpAsyncClient getAsyncClient();
 }

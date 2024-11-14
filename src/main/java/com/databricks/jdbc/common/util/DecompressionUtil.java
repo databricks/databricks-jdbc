@@ -53,13 +53,31 @@ public class DecompressionUtil {
   public static InputStream decompress(
       InputStream compressedStream, CompressionCodec compressionCodec, String context)
       throws IOException, DatabricksSQLException {
-    if (compressionCodec.equals(CompressionCodec.NONE) || compressedStream == null) {
+    if (compressionCodec == null
+        || compressionCodec.equals(CompressionCodec.NONE)
+        || compressedStream == null) {
       // Save the time to convert to byte array if compression type is none.
       LOGGER.debug("Compression is NONE /InputStream is `NULL`. Skipping compression.");
       return compressedStream;
     }
-    byte[] compressedBytes = IOUtils.toByteArray(compressedStream);
-    byte[] uncompressedBytes = decompress(compressedBytes, compressionCodec, context);
-    return new ByteArrayInputStream(uncompressedBytes);
+    try {
+      if (compressionCodec == CompressionCodec.LZ4_FRAME) {
+        LOGGER.debug("Decompressing using LZ4 Frame algorithm. Context: " + context);
+        return new LZ4FrameInputStream(
+            compressedStream, false // not using block checksums for better performance
+            );
+      }
+      String errorMessage =
+          String.format("Unknown compression type: %s. Context: %s", compressionCodec, context);
+      LOGGER.error(errorMessage);
+      throw new DatabricksSQLException(errorMessage);
+    } catch (IOException e) {
+      String errorMessage =
+          String.format(
+              "Unable to initialize decompression stream for %s compression. Context: %s",
+              compressionCodec, context);
+      LOGGER.error(e, errorMessage + e.getMessage());
+      throw new DatabricksParsingException(errorMessage, e);
+    }
   }
 }

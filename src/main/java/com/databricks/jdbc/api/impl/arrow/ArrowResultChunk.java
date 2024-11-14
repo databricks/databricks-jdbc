@@ -1,5 +1,6 @@
 package com.databricks.jdbc.api.impl.arrow;
 
+import static com.databricks.jdbc.common.DatabricksJdbcConstants.DEFAULT_HTTP_EXCEPTION_SQLSTATE;
 import static com.databricks.jdbc.common.DatabricksJdbcConstants.IS_FAKE_SERVICE_TEST_PROP;
 import static com.databricks.jdbc.common.util.DatabricksThriftUtil.createExternalLink;
 import static com.databricks.jdbc.common.util.ValidationUtil.checkHTTPError;
@@ -7,6 +8,7 @@ import static com.databricks.jdbc.common.util.ValidationUtil.checkHTTPError;
 import com.databricks.jdbc.common.CompressionCodec;
 import com.databricks.jdbc.common.util.DecompressionUtil;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
+import com.databricks.jdbc.exception.DatabricksHttpException;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.log.JdbcLogger;
@@ -15,15 +17,16 @@ import com.databricks.jdbc.model.client.thrift.generated.TSparkArrowResultLink;
 import com.databricks.jdbc.model.core.ExternalLink;
 import com.databricks.sdk.service.sql.BaseChunkInfo;
 import com.google.common.annotations.VisibleForTesting;
-import java.io.IOException;
-import java.io.InputStream;
+import java.io.*;
 import java.net.SocketException;
 import java.net.URISyntaxException;
+import java.nio.ByteBuffer;
 import java.nio.channels.ClosedByInterruptException;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
@@ -31,6 +34,13 @@ import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.ipc.ArrowStreamReader;
 import org.apache.arrow.vector.util.TransferPair;
+import org.apache.hc.client5.http.async.methods.*;
+import org.apache.hc.client5.http.impl.async.CloseableHttpAsyncClient;
+import org.apache.hc.core5.concurrent.FutureCallback;
+import org.apache.hc.core5.http.ContentType;
+import org.apache.hc.core5.http.HttpException;
+import org.apache.hc.core5.http.nio.AsyncRequestProducer;
+import org.apache.hc.core5.http.nio.support.AsyncRequestBuilder;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.utils.URIBuilder;
@@ -95,6 +105,7 @@ public class ArrowResultChunk {
   private static boolean injectError = false;
   private static int errorInjectionCountMaxValue = 0;
   private int errorInjectionCount = 0;
+  private final CompletableFuture<Void> downloadFuture = new CompletableFuture<>();
 
   private ArrowResultChunk(Builder builder) throws DatabricksParsingException {
     this.chunkIndex = builder.chunkIndex;
@@ -118,6 +129,75 @@ public class ArrowResultChunk {
 
   public static Builder builder() {
     return new Builder();
+  }
+
+  private static class StreamingResponseConsumer extends AbstractBinResponseConsumer<Void> {
+    private final PipedOutputStream outputStream;
+    private final CompletableFuture<Void> future;
+
+    public StreamingResponseConsumer(
+        PipedOutputStream outputStream, CompletableFuture<Void> future) {
+      this.outputStream = outputStream;
+      this.future = future;
+    }
+
+    @Override
+    protected void start(org.apache.hc.core5.http.HttpResponse response, ContentType contentType)
+        throws HttpException {
+      // Verify response status code here if needed
+      if (response.getCode() != 200) {
+        throw new HttpException("Unexpected response status: " + response.getCode());
+      }
+    }
+
+    @Override
+    protected int capacityIncrement() {
+      // Define the size of chunks to process, e.g., 8KB
+      return 8192;
+    }
+
+    @Override
+    protected void data(ByteBuffer data, boolean endOfStream) throws IOException {
+      // Write data as it comes in
+      try {
+        // Write data as it comes in
+        while (data.hasRemaining()) {
+          byte[] bytes = new byte[Math.min(data.remaining(), 8192)];
+          data.get(bytes);
+          outputStream.write(bytes);
+        }
+
+        if (endOfStream) {
+          outputStream.close();
+        }
+      } catch (IOException e) {
+        failed(e);
+        throw e;
+      }
+    }
+
+    @Override
+    protected Void buildResult() {
+      return null;
+    }
+
+    @Override
+    public void failed(Exception cause) {
+      try {
+        outputStream.close();
+      } catch (IOException e) {
+        // Log error
+      }
+      future.completeExceptionally(cause);
+    }
+
+    @Override
+    public void releaseResources() {
+      try {
+        outputStream.close();
+      } catch (IOException ignored) {
+      }
+    }
   }
 
   public static class ArrowResultChunkIterator {
@@ -208,7 +288,7 @@ public class ArrowResultChunk {
   }
 
   /** Updates status for the chunk */
-  void setStatus(ChunkStatus status) {
+  synchronized void setStatus(ChunkStatus status) {
     this.status = status;
   }
 
@@ -220,7 +300,7 @@ public class ArrowResultChunk {
   }
 
   /** Returns the status for the chunk */
-  ChunkStatus getStatus() {
+  synchronized ChunkStatus getStatus() {
     return this.status;
   }
 
@@ -232,6 +312,16 @@ public class ArrowResultChunk {
           String.format(
               "No encryption headers present for chunk index [%s] and statement [%s]",
               chunkIndex, statementId));
+    }
+  }
+
+  void addHeaders(SimpleHttpRequest request, Map<String, String> headers) {
+    if (headers != null) {
+      headers.forEach(request::addHeader);
+    } else {
+      LOGGER.debug(
+          "No encryption headers present for chunk index %s and statement %s",
+          chunkIndex, statementId);
     }
   }
 
@@ -273,6 +363,179 @@ public class ArrowResultChunk {
         response.close();
       }
     }
+  }
+
+  void downloadDataAsync(IDatabricksHttpClient httpClient, ChunkDownloadCallback callback) {
+    setStatus(ChunkStatus.DOWNLOAD_IN_PROGRESS);
+    CloseableHttpAsyncClient asyncClient = httpClient.getAsyncClient();
+    asyncClient.start();
+    try {
+      // Create piped streams for streaming data
+      PipedOutputStream outputStream = new PipedOutputStream();
+      PipedInputStream inputStream = new PipedInputStream(outputStream, 1024 * 1024);
+
+      AsyncRequestBuilder requestBuilder = AsyncRequestBuilder.get(chunkLink.getExternalLink());
+      if (chunkLink.getHttpHeaders() != null) {
+        chunkLink.getHttpHeaders().forEach(requestBuilder::addHeader);
+      }
+      AsyncRequestProducer requestProducer = requestBuilder.build();
+
+      StreamingResponseConsumer consumer =
+          new StreamingResponseConsumer(outputStream, downloadFuture);
+
+      // Create a separate thread for processing the input stream
+      Thread processingThread =
+          new Thread(
+              () -> {
+                try {
+                  String context =
+                      String.format(
+                          "Data decompression for chunk index %d and statement %s",
+                          chunkIndex, statementId);
+
+                  InputStream uncompressedStream =
+                      DecompressionUtil.decompress(
+                          inputStream, callback.getCompressionCodec(), context);
+
+                  initializeData(uncompressedStream);
+                  setStatus(ChunkStatus.DOWNLOAD_SUCCEEDED);
+                  downloadFuture.complete(null);
+
+                } catch (Exception e) {
+                  handleStreamingFailure(e);
+                }
+              },
+              "Arrow-Processing-Thread-" + chunkIndex);
+
+      // Start processing thread
+      processingThread.start();
+      long requestStartTime = System.currentTimeMillis();
+      asyncClient.execute(
+          requestProducer,
+          consumer,
+          new FutureCallback<>() {
+            @Override
+            public void completed(Void result) {
+              long responseTime = System.currentTimeMillis() - requestStartTime;
+              System.out.println("Response time: " + responseTime);
+            }
+
+            @Override
+            public void failed(Exception e) {
+              handleStreamingFailure(e);
+              processingThread.interrupt();
+            }
+
+            @Override
+            public void cancelled() {
+              setStatus(ChunkStatus.CANCELLED);
+              downloadFuture.cancel(true);
+              processingThread.interrupt();
+            }
+          });
+
+      //      SimpleHttpRequest httpRequest =
+      // SimpleRequestBuilder.get(chunkLink.getExternalLink()).build();
+      //      addHeaders(httpRequest, chunkLink.getHttpHeaders());
+      //      long requestStartTime = System.currentTimeMillis();
+      //      asyncClient.execute(
+      //          httpRequest,
+      //          new FutureCallback<>() {
+      //            @Override
+      //            public void completed(SimpleHttpResponse simpleHttpResponse) {
+      //              try {
+      //                long responseTime = System.currentTimeMillis() - requestStartTime;
+      //                long startTime = System.currentTimeMillis();
+      //                checkHttpError(simpleHttpResponse);
+      //                String context =
+      //                    String.format(
+      //                        "Data decompression for chunk index %d and statement %s",
+      //                        chunkIndex, statementId);
+      //                InputStream contentStream =
+      //                    simpleHttpResponse.getBody() != null
+      //                        ? new
+      // ByteArrayInputStream(simpleHttpResponse.getBody().getBodyBytes())
+      //                        : null;
+      //                InputStream uncompressedStream =
+      //                    DecompressionUtil.decompress(
+      //                        contentStream, callback.getCompressionCodec(), context);
+      //                initializeData(uncompressedStream);
+      //                setStatus(ChunkStatus.DOWNLOAD_SUCCEEDED);
+      //                downloadFuture.complete(null);
+      //                long endTime = System.currentTimeMillis();
+      //                LOGGER.debug(
+      //                    "Data download and decompression completed for chunk index [{}] and
+      // statement [{}]. Time taken: {} ms",
+      //                    chunkIndex,
+      //                    statementId,
+      //                    endTime - startTime);
+      //              } catch (Exception e) {
+      //                errorMessage =
+      //                    String.format(
+      //                        "Data parsing failed for chunk index %d and statement %s. Exception
+      // %s",
+      //                        chunkIndex, statementId, e.getMessage());
+      //                LOGGER.error(errorMessage);
+      //                setStatus(ChunkStatus.DOWNLOAD_FAILED);
+      //                downloadFuture.completeExceptionally(
+      //                    new DatabricksParsingException(errorMessage, e));
+      //              }
+      //            }
+      //
+      //            @Override
+      //            public void failed(Exception e) {
+      //              errorMessage =
+      //                  String.format(
+      //                      "Data parsing failed for chunk index %d and statement %s. Exception
+      // %s",
+      //                      chunkIndex, statementId, e.getMessage());
+      //              LOGGER.error(errorMessage);
+      //              setStatus(ChunkStatus.DOWNLOAD_FAILED);
+      //              downloadFuture.completeExceptionally(new
+      // DatabricksParsingException(errorMessage, e));
+      //            }
+      //
+      //            @Override
+      //            public void cancelled() {
+      //              setStatus(ChunkStatus.CANCELLED);
+      //              downloadFuture.cancel(true);
+      //            }
+      //          });
+    } catch (Exception e) {
+      handleStreamingFailure(e);
+    }
+  }
+
+  private void handleStreamingFailure(Exception e) {
+    String errorMessage =
+        String.format(
+            "Data parsing failed for chunk index %d and statement %s. Exception %s",
+            chunkIndex, statementId, e.getMessage());
+    LOGGER.error(errorMessage);
+    setStatus(ChunkStatus.DOWNLOAD_FAILED);
+    downloadFuture.completeExceptionally(new DatabricksParsingException(errorMessage, e));
+  }
+
+  void waitForDownload() throws InterruptedException {
+    try {
+      downloadFuture.get();
+    } catch (Exception e) {
+      Thread.currentThread().interrupt();
+    }
+  }
+
+  void checkHttpError(SimpleHttpResponse response) throws DatabricksHttpException {
+    int statusCode = response.getCode();
+    if (statusCode >= 200 && statusCode < 300) {
+      return;
+    }
+    String errorMessage =
+        String.format(
+            "HTTP request failed by code: %d, status line: %s",
+            statusCode, response.getReasonPhrase());
+    throw new DatabricksHttpException(
+        "Unable to fetch HTTP response successfully. " + errorMessage,
+        DEFAULT_HTTP_EXCEPTION_SQLSTATE);
   }
 
   /**

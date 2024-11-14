@@ -18,6 +18,9 @@ import com.google.common.annotations.VisibleForTesting;
 import java.io.Closeable;
 import java.io.IOException;
 import java.util.concurrent.TimeUnit;
+import org.apache.hc.client5.http.impl.async.CloseableHttpAsyncClient;
+import org.apache.hc.client5.http.impl.async.HttpAsyncClients;
+import org.apache.hc.core5.io.CloseMode;
 import org.apache.http.HttpException;
 import org.apache.http.HttpHost;
 import org.apache.http.client.config.RequestConfig;
@@ -45,6 +48,7 @@ public class DatabricksHttpClient implements IDatabricksHttpClient, Closeable {
   private final CloseableHttpClient httpClient;
   private DatabricksHttpRetryHandler retryHandler;
   private IdleConnectionEvictor idleConnectionEvictor;
+  private final CloseableHttpAsyncClient asyncClient = HttpAsyncClients.createDefault();
 
   DatabricksHttpClient(IDatabricksConnectionContext connectionContext) {
     connectionManager = initializeConnectionManager(connectionContext);
@@ -91,6 +95,14 @@ public class DatabricksHttpClient implements IDatabricksHttpClient, Closeable {
     if (connectionManager != null) {
       connectionManager.shutdown();
     }
+    if (asyncClient != null) {
+      asyncClient.close(CloseMode.GRACEFUL);
+    }
+  }
+
+  @Override
+  public CloseableHttpAsyncClient getAsyncClient() {
+    return asyncClient;
   }
 
   private PoolingHttpClientConnectionManager initializeConnectionManager(

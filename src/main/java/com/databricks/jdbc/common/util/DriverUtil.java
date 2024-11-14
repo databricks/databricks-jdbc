@@ -90,15 +90,16 @@ public class DriverUtil {
       // Check applicable only for SEA flow
       return;
     }
-    String dbrVersion = getDBRVersion(connection);
-    if (!doesDriverSupportSEA(dbrVersion)) {
-      String errorMessage =
-          String.format(
-              "Unsupported DBR version %s. Please update your compute to use the latest DBR version.",
-              dbrVersion);
-      LOGGER.error(errorMessage);
-      throw new DatabricksValidationException(errorMessage);
-    }
+    //    String dbrVersion = getDBRVersion(connection);
+    //    if (!doesDriverSupportSEA(dbrVersion)) {
+    //      String errorMessage =
+    //          String.format(
+    //              "Unsupported DBR version %s. Please update your compute to use the latest DBR
+    // version.",
+    //              dbrVersion);
+    //      LOGGER.error(errorMessage);
+    //      throw new DatabricksValidationException(errorMessage);
+    //    }
   }
 
   private static String getDBRVersion(IDatabricksConnection connection) {

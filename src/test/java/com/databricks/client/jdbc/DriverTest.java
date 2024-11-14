@@ -34,7 +34,9 @@ public class DriverTest {
     System.out.println();
     for (int i = 1; i <= columnsNumber; i++) System.out.print(rsmd.getPrecision(i) + "\t\t\t");
     System.out.println();
+    int cnt = 0;
     while (resultSet.next()) {
+      cnt++;
       for (int i = 1; i <= columnsNumber; i++) {
         try {
           Object columnValue = resultSet.getObject(i);
@@ -46,6 +48,7 @@ public class DriverTest {
       }
       System.out.println();
     }
+    System.out.println("Total number of rows: " + cnt);
   }
 
   @Test
@@ -372,12 +375,19 @@ public class DriverTest {
 
   @Test
   void testAllPurposeClusters_errorHandling() throws Exception {
+    final String table = "samples.tpch.lineitem";
+    final int maxRows = 147500;
+    final String sql = "SELECT * FROM " + table + " limit " + maxRows;
     String jdbcUrl =
-        "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;ssl=1;AuthMech=3;httpPath=sql/protocolv1/o/6051921418418893/1115-130834-ms4m0yv;enableDirectResults=1";
-    Connection con = DriverManager.getConnection(jdbcUrl, "token", "xx");
+        "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/58aa1b363649e722;EnableQueryResultLZ4Compression=1";
+    Connection con =
+        DriverManager.getConnection(jdbcUrl, "token", "dapi1a590df75ade1a9766bce6caf4047f75");
     System.out.println("Connection established......");
     Statement s = con.createStatement();
-    s.executeQuery("SELECT * from RANGE(10)");
+    s.setMaxRows(maxRows);
+    ResultSet rs = s.executeQuery(sql);
+    printResultSet(rs);
+    rs.close();
     con.close();
     System.out.println("Connection closed successfully......");
   }

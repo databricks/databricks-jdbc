@@ -36,7 +36,7 @@ class ChunkDownloadTask implements Callable<Void> {
       while (retries < MAX_RETRIES && !downloadSuccessful) {
         try {
           if (chunk.isChunkLinkInvalid()) {
-            chunkDownloader.downloadLinks(chunk.getChunkIndex());
+            throw new DatabricksSQLException("chunk link invalid");
           }
           chunk.downloadData(httpClient, chunkDownloader.getCompressionCodec());
           downloadSuccessful = true;
@@ -67,6 +67,9 @@ class ChunkDownloadTask implements Callable<Void> {
         }
       }
     } finally {
+      if (!downloadSuccessful) {
+        chunk.setStatus(ArrowResultChunk.ChunkStatus.DOWNLOAD_FAILED);
+      }
       chunkDownloader.downloadProcessed(chunk.getChunkIndex());
     }
     return null;
