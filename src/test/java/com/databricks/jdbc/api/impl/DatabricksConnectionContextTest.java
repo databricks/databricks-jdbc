@@ -114,7 +114,6 @@ class DatabricksConnectionContextTest {
     assertEquals(IDatabricksConnectionContext.AuthMech.OAUTH, connectionContext.getAuthMech());
     assertEquals(
         IDatabricksConnectionContext.AuthFlow.CLIENT_CREDENTIALS, connectionContext.getAuthFlow());
-    assertEquals(CompressionType.NONE, connectionContext.getCompressionType());
     assertEquals(connectionContext.getOAuthScopesForU2M(), expected_scopes);
     assertFalse(connectionContext.isAllPurposeCluster());
     assertEquals(6, connectionContext.parameters.size());

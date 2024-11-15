@@ -181,7 +181,7 @@ public class ClientConfigurator {
           .setClientSecret(connectionContext.getClientSecret());
       if (connectionContext.useJWTAssertion()) {
         databricksConfig.setCredentialsProvider(
-            new PrivateKeyClientCredentialProvider(connectionContext));
+            new PrivateKeyClientCredentialProvider(connectionContext, databricksConfig));
       }
     }
   }
