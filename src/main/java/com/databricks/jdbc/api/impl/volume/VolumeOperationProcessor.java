@@ -333,10 +333,6 @@ class VolumeOperationProcessor {
     }
   }
 
-  private boolean isSuccessfulHttpResponse(CloseableHttpResponse response) {
-    return response.getStatusLine().getStatusCode() >= 200
-        && response.getStatusLine().getStatusCode() < 300;
-  }
 
   enum VolumeOperationStatus {
     PENDING,

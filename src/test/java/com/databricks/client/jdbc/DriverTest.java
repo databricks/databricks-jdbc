@@ -315,7 +315,7 @@ public class DriverTest {
     System.out.println("Starting test");
     // Getting the connection
     String jdbcUrl =
-        "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/dd43ee29fedd958d;Loglevel=debug;useFileSystemAPI=1";
+        "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/58aa1b363649e722;Loglevel=debug;useFileSystemAPI=1";
     Connection con = DriverManager.getConnection(jdbcUrl, "token", "xx");
     System.out.println("Connection created");
 
@@ -336,8 +336,19 @@ public class DriverTest {
                   "/tmp/put.txt",
                   true));
 
+//      System.out.println(client.getObject( "___________________first",
+//              "jprakash-test",
+//              "jprakash_volume",
+//              "test-stream.csv",
+//              "/tmp/dbfs.txt"));
+
+      System.out.println(client.deleteObject( "___________________first",
+              "jprakash-test",
+              "jprakash_volume",
+              "test-stream.csv"));
     } catch (Exception e) {
       e.printStackTrace();
+      throw e;
     } finally {
       file.delete();
       con.close();
