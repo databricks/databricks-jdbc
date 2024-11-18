@@ -196,7 +196,7 @@ public class MetadataBenchmarkingTests {
           case 4:
             System.out.println("START OF SECTION 5");
             for (int i = 0; i < ATTEMPTS; i++) {
-              metaData.getColumns(getDatabricksCatalog(), "%", "%", "%");
+              metaData.getColumns(getDatabricksCatalog(), BASE_SCHEMA_NAME + "%", "%", "%");
             }
             break;
           case 5:
