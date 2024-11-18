@@ -10,6 +10,7 @@ import com.databricks.jdbc.api.IDatabricksStatement;
 import com.databricks.jdbc.common.DatabricksClientType;
 import com.databricks.jdbc.exception.DatabricksValidationException;
 import java.sql.SQLException;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -23,6 +24,11 @@ public class DriverUtilTest {
   @Mock IDatabricksConnectionContext connectionContext;
   @Mock IDatabricksStatement statement;
   @Mock IDatabricksResultSet resultSet;
+
+  @BeforeEach
+  void setUp() {
+    DriverUtil.clearDBSQLVersionCache(); // Clear the cache before each test case
+  }
 
   @ParameterizedTest
   @CsvSource({
@@ -41,9 +47,9 @@ public class DriverUtilTest {
     if (throwsError) {
       assertThrows(
           DatabricksValidationException.class,
-          () -> DriverUtil.ensureUpdatedDBRVersionInUse(connection));
+          () -> DriverUtil.ensureUpdatedDBSQLVersionInUse(connection));
     } else {
-      assertDoesNotThrow(() -> DriverUtil.ensureUpdatedDBRVersionInUse(connection));
+      assertDoesNotThrow(() -> DriverUtil.ensureUpdatedDBSQLVersionInUse(connection));
     }
   }
 
@@ -51,6 +57,6 @@ public class DriverUtilTest {
   void testDriverSupportInThrift() {
     when(connection.getConnectionContext()).thenReturn(connectionContext);
     when(connectionContext.getClientType()).thenReturn(DatabricksClientType.THRIFT);
-    assertDoesNotThrow(() -> DriverUtil.ensureUpdatedDBRVersionInUse(connection));
+    assertDoesNotThrow(() -> DriverUtil.ensureUpdatedDBSQLVersionInUse(connection));
   }
 }

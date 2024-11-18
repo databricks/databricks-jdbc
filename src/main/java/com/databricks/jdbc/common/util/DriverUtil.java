@@ -12,6 +12,7 @@ import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.google.common.annotations.VisibleForTesting;
 import java.io.IOException;
 import java.sql.ResultSet;
+import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * Utility class for operations related to the Databricks JDBC driver.
@@ -26,6 +27,9 @@ public class DriverUtil {
   private static final String DBSQL_VERSION_SQL = "SELECT current_version().dbsql_version";
   public static final int DBSQL_MIN_MAJOR_VERSION_FOR_SEA_SUPPORT = 2024;
   public static final int DBSQL_MIN_MINOR_VERSION_FOR_SEA_SUPPORT = 30;
+
+  /** Cached DBSQL version to avoid repeated queries to the cluster. */
+  private static final AtomicReference<String> cachedDBSQLVersion = new AtomicReference<>(null);
 
   private static final String[] VERSION_PARTS = VERSION.split("[.-]");
 
@@ -47,7 +51,7 @@ public class DriverUtil {
       LOGGER.warn("Empty metadata client is being used.");
       connection.getSession().setEmptyMetadataClient();
     }
-    ensureUpdatedDBRVersionInUse(connection);
+    ensureUpdatedDBSQLVersionInUse(connection);
   }
 
   public static void setUpLogging(IDatabricksConnectionContext connectionContext)
@@ -83,38 +87,57 @@ public class DriverUtil {
   }
 
   @VisibleForTesting
-  static void ensureUpdatedDBRVersionInUse(IDatabricksConnection connection)
+  static void ensureUpdatedDBSQLVersionInUse(IDatabricksConnection connection)
       throws DatabricksValidationException {
     if (connection.getConnectionContext().getClientType() != DatabricksClientType.SQL_EXEC
         || Boolean.parseBoolean(System.getProperty(IS_FAKE_SERVICE_TEST_PROP))) {
       // Check applicable only for SEA flow
       return;
     }
-    String dbrVersion = getDBRVersion(connection);
-    if (!doesDriverSupportSEA(dbrVersion)) {
+    String dbsqlVersion = getDBSQLVersionCached(connection);
+    if (!doesDriverSupportSEA(dbsqlVersion)) {
       String errorMessage =
           String.format(
-              "Unsupported DBR version %s. Please update your compute to use the latest DBR version.",
-              dbrVersion);
+              "Unsupported DBSQL version %s. Please update your compute to use the latest DBSQL version.",
+              dbsqlVersion);
       LOGGER.error(errorMessage);
       throw new DatabricksValidationException(errorMessage);
     }
   }
 
-  private static String getDBRVersion(IDatabricksConnection connection) {
-    try (ResultSet resultSet = connection.createStatement().executeQuery(DBSQL_VERSION_SQL)) {
-      resultSet.next();
-      String dbrVersion = resultSet.getString(1);
-      LOGGER.debug("DBR Version in use: %s", dbrVersion);
-      return dbrVersion;
-    } catch (Exception e) {
-      LOGGER.info(
-          "Error retrieving DBR version: {%s}. Defaulting to minimum supported version.", e);
-      return getDefaultDBRVersion();
+  private static String getDBSQLVersionCached(IDatabricksConnection connection) {
+    String version = cachedDBSQLVersion.get();
+    if (version != null) {
+      LOGGER.debug("Using cached DBSQL Version: %s", version);
+      return version;
+    }
+
+    synchronized (DriverUtil.class) {
+      version = cachedDBSQLVersion.get();
+      if (version != null) {
+        return version;
+      }
+
+      version = queryDBSQLVersion(connection);
+      cachedDBSQLVersion.set(version);
+      return version;
     }
   }
 
-  private static String getDefaultDBRVersion() {
+  private static String queryDBSQLVersion(IDatabricksConnection connection) {
+    try (ResultSet resultSet = connection.createStatement().executeQuery(DBSQL_VERSION_SQL)) {
+      resultSet.next();
+      String dbsqlVersion = resultSet.getString(1);
+      LOGGER.debug("DBSQL Version in use: %s", dbsqlVersion);
+      return dbsqlVersion;
+    } catch (Exception e) {
+      LOGGER.info(
+          "Error retrieving DBSQL version: {%s}. Defaulting to minimum supported version.", e);
+      return getDefaultDBSQLVersion();
+    }
+  }
+
+  private static String getDefaultDBSQLVersion() {
     return DBSQL_MIN_MAJOR_VERSION_FOR_SEA_SUPPORT + "." + DBSQL_MIN_MINOR_VERSION_FOR_SEA_SUPPORT;
   }
 
@@ -126,5 +149,10 @@ public class DriverUtil {
       return minorVersion >= DBSQL_MIN_MINOR_VERSION_FOR_SEA_SUPPORT;
     }
     return majorVersion > DBSQL_MIN_MAJOR_VERSION_FOR_SEA_SUPPORT;
+  }
+
+  @VisibleForTesting
+  static void clearDBSQLVersionCache() {
+    cachedDBSQLVersion.set(null);
   }
 }
