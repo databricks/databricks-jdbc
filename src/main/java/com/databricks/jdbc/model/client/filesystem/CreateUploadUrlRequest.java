@@ -3,6 +3,7 @@ package com.databricks.jdbc.model.client.filesystem;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import java.util.Objects;
 
+/** CreateUploadUrlRequest POJO */
 public class CreateUploadUrlRequest {
   @JsonProperty("path")
   private String path;

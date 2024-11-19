@@ -333,7 +333,6 @@ class VolumeOperationProcessor {
     }
   }
 
-
   enum VolumeOperationStatus {
     PENDING,
     RUNNING,

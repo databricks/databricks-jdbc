@@ -1,40 +1,37 @@
 package com.databricks.jdbc.model.client.filesystem;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import java.util.List;
 import org.apache.http.message.BasicHeader;
 
-import java.util.List;
-
+/** CreateDownloadUrlResponse POJO */
 public class CreateDownloadUrlResponse {
-    @JsonProperty("url")
-    private String url;
+  @JsonProperty("url")
+  private String url;
 
-    @JsonProperty("headers")
-    private List<BasicHeader> headers;
+  @JsonProperty("headers")
+  private List<BasicHeader> headers;
 
-    // Getters
-    public String getUrl() {
-        return this.url;
-    }
+  // Getters
+  public String getUrl() {
+    return this.url;
+  }
 
-    public List<BasicHeader> getHeaders() {
-        return this.headers;
-    }
+  public List<BasicHeader> getHeaders() {
+    return this.headers;
+  }
 
-    // Setters
-    public void setUrl(String url) {
-        this.url = url;
-    }
+  // Setters
+  public void setUrl(String url) {
+    this.url = url;
+  }
 
-    public void setHeaders(List<BasicHeader> headers) {
-        this.headers = headers;
-    }
+  public void setHeaders(List<BasicHeader> headers) {
+    this.headers = headers;
+  }
 
-    @Override
-    public String toString() {
-        return "CreateDownloadUrlResponse{" +
-                "url='" + url + '\'' +
-                ", headers=" + headers +
-                '}';
-    }
+  @Override
+  public String toString() {
+    return "CreateDownloadUrlResponse{" + "url='" + url + '\'' + ", headers=" + headers + '}';
+  }
 }

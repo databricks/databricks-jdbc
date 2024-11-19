@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import java.util.List;
 import org.apache.http.message.BasicHeader;
 
+/** CreateUploadUrlResponse POJO */
 public class CreateUploadUrlResponse {
   @JsonProperty("url")
   private String url;

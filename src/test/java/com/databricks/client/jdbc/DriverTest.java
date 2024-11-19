@@ -336,16 +336,15 @@ public class DriverTest {
                   "/tmp/put.txt",
                   true));
 
-//      System.out.println(client.getObject( "___________________first",
-//              "jprakash-test",
-//              "jprakash_volume",
-//              "test-stream.csv",
-//              "/tmp/dbfs.txt"));
+      //      System.out.println(client.getObject( "___________________first",
+      //              "jprakash-test",
+      //              "jprakash_volume",
+      //              "test-stream.csv",
+      //              "/tmp/dbfs.txt"));
 
-      System.out.println(client.deleteObject( "___________________first",
-              "jprakash-test",
-              "jprakash_volume",
-              "test-stream.csv"));
+      System.out.println(
+          client.deleteObject(
+              "___________________first", "jprakash-test", "jprakash_volume", "test-stream.csv"));
     } catch (Exception e) {
       e.printStackTrace();
       throw e;

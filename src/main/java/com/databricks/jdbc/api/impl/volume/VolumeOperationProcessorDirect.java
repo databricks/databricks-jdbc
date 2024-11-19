@@ -8,9 +8,7 @@ import com.databricks.jdbc.exception.DatabricksHttpException;
 import com.databricks.jdbc.exception.DatabricksVolumeOperationException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
-
 import java.io.*;
-
 import org.apache.http.HttpEntity;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpDelete;
@@ -46,14 +44,17 @@ public class VolumeOperationProcessorDirect {
     // Copy the data in local file as requested by user
     File localFile = new File(localFilePath);
     if (localFile.exists()) {
-      String errorMessage = String.format("Local file already exists for GET operation {%s}", localFilePath);
+      String errorMessage =
+          String.format("Local file already exists for GET operation {%s}", localFilePath);
       LOGGER.error(errorMessage);
       throw new DatabricksVolumeOperationException(errorMessage);
     }
 
     try (CloseableHttpResponse response = databricksHttpClient.execute(httpGet)) {
       if (!HttpUtil.isSuccessfulHttpResponse(response)) {
-        String errorMessage  = String.format("Failed to fetch content from volume with error {%s} for local file {%s}",
+        String errorMessage =
+            String.format(
+                "Failed to fetch content from volume with error {%s} for local file {%s}",
                 response.getStatusLine().getStatusCode(), localFilePath);
         LOGGER.error(errorMessage);
         throw new DatabricksHttpException(errorMessage);
@@ -76,10 +77,10 @@ public class VolumeOperationProcessorDirect {
           throw e;
         } catch (IOException e) {
           LOGGER.error(
-                  e,
-                  "Failed to write to local file {%s} with error {%s}",
-                  localFilePath,
-                  e.getMessage());
+              e,
+              "Failed to write to local file {%s} with error {%s}",
+              localFilePath,
+              e.getMessage());
           throw e;
         } finally {
           // It's important to consume the entity content fully and ensure the stream is closed
@@ -87,13 +88,10 @@ public class VolumeOperationProcessorDirect {
         }
       }
     } catch (IOException | DatabricksHttpException e) {
-      String errorMessage =
-              String.format(
-                      "Failed to download file : {%s} ",e.getMessage());
+      String errorMessage = String.format("Failed to download file : {%s} ", e.getMessage());
       LOGGER.error(e, errorMessage);
       throw new DatabricksVolumeOperationException(errorMessage, e);
     }
-
   }
 
   public void executePutOperation() throws DatabricksVolumeOperationException {
@@ -123,21 +121,23 @@ public class VolumeOperationProcessorDirect {
     }
   }
 
-  public void executeDeleteOperation() throws DatabricksVolumeOperationException
-  {
+  public void executeDeleteOperation() throws DatabricksVolumeOperationException {
     HttpDelete httpDelete = new HttpDelete(operationUrl);
 
     try (CloseableHttpResponse response = databricksHttpClient.execute(httpDelete)) {
       if (HttpUtil.isSuccessfulHttpResponse(response)) {
         LOGGER.debug("Successfully deleted object");
       } else {
-        String errorMessage = String.format("Failed to delete object with error code: {%s}",
+        String errorMessage =
+            String.format(
+                "Failed to delete object with error code: {%s}",
                 response.getStatusLine().getStatusCode());
         LOGGER.error(errorMessage);
         throw new DatabricksHttpException(errorMessage);
       }
     } catch (DatabricksHttpException | IOException e) {
-      String errorMessage = String.format("Failed to delete volume with error {%s}", e.getMessage());
+      String errorMessage =
+          String.format("Failed to delete volume with error {%s}", e.getMessage());
       LOGGER.error(e, errorMessage);
       throw new DatabricksVolumeOperationException(errorMessage, e);
     }

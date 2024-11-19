@@ -19,16 +19,17 @@ import java.io.InputStream;
 import java.sql.Connection;
 import java.util.List;
 import org.apache.http.entity.InputStreamEntity;
-import org.apache.http.message.BasicHeader;
 
 /** Implementation of Volume Client that directly calls SQL Exec API for the Volume Operations */
 public class DBFSVolumeClient implements IDatabricksVolumeClient {
 
   private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(DBFSVolumeClient.class);
   private final DatabricksConnection connection;
+  private final WorkspaceClient workspaceClient;
 
   public DBFSVolumeClient(Connection connection) {
     this.connection = (DatabricksConnection) connection;
+    this.workspaceClient = getWorkspaceClientFromConnection(this.connection);
   }
 
   /** {@inheritDoc} */
@@ -77,28 +78,27 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient {
       String catalog, String schema, String volume, String objectPath, String localPath)
       throws DatabricksVolumeOperationException {
     LOGGER.debug(
-            String.format(
-                    "Entering getObject method with parameters: catalog={%s}, schema={%s}, volume={%s}, objectPath={%s}, localPath={%s}",
-                    catalog, schema, volume, objectPath, localPath));
+        String.format(
+            "Entering getObject method with parameters: catalog={%s}, schema={%s}, volume={%s}, objectPath={%s}, localPath={%s}",
+            catalog, schema, volume, objectPath, localPath));
 
     boolean isOperationSucceeded = false;
 
-    try
-    {
+    try {
       // Fetching the Pre signed URL
-      CreateDownloadUrlResponse response= getCreateDownloadUrlResponse(getObjectFullPath(catalog, schema, volume, objectPath));
+      CreateDownloadUrlResponse response =
+          getCreateDownloadUrlResponse(getObjectFullPath(catalog, schema, volume, objectPath));
 
       // Downloading the object from the pre signed Url
       VolumeOperationProcessorDirect volumeOperationProcessorDirect =
-              new VolumeOperationProcessorDirect(response.getUrl(), localPath, connection.getSession());
+          new VolumeOperationProcessorDirect(response.getUrl(), localPath, connection.getSession());
       volumeOperationProcessorDirect.executeGetOperation();
       isOperationSucceeded = true;
+    } catch (DatabricksVolumeOperationException e) {
+      String errorMessage = String.format("Failed to put object - {%s}", e.getMessage());
+      LOGGER.error(e, errorMessage);
+      throw e;
     }
-  catch (DatabricksVolumeOperationException e) {
-    String errorMessage = String.format("Failed to put object - {%s}", e.getMessage());
-    LOGGER.error(e, errorMessage);
-    throw e;
-  }
     return isOperationSucceeded;
   }
 
@@ -168,19 +168,19 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient {
   public boolean deleteObject(String catalog, String schema, String volume, String objectPath)
       throws DatabricksVolumeOperationException {
     LOGGER.debug(
-            String.format(
-                    "Entering deleteObject method with parameters: catalog={%s}, schema={%s}, volume={%s}, objectPath={%s}",
-                    catalog, schema, volume, objectPath));
+        String.format(
+            "Entering deleteObject method with parameters: catalog={%s}, schema={%s}, volume={%s}, objectPath={%s}",
+            catalog, schema, volume, objectPath));
 
     boolean isOperationSucceeded = false;
     try {
       // Fetching the Pre Signed Url
       CreateDeleteUrlResponse response =
-              getCreateDeleteUrlResponse(getObjectFullPath(catalog, schema, volume, objectPath));
+          getCreateDeleteUrlResponse(getObjectFullPath(catalog, schema, volume, objectPath));
 
       // Uploading the object to the Pre Signed Url
       VolumeOperationProcessorDirect volumeOperationProcessorDirect =
-              new VolumeOperationProcessorDirect(response.getUrl(), null, connection.getSession());
+          new VolumeOperationProcessorDirect(response.getUrl(), null, connection.getSession());
       volumeOperationProcessorDirect.executeDeleteOperation();
       isOperationSucceeded = true;
     } catch (DatabricksVolumeOperationException e) {
@@ -191,17 +191,19 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient {
     return isOperationSucceeded;
   }
 
-  /** Fetches the pre signed url using the SQL Exec API */
+  private WorkspaceClient getWorkspaceClientFromConnection(DatabricksConnection connection) {
+    IDatabricksClient client = connection.getSession().getDatabricksClient();
+    IDatabricksConnectionContext connectionContext = client.getConnectionContext();
+    return new ClientConfigurator(connectionContext).getWorkspaceClient();
+  }
+
+  /** Fetches the pre signed url for uploading to the volume using the SQL Exec API */
   private CreateUploadUrlResponse getCreateUploadUrlResponse(String objectPath)
       throws DatabricksVolumeOperationException {
     LOGGER.debug(
         String.format(
             "Entering getCreateUploadUrlResponse method with parameters: objectPath={%s}",
             objectPath));
-    IDatabricksClient client = connection.getSession().getDatabricksClient();
-    IDatabricksConnectionContext connectionContext = client.getConnectionContext();
-    WorkspaceClient workspaceClient =
-        new ClientConfigurator(connectionContext).getWorkspaceClient();
 
     CreateUploadUrlRequest request = new CreateUploadUrlRequest(objectPath);
     try {
@@ -216,50 +218,47 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient {
     }
   }
 
-  private CreateDownloadUrlResponse getCreateDownloadUrlResponse(String objectPath) throws DatabricksVolumeOperationException
-  {
+  /** Fetches the pre signed url for downloading the object contents using the SQL Exec API */
+  private CreateDownloadUrlResponse getCreateDownloadUrlResponse(String objectPath)
+      throws DatabricksVolumeOperationException {
     LOGGER.debug(
-            String.format(
-                    "Entering getCreateDownloadUrlResponse method with parameters: objectPath={%s}",
-                    objectPath));
-    IDatabricksClient client = connection.getSession().getDatabricksClient();
-    IDatabricksConnectionContext connectionContext = client.getConnectionContext();
-    WorkspaceClient workspaceClient =
-            new ClientConfigurator(connectionContext).getWorkspaceClient();
+        String.format(
+            "Entering getCreateDownloadUrlResponse method with parameters: objectPath={%s}",
+            objectPath));
 
     CreateDownloadUrlRequest request = new CreateDownloadUrlRequest(objectPath);
 
     try {
       return workspaceClient
-              .apiClient()
-              .POST(CREATE_DOWNLOAD_URL_PATH, request, CreateDownloadUrlResponse.class, JSON_HTTP_HEADERS);
+          .apiClient()
+          .POST(
+              CREATE_DOWNLOAD_URL_PATH,
+              request,
+              CreateDownloadUrlResponse.class,
+              JSON_HTTP_HEADERS);
     } catch (DatabricksException e) {
       String errorMessage =
-              String.format("Failed to get create upload url response - {%s}", e.getMessage());
+          String.format("Failed to get create upload url response - {%s}", e.getMessage());
       LOGGER.error(e, errorMessage);
       throw new DatabricksVolumeOperationException(errorMessage, e);
     }
   }
 
-  private CreateDeleteUrlResponse getCreateDeleteUrlResponse(String objectPath) throws DatabricksVolumeOperationException {
+  /** Fetches the pre signed url for deleting object from the volume using the SQL Exec API */
+  private CreateDeleteUrlResponse getCreateDeleteUrlResponse(String objectPath)
+      throws DatabricksVolumeOperationException {
     LOGGER.debug(
-            String.format(
-                    "Entering getCreateDownloadUrlResponse method with parameters: objectPath={%s}",
-                    objectPath));
-    IDatabricksClient client = connection.getSession().getDatabricksClient();
-    IDatabricksConnectionContext connectionContext = client.getConnectionContext();
-    WorkspaceClient workspaceClient =
-            new ClientConfigurator(connectionContext).getWorkspaceClient();
-
+        String.format(
+            "Entering getCreateDownloadUrlResponse method with parameters: objectPath={%s}",
+            objectPath));
     CreateDeleteUrlRequest request = new CreateDeleteUrlRequest(objectPath);
 
     try {
       return workspaceClient
-              .apiClient()
-              .POST(CREATE_DELETE_URL_PATH, request, CreateDeleteUrlResponse.class, JSON_HTTP_HEADERS);
+          .apiClient()
+          .POST(CREATE_DELETE_URL_PATH, request, CreateDeleteUrlResponse.class, JSON_HTTP_HEADERS);
     } catch (DatabricksException e) {
-      String errorMessage =
-              String.format("Failed to delete object - {%s}", e.getMessage());
+      String errorMessage = String.format("Failed to delete object - {%s}", e.getMessage());
       LOGGER.error(e, errorMessage);
       throw new DatabricksVolumeOperationException(errorMessage, e);
     }
