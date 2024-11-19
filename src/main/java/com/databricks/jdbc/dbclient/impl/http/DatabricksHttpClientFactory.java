@@ -23,13 +23,12 @@ public class DatabricksHttpClientFactory {
   }
 
   public IDatabricksHttpClient getClient(IDatabricksConnectionContext context) {
-    String contextKey = Integer.toString(context.hashCode());
-    return instances.computeIfAbsent(contextKey, k -> new DatabricksHttpClient(context));
+    return instances.computeIfAbsent(
+        context.getConnectionUuid(), k -> new DatabricksHttpClient(context));
   }
 
   public void removeClient(IDatabricksConnectionContext context) {
-    String contextKey = Integer.toString(context.hashCode());
-    DatabricksHttpClient instance = instances.remove(contextKey);
+    DatabricksHttpClient instance = instances.remove(context.getConnectionUuid());
     if (instance != null) {
       try {
         instance.close();

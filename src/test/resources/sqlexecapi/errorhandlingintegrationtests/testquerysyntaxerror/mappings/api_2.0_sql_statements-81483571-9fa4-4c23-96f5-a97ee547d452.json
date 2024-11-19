@@ -1,0 +1,31 @@
+{
+  "id" : "81483571-9fa4-4c23-96f5-a97ee547d452",
+  "name" : "api_2.0_sql_statements",
+  "request" : {
+    "url" : "/api/2.0/sql/statements/",
+    "method" : "POST",
+    "bodyPatterns" : [ {
+      "equalToJson" : "{\"statement\":\"INSER INTO main.jdbc_test_schema.query_syntax_error_test_table (id, col1, col2) VALUES (1, 'value1', 'value2')\",\"warehouse_id\":\"dd43ee29fedd958d\",\"session_id\":\"01ef9de4-0869-19e2-9f52-ee78958e73ad\",\"disposition\":\"EXTERNAL_LINKS\",\"format\":\"ARROW_STREAM\",\"on_wait_timeout\":\"CONTINUE\",\"wait_timeout\":\"10s\",\"parameters\":[],\"result_compression\":\"LZ4_FRAME\"}",
+      "ignoreArrayOrder" : true,
+      "ignoreExtraElements" : true
+    } ]
+  },
+  "response" : {
+    "status" : 200,
+    "body" : "{\"statement_id\":\"01ef9de4-091e-1cca-a458-a00ed5ab7b11\",\"status\":{\"state\":\"FAILED\",\"error\":{\"error_code\":\"BAD_REQUEST\",\"message\":\"\\n[PARSE_SYNTAX_ERROR] Syntax error at or near 'INSER'. SQLSTATE: 42601 (line 1, pos 0)\\n\\n== SQL ==\\nINSER INTO main.jdbc_test_schema.query_syntax_error_test_table (id, col1, col2) VALUES (1, 'value1', 'value2')\\n^^^\\n\"}}}",
+    "headers" : {
+      "x-request-id" : "b44c4abe-9912-4cd7-a773-2cc7acf3fac1",
+      "date" : "Fri, 8 Nov 2024 15:13:40 GMT",
+      "server" : "databricks",
+      "x-content-type-options" : "nosniff",
+      "x-databricks-shard-debug" : "oregon-staging",
+      "vary" : "Accept-Encoding",
+      "x-databricks-org-id" : "6051921418418893",
+      "x-databricks-popp-routing-reason" : "deployment-name",
+      "content-type" : "application/json",
+      "strict-transport-security" : "max-age=31536000; includeSubDomains; preload"
+    }
+  },
+  "uuid" : "81483571-9fa4-4c23-96f5-a97ee547d452",
+  "insertionIndex" : 270
+}

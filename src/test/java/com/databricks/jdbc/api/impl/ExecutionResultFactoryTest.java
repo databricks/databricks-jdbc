@@ -26,14 +26,12 @@ import org.mockito.junit.jupiter.MockitoExtension;
 public class ExecutionResultFactoryTest {
 
   private static final StatementId STATEMENT_ID = new StatementId("statementId");
-
   @Mock DatabricksSession session;
   @Mock IDatabricksStatementInternal parentStatement;
   @Mock IDatabricksConnectionContext connectionContext;
   @Mock TGetResultSetMetadataResp resultSetMetadataResp;
   @Mock TRowSet tRowSet;
   @Mock TFetchResultsResp fetchResultsResp;
-  @Mock IDatabricksConnectionContext context;
 
   @Test
   public void testGetResultSet_jsonInline() throws DatabricksParsingException {
@@ -48,6 +46,7 @@ public class ExecutionResultFactoryTest {
 
   @Test
   public void testGetResultSet_externalLink() throws DatabricksParsingException {
+    when(connectionContext.getConnectionUuid()).thenReturn("sample-uuid");
     when(session.getConnectionContext()).thenReturn(connectionContext);
     when(session.getConnectionContext().getCloudFetchThreadPoolSize()).thenReturn(16);
     ResultManifest manifest = new ResultManifest();
@@ -64,6 +63,7 @@ public class ExecutionResultFactoryTest {
 
   @Test
   public void testGetResultSet_volumeOperation() throws DatabricksParsingException {
+    when(connectionContext.getConnectionUuid()).thenReturn("sample-uuid");
     when(session.getConnectionContext()).thenReturn(connectionContext);
     ResultData data = new ResultData();
     ResultManifest manifest =
@@ -80,6 +80,7 @@ public class ExecutionResultFactoryTest {
 
   @Test
   public void testGetResultSet_volumeOperationThriftResp() throws Exception {
+    when(connectionContext.getConnectionUuid()).thenReturn("sample-uuid");
     when(session.getConnectionContext()).thenReturn(connectionContext);
     when(fetchResultsResp.getResultSetMetadata()).thenReturn(resultSetMetadataResp);
     when(resultSetMetadataResp.getResultFormat()).thenReturn(TSparkRowSetType.COLUMN_BASED_SET);
@@ -112,10 +113,11 @@ public class ExecutionResultFactoryTest {
 
   @Test
   public void testGetResultSet_thriftURL() throws SQLException {
+    when(connectionContext.getConnectionUuid()).thenReturn("sample-uuid");
     when(resultSetMetadataResp.getResultFormat()).thenReturn(TSparkRowSetType.URL_BASED_SET);
     when(fetchResultsResp.getResultSetMetadata()).thenReturn(resultSetMetadataResp);
     when(fetchResultsResp.getResults()).thenReturn(tRowSet);
-    when(session.getConnectionContext()).thenReturn(context);
+    when(session.getConnectionContext()).thenReturn(connectionContext);
     when(session.getConnectionContext().getCloudFetchThreadPoolSize()).thenReturn(16);
     IExecutionResult result =
         ExecutionResultFactory.getResultSet(fetchResultsResp, session, parentStatement);
@@ -124,10 +126,11 @@ public class ExecutionResultFactoryTest {
 
   @Test
   public void testGetResultSet_thriftInlineArrow() throws SQLException {
+    when(connectionContext.getConnectionUuid()).thenReturn("sample-uuid");
     when(resultSetMetadataResp.getResultFormat()).thenReturn(TSparkRowSetType.ARROW_BASED_SET);
     when(fetchResultsResp.getResultSetMetadata()).thenReturn(resultSetMetadataResp);
     when(fetchResultsResp.getResults()).thenReturn(tRowSet);
-    when(session.getConnectionContext()).thenReturn(context);
+    when(session.getConnectionContext()).thenReturn(connectionContext);
     when(tRowSet.getArrowBatches()).thenReturn(ARROW_BATCH_LIST);
     IExecutionResult result =
         ExecutionResultFactory.getResultSet(fetchResultsResp, session, parentStatement);

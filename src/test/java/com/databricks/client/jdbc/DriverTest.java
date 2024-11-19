@@ -86,6 +86,40 @@ public class DriverTest {
   }
 
   @Test
+  void testGcpServiceAccountOauthM2M() throws Exception {
+    DriverManager.registerDriver(new Driver());
+    String jdbcUrl =
+        "jdbc:databricks://4371047901336987.7.gcp.databricks.com:443/default;transportMode=http;AuthMech=11;Auth_Flow=1;httpPath=/sql/1.0/warehouses/dd5955aacf3f09e5;GoogleServiceAccount=xx-compute@developer.gserviceaccount.com";
+
+    Connection con = DriverManager.getConnection(jdbcUrl, "token", "x");
+    System.out.println("Connection established with jdbc driver......");
+    Statement statement = con.createStatement();
+    statement.setMaxRows(10000);
+    ResultSet rs = statement.executeQuery("select 1");
+    printResultSet(rs);
+    rs.close();
+    statement.close();
+    con.close();
+  }
+
+  @Test
+  void testGcpCredentialJsonOauthM2M() throws Exception {
+    DriverManager.registerDriver(new Driver());
+    String jdbcUrl =
+        "jdbc:databricks://4371047901336987.7.gcp.databricks.com:443/default;transportMode=http;AuthMech=11;Auth_Flow=1;httpPath=/sql/1.0/warehouses/dd5955aacf3f09e5;GoogleCredentialsFile=<path_to_json_credential_file>";
+
+    Connection con = DriverManager.getConnection(jdbcUrl, "token", "x");
+    System.out.println("Connection established with jdbc driver......");
+    Statement statement = con.createStatement();
+    statement.setMaxRows(10000);
+    ResultSet rs = statement.executeQuery("select 1");
+    printResultSet(rs);
+    rs.close();
+    statement.close();
+    con.close();
+  }
+
+  @Test
   void testGetTablesOSS_Metadata() throws Exception {
     DriverManager.registerDriver(new Driver());
     DriverManager.drivers().forEach(driver -> System.out.println(driver.getClass()));

@@ -325,7 +325,12 @@ public class DatabricksSdkClient implements IDatabricksClient {
     Disposition disposition =
         useCloudFetchForResult(statementType) ? Disposition.EXTERNAL_LINKS : Disposition.INLINE;
     long maxRows = (parentStatement == null) ? DEFAULT_ROW_LIMIT : parentStatement.getMaxRows();
-
+    CompressionCodec compressionCodec = session.getCompressionCodec();
+    if (disposition.equals(Disposition.INLINE)) {
+      // TODO: Evaluate if inline results need compression based on performance.
+      LOGGER.debug("Results are inline, skipping compression.");
+      compressionCodec = CompressionCodec.NONE;
+    }
     List<StatementParameterListItem> parameterListItems =
         parameters.values().stream().map(this::mapToParameterListItem).collect(Collectors.toList());
     ExecuteStatementRequest request =
@@ -335,7 +340,7 @@ public class DatabricksSdkClient implements IDatabricksClient {
             .setWarehouseId(warehouseId)
             .setDisposition(disposition)
             .setFormat(format)
-            .setCompressionType(session.getCompressionType())
+            .setResultCompression(compressionCodec)
             .setWaitTimeout(SYNC_TIMEOUT_VALUE)
             .setOnWaitTimeout(ExecuteStatementRequestOnWaitTimeout.CONTINUE)
             .setParameters(parameterListItems);
