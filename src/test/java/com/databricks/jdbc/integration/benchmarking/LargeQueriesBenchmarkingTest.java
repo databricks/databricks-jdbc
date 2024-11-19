@@ -61,17 +61,17 @@ public class LargeQueriesBenchmarkingTest {
     insertBenchmarkingDataIntoBenchfood();
   }
 
-  private void warmupCompute() throws SQLException
-  {
+  private void warmupCompute() throws SQLException {
     Random random = new Random();
     for (int i = 0; i < WARMUP_ATTEMPTS; i++) {
       System.out.println("Attempt: " + i);
       int offset =
-              i * WARMUP_ROWS + random.nextInt(WARMUP_ROWS); // Randomization to avoid possible query caching
+          i * WARMUP_ROWS
+              + random.nextInt(WARMUP_ROWS); // Randomization to avoid possible query caching
       try (Statement statement = connection.createStatement()) {
         ResultSet rs =
-                statement.executeQuery(
-                        "SELECT * FROM " + TABLE_NAME + " LIMIT " + WARMUP_ROWS + " OFFSET " + offset);
+            statement.executeQuery(
+                "SELECT * FROM " + TABLE_NAME + " LIMIT " + WARMUP_ROWS + " OFFSET " + offset);
         int cnt = 0;
         while (rs.next()) {
           cnt++;
@@ -79,6 +79,7 @@ public class LargeQueriesBenchmarkingTest {
         System.out.println("Warmup Compute number of rows fetched: " + cnt);
       } catch (SQLException e) {
         e.printStackTrace();
+        throw e;
       }
     }
   }
