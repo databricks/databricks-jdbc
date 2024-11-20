@@ -29,8 +29,8 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   private final String schema;
   private final String connectionURL;
   private final IDatabricksComputeResource computeResource;
-
   @VisibleForTesting final ImmutableMap<String, String> parameters;
+  @VisibleForTesting final String connectionUuid;
 
   private DatabricksConnectionContext(
       String connectionURL,
@@ -45,6 +45,7 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
     this.schema = schema;
     this.parameters = parameters;
     this.computeResource = buildCompute();
+    this.connectionUuid = UUID.randomUUID().toString();
   }
 
   /**
@@ -186,6 +187,23 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
     return DatabricksEnvironment.getEnvironmentFromHostname(hostName).getCloud();
   }
 
+  public String getGcpAuthType() throws DatabricksParsingException {
+    if (parameters.containsKey(
+        DatabricksJdbcUrlParams.GOOGLE_SERVICE_ACCOUNT.getParamName().toLowerCase())) {
+      return DatabricksJdbcConstants.GCP_GOOGLE_ID_AUTH_TYPE;
+    }
+    if (parameters.containsKey(
+        DatabricksJdbcUrlParams.GOOGLE_CREDENTIALS_FILE.getParamName().toLowerCase())) {
+      return DatabricksJdbcConstants.GCP_GOOGLE_CREDENTIALS_AUTH_TYPE;
+    }
+    if (parameters.containsKey(
+        DatabricksJdbcUrlParams.CLIENT_SECRET.getParamName().toLowerCase())) {
+      return DatabricksJdbcConstants.M2M_AUTH_TYPE;
+    }
+    throw new DatabricksParsingException(
+        "GCP Auth Type not found. Provide either Google Service Account or Google Credentials file path");
+  }
+
   @Override
   public String getClientId() throws DatabricksParsingException {
     String clientId = getParameter(DatabricksJdbcUrlParams.CLIENT_ID);
@@ -193,6 +211,8 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
       Cloud cloud = getCloud();
       if (cloud == Cloud.AWS) {
         return DatabricksJdbcConstants.AWS_CLIENT_ID;
+      } else if (cloud == Cloud.GCP) {
+        return DatabricksJdbcConstants.GCP_CLIENT_ID;
       } else if (cloud == Cloud.AZURE) {
         return DatabricksJdbcConstants.AAD_CLIENT_ID;
       }
@@ -202,7 +222,7 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
 
   @Override
   public List<String> getOAuthScopesForU2M() throws DatabricksParsingException {
-    if (getCloud() == Cloud.AWS) {
+    if (getCloud() == Cloud.AWS || getCloud() == Cloud.GCP) {
       return Arrays.asList(
           DatabricksJdbcConstants.SQL_SCOPE, DatabricksJdbcConstants.OFFLINE_ACCESS_SCOPE);
     } else {
@@ -214,6 +234,16 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   @Override
   public String getClientSecret() {
     return getParameter(DatabricksJdbcUrlParams.CLIENT_SECRET);
+  }
+
+  @Override
+  public String getGoogleServiceAccount() {
+    return getParameter(DatabricksJdbcUrlParams.GOOGLE_SERVICE_ACCOUNT);
+  }
+
+  @Override
+  public String getGoogleCredentials() {
+    return getParameter(DatabricksJdbcUrlParams.GOOGLE_CREDENTIALS_FILE);
   }
 
   @Override
@@ -280,14 +310,13 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
 
   @Override
   public String getClientUserAgent() {
-    String customerUserAgent = getParameter(DatabricksJdbcUrlParams.USER_AGENT_ENTRY);
-    String clientAgent =
-        getClientType().equals(DatabricksClientType.SQL_EXEC)
-            ? DatabricksJdbcConstants.USER_AGENT_SEA_CLIENT
-            : DatabricksJdbcConstants.USER_AGENT_THRIFT_CLIENT;
-    return nullOrEmptyString(customerUserAgent)
-        ? clientAgent
-        : clientAgent + USER_AGENT_DELIMITER + customerUserAgent;
+    return getClientType().equals(DatabricksClientType.SQL_EXEC)
+        ? DatabricksJdbcConstants.USER_AGENT_SEA_CLIENT
+        : DatabricksJdbcConstants.USER_AGENT_THRIFT_CLIENT;
+  }
+
+  public String getCustomerUserAgent() {
+    return getParameter(DatabricksJdbcUrlParams.USER_AGENT_ENTRY);
   }
 
   @Override
@@ -570,11 +599,6 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   }
 
   @Override
-  public String getSSLTrustStoreProvider() {
-    return getParameter(DatabricksJdbcUrlParams.SSL_TRUST_STORE_PROVIDER);
-  }
-
-  @Override
   public String getSSLTrustStorePassword() {
     return getParameter(DatabricksJdbcUrlParams.SSL_TRUST_STORE_PASSWORD);
   }
@@ -587,6 +611,11 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   @Override
   public int getMaxBatchSize() {
     return Integer.parseInt(getParameter(DatabricksJdbcUrlParams.MAX_BATCH_SIZE));
+  }
+
+  @Override
+  public String getConnectionUuid() {
+    return connectionUuid;
   }
 
   private static boolean nullOrEmptyString(String s) {

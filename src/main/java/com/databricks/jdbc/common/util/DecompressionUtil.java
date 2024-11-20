@@ -53,7 +53,9 @@ public class DecompressionUtil {
   public static InputStream decompress(
       InputStream compressedStream, CompressionCodec compressionCodec, String context)
       throws IOException, DatabricksSQLException {
-    if (compressionCodec.equals(CompressionCodec.NONE) || compressedStream == null) {
+    if (compressionCodec == null
+        || compressionCodec.equals(CompressionCodec.NONE)
+        || compressedStream == null) {
       // Save the time to convert to byte array if compression type is none.
       LOGGER.debug("Compression is NONE /InputStream is `NULL`. Skipping compression.");
       return compressedStream;

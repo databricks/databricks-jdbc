@@ -1,5 +1,7 @@
 package com.databricks.jdbc.dbclient.impl.common;
 
+import static com.databricks.jdbc.common.DatabricksJdbcConstants.GCP_GOOGLE_CREDENTIALS_AUTH_TYPE;
+import static com.databricks.jdbc.dbclient.impl.common.ConfiguratorUtilsTest.*;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.mockito.Mockito.*;
@@ -13,6 +15,7 @@ import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.sdk.WorkspaceClient;
 import com.databricks.sdk.core.CredentialsProvider;
 import com.databricks.sdk.core.DatabricksConfig;
+import com.databricks.sdk.core.utils.Cloud;
 import java.util.Arrays;
 import java.util.Properties;
 import org.junit.jupiter.api.Test;
@@ -79,6 +82,26 @@ public class ClientConfiguratorTest {
     assertEquals("client-id", config.getClientId());
     assertEquals("client-secret", config.getClientSecret());
     assertEquals(DatabricksJdbcConstants.M2M_AUTH_TYPE, config.getAuthType());
+  }
+
+  @Test
+  void getWorkspaceClient_OAuthWithClientCredentials_AuthenticatesCorrectlyGCP()
+      throws DatabricksParsingException {
+    when(mockContext.getAuthMech()).thenReturn(IDatabricksConnectionContext.AuthMech.OAUTH);
+    when(mockContext.getAuthFlow())
+        .thenReturn(IDatabricksConnectionContext.AuthFlow.CLIENT_CREDENTIALS);
+    when(mockContext.getHostForOAuth()).thenReturn("https://oauth-client.databricks.com");
+    when(mockContext.getCloud()).thenReturn(Cloud.GCP);
+    when(mockContext.getGcpAuthType()).thenReturn(GCP_GOOGLE_CREDENTIALS_AUTH_TYPE);
+    when(mockContext.getGoogleCredentials()).thenReturn("google-credentials");
+    configurator = new ClientConfigurator(mockContext);
+    WorkspaceClient client = configurator.getWorkspaceClient();
+    assertNotNull(client);
+    DatabricksConfig config = client.config();
+
+    assertEquals("https://oauth-client.databricks.com", config.getHost());
+    assertEquals("google-credentials", config.getGoogleCredentials());
+    assertEquals(GCP_GOOGLE_CREDENTIALS_AUTH_TYPE, config.getAuthType());
   }
 
   @Test

@@ -5,6 +5,7 @@ import static com.databricks.jdbc.dbclient.impl.common.ClientConfigurator.conver
 import static io.netty.util.NetUtil.LOCALHOST;
 
 import com.databricks.jdbc.api.IDatabricksConnectionContext;
+import com.databricks.jdbc.common.util.UserAgentManager;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
 import com.databricks.jdbc.dbclient.impl.common.ConfiguratorUtils;
 import com.databricks.jdbc.exception.DatabricksHttpException;
@@ -12,7 +13,6 @@ import com.databricks.jdbc.exception.DatabricksRetryHandlerException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.sdk.core.ProxyConfig;
-import com.databricks.sdk.core.UserAgent;
 import com.databricks.sdk.core.utils.ProxyUtils;
 import com.google.common.annotations.VisibleForTesting;
 import java.io.Closeable;
@@ -39,8 +39,6 @@ public class DatabricksHttpClient implements IDatabricksHttpClient, Closeable {
   private static final int DEFAULT_MAX_HTTP_CONNECTIONS_PER_ROUTE = 1000;
   private static final int DEFAULT_HTTP_CONNECTION_TIMEOUT = 60 * 1000; // ms
   private static final int DEFAULT_HTTP_CLIENT_SOCKET_TIMEOUT = 300 * 1000; // ms
-  private static final String SDK_USER_AGENT = "databricks-sdk-java";
-  private static final String JDBC_HTTP_USER_AGENT = "databricks-jdbc-http";
   private final PoolingHttpClientConnectionManager connectionManager;
   private final CloseableHttpClient httpClient;
   private DatabricksHttpRetryHandler retryHandler;
@@ -115,7 +113,7 @@ public class DatabricksHttpClient implements IDatabricksHttpClient, Closeable {
     HttpClientBuilder builder =
         HttpClientBuilder.create()
             .setConnectionManager(connectionManager)
-            .setUserAgent(getUserAgent())
+            .setUserAgent(UserAgentManager.getUserAgentString())
             .setDefaultRequestConfig(makeRequestConfig())
             .setRetryHandler(retryHandler)
             .addInterceptorFirst(retryHandler);
@@ -208,27 +206,5 @@ public class DatabricksHttpClient implements IDatabricksHttpClient, Closeable {
 
           return new HttpRoute(target, null, proxy, false);
         });
-  }
-
-  String getUserAgent() {
-    String sdkUserAgent = UserAgent.asString();
-    // Split the string into parts
-    String[] parts = sdkUserAgent.split("\\s+");
-
-    // User Agent is in format:
-    // product/product-version databricks-sdk-java/sdk-version jvm/jvm-version other-info
-    // Remove the SDK part from user agent
-    StringBuilder mergedString = new StringBuilder();
-    for (int i = 0; i < parts.length; i++) {
-      if (parts[i].startsWith(SDK_USER_AGENT)) {
-        mergedString.append(JDBC_HTTP_USER_AGENT);
-      } else {
-        mergedString.append(parts[i]);
-      }
-      if (i != parts.length - 1) {
-        mergedString.append(" "); // Add space between parts
-      }
-    }
-    return mergedString.toString();
   }
 }
