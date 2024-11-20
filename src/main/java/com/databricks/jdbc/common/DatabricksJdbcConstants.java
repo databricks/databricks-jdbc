@@ -17,7 +17,7 @@ public final class DatabricksJdbcConstants {
   public static final Pattern HTTP_CLUSTER_PATH_PATTERN = Pattern.compile(".*/o/(.+)/(.+)");
   public static final String JDBC_SCHEMA = "jdbc:databricks://";
   public static final LogLevel DEFAULT_LOG_LEVEL = LogLevel.OFF;
-  public static final String USER_AGENT_DELIMITER = "-";
+  public static final String USER_AGENT_DELIMITER = " ";
   public static final String URL_DELIMITER = ";";
   public static final String PORT_DELIMITER = ":";
   public static final String DEFAULT_SCHEMA = "default";
@@ -51,8 +51,8 @@ public final class DatabricksJdbcConstants {
   public static final int DEFAULT_PORT = 443;
   public static final String DEFAULT_USER_AGENT = "DatabricksJDBCDriverOSS";
   public static final String CLIENT_USER_AGENT_PREFIX = "Java";
-  public static final String USER_AGENT_SEA_CLIENT = "SQLExecHttpClient-HC";
-  public static final String USER_AGENT_THRIFT_CLIENT = "THttpClient-HC";
+  public static final String USER_AGENT_SEA_CLIENT = "SQLExecHttpClient/HC";
+  public static final String USER_AGENT_THRIFT_CLIENT = "THttpClient/HC";
   public static final String ALLOWED_VOLUME_INGESTION_PATHS =
       "allowlistedVolumeOperationLocalFilePaths";
   public static final String ALLOWED_STAGING_INGESTION_PATHS = "StagingAllowedLocalPaths";
