@@ -309,6 +309,9 @@ public class DatabricksThriftUtil {
       TSparkDirectResults directResults, String context) throws DatabricksHttpException {
     if (directResults.isSetOperationStatus()) {
       LOGGER.debug("direct result operation status being verified for success response");
+      if (directResults.getOperationStatus().getOperationState() == TOperationState.ERROR_STATE) {
+        throw new DatabricksHttpException(directResults.getOperationStatus().errorMessage);
+      }
       verifySuccessStatus(directResults.getOperationStatus().getStatus(), context);
     }
     if (directResults.isSetResultSetMetadata()) {
