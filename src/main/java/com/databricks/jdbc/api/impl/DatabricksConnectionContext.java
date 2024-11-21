@@ -15,6 +15,7 @@ import com.databricks.sdk.core.utils.Cloud;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
 import java.net.URI;
+import java.sql.DriverPropertyInfo;
 import java.util.*;
 import java.util.regex.Matcher;
 import java.util.stream.Collectors;
@@ -100,6 +101,18 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
       throw new IllegalArgumentException("Invalid url " + "incorrect");
     }
   }
+
+//  @Override
+//  public List<DriverPropertyInfo> getMissingProperties() {
+////    Map<String, String> connectionPropertiesMap = parameters;
+//    List<DriverPropertyInfo> missingPropertyInfos = new ArrayList<>();
+//    // add required properties
+//    for (DatabricksJdbcUrlParams param: DatabricksJdbcUrlParams.values()) {
+//      if (param.isRequired()) {
+//        addMissingProperty(missingPropertyInfos, param, true);
+//      }
+//    }
+//  }
 
   @Override
   public int hashCode() {
@@ -582,6 +595,11 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   @Override
   public int getMaxBatchSize() {
     return Integer.parseInt(getParameter(DatabricksJdbcUrlParams.MAX_BATCH_SIZE));
+  }
+
+  @Override
+  public List<DriverPropertyInfo> getMissingProperties() {
+    return List.of();
   }
 
   private static boolean nullOrEmptyString(String s) {

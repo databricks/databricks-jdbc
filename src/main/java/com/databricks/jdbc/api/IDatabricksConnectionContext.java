@@ -6,6 +6,8 @@ import com.databricks.jdbc.common.IDatabricksComputeResource;
 import com.databricks.jdbc.common.LogLevel;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.sdk.core.ProxyConfig;
+
+import java.sql.DriverPropertyInfo;
 import java.util.List;
 import java.util.Map;
 
@@ -210,4 +212,6 @@ public interface IDatabricksConnectionContext {
 
   /** Returns the maximum number of commands that can be executed in a single batch. */
   int getMaxBatchSize();
+
+  List<DriverPropertyInfo> getMissingProperties();
 }
