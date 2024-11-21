@@ -5,10 +5,11 @@ import static com.databricks.jdbc.integration.IntegrationTestUtil.getFullyQualif
 import com.databricks.jdbc.api.IDatabricksConnection;
 import com.databricks.jdbc.api.IDatabricksResultSet;
 import com.databricks.jdbc.api.IDatabricksStatement;
-import com.databricks.jdbc.api.IDatabricksUCVolumeClient;
+import com.databricks.jdbc.api.IDatabricksVolumeClient;
 import com.databricks.jdbc.api.impl.DatabricksResultSetMetaData;
 import com.databricks.jdbc.api.impl.arrow.ArrowResultChunk;
 import com.databricks.jdbc.common.DatabricksJdbcConstants;
+import com.databricks.jdbc.exception.DatabricksSQLException;
 import java.io.File;
 import java.io.FileInputStream;
 import java.math.BigDecimal;
@@ -85,6 +86,40 @@ public class DriverTest {
   }
 
   @Test
+  void testGcpServiceAccountOauthM2M() throws Exception {
+    DriverManager.registerDriver(new Driver());
+    String jdbcUrl =
+        "jdbc:databricks://4371047901336987.7.gcp.databricks.com:443/default;transportMode=http;AuthMech=11;Auth_Flow=1;httpPath=/sql/1.0/warehouses/dd5955aacf3f09e5;GoogleServiceAccount=xx-compute@developer.gserviceaccount.com";
+
+    Connection con = DriverManager.getConnection(jdbcUrl, "token", "x");
+    System.out.println("Connection established with jdbc driver......");
+    Statement statement = con.createStatement();
+    statement.setMaxRows(10000);
+    ResultSet rs = statement.executeQuery("select 1");
+    printResultSet(rs);
+    rs.close();
+    statement.close();
+    con.close();
+  }
+
+  @Test
+  void testGcpCredentialJsonOauthM2M() throws Exception {
+    DriverManager.registerDriver(new Driver());
+    String jdbcUrl =
+        "jdbc:databricks://4371047901336987.7.gcp.databricks.com:443/default;transportMode=http;AuthMech=11;Auth_Flow=1;httpPath=/sql/1.0/warehouses/dd5955aacf3f09e5;GoogleCredentialsFile=<path_to_json_credential_file>";
+
+    Connection con = DriverManager.getConnection(jdbcUrl, "token", "x");
+    System.out.println("Connection established with jdbc driver......");
+    Statement statement = con.createStatement();
+    statement.setMaxRows(10000);
+    ResultSet rs = statement.executeQuery("select 1");
+    printResultSet(rs);
+    rs.close();
+    statement.close();
+    con.close();
+  }
+
+  @Test
   void testGetTablesOSS_Metadata() throws Exception {
     DriverManager.registerDriver(new Driver());
     DriverManager.drivers().forEach(driver -> System.out.println(driver.getClass()));
@@ -135,6 +170,24 @@ public class DriverTest {
     System.out.println("printing is done......");
     rs.close();
     statement.close();
+    con.close();
+  }
+
+  @Test
+  void testThriftSqlState() throws Exception {
+    String jdbcUrl =
+        "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;ssl=1;AuthMech=3;httpPath=sql/protocolv1/o/6051921418418893/1115-130834-ms4m0yv";
+    Connection con = DriverManager.getConnection(jdbcUrl, "token", "xx");
+    System.out.println("Connection established......");
+    Statement s = con.createStatement();
+    try {
+      s.executeQuery("some fake sql");
+    } catch (DatabricksSQLException e) {
+      System.out.println("Error message: " + e.getMessage());
+      if (e.getSQLState() != null && !Objects.equals(e.getSQLState(), "")) {
+        System.out.println("SQL State: " + e.getSQLState());
+      }
+    }
     con.close();
   }
 
@@ -250,7 +303,7 @@ public class DriverTest {
     Connection con = DriverManager.getConnection(jdbcUrl, "token", "xx");
     con.setClientInfo(DatabricksJdbcConstants.ALLOWED_VOLUME_INGESTION_PATHS, "delete");
     System.out.println("Connection created");
-    IDatabricksUCVolumeClient client = ((IDatabricksConnection) con).getUCVolumeClient();
+    IDatabricksVolumeClient client = ((IDatabricksConnection) con).getVolumeClient();
 
     File file = new File("/tmp/put.txt");
     try {
@@ -283,6 +336,42 @@ public class DriverTest {
           "Object exists "
               + client.objectExists(
                   "samikshya_hackathon", "default", "gopal-psl", "test-stream.csv", false));
+    } finally {
+      file.delete();
+      con.close();
+    }
+  }
+
+  @Test
+  void testDBFSVolumeOperation() throws Exception {
+    DriverManager.registerDriver(new Driver());
+    DriverManager.drivers().forEach(driver -> System.out.println(driver.getClass()));
+    System.out.println("Starting test");
+    // Getting the connection
+    String jdbcUrl =
+        "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/dd43ee29fedd958d;Loglevel=debug;useFileSystemAPI=1";
+    Connection con = DriverManager.getConnection(jdbcUrl, "token", "xx");
+    System.out.println("Connection created");
+
+    IDatabricksVolumeClient client = ((IDatabricksConnection) con).getVolumeClient();
+
+    File file = new File("/tmp/put.txt");
+    try {
+      Files.writeString(file.toPath(), "put string check");
+      System.out.println("File created");
+
+      System.out.println(
+          "Object inserted "
+              + client.putObject(
+                  "___________________first",
+                  "jprakash-test",
+                  "jprakash_volume",
+                  "test-stream.csv",
+                  "/tmp/put.txt",
+                  true));
+
+    } catch (Exception e) {
+      e.printStackTrace();
     } finally {
       file.delete();
       con.close();

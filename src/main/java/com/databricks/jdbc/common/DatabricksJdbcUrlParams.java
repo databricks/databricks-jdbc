@@ -48,7 +48,7 @@ public enum DatabricksJdbcUrlParams {
   DISCOVERY_URL("OAuthDiscoveryURL"),
   ENABLE_ARROW("EnableArrow", "1"),
   DIRECT_RESULT("EnableDirectResults", "1"),
-  LZ4_COMPRESSION_FLAG("EnableQueryResultLZ4Compression"), // Backward compatibility
+  LZ4_COMPRESSION_FLAG("EnableQueryResultLZ4Compression"),
   COMPRESSION_FLAG("QueryResultCompressionType"),
   USER_AGENT_ENTRY("useragententry"),
   USE_EMPTY_METADATA("useemptymetadata"),
@@ -57,15 +57,17 @@ public enum DatabricksJdbcUrlParams {
   RATE_LIMIT_RETRY("RateLimitRetry", "1"),
   IDLE_HTTP_CONNECTION_EXPIRY("IdleHttpConnectionExpiry", "60"),
   SUPPORT_MANY_PARAMETERS("supportManyParameters", "0"),
+  USE_FILE_SYSTEM_API("useFileSystemAPI", "0"),
   CLOUD_FETCH_THREAD_POOL_SIZE("cloudFetchThreadPoolSize", "16"),
   TOKEN_ENDPOINT("OAuth2TokenEndpoint"),
   AUTH_ENDPOINT("OAuth2AuthorizationEndPoint"),
   SSL_TRUST_STORE("SSLTrustStore"),
-  SSL_TRUST_STORE_PROVIDER("SSLTrustStoreProvider"),
   SSL_TRUST_STORE_PASSWORD("SSLTrustStorePwd"),
   SSL_TRUST_STORE_TYPE("SSLTrustStoreType", "JKS"),
-  CHECK_CERTIFICATE_REVOCATION("CheckCertificateRevocation", "1"),
+  CHECK_CERTIFICATE_REVOCATION("CheckCertRevocation", "1"),
   ACCEPT_UNDETERMINED_CERTIFICATE_REVOCATION("AcceptUndeterminedRevocation", "0"),
+  GOOGLE_SERVICE_ACCOUNT("GoogleServiceAccount"),
+  GOOGLE_CREDENTIALS_FILE("GoogleCredentialsFile"),
   MAX_BATCH_SIZE("MaxBatchSize", "500");
 
   private final String paramName;

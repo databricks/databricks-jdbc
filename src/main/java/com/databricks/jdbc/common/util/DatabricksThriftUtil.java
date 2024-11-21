@@ -22,7 +22,6 @@ import java.util.stream.IntStream;
 public class DatabricksThriftUtil {
 
   private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(DatabricksThriftUtil.class);
-
   public static final List<TStatusCode> SUCCESS_STATUS_LIST =
       List.of(TStatusCode.SUCCESS_STATUS, TStatusCode.SUCCESS_WITH_INFO_STATUS);
 
@@ -43,12 +42,12 @@ public class DatabricksThriftUtil {
         .setExpiration(Long.toString(chunkInfo.getExpiryTime()));
   }
 
-  public static void verifySuccessStatus(TStatusCode statusCode, String errorContext)
+  public static void verifySuccessStatus(TStatus status, String errorContext)
       throws DatabricksHttpException {
-    if (!SUCCESS_STATUS_LIST.contains(statusCode)) {
+    if (!SUCCESS_STATUS_LIST.contains(status.getStatusCode())) {
       String errorMessage = "Error thrift response received. " + errorContext;
       LOGGER.error(errorMessage);
-      throw new DatabricksHttpException(errorMessage);
+      throw new DatabricksHttpException(errorMessage, status.getSqlState());
     }
   }
 
@@ -258,8 +257,13 @@ public class DatabricksThriftUtil {
   }
 
   public static TOperationHandle getOperationHandle(StatementId statementId) {
+    THandleIdentifier identifier = statementId.toOperationIdentifier();
+    // This will help logging the statement-Id in readable format for debugging purposes
+    LOGGER.debug(
+        "getOperationHandle {%s} for statementId {%s}",
+        statementId, byteBufferToString(identifier.guid));
     return new TOperationHandle()
-        .setOperationId(statementId.toOperationIdentifier())
+        .setOperationId(identifier)
         .setOperationType(TOperationType.UNKNOWN);
   }
 
@@ -305,20 +309,19 @@ public class DatabricksThriftUtil {
       TSparkDirectResults directResults, String context) throws DatabricksHttpException {
     if (directResults.isSetOperationStatus()) {
       LOGGER.debug("direct result operation status being verified for success response");
-      verifySuccessStatus(directResults.getOperationStatus().getStatus().getStatusCode(), context);
+      verifySuccessStatus(directResults.getOperationStatus().getStatus(), context);
     }
     if (directResults.isSetResultSetMetadata()) {
       LOGGER.debug("direct results metadata being verified for success response");
-      verifySuccessStatus(
-          directResults.getResultSetMetadata().getStatus().getStatusCode(), context);
+      verifySuccessStatus(directResults.getResultSetMetadata().getStatus(), context);
     }
     if (directResults.isSetCloseOperation()) {
       LOGGER.debug("direct results close operation verified for success response");
-      verifySuccessStatus(directResults.getCloseOperation().getStatus().getStatusCode(), context);
+      verifySuccessStatus(directResults.getCloseOperation().getStatus(), context);
     }
     if (directResults.isSetResultSet()) {
       LOGGER.debug("direct result set being verified for success response");
-      verifySuccessStatus(directResults.getResultSet().getStatus().getStatusCode(), context);
+      verifySuccessStatus(directResults.getResultSet().getStatus(), context);
     }
   }
 }

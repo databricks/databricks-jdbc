@@ -5,6 +5,6 @@ public class DatabricksValidationException extends DatabricksSQLException {
 
   public DatabricksValidationException(String reason) {
     // TODO: Add vendor-specific (databricks) exception code
-    super(reason, null, 0);
+    super(reason, 0);
   }
 }

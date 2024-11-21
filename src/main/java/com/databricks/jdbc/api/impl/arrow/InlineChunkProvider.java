@@ -5,7 +5,7 @@ import static com.databricks.jdbc.common.util.DecompressionUtil.decompress;
 
 import com.databricks.jdbc.api.IDatabricksSession;
 import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
-import com.databricks.jdbc.common.CompressionType;
+import com.databricks.jdbc.common.CompressionCodec;
 import com.databricks.jdbc.dbclient.impl.thrift.DatabricksThriftServiceClient;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
@@ -89,8 +89,8 @@ public class InlineChunkProvider implements ChunkProvider {
       IDatabricksStatementInternal parentStatement)
       throws DatabricksParsingException {
     ByteArrayOutputStream baos = new ByteArrayOutputStream();
-    CompressionType compressionType =
-        CompressionType.getCompressionMapping(resultsResp.getResultSetMetadata());
+    CompressionCodec compressionType =
+        CompressionCodec.getCompressionMapping(resultsResp.getResultSetMetadata());
     try {
       byte[] serializedSchema = getSerializedSchema(resultsResp.getResultSetMetadata());
       if (serializedSchema != null) {
@@ -113,7 +113,7 @@ public class InlineChunkProvider implements ChunkProvider {
   }
 
   void writeToByteOutputStream(
-      CompressionType compressionType,
+      CompressionCodec compressionCodec,
       IDatabricksStatementInternal parentStatement,
       List<TSparkArrowBatch> arrowBatchList,
       ByteArrayOutputStream baos)
@@ -122,10 +122,10 @@ public class InlineChunkProvider implements ChunkProvider {
       byte[] decompressedBytes =
           decompress(
               arrowBatch.getBatch(),
-              compressionType,
+              compressionCodec,
               String.format(
                   "Data fetch for inline arrow batch [%d] and statement [%s] with decompression algorithm : [%s]",
-                  arrowBatch.getRowCount(), parentStatement, compressionType));
+                  arrowBatch.getRowCount(), parentStatement, compressionCodec));
       totalRows += arrowBatch.getRowCount();
       baos.write(decompressedBytes);
     }

@@ -1,4 +1,23 @@
 # Version Changelog
+## [v0.9.7-oss] - 2024-11-20
+### Added
+* Added GCP OAuth support: Use Google ID (service account email) with a custom JWT or Google Credentials.
+* SQL state added in thrift flow
+* Add readable statement-Id for thrift
+* Added Client to perform UC Volume operations without the need of spinning up your DB compute
+* Add compression for SEA flow
+### Updated
+* Updated support for large queries in thrift flow
+* Throw exceptions in case unsupported old DBSQL versions are used (i.e., before DBR V15.2)
+* Deploy reduced POM during release
+* Improve executor service management
+### Fixed
+* Certificate revocation properties only apply when provided
+* Create a new HTTP client for each connection
+* Accept customer userAgent without errors
+
+---
+
 ## [v0.9.6-oss] - 2024-10-24
 ### Added
 * Added compression in the Thrift protocol flow.

@@ -2,7 +2,7 @@ package com.databricks.jdbc.api.impl.arrow;
 
 import com.databricks.jdbc.api.IDatabricksSession;
 import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
-import com.databricks.jdbc.common.CompressionType;
+import com.databricks.jdbc.common.CompressionCodec;
 import com.databricks.jdbc.common.util.DatabricksThriftUtil;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
 import com.databricks.jdbc.dbclient.impl.common.StatementId;
@@ -44,7 +44,7 @@ public class RemoteChunkProvider implements ChunkProvider, ChunkDownloadCallback
   private Long totalChunksInMemory;
   private long allowedChunksInMemory;
   private boolean isClosed;
-  private final CompressionType compressionType;
+  private final CompressionCodec compressionCodec;
   private final ConcurrentHashMap<Long, ArrowResultChunk> chunkIndexToChunksMap;
 
   RemoteChunkProvider(
@@ -63,7 +63,7 @@ public class RemoteChunkProvider implements ChunkProvider, ChunkDownloadCallback
     this.chunkCount = resultManifest.getTotalChunkCount();
     this.rowCount = resultManifest.getTotalRowCount();
     this.chunkIndexToChunksMap = initializeChunksMap(resultManifest, resultData, statementId);
-    this.compressionType = CompressionType.NONE; // TODO: handle compression in this flow.
+    this.compressionCodec = resultManifest.getResultCompression();
     initializeData();
   }
 
@@ -74,12 +74,12 @@ public class RemoteChunkProvider implements ChunkProvider, ChunkDownloadCallback
       IDatabricksSession session,
       IDatabricksHttpClient httpClient,
       int chunksDownloaderThreadPoolSize,
-      CompressionType compressionType)
+      CompressionCodec compressionCodec)
       throws DatabricksSQLException {
     RemoteChunkProvider.chunksDownloaderThreadPoolSize = chunksDownloaderThreadPoolSize;
     this.chunkDownloaderExecutorService = createChunksDownloaderExecutorService();
     this.httpClient = httpClient;
-    this.compressionType = compressionType;
+    this.compressionCodec = compressionCodec;
     this.rowCount = 0;
     this.session = session;
     this.statementId = parentStatement.getStatementId();
@@ -142,8 +142,8 @@ public class RemoteChunkProvider implements ChunkProvider, ChunkDownloadCallback
   }
 
   @Override
-  public CompressionType getCompressionType() {
-    return compressionType;
+  public CompressionCodec getCompressionCodec() {
+    return compressionCodec;
   }
 
   /** {@inheritDoc} */

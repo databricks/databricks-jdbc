@@ -112,7 +112,11 @@ final class DatabricksThriftAccessor {
               "Error while receiving response from Thrift server. Request {%s}, Error {%s}",
               request, e.getMessage());
       LOGGER.error(e, errorMessage);
-      throw new DatabricksSQLException(errorMessage, e);
+      if (e instanceof SQLException) {
+        throw new DatabricksSQLException(errorMessage, ((SQLException) e).getSQLState());
+      } else {
+        throw new DatabricksSQLException(errorMessage);
+      }
     }
   }
 
@@ -120,7 +124,11 @@ final class DatabricksThriftAccessor {
       throws DatabricksHttpException {
     refreshHeadersIfRequired();
     return getResultSetResp(
-        TStatusCode.SUCCESS_STATUS, operationHandle, context, DEFAULT_ROW_LIMIT, false);
+        new TStatus().setStatusCode(TStatusCode.SUCCESS_STATUS),
+        operationHandle,
+        context,
+        DEFAULT_ROW_LIMIT,
+        false);
   }
 
   TCancelOperationResp cancelOperation(TCancelOperationReq req) throws DatabricksHttpException {
@@ -159,7 +167,7 @@ final class DatabricksThriftAccessor {
             parentStatement.getStatementId().toSQLExecStatementId());
     int maxRows = (parentStatement == null) ? DEFAULT_ROW_LIMIT : parentStatement.getMaxRows();
     return getResultSetResp(
-        TStatusCode.SUCCESS_STATUS,
+        new TStatus().setStatusCode(TStatusCode.SUCCESS_STATUS),
         getOperationHandle(parentStatement.getStatementId()),
         context,
         maxRows,
@@ -167,13 +175,13 @@ final class DatabricksThriftAccessor {
   }
 
   private TFetchResultsResp getResultSetResp(
-      TStatusCode responseCode,
+      TStatus responseStatus,
       TOperationHandle operationHandle,
       String context,
       int maxRows,
       boolean fetchMetadata)
       throws DatabricksHttpException {
-    verifySuccessStatus(responseCode, context);
+    verifySuccessStatus(responseStatus, context);
     TFetchResultsReq request =
         new TFetchResultsReq()
             .setOperationHandle(operationHandle)
@@ -195,7 +203,7 @@ final class DatabricksThriftAccessor {
       throw new DatabricksHttpException(errorMessage, e);
     }
     verifySuccessStatus(
-        response.getStatus().getStatusCode(),
+        response.getStatus(),
         String.format(
             "Error while fetching results Request {%s}. TFetchResultsResp {%s}. ",
             request, response));
@@ -212,9 +220,11 @@ final class DatabricksThriftAccessor {
 
     // Set direct result configuration
     int maxRows = (parentStatement == null) ? DEFAULT_ROW_LIMIT : parentStatement.getMaxRows();
-    TSparkGetDirectResults directResults =
-        new TSparkGetDirectResults().setMaxBytes(DEFAULT_BYTE_LIMIT).setMaxRows(maxRows);
-    request.setGetDirectResults(directResults);
+    if (enableDirectResults) {
+      TSparkGetDirectResults directResults =
+          new TSparkGetDirectResults().setMaxBytes(DEFAULT_BYTE_LIMIT).setMaxRows(maxRows);
+      request.setGetDirectResults(directResults);
+    }
 
     TExecuteStatementResp response;
     TFetchResultsResp resultSet;
@@ -249,7 +259,7 @@ final class DatabricksThriftAccessor {
         // Fetch the result data after polling
         resultSet =
             getResultSetResp(
-                response.getStatus().getStatusCode(),
+                response.getStatus(),
                 response.getOperationHandle(),
                 response.toString(),
                 maxRows,
@@ -286,15 +296,19 @@ final class DatabricksThriftAccessor {
         LOGGER.error(
             "Received error response {%s} from Thrift Server for request {%s}",
             response, request.toString());
-        throw new DatabricksSQLException(response.status.errorMessage);
+        throw new DatabricksSQLException(response.status.errorMessage, response.status.sqlState);
       }
-    } catch (TException e) {
+    } catch (DatabricksSQLException | TException e) {
       String errorMessage =
           String.format(
               "Error while receiving response from Thrift server. Request {%s}, Error {%s}",
               request.toString(), e.getMessage());
       LOGGER.error(e, errorMessage);
-      throw new DatabricksHttpException(errorMessage, e);
+      if (e instanceof DatabricksSQLException) {
+        throw new DatabricksHttpException(errorMessage, ((DatabricksSQLException) e).getSQLState());
+      } else {
+        throw new DatabricksHttpException(errorMessage, e);
+      }
     }
     StatementId statementId = new StatementId(response.getOperationHandle().operationId);
     if (parentStatement != null) {
@@ -323,12 +337,7 @@ final class DatabricksThriftAccessor {
       if (statusCode == TStatusCode.SUCCESS_STATUS
           || statusCode == TStatusCode.SUCCESS_WITH_INFO_STATUS) {
         resultSet =
-            getResultSetResp(
-                response.getStatus().getStatusCode(),
-                operationHandle,
-                response.toString(),
-                -1,
-                true);
+            getResultSetResp(response.getStatus(), operationHandle, response.toString(), -1, true);
       }
     } catch (TException e) {
       String errorMessage =
@@ -356,7 +365,7 @@ final class DatabricksThriftAccessor {
       return response.getDirectResults().getResultSet();
     }
     return getResultSetResp(
-        response.getStatus().getStatusCode(),
+        response.getStatus(),
         response.getOperationHandle(),
         response.toString(),
         DEFAULT_ROW_LIMIT,
@@ -372,7 +381,7 @@ final class DatabricksThriftAccessor {
       return response.getDirectResults().getResultSet();
     }
     return getResultSetResp(
-        response.getStatus().getStatusCode(),
+        response.getStatus(),
         response.getOperationHandle(),
         response.toString(),
         DEFAULT_ROW_LIMIT,
@@ -388,7 +397,7 @@ final class DatabricksThriftAccessor {
       return response.getDirectResults().getResultSet();
     }
     return getResultSetResp(
-        response.getStatus().getStatusCode(),
+        response.getStatus(),
         response.getOperationHandle(),
         response.toString(),
         DEFAULT_ROW_LIMIT,
@@ -404,7 +413,7 @@ final class DatabricksThriftAccessor {
       return response.getDirectResults().getResultSet();
     }
     return getResultSetResp(
-        response.getStatus().getStatusCode(),
+        response.getStatus(),
         response.getOperationHandle(),
         response.toString(),
         DEFAULT_ROW_LIMIT,
@@ -420,7 +429,7 @@ final class DatabricksThriftAccessor {
       return response.getDirectResults().getResultSet();
     }
     return getResultSetResp(
-        response.getStatus().getStatusCode(),
+        response.getStatus(),
         response.getOperationHandle(),
         response.toString(),
         DEFAULT_ROW_LIMIT,
@@ -436,7 +445,7 @@ final class DatabricksThriftAccessor {
       return response.getDirectResults().getResultSet();
     }
     return getResultSetResp(
-        response.getStatus().getStatusCode(),
+        response.getStatus(),
         response.getOperationHandle(),
         response.toString(),
         DEFAULT_ROW_LIMIT,
@@ -452,7 +461,7 @@ final class DatabricksThriftAccessor {
       return response.getDirectResults().getResultSet();
     }
     return getResultSetResp(
-        response.getStatus().getStatusCode(),
+        response.getStatus(),
         response.getOperationHandle(),
         response.toString(),
         DEFAULT_ROW_LIMIT,
@@ -468,7 +477,7 @@ final class DatabricksThriftAccessor {
       return response.getDirectResults().getResultSet();
     }
     return getResultSetResp(
-        response.getStatus().getStatusCode(),
+        response.getStatus(),
         response.getOperationHandle(),
         response.toString(),
         DEFAULT_ROW_LIMIT,

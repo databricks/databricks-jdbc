@@ -21,8 +21,11 @@ public interface IDatabricksConnection extends Connection {
   /** Returns the corresponding sql connection object */
   Connection getConnection();
 
-  /** Returns a UC Volume client instance */
-  IDatabricksUCVolumeClient getUCVolumeClient();
+  /**
+   * Returns the respective volume client instance. Currently supports - UCVolumeClient and
+   * DBFSVolumeClient
+   */
+  IDatabricksVolumeClient getVolumeClient();
 
   /** Opens the connection and initiates the underlying session */
   void open() throws DatabricksSQLException;

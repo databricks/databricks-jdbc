@@ -2,7 +2,7 @@ package com.databricks.jdbc.api.impl;
 
 import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.api.IDatabricksSession;
-import com.databricks.jdbc.common.CompressionType;
+import com.databricks.jdbc.common.CompressionCodec;
 import com.databricks.jdbc.common.DatabricksClientType;
 import com.databricks.jdbc.common.DatabricksJdbcUrlParams;
 import com.databricks.jdbc.common.IDatabricksComputeResource;
@@ -40,7 +40,7 @@ public class DatabricksSession implements IDatabricksSession {
   private String schema;
   private final Map<String, String> sessionConfigs;
   private final Map<String, String> clientInfoProperties;
-  private final CompressionType compressionType;
+  private final CompressionCodec compressionCodec;
   private final IDatabricksConnectionContext connectionContext;
 
   /**
@@ -63,7 +63,7 @@ public class DatabricksSession implements IDatabricksSession {
     this.schema = connectionContext.getSchema();
     this.sessionConfigs = connectionContext.getSessionConfigs();
     this.clientInfoProperties = new HashMap<>();
-    this.compressionType = connectionContext.getCompressionType();
+    this.compressionCodec = connectionContext.getCompressionCodec();
     this.connectionContext = connectionContext;
   }
 
@@ -82,7 +82,7 @@ public class DatabricksSession implements IDatabricksSession {
     this.schema = connectionContext.getSchema();
     this.sessionConfigs = connectionContext.getSessionConfigs();
     this.clientInfoProperties = new HashMap<>();
-    this.compressionType = connectionContext.getCompressionType();
+    this.compressionCodec = connectionContext.getCompressionCodec();
     this.connectionContext = connectionContext;
   }
 
@@ -107,9 +107,9 @@ public class DatabricksSession implements IDatabricksSession {
   }
 
   @Override
-  public CompressionType getCompressionType() {
+  public CompressionCodec getCompressionCodec() {
     LOGGER.debug("public String getCompressionType()");
-    return compressionType;
+    return compressionCodec;
   }
 
   @Override

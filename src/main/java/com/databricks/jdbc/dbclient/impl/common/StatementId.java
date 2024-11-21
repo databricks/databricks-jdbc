@@ -11,12 +11,11 @@ import java.util.Objects;
 public class StatementId {
 
   private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(StatementId.class);
+  final DatabricksClientType clientType;
+  final String guid;
+  final String secret;
 
-  private final DatabricksClientType clientType;
-  private final String guid;
-  private final String secret;
-
-  private StatementId(DatabricksClientType clientType, String guid, String secret) {
+  StatementId(DatabricksClientType clientType, String guid, String secret) {
     this.clientType = clientType;
     this.guid = guid;
     this.secret = secret;

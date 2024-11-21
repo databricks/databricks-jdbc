@@ -115,7 +115,6 @@ def main():
 
     driver_util_file_path = "../src/main/java/com/databricks/jdbc/common/util/DriverUtil.java"
     pom_file_path = "../pom.xml"
-    reduced_pom_file_path = "../uber-minimal-pom.xml"
     connection_test_file_path = "../src/test/java/com/databricks/jdbc/api/impl/DatabricksConnectionTest.java"
     database_metadata_test_file_path = ("../src/test/java/com/databricks/jdbc/api/impl/DatabricksDatabaseMetaDataTest"
                                         ".java")
@@ -127,9 +126,6 @@ def main():
 
         _update_pom_xml(pom_file_path, version)
         print(f"Updated version in {pom_file_path}")
-
-        _update_pom_xml(reduced_pom_file_path, version)
-        print(f"Updated version in {reduced_pom_file_path}")
 
         _update_assertions_test_file(connection_test_file_path, version)
         print("Updated version in {}".format(connection_test_file_path))

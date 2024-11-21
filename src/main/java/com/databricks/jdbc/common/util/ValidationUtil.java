@@ -55,7 +55,8 @@ public class ValidationUtil {
     String errorMessage =
         String.format("HTTP request failed by code: %d, status line: %s", statusCode, statusLine);
     throw new DatabricksHttpException(
-        "Unable to fetch HTTP response successfully. " + errorMessage);
+        "Unable to fetch HTTP response successfully. " + errorMessage,
+        DEFAULT_HTTP_EXCEPTION_SQLSTATE);
   }
 
   /**
