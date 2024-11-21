@@ -196,6 +196,7 @@ final class DatabricksThriftAccessor {
       response = getThriftClient().ExecuteStatement(request);
       checkResponseForErrors(response);
 
+      // Get the operation status from direct results if present
       TGetOperationStatusResp statusResp = null;
       if (response.isSetDirectResults()) {
         checkDirectResultsForErrorStatus(response.getDirectResults(), response.toString());
@@ -209,6 +210,7 @@ final class DatabricksThriftAccessor {
               .setOperationHandle(response.getOperationHandle())
               .setGetProgressUpdate(false);
       while (shouldContinuePolling(statusResp)) {
+        // Polling for operation status
         statusResp = getThriftClient().GetOperationStatus(statusReq);
         checkOperationStatusForErrors(statusResp);
       }
@@ -431,12 +433,25 @@ final class DatabricksThriftAccessor {
     return new TCLIService.Client(protocol);
   }
 
+  /**
+   * Fetches the metadata results from the given response object. If the response object contains a
+   * directResults field, then the metadata results are fetched from the directResults field.
+   * Otherwise, the metadata results are fetched by polling the operation status.
+   *
+   * @param response Thrift response object
+   * @param contextDescription description of the context in which the response was received
+   * @return metadata results {@link TFetchResultsResp}
+   * @param <TResp> Thrift response type
+   * @param <FResp> Thrift response field type
+   * @throws TException if an error occurs while fetching the operation status during polling
+   * @throws DatabricksSQLException if an error occurs while fetching the metadata results
+   */
   private <TResp extends TBase<TResp, FResp>, FResp extends TFieldIdEnum>
       TFetchResultsResp fetchMetadataResults(TResp response, String contextDescription)
           throws TException, DatabricksSQLException {
     checkResponseForErrors(response);
 
-    // Handle directResults
+    // Get the operation status from direct results if present
     TGetOperationStatusResp statusResp = null;
     FResp directResultsField = response.fieldForId(directResultsFieldId);
     if (response.isSet(directResultsField)) {
@@ -447,10 +462,12 @@ final class DatabricksThriftAccessor {
       checkOperationStatusForErrors(statusResp);
     }
 
+    // Get the operation handle from the response
     FResp operationHandleField = response.fieldForId(operationHandleFieldId);
     TOperationHandle operationHandle =
         (TOperationHandle) response.getFieldValue(operationHandleField);
 
+    // Polling until query operation state is finished
     TGetOperationStatusReq statusReq =
         new TGetOperationStatusReq()
             .setOperationHandle(operationHandle)
@@ -462,10 +479,12 @@ final class DatabricksThriftAccessor {
 
     if (hasResultDataInDirectResults(response)) {
       // The first response has result data
+      // There is no polling in this case as status was already finished
       TSparkDirectResults directResults =
           (TSparkDirectResults) response.getFieldValue(directResultsField);
       return directResults.getResultSet();
     } else {
+      // Fetch the result data after polling
       FResp statusField = response.fieldForId(statusFieldId);
       TStatus status = (TStatus) response.getFieldValue(statusField);
       return getResultSetResp(
@@ -473,6 +492,14 @@ final class DatabricksThriftAccessor {
     }
   }
 
+  /**
+   * Check the response for errors.
+   *
+   * @param response Thrift response object
+   * @param <T> Thrift response type
+   * @param <F> Thrift response field type
+   * @throws DatabricksSQLException if the response contains an error status
+   */
   private <T extends TBase<T, F>, F extends TFieldIdEnum> void checkResponseForErrors(
       TBase<T, F> response) throws DatabricksSQLException {
     F operationHandleField = response.fieldForId(operationHandleFieldId);
