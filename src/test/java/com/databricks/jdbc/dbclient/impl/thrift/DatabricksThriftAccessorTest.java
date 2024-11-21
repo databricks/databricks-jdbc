@@ -235,6 +235,7 @@ public class DatabricksThriftAccessorTest {
     TExecuteStatementReq request = new TExecuteStatementReq();
     TExecuteStatementResp tExecuteStatementResp =
         new TExecuteStatementResp()
+            .setOperationHandle(tOperationHandle)
             .setStatus(
                 new TStatus()
                     .setStatusCode(TStatusCode.ERROR_STATUS) // Simulate an error

@@ -518,7 +518,8 @@ final class DatabricksThriftAccessor {
       throw new DatabricksSQLException("Operation handle not set");
     }
     if (isErrorStatusCode(response.status.statusCode)) {
-      throw new DatabricksSQLException(response.status.errorMessage);
+      throw new DatabricksSQLException(
+          response.status.getErrorMessage(), response.status.getSqlState());
     }
   }
 
