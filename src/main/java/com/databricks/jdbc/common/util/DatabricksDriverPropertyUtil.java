@@ -80,7 +80,7 @@ public class DatabricksDriverPropertyUtil {
         switch (authFlow) {
           case TOKEN_PASSTHROUGH:
             if (connectionContext.getOAuthRefreshToken() != null) {
-              addMissingProperty(missingPropertyInfos, connectionPropertiesMap, CLIENT_ID, false);
+              addMissingProperty(missingPropertyInfos, connectionPropertiesMap, CLIENT_ID, true);
               addMissingProperty(
                   missingPropertyInfos, connectionPropertiesMap, CLIENT_SECRET, true);
               handleTokenEndpointAndDiscoveryMode(
