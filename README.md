@@ -129,7 +129,7 @@ The driver supports both [SLF4J](https://www.slf4j.org/) and [JUL](https://docs.
     be passed in the JDBC URL. Example:
 
     ```
-    jdbc:databricks://your-databricks-host:443;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/your-warehouse-id;UID=token;logLevel=DEBUG;logPath=/path/to/dir;logFileSize=10;logFileCount=5
+    jdbc:databricks://your-databricks-host:443;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/your-warehouse-id;UID=token;logLevel=DEBUG;logPath=/path/to/dir;logFileSize=10;logFileCount=5
     ```
 
   - __Configuration File__: The logging properties can also be set in a `logging.properties` file. The file should be

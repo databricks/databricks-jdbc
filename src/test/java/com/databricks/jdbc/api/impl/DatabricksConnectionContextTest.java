@@ -95,7 +95,7 @@ class DatabricksConnectionContextTest {
         IDatabricksConnectionContext.AuthFlow.TOKEN_PASSTHROUGH, connectionContext.getAuthFlow());
     assertEquals(IDatabricksConnectionContext.AuthMech.PAT, connectionContext.getAuthMech());
     assertEquals(CompressionCodec.NONE, connectionContext.getCompressionCodec());
-    assertEquals(8, connectionContext.parameters.size());
+    assertEquals(7, connectionContext.parameters.size());
     assertEquals(LogLevel.OFF, connectionContext.getLogLevel());
     assertEquals(connectionContext.getOAuthScopesForU2M(), expected_scopes);
     assertFalse(connectionContext.isAllPurposeCluster());
@@ -116,7 +116,7 @@ class DatabricksConnectionContextTest {
         IDatabricksConnectionContext.AuthFlow.CLIENT_CREDENTIALS, connectionContext.getAuthFlow());
     assertEquals(connectionContext.getOAuthScopesForU2M(), expected_scopes);
     assertFalse(connectionContext.isAllPurposeCluster());
-    assertEquals(6, connectionContext.parameters.size());
+    assertEquals(5, connectionContext.parameters.size());
     assertEquals(DatabricksClientType.SQL_EXEC, connectionContext.getClientType());
     assertEquals(
         "abc-compute@developer.gserviceaccount.com", connectionContext.getGoogleServiceAccount());

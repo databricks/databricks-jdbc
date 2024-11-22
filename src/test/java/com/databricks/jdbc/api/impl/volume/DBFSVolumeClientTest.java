@@ -16,7 +16,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 @ExtendWith(MockitoExtension.class)
 public class DBFSVolumeClientTest {
   private static final String JDBC_URL =
-      "jdbc:databricks://adb-565757575.18.azuredatabricks.net:4423/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/erg6767gg;useFileSystemAPI=1";
+      "jdbc:databricks://adb-565757575.18.azuredatabricks.net:4423/default;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/erg6767gg;useFileSystemAPI=1";
   @Mock DatabricksSdkClient client;
 
   @Test

@@ -36,13 +36,13 @@ public class TestConstants {
           .computeResource(CLUSTER_COMPUTE)
           .build();
   public static final String WAREHOUSE_JDBC_URL =
-      "jdbc:databricks://adb-565757575.18.azuredatabricks.net:4423/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/warehouse_id;UserAgentEntry=MyApp";
+      "jdbc:databricks://adb-565757575.18.azuredatabricks.net:4423/default;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/warehouse_id;UserAgentEntry=MyApp";
   public static final String WAREHOUSE_JDBC_URL_WITH_THRIFT =
-      "jdbc:databricks://adb-565757575.18.azuredatabricks.net:4423/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/warehouse_id;UseThriftClient=1;";
+      "jdbc:databricks://adb-565757575.18.azuredatabricks.net:4423/default;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/warehouse_id;UseThriftClient=1;";
   public static final String USER_AGENT_URL =
-      "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=http;ssl=1;httpPath=sql/protocolv1/o/6051921418418893/1115-130834-ms4m0yv;AuthMech=3;UserAgentEntry=TEST/24.2.0.2712019";
+      "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;ssl=1;httpPath=sql/protocolv1/o/6051921418418893/1115-130834-ms4m0yv;AuthMech=3;UserAgentEntry=TEST/24.2.0.2712019";
   public static final String CLUSTER_JDBC_URL =
-      "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=http;ssl=1;httpPath=sql/protocolv1/o/6051921418418893/1115-130834-ms4m0yv;AuthMech=3;UserAgentEntry=MyApp";
+      "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;ssl=1;httpPath=sql/protocolv1/o/6051921418418893/1115-130834-ms4m0yv;AuthMech=3;UserAgentEntry=MyApp";
   public static final TRowSet binaryRowSet =
       new TRowSet()
           .setColumns(
@@ -114,13 +114,13 @@ public class TestConstants {
           + "  \"token_type\": \"Bearer\"\n"
           + "}";
   public static final String GCP_TEST_URL =
-      "jdbc:databricks://4371047901336987.7.gcp.databricks.com:443/default;transportMode=http;AuthMech=11;Auth_Flow=1;httpPath=/sql/1.0/warehouses/dd5955aacf3f09e5;GoogleServiceAccount=abc-compute@developer.gserviceaccount.com;";
+      "jdbc:databricks://4371047901336987.7.gcp.databricks.com:443/default;AuthMech=11;Auth_Flow=1;httpPath=/sql/1.0/warehouses/dd5955aacf3f09e5;GoogleServiceAccount=abc-compute@developer.gserviceaccount.com;";
   public static final String VALID_URL_1 =
       "jdbc:databricks://adb-565757575.18.azuredatabricks.net:4423/default;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/erg6767gg;LogLevel=debug;LogPath=./test1;auth_flow=2";
   public static final String VALID_URL_2 =
       "jdbc:databricks://adb-565656.azuredatabricks.net/default;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/fgff575757;LogLevel=invalid;EnableQueryResultLZ4Compression=1;UseThriftClient=0";
   public static final String VALID_URL_3 =
-      "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=http;ssl=0;AuthMech=3;httpPath=/sql/1.0/warehouses/5c89f447c476a5a8;EnableQueryResultLZ4Compression=0;UseThriftClient=1;LogLevel=1234";
+      "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;ssl=0;AuthMech=3;httpPath=/sql/1.0/warehouses/5c89f447c476a5a8;EnableQueryResultLZ4Compression=0;UseThriftClient=1;LogLevel=1234";
   public static final String VALID_URL_4 =
       "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;AuthMech=3;httpPath=/sql/1.0/warehouses/5c89f447c476a5a8;QueryResultCompressionType=1;EnableDirectResults=1;";
   public static final String VALID_URL_5 =

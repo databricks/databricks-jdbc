@@ -54,7 +54,7 @@ public class DriverTest {
     DriverManager.drivers().forEach(driver -> System.out.println(driver.getClass()));
     // Getting the connection
     String jdbcUrl =
-        "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=https;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/791ba2a31c7fd70a;";
+        "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/791ba2a31c7fd70a;";
     Connection con = DriverManager.getConnection(jdbcUrl, "token", "x");
     System.out.println("Connection established......");
     Statement statement = con.createStatement();
@@ -70,7 +70,7 @@ public class DriverTest {
   void testResultSetMetaData() throws Exception {
     DriverManager.registerDriver(new Driver());
     String jdbcUrl =
-        "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/58aa1b363649e722";
+        "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/58aa1b363649e722";
 
     Connection con = DriverManager.getConnection(jdbcUrl, "token", "x");
     System.out.println("Connection established with jdbc driver......");
@@ -89,7 +89,7 @@ public class DriverTest {
   void testGcpServiceAccountOauthM2M() throws Exception {
     DriverManager.registerDriver(new Driver());
     String jdbcUrl =
-        "jdbc:databricks://4371047901336987.7.gcp.databricks.com:443/default;transportMode=http;AuthMech=11;Auth_Flow=1;httpPath=/sql/1.0/warehouses/dd5955aacf3f09e5;GoogleServiceAccount=xx-compute@developer.gserviceaccount.com";
+        "jdbc:databricks://4371047901336987.7.gcp.databricks.com:443/default;AuthMech=11;Auth_Flow=1;httpPath=/sql/1.0/warehouses/dd5955aacf3f09e5;GoogleServiceAccount=xx-compute@developer.gserviceaccount.com";
 
     Connection con = DriverManager.getConnection(jdbcUrl, "token", "x");
     System.out.println("Connection established with jdbc driver......");
@@ -106,7 +106,7 @@ public class DriverTest {
   void testGcpCredentialJsonOauthM2M() throws Exception {
     DriverManager.registerDriver(new Driver());
     String jdbcUrl =
-        "jdbc:databricks://4371047901336987.7.gcp.databricks.com:443/default;transportMode=http;AuthMech=11;Auth_Flow=1;httpPath=/sql/1.0/warehouses/dd5955aacf3f09e5;GoogleCredentialsFile=<path_to_json_credential_file>";
+        "jdbc:databricks://4371047901336987.7.gcp.databricks.com:443/default;AuthMech=11;Auth_Flow=1;httpPath=/sql/1.0/warehouses/dd5955aacf3f09e5;GoogleCredentialsFile=<path_to_json_credential_file>";
 
     Connection con = DriverManager.getConnection(jdbcUrl, "token", "x");
     System.out.println("Connection established with jdbc driver......");
@@ -125,7 +125,7 @@ public class DriverTest {
     DriverManager.drivers().forEach(driver -> System.out.println(driver.getClass()));
     // Getting the connection
     String jdbcUrl =
-        "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=https;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/791ba2a31c7fd70a;";
+        "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/791ba2a31c7fd70a;";
     Connection con = DriverManager.getConnection(jdbcUrl, "token", "x");
     System.out.println("Connection established......");
     ResultSet resultSet = con.getMetaData().getTables("main", "%", "%", null);
@@ -139,7 +139,7 @@ public class DriverTest {
     DriverManager.registerDriver(new Driver());
     DriverManager.drivers().forEach(driver -> System.out.println(driver.getClass()));
     String jdbcUrl =
-        "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=https;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/791ba2a31c7fd70a;";
+        "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/791ba2a31c7fd70a;";
     Connection con =
         DriverManager.getConnection(jdbcUrl, "token", "xx"); // Default connection, arrow enabled.
     System.out.println("Connection established with default params. Arrow is enabled ......");
@@ -157,7 +157,7 @@ public class DriverTest {
     DriverManager.drivers().forEach(driver -> System.out.println(driver.getClass()));
     // Getting the connection
     String jdbcUrl =
-        "jdbc:databricks://arclight-staging-e2-arclight-dmk-qa-staging-us-east-1.staging.cloud.databricks.com:443/default;transportMode=https;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/8561171c1d9afb1f;";
+        "jdbc:databricks://arclight-staging-e2-arclight-dmk-qa-staging-us-east-1.staging.cloud.databricks.com:443/default;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/8561171c1d9afb1f;";
     Connection con = DriverManager.getConnection(jdbcUrl, "x", "xx");
     System.out.println("Connection established......");
     // Retrieving data
@@ -245,7 +245,7 @@ public class DriverTest {
     DriverManager.registerDriver(new Driver());
     DriverManager.drivers().forEach(driver -> System.out.println(driver.getClass()));
     String jdbcUrl =
-        "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=https;ssl=1;httpPath=sql/protocolv1/o/6051921418418893/1115-130834-ms4m0yv;AuthMech=3;UID=token;LogLevel=debug;LogPath=./logDir;LogFileCount=3;LogFileSize=2;";
+        "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;ssl=1;httpPath=sql/protocolv1/o/6051921418418893/1115-130834-ms4m0yv;AuthMech=3;UID=token;LogLevel=debug;LogPath=./logDir;LogFileCount=3;LogFileSize=2;";
     Connection con = DriverManager.getConnection(jdbcUrl, "token", "x");
     System.out.println("Connection established......");
     ResultSet resultSet =
@@ -260,7 +260,7 @@ public class DriverTest {
   void testDatatypeConversion() throws SQLException {
     DriverManager.registerDriver(new Driver());
     String jdbcUrl =
-        "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=https;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/791ba2a31c7fd70a;";
+        "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/791ba2a31c7fd70a;";
     Connection con = DriverManager.getConnection(jdbcUrl, "token", "x");
     System.out.println("Connection established......");
     String selectSQL =
@@ -286,7 +286,7 @@ public class DriverTest {
     DriverManager.drivers().forEach(driver -> System.out.println(driver.getClass()));
 
     String jdbcUrl =
-        "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=https;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/791ba2a31c7fd70a;TemporarilyUnavailableRetry=3;";
+        "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/791ba2a31c7fd70a;TemporarilyUnavailableRetry=3;";
     Connection con = DriverManager.getConnection(jdbcUrl, "token", "x");
     System.out.println("Connection established......");
     con.close();
@@ -299,7 +299,7 @@ public class DriverTest {
     System.out.println("Starting test");
     // Getting the connection
     String jdbcUrl =
-        "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/791ba2a31c7fd70a;";
+        "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/791ba2a31c7fd70a;";
     Connection con = DriverManager.getConnection(jdbcUrl, "token", "xx");
     con.setClientInfo(DatabricksJdbcConstants.ALLOWED_VOLUME_INGESTION_PATHS, "delete");
     System.out.println("Connection created");
@@ -349,7 +349,7 @@ public class DriverTest {
     System.out.println("Starting test");
     // Getting the connection
     String jdbcUrl =
-        "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/dd43ee29fedd958d;Loglevel=debug;useFileSystemAPI=1";
+        "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/dd43ee29fedd958d;Loglevel=debug;useFileSystemAPI=1";
     Connection con = DriverManager.getConnection(jdbcUrl, "token", "xx");
     System.out.println("Connection created");
 
@@ -390,7 +390,7 @@ public class DriverTest {
     sql.append(joiner).append(")");
     System.out.println("here is SQL " + sql);
     String jdbcUrl =
-        "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=https;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/791ba2a31c7fd70a;supportManyParameters=1";
+        "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/791ba2a31c7fd70a;supportManyParameters=1";
     Connection con = DriverManager.getConnection(jdbcUrl, "token", "x");
     PreparedStatement pstmt = con.prepareStatement(sql.toString());
     List<Integer> ids = new ArrayList<>();
@@ -456,7 +456,7 @@ public class DriverTest {
   void testBatchFunction() throws Exception {
 
     String jdbcUrl =
-        "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/dd43ee29fedd958d;";
+        "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/dd43ee29fedd958d;";
     Connection con = DriverManager.getConnection(jdbcUrl, "jothi.prakash@databricks.com", "xx");
     System.out.println("Connection established......");
 

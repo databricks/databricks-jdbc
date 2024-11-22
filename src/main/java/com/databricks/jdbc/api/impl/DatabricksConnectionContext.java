@@ -451,30 +451,6 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
     return String.format("%s/%s", this.getHostUrl(), this.getHttpPath());
   }
 
-  @VisibleForTesting
-  static LogLevel getLogLevel(int level) {
-    switch (level) {
-      case 0:
-        return LogLevel.OFF;
-      case 1:
-        return LogLevel.FATAL;
-      case 2:
-        return LogLevel.ERROR;
-      case 3:
-        return LogLevel.WARN;
-      case 4:
-        return LogLevel.INFO;
-      case 5:
-        return LogLevel.DEBUG;
-      case 6:
-        return LogLevel.TRACE;
-      default:
-        LOGGER.info(
-            "Using default log level " + DEFAULT_LOG_LEVEL + " as invalid level was provided.");
-        return DEFAULT_LOG_LEVEL;
-    }
-  }
-
   @Override
   public Boolean shouldRetryTemporarilyUnavailableError() {
     return Objects.equals(getParameter(DatabricksJdbcUrlParams.TEMPORARILY_UNAVAILABLE_RETRY), "1");
@@ -589,6 +565,7 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
     return param != null && param.equals("1");
   }
 
+  @Override
   public String getNonProxyHosts() {
     return getParameter(DatabricksJdbcUrlParams.NON_PROXY_HOSTS);
   }
@@ -616,6 +593,30 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   @Override
   public String getConnectionUuid() {
     return connectionUuid;
+  }
+
+  @VisibleForTesting
+  static LogLevel getLogLevel(int level) {
+    switch (level) {
+      case 0:
+        return LogLevel.OFF;
+      case 1:
+        return LogLevel.FATAL;
+      case 2:
+        return LogLevel.ERROR;
+      case 3:
+        return LogLevel.WARN;
+      case 4:
+        return LogLevel.INFO;
+      case 5:
+        return LogLevel.DEBUG;
+      case 6:
+        return LogLevel.TRACE;
+      default:
+        LOGGER.info(
+            "Using default log level " + DEFAULT_LOG_LEVEL + " as invalid level was provided.");
+        return DEFAULT_LOG_LEVEL;
+    }
   }
 
   private static boolean nullOrEmptyString(String s) {

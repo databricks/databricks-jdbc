@@ -28,13 +28,13 @@ public class DatabricksSessionTest {
   @Mock DatabricksThriftServiceClient thriftClient;
   @Mock TSessionHandle tSessionHandle;
   private static final String JDBC_URL_INVALID =
-      "jdbc:databricks://adb-565757575.18.azuredatabricks.net:4423/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehou/erg6767gg;";
+      "jdbc:databricks://adb-565757575.18.azuredatabricks.net:4423/default;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehou/erg6767gg;";
   private static final String WAREHOUSE_ID = "erg6767gg";
   private static final String NEW_CATALOG = "new_catalog";
   private static final String NEW_SCHEMA = "new_schema";
   private static final String SESSION_ID = "session_id";
   private static final String VALID_CLUSTER_URL =
-      "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=http;ssl=1;httpPath=sql/protocolv1/o/6051921418418893/1115-130834-ms4m0yv;AuthMech=3;conncatalog=field_demos;connschema=ossjdbc";
+      "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;ssl=1;httpPath=sql/protocolv1/o/6051921418418893/1115-130834-ms4m0yv;AuthMech=3;conncatalog=field_demos;connschema=ossjdbc";
   private static IDatabricksConnectionContext connectionContext;
 
   static void setupWarehouse(boolean useThrift) throws DatabricksSQLException {

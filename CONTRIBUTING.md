@@ -102,7 +102,7 @@ The easiest and recommended way to enable debug logging is via JDBC URL which wi
 framework. This will send the logs to the file pattern `databricks_jdbc.log.%i` under the specified `LogPath`.
 
 ```
-jdbc:databricks:<host:port>/default;transportMode=https;ssl=1;AuthMech=3;httpPath=<http path>;LogPath=/Users/spiderman;LogLevel=debug
+jdbc:databricks:<host:port>/default;ssl=1;AuthMech=3;httpPath=<http path>;LogPath=/Users/spiderman;LogLevel=debug
 ```
 
 Note that when running the repository tests using maven or editor, logs will be printed to the console as per the

@@ -38,9 +38,9 @@ public class DatabricksPreparedStatementTest {
   private static final String BATCH_STATEMENT =
       "INSERT INTO orders (user_id, shard, region_code, namespace) VALUES (?, ?, ?, ?)";
   private static final String JDBC_URL =
-      "jdbc:databricks://adb-565757575.18.azuredatabricks.net:4423/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/erg6767gg;";
+      "jdbc:databricks://adb-565757575.18.azuredatabricks.net:4423/default;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/erg6767gg;";
   private static final String JDBC_URL_WITH_MANY_PARAMETERS =
-      "jdbc:databricks://adb-565757575.18.azuredatabricks.net:4423/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/erg6767gg;supportManyParameters=1;";
+      "jdbc:databricks://adb-565757575.18.azuredatabricks.net:4423/default;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/erg6767gg;supportManyParameters=1;";
   private static final String JDBC_CLUSTER_URL_WITH_MANY_PARAMETERS =
       VALID_CLUSTER_URL + ";supportManyParameters=1;";
   @Mock DatabricksResultSet resultSet;
