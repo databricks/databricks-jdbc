@@ -25,7 +25,7 @@ public class DriverUtil {
 
   private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(DriverUtil.class);
   public static final String DBSQL_VERSION_SQL = "SELECT current_version().dbsql_version";
-  private static final String VERSION = "0.9.6-oss";
+  private static final String VERSION = "0.9.7-oss";
   private static final int DBSQL_MIN_MAJOR_VERSION_FOR_SEA_SUPPORT = 2024;
   private static final int DBSQL_MIN_MINOR_VERSION_FOR_SEA_SUPPORT = 30;
 
@@ -80,6 +80,13 @@ public class DriverUtil {
         : e.getMessage();
   }
 
+  /**
+   * Returns whether the driver is running against fake services based on request/response stubs.
+   */
+  public static boolean isRunningAgainstFake() {
+    return Boolean.parseBoolean(System.getProperty(IS_FAKE_SERVICE_TEST_PROP));
+  }
+
   private static Throwable getRootCause(Throwable throwable) {
     Throwable cause;
     while ((cause = throwable.getCause()) != null && cause != throwable) {
@@ -92,7 +99,7 @@ public class DriverUtil {
   static void ensureUpdatedDBSQLVersionInUse(IDatabricksConnection connection)
       throws DatabricksValidationException {
     if (connection.getConnectionContext().getClientType() != DatabricksClientType.SQL_EXEC
-        || Boolean.parseBoolean(System.getProperty(IS_FAKE_SERVICE_TEST_PROP))) {
+        || isRunningAgainstFake()) {
       // Check applicable only for SEA flow
       return;
     }

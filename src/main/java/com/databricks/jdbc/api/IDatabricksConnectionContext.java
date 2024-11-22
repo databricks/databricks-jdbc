@@ -85,9 +85,13 @@ public interface IDatabricksConnectionContext {
 
   int getLogFileCount();
 
+  /** Returns the userAgent string specific to client used to fetch results. */
   String getClientUserAgent();
 
   CompressionCodec getCompressionCodec();
+
+  /** Returns the userAgent string specified as part of the JDBC connection string */
+  String getCustomerUserAgent();
 
   String getCatalog();
 

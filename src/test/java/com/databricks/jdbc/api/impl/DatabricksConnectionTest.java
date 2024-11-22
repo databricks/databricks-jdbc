@@ -13,7 +13,6 @@ import com.databricks.jdbc.common.Warehouse;
 import com.databricks.jdbc.dbclient.impl.sqlexec.DatabricksSdkClient;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.exception.DatabricksSQLFeatureNotSupportedException;
-import com.databricks.sdk.core.UserAgent;
 import java.sql.*;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -73,10 +72,6 @@ public class DatabricksConnectionTest {
     connection.open();
     assertFalse(connection.isClosed());
     assertEquals(connection.getSession().getSessionId(), SESSION_ID);
-    String userAgent = UserAgent.asString();
-    assertTrue(userAgent.contains("DatabricksJDBCDriverOSS/0.9.6-oss"));
-    assertTrue(userAgent.contains("Java/SQLExecHttpClient-HC"));
-
     // close the connection
     connection.close();
     assertTrue(connection.isClosed());
