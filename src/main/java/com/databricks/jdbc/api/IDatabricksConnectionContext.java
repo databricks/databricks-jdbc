@@ -6,7 +6,6 @@ import com.databricks.jdbc.common.IDatabricksComputeResource;
 import com.databricks.jdbc.common.LogLevel;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.sdk.core.ProxyConfig;
-
 import java.sql.DriverPropertyInfo;
 import java.util.List;
 import java.util.Map;

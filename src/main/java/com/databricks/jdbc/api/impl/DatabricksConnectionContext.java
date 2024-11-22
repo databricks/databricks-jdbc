@@ -48,6 +48,16 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
     this.computeResource = buildCompute();
   }
 
+  public DatabricksConnectionContext(ImmutableMap<String, String> parameters)
+      throws DatabricksSQLException {
+    this.connectionURL = "";
+    this.host = "";
+    this.port = DEFAULT_PORT;
+    this.schema = DEFAULT_SCHEMA;
+    this.parameters = parameters;
+    this.computeResource = buildCompute();
+  }
+
   /**
    * Parses connection Url and properties into a Databricks specific connection context
    *
@@ -101,18 +111,6 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
       throw new IllegalArgumentException("Invalid url " + "incorrect");
     }
   }
-
-//  @Override
-//  public List<DriverPropertyInfo> getMissingProperties() {
-////    Map<String, String> connectionPropertiesMap = parameters;
-//    List<DriverPropertyInfo> missingPropertyInfos = new ArrayList<>();
-//    // add required properties
-//    for (DatabricksJdbcUrlParams param: DatabricksJdbcUrlParams.values()) {
-//      if (param.isRequired()) {
-//        addMissingProperty(missingPropertyInfos, param, true);
-//      }
-//    }
-//  }
 
   @Override
   public int hashCode() {

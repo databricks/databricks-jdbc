@@ -1,7 +1,6 @@
 package com.databricks.jdbc.api.impl;
 
 import static com.databricks.jdbc.TestConstants.*;
-import static com.databricks.jdbc.common.DatabricksDriverProperty.*;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -17,8 +16,6 @@ import com.databricks.jdbc.dbclient.impl.thrift.DatabricksThriftServiceClient;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.model.client.thrift.generated.TSessionHandle;
-import java.sql.DriverPropertyInfo;
-import java.util.List;
 import java.util.Properties;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -54,21 +51,6 @@ public class DatabricksSessionTest {
             .computeResource(CLUSTER_COMPUTE)
             .build();
     when(thriftClient.createSession(any(), any(), any(), any())).thenReturn(sessionInfo);
-  }
-
-  private DatabricksSession createSession(String jdbcUrl) throws DatabricksSQLException {
-    Properties properties = new Properties();
-    return new DatabricksSession(DatabricksConnectionContext.parse(jdbcUrl, properties), sdkClient);
-  }
-
-  private void assertMissingProperties(DatabricksSession session, String... expectedProperties)
-      throws DatabricksSQLException {
-    List<DriverPropertyInfo> missingProperties = session.checkProperties();
-    for (String prop : expectedProperties) {
-      assertTrue(
-          missingProperties.stream().anyMatch(p -> p.name.equals(prop)),
-          "Missing property: " + prop);
-    }
   }
 
   @Test
@@ -197,90 +179,5 @@ public class DatabricksSessionTest {
     session.setClientInfoProperty(
         DatabricksJdbcUrlParams.AUTH_ACCESS_TOKEN.getParamName(), "token");
     verify(thriftClient).resetAccessToken("token");
-  }
-
-  @Test
-  public void testCheckProperties() throws DatabricksSQLException {
-    String jdbcUrl =
-        "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=http;httpPath=sql/protocolv1/o/6051921418418893/1115-130834-ms4m0yv;AuthMech=3";
-    Properties properties = new Properties();
-    DatabricksSession session = createSession(jdbcUrl);
-    assertMissingProperties(session, USER.getName(), PASSWORD.getName());
-
-    // log-level properties
-    jdbcUrl =
-        "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=http;httpPath=sql/protocolv1/o/6051921418418893/1115-130834-ms4m0yv;AuthMech=3;logLevel=DEBUG;";
-    session = createSession(jdbcUrl);
-    assertMissingProperties(
-        session, LOG_PATH.getName(), LOG_FILE_SIZE.getName(), LOG_FILE_COUNT.getName());
-
-    // auth-flow missing OAUTH auth mech
-    jdbcUrl =
-        "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=http;httpPath=sql/protocolv1/o/6051921418418893/1115-130834-ms4m0yv;AuthMech=11";
-    session = createSession(jdbcUrl);
-    assertMissingProperties(session, AUTH_FLOW.getName());
-
-    // TOKEN_PASSTHROUGH with auth-access token.
-    jdbcUrl =
-        "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=http;httpPath=sql/protocolv1/o/6051921418418893/1115-130834-ms4m0yv;AuthMech=11;Auth_Flow=0";
-    session = createSession(jdbcUrl);
-    assertMissingProperties(session, OAUTH_REFRESH_TOKEN.getName(), AUTH_ACCESS_TOKEN.getName());
-
-    // TOKEN_PASSTHROUGH with refresh token.
-    jdbcUrl =
-        "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=http;httpPath=sql/protocolv1/o/6051921418418893/1115-130834-ms4m0yv;AuthMech=11;Auth_Flow=0;OAuthRefreshToken=token;OAuthDiscoveryMode=0";
-    session = createSession(jdbcUrl);
-    assertMissingProperties(
-        session,
-        CLIENT_ID.getName(),
-        CLIENT_SECRET.getName(),
-        TOKEN_ENDPOINT.getName(),
-        DISCOVERY_MODE.getName(),
-        DISCOVERY_URL.getName());
-
-    // TOKEN_PASSTHROUGH with discovery mode and refresh token.
-    jdbcUrl =
-        "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=http;httpPath=sql/protocolv1/o/6051921418418893/1115-130834-ms4m0yv;AuthMech=11;Auth_Flow=0;OAuthRefreshToken=token;";
-    session = createSession(jdbcUrl);
-    assertMissingProperties(
-        session, CLIENT_ID.getName(), CLIENT_SECRET.getName(), DISCOVERY_URL.getName());
-
-    // client credentials auth flow
-    jdbcUrl =
-        "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=http;httpPath=sql/protocolv1/o/6051921418418893/1115-130834-ms4m0yv;AuthMech=11;Auth_Flow=1;";
-    session = createSession(jdbcUrl);
-    assertMissingProperties(
-        session, CLIENT_ID.getName(), CLIENT_SECRET.getName(), USE_JWT_ASSERTION.getName());
-
-    // client credentials auth flow with jwt assertion
-    jdbcUrl =
-        "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=http;httpPath=sql/protocolv1/o/6051921418418893/1115-130834-ms4m0yv;AuthMech=11;Auth_Flow=1;UseJWTAssertion=1";
-    session = createSession(jdbcUrl);
-    assertMissingProperties(
-        session,
-        CLIENT_ID.getName(),
-        CLIENT_SECRET.getName(),
-        JWT_KEY_FILE.getName(),
-        JWT_ALGORITHM.getName(),
-        JWT_PASS_PHRASE.getName(),
-        JWT_KID.getName());
-
-    // browser-based auth flow
-    jdbcUrl =
-        "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=http;httpPath=sql/protocolv1/o/6051921418418893/1115-130834-ms4m0yv;AuthMech=11;Auth_Flow=2;";
-    session = createSession(jdbcUrl);
-    assertMissingProperties(
-        session, CLIENT_ID.getName(), CLIENT_SECRET.getName(), AUTH_SCOPE.getName());
-
-    // proxy based connection
-    jdbcUrl =
-        "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=http;httpPath=sql/protocolv1/o/6051921418418893/1115-130834-ms4m0yv;AuthMech=11;Auth_Flow=2;useproxy=1";
-    session = createSession(jdbcUrl);
-    assertMissingProperties(
-        session,
-        PROXY_HOST.getName(),
-        PROXY_USER.getName(),
-        PROXY_PWD.getName(),
-        PROXY_PORT.getName());
   }
 }

@@ -1,7 +1,5 @@
 package com.databricks.jdbc.api.impl;
 
-import static com.databricks.jdbc.common.DatabricksDriverProperty.*;
-
 import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.api.IDatabricksSession;
 import com.databricks.jdbc.common.*;
@@ -16,10 +14,7 @@ import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.sdk.support.ToStringer;
 import com.google.common.annotations.VisibleForTesting;
-import java.sql.DriverPropertyInfo;
-import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import javax.annotation.Nullable;
 
@@ -237,117 +232,5 @@ public class DatabricksSession implements IDatabricksSession {
   @Override
   public void setEmptyMetadataClient() {
     databricksMetadataClient = new DatabricksEmptyMetadataClient();
-  }
-
-  @Override
-  public List<DriverPropertyInfo> checkProperties() {
-    Map<String, String> connectionPropertiesMap =
-        new HashMap<>(((DatabricksConnectionContext) connectionContext).parameters);
-    List<DriverPropertyInfo> missingPropertyInfos = new ArrayList<>();
-    // add required properties
-    for (DatabricksDriverProperty property : DatabricksDriverProperty.values()) {
-      if (property.isRequired()) {
-        addMissingProperty(missingPropertyInfos, property, true);
-      }
-    }
-
-    // add optional but important properties
-    addMissingProperty(missingPropertyInfos, SSL, false);
-    addMissingProperty(missingPropertyInfos, LOG_LEVEL, false);
-    addMissingProperty(missingPropertyInfos, USE_PROXY, false);
-    addMissingProperty(missingPropertyInfos, USE_THRIFT_CLIENT, false);
-    addMissingProperty(missingPropertyInfos, ENABLE_ARROW, false);
-    addMissingProperty(missingPropertyInfos, DIRECT_RESULT, false);
-    addMissingProperty(missingPropertyInfos, COMPRESSION_FLAG, false);
-    addMissingProperty(missingPropertyInfos, LZ4_COMPRESSION_FLAG, false);
-    addMissingProperty(missingPropertyInfos, USER_AGENT_ENTRY, false);
-
-    // log-level properties
-    if (connectionPropertiesMap.containsKey(LOG_LEVEL.getName())
-        && connectionContext.getLogLevel() != LogLevel.OFF) {
-      addMissingProperty(missingPropertyInfos, LOG_PATH, false);
-      addMissingProperty(missingPropertyInfos, LOG_FILE_SIZE, false);
-      addMissingProperty(missingPropertyInfos, LOG_FILE_COUNT, false);
-    }
-
-    // auth-related properties
-    IDatabricksConnectionContext.AuthMech authMech = connectionContext.getAuthMech();
-    if (connectionPropertiesMap.containsKey(AUTH_MECH.getName())
-        && authMech == IDatabricksConnectionContext.AuthMech.OAUTH) {
-      IDatabricksConnectionContext.AuthFlow authFlow = connectionContext.getAuthFlow();
-
-      if (connectionPropertiesMap.containsKey(AUTH_FLOW.getName())) {
-        switch (authFlow) {
-          case TOKEN_PASSTHROUGH:
-            if (connectionContext.getOAuthRefreshToken() != null) {
-              addMissingProperty(missingPropertyInfos, CLIENT_ID, false);
-              addMissingProperty(missingPropertyInfos, CLIENT_SECRET, true);
-              handleTokenEndpointAndDiscoveryMode(missingPropertyInfos);
-            } else {
-              addMissingProperty(missingPropertyInfos, OAUTH_REFRESH_TOKEN, false);
-              addMissingProperty(missingPropertyInfos, AUTH_ACCESS_TOKEN, true);
-            }
-            break;
-          case CLIENT_CREDENTIALS:
-            addMissingProperty(missingPropertyInfos, CLIENT_SECRET, true);
-            addMissingProperty(missingPropertyInfos, CLIENT_ID, true);
-
-            if (connectionPropertiesMap.containsKey(USE_JWT_ASSERTION.getName())) {
-              if (connectionContext.useJWTAssertion()) {
-                addMissingProperty(missingPropertyInfos, JWT_KEY_FILE, true);
-                addMissingProperty(missingPropertyInfos, JWT_ALGORITHM, true);
-                addMissingProperty(missingPropertyInfos, JWT_PASS_PHRASE, true);
-                addMissingProperty(missingPropertyInfos, JWT_KID, true);
-                handleTokenEndpointAndDiscoveryMode(missingPropertyInfos);
-              }
-            } else {
-              addMissingProperty(missingPropertyInfos, USE_JWT_ASSERTION, false);
-            }
-            break;
-
-          case BROWSER_BASED_AUTHENTICATION:
-            addMissingProperty(missingPropertyInfos, CLIENT_ID, false);
-            addMissingProperty(missingPropertyInfos, CLIENT_SECRET, false);
-            addMissingProperty(missingPropertyInfos, AUTH_SCOPE, false);
-            break;
-        }
-      } else {
-        missingPropertyInfos.add(getDriverPropertyInfo(AUTH_FLOW, true));
-      }
-    }
-
-    // proxy-related properties
-    if (connectionPropertiesMap.containsKey(USE_PROXY.getName())
-        && connectionContext.getUseProxy()) {
-      addMissingProperty(missingPropertyInfos, PROXY_HOST, true);
-      addMissingProperty(missingPropertyInfos, PROXY_PORT, true);
-      addMissingProperty(missingPropertyInfos, PROXY_USER, false);
-      addMissingProperty(missingPropertyInfos, PROXY_PWD, false);
-    }
-
-    return missingPropertyInfos;
-  }
-
-  private void handleTokenEndpointAndDiscoveryMode(List<DriverPropertyInfo> missingPropertyInfos) {
-    if (connectionContext.getTokenEndpoint() == null
-        && connectionContext.isOAuthDiscoveryModeEnabled()
-        && connectionContext.getOAuthDiscoveryURL() == null) {
-      addMissingProperty(missingPropertyInfos, DISCOVERY_URL, true);
-    } else {
-      addMissingProperty(missingPropertyInfos, TOKEN_ENDPOINT, false);
-      addMissingProperty(missingPropertyInfos, DISCOVERY_MODE, false);
-      addMissingProperty(missingPropertyInfos, DISCOVERY_URL, false);
-    }
-  }
-
-  private void addMissingProperty(
-      List<DriverPropertyInfo> missingPropertyInfos,
-      DatabricksDriverProperty property,
-      boolean required) {
-    Map<String, String> connectionPropertiesMap =
-        new HashMap<>(((DatabricksConnectionContext) connectionContext).parameters);
-    if (!connectionPropertiesMap.containsKey(property.getName())) {
-      missingPropertyInfos.add(getDriverPropertyInfo(property, required));
-    }
   }
 }

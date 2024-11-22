@@ -89,16 +89,13 @@ public class DriverTest {
   void testGetPropertyInfo() throws Exception {
     DriverManager.registerDriver(new Driver());
     String jdbcUrl =
-//        "jdbc:databricks://:443;";
-            "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com;AuthMech=3;httpPath=/sql/1.0/warehouses/58aa1b363649e722";
-    DriverPropertyInfo[] driverPropertyInfos = new Driver().getPropertyInfo(jdbcUrl, new Properties());
-//    DriverPropertyInfo[] driverPropertyInfos =
-//        DriverManager.getDriver(jdbcUrl).getPropertyInfo(jdbcUrl, new Properties());
-//
+        "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com;AuthMech=11;Auth_Flow=0;httpPath=/sql/1.0/warehouses/58aa1b363649e722;loglevel=1";
+    DriverPropertyInfo[] driverPropertyInfos =
+        new Driver().getPropertyInfo(jdbcUrl, new Properties());
     for (DriverPropertyInfo driverPropertyInfo : driverPropertyInfos) {
-//      if (driverPropertyInfo.required) {
+      if (driverPropertyInfo.required) {
         System.out.println(driverPropertyInfo.name + " " + driverPropertyInfo.description);
-//      }
+      }
     }
   }
 
