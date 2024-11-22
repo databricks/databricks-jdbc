@@ -12,7 +12,8 @@ import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.google.common.annotations.VisibleForTesting;
 import java.io.IOException;
 import java.sql.ResultSet;
-import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 
 /**
  * Utility class for operations related to the Databricks JDBC driver.
@@ -23,13 +24,14 @@ import java.util.concurrent.atomic.AtomicReference;
 public class DriverUtil {
 
   private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(DriverUtil.class);
+  public static final String DBSQL_VERSION_SQL = "SELECT current_version().dbsql_version";
   private static final String VERSION = "0.9.6-oss";
-  private static final String DBSQL_VERSION_SQL = "SELECT current_version().dbsql_version";
-  public static final int DBSQL_MIN_MAJOR_VERSION_FOR_SEA_SUPPORT = 2024;
-  public static final int DBSQL_MIN_MINOR_VERSION_FOR_SEA_SUPPORT = 30;
+  private static final int DBSQL_MIN_MAJOR_VERSION_FOR_SEA_SUPPORT = 2024;
+  private static final int DBSQL_MIN_MINOR_VERSION_FOR_SEA_SUPPORT = 30;
 
-  /** Cached DBSQL version to avoid repeated queries to the cluster. */
-  private static final AtomicReference<String> cachedDBSQLVersion = new AtomicReference<>(null);
+  /** Cached DBSQL version mapped by HTTP path to avoid repeated queries to the cluster. */
+  private static final ConcurrentMap<String, String> cachedDBSQLVersions =
+      new ConcurrentHashMap<>();
 
   private static final String[] VERSION_PARTS = VERSION.split("[.-]");
 
@@ -106,20 +108,21 @@ public class DriverUtil {
   }
 
   private static String getDBSQLVersionCached(IDatabricksConnection connection) {
-    String version = cachedDBSQLVersion.get();
+    String httpPath = connection.getConnectionContext().getHttpPath();
+    String version = cachedDBSQLVersions.get(httpPath);
     if (version != null) {
-      LOGGER.debug("Using cached DBSQL Version: %s", version);
+      LOGGER.debug("Using cached DBSQL Version for path %s: %s", httpPath, version);
       return version;
     }
 
     synchronized (DriverUtil.class) {
-      version = cachedDBSQLVersion.get();
+      version = cachedDBSQLVersions.get(httpPath);
       if (version != null) {
         return version;
       }
 
       version = queryDBSQLVersion(connection);
-      cachedDBSQLVersion.set(version);
+      cachedDBSQLVersions.put(httpPath, version);
       return version;
     }
   }
@@ -153,6 +156,6 @@ public class DriverUtil {
 
   @VisibleForTesting
   static void clearDBSQLVersionCache() {
-    cachedDBSQLVersion.set(null);
+    cachedDBSQLVersions.clear();
   }
 }
