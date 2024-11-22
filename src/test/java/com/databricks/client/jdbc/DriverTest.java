@@ -1,6 +1,8 @@
 package com.databricks.client.jdbc;
 
+import static com.databricks.jdbc.common.DatabricksJdbcUrlParams.HTTP_PATH;
 import static com.databricks.jdbc.integration.IntegrationTestUtil.getFullyQualifiedTableName;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import com.databricks.jdbc.api.IDatabricksConnection;
 import com.databricks.jdbc.api.IDatabricksResultSet;
@@ -88,9 +90,14 @@ public class DriverTest {
   @Test
   void testGetPropertyInfo() throws Exception {
     DriverManager.registerDriver(new Driver());
+    String emptyJdbcUrl = "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com";
+    DriverPropertyInfo[] driverPropertyInfos = new Driver().getPropertyInfo(emptyJdbcUrl, new Properties());
+    assertEquals(driverPropertyInfos.length, 1);
+    assertEquals(driverPropertyInfos[0].name, HTTP_PATH.getParamName());
+
     String jdbcUrl =
         "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com;AuthMech=11;Auth_Flow=0;httpPath=/sql/1.0/warehouses/58aa1b363649e722;loglevel=1";
-    DriverPropertyInfo[] driverPropertyInfos =
+    driverPropertyInfos =
         new Driver().getPropertyInfo(jdbcUrl, new Properties());
     for (DriverPropertyInfo driverPropertyInfo : driverPropertyInfos) {
       if (driverPropertyInfo.required) {
