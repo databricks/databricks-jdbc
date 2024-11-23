@@ -21,23 +21,16 @@ import com.databricks.sdk.service.sql.BaseChunkInfo;
 import com.google.common.annotations.VisibleForTesting;
 import java.util.Collection;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ThreadFactory;
-import java.util.concurrent.atomic.AtomicInteger;
 
 /** Class to manage Arrow chunks and fetch them on proactive basis. */
 public class RemoteChunkProvider implements ChunkProvider, ChunkDownloadCallback {
 
   private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(RemoteChunkProvider.class);
-  private static final String CHUNKS_DOWNLOADER_THREAD_POOL_PREFIX =
-      "databricks-jdbc-chunks-downloader-";
   private static int chunksDownloaderThreadPoolSize;
   private final IDatabricksSession session;
   private final StatementId statementId;
   private long chunkCount;
   private long rowCount;
-  private final ExecutorService chunkDownloaderExecutorService;
   private final IDatabricksHttpClient httpClient;
   private Long currentChunkIndex;
   private long nextChunkToDownload;
@@ -55,8 +48,7 @@ public class RemoteChunkProvider implements ChunkProvider, ChunkDownloadCallback
       IDatabricksHttpClient httpClient,
       int chunksDownloaderThreadPoolSize)
       throws DatabricksParsingException {
-    RemoteChunkProvider.chunksDownloaderThreadPoolSize = 1;
-    this.chunkDownloaderExecutorService = null;
+    RemoteChunkProvider.chunksDownloaderThreadPoolSize = chunksDownloaderThreadPoolSize;
     this.httpClient = httpClient;
     this.session = session;
     this.statementId = statementId;
@@ -76,8 +68,7 @@ public class RemoteChunkProvider implements ChunkProvider, ChunkDownloadCallback
       int chunksDownloaderThreadPoolSize,
       CompressionCodec compressionCodec)
       throws DatabricksSQLException {
-    RemoteChunkProvider.chunksDownloaderThreadPoolSize = 1;
-    this.chunkDownloaderExecutorService = null;
+    RemoteChunkProvider.chunksDownloaderThreadPoolSize = chunksDownloaderThreadPoolSize;
     this.httpClient = httpClient;
     this.compressionCodec = compressionCodec;
     this.rowCount = 0;
@@ -171,7 +162,6 @@ public class RemoteChunkProvider implements ChunkProvider, ChunkDownloadCallback
   @Override
   public void close() {
     this.isClosed = true;
-    // this.chunkDownloaderExecutorService.shutdownNow();
     this.chunkIndexToChunksMap.values().forEach(ArrowResultChunk::releaseChunk);
   }
 
@@ -209,13 +199,6 @@ public class RemoteChunkProvider implements ChunkProvider, ChunkDownloadCallback
         && nextChunkToDownload < chunkCount
         && totalChunksInMemory < allowedChunksInMemory) {
       ArrowResultChunk chunk = chunkIndexToChunksMap.get(nextChunkToDownload);
-      if (chunk.isChunkLinkInvalid()) {
-        try {
-          downloadLinks(chunk.getChunkIndex());
-        } catch (DatabricksSQLException e) {
-          throw new RuntimeException(e);
-        }
-      }
       if (chunk.getStatus() != ArrowResultChunk.ChunkStatus.DOWNLOAD_SUCCEEDED) {
         totalChunksInMemory++;
         chunk.downloadDataAsync(httpClient, this);
@@ -274,21 +257,6 @@ public class RemoteChunkProvider implements ChunkProvider, ChunkDownloadCallback
               .build());
       this.chunkCount++;
     }
-  }
-
-  private static ExecutorService createChunksDownloaderExecutorService() {
-    ThreadFactory threadFactory =
-        new ThreadFactory() {
-          private final AtomicInteger threadCount = new AtomicInteger(1);
-
-          public Thread newThread(final Runnable r) {
-            final Thread thread = new Thread(r);
-            thread.setName(CHUNKS_DOWNLOADER_THREAD_POOL_PREFIX + threadCount.getAndIncrement());
-            thread.setDaemon(true);
-            return thread;
-          }
-        };
-    return Executors.newFixedThreadPool(chunksDownloaderThreadPoolSize, threadFactory);
   }
 
   private static ConcurrentHashMap<Long, ArrowResultChunk> initializeChunksMap(
