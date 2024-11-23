@@ -23,9 +23,9 @@ import java.util.Collection;
 import java.util.concurrent.ConcurrentHashMap;
 
 /** Class to manage Arrow chunks and fetch them on proactive basis. */
-public class RemoteChunkProvider implements ChunkProvider, ChunkDownloadCallback {
+public class RemoteChunkProviderV2 implements ChunkProvider, ChunkDownloadCallback {
 
-  private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(RemoteChunkProvider.class);
+  private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(RemoteChunkProviderV2.class);
   private static int chunksDownloaderThreadPoolSize;
   private final IDatabricksSession session;
   private final StatementId statementId;
@@ -38,9 +38,9 @@ public class RemoteChunkProvider implements ChunkProvider, ChunkDownloadCallback
   private long allowedChunksInMemory;
   private boolean isClosed;
   private final CompressionCodec compressionCodec;
-  private final ConcurrentHashMap<Long, ArrowResultChunk> chunkIndexToChunksMap;
+  private final ConcurrentHashMap<Long, ArrowResultChunkV2> chunkIndexToChunksMap;
 
-  RemoteChunkProvider(
+  RemoteChunkProviderV2(
       StatementId statementId,
       ResultManifest resultManifest,
       ResultData resultData,
@@ -48,7 +48,7 @@ public class RemoteChunkProvider implements ChunkProvider, ChunkDownloadCallback
       IDatabricksHttpClient httpClient,
       int chunksDownloaderThreadPoolSize)
       throws DatabricksParsingException {
-    RemoteChunkProvider.chunksDownloaderThreadPoolSize = chunksDownloaderThreadPoolSize;
+    RemoteChunkProviderV2.chunksDownloaderThreadPoolSize = chunksDownloaderThreadPoolSize;
     this.httpClient = httpClient;
     this.session = session;
     this.statementId = statementId;
@@ -60,7 +60,7 @@ public class RemoteChunkProvider implements ChunkProvider, ChunkDownloadCallback
   }
 
   @VisibleForTesting
-  RemoteChunkProvider(
+  RemoteChunkProviderV2(
       IDatabricksStatementInternal parentStatement,
       TFetchResultsResp resultsResp,
       IDatabricksSession session,
@@ -68,7 +68,7 @@ public class RemoteChunkProvider implements ChunkProvider, ChunkDownloadCallback
       int chunksDownloaderThreadPoolSize,
       CompressionCodec compressionCodec)
       throws DatabricksSQLException {
-    RemoteChunkProvider.chunksDownloaderThreadPoolSize = chunksDownloaderThreadPoolSize;
+    RemoteChunkProviderV2.chunksDownloaderThreadPoolSize = chunksDownloaderThreadPoolSize;
     this.httpClient = httpClient;
     this.compressionCodec = compressionCodec;
     this.rowCount = 0;
@@ -81,7 +81,7 @@ public class RemoteChunkProvider implements ChunkProvider, ChunkDownloadCallback
   /** {@inheritDoc} */
   @Override
   public void downloadProcessed(long chunkIndex) {
-    ArrowResultChunk chunk = chunkIndexToChunksMap.get(chunkIndex);
+    ArrowResultChunkV2 chunk = chunkIndexToChunksMap.get(chunkIndex);
     synchronized (chunk) {
       chunk.notify();
     }
@@ -106,14 +106,14 @@ public class RemoteChunkProvider implements ChunkProvider, ChunkDownloadCallback
    * @return the chunk at given index
    */
   @Override
-  public ArrowResultChunk getChunk() throws DatabricksSQLException {
+  public ArrowResultChunkV2 getChunk() throws DatabricksSQLException {
     if (currentChunkIndex < 0) {
       return null;
     }
-    ArrowResultChunk chunk = chunkIndexToChunksMap.get(currentChunkIndex);
+    ArrowResultChunkV2 chunk = chunkIndexToChunksMap.get(currentChunkIndex);
     try {
       chunk.waitForDownload();
-      if (chunk.getStatus() != ArrowResultChunk.ChunkStatus.DOWNLOAD_SUCCEEDED) {
+      if (chunk.getStatus() != ArrowResultChunkV2.ChunkStatus.DOWNLOAD_SUCCEEDED) {
         throw new DatabricksSQLException(chunk.getErrorMessage());
       }
     } catch (InterruptedException e) {
@@ -162,7 +162,7 @@ public class RemoteChunkProvider implements ChunkProvider, ChunkDownloadCallback
   @Override
   public void close() {
     this.isClosed = true;
-    this.chunkIndexToChunksMap.values().forEach(ArrowResultChunk::releaseChunk);
+    this.chunkIndexToChunksMap.values().forEach(ArrowResultChunkV2::releaseChunk);
   }
 
   @Override
@@ -198,8 +198,8 @@ public class RemoteChunkProvider implements ChunkProvider, ChunkDownloadCallback
     while (!this.isClosed
         && nextChunkToDownload < chunkCount
         && totalChunksInMemory < allowedChunksInMemory) {
-      ArrowResultChunk chunk = chunkIndexToChunksMap.get(nextChunkToDownload);
-      if (chunk.getStatus() != ArrowResultChunk.ChunkStatus.DOWNLOAD_SUCCEEDED) {
+      ArrowResultChunkV2 chunk = chunkIndexToChunksMap.get(nextChunkToDownload);
+      if (chunk.getStatus() != ArrowResultChunkV2.ChunkStatus.DOWNLOAD_SUCCEEDED) {
         totalChunksInMemory++;
         chunk.downloadDataAsync(httpClient, this);
       }
@@ -221,12 +221,12 @@ public class RemoteChunkProvider implements ChunkProvider, ChunkDownloadCallback
     this.downloadNextChunks();
   }
 
-  private ConcurrentHashMap<Long, ArrowResultChunk> initializeChunksMap(
+  private ConcurrentHashMap<Long, ArrowResultChunkV2> initializeChunksMap(
       TFetchResultsResp resultsResp,
       IDatabricksStatementInternal parentStatement,
       IDatabricksSession session)
       throws DatabricksSQLException {
-    ConcurrentHashMap<Long, ArrowResultChunk> chunkIndexMap = new ConcurrentHashMap<>();
+    ConcurrentHashMap<Long, ArrowResultChunkV2> chunkIndexMap = new ConcurrentHashMap<>();
     this.chunkCount = 0;
     this.rowCount = 0;
     populateChunkIndexMap(resultsResp.getResults(), chunkIndexMap);
@@ -240,7 +240,7 @@ public class RemoteChunkProvider implements ChunkProvider, ChunkDownloadCallback
   }
 
   private void populateChunkIndexMap(
-      TRowSet resultData, ConcurrentHashMap<Long, ArrowResultChunk> chunkIndexMap)
+      TRowSet resultData, ConcurrentHashMap<Long, ArrowResultChunkV2> chunkIndexMap)
       throws DatabricksParsingException {
     rowCount += DatabricksThriftUtil.getRowCount(resultData);
     for (TSparkArrowResultLink resultLink : resultData.getResultLinks()) {
@@ -251,7 +251,7 @@ public class RemoteChunkProvider implements ChunkProvider, ChunkDownloadCallback
       LOGGER.debug(chunkInformationLog);
       chunkIndexMap.put(
           chunkCount,
-          ArrowResultChunk.builder()
+          ArrowResultChunkV2.builder()
               .statementId(statementId.toString())
               .withThriftChunkInfo(chunkCount, resultLink)
               .build());
@@ -259,10 +259,10 @@ public class RemoteChunkProvider implements ChunkProvider, ChunkDownloadCallback
     }
   }
 
-  private static ConcurrentHashMap<Long, ArrowResultChunk> initializeChunksMap(
+  private static ConcurrentHashMap<Long, ArrowResultChunkV2> initializeChunksMap(
       ResultManifest resultManifest, ResultData resultData, StatementId statementId)
       throws DatabricksParsingException {
-    ConcurrentHashMap<Long, ArrowResultChunk> chunkIndexMap = new ConcurrentHashMap<>();
+    ConcurrentHashMap<Long, ArrowResultChunkV2> chunkIndexMap = new ConcurrentHashMap<>();
     if (resultManifest.getTotalChunkCount() == 0) {
       return chunkIndexMap;
     }
@@ -270,7 +270,7 @@ public class RemoteChunkProvider implements ChunkProvider, ChunkDownloadCallback
       LOGGER.debug("Manifest chunk information: " + chunkInfo.toString());
       chunkIndexMap.put(
           chunkInfo.getChunkIndex(),
-          ArrowResultChunk.builder()
+          ArrowResultChunkV2.builder()
               .statementId(statementId.toString())
               .withChunkInfo(chunkInfo)
               .build());
@@ -282,9 +282,9 @@ public class RemoteChunkProvider implements ChunkProvider, ChunkDownloadCallback
     return chunkIndexMap;
   }
 
-  private boolean isDownloadComplete(ArrowResultChunk.ChunkStatus status) {
-    return status == ArrowResultChunk.ChunkStatus.DOWNLOAD_SUCCEEDED
-        || status == ArrowResultChunk.ChunkStatus.DOWNLOAD_FAILED
-        || status == ArrowResultChunk.ChunkStatus.DOWNLOAD_FAILED_ABORTED;
+  private boolean isDownloadComplete(ArrowResultChunkV2.ChunkStatus status) {
+    return status == ArrowResultChunkV2.ChunkStatus.DOWNLOAD_SUCCEEDED
+        || status == ArrowResultChunkV2.ChunkStatus.DOWNLOAD_FAILED
+        || status == ArrowResultChunkV2.ChunkStatus.DOWNLOAD_FAILED_ABORTED;
   }
 }

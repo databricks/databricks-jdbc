@@ -4,7 +4,7 @@ import com.databricks.jdbc.exception.DatabricksSQLException;
 
 /**
  * Implementations of this interface manage the retrieval and iteration over {@link
- * ArrowResultChunk}s.
+ * ArrowResultChunkV2}s.
  */
 public interface ChunkProvider {
 
@@ -27,10 +27,10 @@ public interface ChunkProvider {
   /**
    * Retrieves the current chunk of data after a successful call to {@link #next()}.
    *
-   * @return The current {@link ArrowResultChunk} containing the data.
+   * @return The current {@link ArrowResultChunkV2} containing the data.
    * @throws DatabricksSQLException if an error occurs while fetching the chunk.
    */
-  ArrowResultChunk getChunk() throws DatabricksSQLException;
+  ArrowResultChunkV2 getChunk() throws DatabricksSQLException;
 
   /**
    * Closes the chunk provider and releases any resources associated with it. After calling this

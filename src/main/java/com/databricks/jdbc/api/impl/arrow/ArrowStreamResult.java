@@ -28,8 +28,7 @@ public class ArrowStreamResult implements IExecutionResult {
   private final ChunkProvider chunkProvider;
   private long currentRowIndex = -1;
   private boolean isClosed;
-  private int chunkCount = 0;
-  private ArrowResultChunk.ArrowResultChunkIterator chunkIterator;
+  private ArrowResultChunkV2.ArrowResultChunkIterator chunkIterator;
   private List<ColumnInfo> columnInfos;
 
   public ArrowStreamResult(
@@ -55,7 +54,7 @@ public class ArrowStreamResult implements IExecutionResult {
       IDatabricksHttpClient httpClient)
       throws DatabricksParsingException {
     this.chunkProvider =
-        new RemoteChunkProvider(
+        new RemoteChunkProviderV2(
             statementId,
             resultManifest,
             resultData,
@@ -97,7 +96,7 @@ public class ArrowStreamResult implements IExecutionResult {
       CompressionCodec compressionCodec =
           CompressionCodec.getCompressionMapping(resultsResp.getResultSetMetadata());
       this.chunkProvider =
-          new RemoteChunkProvider(
+          new RemoteChunkProviderV2(
               parentStatement,
               resultsResp,
               session,

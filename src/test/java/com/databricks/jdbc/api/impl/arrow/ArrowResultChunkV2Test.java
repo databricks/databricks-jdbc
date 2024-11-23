@@ -26,7 +26,7 @@ import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.types.pojo.Schema;
 import org.junit.jupiter.api.Test;
 
-public class ArrowResultChunkTest {
+public class ArrowResultChunkV2Test {
 
   private static final String STATEMENT_ID = "statement_id";
   private final Random random = new Random();
@@ -42,12 +42,12 @@ public class ArrowResultChunkTest {
             .setByteCount(200L)
             .setRowOffset(0L)
             .setRowCount(totalRows);
-    ArrowResultChunk arrowResultChunk =
-        ArrowResultChunk.builder().statementId(STATEMENT_ID).withChunkInfo(chunkInfo).build();
+    ArrowResultChunkV2 arrowResultChunkV2 =
+        ArrowResultChunkV2.builder().statementId(STATEMENT_ID).withChunkInfo(chunkInfo).build();
 
     // Assert
-    assert (arrowResultChunk.getRecordBatchCountInChunk() == 0);
-    arrowResultChunk.releaseChunk();
+    assert (arrowResultChunkV2.getRecordBatchCountInChunk() == 0);
+    arrowResultChunkV2.releaseChunk();
   }
 
   @Test
@@ -59,21 +59,21 @@ public class ArrowResultChunkTest {
             .setByteCount(200L)
             .setRowOffset(0L)
             .setRowCount(totalRows);
-    ArrowResultChunk arrowResultChunk =
-        ArrowResultChunk.builder().statementId(STATEMENT_ID).withChunkInfo(chunkInfo).build();
+    ArrowResultChunkV2 arrowResultChunkV2 =
+        ArrowResultChunkV2.builder().statementId(STATEMENT_ID).withChunkInfo(chunkInfo).build();
     Schema schema = createTestSchema();
     Object[][] testData = createTestData(schema, (int) totalRows);
     File arrowFile =
         createTestArrowFile("TestFile", schema, testData, new RootAllocator(Integer.MAX_VALUE));
 
     // Act
-    arrowResultChunk.initializeData(new FileInputStream(arrowFile));
+    arrowResultChunkV2.initializeData(new FileInputStream(arrowFile));
 
     // Assert
     int totalRecordBatches = (int) ((totalRows + rowsInRecordBatch) / rowsInRecordBatch);
-    assertEquals(arrowResultChunk.getRecordBatchCountInChunk(), totalRecordBatches);
-    arrowResultChunk.releaseChunk();
-    arrowResultChunk.releaseChunk(); // calling it a second time also does not throw error.
+    assertEquals(arrowResultChunkV2.getRecordBatchCountInChunk(), totalRecordBatches);
+    arrowResultChunkV2.releaseChunk();
+    arrowResultChunkV2.releaseChunk(); // calling it a second time also does not throw error.
   }
 
   @Test
@@ -84,14 +84,14 @@ public class ArrowResultChunkTest {
             .setFileLink(TEST_STRING)
             .setExpiryTime(1000)
             .setBytesNum(200L);
-    ArrowResultChunk arrowResultChunk =
-        ArrowResultChunk.builder()
+    ArrowResultChunkV2 arrowResultChunkV2 =
+        ArrowResultChunkV2.builder()
             .statementId(TEST_STATEMENT_ID)
             .withThriftChunkInfo(0, chunkInfo)
             .build();
-    assertNull(arrowResultChunk.getErrorMessage());
-    assertEquals(arrowResultChunk.getChunkUrl(), TEST_STRING);
-    assertEquals(arrowResultChunk.getChunkIndex(), 0);
+    assertNull(arrowResultChunkV2.getErrorMessage());
+    assertEquals(arrowResultChunkV2.getChunkUrl(), TEST_STRING);
+    assertEquals(arrowResultChunkV2.getChunkIndex(), 0);
   }
 
   private File createTestArrowFile(
@@ -164,17 +164,20 @@ public class ArrowResultChunkTest {
   public void testHasNextRow() throws DatabricksParsingException {
     BaseChunkInfo emptyChunkInfo =
         new BaseChunkInfo().setChunkIndex(0L).setByteCount(200L).setRowOffset(0L).setRowCount(0L);
-    ArrowResultChunk arrowResultChunk =
-        ArrowResultChunk.builder().statementId(STATEMENT_ID).withChunkInfo(emptyChunkInfo).build();
-    arrowResultChunk.setIsDataInitialized(true);
-    arrowResultChunk.recordBatchList = Collections.nCopies(3, new ArrayList<>());
-    assertFalse(arrowResultChunk.getChunkIterator().hasNextRow());
+    ArrowResultChunkV2 arrowResultChunkV2 =
+        ArrowResultChunkV2.builder()
+            .statementId(STATEMENT_ID)
+            .withChunkInfo(emptyChunkInfo)
+            .build();
+    arrowResultChunkV2.setIsDataInitialized(true);
+    arrowResultChunkV2.recordBatchList = Collections.nCopies(3, new ArrayList<>());
+    assertFalse(arrowResultChunkV2.getChunkIterator().hasNextRow());
 
     BaseChunkInfo chunkInfo =
         new BaseChunkInfo().setChunkIndex(18L).setByteCount(200L).setRowOffset(0L).setRowCount(4L);
-    arrowResultChunk =
-        ArrowResultChunk.builder().statementId(STATEMENT_ID).withChunkInfo(chunkInfo).build();
-    arrowResultChunk.setIsDataInitialized(true);
+    arrowResultChunkV2 =
+        ArrowResultChunkV2.builder().statementId(STATEMENT_ID).withChunkInfo(chunkInfo).build();
+    arrowResultChunkV2.setIsDataInitialized(true);
     int size = 2;
     IntVector dummyVector = new IntVector("dummy_vector", new RootAllocator());
     dummyVector.allocateNew(size);
@@ -182,9 +185,9 @@ public class ArrowResultChunkTest {
     for (int i = 0; i < size; i++) {
       dummyVector.set(i, i * 10);
     }
-    arrowResultChunk.recordBatchList =
+    arrowResultChunkV2.recordBatchList =
         List.of(List.of(dummyVector), List.of(dummyVector), new ArrayList<>());
-    ArrowResultChunk.ArrowResultChunkIterator iterator = arrowResultChunk.getChunkIterator();
+    ArrowResultChunkV2.ArrowResultChunkIterator iterator = arrowResultChunkV2.getChunkIterator();
     assertTrue(iterator.hasNextRow());
     iterator.nextRow();
     assertEquals(0, iterator.getColumnObjectAtCurrentRow(0));
@@ -204,9 +207,9 @@ public class ArrowResultChunkTest {
   public void testEmptyRecordBatches() throws DatabricksParsingException {
     BaseChunkInfo chunkInfo =
         new BaseChunkInfo().setChunkIndex(18L).setByteCount(200L).setRowOffset(0L).setRowCount(4L);
-    ArrowResultChunk arrowResultChunk =
-        ArrowResultChunk.builder().statementId(STATEMENT_ID).withChunkInfo(chunkInfo).build();
-    arrowResultChunk.setIsDataInitialized(true);
+    ArrowResultChunkV2 arrowResultChunkV2 =
+        ArrowResultChunkV2.builder().statementId(STATEMENT_ID).withChunkInfo(chunkInfo).build();
+    arrowResultChunkV2.setIsDataInitialized(true);
     int size = 2;
     IntVector dummyVector = new IntVector("dummy_vector", new RootAllocator());
     dummyVector.allocateNew(size);
@@ -217,9 +220,9 @@ public class ArrowResultChunkTest {
     IntVector emptyVector = new IntVector("empty_vector", new RootAllocator());
     emptyVector.allocateNew(0);
     emptyVector.setValueCount(0);
-    arrowResultChunk.recordBatchList =
+    arrowResultChunkV2.recordBatchList =
         List.of(List.of(dummyVector), List.of(emptyVector), List.of(dummyVector));
-    ArrowResultChunk.ArrowResultChunkIterator iterator = arrowResultChunk.getChunkIterator();
+    ArrowResultChunkV2.ArrowResultChunkIterator iterator = arrowResultChunkV2.getChunkIterator();
     assertTrue(iterator.hasNextRow());
     iterator.nextRow();
     assertEquals(0, iterator.getColumnObjectAtCurrentRow(0));

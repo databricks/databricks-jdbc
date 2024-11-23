@@ -39,9 +39,9 @@ import org.apache.hc.core5.http.HttpException;
 import org.apache.hc.core5.http.nio.AsyncRequestProducer;
 import org.apache.hc.core5.http.nio.support.AsyncRequestBuilder;
 
-public class ArrowResultChunk {
+public class ArrowResultChunkV2 {
 
-  private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(ArrowResultChunk.class);
+  private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(ArrowResultChunkV2.class);
 
   /**
    * The status of a chunk would proceed in following path:
@@ -145,7 +145,7 @@ public class ArrowResultChunk {
             }
           });
 
-  private ArrowResultChunk(Builder builder) throws DatabricksParsingException {
+  private ArrowResultChunkV2(Builder builder) throws DatabricksParsingException {
     this.chunkIndex = builder.chunkIndex;
     this.numRows = builder.numRows;
     this.rowOffset = builder.rowOffset;
@@ -282,7 +282,7 @@ public class ArrowResultChunk {
   }
 
   public static class ArrowResultChunkIterator {
-    private final ArrowResultChunk resultChunk;
+    private final ArrowResultChunkV2 resultChunk;
 
     // total number of record batches in the chunk
     private final int recordBatchesInChunk;
@@ -299,7 +299,7 @@ public class ArrowResultChunk {
     // total number of rows read
     private int rowsReadByIterator;
 
-    ArrowResultChunkIterator(ArrowResultChunk resultChunk) {
+    ArrowResultChunkIterator(ArrowResultChunkV2 resultChunk) {
       this.resultChunk = resultChunk;
       this.recordBatchesInChunk = resultChunk.getRecordBatchCountInChunk();
       // start before first batch
@@ -722,8 +722,8 @@ public class ArrowResultChunk {
       return this;
     }
 
-    public ArrowResultChunk build() throws DatabricksParsingException {
-      return new ArrowResultChunk(this);
+    public ArrowResultChunkV2 build() throws DatabricksParsingException {
+      return new ArrowResultChunkV2(this);
     }
   }
 }

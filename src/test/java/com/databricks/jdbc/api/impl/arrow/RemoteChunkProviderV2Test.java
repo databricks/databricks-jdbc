@@ -12,7 +12,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
-public class RemoteChunkProviderTest {
+public class RemoteChunkProviderV2Test {
 
   private static final StatementId STATEMENT_ID = new StatementId("statement_id");
 
@@ -25,6 +25,6 @@ public class RemoteChunkProviderTest {
             .setSchema(new ResultSchema().setColumns(new ArrayList<>()));
     ResultData resultData = new ResultData().setExternalLinks(new ArrayList<>());
     assertDoesNotThrow(
-        () -> new RemoteChunkProvider(STATEMENT_ID, resultManifest, resultData, null, null, 4));
+        () -> new RemoteChunkProviderV2(STATEMENT_ID, resultManifest, resultData, null, null, 4));
   }
 }

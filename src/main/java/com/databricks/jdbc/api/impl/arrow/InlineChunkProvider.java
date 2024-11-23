@@ -32,7 +32,7 @@ public class InlineChunkProvider implements ChunkProvider {
   private long totalRows;
   private long currentChunkIndex;
 
-  ArrowResultChunk arrowResultChunk; // There is only one packet of data in case of inline arrow
+  ArrowResultChunkV2 arrowResultChunkV2; // There is only one packet of data in case of inline arrow
 
   InlineChunkProvider(
       TFetchResultsResp resultsResp,
@@ -42,7 +42,8 @@ public class InlineChunkProvider implements ChunkProvider {
     this.currentChunkIndex = -1;
     this.totalRows = 0;
     ByteArrayInputStream byteStream = initializeByteStream(resultsResp, session, parentStatement);
-    arrowResultChunk = ArrowResultChunk.builder().withInputStream(byteStream, totalRows).build();
+    arrowResultChunkV2 =
+        ArrowResultChunkV2.builder().withInputStream(byteStream, totalRows).build();
   }
 
   /** {@inheritDoc} */
@@ -63,14 +64,14 @@ public class InlineChunkProvider implements ChunkProvider {
 
   /** {@inheritDoc} */
   @Override
-  public ArrowResultChunk getChunk() {
-    return arrowResultChunk;
+  public ArrowResultChunkV2 getChunk() {
+    return arrowResultChunkV2;
   }
 
   /** {@inheritDoc} */
   @Override
   public void close() {
-    arrowResultChunk.releaseChunk();
+    arrowResultChunkV2.releaseChunk();
   }
 
   @Override
