@@ -41,7 +41,7 @@ public class DatabricksDriverPropertyUtilTest {
   public void testGetMissingProperties() throws DatabricksSQLException {
     String connectionParamString =
         ";transportMode=http;httpPath=sql/protocolv1/o/6051921418418893/1115-130834-ms4m0yv;AuthMech=3";
-    assertMissingProperties(connectionParamString);
+    assertMissingProperties(connectionParamString, PWD.getParamName());
 
     // log-level properties
     connectionParamString =

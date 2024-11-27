@@ -95,8 +95,9 @@ public class DatabricksDriverPropertyUtil {
 
     // auth-related properties
     IDatabricksConnectionContext.AuthMech authMech = connectionContext.getAuthMech();
-    if (connectionPropertiesMap.containsKey(AUTH_MECH.getParamName().toLowerCase())
-        && authMech == IDatabricksConnectionContext.AuthMech.OAUTH) {
+    if (authMech == IDatabricksConnectionContext.AuthMech.PAT) {
+      addMissingProperty(missingPropertyInfos, connectionPropertiesMap, PWD, true);
+    } else if (authMech == IDatabricksConnectionContext.AuthMech.OAUTH) {
       IDatabricksConnectionContext.AuthFlow authFlow = connectionContext.getAuthFlow();
 
       if (connectionPropertiesMap.containsKey(AUTH_FLOW.getParamName().toLowerCase())) {
