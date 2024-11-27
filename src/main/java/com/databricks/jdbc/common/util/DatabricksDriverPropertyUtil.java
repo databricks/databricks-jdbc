@@ -12,15 +12,30 @@ import com.google.common.collect.ImmutableMap;
 import java.sql.DriverPropertyInfo;
 import java.util.*;
 
+/** Utility class for Databricks driver properties. */
 public class DatabricksDriverPropertyUtil {
 
-  public static DriverPropertyInfo[] getInvalidUrlPropertyInfo(DatabricksJdbcUrlParams param) {
+  /**
+   * Retrieves the invalid URL property information for the specified required parameter.
+   *
+   * @param param the Databricks JDBC URL parameter
+   * @return an array of DriverPropertyInfo objects describing the invalid property
+   */
+  public static DriverPropertyInfo[] getInvalidUrlRequiredPropertyInfo(
+      DatabricksJdbcUrlParams param) {
     DriverPropertyInfo[] propertyInfos = new DriverPropertyInfo[1];
     propertyInfos[0] = getUrlParamInfo(param, true);
     return propertyInfos;
   }
 
-  public static ImmutableMap<String, String> buildPropertiesMap(
+  /**
+   * Builds a map of properties from the given connection parameter string and properties object.
+   *
+   * @param connectionParamString the connection parameter string
+   * @param properties the properties object
+   * @return an immutable map of properties
+   */
+  static ImmutableMap<String, String> buildPropertiesMap(
       String connectionParamString, Properties properties) {
     ImmutableMap.Builder<String, String> parametersBuilder = ImmutableMap.builder();
     String[] urlParts = connectionParamString.split(DatabricksJdbcConstants.URL_DELIMITER);
@@ -37,6 +52,14 @@ public class DatabricksDriverPropertyUtil {
     return parametersBuilder.build();
   }
 
+  /**
+   * Retrieves the list of missing properties required for the connection.
+   *
+   * @param connectionParamString the connection parameter string
+   * @param properties the properties object
+   * @return a list of DriverPropertyInfo objects describing the missing properties
+   * @throws DatabricksSQLException if a database access error occurs
+   */
   public static List<DriverPropertyInfo> getMissingProperties(
       String connectionParamString, Properties properties) throws DatabricksSQLException {
     ImmutableMap<String, String> connectionPropertiesMap =

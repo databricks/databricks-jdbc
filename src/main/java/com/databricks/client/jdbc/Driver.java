@@ -2,7 +2,7 @@ package com.databricks.client.jdbc;
 
 import static com.databricks.jdbc.common.DatabricksJdbcConstants.*;
 import static com.databricks.jdbc.common.DatabricksJdbcUrlParams.*;
-import static com.databricks.jdbc.common.util.DatabricksDriverPropertyUtil.getInvalidUrlPropertyInfo;
+import static com.databricks.jdbc.common.util.DatabricksDriverPropertyUtil.getInvalidUrlRequiredPropertyInfo;
 import static com.databricks.jdbc.common.util.DriverUtil.getRootCauseMessage;
 
 import com.databricks.jdbc.api.IDatabricksConnectionContext;
@@ -101,10 +101,10 @@ public class Driver implements java.sql.Driver {
     }
     String connectionParamString = urlMatcher.group(2);
     if (!connectionParamString.toLowerCase().contains(HTTP_PATH.getParamName())) {
-      return getInvalidUrlPropertyInfo(HTTP_PATH);
+      return getInvalidUrlRequiredPropertyInfo(HTTP_PATH);
     }
     if (!connectionParamString.toLowerCase().contains(AUTH_MECH.getParamName())) {
-      getInvalidUrlPropertyInfo(AUTH_MECH);
+      getInvalidUrlRequiredPropertyInfo(AUTH_MECH);
     }
 
     List<DriverPropertyInfo> missingProperties =
