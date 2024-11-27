@@ -4,7 +4,7 @@ import static com.databricks.jdbc.integration.IntegrationTestUtil.getDogfoodJDBC
 import static org.junit.jupiter.api.Assertions.*;
 
 import com.databricks.jdbc.api.IDatabricksConnection;
-import com.databricks.jdbc.api.IDatabricksUCVolumeClient;
+import com.databricks.jdbc.api.IDatabricksVolumeClient;
 import com.databricks.jdbc.common.DatabricksJdbcConstants;
 import java.io.File;
 import java.io.FileInputStream;
@@ -42,7 +42,7 @@ public class UCVolumeInputStreamTests {
 
   @Test
   void testUCVolumeOperationsWithInputStream() throws Exception {
-    IDatabricksUCVolumeClient client = ((IDatabricksConnection) con).getUCVolumeClient();
+    IDatabricksVolumeClient client = ((IDatabricksConnection) con).getVolumeClient();
 
     File file = new File(LOCAL_FILE);
     try {

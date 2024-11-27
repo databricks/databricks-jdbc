@@ -84,6 +84,16 @@ public class InlineJsonResult implements IExecutionResult {
     this.data = null;
   }
 
+  @Override
+  public long getRowCount() {
+    return data.size();
+  }
+
+  @Override
+  public long getChunkCount() {
+    return 0;
+  }
+
   private boolean isClosed() {
     return isClosed;
   }

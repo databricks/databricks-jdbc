@@ -1,10 +1,11 @@
 package com.databricks.jdbc.api.impl;
 
+import com.databricks.jdbc.api.*;
 import com.databricks.jdbc.api.IDatabricksConnection;
 import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.api.IDatabricksSession;
 import com.databricks.jdbc.api.IDatabricksStatement;
-import com.databricks.jdbc.api.IDatabricksUCVolumeClient;
+import com.databricks.jdbc.api.impl.volume.DBFSVolumeClient;
 import com.databricks.jdbc.api.impl.volume.DatabricksUCVolumeClient;
 import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
 import com.databricks.jdbc.common.DatabricksJdbcConstants;
@@ -34,7 +35,7 @@ public class DatabricksConnection implements IDatabricksConnection {
   private final IDatabricksSession session;
   private final Set<IDatabricksStatementInternal> statementSet = ConcurrentHashMap.newKeySet();
   private SQLWarning warnings = null;
-  private volatile IDatabricksUCVolumeClient ucVolumeClient = null;
+  private volatile IDatabricksVolumeClient volumeClient = null;
   private final IDatabricksConnectionContext connectionContext;
 
   /**
@@ -519,15 +520,19 @@ public class DatabricksConnection implements IDatabricksConnection {
   }
 
   @Override
-  public IDatabricksUCVolumeClient getUCVolumeClient() {
-    if (ucVolumeClient == null) {
+  public IDatabricksVolumeClient getVolumeClient() {
+    if (volumeClient == null) {
       synchronized (this) {
-        if (ucVolumeClient == null) {
-          ucVolumeClient = new DatabricksUCVolumeClient(this);
+        if (volumeClient == null) {
+          if (this.session.getConnectionContext().useFileSystemAPI()) {
+            volumeClient = new DBFSVolumeClient(this);
+          } else {
+            volumeClient = new DatabricksUCVolumeClient(this);
+          }
         }
       }
     }
-    return ucVolumeClient;
+    return volumeClient;
   }
 
   @Override

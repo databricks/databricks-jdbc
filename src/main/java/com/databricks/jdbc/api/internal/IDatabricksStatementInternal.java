@@ -3,7 +3,6 @@ package com.databricks.jdbc.api.internal;
 import com.databricks.jdbc.api.IDatabricksResultSet;
 import com.databricks.jdbc.dbclient.impl.common.StatementId;
 import com.databricks.jdbc.exception.DatabricksSQLException;
-import java.sql.SQLException;
 import java.sql.Statement;
 import org.apache.http.entity.InputStreamEntity;
 
@@ -14,11 +13,11 @@ public interface IDatabricksStatementInternal {
 
   void handleResultSetClose(IDatabricksResultSet resultSet) throws DatabricksSQLException;
 
-  int getMaxRows() throws SQLException;
+  int getMaxRows() throws DatabricksSQLException;
 
   void setStatementId(StatementId statementId);
 
-  String getStatementId();
+  StatementId getStatementId();
 
   Statement getStatement();
 

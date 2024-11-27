@@ -5,17 +5,17 @@ import com.databricks.jdbc.dbclient.impl.thrift.ResourceId;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.model.client.thrift.generated.THandleIdentifier;
+import java.util.Objects;
 
 /** A Statement-Id identifier to uniquely identify an executed statement */
 public class StatementId {
 
   private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(StatementId.class);
+  final DatabricksClientType clientType;
+  final String guid;
+  final String secret;
 
-  private final DatabricksClientType clientType;
-  private final String guid;
-  private final String secret;
-
-  private StatementId(DatabricksClientType clientType, String guid, String secret) {
+  StatementId(DatabricksClientType clientType, String guid, String secret) {
     this.clientType = clientType;
     this.guid = guid;
     this.secret = secret;
@@ -71,5 +71,15 @@ public class StatementId {
   /** Returns a SQL Exec statement handle for the given StatementId */
   public String toSQLExecStatementId() {
     return guid;
+  }
+
+  @Override
+  public boolean equals(Object otherStatement) {
+    if (!(otherStatement instanceof StatementId)
+        || (this.clientType != ((StatementId) otherStatement).clientType)) {
+      return false;
+    }
+    return Objects.equals(this.guid, ((StatementId) otherStatement).guid)
+        && Objects.equals(this.secret, ((StatementId) otherStatement).secret);
   }
 }

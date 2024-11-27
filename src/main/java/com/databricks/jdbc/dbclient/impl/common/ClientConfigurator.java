@@ -1,6 +1,6 @@
 package com.databricks.jdbc.dbclient.impl.common;
 
-import static com.databricks.jdbc.common.DatabricksJdbcConstants.EMPTY_STRING;
+import static com.databricks.jdbc.common.DatabricksJdbcConstants.*;
 
 import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.auth.OAuthRefreshCredentialsProvider;
@@ -15,23 +15,10 @@ import com.databricks.sdk.core.DatabricksConfig;
 import com.databricks.sdk.core.DatabricksException;
 import com.databricks.sdk.core.ProxyConfig;
 import com.databricks.sdk.core.commons.CommonsHttpClient;
-import java.io.FileInputStream;
-import java.security.InvalidAlgorithmParameterException;
-import java.security.KeyStore;
-import java.security.NoSuchAlgorithmException;
+import com.databricks.sdk.core.utils.Cloud;
 import java.security.cert.*;
 import java.util.Arrays;
-import java.util.Set;
 import java.util.stream.Collectors;
-import javax.net.ssl.CertPathTrustManagerParameters;
-import javax.net.ssl.SSLContext;
-import javax.net.ssl.TrustManagerFactory;
-import javax.net.ssl.X509TrustManager;
-import org.apache.http.config.Registry;
-import org.apache.http.config.RegistryBuilder;
-import org.apache.http.conn.socket.ConnectionSocketFactory;
-import org.apache.http.conn.socket.PlainConnectionSocketFactory;
-import org.apache.http.conn.ssl.SSLConnectionSocketFactory;
 import org.apache.http.impl.conn.PoolingHttpClientConnectionManager;
 
 /**
@@ -49,9 +36,10 @@ public class ClientConfigurator {
     this.databricksConfig = new DatabricksConfig();
     CommonsHttpClient.Builder httpClientBuilder = new CommonsHttpClient.Builder();
     setupProxyConfig(httpClientBuilder);
-    setupSSLConfig(httpClientBuilder);
+    setupConnectionManager(httpClientBuilder);
+    this.databricksConfig.setHttpClient(httpClientBuilder.build());
     setupAuthConfig();
-    this.databricksConfig.setHttpClient(httpClientBuilder.build()).resolve();
+    this.databricksConfig.resolve();
   }
 
   /**
@@ -59,135 +47,12 @@ public class ClientConfigurator {
    *
    * @param httpClientBuilder The builder to which the SSL configuration should be added.
    */
-  private void setupSSLConfig(CommonsHttpClient.Builder httpClientBuilder) {
+  void setupConnectionManager(CommonsHttpClient.Builder httpClientBuilder) {
     PoolingHttpClientConnectionManager connManager =
-        new PoolingHttpClientConnectionManager(
-            getConnectionSocketFactoryRegistry(this.connectionContext));
+        ConfiguratorUtils.getBaseConnectionManager(connectionContext);
     // This is consistent with the value in the SDK
     connManager.setMaxTotal(100);
     httpClientBuilder.withConnectionManager(connManager);
-  }
-
-  /**
-   * This function returns the registry of connection socket factories based on the truststore and
-   * properties set in the connection context.
-   *
-   * @param connectionContext The connection context to use to get the truststore, certificate
-   *     revocation settings.
-   * @return The registry of connection socket factories.
-   */
-  public static Registry<ConnectionSocketFactory> getConnectionSocketFactoryRegistry(
-      IDatabricksConnectionContext connectionContext) {
-    // if truststore is not provided, null will use default truststore
-    KeyStore trustStore = loadTruststoreOrNull(connectionContext);
-    Set<TrustAnchor> trustAnchors = getTrustAnchorsFromTrustStore(trustStore);
-    CertPathTrustManagerParameters trustManagerParameters =
-        buildTrustManagerParameters(
-            trustAnchors,
-            connectionContext.checkCertificateRevocation(),
-            connectionContext.acceptUndeterminedCertificateRevocation());
-    // Build custom TrustManager based on above SSL trust store and certificate revocation settings
-    // from context
-    try {
-      TrustManagerFactory customTrustManagerFactory =
-          TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
-      customTrustManagerFactory.init(trustManagerParameters);
-      SSLContext sslContext = SSLContext.getInstance(DatabricksJdbcConstants.TLS);
-      sslContext.init(null, customTrustManagerFactory.getTrustManagers(), null);
-      SSLConnectionSocketFactory sslSocketFactory = new SSLConnectionSocketFactory(sslContext);
-      return RegistryBuilder.<ConnectionSocketFactory>create()
-          .register(DatabricksJdbcConstants.HTTPS, sslSocketFactory)
-          .register(DatabricksJdbcConstants.HTTP, new PlainConnectionSocketFactory())
-          .build();
-    } catch (Exception e) {
-      String errorMessage = "Error while building trust manager parameters";
-      LOGGER.error(e, errorMessage);
-      throw new DatabricksException(errorMessage, e);
-    }
-  }
-
-  /**
-   * @param connectionContext The connection context to use to get the truststore.
-   * @return The truststore loaded from the connection context or null if the truststore is not set.
-   */
-  public static KeyStore loadTruststoreOrNull(IDatabricksConnectionContext connectionContext) {
-    if (connectionContext.getSSLTrustStore() == null) {
-      return null;
-    }
-    // Flow to provide custom SSL truststore
-    try {
-      try (FileInputStream trustStoreStream =
-          new FileInputStream(connectionContext.getSSLTrustStore())) {
-        char[] password = null;
-        if (connectionContext.getSSLTrustStorePassword() != null) {
-          password = connectionContext.getSSLTrustStorePassword().toCharArray();
-        }
-        KeyStore trustStore = KeyStore.getInstance(connectionContext.getSSLTrustStoreType());
-        trustStore.load(trustStoreStream, password);
-        return trustStore;
-      }
-    } catch (Exception e) {
-      String errorMessage = "Error while loading truststore";
-      LOGGER.error(e, errorMessage);
-      throw new DatabricksException(errorMessage, e);
-    }
-  }
-
-  /**
-   * @param trustAnchors The trust anchors to use in the trust manager.
-   * @param checkCertificateRevocation Whether to check certificate revocation.
-   * @param acceptUndeterminedCertificateRevocation Whether to accept undetermined certificate
-   * @return The trust manager parameters based on the input parameters.
-   */
-  public static CertPathTrustManagerParameters buildTrustManagerParameters(
-      Set<TrustAnchor> trustAnchors,
-      boolean checkCertificateRevocation,
-      boolean acceptUndeterminedCertificateRevocation) {
-    try {
-      PKIXBuilderParameters pkixBuilderParameters =
-          new PKIXBuilderParameters(trustAnchors, new X509CertSelector());
-      pkixBuilderParameters.setRevocationEnabled(checkCertificateRevocation);
-      CertPathValidator certPathValidator =
-          CertPathValidator.getInstance(DatabricksJdbcConstants.PKIX);
-      PKIXRevocationChecker revocationChecker =
-          (PKIXRevocationChecker) certPathValidator.getRevocationChecker();
-      if (acceptUndeterminedCertificateRevocation) {
-        revocationChecker.setOptions(
-            Set.of(
-                PKIXRevocationChecker.Option.SOFT_FAIL,
-                PKIXRevocationChecker.Option.NO_FALLBACK,
-                PKIXRevocationChecker.Option.PREFER_CRLS));
-      }
-      if (checkCertificateRevocation) {
-        pkixBuilderParameters.addCertPathChecker(revocationChecker);
-      }
-      return new CertPathTrustManagerParameters(pkixBuilderParameters);
-    } catch (NoSuchAlgorithmException | InvalidAlgorithmParameterException e) {
-      String errorMessage = "Error while building trust manager parameters";
-      LOGGER.error(e, errorMessage);
-      throw new DatabricksException(errorMessage, e);
-    }
-  }
-
-  /**
-   * @param trustStore The trust store from which to get the trust anchors.
-   * @return The set of trust anchors from the trust store.
-   */
-  public static Set<TrustAnchor> getTrustAnchorsFromTrustStore(KeyStore trustStore) {
-    try {
-      TrustManagerFactory trustManagerFactory =
-          TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
-      trustManagerFactory.init(trustStore);
-      X509TrustManager trustManager = (X509TrustManager) trustManagerFactory.getTrustManagers()[0];
-      X509Certificate[] certs = trustManager.getAcceptedIssuers();
-      return Arrays.stream(certs)
-          .map(cert -> new TrustAnchor(cert, null))
-          .collect(Collectors.toSet());
-    } catch (Exception e) {
-      String errorMessage = "Error while getting trust anchors from trust store";
-      LOGGER.error(e, errorMessage);
-      throw new DatabricksException(errorMessage, e);
-    }
   }
 
   /** Setup proxy settings in the databricks config. */
@@ -287,10 +152,11 @@ public class ClientConfigurator {
 
   /** Setup the OAuth U2M refresh token authentication settings in the databricks config. */
   public void setupU2MRefreshConfig() throws DatabricksParsingException {
-    CredentialsProvider provider = new OAuthRefreshCredentialsProvider(connectionContext);
+    CredentialsProvider provider =
+        new OAuthRefreshCredentialsProvider(connectionContext, databricksConfig);
     databricksConfig
         .setHost(connectionContext.getHostForOAuth())
-        .setAuthType(provider.authType())
+        .setAuthType(provider.authType()) // oauth-refresh
         .setCredentialsProvider(provider)
         .setClientId(connectionContext.getClientId())
         .setClientSecret(connectionContext.getClientSecret());
@@ -298,14 +164,25 @@ public class ClientConfigurator {
 
   /** Setup the OAuth M2M authentication settings in the databricks config. */
   public void setupM2MConfig() throws DatabricksParsingException {
-    databricksConfig
-        .setAuthType(DatabricksJdbcConstants.M2M_AUTH_TYPE)
-        .setHost(connectionContext.getHostForOAuth())
-        .setClientId(connectionContext.getClientId())
-        .setClientSecret(connectionContext.getClientSecret());
-    if (connectionContext.useJWTAssertion()) {
-      databricksConfig.setCredentialsProvider(
-          new PrivateKeyClientCredentialProvider(connectionContext));
+    databricksConfig.setHost(connectionContext.getHostForOAuth());
+    if (connectionContext.getCloud() == Cloud.GCP
+        && !connectionContext.getGcpAuthType().equals(M2M_AUTH_TYPE)) {
+      String authType = connectionContext.getGcpAuthType();
+      databricksConfig.setAuthType(authType);
+      if (authType.equals(GCP_GOOGLE_CREDENTIALS_AUTH_TYPE)) {
+        databricksConfig.setGoogleCredentials(connectionContext.getGoogleCredentials());
+      } else {
+        databricksConfig.setGoogleServiceAccount(connectionContext.getGoogleServiceAccount());
+      }
+    } else {
+      databricksConfig
+          .setAuthType(DatabricksJdbcConstants.M2M_AUTH_TYPE)
+          .setClientId(connectionContext.getClientId())
+          .setClientSecret(connectionContext.getClientSecret());
+      if (connectionContext.useJWTAssertion()) {
+        databricksConfig.setCredentialsProvider(
+            new PrivateKeyClientCredentialProvider(connectionContext, databricksConfig));
+      }
     }
   }
 

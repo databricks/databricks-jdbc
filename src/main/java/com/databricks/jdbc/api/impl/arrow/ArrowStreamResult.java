@@ -5,15 +5,16 @@ import static com.databricks.jdbc.common.util.DatabricksThriftUtil.getTypeFromTy
 import com.databricks.jdbc.api.IDatabricksSession;
 import com.databricks.jdbc.api.impl.IExecutionResult;
 import com.databricks.jdbc.api.impl.converters.ArrowToJavaObjectConverter;
-import com.databricks.jdbc.common.CompressionType;
+import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
+import com.databricks.jdbc.common.CompressionCodec;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
 import com.databricks.jdbc.dbclient.impl.common.StatementId;
 import com.databricks.jdbc.dbclient.impl.http.DatabricksHttpClientFactory;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.model.client.thrift.generated.TColumnDesc;
+import com.databricks.jdbc.model.client.thrift.generated.TFetchResultsResp;
 import com.databricks.jdbc.model.client.thrift.generated.TGetResultSetMetadataResp;
-import com.databricks.jdbc.model.client.thrift.generated.TRowSet;
 import com.databricks.jdbc.model.core.ResultData;
 import com.databricks.jdbc.model.core.ResultManifest;
 import com.databricks.sdk.service.sql.ColumnInfo;
@@ -27,6 +28,7 @@ public class ArrowStreamResult implements IExecutionResult {
   private final ChunkProvider chunkProvider;
   private long currentRowIndex = -1;
   private boolean isClosed;
+  private int chunkCount = 0;
   private ArrowResultChunk.ArrowResultChunkIterator chunkIterator;
   private List<ColumnInfo> columnInfos;
 
@@ -67,15 +69,13 @@ public class ArrowStreamResult implements IExecutionResult {
   }
 
   public ArrowStreamResult(
-      TGetResultSetMetadataResp resultManifest,
-      TRowSet resultData,
+      TFetchResultsResp resultsResp,
       boolean isInlineArrow,
-      StatementId parentStatementId,
+      IDatabricksStatementInternal parentStatementId,
       IDatabricksSession session)
-      throws DatabricksParsingException {
+      throws DatabricksSQLException {
     this(
-        resultManifest,
-        resultData,
+        resultsResp,
         isInlineArrow,
         parentStatementId,
         session,
@@ -84,28 +84,26 @@ public class ArrowStreamResult implements IExecutionResult {
 
   @VisibleForTesting
   ArrowStreamResult(
-      TGetResultSetMetadataResp resultManifest,
-      TRowSet resultData,
+      TFetchResultsResp resultsResp,
       boolean isInlineArrow,
-      StatementId statementId,
+      IDatabricksStatementInternal parentStatement,
       IDatabricksSession session,
       IDatabricksHttpClient httpClient)
-      throws DatabricksParsingException {
-    setColumnInfo(resultManifest);
+      throws DatabricksSQLException {
+    setColumnInfo(resultsResp.getResultSetMetadata());
     if (isInlineArrow) {
-      this.chunkProvider =
-          new InlineChunkProvider(
-              resultData.getArrowBatches(), resultManifest, statementId.toString());
+      this.chunkProvider = new InlineChunkProvider(resultsResp, parentStatement, session);
     } else {
-      CompressionType compressionType = CompressionType.getCompressionMapping(resultManifest);
+      CompressionCodec compressionCodec =
+          CompressionCodec.getCompressionMapping(resultsResp.getResultSetMetadata());
       this.chunkProvider =
           new RemoteChunkProvider(
-              statementId,
-              resultData,
+              parentStatement,
+              resultsResp,
               session,
               httpClient,
               session.getConnectionContext().getCloudFetchThreadPoolSize(),
-              compressionType);
+              compressionCodec);
     }
   }
 
@@ -161,6 +159,16 @@ public class ArrowStreamResult implements IExecutionResult {
   public void close() {
     isClosed = true;
     chunkProvider.close();
+  }
+
+  @Override
+  public long getRowCount() {
+    return chunkProvider.getRowCount();
+  }
+
+  @Override
+  public long getChunkCount() {
+    return chunkProvider.getChunkCount();
   }
 
   private void setColumnInfo(TGetResultSetMetadataResp resultManifest) {

@@ -37,6 +37,7 @@ public class DatabricksResultSetTest {
       StatementId.deserialize("MIIWiOiGTESQt3+6xIDA0A|vq8muWugTKm+ZsjNGZdauw");
 
   @Mock InlineJsonResult mockedExecutionResult;
+  @Mock TFetchResultsResp fetchResultsResp;
   @Mock VolumeOperationResult mockedVolumeResult;
   @Mock DatabricksResultSetMetaData mockedResultSetMetadata;
   @Mock IDatabricksSession session;
@@ -64,11 +65,12 @@ public class DatabricksResultSetTest {
     TColumnDesc columnDesc = new TColumnDesc().setColumnName("testCol");
     TTableSchema schema = new TTableSchema().setColumns(Collections.singletonList(columnDesc));
     metadataResp.setSchema(schema);
+    when(fetchResultsResp.getResults()).thenReturn(rowSet);
+    when(fetchResultsResp.getResultSetMetadata()).thenReturn(metadataResp);
     return new DatabricksResultSet(
         new TStatus().setStatusCode(TStatusCode.SUCCESS_STATUS),
         THRIFT_STATEMENT_ID,
-        rowSet,
-        metadataResp,
+        fetchResultsResp,
         StatementType.METADATA,
         mockedDatabricksStatement,
         session);

@@ -5,13 +5,13 @@ import java.sql.SQLException;
 /** Top level exception for Databricks driver */
 public class DatabricksSQLException extends SQLException {
 
-  public DatabricksSQLException(String reason, String sqlState, int vendorCode) {
-    super(reason, sqlState, vendorCode);
-  }
-
   public DatabricksSQLException(String reason) {
     // TODO: Add vendor-specific (databricks) exception code
     super(reason, null, 0);
+  }
+
+  public DatabricksSQLException(String reason, String sqlState) {
+    super(reason, sqlState);
   }
 
   public DatabricksSQLException(String reason, int vendorCode) {
@@ -22,7 +22,7 @@ public class DatabricksSQLException extends SQLException {
     super(reason, cause);
   }
 
-  public DatabricksSQLException(String reason, Throwable cause, String sqlState, int errorCode) {
-    super(reason, sqlState, errorCode, cause);
+  public DatabricksSQLException(String reason, Throwable cause, int errorCode) {
+    super(reason, null, errorCode, cause);
   }
 }

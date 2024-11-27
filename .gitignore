@@ -6,3 +6,4 @@ TestFile
 logs/
 *.log
 *.pem
+dependency-reduced-pom.xml

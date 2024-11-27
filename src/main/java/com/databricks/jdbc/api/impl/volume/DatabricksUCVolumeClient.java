@@ -4,7 +4,7 @@ import static com.databricks.jdbc.common.DatabricksJdbcConstants.VOLUME_OPERATIO
 import static com.databricks.jdbc.common.DatabricksJdbcConstants.VOLUME_OPERATION_STATUS_SUCCEEDED;
 import static com.databricks.jdbc.common.util.StringUtil.escapeStringLiteral;
 
-import com.databricks.jdbc.api.IDatabricksUCVolumeClient;
+import com.databricks.jdbc.api.IDatabricksVolumeClient;
 import com.databricks.jdbc.api.internal.IDatabricksResultSetInternal;
 import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
 import com.databricks.jdbc.log.JdbcLogger;
@@ -15,8 +15,8 @@ import java.util.ArrayList;
 import java.util.List;
 import org.apache.http.entity.InputStreamEntity;
 
-/** Implementation for DatabricksUCVolumeClient */
-public class DatabricksUCVolumeClient implements IDatabricksUCVolumeClient {
+/** Implementation of the VolumeClient that uses SQL query to perform the Volume Operations */
+public class DatabricksUCVolumeClient implements IDatabricksVolumeClient {
 
   private static final JdbcLogger LOGGER =
       JdbcLoggerFactory.getLogger(DatabricksUCVolumeClient.class);
@@ -48,7 +48,7 @@ public class DatabricksUCVolumeClient implements IDatabricksUCVolumeClient {
     return escapeStringLiteral(String.format("/Volumes/%s/%s/%s/", catalog, schema, volume));
   }
 
-  private static String getObjectFullPath(
+  public static String getObjectFullPath(
       String catalog, String schema, String volume, String objectPath) {
     return getVolumePath(catalog, schema, volume) + escapeStringLiteral(objectPath);
   }

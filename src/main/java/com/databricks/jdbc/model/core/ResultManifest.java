@@ -1,6 +1,6 @@
 package com.databricks.jdbc.model.core;
 
-import com.databricks.jdbc.common.CompressionType;
+import com.databricks.jdbc.common.CompressionCodec;
 import com.databricks.sdk.service.sql.BaseChunkInfo;
 import com.databricks.sdk.service.sql.Format;
 import com.databricks.sdk.service.sql.ResultSchema;
@@ -36,8 +36,8 @@ public class ResultManifest {
   @JsonProperty("truncated")
   private Boolean truncated;
 
-  @JsonProperty("compression_codec")
-  private CompressionType compressionType;
+  @JsonProperty("result_compression")
+  private CompressionCodec resultCompression;
 
   @JsonProperty("is_volume_operation")
   private Boolean isVolumeOperation;
@@ -49,12 +49,12 @@ public class ResultManifest {
     return this;
   }
 
-  public CompressionType getCompressionType() {
-    return this.compressionType;
+  public CompressionCodec getResultCompression() {
+    return this.resultCompression;
   }
 
-  public ResultManifest setCompressionType(CompressionType compressionType) {
-    this.compressionType = compressionType;
+  public ResultManifest setResultCompression(CompressionCodec resultCompression) {
+    this.resultCompression = resultCompression;
     return this;
   }
 
@@ -95,7 +95,7 @@ public class ResultManifest {
   }
 
   public Long getTotalChunkCount() {
-    return this.totalChunkCount;
+    return totalChunkCount;
   }
 
   public ResultManifest setTotalRowCount(Long totalRowCount) {

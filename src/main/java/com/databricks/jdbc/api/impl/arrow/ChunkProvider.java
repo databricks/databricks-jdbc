@@ -37,4 +37,8 @@ public interface ChunkProvider {
    * method, the chunk provider should not be used again.
    */
   void close();
+
+  long getRowCount();
+
+  long getChunkCount();
 }

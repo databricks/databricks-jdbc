@@ -11,8 +11,8 @@ import com.databricks.jdbc.dbclient.impl.common.StatementId;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.exception.DatabricksSQLFeatureNotImplementedException;
 import com.databricks.jdbc.exception.DatabricksSQLFeatureNotSupportedException;
-import com.databricks.jdbc.model.client.thrift.generated.TGetResultSetMetadataResp;
-import com.databricks.jdbc.model.client.thrift.generated.TRowSet;
+import com.databricks.jdbc.model.client.thrift.generated.TFetchResultsResp;
+import com.databricks.jdbc.model.client.thrift.generated.TSparkRowSetType;
 import com.databricks.jdbc.model.core.ResultData;
 import com.databricks.jdbc.model.core.ResultManifest;
 import java.sql.SQLException;
@@ -58,17 +58,16 @@ class ExecutionResultFactory {
   }
 
   static IExecutionResult getResultSet(
-      TRowSet data,
-      TGetResultSetMetadataResp manifest,
-      StatementId statementId,
+      TFetchResultsResp resultsResp,
       IDatabricksSession session,
       IDatabricksStatementInternal statement)
       throws SQLException {
-    IExecutionResult resultHandler = getResultHandler(data, manifest, statementId, session);
-    if (manifest.isSetIsStagingOperation() && manifest.isIsStagingOperation()) {
+    IExecutionResult resultHandler = getResultHandler(resultsResp, statement, session);
+    if (resultsResp.getResultSetMetadata().isSetIsStagingOperation()
+        && resultsResp.getResultSetMetadata().isIsStagingOperation()) {
       return new VolumeOperationResult(
-          DatabricksThriftUtil.getRowCount(data),
-          manifest.getSchema().getColumnsSize(),
+          DatabricksThriftUtil.getRowCount(resultsResp.getResults()),
+          resultsResp.getResultSetMetadata().getSchema().getColumnsSize(),
           session,
           resultHandler,
           statement);
@@ -78,24 +77,24 @@ class ExecutionResultFactory {
   }
 
   private static IExecutionResult getResultHandler(
-      TRowSet data,
-      TGetResultSetMetadataResp manifest,
-      StatementId statementId,
+      TFetchResultsResp resultsResp,
+      IDatabricksStatementInternal parentStatement,
       IDatabricksSession session)
       throws SQLException {
-    switch (manifest.getResultFormat()) {
+    TSparkRowSetType resultFormat = resultsResp.getResultSetMetadata().getResultFormat();
+    switch (resultFormat) {
       case COLUMN_BASED_SET:
-        return getResultSet(convertColumnarToRowBased(data));
+        return getResultSet(convertColumnarToRowBased(resultsResp, parentStatement, session));
       case ARROW_BASED_SET:
-        return new ArrowStreamResult(manifest, data, true, statementId, session);
+        return new ArrowStreamResult(resultsResp, true, parentStatement, session);
       case URL_BASED_SET:
-        return new ArrowStreamResult(manifest, data, false, statementId, session);
+        return new ArrowStreamResult(resultsResp, false, parentStatement, session);
       case ROW_BASED_SET:
         throw new DatabricksSQLFeatureNotSupportedException(
             "Invalid state - row based set cannot be received");
       default:
         throw new DatabricksSQLFeatureNotImplementedException(
-            "Invalid thrift response format " + manifest.getResultFormat());
+            "Invalid thrift response format " + resultFormat);
     }
   }
 
