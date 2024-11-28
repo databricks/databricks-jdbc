@@ -1,5 +1,6 @@
 package com.databricks.jdbc.model.client.filesystem;
 
+import com.databricks.sdk.support.ToStringer;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import java.util.Objects;
 
@@ -36,6 +37,6 @@ public class CreateDeleteUrlRequest {
 
   @Override
   public String toString() {
-    return "CreateDeleteUrlRequest{" + "path='" + path + '\'' + '}';
+    return new ToStringer(CreateDeleteUrlRequest.class).add("path", path).toString();
   }
 }

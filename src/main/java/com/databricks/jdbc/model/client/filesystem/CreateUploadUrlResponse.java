@@ -1,5 +1,6 @@
 package com.databricks.jdbc.model.client.filesystem;
 
+import com.databricks.sdk.support.ToStringer;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import java.util.List;
 import org.apache.http.message.BasicHeader;
@@ -33,6 +34,9 @@ public class CreateUploadUrlResponse {
   // Override toString method
   @Override
   public String toString() {
-    return "CreateUploadUrlResponse{" + "url='" + url + '\'' + ", headers=" + headers + '}';
+    return new ToStringer(CreateUploadUrlResponse.class)
+        .add("url", url)
+        .add("headers", headers)
+        .toString();
   }
 }

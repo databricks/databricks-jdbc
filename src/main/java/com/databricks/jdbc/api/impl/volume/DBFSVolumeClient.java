@@ -15,6 +15,7 @@ import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.model.client.filesystem.*;
 import com.databricks.sdk.WorkspaceClient;
 import com.databricks.sdk.core.DatabricksException;
+import com.google.common.annotations.VisibleForTesting;
 import java.io.InputStream;
 import java.sql.Connection;
 import java.util.List;
@@ -26,6 +27,12 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient {
   private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(DBFSVolumeClient.class);
   private final DatabricksConnection connection;
   private final WorkspaceClient workspaceClient;
+
+  @VisibleForTesting
+  public DBFSVolumeClient() {
+    this.connection = null;
+    this.workspaceClient = null;
+  }
 
   public DBFSVolumeClient(Connection connection) {
     this.connection = (DatabricksConnection) connection;
@@ -91,7 +98,7 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient {
 
       // Downloading the object from the pre signed Url
       VolumeOperationProcessorDirect volumeOperationProcessorDirect =
-          new VolumeOperationProcessorDirect(response.getUrl(), localPath, connection.getSession());
+          getVolumeOperationProcessorDirect(response.getUrl(), localPath);
       volumeOperationProcessorDirect.executeGetOperation();
       isOperationSucceeded = true;
     } catch (DatabricksVolumeOperationException e) {
@@ -136,7 +143,7 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient {
 
       // Uploading the object to the Pre Signed Url
       VolumeOperationProcessorDirect volumeOperationProcessorDirect =
-          new VolumeOperationProcessorDirect(response.getUrl(), localPath, connection.getSession());
+          getVolumeOperationProcessorDirect(response.getUrl(), localPath);
       volumeOperationProcessorDirect.executePutOperation();
       isOperationSucceeded = true;
     } catch (DatabricksVolumeOperationException e) {
@@ -180,7 +187,7 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient {
 
       // Uploading the object to the Pre Signed Url
       VolumeOperationProcessorDirect volumeOperationProcessorDirect =
-          new VolumeOperationProcessorDirect(response.getUrl(), null, connection.getSession());
+          getVolumeOperationProcessorDirect(response.getUrl(), null);
       volumeOperationProcessorDirect.executeDeleteOperation();
       isOperationSucceeded = true;
     } catch (DatabricksVolumeOperationException e) {
@@ -191,14 +198,19 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient {
     return isOperationSucceeded;
   }
 
-  private WorkspaceClient getWorkspaceClientFromConnection(DatabricksConnection connection) {
+  WorkspaceClient getWorkspaceClientFromConnection(DatabricksConnection connection) {
     IDatabricksClient client = connection.getSession().getDatabricksClient();
     IDatabricksConnectionContext connectionContext = client.getConnectionContext();
     return new ClientConfigurator(connectionContext).getWorkspaceClient();
   }
 
+  VolumeOperationProcessorDirect getVolumeOperationProcessorDirect(
+      String operationUrl, String localFilePath) {
+    return new VolumeOperationProcessorDirect(operationUrl, localFilePath, connection.getSession());
+  }
+
   /** Fetches the pre signed url for uploading to the volume using the SQL Exec API */
-  private CreateUploadUrlResponse getCreateUploadUrlResponse(String objectPath)
+  CreateUploadUrlResponse getCreateUploadUrlResponse(String objectPath)
       throws DatabricksVolumeOperationException {
     LOGGER.debug(
         String.format(
@@ -219,7 +231,7 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient {
   }
 
   /** Fetches the pre signed url for downloading the object contents using the SQL Exec API */
-  private CreateDownloadUrlResponse getCreateDownloadUrlResponse(String objectPath)
+  CreateDownloadUrlResponse getCreateDownloadUrlResponse(String objectPath)
       throws DatabricksVolumeOperationException {
     LOGGER.debug(
         String.format(
@@ -245,7 +257,7 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient {
   }
 
   /** Fetches the pre signed url for deleting object from the volume using the SQL Exec API */
-  private CreateDeleteUrlResponse getCreateDeleteUrlResponse(String objectPath)
+  CreateDeleteUrlResponse getCreateDeleteUrlResponse(String objectPath)
       throws DatabricksVolumeOperationException {
     LOGGER.debug(
         String.format(

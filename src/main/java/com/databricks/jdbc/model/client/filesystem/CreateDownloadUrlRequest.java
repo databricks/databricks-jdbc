@@ -1,5 +1,6 @@
 package com.databricks.jdbc.model.client.filesystem;
 
+import com.databricks.sdk.support.ToStringer;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import java.util.Objects;
 
@@ -23,7 +24,7 @@ public class CreateDownloadUrlRequest {
 
   @Override
   public String toString() {
-    return "CreateDownloadUrlRequest{" + "path='" + path + '\'' + '}';
+    return new ToStringer(CreateDownloadUrlRequest.class).add("path", path).toString();
   }
 
   @Override
