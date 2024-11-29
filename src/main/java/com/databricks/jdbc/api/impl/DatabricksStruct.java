@@ -1,5 +1,6 @@
 package com.databricks.jdbc.api.impl;
 
+import com.databricks.jdbc.common.util.DatabricksTypeUtil;
 import java.math.BigDecimal;
 import java.sql.*;
 import java.util.List;
@@ -9,27 +10,6 @@ import java.util.Map;
 public class DatabricksStruct implements Struct {
   private final Object[] attributes;
   private final String typeName;
-
-  // Constants for type names
-  private static final String TYPE_STRUCT = "STRUCT";
-  private static final String TYPE_ARRAY = "ARRAY";
-  private static final String TYPE_MAP = "MAP";
-  private static final String TYPE_INT = "INT";
-  private static final String TYPE_INTEGER = "INTEGER";
-  private static final String TYPE_BIGINT = "BIGINT";
-  private static final String TYPE_SMALLINT = "SMALLINT";
-  private static final String TYPE_FLOAT = "FLOAT";
-  private static final String TYPE_DOUBLE = "DOUBLE";
-  private static final String TYPE_DECIMAL = "DECIMAL";
-  private static final String TYPE_NUMERIC = "NUMERIC";
-  private static final String TYPE_BOOLEAN = "BOOLEAN";
-  private static final String TYPE_DATE = "DATE";
-  private static final String TYPE_TIMESTAMP = "TIMESTAMP";
-  private static final String TYPE_TIME = "TIME";
-  private static final String TYPE_BINARY = "BINARY";
-  private static final String TYPE_STRING = "STRING";
-  private static final String TYPE_VARCHAR = "VARCHAR";
-  private static final String TYPE_CHAR = "CHAR";
 
   /**
    * Constructs a DatabricksStruct with the specified attributes and metadata.
@@ -59,42 +39,26 @@ public class DatabricksStruct implements Struct {
       String fieldType = entry.getValue();
       Object value = attributes.get(fieldName);
 
-      if (fieldType.startsWith(TYPE_STRUCT)) {
+      if (fieldType.startsWith(DatabricksTypeUtil.STRUCT)) {
         if (value instanceof Map) {
           convertedAttributes[index] = new DatabricksStruct((Map<String, Object>) value, fieldType);
-        } else if (value instanceof String) {
-          ComplexDataTypeParser parser = new ComplexDataTypeParser();
-          Map<String, Object> structMap =
-              parser.parseToStruct(
-                  parser.parse((String) value), MetadataParser.parseStructMetadata(fieldType));
-          convertedAttributes[index] = new DatabricksStruct(structMap, fieldType);
         } else {
           throw new IllegalArgumentException(
-              "Expected a Map or String for STRUCT but found: " + value.getClass().getSimpleName());
+                  "Expected a Map for STRUCT but found: " + (value == null ? "null" : value.getClass().getSimpleName()));
         }
-      } else if (fieldType.startsWith(TYPE_ARRAY)) {
+      } else if (fieldType.startsWith(DatabricksTypeUtil.ARRAY)) {
         if (value instanceof List) {
           convertedAttributes[index] = new DatabricksArray((List<Object>) value, fieldType);
-        } else if (value instanceof String) {
-          ComplexDataTypeParser parser = new ComplexDataTypeParser();
-          List<Object> arrayList =
-              parser.parseToArray(
-                  parser.parse((String) value), MetadataParser.parseArrayMetadata(fieldType));
-          convertedAttributes[index] = new DatabricksArray(arrayList, fieldType);
         } else {
           throw new IllegalArgumentException(
-              "Expected a List or String for ARRAY but found: " + value.getClass().getSimpleName());
+                  "Expected a List for ARRAY but found: " + (value == null ? "null" : value.getClass().getSimpleName()));
         }
-      } else if (fieldType.startsWith(TYPE_MAP)) {
+      } else if (fieldType.startsWith(DatabricksTypeUtil.MAP)) {
         if (value instanceof Map) {
           convertedAttributes[index] = new DatabricksMap<>((Map<String, Object>) value, fieldType);
-        } else if (value instanceof String) {
-          ComplexDataTypeParser parser = new ComplexDataTypeParser();
-          Map<String, Object> map = parser.parseToMap((String) value, fieldType);
-          convertedAttributes[index] = new DatabricksMap<>(map, fieldType);
         } else {
           throw new IllegalArgumentException(
-              "Expected a Map or String for MAP but found: " + value.getClass().getSimpleName());
+                  "Expected a Map for MAP but found: " + (value == null ? "null" : value.getClass().getSimpleName()));
         }
       } else {
         convertedAttributes[index] = convertSimpleValue(value, fieldType);
@@ -118,36 +82,36 @@ public class DatabricksStruct implements Struct {
       return null;
     }
 
-    switch (type.toUpperCase()) {
-      case TYPE_INT:
-      case TYPE_INTEGER:
-        return Integer.parseInt(value.toString());
-      case TYPE_BIGINT:
-        return Long.parseLong(value.toString());
-      case TYPE_SMALLINT:
-        return Short.parseShort(value.toString());
-      case TYPE_FLOAT:
-        return Float.parseFloat(value.toString());
-      case TYPE_DOUBLE:
-        return Double.parseDouble(value.toString());
-      case TYPE_DECIMAL:
-      case TYPE_NUMERIC:
-        return new BigDecimal(value.toString());
-      case TYPE_BOOLEAN:
-        return Boolean.parseBoolean(value.toString());
-      case TYPE_DATE:
-        return Date.valueOf(value.toString());
-      case TYPE_TIMESTAMP:
-        return Timestamp.valueOf(value.toString());
-      case TYPE_TIME:
-        return Time.valueOf(value.toString());
-      case TYPE_BINARY:
-        return value instanceof byte[] ? value : value.toString().getBytes();
-      case TYPE_STRING:
-      case TYPE_VARCHAR:
-      case TYPE_CHAR:
-      default:
-        return value.toString();
+    try {
+      switch (type.toUpperCase()) {
+        case DatabricksTypeUtil.INT:
+          return Integer.parseInt(value.toString());
+        case DatabricksTypeUtil.BIGINT:
+          return Long.parseLong(value.toString());
+        case DatabricksTypeUtil.SMALLINT:
+          return Short.parseShort(value.toString());
+        case DatabricksTypeUtil.FLOAT:
+          return Float.parseFloat(value.toString());
+        case DatabricksTypeUtil.DOUBLE:
+          return Double.parseDouble(value.toString());
+        case DatabricksTypeUtil.DECIMAL:
+          return new BigDecimal(value.toString());
+        case DatabricksTypeUtil.BOOLEAN:
+          return Boolean.parseBoolean(value.toString());
+        case DatabricksTypeUtil.DATE:
+          return Date.valueOf(value.toString());
+        case DatabricksTypeUtil.TIMESTAMP:
+          return Timestamp.valueOf(value.toString());
+        case DatabricksTypeUtil.TIME:
+          return Time.valueOf(value.toString());
+        case DatabricksTypeUtil.BINARY:
+          return value instanceof byte[] ? value : value.toString().getBytes();
+        case DatabricksTypeUtil.STRING:
+        default:
+          return value.toString();
+      }
+    } catch (Exception e) {
+      throw new IllegalArgumentException("Failed to convert value " + value + " to type " + type, e);
     }
   }
 

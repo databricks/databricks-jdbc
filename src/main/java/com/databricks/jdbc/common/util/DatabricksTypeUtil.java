@@ -44,6 +44,7 @@ public class DatabricksTypeUtil {
   public static final String STRING = "STRING";
   public static final String TINYINT = "TINYINT";
   public static final String TIMESTAMP = "TIMESTAMP";
+  public static final String TIME = "TIME";
   public static final String TIMESTAMP_NTZ = "TIMESTAMP_NTZ";
   public static final String MAP = "MAP";
   public static final String ARRAY = "ARRAY";
