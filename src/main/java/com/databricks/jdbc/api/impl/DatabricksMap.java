@@ -72,7 +72,7 @@ public class DatabricksMap<K, V> implements Map<K, V> {
           return (V) new DatabricksStruct((Map<String, Object>) value, valueType);
         } else {
           throw new IllegalArgumentException(
-                  "Expected a Map for STRUCT but found: " + value.getClass().getSimpleName());
+              "Expected a Map for STRUCT but found: " + value.getClass().getSimpleName());
         }
       } else if (valueType.startsWith(DatabricksTypeUtil.ARRAY)) {
         if (value instanceof List) {
@@ -80,7 +80,7 @@ public class DatabricksMap<K, V> implements Map<K, V> {
           return (V) new DatabricksArray((List<Object>) value, valueType);
         } else {
           throw new IllegalArgumentException(
-                  "Expected a List for ARRAY but found: " + value.getClass().getSimpleName());
+              "Expected a List for ARRAY but found: " + value.getClass().getSimpleName());
         }
       } else if (valueType.startsWith(DatabricksTypeUtil.MAP)) {
         if (value instanceof Map) {
@@ -88,7 +88,7 @@ public class DatabricksMap<K, V> implements Map<K, V> {
           return (V) new DatabricksMap<>((Map<String, Object>) value, valueType);
         } else {
           throw new IllegalArgumentException(
-                  "Expected a Map for MAP but found: " + value.getClass().getSimpleName());
+              "Expected a Map for MAP but found: " + value.getClass().getSimpleName());
         }
       } else {
         return convertSimpleValue(value, valueType);
@@ -143,7 +143,7 @@ public class DatabricksMap<K, V> implements Map<K, V> {
     } catch (Exception e) {
       LOGGER.error("Error converting simple value of type {}: {}", valueType, e.getMessage(), e);
       throw new IllegalArgumentException(
-              "Failed to convert value " + value + " to type " + valueType, e);
+          "Failed to convert value " + value + " to type " + valueType, e);
     }
   }
 

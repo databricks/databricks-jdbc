@@ -1024,7 +1024,9 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
 
     String columnTypeName = resultSetMetaData.getColumnTypeName(columnIndex);
     if (!columnTypeName.toUpperCase().startsWith("ARRAY")) {
-      String errMsg = String.format("Column type is not ARRAY. Cannot convert to Array. Column type: %s", columnTypeName);
+      String errMsg =
+          String.format(
+              "Column type is not ARRAY. Cannot convert to Array. Column type: %s", columnTypeName);
       LOGGER.error(errMsg);
       throw new DatabricksSQLException(errMsg);
     }
@@ -1058,7 +1060,10 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
 
     String columnTypeName = resultSetMetaData.getColumnTypeName(columnIndex);
     if (!columnTypeName.toUpperCase().startsWith("STRUCT")) {
-      String errMessage = String.format("Column type is not STRUCT. Cannot convert to Struct. Column type: %s", columnTypeName);
+      String errMessage =
+          String.format(
+              "Column type is not STRUCT. Cannot convert to Struct. Column type: %s",
+              columnTypeName);
       LOGGER.error(errMessage);
       throw new DatabricksSQLException(errMessage);
     }
@@ -1091,7 +1096,9 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
 
     String columnTypeName = resultSetMetaData.getColumnTypeName(columnIndex);
     if (!columnTypeName.toUpperCase().startsWith("MAP")) {
-      String errMsg = String.format("Column type is not MAP. Cannot convert to Map. Column type: %s", columnTypeName);
+      String errMsg =
+          String.format(
+              "Column type is not MAP. Cannot convert to Map. Column type: %s", columnTypeName);
       LOGGER.error(errMsg);
       throw new DatabricksSQLException(errMsg);
     }
