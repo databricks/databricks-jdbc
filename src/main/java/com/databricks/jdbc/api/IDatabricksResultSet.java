@@ -3,6 +3,8 @@ package com.databricks.jdbc.api;
 import com.databricks.sdk.service.sql.StatementStatus;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Struct;
+import java.util.Map;
 
 /** Extension to java.sql.ResultSet interface */
 public interface IDatabricksResultSet extends ResultSet {
@@ -36,4 +38,22 @@ public interface IDatabricksResultSet extends ResultSet {
    * @throws SQLException
    */
   boolean hasUpdateCount() throws SQLException;
+
+  /**
+   * Retrieves the SQL `Map` from the specified column index in the result set.
+   *
+   * @param columnIndex the index of the column in the result set (1-based)
+   * @return a `Map<String, Object>` if the column contains a map; `null` if the value is SQL `NULL`
+   * @throws SQLException if the column is not of `MAP` type or if any SQL error occurs
+   */
+  Map<String, Object> getMap(int columnIndex) throws SQLException;
+
+  /**
+   * Retrieves the SQL `Struct` from the specified column index in the result set.
+   *
+   * @param columnIndex the index of the column in the result set (1-based)
+   * @return a `Struct` object if the column contains a struct; `null` if the value is SQL `NULL`
+   * @throws SQLException if the column is not of `STRUCT` type or if any SQL error occurs
+   */
+  Struct getStruct(int columnIndex) throws SQLException;
 }

@@ -1024,10 +1024,9 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
 
     String columnTypeName = resultSetMetaData.getColumnTypeName(columnIndex);
     if (!columnTypeName.toUpperCase().startsWith("ARRAY")) {
-      LOGGER.error(
-          "Column type is not ARRAY. Cannot convert to Array. Column type: {}", columnTypeName);
-      throw new SQLException(
-          "Column type is not ARRAY. Cannot convert to Array. Column type: " + columnTypeName);
+      String errMsg = String.format("Column type is not ARRAY. Cannot convert to Array. Column type: %s", columnTypeName);
+      LOGGER.error(errMsg);
+      throw new DatabricksSQLException(errMsg);
     }
 
     LOGGER.trace("Parsing Array data for column with type name: {}", columnTypeName);
@@ -1059,10 +1058,9 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
 
     String columnTypeName = resultSetMetaData.getColumnTypeName(columnIndex);
     if (!columnTypeName.toUpperCase().startsWith("STRUCT")) {
-      LOGGER.error(
-          "Column type is not STRUCT. Cannot convert to Struct. Column type: {}", columnTypeName);
-      throw new SQLException(
-          "Column type is not STRUCT. Cannot convert to Struct. Column type: " + columnTypeName);
+      String errMessage = String.format("Column type is not STRUCT. Cannot convert to Struct. Column type: %s", columnTypeName);
+      LOGGER.error(errMessage);
+      throw new DatabricksSQLException(errMessage);
     }
 
     LOGGER.trace("Parsing Struct data for column with type name: {}", columnTypeName);
@@ -1093,10 +1091,9 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
 
     String columnTypeName = resultSetMetaData.getColumnTypeName(columnIndex);
     if (!columnTypeName.toUpperCase().startsWith("MAP")) {
-      LOGGER.error(
-          "Column type is not MAP. Cannot convert to Map. Column type: {}", columnTypeName);
-      throw new SQLException(
-          "Column type is not MAP. Cannot convert to Map. Column type: " + columnTypeName);
+      String errMsg = String.format("Column type is not MAP. Cannot convert to Map. Column type: %s", columnTypeName);
+      LOGGER.error(errMsg);
+      throw new DatabricksSQLException(errMsg);
     }
 
     LOGGER.trace("Parsing Map data for column with type name: {}", columnTypeName);
