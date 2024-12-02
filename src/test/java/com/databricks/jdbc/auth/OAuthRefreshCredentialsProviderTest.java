@@ -54,14 +54,10 @@ public class OAuthRefreshCredentialsProviderTest {
             new OpenIDConnectEndpoints(
                 "https://oauth.example.com/oidc/v1/token",
                 "https://oauth.example.com/oidc/v1/authorize"));
-    OAuthEndpointResolver oAuthEndpointResolver =
-        spy(new OAuthEndpointResolver(connectionContext, databricksConfig));
-    credentialsProvider =
-        new OAuthRefreshCredentialsProvider(connectionContext, oAuthEndpointResolver);
+    credentialsProvider = new OAuthRefreshCredentialsProvider(connectionContext, databricksConfig);
     when(context.getOAuthRefreshToken()).thenReturn(null);
-    verify(oAuthEndpointResolver, times(1)).getDefaultTokenEndpoint();
     OAuthRefreshCredentialsProvider providerWithNullRefreshToken =
-        new OAuthRefreshCredentialsProvider(context, oAuthEndpointResolver);
+        new OAuthRefreshCredentialsProvider(context, databricksConfig);
     DatabricksException exception =
         assertThrows(DatabricksException.class, providerWithNullRefreshToken::refresh);
     assertEquals("oauth2: token expired and refresh token is not set", exception.getMessage());
@@ -87,10 +83,7 @@ public class OAuthRefreshCredentialsProviderTest {
                   "https://oauth.example.com/oidc/v1/token",
                   "https://oauth.example.com/oidc/v1/authorize"));
     }
-    OAuthEndpointResolver oAuthEndpointResolver =
-        spy(new OAuthEndpointResolver(connectionContext, databricksConfig));
-    credentialsProvider =
-        new OAuthRefreshCredentialsProvider(connectionContext, oAuthEndpointResolver);
+    credentialsProvider = new OAuthRefreshCredentialsProvider(connectionContext, databricksConfig);
 
     // Reinitialize the OAUTH_RESPONSE InputStream for each test run
     InputStream oauthResponse =
@@ -114,6 +107,5 @@ public class OAuthRefreshCredentialsProviderTest {
     assertEquals("access-token", refreshedToken.getAccessToken());
     assertEquals("refresh-token", refreshedToken.getRefreshToken());
     assertFalse(refreshedToken.isExpired());
-    verify(oAuthEndpointResolver, times(isDefaultEndpointPath ? 1 : 0)).getDefaultTokenEndpoint();
   }
 }
