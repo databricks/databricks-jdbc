@@ -5,6 +5,7 @@ import com.databricks.jdbc.common.AllPurposeCluster;
 import com.databricks.jdbc.common.IDatabricksComputeResource;
 import com.databricks.jdbc.common.Warehouse;
 import com.databricks.jdbc.model.client.thrift.generated.*;
+import com.databricks.sdk.core.DatabricksException;
 import com.databricks.sdk.core.oauth.OpenIDConnectEndpoints;
 import java.net.MalformedURLException;
 import java.nio.ByteBuffer;
@@ -112,7 +113,7 @@ public class TestConstants {
       TEST_OIDC_ENDPOINTS =
           new OpenIDConnectEndpoints("https://test.token.url", "https://test.auth.url");
     } catch (MalformedURLException e) {
-      throw new RuntimeException(e);
+      throw new DatabricksException("Can't initiate test constant for OIDC. Error: " + e);
     }
   }
 

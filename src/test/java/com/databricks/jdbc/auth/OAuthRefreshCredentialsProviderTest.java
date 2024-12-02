@@ -14,6 +14,7 @@ import com.databricks.sdk.core.http.Response;
 import com.databricks.sdk.core.oauth.OpenIDConnectEndpoints;
 import com.databricks.sdk.core.oauth.Token;
 import java.io.ByteArrayInputStream;
+import java.io.IOException;
 import java.io.InputStream;
 import java.util.Map;
 import java.util.Properties;
@@ -61,6 +62,16 @@ public class OAuthRefreshCredentialsProviderTest {
     DatabricksException exception =
         assertThrows(DatabricksException.class, providerWithNullRefreshToken::refresh);
     assertEquals("oauth2: token expired and refresh token is not set", exception.getMessage());
+  }
+
+  @Test
+  void testRefreshThrowsExceptionWhenOIDCFetchFails() throws Exception {
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContextFactory.create(REFRESH_TOKEN_URL_DEFAULT, new Properties());
+    when(databricksConfig.getOidcEndpoints()).thenThrow(new IOException());
+    assertThrows(
+        DatabricksException.class,
+        () -> new OAuthRefreshCredentialsProvider(connectionContext, databricksConfig));
   }
 
   @ParameterizedTest
