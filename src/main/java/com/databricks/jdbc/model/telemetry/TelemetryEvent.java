@@ -4,95 +4,77 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 
 public class TelemetryEvent {
 
-    @JsonProperty("driver_name")
-    String driverName;
+  @JsonProperty("driver_name")
+  String driverName;
 
-    @JsonProperty("driver_version")
-    String driverVersion;
+  @JsonProperty("driver_version")
+  String driverVersion;
 
-    @JsonProperty("session_id")
-    String sessionId;
+  @JsonProperty("session_id")
+  String sessionId;
 
-    @JsonProperty("cloud_provider")
-    String cloudProvider;
+  @JsonProperty("cloud_provider")
+  String cloudProvider;
 
-    @JsonProperty("log_event")
-    LogEvent logEvent;
+  @JsonProperty("log_event")
+  LogEvent logEvent;
 
-    @JsonProperty("metric_event")
-    MetricEvent metricEvent;
+  @JsonProperty("metric_event")
+  MetricEvent metricEvent;
 
-    public TelemetryEvent() {}
+  public TelemetryEvent() {}
 
-    public String getEventId() {
-        return eventId;
-    }
+  public String getDriverName() {
+    return driverName;
+  }
 
-    public TelemetryEvent setEventId(String eventId) {
-        this.eventId = eventId;
-        return this;
-    }
+  public TelemetryEvent setDriverName(String driverName) {
+    this.driverName = driverName;
+    return this;
+  }
 
-    public Long getTimestamp() {
-        return timestamp;
-    }
+  public String getDriverVersion() {
+    return driverVersion;
+  }
 
-    public TelemetryEvent setTimestamp(Long timestamp) {
-        this.timestamp = timestamp;
-        return this;
-    }
+  public TelemetryEvent setDriverVersion(String driverVersion) {
+    this.driverVersion = driverVersion;
+    return this;
+  }
 
-    public String getDriverName() {
-        return driverName;
-    }
+  public String getSessionId() {
+    return sessionId;
+  }
 
-    public TelemetryEvent setDriverName(String driverName) {
-        this.driverName = driverName;
-        return this;
-    }
+  public TelemetryEvent setSessionId(String sessionId) {
+    this.sessionId = sessionId;
+    return this;
+  }
 
-    public String getDriverVersion() {
-        return driverVersion;
-    }
+  public String getCloudProvider() {
+    return cloudProvider;
+  }
 
-    public TelemetryEvent setDriverVersion(String driverVersion) {
-        this.driverVersion = driverVersion;
-        return this;
-    }
+  public TelemetryEvent setCloudProvider(String cloudProvider) {
+    this.cloudProvider = cloudProvider;
+    return this;
+  }
 
-    public String getSessionId() {
-        return sessionId;
-    }
+  public LogEvent getLogEvent() {
+    return logEvent;
+  }
 
-    public TelemetryEvent setSessionId(String sessionId) {
-        this.sessionId = sessionId;
-        return this;
-    }
+  public TelemetryEvent setLogEvent(LogEvent logEvent) {
+    this.logEvent = logEvent;
+    return this;
+  }
 
-    public String getCloudProvider() {
-        return cloudProvider;
-    }
+  public MetricEvent getMetricEvent() {
+    return metricEvent;
+  }
 
-    public TelemetryEvent setCloudProvider(String cloudProvider) {
-        this.cloudProvider = cloudProvider;
-        return this;
-    }
-
-    public LogEvent getLogEvent() {
-        return logEvent;
-    }
-
-    public TelemetryEvent setLogEvent(LogEvent logEvent) {
-        this.logEvent = logEvent;
-        return this;
-    }
-
-    public MetricEvent getMetricEvent() {
-        return metricEvent;
-    }
-
-    public TelemetryEvent setMetricEvent(MetricEvent metricEvent) {
-        this.metricEvent = metricEvent;
-        return this;
-    }
+  public TelemetryEvent setMetricEvent(MetricEvent metricEvent) {
+    this.metricEvent = metricEvent;
+    return this;
+  }
 }

@@ -4,17 +4,17 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 
 public class LogEvent {
 
-    @JsonProperty("statement_id")
-    String statementId;
+  @JsonProperty("statement_id")
+  String statementId;
 
-    public LogEvent() {}
+  public LogEvent() {}
 
-    public String getStatementId() {
-        return statementId;
-    }
+  public String getStatementId() {
+    return statementId;
+  }
 
-    public LogEvent setStatementId(String statementId) {
-        this.statementId = statementId;
-        return this;
-    }
+  public LogEvent setStatementId(String statementId) {
+    this.statementId = statementId;
+    return this;
+  }
 }

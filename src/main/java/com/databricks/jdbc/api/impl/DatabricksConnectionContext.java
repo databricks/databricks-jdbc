@@ -618,6 +618,17 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
     return connectionUuid;
   }
 
+  @Override
+  public int getTelemetryBatchSize() {
+    return Integer.parseInt(getParameter(DatabricksJdbcUrlParams.TELEMETRY_BATCH_SIZE));
+  }
+
+  @Override
+  public boolean isTelemetryEnabled() {
+    String param = getParameter(DatabricksJdbcUrlParams.ENABLE_TELEMETRY);
+    return param != null && param.equals("1");
+  }
+
   private static boolean nullOrEmptyString(String s) {
     return s == null || s.isEmpty();
   }
