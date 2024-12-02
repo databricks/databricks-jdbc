@@ -36,16 +36,17 @@ public class DriverTest {
     int cnt = 0;
     while (resultSet.next()) {
       cnt++;
-      for (int i = 1; i <= columnsNumber; i++) {
-        try {
-          Object columnValue = resultSet.getObject(i);
-          System.out.print(columnValue + "\t\t");
-        } catch (Exception e) {
-          System.out.print(
-              "NULL\t\t"); // It is possible for certain columns to be non-existent (edge case)
-        }
-      }
-      System.out.println();
+      //      for (int i = 1; i <= columnsNumber; i++) {
+      //        try {
+      //          Object columnValue = resultSet.getObject(i);
+      //          System.out.print(columnValue + "\t\t");
+      //        } catch (Exception e) {
+      //          System.out.print(
+      //              "NULL\t\t"); // It is possible for certain columns to be non-existent (edge
+      // case)
+      //        }
+      //      }
+      //      System.out.println();
     }
     System.out.println("Total number of rows: " + cnt);
   }
@@ -379,8 +380,7 @@ public class DriverTest {
     final String sql = "SELECT * FROM " + table + " limit " + maxRows;
     String jdbcUrl =
         "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/58aa1b363649e722;EnableQueryResultLZ4Compression=0";
-    Connection con =
-        DriverManager.getConnection(jdbcUrl, "token", "dapi1a590df75ade1a9766bce6caf4047f75");
+    Connection con = DriverManager.getConnection(jdbcUrl, "token", "xx");
     System.out.println("Connection established......");
     Statement s = con.createStatement();
     s.setMaxRows(maxRows);

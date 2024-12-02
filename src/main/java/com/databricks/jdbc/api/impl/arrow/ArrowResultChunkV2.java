@@ -113,6 +113,9 @@ public class ArrowResultChunkV2 {
   private String errorMessage;
   private boolean isDataInitialized;
   private final CompletableFuture<Void> downloadFuture = new CompletableFuture<>();
+  private volatile long downloadStartTime;
+  private volatile long downloadEndTime;
+  private volatile long bytesDownloaded;
 
   // Add executor service as a static field since it can be shared across chunks
   private static final ExecutorService processingExecutor =
@@ -215,11 +218,14 @@ public class ArrowResultChunkV2 {
   private static class StreamingResponseConsumer extends AbstractBinResponseConsumer<Void> {
     private final PipedOutputStream outputStream;
     private final CompletableFuture<Void> future;
+    private final ArrowResultChunkV2 chunk;
+    private long bytesReceived = 0;
 
     public StreamingResponseConsumer(
-        PipedOutputStream outputStream, CompletableFuture<Void> future) {
+        PipedOutputStream outputStream, CompletableFuture<Void> future, ArrowResultChunkV2 chunk) {
       this.outputStream = outputStream;
       this.future = future;
+      this.chunk = chunk;
     }
 
     @Override
@@ -229,6 +235,7 @@ public class ArrowResultChunkV2 {
       if (response.getCode() != 200) {
         throw new HttpException("Unexpected response status: " + response.getCode());
       }
+      chunk.downloadStartTime = System.nanoTime();
     }
 
     @Override
@@ -239,16 +246,36 @@ public class ArrowResultChunkV2 {
 
     @Override
     protected void data(ByteBuffer data, boolean endOfStream) throws IOException {
-      // Write data as it comes in
+      //      // Write data as it comes in
+      //      try {
+      //        // Write data as it comes in
+      //        while (data.hasRemaining()) {
+      //          byte[] bytes = new byte[Math.min(data.remaining(), 32 * 1024)];
+      //          data.get(bytes);
+      //          outputStream.write(bytes);
+      //        }
+      //
+      //        if (endOfStream) {
+      //          outputStream.close();
+      //        }
+      //      } catch (IOException e) {
+      //        failed(e);
+      //        throw e;
+      //      }
+
       try {
+        int currentBatch = data.remaining();
+        bytesReceived += currentBatch;
+
         // Write data as it comes in
-        while (data.hasRemaining()) {
-          byte[] bytes = new byte[Math.min(data.remaining(), 32 * 1024)];
-          data.get(bytes);
-          outputStream.write(bytes);
-        }
+        byte[] bytes = new byte[currentBatch];
+        data.get(bytes);
+        outputStream.write(bytes);
 
         if (endOfStream) {
+          chunk.downloadEndTime = System.nanoTime(); // Record end time
+          chunk.bytesDownloaded = bytesReceived;
+          logDownloadStats();
           outputStream.close();
         }
       } catch (IOException e) {
@@ -278,6 +305,18 @@ public class ArrowResultChunkV2 {
         outputStream.close();
       } catch (IOException ignored) {
       }
+    }
+
+    private void logDownloadStats() {
+      double durationMs = (chunk.downloadEndTime - chunk.downloadStartTime) / 1_000_000.0;
+      double speedMBps = (chunk.bytesDownloaded / 1024.0 / 1024.0) / (durationMs / 1000.0);
+
+      LOGGER.info(
+          "Download stats for chunk {}: Size: {:.2f} MB, Duration: {:.2f} ms, Speed: {:.2f} MB/s",
+          chunk.chunkIndex,
+          chunk.bytesDownloaded / 1024.0 / 1024.0,
+          durationMs,
+          speedMBps);
     }
   }
 
@@ -406,7 +445,7 @@ public class ArrowResultChunkV2 {
       PipedOutputStream outputStream = new PipedOutputStream();
       PipedInputStream inputStream = new PipedInputStream(outputStream, 4 * 1024 * 1024);
       StreamingResponseConsumer consumer =
-          new StreamingResponseConsumer(outputStream, downloadFuture);
+          new StreamingResponseConsumer(outputStream, downloadFuture, this);
       processingExecutor.execute(
           () -> {
             // blocking and executed in processing executor

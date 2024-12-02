@@ -165,7 +165,8 @@ public class IntegrationTestUtil {
   }
 
   public static String getJDBCUrl() {
-    String template = "jdbc:databricks://%s/default;ssl=1;AuthMech=3;httpPath=%s";
+    String template =
+        "jdbc:databricks://%s/default;ssl=1;AuthMech=3;httpPath=%s;EnableQueryResultLZ4Compression=0";
     String host = getDatabricksHost();
     String httpPath = getDatabricksHTTPPath();
 
