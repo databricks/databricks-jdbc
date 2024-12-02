@@ -613,6 +613,18 @@ public class EmptyResultSet
   }
 
   @Override
+  public Struct getStruct(int columnIndex) throws SQLException {
+    checkIfClosed();
+    return null;
+  }
+
+  @Override
+  public Map<String, Object> getMap(int columnIndex) throws SQLException {
+    checkIfClosed();
+    return null;
+  }
+
+  @Override
   public Object getObject(String columnLabel, Map<String, Class<?>> map) throws SQLException {
     checkIfClosed();
     return null;
