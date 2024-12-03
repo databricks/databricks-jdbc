@@ -26,12 +26,12 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient {
 
   private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(DBFSVolumeClient.class);
   private final DatabricksConnection connection;
-  private final WorkspaceClient workspaceClient;
+  @VisibleForTesting final WorkspaceClient workspaceClient;
 
   @VisibleForTesting
-  public DBFSVolumeClient() {
+  public DBFSVolumeClient(WorkspaceClient workspaceClient) {
     this.connection = null;
-    this.workspaceClient = null;
+    this.workspaceClient = workspaceClient;
   }
 
   public DBFSVolumeClient(Connection connection) {
@@ -102,7 +102,7 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient {
       volumeOperationProcessorDirect.executeGetOperation();
       isOperationSucceeded = true;
     } catch (DatabricksVolumeOperationException e) {
-      String errorMessage = String.format("Failed to put object - {%s}", e.getMessage());
+      String errorMessage = String.format("Failed to get object - {%s}", e.getMessage());
       LOGGER.error(e, errorMessage);
       throw e;
     }
@@ -250,7 +250,7 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient {
               JSON_HTTP_HEADERS);
     } catch (DatabricksException e) {
       String errorMessage =
-          String.format("Failed to get create upload url response - {%s}", e.getMessage());
+          String.format("Failed to get create download url response - {%s}", e.getMessage());
       LOGGER.error(e, errorMessage);
       throw new DatabricksVolumeOperationException(errorMessage, e);
     }
@@ -261,7 +261,7 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient {
       throws DatabricksVolumeOperationException {
     LOGGER.debug(
         String.format(
-            "Entering getCreateDownloadUrlResponse method with parameters: objectPath={%s}",
+            "Entering getCreateDeleteUrlResponse method with parameters: objectPath={%s}",
             objectPath));
     CreateDeleteUrlRequest request = new CreateDeleteUrlRequest(objectPath);
 
@@ -270,7 +270,8 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient {
           .apiClient()
           .POST(CREATE_DELETE_URL_PATH, request, CreateDeleteUrlResponse.class, JSON_HTTP_HEADERS);
     } catch (DatabricksException e) {
-      String errorMessage = String.format("Failed to delete object - {%s}", e.getMessage());
+      String errorMessage =
+          String.format("Failed to get create delete url response - {%s}", e.getMessage());
       LOGGER.error(e, errorMessage);
       throw new DatabricksVolumeOperationException(errorMessage, e);
     }
