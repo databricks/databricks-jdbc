@@ -27,6 +27,13 @@ public class DatabricksHttpClientFactory {
         context.getConnectionUuid(), k -> new DatabricksHttpClient(context));
   }
 
+  public void updateSocketTimeout(IDatabricksConnectionContext context, int socketTimeout) {
+    removeClient(context);
+    // Create a new client with the updated socket timeout.
+    instances.computeIfAbsent(
+        context.getConnectionUuid(), k -> new DatabricksHttpClient(context, socketTimeout));
+  }
+
   public void removeClient(IDatabricksConnectionContext context) {
     DatabricksHttpClient instance = instances.remove(context.getConnectionUuid());
     if (instance != null) {

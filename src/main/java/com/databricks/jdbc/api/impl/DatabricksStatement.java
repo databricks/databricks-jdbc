@@ -13,6 +13,7 @@ import com.databricks.jdbc.common.StatementType;
 import com.databricks.jdbc.common.util.*;
 import com.databricks.jdbc.dbclient.IDatabricksClient;
 import com.databricks.jdbc.dbclient.impl.common.StatementId;
+import com.databricks.jdbc.dbclient.impl.http.DatabricksHttpClientFactory;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.exception.DatabricksSQLFeatureNotSupportedException;
 import com.databricks.jdbc.exception.DatabricksTimeoutException;
@@ -165,6 +166,10 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
     LOGGER.debug(String.format("public void setQueryTimeout(int seconds = {%s})", seconds));
     checkIfClosed();
     ValidationUtil.checkIfNonNegative(seconds, "queryTimeout");
+    // Socket timeout should be updated to query timeout to avoid SocketTimeoutException in thrift
+    // flow.
+    DatabricksHttpClientFactory.getInstance()
+        .updateSocketTimeout(connection.getConnectionContext(), seconds);
     this.timeoutInSeconds = seconds;
   }
 

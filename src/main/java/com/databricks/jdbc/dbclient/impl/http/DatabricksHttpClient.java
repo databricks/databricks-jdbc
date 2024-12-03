@@ -46,8 +46,12 @@ public class DatabricksHttpClient implements IDatabricksHttpClient, Closeable {
   private IdleConnectionEvictor idleConnectionEvictor;
 
   DatabricksHttpClient(IDatabricksConnectionContext connectionContext) {
+    this(connectionContext, DEFAULT_HTTP_CLIENT_SOCKET_TIMEOUT);
+  }
+
+  DatabricksHttpClient(IDatabricksConnectionContext connectionContext, int socketTimeout) {
     connectionManager = initializeConnectionManager(connectionContext);
-    httpClient = makeClosableHttpClient(connectionContext);
+    httpClient = makeClosableHttpClient(connectionContext, socketTimeout);
     retryHandler = new DatabricksHttpRetryHandler(connectionContext);
     idleConnectionEvictor =
         new IdleConnectionEvictor(
@@ -101,21 +105,21 @@ public class DatabricksHttpClient implements IDatabricksHttpClient, Closeable {
     return connectionManager;
   }
 
-  private RequestConfig makeRequestConfig() {
+  private RequestConfig makeRequestConfig(int socketTimeout) {
     return RequestConfig.custom()
         .setConnectionRequestTimeout(DEFAULT_HTTP_CONNECTION_TIMEOUT)
         .setConnectTimeout(DEFAULT_HTTP_CONNECTION_TIMEOUT)
-        .setSocketTimeout(DEFAULT_HTTP_CLIENT_SOCKET_TIMEOUT)
+        .setSocketTimeout(socketTimeout)
         .build();
   }
 
   private CloseableHttpClient makeClosableHttpClient(
-      IDatabricksConnectionContext connectionContext) {
+      IDatabricksConnectionContext connectionContext, int socketTimeout) {
     HttpClientBuilder builder =
         HttpClientBuilder.create()
             .setConnectionManager(connectionManager)
             .setUserAgent(UserAgentManager.getUserAgentString())
-            .setDefaultRequestConfig(makeRequestConfig())
+            .setDefaultRequestConfig(makeRequestConfig(socketTimeout))
             .setRetryHandler(retryHandler)
             .addInterceptorFirst(retryHandler);
     setupProxy(connectionContext, builder);
