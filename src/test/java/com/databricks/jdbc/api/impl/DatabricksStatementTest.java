@@ -11,7 +11,9 @@ import com.databricks.jdbc.api.IDatabricksSession;
 import com.databricks.jdbc.common.IDatabricksComputeResource;
 import com.databricks.jdbc.common.StatementType;
 import com.databricks.jdbc.common.Warehouse;
+import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
 import com.databricks.jdbc.dbclient.impl.common.StatementId;
+import com.databricks.jdbc.dbclient.impl.http.DatabricksHttpClientFactory;
 import com.databricks.jdbc.dbclient.impl.sqlexec.DatabricksSdkClient;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.exception.DatabricksSQLFeatureNotSupportedException;
@@ -166,7 +168,12 @@ public class DatabricksStatementTest {
     assertTrue(statement.execute(STATEMENT));
 
     statement.setStatementId(STATEMENT_ID);
+    IDatabricksHttpClient httpClient =
+        DatabricksHttpClientFactory.getInstance().getClient(connectionContext);
     statement.setQueryTimeout(10);
+    IDatabricksHttpClient updatedHttpClient =
+        DatabricksHttpClientFactory.getInstance().getClient(connectionContext);
+    assertNotEquals(httpClient, updatedHttpClient);
     statement.setEscapeProcessing(true);
     assertEquals(statement.getQueryTimeout(), 10);
     assertEquals(statement.getStatement(), statement);
