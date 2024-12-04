@@ -2,7 +2,6 @@ package com.databricks.jdbc.api.impl;
 
 import static com.databricks.jdbc.common.DatabricksJdbcConstants.*;
 import static com.databricks.jdbc.common.EnvironmentVariables.*;
-import static java.lang.Runtime.getRuntime;
 import static java.lang.String.format;
 
 import com.databricks.jdbc.api.IDatabricksResultSet;
@@ -20,6 +19,7 @@ import com.databricks.jdbc.exception.DatabricksTimeoutException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.util.concurrent.MoreExecutors;
 import java.sql.*;
 import java.util.Collections;
 import java.util.HashMap;
@@ -31,9 +31,8 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
 
   private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(DatabricksStatement.class);
 
-  /** ExecutorService for handling asynchronous execution of statements. */
-  private final ExecutorService executor =
-      Executors.newFixedThreadPool(getRuntime().availableProcessors() * 2);
+  /** Same-Thread-ExecutorService for handling execution of statements. */
+  private final ExecutorService executor = MoreExecutors.newDirectExecutorService();
 
   private int timeoutInSeconds;
   private final DatabricksConnection connection;

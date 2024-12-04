@@ -52,7 +52,7 @@ public class DecompressionUtil {
 
   public static InputStream decompress(
       InputStream compressedStream, CompressionCodec compressionCodec, String context)
-      throws IOException, DatabricksSQLException {
+      throws DatabricksSQLException {
     if (compressionCodec == null
         || compressionCodec.equals(CompressionCodec.NONE)
         || compressedStream == null) {

@@ -120,7 +120,7 @@ public class ArrowResultChunkV2 {
   // Add executor service as a static field since it can be shared across chunks
   private static final ExecutorService processingExecutor =
       Executors.newFixedThreadPool(
-          Runtime.getRuntime().availableProcessors(),
+          150,
           new ThreadFactory() {
             private final AtomicInteger threadNumber = new AtomicInteger(1);
 
@@ -135,7 +135,7 @@ public class ArrowResultChunkV2 {
 
   private static final ScheduledExecutorService retryScheduler =
       Executors.newScheduledThreadPool(
-          Runtime.getRuntime().availableProcessors(),
+          10,
           new ThreadFactory() {
             private final AtomicInteger threadNumber = new AtomicInteger(1);
 
@@ -312,11 +312,8 @@ public class ArrowResultChunkV2 {
       double speedMBps = (chunk.bytesDownloaded / 1024.0 / 1024.0) / (durationMs / 1000.0);
 
       LOGGER.info(
-          "Download stats for chunk {}: Size: {:.2f} MB, Duration: {:.2f} ms, Speed: {:.2f} MB/s",
-          chunk.chunkIndex,
-          chunk.bytesDownloaded / 1024.0 / 1024.0,
-          durationMs,
-          speedMBps);
+          "Download stats for chunk %s: Size: %s MB, Duration: %s ms, Speed: %s MB/s",
+          chunk.chunkIndex, chunk.bytesDownloaded / 1024.0 / 1024.0, durationMs, speedMBps);
     }
   }
 
@@ -462,8 +459,13 @@ public class ArrowResultChunkV2 {
               initializeData(uncompressedStream);
               setStatus(ChunkStatus.DOWNLOAD_SUCCEEDED);
               downloadFuture.complete(null);
+              inputStream.close();
             } catch (Exception e) {
               handleStreamingFailure(e);
+              try {
+                inputStream.close();
+              } catch (IOException ignored) {
+              }
             }
           });
       CompletableFuture<Void> linkRefreshFuture =
@@ -497,7 +499,7 @@ public class ArrowResultChunkV2 {
                       @Override
                       public void completed(Void result) {
                         long responseTime = System.currentTimeMillis() - requestStartTime;
-                        LOGGER.debug("Response time for chunk {}: {} ms", chunkIndex, responseTime);
+                        LOGGER.debug("Response time for chunk %s: %s ms", chunkIndex, responseTime);
                       }
 
                       @Override

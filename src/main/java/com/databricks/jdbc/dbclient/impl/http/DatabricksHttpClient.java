@@ -20,6 +20,7 @@ import java.io.IOException;
 import java.util.concurrent.TimeUnit;
 import org.apache.hc.client5.http.impl.async.CloseableHttpAsyncClient;
 import org.apache.hc.client5.http.impl.async.HttpAsyncClients;
+import org.apache.hc.client5.http.impl.nio.PoolingAsyncClientConnectionManager;
 import org.apache.hc.core5.io.CloseMode;
 import org.apache.http.HttpException;
 import org.apache.http.HttpHost;
@@ -48,10 +49,15 @@ public class DatabricksHttpClient implements IDatabricksHttpClient, Closeable {
   private final CloseableHttpClient httpClient;
   private DatabricksHttpRetryHandler retryHandler;
   private IdleConnectionEvictor idleConnectionEvictor;
-  private final CloseableHttpAsyncClient asyncClient = HttpAsyncClients.createDefault();
+  private CloseableHttpAsyncClient asyncClient;
 
   DatabricksHttpClient(IDatabricksConnectionContext connectionContext) {
     connectionManager = initializeConnectionManager(connectionContext);
+    PoolingAsyncClientConnectionManager asyncConnectionManager =
+        new PoolingAsyncClientConnectionManager();
+    asyncConnectionManager.setMaxTotal(DEFAULT_MAX_HTTP_CONNECTIONS);
+    asyncConnectionManager.setDefaultMaxPerRoute(DEFAULT_MAX_HTTP_CONNECTIONS_PER_ROUTE);
+    asyncClient = HttpAsyncClients.custom().setConnectionManager(asyncConnectionManager).build();
     httpClient = makeClosableHttpClient(connectionContext);
     retryHandler = new DatabricksHttpRetryHandler(connectionContext);
     idleConnectionEvictor =

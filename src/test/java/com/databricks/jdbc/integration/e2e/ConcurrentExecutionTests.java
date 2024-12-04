@@ -123,7 +123,7 @@ public class ConcurrentExecutionTests {
     int rowCount = 0;
 
     try (Connection connection = getValidJDBCConnection()) {
-      final String table = "samples.tpch.lineitem";
+      final String table = "main.tpcds_sf100_delta.catalog_sales";
       final int maxRows = 100000;
       final String sql = "SELECT * FROM " + table + " limit " + maxRows;
 
@@ -284,8 +284,8 @@ public class ConcurrentExecutionTests {
       //      // Clean up table
       //      deleteTable(connection, tableName);
 
-      final String table = "samples.tpch.lineitem";
-      final int maxRows = 10000;
+      final String table = "main.tpcds_sf100_delta.catalog_sales";
+      final int maxRows = 100000;
       final String sql = "SELECT * FROM " + table + " limit " + maxRows;
       try (Statement statement = connection.createStatement()) {
         statement.setMaxRows(maxRows);

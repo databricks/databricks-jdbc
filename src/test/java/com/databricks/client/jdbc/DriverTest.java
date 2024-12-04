@@ -25,14 +25,18 @@ public class DriverTest {
     System.out.println("\n\nPrinting resultSet...........\n");
     ResultSetMetaData rsmd = resultSet.getMetaData();
     int columnsNumber = rsmd.getColumnCount();
-    for (int i = 1; i <= columnsNumber; i++) System.out.print(rsmd.getColumnName(i) + "\t");
-    System.out.println();
-    for (int i = 1; i <= columnsNumber; i++) System.out.print(rsmd.getColumnTypeName(i) + "\t\t");
-    System.out.println();
-    for (int i = 1; i <= columnsNumber; i++) System.out.print(rsmd.getColumnType(i) + "\t\t\t");
-    System.out.println();
-    for (int i = 1; i <= columnsNumber; i++) System.out.print(rsmd.getPrecision(i) + "\t\t\t");
-    System.out.println();
+    System.out.println("Total number of columns: " + columnsNumber);
+    //    for (int i = 1; i <= columnsNumber; i++) System.out.print(rsmd.getColumnName(i) + "\t");
+    //    System.out.println();
+    //    for (int i = 1; i <= columnsNumber; i++) System.out.print(rsmd.getColumnTypeName(i) +
+    // "\t\t");
+    //    System.out.println();
+    //    for (int i = 1; i <= columnsNumber; i++) System.out.print(rsmd.getColumnType(i) +
+    // "\t\t\t");
+    //    System.out.println();
+    //    for (int i = 1; i <= columnsNumber; i++) System.out.print(rsmd.getPrecision(i) +
+    // "\t\t\t");
+    //    System.out.println();
     int cnt = 0;
     while (resultSet.next()) {
       cnt++;
@@ -375,11 +379,11 @@ public class DriverTest {
 
   @Test
   void testAllPurposeClusters_errorHandling() throws Exception {
-    final String table = "samples.tpch.lineitem";
-    final int maxRows = 147500;
+    final String table = "main.tpcds_sf100_delta.catalog_sales";
+    final int maxRows = 1000000;
     final String sql = "SELECT * FROM " + table + " limit " + maxRows;
     String jdbcUrl =
-        "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/58aa1b363649e722;EnableQueryResultLZ4Compression=0";
+        "jdbc:databricks://benchmarking-prod-aws-us-west-2.cloud.databricks.com:443/default;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/7e635336d748166a;EnableQueryResultLZ4Compression=0";
     Connection con = DriverManager.getConnection(jdbcUrl, "token", "xx");
     System.out.println("Connection established......");
     Statement s = con.createStatement();
