@@ -10,6 +10,9 @@ public class TelemetryFrontendLog {
   @JsonProperty("frontend_log_event_id")
   String frontendLogEventId;
 
+  @JsonProperty("context")
+  FrontendLogContext context;
+
   public TelemetryFrontendLog() {}
 
   public Long getWorkspaceId() {
@@ -27,6 +30,15 @@ public class TelemetryFrontendLog {
 
   public TelemetryFrontendLog setFrontendLogEventId(String frontendLogEventId) {
     this.frontendLogEventId = frontendLogEventId;
+    return this;
+  }
+
+  public FrontendLogContext getContext() {
+    return context;
+  }
+
+  public TelemetryFrontendLog setContext(FrontendLogContext context) {
+    this.context = context;
     return this;
   }
 }

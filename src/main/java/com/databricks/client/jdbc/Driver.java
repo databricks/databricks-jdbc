@@ -63,7 +63,7 @@ public class Driver implements java.sql.Driver {
           String.format(
               "Connection failure while using the OSS Databricks JDBC driver. Failed to connect to server: %s\n%s",
               connectionContext.getHostUrl(), getRootCauseMessage(e));
-      LOGGER.error(errorMessage);
+      LOGGER.error(e, errorMessage);
       throw new DatabricksSQLException(errorMessage);
     }
   }
