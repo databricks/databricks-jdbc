@@ -3,7 +3,8 @@ package com.databricks.jdbc.api.impl.volume;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
-import com.databricks.jdbc.api.IDatabricksSession;
+import com.databricks.jdbc.api.IDatabricksConnectionContext;
+import com.databricks.jdbc.api.impl.DatabricksConnectionContextFactory;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
 import com.databricks.jdbc.dbclient.impl.http.DatabricksHttpClientFactory;
 import com.databricks.jdbc.exception.DatabricksHttpException;
@@ -28,15 +29,17 @@ import org.mockito.junit.jupiter.MockitoExtension;
 @ExtendWith(MockitoExtension.class)
 public class VolumeOperationProcessorDirectTest {
 
+  private static final String JDBC_URL =
+      "jdbc:databricks://adb-565757575.18.azuredatabricks.net:4423/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/erg6767gg;useFileSystemAPI=1";
   private static final String operationUrl = "http://example.com/upload";
   private VolumeOperationProcessorDirect processor;
   @Mock IDatabricksHttpClient mockHttpClient;
-  @Mock IDatabricksSession mockSession;
   @Mock CloseableHttpResponse mockResponse;
   @Mock StatusLine mockStatusLine;
   @Mock DatabricksHttpClientFactory mockClientFactory;
   private MockedStatic<DatabricksHttpClientFactory> mockedFactory;
   private String localFilePath;
+  private IDatabricksConnectionContext connectionContext;
 
   @BeforeEach
   void setUp() throws Exception {
@@ -44,6 +47,9 @@ public class VolumeOperationProcessorDirectTest {
     mockedFactory = mockStatic(DatabricksHttpClientFactory.class);
     mockedFactory.when(DatabricksHttpClientFactory::getInstance).thenReturn(mockClientFactory);
     when(mockClientFactory.getClient(any())).thenReturn(mockHttpClient);
+
+    java.util.Properties info = new java.util.Properties();
+    connectionContext = DatabricksConnectionContextFactory.create(JDBC_URL, info);
   }
 
   @AfterEach
@@ -60,7 +66,8 @@ public class VolumeOperationProcessorDirectTest {
       localFilePath = tempFile.getAbsolutePath();
 
       // Initialize the processor
-      processor = new VolumeOperationProcessorDirect(operationUrl, localFilePath, mockSession);
+      processor =
+          new VolumeOperationProcessorDirect(operationUrl, localFilePath, connectionContext);
     }
 
     @AfterEach
@@ -128,7 +135,8 @@ public class VolumeOperationProcessorDirectTest {
     void setUpFile() throws Exception {
       localFilePath = "testfile.txt";
       // Initialize the processor
-      processor = new VolumeOperationProcessorDirect(operationUrl, localFilePath, mockSession);
+      processor =
+          new VolumeOperationProcessorDirect(operationUrl, localFilePath, connectionContext);
     }
 
     @Test
@@ -161,7 +169,7 @@ public class VolumeOperationProcessorDirectTest {
 
     @BeforeEach
     void setUpFile() throws Exception {
-      processor = new VolumeOperationProcessorDirect(operationUrl, null, mockSession);
+      processor = new VolumeOperationProcessorDirect(operationUrl, null, connectionContext);
     }
 
     @Test

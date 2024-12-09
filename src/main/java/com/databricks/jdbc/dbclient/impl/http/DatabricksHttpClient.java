@@ -68,10 +68,6 @@ public class DatabricksHttpClient implements IDatabricksHttpClient, Closeable {
   public CloseableHttpResponse execute(HttpUriRequest request) throws DatabricksHttpException {
     LOGGER.debug(
         String.format("Executing HTTP request [{%s}]", RequestSanitizer.sanitizeRequest(request)));
-    if (!Boolean.parseBoolean(System.getProperty(IS_FAKE_SERVICE_TEST_PROP))) {
-      // TODO : allow gzip in wiremock
-      request.setHeader("Content-Encoding", "gzip");
-    }
     try {
       return httpClient.execute(request);
     } catch (IOException e) {

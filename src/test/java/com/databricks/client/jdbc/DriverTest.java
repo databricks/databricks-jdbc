@@ -322,8 +322,10 @@ public class DriverTest {
     IDatabricksVolumeClient client = ((IDatabricksConnection) con).getVolumeClient();
 
     File file = new File("/tmp/put.txt");
+    File file_get = new File("/tmp/dbfs.txt");
+
     try {
-      Files.writeString(file.toPath(), "put string check");
+      Files.writeString(file.toPath(), "test-put");
       System.out.println("File created");
 
       System.out.println(
@@ -336,11 +338,13 @@ public class DriverTest {
                   "/tmp/put.txt",
                   true));
 
-      //      System.out.println(client.getObject( "___________________first",
-      //              "jprakash-test",
-      //              "jprakash_volume",
-      //              "test-stream.csv",
-      //              "/tmp/dbfs.txt"));
+      System.out.println(
+          client.getObject(
+              "___________________first",
+              "jprakash-test",
+              "jprakash_volume",
+              "test-stream.csv",
+              "/tmp/dbfs.txt"));
 
       System.out.println(
           client.deleteObject(
@@ -350,7 +354,7 @@ public class DriverTest {
       throw e;
     } finally {
       file.delete();
-      con.close();
+      file_get.delete();
     }
   }
 

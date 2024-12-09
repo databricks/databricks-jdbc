@@ -1,6 +1,6 @@
 package com.databricks.jdbc.api.impl.volume;
 
-import com.databricks.jdbc.api.IDatabricksSession;
+import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.common.util.HttpUtil;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
 import com.databricks.jdbc.dbclient.impl.http.DatabricksHttpClientFactory;
@@ -9,6 +9,8 @@ import com.databricks.jdbc.exception.DatabricksVolumeOperationException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import java.io.*;
+import java.io.File;
+import java.io.IOException;
 import org.apache.http.HttpEntity;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpDelete;
@@ -30,11 +32,11 @@ public class VolumeOperationProcessorDirect {
   private final IDatabricksHttpClient databricksHttpClient;
 
   public VolumeOperationProcessorDirect(
-      String operationUrl, String localFilePath, IDatabricksSession session) {
+      String operationUrl, String localFilePath, IDatabricksConnectionContext connectionContext) {
     this.operationUrl = operationUrl;
     this.localFilePath = localFilePath;
     this.databricksHttpClient =
-        DatabricksHttpClientFactory.getInstance().getClient(session.getConnectionContext());
+        DatabricksHttpClientFactory.getInstance().getClient(connectionContext);
   }
 
   public void executeGetOperation() throws DatabricksVolumeOperationException {
@@ -100,7 +102,6 @@ public class VolumeOperationProcessorDirect {
     // Set the FileEntity as the request body
     File file = new File(localFilePath);
     httpPut.setEntity(new FileEntity(file, ContentType.DEFAULT_BINARY));
-
     // Execute the request
     try (CloseableHttpResponse response = databricksHttpClient.execute(httpPut)) {
       // Process the response

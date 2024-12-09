@@ -6,8 +6,6 @@ import static com.databricks.jdbc.dbclient.impl.sqlexec.PathConstants.*;
 
 import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.api.IDatabricksVolumeClient;
-import com.databricks.jdbc.api.impl.DatabricksConnection;
-import com.databricks.jdbc.dbclient.IDatabricksClient;
 import com.databricks.jdbc.dbclient.impl.common.ClientConfigurator;
 import com.databricks.jdbc.exception.DatabricksVolumeOperationException;
 import com.databricks.jdbc.log.JdbcLogger;
@@ -17,7 +15,6 @@ import com.databricks.sdk.WorkspaceClient;
 import com.databricks.sdk.core.DatabricksException;
 import com.google.common.annotations.VisibleForTesting;
 import java.io.InputStream;
-import java.sql.Connection;
 import java.util.List;
 import org.apache.http.entity.InputStreamEntity;
 
@@ -25,18 +22,18 @@ import org.apache.http.entity.InputStreamEntity;
 public class DBFSVolumeClient implements IDatabricksVolumeClient {
 
   private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(DBFSVolumeClient.class);
-  private final DatabricksConnection connection;
+  private final IDatabricksConnectionContext connectionContext;
   @VisibleForTesting final WorkspaceClient workspaceClient;
 
   @VisibleForTesting
   public DBFSVolumeClient(WorkspaceClient workspaceClient) {
-    this.connection = null;
+    this.connectionContext = null;
     this.workspaceClient = workspaceClient;
   }
 
-  public DBFSVolumeClient(Connection connection) {
-    this.connection = (DatabricksConnection) connection;
-    this.workspaceClient = getWorkspaceClientFromConnection(this.connection);
+  public DBFSVolumeClient(IDatabricksConnectionContext connectionContext) {
+    this.connectionContext = connectionContext;
+    this.workspaceClient = getWorkspaceClientFromConnectionContext(connectionContext);
   }
 
   /** {@inheritDoc} */
@@ -198,15 +195,14 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient {
     return isOperationSucceeded;
   }
 
-  WorkspaceClient getWorkspaceClientFromConnection(DatabricksConnection connection) {
-    IDatabricksClient client = connection.getSession().getDatabricksClient();
-    IDatabricksConnectionContext connectionContext = client.getConnectionContext();
+  WorkspaceClient getWorkspaceClientFromConnectionContext(
+      IDatabricksConnectionContext connectionContext) {
     return new ClientConfigurator(connectionContext).getWorkspaceClient();
   }
 
   VolumeOperationProcessorDirect getVolumeOperationProcessorDirect(
       String operationUrl, String localFilePath) {
-    return new VolumeOperationProcessorDirect(operationUrl, localFilePath, connection.getSession());
+    return new VolumeOperationProcessorDirect(operationUrl, localFilePath, connectionContext);
   }
 
   /** Fetches the pre signed url for uploading to the volume using the SQL Exec API */

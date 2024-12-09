@@ -48,7 +48,11 @@ public class Driver implements java.sql.Driver {
     DriverUtil.setUpLogging(connectionContext);
     UserAgentManager.setUserAgent(connectionContext);
     DeviceInfoLogUtil.logProperties();
+
     DatabricksConnection connection = new DatabricksConnection(connectionContext);
+
+    if (connectionContext.useFileSystemAPI()) return connection;
+
     boolean isConnectionOpen = false;
     try {
       connection.open();

@@ -46,7 +46,8 @@ public class DatabricksConnection implements IDatabricksConnection {
   public DatabricksConnection(IDatabricksConnectionContext connectionContext)
       throws DatabricksSQLException {
     this.connectionContext = connectionContext;
-    this.session = new DatabricksSession(connectionContext);
+    if (connectionContext.useFileSystemAPI()) this.session = null;
+    else this.session = new DatabricksSession(connectionContext);
   }
 
   @VisibleForTesting
@@ -524,8 +525,8 @@ public class DatabricksConnection implements IDatabricksConnection {
     if (volumeClient == null) {
       synchronized (this) {
         if (volumeClient == null) {
-          if (this.session.getConnectionContext().useFileSystemAPI()) {
-            volumeClient = new DBFSVolumeClient(this);
+          if (this.connectionContext.useFileSystemAPI()) {
+            volumeClient = new DBFSVolumeClient(connectionContext);
           } else {
             volumeClient = new DatabricksUCVolumeClient(this);
           }
