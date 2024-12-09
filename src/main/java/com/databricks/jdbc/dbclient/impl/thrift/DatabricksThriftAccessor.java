@@ -20,6 +20,8 @@ import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.model.client.thrift.generated.*;
 import com.databricks.sdk.core.DatabricksConfig;
+import com.databricks.sdk.service.sql.StatementState;
+import com.databricks.sdk.service.sql.StatementStatus;
 import com.google.common.annotations.VisibleForTesting;
 import java.sql.SQLException;
 import java.util.Arrays;
@@ -265,6 +267,15 @@ final class DatabricksThriftAccessor {
                 maxRows,
                 true);
       }
+
+      StatementId statementId = new StatementId(response.getOperationHandle().operationId);
+      if (parentStatement != null) {
+        parentStatement.setStatementId(statementId);
+      }
+      StatementStatus statementStatus = getStatementStatus(statusResp);
+      return new DatabricksResultSet(
+          statementStatus, statementId, resultSet, statementType, parentStatement, session);
+
     } catch (TException e) {
       String errorMessage =
           String.format(
@@ -273,12 +284,6 @@ final class DatabricksThriftAccessor {
       LOGGER.error(e, errorMessage);
       throw new DatabricksHttpException(errorMessage, e);
     }
-    StatementId statementId = new StatementId(response.getOperationHandle().operationId);
-    if (parentStatement != null) {
-      parentStatement.setStatementId(statementId);
-    }
-    return new DatabricksResultSet(
-        response.getStatus(), statementId, resultSet, statementType, parentStatement, session);
   }
 
   DatabricksResultSet executeAsync(
@@ -314,8 +319,9 @@ final class DatabricksThriftAccessor {
     if (parentStatement != null) {
       parentStatement.setStatementId(statementId);
     }
+    StatementStatus statementStatus = getAsyncStatus(response.getStatus());
     return new DatabricksResultSet(
-        response.getStatus(), statementId, null, statementType, parentStatement, session);
+        statementStatus, statementId, null, statementType, parentStatement, session);
   }
 
   DatabricksResultSet getStatementResult(
@@ -329,15 +335,21 @@ final class DatabricksThriftAccessor {
             .setOperationHandle(operationHandle)
             .setGetProgressUpdate(false);
     TGetOperationStatusResp response;
-    TStatusCode statusCode;
     TFetchResultsResp resultSet = null;
+    StatementId statementId = new StatementId(operationHandle.getOperationId());
     try {
       response = getThriftClient().GetOperationStatus(request);
-      statusCode = response.getStatus().getStatusCode();
-      if (statusCode == TStatusCode.SUCCESS_STATUS
-          || statusCode == TStatusCode.SUCCESS_WITH_INFO_STATUS) {
+      TOperationState operationState = response.getOperationState();
+      if (operationState == TOperationState.FINISHED_STATE) {
         resultSet =
             getResultSetResp(response.getStatus(), operationHandle, response.toString(), -1, true);
+        return new DatabricksResultSet(
+            new StatementStatus().setState(StatementState.SUCCEEDED),
+            statementId,
+            resultSet,
+            StatementType.SQL,
+            parentStatement,
+            session);
       }
     } catch (TException e) {
       String errorMessage =
@@ -347,9 +359,9 @@ final class DatabricksThriftAccessor {
       LOGGER.error(e, errorMessage);
       throw new DatabricksHttpException(errorMessage, e);
     }
-    StatementId statementId = new StatementId(operationHandle.getOperationId());
+    StatementStatus executionStatus = getStatementStatus(response);
     return new DatabricksResultSet(
-        response.getStatus(), statementId, resultSet, StatementType.SQL, parentStatement, session);
+        executionStatus, statementId, resultSet, StatementType.SQL, parentStatement, session);
   }
 
   void resetAccessToken(String newAccessToken) {
@@ -434,6 +446,69 @@ final class DatabricksThriftAccessor {
         response.toString(),
         DEFAULT_ROW_LIMIT,
         false);
+  }
+
+  private StatementStatus getStatementStatus(TGetOperationStatusResp resp) {
+    StatementState state = null;
+    switch (resp.getOperationState()) {
+      case INITIALIZED_STATE:
+      case PENDING_STATE:
+        state = StatementState.PENDING;
+        break;
+
+      case RUNNING_STATE:
+        state = StatementState.RUNNING;
+        break;
+
+      case FINISHED_STATE:
+        state = StatementState.SUCCEEDED;
+        break;
+
+      case ERROR_STATE:
+      case TIMEDOUT_STATE:
+        // TODO: Also set the sql_state and error message
+        state = StatementState.FAILED;
+        break;
+
+      case CLOSED_STATE:
+        state = StatementState.CLOSED;
+        break;
+
+      case CANCELED_STATE:
+        state = StatementState.CANCELED;
+        break;
+
+      case UKNOWN_STATE:
+        state = StatementState.FAILED;
+    }
+
+    return new StatementStatus().setState(state);
+  }
+
+  private StatementStatus getAsyncStatus(TStatus status) {
+    StatementStatus statementStatus = new StatementStatus();
+    StatementState state = null;
+
+    switch (status.getStatusCode()) {
+        // For async mode, success would just mean that statement was successfully submitted
+        // actual status should be checked using GetOperationStatus
+      case SUCCESS_STATUS:
+      case SUCCESS_WITH_INFO_STATUS:
+      case STILL_EXECUTING_STATUS:
+        state = StatementState.RUNNING;
+        break;
+
+      case INVALID_HANDLE_STATUS:
+      case ERROR_STATUS:
+        // TODO: set sql_state in case of error
+        state = StatementState.FAILED;
+        break;
+
+      default:
+        state = StatementState.FAILED;
+    }
+
+    return new StatementStatus().setState(state);
   }
 
   private TFetchResultsResp listSchemas(TGetSchemasReq request)
@@ -528,7 +603,10 @@ final class DatabricksThriftAccessor {
     if (statusResp != null
         && statusResp.isSetOperationState()
         && isErrorOperationState(statusResp.getOperationState())) {
-      throw new DatabricksSQLException("Operation state erroneous");
+      String errorMsg =
+          String.format("Operation failed with error: %s", statusResp.getErrorMessage());
+      LOGGER.error(errorMsg);
+      throw new DatabricksSQLException(errorMsg, statusResp.getSqlState());
     }
   }
 
