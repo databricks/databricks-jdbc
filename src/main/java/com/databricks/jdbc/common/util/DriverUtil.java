@@ -104,6 +104,11 @@ public class DriverUtil {
       return;
     }
     String dbsqlVersion = getDBSQLVersionCached(connection);
+    if(dbsqlVersion == null || dbsqlVersion == "") {
+      // If the DBSQL version is not available, we cannot determine if the driver supports SEA.
+      // Proceeding with the connection.
+      return;
+    }
     if (!doesDriverSupportSEA(dbsqlVersion)) {
       String errorMessage =
           String.format(
