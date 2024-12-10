@@ -51,8 +51,6 @@ public class Driver implements java.sql.Driver {
 
     DatabricksConnection connection = new DatabricksConnection(connectionContext);
 
-    if (connectionContext.useFileSystemAPI()) return connection;
-
     boolean isConnectionOpen = false;
     try {
       connection.open();

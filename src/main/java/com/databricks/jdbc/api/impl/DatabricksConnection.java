@@ -5,8 +5,6 @@ import com.databricks.jdbc.api.IDatabricksConnection;
 import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.api.IDatabricksSession;
 import com.databricks.jdbc.api.IDatabricksStatement;
-import com.databricks.jdbc.api.impl.volume.DBFSVolumeClient;
-import com.databricks.jdbc.api.impl.volume.DatabricksUCVolumeClient;
 import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
 import com.databricks.jdbc.common.DatabricksJdbcConstants;
 import com.databricks.jdbc.common.util.UserAgentManager;
@@ -46,8 +44,7 @@ public class DatabricksConnection implements IDatabricksConnection {
   public DatabricksConnection(IDatabricksConnectionContext connectionContext)
       throws DatabricksSQLException {
     this.connectionContext = connectionContext;
-    if (connectionContext.useFileSystemAPI()) this.session = null;
-    else this.session = new DatabricksSession(connectionContext);
+    this.session = new DatabricksSession(connectionContext);
   }
 
   @VisibleForTesting
@@ -518,22 +515,6 @@ public class DatabricksConnection implements IDatabricksConnection {
   @Override
   public Connection getConnection() {
     return this;
-  }
-
-  @Override
-  public IDatabricksVolumeClient getVolumeClient() {
-    if (volumeClient == null) {
-      synchronized (this) {
-        if (volumeClient == null) {
-          if (this.connectionContext.useFileSystemAPI()) {
-            volumeClient = new DBFSVolumeClient(connectionContext);
-          } else {
-            volumeClient = new DatabricksUCVolumeClient(this);
-          }
-        }
-      }
-    }
-    return volumeClient;
   }
 
   @Override
