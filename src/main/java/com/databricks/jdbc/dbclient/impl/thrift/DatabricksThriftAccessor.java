@@ -448,69 +448,6 @@ final class DatabricksThriftAccessor {
         false);
   }
 
-  private StatementStatus getStatementStatus(TGetOperationStatusResp resp) {
-    StatementState state = null;
-    switch (resp.getOperationState()) {
-      case INITIALIZED_STATE:
-      case PENDING_STATE:
-        state = StatementState.PENDING;
-        break;
-
-      case RUNNING_STATE:
-        state = StatementState.RUNNING;
-        break;
-
-      case FINISHED_STATE:
-        state = StatementState.SUCCEEDED;
-        break;
-
-      case ERROR_STATE:
-      case TIMEDOUT_STATE:
-        // TODO: Also set the sql_state and error message
-        state = StatementState.FAILED;
-        break;
-
-      case CLOSED_STATE:
-        state = StatementState.CLOSED;
-        break;
-
-      case CANCELED_STATE:
-        state = StatementState.CANCELED;
-        break;
-
-      case UKNOWN_STATE:
-        state = StatementState.FAILED;
-    }
-
-    return new StatementStatus().setState(state);
-  }
-
-  private StatementStatus getAsyncStatus(TStatus status) {
-    StatementStatus statementStatus = new StatementStatus();
-    StatementState state = null;
-
-    switch (status.getStatusCode()) {
-        // For async mode, success would just mean that statement was successfully submitted
-        // actual status should be checked using GetOperationStatus
-      case SUCCESS_STATUS:
-      case SUCCESS_WITH_INFO_STATUS:
-      case STILL_EXECUTING_STATUS:
-        state = StatementState.RUNNING;
-        break;
-
-      case INVALID_HANDLE_STATUS:
-      case ERROR_STATUS:
-        // TODO: set sql_state in case of error
-        state = StatementState.FAILED;
-        break;
-
-      default:
-        state = StatementState.FAILED;
-    }
-
-    return new StatementStatus().setState(state);
-  }
-
   private TFetchResultsResp listSchemas(TGetSchemasReq request)
       throws TException, DatabricksHttpException {
     if (enableDirectResults) request.setGetDirectResults(DEFAULT_DIRECT_RESULTS);
