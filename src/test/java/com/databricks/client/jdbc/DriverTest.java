@@ -126,12 +126,12 @@ public class DriverTest {
     DriverManager.registerDriver(new Driver());
     String emptyJdbcUrl = "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com";
     DriverPropertyInfo[] driverPropertyInfos =
-            new Driver().getPropertyInfo(emptyJdbcUrl, new Properties());
+        new Driver().getPropertyInfo(emptyJdbcUrl, new Properties());
     assertEquals(driverPropertyInfos.length, 1);
     assertEquals(driverPropertyInfos[0].name, HTTP_PATH.getParamName());
 
     String jdbcUrl =
-            "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com;AuthMech=11;Auth_Flow=0;httpPath=/sql/1.0/warehouses/58aa1b363649e722;loglevel=1";
+        "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com;AuthMech=11;Auth_Flow=0;httpPath=/sql/1.0/warehouses/58aa1b363649e722;loglevel=1";
     driverPropertyInfos = new Driver().getPropertyInfo(jdbcUrl, new Properties());
     for (DriverPropertyInfo driverPropertyInfo : driverPropertyInfos) {
       if (driverPropertyInfo.required) {
