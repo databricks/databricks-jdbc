@@ -14,4 +14,14 @@ public interface IDatabricksHttpClient {
    * @return http response
    */
   CloseableHttpResponse execute(HttpUriRequest request) throws DatabricksHttpException;
+
+  /**
+   * Executes the given http request and returns the response
+   *
+   * @param request underlying http request
+   * @param supportGzipEncoding whether to support gzip encoding header
+   * @return http response
+   */
+  CloseableHttpResponse execute(HttpUriRequest request, boolean supportGzipEncoding)
+      throws DatabricksHttpException;
 }

@@ -65,9 +65,15 @@ public class DatabricksHttpClient implements IDatabricksHttpClient, Closeable {
 
   @Override
   public CloseableHttpResponse execute(HttpUriRequest request) throws DatabricksHttpException {
+    return execute(request, false);
+  }
+
+  @Override
+  public CloseableHttpResponse execute(HttpUriRequest request, boolean supportGzipEncoding)
+      throws DatabricksHttpException {
     LOGGER.debug(
         String.format("Executing HTTP request [{%s}]", RequestSanitizer.sanitizeRequest(request)));
-    if (!DriverUtil.isRunningAgainstFake()) {
+    if (!DriverUtil.isRunningAgainstFake() && supportGzipEncoding) {
       // TODO : allow gzip in wiremock
       request.setHeader("Content-Encoding", "gzip");
     }

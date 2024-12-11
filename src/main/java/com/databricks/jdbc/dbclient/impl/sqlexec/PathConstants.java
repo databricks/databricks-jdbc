@@ -12,4 +12,6 @@ public class PathConstants {
   public static final String CREATE_UPLOAD_URL_PATH = "/api/2.0/fs/create-upload-url";
   public static final String TELEMETRY_PATH = "/telemetry-ext";
   public static final String TELEMETRY_PATH_UNAUTHENTICATED = "/telemetry-unauth";
+  public static final String CREATE_DOWNLOAD_URL_PATH = "/api/2.0/fs/create-download-url";
+  public static final String CREATE_DELETE_URL_PATH = "/api/2.0/fs/create-delete-url";
 }

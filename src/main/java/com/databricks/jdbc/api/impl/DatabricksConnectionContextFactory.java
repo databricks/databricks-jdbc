@@ -19,4 +19,28 @@ public class DatabricksConnectionContextFactory {
       throws DatabricksSQLException {
     return DatabricksConnectionContext.parse(url, properties);
   }
+
+  /**
+   * Creates an instance of {@link IDatabricksConnectionContext} from the given URL, user and
+   * password
+   *
+   * @param url JDBC URL
+   * @param user JDBC connection properties
+   * @param password JDBC connection properties
+   * @return an instance of {@link IDatabricksConnectionContext}
+   * @throws DatabricksSQLException if the URL or properties are invalid
+   */
+  public static IDatabricksConnectionContext create(String url, String user, String password)
+      throws DatabricksSQLException {
+    java.util.Properties info = new java.util.Properties();
+
+    if (user != null) {
+      info.put("user", user);
+    }
+    if (password != null) {
+      info.put("password", password);
+    }
+
+    return create(url, info);
+  }
 }

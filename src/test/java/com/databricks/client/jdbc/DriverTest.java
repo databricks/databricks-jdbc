@@ -2,14 +2,14 @@ package com.databricks.client.jdbc;
 
 import static com.databricks.jdbc.integration.IntegrationTestUtil.getFullyQualifiedTableName;
 
-import com.databricks.jdbc.api.IDatabricksConnection;
-import com.databricks.jdbc.api.IDatabricksResultSet;
-import com.databricks.jdbc.api.IDatabricksStatement;
-import com.databricks.jdbc.api.IDatabricksVolumeClient;
+import com.databricks.jdbc.api.*;
+import com.databricks.jdbc.api.impl.DatabricksConnectionContextFactory;
 import com.databricks.jdbc.api.impl.DatabricksResultSetMetaData;
 import com.databricks.jdbc.api.impl.arrow.ArrowResultChunk;
+import com.databricks.jdbc.api.impl.volume.DatabricksVolumeClientFactory;
 import com.databricks.jdbc.common.DatabricksJdbcConstants;
 import com.databricks.jdbc.exception.DatabricksSQLException;
+import com.databricks.sdk.service.sql.StatementState;
 import java.io.File;
 import java.io.FileInputStream;
 import java.math.BigDecimal;
@@ -303,7 +303,7 @@ public class DriverTest {
     Connection con = DriverManager.getConnection(jdbcUrl, "token", "xx");
     con.setClientInfo(DatabricksJdbcConstants.ALLOWED_VOLUME_INGESTION_PATHS, "delete");
     System.out.println("Connection created");
-    IDatabricksVolumeClient client = ((IDatabricksConnection) con).getVolumeClient();
+    IDatabricksVolumeClient client = DatabricksVolumeClientFactory.getVolumeClient(con);
 
     File file = new File("/tmp/put.txt");
     try {
@@ -347,17 +347,19 @@ public class DriverTest {
     DriverManager.registerDriver(new Driver());
     DriverManager.drivers().forEach(driver -> System.out.println(driver.getClass()));
     System.out.println("Starting test");
-    // Getting the connection
     String jdbcUrl =
-        "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/dd43ee29fedd958d;Loglevel=debug;useFileSystemAPI=1";
-    Connection con = DriverManager.getConnection(jdbcUrl, "token", "xx");
-    System.out.println("Connection created");
+        "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/58aa1b363649e722;Loglevel=debug;useFileSystemAPI=1";
 
-    IDatabricksVolumeClient client = ((IDatabricksConnection) con).getVolumeClient();
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContextFactory.create(jdbcUrl, "token", "xx");
+    IDatabricksVolumeClient client =
+        DatabricksVolumeClientFactory.getVolumeClient(connectionContext);
 
     File file = new File("/tmp/put.txt");
+    File file_get = new File("/tmp/dbfs.txt");
+
     try {
-      Files.writeString(file.toPath(), "put string check");
+      Files.writeString(file.toPath(), "test-put");
       System.out.println("File created");
 
       System.out.println(
@@ -370,11 +372,23 @@ public class DriverTest {
                   "/tmp/put.txt",
                   true));
 
+      System.out.println(
+          client.getObject(
+              "___________________first",
+              "jprakash-test",
+              "jprakash_volume",
+              "test-stream.csv",
+              "/tmp/dbfs.txt"));
+
+      System.out.println(
+          client.deleteObject(
+              "___________________first", "jprakash-test", "jprakash_volume", "test-stream.csv"));
     } catch (Exception e) {
       e.printStackTrace();
+      throw e;
     } finally {
       file.delete();
-      con.close();
+      file_get.delete();
     }
   }
 
@@ -424,26 +438,51 @@ public class DriverTest {
     System.out.println("Connection established...... con1");
     Statement s = con.createStatement();
     IDatabricksStatement ids = s.unwrap(IDatabricksStatement.class);
-    ResultSet rs = ids.executeAsync("SELECT * from RANGE(10)");
+    long initialTime = System.currentTimeMillis();
+    String sql =
+        "CREATE TABLE TMP_P2P_EKKO_EKPO_ASYNC8 AS ("
+            + "  SELECT * FROM ("
+            + "    SELECT * FROM ("
+            + "      SELECT t1.*"
+            + "      FROM main.streaming.random_large_table t1"
+            + "      INNER JOIN main.streaming.random_large_table t2"
+            + "      ON t1.prompt = t2.prompt"
+            + "    ) nested_t1"
+            + "  ) nested_t2"
+            + ")";
+    ResultSet rs = ids.executeAsync(sql);
     System.out.println(
-        "1Status of async execution " + rs.unwrap(IDatabricksResultSet.class).getStatementStatus());
-
-    ResultSet rs3 = s.unwrap(IDatabricksStatement.class).getExecutionResult();
-    System.out.println(
-        "2Status of async execution "
-            + rs3.unwrap(IDatabricksResultSet.class).getStatementStatus());
-
+        "Status of async execution " + rs.unwrap(IDatabricksResultSet.class).getStatementStatus());
+    System.out.println("Time taken: " + (System.currentTimeMillis() - initialTime));
     System.out.println("StatementId " + rs.unwrap(IDatabricksResultSet.class).getStatementId());
+
+    int count = 1;
+    StatementState state = rs.unwrap(IDatabricksResultSet.class).getStatementStatus().getState();
+    while (state != StatementState.SUCCEEDED && state != StatementState.FAILED) {
+      Thread.sleep(1000);
+      rs = s.unwrap(IDatabricksStatement.class).getExecutionResult();
+      state = rs.unwrap(IDatabricksResultSet.class).getStatementStatus().getState();
+      System.out.println(
+          "Status of async execution "
+              + state
+              + " attempt "
+              + count++
+              + " time taken "
+              + (System.currentTimeMillis() - initialTime));
+    }
 
     Connection con2 = DriverManager.getConnection(jdbcUrl, "token", "token");
     System.out.println("Connection established......con2");
     IDatabricksConnection idc = con2.unwrap(IDatabricksConnection.class);
     Statement stm = idc.getStatement(rs.unwrap(IDatabricksResultSet.class).getStatementId());
     ResultSet rs2 = stm.unwrap(IDatabricksStatement.class).getExecutionResult();
+
     System.out.println(
-        "3Status of async execution "
-            + rs2.unwrap(IDatabricksResultSet.class).getStatementStatus());
+        "Status of async execution using con2 "
+            + rs2.unwrap(IDatabricksResultSet.class).getStatementStatus().getState());
+
     stm.cancel();
+    stm.execute("DROP TABLE TMP_P2P_EKKO_EKPO_ASYNC8");
     System.out.println("Statement cancelled using con2");
     s.close();
     System.out.println("Statement cancelled using con1");

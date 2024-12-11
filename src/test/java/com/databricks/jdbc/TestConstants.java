@@ -5,6 +5,9 @@ import com.databricks.jdbc.common.AllPurposeCluster;
 import com.databricks.jdbc.common.IDatabricksComputeResource;
 import com.databricks.jdbc.common.Warehouse;
 import com.databricks.jdbc.model.client.thrift.generated.*;
+import com.databricks.sdk.core.DatabricksException;
+import com.databricks.sdk.core.oauth.OpenIDConnectEndpoints;
+import java.net.MalformedURLException;
 import java.nio.ByteBuffer;
 import java.util.Collections;
 import java.util.List;
@@ -102,11 +105,18 @@ public class TestConstants {
   public static final String TEST_JWT_ALGORITHM = "RS256";
   public static final String TEST_JWT_KEY_FILE = "src/test/resources/private_key.pem";
   public static final String TEST_ACCESS_TOKEN = "test-access-token";
-  public static final String TEST_OIDC_RESPONSE =
-      "{\n"
-          + "  \"token_endpoint\": \"https://test.token.url\",\n"
-          + "  \"authorization_endpoint\": \"https://test.auth.url\"\n"
-          + "}";
+
+  public static OpenIDConnectEndpoints TEST_OIDC_ENDPOINTS;
+
+  static {
+    try {
+      TEST_OIDC_ENDPOINTS =
+          new OpenIDConnectEndpoints("https://test.token.url", "https://test.auth.url");
+    } catch (MalformedURLException e) {
+      throw new DatabricksException("Can't initiate test constant for OIDC. Error: " + e);
+    }
+  }
+
   public static final String TEST_OAUTH_RESPONSE =
       "{\n"
           + "  \"expires_in\": 3600,\n"
