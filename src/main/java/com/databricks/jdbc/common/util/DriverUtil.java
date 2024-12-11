@@ -103,8 +103,8 @@ public class DriverUtil {
       // Check applicable only for SEA flow
       return;
     }
-    String dbsqlVersion = getDBSQLVersionCached(connection);
-    if (dbsqlVersion == null || dbsqlVersion.equals("") || dbsqlVersion.equals(" ")) {
+    String dbsqlVersion = getDBSQLVersionCached(connection).trim();
+    if (dbsqlVersion == null || dbsqlVersion.equals("")) {
       // If the DBSQL version is not available, we cannot determine if the driver supports SEA.
       // Proceeding with the connection.
       return;
