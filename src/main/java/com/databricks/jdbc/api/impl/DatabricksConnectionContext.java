@@ -48,10 +48,10 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
     this.connectionUuid = UUID.randomUUID().toString();
   }
 
-  public DatabricksConnectionContext(ImmutableMap<String, String> parameters)
+  public DatabricksConnectionContext(String host, ImmutableMap<String, String> parameters)
       throws DatabricksSQLException {
     this.connectionURL = "";
-    this.host = "";
+    this.host = host;
     this.port = DEFAULT_PORT;
     this.schema = DEFAULT_SCHEMA;
     this.parameters = parameters;
@@ -207,12 +207,7 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
         DatabricksJdbcUrlParams.GOOGLE_CREDENTIALS_FILE.getParamName().toLowerCase())) {
       return DatabricksJdbcConstants.GCP_GOOGLE_CREDENTIALS_AUTH_TYPE;
     }
-    if (parameters.containsKey(
-        DatabricksJdbcUrlParams.CLIENT_SECRET.getParamName().toLowerCase())) {
-      return DatabricksJdbcConstants.M2M_AUTH_TYPE;
-    }
-    throw new DatabricksParsingException(
-        "GCP Auth Type not found. Provide either Google Service Account or Google Credentials file path");
+    return DatabricksJdbcConstants.M2M_AUTH_TYPE;
   }
 
   @Override

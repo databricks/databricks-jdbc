@@ -8,6 +8,7 @@ import com.databricks.jdbc.common.DatabricksJdbcConstants;
 import com.databricks.jdbc.common.DatabricksJdbcUrlParams;
 import com.databricks.jdbc.common.LogLevel;
 import com.databricks.jdbc.exception.DatabricksSQLException;
+import com.databricks.sdk.core.utils.Cloud;
 import com.google.common.collect.ImmutableMap;
 import java.sql.DriverPropertyInfo;
 import java.util.*;
@@ -61,11 +62,12 @@ public class DatabricksDriverPropertyUtil {
    * @throws DatabricksSQLException if a database access error occurs
    */
   public static List<DriverPropertyInfo> getMissingProperties(
-      String connectionParamString, Properties properties) throws DatabricksSQLException {
+      String host, String connectionParamString, Properties properties)
+      throws DatabricksSQLException {
     ImmutableMap<String, String> connectionPropertiesMap =
         buildPropertiesMap(connectionParamString, properties);
     DatabricksConnectionContext connectionContext =
-        new DatabricksConnectionContext(connectionPropertiesMap);
+        new DatabricksConnectionContext(host, connectionPropertiesMap);
 
     List<DriverPropertyInfo> missingPropertyInfos = new ArrayList<>();
     // add required properties
@@ -117,6 +119,12 @@ public class DatabricksDriverPropertyUtil {
             }
             break;
           case CLIENT_CREDENTIALS:
+            if (connectionContext.getCloud() == Cloud.GCP) {
+              addMissingProperty(
+                  missingPropertyInfos, connectionPropertiesMap, GOOGLE_SERVICE_ACCOUNT, true);
+              addMissingProperty(
+                  missingPropertyInfos, connectionPropertiesMap, GOOGLE_CREDENTIALS_FILE, true);
+            }
             addMissingProperty(missingPropertyInfos, connectionPropertiesMap, CLIENT_SECRET, true);
             addMissingProperty(missingPropertyInfos, connectionPropertiesMap, CLIENT_ID, true);
 

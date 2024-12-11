@@ -99,6 +99,7 @@ public class Driver implements java.sql.Driver {
           "JDBC URL must be in the form: <protocol>://<host or domain>:<port>/<path>";
       return propertyInfos;
     }
+    String host = urlMatcher.group(1);
     String connectionParamString = urlMatcher.group(2);
     if (!connectionParamString.toLowerCase().contains(HTTP_PATH.getParamName())) {
       return getInvalidUrlRequiredPropertyInfo(HTTP_PATH);
@@ -108,7 +109,7 @@ public class Driver implements java.sql.Driver {
     }
 
     List<DriverPropertyInfo> missingProperties =
-        DatabricksDriverPropertyUtil.getMissingProperties(connectionParamString, info);
+        DatabricksDriverPropertyUtil.getMissingProperties(host, connectionParamString, info);
     if (!missingProperties.isEmpty()) {
       propertyInfos = new DriverPropertyInfo[missingProperties.size()];
       propertyInfos = missingProperties.toArray(propertyInfos);
