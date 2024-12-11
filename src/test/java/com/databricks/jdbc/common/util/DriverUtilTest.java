@@ -34,15 +34,16 @@ public class DriverUtilTest {
   }
 
   @ParameterizedTest
-  @CsvSource(value = {
-          "2023.99, true",
-          "2024.30, false",
-          "2024.29, true",
-          "2024.31, false",
-          "2025.0, false",
-          "'', false",    // empty string
-          "' ', false"    // string with one space
-  })
+  @CsvSource(
+      value = {
+        "2023.99, true",
+        "2024.30, false",
+        "2024.29, true",
+        "2024.31, false",
+        "2025.0, false",
+        "'', false", // empty string
+        "' ', false" // string with one space
+      })
   void testDriverSupportInSEA(String dbsqlVersion, boolean throwsError) throws SQLException {
     when(connection.getConnectionContext()).thenReturn(connectionContext);
     when(connectionContext.getClientType()).thenReturn(DatabricksClientType.SQL_EXEC);
