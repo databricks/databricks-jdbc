@@ -22,7 +22,6 @@ import java.util.stream.IntStream;
 public class DatabricksThriftUtil {
 
   private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(DatabricksThriftUtil.class);
-
   public static final List<TStatusCode> SUCCESS_STATUS_LIST =
       List.of(TStatusCode.SUCCESS_STATUS, TStatusCode.SUCCESS_WITH_INFO_STATUS);
 
@@ -317,15 +316,15 @@ public class DatabricksThriftUtil {
     }
     if (directResults.isSetResultSetMetadata()) {
       LOGGER.debug("direct results metadata being verified for success response");
-      verifySuccessStatus(directResults.getResultSetMetadata().status, context);
+      verifySuccessStatus(directResults.getResultSetMetadata().getStatus(), context);
     }
     if (directResults.isSetCloseOperation()) {
       LOGGER.debug("direct results close operation verified for success response");
-      verifySuccessStatus(directResults.getCloseOperation().status, context);
+      verifySuccessStatus(directResults.getCloseOperation().getStatus(), context);
     }
     if (directResults.isSetResultSet()) {
       LOGGER.debug("direct result set being verified for success response");
-      verifySuccessStatus(directResults.getResultSet().status, context);
+      verifySuccessStatus(directResults.getResultSet().getStatus(), context);
     }
   }
 }

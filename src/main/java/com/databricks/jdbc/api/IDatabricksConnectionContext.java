@@ -1,12 +1,12 @@
 package com.databricks.jdbc.api;
 
-import com.databricks.jdbc.common.CompressionType;
+import com.databricks.jdbc.common.CompressionCodec;
 import com.databricks.jdbc.common.DatabricksClientType;
 import com.databricks.jdbc.common.IDatabricksComputeResource;
 import com.databricks.jdbc.common.LogLevel;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.sdk.core.ProxyConfig;
-import java.sql.DriverPropertyInfo;
+import com.databricks.sdk.core.utils.Cloud;
 import java.util.List;
 import java.util.Map;
 
@@ -85,9 +85,13 @@ public interface IDatabricksConnectionContext {
 
   int getLogFileCount();
 
+  /** Returns the userAgent string specific to client used to fetch results. */
   String getClientUserAgent();
 
-  CompressionType getCompressionType();
+  CompressionCodec getCompressionCodec();
+
+  /** Returns the userAgent string specified as part of the JDBC connection string */
+  String getCustomerUserAgent();
 
   String getCatalog();
 
@@ -114,6 +118,8 @@ public interface IDatabricksConnectionContext {
   Boolean getUseSystemProxy();
 
   Boolean getUseCloudFetchProxy();
+
+  Cloud getCloud() throws DatabricksParsingException;
 
   String getCloudFetchProxyHost();
 
@@ -151,6 +157,12 @@ public interface IDatabricksConnectionContext {
   int getIdleHttpConnectionExpiry();
 
   boolean supportManyParameters();
+
+  /**
+   * If set true then DBFSVolumeClient will be used otherwise DatabricksUCVolumeClient will be used
+   * for Volume Operations
+   */
+  boolean useFileSystemAPI();
 
   String getConnectionURL();
 
@@ -194,14 +206,17 @@ public interface IDatabricksConnectionContext {
    */
   String getOAuthRefreshToken();
 
+  String getGcpAuthType() throws DatabricksParsingException;
+
+  String getGoogleServiceAccount();
+
+  String getGoogleCredentials();
+
   /** Returns the non-proxy hosts that should be excluded from proxying. */
   String getNonProxyHosts();
 
   /** Returns the SSL trust store file path used for SSL connections. */
   String getSSLTrustStore();
-
-  /** Returns the SSL trust store provider of the trust store file. */
-  String getSSLTrustStoreProvider();
 
   /** Returns the SSL trust store password of the trust store file. */
   String getSSLTrustStorePassword();
@@ -212,5 +227,11 @@ public interface IDatabricksConnectionContext {
   /** Returns the maximum number of commands that can be executed in a single batch. */
   int getMaxBatchSize();
 
-  List<DriverPropertyInfo> getMissingProperties();
+  /**
+   * Returns a unique identifier for this connection context.
+   *
+   * <p>This UUID is generated when the connection context is instantiated and serves as a unique
+   * internal identifier for each JDBC connection.
+   */
+  String getConnectionUuid();
 }

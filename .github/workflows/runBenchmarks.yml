@@ -46,7 +46,6 @@ jobs:
           THRIFT_DATABRICKS_HTTP_PATH: ${{ secrets.THRIFT_DATABRICKS_HTTP_PATH }}
           THRIFT_DATABRICKS_HOST: ${{ secrets.THRIFT_DATABRICKS_HOST }}
           THRIFT_DATABRICKS_TOKEN: ${{ secrets.THRIFT_DATABRICKS_TOKEN }}
-          THRIFT_DATABRICKS_USER: ${{ secrets.THRIFT_DATABRICKS_USER }}
           DATABRICKS_BENCHMARKING_HTTP_PATH_THRIFT: ${{ secrets.DATABRICKS_BENCHMARKING_HTTP_PATH_THRIFT }}
         run: |
           echo "DATABRICKS_HOST=${DATABRICKS_HOST}" >> $GITHUB_ENV
@@ -67,11 +66,10 @@ jobs:
           echo "THRIFT_DATABRICKS_HTTP_PATH=${THRIFT_DATABRICKS_HTTP_PATH}" >> $GITHUB_ENV
           echo "THRIFT_DATABRICKS_HOST=${THRIFT_DATABRICKS_HOST}" >> $GITHUB_ENV
           echo "THRIFT_DATABRICKS_TOKEN=${THRIFT_DATABRICKS_TOKEN}" >> $GITHUB_ENV
-          echo "THRIFT_DATABRICKS_USER=${THRIFT_DATABRICKS_USER}" >> $GITHUB_ENV
-
+          echo "DATABRICKS_BENCHMARKING_HTTP_PATH_THRIFT=${DATABRICKS_BENCHMARKING_HTTP_PATH_THRIFT}" >> $GITHUB_ENV
 
       - name: Run Large Queries Benchmarking Test
-        run: mvn test '-Dtest=**LargeQueriesBenchmarkingTest**'
+        run: mvn test -Dtest=com.databricks.jdbc.integration.benchmarking.LargeQueriesBenchmarkingTest
 
       - name: Run Metadata Benchmarking Test
-        run: mvn test '-Dtest=**MetadataBenchmarkingTests**'
+        run: mvn test -Dtest=com.databricks.jdbc.integration.benchmarking.MetadataBenchmarkingTests

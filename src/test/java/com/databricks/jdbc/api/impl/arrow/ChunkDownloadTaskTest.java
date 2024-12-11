@@ -3,7 +3,7 @@ package com.databricks.jdbc.api.impl.arrow;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.*;
 
-import com.databricks.jdbc.common.CompressionType;
+import com.databricks.jdbc.common.CompressionCodec;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
@@ -32,7 +32,7 @@ public class ChunkDownloadTaskTest {
   void testRetryLogicWithSocketException() throws Exception {
     when(chunk.isChunkLinkInvalid()).thenReturn(false);
     when(chunk.getChunkIndex()).thenReturn(7L);
-    when(remoteChunkProvider.getCompressionType()).thenReturn(CompressionType.NONE);
+    when(remoteChunkProvider.getCompressionCodec()).thenReturn(CompressionCodec.NONE);
 
     // Simulate SocketException for the first two attempts, then succeed
     doThrow(
@@ -43,11 +43,11 @@ public class ChunkDownloadTaskTest {
                 "Connection reset", new SocketException("Connection reset")))
         .doNothing()
         .when(chunk)
-        .downloadData(httpClient, CompressionType.NONE);
+        .downloadData(httpClient, CompressionCodec.NONE);
 
     chunkDownloadTask.call();
 
-    verify(chunk, times(3)).downloadData(httpClient, CompressionType.NONE);
+    verify(chunk, times(3)).downloadData(httpClient, CompressionCodec.NONE);
     verify(remoteChunkProvider, times(1)).downloadProcessed(7L);
   }
 
@@ -55,18 +55,18 @@ public class ChunkDownloadTaskTest {
   void testRetryLogicExhaustedWithSocketException() throws Exception {
     when(chunk.isChunkLinkInvalid()).thenReturn(false);
     when(chunk.getChunkIndex()).thenReturn(7L);
-    when(remoteChunkProvider.getCompressionType()).thenReturn(CompressionType.NONE);
+    when(remoteChunkProvider.getCompressionCodec()).thenReturn(CompressionCodec.NONE);
 
     // Simulate SocketException for all attempts
     doThrow(
             new DatabricksParsingException(
                 "Connection reset", new SocketException("Connection reset")))
         .when(chunk)
-        .downloadData(httpClient, CompressionType.NONE);
+        .downloadData(httpClient, CompressionCodec.NONE);
 
     assertThrows(DatabricksSQLException.class, () -> chunkDownloadTask.call());
     verify(chunk, times(ChunkDownloadTask.MAX_RETRIES))
-        .downloadData(httpClient, CompressionType.NONE);
+        .downloadData(httpClient, CompressionCodec.NONE);
     verify(remoteChunkProvider, times(1)).downloadProcessed(7L);
   }
 }

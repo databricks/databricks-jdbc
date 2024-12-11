@@ -3,6 +3,7 @@ package com.databricks.jdbc.api.impl.arrow;
 import static com.databricks.jdbc.TestConstants.*;
 import static java.lang.Math.min;
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isA;
 import static org.mockito.Mockito.when;
 
@@ -11,7 +12,7 @@ import com.databricks.jdbc.api.IDatabricksSession;
 import com.databricks.jdbc.api.impl.DatabricksConnectionContextFactory;
 import com.databricks.jdbc.api.impl.DatabricksSession;
 import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
-import com.databricks.jdbc.common.CompressionType;
+import com.databricks.jdbc.common.CompressionCodec;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
 import com.databricks.jdbc.dbclient.impl.common.StatementId;
 import com.databricks.jdbc.dbclient.impl.sqlexec.DatabricksSdkClient;
@@ -104,7 +105,7 @@ public class ArrowStreamResultTest {
             .setTotalChunkCount((long) this.numberOfChunks)
             .setTotalRowCount(this.numberOfChunks * 110L)
             .setTotalByteCount(1000L)
-            .setCompressionType(CompressionType.NONE)
+            .setResultCompression(CompressionCodec.NONE)
             .setChunks(this.chunkInfos)
             .setSchema(new ResultSchema().setColumns(new ArrayList<>()).setColumnCount(0L));
 
@@ -115,7 +116,7 @@ public class ArrowStreamResultTest {
     DatabricksSession session = new DatabricksSession(connectionContext, mockedSdkClient);
     setupMockResponse();
     setupResultChunkMocks();
-    when(mockHttpClient.execute(isA(HttpUriRequest.class))).thenReturn(httpResponse);
+    when(mockHttpClient.execute(isA(HttpUriRequest.class), eq(true))).thenReturn(httpResponse);
 
     ArrowStreamResult result =
         new ArrowStreamResult(resultManifest, resultData, STATEMENT_ID, session, mockHttpClient);
@@ -178,7 +179,7 @@ public class ArrowStreamResultTest {
             .setTotalChunkCount((long) this.numberOfChunks)
             .setTotalRowCount(this.numberOfChunks * 110L)
             .setTotalByteCount(1000L)
-            .setCompressionType(CompressionType.NONE)
+            .setResultCompression(CompressionCodec.NONE)
             .setChunks(this.chunkInfos)
             .setSchema(
                 new ResultSchema()
@@ -195,7 +196,7 @@ public class ArrowStreamResultTest {
     DatabricksSession session = new DatabricksSession(connectionContext, mockedSdkClient);
 
     setupMockResponse();
-    when(mockHttpClient.execute(isA(HttpUriRequest.class))).thenReturn(httpResponse);
+    when(mockHttpClient.execute(isA(HttpUriRequest.class), eq(true))).thenReturn(httpResponse);
 
     ArrowStreamResult result =
         new ArrowStreamResult(resultManifest, resultData, STATEMENT_ID, session, mockHttpClient);

@@ -12,7 +12,7 @@ You can install Databricks JDBC driver by adding the following to your `pom.xml`
 <dependency>
   <groupId>com.databricks</groupId>
   <artifactId>databricks-jdbc</artifactId>
-  <version>0.9.0-oss</version>
+  <version>0.9.7-oss</version>
 </dependency>
 ```
 Databricks JDBC is compatible with Java 11 and higher. CI testing runs on Java versions 11, 17, and 21.

@@ -9,4 +9,5 @@ public class PathConstants {
   public static final String STATEMENT_PATH_WITH_ID = STATEMENT_PATH + "%s";
   public static final String CANCEL_STATEMENT_PATH_WITH_ID = STATEMENT_PATH + "%s/cancel";
   public static final String RESULT_CHUNK_PATH = STATEMENT_PATH_WITH_ID + "/result/chunks/%s";
+  public static final String CREATE_UPLOAD_URL_PATH = "/api/2.0/fs/create-upload-url";
 }

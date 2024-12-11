@@ -1,6 +1,6 @@
 package com.databricks.jdbc.dbclient.impl.common;
 
-import static com.databricks.jdbc.common.DatabricksJdbcConstants.EMPTY_STRING;
+import static com.databricks.jdbc.common.DatabricksJdbcConstants.*;
 
 import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.auth.OAuthRefreshCredentialsProvider;
@@ -15,6 +15,7 @@ import com.databricks.sdk.core.DatabricksConfig;
 import com.databricks.sdk.core.DatabricksException;
 import com.databricks.sdk.core.ProxyConfig;
 import com.databricks.sdk.core.commons.CommonsHttpClient;
+import com.databricks.sdk.core.utils.Cloud;
 import java.security.cert.*;
 import java.util.Arrays;
 import java.util.stream.Collectors;
@@ -36,8 +37,10 @@ public class ClientConfigurator {
     CommonsHttpClient.Builder httpClientBuilder = new CommonsHttpClient.Builder();
     setupProxyConfig(httpClientBuilder);
     setupConnectionManager(httpClientBuilder);
+    this.databricksConfig.setHttpClient(httpClientBuilder.build());
+    setupDiscoveryEndpoint();
     setupAuthConfig();
-    this.databricksConfig.setHttpClient(httpClientBuilder.build()).resolve();
+    this.databricksConfig.resolve();
   }
 
   /**
@@ -150,10 +153,11 @@ public class ClientConfigurator {
 
   /** Setup the OAuth U2M refresh token authentication settings in the databricks config. */
   public void setupU2MRefreshConfig() throws DatabricksParsingException {
-    CredentialsProvider provider = new OAuthRefreshCredentialsProvider(connectionContext);
+    CredentialsProvider provider =
+        new OAuthRefreshCredentialsProvider(connectionContext, databricksConfig);
     databricksConfig
         .setHost(connectionContext.getHostForOAuth())
-        .setAuthType(provider.authType())
+        .setAuthType(provider.authType()) // oauth-refresh
         .setCredentialsProvider(provider)
         .setClientId(connectionContext.getClientId())
         .setClientSecret(connectionContext.getClientSecret());
@@ -161,14 +165,25 @@ public class ClientConfigurator {
 
   /** Setup the OAuth M2M authentication settings in the databricks config. */
   public void setupM2MConfig() throws DatabricksParsingException {
-    databricksConfig
-        .setAuthType(DatabricksJdbcConstants.M2M_AUTH_TYPE)
-        .setHost(connectionContext.getHostForOAuth())
-        .setClientId(connectionContext.getClientId())
-        .setClientSecret(connectionContext.getClientSecret());
-    if (connectionContext.useJWTAssertion()) {
-      databricksConfig.setCredentialsProvider(
-          new PrivateKeyClientCredentialProvider(connectionContext));
+    databricksConfig.setHost(connectionContext.getHostForOAuth());
+    if (connectionContext.getCloud() == Cloud.GCP
+        && !connectionContext.getGcpAuthType().equals(M2M_AUTH_TYPE)) {
+      String authType = connectionContext.getGcpAuthType();
+      databricksConfig.setAuthType(authType);
+      if (authType.equals(GCP_GOOGLE_CREDENTIALS_AUTH_TYPE)) {
+        databricksConfig.setGoogleCredentials(connectionContext.getGoogleCredentials());
+      } else {
+        databricksConfig.setGoogleServiceAccount(connectionContext.getGoogleServiceAccount());
+      }
+    } else {
+      databricksConfig
+          .setAuthType(DatabricksJdbcConstants.M2M_AUTH_TYPE)
+          .setClientId(connectionContext.getClientId())
+          .setClientSecret(connectionContext.getClientSecret());
+      if (connectionContext.useJWTAssertion()) {
+        databricksConfig.setCredentialsProvider(
+            new PrivateKeyClientCredentialProvider(connectionContext, databricksConfig));
+      }
     }
   }
 
@@ -204,5 +219,11 @@ public class ClientConfigurator {
 
   public DatabricksConfig getDatabricksConfig() {
     return this.databricksConfig;
+  }
+
+  private void setupDiscoveryEndpoint() {
+    if (connectionContext.isOAuthDiscoveryModeEnabled()) {
+      databricksConfig.setDiscoveryUrl(connectionContext.getOAuthDiscoveryURL());
+    }
   }
 }

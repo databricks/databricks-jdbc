@@ -62,6 +62,7 @@ public enum DatabricksJdbcUrlParams {
   RATE_LIMIT_RETRY("RateLimitRetry", "Retry on rate limit", "1"),
   IDLE_HTTP_CONNECTION_EXPIRY("IdleHttpConnectionExpiry", "Idle HTTP connection expiry", "60"),
   SUPPORT_MANY_PARAMETERS("supportManyParameters", "Support many parameters", "0"),
+  USE_FILE_SYSTEM_API("useFileSystemAPI", "Use file system API", "0"),
   CLOUD_FETCH_THREAD_POOL_SIZE("cloudFetchThreadPoolSize", "Cloud fetch thread pool size", "16"),
   TOKEN_ENDPOINT("OAuth2TokenEndpoint", "OAuth2 token endpoint"),
   AUTH_ENDPOINT("OAuth2AuthorizationEndPoint", "OAuth2 authorization endpoint"),
@@ -72,6 +73,8 @@ public enum DatabricksJdbcUrlParams {
   CHECK_CERTIFICATE_REVOCATION("CheckCertificateRevocation", "Check certificate revocation", "1"),
   ACCEPT_UNDETERMINED_CERTIFICATE_REVOCATION(
       "AcceptUndeterminedRevocation", "Accept undetermined revocation", "0"),
+  GOOGLE_SERVICE_ACCOUNT("GoogleServiceAccount", "Gcp service account email"),
+  GOOGLE_CREDENTIALS_FILE("GoogleCredentialsFile", "path to gcp credentials json"),
   MAX_BATCH_SIZE("MaxBatchSize", "Maximum batch size", "500");
 
   private final String paramName;

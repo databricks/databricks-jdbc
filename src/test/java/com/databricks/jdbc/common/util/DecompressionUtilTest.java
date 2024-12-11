@@ -2,7 +2,7 @@ package com.databricks.jdbc.common.util;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-import com.databricks.jdbc.common.CompressionType;
+import com.databricks.jdbc.common.CompressionCodec;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -33,8 +33,7 @@ public class DecompressionUtilTest {
   @Test
   public void testDecompressLZ4Frame() throws Exception {
     InputStream resultStream =
-        decompressionUtil.decompress(
-            compressedInputStream, CompressionType.LZ4_COMPRESSION, CONTEXT);
+        decompressionUtil.decompress(compressedInputStream, CompressionCodec.LZ4_FRAME, CONTEXT);
     assertNotNull(resultStream, "The decompressed stream should not be null.");
     assertTrue(
         IOUtils.contentEquals(resultStream, new ByteArrayInputStream(INITIAL_STRING.getBytes())));
@@ -43,10 +42,10 @@ public class DecompressionUtilTest {
   @Test
   public void testDecompressLZ4FrameSkipsCompression() throws Exception {
     assertEquals(
-        decompressionUtil.decompress(compressedInputStream, CompressionType.NONE, CONTEXT),
+        decompressionUtil.decompress(compressedInputStream, CompressionCodec.NONE, CONTEXT),
         compressedInputStream);
     assertNull(
         DecompressionUtil.decompress(
-            (ByteArrayInputStream) null, CompressionType.LZ4_COMPRESSION, CONTEXT));
+            (ByteArrayInputStream) null, CompressionCodec.LZ4_FRAME, CONTEXT));
   }
 }

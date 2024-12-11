@@ -5,6 +5,7 @@ import static com.databricks.jdbc.auth.AuthConstants.GRANT_TYPE_REFRESH_TOKEN_KE
 
 import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.common.DatabricksJdbcConstants;
+import com.databricks.jdbc.common.util.DatabricksAuthUtil;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
@@ -16,7 +17,6 @@ import com.databricks.sdk.core.http.HttpClient;
 import com.databricks.sdk.core.oauth.AuthParameterPosition;
 import com.databricks.sdk.core.oauth.RefreshableTokenSource;
 import com.databricks.sdk.core.oauth.Token;
-import com.google.common.annotations.VisibleForTesting;
 import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
@@ -27,17 +27,14 @@ public class OAuthRefreshCredentialsProvider extends RefreshableTokenSource
 
   private static final JdbcLogger LOGGER =
       JdbcLoggerFactory.getLogger(OAuthRefreshCredentialsProvider.class);
-  IDatabricksConnectionContext context;
   private HttpClient hc;
   private final String tokenEndpoint;
   private final String clientId;
   private final String clientSecret;
 
-  @VisibleForTesting
   public OAuthRefreshCredentialsProvider(
-      IDatabricksConnectionContext context, OAuthEndpointResolver oAuthEndpointResolver) {
-    this.context = context;
-    this.tokenEndpoint = oAuthEndpointResolver.getTokenEndpoint();
+      IDatabricksConnectionContext context, DatabricksConfig databricksConfig) {
+    this.tokenEndpoint = DatabricksAuthUtil.getTokenEndpoint(databricksConfig, context);
     try {
       this.clientId = context.getClientId();
     } catch (DatabricksParsingException e) {
@@ -53,10 +50,6 @@ public class OAuthRefreshCredentialsProvider extends RefreshableTokenSource
             DatabricksJdbcConstants.EMPTY_STRING,
             context.getOAuthRefreshToken(),
             LocalDateTime.now().minusMinutes(1));
-  }
-
-  public OAuthRefreshCredentialsProvider(IDatabricksConnectionContext context) {
-    this(context, new OAuthEndpointResolver(context));
   }
 
   @Override

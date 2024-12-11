@@ -1,11 +1,11 @@
 package com.databricks.jdbc.api.impl.arrow;
 
-import static com.databricks.jdbc.common.DatabricksJdbcConstants.IS_FAKE_SERVICE_TEST_PROP;
 import static com.databricks.jdbc.common.util.DatabricksThriftUtil.createExternalLink;
 import static com.databricks.jdbc.common.util.ValidationUtil.checkHTTPError;
 
-import com.databricks.jdbc.common.CompressionType;
+import com.databricks.jdbc.common.CompressionCodec;
 import com.databricks.jdbc.common.util.DecompressionUtil;
+import com.databricks.jdbc.common.util.DriverUtil;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
@@ -215,7 +215,7 @@ public class ArrowResultChunk {
   /** Checks if the link is valid */
   boolean isChunkLinkInvalid() {
     return status == ChunkStatus.PENDING
-        || (!Boolean.parseBoolean(System.getProperty(IS_FAKE_SERVICE_TEST_PROP))
+        || (!DriverUtil.isRunningAgainstFake()
             && expiryTime.minusSeconds(SECONDS_BUFFER_FOR_EXPIRY).isBefore(Instant.now()));
   }
 
@@ -239,7 +239,7 @@ public class ArrowResultChunk {
     return this.errorMessage;
   }
 
-  void downloadData(IDatabricksHttpClient httpClient, CompressionType compressionType)
+  void downloadData(IDatabricksHttpClient httpClient, CompressionCodec compressionCodec)
       throws DatabricksParsingException, IOException {
     // Inject error if enabled for testing
     if (injectError && errorInjectionCount < errorInjectionCountMaxValue) {
@@ -255,14 +255,15 @@ public class ArrowResultChunk {
       HttpGet getRequest = new HttpGet(uriBuilder.build());
       addHeaders(getRequest, chunkLink.getHttpHeaders());
       // Retry would be done in http client, we should not bother about that here
-      response = httpClient.execute(getRequest);
+      response = httpClient.execute(getRequest, true);
       checkHTTPError(response);
       String context =
           String.format(
               "Data decompression for chunk index [%d] and statement [%s]",
               this.chunkIndex, this.statementId);
       InputStream uncompressedStream =
-          DecompressionUtil.decompress(response.getEntity().getContent(), compressionType, context);
+          DecompressionUtil.decompress(
+              response.getEntity().getContent(), compressionCodec, context);
       initializeData(uncompressedStream);
       setStatus(ChunkStatus.DOWNLOAD_SUCCEEDED);
     } catch (IOException | DatabricksSQLException | URISyntaxException e) {
