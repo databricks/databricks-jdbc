@@ -275,7 +275,6 @@ final class DatabricksThriftAccessor {
       StatementStatus statementStatus = getStatementStatus(statusResp);
       return new DatabricksResultSet(
           statementStatus, statementId, resultSet, statementType, parentStatement, session);
-
     } catch (TException e) {
       String errorMessage =
           String.format(
