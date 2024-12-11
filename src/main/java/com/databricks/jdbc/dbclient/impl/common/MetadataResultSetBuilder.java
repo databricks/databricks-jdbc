@@ -125,20 +125,30 @@ public class MetadataResultSetBuilder {
                 } else {
                   object = "NO";
                 }
-              } else if (column.getColumnName().equals(NULLABLE_COLUMN.getColumnName())) {
-                if (object == null || object.equals("true")) {
-                  object = 1;
-                } else {
-                  object = 0;
-                }
-              } else if (column.getColumnName().equals(DECIMAL_DIGITS_COLUMN.getColumnName())
+              }
+//              else if (column.getColumnName().equals(NULLABLE_COLUMN.getColumnName())) {
+//                if (object == null || object.equals("true")) {
+//                  object = 1;
+//                } else {
+//                  object = 0;
+//                }
+//              }
+            else if (column.getColumnName().equals(DECIMAL_DIGITS_COLUMN.getColumnName())
                   || column.getColumnName().equals(NUM_PREC_RADIX_COLUMN.getColumnName())) {
                 if (object == null) {
                   object = 0;
                 }
               }
             } catch (SQLException e) {
-              if (column.getColumnName().equals(DATA_TYPE_COLUMN.getColumnName())) {
+              if (column.getColumnName().equals(NULLABLE_COLUMN.getColumnName())) {
+                object = resultSet.getObject(IS_NULLABLE_COLUMN.getResultSetColumnName());
+                if (object == null || object.equals("true")) {
+                    object = 1;
+                } else {
+                    object = 0;
+                }
+              }
+              else if (column.getColumnName().equals(DATA_TYPE_COLUMN.getColumnName())) {
                 String typeVal = resultSet.getString(COLUMN_TYPE_COLUMN.getResultSetColumnName());
                 object = getCode(stripTypeName(typeVal));
               } else if (column.getColumnName().equals(CHAR_OCTET_LENGTH_COLUMN.getColumnName())) {
