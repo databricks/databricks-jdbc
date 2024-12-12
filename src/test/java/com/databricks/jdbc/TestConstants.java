@@ -99,6 +99,7 @@ public class TestConstants {
       ByteBuffer.allocate(Long.BYTES).putLong(123456789L).array();
   public static final String TEST_CLIENT_ID = "test-client-id";
   public static final String TEST_TOKEN_URL = "https://test.token.url";
+  public static final String TEST_AUTH_URL = "https://test.auth.url";
   public static final String TEST_DISCOVERY_URL = "https://test.discovery.url";
   public static final String TEST_JWT_KID = "test-kid";
   public static final String TEST_SCOPE = "test-scope";
