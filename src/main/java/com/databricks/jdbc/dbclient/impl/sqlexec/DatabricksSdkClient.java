@@ -38,6 +38,7 @@ public class DatabricksSdkClient implements IDatabricksClient {
 
   private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(DatabricksSdkClient.class);
   private static final String SYNC_TIMEOUT_VALUE = "10s";
+  private static final String ASYNC_TIMEOUT_VALUE = "0s";
   private final IDatabricksConnectionContext connectionContext;
   private final ClientConfigurator clientConfigurator;
   private volatile WorkspaceClient workspaceClient;
@@ -135,7 +136,8 @@ public class DatabricksSdkClient implements IDatabricksClient {
             ((Warehouse) computeResource).getWarehouseId(),
             session,
             parameters,
-            parentStatement);
+            parentStatement,
+            false);
     ExecuteStatementResponse response =
         workspaceClient
             .apiClient()
@@ -217,7 +219,8 @@ public class DatabricksSdkClient implements IDatabricksClient {
             ((Warehouse) computeResource).getWarehouseId(),
             session,
             parameters,
-            parentStatement);
+            parentStatement,
+            true);
     ExecuteStatementResponse response =
         workspaceClient
             .apiClient()
@@ -319,7 +322,8 @@ public class DatabricksSdkClient implements IDatabricksClient {
       String warehouseId,
       IDatabricksSession session,
       Map<Integer, ImmutableSqlParameter> parameters,
-      IDatabricksStatementInternal parentStatement)
+      IDatabricksStatementInternal parentStatement,
+      boolean executeAsync)
       throws SQLException {
     Format format = useCloudFetchForResult(statementType) ? Format.ARROW_STREAM : Format.JSON_ARRAY;
     Disposition disposition =
@@ -341,9 +345,14 @@ public class DatabricksSdkClient implements IDatabricksClient {
             .setDisposition(disposition)
             .setFormat(format)
             .setResultCompression(compressionCodec)
-            .setWaitTimeout(SYNC_TIMEOUT_VALUE)
-            .setOnWaitTimeout(ExecuteStatementRequestOnWaitTimeout.CONTINUE)
             .setParameters(parameterListItems);
+    if (executeAsync) {
+      request.setWaitTimeout(ASYNC_TIMEOUT_VALUE);
+    } else {
+      request
+          .setWaitTimeout(SYNC_TIMEOUT_VALUE)
+          .setOnWaitTimeout(ExecuteStatementRequestOnWaitTimeout.CONTINUE);
+    }
     if (maxRows != DEFAULT_ROW_LIMIT) {
       request.setRowLimit(maxRows);
     }
