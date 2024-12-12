@@ -310,14 +310,13 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
 
   @Override
   public String getClientUserAgent() {
-    String customerUserAgent = getParameter(DatabricksJdbcUrlParams.USER_AGENT_ENTRY);
-    String clientAgent =
-        getClientType().equals(DatabricksClientType.SQL_EXEC)
-            ? DatabricksJdbcConstants.USER_AGENT_SEA_CLIENT
-            : DatabricksJdbcConstants.USER_AGENT_THRIFT_CLIENT;
-    return nullOrEmptyString(customerUserAgent)
-        ? clientAgent
-        : clientAgent + USER_AGENT_DELIMITER + customerUserAgent;
+    return getClientType().equals(DatabricksClientType.SQL_EXEC)
+        ? DatabricksJdbcConstants.USER_AGENT_SEA_CLIENT
+        : DatabricksJdbcConstants.USER_AGENT_THRIFT_CLIENT;
+  }
+
+  public String getCustomerUserAgent() {
+    return getParameter(DatabricksJdbcUrlParams.USER_AGENT_ENTRY);
   }
 
   @Override

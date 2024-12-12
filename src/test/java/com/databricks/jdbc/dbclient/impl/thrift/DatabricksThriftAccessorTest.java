@@ -53,7 +53,11 @@ public class DatabricksThriftAccessorTest {
           .setResultSetMetadata(
               new TGetResultSetMetadataResp()
                   .setResultFormat(TSparkRowSetType.COLUMN_BASED_SET)
-                  .setStatus(new TStatus().setStatusCode(TStatusCode.SUCCESS_STATUS)));
+                  .setStatus(new TStatus().setStatusCode(TStatusCode.SUCCESS_STATUS)))
+          .setOperationStatus(
+              new TGetOperationStatusResp()
+                  .setStatus(new TStatus().setStatusCode(TStatusCode.SUCCESS_STATUS))
+                  .setOperationState(TOperationState.FINISHED_STATE));
   private static final String NEW_ACCESS_TOKEN = "new-access-token";
 
   void setup(Boolean directResultsEnabled) {
@@ -98,10 +102,11 @@ public class DatabricksThriftAccessorTest {
         new TGetOperationStatusReq()
             .setOperationHandle(tOperationHandle)
             .setGetProgressUpdate(false);
-    when(thriftClient.GetOperationStatus(operationStatusReq))
-        .thenReturn(
-            new TGetOperationStatusResp()
-                .setStatus(new TStatus().setStatusCode(TStatusCode.SUCCESS_STATUS)));
+    TGetOperationStatusResp operationStatusResp =
+        new TGetOperationStatusResp()
+            .setStatus(new TStatus().setStatusCode(TStatusCode.SUCCESS_STATUS))
+            .setOperationState(TOperationState.FINISHED_STATE);
+    when(thriftClient.GetOperationStatus(operationStatusReq)).thenReturn(operationStatusResp);
     DatabricksResultSet resultSet =
         accessor.execute(request, parentStatement, null, StatementType.SQL);
     assertEquals(resultSet.getStatementStatus().getState(), StatementState.SUCCEEDED);
@@ -118,7 +123,7 @@ public class DatabricksThriftAccessorTest {
     when(thriftClient.ExecuteStatement(request)).thenReturn(tExecuteStatementResp);
     DatabricksResultSet resultSet =
         accessor.executeAsync(request, parentStatement, null, StatementType.SQL);
-    assertEquals(resultSet.getStatementStatus().getState(), StatementState.SUCCEEDED);
+    assertEquals(resultSet.getStatementStatus().getState(), StatementState.RUNNING);
   }
 
   @Test
@@ -211,6 +216,7 @@ public class DatabricksThriftAccessorTest {
     TExecuteStatementReq request = new TExecuteStatementReq();
     TExecuteStatementResp tExecuteStatementResp =
         new TExecuteStatementResp()
+            .setOperationHandle(new TOperationHandle())
             .setStatus(
                 new TStatus()
                     .setStatusCode(TStatusCode.ERROR_STATUS)
@@ -229,6 +235,7 @@ public class DatabricksThriftAccessorTest {
     TExecuteStatementReq request = new TExecuteStatementReq();
     TExecuteStatementResp tExecuteStatementResp =
         new TExecuteStatementResp()
+            .setOperationHandle(tOperationHandle)
             .setStatus(
                 new TStatus()
                     .setStatusCode(TStatusCode.ERROR_STATUS) // Simulate an error
@@ -316,7 +323,8 @@ public class DatabricksThriftAccessorTest {
             .setGetProgressUpdate(false);
     TGetOperationStatusResp resp =
         new TGetOperationStatusResp()
-            .setStatus(new TStatus().setStatusCode(TStatusCode.SUCCESS_STATUS));
+            .setStatus(new TStatus().setStatusCode(TStatusCode.SUCCESS_STATUS))
+            .setOperationState(TOperationState.FINISHED_STATE);
     when(thriftClient.GetOperationStatus(request)).thenReturn(resp);
 
     TFetchResultsReq fetchReq =
@@ -342,7 +350,8 @@ public class DatabricksThriftAccessorTest {
             .setGetProgressUpdate(false);
     TGetOperationStatusResp resp =
         new TGetOperationStatusResp()
-            .setStatus(new TStatus().setStatusCode(TStatusCode.STILL_EXECUTING_STATUS));
+            .setStatus(new TStatus().setStatusCode(TStatusCode.SUCCESS_STATUS))
+            .setOperationState(TOperationState.RUNNING_STATE);
     when(thriftClient.GetOperationStatus(request)).thenReturn(resp);
 
     DatabricksResultSet resultSet = accessor.getStatementResult(tOperationHandle, null, null);

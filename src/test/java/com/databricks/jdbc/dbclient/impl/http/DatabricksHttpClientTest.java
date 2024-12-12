@@ -6,8 +6,6 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 import com.databricks.jdbc.api.IDatabricksConnectionContext;
-import com.databricks.jdbc.api.impl.DatabricksConnectionContextFactory;
-import com.databricks.jdbc.common.util.UserAgentManager;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
 import com.databricks.jdbc.exception.DatabricksHttpException;
 import com.databricks.jdbc.exception.DatabricksRetryHandlerException;
@@ -174,6 +172,22 @@ public class DatabricksHttpClientTest {
   }
 
   @Test
+  void testExecuteWithGzipHeaders() throws Exception {
+    HttpUriRequest request = new HttpGet("https://databricks.com");
+    databricksHttpClient.execute(request);
+
+    assertFalse(request.containsHeader("Content-Encoding"));
+
+    System.setProperty(IS_FAKE_SERVICE_TEST_PROP, "true");
+    databricksHttpClient.execute(request, true);
+    assertFalse(request.containsHeader("Content-Encoding"));
+    System.setProperty(IS_FAKE_SERVICE_TEST_PROP, "false");
+
+    databricksHttpClient.execute(request, true);
+    assertTrue(request.containsHeader("Content-Encoding"));
+  }
+
+  @Test
   void testExecuteThrowsError() throws IOException {
     when(mockRequest.getURI()).thenReturn(URI.create("https://databricks.com"));
     when(mockHttpClient.execute(mockRequest)).thenThrow(new IOException());
@@ -193,28 +207,6 @@ public class DatabricksHttpClientTest {
     when(mockRequest.getURI()).thenReturn(URI.create("TestURI"));
     when(mockHttpClient.execute(mockRequest)).thenReturn(mockCloseableHttpResponse);
     assertEquals(mockCloseableHttpResponse, databricksHttpClient.execute(mockRequest));
-  }
-
-  @Test
-  void testUserAgent() throws Exception {
-    // Thrift
-    IDatabricksConnectionContext connectionContext =
-        DatabricksConnectionContextFactory.create(CLUSTER_JDBC_URL, new Properties());
-    UserAgentManager.setUserAgent(connectionContext);
-    String userAgent = databricksHttpClient.getUserAgent();
-    assertTrue(userAgent.contains("DatabricksJDBCDriverOSS/0.9.6-oss"));
-    assertTrue(userAgent.contains(" Java/THttpClient-HC-MyApp"));
-    assertTrue(userAgent.contains(" databricks-jdbc-http "));
-    assertFalse(userAgent.contains("databricks-sdk-java"));
-
-    // SEA
-    connectionContext = DatabricksConnectionContextFactory.create(DBSQL_JDBC_URL, new Properties());
-    UserAgentManager.setUserAgent(connectionContext);
-    userAgent = databricksHttpClient.getUserAgent();
-    assertTrue(userAgent.contains("DatabricksJDBCDriverOSS/0.9.6-oss"));
-    assertTrue(userAgent.contains(" Java/SQLExecHttpClient-HC-MyApp"));
-    assertTrue(userAgent.contains(" databricks-jdbc-http "));
-    assertFalse(userAgent.contains("databricks-sdk-java"));
   }
 
   @Test

@@ -38,6 +38,7 @@ public class ClientConfigurator {
     setupProxyConfig(httpClientBuilder);
     setupConnectionManager(httpClientBuilder);
     this.databricksConfig.setHttpClient(httpClientBuilder.build());
+    setupDiscoveryEndpoint();
     setupAuthConfig();
     this.databricksConfig.resolve();
   }
@@ -218,5 +219,11 @@ public class ClientConfigurator {
 
   public DatabricksConfig getDatabricksConfig() {
     return this.databricksConfig;
+  }
+
+  private void setupDiscoveryEndpoint() {
+    if (connectionContext.isOAuthDiscoveryModeEnabled()) {
+      databricksConfig.setDiscoveryUrl(connectionContext.getOAuthDiscoveryURL());
+    }
   }
 }

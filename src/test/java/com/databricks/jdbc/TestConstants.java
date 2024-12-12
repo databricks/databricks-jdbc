@@ -5,6 +5,9 @@ import com.databricks.jdbc.common.AllPurposeCluster;
 import com.databricks.jdbc.common.IDatabricksComputeResource;
 import com.databricks.jdbc.common.Warehouse;
 import com.databricks.jdbc.model.client.thrift.generated.*;
+import com.databricks.sdk.core.DatabricksException;
+import com.databricks.sdk.core.oauth.OpenIDConnectEndpoints;
+import java.net.MalformedURLException;
 import java.nio.ByteBuffer;
 import java.util.Collections;
 import java.util.List;
@@ -36,9 +39,13 @@ public class TestConstants {
           .computeResource(CLUSTER_COMPUTE)
           .build();
   public static final String WAREHOUSE_JDBC_URL =
-      "jdbc:databricks://adb-565757575.18.azuredatabricks.net:4423/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/warehouse_id;";
+      "jdbc:databricks://adb-565757575.18.azuredatabricks.net:4423/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/warehouse_id;UserAgentEntry=MyApp";
   public static final String WAREHOUSE_JDBC_URL_WITH_THRIFT =
       "jdbc:databricks://adb-565757575.18.azuredatabricks.net:4423/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/warehouse_id;UseThriftClient=1;";
+  public static final String USER_AGENT_URL =
+      "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=http;ssl=1;httpPath=sql/protocolv1/o/6051921418418893/1115-130834-ms4m0yv;AuthMech=3;UserAgentEntry=TEST/24.2.0.2712019";
+  public static final String CLUSTER_JDBC_URL =
+      "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=http;ssl=1;httpPath=sql/protocolv1/o/6051921418418893/1115-130834-ms4m0yv;AuthMech=3;UserAgentEntry=MyApp";
   public static final TRowSet binaryRowSet =
       new TRowSet()
           .setColumns(
@@ -78,7 +85,6 @@ public class TestConstants {
           .setColumns(
               Collections.singletonList(
                   TColumn.i64Val(new TI64Column().setValues(List.of(1L, 5L)))));
-
   public static final TRowSet stringRowSet =
       new TRowSet()
           .setColumns(
@@ -99,11 +105,18 @@ public class TestConstants {
   public static final String TEST_JWT_ALGORITHM = "RS256";
   public static final String TEST_JWT_KEY_FILE = "src/test/resources/private_key.pem";
   public static final String TEST_ACCESS_TOKEN = "test-access-token";
-  public static final String TEST_OIDC_RESPONSE =
-      "{\n"
-          + "  \"token_endpoint\": \"https://test.token.url\",\n"
-          + "  \"authorization_endpoint\": \"https://test.auth.url\"\n"
-          + "}";
+
+  public static OpenIDConnectEndpoints TEST_OIDC_ENDPOINTS;
+
+  static {
+    try {
+      TEST_OIDC_ENDPOINTS =
+          new OpenIDConnectEndpoints("https://test.token.url", "https://test.auth.url");
+    } catch (MalformedURLException e) {
+      throw new DatabricksException("Can't initiate test constant for OIDC. Error: " + e);
+    }
+  }
+
   public static final String TEST_OAUTH_RESPONSE =
       "{\n"
           + "  \"expires_in\": 3600,\n"
@@ -158,7 +171,6 @@ public class TestConstants {
       "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/5c89f447c476a5a8;UseSystemProxy=1;UseProxy=1;ProxyHost=127.0.0.1;ProxyPort=8080;ProxyAuth=1;ProxyUID=proxyUser;ProxyPwd=proxyPassword;UseCFProxy=1;CFProxyHost=127.0.1.2;CFProxyPort=8081;CFProxyAuth=2;CFProxyUID=cfProxyUser;CFProxyPwd=cfProxyPassword;";
   public static final String VALID_URL_POLLING =
       "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:4473;ssl=1;asyncexecpollinterval=500;AuthMech=3;httpPath=/sql/1.0/warehouses/5c89f447c476a5a8;QueryResultCompressionType=1";
-
   public static final List<TSparkArrowBatch> ARROW_BATCH_LIST =
       Collections.singletonList(
           new TSparkArrowBatch().setRowCount(0).setBatch(new byte[] {65, 66, 67}));
