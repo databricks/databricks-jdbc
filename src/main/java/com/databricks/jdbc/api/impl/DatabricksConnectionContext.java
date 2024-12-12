@@ -625,8 +625,7 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
 
   @Override
   public boolean isTelemetryEnabled() {
-    String param = getParameter(DatabricksJdbcUrlParams.ENABLE_TELEMETRY);
-    return param != null && param.equals("1");
+    return getParameter(DatabricksJdbcUrlParams.ENABLE_TELEMETRY, "0").equals("1");
   }
 
   private static boolean nullOrEmptyString(String s) {
