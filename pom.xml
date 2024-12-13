@@ -25,9 +25,9 @@
     </developer>
   </developers>
   <scm>
-      <connection>scm:git:https://github.com/databricks/databricks-jdbc.git</connection>
-      <developerConnection>scm:git:https://github.com/databricks/databricks-jdbc.git</developerConnection>
-      <url>https://github.com/databricks/databricks-jdbc</url>
+    <connection>scm:git:https://github.com/databricks/databricks-jdbc.git</connection>
+    <developerConnection>scm:git:https://github.com/databricks/databricks-jdbc.git</developerConnection>
+    <url>https://github.com/databricks/databricks-jdbc</url>
   </scm>
   <issueManagement>
     <system>GitHub Issues</system>
@@ -35,8 +35,8 @@
   </issueManagement>
   <distributionManagement>
     <repository>
-      <id>ossrh</id>
-      <url>https://oss.sonatype.org/service/local/staging/deploy/maven2/</url>
+      <id>local-test-repo</id>
+      <url>file://${project.build.directory}/local-repo</url>
     </repository>
   </distributionManagement>
   <properties>
@@ -389,7 +389,6 @@
             </goals>
             <configuration>
               <!-- The shaded uber jar is the default jar produced by this build -->
-              <createDependencyReducedPom>false</createDependencyReducedPom>
               <shadedArtifactAttached>false</shadedArtifactAttached>
               <relocations>
                 <relocation>
@@ -490,6 +489,51 @@
   </build>
   <profiles>
     <profile>
+      <!-- Local deploy for testing -->
+      <id>local-deploy</id>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-deploy-plugin</artifactId>
+            <version>2.8.2</version>
+            <executions>
+              <!-- Skip the default deploy execution -->
+              <execution>
+                <id>skip-default-deploy</id>
+                <phase>deploy</phase>
+                <goals>
+                  <goal>deploy</goal>
+                </goals>
+                <configuration>
+                  <skip>true</skip>
+                </configuration>
+              </execution>
+              <!-- Use deploy-file goal to deploy with custom POM -->
+              <execution>
+                <id>deploy-with-custom-pom</id>
+                <phase>deploy</phase>
+                <goals>
+                  <goal>deploy-file</goal>
+                </goals>
+                <configuration>
+                  <file>${project.build.directory}/${project.build.finalName}.jar</file>
+                  <pomFile>${project.basedir}/uber-minimal-pom.xml</pomFile>
+                  <!-- Include other artifacts like sources and javadocs -->
+                  <files>${project.build.directory}/${project.build.finalName}-thin.jar</files>
+                  <types>jar</types>
+                  <classifiers>thin</classifiers>
+                  <!-- Use repository details from distributionManagement -->
+                  <repositoryId>local-test-repo</repositoryId>
+                  <url>file://${project.build.directory}/local-repo</url>
+                </configuration>
+              </execution>
+            </executions>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+    <profile>
       <id>release</id>
       <build>
         <plugins>
@@ -527,22 +571,40 @@
             <groupId>org.apache.maven.plugins</groupId>
             <artifactId>maven-gpg-plugin</artifactId>
             <version>1.6</version>
-            <configuration>
-              <!-- Prevent gpg from using pinentry programs -->
-              <gpgArguments>
-                <arg>--pinentry-mode</arg>
-                <arg>loopback</arg>
-              </gpgArguments>
-            </configuration>
             <executions>
               <execution>
-                <id>sign-artifacts</id>
                 <goals>
-                  <goal>sign</goal>
+                  <!-- Refer: https://maven.apache.org/plugins/maven-gpg-plugin/sign-and-deploy-file-mojo.html -->
+                  <goal>sign-and-deploy-file</goal>
                 </goals>
-                <phase>verify</phase>
+                <phase>deploy</phase>
+                <configuration>
+                  <file>${project.build.directory}/${project.build.finalName}.jar</file>
+                  <repositoryId>ossrh</repositoryId>
+                  <url>https://oss.sonatype.org/service/local/staging/deploy/maven2/</url>
+                  <!-- Prevent gpg from using pinentry programs -->
+                  <gpgArguments>
+                    <arg>--pinentry-mode</arg>
+                    <arg>loopback</arg>
+                  </gpgArguments>
+                  <!-- Custom reduced pom file for fat jar -->
+                  <pomFile>${project.basedir}/uber-minimal-pom.xml</pomFile>
+                  <sources>${project.build.directory}/${project.build.finalName}-sources.jar</sources>
+                  <javadoc>${project.build.directory}/${project.build.finalName}-javadoc.jar</javadoc>
+                  <files>${project.build.directory}/${project.build.finalName}-thin.jar</files>
+                  <types>jar</types>
+                  <classifiers>thin</classifiers>
+                </configuration>
               </execution>
             </executions>
+          </plugin>
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-deploy-plugin</artifactId>
+            <version>2.8.2</version>
+            <configuration>
+              <skip>true</skip>
+            </configuration>
           </plugin>
           <plugin>
             <groupId>org.sonatype.plugins</groupId>
@@ -557,6 +619,12 @@
           </plugin>
         </plugins>
       </build>
+      <distributionManagement>
+        <repository>
+          <id>ossrh</id>
+          <url>https://oss.sonatype.org/service/local/staging/deploy/maven2/</url>
+        </repository>
+      </distributionManagement>
     </profile>
   </profiles>
 </project>
