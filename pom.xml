@@ -615,7 +615,17 @@
               <serverId>ossrh</serverId>
               <nexusUrl>https://oss.sonatype.org/</nexusUrl>
               <autoReleaseAfterClose>true</autoReleaseAfterClose>
+              <skipNexusStagingDeployMojo>true</skipNexusStagingDeployMojo>
             </configuration>
+            <executions>
+              <execution>
+                <id>nexus-deploy</id>
+                <phase>deploy</phase>
+                <goals>
+                  <goal>release</goal>
+                </goals>
+              </execution>
+            </executions>
           </plugin>
         </plugins>
       </build>
