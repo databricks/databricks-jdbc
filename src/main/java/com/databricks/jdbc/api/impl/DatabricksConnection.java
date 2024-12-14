@@ -1,10 +1,6 @@
 package com.databricks.jdbc.api.impl;
 
 import com.databricks.jdbc.api.*;
-import com.databricks.jdbc.api.IDatabricksConnection;
-import com.databricks.jdbc.api.IDatabricksConnectionContext;
-import com.databricks.jdbc.api.IDatabricksSession;
-import com.databricks.jdbc.api.IDatabricksStatement;
 import com.databricks.jdbc.api.impl.volume.DBFSVolumeClient;
 import com.databricks.jdbc.api.impl.volume.DatabricksUCVolumeClient;
 import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
@@ -21,7 +17,10 @@ import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.google.common.annotations.VisibleForTesting;
 import java.sql.*;
-import java.util.*;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Properties;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 import java.util.stream.Collectors;

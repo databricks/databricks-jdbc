@@ -1,7 +1,8 @@
 package com.databricks.client.jdbc;
 
-import static com.databricks.jdbc.common.DatabricksJdbcConstants.*;
-import static com.databricks.jdbc.common.DatabricksJdbcUrlParams.*;
+import static com.databricks.jdbc.common.DatabricksJdbcConstants.JDBC_URL_PATTERN;
+import static com.databricks.jdbc.common.DatabricksJdbcUrlParams.AUTH_MECH;
+import static com.databricks.jdbc.common.DatabricksJdbcUrlParams.HTTP_PATH;
 import static com.databricks.jdbc.common.util.DatabricksDriverPropertyUtil.getInvalidUrlRequiredPropertyInfo;
 import static com.databricks.jdbc.common.util.DriverUtil.getRootCauseMessage;
 
@@ -12,9 +13,13 @@ import com.databricks.jdbc.common.util.*;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
-import com.google.common.base.Strings;
-import java.sql.*;
-import java.util.*;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.DriverPropertyInfo;
+import java.sql.SQLException;
+import java.util.List;
+import java.util.Properties;
+import java.util.TimeZone;
 import java.util.logging.Logger;
 import java.util.regex.Matcher;
 
@@ -87,8 +92,8 @@ public class Driver implements java.sql.Driver {
   public DriverPropertyInfo[] getPropertyInfo(String url, Properties info)
       throws DatabricksSQLException {
     DriverPropertyInfo[] propertyInfos = null;
-    if (Strings.isNullOrEmpty(url)) {
-      return propertyInfos;
+    if (url == null) {
+      url = "";
     }
     Matcher urlMatcher = JDBC_URL_PATTERN.matcher(url);
     if (!urlMatcher.matches()) {
