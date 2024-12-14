@@ -143,7 +143,7 @@ public class MetadataResultSetBuilderTest {
       throws SQLException {
     ResultSet resultSet = mock(ResultSet.class);
     Mockito.when(resultSet.next()).thenReturn(true).thenReturn(false);
-    Mockito.when(resultSet.getObject(NULLABLE_COLUMN.getResultSetColumnName()))
+    Mockito.when(resultSet.getObject(IS_NULLABLE_COLUMN.getResultSetColumnName()))
         .thenReturn(isNullableValue);
 
     List<List<Object>> rows = MetadataResultSetBuilder.getRows(resultSet, COLUMN_COLUMNS);
