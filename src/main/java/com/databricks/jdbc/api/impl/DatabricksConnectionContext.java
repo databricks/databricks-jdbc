@@ -55,7 +55,7 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
     this.port = DEFAULT_PORT;
     this.schema = DEFAULT_SCHEMA;
     this.parameters = parameters;
-    this.computeResource = buildCompute();
+    this.computeResource = null;
     this.connectionUuid = UUID.randomUUID().toString();
   }
 
