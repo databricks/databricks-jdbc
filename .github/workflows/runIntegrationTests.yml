@@ -11,12 +11,12 @@ on:
 jobs:
   build-and-test:
     name: Build and Run Integration Tests
-    runs-on:
-      group: databricks-protected-runner-group
-      labels: linux-ubuntu-latest
+    runs-on: ${{ matrix.os }}
     environment: azure-prod
     strategy:
+      fail-fast: false
       matrix:
+        os: [ubuntu-latest, macos-latest]
         include:
           - test-command: mvn -B compile test -Dtest=*IntegrationTests
             token-secret: DATABRICKS_TOKEN

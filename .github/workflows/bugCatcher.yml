@@ -11,9 +11,11 @@ on:
 jobs:
   build-and-test:
     name: Build and Run Integration Tests
-    runs-on:
-      group: databricks-protected-runner-group
-      labels: linux-ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ ubuntu-latest, macos-latest ]
+    runs-on: ${{ matrix.os }}
     environment: azure-prod
     steps:
       - name: Checkout code
