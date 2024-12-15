@@ -8,6 +8,9 @@ public class TelemetryRequest {
   @JsonProperty("uploadTime")
   Long uploadTime;
 
+  @JsonProperty("items")
+  List<String> items;
+
   @JsonProperty("protoLogs")
   Optional<List<String>> protoLogs;
 
@@ -19,6 +22,15 @@ public class TelemetryRequest {
 
   public TelemetryRequest setUploadTime(Long uploadTime) {
     this.uploadTime = uploadTime;
+    return this;
+  }
+
+  public List<String> getItems() {
+    return items;
+  }
+
+  public TelemetryRequest setItems(List<String> items) {
+    this.items = items;
     return this;
   }
 

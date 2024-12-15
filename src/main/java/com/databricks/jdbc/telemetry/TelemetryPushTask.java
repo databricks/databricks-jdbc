@@ -13,11 +13,13 @@ import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.model.telemetry.TelemetryFrontendLog;
 import com.databricks.jdbc.model.telemetry.TelemetryRequest;
 import com.databricks.jdbc.model.telemetry.TelemetryResponse;
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.IOException;
 import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -34,7 +36,8 @@ class TelemetryPushTask implements Runnable {
   private List<TelemetryFrontendLog> queueToBePushed;
   private boolean isAuthenticated;
   private IDatabricksConnectionContext connectionContext;
-  private final ObjectMapper objectMapper = new ObjectMapper();
+  private final ObjectMapper objectMapper =
+      new ObjectMapper().setSerializationInclusion(JsonInclude.Include.NON_NULL);
 
   TelemetryPushTask(
       List<TelemetryFrontendLog> eventsQueue,
@@ -49,28 +52,30 @@ class TelemetryPushTask implements Runnable {
   public void run() {
     logger.debug("Pushing ");
     TelemetryRequest request = new TelemetryRequest();
+    if (queueToBePushed.isEmpty()) {
+      return;
+    }
     try {
       request
           .setUploadTime(System.currentTimeMillis())
+          .setItems(new ArrayList<>())
           .setProtoLogs(
-              queueToBePushed.isEmpty()
-                  ? Optional.empty()
-                  : Optional.of(
-                      queueToBePushed.stream()
-                          .map(
-                              event -> {
-                                try {
-                                  return objectMapper.writeValueAsString(event);
-                                } catch (JsonProcessingException e) {
-                                  logger.error(
-                                      e,
-                                      "Failed to serialize Telemetry logs with error: {}",
-                                      e.getMessage());
-                                  return null;
-                                }
-                              })
-                          .filter(Objects::nonNull)
-                          .collect(Collectors.toList())));
+              Optional.of(
+                  queueToBePushed.stream()
+                      .map(
+                          event -> {
+                            try {
+                              return objectMapper.writeValueAsString(event);
+                            } catch (JsonProcessingException e) {
+                              logger.error(
+                                  e,
+                                  "Failed to serialize Telemetry logs with error: {}",
+                                  e.getMessage());
+                              return null;
+                            }
+                          })
+                      .filter(Objects::nonNull)
+                      .collect(Collectors.toList())));
       IDatabricksHttpClient httpClient =
           DatabricksHttpClientFactory.getInstance().getClient(connectionContext);
       String uri =
@@ -83,7 +88,7 @@ class TelemetryPushTask implements Runnable {
       DatabricksJdbcConstants.JSON_HTTP_HEADERS.forEach(post::addHeader);
 
       try (CloseableHttpResponse response = httpClient.execute(post)) {
-        // TODO: check response and add retry for full and partial failures
+        // TODO: check response and add retry for partial failures
         if (!HttpUtil.isSuccessfulHttpResponse(response)) {
           logger.error(
               "Failed to push telemetry logs with error response: [%s]", response.getStatusLine());

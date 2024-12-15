@@ -27,35 +27,43 @@ public class TelemetryClientFactory {
   }
 
   public ITelemetryClient getTelemetryClient(IDatabricksConnectionContext connectionContext) {
-    return telemetryClients.computeIfAbsent(
-        connectionContext.getConnectionUuid(), k -> new TelemetryClient(connectionContext));
+    if (connectionContext.isTelemetryEnabled()) {
+      return telemetryClients.computeIfAbsent(
+              connectionContext.getConnectionUuid(), k -> new TelemetryClient(connectionContext));
+    }
+    return NoopTelemetryClient.getInstance();
   }
 
   public ITelemetryClient getUnauthenticatedTelemetryClient(
       IDatabricksConnectionContext connectionContext) {
-    return noauthTelemetryClients.computeIfAbsent(
-        connectionContext.getConnectionUuid(), k -> new TelemetryClient(connectionContext, false));
+    if (connectionContext.isTelemetryEnabled()) {
+      return noauthTelemetryClients.computeIfAbsent(
+              connectionContext.getConnectionUuid(), k -> new TelemetryClient(connectionContext, false));
+    }
+    return NoopTelemetryClient.getInstance();
   }
 
   public void closeTelemetryClient(IDatabricksConnectionContext connectionContext) {
-    ITelemetryClient instance = telemetryClients.remove(connectionContext.getConnectionUuid());
-    if (instance != null) {
-      try {
-        instance.close();
-      } catch (Exception e) {
-        logger.debug(String.format("Caught error while closing telemetry client. Error %s", e));
+    if (connectionContext.isTelemetryEnabled()) {
+      ITelemetryClient instance = telemetryClients.remove(connectionContext.getConnectionUuid());
+      if (instance != null) {
+        try {
+          instance.close();
+        } catch (Exception e) {
+          logger.debug(String.format("Caught error while closing telemetry client. Error %s", e));
+        }
       }
-    }
 
-    ITelemetryClient noauthInstance =
-        noauthTelemetryClients.remove(connectionContext.getConnectionUuid());
-    if (noauthInstance != null) {
-      try {
-        noauthInstance.close();
-      } catch (Exception e) {
-        logger.debug(
-            String.format(
-                "Caught error while closing unauthenticated telemetry client. Error %s", e));
+      ITelemetryClient noauthInstance =
+              noauthTelemetryClients.remove(connectionContext.getConnectionUuid());
+      if (noauthInstance != null) {
+        try {
+          noauthInstance.close();
+        } catch (Exception e) {
+          logger.debug(
+                  String.format(
+                          "Caught error while closing unauthenticated telemetry client. Error %s", e));
+        }
       }
     }
   }

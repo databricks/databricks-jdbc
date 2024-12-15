@@ -13,6 +13,9 @@ public class TelemetryFrontendLog {
   @JsonProperty("context")
   FrontendLogContext context;
 
+  @JsonProperty("entry")
+  FrontendLogEntry entry;
+
   public TelemetryFrontendLog() {}
 
   public Long getWorkspaceId() {
@@ -40,5 +43,30 @@ public class TelemetryFrontendLog {
   public TelemetryFrontendLog setContext(FrontendLogContext context) {
     this.context = context;
     return this;
+  }
+
+  public FrontendLogEntry getEntry() {
+    return entry;
+  }
+
+  public TelemetryFrontendLog setEntry(FrontendLogEntry entry) {
+    this.entry = entry;
+    return this;
+  }
+
+  public static class FrontendLogEntry {
+    @JsonProperty("sql_driver_log")
+    TelemetryEvent sqlDriverLog;
+
+    public FrontendLogEntry() {}
+
+    public TelemetryEvent getSqlDriverLog() {
+      return sqlDriverLog;
+    }
+
+    public FrontendLogEntry setSqlDriverLog(TelemetryEvent sqlDriverLog) {
+      this.sqlDriverLog = sqlDriverLog;
+      return this;
+    }
   }
 }

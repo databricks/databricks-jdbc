@@ -4,43 +4,13 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 
 public class TelemetryEvent {
 
-  @JsonProperty("driver_name")
-  String driverName;
-
-  @JsonProperty("driver_version")
-  String driverVersion;
-
   @JsonProperty("session_id")
   String sessionId;
 
-  @JsonProperty("cloud_provider")
-  String cloudProvider;
-
-  @JsonProperty("log_event")
-  LogEvent logEvent;
-
-  @JsonProperty("metric_event")
-  MetricEvent metricEvent;
+  @JsonProperty("sql_statement_id")
+  String sqlStatementId;
 
   public TelemetryEvent() {}
-
-  public String getDriverName() {
-    return driverName;
-  }
-
-  public TelemetryEvent setDriverName(String driverName) {
-    this.driverName = driverName;
-    return this;
-  }
-
-  public String getDriverVersion() {
-    return driverVersion;
-  }
-
-  public TelemetryEvent setDriverVersion(String driverVersion) {
-    this.driverVersion = driverVersion;
-    return this;
-  }
 
   public String getSessionId() {
     return sessionId;
@@ -51,30 +21,12 @@ public class TelemetryEvent {
     return this;
   }
 
-  public String getCloudProvider() {
-    return cloudProvider;
+  public String getSqlStatementId() {
+    return sqlStatementId;
   }
 
-  public TelemetryEvent setCloudProvider(String cloudProvider) {
-    this.cloudProvider = cloudProvider;
-    return this;
-  }
-
-  public LogEvent getLogEvent() {
-    return logEvent;
-  }
-
-  public TelemetryEvent setLogEvent(LogEvent logEvent) {
-    this.logEvent = logEvent;
-    return this;
-  }
-
-  public MetricEvent getMetricEvent() {
-    return metricEvent;
-  }
-
-  public TelemetryEvent setMetricEvent(MetricEvent metricEvent) {
-    this.metricEvent = metricEvent;
+  public TelemetryEvent setSqlStatementId(String sqlStatementId) {
+    this.sqlStatementId = sqlStatementId;
     return this;
   }
 }
