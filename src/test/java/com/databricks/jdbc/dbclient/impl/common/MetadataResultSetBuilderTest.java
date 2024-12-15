@@ -110,6 +110,14 @@ public class MetadataResultSetBuilderTest {
         Arguments.of("TEXT", 10, 255));
   }
 
+  private static Stream<Arguments> getSizeFromTypeValArguments() {
+    return Stream.of(
+        Arguments.of("VARCHAR(100)", 100),
+        Arguments.of("VARCHAR", -1),
+        Arguments.of("char(10)", 10),
+        Arguments.of("", -1));
+  }
+
   private static Stream<Arguments> getRowsTableTypeColumnArguments() {
     return Stream.of(
         Arguments.of("TABLE", "TABLE"),
@@ -143,7 +151,7 @@ public class MetadataResultSetBuilderTest {
       throws SQLException {
     ResultSet resultSet = mock(ResultSet.class);
     Mockito.when(resultSet.next()).thenReturn(true).thenReturn(false);
-    Mockito.when(resultSet.getObject(NULLABLE_COLUMN.getResultSetColumnName()))
+    Mockito.when(resultSet.getObject(IS_NULLABLE_COLUMN.getResultSetColumnName()))
         .thenReturn(isNullableValue);
 
     List<List<Object>> rows = MetadataResultSetBuilder.getRows(resultSet, COLUMN_COLUMNS);
@@ -157,6 +165,13 @@ public class MetadataResultSetBuilderTest {
   @MethodSource("getBufferLengthArguments")
   public void testGetBufferLength(String typeVal, int columnSize, int expected) {
     int actual = MetadataResultSetBuilder.getBufferLength(typeVal, columnSize);
+    assertEquals(expected, actual);
+  }
+
+  @ParameterizedTest
+  @MethodSource("getSizeFromTypeValArguments")
+  public void testGetSizeFromTypeVal(String typeVal, int expected) {
+    int actual = MetadataResultSetBuilder.getSizeFromTypeVal(typeVal);
     assertEquals(expected, actual);
   }
 
