@@ -25,7 +25,7 @@ public class DriverUtil {
 
   private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(DriverUtil.class);
   public static final String DBSQL_VERSION_SQL = "SELECT current_version().dbsql_version";
-  private static final String VERSION = "0.9.7-oss";
+  private static final String VERSION = "0.9.8-oss";
   private static final int DBSQL_MIN_MAJOR_VERSION_FOR_SEA_SUPPORT = 2024;
   private static final int DBSQL_MIN_MINOR_VERSION_FOR_SEA_SUPPORT = 30;
 
@@ -103,8 +103,8 @@ public class DriverUtil {
       // Check applicable only for SEA flow
       return;
     }
-    String dbsqlVersion = getDBSQLVersionCached(connection);
-    if (dbsqlVersion == null || dbsqlVersion == "") {
+    String dbsqlVersion = getDBSQLVersionCached(connection).trim();
+    if (WildcardUtil.isNullOrEmpty(dbsqlVersion)) {
       // If the DBSQL version is not available, we cannot determine if the driver supports SEA.
       // Proceeding with the connection.
       return;
