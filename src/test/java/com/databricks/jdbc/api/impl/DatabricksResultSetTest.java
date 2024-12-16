@@ -435,6 +435,65 @@ public class DatabricksResultSetTest {
   }
 
   @Test
+  void testComplexTypes_Exceptions() throws SQLException {
+    DatabricksResultSetMetaData mockedMeta = mock(DatabricksResultSetMetaData.class);
+    InlineJsonResult mockedExecResult = mock(InlineJsonResult.class);
+    DatabricksResultSet resultSet =
+        new DatabricksResultSet(
+            new StatementStatus(),
+            new StatementId("fake_statement"),
+            StatementType.QUERY,
+            null,
+            mockedExecResult,
+            mockedMeta);
+
+    // Mock closed result set
+    resultSet.close();
+    assertThrows(
+        SQLException.class,
+        () -> resultSet.getArray(1),
+        "Expected getArray to fail on closed result set");
+    assertThrows(
+        SQLException.class,
+        () -> resultSet.getStruct(1),
+        "Expected getStruct to fail on closed result set");
+    assertThrows(
+        SQLException.class,
+        () -> resultSet.getMap(1),
+        "Expected getMap to fail on closed result set");
+
+    // Mock invalid column type
+    assertThrows(
+        DatabricksSQLException.class,
+        () -> resultSet.getArray(1),
+        "Expected getArray to fail for non-ARRAY column");
+    assertThrows(
+        DatabricksSQLException.class,
+        () -> resultSet.getStruct(1),
+        "Expected getStruct to fail for non-STRUCT column");
+    assertThrows(
+        DatabricksSQLException.class,
+        () -> resultSet.getMap(1),
+        "Expected getMap to fail for non-MAP column");
+
+    // Mock invalid parsing exception
+    assertThrows(
+        SQLException.class,
+        () -> resultSet.getArray(1),
+        "Expected getArray to fail on invalid data parse");
+
+    assertThrows(
+        SQLException.class,
+        () -> resultSet.getStruct(1),
+        "Expected getStruct to fail on invalid data parse");
+
+    assertThrows(
+        SQLException.class,
+        () -> resultSet.getMap(1),
+        "Expected getMap to fail on invalid data parse");
+  }
+
+  @Test
   void testGetObject() throws SQLException {
     String expected = "testObject";
     DatabricksResultSet resultSet = getResultSet(StatementState.SUCCEEDED, null);
