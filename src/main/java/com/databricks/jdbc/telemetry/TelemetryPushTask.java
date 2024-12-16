@@ -69,7 +69,8 @@ class TelemetryPushTask implements Runnable {
                             } catch (JsonProcessingException e) {
                               logger.error(
                                   e,
-                                  "Failed to serialize Telemetry logs with error: {}",
+                                  "Failed to serialize Telemetry event {} with error: {}",
+                                  event.toString(),
                                   e.getMessage());
                               return null;
                             }
