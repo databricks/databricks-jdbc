@@ -75,6 +75,7 @@ public class EmptyResultSetTest {
   public void testGetString() throws SQLException {
     assertEquals("", resultSet.getString(1));
   }
+
   @Test
   public void testGetBytes() throws SQLException {
     assertArrayEquals(new byte[0], resultSet.getBytes(1));
@@ -408,7 +409,6 @@ public class EmptyResultSetTest {
     assertNull(resultSet.getObject("anyString"));
     assertNull(resultSet.getStruct("anyString"));
     assertNull(resultSet.getMap("anyString"));
-
 
     // For getBigDecimal(int) - assuming 1 as a placeholder for column index
     assertNull(resultSet.getBigDecimal(1));
