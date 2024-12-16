@@ -38,7 +38,10 @@ public class DatabricksMap<K, V> implements Map<K, V> {
     LOGGER.debug("Converting map with metadata: {}", metadata);
     Map<K, V> convertedMap = new LinkedHashMap<>();
     try {
+      System.out.println("metadata: " + metadata);
+      System.out.println(originalMap);
       String[] mapMetadata = MetadataParser.parseMapMetadata(metadata).split(",", 2);
+      System.out.println("mapMetadata: " + mapMetadata[0] + " " + mapMetadata[1]);
       String keyType = mapMetadata[0].trim();
       String valueType = mapMetadata[1].trim();
       LOGGER.debug("Parsed metadata - Key Type: {}, Value Type: {}", keyType, valueType);
@@ -50,6 +53,8 @@ public class DatabricksMap<K, V> implements Map<K, V> {
         LOGGER.trace("Converted entry - Key: {}, Converted Value: {}", key, value);
       }
     } catch (Exception e) {
+      System.out.println(e);
+      System.out.println(originalMap + " " + metadata);
       LOGGER.error("Error during map conversion: {}", e.getMessage(), e);
       throw new IllegalArgumentException("Invalid metadata or map structure", e);
     }
@@ -64,12 +69,15 @@ public class DatabricksMap<K, V> implements Map<K, V> {
    * @return the converted value
    */
   private V convertValue(V value, String valueType) {
+    System.out.println("value: " + value + " valueType: " + valueType);
     try {
       LOGGER.debug("Converting value of type: {}", valueType);
       if (valueType.startsWith(DatabricksTypeUtil.STRUCT)) {
         if (value instanceof Map) {
           LOGGER.trace("Converting value as STRUCT");
           return (V) new DatabricksStruct((Map<String, Object>) value, valueType);
+        } else if (value instanceof DatabricksStruct) {
+          return (V) value;
         } else {
           throw new IllegalArgumentException(
               "Expected a Map for STRUCT but found: " + value.getClass().getSimpleName());
@@ -78,6 +86,8 @@ public class DatabricksMap<K, V> implements Map<K, V> {
         if (value instanceof List) {
           LOGGER.trace("Converting value as ARRAY");
           return (V) new DatabricksArray((List<Object>) value, valueType);
+        } else if (value instanceof DatabricksArray) {
+          return (V) value;
         } else {
           throw new IllegalArgumentException(
               "Expected a List for ARRAY but found: " + value.getClass().getSimpleName());
@@ -86,6 +96,8 @@ public class DatabricksMap<K, V> implements Map<K, V> {
         if (value instanceof Map) {
           LOGGER.trace("Converting value as MAP");
           return (V) new DatabricksMap<>((Map<String, Object>) value, valueType);
+        } else if (value instanceof DatabricksMap) {
+          return (V) value;
         } else {
           throw new IllegalArgumentException(
               "Expected a Map for MAP but found: " + value.getClass().getSimpleName());
