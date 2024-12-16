@@ -22,10 +22,10 @@ import org.junit.jupiter.api.Test;
 
 public class DriverTest {
   public void printResultSet(ResultSet resultSet) throws SQLException {
-    System.out.println("\n\nPrinting resultSet...........\n");
+    // System.out.println("\n\nPrinting resultSet...........\n");
     ResultSetMetaData rsmd = resultSet.getMetaData();
     int columnsNumber = rsmd.getColumnCount();
-    System.out.println("Total number of columns: " + columnsNumber);
+    // System.out.println("Total number of columns: " + columnsNumber);
     //    for (int i = 1; i <= columnsNumber; i++) System.out.print(rsmd.getColumnName(i) + "\t");
     //    System.out.println();
     //    for (int i = 1; i <= columnsNumber; i++) System.out.print(rsmd.getColumnTypeName(i) +
@@ -384,7 +384,8 @@ public class DriverTest {
     final String sql = "SELECT * FROM " + table + " limit " + maxRows;
     String jdbcUrl =
         "jdbc:databricks://benchmarking-prod-aws-us-west-2.cloud.databricks.com:443/default;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/7e635336d748166a;EnableQueryResultLZ4Compression=0";
-    Connection con = DriverManager.getConnection(jdbcUrl, "token", "xx");
+    Connection con =
+        DriverManager.getConnection(jdbcUrl, "token", "xx");
     System.out.println("Connection established......");
     Statement s = con.createStatement();
     s.setMaxRows(maxRows);

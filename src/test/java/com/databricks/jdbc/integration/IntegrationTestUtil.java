@@ -115,8 +115,9 @@ public class IntegrationTestUtil {
 
   public static Connection getValidJDBCConnection() throws SQLException {
     Properties connectionProperties = new Properties();
-    connectionProperties.put(DatabricksJdbcUrlParams.USER.getParamName(), getDatabricksUser());
-    connectionProperties.put(DatabricksJdbcUrlParams.PASSWORD.getParamName(), getDatabricksToken());
+    connectionProperties.put(DatabricksJdbcUrlParams.USER.getParamName(), "token");
+    connectionProperties.put(
+        DatabricksJdbcUrlParams.PASSWORD.getParamName(), "xx");
 
     if (isFakeServiceTest) {
       connectionProperties.put(
@@ -166,11 +167,9 @@ public class IntegrationTestUtil {
 
   public static String getJDBCUrl() {
     String template =
-        "jdbc:databricks://%s/default;ssl=1;AuthMech=3;httpPath=%s;EnableQueryResultLZ4Compression=0";
-    String host = getDatabricksHost();
-    String httpPath = getDatabricksHTTPPath();
+        "jdbc:databricks://benchmarking-staging-aws-us-west-2.staging.cloud.databricks.com:443/default;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/bf9bc25a11113d79;EnableQueryResultLZ4Compression=1";
 
-    return String.format(template, host, httpPath);
+    return template;
   }
 
   public static String getJDBCUrl(Map<String, String> args) {

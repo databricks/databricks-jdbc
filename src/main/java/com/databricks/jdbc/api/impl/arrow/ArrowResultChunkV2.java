@@ -3,6 +3,7 @@ package com.databricks.jdbc.api.impl.arrow;
 import static com.databricks.jdbc.common.DatabricksJdbcConstants.IS_FAKE_SERVICE_TEST_PROP;
 import static com.databricks.jdbc.common.util.DatabricksThriftUtil.createExternalLink;
 
+import com.databricks.jdbc.common.CompressionCodec;
 import com.databricks.jdbc.common.util.DecompressionUtil;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
 import com.databricks.jdbc.exception.DatabricksHttpException;
@@ -34,6 +35,7 @@ import org.apache.arrow.vector.util.TransferPair;
 import org.apache.hc.client5.http.async.methods.*;
 import org.apache.hc.client5.http.impl.async.CloseableHttpAsyncClient;
 import org.apache.hc.core5.concurrent.FutureCallback;
+import org.apache.hc.core5.http.ConnectionClosedException;
 import org.apache.hc.core5.http.ContentType;
 import org.apache.hc.core5.http.HttpException;
 import org.apache.hc.core5.http.nio.AsyncRequestProducer;
@@ -116,26 +118,10 @@ public class ArrowResultChunkV2 {
   private volatile long downloadStartTime;
   private volatile long downloadEndTime;
   private volatile long bytesDownloaded;
-
-  // Add executor service as a static field since it can be shared across chunks
-  private static final ExecutorService processingExecutor =
-      Executors.newFixedThreadPool(
-          150,
-          new ThreadFactory() {
-            private final AtomicInteger threadNumber = new AtomicInteger(1);
-
-            @Override
-            public Thread newThread(Runnable r) {
-              Thread thread =
-                  new Thread(r, "Arrow-Processing-Thread-" + threadNumber.getAndIncrement());
-              thread.setDaemon(true); // Make threads daemon so they don't prevent JVM shutdown
-              return thread;
-            }
-          });
-
+  private byte[] downloadedBytes;
   private static final ScheduledExecutorService retryScheduler =
       Executors.newScheduledThreadPool(
-          10,
+          Runtime.getRuntime().availableProcessors(),
           new ThreadFactory() {
             private final AtomicInteger threadNumber = new AtomicInteger(1);
 
@@ -215,17 +201,14 @@ public class ArrowResultChunkV2 {
     }
   }
 
-  private static class StreamingResponseConsumer extends AbstractBinResponseConsumer<Void> {
-    private final PipedOutputStream outputStream;
-    private final CompletableFuture<Void> future;
+  private static class StreamingResponseConsumer extends AbstractBinResponseConsumer<byte[]> {
     private final ArrowResultChunkV2 chunk;
     private long bytesReceived = 0;
+    private final ByteArrayOutputStream byteOutputStream;
 
-    public StreamingResponseConsumer(
-        PipedOutputStream outputStream, CompletableFuture<Void> future, ArrowResultChunkV2 chunk) {
-      this.outputStream = outputStream;
-      this.future = future;
+    public StreamingResponseConsumer(ArrowResultChunkV2 chunk) {
       this.chunk = chunk;
+      this.byteOutputStream = new ByteArrayOutputStream();
     }
 
     @Override
@@ -241,28 +224,11 @@ public class ArrowResultChunkV2 {
     @Override
     protected int capacityIncrement() {
       // Define the size of chunks to process, e.g., 8KB
-      return 32 * 1024;
+      return 1024 * 1024;
     }
 
     @Override
     protected void data(ByteBuffer data, boolean endOfStream) throws IOException {
-      //      // Write data as it comes in
-      //      try {
-      //        // Write data as it comes in
-      //        while (data.hasRemaining()) {
-      //          byte[] bytes = new byte[Math.min(data.remaining(), 32 * 1024)];
-      //          data.get(bytes);
-      //          outputStream.write(bytes);
-      //        }
-      //
-      //        if (endOfStream) {
-      //          outputStream.close();
-      //        }
-      //      } catch (IOException e) {
-      //        failed(e);
-      //        throw e;
-      //      }
-
       try {
         int currentBatch = data.remaining();
         bytesReceived += currentBatch;
@@ -270,13 +236,12 @@ public class ArrowResultChunkV2 {
         // Write data as it comes in
         byte[] bytes = new byte[currentBatch];
         data.get(bytes);
-        outputStream.write(bytes);
+        byteOutputStream.write(bytes);
 
         if (endOfStream) {
           chunk.downloadEndTime = System.nanoTime(); // Record end time
           chunk.bytesDownloaded = bytesReceived;
           logDownloadStats();
-          outputStream.close();
         }
       } catch (IOException e) {
         failed(e);
@@ -285,26 +250,18 @@ public class ArrowResultChunkV2 {
     }
 
     @Override
-    protected Void buildResult() {
-      return null;
+    protected byte[] buildResult() {
+      return byteOutputStream.toByteArray();
     }
 
     @Override
     public void failed(Exception cause) {
-      try {
-        outputStream.close();
-      } catch (IOException e) {
-        // Log error
-      }
-      future.completeExceptionally(cause);
+      byteOutputStream.reset();
     }
 
     @Override
     public void releaseResources() {
-      try {
-        outputStream.close();
-      } catch (IOException ignored) {
-      }
+      byteOutputStream.reset();
     }
 
     private void logDownloadStats() {
@@ -427,7 +384,7 @@ public class ArrowResultChunkV2 {
 
   void downloadDataAsync(IDatabricksHttpClient httpClient, ChunkDownloadCallback callback) {
     CloseableHttpAsyncClient asyncClient = httpClient.getAsyncClient();
-    asyncClient.start();
+    // asyncClient.start();
     RetryConfig retryConfig =
         new RetryConfig.Builder().maxAttempts(3).baseDelayMs(1000).maxDelayMs(5000).build();
     retryDownload(asyncClient, callback, retryConfig, 1);
@@ -439,104 +396,100 @@ public class ArrowResultChunkV2 {
       RetryConfig retryConfig,
       int currentAttempt) {
     try {
-      PipedOutputStream outputStream = new PipedOutputStream();
-      PipedInputStream inputStream = new PipedInputStream(outputStream, 4 * 1024 * 1024);
-      StreamingResponseConsumer consumer =
-          new StreamingResponseConsumer(outputStream, downloadFuture, this);
-      processingExecutor.execute(
-          () -> {
-            // blocking and executed in processing executor
-            try {
-              String context =
-                  String.format(
-                      "Data decompression for chunk index %d and statement %s",
-                      chunkIndex, statementId);
-
-              InputStream uncompressedStream =
-                  DecompressionUtil.decompress(
-                      inputStream, callback.getCompressionCodec(), context);
-
-              initializeData(uncompressedStream);
+      StreamingResponseConsumer consumer = new StreamingResponseConsumer(this);
+      AsyncRequestBuilder requestBuilder = AsyncRequestBuilder.get(chunkLink.getExternalLink());
+      if (chunkLink.getHttpHeaders() != null) {
+        chunkLink.getHttpHeaders().forEach(requestBuilder::addHeader);
+      }
+      AsyncRequestProducer requestProducer = requestBuilder.build();
+      //      asyncClient.execute(
+      //          requestProducer,
+      //          SimpleResponseConsumer.create(),
+      //          new FutureCallback<>() {
+      //            @Override
+      //            public void completed(SimpleHttpResponse response) {
+      //              downloadedBytes = response.getBody().getBodyBytes();
+      //              setStatus(ChunkStatus.DOWNLOAD_SUCCEEDED);
+      //              downloadFuture.complete(null);
+      //            }
+      //
+      //            @Override
+      //            public void failed(Exception e) {
+      //              handleRetryableError(
+      //                  asyncClient,
+      //                  callback,
+      //                  retryConfig,
+      //                  currentAttempt,
+      //                  e,
+      //                  DownloadPhase.DATA_DOWNLOAD);
+      //            }
+      //
+      //            @Override
+      //            public void cancelled() {
+      //              setStatus(ChunkStatus.CANCELLED);
+      //              downloadFuture.cancel(true);
+      //            }
+      //          });
+      asyncClient.execute(
+          requestProducer,
+          consumer,
+          new FutureCallback<>() {
+            @Override
+            public void completed(byte[] result) {
+              downloadedBytes = result;
               setStatus(ChunkStatus.DOWNLOAD_SUCCEEDED);
               downloadFuture.complete(null);
-              inputStream.close();
-            } catch (Exception e) {
-              handleStreamingFailure(e);
-              try {
-                inputStream.close();
-              } catch (IOException ignored) {
-              }
+            }
+
+            @Override
+            public void failed(Exception e) {
+              handleRetryableError(
+                  asyncClient,
+                  callback,
+                  retryConfig,
+                  currentAttempt,
+                  e,
+                  DownloadPhase.DATA_DOWNLOAD);
+            }
+
+            @Override
+            public void cancelled() {
+              setStatus(ChunkStatus.CANCELLED);
+              downloadFuture.cancel(true);
             }
           });
-      CompletableFuture<Void> linkRefreshFuture =
-          CompletableFuture.runAsync(
-              () -> {
-                // blocking and executed in processing executor
-                if (isChunkLinkInvalid()) {
-                  try {
-                    callback.downloadLinks(getChunkIndex());
-                  } catch (Exception e) {
-                    throw new CompletionException(e);
-                  }
-                }
-              },
-              processingExecutor);
-      linkRefreshFuture
-          .thenRun(
-              () -> {
-                AsyncRequestBuilder requestBuilder =
-                    AsyncRequestBuilder.get(chunkLink.getExternalLink());
-                if (chunkLink.getHttpHeaders() != null) {
-                  chunkLink.getHttpHeaders().forEach(requestBuilder::addHeader);
-                }
-                AsyncRequestProducer requestProducer = requestBuilder.build();
-                long requestStartTime = System.currentTimeMillis();
-                // non-blocking
-                asyncClient.execute(
-                    requestProducer,
-                    consumer,
-                    new FutureCallback<>() {
-                      @Override
-                      public void completed(Void result) {
-                        long responseTime = System.currentTimeMillis() - requestStartTime;
-                        LOGGER.debug("Response time for chunk %s: %s ms", chunkIndex, responseTime);
-                      }
-
-                      @Override
-                      public void failed(Exception e) {
-                        handleRetryableError(
-                            asyncClient,
-                            callback,
-                            retryConfig,
-                            currentAttempt,
-                            e,
-                            DownloadPhase.DATA_DOWNLOAD);
-                      }
-
-                      @Override
-                      public void cancelled() {
-                        setStatus(ChunkStatus.CANCELLED);
-                        downloadFuture.cancel(true);
-                      }
-                    });
-              })
-          .exceptionally(
-              throwable -> {
-                handleRetryableError(
-                    asyncClient,
-                    callback,
-                    retryConfig,
-                    currentAttempt,
-                    throwable instanceof CompletionException
-                        ? (Exception) throwable.getCause()
-                        : (Exception) throwable,
-                    DownloadPhase.LINK_REFRESH);
-                return null;
-              });
     } catch (Exception e) {
       handleRetryableError(
           asyncClient, callback, retryConfig, currentAttempt, e, DownloadPhase.DOWNLOAD_SETUP);
     }
+  }
+
+  public void processArrowData(CompressionCodec compressionCodec, String context)
+      throws DatabricksParsingException {
+    if (downloadedBytes == null) {
+      throw new DatabricksParsingException(
+          "No downloaded data available for chunk index " + chunkIndex);
+    }
+    try (ByteArrayInputStream compressedStream = new ByteArrayInputStream(downloadedBytes);
+        InputStream uncompressedStream =
+            DecompressionUtil.decompress(compressedStream, compressionCodec, context)) {
+      initializeData(uncompressedStream);
+      // Clear the downloaded bytes after successful processing
+      downloadedBytes = null;
+    } catch (IOException | DatabricksSQLException e) {
+      handleFailure(e, ChunkStatus.EXTRACT_FAILED);
+    }
+  }
+
+  void handleFailure(Exception exception, ChunkStatus failedStatus)
+      throws DatabricksParsingException {
+    this.errorMessage =
+        String.format(
+            "Data parsing failed for chunk index [%d] and statement [%s]. Exception [%s]",
+            this.chunkIndex, this.statementId, exception);
+    LOGGER.error(this.errorMessage);
+    setStatus(failedStatus);
+    throw new DatabricksParsingException(this.errorMessage, exception);
   }
 
   private void handleRetryableError(
@@ -546,6 +499,15 @@ public class ArrowResultChunkV2 {
       int currentAttempt,
       Exception e,
       DownloadPhase phase) {
+    LOGGER.info(
+        "Retrying, current attempt: "
+            + currentAttempt
+            + " for chunk "
+            + chunkIndex
+            + " for download phase "
+            + phase.getDescription()
+            + " with error: "
+            + e);
     if (currentAttempt < retryConfig.maxAttempts && isRetryableError(e)) {
       long delayMs = calculateBackoffDelay(currentAttempt, retryConfig);
       LOGGER.warn(
@@ -569,6 +531,7 @@ public class ArrowResultChunkV2 {
   private boolean isRetryableError(Exception e) {
     return e instanceof SocketException
         || e instanceof SocketTimeoutException
+        || e instanceof ConnectionClosedException
         || e instanceof DatabricksHttpException
         || (e instanceof IOException && e.getMessage().contains("Connection reset"))
         || (e instanceof DatabricksParsingException && e.getCause() instanceof SocketException);
@@ -632,6 +595,7 @@ public class ArrowResultChunkV2 {
     if (status == ChunkStatus.CHUNK_RELEASED) {
       return false;
     }
+    downloadedBytes = null;
     if (isDataInitialized) {
       logAllocatorStats("BeforeRelease");
       purgeArrowData(this.recordBatchList);
@@ -644,6 +608,10 @@ public class ArrowResultChunkV2 {
   /** Returns number of recordBatches in the chunk. */
   int getRecordBatchCountInChunk() {
     return this.isDataInitialized ? this.recordBatchList.size() : 0;
+  }
+
+  public String getStatementId() {
+    return statementId;
   }
 
   ArrowResultChunkIterator getChunkIterator() {

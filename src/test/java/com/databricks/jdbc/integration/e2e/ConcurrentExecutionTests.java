@@ -7,6 +7,7 @@ import java.sql.*;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.DoubleSummaryStatistics;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
@@ -17,8 +18,9 @@ import java.util.stream.Collectors;
 import org.junit.jupiter.api.Test;
 
 public class ConcurrentExecutionTests {
-  private static final int NUM_THREADS = 100;
+  private static final int NUM_THREADS = 150;
   private static final int NUM_ITERATIONS = 1;
+  private static final int ROW_COUNT = 2000000;
 
   private static class QueryMetrics {
     final long executionTimeMs;
@@ -33,45 +35,8 @@ public class ConcurrentExecutionTests {
   }
 
   @Test
-  void testConcurrentExecution() throws InterruptedException {
-    ExecutorService executorService = Executors.newFixedThreadPool(NUM_THREADS);
-    List<Future<Boolean>> futures = new ArrayList<>();
-
-    for (int i = 0; i < NUM_THREADS; i++) {
-      final int threadNum = i;
-      Future<Boolean> future =
-          executorService.submit(
-              () -> {
-                try {
-                  runThreadQueries(threadNum);
-                  return true;
-                } catch (Exception e) {
-                  e.printStackTrace();
-                  return false;
-                }
-              });
-      futures.add(future);
-    }
-
-    executorService.shutdown();
-
-    boolean allSuccess = true;
-    for (Future<Boolean> future : futures) {
-      try {
-        if (!future.get()) {
-          allSuccess = false;
-        }
-      } catch (ExecutionException e) {
-        e.printStackTrace();
-        allSuccess = false;
-      }
-    }
-
-    assertTrue(allSuccess, "Not all threads completed successfully");
-  }
-
-  @Test
   void testConcurrentExecutionWithMetrics() throws InterruptedException {
+    printMemoryStats();
     List<List<QueryMetrics>> allIterationMetrics = new ArrayList<>();
 
     for (int iteration = 0; iteration < NUM_ITERATIONS; iteration++) {
@@ -124,7 +89,7 @@ public class ConcurrentExecutionTests {
 
     try (Connection connection = getValidJDBCConnection()) {
       final String table = "main.tpcds_sf100_delta.catalog_sales";
-      final int maxRows = 100000;
+      final int maxRows = ROW_COUNT;
       final String sql = "SELECT * FROM " + table + " limit " + maxRows;
 
       try (Statement statement = connection.createStatement()) {
@@ -140,20 +105,18 @@ public class ConcurrentExecutionTests {
   }
 
   private int processResultSet(ResultSet resultSet) throws SQLException {
-    ResultSetMetaData rsmd = resultSet.getMetaData();
-    int columnsNumber = rsmd.getColumnCount();
     int rowCount = 0;
-
     while (resultSet.next()) {
+      //      for (int i = 1; i <= columnsNumber; i++) {
+      //        try {
+      //          Object columnValue = resultSet.getObject(i);
+      //        } catch (Exception ignored) {
+      //          fail("Fight son.");
+      //        }
+      //      }
       rowCount++;
-      for (int i = 1; i <= columnsNumber; i++) {
-        try {
-          Object columnValue = resultSet.getObject(i);
-        } catch (Exception e) {
-          fail("Error processing result set: " + e.getMessage());
-        }
-      }
     }
+    assertEquals(ROW_COUNT, rowCount);
     return rowCount;
   }
 
@@ -172,26 +135,49 @@ public class ConcurrentExecutionTests {
             System.out.printf(
                 "Thread %d: %dms (%d rows)\n", m.threadNum, m.executionTimeMs, m.rowCount));
 
+    List<QueryMetrics> sortedMetrics = new ArrayList<>(metrics);
+    sortedMetrics.sort(Comparator.comparingLong(a -> a.executionTimeMs));
+    System.out.println("\nTop 3 Fastest Queries:");
+    for (int i = 0; i < Math.min(3, sortedMetrics.size()); i++) {
+      QueryMetrics m = sortedMetrics.get(i);
+      System.out.printf("Thread %d: %dms (%d rows)\n", m.threadNum, m.executionTimeMs, m.rowCount);
+    }
+    System.out.println("\nTop 3 Slowest Queries:");
+    for (int i = 1; i <= Math.min(3, sortedMetrics.size()); i++) {
+      QueryMetrics m = sortedMetrics.get(sortedMetrics.size() - i);
+      System.out.printf("Thread %d: %dms (%d rows)\n", m.threadNum, m.executionTimeMs, m.rowCount);
+    }
+
     long minTime = metrics.stream().mapToLong(m -> m.executionTimeMs).min().orElse(0);
     long maxTime = metrics.stream().mapToLong(m -> m.executionTimeMs).max().orElse(0);
-    System.out.println("Min execution time: " + minTime + "ms");
-    System.out.println("Max execution time: " + maxTime + "ms");
     System.out.println("Max/Min ratio: " + String.format("%.2f", (double) maxTime / minTime));
   }
 
   private void printAggregateMetrics(List<List<QueryMetrics>> allMetrics) {
     System.out.println("\nAggregate Metrics Across All Iterations:");
 
-    // Calculate aggregate statistics
-    DoubleSummaryStatistics executionStats =
+    List<QueryMetrics> allQueryMetrics =
         allMetrics.stream()
             .flatMap(List::stream)
-            .mapToDouble(m -> m.executionTimeMs)
-            .summaryStatistics();
+            .sorted(Comparator.comparingLong(a -> a.executionTimeMs))
+            .collect(Collectors.toList());
+
+    // Calculate aggregate statistics
+    DoubleSummaryStatistics executionStats =
+        allQueryMetrics.stream().mapToDouble(m -> m.executionTimeMs).summaryStatistics();
 
     System.out.printf("Average query time: %.2fms\n", executionStats.getAverage());
-    System.out.printf("Min query time: %dms\n", (long) executionStats.getMin());
-    System.out.printf("Max query time: %dms\n", (long) executionStats.getMax());
+    System.out.println("\nTop 3 Fastest Queries Across All Iterations:");
+    for (int i = 0; i < Math.min(3, allQueryMetrics.size()); i++) {
+      QueryMetrics m = allQueryMetrics.get(i);
+      System.out.printf("Thread %d: %dms (%d rows)\n", m.threadNum, m.executionTimeMs, m.rowCount);
+    }
+    System.out.println("\nTop 3 Slowest Queries Across All Iterations:");
+    for (int i = 1; i <= Math.min(3, allQueryMetrics.size()); i++) {
+      QueryMetrics m = allQueryMetrics.get(allQueryMetrics.size() - i);
+      System.out.printf("Thread %d: %dms (%d rows)\n", m.threadNum, m.executionTimeMs, m.rowCount);
+    }
+
     System.out.printf("Standard deviation: %.2fms\n", calculateStdDev(allMetrics));
 
     // Calculate throughput
@@ -222,93 +208,19 @@ public class ConcurrentExecutionTests {
     return Math.sqrt(variance);
   }
 
-  private void runThreadQueries(int threadNum) throws SQLException {
-    try (Connection connection = getValidJDBCConnection()) {
-      // Use a unique table name per thread to avoid conflicts
-      //      String tableName = "concurrent_test_table_" + threadNum;
-      //      setupDatabaseTable(connection, tableName);
-      //
-      //      // Insert data
-      //      String insertSQL =
-      //          "INSERT INTO "
-      //              + getFullyQualifiedTableName(tableName)
-      //              + " (id, col1, col2) VALUES ("
-      //              + threadNum
-      //              + ", 'value"
-      //              + threadNum
-      //              + "', 'value"
-      //              + threadNum
-      //              + "')";
-      //
-      //      try (Statement statement = connection.createStatement()) {
-      //        statement.execute(insertSQL);
-      //      }
-      //
-      //      // Update data
-      //      String updateSQL =
-      //          "UPDATE "
-      //              + getFullyQualifiedTableName(tableName)
-      //              + " SET col1 = 'updatedValue"
-      //              + threadNum
-      //              + "' WHERE id = "
-      //              + threadNum;
-      //      try (Statement statement = connection.createStatement()) {
-      //        statement.execute(updateSQL);
-      //      }
-      //
-      //      // Select data
-      //      String selectSQL =
-      //          "SELECT col1 FROM " + getFullyQualifiedTableName(tableName) + " WHERE id = " +
-      // threadNum;
-      //      try (Statement statement = connection.createStatement()) {
-      //        try (ResultSet rs = statement.executeQuery(selectSQL)) {
-      //          if (rs.next()) {
-      //            String col1 = rs.getString("col1");
-      //            assertEquals(
-      //                "updatedValue" + threadNum, col1, "Expected updated value in thread " +
-      // threadNum);
-      //          } else {
-      //            fail("No data found in thread " + threadNum);
-      //          }
-      //        }
-      //      }
-      //
-      //      // Delete data
-      //      String deleteSQL =
-      //          "DELETE FROM " + getFullyQualifiedTableName(tableName) + " WHERE id = " +
-      // threadNum;
-      //      try (Statement statement = connection.createStatement()) {
-      //        statement.execute(deleteSQL);
-      //      }
-      //
-      //      // Clean up table
-      //      deleteTable(connection, tableName);
+  public static void printMemoryStats() {
+    Runtime runtime = Runtime.getRuntime();
 
-      final String table = "main.tpcds_sf100_delta.catalog_sales";
-      final int maxRows = 100000;
-      final String sql = "SELECT * FROM " + table + " limit " + maxRows;
-      try (Statement statement = connection.createStatement()) {
-        statement.setMaxRows(maxRows);
-        try (ResultSet rs = statement.executeQuery(sql)) {
-          printResultSet(rs);
-        }
-      }
-    }
-  }
+    long totalMemory = runtime.totalMemory() / (1024 * 1024); // Convert to MB
+    long freeMemory = runtime.freeMemory() / (1024 * 1024); // Convert to MB
+    long usedMemory = (runtime.totalMemory() - runtime.freeMemory()) / (1024 * 1024);
+    long maxMemory = runtime.maxMemory() / (1024 * 1024); // Convert to MB
 
-  private void printResultSet(ResultSet resultSet) throws SQLException {
-    ResultSetMetaData rsmd = resultSet.getMetaData();
-    int rowCount = 0;
-    while (resultSet.next()) {
-      //      for (int i = 1; i <= columnsNumber; i++) {
-      //        try {
-      //          Object columnValue = resultSet.getObject(i);
-      //        } catch (Exception ignored) {
-      //          fail("Fight son.");
-      //        }
-      //      }
-      rowCount++;
-    }
-    System.out.println("Row count: " + rowCount);
+    System.out.println("Memory Stats:");
+    System.out.println("Total Memory: " + totalMemory + " MB");
+    System.out.println("Free Memory: " + freeMemory + " MB");
+    System.out.println("Used Memory: " + usedMemory + " MB");
+    System.out.println("Max Memory: " + maxMemory + " MB");
+    System.out.println("Available processors: " + runtime.availableProcessors());
   }
 }

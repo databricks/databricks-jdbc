@@ -18,10 +18,12 @@ import com.google.common.annotations.VisibleForTesting;
 import java.io.Closeable;
 import java.io.IOException;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.hc.client5.http.impl.async.CloseableHttpAsyncClient;
 import org.apache.hc.client5.http.impl.async.HttpAsyncClients;
 import org.apache.hc.client5.http.impl.nio.PoolingAsyncClientConnectionManager;
 import org.apache.hc.core5.io.CloseMode;
+import org.apache.hc.core5.reactor.IOReactorConfig;
 import org.apache.http.HttpException;
 import org.apache.http.HttpHost;
 import org.apache.http.client.config.RequestConfig;
@@ -49,21 +51,42 @@ public class DatabricksHttpClient implements IDatabricksHttpClient, Closeable {
   private final CloseableHttpClient httpClient;
   private DatabricksHttpRetryHandler retryHandler;
   private IdleConnectionEvictor idleConnectionEvictor;
-  private CloseableHttpAsyncClient asyncClient;
+  private static volatile CloseableHttpAsyncClient globalAsyncClient;
+  private static volatile PoolingAsyncClientConnectionManager globalAsyncConnectionManager;
+  private static final AtomicInteger referenceCount = new AtomicInteger(0);
+  private static final Object ASYNC_CLIENT_LOCK = new Object();
 
   DatabricksHttpClient(IDatabricksConnectionContext connectionContext) {
     connectionManager = initializeConnectionManager(connectionContext);
-    PoolingAsyncClientConnectionManager asyncConnectionManager =
-        new PoolingAsyncClientConnectionManager();
-    asyncConnectionManager.setMaxTotal(DEFAULT_MAX_HTTP_CONNECTIONS);
-    asyncConnectionManager.setDefaultMaxPerRoute(DEFAULT_MAX_HTTP_CONNECTIONS_PER_ROUTE);
-    asyncClient = HttpAsyncClients.custom().setConnectionManager(asyncConnectionManager).build();
+    initializeGlobalAsyncClient();
     httpClient = makeClosableHttpClient(connectionContext);
     retryHandler = new DatabricksHttpRetryHandler(connectionContext);
     idleConnectionEvictor =
         new IdleConnectionEvictor(
             connectionManager, connectionContext.getIdleHttpConnectionExpiry(), TimeUnit.SECONDS);
     idleConnectionEvictor.start();
+  }
+
+  private void initializeGlobalAsyncClient() {
+    synchronized (ASYNC_CLIENT_LOCK) {
+      if (globalAsyncClient == null) {
+        IOReactorConfig ioReactorConfig =
+            IOReactorConfig.custom()
+                .setIoThreadCount(Math.max(Runtime.getRuntime().availableProcessors() * 2, 8))
+                .build();
+
+        globalAsyncConnectionManager = new PoolingAsyncClientConnectionManager();
+        globalAsyncConnectionManager.setMaxTotal(2500);
+        globalAsyncConnectionManager.setDefaultMaxPerRoute(1000);
+
+        globalAsyncClient =
+            HttpAsyncClients.custom()
+                .setIOReactorConfig(ioReactorConfig)
+                .setConnectionManager(globalAsyncConnectionManager)
+                .build();
+        globalAsyncClient.start();
+      }
+    }
   }
 
   @VisibleForTesting
@@ -101,14 +124,22 @@ public class DatabricksHttpClient implements IDatabricksHttpClient, Closeable {
     if (connectionManager != null) {
       connectionManager.shutdown();
     }
-    if (asyncClient != null) {
-      asyncClient.close(CloseMode.GRACEFUL);
+    synchronized (ASYNC_CLIENT_LOCK) {
+      if (referenceCount.decrementAndGet() == 0 && globalAsyncClient != null) {
+        try {
+          globalAsyncClient.close(CloseMode.GRACEFUL);
+          globalAsyncConnectionManager.close();
+        } finally {
+          globalAsyncClient = null;
+          globalAsyncConnectionManager = null;
+        }
+      }
     }
   }
 
   @Override
   public CloseableHttpAsyncClient getAsyncClient() {
-    return asyncClient;
+    return globalAsyncClient;
   }
 
   private PoolingHttpClientConnectionManager initializeConnectionManager(

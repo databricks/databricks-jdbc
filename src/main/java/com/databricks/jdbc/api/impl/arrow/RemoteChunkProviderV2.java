@@ -116,6 +116,16 @@ public class RemoteChunkProviderV2 implements ChunkProvider, ChunkDownloadCallba
       if (chunk.getStatus() != ArrowResultChunkV2.ChunkStatus.DOWNLOAD_SUCCEEDED) {
         throw new DatabricksSQLException(chunk.getErrorMessage());
       }
+      String context =
+          String.format(
+              "Data decompression for chunk index [%d] and statement [%s]",
+              chunk.getChunkIndex(), chunk.getStatementId());
+      long startTime = System.currentTimeMillis();
+      chunk.processArrowData(getCompressionCodec(), context);
+      long endTime = System.currentTimeMillis();
+      LOGGER.debug(
+          "Data decompression for chunk index [%d] and statement [%s] took [%d] ms",
+          chunk.getChunkIndex(), chunk.getStatementId(), endTime - startTime);
     } catch (InterruptedException e) {
       LOGGER.error(
           e,
@@ -201,6 +211,13 @@ public class RemoteChunkProviderV2 implements ChunkProvider, ChunkDownloadCallba
       ArrowResultChunkV2 chunk = chunkIndexToChunksMap.get(nextChunkToDownload);
       if (chunk.getStatus() != ArrowResultChunkV2.ChunkStatus.DOWNLOAD_SUCCEEDED) {
         totalChunksInMemory++;
+        if (chunk.isChunkLinkInvalid()) {
+          try {
+            downloadLinks(chunk.getChunkIndex());
+          } catch (DatabricksSQLException e) {
+            throw new RuntimeException(e);
+          }
+        }
         chunk.downloadDataAsync(httpClient, this);
       }
       nextChunkToDownload++;
