@@ -18,11 +18,9 @@ import com.databricks.jdbc.exception.DatabricksSQLFeatureNotSupportedException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.model.client.thrift.generated.TFetchResultsResp;
-import com.databricks.jdbc.model.client.thrift.generated.TStatus;
 import com.databricks.jdbc.model.core.ColumnMetadata;
 import com.databricks.jdbc.model.core.ResultData;
 import com.databricks.jdbc.model.core.ResultManifest;
-import com.databricks.sdk.service.sql.StatementState;
 import com.databricks.sdk.service.sql.StatementStatus;
 import com.google.common.annotations.VisibleForTesting;
 import java.io.InputStream;
@@ -103,25 +101,14 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
 
   // Constructor for thrift result set
   public DatabricksResultSet(
-      TStatus statementStatus,
+      StatementStatus statementStatus,
       StatementId statementId,
       TFetchResultsResp resultsResp,
       StatementType statementType,
       IDatabricksStatementInternal parentStatement,
       IDatabricksSession session)
       throws SQLException {
-    switch (statementStatus.getStatusCode()) {
-      case SUCCESS_STATUS:
-      case SUCCESS_WITH_INFO_STATUS:
-        this.statementStatus = new StatementStatus().setState(StatementState.SUCCEEDED);
-        break;
-      case STILL_EXECUTING_STATUS:
-        this.statementStatus = new StatementStatus().setState(StatementState.RUNNING);
-        break;
-      default:
-        this.statementStatus = new StatementStatus().setState(StatementState.FAILED);
-    }
-
+    this.statementStatus = statementStatus;
     this.statementId = statementId;
     if (resultsResp != null) {
       this.executionResult =

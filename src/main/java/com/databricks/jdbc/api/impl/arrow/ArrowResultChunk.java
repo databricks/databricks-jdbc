@@ -255,7 +255,7 @@ public class ArrowResultChunk {
       HttpGet getRequest = new HttpGet(uriBuilder.build());
       addHeaders(getRequest, chunkLink.getHttpHeaders());
       // Retry would be done in http client, we should not bother about that here
-      response = httpClient.execute(getRequest);
+      response = httpClient.execute(getRequest, true);
       checkHTTPError(response);
       String context =
           String.format(

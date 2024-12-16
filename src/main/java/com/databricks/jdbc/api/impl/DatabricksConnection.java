@@ -5,8 +5,6 @@ import com.databricks.jdbc.api.IDatabricksConnection;
 import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.api.IDatabricksSession;
 import com.databricks.jdbc.api.IDatabricksStatement;
-import com.databricks.jdbc.api.impl.volume.DBFSVolumeClient;
-import com.databricks.jdbc.api.impl.volume.DatabricksUCVolumeClient;
 import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
 import com.databricks.jdbc.common.DatabricksJdbcConstants;
 import com.databricks.jdbc.common.util.UserAgentManager;
@@ -517,22 +515,6 @@ public class DatabricksConnection implements IDatabricksConnection {
   @Override
   public Connection getConnection() {
     return this;
-  }
-
-  @Override
-  public IDatabricksVolumeClient getVolumeClient() {
-    if (volumeClient == null) {
-      synchronized (this) {
-        if (volumeClient == null) {
-          if (this.session.getConnectionContext().useFileSystemAPI()) {
-            volumeClient = new DBFSVolumeClient(this);
-          } else {
-            volumeClient = new DatabricksUCVolumeClient(this);
-          }
-        }
-      }
-    }
-    return volumeClient;
   }
 
   @Override

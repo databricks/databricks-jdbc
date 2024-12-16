@@ -68,7 +68,7 @@ public class DatabricksResultSetTest {
     when(fetchResultsResp.getResults()).thenReturn(rowSet);
     when(fetchResultsResp.getResultSetMetadata()).thenReturn(metadataResp);
     return new DatabricksResultSet(
-        new TStatus().setStatusCode(TStatusCode.SUCCESS_STATUS),
+        new StatementStatus().setState(StatementState.SUCCEEDED),
         THRIFT_STATEMENT_ID,
         fetchResultsResp,
         StatementType.METADATA,

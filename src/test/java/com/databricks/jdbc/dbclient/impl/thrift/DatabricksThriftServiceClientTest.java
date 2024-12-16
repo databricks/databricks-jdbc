@@ -122,6 +122,7 @@ public class DatabricksThriftServiceClientTest {
             .setSessionHandle(SESSION_HANDLE)
             .setCanReadArrowResult(true)
             .setCanDecompressLZ4Result(true)
+            .setRunAsync(true)
             .setCanDownloadResult(true);
     when(thriftAccessor.executeAsync(
             executeStatementReq, parentStatement, session, StatementType.SQL))
