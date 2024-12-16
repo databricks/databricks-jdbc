@@ -1033,6 +1033,7 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
    * @return a `Struct` object if the column contains a struct; `null` if the value is SQL `NULL`
    * @throws SQLException if the column is not of `STRUCT` type or if any SQL error occurs
    */
+  @Override
   public Struct getStruct(int columnIndex) throws SQLException {
     LOGGER.debug("Getting Struct from column index: {}", columnIndex);
     checkIfClosed();
@@ -1066,6 +1067,7 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
    * @return a `Map<String, Object>` if the column contains a map; `null` if the value is SQL `NULL`
    * @throws SQLException if the column is not of `MAP` type or if any SQL error occurs
    */
+  @Override
   public Map<String, Object> getMap(int columnIndex) throws SQLException {
     LOGGER.debug("Getting Map from column index: {}", columnIndex);
     checkIfClosed();
