@@ -9,6 +9,10 @@ import java.util.Map;
 /** Extension to java.sql.ResultSet interface */
 public interface IDatabricksResultSet extends ResultSet {
 
+  Struct getStruct(String columnLabel) throws SQLException;
+
+  Map<String, Object> getMap(String columbLabel) throws SQLException;
+
   /**
    * Returns statement-Id of associated statement
    *
