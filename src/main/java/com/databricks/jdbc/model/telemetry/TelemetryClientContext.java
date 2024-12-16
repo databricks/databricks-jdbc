@@ -2,18 +2,18 @@ package com.databricks.jdbc.model.telemetry;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 
-public class ClientContext {
+public class TelemetryClientContext {
 
   @JsonProperty("timestamp_millis")
   Long timestampMillis;
 
-  public ClientContext() {}
+  public TelemetryClientContext() {}
 
   public Long getTimestampMillis() {
     return timestampMillis;
   }
 
-  public ClientContext setTimestampMillis(Long timestampMillis) {
+  public TelemetryClientContext setTimestampMillis(Long timestampMillis) {
     this.timestampMillis = timestampMillis;
     return this;
   }

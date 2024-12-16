@@ -4,15 +4,15 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 
 public class FrontendLogContext {
   @JsonProperty("client_context")
-  ClientContext clientContext;
+  TelemetryClientContext clientContext;
 
   public FrontendLogContext() {}
 
-  public ClientContext getClientContext() {
+  public TelemetryClientContext getClientContext() {
     return clientContext;
   }
 
-  public FrontendLogContext setClientContext(ClientContext clientContext) {
+  public FrontendLogContext setClientContext(TelemetryClientContext clientContext) {
     this.clientContext = clientContext;
     return this;
   }
