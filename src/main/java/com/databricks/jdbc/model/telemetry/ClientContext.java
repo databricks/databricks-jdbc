@@ -4,6 +4,17 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 
 public class ClientContext {
 
-  @JsonProperty("idle_time_millis")
-  Long idleTimeMillis;
+  @JsonProperty("timestamp_millis")
+  Long timestampMillis;
+
+  public ClientContext() {}
+
+  public Long getTimestampMillis() {
+    return timestampMillis;
+  }
+
+  public ClientContext setTimestampMillis(Long timestampMillis) {
+    this.timestampMillis = timestampMillis;
+    return this;
+  }
 }
