@@ -12,6 +12,7 @@ import com.databricks.jdbc.exception.DatabricksHttpException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.model.client.thrift.generated.*;
 import com.databricks.sdk.service.sql.ColumnInfoTypeName;
+import com.databricks.sdk.service.sql.StatementState;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.Collections;
@@ -227,5 +228,81 @@ public class DatabricksThriftUtilTest {
   @MethodSource("thriftDirectResultSets")
   public void testCheckDirectResultsForErrorStatus(TSparkDirectResults response) {
     assertDoesNotThrow(() -> checkDirectResultsForErrorStatus(response, TEST_STRING));
+  }
+
+  @Test
+  public void testGetStatementStatus() throws Exception {
+    assertEquals(
+        StatementState.PENDING,
+        DatabricksThriftUtil.getStatementStatus(
+                new TGetOperationStatusResp().setOperationState(TOperationState.INITIALIZED_STATE))
+            .getState());
+    assertEquals(
+        StatementState.PENDING,
+        DatabricksThriftUtil.getStatementStatus(
+                new TGetOperationStatusResp().setOperationState(TOperationState.PENDING_STATE))
+            .getState());
+    assertEquals(
+        StatementState.SUCCEEDED,
+        DatabricksThriftUtil.getStatementStatus(
+                new TGetOperationStatusResp().setOperationState(TOperationState.FINISHED_STATE))
+            .getState());
+    assertEquals(
+        StatementState.RUNNING,
+        DatabricksThriftUtil.getStatementStatus(
+                new TGetOperationStatusResp().setOperationState(TOperationState.RUNNING_STATE))
+            .getState());
+    assertEquals(
+        StatementState.FAILED,
+        DatabricksThriftUtil.getStatementStatus(
+                new TGetOperationStatusResp().setOperationState(TOperationState.ERROR_STATE))
+            .getState());
+    assertEquals(
+        StatementState.FAILED,
+        DatabricksThriftUtil.getStatementStatus(
+                new TGetOperationStatusResp().setOperationState(TOperationState.TIMEDOUT_STATE))
+            .getState());
+    assertEquals(
+        StatementState.FAILED,
+        DatabricksThriftUtil.getStatementStatus(
+                new TGetOperationStatusResp().setOperationState(TOperationState.UKNOWN_STATE))
+            .getState());
+    assertEquals(
+        StatementState.CLOSED,
+        DatabricksThriftUtil.getStatementStatus(
+                new TGetOperationStatusResp().setOperationState(TOperationState.CLOSED_STATE))
+            .getState());
+    assertEquals(
+        StatementState.CANCELED,
+        DatabricksThriftUtil.getStatementStatus(
+                new TGetOperationStatusResp().setOperationState(TOperationState.CANCELED_STATE))
+            .getState());
+  }
+
+  @Test
+  public void testGetStatementStatusForAsync() throws Exception {
+    assertEquals(
+        StatementState.RUNNING,
+        DatabricksThriftUtil.getAsyncStatus(new TStatus().setStatusCode(TStatusCode.SUCCESS_STATUS))
+            .getState());
+    assertEquals(
+        StatementState.RUNNING,
+        DatabricksThriftUtil.getAsyncStatus(
+                new TStatus().setStatusCode(TStatusCode.SUCCESS_WITH_INFO_STATUS))
+            .getState());
+    assertEquals(
+        StatementState.RUNNING,
+        DatabricksThriftUtil.getAsyncStatus(
+                new TStatus().setStatusCode(TStatusCode.STILL_EXECUTING_STATUS))
+            .getState());
+    assertEquals(
+        StatementState.FAILED,
+        DatabricksThriftUtil.getAsyncStatus(
+                new TStatus().setStatusCode(TStatusCode.INVALID_HANDLE_STATUS))
+            .getState());
+    assertEquals(
+        StatementState.FAILED,
+        DatabricksThriftUtil.getAsyncStatus(new TStatus().setStatusCode(TStatusCode.ERROR_STATUS))
+            .getState());
   }
 }

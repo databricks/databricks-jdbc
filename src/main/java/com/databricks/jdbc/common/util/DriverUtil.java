@@ -12,6 +12,8 @@ import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.google.common.annotations.VisibleForTesting;
 import java.io.IOException;
 import java.sql.ResultSet;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 
 /**
  * Utility class for operations related to the Databricks JDBC driver.
@@ -22,10 +24,14 @@ import java.sql.ResultSet;
 public class DriverUtil {
 
   private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(DriverUtil.class);
-  private static final String VERSION = "0.9.6-oss";
-  private static final String DBSQL_VERSION_SQL = "SELECT current_version().dbsql_version";
-  public static final int DBSQL_MIN_MAJOR_VERSION_FOR_SEA_SUPPORT = 2024;
-  public static final int DBSQL_MIN_MINOR_VERSION_FOR_SEA_SUPPORT = 30;
+  public static final String DBSQL_VERSION_SQL = "SELECT current_version().dbsql_version";
+  private static final String VERSION = "0.9.8-oss";
+  private static final int DBSQL_MIN_MAJOR_VERSION_FOR_SEA_SUPPORT = 2024;
+  private static final int DBSQL_MIN_MINOR_VERSION_FOR_SEA_SUPPORT = 30;
+
+  /** Cached DBSQL version mapped by HTTP path to avoid repeated queries to the cluster. */
+  private static final ConcurrentMap<String, String> cachedDBSQLVersions =
+      new ConcurrentHashMap<>();
 
   private static final String[] VERSION_PARTS = VERSION.split("[.-]");
 
@@ -47,7 +53,7 @@ public class DriverUtil {
       LOGGER.warn("Empty metadata client is being used.");
       connection.getSession().setEmptyMetadataClient();
     }
-    ensureUpdatedDBRVersionInUse(connection);
+    ensureUpdatedDBSQLVersionInUse(connection);
   }
 
   public static void setUpLogging(IDatabricksConnectionContext connectionContext)
@@ -74,6 +80,13 @@ public class DriverUtil {
         : e.getMessage();
   }
 
+  /**
+   * Returns whether the driver is running against fake services based on request/response stubs.
+   */
+  public static boolean isRunningAgainstFake() {
+    return Boolean.parseBoolean(System.getProperty(IS_FAKE_SERVICE_TEST_PROP));
+  }
+
   private static Throwable getRootCause(Throwable throwable) {
     Throwable cause;
     while ((cause = throwable.getCause()) != null && cause != throwable) {
@@ -83,38 +96,63 @@ public class DriverUtil {
   }
 
   @VisibleForTesting
-  static void ensureUpdatedDBRVersionInUse(IDatabricksConnection connection)
+  static void ensureUpdatedDBSQLVersionInUse(IDatabricksConnection connection)
       throws DatabricksValidationException {
     if (connection.getConnectionContext().getClientType() != DatabricksClientType.SQL_EXEC
-        || Boolean.parseBoolean(System.getProperty(IS_FAKE_SERVICE_TEST_PROP))) {
+        || isRunningAgainstFake()) {
       // Check applicable only for SEA flow
       return;
     }
-    String dbrVersion = getDBRVersion(connection);
-    if (!doesDriverSupportSEA(dbrVersion)) {
+    String dbsqlVersion = getDBSQLVersionCached(connection).trim();
+    if (WildcardUtil.isNullOrEmpty(dbsqlVersion)) {
+      // If the DBSQL version is not available, we cannot determine if the driver supports SEA.
+      // Proceeding with the connection.
+      return;
+    }
+    if (!doesDriverSupportSEA(dbsqlVersion)) {
       String errorMessage =
           String.format(
-              "Unsupported DBR version %s. Please update your compute to use the latest DBR version.",
-              dbrVersion);
+              "Unsupported DBSQL version %s. Please update your compute to use the latest DBSQL version.",
+              dbsqlVersion);
       LOGGER.error(errorMessage);
       throw new DatabricksValidationException(errorMessage);
     }
   }
 
-  private static String getDBRVersion(IDatabricksConnection connection) {
-    try (ResultSet resultSet = connection.createStatement().executeQuery(DBSQL_VERSION_SQL)) {
-      resultSet.next();
-      String dbrVersion = resultSet.getString(1);
-      LOGGER.debug("DBR Version in use: %s", dbrVersion);
-      return dbrVersion;
-    } catch (Exception e) {
-      LOGGER.info(
-          "Error retrieving DBR version: {%s}. Defaulting to minimum supported version.", e);
-      return getDefaultDBRVersion();
+  private static String getDBSQLVersionCached(IDatabricksConnection connection) {
+    String httpPath = connection.getConnectionContext().getHttpPath();
+    String version = cachedDBSQLVersions.get(httpPath);
+    if (version != null) {
+      LOGGER.debug("Using cached DBSQL Version for path %s: %s", httpPath, version);
+      return version;
+    }
+
+    synchronized (DriverUtil.class) {
+      version = cachedDBSQLVersions.get(httpPath);
+      if (version != null) {
+        return version;
+      }
+
+      version = queryDBSQLVersion(connection);
+      cachedDBSQLVersions.put(httpPath, version);
+      return version;
     }
   }
 
-  private static String getDefaultDBRVersion() {
+  private static String queryDBSQLVersion(IDatabricksConnection connection) {
+    try (ResultSet resultSet = connection.createStatement().executeQuery(DBSQL_VERSION_SQL)) {
+      resultSet.next();
+      String dbsqlVersion = resultSet.getString(1);
+      LOGGER.debug("DBSQL Version in use: %s", dbsqlVersion);
+      return dbsqlVersion;
+    } catch (Exception e) {
+      LOGGER.info(
+          "Error retrieving DBSQL version: {%s}. Defaulting to minimum supported version.", e);
+      return getDefaultDBSQLVersion();
+    }
+  }
+
+  private static String getDefaultDBSQLVersion() {
     return DBSQL_MIN_MAJOR_VERSION_FOR_SEA_SUPPORT + "." + DBSQL_MIN_MINOR_VERSION_FOR_SEA_SUPPORT;
   }
 
@@ -126,5 +164,10 @@ public class DriverUtil {
       return minorVersion >= DBSQL_MIN_MINOR_VERSION_FOR_SEA_SUPPORT;
     }
     return majorVersion > DBSQL_MIN_MAJOR_VERSION_FOR_SEA_SUPPORT;
+  }
+
+  @VisibleForTesting
+  static void clearDBSQLVersionCache() {
+    cachedDBSQLVersions.clear();
   }
 }

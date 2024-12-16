@@ -67,6 +67,9 @@ class ChunkDownloadTask implements Callable<Void> {
         }
       }
     } finally {
+      if (!downloadSuccessful) {
+        chunk.setStatus(ArrowResultChunk.ChunkStatus.DOWNLOAD_FAILED);
+      }
       chunkDownloader.downloadProcessed(chunk.getChunkIndex());
     }
     return null;

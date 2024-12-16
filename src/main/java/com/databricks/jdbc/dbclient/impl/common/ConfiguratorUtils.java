@@ -130,12 +130,11 @@ public class ConfiguratorUtils {
       PKIXRevocationChecker revocationChecker =
           (PKIXRevocationChecker) certPathValidator.getRevocationChecker();
       if (acceptUndeterminedCertificateRevocation) {
-        revocationChecker.setOptions(
-            new HashSet<>(
-                Arrays.asList(
-                    PKIXRevocationChecker.Option.SOFT_FAIL,
-                    PKIXRevocationChecker.Option.NO_FALLBACK,
-                    PKIXRevocationChecker.Option.PREFER_CRLS)));
+        Set<PKIXRevocationChecker.Option> options = new HashSet<>();
+        options.add(PKIXRevocationChecker.Option.SOFT_FAIL);
+        options.add(PKIXRevocationChecker.Option.NO_FALLBACK);
+        options.add(PKIXRevocationChecker.Option.PREFER_CRLS);
+        revocationChecker.setOptions(options);
       }
       if (checkCertificateRevocation) {
         pkixBuilderParameters.addCertPathChecker(revocationChecker);

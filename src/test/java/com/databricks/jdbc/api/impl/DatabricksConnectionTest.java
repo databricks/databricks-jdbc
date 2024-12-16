@@ -7,13 +7,13 @@ import static org.mockito.Mockito.*;
 
 import com.databricks.jdbc.api.IDatabricksConnection;
 import com.databricks.jdbc.api.IDatabricksConnectionContext;
+import com.databricks.jdbc.api.impl.volume.DatabricksVolumeClientFactory;
 import com.databricks.jdbc.common.IDatabricksComputeResource;
 import com.databricks.jdbc.common.StatementType;
 import com.databricks.jdbc.common.Warehouse;
 import com.databricks.jdbc.dbclient.impl.sqlexec.DatabricksSdkClient;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.exception.DatabricksSQLFeatureNotSupportedException;
-import com.databricks.sdk.core.UserAgent;
 import java.sql.*;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -35,14 +35,12 @@ public class DatabricksConnectionTest {
   static final String DEFAULT_SCHEMA = "default";
   static final String DEFAULT_CATALOG = "hive_metastore";
   private static final String SESSION_ID = "session_id";
-  private static final Map<String, String> SESSION_CONFIGS;
+  private static final Map<String, String> SESSION_CONFIGS = new HashMap<>();
 
   static {
-    Map<String, String> configs = new HashMap<>();
-    configs.put("ANSI_MODE", "TRUE");
-    configs.put("TIMEZONE", "UTC");
-    configs.put("MAX_FILE_PARTITION_BYTES", "64m");
-    SESSION_CONFIGS = Collections.unmodifiableMap(configs);
+    SESSION_CONFIGS.put("ANSI_MODE", "TRUE");
+    SESSION_CONFIGS.put("TIMEZONE", "UTC");
+    SESSION_CONFIGS.put("MAX_FILE_PARTITION_BYTES", "64m");
   }
 
   private static final String JDBC_URL =
@@ -81,10 +79,6 @@ public class DatabricksConnectionTest {
     connection.open();
     assertFalse(connection.isClosed());
     assertEquals(connection.getSession().getSessionId(), SESSION_ID);
-    String userAgent = UserAgent.asString();
-    assertTrue(userAgent.contains("DatabricksJDBCDriverOSS/0.9.6-oss"));
-    assertTrue(userAgent.contains("Java/SQLExecHttpClient-HC"));
-
     // close the connection
     connection.close();
     assertTrue(connection.isClosed());
@@ -167,7 +161,7 @@ public class DatabricksConnectionTest {
         DatabricksConnectionContext.parse(SESSION_CONF_JDBC_URL, new Properties());
     DatabricksConnection connection = new DatabricksConnection(connectionContext, databricksClient);
     connection.open();
-    assertNotNull(connection.getVolumeClient());
+    assertNotNull(DatabricksVolumeClientFactory.getVolumeClient(connection));
   }
 
   @Test

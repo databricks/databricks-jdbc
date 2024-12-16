@@ -5,8 +5,6 @@ import com.databricks.jdbc.api.IDatabricksConnection;
 import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.api.IDatabricksSession;
 import com.databricks.jdbc.api.IDatabricksStatement;
-import com.databricks.jdbc.api.impl.volume.DBFSVolumeClient;
-import com.databricks.jdbc.api.impl.volume.DatabricksUCVolumeClient;
 import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
 import com.databricks.jdbc.common.DatabricksJdbcConstants;
 import com.databricks.jdbc.common.util.UserAgentManager;
@@ -21,7 +19,10 @@ import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.google.common.annotations.VisibleForTesting;
 import java.sql.*;
-import java.util.*;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Properties;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 import java.util.stream.Collectors;
@@ -391,20 +392,25 @@ public class DatabricksConnection implements IDatabricksConnection {
             getFailedPropertiesExceptionMessage(failedProperties), failedProperties);
       }
     } else {
-      if (DatabricksJdbcConstants.ALLOWED_CLIENT_INFO_PROPERTIES.stream()
-          .map(String::toLowerCase)
-          .anyMatch(s -> s.equalsIgnoreCase(name))) {
-        this.session.setClientInfoProperty(name.toLowerCase(), value);
-      } else {
-        Map<String, ClientInfoStatus> clientInfoStatusMap = new HashMap<>();
-        clientInfoStatusMap.put(name, ClientInfoStatus.REASON_UNKNOWN_PROPERTY);
-
-        // Throw the exception with an immutable map
-        throw new DatabricksSQLClientInfoException(
-            String.format(
-                "Setting client info for %s failed with %s",
-                name, ClientInfoStatus.REASON_UNKNOWN_PROPERTY),
-            Collections.unmodifiableMap(clientInfoStatusMap));
+      if (DatabricksJdbcConstants.ALLOWED_CLIENT_INFO_PROPERTIES != null) {
+        boolean found = false;
+        for (String property : DatabricksJdbcConstants.ALLOWED_CLIENT_INFO_PROPERTIES) {
+          if (property.equalsIgnoreCase(name)) {
+            found = true;
+            break;
+          }
+        }
+        if (found) {
+          this.session.setClientInfoProperty(name.toLowerCase(), value);
+        } else {
+          Map<String, ClientInfoStatus> failedProperties = new HashMap<String, ClientInfoStatus>();
+          failedProperties.put(name, ClientInfoStatus.REASON_UNKNOWN_PROPERTY);
+          throw new DatabricksSQLClientInfoException(
+              String.format(
+                  "Setting client info for %s failed with %s",
+                  name, ClientInfoStatus.REASON_UNKNOWN_PROPERTY),
+              failedProperties);
+        }
       }
     }
   }
@@ -518,22 +524,6 @@ public class DatabricksConnection implements IDatabricksConnection {
   @Override
   public Connection getConnection() {
     return this;
-  }
-
-  @Override
-  public IDatabricksVolumeClient getVolumeClient() {
-    if (volumeClient == null) {
-      synchronized (this) {
-        if (volumeClient == null) {
-          if (this.session.getConnectionContext().useFileSystemAPI()) {
-            volumeClient = new DBFSVolumeClient(this);
-          } else {
-            volumeClient = new DatabricksUCVolumeClient(this);
-          }
-        }
-      }
-    }
-    return volumeClient;
   }
 
   @Override

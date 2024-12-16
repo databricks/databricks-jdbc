@@ -618,7 +618,8 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
       LOGGER.error(message);
       throw new DatabricksSQLException(message);
     }
-    try (ByteArrayOutputStream buffer = new ByteArrayOutputStream()) {
+    ByteArrayOutputStream buffer = new ByteArrayOutputStream();
+    try {
       byte[] chunk = new byte[CHUNK_SIZE];
       long bytesRead = 0;
       int nRead;
@@ -634,6 +635,12 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
       String message = "Error reading from the InputStream";
       LOGGER.error(message);
       throw new DatabricksSQLException(message, e);
+    } finally {
+      try {
+        buffer.close();
+      } catch (IOException e) {
+        LOGGER.error("Error closing ByteArrayOutputStream", e);
+      }
     }
   }
 
@@ -688,7 +695,7 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
             : sql;
     Map<Integer, ImmutableSqlParameter> paramMap =
         this.interpolateParameters
-            ? new HashMap<Integer, ImmutableSqlParameter>()
+            ? new HashMap<>()
             : this.databricksParameterMetaData.getParameterBindings();
     return executeInternal(interpolatedSql, paramMap, statementType);
   }

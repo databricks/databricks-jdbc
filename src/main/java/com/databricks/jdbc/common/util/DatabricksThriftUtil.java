@@ -14,6 +14,8 @@ import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.model.client.thrift.generated.*;
 import com.databricks.jdbc.model.core.ExternalLink;
 import com.databricks.sdk.service.sql.ColumnInfoTypeName;
+import com.databricks.sdk.service.sql.StatementState;
+import com.databricks.sdk.service.sql.StatementStatus;
 import java.nio.ByteBuffer;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -22,7 +24,6 @@ import java.util.stream.IntStream;
 public class DatabricksThriftUtil {
 
   private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(DatabricksThriftUtil.class);
-
   public static final List<TStatusCode> SUCCESS_STATUS_LIST =
       Arrays.asList(TStatusCode.SUCCESS_STATUS, TStatusCode.SUCCESS_WITH_INFO_STATUS);
 
@@ -97,6 +98,71 @@ public class DatabricksThriftUtil {
                     .map(column -> getObjectInColumn(column, i))
                     .collect(Collectors.toList()))
         .collect(Collectors.toList());
+  }
+
+  /** Returns statement status for given operation status response */
+  public static StatementStatus getStatementStatus(TGetOperationStatusResp resp) {
+    StatementState state = null;
+    switch (resp.getOperationState()) {
+      case INITIALIZED_STATE:
+      case PENDING_STATE:
+        state = StatementState.PENDING;
+        break;
+
+      case RUNNING_STATE:
+        state = StatementState.RUNNING;
+        break;
+
+      case FINISHED_STATE:
+        state = StatementState.SUCCEEDED;
+        break;
+
+      case ERROR_STATE:
+      case TIMEDOUT_STATE:
+        // TODO: Also set the sql_state and error message
+        state = StatementState.FAILED;
+        break;
+
+      case CLOSED_STATE:
+        state = StatementState.CLOSED;
+        break;
+
+      case CANCELED_STATE:
+        state = StatementState.CANCELED;
+        break;
+
+      case UKNOWN_STATE:
+        state = StatementState.FAILED;
+    }
+
+    return new StatementStatus().setState(state);
+  }
+
+  /** Returns statement status for given status response */
+  public static StatementStatus getAsyncStatus(TStatus status) {
+    StatementStatus statementStatus = new StatementStatus();
+    StatementState state = null;
+
+    switch (status.getStatusCode()) {
+        // For async mode, success would just mean that statement was successfully submitted
+        // actual status should be checked using GetOperationStatus
+      case SUCCESS_STATUS:
+      case SUCCESS_WITH_INFO_STATUS:
+      case STILL_EXECUTING_STATUS:
+        state = StatementState.RUNNING;
+        break;
+
+      case INVALID_HANDLE_STATUS:
+      case ERROR_STATUS:
+        // TODO: set sql_state in case of error
+        state = StatementState.FAILED;
+        break;
+
+      default:
+        state = StatementState.FAILED;
+    }
+
+    return new StatementStatus().setState(state);
   }
 
   private static Object getObjectInColumn(TColumn column, int index) {
@@ -281,10 +347,13 @@ public class DatabricksThriftUtil {
     if (rowSet == null || rowSet.getColumns() == null) {
       return Collections.emptyList();
     }
-    return rowSet.getColumns().stream()
-        .map(DatabricksThriftUtil::getColumnValues)
-        .map(list -> new ArrayList<Object>(list))
-        .collect(Collectors.collectingAndThen(Collectors.toList(), Collections::unmodifiableList));
+    List<List<Object>> result = new ArrayList<List<Object>>();
+    for (TColumn column : rowSet.getColumns()) {
+      List<Object> columnValues =
+          new ArrayList<Object>(DatabricksThriftUtil.getColumnValues(column));
+      result.add(Collections.unmodifiableList(columnValues));
+    }
+    return Collections.unmodifiableList(result);
   }
 
   public static long getRowCount(TRowSet resultData) {
@@ -317,15 +386,15 @@ public class DatabricksThriftUtil {
     }
     if (directResults.isSetResultSetMetadata()) {
       LOGGER.debug("direct results metadata being verified for success response");
-      verifySuccessStatus(directResults.getResultSetMetadata().status, context);
+      verifySuccessStatus(directResults.getResultSetMetadata().getStatus(), context);
     }
     if (directResults.isSetCloseOperation()) {
       LOGGER.debug("direct results close operation verified for success response");
-      verifySuccessStatus(directResults.getCloseOperation().status, context);
+      verifySuccessStatus(directResults.getCloseOperation().getStatus(), context);
     }
     if (directResults.isSetResultSet()) {
       LOGGER.debug("direct result set being verified for success response");
-      verifySuccessStatus(directResults.getResultSet().status, context);
+      verifySuccessStatus(directResults.getResultSet().getStatus(), context);
     }
   }
 }

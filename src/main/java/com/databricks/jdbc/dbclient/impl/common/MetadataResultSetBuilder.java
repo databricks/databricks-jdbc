@@ -125,12 +125,6 @@ public class MetadataResultSetBuilder {
                 } else {
                   object = "NO";
                 }
-              } else if (column.getColumnName().equals(NULLABLE_COLUMN.getColumnName())) {
-                if (object == null || object.equals("true")) {
-                  object = 1;
-                } else {
-                  object = 0;
-                }
               } else if (column.getColumnName().equals(DECIMAL_DIGITS_COLUMN.getColumnName())
                   || column.getColumnName().equals(NUM_PREC_RADIX_COLUMN.getColumnName())) {
                 if (object == null) {
@@ -156,14 +150,21 @@ public class MetadataResultSetBuilder {
                 object = null;
               }
             }
-
+            if (column.getColumnName().equals(NULLABLE_COLUMN.getColumnName())) {
+              object = resultSet.getObject(IS_NULLABLE_COLUMN.getResultSetColumnName());
+              if (object == null || object.equals("true")) {
+                object = 1;
+              } else {
+                object = 0;
+              }
+            }
             if (column.getColumnName().equals(TABLE_TYPE_COLUMN.getColumnName())
                 && (object == null || object.equals(""))) {
               object = "TABLE";
             }
 
             // Handle TYPE_NAME separately for potential modifications
-            if (column.getColumnName().equals(TYPE_NAME_COLUMN.getColumnName())) {
+            if (column.getColumnName().equals(COLUMN_TYPE_COLUMN.getColumnName())) {
               object = stripTypeName((String) object);
             }
             // Set COLUMN_SIZE to 255 if it's not present
@@ -171,10 +172,11 @@ public class MetadataResultSetBuilder {
                 && object == null) {
               // check if typeVal is a text related field
               String typeVal = resultSet.getString(COLUMN_TYPE_COLUMN.getResultSetColumnName());
-              if (typeVal != null && isTextType(typeVal)) {
-                object = 255;
-              } else {
+              if (typeVal == null) {
                 object = 0;
+              } else {
+                int columnSize = getSizeFromTypeVal(typeVal);
+                object = (columnSize != -1) ? columnSize : (isTextType(typeVal) ? 255 : 0);
               }
             }
 
@@ -187,6 +189,34 @@ public class MetadataResultSetBuilder {
       rows.add(row);
     }
     return rows;
+  }
+
+  /**
+   * Extracts the size from a SQL type definition in the format DATA_TYPE(size).
+   *
+   * @param typeVal The SQL type string (e.g., "VARCHAR(5000)", "CHAR(100)").
+   * @return The size as an integer, or -1 if the size cannot be determined.
+   */
+  static int getSizeFromTypeVal(String typeVal) {
+    if (typeVal.isEmpty()) {
+      return -1; // Return -1 for invalid input
+    }
+
+    // Regular expression to match DATA_TYPE(size) and extract the size
+    String regex = "\\w+\\((\\d+)\\)";
+    java.util.regex.Pattern pattern =
+        java.util.regex.Pattern.compile(regex, java.util.regex.Pattern.CASE_INSENSITIVE);
+    java.util.regex.Matcher matcher = pattern.matcher(typeVal);
+
+    if (matcher.find()) {
+      try {
+        return Integer.parseInt(matcher.group(1));
+      } catch (NumberFormatException e) {
+        return -1;
+      }
+    }
+
+    return -1;
   }
 
   static int getBufferLength(String typeVal, int columnSize) {

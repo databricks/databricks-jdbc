@@ -1,15 +1,14 @@
 package com.databricks.jdbc.dbclient.impl.thrift;
 
-import static com.databricks.jdbc.common.DatabricksJdbcConstants.IS_FAKE_SERVICE_TEST_PROP;
 import static com.databricks.jdbc.common.EnvironmentVariables.*;
 import static com.databricks.jdbc.common.util.DatabricksThriftUtil.*;
-import static com.databricks.jdbc.model.client.thrift.generated.TStatusCode.*;
 
 import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.api.IDatabricksSession;
 import com.databricks.jdbc.api.impl.*;
 import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
 import com.databricks.jdbc.common.StatementType;
+import com.databricks.jdbc.common.util.DriverUtil;
 import com.databricks.jdbc.dbclient.impl.common.ClientConfigurator;
 import com.databricks.jdbc.dbclient.impl.common.StatementId;
 import com.databricks.jdbc.dbclient.impl.http.DatabricksHttpClientFactory;
@@ -21,6 +20,8 @@ import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.model.client.thrift.generated.*;
 import com.databricks.sdk.core.DatabricksConfig;
+import com.databricks.sdk.service.sql.StatementState;
+import com.databricks.sdk.service.sql.StatementStatus;
 import com.google.common.annotations.VisibleForTesting;
 import java.sql.SQLException;
 import java.util.Arrays;
@@ -47,9 +48,7 @@ final class DatabricksThriftAccessor {
     Map<String, String> authHeaders = databricksConfig.authenticate();
     String endPointUrl = connectionContext.getEndpointURL();
 
-    final boolean isFakeServiceTest =
-        Boolean.parseBoolean(System.getProperty(IS_FAKE_SERVICE_TEST_PROP));
-    if (!isFakeServiceTest) {
+    if (!DriverUtil.isRunningAgainstFake()) {
       // Create a new thrift client for each thread as client state is not thread safe. Note that
       // the underlying protocol uses the same http client which is thread safe
       this.thriftClient =
@@ -127,7 +126,7 @@ final class DatabricksThriftAccessor {
       throws DatabricksHttpException {
     refreshHeadersIfRequired();
     return getResultSetResp(
-        new TStatus().setStatusCode(SUCCESS_STATUS),
+        new TStatus().setStatusCode(TStatusCode.SUCCESS_STATUS),
         operationHandle,
         context,
         DEFAULT_ROW_LIMIT,
@@ -170,7 +169,7 @@ final class DatabricksThriftAccessor {
             parentStatement.getStatementId().toSQLExecStatementId());
     int maxRows = (parentStatement == null) ? DEFAULT_ROW_LIMIT : parentStatement.getMaxRows();
     return getResultSetResp(
-        new TStatus().setStatusCode(SUCCESS_STATUS),
+        new TStatus().setStatusCode(TStatusCode.SUCCESS_STATUS),
         getOperationHandle(parentStatement.getStatementId()),
         context,
         maxRows,
@@ -213,24 +212,6 @@ final class DatabricksThriftAccessor {
     return response;
   }
 
-  private void longPolling(TOperationHandle operationHandle)
-      throws TException, InterruptedException, DatabricksHttpException {
-    TGetOperationStatusReq request =
-        new TGetOperationStatusReq()
-            .setOperationHandle(operationHandle)
-            .setGetProgressUpdate(false);
-    TGetOperationStatusResp response;
-    TStatus status;
-    do {
-      response = getThriftClient().GetOperationStatus(request);
-      status = response.getStatus();
-      if (status.getStatusCode() == TStatusCode.STILL_EXECUTING_STATUS) {
-        Thread.sleep(DEFAULT_SLEEP_DELAY);
-      }
-    } while (status.getStatusCode() == TStatusCode.STILL_EXECUTING_STATUS);
-    verifySuccessStatus(status, String.format("Request {%s}, Response {%s}", request, response));
-  }
-
   DatabricksResultSet execute(
       TExecuteStatementReq request,
       IDatabricksStatementInternal parentStatement,
@@ -238,25 +219,46 @@ final class DatabricksThriftAccessor {
       StatementType statementType)
       throws SQLException {
     refreshHeadersIfRequired();
+
+    // Set direct result configuration
     int maxRows = (parentStatement == null) ? DEFAULT_ROW_LIMIT : parentStatement.getMaxRows();
     if (enableDirectResults) {
       TSparkGetDirectResults directResults =
           new TSparkGetDirectResults().setMaxBytes(DEFAULT_BYTE_LIMIT).setMaxRows(maxRows);
       request.setGetDirectResults(directResults);
     }
+
     TExecuteStatementResp response;
-    TFetchResultsResp resultSet = null;
+    TFetchResultsResp resultSet;
+
     try {
       response = getThriftClient().ExecuteStatement(request);
-      if (Arrays.asList(ERROR_STATUS, INVALID_HANDLE_STATUS).contains(response.status.statusCode)) {
-        throw new DatabricksSQLException(response.status.errorMessage, response.status.sqlState);
-      }
+      checkResponseForErrors(response);
+
+      TGetOperationStatusResp statusResp = null;
       if (response.isSetDirectResults()) {
         checkDirectResultsForErrorStatus(response.getDirectResults(), response.toString());
+        statusResp = response.getDirectResults().getOperationStatus();
+        checkOperationStatusForErrors(statusResp);
+      }
+
+      // Polling until query operation state is finished
+      TGetOperationStatusReq statusReq =
+          new TGetOperationStatusReq()
+              .setOperationHandle(response.getOperationHandle())
+              .setGetProgressUpdate(false);
+      while (shouldContinuePolling(statusResp)) {
+        statusResp = getThriftClient().GetOperationStatus(statusReq);
+        checkOperationStatusForErrors(statusResp);
+      }
+
+      if (hasResultDataInDirectResults(response)) {
+        // The first response has result data
+        // There is no polling in this case as status was already finished
         resultSet = response.getDirectResults().getResultSet();
         resultSet.setResultSetMetadata(response.getDirectResults().getResultSetMetadata());
       } else {
-        longPolling(response.getOperationHandle());
+        // Fetch the result data after polling
         resultSet =
             getResultSetResp(
                 response.getStatus(),
@@ -265,20 +267,22 @@ final class DatabricksThriftAccessor {
                 maxRows,
                 true);
       }
-    } catch (TException | InterruptedException e) {
+
+      StatementId statementId = new StatementId(response.getOperationHandle().operationId);
+      if (parentStatement != null) {
+        parentStatement.setStatementId(statementId);
+      }
+      StatementStatus statementStatus = getStatementStatus(statusResp);
+      return new DatabricksResultSet(
+          statementStatus, statementId, resultSet, statementType, parentStatement, session);
+    } catch (TException e) {
       String errorMessage =
           String.format(
               "Error while receiving response from Thrift server. Request {%s}, Error {%s}",
-              request.toString(), e.getMessage());
+              request, e.getMessage());
       LOGGER.error(e, errorMessage);
       throw new DatabricksHttpException(errorMessage, e);
     }
-    StatementId statementId = new StatementId(response.getOperationHandle().operationId);
-    if (parentStatement != null) {
-      parentStatement.setStatementId(statementId);
-    }
-    return new DatabricksResultSet(
-        response.getStatus(), statementId, resultSet, statementType, parentStatement, session);
   }
 
   DatabricksResultSet executeAsync(
@@ -288,12 +292,11 @@ final class DatabricksThriftAccessor {
       StatementType statementType)
       throws SQLException {
     refreshHeadersIfRequired();
-    TExecuteStatementResp response = null;
-    DatabricksHttpTTransport transport =
-        (DatabricksHttpTTransport) getThriftClient().getInputProtocol().getTransport();
+    TExecuteStatementResp response;
     try {
       response = getThriftClient().ExecuteStatement(request);
-      if (Arrays.asList(ERROR_STATUS, INVALID_HANDLE_STATUS).contains(response.status.statusCode)) {
+      if (Arrays.asList(TStatusCode.ERROR_STATUS, TStatusCode.INVALID_HANDLE_STATUS)
+          .contains(response.status.statusCode)) {
         LOGGER.error(
             "Received error response {%s} from Thrift Server for request {%s}",
             response, request.toString());
@@ -315,8 +318,9 @@ final class DatabricksThriftAccessor {
     if (parentStatement != null) {
       parentStatement.setStatementId(statementId);
     }
+    StatementStatus statementStatus = getAsyncStatus(response.getStatus());
     return new DatabricksResultSet(
-        response.getStatus(), statementId, null, statementType, parentStatement, session);
+        statementStatus, statementId, null, statementType, parentStatement, session);
   }
 
   DatabricksResultSet getStatementResult(
@@ -330,14 +334,21 @@ final class DatabricksThriftAccessor {
             .setOperationHandle(operationHandle)
             .setGetProgressUpdate(false);
     TGetOperationStatusResp response;
-    TStatusCode statusCode;
     TFetchResultsResp resultSet = null;
+    StatementId statementId = new StatementId(operationHandle.getOperationId());
     try {
       response = getThriftClient().GetOperationStatus(request);
-      statusCode = response.getStatus().getStatusCode();
-      if (statusCode == SUCCESS_STATUS || statusCode == SUCCESS_WITH_INFO_STATUS) {
+      TOperationState operationState = response.getOperationState();
+      if (operationState == TOperationState.FINISHED_STATE) {
         resultSet =
             getResultSetResp(response.getStatus(), operationHandle, response.toString(), -1, true);
+        return new DatabricksResultSet(
+            new StatementStatus().setState(StatementState.SUCCEEDED),
+            statementId,
+            resultSet,
+            StatementType.SQL,
+            parentStatement,
+            session);
       }
     } catch (TException e) {
       String errorMessage =
@@ -347,9 +358,9 @@ final class DatabricksThriftAccessor {
       LOGGER.error(e, errorMessage);
       throw new DatabricksHttpException(errorMessage, e);
     }
-    StatementId statementId = new StatementId(operationHandle.getOperationId());
+    StatementStatus executionStatus = getStatementStatus(response);
     return new DatabricksResultSet(
-        response.getStatus(), statementId, resultSet, StatementType.SQL, parentStatement, session);
+        executionStatus, statementId, resultSet, StatementType.SQL, parentStatement, session);
   }
 
   void resetAccessToken(String newAccessToken) {
@@ -511,5 +522,52 @@ final class DatabricksThriftAccessor {
     TBinaryProtocol protocol = new TBinaryProtocol(transport);
 
     return new TCLIService.Client(protocol);
+  }
+
+  private void checkResponseForErrors(TExecuteStatementResp response) throws SQLException {
+    if (!response.isSetOperationHandle()) {
+      throw new DatabricksSQLException("Operation handle not set");
+    }
+    if (isErrorStatusCode(response.status.statusCode)) {
+      throw new DatabricksSQLException(
+          response.status.getErrorMessage(), response.status.getSqlState());
+    }
+  }
+
+  private void checkOperationStatusForErrors(TGetOperationStatusResp statusResp)
+      throws SQLException {
+    if (statusResp != null
+        && statusResp.isSetOperationState()
+        && isErrorOperationState(statusResp.getOperationState())) {
+      String errorMsg =
+          String.format("Operation failed with error: %s", statusResp.getErrorMessage());
+      LOGGER.error(errorMsg);
+      throw new DatabricksSQLException(errorMsg, statusResp.getSqlState());
+    }
+  }
+
+  private boolean shouldContinuePolling(TGetOperationStatusResp statusResp) {
+    return statusResp == null
+        || !statusResp.isSetOperationState()
+        || isPendingOperationState(statusResp.getOperationState());
+  }
+
+  private boolean hasResultDataInDirectResults(TExecuteStatementResp response) {
+    return response.isSetDirectResults()
+        && response.getDirectResults().isSetResultSet()
+        && response.getDirectResults().isSetResultSetMetadata();
+  }
+
+  private boolean isErrorStatusCode(TStatusCode statusCode) {
+    return statusCode == TStatusCode.ERROR_STATUS
+        || statusCode == TStatusCode.INVALID_HANDLE_STATUS;
+  }
+
+  private boolean isErrorOperationState(TOperationState state) {
+    return state == TOperationState.ERROR_STATE || state == TOperationState.CLOSED_STATE;
+  }
+
+  private boolean isPendingOperationState(TOperationState state) {
+    return state == TOperationState.RUNNING_STATE || state == TOperationState.PENDING_STATE;
   }
 }

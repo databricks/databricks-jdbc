@@ -5,7 +5,7 @@
   <groupId>com.databricks</groupId>
   <artifactId>databricks-jdbc</artifactId>
   <!-- This value may be modified by a release script to reflect the current version of the driver. -->
-  <version>0.9.6-oss</version>
+  <version>0.9.8-oss</version>
   <packaging>jar</packaging>
   <name>Databricks JDBC Driver</name>
   <description>Databricks JDBC Driver.</description>

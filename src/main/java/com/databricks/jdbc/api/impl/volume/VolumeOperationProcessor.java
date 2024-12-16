@@ -133,12 +133,14 @@ class VolumeOperationProcessor {
       errorMessage = "Local file path is invalid";
       return;
     }
-    Optional<Boolean> pathMatched =
-        allowedVolumeIngestionPaths.stream()
-            .map(localFilePath::startsWith)
-            .filter(x -> x)
-            .findFirst();
-    if (!pathMatched.isPresent() || !pathMatched.get()) {
+    boolean pathMatched = false;
+    for (String path : allowedVolumeIngestionPaths) {
+      if (localFilePath.startsWith(path)) {
+        pathMatched = true;
+        break;
+      }
+    }
+    if (!pathMatched) {
       LOGGER.error("Local file path is not allowed {%s}", localFilePath);
       status = VolumeOperationStatus.ABORTED;
       errorMessage = "Local file path is not allowed";
@@ -331,11 +333,6 @@ class VolumeOperationProcessor {
       status = VolumeOperationStatus.FAILED;
       errorMessage = "Failed to delete volume: " + e.getMessage();
     }
-  }
-
-  private boolean isSuccessfulHttpResponse(CloseableHttpResponse response) {
-    return response.getStatusLine().getStatusCode() >= 200
-        && response.getStatusLine().getStatusCode() < 300;
   }
 
   enum VolumeOperationStatus {

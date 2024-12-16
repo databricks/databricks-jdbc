@@ -8,10 +8,8 @@ import static org.mockito.Mockito.*;
 import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.dbclient.impl.http.DatabricksHttpClient;
 import com.databricks.jdbc.dbclient.impl.http.DatabricksHttpClientFactory;
-import com.databricks.jdbc.exception.DatabricksHttpException;
 import com.databricks.sdk.core.DatabricksConfig;
 import com.databricks.sdk.core.oauth.OpenIDConnectEndpoints;
-import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import org.apache.http.HttpEntity;
 import org.apache.http.StatusLine;
@@ -46,24 +44,13 @@ public class PrivateKeyClientCredentialProviderTest {
   }
 
   @Test
-  void testCredentialProviderWithDiscoveryMode() throws DatabricksHttpException, IOException {
+  void testCredentialProviderWithDiscoveryMode() throws IOException {
     setup();
     try (MockedStatic<DatabricksHttpClientFactory> factoryMocked =
         mockStatic(DatabricksHttpClientFactory.class)) {
       DatabricksHttpClientFactory mockFactory = mock(DatabricksHttpClientFactory.class);
       factoryMocked.when(DatabricksHttpClientFactory::getInstance).thenReturn(mockFactory);
-      when(mockFactory.getClient(any())).thenReturn(httpClient);
-      when(httpClient.execute(any())).thenReturn(httpResponse);
-      when(httpResponse.getStatusLine()).thenReturn(statusLine);
-      when(context.getTokenEndpoint()).thenReturn(null);
-      when(statusLine.getStatusCode()).thenReturn(200);
-      when(httpResponse.getEntity()).thenReturn(entity);
-      when(entity.getContent())
-          .thenReturn(
-              new ByteArrayInputStream(TEST_OIDC_RESPONSE.getBytes()),
-              new ByteArrayInputStream(TEST_OAUTH_RESPONSE.getBytes()));
-      when(context.isOAuthDiscoveryModeEnabled()).thenReturn(true);
-      when(context.getOAuthDiscoveryURL()).thenReturn(TEST_DISCOVERY_URL);
+      when(config.getOidcEndpoints()).thenReturn(TEST_OIDC_ENDPOINTS);
       PrivateKeyClientCredentialProvider customM2MClientCredentialProvider =
           new PrivateKeyClientCredentialProvider(context, config);
       JwtPrivateKeyClientCredentials clientCredentials =
@@ -80,19 +67,13 @@ public class PrivateKeyClientCredentialProviderTest {
       DatabricksHttpClientFactory mockFactory = mock(DatabricksHttpClientFactory.class);
       factoryMocked.when(DatabricksHttpClientFactory::getInstance).thenReturn(mockFactory);
       when(mockFactory.getClient(any())).thenReturn(httpClient);
-      when(context.isOAuthDiscoveryModeEnabled()).thenReturn(true);
-      when(context.getOAuthDiscoveryURL()).thenReturn(null);
-      when(context.getTokenEndpoint()).thenReturn(null);
       when(config.getOidcEndpoints())
           .thenReturn(
               new OpenIDConnectEndpoints(
                   "https://testHost/oidc/v1/token", "https://testHost/oidc/v1/authorize"));
-      OAuthEndpointResolver oAuthEndpointResolver = spy(new OAuthEndpointResolver(context, config));
       JwtPrivateKeyClientCredentials clientCredentialObject =
-          new PrivateKeyClientCredentialProvider(context, oAuthEndpointResolver)
-              .getClientCredentialObject(config);
+          new PrivateKeyClientCredentialProvider(context, config).getClientCredentialObject(config);
       assertEquals("https://testHost/oidc/v1/token", clientCredentialObject.getTokenEndpoint());
-      verify(oAuthEndpointResolver, times(1)).getDefaultTokenEndpoint();
     }
   }
 

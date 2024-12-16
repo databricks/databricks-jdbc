@@ -62,11 +62,12 @@ public enum DatabricksJdbcUrlParams {
   TOKEN_ENDPOINT("OAuth2TokenEndpoint"),
   AUTH_ENDPOINT("OAuth2AuthorizationEndPoint"),
   SSL_TRUST_STORE("SSLTrustStore"),
-  SSL_TRUST_STORE_PROVIDER("SSLTrustStoreProvider"),
   SSL_TRUST_STORE_PASSWORD("SSLTrustStorePwd"),
   SSL_TRUST_STORE_TYPE("SSLTrustStoreType", "JKS"),
-  CHECK_CERTIFICATE_REVOCATION("CheckCertificateRevocation", "1"),
+  CHECK_CERTIFICATE_REVOCATION("CheckCertRevocation", "1"),
   ACCEPT_UNDETERMINED_CERTIFICATE_REVOCATION("AcceptUndeterminedRevocation", "0"),
+  GOOGLE_SERVICE_ACCOUNT("GoogleServiceAccount"),
+  GOOGLE_CREDENTIALS_FILE("GoogleCredentialsFile"),
   MAX_BATCH_SIZE("MaxBatchSize", "500");
 
   private final String paramName;

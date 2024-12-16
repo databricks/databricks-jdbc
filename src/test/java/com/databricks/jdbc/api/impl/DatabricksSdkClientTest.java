@@ -43,13 +43,17 @@ public class DatabricksSdkClientTest {
       "SELECT * FROM orders WHERE user_id = ? AND shard = ? AND region_code = ? AND namespace = ?";
   private static final String JDBC_URL =
       "jdbc:databricks://adb-565757575.18.azuredatabricks.net:4423/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/erg6767gg;";
-  private static final Map<String, String> headers =
-      new HashMap<String, String>() {
-        {
-          put("Accept", "application/json");
-          put("Content-Type", "application/json");
-        }
-      };
+  private static final Map<String, String> headers;
+
+  static {
+    headers =
+        new HashMap<String, String>() {
+          {
+            put("Accept", "application/json");
+            put("Content-Type", "application/json");
+          }
+        };
+  }
 
   private void setupSessionMocks() {
     CreateSessionResponse response = new CreateSessionResponse().setSessionId(SESSION_ID);
@@ -57,16 +61,14 @@ public class DatabricksSdkClientTest {
         .thenReturn(response);
   }
 
-  private void setupClientMocks(boolean includeResults) {
-    List<StatementParameterListItem> params =
-        new ArrayList<StatementParameterListItem>() {
-          {
-            add(getParam("LONG", "100", 1));
-            add(getParam("SHORT", "10", 2));
-            add(getParam("SHORT", "15", 3));
-            add(getParam("STRING", "value", 4));
-          }
-        };
+  private void setupClientMocks(boolean includeResults, boolean async) {
+    List<StatementParameterListItem> params = new ArrayList<StatementParameterListItem>();
+    {
+      params.add(getParam("LONG", "100", 1));
+      params.add(getParam("SHORT", "10", 2));
+      params.add(getParam("SHORT", "15", 3));
+      params.add(getParam("STRING", "value", 4));
+    }
 
     StatementStatus statementStatus = new StatementStatus().setState(StatementState.SUCCEEDED);
     ExecuteStatementRequest executeStatementRequest =
@@ -76,10 +78,15 @@ public class DatabricksSdkClientTest {
             .setStatement(STATEMENT)
             .setDisposition(Disposition.EXTERNAL_LINKS)
             .setFormat(Format.ARROW_STREAM)
-            .setWaitTimeout("10s")
             .setRowLimit(100L)
-            .setOnWaitTimeout(ExecuteStatementRequestOnWaitTimeout.CONTINUE)
             .setParameters(params);
+    if (async) {
+      executeStatementRequest.setWaitTimeout("0s");
+    } else {
+      executeStatementRequest
+          .setWaitTimeout("10s")
+          .setOnWaitTimeout(ExecuteStatementRequestOnWaitTimeout.CONTINUE);
+    }
     ExecuteStatementResponse response =
         new ExecuteStatementResponse()
             .setStatementId(STATEMENT_ID.toSQLExecStatementId())
@@ -142,7 +149,7 @@ public class DatabricksSdkClientTest {
 
   @Test
   public void testExecuteStatement() throws Exception {
-    setupClientMocks(true);
+    setupClientMocks(true, false);
     IDatabricksConnectionContext connectionContext =
         DatabricksConnectionContext.parse(JDBC_URL, new Properties());
     DatabricksSdkClient databricksSdkClient =
@@ -152,15 +159,18 @@ public class DatabricksSdkClientTest {
     connection.open();
     DatabricksStatement statement = new DatabricksStatement(connection);
     statement.setMaxRows(100);
-    HashMap<Integer, ImmutableSqlParameter> sqlParams =
-        new HashMap<Integer, ImmutableSqlParameter>() {
-          {
-            put(1, getSqlParam(1, 100, DatabricksTypeUtil.BIGINT));
-            put(2, getSqlParam(2, (short) 10, DatabricksTypeUtil.SMALLINT));
-            put(3, getSqlParam(3, (byte) 15, DatabricksTypeUtil.TINYINT));
-            put(4, getSqlParam(4, "value", DatabricksTypeUtil.STRING));
-          }
-        };
+    HashMap<Integer, ImmutableSqlParameter> sqlParams;
+    {
+      sqlParams =
+          new HashMap<Integer, ImmutableSqlParameter>() {
+            {
+              put(1, getSqlParam(1, 100, DatabricksTypeUtil.BIGINT));
+              put(2, getSqlParam(2, (short) 10, DatabricksTypeUtil.SMALLINT));
+              put(3, getSqlParam(3, (byte) 15, DatabricksTypeUtil.TINYINT));
+              put(4, getSqlParam(4, "value", DatabricksTypeUtil.STRING));
+            }
+          };
+    }
 
     DatabricksResultSet resultSet =
         databricksSdkClient.executeStatement(
@@ -176,7 +186,7 @@ public class DatabricksSdkClientTest {
 
   @Test
   public void testExecuteStatementAsync() throws Exception {
-    setupClientMocks(false);
+    setupClientMocks(false, true);
     IDatabricksConnectionContext connectionContext =
         DatabricksConnectionContext.parse(JDBC_URL, new Properties());
     DatabricksSdkClient databricksSdkClient =
@@ -186,15 +196,18 @@ public class DatabricksSdkClientTest {
     connection.open();
     DatabricksStatement statement = new DatabricksStatement(connection);
     statement.setMaxRows(100);
-    HashMap<Integer, ImmutableSqlParameter> sqlParams =
-        new HashMap<Integer, ImmutableSqlParameter>() {
-          {
-            put(1, getSqlParam(1, 100, DatabricksTypeUtil.BIGINT));
-            put(2, getSqlParam(2, (short) 10, DatabricksTypeUtil.SMALLINT));
-            put(3, getSqlParam(3, (byte) 15, DatabricksTypeUtil.TINYINT));
-            put(4, getSqlParam(4, "value", DatabricksTypeUtil.STRING));
-          }
-        };
+    HashMap<Integer, ImmutableSqlParameter> sqlParams;
+    {
+      sqlParams =
+          new HashMap<Integer, ImmutableSqlParameter>() {
+            {
+              put(1, getSqlParam(1, 100, DatabricksTypeUtil.BIGINT));
+              put(2, getSqlParam(2, (short) 10, DatabricksTypeUtil.SMALLINT));
+              put(3, getSqlParam(3, (byte) 15, DatabricksTypeUtil.TINYINT));
+              put(4, getSqlParam(4, "value", DatabricksTypeUtil.STRING));
+            }
+          };
+    }
 
     DatabricksResultSet resultSet =
         databricksSdkClient.executeStatementAsync(

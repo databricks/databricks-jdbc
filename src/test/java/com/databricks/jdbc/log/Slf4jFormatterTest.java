@@ -29,7 +29,7 @@ public class Slf4jFormatterTest {
     record.setSourceMethodName("testMethod");
 
     // Set a specific timestamp for testing
-    Date date = Date.from(Instant.parse("2021-07-01T00:00:00Z"));
+    Date date = new Date(Instant.parse("2021-07-01T00:00:00Z").toEpochMilli());
     record.setMillis(date.getTime());
 
     // Format the log record

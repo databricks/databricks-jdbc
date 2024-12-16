@@ -5,8 +5,8 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import java.util.List;
 import org.apache.http.message.BasicHeader;
 
-/** CreateUploadUrlResponse POJO */
-public class CreateUploadUrlResponse {
+/** CreateDeleteUrlResponse POJO */
+public class CreateDeleteUrlResponse {
   @JsonProperty("url")
   private String url;
 
@@ -31,10 +31,9 @@ public class CreateUploadUrlResponse {
     this.headers = headers;
   }
 
-  // Override toString method
   @Override
   public String toString() {
-    return new ToStringer(CreateUploadUrlResponse.class)
+    return new ToStringer(CreateDeleteUrlResponse.class)
         .add("url", url)
         .add("headers", headers)
         .toString();

@@ -4,7 +4,6 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.logging.*;
@@ -37,13 +36,12 @@ public class JulLogger implements JdbcLogger {
   private static final Set<String> logMethods;
 
   static {
-    Set<String> tempSet = new HashSet<>();
-    tempSet.add("debug");
-    tempSet.add("error");
-    tempSet.add("info");
-    tempSet.add("trace");
-    tempSet.add("warn");
-    logMethods = Collections.unmodifiableSet(tempSet);
+    logMethods = new HashSet<String>();
+    logMethods.add("debug");
+    logMethods.add("error");
+    logMethods.add("info");
+    logMethods.add("trace");
+    logMethods.add("warn");
   }
 
   protected Logger logger;
@@ -190,11 +188,11 @@ public class JulLogger implements JdbcLogger {
    */
   protected static String[] getCaller() {
     StackTraceElement[] stackTrace = Thread.currentThread().getStackTrace();
-    boolean foundLoggingMethod = false;
+    boolean foundLogMethod = false;
     for (StackTraceElement element : stackTrace) {
-      if (logMethods.contains(element.getMethodName())) {
-        foundLoggingMethod = true;
-      } else if (foundLoggingMethod) {
+      if (!foundLogMethod && logMethods.contains(element.getMethodName())) {
+        foundLogMethod = true;
+      } else if (foundLogMethod && !logMethods.contains(element.getMethodName())) {
         return new String[] {element.getClassName(), element.getMethodName()};
       }
     }

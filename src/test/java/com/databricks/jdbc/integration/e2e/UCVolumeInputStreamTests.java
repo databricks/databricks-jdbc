@@ -3,8 +3,8 @@ package com.databricks.jdbc.integration.e2e;
 import static com.databricks.jdbc.integration.IntegrationTestUtil.getDogfoodJDBCConnection;
 import static org.junit.jupiter.api.Assertions.*;
 
-import com.databricks.jdbc.api.IDatabricksConnection;
 import com.databricks.jdbc.api.IDatabricksVolumeClient;
+import com.databricks.jdbc.api.impl.volume.DatabricksVolumeClientFactory;
 import com.databricks.jdbc.common.DatabricksJdbcConstants;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
@@ -43,7 +43,7 @@ public class UCVolumeInputStreamTests {
 
   @Test
   void testUCVolumeOperationsWithInputStream() throws Exception {
-    IDatabricksVolumeClient client = ((IDatabricksConnection) con).getVolumeClient();
+    IDatabricksVolumeClient client = DatabricksVolumeClientFactory.getVolumeClient(con);
 
     File file = new File(LOCAL_FILE);
     try {

@@ -10,6 +10,7 @@ import com.databricks.jdbc.api.impl.*;
 import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
 import com.databricks.jdbc.common.IDatabricksComputeResource;
 import com.databricks.jdbc.common.StatementType;
+import com.databricks.jdbc.common.util.DriverUtil;
 import com.databricks.jdbc.dbclient.IDatabricksClient;
 import com.databricks.jdbc.dbclient.IDatabricksMetadataClient;
 import com.databricks.jdbc.dbclient.impl.common.MetadataResultSetBuilder;
@@ -140,6 +141,10 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
             .setQueryTimeout(parentStatement.getStatement().getQueryTimeout())
             .setCanReadArrowResult(this.connectionContext.shouldEnableArrow())
             .setCanDownloadResult(true);
+    if (!DriverUtil.isRunningAgainstFake()) {
+      // run queries in async mode if not using fake services
+      request.setRunAsync(true);
+    }
     return thriftAccessor.execute(request, parentStatement, session, statementType);
   }
 
@@ -162,6 +167,7 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
             .setSessionHandle(session.getSessionInfo().sessionHandle())
             .setCanDecompressLZ4Result(true)
             .setCanReadArrowResult(this.connectionContext.shouldEnableArrow())
+            .setRunAsync(true)
             .setCanDownloadResult(true);
     return thriftAccessor.executeAsync(request, parentStatement, session, StatementType.SQL);
   }

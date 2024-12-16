@@ -4,7 +4,6 @@ import static com.databricks.jdbc.common.MetadataResultConstants.DEFAULT_TABLE_T
 import static com.databricks.jdbc.dbclient.impl.sqlexec.ResultConstants.TYPE_INFO_RESULT;
 
 import com.databricks.jdbc.api.IDatabricksSession;
-import com.databricks.jdbc.api.impl.*;
 import com.databricks.jdbc.api.impl.DatabricksResultSet;
 import com.databricks.jdbc.common.StatementType;
 import com.databricks.jdbc.dbclient.IDatabricksClient;
@@ -128,7 +127,7 @@ public class DatabricksMetadataSdkClient implements IDatabricksMetadataClient {
     return sdkClient.executeStatement(
         SQL,
         session.getComputeResource(),
-        new HashMap<Integer, ImmutableSqlParameter>(),
+        new HashMap<>(),
         StatementType.METADATA,
         session,
         null /* parentStatement */);
