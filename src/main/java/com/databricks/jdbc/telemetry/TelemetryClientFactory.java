@@ -4,6 +4,7 @@ import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.api.impl.DatabricksConnection;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
+import com.google.common.annotations.VisibleForTesting;
 import java.util.LinkedHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -13,9 +14,13 @@ public class TelemetryClientFactory {
   private static final JdbcLogger logger = JdbcLoggerFactory.getLogger(DatabricksConnection.class);
 
   private static final TelemetryClientFactory INSTANCE = new TelemetryClientFactory();
-  private final LinkedHashMap<String, TelemetryClient> telemetryClients = new LinkedHashMap<>();
-  private final LinkedHashMap<String, TelemetryClient> noauthTelemetryClients =
-      new LinkedHashMap<>();
+
+  @VisibleForTesting
+  final LinkedHashMap<String, TelemetryClient> telemetryClients = new LinkedHashMap<>();
+
+  @VisibleForTesting
+  final LinkedHashMap<String, TelemetryClient> noauthTelemetryClients = new LinkedHashMap<>();
+
   private final ExecutorService telemetryExecutorService;
 
   private TelemetryClientFactory() {
@@ -29,7 +34,8 @@ public class TelemetryClientFactory {
   public ITelemetryClient getTelemetryClient(IDatabricksConnectionContext connectionContext) {
     if (connectionContext.isTelemetryEnabled()) {
       return telemetryClients.computeIfAbsent(
-              connectionContext.getConnectionUuid(), k -> new TelemetryClient(connectionContext));
+          connectionContext.getConnectionUuid(),
+          k -> new TelemetryClient(connectionContext, getTelemetryExecutorService()));
     }
     return NoopTelemetryClient.getInstance();
   }
@@ -38,7 +44,8 @@ public class TelemetryClientFactory {
       IDatabricksConnectionContext connectionContext) {
     if (connectionContext.isTelemetryEnabled()) {
       return noauthTelemetryClients.computeIfAbsent(
-              connectionContext.getConnectionUuid(), k -> new TelemetryClient(connectionContext, false));
+          connectionContext.getConnectionUuid(),
+          k -> new TelemetryClient(connectionContext, false, getTelemetryExecutorService()));
     }
     return NoopTelemetryClient.getInstance();
   }
@@ -55,14 +62,14 @@ public class TelemetryClientFactory {
       }
 
       ITelemetryClient noauthInstance =
-              noauthTelemetryClients.remove(connectionContext.getConnectionUuid());
+          noauthTelemetryClients.remove(connectionContext.getConnectionUuid());
       if (noauthInstance != null) {
         try {
           noauthInstance.close();
         } catch (Exception e) {
           logger.debug(
-                  String.format(
-                          "Caught error while closing unauthenticated telemetry client. Error %s", e));
+              String.format(
+                  "Caught error while closing unauthenticated telemetry client. Error %s", e));
         }
       }
     }

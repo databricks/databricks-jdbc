@@ -55,7 +55,7 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
    * @param properties connection properties
    * @return a connection context
    */
-  static IDatabricksConnectionContext parse(String url, Properties properties)
+  public static IDatabricksConnectionContext parse(String url, Properties properties)
       throws DatabricksSQLException {
     if (!ValidationUtil.isValidJdbcUrl(url)) {
       throw new DatabricksParsingException("Invalid url " + url);
