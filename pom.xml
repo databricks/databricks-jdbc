@@ -622,6 +622,7 @@
                 <id>nexus-deploy</id>
                 <phase>deploy</phase>
                 <goals>
+                  <goal>close</goal>
                   <goal>release</goal>
                 </goals>
               </execution>
