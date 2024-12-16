@@ -1073,7 +1073,7 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
    * @throws SQLException if the column is not of `MAP` type or if any SQL error occurs
    */
   @Override
-  public Map<String, Object> getMap(int columnIndex) throws SQLException {
+  public Map getMap(int columnIndex) throws SQLException {
     LOGGER.debug("Getting Map from column index: {}", columnIndex);
     checkIfClosed();
     Object obj = getObjectInternal(columnIndex);

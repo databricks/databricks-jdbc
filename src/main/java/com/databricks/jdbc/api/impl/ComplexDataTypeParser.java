@@ -64,7 +64,6 @@ public class ComplexDataTypeParser {
                 structMap.put(fieldName, convertValueNode(fieldNode, fieldType));
               }
             });
-
     return structMap;
   }
 
@@ -109,6 +108,9 @@ public class ComplexDataTypeParser {
     try {
       JsonNode node = objectMapper.readTree(json);
       if (node.isObject()) {
+        if (metadata.startsWith("MAP")) {
+          return convertToMap(node, metadata);
+        }
         return parseToStruct(node, MetadataParser.parseStructMetadata(metadata));
       } else if (node.isArray()) {
         return convertArrayToMap(node, metadata);
@@ -119,6 +121,24 @@ public class ComplexDataTypeParser {
     } catch (Exception e) {
       throw new RuntimeException("Failed to parse JSON: " + json, e);
     }
+  }
+
+  private Map<String, Object> convertToMap(JsonNode node, String metadata) {
+    Map<String, Object> map = new LinkedHashMap<>();
+    String[] mapMetadata = MetadataParser.parseMapMetadata(metadata).split(",", 2);
+    String keyType = mapMetadata[0].trim();
+    String valueType = mapMetadata[1].trim();
+
+    node.fields()
+        .forEachRemaining(
+            entry -> {
+              String key = entry.getKey();
+              JsonNode valueNode = entry.getValue();
+              Object value = convertValueNode(valueNode, valueType);
+              map.put(key, value);
+            });
+
+    return map;
   }
 
   private Map<String, Object> convertArrayToMap(JsonNode arrayNode, String metadata) {

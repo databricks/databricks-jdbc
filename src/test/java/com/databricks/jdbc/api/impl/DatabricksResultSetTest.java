@@ -2,6 +2,7 @@ package com.databricks.jdbc.api.impl;
 
 import static com.databricks.jdbc.api.impl.DatabricksResultSet.AFFECTED_ROWS_COUNT;
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import com.databricks.jdbc.api.IDatabricksResultSet;
@@ -19,10 +20,8 @@ import com.databricks.sdk.service.sql.StatementStatus;
 import java.io.*;
 import java.math.BigDecimal;
 import java.sql.*;
-import java.util.Calendar;
-import java.util.Collections;
-import java.util.GregorianCalendar;
-import java.util.TimeZone;
+import java.sql.Date;
+import java.util.*;
 import org.apache.http.entity.InputStreamEntity;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -354,6 +353,85 @@ public class DatabricksResultSetTest {
     when(mockedExecutionResult.getObject(2)).thenReturn(expected);
     when(mockedResultSetMetadata.getColumnNameIndex("columnLabel")).thenReturn(3);
     assertEquals(expected, resultSet.getBytes("columnLabel"));
+  }
+
+  @Test
+  void testGetStruct() throws SQLException {
+    // Define expected attributes
+    Object[] structAttributes = {1, "Alice"};
+
+    // Mock execution result
+    when(mockedExecutionResult.getObject(2)).thenReturn("{\"id\": 1, \"name\": \"Alice\"}");
+    when(mockedResultSetMetadata.getColumnTypeName(3)).thenReturn("STRUCT<id: INT, name: STRING>");
+    when(mockedResultSetMetadata.getColumnNameIndex("user_struct")).thenReturn(3);
+
+    // Instantiate result set
+    DatabricksResultSet resultSet = getResultSet(StatementState.SUCCEEDED, null);
+
+    // Retrieve struct by index
+    Struct retrievedStruct = resultSet.getStruct(3);
+    assertNotNull(retrievedStruct, "Retrieved struct should not be null");
+    assertArrayEquals(
+        structAttributes, retrievedStruct.getAttributes(), "Struct attributes should match");
+
+    // Retrieve struct by label
+    Struct retrievedStructByLabel = resultSet.getStruct("user_struct");
+    assertNotNull(retrievedStructByLabel, "Retrieved struct by label should not be null");
+    assertArrayEquals(
+        structAttributes, retrievedStructByLabel.getAttributes(), "Struct attributes should match");
+  }
+
+  @Test
+  void testGetArray() throws SQLException {
+    // Define expected array elements
+    Object[] arrayElements = {"elem1", "elem2", "elem3"};
+
+    // Mock execution result
+    when(mockedExecutionResult.getObject(3)).thenReturn("[\"elem1\", \"elem2\", \"elem3\"]");
+    when(mockedResultSetMetadata.getColumnTypeName(4)).thenReturn("ARRAY<STRING>");
+    when(mockedResultSetMetadata.getColumnNameIndex("string_array")).thenReturn(4);
+
+    // Instantiate result set
+    DatabricksResultSet resultSet = getResultSet(StatementState.SUCCEEDED, null);
+
+    // Retrieve array by index
+    Array retrievedArray = resultSet.getArray(4);
+    assertNotNull(retrievedArray, "Retrieved array should not be null");
+    assertTrue(
+        Arrays.equals(arrayElements, (Object[]) retrievedArray.getArray()),
+        "Array elements should match");
+
+    // Retrieve array by label
+    Array retrievedArrayByLabel = resultSet.getArray("string_array");
+    assertNotNull(retrievedArrayByLabel, "Retrieved array by label should not be null");
+    assertTrue(
+        Arrays.equals(arrayElements, (Object[]) retrievedArrayByLabel.getArray()),
+        "Array elements should match");
+  }
+
+  @Test
+  void testGetMap() throws SQLException {
+    // Define expected map entries
+    Object[] mapEntries = {"key1", 100, "key2", 200};
+
+    // Mock DatabricksMap
+    DatabricksMap<String, Integer> mockMap = mock(DatabricksMap.class);
+
+    // Mock execution result
+    when(mockedExecutionResult.getObject(4)).thenReturn("{\"key1\": 100, \"key2\": 200}");
+    when(mockedResultSetMetadata.getColumnTypeName(5)).thenReturn("MAP<STRING, INT>");
+    when(mockedResultSetMetadata.getColumnNameIndex("int_map")).thenReturn(5);
+
+    // Instantiate result set
+    DatabricksResultSet resultSet = getResultSet(StatementState.SUCCEEDED, null);
+
+    // Retrieve map by index
+    Map<String, Integer> retrievedMap = resultSet.getMap(5);
+    assertNotNull(retrievedMap, "Retrieved map should not be null");
+
+    // Retrieve map by label
+    Map<String, Integer> retrievedMapByLabel = resultSet.getMap("int_map");
+    assertNotNull(retrievedMapByLabel, "Retrieved map by label should not be null");
   }
 
   @Test
