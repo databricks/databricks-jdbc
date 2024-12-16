@@ -44,24 +44,26 @@ public class ComplexDataTypeParser {
     }
 
     Map<String, Object> structMap = new LinkedHashMap<>();
-    node.fields().forEachRemaining(entry -> {
-      String fieldName = entry.getKey();
-      JsonNode fieldNode = entry.getValue();
+    node.fields()
+        .forEachRemaining(
+            entry -> {
+              String fieldName = entry.getKey();
+              JsonNode fieldNode = entry.getValue();
 
-      String fieldType = typeMap.getOrDefault(fieldName, DatabricksTypeUtil.STRING);
+              String fieldType = typeMap.getOrDefault(fieldName, DatabricksTypeUtil.STRING);
 
-      if (fieldType.startsWith(DatabricksTypeUtil.STRUCT)) {
-        Map<String, String> nestedTypeMap = MetadataParser.parseStructMetadata(fieldType);
-        structMap.put(fieldName, parseToStruct(fieldNode, nestedTypeMap));
-      } else if (fieldType.startsWith(DatabricksTypeUtil.ARRAY)) {
-        String nestedArrayType = MetadataParser.parseArrayMetadata(fieldType);
-        structMap.put(fieldName, parseToArray(fieldNode, nestedArrayType));
-      } else if (fieldType.startsWith(DatabricksTypeUtil.MAP)) {
-        structMap.put(fieldName, parseToMap(fieldNode.toString(), fieldType));
-      } else {
-        structMap.put(fieldName, convertValueNode(fieldNode, fieldType));
-      }
-    });
+              if (fieldType.startsWith(DatabricksTypeUtil.STRUCT)) {
+                Map<String, String> nestedTypeMap = MetadataParser.parseStructMetadata(fieldType);
+                structMap.put(fieldName, parseToStruct(fieldNode, nestedTypeMap));
+              } else if (fieldType.startsWith(DatabricksTypeUtil.ARRAY)) {
+                String nestedArrayType = MetadataParser.parseArrayMetadata(fieldType);
+                structMap.put(fieldName, parseToArray(fieldNode, nestedArrayType));
+              } else if (fieldType.startsWith(DatabricksTypeUtil.MAP)) {
+                structMap.put(fieldName, parseToMap(fieldNode.toString(), fieldType));
+              } else {
+                structMap.put(fieldName, convertValueNode(fieldNode, fieldType));
+              }
+            });
 
     return structMap;
   }
@@ -111,7 +113,8 @@ public class ComplexDataTypeParser {
       } else if (node.isArray()) {
         return convertArrayToMap(node, metadata);
       } else {
-        throw new IllegalArgumentException("Expected JSON object or array for Map, but got: " + node);
+        throw new IllegalArgumentException(
+            "Expected JSON object or array for Map, but got: " + node);
       }
     } catch (Exception e) {
       throw new RuntimeException("Failed to parse JSON: " + json, e);
@@ -131,7 +134,7 @@ public class ComplexDataTypeParser {
         map.put(key.toString(), value);
       } else {
         throw new IllegalArgumentException(
-                "Expected array elements with 'key' and 'value' fields, but got: " + element);
+            "Expected array elements with 'key' and 'value' fields, but got: " + element);
       }
     }
 
@@ -185,7 +188,7 @@ public class ComplexDataTypeParser {
       }
     } catch (Exception e) {
       throw new IllegalArgumentException(
-              "Failed to convert value " + node + " to type " + expectedType, e);
+          "Failed to convert value " + node + " to type " + expectedType, e);
     }
   }
 }

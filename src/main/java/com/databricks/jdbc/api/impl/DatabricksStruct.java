@@ -44,21 +44,24 @@ public class DatabricksStruct implements Struct {
           convertedAttributes[index] = new DatabricksStruct((Map<String, Object>) value, fieldType);
         } else {
           throw new IllegalArgumentException(
-                  "Expected a Map for STRUCT but found: " + (value == null ? "null" : value.getClass().getSimpleName()));
+              "Expected a Map for STRUCT but found: "
+                  + (value == null ? "null" : value.getClass().getSimpleName()));
         }
       } else if (fieldType.startsWith(DatabricksTypeUtil.ARRAY)) {
         if (value instanceof List) {
           convertedAttributes[index] = new DatabricksArray((List<Object>) value, fieldType);
         } else {
           throw new IllegalArgumentException(
-                  "Expected a List for ARRAY but found: " + (value == null ? "null" : value.getClass().getSimpleName()));
+              "Expected a List for ARRAY but found: "
+                  + (value == null ? "null" : value.getClass().getSimpleName()));
         }
       } else if (fieldType.startsWith(DatabricksTypeUtil.MAP)) {
         if (value instanceof Map) {
           convertedAttributes[index] = new DatabricksMap<>((Map<String, Object>) value, fieldType);
         } else {
           throw new IllegalArgumentException(
-                  "Expected a Map for MAP but found: " + (value == null ? "null" : value.getClass().getSimpleName()));
+              "Expected a Map for MAP but found: "
+                  + (value == null ? "null" : value.getClass().getSimpleName()));
         }
       } else {
         convertedAttributes[index] = convertSimpleValue(value, fieldType);
@@ -111,7 +114,8 @@ public class DatabricksStruct implements Struct {
           return value.toString();
       }
     } catch (Exception e) {
-      throw new IllegalArgumentException("Failed to convert value " + value + " to type " + type, e);
+      throw new IllegalArgumentException(
+          "Failed to convert value " + value + " to type " + type, e);
     }
   }
 
