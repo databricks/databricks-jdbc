@@ -40,7 +40,6 @@ public class TelemetryClientTest {
       DatabricksHttpClientFactory mockFactory = mock(DatabricksHttpClientFactory.class);
       factoryMocked.when(DatabricksHttpClientFactory::getInstance).thenReturn(mockFactory);
       when(mockFactory.getClient(any())).thenReturn(mockHttpClient);
-      //    ArgumentCaptor<HttpPost> requestCaptor = ArgumentCaptor.forClass(HttpPost.class);
       when(mockHttpClient.execute(any())).thenReturn(mockHttpResponse);
       when(mockHttpResponse.getStatusLine()).thenReturn(mockStatusLine);
       when(mockStatusLine.getStatusCode()).thenReturn(200);
@@ -59,6 +58,13 @@ public class TelemetryClientTest {
 
       client.exportEvent(new TelemetryFrontendLog().setFrontendLogEventId("event2"));
       Thread.sleep(1000);
+      assertEquals(0, client.getCurrentSize());
+
+      client.exportEvent(new TelemetryFrontendLog().setFrontendLogEventId("event3"));
+      Mockito.verifyNoMoreInteractions(mockHttpClient);
+      assertEquals(1, client.getCurrentSize());
+
+      client.close();
       assertEquals(0, client.getCurrentSize());
     }
   }
