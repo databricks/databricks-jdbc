@@ -7,6 +7,7 @@ import static com.databricks.jdbc.common.util.StringUtil.escapeStringLiteral;
 import com.databricks.jdbc.api.IDatabricksVolumeClient;
 import com.databricks.jdbc.api.internal.IDatabricksResultSetInternal;
 import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
+import com.databricks.jdbc.common.util.StringUtil;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import java.io.InputStream;
@@ -28,16 +29,6 @@ public class DatabricksUCVolumeClient implements IDatabricksVolumeClient {
   private static final String UC_VOLUME_COLUMN_VOLUME_NAME =
       "volume_name"; // Column name for the volume names within a schema
 
-  private static class FilePath {
-    public FilePath(String path) {
-      int lastSlashIndex = path.lastIndexOf("/");
-      folder = (lastSlashIndex >= 0) ? path.substring(0, lastSlashIndex) : "";
-      basename = (lastSlashIndex >= 0) ? path.substring(lastSlashIndex + 1) : path;
-    }
-
-    public String folder;
-    public String basename;
-  }
 
   public DatabricksUCVolumeClient(Connection connection) {
     this.connection = connection;
@@ -126,7 +117,7 @@ public class DatabricksUCVolumeClient implements IDatabricksVolumeClient {
             "Entering prefixExists method with parameters: catalog={%s}, schema={%s}, volume={%s}, prefix={%s}, caseSensitive={%s}",
             catalog, schema, volume, prefix, caseSensitive));
 
-    FilePath filePath = new FilePath(prefix);
+    StringUtil.FilePath filePath = new StringUtil.FilePath(prefix);
 
     String listFilesSQLQuery = createListQuery(catalog, schema, volume, filePath.folder);
 
@@ -168,7 +159,7 @@ public class DatabricksUCVolumeClient implements IDatabricksVolumeClient {
             "Entering objectExists method with parameters: catalog={%s}, schema={%s}, volume={%s}, objectPath={%s}, caseSensitive={%s}",
             catalog, schema, volume, objectPath, caseSensitive));
 
-    FilePath filePath = new FilePath(objectPath);
+    StringUtil.FilePath filePath = new StringUtil.FilePath(objectPath);
 
     String listFilesSQLQuery = createListQuery(catalog, schema, volume, filePath.folder);
 
@@ -272,7 +263,7 @@ public class DatabricksUCVolumeClient implements IDatabricksVolumeClient {
             "Entering listObjects method with parameters: catalog={%s}, schema={%s}, volume={%s}, prefix={%s}, caseSensitive={%s}",
             catalog, schema, volume, prefix, caseSensitive));
 
-    FilePath filePath = new FilePath(prefix);
+    StringUtil.FilePath filePath = new StringUtil.FilePath(prefix);
 
     String listFilesSQLQuery = createListQuery(catalog, schema, volume, filePath.folder);
 

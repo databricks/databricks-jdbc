@@ -28,4 +28,15 @@ public class StringUtil {
     }
     return str.replace("'", "''");
   }
+
+  public static class FilePath {
+    public FilePath(String path) {
+      int lastSlashIndex = path.lastIndexOf("/");
+      folder = (lastSlashIndex >= 0) ? path.substring(0, lastSlashIndex) : "";
+      basename = (lastSlashIndex >= 0) ? path.substring(lastSlashIndex + 1) : path;
+    }
+
+    public String folder;
+    public String basename;
+  }
 }

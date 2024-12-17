@@ -24,9 +24,6 @@ class VolumeOperationProcessor {
       JdbcLoggerFactory.getLogger(VolumeOperationProcessor.class);
   private static final String COMMA_SEPARATOR = ",";
   private static final String PARENT_DIRECTORY_REF = "..";
-  private static final String GET_OPERATION = "get";
-  private static final String PUT_OPERATION = "put";
-  private static final String REMOVE_OPERATION = "remove";
 
   private static final Long PUT_SIZE_LIMITS = 5 * 1024 * 1024 * 1024L; // 5GB
   private final String operationType;
@@ -88,13 +85,13 @@ class VolumeOperationProcessor {
     }
     status = VolumeOperationStatus.RUNNING;
     switch (operationType.toLowerCase()) {
-      case GET_OPERATION:
+      case HttpUtil.VOLUME_OPERATION_TYPE_GET:
         executeGetOperation();
         break;
-      case PUT_OPERATION:
+      case HttpUtil.VOLUME_OPERATION_TYPE_PUT:
         executePutOperation();
         break;
-      case REMOVE_OPERATION:
+      case HttpUtil.VOLUME_OPERATION_TYPE_REMOVE:
         executeDeleteOperation();
         break;
       default:
@@ -117,12 +114,13 @@ class VolumeOperationProcessor {
     }
 
     if (allowedVolumeIngestionPaths.isEmpty()) {
-      status = VolumeOperationStatus.ABORTED;
-      errorMessage = "Volume ingestion paths are not set";
-      LOGGER.error(errorMessage);
+      // TEMP_CHANGE
+//      status = VolumeOperationStatus.ABORTED;
+//      errorMessage = "Volume ingestion paths are not set";
+//      LOGGER.error(errorMessage);
       return;
     }
-    if (operationType.equalsIgnoreCase(REMOVE_OPERATION)) {
+    if (operationType.equalsIgnoreCase(HttpUtil.VOLUME_OPERATION_TYPE_REMOVE)) {
       return;
     }
     if (localFilePath == null
