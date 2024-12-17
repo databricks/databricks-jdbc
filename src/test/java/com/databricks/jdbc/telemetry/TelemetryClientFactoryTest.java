@@ -28,7 +28,12 @@ public class TelemetryClientFactoryTest {
     assertInstanceOf(NoopTelemetryClient.class, unauthClient1);
     assertEquals(0, TelemetryClientFactory.getInstance().telemetryClients.size());
     assertEquals(0, TelemetryClientFactory.getInstance().noauthTelemetryClients.size());
-
+    IDatabricksConnectionContext finalContext = context1;
+    assertDoesNotThrow(
+        () ->
+            TelemetryClientFactory.getInstance()
+                .getUnauthenticatedTelemetryClient(finalContext)
+                .close());
     Properties properties = new Properties();
     properties.setProperty(DatabricksJdbcUrlParams.ENABLE_TELEMETRY.getParamName(), "1");
     context1 = DatabricksConnectionContext.parse(JDBC_URL_1, properties);
@@ -40,7 +45,6 @@ public class TelemetryClientFactoryTest {
     assertNotEquals(client1, unauthClient1);
     assertEquals(1, TelemetryClientFactory.getInstance().telemetryClients.size());
     assertEquals(1, TelemetryClientFactory.getInstance().noauthTelemetryClients.size());
-
     IDatabricksConnectionContext context2 =
         DatabricksConnectionContext.parse(JDBC_URL_2, new Properties());
     ITelemetryClient client2 = TelemetryClientFactory.getInstance().getTelemetryClient(context2);
@@ -52,6 +56,12 @@ public class TelemetryClientFactoryTest {
     assertNotEquals(unauthClient1, unauthClient2);
     assertEquals(2, TelemetryClientFactory.getInstance().telemetryClients.size());
     assertEquals(2, TelemetryClientFactory.getInstance().noauthTelemetryClients.size());
+    IDatabricksConnectionContext finalContext2 = context2;
+    assertDoesNotThrow(
+        () ->
+            TelemetryClientFactory.getInstance()
+                .getUnauthenticatedTelemetryClient(finalContext2)
+                .close());
 
     TelemetryClientFactory.getInstance().closeTelemetryClient(context1);
     assertEquals(1, TelemetryClientFactory.getInstance().telemetryClients.size());

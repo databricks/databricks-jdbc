@@ -97,7 +97,7 @@ public class OAuthRefreshCredentialsProviderTest {
           .thenReturn(new OpenIDConnectEndpoints(TEST_TOKEN_URL, TEST_AUTH_URL));
     }
     credentialsProvider = new OAuthRefreshCredentialsProvider(connectionContext, databricksConfig);
-
+    assertEquals("oauth-refresh", credentialsProvider.authType());
     // Reinitialize the OAUTH_RESPONSE InputStream for each test run
     String jsonResponse =
         new JSONObject()

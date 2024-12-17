@@ -31,7 +31,8 @@ public class TelemetryHelperTest {
   @ParameterizedTest
   @MethodSource("provideParametersForToDriverMode")
   void testToDriverMode(DriverMode expectedDriverMode, DatabricksClientType inputClientType) {
-    assertEquals(TelemetryHelper.toDriverMode(inputClientType), expectedDriverMode);
+    TelemetryHelper telemetryHelper = new TelemetryHelper();
+    assertEquals(telemetryHelper.toDriverMode(inputClientType), expectedDriverMode);
   }
 
   @Test

@@ -272,6 +272,8 @@
           <excludes>
             <exclude>**/DriverTest.java</exclude>
             <exclude>**/integration/**/*.java</exclude>
+            <exclude>**ErrorTypes.java</exclude>
+            <exclude>**ErrorCodes.java</exclude>
           </excludes>
           <argLine>
             @{argLine}

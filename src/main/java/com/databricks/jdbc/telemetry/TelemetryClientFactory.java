@@ -51,31 +51,24 @@ public class TelemetryClientFactory {
   }
 
   public void closeTelemetryClient(IDatabricksConnectionContext connectionContext) {
-    if (connectionContext.isTelemetryEnabled()) {
-      ITelemetryClient instance = telemetryClients.remove(connectionContext.getConnectionUuid());
-      if (instance != null) {
-        try {
-          instance.close();
-        } catch (Exception e) {
-          logger.debug(String.format("Caught error while closing telemetry client. Error %s", e));
-        }
-      }
-
-      ITelemetryClient noauthInstance =
-          noauthTelemetryClients.remove(connectionContext.getConnectionUuid());
-      if (noauthInstance != null) {
-        try {
-          noauthInstance.close();
-        } catch (Exception e) {
-          logger.debug(
-              String.format(
-                  "Caught error while closing unauthenticated telemetry client. Error %s", e));
-        }
-      }
-    }
+    closeTelemetryClient(
+        telemetryClients.remove(connectionContext.getConnectionUuid()), "telemetry client");
+    closeTelemetryClient(
+        noauthTelemetryClients.remove(connectionContext.getConnectionUuid()),
+        "unauthenticated telemetry client");
   }
 
   public ExecutorService getTelemetryExecutorService() {
     return telemetryExecutorService;
+  }
+
+  private void closeTelemetryClient(ITelemetryClient client, String clientType) {
+    if (client != null) {
+      try {
+        client.close();
+      } catch (Exception e) {
+        logger.debug(String.format("Caught error while closing %s. Error: %s", clientType, e));
+      }
+    }
   }
 }
