@@ -1,116 +1,63 @@
 package com.databricks.jdbc.model.telemetry;
 
+import com.databricks.jdbc.common.util.DriverUtil;
+import com.databricks.sdk.support.ToStringer;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import java.nio.charset.Charset;
 
 public class DriverSystemConfiguration {
+  // TODO : add json properties when proto is implemented completely
+  private final String driverName = "oss-jdbc";
+  private static final DriverSystemConfiguration INSTANCE = new DriverSystemConfiguration();
 
-  @JsonProperty("driver_name")
-  String driverName;
+  private DriverSystemConfiguration() {}
 
   @JsonProperty("driver_version")
-  String driverVersion;
+  private final String driverVersion = DriverUtil.getVersion();
 
   @JsonProperty("os_name")
-  String osName;
+  private final String osName = System.getProperty("os.name");
 
   @JsonProperty("os_version")
-  String osVersion;
+  private final String osVersion = System.getProperty("os.version");
 
   @JsonProperty("os_arch")
-  String osArch;
+  private final String osArch = System.getProperty("os.arch");
 
   @JsonProperty("runtime_name")
-  String runtimeName;
+  private final String runtimeName = System.getProperty("java.vm.name");
 
   @JsonProperty("runtime_version")
-  String runtimeVersion;
+  private final String runtimeVersion = System.getProperty("java.version");
 
   @JsonProperty("runtime_vendor")
-  String runtimeVendor;
+  private final String runtimeVendor = System.getProperty("java.vendor");
 
-  @JsonProperty("client_app_name")
-  String clientAppName;
+  private final String clientAppName = null; // TODO : fill this;
 
-  public DriverSystemConfiguration() {}
+  private final String localeName =
+      System.getProperty("user.language") + '_' + System.getProperty("user.country");
 
-  public String getDriverName() {
-    return driverName;
+  private final String charSetEncoding = Charset.defaultCharset().displayName();
+
+  public static DriverSystemConfiguration getInstance() {
+    return INSTANCE;
   }
 
-  public DriverSystemConfiguration setDriverName(String driverName) {
-    this.driverName = driverName;
-    return this;
-  }
-
-  public String getDriverVersion() {
-    return driverVersion;
-  }
-
-  public DriverSystemConfiguration setDriverVersion(String driverVersion) {
-    this.driverVersion = driverVersion;
-    return this;
-  }
-
-  public String getOsName() {
-    return osName;
-  }
-
-  public DriverSystemConfiguration setOsName(String osName) {
-    this.osName = osName;
-    return this;
-  }
-
-  public String getOsVersion() {
-    return osVersion;
-  }
-
-  public DriverSystemConfiguration setOsVersion(String osVersion) {
-    this.osVersion = osVersion;
-    return this;
-  }
-
-  public String getOsArch() {
-    return osArch;
-  }
-
-  public DriverSystemConfiguration setOsArch(String osArch) {
-    this.osArch = osArch;
-    return this;
-  }
-
-  public String getRuntimeName() {
-    return runtimeName;
-  }
-
-  public DriverSystemConfiguration setRuntimeName(String runtimeName) {
-    this.runtimeName = runtimeName;
-    return this;
-  }
-
-  public String getRuntimeVersion() {
-    return runtimeVersion;
-  }
-
-  public DriverSystemConfiguration setRuntimeVersion(String runtimeVersion) {
-    this.runtimeVersion = runtimeVersion;
-    return this;
-  }
-
-  public String getRuntimeVendor() {
-    return runtimeVendor;
-  }
-
-  public DriverSystemConfiguration setRuntimeVendor(String runtimeVendor) {
-    this.runtimeVendor = runtimeVendor;
-    return this;
-  }
-
-  public String getClientAppName() {
-    return clientAppName;
-  }
-
-  public DriverSystemConfiguration setClientAppName(String clientAppName) {
-    this.clientAppName = clientAppName;
-    return this;
+  @Override
+  public String toString() {
+    return new ToStringer(DriverSystemConfiguration.class)
+        .add("driverName", driverName)
+        .add("driverVersion", driverVersion)
+        .add("osName", osName)
+        .add("osVersion", osVersion)
+        .add("osArch", osArch)
+        .add("runtimeName", runtimeName)
+        .add("runtimeVersion", runtimeVersion)
+        .add("runtimeVendor", runtimeVendor)
+        .add("clientAppName", clientAppName)
+        .add("localeName", localeName)
+        .add("defaultCharsetEncoding", charSetEncoding)
+        .toString();
   }
 }

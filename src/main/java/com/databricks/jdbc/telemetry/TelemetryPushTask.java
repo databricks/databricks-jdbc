@@ -19,10 +19,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.IOException;
 import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.stream.Collectors;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpPost;
@@ -50,7 +48,7 @@ class TelemetryPushTask implements Runnable {
 
   @Override
   public void run() {
-    logger.debug("Pushing ");
+    logger.debug("Pushing Telemetry logs of size " + queueToBePushed.size());
     TelemetryRequest request = new TelemetryRequest();
     if (queueToBePushed.isEmpty()) {
       return;
@@ -58,25 +56,21 @@ class TelemetryPushTask implements Runnable {
     try {
       request
           .setUploadTime(System.currentTimeMillis())
-          .setItems(new ArrayList<>())
           .setProtoLogs(
-              Optional.of(
-                  queueToBePushed.stream()
-                      .map(
-                          event -> {
-                            try {
-                              return objectMapper.writeValueAsString(event);
-                            } catch (JsonProcessingException e) {
-                              logger.error(
-                                  e,
-                                  "Failed to serialize Telemetry event {} with error: {}",
-                                  event.toString(),
-                                  e.getMessage());
-                              return null;
-                            }
-                          })
-                      .filter(Objects::nonNull)
-                      .collect(Collectors.toList())));
+              queueToBePushed.stream()
+                  .map(
+                      event -> {
+                        try {
+                          return objectMapper.writeValueAsString(event);
+                        } catch (JsonProcessingException e) {
+                          logger.error(
+                              "Failed to serialize Telemetry event {} with error: {}", event, e);
+                          return null; // Return null for failed serialization
+                        }
+                      })
+                  .filter(Objects::nonNull) // Remove nulls from failed serialization
+                  .collect(Collectors.toList()));
+      System.out.println("here is request " + request.getProtoLogs());
       IDatabricksHttpClient httpClient =
           DatabricksHttpClientFactory.getInstance().getClient(connectionContext);
       String uri =
