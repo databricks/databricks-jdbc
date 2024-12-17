@@ -27,6 +27,8 @@ public class TestConstants {
   public static final String TEST_CATALOG = "catalog1";
   public static final String TEST_FUNCTION_PATTERN = "functionPattern";
   public static final String TEST_STRING = "test";
+  public static final String TEST_USER = "testUser";
+  public static final String TEST_PASSWORD = "testPassword";
   public static final String TEST_STATEMENT_ID = "testStatementId";
   public static final String UC_VOLUME_CATALOG = "uc_volume_test_catalog";
   public static final String UC_VOLUME_SCHEMA = "uc_volume_test_schema";

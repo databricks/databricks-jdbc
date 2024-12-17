@@ -1,47 +1,91 @@
 package com.databricks.jdbc.model.telemetry;
 
-import com.databricks.jdbc.common.util.DriverUtil;
 import com.databricks.sdk.support.ToStringer;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import java.nio.charset.Charset;
 
 public class DriverSystemConfiguration {
   // TODO : add json properties when proto is implemented completely
-  private final String driverName = "oss-jdbc";
-  private static final DriverSystemConfiguration INSTANCE = new DriverSystemConfiguration();
-
-  private DriverSystemConfiguration() {}
-
   @JsonProperty("driver_version")
-  private final String driverVersion = DriverUtil.getVersion();
+  private String driverVersion;
 
   @JsonProperty("os_name")
-  private final String osName = System.getProperty("os.name");
+  private String osName;
 
   @JsonProperty("os_version")
-  private final String osVersion = System.getProperty("os.version");
+  private String osVersion;
 
   @JsonProperty("os_arch")
-  private final String osArch = System.getProperty("os.arch");
+  private String osArch;
 
   @JsonProperty("runtime_name")
-  private final String runtimeName = System.getProperty("java.vm.name");
+  private String runtimeName;
 
   @JsonProperty("runtime_version")
-  private final String runtimeVersion = System.getProperty("java.version");
+  private String runtimeVersion;
 
   @JsonProperty("runtime_vendor")
-  private final String runtimeVendor = System.getProperty("java.vendor");
+  private String runtimeVendor;
 
-  private final String clientAppName = null; // TODO : fill this;
+  private String clientAppName;
 
-  private final String localeName =
-      System.getProperty("user.language") + '_' + System.getProperty("user.country");
+  private String localeName;
+  private String driverName;
 
-  private final String charSetEncoding = Charset.defaultCharset().displayName();
+  private String charSetEncoding;
 
-  public static DriverSystemConfiguration getInstance() {
-    return INSTANCE;
+  public DriverSystemConfiguration setDriverName(String driverName) {
+    this.driverName = driverName;
+    return this;
+  }
+
+  public DriverSystemConfiguration setDriverVersion(String driverVersion) {
+    this.driverVersion = driverVersion;
+    return this;
+  }
+
+  public DriverSystemConfiguration setOsName(String osName) {
+    this.osName = osName;
+    return this;
+  }
+
+  public DriverSystemConfiguration setOsVersion(String osVersion) {
+    this.osVersion = osVersion;
+    return this;
+  }
+
+  public DriverSystemConfiguration setOsArch(String osArch) {
+    this.osArch = osArch;
+    return this;
+  }
+
+  public DriverSystemConfiguration setRuntimeName(String runtimeName) {
+    this.runtimeName = runtimeName;
+    return this;
+  }
+
+  public DriverSystemConfiguration setRuntimeVersion(String runtimeVersion) {
+    this.runtimeVersion = runtimeVersion;
+    return this;
+  }
+
+  public DriverSystemConfiguration setRuntimeVendor(String runtimeVendor) {
+    this.runtimeVendor = runtimeVendor;
+    return this;
+  }
+
+  public DriverSystemConfiguration setClientAppName(String clientAppName) {
+    this.clientAppName = clientAppName;
+    return this;
+  }
+
+  public DriverSystemConfiguration setLocaleName(String localeName) {
+    this.localeName = localeName;
+    return this;
+  }
+
+  public DriverSystemConfiguration setCharSetEncoding(String charSetEncoding) {
+    this.charSetEncoding = charSetEncoding;
+    return this;
   }
 
   @Override

@@ -41,4 +41,9 @@ public class TelemetryHelperTest {
     when(connectionContext.getHttpPath()).thenReturn(TEST_STRING);
     assertDoesNotThrow(() -> TelemetryHelper.exportInitialTelemetryLog(connectionContext));
   }
+
+  @Test
+  void testGetDriverSystemConfigurationDoesNotThrowError() {
+    assertDoesNotThrow(TelemetryHelper::getDriverSystemConfiguration);
+  }
 }

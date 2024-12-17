@@ -90,7 +90,7 @@ public class OAuthRefreshCredentialsProviderTest {
       })
   void testRefreshSuccess(String refreshTokenUrl) throws Exception {
     IDatabricksConnectionContext connectionContext =
-        DatabricksConnectionContextFactory.create(refreshTokenUrl, new Properties());
+        DatabricksConnectionContextFactory.create(refreshTokenUrl, null, null);
     boolean isDefaultEndpointPath = connectionContext.getTokenEndpoint() == null;
     if (isDefaultEndpointPath) {
       when(databricksConfig.getOidcEndpoints())
