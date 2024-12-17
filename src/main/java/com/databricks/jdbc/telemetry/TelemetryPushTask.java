@@ -70,7 +70,6 @@ class TelemetryPushTask implements Runnable {
                       })
                   .filter(Objects::nonNull) // Remove nulls from failed serialization
                   .collect(Collectors.toList()));
-      System.out.println("here is request " + request.getProtoLogs());
       IDatabricksHttpClient httpClient =
           DatabricksHttpClientFactory.getInstance().getClient(connectionContext);
       String uri =
@@ -85,7 +84,7 @@ class TelemetryPushTask implements Runnable {
       try (CloseableHttpResponse response = httpClient.execute(post)) {
         // TODO: check response and add retry for partial failures
         if (!HttpUtil.isSuccessfulHttpResponse(response)) {
-          logger.error(
+          logger.trace(
               "Failed to push telemetry logs with error response: [%s]", response.getStatusLine());
           return;
         }

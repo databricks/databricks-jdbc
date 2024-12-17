@@ -25,7 +25,6 @@ public class TelemetryClient implements ITelemetryClient {
       ExecutorService executorService) {
     this.eventsBatch = new LinkedList<>();
     this.eventsBatchSize = connectionContext.getTelemetryBatchSize();
-    System.out.println("hisamikshyaSize " + eventsBatchSize);
     this.isAuthEnabled = isAuthenticated;
     this.context = connectionContext;
     this.executorService = executorService;
