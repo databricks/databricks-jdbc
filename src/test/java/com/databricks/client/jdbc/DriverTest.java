@@ -351,7 +351,7 @@ public class DriverTest {
         "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/58aa1b363649e722;Loglevel=debug;useFileSystemAPI=1";
 
     IDatabricksConnectionContext connectionContext =
-        DatabricksConnectionContextFactory.create(jdbcUrl, "token", "dapid52458f16a59d380da34be4d994c5a11");
+        DatabricksConnectionContextFactory.create(jdbcUrl, "token", "xx");
     IDatabricksVolumeClient client =
         DatabricksVolumeClientFactory.getVolumeClient(connectionContext);
 
