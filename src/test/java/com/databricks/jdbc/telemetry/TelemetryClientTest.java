@@ -68,4 +68,25 @@ public class TelemetryClientTest {
       assertEquals(0, client.getCurrentSize());
     }
   }
+
+  @Test
+  public void testExportEventDoesNotThrowErrorsInFailures() throws Exception {
+    try (MockedStatic<DatabricksHttpClientFactory> factoryMocked =
+        mockStatic(DatabricksHttpClientFactory.class)) {
+      DatabricksHttpClientFactory mockFactory = mock(DatabricksHttpClientFactory.class);
+      factoryMocked.when(DatabricksHttpClientFactory::getInstance).thenReturn(mockFactory);
+      when(mockFactory.getClient(any())).thenReturn(mockHttpClient);
+      when(mockHttpClient.execute(any())).thenReturn(mockHttpResponse);
+      when(mockHttpResponse.getStatusLine()).thenReturn(mockStatusLine);
+      when(mockStatusLine.getStatusCode()).thenReturn(400);
+      IDatabricksConnectionContext context =
+          DatabricksConnectionContext.parse(JDBC_URL, new Properties());
+      TelemetryClient client =
+          new TelemetryClient(context, false, MoreExecutors.newDirectExecutorService());
+
+      client.exportEvent(new TelemetryFrontendLog().setFrontendLogEventId("event1"));
+      assertDoesNotThrow(
+          () -> client.exportEvent(new TelemetryFrontendLog().setFrontendLogEventId("event2")));
+    }
+  }
 }
