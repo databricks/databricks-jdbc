@@ -13,7 +13,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest]
+        os: [ubuntu-latest, macos-latest, windows-latest]
         java-version: [21]  # For formatting, we don't need to run across multiple versions. Only sanity testing is required here, rest is taken care in the build.
     runs-on: ${{ matrix.os }}
     steps:
@@ -40,7 +40,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest]
+        os: [ubuntu-latest, macos-latest, windows-latest]
         java-version: [11, 17, 21]  # Adding LTS versions here. 21 is the latest LTS
 
     runs-on: ${{ matrix.os }}
