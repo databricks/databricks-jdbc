@@ -106,14 +106,11 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
   }
 
   @Override
-  public void deleteSession(IDatabricksSession session, IDatabricksComputeResource cluster)
-      throws DatabricksSQLException {
+  public void deleteSession(ImmutableSessionInfo session) throws DatabricksSQLException {
     LOGGER.debug(
-        String.format(
-            "public void deleteSession(Session session = {%s}, Compute cluster = {%s})",
-            session.toString(), cluster.toString()));
+        String.format("public void deleteSession(Session session = {%s}))", session.toString()));
     TCloseSessionReq closeSessionReq =
-        new TCloseSessionReq().setSessionHandle(session.getSessionInfo().sessionHandle());
+        new TCloseSessionReq().setSessionHandle(session.sessionHandle());
     TCloseSessionResp response =
         (TCloseSessionResp) thriftAccessor.getThriftResponse(closeSessionReq);
     verifySuccessStatus(response.status, response.toString());

@@ -138,8 +138,12 @@ public class DatabricksSdkClientTest {
         DatabricksConnectionContext.parse(JDBC_URL, new Properties());
     DatabricksSdkClient databricksSdkClient =
         new DatabricksSdkClient(connectionContext, statementExecutionService, apiClient);
-    when(session.getSessionId()).thenReturn(SESSION_ID);
-    databricksSdkClient.deleteSession(session, warehouse);
+    ImmutableSessionInfo sessionInfo =
+        ImmutableSessionInfo.builder()
+            .sessionId(SESSION_ID)
+            .computeResource(new Warehouse(WAREHOUSE_ID))
+            .build();
+    databricksSdkClient.deleteSession(sessionInfo);
     DeleteSessionRequest request =
         new DeleteSessionRequest().setSessionId(SESSION_ID).setWarehouseId(WAREHOUSE_ID);
     verify(apiClient).DELETE(eq(path), eq(request), eq(Void.class), eq(headers));

@@ -137,11 +137,17 @@ public class DatabricksSession implements IDatabricksSession {
     LOGGER.debug("public void close()");
     synchronized (this) {
       if (isSessionOpen) {
-        databricksClient.deleteSession(this, computeResource);
+        databricksClient.deleteSession(sessionInfo);
         this.sessionInfo = null;
         this.isSessionOpen = false;
       }
     }
+  }
+
+  @Override
+  public void close(ImmutableSessionInfo sessionId) throws DatabricksSQLException {
+    LOGGER.debug("public void close({%s})", sessionId);
+    databricksClient.deleteSession(sessionId);
   }
 
   @Override
