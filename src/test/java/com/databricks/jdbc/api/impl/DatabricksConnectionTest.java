@@ -319,4 +319,25 @@ public class DatabricksConnectionTest {
     assertTrue(connection.getAutoCommit());
     assertEquals(connection.getTransactionIsolation(), Connection.TRANSACTION_READ_UNCOMMITTED);
   }
+
+  @Test
+  void testCloseByConnectionId() throws SQLException {
+    when(databricksClient.createSession(
+            new Warehouse(WAREHOUSE_ID), CATALOG, SCHEMA, new HashMap<>()))
+        .thenReturn(IMMUTABLE_SESSION_INFO);
+    connection = new DatabricksConnection(connectionContext, databricksClient);
+    connection.open();
+    assertFalse(connection.isClosed());
+    assertEquals(connection.getSession().getSessionId(), SESSION_ID);
+
+    String connectionId = connection.getConnectionId();
+    String expectedConnId = String.format("s/%s/%s", WAREHOUSE_ID, SESSION_ID);
+    assertEquals(expectedConnId, connectionId);
+    // close the connection
+    connection.closeConnection(connectionId);
+    // connection is closed, but here it is not marked as closed
+    assertFalse(connection.isClosed());
+    assertEquals(connection.getConnection(), connection);
+    verify(databricksClient).deleteSession(IMMUTABLE_SESSION_INFO);
+  }
 }
