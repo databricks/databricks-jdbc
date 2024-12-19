@@ -343,6 +343,57 @@ public class DriverTest {
   }
 
   @Test
+  void testDBFSVolumeOperationUsingStream() throws Exception {
+    DriverManager.registerDriver(new Driver());
+    DriverManager.drivers().forEach(driver -> System.out.println(driver.getClass()));
+    System.out.println("Starting test");
+    String jdbcUrl =
+        "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/58aa1b363649e722;Loglevel=debug;useFileSystemAPI=1";
+
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContextFactory.create(jdbcUrl, "token", "xx");
+    IDatabricksVolumeClient client =
+        DatabricksVolumeClientFactory.getVolumeClient(connectionContext);
+
+    File file = new File("/tmp/put.txt");
+
+    try {
+      Files.writeString(file.toPath(), "test-put");
+      System.out.println("File created");
+
+      System.out.println(
+          "Object inserted "
+              + client.putObject(
+                  "___________________first",
+                  "jprakash-test",
+                  "jprakash_volume",
+                  "test-stream.csv",
+                  new FileInputStream(file),
+                  file.length(),
+                  true));
+
+      InputStreamEntity inputStream =
+          client.getObject(
+              "___________________first", "jprakash-test", "jprakash_volume", "test-stream.csv");
+      System.out.println("Got data " + new String(inputStream.getContent().readAllBytes()));
+      inputStream.getContent().close();
+
+      System.out.println(
+          client.listObjects(
+              "___________________first", "jprakash-test", "jprakash_volume", "test", false));
+
+      System.out.println(
+          client.deleteObject(
+              "___________________first", "jprakash-test", "jprakash_volume", "test-stream.csv"));
+    } catch (Exception e) {
+      e.printStackTrace();
+      throw e;
+    } finally {
+      file.delete();
+    }
+  }
+
+  @Test
   void testDBFSVolumeOperation() throws Exception {
     DriverManager.registerDriver(new Driver());
     DriverManager.drivers().forEach(driver -> System.out.println(driver.getClass()));
@@ -359,28 +410,18 @@ public class DriverTest {
     File file_get = new File("/tmp/dbfs.txt");
 
     try {
-      Files.writeString(file.toPath(), "Updated Stream");
+      Files.writeString(file.toPath(), "test-put");
       System.out.println("File created");
 
-//      System.out.println(
-//          "Object inserted "
-//              + client.putObject(
-//                  "___________________first",
-//                  "jprakash-test",
-//                  "jprakash_volume",
-//                  "test-stream.csv",
-//                  "/tmp/put.txt",
-//                  true));
       System.out.println(
-              "Object inserted "
-                      + client.putObject(
-                      "___________________first",
-                      "jprakash-test",
-                      "jprakash_volume",
-                      "test-stream.csv",
-                      new FileInputStream(file),
-                      file.length(),
-                      true));
+          "Object inserted "
+              + client.putObject(
+                  "___________________first",
+                  "jprakash-test",
+                  "jprakash_volume",
+                  "test-stream.csv",
+                  "/tmp/put.txt",
+                  true));
 
       System.out.println(
           client.getObject(
@@ -389,11 +430,11 @@ public class DriverTest {
               "jprakash_volume",
               "test-stream.csv",
               "/tmp/dbfs.txt"));
-//      InputStreamEntity inputStream =
-//              client.getObject("___________________first", "jprakash-test", "jprakash_volume", "test-stream.csv");
-//      System.out.println("Got data " + new String(inputStream.getContent().readAllBytes()));
-//      inputStream.getContent().close();
-//
+
+      System.out.println(
+          client.listObjects(
+              "___________________first", "jprakash-test", "jprakash_volume", "test", false));
+
       System.out.println(
           client.deleteObject(
               "___________________first", "jprakash-test", "jprakash_volume", "test-stream.csv"));

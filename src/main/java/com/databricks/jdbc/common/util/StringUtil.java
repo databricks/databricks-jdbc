@@ -39,4 +39,9 @@ public class StringUtil {
     public String folder;
     public String basename;
   }
+
+  public static String getVolumePath(String catalog, String schema, String volume) {
+    // We need to escape '' to prevent SQL injection
+    return escapeStringLiteral(String.format("/Volumes/%s/%s/%s/", catalog, schema, volume));
+  }
 }

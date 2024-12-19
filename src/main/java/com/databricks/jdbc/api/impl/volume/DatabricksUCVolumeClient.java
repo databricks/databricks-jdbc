@@ -29,7 +29,6 @@ public class DatabricksUCVolumeClient implements IDatabricksVolumeClient {
   private static final String UC_VOLUME_COLUMN_VOLUME_NAME =
       "volume_name"; // Column name for the volume names within a schema
 
-
   public DatabricksUCVolumeClient(Connection connection) {
     this.connection = connection;
   }

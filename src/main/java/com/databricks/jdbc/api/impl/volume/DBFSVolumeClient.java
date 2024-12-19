@@ -2,7 +2,6 @@ package com.databricks.jdbc.api.impl.volume;
 
 import static com.databricks.jdbc.api.impl.volume.DatabricksUCVolumeClient.getObjectFullPath;
 import static com.databricks.jdbc.common.DatabricksJdbcConstants.JSON_HTTP_HEADERS;
-import static com.databricks.jdbc.common.DatabricksJdbcConstants.VOLUME_OPERATION_STATUS_SUCCEEDED;
 import static com.databricks.jdbc.dbclient.impl.sqlexec.PathConstants.*;
 
 import com.databricks.jdbc.api.IDatabricksConnectionContext;
@@ -20,15 +19,12 @@ import com.databricks.jdbc.model.client.filesystem.*;
 import com.databricks.sdk.WorkspaceClient;
 import com.databricks.sdk.core.DatabricksException;
 import com.google.common.annotations.VisibleForTesting;
-
 import java.io.IOException;
 import java.io.InputStream;
 import java.sql.SQLException;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.List;
-
+import java.util.*;
+import java.util.function.Consumer;
+import java.util.stream.Collectors;
 import org.apache.http.HttpEntity;
 import org.apache.http.entity.InputStreamEntity;
 
@@ -46,14 +42,14 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient {
   public DBFSVolumeClient(WorkspaceClient workspaceClient) {
     this.connectionContext = null;
     this.workspaceClient = workspaceClient;
-    this.databricksHttpClient=null;
+    this.databricksHttpClient = null;
   }
 
   public DBFSVolumeClient(IDatabricksConnectionContext connectionContext) {
     this.connectionContext = connectionContext;
     this.workspaceClient = getWorkspaceClientFromConnectionContext(connectionContext);
     this.databricksHttpClient =
-            DatabricksHttpClientFactory.getInstance().getClient(connectionContext);
+        DatabricksHttpClientFactory.getInstance().getClient(connectionContext);
   }
 
   /** {@inheritDoc} */
@@ -89,14 +85,22 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient {
   /** {@inheritDoc} */
   @Override
   public List<String> listObjects(
-      String catalog, String schema, String volume, String prefix, boolean caseSensitive) throws SQLException {
+      String catalog, String schema, String volume, String prefix, boolean caseSensitive)
+      throws SQLException {
     LOGGER.info(
-            String.format(
-                    "Entering listObjects method with parameters: catalog={%s}, schema={%s}, volume={%s}, prefix={%s}, caseSensitive={%s}",
-                    catalog, schema, volume, prefix, caseSensitive));
+        String.format(
+            "Entering listObjects method with parameters: catalog={%s}, schema={%s}, volume={%s}, prefix={%s}, caseSensitive={%s}",
+            catalog, schema, volume, prefix, caseSensitive));
 
     StringUtil.FilePath filePath = new StringUtil.FilePath(prefix);
-    return new ArrayList<String>();
+    String listPath =
+        (filePath.folder.isEmpty())
+            ? StringUtil.getVolumePath(catalog, schema, volume)
+            : StringUtil.getVolumePath(catalog, schema, volume + "/" + filePath.folder);
+
+    ListResponse listResponse = getListResponse(listPath);
+
+    return listResponse.getFiles().stream().map(FileInfo::getPath).collect(Collectors.toList());
   }
 
   /** {@inheritDoc} */
@@ -105,24 +109,28 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient {
       String catalog, String schema, String volume, String objectPath, String localPath)
       throws DatabricksVolumeOperationException {
     LOGGER.debug(
-            String.format(
-                    "Entering getObject method with parameters: catalog={%s}, schema={%s}, volume={%s}, objectPath={%s}, localPath={%s}",
-                    catalog, schema, volume, objectPath, localPath));
+        String.format(
+            "Entering getObject method with parameters: catalog={%s}, schema={%s}, volume={%s}, objectPath={%s}, localPath={%s}",
+            catalog, schema, volume, objectPath, localPath));
 
     boolean isOperationSucceeded = false;
 
     try {
       // Fetching the Pre signed URL
       CreateDownloadUrlResponse response =
-              getCreateDownloadUrlResponse(getObjectFullPath(catalog, schema, volume, objectPath));
+          getCreateDownloadUrlResponse(getObjectFullPath(catalog, schema, volume, objectPath));
+
+      // TODO : allowedVolumeIngestionPathString is currently set to only /tmp foler.
+      //        Make it configurable
 
       // Downloading the object from the presigned url
-      VolumeOperationProcessor volumeOperationProcessor = new VolumeOperationProcessor(
+      VolumeOperationProcessor volumeOperationProcessor =
+          getVolumeOperationProcessor(
               HttpUtil.VOLUME_OPERATION_TYPE_GET,
               response.getUrl(),
               new HashMap<>(),
               localPath,
-              null,
+              "/tmp",
               false,
               null,
               databricksHttpClient,
@@ -130,12 +138,11 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient {
 
       volumeOperationProcessor.process();
 
-      isOperationSucceeded=checkVolumeOperationStatus(volumeOperationProcessor);
-    }catch(DatabricksSQLException e)
-    {
+      isOperationSucceeded = checkVolumeOperationStatus(volumeOperationProcessor);
+    } catch (DatabricksSQLException e) {
       String errorMessage = String.format("Failed to get object - {%s}", e.getMessage());
       LOGGER.error(e, errorMessage);
-      throw new DatabricksVolumeOperationException(errorMessage,e);
+      throw new DatabricksVolumeOperationException(errorMessage, e);
     }
     return isOperationSucceeded;
   }
@@ -146,17 +153,18 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient {
       String catalog, String schema, String volume, String objectPath)
       throws DatabricksVolumeOperationException {
     LOGGER.debug(
-            String.format(
-                    "Entering getObject method with parameters: catalog={%s}, schema={%s}, volume={%s}, objectPath={%s}",
-                    catalog, schema, volume, objectPath));
+        String.format(
+            "Entering getObject method with parameters: catalog={%s}, schema={%s}, volume={%s}, objectPath={%s}",
+            catalog, schema, volume, objectPath));
 
     try {
       // Fetching the Pre Signed Url
       CreateDownloadUrlResponse response =
-              getCreateDownloadUrlResponse(getObjectFullPath(catalog, schema, volume, objectPath));
+          getCreateDownloadUrlResponse(getObjectFullPath(catalog, schema, volume, objectPath));
 
       // Downloading the object from the presigned url
-      VolumeOperationProcessor volumeOperationProcessor = new VolumeOperationProcessor(
+      VolumeOperationProcessor volumeOperationProcessor =
+          getVolumeOperationProcessor(
               HttpUtil.VOLUME_OPERATION_TYPE_GET,
               response.getUrl(),
               new HashMap<>(),
@@ -170,7 +178,7 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient {
                   this.setVolumeOperationEntityStream(entity);
                 } catch (Exception e) {
                   throw new RuntimeException(
-                          "Failed to set result set volumeOperationEntityStream", e);
+                      "Failed to set result set volumeOperationEntityStream", e);
                 }
               });
 
@@ -181,7 +189,7 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient {
     } catch (DatabricksSQLException e) {
       String errorMessage = String.format("Failed to get object - {%s}", e.getMessage());
       LOGGER.error(e, errorMessage);
-      throw new DatabricksVolumeOperationException(errorMessage,e);
+      throw new DatabricksVolumeOperationException(errorMessage, e);
     }
   }
 
@@ -206,13 +214,17 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient {
       CreateUploadUrlResponse response =
           getCreateUploadUrlResponse(getObjectFullPath(catalog, schema, volume, objectPath));
 
+      // TODO : allowedVolumeIngestionPathString is currently set to only /tmp foler.
+      //        Make it configurable
+
       // Uploading the object to the Pre Signed Url
-      VolumeOperationProcessor volumeOperationProcessor = new VolumeOperationProcessor(
+      VolumeOperationProcessor volumeOperationProcessor =
+          getVolumeOperationProcessor(
               HttpUtil.VOLUME_OPERATION_TYPE_PUT,
               response.getUrl(),
               new HashMap<>(),
               localPath,
-              null,
+              "/tmp",
               false,
               null,
               databricksHttpClient,
@@ -220,12 +232,11 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient {
 
       volumeOperationProcessor.process();
 
-      isOperationSucceeded=checkVolumeOperationStatus(volumeOperationProcessor);
-    }catch(DatabricksSQLException e)
-    {
+      isOperationSucceeded = checkVolumeOperationStatus(volumeOperationProcessor);
+    } catch (DatabricksSQLException e) {
       String errorMessage = String.format("Failed to put object - {%s}", e.getMessage());
       LOGGER.error(e, errorMessage);
-      throw new DatabricksVolumeOperationException(errorMessage,e);
+      throw new DatabricksVolumeOperationException(errorMessage, e);
     }
     return isOperationSucceeded;
   }
@@ -242,19 +253,20 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient {
       boolean toOverwrite)
       throws DatabricksVolumeOperationException {
     LOGGER.debug(
-            String.format(
-                    "Entering putObject method with parameters: catalog={%s}, schema={%s}, volume={%s}, objectPath={%s}, inputStream={%s}, contentLength={%s}, toOverwrite={%s}",
-                    catalog, schema, volume, objectPath, inputStream, contentLength, toOverwrite));
+        String.format(
+            "Entering putObject method with parameters: catalog={%s}, schema={%s}, volume={%s}, objectPath={%s}, inputStream={%s}, contentLength={%s}, toOverwrite={%s}",
+            catalog, schema, volume, objectPath, inputStream, contentLength, toOverwrite));
 
     boolean isOperationSucceeded = false;
     try {
       // Fetching the Pre Signed Url
       CreateUploadUrlResponse response =
-              getCreateUploadUrlResponse(getObjectFullPath(catalog, schema, volume, objectPath));
+          getCreateUploadUrlResponse(getObjectFullPath(catalog, schema, volume, objectPath));
 
       InputStreamEntity inputStreamEntity = new InputStreamEntity(inputStream, contentLength);
       // Uploading the object to the Pre Signed Url
-      VolumeOperationProcessor volumeOperationProcessor = new VolumeOperationProcessor(
+      VolumeOperationProcessor volumeOperationProcessor =
+          getVolumeOperationProcessor(
               HttpUtil.VOLUME_OPERATION_TYPE_PUT,
               response.getUrl(),
               new HashMap<>(),
@@ -267,11 +279,12 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient {
 
       volumeOperationProcessor.process();
 
-      isOperationSucceeded=checkVolumeOperationStatus(volumeOperationProcessor);
+      isOperationSucceeded = checkVolumeOperationStatus(volumeOperationProcessor);
     } catch (DatabricksSQLException e) {
-      String errorMessage = String.format("Failed to put object with inputStream- {%s}", e.getMessage());
+      String errorMessage =
+          String.format("Failed to put object with inputStream- {%s}", e.getMessage());
       LOGGER.error(e, errorMessage);
-      throw new DatabricksVolumeOperationException(errorMessage,e);
+      throw new DatabricksVolumeOperationException(errorMessage, e);
     }
     return isOperationSucceeded;
   }
@@ -292,7 +305,8 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient {
           getCreateDeleteUrlResponse(getObjectFullPath(catalog, schema, volume, objectPath));
 
       // Uploading the object to the Pre Signed Url
-      VolumeOperationProcessor volumeOperationProcessor = new VolumeOperationProcessor(
+      VolumeOperationProcessor volumeOperationProcessor =
+          getVolumeOperationProcessor(
               HttpUtil.VOLUME_OPERATION_TYPE_REMOVE,
               response.getUrl(),
               new HashMap<>(),
@@ -305,11 +319,11 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient {
 
       volumeOperationProcessor.process();
 
-      isOperationSucceeded=checkVolumeOperationStatus(volumeOperationProcessor);
+      isOperationSucceeded = checkVolumeOperationStatus(volumeOperationProcessor);
     } catch (DatabricksSQLException e) {
       String errorMessage = String.format("Failed to delete object {%s}", e.getMessage());
       LOGGER.error(e, errorMessage);
-      throw new DatabricksVolumeOperationException(errorMessage,e);
+      throw new DatabricksVolumeOperationException(errorMessage, e);
     }
     return isOperationSucceeded;
   }
@@ -319,9 +333,27 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient {
     return new ClientConfigurator(connectionContext).getWorkspaceClient();
   }
 
-  VolumeOperationProcessorDirect getVolumeOperationProcessorDirect(
-      String operationUrl, String localFilePath) {
-    return new VolumeOperationProcessorDirect(operationUrl, localFilePath, connectionContext);
+  // Added for testing purposes
+  VolumeOperationProcessor getVolumeOperationProcessor(
+      String operationType,
+      String operationUrl,
+      Map<String, String> headers,
+      String localFilePath,
+      String allowedVolumeIngestionPathString,
+      boolean isAllowedInputStreamForVolumeOperation,
+      InputStreamEntity inputStream,
+      IDatabricksHttpClient databricksHttpClient,
+      Consumer<HttpEntity> getStreamReceiver) {
+    return new VolumeOperationProcessor(
+        operationType,
+        operationUrl,
+        headers,
+        localFilePath,
+        allowedVolumeIngestionPathString,
+        isAllowedInputStreamForVolumeOperation,
+        inputStream,
+        databricksHttpClient,
+        getStreamReceiver);
   }
 
   /** Fetches the pre signed url for uploading to the volume using the SQL Exec API */
@@ -392,20 +424,38 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient {
     }
   }
 
-  private boolean checkVolumeOperationStatus(VolumeOperationProcessor volumeOperationProcessor) throws DatabricksSQLException
-  {
+  /** Fetches the list of objects in the volume using the SQL Exec API */
+  ListResponse getListResponse(String listPath) throws DatabricksVolumeOperationException {
+    LOGGER.debug(
+        String.format("Entering getListResponse method with parameters : listPath={%s}", listPath));
+    ListRequest request = new ListRequest(listPath);
+    try {
+      return workspaceClient
+          .apiClient()
+          .GET(LIST_PATH, request, ListResponse.class, JSON_HTTP_HEADERS);
+    } catch (DatabricksException e) {
+      String errorMessage = String.format("Failed to get list response - {%s}", e.getMessage());
+      LOGGER.error(e, errorMessage);
+      throw new DatabricksVolumeOperationException(errorMessage, e);
+    }
+  }
+
+  @VisibleForTesting
+  boolean checkVolumeOperationStatus(VolumeOperationProcessor volumeOperationProcessor)
+      throws DatabricksSQLException {
     if (volumeOperationProcessor.getStatus()
-            == VolumeOperationProcessor.VolumeOperationStatus.FAILED) {
+        == VolumeOperationProcessor.VolumeOperationStatus.FAILED) {
       throw new DatabricksSQLException(
-              "Volume operation failed: " + volumeOperationProcessor.getErrorMessage());
+          "Volume operation failed: " + volumeOperationProcessor.getErrorMessage());
     }
     if (volumeOperationProcessor.getStatus()
-            == VolumeOperationProcessor.VolumeOperationStatus.ABORTED) {
+        == VolumeOperationProcessor.VolumeOperationStatus.ABORTED) {
       throw new DatabricksSQLException(
-              "Volume operation aborted: " + volumeOperationProcessor.getErrorMessage());
+          "Volume operation aborted: " + volumeOperationProcessor.getErrorMessage());
     }
 
-    return VolumeOperationProcessor.VolumeOperationStatus.SUCCEEDED.equals(volumeOperationProcessor.getStatus());
+    return VolumeOperationProcessor.VolumeOperationStatus.SUCCEEDED.equals(
+        volumeOperationProcessor.getStatus());
   }
 
   public void setVolumeOperationEntityStream(HttpEntity httpEntity) throws IOException {

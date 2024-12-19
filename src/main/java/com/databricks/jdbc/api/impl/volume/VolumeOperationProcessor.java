@@ -114,10 +114,9 @@ class VolumeOperationProcessor {
     }
 
     if (allowedVolumeIngestionPaths.isEmpty()) {
-      // TEMP_CHANGE
-//      status = VolumeOperationStatus.ABORTED;
-//      errorMessage = "Volume ingestion paths are not set";
-//      LOGGER.error(errorMessage);
+      status = VolumeOperationStatus.ABORTED;
+      errorMessage = "Volume ingestion paths are not set";
+      LOGGER.error(errorMessage);
       return;
     }
     if (operationType.equalsIgnoreCase(HttpUtil.VOLUME_OPERATION_TYPE_REMOVE)) {
