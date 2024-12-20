@@ -19,4 +19,8 @@ public class DatabricksConnectionContextFactory {
       throws DatabricksSQLException {
     return DatabricksConnectionContext.parse(url, properties);
   }
+
+  public static IDatabricksConnectionContext createWithoutError(String url, Properties properties) {
+    return DatabricksConnectionContext.parseWithoutError(url, properties);
+  }
 }

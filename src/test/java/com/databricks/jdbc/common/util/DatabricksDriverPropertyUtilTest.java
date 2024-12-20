@@ -3,6 +3,7 @@ package com.databricks.jdbc.common.util;
 import static com.databricks.jdbc.common.DatabricksJdbcUrlParams.*;
 import static org.junit.jupiter.api.Assertions.*;
 
+import com.databricks.jdbc.api.impl.DatabricksConnectionContext;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.google.common.collect.ImmutableMap;
 import java.sql.DriverPropertyInfo;

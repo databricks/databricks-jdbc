@@ -4,6 +4,7 @@ import static com.databricks.jdbc.common.DatabricksJdbcUrlParams.*;
 
 import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.api.impl.DatabricksConnectionContext;
+import com.databricks.jdbc.api.impl.DatabricksConnectionContextFactory;
 import com.databricks.jdbc.common.DatabricksJdbcConstants;
 import com.databricks.jdbc.common.DatabricksJdbcUrlParams;
 import com.databricks.jdbc.common.LogLevel;
@@ -15,6 +16,22 @@ import java.util.*;
 
 /** Utility class for Databricks driver properties. */
 public class DatabricksDriverPropertyUtil {
+
+  private static final List<DatabricksJdbcUrlParams> OPTIONAL_PROPERTIES =
+          Arrays.asList(
+                  DatabricksJdbcUrlParams.SSL,
+                  DatabricksJdbcUrlParams.LOG_LEVEL,
+                  DatabricksJdbcUrlParams.USE_PROXY,
+                  DatabricksJdbcUrlParams.USE_THRIFT_CLIENT,
+                  DatabricksJdbcUrlParams.ENABLE_ARROW,
+                  DatabricksJdbcUrlParams.DIRECT_RESULT,
+                  DatabricksJdbcUrlParams.COMPRESSION_FLAG,
+                  DatabricksJdbcUrlParams.LZ4_COMPRESSION_FLAG,
+                  DatabricksJdbcUrlParams.USER_AGENT_ENTRY
+          );
+
+
+
 
   /**
    * Retrieves the invalid URL property information for the specified required parameter.
@@ -36,8 +53,8 @@ public class DatabricksDriverPropertyUtil {
    * @param properties the properties object
    * @return an immutable map of properties
    */
-  static ImmutableMap<String, String> buildPropertiesMap(
-      String connectionParamString, Properties properties) {
+  public static ImmutableMap<String, String> buildPropertiesMap(
+          String connectionParamString, Properties properties) {
     ImmutableMap.Builder<String, String> parametersBuilder = ImmutableMap.builder();
     String[] urlParts = connectionParamString.split(DatabricksJdbcConstants.URL_DELIMITER);
     for (int urlPartIndex = 1; urlPartIndex < urlParts.length; urlPartIndex++) {
@@ -51,6 +68,32 @@ public class DatabricksDriverPropertyUtil {
       parametersBuilder.put(entry.getKey().toString().toLowerCase(), entry.getValue().toString());
     }
     return parametersBuilder.build();
+  }
+  public static List<DriverPropertyInfo> getMissingProperties(String url, Properties info) {
+      DatabricksConnectionContext connectionContext = (DatabricksConnectionContext) DatabricksConnectionContextFactory.createWithoutError(url, info);
+      // check if null
+      if (connectionContext == null) {
+        // return host
+        DriverPropertyInfo hostProperty = new DriverPropertyInfo("host", null);
+        hostProperty.required = true;
+        hostProperty.description = "JDBC URL must be in the form: <protocol>://<host or domain>:<port>/<path>";
+        return Collections.singletonList(hostProperty);
+      }
+      // check if url contains HTTP_PATH
+    if(!url.toLowerCase().contains(HTTP_PATH.getParamName().toLowerCase())) {
+      return Collections.singletonList(getUrlParamInfo(HTTP_PATH, true));
+    }
+
+    // check if url contains AUTH_MECH
+    if (!url.toLowerCase().contains(AUTH_MECH.getParamName().toLowerCase()) || info.containsKey()) {
+        return Collections.singletonList(getUrlParamInfo(AUTH_MECH, true));
+    }
+
+    return buildMissingPropertiesList(url, connectionContext);
+  }
+
+  public static List<DriverPropertyInfo> buildMissingPropertiesList(DatabricksConnectionContext connectionContext) {
+
   }
 
   /**
