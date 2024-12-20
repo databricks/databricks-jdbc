@@ -326,6 +326,9 @@ public class DatabricksConnectionTest {
             new Warehouse(WAREHOUSE_ID), CATALOG, SCHEMA, new HashMap<>()))
         .thenReturn(IMMUTABLE_SESSION_INFO);
     connection = new DatabricksConnection(connectionContext, databricksClient);
+    assertTrue(connection.isClosed());
+    assertThrows(DatabricksSQLException.class, () -> connection.getConnectionId());
+
     connection.open();
     assertFalse(connection.isClosed());
     assertEquals(connection.getSession().getSessionId(), SESSION_ID);
