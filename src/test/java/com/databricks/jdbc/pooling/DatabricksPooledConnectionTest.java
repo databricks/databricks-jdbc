@@ -1,5 +1,7 @@
 package com.databricks.jdbc.pooling;
 
+import static com.databricks.jdbc.TestConstants.TEST_PASSWORD;
+import static com.databricks.jdbc.TestConstants.TEST_USER;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -18,7 +20,6 @@ import com.databricks.jdbc.exception.DatabricksSQLException;
 import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Properties;
 import javax.sql.ConnectionEvent;
 import javax.sql.ConnectionEventListener;
 import javax.sql.PooledConnection;
@@ -42,7 +43,9 @@ public class DatabricksPooledConnectionTest {
 
   @BeforeAll
   public static void setUp() throws DatabricksSQLException {
-    connectionContext = DatabricksConnectionContextFactory.create(JDBC_URL, new Properties());
+    DatabricksConnectionContextFactory connectionContextFactory =
+        new DatabricksConnectionContextFactory();
+    connectionContext = connectionContextFactory.create(JDBC_URL, TEST_USER, TEST_PASSWORD);
   }
 
   @Test

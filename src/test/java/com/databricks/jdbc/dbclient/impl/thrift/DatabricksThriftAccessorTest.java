@@ -111,7 +111,7 @@ public class DatabricksThriftAccessorTest {
     when(thriftClient.ExecuteStatement(request)).thenReturn(tExecuteStatementResp);
     DatabricksResultSet resultSet =
         accessor.executeAsync(request, parentStatement, null, StatementType.SQL);
-    assertEquals(resultSet.getStatementStatus().getState(), StatementState.SUCCEEDED);
+    assertEquals(resultSet.getStatementStatus().getState(), StatementState.RUNNING);
   }
 
   @Test
@@ -324,7 +324,8 @@ public class DatabricksThriftAccessorTest {
     accessor = new DatabricksThriftAccessor(thriftClient, connectionContext);
     TGetOperationStatusResp resp =
         new TGetOperationStatusResp()
-            .setStatus(new TStatus().setStatusCode(TStatusCode.STILL_EXECUTING_STATUS));
+            .setStatus(new TStatus().setStatusCode(TStatusCode.STILL_EXECUTING_STATUS))
+            .setOperationState(TOperationState.RUNNING_STATE);
     when(thriftClient.GetOperationStatus(operationStatusReq)).thenReturn(resp);
 
     DatabricksResultSet resultSet = accessor.getStatementResult(tOperationHandle, null, null);

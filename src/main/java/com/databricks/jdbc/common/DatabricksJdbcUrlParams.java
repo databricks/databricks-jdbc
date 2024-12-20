@@ -68,6 +68,8 @@ public enum DatabricksJdbcUrlParams {
   ACCEPT_UNDETERMINED_CERTIFICATE_REVOCATION("AcceptUndeterminedRevocation", "0"),
   GOOGLE_SERVICE_ACCOUNT("GoogleServiceAccount"),
   GOOGLE_CREDENTIALS_FILE("GoogleCredentialsFile"),
+  ENABLE_TELEMETRY("EnableTelemetry", "0"), // Disabled for now
+  TELEMETRY_BATCH_SIZE("TelemetryBatchSize", "200"),
   MAX_BATCH_SIZE("MaxBatchSize", "500");
 
   private final String paramName;

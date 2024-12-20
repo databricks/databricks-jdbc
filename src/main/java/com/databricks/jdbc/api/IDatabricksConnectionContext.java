@@ -227,6 +227,12 @@ public interface IDatabricksConnectionContext {
   /** Returns the maximum number of commands that can be executed in a single batch. */
   int getMaxBatchSize();
 
+  /** Checks if Telemetry is enabled */
+  boolean isTelemetryEnabled();
+
+  /** Returns the batch size for Telemetry logs processing */
+  int getTelemetryBatchSize();
+
   /**
    * Returns a unique identifier for this connection context.
    *

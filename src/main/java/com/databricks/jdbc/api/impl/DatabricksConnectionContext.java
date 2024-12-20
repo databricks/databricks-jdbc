@@ -55,7 +55,7 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
    * @param properties connection properties
    * @return a connection context
    */
-  static IDatabricksConnectionContext parse(String url, Properties properties)
+  public static IDatabricksConnectionContext parse(String url, Properties properties)
       throws DatabricksSQLException {
     if (!ValidationUtil.isValidJdbcUrl(url)) {
       throw new DatabricksParsingException("Invalid url " + url);
@@ -616,6 +616,16 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   @Override
   public String getConnectionUuid() {
     return connectionUuid;
+  }
+
+  @Override
+  public int getTelemetryBatchSize() {
+    return Integer.parseInt(getParameter(DatabricksJdbcUrlParams.TELEMETRY_BATCH_SIZE));
+  }
+
+  @Override
+  public boolean isTelemetryEnabled() {
+    return getParameter(DatabricksJdbcUrlParams.ENABLE_TELEMETRY, "0").equals("1");
   }
 
   private static boolean nullOrEmptyString(String s) {

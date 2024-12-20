@@ -3,6 +3,7 @@ package com.databricks.jdbc.api.impl.arrow;
 import static com.databricks.jdbc.TestConstants.*;
 import static java.lang.Math.min;
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isA;
 import static org.mockito.Mockito.when;
 
@@ -115,7 +116,7 @@ public class ArrowStreamResultTest {
     DatabricksSession session = new DatabricksSession(connectionContext, mockedSdkClient);
     setupMockResponse();
     setupResultChunkMocks();
-    when(mockHttpClient.execute(isA(HttpUriRequest.class))).thenReturn(httpResponse);
+    when(mockHttpClient.execute(isA(HttpUriRequest.class), eq(true))).thenReturn(httpResponse);
 
     ArrowStreamResult result =
         new ArrowStreamResult(resultManifest, resultData, STATEMENT_ID, session, mockHttpClient);
@@ -195,7 +196,7 @@ public class ArrowStreamResultTest {
     DatabricksSession session = new DatabricksSession(connectionContext, mockedSdkClient);
 
     setupMockResponse();
-    when(mockHttpClient.execute(isA(HttpUriRequest.class))).thenReturn(httpResponse);
+    when(mockHttpClient.execute(isA(HttpUriRequest.class), eq(true))).thenReturn(httpResponse);
 
     ArrowStreamResult result =
         new ArrowStreamResult(resultManifest, resultData, STATEMENT_ID, session, mockHttpClient);

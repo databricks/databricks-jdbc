@@ -7,6 +7,7 @@ import static org.mockito.Mockito.*;
 
 import com.databricks.jdbc.api.IDatabricksConnection;
 import com.databricks.jdbc.api.IDatabricksConnectionContext;
+import com.databricks.jdbc.api.impl.volume.DatabricksVolumeClientFactory;
 import com.databricks.jdbc.common.IDatabricksComputeResource;
 import com.databricks.jdbc.common.StatementType;
 import com.databricks.jdbc.common.Warehouse;
@@ -154,7 +155,7 @@ public class DatabricksConnectionTest {
         DatabricksConnectionContext.parse(SESSION_CONF_JDBC_URL, new Properties());
     DatabricksConnection connection = new DatabricksConnection(connectionContext, databricksClient);
     connection.open();
-    assertNotNull(connection.getVolumeClient());
+    assertNotNull(DatabricksVolumeClientFactory.getVolumeClient(connection));
   }
 
   @Test

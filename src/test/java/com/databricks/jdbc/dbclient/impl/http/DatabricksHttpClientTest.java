@@ -172,6 +172,22 @@ public class DatabricksHttpClientTest {
   }
 
   @Test
+  void testExecuteWithGzipHeaders() throws Exception {
+    HttpUriRequest request = new HttpGet("https://databricks.com");
+    databricksHttpClient.execute(request);
+
+    assertFalse(request.containsHeader("Content-Encoding"));
+
+    System.setProperty(IS_FAKE_SERVICE_TEST_PROP, "true");
+    databricksHttpClient.execute(request, true);
+    assertFalse(request.containsHeader("Content-Encoding"));
+    System.setProperty(IS_FAKE_SERVICE_TEST_PROP, "false");
+
+    databricksHttpClient.execute(request, true);
+    assertTrue(request.containsHeader("Content-Encoding"));
+  }
+
+  @Test
   void testExecuteThrowsError() throws IOException {
     when(mockRequest.getURI()).thenReturn(URI.create("https://databricks.com"));
     when(mockHttpClient.execute(mockRequest)).thenThrow(new IOException());

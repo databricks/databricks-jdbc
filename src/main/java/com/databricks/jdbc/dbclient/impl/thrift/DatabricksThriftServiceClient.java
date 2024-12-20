@@ -157,6 +157,7 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
             .setSessionHandle(Objects.requireNonNull(session.getSessionInfo()).sessionHandle())
             .setCanDecompressLZ4Result(true)
             .setCanReadArrowResult(this.connectionContext.shouldEnableArrow())
+            .setRunAsync(true)
             .setCanDownloadResult(true);
     return thriftAccessor.executeAsync(request, parentStatement, session, StatementType.SQL);
   }
