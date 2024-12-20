@@ -29,17 +29,19 @@ public class StringUtil {
     return str.replace("'", "''");
   }
 
-  public static class FilePath {
-    public FilePath(String path) {
-      int lastSlashIndex = path.lastIndexOf("/");
-      folder = (lastSlashIndex >= 0) ? path.substring(0, lastSlashIndex) : "";
-      basename = (lastSlashIndex >= 0) ? path.substring(lastSlashIndex + 1) : path;
-    }
-
-    public String folder;
-    public String basename;
+  /** Function to return the folder name from the path */
+  public static String getFolderNameFromPath(String path) {
+    int lastSlashIndex = path.lastIndexOf("/");
+    return (lastSlashIndex >= 0) ? path.substring(0, lastSlashIndex) : "";
   }
 
+  /** Function to return the base name from the path */
+  public static String getBaseNameFromPath(String path) {
+    int lastSlashIndex = path.lastIndexOf("/");
+    return (lastSlashIndex >= 0) ? path.substring(lastSlashIndex + 1) : path;
+  }
+
+  /** Building the volume path using the provided catalog, schema and volume */
   public static String getVolumePath(String catalog, String schema, String volume) {
     // We need to escape '' to prevent SQL injection
     return escapeStringLiteral(String.format("/Volumes/%s/%s/%s/", catalog, schema, volume));

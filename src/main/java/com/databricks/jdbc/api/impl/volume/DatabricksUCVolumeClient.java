@@ -116,9 +116,10 @@ public class DatabricksUCVolumeClient implements IDatabricksVolumeClient {
             "Entering prefixExists method with parameters: catalog={%s}, schema={%s}, volume={%s}, prefix={%s}, caseSensitive={%s}",
             catalog, schema, volume, prefix, caseSensitive));
 
-    StringUtil.FilePath filePath = new StringUtil.FilePath(prefix);
+    String folder = StringUtil.getFolderNameFromPath(prefix);
+    String basename = StringUtil.getBaseNameFromPath(prefix);
 
-    String listFilesSQLQuery = createListQuery(catalog, schema, volume, filePath.folder);
+    String listFilesSQLQuery = createListQuery(catalog, schema, volume, folder);
 
     try (Statement statement = connection.createStatement()) {
       try (ResultSet resultSet = statement.executeQuery(listFilesSQLQuery)) {
@@ -129,9 +130,9 @@ public class DatabricksUCVolumeClient implements IDatabricksVolumeClient {
           if (fileName.regionMatches(
               /* ignoreCase= */ !caseSensitive,
               /* targetOffset= */ 0,
-              /* StringToCheck= */ filePath.basename,
+              /* StringToCheck= */ basename,
               /* sourceOffset= */ 0,
-              /* lengthToMatch= */ filePath.basename.length())) {
+              /* lengthToMatch= */ basename.length())) {
             exists = true;
             break;
           }
@@ -158,9 +159,10 @@ public class DatabricksUCVolumeClient implements IDatabricksVolumeClient {
             "Entering objectExists method with parameters: catalog={%s}, schema={%s}, volume={%s}, objectPath={%s}, caseSensitive={%s}",
             catalog, schema, volume, objectPath, caseSensitive));
 
-    StringUtil.FilePath filePath = new StringUtil.FilePath(objectPath);
+    String folder = StringUtil.getFolderNameFromPath(objectPath);
+    String basename = StringUtil.getBaseNameFromPath(objectPath);
 
-    String listFilesSQLQuery = createListQuery(catalog, schema, volume, filePath.folder);
+    String listFilesSQLQuery = createListQuery(catalog, schema, volume, folder);
 
     try (Statement statement = connection.createStatement()) {
       try (ResultSet resultSet = statement.executeQuery(listFilesSQLQuery)) {
@@ -171,9 +173,9 @@ public class DatabricksUCVolumeClient implements IDatabricksVolumeClient {
           if (fileName.regionMatches(
               /* ignoreCase= */ !caseSensitive,
               /* targetOffset= */ 0,
-              /* StringToCheck= */ filePath.basename,
+              /* StringToCheck= */ basename,
               /* sourceOffset= */ 0,
-              /* lengthToMatch= */ filePath.basename.length())) {
+              /* lengthToMatch= */ basename.length())) {
             exists = true;
             break;
           }
@@ -262,9 +264,10 @@ public class DatabricksUCVolumeClient implements IDatabricksVolumeClient {
             "Entering listObjects method with parameters: catalog={%s}, schema={%s}, volume={%s}, prefix={%s}, caseSensitive={%s}",
             catalog, schema, volume, prefix, caseSensitive));
 
-    StringUtil.FilePath filePath = new StringUtil.FilePath(prefix);
+    String folder = StringUtil.getFolderNameFromPath(prefix);
+    String basename = StringUtil.getBaseNameFromPath(prefix);
 
-    String listFilesSQLQuery = createListQuery(catalog, schema, volume, filePath.folder);
+    String listFilesSQLQuery = createListQuery(catalog, schema, volume, folder);
 
     try (Statement statement = connection.createStatement()) {
       try (ResultSet resultSet = statement.executeQuery(listFilesSQLQuery)) {
@@ -272,13 +275,13 @@ public class DatabricksUCVolumeClient implements IDatabricksVolumeClient {
         List<String> filenames = new ArrayList<>();
         while (resultSet.next()) {
           String fileName = resultSet.getString("name");
-          if (filePath.basename.isEmpty()
+          if (basename.isEmpty()
               || fileName.regionMatches(
                   /* ignoreCase= */ !caseSensitive,
                   /* targetOffset= */ 0,
-                  /* StringToCheck= */ filePath.basename,
+                  /* StringToCheck= */ basename,
                   /* sourceOffset= */ 0,
-                  /* lengthToMatch= */ filePath.basename.length())) {
+                  /* lengthToMatch= */ basename.length())) {
             filenames.add(fileName);
           }
         }

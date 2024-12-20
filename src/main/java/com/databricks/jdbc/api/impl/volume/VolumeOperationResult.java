@@ -7,6 +7,7 @@ import com.databricks.jdbc.api.IDatabricksSession;
 import com.databricks.jdbc.api.impl.IExecutionResult;
 import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
 import com.databricks.jdbc.common.ErrorCodes;
+import com.databricks.jdbc.common.util.VolumeUtil;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
 import com.databricks.jdbc.dbclient.impl.http.DatabricksHttpClientFactory;
 import com.databricks.jdbc.exception.DatabricksSQLException;
@@ -166,13 +167,11 @@ public class VolumeOperationResult implements IExecutionResult {
       initHandler(resultHandler);
       volumeOperationProcessor.process();
 
-      if (volumeOperationProcessor.getStatus()
-          == VolumeOperationProcessor.VolumeOperationStatus.FAILED) {
+      if (volumeOperationProcessor.getStatus() == VolumeUtil.VolumeOperationStatus.FAILED) {
         throw new DatabricksSQLException(
             "Volume operation failed: " + volumeOperationProcessor.getErrorMessage());
       }
-      if (volumeOperationProcessor.getStatus()
-          == VolumeOperationProcessor.VolumeOperationStatus.ABORTED) {
+      if (volumeOperationProcessor.getStatus() == VolumeUtil.VolumeOperationStatus.ABORTED) {
         throw new DatabricksSQLException(
             "Volume operation aborted: " + volumeOperationProcessor.getErrorMessage());
       }

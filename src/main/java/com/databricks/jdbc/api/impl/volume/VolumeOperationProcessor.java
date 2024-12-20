@@ -1,6 +1,7 @@
 package com.databricks.jdbc.api.impl.volume;
 
 import com.databricks.jdbc.common.util.HttpUtil;
+import com.databricks.jdbc.common.util.VolumeUtil;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
 import com.databricks.jdbc.exception.DatabricksHttpException;
 import com.databricks.jdbc.log.JdbcLogger;
@@ -35,7 +36,7 @@ class VolumeOperationProcessor {
   private final IDatabricksHttpClient databricksHttpClient;
   private final InputStreamEntity inputStream;
   private final Consumer<HttpEntity> getStreamReceiver;
-  private VolumeOperationStatus status;
+  private VolumeUtil.VolumeOperationStatus status;
   private String errorMessage;
 
   VolumeOperationProcessor(
@@ -57,7 +58,7 @@ class VolumeOperationProcessor {
     this.inputStream = inputStream;
     this.getStreamReceiver = getStreamReceiver;
     this.databricksHttpClient = databricksHttpClient;
-    this.status = VolumeOperationStatus.PENDING;
+    this.status = VolumeUtil.VolumeOperationStatus.PENDING;
     this.errorMessage = null;
   }
 
@@ -74,33 +75,33 @@ class VolumeOperationProcessor {
             "Running volume operation {%s} on local file {%s}",
             operationType, localFilePath == null ? "" : localFilePath));
     if (operationUrl == null || operationUrl.isEmpty()) {
-      status = VolumeOperationStatus.ABORTED;
+      status = VolumeUtil.VolumeOperationStatus.ABORTED;
       errorMessage = "Volume operation URL is not set";
       LOGGER.error(errorMessage);
       return;
     }
     validateLocalFilePath();
-    if (status == VolumeOperationStatus.ABORTED) {
+    if (status == VolumeUtil.VolumeOperationStatus.ABORTED) {
       return;
     }
-    status = VolumeOperationStatus.RUNNING;
+    status = VolumeUtil.VolumeOperationStatus.RUNNING;
     switch (operationType.toLowerCase()) {
-      case HttpUtil.VOLUME_OPERATION_TYPE_GET:
+      case VolumeUtil.VOLUME_OPERATION_TYPE_GET:
         executeGetOperation();
         break;
-      case HttpUtil.VOLUME_OPERATION_TYPE_PUT:
+      case VolumeUtil.VOLUME_OPERATION_TYPE_PUT:
         executePutOperation();
         break;
-      case HttpUtil.VOLUME_OPERATION_TYPE_REMOVE:
+      case VolumeUtil.VOLUME_OPERATION_TYPE_REMOVE:
         executeDeleteOperation();
         break;
       default:
-        status = VolumeOperationStatus.ABORTED;
+        status = VolumeUtil.VolumeOperationStatus.ABORTED;
         errorMessage = "Invalid operation type";
     }
   }
 
-  VolumeOperationStatus getStatus() {
+  VolumeUtil.VolumeOperationStatus getStatus() {
     return status;
   }
 
@@ -114,19 +115,19 @@ class VolumeOperationProcessor {
     }
 
     if (allowedVolumeIngestionPaths.isEmpty()) {
-      status = VolumeOperationStatus.ABORTED;
+      status = VolumeUtil.VolumeOperationStatus.ABORTED;
       errorMessage = "Volume ingestion paths are not set";
       LOGGER.error(errorMessage);
       return;
     }
-    if (operationType.equalsIgnoreCase(HttpUtil.VOLUME_OPERATION_TYPE_REMOVE)) {
+    if (operationType.equalsIgnoreCase(VolumeUtil.VOLUME_OPERATION_TYPE_REMOVE)) {
       return;
     }
     if (localFilePath == null
         || localFilePath.isEmpty()
         || localFilePath.contains(PARENT_DIRECTORY_REF)) {
       LOGGER.error("Local file path is invalid {%s}", localFilePath);
-      status = VolumeOperationStatus.ABORTED;
+      status = VolumeUtil.VolumeOperationStatus.ABORTED;
       errorMessage = "Local file path is invalid";
       return;
     }
@@ -137,7 +138,7 @@ class VolumeOperationProcessor {
             .findFirst();
     if (pathMatched.isEmpty() || !pathMatched.get()) {
       LOGGER.error("Local file path is not allowed {%s}", localFilePath);
-      status = VolumeOperationStatus.ABORTED;
+      status = VolumeUtil.VolumeOperationStatus.ABORTED;
       errorMessage = "Local file path is not allowed";
     }
   }
@@ -166,7 +167,7 @@ class VolumeOperationProcessor {
       if (isAllowedInputStreamForVolumeOperation) {
         responseStream = databricksHttpClient.execute(httpGet);
         if (!HttpUtil.isSuccessfulHttpResponse(responseStream)) {
-          status = VolumeOperationStatus.FAILED;
+          status = VolumeUtil.VolumeOperationStatus.FAILED;
           errorMessage =
               String.format(
                   "Failed to fetch content from volume with error code {%s} for input stream and error {%s}",
@@ -177,12 +178,12 @@ class VolumeOperationProcessor {
           return;
         }
         getStreamReceiver.accept(responseStream.getEntity());
-        status = VolumeOperationStatus.SUCCEEDED;
+        status = VolumeUtil.VolumeOperationStatus.SUCCEEDED;
         return;
       }
     } catch (DatabricksHttpException e) {
       closeResponse(responseStream);
-      status = VolumeOperationStatus.FAILED;
+      status = VolumeUtil.VolumeOperationStatus.FAILED;
       errorMessage = "Failed to execute GET operation for input stream: " + e.getMessage();
       LOGGER.error(errorMessage);
       return;
@@ -192,7 +193,7 @@ class VolumeOperationProcessor {
     File localFile = new File(localFilePath);
     if (localFile.exists()) {
       LOGGER.error("Local file already exists for GET operation {%s}", localFilePath);
-      status = VolumeOperationStatus.ABORTED;
+      status = VolumeUtil.VolumeOperationStatus.ABORTED;
       errorMessage = "Local file already exists";
       return;
     }
@@ -202,7 +203,7 @@ class VolumeOperationProcessor {
         LOGGER.error(
             "Failed to fetch content from volume with error {%s} for local file {%s}",
             response.getStatusLine().getStatusCode(), localFilePath);
-        status = VolumeOperationStatus.FAILED;
+        status = VolumeUtil.VolumeOperationStatus.FAILED;
         errorMessage = "Failed to download file";
         return;
       }
@@ -218,10 +219,10 @@ class VolumeOperationProcessor {
           while ((length = inputStream.read(buffer)) != -1) {
             outputStream.write(buffer, 0, length);
           }
-          status = VolumeOperationStatus.SUCCEEDED;
+          status = VolumeUtil.VolumeOperationStatus.SUCCEEDED;
         } catch (FileNotFoundException e) {
           LOGGER.error("Local file path is invalid or a directory {%s}", localFilePath);
-          status = VolumeOperationStatus.FAILED;
+          status = VolumeUtil.VolumeOperationStatus.FAILED;
           errorMessage = "Local file path is invalid or a directory";
         } catch (IOException e) {
           // TODO: Add retries
@@ -230,7 +231,7 @@ class VolumeOperationProcessor {
               "Failed to write to local file {%s} with error {%s}",
               localFilePath,
               e.getMessage());
-          status = VolumeOperationStatus.FAILED;
+          status = VolumeUtil.VolumeOperationStatus.FAILED;
           errorMessage = "Failed to write to local file: " + e.getMessage();
         } finally {
           // It's important to consume the entity content fully and ensure the stream is closed
@@ -238,7 +239,7 @@ class VolumeOperationProcessor {
         }
       }
     } catch (IOException | DatabricksHttpException e) {
-      status = VolumeOperationStatus.FAILED;
+      status = VolumeUtil.VolumeOperationStatus.FAILED;
       errorMessage = "Failed to download file: " + e.getMessage();
     }
   }
@@ -249,7 +250,7 @@ class VolumeOperationProcessor {
 
     if (isAllowedInputStreamForVolumeOperation) {
       if (inputStream == null) {
-        status = VolumeOperationStatus.ABORTED;
+        status = VolumeUtil.VolumeOperationStatus.ABORTED;
         errorMessage = "InputStream not set for PUT operation";
         LOGGER.error(errorMessage);
         return;
@@ -269,19 +270,19 @@ class VolumeOperationProcessor {
     try (CloseableHttpResponse response = databricksHttpClient.execute(httpPut)) {
       // Process the response
       if (HttpUtil.isSuccessfulHttpResponse(response)) {
-        status = VolumeOperationStatus.SUCCEEDED;
+        status = VolumeUtil.VolumeOperationStatus.SUCCEEDED;
       } else {
         LOGGER.error(
             "Failed to upload file {%s} with error code: {%s}",
             localFilePath, response.getStatusLine().getStatusCode());
         // TODO: Add retries
-        status = VolumeOperationStatus.FAILED;
+        status = VolumeUtil.VolumeOperationStatus.FAILED;
         errorMessage =
             "Failed to upload file with error code: " + response.getStatusLine().getStatusCode();
       }
     } catch (IOException | DatabricksHttpException e) {
       LOGGER.error("Failed to upload file {%s} with error {%s}", localFilePath, e.getMessage());
-      status = VolumeOperationStatus.FAILED;
+      status = VolumeUtil.VolumeOperationStatus.FAILED;
       errorMessage = "Failed to upload file: " + e.getMessage();
     }
   }
@@ -289,20 +290,20 @@ class VolumeOperationProcessor {
   private boolean localFileHasErrorForPutOperation(File file) {
     if (!file.exists() || file.isDirectory()) {
       LOGGER.error("Local file does not exist or is a directory {%s}", localFilePath);
-      status = VolumeOperationStatus.ABORTED;
+      status = VolumeUtil.VolumeOperationStatus.ABORTED;
       errorMessage = "Local file does not exist or is a directory";
       return true;
     }
     if (file.length() == 0) {
       LOGGER.error("Local file is empty {%s}", localFilePath);
-      status = VolumeOperationStatus.ABORTED;
+      status = VolumeUtil.VolumeOperationStatus.ABORTED;
       errorMessage = "Local file is empty";
       return true;
     }
 
     if (file.length() > PUT_SIZE_LIMITS) {
       LOGGER.error("Local file too large {%s}", localFilePath);
-      status = VolumeOperationStatus.ABORTED;
+      status = VolumeUtil.VolumeOperationStatus.ABORTED;
       errorMessage = "Local file too large";
       return true;
     }
@@ -315,26 +316,18 @@ class VolumeOperationProcessor {
     headers.forEach(httpDelete::addHeader);
     try (CloseableHttpResponse response = databricksHttpClient.execute(httpDelete)) {
       if (HttpUtil.isSuccessfulHttpResponse(response)) {
-        status = VolumeOperationStatus.SUCCEEDED;
+        status = VolumeUtil.VolumeOperationStatus.SUCCEEDED;
       } else {
         LOGGER.error(
             "Failed to delete volume with error code: {%s}",
             response.getStatusLine().getStatusCode());
-        status = VolumeOperationStatus.FAILED;
+        status = VolumeUtil.VolumeOperationStatus.FAILED;
         errorMessage = "Failed to delete volume";
       }
     } catch (DatabricksHttpException | IOException e) {
       LOGGER.error(e, "Failed to delete volume with error {%s}", e.getMessage());
-      status = VolumeOperationStatus.FAILED;
+      status = VolumeUtil.VolumeOperationStatus.FAILED;
       errorMessage = "Failed to delete volume: " + e.getMessage();
     }
-  }
-
-  enum VolumeOperationStatus {
-    PENDING,
-    RUNNING,
-    ABORTED,
-    SUCCEEDED,
-    FAILED
   }
 }

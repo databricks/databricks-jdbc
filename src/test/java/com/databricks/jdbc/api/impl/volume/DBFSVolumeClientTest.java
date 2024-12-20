@@ -3,7 +3,7 @@ package com.databricks.jdbc.api.impl.volume;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
-import com.databricks.jdbc.common.util.HttpUtil;
+import com.databricks.jdbc.common.util.VolumeUtil;
 import com.databricks.jdbc.exception.DatabricksVolumeOperationException;
 import com.databricks.jdbc.model.client.filesystem.*;
 import com.databricks.sdk.WorkspaceClient;
@@ -100,7 +100,7 @@ class DBFSVolumeClientTest {
     doReturn(mockProcessor)
         .when(client)
         .getVolumeOperationProcessor(
-            eq(HttpUtil.VOLUME_OPERATION_TYPE_GET),
+            eq(VolumeUtil.VOLUME_OPERATION_TYPE_GET),
             eq(PRE_SIGNED_URL),
             anyMap(),
             eq("localPath"),
@@ -110,7 +110,7 @@ class DBFSVolumeClientTest {
             any(),
             eq(null));
 
-    doReturn(true).when(client).checkVolumeOperationStatus(any());
+    doReturn(VolumeUtil.VolumeOperationStatus.SUCCEEDED).when(mockProcessor).getStatus();
 
     boolean result = client.getObject("catalog", "schema", "volume", "objectPath", "localPath");
 
@@ -173,7 +173,7 @@ class DBFSVolumeClientTest {
     doReturn(mockProcessor)
         .when(client)
         .getVolumeOperationProcessor(
-            eq(HttpUtil.VOLUME_OPERATION_TYPE_PUT),
+            eq(VolumeUtil.VOLUME_OPERATION_TYPE_PUT),
             eq(PRE_SIGNED_URL),
             anyMap(),
             eq("localPath"),
@@ -183,7 +183,7 @@ class DBFSVolumeClientTest {
             any(),
             eq(null));
 
-    doReturn(true).when(client).checkVolumeOperationStatus(any());
+    doReturn(VolumeUtil.VolumeOperationStatus.SUCCEEDED).when(mockProcessor).getStatus();
 
     boolean result =
         client.putObject("catalog", "schema", "volume", "objectPath", "localPath", true);
@@ -211,7 +211,7 @@ class DBFSVolumeClientTest {
     doReturn(mockProcessor)
         .when(client)
         .getVolumeOperationProcessor(
-            eq(HttpUtil.VOLUME_OPERATION_TYPE_PUT),
+            eq(VolumeUtil.VOLUME_OPERATION_TYPE_PUT),
             eq(PRE_SIGNED_URL),
             anyMap(),
             eq(null),
@@ -221,7 +221,7 @@ class DBFSVolumeClientTest {
             any(),
             eq(null));
 
-    doReturn(true).when(client).checkVolumeOperationStatus(any());
+    doReturn(VolumeUtil.VolumeOperationStatus.SUCCEEDED).when(mockProcessor).getStatus();
 
     File file = new File("/tmp/dbfs_test_put.txt");
 
@@ -257,7 +257,7 @@ class DBFSVolumeClientTest {
     doReturn(mockProcessor)
         .when(client)
         .getVolumeOperationProcessor(
-            eq(HttpUtil.VOLUME_OPERATION_TYPE_REMOVE),
+            eq(VolumeUtil.VOLUME_OPERATION_TYPE_REMOVE),
             eq(PRE_SIGNED_URL),
             anyMap(),
             eq(null),
@@ -267,7 +267,7 @@ class DBFSVolumeClientTest {
             any(),
             eq(null));
 
-    doReturn(true).when(client).checkVolumeOperationStatus(any());
+    doReturn(VolumeUtil.VolumeOperationStatus.SUCCEEDED).when(mockProcessor).getStatus();
 
     boolean result = client.deleteObject("catalog", "schema", "volume", "objectPath");
 
