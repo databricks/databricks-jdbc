@@ -39,6 +39,98 @@ class VolumeOperationProcessor {
   private VolumeUtil.VolumeOperationStatus status;
   private String errorMessage;
 
+  private VolumeOperationProcessor(Builder builder) {
+    this.operationType = builder.operationType;
+    this.operationUrl = builder.operationUrl;
+    this.localFilePath = builder.localFilePath;
+    this.headers = builder.headers;
+    this.allowedVolumeIngestionPaths = builder.allowedVolumeIngestionPaths;
+    this.isAllowedInputStreamForVolumeOperation = builder.isAllowedInputStreamForVolumeOperation;
+    this.inputStream = builder.inputStream;
+    this.getStreamReceiver = builder.getStreamReceiver;
+    this.databricksHttpClient = builder.databricksHttpClient;
+    this.status = builder.status;
+    this.errorMessage = builder.errorMessage;
+  }
+
+  public static class Builder {
+    private String operationType;
+    private String operationUrl;
+    private String localFilePath = null;
+    private Map<String, String> headers = new HashMap<>();
+    private Set<String> allowedVolumeIngestionPaths = null;
+    private boolean isAllowedInputStreamForVolumeOperation = false;
+    private IDatabricksHttpClient databricksHttpClient = null;
+    private InputStreamEntity inputStream = null;
+    private Consumer<HttpEntity> getStreamReceiver = null;
+    private VolumeUtil.VolumeOperationStatus status = VolumeUtil.VolumeOperationStatus.PENDING;
+    private String errorMessage = null;
+
+    public static Builder createBuilder() {
+      return new Builder();
+    }
+
+    public Builder operationType(String operationType) {
+      this.operationType = operationType;
+      return this;
+    }
+
+    public Builder operationUrl(String operationUrl) {
+      this.operationUrl = operationUrl;
+      return this;
+    }
+
+    public Builder localFilePath(String localFilePath) {
+      this.localFilePath = localFilePath;
+      return this;
+    }
+
+    public Builder headers(Map<String, String> headers) {
+      this.headers = headers;
+      return this;
+    }
+
+    public Builder allowedVolumeIngestionPathString(String allowedVolumeIngestionPathString) {
+      this.allowedVolumeIngestionPaths = getAllowedPaths(allowedVolumeIngestionPathString);
+      return this;
+    }
+
+    public Builder isAllowedInputStreamForVolumeOperation(
+        boolean isAllowedInputStreamForVolumeOperation) {
+      this.isAllowedInputStreamForVolumeOperation = isAllowedInputStreamForVolumeOperation;
+      return this;
+    }
+
+    public Builder databricksHttpClient(IDatabricksHttpClient databricksHttpClient) {
+      this.databricksHttpClient = databricksHttpClient;
+      return this;
+    }
+
+    public Builder inputStream(InputStreamEntity inputStream) {
+      this.inputStream = inputStream;
+      return this;
+    }
+
+    public Builder getStreamReceiver(Consumer<HttpEntity> getStreamReceiver) {
+      this.getStreamReceiver = getStreamReceiver;
+      return this;
+    }
+
+    public Builder status(VolumeUtil.VolumeOperationStatus status) {
+      this.status = status;
+      return this;
+    }
+
+    public Builder errorMessage(String errorMessage) {
+      this.errorMessage = errorMessage;
+      return this;
+    }
+
+    public VolumeOperationProcessor build() {
+      return new VolumeOperationProcessor(this);
+    }
+  }
+
   VolumeOperationProcessor(
       String operationType,
       String operationUrl,

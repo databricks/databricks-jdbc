@@ -76,23 +76,26 @@ public class VolumeOperationResult implements IExecutionResult {
     Map<String, String> headers = getHeaders(getString(resultHandler.getObject(2)));
     String allowedVolumeIngestionPaths = getAllowedVolumeIngestionPaths();
     this.volumeOperationProcessor =
-        new VolumeOperationProcessor(
-            operation,
-            presignedUrl,
-            headers,
-            localFile,
-            allowedVolumeIngestionPaths,
-            statement.isAllowedInputStreamForVolumeOperation(),
-            statement.getInputStreamForUCVolume(),
-            httpClient,
-            (entity) -> {
-              try {
-                this.setVolumeOperationEntityStream(entity);
-              } catch (Exception e) {
-                throw new RuntimeException(
-                    "Failed to set result set volumeOperationEntityStream", e);
-              }
-            });
+        VolumeOperationProcessor.Builder.createBuilder()
+            .operationType(operation)
+            .operationUrl(presignedUrl)
+            .headers(headers)
+            .localFilePath(localFile)
+            .allowedVolumeIngestionPathString(allowedVolumeIngestionPaths)
+            .isAllowedInputStreamForVolumeOperation(
+                statement.isAllowedInputStreamForVolumeOperation())
+            .inputStream(statement.getInputStreamForUCVolume())
+            .databricksHttpClient(httpClient)
+            .getStreamReceiver(
+                (entity) -> {
+                  try {
+                    this.setVolumeOperationEntityStream(entity);
+                  } catch (Exception e) {
+                    throw new RuntimeException(
+                        "Failed to set result set volumeOperationEntityStream", e);
+                  }
+                })
+            .build();
   }
 
   private String getAllowedVolumeIngestionPaths() {

@@ -3,7 +3,6 @@ package com.databricks.jdbc.api.impl.volume;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
-import com.databricks.jdbc.common.util.VolumeUtil;
 import com.databricks.jdbc.exception.DatabricksVolumeOperationException;
 import com.databricks.jdbc.model.client.filesystem.*;
 import com.databricks.sdk.WorkspaceClient;
@@ -26,9 +25,11 @@ class DBFSVolumeClientTest {
   @Mock private WorkspaceClient mockWorkSpaceClient;
   @Mock private ApiClient mockAPIClient;
   private DBFSVolumeClient client;
+  private VolumeOperationProcessor.Builder processorBuilder;
 
   @BeforeEach
   void setup() {
+    // DBFS Client Spy
     client = new DBFSVolumeClient(mockWorkSpaceClient);
     client = spy(client);
   }
@@ -93,29 +94,26 @@ class DBFSVolumeClientTest {
 
   @Test
   void testGetObjectWithLocalPath() throws Exception {
+    // Volume Operation builder spy
+    VolumeOperationProcessor.Builder realBuilder = VolumeOperationProcessor.Builder.createBuilder();
+    processorBuilder = spy(realBuilder);
+    doReturn(mockProcessor).when(processorBuilder).build();
+
     CreateDownloadUrlResponse mockResponse = mock(CreateDownloadUrlResponse.class);
     when(mockResponse.getUrl()).thenReturn(PRE_SIGNED_URL);
     doReturn(mockResponse).when(client).getCreateDownloadUrlResponse(any());
 
-    doReturn(mockProcessor)
-        .when(client)
-        .getVolumeOperationProcessor(
-            eq(VolumeUtil.VOLUME_OPERATION_TYPE_GET),
-            eq(PRE_SIGNED_URL),
-            anyMap(),
-            eq("localPath"),
-            any(),
-            eq(false),
-            eq(null),
-            any(),
-            eq(null));
+    try (MockedStatic<VolumeOperationProcessor.Builder> mockedStatic =
+        mockStatic(VolumeOperationProcessor.Builder.class)) {
+      mockedStatic
+          .when(VolumeOperationProcessor.Builder::createBuilder)
+          .thenReturn(processorBuilder);
 
-    doReturn(VolumeUtil.VolumeOperationStatus.SUCCEEDED).when(mockProcessor).getStatus();
+      boolean result = client.getObject("catalog", "schema", "volume", "objectPath", "localPath");
 
-    boolean result = client.getObject("catalog", "schema", "volume", "objectPath", "localPath");
-
-    assertTrue(result);
-    verify(mockProcessor).process();
+      assertTrue(result);
+      verify(mockProcessor).process();
+    }
   }
 
   @Test
@@ -166,30 +164,27 @@ class DBFSVolumeClientTest {
 
   @Test
   void testPutObjectWithLocalPath() throws Exception {
+    // Volume Operation builder spy
+    VolumeOperationProcessor.Builder realBuilder = VolumeOperationProcessor.Builder.createBuilder();
+    processorBuilder = spy(realBuilder);
+    doReturn(mockProcessor).when(processorBuilder).build();
+
     CreateUploadUrlResponse mockResponse = mock(CreateUploadUrlResponse.class);
     when(mockResponse.getUrl()).thenReturn(PRE_SIGNED_URL);
     doReturn(mockResponse).when(client).getCreateUploadUrlResponse(any());
 
-    doReturn(mockProcessor)
-        .when(client)
-        .getVolumeOperationProcessor(
-            eq(VolumeUtil.VOLUME_OPERATION_TYPE_PUT),
-            eq(PRE_SIGNED_URL),
-            anyMap(),
-            eq("localPath"),
-            any(),
-            eq(false),
-            eq(null),
-            any(),
-            eq(null));
+    try (MockedStatic<VolumeOperationProcessor.Builder> mockedStatic =
+        mockStatic(VolumeOperationProcessor.Builder.class)) {
+      mockedStatic
+          .when(VolumeOperationProcessor.Builder::createBuilder)
+          .thenReturn(processorBuilder);
 
-    doReturn(VolumeUtil.VolumeOperationStatus.SUCCEEDED).when(mockProcessor).getStatus();
+      boolean result =
+          client.putObject("catalog", "schema", "volume", "objectPath", "localPath", true);
 
-    boolean result =
-        client.putObject("catalog", "schema", "volume", "objectPath", "localPath", true);
-
-    assertTrue(result);
-    verify(mockProcessor).process();
+      assertTrue(result);
+      verify(mockProcessor).process();
+    }
   }
 
   @Test
@@ -204,75 +199,69 @@ class DBFSVolumeClientTest {
 
   @Test
   void testPutObjectWithInputStream() throws Exception {
+    // Volume Operation builder spy
+    VolumeOperationProcessor.Builder realBuilder = VolumeOperationProcessor.Builder.createBuilder();
+    processorBuilder = spy(realBuilder);
+    doReturn(mockProcessor).when(processorBuilder).build();
+
     CreateUploadUrlResponse mockResponse = mock(CreateUploadUrlResponse.class);
     when(mockResponse.getUrl()).thenReturn(PRE_SIGNED_URL);
     doReturn(mockResponse).when(client).getCreateUploadUrlResponse(any());
 
-    doReturn(mockProcessor)
-        .when(client)
-        .getVolumeOperationProcessor(
-            eq(VolumeUtil.VOLUME_OPERATION_TYPE_PUT),
-            eq(PRE_SIGNED_URL),
-            anyMap(),
-            eq(null),
-            eq(null),
-            eq(true),
-            any(),
-            any(),
-            eq(null));
+    try (MockedStatic<VolumeOperationProcessor.Builder> mockedStatic =
+        mockStatic(VolumeOperationProcessor.Builder.class)) {
+      mockedStatic
+          .when(VolumeOperationProcessor.Builder::createBuilder)
+          .thenReturn(processorBuilder);
 
-    doReturn(VolumeUtil.VolumeOperationStatus.SUCCEEDED).when(mockProcessor).getStatus();
+      File file = new File("/tmp/dbfs_test_put.txt");
 
-    File file = new File("/tmp/dbfs_test_put.txt");
+      boolean result = false;
+      try {
+        Files.writeString(file.toPath(), "test-put-stream");
+        System.out.println("File created");
 
-    boolean result = false;
-    try {
-      Files.writeString(file.toPath(), "test-put-stream");
-      System.out.println("File created");
+        result =
+            client.putObject(
+                "catalog",
+                "schema",
+                "volume",
+                "objectPath",
+                new FileInputStream(file),
+                file.length(),
+                true);
 
-      result =
-          client.putObject(
-              "catalog",
-              "schema",
-              "volume",
-              "objectPath",
-              new FileInputStream(file),
-              file.length(),
-              true);
+      } finally {
+        file.delete();
+      }
 
-    } finally {
-      file.delete();
+      assertTrue(result);
+      verify(mockProcessor).process();
     }
-
-    assertTrue(result);
-    verify(mockProcessor).process();
   }
 
   @Test
   void testDeleteObject() throws Exception {
+    // Volume Operation builder spy
+    VolumeOperationProcessor.Builder realBuilder = VolumeOperationProcessor.Builder.createBuilder();
+    processorBuilder = spy(realBuilder);
+    doReturn(mockProcessor).when(processorBuilder).build();
+
     CreateDeleteUrlResponse mockResponse = mock(CreateDeleteUrlResponse.class);
     when(mockResponse.getUrl()).thenReturn(PRE_SIGNED_URL);
     doReturn(mockResponse).when(client).getCreateDeleteUrlResponse(any());
 
-    doReturn(mockProcessor)
-        .when(client)
-        .getVolumeOperationProcessor(
-            eq(VolumeUtil.VOLUME_OPERATION_TYPE_REMOVE),
-            eq(PRE_SIGNED_URL),
-            anyMap(),
-            eq(null),
-            eq(null),
-            eq(true),
-            eq(null),
-            any(),
-            eq(null));
+    try (MockedStatic<VolumeOperationProcessor.Builder> mockedStatic =
+        mockStatic(VolumeOperationProcessor.Builder.class)) {
+      mockedStatic
+          .when(VolumeOperationProcessor.Builder::createBuilder)
+          .thenReturn(processorBuilder);
 
-    doReturn(VolumeUtil.VolumeOperationStatus.SUCCEEDED).when(mockProcessor).getStatus();
+      boolean result = client.deleteObject("catalog", "schema", "volume", "objectPath");
 
-    boolean result = client.deleteObject("catalog", "schema", "volume", "objectPath");
-
-    assertTrue(result);
-    verify(mockProcessor).process();
+      assertTrue(result);
+      verify(mockProcessor).process();
+    }
   }
 
   @Test

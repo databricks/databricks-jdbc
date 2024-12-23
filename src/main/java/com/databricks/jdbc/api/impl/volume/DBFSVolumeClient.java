@@ -23,7 +23,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.sql.SQLException;
 import java.util.*;
-import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import org.apache.http.HttpEntity;
 import org.apache.http.entity.InputStreamEntity;
@@ -124,16 +123,13 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient {
 
       // Downloading the object from the presigned url
       VolumeOperationProcessor volumeOperationProcessor =
-          getVolumeOperationProcessor(
-              VolumeUtil.VOLUME_OPERATION_TYPE_GET,
-              response.getUrl(),
-              new HashMap<>(),
-              localPath,
-              ALLOWED_VOLUME_INGESTION_PATHS,
-              false,
-              null,
-              databricksHttpClient,
-              null);
+          VolumeOperationProcessor.Builder.createBuilder()
+              .operationType(VolumeUtil.VOLUME_OPERATION_TYPE_GET)
+              .operationUrl(response.getUrl())
+              .localFilePath(localPath)
+              .allowedVolumeIngestionPathString(ALLOWED_VOLUME_INGESTION_PATHS)
+              .databricksHttpClient(databricksHttpClient)
+              .build();
 
       volumeOperationProcessor.process();
       checkVolumeOperationError(volumeOperationProcessor);
@@ -162,23 +158,21 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient {
 
       // Downloading the object from the presigned url
       VolumeOperationProcessor volumeOperationProcessor =
-          getVolumeOperationProcessor(
-              VolumeUtil.VOLUME_OPERATION_TYPE_GET,
-              response.getUrl(),
-              new HashMap<>(),
-              null,
-              null,
-              true,
-              null,
-              databricksHttpClient,
-              (entity) -> {
-                try {
-                  this.setVolumeOperationEntityStream(entity);
-                } catch (Exception e) {
-                  throw new RuntimeException(
-                      "Failed to set result set volumeOperationEntityStream", e);
-                }
-              });
+          VolumeOperationProcessor.Builder.createBuilder()
+              .operationType(VolumeUtil.VOLUME_OPERATION_TYPE_GET)
+              .operationUrl(response.getUrl())
+              .isAllowedInputStreamForVolumeOperation(true)
+              .databricksHttpClient(databricksHttpClient)
+              .getStreamReceiver(
+                  (entity) -> {
+                    try {
+                      this.setVolumeOperationEntityStream(entity);
+                    } catch (Exception e) {
+                      throw new RuntimeException(
+                          "Failed to set result set volumeOperationEntityStream", e);
+                    }
+                  })
+              .build();
 
       volumeOperationProcessor.process();
       checkVolumeOperationError(volumeOperationProcessor);
@@ -217,16 +211,13 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient {
 
       // Uploading the object to the Pre Signed Url
       VolumeOperationProcessor volumeOperationProcessor =
-          getVolumeOperationProcessor(
-              VolumeUtil.VOLUME_OPERATION_TYPE_PUT,
-              response.getUrl(),
-              new HashMap<>(),
-              localPath,
-              ALLOWED_VOLUME_INGESTION_PATHS,
-              false,
-              null,
-              databricksHttpClient,
-              null);
+          VolumeOperationProcessor.Builder.createBuilder()
+              .operationType(VolumeUtil.VOLUME_OPERATION_TYPE_PUT)
+              .operationUrl(response.getUrl())
+              .localFilePath(localPath)
+              .allowedVolumeIngestionPathString(ALLOWED_VOLUME_INGESTION_PATHS)
+              .databricksHttpClient(databricksHttpClient)
+              .build();
 
       volumeOperationProcessor.process();
       checkVolumeOperationError(volumeOperationProcessor);
@@ -262,16 +253,13 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient {
       InputStreamEntity inputStreamEntity = new InputStreamEntity(inputStream, contentLength);
       // Uploading the object to the Pre Signed Url
       VolumeOperationProcessor volumeOperationProcessor =
-          getVolumeOperationProcessor(
-              VolumeUtil.VOLUME_OPERATION_TYPE_PUT,
-              response.getUrl(),
-              new HashMap<>(),
-              null,
-              null,
-              true,
-              inputStreamEntity,
-              databricksHttpClient,
-              null);
+          VolumeOperationProcessor.Builder.createBuilder()
+              .operationType(VolumeUtil.VOLUME_OPERATION_TYPE_PUT)
+              .operationUrl(response.getUrl())
+              .isAllowedInputStreamForVolumeOperation(true)
+              .inputStream(inputStreamEntity)
+              .databricksHttpClient(databricksHttpClient)
+              .build();
 
       volumeOperationProcessor.process();
       checkVolumeOperationError(volumeOperationProcessor);
@@ -300,16 +288,12 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient {
 
       // Uploading the object to the Pre Signed Url
       VolumeOperationProcessor volumeOperationProcessor =
-          getVolumeOperationProcessor(
-              VolumeUtil.VOLUME_OPERATION_TYPE_REMOVE,
-              response.getUrl(),
-              new HashMap<>(),
-              null,
-              null,
-              true,
-              null,
-              databricksHttpClient,
-              null);
+          VolumeOperationProcessor.Builder.createBuilder()
+              .operationType(VolumeUtil.VOLUME_OPERATION_TYPE_REMOVE)
+              .operationUrl(response.getUrl())
+              .isAllowedInputStreamForVolumeOperation(true)
+              .databricksHttpClient(databricksHttpClient)
+              .build();
 
       volumeOperationProcessor.process();
       checkVolumeOperationError(volumeOperationProcessor);
@@ -324,29 +308,6 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient {
   WorkspaceClient getWorkspaceClientFromConnectionContext(
       IDatabricksConnectionContext connectionContext) {
     return new ClientConfigurator(connectionContext).getWorkspaceClient();
-  }
-
-  @VisibleForTesting
-  VolumeOperationProcessor getVolumeOperationProcessor(
-      String operationType,
-      String operationUrl,
-      Map<String, String> headers,
-      String localFilePath,
-      String allowedVolumeIngestionPathString,
-      boolean isAllowedInputStreamForVolumeOperation,
-      InputStreamEntity inputStream,
-      IDatabricksHttpClient databricksHttpClient,
-      Consumer<HttpEntity> getStreamReceiver) {
-    return new VolumeOperationProcessor(
-        operationType,
-        operationUrl,
-        headers,
-        localFilePath,
-        allowedVolumeIngestionPathString,
-        isAllowedInputStreamForVolumeOperation,
-        inputStream,
-        databricksHttpClient,
-        getStreamReceiver);
   }
 
   /** Fetches the pre signed url for uploading to the volume using the SQL Exec API */
