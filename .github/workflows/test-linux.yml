@@ -1,0 +1,26 @@
+name: Test on Linux (Docker)
+
+on:
+  push:
+    branches:
+      - main
+      - feature/docker-linux-ci
+  pull_request:
+    branches:
+      - main
+      - feature/docker-linux-ci
+
+jobs:
+  build-and-test-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the code
+        uses: actions/checkout@v2
+
+      - name: Build Docker Image
+        run: |
+          docker build -t jdbc-docker-test .
+
+      - name: Run Container
+        run: |
+          docker run jdbc-docker-test
