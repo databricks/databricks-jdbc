@@ -12,9 +12,6 @@ RUN apt-get update && \
     && ln -fs /usr/share/zoneinfo/$TZ /etc/localtime \
     && dpkg-reconfigure --frontend noninteractive tzdata
 
-# Continue with other steps as needed
-...
-
 # Install dependencies
 RUN apt-get update && apt-get install -y \
     curl \
