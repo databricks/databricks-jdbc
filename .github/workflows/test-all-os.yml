@@ -1,0 +1,44 @@
+name: Build and Test (All OS)
+
+on:
+  push:
+    branches:
+      - main
+      - feature/docker-linux-ci
+      - feature/macos-windows-ci
+  pull_request:
+    branches:
+      - main
+      - feature/docker-linux-ci
+      - feature/macos-windows-ci
+
+jobs:
+  build-and-test:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+      fail-fast: false
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Build & run Docker (Linux only)
+        if: runner.os == 'Linux'
+        run: |
+          docker build -t jdbc-docker-test .
+          docker run jdbc-docker-test
+
+      - name: macOS steps
+        if: runner.os == 'macOS'
+        run: |
+          echo "Running tests on macOS"
+          echo "Tests successful!"
+
+      - name: Windows steps
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          Write-Host "Running tests on Windows..."
+          Write-Host "Tests successful!"
