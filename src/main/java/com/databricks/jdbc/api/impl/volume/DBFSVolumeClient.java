@@ -36,7 +36,7 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient {
   private final IDatabricksHttpClient databricksHttpClient;
   private VolumeInputStream volumeInputStream = null;
   private long volumeStreamContentLength = -1L;
-  @VisibleForTesting final WorkspaceClient workspaceClient;
+  final WorkspaceClient workspaceClient;
 
   @VisibleForTesting
   public DBFSVolumeClient(WorkspaceClient workspaceClient) {
@@ -108,7 +108,7 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient {
   public boolean getObject(
       String catalog, String schema, String volume, String objectPath, String localPath)
       throws DatabricksVolumeOperationException {
-    LOGGER.debug(
+    LOGGER.info(
         String.format(
             "Entering getObject method with parameters: catalog={%s}, schema={%s}, volume={%s}, objectPath={%s}, localPath={%s}",
             catalog, schema, volume, objectPath, localPath));
@@ -146,7 +146,7 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient {
   public InputStreamEntity getObject(
       String catalog, String schema, String volume, String objectPath)
       throws DatabricksVolumeOperationException {
-    LOGGER.debug(
+    LOGGER.info(
         String.format(
             "Entering getObject method with parameters: catalog={%s}, schema={%s}, volume={%s}, objectPath={%s}",
             catalog, schema, volume, objectPath));
@@ -196,7 +196,7 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient {
       boolean toOverwrite)
       throws DatabricksVolumeOperationException {
 
-    LOGGER.debug(
+    LOGGER.info(
         String.format(
             "Entering putObject method with parameters: catalog={%s}, schema={%s}, volume={%s}, objectPath={%s}, localPath={%s}",
             catalog, schema, volume, objectPath, localPath));
@@ -240,7 +240,7 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient {
       long contentLength,
       boolean toOverwrite)
       throws DatabricksVolumeOperationException {
-    LOGGER.debug(
+    LOGGER.info(
         String.format(
             "Entering putObject method with parameters: catalog={%s}, schema={%s}, volume={%s}, objectPath={%s}, inputStream={%s}, contentLength={%s}, toOverwrite={%s}",
             catalog, schema, volume, objectPath, inputStream, contentLength, toOverwrite));
@@ -276,7 +276,7 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient {
   @Override
   public boolean deleteObject(String catalog, String schema, String volume, String objectPath)
       throws DatabricksVolumeOperationException {
-    LOGGER.debug(
+    LOGGER.info(
         String.format(
             "Entering deleteObject method with parameters: catalog={%s}, schema={%s}, volume={%s}, objectPath={%s}",
             catalog, schema, volume, objectPath));
@@ -313,7 +313,7 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient {
   /** Fetches the pre signed url for uploading to the volume using the SQL Exec API */
   CreateUploadUrlResponse getCreateUploadUrlResponse(String objectPath)
       throws DatabricksVolumeOperationException {
-    LOGGER.debug(
+    LOGGER.info(
         String.format(
             "Entering getCreateUploadUrlResponse method with parameters: objectPath={%s}",
             objectPath));
@@ -334,7 +334,7 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient {
   /** Fetches the pre signed url for downloading the object contents using the SQL Exec API */
   CreateDownloadUrlResponse getCreateDownloadUrlResponse(String objectPath)
       throws DatabricksVolumeOperationException {
-    LOGGER.debug(
+    LOGGER.info(
         String.format(
             "Entering getCreateDownloadUrlResponse method with parameters: objectPath={%s}",
             objectPath));
@@ -360,7 +360,7 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient {
   /** Fetches the pre signed url for deleting object from the volume using the SQL Exec API */
   CreateDeleteUrlResponse getCreateDeleteUrlResponse(String objectPath)
       throws DatabricksVolumeOperationException {
-    LOGGER.debug(
+    LOGGER.info(
         String.format(
             "Entering getCreateDeleteUrlResponse method with parameters: objectPath={%s}",
             objectPath));
@@ -380,7 +380,7 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient {
 
   /** Fetches the list of objects in the volume using the SQL Exec API */
   ListResponse getListResponse(String listPath) throws DatabricksVolumeOperationException {
-    LOGGER.debug(
+    LOGGER.info(
         String.format("Entering getListResponse method with parameters : listPath={%s}", listPath));
     ListRequest request = new ListRequest(listPath);
     try {

@@ -344,8 +344,6 @@ public class DriverTest {
 
   @Test
   void testDBFSVolumeOperationUsingStream() throws Exception {
-    DriverManager.registerDriver(new Driver());
-    DriverManager.drivers().forEach(driver -> System.out.println(driver.getClass()));
     System.out.println("Starting test");
     String jdbcUrl =
         "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/58aa1b363649e722;Loglevel=debug;";
@@ -395,8 +393,6 @@ public class DriverTest {
 
   @Test
   void testDBFSVolumeOperation() throws Exception {
-    DriverManager.registerDriver(new Driver());
-    DriverManager.drivers().forEach(driver -> System.out.println(driver.getClass()));
     System.out.println("Starting test");
     String jdbcUrl =
         "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/58aa1b363649e722;Loglevel=debug;";
