@@ -1,0 +1,63 @@
+name: JDBC Driver Comparison
+
+on:
+  schedule:
+    - cron: '0 0 * * *'  # Run daily at midnight UTC
+  workflow_dispatch:     # Allow manual trigger
+
+jobs:
+  comparator:
+    runs-on: ubuntu-latest
+
+    env:
+      PWD: ${{ secrets.DATABRICKS_COMPARATOR_TOKEN }}
+
+    steps:
+      - name: Checkout comparator branch
+        uses: actions/checkout@v3
+        with:
+          ref: jdbc-comparator
+
+      - name: Set up JDK 11
+        uses: actions/setup-java@v3
+        with:
+          java-version: '11'
+          distribution: 'temurin'
+          cache: maven
+
+      - name: Run Tests
+        run: mvn test -Dtest=JDBCDriverComparisonTest
+
+      - name: Check for Report and Differences
+        id: check_differences
+        run: |
+          if [ -f "jdbc-comparison-report.txt" ]; then
+            if grep -q "No differences found" "jdbc-comparison-report.txt"; then
+              echo "has_differences=false" >> $GITHUB_OUTPUT
+            else
+              echo "has_differences=true" >> $GITHUB_OUTPUT
+            fi
+          else
+            echo "Report file not found"
+            exit 1
+          fi
+
+      - name: Send Email
+        if: steps.check_differences.outputs.has_differences == 'true'
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: smtp.gmail.com
+          server_port: 465
+          username: ${{ secrets.SMTP_USERNAME }}
+          password: ${{ secrets.SMTP_PASSWORD }}
+          subject: JDBC Driver Comparison Results - 🚨Differences Found
+          body: file://jdbc-comparison-report.txt
+          to: ${{ secrets.EMAIL_RECIPIENTS }}
+          from: JDBC Test Runner
+          content_type: text/plain
+
+      - name: Upload Report as Artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: jdbc-comparison-report
+          path: jdbc-comparison-report.txt
