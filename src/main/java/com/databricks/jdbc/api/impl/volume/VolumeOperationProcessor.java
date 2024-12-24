@@ -315,7 +315,8 @@ class VolumeOperationProcessor {
     }
   }
 
-  private void executePutOperation() {
+  @VisibleForTesting
+  void executePutOperation() {
     HttpPut httpPut = new HttpPut(operationUrl);
     headers.forEach(httpPut::addHeader);
 

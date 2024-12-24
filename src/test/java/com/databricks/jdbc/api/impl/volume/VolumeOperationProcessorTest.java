@@ -9,6 +9,7 @@ import com.databricks.jdbc.dbclient.impl.http.DatabricksHttpClient;
 import com.databricks.jdbc.exception.DatabricksHttpException;
 import org.apache.http.StatusLine;
 import org.apache.http.client.methods.CloseableHttpResponse;
+import org.apache.http.entity.InputStreamEntity;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -21,6 +22,7 @@ public class VolumeOperationProcessorTest {
 
   @Mock private DatabricksHttpClient databricksHttpClient;
   @Mock private CloseableHttpResponse mockStream;
+  @Mock private InputStreamEntity mockInputStreamEntity;
   @Mock private StatusLine mockStatusLine;
 
   @Test
@@ -55,6 +57,23 @@ public class VolumeOperationProcessorTest {
     doThrow(mockException).when(databricksHttpClient).execute(any());
 
     volumeOperationProcessor.executeGetOperation();
+    assertEquals(volumeOperationProcessor.getStatus(), VolumeUtil.VolumeOperationStatus.FAILED);
+  }
+
+  @Test
+  void testExecutePutOperationStream_HttpException() throws Exception {
+    VolumeOperationProcessor volumeOperationProcessor =
+        VolumeOperationProcessor.Builder.createBuilder()
+            .operationUrl(PRE_SIGNED_URL)
+            .isAllowedInputStreamForVolumeOperation(true)
+            .inputStream(mockInputStreamEntity)
+            .databricksHttpClient(databricksHttpClient)
+            .build();
+
+    DatabricksHttpException mockException = new DatabricksHttpException("Test Exeception");
+    doThrow(mockException).when(databricksHttpClient).execute(any());
+
+    volumeOperationProcessor.executePutOperation();
     assertEquals(volumeOperationProcessor.getStatus(), VolumeUtil.VolumeOperationStatus.FAILED);
   }
 }
