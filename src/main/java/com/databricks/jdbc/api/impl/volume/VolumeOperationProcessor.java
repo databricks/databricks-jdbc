@@ -6,6 +6,7 @@ import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
 import com.databricks.jdbc.exception.DatabricksHttpException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
+import com.google.common.annotations.VisibleForTesting;
 import java.io.*;
 import java.util.*;
 import java.util.function.Consumer;
@@ -131,29 +132,6 @@ class VolumeOperationProcessor {
     }
   }
 
-  VolumeOperationProcessor(
-      String operationType,
-      String operationUrl,
-      Map<String, String> headers,
-      String localFilePath,
-      String allowedVolumeIngestionPathString,
-      boolean isAllowedInputStreamForVolumeOperation,
-      InputStreamEntity inputStream,
-      IDatabricksHttpClient databricksHttpClient,
-      Consumer<HttpEntity> getStreamReceiver) {
-    this.operationType = operationType;
-    this.operationUrl = operationUrl;
-    this.localFilePath = localFilePath;
-    this.headers = headers;
-    this.allowedVolumeIngestionPaths = getAllowedPaths(allowedVolumeIngestionPathString);
-    this.isAllowedInputStreamForVolumeOperation = isAllowedInputStreamForVolumeOperation;
-    this.inputStream = inputStream;
-    this.getStreamReceiver = getStreamReceiver;
-    this.databricksHttpClient = databricksHttpClient;
-    this.status = VolumeUtil.VolumeOperationStatus.PENDING;
-    this.errorMessage = null;
-  }
-
   private static Set<String> getAllowedPaths(String allowedVolumeIngestionPathString) {
     if (allowedVolumeIngestionPathString == null || allowedVolumeIngestionPathString.isEmpty()) {
       return Collections.emptySet();
@@ -248,7 +226,8 @@ class VolumeOperationProcessor {
     }
   }
 
-  private void executeGetOperation() {
+  @VisibleForTesting
+  void executeGetOperation() {
     HttpGet httpGet = new HttpGet(operationUrl);
     headers.forEach(httpGet::addHeader);
 
