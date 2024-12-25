@@ -64,6 +64,7 @@
     <wiremock.version>3.5.4</wiremock.version>
     <nimbusjose.version>9.40</nimbusjose.version>
     <bouncycastle.version>1.78.1</bouncycastle.version>
+    <async-httpclient.version>5.3.1</async-httpclient.version>
   </properties>
   <dependencies>
     <dependency>
@@ -220,6 +221,16 @@
           <artifactId>commons-fileupload</artifactId>
         </exclusion>
       </exclusions>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.httpcomponents.client5</groupId>
+      <artifactId>httpclient5</artifactId>
+      <version>${async-httpclient.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.httpcomponents.core5</groupId>
+      <artifactId>httpcore5</artifactId>
+      <version>${async-httpclient.version}</version>
     </dependency>
   </dependencies>
 
