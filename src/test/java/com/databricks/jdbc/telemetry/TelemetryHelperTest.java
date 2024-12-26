@@ -7,7 +7,7 @@ import static org.mockito.Mockito.*;
 
 import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.common.DatabricksClientType;
-import com.databricks.jdbc.model.telemetry.DriverMode;
+import com.databricks.jdbc.model.telemetry.enums.DriverMode;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;

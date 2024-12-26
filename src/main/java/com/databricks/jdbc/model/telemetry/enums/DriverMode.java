@@ -1,4 +1,4 @@
-package com.databricks.jdbc.model.telemetry;
+package com.databricks.jdbc.model.telemetry.enums;
 
 public enum DriverMode {
   TYPE_UNSPECIFIED,

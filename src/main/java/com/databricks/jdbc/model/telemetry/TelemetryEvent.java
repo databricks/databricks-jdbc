@@ -16,6 +16,18 @@ public class TelemetryEvent {
   @JsonProperty("driver_connection_params")
   DriverConnectionParameters driverConnectionParameters;
 
+  @JsonProperty("auth_type")
+  String authType;
+
+  @JsonProperty("vol_operation")
+  DriverVolumeOperation volumeOperation;
+
+  @JsonProperty("sql_operation")
+  SqlExecutionEvent sqlOperation;
+
+  @JsonProperty("error_info")
+  DriverErrorInfo driverErrorInfo;
+
   public TelemetryEvent() {}
 
   public String getSessionId() {
