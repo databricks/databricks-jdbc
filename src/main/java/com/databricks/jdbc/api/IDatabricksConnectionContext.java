@@ -1,9 +1,6 @@
 package com.databricks.jdbc.api;
 
-import com.databricks.jdbc.common.CompressionCodec;
-import com.databricks.jdbc.common.DatabricksClientType;
-import com.databricks.jdbc.common.IDatabricksComputeResource;
-import com.databricks.jdbc.common.LogLevel;
+import com.databricks.jdbc.common.*;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.sdk.core.ProxyConfig;
 import com.databricks.sdk.core.utils.Cloud;
@@ -11,30 +8,6 @@ import java.util.List;
 import java.util.Map;
 
 public interface IDatabricksConnectionContext {
-
-  enum AuthFlow {
-    TOKEN_PASSTHROUGH,
-    CLIENT_CREDENTIALS,
-    BROWSER_BASED_AUTHENTICATION
-  }
-
-  enum AuthMech {
-    OTHER,
-    PAT,
-    OAUTH;
-
-    public static AuthMech parseAuthMech(String authMech) {
-      int authMechValue = Integer.parseInt(authMech);
-      switch (authMechValue) {
-        case 3:
-          return AuthMech.PAT;
-        case 11:
-          return AuthMech.OAUTH;
-        default:
-          throw new UnsupportedOperationException();
-      }
-    }
-  }
 
   /**
    * Returns host-Url for Databricks server as parsed from JDBC connection in format <code>

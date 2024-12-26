@@ -1,12 +1,12 @@
 package com.databricks.jdbc.model.telemetry;
 
-import com.databricks.jdbc.model.telemetry.enums.DriverStatementType;
+import com.databricks.jdbc.common.StatementType;
 import com.databricks.jdbc.model.telemetry.enums.ExecutionResultFormat;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 public class SqlExecutionEvent {
-  @JsonProperty("auth_type")
-  DriverStatementType driverStatementType;
+  @JsonProperty("statement_type")
+  StatementType driverStatementType;
 
   @JsonProperty("is_compressed")
   boolean isCompressed;
@@ -20,7 +20,7 @@ public class SqlExecutionEvent {
   @JsonProperty("retry_count")
   int retryCount;
 
-  public SqlExecutionEvent setDriverStatementType(DriverStatementType driverStatementType) {
+  public SqlExecutionEvent setDriverStatementType(StatementType driverStatementType) {
     this.driverStatementType = driverStatementType;
     return this;
   }

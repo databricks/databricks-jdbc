@@ -1,10 +1,9 @@
 package com.databricks.jdbc.model.telemetry;
 
+import com.databricks.jdbc.common.AuthFlow;
+import com.databricks.jdbc.common.AuthMech;
 import com.databricks.jdbc.common.DatabricksClientType;
-import com.databricks.jdbc.model.telemetry.enums.DriverAuthFlow;
-import com.databricks.jdbc.model.telemetry.enums.DriverAuthMech;
-import com.databricks.jdbc.model.telemetry.enums.DriverMode;
-import com.databricks.jdbc.telemetry.TelemetryHelper;
+import com.databricks.jdbc.model.telemetry.enums.DriverProxy;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 public class DriverConnectionParameters {
@@ -12,7 +11,7 @@ public class DriverConnectionParameters {
   String httpPath;
 
   @JsonProperty("mode")
-  DriverMode driverMode;
+  DatabricksClientType driverMode;
 
   @JsonProperty("host_url")
   String hostUrl;
@@ -21,16 +20,16 @@ public class DriverConnectionParameters {
   boolean useProxy;
 
   @JsonProperty("auth_mech")
-  DriverAuthMech authMech;
+  AuthMech authMech;
 
   @JsonProperty("proxy_host")
-  DriverAuthMech proxyHost;
+  String proxyHost;
 
   @JsonProperty("proxy_port")
-  DriverAuthMech proxyPort;
+  String proxyPort;
 
   @JsonProperty("proxy_type")
-  DriverAuthMech proxyType;
+  DriverProxy proxyType;
 
   @JsonProperty("non_proxy_hosts")
   String non_proxy_hosts;
@@ -51,7 +50,7 @@ public class DriverConnectionParameters {
   boolean cfProxyAuth;
 
   @JsonProperty("auth_flow")
-  DriverAuthFlow driverAuthFlow;
+  AuthFlow driverAuthFlow;
 
   @JsonProperty("discovery_mode_enabled")
   boolean discoveryModeEnabled;
@@ -75,7 +74,7 @@ public class DriverConnectionParameters {
   String checkCertificateRevocation;
 
   @JsonProperty("accept_undetermined_certificate_revocation")
-  String acceptUnderterminedCertificateRevocation;
+  String acceptUndeterminedCertificateRevocation;
 
   public DriverConnectionParameters setHttpPath(String httpPath) {
     this.httpPath = httpPath;
@@ -83,7 +82,7 @@ public class DriverConnectionParameters {
   }
 
   public DriverConnectionParameters setDriverMode(DatabricksClientType clientType) {
-    this.driverMode = TelemetryHelper.toDriverMode(clientType);
+    this.driverMode = clientType;
     return this;
   }
 
@@ -97,22 +96,22 @@ public class DriverConnectionParameters {
     return this;
   }
 
-  public DriverConnectionParameters setAuthMech(DriverAuthMech authMech) {
+  public DriverConnectionParameters setAuthMech(AuthMech authMech) {
     this.authMech = authMech;
     return this;
   }
 
-  public DriverConnectionParameters setProxyHost(DriverAuthMech proxyHost) {
+  public DriverConnectionParameters setProxyHost(String proxyHost) {
     this.proxyHost = proxyHost;
     return this;
   }
 
-  public DriverConnectionParameters setProxyPort(DriverAuthMech proxyPort) {
+  public DriverConnectionParameters setProxyPort(String proxyPort) {
     this.proxyPort = proxyPort;
     return this;
   }
 
-  public DriverConnectionParameters setProxyType(DriverAuthMech proxyType) {
+  public DriverConnectionParameters setProxyType(DriverProxy proxyType) {
     this.proxyType = proxyType;
     return this;
   }
@@ -147,7 +146,7 @@ public class DriverConnectionParameters {
     return this;
   }
 
-  public DriverConnectionParameters setDriverAuthFlow(DriverAuthFlow driverAuthFlow) {
+  public DriverConnectionParameters setDriverAuthFlow(AuthFlow driverAuthFlow) {
     this.driverAuthFlow = driverAuthFlow;
     return this;
   }
@@ -188,9 +187,9 @@ public class DriverConnectionParameters {
     return this;
   }
 
-  public DriverConnectionParameters setAcceptUnderterminedCertificateRevocation(
-      String acceptUnderterminedCertificateRevocation) {
-    this.acceptUnderterminedCertificateRevocation = acceptUnderterminedCertificateRevocation;
+  public DriverConnectionParameters setAcceptUndeterminedCertificateRevocation(
+      String acceptUndeterminedCertificateRevocation) {
+    this.acceptUndeterminedCertificateRevocation = acceptUndeterminedCertificateRevocation;
     return this;
   }
 }

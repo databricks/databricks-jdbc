@@ -936,7 +936,7 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
   @Override
   public ResultSet getSchemas() throws SQLException {
     LOGGER.debug("public ResultSet getSchemas()");
-    if (session.getConnectionContext().getClientType() == DatabricksClientType.SQL_EXEC) {
+    if (session.getConnectionContext().getClientType() == DatabricksClientType.SEA) {
       return MetadataResultSetBuilder.getSchemasResult(null);
     }
     return getSchemas(null /* catalog */, null /* schema pattern */);
