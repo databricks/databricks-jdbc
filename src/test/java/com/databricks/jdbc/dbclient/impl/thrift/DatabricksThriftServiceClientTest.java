@@ -24,9 +24,11 @@ import com.databricks.jdbc.model.core.ResultColumn;
 import com.databricks.sdk.service.sql.StatementState;
 import java.sql.SQLException;
 import java.util.*;
+import org.apache.thrift.protocol.TProtocol;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
+import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
@@ -150,7 +152,8 @@ public class DatabricksThriftServiceClientTest {
     DatabricksThriftServiceClient client =
         new DatabricksThriftServiceClient(thriftAccessor, connectionContext);
     when(session.getSessionInfo()).thenReturn(SESSION_INFO);
-    TGetCatalogsReq request = new TGetCatalogsReq().setSessionHandle(SESSION_HANDLE);
+    TGetCatalogsReq request =
+        new TGetCatalogsReq().setSessionHandle(SESSION_HANDLE).setRunAsync(true);
     TFetchResultsResp response =
         new TFetchResultsResp()
             .setStatus(new TStatus().setStatusCode(TStatusCode.SUCCESS_STATUS))
@@ -212,7 +215,8 @@ public class DatabricksThriftServiceClientTest {
     DatabricksThriftServiceClient client =
         new DatabricksThriftServiceClient(thriftAccessor, connectionContext);
     when(session.getSessionInfo()).thenReturn(SESSION_INFO);
-    TGetTypeInfoReq request = new TGetTypeInfoReq().setSessionHandle(SESSION_HANDLE);
+    TGetTypeInfoReq request =
+        new TGetTypeInfoReq().setSessionHandle(SESSION_HANDLE).setRunAsync(true);
     TFetchResultsResp response =
         new TFetchResultsResp()
             .setStatus(new TStatus().setStatusCode(TStatusCode.SUCCESS_STATUS))
@@ -233,7 +237,8 @@ public class DatabricksThriftServiceClientTest {
         new TGetSchemasReq()
             .setSessionHandle(SESSION_HANDLE)
             .setCatalogName(TEST_CATALOG)
-            .setSchemaName(TEST_SCHEMA);
+            .setSchemaName(TEST_SCHEMA)
+            .setRunAsync(true);
     TFetchResultsResp response =
         new TFetchResultsResp()
             .setStatus(new TStatus().setStatusCode(TStatusCode.SUCCESS_STATUS))
@@ -257,7 +262,8 @@ public class DatabricksThriftServiceClientTest {
             .setCatalogName(TEST_CATALOG)
             .setSchemaName(TEST_SCHEMA)
             .setTableName(TEST_TABLE)
-            .setTableTypes(Arrays.asList(tableTypes));
+            .setTableTypes(Arrays.asList(tableTypes))
+            .setRunAsync(true);
     TFetchResultsResp response =
         new TFetchResultsResp()
             .setStatus(new TStatus().setStatusCode(TStatusCode.SUCCESS_STATUS))
@@ -283,7 +289,8 @@ public class DatabricksThriftServiceClientTest {
             .setCatalogName(TEST_CATALOG)
             .setSchemaName(TEST_SCHEMA)
             .setTableName(TEST_TABLE)
-            .setColumnName(TEST_STRING);
+            .setColumnName(TEST_STRING)
+            .setRunAsync(true);
     TFetchResultsResp response =
         new TFetchResultsResp()
             .setStatus(new TStatus().setStatusCode(TStatusCode.SUCCESS_STATUS))
@@ -315,7 +322,8 @@ public class DatabricksThriftServiceClientTest {
             .setSessionHandle(SESSION_HANDLE)
             .setCatalogName(TEST_CATALOG)
             .setSchemaName(TEST_SCHEMA)
-            .setFunctionName(TEST_STRING);
+            .setFunctionName(TEST_STRING)
+            .setRunAsync(true);
     TFetchResultsResp response =
         new TFetchResultsResp()
             .setStatus(new TStatus().setStatusCode(TStatusCode.SUCCESS_STATUS))
@@ -338,7 +346,8 @@ public class DatabricksThriftServiceClientTest {
             .setSessionHandle(SESSION_HANDLE)
             .setCatalogName(TEST_CATALOG)
             .setSchemaName(TEST_SCHEMA)
-            .setTableName(TEST_TABLE);
+            .setTableName(TEST_TABLE)
+            .setRunAsync(true);
     TFetchResultsResp response =
         new TFetchResultsResp()
             .setStatus(new TStatus().setStatusCode(TStatusCode.SUCCESS_STATUS))
@@ -371,10 +380,17 @@ public class DatabricksThriftServiceClientTest {
   }
 
   @Test
-  void testResetAccessToken() throws Exception {
+  void testResetAccessToken() {
     DatabricksThriftServiceClient client =
         new DatabricksThriftServiceClient(thriftAccessor, connectionContext);
+    DatabricksHttpTTransport mockDatabricksHttpTTransport =
+        Mockito.mock(DatabricksHttpTTransport.class);
+    TCLIService.Client mockTCLIServiceClient = Mockito.mock(TCLIService.Client.class);
+    TProtocol mockProtocol = Mockito.mock(TProtocol.class);
+    when(thriftAccessor.getThriftClient()).thenReturn(mockTCLIServiceClient);
+    when(mockTCLIServiceClient.getInputProtocol()).thenReturn(mockProtocol);
+    when(mockProtocol.getTransport()).thenReturn(mockDatabricksHttpTTransport);
     client.resetAccessToken(NEW_ACCESS_TOKEN);
-    verify(thriftAccessor).resetAccessToken(NEW_ACCESS_TOKEN);
+    verify(mockDatabricksHttpTTransport).resetAccessToken(NEW_ACCESS_TOKEN);
   }
 }
