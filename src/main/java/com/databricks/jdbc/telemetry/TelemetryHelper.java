@@ -5,7 +5,6 @@ import com.databricks.jdbc.common.DatabricksClientType;
 import com.databricks.jdbc.common.util.DriverUtil;
 import com.databricks.jdbc.model.telemetry.*;
 import com.databricks.jdbc.model.telemetry.enums.DriverMode;
-
 import java.nio.charset.Charset;
 
 public class TelemetryHelper {

@@ -25,38 +25,55 @@ public class DriverConnectionParameters {
 
   @JsonProperty("proxy_host")
   DriverAuthMech proxyHost;
+
   @JsonProperty("proxy_port")
   DriverAuthMech proxyPort;
+
   @JsonProperty("proxy_type")
   DriverAuthMech proxyType;
+
   @JsonProperty("non_proxy_hosts")
   String non_proxy_hosts;
+
   @JsonProperty("use_system_proxy")
   boolean useSystemProxy;
+
   @JsonProperty("use_cf_proxy")
   boolean useCfProxy;
+
   @JsonProperty("cf_proxy_host")
   boolean cfProxyHost;
+
   @JsonProperty("cf_proxy_port")
   boolean cfProxyPort;
+
   @JsonProperty("cf_proxy_auth")
   boolean cfProxyAuth;
+
   @JsonProperty("auth_flow")
   DriverAuthFlow driverAuthFlow;
+
   @JsonProperty("discovery_mode_enabled")
   boolean discoveryModeEnabled;
+
   @JsonProperty("auth_scope")
   String authScope;
+
   @JsonProperty("discovery_url")
   String discoveryUrl;
+
   @JsonProperty("use_empty_metadata")
   String useEmptyMetadata;
+
   @JsonProperty("support_many_parameters")
   String supportManyParameters;
+
   @JsonProperty("ssl_trust_store_type")
   String sslTrustStoreType;
+
   @JsonProperty("check_certificate_revocation")
   String checkCertificateRevocation;
+
   @JsonProperty("accept_undetermined_certificate_revocation")
   String acceptUnderterminedCertificateRevocation;
 
@@ -165,12 +182,14 @@ public class DriverConnectionParameters {
     return this;
   }
 
-  public DriverConnectionParameters setCheckCertificateRevocation(String checkCertificateRevocation) {
+  public DriverConnectionParameters setCheckCertificateRevocation(
+      String checkCertificateRevocation) {
     this.checkCertificateRevocation = checkCertificateRevocation;
     return this;
   }
 
-  public DriverConnectionParameters setAcceptUnderterminedCertificateRevocation(String acceptUnderterminedCertificateRevocation) {
+  public DriverConnectionParameters setAcceptUnderterminedCertificateRevocation(
+      String acceptUnderterminedCertificateRevocation) {
     this.acceptUnderterminedCertificateRevocation = acceptUnderterminedCertificateRevocation;
     return this;
   }

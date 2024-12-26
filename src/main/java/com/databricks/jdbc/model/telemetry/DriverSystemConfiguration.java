@@ -30,6 +30,7 @@ public class DriverSystemConfiguration {
   private String clientAppName;
 
   private String localeName;
+
   @JsonProperty("driver_name")
   private String driverName;
 

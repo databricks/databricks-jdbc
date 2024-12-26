@@ -67,4 +67,24 @@ public class TelemetryEvent {
     this.driverSystemConfiguration = driverSystemConfiguration;
     return this;
   }
+
+  public TelemetryEvent setAuthType(String authType) {
+    this.authType = authType;
+    return this;
+  }
+
+  public TelemetryEvent setVolumeOperation(DriverVolumeOperation volumeOperation) {
+    this.volumeOperation = volumeOperation;
+    return this;
+  }
+
+  public TelemetryEvent setSqlOperation(SqlExecutionEvent sqlOperation) {
+    this.sqlOperation = sqlOperation;
+    return this;
+  }
+
+  public TelemetryEvent setDriverErrorInfo(DriverErrorInfo driverErrorInfo) {
+    this.driverErrorInfo = driverErrorInfo;
+    return this;
+  }
 }
