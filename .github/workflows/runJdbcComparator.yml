@@ -61,13 +61,15 @@ jobs:
           username: ${{ secrets.SMTP_USERNAME }}
           password: ${{ secrets.SMTP_PASSWORD }}
           subject: JDBC Driver Comparison Results - 🚨Differences Found
-          body: file://jdbc-comparison-report.txt
+          html_body: file://jdbc-comparison-report.html
           to: ${{ secrets.EMAIL_RECIPIENTS }}
-          from: JDBC Test Runner
-          content_type: text/plain
+          from: JDBC Comparator Runner
+          content_type: text/html
 
       - name: Upload Report as Artifact
         uses: actions/upload-artifact@v3
         with:
           name: jdbc-comparison-report
-          path: jdbc-comparison-report.txt
+          path: |
+            jdbc-comparison-report.txt
+            jdbc-comparison-report.html
