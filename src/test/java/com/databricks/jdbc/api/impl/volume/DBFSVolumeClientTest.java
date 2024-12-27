@@ -83,9 +83,9 @@ class DBFSVolumeClientTest {
     doReturn(mockResponse).when(client).getListResponse(anyString());
     when(mockResponse.getFiles()).thenReturn(Arrays.asList(file1, file2));
 
-    List<String> result = client.listObjects("catalog", "schema", "volume", "prefix", true);
+    List<String> result = client.listObjects("catalog", "schema", "volume", "file", true);
 
-    assertEquals(Arrays.asList("/path/to/file1", "/path/to/file2"), result);
+    assertEquals(Arrays.asList("file1", "file2"), result);
 
     Mockito.verify(mockResponse).getFiles();
     Mockito.verify(file1).getPath();

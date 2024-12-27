@@ -275,13 +275,7 @@ public class DatabricksUCVolumeClient implements IDatabricksVolumeClient {
         List<String> filenames = new ArrayList<>();
         while (resultSet.next()) {
           String fileName = resultSet.getString("name");
-          if (basename.isEmpty()
-              || fileName.regionMatches(
-                  /* ignoreCase= */ !caseSensitive,
-                  /* targetOffset= */ 0,
-                  /* StringToCheck= */ basename,
-                  /* sourceOffset= */ 0,
-                  /* lengthToMatch= */ basename.length())) {
+          if (StringUtil.checkPrefixMatch(basename, fileName, caseSensitive)) {
             filenames.add(fileName);
           }
         }

@@ -93,6 +93,8 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient {
             catalog, schema, volume, prefix, caseSensitive));
 
     String folder = StringUtil.getFolderNameFromPath(prefix);
+    String basename = StringUtil.getBaseNameFromPath(prefix);
+
     String listPath =
         (folder.isEmpty())
             ? StringUtil.getVolumePath(catalog, schema, volume)
@@ -100,7 +102,13 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient {
 
     ListResponse listResponse = getListResponse(listPath);
 
-    return listResponse.getFiles().stream().map(FileInfo::getPath).collect(Collectors.toList());
+    return listResponse.getFiles().stream()
+        .map(FileInfo::getPath)
+        .map(path -> path.substring(path.lastIndexOf('/') + 1))
+        . // Get the file name after the last slash
+        filter(fileName -> StringUtil.checkPrefixMatch(basename, fileName, caseSensitive))
+        . // Comparing whether the prefix matches or not
+        collect(Collectors.toList());
   }
 
   /** {@inheritDoc} */
