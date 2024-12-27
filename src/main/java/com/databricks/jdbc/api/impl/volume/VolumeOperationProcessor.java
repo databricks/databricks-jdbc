@@ -28,7 +28,7 @@ class VolumeOperationProcessor {
   private static final String PARENT_DIRECTORY_REF = "..";
 
   private static final Long PUT_SIZE_LIMITS = 5 * 1024 * 1024 * 1024L; // 5GB
-  private final String operationType;
+  private final VolumeUtil.VolumeOperationType operationType;
   private final String operationUrl;
   private final String localFilePath;
   private final Map<String, String> headers;
@@ -55,7 +55,7 @@ class VolumeOperationProcessor {
   }
 
   public static class Builder {
-    private String operationType;
+    private VolumeUtil.VolumeOperationType operationType;
     private String operationUrl;
     private String localFilePath = null;
     private Map<String, String> headers = new HashMap<>();
@@ -71,7 +71,7 @@ class VolumeOperationProcessor {
       return new Builder();
     }
 
-    public Builder operationType(String operationType) {
+    public Builder operationType(VolumeUtil.VolumeOperationType operationType) {
       this.operationType = operationType;
       return this;
     }
@@ -155,14 +155,14 @@ class VolumeOperationProcessor {
       return;
     }
     status = VolumeUtil.VolumeOperationStatus.RUNNING;
-    switch (operationType.toLowerCase()) {
-      case VolumeUtil.VOLUME_OPERATION_TYPE_GET:
+    switch (operationType) {
+      case GET:
         executeGetOperation();
         break;
-      case VolumeUtil.VOLUME_OPERATION_TYPE_PUT:
+      case PUT:
         executePutOperation();
         break;
-      case VolumeUtil.VOLUME_OPERATION_TYPE_REMOVE:
+      case REMOVE:
         executeDeleteOperation();
         break;
       default:
@@ -190,7 +190,7 @@ class VolumeOperationProcessor {
       LOGGER.error(errorMessage);
       return;
     }
-    if (operationType.equalsIgnoreCase(VolumeUtil.VOLUME_OPERATION_TYPE_REMOVE)) {
+    if (operationType == VolumeUtil.VolumeOperationType.REMOVE) {
       return;
     }
     if (localFilePath == null

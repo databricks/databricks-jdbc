@@ -70,7 +70,8 @@ public class VolumeOperationResult implements IExecutionResult {
   }
 
   private void initHandler(IExecutionResult resultHandler) throws DatabricksSQLException {
-    String operation = getString(resultHandler.getObject(0));
+    VolumeUtil.VolumeOperationType operation =
+        VolumeUtil.VolumeOperationType.fromString(getString(resultHandler.getObject(0)));
     String presignedUrl = getString(resultHandler.getObject(1));
     String localFile = columnCount > 3 ? getString(resultHandler.getObject(3)) : null;
     Map<String, String> headers = getHeaders(getString(resultHandler.getObject(2)));

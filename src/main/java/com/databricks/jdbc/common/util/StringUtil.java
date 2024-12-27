@@ -31,12 +31,14 @@ public class StringUtil {
 
   /** Function to return the folder name from the path */
   public static String getFolderNameFromPath(String path) {
+    if (path == null) return "";
     int lastSlashIndex = path.lastIndexOf("/");
     return (lastSlashIndex >= 0) ? path.substring(0, lastSlashIndex) : "";
   }
 
   /** Function to return the base name from the path */
   public static String getBaseNameFromPath(String path) {
+    if (path == null) return "";
     int lastSlashIndex = path.lastIndexOf("/");
     return (lastSlashIndex >= 0) ? path.substring(lastSlashIndex + 1) : path;
   }

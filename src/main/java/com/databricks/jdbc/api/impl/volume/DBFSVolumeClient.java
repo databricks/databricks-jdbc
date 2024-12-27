@@ -124,7 +124,7 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient {
       // Downloading the object from the presigned url
       VolumeOperationProcessor volumeOperationProcessor =
           VolumeOperationProcessor.Builder.createBuilder()
-              .operationType(VolumeUtil.VOLUME_OPERATION_TYPE_GET)
+              .operationType(VolumeUtil.VolumeOperationType.GET)
               .operationUrl(response.getUrl())
               .localFilePath(localPath)
               .allowedVolumeIngestionPathString(ALLOWED_VOLUME_INGESTION_PATHS)
@@ -159,7 +159,7 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient {
       // Downloading the object from the presigned url
       VolumeOperationProcessor volumeOperationProcessor =
           VolumeOperationProcessor.Builder.createBuilder()
-              .operationType(VolumeUtil.VOLUME_OPERATION_TYPE_GET)
+              .operationType(VolumeUtil.VolumeOperationType.GET)
               .operationUrl(response.getUrl())
               .isAllowedInputStreamForVolumeOperation(true)
               .databricksHttpClient(databricksHttpClient)
@@ -212,7 +212,7 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient {
       // Uploading the object to the Pre Signed Url
       VolumeOperationProcessor volumeOperationProcessor =
           VolumeOperationProcessor.Builder.createBuilder()
-              .operationType(VolumeUtil.VOLUME_OPERATION_TYPE_PUT)
+              .operationType(VolumeUtil.VolumeOperationType.PUT)
               .operationUrl(response.getUrl())
               .localFilePath(localPath)
               .allowedVolumeIngestionPathString(ALLOWED_VOLUME_INGESTION_PATHS)
@@ -254,7 +254,7 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient {
       // Uploading the object to the Pre Signed Url
       VolumeOperationProcessor volumeOperationProcessor =
           VolumeOperationProcessor.Builder.createBuilder()
-              .operationType(VolumeUtil.VOLUME_OPERATION_TYPE_PUT)
+              .operationType(VolumeUtil.VolumeOperationType.PUT)
               .operationUrl(response.getUrl())
               .isAllowedInputStreamForVolumeOperation(true)
               .inputStream(inputStreamEntity)
@@ -289,7 +289,7 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient {
       // Uploading the object to the Pre Signed Url
       VolumeOperationProcessor volumeOperationProcessor =
           VolumeOperationProcessor.Builder.createBuilder()
-              .operationType(VolumeUtil.VOLUME_OPERATION_TYPE_REMOVE)
+              .operationType(VolumeUtil.VolumeOperationType.REMOVE)
               .operationUrl(response.getUrl())
               .isAllowedInputStreamForVolumeOperation(true)
               .databricksHttpClient(databricksHttpClient)
