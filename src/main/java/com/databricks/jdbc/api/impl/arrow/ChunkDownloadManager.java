@@ -4,17 +4,24 @@ import com.databricks.jdbc.common.CompressionCodec;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 
 /**
- * Callback interface for chunk download operations. This interface defines methods that are called
- * during the chunk download process.
+ * Interface for managing the downloading of Arrow data chunks from Databricks servers. This
+ * interface defines methods for handling the asynchronous download of result chunks and their
+ * associated download links.
  */
-interface ChunkDownloadCallback {
+interface ChunkDownloadManager {
   /**
-   * Called when a chunk download has been processed, regardless of the outcome. This method can be
-   * used to update the state of the download manager or trigger further actions.
+   * Downloads the next set of chunks based on the current memory constraints and chunk
+   * availability. This method manages the download process by respecting:
    *
-   * @param chunkIndex The index of the chunk that has been processed
+   * <ul>
+   *   <li>The total number of chunks allowed in memory
+   *   <li>Whether the provider has been closed
+   *   <li>The availability of more chunks to download
+   * </ul>
+   *
+   * @throws DatabricksSQLException If there's an error during the chunk download process
    */
-  void downloadProcessed(long chunkIndex);
+  void downloadNextChunks() throws DatabricksSQLException;
 
   /**
    * Called when new download links need to be retrieved for a chunk. This method is typically

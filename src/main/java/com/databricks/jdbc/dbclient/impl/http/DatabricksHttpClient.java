@@ -59,7 +59,9 @@ public class DatabricksHttpClient implements IDatabricksHttpClient, Closeable {
         new IdleConnectionEvictor(
             connectionManager, connectionContext.getIdleHttpConnectionExpiry(), TimeUnit.SECONDS);
     idleConnectionEvictor.start();
-    asyncClient = GlobalAsyncHttpClient.getClient();
+    if (DriverUtil.isAsyncClientProxyCompatible(connectionContext)) {
+      asyncClient = GlobalAsyncHttpClient.getClient();
+    }
   }
 
   @VisibleForTesting
@@ -101,7 +103,7 @@ public class DatabricksHttpClient implements IDatabricksHttpClient, Closeable {
    * pool, significantly reducing memory overhead and thread context switching.
    */
   @Override
-  public <T> Future<T> execute(
+  public <T> Future<T> executeAsync(
       AsyncRequestProducer requestProducer,
       AsyncResponseConsumer<T> responseConsumer,
       FutureCallback<T> callback) {

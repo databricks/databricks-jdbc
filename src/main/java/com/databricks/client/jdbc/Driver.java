@@ -11,7 +11,6 @@ import com.databricks.jdbc.common.util.*;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
-import com.databricks.jdbc.model.telemetry.*;
 import java.sql.*;
 import java.util.Properties;
 import java.util.TimeZone;

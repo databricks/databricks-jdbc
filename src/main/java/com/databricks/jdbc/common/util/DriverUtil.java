@@ -78,6 +78,23 @@ public class DriverUtil {
     }
   }
 
+  /**
+   * Determines if Apache Async HTTP Client can be used for chunk download based on proxy
+   * configuration. Currently, the async client does not support proxy configurations, so this
+   * method returns false if any proxy settings are enabled.
+   *
+   * @param connectionContext The Databricks connection context containing proxy configuration
+   * @return true if async client can be used (no proxies configured), false if proxy settings are
+   *     enabled and async client cannot be used
+   * @throws NullPointerException if connectionContext is null
+   * @apiNote The async client's proxy support is currently under development. This method will need
+   *     to be updated once proxy support is implemented.
+   */
+  public static boolean isAsyncClientProxyCompatible(
+      IDatabricksConnectionContext connectionContext) {
+    return !connectionContext.getUseCloudFetchProxy() && !connectionContext.getUseSystemProxy();
+  }
+
   public static String getRootCauseMessage(Throwable e) {
     Throwable rootCause = getRootCause(e);
     return rootCause instanceof DatabricksSQLException && rootCause.getMessage() != null

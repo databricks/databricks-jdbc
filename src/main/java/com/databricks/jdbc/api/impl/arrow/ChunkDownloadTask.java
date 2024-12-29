@@ -16,12 +16,12 @@ class ChunkDownloadTask implements Callable<Void> {
   private static final long RETRY_DELAY_MS = 1500; // 1.5 seconds
   private final ArrowResultChunk chunk;
   private final IDatabricksHttpClient httpClient;
-  private final ChunkDownloadCallback chunkDownloader;
+  private final ChunkDownloadManager chunkDownloader;
 
   ChunkDownloadTask(
       ArrowResultChunk chunk,
       IDatabricksHttpClient httpClient,
-      ChunkDownloadCallback chunkDownloader) {
+      ChunkDownloadManager chunkDownloader) {
     this.chunk = chunk;
     this.httpClient = httpClient;
     this.chunkDownloader = chunkDownloader;
@@ -33,7 +33,7 @@ class ChunkDownloadTask implements Callable<Void> {
     boolean downloadSuccessful = false;
 
     try {
-      while (retries < MAX_RETRIES && !downloadSuccessful) {
+      while (!downloadSuccessful) {
         try {
           if (chunk.isChunkLinkInvalid()) {
             chunkDownloader.downloadLinks(chunk.getChunkIndex());
@@ -49,14 +49,14 @@ class ChunkDownloadTask implements Callable<Void> {
                 MAX_RETRIES,
                 chunk.getChunkIndex(),
                 e.getMessage());
-            chunk.setStatus(ArrowResultChunk.ChunkStatus.DOWNLOAD_FAILED);
+            chunk.setStatus(ChunkStatus.DOWNLOAD_FAILED);
             throw new DatabricksSQLException("Failed to download chunk after multiple attempts", e);
           } else {
             LOGGER.warn(
                 String.format(
                     "Retry attempt %d for chunk index: %d, Error: %s",
                     retries, chunk.getChunkIndex(), e.getMessage()));
-            chunk.setStatus(ArrowResultChunk.ChunkStatus.DOWNLOAD_RETRY);
+            chunk.setStatus(ChunkStatus.DOWNLOAD_RETRY);
             try {
               Thread.sleep(RETRY_DELAY_MS);
             } catch (InterruptedException ie) {
@@ -67,10 +67,18 @@ class ChunkDownloadTask implements Callable<Void> {
         }
       }
     } finally {
-      if (!downloadSuccessful) {
-        chunk.setStatus(ArrowResultChunk.ChunkStatus.DOWNLOAD_FAILED);
+      if (downloadSuccessful) {
+        chunk.getChunkReadyFuture().complete(null);
+      } else {
+        // Status is set to DOWNLOAD_SUCCEEDED in the happy path. For any failure case,
+        // explicitly set status to DOWNLOAD_FAILED here to ensure consistent error handling
+        chunk.setStatus(ChunkStatus.DOWNLOAD_FAILED);
+        chunk
+            .getChunkReadyFuture()
+            .completeExceptionally(
+                new DatabricksSQLException(
+                    "Download failed for chunk index " + chunk.getChunkIndex()));
       }
-      chunkDownloader.downloadProcessed(chunk.getChunkIndex());
     }
     return null;
   }

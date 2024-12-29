@@ -4,13 +4,14 @@ import static com.databricks.jdbc.common.util.DatabricksThriftUtil.getTypeFromTy
 
 import com.databricks.jdbc.api.IDatabricksSession;
 import com.databricks.jdbc.api.impl.IExecutionResult;
+import com.databricks.jdbc.api.impl.arrow.incubator.RemoteChunkProviderV2;
 import com.databricks.jdbc.api.impl.converters.ArrowToJavaObjectConverter;
 import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
 import com.databricks.jdbc.common.CompressionCodec;
+import com.databricks.jdbc.common.util.DriverUtil;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
 import com.databricks.jdbc.dbclient.impl.common.StatementId;
 import com.databricks.jdbc.dbclient.impl.http.DatabricksHttpClientFactory;
-import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.model.client.thrift.generated.TColumnDesc;
 import com.databricks.jdbc.model.client.thrift.generated.TFetchResultsResp;
@@ -19,7 +20,6 @@ import com.databricks.jdbc.model.core.ResultData;
 import com.databricks.jdbc.model.core.ResultManifest;
 import com.databricks.sdk.service.sql.ColumnInfo;
 import com.databricks.sdk.service.sql.ColumnInfoTypeName;
-import com.google.common.annotations.VisibleForTesting;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -28,8 +28,7 @@ public class ArrowStreamResult implements IExecutionResult {
   private final ChunkProvider chunkProvider;
   private long currentRowIndex = -1;
   private boolean isClosed;
-  private int chunkCount = 0;
-  private ArrowResultChunk.ArrowResultChunkIterator chunkIterator;
+  private ArrowResultChunkIterator chunkIterator;
   private List<ColumnInfo> columnInfos;
 
   public ArrowStreamResult(
@@ -37,7 +36,7 @@ public class ArrowStreamResult implements IExecutionResult {
       ResultData resultData,
       StatementId statementId,
       IDatabricksSession session)
-      throws DatabricksParsingException {
+      throws DatabricksSQLException {
     this(
         resultManifest,
         resultData,
@@ -46,22 +45,15 @@ public class ArrowStreamResult implements IExecutionResult {
         DatabricksHttpClientFactory.getInstance().getClient(session.getConnectionContext()));
   }
 
-  @VisibleForTesting
   ArrowStreamResult(
       ResultManifest resultManifest,
       ResultData resultData,
       StatementId statementId,
       IDatabricksSession session,
       IDatabricksHttpClient httpClient)
-      throws DatabricksParsingException {
+      throws DatabricksSQLException {
     this.chunkProvider =
-        new RemoteChunkProvider(
-            statementId,
-            resultManifest,
-            resultData,
-            session,
-            httpClient,
-            session.getConnectionContext().getCloudFetchThreadPoolSize());
+        createRemoteChunkProvider(resultManifest, resultData, statementId, session, httpClient);
     this.columnInfos =
         resultManifest.getSchema().getColumnCount() == 0
             ? new ArrayList<>()
@@ -82,7 +74,6 @@ public class ArrowStreamResult implements IExecutionResult {
         DatabricksHttpClientFactory.getInstance().getClient(session.getConnectionContext()));
   }
 
-  @VisibleForTesting
   ArrowStreamResult(
       TFetchResultsResp resultsResp,
       boolean isInlineArrow,
@@ -94,16 +85,8 @@ public class ArrowStreamResult implements IExecutionResult {
     if (isInlineArrow) {
       this.chunkProvider = new InlineChunkProvider(resultsResp, parentStatement, session);
     } else {
-      CompressionCodec compressionCodec =
-          CompressionCodec.getCompressionMapping(resultsResp.getResultSetMetadata());
       this.chunkProvider =
-          new RemoteChunkProvider(
-              parentStatement,
-              resultsResp,
-              session,
-              httpClient,
-              session.getConnectionContext().getCloudFetchThreadPoolSize(),
-              compressionCodec);
+          createRemoteChunkProvider(resultsResp, parentStatement, session, httpClient);
     }
   }
 
@@ -179,5 +162,56 @@ public class ArrowStreamResult implements IExecutionResult {
     for (TColumnDesc columnInfo : resultManifest.getSchema().getColumns()) {
       columnInfos.add(new ColumnInfo().setTypeName(getTypeFromTypeDesc(columnInfo.getTypeDesc())));
     }
+  }
+
+  /** Creates a remote chunk provider based on the {@link ResultManifest} and {@link ResultData}. */
+  private ChunkProvider createRemoteChunkProvider(
+      ResultManifest resultManifest,
+      ResultData resultData,
+      StatementId statementId,
+      IDatabricksSession session,
+      IDatabricksHttpClient httpClient)
+      throws DatabricksSQLException {
+    return DriverUtil.isAsyncClientProxyCompatible(session.getConnectionContext())
+        ? new RemoteChunkProviderV2(
+            statementId,
+            resultManifest,
+            resultData,
+            session,
+            httpClient,
+            session.getConnectionContext().getCloudFetchThreadPoolSize())
+        : new RemoteChunkProvider(
+            statementId,
+            resultManifest,
+            resultData,
+            session,
+            httpClient,
+            session.getConnectionContext().getCloudFetchThreadPoolSize());
+  }
+
+  /** Creates a remote chunk provider based on the {@link TFetchResultsResp}. */
+  private ChunkProvider createRemoteChunkProvider(
+      TFetchResultsResp resultsResp,
+      IDatabricksStatementInternal parentStatement,
+      IDatabricksSession session,
+      IDatabricksHttpClient httpClient)
+      throws DatabricksSQLException {
+    CompressionCodec compressionCodec =
+        CompressionCodec.getCompressionMapping(resultsResp.getResultSetMetadata());
+    return DriverUtil.isAsyncClientProxyCompatible(session.getConnectionContext())
+        ? new RemoteChunkProviderV2(
+            parentStatement,
+            resultsResp,
+            session,
+            httpClient,
+            session.getConnectionContext().getCloudFetchThreadPoolSize(),
+            compressionCodec)
+        : new RemoteChunkProvider(
+            parentStatement,
+            resultsResp,
+            session,
+            httpClient,
+            session.getConnectionContext().getCloudFetchThreadPoolSize(),
+            compressionCodec);
   }
 }

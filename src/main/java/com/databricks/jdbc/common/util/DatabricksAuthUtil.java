@@ -3,11 +3,9 @@ package com.databricks.jdbc.common.util;
 import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
-import com.databricks.jdbc.model.client.thrift.generated.*;
 import com.databricks.sdk.core.DatabricksConfig;
 import com.databricks.sdk.core.DatabricksException;
 import java.io.IOException;
-import java.util.*;
 
 public class DatabricksAuthUtil {
   private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(DatabricksAuthUtil.class);
