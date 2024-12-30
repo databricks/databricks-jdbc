@@ -4,6 +4,7 @@ import com.databricks.jdbc.common.AuthFlow;
 import com.databricks.jdbc.common.AuthMech;
 import com.databricks.jdbc.common.DatabricksClientType;
 import com.databricks.jdbc.model.telemetry.enums.DriverProxy;
+import com.databricks.sdk.core.ProxyConfig;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 public class DriverConnectionParameters {
@@ -26,7 +27,7 @@ public class DriverConnectionParameters {
   String proxyHost;
 
   @JsonProperty("proxy_port")
-  String proxyPort;
+  int proxyPort;
 
   @JsonProperty("proxy_type")
   DriverProxy proxyType;
@@ -41,13 +42,13 @@ public class DriverConnectionParameters {
   boolean useCfProxy;
 
   @JsonProperty("cf_proxy_host")
-  boolean cfProxyHost;
+  String cfProxyHost;
 
   @JsonProperty("cf_proxy_port")
-  boolean cfProxyPort;
+  int cfProxyPort;
 
   @JsonProperty("cf_proxy_auth")
-  boolean cfProxyAuth;
+  DriverProxy cfProxyAuth;
 
   @JsonProperty("auth_flow")
   AuthFlow driverAuthFlow;
@@ -62,19 +63,19 @@ public class DriverConnectionParameters {
   String discoveryUrl;
 
   @JsonProperty("use_empty_metadata")
-  String useEmptyMetadata;
+  boolean useEmptyMetadata;
 
   @JsonProperty("support_many_parameters")
-  String supportManyParameters;
+  boolean supportManyParameters;
 
   @JsonProperty("ssl_trust_store_type")
   String sslTrustStoreType;
 
   @JsonProperty("check_certificate_revocation")
-  String checkCertificateRevocation;
+  boolean checkCertificateRevocation;
 
   @JsonProperty("accept_undetermined_certificate_revocation")
-  String acceptUndeterminedCertificateRevocation;
+  boolean acceptUndeterminedCertificateRevocation;
 
   public DriverConnectionParameters setHttpPath(String httpPath) {
     this.httpPath = httpPath;
@@ -106,13 +107,13 @@ public class DriverConnectionParameters {
     return this;
   }
 
-  public DriverConnectionParameters setProxyPort(String proxyPort) {
+  public DriverConnectionParameters setProxyPort(int proxyPort) {
     this.proxyPort = proxyPort;
     return this;
   }
 
-  public DriverConnectionParameters setProxyType(DriverProxy proxyType) {
-    this.proxyType = proxyType;
+  public DriverConnectionParameters setProxyType(ProxyConfig.ProxyAuthType proxyType) {
+    this.proxyType = DriverProxy.getDriverProxy(proxyType);
     return this;
   }
 
@@ -131,18 +132,18 @@ public class DriverConnectionParameters {
     return this;
   }
 
-  public DriverConnectionParameters setCfProxyHost(boolean cfProxyHost) {
+  public DriverConnectionParameters setCfProxyHost(String cfProxyHost) {
     this.cfProxyHost = cfProxyHost;
     return this;
   }
 
-  public DriverConnectionParameters setCfProxyPort(boolean cfProxyPort) {
+  public DriverConnectionParameters setCfProxyPort(int cfProxyPort) {
     this.cfProxyPort = cfProxyPort;
     return this;
   }
 
-  public DriverConnectionParameters setCfProxyAuth(boolean cfProxyAuth) {
-    this.cfProxyAuth = cfProxyAuth;
+  public DriverConnectionParameters setCfProxyAuth(ProxyConfig.ProxyAuthType cfProxyAuthType) {
+    this.cfProxyAuth = DriverProxy.getDriverProxy(cfProxyAuthType);
     return this;
   }
 
@@ -166,12 +167,12 @@ public class DriverConnectionParameters {
     return this;
   }
 
-  public DriverConnectionParameters setUseEmptyMetadata(String useEmptyMetadata) {
+  public DriverConnectionParameters setUseEmptyMetadata(boolean useEmptyMetadata) {
     this.useEmptyMetadata = useEmptyMetadata;
     return this;
   }
 
-  public DriverConnectionParameters setSupportManyParameters(String supportManyParameters) {
+  public DriverConnectionParameters setSupportManyParameters(boolean supportManyParameters) {
     this.supportManyParameters = supportManyParameters;
     return this;
   }
@@ -182,13 +183,13 @@ public class DriverConnectionParameters {
   }
 
   public DriverConnectionParameters setCheckCertificateRevocation(
-      String checkCertificateRevocation) {
+      boolean checkCertificateRevocation) {
     this.checkCertificateRevocation = checkCertificateRevocation;
     return this;
   }
 
   public DriverConnectionParameters setAcceptUndeterminedCertificateRevocation(
-      String acceptUndeterminedCertificateRevocation) {
+      boolean acceptUndeterminedCertificateRevocation) {
     this.acceptUndeterminedCertificateRevocation = acceptUndeterminedCertificateRevocation;
     return this;
   }

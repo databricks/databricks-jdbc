@@ -33,7 +33,6 @@ public class DatabricksConnection implements IDatabricksConnection {
   private final IDatabricksSession session;
   private final Set<IDatabricksStatementInternal> statementSet = ConcurrentHashMap.newKeySet();
   private SQLWarning warnings = null;
-  private volatile IDatabricksVolumeClient volumeClient = null;
   private final IDatabricksConnectionContext connectionContext;
 
   /**
