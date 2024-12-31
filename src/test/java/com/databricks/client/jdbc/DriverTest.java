@@ -623,7 +623,7 @@ public class DriverTest {
   void testAllPurposeClusters_closeBySessionId() throws Exception {
     String jdbcUrl =
         "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;ssl=1;AuthMech=3;httpPath=sql/protocolv1/o/6051921418418893/1115-130834-ms4m0yv;enableDirectResults=1";
-    String token = "dapif72877ab5c2abd052dbb25dad61aeac9";
+    String token = "";
     Connection con = DriverManager.getConnection(jdbcUrl, "token", token);
     System.out.println("Connection established...... con1");
     Statement s = con.createStatement();
