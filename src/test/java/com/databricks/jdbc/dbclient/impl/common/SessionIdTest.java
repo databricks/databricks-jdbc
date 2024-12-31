@@ -32,7 +32,7 @@ public class SessionIdTest {
             .build();
     SessionId sessionId = SessionId.create(sessionInfo);
 
-    String expected = "s/warehouse/test-session-id";
+    String expected = "s|warehouse|test-session-id";
     assertEquals(expected, sessionId.toString());
     assertEquals(DatabricksClientType.SQL_EXEC, sessionId.getClientType());
 
@@ -58,7 +58,7 @@ public class SessionIdTest {
     String expectedGuid = ResourceId.fromBytes(testGuidBytes).toString();
     String expectedSecret = ResourceId.fromBytes(testSecretBytes).toString();
     SessionId sessionId = SessionId.create(sessionInfo);
-    String expected = String.format("t/cluster/%s|%s", expectedGuid, expectedSecret);
+    String expected = String.format("t|cluster|%s|%s", expectedGuid, expectedSecret);
     assertEquals(expected, sessionId.toString());
     assertEquals(DatabricksClientType.THRIFT, sessionId.getClientType());
 
@@ -72,13 +72,13 @@ public class SessionIdTest {
 
   @Test
   public void testInvalidSessionId() throws Exception {
-    final String sessionId = "s/warehouse/test-session-id/invalid";
+    final String sessionId = "s|warehouse|test-session-id|invalid";
     assertThrows(IllegalArgumentException.class, () -> SessionId.deserialize(sessionId));
 
-    final String sessionId2 = "t/warehouse/invalid";
+    final String sessionId2 = "t|warehouse|invalid";
     assertThrows(IllegalArgumentException.class, () -> SessionId.deserialize(sessionId2));
 
-    final String sessionId3 = "t/warehouse/test-session-id|invalid|part3";
+    final String sessionId3 = "t|warehouse|test-session-id|invalid|part3";
     assertThrows(IllegalArgumentException.class, () -> SessionId.deserialize(sessionId3));
   }
 }

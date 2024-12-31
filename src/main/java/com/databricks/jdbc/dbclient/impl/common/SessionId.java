@@ -56,34 +56,37 @@ public class SessionId {
   /** Deserializes a SessionId from a serialized string */
   public static SessionId deserialize(String serializedSessionId) {
     // We serialize the session-Id as:
-    // For thrift: t/clusterId/session-id
-    // For SEA: s/warehouseId/session-id
-    String[] parts = serializedSessionId.split("/");
-    if (parts.length != 3) {
+    // For thrift: t|clusterId|session-guid-id|session-secret
+    // For SEA: s|warehouseId|session-id
+    String[] parts = serializedSessionId.split("\\|");
+    if (parts.length == 0) {
       throw new IllegalArgumentException("Invalid session-Id " + serializedSessionId);
     }
     switch (parts[0]) {
       case "s":
-        return new SessionId(parts[2], parts[1]);
+        if (parts.length == 3) {
+          return new SessionId(parts[2], parts[1]);
+        }
+        break;
 
       case "t":
-        String[] idParts = parts[2].split("\\|");
-        if (idParts.length != 2) {
-          throw new IllegalArgumentException("Invalid session-Id " + serializedSessionId);
+        if (parts.length == 4) {
+          return new SessionId(DatabricksClientType.THRIFT, parts[2], parts[3], parts[1]);
         }
-        return new SessionId(DatabricksClientType.THRIFT, idParts[0], idParts[1], parts[1]);
+        break;
       default:
         throw new IllegalArgumentException("Invalid session-Id " + serializedSessionId);
     }
+    throw new IllegalArgumentException("Invalid session-Id " + serializedSessionId);
   }
 
   @Override
   public String toString() {
     switch (clientType) {
       case SQL_EXEC:
-        return String.format("s/%s/%s", clusterResourceId, guid);
+        return String.format("s|%s|%s", clusterResourceId, guid);
       case THRIFT:
-        return String.format("t/%s/%s|%s", clusterResourceId, guid, secret);
+        return String.format("t|%s|%s|%s", clusterResourceId, guid, secret);
     }
     return guid;
   }

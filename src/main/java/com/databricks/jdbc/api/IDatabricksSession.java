@@ -43,9 +43,6 @@ public interface IDatabricksSession {
   /** Closes the session. */
   void close() throws DatabricksSQLException;
 
-  /** Closes a given session. */
-  void close(ImmutableSessionInfo sessionId) throws DatabricksSQLException;
-
   /** Returns the client for connecting to Databricks server */
   IDatabricksClient getDatabricksClient();
 

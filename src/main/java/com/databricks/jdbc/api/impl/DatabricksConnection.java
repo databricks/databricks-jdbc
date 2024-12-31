@@ -74,11 +74,6 @@ public class DatabricksConnection implements IDatabricksConnection, IDatabricksC
   }
 
   @Override
-  public void closeConnection(String connectionId) throws SQLException {
-    session.close(SessionId.deserialize(connectionId).getSessionInfo());
-  }
-
-  @Override
   public IDatabricksSession getSession() {
     return session;
   }

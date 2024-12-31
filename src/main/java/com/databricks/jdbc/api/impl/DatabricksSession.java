@@ -145,12 +145,6 @@ public class DatabricksSession implements IDatabricksSession {
   }
 
   @Override
-  public void close(ImmutableSessionInfo sessionId) throws DatabricksSQLException {
-    LOGGER.debug("public void close({%s})", sessionId);
-    databricksClient.deleteSession(sessionId);
-  }
-
-  @Override
   public IDatabricksClient getDatabricksClient() {
     LOGGER.debug("public IDatabricksClient getDatabricksClient()");
     return databricksClient;

@@ -7,7 +7,12 @@ import static com.databricks.jdbc.telemetry.TelemetryHelper.getDriverSystemConfi
 import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.api.impl.DatabricksConnection;
 import com.databricks.jdbc.api.impl.DatabricksConnectionContextFactory;
+import com.databricks.jdbc.common.DatabricksClientType;
 import com.databricks.jdbc.common.util.*;
+import com.databricks.jdbc.dbclient.IDatabricksClient;
+import com.databricks.jdbc.dbclient.impl.common.SessionId;
+import com.databricks.jdbc.dbclient.impl.sqlexec.DatabricksSdkClient;
+import com.databricks.jdbc.dbclient.impl.thrift.DatabricksThriftServiceClient;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
@@ -17,7 +22,7 @@ import java.util.Properties;
 import java.util.TimeZone;
 
 /** Databricks JDBC driver. */
-public class Driver implements java.sql.Driver {
+public class Driver implements IDatabricksDriver, java.sql.Driver {
   private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(Driver.class);
   private static final Driver INSTANCE;
 
@@ -99,5 +104,23 @@ public class Driver implements java.sql.Driver {
 
   public static Driver getInstance() {
     return INSTANCE;
+  }
+
+  @Override
+  public void closeConnection(String url, Properties info, String connectionId)
+      throws SQLException {
+    if (!acceptsURL(url)) {
+      // Return null connection if URL is not accepted - as per JDBC standard.
+      throw new DatabricksSQLException("Invalid connection Url {%s}", url);
+    }
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContextFactory.create(url, info);
+    IDatabricksClient databricksClient;
+    if (connectionContext.getClientType() == DatabricksClientType.THRIFT) {
+      databricksClient = new DatabricksThriftServiceClient(connectionContext);
+    } else {
+      databricksClient = new DatabricksSdkClient(connectionContext);
+    }
+    databricksClient.deleteSession(SessionId.deserialize(connectionId).getSessionInfo());
   }
 }
