@@ -6,10 +6,12 @@ import com.databricks.jdbc.api.impl.ImmutableSessionInfo;
 import com.databricks.jdbc.common.AllPurposeCluster;
 import com.databricks.jdbc.common.DatabricksClientType;
 import com.databricks.jdbc.common.Warehouse;
+import com.databricks.jdbc.common.util.DatabricksThriftUtil;
 import com.databricks.jdbc.dbclient.impl.thrift.ResourceId;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.model.client.thrift.generated.THandleIdentifier;
 import com.databricks.jdbc.model.client.thrift.generated.TSessionHandle;
+import java.nio.ByteBuffer;
 import org.junit.jupiter.api.Test;
 
 public class SessionIdTest {
@@ -52,14 +54,14 @@ public class SessionIdTest {
     ImmutableSessionInfo sessionInfo =
         ImmutableSessionInfo.builder()
             .sessionHandle(new TSessionHandle().setSessionId(tHandleIdentifier))
-            .sessionId("")
+            .sessionId(DatabricksThriftUtil.byteBufferToString(ByteBuffer.wrap(testGuidBytes)))
             .computeResource(new AllPurposeCluster("", CLUSTER_ID))
             .build();
 
     String expectedGuid = ResourceId.fromBytes(testGuidBytes).toString();
     String expectedSecret = ResourceId.fromBytes(testSecretBytes).toString();
     SessionId sessionId = SessionId.create(sessionInfo);
-    String expected = String.format("t|cluster|%s|%s", expectedGuid, expectedSecret);
+    String expected = String.format("t|%s|%s", expectedGuid, expectedSecret);
     assertEquals(expected, sessionId.toString());
     assertEquals(DatabricksClientType.THRIFT, sessionId.getClientType());
 
@@ -68,7 +70,6 @@ public class SessionIdTest {
     assertEquals(sessionId, deserializedSessionId);
     assertEquals(sessionInfo.sessionId(), deserializedSessionInfo.sessionId());
     assertEquals(sessionInfo.sessionHandle(), deserializedSessionInfo.sessionHandle());
-    assertEquals(sessionInfo.computeResource(), deserializedSessionInfo.computeResource());
   }
 
   @Test
@@ -79,10 +80,10 @@ public class SessionIdTest {
     final String sessionId1 = "s|warehouse|test-session-id|invalid";
     assertThrows(DatabricksParsingException.class, () -> SessionId.deserialize(sessionId1));
 
-    final String sessionId2 = "t|warehouse|invalid";
+    final String sessionId2 = "t|invalid";
     assertThrows(DatabricksParsingException.class, () -> SessionId.deserialize(sessionId2));
 
-    final String sessionId3 = "t|warehouse|test-session-id|invalid|part3";
+    final String sessionId3 = "t|test-session-id|invalid|part3";
     assertThrows(DatabricksParsingException.class, () -> SessionId.deserialize(sessionId3));
   }
 }

@@ -3,13 +3,16 @@ package com.databricks.jdbc.dbclient.impl.common;
 import com.databricks.jdbc.api.impl.ImmutableSessionInfo;
 import com.databricks.jdbc.common.AllPurposeCluster;
 import com.databricks.jdbc.common.DatabricksClientType;
+import com.databricks.jdbc.common.IDatabricksComputeResource;
 import com.databricks.jdbc.common.Warehouse;
+import com.databricks.jdbc.common.util.DatabricksThriftUtil;
 import com.databricks.jdbc.dbclient.impl.thrift.ResourceId;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.model.client.thrift.generated.THandleIdentifier;
 import com.databricks.jdbc.model.client.thrift.generated.TSessionHandle;
+import java.nio.ByteBuffer;
 import java.sql.SQLException;
 import java.util.Objects;
 
@@ -19,64 +22,60 @@ public class SessionId {
   final DatabricksClientType clientType;
   final String guid;
   final String secret;
-  final String clusterResourceId;
+  final IDatabricksComputeResource clusterResource;
 
-  SessionId(DatabricksClientType clientType, String guid, String secret, String clusterResourceId) {
+  SessionId(
+      DatabricksClientType clientType,
+      String guid,
+      String secret,
+      IDatabricksComputeResource clusterResource) {
     this.clientType = clientType;
     this.guid = guid;
     this.secret = secret;
-    this.clusterResourceId = clusterResourceId;
+    this.clusterResource = clusterResource;
   }
 
   /** Constructs a SessionId identifier for a given SQL Exec session-Id */
-  public SessionId(String sessionId, String warehouseId) {
+  public SessionId(String sessionId, IDatabricksComputeResource warehouseId) {
     this(DatabricksClientType.SQL_EXEC, sessionId, null, warehouseId);
   }
 
   /** Constructs a SessionId identifier for a given Thrift Server session-Id */
-  public SessionId(THandleIdentifier identifier, String clusterId) {
+  public SessionId(THandleIdentifier identifier, IDatabricksComputeResource computeResource) {
     this(
         DatabricksClientType.THRIFT,
         ResourceId.fromBytes(identifier.getGuid()).toString(),
         ResourceId.fromBytes(identifier.getSecret()).toString(),
-        clusterId);
+        computeResource);
   }
 
   /** Creates a SessionId identifier for a given Thrift Server session-Id */
   public static SessionId create(ImmutableSessionInfo sessionInfo) {
     if (sessionInfo.computeResource() instanceof Warehouse) {
-      return new SessionId(
-          sessionInfo.sessionId(), ((Warehouse) sessionInfo.computeResource()).getWarehouseId());
+      return new SessionId(sessionInfo.sessionId(), sessionInfo.computeResource());
     } else {
       assert sessionInfo.sessionHandle() != null;
       return new SessionId(
-          sessionInfo.sessionHandle().getSessionId(),
-          ((AllPurposeCluster) sessionInfo.computeResource()).getClusterId());
+          sessionInfo.sessionHandle().getSessionId(), sessionInfo.computeResource());
     }
   }
 
   /** Deserializes a SessionId from a serialized string */
   public static SessionId deserialize(String serializedSessionId) throws SQLException {
     // We serialize the session-Id as:
-    // For thrift: t|clusterId|session-guid-id|session-secret
+    // For thrift: t|session-guid-id|session-secret
     // For SEA: s|warehouseId|session-id
     String[] parts = serializedSessionId.split("\\|");
-    if (parts.length == 0) {
-      LOGGER.error("Empty session-Id {%s}", serializedSessionId);
+    if (parts.length != 3) {
+      LOGGER.error("Invalid session-Id {%s}", serializedSessionId);
       throw new DatabricksParsingException("Invalid session-Id " + serializedSessionId);
     }
     switch (parts[0]) {
       case "s":
-        if (parts.length == 3) {
-          return new SessionId(parts[2], parts[1]);
-        }
-        break;
+        return new SessionId(parts[2], new Warehouse(parts[1]));
 
       case "t":
-        if (parts.length == 4) {
-          return new SessionId(DatabricksClientType.THRIFT, parts[2], parts[3], parts[1]);
-        }
-        break;
+        return new SessionId(DatabricksClientType.THRIFT, parts[1], parts[2], null);
     }
     LOGGER.error("Invalid session-Id {%s}", serializedSessionId);
     throw new DatabricksParsingException("Invalid session-Id " + serializedSessionId);
@@ -86,9 +85,9 @@ public class SessionId {
   public String toString() {
     switch (clientType) {
       case SQL_EXEC:
-        return String.format("s|%s|%s", clusterResourceId, guid);
+        return String.format("s|%s|%s", ((Warehouse) clusterResource).getWarehouseId(), guid);
       case THRIFT:
-        return String.format("t|%s|%s|%s", clusterResourceId, guid, secret);
+        return String.format("t|%s|%s", guid, secret);
     }
     return guid;
   }
@@ -98,8 +97,13 @@ public class SessionId {
     switch (clientType) {
       case THRIFT:
         return ImmutableSessionInfo.builder()
-            .sessionId("")
-            .computeResource(new AllPurposeCluster("", clusterResourceId))
+            .sessionId(
+                DatabricksThriftUtil.byteBufferToString(
+                    ByteBuffer.wrap(ResourceId.fromBase64(guid).toBytes())))
+            // compute resource is not needed for Thrift flow, setting a dummy value to bypass null
+            // check
+            .computeResource(
+                clusterResource != null ? clusterResource : new AllPurposeCluster("", ""))
             .sessionHandle(
                 new TSessionHandle(
                     new THandleIdentifier()
@@ -110,7 +114,7 @@ public class SessionId {
         return ImmutableSessionInfo.builder()
             .sessionHandle(null)
             .sessionId(guid)
-            .computeResource(new Warehouse(clusterResourceId))
+            .computeResource(clusterResource)
             .build();
     }
     // should not reach here
@@ -130,6 +134,8 @@ public class SessionId {
     }
     return Objects.equals(this.guid, ((SessionId) otherSession).guid)
         && Objects.equals(this.secret, ((SessionId) otherSession).secret)
-        && Objects.equals(this.clusterResourceId, ((SessionId) otherSession).clusterResourceId);
+        // For Thrift client type, cluster resource is ignored
+        && (this.clientType == DatabricksClientType.THRIFT
+            || Objects.equals(this.clusterResource, ((SessionId) otherSession).clusterResource));
   }
 }
