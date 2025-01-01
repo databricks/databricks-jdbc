@@ -5,10 +5,12 @@ import com.databricks.jdbc.common.AllPurposeCluster;
 import com.databricks.jdbc.common.DatabricksClientType;
 import com.databricks.jdbc.common.Warehouse;
 import com.databricks.jdbc.dbclient.impl.thrift.ResourceId;
+import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.model.client.thrift.generated.THandleIdentifier;
 import com.databricks.jdbc.model.client.thrift.generated.TSessionHandle;
+import java.sql.SQLException;
 import java.util.Objects;
 
 /** A Session-Id identifier to uniquely identify a connection session */
@@ -54,13 +56,14 @@ public class SessionId {
   }
 
   /** Deserializes a SessionId from a serialized string */
-  public static SessionId deserialize(String serializedSessionId) {
+  public static SessionId deserialize(String serializedSessionId) throws SQLException {
     // We serialize the session-Id as:
     // For thrift: t|clusterId|session-guid-id|session-secret
     // For SEA: s|warehouseId|session-id
     String[] parts = serializedSessionId.split("\\|");
     if (parts.length == 0) {
-      throw new IllegalArgumentException("Invalid session-Id " + serializedSessionId);
+      LOGGER.error("Empty session-Id {%s}", serializedSessionId);
+      throw new DatabricksParsingException("Invalid session-Id " + serializedSessionId);
     }
     switch (parts[0]) {
       case "s":
@@ -74,10 +77,9 @@ public class SessionId {
           return new SessionId(DatabricksClientType.THRIFT, parts[2], parts[3], parts[1]);
         }
         break;
-      default:
-        throw new IllegalArgumentException("Invalid session-Id " + serializedSessionId);
     }
-    throw new IllegalArgumentException("Invalid session-Id " + serializedSessionId);
+    LOGGER.error("Invalid session-Id {%s}", serializedSessionId);
+    throw new DatabricksParsingException("Invalid session-Id " + serializedSessionId);
   }
 
   @Override

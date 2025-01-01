@@ -7,6 +7,7 @@ import com.databricks.jdbc.common.AllPurposeCluster;
 import com.databricks.jdbc.common.DatabricksClientType;
 import com.databricks.jdbc.common.Warehouse;
 import com.databricks.jdbc.dbclient.impl.thrift.ResourceId;
+import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.model.client.thrift.generated.THandleIdentifier;
 import com.databricks.jdbc.model.client.thrift.generated.TSessionHandle;
 import org.junit.jupiter.api.Test;
@@ -22,7 +23,7 @@ public class SessionIdTest {
 
   /** Test the constructor with a SQL Exec statement ID string. */
   @Test
-  public void testConstructorSEA() {
+  public void testConstructorSEA() throws Exception {
     String sessionIdString = "test-session-id";
     ImmutableSessionInfo sessionInfo =
         ImmutableSessionInfo.builder()
@@ -45,7 +46,7 @@ public class SessionIdTest {
   }
 
   @Test
-  public void testConstructorThrift() {
+  public void testConstructorThrift() throws Exception {
     THandleIdentifier tHandleIdentifier =
         new THandleIdentifier().setGuid(testGuidBytes).setSecret(testSecretBytes);
     ImmutableSessionInfo sessionInfo =
@@ -72,13 +73,16 @@ public class SessionIdTest {
 
   @Test
   public void testInvalidSessionId() throws Exception {
-    final String sessionId = "s|warehouse|test-session-id|invalid";
-    assertThrows(IllegalArgumentException.class, () -> SessionId.deserialize(sessionId));
+    final String sessionId = "q|warehouse|test-session-id";
+    assertThrows(DatabricksParsingException.class, () -> SessionId.deserialize(sessionId));
+
+    final String sessionId1 = "s|warehouse|test-session-id|invalid";
+    assertThrows(DatabricksParsingException.class, () -> SessionId.deserialize(sessionId1));
 
     final String sessionId2 = "t|warehouse|invalid";
-    assertThrows(IllegalArgumentException.class, () -> SessionId.deserialize(sessionId2));
+    assertThrows(DatabricksParsingException.class, () -> SessionId.deserialize(sessionId2));
 
     final String sessionId3 = "t|warehouse|test-session-id|invalid|part3";
-    assertThrows(IllegalArgumentException.class, () -> SessionId.deserialize(sessionId3));
+    assertThrows(DatabricksParsingException.class, () -> SessionId.deserialize(sessionId3));
   }
 }
