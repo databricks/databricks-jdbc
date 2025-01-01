@@ -46,7 +46,7 @@ public class DriverUtilTest {
       })
   void testDriverSupportInSEA(String dbsqlVersion, boolean throwsError) throws SQLException {
     when(connection.getConnectionContext()).thenReturn(connectionContext);
-    when(connectionContext.getClientType()).thenReturn(DatabricksClientType.SQL_EXEC);
+    when(connectionContext.getClientType()).thenReturn(DatabricksClientType.SEA);
     when(connectionContext.getHttpPath()).thenReturn(TEST_HTTP_PATH);
     when(connection.createStatement()).thenReturn(statement);
     when(statement.executeQuery("SELECT current_version().dbsql_version")).thenReturn(resultSet);
@@ -72,7 +72,7 @@ public class DriverUtilTest {
   @Test
   void testCacheIsSeparateForDifferentHttpPaths() throws SQLException {
     when(connection.getConnectionContext()).thenReturn(connectionContext);
-    when(connectionContext.getClientType()).thenReturn(DatabricksClientType.SQL_EXEC);
+    when(connectionContext.getClientType()).thenReturn(DatabricksClientType.SEA);
     when(connection.createStatement()).thenReturn(statement);
     when(statement.executeQuery(DBSQL_VERSION_SQL)).thenReturn(resultSet);
 
@@ -93,7 +93,7 @@ public class DriverUtilTest {
   @Test
   void testCacheIsReusedForSameHttpPath() throws SQLException {
     when(connection.getConnectionContext()).thenReturn(connectionContext);
-    when(connectionContext.getClientType()).thenReturn(DatabricksClientType.SQL_EXEC);
+    when(connectionContext.getClientType()).thenReturn(DatabricksClientType.SEA);
     when(connectionContext.getHttpPath()).thenReturn(TEST_HTTP_PATH);
     when(connection.createStatement()).thenReturn(statement);
     when(statement.executeQuery(DBSQL_VERSION_SQL)).thenReturn(resultSet);

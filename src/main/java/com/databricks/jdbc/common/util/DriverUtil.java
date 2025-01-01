@@ -103,7 +103,7 @@ public class DriverUtil {
   @VisibleForTesting
   static void ensureUpdatedDBSQLVersionInUse(IDatabricksConnectionInternal connection)
       throws DatabricksValidationException {
-    if (connection.getConnectionContext().getClientType() != DatabricksClientType.SQL_EXEC
+    if (connection.getConnectionContext().getClientType() != DatabricksClientType.SEA
         || isRunningAgainstFake()) {
       // Check applicable only for SEA flow
       return;

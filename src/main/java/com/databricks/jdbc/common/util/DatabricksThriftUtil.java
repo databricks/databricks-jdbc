@@ -24,7 +24,7 @@ import java.util.stream.IntStream;
 public class DatabricksThriftUtil {
 
   private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(DatabricksThriftUtil.class);
-  public static final List<TStatusCode> SUCCESS_STATUS_LIST =
+  private static final List<TStatusCode> SUCCESS_STATUS_LIST =
       List.of(TStatusCode.SUCCESS_STATUS, TStatusCode.SUCCESS_WITH_INFO_STATUS);
 
   public static TNamespace getNamespace(String catalog, String schema) {
@@ -210,17 +210,12 @@ public class DatabricksThriftUtil {
         return ColumnInfoTypeName.FLOAT;
       case DOUBLE_TYPE:
         return ColumnInfoTypeName.DOUBLE;
-      case VARCHAR_TYPE:
-      case STRING_TYPE:
-        return ColumnInfoTypeName.STRING;
       case TIMESTAMP_TYPE:
         return ColumnInfoTypeName.TIMESTAMP;
       case BINARY_TYPE:
         return ColumnInfoTypeName.BINARY;
       case DECIMAL_TYPE:
         return ColumnInfoTypeName.DECIMAL;
-      case NULL_TYPE:
-        return ColumnInfoTypeName.STRING;
       case DATE_TYPE:
         return ColumnInfoTypeName.DATE;
       case CHAR_TYPE:
@@ -228,8 +223,9 @@ public class DatabricksThriftUtil {
       case INTERVAL_YEAR_MONTH_TYPE:
       case INTERVAL_DAY_TIME_TYPE:
         return ColumnInfoTypeName.INTERVAL;
+      default:
+        return ColumnInfoTypeName.STRING;
     }
-    return ColumnInfoTypeName.STRING; // by default return string
   }
 
   /**
@@ -376,9 +372,6 @@ public class DatabricksThriftUtil {
       TSparkDirectResults directResults, String context) throws DatabricksHttpException {
     if (directResults.isSetOperationStatus()) {
       LOGGER.debug("direct result operation status being verified for success response");
-      if (directResults.getOperationStatus().getOperationState() == TOperationState.ERROR_STATE) {
-        throw new DatabricksHttpException(directResults.getOperationStatus().errorMessage);
-      }
       verifySuccessStatus(directResults.getOperationStatus().getStatus(), context);
     }
     if (directResults.isSetResultSetMetadata()) {

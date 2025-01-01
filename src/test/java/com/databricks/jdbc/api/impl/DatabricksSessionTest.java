@@ -64,7 +64,7 @@ public class DatabricksSessionTest {
     when(sdkClient.createSession(eq(WAREHOUSE_COMPUTE), any(), any(), any()))
         .thenReturn(sessionInfo);
     DatabricksSession session = new DatabricksSession(connectionContext, sdkClient);
-    assertEquals(DatabricksClientType.SQL_EXEC, connectionContext.getClientType());
+    assertEquals(DatabricksClientType.SEA, connectionContext.getClientType());
     assertFalse(session.isOpen());
     session.open();
     assertTrue(session.isOpen());

@@ -310,7 +310,7 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
 
   @Override
   public String getClientUserAgent() {
-    return getClientType().equals(DatabricksClientType.SQL_EXEC)
+    return getClientType().equals(DatabricksClientType.SEA)
         ? DatabricksJdbcConstants.USER_AGENT_SEA_CLIENT
         : DatabricksJdbcConstants.USER_AGENT_THRIFT_CLIENT;
   }
@@ -337,7 +337,7 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
     if (useThriftClient != null && useThriftClient.equals("1")) {
       return DatabricksClientType.THRIFT;
     }
-    return DatabricksClientType.SQL_EXEC;
+    return DatabricksClientType.SEA;
   }
 
   @Override

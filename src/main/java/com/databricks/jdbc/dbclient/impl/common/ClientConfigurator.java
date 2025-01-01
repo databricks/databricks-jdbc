@@ -5,6 +5,7 @@ import static com.databricks.jdbc.common.DatabricksJdbcConstants.*;
 import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.auth.OAuthRefreshCredentialsProvider;
 import com.databricks.jdbc.auth.PrivateKeyClientCredentialProvider;
+import com.databricks.jdbc.common.AuthMech;
 import com.databricks.jdbc.common.DatabricksJdbcConstants;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.log.JdbcLogger;
@@ -83,7 +84,7 @@ public class ClientConfigurator {
 
   /** Setup the workspace authentication settings in the databricks config. */
   public void setupAuthConfig() {
-    IDatabricksConnectionContext.AuthMech authMech = connectionContext.getAuthMech();
+    AuthMech authMech = connectionContext.getAuthMech();
     try {
       switch (authMech) {
         case OAUTH:

@@ -16,6 +16,18 @@ public class TelemetryEvent {
   @JsonProperty("driver_connection_params")
   DriverConnectionParameters driverConnectionParameters;
 
+  @JsonProperty("auth_type")
+  String authType;
+
+  @JsonProperty("vol_operation")
+  DriverVolumeOperation volumeOperation;
+
+  @JsonProperty("sql_operation")
+  SqlExecutionEvent sqlOperation;
+
+  @JsonProperty("error_info")
+  DriverErrorInfo driverErrorInfo;
+
   public TelemetryEvent() {}
 
   public String getSessionId() {
@@ -53,6 +65,26 @@ public class TelemetryEvent {
   public TelemetryEvent setDriverSystemConfiguration(
       DriverSystemConfiguration driverSystemConfiguration) {
     this.driverSystemConfiguration = driverSystemConfiguration;
+    return this;
+  }
+
+  public TelemetryEvent setAuthType(String authType) {
+    this.authType = authType;
+    return this;
+  }
+
+  public TelemetryEvent setVolumeOperation(DriverVolumeOperation volumeOperation) {
+    this.volumeOperation = volumeOperation;
+    return this;
+  }
+
+  public TelemetryEvent setSqlOperation(SqlExecutionEvent sqlOperation) {
+    this.sqlOperation = sqlOperation;
+    return this;
+  }
+
+  public TelemetryEvent setDriverErrorInfo(DriverErrorInfo driverErrorInfo) {
+    this.driverErrorInfo = driverErrorInfo;
     return this;
   }
 }

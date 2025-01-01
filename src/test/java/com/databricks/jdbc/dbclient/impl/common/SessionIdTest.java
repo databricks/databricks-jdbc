@@ -37,7 +37,7 @@ public class SessionIdTest {
 
     String expected = "s|warehouse|test-session-id";
     assertEquals(expected, sessionId.toString());
-    assertEquals(DatabricksClientType.SQL_EXEC, sessionId.getClientType());
+    assertEquals(DatabricksClientType.SEA, sessionId.getClientType());
 
     SessionId deserializedSessionId = SessionId.deserialize(expected);
     ImmutableSessionInfo deserializedSessionInfo = deserializedSessionId.getSessionInfo();

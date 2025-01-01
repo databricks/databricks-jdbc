@@ -37,7 +37,7 @@ public class SessionId {
 
   /** Constructs a SessionId identifier for a given SQL Exec session-Id */
   public SessionId(String sessionId, IDatabricksComputeResource warehouseId) {
-    this(DatabricksClientType.SQL_EXEC, sessionId, null, warehouseId);
+    this(DatabricksClientType.SEA, sessionId, null, warehouseId);
   }
 
   /** Constructs a SessionId identifier for a given Thrift Server session-Id */
@@ -84,7 +84,7 @@ public class SessionId {
   @Override
   public String toString() {
     switch (clientType) {
-      case SQL_EXEC:
+      case SEA:
         return String.format("s|%s|%s", ((Warehouse) clusterResource).getWarehouseId(), guid);
       case THRIFT:
         return String.format("t|%s|%s", guid, secret);
@@ -110,7 +110,7 @@ public class SessionId {
                         .setGuid(ResourceId.fromBase64(guid).toBytes())
                         .setSecret(ResourceId.fromBase64(secret).toBytes())))
             .build();
-      case SQL_EXEC:
+      case SEA:
         return ImmutableSessionInfo.builder()
             .sessionHandle(null)
             .sessionId(guid)
