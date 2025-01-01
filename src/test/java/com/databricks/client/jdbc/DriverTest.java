@@ -623,7 +623,7 @@ public class DriverTest {
   void testAllPurposeClusters_closeBySessionId() throws Exception {
     String jdbcUrl =
         "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;ssl=1;AuthMech=3;httpPath=sql/protocolv1/o/6051921418418893/1115-130834-ms4m0yv;enableDirectResults=1";
-    String token = "";
+    String token = "xx";
     Connection con = DriverManager.getConnection(jdbcUrl, "token", token);
     System.out.println("Connection established...... con1");
     Statement s = con.createStatement();
@@ -664,7 +664,7 @@ public class DriverTest {
   void testDBSQL_closeBySessionId() throws Exception {
     String jdbcUrl =
         "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/791ba2a31c7fd70a;enableDirectResults=1";
-    String token = "token";
+    String token = "xx";
     Connection con = DriverManager.getConnection(jdbcUrl, "token", token);
     System.out.println("Connection established...... con1");
     Statement s = con.createStatement();
@@ -688,44 +688,16 @@ public class DriverTest {
             + ")";
     ResultSet rs = ids.executeAsync(sql);
     System.out.println("Time taken: " + (System.currentTimeMillis() - initialTime));
-    System.out.println(
-        "Status of async execution " + rs.unwrap(IDatabricksResultSet.class).getStatementStatus());
 
-    System.out.println("StatementId " + rs.unwrap(IDatabricksResultSet.class).getStatementId());
+    String connectionId = con.unwrap(IDatabricksConnection.class).getConnectionId();
 
-    int count = 1;
-    StatementState state = rs.unwrap(IDatabricksResultSet.class).getStatementStatus().getState();
-    while (state != StatementState.SUCCEEDED && state != StatementState.FAILED) {
-      Thread.sleep(1000);
-      rs = s.unwrap(IDatabricksStatement.class).getExecutionResult();
-      state = rs.unwrap(IDatabricksResultSet.class).getStatementStatus().getState();
-      System.out.println(
-          "Status of async execution "
-              + state
-              + " attempt "
-              + count++
-              + " time taken "
-              + (System.currentTimeMillis() - initialTime));
-    }
+    Properties p = new Properties();
+    p.setProperty("PWD", token);
 
-    Connection con2 = DriverManager.getConnection(jdbcUrl, "token", token);
-    System.out.println("Connection established......con2");
-    IDatabricksConnection idc = con2.unwrap(IDatabricksConnection.class);
-    Statement stm = idc.getStatement(rs.unwrap(IDatabricksResultSet.class).getStatementId());
-    ResultSet rs2 = stm.unwrap(IDatabricksStatement.class).getExecutionResult();
+    s.executeQuery("Select 1");
 
-    System.out.println(
-        "Status of async execution using con2 "
-            + rs2.unwrap(IDatabricksResultSet.class).getStatementStatus().getState());
-
-    stm.cancel();
-    stm.execute("DROP TABLE JDBC_ASYNC_DBSQL");
-    System.out.println("Statement cancelled using con2");
-    s.close();
-    System.out.println("Statement cancelled using con1");
-    con2.close();
-    con.close();
-    System.out.println("Connection closed successfully......");
+    Driver.getInstance().closeConnection(jdbcUrl, p, connectionId);
+    assertThrows(DatabricksSQLException.class, () -> s.executeQuery("Select 1"));
   }
 
   @Test
