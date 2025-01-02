@@ -25,7 +25,7 @@ public class AllPurposeCluster implements IDatabricksComputeResource {
       return false;
     }
     return Objects.equals(((AllPurposeCluster) obj).clusterId, this.clusterId)
-        && Objects.equals(((AllPurposeCluster) obj).clusterId, this.orgId);
+        && Objects.equals(((AllPurposeCluster) obj).orgId, this.orgId);
   }
 
   @Override

@@ -71,12 +71,11 @@ public class DatabricksThriftServiceClientTest {
   void testCloseSession() throws DatabricksSQLException {
     DatabricksThriftServiceClient client =
         new DatabricksThriftServiceClient(thriftAccessor, connectionContext);
-    when(session.getSessionInfo()).thenReturn(SESSION_INFO);
     TCloseSessionReq closeSessionReq = new TCloseSessionReq().setSessionHandle(SESSION_HANDLE);
     TCloseSessionResp closeSessionResp =
         new TCloseSessionResp().setStatus(new TStatus().setStatusCode(TStatusCode.SUCCESS_STATUS));
     when(thriftAccessor.getThriftResponse(closeSessionReq)).thenReturn(closeSessionResp);
-    assertDoesNotThrow(() -> client.deleteSession(session, CLUSTER_COMPUTE));
+    assertDoesNotThrow(() -> client.deleteSession(SESSION_INFO));
   }
 
   @Test

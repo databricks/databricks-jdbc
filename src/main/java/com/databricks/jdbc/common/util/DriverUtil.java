@@ -2,8 +2,8 @@ package com.databricks.jdbc.common.util;
 
 import static com.databricks.jdbc.common.DatabricksJdbcConstants.IS_FAKE_SERVICE_TEST_PROP;
 
-import com.databricks.jdbc.api.IDatabricksConnection;
 import com.databricks.jdbc.api.IDatabricksConnectionContext;
+import com.databricks.jdbc.api.internal.IDatabricksConnectionInternal;
 import com.databricks.jdbc.common.DatabricksClientType;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.exception.DatabricksValidationException;
@@ -52,7 +52,7 @@ public class DriverUtil {
     return Integer.parseInt(VERSION_PARTS[1]);
   }
 
-  public static void resolveMetadataClient(IDatabricksConnection connection)
+  public static void resolveMetadataClient(IDatabricksConnectionInternal connection)
       throws DatabricksValidationException {
     if (connection.getConnectionContext().getUseEmptyMetadata()) {
       LOGGER.warn("Empty metadata client is being used.");
@@ -101,7 +101,7 @@ public class DriverUtil {
   }
 
   @VisibleForTesting
-  static void ensureUpdatedDBSQLVersionInUse(IDatabricksConnection connection)
+  static void ensureUpdatedDBSQLVersionInUse(IDatabricksConnectionInternal connection)
       throws DatabricksValidationException {
     if (connection.getConnectionContext().getClientType() != DatabricksClientType.SEA
         || isRunningAgainstFake()) {
@@ -124,7 +124,7 @@ public class DriverUtil {
     }
   }
 
-  private static String getDBSQLVersionCached(IDatabricksConnection connection) {
+  private static String getDBSQLVersionCached(IDatabricksConnectionInternal connection) {
     String httpPath = connection.getConnectionContext().getHttpPath();
     String version = cachedDBSQLVersions.get(httpPath);
     if (version != null) {
@@ -144,7 +144,7 @@ public class DriverUtil {
     }
   }
 
-  private static String queryDBSQLVersion(IDatabricksConnection connection) {
+  private static String queryDBSQLVersion(IDatabricksConnectionInternal connection) {
     try (ResultSet resultSet = connection.createStatement().executeQuery(DBSQL_VERSION_SQL)) {
       resultSet.next();
       String dbsqlVersion = resultSet.getString(1);

@@ -7,6 +7,8 @@ import com.databricks.jdbc.api.IDatabricksSession;
 import com.databricks.jdbc.api.impl.IExecutionResult;
 import com.databricks.jdbc.api.impl.VolumeOperationStatus;
 import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
+import com.databricks.jdbc.common.util.VolumeUtil;
+
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
 import com.databricks.jdbc.dbclient.impl.http.DatabricksHttpClientFactory;
 import com.databricks.jdbc.exception.DatabricksSQLException;
@@ -74,29 +76,33 @@ public class VolumeOperationResult implements IExecutionResult {
   }
 
   private void initHandler(IExecutionResult resultHandler) throws DatabricksSQLException {
-    String operation = getString(resultHandler.getObject(0));
+    VolumeUtil.VolumeOperationType operation =
+        VolumeUtil.VolumeOperationType.fromString(getString(resultHandler.getObject(0)));
     String presignedUrl = getString(resultHandler.getObject(1));
     String localFile = columnCount > 3 ? getString(resultHandler.getObject(3)) : null;
     Map<String, String> headers = getHeaders(getString(resultHandler.getObject(2)));
     String allowedVolumeIngestionPaths = getAllowedVolumeIngestionPaths();
     this.volumeOperationProcessor =
-        new VolumeOperationProcessor(
-            operation,
-            presignedUrl,
-            headers,
-            localFile,
-            allowedVolumeIngestionPaths,
-            statement.isAllowedInputStreamForVolumeOperation(),
-            statement.getInputStreamForUCVolume(),
-            httpClient,
-            (entity) -> {
-              try {
-                this.setVolumeOperationEntityStream(entity);
-              } catch (Exception e) {
-                throw new RuntimeException(
-                    "Failed to set result set volumeOperationEntityStream", e);
-              }
-            });
+        VolumeOperationProcessor.Builder.createBuilder()
+            .operationType(operation)
+            .operationUrl(presignedUrl)
+            .headers(headers)
+            .localFilePath(localFile)
+            .allowedVolumeIngestionPathString(allowedVolumeIngestionPaths)
+            .isAllowedInputStreamForVolumeOperation(
+                statement.isAllowedInputStreamForVolumeOperation())
+            .inputStream(statement.getInputStreamForUCVolume())
+            .databricksHttpClient(httpClient)
+            .getStreamReceiver(
+                (entity) -> {
+                  try {
+                    this.setVolumeOperationEntityStream(entity);
+                  } catch (Exception e) {
+                    throw new RuntimeException(
+                        "Failed to set result set volumeOperationEntityStream", e);
+                  }
+                })
+            .build();
   }
 
   private String getAllowedVolumeIngestionPaths() {
