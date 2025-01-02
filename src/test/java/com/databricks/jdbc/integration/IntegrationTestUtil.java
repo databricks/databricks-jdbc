@@ -146,9 +146,9 @@ public class IntegrationTestUtil {
         getDogfoodJDBCUrl(), getDatabricksUser(), getDatabricksDogfoodToken());
   }
 
-  public static IDatabricksConnectionContext getDogfoodJDBCConnectionContext() throws SQLException
-  {
-      return  DatabricksConnectionContextFactory.create(getDogfoodJDBCUrl(), getDatabricksUser(), getDatabricksDogfoodToken());
+  public static IDatabricksConnectionContext getDogfoodJDBCConnectionContext() throws SQLException {
+    return DatabricksConnectionContextFactory.create(
+        getDogfoodJDBCUrl(), getDatabricksUser(), getDatabricksDogfoodToken());
   }
 
   public static Connection getDogfoodJDBCConnection(List<List<String>> extraArgs)
