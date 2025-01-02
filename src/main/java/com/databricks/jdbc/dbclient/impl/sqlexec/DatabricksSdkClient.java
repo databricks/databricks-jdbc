@@ -102,13 +102,14 @@ public class DatabricksSdkClient implements IDatabricksClient {
   }
 
   @Override
-  public void deleteSession(ImmutableSessionInfo session) {
+  public void deleteSession(ImmutableSessionInfo sessionInfo) {
     LOGGER.debug(
-        String.format("public void deleteSession(String sessionId = {%s})", session.sessionId()));
+        String.format(
+            "public void deleteSession(String sessionId = {%s})", sessionInfo.sessionId()));
     DeleteSessionRequest request =
         new DeleteSessionRequest()
-            .setSessionId(session.sessionId())
-            .setWarehouseId(((Warehouse) session.computeResource()).getWarehouseId());
+            .setSessionId(sessionInfo.sessionId())
+            .setWarehouseId(((Warehouse) sessionInfo.computeResource()).getWarehouseId());
     String path = String.format(SESSION_PATH_WITH_ID, request.getSessionId());
     workspaceClient.apiClient().DELETE(path, request, Void.class, JSON_HTTP_HEADERS);
   }
