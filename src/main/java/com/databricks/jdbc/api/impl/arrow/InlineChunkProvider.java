@@ -3,6 +3,7 @@ package com.databricks.jdbc.api.impl.arrow;
 import static com.databricks.jdbc.common.util.DatabricksTypeUtil.*;
 import static com.databricks.jdbc.common.util.DecompressionUtil.decompress;
 
+import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.api.IDatabricksSession;
 import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
 import com.databricks.jdbc.common.CompressionCodec;
@@ -12,6 +13,7 @@ import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.model.client.thrift.generated.*;
+import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import com.google.common.annotations.VisibleForTesting;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -29,6 +31,7 @@ import org.apache.arrow.vector.util.SchemaUtility;
 public class InlineChunkProvider implements ChunkProvider {
 
   private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(InlineChunkProvider.class);
+  private final IDatabricksConnectionContext connectionContext;
   private long totalRows;
   private long currentChunkIndex;
 
@@ -39,6 +42,7 @@ public class InlineChunkProvider implements ChunkProvider {
       IDatabricksStatementInternal parentStatement,
       IDatabricksSession session)
       throws DatabricksParsingException {
+      this.connectionContext = session.getConnectionContext();
     this.currentChunkIndex = -1;
     this.totalRows = 0;
     ByteArrayInputStream byteStream = initializeByteStream(resultsResp, session, parentStatement);
@@ -107,7 +111,7 @@ public class InlineChunkProvider implements ChunkProvider {
       }
       return new ByteArrayInputStream(baos.toByteArray());
     } catch (DatabricksSQLException | IOException e) {
-      handleError(e);
+      handleError(e,connectionContext);
     }
     return null;
   }
@@ -125,7 +129,7 @@ public class InlineChunkProvider implements ChunkProvider {
               compressionCodec,
               String.format(
                   "Data fetch for inline arrow batch [%d] and statement [%s] with decompression algorithm : [%s]",
-                  arrowBatch.getRowCount(), parentStatement, compressionCodec));
+                  arrowBatch.getRowCount(), parentStatement, compressionCodec),connectionContext);
       totalRows += arrowBatch.getRowCount();
       baos.write(decompressedBytes);
     }
@@ -136,17 +140,17 @@ public class InlineChunkProvider implements ChunkProvider {
     if (metadata.getArrowSchema() != null) {
       return metadata.getArrowSchema();
     }
-    Schema arrowSchema = hiveSchemaToArrowSchema(metadata.getSchema());
+    Schema arrowSchema = hiveSchemaToArrowSchema(metadata.getSchema(),connectionContext);
     try {
       return SchemaUtility.serialize(arrowSchema);
     } catch (IOException e) {
-      handleError(e);
+      handleError(e,connectionContext);
     }
     // should never reach here;
     return null;
   }
 
-  private static Schema hiveSchemaToArrowSchema(TTableSchema hiveSchema)
+  private static Schema hiveSchemaToArrowSchema(TTableSchema hiveSchema, IDatabricksConnectionContext connectionContext)
       throws DatabricksParsingException {
     List<Field> fields = new ArrayList<>();
     if (hiveSchema == null) {
@@ -164,7 +168,7 @@ public class InlineChunkProvider implements ChunkProvider {
                 }
               });
     } catch (RuntimeException e) {
-      handleError(e);
+      handleError(e,connectionContext);
     }
     return new Schema(fields);
   }
@@ -177,9 +181,9 @@ public class InlineChunkProvider implements ChunkProvider {
   }
 
   @VisibleForTesting
-  static void handleError(Exception e) throws DatabricksParsingException {
-    String errorMessage = "Cannot process inline arrow format. Error: " + e.getMessage();
+  static void handleError(Exception e, IDatabricksConnectionContext connectionContext) throws DatabricksParsingException {
+    String errorMessage = String.format("Cannot process inline arrow format. Error: %s", e.getMessage());
     LOGGER.error(errorMessage);
-    throw new DatabricksParsingException(errorMessage, e);
+    throw new DatabricksParsingException(errorMessage, e, DatabricksDriverErrorCode.INLINE_CHUNK_PARSING_ERROR,connectionContext);
   }
 }

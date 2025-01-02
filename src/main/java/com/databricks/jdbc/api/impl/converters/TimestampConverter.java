@@ -1,6 +1,8 @@
 package com.databricks.jdbc.api.impl.converters;
 
 import com.databricks.jdbc.exception.DatabricksSQLException;
+import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
+
 import java.math.BigInteger;
 import java.sql.Date;
 import java.sql.Timestamp;
@@ -20,12 +22,12 @@ public class TimestampConverter implements ObjectConverter {
           Instant instant = Instant.parse((String) object);
           return Timestamp.from(instant);
         } catch (Exception ex) {
-          throw new DatabricksSQLException("Invalid conversion to Timestamp", ex);
+          throw new DatabricksSQLException("Invalid conversion to Timestamp", ex, DatabricksDriverErrorCode.UNSUPPORTED_OPERATION);
         }
       }
     }
     throw new DatabricksSQLException(
-        "Unsupported conversion to Timestamp for type: " + object.getClass().getName());
+        "Unsupported conversion to Timestamp for type: " + object.getClass().getName(), DatabricksDriverErrorCode.UNSUPPORTED_OPERATION);
   }
 
   @Override

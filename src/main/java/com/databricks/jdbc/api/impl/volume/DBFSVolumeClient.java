@@ -7,10 +7,12 @@ import static com.databricks.jdbc.dbclient.impl.sqlexec.PathConstants.*;
 import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.api.IDatabricksVolumeClient;
 import com.databricks.jdbc.dbclient.impl.common.ClientConfigurator;
+import com.databricks.jdbc.exception.DatabricksSQLFeatureNotSupportedException;
 import com.databricks.jdbc.exception.DatabricksVolumeOperationException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.model.client.filesystem.*;
+import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import com.databricks.sdk.WorkspaceClient;
 import com.databricks.sdk.core.DatabricksException;
 import com.google.common.annotations.VisibleForTesting;
@@ -161,10 +163,10 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient {
       InputStream inputStream,
       long contentLength,
       boolean toOverwrite)
-      throws UnsupportedOperationException {
+      throws DatabricksSQLFeatureNotSupportedException {
     String errorMessage = "putObject for InputStream function is unsupported in DBFSVolumeClient";
     LOGGER.error(errorMessage);
-    throw new UnsupportedOperationException(errorMessage);
+    throw new DatabricksSQLFeatureNotSupportedException(errorMessage);
   }
 
   /** {@inheritDoc} */
@@ -175,9 +177,6 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient {
         String.format(
             "Entering deleteObject method with parameters: catalog={%s}, schema={%s}, volume={%s}, objectPath={%s}",
             catalog, schema, volume, objectPath));
-
-    boolean isOperationSucceeded = false;
-    try {
       // Fetching the Pre Signed Url
       CreateDeleteUrlResponse response =
           getCreateDeleteUrlResponse(getObjectFullPath(catalog, schema, volume, objectPath));
@@ -186,13 +185,7 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient {
       VolumeOperationProcessorDirect volumeOperationProcessorDirect =
           getVolumeOperationProcessorDirect(response.getUrl(), null);
       volumeOperationProcessorDirect.executeDeleteOperation();
-      isOperationSucceeded = true;
-    } catch (DatabricksVolumeOperationException e) {
-      String errorMessage = String.format("Failed to delete object - {%s}", e.getMessage());
-      LOGGER.error(e, errorMessage);
-      throw e;
-    }
-    return isOperationSucceeded;
+    return true;
   }
 
   WorkspaceClient getWorkspaceClientFromConnectionContext(
@@ -222,7 +215,7 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient {
       String errorMessage =
           String.format("Failed to get create upload url response - {%s}", e.getMessage());
       LOGGER.error(e, errorMessage);
-      throw new DatabricksVolumeOperationException(errorMessage, e);
+      throw new DatabricksVolumeOperationException(errorMessage, e,DatabricksDriverErrorCode.VOLUME_OPERATION_URL_GENERATION_ERROR);
     }
   }
 
@@ -248,7 +241,7 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient {
       String errorMessage =
           String.format("Failed to get create download url response - {%s}", e.getMessage());
       LOGGER.error(e, errorMessage);
-      throw new DatabricksVolumeOperationException(errorMessage, e);
+      throw new DatabricksVolumeOperationException(errorMessage, e, DatabricksDriverErrorCode.VOLUME_OPERATION_URL_GENERATION_ERROR);
     }
   }
 
@@ -269,7 +262,7 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient {
       String errorMessage =
           String.format("Failed to get create delete url response - {%s}", e.getMessage());
       LOGGER.error(e, errorMessage);
-      throw new DatabricksVolumeOperationException(errorMessage, e);
+      throw new DatabricksVolumeOperationException(errorMessage, e, DatabricksDriverErrorCode.VOLUME_OPERATION_URL_GENERATION_ERROR);
     }
   }
 }

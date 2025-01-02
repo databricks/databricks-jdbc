@@ -17,6 +17,7 @@ import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.exception.DatabricksSQLFeatureNotSupportedException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
+import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import com.google.common.annotations.VisibleForTesting;
 import java.sql.*;
 import java.util.HashMap;
@@ -368,7 +369,7 @@ public class DatabricksConnection implements IDatabricksConnection {
 
   @Override
   public boolean isValid(int timeout) throws SQLException {
-    ValidationUtil.checkIfNonNegative(timeout, "timeout");
+    ValidationUtil.checkIfNonNegative(timeout, "connectionTimeout", connectionContext);
     try (DatabricksStatement statement = new DatabricksStatement(this)) {
       statement.setQueryTimeout(timeout);
       // simple query to check whether connection is working
@@ -387,8 +388,9 @@ public class DatabricksConnection implements IDatabricksConnection {
       Map<String, ClientInfoStatus> failedProperties = new HashMap<>();
       setSessionConfig(name, value, failedProperties);
       if (!failedProperties.isEmpty()) {
-        throw new DatabricksSQLClientInfoException(
-            getFailedPropertiesExceptionMessage(failedProperties), failedProperties);
+       String errorMessage =  getFailedPropertiesExceptionMessage(failedProperties);
+       LOGGER.error(errorMessage);
+        throw new DatabricksSQLClientInfoException(errorMessage, failedProperties, DatabricksDriverErrorCode.INPUT_VALIDATION_ERROR);
       }
     } else {
       if (DatabricksJdbcConstants.ALLOWED_CLIENT_INFO_PROPERTIES.stream()
@@ -396,11 +398,10 @@ public class DatabricksConnection implements IDatabricksConnection {
           .anyMatch(s -> s.equalsIgnoreCase(name))) {
         this.session.setClientInfoProperty(name.toLowerCase(), value);
       } else {
-        throw new DatabricksSQLClientInfoException(
-            String.format(
-                "Setting client info for %s failed with %s",
-                name, ClientInfoStatus.REASON_UNKNOWN_PROPERTY),
-            Map.of(name, ClientInfoStatus.REASON_UNKNOWN_PROPERTY));
+      String errorMessage = String.format("Setting client info for %s failed with %s",name, ClientInfoStatus.REASON_UNKNOWN_PROPERTY);
+        LOGGER.error(errorMessage);
+        throw new DatabricksSQLClientInfoException(errorMessage,
+         Map.of(name, ClientInfoStatus.REASON_UNKNOWN_PROPERTY), DatabricksDriverErrorCode.INPUT_VALIDATION_ERROR);
       }
     }
   }
@@ -494,9 +495,10 @@ public class DatabricksConnection implements IDatabricksConnection {
     if (iface.isInstance(this)) {
       return (T) this;
     }
-    throw new DatabricksSQLException(
-        String.format(
-            "Class {%s} cannot be wrapped from {%s}", this.getClass().getName(), iface.getName()));
+    String errorMessage = String.format(
+            "Class {%s} cannot be wrapped from {%s}", this.getClass().getName(), iface.getName());
+    LOGGER.error(errorMessage);
+    throw new DatabricksSQLException(errorMessage, DatabricksDriverErrorCode.INPUT_VALIDATION_ERROR,connectionContext);
   }
 
   @Override
@@ -575,7 +577,7 @@ public class DatabricksConnection implements IDatabricksConnection {
 
   private void throwExceptionIfConnectionIsClosed() throws SQLException {
     if (this.isClosed()) {
-      throw new DatabricksSQLException("Connection closed!");
+      throw new DatabricksSQLException("Connection closed!", DatabricksDriverErrorCode.CONNECTION_CLOSED, connectionContext);
     }
   }
 }

@@ -1,15 +1,15 @@
 package com.databricks.jdbc.exception;
 
-public class DatabricksParsingException extends DatabricksSQLException {
-  private final Throwable cause;
+import com.databricks.jdbc.api.IDatabricksConnectionContext;
+import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 
-  public DatabricksParsingException(String message) {
-    super(message);
-    this.cause = null;
+public class DatabricksParsingException extends DatabricksSQLException {
+
+  public DatabricksParsingException(String message, DatabricksDriverErrorCode errorCode, IDatabricksConnectionContext connectionContext) {
+    super(message,errorCode,connectionContext);
   }
 
-  public DatabricksParsingException(String message, Throwable cause) {
-    super(message);
-    this.cause = cause;
+  public DatabricksParsingException(String message, Throwable cause, DatabricksDriverErrorCode errorCode, IDatabricksConnectionContext connectionContext) {
+    super(message, cause, errorCode,connectionContext);
   }
 }

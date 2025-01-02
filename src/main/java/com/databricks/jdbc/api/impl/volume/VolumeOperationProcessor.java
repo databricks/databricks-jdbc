@@ -1,5 +1,6 @@
 package com.databricks.jdbc.api.impl.volume;
 
+import com.databricks.jdbc.api.impl.VolumeOperationStatus;
 import com.databricks.jdbc.common.util.HttpUtil;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
 import com.databricks.jdbc.exception.DatabricksHttpException;
@@ -331,13 +332,5 @@ class VolumeOperationProcessor {
       status = VolumeOperationStatus.FAILED;
       errorMessage = "Failed to delete volume: " + e.getMessage();
     }
-  }
-
-  enum VolumeOperationStatus {
-    PENDING,
-    RUNNING,
-    ABORTED,
-    SUCCEEDED,
-    FAILED
   }
 }

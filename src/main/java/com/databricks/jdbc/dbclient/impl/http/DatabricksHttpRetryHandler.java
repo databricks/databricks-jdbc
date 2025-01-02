@@ -4,6 +4,7 @@ import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.exception.DatabricksRetryHandlerException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
+import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import com.google.common.annotations.VisibleForTesting;
 import java.io.IOException;
 import java.util.Objects;
@@ -17,16 +18,16 @@ import org.apache.http.client.methods.HttpPut;
 import org.apache.http.client.protocol.HttpClientContext;
 import org.apache.http.protocol.HttpContext;
 
+import static com.databricks.jdbc.common.DatabricksJdbcConstants.THRIFT_ERROR_MESSAGE_HEADER;
+
 public class DatabricksHttpRetryHandler
     implements HttpResponseInterceptor, HttpRequestRetryHandler {
-
   private static final JdbcLogger LOGGER =
       JdbcLoggerFactory.getLogger(DatabricksHttpRetryHandler.class);
   private static final String RETRY_INTERVAL_KEY = "retryInterval";
   private static final String TEMP_UNAVAILABLE_RETRY_COUNT_KEY = "tempUnavailableRetryCount";
   private static final String RATE_LIMIT_RETRY_COUNT_KEY = "rateLimitRetryCount";
   private static final String RETRY_AFTER_HEADER = "Retry-After";
-  private static final String THRIFT_ERROR_MESSAGE_HEADER = "X-Thriftserver-Error-Message";
   private static final int DEFAULT_BACKOFF_FACTOR = 2; // Exponential factor
   private static final int MIN_BACKOFF_INTERVAL = 1000; // 1s
   private static final int MAX_RETRY_INTERVAL = 10 * 1000; // 10s
@@ -80,22 +81,17 @@ public class DatabricksHttpRetryHandler
     // Set the context state
     httpContext.setAttribute(RETRY_INTERVAL_KEY, retryInterval);
     initializeRetryCountsIfNotExist(httpContext);
+
     // Throw an exception to trigger the retry mechanism
+    String errorReason;
     if (httpResponse.containsHeader(THRIFT_ERROR_MESSAGE_HEADER)) {
-      throw new DatabricksRetryHandlerException(
-          "HTTP Response code: "
-              + statusCode
-              + ", Error message: "
-              + httpResponse.getFirstHeader(THRIFT_ERROR_MESSAGE_HEADER).getValue(),
-          statusCode);
+      errorReason =  httpResponse.getFirstHeader(THRIFT_ERROR_MESSAGE_HEADER).getValue();
     } else {
-      throw new DatabricksRetryHandlerException(
-          "HTTP Response code: "
-              + statusCode
-              + ", Error Message: "
-              + httpResponse.getStatusLine().getReasonPhrase(),
-          statusCode);
+      errorReason = httpResponse.getStatusLine().getReasonPhrase();
     }
+    String errorMessage = String.format("Retry failure. HTTP response code: %s, Error Message: %s",statusCode, errorReason);
+    LOGGER.debug(errorMessage);
+    throw new DatabricksRetryHandlerException(errorMessage, statusCode);
   }
 
   /**

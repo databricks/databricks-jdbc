@@ -5,6 +5,8 @@ import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
+import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
+
 import java.io.IOException;
 import java.util.concurrent.Callable;
 
@@ -50,7 +52,7 @@ class ChunkDownloadTask implements Callable<Void> {
                 chunk.getChunkIndex(),
                 e.getMessage());
             chunk.setStatus(ArrowResultChunk.ChunkStatus.DOWNLOAD_FAILED);
-            throw new DatabricksSQLException("Failed to download chunk after multiple attempts", e);
+            throw new DatabricksSQLException("Failed to download chunk after multiple attempts", e, DatabricksDriverErrorCode.CHUNK_DOWNLOAD_ERROR);
           } else {
             LOGGER.warn(
                 String.format(
@@ -61,7 +63,7 @@ class ChunkDownloadTask implements Callable<Void> {
               Thread.sleep(RETRY_DELAY_MS);
             } catch (InterruptedException ie) {
               Thread.currentThread().interrupt();
-              throw new DatabricksSQLException("Chunk download was interrupted", ie);
+              throw new DatabricksSQLException("Chunk download was interrupted", ie, DatabricksDriverErrorCode.THREAD_INTERRUPTED_ERROR);
             }
           }
         }

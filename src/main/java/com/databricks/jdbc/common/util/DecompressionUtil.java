@@ -1,5 +1,6 @@
 package com.databricks.jdbc.common.util;
 
+import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.common.CompressionCodec;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
@@ -8,6 +9,8 @@ import com.databricks.jdbc.log.JdbcLoggerFactory;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+
+import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import net.jpountz.lz4.LZ4FrameInputStream;
 import org.apache.commons.io.IOUtils;
 
@@ -15,7 +18,7 @@ public class DecompressionUtil {
 
   private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(DecompressionUtil.class);
 
-  private static byte[] decompressLZ4Frame(byte[] compressedInput, String context)
+  private static byte[] decompressLZ4Frame(byte[] compressedInput, String context, IDatabricksConnectionContext connectionContext)
       throws DatabricksSQLException {
     LOGGER.debug("Decompressing using LZ4 Frame algorithm. Context: " + context);
     try {
@@ -25,28 +28,28 @@ public class DecompressionUtil {
       String errorMessage =
           String.format("Unable to de-compress LZ4 Frame compressed result %s", context);
       LOGGER.error(e, errorMessage + e.getMessage());
-      throw new DatabricksParsingException(errorMessage, e);
+      throw new DatabricksParsingException(errorMessage, e, DatabricksDriverErrorCode.DECOMPRESSION_ERROR, connectionContext);
     }
   }
 
   public static byte[] decompress(
-      byte[] compressedInput, CompressionCodec compressionCodec, String context)
+          byte[] compressedInput, CompressionCodec compressionCodec, String context, IDatabricksConnectionContext connectionContext)
       throws DatabricksSQLException {
     if (compressedInput == null) {
       LOGGER.debug("compressedInputBytes is `NULL`. Skipping compression.");
-      return compressedInput;
+      return null;
     }
     switch (compressionCodec) {
       case NONE:
         LOGGER.debug("Compression type is `NONE`. Skipping compression.");
         return compressedInput;
       case LZ4_FRAME:
-        return decompressLZ4Frame(compressedInput, context);
+        return decompressLZ4Frame(compressedInput, context, connectionContext);
       default:
         String errorMessage =
             String.format("Unknown compression type: %s. Context : %s", compressionCodec, context);
         LOGGER.error(errorMessage);
-        throw new DatabricksSQLException(errorMessage);
+        throw new DatabricksSQLException(errorMessage, DatabricksDriverErrorCode.DECOMPRESSION_ERROR, connectionContext);
     }
   }
 

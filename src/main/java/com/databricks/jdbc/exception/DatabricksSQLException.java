@@ -1,28 +1,21 @@
 package com.databricks.jdbc.exception;
 
+import com.databricks.jdbc.api.IDatabricksConnectionContext;
+import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import java.sql.SQLException;
 
 /** Top level exception for Databricks driver */
 public class DatabricksSQLException extends SQLException {
-
-  public DatabricksSQLException(String reason) {
-    // TODO: Add vendor-specific (databricks) exception code
-    super(reason, null, 0);
+  public DatabricksSQLException(String reason, DatabricksDriverErrorCode internalError, IDatabricksConnectionContext connectionContext) {
+    this(reason, null, internalError, connectionContext);
   }
 
-  public DatabricksSQLException(String reason, String sqlState) {
-    super(reason, sqlState);
+  public DatabricksSQLException(
+      String reason, Throwable cause, DatabricksDriverErrorCode internalError, IDatabricksConnectionContext connectionContext) {
+    this(reason, cause, internalError.toString(), connectionContext);
   }
 
-  public DatabricksSQLException(String reason, int vendorCode) {
-    super(reason, null, vendorCode);
-  }
-
-  public DatabricksSQLException(String reason, Throwable cause) {
-    super(reason, cause);
-  }
-
-  public DatabricksSQLException(String reason, Throwable cause, int errorCode) {
-    super(reason, null, errorCode, cause);
+  public DatabricksSQLException(String reason, Throwable cause, String errorCode, IDatabricksConnectionContext connectionContext) {
+    super(reason, errorCode, cause);
   }
 }

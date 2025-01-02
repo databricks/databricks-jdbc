@@ -1,8 +1,7 @@
 package com.databricks.client.jdbc;
 
 import static com.databricks.jdbc.common.util.DriverUtil.getRootCauseMessage;
-import static com.databricks.jdbc.telemetry.TelemetryHelper.exportInitialTelemetryLog;
-import static com.databricks.jdbc.telemetry.TelemetryHelper.getDriverSystemConfiguration;
+import static com.databricks.jdbc.telemetry.TelemetryHelper.*;
 
 import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.api.impl.DatabricksConnection;
@@ -11,7 +10,7 @@ import com.databricks.jdbc.common.util.*;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
-import com.databricks.jdbc.model.telemetry.*;
+import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import java.sql.*;
 import java.util.Properties;
 import java.util.TimeZone;
@@ -51,13 +50,13 @@ public class Driver implements java.sql.Driver {
     DriverUtil.setUpLogging(connectionContext);
     UserAgentManager.setUserAgent(connectionContext);
     LOGGER.info(getDriverSystemConfiguration().toString());
-    exportInitialTelemetryLog(connectionContext);
     DatabricksConnection connection = new DatabricksConnection(connectionContext);
     boolean isConnectionOpen = false;
     try {
       connection.open();
       isConnectionOpen = true;
       DriverUtil.resolveMetadataClient(connection);
+      exportInitialTelemetryLog(connectionContext);
       return connection;
     } catch (Exception e) {
       if (!isConnectionOpen) {
@@ -67,8 +66,9 @@ public class Driver implements java.sql.Driver {
           String.format(
               "Connection failure while using the OSS Databricks JDBC driver. Failed to connect to server: %s\n%s",
               connectionContext.getHostUrl(), getRootCauseMessage(e));
+      exportFailureLog(connectionContext, DatabricksDriverErrorCode.CONNECTION_ERROR, errorMessage);
       LOGGER.error(e, errorMessage);
-      throw new DatabricksSQLException(errorMessage);
+      throw new DatabricksSQLException(errorMessage, e);
     }
   }
 

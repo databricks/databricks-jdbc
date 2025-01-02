@@ -4,6 +4,7 @@ import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.common.util.DriverUtil;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.model.telemetry.*;
+import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import java.nio.charset.Charset;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -42,6 +43,27 @@ public class TelemetryHelper {
                         new TelemetryEvent()
                             .setDriverConnectionParameters(
                                 getDriverConnectionParameter(connectionContext))
+                            .setDriverSystemConfiguration(getDriverSystemConfiguration())));
+    TelemetryClientFactory.getInstance()
+        .getUnauthenticatedTelemetryClient(connectionContext)
+        .exportEvent(telemetryFrontendLog);
+  }
+
+  public static void exportFailureLog(
+      IDatabricksConnectionContext connectionContext,
+      DatabricksDriverErrorCode errorName,
+      String errorMessage) {
+    DriverErrorInfo errorInfo =
+        new DriverErrorInfo().setErrorName(errorName.name()).setStackTrace(errorMessage);
+    TelemetryFrontendLog telemetryFrontendLog =
+        new TelemetryFrontendLog()
+            .setEntry(
+                new FrontendLogEntry()
+                    .setSqlDriverLog(
+                        new TelemetryEvent()
+                            .setDriverConnectionParameters(
+                                getDriverConnectionParameter(connectionContext))
+                            .setDriverErrorInfo(errorInfo)
                             .setDriverSystemConfiguration(getDriverSystemConfiguration())));
     TelemetryClientFactory.getInstance()
         .getUnauthenticatedTelemetryClient(connectionContext)

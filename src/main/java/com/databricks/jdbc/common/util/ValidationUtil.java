@@ -2,6 +2,7 @@ package com.databricks.jdbc.common.util;
 
 import static com.databricks.jdbc.common.DatabricksJdbcConstants.*;
 
+import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.exception.DatabricksHttpException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.exception.DatabricksValidationException;
@@ -16,47 +17,39 @@ public class ValidationUtil {
 
   private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(ValidationUtil.class);
 
-  public static void checkIfNonNegative(int number, String fieldName)
+  public static void checkIfNonNegative(int number, String fieldName, IDatabricksConnectionContext connectionContext)
       throws DatabricksSQLException {
     if (number < 0) {
-      throw new DatabricksValidationException(
-          String.format("Invalid input for %s, : %d", fieldName, number));
+    String errorMessage =  String.format("Invalid input for %s, : %d", fieldName, number);
+    LOGGER.error(errorMessage);
+    throw new DatabricksValidationException(errorMessage, connectionContext);
     }
   }
 
-  public static void throwErrorIfNull(Map<String, String> fields, String context)
+  public static void throwErrorIfNull(Map<String, String> fields, String context, IDatabricksConnectionContext connectionContext)
       throws DatabricksSQLException {
     for (Map.Entry<String, String> field : fields.entrySet()) {
       if (field.getValue() == null) {
-        LOGGER.debug("Field %s is null", field.getKey());
-        throw new DatabricksValidationException(
-            String.format(
-                "Unsupported Input for field {%s}. Context: {%s}", field.getKey(), context));
+       String errorMessage = String.format(
+               "Unsupported null Input for field {%s}. Context: {%s}", field.getKey(), context);
+        LOGGER.error(errorMessage);
+        throw new DatabricksValidationException(errorMessage, connectionContext);
       }
     }
   }
 
-  public static void checkHTTPError(HttpResponse response) throws DatabricksHttpException {
+  public static void checkHTTPError(HttpResponse response, IDatabricksConnectionContext connectionContext) throws DatabricksHttpException {
     int statusCode = response.getStatusLine().getStatusCode();
     String statusLine = response.getStatusLine().toString();
     if (statusCode >= 200 && statusCode < 300) {
       return;
     }
-    LOGGER.debug("Response has failure HTTP Code");
-    String thriftErrorHeader = "X-Thriftserver-Error-Message";
-    if (response.containsHeader(thriftErrorHeader)) {
-      String errorMessage = response.getFirstHeader(thriftErrorHeader).getValue();
-      throw new DatabricksHttpException(
-          "HTTP Response code: "
-              + response.getStatusLine().getStatusCode()
-              + ", Error message: "
-              + errorMessage);
+    String errorReason =  String.format("HTTP request failed by code: %d, status line: %s ", statusCode, statusLine);
+    if (response.containsHeader(THRIFT_ERROR_MESSAGE_HEADER)) {
+      errorReason+=String.format("Thrift Header : %s",response.getFirstHeader(THRIFT_ERROR_MESSAGE_HEADER).getValue());
     }
-    String errorMessage =
-        String.format("HTTP request failed by code: %d, status line: %s", statusCode, statusLine);
-    throw new DatabricksHttpException(
-        "Unable to fetch HTTP response successfully. " + errorMessage,
-        DEFAULT_HTTP_EXCEPTION_SQLSTATE);
+    LOGGER.error(errorReason);
+    throw new DatabricksHttpException(errorReason,DEFAULT_HTTP_EXCEPTION_SQLSTATE,connectionContext);
   }
 
   /**
