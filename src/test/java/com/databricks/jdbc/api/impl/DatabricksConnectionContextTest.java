@@ -285,6 +285,22 @@ class DatabricksConnectionContextTest {
   }
 
   @Test
+  public void testGetVolumeOperationPathsFlag() throws Exception {
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContext.parse(
+            TestConstants.VALID_URL_WITH_VOLUME_ALLOWED_PATH, properties);
+    assertEquals("/tmp2", connectionContext.getVolumeOperationAllowedPaths());
+
+    connectionContext =
+        DatabricksConnectionContext.parse(
+            TestConstants.VALID_URL_WITH_STAGING_ALLOWED_PATH, properties);
+    assertEquals("/tmp", connectionContext.getVolumeOperationAllowedPaths());
+
+    connectionContext = DatabricksConnectionContext.parse(TestConstants.VALID_URL_1, properties);
+    assertEquals("", connectionContext.getVolumeOperationAllowedPaths());
+  }
+
+  @Test
   public void testParsingOfUrlWithProxy() throws DatabricksSQLException {
     IDatabricksConnectionContext connectionContext =
         DatabricksConnectionContext.parse(TestConstants.VALID_URL_WITH_PROXY, properties);

@@ -213,4 +213,7 @@ public interface IDatabricksConnectionContext {
    * internal identifier for each JDBC connection.
    */
   String getConnectionUuid();
+
+  /** Returns allowlisted local file paths for UC Volume operations */
+  String getVolumeOperationAllowedPaths();
 }
