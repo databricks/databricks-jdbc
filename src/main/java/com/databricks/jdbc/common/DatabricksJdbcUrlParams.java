@@ -34,7 +34,7 @@ public enum DatabricksJdbcUrlParams {
   CATALOG("catalog", "Catalog name"),
   SCHEMA("schema", "Schema name"),
   OAUTH_REFRESH_TOKEN("OAuthRefreshToken", "OAuth2 Refresh Token"),
-  PWD("pwd", "Password (used when AUTH_MECH = 3)"),
+  PWD("pwd", "Password (used when AUTH_MECH = 3)", true),
   POLL_INTERVAL("asyncexecpollinterval", "Async execution poll interval", "200"),
   HTTP_PATH("httppath", "HTTP path", true),
   SSL("ssl", "Use SSL"),

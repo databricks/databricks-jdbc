@@ -1,9 +1,6 @@
 package com.databricks.jdbc.api;
 
-import com.databricks.jdbc.common.CompressionCodec;
-import com.databricks.jdbc.common.DatabricksClientType;
-import com.databricks.jdbc.common.IDatabricksComputeResource;
-import com.databricks.jdbc.common.LogLevel;
+import com.databricks.jdbc.common.*;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.sdk.core.ProxyConfig;
 import com.databricks.sdk.core.utils.Cloud;
@@ -35,6 +32,8 @@ public interface IDatabricksConnectionContext {
       }
     }
   }
+
+  boolean isPropertyPresent(DatabricksJdbcUrlParams urlParam);
 
   /**
    * Returns host-Url for Databricks server as parsed from JDBC connection in format <code>

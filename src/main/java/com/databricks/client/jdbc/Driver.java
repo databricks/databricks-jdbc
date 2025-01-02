@@ -1,14 +1,9 @@
 package com.databricks.client.jdbc;
 
-import static com.databricks.jdbc.common.DatabricksJdbcConstants.JDBC_URL_PATTERN;
-import static com.databricks.jdbc.common.DatabricksJdbcUrlParams.AUTH_MECH;
-import static com.databricks.jdbc.common.DatabricksJdbcUrlParams.HTTP_PATH;
-import static com.databricks.jdbc.common.util.DatabricksDriverPropertyUtil.getInvalidUrlRequiredPropertyInfo;
 import static com.databricks.jdbc.common.util.DriverUtil.getRootCauseMessage;
 
 import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.api.impl.DatabricksConnection;
-import com.databricks.jdbc.api.impl.DatabricksConnectionContext;
 import com.databricks.jdbc.api.impl.DatabricksConnectionContextFactory;
 import com.databricks.jdbc.common.util.*;
 import com.databricks.jdbc.exception.DatabricksSQLException;
@@ -22,7 +17,6 @@ import java.util.List;
 import java.util.Properties;
 import java.util.TimeZone;
 import java.util.logging.Logger;
-import java.util.regex.Matcher;
 
 /** Databricks JDBC driver. */
 public class Driver implements java.sql.Driver {
@@ -96,44 +90,13 @@ public class Driver implements java.sql.Driver {
     if (url == null) {
       url = "";
     }
-    List<DriverPropertyInfo> missingProperties = DatabricksDriverPropertyUtil.getMissingProperties(url, info);
+    List<DriverPropertyInfo> missingProperties =
+        DatabricksDriverPropertyUtil.getMissingProperties(url, info);
     if (!missingProperties.isEmpty()) {
       propertyInfos = new DriverPropertyInfo[missingProperties.size()];
       propertyInfos = missingProperties.toArray(propertyInfos);
     }
     return propertyInfos;
-//    DatabricksConnectionContext connectionContext = (DatabricksConnectionContext) DatabricksConnectionContextFactory.createWithoutError(url, info);
-//    if (connectionContext != null) {
-//
-//    }
-//    return null;
-
-//    Matcher urlMatcher = JDBC_URL_PATTERN.matcher(url);
-//    if (!urlMatcher.matches()) {
-//      propertyInfos = new DriverPropertyInfo[1];
-//      propertyInfos[0] = new DriverPropertyInfo("host", null);
-//      propertyInfos[0].required = true;
-//      propertyInfos[0].description =
-//          "JDBC URL must be in the form: <protocol>://<host or domain>:<port>/<path>";
-//      return propertyInfos;
-//    }
-//    String host = urlMatcher.group(1);
-//    String connectionParamString = urlMatcher.group(2);
-//    if (!connectionParamString.toLowerCase().contains(HTTP_PATH.getParamName())) {
-//      return getInvalidUrlRequiredPropertyInfo(HTTP_PATH);
-//    }
-//    if (!connectionParamString.toLowerCase().contains(AUTH_MECH.getParamName())) {
-//      getInvalidUrlRequiredPropertyInfo(AUTH_MECH);
-//    }
-//
-//    List<DriverPropertyInfo> missingProperties =
-//        DatabricksDriverPropertyUtil.getMissingProperties(host, connectionParamString, info);
-//    if (!missingProperties.isEmpty()) {
-//      propertyInfos = new DriverPropertyInfo[missingProperties.size()];
-//      propertyInfos = missingProperties.toArray(propertyInfos);
-//    }
-//    return propertyInfos;
-//    return null;
   }
 
   @Override
