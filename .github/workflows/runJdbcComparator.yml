@@ -2,8 +2,8 @@ name: JDBC Driver Comparison
 
 on:
   schedule:
-    - cron: '0 0 * * *'  # Run daily at midnight UTC
-  workflow_dispatch:     # Allow manual trigger
+    - cron: '0 0 * * 1,5' # Run at 00:00 UTC on Monday (1) and Friday (5)
+  workflow_dispatch:      # Allow manual trigger
 
 jobs:
   comparator:
