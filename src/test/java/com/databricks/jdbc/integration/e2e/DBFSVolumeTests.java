@@ -157,14 +157,11 @@ public class DBFSVolumeTests {
       boolean expected)
       throws Exception {
     File file = new File(localPath);
-    try
-    {
+    try {
       assertEquals(expected, client.getObject(catalog, schema, volume, objectPath, localPath));
-    }catch(Exception e)
-    {
+    } catch (Exception e) {
       throw e;
-    }
-    finally {
+    } finally {
       file.delete();
     }
   }
@@ -199,16 +196,13 @@ public class DBFSVolumeTests {
       boolean expected)
       throws Exception {
     File file = new File(localPath);
-    try
-    {
+    try {
       Files.writeString(file.toPath(), "test-put");
       assertEquals(
-              expected, client.putObject(catalog, schema, volume, objectPath, localPath, toOverwrite));
-    }catch(Exception e)
-    {
+          expected, client.putObject(catalog, schema, volume, objectPath, localPath, toOverwrite));
+    } catch (Exception e) {
       throw e;
-    }finally
-    {
+    } finally {
       file.delete();
     }
   }
@@ -248,21 +242,18 @@ public class DBFSVolumeTests {
     File file = new File(localPathForUpload);
     File downloadedFile = new File(localPathForDownload);
 
-    try
-    {
+    try {
       Files.writeString(file.toPath(), expectedContent);
 
       assertTrue(
-              client.putObject(catalog, schema, volume, objectPath, localPathForUpload, toOverwrite));
+          client.putObject(catalog, schema, volume, objectPath, localPathForUpload, toOverwrite));
       assertTrue(client.getObject(catalog, schema, volume, objectPath, localPathForDownload));
 
       String actualContent = Files.readString(downloadedFile.toPath(), StandardCharsets.UTF_8);
       assertEquals(expectedContent, actualContent);
-    }catch(Exception e)
-    {
+    } catch (Exception e) {
       throw e;
-    }finally
-    {
+    } finally {
       file.delete();
       downloadedFile.delete();
     }
@@ -293,17 +284,14 @@ public class DBFSVolumeTests {
       throws Exception {
 
     File file = new File(localPathForUpload);
-    try
-    {
+    try {
       Files.writeString(file.toPath(), fileContent);
 
       assertTrue(client.putObject(catalog, schema, volume, objectPath, localPathForUpload, false));
       assertTrue(client.deleteObject(catalog, schema, volume, objectPath));
-    }catch(Exception e)
-    {
+    } catch (Exception e) {
       throw e;
-    }finally
-    {
+    } finally {
       file.delete();
     }
   }
