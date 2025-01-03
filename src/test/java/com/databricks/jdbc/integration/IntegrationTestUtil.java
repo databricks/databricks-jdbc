@@ -78,7 +78,7 @@ public class IntegrationTestUtil {
   }
 
   public static String getDatabricksDogfoodToken() {
-    return System.getenv("DATABRICKS_DOGFOOD_TOKEN");
+        return System.getenv("DATABRICKS_DOGFOOD_TOKEN");
   }
 
   public static String getDatabricksBenchfoodToken() {
@@ -110,7 +110,7 @@ public class IntegrationTestUtil {
   }
 
   public static String getDatabricksUser() {
-    return System.getenv("DATABRICKS_USER");
+        return System.getenv("DATABRICKS_USER");
   }
 
   public static Connection getValidJDBCConnection() throws SQLException {
@@ -148,7 +148,7 @@ public class IntegrationTestUtil {
 
   public static IDatabricksConnectionContext getDogfoodJDBCConnectionContext() throws SQLException {
     return DatabricksConnectionContextFactory.create(
-            getDogfoodJDBCUrl(), getDatabricksUser(), getDatabricksDogfoodToken());
+        getDogfoodJDBCUrl(), getDatabricksUser(), getDatabricksDogfoodToken());
   }
 
   public static Connection getDogfoodJDBCConnection(List<List<String>> extraArgs)
@@ -204,12 +204,12 @@ public class IntegrationTestUtil {
   }
 
   public static String getDogfoodJDBCUrl() {
-    String template =
-        "jdbc:databricks://%s/default;transportMode=http;ssl=1;AuthMech=3;httpPath=%s";
-    String host = getDatabricksDogfoodHost();
-    String httpPath = getDatabricksDogfoodHTTPPath();
+        String template =
+            "jdbc:databricks://%s/default;transportMode=http;ssl=1;AuthMech=3;httpPath=%s";
+        String host = getDatabricksDogfoodHost();
+        String httpPath = getDatabricksDogfoodHTTPPath();
 
-    return String.format(template, host, httpPath);
+        return String.format(template, host, httpPath);
   }
 
   public static boolean executeSQL(Connection conn, String sql) {
