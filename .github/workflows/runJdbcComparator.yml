@@ -2,8 +2,8 @@ name: JDBC Driver Comparison
 
 on:
   schedule:
-    - cron: '0 0 * * 1,5' # Run at 00:00 UTC on Monday (1) and Friday (5)
-  workflow_dispatch:      # Allow manual trigger
+    - cron: '0 0 * * 1' # Run at 00:00 UTC on Monday (1)
+  workflow_dispatch:    # Allow manual trigger
 
 jobs:
   comparator:
@@ -12,10 +12,17 @@ jobs:
       labels: linux-ubuntu-latest
 
     steps:
-      - name: Checkout comparator branch
+      - name: Checkout main branch
         uses: actions/checkout@v3
         with:
-          ref: jdbc-comparator
+          ref: main
+
+      - name: Merge main into jdbc-comparator
+        run: |
+          git fetch origin jdbc-comparator
+          git checkout jdbc-comparator
+          git merge main --no-commit --no-ff || true # Allow manual conflict resolution if needed
+          git commit -m "Merge main into jdbc-comparator" || echo "No changes to commit"
 
       - name: Set up JDK 11
         uses: actions/setup-java@v3
