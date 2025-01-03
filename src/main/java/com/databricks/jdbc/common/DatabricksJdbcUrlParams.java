@@ -57,7 +57,6 @@ public enum DatabricksJdbcUrlParams {
   RATE_LIMIT_RETRY("RateLimitRetry", "1"),
   IDLE_HTTP_CONNECTION_EXPIRY("IdleHttpConnectionExpiry", "60"),
   SUPPORT_MANY_PARAMETERS("supportManyParameters", "0"),
-  USE_FILE_SYSTEM_API("useFileSystemAPI", "0"),
   CLOUD_FETCH_THREAD_POOL_SIZE("cloudFetchThreadPoolSize", "16"),
   TOKEN_ENDPOINT("OAuth2TokenEndpoint"),
   AUTH_ENDPOINT("OAuth2AuthorizationEndPoint"),
