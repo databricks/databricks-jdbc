@@ -16,13 +16,21 @@ jobs:
         uses: actions/checkout@v3
         with:
           ref: main
+          fetch-depth: 0
+
+      - name: Configure Git
+        run: |
+          git config user.name "GitHub Actions"
+          git config user.email "actions@github.com"
 
       - name: Merge main into jdbc-comparator
         run: |
-          git fetch origin jdbc-comparator
           git checkout jdbc-comparator
-          git merge main --no-commit --no-ff || true # Allow manual conflict resolution if needed
-          git commit -m "Merge main into jdbc-comparator" || echo "No changes to commit"
+          git merge main --no-edit || {
+            echo "Merge conflict occurred"
+            git merge --abort
+            exit 1
+          }
 
       - name: Set up JDK 11
         uses: actions/setup-java@v3
