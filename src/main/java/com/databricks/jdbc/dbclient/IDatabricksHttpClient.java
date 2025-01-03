@@ -38,7 +38,7 @@ public interface IDatabricksHttpClient {
    * @return future
    * @param <T> type of the response
    */
-  <T> Future<T> execute(
+  <T> Future<T> executeAsync(
       AsyncRequestProducer requestProducer,
       AsyncResponseConsumer<T> responseConsumer,
       FutureCallback<T> callback);
