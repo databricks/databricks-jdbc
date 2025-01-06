@@ -162,6 +162,10 @@ public class ArrowStreamResultTest {
     when(parentStatement.getStatementId()).thenReturn(STATEMENT_ID);
     ArrowStreamResult result =
         new ArrowStreamResult(fetchResultsResp, false, parentStatement, session, mockHttpClient);
+
+    // Add some delay for download threads to exit
+    Thread.sleep(2000);
+
     assertEquals(-1, result.getCurrentRow());
     assertTrue(result.hasNext());
     assertDoesNotThrow(result::close);
@@ -198,6 +202,9 @@ public class ArrowStreamResultTest {
 
     ArrowStreamResult result =
         new ArrowStreamResult(resultManifest, resultData, STATEMENT_ID, session, mockHttpClient);
+
+    // Add some delay for download threads to exit
+    Thread.sleep(2000);
 
     result.next();
     Object objectInFirstColumn = result.getObject(0);
