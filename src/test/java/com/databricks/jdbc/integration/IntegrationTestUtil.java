@@ -43,6 +43,17 @@ public class IntegrationTestUtil {
     return fakeServiceURI.getAuthority();
   }
 
+  public static String getFakeServiceM2MUrl() {
+    // SSL is disabled as embedded web server of fake service uses HTTP protocol.
+    // Note that in RECORD mode, the web server interacts with production services over HTTPS.
+    String template =
+        "jdbc:databricks://%s/default;transportMode=http;ssl=0;authmech=11;auth_flow=1;httpPath=%s";
+    return String.format(
+        template,
+        getFakeServiceHost(),
+        FakeServiceConfigLoader.getProperty(DatabricksJdbcUrlParams.HTTP_PATH.getParamName()));
+  }
+
   public static String getFakeServiceJDBCUrl() {
     // The fake service client has SSL disabled, but SSL is enabled for its communication with
     // production services.

@@ -16,55 +16,46 @@ import org.junit.jupiter.api.Test;
 /** Integration tests for M2M OAuth authentication flow. */
 public class M2MAuthIntegrationTests extends AbstractFakeServiceIntegrationTests {
 
-    private static final String TEST_CLIENT_ID = "xx";
-    private static final String TEST_CLIENT_SECRET = "xx";
+  private static final String TEST_CLIENT_ID = System.getenv("DATABRICKS_JDBC_M2M_CLIENT_ID");
+  private static final String TEST_CLIENT_SECRET =
+      System.getenv("DATABRICKS_JDBC_M2M_CLIENT_SECRET");
 
-    @Test
-    void testSuccessfulM2MConnection() throws SQLException {
-        Connection conn = getValidM2MConnection();
-        assert ((conn != null) && !conn.isClosed());
-        conn.close();
-    }
+  @Test
+  void testSuccessfulM2MConnection() throws SQLException {
+    Connection conn = getValidM2MConnection();
+    assert ((conn != null) && !conn.isClosed());
+    conn.close();
+  }
 
-    @Test
-    void testIncorrectCredentialsForM2M() {
-        String url = getFakeServiceM2MUrl();
-        DatabricksSQLException e =
-                assertThrows(
-                        DatabricksSQLException.class,
-                        () -> DriverManager.getConnection(url, createM2MConnectionProperties("invalid-secret")));
+  @Test
+  void testIncorrectCredentialsForM2M() {
+    String url = getFakeServiceM2MUrl();
+    DatabricksSQLException e =
+        assertThrows(
+            DatabricksSQLException.class,
+            () ->
+                DriverManager.getConnection(url, createM2MConnectionProperties("invalid-secret")));
 
-        assert e.getMessage()
-                .contains("Connection failure while using the OSS Databricks JDBC driver.");
-    }
+    assert e.getMessage()
+        .contains("Connection failure while using the OSS Databricks JDBC driver.");
+  }
 
-    private String getFakeServiceM2MUrl() {
-        // SSL is disabled as embedded web server of fake service uses HTTP protocol.
-        // Note that in RECORD mode, the web server interacts with production services over HTTPS.
-        String template =
-                "jdbc:databricks://%s/default;transportMode=http;ssl=1;authmech=11;auth_flow=1;httpPath=%s";
-        return String.format(
-                template,
-                getFakeServiceHost(),
-                FakeServiceConfigLoader.getProperty(DatabricksJdbcUrlParams.HTTP_PATH.getParamName()));
-    }
+  private Connection getValidM2MConnection() throws SQLException {
+    return DriverManager.getConnection(
+        getFakeServiceM2MUrl(), createM2MConnectionProperties(TEST_CLIENT_SECRET));
+  }
 
-    private Connection getValidM2MConnection() throws SQLException {
-        return DriverManager.getConnection(
-                getFakeServiceM2MUrl(), createM2MConnectionProperties(TEST_CLIENT_SECRET));
-    }
+  private Properties createM2MConnectionProperties(String clientSecret) {
+    Properties connProps = new Properties();
+    connProps.put("OAuth2ClientId", TEST_CLIENT_ID);
+    connProps.put("OAuth2Secret", clientSecret);
+    connProps.put(
+        DatabricksJdbcUrlParams.CATALOG.getParamName(),
+        FakeServiceConfigLoader.getProperty(DatabricksJdbcUrlParams.CATALOG.getParamName()));
+    connProps.put(
+        DatabricksJdbcUrlParams.CONN_SCHEMA.getParamName(),
+        FakeServiceConfigLoader.getProperty(DatabricksJdbcUrlParams.CONN_SCHEMA.getParamName()));
 
-    private Properties createM2MConnectionProperties(String clientSecret) {
-        Properties connProps = new Properties();
-        connProps.put("OAuth2ClientId", TEST_CLIENT_ID);
-        connProps.put("OAuth2Secret", clientSecret);
-        connProps.put(
-                DatabricksJdbcUrlParams.CATALOG.getParamName(),
-                FakeServiceConfigLoader.getProperty(DatabricksJdbcUrlParams.CATALOG.getParamName()));
-        connProps.put(
-                DatabricksJdbcUrlParams.CONN_SCHEMA.getParamName(),
-                FakeServiceConfigLoader.getProperty(DatabricksJdbcUrlParams.CONN_SCHEMA.getParamName()));
-
-        return connProps;
-    }
+    return connProps;
+  }
 }
