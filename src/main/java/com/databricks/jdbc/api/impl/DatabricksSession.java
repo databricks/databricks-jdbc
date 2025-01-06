@@ -137,7 +137,7 @@ public class DatabricksSession implements IDatabricksSession {
     LOGGER.debug("public void close()");
     synchronized (this) {
       if (isSessionOpen) {
-        databricksClient.deleteSession(this, computeResource);
+        databricksClient.deleteSession(sessionInfo);
         this.sessionInfo = null;
         this.isSessionOpen = false;
       }

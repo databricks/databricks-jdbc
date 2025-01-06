@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.when;
 
 import com.databricks.jdbc.api.IDatabricksConnectionContext;
+import com.databricks.jdbc.common.AuthMech;
 import com.databricks.jdbc.model.client.sqlexec.ExecuteStatementResponse;
 import com.databricks.sdk.core.ApiClient;
 import com.databricks.sdk.service.sql.*;
@@ -26,7 +27,7 @@ public class DatabricksSdkClientTest {
   void testHandleFailedExecution() throws SQLException {
     String statementId = "statementId";
     String statement = "statement";
-    when(connectionContext.getAuthMech()).thenReturn(IDatabricksConnectionContext.AuthMech.PAT);
+    when(connectionContext.getAuthMech()).thenReturn(AuthMech.PAT);
     when(connectionContext.getHostUrl()).thenReturn("https://pat.databricks.com");
     when(connectionContext.getToken()).thenReturn("pat-token");
     when(response.getStatus()).thenReturn(status);

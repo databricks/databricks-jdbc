@@ -1,7 +1,6 @@
 package com.databricks.jdbc.telemetry;
 
 import com.databricks.jdbc.api.IDatabricksConnectionContext;
-import com.databricks.jdbc.common.DatabricksClientType;
 import com.databricks.jdbc.common.util.DriverUtil;
 import com.databricks.jdbc.model.telemetry.*;
 import java.nio.charset.Charset;
@@ -25,20 +24,6 @@ public class TelemetryHelper {
 
   public static DriverSystemConfiguration getDriverSystemConfiguration() {
     return DRIVER_SYSTEM_CONFIGURATION;
-  }
-
-  public static DriverMode toDriverMode(DatabricksClientType clientType) {
-    if (clientType == null) {
-      return DriverMode.TYPE_UNSPECIFIED;
-    }
-    switch (clientType) {
-      case THRIFT:
-        return DriverMode.THRIFT;
-      case SQL_EXEC:
-        return DriverMode.SEA;
-      default:
-        return DriverMode.TYPE_UNSPECIFIED;
-    }
   }
 
   // TODO : add an export even before connection context is built

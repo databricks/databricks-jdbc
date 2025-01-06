@@ -7,7 +7,11 @@ import com.databricks.jdbc.exception.DatabricksVolumeOperationException;
 import com.databricks.jdbc.model.client.filesystem.*;
 import com.databricks.sdk.WorkspaceClient;
 import com.databricks.sdk.core.ApiClient;
-import java.io.InputStream;
+import java.io.File;
+import java.io.FileInputStream;
+import java.nio.file.Files;
+import java.util.Arrays;
+import java.util.List;
 import org.junit.jupiter.api.*;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.*;
@@ -17,13 +21,15 @@ import org.mockito.junit.jupiter.MockitoExtension;
 class DBFSVolumeClientTest {
   private static final String PRE_SIGNED_URL = "http://example.com/upload";
 
-  @Mock private VolumeOperationProcessorDirect mockProcessor;
+  @Mock private VolumeOperationProcessor mockProcessor;
   @Mock private WorkspaceClient mockWorkSpaceClient;
   @Mock private ApiClient mockAPIClient;
   private DBFSVolumeClient client;
+  private VolumeOperationProcessor.Builder processorBuilder;
 
   @BeforeEach
   void setup() {
+    // DBFS Client Spy
     client = new DBFSVolumeClient(mockWorkSpaceClient);
     client = spy(client);
   }
@@ -65,29 +71,49 @@ class DBFSVolumeClientTest {
   }
 
   @Test
-  void testListObjects() {
-    UnsupportedOperationException exception =
-        assertThrows(
-            UnsupportedOperationException.class,
-            () -> {
-              client.listObjects("catalog", "schema", "volume", "prefix", true);
-            });
-    assertEquals("listObjects function is unsupported in DBFSVolumeClient", exception.getMessage());
+  void testListObjects() throws Exception {
+    ListResponse mockResponse = mock(ListResponse.class);
+    FileInfo file1 = mock(FileInfo.class);
+    FileInfo file2 = mock(FileInfo.class);
+
+    // Stub the behavior of FileInfo::getPath
+    when(file1.getPath()).thenReturn("/path/to/file1");
+    when(file2.getPath()).thenReturn("/path/to/file2");
+
+    doReturn(mockResponse).when(client).getListResponse(anyString());
+    when(mockResponse.getFiles()).thenReturn(Arrays.asList(file1, file2));
+
+    List<String> result = client.listObjects("catalog", "schema", "volume", "file", true);
+
+    assertEquals(Arrays.asList("file1", "file2"), result);
+
+    Mockito.verify(mockResponse).getFiles();
+    Mockito.verify(file1).getPath();
+    Mockito.verify(file2).getPath();
   }
 
   @Test
   void testGetObjectWithLocalPath() throws Exception {
+    // Volume Operation builder spy
+    VolumeOperationProcessor.Builder realBuilder = VolumeOperationProcessor.Builder.createBuilder();
+    processorBuilder = spy(realBuilder);
+    doReturn(mockProcessor).when(processorBuilder).build();
+
     CreateDownloadUrlResponse mockResponse = mock(CreateDownloadUrlResponse.class);
     when(mockResponse.getUrl()).thenReturn(PRE_SIGNED_URL);
     doReturn(mockResponse).when(client).getCreateDownloadUrlResponse(any());
-    doReturn(mockProcessor)
-        .when(client)
-        .getVolumeOperationProcessorDirect(anyString(), anyString());
 
-    boolean result = client.getObject("catalog", "schema", "volume", "objectPath", "localPath");
+    try (MockedStatic<VolumeOperationProcessor.Builder> mockedStatic =
+        mockStatic(VolumeOperationProcessor.Builder.class)) {
+      mockedStatic
+          .when(VolumeOperationProcessor.Builder::createBuilder)
+          .thenReturn(processorBuilder);
 
-    assertTrue(result);
-    verify(mockProcessor).executeGetOperation();
+      boolean result = client.getObject("catalog", "schema", "volume", "objectPath", "localPath");
+
+      assertTrue(result);
+      verify(mockProcessor).process();
+    }
   }
 
   @Test
@@ -137,32 +163,28 @@ class DBFSVolumeClientTest {
   }
 
   @Test
-  void testGetObjectReturningInputStreamEntity() {
-    UnsupportedOperationException exception =
-        assertThrows(
-            UnsupportedOperationException.class,
-            () -> {
-              client.getObject("catalog", "schema", "volume", "objectPath");
-            });
-    assertEquals(
-        "getObject returning InputStreamEntity function is unsupported in DBFSVolumeClient",
-        exception.getMessage());
-  }
-
-  @Test
   void testPutObjectWithLocalPath() throws Exception {
+    // Volume Operation builder spy
+    VolumeOperationProcessor.Builder realBuilder = VolumeOperationProcessor.Builder.createBuilder();
+    processorBuilder = spy(realBuilder);
+    doReturn(mockProcessor).when(processorBuilder).build();
+
     CreateUploadUrlResponse mockResponse = mock(CreateUploadUrlResponse.class);
     when(mockResponse.getUrl()).thenReturn(PRE_SIGNED_URL);
     doReturn(mockResponse).when(client).getCreateUploadUrlResponse(any());
-    doReturn(mockProcessor)
-        .when(client)
-        .getVolumeOperationProcessorDirect(anyString(), anyString());
 
-    boolean result =
-        client.putObject("catalog", "schema", "volume", "objectPath", "localPath", true);
+    try (MockedStatic<VolumeOperationProcessor.Builder> mockedStatic =
+        mockStatic(VolumeOperationProcessor.Builder.class)) {
+      mockedStatic
+          .when(VolumeOperationProcessor.Builder::createBuilder)
+          .thenReturn(processorBuilder);
 
-    assertTrue(result);
-    verify(mockProcessor).executePutOperation();
+      boolean result =
+          client.putObject("catalog", "schema", "volume", "objectPath", "localPath", true);
+
+      assertTrue(result);
+      verify(mockProcessor).process();
+    }
   }
 
   @Test
@@ -176,30 +198,70 @@ class DBFSVolumeClientTest {
   }
 
   @Test
-  void testPutObjectWithInputStream() {
-    UnsupportedOperationException exception =
-        assertThrows(
-            UnsupportedOperationException.class,
-            () -> {
-              client.putObject(
-                  "catalog", "schema", "volume", "objectPath", mock(InputStream.class), 100L, true);
-            });
-    assertEquals(
-        "putObject for InputStream function is unsupported in DBFSVolumeClient",
-        exception.getMessage());
+  void testPutObjectWithInputStream() throws Exception {
+    // Volume Operation builder spy
+    VolumeOperationProcessor.Builder realBuilder = VolumeOperationProcessor.Builder.createBuilder();
+    processorBuilder = spy(realBuilder);
+    doReturn(mockProcessor).when(processorBuilder).build();
+
+    CreateUploadUrlResponse mockResponse = mock(CreateUploadUrlResponse.class);
+    when(mockResponse.getUrl()).thenReturn(PRE_SIGNED_URL);
+    doReturn(mockResponse).when(client).getCreateUploadUrlResponse(any());
+
+    try (MockedStatic<VolumeOperationProcessor.Builder> mockedStatic =
+        mockStatic(VolumeOperationProcessor.Builder.class)) {
+      mockedStatic
+          .when(VolumeOperationProcessor.Builder::createBuilder)
+          .thenReturn(processorBuilder);
+
+      File file = new File("/tmp/dbfs_test_put.txt");
+
+      boolean result = false;
+      try {
+        Files.writeString(file.toPath(), "test-put-stream");
+        System.out.println("File created");
+
+        result =
+            client.putObject(
+                "catalog",
+                "schema",
+                "volume",
+                "objectPath",
+                new FileInputStream(file),
+                file.length(),
+                true);
+
+      } finally {
+        file.delete();
+      }
+
+      assertTrue(result);
+      verify(mockProcessor).process();
+    }
   }
 
   @Test
   void testDeleteObject() throws Exception {
+    // Volume Operation builder spy
+    VolumeOperationProcessor.Builder realBuilder = VolumeOperationProcessor.Builder.createBuilder();
+    processorBuilder = spy(realBuilder);
+    doReturn(mockProcessor).when(processorBuilder).build();
+
     CreateDeleteUrlResponse mockResponse = mock(CreateDeleteUrlResponse.class);
     when(mockResponse.getUrl()).thenReturn(PRE_SIGNED_URL);
     doReturn(mockResponse).when(client).getCreateDeleteUrlResponse(any());
-    doReturn(mockProcessor).when(client).getVolumeOperationProcessorDirect(anyString(), isNull());
 
-    boolean result = client.deleteObject("catalog", "schema", "volume", "objectPath");
+    try (MockedStatic<VolumeOperationProcessor.Builder> mockedStatic =
+        mockStatic(VolumeOperationProcessor.Builder.class)) {
+      mockedStatic
+          .when(VolumeOperationProcessor.Builder::createBuilder)
+          .thenReturn(processorBuilder);
 
-    assertTrue(result);
-    verify(mockProcessor).executeDeleteOperation();
+      boolean result = client.deleteObject("catalog", "schema", "volume", "objectPath");
+
+      assertTrue(result);
+      verify(mockProcessor).process();
+    }
   }
 
   @Test

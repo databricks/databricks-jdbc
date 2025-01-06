@@ -5,6 +5,7 @@ import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
 import com.databricks.jdbc.exception.DatabricksHttpException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
+import com.databricks.sdk.core.DatabricksConfig;
 import com.google.common.annotations.VisibleForTesting;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -26,18 +27,23 @@ public class DatabricksHttpTTransport extends TTransport {
   private static final JdbcLogger LOGGER =
       JdbcLoggerFactory.getLogger(DatabricksHttpTTransport.class);
   private static final Map<String, String> DEFAULT_HEADERS =
-      Collections.unmodifiableMap(getDefaultHeaders());
+      Map.of(
+          "Content-Type", "application/x-thrift",
+          "Accept", "application/x-thrift");
   private final IDatabricksHttpClient httpClient;
   private final String url;
   private Map<String, String> customHeaders = Collections.emptyMap();
   private final ByteArrayOutputStream requestBuffer;
   private ByteArrayInputStream responseBuffer;
+  private final DatabricksConfig databricksConfig;
 
-  public DatabricksHttpTTransport(IDatabricksHttpClient httpClient, String url) {
+  public DatabricksHttpTTransport(
+      IDatabricksHttpClient httpClient, String url, DatabricksConfig databricksConfig) {
     this.httpClient = httpClient;
     this.url = url;
     this.requestBuffer = new ByteArrayOutputStream();
     this.responseBuffer = null;
+    this.databricksConfig = databricksConfig;
   }
 
   @Override
@@ -52,7 +58,9 @@ public class DatabricksHttpTTransport extends TTransport {
   }
 
   @Override
-  public void close() {}
+  public void close() {
+    // No-op
+  }
 
   @Override
   public int read(byte[] buf, int off, int len) throws TTransportException {
@@ -75,12 +83,11 @@ public class DatabricksHttpTTransport extends TTransport {
 
   @Override
   public void flush() throws TTransportException {
+    refreshHeadersIfRequired();
+
     HttpPost request = new HttpPost(this.url);
     DEFAULT_HEADERS.forEach(request::addHeader);
-
-    if (customHeaders != null) {
-      customHeaders.forEach(request::addHeader);
-    }
+    customHeaders.forEach(request::addHeader);
 
     // Set the request entity
     request.setEntity(new ByteArrayEntity(requestBuffer.toByteArray()));
@@ -116,24 +123,15 @@ public class DatabricksHttpTTransport extends TTransport {
   @Override
   public void checkReadBytesAvailable(long numBytes) throws TTransportException {}
 
-  public void setCustomHeaders(Map<String, String> headers) {
-    if (headers != null) {
-      customHeaders = new HashMap<>(headers);
-    } else {
-      customHeaders = Collections.emptyMap();
-    }
+  /** Refreshes the custom headers by re-authenticating if necessary. */
+  private void refreshHeadersIfRequired() {
+    Map<String, String> refreshedHeaders = databricksConfig.authenticate();
+    customHeaders =
+        refreshedHeaders != null ? new HashMap<>(refreshedHeaders) : Collections.emptyMap();
   }
 
-  private static Map<String, String> getDefaultHeaders() {
-    Map<String, String> headers = new HashMap<>();
-    headers.put("Content-Type", "application/x-thrift");
-    headers.put("Accept", "application/x-thrift");
-    return headers;
-  }
-
-  @VisibleForTesting
-  Map<String, String> getCustomHeaders() {
-    return customHeaders;
+  void resetAccessToken(String newAccessToken) {
+    this.databricksConfig.setToken(newAccessToken);
   }
 
   @VisibleForTesting

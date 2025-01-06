@@ -1,6 +1,7 @@
 package com.databricks.client.jdbc;
 
 import static com.databricks.jdbc.integration.IntegrationTestUtil.getFullyQualifiedTableName;
+import static org.junit.jupiter.api.Assertions.*;
 
 import com.databricks.jdbc.api.*;
 import com.databricks.jdbc.api.impl.DatabricksConnectionContextFactory;
@@ -396,12 +397,59 @@ public class DriverTest {
   }
 
   @Test
-  void testDBFSVolumeOperation() throws Exception {
-    DriverManager.registerDriver(new Driver());
-    DriverManager.drivers().forEach(driver -> System.out.println(driver.getClass()));
+  void testDBFSVolumeOperationUsingStream() throws Exception {
     System.out.println("Starting test");
     String jdbcUrl =
-        "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/58aa1b363649e722;Loglevel=debug;useFileSystemAPI=1";
+        "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/58aa1b363649e722;Loglevel=debug;";
+
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContextFactory.create(jdbcUrl, "token", "xx");
+    IDatabricksVolumeClient client =
+        DatabricksVolumeClientFactory.getVolumeClient(connectionContext);
+
+    File file = new File("/tmp/put.txt");
+
+    try {
+      Files.writeString(file.toPath(), "test-put");
+      System.out.println("File created");
+
+      System.out.println(
+          "Object inserted "
+              + client.putObject(
+                  "___________________first",
+                  "jprakash-test",
+                  "jprakash_volume",
+                  "test-stream.csv",
+                  new FileInputStream(file),
+                  file.length(),
+                  true));
+
+      InputStreamEntity inputStream =
+          client.getObject(
+              "___________________first", "jprakash-test", "jprakash_volume", "test-stream.csv");
+      System.out.println("Got data " + new String(inputStream.getContent().readAllBytes()));
+      inputStream.getContent().close();
+
+      System.out.println(
+          client.listObjects(
+              "___________________first", "jprakash-test", "jprakash_volume", "test", false));
+
+      System.out.println(
+          client.deleteObject(
+              "___________________first", "jprakash-test", "jprakash_volume", "test-stream.csv"));
+    } catch (Exception e) {
+      e.printStackTrace();
+      throw e;
+    } finally {
+      file.delete();
+    }
+  }
+
+  @Test
+  void testDBFSVolumeOperation() throws Exception {
+    System.out.println("Starting test");
+    String jdbcUrl =
+        "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/58aa1b363649e722;Loglevel=debug;";
 
     IDatabricksConnectionContext connectionContext =
         DatabricksConnectionContextFactory.create(jdbcUrl, "token", "xx");
@@ -432,6 +480,10 @@ public class DriverTest {
               "jprakash_volume",
               "test-stream.csv",
               "/tmp/dbfs.txt"));
+
+      System.out.println(
+          client.listObjects(
+              "___________________first", "jprakash-test", "jprakash_volume", "test", false));
 
       System.out.println(
           client.deleteObject(
@@ -616,6 +668,87 @@ public class DriverTest {
     con2.close();
     con.close();
     System.out.println("Connection closed successfully......");
+  }
+
+  @Test
+  void testAllPurposeClusters_closeBySessionId() throws Exception {
+    String jdbcUrl =
+        "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;ssl=1;AuthMech=3;httpPath=sql/protocolv1/o/6051921418418893/1115-130834-ms4m0yv;enableDirectResults=1";
+    String token = "xx";
+    Connection con = DriverManager.getConnection(jdbcUrl, "token", token);
+    System.out.println("Connection established...... con1");
+    Statement s = con.createStatement();
+    IDatabricksStatement ids = s.unwrap(IDatabricksStatement.class);
+    try {
+      s.execute("DROP TABLE JDBC_ASYNC_CLUSTER");
+    } catch (Exception e) {
+      // do nothing
+    }
+    long initialTime = System.currentTimeMillis();
+    String sql =
+        "CREATE TABLE JDBC_ASYNC_CLUSTER AS ("
+            + "  SELECT * FROM ("
+            + "    SELECT * FROM ("
+            + "      SELECT t1.*"
+            + "      FROM main.streaming.random_large_table t1"
+            + "      INNER JOIN main.streaming.random_large_table t2"
+            + "      ON t1.prompt = t2.prompt"
+            + "    ) nested_t1"
+            + "  ) nested_t2"
+            + ")";
+    ResultSet rs = ids.executeAsync(sql);
+    String statementId = rs.unwrap(IDatabricksResultSet.class).getStatementId();
+    System.out.println("Time taken: " + (System.currentTimeMillis() - initialTime));
+
+    String connectionId = con.unwrap(IDatabricksConnection.class).getConnectionId();
+
+    Properties p = new Properties();
+    p.setProperty("PWD", token);
+
+    s.executeQuery("Select 1");
+
+    Driver.getInstance().closeConnection(jdbcUrl, p, connectionId);
+    assertThrows(DatabricksSQLException.class, () -> s.executeQuery("Select 1"));
+  }
+
+  @Test
+  void testDBSQL_closeBySessionId() throws Exception {
+    String jdbcUrl =
+        "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/791ba2a31c7fd70a;enableDirectResults=1";
+    String token = "xx";
+    Connection con = DriverManager.getConnection(jdbcUrl, "token", token);
+    System.out.println("Connection established...... con1");
+    Statement s = con.createStatement();
+    IDatabricksStatement ids = s.unwrap(IDatabricksStatement.class);
+    try {
+      s.execute("DROP TABLE JDBC_ASYNC_DBSQL");
+    } catch (Exception e) {
+      // do nothing
+    }
+    long initialTime = System.currentTimeMillis();
+    String sql =
+        "CREATE TABLE JDBC_ASYNC_DBSQL AS ("
+            + "  SELECT * FROM ("
+            + "    SELECT * FROM ("
+            + "      SELECT t1.*"
+            + "      FROM main.streaming.random_large_table t1"
+            + "      INNER JOIN main.streaming.random_large_table t2"
+            + "      ON t1.prompt = t2.prompt"
+            + "    ) nested_t1"
+            + "  ) nested_t2"
+            + ")";
+    ResultSet rs = ids.executeAsync(sql);
+    System.out.println("Time taken: " + (System.currentTimeMillis() - initialTime));
+
+    String connectionId = con.unwrap(IDatabricksConnection.class).getConnectionId();
+
+    Properties p = new Properties();
+    p.setProperty("PWD", token);
+
+    s.executeQuery("Select 1");
+
+    Driver.getInstance().closeConnection(jdbcUrl, p, connectionId);
+    assertThrows(DatabricksSQLException.class, () -> s.executeQuery("Select 1"));
   }
 
   @Test

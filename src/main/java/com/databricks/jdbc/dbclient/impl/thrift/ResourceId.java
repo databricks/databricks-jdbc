@@ -1,7 +1,6 @@
 package com.databricks.jdbc.dbclient.impl.thrift;
 
 import java.nio.ByteBuffer;
-import java.util.Base64;
 import java.util.UUID;
 
 /** Utility class to handle UUIDs used in Thrift identifiers. */
@@ -17,12 +16,12 @@ public class ResourceId {
   }
 
   public static ResourceId fromBase64(String str) {
-    return new ResourceId(uuidFromBase64(str));
+    return new ResourceId(uuidFromString(str));
   }
 
   @Override
   public String toString() {
-    return uuidToBase64(uuid);
+    return uuid.toString();
   }
 
   public byte[] toBytes() {
@@ -41,11 +40,7 @@ public class ResourceId {
     return new UUID(buf.getLong(), buf.getLong());
   }
 
-  private static String uuidToBase64(UUID uuid) {
-    return Base64.getEncoder().withoutPadding().encodeToString(uuidToBytes(uuid));
-  }
-
-  private static UUID uuidFromBase64(String str) {
-    return uuidFromBytes(Base64.getDecoder().decode(str));
+  private static UUID uuidFromString(String str) {
+    return UUID.fromString(str);
   }
 }
