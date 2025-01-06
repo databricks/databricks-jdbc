@@ -30,13 +30,10 @@ public class DBFSVolumeIntegrationTests extends AbstractFakeServiceIntegrationTe
   private IDatabricksConnectionContext connectionContext;
   private static final String jdbcUrlTemplate =
       "jdbc:databricks://%s/default;ssl=0;AuthMech=3;httpPath=%s";
-  private static final String HTTP_PATH = "/sql/1.0/warehouses/58aa1b363649e722";
-  private static final String CLOUDFETCH_API_TARGET_URL =
-      "https://us-west-2-extstaging-managed-catalog-test-bucket-1.s3-fips.us-west-2.amazonaws.com";
 
   @BeforeAll
   static void setupAll() throws Exception {
-    setCloudFetchApiTargetUrl(CLOUDFETCH_API_TARGET_URL);
+    setCloudFetchApiTargetUrl(getPreSignedUrlHost());
   }
 
   @BeforeEach
@@ -322,7 +319,7 @@ public class DBFSVolumeIntegrationTests extends AbstractFakeServiceIntegrationTe
   }
 
   private IDatabricksConnectionContext getConnectionContext() throws SQLException {
-    String jdbcUrl = String.format(jdbcUrlTemplate, getFakeServiceHost(), HTTP_PATH);
+    String jdbcUrl = String.format(jdbcUrlTemplate, getFakeServiceHost(), getDatabricksHTTPPath());
     return DatabricksConnectionContextFactory.create(
         jdbcUrl, getDatabricksUser(), getDatabricksToken());
   }
