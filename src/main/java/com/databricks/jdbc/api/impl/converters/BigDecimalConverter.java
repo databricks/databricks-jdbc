@@ -1,17 +1,30 @@
 package com.databricks.jdbc.api.impl.converters;
 
+import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.exception.DatabricksSQLException;
+import com.databricks.jdbc.exception.DatabricksValidationException;
+
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.math.RoundingMode;
 
 public class BigDecimalConverter implements ObjectConverter {
+  private final IDatabricksConnectionContext connectionContext;
+
+  public BigDecimalConverter(IDatabricksConnectionContext connectionContext){
+  this.connectionContext = connectionContext;
+  }
+  @Override
+  public IDatabricksConnectionContext getConnectionContext(){
+    return connectionContext;
+  }
+
   @Override
   public byte toByte(Object object) throws DatabricksSQLException {
     try {
       return toBigDecimal(object).toBigInteger().byteValueExact();
     } catch (ArithmeticException e) {
-      throw new DatabricksSQLException("Invalid conversion to byte", e);
+      throw new DatabricksValidationException("Invalid conversion to byte", e,connectionContext);
     }
   }
 
@@ -20,7 +33,7 @@ public class BigDecimalConverter implements ObjectConverter {
     try {
       return toBigDecimal(object).toBigInteger().shortValueExact();
     } catch (ArithmeticException e) {
-      throw new DatabricksSQLException("Invalid conversion to short", e);
+      throw new DatabricksValidationException("Invalid conversion to short", e, connectionContext);
     }
   }
 
@@ -29,7 +42,7 @@ public class BigDecimalConverter implements ObjectConverter {
     try {
       return toBigDecimal(object).toBigInteger().intValueExact();
     } catch (ArithmeticException e) {
-      throw new DatabricksSQLException("Invalid conversion to int", e);
+      throw new DatabricksValidationException("Invalid conversion to int", e, connectionContext);
     }
   }
 
@@ -38,7 +51,7 @@ public class BigDecimalConverter implements ObjectConverter {
     try {
       return toBigDecimal(object).toBigInteger().longValueExact();
     } catch (ArithmeticException e) {
-      throw new DatabricksSQLException("Invalid conversion to long", e);
+      throw new DatabricksValidationException("Invalid conversion to long", e, connectionContext);
     }
   }
 
@@ -60,12 +73,12 @@ public class BigDecimalConverter implements ObjectConverter {
       try {
         return new BigDecimal((String) object);
       } catch (NumberFormatException e) {
-        throw new DatabricksSQLException("Invalid BigDecimal string: " + object, e);
+        throw new DatabricksValidationException("Invalid BigDecimal string: " + object, e, getConnectionContext());
       }
     } else if (object instanceof Number) {
       return BigDecimal.valueOf(((Number) object).doubleValue());
     }
-    throw new DatabricksSQLException("Cannot convert to BigDecimal: " + object.getClass());
+    throw new DatabricksValidationException("Cannot convert to BigDecimal: " + object.getClass(), getConnectionContext());
   }
 
   @Override
@@ -74,7 +87,7 @@ public class BigDecimalConverter implements ObjectConverter {
     try {
       return bigDecimal.setScale(scale, RoundingMode.HALF_EVEN);
     } catch (ArithmeticException e) {
-      throw new DatabricksSQLException("Error setting scale for BigDecimal", e);
+      throw new DatabricksValidationException("Error setting scale for BigDecimal", e, getConnectionContext());
     }
   }
 

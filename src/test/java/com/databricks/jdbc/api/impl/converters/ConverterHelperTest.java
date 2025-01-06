@@ -1,7 +1,6 @@
 package com.databricks.jdbc.api.impl.converters;
 
 import static com.databricks.jdbc.TestConstants.TEST_BYTES;
-import static com.databricks.jdbc.api.impl.converters.ConverterHelper.convertSqlTypeToSpecificJavaType;
 import static org.junit.jupiter.api.Assertions.*;
 
 import com.databricks.jdbc.exception.DatabricksSQLException;
@@ -19,8 +18,9 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
+
 class ConverterHelperTest {
-  ConverterHelper converterHelper;
+  ConverterHelper converterHelper = new ConverterHelper(null);
 
   private static Stream<Arguments> provideParametersForGetConvertedObject() {
     return Stream.of(
@@ -46,57 +46,57 @@ class ConverterHelperTest {
   @MethodSource("provideParametersForGetConvertedObject")
   public void testGetConvertedObject(int columnType, Object input, Object expected)
       throws DatabricksSQLException {
-    assertEquals(expected, ConverterHelper.convertSqlTypeToJavaType(columnType, input));
+    assertEquals(expected, converterHelper.convertSqlTypeToJavaType(columnType, input));
   }
 
   @Test
   void testConvertToString() throws DatabricksSQLException {
     assertEquals(
         "Test String",
-        convertSqlTypeToSpecificJavaType(String.class, Types.VARCHAR, "Test String"));
+        converterHelper.convertSqlTypeToSpecificJavaType(String.class, Types.VARCHAR, "Test String"));
   }
 
   @Test
   void testConvertToBigDecimal() throws DatabricksSQLException {
     BigDecimal expected = new BigDecimal("123.456");
     assertEquals(
-        expected, convertSqlTypeToSpecificJavaType(BigDecimal.class, Types.DECIMAL, "123.456"));
+        expected, converterHelper.convertSqlTypeToSpecificJavaType(BigDecimal.class, Types.DECIMAL, "123.456"));
   }
 
   @Test
   void testConvertToBoolean() throws DatabricksSQLException {
-    assertEquals(true, convertSqlTypeToSpecificJavaType(Boolean.class, Types.BOOLEAN, true));
-    assertEquals(true, convertSqlTypeToSpecificJavaType(boolean.class, Types.BOOLEAN, true));
+    assertEquals(true, converterHelper.convertSqlTypeToSpecificJavaType(Boolean.class, Types.BOOLEAN, true));
+    assertEquals(true, converterHelper.convertSqlTypeToSpecificJavaType(boolean.class, Types.BOOLEAN, true));
   }
 
   @Test
   void testConvertToInt() throws DatabricksSQLException {
-    assertEquals(123, convertSqlTypeToSpecificJavaType(Integer.class, Types.INTEGER, "123"));
-    assertEquals(123, convertSqlTypeToSpecificJavaType(int.class, Types.INTEGER, "123"));
+    assertEquals(123, converterHelper.convertSqlTypeToSpecificJavaType(Integer.class, Types.INTEGER, "123"));
+    assertEquals(123, converterHelper.convertSqlTypeToSpecificJavaType(int.class, Types.INTEGER, "123"));
   }
 
   @Test
   void testConvertToLong() throws DatabricksSQLException {
-    assertEquals(123L, convertSqlTypeToSpecificJavaType(Long.class, Types.BIGINT, "123"));
-    assertEquals(123L, convertSqlTypeToSpecificJavaType(long.class, Types.BIGINT, "123"));
+    assertEquals(123L, converterHelper.convertSqlTypeToSpecificJavaType(Long.class, Types.BIGINT, "123"));
+    assertEquals(123L, converterHelper.convertSqlTypeToSpecificJavaType(long.class, Types.BIGINT, "123"));
   }
 
   @Test
   void testConvertToFloat() throws DatabricksSQLException {
-    assertEquals(1.23f, convertSqlTypeToSpecificJavaType(Float.class, Types.FLOAT, "1.23"));
-    assertEquals(1.23f, convertSqlTypeToSpecificJavaType(float.class, Types.FLOAT, "1.23"));
+    assertEquals(1.23f, converterHelper.convertSqlTypeToSpecificJavaType(Float.class, Types.FLOAT, "1.23"));
+    assertEquals(1.23f, converterHelper.convertSqlTypeToSpecificJavaType(float.class, Types.FLOAT, "1.23"));
   }
 
   @Test
   void testConvertToDouble() throws DatabricksSQLException {
-    assertEquals(1.234, convertSqlTypeToSpecificJavaType(Double.class, Types.DOUBLE, "1.234"));
-    assertEquals(1.234, convertSqlTypeToSpecificJavaType(double.class, Types.DOUBLE, 1.234));
+    assertEquals(1.234, converterHelper.convertSqlTypeToSpecificJavaType(Double.class, Types.DOUBLE, "1.234"));
+    assertEquals(1.234, converterHelper.convertSqlTypeToSpecificJavaType(double.class, Types.DOUBLE, 1.234));
   }
 
   @Test
   void testConvertToDate() throws DatabricksSQLException {
     Date current = new Date(System.currentTimeMillis());
-    assertEquals(current, convertSqlTypeToSpecificJavaType(Date.class, Types.DATE, current));
+    assertEquals(current, converterHelper.convertSqlTypeToSpecificJavaType(Date.class, Types.DATE, current));
   }
 
   @Test
@@ -104,35 +104,35 @@ class ConverterHelperTest {
     LocalDate current = LocalDate.now();
     assertEquals(
         current.toString(),
-        convertSqlTypeToSpecificJavaType(LocalDate.class, Types.DATE, current.toString())
+        converterHelper.convertSqlTypeToSpecificJavaType(LocalDate.class, Types.DATE, current.toString())
             .toString());
   }
 
   @Test
   void testConvertToBigInteger() throws DatabricksSQLException {
     BigInteger expected = BigInteger.ONE;
-    assertEquals(expected, convertSqlTypeToSpecificJavaType(BigInteger.class, Types.BIGINT, "1"));
+    assertEquals(expected, converterHelper.convertSqlTypeToSpecificJavaType(BigInteger.class, Types.BIGINT, "1"));
   }
 
   @Test
   void testConvertToTimestamp() throws DatabricksSQLException {
     Timestamp current = new Timestamp(System.currentTimeMillis());
     assertEquals(
-        current, convertSqlTypeToSpecificJavaType(Timestamp.class, Types.TIMESTAMP, current));
+        current, converterHelper.convertSqlTypeToSpecificJavaType(Timestamp.class, Types.TIMESTAMP, current));
     assertEquals(
-        current, convertSqlTypeToSpecificJavaType(Calendar.class, Types.TIMESTAMP, current));
+        current, converterHelper.convertSqlTypeToSpecificJavaType(Calendar.class, Types.TIMESTAMP, current));
   }
 
   @Test
   void testConvertToShort() throws DatabricksSQLException {
-    assertEquals((byte) 123, convertSqlTypeToSpecificJavaType(Byte.class, Types.TINYINT, "123"));
-    assertEquals((byte) 123, convertSqlTypeToSpecificJavaType(byte.class, Types.TINYINT, "123"));
+    assertEquals((byte) 123, converterHelper.convertSqlTypeToSpecificJavaType(Byte.class, Types.TINYINT, "123"));
+    assertEquals((byte) 123, converterHelper.convertSqlTypeToSpecificJavaType(byte.class, Types.TINYINT, "123"));
   }
 
   @Test
   void testConvertToOther() throws DatabricksSQLException {
     assertEquals(
-        "otherString", convertSqlTypeToSpecificJavaType(Year.class, Types.VARCHAR, "otherString"));
+        "otherString", converterHelper.convertSqlTypeToSpecificJavaType(Year.class, Types.VARCHAR, "otherString"));
   }
 
   @Test

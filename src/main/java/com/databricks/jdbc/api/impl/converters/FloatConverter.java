@@ -1,11 +1,24 @@
 package com.databricks.jdbc.api.impl.converters;
 
+import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.exception.DatabricksSQLException;
+import com.databricks.jdbc.exception.DatabricksValidationException;
+import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
+
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.nio.ByteBuffer;
 
 public class FloatConverter implements ObjectConverter {
+  private final IDatabricksConnectionContext connectionContext;
+
+  public FloatConverter(IDatabricksConnectionContext connectionContext){
+    this.connectionContext = connectionContext;
+  }
+  @Override
+  public IDatabricksConnectionContext getConnectionContext(){
+    return connectionContext;
+  }
   @Override
   public float toFloat(Object object) throws DatabricksSQLException {
     if (object instanceof String) {
@@ -14,7 +27,7 @@ public class FloatConverter implements ObjectConverter {
       return ((Number) object).floatValue();
     } else {
       throw new DatabricksSQLException(
-          "Unsupported type for FloatObjectConverter: " + object.getClass());
+          "Unsupported type for FloatObjectConverter: " + object.getClass(), DatabricksDriverErrorCode.UNSUPPORTED_OPERATION,getConnectionContext());
     }
   }
 
@@ -24,7 +37,7 @@ public class FloatConverter implements ObjectConverter {
     if (value >= Byte.MIN_VALUE && value <= Byte.MAX_VALUE) {
       return (byte) value;
     }
-    throw new DatabricksSQLException("Invalid conversion: Float value out of byte range");
+    throw new DatabricksValidationException("Invalid conversion: Float value out of byte range",getConnectionContext());
   }
 
   @Override
@@ -33,7 +46,7 @@ public class FloatConverter implements ObjectConverter {
     if (value >= Short.MIN_VALUE && value <= Short.MAX_VALUE) {
       return (short) value;
     }
-    throw new DatabricksSQLException("Invalid conversion: Float value out of short range");
+    throw new DatabricksValidationException("Invalid conversion: Float value out of short range",getConnectionContext());
   }
 
   @Override
@@ -42,7 +55,7 @@ public class FloatConverter implements ObjectConverter {
     if (value >= Integer.MIN_VALUE && value < Integer.MAX_VALUE) {
       return (int) value;
     }
-    throw new DatabricksSQLException("Invalid conversion: Float value out of int range");
+    throw new DatabricksValidationException("Invalid conversion: Float value out of int range",getConnectionContext());
   }
 
   @Override
@@ -51,7 +64,7 @@ public class FloatConverter implements ObjectConverter {
     if (value >= Long.MIN_VALUE && value < Long.MAX_VALUE) {
       return (long) value;
     }
-    throw new DatabricksSQLException("Invalid conversion: Float value out of long range");
+    throw new DatabricksValidationException("Invalid conversion: Float value out of long range",getConnectionContext());
   }
 
   @Override

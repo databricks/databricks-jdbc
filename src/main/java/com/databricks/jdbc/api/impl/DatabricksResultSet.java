@@ -1,10 +1,10 @@
 package com.databricks.jdbc.api.impl;
 
-import static com.databricks.jdbc.common.util.DatabricksThriftUtil.*;
 
+import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.api.IDatabricksResultSet;
 import com.databricks.jdbc.api.IDatabricksSession;
-import com.databricks.jdbc.api.impl.converters.ConverterHelper;
+import com.databricks.jdbc.api.impl.converters.converterHelper;
 import com.databricks.jdbc.api.impl.converters.ObjectConverter;
 import com.databricks.jdbc.api.impl.volume.VolumeOperationResult;
 import com.databricks.jdbc.api.internal.IDatabricksResultSetInternal;
@@ -15,12 +15,14 @@ import com.databricks.jdbc.dbclient.impl.common.StatementId;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.exception.DatabricksSQLFeatureNotSupportedException;
+import com.databricks.jdbc.exception.DatabricksValidationException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.model.client.thrift.generated.TFetchResultsResp;
 import com.databricks.jdbc.model.core.ColumnMetadata;
 import com.databricks.jdbc.model.core.ResultData;
 import com.databricks.jdbc.model.core.ResultManifest;
+import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import com.databricks.sdk.service.sql.StatementStatus;
 import com.google.common.annotations.VisibleForTesting;
 import java.io.InputStream;
@@ -45,6 +47,7 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
   private final DatabricksResultSetMetaData resultSetMetaData;
   private final StatementType statementType;
   private final IDatabricksStatementInternal parentStatement;
+  private final IDatabricksConnectionContext connectionContext;
   private Long updateCount;
   private boolean isClosed;
   private SQLWarning warnings = null;
@@ -78,6 +81,7 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
     this.parentStatement = parentStatement;
     this.isClosed = false;
     this.wasNull = false;
+    this.connectionContext = session.getConnectionContext();
   }
 
   @VisibleForTesting
@@ -97,6 +101,7 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
     this.parentStatement = parentStatement;
     this.isClosed = false;
     this.wasNull = false;
+    this.connectionContext = null;
   }
 
   // Constructor for thrift result set
@@ -130,6 +135,7 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
     this.parentStatement = parentStatement;
     this.isClosed = false;
     this.wasNull = false;
+    this.connectionContext = session.getConnectionContext();
   }
 
   // Constructing results for getUDTs, getTypeInfo, getProcedures metadata calls
@@ -141,7 +147,7 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
       List<Integer> columnTypes,
       List<Integer> columnTypePrecisions,
       Object[][] rows,
-      StatementType statementType) {
+      StatementType statementType, IDatabricksConnectionContext connectionContext) {
     this.statementStatus = statementStatus;
     this.statementId = statementId;
     this.executionResult = ExecutionResultFactory.getResultSet(rows);
@@ -158,6 +164,7 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
     this.parentStatement = null;
     this.isClosed = false;
     this.wasNull = false;
+    this.connectionContext = connectionContext;
   }
 
   // Constructing metadata result set in thrift flow
@@ -169,7 +176,7 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
       List<Integer> columnTypes,
       List<Integer> columnTypePrecisions,
       List<List<Object>> rows,
-      StatementType statementType) {
+      StatementType statementType, IDatabricksConnectionContext connectionContext) {
     this.statementStatus = statementStatus;
     this.statementId = statementId;
     this.executionResult = ExecutionResultFactory.getResultSet(rows);
@@ -186,6 +193,7 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
     this.parentStatement = null;
     this.isClosed = false;
     this.wasNull = false;
+    this.connectionContext = connectionContext;
   }
 
   // Constructing metadata result set in SEA flow
@@ -194,7 +202,7 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
       StatementId statementId,
       List<ColumnMetadata> columnMetadataList,
       List<List<Object>> rows,
-      StatementType statementType) {
+      StatementType statementType, IDatabricksConnectionContext connectionContext) {
     this.statementStatus = statementStatus;
     this.statementId = statementId;
     this.executionResult = ExecutionResultFactory.getResultSet(rows);
@@ -205,6 +213,7 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
     this.parentStatement = null;
     this.isClosed = false;
     this.wasNull = false;
+    this.connectionContext = connectionContext;
   }
 
   @Override
@@ -293,7 +302,7 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
   public Time getTime(int columnIndex) throws SQLException {
     checkIfClosed();
     throw new DatabricksSQLFeatureNotSupportedException(
-        "Not implemented in DatabricksResultSet - getTime(int columnIndex)");
+        "Not implemented in DatabricksResultSet - getTime(int columnIndex)", connectionContext);
   }
 
   @Override
@@ -412,7 +421,7 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
   public String getCursorName() throws SQLException {
     checkIfClosed();
     throw new DatabricksSQLFeatureNotSupportedException(
-        "Not supported in DatabricksResultSet - getCursorName()");
+        "Not supported in DatabricksResultSet - getCursorName()", connectionContext);
   }
 
   @Override
@@ -428,7 +437,7 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
       return null;
     }
     int columnType = resultSetMetaData.getColumnType(columnIndex);
-    return ConverterHelper.convertSqlTypeToJavaType(columnType, obj);
+    return converterHelper.convertSqlTypeToJavaType(columnType, obj);
   }
 
   @Override
@@ -451,7 +460,7 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
       return null;
     }
     int columnType = resultSetMetaData.getColumnType(columnIndex);
-    ObjectConverter converter = ConverterHelper.getConverterForSqlType(columnType);
+    ObjectConverter converter = converterHelper.getConverterForSqlType(columnType);
     return converter.toCharacterStream(obj);
   }
 
@@ -498,28 +507,28 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
   public void beforeFirst() throws SQLException {
     checkIfClosed();
     throw new DatabricksSQLFeatureNotSupportedException(
-        "Databricks JDBC does not support random access (beforeFirst)");
+        "Databricks JDBC does not support random access (beforeFirst)", connectionContext);
   }
 
   @Override
   public void afterLast() throws SQLException {
     checkIfClosed();
     throw new DatabricksSQLFeatureNotSupportedException(
-        "Databricks JDBC does not support random access (afterLast)");
+        "Databricks JDBC does not support random access (afterLast)", connectionContext);
   }
 
   @Override
   public boolean first() throws SQLException {
     checkIfClosed();
     throw new DatabricksSQLFeatureNotSupportedException(
-        "Databricks JDBC does not support random access (first)");
+        "Databricks JDBC does not support random access (first)", connectionContext);
   }
 
   @Override
   public boolean last() throws SQLException {
     checkIfClosed();
     throw new DatabricksSQLFeatureNotSupportedException(
-        "Databricks JDBC does not support random access (last)");
+        "Databricks JDBC does not support random access (last)", connectionContext);
   }
 
   @Override
@@ -532,21 +541,21 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
   public boolean absolute(int row) throws SQLException {
     checkIfClosed();
     throw new DatabricksSQLFeatureNotSupportedException(
-        "Databricks JDBC does not support random access (absolute)");
+        "Databricks JDBC does not support random access (absolute)", connectionContext);
   }
 
   @Override
   public boolean relative(int rows) throws SQLException {
     checkIfClosed();
     throw new DatabricksSQLFeatureNotSupportedException(
-        "Databricks JDBC does not support random access (relative)");
+        "Databricks JDBC does not support random access (relative)", connectionContext);
   }
 
   @Override
   public boolean previous() throws SQLException {
     checkIfClosed();
     throw new DatabricksSQLFeatureNotSupportedException(
-        "Databricks JDBC does not support random access (previous)");
+        "Databricks JDBC does not support random access (previous)", connectionContext);
   }
 
   @Override
@@ -555,7 +564,7 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
     // Only allow forward direction
     if (direction != ResultSet.FETCH_FORWARD) {
       throw new DatabricksSQLFeatureNotSupportedException(
-          "Databricks JDBC only supports FETCH_FORWARD direction");
+          "Databricks JDBC only supports FETCH_FORWARD direction", connectionContext);
     }
   }
 
@@ -577,7 +586,7 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
 
   @Override
   public int getFetchSize() throws SQLException {
-    LOGGER.debug("public int getFetchSize()");
+    LOGGER.debug("public int getFetchSize()", connectionContext);
     checkIfClosed();
     addWarningAndLog(
         "As FetchSize is not supported in the Databricks JDBC, we don't set it in the first place");
@@ -600,258 +609,258 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
   public boolean rowUpdated() throws SQLException {
     checkIfClosed();
     throw new DatabricksSQLFeatureNotSupportedException(
-        "Databricks JDBC has ResultSet as CONCUR_READ_ONLY. Doesn't support the function : rowUpdated");
+        "Databricks JDBC has ResultSet as CONCUR_READ_ONLY. Doesn't support the function : rowUpdated",connectionContext);
   }
 
   @Override
   public boolean rowInserted() throws SQLException {
     checkIfClosed();
     throw new DatabricksSQLFeatureNotSupportedException(
-        "Databricks JDBC has ResultSet as CONCUR_READ_ONLY. Doesn't support the function : rowInserted");
+        "Databricks JDBC has ResultSet as CONCUR_READ_ONLY. Doesn't support the function : rowInserted",connectionContext);
   }
 
   @Override
   public boolean rowDeleted() throws SQLException {
     checkIfClosed();
     throw new DatabricksSQLFeatureNotSupportedException(
-        "Databricks JDBC has ResultSet as CONCUR_READ_ONLY. Doesn't support the function : rowDeleted");
+        "Databricks JDBC has ResultSet as CONCUR_READ_ONLY. Doesn't support the function : rowDeleted",connectionContext);
   }
 
   @Override
   public void updateNull(int columnIndex) throws SQLException {
     checkIfClosed();
     throw new DatabricksSQLFeatureNotSupportedException(
-        "Databricks JDBC has ResultSet as CONCUR_READ_ONLY. Doesn't support update function : updateNull");
+        "Databricks JDBC has ResultSet as CONCUR_READ_ONLY. Doesn't support update function : updateNull",connectionContext);
   }
 
   @Override
   public void updateBoolean(int columnIndex, boolean x) throws SQLException {
     checkIfClosed();
     throw new DatabricksSQLFeatureNotSupportedException(
-        "Databricks JDBC has ResultSet as CONCUR_READ_ONLY. Doesn't support update function : updateBoolean");
+        "Databricks JDBC has ResultSet as CONCUR_READ_ONLY. Doesn't support update function : updateBoolean",connectionContext);
   }
 
   @Override
   public void updateByte(int columnIndex, byte x) throws SQLException {
     checkIfClosed();
     throw new DatabricksSQLFeatureNotSupportedException(
-        "Databricks JDBC has ResultSet as CONCUR_READ_ONLY. Doesn't support update function : updateByte");
+        "Databricks JDBC has ResultSet as CONCUR_READ_ONLY. Doesn't support update function : updateByte",connectionContext);
   }
 
   @Override
   public void updateShort(int columnIndex, short x) throws SQLException {
     checkIfClosed();
     throw new DatabricksSQLFeatureNotSupportedException(
-        "Databricks JDBC has ResultSet as CONCUR_READ_ONLY. Doesn't support update function : updateShort");
+        "Databricks JDBC has ResultSet as CONCUR_READ_ONLY. Doesn't support update function : updateShort",connectionContext);
   }
 
   @Override
   public void updateInt(int columnIndex, int x) throws SQLException {
     checkIfClosed();
     throw new DatabricksSQLFeatureNotSupportedException(
-        "Databricks JDBC has ResultSet as CONCUR_READ_ONLY. Doesn't support update function : updateInt");
+        "Databricks JDBC has ResultSet as CONCUR_READ_ONLY. Doesn't support update function : updateInt",connectionContext);
   }
 
   @Override
   public void updateLong(int columnIndex, long x) throws SQLException {
     checkIfClosed();
     throw new DatabricksSQLFeatureNotSupportedException(
-        "Databricks JDBC has ResultSet as CONCUR_READ_ONLY. Doesn't support update function : updateLong");
+        "Databricks JDBC has ResultSet as CONCUR_READ_ONLY. Doesn't support update function : updateLong",connectionContext);
   }
 
   @Override
   public void updateFloat(int columnIndex, float x) throws SQLException {
     checkIfClosed();
     throw new DatabricksSQLFeatureNotSupportedException(
-        "Databricks JDBC has ResultSet as CONCUR_READ_ONLY. Doesn't support update function : updateFloat");
+        "Databricks JDBC has ResultSet as CONCUR_READ_ONLY. Doesn't support update function : updateFloat",connectionContext);
   }
 
   @Override
   public void updateDouble(int columnIndex, double x) throws SQLException {
     checkIfClosed();
     throw new DatabricksSQLFeatureNotSupportedException(
-        "Databricks JDBC has ResultSet as CONCUR_READ_ONLY. Doesn't support update function : updateDouble");
+        "Databricks JDBC has ResultSet as CONCUR_READ_ONLY. Doesn't support update function : updateDouble",connectionContext);
   }
 
   @Override
   public void updateBigDecimal(int columnIndex, BigDecimal x) throws SQLException {
     throw new DatabricksSQLFeatureNotSupportedException(
-        "Databricks JDBC has ResultSet as CONCUR_READ_ONLY. Doesn't support update function : updateBigDecimal");
+        "Databricks JDBC has ResultSet as CONCUR_READ_ONLY. Doesn't support update function : updateBigDecimal",connectionContext);
   }
 
   @Override
   public void updateString(int columnIndex, String x) throws SQLException {
     checkIfClosed();
     throw new DatabricksSQLFeatureNotSupportedException(
-        "Databricks JDBC has ResultSet as CONCUR_READ_ONLY. Doesn't support update function : updateString");
+        "Databricks JDBC has ResultSet as CONCUR_READ_ONLY. Doesn't support update function : updateString",connectionContext);
   }
 
   @Override
   public void updateBytes(int columnIndex, byte[] x) throws SQLException {
     checkIfClosed();
     throw new DatabricksSQLFeatureNotSupportedException(
-        "Databricks JDBC has ResultSet as CONCUR_READ_ONLY. Doesn't support update function : updateBytes");
+        "Databricks JDBC has ResultSet as CONCUR_READ_ONLY. Doesn't support update function : updateBytes",connectionContext);
   }
 
   @Override
   public void updateDate(int columnIndex, Date x) throws SQLException {
     checkIfClosed();
     throw new DatabricksSQLFeatureNotSupportedException(
-        "Databricks JDBC has ResultSet as CONCUR_READ_ONLY. Doesn't support update function : updateDate");
+        "Databricks JDBC has ResultSet as CONCUR_READ_ONLY. Doesn't support update function : updateDate",connectionContext);
   }
 
   @Override
   public void updateTime(int columnIndex, Time x) throws SQLException {
     checkIfClosed();
     throw new DatabricksSQLFeatureNotSupportedException(
-        "Databricks JDBC has ResultSet as CONCUR_READ_ONLY. Doesn't support update function : updateTime");
+        "Databricks JDBC has ResultSet as CONCUR_READ_ONLY. Doesn't support update function : updateTime",connectionContext);
   }
 
   @Override
   public void updateTimestamp(int columnIndex, Timestamp x) throws SQLException {
     checkIfClosed();
     throw new DatabricksSQLFeatureNotSupportedException(
-        "Databricks JDBC has ResultSet as CONCUR_READ_ONLY. Doesn't support update function : updateTimestamp");
+        "Databricks JDBC has ResultSet as CONCUR_READ_ONLY. Doesn't support update function : updateTimestamp",connectionContext);
   }
 
   @Override
   public void updateAsciiStream(int columnIndex, InputStream x, int length) throws SQLException {
     checkIfClosed();
     throw new DatabricksSQLFeatureNotSupportedException(
-        "Databricks JDBC has ResultSet as CONCUR_READ_ONLY. Doesn't support update function : updateAsciiStream");
+        "Databricks JDBC has ResultSet as CONCUR_READ_ONLY. Doesn't support update function : updateAsciiStream",connectionContext);
   }
 
   @Override
   public void updateBinaryStream(int columnIndex, InputStream x, int length) throws SQLException {
     checkIfClosed();
     throw new DatabricksSQLFeatureNotSupportedException(
-        "Databricks JDBC has ResultSet as CONCUR_READ_ONLY. Doesn't support update function : updateBinaryStream");
+        "Databricks JDBC has ResultSet as CONCUR_READ_ONLY. Doesn't support update function : updateBinaryStream",connectionContext);
   }
 
   @Override
   public void updateCharacterStream(int columnIndex, Reader x, int length) throws SQLException {
     checkIfClosed();
     throw new DatabricksSQLFeatureNotSupportedException(
-        "Databricks JDBC has ResultSet as CONCUR_READ_ONLY. Doesn't support update function : updateCharacterStream");
+        "Databricks JDBC has ResultSet as CONCUR_READ_ONLY. Doesn't support update function : updateCharacterStream",connectionContext);
   }
 
   @Override
   public void updateObject(int columnIndex, Object x, int scaleOrLength) throws SQLException {
     checkIfClosed();
     throw new DatabricksSQLFeatureNotSupportedException(
-        "Databricks JDBC has ResultSet as CONCUR_READ_ONLY. Doesn't support update function : updateObject");
+        "Databricks JDBC has ResultSet as CONCUR_READ_ONLY. Doesn't support update function : updateObject",connectionContext);
   }
 
   @Override
   public void updateObject(int columnIndex, Object x) throws SQLException {
     checkIfClosed();
     throw new DatabricksSQLFeatureNotSupportedException(
-        "Databricks JDBC has ResultSet as CONCUR_READ_ONLY. Doesn't support update function : updateObject");
+        "Databricks JDBC has ResultSet as CONCUR_READ_ONLY. Doesn't support update function : updateObject",connectionContext);
   }
 
   @Override
   public void updateNull(String columnLabel) throws SQLException {
     checkIfClosed();
     throw new DatabricksSQLFeatureNotSupportedException(
-        "Databricks JDBC has ResultSet as CONCUR_READ_ONLY. Doesn't support update function : updateNull");
+        "Databricks JDBC has ResultSet as CONCUR_READ_ONLY. Doesn't support update function : updateNull",connectionContext);
   }
 
   @Override
   public void updateBoolean(String columnLabel, boolean x) throws SQLException {
     checkIfClosed();
     throw new DatabricksSQLFeatureNotSupportedException(
-        "Databricks JDBC has ResultSet as CONCUR_READ_ONLY. Doesn't support update function : updateBoolean");
+        "Databricks JDBC has ResultSet as CONCUR_READ_ONLY. Doesn't support update function : updateBoolean",connectionContext);
   }
 
   @Override
   public void updateByte(String columnLabel, byte x) throws SQLException {
     checkIfClosed();
     throw new DatabricksSQLFeatureNotSupportedException(
-        "Databricks JDBC has ResultSet as CONCUR_READ_ONLY. Doesn't support update function : updateByte");
+        "Databricks JDBC has ResultSet as CONCUR_READ_ONLY. Doesn't support update function : updateByte",connectionContext);
   }
 
   @Override
   public void updateShort(String columnLabel, short x) throws SQLException {
     checkIfClosed();
     throw new DatabricksSQLFeatureNotSupportedException(
-        "Databricks JDBC has ResultSet as CONCUR_READ_ONLY. Doesn't support update function : updateShort");
+        "Databricks JDBC has ResultSet as CONCUR_READ_ONLY. Doesn't support update function : updateShort",connectionContext);
   }
 
   @Override
   public void updateInt(String columnLabel, int x) throws SQLException {
     checkIfClosed();
     throw new DatabricksSQLFeatureNotSupportedException(
-        "Databricks JDBC has ResultSet as CONCUR_READ_ONLY. Doesn't support update function : updateInt");
+        "Databricks JDBC has ResultSet as CONCUR_READ_ONLY. Doesn't support update function : updateInt",connectionContext);
   }
 
   @Override
   public void updateLong(String columnLabel, long x) throws SQLException {
     checkIfClosed();
     throw new DatabricksSQLFeatureNotSupportedException(
-        "Databricks JDBC has ResultSet as CONCUR_READ_ONLY. Doesn't support update function : updateLong");
+        "Databricks JDBC has ResultSet as CONCUR_READ_ONLY. Doesn't support update function : updateLong",connectionContext);
   }
 
   @Override
   public void updateFloat(String columnLabel, float x) throws SQLException {
     checkIfClosed();
     throw new DatabricksSQLFeatureNotSupportedException(
-        "Databricks JDBC has ResultSet as CONCUR_READ_ONLY. Doesn't support update function : updateFloat");
+        "Databricks JDBC has ResultSet as CONCUR_READ_ONLY. Doesn't support update function : updateFloat",connectionContext);
   }
 
   @Override
   public void updateDouble(String columnLabel, double x) throws SQLException {
     checkIfClosed();
     throw new DatabricksSQLFeatureNotSupportedException(
-        "Databricks JDBC has ResultSet as CONCUR_READ_ONLY. Doesn't support update function : updateDouble");
+        "Databricks JDBC has ResultSet as CONCUR_READ_ONLY. Doesn't support update function : updateDouble",connectionContext);
   }
 
   @Override
   public void updateBigDecimal(String columnLabel, BigDecimal x) throws SQLException {
     checkIfClosed();
     throw new DatabricksSQLFeatureNotSupportedException(
-        "Databricks JDBC has ResultSet as CONCUR_READ_ONLY. Doesn't support update function : updateBigDecimal");
+        "Databricks JDBC has ResultSet as CONCUR_READ_ONLY. Doesn't support update function : updateBigDecimal",connectionContext);
   }
 
   @Override
   public void updateString(String columnLabel, String x) throws SQLException {
     checkIfClosed();
     throw new DatabricksSQLFeatureNotSupportedException(
-        "Databricks JDBC has ResultSet as CONCUR_READ_ONLY. Doesn't support update function : updateString");
+        "Databricks JDBC has ResultSet as CONCUR_READ_ONLY. Doesn't support update function : updateString",connectionContext);
   }
 
   @Override
   public void updateBytes(String columnLabel, byte[] x) throws SQLException {
     checkIfClosed();
     throw new DatabricksSQLFeatureNotSupportedException(
-        "Databricks JDBC has ResultSet as CONCUR_READ_ONLY. Doesn't support update function : updateBytes");
+        "Databricks JDBC has ResultSet as CONCUR_READ_ONLY. Doesn't support update function : updateBytes",connectionContext);
   }
 
   @Override
   public void updateDate(String columnLabel, Date x) throws SQLException {
     checkIfClosed();
     throw new DatabricksSQLFeatureNotSupportedException(
-        "Databricks JDBC has ResultSet as CONCUR_READ_ONLY. Doesn't support update function : updateDate");
+        "Databricks JDBC has ResultSet as CONCUR_READ_ONLY. Doesn't support update function : updateDate",connectionContext);
   }
 
   @Override
   public void updateTime(String columnLabel, Time x) throws SQLException {
     checkIfClosed();
     throw new DatabricksSQLFeatureNotSupportedException(
-        "Databricks JDBC has ResultSet as CONCUR_READ_ONLY. Doesn't support update function : updateTime");
+        "Databricks JDBC has ResultSet as CONCUR_READ_ONLY. Doesn't support update function : updateTime",connectionContext);
   }
 
   @Override
   public void updateTimestamp(String columnLabel, Timestamp x) throws SQLException {
     checkIfClosed();
     throw new DatabricksSQLFeatureNotSupportedException(
-        "Databricks JDBC has ResultSet as CONCUR_READ_ONLY. Doesn't support update function : updateTimestamp");
+        "Databricks JDBC has ResultSet as CONCUR_READ_ONLY. Doesn't support update function : updateTimestamp",connectionContext);
   }
 
   @Override
   public void updateAsciiStream(String columnLabel, InputStream x, int length) throws SQLException {
     checkIfClosed();
     throw new DatabricksSQLFeatureNotSupportedException(
-        "Databricks JDBC has ResultSet as CONCUR_READ_ONLY. Doesn't support update function : updateAsciiStream");
+        "Databricks JDBC has ResultSet as CONCUR_READ_ONLY. Doesn't support update function : updateAsciiStream",connectionContext);
   }
 
   @Override
@@ -859,7 +868,7 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
       throws SQLException {
     checkIfClosed();
     throw new DatabricksSQLFeatureNotSupportedException(
-        "Databricks JDBC has ResultSet as CONCUR_READ_ONLY. Doesn't support update function : updateBinaryStream");
+        "Databricks JDBC has ResultSet as CONCUR_READ_ONLY. Doesn't support update function : updateBinaryStream",connectionContext);
   }
 
   @Override
@@ -867,70 +876,70 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
       throws SQLException {
     checkIfClosed();
     throw new DatabricksSQLFeatureNotSupportedException(
-        "Databricks JDBC has ResultSet as CONCUR_READ_ONLY. Doesn't support update function : updateCharacterStream");
+        "Databricks JDBC has ResultSet as CONCUR_READ_ONLY. Doesn't support update function : updateCharacterStream",connectionContext);
   }
 
   @Override
   public void updateObject(String columnLabel, Object x, int scaleOrLength) throws SQLException {
     checkIfClosed();
     throw new DatabricksSQLFeatureNotSupportedException(
-        "Databricks JDBC has ResultSet as CONCUR_READ_ONLY. Doesn't support update function : updateObject");
+        "Databricks JDBC has ResultSet as CONCUR_READ_ONLY. Doesn't support update function : updateObject",connectionContext);
   }
 
   @Override
   public void updateObject(String columnLabel, Object x) throws SQLException {
     checkIfClosed();
     throw new DatabricksSQLFeatureNotSupportedException(
-        "Databricks JDBC has ResultSet as CONCUR_READ_ONLY. Doesn't support update function : updateObject");
+        "Databricks JDBC has ResultSet as CONCUR_READ_ONLY. Doesn't support update function : updateObject",connectionContext);
   }
 
   @Override
   public void insertRow() throws SQLException {
     checkIfClosed();
     throw new DatabricksSQLFeatureNotSupportedException(
-        "Databricks JDBC has ResultSet as CONCUR_READ_ONLY. Doesn't support insert function : insertRow");
+        "Databricks JDBC has ResultSet as CONCUR_READ_ONLY. Doesn't support insert function : insertRow",connectionContext);
   }
 
   @Override
   public void updateRow() throws SQLException {
     checkIfClosed();
     throw new DatabricksSQLFeatureNotSupportedException(
-        "Databricks JDBC has ResultSet as CONCUR_READ_ONLY. Doesn't support update function : updateRow");
+        "Databricks JDBC has ResultSet as CONCUR_READ_ONLY. Doesn't support update function : updateRow",connectionContext);
   }
 
   @Override
   public void deleteRow() throws SQLException {
     checkIfClosed();
     throw new DatabricksSQLFeatureNotSupportedException(
-        "Databricks JDBC has ResultSet as CONCUR_READ_ONLY. Doesn't support deleteRow.");
+        "Databricks JDBC has ResultSet as CONCUR_READ_ONLY. Doesn't support deleteRow.",connectionContext);
   }
 
   @Override
   public void refreshRow() throws SQLException {
     checkIfClosed();
     throw new DatabricksSQLFeatureNotSupportedException(
-        "Databricks JDBC has ResultSet as CONCUR_READ_ONLY. Doesn't support update function : refreshRow");
+        "Databricks JDBC has ResultSet as CONCUR_READ_ONLY. Doesn't support update function : refreshRow",connectionContext);
   }
 
   @Override
   public void cancelRowUpdates() throws SQLException {
     checkIfClosed();
     throw new DatabricksSQLFeatureNotSupportedException(
-        "Databricks JDBC has ResultSet as CONCUR_READ_ONLY. Doesn't support any row updates in the first place.");
+        "Databricks JDBC has ResultSet as CONCUR_READ_ONLY. Doesn't support any row updates in the first place.",connectionContext);
   }
 
   @Override
   public void moveToInsertRow() throws SQLException {
     checkIfClosed();
     throw new DatabricksSQLFeatureNotSupportedException(
-        "Databricks JDBC has ResultSet as CONCUR_READ_ONLY. Doesn't support moveToInsertRow.");
+        "Databricks JDBC has ResultSet as CONCUR_READ_ONLY. Doesn't support moveToInsertRow.",connectionContext);
   }
 
   @Override
   public void moveToCurrentRow() throws SQLException {
     checkIfClosed();
     throw new DatabricksSQLFeatureNotSupportedException(
-        "Databricks JDBC has ResultSet as CONCUR_READ_ONLY. Doesn't support deleteRow.");
+        "Databricks JDBC has ResultSet as CONCUR_READ_ONLY. Doesn't support deleteRow.",connectionContext);
   }
 
   @Override
@@ -955,7 +964,7 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
     Class<?> returnObjectType = map.get(columnTypeText);
     if (returnObjectType != null) {
       try {
-        return ConverterHelper.convertSqlTypeToSpecificJavaType(
+        return converterHelper.convertSqlTypeToSpecificJavaType(
             returnObjectType, columnSqlType, obj);
       } catch (Exception e) {
         addWarningAndLog(
@@ -974,21 +983,21 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
   public Ref getRef(int columnIndex) throws SQLException {
     checkIfClosed();
     throw new DatabricksSQLFeatureNotSupportedException(
-        "Not implemented in DatabricksResultSet - getRef(int columnIndex)");
+        "Not implemented in DatabricksResultSet - getRef(int columnIndex)", connectionContext);
   }
 
   @Override
   public Blob getBlob(int columnIndex) throws SQLException {
     checkIfClosed();
     throw new DatabricksSQLFeatureNotSupportedException(
-        "Not implemented in DatabricksResultSet - getBlob(int columnIndex)");
+        "Not implemented in DatabricksResultSet - getBlob(int columnIndex)", connectionContext);
   }
 
   @Override
   public Clob getClob(int columnIndex) throws SQLException {
     checkIfClosed();
     throw new DatabricksSQLFeatureNotSupportedException(
-        "Not implemented in DatabricksResultSet - getClob(int columnIndex)");
+        "Not implemented in DatabricksResultSet - getClob(int columnIndex)", connectionContext);
   }
 
   @Override
@@ -1015,7 +1024,7 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
           String.format(
               "Column type is not ARRAY. Cannot convert to Array. Column type: %s", columnTypeName);
       LOGGER.error(errMsg);
-      throw new DatabricksSQLException(errMsg);
+      throw new DatabricksValidationException(errMsg,connectionContext);
     }
 
     LOGGER.trace("Parsing Array data for column with type name: {}", columnTypeName);
@@ -1053,7 +1062,7 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
               "Column type is not STRUCT. Cannot convert to Struct. Column type: %s",
               columnTypeName);
       LOGGER.error(errMessage);
-      throw new DatabricksSQLException(errMessage);
+      throw new DatabricksValidationException(errMessage,connectionContext);
     }
 
     LOGGER.trace("Parsing Struct data for column with type name: {}", columnTypeName);
@@ -1089,7 +1098,7 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
           String.format(
               "Column type is not MAP. Cannot convert to Map. Column type: %s", columnTypeName);
       LOGGER.error(errMsg);
-      throw new DatabricksSQLException(errMsg);
+      throw new DatabricksValidationException(errMsg,connectionContext);
     }
 
     LOGGER.trace("Parsing Map data for column with type name: {}", columnTypeName);
@@ -1143,7 +1152,7 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
   public Date getDate(int columnIndex, Calendar cal) throws SQLException {
     checkIfClosed();
     throw new DatabricksSQLFeatureNotSupportedException(
-        "Not implemented in DatabricksResultSet - getDate(int columnIndex, Calendar cal)");
+        "Not implemented in DatabricksResultSet - getDate(int columnIndex, Calendar cal)", connectionContext);
   }
 
   @Override
@@ -1156,7 +1165,7 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
   public Time getTime(int columnIndex, Calendar cal) throws SQLException {
     checkIfClosed();
     throw new DatabricksSQLFeatureNotSupportedException(
-        "Not implemented in DatabricksResultSet - getTime(int columnIndex, Calendar cal)");
+        "Not implemented in DatabricksResultSet - getTime(int columnIndex, Calendar cal)", connectionContext);
   }
 
   @Override
@@ -1188,102 +1197,102 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
   public URL getURL(int columnIndex) throws SQLException {
     checkIfClosed();
     throw new DatabricksSQLFeatureNotSupportedException(
-        "Not implemented in DatabricksResultSet - getURL(int columnIndex)");
+        "Not implemented in DatabricksResultSet - getURL(int columnIndex)", connectionContext);
   }
 
   @Override
   public URL getURL(String columnLabel) throws SQLException {
     checkIfClosed();
     throw new DatabricksSQLFeatureNotSupportedException(
-        "Not implemented in DatabricksResultSet - getURL(String columnLabel)");
+        "Not implemented in DatabricksResultSet - getURL(String columnLabel)", connectionContext);
   }
 
   @Override
   public void updateRef(int columnIndex, Ref x) throws SQLException {
     checkIfClosed();
     throw new DatabricksSQLFeatureNotSupportedException(
-        "Not implemented in DatabricksResultSet - updateRef(int columnIndex, Ref x)");
+        "Not implemented in DatabricksResultSet - updateRef(int columnIndex, Ref x)", connectionContext);
   }
 
   @Override
   public void updateRef(String columnLabel, Ref x) throws SQLException {
     checkIfClosed();
     throw new DatabricksSQLFeatureNotSupportedException(
-        "Not implemented in DatabricksResultSet - updateRef(String columnLabel, Ref x)");
+        "Not implemented in DatabricksResultSet - updateRef(String columnLabel, Ref x)", connectionContext);
   }
 
   @Override
   public void updateBlob(int columnIndex, Blob x) throws SQLException {
     checkIfClosed();
     throw new DatabricksSQLFeatureNotSupportedException(
-        "Not implemented in DatabricksResultSet - updateBlob(int columnIndex, Blob x)");
+        "Not implemented in DatabricksResultSet - updateBlob(int columnIndex, Blob x)", connectionContext);
   }
 
   @Override
   public void updateBlob(String columnLabel, Blob x) throws SQLException {
     checkIfClosed();
     throw new DatabricksSQLFeatureNotSupportedException(
-        "Not implemented in DatabricksResultSet - updateBlob(String columnLabel, Blob x)");
+        "Not implemented in DatabricksResultSet - updateBlob(String columnLabel, Blob x)", connectionContext);
   }
 
   @Override
   public void updateClob(int columnIndex, Clob x) throws SQLException {
     checkIfClosed();
     throw new DatabricksSQLFeatureNotSupportedException(
-        "Not implemented in DatabricksResultSet - updateClob(int columnIndex, Clob x)");
+        "Not implemented in DatabricksResultSet - updateClob(int columnIndex, Clob x)", connectionContext);
   }
 
   @Override
   public void updateClob(String columnLabel, Clob x) throws SQLException {
     checkIfClosed();
     throw new DatabricksSQLFeatureNotSupportedException(
-        "Not implemented in DatabricksResultSet - updateClob(String columnLabel, Clob x)");
+        "Not implemented in DatabricksResultSet - updateClob(String columnLabel, Clob x)", connectionContext);
   }
 
   @Override
   public void updateArray(int columnIndex, Array x) throws SQLException {
     checkIfClosed();
     throw new DatabricksSQLFeatureNotSupportedException(
-        "Not implemented in DatabricksResultSet - updateArray(int columnIndex, Array x)");
+        "Not implemented in DatabricksResultSet - updateArray(int columnIndex, Array x)", connectionContext);
   }
 
   @Override
   public void updateArray(String columnLabel, Array x) throws SQLException {
     checkIfClosed();
     throw new DatabricksSQLFeatureNotSupportedException(
-        "Not implemented in DatabricksResultSet - updateArray(String columnLabel, Array x)");
+        "Not implemented in DatabricksResultSet - updateArray(String columnLabel, Array x)", connectionContext);
   }
 
   @Override
   public RowId getRowId(int columnIndex) throws SQLException {
     throw new DatabricksSQLFeatureNotSupportedException(
-        "Not implemented in DatabricksResultSet - getRowId(int columnIndex)");
+        "Not implemented in DatabricksResultSet - getRowId(int columnIndex)", connectionContext);
   }
 
   @Override
   public RowId getRowId(String columnLabel) throws SQLException {
     throw new DatabricksSQLFeatureNotSupportedException(
-        "Not implemented in DatabricksResultSet - getRowId(String columnLabel)");
+        "Not implemented in DatabricksResultSet - getRowId(String columnLabel)", connectionContext);
   }
 
   @Override
   public void updateRowId(int columnIndex, RowId x) throws SQLException {
     checkIfClosed();
     throw new DatabricksSQLFeatureNotSupportedException(
-        "Not implemented in DatabricksResultSet - updateRowId(int columnIndex, RowId x)");
+        "Not implemented in DatabricksResultSet - updateRowId(int columnIndex, RowId x)", connectionContext);
   }
 
   @Override
   public void updateRowId(String columnLabel, RowId x) throws SQLException {
     checkIfClosed();
     throw new DatabricksSQLFeatureNotSupportedException(
-        "Not implemented in DatabricksResultSet - updateRowId(String columnLabel, RowId x)");
+        "Not implemented in DatabricksResultSet - updateRowId(String columnLabel, RowId x)", connectionContext);
   }
 
   @Override
   public int getHoldability() throws SQLException {
     throw new DatabricksSQLFeatureNotSupportedException(
-        "Not implemented in DatabricksResultSet - getHoldability()");
+        "Not implemented in DatabricksResultSet - getHoldability()", connectionContext);
   }
 
   @Override
@@ -1295,105 +1304,105 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
   public void updateNString(int columnIndex, String nString) throws SQLException {
     checkIfClosed();
     throw new DatabricksSQLFeatureNotSupportedException(
-        "Databricks JDBC has ResultSet as CONCUR_READ_ONLY. Doesn't support update function : updateNString");
+        "Databricks JDBC has ResultSet as CONCUR_READ_ONLY. Doesn't support update function : updateNString",connectionContext);
   }
 
   @Override
   public void updateNString(String columnLabel, String nString) throws SQLException {
     checkIfClosed();
     throw new DatabricksSQLFeatureNotSupportedException(
-        "Databricks JDBC has ResultSet as CONCUR_READ_ONLY. Doesn't support update function : updateNString");
+        "Databricks JDBC has ResultSet as CONCUR_READ_ONLY. Doesn't support update function : updateNString",connectionContext);
   }
 
   @Override
   public void updateNClob(int columnIndex, NClob nClob) throws SQLException {
     checkIfClosed();
     throw new DatabricksSQLFeatureNotSupportedException(
-        "Databricks JDBC has ResultSet as CONCUR_READ_ONLY. Doesn't support update function : updateNClob");
+        "Databricks JDBC has ResultSet as CONCUR_READ_ONLY. Doesn't support update function : updateNClob",connectionContext);
   }
 
   @Override
   public void updateNClob(String columnLabel, NClob nClob) throws SQLException {
     checkIfClosed();
     throw new DatabricksSQLFeatureNotSupportedException(
-        "Databricks JDBC has ResultSet as CONCUR_READ_ONLY. Doesn't support update function : updateNClob");
+        "Databricks JDBC has ResultSet as CONCUR_READ_ONLY. Doesn't support update function : updateNClob",connectionContext);
   }
 
   @Override
   public NClob getNClob(int columnIndex) throws SQLException {
     checkIfClosed();
     throw new DatabricksSQLFeatureNotSupportedException(
-        "Not implemented in DatabricksResultSet - getNClob(int columnIndex)");
+        "Not implemented in DatabricksResultSet - getNClob(int columnIndex)", connectionContext);
   }
 
   @Override
   public NClob getNClob(String columnLabel) throws SQLException {
     checkIfClosed();
     throw new DatabricksSQLFeatureNotSupportedException(
-        "Not implemented in DatabricksResultSet - getNClob(String columnLabel)");
+        "Not implemented in DatabricksResultSet - getNClob(String columnLabel)", connectionContext);
   }
 
   @Override
   public SQLXML getSQLXML(int columnIndex) throws SQLException {
     checkIfClosed();
     throw new DatabricksSQLFeatureNotSupportedException(
-        "Not implemented in DatabricksResultSet - getSQLXML(int columnIndex)");
+        "Not implemented in DatabricksResultSet - getSQLXML(int columnIndex)", connectionContext);
   }
 
   @Override
   public SQLXML getSQLXML(String columnLabel) throws SQLException {
     checkIfClosed();
     throw new DatabricksSQLFeatureNotSupportedException(
-        "Not implemented in DatabricksResultSet - getSQLXML(String columnLabel)");
+        "Not implemented in DatabricksResultSet - getSQLXML(String columnLabel)", connectionContext);
   }
 
   @Override
   public void updateSQLXML(int columnIndex, SQLXML xmlObject) throws SQLException {
     checkIfClosed();
     throw new DatabricksSQLFeatureNotSupportedException(
-        "Databricks JDBC has ResultSet as CONCUR_READ_ONLY. Doesn't support update function : updateSQLXML");
+        "Databricks JDBC has ResultSet as CONCUR_READ_ONLY. Doesn't support update function : updateSQLXML",connectionContext);
   }
 
   @Override
   public void updateSQLXML(String columnLabel, SQLXML xmlObject) throws SQLException {
     checkIfClosed();
     throw new DatabricksSQLFeatureNotSupportedException(
-        "Databricks JDBC has ResultSet as CONCUR_READ_ONLY. Doesn't support update function : updateSQLXML");
+        "Databricks JDBC has ResultSet as CONCUR_READ_ONLY. Doesn't support update function : updateSQLXML",connectionContext);
   }
 
   @Override
   public String getNString(int columnIndex) throws SQLException {
     checkIfClosed();
     throw new DatabricksSQLFeatureNotSupportedException(
-        "Not implemented in DatabricksResultSet - getNString(int columnIndex)");
+        "Not implemented in DatabricksResultSet - getNString(int columnIndex)", connectionContext);
   }
 
   @Override
   public String getNString(String columnLabel) throws SQLException {
     checkIfClosed();
     throw new DatabricksSQLFeatureNotSupportedException(
-        "Not implemented in DatabricksResultSet - getNString(String columnLabel)");
+        "Not implemented in DatabricksResultSet - getNString(String columnLabel)", connectionContext);
   }
 
   @Override
   public Reader getNCharacterStream(int columnIndex) throws SQLException {
     checkIfClosed();
     throw new DatabricksSQLFeatureNotSupportedException(
-        "Not implemented in DatabricksResultSet - getNCharacterStream(int columnIndex)");
+        "Not implemented in DatabricksResultSet - getNCharacterStream(int columnIndex)", connectionContext);
   }
 
   @Override
   public Reader getNCharacterStream(String columnLabel) throws SQLException {
     checkIfClosed();
     throw new DatabricksSQLFeatureNotSupportedException(
-        "Not implemented in DatabricksResultSet - getNCharacterStream(String columnLabel)");
+        "Not implemented in DatabricksResultSet - getNCharacterStream(String columnLabel)", connectionContext);
   }
 
   @Override
   public void updateNCharacterStream(int columnIndex, Reader x, long length) throws SQLException {
     checkIfClosed();
     throw new DatabricksSQLFeatureNotSupportedException(
-        "Databricks JDBC has ResultSet as CONCUR_READ_ONLY. Doesn't support update function : updateNCharacterStream");
+        "Databricks JDBC has ResultSet as CONCUR_READ_ONLY. Doesn't support update function : updateNCharacterStream",connectionContext);
   }
 
   @Override
@@ -1401,28 +1410,28 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
       throws SQLException {
     checkIfClosed();
     throw new DatabricksSQLFeatureNotSupportedException(
-        "Databricks JDBC has ResultSet as CONCUR_READ_ONLY. Doesn't support update function : updateNCharacterStream");
+        "Databricks JDBC has ResultSet as CONCUR_READ_ONLY. Doesn't support update function : updateNCharacterStream",connectionContext);
   }
 
   @Override
   public void updateAsciiStream(int columnIndex, InputStream x, long length) throws SQLException {
     checkIfClosed();
     throw new DatabricksSQLFeatureNotSupportedException(
-        "Databricks JDBC has ResultSet as CONCUR_READ_ONLY. Doesn't support update function : updateAsciiStream");
+        "Databricks JDBC has ResultSet as CONCUR_READ_ONLY. Doesn't support update function : updateAsciiStream",connectionContext);
   }
 
   @Override
   public void updateBinaryStream(int columnIndex, InputStream x, long length) throws SQLException {
     checkIfClosed();
     throw new DatabricksSQLFeatureNotSupportedException(
-        "Databricks JDBC has ResultSet as CONCUR_READ_ONLY. Doesn't support update function : updateBinaryStream");
+        "Databricks JDBC has ResultSet as CONCUR_READ_ONLY. Doesn't support update function : updateBinaryStream",connectionContext);
   }
 
   @Override
   public void updateCharacterStream(int columnIndex, Reader x, long length) throws SQLException {
     checkIfClosed();
     throw new DatabricksSQLFeatureNotSupportedException(
-        "Databricks JDBC has ResultSet as CONCUR_READ_ONLY. Doesn't support update function : updateCharacterStream");
+        "Databricks JDBC has ResultSet as CONCUR_READ_ONLY. Doesn't support update function : updateCharacterStream",connectionContext);
   }
 
   @Override
@@ -1430,7 +1439,7 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
       throws SQLException {
     checkIfClosed();
     throw new DatabricksSQLFeatureNotSupportedException(
-        "Databricks JDBC has ResultSet as CONCUR_READ_ONLY. Doesn't support update function : updateAsciiStream");
+        "Databricks JDBC has ResultSet as CONCUR_READ_ONLY. Doesn't support update function : updateAsciiStream",connectionContext);
   }
 
   @Override
@@ -1438,7 +1447,7 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
       throws SQLException {
     checkIfClosed();
     throw new DatabricksSQLFeatureNotSupportedException(
-        "Databricks JDBC has ResultSet as CONCUR_READ_ONLY. Doesn't support update function : updateBinaryStream");
+        "Databricks JDBC has ResultSet as CONCUR_READ_ONLY. Doesn't support update function : updateBinaryStream",connectionContext);
   }
 
   @Override
@@ -1446,7 +1455,7 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
       throws SQLException {
     checkIfClosed();
     throw new DatabricksSQLFeatureNotSupportedException(
-        "Databricks JDBC has ResultSet as CONCUR_READ_ONLY. Doesn't support update function : updateCharacterStream");
+        "Databricks JDBC has ResultSet as CONCUR_READ_ONLY. Doesn't support update function : updateCharacterStream",connectionContext);
   }
 
   @Override
@@ -1454,7 +1463,7 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
       throws SQLException {
     checkIfClosed();
     throw new DatabricksSQLFeatureNotSupportedException(
-        "Databricks JDBC has ResultSet as CONCUR_READ_ONLY. Doesn't support update function : updateBlob");
+        "Databricks JDBC has ResultSet as CONCUR_READ_ONLY. Doesn't support update function : updateBlob",connectionContext);
   }
 
   @Override
@@ -1462,133 +1471,133 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
       throws SQLException {
     checkIfClosed();
     throw new DatabricksSQLFeatureNotSupportedException(
-        "Databricks JDBC has ResultSet as CONCUR_READ_ONLY. Doesn't support update function : updateBlob");
+        "Databricks JDBC has ResultSet as CONCUR_READ_ONLY. Doesn't support update function : updateBlob",connectionContext);
   }
 
   @Override
   public void updateClob(int columnIndex, Reader reader, long length) throws SQLException {
     checkIfClosed();
     throw new DatabricksSQLFeatureNotSupportedException(
-        "Databricks JDBC has ResultSet as CONCUR_READ_ONLY. Doesn't support update function : updateClob");
+        "Databricks JDBC has ResultSet as CONCUR_READ_ONLY. Doesn't support update function : updateClob",connectionContext);
   }
 
   @Override
   public void updateClob(String columnLabel, Reader reader, long length) throws SQLException {
     checkIfClosed();
     throw new DatabricksSQLFeatureNotSupportedException(
-        "Databricks JDBC has ResultSet as CONCUR_READ_ONLY. Doesn't support update function : updateClob");
+        "Databricks JDBC has ResultSet as CONCUR_READ_ONLY. Doesn't support update function : updateClob",connectionContext);
   }
 
   @Override
   public void updateNClob(int columnIndex, Reader reader, long length) throws SQLException {
     checkIfClosed();
     throw new DatabricksSQLFeatureNotSupportedException(
-        "Databricks JDBC has ResultSet as CONCUR_READ_ONLY. Doesn't support update function : updateNClob");
+        "Databricks JDBC has ResultSet as CONCUR_READ_ONLY. Doesn't support update function : updateNClob",connectionContext);
   }
 
   @Override
   public void updateNClob(String columnLabel, Reader reader, long length) throws SQLException {
     checkIfClosed();
     throw new DatabricksSQLFeatureNotSupportedException(
-        "Databricks JDBC has ResultSet as CONCUR_READ_ONLY. Doesn't support update function : updateNClob");
+        "Databricks JDBC has ResultSet as CONCUR_READ_ONLY. Doesn't support update function : updateNClob",connectionContext);
   }
 
   @Override
   public void updateNCharacterStream(int columnIndex, Reader x) throws SQLException {
     checkIfClosed();
     throw new DatabricksSQLFeatureNotSupportedException(
-        "Databricks JDBC has ResultSet as CONCUR_READ_ONLY. Doesn't support update function : updateNCharacterStream");
+        "Databricks JDBC has ResultSet as CONCUR_READ_ONLY. Doesn't support update function : updateNCharacterStream",connectionContext);
   }
 
   @Override
   public void updateNCharacterStream(String columnLabel, Reader reader) throws SQLException {
     checkIfClosed();
     throw new DatabricksSQLFeatureNotSupportedException(
-        "Databricks JDBC has ResultSet as CONCUR_READ_ONLY. Doesn't support update function : updateNCharacterStream");
+        "Databricks JDBC has ResultSet as CONCUR_READ_ONLY. Doesn't support update function : updateNCharacterStream",connectionContext);
   }
 
   @Override
   public void updateAsciiStream(int columnIndex, InputStream x) throws SQLException {
     checkIfClosed();
     throw new DatabricksSQLFeatureNotSupportedException(
-        "Databricks JDBC has ResultSet as CONCUR_READ_ONLY. Doesn't support update function : updateAsciiStream");
+        "Databricks JDBC has ResultSet as CONCUR_READ_ONLY. Doesn't support update function : updateAsciiStream",connectionContext);
   }
 
   @Override
   public void updateBinaryStream(int columnIndex, InputStream x) throws SQLException {
     checkIfClosed();
     throw new DatabricksSQLFeatureNotSupportedException(
-        "Databricks JDBC has ResultSet as CONCUR_READ_ONLY. Doesn't support update function : updateBinaryStream");
+        "Databricks JDBC has ResultSet as CONCUR_READ_ONLY. Doesn't support update function : updateBinaryStream",connectionContext);
   }
 
   @Override
   public void updateCharacterStream(int columnIndex, Reader x) throws SQLException {
     checkIfClosed();
     throw new DatabricksSQLFeatureNotSupportedException(
-        "Databricks JDBC has ResultSet as CONCUR_READ_ONLY. Doesn't support update function : updateCharacterStream");
+        "Databricks JDBC has ResultSet as CONCUR_READ_ONLY. Doesn't support update function : updateCharacterStream",connectionContext);
   }
 
   @Override
   public void updateAsciiStream(String columnLabel, InputStream x) throws SQLException {
     checkIfClosed();
     throw new DatabricksSQLFeatureNotSupportedException(
-        "Databricks JDBC has ResultSet as CONCUR_READ_ONLY. Doesn't support update function : updateAsciiStream");
+        "Databricks JDBC has ResultSet as CONCUR_READ_ONLY. Doesn't support update function : updateAsciiStream",connectionContext);
   }
 
   @Override
   public void updateBinaryStream(String columnLabel, InputStream x) throws SQLException {
     checkIfClosed();
     throw new DatabricksSQLFeatureNotSupportedException(
-        "Databricks JDBC has ResultSet as CONCUR_READ_ONLY. Doesn't support update function : updateBinaryStream");
+        "Databricks JDBC has ResultSet as CONCUR_READ_ONLY. Doesn't support update function : updateBinaryStream",connectionContext);
   }
 
   @Override
   public void updateCharacterStream(String columnLabel, Reader reader) throws SQLException {
     checkIfClosed();
     throw new DatabricksSQLFeatureNotSupportedException(
-        "Databricks JDBC has ResultSet as CONCUR_READ_ONLY. Doesn't support update function : updateCharacterStream");
+        "Databricks JDBC has ResultSet as CONCUR_READ_ONLY. Doesn't support update function : updateCharacterStream",connectionContext);
   }
 
   @Override
   public void updateBlob(int columnIndex, InputStream inputStream) throws SQLException {
     checkIfClosed();
     throw new DatabricksSQLFeatureNotSupportedException(
-        "Databricks JDBC has ResultSet as CONCUR_READ_ONLY. Doesn't support update function : updateBlob");
+        "Databricks JDBC has ResultSet as CONCUR_READ_ONLY. Doesn't support update function : updateBlob",connectionContext);
   }
 
   @Override
   public void updateBlob(String columnLabel, InputStream inputStream) throws SQLException {
     checkIfClosed();
     throw new DatabricksSQLFeatureNotSupportedException(
-        "Databricks JDBC has ResultSet as CONCUR_READ_ONLY. Doesn't support update function : updateBlob");
+        "Databricks JDBC has ResultSet as CONCUR_READ_ONLY. Doesn't support update function : updateBlob",connectionContext);
   }
 
   @Override
   public void updateClob(int columnIndex, Reader reader) throws SQLException {
     checkIfClosed();
     throw new DatabricksSQLFeatureNotSupportedException(
-        "Databricks JDBC has ResultSet as CONCUR_READ_ONLY. Doesn't support update function : updateClob");
+        "Databricks JDBC has ResultSet as CONCUR_READ_ONLY. Doesn't support update function : updateClob",connectionContext);
   }
 
   @Override
   public void updateClob(String columnLabel, Reader reader) throws SQLException {
     checkIfClosed();
     throw new DatabricksSQLFeatureNotSupportedException(
-        "Databricks JDBC has ResultSet as CONCUR_READ_ONLY. Doesn't support update function : updateClob");
+        "Databricks JDBC has ResultSet as CONCUR_READ_ONLY. Doesn't support update function : updateClob",connectionContext);
   }
 
   @Override
   public void updateNClob(int columnIndex, Reader reader) throws SQLException {
     checkIfClosed();
     throw new DatabricksSQLFeatureNotSupportedException(
-        "Databricks JDBC has ResultSet as CONCUR_READ_ONLY. Doesn't support update function : updateNClob");
+        "Databricks JDBC has ResultSet as CONCUR_READ_ONLY. Doesn't support update function : updateNClob",connectionContext);
   }
 
   @Override
   public void updateNClob(String columnLabel, Reader reader) throws SQLException {
     checkIfClosed();
     throw new DatabricksSQLFeatureNotSupportedException(
-        "Databricks JDBC has ResultSet as CONCUR_READ_ONLY. Doesn't support update function : updateNClob");
+        "Databricks JDBC has ResultSet as CONCUR_READ_ONLY. Doesn't support update function : updateNClob",connectionContext);
   }
 
   @Override
@@ -1597,14 +1606,14 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
     Object obj = getObjectInternal(columnIndex);
     int columnSqlType = resultSetMetaData.getColumnType(columnIndex);
     try {
-      return (T) ConverterHelper.convertSqlTypeToSpecificJavaType(type, columnSqlType, obj);
+      return (T) converterHelper.convertSqlTypeToSpecificJavaType(type, columnSqlType, obj);
     } catch (Exception e) {
       String errorMessage =
           String.format(
               "Exception occurred while converting object into corresponding return object type using getObject(int columnIndex, Class<T> type). ErrorMessage: %s",
               e.getMessage());
       LOGGER.error(errorMessage);
-      throw new DatabricksSQLException(errorMessage, e);
+      throw new DatabricksSQLException(errorMessage, e,DatabricksDriverErrorCode.INVALID_STATE,connectionContext);
     }
   }
 
@@ -1615,18 +1624,18 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
 
   @Override
   public <T> T unwrap(Class<T> iface) throws SQLException {
-    LOGGER.debug("public <T> T unwrap(Class<T> iface)");
+    LOGGER.debug("public <T> T unwrap(Class<T> iface)", connectionContext);
     if (iface.isInstance(this)) {
       return (T) this;
     }
-    throw new DatabricksSQLException(
+    throw new DatabricksValidationException(
         String.format(
-            "Class {%s} cannot be wrapped from {%s}", this.getClass().getName(), iface.getName()));
+            "Class {%s} cannot be wrapped from {%s}", this.getClass().getName(), iface.getName()),connectionContext);
   }
 
   @Override
   public boolean isWrapperFor(Class<?> iface) throws SQLException {
-    LOGGER.debug("public boolean isWrapperFor(Class<?> iface)");
+    LOGGER.debug("public boolean isWrapperFor(Class<?> iface)", connectionContext);
     return iface.isInstance(this);
   }
 
@@ -1676,7 +1685,7 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
     if (executionResult instanceof VolumeOperationResult) {
       return ((VolumeOperationResult) executionResult).getVolumeOperationInputStream();
     }
-    throw new DatabricksSQLException("Invalid volume operation");
+    throw new DatabricksValidationException("Invalid volume operation",connectionContext);
   }
 
   private void addWarningAndLog(String warningMessage) {
@@ -1686,7 +1695,7 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
 
   private Object getObjectInternal(int columnIndex) throws SQLException {
     if (columnIndex <= 0) {
-      throw new DatabricksSQLException("Invalid column index");
+      throw new DatabricksSQLException("Invalid column index", DatabricksDriverErrorCode.INVALID_STATE, connectionContext);
     }
     Object object = executionResult.getObject(columnIndex - 1);
     this.wasNull = object == null;
@@ -1699,7 +1708,7 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
 
   private void checkIfClosed() throws SQLException {
     if (this.isClosed) {
-      throw new DatabricksSQLException("Operation not allowed - ResultSet is closed");
+      throw new DatabricksSQLException("Operation not allowed - ResultSet is closed", DatabricksDriverErrorCode.RESULT_SET_CLOSED,connectionContext);
     }
   }
 
@@ -1717,7 +1726,7 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
       return defaultValue.get();
     }
     int columnType = resultSetMetaData.getColumnType(columnIndex);
-    ObjectConverter converter = ConverterHelper.getConverterForSqlType(columnType);
+    ObjectConverter converter = converterHelper.getConverterForSqlType(columnType);
     return convertMethod.apply(converter, obj);
   }
 }

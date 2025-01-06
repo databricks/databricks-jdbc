@@ -1,5 +1,6 @@
 package com.databricks.jdbc.api.impl.converters;
 
+import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.exception.DatabricksValidationException;
 
@@ -9,6 +10,15 @@ import java.sql.Date;
 import java.sql.Timestamp;
 
 public class StringConverter implements ObjectConverter {
+  private final IDatabricksConnectionContext connectionContext;
+
+  public StringConverter(IDatabricksConnectionContext connectionContext){
+    this.connectionContext = connectionContext;
+  }
+  @Override
+  public IDatabricksConnectionContext getConnectionContext(){
+    return connectionContext;
+  }
   @Override
   public String toString(Object object) throws DatabricksSQLException {
     if (object instanceof Character) {
@@ -16,7 +26,7 @@ public class StringConverter implements ObjectConverter {
     } else if (object instanceof String) {
       return (String) object;
     }
-    throw new DatabricksValidationException("Invalid conversion to String");
+    throw new DatabricksValidationException("Invalid conversion to String",getConnectionContext());
   }
 
   @Override
@@ -26,7 +36,7 @@ public class StringConverter implements ObjectConverter {
     if (byteArray.length == 1) {
       return byteArray[0];
     }
-    throw new DatabricksValidationException("Invalid conversion to byte");
+    throw new DatabricksValidationException("Invalid conversion to byte",getConnectionContext());
   }
 
   @Override
@@ -34,7 +44,7 @@ public class StringConverter implements ObjectConverter {
     try {
       return Short.parseShort(toString(object));
     } catch (NumberFormatException e) {
-      throw new DatabricksValidationException("Invalid conversion to short", e);
+      throw new DatabricksValidationException("Invalid conversion to short", e,getConnectionContext());
     }
   }
 
@@ -43,7 +53,7 @@ public class StringConverter implements ObjectConverter {
     try {
       return Integer.parseInt(toString(object));
     } catch (NumberFormatException e) {
-      throw new DatabricksValidationException("Invalid conversion to int", e);
+      throw new DatabricksValidationException("Invalid conversion to int", e, getConnectionContext());
     }
   }
 
@@ -52,7 +62,7 @@ public class StringConverter implements ObjectConverter {
     try {
       return Long.parseLong(toString(object));
     } catch (NumberFormatException e) {
-      throw new DatabricksValidationException("Invalid conversion to long", e);
+      throw new DatabricksValidationException("Invalid conversion to long", e, getConnectionContext());
     }
   }
 
@@ -61,7 +71,7 @@ public class StringConverter implements ObjectConverter {
     try {
       return Float.parseFloat(toString(object));
     } catch (NumberFormatException e) {
-      throw new DatabricksValidationException("Invalid conversion to float", e);
+      throw new DatabricksValidationException("Invalid conversion to float", e, getConnectionContext());
     }
   }
 
@@ -70,7 +80,7 @@ public class StringConverter implements ObjectConverter {
     try {
       return Double.parseDouble(toString(object));
     } catch (NumberFormatException e) {
-      throw new DatabricksValidationException("Invalid conversion to double", e);
+      throw new DatabricksValidationException("Invalid conversion to double", e, getConnectionContext());
     }
   }
 
@@ -92,7 +102,7 @@ public class StringConverter implements ObjectConverter {
     } else if ("1".equals(str) || "true".equals(str)) {
       return true;
     }
-    throw new DatabricksValidationException("Invalid conversion to boolean");
+    throw new DatabricksValidationException("Invalid conversion to boolean",getConnectionContext());
   }
 
   @Override
@@ -106,7 +116,7 @@ public class StringConverter implements ObjectConverter {
     if (str.length() == 1) {
       return str.charAt(0);
     }
-    throw new DatabricksValidationException("Invalid conversion to char");
+    throw new DatabricksValidationException("Invalid conversion to char",getConnectionContext());
   }
 
   @Override

@@ -1,5 +1,6 @@
 package com.databricks.jdbc.api.impl.converters;
 
+import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 
@@ -10,6 +11,15 @@ import java.time.Instant;
 import java.util.TimeZone;
 
 public class TimestampConverter implements ObjectConverter {
+  private final IDatabricksConnectionContext connectionContext;
+
+  public TimestampConverter(IDatabricksConnectionContext connectionContext){
+    this.connectionContext = connectionContext;
+  }
+  @Override
+  public IDatabricksConnectionContext getConnectionContext(){
+    return connectionContext;
+  }
   @Override
   public Timestamp toTimestamp(Object object) throws DatabricksSQLException {
     if (object instanceof Timestamp) {
@@ -22,12 +32,12 @@ public class TimestampConverter implements ObjectConverter {
           Instant instant = Instant.parse((String) object);
           return Timestamp.from(instant);
         } catch (Exception ex) {
-          throw new DatabricksSQLException("Invalid conversion to Timestamp", ex, DatabricksDriverErrorCode.UNSUPPORTED_OPERATION);
+          throw new DatabricksSQLException("Invalid conversion to Timestamp", ex, DatabricksDriverErrorCode.UNSUPPORTED_OPERATION,getConnectionContext());
         }
       }
     }
     throw new DatabricksSQLException(
-        "Unsupported conversion to Timestamp for type: " + object.getClass().getName(), DatabricksDriverErrorCode.UNSUPPORTED_OPERATION);
+        "Unsupported conversion to Timestamp for type: " + object.getClass().getName(), DatabricksDriverErrorCode.UNSUPPORTED_OPERATION,getConnectionContext());
   }
 
   @Override

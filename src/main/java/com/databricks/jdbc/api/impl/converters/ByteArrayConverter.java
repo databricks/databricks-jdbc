@@ -1,10 +1,23 @@
 package com.databricks.jdbc.api.impl.converters;
 
+import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.exception.DatabricksSQLException;
+import com.databricks.jdbc.exception.DatabricksValidationException;
+import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
+
 import java.nio.ByteBuffer;
 import java.util.Base64;
 
 public class ByteArrayConverter implements ObjectConverter {
+  private final IDatabricksConnectionContext connectionContext;
+
+  public ByteArrayConverter(IDatabricksConnectionContext connectionContext){
+    this.connectionContext = connectionContext;
+  }
+  @Override
+  public IDatabricksConnectionContext getConnectionContext(){
+    return connectionContext;
+  }
   @Override
   public byte[] toByteArray(Object object) throws DatabricksSQLException {
     if (object instanceof String) {
@@ -22,7 +35,7 @@ public class ByteArrayConverter implements ObjectConverter {
       }
     } else {
       throw new DatabricksSQLException(
-          "Unsupported type for ByteArrayObjectConverter : " + object.getClass());
+          "Unsupported type for ByteArrayObjectConverter : " + object.getClass(), DatabricksDriverErrorCode.UNSUPPORTED_OPERATION,getConnectionContext());
     }
   }
 
@@ -32,7 +45,7 @@ public class ByteArrayConverter implements ObjectConverter {
     if (byteArray.length > 0) {
       return byteArray[0];
     } else {
-      throw new DatabricksSQLException("ByteArray is empty, cannot convert to single byte");
+      throw new DatabricksValidationException("ByteArray is empty, cannot convert to single byte", getConnectionContext());
     }
   }
 
