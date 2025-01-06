@@ -109,9 +109,8 @@ public class ClientConfiguratorTest {
   void getWorkspaceClient_OAuthWithClientCredentials_AuthenticatesCorrectlyWithJWT()
       throws DatabricksParsingException {
     when(mockContext.getConnectionUuid()).thenReturn("connection-uuid");
-    when(mockContext.getAuthMech()).thenReturn(IDatabricksConnectionContext.AuthMech.OAUTH);
-    when(mockContext.getAuthFlow())
-        .thenReturn(IDatabricksConnectionContext.AuthFlow.CLIENT_CREDENTIALS);
+    when(mockContext.getAuthMech()).thenReturn(AuthMech.OAUTH);
+    when(mockContext.getAuthFlow()).thenReturn(AuthFlow.CLIENT_CREDENTIALS);
     when(mockContext.getHostForOAuth()).thenReturn("https://jwt-auth.databricks.com");
     when(mockContext.getClientId()).thenReturn("client-id");
     when(mockContext.getClientSecret()).thenReturn("client-secret");
