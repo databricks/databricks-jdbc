@@ -1,5 +1,5 @@
 {
-  "id" : "1d623da1-7bb5-4858-8540-3efd019ad9ef",
+  "id" : "01cd4c49-d6e5-411c-887d-a71cbd1620ac",
   "name" : "api_2.0_sql_sessions",
   "request" : {
     "url" : "/api/2.0/sql/sessions/",
@@ -14,8 +14,8 @@
     "status" : 401,
     "body" : "{\"error_code\":401,\"message\":\"Credential was not sent or was of an unsupported type for this API.\"}",
     "headers" : {
-      "date" : "Thu, 26 Dec 2024 21:11:15 GMT",
-      "x-request-id" : "e463c6f6-6cc5-495c-b986-b272c55e1b57",
+      "date" : "Fri, 08 Nov 2024 15:17:30 GMT",
+      "x-request-id" : "d2a79c03-e553-47be-89db-c269f7c6508d",
       "server" : "databricks",
       "x-databricks-shard-debug" : "oregon-staging",
       "vary" : "Accept-Encoding",
@@ -25,6 +25,6 @@
       "x-databricks-reason-phrase" : "Credential was not sent or was of an unsupported type for this API."
     }
   },
-  "uuid" : "1d623da1-7bb5-4858-8540-3efd019ad9ef",
-  "insertionIndex" : 1
+  "uuid" : "01cd4c49-d6e5-411c-887d-a71cbd1620ac",
+  "insertionIndex" : 455
 }
