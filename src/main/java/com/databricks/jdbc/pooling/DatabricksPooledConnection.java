@@ -1,7 +1,7 @@
 package com.databricks.jdbc.pooling;
 
-import com.databricks.jdbc.api.IDatabricksConnection;
 import com.databricks.jdbc.api.IDatabricksStatement;
+import com.databricks.jdbc.api.internal.IDatabricksConnectionInternal;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
@@ -151,7 +151,7 @@ public class DatabricksPooledConnection implements PooledConnection {
           (Connection)
               Proxy.newProxyInstance(
                   getClass().getClassLoader(),
-                  new Class[] {Connection.class, IDatabricksConnection.class},
+                  new Class[] {Connection.class, IDatabricksConnectionInternal.class},
                   this);
     }
 

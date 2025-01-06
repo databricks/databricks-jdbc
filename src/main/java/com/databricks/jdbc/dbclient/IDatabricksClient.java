@@ -35,11 +35,9 @@ public interface IDatabricksClient {
   /**
    * Deletes a session for given session-Id
    *
-   * @param session for which the session should be deleted
-   * @param computeResource underlying SQL-warehouse or all-purpose cluster
+   * @param sessionInfo for which the session should be deleted
    */
-  void deleteSession(IDatabricksSession session, IDatabricksComputeResource computeResource)
-      throws DatabricksSQLException;
+  void deleteSession(ImmutableSessionInfo sessionInfo) throws DatabricksSQLException;
 
   /**
    * Executes a statement in Databricks server

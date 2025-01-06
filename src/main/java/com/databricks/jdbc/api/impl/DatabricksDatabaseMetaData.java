@@ -1,7 +1,7 @@
 package com.databricks.jdbc.api.impl;
 
-import com.databricks.jdbc.api.IDatabricksConnection;
 import com.databricks.jdbc.api.IDatabricksSession;
+import com.databricks.jdbc.api.internal.IDatabricksConnectionInternal;
 import com.databricks.jdbc.common.DatabricksClientType;
 import com.databricks.jdbc.common.DatabricksJdbcConstants;
 import com.databricks.jdbc.common.StatementType;
@@ -33,10 +33,10 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
   public static final String SYSTEM_FUNCTIONS = "DATABASE,IFNULL,USER";
   public static final String TIME_DATE_FUNCTIONS =
       "CURDATE,CURRENT_DATE,CURRENT_TIME,CURRENT_TIMESTAMP,CURTIME,DAYNAME,DAYOFMONTH,DAYOFWEEK,DAYOFYEAR,HOUR,MINUTE,MONTH,MONTHNAME,NOW,QUARTER,SECOND,TIMESTAMPADD,TIMESTAMPDIFF,WEEK,YEAR";
-  private final IDatabricksConnection connection;
+  private final IDatabricksConnectionInternal connection;
   private final IDatabricksSession session;
 
-  public DatabricksDatabaseMetaData(IDatabricksConnection connection) {
+  public DatabricksDatabaseMetaData(IDatabricksConnectionInternal connection) {
     this.connection = connection;
     this.session = connection.getSession();
   }
@@ -936,7 +936,7 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
   @Override
   public ResultSet getSchemas() throws SQLException {
     LOGGER.debug("public ResultSet getSchemas()");
-    if (session.getConnectionContext().getClientType() == DatabricksClientType.SQL_EXEC) {
+    if (session.getConnectionContext().getClientType() == DatabricksClientType.SEA) {
       return MetadataResultSetBuilder.getSchemasResult(null);
     }
     return getSchemas(null /* catalog */, null /* schema pattern */);

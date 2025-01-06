@@ -8,6 +8,7 @@ import static org.mockito.Mockito.when;
 import com.databricks.jdbc.api.impl.DatabricksSession;
 import com.databricks.jdbc.api.impl.IExecutionResult;
 import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
+import com.databricks.jdbc.common.util.VolumeUtil;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
 import com.databricks.jdbc.exception.DatabricksHttpException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
@@ -484,7 +485,7 @@ public class VolumeOperationResultTest {
   @Test
   public void testGetResult_invalidOperationType() throws Exception {
     setupCommonInteractions();
-    when(resultHandler.getObject(0)).thenReturn("FETCH");
+    when(resultHandler.getObject(0)).thenReturn(VolumeUtil.VolumeOperationType.OTHER);
     when(resultHandler.getObject(1)).thenReturn(PRESIGNED_URL);
     when(resultHandler.getObject(3)).thenReturn(LOCAL_FILE_PUT);
 

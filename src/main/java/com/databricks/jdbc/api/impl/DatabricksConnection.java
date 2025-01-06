@@ -1,15 +1,16 @@
 package com.databricks.jdbc.api.impl;
 
 import com.databricks.jdbc.api.*;
-import com.databricks.jdbc.api.IDatabricksConnection;
 import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.api.IDatabricksSession;
 import com.databricks.jdbc.api.IDatabricksStatement;
+import com.databricks.jdbc.api.internal.IDatabricksConnectionInternal;
 import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
 import com.databricks.jdbc.common.DatabricksJdbcConstants;
 import com.databricks.jdbc.common.util.UserAgentManager;
 import com.databricks.jdbc.common.util.ValidationUtil;
 import com.databricks.jdbc.dbclient.IDatabricksClient;
+import com.databricks.jdbc.dbclient.impl.common.SessionId;
 import com.databricks.jdbc.dbclient.impl.common.StatementId;
 import com.databricks.jdbc.dbclient.impl.http.DatabricksHttpClientFactory;
 import com.databricks.jdbc.exception.DatabricksSQLClientInfoException;
@@ -19,16 +20,13 @@ import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.google.common.annotations.VisibleForTesting;
 import java.sql.*;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Properties;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 import java.util.stream.Collectors;
 
 /** Implementation for Databricks specific connection. */
-public class DatabricksConnection implements IDatabricksConnection {
+public class DatabricksConnection implements IDatabricksConnection, IDatabricksConnectionInternal {
   private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(DatabricksConnection.class);
   private final IDatabricksSession session;
   private final Set<IDatabricksStatementInternal> statementSet = ConcurrentHashMap.newKeySet();
@@ -64,6 +62,15 @@ public class DatabricksConnection implements IDatabricksConnection {
   @Override
   public Statement getStatement(String statementId) throws SQLException {
     return new DatabricksStatement(this, StatementId.deserialize(statementId));
+  }
+
+  @Override
+  public String getConnectionId() throws SQLException {
+    if (session.getSessionInfo() == null) {
+      LOGGER.error("Session not initialized");
+      throw new DatabricksSQLException("Session not initialized");
+    }
+    return SessionId.create(Objects.requireNonNull(session.getSessionInfo())).toString();
   }
 
   @Override

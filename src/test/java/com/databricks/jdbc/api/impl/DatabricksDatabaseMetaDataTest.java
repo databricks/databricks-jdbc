@@ -6,8 +6,8 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 
-import com.databricks.jdbc.api.IDatabricksConnection;
 import com.databricks.jdbc.api.IDatabricksSession;
+import com.databricks.jdbc.api.internal.IDatabricksConnectionInternal;
 import com.databricks.jdbc.dbclient.IDatabricksMetadataClient;
 import java.sql.*;
 import java.util.Arrays;
@@ -20,14 +20,14 @@ import org.mockito.Mockito;
 
 public class DatabricksDatabaseMetaDataTest {
 
-  private IDatabricksConnection connection;
+  private IDatabricksConnectionInternal connection;
   private IDatabricksSession session;
   private DatabricksDatabaseMetaData metaData;
   private IDatabricksMetadataClient metadataClient;
 
   @BeforeEach
   public void setup() throws SQLException {
-    connection = Mockito.mock(IDatabricksConnection.class);
+    connection = Mockito.mock(IDatabricksConnectionInternal.class);
     session = Mockito.mock(IDatabricksSession.class);
     when(connection.getSession()).thenReturn(session);
     metaData = new DatabricksDatabaseMetaData(connection);

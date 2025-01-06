@@ -36,7 +36,8 @@ public class DatabricksThriftServiceClientTest {
 
   private static final String NEW_ACCESS_TOKEN = "new-access-token";
   private static final StatementId TEST_STMT_ID =
-      StatementId.deserialize("MIIWiOiGTESQt3+6xIDA0A|vq8muWugTKm+ZsjNGZdauw");
+      StatementId.deserialize(
+          "01efc77c-7c8b-1a8e-9ecb-a9a6e6aa050a|338d529d-8272-46eb-8482-cb419466839d");
   @Mock DatabricksThriftAccessor thriftAccessor;
   @Mock IDatabricksSession session;
   @Mock TRowSet resultData;
@@ -71,12 +72,11 @@ public class DatabricksThriftServiceClientTest {
   void testCloseSession() throws DatabricksSQLException {
     DatabricksThriftServiceClient client =
         new DatabricksThriftServiceClient(thriftAccessor, connectionContext);
-    when(session.getSessionInfo()).thenReturn(SESSION_INFO);
     TCloseSessionReq closeSessionReq = new TCloseSessionReq().setSessionHandle(SESSION_HANDLE);
     TCloseSessionResp closeSessionResp =
         new TCloseSessionResp().setStatus(new TStatus().setStatusCode(TStatusCode.SUCCESS_STATUS));
     when(thriftAccessor.getThriftResponse(closeSessionReq)).thenReturn(closeSessionResp);
-    assertDoesNotThrow(() -> client.deleteSession(session, CLUSTER_COMPUTE));
+    assertDoesNotThrow(() -> client.deleteSession(SESSION_INFO));
   }
 
   @Test
