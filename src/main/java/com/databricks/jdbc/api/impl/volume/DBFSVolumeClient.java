@@ -31,18 +31,19 @@ import org.apache.http.entity.InputStreamEntity;
 public class DBFSVolumeClient implements IDatabricksVolumeClient {
 
   private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(DBFSVolumeClient.class);
-  private static final String ALLOWED_VOLUME_INGESTION_PATHS = "/tmp";
   private final IDatabricksConnectionContext connectionContext;
   private final IDatabricksHttpClient databricksHttpClient;
   private VolumeInputStream volumeInputStream = null;
   private long volumeStreamContentLength = -1L;
   final WorkspaceClient workspaceClient;
+  private final String allowedVolumeIngestionPaths;
 
   @VisibleForTesting
   public DBFSVolumeClient(WorkspaceClient workspaceClient) {
     this.connectionContext = null;
     this.workspaceClient = workspaceClient;
     this.databricksHttpClient = null;
+    this.allowedVolumeIngestionPaths = "";
   }
 
   public DBFSVolumeClient(IDatabricksConnectionContext connectionContext) {
@@ -50,6 +51,7 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient {
     this.workspaceClient = getWorkspaceClientFromConnectionContext(connectionContext);
     this.databricksHttpClient =
         DatabricksHttpClientFactory.getInstance().getClient(connectionContext);
+    this.allowedVolumeIngestionPaths = connectionContext.getVolumeOperationAllowedPaths();
   }
 
   /** {@inheritDoc} */
@@ -135,7 +137,7 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient {
               .operationType(VolumeUtil.VolumeOperationType.GET)
               .operationUrl(response.getUrl())
               .localFilePath(localPath)
-              .allowedVolumeIngestionPathString(ALLOWED_VOLUME_INGESTION_PATHS)
+              .allowedVolumeIngestionPathString(allowedVolumeIngestionPaths)
               .databricksHttpClient(databricksHttpClient)
               .build();
 
@@ -223,7 +225,7 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient {
               .operationType(VolumeUtil.VolumeOperationType.PUT)
               .operationUrl(response.getUrl())
               .localFilePath(localPath)
-              .allowedVolumeIngestionPathString(ALLOWED_VOLUME_INGESTION_PATHS)
+              .allowedVolumeIngestionPathString(allowedVolumeIngestionPaths)
               .databricksHttpClient(databricksHttpClient)
               .build();
 

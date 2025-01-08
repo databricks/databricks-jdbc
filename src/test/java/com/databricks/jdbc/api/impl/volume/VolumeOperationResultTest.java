@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.isA;
 import static org.mockito.Mockito.when;
 
+import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.api.impl.DatabricksSession;
 import com.databricks.jdbc.api.impl.IExecutionResult;
 import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
@@ -18,6 +19,7 @@ import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.nio.file.Files;
+import java.util.HashMap;
 import java.util.Map;
 import org.apache.http.StatusLine;
 import org.apache.http.client.methods.CloseableHttpResponse;
@@ -45,6 +47,7 @@ public class VolumeOperationResultTest {
   @Mock DatabricksSession session;
   @Mock IExecutionResult resultHandler;
   @Mock IDatabricksStatementInternal statement;
+  @Mock IDatabricksConnectionContext context;
   private static final ResultManifest RESULT_MANIFEST =
       new ResultManifest()
           .setIsVolumeOperation(true)
@@ -152,6 +155,8 @@ public class VolumeOperationResultTest {
     when(resultHandler.getObject(3)).thenReturn(LOCAL_FILE_GET);
     when(session.getClientInfoProperties())
         .thenReturn(Map.of(ALLOWED_VOLUME_INGESTION_PATHS.toLowerCase(), ""));
+    when(session.getConnectionContext()).thenReturn(context);
+    when(context.getVolumeOperationAllowedPaths()).thenReturn("");
 
     VolumeOperationResult volumeOperationResult =
         new VolumeOperationResult(
@@ -506,6 +511,44 @@ public class VolumeOperationResultTest {
   @Test
   public void testGetResult_Remove() throws Exception {
     setupCommonInteractions();
+    when(resultHandler.getObject(0)).thenReturn("REMOVE");
+    when(resultHandler.getObject(1)).thenReturn(PRESIGNED_URL);
+    when(resultHandler.getObject(3)).thenReturn(null);
+    when(mockHttpClient.execute(isA(HttpDelete.class))).thenReturn(httpResponse);
+    when(httpResponse.getStatusLine()).thenReturn(mockedStatusLine);
+    when(mockedStatusLine.getStatusCode()).thenReturn(200);
+
+    VolumeOperationResult volumeOperationResult =
+        new VolumeOperationResult(
+            RESULT_MANIFEST, session, resultHandler, mockHttpClient, statement);
+
+    assertTrue(volumeOperationResult.hasNext());
+    assertEquals(-1, volumeOperationResult.getCurrentRow());
+    assertTrue(volumeOperationResult.next());
+    assertEquals(0, volumeOperationResult.getCurrentRow());
+    assertEquals("SUCCEEDED", volumeOperationResult.getObject(0));
+    assertFalse(volumeOperationResult.hasNext());
+    assertFalse(volumeOperationResult.next());
+    try {
+      volumeOperationResult.getObject(2);
+      fail("Should throw DatabricksSQLException");
+    } catch (DatabricksSQLException e) {
+      assertEquals("Invalid column access", e.getMessage());
+    }
+  }
+
+  @Test
+  public void testGetResult_RemoveWithConnectionUrlPath() throws Exception {
+    when(resultHandler.hasNext())
+        .thenReturn(true)
+        .thenReturn(true)
+        .thenReturn(false)
+        .thenReturn(false);
+    when(resultHandler.next()).thenReturn(true).thenReturn(false);
+    when(resultHandler.getObject(2)).thenReturn(HEADERS);
+    when(session.getClientInfoProperties()).thenReturn(new HashMap<>());
+    when(session.getConnectionContext()).thenReturn(context);
+    when(context.getVolumeOperationAllowedPaths()).thenReturn(ALLOWED_PATHS);
     when(resultHandler.getObject(0)).thenReturn("REMOVE");
     when(resultHandler.getObject(1)).thenReturn(PRESIGNED_URL);
     when(resultHandler.getObject(3)).thenReturn(null);

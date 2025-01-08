@@ -183,6 +183,9 @@ public class FakeServiceExtension extends DatabricksWireMockExtension {
 
     if (fakeServiceMode == FakeServiceMode.RECORD) {
       saveStubMappings(wireMockRuntimeInfo, context);
+    } else if (fakeServiceMode == FakeServiceMode.DRY) {
+      // Stop recording without saving stub mappings
+      wireMockRuntimeInfo.getWireMock().stopStubRecording();
     }
 
     super.onAfterEach(wireMockRuntimeInfo, context);

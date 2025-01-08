@@ -63,8 +63,29 @@ public class IntegrationTestUtil {
     return System.getenv("DATABRICKS_BENCHFOOD_HOST");
   }
 
-  public static String getDatabricksUrlForM2M() {
-    return System.getenv("DATABRICKS_JDBC_M2M_URL");
+  public static String getM2MHost() {
+    return System.getenv("DATABRICKS_JDBC_M2M_HOST");
+  }
+
+  public static String getM2MHTTPPath() {
+    return System.getenv("DATABRICKS_JDBC_M2M_HTTP_PATH");
+  }
+
+  public static String getJdbcM2MUrl() {
+    String template =
+        "jdbc:databricks://%s/default;transportMode=http;ssl=0;authmech=11;auth_flow=1;httpPath=%s";
+    return String.format(template, getM2MHost(), getM2MHTTPPath());
+  }
+
+  public static Connection getValidM2MConnection() throws SQLException {
+    return DriverManager.getConnection(getJdbcM2MUrl(), createM2MConnectionProperties());
+  }
+
+  public static Properties createM2MConnectionProperties() {
+    Properties connProps = new Properties();
+    connProps.put("OAuth2ClientId", System.getenv("DATABRICKS_JDBC_M2M_CLIENT_ID"));
+    connProps.put("OAuth2Secret", System.getenv("DATABRICKS_JDBC_M2M_CLIENT_SECRET"));
+    return connProps;
   }
 
   public static String getDatabricksDogfoodHost() {
