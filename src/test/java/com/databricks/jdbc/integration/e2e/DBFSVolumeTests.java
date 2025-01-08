@@ -26,7 +26,9 @@ public class DBFSVolumeTests {
 
   @BeforeEach
   void setUp() throws SQLException {
-    connectionContext = getDogfoodJDBCConnectionContext();
+    connectionContext =
+        getDogfoodJDBCConnectionContext(
+            List.of(List.of("VolumeOperationAllowedLocalPaths", "/tmp")));
     System.out.println("ConnectionContext parsed .....");
     client = DatabricksVolumeClientFactory.getVolumeClient(connectionContext);
   }

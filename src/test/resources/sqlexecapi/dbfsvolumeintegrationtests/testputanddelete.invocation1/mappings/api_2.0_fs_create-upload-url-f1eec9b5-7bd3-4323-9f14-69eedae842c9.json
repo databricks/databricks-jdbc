@@ -1,5 +1,5 @@
 {
-  "id" : "821640f7-c83b-4ef2-a23a-423eec20bc81",
+  "id" : "f1eec9b5-7bd3-4323-9f14-69eedae842c9",
   "name" : "api_2.0_fs_create-upload-url",
   "request" : {
     "url" : "/api/2.0/fs/create-upload-url",
@@ -12,10 +12,10 @@
   },
   "response" : {
     "status" : 200,
-    "body" : "{\"url\":\"https://us-west-2-extstaging-managed-catalog-test-bucket-1.s3-fips.us-west-2.amazonaws.com/19a85dee-54bc-43a2-87ab-023d0ec16013/volumes/23258ec3-1166-4302-bbc5-456377aa44fb/hello_world.txt?[REDACTED]X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Date=20250103T165133Z&X-Amz-SignedHeaders=host&X-Amz-Expires=1799&[REDACTED]X-Amz-Signature=d9bfcca37fd06a030bb605797c2c5370a284c57f9005face89530e522d0fa394\"}",
+    "body" : "{\"url\":\"https://us-west-2-extstaging-managed-catalog-test-bucket-1.s3-fips.us-west-2.amazonaws.com/19a85dee-54bc-43a2-87ab-023d0ec16013/volumes/23258ec3-1166-4302-bbc5-456377aa44fb/hello_world.txt?[REDACTED]X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Date=20250108T172103Z&X-Amz-SignedHeaders=host&X-Amz-Expires=1799&[REDACTED]X-Amz-Signature=3fb630223a05f56ce82afe72f539f68d07376466832322b111cb129bb126e29b\"}",
     "headers" : {
-      "x-request-id" : "836d02ce-e06d-4503-be29-14d0bd8a90fa",
-      "date" : "Fri, 3 Jan 2025 16:51:33 GMT",
+      "x-request-id" : "1c8addce-5994-4a24-8cb9-0136dd71b47d",
+      "date" : "Wed, 8 Jan 2025 17:21:03 GMT",
       "server" : "databricks",
       "x-content-type-options" : "nosniff",
       "x-databricks-shard-debug" : "oregon-staging",
@@ -26,6 +26,6 @@
       "strict-transport-security" : "max-age=31536000; includeSubDomains; preload"
     }
   },
-  "uuid" : "821640f7-c83b-4ef2-a23a-423eec20bc81",
+  "uuid" : "f1eec9b5-7bd3-4323-9f14-69eedae842c9",
   "insertionIndex" : 8
 }

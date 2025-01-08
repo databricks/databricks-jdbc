@@ -29,7 +29,7 @@ public class DBFSVolumeIntegrationTests extends AbstractFakeServiceIntegrationTe
   private IDatabricksVolumeClient client;
   private IDatabricksConnectionContext connectionContext;
   private static final String jdbcUrlTemplate =
-      "jdbc:databricks://%s/default;ssl=0;AuthMech=3;httpPath=%s";
+      "jdbc:databricks://%s/default;ssl=0;AuthMech=3;httpPath=%s;VolumeOperationAllowedLocalPaths=/tmp;";
 
   @BeforeAll
   static void setupAll() throws Exception {

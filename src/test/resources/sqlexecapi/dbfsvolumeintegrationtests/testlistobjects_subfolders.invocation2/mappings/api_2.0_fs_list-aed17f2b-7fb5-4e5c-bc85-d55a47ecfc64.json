@@ -1,5 +1,5 @@
 {
-  "id" : "a1ddfaf7-6605-4f90-b637-286104b5b5cf",
+  "id" : "aed17f2b-7fb5-4e5c-bc85-d55a47ecfc64",
   "name" : "api_2.0_fs_list",
   "request" : {
     "url" : "/api/2.0/fs/list?path=%2FVolumes%2Fuc_volume_test_catalog%2Fuc_volume_test_schema%2Ftest_volume1%2Ffolder1%2F",
@@ -9,8 +9,8 @@
     "status" : 200,
     "body" : "{\"files\":[{\"path\":\"/Volumes/uc_volume_test_catalog/uc_volume_test_schema/test_volume1/folder1/aBc_file1.csv\",\"is_dir\":false,\"file_size\":13305,\"modification_time\":1717494207000,\"name\":\"aBc_file1.csv\"},{\"path\":\"/Volumes/uc_volume_test_catalog/uc_volume_test_schema/test_volume1/folder1/abc_file2.csv\",\"is_dir\":false,\"file_size\":13305,\"modification_time\":1717494207000,\"name\":\"abc_file2.csv\"},{\"path\":\"/Volumes/uc_volume_test_catalog/uc_volume_test_schema/test_volume1/folder1/folder2/\",\"is_dir\":true,\"name\":\"folder2\"}]}",
     "headers" : {
-      "x-request-id" : "54955233-0eb6-4a42-bfcb-0848ad1eefca",
-      "date" : "Fri, 3 Jan 2025 16:51:30 GMT",
+      "x-request-id" : "81979046-82f4-4d9b-8f6d-fa9e068a68e8",
+      "date" : "Wed, 8 Jan 2025 17:21:00 GMT",
       "server" : "databricks",
       "x-content-type-options" : "nosniff",
       "x-databricks-shard-debug" : "oregon-staging",
@@ -21,6 +21,6 @@
       "strict-transport-security" : "max-age=31536000; includeSubDomains; preload"
     }
   },
-  "uuid" : "a1ddfaf7-6605-4f90-b637-286104b5b5cf",
+  "uuid" : "aed17f2b-7fb5-4e5c-bc85-d55a47ecfc64",
   "insertionIndex" : 3
 }

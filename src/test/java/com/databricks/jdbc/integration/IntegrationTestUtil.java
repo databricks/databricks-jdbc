@@ -176,6 +176,16 @@ public class IntegrationTestUtil {
         getDogfoodJDBCUrl(), getDatabricksUser(), getDatabricksDogfoodToken());
   }
 
+  public static IDatabricksConnectionContext getDogfoodJDBCConnectionContext(
+      List<List<String>> extraArgs) throws SQLException {
+    String jdbcUrl = getDogfoodJDBCUrl();
+    for (List<String> args : extraArgs) {
+      jdbcUrl += ";" + args.get(0) + "=" + args.get(1);
+    }
+    return DatabricksConnectionContextFactory.create(
+        jdbcUrl, getDatabricksUser(), getDatabricksDogfoodToken());
+  }
+
   public static Connection getDogfoodJDBCConnection(List<List<String>> extraArgs)
       throws SQLException {
     String jdbcUrl = getDogfoodJDBCUrl();

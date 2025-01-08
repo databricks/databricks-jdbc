@@ -1,5 +1,5 @@
 {
-  "id" : "1e79326f-583b-4ab3-bf60-15c0e0d2b251",
+  "id" : "1c2c4c3b-0cb2-45b0-bc29-237fad88ac9f",
   "name" : "api_2.0_fs_create-download-url",
   "request" : {
     "url" : "/api/2.0/fs/create-download-url",
@@ -12,10 +12,10 @@
   },
   "response" : {
     "status" : 200,
-    "body" : "{\"url\":\"https://us-west-2-extstaging-managed-catalog-test-bucket-1.s3-fips.us-west-2.amazonaws.com/19a85dee-54bc-43a2-87ab-023d0ec16013/volumes/23258ec3-1166-4302-bbc5-456377aa44fb/abc_file1.csv?[REDACTED]X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Date=20250103T165203Z&X-Amz-SignedHeaders=host&X-Amz-Expires=1799&[REDACTED]X-Amz-Signature=dcbd23a2735e1abebb814c94877558de586f0e0f7eed6b3c1b54a0caa80127d6\"}",
+    "body" : "{\"url\":\"https://us-west-2-extstaging-managed-catalog-test-bucket-1.s3-fips.us-west-2.amazonaws.com/19a85dee-54bc-43a2-87ab-023d0ec16013/volumes/23258ec3-1166-4302-bbc5-456377aa44fb/abc_file1.csv?[REDACTED]X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Date=20250108T172132Z&X-Amz-SignedHeaders=host&X-Amz-Expires=1799&[REDACTED]X-Amz-Signature=f9776b58ad5a366bd217091cc1d878e3eb4365982432f97baf0abdaf54c45026\"}",
     "headers" : {
-      "x-request-id" : "2271e91d-e924-4bd0-bc5d-b28962f6c72f",
-      "date" : "Fri, 3 Jan 2025 16:52:03 GMT",
+      "x-request-id" : "00b6c8f4-d49e-4d33-ab9d-2bb0d88a83b5",
+      "date" : "Wed, 8 Jan 2025 17:21:32 GMT",
       "server" : "databricks",
       "x-content-type-options" : "nosniff",
       "x-databricks-shard-debug" : "oregon-staging",
@@ -26,6 +26,6 @@
       "strict-transport-security" : "max-age=31536000; includeSubDomains; preload"
     }
   },
-  "uuid" : "1e79326f-583b-4ab3-bf60-15c0e0d2b251",
+  "uuid" : "1c2c4c3b-0cb2-45b0-bc29-237fad88ac9f",
   "insertionIndex" : 29
 }
