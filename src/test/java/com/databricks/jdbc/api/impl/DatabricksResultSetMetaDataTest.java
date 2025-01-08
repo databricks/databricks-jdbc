@@ -21,7 +21,8 @@ import org.junit.jupiter.params.provider.MethodSource;
 public class DatabricksResultSetMetaDataTest {
   private static final StatementId STATEMENT_ID = new StatementId("statementId");
   private static final StatementId THRIFT_STATEMENT_ID =
-      StatementId.deserialize("MIIWiOiGTESQt3+6xIDA0A|vq8muWugTKm+ZsjNGZdauw");
+      StatementId.deserialize(
+          "01efc77c-7c8b-1a8e-9ecb-a9a6e6aa050a|338d529d-8272-46eb-8482-cb419466839d");
 
   static Stream<TSparkRowSetType> thriftResultFormats() {
     return Stream.of(

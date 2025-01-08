@@ -18,7 +18,12 @@ import com.databricks.sdk.core.utils.ProxyUtils;
 import com.google.common.annotations.VisibleForTesting;
 import java.io.Closeable;
 import java.io.IOException;
+import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
+import org.apache.hc.client5.http.impl.async.CloseableHttpAsyncClient;
+import org.apache.hc.core5.concurrent.FutureCallback;
+import org.apache.hc.core5.http.nio.AsyncRequestProducer;
+import org.apache.hc.core5.http.nio.AsyncResponseConsumer;
 import org.apache.http.HttpException;
 import org.apache.http.HttpHost;
 import org.apache.http.client.config.RequestConfig;
@@ -44,6 +49,7 @@ public class DatabricksHttpClient implements IDatabricksHttpClient, Closeable {
   private final CloseableHttpClient httpClient;
   private DatabricksHttpRetryHandler retryHandler;
   private IdleConnectionEvictor idleConnectionEvictor;
+  private CloseableHttpAsyncClient asyncClient;
 
   DatabricksHttpClient(IDatabricksConnectionContext connectionContext) {
     connectionManager = initializeConnectionManager(connectionContext);
@@ -53,6 +59,7 @@ public class DatabricksHttpClient implements IDatabricksHttpClient, Closeable {
         new IdleConnectionEvictor(
             connectionManager, connectionContext.getIdleHttpConnectionExpiry(), TimeUnit.SECONDS);
     idleConnectionEvictor.start();
+    asyncClient = GlobalAsyncHttpClient.getClient();
   }
 
   @VisibleForTesting
@@ -85,6 +92,22 @@ public class DatabricksHttpClient implements IDatabricksHttpClient, Closeable {
     return null;
   }
 
+  /**
+   * {@inheritDoc}
+   *
+   * <p>This method leverages the Apache Async HTTP client which uses non-blocking I/O, allowing for
+   * higher throughput and better resource utilization compared to blocking I/O. Instead of
+   * dedicating one thread per connection, it can handle multiple connections with a smaller thread
+   * pool, significantly reducing memory overhead and thread context switching.
+   */
+  @Override
+  public <T> Future<T> executeAsync(
+      AsyncRequestProducer requestProducer,
+      AsyncResponseConsumer<T> responseConsumer,
+      FutureCallback<T> callback) {
+    return asyncClient.execute(requestProducer, responseConsumer, callback);
+  }
+
   @Override
   public void close() throws IOException {
     if (idleConnectionEvictor != null) {
@@ -95,6 +118,10 @@ public class DatabricksHttpClient implements IDatabricksHttpClient, Closeable {
     }
     if (connectionManager != null) {
       connectionManager.shutdown();
+    }
+    if (asyncClient != null) {
+      GlobalAsyncHttpClient.releaseClient();
+      asyncClient = null;
     }
   }
 
