@@ -8,7 +8,7 @@ updating version strings in Java source files, test files, and the project's pom
 Usage:
     Set the VERSION environment variable before running the script:
     export VERSION=x.y.z-qualifier
-    python version_updater.py
+    python bin/version_updater.py
 
 The script performs the following tasks:
 1. Validates the provided version number format.
@@ -113,13 +113,12 @@ def main():
             "majorVersion.minorVersion.buildVersion-qualifier")
         return 1
 
-    driver_util_file_path = "../src/main/java/com/databricks/jdbc/common/util/DriverUtil.java"
-    pom_file_path = "../pom.xml"
-    reduced_pom_file_path = "../uber-minimal-pom.xml"
-    connection_test_file_path = "../src/test/java/com/databricks/jdbc/api/impl/DatabricksConnectionTest.java"
-    database_metadata_test_file_path = ("../src/test/java/com/databricks/jdbc/api/impl/DatabricksDatabaseMetaDataTest"
+    driver_util_file_path = "src/main/java/com/databricks/jdbc/common/util/DriverUtil.java"
+    pom_file_path = "pom.xml"
+    reduced_pom_file_path = "uber-minimal-pom.xml"
+    database_metadata_test_file_path = ("src/test/java/com/databricks/jdbc/api/impl/DatabricksDatabaseMetaDataTest"
                                         ".java")
-    http_client_test_file_path = "../src/test/java/com/databricks/jdbc/dbclient/impl/http/DatabricksHttpClientTest.java"
+    user_agent_manager_test_path = "src/test/java/com/databricks/jdbc/common/util/UserAgentManagerTest.java"
 
     try:
         _update_driver_util_java(driver_util_file_path, version)
@@ -131,14 +130,11 @@ def main():
         _update_pom_xml(reduced_pom_file_path, version)
         print(f"Updated version in {reduced_pom_file_path}")
 
-        _update_assertions_test_file(connection_test_file_path, version)
-        print("Updated version in {}".format(connection_test_file_path))
-
         _update_database_metadata_test_file(database_metadata_test_file_path, version)
         print("Updated version in {}".format(database_metadata_test_file_path))
 
-        _update_assertions_test_file(http_client_test_file_path, version)
-        print("Updated version in {}".format(http_client_test_file_path))
+        _update_assertions_test_file(user_agent_manager_test_path, version)
+        print("Updated version in {}".format(user_agent_manager_test_path))
 
         print(f"Version updated to {version}")
     except Exception as e:
