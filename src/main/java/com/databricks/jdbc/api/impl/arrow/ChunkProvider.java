@@ -41,4 +41,6 @@ public interface ChunkProvider {
   long getRowCount();
 
   long getChunkCount();
+
+  boolean isClosed();
 }

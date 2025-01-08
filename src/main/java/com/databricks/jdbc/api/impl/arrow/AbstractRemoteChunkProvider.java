@@ -182,6 +182,15 @@ public abstract class AbstractRemoteChunkProvider<T extends AbstractArrowResultC
     return true;
   }
 
+  @Override
+  public boolean isClosed() {
+    return isClosed;
+  }
+
+  public long getAllowedChunksInMemory() {
+    return allowedChunksInMemory;
+  }
+
   private void initializeData() throws DatabricksSQLException {
     // No chunks are downloaded, we need to start from first one
     nextChunkToDownload = 0;

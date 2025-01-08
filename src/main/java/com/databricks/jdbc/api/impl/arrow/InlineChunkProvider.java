@@ -31,8 +31,9 @@ public class InlineChunkProvider implements ChunkProvider {
   private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(InlineChunkProvider.class);
   private long totalRows;
   private long currentChunkIndex;
-
-  ArrowResultChunk arrowResultChunk; // There is only one packet of data in case of inline arrow
+  private boolean isClosed;
+  private final ArrowResultChunk
+      arrowResultChunk; // There is only one packet of data in case of inline arrow
 
   InlineChunkProvider(
       TFetchResultsResp resultsResp,
@@ -70,6 +71,7 @@ public class InlineChunkProvider implements ChunkProvider {
   /** {@inheritDoc} */
   @Override
   public void close() {
+    isClosed = true;
     arrowResultChunk.releaseChunk();
   }
 
@@ -81,6 +83,11 @@ public class InlineChunkProvider implements ChunkProvider {
   @Override
   public long getChunkCount() {
     return 0;
+  }
+
+  @Override
+  public boolean isClosed() {
+    return isClosed;
   }
 
   private ByteArrayInputStream initializeByteStream(
@@ -112,7 +119,7 @@ public class InlineChunkProvider implements ChunkProvider {
     return null;
   }
 
-  void writeToByteOutputStream(
+  private void writeToByteOutputStream(
       CompressionCodec compressionCodec,
       IDatabricksStatementInternal parentStatement,
       List<TSparkArrowBatch> arrowBatchList,
@@ -146,7 +153,7 @@ public class InlineChunkProvider implements ChunkProvider {
     return null;
   }
 
-  private static Schema hiveSchemaToArrowSchema(TTableSchema hiveSchema)
+  private Schema hiveSchemaToArrowSchema(TTableSchema hiveSchema)
       throws DatabricksParsingException {
     List<Field> fields = new ArrayList<>();
     if (hiveSchema == null) {
@@ -169,7 +176,7 @@ public class InlineChunkProvider implements ChunkProvider {
     return new Schema(fields);
   }
 
-  private static Field getArrowField(TColumnDesc columnDesc) throws SQLException {
+  private Field getArrowField(TColumnDesc columnDesc) throws SQLException {
     TTypeId thriftType = getThriftTypeFromTypeDesc(columnDesc.getTypeDesc());
     ArrowType arrowType = mapThriftToArrowType(thriftType);
     FieldType fieldType = new FieldType(true, arrowType, null);
@@ -177,7 +184,7 @@ public class InlineChunkProvider implements ChunkProvider {
   }
 
   @VisibleForTesting
-  static void handleError(Exception e) throws DatabricksParsingException {
+  void handleError(Exception e) throws DatabricksParsingException {
     String errorMessage = "Cannot process inline arrow format. Error: " + e.getMessage();
     LOGGER.error(errorMessage);
     throw new DatabricksParsingException(errorMessage, e);
