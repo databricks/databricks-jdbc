@@ -1,0 +1,193 @@
+name: Proxy Testing with Squid
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  proxy-test:
+    runs-on: ubuntu-latest
+    services:
+      squid:
+        image: sameersbn/squid:latest
+        options: >
+          --network=host 
+          -v ${{ github.workspace }}/squid.conf:/etc/squid/squid.conf
+        ports:
+          - 3128:3128
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Set Up Java and Maven
+        uses: actions/setup-java@v3
+        with:
+          java-version: '11'
+          distribution: 'temurin'
+
+      - name: Build with Maven
+        run: |
+          mvn clean package
+        env:
+          MAVEN_OPTS: "-DproxyHost=localhost -DproxyPort=3128"
+
+      - name: Locate the Generated JAR
+        id: locate-jar
+        run: echo "JAR_PATH=$(find target -name '*.jar')" >> $GITHUB_ENV
+
+      - name: Wait for Squid to Start
+        run: |
+          echo "Waiting for Squid service to be ready..."
+          sleep 10
+
+      - name: Set Proxy Environment Variables
+        env:
+          HTTP_PROXY: http://localhost:3128
+          HTTPS_PROXY: http://localhost:3128
+          JDBC_PAT: ${{ secrets.DATABRICKS_TOKEN }}
+          JDBC_HOST: ${{ secrets.DATABRICKS_HOST }}
+          JDBC_HTTP_PATH: ${{ secrets.DATABRICKS_HTTP_PATH }}
+          NO_PROXY: localhost
+        run: echo "Environment variables set for proxy testing."
+
+      - name: JDBC Proxy Testing with PAT
+        run: |
+          java -cp $JAR_PATH:. ProxyTest ${{ secrets.DATABRICKS_TOKEN }} ${{ secrets.DATABRICKS_HOST }} ${{ secrets.DATABRICKS_HTTP_PATH }}
+
+      - name: Capture Squid Logs
+        if: failure()
+        run: |
+          docker logs squid
+
+
+name: Proxy Test with Squid and Maven
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  proxy-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      ################################################################
+      # 1) Check Out the Repo
+      ################################################################
+      - name: Checkout Code
+        uses: actions/checkout@v2
+
+      ################################################################
+      # 2) Set Up Java (and optionally Maven)
+      ################################################################
+      - name: Set Up Java
+        uses: actions/setup-java@v3
+        with:
+          java-version: "11"       # or 17, adjust if needed
+          distribution: "temurin"
+
+      ################################################################
+      # 3) Install Squid Proxy
+      ################################################################
+      - name: Install Squid
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y squid
+
+      ################################################################
+      # 4) Configure Squid
+      ################################################################
+      - name: Configure Squid
+        run: |
+          echo "
+          http_port 3128
+          acl localnet src all
+          http_access allow localnet
+          http_access deny all
+          " | sudo tee /etc/squid/squid.conf
+
+      ################################################################
+      # 5) Start Squid
+      ################################################################
+      - name: Start Squid
+        run: |
+          sudo systemctl restart squid
+          sudo systemctl enable squid
+
+      ################################################################
+      # 6) Verify Squid Setup
+      ################################################################
+      - name: Verify Squid
+        run: |
+          curl -x http://localhost:3128 http://example.com
+
+      ################################################################
+      # 7) Build Project with Maven
+      ################################################################
+      - name: Maven Build
+        run: |
+          mvn clean package
+        env:
+          # If Maven itself needs to use the proxy
+          MAVEN_OPTS: "-Dhttps.proxyHost=localhost -Dhttps.proxyPort=3128"
+
+      ################################################################
+      # 8) Locate the Generated Jar
+      ################################################################
+      - name: Locate the Jar
+        id: locate-jar
+        run: echo "JAR_PATH=$(find target -name '*.jar' | head -n 1)" >> $GITHUB_ENV
+
+      ################################################################
+      # 9) Wait for Squid to be Ready
+      ################################################################
+      - name: Wait for Squid
+        run: |
+          echo "Sleeping 5s to ensure Squid is fully ready..."
+          sleep 5
+
+      ################################################################
+      # 10) Set Proxy and Authentication Environment Variables
+      ################################################################
+      - name: Set Environment
+        env:
+          HTTP_PROXY: "http://localhost:3128"
+          HTTPS_PROXY: "http://localhost:3128"
+          NO_PROXY: "localhost,127.0.0.1"
+          JDBC_PAT: ${{ secrets.DATABRICKS_TOKEN }}
+          JDBC_HOST: ${{ secrets.DATABRICKS_HOST }}
+          JDBC_HTTP_PATH: ${{ secrets.DATABRICKS_HTTP_PATH }}
+          run: echo "Proxy environment variables set, and PAT_TOKEN is ready."
+
+      ################################################################
+      # 11) Run ProxyTest with Found Jar
+      ################################################################
+      - name: Run ProxyTest
+        run: |
+          echo "Jar located at: $JAR_PATH"
+          java -cp "$JAR_PATH:." com.example.ProxyTest \
+            --proxy=http://localhost:3128 \
+            --pat="$JDBC_PAT" \
+            --host="$JDBC_HOST" \
+            --http-path="$JDBC_HTTP_PATH"
+        env:
+          JAR_PATH: ${{ env.JAR_PATH }}
+
+      ################################################################
+      # 12) (Optional) Upload Logs / Results
+      ################################################################
+      - name: Upload Proxy Test Logs
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: proxy-test-logs
+          path: |
+            test-results/
+            /var/log/squid/access.log
+            /var/log/squid/cache.log
