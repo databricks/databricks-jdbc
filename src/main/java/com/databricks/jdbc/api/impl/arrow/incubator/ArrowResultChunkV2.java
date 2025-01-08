@@ -120,8 +120,8 @@ public class ArrowResultChunkV2 extends AbstractArrowResultChunk {
   protected void handleFailure(Exception exception, ChunkStatus failedStatus) {
     errorMessage =
         String.format(
-            "Data parsing failed for chunk index [%d] and statement [%s]. Exception [%s]",
-            chunkIndex, statementId, exception);
+            "Data parsing failed for chunk index [%d] with status [%s] and statement [%s]. Exception [%s]",
+            chunkIndex, getStatus(), statementId, exception);
     LOGGER.error(errorMessage);
     setStatus(failedStatus);
     chunkReadyFuture.completeExceptionally(new DatabricksParsingException(errorMessage, exception));
@@ -172,6 +172,7 @@ public class ArrowResultChunkV2 extends AbstractArrowResultChunk {
 
             @Override
             public void failed(Exception e) {
+              setStatus(ChunkStatus.DOWNLOAD_FAILED);
               // Handle download failures with retry logic
               handleRetryableError(
                   httpClient,
@@ -190,6 +191,7 @@ public class ArrowResultChunkV2 extends AbstractArrowResultChunk {
             }
           });
     } catch (Exception e) {
+      setStatus(ChunkStatus.DOWNLOAD_FAILED);
       // Handle exceptions during request setup with retry logic
       handleRetryableError(
           httpClient,

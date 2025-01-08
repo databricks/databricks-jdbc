@@ -48,7 +48,9 @@ public class ArrowResultChunkStateMachine {
 
     VALID_TRANSITIONS.put(
         ChunkStatus.DOWNLOAD_RETRY,
-        new HashSet<>(Arrays.asList(ChunkStatus.URL_FETCHED, ChunkStatus.CHUNK_RELEASED)));
+        new HashSet<>(
+            Arrays.asList(
+                ChunkStatus.DOWNLOAD_FAILED, ChunkStatus.URL_FETCHED, ChunkStatus.CHUNK_RELEASED)));
 
     // CHUNK_RELEASED is a terminal state with no valid logical transitions
     VALID_TRANSITIONS.put(ChunkStatus.CHUNK_RELEASED, Collections.emptySet());
