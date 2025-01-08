@@ -36,7 +36,7 @@ public class UCVolumeIntegrationTests extends AbstractFakeServiceIntegrationTest
   void setUp() throws SQLException {
     con = getConnection();
     client = new DatabricksUCVolumeClient(con);
-    con.setClientInfo("allowlistedVolumeOperationLocalFilePaths", LOCAL_TEST_DIRECTORY);
+    con.setClientInfo("VolumeOperationAllowedLocalPaths", LOCAL_TEST_DIRECTORY);
   }
 
   @AfterEach

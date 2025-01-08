@@ -30,7 +30,8 @@ public class DatabricksThriftAccessorTest {
   @Mock IDatabricksConnectionContext connectionContext;
   @Mock IDatabricksStatementInternal parentStatement;
   private static DatabricksThriftAccessor accessor;
-  private static final String TEST_STMT_ID = "MIIWiOiGTESQt3+6xIDA0A|vq8muWugTKm+ZsjNGZdauw";
+  private static final String TEST_STMT_ID =
+      "01efc77c-7c8b-1a8e-9ecb-a9a6e6aa050a|338d529d-8272-46eb-8482-cb419466839d";
   private static final THandleIdentifier handleIdentifier =
       StatementId.deserialize(TEST_STMT_ID).toOperationIdentifier();
   private static final TOperationHandle tOperationHandle =

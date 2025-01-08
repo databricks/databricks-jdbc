@@ -12,7 +12,7 @@ import org.junit.jupiter.api.Test;
 public class OAuthTests {
   @Test
   void testM2M() throws SQLException {
-    Connection connection = DriverManager.getConnection(getDatabricksUrlForM2M());
+    Connection connection = getValidM2MConnection();
     assertDoesNotThrow(() -> connection.createStatement().execute("select 1"));
   }
 
