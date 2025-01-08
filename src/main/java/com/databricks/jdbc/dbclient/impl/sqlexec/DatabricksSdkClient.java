@@ -24,6 +24,7 @@ import com.databricks.jdbc.model.client.sqlexec.ExecuteStatementResponse;
 import com.databricks.jdbc.model.client.sqlexec.GetStatementResponse;
 import com.databricks.jdbc.model.core.ExternalLink;
 import com.databricks.jdbc.model.core.ResultData;
+import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import com.databricks.sdk.WorkspaceClient;
 import com.databricks.sdk.core.ApiClient;
 import com.databricks.sdk.service.sql.*;
@@ -380,7 +381,7 @@ public class DatabricksSdkClient implements IDatabricksClient {
               " Error Message: %s, Error code: %s", error.getMessage(), error.getErrorCode());
     }
     LOGGER.debug(errorMessage);
-    throw new DatabricksSQLException(errorMessage);
+    throw new DatabricksSQLException(errorMessage, DatabricksDriverErrorCode.EXECUTE_STATEMENT_FAILED, connectionContext);
   }
 
   private ExecuteStatementResponse wrapGetStatementResponse(

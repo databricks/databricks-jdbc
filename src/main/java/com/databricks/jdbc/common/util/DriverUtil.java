@@ -9,6 +9,7 @@ import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.exception.DatabricksValidationException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
+import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import com.google.common.annotations.VisibleForTesting;
 import java.io.IOException;
 import java.sql.ResultSet;
@@ -74,7 +75,7 @@ public class DriverUtil {
           String.format(
               "Error initializing the Java Util Logger (JUL) with error: {%s}", e.getMessage());
       LOGGER.error(e, errMsg);
-      throw new DatabricksSQLException(errMsg, e);
+      throw new DatabricksSQLException(errMsg, e, DatabricksDriverErrorCode.LOGGING_INITIALISATION_ERROR, connectionContext);
     }
   }
 
@@ -120,7 +121,7 @@ public class DriverUtil {
               "Unsupported DBSQL version %s. Please update your compute to use the latest DBSQL version.",
               dbsqlVersion);
       LOGGER.error(errorMessage);
-      throw new DatabricksValidationException(errorMessage);
+      throw new DatabricksValidationException(errorMessage, connection.getConnectionContext());
     }
   }
 

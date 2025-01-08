@@ -1,10 +1,16 @@
 package com.databricks.jdbc.api.impl.batch;
 
+import com.databricks.jdbc.api.IDatabricksConnection;
+import com.databricks.jdbc.api.IDatabricksConnectionContext;
+import com.databricks.jdbc.api.IDatabricksStatement;
+import com.databricks.jdbc.api.impl.DatabricksConnection;
 import com.databricks.jdbc.exception.DatabricksBatchUpdateException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.exception.DatabricksValidationException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
+import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
+
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.time.Duration;
@@ -32,7 +38,8 @@ public class DatabricksBatchExecutor {
   private static final JdbcLogger LOGGER =
       JdbcLoggerFactory.getLogger(DatabricksBatchExecutor.class);
 
-  final Statement parentStatement;
+  final IDatabricksStatement parentStatement;
+  final IDatabricksConnectionContext connectionContext;
   final List<BatchCommand> commands = new ArrayList<>();
   final int maxBatchSize;
 
@@ -41,11 +48,12 @@ public class DatabricksBatchExecutor {
    * maximum batch size.
    *
    * @param parentStatement the parent {@code Statement} that will execute the commands
-   * @param maxBatchSize the maximum number of commands allowed in the batch
+   * @param connectionContext the context object for databricks connection
    */
-  public DatabricksBatchExecutor(Statement parentStatement, int maxBatchSize) {
+  public DatabricksBatchExecutor(IDatabricksStatement parentStatement, IDatabricksConnectionContext connectionContext) {
     this.parentStatement = parentStatement;
-    this.maxBatchSize = maxBatchSize;
+    this.maxBatchSize = connectionContext.getMaxBatchSize();
+    this.connectionContext = connectionContext;
   }
 
   /**
@@ -57,11 +65,11 @@ public class DatabricksBatchExecutor {
    */
   public void addCommand(String sql) throws DatabricksValidationException {
     if (sql == null) {
-      throw new DatabricksValidationException("SQL command cannot be null");
+      throw new DatabricksValidationException("SQL command cannot be null",connectionContext);
     }
     if (commands.size() >= maxBatchSize) {
       throw new DatabricksValidationException(
-          "Batch size limit exceeded. Maximum allowed is " + maxBatchSize);
+          "Batch size limit exceeded. Maximum allowed is " + maxBatchSize,connectionContext);
     }
     commands.add(ImmutableBatchCommand.builder().sql(sql).build());
   }
@@ -182,14 +190,13 @@ public class DatabricksBatchExecutor {
         String.format("Total batch execution time until failure: %d ms", batchDuration.toMillis()));
 
     DatabricksBatchUpdateException exception;
-    if (cause != null) {
+    if (cause != null && cause.getSQLState()!=null) {
       exception =
           new DatabricksBatchUpdateException(
-              message, cause.getSQLState(), cause.getErrorCode(), countsSoFar, cause);
+              message, cause.getSQLState(), cause.getErrorCode(), countsSoFar, cause,connectionContext);
     } else {
       exception =
-          new DatabricksBatchUpdateException(
-              message, countsSoFar, new DatabricksSQLException(message));
+          new DatabricksBatchUpdateException(message, DatabricksDriverErrorCode.INVALID_STATE,countsSoFar, connectionContext);
     }
 
     throw exception;

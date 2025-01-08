@@ -1,5 +1,6 @@
 package com.databricks.jdbc.dbclient.impl.thrift;
 
+import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.common.util.ValidationUtil;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
 import com.databricks.jdbc.exception.DatabricksHttpException;
@@ -36,14 +37,16 @@ public class DatabricksHttpTTransport extends TTransport {
   private final ByteArrayOutputStream requestBuffer;
   private ByteArrayInputStream responseBuffer;
   private final DatabricksConfig databricksConfig;
+  private final IDatabricksConnectionContext connectionContext;
 
   public DatabricksHttpTTransport(
-      IDatabricksHttpClient httpClient, String url, DatabricksConfig databricksConfig) {
+          IDatabricksHttpClient httpClient, String url, DatabricksConfig databricksConfig, IDatabricksConnectionContext connectionContext) {
     this.httpClient = httpClient;
     this.url = url;
     this.requestBuffer = new ByteArrayOutputStream();
     this.responseBuffer = null;
     this.databricksConfig = databricksConfig;
+    this.connectionContext = connectionContext;
   }
 
   @Override
@@ -94,7 +97,7 @@ public class DatabricksHttpTTransport extends TTransport {
 
     // Execute the request and handle the response
     try (CloseableHttpResponse response = httpClient.execute(request)) {
-      ValidationUtil.checkHTTPError(response);
+      ValidationUtil.checkHTTPError(response,connectionContext);
 
       // Read the response
       HttpEntity entity = response.getEntity();

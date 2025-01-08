@@ -19,6 +19,7 @@ import com.databricks.jdbc.exception.DatabricksSQLFeatureNotSupportedException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.model.client.thrift.generated.*;
+import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import com.databricks.sdk.core.DatabricksConfig;
 import com.databricks.sdk.service.sql.StatementState;
 import com.databricks.sdk.service.sql.StatementStatus;
@@ -45,9 +46,11 @@ final class DatabricksThriftAccessor {
       TExecuteStatementResp._Fields.STATUS.getThriftFieldId();
   private final ThreadLocal<TCLIService.Client> thriftClient;
   private final boolean enableDirectResults;
+  private final IDatabricksConnectionContext connectionContext;
 
   DatabricksThriftAccessor(IDatabricksConnectionContext connectionContext)
       throws DatabricksParsingException {
+      this.connectionContext = connectionContext;
     this.enableDirectResults = connectionContext.getDirectResultMode();
     DatabricksConfig databricksConfig =
         new ClientConfigurator(connectionContext).getDatabricksConfig();
@@ -70,6 +73,7 @@ final class DatabricksThriftAccessor {
   DatabricksThriftAccessor(
       TCLIService.Client client, IDatabricksConnectionContext connectionContext) {
     this.thriftClient = ThreadLocal.withInitial(() -> client);
+    this.connectionContext = connectionContext;
     this.enableDirectResults = connectionContext.getDirectResultMode();
   }
 
@@ -101,14 +105,14 @@ final class DatabricksThriftAccessor {
         String errorMessage =
             String.format(
                 "No implementation for fetching thrift response for Request {%s}", request);
-        LOGGER.error(errorMessage);
-        throw new DatabricksSQLFeatureNotSupportedException(errorMessage);
+        LOGGER.error(errorMessage, connectionContext);
+        throw new DatabricksSQLFeatureNotSupportedException(errorMessage, connectionContext);
       }
     } catch (TException | SQLException e) {
       Throwable cause = e;
       while (cause != null) {
         if (cause instanceof HttpException) {
-          throw new DatabricksHttpException(cause.getMessage(), cause);
+          throw new DatabricksHttpException(cause.getMessage(), cause,DatabricksDriverErrorCode.INVALID_STATE, connectionContext);
         }
         cause = cause.getCause();
       }
@@ -118,9 +122,9 @@ final class DatabricksThriftAccessor {
               request, e.getMessage());
       LOGGER.error(e, errorMessage);
       if (e instanceof SQLException) {
-        throw new DatabricksSQLException(errorMessage, ((SQLException) e).getSQLState());
+        throw new DatabricksSQLException(errorMessage, e,((SQLException) e).getSQLState(),connectionContext);
       } else {
-        throw new DatabricksSQLException(errorMessage);
+        throw new DatabricksSQLException(errorMessage, e, DatabricksDriverErrorCode.INVALID_STATE,connectionContext);
       }
     }
   }
@@ -143,8 +147,8 @@ final class DatabricksThriftAccessor {
           String.format(
               "Error while canceling operation from Thrift server. Request {%s}, Error {%s}",
               req.toString(), e.getMessage());
-      LOGGER.error(e, errorMessage);
-      throw new DatabricksHttpException(errorMessage, e);
+      LOGGER.error(e, errorMessage, connectionContext);
+      throw new DatabricksHttpException(errorMessage, e, DatabricksDriverErrorCode.INVALID_STATE,connectionContext);
     }
   }
 
@@ -156,8 +160,8 @@ final class DatabricksThriftAccessor {
           String.format(
               "Error while closing operation from Thrift server. Request {%s}, Error {%s}",
               req.toString(), e.getMessage());
-      LOGGER.error(e, errorMessage);
-      throw new DatabricksHttpException(errorMessage, e);
+      LOGGER.error(e, errorMessage, connectionContext);
+      throw new DatabricksHttpException(errorMessage, e,DatabricksDriverErrorCode.INVALID_STATE, connectionContext);
     }
   }
 
@@ -245,8 +249,8 @@ final class DatabricksThriftAccessor {
           String.format(
               "Error while receiving response from Thrift server. Request {%s}, Error {%s}",
               request, e.getMessage());
-      LOGGER.error(e, errorMessage);
-      throw new DatabricksHttpException(errorMessage, e);
+      LOGGER.error(e, errorMessage, connectionContext);
+      throw new DatabricksHttpException(errorMessage, e, DatabricksDriverErrorCode.INVALID_STATE,connectionContext);
     }
   }
 
@@ -264,18 +268,18 @@ final class DatabricksThriftAccessor {
         LOGGER.error(
             "Received error response {%s} from Thrift Server for request {%s}",
             response, request.toString());
-        throw new DatabricksSQLException(response.status.errorMessage, response.status.sqlState);
+        throw new DatabricksSQLException(response.status.errorMessage, response.status.sqlState, connectionContext);
       }
     } catch (DatabricksSQLException | TException e) {
       String errorMessage =
           String.format(
               "Error while receiving response from Thrift server. Request {%s}, Error {%s}",
               request.toString(), e.getMessage());
-      LOGGER.error(e, errorMessage);
+      LOGGER.error(e, errorMessage, connectionContext);
       if (e instanceof DatabricksSQLException) {
-        throw new DatabricksHttpException(errorMessage, ((DatabricksSQLException) e).getSQLState());
+        throw new DatabricksHttpException(errorMessage, ((DatabricksSQLException) e).getSQLState(), connectionContext);
       } else {
-        throw new DatabricksHttpException(errorMessage, e);
+        throw new DatabricksHttpException(errorMessage, e,DatabricksDriverErrorCode.INVALID_STATE,connectionContext);
       }
     }
     StatementId statementId = new StatementId(response.getOperationHandle().operationId);
@@ -319,8 +323,8 @@ final class DatabricksThriftAccessor {
           String.format(
               "Error while receiving response from Thrift server. Request {%s}, Error {%s}",
               request.toString(), e.getMessage());
-      LOGGER.error(e, errorMessage);
-      throw new DatabricksHttpException(errorMessage, e);
+      LOGGER.error(e, errorMessage, connectionContext);
+      throw new DatabricksHttpException(errorMessage, e, DatabricksDriverErrorCode.INVALID_STATE, connectionContext);
     }
     StatementStatus executionStatus = getStatementStatus(response);
     return new DatabricksResultSet(
@@ -356,8 +360,8 @@ final class DatabricksThriftAccessor {
           String.format(
               "Error while fetching results from Thrift server. Request {%s}, Error {%s}",
               request.toString(), e.getMessage());
-      LOGGER.error(e, errorMessage);
-      throw new DatabricksHttpException(errorMessage, e);
+      LOGGER.error(e, errorMessage, connectionContext);
+      throw new DatabricksHttpException(errorMessage, e,DatabricksDriverErrorCode.INVALID_STATE,connectionContext);
     }
     verifySuccessStatus(
         response.getStatus(),
@@ -438,7 +442,7 @@ final class DatabricksThriftAccessor {
         new DatabricksHttpTTransport(
             DatabricksHttpClientFactory.getInstance().getClient(connectionContext),
             endPointUrl,
-            databricksConfig);
+            databricksConfig, connectionContext);
     TBinaryProtocol protocol = new TBinaryProtocol(transport);
 
     return new TCLIService.Client(protocol);
@@ -515,12 +519,12 @@ final class DatabricksThriftAccessor {
       TBase<T, F> response) throws DatabricksSQLException {
     F operationHandleField = response.fieldForId(operationHandleFieldId);
     if (!response.isSet(operationHandleField)) {
-      throw new DatabricksSQLException("Operation handle not set");
+      throw new DatabricksSQLException("Operation handle not set", DatabricksDriverErrorCode.INVALID_STATE,connectionContext);
     }
     F statusField = response.fieldForId(statusFieldId);
     TStatus status = (TStatus) response.getFieldValue(statusField);
     if (isErrorStatusCode(status.getStatusCode())) {
-      throw new DatabricksSQLException(status.getErrorMessage(), status.getSqlState());
+      throw new DatabricksSQLException(status.getErrorMessage(), status.getSqlState(),connectionContext);
     }
   }
 
@@ -532,7 +536,7 @@ final class DatabricksThriftAccessor {
       String errorMsg =
           String.format("Operation failed with error: %s", statusResp.getErrorMessage());
       LOGGER.error(errorMsg);
-      throw new DatabricksSQLException(errorMsg, statusResp.getSqlState());
+      throw new DatabricksSQLException(errorMsg, statusResp.getSqlState(), connectionContext);
     }
   }
 

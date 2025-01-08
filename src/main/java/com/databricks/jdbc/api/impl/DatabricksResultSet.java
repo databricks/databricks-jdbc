@@ -4,7 +4,8 @@ package com.databricks.jdbc.api.impl;
 import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.api.IDatabricksResultSet;
 import com.databricks.jdbc.api.IDatabricksSession;
-import com.databricks.jdbc.api.impl.converters.converterHelper;
+import com.databricks.jdbc.api.impl.converters.ConverterHelper;
+import com.databricks.jdbc.api.impl.converters.ConverterHelperProvider;
 import com.databricks.jdbc.api.impl.converters.ObjectConverter;
 import com.databricks.jdbc.api.impl.volume.VolumeOperationResult;
 import com.databricks.jdbc.api.internal.IDatabricksResultSetInternal;
@@ -150,7 +151,7 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
       StatementType statementType, IDatabricksConnectionContext connectionContext) {
     this.statementStatus = statementStatus;
     this.statementId = statementId;
-    this.executionResult = ExecutionResultFactory.getResultSet(rows);
+    this.executionResult = ExecutionResultFactory.getResultSet(rows, connectionContext);
     this.resultSetMetaData =
         new DatabricksResultSetMetaData(
             statementId,
@@ -179,7 +180,7 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
       StatementType statementType, IDatabricksConnectionContext connectionContext) {
     this.statementStatus = statementStatus;
     this.statementId = statementId;
-    this.executionResult = ExecutionResultFactory.getResultSet(rows);
+    this.executionResult = ExecutionResultFactory.getResultSet(rows,connectionContext);
     this.resultSetMetaData =
         new DatabricksResultSetMetaData(
             statementId,
@@ -205,7 +206,7 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
       StatementType statementType, IDatabricksConnectionContext connectionContext) {
     this.statementStatus = statementStatus;
     this.statementId = statementId;
-    this.executionResult = ExecutionResultFactory.getResultSet(rows);
+    this.executionResult = ExecutionResultFactory.getResultSet(rows,connectionContext);
     this.resultSetMetaData =
         new DatabricksResultSetMetaData(statementId, columnMetadataList, rows.size());
     this.statementType = statementType;
@@ -437,7 +438,7 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
       return null;
     }
     int columnType = resultSetMetaData.getColumnType(columnIndex);
-    return converterHelper.convertSqlTypeToJavaType(columnType, obj);
+    return ConverterHelperProvider.getConverterHelper(connectionContext).convertSqlTypeToJavaType(columnType, obj);
   }
 
   @Override
@@ -460,7 +461,7 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
       return null;
     }
     int columnType = resultSetMetaData.getColumnType(columnIndex);
-    ObjectConverter converter = converterHelper.getConverterForSqlType(columnType);
+    ObjectConverter converter = ConverterHelperProvider.getConverterHelper(connectionContext).getConverterForSqlType(columnType);
     return converter.toCharacterStream(obj);
   }
 
@@ -964,7 +965,7 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
     Class<?> returnObjectType = map.get(columnTypeText);
     if (returnObjectType != null) {
       try {
-        return converterHelper.convertSqlTypeToSpecificJavaType(
+        return ConverterHelperProvider.getConverterHelper(connectionContext).convertSqlTypeToSpecificJavaType(
             returnObjectType, columnSqlType, obj);
       } catch (Exception e) {
         addWarningAndLog(
@@ -1606,7 +1607,7 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
     Object obj = getObjectInternal(columnIndex);
     int columnSqlType = resultSetMetaData.getColumnType(columnIndex);
     try {
-      return (T) converterHelper.convertSqlTypeToSpecificJavaType(type, columnSqlType, obj);
+      return (T) ConverterHelperProvider.getConverterHelper(connectionContext).convertSqlTypeToSpecificJavaType(type, columnSqlType, obj);
     } catch (Exception e) {
       String errorMessage =
           String.format(
@@ -1726,7 +1727,7 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
       return defaultValue.get();
     }
     int columnType = resultSetMetaData.getColumnType(columnIndex);
-    ObjectConverter converter = converterHelper.getConverterForSqlType(columnType);
+    ObjectConverter converter = ConverterHelperProvider.getConverterHelper(connectionContext).getConverterForSqlType(columnType);
     return convertMethod.apply(converter, obj);
   }
 }

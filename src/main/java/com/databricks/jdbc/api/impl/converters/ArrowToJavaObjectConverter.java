@@ -1,5 +1,6 @@
 package com.databricks.jdbc.api.impl.converters;
 
+import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.dbclient.impl.common.StatementId;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.exception.DatabricksValidationException;
@@ -47,27 +48,27 @@ public class ArrowToJavaObjectConverter {
           DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.S"),
           DateTimeFormatter.RFC_1123_DATE_TIME);
 
-  public static Object convert(Object object, ColumnInfoTypeName requiredType)
+  public static Object convert(Object object, ColumnInfoTypeName requiredType, IDatabricksConnectionContext connectionContext)
       throws DatabricksSQLException {
     if (object == null) {
       return null;
     }
     switch (requiredType) {
       case BYTE:
-        return convertToNumber(object, Byte::parseByte, Number::byteValue);
+        return convertToNumber(object, Byte::parseByte, Number::byteValue,connectionContext);
       case SHORT:
-        return convertToNumber(object, Short::parseShort, Number::shortValue);
+        return convertToNumber(object, Short::parseShort, Number::shortValue,connectionContext);
       case INT:
-        return convertToNumber(object, Integer::parseInt, Number::intValue);
+        return convertToNumber(object, Integer::parseInt, Number::intValue,connectionContext);
       case LONG:
-        return convertToNumber(object, Long::parseLong, Number::longValue);
+        return convertToNumber(object, Long::parseLong, Number::longValue,connectionContext);
       case FLOAT:
-        return convertToNumber(object, Float::parseFloat, Number::floatValue);
+        return convertToNumber(object, Float::parseFloat, Number::floatValue,connectionContext);
       case DOUBLE:
-        return convertToNumber(object, Double::parseDouble, Number::doubleValue);
+        return convertToNumber(object, Double::parseDouble, Number::doubleValue,connectionContext);
       case DECIMAL:
         return convertToNumber(
-            object, BigDecimal::new, num -> BigDecimal.valueOf(num.doubleValue()));
+            object, BigDecimal::new, num -> BigDecimal.valueOf(num.doubleValue()),connectionContext);
       case BINARY:
         return convertToByteArray(object);
       case BOOLEAN:
@@ -81,21 +82,21 @@ public class ArrowToJavaObjectConverter {
       case MAP:
         return convertToString(object);
       case DATE:
-        return convertToDate(object);
+        return convertToDate(object,connectionContext);
       case TIMESTAMP:
-        return convertToTimestamp(object);
+        return convertToTimestamp(object,connectionContext);
       case NULL:
         return null;
       default:
         String errorMessage = String.format("Unsupported conversion type %s",requiredType);
         LOGGER.error(errorMessage);
-        throw new DatabricksValidationException(errorMessage);
+        throw new DatabricksValidationException(errorMessage,connectionContext);
     }
   }
 
-  private static Object convertToTimestamp(Object object) throws DatabricksSQLException {
+  private static Object convertToTimestamp(Object object, IDatabricksConnectionContext connectionContext) throws DatabricksSQLException {
     if (object instanceof Text) {
-      return convertArrowTextToTimestamp(object.toString());
+      return convertArrowTextToTimestamp(object.toString(),connectionContext);
     }
     // Divide by 1000 since we need to convert from microseconds to milliseconds.
     Instant instant =
@@ -104,13 +105,13 @@ public class ArrowToJavaObjectConverter {
     return Timestamp.from(instant);
   }
 
-  private static Object convertArrowTextToTimestamp(String arrowText)
+  private static Object convertArrowTextToTimestamp(String arrowText, IDatabricksConnectionContext connectionContext)
       throws DatabricksSQLException {
-    LocalDateTime localDateTime = parseDate(arrowText);
+    LocalDateTime localDateTime = parseDate(arrowText,connectionContext);
     return Timestamp.valueOf(localDateTime);
   }
 
-  private static LocalDateTime parseDate(String text) throws DatabricksSQLException {
+  private static LocalDateTime parseDate(String text, IDatabricksConnectionContext connectionContext) throws DatabricksSQLException {
     for (DateTimeFormatter formatter : DATE_FORMATTERS) {
       try {
         return LocalDateTime.parse(text, formatter);
@@ -120,12 +121,12 @@ public class ArrowToJavaObjectConverter {
     }
     String errorMessage = String.format("Unsupported text for date conversion: %s", text);
     LOGGER.error(errorMessage);
-    throw new DatabricksValidationException(errorMessage);
+    throw new DatabricksValidationException(errorMessage,connectionContext);
   }
 
-  private static Date convertToDate(Object object) throws DatabricksSQLException {
+  private static Date convertToDate(Object object, IDatabricksConnectionContext connectionContext) throws DatabricksSQLException {
     if (object instanceof Text) {
-      LocalDateTime localDateTime = parseDate(object.toString());
+      LocalDateTime localDateTime = parseDate(object.toString(),connectionContext);
       return java.sql.Date.valueOf(localDateTime.toLocalDate());
     }
     LocalDate localDate = LocalDate.ofEpochDay((int) object);
@@ -155,7 +156,7 @@ public class ArrowToJavaObjectConverter {
   }
 
   private static <T extends Number> T convertToNumber(
-      Object object, Function<String, T> parseFunc, Function<Number, T> convertFunc)
+          Object object, Function<String, T> parseFunc, Function<Number, T> convertFunc, IDatabricksConnectionContext connectionContext)
       throws DatabricksSQLException {
     if (object instanceof Text) {
       return parseFunc.apply(object.toString());
@@ -165,6 +166,6 @@ public class ArrowToJavaObjectConverter {
     }
     String errorMessage = String.format("Unsupported object type for number conversion: %s", object.getClass());
     LOGGER.error(errorMessage);
-    throw new DatabricksValidationException(errorMessage);
+    throw new DatabricksValidationException(errorMessage,connectionContext);
   }
 }

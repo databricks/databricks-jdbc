@@ -1,5 +1,6 @@
 package com.databricks.jdbc.api.impl.arrow;
 
+import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
@@ -19,6 +20,7 @@ class ChunkDownloadTask implements Callable<Void> {
   private final ArrowResultChunk chunk;
   private final IDatabricksHttpClient httpClient;
   private final ChunkDownloadCallback chunkDownloader;
+  private final IDatabricksConnectionContext connectionContext;
 
   ChunkDownloadTask(
       ArrowResultChunk chunk,
@@ -52,7 +54,7 @@ class ChunkDownloadTask implements Callable<Void> {
                 chunk.getChunkIndex(),
                 e.getMessage());
             chunk.setStatus(ArrowResultChunk.ChunkStatus.DOWNLOAD_FAILED);
-            throw new DatabricksSQLException("Failed to download chunk after multiple attempts", e, DatabricksDriverErrorCode.CHUNK_DOWNLOAD_ERROR);
+            throw new DatabricksSQLException("Failed to download chunk after multiple attempts", e, DatabricksDriverErrorCode.CHUNK_DOWNLOAD_ERROR,connectionContext);
           } else {
             LOGGER.warn(
                 String.format(
@@ -63,7 +65,7 @@ class ChunkDownloadTask implements Callable<Void> {
               Thread.sleep(RETRY_DELAY_MS);
             } catch (InterruptedException ie) {
               Thread.currentThread().interrupt();
-              throw new DatabricksSQLException("Chunk download was interrupted", ie, DatabricksDriverErrorCode.THREAD_INTERRUPTED_ERROR);
+              throw new DatabricksSQLException("Chunk download was interrupted", ie, DatabricksDriverErrorCode.THREAD_INTERRUPTED_ERROR,connectionContext);
             }
           }
         }

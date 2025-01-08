@@ -3,6 +3,7 @@ package com.databricks.jdbc.api.impl.converters;
 import static com.databricks.jdbc.TestConstants.TEST_BYTES;
 import static org.junit.jupiter.api.Assertions.*;
 
+import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import java.math.BigDecimal;
 import java.math.BigInteger;
@@ -14,13 +15,18 @@ import java.time.Year;
 import java.util.Calendar;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
 
-
+@ExtendWith(MockitoExtension.class)
 class ConverterHelperTest {
-  ConverterHelper converterHelper = new ConverterHelper(null);
+@Mock
+  IDatabricksConnectionContext connectionContext;
+  ConverterHelper converterHelper = ConverterHelperProvider.getConverterHelper(connectionContext);
 
   private static Stream<Arguments> provideParametersForGetConvertedObject() {
     return Stream.of(

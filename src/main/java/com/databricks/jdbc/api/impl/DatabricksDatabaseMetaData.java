@@ -905,7 +905,7 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
             Types.VARCHAR),
         Arrays.asList(128, 128, 128, 128, 128, 128, 128, 128, 128),
         new Object[0][0],
-        StatementType.METADATA);
+        StatementType.METADATA, connection.getConnectionContext());
   }
 
   @Override
@@ -1035,7 +1035,7 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
             "public ResultSet getImportedKeys(String catalog = {%s}, String schema = {%s}, String table = {%s})",
             catalog, schema, table));
     // TODO (PECO-1696): Implement getImportedKeys
-    return new EmptyResultSet();
+    return new EmptyResultSet(connection.getConnectionContext());
   }
 
   @Override
@@ -1046,7 +1046,7 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
             "public ResultSet getExportedKeys(String catalog = {%s}, String schema = {%s}, String table = {%s})",
             catalog, schema, table));
     // TODO (PECO-1696): Implement getExportedKeys
-    return new EmptyResultSet();
+    return new EmptyResultSet(connection.getConnectionContext());
   }
 
   @Override
@@ -1201,7 +1201,7 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
             Types.VARCHAR),
         Arrays.asList(128, 128, 128, 128, 128, 128, 128),
         new String[0][0],
-        StatementType.METADATA);
+        StatementType.METADATA, connection.getConnectionContext());
   }
 
   @Override

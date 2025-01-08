@@ -51,10 +51,10 @@ public class TelemetryHelper {
 
   public static void exportFailureLog(
       IDatabricksConnectionContext connectionContext,
-      DatabricksDriverErrorCode errorName,
+      String errorName,
       String errorMessage) {
     DriverErrorInfo errorInfo =
-        new DriverErrorInfo().setErrorName(errorName.name()).setStackTrace(errorMessage);
+        new DriverErrorInfo().setErrorName(errorName).setStackTrace(errorMessage);
     TelemetryFrontendLog telemetryFrontendLog =
         new TelemetryFrontendLog()
             .setEntry(

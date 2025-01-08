@@ -15,4 +15,7 @@ public class DatabricksHttpException extends DatabricksSQLException {
   public DatabricksHttpException(String message, String sqlState, IDatabricksConnectionContext connectionContext) {
     super(message, null, sqlState, connectionContext);
   }
+  public DatabricksHttpException(String message,Throwable throwable, String sqlState, IDatabricksConnectionContext connectionContext) {
+    super(message, throwable, sqlState, connectionContext);
+  }
 }

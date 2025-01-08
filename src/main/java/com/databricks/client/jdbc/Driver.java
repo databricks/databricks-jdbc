@@ -71,9 +71,8 @@ public class Driver implements IDatabricksDriver, java.sql.Driver {
           String.format(
               "Connection failure while using the OSS Databricks JDBC driver. Failed to connect to server: %s\n%s",
               connectionContext.getHostUrl(), getRootCauseMessage(e));
-      exportFailureLog(connectionContext, DatabricksDriverErrorCode.CONNECTION_ERROR, errorMessage);
       LOGGER.error(e, errorMessage);
-      throw new DatabricksSQLException(errorMessage, e);
+      throw new DatabricksSQLException(errorMessage, e, DatabricksDriverErrorCode.CONNECTION_ERROR, connectionContext);
     }
   }
 

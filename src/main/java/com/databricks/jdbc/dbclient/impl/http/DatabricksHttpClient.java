@@ -13,6 +13,7 @@ import com.databricks.jdbc.exception.DatabricksHttpException;
 import com.databricks.jdbc.exception.DatabricksRetryHandlerException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
+import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import com.databricks.sdk.core.ProxyConfig;
 import com.databricks.sdk.core.utils.ProxyUtils;
 import com.google.common.annotations.VisibleForTesting;
@@ -44,8 +45,10 @@ public class DatabricksHttpClient implements IDatabricksHttpClient, Closeable {
   private final CloseableHttpClient httpClient;
   private DatabricksHttpRetryHandler retryHandler;
   private IdleConnectionEvictor idleConnectionEvictor;
+  private final IDatabricksConnectionContext connectionContext;
 
   DatabricksHttpClient(IDatabricksConnectionContext connectionContext) {
+    this.connectionContext = connectionContext;
     connectionManager = initializeConnectionManager(connectionContext);
     httpClient = makeClosableHttpClient(connectionContext);
     retryHandler = new DatabricksHttpRetryHandler(connectionContext);
@@ -61,6 +64,7 @@ public class DatabricksHttpClient implements IDatabricksHttpClient, Closeable {
       PoolingHttpClientConnectionManager testConnectionManager) {
     httpClient = testCloseableHttpClient;
     connectionManager = testConnectionManager;
+    connectionContext = null;
   }
 
   @Override
@@ -80,7 +84,7 @@ public class DatabricksHttpClient implements IDatabricksHttpClient, Closeable {
     try {
       return httpClient.execute(request);
     } catch (IOException e) {
-      throwHttpException(e, request);
+      throwHttpException(e, request,connectionContext);
     }
     return null;
   }
@@ -131,12 +135,12 @@ public class DatabricksHttpClient implements IDatabricksHttpClient, Closeable {
     return builder.build();
   }
 
-  private static void throwHttpException(Exception e, HttpUriRequest request)
+  private static void throwHttpException(Exception e, HttpUriRequest request,IDatabricksConnectionContext connectionContext)
       throws DatabricksHttpException {
     Throwable cause = e;
     while (cause != null) {
       if (cause instanceof DatabricksRetryHandlerException) {
-        throw new DatabricksHttpException(cause.getMessage(), cause);
+        throw new DatabricksHttpException(cause.getMessage(), cause, DatabricksDriverErrorCode.INVALID_STATE,connectionContext);
       }
       cause = cause.getCause();
     }
@@ -145,7 +149,7 @@ public class DatabricksHttpClient implements IDatabricksHttpClient, Closeable {
             "Caught error while executing http request: [%s]. Error Message: [%s]",
             RequestSanitizer.sanitizeRequest(request), e);
     LOGGER.error(e, errorMsg);
-    throw new DatabricksHttpException(errorMsg, DEFAULT_HTTP_EXCEPTION_SQLSTATE);
+    throw new DatabricksHttpException(errorMsg, DEFAULT_HTTP_EXCEPTION_SQLSTATE,connectionContext);
   }
 
   @VisibleForTesting

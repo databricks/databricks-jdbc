@@ -1,5 +1,6 @@
 package com.databricks.jdbc.api.impl;
 
+import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.api.IDatabricksResultSet;
 import com.databricks.jdbc.api.internal.IDatabricksResultSetInternal;
 import com.databricks.jdbc.exception.DatabricksSQLException;
@@ -19,14 +20,16 @@ import org.apache.http.entity.InputStreamEntity;
 public class EmptyResultSet
     implements ResultSet, IDatabricksResultSet, IDatabricksResultSetInternal {
   private boolean isClosed;
+  private final IDatabricksConnectionContext connectionContext;
 
-  public EmptyResultSet() {
+  public EmptyResultSet(IDatabricksConnectionContext connectionContext) {
+  this.connectionContext = connectionContext;
     isClosed = false;
   }
 
   private void checkIfClosed() throws SQLException {
     if (isClosed()) {
-      throw new DatabricksSQLException("Empty result set is closed", DatabricksDriverErrorCode.STATEMENT_CLOSED);
+      throw new DatabricksSQLException("Empty result set is closed", DatabricksDriverErrorCode.STATEMENT_CLOSED,connectionContext);
     }
   }
 

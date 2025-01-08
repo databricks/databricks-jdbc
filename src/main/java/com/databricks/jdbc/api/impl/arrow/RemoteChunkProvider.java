@@ -127,7 +127,7 @@ public class RemoteChunkProvider implements ChunkProvider, ChunkDownloadCallback
           chunk.wait();
         }
         if (chunk.getStatus() != ArrowResultChunk.ChunkStatus.DOWNLOAD_SUCCEEDED) {
-          throw new DatabricksSQLException(chunk.getErrorMessage(), DatabricksDriverErrorCode.CHUNK_DOWNLOAD_ERROR);
+          throw new DatabricksSQLException(chunk.getErrorMessage(), DatabricksDriverErrorCode.CHUNK_DOWNLOAD_ERROR, session.getConnectionContext());
         }
       } catch (InterruptedException e) {
         LOGGER.error(

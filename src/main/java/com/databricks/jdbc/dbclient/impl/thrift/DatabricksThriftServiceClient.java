@@ -83,7 +83,7 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
     TProtocolVersion serverProtocol = response.getServerProtocolVersion();
     if (serverProtocol.getValue() <= TProtocolVersion.HIVE_CLI_SERVICE_PROTOCOL_V10.getValue()) {
       throw new DatabricksSQLException(
-          "Attempting to connect to a non Databricks compute using the Databricks driver.", DatabricksDriverErrorCode.UNSUPPORTED_OPERATION);
+          "Attempting to connect to a non Databricks compute using the Databricks driver.", DatabricksDriverErrorCode.UNSUPPORTED_OPERATION, connectionContext);
     }
 
     String sessionId = byteBufferToString(response.sessionHandle.getSessionId().guid);
@@ -221,7 +221,7 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
     if (chunkIndex < 0 || externalLinks.size() <= chunkIndex) {
       String error = String.format("Out of bounds error for chunkIndex. Context: %s", context);
       LOGGER.error(error);
-      throw new DatabricksSQLException(error, DatabricksDriverErrorCode.INVALID_STATE);
+      throw new DatabricksSQLException(error, DatabricksDriverErrorCode.INVALID_STATE,connectionContext);
     }
     return externalLinks;
   }

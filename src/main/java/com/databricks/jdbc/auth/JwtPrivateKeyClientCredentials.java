@@ -2,12 +2,14 @@ package com.databricks.jdbc.auth;
 
 import static com.nimbusds.jose.JWSAlgorithm.*;
 
+import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
 import com.databricks.jdbc.exception.DatabricksHttpException;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
+import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import com.databricks.sdk.core.DatabricksException;
 import com.databricks.sdk.core.oauth.OAuthResponse;
 import com.databricks.sdk.core.oauth.RefreshableTokenSource;
@@ -59,6 +61,7 @@ public class JwtPrivateKeyClientCredentials extends RefreshableTokenSource {
 
   public static class Builder {
     private String clientId;
+    private IDatabricksConnectionContext connectionContext;
     private String tokenUrl;
     private String jwtKeyFile;
     private String jwtKid;
@@ -87,6 +90,11 @@ public class JwtPrivateKeyClientCredentials extends RefreshableTokenSource {
       return this;
     }
 
+    public Builder withConnectionContext(IDatabricksConnectionContext connectionContext) {
+      this.connectionContext = connectionContext;
+      return this;
+    }
+
     public Builder withJwtAlgorithm(String jwtAlgorithm) {
       this.jwtAlgorithm = jwtAlgorithm;
       return this;
@@ -112,13 +120,14 @@ public class JwtPrivateKeyClientCredentials extends RefreshableTokenSource {
       Objects.requireNonNull(this.jwtKeyFile, "JWT key file must be specified");
       Objects.requireNonNull(this.jwtKid, "JWT KID must be specified");
       return new JwtPrivateKeyClientCredentials(
-          hc, clientId, jwtKeyFile, jwtKid, jwtKeyPassphrase, jwtAlgorithm, tokenUrl, scopes);
+          hc, clientId, jwtKeyFile, jwtKid, jwtKeyPassphrase, jwtAlgorithm, tokenUrl, scopes,connectionContext);
     }
   }
 
   private final String BOUNCY_CASTLE_PROVIDER = "BC";
   private IDatabricksHttpClient hc;
   private String clientId;
+  private IDatabricksConnectionContext connectionContext;
   private String tokenUrl;
   private final List<String> scopes;
 
@@ -135,7 +144,8 @@ public class JwtPrivateKeyClientCredentials extends RefreshableTokenSource {
       String jwtKeyPassphrase,
       String jwtAlgorithm,
       String tokenUrl,
-      List<String> scopes) {
+      List<String> scopes,
+      IDatabricksConnectionContext connectionContext) {
     this.hc = hc;
     this.clientId = clientId;
     this.jwtKeyFile = jwtKeyFile;
@@ -144,6 +154,7 @@ public class JwtPrivateKeyClientCredentials extends RefreshableTokenSource {
     this.jwtAlgorithm = determineSignatureAlgorithm(jwtAlgorithm);
     this.tokenUrl = tokenUrl;
     this.scopes = scopes;
+    this.connectionContext = connectionContext;
   }
 
   @Override
@@ -270,7 +281,7 @@ public class JwtPrivateKeyClientCredentials extends RefreshableTokenSource {
     } catch (OperatorCreationException | PKCSException | PEMException e) {
       String errorMessage = "Cannot decrypt private JWT key " + e.getMessage();
       LOGGER.error(errorMessage);
-      throw new DatabricksParsingException(errorMessage);
+      throw new DatabricksParsingException(errorMessage, DatabricksDriverErrorCode.VOLUME_OPERATION_PARSING_ERROR,connectionContext);
     }
   }
 

@@ -2,6 +2,7 @@ package com.databricks.jdbc.api.impl.arrow;
 
 import static com.databricks.jdbc.common.util.DatabricksThriftUtil.getTypeFromTypeDesc;
 
+import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.api.IDatabricksSession;
 import com.databricks.jdbc.api.impl.IExecutionResult;
 import com.databricks.jdbc.api.impl.converters.ArrowToJavaObjectConverter;
@@ -31,6 +32,7 @@ public class ArrowStreamResult implements IExecutionResult {
   private int chunkCount = 0;
   private ArrowResultChunk.ArrowResultChunkIterator chunkIterator;
   private List<ColumnInfo> columnInfos;
+  private final IDatabricksConnectionContext connectionContext;
 
   public ArrowStreamResult(
       ResultManifest resultManifest,
@@ -62,6 +64,7 @@ public class ArrowStreamResult implements IExecutionResult {
             session,
             httpClient,
             session.getConnectionContext().getCloudFetchThreadPoolSize());
+    this.connectionContext = session.getConnectionContext();
     this.columnInfos =
         resultManifest.getSchema().getColumnCount() == 0
             ? new ArrayList<>()
@@ -90,6 +93,7 @@ public class ArrowStreamResult implements IExecutionResult {
       IDatabricksSession session,
       IDatabricksHttpClient httpClient)
       throws DatabricksSQLException {
+    this.connectionContext = session.getConnectionContext();
     setColumnInfo(resultsResp.getResultSetMetadata());
     if (isInlineArrow) {
       this.chunkProvider = new InlineChunkProvider(resultsResp, parentStatement, session);
@@ -112,7 +116,7 @@ public class ArrowStreamResult implements IExecutionResult {
   public Object getObject(int columnIndex) throws DatabricksSQLException {
     ColumnInfoTypeName requiredType = columnInfos.get(columnIndex).getTypeName();
     Object unconvertedObject = chunkIterator.getColumnObjectAtCurrentRow(columnIndex);
-    return ArrowToJavaObjectConverter.convert(unconvertedObject, requiredType);
+    return ArrowToJavaObjectConverter.convert(unconvertedObject, requiredType,connectionContext);
   }
 
   /** {@inheritDoc} */

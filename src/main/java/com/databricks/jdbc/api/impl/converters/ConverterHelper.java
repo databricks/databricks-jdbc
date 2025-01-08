@@ -2,19 +2,16 @@ package com.databricks.jdbc.api.impl.converters;
 
 import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.exception.DatabricksSQLException;
+
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.sql.Timestamp;
 import java.sql.Types;
 import java.time.LocalDate;
-import java.util.Calendar;
-import java.util.Date;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.*;
 
 public class ConverterHelper {
-
-  private final Map<Integer, ObjectConverter> CONVERTER_CACHE = new HashMap<>();
+  private Map<Integer, ObjectConverter> CONVERTER_CACHE = new HashMap<>();
   public ConverterHelper(IDatabricksConnectionContext connectionContext){
     CONVERTER_CACHE.put(Types.TINYINT, new ByteConverter(connectionContext));
     CONVERTER_CACHE.put(Types.SMALLINT, new ShortConverter(connectionContext));
@@ -30,7 +27,6 @@ public class ConverterHelper {
     CONVERTER_CACHE.put(Types.BIT, new BitConverter(connectionContext));
     CONVERTER_CACHE.put(Types.VARCHAR, new StringConverter(connectionContext));
     CONVERTER_CACHE.put(Types.CHAR, new StringConverter(connectionContext));
-
   }
 
   /**

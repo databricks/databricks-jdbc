@@ -1,10 +1,15 @@
 package com.databricks.jdbc.pooling;
 
+import com.databricks.jdbc.api.IDatabricksConnection;
+import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.api.IDatabricksStatement;
+import com.databricks.jdbc.api.impl.DatabricksConnection;
 import com.databricks.jdbc.api.internal.IDatabricksConnectionInternal;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
+import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
+
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
@@ -92,7 +97,7 @@ public class DatabricksPooledConnection implements PooledConnection {
       if (physicalConnection == null) {
         // Before throwing the exception, notify the listeners
         DatabricksSQLException sqlException =
-            new DatabricksSQLException("This PooledConnection has already been closed.");
+            new DatabricksSQLException("This PooledConnection has already been closed.", DatabricksDriverErrorCode.CONNECTION_CLOSED,null);
         fireConnectionError(sqlException);
         throw sqlException;
       }
@@ -142,6 +147,7 @@ public class DatabricksPooledConnection implements PooledConnection {
      * connection.
      */
     private Connection virtualConnection;
+    private final IDatabricksConnectionContext connectionContext;
 
     ConnectionHandler(Connection physicalConnection) {
       this.physicalConnection = physicalConnection;
@@ -153,6 +159,7 @@ public class DatabricksPooledConnection implements PooledConnection {
                   getClass().getClassLoader(),
                   new Class[] {Connection.class, IDatabricksConnectionInternal.class},
                   this);
+      connectionContext = ((DatabricksConnection)virtualConnection).getConnectionContext();
     }
 
     @Override
@@ -199,7 +206,7 @@ public class DatabricksPooledConnection implements PooledConnection {
       }
       synchronized (DatabricksPooledConnection.this.lock) {
         if (physicalConnection == null || physicalConnection.isClosed()) {
-          throw new DatabricksSQLException("Connection has been closed.");
+          throw new DatabricksSQLException("Connection has been closed.", DatabricksDriverErrorCode.CONNECTION_CLOSED,connectionContext);
         }
       }
 
@@ -305,7 +312,7 @@ public class DatabricksPooledConnection implements PooledConnection {
       }
       synchronized (this) {
         if (physicalStatement == null || physicalStatement.isClosed()) {
-          throw new DatabricksSQLException("Statement has been closed.");
+          throw new DatabricksSQLException("Statement has been closed.", DatabricksDriverErrorCode.STATEMENT_CLOSED,((DatabricksConnection)physicalConnection).getConnectionContext());
         }
       }
       if (methodName.equals("getConnection")) {

@@ -7,6 +7,7 @@ import static org.mockito.Mockito.*;
 
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
 import com.databricks.jdbc.exception.DatabricksHttpException;
+import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import com.databricks.sdk.core.DatabricksException;
 import com.databricks.sdk.core.oauth.Token;
 import com.nimbusds.jose.JWSAlgorithm;
@@ -37,9 +38,6 @@ public class JwtPrivateKeyClientCredentialsTest {
   @Mock HttpEntity httpEntity;
 
   @Mock RSAPrivateKey rsaPrivateKey;
-  @Mock ECPrivateKey ecPrivateKey;
-
-  @Mock ECParameterSpec parameterSpec;
 
   private JwtPrivateKeyClientCredentials clientCredentials =
       new JwtPrivateKeyClientCredentials.Builder()
@@ -72,7 +70,7 @@ public class JwtPrivateKeyClientCredentialsTest {
 
   @Test
   public void testRetrieveTokenExceptionHandling() throws DatabricksHttpException {
-    when(httpClient.execute(any())).thenThrow(new DatabricksHttpException("Network error"));
+    when(httpClient.execute(any())).thenThrow(new DatabricksHttpException("Network error", DatabricksDriverErrorCode.INVALID_STATE,null));
     Exception exception =
         assertThrows(
             DatabricksException.class,

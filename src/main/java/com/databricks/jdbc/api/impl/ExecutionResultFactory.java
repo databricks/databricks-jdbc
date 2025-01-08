@@ -2,6 +2,7 @@ package com.databricks.jdbc.api.impl;
 
 import static com.databricks.jdbc.common.util.DatabricksThriftUtil.convertColumnarToRowBased;
 
+import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.api.IDatabricksSession;
 import com.databricks.jdbc.api.impl.arrow.ArrowStreamResult;
 import com.databricks.jdbc.api.impl.volume.VolumeOperationResult;
@@ -51,7 +52,7 @@ class ExecutionResultFactory {
         return new ArrowStreamResult(manifest, data, statementId, session);
       case JSON_ARRAY:
         // This is used for metadata and update commands
-        return new InlineJsonResult(manifest, data);
+        return new InlineJsonResult(manifest, data, session.getConnectionContext());
       default:
         throw new IllegalStateException("Invalid response format " + manifest.getFormat());
     }
@@ -84,25 +85,25 @@ class ExecutionResultFactory {
     TSparkRowSetType resultFormat = resultsResp.getResultSetMetadata().getResultFormat();
     switch (resultFormat) {
       case COLUMN_BASED_SET:
-        return getResultSet(convertColumnarToRowBased(resultsResp, parentStatement, session));
+        return getResultSet(convertColumnarToRowBased(resultsResp, parentStatement, session), session.getConnectionContext());
       case ARROW_BASED_SET:
         return new ArrowStreamResult(resultsResp, true, parentStatement, session);
       case URL_BASED_SET:
         return new ArrowStreamResult(resultsResp, false, parentStatement, session);
       case ROW_BASED_SET:
         throw new DatabricksSQLFeatureNotSupportedException(
-            "Invalid state - row based set cannot be received");
+            "Invalid state - row based set cannot be received", session.getConnectionContext());
       default:
         throw new DatabricksSQLFeatureNotImplementedException(
-            "Invalid thrift response format " + resultFormat);
+            "Invalid thrift response format " + resultFormat, session.getConnectionContext());
     }
   }
 
-  static IExecutionResult getResultSet(Object[][] rows) {
-    return new InlineJsonResult(rows);
+  static IExecutionResult getResultSet(Object[][] rows, IDatabricksConnectionContext connectionContext) {
+    return new InlineJsonResult(rows,connectionContext);
   }
 
-  static IExecutionResult getResultSet(List<List<Object>> rows) {
-    return new InlineJsonResult(rows);
+  static IExecutionResult getResultSet(List<List<Object>> rows,  IDatabricksConnectionContext connectionContext) {
+    return new InlineJsonResult(rows,connectionContext);
   }
 }
