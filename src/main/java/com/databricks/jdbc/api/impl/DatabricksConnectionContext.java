@@ -623,6 +623,13 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
     return getParameter(DatabricksJdbcUrlParams.ENABLE_TELEMETRY, "0").equals("1");
   }
 
+  @Override
+  public String getVolumeOperationAllowedPaths() {
+    return getParameter(
+        DatabricksJdbcUrlParams.ALLOWED_VOLUME_INGESTION_PATHS,
+        getParameter(DatabricksJdbcUrlParams.ALLOWED_STAGING_INGESTION_PATHS, ""));
+  }
+
   private static boolean nullOrEmptyString(String s) {
     return s == null || s.isEmpty();
   }

@@ -106,6 +106,9 @@ public class VolumeOperationResult implements IExecutionResult {
       allowedPaths =
           session.getClientInfoProperties().getOrDefault(ALLOWED_STAGING_INGESTION_PATHS, "");
     }
+    if (Strings.isNullOrEmpty(allowedPaths)) {
+      allowedPaths = session.getConnectionContext().getVolumeOperationAllowedPaths();
+    }
     return allowedPaths;
   }
 
