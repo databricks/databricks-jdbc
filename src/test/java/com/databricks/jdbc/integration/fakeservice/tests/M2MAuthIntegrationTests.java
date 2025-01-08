@@ -11,6 +11,7 @@ import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.util.Properties;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 /** Integration tests for M2M OAuth authentication flow. */
@@ -19,6 +20,11 @@ public class M2MAuthIntegrationTests extends AbstractFakeServiceIntegrationTests
   private static final String TEST_CLIENT_ID = System.getenv("DATABRICKS_JDBC_M2M_CLIENT_ID");
   private static final String TEST_CLIENT_SECRET =
       System.getenv("DATABRICKS_JDBC_M2M_CLIENT_SECRET");
+
+  @BeforeAll
+  static void setup() {
+    setDatabricksApiTargetUrl(getM2MHost());
+  }
 
   @Test
   void testSuccessfulM2MConnection() throws SQLException {

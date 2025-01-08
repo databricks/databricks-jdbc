@@ -17,16 +17,11 @@ public class FakeServiceConfigLoader {
   public static final boolean shouldUseThriftClient =
       Boolean.parseBoolean(System.getenv("USE_THRIFT_CLIENT"));
 
-  public static final boolean isM2MTest = Boolean.parseBoolean(System.getenv("IS_M2M_TEST"));
-
   private static final String SQL_EXEC_FAKE_SERVICE_TEST_PROPS =
       "sqlexecfakeservicetest.properties";
 
   private static final String SQL_GATEWAY_FAKE_SERVICE_TEST_PROPS =
       "sqlgatewayfakeservicetest.properties";
-
-  private static final String SQL_EXEC_M2M_FAKE_SERVICE_TEST_PROPS =
-      "sqlexecm2mfakeservicetest.properties";
 
   private static final Properties properties = new Properties();
 
@@ -34,7 +29,7 @@ public class FakeServiceConfigLoader {
     final String propsFileName =
         shouldUseThriftClient
             ? SQL_GATEWAY_FAKE_SERVICE_TEST_PROPS
-            : isM2MTest ? SQL_EXEC_M2M_FAKE_SERVICE_TEST_PROPS : SQL_EXEC_FAKE_SERVICE_TEST_PROPS;
+            : SQL_EXEC_FAKE_SERVICE_TEST_PROPS;
 
     try (InputStream input =
         FakeServiceConfigLoader.class.getClassLoader().getResourceAsStream(propsFileName)) {

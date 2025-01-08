@@ -48,10 +48,7 @@ public class IntegrationTestUtil {
     // Note that in RECORD mode, the web server interacts with production services over HTTPS.
     String template =
         "jdbc:databricks://%s/default;transportMode=http;ssl=0;authmech=11;auth_flow=1;httpPath=%s";
-    return String.format(
-        template,
-        getFakeServiceHost(),
-        FakeServiceConfigLoader.getProperty(DatabricksJdbcUrlParams.HTTP_PATH.getParamName()));
+    return String.format(template, getFakeServiceHost(), getM2MHTTPPath());
   }
 
   public static String getFakeServiceJDBCUrl() {
