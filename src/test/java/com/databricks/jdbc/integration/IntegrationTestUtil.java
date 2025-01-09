@@ -55,6 +55,10 @@ public class IntegrationTestUtil {
         FakeServiceConfigLoader.getProperty(DatabricksJdbcUrlParams.HTTP_PATH.getParamName()));
   }
 
+  public static String getFakeServiceHTTPPath() {
+    return FakeServiceConfigLoader.getProperty(DatabricksJdbcUrlParams.HTTP_PATH.getParamName());
+  }
+
   public static String getDatabricksHost() {
     // includes port
     return System.getenv("DATABRICKS_HOST");

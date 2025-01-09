@@ -319,7 +319,7 @@ public class DBFSVolumeIntegrationTests extends AbstractFakeServiceIntegrationTe
   }
 
   private IDatabricksConnectionContext getConnectionContext() throws SQLException {
-    String jdbcUrl = String.format(jdbcUrlTemplate, getFakeServiceHost(), getDatabricksHTTPPath());
+    String jdbcUrl = String.format(jdbcUrlTemplate, getFakeServiceHost(), getFakeServiceHTTPPath());
     return DatabricksConnectionContextFactory.create(
         jdbcUrl, getDatabricksUser(), getDatabricksToken());
   }
