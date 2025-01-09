@@ -41,3 +41,4 @@ jobs:
           DATABRICKS_TOKEN: ${{ secrets[matrix.token-secret] }}
           DATABRICKS_USER: ${{ secrets.DATABRICKS_USER }}
           USE_THRIFT_CLIENT: ${{ matrix.use-thrift-client }}
+          DATABRICKS_PRE_SIGNED_URL_HOST: ${{ secrets.DATABRICKS_PRE_SIGNED_URL_HOST }}
