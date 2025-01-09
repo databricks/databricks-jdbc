@@ -9,14 +9,13 @@ import java.io.FileInputStream;
 import java.security.InvalidAlgorithmParameterException;
 import java.security.KeyStore;
 import java.security.NoSuchAlgorithmException;
+import java.security.SecureRandom;
 import java.security.cert.*;
 import java.util.Arrays;
 import java.util.Set;
 import java.util.stream.Collectors;
-import javax.net.ssl.CertPathTrustManagerParameters;
-import javax.net.ssl.SSLContext;
-import javax.net.ssl.TrustManagerFactory;
-import javax.net.ssl.X509TrustManager;
+import javax.net.ssl.*;
+
 import org.apache.http.config.Registry;
 import org.apache.http.config.RegistryBuilder;
 import org.apache.http.conn.socket.ConnectionSocketFactory;
@@ -27,6 +26,12 @@ import org.apache.http.impl.conn.PoolingHttpClientConnectionManager;
 /** This class contains the utility functions for configuring a client. */
 public class ConfiguratorUtils {
   private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(ConfiguratorUtils.class);
+
+  private static boolean getBypassSSL()
+  {
+    String bypassSSL=System.getenv("BYPASS_SSL");
+    return bypassSSL!=null && bypassSSL.equals("true");
+  }
 
   /**
    * @param connectionContext The connection context to use to get the truststore and properties.
@@ -39,8 +44,8 @@ public class ConfiguratorUtils {
         && !connectionContext.acceptUndeterminedCertificateRevocation()) {
       return new PoolingHttpClientConnectionManager();
     }
-    Registry<ConnectionSocketFactory> socketFactoryRegistry =
-        ConfiguratorUtils.getConnectionSocketFactoryRegistry(connectionContext);
+    Registry<ConnectionSocketFactory> socketFactoryRegistry = getBypassSSL()?getConnectionSocketFactoryRegistry():
+        getConnectionSocketFactoryRegistry(connectionContext);
     return new PoolingHttpClientConnectionManager(socketFactoryRegistry);
   }
 
@@ -80,6 +85,58 @@ public class ConfiguratorUtils {
       String errorMessage = "Error while building trust manager parameters";
       LOGGER.error(e, errorMessage);
       throw new DatabricksException(errorMessage, e);
+    }
+  }
+
+  /**
+   * Builds a registry of connection socket factories with SSL bypass enabled.
+   *
+   * @return A registry of connection socket factories.
+   */
+  public static Registry<ConnectionSocketFactory> getConnectionSocketFactoryRegistry() {
+    try {
+      // Create a TrustManager that trusts all certificates
+      TrustManager[] trustAllCerts =
+              new TrustManager[] {
+                      new X509TrustManager() {
+                        @Override
+                        public X509Certificate[] getAcceptedIssuers() {
+                          return null; // Accept all issuers
+                        }
+
+                        @Override
+                        public void checkClientTrusted(X509Certificate[] certs, String authType) {
+                          // No-op: Trust all client certificates
+                        }
+
+                        @Override
+                        public void checkServerTrusted(X509Certificate[] certs, String authType) {
+                          // No-op: Trust all server certificates
+                        }
+                      }
+              };
+
+      // Initialize the SSLContext with trust-all settings
+      SSLContext sslContext = SSLContext.getInstance("TLS");
+      sslContext.init(null, trustAllCerts, new SecureRandom());
+
+      // Disable hostname verification
+      HostnameVerifier allHostsValid = (hostname, session) -> true;
+
+      // Configure SSLConnectionSocketFactory with the trust-all SSLContext
+      SSLConnectionSocketFactory sslSocketFactory =
+              new SSLConnectionSocketFactory(sslContext, allHostsValid);
+
+      // Build and return the registry
+      return RegistryBuilder.<ConnectionSocketFactory>create()
+              .register("https", sslSocketFactory)
+              .register("http", new PlainConnectionSocketFactory())
+              .build();
+
+    } catch (Exception e) {
+      String errorMessage = "Error while setting up trust-all SSL context.";
+      LOGGER.error(errorMessage, e);
+      throw new RuntimeException(errorMessage, e);
     }
   }
 
