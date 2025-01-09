@@ -18,10 +18,10 @@ jobs:
       # 2) Set Up Java (and optionally Maven)
       ################################################################
       - name: Set Up Java
-        uses: actions/setup-java@v3
+        uses: actions/setup-java@v4
         with:
-          java-version: "11"       # or 17, adjust if needed
-          distribution: "temurin"
+          java-version: "21"
+          distribution: "adopt"
 
       ################################################################
       # 3) Install Squid Proxy
@@ -86,14 +86,13 @@ jobs:
           JDBC_PAT: ${{ secrets.DATABRICKS_TOKEN }}
           JDBC_HOST: ${{ secrets.DATABRICKS_HOST }}
           JDBC_HTTP_PATH: ${{ secrets.DATABRICKS_HTTP_PATH }}
-          run: echo "Proxy environment variables set, and PAT_TOKEN is ready."
+        run: echo "Proxy environment variables set, and PAT_TOKEN is ready."
 
       ################################################################
       # 10) Run ProxyTest
       ################################################################
       - name: Run ProxyTest
-        run: |
-            mvn test '-Dtest=**/ProxyTest.java' -DpatToken=$JDBC_PAT -DjdbcHost=$JDBC_HOST -DjdbcHttpPath=$JDBC_HTTP_PATH -DproxyUrl=http://localhost:3128
+        run: mvn test -Dtest=**/ProxyTest.java -DpatToken=$JDBC_PAT -DjdbcHost=$JDBC_HOST -DjdbcHttpPath=$JDBC_HTTP_PATH -DproxyUrl=http://localhost:3128
  
 
       ################################################################
