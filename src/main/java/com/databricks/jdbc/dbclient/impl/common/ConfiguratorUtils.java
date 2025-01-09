@@ -15,7 +15,6 @@ import java.util.Arrays;
 import java.util.Set;
 import java.util.stream.Collectors;
 import javax.net.ssl.*;
-
 import org.apache.http.config.Registry;
 import org.apache.http.config.RegistryBuilder;
 import org.apache.http.conn.socket.ConnectionSocketFactory;
@@ -27,10 +26,9 @@ import org.apache.http.impl.conn.PoolingHttpClientConnectionManager;
 public class ConfiguratorUtils {
   private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(ConfiguratorUtils.class);
 
-  private static boolean getBypassSSL()
-  {
-    String bypassSSL=System.getenv("BYPASS_SSL");
-    return bypassSSL!=null && bypassSSL.equals("true");
+  private static boolean getBypassSSL() {
+    String bypassSSL = System.getenv("BYPASS_SSL");
+    return bypassSSL != null && bypassSSL.equals("true");
   }
 
   /**
@@ -44,8 +42,10 @@ public class ConfiguratorUtils {
         && !connectionContext.acceptUndeterminedCertificateRevocation()) {
       return new PoolingHttpClientConnectionManager();
     }
-    Registry<ConnectionSocketFactory> socketFactoryRegistry = getBypassSSL()?getConnectionSocketFactoryRegistry():
-        getConnectionSocketFactoryRegistry(connectionContext);
+    Registry<ConnectionSocketFactory> socketFactoryRegistry =
+        getBypassSSL()
+            ? getConnectionSocketFactoryRegistry()
+            : getConnectionSocketFactoryRegistry(connectionContext);
     return new PoolingHttpClientConnectionManager(socketFactoryRegistry);
   }
 
@@ -97,24 +97,24 @@ public class ConfiguratorUtils {
     try {
       // Create a TrustManager that trusts all certificates
       TrustManager[] trustAllCerts =
-              new TrustManager[] {
-                      new X509TrustManager() {
-                        @Override
-                        public X509Certificate[] getAcceptedIssuers() {
-                          return null; // Accept all issuers
-                        }
+          new TrustManager[] {
+            new X509TrustManager() {
+              @Override
+              public X509Certificate[] getAcceptedIssuers() {
+                return null; // Accept all issuers
+              }
 
-                        @Override
-                        public void checkClientTrusted(X509Certificate[] certs, String authType) {
-                          // No-op: Trust all client certificates
-                        }
+              @Override
+              public void checkClientTrusted(X509Certificate[] certs, String authType) {
+                // No-op: Trust all client certificates
+              }
 
-                        @Override
-                        public void checkServerTrusted(X509Certificate[] certs, String authType) {
-                          // No-op: Trust all server certificates
-                        }
-                      }
-              };
+              @Override
+              public void checkServerTrusted(X509Certificate[] certs, String authType) {
+                // No-op: Trust all server certificates
+              }
+            }
+          };
 
       // Initialize the SSLContext with trust-all settings
       SSLContext sslContext = SSLContext.getInstance("TLS");
@@ -125,13 +125,13 @@ public class ConfiguratorUtils {
 
       // Configure SSLConnectionSocketFactory with the trust-all SSLContext
       SSLConnectionSocketFactory sslSocketFactory =
-              new SSLConnectionSocketFactory(sslContext, allHostsValid);
+          new SSLConnectionSocketFactory(sslContext, allHostsValid);
 
       // Build and return the registry
       return RegistryBuilder.<ConnectionSocketFactory>create()
-              .register("https", sslSocketFactory)
-              .register("http", new PlainConnectionSocketFactory())
-              .build();
+          .register("https", sslSocketFactory)
+          .register("http", new PlainConnectionSocketFactory())
+          .build();
 
     } catch (Exception e) {
       String errorMessage = "Error while setting up trust-all SSL context.";
