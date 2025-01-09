@@ -175,6 +175,7 @@ public class IntegrationTestUtil {
         getDogfoodJDBCUrl(), getDatabricksUser(), getDatabricksDogfoodToken());
   }
 
+  /** Used by the DBFSVolumeClient to bypass creation of connection */
   public static IDatabricksConnectionContext getDogfoodJDBCConnectionContext() throws SQLException {
     return DatabricksConnectionContextFactory.create(
         getDogfoodJDBCUrl(), getDatabricksUser(), getDatabricksDogfoodToken());
