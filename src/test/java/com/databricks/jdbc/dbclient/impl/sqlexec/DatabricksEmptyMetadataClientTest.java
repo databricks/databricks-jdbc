@@ -10,7 +10,7 @@ import org.mockito.Mock;
 
 public class DatabricksEmptyMetadataClientTest {
 
-  private final DatabricksEmptyMetadataClient mockClient = new DatabricksEmptyMetadataClient();
+  private final DatabricksEmptyMetadataClient mockClient = new DatabricksEmptyMetadataClient(null);
   @Mock private static IDatabricksSession session;
 
   @Test

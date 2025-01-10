@@ -20,19 +20,20 @@ class ValidationUtilTest {
 
   @Test
   void testCheckIfPositive() {
-    assertDoesNotThrow(() -> ValidationUtil.checkIfNonNegative(10, "testField"));
+    assertDoesNotThrow(() -> ValidationUtil.checkIfNonNegative(10, "testField", null));
     assertThrows(
-        DatabricksSQLException.class, () -> ValidationUtil.checkIfNonNegative(-10, "testField"));
+        DatabricksSQLException.class,
+        () -> ValidationUtil.checkIfNonNegative(-10, "testField", null));
   }
 
   @Test
   void testSuccessfulResponseCheck() {
     when(response.getStatusLine()).thenReturn(statusLine);
     when(statusLine.getStatusCode()).thenReturn(200);
-    assertDoesNotThrow(() -> ValidationUtil.checkHTTPError(response));
+    assertDoesNotThrow(() -> ValidationUtil.checkHTTPError(response, null));
 
     when(statusLine.getStatusCode()).thenReturn(202);
-    assertDoesNotThrow(() -> ValidationUtil.checkHTTPError(response));
+    assertDoesNotThrow(() -> ValidationUtil.checkHTTPError(response, null));
   }
 
   @Test
@@ -41,13 +42,14 @@ class ValidationUtilTest {
     when(statusLine.getStatusCode()).thenReturn(400);
     when(statusLine.toString()).thenReturn("mockStatusLine");
     Throwable exception =
-        assertThrows(DatabricksHttpException.class, () -> ValidationUtil.checkHTTPError(response));
+        assertThrows(
+            DatabricksHttpException.class, () -> ValidationUtil.checkHTTPError(response, null));
     assertEquals(
-        "Unable to fetch HTTP response successfully. HTTP request failed by code: 400, status line: mockStatusLine",
-        exception.getMessage());
+        "HTTP request failed by code: 400, status line: mockStatusLine.", exception.getMessage());
 
     when(statusLine.getStatusCode()).thenReturn(102);
-    assertThrows(DatabricksHttpException.class, () -> ValidationUtil.checkHTTPError(response));
+    assertThrows(
+        DatabricksHttpException.class, () -> ValidationUtil.checkHTTPError(response, null));
   }
 
   @Test

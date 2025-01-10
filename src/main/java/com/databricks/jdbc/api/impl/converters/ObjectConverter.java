@@ -2,10 +2,7 @@ package com.databricks.jdbc.api.impl.converters;
 
 import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.exception.DatabricksSQLException;
-import com.databricks.jdbc.exception.DatabricksSQLFeatureNotSupportedException;
-import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
-
 import java.io.*;
 import java.math.BigDecimal;
 import java.math.BigInteger;
@@ -20,76 +17,127 @@ public interface ObjectConverter {
   };
   int DEFAULT_TIMESTAMP_SCALE = 3;
 
-  default IDatabricksConnectionContext getConnectionContext(){
-    return null; //Implementations to override this
+  default IDatabricksConnectionContext getConnectionContext() {
+    return null; // Implementations to override this
   }
 
   default byte toByte(Object object) throws DatabricksSQLException {
-    throw new DatabricksSQLException("Unsupported byte conversion operation", DatabricksDriverErrorCode.UNSUPPORTED_OPERATION, getConnectionContext());
+    throw new DatabricksSQLException(
+        "Unsupported byte conversion operation",
+        DatabricksDriverErrorCode.UNSUPPORTED_OPERATION,
+        getConnectionContext());
   }
 
   default short toShort(Object object) throws DatabricksSQLException {
-    throw new DatabricksSQLException("Unsupported short conversion operation", DatabricksDriverErrorCode.UNSUPPORTED_OPERATION, getConnectionContext());
+    throw new DatabricksSQLException(
+        "Unsupported short conversion operation",
+        DatabricksDriverErrorCode.UNSUPPORTED_OPERATION,
+        getConnectionContext());
   }
 
   default int toInt(Object object) throws DatabricksSQLException {
-    throw new DatabricksSQLException("Unsupported int conversion operation", DatabricksDriverErrorCode.UNSUPPORTED_OPERATION, getConnectionContext());
+    throw new DatabricksSQLException(
+        "Unsupported int conversion operation",
+        DatabricksDriverErrorCode.UNSUPPORTED_OPERATION,
+        getConnectionContext());
   }
 
   default long toLong(Object object) throws DatabricksSQLException {
-    throw new DatabricksSQLException("Unsupported long conversion operation", DatabricksDriverErrorCode.UNSUPPORTED_OPERATION, getConnectionContext());
+    throw new DatabricksSQLException(
+        "Unsupported long conversion operation",
+        DatabricksDriverErrorCode.UNSUPPORTED_OPERATION,
+        getConnectionContext());
   }
 
   default float toFloat(Object object) throws DatabricksSQLException {
-    throw new DatabricksSQLException("Unsupported float conversion operation", DatabricksDriverErrorCode.UNSUPPORTED_OPERATION, getConnectionContext());
+    throw new DatabricksSQLException(
+        "Unsupported float conversion operation",
+        DatabricksDriverErrorCode.UNSUPPORTED_OPERATION,
+        getConnectionContext());
   }
 
   default double toDouble(Object object) throws DatabricksSQLException {
-    throw new DatabricksSQLException("Unsupported double conversion operation", DatabricksDriverErrorCode.UNSUPPORTED_OPERATION, getConnectionContext());
+    throw new DatabricksSQLException(
+        "Unsupported double conversion operation",
+        DatabricksDriverErrorCode.UNSUPPORTED_OPERATION,
+        getConnectionContext());
   }
 
   default BigDecimal toBigDecimal(Object object) throws DatabricksSQLException {
-    throw new DatabricksSQLException("Unsupported BigDecimal conversion operation", DatabricksDriverErrorCode.UNSUPPORTED_OPERATION, getConnectionContext());
+    throw new DatabricksSQLException(
+        "Unsupported BigDecimal conversion operation",
+        DatabricksDriverErrorCode.UNSUPPORTED_OPERATION,
+        getConnectionContext());
   }
 
   default BigDecimal toBigDecimal(Object object, int scale) throws DatabricksSQLException {
-    throw new DatabricksSQLException("Unsupported BigDecimal(scale) conversion operation", DatabricksDriverErrorCode.UNSUPPORTED_OPERATION, getConnectionContext());
+    throw new DatabricksSQLException(
+        "Unsupported BigDecimal(scale) conversion operation",
+        DatabricksDriverErrorCode.UNSUPPORTED_OPERATION,
+        getConnectionContext());
   }
 
   default BigInteger toBigInteger(Object object) throws DatabricksSQLException {
-    throw new DatabricksSQLException("Unsupported BigInteger conversion operation", DatabricksDriverErrorCode.UNSUPPORTED_OPERATION, getConnectionContext());
+    throw new DatabricksSQLException(
+        "Unsupported BigInteger conversion operation",
+        DatabricksDriverErrorCode.UNSUPPORTED_OPERATION,
+        getConnectionContext());
   }
 
   default LocalDate toLocalDate(Object object) throws DatabricksSQLException {
-    throw new DatabricksSQLException("Unsupported LocalDate conversion operation", DatabricksDriverErrorCode.UNSUPPORTED_OPERATION, getConnectionContext());
+    throw new DatabricksSQLException(
+        "Unsupported LocalDate conversion operation",
+        DatabricksDriverErrorCode.UNSUPPORTED_OPERATION,
+        getConnectionContext());
   }
 
   default boolean toBoolean(Object object) throws DatabricksSQLException {
-    throw new DatabricksSQLException("Unsupported boolean conversion operation", DatabricksDriverErrorCode.UNSUPPORTED_OPERATION, getConnectionContext());
+    throw new DatabricksSQLException(
+        "Unsupported boolean conversion operation",
+        DatabricksDriverErrorCode.UNSUPPORTED_OPERATION,
+        getConnectionContext());
   }
 
   default byte[] toByteArray(Object object) throws DatabricksSQLException {
-    throw new DatabricksSQLException("Unsupported byte[] conversion operation", DatabricksDriverErrorCode.UNSUPPORTED_OPERATION, getConnectionContext());
+    throw new DatabricksSQLException(
+        "Unsupported byte[] conversion operation",
+        DatabricksDriverErrorCode.UNSUPPORTED_OPERATION,
+        getConnectionContext());
   }
 
   default char toChar(Object object) throws DatabricksSQLException {
-    throw new DatabricksSQLException("Unsupported char conversion operation", DatabricksDriverErrorCode.UNSUPPORTED_OPERATION, getConnectionContext());
+    throw new DatabricksSQLException(
+        "Unsupported char conversion operation",
+        DatabricksDriverErrorCode.UNSUPPORTED_OPERATION,
+        getConnectionContext());
   }
 
   default String toString(Object object) throws DatabricksSQLException {
-    throw new DatabricksSQLException("Unsupported String conversion operation", DatabricksDriverErrorCode.UNSUPPORTED_OPERATION, getConnectionContext());
+    throw new DatabricksSQLException(
+        "Unsupported String conversion operation",
+        DatabricksDriverErrorCode.UNSUPPORTED_OPERATION,
+        getConnectionContext());
   }
 
   default Timestamp toTimestamp(Object object) throws DatabricksSQLException {
-    throw new DatabricksSQLException("Unsupported Timestamp conversion operation", DatabricksDriverErrorCode.UNSUPPORTED_OPERATION, getConnectionContext());
+    throw new DatabricksSQLException(
+        "Unsupported Timestamp conversion operation",
+        DatabricksDriverErrorCode.UNSUPPORTED_OPERATION,
+        getConnectionContext());
   }
 
   default Timestamp toTimestamp(Object object, int scale) throws DatabricksSQLException {
-    throw new DatabricksSQLException("Unsupported Timestamp(scale) conversion operation", DatabricksDriverErrorCode.UNSUPPORTED_OPERATION, getConnectionContext());
+    throw new DatabricksSQLException(
+        "Unsupported Timestamp(scale) conversion operation",
+        DatabricksDriverErrorCode.UNSUPPORTED_OPERATION,
+        getConnectionContext());
   }
 
   default Date toDate(Object object) throws DatabricksSQLException {
-    throw new DatabricksSQLException("Unsupported Date conversion operation", DatabricksDriverErrorCode.UNSUPPORTED_OPERATION, getConnectionContext());
+    throw new DatabricksSQLException(
+        "Unsupported Date conversion operation",
+        DatabricksDriverErrorCode.UNSUPPORTED_OPERATION,
+        getConnectionContext());
   }
 
   default InputStream toBinaryStream(Object object) throws DatabricksSQLException {
@@ -100,7 +148,10 @@ public interface ObjectConverter {
       return new ByteArrayInputStream(byteArrayOutputStream.toByteArray());
     } catch (IOException e) {
       throw new DatabricksSQLException(
-          "Could not convert object to binary stream " + object.toString(), e,DatabricksDriverErrorCode.UNSUPPORTED_OPERATION,getConnectionContext());
+          "Could not convert object to binary stream " + object.toString(),
+          e,
+          DatabricksDriverErrorCode.UNSUPPORTED_OPERATION,
+          getConnectionContext());
     }
   }
 

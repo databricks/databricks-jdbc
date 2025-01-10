@@ -234,6 +234,6 @@ public class DatabricksSession implements IDatabricksSession {
 
   @Override
   public void setEmptyMetadataClient() {
-    databricksMetadataClient = new DatabricksEmptyMetadataClient();
+    databricksMetadataClient = new DatabricksEmptyMetadataClient(connectionContext);
   }
 }

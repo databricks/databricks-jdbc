@@ -4,6 +4,7 @@ import static com.databricks.jdbc.common.DatabricksJdbcConstants.EMPTY_STRING;
 import static com.databricks.jdbc.common.DatabricksJdbcConstants.VOLUME_OPERATION_STATUS_COLUMN_NAME;
 import static com.databricks.jdbc.common.util.DatabricksThriftUtil.getTypeFromTypeDesc;
 
+import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.common.AccessType;
 import com.databricks.jdbc.common.Nullable;
 import com.databricks.jdbc.common.util.DatabricksTypeUtil;
@@ -36,6 +37,7 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
   private final long totalRows;
   private Long chunkCount;
   private final boolean isCloudFetchUsed;
+  private final IDatabricksConnectionContext connectionContext;
 
   /**
    * Constructs a {@code DatabricksResultSetMetaData} object for a SEA result set.
@@ -44,8 +46,12 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
    * @param resultManifest the manifest containing metadata about the result set, including column
    *     information and types
    */
-  public DatabricksResultSetMetaData(StatementId statementId, ResultManifest resultManifest) {
+  public DatabricksResultSetMetaData(
+      StatementId statementId,
+      ResultManifest resultManifest,
+      IDatabricksConnectionContext connectionContext) {
     this.statementId = statementId;
+    this.connectionContext = connectionContext;
     Map<String, Integer> columnNameToIndexMap = new HashMap<>();
     ImmutableList.Builder<ImmutableDatabricksColumn> columnsBuilder = ImmutableList.builder();
 
@@ -106,8 +112,10 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
       StatementId statementId,
       TGetResultSetMetadataResp resultManifest,
       long rows,
-      long chunkCount) {
+      long chunkCount,
+      IDatabricksConnectionContext connectionContext) {
     this.statementId = statementId;
+    this.connectionContext = connectionContext;
     Map<String, Integer> columnNameToIndexMap = new HashMap<>();
     ImmutableList.Builder<ImmutableDatabricksColumn> columnsBuilder = ImmutableList.builder();
     LOGGER.debug(
@@ -167,8 +175,12 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
    * @param totalRows the total number of rows in the result set
    */
   public DatabricksResultSetMetaData(
-      StatementId statementId, List<ColumnMetadata> columnMetadataList, long totalRows) {
+      StatementId statementId,
+      List<ColumnMetadata> columnMetadataList,
+      long totalRows,
+      IDatabricksConnectionContext connectionContext) {
     this.statementId = statementId;
+    this.connectionContext = connectionContext;
     Map<String, Integer> columnNameToIndexMap = new HashMap<>();
     ImmutableList.Builder<ImmutableDatabricksColumn> columnsBuilder = ImmutableList.builder();
 
@@ -215,8 +227,10 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
       List<String> columnTypeText,
       List<Integer> columnTypes,
       List<Integer> columnTypePrecisions,
-      long totalRows) {
+      long totalRows,
+      IDatabricksConnectionContext connectionContext) {
     this.statementId = statementId;
+    this.connectionContext = connectionContext;
 
     Map<String, Integer> columnNameToIndexMap = new HashMap<>();
     ImmutableList.Builder<ImmutableDatabricksColumn> columnsBuilder = ImmutableList.builder();
@@ -353,7 +367,7 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
 
   @Override
   public <T> T unwrap(Class<T> iface) throws SQLException {
-    return WrapperUtil.unwrap(iface, this);
+    return WrapperUtil.unwrap(iface, this, connectionContext);
   }
 
   @Override

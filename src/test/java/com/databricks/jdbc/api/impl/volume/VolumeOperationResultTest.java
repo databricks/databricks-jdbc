@@ -1,5 +1,6 @@
 package com.databricks.jdbc.api.impl.volume;
 
+import static com.databricks.jdbc.TestConstants.TEST_STRING;
 import static com.databricks.jdbc.common.DatabricksJdbcConstants.ALLOWED_VOLUME_INGESTION_PATHS;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.isA;
@@ -14,6 +15,7 @@ import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
 import com.databricks.jdbc.exception.DatabricksHttpException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.model.core.ResultManifest;
+import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import com.databricks.sdk.service.sql.ResultSchema;
 import java.io.ByteArrayInputStream;
 import java.io.File;
@@ -125,7 +127,9 @@ public class VolumeOperationResultTest {
     when(resultHandler.getObject(1)).thenReturn(PRESIGNED_URL);
     when(resultHandler.getObject(3)).thenReturn("__input_stream__");
     when(statement.isAllowedInputStreamForVolumeOperation())
-        .thenThrow(new DatabricksSQLException("statement closed"));
+        .thenThrow(
+            new DatabricksSQLException(
+                "statement closed", DatabricksDriverErrorCode.INVALID_STATE, null));
 
     VolumeOperationResult volumeOperationResult =
         new VolumeOperationResult(
@@ -156,6 +160,7 @@ public class VolumeOperationResultTest {
     when(session.getClientInfoProperties())
         .thenReturn(Map.of(ALLOWED_VOLUME_INGESTION_PATHS.toLowerCase(), ""));
     when(session.getConnectionContext()).thenReturn(context);
+    when(context.getConnectionUuid()).thenReturn(TEST_STRING);
     when(context.getVolumeOperationAllowedPaths()).thenReturn("");
 
     VolumeOperationResult volumeOperationResult =
@@ -168,7 +173,9 @@ public class VolumeOperationResultTest {
       volumeOperationResult.next();
       fail("Should throw DatabricksSQLException");
     } catch (DatabricksSQLException e) {
-      assertEquals("Volume operation aborted: Volume ingestion paths are not set", e.getMessage());
+      assertEquals(
+          "Volume operation status : ABORTED, Error message: Volume ingestion paths are not set",
+          e.getMessage());
     }
   }
 
@@ -178,7 +185,8 @@ public class VolumeOperationResultTest {
     when(resultHandler.getObject(0)).thenReturn("GET");
     when(resultHandler.getObject(1)).thenReturn(PRESIGNED_URL);
     when(resultHandler.getObject(3)).thenReturn("localFileOther");
-
+    when(session.getConnectionContext()).thenReturn(context);
+    when(context.getConnectionUuid()).thenReturn(TEST_STRING);
     VolumeOperationResult volumeOperationResult =
         new VolumeOperationResult(
             RESULT_MANIFEST, session, resultHandler, mockHttpClient, statement);
@@ -189,7 +197,9 @@ public class VolumeOperationResultTest {
       volumeOperationResult.next();
       fail("Should throw DatabricksSQLException");
     } catch (DatabricksSQLException e) {
-      assertEquals("Volume operation aborted: Local file path is not allowed", e.getMessage());
+      assertEquals(
+          "Volume operation status : ABORTED, Error message: Local file path is not allowed",
+          e.getMessage());
     }
   }
 
@@ -199,7 +209,8 @@ public class VolumeOperationResultTest {
     when(resultHandler.getObject(0)).thenReturn("GET");
     when(resultHandler.getObject(1)).thenReturn(PRESIGNED_URL);
     when(resultHandler.getObject(3)).thenReturn("getvolfile.csv");
-
+    when(session.getConnectionContext()).thenReturn(context);
+    when(context.getConnectionUuid()).thenReturn(TEST_STRING);
     VolumeOperationResult volumeOperationResult =
         new VolumeOperationResult(
             RESULT_MANIFEST, session, resultHandler, mockHttpClient, statement);
@@ -210,7 +221,9 @@ public class VolumeOperationResultTest {
       volumeOperationResult.next();
       fail("Should throw DatabricksSQLException");
     } catch (DatabricksSQLException e) {
-      assertEquals("Volume operation aborted: Local file path is not allowed", e.getMessage());
+      assertEquals(
+          "Volume operation status : ABORTED, Error message: Local file path is not allowed",
+          e.getMessage());
     }
   }
 
@@ -220,7 +233,8 @@ public class VolumeOperationResultTest {
     when(resultHandler.getObject(0)).thenReturn("GET");
     when(resultHandler.getObject(1)).thenReturn(PRESIGNED_URL);
     when(resultHandler.getObject(3)).thenReturn("");
-
+    when(session.getConnectionContext()).thenReturn(context);
+    when(context.getConnectionUuid()).thenReturn(TEST_STRING);
     VolumeOperationResult volumeOperationResult =
         new VolumeOperationResult(
             RESULT_MANIFEST, session, resultHandler, mockHttpClient, statement);
@@ -231,7 +245,9 @@ public class VolumeOperationResultTest {
       volumeOperationResult.next();
       fail("Should throw DatabricksSQLException");
     } catch (DatabricksSQLException e) {
-      assertEquals("Volume operation aborted: Local file path is invalid", e.getMessage());
+      assertEquals(
+          "Volume operation status : ABORTED, Error message: Local file path is invalid",
+          e.getMessage());
     }
   }
 
@@ -241,6 +257,8 @@ public class VolumeOperationResultTest {
     when(resultHandler.getObject(0)).thenReturn("GET");
     when(resultHandler.getObject(1)).thenReturn(PRESIGNED_URL);
     when(resultHandler.getObject(3)).thenReturn(LOCAL_FILE_GET);
+    when(session.getConnectionContext()).thenReturn(context);
+    when(context.getConnectionUuid()).thenReturn(TEST_STRING);
 
     File file = new File(LOCAL_FILE_GET);
     Files.writeString(file.toPath(), "test-put");
@@ -255,7 +273,9 @@ public class VolumeOperationResultTest {
       volumeOperationResult.next();
       fail("Should throw DatabricksSQLException");
     } catch (DatabricksSQLException e) {
-      assertEquals("Volume operation aborted: Local file already exists", e.getMessage());
+      assertEquals(
+          "Volume operation status : ABORTED, Error message: Local file already exists",
+          e.getMessage());
     } finally {
       file.delete();
     }
@@ -267,6 +287,8 @@ public class VolumeOperationResultTest {
     when(resultHandler.getObject(0)).thenReturn("GET");
     when(resultHandler.getObject(1)).thenReturn(PRESIGNED_URL);
     when(resultHandler.getObject(3)).thenReturn("../newFile.csv");
+    when(session.getConnectionContext()).thenReturn(context);
+    when(context.getConnectionUuid()).thenReturn(TEST_STRING);
 
     VolumeOperationResult volumeOperationResult =
         new VolumeOperationResult(
@@ -278,7 +300,9 @@ public class VolumeOperationResultTest {
       volumeOperationResult.next();
       fail("Should throw DatabricksSQLException");
     } catch (DatabricksSQLException e) {
-      assertEquals("Volume operation aborted: Local file path is invalid", e.getMessage());
+      assertEquals(
+          "Volume operation status : ABORTED, Error message: Local file path is invalid",
+          e.getMessage());
     }
   }
 
@@ -291,6 +315,8 @@ public class VolumeOperationResultTest {
     when(mockHttpClient.execute(isA(HttpGet.class))).thenReturn(httpResponse);
     when(httpResponse.getStatusLine()).thenReturn(mockedStatusLine);
     when(mockedStatusLine.getStatusCode()).thenReturn(403);
+    when(session.getConnectionContext()).thenReturn(context);
+    when(context.getConnectionUuid()).thenReturn(TEST_STRING);
 
     VolumeOperationResult volumeOperationResult =
         new VolumeOperationResult(
@@ -302,7 +328,9 @@ public class VolumeOperationResultTest {
       volumeOperationResult.next();
       fail("Should throw DatabricksSQLException");
     } catch (DatabricksSQLException e) {
-      assertEquals("Volume operation failed: Failed to download file", e.getMessage());
+      assertEquals(
+          "Volume operation status : FAILED, Error message: Failed to download file",
+          e.getMessage());
     }
   }
 
@@ -380,7 +408,8 @@ public class VolumeOperationResultTest {
       fail("Should throw DatabricksSQLException");
     } catch (DatabricksSQLException e) {
       assertEquals(
-          "Volume operation aborted: InputStream not set for PUT operation", e.getMessage());
+          "Volume operation status : ABORTED, Error message: InputStream not set for PUT operation",
+          e.getMessage());
     }
   }
 
@@ -392,7 +421,9 @@ public class VolumeOperationResultTest {
     when(resultHandler.getObject(3)).thenReturn("__input_stream__");
     when(statement.isAllowedInputStreamForVolumeOperation()).thenReturn(true);
     when(statement.getInputStreamForUCVolume())
-        .thenThrow(new DatabricksSQLException("statement closed"));
+        .thenThrow(
+            new DatabricksSQLException(
+                "statement closed", DatabricksDriverErrorCode.INVALID_STATE, null));
 
     VolumeOperationResult volumeOperationResult =
         new VolumeOperationResult(
@@ -433,7 +464,8 @@ public class VolumeOperationResultTest {
       fail("Should throw DatabricksSQLException");
     } catch (DatabricksSQLException e) {
       assertEquals(
-          "Volume operation failed: Failed to upload file with error code: 403", e.getMessage());
+          "Volume operation status : FAILED, Error message: Failed to upload file with error code: 403",
+          e.getMessage());
     } finally {
       file.delete();
     }
@@ -459,7 +491,8 @@ public class VolumeOperationResultTest {
       volumeOperationResult.next();
       fail("Should throw DatabricksSQLException");
     } catch (DatabricksSQLException e) {
-      assertEquals("Volume operation aborted: Local file is empty", e.getMessage());
+      assertEquals(
+          "Volume operation status : ABORTED, Error message: Local file is empty", e.getMessage());
     } finally {
       file.delete();
     }
@@ -483,7 +516,8 @@ public class VolumeOperationResultTest {
       fail("Should throw DatabricksSQLException");
     } catch (DatabricksSQLException e) {
       assertEquals(
-          "Volume operation aborted: Local file does not exist or is a directory", e.getMessage());
+          "Volume operation status : ABORTED, Error message: Local file does not exist or is a directory",
+          e.getMessage());
     }
   }
 
@@ -504,7 +538,9 @@ public class VolumeOperationResultTest {
       volumeOperationResult.next();
       fail("Should throw DatabricksSQLException");
     } catch (DatabricksSQLException e) {
-      assertEquals("Volume operation aborted: Invalid operation type", e.getMessage());
+      assertEquals(
+          "Volume operation status : ABORTED, Error message: Invalid operation type",
+          e.getMessage());
     }
   }
 
@@ -556,6 +592,9 @@ public class VolumeOperationResultTest {
     when(httpResponse.getStatusLine()).thenReturn(mockedStatusLine);
     when(mockedStatusLine.getStatusCode()).thenReturn(200);
 
+    when(session.getConnectionContext()).thenReturn(context);
+    when(context.getConnectionUuid()).thenReturn(TEST_STRING);
+
     VolumeOperationResult volumeOperationResult =
         new VolumeOperationResult(
             RESULT_MANIFEST, session, resultHandler, mockHttpClient, statement);
@@ -584,7 +623,8 @@ public class VolumeOperationResultTest {
     when(mockHttpClient.execute(isA(HttpDelete.class))).thenReturn(httpResponse);
     when(httpResponse.getStatusLine()).thenReturn(mockedStatusLine);
     when(mockedStatusLine.getStatusCode()).thenReturn(403);
-
+    when(session.getConnectionContext()).thenReturn(context);
+    when(context.getConnectionUuid()).thenReturn(TEST_STRING);
     VolumeOperationResult volumeOperationResult =
         new VolumeOperationResult(
             RESULT_MANIFEST, session, resultHandler, mockHttpClient, statement);
@@ -596,7 +636,9 @@ public class VolumeOperationResultTest {
       volumeOperationResult.next();
       fail("Should throw DatabricksSQLException");
     } catch (DatabricksSQLException e) {
-      assertEquals("Volume operation failed: Failed to delete volume", e.getMessage());
+      assertEquals(
+          "Volume operation status : FAILED, Error message: Failed to delete volume",
+          e.getMessage());
     }
     assertDoesNotThrow(volumeOperationResult::close);
   }
@@ -608,7 +650,9 @@ public class VolumeOperationResultTest {
     when(resultHandler.getObject(1)).thenReturn(PRESIGNED_URL);
     when(resultHandler.getObject(3)).thenReturn(null);
     when(mockHttpClient.execute(isA(HttpDelete.class)))
-        .thenThrow(new DatabricksHttpException("exception"));
+        .thenThrow(
+            new DatabricksHttpException(
+                "exception", DatabricksDriverErrorCode.INVALID_STATE, null));
 
     VolumeOperationResult volumeOperationResult =
         new VolumeOperationResult(
@@ -621,7 +665,9 @@ public class VolumeOperationResultTest {
       volumeOperationResult.next();
       fail("Should throw DatabricksSQLException");
     } catch (DatabricksSQLException e) {
-      assertEquals("Volume operation failed: Failed to delete volume: exception", e.getMessage());
+      assertEquals(
+          "Volume operation status : FAILED, Error message: Failed to delete volume: exception",
+          e.getMessage());
     }
   }
 
@@ -645,6 +691,8 @@ public class VolumeOperationResultTest {
     when(resultHandler.getObject(0)).thenReturn("GET");
     when(resultHandler.getObject(1)).thenReturn("");
     when(resultHandler.getObject(3)).thenReturn(LOCAL_FILE_GET);
+    when(session.getConnectionContext()).thenReturn(context);
+    when(context.getConnectionUuid()).thenReturn(TEST_STRING);
 
     VolumeOperationResult volumeOperationResult =
         new VolumeOperationResult(
@@ -656,7 +704,9 @@ public class VolumeOperationResultTest {
       volumeOperationResult.next();
       fail("Should throw DatabricksSQLException");
     } catch (DatabricksSQLException e) {
-      assertEquals("Volume operation aborted: Volume operation URL is not set", e.getMessage());
+      assertEquals(
+          "Volume operation status : ABORTED, Error message: Volume operation URL is not set",
+          e.getMessage());
     }
   }
 

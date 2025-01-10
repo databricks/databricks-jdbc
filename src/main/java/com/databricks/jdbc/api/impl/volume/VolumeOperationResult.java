@@ -8,7 +8,6 @@ import com.databricks.jdbc.api.impl.IExecutionResult;
 import com.databricks.jdbc.api.impl.VolumeOperationStatus;
 import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
 import com.databricks.jdbc.common.util.VolumeUtil;
-
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
 import com.databricks.jdbc.dbclient.impl.http.DatabricksHttpClientFactory;
 import com.databricks.jdbc.exception.DatabricksSQLException;
@@ -29,8 +28,7 @@ import org.apache.http.entity.InputStreamEntity;
 
 /** Class to handle the result of a volume operation */
 public class VolumeOperationResult implements IExecutionResult {
-  private static final JdbcLogger LOGGER =
-          JdbcLoggerFactory.getLogger(VolumeOperationResult.class);
+  private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(VolumeOperationResult.class);
   private final IDatabricksSession session;
   private final IExecutionResult resultHandler;
   private final IDatabricksStatementInternal statement;
@@ -137,7 +135,8 @@ public class VolumeOperationResult implements IExecutionResult {
           throw new DatabricksVolumeOperationException(
               "Failed to parse headers",
               e,
-              DatabricksDriverErrorCode.VOLUME_OPERATION_PARSING_ERROR, session.getConnectionContext());
+              DatabricksDriverErrorCode.VOLUME_OPERATION_PARSING_ERROR,
+              session.getConnectionContext());
         }
       }
     }
@@ -149,15 +148,16 @@ public class VolumeOperationResult implements IExecutionResult {
     String errorMessage = null;
     if (rowCount > 1) {
       errorMessage = "Too many rows for Volume Operation";
-    }
-    else if (columnCount > 4) {
+    } else if (columnCount > 4) {
       errorMessage = "Too many columns for Volume Operation";
-    }
-    else if (columnCount < 3) {
+    } else if (columnCount < 3) {
       errorMessage = "Too few columns for Volume Operation";
     }
-    if(errorMessage!=null){
-      throw new DatabricksVolumeOperationException(errorMessage,DatabricksDriverErrorCode.VOLUME_OPERATION_INVALID_STATE, session.getConnectionContext());
+    if (errorMessage != null) {
+      throw new DatabricksVolumeOperationException(
+          errorMessage,
+          DatabricksDriverErrorCode.VOLUME_OPERATION_INVALID_STATE,
+          session.getConnectionContext());
     }
   }
 
@@ -166,8 +166,11 @@ public class VolumeOperationResult implements IExecutionResult {
     if (columnIndex == 0) {
       return volumeOperationProcessor.getStatus().name();
     }
-  String errorMessage = (currentRowIndex < 0)? "Invalid row access": "Invalid column access";
-  throw new DatabricksVolumeOperationException(errorMessage,DatabricksDriverErrorCode.VOLUME_OPERATION_INVALID_STATE,session.getConnectionContext());
+    String errorMessage = (currentRowIndex < 0) ? "Invalid row access" : "Invalid column access";
+    throw new DatabricksVolumeOperationException(
+        errorMessage,
+        DatabricksDriverErrorCode.VOLUME_OPERATION_INVALID_STATE,
+        session.getConnectionContext());
   }
 
   @Override
@@ -220,10 +223,17 @@ public class VolumeOperationResult implements IExecutionResult {
   }
 
   private void ensureSuccessVolumeProcessorStatus() throws DatabricksVolumeOperationException {
-    if (volumeOperationProcessor.getStatus()== VolumeOperationStatus.FAILED || volumeOperationProcessor.getStatus()== VolumeOperationStatus.ABORTED) {
-      String errorMessage = String.format( "Volume operation status : %s, Error message: %s", volumeOperationProcessor.getStatus(), volumeOperationProcessor.getErrorMessage());
+    if (volumeOperationProcessor.getStatus() == VolumeOperationStatus.FAILED
+        || volumeOperationProcessor.getStatus() == VolumeOperationStatus.ABORTED) {
+      String errorMessage =
+          String.format(
+              "Volume operation status : %s, Error message: %s",
+              volumeOperationProcessor.getStatus(), volumeOperationProcessor.getErrorMessage());
       LOGGER.error(errorMessage);
-      throw new DatabricksVolumeOperationException(errorMessage,DatabricksDriverErrorCode.VOLUME_OPERATION_EXCEPTION, session.getConnectionContext());
+      throw new DatabricksVolumeOperationException(
+          errorMessage,
+          DatabricksDriverErrorCode.VOLUME_OPERATION_EXCEPTION,
+          session.getConnectionContext());
     }
   }
 }

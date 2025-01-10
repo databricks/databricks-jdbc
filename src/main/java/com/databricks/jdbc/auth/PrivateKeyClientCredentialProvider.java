@@ -43,7 +43,7 @@ public class PrivateKeyClientCredentialProvider implements CredentialsProvider {
         .withJwtKeyPassphrase(connectionContext.getJWTPassphrase())
         .withJwtAlgorithm(connectionContext.getJWTAlgorithm())
         .withTokenUrl(tokenEndpoint)
-            .withConnectionContext(connectionContext)
+        .withConnectionContext(connectionContext)
         .withScopes(Collections.singletonList(connectionContext.getAuthScope()))
         .build();
   }

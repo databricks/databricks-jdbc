@@ -12,7 +12,7 @@ import org.junit.jupiter.api.Test;
 
 public class ByteArrayConverterTest {
 
-  private final ByteArrayConverter converter = new ByteArrayConverter();
+  private final ByteArrayConverter converter = new ByteArrayConverter(null);
 
   @Test
   void testConvertToByteArrayFromString() throws DatabricksSQLException {
@@ -69,7 +69,7 @@ public class ByteArrayConverterTest {
 
   @Test
   void testUnsupportedConversions() {
-    ByteArrayConverter converter = new ByteArrayConverter();
+    ByteArrayConverter converter = new ByteArrayConverter(null);
     assertAll(
         "Unsupported Conversions",
         () ->

@@ -85,7 +85,9 @@ class ExecutionResultFactory {
     TSparkRowSetType resultFormat = resultsResp.getResultSetMetadata().getResultFormat();
     switch (resultFormat) {
       case COLUMN_BASED_SET:
-        return getResultSet(convertColumnarToRowBased(resultsResp, parentStatement, session), session.getConnectionContext());
+        return getResultSet(
+            convertColumnarToRowBased(resultsResp, parentStatement, session),
+            session.getConnectionContext());
       case ARROW_BASED_SET:
         return new ArrowStreamResult(resultsResp, true, parentStatement, session);
       case URL_BASED_SET:
@@ -99,11 +101,13 @@ class ExecutionResultFactory {
     }
   }
 
-  static IExecutionResult getResultSet(Object[][] rows, IDatabricksConnectionContext connectionContext) {
-    return new InlineJsonResult(rows,connectionContext);
+  static IExecutionResult getResultSet(
+      Object[][] rows, IDatabricksConnectionContext connectionContext) {
+    return new InlineJsonResult(rows, connectionContext);
   }
 
-  static IExecutionResult getResultSet(List<List<Object>> rows,  IDatabricksConnectionContext connectionContext) {
-    return new InlineJsonResult(rows,connectionContext);
+  static IExecutionResult getResultSet(
+      List<List<Object>> rows, IDatabricksConnectionContext connectionContext) {
+    return new InlineJsonResult(rows, connectionContext);
   }
 }

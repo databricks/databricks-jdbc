@@ -42,7 +42,7 @@ public class InlineChunkProvider implements ChunkProvider {
       IDatabricksStatementInternal parentStatement,
       IDatabricksSession session)
       throws DatabricksParsingException {
-      this.connectionContext = session.getConnectionContext();
+    this.connectionContext = session.getConnectionContext();
     this.currentChunkIndex = -1;
     this.totalRows = 0;
     ByteArrayInputStream byteStream = initializeByteStream(resultsResp, session, parentStatement);
@@ -111,7 +111,7 @@ public class InlineChunkProvider implements ChunkProvider {
       }
       return new ByteArrayInputStream(baos.toByteArray());
     } catch (DatabricksSQLException | IOException e) {
-      handleError(e,connectionContext);
+      handleError(e, connectionContext);
     }
     return null;
   }
@@ -129,7 +129,8 @@ public class InlineChunkProvider implements ChunkProvider {
               compressionCodec,
               String.format(
                   "Data fetch for inline arrow batch [%d] and statement [%s] with decompression algorithm : [%s]",
-                  arrowBatch.getRowCount(), parentStatement, compressionCodec),connectionContext);
+                  arrowBatch.getRowCount(), parentStatement, compressionCodec),
+              connectionContext);
       totalRows += arrowBatch.getRowCount();
       baos.write(decompressedBytes);
     }
@@ -140,17 +141,18 @@ public class InlineChunkProvider implements ChunkProvider {
     if (metadata.getArrowSchema() != null) {
       return metadata.getArrowSchema();
     }
-    Schema arrowSchema = hiveSchemaToArrowSchema(metadata.getSchema(),connectionContext);
+    Schema arrowSchema = hiveSchemaToArrowSchema(metadata.getSchema(), connectionContext);
     try {
       return SchemaUtility.serialize(arrowSchema);
     } catch (IOException e) {
-      handleError(e,connectionContext);
+      handleError(e, connectionContext);
     }
     // should never reach here;
     return null;
   }
 
-  private static Schema hiveSchemaToArrowSchema(TTableSchema hiveSchema, IDatabricksConnectionContext connectionContext)
+  private static Schema hiveSchemaToArrowSchema(
+      TTableSchema hiveSchema, IDatabricksConnectionContext connectionContext)
       throws DatabricksParsingException {
     List<Field> fields = new ArrayList<>();
     if (hiveSchema == null) {
@@ -162,28 +164,32 @@ public class InlineChunkProvider implements ChunkProvider {
           .forEach(
               columnDesc -> {
                 try {
-                  fields.add(getArrowField(columnDesc));
+                  fields.add(getArrowField(columnDesc, connectionContext));
                 } catch (SQLException e) {
                   throw new RuntimeException(e);
                 }
               });
     } catch (RuntimeException e) {
-      handleError(e,connectionContext);
+      handleError(e, connectionContext);
     }
     return new Schema(fields);
   }
 
-  private static Field getArrowField(TColumnDesc columnDesc) throws SQLException {
+  private static Field getArrowField(
+      TColumnDesc columnDesc, IDatabricksConnectionContext connectionContext) throws SQLException {
     TTypeId thriftType = getThriftTypeFromTypeDesc(columnDesc.getTypeDesc());
-    ArrowType arrowType = mapThriftToArrowType(thriftType);
+    ArrowType arrowType = mapThriftToArrowType(thriftType, connectionContext);
     FieldType fieldType = new FieldType(true, arrowType, null);
     return new Field(columnDesc.getColumnName(), fieldType, null);
   }
 
   @VisibleForTesting
-  static void handleError(Exception e, IDatabricksConnectionContext connectionContext) throws DatabricksParsingException {
-    String errorMessage = String.format("Cannot process inline arrow format. Error: %s", e.getMessage());
+  static void handleError(Exception e, IDatabricksConnectionContext connectionContext)
+      throws DatabricksParsingException {
+    String errorMessage =
+        String.format("Cannot process inline arrow format. Error: %s", e.getMessage());
     LOGGER.error(errorMessage);
-    throw new DatabricksParsingException(errorMessage, e, DatabricksDriverErrorCode.INLINE_CHUNK_PARSING_ERROR,connectionContext);
+    throw new DatabricksParsingException(
+        errorMessage, e, DatabricksDriverErrorCode.INLINE_CHUNK_PARSING_ERROR, connectionContext);
   }
 }

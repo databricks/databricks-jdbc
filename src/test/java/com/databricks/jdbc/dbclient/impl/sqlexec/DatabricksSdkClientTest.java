@@ -1,5 +1,6 @@
 package com.databricks.jdbc.dbclient.impl.sqlexec;
 
+import static com.databricks.jdbc.TestConstants.TEST_STRING;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.when;
 
@@ -27,6 +28,7 @@ public class DatabricksSdkClientTest {
   void testHandleFailedExecution() throws SQLException {
     String statementId = "statementId";
     String statement = "statement";
+    when(connectionContext.getConnectionUuid()).thenReturn(TEST_STRING);
     when(connectionContext.getAuthMech()).thenReturn(AuthMech.PAT);
     when(connectionContext.getHostUrl()).thenReturn("https://pat.databricks.com");
     when(connectionContext.getToken()).thenReturn("pat-token");

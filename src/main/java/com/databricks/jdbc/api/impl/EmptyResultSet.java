@@ -23,13 +23,16 @@ public class EmptyResultSet
   private final IDatabricksConnectionContext connectionContext;
 
   public EmptyResultSet(IDatabricksConnectionContext connectionContext) {
-  this.connectionContext = connectionContext;
+    this.connectionContext = connectionContext;
     isClosed = false;
   }
 
   private void checkIfClosed() throws SQLException {
     if (isClosed()) {
-      throw new DatabricksSQLException("Empty result set is closed", DatabricksDriverErrorCode.STATEMENT_CLOSED,connectionContext);
+      throw new DatabricksSQLException(
+          "Empty result set is closed",
+          DatabricksDriverErrorCode.STATEMENT_CLOSED,
+          connectionContext);
     }
   }
 
@@ -1073,7 +1076,7 @@ public class EmptyResultSet
   @Override
   public ResultSetMetaData getMetaData() throws SQLException {
     checkIfClosed();
-    return new EmptyResultSetMetaData();
+    return new EmptyResultSetMetaData(connectionContext);
   }
 
   @Override

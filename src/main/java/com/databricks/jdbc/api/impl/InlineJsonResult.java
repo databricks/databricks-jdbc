@@ -5,7 +5,6 @@ import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.model.core.ResultData;
 import com.databricks.jdbc.model.core.ResultManifest;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
-
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -17,7 +16,10 @@ public class InlineJsonResult implements IExecutionResult {
   private boolean isClosed;
   private final IDatabricksConnectionContext connectionContext;
 
-  public InlineJsonResult(ResultManifest resultManifest, ResultData resultData, IDatabricksConnectionContext connectionContext) {
+  public InlineJsonResult(
+      ResultManifest resultManifest,
+      ResultData resultData,
+      IDatabricksConnectionContext connectionContext) {
     this(getDataList(resultData.getDataArray()), connectionContext);
   }
 
@@ -25,7 +27,8 @@ public class InlineJsonResult implements IExecutionResult {
     this(
         Arrays.stream(rows)
             .map(row -> Arrays.stream(row).collect(Collectors.toList()))
-            .collect(Collectors.toList()), connectionContext);
+            .collect(Collectors.toList()),
+        connectionContext);
   }
 
   public InlineJsonResult(List<List<Object>> rows, IDatabricksConnectionContext connectionContext) {
@@ -53,15 +56,22 @@ public class InlineJsonResult implements IExecutionResult {
   @Override
   public Object getObject(int columnIndex) throws DatabricksSQLException {
     if (isClosed()) {
-      throw new DatabricksSQLException("Result is already closed", DatabricksDriverErrorCode.STATEMENT_CLOSED,connectionContext);
+      throw new DatabricksSQLException(
+          "Result is already closed",
+          DatabricksDriverErrorCode.STATEMENT_CLOSED,
+          connectionContext);
     }
     if (currentRow == -1) {
-      throw new DatabricksSQLException("Cursor is before first row", DatabricksDriverErrorCode.INVALID_STATE,connectionContext);
+      throw new DatabricksSQLException(
+          "Cursor is before first row", DatabricksDriverErrorCode.INVALID_STATE, connectionContext);
     }
     if (columnIndex < data.get((int) currentRow).size()) {
       return data.get((int) currentRow).get(columnIndex);
     }
-    throw new DatabricksSQLException("Column index out of bounds " + columnIndex, DatabricksDriverErrorCode.INVALID_STATE,connectionContext);
+    throw new DatabricksSQLException(
+        "Column index out of bounds " + columnIndex,
+        DatabricksDriverErrorCode.INVALID_STATE,
+        connectionContext);
   }
 
   @Override

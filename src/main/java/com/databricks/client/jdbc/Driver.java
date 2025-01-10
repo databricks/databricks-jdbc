@@ -72,7 +72,8 @@ public class Driver implements IDatabricksDriver, java.sql.Driver {
               "Connection failure while using the OSS Databricks JDBC driver. Failed to connect to server: %s\n%s",
               connectionContext.getHostUrl(), getRootCauseMessage(e));
       LOGGER.error(e, errorMessage);
-      throw new DatabricksSQLException(errorMessage, e, DatabricksDriverErrorCode.CONNECTION_ERROR, connectionContext);
+      throw new DatabricksSQLException(
+          errorMessage, e, DatabricksDriverErrorCode.CONNECTION_ERROR, connectionContext);
     }
   }
 
@@ -109,8 +110,10 @@ public class Driver implements IDatabricksDriver, java.sql.Driver {
   public void closeConnection(String url, Properties info, String connectionId)
       throws SQLException {
     if (!acceptsURL(url)) {
-      // Return null connection if URL is not accepted - as per JDBC standard.
-      throw new DatabricksSQLException("Invalid connection Url {%s}", url);
+      throw new DatabricksSQLException(
+          String.format("Invalid connection Url {%s}, Can't close connection.", url),
+          DatabricksDriverErrorCode.CONNECTION_ERROR,
+          null);
     }
     IDatabricksConnectionContext connectionContext =
         DatabricksConnectionContextFactory.create(url, info);
@@ -120,6 +123,7 @@ public class Driver implements IDatabricksDriver, java.sql.Driver {
     } else {
       databricksClient = new DatabricksSdkClient(connectionContext);
     }
-    databricksClient.deleteSession(SessionId.deserialize(connectionId).getSessionInfo());
+    databricksClient.deleteSession(
+        SessionId.deserialize(connectionId, connectionContext).getSessionInfo());
   }
 }

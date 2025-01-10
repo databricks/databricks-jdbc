@@ -4,7 +4,6 @@ import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.common.util.DriverUtil;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.model.telemetry.*;
-import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import java.nio.charset.Charset;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -35,6 +34,9 @@ public class TelemetryHelper {
 
   // TODO : add an export even before connection context is built
   public static void exportInitialTelemetryLog(IDatabricksConnectionContext connectionContext) {
+    if (connectionContext == null) {
+      return;
+    }
     TelemetryFrontendLog telemetryFrontendLog =
         new TelemetryFrontendLog()
             .setEntry(
@@ -50,9 +52,7 @@ public class TelemetryHelper {
   }
 
   public static void exportFailureLog(
-      IDatabricksConnectionContext connectionContext,
-      String errorName,
-      String errorMessage) {
+      IDatabricksConnectionContext connectionContext, String errorName, String errorMessage) {
     DriverErrorInfo errorInfo =
         new DriverErrorInfo().setErrorName(errorName).setStackTrace(errorMessage);
     TelemetryFrontendLog telemetryFrontendLog =
@@ -72,6 +72,9 @@ public class TelemetryHelper {
 
   private static DriverConnectionParameters getDriverConnectionParameter(
       IDatabricksConnectionContext connectionContext) {
+    if (connectionContext == null) {
+      return null;
+    }
     return connectionParameterCache.computeIfAbsent(
         connectionContext.getConnectionUuid(),
         uuid -> buildDriverConnectionParameters(connectionContext));

@@ -6,11 +6,13 @@ import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 
 public class BitConverter implements ObjectConverter {
   private final IDatabricksConnectionContext connectionContext;
-  public BitConverter(IDatabricksConnectionContext connectionContext){
+
+  public BitConverter(IDatabricksConnectionContext connectionContext) {
     this.connectionContext = connectionContext;
   }
+
   @Override
-  public IDatabricksConnectionContext getConnectionContext(){
+  public IDatabricksConnectionContext getConnectionContext() {
     return connectionContext;
   }
 
@@ -26,6 +28,8 @@ public class BitConverter implements ObjectConverter {
       return Boolean.parseBoolean((String) object);
     }
     throw new DatabricksSQLException(
-        "Unsupported type for conversion to BIT: " + object.getClass(), DatabricksDriverErrorCode.UNSUPPORTED_OPERATION,getConnectionContext());
+        "Unsupported type for conversion to BIT: " + object.getClass(),
+        DatabricksDriverErrorCode.UNSUPPORTED_OPERATION,
+        getConnectionContext());
   }
 }

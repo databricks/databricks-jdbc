@@ -116,7 +116,7 @@ public class ArrowStreamResult implements IExecutionResult {
   public Object getObject(int columnIndex) throws DatabricksSQLException {
     ColumnInfoTypeName requiredType = columnInfos.get(columnIndex).getTypeName();
     Object unconvertedObject = chunkIterator.getColumnObjectAtCurrentRow(columnIndex);
-    return ArrowToJavaObjectConverter.convert(unconvertedObject, requiredType,connectionContext);
+    return ArrowToJavaObjectConverter.convert(unconvertedObject, requiredType, connectionContext);
   }
 
   /** {@inheritDoc} */

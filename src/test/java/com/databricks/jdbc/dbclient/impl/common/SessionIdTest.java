@@ -39,7 +39,7 @@ public class SessionIdTest {
     assertEquals(expected, sessionId.toString());
     assertEquals(DatabricksClientType.SEA, sessionId.getClientType());
 
-    SessionId deserializedSessionId = SessionId.deserialize(expected);
+    SessionId deserializedSessionId = SessionId.deserialize(expected, null);
     ImmutableSessionInfo deserializedSessionInfo = deserializedSessionId.getSessionInfo();
     assertEquals(sessionId, deserializedSessionId);
     assertEquals(sessionInfo.sessionId(), deserializedSessionInfo.sessionId());
@@ -65,7 +65,7 @@ public class SessionIdTest {
     assertEquals(expected, sessionId.toString());
     assertEquals(DatabricksClientType.THRIFT, sessionId.getClientType());
 
-    SessionId deserializedSessionId = SessionId.deserialize(expected);
+    SessionId deserializedSessionId = SessionId.deserialize(expected, null);
     ImmutableSessionInfo deserializedSessionInfo = deserializedSessionId.getSessionInfo();
     assertEquals(sessionId, deserializedSessionId);
     assertEquals(sessionInfo.sessionId(), deserializedSessionInfo.sessionId());
@@ -75,15 +75,15 @@ public class SessionIdTest {
   @Test
   public void testInvalidSessionId() throws Exception {
     final String sessionId = "q|warehouse|test-session-id";
-    assertThrows(DatabricksParsingException.class, () -> SessionId.deserialize(sessionId));
+    assertThrows(DatabricksParsingException.class, () -> SessionId.deserialize(sessionId, null));
 
     final String sessionId1 = "s|warehouse|test-session-id|invalid";
-    assertThrows(DatabricksParsingException.class, () -> SessionId.deserialize(sessionId1));
+    assertThrows(DatabricksParsingException.class, () -> SessionId.deserialize(sessionId1, null));
 
     final String sessionId2 = "t|invalid";
-    assertThrows(DatabricksParsingException.class, () -> SessionId.deserialize(sessionId2));
+    assertThrows(DatabricksParsingException.class, () -> SessionId.deserialize(sessionId2, null));
 
     final String sessionId3 = "t|test-session-id|invalid|part3";
-    assertThrows(DatabricksParsingException.class, () -> SessionId.deserialize(sessionId3));
+    assertThrows(DatabricksParsingException.class, () -> SessionId.deserialize(sessionId3, null));
   }
 }

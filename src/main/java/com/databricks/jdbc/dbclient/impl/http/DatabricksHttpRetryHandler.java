@@ -1,10 +1,11 @@
 package com.databricks.jdbc.dbclient.impl.http;
 
+import static com.databricks.jdbc.common.DatabricksJdbcConstants.THRIFT_ERROR_MESSAGE_HEADER;
+
 import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.exception.DatabricksRetryHandlerException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
-import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import com.google.common.annotations.VisibleForTesting;
 import java.io.IOException;
 import java.util.Objects;
@@ -17,8 +18,6 @@ import org.apache.http.client.methods.HttpPost;
 import org.apache.http.client.methods.HttpPut;
 import org.apache.http.client.protocol.HttpClientContext;
 import org.apache.http.protocol.HttpContext;
-
-import static com.databricks.jdbc.common.DatabricksJdbcConstants.THRIFT_ERROR_MESSAGE_HEADER;
 
 public class DatabricksHttpRetryHandler
     implements HttpResponseInterceptor, HttpRequestRetryHandler {
@@ -85,11 +84,13 @@ public class DatabricksHttpRetryHandler
     // Throw an exception to trigger the retry mechanism
     String errorReason;
     if (httpResponse.containsHeader(THRIFT_ERROR_MESSAGE_HEADER)) {
-      errorReason =  httpResponse.getFirstHeader(THRIFT_ERROR_MESSAGE_HEADER).getValue();
+      errorReason = httpResponse.getFirstHeader(THRIFT_ERROR_MESSAGE_HEADER).getValue();
     } else {
       errorReason = httpResponse.getStatusLine().getReasonPhrase();
     }
-    String errorMessage = String.format("Retry failure. HTTP response code: %s, Error Message: %s",statusCode, errorReason);
+    String errorMessage =
+        String.format(
+            "Retry failure. HTTP response code: %s, Error Message: %s", statusCode, errorReason);
     LOGGER.debug(errorMessage);
     throw new DatabricksRetryHandlerException(errorMessage, statusCode);
   }

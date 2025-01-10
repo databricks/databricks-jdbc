@@ -2,7 +2,6 @@ package com.databricks.jdbc.api.impl.converters;
 
 import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.exception.DatabricksSQLException;
-
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.sql.Timestamp;
@@ -12,7 +11,8 @@ import java.util.*;
 
 public class ConverterHelper {
   private Map<Integer, ObjectConverter> CONVERTER_CACHE = new HashMap<>();
-  public ConverterHelper(IDatabricksConnectionContext connectionContext){
+
+  public ConverterHelper(IDatabricksConnectionContext connectionContext) {
     CONVERTER_CACHE.put(Types.TINYINT, new ByteConverter(connectionContext));
     CONVERTER_CACHE.put(Types.SMALLINT, new ShortConverter(connectionContext));
     CONVERTER_CACHE.put(Types.INTEGER, new IntConverter(connectionContext));
@@ -82,8 +82,8 @@ public class ConverterHelper {
    * @return The converted object of the specified Java type
    * @throws DatabricksSQLException If there's an error during the conversion process
    */
-  public Object convertSqlTypeToSpecificJavaType(
-      Class<?> javaType, int columnSqlType, Object obj) throws DatabricksSQLException {
+  public Object convertSqlTypeToSpecificJavaType(Class<?> javaType, int columnSqlType, Object obj)
+      throws DatabricksSQLException {
     // Get the appropriate converter for the SQL type
     ObjectConverter converter = getConverterForSqlType(columnSqlType);
     if (javaType == String.class) {

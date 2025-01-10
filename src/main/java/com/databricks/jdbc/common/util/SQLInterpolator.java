@@ -2,6 +2,7 @@ package com.databricks.jdbc.common.util;
 
 import static com.databricks.jdbc.common.MetadataResultConstants.NULL_STRING;
 
+import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.api.impl.ImmutableSqlParameter;
 import com.databricks.jdbc.exception.DatabricksValidationException;
 import java.util.Map;
@@ -46,13 +47,17 @@ public class SQLInterpolator {
    * @throws DatabricksValidationException if the number of placeholders in the SQL string does not
    *     match the number of parameters provided in the map.
    */
-  public static String interpolateSQL(String sql, Map<Integer, ImmutableSqlParameter> params)
+  public static String interpolateSQL(
+      String sql,
+      Map<Integer, ImmutableSqlParameter> params,
+      IDatabricksConnectionContext connectionContext)
       throws DatabricksValidationException {
     String[] parts = sql.split("\\?");
     if (countPlaceholders(sql) != params.size()) {
       throw new DatabricksValidationException(
           "Parameter count does not match. Provide equal number of parameters as placeholders. SQL "
-              + sql);
+              + sql,
+          connectionContext);
     }
     StringBuilder sb = new StringBuilder();
     for (int i = 0; i < parts.length; i++) {

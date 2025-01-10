@@ -4,7 +4,6 @@ import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.exception.DatabricksValidationException;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
-
 import java.math.BigInteger;
 import java.sql.Date;
 import java.sql.Timestamp;
@@ -12,14 +11,17 @@ import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
 
 public class DateConverter implements ObjectConverter {
-private final IDatabricksConnectionContext connectionContext;
-  public DateConverter(IDatabricksConnectionContext connectionContext){
+  private final IDatabricksConnectionContext connectionContext;
+
+  public DateConverter(IDatabricksConnectionContext connectionContext) {
     this.connectionContext = connectionContext;
   }
+
   @Override
-  public IDatabricksConnectionContext getConnectionContext(){
+  public IDatabricksConnectionContext getConnectionContext() {
     return connectionContext;
   }
+
   @Override
   public Date toDate(Object object) throws DatabricksSQLException {
     if (object instanceof String) {
@@ -28,7 +30,9 @@ private final IDatabricksConnectionContext connectionContext;
       return (Date) object;
     } else {
       throw new DatabricksSQLException(
-          "Unsupported type for DateObjectConverter: " + object.getClass(), DatabricksDriverErrorCode.UNSUPPORTED_OPERATION, getConnectionContext());
+          "Unsupported type for DateObjectConverter: " + object.getClass(),
+          DatabricksDriverErrorCode.UNSUPPORTED_OPERATION,
+          getConnectionContext());
     }
   }
 
@@ -44,7 +48,8 @@ private final IDatabricksConnectionContext connectionContext;
     if ((short) epochDays == epochDays) {
       return (short) epochDays;
     }
-    throw new DatabricksValidationException("Invalid conversion: Date value out of short range", getConnectionContext());
+    throw new DatabricksValidationException(
+        "Invalid conversion: Date value out of short range", getConnectionContext());
   }
 
   @Override

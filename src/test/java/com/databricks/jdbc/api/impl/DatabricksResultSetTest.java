@@ -1,10 +1,12 @@
 package com.databricks.jdbc.api.impl;
 
+import static com.databricks.jdbc.TestConstants.TEST_STRING;
 import static com.databricks.jdbc.api.impl.DatabricksResultSet.AFFECTED_ROWS_COUNT;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.api.IDatabricksResultSet;
 import com.databricks.jdbc.api.IDatabricksSession;
 import com.databricks.jdbc.api.impl.volume.VolumeOperationResult;
@@ -37,6 +39,7 @@ public class DatabricksResultSetTest {
           "01efc77c-7c8b-1a8e-9ecb-a9a6e6aa050a|338d529d-8272-46eb-8482-cb419466839d");
 
   @Mock InlineJsonResult mockedExecutionResult;
+  @Mock IDatabricksConnectionContext connectionContext;
   @Mock TFetchResultsResp fetchResultsResp;
   @Mock VolumeOperationResult mockedVolumeResult;
   @Mock DatabricksResultSetMetaData mockedResultSetMetadata;
@@ -52,7 +55,8 @@ public class DatabricksResultSetTest {
         StatementType.METADATA,
         statement,
         mockedExecutionResult,
-        mockedResultSetMetadata);
+        mockedResultSetMetadata,
+        connectionContext);
   }
 
   private DatabricksResultSet getThriftResultSetMetadata() throws SQLException {
@@ -104,6 +108,7 @@ public class DatabricksResultSetTest {
 
   @Test
   void testGetStringAndWasNull() throws SQLException {
+    when(connectionContext.getConnectionUuid()).thenReturn(TEST_STRING);
     when(mockedExecutionResult.getObject(0)).thenReturn(null);
     DatabricksResultSet resultSet = getResultSet(StatementState.PENDING, null);
     assertNull(resultSet.getString(1));
@@ -324,12 +329,12 @@ public class DatabricksResultSetTest {
 
   @Test
   void testGetTimestampWithCalendar() throws SQLException {
+    when(connectionContext.getConnectionUuid()).thenReturn(TEST_STRING);
     DatabricksResultSet resultSet = getResultSet(StatementState.SUCCEEDED, null);
     int columnIndex = 5;
     String columnLabel = "columnLabel";
     Calendar cal = Calendar.getInstance(TimeZone.getTimeZone("Asia/Tokyo"));
     Timestamp expectedTimestamp = new Timestamp(System.currentTimeMillis());
-
     // Mocking for columnIndex
     when(resultSet.getObject(columnIndex)).thenReturn(expectedTimestamp);
     when(mockedResultSetMetadata.getColumnType(columnIndex)).thenReturn(java.sql.Types.TIMESTAMP);
@@ -437,6 +442,7 @@ public class DatabricksResultSetTest {
 
   @Test
   void testComplexTypes_Exceptions() throws SQLException {
+    when(connectionContext.getConnectionUuid()).thenReturn(TEST_STRING);
     DatabricksResultSetMetaData mockedMeta = mock(DatabricksResultSetMetaData.class);
     InlineJsonResult mockedExecResult = mock(InlineJsonResult.class);
     DatabricksResultSet resultSet =
@@ -446,7 +452,8 @@ public class DatabricksResultSetTest {
             StatementType.QUERY,
             null,
             mockedExecResult,
-            mockedMeta);
+            mockedMeta,
+            connectionContext);
 
     // Mock closed result set
     resultSet.close();
@@ -844,6 +851,7 @@ public class DatabricksResultSetTest {
   void testClose() throws SQLException {
     // Test null parent statement
     DatabricksResultSet resultSet = getResultSet(StatementState.SUCCEEDED, null);
+    when(connectionContext.getConnectionUuid()).thenReturn(TEST_STRING);
     assertFalse(resultSet.isClosed());
     resultSet.close();
     assertTrue(resultSet.isClosed());
@@ -865,7 +873,8 @@ public class DatabricksResultSetTest {
             StatementType.METADATA,
             mockedDatabricksStatement,
             mockedVolumeResult,
-            mockedResultSetMetadata);
+            mockedResultSetMetadata,
+            connectionContext);
     String fakeInput = "Hello World\n42\n";
 
     when(mockedVolumeResult.getVolumeOperationInputStream())
@@ -889,13 +898,15 @@ public class DatabricksResultSetTest {
             StatementType.QUERY,
             null,
             mockedExecutionResult,
-            mockedResultSetMetadata);
+            mockedResultSetMetadata,
+            connectionContext);
 
     assertEquals(0, resultSet.getUpdateCount());
   }
 
   @Test
   void testGetUpdateCountForUpdateStatement() throws SQLException {
+    when(connectionContext.getConnectionUuid()).thenReturn(TEST_STRING);
     when(mockedResultSetMetadata.getColumnType(1)).thenReturn(Types.BIGINT);
     when(mockedResultSetMetadata.getColumnNameIndex(AFFECTED_ROWS_COUNT)).thenReturn(1);
     when(mockedExecutionResult.next()).thenReturn(true).thenReturn(false);
@@ -908,7 +919,8 @@ public class DatabricksResultSetTest {
             StatementType.UPDATE,
             null,
             mockedExecutionResult,
-            mockedResultSetMetadata);
+            mockedResultSetMetadata,
+            connectionContext);
 
     assertEquals(5L, resultSet.getUpdateCount());
   }
@@ -927,13 +939,15 @@ public class DatabricksResultSetTest {
             StatementType.UPDATE,
             null,
             mockedExecutionResult,
-            mockedResultSetMetadata);
+            mockedResultSetMetadata,
+            connectionContext);
 
     assertEquals(5L, resultSet.getUpdateCount());
   }
 
   @Test
   void testGetUpdateCountForClosedResultSet() throws SQLException {
+    when(connectionContext.getConnectionUuid()).thenReturn(TEST_STRING);
     DatabricksResultSet resultSet = getResultSet(StatementState.SUCCEEDED, null);
     resultSet.close();
     assertThrows(DatabricksSQLException.class, resultSet::getUpdateCount);

@@ -14,54 +14,56 @@ public class DateConverterTest {
 
   @Test
   public void testConvertToShort() throws DatabricksSQLException {
-    assertEquals(new DateConverter().toShort(DATE), 19610);
+    assertEquals(new DateConverter(null).toShort(DATE), 19610);
 
     Date dateDoesNotFitInShort = Date.valueOf("5050-12-31");
     DatabricksSQLException exception =
         assertThrows(
-            DatabricksSQLException.class, () -> new DateConverter().toShort(dateDoesNotFitInShort));
+            DatabricksSQLException.class,
+            () -> new DateConverter(null).toShort(dateDoesNotFitInShort));
     assertTrue(exception.getMessage().contains("Invalid conversion"));
   }
 
   @Test
   public void testConvertToInt() throws DatabricksSQLException {
-    assertEquals(new DateConverter().toInt(DATE), 19610);
+    assertEquals(new DateConverter(null).toInt(DATE), 19610);
   }
 
   @Test
   public void testConvertToLong() throws DatabricksSQLException {
-    assertEquals(new DateConverter().toLong(DATE), 19610L);
+    assertEquals(new DateConverter(null).toLong(DATE), 19610L);
   }
 
   @Test
   public void testConvertToString() throws DatabricksSQLException {
-    assertEquals(new DateConverter().toString(DATE), "2023-09-10");
+    assertEquals(new DateConverter(null).toString(DATE), "2023-09-10");
   }
 
   @Test
   public void testConvertFromString() throws DatabricksSQLException {
-    assertEquals(new DateConverter().toDate("2023-09-10"), DATE);
+    assertEquals(new DateConverter(null).toDate("2023-09-10"), DATE);
   }
 
   @Test
   public void testConvertToTimestamp() throws DatabricksSQLException {
-    assertEquals(new DateConverter().toTimestamp(DATE), Timestamp.valueOf("2023-09-10 00:00:00"));
+    assertEquals(
+        new DateConverter(null).toTimestamp(DATE), Timestamp.valueOf("2023-09-10 00:00:00"));
   }
 
   @Test
   public void testConvertToDate() throws DatabricksSQLException {
-    assertEquals(new DateConverter().toDate(DATE), Date.valueOf("2023-09-10"));
+    assertEquals(new DateConverter(null).toDate(DATE), Date.valueOf("2023-09-10"));
   }
 
   @Test
   public void testConvertToLocalDate() throws DatabricksSQLException {
-    assertEquals(new DateConverter().toLocalDate(DATE), DATE.toLocalDate());
+    assertEquals(new DateConverter(null).toLocalDate(DATE), DATE.toLocalDate());
   }
 
   @Test
   public void testConvertToBigInteger() throws DatabricksSQLException {
     assertEquals(
-        new DateConverter().toBigInteger(DATE),
+        new DateConverter(null).toBigInteger(DATE),
         BigInteger.valueOf(DATE.toLocalDate().toEpochDay()));
   }
 }

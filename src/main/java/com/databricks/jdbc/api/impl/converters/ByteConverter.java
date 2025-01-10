@@ -8,13 +8,15 @@ import java.math.BigInteger;
 public class ByteConverter implements ObjectConverter {
   private final IDatabricksConnectionContext connectionContext;
 
-  public ByteConverter(IDatabricksConnectionContext connectionContext){
+  public ByteConverter(IDatabricksConnectionContext connectionContext) {
     this.connectionContext = connectionContext;
   }
+
   @Override
-  public IDatabricksConnectionContext getConnectionContext(){
+  public IDatabricksConnectionContext getConnectionContext() {
     return connectionContext;
   }
+
   @Override
   public byte toByte(Object object) throws DatabricksSQLException {
     if (object instanceof String) {

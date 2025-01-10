@@ -189,6 +189,7 @@ public class DatabricksThriftServiceClientTest {
   void testGetResultChunksThrowsError() throws SQLException {
     DatabricksThriftServiceClient client =
         new DatabricksThriftServiceClient(thriftAccessor, connectionContext);
+    when(connectionContext.getConnectionUuid()).thenReturn(TEST_STRING);
     TFetchResultsResp response =
         new TFetchResultsResp()
             .setStatus(new TStatus().setStatusCode(TStatusCode.SUCCESS_STATUS))

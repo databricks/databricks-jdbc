@@ -40,7 +40,10 @@ public class DatabricksHttpTTransport extends TTransport {
   private final IDatabricksConnectionContext connectionContext;
 
   public DatabricksHttpTTransport(
-          IDatabricksHttpClient httpClient, String url, DatabricksConfig databricksConfig, IDatabricksConnectionContext connectionContext) {
+      IDatabricksHttpClient httpClient,
+      String url,
+      DatabricksConfig databricksConfig,
+      IDatabricksConnectionContext connectionContext) {
     this.httpClient = httpClient;
     this.url = url;
     this.requestBuffer = new ByteArrayOutputStream();
@@ -97,7 +100,7 @@ public class DatabricksHttpTTransport extends TTransport {
 
     // Execute the request and handle the response
     try (CloseableHttpResponse response = httpClient.execute(request)) {
-      ValidationUtil.checkHTTPError(response,connectionContext);
+      ValidationUtil.checkHTTPError(response, connectionContext);
 
       // Read the response
       HttpEntity entity = response.getEntity();

@@ -3,7 +3,6 @@ package com.databricks.jdbc.api.impl.converters;
 import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.exception.DatabricksValidationException;
-
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.nio.ByteBuffer;
@@ -11,13 +10,15 @@ import java.nio.ByteBuffer;
 public class ShortConverter implements ObjectConverter {
   private final IDatabricksConnectionContext connectionContext;
 
-  public ShortConverter(IDatabricksConnectionContext connectionContext){
+  public ShortConverter(IDatabricksConnectionContext connectionContext) {
     this.connectionContext = connectionContext;
   }
+
   @Override
-  public IDatabricksConnectionContext getConnectionContext(){
+  public IDatabricksConnectionContext getConnectionContext() {
     return connectionContext;
   }
+
   @Override
   public short toShort(Object object) throws DatabricksSQLException {
     if (object instanceof String) {
@@ -37,7 +38,8 @@ public class ShortConverter implements ObjectConverter {
     if (value >= Byte.MIN_VALUE && value <= Byte.MAX_VALUE) {
       return (byte) value;
     }
-    throw new DatabricksValidationException("Invalid conversion to byte: value out of range",getConnectionContext());
+    throw new DatabricksValidationException(
+        "Invalid conversion to byte: value out of range", getConnectionContext());
   }
 
   @Override

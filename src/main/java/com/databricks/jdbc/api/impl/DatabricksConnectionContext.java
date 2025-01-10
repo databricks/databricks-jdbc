@@ -59,7 +59,8 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   public static IDatabricksConnectionContext parse(String url, Properties properties)
       throws DatabricksSQLException {
     if (!ValidationUtil.isValidJdbcUrl(url)) {
-      throw new DatabricksParsingException("Invalid url " + url, DatabricksDriverErrorCode.CONNECTION_ERROR,null);
+      throw new DatabricksParsingException(
+          "Invalid url " + url, DatabricksDriverErrorCode.CONNECTION_ERROR, null);
     }
     Matcher urlMatcher = JDBC_URL_PATTERN.matcher(url);
     if (urlMatcher.find()) {
@@ -87,7 +88,8 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
           try {
             portValue = Integer.parseInt(pair[1]);
           } catch (NumberFormatException e) {
-            throw new DatabricksParsingException("Invalid port number " + pair[1], DatabricksDriverErrorCode.CONNECTION_ERROR,null);
+            throw new DatabricksParsingException(
+                "Invalid port number " + pair[1], DatabricksDriverErrorCode.CONNECTION_ERROR, null);
           }
         }
         parametersBuilder.put(pair[0].toLowerCase(), pair[1]);
@@ -142,7 +144,10 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
       return uriBuilder.build().toString();
     } catch (Exception e) {
       LOGGER.debug("URI Building failed with exception: " + e.getMessage());
-      throw new DatabricksParsingException("URI Building failed with exception: " + e.getMessage(), DatabricksDriverErrorCode.CONNECTION_ERROR,null);
+      throw new DatabricksParsingException(
+          "URI Building failed with exception: " + e.getMessage(),
+          DatabricksDriverErrorCode.CONNECTION_ERROR,
+          null);
     }
   }
 
@@ -202,7 +207,9 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
       return DatabricksJdbcConstants.M2M_AUTH_TYPE;
     }
     throw new DatabricksParsingException(
-        "GCP Auth Type not found. Provide either Google Service Account or Google Credentials file path",  DatabricksDriverErrorCode.CONNECTION_ERROR,null);
+        "GCP Auth Type not found. Provide either Google Service Account or Google Credentials file path",
+        DatabricksDriverErrorCode.CONNECTION_ERROR,
+        null);
   }
 
   @Override
@@ -658,7 +665,10 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
       return new AllPurposeCluster("default", "default");
     }
     // the control should never reach here, as the parsing already ensured the URL is valid
-    throw new DatabricksParsingException("Invalid HTTP Path provided " + this.getHttpPath(), DatabricksDriverErrorCode.CONNECTION_ERROR,null);
+    throw new DatabricksParsingException(
+        "Invalid HTTP Path provided " + this.getHttpPath(),
+        DatabricksDriverErrorCode.CONNECTION_ERROR,
+        null);
   }
 
   private String getParameter(DatabricksJdbcUrlParams key) {

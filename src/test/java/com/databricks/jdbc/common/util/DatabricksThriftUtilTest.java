@@ -50,11 +50,11 @@ public class DatabricksThriftUtilTest {
     assertDoesNotThrow(
         () ->
             DatabricksThriftUtil.verifySuccessStatus(
-                new TStatus().setStatusCode(TStatusCode.SUCCESS_STATUS), "test"));
+                new TStatus().setStatusCode(TStatusCode.SUCCESS_STATUS), "test", null));
     assertDoesNotThrow(
         () ->
             DatabricksThriftUtil.verifySuccessStatus(
-                new TStatus().setStatusCode(TStatusCode.SUCCESS_WITH_INFO_STATUS), "test"));
+                new TStatus().setStatusCode(TStatusCode.SUCCESS_WITH_INFO_STATUS), "test", null));
 
     DatabricksSQLException exception =
         assertThrows(
@@ -62,7 +62,8 @@ public class DatabricksThriftUtilTest {
             () ->
                 DatabricksThriftUtil.verifySuccessStatus(
                     new TStatus().setStatusCode(TStatusCode.ERROR_STATUS).setSqlState(null),
-                    "test"));
+                    "test",
+                    null));
     assertNull(exception.getSQLState());
 
     exception =
@@ -71,7 +72,8 @@ public class DatabricksThriftUtilTest {
             () ->
                 DatabricksThriftUtil.verifySuccessStatus(
                     new TStatus().setStatusCode(TStatusCode.ERROR_STATUS).setSqlState("42S02"),
-                    "test"));
+                    "test",
+                    null));
 
     assertEquals("42S02", exception.getSQLState());
   }

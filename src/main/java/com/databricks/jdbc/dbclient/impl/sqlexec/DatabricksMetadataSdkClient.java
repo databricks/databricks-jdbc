@@ -38,7 +38,8 @@ public class DatabricksMetadataSdkClient implements IDatabricksMetadataClient {
     CommandBuilder commandBuilder = new CommandBuilder(session);
     String SQL = commandBuilder.getSQLString(CommandName.LIST_CATALOGS);
     LOGGER.debug(String.format("SQL command to fetch catalogs: {%s}", SQL));
-    return MetadataResultSetBuilder.getCatalogsResult(getResultSet(SQL, session));
+    return MetadataResultSetBuilder.getCatalogsResult(
+        getResultSet(SQL, session), session.getConnectionContext());
   }
 
   @Override
@@ -48,7 +49,8 @@ public class DatabricksMetadataSdkClient implements IDatabricksMetadataClient {
         new CommandBuilder(catalog, session).setSchemaPattern(schemaNamePattern);
     String SQL = commandBuilder.getSQLString(CommandName.LIST_SCHEMAS);
     LOGGER.debug(String.format("SQL command to fetch schemas: {%s}", SQL));
-    return MetadataResultSetBuilder.getSchemasResult(getResultSet(SQL, session), catalog);
+    return MetadataResultSetBuilder.getSchemasResult(
+        getResultSet(SQL, session), catalog, session.getConnectionContext());
   }
 
   @Override
@@ -70,13 +72,13 @@ public class DatabricksMetadataSdkClient implements IDatabricksMetadataClient {
     String SQL = commandBuilder.getSQLString(CommandName.LIST_TABLES);
     LOGGER.debug(String.format("SQL command to fetch tables: {%s}", SQL));
     return MetadataResultSetBuilder.getTablesResult(
-        getResultSet(SQL, session), validatedTableTypes);
+        getResultSet(SQL, session), validatedTableTypes, session.getConnectionContext());
   }
 
   @Override
   public DatabricksResultSet listTableTypes(IDatabricksSession session) throws SQLException {
     LOGGER.debug("Returning list of table types.");
-    return MetadataResultSetBuilder.getTableTypesResult();
+    return MetadataResultSetBuilder.getTableTypesResult(session.getConnectionContext());
   }
 
   @Override
@@ -94,7 +96,8 @@ public class DatabricksMetadataSdkClient implements IDatabricksMetadataClient {
             .setColumnPattern(columnNamePattern);
     String SQL = commandBuilder.getSQLString(CommandName.LIST_COLUMNS);
     LOGGER.debug(String.format("SQL command to fetch columns: {%s}", SQL));
-    return MetadataResultSetBuilder.getColumnsResult(getResultSet(SQL, session));
+    return MetadataResultSetBuilder.getColumnsResult(
+        getResultSet(SQL, session), session.getConnectionContext());
   }
 
   @Override
@@ -110,7 +113,8 @@ public class DatabricksMetadataSdkClient implements IDatabricksMetadataClient {
             .setFunctionPattern(functionNamePattern);
     String SQL = commandBuilder.getSQLString(CommandName.LIST_FUNCTIONS);
     LOGGER.debug(String.format("SQL command to fetch functions: {%s}", SQL));
-    return MetadataResultSetBuilder.getFunctionsResult(getResultSet(SQL, session), catalog);
+    return MetadataResultSetBuilder.getFunctionsResult(
+        getResultSet(SQL, session), catalog, session.getConnectionContext());
   }
 
   @Override
@@ -120,7 +124,8 @@ public class DatabricksMetadataSdkClient implements IDatabricksMetadataClient {
         new CommandBuilder(catalog, session).setSchema(schema).setTable(table);
     String SQL = commandBuilder.getSQLString(CommandName.LIST_PRIMARY_KEYS);
     LOGGER.debug(String.format("SQL command to fetch primary keys: {%s}", SQL));
-    return MetadataResultSetBuilder.getPrimaryKeysResult(getResultSet(SQL, session));
+    return MetadataResultSetBuilder.getPrimaryKeysResult(
+        getResultSet(SQL, session), session.getConnectionContext());
   }
 
   private ResultSet getResultSet(String SQL, IDatabricksSession session) throws SQLException {

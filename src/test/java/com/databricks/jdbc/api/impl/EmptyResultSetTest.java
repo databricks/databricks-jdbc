@@ -17,7 +17,7 @@ public class EmptyResultSetTest {
 
   @BeforeEach
   public void setup() {
-    resultSet = new EmptyResultSet();
+    resultSet = new EmptyResultSet(null);
   }
 
   @Test
@@ -123,7 +123,7 @@ public class EmptyResultSetTest {
 
   @Test
   public void testGetMetaData() throws SQLException {
-    assertEquals(resultSet.getMetaData(), new EmptyResultSetMetaData());
+    assertEquals(resultSet.getMetaData(), new EmptyResultSetMetaData(null));
   }
 
   @Test
@@ -375,7 +375,7 @@ public class EmptyResultSetTest {
   @Test
   public void testGetMethodsReturnZeroOrEquivalent() throws SQLException {
     EmptyResultSet resultSet =
-        new EmptyResultSet(); // Assuming the constructor doesn't throw SQLException
+        new EmptyResultSet(null); // Assuming the constructor doesn't throw SQLException
 
     // Numeric and boolean types return 0 or false
     assertEquals(0, resultSet.getInt("anyString"));
@@ -420,7 +420,7 @@ public class EmptyResultSetTest {
 
   @Test
   public void testUpdateMethodsDoNotThrowExceptions() {
-    EmptyResultSet resultSet = new EmptyResultSet(); // Initialize your EmptyResultSet here
+    EmptyResultSet resultSet = new EmptyResultSet(null); // Initialize your EmptyResultSet here
 
     // Numeric and boolean updates
     assertDoesNotThrow(() -> resultSet.updateNull(1));

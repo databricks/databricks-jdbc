@@ -905,7 +905,8 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
             Types.VARCHAR),
         Arrays.asList(128, 128, 128, 128, 128, 128, 128, 128, 128),
         new Object[0][0],
-        StatementType.METADATA, connection.getConnectionContext());
+        StatementType.METADATA,
+        connection.getConnectionContext());
   }
 
   @Override
@@ -938,7 +939,7 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
   public ResultSet getSchemas() throws SQLException {
     LOGGER.debug("public ResultSet getSchemas()");
     if (session.getConnectionContext().getClientType() == DatabricksClientType.SEA) {
-      return MetadataResultSetBuilder.getSchemasResult(null);
+      return MetadataResultSetBuilder.getSchemasResult(null, session.getConnectionContext());
     }
     return getSchemas(null /* catalog */, null /* schema pattern */);
   }
@@ -1201,7 +1202,8 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
             Types.VARCHAR),
         Arrays.asList(128, 128, 128, 128, 128, 128, 128),
         new String[0][0],
-        StatementType.METADATA, connection.getConnectionContext());
+        StatementType.METADATA,
+        connection.getConnectionContext());
   }
 
   @Override
@@ -1427,7 +1429,10 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
   private void throwExceptionIfConnectionIsClosed() throws SQLException {
     LOGGER.debug("private void throwExceptionIfConnectionIsClosed()");
     if (!connection.getSession().isOpen()) {
-      throw new DatabricksSQLException("Connection closed!", DatabricksDriverErrorCode.CONNECTION_CLOSED, connection.getConnectionContext());
+      throw new DatabricksSQLException(
+          "Connection closed!",
+          DatabricksDriverErrorCode.CONNECTION_CLOSED,
+          connection.getConnectionContext());
     }
   }
 }

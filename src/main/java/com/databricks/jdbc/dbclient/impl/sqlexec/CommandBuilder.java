@@ -84,7 +84,8 @@ public class CommandBuilder {
             "Building command for fetching schema. Catalog %s, SchemaPattern %s and session context %s",
             catalogName, schemaPattern, sessionContext);
     LOGGER.debug(contextString);
-    throwErrorIfNull(Collections.singletonMap(CATALOG, catalogName), contextString, connectionContext);
+    throwErrorIfNull(
+        Collections.singletonMap(CATALOG, catalogName), contextString, connectionContext);
     String showSchemaSQL = String.format(SHOW_SCHEMA_IN_CATALOG_SQL, catalogName);
     if (!WildcardUtil.isNullOrEmpty(schemaPattern)) {
       showSchemaSQL += String.format(LIKE_SQL, schemaPattern);
@@ -98,7 +99,8 @@ public class CommandBuilder {
             "Building command for fetching tables. Catalog %s, SchemaPattern %s, TablePattern %s and session context %s",
             catalogName, schemaPattern, tablePattern, sessionContext);
     LOGGER.debug(contextString);
-    throwErrorIfNull(Collections.singletonMap(CATALOG, catalogName), contextString,connectionContext);
+    throwErrorIfNull(
+        Collections.singletonMap(CATALOG, catalogName), contextString, connectionContext);
     String showTablesSQL = String.format(SHOW_TABLES_SQL, catalogName);
     if (!WildcardUtil.isNullOrEmpty(schemaPattern)) {
       showTablesSQL += String.format(SCHEMA_LIKE_SQL, schemaPattern);
@@ -115,7 +117,8 @@ public class CommandBuilder {
             "Building command for fetching columns. Catalog %s, SchemaPattern %s, TablePattern %s, ColumnPattern %s and session context : %s",
             catalogName, schemaPattern, tablePattern, columnPattern, sessionContext);
     LOGGER.debug(contextString);
-    throwErrorIfNull(Collections.singletonMap(CATALOG, catalogName), contextString,connectionContext);
+    throwErrorIfNull(
+        Collections.singletonMap(CATALOG, catalogName), contextString, connectionContext);
     String showColumnsSQL = String.format(SHOW_COLUMNS_SQL, catalogName);
 
     if (!WildcardUtil.isNullOrEmpty(schemaPattern)) {
@@ -139,7 +142,8 @@ public class CommandBuilder {
             catalogName, schemaPattern, functionPattern, sessionContext);
 
     LOGGER.debug(contextString);
-    throwErrorIfNull(Collections.singletonMap(CATALOG, catalogName), contextString,connectionContext);
+    throwErrorIfNull(
+        Collections.singletonMap(CATALOG, catalogName), contextString, connectionContext);
     String showFunctionsSQL = String.format(SHOW_FUNCTIONS_SQL, catalogName);
     if (!WildcardUtil.isNullOrEmpty(schemaPattern)) {
       showFunctionsSQL += String.format(SCHEMA_LIKE_SQL, schemaPattern);
@@ -164,7 +168,7 @@ public class CommandBuilder {
     hashMap.put(CATALOG, catalogName);
     hashMap.put(SCHEMA, schemaName);
     hashMap.put(TABLE, tableName);
-    throwErrorIfNull(hashMap, contextString,connectionContext);
+    throwErrorIfNull(hashMap, contextString, connectionContext);
     return String.format(SHOW_PRIMARY_KEYS_SQL, catalogName, schemaName, tableName);
   }
 
@@ -186,6 +190,7 @@ public class CommandBuilder {
         return fetchColumnsSQL();
     }
     throw new DatabricksSQLFeatureNotSupportedException(
-        String.format("Invalid command issued %s. Context: %s", command, sessionContext),connectionContext);
+        String.format("Invalid command issued %s. Context: %s", command, sessionContext),
+        connectionContext);
   }
 }

@@ -120,7 +120,15 @@ public class JwtPrivateKeyClientCredentials extends RefreshableTokenSource {
       Objects.requireNonNull(this.jwtKeyFile, "JWT key file must be specified");
       Objects.requireNonNull(this.jwtKid, "JWT KID must be specified");
       return new JwtPrivateKeyClientCredentials(
-          hc, clientId, jwtKeyFile, jwtKid, jwtKeyPassphrase, jwtAlgorithm, tokenUrl, scopes,connectionContext);
+          hc,
+          clientId,
+          jwtKeyFile,
+          jwtKid,
+          jwtKeyPassphrase,
+          jwtAlgorithm,
+          tokenUrl,
+          scopes,
+          connectionContext);
     }
   }
 
@@ -281,7 +289,10 @@ public class JwtPrivateKeyClientCredentials extends RefreshableTokenSource {
     } catch (OperatorCreationException | PKCSException | PEMException e) {
       String errorMessage = "Cannot decrypt private JWT key " + e.getMessage();
       LOGGER.error(errorMessage);
-      throw new DatabricksParsingException(errorMessage, DatabricksDriverErrorCode.VOLUME_OPERATION_PARSING_ERROR,connectionContext);
+      throw new DatabricksParsingException(
+          errorMessage,
+          DatabricksDriverErrorCode.VOLUME_OPERATION_PARSING_ERROR,
+          connectionContext);
     }
   }
 

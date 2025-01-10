@@ -16,9 +16,7 @@ import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.math.BigInteger;
 import java.security.SecureRandom;
-import java.security.interfaces.ECPrivateKey;
 import java.security.interfaces.RSAPrivateKey;
-import java.security.spec.ECParameterSpec;
 import java.util.Map;
 import org.apache.http.HttpEntity;
 import org.apache.http.client.methods.CloseableHttpResponse;
@@ -70,7 +68,10 @@ public class JwtPrivateKeyClientCredentialsTest {
 
   @Test
   public void testRetrieveTokenExceptionHandling() throws DatabricksHttpException {
-    when(httpClient.execute(any())).thenThrow(new DatabricksHttpException("Network error", DatabricksDriverErrorCode.INVALID_STATE,null));
+    when(httpClient.execute(any()))
+        .thenThrow(
+            new DatabricksHttpException(
+                "Network error", DatabricksDriverErrorCode.INVALID_STATE, null));
     Exception exception =
         assertThrows(
             DatabricksException.class,

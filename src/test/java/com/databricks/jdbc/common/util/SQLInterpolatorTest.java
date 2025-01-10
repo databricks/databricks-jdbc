@@ -20,7 +20,7 @@ public class SQLInterpolatorTest {
     params.put(1, getSqlParam(1, "Alice", DatabricksTypeUtil.STRING));
     params.put(2, getSqlParam(2, "Wonderland", DatabricksTypeUtil.STRING));
     String expected = "SELECT * FROM users WHERE name = 'Alice' AND city = 'Wonderland'";
-    assertEquals(expected, SQLInterpolator.interpolateSQL(sql, params));
+    assertEquals(expected, SQLInterpolator.interpolateSQL(sql, params, null));
   }
 
   @Test
@@ -31,7 +31,7 @@ public class SQLInterpolatorTest {
     params.put(2, getSqlParam(2, 19.95, DatabricksTypeUtil.FLOAT));
     params.put(3, getSqlParam(3, true, DatabricksTypeUtil.BOOLEAN));
     String expected = "INSERT INTO sales (id, amount, active) VALUES (101, 19.95, true)";
-    assertEquals(expected, SQLInterpolator.interpolateSQL(sql, params));
+    assertEquals(expected, SQLInterpolator.interpolateSQL(sql, params, null));
   }
 
   @Test
@@ -41,7 +41,7 @@ public class SQLInterpolatorTest {
     params.put(1, getSqlParam(1, null, DatabricksTypeUtil.NULL));
     params.put(2, getSqlParam(2, 200, DatabricksTypeUtil.INT));
     String expected = "UPDATE products SET price = NULL WHERE id = 200";
-    assertEquals(expected, SQLInterpolator.interpolateSQL(sql, params));
+    assertEquals(expected, SQLInterpolator.interpolateSQL(sql, params, null));
   }
 
   @Test
@@ -51,7 +51,7 @@ public class SQLInterpolatorTest {
     assertThrows(
         DatabricksValidationException.class,
         () -> {
-          SQLInterpolator.interpolateSQL(sql, params);
+          SQLInterpolator.interpolateSQL(sql, params, null);
         });
   }
 
@@ -64,7 +64,7 @@ public class SQLInterpolatorTest {
     assertThrows(
         DatabricksValidationException.class,
         () -> {
-          SQLInterpolator.interpolateSQL(sql, params);
+          SQLInterpolator.interpolateSQL(sql, params, null);
         });
   }
 
@@ -75,6 +75,6 @@ public class SQLInterpolatorTest {
     params.put(1, getSqlParam(1, "O'Reilly", DatabricksTypeUtil.STRING));
     params.put(2, getSqlParam(2, 200, DatabricksTypeUtil.INT));
     String expected = "UPDATE products SET price = 'O''Reilly' WHERE id = 200";
-    assertEquals(expected, SQLInterpolator.interpolateSQL(sql, params));
+    assertEquals(expected, SQLInterpolator.interpolateSQL(sql, params, null));
   }
 }
