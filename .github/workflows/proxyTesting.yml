@@ -1,0 +1,109 @@
+name: Proxy Test with Squid and Maven
+
+on:
+  workflow_dispatch:
+
+jobs:
+  proxy-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      ################################################################
+      # 1) Check Out the Repo
+      ################################################################
+      - name: Checkout Code
+        uses: actions/checkout@v2
+
+      ################################################################
+      # 2) Set Up Java (and optionally Maven)
+      ################################################################
+      - name: Set Up Java
+        uses: actions/setup-java@v4
+        with:
+          java-version: "21"
+          distribution: "adopt"
+
+      ################################################################
+      # 3) Install Squid Proxy
+      ################################################################
+      - name: Install Squid
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y squid
+
+      ################################################################
+      # 4) Configure Squid
+      ################################################################
+      - name: Configure Squid
+        run: |
+          echo "
+          http_port 3128
+          acl localnet src all
+          http_access allow localnet
+          http_access deny all
+          " | sudo tee /etc/squid/squid.conf
+
+      ################################################################
+      # 5) Start Squid
+      ################################################################
+      - name: Start Squid
+        run: |
+          sudo systemctl restart squid
+          sudo systemctl enable squid
+
+      ################################################################
+      # 6) Verify Squid Setup
+      ################################################################
+      - name: Verify Squid
+        run: |
+          curl -x http://localhost:3128 http://example.com
+
+      ################################################################
+      # 7) Build Project with Maven
+      ################################################################
+      - name: Maven Build
+        run: |
+          mvn clean package
+        env:
+          MAVEN_OPTS: "-Dhttps.proxyHost=localhost -Dhttps.proxyPort=3128"
+
+      ################################################################
+      # 8) Wait for Squid to be Ready
+      ################################################################
+      - name: Wait for Squid
+        run: |
+          echo "Sleeping 5s to ensure Squid is fully ready..."
+          sleep 5
+
+      ################################################################
+      # 9) Set Proxy and Authentication Environment Variables
+      ################################################################
+      - name: Set Environment
+        env:
+          HTTP_PROXY: "http://localhost:3128"
+          HTTPS_PROXY: "http://localhost:3128"
+          NO_PROXY: "localhost,127.0.0.1"
+          JDBC_PAT: ${{ secrets.DATABRICKS_TOKEN }}
+          JDBC_HOST: ${{ secrets.DATABRICKS_HOST }}
+          JDBC_HTTP_PATH: ${{ secrets.DATABRICKS_HTTP_PATH }}
+        run: echo "Proxy environment variables set, and PAT_TOKEN is ready."
+
+      ################################################################
+      # 10) Run ProxyTest
+      ################################################################
+      - name: Run ProxyTest
+        run: mvn test -Dtest=**/ProxyTest.java -DpatToken=$JDBC_PAT -DjdbcHost=$JDBC_HOST -DjdbcHttpPath=$JDBC_HTTP_PATH -DproxyUrl=http://localhost:3128
+ 
+
+      ################################################################
+      # 12) Upload Logs / Results
+      ################################################################
+      - name: Upload Proxy Test Logs
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: proxy-test-logs
+          path: |
+            test-results/
+            /var/log/squid/access.log
+            /var/log/squid/cache.log
