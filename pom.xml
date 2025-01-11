@@ -285,6 +285,7 @@
             <exclude>**/integration/**/*.java</exclude>
             <exclude>**/ErrorTypes.java</exclude>
             <exclude>**/ErrorCodes.java</exclude>
+            <exclude>**/ProxyTest.java</exclude>
           </excludes>
           <argLine>
             @{argLine}

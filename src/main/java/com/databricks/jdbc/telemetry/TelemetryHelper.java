@@ -4,6 +4,7 @@ import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.common.util.DriverUtil;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.model.telemetry.*;
+import com.databricks.sdk.core.ProxyConfig;
 import java.nio.charset.Charset;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -70,6 +71,25 @@ public class TelemetryHelper {
         .exportEvent(telemetryFrontendLog);
   }
 
+  public static void exportLatencyLog(
+      IDatabricksConnectionContext connectionContext,
+      long latencyMilliseconds,
+      SqlExecutionEvent executionEvent) {
+    TelemetryFrontendLog telemetryFrontendLog =
+        new TelemetryFrontendLog()
+            .setEntry(
+                new FrontendLogEntry()
+                    .setSqlDriverLog(
+                        new TelemetryEvent()
+                            .setLatency(latencyMilliseconds)
+                            .setSqlOperation(executionEvent)
+                            .setDriverConnectionParameters(
+                                getDriverConnectionParameter(connectionContext))));
+    TelemetryClientFactory.getInstance()
+        .getUnauthenticatedTelemetryClient(connectionContext)
+        .exportEvent(telemetryFrontendLog);
+  }
+
   private static DriverConnectionParameters getDriverConnectionParameter(
       IDatabricksConnectionContext connectionContext) {
     if (connectionContext == null) {
@@ -90,7 +110,7 @@ public class TelemetryHelper {
     }
     DriverConnectionParameters connectionParameters =
         new DriverConnectionParameters()
-            .setHostUrl(hostUrl)
+            .setHostDetails(getHostDetails(hostUrl))
             .setUseProxy(connectionContext.getUseProxy())
             .setAuthMech(connectionContext.getAuthMech())
             .setAuthScope(connectionContext.getAuthScope())
@@ -109,23 +129,28 @@ public class TelemetryHelper {
             .setHttpPath(connectionContext.getHttpPath());
 
     if (connectionContext.getUseCloudFetchProxy()) {
-      connectionParameters
-          .setCfProxyAuth(connectionContext.getCloudFetchProxyAuthType())
-          .setCfProxyHost(connectionContext.getCloudFetchProxyHost())
-          .setCfProxyPort(connectionContext.getCloudFetchProxyPort());
+      connectionParameters.setCfProxyHostDetails(
+          getHostDetails(
+              connectionContext.getCloudFetchProxyHost(),
+              connectionContext.getCloudFetchProxyPort(),
+              connectionContext.getCloudFetchProxyAuthType()));
     }
-
-    if (connectionContext.getUseProxy()) {
-      connectionParameters
-          .setProxyHost(connectionContext.getProxyHost())
-          .setProxyPort(connectionContext.getProxyPort());
-    }
-
     if (connectionContext.getUseProxy() || connectionContext.getUseSystemProxy()) {
-      connectionParameters
-          .setProxyType(connectionContext.getProxyAuthType())
-          .setNonProxyHosts(connectionContext.getNonProxyHosts());
+      connectionParameters.setProxyHostDetails(
+          getHostDetails(
+              connectionContext.getProxyHost(),
+              connectionContext.getProxyPort(),
+              connectionContext.getProxyAuthType()));
     }
     return connectionParameters;
+  }
+
+  private static HostDetails getHostDetails(
+      String host, int port, ProxyConfig.ProxyAuthType proxyAuthType) {
+    return new HostDetails().setHostUrl(host).setPort(port).setProxyType(proxyAuthType);
+  }
+
+  private static HostDetails getHostDetails(String host) {
+    return new HostDetails().setHostUrl(host);
   }
 }
