@@ -18,6 +18,7 @@ import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.exception.DatabricksSQLFeatureNotSupportedException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
+import com.databricks.jdbc.telemetry.TelemetryClientFactory;
 import com.google.common.annotations.VisibleForTesting;
 import java.sql.*;
 import java.util.*;
