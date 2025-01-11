@@ -6,6 +6,7 @@ import static org.mockito.Mockito.*;
 
 import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.common.DatabricksClientType;
+import com.databricks.jdbc.exception.DatabricksParsingException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -16,9 +17,11 @@ public class TelemetryHelperTest {
   @Mock IDatabricksConnectionContext connectionContext;
 
   @Test
-  void testInitialTelemetryLogDoesNotThrowError() {
+  void testInitialTelemetryLogDoesNotThrowError() throws DatabricksParsingException {
     when(connectionContext.getClientType()).thenReturn(DatabricksClientType.SEA);
     when(connectionContext.getHttpPath()).thenReturn(TEST_STRING);
+    when(connectionContext.getHostUrl()).thenReturn("https://TEST.databricks.com");
+    when(connectionContext.getConnectionUuid()).thenReturn(TEST_STRING);
     assertDoesNotThrow(() -> TelemetryHelper.exportInitialTelemetryLog(connectionContext));
   }
 

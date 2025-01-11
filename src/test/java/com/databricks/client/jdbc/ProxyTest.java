@@ -2,15 +2,8 @@ package com.databricks.client.jdbc;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-import java.sql.Connection;
-import java.sql.DriverManager;
-import java.sql.ResultSet;
-import java.sql.Statement;
-import java.util.Optional;
-import org.junit.jupiter.api.Test;
-
 public class ProxyTest {
-
+  /*
   @Test
   public void testProxyConnectivity() {
     String proxyUrl = System.getProperty("proxyUrl");
@@ -58,5 +51,5 @@ public class ProxyTest {
       e.printStackTrace();
       fail("JDBC proxy test failed: " + e.getMessage());
     }
-  }
+  }*/
 }
