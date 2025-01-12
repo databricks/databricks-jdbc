@@ -78,7 +78,7 @@ public class DatabricksConnection implements IDatabricksConnection, IDatabricksC
 
   @Override
   public Statement createStatement() {
-    LOGGER.debug("public Statement createStatement()", connectionContext);
+    LOGGER.debug("public Statement createStatement()");
     DatabricksStatement statement = new DatabricksStatement(this);
     statementSet.add(statement);
     return statement;
@@ -116,7 +116,7 @@ public class DatabricksConnection implements IDatabricksConnection, IDatabricksC
 
   @Override
   public boolean getAutoCommit() throws SQLException {
-    LOGGER.debug("public boolean getAutoCommit()", connectionContext);
+    LOGGER.debug("public boolean getAutoCommit()");
     throwExceptionIfConnectionIsClosed();
     return true;
   }
