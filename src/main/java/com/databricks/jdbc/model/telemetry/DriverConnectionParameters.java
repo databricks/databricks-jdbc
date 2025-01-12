@@ -3,9 +3,6 @@ package com.databricks.jdbc.model.telemetry;
 import com.databricks.jdbc.common.AuthFlow;
 import com.databricks.jdbc.common.AuthMech;
 import com.databricks.jdbc.common.DatabricksClientType;
-import com.databricks.jdbc.model.telemetry.enums.DriverProxy;
-import com.databricks.sdk.core.ProxyConfig;
-
 import com.fasterxml.jackson.annotation.JsonProperty;
 import java.util.List;
 
@@ -84,21 +81,6 @@ public class DriverConnectionParameters {
 
   public DriverConnectionParameters setAuthMech(AuthMech authMech) {
     this.authMech = authMech;
-    return this;
-  }
-
-  public DriverConnectionParameters setProxyHost(String proxyHost) {
-    this.proxyHost = proxyHost;
-    return this;
-  }
-
-  public DriverConnectionParameters setProxyPort(int proxyPort) {
-    this.proxyPort = proxyPort;
-    return this;
-  }
-
-  public DriverConnectionParameters setProxyType(ProxyConfig.ProxyAuthType proxyType) {
-    this.proxyType = DriverProxy.getDriverProxy(proxyType);
     return this;
   }
 

@@ -5,13 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.mockito.Mockito.*;
 
 import com.databricks.jdbc.api.IDatabricksConnectionContext;
-import com.databricks.jdbc.common.AuthFlow;
-import com.databricks.jdbc.common.AuthMech;
-import com.databricks.jdbc.common.DatabricksClientType;
-import com.databricks.sdk.core.ProxyConfig;
-import java.util.UUID;
 import com.databricks.jdbc.common.StatementType;
-import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.model.telemetry.SqlExecutionEvent;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -23,10 +17,7 @@ public class TelemetryHelperTest {
   @Mock IDatabricksConnectionContext connectionContext;
 
   @Test
-  void testInitialTelemetryLogDoesNotThrowError() throws DatabricksParsingException {
-    when(connectionContext.getClientType()).thenReturn(DatabricksClientType.SEA);
-    when(connectionContext.getHttpPath()).thenReturn(TEST_STRING);
-    when(connectionContext.getHostUrl()).thenReturn("https://TEST.databricks.com");
+  void testInitialTelemetryLogDoesNotThrowError() {
     when(connectionContext.getConnectionUuid()).thenReturn(TEST_STRING);
     assertDoesNotThrow(() -> TelemetryHelper.exportInitialTelemetryLog(connectionContext));
   }
