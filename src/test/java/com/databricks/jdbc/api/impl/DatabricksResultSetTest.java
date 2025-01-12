@@ -343,6 +343,9 @@ public class DatabricksResultSetTest {
     // Mocking for columnLabel
     when(mockedResultSetMetadata.getColumnNameIndex(columnLabel)).thenReturn(columnIndex);
     assertEquals(expectedTimestamp, resultSet.getTimestamp(columnLabel, cal));
+
+    //  Test null calendar
+    assertEquals(expectedTimestamp, resultSet.getTimestamp(columnLabel, null));
   }
 
   @Test
@@ -564,6 +567,10 @@ public class DatabricksResultSetTest {
     assertThrows(
         DatabricksSQLFeatureNotSupportedException.class,
         () -> resultSet.updateBinaryStream("column", null, 1));
+
+    assertThrows(
+        DatabricksSQLFeatureNotSupportedException.class,
+        () -> resultSet.updateBinaryStream("column", new ByteArrayInputStream(new byte[0]), 1));
     assertThrows(
         DatabricksSQLFeatureNotSupportedException.class,
         () -> resultSet.updateCharacterStream("column", null, 1));
@@ -759,6 +766,8 @@ public class DatabricksResultSetTest {
     DatabricksResultSet resultSet = getResultSet(StatementState.SUCCEEDED, null);
     assertThrows(DatabricksSQLFeatureNotSupportedException.class, resultSet::getHoldability);
     assertThrows(DatabricksSQLFeatureNotSupportedException.class, () -> resultSet.getBlob(1));
+    assertThrows(DatabricksSQLFeatureNotSupportedException.class, () -> resultSet.getRef(1));
+    assertThrows(DatabricksSQLFeatureNotSupportedException.class, () -> resultSet.getRef("column"));
     assertThrows(
         DatabricksSQLFeatureNotSupportedException.class, () -> resultSet.getBlob("column"));
     assertThrows(DatabricksSQLFeatureNotSupportedException.class, () -> resultSet.getClob(1));
