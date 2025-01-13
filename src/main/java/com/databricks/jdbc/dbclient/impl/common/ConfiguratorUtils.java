@@ -1,5 +1,7 @@
 package com.databricks.jdbc.dbclient.impl.common;
 
+import static com.databricks.jdbc.common.DatabricksJdbcConstants.IS_JDBC_TEST_ENV;
+
 import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.common.DatabricksJdbcConstants;
 import com.databricks.jdbc.log.JdbcLogger;
@@ -26,9 +28,8 @@ import org.apache.http.impl.conn.PoolingHttpClientConnectionManager;
 public class ConfiguratorUtils {
   private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(ConfiguratorUtils.class);
 
-  private static boolean getBypassSSL() {
-    String bypassSSL = System.getenv("BYPASS_SSL");
-    return bypassSSL != null && bypassSSL.equals("true");
+  private static boolean isJDBCTestEnv() {
+    return Boolean.parseBoolean(System.getenv(IS_JDBC_TEST_ENV));
   }
 
   /**
@@ -37,15 +38,19 @@ public class ConfiguratorUtils {
    */
   public static PoolingHttpClientConnectionManager getBaseConnectionManager(
       IDatabricksConnectionContext connectionContext) {
+
+    if (isJDBCTestEnv()) {
+      return new PoolingHttpClientConnectionManager(getTrustAllSocketFactoryRegistry());
+    }
+
     if (connectionContext.getSSLTrustStore() == null
         && connectionContext.checkCertificateRevocation()
         && !connectionContext.acceptUndeterminedCertificateRevocation()) {
       return new PoolingHttpClientConnectionManager();
     }
+
     Registry<ConnectionSocketFactory> socketFactoryRegistry =
-        getBypassSSL()
-            ? getConnectionSocketFactoryRegistry()
-            : getConnectionSocketFactoryRegistry(connectionContext);
+        getConnectionSocketFactoryRegistry(connectionContext);
     return new PoolingHttpClientConnectionManager(socketFactoryRegistry);
   }
 
@@ -89,11 +94,14 @@ public class ConfiguratorUtils {
   }
 
   /**
-   * Builds a registry of connection socket factories with SSL bypass enabled.
+   * <b>NOTE: </b> Only for testing purposes and should never be used in production Builds a
+   * registry of connection socket factories with SSL bypass enabled.
    *
    * @return A registry of connection socket factories.
    */
-  public static Registry<ConnectionSocketFactory> getConnectionSocketFactoryRegistry() {
+  public static Registry<ConnectionSocketFactory> getTrustAllSocketFactoryRegistry() {
+    LOGGER.debug("Entering the getTrustAllSocketFactoryRegistry method");
+
     try {
       // Create a TrustManager that trusts all certificates
       TrustManager[] trustAllCerts =
@@ -136,8 +144,9 @@ public class ConfiguratorUtils {
     } catch (Exception e) {
       String errorMessage = "Error while setting up trust-all SSL context.";
       LOGGER.error(errorMessage, e);
-      throw new RuntimeException(errorMessage, e);
     }
+
+    return RegistryBuilder.<ConnectionSocketFactory>create().build();
   }
 
   /**
