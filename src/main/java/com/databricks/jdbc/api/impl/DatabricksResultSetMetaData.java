@@ -1,7 +1,9 @@
 package com.databricks.jdbc.api.impl;
 
 import static com.databricks.jdbc.common.DatabricksJdbcConstants.EMPTY_STRING;
+import static com.databricks.jdbc.common.DatabricksJdbcConstants.TABLE;
 import static com.databricks.jdbc.common.DatabricksJdbcConstants.VOLUME_OPERATION_STATUS_COLUMN_NAME;
+import static com.databricks.jdbc.common.MetadataResultConstants.TABLE_TYPE_COLUMN;
 import static com.databricks.jdbc.common.util.DatabricksThriftUtil.getTypeFromTypeDesc;
 
 import com.databricks.jdbc.common.AccessType;
@@ -225,6 +227,9 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
           ColumnInfoTypeName.valueOf(
               DatabricksTypeUtil.getDatabricksTypeFromSQLType(columnTypes.get(i)));
       ImmutableDatabricksColumn.Builder columnBuilder = getColumnBuilder();
+      if(columnNames.get(i).equals(TABLE_TYPE_COLUMN.getColumnName())) {
+        columnBuilder.nullable(Nullable.NO_NULLS);
+      }
       columnBuilder
           .columnName(columnNames.get(i))
           .columnType(columnTypes.get(i))
