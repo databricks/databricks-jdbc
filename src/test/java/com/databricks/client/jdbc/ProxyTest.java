@@ -136,9 +136,7 @@ public class ProxyTest {
   // SCENARIOS
   // ----------------------------------------------------------------
 
-  /**
-   * Scenario 1: No Proxy
-   */
+  /** Scenario 1: No Proxy */
   @Test
   public void testNoProxy() {
     System.out.println("Scenario: No Proxy");
@@ -223,10 +221,10 @@ public class ProxyTest {
     for (boolean thrift : new boolean[] {true, false}) {
       String url = buildJdbcUrl(thrift, false, false, false, false);
       try {
-          verifyConnect(url);
+        verifyConnect(url);
       } catch (Exception e) {
-          e.printStackTrace();
-          fail("System-proxy test failed (thrift=" + thrift + "): " + e.getMessage());
+        e.printStackTrace();
+        fail("System-proxy test failed (thrift=" + thrift + "): " + e.getMessage());
       }
     }
   }
