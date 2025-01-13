@@ -40,7 +40,8 @@ public class M2MAuthIntegrationTests extends AbstractFakeServiceIntegrationTests
         assertThrows(
             DatabricksSQLException.class,
             () ->
-                DriverManager.getConnection(url, createM2MConnectionProperties("invalid-secret")));
+                DriverManager.getConnection(
+                    url, createFakeServiceM2MConnectionProperties("invalid-secret")));
 
     assert e.getMessage()
         .contains("Connection failure while using the OSS Databricks JDBC driver.");
@@ -48,10 +49,10 @@ public class M2MAuthIntegrationTests extends AbstractFakeServiceIntegrationTests
 
   private Connection getValidM2MConnection() throws SQLException {
     return DriverManager.getConnection(
-        getFakeServiceM2MUrl(), createM2MConnectionProperties(TEST_CLIENT_SECRET));
+        getFakeServiceM2MUrl(), createFakeServiceM2MConnectionProperties(TEST_CLIENT_SECRET));
   }
 
-  private Properties createM2MConnectionProperties(String clientSecret) {
+  private Properties createFakeServiceM2MConnectionProperties(String clientSecret) {
     Properties connProps = new Properties();
     connProps.put("OAuth2ClientId", TEST_CLIENT_ID);
     connProps.put("OAuth2Secret", clientSecret);
