@@ -6,6 +6,7 @@ import com.databricks.jdbc.common.LogLevel;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.log.JulLogger;
+import com.google.common.annotations.VisibleForTesting;
 import java.io.IOException;
 import java.util.logging.Level;
 
@@ -24,7 +25,8 @@ public class LoggingUtil {
   }
 
   /** Converts a {@link LogLevel} to a {@link Level} for Java Util Logging. */
-  private static Level toJulLevel(LogLevel level) {
+  @VisibleForTesting
+  static Level toJulLevel(LogLevel level) {
     switch (level) {
       case DEBUG:
         return Level.FINE;
