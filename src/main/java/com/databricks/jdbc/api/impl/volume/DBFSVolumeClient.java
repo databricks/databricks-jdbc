@@ -6,6 +6,7 @@ import static com.databricks.jdbc.dbclient.impl.sqlexec.PathConstants.*;
 
 import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.api.IDatabricksVolumeClient;
+import com.databricks.jdbc.common.util.DatabricksConnectionContextHolder;
 import com.databricks.jdbc.common.util.StringUtil;
 import com.databricks.jdbc.common.util.VolumeUtil;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
@@ -19,6 +20,7 @@ import com.databricks.jdbc.model.client.filesystem.*;
 import com.databricks.sdk.WorkspaceClient;
 import com.databricks.sdk.core.DatabricksException;
 import com.google.common.annotations.VisibleForTesting;
+import java.io.Closeable;
 import java.io.IOException;
 import java.io.InputStream;
 import java.sql.SQLException;
@@ -28,7 +30,7 @@ import org.apache.http.HttpEntity;
 import org.apache.http.entity.InputStreamEntity;
 
 /** Implementation of Volume Client that directly calls SQL Exec API for the Volume Operations */
-public class DBFSVolumeClient implements IDatabricksVolumeClient {
+public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
 
   private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(DBFSVolumeClient.class);
   private final IDatabricksConnectionContext connectionContext;
@@ -423,5 +425,10 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient {
 
   public InputStreamEntity getVolumeOperationInputStream() {
     return new InputStreamEntity(this.volumeInputStream, this.volumeStreamContentLength);
+  }
+
+  @Override
+  public void close() throws IOException {
+    DatabricksConnectionContextHolder.clear();
   }
 }

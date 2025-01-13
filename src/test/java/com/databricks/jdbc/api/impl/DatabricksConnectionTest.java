@@ -11,6 +11,7 @@ import com.databricks.jdbc.api.internal.IDatabricksConnectionInternal;
 import com.databricks.jdbc.common.IDatabricksComputeResource;
 import com.databricks.jdbc.common.StatementType;
 import com.databricks.jdbc.common.Warehouse;
+import com.databricks.jdbc.common.util.DatabricksConnectionContextHolder;
 import com.databricks.jdbc.dbclient.impl.sqlexec.DatabricksSdkClient;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.exception.DatabricksSQLFeatureNotSupportedException;
@@ -71,10 +72,12 @@ public class DatabricksConnectionTest {
         .thenReturn(IMMUTABLE_SESSION_INFO);
     connection = new DatabricksConnection(connectionContext, databricksClient);
     connection.open();
+    assertEquals(DatabricksConnectionContextHolder.getConnectionContext(), connectionContext);
     assertFalse(connection.isClosed());
     assertEquals(connection.getSession().getSessionId(), SESSION_ID);
     // close the connection
     connection.close();
+    assertNull(DatabricksConnectionContextHolder.getConnectionContext());
     assertTrue(connection.isClosed());
     assertEquals(connection.getConnection(), connection);
   }
@@ -165,6 +168,7 @@ public class DatabricksConnectionTest {
         .thenReturn(IMMUTABLE_SESSION_INFO);
     connection = new DatabricksConnection(connectionContext, databricksClient);
     connection.open();
+    assertEquals(DatabricksConnectionContextHolder.getConnectionContext(), connectionContext);
     assertThrows(
         DatabricksSQLFeatureNotSupportedException.class,
         () -> {
@@ -197,6 +201,7 @@ public class DatabricksConnectionTest {
         .thenReturn(IMMUTABLE_SESSION_INFO);
     connection = new DatabricksConnection(connectionContext, databricksClient);
     connection.open();
+    assertEquals(DatabricksConnectionContextHolder.getConnectionContext(), connectionContext);
     Properties properties = new Properties();
     properties.put("ENABLE_PHOTON", "TRUE");
     properties.put("TIMEZONE", "UTC");
