@@ -107,7 +107,7 @@ public class ProxyTest {
           .append(";");
     }
 
-    // TODO(): Add auth for proxy testing
+    // TODO(PECO-2187): Add auth for proxy testing
     if (basicAuth) {
       sb.append("ProxyUser=")
           .append(proxyUser)
