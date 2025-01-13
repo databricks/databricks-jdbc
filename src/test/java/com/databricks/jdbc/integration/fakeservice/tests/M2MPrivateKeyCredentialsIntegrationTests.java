@@ -28,6 +28,7 @@ public class M2MPrivateKeyCredentialsIntegrationTests extends AbstractFakeServic
 
   @BeforeAll
   static void setup() {
+    System.setProperty("FAKE_SERVICE_TEST_MODE", "REPLAY");     // DO NOT change. Not sending req to production server.
     setDatabricksApiTargetUrl(getM2MPrivateKeyCredentialsHost());
   }
 

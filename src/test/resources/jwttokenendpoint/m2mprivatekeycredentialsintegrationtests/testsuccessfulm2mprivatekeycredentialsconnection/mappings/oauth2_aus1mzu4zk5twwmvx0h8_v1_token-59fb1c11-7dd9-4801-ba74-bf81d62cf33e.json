@@ -11,7 +11,7 @@
   },
   "response" : {
     "status" : 200,
-    "body" : "{\"token_type\":\"Bearer\",\"expires_in\":3600,\"access_token\":\"eyJraWQiOiJHcXpJZEJZbEtuSllOX2t4aFZCSmMycjctaEtIRlRhTjBFZ2dpTnVUMnJRIiwiYWxnIjoiUlMyNTYifQ.eyJ2ZXIiOjEsImp0aSI6IkFULmloekE0UmZleFpiUktrbG1QYl9tT2tyNWowQzRrdVVXNHRDYU5DT2lIRFkiLCJpc3MiOiJodHRwczovL2Rldi01OTExMjMub2t0YXByZXZpZXcuY29tL29hdXRoMi9hdXMxbXp1NHprNVRXd012eDBoOCIsImF1ZCI6Ijk2ZmRmMTY2LTcwYTUtNGVmOC04MTlmLTg5YWJmYmFjMWI2MSIsImlhdCI6MTczNjQ5NDExOCwiZXhwIjoxNzM2NDk3NzE4LCJjaWQiOiIwb2EyNXduaXI0ZWhuS0RqMTBoOCIsInNjcCI6WyJhbGwtYXBpcyJdLCJzdWIiOiIwb2EyNXduaXI0ZWhuS0RqMTBoOCJ9.lA72WBEL1Rz5G_2fiIvdfR1b5F9zt97jBEd5fPr4r6WZiP-n60BTu0J36SR7ai3X68yTSvKQbHB5g3jxdlOdriky4niTfCuMXFY0QZZ5gDZ3uvdOQqH0JX8LA2EQ8Y_dwwwdO21dpPkPKsdBV0ImA2Ur9M2qN5neHihVuufPVsgOuF3UZ5TShF2erX0REvZWVrgHyBKG2e0uHBS9uo91KG7ZlmQcQHsL9c1X8i2hGpAP_AaZsJjfjO4vOxQAhi7zGQo2MiH6BgMtKwlePZnw4lksSuAMX3HRerTtd0LtbL8CVGcVlZAwDqLM_qZSb_F2i26L7yH1ooX0ov8J68UTRA\",\"scope\":\"all-apis\"}",
+    "body" : "{\"token_type\":\"Bearer\",\"expires_in\":3600,\"access_token\":\"my-test-token\",\"scope\":\"all-apis\"}",
     "headers" : {
       "expires" : "0",
       "Server" : "nginx",
