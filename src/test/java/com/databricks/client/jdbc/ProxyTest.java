@@ -11,13 +11,13 @@ import org.junit.jupiter.api.Test;
 
 public class ProxyTest {
 
-  private static String patToken; // from JDBC_PAT
-  private static String host; // from JDBC_HOST
-  private static String httpPath; // from JDBC_HTTP_PATH
-  private static String proxyUrl; // from PROXY_URL (e.g. "http://localhost:3128")
-  private static String cfProxyUrl; // from CF_PROXY_URL (e.g. "http://localhost:8889")
-  private static String proxyUser; // from PROXY_USER
-  private static String proxyPass; // from PROXY_PASS
+  private static String patToken;
+  private static String host;
+  private static String httpPath;
+  private static String proxyUrl;
+  private static String cfProxyUrl;
+  private static String proxyUser;
+  private static String proxyPass;
 
   @BeforeAll
   public static void setupEnv() {
@@ -107,10 +107,8 @@ public class ProxyTest {
           .append(";");
     }
 
-    // If basicAuth is requested, add those params:
+    // TODO(): Add auth for proxy testing
     if (basicAuth) {
-      // Hypothetically: "ProxyUser=...;ProxyPassword=..."
-      // or maybe "ProxyAuth=basic;ProxyUser=...;ProxyPassword=..."
       sb.append("ProxyUser=")
           .append(proxyUser)
           .append(";")
@@ -119,8 +117,6 @@ public class ProxyTest {
           .append(";");
     }
 
-    // Return final URL
-    System.out.println("CHECK1" + sb.toString());
     return sb.toString();
   }
 
@@ -198,7 +194,6 @@ public class ProxyTest {
     System.out.println("Scenario: Proxy failure (invalid port)");
     for (boolean thrift : new boolean[] {true, false}) {
       String url = buildJdbcUrl(thrift, true, false, false, true);
-      // breakProxy=true => sets port=9999
       Exception ex =
           assertThrows(
               Exception.class,
