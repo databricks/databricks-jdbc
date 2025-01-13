@@ -1,4 +1,4 @@
-name: Proxy Test with Squid and Maven
+name: Proxy Test with Dual Squid Proxies
 
 on:
   workflow_dispatch:
@@ -11,11 +11,11 @@ jobs:
       ################################################################
       # 1) Check Out the Repo
       ################################################################
-      - name: Checkout Code
-        uses: actions/checkout@v2
+      - name: Checkout
+        uses: actions/checkout@v4
 
       ################################################################
-      # 2) Set Up Java (and optionally Maven)
+      # 2) Set Up Java
       ################################################################
       - name: Set Up Java
         uses: actions/setup-java@v4
@@ -32,71 +32,134 @@ jobs:
           sudo apt-get install -y squid
 
       ################################################################
-      # 4) Configure Squid
+      # 4) Configure the First Squid (Port 3128)
       ################################################################
-      - name: Configure Squid
+      - name: Configure Squid (Primary 3128)
         run: |
           echo "
           http_port 3128
-          acl localnet src all
+          # Restrict to localhost for security
+          acl localnet src 127.0.0.1/32
           http_access allow localnet
           http_access deny all
           " | sudo tee /etc/squid/squid.conf
 
       ################################################################
-      # 5) Start Squid
+      # 5) Start the First Squid
       ################################################################
-      - name: Start Squid
+      - name: Start the First Squid
         run: |
           sudo systemctl restart squid
           sudo systemctl enable squid
 
       ################################################################
-      # 6) Verify Squid Setup
+      # 6) Wait for the First Squid to be Ready
       ################################################################
-      - name: Verify Squid
+      - name: Wait for Squid (3128)
         run: |
-          curl -x http://localhost:3128 http://example.com
+          for i in {1..5}; do
+            echo "Checking if Squid on 3128 is up (attempt $i)..."
+            if curl -x http://localhost:3128 http://example.com -sSf -o /dev/null; then
+              echo "Squid on 3128 is up."
+              break
+            fi
+            if [ $i -eq 5 ]; then
+              echo "Squid on 3128 did not respond after 5 attempts. Failing..."
+              exit 1
+            fi
+            sleep 5
+          done
 
       ################################################################
-      # 7) Build Project with Maven
+      # 7) Configure a Second Squid (Port 8889) with Unique PID and Cache
+      ################################################################
+      - name: Configure Second Squid (Cloud Fetch 8889)
+        run: |
+          sudo cp /etc/squid/squid.conf /etc/squid/squid2.conf
+          # Update the port to 8889 in the new config
+          sudo sed -i 's/http_port 3128/http_port 8889/' /etc/squid/squid2.conf
+          # Set unique PID file and cache directory for the second instance
+          echo "pid_filename /var/run/squid2.pid" | sudo tee -a /etc/squid/squid2.conf
+          echo "cache_dir ufs /var/spool/squid2 100 16 256" | sudo tee -a /etc/squid/squid2.conf
+          # Optionally update logs to a separate directory
+          sudo sed -i 's/\/var\/log\/squid/\/var\/log\/squid2/g' /etc/squid/squid2.conf
+          sudo mkdir -p /var/log/squid2
+          sudo chown proxy:proxy /var/log/squid2
+
+      ################################################################
+      # 8) Initialize Cache Directory for Second Squid
+      ################################################################
+      - name: Initialize Cache for Second Squid
+        run: |
+          # Create the cache directory if it doesn't exist
+          sudo mkdir -p /var/spool/squid2
+          sudo chown proxy:proxy /var/spool/squid2
+          # Initialize the cache directories as per the second config
+          sudo squid -f /etc/squid/squid2.conf -z
+
+      ################################################################
+      # 9) Start the Second Squid
+      ################################################################
+      - name: Start the Second Squid
+        run: |
+          # Run the second Squid instance with its own config
+          sudo squid -f /etc/squid/squid2.conf -N &> /tmp/squid2.log &
+          # Wait a bit to let it start
+          sleep 3
+
+      ################################################################
+      # 10) Wait for the Second Squid (8889)
+      ################################################################
+      - name: Verify Squid (8889)
+        run: |
+          for i in {1..5}; do
+            echo "Checking if Squid on 8889 is up (attempt $i)..."
+            if curl -x http://localhost:8889 http://example.com -sSf -o /dev/null; then
+              echo "Second Squid on 8889 is up."
+              break
+            fi
+            if [ $i -eq 5 ]; then
+              echo "Squid on 8889 did not respond after 5 attempts. Failing..."
+              cat /tmp/squid2.log
+              exit 1
+            fi
+            sleep 5
+          done
+
+      ################################################################
+      # 11) Maven Build
       ################################################################
       - name: Maven Build
-        run: |
-          mvn clean package
+        run: mvn clean package
+
+      ################################################################
+      # 12) Set Environment Variables for Tests
+      ################################################################
+      - name: Set Environment Variables
         env:
-          MAVEN_OPTS: "-Dhttps.proxyHost=localhost -Dhttps.proxyPort=3128"
+          DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
+          DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
+          DATABRICKS_HTTP_PATH: ${{ secrets.DATABRICKS_HTTP_PATH }}
+          PROXY_URL: "http://localhost:3128"
+          CF_PROXY_URL: "http://localhost:8889"
+
+        run: echo "Environment variables set. Tokens/hosts ready."
 
       ################################################################
-      # 8) Wait for Squid to be Ready
-      ################################################################
-      - name: Wait for Squid
-        run: |
-          echo "Sleeping 5s to ensure Squid is fully ready..."
-          sleep 5
-
-      ################################################################
-      # 9) Set Proxy and Authentication Environment Variables
-      ################################################################
-      - name: Set Environment
-        env:
-          HTTP_PROXY: "http://localhost:3128"
-          HTTPS_PROXY: "http://localhost:3128"
-          NO_PROXY: "localhost,127.0.0.1"
-          JDBC_PAT: ${{ secrets.DATABRICKS_TOKEN }}
-          JDBC_HOST: ${{ secrets.DATABRICKS_HOST }}
-          JDBC_HTTP_PATH: ${{ secrets.DATABRICKS_HTTP_PATH }}
-        run: echo "Proxy environment variables set, and PAT_TOKEN is ready."
-
-      ################################################################
-      # 10) Run ProxyTest
+      # 13) Run Proxy Tests
       ################################################################
       - name: Run ProxyTest
-        run: mvn test -Dtest=**/ProxyTest.java -DpatToken=$JDBC_PAT -DjdbcHost=$JDBC_HOST -DjdbcHttpPath=$JDBC_HTTP_PATH -DproxyUrl=http://localhost:3128
- 
+        run: |
+          mvn test \
+            -Dtest=**/ProxyTest.java \
+            -DpatToken=$DATABRICKS_TOKEN \
+            -Dhost=$DATABRICKS_HOST \
+            -DhttpPath=$DATABRICKS_HTTP_PATH \
+            -DproxyUrl=$PROXY_URL \
+            -DcfProxyUrl=$CF_PROXY_URL
 
       ################################################################
-      # 12) Upload Logs / Results
+      # 14) Upload Logs
       ################################################################
       - name: Upload Proxy Test Logs
         if: always()
@@ -107,3 +170,17 @@ jobs:
             test-results/
             /var/log/squid/access.log
             /var/log/squid/cache.log
+            /var/log/squid2/
+            /tmp/squid2.log
+
+      ################################################################
+      # 15) Cleanup
+      ################################################################
+      - name: Cleanup Squid
+        if: always()
+        run: |
+          echo "Stopping and disabling primary Squid..."
+          sudo systemctl stop squid
+          sudo systemctl disable squid
+          echo "Killing second Squid if still running..."
+          sudo pkill squid
