@@ -3,8 +3,8 @@ package com.databricks.jdbc.model.telemetry;
 import com.databricks.jdbc.common.AuthFlow;
 import com.databricks.jdbc.common.AuthMech;
 import com.databricks.jdbc.common.DatabricksClientType;
-import com.databricks.jdbc.model.telemetry.enums.DriverProxy;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import java.util.List;
 
 public class DriverConnectionParameters {
   @JsonProperty("http_path")
@@ -13,26 +13,23 @@ public class DriverConnectionParameters {
   @JsonProperty("mode")
   DatabricksClientType driverMode;
 
-  @JsonProperty("host_url")
-  String hostUrl;
-
-  @JsonProperty("use_proxy")
-  boolean useProxy;
+  @JsonProperty("host_info")
+  HostDetails hostDetails;
 
   @JsonProperty("auth_mech")
   AuthMech authMech;
 
-  @JsonProperty("proxy_host")
-  String proxyHost;
+  @JsonProperty("auth_flow")
+  AuthFlow driverAuthFlow;
 
-  @JsonProperty("proxy_port")
-  String proxyPort;
+  @JsonProperty("auth_scope")
+  String authScope;
 
-  @JsonProperty("proxy_type")
-  DriverProxy proxyType;
+  @JsonProperty("use_proxy")
+  boolean useProxy;
 
   @JsonProperty("non_proxy_hosts")
-  String non_proxy_hosts;
+  List<String> non_proxy_hosts;
 
   @JsonProperty("use_system_proxy")
   boolean useSystemProxy;
@@ -40,41 +37,32 @@ public class DriverConnectionParameters {
   @JsonProperty("use_cf_proxy")
   boolean useCfProxy;
 
-  @JsonProperty("cf_proxy_host")
-  boolean cfProxyHost;
+  @JsonProperty("proxy_host_info")
+  HostDetails proxyHostDetails;
 
-  @JsonProperty("cf_proxy_port")
-  boolean cfProxyPort;
-
-  @JsonProperty("cf_proxy_auth")
-  boolean cfProxyAuth;
-
-  @JsonProperty("auth_flow")
-  AuthFlow driverAuthFlow;
+  @JsonProperty("cf_proxy_host_info")
+  HostDetails cfProxyHostDetails;
 
   @JsonProperty("discovery_mode_enabled")
   boolean discoveryModeEnabled;
-
-  @JsonProperty("auth_scope")
-  String authScope;
 
   @JsonProperty("discovery_url")
   String discoveryUrl;
 
   @JsonProperty("use_empty_metadata")
-  String useEmptyMetadata;
+  boolean useEmptyMetadata;
 
   @JsonProperty("support_many_parameters")
-  String supportManyParameters;
+  boolean supportManyParameters;
 
   @JsonProperty("ssl_trust_store_type")
   String sslTrustStoreType;
 
   @JsonProperty("check_certificate_revocation")
-  String checkCertificateRevocation;
+  boolean checkCertificateRevocation;
 
   @JsonProperty("accept_undetermined_certificate_revocation")
-  String acceptUndeterminedCertificateRevocation;
+  boolean acceptUndeterminedCertificateRevocation;
 
   public DriverConnectionParameters setHttpPath(String httpPath) {
     this.httpPath = httpPath;
@@ -83,11 +71,6 @@ public class DriverConnectionParameters {
 
   public DriverConnectionParameters setDriverMode(DatabricksClientType clientType) {
     this.driverMode = clientType;
-    return this;
-  }
-
-  public DriverConnectionParameters setHostUrl(String hostUrl) {
-    this.hostUrl = hostUrl;
     return this;
   }
 
@@ -101,22 +84,7 @@ public class DriverConnectionParameters {
     return this;
   }
 
-  public DriverConnectionParameters setProxyHost(String proxyHost) {
-    this.proxyHost = proxyHost;
-    return this;
-  }
-
-  public DriverConnectionParameters setProxyPort(String proxyPort) {
-    this.proxyPort = proxyPort;
-    return this;
-  }
-
-  public DriverConnectionParameters setProxyType(DriverProxy proxyType) {
-    this.proxyType = proxyType;
-    return this;
-  }
-
-  public DriverConnectionParameters setNonProxyHosts(String non_proxy_hosts) {
+  public DriverConnectionParameters setNonProxyHosts(List<String> non_proxy_hosts) {
     this.non_proxy_hosts = non_proxy_hosts;
     return this;
   }
@@ -131,18 +99,18 @@ public class DriverConnectionParameters {
     return this;
   }
 
-  public DriverConnectionParameters setCfProxyHost(boolean cfProxyHost) {
-    this.cfProxyHost = cfProxyHost;
+  public DriverConnectionParameters setHostDetails(HostDetails hostDetails) {
+    this.hostDetails = hostDetails;
     return this;
   }
 
-  public DriverConnectionParameters setCfProxyPort(boolean cfProxyPort) {
-    this.cfProxyPort = cfProxyPort;
+  public DriverConnectionParameters setCfProxyHostDetails(HostDetails cfProxyHostDetails) {
+    this.cfProxyHostDetails = cfProxyHostDetails;
     return this;
   }
 
-  public DriverConnectionParameters setCfProxyAuth(boolean cfProxyAuth) {
-    this.cfProxyAuth = cfProxyAuth;
+  public DriverConnectionParameters setProxyHostDetails(HostDetails proxyHostDetails) {
+    this.proxyHostDetails = proxyHostDetails;
     return this;
   }
 
@@ -166,12 +134,12 @@ public class DriverConnectionParameters {
     return this;
   }
 
-  public DriverConnectionParameters setUseEmptyMetadata(String useEmptyMetadata) {
+  public DriverConnectionParameters setUseEmptyMetadata(boolean useEmptyMetadata) {
     this.useEmptyMetadata = useEmptyMetadata;
     return this;
   }
 
-  public DriverConnectionParameters setSupportManyParameters(String supportManyParameters) {
+  public DriverConnectionParameters setSupportManyParameters(boolean supportManyParameters) {
     this.supportManyParameters = supportManyParameters;
     return this;
   }
@@ -182,13 +150,13 @@ public class DriverConnectionParameters {
   }
 
   public DriverConnectionParameters setCheckCertificateRevocation(
-      String checkCertificateRevocation) {
+      boolean checkCertificateRevocation) {
     this.checkCertificateRevocation = checkCertificateRevocation;
     return this;
   }
 
   public DriverConnectionParameters setAcceptUndeterminedCertificateRevocation(
-      String acceptUndeterminedCertificateRevocation) {
+      boolean acceptUndeterminedCertificateRevocation) {
     this.acceptUndeterminedCertificateRevocation = acceptUndeterminedCertificateRevocation;
     return this;
   }

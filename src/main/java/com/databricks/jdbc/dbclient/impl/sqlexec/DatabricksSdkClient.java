@@ -3,6 +3,7 @@ package com.databricks.jdbc.dbclient.impl.sqlexec;
 import static com.databricks.jdbc.common.DatabricksJdbcConstants.JSON_HTTP_HEADERS;
 import static com.databricks.jdbc.common.EnvironmentVariables.DEFAULT_ROW_LIMIT;
 import static com.databricks.jdbc.dbclient.impl.sqlexec.PathConstants.*;
+import static com.databricks.jdbc.telemetry.TelemetryHelper.exportLatencyLog;
 
 import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.api.IDatabricksSession;
@@ -24,6 +25,7 @@ import com.databricks.jdbc.model.client.sqlexec.ExecuteStatementResponse;
 import com.databricks.jdbc.model.client.sqlexec.GetStatementResponse;
 import com.databricks.jdbc.model.core.ExternalLink;
 import com.databricks.jdbc.model.core.ResultData;
+import com.databricks.jdbc.model.telemetry.SqlExecutionEvent;
 import com.databricks.sdk.WorkspaceClient;
 import com.databricks.sdk.core.ApiClient;
 import com.databricks.sdk.service.sql.*;
@@ -188,6 +190,10 @@ public class DatabricksSdkClient implements IDatabricksClient {
         String.format(
             "Executed sql [%s] with status [%s], total time taken [%s] and pollCount [%s]",
             sql, responseState, (executionEndTime - executionStartTime), pollCount));
+    SqlExecutionEvent sqlExecutionEventDetails =
+        new SqlExecutionEvent().setDriverStatementType(statementType);
+    exportLatencyLog(
+        connectionContext, (executionEndTime - executionStartTime), sqlExecutionEventDetails);
     if (responseState != StatementState.SUCCEEDED) {
       handleFailedExecution(response, statementId, sql);
     }
