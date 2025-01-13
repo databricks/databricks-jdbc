@@ -66,11 +66,6 @@ public class ProxyTest {
       }
     }
 
-    // induce invalid proxy via fake port
-    if (breakProxy) {
-      defaultProxyPort = "9999";
-    }
-
     StringBuilder sb = new StringBuilder();
     sb.append("jdbc:databricks://")
         .append(host)
@@ -94,6 +89,7 @@ public class ProxyTest {
           .append(defaultProxyPort)
           .append(";");
     } else if (useProxy && breakProxy) {
+      // induce failure by using invalid port
       sb.append("ProxyHost=").append(defaultProxyHost).append(";").append("ProxyPort=9999;");
     }
 

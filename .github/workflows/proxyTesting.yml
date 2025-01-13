@@ -32,7 +32,7 @@ jobs:
           sudo apt-get install -y squid
 
       ################################################################
-      # 4) Configure the First Squid (Port 3128)
+      # 4) Configure the squid for SDK proxy (Port 3128)
       ################################################################
       - name: Configure Squid (Primary 3128)
         run: |
@@ -45,15 +45,15 @@ jobs:
           " | sudo tee /etc/squid/squid.conf
 
       ################################################################
-      # 5) Start the First Squid
+      # 5) Start the squid for SDK proxy
       ################################################################
-      - name: Start the First Squid
+      - name: Start the squid for SDK proxy
         run: |
           sudo systemctl restart squid
           sudo systemctl enable squid
 
       ################################################################
-      # 6) Wait for the First Squid to be Ready
+      # 6) Wait for the squid for SDK proxy to be Ready
       ################################################################
       - name: Wait for Squid (3128)
         run: |
@@ -71,9 +71,9 @@ jobs:
           done
 
       ################################################################
-      # 7) Configure a Second Squid (Port 8889) with Unique PID and Cache
+      # 7) Configure a squid for cloudfetch proxy (Port 8889) with Unique PID and Cache
       ################################################################
-      - name: Configure Second Squid (Cloud Fetch 8889)
+      - name: Configure squid for cloudfetch proxy (Cloud Fetch 8889)
         run: |
           sudo cp /etc/squid/squid.conf /etc/squid/squid2.conf
           # Update the port to 8889 in the new config
@@ -87,9 +87,9 @@ jobs:
           sudo chown proxy:proxy /var/log/squid2
 
       ################################################################
-      # 8) Initialize Cache Directory for Second Squid
+      # 8) Initialize Cache Directory for squid for cloudfetch proxy
       ################################################################
-      - name: Initialize Cache for Second Squid
+      - name: Initialize Cache for squid for cloudfetch proxy
         run: |
           # Create the cache directory if it doesn't exist
           sudo mkdir -p /var/spool/squid2
@@ -98,24 +98,24 @@ jobs:
           sudo squid -f /etc/squid/squid2.conf -z
 
       ################################################################
-      # 9) Start the Second Squid
+      # 9) Start the squid for cloudfetch proxy
       ################################################################
-      - name: Start the Second Squid
+      - name: Start the squid for cloudfetch proxy
         run: |
-          # Run the second Squid instance with its own config
+          # Run the squid for cloudfetch proxy instance with its own config
           sudo squid -f /etc/squid/squid2.conf -N &> /tmp/squid2.log &
           # Wait a bit to let it start
           sleep 3
 
       ################################################################
-      # 10) Wait for the Second Squid (8889)
+      # 10) Wait for the squid for cloudfetch proxy (8889)
       ################################################################
       - name: Verify Squid (8889)
         run: |
           for i in {1..5}; do
             echo "Checking if Squid on 8889 is up (attempt $i)..."
             if curl -x http://localhost:8889 http://example.com -sSf -o /dev/null; then
-              echo "Second Squid on 8889 is up."
+              echo "squid for cloudfetch proxy on 8889 is up."
               break
             fi
             if [ $i -eq 5 ]; then
@@ -176,5 +176,5 @@ jobs:
           echo "Stopping and disabling primary Squid..."
           sudo systemctl stop squid
           sudo systemctl disable squid
-          echo "Killing second Squid if still running..."
+          echo "Killing squid for cloudfetch proxy if still running..."
           sudo pkill squid
