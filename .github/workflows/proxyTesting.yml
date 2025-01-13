@@ -150,13 +150,7 @@ jobs:
       ################################################################
       - name: Run ProxyTest
         run: |
-          mvn test \
-            -Dtest=**/ProxyTest.java \
-            -DpatToken=$DATABRICKS_TOKEN \
-            -Dhost=$DATABRICKS_HOST \
-            -DhttpPath=$DATABRICKS_HTTP_PATH \
-            -DproxyUrl=$PROXY_URL \
-            -DcfProxyUrl=$CF_PROXY_URL
+          mvn test -Dtest=**/ProxyTest.java 
 
       ################################################################
       # 14) Upload Logs
