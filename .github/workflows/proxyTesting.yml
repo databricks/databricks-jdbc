@@ -81,7 +81,6 @@ jobs:
           # Set unique PID file and cache directory for the second instance
           echo "pid_filename /var/run/squid2.pid" | sudo tee -a /etc/squid/squid2.conf
           echo "cache_dir ufs /var/spool/squid2 100 16 256" | sudo tee -a /etc/squid/squid2.conf
-          # Optionally update logs to a separate directory
           sudo sed -i 's/\/var\/log\/squid/\/var\/log\/squid2/g' /etc/squid/squid2.conf
           sudo mkdir -p /var/log/squid2
           sudo chown proxy:proxy /var/log/squid2
