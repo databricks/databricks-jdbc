@@ -1,7 +1,6 @@
 package com.databricks.jdbc.api.impl;
 
 import static com.databricks.jdbc.common.DatabricksJdbcConstants.EMPTY_STRING;
-import static com.databricks.jdbc.common.DatabricksJdbcConstants.TABLE;
 import static com.databricks.jdbc.common.DatabricksJdbcConstants.VOLUME_OPERATION_STATUS_COLUMN_NAME;
 import static com.databricks.jdbc.common.MetadataResultConstants.TABLE_TYPE_COLUMN;
 import static com.databricks.jdbc.common.util.DatabricksThriftUtil.getTypeFromTypeDesc;
@@ -227,7 +226,7 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
           ColumnInfoTypeName.valueOf(
               DatabricksTypeUtil.getDatabricksTypeFromSQLType(columnTypes.get(i)));
       ImmutableDatabricksColumn.Builder columnBuilder = getColumnBuilder();
-      if(columnNames.get(i).equals(TABLE_TYPE_COLUMN.getColumnName())) {
+      if (columnNames.get(i).equals(TABLE_TYPE_COLUMN.getColumnName())) {
         columnBuilder.nullable(Nullable.NO_NULLS);
       }
       columnBuilder
@@ -235,6 +234,43 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
           .columnType(columnTypes.get(i))
           .columnTypeText(columnTypeText.get(i))
           .typePrecision(columnTypePrecisions.get(i))
+          .columnTypeClassName(DatabricksTypeUtil.getColumnTypeClassName(columnTypeName))
+          .displaySize(
+              DatabricksTypeUtil.getDisplaySize(columnTypeName, columnTypePrecisions.get(i)))
+          .isSigned(DatabricksTypeUtil.isSigned(columnTypeName));
+      columnsBuilder.add(columnBuilder.build());
+      // Keep index starting from 1, to be consistent with JDBC convention
+      columnNameToIndexMap.putIfAbsent(columnNames.get(i), i + 1);
+    }
+    this.columns = columnsBuilder.build();
+    this.columnNameIndex = ImmutableMap.copyOf(columnNameToIndexMap);
+    this.totalRows = totalRows;
+    this.isCloudFetchUsed = false;
+  }
+
+  public DatabricksResultSetMetaData(
+      StatementId statementId,
+      List<String> columnNames,
+      List<String> columnTypeText,
+      List<Integer> columnTypes,
+      List<Integer> columnTypePrecisions,
+      List<Integer> isNullables,
+      long totalRows) {
+    this.statementId = statementId;
+
+    Map<String, Integer> columnNameToIndexMap = new HashMap<>();
+    ImmutableList.Builder<ImmutableDatabricksColumn> columnsBuilder = ImmutableList.builder();
+    for (int i = 0; i < columnNames.size(); i++) {
+      ColumnInfoTypeName columnTypeName =
+          ColumnInfoTypeName.valueOf(
+              DatabricksTypeUtil.getDatabricksTypeFromSQLType(columnTypes.get(i)));
+      ImmutableDatabricksColumn.Builder columnBuilder = getColumnBuilder();
+      columnBuilder
+          .columnName(columnNames.get(i))
+          .columnType(columnTypes.get(i))
+          .columnTypeText(columnTypeText.get(i))
+          .typePrecision(columnTypePrecisions.get(i))
+          .nullable(DatabricksTypeUtil.getNullableFromValue(isNullables.get(i)))
           .columnTypeClassName(DatabricksTypeUtil.getColumnTypeClassName(columnTypeName))
           .displaySize(
               DatabricksTypeUtil.getDisplaySize(columnTypeName, columnTypePrecisions.get(i)))

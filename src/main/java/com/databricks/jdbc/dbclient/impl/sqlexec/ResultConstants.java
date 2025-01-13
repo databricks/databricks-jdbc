@@ -73,6 +73,7 @@ public class ResultConstants {
               Types.INTEGER,
               Types.INTEGER),
           Arrays.asList(128, 10, 10, 128, 128, 128, 5, 1, 5, 1, 1, 1, 128, 5, 5, 10, 10, 10),
+          Arrays.asList(0, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 1),
           new Object[][] {
             {
               "TINYINT",

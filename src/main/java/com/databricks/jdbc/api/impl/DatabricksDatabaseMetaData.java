@@ -890,7 +890,14 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
             "PROCEDURE_TYPE",
             "SPECIFIC_NAME"),
         Arrays.asList(
-            "VARCHAR", "VARCHAR", "VARCHAR", "INTEGER", "INTEGER", "INTEGER", "VARCHAR", "SMALLINT",
+            "VARCHAR",
+            "VARCHAR",
+            "VARCHAR",
+            "INTEGER",
+            "INTEGER",
+            "INTEGER",
+            "VARCHAR",
+            "SMALLINT",
             "VARCHAR"),
         Arrays.asList(
             Types.VARCHAR,
@@ -903,6 +910,7 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
             Types.SMALLINT,
             Types.VARCHAR),
         Arrays.asList(128, 128, 128, 128, 128, 128, 128, 128, 128),
+        Arrays.asList(1, 1, 0, 1, 1, 1, 1, 1, 0),
         new Object[0][0],
         StatementType.METADATA);
   }
@@ -1199,6 +1207,7 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
             Types.VARCHAR,
             Types.VARCHAR),
         Arrays.asList(128, 128, 128, 128, 128, 128, 128),
+        Arrays.asList(1, 1, 0, 1, 1, 1, 1),
         new String[0][0],
         StatementType.METADATA);
   }
