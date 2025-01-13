@@ -1,6 +1,7 @@
 package com.databricks.jdbc.api.impl.arrow;
 
 import com.databricks.jdbc.api.IDatabricksConnectionContext;
+import com.databricks.jdbc.common.util.DatabricksConnectionContextHolder;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
@@ -24,19 +25,19 @@ class ChunkDownloadTask implements Callable<Void> {
   ChunkDownloadTask(
       ArrowResultChunk chunk,
       IDatabricksHttpClient httpClient,
-      ChunkDownloadCallback chunkDownloader,
-      IDatabricksConnectionContext connectionContext) {
+      ChunkDownloadCallback chunkDownloader) {
     this.chunk = chunk;
     this.httpClient = httpClient;
     this.chunkDownloader = chunkDownloader;
-    this.connectionContext = connectionContext;
+    this.connectionContext = DatabricksConnectionContextHolder.getConnectionContext();
   }
 
   @Override
   public Void call() throws DatabricksSQLException {
     int retries = 0;
     boolean downloadSuccessful = false;
-
+    // Sets connection context in the newly spawned thread
+    DatabricksConnectionContextHolder.setConnectionContext(this.connectionContext);
     try {
       while (retries < MAX_RETRIES && !downloadSuccessful) {
         try {
@@ -84,6 +85,7 @@ class ChunkDownloadTask implements Callable<Void> {
         chunk.setStatus(ArrowResultChunk.ChunkStatus.DOWNLOAD_FAILED);
       }
       chunkDownloader.downloadProcessed(chunk.getChunkIndex());
+      DatabricksConnectionContextHolder.clear();
     }
     return null;
   }
