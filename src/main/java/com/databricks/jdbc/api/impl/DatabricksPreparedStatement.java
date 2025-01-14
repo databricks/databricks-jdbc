@@ -4,7 +4,6 @@ import static com.databricks.jdbc.common.util.DatabricksTypeUtil.getDatabricksTy
 import static com.databricks.jdbc.common.util.DatabricksTypeUtil.inferDatabricksType;
 import static com.databricks.jdbc.common.util.SQLInterpolator.interpolateSQL;
 
-import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.common.AllPurposeCluster;
 import com.databricks.jdbc.common.StatementType;
 import com.databricks.jdbc.common.util.DatabricksTypeUtil;
@@ -32,7 +31,6 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
   private static final JdbcLogger LOGGER =
       JdbcLoggerFactory.getLogger(DatabricksPreparedStatement.class);
   private final String sql;
-  private final IDatabricksConnectionContext connectionContext;
   private DatabricksParameterMetaData databricksParameterMetaData;
   private List<DatabricksParameterMetaData> databricksBatchParameterMetaData;
   private final boolean interpolateParameters;
@@ -41,7 +39,6 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
   public DatabricksPreparedStatement(DatabricksConnection connection, String sql) {
     super(connection);
     this.sql = sql;
-    this.connectionContext = connection.getConnectionContext();
     this.interpolateParameters =
         connection.getConnectionContext().supportManyParameters()
             || connection.getConnectionContext().getComputeResource() instanceof AllPurposeCluster;

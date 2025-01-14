@@ -99,8 +99,8 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
   @Override
   public void deleteSession(ImmutableSessionInfo sessionInfo) throws DatabricksSQLException {
     LOGGER.debug(
-        String.format("public void deleteSession(Session session = {%s}))", sessionInfo.toString()),
-        connectionContext);
+        String.format(
+            "public void deleteSession(Session session = {%s}))", sessionInfo.toString()));
     TCloseSessionReq closeSessionReq =
         new TCloseSessionReq().setSessionHandle(sessionInfo.sessionHandle());
     TCloseSessionResp response =
@@ -148,8 +148,7 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
     LOGGER.debug(
         String.format(
             "public DatabricksResultSet executeStatementAsync(String sql = {%s}, Compute cluster = {%s}, Map<Integer, ImmutableSqlParameter> parameters = {%s})",
-            sql, computeResource.toString(), parameters.toString()),
-        connectionContext);
+            sql, computeResource.toString(), parameters.toString()));
     TExecuteStatementReq request =
         new TExecuteStatementReq()
             .setStatement(sql)
@@ -305,8 +304,7 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
   public DatabricksResultSet listTableTypes(IDatabricksSession session) {
     LOGGER.debug(
         String.format(
-            "Fetching table types for all purpose cluster. Session {%s}", session.toString()),
-        connectionContext);
+            "Fetching table types for all purpose cluster. Session {%s}", session.toString()));
     return MetadataResultSetBuilder.getTableTypesResult();
   }
 

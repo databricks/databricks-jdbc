@@ -1,6 +1,5 @@
 package com.databricks.jdbc.api.impl.converters;
 
-import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.exception.DatabricksValidationException;
 import com.databricks.jdbc.log.JdbcLogger;
@@ -48,10 +47,7 @@ public class ArrowToJavaObjectConverter {
           DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.S"),
           DateTimeFormatter.RFC_1123_DATE_TIME);
 
-  public static Object convert(
-      Object object,
-      ColumnInfoTypeName requiredType,
-      IDatabricksConnectionContext connectionContext)
+  public static Object convert(Object object, ColumnInfoTypeName requiredType)
       throws DatabricksSQLException {
     if (object == null) {
       return null;

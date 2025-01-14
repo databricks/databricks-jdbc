@@ -4,7 +4,6 @@ import static com.databricks.jdbc.common.DatabricksJdbcConstants.*;
 import static com.databricks.jdbc.common.util.ValidationUtil.throwErrorIfNull;
 import static com.databricks.jdbc.dbclient.impl.common.CommandConstants.*;
 
-import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.api.IDatabricksSession;
 import com.databricks.jdbc.common.util.WildcardUtil;
 import com.databricks.jdbc.exception.DatabricksSQLFeatureNotSupportedException;
@@ -26,17 +25,14 @@ public class CommandBuilder {
   private String functionPattern = null;
 
   private final String sessionContext;
-  private final IDatabricksConnectionContext connectionContext;
 
   public CommandBuilder(String catalogName, IDatabricksSession session) {
     this.sessionContext = session.toString();
-    this.connectionContext = session.getConnectionContext();
     this.catalogName = catalogName;
   }
 
   public CommandBuilder(IDatabricksSession session) {
     this.sessionContext = session.toString();
-    this.connectionContext = session.getConnectionContext();
   }
 
   public CommandBuilder setSchema(String schemaName) {

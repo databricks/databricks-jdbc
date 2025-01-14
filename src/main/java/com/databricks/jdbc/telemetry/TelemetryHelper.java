@@ -97,7 +97,7 @@ public class TelemetryHelper {
     }
     return connectionParameterCache.computeIfAbsent(
         connectionContext.getConnectionUuid(),
-        k -> buildDriverConnectionParameters(connectionContext));
+        uuid -> buildDriverConnectionParameters(connectionContext));
   }
 
   private static DriverConnectionParameters buildDriverConnectionParameters(

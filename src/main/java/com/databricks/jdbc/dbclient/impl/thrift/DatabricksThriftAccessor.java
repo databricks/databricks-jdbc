@@ -46,11 +46,9 @@ final class DatabricksThriftAccessor {
       TExecuteStatementResp._Fields.STATUS.getThriftFieldId();
   private final ThreadLocal<TCLIService.Client> thriftClient;
   private final boolean enableDirectResults;
-  private final IDatabricksConnectionContext connectionContext;
 
   DatabricksThriftAccessor(IDatabricksConnectionContext connectionContext)
       throws DatabricksParsingException {
-    this.connectionContext = connectionContext;
     this.enableDirectResults = connectionContext.getDirectResultMode();
     DatabricksConfig databricksConfig =
         new ClientConfigurator(connectionContext).getDatabricksConfig();
@@ -60,9 +58,11 @@ final class DatabricksThriftAccessor {
       // Create a new thrift client for each thread as client state is not thread safe. Note that
       // the underlying protocol uses the same http client which is thread safe
       this.thriftClient =
-          ThreadLocal.withInitial(() -> createThriftClient(endPointUrl, databricksConfig));
+          ThreadLocal.withInitial(
+              () -> createThriftClient(endPointUrl, databricksConfig, connectionContext));
     } else {
-      TCLIService.Client client = createThriftClient(endPointUrl, databricksConfig);
+      TCLIService.Client client =
+          createThriftClient(endPointUrl, databricksConfig, connectionContext);
       this.thriftClient = ThreadLocal.withInitial(() -> client);
     }
   }
@@ -71,7 +71,6 @@ final class DatabricksThriftAccessor {
   DatabricksThriftAccessor(
       TCLIService.Client client, IDatabricksConnectionContext connectionContext) {
     this.thriftClient = ThreadLocal.withInitial(() -> client);
-    this.connectionContext = connectionContext;
     this.enableDirectResults = connectionContext.getDirectResultMode();
   }
 
@@ -433,7 +432,9 @@ final class DatabricksThriftAccessor {
    * @param databricksConfig SDK config object required for authentication headers
    */
   private TCLIService.Client createThriftClient(
-      String endPointUrl, DatabricksConfig databricksConfig) {
+      String endPointUrl,
+      DatabricksConfig databricksConfig,
+      IDatabricksConnectionContext connectionContext) {
     DatabricksHttpTTransport transport =
         new DatabricksHttpTTransport(
             DatabricksHttpClientFactory.getInstance().getClient(connectionContext),
