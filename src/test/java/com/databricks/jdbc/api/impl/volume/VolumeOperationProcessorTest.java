@@ -55,8 +55,7 @@ public class VolumeOperationProcessorTest {
             .build();
 
     DatabricksHttpException mockException =
-        new DatabricksHttpException(
-            "Test Exeception", DatabricksDriverErrorCode.INVALID_STATE, null);
+        new DatabricksHttpException("Test Exeception", DatabricksDriverErrorCode.INVALID_STATE);
     doThrow(mockException).when(databricksHttpClient).execute(any());
 
     volumeOperationProcessor.executeGetOperation();
@@ -74,8 +73,7 @@ public class VolumeOperationProcessorTest {
             .build();
 
     DatabricksHttpException mockException =
-        new DatabricksHttpException(
-            "Test Exeception", DatabricksDriverErrorCode.INVALID_STATE, null);
+        new DatabricksHttpException("Test Exeception", DatabricksDriverErrorCode.INVALID_STATE);
     doThrow(mockException).when(databricksHttpClient).execute(any());
 
     volumeOperationProcessor.executePutOperation();

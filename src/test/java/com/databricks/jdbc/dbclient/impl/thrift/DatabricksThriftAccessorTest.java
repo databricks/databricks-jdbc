@@ -1,6 +1,5 @@
 package com.databricks.jdbc.dbclient.impl.thrift;
 
-import static com.databricks.jdbc.TestConstants.TEST_STRING;
 import static com.databricks.jdbc.common.EnvironmentVariables.DEFAULT_BYTE_LIMIT;
 import static com.databricks.jdbc.common.EnvironmentVariables.DEFAULT_ROW_LIMIT;
 import static org.junit.jupiter.api.Assertions.*;
@@ -90,7 +89,6 @@ public class DatabricksThriftAccessorTest {
   @Test
   void testExecute() throws TException, SQLException {
     setup(false);
-    when(session.getConnectionContext()).thenReturn(connectionContext);
     TExecuteStatementReq request = new TExecuteStatementReq();
     TExecuteStatementResp tExecuteStatementResp =
         new TExecuteStatementResp()
@@ -108,7 +106,6 @@ public class DatabricksThriftAccessorTest {
   @Test
   void testExecuteAsync() throws TException, SQLException {
     setup(true);
-    when(session.getConnectionContext()).thenReturn(connectionContext);
     TExecuteStatementReq request = new TExecuteStatementReq();
     TExecuteStatementResp tExecuteStatementResp =
         new TExecuteStatementResp()
@@ -123,7 +120,7 @@ public class DatabricksThriftAccessorTest {
   @Test
   void testExecuteAsync_error() throws TException {
     setup(true);
-    when(connectionContext.getConnectionUuid()).thenReturn(TEST_STRING);
+
     TExecuteStatementReq request = new TExecuteStatementReq();
     when(thriftClient.ExecuteStatement(request)).thenThrow(new TException("failed"));
     assertThrows(
@@ -134,7 +131,7 @@ public class DatabricksThriftAccessorTest {
   @Test
   void testExecuteAsync_SQLState() throws TException {
     setup(true);
-    when(connectionContext.getConnectionUuid()).thenReturn(TEST_STRING);
+
     TExecuteStatementReq request = new TExecuteStatementReq();
     TExecuteStatementResp tExecuteStatementResp =
         new TExecuteStatementResp()
@@ -151,7 +148,6 @@ public class DatabricksThriftAccessorTest {
   @Test
   void testExecuteThrowsThriftError() throws TException {
     setup(true);
-    when(connectionContext.getConnectionUuid()).thenReturn(TEST_STRING);
     accessor = new DatabricksThriftAccessor(thriftClient, connectionContext);
     TExecuteStatementReq request = new TExecuteStatementReq();
     when(thriftClient.ExecuteStatement(request)).thenThrow(TException.class);
@@ -163,7 +159,6 @@ public class DatabricksThriftAccessorTest {
   @Test
   void testExecuteWithParentStatement() throws TException, SQLException {
     setup(true);
-    when(session.getConnectionContext()).thenReturn(connectionContext);
     accessor = new DatabricksThriftAccessor(thriftClient, connectionContext);
     TExecuteStatementReq request = new TExecuteStatementReq();
     TExecuteStatementResp tExecuteStatementResp =
@@ -181,7 +176,6 @@ public class DatabricksThriftAccessorTest {
   @Test
   void testExecuteWithDirectResults() throws TException, SQLException {
     setup(true);
-    when(session.getConnectionContext()).thenReturn(connectionContext);
     accessor = new DatabricksThriftAccessor(thriftClient, connectionContext);
     TExecuteStatementReq request = new TExecuteStatementReq();
     TExecuteStatementResp tExecuteStatementResp =
@@ -197,7 +191,6 @@ public class DatabricksThriftAccessorTest {
   @Test
   void testExecuteWithoutDirectResults() throws TException, SQLException {
     setup(false);
-    when(session.getConnectionContext()).thenReturn(connectionContext);
     accessor = new DatabricksThriftAccessor(thriftClient, connectionContext);
     TExecuteStatementReq request = new TExecuteStatementReq();
     TExecuteStatementResp tExecuteStatementResp =
@@ -213,7 +206,7 @@ public class DatabricksThriftAccessorTest {
   @Test
   void testExecute_throwsException() throws TException {
     setup(true);
-    when(connectionContext.getConnectionUuid()).thenReturn(TEST_STRING);
+
     accessor = new DatabricksThriftAccessor(thriftClient, connectionContext);
     TExecuteStatementReq request = new TExecuteStatementReq();
     TExecuteStatementResp tExecuteStatementResp =
@@ -234,7 +227,6 @@ public class DatabricksThriftAccessorTest {
   @Test
   void testExecuteThrowsSQLExceptionWithSqlState() throws TException {
     setup(true);
-    when(connectionContext.getConnectionUuid()).thenReturn(TEST_STRING);
     TExecuteStatementReq request = new TExecuteStatementReq();
     TExecuteStatementResp tExecuteStatementResp =
         new TExecuteStatementResp()
@@ -291,7 +283,7 @@ public class DatabricksThriftAccessorTest {
   @Test
   void testCancelOperation_error() throws TException {
     setup(true);
-    when(connectionContext.getConnectionUuid()).thenReturn(TEST_STRING);
+
     TCancelOperationReq request =
         new TCancelOperationReq()
             .setOperationHandle(
@@ -305,7 +297,7 @@ public class DatabricksThriftAccessorTest {
   @Test
   void testCloseOperation_error() throws TException {
     setup(true);
-    when(connectionContext.getConnectionUuid()).thenReturn(TEST_STRING);
+
     TCloseOperationReq request =
         new TCloseOperationReq()
             .setOperationHandle(
@@ -319,7 +311,6 @@ public class DatabricksThriftAccessorTest {
   @Test
   void testGetStatementResult_success() throws Exception {
     when(connectionContext.getDirectResultMode()).thenReturn(false);
-    when(session.getConnectionContext()).thenReturn(connectionContext);
     accessor = new DatabricksThriftAccessor(thriftClient, connectionContext);
     when(thriftClient.GetOperationStatus(operationStatusReq)).thenReturn(operationStatusResp);
     TFetchResultsReq fetchReq =
@@ -586,7 +577,7 @@ public class DatabricksThriftAccessorTest {
   @Test
   void testAccessorWhenFetchResultsThrowsError() throws TException {
     setup(false);
-    when(connectionContext.getConnectionUuid()).thenReturn(TEST_STRING);
+
     TGetTablesReq request = new TGetTablesReq();
     TGetTablesResp tGetTablesResp =
         new TGetTablesResp()
@@ -601,7 +592,7 @@ public class DatabricksThriftAccessorTest {
   @Test
   void testAccessorDuringThriftError() throws TException {
     setup(true);
-    when(connectionContext.getConnectionUuid()).thenReturn(TEST_STRING);
+
     TGetTablesReq request = new TGetTablesReq();
     when(thriftClient.GetTables(request)).thenThrow(new TException());
     assertThrows(DatabricksSQLException.class, () -> accessor.getThriftResponse(request));
@@ -610,7 +601,7 @@ public class DatabricksThriftAccessorTest {
   @Test
   void testAccessorDuringHTTPError() throws TException {
     setup(true);
-    when(connectionContext.getConnectionUuid()).thenReturn(TEST_STRING);
+
     TGetTablesReq request = new TGetTablesReq();
     TGetTablesResp tGetTablesResp =
         new TGetTablesResp()

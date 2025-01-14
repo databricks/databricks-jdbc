@@ -1,6 +1,5 @@
 package com.databricks.jdbc.common.util;
 
-import static com.databricks.jdbc.TestConstants.TEST_STRING;
 import static com.databricks.jdbc.common.util.DriverUtil.DBSQL_VERSION_SQL;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
@@ -54,7 +53,6 @@ public class DriverUtilTest {
     when(resultSet.getString(1)).thenReturn(dbsqlVersion);
 
     if (throwsError) {
-      when(connectionContext.getConnectionUuid()).thenReturn(TEST_STRING);
       assertThrows(
           DatabricksValidationException.class,
           () -> DriverUtil.ensureUpdatedDBSQLVersionInUse(connection));

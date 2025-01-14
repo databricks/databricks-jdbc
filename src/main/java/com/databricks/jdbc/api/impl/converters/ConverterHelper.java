@@ -9,7 +9,8 @@ import java.time.LocalDate;
 import java.util.*;
 
 public class ConverterHelper {
-  private static Map<Integer, ObjectConverter> CONVERTER_CACHE = new HashMap<>();
+
+  private static final Map<Integer, ObjectConverter> CONVERTER_CACHE = new HashMap<>();
 
   static {
     CONVERTER_CACHE.put(Types.TINYINT, new ByteConverter());

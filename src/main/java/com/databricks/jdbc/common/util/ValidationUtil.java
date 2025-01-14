@@ -2,7 +2,6 @@ package com.databricks.jdbc.common.util;
 
 import static com.databricks.jdbc.common.DatabricksJdbcConstants.*;
 
-import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.exception.DatabricksHttpException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.exception.DatabricksValidationException;
@@ -39,9 +38,7 @@ public class ValidationUtil {
     }
   }
 
-  public static void checkHTTPError(
-      HttpResponse response, IDatabricksConnectionContext connectionContext)
-      throws DatabricksHttpException {
+  public static void checkHTTPError(HttpResponse response) throws DatabricksHttpException {
     int statusCode = response.getStatusLine().getStatusCode();
     String statusLine = response.getStatusLine().toString();
     if (statusCode >= 200 && statusCode < 300) {

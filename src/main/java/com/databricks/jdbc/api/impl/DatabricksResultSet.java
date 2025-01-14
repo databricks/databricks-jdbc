@@ -129,8 +129,7 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
     this.wasNull = false;
   }
 
-  /* Constructing results for getUDTs, getTypeInfo, getProcedures metadata calls
-  Note : the connection context can be null in case of ResultConstants.*/
+  /* Constructing results for getUDTs, getTypeInfo, getProcedures metadata calls */
   public DatabricksResultSet(
       StatementStatus statementStatus,
       StatementId statementId,

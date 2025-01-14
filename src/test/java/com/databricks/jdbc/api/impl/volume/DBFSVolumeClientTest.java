@@ -122,7 +122,7 @@ class DBFSVolumeClientTest {
   void testGetObject_getCreateDownloadUrlResponseException() throws Exception {
     DatabricksVolumeOperationException mockException =
         new DatabricksVolumeOperationException(
-            "Mocked Exception", DatabricksDriverErrorCode.INVALID_STATE, null);
+            "Mocked Exception", DatabricksDriverErrorCode.INVALID_STATE);
     doThrow(mockException).when(client).getCreateDownloadUrlResponse(any());
     assertThrows(
         DatabricksVolumeOperationException.class,
@@ -194,7 +194,7 @@ class DBFSVolumeClientTest {
   void testPutObjectWithLocalPath_getCreateUploadUrlResponseException() throws Exception {
     DatabricksVolumeOperationException mockException =
         new DatabricksVolumeOperationException(
-            "Mocked Exception", DatabricksDriverErrorCode.INVALID_STATE, null);
+            "Mocked Exception", DatabricksDriverErrorCode.INVALID_STATE);
     doThrow(mockException).when(client).getCreateUploadUrlResponse(any());
     assertThrows(
         DatabricksVolumeOperationException.class,
@@ -272,7 +272,7 @@ class DBFSVolumeClientTest {
   void testDeleteObject_getCreateDeleteUrlResponseException() throws Exception {
     DatabricksVolumeOperationException mockException =
         new DatabricksVolumeOperationException(
-            "Mocked Exception", DatabricksDriverErrorCode.INVALID_STATE, null);
+            "Mocked Exception", DatabricksDriverErrorCode.INVALID_STATE);
     doThrow(mockException).when(client).getCreateDeleteUrlResponse(any());
     assertThrows(
         DatabricksVolumeOperationException.class,

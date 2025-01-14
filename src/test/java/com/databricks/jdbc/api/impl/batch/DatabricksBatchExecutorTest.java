@@ -1,6 +1,5 @@
 package com.databricks.jdbc.api.impl.batch;
 
-import static com.databricks.jdbc.TestConstants.TEST_STRING;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
@@ -25,7 +24,6 @@ public class DatabricksBatchExecutorTest {
 
   @BeforeEach
   public void setUp() {
-    when(connectionContext.getMaxBatchSize()).thenReturn(MAX_BATCH_SIZE);
     databricksBatchExecutor = new DatabricksBatchExecutor(mockStatement, MAX_BATCH_SIZE);
   }
 
@@ -41,7 +39,6 @@ public class DatabricksBatchExecutorTest {
   /** Test adding a null command to the batch. */
   @Test
   public void testAddCommand_NullCommand() {
-    when(connectionContext.getConnectionUuid()).thenReturn(TEST_STRING);
     SQLException exception =
         assertThrows(SQLException.class, () -> databricksBatchExecutor.addCommand(null));
     assertEquals("SQL command cannot be null", exception.getMessage());
@@ -50,7 +47,6 @@ public class DatabricksBatchExecutorTest {
   /** Test exceeding the batch size limit. */
   @Test
   public void testAddCommand_ExceedsBatchSizeLimit() throws SQLException {
-    when(connectionContext.getConnectionUuid()).thenReturn(TEST_STRING);
     for (int i = 0; i < MAX_BATCH_SIZE; i++) {
       databricksBatchExecutor.addCommand("INSERT INTO table VALUES (" + i + ")");
     }

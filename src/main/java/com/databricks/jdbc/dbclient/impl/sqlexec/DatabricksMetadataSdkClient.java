@@ -48,8 +48,7 @@ public class DatabricksMetadataSdkClient implements IDatabricksMetadataClient {
         new CommandBuilder(catalog, session).setSchemaPattern(schemaNamePattern);
     String SQL = commandBuilder.getSQLString(CommandName.LIST_SCHEMAS);
     LOGGER.debug(String.format("SQL command to fetch schemas: {%s}", SQL));
-    return MetadataResultSetBuilder.getSchemasResult(
-        getResultSet(SQL, session), catalog, session.getConnectionContext());
+    return MetadataResultSetBuilder.getSchemasResult(getResultSet(SQL, session), catalog);
   }
 
   @Override

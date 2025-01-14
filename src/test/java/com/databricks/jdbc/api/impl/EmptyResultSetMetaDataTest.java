@@ -14,7 +14,7 @@ public class EmptyResultSetMetaDataTest {
 
   @BeforeEach
   void setUp() {
-    metaData = new EmptyResultSetMetaData(null);
+    metaData = new EmptyResultSetMetaData();
   }
 
   @Test
@@ -145,7 +145,7 @@ public class EmptyResultSetMetaDataTest {
 
   @Test
   void testEquals() {
-    assertEquals(new EmptyResultSetMetaData(null), metaData, "Equal objects should be equal");
+    assertEquals(new EmptyResultSetMetaData(), metaData, "Equal objects should be equal");
     assertNotEquals(null, metaData, "Should not be equal to null");
     assertNotEquals("String", metaData, "Should not be equal to a different type");
   }

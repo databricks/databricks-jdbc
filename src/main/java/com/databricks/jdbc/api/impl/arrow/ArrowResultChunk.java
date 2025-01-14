@@ -3,7 +3,6 @@ package com.databricks.jdbc.api.impl.arrow;
 import static com.databricks.jdbc.common.util.DatabricksThriftUtil.createExternalLink;
 import static com.databricks.jdbc.common.util.ValidationUtil.checkHTTPError;
 
-import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.common.CompressionCodec;
 import com.databricks.jdbc.common.util.DecompressionUtil;
 import com.databricks.jdbc.common.util.DriverUtil;
@@ -96,11 +95,9 @@ public class ArrowResultChunk {
   private static boolean injectError = false;
   private static int errorInjectionCountMaxValue = 0;
   private int errorInjectionCount = 0;
-  private final IDatabricksConnectionContext connectionContext;
 
   private ArrowResultChunk(Builder builder) throws DatabricksParsingException {
     this.chunkIndex = builder.chunkIndex;
-    this.connectionContext = builder.connectionContext;
     this.numRows = builder.numRows;
     this.rowOffset = builder.rowOffset;
     this.chunkLink = builder.chunkLink;
@@ -259,7 +256,7 @@ public class ArrowResultChunk {
       addHeaders(getRequest, chunkLink.getHttpHeaders());
       // Retry would be done in http client, we should not bother about that here
       response = httpClient.execute(getRequest, true);
-      checkHTTPError(response, connectionContext);
+      checkHTTPError(response);
       String decompressionContext =
           String.format(
               "Data decompression for chunk index [%d] and statement [%s]",
@@ -420,7 +417,6 @@ public class ArrowResultChunk {
     private Instant expiryTime;
     private ChunkStatus status;
     private InputStream inputStream;
-    private IDatabricksConnectionContext connectionContext;
 
     public Builder statementId(String statementId) {
       this.statementId = statementId;
@@ -432,11 +428,6 @@ public class ArrowResultChunk {
       this.numRows = baseChunkInfo.getRowCount();
       this.rowOffset = baseChunkInfo.getRowOffset();
       this.status = ChunkStatus.PENDING;
-      return this;
-    }
-
-    public Builder withConnectionContext(IDatabricksConnectionContext connectionContext) {
-      this.connectionContext = connectionContext;
       return this;
     }
 

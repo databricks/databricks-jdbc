@@ -34,14 +34,14 @@ public class DatabricksHttpTTransportTest {
   @Test
   public void isOpen_AlwaysReturnsTrue() {
     DatabricksHttpTTransport transport =
-        new DatabricksHttpTTransport(mockedHttpClient, testUrl, mockDatabricksConfig, null);
+        new DatabricksHttpTTransport(mockedHttpClient, testUrl, mockDatabricksConfig);
     assertTrue(transport.isOpen());
   }
 
   @Test
   public void close_ClosesInputStreamWithoutError() {
     DatabricksHttpTTransport transport =
-        new DatabricksHttpTTransport(mockedHttpClient, testUrl, mockDatabricksConfig, null);
+        new DatabricksHttpTTransport(mockedHttpClient, testUrl, mockDatabricksConfig);
     transport.close();
     assertDoesNotThrow(transport::open);
   }
@@ -49,7 +49,7 @@ public class DatabricksHttpTTransportTest {
   @Test
   public void writeAndRead_ValidatesDataIntegrity() throws TTransportException {
     DatabricksHttpTTransport transport =
-        new DatabricksHttpTTransport(mockedHttpClient, testUrl, mockDatabricksConfig, null);
+        new DatabricksHttpTTransport(mockedHttpClient, testUrl, mockDatabricksConfig);
     byte[] testData = TEST_STRING.getBytes();
     transport.write(testData, 0, testData.length);
     transport.setResponseBuffer(new ByteArrayInputStream(testData));
@@ -64,7 +64,7 @@ public class DatabricksHttpTTransportTest {
   public void flush_SendsDataCorrectly()
       throws DatabricksHttpException, IOException, TTransportException {
     DatabricksHttpTTransport transport =
-        new DatabricksHttpTTransport(mockedHttpClient, testUrl, mockDatabricksConfig, null);
+        new DatabricksHttpTTransport(mockedHttpClient, testUrl, mockDatabricksConfig);
     byte[] testData = TEST_STRING.getBytes();
     transport.write(testData, 0, testData.length);
     HttpEntity mockEntity = mock(HttpEntity.class);
@@ -88,7 +88,7 @@ public class DatabricksHttpTTransportTest {
   @Test
   void testResetAccessToken() {
     DatabricksHttpTTransport transport =
-        new DatabricksHttpTTransport(mockedHttpClient, testUrl, mockDatabricksConfig, null);
+        new DatabricksHttpTTransport(mockedHttpClient, testUrl, mockDatabricksConfig);
     transport.resetAccessToken(NEW_ACCESS_TOKEN);
     verify(mockDatabricksConfig).setToken(NEW_ACCESS_TOKEN);
   }

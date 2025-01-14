@@ -46,8 +46,7 @@ public class TelemetryHelperTest {
     when(connectionContext.getConnectionUuid()).thenReturn(UUID.randomUUID().toString());
     when(connectionContext.getHostUrl())
         .thenThrow(
-            new DatabricksParsingException(
-                TEST_STRING, DatabricksDriverErrorCode.INVALID_STATE, null));
+            new DatabricksParsingException(TEST_STRING, DatabricksDriverErrorCode.INVALID_STATE));
     assertDoesNotThrow(() -> TelemetryHelper.exportInitialTelemetryLog(connectionContext));
   }
 

@@ -30,7 +30,7 @@ public class TimestampConverterTest {
                   .toInstant());
 
       // Test that the converter stores it as UTC
-      TimestampConverter converter = new TimestampConverter(null);
+      TimestampConverter converter = new TimestampConverter();
       assertEquals(
           converter.toString(istTimestamp), "2023-09-11T03:14:00Z"); // Should be converted to UTC
 
@@ -42,29 +42,28 @@ public class TimestampConverterTest {
 
   @Test
   public void testConvertToLong() throws DatabricksSQLException {
-    assertEquals(new TimestampConverter(null).toLong(TIMESTAMP), 1694378700000L);
+    assertEquals(new TimestampConverter().toLong(TIMESTAMP), 1694378700000L);
   }
 
   @Test
   public void testConvertToString() throws DatabricksSQLException {
-    assertEquals(new TimestampConverter(null).toString(TIMESTAMP), "2023-09-10T20:45:00Z");
+    assertEquals(new TimestampConverter().toString(TIMESTAMP), "2023-09-10T20:45:00Z");
   }
 
   @Test
   public void testConvertFromString() throws DatabricksSQLException {
-    assertEquals(new TimestampConverter(null).toTimestamp("2023-09-10T20:45:00Z"), TIMESTAMP);
-    Assertions.assertDoesNotThrow(
-        () -> new TimestampConverter(null).toString("2023-09-10 20:45:00"));
+    assertEquals(new TimestampConverter().toTimestamp("2023-09-10T20:45:00Z"), TIMESTAMP);
+    Assertions.assertDoesNotThrow(() -> new TimestampConverter().toString("2023-09-10 20:45:00"));
   }
 
   @Test
   public void testConvertToDate() throws DatabricksSQLException {
-    assertEquals(new TimestampConverter(null).toDate(TIMESTAMP).toString(), "2023-09-10");
+    assertEquals(new TimestampConverter().toDate(TIMESTAMP).toString(), "2023-09-10");
   }
 
   @Test
   public void testConvertToBigInteger() throws DatabricksSQLException {
     assertEquals(
-        new TimestampConverter(null).toBigInteger(TIMESTAMP), BigInteger.valueOf(1694378700000L));
+        new TimestampConverter().toBigInteger(TIMESTAMP), BigInteger.valueOf(1694378700000L));
   }
 }

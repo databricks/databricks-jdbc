@@ -1,6 +1,5 @@
 package com.databricks.jdbc.api.impl.volume;
 
-import static com.databricks.jdbc.TestConstants.TEST_STRING;
 import static com.databricks.jdbc.common.DatabricksJdbcConstants.ALLOWED_VOLUME_INGESTION_PATHS;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.isA;
@@ -129,7 +128,7 @@ public class VolumeOperationResultTest {
     when(statement.isAllowedInputStreamForVolumeOperation())
         .thenThrow(
             new DatabricksSQLException(
-                "statement closed", DatabricksDriverErrorCode.INVALID_STATE, null));
+                "statement closed", DatabricksDriverErrorCode.INVALID_STATE));
 
     VolumeOperationResult volumeOperationResult =
         new VolumeOperationResult(
@@ -160,7 +159,6 @@ public class VolumeOperationResultTest {
     when(session.getClientInfoProperties())
         .thenReturn(Map.of(ALLOWED_VOLUME_INGESTION_PATHS.toLowerCase(), ""));
     when(session.getConnectionContext()).thenReturn(context);
-    when(context.getConnectionUuid()).thenReturn(TEST_STRING);
     when(context.getVolumeOperationAllowedPaths()).thenReturn("");
 
     VolumeOperationResult volumeOperationResult =
@@ -185,8 +183,6 @@ public class VolumeOperationResultTest {
     when(resultHandler.getObject(0)).thenReturn("GET");
     when(resultHandler.getObject(1)).thenReturn(PRESIGNED_URL);
     when(resultHandler.getObject(3)).thenReturn("localFileOther");
-    when(session.getConnectionContext()).thenReturn(context);
-    when(context.getConnectionUuid()).thenReturn(TEST_STRING);
     VolumeOperationResult volumeOperationResult =
         new VolumeOperationResult(
             RESULT_MANIFEST, session, resultHandler, mockHttpClient, statement);
@@ -209,8 +205,6 @@ public class VolumeOperationResultTest {
     when(resultHandler.getObject(0)).thenReturn("GET");
     when(resultHandler.getObject(1)).thenReturn(PRESIGNED_URL);
     when(resultHandler.getObject(3)).thenReturn("getvolfile.csv");
-    when(session.getConnectionContext()).thenReturn(context);
-    when(context.getConnectionUuid()).thenReturn(TEST_STRING);
     VolumeOperationResult volumeOperationResult =
         new VolumeOperationResult(
             RESULT_MANIFEST, session, resultHandler, mockHttpClient, statement);
@@ -233,8 +227,6 @@ public class VolumeOperationResultTest {
     when(resultHandler.getObject(0)).thenReturn("GET");
     when(resultHandler.getObject(1)).thenReturn(PRESIGNED_URL);
     when(resultHandler.getObject(3)).thenReturn("");
-    when(session.getConnectionContext()).thenReturn(context);
-    when(context.getConnectionUuid()).thenReturn(TEST_STRING);
     VolumeOperationResult volumeOperationResult =
         new VolumeOperationResult(
             RESULT_MANIFEST, session, resultHandler, mockHttpClient, statement);
@@ -257,8 +249,6 @@ public class VolumeOperationResultTest {
     when(resultHandler.getObject(0)).thenReturn("GET");
     when(resultHandler.getObject(1)).thenReturn(PRESIGNED_URL);
     when(resultHandler.getObject(3)).thenReturn(LOCAL_FILE_GET);
-    when(session.getConnectionContext()).thenReturn(context);
-    when(context.getConnectionUuid()).thenReturn(TEST_STRING);
 
     File file = new File(LOCAL_FILE_GET);
     Files.writeString(file.toPath(), "test-put");
@@ -287,8 +277,6 @@ public class VolumeOperationResultTest {
     when(resultHandler.getObject(0)).thenReturn("GET");
     when(resultHandler.getObject(1)).thenReturn(PRESIGNED_URL);
     when(resultHandler.getObject(3)).thenReturn("../newFile.csv");
-    when(session.getConnectionContext()).thenReturn(context);
-    when(context.getConnectionUuid()).thenReturn(TEST_STRING);
 
     VolumeOperationResult volumeOperationResult =
         new VolumeOperationResult(
@@ -315,8 +303,6 @@ public class VolumeOperationResultTest {
     when(mockHttpClient.execute(isA(HttpGet.class))).thenReturn(httpResponse);
     when(httpResponse.getStatusLine()).thenReturn(mockedStatusLine);
     when(mockedStatusLine.getStatusCode()).thenReturn(403);
-    when(session.getConnectionContext()).thenReturn(context);
-    when(context.getConnectionUuid()).thenReturn(TEST_STRING);
 
     VolumeOperationResult volumeOperationResult =
         new VolumeOperationResult(
@@ -423,7 +409,7 @@ public class VolumeOperationResultTest {
     when(statement.getInputStreamForUCVolume())
         .thenThrow(
             new DatabricksSQLException(
-                "statement closed", DatabricksDriverErrorCode.INVALID_STATE, null));
+                "statement closed", DatabricksDriverErrorCode.INVALID_STATE));
 
     VolumeOperationResult volumeOperationResult =
         new VolumeOperationResult(
@@ -593,7 +579,6 @@ public class VolumeOperationResultTest {
     when(mockedStatusLine.getStatusCode()).thenReturn(200);
 
     when(session.getConnectionContext()).thenReturn(context);
-    when(context.getConnectionUuid()).thenReturn(TEST_STRING);
 
     VolumeOperationResult volumeOperationResult =
         new VolumeOperationResult(
@@ -623,8 +608,6 @@ public class VolumeOperationResultTest {
     when(mockHttpClient.execute(isA(HttpDelete.class))).thenReturn(httpResponse);
     when(httpResponse.getStatusLine()).thenReturn(mockedStatusLine);
     when(mockedStatusLine.getStatusCode()).thenReturn(403);
-    when(session.getConnectionContext()).thenReturn(context);
-    when(context.getConnectionUuid()).thenReturn(TEST_STRING);
     VolumeOperationResult volumeOperationResult =
         new VolumeOperationResult(
             RESULT_MANIFEST, session, resultHandler, mockHttpClient, statement);
@@ -651,8 +634,7 @@ public class VolumeOperationResultTest {
     when(resultHandler.getObject(3)).thenReturn(null);
     when(mockHttpClient.execute(isA(HttpDelete.class)))
         .thenThrow(
-            new DatabricksHttpException(
-                "exception", DatabricksDriverErrorCode.INVALID_STATE, null));
+            new DatabricksHttpException("exception", DatabricksDriverErrorCode.INVALID_STATE));
 
     VolumeOperationResult volumeOperationResult =
         new VolumeOperationResult(
@@ -691,8 +673,6 @@ public class VolumeOperationResultTest {
     when(resultHandler.getObject(0)).thenReturn("GET");
     when(resultHandler.getObject(1)).thenReturn("");
     when(resultHandler.getObject(3)).thenReturn(LOCAL_FILE_GET);
-    when(session.getConnectionContext()).thenReturn(context);
-    when(context.getConnectionUuid()).thenReturn(TEST_STRING);
 
     VolumeOperationResult volumeOperationResult =
         new VolumeOperationResult(

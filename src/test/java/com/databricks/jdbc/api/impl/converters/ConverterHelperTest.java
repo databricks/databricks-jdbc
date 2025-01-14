@@ -1,9 +1,7 @@
 package com.databricks.jdbc.api.impl.converters;
 
 import static com.databricks.jdbc.TestConstants.TEST_BYTES;
-import static com.databricks.jdbc.TestConstants.TEST_STRING;
 import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.Mockito.when;
 
 import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.exception.DatabricksSQLException;
@@ -52,13 +50,11 @@ class ConverterHelperTest {
   @MethodSource("provideParametersForGetConvertedObject")
   public void testGetConvertedObject(int columnType, Object input, Object expected)
       throws DatabricksSQLException {
-    when(connectionContext.getConnectionUuid()).thenReturn(TEST_STRING);
     assertEquals(expected, ConverterHelper.convertSqlTypeToJavaType(columnType, input));
   }
 
   @Test
   void testConvertToString() throws DatabricksSQLException {
-    when(connectionContext.getConnectionUuid()).thenReturn(TEST_STRING);
     assertEquals(
         "Test String",
         ConverterHelper.convertSqlTypeToSpecificJavaType(
@@ -67,7 +63,6 @@ class ConverterHelperTest {
 
   @Test
   void testConvertToBigDecimal() throws DatabricksSQLException {
-    when(connectionContext.getConnectionUuid()).thenReturn(TEST_STRING);
     BigDecimal expected = new BigDecimal("123.456");
     assertEquals(
         expected,
@@ -77,7 +72,6 @@ class ConverterHelperTest {
 
   @Test
   void testConvertToBoolean() throws DatabricksSQLException {
-    when(connectionContext.getConnectionUuid()).thenReturn(TEST_STRING);
     assertEquals(
         true, ConverterHelper.convertSqlTypeToSpecificJavaType(Boolean.class, Types.BOOLEAN, true));
     assertEquals(
@@ -86,7 +80,6 @@ class ConverterHelperTest {
 
   @Test
   void testConvertToInt() throws DatabricksSQLException {
-    when(connectionContext.getConnectionUuid()).thenReturn(TEST_STRING);
     assertEquals(
         123, ConverterHelper.convertSqlTypeToSpecificJavaType(Integer.class, Types.INTEGER, "123"));
     assertEquals(
@@ -95,7 +88,6 @@ class ConverterHelperTest {
 
   @Test
   void testConvertToLong() throws DatabricksSQLException {
-    when(connectionContext.getConnectionUuid()).thenReturn(TEST_STRING);
     assertEquals(
         123L, ConverterHelper.convertSqlTypeToSpecificJavaType(Long.class, Types.BIGINT, "123"));
     assertEquals(
@@ -104,7 +96,6 @@ class ConverterHelperTest {
 
   @Test
   void testConvertToFloat() throws DatabricksSQLException {
-    when(connectionContext.getConnectionUuid()).thenReturn(TEST_STRING);
     assertEquals(
         1.23f, ConverterHelper.convertSqlTypeToSpecificJavaType(Float.class, Types.FLOAT, "1.23"));
     assertEquals(
@@ -113,7 +104,6 @@ class ConverterHelperTest {
 
   @Test
   void testConvertToDouble() throws DatabricksSQLException {
-    when(connectionContext.getConnectionUuid()).thenReturn(TEST_STRING);
     assertEquals(
         1.234,
         ConverterHelper.convertSqlTypeToSpecificJavaType(Double.class, Types.DOUBLE, "1.234"));
@@ -123,7 +113,6 @@ class ConverterHelperTest {
 
   @Test
   void testConvertToDate() throws DatabricksSQLException {
-    when(connectionContext.getConnectionUuid()).thenReturn(TEST_STRING);
     Date current = new Date(System.currentTimeMillis());
     assertEquals(
         current, ConverterHelper.convertSqlTypeToSpecificJavaType(Date.class, Types.DATE, current));
@@ -131,7 +120,6 @@ class ConverterHelperTest {
 
   @Test
   void testConvertToLocalDate() throws DatabricksSQLException {
-    when(connectionContext.getConnectionUuid()).thenReturn(TEST_STRING);
     LocalDate current = LocalDate.now();
     assertEquals(
         current.toString(),
@@ -142,7 +130,6 @@ class ConverterHelperTest {
 
   @Test
   void testConvertToBigInteger() throws DatabricksSQLException {
-    when(connectionContext.getConnectionUuid()).thenReturn(TEST_STRING);
     BigInteger expected = BigInteger.ONE;
     assertEquals(
         expected,
@@ -151,7 +138,6 @@ class ConverterHelperTest {
 
   @Test
   void testConvertToTimestamp() throws DatabricksSQLException {
-    when(connectionContext.getConnectionUuid()).thenReturn(TEST_STRING);
     Timestamp current = new Timestamp(System.currentTimeMillis());
     assertEquals(
         current,
@@ -164,7 +150,6 @@ class ConverterHelperTest {
 
   @Test
   void testConvertToShort() throws DatabricksSQLException {
-    when(connectionContext.getConnectionUuid()).thenReturn(TEST_STRING);
     assertEquals(
         (byte) 123,
         ConverterHelper.convertSqlTypeToSpecificJavaType(Byte.class, Types.TINYINT, "123"));
@@ -175,7 +160,6 @@ class ConverterHelperTest {
 
   @Test
   void testConvertToOther() throws DatabricksSQLException {
-    when(connectionContext.getConnectionUuid()).thenReturn(TEST_STRING);
     assertEquals(
         "otherString",
         ConverterHelper.convertSqlTypeToSpecificJavaType(Year.class, Types.VARCHAR, "otherString"));
@@ -183,66 +167,56 @@ class ConverterHelperTest {
 
   @Test
   void getObjectConverterForInt() {
-    when(connectionContext.getConnectionUuid()).thenReturn(TEST_STRING);
     assertInstanceOf(IntConverter.class, ConverterHelper.getConverterForSqlType(Types.INTEGER));
   }
 
   @Test
   void getObjectConverterForString() {
-    when(connectionContext.getConnectionUuid()).thenReturn(TEST_STRING);
     assertInstanceOf(StringConverter.class, ConverterHelper.getConverterForSqlType(Types.VARCHAR));
   }
 
   @Test
   void getObjectConverterForBigDecimal() {
-    when(connectionContext.getConnectionUuid()).thenReturn(TEST_STRING);
     assertInstanceOf(
         BigDecimalConverter.class, ConverterHelper.getConverterForSqlType(Types.DECIMAL));
   }
 
   @Test
   void getObjectConverterForBoolean() {
-    when(connectionContext.getConnectionUuid()).thenReturn(TEST_STRING);
     assertInstanceOf(BooleanConverter.class, ConverterHelper.getConverterForSqlType(Types.BOOLEAN));
   }
 
   @Test
   void getObjectConverterForDate() {
-    when(connectionContext.getConnectionUuid()).thenReturn(TEST_STRING);
     assertInstanceOf(DateConverter.class, ConverterHelper.getConverterForSqlType(Types.DATE));
   }
 
   @Test
   void getObjectConverterForTimestamp() {
-    when(connectionContext.getConnectionUuid()).thenReturn(TEST_STRING);
     assertInstanceOf(
         TimestampConverter.class, ConverterHelper.getConverterForSqlType(Types.TIMESTAMP));
   }
 
   @Test
   void whenColumnTypeIsFloat_thenGetFloatConverter() {
-    when(connectionContext.getConnectionUuid()).thenReturn(TEST_STRING);
     ObjectConverter converter = ConverterHelper.getConverterForSqlType(Types.FLOAT);
     assertInstanceOf(FloatConverter.class, converter);
   }
 
   @Test
   void whenColumnTypeIsDouble_thenGetDoubleConverter() {
-    when(connectionContext.getConnectionUuid()).thenReturn(TEST_STRING);
     ObjectConverter converter = ConverterHelper.getConverterForSqlType(Types.DOUBLE);
     assertInstanceOf(DoubleConverter.class, converter);
   }
 
   @Test
   void whenColumnTypeIsDecimal_thenGetBigDecimalConverter() {
-    when(connectionContext.getConnectionUuid()).thenReturn(TEST_STRING);
     ObjectConverter converter = ConverterHelper.getConverterForSqlType(Types.DECIMAL);
     assertInstanceOf(BigDecimalConverter.class, converter);
   }
 
   @Test
   void whenColumnType_Other() {
-    when(connectionContext.getConnectionUuid()).thenReturn(TEST_STRING);
     ObjectConverter converter = ConverterHelper.getConverterForSqlType(Types.DECIMAL);
     assertInstanceOf(BigDecimalConverter.class, converter);
   }

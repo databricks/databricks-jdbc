@@ -26,7 +26,7 @@ public class ChunkDownloadTaskTest {
   @BeforeEach
   void setUp() {
     MockitoAnnotations.openMocks(this);
-    chunkDownloadTask = new ChunkDownloadTask(chunk, httpClient, remoteChunkProvider, null);
+    chunkDownloadTask = new ChunkDownloadTask(chunk, httpClient, remoteChunkProvider);
   }
 
   @Test
@@ -38,8 +38,7 @@ public class ChunkDownloadTaskTest {
         new DatabricksParsingException(
             "Connection reset",
             new SocketException("Connection reset"),
-            DatabricksDriverErrorCode.INVALID_STATE,
-            null);
+            DatabricksDriverErrorCode.INVALID_STATE);
 
     // Simulate SocketException for the first two attempts, then succeed
     doThrow(throwableError)
@@ -65,8 +64,7 @@ public class ChunkDownloadTaskTest {
             new DatabricksParsingException(
                 "Connection reset",
                 new SocketException("Connection reset"),
-                DatabricksDriverErrorCode.INVALID_STATE,
-                null))
+                DatabricksDriverErrorCode.INVALID_STATE))
         .when(chunk)
         .downloadData(httpClient, CompressionCodec.NONE);
 

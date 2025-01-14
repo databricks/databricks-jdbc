@@ -4,7 +4,6 @@ import static com.databricks.jdbc.common.MetadataResultConstants.*;
 import static com.databricks.jdbc.dbclient.impl.common.CommandConstants.*;
 import static com.databricks.jdbc.dbclient.impl.common.TypeValConstants.*;
 
-import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.api.impl.DatabricksResultSet;
 import com.databricks.jdbc.common.CommandName;
 import com.databricks.jdbc.common.StatementType;
@@ -52,8 +51,7 @@ public class MetadataResultSetBuilder {
         CommandName.LIST_CATALOGS);
   }
 
-  public static DatabricksResultSet getSchemasResult(
-      ResultSet resultSet, String catalog, IDatabricksConnectionContext connectionContext)
+  public static DatabricksResultSet getSchemasResult(ResultSet resultSet, String catalog)
       throws SQLException {
     List<List<Object>> rows = getRowsForSchemas(resultSet, SCHEMA_COLUMNS, catalog);
     return buildResultSet(
