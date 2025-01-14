@@ -76,7 +76,7 @@ public class DriverUtil {
               "Error initializing the Java Util Logger (JUL) with error: {%s}", e.getMessage());
       LOGGER.error(e, errMsg);
       throw new DatabricksSQLException(
-          errMsg, e, DatabricksDriverErrorCode.LOGGING_INITIALISATION_ERROR, connectionContext);
+          errMsg, e, DatabricksDriverErrorCode.LOGGING_INITIALISATION_ERROR);
     }
   }
 
@@ -122,7 +122,7 @@ public class DriverUtil {
               "Unsupported DBSQL version %s. Please update your compute to use the latest DBSQL version.",
               dbsqlVersion);
       LOGGER.error(errorMessage);
-      throw new DatabricksValidationException(errorMessage, connection.getConnectionContext());
+      throw new DatabricksValidationException(errorMessage);
     }
   }
 

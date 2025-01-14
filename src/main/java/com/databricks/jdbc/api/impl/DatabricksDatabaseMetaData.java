@@ -905,8 +905,7 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
             Types.VARCHAR),
         Arrays.asList(128, 128, 128, 128, 128, 128, 128, 128, 128),
         new Object[0][0],
-        StatementType.METADATA,
-        connection.getConnectionContext());
+        StatementType.METADATA);
   }
 
   @Override
@@ -939,7 +938,7 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
   public ResultSet getSchemas() throws SQLException {
     LOGGER.debug("public ResultSet getSchemas()");
     if (session.getConnectionContext().getClientType() == DatabricksClientType.SEA) {
-      return MetadataResultSetBuilder.getSchemasResult(null, session.getConnectionContext());
+      return MetadataResultSetBuilder.getSchemasResult(null);
     }
     return getSchemas(null /* catalog */, null /* schema pattern */);
   }
@@ -1036,7 +1035,7 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
             "public ResultSet getImportedKeys(String catalog = {%s}, String schema = {%s}, String table = {%s})",
             catalog, schema, table));
     // TODO (PECO-1696): Implement getImportedKeys
-    return new EmptyResultSet(connection.getConnectionContext());
+    return new EmptyResultSet();
   }
 
   @Override
@@ -1047,7 +1046,7 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
             "public ResultSet getExportedKeys(String catalog = {%s}, String schema = {%s}, String table = {%s})",
             catalog, schema, table));
     // TODO (PECO-1696): Implement getExportedKeys
-    return new EmptyResultSet(connection.getConnectionContext());
+    return new EmptyResultSet();
   }
 
   @Override
@@ -1202,8 +1201,7 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
             Types.VARCHAR),
         Arrays.asList(128, 128, 128, 128, 128, 128, 128),
         new String[0][0],
-        StatementType.METADATA,
-        connection.getConnectionContext());
+        StatementType.METADATA);
   }
 
   @Override
@@ -1430,9 +1428,7 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
     LOGGER.debug("private void throwExceptionIfConnectionIsClosed()");
     if (!connection.getSession().isOpen()) {
       throw new DatabricksSQLException(
-          "Connection closed!",
-          DatabricksDriverErrorCode.CONNECTION_CLOSED,
-          connection.getConnectionContext());
+          "Connection closed!", DatabricksDriverErrorCode.CONNECTION_CLOSED);
     }
   }
 }

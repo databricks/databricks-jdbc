@@ -415,6 +415,5 @@ public class ResultConstants {
               null
             }
           },
-          StatementType.METADATA,
-          null);
+          StatementType.METADATA);
 }

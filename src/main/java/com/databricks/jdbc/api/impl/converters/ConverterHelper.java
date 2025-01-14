@@ -1,6 +1,5 @@
 package com.databricks.jdbc.api.impl.converters;
 
-import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import java.math.BigDecimal;
 import java.math.BigInteger;
@@ -10,23 +9,23 @@ import java.time.LocalDate;
 import java.util.*;
 
 public class ConverterHelper {
-  private Map<Integer, ObjectConverter> CONVERTER_CACHE = new HashMap<>();
+  private static Map<Integer, ObjectConverter> CONVERTER_CACHE = new HashMap<>();
 
-  public ConverterHelper(IDatabricksConnectionContext connectionContext) {
-    CONVERTER_CACHE.put(Types.TINYINT, new ByteConverter(connectionContext));
-    CONVERTER_CACHE.put(Types.SMALLINT, new ShortConverter(connectionContext));
-    CONVERTER_CACHE.put(Types.INTEGER, new IntConverter(connectionContext));
-    CONVERTER_CACHE.put(Types.BIGINT, new LongConverter(connectionContext));
-    CONVERTER_CACHE.put(Types.FLOAT, new FloatConverter(connectionContext));
-    CONVERTER_CACHE.put(Types.DOUBLE, new DoubleConverter(connectionContext));
-    CONVERTER_CACHE.put(Types.DECIMAL, new BigDecimalConverter(connectionContext));
-    CONVERTER_CACHE.put(Types.BOOLEAN, new BooleanConverter(connectionContext));
-    CONVERTER_CACHE.put(Types.DATE, new DateConverter(connectionContext));
-    CONVERTER_CACHE.put(Types.TIMESTAMP, new TimestampConverter(connectionContext));
-    CONVERTER_CACHE.put(Types.BINARY, new ByteArrayConverter(connectionContext));
-    CONVERTER_CACHE.put(Types.BIT, new BitConverter(connectionContext));
-    CONVERTER_CACHE.put(Types.VARCHAR, new StringConverter(connectionContext));
-    CONVERTER_CACHE.put(Types.CHAR, new StringConverter(connectionContext));
+  static {
+    CONVERTER_CACHE.put(Types.TINYINT, new ByteConverter());
+    CONVERTER_CACHE.put(Types.SMALLINT, new ShortConverter());
+    CONVERTER_CACHE.put(Types.INTEGER, new IntConverter());
+    CONVERTER_CACHE.put(Types.BIGINT, new LongConverter());
+    CONVERTER_CACHE.put(Types.FLOAT, new FloatConverter());
+    CONVERTER_CACHE.put(Types.DOUBLE, new DoubleConverter());
+    CONVERTER_CACHE.put(Types.DECIMAL, new BigDecimalConverter());
+    CONVERTER_CACHE.put(Types.BOOLEAN, new BooleanConverter());
+    CONVERTER_CACHE.put(Types.DATE, new DateConverter());
+    CONVERTER_CACHE.put(Types.TIMESTAMP, new TimestampConverter());
+    CONVERTER_CACHE.put(Types.BINARY, new ByteArrayConverter());
+    CONVERTER_CACHE.put(Types.BIT, new BitConverter());
+    CONVERTER_CACHE.put(Types.VARCHAR, new StringConverter());
+    CONVERTER_CACHE.put(Types.CHAR, new StringConverter());
   }
 
   /**
@@ -37,7 +36,7 @@ public class ConverterHelper {
    * @return The converted Java object
    * @throws DatabricksSQLException If there's an error during the conversion process
    */
-  public Object convertSqlTypeToJavaType(int columnSqlType, Object object)
+  public static Object convertSqlTypeToJavaType(int columnSqlType, Object object)
       throws DatabricksSQLException {
     switch (columnSqlType) {
       case Types.TINYINT:
@@ -82,8 +81,8 @@ public class ConverterHelper {
    * @return The converted object of the specified Java type
    * @throws DatabricksSQLException If there's an error during the conversion process
    */
-  public Object convertSqlTypeToSpecificJavaType(Class<?> javaType, int columnSqlType, Object obj)
-      throws DatabricksSQLException {
+  public static Object convertSqlTypeToSpecificJavaType(
+      Class<?> javaType, int columnSqlType, Object obj) throws DatabricksSQLException {
     // Get the appropriate converter for the SQL type
     ObjectConverter converter = getConverterForSqlType(columnSqlType);
     if (javaType == String.class) {
@@ -126,7 +125,7 @@ public class ConverterHelper {
    * @param columnSqlType The SQL type of the column, as defined in java.sql.Types
    * @return An ObjectConverter suitable for the specified SQL type
    */
-  public ObjectConverter getConverterForSqlType(int columnSqlType) {
+  public static ObjectConverter getConverterForSqlType(int columnSqlType) {
     return CONVERTER_CACHE.getOrDefault(columnSqlType, CONVERTER_CACHE.get(Types.VARCHAR));
   }
 }

@@ -50,6 +50,6 @@ public class InlineChunkProviderTest {
         new InlineChunkProvider(fetchResultsResp, parentStatement, session);
     assertThrows(
         DatabricksParsingException.class,
-        () -> inlineChunkProvider.handleError(new RuntimeException(), null));
+        () -> inlineChunkProvider.handleError(new RuntimeException()));
   }
 }

@@ -26,7 +26,7 @@ public class DatabricksBatchExecutorTest {
   @BeforeEach
   public void setUp() {
     when(connectionContext.getMaxBatchSize()).thenReturn(MAX_BATCH_SIZE);
-    databricksBatchExecutor = new DatabricksBatchExecutor(mockStatement, connectionContext);
+    databricksBatchExecutor = new DatabricksBatchExecutor(mockStatement, MAX_BATCH_SIZE);
   }
 
   /** Test adding valid commands to the batch. */

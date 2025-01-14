@@ -2,7 +2,6 @@ package com.databricks.jdbc.api.impl;
 
 import static com.databricks.jdbc.common.DatabricksJdbcConstants.EMPTY_STRING;
 
-import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.common.util.DatabricksTypeUtil;
 import com.databricks.jdbc.common.util.WrapperUtil;
 import com.databricks.jdbc.log.JdbcLogger;
@@ -19,11 +18,9 @@ public class DatabricksParameterMetaData implements ParameterMetaData {
   private static final JdbcLogger LOGGER =
       JdbcLoggerFactory.getLogger(DatabricksParameterMetaData.class);
   private final Map<Integer, ImmutableSqlParameter> parameterBindings;
-  private final IDatabricksConnectionContext connectionContext;
 
-  public DatabricksParameterMetaData(IDatabricksConnectionContext connectionContext) {
+  public DatabricksParameterMetaData() {
     this.parameterBindings = new HashMap<>();
-    this.connectionContext = connectionContext;
   }
 
   public void put(int param, ImmutableSqlParameter value) {
@@ -95,7 +92,7 @@ public class DatabricksParameterMetaData implements ParameterMetaData {
 
   @Override
   public <T> T unwrap(Class<T> iface) throws SQLException {
-    return WrapperUtil.unwrap(iface, this, connectionContext);
+    return WrapperUtil.unwrap(iface, this);
   }
 
   @Override

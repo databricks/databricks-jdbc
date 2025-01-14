@@ -17,18 +17,16 @@ public class ValidationUtil {
 
   private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(ValidationUtil.class);
 
-  public static void checkIfNonNegative(
-      int number, String fieldName, IDatabricksConnectionContext connectionContext)
+  public static void checkIfNonNegative(int number, String fieldName)
       throws DatabricksSQLException {
     if (number < 0) {
       String errorMessage = String.format("Invalid input for %s, : %d", fieldName, number);
       LOGGER.error(errorMessage);
-      throw new DatabricksValidationException(errorMessage, connectionContext);
+      throw new DatabricksValidationException(errorMessage);
     }
   }
 
-  public static void throwErrorIfNull(
-      Map<String, String> fields, String context, IDatabricksConnectionContext connectionContext)
+  public static void throwErrorIfNull(Map<String, String> fields, String context)
       throws DatabricksSQLException {
     for (Map.Entry<String, String> field : fields.entrySet()) {
       if (field.getValue() == null) {
@@ -36,7 +34,7 @@ public class ValidationUtil {
             String.format(
                 "Unsupported null Input for field {%s}. Context: {%s}", field.getKey(), context);
         LOGGER.error(errorMessage);
-        throw new DatabricksValidationException(errorMessage, connectionContext);
+        throw new DatabricksValidationException(errorMessage);
       }
     }
   }
@@ -58,8 +56,7 @@ public class ValidationUtil {
               response.getFirstHeader(THRIFT_ERROR_MESSAGE_HEADER).getValue());
     }
     LOGGER.error(errorReason);
-    throw new DatabricksHttpException(
-        errorReason, DEFAULT_HTTP_EXCEPTION_SQLSTATE, connectionContext);
+    throw new DatabricksHttpException(errorReason, DEFAULT_HTTP_EXCEPTION_SQLSTATE);
   }
 
   /**

@@ -135,8 +135,7 @@ public class VolumeOperationResult implements IExecutionResult {
           throw new DatabricksVolumeOperationException(
               "Failed to parse headers",
               e,
-              DatabricksDriverErrorCode.VOLUME_OPERATION_PARSING_ERROR,
-              session.getConnectionContext());
+              DatabricksDriverErrorCode.VOLUME_OPERATION_PARSING_ERROR);
         }
       }
     }
@@ -155,9 +154,7 @@ public class VolumeOperationResult implements IExecutionResult {
     }
     if (errorMessage != null) {
       throw new DatabricksVolumeOperationException(
-          errorMessage,
-          DatabricksDriverErrorCode.VOLUME_OPERATION_INVALID_STATE,
-          session.getConnectionContext());
+          errorMessage, DatabricksDriverErrorCode.VOLUME_OPERATION_INVALID_STATE);
     }
   }
 
@@ -168,9 +165,7 @@ public class VolumeOperationResult implements IExecutionResult {
     }
     String errorMessage = (currentRowIndex < 0) ? "Invalid row access" : "Invalid column access";
     throw new DatabricksVolumeOperationException(
-        errorMessage,
-        DatabricksDriverErrorCode.VOLUME_OPERATION_INVALID_STATE,
-        session.getConnectionContext());
+        errorMessage, DatabricksDriverErrorCode.VOLUME_OPERATION_INVALID_STATE);
   }
 
   @Override
@@ -231,9 +226,7 @@ public class VolumeOperationResult implements IExecutionResult {
               volumeOperationProcessor.getStatus(), volumeOperationProcessor.getErrorMessage());
       LOGGER.error(errorMessage);
       throw new DatabricksVolumeOperationException(
-          errorMessage,
-          DatabricksDriverErrorCode.VOLUME_OPERATION_EXCEPTION,
-          session.getConnectionContext());
+          errorMessage, DatabricksDriverErrorCode.VOLUME_OPERATION_EXCEPTION);
     }
   }
 }

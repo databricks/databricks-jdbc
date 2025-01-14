@@ -184,8 +184,7 @@ public class DatabricksResultSetMetaDataTest {
             List.of("int", "string", "double"),
             List.of(4, 12, 8),
             List.of(0, 0, 0),
-            10,
-            null);
+            10);
     assertEquals(3, metaData.getColumnCount());
     verifyDefaultMetadataProperties(metaData);
 

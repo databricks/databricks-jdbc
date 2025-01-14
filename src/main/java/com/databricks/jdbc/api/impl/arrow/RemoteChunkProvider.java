@@ -128,9 +128,7 @@ public class RemoteChunkProvider implements ChunkProvider, ChunkDownloadCallback
         }
         if (chunk.getStatus() != ArrowResultChunk.ChunkStatus.DOWNLOAD_SUCCEEDED) {
           throw new DatabricksSQLException(
-              chunk.getErrorMessage(),
-              DatabricksDriverErrorCode.CHUNK_DOWNLOAD_ERROR,
-              session.getConnectionContext());
+              chunk.getErrorMessage(), DatabricksDriverErrorCode.CHUNK_DOWNLOAD_ERROR);
         }
       } catch (InterruptedException e) {
         LOGGER.error(
@@ -218,8 +216,7 @@ public class RemoteChunkProvider implements ChunkProvider, ChunkDownloadCallback
         && totalChunksInMemory < allowedChunksInMemory) {
       ArrowResultChunk chunk = chunkIndexToChunksMap.get(nextChunkToDownload);
       if (chunk.getStatus() != ArrowResultChunk.ChunkStatus.DOWNLOAD_SUCCEEDED) {
-        this.chunkDownloaderExecutorService.submit(
-            new ChunkDownloadTask(chunk, httpClient, this, session.getConnectionContext()));
+        this.chunkDownloaderExecutorService.submit(new ChunkDownloadTask(chunk, httpClient, this));
         totalChunksInMemory++;
       }
       nextChunkToDownload++;

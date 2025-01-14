@@ -249,9 +249,7 @@ public class ArrowResultChunk {
       errorInjectionCount++;
       setStatus(ChunkStatus.DOWNLOAD_FAILED);
       throw new DatabricksParsingException(
-          "Injected connection reset",
-          DatabricksDriverErrorCode.CHUNK_DOWNLOAD_ERROR,
-          connectionContext);
+          "Injected connection reset", DatabricksDriverErrorCode.CHUNK_DOWNLOAD_ERROR);
     }
 
     CloseableHttpResponse response = null;
@@ -268,10 +266,7 @@ public class ArrowResultChunk {
               this.chunkIndex, this.statementId);
       InputStream uncompressedStream =
           DecompressionUtil.decompress(
-              response.getEntity().getContent(),
-              compressionCodec,
-              decompressionContext,
-              connectionContext);
+              response.getEntity().getContent(), compressionCodec, decompressionContext);
       initializeData(uncompressedStream);
       setStatus(ChunkStatus.DOWNLOAD_SUCCEEDED);
     } catch (IOException | DatabricksSQLException | URISyntaxException e) {
@@ -313,8 +308,7 @@ public class ArrowResultChunk {
             this.chunkIndex, this.statementId, exception);
     LOGGER.error(this.errorMessage);
     setStatus(failedStatus);
-    throw new DatabricksParsingException(
-        this.errorMessage, exception, failedStatus.toString(), connectionContext);
+    throw new DatabricksParsingException(this.errorMessage, exception, failedStatus.toString());
   }
 
   /**

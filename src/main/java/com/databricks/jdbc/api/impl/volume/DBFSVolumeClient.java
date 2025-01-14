@@ -65,8 +65,8 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
       String catalog, String schema, String volume, String prefix, boolean caseSensitive)
       throws DatabricksSQLFeatureNotImplementedException {
     String errorMessage = "prefixExists function is unsupported in DBFSVolumeClient";
-    LOGGER.error(errorMessage, connectionContext);
-    throw new DatabricksSQLFeatureNotImplementedException(errorMessage, connectionContext);
+    LOGGER.error(errorMessage);
+    throw new DatabricksSQLFeatureNotImplementedException(errorMessage);
   }
 
   /** {@inheritDoc} */
@@ -75,8 +75,8 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
       String catalog, String schema, String volume, String objectPath, boolean caseSensitive)
       throws DatabricksSQLException {
     String errorMessage = "objectExists function is unsupported in DBFSVolumeClient";
-    LOGGER.error(errorMessage, connectionContext);
-    throw new DatabricksSQLFeatureNotImplementedException(errorMessage, connectionContext);
+    LOGGER.error(errorMessage);
+    throw new DatabricksSQLFeatureNotImplementedException(errorMessage);
   }
 
   /** {@inheritDoc} */
@@ -85,8 +85,8 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
       String catalog, String schema, String volumeName, boolean caseSensitive)
       throws DatabricksSQLException {
     String errorMessage = "volumeExists function is unsupported in DBFSVolumeClient";
-    LOGGER.error(errorMessage, connectionContext);
-    throw new DatabricksSQLFeatureNotImplementedException(errorMessage, connectionContext);
+    LOGGER.error(errorMessage);
+    throw new DatabricksSQLFeatureNotImplementedException(errorMessage);
   }
 
   /** {@inheritDoc} */
@@ -150,12 +150,9 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
       checkVolumeOperationError(volumeOperationProcessor);
     } catch (DatabricksSQLException e) {
       String errorMessage = String.format("Failed to get object - {%s}", e.getMessage());
-      LOGGER.error(e, errorMessage, connectionContext);
+      LOGGER.error(e, errorMessage);
       throw new DatabricksVolumeOperationException(
-          errorMessage,
-          e,
-          DatabricksDriverErrorCode.VOLUME_OPERATION_FILE_DOWNLOAD_ERROR,
-          connectionContext);
+          errorMessage, e, DatabricksDriverErrorCode.VOLUME_OPERATION_FILE_DOWNLOAD_ERROR);
     }
     return true;
   }
@@ -199,12 +196,9 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
       return getVolumeOperationInputStream();
     } catch (DatabricksSQLException e) {
       String errorMessage = String.format("Failed to get object - {%s}", e.getMessage());
-      LOGGER.error(e, errorMessage, connectionContext);
+      LOGGER.error(e, errorMessage);
       throw new DatabricksVolumeOperationException(
-          errorMessage,
-          e,
-          DatabricksDriverErrorCode.VOLUME_OPERATION_FILE_DOWNLOAD_ERROR,
-          connectionContext);
+          errorMessage, e, DatabricksDriverErrorCode.VOLUME_OPERATION_FILE_DOWNLOAD_ERROR);
     }
   }
 
@@ -246,12 +240,9 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
       checkVolumeOperationError(volumeOperationProcessor);
     } catch (DatabricksSQLException e) {
       String errorMessage = String.format("Failed to put object - {%s}", e.getMessage());
-      LOGGER.error(e, errorMessage, connectionContext);
+      LOGGER.error(e, errorMessage);
       throw new DatabricksVolumeOperationException(
-          errorMessage,
-          e,
-          DatabricksDriverErrorCode.VOLUME_OPERATION_PUT_OPERATION_EXCEPTION,
-          connectionContext);
+          errorMessage, e, DatabricksDriverErrorCode.VOLUME_OPERATION_PUT_OPERATION_EXCEPTION);
     }
     return true;
   }
@@ -293,12 +284,9 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
     } catch (DatabricksSQLException e) {
       String errorMessage =
           String.format("Failed to put object with inputStream- {%s}", e.getMessage());
-      LOGGER.error(e, errorMessage, connectionContext);
+      LOGGER.error(e, errorMessage);
       throw new DatabricksVolumeOperationException(
-          errorMessage,
-          e,
-          DatabricksDriverErrorCode.VOLUME_OPERATION_PUT_OPERATION_EXCEPTION,
-          connectionContext);
+          errorMessage, e, DatabricksDriverErrorCode.VOLUME_OPERATION_PUT_OPERATION_EXCEPTION);
     }
     return true;
   }
@@ -330,12 +318,9 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
       checkVolumeOperationError(volumeOperationProcessor);
     } catch (DatabricksSQLException e) {
       String errorMessage = String.format("Failed to delete object {%s}", e.getMessage());
-      LOGGER.error(e, errorMessage, connectionContext);
+      LOGGER.error(e, errorMessage);
       throw new DatabricksVolumeOperationException(
-          errorMessage,
-          e,
-          DatabricksDriverErrorCode.VOLUME_OPERATION_DELETE_OPERATION_EXCEPTION,
-          connectionContext);
+          errorMessage, e, DatabricksDriverErrorCode.VOLUME_OPERATION_DELETE_OPERATION_EXCEPTION);
     }
     return true;
   }
@@ -361,12 +346,9 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
     } catch (DatabricksException e) {
       String errorMessage =
           String.format("Failed to get create upload url response - {%s}", e.getMessage());
-      LOGGER.error(e, errorMessage, connectionContext);
+      LOGGER.error(e, errorMessage);
       throw new DatabricksVolumeOperationException(
-          errorMessage,
-          e,
-          DatabricksDriverErrorCode.VOLUME_OPERATION_URL_GENERATION_ERROR,
-          connectionContext);
+          errorMessage, e, DatabricksDriverErrorCode.VOLUME_OPERATION_URL_GENERATION_ERROR);
     }
   }
 
@@ -391,12 +373,9 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
     } catch (DatabricksException e) {
       String errorMessage =
           String.format("Failed to get create download url response - {%s}", e.getMessage());
-      LOGGER.error(e, errorMessage, connectionContext);
+      LOGGER.error(e, errorMessage);
       throw new DatabricksVolumeOperationException(
-          errorMessage,
-          e,
-          DatabricksDriverErrorCode.VOLUME_OPERATION_URL_GENERATION_ERROR,
-          connectionContext);
+          errorMessage, e, DatabricksDriverErrorCode.VOLUME_OPERATION_URL_GENERATION_ERROR);
     }
   }
 
@@ -416,12 +395,9 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
     } catch (DatabricksException e) {
       String errorMessage =
           String.format("Failed to get create delete url response - {%s}", e.getMessage());
-      LOGGER.error(e, errorMessage, connectionContext);
+      LOGGER.error(e, errorMessage);
       throw new DatabricksVolumeOperationException(
-          errorMessage,
-          e,
-          DatabricksDriverErrorCode.VOLUME_OPERATION_URL_GENERATION_ERROR,
-          connectionContext);
+          errorMessage, e, DatabricksDriverErrorCode.VOLUME_OPERATION_URL_GENERATION_ERROR);
     }
   }
 
@@ -436,12 +412,9 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
           .GET(LIST_PATH, request, ListResponse.class, JSON_HTTP_HEADERS);
     } catch (DatabricksException e) {
       String errorMessage = String.format("Failed to get list response - {%s}", e.getMessage());
-      LOGGER.error(e, errorMessage, connectionContext);
+      LOGGER.error(e, errorMessage);
       throw new DatabricksVolumeOperationException(
-          errorMessage,
-          e,
-          DatabricksDriverErrorCode.VOLUME_OPERATION_INVALID_STATE,
-          connectionContext);
+          errorMessage, e, DatabricksDriverErrorCode.VOLUME_OPERATION_INVALID_STATE);
     }
   }
 
@@ -450,14 +423,12 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
     if (volumeOperationProcessor.getStatus() == VolumeOperationStatus.FAILED) {
       throw new DatabricksSQLException(
           "Volume operation failed: " + volumeOperationProcessor.getErrorMessage(),
-          DatabricksDriverErrorCode.INVALID_STATE,
-          connectionContext);
+          DatabricksDriverErrorCode.INVALID_STATE);
     }
     if (volumeOperationProcessor.getStatus() == VolumeOperationStatus.ABORTED) {
       throw new DatabricksSQLException(
           "Volume operation aborted: " + volumeOperationProcessor.getErrorMessage(),
-          DatabricksDriverErrorCode.INVALID_STATE,
-          connectionContext);
+          DatabricksDriverErrorCode.INVALID_STATE);
     }
   }
 

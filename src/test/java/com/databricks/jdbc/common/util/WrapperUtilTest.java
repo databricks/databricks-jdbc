@@ -20,13 +20,13 @@ public class WrapperUtilTest {
   public void testUnwrap() throws SQLException {
     String str = "test";
     // Check if it can be unwrapped to a CharSequence
-    CharSequence charSequence = WrapperUtil.unwrap(CharSequence.class, str, null);
+    CharSequence charSequence = WrapperUtil.unwrap(CharSequence.class, str);
     assertInstanceOf(
         CharSequence.class, charSequence, "String should be unwrapped to a CharSequence");
     // Check if trying to unwrap it to a Number throws a SQLException
     assertThrows(
         SQLException.class,
-        () -> WrapperUtil.unwrap(Number.class, str, null),
+        () -> WrapperUtil.unwrap(Number.class, str),
         "Unwrapping String to a Number should throw SQLException");
   }
 }

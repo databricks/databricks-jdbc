@@ -59,8 +59,7 @@ class ChunkDownloadTask implements Callable<Void> {
             throw new DatabricksSQLException(
                 "Failed to download chunk after multiple attempts",
                 e,
-                DatabricksDriverErrorCode.CHUNK_DOWNLOAD_ERROR,
-                connectionContext);
+                DatabricksDriverErrorCode.CHUNK_DOWNLOAD_ERROR);
           } else {
             LOGGER.warn(
                 String.format(
@@ -74,8 +73,7 @@ class ChunkDownloadTask implements Callable<Void> {
               throw new DatabricksSQLException(
                   "Chunk download was interrupted",
                   ie,
-                  DatabricksDriverErrorCode.THREAD_INTERRUPTED_ERROR,
-                  connectionContext);
+                  DatabricksDriverErrorCode.THREAD_INTERRUPTED_ERROR);
             }
           }
         }

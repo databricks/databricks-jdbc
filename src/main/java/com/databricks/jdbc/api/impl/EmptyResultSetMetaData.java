@@ -1,18 +1,11 @@
 package com.databricks.jdbc.api.impl;
 
-import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.common.util.WrapperUtil;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.Types;
 
 public class EmptyResultSetMetaData implements ResultSetMetaData {
-
-  final IDatabricksConnectionContext connectionContext;
-
-  public EmptyResultSetMetaData(IDatabricksConnectionContext connectionContext) {
-    this.connectionContext = connectionContext;
-  }
 
   @Override
   public int getColumnCount() throws SQLException {
@@ -121,7 +114,7 @@ public class EmptyResultSetMetaData implements ResultSetMetaData {
 
   @Override
   public <T> T unwrap(Class<T> iface) throws SQLException {
-    return WrapperUtil.unwrap(iface, this, connectionContext);
+    return WrapperUtil.unwrap(iface, this);
   }
 
   @Override

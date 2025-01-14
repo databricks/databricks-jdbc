@@ -1,6 +1,5 @@
 package com.databricks.jdbc.dbclient.impl.common;
 
-import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.api.impl.ImmutableSessionInfo;
 import com.databricks.jdbc.common.AllPurposeCluster;
 import com.databricks.jdbc.common.DatabricksClientType;
@@ -63,9 +62,7 @@ public class SessionId {
   }
 
   /** Deserializes a SessionId from a serialized string */
-  public static SessionId deserialize(
-      String serializedSessionId, IDatabricksConnectionContext connectionContext)
-      throws SQLException {
+  public static SessionId deserialize(String serializedSessionId) throws SQLException {
     // We serialize the session-Id as:
     // For thrift: t|session-guid-id|session-secret
     // For SEA: s|warehouseId|session-id
@@ -75,7 +72,7 @@ public class SessionId {
           String.format("Session ID has invalid number of parts %s", serializedSessionId);
       LOGGER.error(errorMessage);
       throw new DatabricksParsingException(
-          errorMessage, DatabricksDriverErrorCode.SESSION_ID_PARSING_EXCEPTION, connectionContext);
+          errorMessage, DatabricksDriverErrorCode.SESSION_ID_PARSING_EXCEPTION);
     }
     switch (parts[0]) {
       case "s":
@@ -88,7 +85,7 @@ public class SessionId {
         String.format("Session ID has 3 parts but is invalid %s", serializedSessionId);
     LOGGER.error(errorMessage);
     throw new DatabricksParsingException(
-        errorMessage, DatabricksDriverErrorCode.SESSION_ID_PARSING_EXCEPTION, connectionContext);
+        errorMessage, DatabricksDriverErrorCode.SESSION_ID_PARSING_EXCEPTION);
   }
 
   @Override

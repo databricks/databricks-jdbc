@@ -1,23 +1,11 @@
 package com.databricks.jdbc.api.impl.converters;
 
-import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 
 public class BooleanConverter implements ObjectConverter {
-  private final IDatabricksConnectionContext connectionContext;
-
-  public BooleanConverter(IDatabricksConnectionContext connectionContext) {
-    this.connectionContext = connectionContext;
-  }
-
-  @Override
-  public IDatabricksConnectionContext getConnectionContext() {
-    return connectionContext;
-  }
-
   @Override
   public boolean toBoolean(Object object) throws DatabricksSQLException {
     if (object instanceof Boolean) {
@@ -27,8 +15,7 @@ public class BooleanConverter implements ObjectConverter {
     } else {
       throw new DatabricksSQLException(
           "Unsupported object type for BooleanObjectConverter",
-          DatabricksDriverErrorCode.UNSUPPORTED_OPERATION,
-          getConnectionContext());
+          DatabricksDriverErrorCode.UNSUPPORTED_OPERATION);
     }
   }
 

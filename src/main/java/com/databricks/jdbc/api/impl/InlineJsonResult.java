@@ -1,6 +1,5 @@
 package com.databricks.jdbc.api.impl;
 
-import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.model.core.ResultData;
 import com.databricks.jdbc.model.core.ResultManifest;
@@ -14,28 +13,22 @@ public class InlineJsonResult implements IExecutionResult {
   private List<List<Object>> data;
 
   private boolean isClosed;
-  private final IDatabricksConnectionContext connectionContext;
 
-  public InlineJsonResult(
-      ResultManifest resultManifest,
-      ResultData resultData,
-      IDatabricksConnectionContext connectionContext) {
-    this(getDataList(resultData.getDataArray()), connectionContext);
+  public InlineJsonResult(ResultManifest resultManifest, ResultData resultData) {
+    this(getDataList(resultData.getDataArray()));
   }
 
-  public InlineJsonResult(Object[][] rows, IDatabricksConnectionContext connectionContext) {
+  public InlineJsonResult(Object[][] rows) {
     this(
         Arrays.stream(rows)
             .map(row -> Arrays.stream(row).collect(Collectors.toList()))
-            .collect(Collectors.toList()),
-        connectionContext);
+            .collect(Collectors.toList()));
   }
 
-  public InlineJsonResult(List<List<Object>> rows, IDatabricksConnectionContext connectionContext) {
+  public InlineJsonResult(List<List<Object>> rows) {
     this.data = rows.stream().map(ArrayList::new).collect(Collectors.toList());
     this.currentRow = -1;
     this.isClosed = false;
-    this.connectionContext = connectionContext;
   }
 
   private static List<List<Object>> getDataList(Collection<Collection<String>> dataArray) {
@@ -57,21 +50,17 @@ public class InlineJsonResult implements IExecutionResult {
   public Object getObject(int columnIndex) throws DatabricksSQLException {
     if (isClosed()) {
       throw new DatabricksSQLException(
-          "Result is already closed",
-          DatabricksDriverErrorCode.STATEMENT_CLOSED,
-          connectionContext);
+          "Result is already closed", DatabricksDriverErrorCode.STATEMENT_CLOSED);
     }
     if (currentRow == -1) {
       throw new DatabricksSQLException(
-          "Cursor is before first row", DatabricksDriverErrorCode.INVALID_STATE, connectionContext);
+          "Cursor is before first row", DatabricksDriverErrorCode.INVALID_STATE);
     }
     if (columnIndex < data.get((int) currentRow).size()) {
       return data.get((int) currentRow).get(columnIndex);
     }
     throw new DatabricksSQLException(
-        "Column index out of bounds " + columnIndex,
-        DatabricksDriverErrorCode.INVALID_STATE,
-        connectionContext);
+        "Column index out of bounds " + columnIndex, DatabricksDriverErrorCode.INVALID_STATE);
   }
 
   @Override

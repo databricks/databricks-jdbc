@@ -21,8 +21,7 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 public class MetadataResultSetBuilder {
-  public static DatabricksResultSet getFunctionsResult(
-      ResultSet resultSet, String catalog, IDatabricksConnectionContext connectionContext)
+  public static DatabricksResultSet getFunctionsResult(ResultSet resultSet, String catalog)
       throws SQLException {
     List<List<Object>> rows = getRowsForFunctions(resultSet, FUNCTION_COLUMNS, catalog);
     return buildResultSet(
@@ -30,32 +29,27 @@ public class MetadataResultSetBuilder {
         rows,
         GET_FUNCTIONS_STATEMENT_ID,
         resultSet.getMetaData(),
-        CommandName.LIST_FUNCTIONS,
-        connectionContext);
+        CommandName.LIST_FUNCTIONS);
   }
 
-  public static DatabricksResultSet getColumnsResult(
-      ResultSet resultSet, IDatabricksConnectionContext connectionContext) throws SQLException {
+  public static DatabricksResultSet getColumnsResult(ResultSet resultSet) throws SQLException {
     List<List<Object>> rows = getRows(resultSet, COLUMN_COLUMNS);
     return buildResultSet(
         COLUMN_COLUMNS,
         rows,
         METADATA_STATEMENT_ID,
         resultSet.getMetaData(),
-        CommandName.LIST_COLUMNS,
-        connectionContext);
+        CommandName.LIST_COLUMNS);
   }
 
-  public static DatabricksResultSet getCatalogsResult(
-      ResultSet resultSet, IDatabricksConnectionContext connectionContext) throws SQLException {
+  public static DatabricksResultSet getCatalogsResult(ResultSet resultSet) throws SQLException {
     List<List<Object>> rows = getRows(resultSet, CATALOG_COLUMNS);
     return buildResultSet(
         CATALOG_COLUMNS,
         rows,
         GET_CATALOGS_STATEMENT_ID,
         resultSet.getMetaData(),
-        CommandName.LIST_CATALOGS,
-        connectionContext);
+        CommandName.LIST_CATALOGS);
   }
 
   public static DatabricksResultSet getSchemasResult(
@@ -67,12 +61,10 @@ public class MetadataResultSetBuilder {
         rows,
         METADATA_STATEMENT_ID,
         resultSet.getMetaData(),
-        CommandName.LIST_SCHEMAS,
-        connectionContext);
+        CommandName.LIST_SCHEMAS);
   }
 
-  public static DatabricksResultSet getTablesResult(
-      ResultSet resultSet, String[] tableTypes, IDatabricksConnectionContext connectionContext)
+  public static DatabricksResultSet getTablesResult(ResultSet resultSet, String[] tableTypes)
       throws SQLException {
     List<String> allowedTableTypes = List.of(tableTypes);
     List<List<Object>> rows =
@@ -84,31 +76,25 @@ public class MetadataResultSetBuilder {
         rows,
         GET_TABLES_STATEMENT_ID,
         resultSet.getMetaData(),
-        CommandName.LIST_TABLES,
-        connectionContext);
+        CommandName.LIST_TABLES);
   }
 
-  public static DatabricksResultSet getTableTypesResult(
-      IDatabricksConnectionContext connectionContext) {
-    return buildResultSet(
-        TABLE_TYPE_COLUMNS, TABLE_TYPES_ROWS, GET_TABLE_TYPE_STATEMENT_ID, connectionContext);
+  public static DatabricksResultSet getTableTypesResult() {
+    return buildResultSet(TABLE_TYPE_COLUMNS, TABLE_TYPES_ROWS, GET_TABLE_TYPE_STATEMENT_ID);
   }
 
-  public static DatabricksResultSet getTypeInfoResult(
-      List<List<Object>> rows, IDatabricksConnectionContext connectionContext) {
-    return buildResultSet(TYPE_INFO_COLUMNS, rows, GET_TYPE_INFO_STATEMENT_ID, connectionContext);
+  public static DatabricksResultSet getTypeInfoResult(List<List<Object>> rows) {
+    return buildResultSet(TYPE_INFO_COLUMNS, rows, GET_TYPE_INFO_STATEMENT_ID);
   }
 
-  public static DatabricksResultSet getPrimaryKeysResult(
-      ResultSet resultSet, IDatabricksConnectionContext connectionContext) throws SQLException {
+  public static DatabricksResultSet getPrimaryKeysResult(ResultSet resultSet) throws SQLException {
     List<List<Object>> rows = getRows(resultSet, PRIMARY_KEYS_COLUMNS);
     return buildResultSet(
         PRIMARY_KEYS_COLUMNS,
         rows,
         METADATA_STATEMENT_ID,
         resultSet.getMetaData(),
-        CommandName.LIST_PRIMARY_KEYS,
-        connectionContext);
+        CommandName.LIST_PRIMARY_KEYS);
   }
 
   private static boolean isTextType(String typeVal) {
@@ -421,10 +407,7 @@ public class MetadataResultSetBuilder {
   }
 
   private static DatabricksResultSet buildResultSet(
-      List<ResultColumn> columns,
-      List<List<Object>> rows,
-      String statementId,
-      IDatabricksConnectionContext connectionContext) {
+      List<ResultColumn> columns, List<List<Object>> rows, String statementId) {
     if (rows != null && !rows.isEmpty() && columns.size() > rows.get(0).size()) {
       // Handle cases where the number of rows is less than expected columns, e.g., missing
       // isGenerated column.
@@ -439,8 +422,7 @@ public class MetadataResultSetBuilder {
         columns.stream().map(ResultColumn::getColumnTypeInt).collect(Collectors.toList()),
         columns.stream().map(ResultColumn::getColumnPrecision).collect(Collectors.toList()),
         rows,
-        StatementType.METADATA,
-        connectionContext);
+        StatementType.METADATA);
   }
 
   private static DatabricksResultSet buildResultSet(
@@ -448,8 +430,7 @@ public class MetadataResultSetBuilder {
       List<List<Object>> rows,
       String statementId,
       ResultSetMetaData metaData,
-      CommandName commandName,
-      IDatabricksConnectionContext connectionContext)
+      CommandName commandName)
       throws SQLException {
 
     // Create a map of resultSetColumnName to index from ResultSetMetaData for fast lookup
@@ -505,27 +486,19 @@ public class MetadataResultSetBuilder {
         new StatementId(statementId),
         columnMetadataList,
         rows,
-        StatementType.METADATA,
-        connectionContext);
+        StatementType.METADATA);
   }
 
-  public static DatabricksResultSet getCatalogsResult(
-      List<List<Object>> rows, IDatabricksConnectionContext connectionContext) {
+  public static DatabricksResultSet getCatalogsResult(List<List<Object>> rows) {
     return buildResultSet(
-        CATALOG_COLUMNS,
-        buildRows(rows, CATALOG_COLUMNS),
-        GET_CATALOGS_STATEMENT_ID,
-        connectionContext);
+        CATALOG_COLUMNS, buildRows(rows, CATALOG_COLUMNS), GET_CATALOGS_STATEMENT_ID);
   }
 
-  public static DatabricksResultSet getSchemasResult(
-      List<List<Object>> rows, IDatabricksConnectionContext connectionContext) {
-    return buildResultSet(
-        SCHEMA_COLUMNS, buildRows(rows, SCHEMA_COLUMNS), METADATA_STATEMENT_ID, connectionContext);
+  public static DatabricksResultSet getSchemasResult(List<List<Object>> rows) {
+    return buildResultSet(SCHEMA_COLUMNS, buildRows(rows, SCHEMA_COLUMNS), METADATA_STATEMENT_ID);
   }
 
-  public static DatabricksResultSet getTablesResult(
-      String catalog, List<List<Object>> rows, IDatabricksConnectionContext connectionContext) {
+  public static DatabricksResultSet getTablesResult(String catalog, List<List<Object>> rows) {
     List<List<Object>> updatedRows = new ArrayList<>();
     for (List<Object> row : rows) {
       // If the table type is empty, set it to "TABLE"
@@ -539,19 +512,14 @@ public class MetadataResultSetBuilder {
       updatedRows.add(row);
     }
     return buildResultSet(
-        TABLE_COLUMNS,
-        buildRows(updatedRows, TABLE_COLUMNS),
-        GET_TABLES_STATEMENT_ID,
-        connectionContext);
+        TABLE_COLUMNS, buildRows(updatedRows, TABLE_COLUMNS), GET_TABLES_STATEMENT_ID);
   }
 
-  public static DatabricksResultSet getColumnsResult(
-      List<List<Object>> rows, IDatabricksConnectionContext connectionContext) {
+  public static DatabricksResultSet getColumnsResult(List<List<Object>> rows) {
     return buildResultSet(
         COLUMN_COLUMNS,
         buildRows(buildRows(rows, COLUMN_COLUMNS), COLUMN_COLUMNS),
-        METADATA_STATEMENT_ID,
-        connectionContext);
+        METADATA_STATEMENT_ID);
   }
 
   static List<List<Object>> buildRows(List<List<Object>> rows, List<ResultColumn> columns) {
@@ -579,21 +547,13 @@ public class MetadataResultSetBuilder {
     }
   }
 
-  public static DatabricksResultSet getPrimaryKeysResult(
-      List<List<Object>> rows, IDatabricksConnectionContext connectionContext) {
+  public static DatabricksResultSet getPrimaryKeysResult(List<List<Object>> rows) {
     return buildResultSet(
-        PRIMARY_KEYS_COLUMNS,
-        buildRows(rows, PRIMARY_KEYS_COLUMNS),
-        METADATA_STATEMENT_ID,
-        connectionContext);
+        PRIMARY_KEYS_COLUMNS, buildRows(rows, PRIMARY_KEYS_COLUMNS), METADATA_STATEMENT_ID);
   }
 
-  public static DatabricksResultSet getFunctionsResult(
-      List<List<Object>> rows, IDatabricksConnectionContext connectionContext) {
+  public static DatabricksResultSet getFunctionsResult(List<List<Object>> rows) {
     return buildResultSet(
-        FUNCTION_COLUMNS,
-        buildRows(rows, FUNCTION_COLUMNS),
-        GET_FUNCTIONS_STATEMENT_ID,
-        connectionContext);
+        FUNCTION_COLUMNS, buildRows(rows, FUNCTION_COLUMNS), GET_FUNCTIONS_STATEMENT_ID);
   }
 }

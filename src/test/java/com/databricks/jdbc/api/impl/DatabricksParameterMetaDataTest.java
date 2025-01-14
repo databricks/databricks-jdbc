@@ -15,7 +15,7 @@ public class DatabricksParameterMetaDataTest {
 
   @BeforeEach
   public void setUp() {
-    metaData = new DatabricksParameterMetaData(null);
+    metaData = new DatabricksParameterMetaData();
     metaData.put(
         1,
         ImmutableSqlParameter.builder()
@@ -34,7 +34,7 @@ public class DatabricksParameterMetaDataTest {
 
   @Test
   public void testInitialization() {
-    DatabricksParameterMetaData newMetadata = new DatabricksParameterMetaData(null);
+    DatabricksParameterMetaData newMetadata = new DatabricksParameterMetaData();
     assertTrue(newMetadata.getParameterBindings().isEmpty());
     assertEquals(2, metaData.getParameterBindings().size());
   }

@@ -1,6 +1,5 @@
 package com.databricks.jdbc.common.util;
 
-import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.common.Nullable;
 import com.databricks.jdbc.exception.DatabricksSQLFeatureNotSupportedException;
 import com.databricks.jdbc.log.JdbcLogger;
@@ -373,8 +372,7 @@ public class DatabricksTypeUtil {
         .orElse(TTypeId.STRING_TYPE);
   }
 
-  public static ArrowType mapThriftToArrowType(
-      TTypeId typeId, IDatabricksConnectionContext connectionContext) throws SQLException {
+  public static ArrowType mapThriftToArrowType(TTypeId typeId) throws SQLException {
     switch (typeId) {
       case BOOLEAN_TYPE:
         return ArrowType.Bool.INSTANCE;
@@ -412,7 +410,7 @@ public class DatabricksTypeUtil {
         return ArrowType.Null.INSTANCE;
       default:
         throw new DatabricksSQLFeatureNotSupportedException(
-            "Unsupported mapping of Thrift to ArrowType: " + typeId, connectionContext);
+            "Unsupported mapping of Thrift to ArrowType: " + typeId);
     }
   }
 }

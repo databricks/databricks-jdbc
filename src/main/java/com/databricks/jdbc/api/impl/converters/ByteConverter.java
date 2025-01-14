@@ -1,21 +1,10 @@
 package com.databricks.jdbc.api.impl.converters;
 
-import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 
 public class ByteConverter implements ObjectConverter {
-  private final IDatabricksConnectionContext connectionContext;
-
-  public ByteConverter(IDatabricksConnectionContext connectionContext) {
-    this.connectionContext = connectionContext;
-  }
-
-  @Override
-  public IDatabricksConnectionContext getConnectionContext() {
-    return connectionContext;
-  }
 
   @Override
   public byte toByte(Object object) throws DatabricksSQLException {
