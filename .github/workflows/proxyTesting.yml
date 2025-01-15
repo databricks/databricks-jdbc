@@ -160,22 +160,7 @@ jobs:
           mvn test -Dtest=**/ProxyTest.java
 
       ################################################################
-      # 14) Upload Logs
-      ################################################################
-      - name: Upload Proxy Test Logs
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: proxy-test-logs
-          path: |
-            test-results/
-            /var/log/squid/access.log
-            /var/log/squid/cache.log
-            /var/log/squid2/
-            /tmp/squid2.log
-
-      ################################################################
-      # 15) Cleanup
+      # 14) Cleanup
       ################################################################
       - name: Cleanup Squid
         if: always()
