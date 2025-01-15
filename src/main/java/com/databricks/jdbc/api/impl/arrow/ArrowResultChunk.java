@@ -13,11 +13,11 @@ import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.model.client.thrift.generated.TSparkArrowResultLink;
 import com.databricks.jdbc.model.core.ExternalLink;
+import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import com.databricks.sdk.service.sql.BaseChunkInfo;
 import com.google.common.annotations.VisibleForTesting;
 import java.io.IOException;
 import java.io.InputStream;
-import java.net.SocketException;
 import java.net.URISyntaxException;
 import java.nio.channels.ClosedByInterruptException;
 import java.time.Instant;
@@ -246,7 +246,7 @@ public class ArrowResultChunk {
       errorInjectionCount++;
       setStatus(ChunkStatus.DOWNLOAD_FAILED);
       throw new DatabricksParsingException(
-          "Injected connection reset", new SocketException("Connection reset"));
+          "Injected connection reset", DatabricksDriverErrorCode.CHUNK_DOWNLOAD_ERROR);
     }
 
     CloseableHttpResponse response = null;
@@ -257,13 +257,13 @@ public class ArrowResultChunk {
       // Retry would be done in http client, we should not bother about that here
       response = httpClient.execute(getRequest, true);
       checkHTTPError(response);
-      String context =
+      String decompressionContext =
           String.format(
               "Data decompression for chunk index [%d] and statement [%s]",
               this.chunkIndex, this.statementId);
       InputStream uncompressedStream =
           DecompressionUtil.decompress(
-              response.getEntity().getContent(), compressionCodec, context);
+              response.getEntity().getContent(), compressionCodec, decompressionContext);
       initializeData(uncompressedStream);
       setStatus(ChunkStatus.DOWNLOAD_SUCCEEDED);
     } catch (IOException | DatabricksSQLException | URISyntaxException e) {
@@ -305,7 +305,7 @@ public class ArrowResultChunk {
             this.chunkIndex, this.statementId, exception);
     LOGGER.error(this.errorMessage);
     setStatus(failedStatus);
-    throw new DatabricksParsingException(this.errorMessage, exception);
+    throw new DatabricksParsingException(this.errorMessage, exception, failedStatus.toString());
   }
 
   /**

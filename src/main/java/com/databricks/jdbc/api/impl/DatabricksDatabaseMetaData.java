@@ -11,6 +11,7 @@ import com.databricks.jdbc.dbclient.impl.common.StatementId;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
+import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import com.databricks.sdk.service.sql.StatementState;
 import com.databricks.sdk.service.sql.StatementStatus;
 import java.sql.*;
@@ -1426,7 +1427,8 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
   private void throwExceptionIfConnectionIsClosed() throws SQLException {
     LOGGER.debug("private void throwExceptionIfConnectionIsClosed()");
     if (!connection.getSession().isOpen()) {
-      throw new DatabricksSQLException("Connection closed!");
+      throw new DatabricksSQLException(
+          "Connection closed!", DatabricksDriverErrorCode.CONNECTION_CLOSED);
     }
   }
 }

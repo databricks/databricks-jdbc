@@ -8,6 +8,7 @@ import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
+import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import com.databricks.sdk.core.DatabricksException;
 import com.databricks.sdk.core.oauth.OAuthResponse;
 import com.databricks.sdk.core.oauth.RefreshableTokenSource;
@@ -270,7 +271,8 @@ public class JwtPrivateKeyClientCredentials extends RefreshableTokenSource {
     } catch (OperatorCreationException | PKCSException | PEMException e) {
       String errorMessage = "Cannot decrypt private JWT key " + e.getMessage();
       LOGGER.error(errorMessage);
-      throw new DatabricksParsingException(errorMessage);
+      throw new DatabricksParsingException(
+          errorMessage, DatabricksDriverErrorCode.VOLUME_OPERATION_PARSING_ERROR);
     }
   }
 

@@ -42,7 +42,7 @@ public class TelemetryClientFactory {
 
   public ITelemetryClient getUnauthenticatedTelemetryClient(
       IDatabricksConnectionContext connectionContext) {
-    if (connectionContext.isTelemetryEnabled()) {
+    if (connectionContext != null && connectionContext.isTelemetryEnabled()) {
       return noauthTelemetryClients.computeIfAbsent(
           connectionContext.getConnectionUuid(),
           k -> new TelemetryClient(connectionContext, false, getTelemetryExecutorService()));

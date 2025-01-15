@@ -1,6 +1,7 @@
 package com.databricks.jdbc.api.impl.converters;
 
 import com.databricks.jdbc.exception.DatabricksSQLException;
+import com.databricks.jdbc.exception.DatabricksValidationException;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.sql.Date;
@@ -14,7 +15,7 @@ public class StringConverter implements ObjectConverter {
     } else if (object instanceof String) {
       return (String) object;
     }
-    throw new DatabricksSQLException("Invalid conversion to String");
+    throw new DatabricksValidationException("Invalid conversion to String");
   }
 
   @Override
@@ -24,7 +25,7 @@ public class StringConverter implements ObjectConverter {
     if (byteArray.length == 1) {
       return byteArray[0];
     }
-    throw new DatabricksSQLException("Invalid conversion to byte");
+    throw new DatabricksValidationException("Invalid conversion to byte");
   }
 
   @Override
@@ -32,7 +33,7 @@ public class StringConverter implements ObjectConverter {
     try {
       return Short.parseShort(toString(object));
     } catch (NumberFormatException e) {
-      throw new DatabricksSQLException("Invalid conversion to short", e);
+      throw new DatabricksValidationException("Invalid conversion to short", e);
     }
   }
 
@@ -41,7 +42,7 @@ public class StringConverter implements ObjectConverter {
     try {
       return Integer.parseInt(toString(object));
     } catch (NumberFormatException e) {
-      throw new DatabricksSQLException("Invalid conversion to int", e);
+      throw new DatabricksValidationException("Invalid conversion to int", e);
     }
   }
 
@@ -50,7 +51,7 @@ public class StringConverter implements ObjectConverter {
     try {
       return Long.parseLong(toString(object));
     } catch (NumberFormatException e) {
-      throw new DatabricksSQLException("Invalid conversion to long", e);
+      throw new DatabricksValidationException("Invalid conversion to long", e);
     }
   }
 
@@ -59,7 +60,7 @@ public class StringConverter implements ObjectConverter {
     try {
       return Float.parseFloat(toString(object));
     } catch (NumberFormatException e) {
-      throw new DatabricksSQLException("Invalid conversion to float", e);
+      throw new DatabricksValidationException("Invalid conversion to float", e);
     }
   }
 
@@ -68,7 +69,7 @@ public class StringConverter implements ObjectConverter {
     try {
       return Double.parseDouble(toString(object));
     } catch (NumberFormatException e) {
-      throw new DatabricksSQLException("Invalid conversion to double", e);
+      throw new DatabricksValidationException("Invalid conversion to double", e);
     }
   }
 
@@ -90,7 +91,7 @@ public class StringConverter implements ObjectConverter {
     } else if ("1".equals(str) || "true".equals(str)) {
       return true;
     }
-    throw new DatabricksSQLException("Invalid conversion to boolean");
+    throw new DatabricksValidationException("Invalid conversion to boolean");
   }
 
   @Override
@@ -104,7 +105,7 @@ public class StringConverter implements ObjectConverter {
     if (str.length() == 1) {
       return str.charAt(0);
     }
-    throw new DatabricksSQLException("Invalid conversion to char");
+    throw new DatabricksValidationException("Invalid conversion to char");
   }
 
   @Override

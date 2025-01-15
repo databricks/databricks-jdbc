@@ -7,8 +7,6 @@ import java.sql.Types;
 
 public class EmptyResultSetMetaData implements ResultSetMetaData {
 
-  public EmptyResultSetMetaData() {}
-
   @Override
   public int getColumnCount() throws SQLException {
     return 0;

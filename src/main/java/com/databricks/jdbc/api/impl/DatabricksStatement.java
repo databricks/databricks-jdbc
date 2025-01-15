@@ -8,7 +8,6 @@ import com.databricks.jdbc.api.IDatabricksResultSet;
 import com.databricks.jdbc.api.IDatabricksStatement;
 import com.databricks.jdbc.api.impl.batch.DatabricksBatchExecutor;
 import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
-import com.databricks.jdbc.common.ErrorCodes;
 import com.databricks.jdbc.common.StatementType;
 import com.databricks.jdbc.common.util.*;
 import com.databricks.jdbc.dbclient.IDatabricksClient;
@@ -18,6 +17,7 @@ import com.databricks.jdbc.exception.DatabricksSQLFeatureNotSupportedException;
 import com.databricks.jdbc.exception.DatabricksTimeoutException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
+import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.MoreExecutors;
 import java.sql.*;
@@ -74,11 +74,9 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
     ResultSet rs = executeInternal(sql, new HashMap<>(), StatementType.QUERY);
     if (!shouldReturnResultSet(sql)) {
       String errorMessage =
-          "A ResultSet was expected but not generated from query: "
-              + sql
-              + ". However, query "
+          "A ResultSet was expected but not generated from query. However, query "
               + "execution was successful.";
-      throw new DatabricksSQLException(errorMessage, ErrorCodes.RESULT_SET_ERROR);
+      throw new DatabricksSQLException(errorMessage, DatabricksDriverErrorCode.RESULT_SET_ERROR);
     }
     return rs;
   }
@@ -431,7 +429,8 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
     }
     throw new DatabricksSQLException(
         String.format(
-            "Class {%s} cannot be wrapped from {%s}", getClass().getName(), iface.getName()));
+            "Class {%s} cannot be wrapped from {%s}", getClass().getName(), iface.getName()),
+        DatabricksDriverErrorCode.INPUT_VALIDATION_ERROR);
   }
 
   @Override
@@ -483,7 +482,9 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
     if (isAllowedInputStreamForVolumeOperation()) {
       this.inputStream = inputStream;
     } else {
-      throw new DatabricksSQLException("Volume operation not supported for Input Stream");
+      throw new DatabricksSQLException(
+          "Volume operation not supported for Input Stream",
+          DatabricksDriverErrorCode.INPUT_VALIDATION_ERROR);
     }
   }
 
@@ -514,7 +515,8 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
     checkIfClosed();
 
     if (statementId == null) {
-      throw new DatabricksSQLException("No execution available for statement");
+      throw new DatabricksSQLException(
+          "No execution available for statement", DatabricksDriverErrorCode.INPUT_VALIDATION_ERROR);
     }
     return connection
         .getSession()
@@ -583,7 +585,8 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
               stackTraceMessage, statementId);
       LOGGER.error(timeoutErrorMessage);
       futureResultSet.cancel(true); // Cancel execution run
-      throw new DatabricksTimeoutException(timeoutErrorMessage, e);
+      throw new DatabricksTimeoutException(
+          timeoutErrorMessage, e, DatabricksDriverErrorCode.STATEMENT_EXECUTION_TIMEOUT);
     } catch (InterruptedException | ExecutionException e) {
       Throwable cause = e;
       // Look for underlying DatabricksSQL exception
@@ -597,7 +600,8 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
           String.format(
               "Error occurred during statement execution: %s. Error : %s", sql, e.getMessage());
       LOGGER.error(e, errMsg);
-      throw new DatabricksSQLException(errMsg, e, ErrorCodes.EXECUTE_STATEMENT_FAILED);
+      throw new DatabricksSQLException(
+          errMsg, e, DatabricksDriverErrorCode.EXECUTE_STATEMENT_FAILED);
     }
     LOGGER.debug("Result retrieved successfully" + resultSet.toString());
     return resultSet;
@@ -638,7 +642,8 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
 
   void checkIfClosed() throws DatabricksSQLException {
     if (isClosed) {
-      throw new DatabricksSQLException("Statement is closed", ErrorCodes.STATEMENT_CLOSED);
+      throw new DatabricksSQLException(
+          "Statement is closed", DatabricksDriverErrorCode.STATEMENT_CLOSED);
     }
   }
 

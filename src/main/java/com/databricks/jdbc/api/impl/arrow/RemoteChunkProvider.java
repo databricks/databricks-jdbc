@@ -17,6 +17,7 @@ import com.databricks.jdbc.model.client.thrift.generated.TSparkArrowResultLink;
 import com.databricks.jdbc.model.core.ExternalLink;
 import com.databricks.jdbc.model.core.ResultData;
 import com.databricks.jdbc.model.core.ResultManifest;
+import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import com.databricks.sdk.service.sql.BaseChunkInfo;
 import com.google.common.annotations.VisibleForTesting;
 import java.util.Collection;
@@ -126,7 +127,8 @@ public class RemoteChunkProvider implements ChunkProvider, ChunkDownloadCallback
           chunk.wait();
         }
         if (chunk.getStatus() != ArrowResultChunk.ChunkStatus.DOWNLOAD_SUCCEEDED) {
-          throw new DatabricksSQLException(chunk.getErrorMessage());
+          throw new DatabricksSQLException(
+              chunk.getErrorMessage(), DatabricksDriverErrorCode.CHUNK_DOWNLOAD_ERROR);
         }
       } catch (InterruptedException e) {
         LOGGER.error(

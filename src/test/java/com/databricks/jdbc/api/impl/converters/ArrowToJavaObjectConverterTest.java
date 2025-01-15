@@ -2,6 +2,7 @@ package com.databricks.jdbc.api.impl.converters;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.sdk.service.sql.ColumnInfoTypeName;
 import java.math.BigDecimal;
 import java.sql.Date;
@@ -13,8 +14,13 @@ import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.*;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
 
+@ExtendWith(MockitoExtension.class)
 public class ArrowToJavaObjectConverterTest {
+  @Mock IDatabricksConnectionContext connectionContext;
   private final BufferAllocator bufferAllocator;
 
   ArrowToJavaObjectConverterTest() {
@@ -26,7 +32,6 @@ public class ArrowToJavaObjectConverterTest {
     Object unconvertedObject = null;
     Object convertedObject =
         ArrowToJavaObjectConverter.convert(unconvertedObject, ColumnInfoTypeName.BYTE);
-
     assertNull(convertedObject);
   }
 

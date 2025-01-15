@@ -25,9 +25,11 @@ public class JulLogger implements JdbcLogger {
 
   private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(JulLogger.class);
 
+  private static final String DEFAULT_PACKAGE_PREFIX = "com.databricks.jdbc";
+
   public static final String STDOUT = "STDOUT";
 
-  public static final String PARENT_CLASS_PREFIX = "com.databricks.jdbc";
+  public static final String PARENT_CLASS_PREFIX = getPackagePrefix();
 
   public static final String DATABRICKS_LOG_FILE = "databricks_jdbc.log";
 
@@ -213,5 +215,13 @@ public class JulLogger implements JdbcLogger {
     }
 
     return dirPath.resolve(DATABRICKS_LOG_FILE).toString();
+  }
+
+  private static String getPackagePrefix() {
+    String prefix = System.getenv("JDBC_PACKAGE_PREFIX");
+    if (prefix != null && !prefix.isEmpty()) {
+      return prefix;
+    }
+    return DEFAULT_PACKAGE_PREFIX;
   }
 }

@@ -1,7 +1,5 @@
 package com.databricks.jdbc.api.impl;
 
-import static com.databricks.jdbc.common.util.DatabricksThriftUtil.*;
-
 import com.databricks.jdbc.api.IDatabricksResultSet;
 import com.databricks.jdbc.api.IDatabricksSession;
 import com.databricks.jdbc.api.impl.converters.ConverterHelper;
@@ -15,12 +13,14 @@ import com.databricks.jdbc.dbclient.impl.common.StatementId;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.exception.DatabricksSQLFeatureNotSupportedException;
+import com.databricks.jdbc.exception.DatabricksValidationException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.model.client.thrift.generated.TFetchResultsResp;
 import com.databricks.jdbc.model.core.ColumnMetadata;
 import com.databricks.jdbc.model.core.ResultData;
 import com.databricks.jdbc.model.core.ResultManifest;
+import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import com.databricks.sdk.service.sql.StatementStatus;
 import com.google.common.annotations.VisibleForTesting;
 import java.io.InputStream;
@@ -49,7 +49,6 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
   private boolean isClosed;
   private SQLWarning warnings = null;
   private boolean wasNull;
-  private boolean isResultInitialized = true;
 
   // Constructor for SEA result set
   public DatabricksResultSet(
@@ -71,7 +70,6 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
     } else {
       executionResult = null;
       resultSetMetaData = null;
-      isResultInitialized = false;
     }
     this.statementType = statementType;
     this.updateCount = null;
@@ -123,7 +121,6 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
     } else {
       this.executionResult = null;
       this.resultSetMetaData = null;
-      this.isResultInitialized = false;
     }
     this.statementType = statementType;
     this.updateCount = null;
@@ -132,7 +129,7 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
     this.wasNull = false;
   }
 
-  // Constructing results for getUDTs, getTypeInfo, getProcedures metadata calls
+  /* Constructing results for getUDTs, getTypeInfo, getProcedures metadata calls */
   public DatabricksResultSet(
       StatementStatus statementStatus,
       StatementId statementId,
@@ -1015,7 +1012,7 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
           String.format(
               "Column type is not ARRAY. Cannot convert to Array. Column type: %s", columnTypeName);
       LOGGER.error(errMsg);
-      throw new DatabricksSQLException(errMsg);
+      throw new DatabricksValidationException(errMsg);
     }
 
     LOGGER.trace("Parsing Array data for column with type name: {}", columnTypeName);
@@ -1053,7 +1050,7 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
               "Column type is not STRUCT. Cannot convert to Struct. Column type: %s",
               columnTypeName);
       LOGGER.error(errMessage);
-      throw new DatabricksSQLException(errMessage);
+      throw new DatabricksValidationException(errMessage);
     }
 
     LOGGER.trace("Parsing Struct data for column with type name: {}", columnTypeName);
@@ -1089,7 +1086,7 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
           String.format(
               "Column type is not MAP. Cannot convert to Map. Column type: %s", columnTypeName);
       LOGGER.error(errMsg);
-      throw new DatabricksSQLException(errMsg);
+      throw new DatabricksValidationException(errMsg);
     }
 
     LOGGER.trace("Parsing Map data for column with type name: {}", columnTypeName);
@@ -1604,7 +1601,7 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
               "Exception occurred while converting object into corresponding return object type using getObject(int columnIndex, Class<T> type). ErrorMessage: %s",
               e.getMessage());
       LOGGER.error(errorMessage);
-      throw new DatabricksSQLException(errorMessage, e);
+      throw new DatabricksSQLException(errorMessage, e, DatabricksDriverErrorCode.INVALID_STATE);
     }
   }
 
@@ -1619,7 +1616,7 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
     if (iface.isInstance(this)) {
       return (T) this;
     }
-    throw new DatabricksSQLException(
+    throw new DatabricksValidationException(
         String.format(
             "Class {%s} cannot be wrapped from {%s}", this.getClass().getName(), iface.getName()));
   }
@@ -1676,7 +1673,7 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
     if (executionResult instanceof VolumeOperationResult) {
       return ((VolumeOperationResult) executionResult).getVolumeOperationInputStream();
     }
-    throw new DatabricksSQLException("Invalid volume operation");
+    throw new DatabricksValidationException("Invalid volume operation");
   }
 
   private void addWarningAndLog(String warningMessage) {
@@ -1686,7 +1683,8 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
 
   private Object getObjectInternal(int columnIndex) throws SQLException {
     if (columnIndex <= 0) {
-      throw new DatabricksSQLException("Invalid column index");
+      throw new DatabricksSQLException(
+          "Invalid column index", DatabricksDriverErrorCode.INVALID_STATE);
     }
     Object object = executionResult.getObject(columnIndex - 1);
     this.wasNull = object == null;
@@ -1699,7 +1697,9 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
 
   private void checkIfClosed() throws SQLException {
     if (this.isClosed) {
-      throw new DatabricksSQLException("Operation not allowed - ResultSet is closed");
+      throw new DatabricksSQLException(
+          "Operation not allowed - ResultSet is closed",
+          DatabricksDriverErrorCode.RESULT_SET_CLOSED);
     }
   }
 
