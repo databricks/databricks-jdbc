@@ -133,7 +133,7 @@ jobs:
       # 11) Maven Build
       ################################################################
       - name: Maven Build
-        run: mvn clean package
+        run: mvn clean package -DskipTests
 
       ################################################################
       # 12) Set Environment Variables for Tests
@@ -145,7 +145,12 @@ jobs:
           DATABRICKS_HTTP_PATH: ${{ secrets.DATABRICKS_HTTP_PATH }}
           PROXY_URL: "http://localhost:3128"
           CF_PROXY_URL: "http://localhost:8889"
-        run: echo "Environment variables set. Tokens/hosts ready."
+        run: |
+          echo "DATABRICKS_TOKEN=${DATABRICKS_TOKEN}" >> $GITHUB_ENV
+          echo "DATABRICKS_HOST=${DATABRICKS_HOST}" >> $GITHUB_ENV
+          echo "DATABRICKS_HTTP_PATH=${DATABRICKS_HTTP_PATH}" >> $GITHUB_ENV
+          echo "PROXY_URL=${PROXY_URL}" >> $GITHUB_ENV
+          echo "CF_PROXY_URL=${CF_PROXY_URL}" >> $GITHUB_ENV
 
       ################################################################
       # 13) Run Proxy Tests
