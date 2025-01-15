@@ -89,8 +89,8 @@ jobs:
           # Configure logging for the second instance
           echo "access_log stdio:/var/log/squid2/access.log squid" | sudo tee -a /etc/squid/squid2.conf
           echo "cache_log /var/log/squid2/cache.log" | sudo tee -a /etc/squid/squid2.conf
-          # Update paths in config to use /var/log/squid2 for logs
-          sudo sed -i 's/\/var\/log\/squid/\/var\/log\/squid2/g' /etc/squid/squid2.conf
+          
+          # (Removed the problematic sed line that caused /var/log/squid22)
           # Create necessary directories and set permissions
           sudo mkdir -p /var/log/squid2 /var/spool/squid2
           sudo chown -R proxy:proxy /var/log/squid2 /var/spool/squid2
@@ -152,7 +152,7 @@ jobs:
       ################################################################
       - name: Run ProxyTest
         run: |
-          mvn test -Dtest=**/ProxyTest.java 
+          mvn test -Dtest=**/ProxyTest.java
 
       ################################################################
       # 14) Upload Logs
