@@ -230,7 +230,8 @@ final class DatabricksThriftAccessor {
           Thread.currentThread().interrupt(); // Restore interrupt flag
           cancelOperation(
               new TCancelOperationReq().setOperationHandle(response.getOperationHandle()));
-          throw new DatabricksSQLException("Query execution interrupted", e);
+          throw new DatabricksSQLException(
+              "Query execution interrupted", e, DatabricksDriverErrorCode.THREAD_INTERRUPTED_ERROR);
         }
       }
 
