@@ -9,10 +9,6 @@ jobs:
     group: databricks-protected-runner-group
     labels: linux-ubuntu-latest
 
-    env:
-      JDBC_URL: ${{ secrets.JDBC_URL }}  # Ensure logpath is included in the URL
-      PAT_TOKEN: ${{ secrets.PAT_TOKEN }}
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
