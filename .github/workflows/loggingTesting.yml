@@ -1,0 +1,55 @@
+name: Test JDBC Logging
+
+on:
+  workflow_dispatch:
+  pull_request:
+
+jobs:
+  test-logging:
+    group: databricks-protected-runner-group
+    labels: linux-ubuntu-latest
+
+    env:
+      JDBC_URL: ${{ secrets.JDBC_URL }}  # Ensure logpath is included in the URL
+      PAT_TOKEN: ${{ secrets.PAT_TOKEN }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'adopt'
+          java-version: '21'
+
+      - name: Build JDBC driver
+        run: mvn clean package -DskipTests
+
+
+      - name: Set Environment Variables
+        env:
+          DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
+          DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
+          DATABRICKS_HTTP_PATH: ${{ secrets.DATABRICKS_HTTP_PATH }}
+        run: |
+          echo "DATABRICKS_TOKEN=${DATABRICKS_TOKEN}" >> $GITHUB_ENV
+          echo "DATABRICKS_HOST=${DATABRICKS_HOST}" >> $GITHUB_ENV
+          echo "DATABRICKS_HTTP_PATH=${DATABRICKS_HTTP_PATH}" >> $GITHUB_ENV
+
+      - name: Run logging tests
+        run: |
+          javac -cp target/databricks-jdbc-0.9.9-oss.jar src/test/java/com/databricks/client/jdbc/LoggingTest.java
+          java --add-opens=java.base/java.nio=ALL-UNNAMED -cp target/databricks-jdbc-0.9.9-oss.jar:target/classes com.databricks.client.jdbc.LoggingTest
+
+
+      - name: Print logs from /tmp/logstest/databricks_jdbc.log.0
+        run: |
+          echo "Printing logs"
+          if [ -f "/tmp/logstest/databricks_jdbc.log.0" ]; then
+            echo "Log file contents:"
+            cat /tmp/logstest/databricks_jdbc.log.0
+          else
+            echo "Log file /tmp/logstest.txt does not exist. Failing the build."
+            exit 1
+          fi
