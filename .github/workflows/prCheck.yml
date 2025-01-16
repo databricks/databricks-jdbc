@@ -90,25 +90,29 @@ jobs:
       - name: JaCoCo report
         run: mvn --batch-mode --errors jacoco:report --file pom.xml
 
-      - name: Install bc on Windows
-        if: runner.os == 'Windows'
-        run: choco install bc -y
-
       - name: Extract codeCov percentage
         shell: bash
         run: |
           COVERAGE_FILE="target/site/jacoco/jacoco.xml"
-          COVERED=$(xmllint --xpath "string(//report/counter[@type='INSTRUCTION']/@covered)" $COVERAGE_FILE)
-          MISSED=$(xmllint --xpath "string(//report/counter[@type='INSTRUCTION']/@missed)" $COVERAGE_FILE)
-          TOTAL=$(($COVERED + $MISSED))
-          PERCENTAGE=$(echo "scale=2; 100 * $COVERED / $TOTAL" | bc)
-          echo $PERCENTAGE > coverage.txt
+          COVERED=$(xmllint --xpath "string(//report/counter[@type='INSTRUCTION']/@covered)" "$COVERAGE_FILE")
+          MISSED=$(xmllint --xpath "string(//report/counter[@type='INSTRUCTION']/@missed)" "$COVERAGE_FILE")
+          TOTAL=$((COVERED + MISSED))
+          
+          # Use Python for floating-point math
+          PERCENTAGE=$(python -c "covered=${COVERED}; total=${TOTAL}; print(round((covered/total)*100, 2))")
+          
+          echo "$PERCENTAGE" > coverage.txt
           echo "::set-output name=coverage::$PERCENTAGE"
+
       - name: Check coverage percentage
+        shell: bash
         run: |
           BRANCH_COVERAGE=$(cat coverage.txt)
           echo "Branch Coverage: $BRANCH_COVERAGE%"
-          if (( $(echo "$BRANCH_COVERAGE < 85" | bc -l) )); then
+          
+          # Use Python to compare the coverage with 85
+          python -c "import sys; sys.exit(0 if float('$BRANCH_COVERAGE') >= 85 else 1)"
+          if [ $? -eq 1 ]; then
             echo "Coverage is less than 85%"
             exit 1
           else
