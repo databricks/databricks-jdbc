@@ -30,8 +30,7 @@ class DBFSVolumeClientTest {
   private DBFSVolumeClient client;
   private VolumeOperationProcessor.Builder processorBuilder;
 
-  @TempDir
-  private File tempFolder;
+  @TempDir private File tempFolder;
 
   @BeforeEach
   void setup() {

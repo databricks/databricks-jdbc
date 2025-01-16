@@ -106,7 +106,7 @@ public class DatabricksHttpClientTest {
   @Test
   public void testSetFakeServiceRouteInHttpClientWithLocalhostTarget() throws HttpException {
     ArgumentCaptor<HttpRoutePlanner> routePlannerCaptor =
-            ArgumentCaptor.forClass(HttpRoutePlanner.class);
+        ArgumentCaptor.forClass(HttpRoutePlanner.class);
 
     databricksHttpClient.setFakeServiceRouteInHttpClient(mockHttpClientBuilder);
 
@@ -115,12 +115,10 @@ public class DatabricksHttpClientTest {
 
     HttpGet request = new HttpGet("http://localhost:53423");
 
-
     URI uri = request.getURI();
     HttpHost targetHost = new HttpHost(uri.getHost(), uri.getPort(), uri.getScheme());
 
-    HttpRoute route =
-            capturedRoutePlanner.determineRoute(targetHost, request, null);
+    HttpRoute route = capturedRoutePlanner.determineRoute(targetHost, request, null);
 
     assertNull(route.getProxyHost(), "Expected no proxy for localhost-based route");
   }
