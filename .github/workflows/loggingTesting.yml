@@ -1,0 +1,71 @@
+name: Test JDBC Logging
+
+on:
+  workflow_dispatch:
+  pull_request:
+
+jobs:
+  test-logging:
+    strategy:
+      fail-fast: false
+      matrix:
+        github-runner: [linux-ubuntu-latest, windows-server-latest]
+
+    runs-on:
+      group: databricks-protected-runner-group
+      labels: ${{ matrix.github-runner }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'adopt'
+          java-version: '21'
+
+      - name: Build JDBC driver
+        run: mvn clean package -DskipTests
+
+      - name: Set Environment Variables
+        env:
+          DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
+          DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
+          DATABRICKS_HTTP_PATH: ${{ secrets.DATABRICKS_HTTP_PATH }}
+        run: |
+          echo "DATABRICKS_TOKEN=${DATABRICKS_TOKEN}" >> $GITHUB_ENV
+          echo "DATABRICKS_HOST=${DATABRICKS_HOST}" >> $GITHUB_ENV
+          echo "DATABRICKS_HTTP_PATH=${DATABRICKS_HTTP_PATH}" >> $GITHUB_ENV
+
+      - name: Run logging tests
+        run: |
+          javac -cp target/databricks-jdbc-0.9.9-oss.jar src/test/java/com/databricks/client/jdbc/LoggingTest.java
+          java --add-opens=java.base/java.nio=ALL-UNNAMED -cp target/databricks-jdbc-0.9.9-oss.jar:target/classes com.databricks.client.jdbc.LoggingTest
+
+      - name: Verify log file contents
+        run: |
+          echo "Verifying log file contents..."
+          if [ -f "/tmp/logstest/databricks_jdbc.log.0" ]; then
+            echo "Log file found. Checking contents..."
+          
+            REQUIRED_STRINGS=("Executed sql [SELECT current_version().dbsql_version] with status [SUCCEEDED]"
+                              "Executing HTTP request"
+                              "Result retrieved successfully"
+                              "Parsing data for chunk index [0]"
+                              "Data parsed for chunk index [0]"
+                              "Closing global async HTTP client"
+                              "Global async HTTP client has been shut down")
+
+            for STRING in "${REQUIRED_STRINGS[@]}"; do
+              if ! grep -q "$STRING" /tmp/logstest/databricks_jdbc.log.0; then
+                echo "ERROR: Required log string not found: $STRING"
+                exit 1
+              fi
+            done
+
+            echo "All required log strings were found."
+          else
+            echo "Log file /tmp/logstest/databricks_jdbc.log.0 does not exist. Failing the build."
+            exit 1
+          fi
