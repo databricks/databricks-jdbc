@@ -38,10 +38,21 @@ jobs:
           echo "DATABRICKS_HOST=${DATABRICKS_HOST}" >> $GITHUB_ENV
           echo "DATABRICKS_HTTP_PATH=${DATABRICKS_HTTP_PATH}" >> $GITHUB_ENV
 
-      - name: Run logging tests
+      - name: Compile LoggingTest
         run: |
-          javac -cp target/databricks-jdbc-0.9.9-oss.jar src/test/java/com/databricks/client/jdbc/LoggingTest.java
-          java --add-opens=java.base/java.nio=ALL-UNNAMED -cp target/databricks-jdbc-0.9.9-oss.jar:target/classes com.databricks.client.jdbc.LoggingTest
+          # Compile LoggingTest.java, placing .class in target/test-classes
+          javac \
+            -cp "target/classes:target/databricks-jdbc-0.9.9-oss.jar" \
+            -d target/test-classes \
+            src/test/java/com/databricks/client/jdbc/LoggingTest.java
+
+      - name: Run LoggingTest
+        run: |
+          # Run with the main classes + test classes + jar
+          java \
+            --add-opens=java.base/java.nio=ALL-UNNAMED \
+            -cp "target/classes:target/test-classes:target/databricks-jdbc-0.9.9-oss.jar" \
+            com.databricks.client.jdbc.LoggingTest
 
       - name: Verify log file contents
         run: |
