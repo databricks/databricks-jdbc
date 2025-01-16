@@ -46,6 +46,6 @@ jobs:
             echo "Log file contents:"
             cat /tmp/logstest/databricks_jdbc.log.0
           else
-            echo "Log file /tmp/logstest.txt does not exist. Failing the build."
+            echo "Log file /tmp/logstest/databricks_jdbc.log.0 does not exist. Failing the build."
             exit 1
           fi
