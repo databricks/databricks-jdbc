@@ -2,6 +2,7 @@ package com.databricks.jdbc.telemetry;
 
 import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.common.util.DriverUtil;
+import com.databricks.jdbc.dbclient.impl.common.StatementId;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.model.telemetry.*;
 import com.databricks.sdk.core.ProxyConfig;
@@ -54,6 +55,7 @@ public class TelemetryHelper {
 
   public static void exportFailureLog(
       IDatabricksConnectionContext connectionContext, String errorName, String errorMessage) {
+
     DriverErrorInfo errorInfo =
         new DriverErrorInfo().setErrorName(errorName).setStackTrace(errorMessage);
     TelemetryFrontendLog telemetryFrontendLog =
@@ -74,7 +76,27 @@ public class TelemetryHelper {
   public static void exportLatencyLog(
       IDatabricksConnectionContext connectionContext,
       long latencyMilliseconds,
-      SqlExecutionEvent executionEvent) {
+      SqlExecutionEvent executionEvent,
+      StatementId statementId) {
+    TelemetryEvent telemetryEvent =
+        new TelemetryEvent()
+            .setLatency(latencyMilliseconds)
+            .setSqlOperation(executionEvent)
+            .setDriverConnectionParameters(getDriverConnectionParameter(connectionContext));
+    if (statementId != null) {
+      telemetryEvent.setSqlStatementId(statementId.toString());
+    }
+    TelemetryFrontendLog telemetryFrontendLog =
+        new TelemetryFrontendLog().setEntry(new FrontendLogEntry().setSqlDriverLog(telemetryEvent));
+    TelemetryClientFactory.getInstance()
+        .getUnauthenticatedTelemetryClient(connectionContext)
+        .exportEvent(telemetryFrontendLog);
+  }
+
+  public static void exportLatencyLog(
+      IDatabricksConnectionContext connectionContext,
+      long latencyMilliseconds,
+      DriverVolumeOperation volumeOperationEvent) {
     TelemetryFrontendLog telemetryFrontendLog =
         new TelemetryFrontendLog()
             .setEntry(
@@ -82,7 +104,7 @@ public class TelemetryHelper {
                     .setSqlDriverLog(
                         new TelemetryEvent()
                             .setLatency(latencyMilliseconds)
-                            .setSqlOperation(executionEvent)
+                            .setVolumeOperation(volumeOperationEvent)
                             .setDriverConnectionParameters(
                                 getDriverConnectionParameter(connectionContext))));
     TelemetryClientFactory.getInstance()

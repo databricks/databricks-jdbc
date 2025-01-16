@@ -54,7 +54,7 @@ public class TelemetryHelperTest {
   void testLatencyTelemetryLogDoesNotThrowError() {
     when(connectionContext.getConnectionUuid()).thenReturn(TEST_STRING);
     SqlExecutionEvent event = new SqlExecutionEvent().setDriverStatementType(StatementType.QUERY);
-    assertDoesNotThrow(() -> TelemetryHelper.exportLatencyLog(connectionContext, 150, event));
+    assertDoesNotThrow(() -> TelemetryHelper.exportLatencyLog(connectionContext, 150, event, null));
   }
 
   @Test

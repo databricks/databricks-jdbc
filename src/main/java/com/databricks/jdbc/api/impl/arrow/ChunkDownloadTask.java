@@ -1,18 +1,18 @@
 package com.databricks.jdbc.api.impl.arrow;
 
 import com.databricks.jdbc.api.IDatabricksConnectionContext;
-import com.databricks.jdbc.common.util.DatabricksConnectionContextHolder;
+import com.databricks.jdbc.common.util.DatabricksThreadContextHolder;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
+import com.databricks.jdbc.dbclient.impl.common.StatementId;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import java.io.IOException;
-import java.util.concurrent.Callable;
 
 /** Task class to manage download for a single chunk. */
-class ChunkDownloadTask implements Callable<Void> {
+class ChunkDownloadTask implements DatabricksCallableTask {
 
   private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(ChunkDownloadTask.class);
   public static final int MAX_RETRIES = 5;
@@ -21,6 +21,7 @@ class ChunkDownloadTask implements Callable<Void> {
   private final IDatabricksHttpClient httpClient;
   private final ChunkDownloadCallback chunkDownloader;
   private final IDatabricksConnectionContext connectionContext;
+  private final StatementId statementId;
 
   ChunkDownloadTask(
       ArrowResultChunk chunk,
@@ -29,15 +30,18 @@ class ChunkDownloadTask implements Callable<Void> {
     this.chunk = chunk;
     this.httpClient = httpClient;
     this.chunkDownloader = chunkDownloader;
-    this.connectionContext = DatabricksConnectionContextHolder.getConnectionContext();
+    this.connectionContext = DatabricksThreadContextHolder.getConnectionContext();
+    this.statementId = DatabricksThreadContextHolder.getStatementId();
   }
 
   @Override
   public Void call() throws DatabricksSQLException {
     int retries = 0;
     boolean downloadSuccessful = false;
-    // Sets connection context in the newly spawned thread
-    DatabricksConnectionContextHolder.setConnectionContext(this.connectionContext);
+    DatabricksThreadContextHolder.setChunkId(chunk.getChunkIndex());
+    // Sets  context in the newly spawned thread
+    DatabricksThreadContextHolder.setConnectionContext(this.connectionContext);
+    DatabricksThreadContextHolder.setStatementId(this.statementId);
     try {
       while (retries < MAX_RETRIES && !downloadSuccessful) {
         try {
@@ -83,7 +87,7 @@ class ChunkDownloadTask implements Callable<Void> {
         chunk.setStatus(ArrowResultChunk.ChunkStatus.DOWNLOAD_FAILED);
       }
       chunkDownloader.downloadProcessed(chunk.getChunkIndex());
-      DatabricksConnectionContextHolder.clear();
+      DatabricksThreadContextHolder.clearAllContext();
     }
     return null;
   }

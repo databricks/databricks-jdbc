@@ -7,7 +7,7 @@ import static com.databricks.jdbc.dbclient.impl.sqlexec.PathConstants.*;
 import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.api.IDatabricksVolumeClient;
 import com.databricks.jdbc.api.impl.VolumeOperationStatus;
-import com.databricks.jdbc.common.util.DatabricksConnectionContextHolder;
+import com.databricks.jdbc.common.util.DatabricksThreadContextHolder;
 import com.databricks.jdbc.common.util.StringUtil;
 import com.databricks.jdbc.common.util.VolumeUtil;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
@@ -443,6 +443,6 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
 
   @Override
   public void close() throws IOException {
-    DatabricksConnectionContextHolder.clear();
+    DatabricksThreadContextHolder.clearConnectionContext();
   }
 }

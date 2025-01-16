@@ -2,7 +2,7 @@ package com.databricks.jdbc.api.impl.volume;
 
 import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.api.IDatabricksVolumeClient;
-import com.databricks.jdbc.common.util.DatabricksConnectionContextHolder;
+import com.databricks.jdbc.common.util.DatabricksThreadContextHolder;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import java.sql.Connection;
@@ -38,7 +38,7 @@ public class DatabricksVolumeClientFactory {
         String.format(
             "Entering public static IDatabricksVolumeClient getVolumeClient with IDatabricksConnectionContext connectionContext = {%s}",
             connectionContext));
-    DatabricksConnectionContextHolder.setConnectionContext(connectionContext);
+    DatabricksThreadContextHolder.setConnectionContext(connectionContext);
     return new DBFSVolumeClient(connectionContext);
   }
 }

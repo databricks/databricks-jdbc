@@ -2,7 +2,7 @@ package com.databricks.jdbc.exception;
 
 import static com.databricks.jdbc.telemetry.TelemetryHelper.exportFailureLog;
 
-import com.databricks.jdbc.common.util.DatabricksConnectionContextHolder;
+import com.databricks.jdbc.common.util.DatabricksThreadContextHolder;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import java.sql.SQLException;
 
@@ -20,13 +20,13 @@ public class DatabricksSQLException extends SQLException {
   public DatabricksSQLException(String reason, Throwable cause, String sqlState) {
     super(reason, sqlState, cause);
     exportFailureLog(
-        DatabricksConnectionContextHolder.getConnectionContext(),
+        DatabricksThreadContextHolder.getConnectionContext(),
         DatabricksDriverErrorCode.CONNECTION_ERROR.name(),
         reason);
   }
 
   public DatabricksSQLException(String reason, String sqlState) {
     super(reason, sqlState);
-    exportFailureLog(DatabricksConnectionContextHolder.getConnectionContext(), sqlState, reason);
+    exportFailureLog(DatabricksThreadContextHolder.getConnectionContext(), sqlState, reason);
   }
 }

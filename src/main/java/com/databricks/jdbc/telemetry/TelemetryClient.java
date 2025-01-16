@@ -32,6 +32,7 @@ public class TelemetryClient implements ITelemetryClient {
 
   @Override
   public void exportEvent(TelemetryFrontendLog event) {
+    System.out.println("There is a telemetry event being pushed " + event);
     synchronized (this) {
       eventsBatch.add(event);
     }

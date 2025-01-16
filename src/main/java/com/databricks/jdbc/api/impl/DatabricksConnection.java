@@ -7,7 +7,7 @@ import com.databricks.jdbc.api.IDatabricksStatement;
 import com.databricks.jdbc.api.internal.IDatabricksConnectionInternal;
 import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
 import com.databricks.jdbc.common.DatabricksJdbcConstants;
-import com.databricks.jdbc.common.util.DatabricksConnectionContextHolder;
+import com.databricks.jdbc.common.util.DatabricksThreadContextHolder;
 import com.databricks.jdbc.common.util.UserAgentManager;
 import com.databricks.jdbc.common.util.ValidationUtil;
 import com.databricks.jdbc.dbclient.IDatabricksClient;
@@ -42,7 +42,7 @@ public class DatabricksConnection implements IDatabricksConnection, IDatabricksC
       throws DatabricksSQLException {
     this.connectionContext = connectionContext;
     this.session = new DatabricksSession(connectionContext);
-    DatabricksConnectionContextHolder.setConnectionContext(connectionContext);
+    DatabricksThreadContextHolder.setConnectionContext(connectionContext);
   }
 
   @VisibleForTesting
@@ -50,7 +50,7 @@ public class DatabricksConnection implements IDatabricksConnection, IDatabricksC
       IDatabricksConnectionContext connectionContext, IDatabricksClient testDatabricksClient)
       throws DatabricksSQLException {
     this.connectionContext = connectionContext;
-    DatabricksConnectionContextHolder.setConnectionContext(connectionContext);
+    DatabricksThreadContextHolder.setConnectionContext(connectionContext);
     this.session = new DatabricksSession(connectionContext, testDatabricksClient);
     UserAgentManager.setUserAgent(connectionContext);
   }
@@ -145,7 +145,7 @@ public class DatabricksConnection implements IDatabricksConnection, IDatabricksC
     }
     this.session.close();
     DatabricksHttpClientFactory.getInstance().removeClient(this.session.getConnectionContext());
-    DatabricksConnectionContextHolder.clear();
+    DatabricksThreadContextHolder.clearConnectionContext();
   }
 
   @Override
