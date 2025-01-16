@@ -232,7 +232,6 @@ class DBFSVolumeClientTest {
             client.putObject("catalog", "schema", "volume", "objectPath", fis, file.length(), true);
       }
 
-      // Let JUnit remove the file automatically (no manual delete)
       assertTrue(result);
       verify(mockProcessor).process();
     }
