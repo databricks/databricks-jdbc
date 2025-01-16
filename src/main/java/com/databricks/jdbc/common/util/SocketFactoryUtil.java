@@ -28,7 +28,7 @@ public class SocketFactoryUtil {
    */
   public static Registry<ConnectionSocketFactory> getTrustAllSocketFactoryRegistry() {
     LOGGER.warn(
-        "This driver is configured to trust all SSL certificates. This is insecure and should not be never used in production.");
+        "This driver is configured to trust all SSL certificates. This is insecure and should be never used in production.");
     LOGGER.debug("Entering the getTrustAllSocketFactoryRegistry method");
 
     try {
