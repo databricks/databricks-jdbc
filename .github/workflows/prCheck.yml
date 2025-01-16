@@ -26,10 +26,14 @@ jobs:
           java-version: ${{ matrix.java-version }}
           distribution: 'adopt'
 
+      - name: Enable long paths
+        if: runner.os == 'Windows'
+        run: git config --system core.longpaths true
+
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          longpaths: true
+          fetch-depth: true
 
       - name: Cache Maven packages
         uses: actions/cache@v4
