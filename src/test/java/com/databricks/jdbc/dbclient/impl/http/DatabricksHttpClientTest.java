@@ -106,14 +106,14 @@ public class DatabricksHttpClientTest {
   @Test
   public void testSetFakeServiceRouteInHttpClientWithLocalhostTarget() throws Exception {
     ArgumentCaptor<HttpRoutePlanner> routePlannerCaptor =
-            ArgumentCaptor.forClass(HttpRoutePlanner.class);
+        ArgumentCaptor.forClass(HttpRoutePlanner.class);
 
     databricksHttpClient.setFakeServiceRouteInHttpClient(mockHttpClientBuilder);
 
     Mockito.verify(mockHttpClientBuilder).setRoutePlanner(routePlannerCaptor.capture());
     HttpRoutePlanner capturedRoutePlanner = routePlannerCaptor.getValue();
 
-    URI uri = new URI("http", null, "localhost", 53423, null, null, null);
+    URI uri = new URI("http", null, "127.0.0.1", 53423, null, null, null);
 
     HttpGet request = new HttpGet(uri);
 
