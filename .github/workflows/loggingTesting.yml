@@ -6,9 +6,14 @@ on:
 
 jobs:
   test-logging:
+    strategy:
+      fail-fast: false
+      matrix:
+        github-runner: [linux-ubuntu-latest, windows-server-latest]
+
     runs-on:
       group: databricks-protected-runner-group
-      labels: [linux-ubuntu-latest, windows-server-latest]
+      labels: ${{ matrix.github-runner }}
 
     steps:
       - name: Checkout code
