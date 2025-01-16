@@ -91,6 +91,7 @@ jobs:
         run: mvn --batch-mode --errors jacoco:report --file pom.xml
 
       - name: Extract codeCov percentage
+        shell: bash
         run: |
           COVERAGE_FILE="target/site/jacoco/jacoco.xml"
           COVERED=$(xmllint --xpath "string(//report/counter[@type='INSTRUCTION']/@covered)" $COVERAGE_FILE)
