@@ -118,6 +118,10 @@ public class JulLoggerTest {
     assertEquals(Level.INFO, jdbcLogger.getLevel());
     assertInstanceOf(FileHandler.class, jdbcLogger.getHandlers()[0]);
     assertTrue(Files.exists(tempDir.resolve(JulLogger.DATABRICKS_LOG_FILE)));
+    for (Handler handler : jdbcLogger.getHandlers()) {
+      handler.close();
+      jdbcLogger.removeHandler(handler);
+    }
   }
 
   @Test

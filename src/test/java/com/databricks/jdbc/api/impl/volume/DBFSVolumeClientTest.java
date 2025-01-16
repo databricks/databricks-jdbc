@@ -16,6 +16,7 @@ import java.util.Arrays;
 import java.util.List;
 import org.junit.jupiter.api.*;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.api.io.TempDir;
 import org.mockito.*;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -28,6 +29,9 @@ class DBFSVolumeClientTest {
   @Mock private ApiClient mockAPIClient;
   private DBFSVolumeClient client;
   private VolumeOperationProcessor.Builder processorBuilder;
+
+  @TempDir
+  private File tempFolder;
 
   @BeforeEach
   void setup() {
@@ -218,7 +222,7 @@ class DBFSVolumeClientTest {
           .when(VolumeOperationProcessor.Builder::createBuilder)
           .thenReturn(processorBuilder);
 
-      File file = new File("/tmp/dbfs_test_put.txt");
+      File file = new File(tempFolder, "dbfs_test_put.txt");
 
       boolean result = false;
       try {
