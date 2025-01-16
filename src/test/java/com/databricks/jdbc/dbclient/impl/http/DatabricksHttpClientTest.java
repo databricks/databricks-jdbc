@@ -113,7 +113,7 @@ public class DatabricksHttpClientTest {
     Mockito.verify(mockHttpClientBuilder).setRoutePlanner(routePlannerCaptor.capture());
     HttpRoutePlanner capturedRoutePlanner = routePlannerCaptor.getValue();
 
-    HttpGet request = new HttpGet("http://localhost:53423");
+    HttpGet request = new HttpGet("http://127.0.0.1:53423");
 
     URI uri = request.getURI();
     System.out.println("Scheme: " + uri.getScheme()
