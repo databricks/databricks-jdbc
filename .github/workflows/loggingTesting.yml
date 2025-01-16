@@ -6,8 +6,9 @@ on:
 
 jobs:
   test-logging:
-    group: databricks-protected-runner-group
-    labels: linux-ubuntu-latest
+    runs-on:
+      group: databricks-protected-runner-group
+      labels: linux-ubuntu-latest
 
     steps:
       - name: Checkout code
