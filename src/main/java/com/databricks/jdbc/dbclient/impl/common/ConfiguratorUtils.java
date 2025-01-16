@@ -4,6 +4,7 @@ import static com.databricks.jdbc.common.DatabricksJdbcConstants.IS_JDBC_TEST_EN
 
 import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.common.DatabricksJdbcConstants;
+import com.databricks.jdbc.common.util.SocketFactoryUtil;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.sdk.core.DatabricksException;
@@ -11,7 +12,6 @@ import java.io.FileInputStream;
 import java.security.InvalidAlgorithmParameterException;
 import java.security.KeyStore;
 import java.security.NoSuchAlgorithmException;
-import java.security.SecureRandom;
 import java.security.cert.*;
 import java.util.Arrays;
 import java.util.Set;
@@ -28,6 +28,9 @@ import org.apache.http.impl.conn.PoolingHttpClientConnectionManager;
 public class ConfiguratorUtils {
   private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(ConfiguratorUtils.class);
 
+  /**
+   * @return Environment is either test or prod
+   */
   private static boolean isJDBCTestEnv() {
     return Boolean.parseBoolean(System.getenv(IS_JDBC_TEST_ENV));
   }
@@ -40,7 +43,8 @@ public class ConfiguratorUtils {
       IDatabricksConnectionContext connectionContext) {
 
     if (isJDBCTestEnv()) {
-      return new PoolingHttpClientConnectionManager(getTrustAllSocketFactoryRegistry());
+      return new PoolingHttpClientConnectionManager(
+          SocketFactoryUtil.getTrustAllSocketFactoryRegistry());
     }
 
     if (connectionContext.getSSLTrustStore() == null
@@ -91,62 +95,6 @@ public class ConfiguratorUtils {
       LOGGER.error(e, errorMessage);
       throw new DatabricksException(errorMessage, e);
     }
-  }
-
-  /**
-   * <b>NOTE: </b> Only for testing purposes and should never be used in production Builds a
-   * registry of connection socket factories with SSL bypass enabled.
-   *
-   * @return A registry of connection socket factories.
-   */
-  public static Registry<ConnectionSocketFactory> getTrustAllSocketFactoryRegistry() {
-    LOGGER.debug("Entering the getTrustAllSocketFactoryRegistry method");
-
-    try {
-      // Create a TrustManager that trusts all certificates
-      TrustManager[] trustAllCerts =
-          new TrustManager[] {
-            new X509TrustManager() {
-              @Override
-              public X509Certificate[] getAcceptedIssuers() {
-                return null; // Accept all issuers
-              }
-
-              @Override
-              public void checkClientTrusted(X509Certificate[] certs, String authType) {
-                // No-op: Trust all client certificates
-              }
-
-              @Override
-              public void checkServerTrusted(X509Certificate[] certs, String authType) {
-                // No-op: Trust all server certificates
-              }
-            }
-          };
-
-      // Initialize the SSLContext with trust-all settings
-      SSLContext sslContext = SSLContext.getInstance("TLS");
-      sslContext.init(null, trustAllCerts, new SecureRandom());
-
-      // Disable hostname verification
-      HostnameVerifier allHostsValid = (hostname, session) -> true;
-
-      // Configure SSLConnectionSocketFactory with the trust-all SSLContext
-      SSLConnectionSocketFactory sslSocketFactory =
-          new SSLConnectionSocketFactory(sslContext, allHostsValid);
-
-      // Build and return the registry
-      return RegistryBuilder.<ConnectionSocketFactory>create()
-          .register("https", sslSocketFactory)
-          .register("http", new PlainConnectionSocketFactory())
-          .build();
-
-    } catch (Exception e) {
-      String errorMessage = "Error while setting up trust-all SSL context.";
-      LOGGER.error(errorMessage, e);
-    }
-
-    return RegistryBuilder.<ConnectionSocketFactory>create().build();
   }
 
   /**
