@@ -116,9 +116,6 @@ public class DatabricksHttpClientTest {
     HttpGet request = new HttpGet("http://127.0.0.1:53423");
 
     URI uri = request.getURI();
-    System.out.println("Scheme: " + uri.getScheme()
-            + ", Host: " + uri.getHost()
-            + ", Port: " + uri.getPort());
     HttpHost targetHost = new HttpHost(uri.getHost(), uri.getPort(), uri.getScheme());
 
     HttpRoute route = capturedRoutePlanner.determineRoute(targetHost, request, null);
