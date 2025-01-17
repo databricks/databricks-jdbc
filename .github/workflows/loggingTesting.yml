@@ -35,6 +35,7 @@ jobs:
         run: mvn clean package -DskipTests
 
       - name: Set Environment Variables
+        shell: bash
         env:
           DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
           DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
