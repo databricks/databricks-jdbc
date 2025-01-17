@@ -11,12 +11,17 @@ public class LoggingTest {
   private static String buildJdbcUrl() {
     String host = System.getenv("DATABRICKS_HOST");
     String httpPath = System.getenv("DATABRICKS_HTTP_PATH");
+    // Use the user's home directory for logging
+    String logDir = System.getProperty("user.home") + "/logstest";
+    // Build the JDBC URL with the new logPath
     String jdbcUrl =
         "jdbc:databricks://"
             + host
             + "/default;transportMode=http;ssl=1;AuthMech=3;httpPath="
             + httpPath
-            + ";logPath=/tmp/logtest;loglevel=DEBUG";
+            + ";logPath="
+            + logDir
+            + ";loglevel=DEBUG";
     return jdbcUrl;
   }
 
