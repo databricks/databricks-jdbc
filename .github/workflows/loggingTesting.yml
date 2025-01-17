@@ -20,7 +20,7 @@ jobs:
         if: runner.os == 'Windows'
         run: git config --system core.longpaths true
 
-      - name: Check out code
+      - name: Checkout code
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
@@ -31,7 +31,7 @@ jobs:
           distribution: 'adopt'
           java-version: '21'
 
-      - name: Build (skip normal tests)
+      - name: Build JDBC driver
         run: mvn clean package -DskipTests
 
       - name: Set Environment Variables
@@ -44,13 +44,23 @@ jobs:
           echo "DATABRICKS_HOST=${DATABRICKS_HOST}" >> $GITHUB_ENV
           echo "DATABRICKS_HTTP_PATH=${DATABRICKS_HTTP_PATH}" >> $GITHUB_ENV
 
+      - name: Compile LoggingTest
+        run: |
+          # Compile LoggingTest.java, placing .class in target/test-classes
+          javac \
+            -cp "target/classes:target/databricks-jdbc-0.9.9-oss.jar" \
+            -d target/test-classes \
+            src/test/java/com/databricks/client/jdbc/LoggingTest.java
 
-      - name: Run LoggingTest via Maven
-        shell: bash
-        run: mvn test -Dtest=**/LoggingTest.java
+      - name: Run LoggingTest
+        run: |
+          # Run with the main classes + test classes + jar
+          java \
+            --add-opens=java.base/java.nio=ALL-UNNAMED \
+            -cp "target/classes:target/test-classes:target/databricks-jdbc-0.9.9-oss.jar" \
+            com.databricks.client.jdbc.LoggingTest
 
       - name: Verify log file contents
-        shell: bash
         run: |
           echo "Verifying log file contents..."
           if [ -f "/tmp/logstest/databricks_jdbc.log.0" ]; then
