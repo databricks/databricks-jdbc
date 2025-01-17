@@ -68,8 +68,7 @@ public enum DatabricksJdbcUrlParams {
   GOOGLE_SERVICE_ACCOUNT("GoogleServiceAccount"),
   GOOGLE_CREDENTIALS_FILE("GoogleCredentialsFile"),
   ENABLE_TELEMETRY("EnableTelemetry", "0"), // Disabled for now
-  TELEMETRY_BATCH_SIZE(
-      "TelemetryBatchSize", "1"), // TODO : change this after experimentation on telemetry
+  TELEMETRY_BATCH_SIZE("TelemetryBatchSize", "200"),
   MAX_BATCH_SIZE("MaxBatchSize", "500"),
   ALLOWED_VOLUME_INGESTION_PATHS("VolumeOperationAllowedLocalPaths"),
   ALLOWED_STAGING_INGESTION_PATHS("StagingAllowedLocalPaths");

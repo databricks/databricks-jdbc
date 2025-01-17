@@ -18,6 +18,7 @@ import com.databricks.jdbc.exception.*;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
+import com.databricks.jdbc.telemetry.TelemetryClientFactory;
 import com.google.common.annotations.VisibleForTesting;
 import java.sql.*;
 import java.util.*;
@@ -144,8 +145,9 @@ public class DatabricksConnection implements IDatabricksConnection, IDatabricksC
       statementSet.remove(statement);
     }
     this.session.close();
+    TelemetryClientFactory.getInstance().closeTelemetryClient(this.session.getConnectionContext());
     DatabricksHttpClientFactory.getInstance().removeClient(this.session.getConnectionContext());
-    DatabricksThreadContextHolder.clearConnectionContext();
+    DatabricksThreadContextHolder.clearAllContext();
   }
 
   @Override
