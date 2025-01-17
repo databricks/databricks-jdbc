@@ -16,8 +16,14 @@ jobs:
       labels: ${{ matrix.github-runner }}
 
     steps:
+      - name: Enable long paths
+        if: runner.os == 'Windows'
+        run: git config --system core.longpaths true
+
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Set up Java
         uses: actions/setup-java@v4
@@ -29,6 +35,7 @@ jobs:
         run: mvn clean package -DskipTests
 
       - name: Set Environment Variables
+        shell: bash
         env:
           DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
           DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
@@ -38,18 +45,46 @@ jobs:
           echo "DATABRICKS_HOST=${DATABRICKS_HOST}" >> $GITHUB_ENV
           echo "DATABRICKS_HTTP_PATH=${DATABRICKS_HTTP_PATH}" >> $GITHUB_ENV
 
-      - name: Run logging tests
+      - name: Clean & Compile LoggingTest
+        shell: bash
         run: |
-          javac -cp target/databricks-jdbc-0.9.9-oss.jar src/test/java/com/databricks/client/jdbc/LoggingTest.java
-          java --add-opens=java.base/java.nio=ALL-UNNAMED -cp target/databricks-jdbc-0.9.9-oss.jar:target/classes com.databricks.client.jdbc.LoggingTest
+          rm -rf target/test-classes
+          mkdir -p target/test-classes
+          
+          javac \
+            -cp "target/databricks-jdbc-0.9.9-oss.jar" \
+            -d target/test-classes \
+            src/test/java/com/databricks/client/jdbc/LoggingTest.java
+          
+          echo "==== Checking compiled classes ===="
+          find target/test-classes -type f
+
+      - name: Run LoggingTest
+        shell: bash
+        run: |
+          echo "==== Running LoggingTest ===="
+          OS_TYPE=$(uname | tr '[:upper:]' '[:lower:]')
+          if [[ "$OS_TYPE" == "linux" ]]; then SEP=":"; else SEP=";"; fi
+          echo "Using classpath separator: '$SEP'"
+          CP="target/test-classes${SEP}target/databricks-jdbc-0.9.9-oss.jar"
+          
+          java \
+            --add-opens=java.base/java.nio=ALL-UNNAMED \
+            -cp "$CP" \
+            com.databricks.client.jdbc.LoggingTest
 
       - name: Verify log file contents
+        shell: bash
         run: |
-          echo "Verifying log file contents..."
-          if [ -f "/tmp/logstest/databricks_jdbc.log.0" ]; then
+          LOG_DIR="${HOME}/logstest"
+          LOG_FILE="${LOG_DIR}/databricks_jdbc.log.0"
+          echo "Verifying log file contents in ${LOG_FILE}..."
+          
+          if [ -f "$LOG_FILE" ]; then
             echo "Log file found. Checking contents..."
           
             REQUIRED_STRINGS=("Executed sql [SELECT current_version().dbsql_version] with status [SUCCEEDED]"
+                              "Executed sql [SELECT 1] with status [SUCCEEDED]"
                               "Executing HTTP request"
                               "Result retrieved successfully"
                               "Parsing data for chunk index [0]"
@@ -58,7 +93,7 @@ jobs:
                               "Global async HTTP client has been shut down")
 
             for STRING in "${REQUIRED_STRINGS[@]}"; do
-              if ! grep -q "$STRING" /tmp/logstest/databricks_jdbc.log.0; then
+              if ! grep -qF "$STRING" "$LOG_FILE"; then
                 echo "ERROR: Required log string not found: $STRING"
                 exit 1
               fi
@@ -66,6 +101,6 @@ jobs:
 
             echo "All required log strings were found."
           else
-            echo "Log file /tmp/logstest/databricks_jdbc.log.0 does not exist. Failing the build."
+            echo "Log file ${LOG_FILE} does not exist. Failing the build."
             exit 1
           fi
