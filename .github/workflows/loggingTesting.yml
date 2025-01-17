@@ -88,6 +88,16 @@ jobs:
             -cp "$CP" \
             com.databricks.client.jdbc.LoggingTest
 
+      - name: Debug - List log directory contents
+        shell: bash
+        run: |
+          echo "Listing contents of /tmp/logstest directory..."
+          if [ -d "/tmp/logstest" ]; then
+            ls -laR /tmp/logstest
+          else
+            echo "/tmp/logstest directory does not exist."
+          fi
+
       - name: Verify log file contents
         shell: bash
         run: |
