@@ -25,6 +25,13 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Print working directory and list files
+        shell: bash
+        run: |
+          echo "Current directory: $(pwd)"
+          echo "Files in current directory:"
+          ls -la
+
       - name: Set up Java
         uses: actions/setup-java@v4
         with:
@@ -44,16 +51,22 @@ jobs:
           echo "DATABRICKS_HOST=${DATABRICKS_HOST}" >> $GITHUB_ENV
           echo "DATABRICKS_HTTP_PATH=${DATABRICKS_HTTP_PATH}" >> $GITHUB_ENV
 
-      - name: Compile LoggingTest
+      - name: Clean & Compile LoggingTest
         shell: bash
         run: |
+          # Remove any old test-classes
           rm -rf target/test-classes
           mkdir -p target/test-classes
           
+          # Print jar size to confirm it's the large (shaded) jar
+          echo "Shaded jar info:"
+          ls -lh target/databricks-jdbc-0.9.9-oss.jar || true
+
+          # Compile LoggingTest.java against ONLY the final (shaded) jar
           javac \
-            -cp "target/classes:target/databricks-jdbc-0.9.9-oss.jar" \
+            -cp "target/databricks-jdbc-0.9.9-oss.jar" \
             -d target/test-classes \
-            com/databricks/client/jdbc/LoggingTest.java
+            src/test/java/com/databricks/client/jdbc/LoggingTest.java
           
           echo "==== Checking compiled classes ===="
           find target/test-classes -type f
@@ -62,12 +75,14 @@ jobs:
         shell: bash
         run: |
           echo "==== Running LoggingTest ===="
+          # Use only test-classes + the shaded jar
           java \
             --add-opens=java.base/java.nio=ALL-UNNAMED \
             -cp "target/test-classes:target/databricks-jdbc-0.9.9-oss.jar" \
             com.databricks.client.jdbc.LoggingTest
 
       - name: Verify log file contents
+        shell: bash
         run: |
           echo "Verifying log file contents..."
           if [ -f "/tmp/logstest/databricks_jdbc.log.0" ]; then
