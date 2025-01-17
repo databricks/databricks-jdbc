@@ -98,6 +98,7 @@ jobs:
             cat "$LOG_FILE"
           
             REQUIRED_STRINGS=("Executed sql [SELECT current_version().dbsql_version] with status [SUCCEEDED]"
+                              "Executed sql [SELECT 1] with status [SUCCEEDED]"
                               "Executing HTTP request"
                               "Result retrieved successfully"
                               "Parsing data for chunk index [0]"
@@ -106,7 +107,7 @@ jobs:
                               "Global async HTTP client has been shut down")
 
             for STRING in "${REQUIRED_STRINGS[@]}"; do
-              if ! grep -q "$STRING" "$LOG_FILE"; then
+              if ! grep -qF "$STRING" "$LOG_FILE"; then
                 echo "ERROR: Required log string not found: $STRING"
                 exit 1
               fi
