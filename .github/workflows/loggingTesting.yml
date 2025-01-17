@@ -20,10 +20,7 @@ jobs:
         if: runner.os == 'Windows'
         run: git config --system core.longpaths true
 
-      - name: Ensure log directory exists
-        shell: bash
-        run: |
-          mkdir -p /tmp/logstest
+      # Removed explicit creation of /tmp/logstest because we are now using ${user.home}/logstest
 
       - name: Checkout code
         uses: actions/checkout@v4
@@ -68,19 +65,9 @@ jobs:
         shell: bash
         run: |
           echo "==== Running LoggingTest ===="
-          # Determine OS type
           OS_TYPE=$(uname | tr '[:upper:]' '[:lower:]')
-          
-          # Set classpath separator based on OS
-          if [[ "$OS_TYPE" == "linux" ]]; then
-            SEP=":"
-          else
-            SEP=";"
-          fi
-          
+          if [[ "$OS_TYPE" == "linux" ]]; then SEP=":"; else SEP=";"; fi
           echo "Using classpath separator: '$SEP'"
-          
-          # Construct classpath using determined separator
           CP="target/test-classes${SEP}target/databricks-jdbc-0.9.9-oss.jar"
           
           java \
@@ -91,18 +78,22 @@ jobs:
       - name: Debug - List log directory contents
         shell: bash
         run: |
-          echo "Listing contents of /tmp/logstest directory..."
-          if [ -d "/tmp/logstest" ]; then
-            ls -laR /tmp/logstest
+          LOG_DIR="${HOME}/logstest"
+          echo "Listing contents of ${LOG_DIR} directory..."
+          if [ -d "$LOG_DIR" ]; then
+            ls -laR "$LOG_DIR"
           else
-            echo "/tmp/logstest directory does not exist."
+            echo "${LOG_DIR} directory does not exist."
           fi
 
       - name: Verify log file contents
         shell: bash
         run: |
-          echo "Verifying log file contents..."
-          if [ -f "/tmp/logstest/databricks_jdbc.log.0" ]; then
+          LOG_DIR="${HOME}/logstest"
+          LOG_FILE="${LOG_DIR}/databricks_jdbc.log.0"
+          echo "Verifying log file contents in ${LOG_FILE}..."
+          
+          if [ -f "$LOG_FILE" ]; then
             echo "Log file found. Checking contents..."
           
             REQUIRED_STRINGS=("Executed sql [SELECT current_version().dbsql_version] with status [SUCCEEDED]"
@@ -114,7 +105,7 @@ jobs:
                               "Global async HTTP client has been shut down")
 
             for STRING in "${REQUIRED_STRINGS[@]}"; do
-              if ! grep -q "$STRING" /tmp/logstest/databricks_jdbc.log.0; then
+              if ! grep -q "$STRING" "$LOG_FILE"; then
                 echo "ERROR: Required log string not found: $STRING"
                 exit 1
               fi
@@ -122,6 +113,6 @@ jobs:
 
             echo "All required log strings were found."
           else
-            echo "Log file /tmp/logstest/databricks_jdbc.log.0 does not exist. Failing the build."
+            echo "Log file ${LOG_FILE} does not exist. Failing the build."
             exit 1
           fi
