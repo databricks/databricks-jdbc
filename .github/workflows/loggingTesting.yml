@@ -95,6 +95,7 @@ jobs:
           
           if [ -f "$LOG_FILE" ]; then
             echo "Log file found. Checking contents..."
+            cat "$LOG_FILE"
           
             REQUIRED_STRINGS=("Executed sql [SELECT current_version().dbsql_version] with status [SUCCEEDED]"
                               "Executing HTTP request"
