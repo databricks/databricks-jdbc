@@ -47,16 +47,21 @@ jobs:
       - name: Compile LoggingTest
         shell: bash
         run: |
-          # Compile LoggingTest.java, placing .class in target/test-classes
+          rm -rf target/test-classes
+          mkdir -p target/test-classes
+          
           javac \
             -cp "target/classes:target/databricks-jdbc-0.9.9-oss.jar" \
             -d target/test-classes \
             src/test/java/com/databricks/client/jdbc/LoggingTest.java
+          
+          echo "==== Checking compiled classes ===="
+          find target/test-classes -type f
 
       - name: Run LoggingTest
         shell: bash
         run: |
-          # Run with the main classes + test classes + jar
+          echo "==== Running LoggingTest ===="
           java \
             --add-opens=java.base/java.nio=ALL-UNNAMED \
             -cp "target/test-classes:target/databricks-jdbc-0.9.9-oss.jar" \
