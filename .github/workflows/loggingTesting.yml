@@ -20,6 +20,11 @@ jobs:
         if: runner.os == 'Windows'
         run: git config --system core.longpaths true
 
+      - name: Ensure log directory exists
+        shell: bash
+        run: |
+          mkdir -p /tmp/logstest
+
       - name: Checkout code
         uses: actions/checkout@v4
         with:
