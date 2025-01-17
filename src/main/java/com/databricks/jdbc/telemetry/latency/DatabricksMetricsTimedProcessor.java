@@ -14,11 +14,6 @@ public class DatabricksMetricsTimedProcessor {
   public static <T> T createProxy(T obj) {
     Class<?> clazz = obj.getClass();
     Class<?>[] interfaces = clazz.getInterfaces();
-
-    if (interfaces.length == 0) {
-      throw new IllegalArgumentException("The target class does not implement any interfaces.");
-    }
-
     return (T)
         Proxy.newProxyInstance(
             clazz.getClassLoader(), interfaces, new TimedInvocationHandler<>(obj));
@@ -39,10 +34,8 @@ public class DatabricksMetricsTimedProcessor {
         try {
           // Invoke the actual method
           Object result = method.invoke(target, args);
-          // Calculate and print execution time
+          // Calculate execution time
           long executionTime = System.currentTimeMillis() - startTime;
-          System.out.println(
-              "HIIII Method " + method.getName() + " executed in " + executionTime + " ms");
           SqlExecutionEvent executionEvent =
               new SqlExecutionEvent()
                   .setDriverStatementType(DatabricksThreadContextHolder.getStatementType())
@@ -58,7 +51,6 @@ public class DatabricksMetricsTimedProcessor {
           throw throwable.getCause() != null ? throwable.getCause() : throwable;
         }
       }
-
       // Default behavior for methods without @DatabricksMetricsTimed
       return method.invoke(target, args);
     }

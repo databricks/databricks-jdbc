@@ -91,7 +91,6 @@ class TelemetryPushTask implements Runnable {
         TelemetryResponse telResponse =
             objectMapper.readValue(
                 EntityUtils.toString(response.getEntity()), TelemetryResponse.class);
-        System.out.println("here is telem response " + telResponse);
         if (queueToBePushed.size() != telResponse.getNumProtoSuccess()) {
           logger.error(
               "Partial failure while pushing telemetry logs with error response: [%s], request count: [%d], upload count: [%d]",

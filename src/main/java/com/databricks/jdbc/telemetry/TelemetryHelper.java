@@ -149,7 +149,6 @@ public class TelemetryHelper {
                 connectionContext.acceptUndeterminedCertificateRevocation())
             .setDriverMode(connectionContext.getClientType())
             .setHttpPath(connectionContext.getHttpPath());
-
     if (connectionContext.getUseCloudFetchProxy()) {
       connectionParameters.setCfProxyHostDetails(
           getHostDetails(
@@ -157,11 +156,18 @@ public class TelemetryHelper {
               connectionContext.getCloudFetchProxyPort(),
               connectionContext.getCloudFetchProxyAuthType()));
     }
-    if (connectionContext.getUseProxy() || connectionContext.getUseSystemProxy()) {
+    if (connectionContext.getUseProxy()) {
       connectionParameters.setProxyHostDetails(
           getHostDetails(
               connectionContext.getProxyHost(),
               connectionContext.getProxyPort(),
+              connectionContext.getProxyAuthType()));
+    } else if (connectionContext.getUseSystemProxy()) {
+      String protocol = System.getProperty("https.proxyHost") != null ? "https" : "http";
+      connectionParameters.setProxyHostDetails(
+          getHostDetails(
+              System.getProperty(protocol + ".proxyHost"),
+              Integer.parseInt(System.getProperty(protocol + ".proxyPort")),
               connectionContext.getProxyAuthType()));
     }
     return connectionParameters;
