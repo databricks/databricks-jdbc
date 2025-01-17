@@ -20,8 +20,6 @@ jobs:
         if: runner.os == 'Windows'
         run: git config --system core.longpaths true
 
-      # Removed explicit creation of /tmp/logstest because we are now using ${user.home}/logstest
-
       - name: Checkout code
         uses: actions/checkout@v4
         with:
@@ -75,17 +73,6 @@ jobs:
             -cp "$CP" \
             com.databricks.client.jdbc.LoggingTest
 
-      - name: Debug - List log directory contents
-        shell: bash
-        run: |
-          LOG_DIR="${HOME}/logstest"
-          echo "Listing contents of ${LOG_DIR} directory..."
-          if [ -d "$LOG_DIR" ]; then
-            ls -laR "$LOG_DIR"
-          else
-            echo "${LOG_DIR} directory does not exist."
-          fi
-
       - name: Verify log file contents
         shell: bash
         run: |
@@ -95,7 +82,6 @@ jobs:
           
           if [ -f "$LOG_FILE" ]; then
             echo "Log file found. Checking contents..."
-            cat "$LOG_FILE"
           
             REQUIRED_STRINGS=("Executed sql [SELECT current_version().dbsql_version] with status [SUCCEEDED]"
                               "Executed sql [SELECT 1] with status [SUCCEEDED]"
