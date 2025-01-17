@@ -47,7 +47,7 @@ jobs:
 
       - name: Run LoggingTest via Maven
         shell: bash
-        run: mvn test -Dtest=com.databricks.client.jdbc.LoggingTest
+        run: mvn test -Dtest=**/LoggingTest.java
 
       - name: Verify log file contents
         shell: bash
