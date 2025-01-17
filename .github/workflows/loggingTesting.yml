@@ -57,7 +57,7 @@ jobs:
           # Run with the main classes + test classes + jar
           java \
             --add-opens=java.base/java.nio=ALL-UNNAMED \
-            -cp "target/classes:target/test-classes:target/databricks-jdbc-0.9.9-oss.jar" \
+            -cp "target/test-classes:target/databricks-jdbc-0.9.9-oss.jar" \
             com.databricks.client.jdbc.LoggingTest
 
       - name: Verify log file contents
