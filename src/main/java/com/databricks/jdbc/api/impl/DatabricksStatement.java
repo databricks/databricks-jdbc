@@ -97,23 +97,25 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
   @Override
   public void close(boolean removeFromSession) throws DatabricksSQLException {
     LOGGER.debug("public void close(boolean removeFromSession)");
-    this.isClosed = true;
-    if (statementId != null) {
+
+    if (statementId == null) {
+      String warningMsg = "The statement you are trying to close does not have an ID yet.";
+      LOGGER.warn(warningMsg);
+      warnings = WarningUtil.addWarning(warnings, warningMsg);
+    } else {
       this.connection.getSession().getDatabricksClient().closeStatement(statementId);
       if (resultSet != null) {
         this.resultSet.close();
         this.resultSet = null;
       }
-    } else {
-      warnings =
-          WarningUtil.addWarning(
-              warnings, "The statement you are trying to close does not have an ID yet.");
-      return;
+
+      if (removeFromSession) {
+        this.connection.closeStatement(this);
+      }
     }
-    if (removeFromSession) {
-      this.connection.closeStatement(this);
-    }
+
     shutDownExecutor();
+    this.isClosed = true;
   }
 
   @Override

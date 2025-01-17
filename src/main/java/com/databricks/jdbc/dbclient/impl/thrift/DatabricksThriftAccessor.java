@@ -26,6 +26,7 @@ import com.databricks.sdk.service.sql.StatementStatus;
 import com.google.common.annotations.VisibleForTesting;
 import java.sql.SQLException;
 import java.util.Arrays;
+import java.util.concurrent.TimeUnit;
 import org.apache.http.HttpException;
 import org.apache.thrift.TBase;
 import org.apache.thrift.TException;
@@ -44,6 +45,7 @@ final class DatabricksThriftAccessor {
       TExecuteStatementResp._Fields.OPERATION_HANDLE.getThriftFieldId();
   private static final short statusFieldId =
       TExecuteStatementResp._Fields.STATUS.getThriftFieldId();
+  private static final int POLLING_INTERVAL_SECONDS = 1;
   private final ThreadLocal<TCLIService.Client> thriftClient;
   private final boolean enableDirectResults;
 
@@ -200,6 +202,11 @@ final class DatabricksThriftAccessor {
       response = getThriftClient().ExecuteStatement(request);
       checkResponseForErrors(response);
 
+      StatementId statementId = new StatementId(response.getOperationHandle().operationId);
+      if (parentStatement != null) {
+        parentStatement.setStatementId(statementId);
+      }
+
       // Get the operation status from direct results if present
       TGetOperationStatusResp statusResp = null;
       if (response.isSetDirectResults()) {
@@ -217,6 +224,15 @@ final class DatabricksThriftAccessor {
         // Polling for operation status
         statusResp = getThriftClient().GetOperationStatus(statusReq);
         checkOperationStatusForErrors(statusResp);
+        try {
+          TimeUnit.SECONDS.sleep(POLLING_INTERVAL_SECONDS);
+        } catch (InterruptedException e) {
+          Thread.currentThread().interrupt(); // Restore interrupt flag
+          cancelOperation(
+              new TCancelOperationReq().setOperationHandle(response.getOperationHandle()));
+          throw new DatabricksSQLException(
+              "Query execution interrupted", e, DatabricksDriverErrorCode.THREAD_INTERRUPTED_ERROR);
+        }
       }
 
       if (hasResultDataInDirectResults(response)) {
@@ -235,13 +251,13 @@ final class DatabricksThriftAccessor {
                 true);
       }
 
-      StatementId statementId = new StatementId(response.getOperationHandle().operationId);
-      if (parentStatement != null) {
-        parentStatement.setStatementId(statementId);
-      }
-      StatementStatus statementStatus = getStatementStatus(statusResp);
       return new DatabricksResultSet(
-          statementStatus, statementId, resultSet, statementType, parentStatement, session);
+          getStatementStatus(statusResp),
+          statementId,
+          resultSet,
+          statementType,
+          parentStatement,
+          session);
     } catch (TException e) {
       String errorMessage =
           String.format(

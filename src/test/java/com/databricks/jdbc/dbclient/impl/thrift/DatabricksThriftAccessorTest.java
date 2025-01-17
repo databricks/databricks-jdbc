@@ -613,6 +613,37 @@ public class DatabricksThriftAccessorTest {
     assertEquals("08000", sqlException.getSQLState());
   }
 
+  @Test
+  void testExecute_setsStatementIdEvenIfStatusRequestFails() throws TException, SQLException {
+    setup(true);
+    TExecuteStatementReq request = new TExecuteStatementReq();
+
+    // Prepare successful execute statement response
+    TExecuteStatementResp tExecuteStatementResp =
+        new TExecuteStatementResp()
+            .setOperationHandle(tOperationHandle)
+            .setStatus(new TStatus().setStatusCode(TStatusCode.SUCCESS_STATUS));
+
+    // Make execute statement succeed but get operation status fail
+    when(thriftClient.ExecuteStatement(request)).thenReturn(tExecuteStatementResp);
+    when(thriftClient.GetOperationStatus(any(TGetOperationStatusReq.class)))
+        .thenThrow(new TException("Failed to get status"));
+
+    // Prepare parent statement for verification
+    StatementId expectedStatementId = new StatementId(tOperationHandle.getOperationId());
+
+    try {
+      accessor.execute(request, parentStatement, null, StatementType.SQL);
+      fail("Expected exception due to GetOperationStatus failure");
+    } catch (DatabricksHttpException e) {
+      // Verify that statement ID was set on parent statement despite the failure
+      verify(parentStatement).setStatementId(eq(expectedStatementId));
+
+      // Verify the error was from GetOperationStatus
+      assertTrue(e.getMessage().contains("Failed to get status"));
+    }
+  }
+
   private TFetchResultsReq getFetchResultsRequest(boolean includeMetadata) {
     TFetchResultsReq request =
         new TFetchResultsReq()
