@@ -25,13 +25,6 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Print working directory and list files
-        shell: bash
-        run: |
-          echo "Current directory: $(pwd)"
-          echo "Files in current directory:"
-          ls -la
-
       - name: Set up Java
         uses: actions/setup-java@v4
         with:
@@ -54,15 +47,9 @@ jobs:
       - name: Clean & Compile LoggingTest
         shell: bash
         run: |
-          # Remove any old test-classes
           rm -rf target/test-classes
           mkdir -p target/test-classes
           
-          # Print jar size to confirm it's the large (shaded) jar
-          echo "Shaded jar info:"
-          ls -lh target/databricks-jdbc-0.9.9-oss.jar || true
-
-          # Compile LoggingTest.java against ONLY the final (shaded) jar
           javac \
             -cp "target/databricks-jdbc-0.9.9-oss.jar" \
             -d target/test-classes \
@@ -75,10 +62,24 @@ jobs:
         shell: bash
         run: |
           echo "==== Running LoggingTest ===="
-          # Use only test-classes + the shaded jar
+          # Determine OS type
+          OS_TYPE=$(uname | tr '[:upper:]' '[:lower:]')
+          
+          # Set classpath separator based on OS
+          if [[ "$OS_TYPE" == "linux" ]]; then
+            SEP=":"
+          else
+            SEP=";"
+          fi
+          
+          echo "Using classpath separator: '$SEP'"
+          
+          # Construct classpath using determined separator
+          CP="target/test-classes${SEP}target/databricks-jdbc-0.9.9-oss.jar"
+          
           java \
             --add-opens=java.base/java.nio=ALL-UNNAMED \
-            -cp "target/test-classes:target/databricks-jdbc-0.9.9-oss.jar" \
+            -cp "$CP" \
             com.databricks.client.jdbc.LoggingTest
 
       - name: Verify log file contents
