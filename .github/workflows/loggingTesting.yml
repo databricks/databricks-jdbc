@@ -53,7 +53,7 @@ jobs:
           javac \
             -cp "target/classes:target/databricks-jdbc-0.9.9-oss.jar" \
             -d target/test-classes \
-            src/test/java/com/databricks/client/jdbc/LoggingTest.java
+            com/databricks/client/jdbc/LoggingTest.java
           
           echo "==== Checking compiled classes ===="
           find target/test-classes -type f
