@@ -45,6 +45,7 @@ jobs:
           echo "DATABRICKS_HTTP_PATH=${DATABRICKS_HTTP_PATH}" >> $GITHUB_ENV
 
       - name: Compile LoggingTest
+        shell: bash
         run: |
           # Compile LoggingTest.java, placing .class in target/test-classes
           javac \
@@ -53,6 +54,7 @@ jobs:
             src/test/java/com/databricks/client/jdbc/LoggingTest.java
 
       - name: Run LoggingTest
+        shell: bash
         run: |
           # Run with the main classes + test classes + jar
           java \
