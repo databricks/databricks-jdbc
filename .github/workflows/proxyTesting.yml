@@ -42,7 +42,7 @@ jobs:
           echo "
           http_port 3128
           # Restrict to localhost for security
-          acl localnet src 127.0.0.1/32
+          acl localnet src 127.0.0.1/32 ::1
           http_access allow localnet
           http_access deny all
           access_log stdio:/var/log/squid/access.log squid
