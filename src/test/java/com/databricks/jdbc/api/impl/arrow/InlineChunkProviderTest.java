@@ -72,7 +72,7 @@ public class InlineChunkProviderTest {
 
   @Test
   void testConstructorSuccessfulCreation() throws DatabricksSQLException, IOException {
-    // Create valid Arrow data
+    // Create valid Arrow data with two rows and one column: [1, 2]
     byte[] arrowData;
     try (BufferAllocator allocator = new RootAllocator()) {
       arrowData = createArrowData(allocator);
@@ -89,6 +89,21 @@ public class InlineChunkProviderTest {
     assertEquals(TOTAL_ROWS, provider.getRowCount());
     assertNotNull(provider.arrowResultChunk);
 
+    // Move to next chunk
+    assertTrue(provider.next());
+
+    // Get the iterator
+    ArrowResultChunk.ArrowResultChunkIterator iterator = provider.getChunk().getChunkIterator();
+
+    // Verify the data
+    assertTrue(iterator.nextRow());
+    assertEquals(1, iterator.getColumnObjectAtCurrentRow(0));
+    assertTrue(iterator.nextRow());
+    assertEquals(2, iterator.getColumnObjectAtCurrentRow(0));
+
+    // No more chunk
+    assertFalse(provider.next());
+
     verify(mockResultManifest).getTotalRowCount();
     verify(mockResultManifest).getResultCompression();
     verify(mockResultData).getAttachment();
@@ -96,7 +111,7 @@ public class InlineChunkProviderTest {
 
   @Test
   void testConstructorWithLz4CompressedData() throws DatabricksSQLException, IOException {
-    // Create valid Arrow data and compress it
+    // Create valid Arrow data with two rows and one column: [1, 2] and compress it
     byte[] compressedData;
     try (BufferAllocator allocator = new RootAllocator()) {
       compressedData = createLz4CompressedArrowData(createArrowData(allocator));
@@ -112,6 +127,25 @@ public class InlineChunkProviderTest {
     assertNotNull(provider.arrowResultChunk);
     assertEquals(TOTAL_ROWS, provider.getRowCount());
     assertTrue(provider.hasNextChunk());
+
+    // Move to next chunk
+    assertTrue(provider.next());
+
+    // Get the iterator
+    ArrowResultChunk.ArrowResultChunkIterator iterator = provider.getChunk().getChunkIterator();
+
+    // Verify the data
+    assertTrue(iterator.nextRow());
+    assertEquals(1, iterator.getColumnObjectAtCurrentRow(0));
+    assertTrue(iterator.nextRow());
+    assertEquals(2, iterator.getColumnObjectAtCurrentRow(0));
+
+    // No more chunk
+    assertFalse(provider.next());
+
+    verify(mockResultManifest).getTotalRowCount();
+    verify(mockResultManifest).getResultCompression();
+    verify(mockResultData).getAttachment();
   }
 
   @Test
@@ -148,7 +182,7 @@ public class InlineChunkProviderTest {
     assertEquals(TOTAL_ROWS, provider.getRowCount(), "Row count should match");
   }
 
-  /** Create a simple Arrow data with two values. */
+  /** Create a simple Arrow data with two rows and one column: [1, 2]. */
   private byte[] createArrowData(BufferAllocator allocator) throws IOException {
     ByteArrayOutputStream out = new ByteArrayOutputStream();
 
