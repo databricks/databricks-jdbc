@@ -1,7 +1,10 @@
 package com.databricks.jdbc.dbclient.impl.common;
 
+import static com.databricks.jdbc.common.DatabricksJdbcConstants.IS_JDBC_TEST_ENV;
+
 import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.common.DatabricksJdbcConstants;
+import com.databricks.jdbc.common.util.SocketFactoryUtil;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.sdk.core.DatabricksException;
@@ -13,10 +16,7 @@ import java.security.cert.*;
 import java.util.Arrays;
 import java.util.Set;
 import java.util.stream.Collectors;
-import javax.net.ssl.CertPathTrustManagerParameters;
-import javax.net.ssl.SSLContext;
-import javax.net.ssl.TrustManagerFactory;
-import javax.net.ssl.X509TrustManager;
+import javax.net.ssl.*;
 import org.apache.http.config.Registry;
 import org.apache.http.config.RegistryBuilder;
 import org.apache.http.conn.socket.ConnectionSocketFactory;
@@ -29,18 +29,32 @@ public class ConfiguratorUtils {
   private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(ConfiguratorUtils.class);
 
   /**
+   * @return Environment is either test or prod
+   */
+  private static boolean isJDBCTestEnv() {
+    return Boolean.parseBoolean(System.getenv(IS_JDBC_TEST_ENV));
+  }
+
+  /**
    * @param connectionContext The connection context to use to get the truststore and properties.
    * @return The connection manager based on the truststore and properties set in the connection
    */
   public static PoolingHttpClientConnectionManager getBaseConnectionManager(
       IDatabricksConnectionContext connectionContext) {
+
+    if (isJDBCTestEnv()) {
+      return new PoolingHttpClientConnectionManager(
+          SocketFactoryUtil.getTrustAllSocketFactoryRegistry());
+    }
+
     if (connectionContext.getSSLTrustStore() == null
         && connectionContext.checkCertificateRevocation()
         && !connectionContext.acceptUndeterminedCertificateRevocation()) {
       return new PoolingHttpClientConnectionManager();
     }
+
     Registry<ConnectionSocketFactory> socketFactoryRegistry =
-        ConfiguratorUtils.getConnectionSocketFactoryRegistry(connectionContext);
+        getConnectionSocketFactoryRegistry(connectionContext);
     return new PoolingHttpClientConnectionManager(socketFactoryRegistry);
   }
 
