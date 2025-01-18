@@ -2,6 +2,7 @@ package com.databricks.jdbc.model.core;
 
 import com.databricks.sdk.support.ToStringer;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Objects;
 
@@ -21,7 +22,6 @@ public class ResultData {
   @JsonProperty("data_array")
   private Collection<Collection<String>> dataArray;
 
-  /** */
   @JsonProperty("external_links")
   private Collection<ExternalLink> externalLinks;
 
@@ -36,6 +36,9 @@ public class ResultData {
 
   @JsonProperty("row_offset")
   private Long rowOffset;
+
+  @JsonProperty("attachment")
+  private byte[] attachment;
 
   public ResultData setByteCount(Long byteCount) {
     this.byteCount = byteCount;
@@ -109,6 +112,14 @@ public class ResultData {
     return rowOffset;
   }
 
+  public byte[] getAttachment() {
+    return attachment;
+  }
+
+  public void setAttachment(byte[] attachment) {
+    this.attachment = attachment;
+  }
+
   @Override
   public boolean equals(Object o) {
     if (this == o) return true;
@@ -121,7 +132,8 @@ public class ResultData {
         && Objects.equals(nextChunkIndex, that.nextChunkIndex)
         && Objects.equals(nextChunkInternalLink, that.nextChunkInternalLink)
         && Objects.equals(rowCount, that.rowCount)
-        && Objects.equals(rowOffset, that.rowOffset);
+        && Objects.equals(rowOffset, that.rowOffset)
+        && Arrays.equals(attachment, that.attachment);
   }
 
   @Override
@@ -134,7 +146,8 @@ public class ResultData {
         nextChunkIndex,
         nextChunkInternalLink,
         rowCount,
-        rowOffset);
+        rowOffset,
+        Arrays.hashCode(attachment));
   }
 
   @Override

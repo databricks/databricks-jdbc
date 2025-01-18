@@ -10,7 +10,6 @@ import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
 import com.databricks.jdbc.common.StatementType;
 import com.databricks.jdbc.common.util.WarningUtil;
 import com.databricks.jdbc.dbclient.impl.common.StatementId;
-import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.exception.DatabricksSQLFeatureNotSupportedException;
 import com.databricks.jdbc.exception.DatabricksValidationException;
@@ -59,7 +58,7 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
       StatementType statementType,
       IDatabricksSession session,
       IDatabricksStatementInternal parentStatement)
-      throws DatabricksParsingException {
+      throws DatabricksSQLException {
     this.statementStatus = statementStatus;
     this.statementId = statementId;
     if (resultData != null) {
