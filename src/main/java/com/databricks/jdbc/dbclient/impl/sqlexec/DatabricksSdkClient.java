@@ -328,8 +328,12 @@ public class DatabricksSdkClient implements IDatabricksClient {
       boolean executeAsync)
       throws SQLException {
     Format format = useCloudFetchForResult(statementType) ? Format.ARROW_STREAM : Format.JSON_ARRAY;
+    Disposition defaultDisposition =
+        connectionContext.isSqlExecHybridResultsEnabled()
+            ? Disposition.INLINE_OR_EXTERNAL_LINKS
+            : Disposition.EXTERNAL_LINKS;
     Disposition disposition =
-        useCloudFetchForResult(statementType) ? Disposition.EXTERNAL_LINKS : Disposition.INLINE;
+        useCloudFetchForResult(statementType) ? defaultDisposition : Disposition.INLINE;
     long maxRows = (parentStatement == null) ? DEFAULT_ROW_LIMIT : parentStatement.getMaxRows();
     CompressionCodec compressionCodec = session.getCompressionCodec();
     if (disposition.equals(Disposition.INLINE)) {
