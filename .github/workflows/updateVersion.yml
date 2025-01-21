@@ -28,7 +28,7 @@ jobs:
         with:
           # Specify the repository to checkout
           repository: databricks/databricks-jdbc-dev
-          token: ${{ secrets.PAT_FOR_WORKFLOW }}
+          token: ${{ secrets.GITHUB_TOKEN }}
           persist-credentials: true
 
       - name: Set up Git configuration
@@ -78,7 +78,7 @@ jobs:
       - name: Create cross-repository PR
         uses: actions/github-script@v6
         env:
-          GITHUB_TOKEN: ${{ secrets.PAT_FOR_WORKFLOW }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           script: |
             const owner = 'databricks';
