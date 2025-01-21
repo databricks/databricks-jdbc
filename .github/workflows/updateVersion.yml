@@ -85,7 +85,7 @@ jobs:
             const title = `Update version from ${{ github.event.inputs.old_version }} to ${{ github.event.inputs.new_version }}`;
             const body = `This PR updates all references from version ${{ github.event.inputs.old_version }} to ${{ github.event.inputs.new_version }}.`;
             try {
-              const response = await github.pulls.create({
+              const response = await github.rest.pulls.create({
                 owner,
                 repo,
                 head,
