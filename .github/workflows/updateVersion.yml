@@ -22,6 +22,8 @@ jobs:
         with:
           token: ${{ secrets.PAT_FOR_WORKFLOW }}
           persist-credentials: true
+        run:
+          echo "CHECK"
 
       - name: Set up Git configuration
         run: |
