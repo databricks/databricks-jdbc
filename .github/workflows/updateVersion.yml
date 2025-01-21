@@ -9,7 +9,7 @@ on:
       new_version:
         description: 'New version to update to'
         required: true
-  pull-request:
+  pull_request:
     inputs:
       old_version: 0.9.9
       new_version: 1.0.0
