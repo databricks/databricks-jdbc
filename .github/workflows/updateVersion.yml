@@ -10,9 +10,6 @@ on:
         description: 'New version to update to'
         required: true
   pull_request:
-    inputs:
-      old_version: 0.9.9
-      new_version: 1.0.0
 
 jobs:
   update-version:
@@ -41,8 +38,10 @@ jobs:
 
       - name: Replace old version with new version in repository
         run: |
-          OLD_VERSION="${{ github.event.inputs.old_version }}"
-          NEW_VERSION="${{ github.event.inputs.new_version }}"
+#          OLD_VERSION="${{ github.event.inputs.old_version }}"
+#          NEW_VERSION="${{ github.event.inputs.new_version }}"
+          OLD_VERSION="0.9.9"
+          NEW_VERSION="1.0.0"
           grep -rl "$OLD_VERSION" . | xargs sed -i "s/$OLD_VERSION/$NEW_VERSION/g" || echo "No occurrences found."
 
       - name: Commit changes
