@@ -32,7 +32,7 @@ jobs:
       - name: Create new branch for version update
         id: create_branch
         run: |
-          BRANCH_NAME="version-update-check2"
+          BRANCH_NAME="version-update-check3"
           git checkout -b "$BRANCH_NAME"
           echo "branch=$BRANCH_NAME" >> "$GITHUB_OUTPUT"
 
