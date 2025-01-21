@@ -13,6 +13,7 @@ on:
     inputs:
       old_version: 0.9.9
       new_version: 1.0.0
+
 jobs:
   update-version:
     runs-on:
