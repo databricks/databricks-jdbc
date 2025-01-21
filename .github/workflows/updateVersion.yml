@@ -13,7 +13,9 @@ on:
 
 jobs:
   update-version:
-    runs-on: ubuntu-latest  # Adjust as needed
+    runs-on:
+      group: databricks-protected-runner-group
+      labels: linux-ubuntu-latest
 
     steps:
       # 1. Checkout the dev repository (databricks-jdbc-dev)
