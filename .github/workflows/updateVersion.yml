@@ -9,6 +9,7 @@ on:
       new_version:
         description: 'New version to update to'
         required: true
+  push:
 
 jobs:
   update-version:
