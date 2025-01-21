@@ -40,28 +40,37 @@ jobs:
         run: |
           OLD_VERSION="0.9.9"
           NEW_VERSION="1.0.0"
-          grep -rl "$OLD_VERSION" . | xargs sed -i "s/$OLD_VERSION/$NEW_VERSION/g" || echo "No occurrences found."
-#
-#      - name: Commit changes
-#        run: |
-#          git add .
-#          if ! git diff --cached --quiet; then
-#            git commit -m "Update version from ${{ github.event.inputs.old_version }} to ${{ github.event.inputs.new_version }}"
-#          else
-#            echo "No changes to commit."
-#          fi
-#
-#      - name: Push branch
-#        run: |
-#          BRANCH_NAME=${{ steps.create_branch.outputs.branch }}
-#          git push origin "$BRANCH_NAME"
-#
-#      - name: Create Pull Request
-#        uses: peter-evans/create-pull-request@v7
-#        with:
-#          token: ${{ secrets.PAT_FOR_WORKFLOW }}
-#          branch: ${{ steps.create_branch.outputs.branch }}
-#          title: "Update version from ${{ github.event.inputs.old_version }} to ${{ github.event.inputs.new_version }}"
-#          body: |
-#            This PR updates all references from version `${{ github.event.inputs.old_version }}` to `${{ github.event.inputs.new_version }}`.
-#          labels: version-update
+          found=false
+          for file in $(grep -FrIl "$OLD_VERSION" .); do
+            found=true
+            echo "Updating $file"
+            # Use sed to perform the replacement
+            sed -i "s/${OLD_VERSION}/${NEW_VERSION}/g" "$file"
+          done
+          if [ "$found" = false ]; then
+            echo "No occurrences found."
+          fi
+
+      - name: Commit changes
+        run: |
+          git add .
+          if ! git diff --cached --quiet; then
+            git commit -m "Update version from ${{ github.event.inputs.old_version }} to ${{ github.event.inputs.new_version }}"
+          else
+            echo "No changes to commit."
+          fi
+
+      - name: Push branch
+        run: |
+          BRANCH_NAME=${{ steps.create_branch.outputs.branch }}
+          git push origin "$BRANCH_NAME"
+
+      - name: Create Pull Request
+        uses: peter-evans/create-pull-request@v7
+        with:
+          token: ${{ secrets.PAT_FOR_WORKFLOW }}
+          branch: ${{ steps.create_branch.outputs.branch }}
+          title: "Update version from ${{ github.event.inputs.old_version }} to ${{ github.event.inputs.new_version }}"
+          body: |
+            This PR updates all references from version `${{ github.event.inputs.old_version }}` to `${{ github.event.inputs.new_version }}`.
+          labels: version-update
