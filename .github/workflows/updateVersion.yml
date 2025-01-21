@@ -15,11 +15,13 @@ jobs:
     runs-on:
       group: databricks-protected-runner-group
       labels: linux-ubuntu-latest
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.PAT_FOR_WORKFLOW }}
+          persist-credentials: true
 
       - name: Set up Git configuration
         run: |
@@ -30,22 +32,18 @@ jobs:
         id: create_branch
         run: |
           BRANCH_NAME="version-update-${{ github.event.inputs.new_version }}"
-          git checkout -b $BRANCH_NAME
-          echo "::set-output name=branch::$BRANCH_NAME"
+          git checkout -b "$BRANCH_NAME"
+          echo "branch=$BRANCH_NAME" >> "$GITHUB_OUTPUT"
 
       - name: Replace old version with new version in repository
         run: |
           OLD_VERSION="${{ github.event.inputs.old_version }}"
           NEW_VERSION="${{ github.event.inputs.new_version }}"
-          # Recursively search for files containing the old version and replace them.
-          # Adjust file patterns or directories as needed.
           grep -rl "$OLD_VERSION" . | xargs sed -i "s/$OLD_VERSION/$NEW_VERSION/g" || echo "No occurrences found."
 
       - name: Commit changes
         run: |
-          # Stage all changes
           git add .
-          # Commit if there are changes
           if ! git diff --cached --quiet; then
             git commit -m "Update version from ${{ github.event.inputs.old_version }} to ${{ github.event.inputs.new_version }}"
           else
@@ -54,12 +52,13 @@ jobs:
 
       - name: Push branch
         run: |
-          git push origin ${{ steps.create_branch.outputs.branch }}
+          BRANCH_NAME=${{ steps.create_branch.outputs.branch }}
+          git push origin "$BRANCH_NAME"
 
       - name: Create Pull Request
         uses: peter-evans/create-pull-request@v7
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.PAT_FOR_WORKFLOW }}
           branch: ${{ steps.create_branch.outputs.branch }}
           title: "Update version from ${{ github.event.inputs.old_version }} to ${{ github.event.inputs.new_version }}"
           body: |
