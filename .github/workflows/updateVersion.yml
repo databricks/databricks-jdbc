@@ -71,19 +71,30 @@ jobs:
           BRANCH_NAME=${{ steps.create_branch.outputs.branch }}
           git push origin "$BRANCH_NAME"
 
-      # 6. Create Pull Request from databricks-jdbc-dev to main repository
-      - name: Create Pull Request to main repository
-        uses: peter-evans/create-pull-request@v7
+      - name: Create cross-repository PR
+        uses: actions/github-script@v6
+        env:
+          GITHUB_TOKEN: ${{ secrets.PAT_FOR_WORKFLOW }}
         with:
-          token: ${{ secrets.PAT_FOR_WORKFLOW }}
-          # The branch in the dev repository to create PR from
-          branch: ${{ steps.create_branch.outputs.branch }}
-          # The base repository and branch that the PR targets
-          base: main
-          # The head repository and branch for the PR
-          repository: databricks/databricks-jdbc  # Target repository
-          head: databricks-jdbc-dev:${{ steps.create_branch.outputs.branch }}  # Format: owner:branch
-          title: "Update version from ${{ github.event.inputs.old_version }} to ${{ github.event.inputs.new_version }}"
-          body: |
-            This PR updates all references from version `${{ github.event.inputs.old_version }}` to `${{ github.event.inputs.new_version }}`.
-          labels: version-update
+          script: |
+            const owner = 'databricks';
+            const repo = 'databricks-jdbc';
+            const headBranch = '${{ steps.create_branch.outputs.branch }}';
+            const head = 'databricks-jdbc-dev:' + headBranch;
+            const base = 'main';
+            const title = `Update version from ${{ github.event.inputs.old_version }} to ${{ github.event.inputs.new_version }}`;
+            const body = `This PR updates all references from version ${{ github.event.inputs.old_version }} to ${{ github.event.inputs.new_version }}.`;
+            try {
+              const response = await github.pulls.create({
+                owner,
+                repo,
+                head,
+                base,
+                title,
+                body
+              });
+              console.log("PR created:", response.data.html_url);
+            } catch (error) {
+              console.error("Failed to create PR:", error);
+              core.setFailed(error.message);
+            }
