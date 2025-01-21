@@ -16,6 +16,10 @@ jobs:
     runs-on:
       group: databricks-protected-runner-group
       labels: linux-ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      repository-projects: write
 
     steps:
       # 1. Checkout the dev repository (databricks-jdbc-dev)
