@@ -28,7 +28,7 @@ jobs:
         with:
           # Specify the repository to checkout
           repository: databricks/databricks-jdbc-dev
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.PAT_FOR_WORKFLOW }}
           persist-credentials: true
 
       - name: Set up Git configuration
