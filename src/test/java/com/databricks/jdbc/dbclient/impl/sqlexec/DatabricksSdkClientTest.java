@@ -6,6 +6,7 @@ import static org.mockito.Mockito.when;
 import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.common.AuthMech;
 import com.databricks.jdbc.model.client.sqlexec.ExecuteStatementResponse;
+import com.databricks.jdbc.model.core.StatementStatus;
 import com.databricks.sdk.core.ApiClient;
 import com.databricks.sdk.service.sql.*;
 import java.sql.SQLException;
@@ -22,6 +23,7 @@ public class DatabricksSdkClientTest {
   @Mock IDatabricksConnectionContext connectionContext;
   @Mock StatementExecutionService statementExecutionService;
   @Mock ApiClient apiClient;
+  private static final String DEFAULT_SQL_STATE = "HY000";
 
   @Test
   void testHandleFailedExecution() throws SQLException {
@@ -33,6 +35,7 @@ public class DatabricksSdkClientTest {
     when(response.getStatus()).thenReturn(status);
     when(status.getState()).thenReturn(StatementState.CANCELED);
     when(status.getError()).thenReturn(errorInfo);
+    when(status.getSqlState()).thenReturn(DEFAULT_SQL_STATE);
     when(errorInfo.getMessage()).thenReturn("Error message");
     when(errorInfo.getErrorCode()).thenReturn(ServiceErrorCode.BAD_REQUEST);
     DatabricksSdkClient databricksSdkClient =
@@ -42,9 +45,10 @@ public class DatabricksSdkClientTest {
         assertThrows(
             SQLException.class,
             () -> databricksSdkClient.handleFailedExecution(response, statementId, statement));
+
     assertEquals(
-        "Statement execution failed statementId -> statement\n"
-            + "CANCELED. Error Message: Error message, Error code: BAD_REQUEST",
+        "Statement execution failed statementId -> statement\nCANCELED. Error Message: Error message, Error code: BAD_REQUEST",
         thrown.getMessage());
+    assertEquals(DEFAULT_SQL_STATE, thrown.getSQLState());
   }
 }
