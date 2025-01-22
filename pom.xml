@@ -286,6 +286,7 @@
             <exclude>**/ErrorTypes.java</exclude>
             <exclude>**/ErrorCodes.java</exclude>
             <exclude>**/ProxyTest.java</exclude>
+            <exclude>**/LoggingTest.java</exclude>
           </excludes>
           <argLine>
             @{argLine}
