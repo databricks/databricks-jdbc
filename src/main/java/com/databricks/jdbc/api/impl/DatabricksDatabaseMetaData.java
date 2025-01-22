@@ -871,8 +871,8 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
   /**
    * Builds the result set for stored procedures metadata.
    *
-   * <p>The result set structure is based on hardcoded values defined by the JDBC driver
-   * specifications for consistency. The following columns are included in the result set:
+   * <p>The result set structure is defined based on the JDBC driver specifications to ensure
+   * consistency. The following columns are included in the result set:
    *
    * <ul>
    *   <li>PROCEDURE_CAT: The catalog of the procedure (String)

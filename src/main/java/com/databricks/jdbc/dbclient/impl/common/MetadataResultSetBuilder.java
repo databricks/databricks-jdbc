@@ -113,7 +113,7 @@ public class MetadataResultSetBuilder {
         String typeVal = resultSet.getString(COLUMN_TYPE_COLUMN.getResultSetColumnName());
         switch (column.getColumnName()) {
           case "SQL_DATA_TYPE":
-            if (typeVal == null) {
+            if (typeVal == null) { // safety check
               object = null;
             } else {
               object = getCode(stripTypeName(typeVal));

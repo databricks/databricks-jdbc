@@ -2,7 +2,6 @@ package com.databricks.jdbc.api.impl;
 
 import static com.databricks.jdbc.common.DatabricksJdbcConstants.EMPTY_STRING;
 import static com.databricks.jdbc.common.DatabricksJdbcConstants.VOLUME_OPERATION_STATUS_COLUMN_NAME;
-import static com.databricks.jdbc.common.MetadataResultConstants.TABLE_TYPE_COLUMN;
 import static com.databricks.jdbc.common.util.DatabricksThriftUtil.getTypeFromTypeDesc;
 
 import com.databricks.jdbc.common.AccessType;
@@ -226,9 +225,6 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
           ColumnInfoTypeName.valueOf(
               DatabricksTypeUtil.getDatabricksTypeFromSQLType(columnTypes.get(i)));
       ImmutableDatabricksColumn.Builder columnBuilder = getColumnBuilder();
-      if (columnNames.get(i).equals(TABLE_TYPE_COLUMN.getColumnName())) {
-        columnBuilder.nullable(Nullable.NO_NULLS);
-      }
       columnBuilder
           .columnName(columnNames.get(i))
           .columnType(columnTypes.get(i))
@@ -249,15 +245,15 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
   }
 
   /**
-   * Constructs a {@code DatabricksResultSetMetaData} object for hard-coded metadata result set
+   * Constructs a {@code DatabricksResultSetMetaData} object for predefined metadata result set.
    *
    * @param statementId the unique identifier of the SQL statement execution
-   * @param columnNames names of each column
-   * @param columnTypeText type text of each column
-   * @param columnTypes types of each column
-   * @param columnTypePrecisions precisions of each column
-   * @param isNullables nullability of each column
-   * @param totalRows total number of rows in result set
+   * @param columnNames the names of each column
+   * @param columnTypeText the textual representation of the column types
+   * @param columnTypes the integer values representing the SQL types of each column
+   * @param columnTypePrecisions the precisions of each column
+   * @param isNullables the nullability status of each column
+   * @param totalRows the total number of rows in the result set
    */
   public DatabricksResultSetMetaData(
       StatementId statementId,
