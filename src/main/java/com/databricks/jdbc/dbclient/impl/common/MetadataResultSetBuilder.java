@@ -110,7 +110,14 @@ public class MetadataResultSetBuilder {
       List<Object> row = new ArrayList<>();
       for (ResultColumn column : columns) {
         Object object;
-        String typeVal = resultSet.getString(COLUMN_TYPE_COLUMN.getResultSetColumnName());
+        String typeVal = null;
+        try {
+          typeVal =
+              resultSet.getString(
+                  COLUMN_TYPE_COLUMN
+                      .getResultSetColumnName()); // only valid for result set of getColumns
+        } catch (SQLException ignored) {
+        }
         switch (column.getColumnName()) {
           case "SQL_DATA_TYPE":
             if (typeVal == null) { // safety check
