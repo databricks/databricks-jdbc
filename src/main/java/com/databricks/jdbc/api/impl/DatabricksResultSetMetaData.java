@@ -248,13 +248,24 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
     this.isCloudFetchUsed = false;
   }
 
+  /**
+   * Constructs a {@code DatabricksResultSetMetaData} object for hard-coded metadata result set
+   *
+   * @param statementId the unique identifier of the SQL statement execution
+   * @param columnNames names of each column
+   * @param columnTypeText type text of each column
+   * @param columnTypes types of each column
+   * @param columnTypePrecisions precisions of each column
+   * @param isNullables nullability of each column
+   * @param totalRows total number of rows in result set
+   */
   public DatabricksResultSetMetaData(
       StatementId statementId,
       List<String> columnNames,
       List<String> columnTypeText,
-      List<Integer> columnTypes,
-      List<Integer> columnTypePrecisions,
-      List<Integer> isNullables,
+      int[] columnTypes,
+      int[] columnTypePrecisions,
+      int[] isNullables,
       long totalRows) {
     this.statementId = statementId;
 
@@ -263,17 +274,16 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
     for (int i = 0; i < columnNames.size(); i++) {
       ColumnInfoTypeName columnTypeName =
           ColumnInfoTypeName.valueOf(
-              DatabricksTypeUtil.getDatabricksTypeFromSQLType(columnTypes.get(i)));
+              DatabricksTypeUtil.getDatabricksTypeFromSQLType(columnTypes[i]));
       ImmutableDatabricksColumn.Builder columnBuilder = getColumnBuilder();
       columnBuilder
           .columnName(columnNames.get(i))
-          .columnType(columnTypes.get(i))
+          .columnType(columnTypes[i])
           .columnTypeText(columnTypeText.get(i))
-          .typePrecision(columnTypePrecisions.get(i))
-          .nullable(DatabricksTypeUtil.getNullableFromValue(isNullables.get(i)))
+          .typePrecision(columnTypePrecisions[i])
+          .nullable(DatabricksTypeUtil.getNullableFromValue(isNullables[i]))
           .columnTypeClassName(DatabricksTypeUtil.getColumnTypeClassName(columnTypeName))
-          .displaySize(
-              DatabricksTypeUtil.getDisplaySize(columnTypeName, columnTypePrecisions.get(i)))
+          .displaySize(DatabricksTypeUtil.getDisplaySize(columnTypeName, columnTypePrecisions[i]))
           .isSigned(DatabricksTypeUtil.isSigned(columnTypeName));
       columnsBuilder.add(columnBuilder.build());
       // Keep index starting from 1, to be consistent with JDBC convention
