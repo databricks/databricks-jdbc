@@ -37,7 +37,7 @@ jobs:
           restore-keys: ${{ runner.os }}-m2
       - name: Create .pem file from secret
         run: |
-          echo "${{ secrets.JWT_PEM_CONTENT }}" > /tmp/jdbc-testing-enc.pem
+          echo "${{ secrets.DATABRICKS_M2M_PEM }}" > /tmp/jdbc-testing-enc.pem
           chmod 600 /tmp/jdbc-testing-enc.pem
       - name: Run Integration Tests
         run: ${{ matrix.test-command }}
