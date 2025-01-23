@@ -190,7 +190,7 @@ public class DatabricksTypeUtil {
     }
   }
 
-  public static int getDisplaySize(ColumnInfoTypeName typeName, int precision) {
+  public static int getDisplaySize(ColumnInfoTypeName typeName, int precision, int scale) {
     if (typeName == null) {
       return 255;
     }
@@ -205,8 +205,9 @@ public class DatabricksTypeUtil {
         return precision;
       case FLOAT:
       case DOUBLE:
-      case DECIMAL:
         return 24;
+      case DECIMAL:
+        return scale == precision ? precision + 3 : scale == 0 ? precision + 1 : precision + 2;
       case BOOLEAN:
         return 5; // length of `false`
       case TIMESTAMP:
@@ -221,6 +222,25 @@ public class DatabricksTypeUtil {
       case STRUCT:
       default:
         return 255;
+    }
+  }
+
+  // used only in pre-defined result set metadata flow
+  public static int getDisplaySize(int sqlType, int precision) {
+    switch (sqlType) {
+      case Types.SMALLINT:
+      case Types.INTEGER:
+        return precision + 1;
+      case Types.CHAR:
+        return precision;
+      case Types.BOOLEAN:
+        return 5;
+      case Types.BIT:
+        return 1;
+      case Types.VARCHAR:
+        return 128;
+      default:
+        return 255; // Default size for unhandled types
     }
   }
 

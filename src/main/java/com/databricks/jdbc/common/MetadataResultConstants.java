@@ -61,7 +61,7 @@ public class MetadataResultConstants {
   public static final ResultColumn FUNCTION_NAME_COLUMN =
       new ResultColumn("FUNCTION_NAME", "functionName", Types.VARCHAR);
   public static final ResultColumn FUNCTION_TYPE_COLUMN =
-      new ResultColumn("FUNCTION_TYPE", "functionType", Types.INTEGER);
+      new ResultColumn("FUNCTION_TYPE", "functionType", Types.SMALLINT);
   public static final ResultColumn SPECIFIC_NAME_COLUMN =
       new ResultColumn("SPECIFIC_NAME", "specificName", Types.VARCHAR);
   public static final ResultColumn NUM_PREC_RADIX_COLUMN =

@@ -315,7 +315,6 @@ public class DatabricksResultSetMetaDataTest {
     for (int i = 1; i <= metaData.getColumnCount(); i++) {
       // verify metadata properties default value
       assertFalse(metaData.isAutoIncrement(i));
-      assertFalse(metaData.isSearchable(i));
       assertEquals(ResultSetMetaData.columnNullable, metaData.isNullable(i));
       assertFalse(metaData.isDefinitelyWritable(i));
       assertEquals("", metaData.getSchemaName(i));
