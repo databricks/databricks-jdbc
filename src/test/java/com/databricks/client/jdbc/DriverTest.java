@@ -55,12 +55,12 @@ public class DriverTest {
     DriverManager.drivers().forEach(driver -> System.out.println(driver.getClass()));
     // Getting the connection
     String jdbcUrl =
-        "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=https;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/791ba2a31c7fd70a;";
+        "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=https;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/791ba2a31c7fd70a;EnableTelemetry=1";
     Connection con = DriverManager.getConnection(jdbcUrl, "token", "x");
     System.out.println("Connection established......");
     Statement statement = con.createStatement();
     statement.setMaxRows(10);
-    ResultSet rs = con.getMetaData().getTables("main", "%", "%", null);
+    ResultSet rs = con.createStatement().executeQuery("SELECT * from range(100)");
     printResultSet(rs);
     rs.close();
     statement.close();

@@ -19,8 +19,9 @@ public class ValidationUtil {
   public static void checkIfNonNegative(int number, String fieldName)
       throws DatabricksSQLException {
     if (number < 0) {
-      throw new DatabricksValidationException(
-          String.format("Invalid input for %s, : %d", fieldName, number));
+      String errorMessage = String.format("Invalid input for %s, : %d", fieldName, number);
+      LOGGER.error(errorMessage);
+      throw new DatabricksValidationException(errorMessage);
     }
   }
 
@@ -28,10 +29,11 @@ public class ValidationUtil {
       throws DatabricksSQLException {
     for (Map.Entry<String, String> field : fields.entrySet()) {
       if (field.getValue() == null) {
-        LOGGER.debug("Field %s is null", field.getKey());
-        throw new DatabricksValidationException(
+        String errorMessage =
             String.format(
-                "Unsupported Input for field {%s}. Context: {%s}", field.getKey(), context));
+                "Unsupported null Input for field {%s}. Context: {%s}", field.getKey(), context);
+        LOGGER.error(errorMessage);
+        throw new DatabricksValidationException(errorMessage);
       }
     }
   }
@@ -42,21 +44,16 @@ public class ValidationUtil {
     if (statusCode >= 200 && statusCode < 300) {
       return;
     }
-    LOGGER.debug("Response has failure HTTP Code");
-    String thriftErrorHeader = "X-Thriftserver-Error-Message";
-    if (response.containsHeader(thriftErrorHeader)) {
-      String errorMessage = response.getFirstHeader(thriftErrorHeader).getValue();
-      throw new DatabricksHttpException(
-          "HTTP Response code: "
-              + response.getStatusLine().getStatusCode()
-              + ", Error message: "
-              + errorMessage);
+    String errorReason =
+        String.format("HTTP request failed by code: %d, status line: %s.", statusCode, statusLine);
+    if (response.containsHeader(THRIFT_ERROR_MESSAGE_HEADER)) {
+      errorReason +=
+          String.format(
+              "Thrift Header : %s",
+              response.getFirstHeader(THRIFT_ERROR_MESSAGE_HEADER).getValue());
     }
-    String errorMessage =
-        String.format("HTTP request failed by code: %d, status line: %s", statusCode, statusLine);
-    throw new DatabricksHttpException(
-        "Unable to fetch HTTP response successfully. " + errorMessage,
-        DEFAULT_HTTP_EXCEPTION_SQLSTATE);
+    LOGGER.error(errorReason);
+    throw new DatabricksHttpException(errorReason, DEFAULT_HTTP_EXCEPTION_SQLSTATE);
   }
 
   /**

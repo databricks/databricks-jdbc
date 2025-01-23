@@ -12,6 +12,7 @@ import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.model.client.thrift.generated.*;
+import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import com.google.common.annotations.VisibleForTesting;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -178,8 +179,10 @@ public class InlineChunkProvider implements ChunkProvider {
 
   @VisibleForTesting
   static void handleError(Exception e) throws DatabricksParsingException {
-    String errorMessage = "Cannot process inline arrow format. Error: " + e.getMessage();
+    String errorMessage =
+        String.format("Cannot process inline arrow format. Error: %s", e.getMessage());
     LOGGER.error(errorMessage);
-    throw new DatabricksParsingException(errorMessage, e);
+    throw new DatabricksParsingException(
+        errorMessage, e, DatabricksDriverErrorCode.INLINE_CHUNK_PARSING_ERROR);
   }
 }

@@ -12,6 +12,7 @@ import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.model.client.thrift.generated.THandleIdentifier;
 import com.databricks.jdbc.model.client.thrift.generated.TSessionHandle;
+import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import java.nio.ByteBuffer;
 import java.sql.SQLException;
 import java.util.Objects;
@@ -67,8 +68,11 @@ public class SessionId {
     // For SEA: s|warehouseId|session-id
     String[] parts = serializedSessionId.split("\\|");
     if (parts.length != 3) {
-      LOGGER.error("Invalid session-Id {%s}", serializedSessionId);
-      throw new DatabricksParsingException("Invalid session-Id " + serializedSessionId);
+      String errorMessage =
+          String.format("Session ID has invalid number of parts %s", serializedSessionId);
+      LOGGER.error(errorMessage);
+      throw new DatabricksParsingException(
+          errorMessage, DatabricksDriverErrorCode.SESSION_ID_PARSING_EXCEPTION);
     }
     switch (parts[0]) {
       case "s":
@@ -77,8 +81,11 @@ public class SessionId {
       case "t":
         return new SessionId(DatabricksClientType.THRIFT, parts[1], parts[2], null);
     }
-    LOGGER.error("Invalid session-Id {%s}", serializedSessionId);
-    throw new DatabricksParsingException("Invalid session-Id " + serializedSessionId);
+    String errorMessage =
+        String.format("Session ID has 3 parts but is invalid %s", serializedSessionId);
+    LOGGER.error(errorMessage);
+    throw new DatabricksParsingException(
+        errorMessage, DatabricksDriverErrorCode.SESSION_ID_PARSING_EXCEPTION);
   }
 
   @Override

@@ -13,6 +13,7 @@ import com.databricks.jdbc.exception.DatabricksHttpException;
 import com.databricks.jdbc.exception.DatabricksRetryHandlerException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
+import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import com.databricks.sdk.core.ProxyConfig;
 import com.databricks.sdk.core.utils.ProxyUtils;
 import com.google.common.annotations.VisibleForTesting;
@@ -163,7 +164,8 @@ public class DatabricksHttpClient implements IDatabricksHttpClient, Closeable {
     Throwable cause = e;
     while (cause != null) {
       if (cause instanceof DatabricksRetryHandlerException) {
-        throw new DatabricksHttpException(cause.getMessage(), cause);
+        throw new DatabricksHttpException(
+            cause.getMessage(), cause, DatabricksDriverErrorCode.INVALID_STATE);
       }
       cause = cause.getCause();
     }

@@ -1,21 +1,24 @@
-name: Proxy Test with Squid and Maven
+name: Proxy Test with Dual Squid Proxies
 
 on:
   workflow_dispatch:
+  pull_request:
 
 jobs:
   proxy-test:
-    runs-on: ubuntu-latest
+    runs-on:
+      group: databricks-protected-runner-group
+      labels: linux-ubuntu-latest
 
     steps:
       ################################################################
       # 1) Check Out the Repo
       ################################################################
-      - name: Checkout Code
-        uses: actions/checkout@v2
+      - name: Checkout
+        uses: actions/checkout@v4
 
       ################################################################
-      # 2) Set Up Java (and optionally Maven)
+      # 2) Set Up Java
       ################################################################
       - name: Set Up Java
         uses: actions/setup-java@v4
@@ -32,78 +35,138 @@ jobs:
           sudo apt-get install -y squid
 
       ################################################################
-      # 4) Configure Squid
+      # 4) Configure the Squid for SDK proxy (Port 3128)
       ################################################################
-      - name: Configure Squid
+      - name: Configure Squid (Primary 3128)
         run: |
           echo "
           http_port 3128
-          acl localnet src all
+          # Restrict to localhost for security
+          acl localnet src 127.0.0.1/32 ::1
           http_access allow localnet
           http_access deny all
+          access_log stdio:/var/log/squid/access.log squid
           " | sudo tee /etc/squid/squid.conf
 
       ################################################################
-      # 5) Start Squid
+      # 5) Start the Squid for SDK proxy
       ################################################################
-      - name: Start Squid
+      - name: Start the Squid for SDK proxy
         run: |
           sudo systemctl restart squid
           sudo systemctl enable squid
 
       ################################################################
-      # 6) Verify Squid Setup
+      # 6) Wait for the Squid for SDK proxy to be Ready
       ################################################################
-      - name: Verify Squid
+      - name: Wait for Squid (3128)
         run: |
-          curl -x http://localhost:3128 http://example.com
+          for i in {1..5}; do
+            echo "Checking if Squid on 3128 is up (attempt $i)..."
+            if curl -x http://localhost:3128 http://example.com -sSf -o /dev/null; then
+              echo "Squid on 3128 is up."
+              break
+            fi
+            if [ $i -eq 5 ]; then
+              echo "Squid on 3128 did not respond after 5 attempts. Failing..."
+              exit 1
+            fi
+            sleep 5
+          done
 
       ################################################################
-      # 7) Build Project with Maven
+      # 7) Configure Squid for CloudFetch Proxy (Port 8889)
+      #    with Unique PID, Cache, and Logging
+      ################################################################
+      - name: Configure Squid for CloudFetch Proxy (8889)
+        run: |
+          sudo cp /etc/squid/squid.conf /etc/squid/squid2.conf
+          # Update the port to 8889 in the new config
+          sudo sed -i 's/http_port 3128/http_port 8889/' /etc/squid/squid2.conf
+          # Set unique PID file and cache directory for the second instance
+          echo "pid_filename /var/run/squid2.pid" | sudo tee -a /etc/squid/squid2.conf
+          echo "cache_dir ufs /var/spool/squid2 100 16 256" | sudo tee -a /etc/squid/squid2.conf
+          # Configure logging for the second instance
+          echo "access_log stdio:/var/log/squid2/access.log squid" | sudo tee -a /etc/squid/squid2.conf
+          echo "cache_log /var/log/squid2/cache.log" | sudo tee -a /etc/squid/squid2.conf
+          
+          # (Removed the problematic sed line that caused /var/log/squid22)
+          # Create necessary directories and set permissions
+          sudo mkdir -p /var/log/squid2 /var/spool/squid2
+          sudo chown -R proxy:proxy /var/log/squid2 /var/spool/squid2
+
+      ################################################################
+      # 8) Initialize Cache Directory for CloudFetch Proxy
+      ################################################################
+      - name: Initialize Cache for CloudFetch Proxy
+        run: |
+          sudo squid -f /etc/squid/squid2.conf -z
+
+      ################################################################
+      # 9) Start the Squid for CloudFetch Proxy
+      ################################################################
+      - name: Start the Squid for CloudFetch Proxy
+        run: |
+          sudo squid -f /etc/squid/squid2.conf -N &> /tmp/squid2.log &
+          sleep 3
+
+      ################################################################
+      # 10) Wait for the Squid for CloudFetch Proxy (8889)
+      ################################################################
+      - name: Verify Squid (8889)
+        run: |
+          for i in {1..5}; do
+            echo "Checking if Squid on 8889 is up (attempt $i)..."
+            if curl -x http://localhost:8889 http://example.com -sSf -o /dev/null; then
+              echo "Squid for CloudFetch proxy on 8889 is up."
+              break
+            fi
+            if [ $i -eq 5 ]; then
+              echo "Squid on 8889 did not respond after 5 attempts. Failing..."
+              cat /tmp/squid2.log
+              exit 1
+            fi
+            sleep 5
+          done
+
+      ################################################################
+      # 11) Maven Build
       ################################################################
       - name: Maven Build
-        run: |
-          mvn clean package
+        run: mvn clean package -DskipTests
+
+      ################################################################
+      # 12) Set Environment Variables for Tests
+      ################################################################
+      - name: Set Environment Variables
         env:
-          MAVEN_OPTS: "-Dhttps.proxyHost=localhost -Dhttps.proxyPort=3128"
-
-      ################################################################
-      # 8) Wait for Squid to be Ready
-      ################################################################
-      - name: Wait for Squid
+          DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
+          DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
+          DATABRICKS_HTTP_PATH: ${{ secrets.DATABRICKS_HTTP_PATH }}
+          PROXY_URL: "http://localhost:3128"
+          CF_PROXY_URL: "http://localhost:8889"
         run: |
-          echo "Sleeping 5s to ensure Squid is fully ready..."
-          sleep 5
+          echo "DATABRICKS_TOKEN=${DATABRICKS_TOKEN}" >> $GITHUB_ENV
+          echo "DATABRICKS_HOST=${DATABRICKS_HOST}" >> $GITHUB_ENV
+          echo "DATABRICKS_HTTP_PATH=${DATABRICKS_HTTP_PATH}" >> $GITHUB_ENV
+          echo "PROXY_URL=${PROXY_URL}" >> $GITHUB_ENV
+          echo "CF_PROXY_URL=${CF_PROXY_URL}" >> $GITHUB_ENV
 
       ################################################################
-      # 9) Set Proxy and Authentication Environment Variables
-      ################################################################
-      - name: Set Environment
-        env:
-          HTTP_PROXY: "http://localhost:3128"
-          HTTPS_PROXY: "http://localhost:3128"
-          NO_PROXY: "localhost,127.0.0.1"
-          JDBC_PAT: ${{ secrets.DATABRICKS_TOKEN }}
-          JDBC_HOST: ${{ secrets.DATABRICKS_HOST }}
-          JDBC_HTTP_PATH: ${{ secrets.DATABRICKS_HTTP_PATH }}
-        run: echo "Proxy environment variables set, and PAT_TOKEN is ready."
-
-      ################################################################
-      # 10) Run ProxyTest
+      # 13) Run Proxy Tests
       ################################################################
       - name: Run ProxyTest
-        run: mvn test -Dtest=**/ProxyTest.java -DpatToken=$JDBC_PAT -DjdbcHost=$JDBC_HOST -DjdbcHttpPath=$JDBC_HTTP_PATH -DproxyUrl=http://localhost:3128
- 
+        run: |
+          mvn test -Dtest=**/ProxyTest.java
 
       ################################################################
-      # 12) Upload Logs / Results
+      # 14) Cleanup
       ################################################################
-      - name: Upload Proxy Test Logs
+      - name: Cleanup Squid
         if: always()
-        uses: actions/upload-artifact@v3
-        with:
-          name: proxy-test-logs
-          path: |
-            test-results/
-            /var/log/squid/access.log
-            /var/log/squid/cache.log
+        run: |
+          echo "Stopping and disabling primary Squid..."
+          sudo systemctl stop squid
+          sudo systemctl disable squid
+          echo "Killing Squid for CloudFetch proxy if still running..."
+          sudo pkill squid

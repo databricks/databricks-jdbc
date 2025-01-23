@@ -11,8 +11,10 @@ import com.databricks.jdbc.api.internal.IDatabricksConnectionInternal;
 import com.databricks.jdbc.common.IDatabricksComputeResource;
 import com.databricks.jdbc.common.StatementType;
 import com.databricks.jdbc.common.Warehouse;
+import com.databricks.jdbc.common.util.DatabricksThreadContextHolder;
 import com.databricks.jdbc.dbclient.impl.sqlexec.DatabricksSdkClient;
 import com.databricks.jdbc.exception.DatabricksSQLException;
+import com.databricks.jdbc.exception.DatabricksSQLFeatureNotImplementedException;
 import com.databricks.jdbc.exception.DatabricksSQLFeatureNotSupportedException;
 import java.sql.*;
 import java.util.*;
@@ -71,10 +73,12 @@ public class DatabricksConnectionTest {
         .thenReturn(IMMUTABLE_SESSION_INFO);
     connection = new DatabricksConnection(connectionContext, databricksClient);
     connection.open();
+    assertEquals(DatabricksThreadContextHolder.getConnectionContext(), connectionContext);
     assertFalse(connection.isClosed());
     assertEquals(connection.getSession().getSessionId(), SESSION_ID);
     // close the connection
     connection.close();
+    assertNull(DatabricksThreadContextHolder.getConnectionContext());
     assertTrue(connection.isClosed());
     assertEquals(connection.getConnection(), connection);
   }
@@ -155,7 +159,10 @@ public class DatabricksConnectionTest {
         DatabricksConnectionContext.parse(SESSION_CONF_JDBC_URL, new Properties());
     DatabricksConnection connection = new DatabricksConnection(connectionContext, databricksClient);
     connection.open();
-    assertNotNull(DatabricksVolumeClientFactory.getVolumeClient(connection));
+    DatabricksVolumeClientFactory volumeClientFactory =
+        new DatabricksVolumeClientFactory(); // test constructor
+    assertNotNull(volumeClientFactory.getVolumeClient(connection));
+    assertNotNull(volumeClientFactory.getVolumeClient(connectionContext));
   }
 
   @Test
@@ -165,6 +172,7 @@ public class DatabricksConnectionTest {
         .thenReturn(IMMUTABLE_SESSION_INFO);
     connection = new DatabricksConnection(connectionContext, databricksClient);
     connection.open();
+    assertEquals(DatabricksThreadContextHolder.getConnectionContext(), connectionContext);
     assertThrows(
         DatabricksSQLFeatureNotSupportedException.class,
         () -> {
@@ -197,6 +205,7 @@ public class DatabricksConnectionTest {
         .thenReturn(IMMUTABLE_SESSION_INFO);
     connection = new DatabricksConnection(connectionContext, databricksClient);
     connection.open();
+    assertEquals(DatabricksThreadContextHolder.getConnectionContext(), connectionContext);
     Properties properties = new Properties();
     properties.put("ENABLE_PHOTON", "TRUE");
     properties.put("TIMEZONE", "UTC");
@@ -240,68 +249,75 @@ public class DatabricksConnectionTest {
     connection.open();
     assertThrows(
         DatabricksSQLFeatureNotSupportedException.class, () -> connection.prepareCall(SQL));
-    assertThrows(DatabricksSQLFeatureNotSupportedException.class, () -> connection.nativeSQL(SQL));
     assertThrows(
-        DatabricksSQLFeatureNotSupportedException.class, () -> connection.setAutoCommit(true));
+        DatabricksSQLFeatureNotImplementedException.class, () -> connection.nativeSQL(SQL));
     assertThrows(
-        DatabricksSQLFeatureNotSupportedException.class, () -> connection.setReadOnly(true));
-    assertThrows(DatabricksSQLFeatureNotSupportedException.class, connection::commit);
-    assertThrows(DatabricksSQLFeatureNotSupportedException.class, connection::rollback);
+        DatabricksSQLFeatureNotImplementedException.class, () -> connection.setAutoCommit(true));
     assertThrows(
-        DatabricksSQLFeatureNotSupportedException.class,
+        DatabricksSQLFeatureNotImplementedException.class, () -> connection.setReadOnly(true));
+    assertThrows(DatabricksSQLFeatureNotImplementedException.class, connection::commit);
+    assertThrows(DatabricksSQLFeatureNotImplementedException.class, connection::rollback);
+    assertThrows(
+        DatabricksSQLFeatureNotImplementedException.class,
         () -> connection.setTransactionIsolation(10));
     assertThrows(
-        DatabricksSQLFeatureNotSupportedException.class,
+        DatabricksSQLFeatureNotImplementedException.class,
         () -> connection.setTypeMap(Collections.emptyMap()));
     assertThrows(
-        DatabricksSQLFeatureNotSupportedException.class, () -> connection.prepareCall(SQL, 10, 10));
-    assertThrows(DatabricksSQLFeatureNotSupportedException.class, connection::getTypeMap);
-    assertThrows(DatabricksSQLFeatureNotSupportedException.class, connection::getHoldability);
+        DatabricksSQLFeatureNotImplementedException.class,
+        () -> connection.prepareCall(SQL, 10, 10));
+    assertThrows(DatabricksSQLFeatureNotImplementedException.class, connection::getTypeMap);
+    assertThrows(DatabricksSQLFeatureNotImplementedException.class, connection::getHoldability);
     assertThrows(
-        DatabricksSQLFeatureNotSupportedException.class, () -> connection.setHoldability(1));
+        DatabricksSQLFeatureNotImplementedException.class, () -> connection.setHoldability(1));
     assertThrows(
-        DatabricksSQLFeatureNotSupportedException.class,
+        DatabricksSQLFeatureNotImplementedException.class,
         () -> connection.prepareCall(SQL, 1, 1, 1));
     assertThrows(
-        DatabricksSQLFeatureNotSupportedException.class,
+        DatabricksSQLFeatureNotImplementedException.class,
         () -> connection.prepareStatement(SQL, 1, 1, 1));
     assertThrows(
-        DatabricksSQLFeatureNotSupportedException.class, () -> connection.prepareStatement(SQL, 1));
+        DatabricksSQLFeatureNotImplementedException.class,
+        () -> connection.prepareStatement(SQL, 1));
     assertThrows(
-        DatabricksSQLFeatureNotSupportedException.class, () -> connection.prepareStatement(SQL, 1));
+        DatabricksSQLFeatureNotImplementedException.class,
+        () -> connection.prepareStatement(SQL, 1));
     assertThrows(
-        DatabricksSQLFeatureNotSupportedException.class, () -> connection.createStatement(1, 1, 1));
+        DatabricksSQLFeatureNotImplementedException.class,
+        () -> connection.createStatement(1, 1, 1));
     assertThrows(
-        DatabricksSQLFeatureNotSupportedException.class, () -> connection.setSavepoint("1"));
-    assertThrows(DatabricksSQLFeatureNotSupportedException.class, connection::setSavepoint);
-    assertThrows(DatabricksSQLFeatureNotSupportedException.class, connection::createClob);
-    assertThrows(DatabricksSQLFeatureNotSupportedException.class, connection::createBlob);
-    assertThrows(DatabricksSQLFeatureNotSupportedException.class, connection::createNClob);
-    assertThrows(DatabricksSQLFeatureNotSupportedException.class, connection::createSQLXML);
+        DatabricksSQLFeatureNotImplementedException.class, () -> connection.setSavepoint("1"));
+    assertThrows(DatabricksSQLFeatureNotImplementedException.class, connection::setSavepoint);
+    assertThrows(DatabricksSQLFeatureNotImplementedException.class, connection::createClob);
+    assertThrows(DatabricksSQLFeatureNotImplementedException.class, connection::createBlob);
+    assertThrows(DatabricksSQLFeatureNotImplementedException.class, connection::createNClob);
+    assertThrows(DatabricksSQLFeatureNotImplementedException.class, connection::createSQLXML);
     assertThrows(
-        DatabricksSQLFeatureNotSupportedException.class,
+        DatabricksSQLFeatureNotImplementedException.class,
         () -> connection.prepareStatement(SQL, new int[0]));
     assertThrows(
-        DatabricksSQLFeatureNotSupportedException.class,
+        DatabricksSQLFeatureNotImplementedException.class,
         () -> connection.prepareStatement(SQL, new String[0]));
-    assertThrows(DatabricksSQLFeatureNotSupportedException.class, () -> connection.rollback(null));
     assertThrows(
-        DatabricksSQLFeatureNotSupportedException.class, () -> connection.releaseSavepoint(null));
-    assertThrows(DatabricksSQLFeatureNotSupportedException.class, () -> connection.abort(null));
+        DatabricksSQLFeatureNotImplementedException.class, () -> connection.rollback(null));
     assertThrows(
-        DatabricksSQLFeatureNotSupportedException.class,
+        DatabricksSQLFeatureNotImplementedException.class, () -> connection.releaseSavepoint(null));
+    assertThrows(DatabricksSQLFeatureNotImplementedException.class, () -> connection.abort(null));
+    assertThrows(
+        DatabricksSQLFeatureNotImplementedException.class,
         () -> connection.setNetworkTimeout(null, 1));
     assertThrows(
-        DatabricksSQLFeatureNotSupportedException.class, () -> connection.getNetworkTimeout());
+        DatabricksSQLFeatureNotImplementedException.class, () -> connection.getNetworkTimeout());
     assertInstanceOf(
         IDatabricksConnectionInternal.class,
         connection.unwrap(IDatabricksConnectionInternal.class));
     assertTrue(connection.isWrapperFor(IDatabricksConnectionInternal.class));
     assertThrows(
-        DatabricksSQLFeatureNotSupportedException.class,
+        DatabricksSQLFeatureNotImplementedException.class,
         () -> connection.createArrayOf(null, null));
     assertThrows(
-        DatabricksSQLFeatureNotSupportedException.class, () -> connection.createStruct(null, null));
+        DatabricksSQLFeatureNotImplementedException.class,
+        () -> connection.createStruct(null, null));
   }
 
   @Test

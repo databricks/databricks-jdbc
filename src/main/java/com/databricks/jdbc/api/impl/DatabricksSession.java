@@ -15,6 +15,7 @@ import com.databricks.jdbc.dbclient.impl.thrift.DatabricksThriftServiceClient;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
+import com.databricks.jdbc.telemetry.latency.DatabricksMetricsTimedProcessor;
 import com.databricks.sdk.support.ToStringer;
 import com.google.common.annotations.VisibleForTesting;
 import java.util.HashMap;
@@ -28,7 +29,7 @@ import javax.annotation.Nullable;
 public class DatabricksSession implements IDatabricksSession {
 
   private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(DatabricksSession.class);
-  private IDatabricksClient databricksClient;
+  private final IDatabricksClient databricksClient;
   private IDatabricksMetadataClient databricksMetadataClient;
   private final IDatabricksComputeResource computeResource;
   private boolean isSessionOpen;
@@ -51,10 +52,15 @@ public class DatabricksSession implements IDatabricksSession {
   public DatabricksSession(IDatabricksConnectionContext connectionContext)
       throws DatabricksSQLException {
     if (connectionContext.getClientType() == DatabricksClientType.THRIFT) {
-      this.databricksClient = new DatabricksThriftServiceClient(connectionContext);
+      this.databricksClient =
+          DatabricksMetricsTimedProcessor.createProxy(
+              new DatabricksThriftServiceClient(connectionContext));
     } else {
-      this.databricksClient = new DatabricksSdkClient(connectionContext);
-      this.databricksMetadataClient = new DatabricksMetadataSdkClient(databricksClient);
+      this.databricksClient =
+          DatabricksMetricsTimedProcessor.createProxy(new DatabricksSdkClient(connectionContext));
+      this.databricksMetadataClient =
+          DatabricksMetricsTimedProcessor.createProxy(
+              new DatabricksMetadataSdkClient(databricksClient));
     }
     this.isSessionOpen = false;
     this.sessionInfo = null;

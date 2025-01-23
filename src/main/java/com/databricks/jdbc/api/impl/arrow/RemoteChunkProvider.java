@@ -3,6 +3,7 @@ package com.databricks.jdbc.api.impl.arrow;
 import com.databricks.jdbc.api.IDatabricksSession;
 import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
 import com.databricks.jdbc.common.CompressionCodec;
+import com.databricks.jdbc.common.util.DatabricksThreadContextHolder;
 import com.databricks.jdbc.common.util.DatabricksThriftUtil;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
 import com.databricks.jdbc.dbclient.impl.common.StatementId;
@@ -17,6 +18,8 @@ import com.databricks.jdbc.model.client.thrift.generated.TSparkArrowResultLink;
 import com.databricks.jdbc.model.core.ExternalLink;
 import com.databricks.jdbc.model.core.ResultData;
 import com.databricks.jdbc.model.core.ResultManifest;
+import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
+import com.databricks.jdbc.telemetry.latency.DatabricksMetricsTimedProcessor;
 import com.databricks.sdk.service.sql.BaseChunkInfo;
 import com.google.common.annotations.VisibleForTesting;
 import java.util.Collection;
@@ -126,7 +129,8 @@ public class RemoteChunkProvider implements ChunkProvider, ChunkDownloadCallback
           chunk.wait();
         }
         if (chunk.getStatus() != ArrowResultChunk.ChunkStatus.DOWNLOAD_SUCCEEDED) {
-          throw new DatabricksSQLException(chunk.getErrorMessage());
+          throw new DatabricksSQLException(
+              chunk.getErrorMessage(), DatabricksDriverErrorCode.CHUNK_DOWNLOAD_ERROR);
         }
       } catch (InterruptedException e) {
         LOGGER.error(
@@ -177,6 +181,7 @@ public class RemoteChunkProvider implements ChunkProvider, ChunkDownloadCallback
     this.isClosed = true;
     this.chunkDownloaderExecutorService.shutdownNow();
     this.chunkIndexToChunksMap.values().forEach(ArrowResultChunk::releaseChunk);
+    DatabricksThreadContextHolder.clearStatementInfo();
   }
 
   @Override
@@ -214,7 +219,9 @@ public class RemoteChunkProvider implements ChunkProvider, ChunkDownloadCallback
         && totalChunksInMemory < allowedChunksInMemory) {
       ArrowResultChunk chunk = chunkIndexToChunksMap.get(nextChunkToDownload);
       if (chunk.getStatus() != ArrowResultChunk.ChunkStatus.DOWNLOAD_SUCCEEDED) {
-        this.chunkDownloaderExecutorService.submit(new ChunkDownloadTask(chunk, httpClient, this));
+        this.chunkDownloaderExecutorService.submit(
+            DatabricksMetricsTimedProcessor.createProxy(
+                new ChunkDownloadTask(chunk, httpClient, this)));
         totalChunksInMemory++;
       }
       nextChunkToDownload++;
@@ -222,6 +229,7 @@ public class RemoteChunkProvider implements ChunkProvider, ChunkDownloadCallback
   }
 
   void initializeData() {
+    DatabricksThreadContextHolder.setStatementId(statementId);
     // No chunks are downloaded, we need to start from first one
     this.nextChunkToDownload = 0;
     // Initialize current chunk to -1, since we don't have anything to read
