@@ -636,6 +636,11 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
         getParameter(DatabricksJdbcUrlParams.ALLOWED_STAGING_INGESTION_PATHS, ""));
   }
 
+  @Override
+  public boolean isSqlExecHybridResultsEnabled() {
+    return getParameter(DatabricksJdbcUrlParams.ENABLE_SQL_EXEC_HYBRID_RESULTS).equals("1");
+  }
+
   private static boolean nullOrEmptyString(String s) {
     return s == null || s.isEmpty();
   }

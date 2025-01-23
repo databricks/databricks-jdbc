@@ -231,7 +231,8 @@ public class DatabricksHttpClient implements IDatabricksHttpClient, Closeable {
             throw new HttpException(e.getMessage());
           }
 
-          if (LOCALHOST.getHostName().equalsIgnoreCase(host.getHostName())) {
+          if (host.getHostName().equalsIgnoreCase(LOCALHOST.getHostName())
+              || host.getHostName().equalsIgnoreCase("127.0.0.1")) {
             // If the target host is localhost, then no need to set proxy
             return new HttpRoute(target, null, false);
           }

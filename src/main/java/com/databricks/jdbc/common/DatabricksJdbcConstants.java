@@ -81,6 +81,7 @@ public final class DatabricksJdbcConstants {
           "Content-Type", "application/json");
   @VisibleForTesting public static final String IS_FAKE_SERVICE_TEST_PROP = "isFakeServiceTest";
   @VisibleForTesting public static final String FAKE_SERVICE_URI_PROP_SUFFIX = ".fakeServiceURI";
+  public static final String IS_JDBC_TEST_ENV = "IS_JDBC_TEST_ENV";
   public static final String AWS_CLIENT_ID = "databricks-sql-jdbc";
   public static final String GCP_CLIENT_ID = "databricks-sql-jdbc";
   public static final String AAD_CLIENT_ID = "96eecda7-19ea-49cc-abb5-240097d554f5";

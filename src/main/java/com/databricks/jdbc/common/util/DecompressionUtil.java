@@ -34,9 +34,9 @@ public class DecompressionUtil {
   public static byte[] decompress(
       byte[] compressedInput, CompressionCodec compressionCodec, String context)
       throws DatabricksSQLException {
-    if (compressedInput == null) {
-      LOGGER.debug("compressedInputBytes is `NULL`. Skipping compression.");
-      return null;
+    if (compressionCodec == null || compressedInput == null) {
+      LOGGER.debug("Compression is NONE /InputStream is `NULL`. Skipping compression.");
+      return compressedInput;
     }
     switch (compressionCodec) {
       case NONE:
