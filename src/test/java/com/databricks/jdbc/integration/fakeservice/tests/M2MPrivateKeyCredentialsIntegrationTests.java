@@ -21,14 +21,14 @@ public class M2MPrivateKeyCredentialsIntegrationTests extends AbstractFakeServic
       System.getenv("DATABRICKS_JDBC_M2M_PRIVATE_KEY_TOKEN_ENDPOINT");
   private static final String TEST_AUTH_KID =
       System.getenv("DATABRICKS_JDBC_M2M_PRIVATE_KEY_AUTH_KID");
-  private static final String TEST_JWT_KEY_FILE =
-      System.getenv("DATABRICKS_JDBC_M2M_PRIVATE_KEY_JWT_KEY_FILE");
+  private static final String TEST_JWT_KEY_FILE = "/tmp/jdbc-testing-enc.pem";
   private static final String TEST_JWT_KEY_PASSPHRASE =
       System.getenv("DATABRICKS_JDBC_M2M_PRIVATE_KEY_JWT_KEY_PASSPHRASE");
 
   @BeforeAll
   static void setup() {
-    System.setProperty("FAKE_SERVICE_TEST_MODE", "REPLAY");     // DO NOT change. Not sending req to production server.
+    System.setProperty(
+        "FAKE_SERVICE_TEST_MODE", "REPLAY"); // DO NOT change. Not sending req to production server.
     setDatabricksApiTargetUrl(getM2MPrivateKeyCredentialsHost());
   }
 
