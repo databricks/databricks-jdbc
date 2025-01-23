@@ -1,6 +1,6 @@
 package com.databricks.jdbc.common.util;
 
-import com.databricks.jdbc.exception.DatabricksSQLException;
+import com.databricks.jdbc.exception.DatabricksValidationException;
 import java.sql.SQLException;
 
 public class WrapperUtil {
@@ -12,7 +12,7 @@ public class WrapperUtil {
     try {
       return iface.cast(object);
     } catch (Exception exception) {
-      throw new DatabricksSQLException("Cannot unwrap object to class", exception);
+      throw new DatabricksValidationException("Cannot unwrap object to class", exception);
     }
   }
 }

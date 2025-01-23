@@ -53,6 +53,7 @@ public final class DatabricksJdbcConstants {
   public static final String CLIENT_USER_AGENT_PREFIX = "Java";
   public static final String USER_AGENT_SEA_CLIENT = "SQLExecHttpClient/HC";
   public static final String USER_AGENT_THRIFT_CLIENT = "THttpClient/HC";
+  public static final String THRIFT_ERROR_MESSAGE_HEADER = "X-Thriftserver-Error-Message";
   public static final String ALLOWED_VOLUME_INGESTION_PATHS = "VolumeOperationAllowedLocalPaths";
   public static final String ALLOWED_STAGING_INGESTION_PATHS = "StagingAllowedLocalPaths";
   public static final String VOLUME_OPERATION_STATUS_COLUMN_NAME = "operation_status";
@@ -80,6 +81,7 @@ public final class DatabricksJdbcConstants {
           "Content-Type", "application/json");
   @VisibleForTesting public static final String IS_FAKE_SERVICE_TEST_PROP = "isFakeServiceTest";
   @VisibleForTesting public static final String FAKE_SERVICE_URI_PROP_SUFFIX = ".fakeServiceURI";
+  public static final String IS_JDBC_TEST_ENV = "IS_JDBC_TEST_ENV";
   public static final String AWS_CLIENT_ID = "databricks-sql-jdbc";
   public static final String GCP_CLIENT_ID = "databricks-sql-jdbc";
   public static final String AAD_CLIENT_ID = "96eecda7-19ea-49cc-abb5-240097d554f5";

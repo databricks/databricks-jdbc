@@ -13,12 +13,18 @@ import com.databricks.jdbc.exception.DatabricksHttpException;
 import com.databricks.jdbc.exception.DatabricksRetryHandlerException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
+import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import com.databricks.sdk.core.ProxyConfig;
 import com.databricks.sdk.core.utils.ProxyUtils;
 import com.google.common.annotations.VisibleForTesting;
 import java.io.Closeable;
 import java.io.IOException;
+import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
+import org.apache.hc.client5.http.impl.async.CloseableHttpAsyncClient;
+import org.apache.hc.core5.concurrent.FutureCallback;
+import org.apache.hc.core5.http.nio.AsyncRequestProducer;
+import org.apache.hc.core5.http.nio.AsyncResponseConsumer;
 import org.apache.http.HttpException;
 import org.apache.http.HttpHost;
 import org.apache.http.client.config.RequestConfig;
@@ -44,6 +50,7 @@ public class DatabricksHttpClient implements IDatabricksHttpClient, Closeable {
   private final CloseableHttpClient httpClient;
   private DatabricksHttpRetryHandler retryHandler;
   private IdleConnectionEvictor idleConnectionEvictor;
+  private CloseableHttpAsyncClient asyncClient;
 
   DatabricksHttpClient(IDatabricksConnectionContext connectionContext) {
     connectionManager = initializeConnectionManager(connectionContext);
@@ -53,6 +60,7 @@ public class DatabricksHttpClient implements IDatabricksHttpClient, Closeable {
         new IdleConnectionEvictor(
             connectionManager, connectionContext.getIdleHttpConnectionExpiry(), TimeUnit.SECONDS);
     idleConnectionEvictor.start();
+    asyncClient = GlobalAsyncHttpClient.getClient();
   }
 
   @VisibleForTesting
@@ -85,6 +93,22 @@ public class DatabricksHttpClient implements IDatabricksHttpClient, Closeable {
     return null;
   }
 
+  /**
+   * {@inheritDoc}
+   *
+   * <p>This method leverages the Apache Async HTTP client which uses non-blocking I/O, allowing for
+   * higher throughput and better resource utilization compared to blocking I/O. Instead of
+   * dedicating one thread per connection, it can handle multiple connections with a smaller thread
+   * pool, significantly reducing memory overhead and thread context switching.
+   */
+  @Override
+  public <T> Future<T> executeAsync(
+      AsyncRequestProducer requestProducer,
+      AsyncResponseConsumer<T> responseConsumer,
+      FutureCallback<T> callback) {
+    return asyncClient.execute(requestProducer, responseConsumer, callback);
+  }
+
   @Override
   public void close() throws IOException {
     if (idleConnectionEvictor != null) {
@@ -95,6 +119,10 @@ public class DatabricksHttpClient implements IDatabricksHttpClient, Closeable {
     }
     if (connectionManager != null) {
       connectionManager.shutdown();
+    }
+    if (asyncClient != null) {
+      GlobalAsyncHttpClient.releaseClient();
+      asyncClient = null;
     }
   }
 
@@ -136,7 +164,8 @@ public class DatabricksHttpClient implements IDatabricksHttpClient, Closeable {
     Throwable cause = e;
     while (cause != null) {
       if (cause instanceof DatabricksRetryHandlerException) {
-        throw new DatabricksHttpException(cause.getMessage(), cause);
+        throw new DatabricksHttpException(
+            cause.getMessage(), cause, DatabricksDriverErrorCode.INVALID_STATE);
       }
       cause = cause.getCause();
     }
@@ -202,7 +231,8 @@ public class DatabricksHttpClient implements IDatabricksHttpClient, Closeable {
             throw new HttpException(e.getMessage());
           }
 
-          if (LOCALHOST.getHostName().equalsIgnoreCase(host.getHostName())) {
+          if (host.getHostName().equalsIgnoreCase(LOCALHOST.getHostName())
+              || host.getHostName().equalsIgnoreCase("127.0.0.1")) {
             // If the target host is localhost, then no need to set proxy
             return new HttpRoute(target, null, false);
           }

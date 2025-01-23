@@ -1,6 +1,9 @@
 package com.databricks.jdbc.api.impl.converters;
 
 import com.databricks.jdbc.exception.DatabricksSQLException;
+import com.databricks.jdbc.exception.DatabricksValidationException;
+import com.databricks.jdbc.log.JdbcLogger;
+import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.sdk.service.sql.ColumnInfoTypeName;
 import java.math.BigDecimal;
 import java.sql.Date;
@@ -16,6 +19,8 @@ import java.util.function.Function;
 import org.apache.arrow.vector.util.Text;
 
 public class ArrowToJavaObjectConverter {
+  private static final JdbcLogger LOGGER =
+      JdbcLoggerFactory.getLogger(ArrowToJavaObjectConverter.class);
   private static final List<DateTimeFormatter> DATE_FORMATTERS =
       Arrays.asList(
           DateTimeFormatter.ofPattern("yyyy-MM-dd"),
@@ -82,7 +87,9 @@ public class ArrowToJavaObjectConverter {
       case NULL:
         return null;
       default:
-        throw new DatabricksSQLException("Unsupported type");
+        String errorMessage = String.format("Unsupported conversion type %s", requiredType);
+        LOGGER.error(errorMessage);
+        throw new DatabricksValidationException(errorMessage);
     }
   }
 
@@ -111,7 +118,9 @@ public class ArrowToJavaObjectConverter {
         // Continue to try the next format
       }
     }
-    throw new DatabricksSQLException("Unsupported text for conversion: " + text);
+    String errorMessage = String.format("Unsupported text for date conversion: %s", text);
+    LOGGER.error(errorMessage);
+    throw new DatabricksValidationException(errorMessage);
   }
 
   private static Date convertToDate(Object object) throws DatabricksSQLException {
@@ -154,7 +163,9 @@ public class ArrowToJavaObjectConverter {
     if (object instanceof Number) {
       return convertFunc.apply((Number) object);
     }
-    throw new DatabricksSQLException(
-        "Unsupported object type for number conversion: " + object.getClass());
+    String errorMessage =
+        String.format("Unsupported object type for number conversion: %s", object.getClass());
+    LOGGER.error(errorMessage);
+    throw new DatabricksValidationException(errorMessage);
   }
 }

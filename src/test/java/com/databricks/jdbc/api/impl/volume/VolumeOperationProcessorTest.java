@@ -4,9 +4,10 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
-import com.databricks.jdbc.common.util.VolumeUtil;
+import com.databricks.jdbc.api.impl.VolumeOperationStatus;
 import com.databricks.jdbc.dbclient.impl.http.DatabricksHttpClient;
 import com.databricks.jdbc.exception.DatabricksHttpException;
+import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import org.apache.http.StatusLine;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.entity.InputStreamEntity;
@@ -40,7 +41,7 @@ public class VolumeOperationProcessorTest {
     when(mockStatusLine.getStatusCode()).thenReturn(400);
     volumeOperationProcessor.executeGetOperation();
 
-    assertEquals(volumeOperationProcessor.getStatus(), VolumeUtil.VolumeOperationStatus.FAILED);
+    assertEquals(volumeOperationProcessor.getStatus(), VolumeOperationStatus.FAILED);
   }
 
   @Test
@@ -53,11 +54,12 @@ public class VolumeOperationProcessorTest {
             .getStreamReceiver((entity) -> {})
             .build();
 
-    DatabricksHttpException mockException = new DatabricksHttpException("Test Exeception");
+    DatabricksHttpException mockException =
+        new DatabricksHttpException("Test Exeception", DatabricksDriverErrorCode.INVALID_STATE);
     doThrow(mockException).when(databricksHttpClient).execute(any());
 
     volumeOperationProcessor.executeGetOperation();
-    assertEquals(volumeOperationProcessor.getStatus(), VolumeUtil.VolumeOperationStatus.FAILED);
+    assertEquals(volumeOperationProcessor.getStatus(), VolumeOperationStatus.FAILED);
   }
 
   @Test
@@ -70,10 +72,11 @@ public class VolumeOperationProcessorTest {
             .databricksHttpClient(databricksHttpClient)
             .build();
 
-    DatabricksHttpException mockException = new DatabricksHttpException("Test Exeception");
+    DatabricksHttpException mockException =
+        new DatabricksHttpException("Test Exeception", DatabricksDriverErrorCode.INVALID_STATE);
     doThrow(mockException).when(databricksHttpClient).execute(any());
 
     volumeOperationProcessor.executePutOperation();
-    assertEquals(volumeOperationProcessor.getStatus(), VolumeUtil.VolumeOperationStatus.FAILED);
+    assertEquals(volumeOperationProcessor.getStatus(), VolumeOperationStatus.FAILED);
   }
 }

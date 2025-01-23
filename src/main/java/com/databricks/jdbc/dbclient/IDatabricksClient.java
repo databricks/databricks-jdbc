@@ -9,6 +9,7 @@ import com.databricks.jdbc.common.StatementType;
 import com.databricks.jdbc.dbclient.impl.common.StatementId;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.model.core.ExternalLink;
+import com.databricks.jdbc.telemetry.latency.DatabricksMetricsTimed;
 import java.sql.SQLException;
 import java.util.Collection;
 import java.util.Map;
@@ -50,6 +51,7 @@ public interface IDatabricksClient {
    * @param parentStatement statement instance if called from a statement
    * @return response for statement execution
    */
+  @DatabricksMetricsTimed
   DatabricksResultSet executeStatement(
       String sql,
       IDatabricksComputeResource computeResource,

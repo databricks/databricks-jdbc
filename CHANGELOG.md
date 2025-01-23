@@ -1,5 +1,24 @@
 # Version Changelog
 
+## [v0.9.9-oss] - 2025-01-08
+
+### Added
+* Add client code for Telemetry in JDBC
+* Implement complex data types
+* Add support to fetch ConnectionId and close connection by connection-Id
+* Implementing the Stream support in the DBFS Client
+
+
+### Updated
+* Run metadata queries in async mode
+* Change integration test cached API call file paths to Windows-friendly paths
+
+### Fixed
+* Fix statementId extraction from thrift guid
+* Make volume operations flag backward compatible with existing Databricks driver
+
+---
+
 ## [v0.9.8-oss] - 2024-12-13
 
 ### Added

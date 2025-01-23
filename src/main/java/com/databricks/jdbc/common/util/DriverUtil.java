@@ -9,6 +9,7 @@ import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.exception.DatabricksValidationException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
+import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import com.google.common.annotations.VisibleForTesting;
 import java.io.IOException;
 import java.sql.ResultSet;
@@ -25,7 +26,7 @@ public class DriverUtil {
 
   private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(DriverUtil.class);
   public static final String DBSQL_VERSION_SQL = "SELECT current_version().dbsql_version";
-  private static final String VERSION = "0.9.8-oss";
+  private static final String VERSION = "0.9.9-oss";
   private static final String DRIVER_NAME = "oss-jdbc";
   private static final int DBSQL_MIN_MAJOR_VERSION_FOR_SEA_SUPPORT = 2024;
   private static final int DBSQL_MIN_MINOR_VERSION_FOR_SEA_SUPPORT = 30;
@@ -74,7 +75,8 @@ public class DriverUtil {
           String.format(
               "Error initializing the Java Util Logger (JUL) with error: {%s}", e.getMessage());
       LOGGER.error(e, errMsg);
-      throw new DatabricksSQLException(errMsg, e);
+      throw new DatabricksSQLException(
+          errMsg, e, DatabricksDriverErrorCode.LOGGING_INITIALISATION_ERROR);
     }
   }
 

@@ -8,7 +8,7 @@ import com.databricks.jdbc.api.impl.volume.VolumeOperationResult;
 import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
 import com.databricks.jdbc.common.util.DatabricksThriftUtil;
 import com.databricks.jdbc.dbclient.impl.common.StatementId;
-import com.databricks.jdbc.exception.DatabricksParsingException;
+import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.exception.DatabricksSQLFeatureNotImplementedException;
 import com.databricks.jdbc.exception.DatabricksSQLFeatureNotSupportedException;
 import com.databricks.jdbc.model.client.thrift.generated.TFetchResultsResp;
@@ -25,7 +25,7 @@ class ExecutionResultFactory {
       StatementId statementId,
       IDatabricksSession session,
       IDatabricksStatementInternal statement)
-      throws DatabricksParsingException {
+      throws DatabricksSQLException {
     IExecutionResult resultHandler = getResultHandler(data, manifest, statementId, session);
     if (manifest.getIsVolumeOperation() != null && manifest.getIsVolumeOperation()) {
       return new VolumeOperationResult(
@@ -41,7 +41,7 @@ class ExecutionResultFactory {
 
   private static IExecutionResult getResultHandler(
       ResultData data, ResultManifest manifest, StatementId statementId, IDatabricksSession session)
-      throws DatabricksParsingException {
+      throws DatabricksSQLException {
     if (manifest.getFormat() == null) {
       throw new IllegalStateException("Empty response format");
     }

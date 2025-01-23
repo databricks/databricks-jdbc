@@ -3,8 +3,10 @@ package com.databricks.jdbc.api.impl.volume;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
+import com.databricks.jdbc.exception.DatabricksSQLFeatureNotImplementedException;
 import com.databricks.jdbc.exception.DatabricksVolumeOperationException;
 import com.databricks.jdbc.model.client.filesystem.*;
+import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import com.databricks.sdk.WorkspaceClient;
 import com.databricks.sdk.core.ApiClient;
 import java.io.File;
@@ -14,6 +16,7 @@ import java.util.Arrays;
 import java.util.List;
 import org.junit.jupiter.api.*;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.api.io.TempDir;
 import org.mockito.*;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -27,6 +30,8 @@ class DBFSVolumeClientTest {
   private DBFSVolumeClient client;
   private VolumeOperationProcessor.Builder processorBuilder;
 
+  @TempDir private File tempFolder;
+
   @BeforeEach
   void setup() {
     // DBFS Client Spy
@@ -36,9 +41,9 @@ class DBFSVolumeClientTest {
 
   @Test
   void testPrefixExists() {
-    UnsupportedOperationException exception =
+    DatabricksSQLFeatureNotImplementedException exception =
         assertThrows(
-            UnsupportedOperationException.class,
+            DatabricksSQLFeatureNotImplementedException.class,
             () -> {
               client.prefixExists("catalog", "schema", "volume", "prefix", true);
             });
@@ -48,9 +53,9 @@ class DBFSVolumeClientTest {
 
   @Test
   void testObjectExists() {
-    UnsupportedOperationException exception =
+    DatabricksSQLFeatureNotImplementedException exception =
         assertThrows(
-            UnsupportedOperationException.class,
+            DatabricksSQLFeatureNotImplementedException.class,
             () -> {
               client.objectExists("catalog", "schema", "volume", "objectPath", true);
             });
@@ -60,9 +65,9 @@ class DBFSVolumeClientTest {
 
   @Test
   void testVolumeExists() {
-    UnsupportedOperationException exception =
+    DatabricksSQLFeatureNotImplementedException exception =
         assertThrows(
-            UnsupportedOperationException.class,
+            DatabricksSQLFeatureNotImplementedException.class,
             () -> {
               client.volumeExists("catalog", "schema", "volumeName", true);
             });
@@ -119,7 +124,8 @@ class DBFSVolumeClientTest {
   @Test
   void testGetObject_getCreateDownloadUrlResponseException() throws Exception {
     DatabricksVolumeOperationException mockException =
-        new DatabricksVolumeOperationException("Mocked Exception");
+        new DatabricksVolumeOperationException(
+            "Mocked Exception", DatabricksDriverErrorCode.INVALID_STATE);
     doThrow(mockException).when(client).getCreateDownloadUrlResponse(any());
     assertThrows(
         DatabricksVolumeOperationException.class,
@@ -190,7 +196,8 @@ class DBFSVolumeClientTest {
   @Test
   void testPutObjectWithLocalPath_getCreateUploadUrlResponseException() throws Exception {
     DatabricksVolumeOperationException mockException =
-        new DatabricksVolumeOperationException("Mocked Exception");
+        new DatabricksVolumeOperationException(
+            "Mocked Exception", DatabricksDriverErrorCode.INVALID_STATE);
     doThrow(mockException).when(client).getCreateUploadUrlResponse(any());
     assertThrows(
         DatabricksVolumeOperationException.class,
@@ -210,29 +217,19 @@ class DBFSVolumeClientTest {
 
     try (MockedStatic<VolumeOperationProcessor.Builder> mockedStatic =
         mockStatic(VolumeOperationProcessor.Builder.class)) {
+
       mockedStatic
           .when(VolumeOperationProcessor.Builder::createBuilder)
           .thenReturn(processorBuilder);
 
-      File file = new File("/tmp/dbfs_test_put.txt");
+      File file = new File(tempFolder, "dbfs_test_put.txt");
+      Files.writeString(file.toPath(), "test-put-stream");
+      System.out.println("File created");
 
-      boolean result = false;
-      try {
-        Files.writeString(file.toPath(), "test-put-stream");
-        System.out.println("File created");
-
+      boolean result;
+      try (FileInputStream fis = new FileInputStream(file)) {
         result =
-            client.putObject(
-                "catalog",
-                "schema",
-                "volume",
-                "objectPath",
-                new FileInputStream(file),
-                file.length(),
-                true);
-
-      } finally {
-        file.delete();
+            client.putObject("catalog", "schema", "volume", "objectPath", fis, file.length(), true);
       }
 
       assertTrue(result);
@@ -267,7 +264,8 @@ class DBFSVolumeClientTest {
   @Test
   void testDeleteObject_getCreateDeleteUrlResponseException() throws Exception {
     DatabricksVolumeOperationException mockException =
-        new DatabricksVolumeOperationException("Mocked Exception");
+        new DatabricksVolumeOperationException(
+            "Mocked Exception", DatabricksDriverErrorCode.INVALID_STATE);
     doThrow(mockException).when(client).getCreateDeleteUrlResponse(any());
     assertThrows(
         DatabricksVolumeOperationException.class,

@@ -24,13 +24,4 @@ public class VolumeUtil {
       return VolumeOperationType.OTHER;
     }
   }
-
-  /** Enum to represent the state of the Volume Operation */
-  public enum VolumeOperationStatus {
-    PENDING,
-    RUNNING,
-    ABORTED,
-    SUCCEEDED,
-    FAILED
-  }
 }

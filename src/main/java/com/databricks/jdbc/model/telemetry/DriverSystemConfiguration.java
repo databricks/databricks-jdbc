@@ -29,11 +29,13 @@ public class DriverSystemConfiguration {
   @JsonProperty("client_app_name")
   private String clientAppName;
 
+  @JsonProperty("locale_name")
   private String localeName;
 
   @JsonProperty("driver_name")
   private String driverName;
 
+  @JsonProperty("char_set_encoding")
   private String charSetEncoding;
 
   public DriverSystemConfiguration setDriverName(String driverName) {

@@ -409,7 +409,8 @@ public class DatabricksTypeUtil {
       case NULL_TYPE:
         return ArrowType.Null.INSTANCE;
       default:
-        throw new DatabricksSQLFeatureNotSupportedException("Unsupported Hive type: " + typeId);
+        throw new DatabricksSQLFeatureNotSupportedException(
+            "Unsupported mapping of Thrift to ArrowType: " + typeId);
     }
   }
 }

@@ -28,6 +28,9 @@ public class TelemetryEvent {
   @JsonProperty("error_info")
   DriverErrorInfo driverErrorInfo;
 
+  @JsonProperty("operation_latency_ms")
+  long latency;
+
   public TelemetryEvent() {}
 
   public String getSessionId() {
@@ -39,8 +42,9 @@ public class TelemetryEvent {
     return this;
   }
 
-  public String getSqlStatementId() {
-    return sqlStatementId;
+  public TelemetryEvent setLatency(long latency) {
+    this.latency = latency;
+    return this;
   }
 
   public TelemetryEvent setDriverConnectionParameters(

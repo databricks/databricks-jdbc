@@ -5,6 +5,7 @@ import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
+import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -25,15 +26,16 @@ public class DecompressionUtil {
       String errorMessage =
           String.format("Unable to de-compress LZ4 Frame compressed result %s", context);
       LOGGER.error(e, errorMessage + e.getMessage());
-      throw new DatabricksParsingException(errorMessage, e);
+      throw new DatabricksParsingException(
+          errorMessage, e, DatabricksDriverErrorCode.DECOMPRESSION_ERROR);
     }
   }
 
   public static byte[] decompress(
       byte[] compressedInput, CompressionCodec compressionCodec, String context)
       throws DatabricksSQLException {
-    if (compressedInput == null) {
-      LOGGER.debug("compressedInputBytes is `NULL`. Skipping compression.");
+    if (compressionCodec == null || compressedInput == null) {
+      LOGGER.debug("Compression is NONE /InputStream is `NULL`. Skipping compression.");
       return compressedInput;
     }
     switch (compressionCodec) {
@@ -46,7 +48,8 @@ public class DecompressionUtil {
         String errorMessage =
             String.format("Unknown compression type: %s. Context : %s", compressionCodec, context);
         LOGGER.error(errorMessage);
-        throw new DatabricksSQLException(errorMessage);
+        throw new DatabricksSQLException(
+            errorMessage, DatabricksDriverErrorCode.DECOMPRESSION_ERROR);
     }
   }
 
