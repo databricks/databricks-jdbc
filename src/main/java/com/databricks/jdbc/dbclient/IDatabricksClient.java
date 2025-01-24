@@ -8,6 +8,7 @@ import com.databricks.jdbc.common.IDatabricksComputeResource;
 import com.databricks.jdbc.common.StatementType;
 import com.databricks.jdbc.dbclient.impl.common.StatementId;
 import com.databricks.jdbc.exception.DatabricksSQLException;
+import com.databricks.jdbc.model.client.thrift.generated.TFetchResultsResp;
 import com.databricks.jdbc.model.core.ExternalLink;
 import com.databricks.jdbc.telemetry.latency.DatabricksMetricsTimed;
 import java.sql.SQLException;
@@ -123,4 +124,7 @@ public interface IDatabricksClient {
    * @param newAccessToken new access token value
    */
   void resetAccessToken(String newAccessToken);
+
+  TFetchResultsResp getMoreResults(IDatabricksStatementInternal parentStatement)
+      throws DatabricksSQLException;
 }

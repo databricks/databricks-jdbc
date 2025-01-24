@@ -13,15 +13,14 @@ import com.databricks.jdbc.common.IDatabricksComputeResource;
 import com.databricks.jdbc.dbclient.IDatabricksClient;
 import com.databricks.jdbc.dbclient.impl.common.ClientConfigurator;
 import com.databricks.jdbc.dbclient.impl.common.StatementId;
-import com.databricks.jdbc.exception.DatabricksParsingException;
-import com.databricks.jdbc.exception.DatabricksSQLException;
-import com.databricks.jdbc.exception.DatabricksTimeoutException;
+import com.databricks.jdbc.exception.*;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.model.client.sqlexec.*;
 import com.databricks.jdbc.model.client.sqlexec.ExecuteStatementRequest;
 import com.databricks.jdbc.model.client.sqlexec.ExecuteStatementResponse;
 import com.databricks.jdbc.model.client.sqlexec.GetStatementResponse;
+import com.databricks.jdbc.model.client.thrift.generated.TFetchResultsResp;
 import com.databricks.jdbc.model.core.ExternalLink;
 import com.databricks.jdbc.model.core.ResultData;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
@@ -310,6 +309,12 @@ public class DatabricksSdkClient implements IDatabricksClient {
   public synchronized void resetAccessToken(String newAccessToken) {
     this.clientConfigurator.resetAccessTokenInConfig(newAccessToken);
     this.workspaceClient = clientConfigurator.getWorkspaceClient();
+  }
+
+  @Override
+  public TFetchResultsResp getMoreResults(IDatabricksStatementInternal parentStatement)
+      throws DatabricksSQLException {
+    throw new DatabricksValidationException("Get more results cannot be called for SEA flow");
   }
 
   private boolean useCloudFetchForResult(StatementType statementType) {
