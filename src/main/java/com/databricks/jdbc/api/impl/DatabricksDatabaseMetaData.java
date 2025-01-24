@@ -869,6 +869,21 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
     return false;
   }
 
+  /**
+   * Builds the result set for stored procedures metadata.
+   *
+   * <p>The result set structure is defined based on the JDBC driver specifications to ensure
+   * consistency. The following columns are included in the result set:
+   *
+   * <ul>
+   *   <li>PROCEDURE_CAT: The catalog of the procedure (String)
+   *   <li>PROCEDURE_SCHEM: The schema of the procedure (String)
+   *   <li>PROCEDURE_NAME: The name of the procedure (String)
+   *   <li>REMARKS: A description or remarks about the procedure (String)
+   *   <li>PROCEDURE_TYPE: The type of procedure (e.g., FUNCTION, PROCEDURE) (String)
+   *   <li>SPECIFIC_NAME: The specific name for the procedure (String)
+   * </ul>
+   */
   @Override
   public ResultSet getProcedures(String catalog, String schemaPattern, String procedureNamePattern)
       throws SQLException {
@@ -891,19 +906,28 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
             "PROCEDURE_TYPE",
             "SPECIFIC_NAME"),
         Arrays.asList(
-            "VARCHAR", "VARCHAR", "VARCHAR", "VARCHAR", "VARCHAR", "VARCHAR", "VARCHAR", "VARCHAR",
+            "VARCHAR",
+            "VARCHAR",
+            "VARCHAR",
+            "INTEGER",
+            "INTEGER",
+            "INTEGER",
+            "VARCHAR",
+            "SMALLINT",
             "VARCHAR"),
-        Arrays.asList(
-            Types.VARCHAR,
-            Types.VARCHAR,
-            Types.VARCHAR,
-            Types.VARCHAR,
-            Types.VARCHAR,
-            Types.VARCHAR,
-            Types.VARCHAR,
-            Types.VARCHAR,
-            Types.VARCHAR),
-        Arrays.asList(128, 128, 128, 128, 128, 128, 128, 128, 128),
+        new int[] {
+          Types.VARCHAR,
+          Types.VARCHAR,
+          Types.VARCHAR,
+          Types.INTEGER,
+          Types.INTEGER,
+          Types.INTEGER,
+          Types.VARCHAR,
+          Types.SMALLINT,
+          Types.VARCHAR
+        },
+        new int[] {128, 128, 128, 128, 128, 128, 128, 128, 128},
+        new int[] {1, 1, 0, 1, 1, 1, 1, 1, 0},
         new Object[0][0],
         StatementType.METADATA);
   }
@@ -1191,15 +1215,17 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
             "REMAKRS",
             "BASE_TYPE"),
         Arrays.asList("VARCHAR", "VARCHAR", "VARCHAR", "VARCHAR", "VARCHAR", "VARCHAR", "VARCHAR"),
-        Arrays.asList(
-            Types.VARCHAR,
-            Types.VARCHAR,
-            Types.VARCHAR,
-            Types.VARCHAR,
-            Types.VARCHAR,
-            Types.VARCHAR,
-            Types.VARCHAR),
-        Arrays.asList(128, 128, 128, 128, 128, 128, 128),
+        new int[] {
+          Types.VARCHAR,
+          Types.VARCHAR,
+          Types.VARCHAR,
+          Types.VARCHAR,
+          Types.VARCHAR,
+          Types.VARCHAR,
+          Types.VARCHAR
+        },
+        new int[] {128, 128, 128, 128, 128, 128, 128},
+        new int[] {1, 1, 0, 1, 1, 1, 1},
         new String[0][0],
         StatementType.METADATA);
   }

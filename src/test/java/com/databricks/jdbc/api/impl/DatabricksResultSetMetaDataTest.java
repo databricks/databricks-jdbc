@@ -96,6 +96,48 @@ public class DatabricksResultSetMetaDataTest {
   }
 
   @Test
+  public void testDatabricksResultSetMetaDataInitialization() throws SQLException {
+    // Instantiate the DatabricksResultSetMetaData
+    DatabricksResultSetMetaData metaData =
+        new DatabricksResultSetMetaData(
+            STATEMENT_ID,
+            List.of("col1", "col2", "col3"),
+            List.of("INTEGER", "VARCHAR", "DOUBLE"),
+            new int[] {4, 12, 8},
+            new int[] {10, 255, 15},
+            new int[] {
+              ResultSetMetaData.columnNullable,
+              ResultSetMetaData.columnNoNulls,
+              ResultSetMetaData.columnNullable
+            },
+            100);
+
+    // Assertions to validate initialization
+    assertEquals(3, metaData.getColumnCount());
+    assertEquals(100, metaData.getTotalRows());
+
+    // Validate column properties
+    assertEquals("col1", metaData.getColumnName(1));
+    assertEquals("col2", metaData.getColumnName(2));
+    assertEquals("col3", metaData.getColumnName(3));
+    assertEquals(4, metaData.getColumnType(1)); // INTEGER
+    assertEquals(12, metaData.getColumnType(2)); // VARCHAR
+    assertEquals(8, metaData.getColumnType(3)); // DOUBLE
+
+    // Validate column type text and precision
+    assertEquals("INTEGER", metaData.getColumnTypeName(1));
+    assertEquals("VARCHAR", metaData.getColumnTypeName(2));
+    assertEquals("DOUBLE", metaData.getColumnTypeName(3));
+    assertEquals(10, metaData.getPrecision(1));
+    assertEquals(255, metaData.getPrecision(2));
+    assertEquals(15, metaData.getPrecision(3));
+
+    assertEquals(ResultSetMetaData.columnNullable, metaData.isNullable(1));
+    assertEquals(ResultSetMetaData.columnNoNulls, metaData.isNullable(2));
+    assertEquals(ResultSetMetaData.columnNullable, metaData.isNullable(3));
+  }
+
+  @Test
   public void testColumnsForVolumeOperation() throws SQLException {
     ResultManifest resultManifest = getResultManifest().setIsVolumeOperation(true);
     DatabricksResultSetMetaData metaData =

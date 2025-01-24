@@ -244,6 +244,53 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
     this.isCloudFetchUsed = false;
   }
 
+  /**
+   * Constructs a {@code DatabricksResultSetMetaData} object for predefined metadata result set.
+   *
+   * @param statementId the unique identifier of the SQL statement execution
+   * @param columnNames the names of each column
+   * @param columnTypeText the textual representation of the column types
+   * @param columnTypes the integer values representing the SQL types of each column
+   * @param columnTypePrecisions the precisions of each column
+   * @param isNullables the nullability status of each column
+   * @param totalRows the total number of rows in the result set
+   */
+  public DatabricksResultSetMetaData(
+      StatementId statementId,
+      List<String> columnNames,
+      List<String> columnTypeText,
+      int[] columnTypes,
+      int[] columnTypePrecisions,
+      int[] isNullables,
+      long totalRows) {
+    this.statementId = statementId;
+
+    Map<String, Integer> columnNameToIndexMap = new HashMap<>();
+    ImmutableList.Builder<ImmutableDatabricksColumn> columnsBuilder = ImmutableList.builder();
+    for (int i = 0; i < columnNames.size(); i++) {
+      ColumnInfoTypeName columnTypeName =
+          ColumnInfoTypeName.valueOf(
+              DatabricksTypeUtil.getDatabricksTypeFromSQLType(columnTypes[i]));
+      ImmutableDatabricksColumn.Builder columnBuilder = getColumnBuilder();
+      columnBuilder
+          .columnName(columnNames.get(i))
+          .columnType(columnTypes[i])
+          .columnTypeText(columnTypeText.get(i))
+          .typePrecision(columnTypePrecisions[i])
+          .nullable(DatabricksTypeUtil.getNullableFromValue(isNullables[i]))
+          .columnTypeClassName(DatabricksTypeUtil.getColumnTypeClassName(columnTypeName))
+          .displaySize(DatabricksTypeUtil.getDisplaySize(columnTypeName, columnTypePrecisions[i]))
+          .isSigned(DatabricksTypeUtil.isSigned(columnTypeName));
+      columnsBuilder.add(columnBuilder.build());
+      // Keep index starting from 1, to be consistent with JDBC convention
+      columnNameToIndexMap.putIfAbsent(columnNames.get(i), i + 1);
+    }
+    this.columns = columnsBuilder.build();
+    this.columnNameIndex = ImmutableMap.copyOf(columnNameToIndexMap);
+    this.totalRows = totalRows;
+    this.isCloudFetchUsed = false;
+  }
+
   @Override
   public int getColumnCount() throws SQLException {
     return columns.size();

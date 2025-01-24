@@ -291,7 +291,7 @@ public class DatabricksMetadataSdkClientTest {
     assertEquals(actualMetaData.getColumnName(4), "TABLE_TYPE");
     assertEquals(actualMetaData.getColumnType(4), Types.VARCHAR);
     assertEquals(actualMetaData.getPrecision(4), 255);
-    assertEquals(actualMetaData.isNullable(4), ResultSetMetaData.columnNullable);
+    assertEquals(actualMetaData.isNullable(4), ResultSetMetaData.columnNoNulls);
 
     assertEquals(actualMetaData.getColumnName(5), "REMARKS");
     assertEquals(actualMetaData.getColumnType(5), Types.VARCHAR);
