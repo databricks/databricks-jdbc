@@ -75,9 +75,9 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
 
       ImmutableMap.Builder<String, String> parametersBuilder = ImmutableMap.builder();
       String[] urlParts = urlMinusHost.split(DatabricksJdbcConstants.URL_DELIMITER);
-      String schema = urlParts[0];
-      if (nullOrEmptyString(schema)) {
-        schema = DEFAULT_SCHEMA;
+      String schema = null;
+      if (!urlParts[0].contains("=")) {
+        schema = urlParts[0];
       }
       for (int urlPartIndex = 1; urlPartIndex < urlParts.length; urlPartIndex++) {
         String[] pair = urlParts[urlPartIndex].split(DatabricksJdbcConstants.PAIR_DELIMITER);
@@ -359,6 +359,10 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
 
   @Override
   public String getSchema() {
+    if (!nullOrEmptyString(schema)) {
+      return schema;
+    }
+
     return getParameter(
         DatabricksJdbcUrlParams.CONN_SCHEMA, getParameter(DatabricksJdbcUrlParams.SCHEMA));
   }
