@@ -315,7 +315,9 @@ public class DatabricksSdkClient implements IDatabricksClient {
 
   private boolean useCloudFetchForResult(StatementType statementType) {
     return this.connectionContext.shouldEnableArrow()
-        && (statementType == StatementType.QUERY || statementType == StatementType.SQL);
+        && (statementType == StatementType.QUERY
+            || statementType == StatementType.SQL
+            || statementType == StatementType.METADATA);
   }
 
   private ExecuteStatementRequest getRequest(
