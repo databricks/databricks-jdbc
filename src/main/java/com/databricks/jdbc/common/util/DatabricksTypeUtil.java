@@ -206,6 +206,9 @@ public class DatabricksTypeUtil {
       case FLOAT:
       case DOUBLE:
         return 24;
+        // scale = precision => only fractional digits. +3 for decimal point, sign and leading zero
+        // scale = 0 => only integral part. +1 for sign
+        // scale > 0 => both integral and fractional part. +2 for sign and decimal point
       case DECIMAL:
         return scale == precision ? precision + 3 : scale == 0 ? precision + 1 : precision + 2;
       case BOOLEAN:
@@ -225,7 +228,14 @@ public class DatabricksTypeUtil {
     }
   }
 
-  // used only in pre-defined result set metadata flow
+  /**
+   * Returns the display size for a given SQL type and precision. This method is used only in
+   * pre-defined result set metadata flow.
+   *
+   * @param sqlType the SQL type as defined in {@link java.sql.Types}
+   * @param precision the precision of the column
+   * @return the display size for the given SQL type and precision
+   */
   public static int getDisplaySize(int sqlType, int precision) {
     switch (sqlType) {
       case Types.SMALLINT:

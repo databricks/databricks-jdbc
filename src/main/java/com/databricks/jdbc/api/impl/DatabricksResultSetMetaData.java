@@ -61,7 +61,9 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
           .columnTypeText(ColumnInfoTypeName.STRING.name())
           .typePrecision(0)
           .columnTypeClassName(DatabricksTypeUtil.getColumnTypeClassName(ColumnInfoTypeName.STRING))
-          .displaySize(DatabricksTypeUtil.getDisplaySize(ColumnInfoTypeName.STRING, 0, 0))
+          .displaySize(
+              DatabricksTypeUtil.getDisplaySize(
+                  ColumnInfoTypeName.STRING, 0, 0)) // passing default scale, precision
           .isSearchable(true)
           .isSigned(DatabricksTypeUtil.isSigned(ColumnInfoTypeName.STRING));
       columnsBuilder.add(columnBuilder.build());
@@ -195,7 +197,9 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
           .nullable(DatabricksTypeUtil.getNullableFromValue(metadata.getNullable()))
           .displaySize(
               DatabricksTypeUtil.getDisplaySize(
-                  columnTypeName, metadata.getPrecision(), metadata.getScale()))
+                  columnTypeName,
+                  metadata.getPrecision(),
+                  metadata.getScale())) // pass scale and precision from metadata result set
           .isSigned(DatabricksTypeUtil.isSigned(columnTypeName));
 
       columnsBuilder.add(columnBuilder.build());
@@ -245,7 +249,8 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
           .typePrecision(columnTypePrecisions.get(i))
           .columnTypeClassName(DatabricksTypeUtil.getColumnTypeClassName(columnTypeName))
           .displaySize(
-              DatabricksTypeUtil.getDisplaySize(columnTypeName, columnTypePrecisions.get(i), 0))
+              DatabricksTypeUtil.getDisplaySize(
+                  columnTypeName, columnTypePrecisions.get(i), 0)) // default scale passed
           .isSigned(DatabricksTypeUtil.isSigned(columnTypeName));
       columnsBuilder.add(columnBuilder.build());
       // Keep index starting from 1, to be consistent with JDBC convention
@@ -294,7 +299,12 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
           .columnTypeClassName(DatabricksTypeUtil.getColumnTypeClassName(columnTypeName))
           .displaySize(DatabricksTypeUtil.getDisplaySize(columnTypes[i], columnTypePrecisions[i]))
           .isSigned(DatabricksTypeUtil.isSigned(columnTypeName));
-      if (columnNames.get(i).equals(REMARKS_COLUMN.getColumnName())) {
+      if (columnNames
+          .get(i)
+          .equals(
+              REMARKS_COLUMN
+                  .getColumnName())) { // special case: overriding default value of 128 for VARCHAR
+        // cols.
         columnBuilder.displaySize(254);
       }
       columnsBuilder.add(columnBuilder.build());
