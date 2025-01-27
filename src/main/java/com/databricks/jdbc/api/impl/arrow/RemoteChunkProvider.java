@@ -253,9 +253,7 @@ public class RemoteChunkProvider implements ChunkProvider, ChunkDownloadCallback
     this.rowCount = 0;
     populateChunkIndexMap(resultsResp.getResults(), chunkIndexMap);
     while (resultsResp.hasMoreRows) {
-      resultsResp =
-          ((DatabricksThriftServiceClient) session.getDatabricksClient())
-              .getMoreResults(parentStatement);
+      resultsResp = session.getDatabricksClient().getMoreResults(parentStatement);
       populateChunkIndexMap(resultsResp.getResults(), chunkIndexMap);
     }
     return chunkIndexMap;
