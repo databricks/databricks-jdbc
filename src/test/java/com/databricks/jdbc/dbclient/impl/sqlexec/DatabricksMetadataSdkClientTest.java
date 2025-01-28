@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.when;
 
+import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.api.IDatabricksSession;
 import com.databricks.jdbc.api.impl.DatabricksResultSet;
 import com.databricks.jdbc.api.impl.DatabricksResultSetMetaData;
@@ -39,6 +40,7 @@ public class DatabricksMetadataSdkClientTest {
   @Mock private static IDatabricksSession session;
   @Mock private static IDatabricksComputeResource mockedComputeResource;
   @Mock private static ResultSetMetaData mockedMetaData;
+  @Mock private static IDatabricksConnectionContext connectionContext;
 
   private static Stream<Arguments> listTableTestParams() {
     return Stream.of(
@@ -156,13 +158,19 @@ public class DatabricksMetadataSdkClientTest {
             "test for table and column"));
   }
 
+  void setupCommonMocks() {
+    when(session.getConnectionContext()).thenReturn(connectionContext);
+    when(connectionContext.isSqlExecHybridResultsEnabled()).thenReturn(true);
+  }
+
   void setupCatalogMocks() throws SQLException {
+    setupCommonMocks();
     when(session.getComputeResource()).thenReturn(mockedComputeResource);
     when(mockClient.executeStatement(
             "SHOW CATALOGS",
             mockedComputeResource,
             new HashMap<Integer, ImmutableSqlParameter>(),
-            StatementType.METADATA,
+            StatementType.QUERY,
             session,
             null))
         .thenReturn(mockedCatalogResultSet);
@@ -204,7 +212,7 @@ public class DatabricksMetadataSdkClientTest {
   void testListTables(
       String sqlStatement, String catalog, String schema, String table, String description)
       throws SQLException {
-
+    setupCommonMocks();
     when(session.getComputeResource()).thenReturn(mockedComputeResource);
     DatabricksMetadataSdkClient metadataClient = new DatabricksMetadataSdkClient(mockClient);
 
@@ -240,7 +248,7 @@ public class DatabricksMetadataSdkClientTest {
             (sqlStatement),
             (mockedComputeResource),
             new HashMap<Integer, ImmutableSqlParameter>(),
-            (StatementType.METADATA),
+            (StatementType.QUERY),
             (session),
             null))
         .thenReturn(mockedResultSet);
@@ -309,13 +317,14 @@ public class DatabricksMetadataSdkClientTest {
       String column,
       String description)
       throws SQLException {
+    setupCommonMocks();
     when(session.getComputeResource()).thenReturn(mockedComputeResource);
     DatabricksMetadataSdkClient metadataClient = new DatabricksMetadataSdkClient(mockClient);
     when(mockClient.executeStatement(
             sqlStatement,
             mockedComputeResource,
             new HashMap<Integer, ImmutableSqlParameter>(),
-            StatementType.METADATA,
+            StatementType.QUERY,
             session,
             null))
         .thenReturn(mockedResultSet);
@@ -373,13 +382,14 @@ public class DatabricksMetadataSdkClientTest {
   @ParameterizedTest
   @MethodSource("listSchemasTestParams")
   void testListSchemas(String sqlStatement, String schema, String description) throws SQLException {
+    setupCommonMocks();
     when(session.getComputeResource()).thenReturn(mockedComputeResource);
     DatabricksMetadataSdkClient metadataClient = new DatabricksMetadataSdkClient(mockClient);
     when(mockClient.executeStatement(
             sqlStatement,
             mockedComputeResource,
             new HashMap<Integer, ImmutableSqlParameter>(),
-            StatementType.METADATA,
+            StatementType.QUERY,
             session,
             null))
         .thenReturn(mockedResultSet);
@@ -399,13 +409,14 @@ public class DatabricksMetadataSdkClientTest {
 
   @Test
   void testListPrimaryKeys() throws SQLException {
+    setupCommonMocks();
     when(session.getComputeResource()).thenReturn(WAREHOUSE_COMPUTE);
     DatabricksMetadataSdkClient metadataClient = new DatabricksMetadataSdkClient(mockClient);
     when(mockClient.executeStatement(
             "SHOW KEYS IN CATALOG catalog1 IN SCHEMA testSchema IN TABLE testTable",
             WAREHOUSE_COMPUTE,
             new HashMap<Integer, ImmutableSqlParameter>(),
-            StatementType.METADATA,
+            StatementType.QUERY,
             session,
             null))
         .thenReturn(mockedResultSet);
@@ -436,6 +447,45 @@ public class DatabricksMetadataSdkClientTest {
   void testTestFunctions(
       String sql, String catalog, String schema, String functionPattern, String description)
       throws SQLException {
+    setupCommonMocks();
+    when(session.getComputeResource()).thenReturn(WAREHOUSE_COMPUTE);
+    DatabricksMetadataSdkClient metadataClient = new DatabricksMetadataSdkClient(mockClient);
+    when(mockClient.executeStatement(
+            sql,
+            WAREHOUSE_COMPUTE,
+            new HashMap<Integer, ImmutableSqlParameter>(),
+            StatementType.QUERY,
+            session,
+            null))
+        .thenReturn(mockedResultSet);
+    when(mockedResultSet.next()).thenReturn(true, false);
+    doReturn(6).when(mockedMetaData).getColumnCount();
+    doReturn(FUNCTION_NAME_COLUMN.getResultSetColumnName()).when(mockedMetaData).getColumnName(1);
+    doReturn(FUNCTION_SCHEMA_COLUMN.getResultSetColumnName()).when(mockedMetaData).getColumnName(2);
+    doReturn(FUNCTION_CATALOG_COLUMN.getResultSetColumnName())
+        .when(mockedMetaData)
+        .getColumnName(3);
+    doReturn(REMARKS_COLUMN.getResultSetColumnName()).when(mockedMetaData).getColumnName(4);
+    doReturn(FUNCTION_TYPE_COLUMN.getResultSetColumnName()).when(mockedMetaData).getColumnName(5);
+    doReturn(SPECIFIC_NAME_COLUMN.getResultSetColumnName()).when(mockedMetaData).getColumnName(6);
+    when(mockedResultSet.getMetaData()).thenReturn(mockedMetaData);
+    DatabricksResultSet actualResult =
+        metadataClient.listFunctions(session, catalog, schema, functionPattern);
+
+    assertEquals(
+        actualResult.getStatementStatus().getState(), StatementState.SUCCEEDED, description);
+    assertEquals(actualResult.getStatementId(), GET_FUNCTIONS_STATEMENT_ID, description);
+    assertEquals(
+        ((DatabricksResultSetMetaData) actualResult.getMetaData()).getTotalRows(), 1, description);
+  }
+
+  @ParameterizedTest
+  @MethodSource("listFunctionsTestParams")
+  void testTestFunctions_nonHybrid(
+      String sql, String catalog, String schema, String functionPattern, String description)
+      throws SQLException {
+    when(session.getConnectionContext()).thenReturn(connectionContext);
+    when(connectionContext.isSqlExecHybridResultsEnabled()).thenReturn(false);
     when(session.getComputeResource()).thenReturn(WAREHOUSE_COMPUTE);
     DatabricksMetadataSdkClient metadataClient = new DatabricksMetadataSdkClient(mockClient);
     when(mockClient.executeStatement(

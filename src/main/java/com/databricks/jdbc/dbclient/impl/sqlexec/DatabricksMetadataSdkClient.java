@@ -128,8 +128,14 @@ public class DatabricksMetadataSdkClient implements IDatabricksMetadataClient {
         SQL,
         session.getComputeResource(),
         new HashMap<>(),
-        StatementType.METADATA,
+        getMetadataStatementType(session),
         session,
         null /* parentStatement */);
+  }
+
+  private StatementType getMetadataStatementType(IDatabricksSession session) {
+    return session.getConnectionContext().isSqlExecHybridResultsEnabled()
+        ? StatementType.QUERY
+        : StatementType.METADATA;
   }
 }
