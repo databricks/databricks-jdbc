@@ -190,6 +190,13 @@ public class DatabricksTypeUtil {
     }
   }
 
+  private static int calculateDisplaySize(int scale, int precision) {
+    // scale = precision => only fractional digits. +3 for decimal point, sign and leading zero
+    // scale = 0 => only integral part. +1 for sign
+    // scale > 0 => both integral and fractional part. +2 for sign and decimal point
+    return scale == precision ? precision + 3 : scale == 0 ? precision + 1 : precision + 2;
+  }
+
   public static int getDisplaySize(ColumnInfoTypeName typeName, int precision, int scale) {
     if (typeName == null) {
       return 255;
@@ -206,11 +213,8 @@ public class DatabricksTypeUtil {
       case FLOAT:
       case DOUBLE:
         return 24;
-        // scale = precision => only fractional digits. +3 for decimal point, sign and leading zero
-        // scale = 0 => only integral part. +1 for sign
-        // scale > 0 => both integral and fractional part. +2 for sign and decimal point
       case DECIMAL:
-        return scale == precision ? precision + 3 : scale == 0 ? precision + 1 : precision + 2;
+        return calculateDisplaySize(scale, precision);
       case BOOLEAN:
         return 5; // length of `false`
       case TIMESTAMP:
