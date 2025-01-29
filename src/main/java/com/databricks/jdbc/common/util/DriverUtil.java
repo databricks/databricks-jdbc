@@ -106,8 +106,9 @@ public class DriverUtil {
   static void ensureUpdatedDBSQLVersionInUse(IDatabricksConnectionInternal connection)
       throws DatabricksValidationException {
     if (connection.getConnectionContext().getClientType() != DatabricksClientType.SEA
-        || isRunningAgainstFake()) {
-      // Check applicable only for SEA flow
+        || isRunningAgainstFake()
+        || !connection.getConnectionContext().isDBSQLVersionCheckEnabled()) {
+      // Check applicable only for SEA flow and if explicitly enabled in connection properties
       return;
     }
     String dbsqlVersion = getDBSQLVersionCached(connection).trim();

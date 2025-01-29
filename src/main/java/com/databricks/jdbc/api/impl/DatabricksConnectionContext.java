@@ -641,6 +641,11 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
     return getParameter(DatabricksJdbcUrlParams.ENABLE_SQL_EXEC_HYBRID_RESULTS).equals("1");
   }
 
+  @Override
+  public boolean isDBSQLVersionCheckEnabled() {
+    return getParameter(DatabricksJdbcUrlParams.ENABLE_DBSQL_VERSION_CHECK).equals("1");
+  }
+
   private static boolean nullOrEmptyString(String s) {
     return s == null || s.isEmpty();
   }

@@ -213,4 +213,7 @@ public interface IDatabricksConnectionContext {
 
   /** Returns true if driver should use hybrid results in SQL_EXEC API. */
   boolean isSqlExecHybridResultsEnabled();
+
+  /** Returns true if DBSQL version should be checked during connection initialization. */
+  boolean isDBSQLVersionCheckEnabled();
 }

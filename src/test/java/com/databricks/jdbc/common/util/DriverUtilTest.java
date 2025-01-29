@@ -48,6 +48,7 @@ public class DriverUtilTest {
     when(connection.getConnectionContext()).thenReturn(connectionContext);
     when(connectionContext.getClientType()).thenReturn(DatabricksClientType.SEA);
     when(connectionContext.getHttpPath()).thenReturn(TEST_HTTP_PATH);
+    when(connectionContext.isDBSQLVersionCheckEnabled()).thenReturn(true);
     when(connection.createStatement()).thenReturn(statement);
     when(statement.executeQuery("SELECT current_version().dbsql_version")).thenReturn(resultSet);
     when(resultSet.getString(1)).thenReturn(dbsqlVersion);
@@ -62,6 +63,14 @@ public class DriverUtilTest {
   }
 
   @Test
+  void testDriverSupportInSEA_versionCheckDisabled() throws Exception {
+    when(connection.getConnectionContext()).thenReturn(connectionContext);
+    when(connectionContext.getClientType()).thenReturn(DatabricksClientType.SEA);
+    when(connectionContext.isDBSQLVersionCheckEnabled()).thenReturn(false);
+    assertDoesNotThrow(() -> DriverUtil.ensureUpdatedDBSQLVersionInUse(connection));
+  }
+
+  @Test
   void testDriverSupportInThrift() {
     when(connection.getConnectionContext()).thenReturn(connectionContext);
     when(connectionContext.getClientType()).thenReturn(DatabricksClientType.THRIFT);
@@ -73,6 +82,7 @@ public class DriverUtilTest {
   void testCacheIsSeparateForDifferentHttpPaths() throws SQLException {
     when(connection.getConnectionContext()).thenReturn(connectionContext);
     when(connectionContext.getClientType()).thenReturn(DatabricksClientType.SEA);
+    when(connectionContext.isDBSQLVersionCheckEnabled()).thenReturn(true);
     when(connection.createStatement()).thenReturn(statement);
     when(statement.executeQuery(DBSQL_VERSION_SQL)).thenReturn(resultSet);
 
@@ -95,6 +105,7 @@ public class DriverUtilTest {
     when(connection.getConnectionContext()).thenReturn(connectionContext);
     when(connectionContext.getClientType()).thenReturn(DatabricksClientType.SEA);
     when(connectionContext.getHttpPath()).thenReturn(TEST_HTTP_PATH);
+    when(connectionContext.isDBSQLVersionCheckEnabled()).thenReturn(true);
     when(connection.createStatement()).thenReturn(statement);
     when(statement.executeQuery(DBSQL_VERSION_SQL)).thenReturn(resultSet);
     when(resultSet.getString(1)).thenReturn("2024.30");
