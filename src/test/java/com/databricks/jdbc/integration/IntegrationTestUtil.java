@@ -5,6 +5,8 @@ import static com.databricks.jdbc.integration.fakeservice.FakeServiceConfigLoade
 import static com.databricks.jdbc.integration.fakeservice.FakeServiceConfigLoader.TEST_SCHEMA;
 import static com.databricks.jdbc.integration.fakeservice.FakeServiceExtension.TARGET_URI_PROP_SUFFIX;
 
+import com.databricks.jdbc.api.IDatabricksConnectionContext;
+import com.databricks.jdbc.api.impl.DatabricksConnectionContextFactory;
 import com.databricks.jdbc.common.DatabricksJdbcConstants.FakeServiceType;
 import com.databricks.jdbc.common.DatabricksJdbcUrlParams;
 import com.databricks.jdbc.common.util.DriverUtil;
@@ -51,6 +53,10 @@ public class IntegrationTestUtil {
         jdbcUrlTemplate,
         getFakeServiceHost(),
         FakeServiceConfigLoader.getProperty(DatabricksJdbcUrlParams.HTTP_PATH.getParamName()));
+  }
+
+  public static String getFakeServiceHTTPPath() {
+    return FakeServiceConfigLoader.getProperty(DatabricksJdbcUrlParams.HTTP_PATH.getParamName());
   }
 
   public static String getDatabricksHost() {
@@ -132,6 +138,10 @@ public class IntegrationTestUtil {
     return System.getenv("DATABRICKS_USER");
   }
 
+  public static String getPreSignedUrlHost() {
+    return System.getenv("DATABRICKS_PRE_SIGNED_URL_HOST");
+  }
+
   public static Connection getValidJDBCConnection() throws SQLException {
     Properties connectionProperties = new Properties();
     connectionProperties.put(DatabricksJdbcUrlParams.USER.getParamName(), getDatabricksUser());
@@ -163,6 +173,22 @@ public class IntegrationTestUtil {
   public static Connection getDogfoodJDBCConnection() throws SQLException {
     return DriverManager.getConnection(
         getDogfoodJDBCUrl(), getDatabricksUser(), getDatabricksDogfoodToken());
+  }
+
+  /** Used by the DBFSVolumeClient to bypass creation of connection */
+  public static IDatabricksConnectionContext getDogfoodJDBCConnectionContext() throws SQLException {
+    return DatabricksConnectionContextFactory.create(
+        getDogfoodJDBCUrl(), getDatabricksUser(), getDatabricksDogfoodToken());
+  }
+
+  public static IDatabricksConnectionContext getDogfoodJDBCConnectionContext(
+      List<List<String>> extraArgs) throws SQLException {
+    String jdbcUrl = getDogfoodJDBCUrl();
+    for (List<String> args : extraArgs) {
+      jdbcUrl += ";" + args.get(0) + "=" + args.get(1);
+    }
+    return DatabricksConnectionContextFactory.create(
+        jdbcUrl, getDatabricksUser(), getDatabricksDogfoodToken());
   }
 
   public static Connection getDogfoodJDBCConnection(List<List<String>> extraArgs)

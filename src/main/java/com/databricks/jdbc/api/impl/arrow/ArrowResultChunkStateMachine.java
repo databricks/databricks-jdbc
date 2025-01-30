@@ -1,6 +1,7 @@
 package com.databricks.jdbc.api.impl.arrow;
 
 import com.databricks.jdbc.exception.DatabricksParsingException;
+import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import java.util.*;
 
 /**
@@ -81,7 +82,8 @@ public class ArrowResultChunkStateMachine {
       throw new DatabricksParsingException(
           String.format(
               "Invalid state transition for chunk [%d] and statement [%s]: %s -> %s",
-              chunkIndex, statementId, currentStatus, targetStatus));
+              chunkIndex, statementId, currentStatus, targetStatus),
+          DatabricksDriverErrorCode.INVALID_CHUNK_STATE_TRANSITION);
     }
 
     currentStatus = targetStatus;

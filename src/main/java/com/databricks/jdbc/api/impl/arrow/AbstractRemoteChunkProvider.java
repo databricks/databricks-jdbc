@@ -3,10 +3,10 @@ package com.databricks.jdbc.api.impl.arrow;
 import com.databricks.jdbc.api.IDatabricksSession;
 import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
 import com.databricks.jdbc.common.CompressionCodec;
+import com.databricks.jdbc.common.util.DatabricksThreadContextHolder;
 import com.databricks.jdbc.common.util.DatabricksThriftUtil;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
 import com.databricks.jdbc.dbclient.impl.common.StatementId;
-import com.databricks.jdbc.dbclient.impl.thrift.DatabricksThriftServiceClient;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
@@ -16,6 +16,7 @@ import com.databricks.jdbc.model.client.thrift.generated.TSparkArrowResultLink;
 import com.databricks.jdbc.model.core.ExternalLink;
 import com.databricks.jdbc.model.core.ResultData;
 import com.databricks.jdbc.model.core.ResultManifest;
+import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import com.databricks.sdk.service.sql.BaseChunkInfo;
 import java.util.Collection;
 import java.util.concurrent.ConcurrentHashMap;
@@ -159,9 +160,13 @@ public abstract class AbstractRemoteChunkProvider<T extends AbstractArrowResultC
           statementId,
           e.getMessage());
       Thread.currentThread().interrupt();
-      throw new DatabricksSQLException("Operation interrupted while waiting for chunk ready", e);
+      throw new DatabricksSQLException(
+          "Operation interrupted while waiting for chunk ready",
+          e,
+          DatabricksDriverErrorCode.THREAD_INTERRUPTED_ERROR);
     } catch (ExecutionException | TimeoutException e) {
-      throw new DatabricksSQLException("Failed to ready chunk", e.getCause());
+      throw new DatabricksSQLException(
+          "Failed to ready chunk", e.getCause(), DatabricksDriverErrorCode.CHUNK_READY_ERROR);
     }
 
     return chunk;
@@ -183,6 +188,7 @@ public abstract class AbstractRemoteChunkProvider<T extends AbstractArrowResultC
   }
 
   private void initializeData() throws DatabricksSQLException {
+    DatabricksThreadContextHolder.setStatementId(statementId);
     // No chunks are downloaded, we need to start from first one
     nextChunkToDownload = 0;
     // Initialize current chunk to -1, since we don't have anything to read
@@ -229,9 +235,7 @@ public abstract class AbstractRemoteChunkProvider<T extends AbstractArrowResultC
     ConcurrentMap<Long, T> chunkIndexMap = new ConcurrentHashMap<>();
     populateChunkIndexMap(resultsResp.getResults(), chunkIndexMap);
     while (resultsResp.hasMoreRows) {
-      resultsResp =
-          ((DatabricksThriftServiceClient) session.getDatabricksClient())
-              .getMoreResults(parentStatement);
+      resultsResp = session.getDatabricksClient().getMoreResults(parentStatement);
       populateChunkIndexMap(resultsResp.getResults(), chunkIndexMap);
     }
 

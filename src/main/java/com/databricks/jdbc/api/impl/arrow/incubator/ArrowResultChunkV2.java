@@ -14,6 +14,7 @@ import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.model.client.thrift.generated.TSparkArrowResultLink;
 import com.databricks.jdbc.model.core.ExternalLink;
+import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import com.databricks.sdk.service.sql.BaseChunkInfo;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
@@ -124,7 +125,10 @@ public class ArrowResultChunkV2 extends AbstractArrowResultChunk {
             chunkIndex, statementId, exception);
     LOGGER.error(errorMessage);
     setStatus(failedStatus);
-    chunkReadyFuture.completeExceptionally(new DatabricksParsingException(errorMessage, exception));
+    // TODO (jayant): set correct error code
+    chunkReadyFuture.completeExceptionally(
+        new DatabricksParsingException(
+            errorMessage, exception, DatabricksDriverErrorCode.CHUNK_DOWNLOAD_ERROR));
   }
 
   /**

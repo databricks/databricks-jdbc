@@ -3,6 +3,7 @@ package com.databricks.jdbc.api.impl;
 import com.databricks.jdbc.api.IDatabricksResultSet;
 import com.databricks.jdbc.api.internal.IDatabricksResultSetInternal;
 import com.databricks.jdbc.exception.DatabricksSQLException;
+import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import com.databricks.sdk.service.sql.StatementState;
 import com.databricks.sdk.service.sql.StatementStatus;
 import java.io.InputStream;
@@ -25,7 +26,8 @@ public class EmptyResultSet
 
   private void checkIfClosed() throws SQLException {
     if (isClosed()) {
-      throw new DatabricksSQLException("Empty result set is closed");
+      throw new DatabricksSQLException(
+          "Empty result set is closed", DatabricksDriverErrorCode.STATEMENT_CLOSED);
     }
   }
 

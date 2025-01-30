@@ -52,8 +52,15 @@ public class ArrowStreamResult implements IExecutionResult {
       IDatabricksSession session,
       IDatabricksHttpClient httpClient)
       throws DatabricksSQLException {
-    this.chunkProvider =
-        createRemoteChunkProvider(resultManifest, resultData, statementId, session, httpClient);
+    // Check if the result data contains the arrow data inline
+    boolean isInlineArrow = resultData.getAttachment() != null;
+
+    if (isInlineArrow) {
+      this.chunkProvider = new InlineChunkProvider(resultData, resultManifest);
+    } else {
+      this.chunkProvider =
+          createRemoteChunkProvider(resultManifest, resultData, statementId, session, httpClient);
+    }
     this.columnInfos =
         resultManifest.getSchema().getColumnCount() == 0
             ? new ArrayList<>()

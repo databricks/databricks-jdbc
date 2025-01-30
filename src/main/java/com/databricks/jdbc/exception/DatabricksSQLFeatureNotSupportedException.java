@@ -1,11 +1,11 @@
 package com.databricks.jdbc.exception;
 
+import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import java.sql.SQLFeatureNotSupportedException;
 
 public class DatabricksSQLFeatureNotSupportedException extends SQLFeatureNotSupportedException {
 
   public DatabricksSQLFeatureNotSupportedException(String reason) {
-    // TODO: Add vendor-specific (databricks) exception code
-    super(reason, null, 0);
+    super(reason, DatabricksDriverErrorCode.UNSUPPORTED_OPERATION.toString());
   }
 }

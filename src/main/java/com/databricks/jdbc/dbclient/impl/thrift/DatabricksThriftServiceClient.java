@@ -21,6 +21,7 @@ import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.model.client.thrift.generated.*;
 import com.databricks.jdbc.model.core.ExternalLink;
+import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import com.google.common.annotations.VisibleForTesting;
 import java.sql.SQLException;
 import java.util.*;
@@ -82,7 +83,8 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
     TProtocolVersion serverProtocol = response.getServerProtocolVersion();
     if (serverProtocol.getValue() <= TProtocolVersion.HIVE_CLI_SERVICE_PROTOCOL_V10.getValue()) {
       throw new DatabricksSQLException(
-          "Attempting to connect to a non Databricks cluster using the Databricks driver.");
+          "Attempting to connect to a non Databricks compute using the Databricks driver.",
+          DatabricksDriverErrorCode.UNSUPPORTED_OPERATION);
     }
 
     String sessionId = byteBufferToString(response.sessionHandle.getSessionId().guid);
@@ -220,7 +222,7 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
     if (chunkIndex < 0 || externalLinks.size() <= chunkIndex) {
       String error = String.format("Out of bounds error for chunkIndex. Context: %s", context);
       LOGGER.error(error);
-      throw new DatabricksSQLException(error);
+      throw new DatabricksSQLException(error, DatabricksDriverErrorCode.INVALID_STATE);
     }
     return externalLinks;
   }

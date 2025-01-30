@@ -73,13 +73,13 @@ public class ArrowResultChunk extends AbstractArrowResultChunk {
       response = httpClient.execute(getRequest, true);
       checkHTTPError(response);
       setStatus(ChunkStatus.DOWNLOAD_SUCCEEDED);
-      String context =
+      String decompressionContext =
           String.format(
               "Data decompression for chunk index [%d] and statement [%s]",
               chunkIndex, statementId);
       InputStream uncompressedStream =
           DecompressionUtil.decompress(
-              response.getEntity().getContent(), compressionCodec, context);
+              response.getEntity().getContent(), compressionCodec, decompressionContext);
       initializeData(uncompressedStream);
       setStatus(ChunkStatus.PROCESSING_SUCCEEDED);
     } catch (IOException | DatabricksSQLException | URISyntaxException e) {
@@ -111,7 +111,7 @@ public class ArrowResultChunk extends AbstractArrowResultChunk {
             chunkIndex, statementId, exception);
     LOGGER.error(errorMessage);
     setStatus(failedStatus);
-    throw new DatabricksParsingException(errorMessage, exception);
+    throw new DatabricksParsingException(errorMessage, exception, failedStatus.toString());
   }
 
   private void addHeaders(HttpGet getRequest, Map<String, String> headers) {

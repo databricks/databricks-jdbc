@@ -15,7 +15,7 @@ public class SqlExecutionEvent {
   ExecutionResultFormat executionResultFormat;
 
   @JsonProperty("chunk_id")
-  int chunkId;
+  Long chunkId;
 
   @JsonProperty("retry_count")
   int retryCount;
@@ -35,7 +35,7 @@ public class SqlExecutionEvent {
     return this;
   }
 
-  public SqlExecutionEvent setChunkId(int chunkId) {
+  public SqlExecutionEvent setChunkId(Long chunkId) {
     this.chunkId = chunkId;
     return this;
   }

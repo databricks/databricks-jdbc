@@ -13,6 +13,7 @@ import com.databricks.jdbc.exception.DatabricksHttpException;
 import com.databricks.jdbc.exception.DatabricksRetryHandlerException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
+import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import com.databricks.sdk.core.ProxyConfig;
 import com.databricks.sdk.core.utils.ProxyUtils;
 import com.google.common.annotations.VisibleForTesting;
@@ -165,7 +166,8 @@ public class DatabricksHttpClient implements IDatabricksHttpClient, Closeable {
     Throwable cause = e;
     while (cause != null) {
       if (cause instanceof DatabricksRetryHandlerException) {
-        throw new DatabricksHttpException(cause.getMessage(), cause);
+        throw new DatabricksHttpException(
+            cause.getMessage(), cause, DatabricksDriverErrorCode.INVALID_STATE);
       }
       cause = cause.getCause();
     }
@@ -231,7 +233,8 @@ public class DatabricksHttpClient implements IDatabricksHttpClient, Closeable {
             throw new HttpException(e.getMessage());
           }
 
-          if (LOCALHOST.getHostName().equalsIgnoreCase(host.getHostName())) {
+          if (host.getHostName().equalsIgnoreCase(LOCALHOST.getHostName())
+              || host.getHostName().equalsIgnoreCase("127.0.0.1")) {
             // If the target host is localhost, then no need to set proxy
             return new HttpRoute(target, null, false);
           }

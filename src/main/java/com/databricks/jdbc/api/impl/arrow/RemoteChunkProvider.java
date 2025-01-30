@@ -3,6 +3,7 @@ package com.databricks.jdbc.api.impl.arrow;
 import com.databricks.jdbc.api.IDatabricksSession;
 import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
 import com.databricks.jdbc.common.CompressionCodec;
+import com.databricks.jdbc.common.util.DatabricksThreadContextHolder;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
 import com.databricks.jdbc.dbclient.impl.common.StatementId;
 import com.databricks.jdbc.exception.DatabricksParsingException;
@@ -11,6 +12,7 @@ import com.databricks.jdbc.model.client.thrift.generated.TFetchResultsResp;
 import com.databricks.jdbc.model.client.thrift.generated.TSparkArrowResultLink;
 import com.databricks.jdbc.model.core.ResultData;
 import com.databricks.jdbc.model.core.ResultManifest;
+import com.databricks.jdbc.telemetry.latency.DatabricksMetricsTimedProcessor;
 import com.databricks.sdk.service.sql.BaseChunkInfo;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -91,7 +93,9 @@ public class RemoteChunkProvider extends AbstractRemoteChunkProvider<ArrowResult
         && nextChunkToDownload < chunkCount
         && totalChunksInMemory < allowedChunksInMemory) {
       ArrowResultChunk chunk = chunkIndexToChunksMap.get(nextChunkToDownload);
-      chunkDownloaderExecutorService.submit(new ChunkDownloadTask(chunk, httpClient, this));
+      chunkDownloaderExecutorService.submit(
+          DatabricksMetricsTimedProcessor.createProxy(
+              new ChunkDownloadTask(chunk, httpClient, this)));
       totalChunksInMemory++;
       nextChunkToDownload++;
     }
@@ -122,6 +126,7 @@ public class RemoteChunkProvider extends AbstractRemoteChunkProvider<ArrowResult
     isClosed = true;
     chunkDownloaderExecutorService.shutdownNow();
     chunkIndexToChunksMap.values().forEach(ArrowResultChunk::releaseChunk);
+    DatabricksThreadContextHolder.clearStatementInfo();
   }
 
   private ExecutorService createChunksDownloaderExecutorService() {

@@ -61,7 +61,7 @@ public class MetadataResultConstants {
   public static final ResultColumn FUNCTION_NAME_COLUMN =
       new ResultColumn("FUNCTION_NAME", "functionName", Types.VARCHAR);
   public static final ResultColumn FUNCTION_TYPE_COLUMN =
-      new ResultColumn("FUNCTION_TYPE", "functionType", Types.SMALLINT);
+      new ResultColumn("FUNCTION_TYPE", "functionType", Types.INTEGER);
   public static final ResultColumn SPECIFIC_NAME_COLUMN =
       new ResultColumn("SPECIFIC_NAME", "specificName", Types.VARCHAR);
   public static final ResultColumn NUM_PREC_RADIX_COLUMN =
@@ -173,7 +173,7 @@ public class MetadataResultConstants {
           KEY_SEQUENCE_COLUMN,
           PRIMARY_KEY_NAME_COLUMN);
   public static List<List<Object>> TABLE_TYPES_ROWS =
-      Arrays.asList(List.of("TABLE"), List.of("VIEW"), List.of("SYSTEM TABLE"));
+      Arrays.asList(List.of("SYSTEM TABLE"), List.of("TABLE"), List.of("VIEW"));
   public static List<ResultColumn> TABLE_TYPE_COLUMNS = List.of(TABLE_TYPE_COLUMN);
   public static String NULL_STRING = "NULL";
   public static List<ResultColumn> TYPE_INFO_COLUMNS =
@@ -207,13 +207,14 @@ public class MetadataResultConstants {
                   ),
           CommandName.LIST_CATALOGS,
               List.of(MetadataResultConstants.CATALOG_COLUMN_FOR_GET_CATALOGS),
-          CommandName.LIST_TABLES, List.of(MetadataResultConstants.TABLE_NAME_COLUMN),
+          CommandName.LIST_TABLES,
+              List.of(MetadataResultConstants.TABLE_NAME_COLUMN, TABLE_TYPE_COLUMN),
           CommandName.LIST_PRIMARY_KEYS,
               List.of(
                   MetadataResultConstants.TABLE_NAME_COLUMN,
                   MetadataResultConstants.COLUMN_NAME_COLUMN),
           CommandName.LIST_SCHEMAS, List.of(MetadataResultConstants.SCHEMA_COLUMN_FOR_GET_SCHEMA),
-          CommandName.LIST_TABLE_TYPES, List.of(MetadataResultConstants.TABLE_TYPE_COLUMN),
+          CommandName.LIST_TABLE_TYPES, List.of(TABLE_TYPE_COLUMN),
           CommandName.LIST_COLUMNS,
               List.of(
                   MetadataResultConstants.TABLE_NAME_COLUMN,
