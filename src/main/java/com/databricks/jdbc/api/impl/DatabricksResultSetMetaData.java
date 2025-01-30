@@ -58,7 +58,8 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
       columnBuilder
           .columnName(VOLUME_OPERATION_STATUS_COLUMN_NAME)
           .columnType(Types.VARCHAR)
-          .columnTypeText(ColumnInfoTypeName.STRING.name())
+          .columnTypeText(
+              ColumnInfoTypeName.STRING.name()) // status column is string. eg: SUCCEEDED
           .typePrecision(0)
           .columnTypeClassName(DatabricksTypeUtil.getColumnTypeClassName(ColumnInfoTypeName.STRING))
           .displaySize(
@@ -300,7 +301,10 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
           .typePrecision(columnTypePrecisions[i])
           .nullable(DatabricksTypeUtil.getNullableFromValue(isNullables[i]))
           .columnTypeClassName(DatabricksTypeUtil.getColumnTypeClassName(columnTypeName))
-          .displaySize(DatabricksTypeUtil.getDisplaySize(columnTypes[i], columnTypePrecisions[i]))
+          .displaySize(
+              DatabricksTypeUtil.getDisplaySize(
+                  columnTypes[i],
+                  columnTypePrecisions[i])) // using method for pre-defined metadata resultset
           .isSigned(DatabricksTypeUtil.isSigned(columnTypeName));
       if (columnNames
           .get(i)
