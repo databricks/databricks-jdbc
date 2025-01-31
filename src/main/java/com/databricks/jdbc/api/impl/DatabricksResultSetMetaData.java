@@ -2,7 +2,10 @@ package com.databricks.jdbc.api.impl;
 
 import static com.databricks.jdbc.common.DatabricksJdbcConstants.EMPTY_STRING;
 import static com.databricks.jdbc.common.DatabricksJdbcConstants.VOLUME_OPERATION_STATUS_COLUMN_NAME;
+import static com.databricks.jdbc.common.MetadataResultConstants.REMARKS_COLUMN;
+import static com.databricks.jdbc.common.MetadataResultConstants.TABLE_TYPE_COLUMN;
 import static com.databricks.jdbc.common.util.DatabricksThriftUtil.getTypeFromTypeDesc;
+import static com.databricks.jdbc.dbclient.impl.common.MetadataResultSetBuilder.stripTypeName;
 
 import com.databricks.jdbc.common.AccessType;
 import com.databricks.jdbc.common.Nullable;
@@ -55,10 +58,14 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
       columnBuilder
           .columnName(VOLUME_OPERATION_STATUS_COLUMN_NAME)
           .columnType(Types.VARCHAR)
-          .columnTypeText(ColumnInfoTypeName.STRING.name())
+          .columnTypeText(
+              ColumnInfoTypeName.STRING.name()) // status column is string. eg: SUCCEEDED
           .typePrecision(0)
           .columnTypeClassName(DatabricksTypeUtil.getColumnTypeClassName(ColumnInfoTypeName.STRING))
-          .displaySize(DatabricksTypeUtil.getDisplaySize(ColumnInfoTypeName.STRING, 0))
+          .displaySize(
+              DatabricksTypeUtil.getDisplaySize(
+                  ColumnInfoTypeName.STRING, 0, 0)) // passing default scale, precision
+          .isSearchable(true)
           .isSigned(DatabricksTypeUtil.isSigned(ColumnInfoTypeName.STRING));
       columnsBuilder.add(columnBuilder.build());
       columnNameToIndexMap.putIfAbsent(VOLUME_OPERATION_STATUS_COLUMN_NAME, ++currIndex);
@@ -75,10 +82,14 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
               .columnName(columnInfo.getName())
               .columnTypeClassName(DatabricksTypeUtil.getColumnTypeClassName(columnTypeName))
               .columnType(columnType)
-              .columnTypeText(columnInfo.getTypeText())
+              .columnTypeText(
+                  stripTypeName(
+                      columnInfo
+                          .getTypeText())) // store base type eg. DECIMAL instead of DECIMAL(7,2)
               .typePrecision(precision)
               .typeScale(scale)
-              .displaySize(DatabricksTypeUtil.getDisplaySize(columnTypeName, precision))
+              .displaySize(DatabricksTypeUtil.getDisplaySize(columnTypeName, precision, scale))
+              .isSearchable(true) // set all columns to be searchable in execute query result set
               .isSigned(DatabricksTypeUtil.isSigned(columnTypeName));
           columnsBuilder.add(columnBuilder.build());
           // Keep index starting from 1, to be consistent with JDBC convention
@@ -123,7 +134,8 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
           .columnTypeText(ColumnInfoTypeName.STRING.name())
           .typePrecision(0)
           .columnTypeClassName(DatabricksTypeUtil.getColumnTypeClassName(ColumnInfoTypeName.STRING))
-          .displaySize(DatabricksTypeUtil.getDisplaySize(ColumnInfoTypeName.STRING, 0))
+          .displaySize(DatabricksTypeUtil.getDisplaySize(ColumnInfoTypeName.STRING, 0, 0))
+          .isSearchable(true)
           .isSigned(DatabricksTypeUtil.isSigned(ColumnInfoTypeName.STRING));
       columnsBuilder.add(columnBuilder.build());
       columnNameToIndexMap.putIfAbsent(VOLUME_OPERATION_STATUS_COLUMN_NAME, ++currIndex);
@@ -144,7 +156,8 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
               .columnTypeText(columnTypeName.name())
               .typePrecision(precision)
               .typeScale(scale)
-              .displaySize(DatabricksTypeUtil.getDisplaySize(columnTypeName, precision))
+              .displaySize(DatabricksTypeUtil.getDisplaySize(columnTypeName, precision, scale))
+              .isSearchable(true)
               .isSigned(DatabricksTypeUtil.isSigned(columnTypeName));
           columnsBuilder.add(columnBuilder.build());
           columnNameToIndexMap.putIfAbsent(columnInfo.getColumnName(), ++currIndex);
@@ -186,7 +199,11 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
           .columnTypeClassName(DatabricksTypeUtil.getColumnTypeClassName(columnTypeName))
           .typeScale(metadata.getScale())
           .nullable(DatabricksTypeUtil.getNullableFromValue(metadata.getNullable()))
-          .displaySize(DatabricksTypeUtil.getDisplaySize(columnTypeName, metadata.getPrecision()))
+          .displaySize(
+              DatabricksTypeUtil.getDisplaySize(
+                  columnTypeName,
+                  metadata.getPrecision(),
+                  metadata.getScale())) // pass scale and precision from metadata result set
           .isSigned(DatabricksTypeUtil.isSigned(columnTypeName));
 
       columnsBuilder.add(columnBuilder.build());
@@ -225,6 +242,10 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
           ColumnInfoTypeName.valueOf(
               DatabricksTypeUtil.getDatabricksTypeFromSQLType(columnTypes.get(i)));
       ImmutableDatabricksColumn.Builder columnBuilder = getColumnBuilder();
+      if (columnNames.get(i).equals(TABLE_TYPE_COLUMN.getColumnName())) {
+        columnBuilder.nullable(
+            Nullable.NO_NULLS); // non-nullable column for getTableTypes, getTables
+      }
       columnBuilder
           .columnName(columnNames.get(i))
           .columnType(columnTypes.get(i))
@@ -232,7 +253,8 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
           .typePrecision(columnTypePrecisions.get(i))
           .columnTypeClassName(DatabricksTypeUtil.getColumnTypeClassName(columnTypeName))
           .displaySize(
-              DatabricksTypeUtil.getDisplaySize(columnTypeName, columnTypePrecisions.get(i)))
+              DatabricksTypeUtil.getDisplaySize(
+                  columnTypeName, columnTypePrecisions.get(i), 0)) // default scale passed
           .isSigned(DatabricksTypeUtil.isSigned(columnTypeName));
       columnsBuilder.add(columnBuilder.build());
       // Keep index starting from 1, to be consistent with JDBC convention
@@ -279,8 +301,19 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
           .typePrecision(columnTypePrecisions[i])
           .nullable(DatabricksTypeUtil.getNullableFromValue(isNullables[i]))
           .columnTypeClassName(DatabricksTypeUtil.getColumnTypeClassName(columnTypeName))
-          .displaySize(DatabricksTypeUtil.getDisplaySize(columnTypeName, columnTypePrecisions[i]))
+          .displaySize(
+              DatabricksTypeUtil.getDisplaySize(
+                  columnTypes[i],
+                  columnTypePrecisions[i])) // using method for pre-defined metadata resultset
           .isSigned(DatabricksTypeUtil.isSigned(columnTypeName));
+      if (columnNames
+          .get(i)
+          .equals(
+              REMARKS_COLUMN
+                  .getColumnName())) { // special case: overriding default value of 128 for VARCHAR
+        // cols.
+        columnBuilder.displaySize(254);
+      }
       columnsBuilder.add(columnBuilder.build());
       // Keep index starting from 1, to be consistent with JDBC convention
       columnNameToIndexMap.putIfAbsent(columnNames.get(i), i + 1);

@@ -926,7 +926,7 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
           Types.SMALLINT,
           Types.VARCHAR
         },
-        new int[] {128, 128, 128, 128, 128, 128, 128, 128, 128},
+        new int[] {128, 128, 128, 10, 10, 10, 254, 5, 128},
         new int[] {1, 1, 0, 1, 1, 1, 1, 1, 0},
         new Object[0][0],
         StatementType.METADATA);

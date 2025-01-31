@@ -16,6 +16,7 @@ import com.google.common.annotations.VisibleForTesting;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
+import java.sql.Types;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -307,7 +308,7 @@ public class MetadataResultSetBuilder {
   }
 
   @VisibleForTesting
-  static String stripTypeName(String typeName) {
+  public static String stripTypeName(String typeName) {
     if (typeName == null) {
       return null;
     }
@@ -481,12 +482,16 @@ public class MetadataResultSetBuilder {
 
       // Fetch metadata from ResultSetMetaData or use default values from the ResultColumn
       int precision =
-          metaColumnIndex != null && metaData.getPrecision(metaColumnIndex) != 0
+          metaColumnIndex != null
+                  && metaData.getPrecision(metaColumnIndex) != 0
+                  && (typeInt == Types.DECIMAL || typeInt == Types.NUMERIC)
               ? metaData.getPrecision(metaColumnIndex)
               : column.getColumnPrecision();
 
       int scale =
-          metaColumnIndex != null && metaData.getScale(metaColumnIndex) != 0
+          metaColumnIndex != null
+                  && metaData.getScale(metaColumnIndex) != 0
+                  && (typeInt == Types.DECIMAL || typeInt == Types.NUMERIC)
               ? metaData.getScale(metaColumnIndex)
               : column.getColumnScale();
 

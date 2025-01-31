@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.when;
 
 import com.databricks.jdbc.api.IDatabricksConnectionContext;
+import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
 import com.databricks.jdbc.common.AuthMech;
 import com.databricks.jdbc.model.client.sqlexec.ExecuteStatementResponse;
 import com.databricks.sdk.core.ApiClient;
@@ -22,6 +23,7 @@ public class DatabricksSdkClientTest {
   @Mock IDatabricksConnectionContext connectionContext;
   @Mock StatementExecutionService statementExecutionService;
   @Mock ApiClient apiClient;
+  @Mock IDatabricksStatementInternal statementInternal;
 
   @Test
   void testHandleFailedExecution() throws SQLException {
@@ -37,7 +39,7 @@ public class DatabricksSdkClientTest {
     when(errorInfo.getErrorCode()).thenReturn(ServiceErrorCode.BAD_REQUEST);
     DatabricksSdkClient databricksSdkClient =
         new DatabricksSdkClient(connectionContext, statementExecutionService, apiClient);
-
+    assertThrows(SQLException.class, () -> databricksSdkClient.getMoreResults(statementInternal));
     SQLException thrown =
         assertThrows(
             SQLException.class,

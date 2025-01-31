@@ -6,7 +6,6 @@ import static com.databricks.jdbc.common.util.DecompressionUtil.decompress;
 import com.databricks.jdbc.api.IDatabricksSession;
 import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
 import com.databricks.jdbc.common.CompressionCodec;
-import com.databricks.jdbc.dbclient.impl.thrift.DatabricksThriftServiceClient;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.log.JdbcLogger;
@@ -127,9 +126,7 @@ public class InlineChunkProvider implements ChunkProvider {
       writeToByteOutputStream(
           compressionType, parentStatement, resultsResp.getResults().getArrowBatches(), baos);
       while (resultsResp.hasMoreRows) {
-        resultsResp =
-            ((DatabricksThriftServiceClient) session.getDatabricksClient())
-                .getMoreResults(parentStatement);
+        resultsResp = session.getDatabricksClient().getMoreResults(parentStatement);
         writeToByteOutputStream(
             compressionType, parentStatement, resultsResp.getResults().getArrowBatches(), baos);
       }
