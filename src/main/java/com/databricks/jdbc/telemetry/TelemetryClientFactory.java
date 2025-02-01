@@ -25,6 +25,21 @@ public class TelemetryClientFactory {
 
   private TelemetryClientFactory() {
     telemetryExecutorService = Executors.newFixedThreadPool(10);
+    Thread timerThread =
+        new Thread(
+            () -> {
+              while (true) {
+                try {
+                  notifyClients();
+                  Thread.sleep(5000); // Wait for 5 seconds
+                } catch (InterruptedException e) {
+                  System.out.println("Timer interrupted.");
+                  break;
+                }
+              }
+            });
+    timerThread.setDaemon(true);
+    timerThread.start();
   }
 
   public static TelemetryClientFactory getInstance() {
@@ -69,6 +84,16 @@ public class TelemetryClientFactory {
       } catch (Exception e) {
         logger.debug(String.format("Caught error while closing %s. Error: %s", clientType, e));
       }
+    }
+  }
+
+  private void notifyClients() {
+    for (ITelemetryClient authClient : telemetryClients.values()) {
+      authClient.checkStaleEvents();
+    }
+
+    for (ITelemetryClient unauthClient : noauthTelemetryClients.values()) {
+      unauthClient.checkStaleEvents();
     }
   }
 }

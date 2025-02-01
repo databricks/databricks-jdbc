@@ -16,6 +16,11 @@ public class NoopTelemetryClient implements ITelemetryClient {
   }
 
   @Override
+  public void checkStaleEvents() {
+    // do nothing
+  }
+
+  @Override
   public void close() {
     // do nothing
   }

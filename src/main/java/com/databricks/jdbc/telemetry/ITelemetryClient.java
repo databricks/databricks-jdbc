@@ -5,5 +5,7 @@ import com.databricks.jdbc.model.telemetry.TelemetryFrontendLog;
 public interface ITelemetryClient {
   void exportEvent(TelemetryFrontendLog event);
 
+  void checkStaleEvents();
+
   void close();
 }

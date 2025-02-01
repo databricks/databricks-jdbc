@@ -631,6 +631,11 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   }
 
   @Override
+  public int getTelemetryPushIntervalSeconds() {
+    return Integer.parseInt(getParameter(DatabricksJdbcUrlParams.TELEMETRY_PUSH_INTERVAL_SECONDS));
+  }
+
+  @Override
   public String getVolumeOperationAllowedPaths() {
     return getParameter(
         DatabricksJdbcUrlParams.ALLOWED_VOLUME_INGESTION_PATHS,

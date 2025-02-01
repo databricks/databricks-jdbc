@@ -27,7 +27,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 public class TelemetryClientTest {
 
   private static final String JDBC_URL =
-      "jdbc:databricks://adb-20.azuredatabricks.net:4423/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/ghgjhgj;UserAgentEntry=MyApp;EnableTelemetry=1;TelemetryBatchSize=2";
+      "jdbc:databricks://adb-20.azuredatabricks.net:4423/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/ghgjhgj;UserAgentEntry=MyApp;EnableTelemetry=1;TelemetryBatchSize=2;TelemetryPushIntervalSeconds=5";
 
   @Mock IDatabricksHttpClient mockHttpClient;
   @Mock CloseableHttpResponse mockHttpResponse;

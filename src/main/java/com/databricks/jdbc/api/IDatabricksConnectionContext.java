@@ -200,6 +200,9 @@ public interface IDatabricksConnectionContext {
   /** Returns the batch size for Telemetry logs processing */
   int getTelemetryBatchSize();
 
+  /** Returns the interval in seconds for Telemetry logs push */
+  int getTelemetryPushIntervalSeconds();
+
   /**
    * Returns a unique identifier for this connection context.
    *
