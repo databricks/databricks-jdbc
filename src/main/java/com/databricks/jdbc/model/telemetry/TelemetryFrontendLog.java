@@ -1,5 +1,6 @@
 package com.databricks.jdbc.model.telemetry;
 
+import com.databricks.sdk.support.ToStringer;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 public class TelemetryFrontendLog {
@@ -52,5 +53,15 @@ public class TelemetryFrontendLog {
   public TelemetryFrontendLog setEntry(FrontendLogEntry entry) {
     this.entry = entry;
     return this;
+  }
+
+  @Override
+  public String toString() {
+    return new ToStringer(TelemetryFrontendLog.class)
+        .add("workspaceId", workspaceId)
+        .add("frontendLogEventId", frontendLogEventId)
+        .add("context", context)
+        .add("entry", entry)
+        .toString();
   }
 }

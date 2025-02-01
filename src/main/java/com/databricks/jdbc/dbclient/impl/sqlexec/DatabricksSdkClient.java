@@ -10,6 +10,7 @@ import com.databricks.jdbc.api.impl.*;
 import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
 import com.databricks.jdbc.common.*;
 import com.databricks.jdbc.common.IDatabricksComputeResource;
+import com.databricks.jdbc.common.util.DatabricksThreadContextHolder;
 import com.databricks.jdbc.dbclient.IDatabricksClient;
 import com.databricks.jdbc.dbclient.impl.common.ClientConfigurator;
 import com.databricks.jdbc.dbclient.impl.common.StatementId;
@@ -130,6 +131,7 @@ public class DatabricksSdkClient implements IDatabricksClient {
             sql, computeResource.toString(), statementType));
     long pollCount = 0;
     long executionStartTime = Instant.now().toEpochMilli();
+    DatabricksThreadContextHolder.setStatementType(statementType);
     ExecuteStatementRequest request =
         getRequest(
             statementType,

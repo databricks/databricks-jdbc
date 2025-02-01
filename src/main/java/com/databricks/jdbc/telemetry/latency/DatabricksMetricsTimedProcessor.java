@@ -2,8 +2,6 @@ package com.databricks.jdbc.telemetry.latency;
 
 import static com.databricks.jdbc.telemetry.TelemetryHelper.exportLatencyLog;
 
-import com.databricks.jdbc.common.util.DatabricksThreadContextHolder;
-import com.databricks.jdbc.model.telemetry.SqlExecutionEvent;
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
@@ -36,15 +34,8 @@ public class DatabricksMetricsTimedProcessor {
           Object result = method.invoke(target, args);
           // Calculate execution time
           long executionTime = System.currentTimeMillis() - startTime;
-          SqlExecutionEvent executionEvent =
-              new SqlExecutionEvent()
-                  .setDriverStatementType(DatabricksThreadContextHolder.getStatementType())
-                  .setChunkId(DatabricksThreadContextHolder.getChunkId());
-          exportLatencyLog(
-              DatabricksThreadContextHolder.getConnectionContext(),
-              executionTime,
-              executionEvent,
-              DatabricksThreadContextHolder.getStatementId());
+          System.out.println("here is start of log " + method.getName());
+          exportLatencyLog(executionTime);
           return result;
         } catch (Throwable throwable) {
           // Handle exceptions from the target method

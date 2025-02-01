@@ -1,11 +1,13 @@
 package com.databricks.jdbc.telemetry;
 
 import com.databricks.jdbc.api.IDatabricksConnectionContext;
+import com.databricks.jdbc.common.util.DatabricksThreadContextHolder;
 import com.databricks.jdbc.common.util.DriverUtil;
 import com.databricks.jdbc.dbclient.impl.common.StatementId;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.model.telemetry.*;
 import com.databricks.sdk.core.ProxyConfig;
+import com.google.common.annotations.VisibleForTesting;
 import java.nio.charset.Charset;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -73,7 +75,21 @@ public class TelemetryHelper {
         .exportEvent(telemetryFrontendLog);
   }
 
-  public static void exportLatencyLog(
+  public static void exportLatencyLog(long executionTime) {
+    SqlExecutionEvent executionEvent =
+        new SqlExecutionEvent()
+            .setDriverStatementType(DatabricksThreadContextHolder.getStatementType())
+            .setRetryCount(DatabricksThreadContextHolder.getRetryCount())
+            .setChunkId(DatabricksThreadContextHolder.getChunkId());
+    exportLatencyLog(
+        DatabricksThreadContextHolder.getConnectionContext(),
+        executionTime,
+        executionEvent,
+        DatabricksThreadContextHolder.getStatementId());
+  }
+
+  @VisibleForTesting
+  static void exportLatencyLog(
       IDatabricksConnectionContext connectionContext,
       long latencyMilliseconds,
       SqlExecutionEvent executionEvent,
@@ -88,6 +104,7 @@ public class TelemetryHelper {
     }
     TelemetryFrontendLog telemetryFrontendLog =
         new TelemetryFrontendLog().setEntry(new FrontendLogEntry().setSqlDriverLog(telemetryEvent));
+    System.out.println("here is telemetry log " + telemetryFrontendLog);
     TelemetryClientFactory.getInstance()
         .getUnauthenticatedTelemetryClient(connectionContext)
         .exportEvent(telemetryFrontendLog);

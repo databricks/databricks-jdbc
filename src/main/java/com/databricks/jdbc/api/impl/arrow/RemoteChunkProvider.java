@@ -18,7 +18,6 @@ import com.databricks.jdbc.model.core.ExternalLink;
 import com.databricks.jdbc.model.core.ResultData;
 import com.databricks.jdbc.model.core.ResultManifest;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
-import com.databricks.jdbc.telemetry.latency.DatabricksMetricsTimedProcessor;
 import com.databricks.sdk.service.sql.BaseChunkInfo;
 import com.google.common.annotations.VisibleForTesting;
 import java.util.Collection;
@@ -218,9 +217,7 @@ public class RemoteChunkProvider implements ChunkProvider, ChunkDownloadCallback
         && totalChunksInMemory < allowedChunksInMemory) {
       ArrowResultChunk chunk = chunkIndexToChunksMap.get(nextChunkToDownload);
       if (chunk.getStatus() != ArrowResultChunk.ChunkStatus.DOWNLOAD_SUCCEEDED) {
-        this.chunkDownloaderExecutorService.submit(
-            DatabricksMetricsTimedProcessor.createProxy(
-                new ChunkDownloadTask(chunk, httpClient, this)));
+        this.chunkDownloaderExecutorService.submit(new ChunkDownloadTask(chunk, httpClient, this));
         totalChunksInMemory++;
       }
       nextChunkToDownload++;
