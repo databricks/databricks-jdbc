@@ -65,7 +65,8 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
     Matcher urlMatcher = JDBC_URL_PATTERN.matcher(url);
     if (urlMatcher.find()) {
       String hostUrlVal = urlMatcher.group(1);
-      String urlMinusHost = urlMatcher.group(2);
+      String schema = urlMatcher.group(2);
+      String urlMinusHost = urlMatcher.group(3);
       String[] hostAndPort = hostUrlVal.split(DatabricksJdbcConstants.PORT_DELIMITER);
       String hostValue = hostAndPort[0];
       int portValue =
@@ -75,12 +76,8 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
 
       ImmutableMap.Builder<String, String> parametersBuilder = ImmutableMap.builder();
       String[] urlParts = urlMinusHost.split(DatabricksJdbcConstants.URL_DELIMITER);
-      String schema = urlParts[0];
-      if (nullOrEmptyString(schema)) {
-        schema = DEFAULT_SCHEMA;
-      }
-      for (int urlPartIndex = 1; urlPartIndex < urlParts.length; urlPartIndex++) {
-        String[] pair = urlParts[urlPartIndex].split(DatabricksJdbcConstants.PAIR_DELIMITER);
+      for (String urlPart : urlParts) {
+        String[] pair = urlPart.split(DatabricksJdbcConstants.PAIR_DELIMITER);
         if (pair.length == 1) {
           pair = new String[] {pair[0], ""};
         }
@@ -359,6 +356,10 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
 
   @Override
   public String getSchema() {
+    if (!nullOrEmptyString(schema)) {
+      return schema;
+    }
+
     return getParameter(
         DatabricksJdbcUrlParams.CONN_SCHEMA, getParameter(DatabricksJdbcUrlParams.SCHEMA));
   }
