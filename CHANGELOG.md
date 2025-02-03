@@ -1,6 +1,6 @@
 # Version Changelog
 
-## [v0.9.9-oss] - 2025-01-02
+## [v0.9.9-oss] - 2025-01-03
 
 ### Added
 - Telemetry support in OSS JDBC.
@@ -12,11 +12,13 @@
 
 ### Updated
 - Enhanced end-to-end testing for M2M and DBFS UCVolume operations, including improved logging and proxy handling.
+- Removed the version check SQL call when connection is established.
 
 ### Fixed
 - Fixed statement ID extraction from Thrift GUID.
 - Made volume operations flag backward-compatible with the existing Databricks driver.
 - Improved backward compatibility of ResultSetMetadata with the legacy driver.
+- Fix schema in connection string
 
 ---
 
