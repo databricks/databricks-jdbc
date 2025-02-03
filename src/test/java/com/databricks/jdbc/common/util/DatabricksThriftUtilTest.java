@@ -146,7 +146,7 @@ public class DatabricksThriftUtilTest {
 
   private static Stream<Arguments> resultDataTypesForGetColumnValue() {
     return Stream.of(
-        Arguments.of(new TRowSet(), Collections.singletonList(Collections.emptyList())),
+        Arguments.of(new TRowSet(), null),
         Arguments.of(
             new TRowSet().setColumns(Collections.emptyList()),
             Collections.singletonList(Collections.emptyList())),

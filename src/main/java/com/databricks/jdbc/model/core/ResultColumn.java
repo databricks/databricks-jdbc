@@ -43,7 +43,7 @@ public class ResultColumn {
   }
 
   public Integer getColumnPrecision() {
-    return DatabricksTypeUtil.getPrecision(columnType);
+    return DatabricksTypeUtil.getMetadataPrecision(columnType);
   }
 
   public Integer getColumnScale() {

@@ -6,6 +6,7 @@ import static com.databricks.jdbc.dbclient.impl.common.TypeValConstants.*;
 
 import com.databricks.jdbc.api.impl.DatabricksResultSet;
 import com.databricks.jdbc.common.CommandName;
+import com.databricks.jdbc.common.Nullable;
 import com.databricks.jdbc.common.StatementType;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.model.core.ColumnMetadata;
@@ -79,11 +80,11 @@ public class MetadataResultSetBuilder {
   }
 
   public static DatabricksResultSet getTableTypesResult() {
-    return buildResultSet(TABLE_TYPE_COLUMNS, TABLE_TYPES_ROWS, GET_TABLE_TYPE_STATEMENT_ID);
-  }
-
-  public static DatabricksResultSet getTypeInfoResult(List<List<Object>> rows) {
-    return buildResultSet(TYPE_INFO_COLUMNS, rows, GET_TYPE_INFO_STATEMENT_ID);
+    return buildResultSet(
+        TABLE_TYPE_COLUMNS,
+        TABLE_TYPES_ROWS,
+        GET_TABLE_TYPE_STATEMENT_ID,
+        CommandName.LIST_TABLE_TYPES);
   }
 
   public static DatabricksResultSet getPrimaryKeysResult(ResultSet resultSet) throws SQLException {
@@ -430,13 +431,21 @@ public class MetadataResultSetBuilder {
   }
 
   private static DatabricksResultSet buildResultSet(
-      List<ResultColumn> columns, List<List<Object>> rows, String statementId) {
-    if (rows != null && !rows.isEmpty() && columns.size() > rows.get(0).size()) {
-      // Handle cases where the number of rows is less than expected columns, e.g., missing
-      // isGenerated column.
-      int colSize = columns.size();
-      rows.forEach(row -> row.addAll(Collections.nCopies(colSize - row.size(), null)));
+      List<ResultColumn> columns,
+      List<List<Object>> rows,
+      String statementId,
+      CommandName commandName) {
+    List<ResultColumn> nonNullableColumns =
+        NON_NULLABLE_COLUMNS_MAP.get(commandName); // Get non-nullable columns
+    List<Nullable> nullableList = new ArrayList<>();
+    for (ResultColumn column : columns) {
+      if (nonNullableColumns.contains(column)) {
+        nullableList.add(Nullable.NO_NULLS);
+      } else {
+        nullableList.add(Nullable.NULLABLE);
+      }
     }
+
     return new DatabricksResultSet(
         new StatementStatus().setState(StatementState.SUCCEEDED),
         new StatementId(statementId),
@@ -444,6 +453,7 @@ public class MetadataResultSetBuilder {
         columns.stream().map(ResultColumn::getColumnTypeString).collect(Collectors.toList()),
         columns.stream().map(ResultColumn::getColumnTypeInt).collect(Collectors.toList()),
         columns.stream().map(ResultColumn::getColumnPrecision).collect(Collectors.toList()),
+        nullableList,
         rows,
         StatementType.METADATA);
   }
@@ -518,11 +528,18 @@ public class MetadataResultSetBuilder {
 
   public static DatabricksResultSet getCatalogsResult(List<List<Object>> rows) {
     return buildResultSet(
-        CATALOG_COLUMNS, buildRows(rows, CATALOG_COLUMNS), GET_CATALOGS_STATEMENT_ID);
+        CATALOG_COLUMNS,
+        processThriftRows(rows, CATALOG_COLUMNS),
+        GET_CATALOGS_STATEMENT_ID,
+        CommandName.LIST_CATALOGS);
   }
 
   public static DatabricksResultSet getSchemasResult(List<List<Object>> rows) {
-    return buildResultSet(SCHEMA_COLUMNS, buildRows(rows, SCHEMA_COLUMNS), METADATA_STATEMENT_ID);
+    return buildResultSet(
+        SCHEMA_COLUMNS,
+        processThriftRows(rows, SCHEMA_COLUMNS),
+        METADATA_STATEMENT_ID,
+        CommandName.LIST_SCHEMAS);
   }
 
   public static DatabricksResultSet getTablesResult(String catalog, List<List<Object>> rows) {
@@ -539,14 +556,141 @@ public class MetadataResultSetBuilder {
       updatedRows.add(row);
     }
     return buildResultSet(
-        TABLE_COLUMNS, buildRows(updatedRows, TABLE_COLUMNS), GET_TABLES_STATEMENT_ID);
+        TABLE_COLUMNS,
+        processThriftRows(updatedRows, TABLE_COLUMNS),
+        GET_TABLES_STATEMENT_ID,
+        CommandName.LIST_TABLES);
   }
 
   public static DatabricksResultSet getColumnsResult(List<List<Object>> rows) {
     return buildResultSet(
         COLUMN_COLUMNS,
-        buildRows(buildRows(rows, COLUMN_COLUMNS), COLUMN_COLUMNS),
-        METADATA_STATEMENT_ID);
+        processThriftRows(rows, COLUMN_COLUMNS),
+        METADATA_STATEMENT_ID,
+        CommandName.LIST_COLUMNS);
+  }
+
+  static List<List<Object>> processThriftRows(List<List<Object>> rows, List<ResultColumn> columns) {
+    if (rows == null || rows.isEmpty()) {
+      return new ArrayList<>();
+    }
+    List<List<Object>> updatedRows = new ArrayList<>();
+    for (List<Object> row : rows) {
+      List<Object> updatedRow = new ArrayList<>();
+      for (ResultColumn column : columns) {
+        if (NULL_COLUMN_COLUMNS.contains(column)) {
+          updatedRow.add(null);
+          continue;
+        }
+        Object object;
+        String typeVal = null;
+        int col_type_index = columns.indexOf(COLUMN_TYPE_COLUMN);
+        if (col_type_index != -1) {
+          typeVal = (String) row.get(col_type_index);
+        }
+        switch (column.getColumnName()) {
+          case "SQL_DATA_TYPE":
+            if (typeVal == null) { // safety check
+              object = null;
+            } else {
+              object = getCode(stripTypeName(typeVal));
+            }
+            break;
+          case "SQL_DATETIME_SUB":
+            // check if typeVal is a date/time related field
+            if (typeVal != null
+                && (typeVal.contains(DATE_TYPE) || typeVal.contains(TIMESTAMP_TYPE))) {
+              object = getCode(stripTypeName(typeVal));
+            } else {
+              object = null;
+            }
+            break;
+          case "ORDINAL_POSITION":
+            int ordinalPositionIndex = columns.indexOf(ORDINAL_POSITION_COLUMN);
+            if (ordinalPositionIndex != -1) {
+              object = (int) row.get(ordinalPositionIndex) + 1;
+            } else {
+              object = null;
+            }
+            break;
+          case "COLUMN_DEF":
+            object = row.get(columns.indexOf(COLUMN_TYPE_COLUMN));
+            break;
+          default:
+            int index = columns.indexOf(column);
+            if (index == -1 || index >= row.size()) {
+              object = null;
+            } else {
+              object = row.get(index);
+              if (column.getColumnName().equals(IS_NULLABLE_COLUMN.getColumnName())) {
+                if (object == null || object.equals("YES")) {
+                  object = "YES";
+                } else {
+                  object = "NO";
+                }
+              }
+              if (column.getColumnName().equals(DECIMAL_DIGITS_COLUMN.getColumnName())
+                  || column.getColumnName().equals(NUM_PREC_RADIX_COLUMN.getColumnName())) {
+                if (object == null) {
+                  object = 0;
+                }
+              }
+              if (column.getColumnName().equals(REMARKS_COLUMN.getColumnName())) {
+                if (object == null) {
+                  object = "";
+                }
+              }
+              if (column.getColumnName().equals(DATA_TYPE_COLUMN.getColumnName())) {
+                object = getCode(stripTypeName(typeVal));
+              }
+              if (column.getColumnName().equals(CHAR_OCTET_LENGTH_COLUMN.getColumnName())) {
+                object = getCharOctetLength(typeVal);
+                if (object.equals(0)) {
+                  object = null;
+                }
+              }
+              if (column.getColumnName().equals(BUFFER_LENGTH_COLUMN.getColumnName())) {
+                int columnSize = (int) row.get(columns.indexOf(COLUMN_SIZE_COLUMN));
+                object = getBufferLength(typeVal, columnSize);
+              }
+              if (column.getColumnName().equals(NULLABLE_COLUMN.getColumnName())) {
+                object = row.get(columns.indexOf(IS_NULLABLE_COLUMN));
+                if (object == null || object.equals("YES")) {
+                  object = 1;
+                } else {
+                  object = 0;
+                }
+              }
+              if (column.getColumnName().equals(TABLE_TYPE_COLUMN.getColumnName())
+                  && (object == null || object.equals(""))) {
+                object = "TABLE";
+              }
+
+              // Handle TYPE_NAME separately for potential modifications
+              if (column.getColumnName().equals(COLUMN_TYPE_COLUMN.getColumnName())) {
+                object = stripTypeName((String) object);
+              }
+              // Set COLUMN_SIZE to 255 if it's not present
+              if (column.getColumnName().equals(COLUMN_SIZE_COLUMN.getColumnName())
+                  && object == null) {
+                // check if typeVal is a text related field
+                if (typeVal == null) {
+                  object = 0;
+                } else {
+                  int columnSize = getSizeFromTypeVal(typeVal);
+                  object = (columnSize != -1) ? columnSize : (isTextType(typeVal) ? 255 : 0);
+                }
+              }
+            }
+            break;
+        }
+
+        // Add the object to the current row
+        updatedRow.add(object);
+      }
+      updatedRows.add(updatedRow);
+    }
+    return updatedRows;
   }
 
   static List<List<Object>> buildRows(List<List<Object>> rows, List<ResultColumn> columns) {
@@ -576,11 +720,17 @@ public class MetadataResultSetBuilder {
 
   public static DatabricksResultSet getPrimaryKeysResult(List<List<Object>> rows) {
     return buildResultSet(
-        PRIMARY_KEYS_COLUMNS, buildRows(rows, PRIMARY_KEYS_COLUMNS), METADATA_STATEMENT_ID);
+        PRIMARY_KEYS_COLUMNS,
+        processThriftRows(rows, PRIMARY_KEYS_COLUMNS),
+        METADATA_STATEMENT_ID,
+        CommandName.LIST_PRIMARY_KEYS);
   }
 
   public static DatabricksResultSet getFunctionsResult(List<List<Object>> rows) {
     return buildResultSet(
-        FUNCTION_COLUMNS, buildRows(rows, FUNCTION_COLUMNS), GET_FUNCTIONS_STATEMENT_ID);
+        FUNCTION_COLUMNS,
+        processThriftRows(rows, FUNCTION_COLUMNS),
+        GET_FUNCTIONS_STATEMENT_ID,
+        CommandName.LIST_FUNCTIONS);
   }
 }

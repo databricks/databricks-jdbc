@@ -7,6 +7,7 @@ import com.databricks.jdbc.api.impl.converters.ObjectConverter;
 import com.databricks.jdbc.api.impl.volume.VolumeOperationResult;
 import com.databricks.jdbc.api.internal.IDatabricksResultSetInternal;
 import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
+import com.databricks.jdbc.common.Nullable;
 import com.databricks.jdbc.common.StatementType;
 import com.databricks.jdbc.common.util.WarningUtil;
 import com.databricks.jdbc.dbclient.impl.common.StatementId;
@@ -166,6 +167,7 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
       List<String> columnTypeText,
       List<Integer> columnTypes,
       List<Integer> columnTypePrecisions,
+      List<Nullable> columnNullables,
       List<List<Object>> rows,
       StatementType statementType) {
     this.statementStatus = statementStatus;
@@ -178,6 +180,7 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
             columnTypeText,
             columnTypes,
             columnTypePrecisions,
+            columnNullables,
             rows.size());
     this.statementType = statementType;
     this.updateCount = null;

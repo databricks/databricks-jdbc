@@ -3,7 +3,6 @@ package com.databricks.jdbc.api.impl;
 import static com.databricks.jdbc.common.DatabricksJdbcConstants.EMPTY_STRING;
 import static com.databricks.jdbc.common.DatabricksJdbcConstants.VOLUME_OPERATION_STATUS_COLUMN_NAME;
 import static com.databricks.jdbc.common.MetadataResultConstants.REMARKS_COLUMN;
-import static com.databricks.jdbc.common.MetadataResultConstants.TABLE_TYPE_COLUMN;
 import static com.databricks.jdbc.common.util.DatabricksThriftUtil.getTypeFromTypeDesc;
 import static com.databricks.jdbc.dbclient.impl.common.MetadataResultSetBuilder.stripTypeName;
 
@@ -205,6 +204,10 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
                   metadata.getPrecision(),
                   metadata.getScale())) // pass scale and precision from metadata result set
           .isSigned(DatabricksTypeUtil.isSigned(columnTypeName));
+      if (metadata.getName().equals(REMARKS_COLUMN.getColumnName())) {
+        columnBuilder.typePrecision(254);
+        columnBuilder.displaySize(254);
+      }
 
       columnsBuilder.add(columnBuilder.build());
       columnNameToIndexMap.putIfAbsent(metadata.getName(), i + 1); // JDBC index starts from 1
@@ -224,6 +227,7 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
    * @param columnTypeText type text of each column
    * @param columnTypes types of each column
    * @param columnTypePrecisions precisions of each column
+   * @param columnNullables nullable value of each column
    * @param totalRows total number of rows in result set
    */
   public DatabricksResultSetMetaData(
@@ -232,6 +236,7 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
       List<String> columnTypeText,
       List<Integer> columnTypes,
       List<Integer> columnTypePrecisions,
+      List<Nullable> columnNullables,
       long totalRows) {
     this.statementId = statementId;
 
@@ -242,10 +247,6 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
           ColumnInfoTypeName.valueOf(
               DatabricksTypeUtil.getDatabricksTypeFromSQLType(columnTypes.get(i)));
       ImmutableDatabricksColumn.Builder columnBuilder = getColumnBuilder();
-      if (columnNames.get(i).equals(TABLE_TYPE_COLUMN.getColumnName())) {
-        columnBuilder.nullable(
-            Nullable.NO_NULLS); // non-nullable column for getTableTypes, getTables
-      }
       columnBuilder
           .columnName(columnNames.get(i))
           .columnType(columnTypes.get(i))
@@ -253,9 +254,13 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
           .typePrecision(columnTypePrecisions.get(i))
           .columnTypeClassName(DatabricksTypeUtil.getColumnTypeClassName(columnTypeName))
           .displaySize(
-              DatabricksTypeUtil.getDisplaySize(
-                  columnTypeName, columnTypePrecisions.get(i), 0)) // default scale passed
+              DatabricksTypeUtil.getDisplaySize(columnTypes.get(i), columnTypePrecisions.get(i)))
+          .nullable(columnNullables.get(i))
           .isSigned(DatabricksTypeUtil.isSigned(columnTypeName));
+      if (columnNames.get(i).equals(REMARKS_COLUMN.getColumnName())) {
+        columnBuilder.typePrecision(254);
+        columnBuilder.displaySize(254);
+      }
       columnsBuilder.add(columnBuilder.build());
       // Keep index starting from 1, to be consistent with JDBC convention
       columnNameToIndexMap.putIfAbsent(columnNames.get(i), i + 1);

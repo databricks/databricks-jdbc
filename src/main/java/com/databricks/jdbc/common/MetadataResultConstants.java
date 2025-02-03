@@ -196,6 +196,15 @@ public class MetadataResultConstants {
           SQL_DATA_TYPE_COLUMN,
           SQL_DATETIME_SUB_COLUMN,
           NUM_PREC_RADIX_COLUMN);
+
+  public static final List<ResultColumn> NULL_COLUMN_COLUMNS =
+      List.of(
+          SCOPE_CATALOG_COLUMN,
+          SCOPE_SCHEMA_COLUMN,
+          SCOPE_TABLE_COLUMN,
+          SOURCE_DATA_TYPE_COLUMN,
+          IS_AUTO_INCREMENT_COLUMN,
+          IS_GENERATED_COLUMN);
   public static final Map<CommandName, List<ResultColumn>> NON_NULLABLE_COLUMNS_MAP =
       Map.of(
           CommandName.LIST_TYPE_INFO,

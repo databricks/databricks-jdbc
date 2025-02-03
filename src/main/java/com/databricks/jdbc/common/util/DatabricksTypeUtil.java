@@ -258,6 +258,23 @@ public class DatabricksTypeUtil {
     }
   }
 
+  public static int getMetadataPrecision(Integer columnType) {
+    switch (columnType) {
+      case Types.SMALLINT:
+        return 5;
+      case Types.INTEGER:
+        return 10;
+      case Types.CHAR:
+      case Types.BOOLEAN:
+      case Types.BIT:
+        return 1;
+      case Types.VARCHAR:
+        return 128;
+      default:
+        return 255;
+    }
+  }
+
   public static int getPrecision(Integer columnType) {
     if (columnType == null) {
       return 0;

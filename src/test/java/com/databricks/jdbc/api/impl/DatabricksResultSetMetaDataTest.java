@@ -1,5 +1,6 @@
 package com.databricks.jdbc.api.impl;
 
+import static com.databricks.jdbc.common.Nullable.NULLABLE;
 import static com.databricks.jdbc.common.util.DatabricksThriftUtil.getTypeFromTypeDesc;
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -86,6 +87,7 @@ public class DatabricksResultSetMetaDataTest {
             List.of("int", "string", "double"),
             List.of(4, 12, 8),
             List.of(0, 0, 0),
+            List.of(NULLABLE, NULLABLE, NULLABLE),
             10);
     assertEquals(3, metaData.getColumnCount());
     assertEquals("col1", metaData.getColumnName(1));
@@ -224,6 +226,7 @@ public class DatabricksResultSetMetaDataTest {
             List.of("int", "string", "double"),
             List.of(4, 12, 8),
             List.of(0, 0, 0),
+            List.of(NULLABLE, NULLABLE, NULLABLE),
             10);
     assertEquals(3, metaData.getColumnCount());
     verifyDefaultMetadataProperties(metaData);
