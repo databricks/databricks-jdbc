@@ -258,7 +258,7 @@ public class DatabricksTypeUtil {
     }
   }
 
-  public static int getMetadataPrecision(Integer columnType) {
+  public static int getMetadataColPrecision(Integer columnType) {
     switch (columnType) {
       case Types.SMALLINT:
         return 5;
@@ -351,6 +351,7 @@ public class DatabricksTypeUtil {
         return DATE;
       case Types.DECIMAL:
         return DECIMAL;
+      case Types.BIT:
       case Types.BOOLEAN:
         return BOOLEAN;
       case Types.DOUBLE:
