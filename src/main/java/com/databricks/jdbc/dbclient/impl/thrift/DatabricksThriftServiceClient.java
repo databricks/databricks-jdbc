@@ -350,7 +350,7 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
             .setFunctionName(functionNamePattern)
             .setRunAsync(true);
     TFetchResultsResp response = (TFetchResultsResp) thriftAccessor.getThriftResponse(request);
-    return getFunctionsResult(extractValuesColumnar(response.getResults().getColumns()));
+    return getFunctionsResult(catalog, extractValuesColumnar(response.getResults().getColumns()));
   }
 
   @Override

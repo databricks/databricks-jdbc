@@ -578,7 +578,7 @@ public class MetadataResultSetBuilder {
     for (List<Object> row : rows) {
       List<Object> updatedRow = new ArrayList<>();
       for (ResultColumn column : columns) {
-        if (NULL_COLUMN_COLUMNS.contains(column)) {
+        if (NULL_COLUMN_COLUMNS.contains(column) || NULL_TABLE_COLUMNS.contains(column)) {
           updatedRow.add(null);
           continue;
         }
@@ -693,31 +693,6 @@ public class MetadataResultSetBuilder {
     return updatedRows;
   }
 
-  static List<List<Object>> buildRows(List<List<Object>> rows, List<ResultColumn> columns) {
-    if (rows == null) {
-      return new ArrayList<>();
-    }
-    List<List<Object>> updatedRows = new ArrayList<>(rows.size());
-
-    int ordinalPositionIndex = columns.indexOf(ORDINAL_POSITION_COLUMN);
-    boolean hasOrdinalPosition = ordinalPositionIndex != -1;
-
-    for (List<Object> row : rows) {
-      if (hasOrdinalPosition) {
-        incrementValueAtIndex(row, ordinalPositionIndex);
-      }
-      updatedRows.add(row);
-    }
-
-    return updatedRows;
-  }
-
-  private static void incrementValueAtIndex(List<Object> row, int index) {
-    if (row.size() > index) {
-      row.set(index, (int) row.get(index) + 1);
-    }
-  }
-
   public static DatabricksResultSet getPrimaryKeysResult(List<List<Object>> rows) {
     return buildResultSet(
         PRIMARY_KEYS_COLUMNS,
@@ -726,7 +701,11 @@ public class MetadataResultSetBuilder {
         CommandName.LIST_PRIMARY_KEYS);
   }
 
-  public static DatabricksResultSet getFunctionsResult(List<List<Object>> rows) {
+  public static DatabricksResultSet getFunctionsResult(String catalog, List<List<Object>> rows) {
+    // set FUNCTION_CAT col to be catalog for all rows
+    if (rows != null) { // check for EmptyMetadataClient result
+      rows.forEach(row -> row.set(FUNCTION_COLUMNS.indexOf(FUNCTION_CATALOG_COLUMN), catalog));
+    }
     return buildResultSet(
         FUNCTION_COLUMNS,
         processThriftRows(rows, FUNCTION_COLUMNS),

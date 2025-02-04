@@ -186,6 +186,14 @@ public class MetadataResultConstants {
           IS_AUTO_INCREMENT_COLUMN,
           IS_GENERATED_COLUMN);
 
+  public static final List<ResultColumn> NULL_TABLE_COLUMNS =
+      List.of(
+          TYPE_CATALOG_COLUMN,
+          TYPE_SCHEMA_COLUMN,
+          TYPE_NAME_COLUMN,
+          SELF_REFERENCING_COLUMN_NAME,
+          REF_GENERATION_COLUMN);
+
   public static final List<ResultColumn> LARGE_DISPLAY_COLUMNS =
       List.of(
           REMARKS_COLUMN,
