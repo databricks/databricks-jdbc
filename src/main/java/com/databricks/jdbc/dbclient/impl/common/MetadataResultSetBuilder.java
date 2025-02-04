@@ -529,7 +529,7 @@ public class MetadataResultSetBuilder {
   public static DatabricksResultSet getCatalogsResult(List<List<Object>> rows) {
     return buildResultSet(
         CATALOG_COLUMNS,
-        processThriftRows(rows, CATALOG_COLUMNS),
+        getThriftRows(rows, CATALOG_COLUMNS),
         GET_CATALOGS_STATEMENT_ID,
         CommandName.LIST_CATALOGS);
   }
@@ -537,7 +537,7 @@ public class MetadataResultSetBuilder {
   public static DatabricksResultSet getSchemasResult(List<List<Object>> rows) {
     return buildResultSet(
         SCHEMA_COLUMNS,
-        processThriftRows(rows, SCHEMA_COLUMNS),
+        getThriftRows(rows, SCHEMA_COLUMNS),
         METADATA_STATEMENT_ID,
         CommandName.LIST_SCHEMAS);
   }
@@ -557,7 +557,7 @@ public class MetadataResultSetBuilder {
     }
     return buildResultSet(
         TABLE_COLUMNS,
-        processThriftRows(updatedRows, TABLE_COLUMNS),
+        getThriftRows(updatedRows, TABLE_COLUMNS),
         GET_TABLES_STATEMENT_ID,
         CommandName.LIST_TABLES);
   }
@@ -565,12 +565,12 @@ public class MetadataResultSetBuilder {
   public static DatabricksResultSet getColumnsResult(List<List<Object>> rows) {
     return buildResultSet(
         COLUMN_COLUMNS,
-        processThriftRows(rows, COLUMN_COLUMNS),
+        getThriftRows(rows, COLUMN_COLUMNS),
         METADATA_STATEMENT_ID,
         CommandName.LIST_COLUMNS);
   }
 
-  static List<List<Object>> processThriftRows(List<List<Object>> rows, List<ResultColumn> columns) {
+  static List<List<Object>> getThriftRows(List<List<Object>> rows, List<ResultColumn> columns) {
     if (rows == null || rows.isEmpty()) {
       return new ArrayList<>();
     }
@@ -584,7 +584,7 @@ public class MetadataResultSetBuilder {
         }
         Object object;
         String typeVal = null;
-        int col_type_index = columns.indexOf(COLUMN_TYPE_COLUMN);
+        int col_type_index = columns.indexOf(COLUMN_TYPE_COLUMN); // only relevant for getColumns
         if (col_type_index != -1) {
           typeVal = (String) row.get(col_type_index);
         }
@@ -607,18 +607,14 @@ public class MetadataResultSetBuilder {
             break;
           case "ORDINAL_POSITION":
             int ordinalPositionIndex = columns.indexOf(ORDINAL_POSITION_COLUMN);
-            if (ordinalPositionIndex != -1) {
-              object = (int) row.get(ordinalPositionIndex) + 1;
-            } else {
-              object = null;
-            }
+            object = (int) row.get(ordinalPositionIndex) + 1;
             break;
           case "COLUMN_DEF":
             object = row.get(columns.indexOf(COLUMN_TYPE_COLUMN));
             break;
           default:
             int index = columns.indexOf(column);
-            if (index == -1 || index >= row.size()) {
+            if (index >= row.size()) { // index out of bound (eg: IS_GENERATED_COL in getColumns)
               object = null;
             } else {
               object = row.get(index);
@@ -672,7 +668,7 @@ public class MetadataResultSetBuilder {
               }
               // Set COLUMN_SIZE to 255 if it's not present
               if (column.getColumnName().equals(COLUMN_SIZE_COLUMN.getColumnName())
-                  && object == null) {
+                  && Integer.valueOf(0).equals(object)) {
                 // check if typeVal is a text related field
                 if (typeVal == null) {
                   object = 0;
@@ -696,7 +692,7 @@ public class MetadataResultSetBuilder {
   public static DatabricksResultSet getPrimaryKeysResult(List<List<Object>> rows) {
     return buildResultSet(
         PRIMARY_KEYS_COLUMNS,
-        processThriftRows(rows, PRIMARY_KEYS_COLUMNS),
+        getThriftRows(rows, PRIMARY_KEYS_COLUMNS),
         METADATA_STATEMENT_ID,
         CommandName.LIST_PRIMARY_KEYS);
   }
@@ -708,7 +704,7 @@ public class MetadataResultSetBuilder {
     }
     return buildResultSet(
         FUNCTION_COLUMNS,
-        processThriftRows(rows, FUNCTION_COLUMNS),
+        getThriftRows(rows, FUNCTION_COLUMNS),
         GET_FUNCTIONS_STATEMENT_ID,
         CommandName.LIST_FUNCTIONS);
   }
