@@ -2,6 +2,7 @@ package com.databricks.jdbc.api.impl;
 
 import static com.databricks.jdbc.common.DatabricksJdbcConstants.EMPTY_STRING;
 import static com.databricks.jdbc.common.DatabricksJdbcConstants.VOLUME_OPERATION_STATUS_COLUMN_NAME;
+import static com.databricks.jdbc.common.MetadataResultConstants.LARGE_DISPLAY_COLUMNS;
 import static com.databricks.jdbc.common.MetadataResultConstants.REMARKS_COLUMN;
 import static com.databricks.jdbc.common.util.DatabricksThriftUtil.getTypeFromTypeDesc;
 import static com.databricks.jdbc.dbclient.impl.common.MetadataResultSetBuilder.stripTypeName;
@@ -200,11 +201,10 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
           .nullable(DatabricksTypeUtil.getNullableFromValue(metadata.getNullable()))
           .displaySize(
               DatabricksTypeUtil.getDisplaySize(
-                  columnTypeName,
-                  metadata.getPrecision(),
-                  metadata.getScale())) // pass scale and precision from metadata result set
+                  metadata.getTypeInt(),
+                  metadata.getPrecision())) // pass scale and precision from metadata result set
           .isSigned(DatabricksTypeUtil.isSigned(columnTypeName));
-      if (metadata.getName().equals(REMARKS_COLUMN.getColumnName())) {
+      if (isLargeColumn(metadata.getName())) {
         columnBuilder.typePrecision(254);
         columnBuilder.displaySize(254);
       }
@@ -257,7 +257,7 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
               DatabricksTypeUtil.getDisplaySize(columnTypes.get(i), columnTypePrecisions.get(i)))
           .nullable(columnNullables.get(i))
           .isSigned(DatabricksTypeUtil.isSigned(columnTypeName));
-      if (columnNames.get(i).equals(REMARKS_COLUMN.getColumnName())) {
+      if (isLargeColumn(columnNames.get(i))) {
         columnBuilder.typePrecision(254);
         columnBuilder.displaySize(254);
       }
@@ -509,6 +509,11 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
       }
     }
     return new int[] {precision, scale};
+  }
+
+  private boolean isLargeColumn(String columnName) {
+    return LARGE_DISPLAY_COLUMNS.stream()
+        .anyMatch(column -> column.getColumnName().equals(columnName));
   }
 
   private ImmutableDatabricksColumn.Builder getColumnBuilder() {

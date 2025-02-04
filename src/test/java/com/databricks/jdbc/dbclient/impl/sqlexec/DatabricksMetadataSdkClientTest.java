@@ -361,7 +361,7 @@ public class DatabricksMetadataSdkClientTest {
       assertEquals(actualMetaData.getColumnName(i + 1), resultColumn.getColumnName());
       assertEquals(actualMetaData.getColumnType(i + 1), resultColumn.getColumnTypeInt());
       assertEquals(actualMetaData.getColumnTypeName(i + 1), resultColumn.getColumnTypeString());
-      if (resultColumn.equals(REMARKS_COLUMN)) {
+      if (LARGE_DISPLAY_COLUMNS.contains(resultColumn)) {
         assertEquals(actualMetaData.getPrecision(i + 1), 254);
       } else {
         assertEquals(actualMetaData.getPrecision(i + 1), resultColumn.getColumnPrecision());

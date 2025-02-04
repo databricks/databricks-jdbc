@@ -299,7 +299,7 @@ public class DatabricksThriftServiceClientTest {
       assertEquals(metaData.getColumnName(i + 1), resultColumn.getColumnName());
       assertEquals(metaData.getColumnType(i + 1), resultColumn.getColumnTypeInt());
       assertEquals(metaData.getColumnTypeName(i + 1), resultColumn.getColumnTypeString());
-      if (resultColumn.equals(REMARKS_COLUMN)) {
+      if (LARGE_DISPLAY_COLUMNS.contains(resultColumn)) {
         assertEquals(254, metaData.getPrecision(i + 1));
       } else {
         assertEquals(metaData.getPrecision(i + 1), resultColumn.getColumnPrecision());
