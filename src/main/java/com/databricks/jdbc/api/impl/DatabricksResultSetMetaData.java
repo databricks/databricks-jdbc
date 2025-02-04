@@ -66,6 +66,8 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
               DatabricksTypeUtil.getDisplaySize(
                   ColumnInfoTypeName.STRING, 0, 0)) // passing default scale, precision
           .isSearchable(true)
+          .schemaName(null)
+          .tableName(null)
           .isSigned(DatabricksTypeUtil.isSigned(ColumnInfoTypeName.STRING));
       columnsBuilder.add(columnBuilder.build());
       columnNameToIndexMap.putIfAbsent(VOLUME_OPERATION_STATUS_COLUMN_NAME, ++currIndex);
@@ -90,6 +92,8 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
               .typeScale(scale)
               .displaySize(DatabricksTypeUtil.getDisplaySize(columnTypeName, precision, scale))
               .isSearchable(true) // set all columns to be searchable in execute query result set
+              .schemaName(null)
+              .tableName(null)
               .isSigned(DatabricksTypeUtil.isSigned(columnTypeName));
           columnsBuilder.add(columnBuilder.build());
           // Keep index starting from 1, to be consistent with JDBC convention
@@ -136,6 +140,8 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
           .columnTypeClassName(DatabricksTypeUtil.getColumnTypeClassName(ColumnInfoTypeName.STRING))
           .displaySize(DatabricksTypeUtil.getDisplaySize(ColumnInfoTypeName.STRING, 0, 0))
           .isSearchable(true)
+          .schemaName(null)
+          .tableName(null)
           .isSigned(DatabricksTypeUtil.isSigned(ColumnInfoTypeName.STRING));
       columnsBuilder.add(columnBuilder.build());
       columnNameToIndexMap.putIfAbsent(VOLUME_OPERATION_STATUS_COLUMN_NAME, ++currIndex);
@@ -158,6 +164,8 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
               .typeScale(scale)
               .displaySize(DatabricksTypeUtil.getDisplaySize(columnTypeName, precision, scale))
               .isSearchable(true)
+              .schemaName(null)
+              .tableName(null)
               .isSigned(DatabricksTypeUtil.isSigned(columnTypeName));
           columnsBuilder.add(columnBuilder.build());
           columnNameToIndexMap.putIfAbsent(columnInfo.getColumnName(), ++currIndex);

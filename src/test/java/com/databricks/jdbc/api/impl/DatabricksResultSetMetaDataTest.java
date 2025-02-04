@@ -5,6 +5,7 @@ import static com.databricks.jdbc.common.util.DatabricksThriftUtil.getTypeFromTy
 import static org.junit.jupiter.api.Assertions.*;
 
 import com.databricks.jdbc.common.DatabricksJdbcConstants;
+import com.databricks.jdbc.common.StatementType;
 import com.databricks.jdbc.common.util.DatabricksTypeUtil;
 import com.databricks.jdbc.dbclient.impl.common.StatementId;
 import com.databricks.jdbc.model.client.thrift.generated.*;
@@ -217,7 +218,7 @@ public class DatabricksResultSetMetaDataTest {
     DatabricksResultSetMetaData metaData =
         new DatabricksResultSetMetaData(STATEMENT_ID, resultManifest);
     assertEquals(4, metaData.getColumnCount());
-    verifyDefaultMetadataProperties(metaData);
+    verifyDefaultMetadataProperties(metaData, StatementType.SQL);
 
     metaData =
         new DatabricksResultSetMetaData(
@@ -229,12 +230,12 @@ public class DatabricksResultSetMetaDataTest {
             List.of(NULLABLE, NULLABLE, NULLABLE),
             10);
     assertEquals(3, metaData.getColumnCount());
-    verifyDefaultMetadataProperties(metaData);
+    verifyDefaultMetadataProperties(metaData, StatementType.METADATA);
 
     TGetResultSetMetadataResp thriftResultManifest = getThriftResultManifest();
     metaData = new DatabricksResultSetMetaData(STATEMENT_ID, thriftResultManifest, 1, 1);
     assertEquals(1, metaData.getColumnCount());
-    verifyDefaultMetadataProperties(metaData);
+    verifyDefaultMetadataProperties(metaData, StatementType.SQL);
   }
 
   @Test
@@ -313,15 +314,15 @@ public class DatabricksResultSetMetaDataTest {
     }
   }
 
-  private void verifyDefaultMetadataProperties(DatabricksResultSetMetaData metaData)
-      throws SQLException {
+  private void verifyDefaultMetadataProperties(
+      DatabricksResultSetMetaData metaData, StatementType type) throws SQLException {
     for (int i = 1; i <= metaData.getColumnCount(); i++) {
       // verify metadata properties default value
       assertFalse(metaData.isAutoIncrement(i));
       assertEquals(ResultSetMetaData.columnNullable, metaData.isNullable(i));
       assertFalse(metaData.isDefinitelyWritable(i));
-      assertEquals("", metaData.getSchemaName(i));
-      assertEquals("", metaData.getTableName(i));
+      assertEquals(type == StatementType.METADATA ? "" : null, metaData.getSchemaName(i));
+      assertEquals(type == StatementType.METADATA ? "" : null, metaData.getTableName(i));
       assertEquals("", metaData.getCatalogName(i));
       assertFalse(metaData.isCurrency(i));
       assertEquals(0, metaData.getScale(i));
