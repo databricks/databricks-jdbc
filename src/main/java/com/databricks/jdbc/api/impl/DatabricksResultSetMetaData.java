@@ -93,7 +93,8 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
               .typeScale(scale)
               .displaySize(DatabricksTypeUtil.getDisplaySize(columnTypeName, precision, scale))
               .isSearchable(true) // set all columns to be searchable in execute query result set
-              .schemaName(null)
+              .schemaName(
+                  null) // set schema and table name to null, as server do not return these fields.
               .tableName(null)
               .isSigned(DatabricksTypeUtil.isSigned(columnTypeName));
           columnsBuilder.add(columnBuilder.build());
@@ -160,7 +161,11 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
               .columnName(columnInfo.getColumnName())
               .columnTypeClassName(DatabricksTypeUtil.getColumnTypeClassName(columnTypeName))
               .columnType(columnType)
-              .columnTypeText(getTypeTextFromTypeDesc(columnInfo.getTypeDesc()))
+              .columnTypeText(
+                  getTypeTextFromTypeDesc(
+                      columnInfo
+                          .getTypeDesc())) // columnInfoTypeName does not have BIGINT, SMALLINT.
+              // Extracting from thriftType in typeDesc
               .typePrecision(precision)
               .typeScale(scale)
               .displaySize(DatabricksTypeUtil.getDisplaySize(columnTypeName, precision, scale))
@@ -213,7 +218,8 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
                   metadata.getTypeInt(),
                   metadata.getPrecision())) // pass scale and precision from metadata result set
           .isSigned(DatabricksTypeUtil.isSigned(columnTypeName));
-      if (isLargeColumn(metadata.getName())) {
+      if (isLargeColumn(
+          metadata.getName())) { // special case: overriding default value of 128 for VARCHAR cols.
         columnBuilder.typePrecision(254);
         columnBuilder.displaySize(254);
       }

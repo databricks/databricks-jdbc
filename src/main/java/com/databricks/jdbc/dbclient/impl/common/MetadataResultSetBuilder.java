@@ -570,6 +570,7 @@ public class MetadataResultSetBuilder {
         CommandName.LIST_COLUMNS);
   }
 
+  // process resultData from thrift to construct complete result set
   static List<List<Object>> getThriftRows(List<List<Object>> rows, List<ResultColumn> columns) {
     if (rows == null || rows.isEmpty()) {
       return new ArrayList<>();
@@ -607,7 +608,7 @@ public class MetadataResultSetBuilder {
             break;
           case "ORDINAL_POSITION":
             int ordinalPositionIndex = columns.indexOf(ORDINAL_POSITION_COLUMN);
-            object = (int) row.get(ordinalPositionIndex) + 1;
+            object = (int) row.get(ordinalPositionIndex) + 1; // 1-based index
             break;
           case "COLUMN_DEF":
             object = row.get(columns.indexOf(COLUMN_TYPE_COLUMN));
