@@ -193,6 +193,11 @@ public class DatabricksThriftUtil {
     return getColumnValues(column).get(0);
   }
 
+  public static String getTypeTextFromTypeDesc(TTypeDesc typeDesc) {
+    TTypeId type = getThriftTypeFromTypeDesc(typeDesc);
+    return type.name().replace("_TYPE", "");
+  }
+
   public static ColumnInfoTypeName getTypeFromTypeDesc(TTypeDesc typeDesc) {
     TTypeId type = getThriftTypeFromTypeDesc(typeDesc);
     switch (type) {
