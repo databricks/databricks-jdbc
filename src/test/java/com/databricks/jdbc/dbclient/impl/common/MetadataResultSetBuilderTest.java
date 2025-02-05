@@ -137,9 +137,9 @@ public class MetadataResultSetBuilderTest {
 
   private static Stream<Arguments> provideColumnSizeArguments() {
     return Stream.of(
-        Arguments.of(List.of("VARCHAR(50)", 0), List.of("VARCHAR", 50)),
-        Arguments.of(List.of("INTEGER", 4), List.of("INTEGER", 4)),
-        Arguments.of(List.of("VARCHAR", 0), List.of("VARCHAR", 255)));
+        Arguments.of(List.of("VARCHAR(50)", 0, 0), List.of("VARCHAR", 50, 0)),
+        Arguments.of(List.of("INT", 4, 10), List.of("INT", 10, 10)),
+        Arguments.of(List.of("VARCHAR", 0, 0), List.of("VARCHAR", 255, 0)));
   }
 
   @ParameterizedTest
@@ -216,7 +216,8 @@ public class MetadataResultSetBuilderTest {
   @ParameterizedTest
   @MethodSource("provideColumnSizeArguments")
   void testGetThriftRowsColumnSize(List<Object> row, List<Object> expectedRow) {
-    List<ResultColumn> columns = List.of(COLUMN_TYPE_COLUMN, COLUMN_SIZE_COLUMN);
+    List<ResultColumn> columns =
+        List.of(COLUMN_TYPE_COLUMN, COLUMN_SIZE_COLUMN, NUM_PREC_RADIX_COLUMN);
 
     List<List<Object>> updatedRows = MetadataResultSetBuilder.getThriftRows(List.of(row), columns);
     List<Object> updatedRow = updatedRows.get(0);

@@ -196,15 +196,15 @@ public class MetadataResultSetBuilder {
               object = stripTypeName((String) object);
             }
             // Set COLUMN_SIZE to 255 if it's not present
-            if (column.getColumnName().equals(COLUMN_SIZE_COLUMN.getColumnName())
-                && object == null) {
-              // check if typeVal is a text related field
-              if (typeVal == null) {
-                object = 0;
+            if (column.getColumnName().equals(COLUMN_SIZE_COLUMN.getColumnName())) {
+              Object precision =
+                  resultSet.getObject(NUM_PREC_RADIX_COLUMN.getResultSetColumnName());
+              if (precision == null) {
+                precision = 0;
               } else {
-                int columnSize = getSizeFromTypeVal(typeVal);
-                object = (columnSize != -1) ? columnSize : (isTextType(typeVal) ? 255 : 0);
+                precision = Integer.parseInt(precision.toString());
               }
+              object = getColumnSize(typeVal, (int) precision);
             }
 
             break;
@@ -246,9 +246,46 @@ public class MetadataResultSetBuilder {
     return -1;
   }
 
+  static int getColumnSize(String typeVal, int precision) {
+    if (typeVal == null || typeVal.isEmpty()) {
+      return 0;
+    }
+    int sizeFromTypeVal = getSizeFromTypeVal(typeVal);
+    if (sizeFromTypeVal != -1) {
+      return sizeFromTypeVal;
+    }
+    String typeName = stripTypeName(typeVal);
+    switch (typeName) {
+      case "DECIMAL":
+      case "NUMERIC":
+        return precision;
+      case "SMALLINT":
+        return 5;
+      case "DATE":
+      case "INT":
+        return 10;
+      case "BIGINT":
+        return 19;
+      case "FLOAT":
+        return 7;
+      case "DOUBLE":
+        return 15;
+      case "TIMESTAMP":
+        return 29;
+      case "BOOLEAN":
+      case "BINARY":
+        return 1;
+      default:
+        return 255;
+    }
+  }
+
   static int getBufferLength(String typeVal, int columnSize) {
     if (typeVal == null || typeVal.isEmpty()) {
       return 0;
+    }
+    if (typeVal.contains("ARRAY") || typeVal.contains("MAP")) {
+      return 255;
     }
     if (!typeVal.contains("(")) {
       switch (typeVal) {
@@ -627,10 +664,11 @@ public class MetadataResultSetBuilder {
             } else {
               object = row.get(index);
               if (column.getColumnName().equals(IS_NULLABLE_COLUMN.getColumnName())) {
-                if (object == null || object.equals("YES")) {
-                  object = "YES";
-                } else {
+                object = row.get(columns.indexOf(NULLABLE_COLUMN));
+                if (object.equals(0)) {
                   object = "NO";
+                } else {
+                  object = "YES";
                 }
               }
               if (column.getColumnName().equals(DECIMAL_DIGITS_COLUMN.getColumnName())
@@ -657,14 +695,6 @@ public class MetadataResultSetBuilder {
                 int columnSize = (int) row.get(columns.indexOf(COLUMN_SIZE_COLUMN));
                 object = getBufferLength(typeVal, columnSize);
               }
-              if (column.getColumnName().equals(NULLABLE_COLUMN.getColumnName())) {
-                object = row.get(columns.indexOf(IS_NULLABLE_COLUMN));
-                if (object == null || object.equals("YES")) {
-                  object = 1;
-                } else {
-                  object = 0;
-                }
-              }
               if (column.getColumnName().equals(TABLE_TYPE_COLUMN.getColumnName())
                   && (object == null || object.equals(""))) {
                 object = "TABLE";
@@ -675,15 +705,9 @@ public class MetadataResultSetBuilder {
                 object = stripTypeName((String) object);
               }
               // Set COLUMN_SIZE to 255 if it's not present
-              if (column.getColumnName().equals(COLUMN_SIZE_COLUMN.getColumnName())
-                  && Integer.valueOf(0).equals(object)) {
-                // check if typeVal is a text related field
-                if (typeVal == null) {
-                  object = 0;
-                } else {
-                  int columnSize = getSizeFromTypeVal(typeVal);
-                  object = (columnSize != -1) ? columnSize : (isTextType(typeVal) ? 255 : 0);
-                }
+              if (column.getColumnName().equals(COLUMN_SIZE_COLUMN.getColumnName())) {
+                int precision = (int) row.get(columns.indexOf(NUM_PREC_RADIX_COLUMN));
+                object = getColumnSize(typeVal, precision);
               }
             }
             break;
