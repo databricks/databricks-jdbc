@@ -555,6 +555,13 @@ public class MetadataResultSetBuilder {
       }
       updatedRows.add(row);
     }
+    // sort in order TABLE_TYPE, CATALOG_NAME, SCHEMA_NAME, TABLE_NAME
+    updatedRows.sort(
+        Comparator.comparing((List<Object> r) -> (String) r.get(3))
+            .thenComparing(r -> (String) r.get(0))
+            .thenComparing(r -> (String) r.get(1))
+            .thenComparing(r -> (String) r.get(2)));
+
     return buildResultSet(
         TABLE_COLUMNS,
         getThriftRows(updatedRows, TABLE_COLUMNS),
