@@ -7,9 +7,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import com.databricks.jdbc.TestConstants;
 import com.databricks.jdbc.api.IDatabricksConnectionContext;
-import com.databricks.jdbc.common.CompressionCodec;
-import com.databricks.jdbc.common.DatabricksClientType;
-import com.databricks.jdbc.common.LogLevel;
+import com.databricks.jdbc.common.*;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.sdk.core.ProxyConfig;
@@ -32,7 +30,7 @@ class DatabricksConnectionContextTest {
 
   @Test
   public void testBuildPropertiesMap() {
-    String connectionParamString = ";param1=value1;param2=value2";
+    String connectionParamString = "param1=value1;param2=value2";
     Properties properties = new Properties();
     properties.setProperty("param3", "value3");
 
@@ -68,9 +66,7 @@ class DatabricksConnectionContextTest {
     assertEquals("passwd", connectionContext.getToken());
     assertTrue(connectionContext.isOAuthDiscoveryModeEnabled());
     assertFalse(connectionContext.useJWTAssertion());
-    assertEquals(
-        connectionContext.getAuthFlow(),
-        IDatabricksConnectionContext.AuthFlow.BROWSER_BASED_AUTHENTICATION);
+    assertEquals(connectionContext.getAuthFlow(), AuthFlow.BROWSER_BASED_AUTHENTICATION);
     assertEquals(7, connectionContext.parameters.size());
     assertEquals(CompressionCodec.LZ4_FRAME, connectionContext.getCompressionCodec());
     assertEquals(LogLevel.DEBUG, connectionContext.getLogLevel());
@@ -78,7 +74,7 @@ class DatabricksConnectionContextTest {
     assertEquals("./test1", connectionContext.getLogPathString());
     assertNull(connectionContext.getOAuthScopesForU2M());
     assertFalse(connectionContext.isAllPurposeCluster());
-    assertEquals(DatabricksClientType.SQL_EXEC, connectionContext.getClientType());
+    assertEquals(DatabricksClientType.SEA, connectionContext.getClientType());
 
     // test default port
     connectionContext =
@@ -95,7 +91,7 @@ class DatabricksConnectionContextTest {
     assertEquals("3", connectionContext.parameters.get("authmech"));
     assertNull(connectionContext.getOAuthScopesForU2M());
     assertFalse(connectionContext.isAllPurposeCluster());
-    assertEquals(DatabricksClientType.SQL_EXEC, connectionContext.getClientType());
+    assertEquals(DatabricksClientType.SEA, connectionContext.getClientType());
 
     // test aws port
     connectionContext =
@@ -108,9 +104,8 @@ class DatabricksConnectionContextTest {
     assertEquals("passwd", connectionContext.getToken());
     assertEquals("databricks-sql-jdbc", connectionContext.getClientId());
     assertEquals("e2-dogfood.staging.cloud.databricks.com", connectionContext.getHostForOAuth());
-    assertEquals(
-        IDatabricksConnectionContext.AuthFlow.TOKEN_PASSTHROUGH, connectionContext.getAuthFlow());
-    assertEquals(IDatabricksConnectionContext.AuthMech.PAT, connectionContext.getAuthMech());
+    assertEquals(AuthFlow.TOKEN_PASSTHROUGH, connectionContext.getAuthFlow());
+    assertEquals(AuthMech.PAT, connectionContext.getAuthMech());
     assertEquals(CompressionCodec.NONE, connectionContext.getCompressionCodec());
     assertEquals(8, connectionContext.parameters.size());
     assertEquals(LogLevel.OFF, connectionContext.getLogLevel());
@@ -128,13 +123,12 @@ class DatabricksConnectionContextTest {
     assertEquals("passwd", connectionContext.getToken());
     assertEquals("databricks-sql-jdbc", connectionContext.getClientId());
     assertEquals("4371047901336987.7.gcp.databricks.com", connectionContext.getHostForOAuth());
-    assertEquals(IDatabricksConnectionContext.AuthMech.OAUTH, connectionContext.getAuthMech());
-    assertEquals(
-        IDatabricksConnectionContext.AuthFlow.CLIENT_CREDENTIALS, connectionContext.getAuthFlow());
+    assertEquals(AuthMech.OAUTH, connectionContext.getAuthMech());
+    assertEquals(AuthFlow.CLIENT_CREDENTIALS, connectionContext.getAuthFlow());
     assertEquals(connectionContext.getOAuthScopesForU2M(), expected_scopes);
     assertFalse(connectionContext.isAllPurposeCluster());
     assertEquals(6, connectionContext.parameters.size());
-    assertEquals(DatabricksClientType.SQL_EXEC, connectionContext.getClientType());
+    assertEquals(DatabricksClientType.SEA, connectionContext.getClientType());
     assertEquals(
         "abc-compute@developer.gserviceaccount.com", connectionContext.getGoogleServiceAccount());
     assertNull(connectionContext.getGoogleCredentials());
@@ -175,21 +169,15 @@ class DatabricksConnectionContextTest {
 
   @Test
   public void AuthFlowParsing() {
-    assertEquals(
-        IDatabricksConnectionContext.AuthMech.PAT,
-        IDatabricksConnectionContext.AuthMech.parseAuthMech("3"),
-        "Parsing '3' should return PAT");
-    assertEquals(
-        IDatabricksConnectionContext.AuthMech.OAUTH,
-        IDatabricksConnectionContext.AuthMech.parseAuthMech("11"),
-        "Parsing '11' should return OAUTH");
+    assertEquals(AuthMech.PAT, AuthMech.parseAuthMech("3"), "Parsing '3' should return PAT");
+    assertEquals(AuthMech.OAUTH, AuthMech.parseAuthMech("11"), "Parsing '11' should return OAUTH");
     assertThrows(
         UnsupportedOperationException.class,
-        () -> IDatabricksConnectionContext.AuthMech.parseAuthMech("1"),
+        () -> AuthMech.parseAuthMech("1"),
         "Parsing unsupported value should throw exception");
     assertThrows(
         NumberFormatException.class,
-        () -> IDatabricksConnectionContext.AuthMech.parseAuthMech("non-numeric"),
+        () -> AuthMech.parseAuthMech("non-numeric"),
         "Parsing non-numeric value should throw NumberFormatException");
   }
 
@@ -311,6 +299,22 @@ class DatabricksConnectionContextTest {
         (DatabricksConnectionContext)
             DatabricksConnectionContext.parse(TestConstants.VALID_URL_3, properties);
     assertEquals(true, connectionContext.getDirectResultMode());
+  }
+
+  @Test
+  public void testGetVolumeOperationPathsFlag() throws Exception {
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContext.parse(
+            TestConstants.VALID_URL_WITH_VOLUME_ALLOWED_PATH, properties);
+    assertEquals("/tmp2", connectionContext.getVolumeOperationAllowedPaths());
+
+    connectionContext =
+        DatabricksConnectionContext.parse(
+            TestConstants.VALID_URL_WITH_STAGING_ALLOWED_PATH, properties);
+    assertEquals("/tmp", connectionContext.getVolumeOperationAllowedPaths());
+
+    connectionContext = DatabricksConnectionContext.parse(TestConstants.VALID_URL_1, properties);
+    assertEquals("", connectionContext.getVolumeOperationAllowedPaths());
   }
 
   @Test

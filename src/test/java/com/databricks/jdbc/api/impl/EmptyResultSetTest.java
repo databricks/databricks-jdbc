@@ -407,6 +407,8 @@ public class EmptyResultSetTest {
     assertNull(resultSet.getUnicodeStream("anyString"));
     assertNull(resultSet.getBinaryStream("anyString"));
     assertNull(resultSet.getObject("anyString"));
+    assertNull(resultSet.getStruct("anyString"));
+    assertNull(resultSet.getMap("anyString"));
 
     // For getBigDecimal(int) - assuming 1 as a placeholder for column index
     assertNull(resultSet.getBigDecimal(1));

@@ -1,4 +1,46 @@
 # Version Changelog
+
+## [v0.9.9-oss] - 2025-01-03
+
+### Added
+- Telemetry support in OSS JDBC.
+- Support for fetching connection ID and closing connections by connection ID.
+- Stream support implementation in the UC Volume DBFS Client.
+- Hybrid result support added to the driver (for both metadata and executed queries).
+- Support for complex data types.
+- Apache Async HTTP Client 5.3 added for parallel query result downloads, optimizing query fetching and resource cleanup.
+
+### Updated
+- Enhanced end-to-end testing for M2M and DBFS UCVolume operations, including improved logging and proxy handling.
+- Removed the version check SQL call when connection is established.
+
+### Fixed
+- Fixed statement ID extraction from Thrift GUID.
+- Made volume operations flag backward-compatible with the existing Databricks driver.
+- Improved backward compatibility of ResultSetMetadata with the legacy driver.
+- Fix schema in connection string
+
+---
+
+## [v0.9.8-oss] - 2024-12-13
+
+### Added
+* Run queries in async mode in the thrift client.
+* Added GET and DELETE operations for the DBFS client, enabling full UC Volume operations (PUT, GET, DELETE) without spinning up DB compute.
+
+### Updated
+* Do not send repeated DBSQL version queries.
+* Skip SEA compatibility check if null or empty DBSQL version is returned by the workspace.
+* Skips SEA check when DBSQL version string is blank space.
+* Updated SDK version to resolve CVEs.
+
+### Fixed
+* Eliminated the statement execution thread pool.
+* Fixed UC volume GET operation.
+* Fixed async execution in SEA mode.
+* Fixed and updated the SDK version to resolve CVEs.
+---
+
 ## [v0.9.7-oss] - 2024-11-20
 ### Added
 * Added GCP OAuth support: Use Google ID (service account email) with a custom JWT or Google Credentials.

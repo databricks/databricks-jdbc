@@ -2,6 +2,7 @@ package com.databricks.jdbc.api.impl;
 
 import static com.databricks.jdbc.api.impl.DatabricksResultSet.AFFECTED_ROWS_COUNT;
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import com.databricks.jdbc.api.IDatabricksResultSet;
@@ -19,10 +20,8 @@ import com.databricks.sdk.service.sql.StatementStatus;
 import java.io.*;
 import java.math.BigDecimal;
 import java.sql.*;
-import java.util.Calendar;
-import java.util.Collections;
-import java.util.GregorianCalendar;
-import java.util.TimeZone;
+import java.sql.Date;
+import java.util.*;
 import org.apache.http.entity.InputStreamEntity;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -34,7 +33,8 @@ public class DatabricksResultSetTest {
 
   private static final StatementId STATEMENT_ID = new StatementId("statementId");
   private static final StatementId THRIFT_STATEMENT_ID =
-      StatementId.deserialize("MIIWiOiGTESQt3+6xIDA0A|vq8muWugTKm+ZsjNGZdauw");
+      StatementId.deserialize(
+          "01efc77c-7c8b-1a8e-9ecb-a9a6e6aa050a|338d529d-8272-46eb-8482-cb419466839d");
 
   @Mock InlineJsonResult mockedExecutionResult;
   @Mock TFetchResultsResp fetchResultsResp;
@@ -68,7 +68,7 @@ public class DatabricksResultSetTest {
     when(fetchResultsResp.getResults()).thenReturn(rowSet);
     when(fetchResultsResp.getResultSetMetadata()).thenReturn(metadataResp);
     return new DatabricksResultSet(
-        new TStatus().setStatusCode(TStatusCode.SUCCESS_STATUS),
+        new StatementStatus().setState(StatementState.SUCCEEDED),
         THRIFT_STATEMENT_ID,
         fetchResultsResp,
         StatementType.METADATA,
@@ -329,7 +329,6 @@ public class DatabricksResultSetTest {
     String columnLabel = "columnLabel";
     Calendar cal = Calendar.getInstance(TimeZone.getTimeZone("Asia/Tokyo"));
     Timestamp expectedTimestamp = new Timestamp(System.currentTimeMillis());
-
     // Mocking for columnIndex
     when(resultSet.getObject(columnIndex)).thenReturn(expectedTimestamp);
     when(mockedResultSetMetadata.getColumnType(columnIndex)).thenReturn(java.sql.Types.TIMESTAMP);
@@ -338,6 +337,9 @@ public class DatabricksResultSetTest {
     // Mocking for columnLabel
     when(mockedResultSetMetadata.getColumnNameIndex(columnLabel)).thenReturn(columnIndex);
     assertEquals(expectedTimestamp, resultSet.getTimestamp(columnLabel, cal));
+
+    //  Test null calendar
+    assertEquals(expectedTimestamp, resultSet.getTimestamp(columnLabel, null));
   }
 
   @Test
@@ -354,6 +356,144 @@ public class DatabricksResultSetTest {
     when(mockedExecutionResult.getObject(2)).thenReturn(expected);
     when(mockedResultSetMetadata.getColumnNameIndex("columnLabel")).thenReturn(3);
     assertEquals(expected, resultSet.getBytes("columnLabel"));
+  }
+
+  @Test
+  void testGetStruct() throws SQLException {
+    // Define expected attributes
+    Object[] structAttributes = {1, "Alice"};
+
+    // Mock execution result
+    when(mockedExecutionResult.getObject(2)).thenReturn("{\"id\": 1, \"name\": \"Alice\"}");
+    when(mockedResultSetMetadata.getColumnTypeName(3)).thenReturn("STRUCT<id: INT, name: STRING>");
+    when(mockedResultSetMetadata.getColumnNameIndex("user_struct")).thenReturn(3);
+
+    // Instantiate result set
+    DatabricksResultSet resultSet = getResultSet(StatementState.SUCCEEDED, null);
+
+    // Retrieve struct by index
+    Struct retrievedStruct = resultSet.getStruct(3);
+    assertNotNull(retrievedStruct, "Retrieved struct should not be null");
+    assertArrayEquals(
+        structAttributes, retrievedStruct.getAttributes(), "Struct attributes should match");
+
+    // Retrieve struct by label
+    Struct retrievedStructByLabel = resultSet.getStruct("user_struct");
+    assertNotNull(retrievedStructByLabel, "Retrieved struct by label should not be null");
+    assertArrayEquals(
+        structAttributes, retrievedStructByLabel.getAttributes(), "Struct attributes should match");
+  }
+
+  @Test
+  void testGetArray() throws SQLException {
+    // Define expected array elements
+    Object[] arrayElements = {"elem1", "elem2", "elem3"};
+
+    // Mock execution result
+    when(mockedExecutionResult.getObject(3)).thenReturn("[\"elem1\", \"elem2\", \"elem3\"]");
+    when(mockedResultSetMetadata.getColumnTypeName(4)).thenReturn("ARRAY<STRING>");
+    when(mockedResultSetMetadata.getColumnNameIndex("string_array")).thenReturn(4);
+
+    // Instantiate result set
+    DatabricksResultSet resultSet = getResultSet(StatementState.SUCCEEDED, null);
+
+    // Retrieve array by index
+    Array retrievedArray = resultSet.getArray(4);
+    assertNotNull(retrievedArray, "Retrieved array should not be null");
+    assertTrue(
+        Arrays.equals(arrayElements, (Object[]) retrievedArray.getArray()),
+        "Array elements should match");
+
+    // Retrieve array by label
+    Array retrievedArrayByLabel = resultSet.getArray("string_array");
+    assertNotNull(retrievedArrayByLabel, "Retrieved array by label should not be null");
+    assertTrue(
+        Arrays.equals(arrayElements, (Object[]) retrievedArrayByLabel.getArray()),
+        "Array elements should match");
+  }
+
+  @Test
+  void testGetMap() throws SQLException {
+    // Define expected map entries
+    Object[] mapEntries = {"key1", 100, "key2", 200};
+
+    // Mock DatabricksMap
+    DatabricksMap<String, Integer> mockMap = mock(DatabricksMap.class);
+
+    // Mock execution result
+    when(mockedExecutionResult.getObject(4)).thenReturn("{\"key1\": 100, \"key2\": 200}");
+    when(mockedResultSetMetadata.getColumnTypeName(5)).thenReturn("MAP<STRING, INT>");
+    when(mockedResultSetMetadata.getColumnNameIndex("int_map")).thenReturn(5);
+
+    // Instantiate result set
+    DatabricksResultSet resultSet = getResultSet(StatementState.SUCCEEDED, null);
+
+    // Retrieve map by index
+    Map<String, Integer> retrievedMap = resultSet.getMap(5);
+    assertNotNull(retrievedMap, "Retrieved map should not be null");
+
+    // Retrieve map by label
+    Map<String, Integer> retrievedMapByLabel = resultSet.getMap("int_map");
+    assertNotNull(retrievedMapByLabel, "Retrieved map by label should not be null");
+  }
+
+  @Test
+  void testComplexTypes_Exceptions() throws SQLException {
+    DatabricksResultSetMetaData mockedMeta = mock(DatabricksResultSetMetaData.class);
+    InlineJsonResult mockedExecResult = mock(InlineJsonResult.class);
+    DatabricksResultSet resultSet =
+        new DatabricksResultSet(
+            new StatementStatus(),
+            new StatementId("fake_statement"),
+            StatementType.QUERY,
+            null,
+            mockedExecResult,
+            mockedMeta);
+
+    // Mock closed result set
+    resultSet.close();
+    assertThrows(
+        SQLException.class,
+        () -> resultSet.getArray(1),
+        "Expected getArray to fail on closed result set");
+    assertThrows(
+        SQLException.class,
+        () -> resultSet.getStruct(1),
+        "Expected getStruct to fail on closed result set");
+    assertThrows(
+        SQLException.class,
+        () -> resultSet.getMap(1),
+        "Expected getMap to fail on closed result set");
+
+    // Mock invalid column type
+    assertThrows(
+        DatabricksSQLException.class,
+        () -> resultSet.getArray(1),
+        "Expected getArray to fail for non-ARRAY column");
+    assertThrows(
+        DatabricksSQLException.class,
+        () -> resultSet.getStruct(1),
+        "Expected getStruct to fail for non-STRUCT column");
+    assertThrows(
+        DatabricksSQLException.class,
+        () -> resultSet.getMap(1),
+        "Expected getMap to fail for non-MAP column");
+
+    // Mock invalid parsing exception
+    assertThrows(
+        SQLException.class,
+        () -> resultSet.getArray(1),
+        "Expected getArray to fail on invalid data parse");
+
+    assertThrows(
+        SQLException.class,
+        () -> resultSet.getStruct(1),
+        "Expected getStruct to fail on invalid data parse");
+
+    assertThrows(
+        SQLException.class,
+        () -> resultSet.getMap(1),
+        "Expected getMap to fail on invalid data parse");
   }
 
   @Test
@@ -419,6 +559,10 @@ public class DatabricksResultSetTest {
     assertThrows(
         DatabricksSQLFeatureNotSupportedException.class,
         () -> resultSet.updateBinaryStream("column", null, 1));
+
+    assertThrows(
+        DatabricksSQLFeatureNotSupportedException.class,
+        () -> resultSet.updateBinaryStream("column", new ByteArrayInputStream(new byte[0]), 1));
     assertThrows(
         DatabricksSQLFeatureNotSupportedException.class,
         () -> resultSet.updateCharacterStream("column", null, 1));
@@ -614,14 +758,13 @@ public class DatabricksResultSetTest {
     DatabricksResultSet resultSet = getResultSet(StatementState.SUCCEEDED, null);
     assertThrows(DatabricksSQLFeatureNotSupportedException.class, resultSet::getHoldability);
     assertThrows(DatabricksSQLFeatureNotSupportedException.class, () -> resultSet.getBlob(1));
+    assertThrows(DatabricksSQLFeatureNotSupportedException.class, () -> resultSet.getRef(1));
+    assertThrows(DatabricksSQLFeatureNotSupportedException.class, () -> resultSet.getRef("column"));
     assertThrows(
         DatabricksSQLFeatureNotSupportedException.class, () -> resultSet.getBlob("column"));
     assertThrows(DatabricksSQLFeatureNotSupportedException.class, () -> resultSet.getClob(1));
     assertThrows(
         DatabricksSQLFeatureNotSupportedException.class, () -> resultSet.getClob("column"));
-    assertThrows(DatabricksSQLFeatureNotSupportedException.class, () -> resultSet.getArray(1));
-    assertThrows(
-        DatabricksSQLFeatureNotSupportedException.class, () -> resultSet.getArray("column"));
     assertThrows(
         DatabricksSQLFeatureNotSupportedException.class,
         () -> resultSet.getDate(1, new GregorianCalendar()));

@@ -23,7 +23,7 @@ public class StatementId {
 
   /** Constructs a StatementId identifier for a given SQl Exec statement-Id */
   public StatementId(String statementId) {
-    this(DatabricksClientType.SQL_EXEC, statementId, null);
+    this(DatabricksClientType.SEA, statementId, null);
   }
 
   /** Constructs a StatementId identifier for a given Thrift Server operation handle */
@@ -38,7 +38,7 @@ public class StatementId {
   public static StatementId deserialize(String serializedStatementId) {
     String[] idParts = serializedStatementId.split("\\|");
     if (idParts.length == 1) {
-      return new StatementId(DatabricksClientType.SQL_EXEC, serializedStatementId, null);
+      return new StatementId(DatabricksClientType.SEA, serializedStatementId, null);
     } else if (idParts.length == 2) {
       return new StatementId(DatabricksClientType.THRIFT, idParts[0], idParts[1]);
     } else {
@@ -50,7 +50,7 @@ public class StatementId {
   @Override
   public String toString() {
     switch (clientType) {
-      case SQL_EXEC:
+      case SEA:
         return guid;
       case THRIFT:
         return String.format("%s|%s", guid, secret);
@@ -60,7 +60,7 @@ public class StatementId {
 
   /** Returns a Thrift operation handle for the given StatementId */
   public THandleIdentifier toOperationIdentifier() {
-    if (clientType.equals(DatabricksClientType.SQL_EXEC)) {
+    if (clientType.equals(DatabricksClientType.SEA)) {
       return null;
     }
     return new THandleIdentifier()

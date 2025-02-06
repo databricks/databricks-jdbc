@@ -1,8 +1,10 @@
 package com.databricks.jdbc.model.client.filesystem;
 
+import com.databricks.sdk.support.ToStringer;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import java.util.Objects;
 
+/** CreateUploadUrlRequest POJO */
 public class CreateUploadUrlRequest {
   @JsonProperty("path")
   private String path;
@@ -29,6 +31,6 @@ public class CreateUploadUrlRequest {
 
   @Override
   public String toString() {
-    return "CreateUploadUrlRequest{" + "path='" + path + '\'' + '}';
+    return new ToStringer(CreateUploadUrlRequest.class).add("path", path).toString();
   }
 }

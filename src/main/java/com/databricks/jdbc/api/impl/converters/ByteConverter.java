@@ -5,6 +5,7 @@ import java.math.BigDecimal;
 import java.math.BigInteger;
 
 public class ByteConverter implements ObjectConverter {
+
   @Override
   public byte toByte(Object object) throws DatabricksSQLException {
     if (object instanceof String) {

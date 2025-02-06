@@ -14,6 +14,8 @@ import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.model.client.thrift.generated.*;
 import com.databricks.jdbc.model.core.ExternalLink;
 import com.databricks.sdk.service.sql.ColumnInfoTypeName;
+import com.databricks.sdk.service.sql.StatementState;
+import com.databricks.sdk.service.sql.StatementStatus;
 import java.nio.ByteBuffer;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -22,7 +24,7 @@ import java.util.stream.IntStream;
 public class DatabricksThriftUtil {
 
   private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(DatabricksThriftUtil.class);
-  public static final List<TStatusCode> SUCCESS_STATUS_LIST =
+  private static final List<TStatusCode> SUCCESS_STATUS_LIST =
       List.of(TStatusCode.SUCCESS_STATUS, TStatusCode.SUCCESS_WITH_INFO_STATUS);
 
   public static TNamespace getNamespace(String catalog, String schema) {
@@ -67,7 +69,7 @@ public class DatabricksThriftUtil {
    */
   public static List<List<Object>> extractValues(List<TColumn> columnList) {
     if (columnList == null) {
-      return new ArrayList<>(List.of(new ArrayList<>()));
+      return null;
     }
     List<Object> obj =
         columnList.stream()
@@ -86,7 +88,7 @@ public class DatabricksThriftUtil {
 
   public static List<List<Object>> extractValuesColumnar(List<TColumn> columnList) {
     if (columnList == null || columnList.isEmpty()) {
-      return new ArrayList<>(List.of(new ArrayList<>()));
+      return null;
     }
     int numberOfItems = columnList.get(0).getStringVal().getValuesSize();
     return IntStream.range(0, numberOfItems)
@@ -96,6 +98,71 @@ public class DatabricksThriftUtil {
                     .map(column -> getObjectInColumn(column, i))
                     .collect(Collectors.toList()))
         .collect(Collectors.toList());
+  }
+
+  /** Returns statement status for given operation status response */
+  public static StatementStatus getStatementStatus(TGetOperationStatusResp resp) {
+    StatementState state = null;
+    switch (resp.getOperationState()) {
+      case INITIALIZED_STATE:
+      case PENDING_STATE:
+        state = StatementState.PENDING;
+        break;
+
+      case RUNNING_STATE:
+        state = StatementState.RUNNING;
+        break;
+
+      case FINISHED_STATE:
+        state = StatementState.SUCCEEDED;
+        break;
+
+      case ERROR_STATE:
+      case TIMEDOUT_STATE:
+        // TODO: Also set the sql_state and error message
+        state = StatementState.FAILED;
+        break;
+
+      case CLOSED_STATE:
+        state = StatementState.CLOSED;
+        break;
+
+      case CANCELED_STATE:
+        state = StatementState.CANCELED;
+        break;
+
+      case UKNOWN_STATE:
+        state = StatementState.FAILED;
+    }
+
+    return new StatementStatus().setState(state);
+  }
+
+  /** Returns statement status for given status response */
+  public static StatementStatus getAsyncStatus(TStatus status) {
+    StatementStatus statementStatus = new StatementStatus();
+    StatementState state = null;
+
+    switch (status.getStatusCode()) {
+        // For async mode, success would just mean that statement was successfully submitted
+        // actual status should be checked using GetOperationStatus
+      case SUCCESS_STATUS:
+      case SUCCESS_WITH_INFO_STATUS:
+      case STILL_EXECUTING_STATUS:
+        state = StatementState.RUNNING;
+        break;
+
+      case INVALID_HANDLE_STATUS:
+      case ERROR_STATUS:
+        // TODO: set sql_state in case of error
+        state = StatementState.FAILED;
+        break;
+
+      default:
+        state = StatementState.FAILED;
+    }
+
+    return new StatementStatus().setState(state);
   }
 
   private static Object getObjectInColumn(TColumn column, int index) {
@@ -126,6 +193,11 @@ public class DatabricksThriftUtil {
     return getColumnValues(column).get(0);
   }
 
+  public static String getTypeTextFromTypeDesc(TTypeDesc typeDesc) {
+    TTypeId type = getThriftTypeFromTypeDesc(typeDesc);
+    return type.name().replace("_TYPE", "");
+  }
+
   public static ColumnInfoTypeName getTypeFromTypeDesc(TTypeDesc typeDesc) {
     TTypeId type = getThriftTypeFromTypeDesc(typeDesc);
     switch (type) {
@@ -143,17 +215,12 @@ public class DatabricksThriftUtil {
         return ColumnInfoTypeName.FLOAT;
       case DOUBLE_TYPE:
         return ColumnInfoTypeName.DOUBLE;
-      case VARCHAR_TYPE:
-      case STRING_TYPE:
-        return ColumnInfoTypeName.STRING;
       case TIMESTAMP_TYPE:
         return ColumnInfoTypeName.TIMESTAMP;
       case BINARY_TYPE:
         return ColumnInfoTypeName.BINARY;
       case DECIMAL_TYPE:
         return ColumnInfoTypeName.DECIMAL;
-      case NULL_TYPE:
-        return ColumnInfoTypeName.STRING;
       case DATE_TYPE:
         return ColumnInfoTypeName.DATE;
       case CHAR_TYPE:
@@ -161,8 +228,9 @@ public class DatabricksThriftUtil {
       case INTERVAL_YEAR_MONTH_TYPE:
       case INTERVAL_DAY_TIME_TYPE:
         return ColumnInfoTypeName.INTERVAL;
+      default:
+        return ColumnInfoTypeName.STRING;
     }
-    return ColumnInfoTypeName.STRING; // by default return string
   }
 
   /**
@@ -309,9 +377,6 @@ public class DatabricksThriftUtil {
       TSparkDirectResults directResults, String context) throws DatabricksHttpException {
     if (directResults.isSetOperationStatus()) {
       LOGGER.debug("direct result operation status being verified for success response");
-      if (directResults.getOperationStatus().getOperationState() == TOperationState.ERROR_STATE) {
-        throw new DatabricksHttpException(directResults.getOperationStatus().errorMessage);
-      }
       verifySuccessStatus(directResults.getOperationStatus().getStatus(), context);
     }
     if (directResults.isSetResultSetMetadata()) {

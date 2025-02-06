@@ -9,32 +9,6 @@ import java.util.Map;
 
 public interface IDatabricksConnectionContext {
 
-  enum AuthFlow {
-    TOKEN_PASSTHROUGH,
-    CLIENT_CREDENTIALS,
-    BROWSER_BASED_AUTHENTICATION
-  }
-
-  enum AuthMech {
-    OTHER,
-    PAT,
-    OAUTH;
-
-    public static AuthMech parseAuthMech(String authMech) {
-      int authMechValue = Integer.parseInt(authMech);
-      switch (authMechValue) {
-        case 3:
-          return AuthMech.PAT;
-        case 11:
-          return AuthMech.OAUTH;
-        default:
-          throw new UnsupportedOperationException();
-      }
-    }
-  }
-
-  boolean isPropertyPresent(DatabricksJdbcUrlParams urlParam);
-
   /**
    * Returns host-Url for Databricks server as parsed from JDBC connection in format <code>
    * https://server:port</code>
@@ -75,6 +49,8 @@ public interface IDatabricksConnectionContext {
   AuthMech getAuthMech();
 
   AuthFlow getAuthFlow();
+
+  boolean isPropertyPresent(DatabricksJdbcUrlParams urlParam);
 
   LogLevel getLogLevel();
 
@@ -157,12 +133,6 @@ public interface IDatabricksConnectionContext {
 
   boolean supportManyParameters();
 
-  /**
-   * If set true then DBFSVolumeClient will be used otherwise DatabricksUCVolumeClient will be used
-   * for Volume Operations
-   */
-  boolean useFileSystemAPI();
-
   String getConnectionURL();
 
   boolean checkCertificateRevocation();
@@ -226,6 +196,12 @@ public interface IDatabricksConnectionContext {
   /** Returns the maximum number of commands that can be executed in a single batch. */
   int getMaxBatchSize();
 
+  /** Checks if Telemetry is enabled */
+  boolean isTelemetryEnabled();
+
+  /** Returns the batch size for Telemetry logs processing */
+  int getTelemetryBatchSize();
+
   /**
    * Returns a unique identifier for this connection context.
    *
@@ -233,4 +209,10 @@ public interface IDatabricksConnectionContext {
    * internal identifier for each JDBC connection.
    */
   String getConnectionUuid();
+
+  /** Returns allowlisted local file paths for UC Volume operations */
+  String getVolumeOperationAllowedPaths();
+
+  /** Returns true if driver should use hybrid results in SQL_EXEC API. */
+  boolean isSqlExecHybridResultsEnabled();
 }

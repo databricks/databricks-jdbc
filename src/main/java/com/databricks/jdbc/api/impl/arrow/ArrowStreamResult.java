@@ -10,7 +10,6 @@ import com.databricks.jdbc.common.CompressionCodec;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
 import com.databricks.jdbc.dbclient.impl.common.StatementId;
 import com.databricks.jdbc.dbclient.impl.http.DatabricksHttpClientFactory;
-import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.model.client.thrift.generated.TColumnDesc;
 import com.databricks.jdbc.model.client.thrift.generated.TFetchResultsResp;
@@ -28,7 +27,6 @@ public class ArrowStreamResult implements IExecutionResult {
   private final ChunkProvider chunkProvider;
   private long currentRowIndex = -1;
   private boolean isClosed;
-  private int chunkCount = 0;
   private ArrowResultChunk.ArrowResultChunkIterator chunkIterator;
   private List<ColumnInfo> columnInfos;
 
@@ -37,7 +35,7 @@ public class ArrowStreamResult implements IExecutionResult {
       ResultData resultData,
       StatementId statementId,
       IDatabricksSession session)
-      throws DatabricksParsingException {
+      throws DatabricksSQLException {
     this(
         resultManifest,
         resultData,
@@ -53,15 +51,22 @@ public class ArrowStreamResult implements IExecutionResult {
       StatementId statementId,
       IDatabricksSession session,
       IDatabricksHttpClient httpClient)
-      throws DatabricksParsingException {
-    this.chunkProvider =
-        new RemoteChunkProvider(
-            statementId,
-            resultManifest,
-            resultData,
-            session,
-            httpClient,
-            session.getConnectionContext().getCloudFetchThreadPoolSize());
+      throws DatabricksSQLException {
+    // Check if the result data contains the arrow data inline
+    boolean isInlineArrow = resultData.getAttachment() != null;
+
+    if (isInlineArrow) {
+      this.chunkProvider = new InlineChunkProvider(resultData, resultManifest);
+    } else {
+      this.chunkProvider =
+          new RemoteChunkProvider(
+              statementId,
+              resultManifest,
+              resultData,
+              session,
+              httpClient,
+              session.getConnectionContext().getCloudFetchThreadPoolSize());
+    }
     this.columnInfos =
         resultManifest.getSchema().getColumnCount() == 0
             ? new ArrayList<>()

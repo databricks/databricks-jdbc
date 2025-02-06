@@ -7,7 +7,14 @@ import java.util.regex.Pattern;
 
 public final class DatabricksJdbcConstants {
   public static final Pattern JDBC_URL_PATTERN =
-      Pattern.compile("jdbc:databricks://([^/;]*)(?::\\d+)?/*(.*)");
+      Pattern.compile(
+          "jdbc:databricks://"
+              + // Protocol prefix
+              "([^/;]+)"
+              + // Host[:Port] (captured)
+              "(?:/([^;]*))?"
+              + // Optional Schema (captured without /)
+              "(?:;(.*))?"); // Optional Property=Value pairs (captured without leading ;)
   public static final Pattern HTTP_WAREHOUSE_PATH_PATTERN = Pattern.compile(".*/warehouses/(.+)");
   public static final Pattern HTTP_ENDPOINT_PATH_PATTERN = Pattern.compile(".*/endpoints/(.+)");
   public static final Pattern HTTP_CLI_PATTERN = Pattern.compile(".*cliservice(.+)");
@@ -53,8 +60,8 @@ public final class DatabricksJdbcConstants {
   public static final String CLIENT_USER_AGENT_PREFIX = "Java";
   public static final String USER_AGENT_SEA_CLIENT = "SQLExecHttpClient/HC";
   public static final String USER_AGENT_THRIFT_CLIENT = "THttpClient/HC";
-  public static final String ALLOWED_VOLUME_INGESTION_PATHS =
-      "allowlistedVolumeOperationLocalFilePaths";
+  public static final String THRIFT_ERROR_MESSAGE_HEADER = "X-Thriftserver-Error-Message";
+  public static final String ALLOWED_VOLUME_INGESTION_PATHS = "VolumeOperationAllowedLocalPaths";
   public static final String ALLOWED_STAGING_INGESTION_PATHS = "StagingAllowedLocalPaths";
   public static final String VOLUME_OPERATION_STATUS_COLUMN_NAME = "operation_status";
   public static final String VOLUME_OPERATION_STATUS_SUCCEEDED = "SUCCEEDED";
@@ -81,6 +88,7 @@ public final class DatabricksJdbcConstants {
           "Content-Type", "application/json");
   @VisibleForTesting public static final String IS_FAKE_SERVICE_TEST_PROP = "isFakeServiceTest";
   @VisibleForTesting public static final String FAKE_SERVICE_URI_PROP_SUFFIX = ".fakeServiceURI";
+  public static final String IS_JDBC_TEST_ENV = "IS_JDBC_TEST_ENV";
   public static final String AWS_CLIENT_ID = "databricks-sql-jdbc";
   public static final String GCP_CLIENT_ID = "databricks-sql-jdbc";
   public static final String AAD_CLIENT_ID = "96eecda7-19ea-49cc-abb5-240097d554f5";

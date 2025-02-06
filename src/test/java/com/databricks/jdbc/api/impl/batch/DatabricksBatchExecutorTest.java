@@ -3,23 +3,27 @@ package com.databricks.jdbc.api.impl.batch;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
+import com.databricks.jdbc.api.IDatabricksConnectionContext;
+import com.databricks.jdbc.api.IDatabricksStatement;
 import java.sql.BatchUpdateException;
 import java.sql.SQLException;
-import java.sql.Statement;
 import java.time.Instant;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
 import org.mockito.Mockito;
+import org.mockito.junit.jupiter.MockitoExtension;
 
+@ExtendWith(MockitoExtension.class)
 public class DatabricksBatchExecutorTest {
-
-  private Statement mockStatement;
+  @Mock IDatabricksConnectionContext connectionContext;
+  @Mock private IDatabricksStatement mockStatement;
   private DatabricksBatchExecutor databricksBatchExecutor;
   private final int MAX_BATCH_SIZE = 5;
 
   @BeforeEach
   public void setUp() {
-    mockStatement = mock(Statement.class);
     databricksBatchExecutor = new DatabricksBatchExecutor(mockStatement, MAX_BATCH_SIZE);
   }
 

@@ -1,10 +1,16 @@
 package com.databricks.jdbc.common.util;
 
+import static com.databricks.jdbc.common.AuthFlow.BROWSER_BASED_AUTHENTICATION;
+import static com.databricks.jdbc.common.AuthFlow.CLIENT_CREDENTIALS;
+import static com.databricks.jdbc.common.AuthFlow.TOKEN_PASSTHROUGH;
+import static com.databricks.jdbc.common.AuthMech.OAUTH;
+import static com.databricks.jdbc.common.AuthMech.PAT;
 import static com.databricks.jdbc.common.DatabricksJdbcUrlParams.*;
 
-import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.api.impl.DatabricksConnectionContext;
 import com.databricks.jdbc.api.impl.DatabricksConnectionContextFactory;
+import com.databricks.jdbc.common.AuthFlow;
+import com.databricks.jdbc.common.AuthMech;
 import com.databricks.jdbc.common.DatabricksJdbcUrlParams;
 import com.databricks.jdbc.common.LogLevel;
 import com.databricks.jdbc.exception.DatabricksParsingException;
@@ -80,11 +86,11 @@ public class DatabricksDriverPropertyUtil {
     }
 
     // auth-related properties
-    IDatabricksConnectionContext.AuthMech authMech = connectionContext.getAuthMech();
-    if (authMech == IDatabricksConnectionContext.AuthMech.PAT) {
+    AuthMech authMech = connectionContext.getAuthMech();
+    if (authMech == PAT) {
       addMissingProperty(missingPropertyInfos, connectionContext, PWD, true);
-    } else if (authMech == IDatabricksConnectionContext.AuthMech.OAUTH) {
-      IDatabricksConnectionContext.AuthFlow authFlow = connectionContext.getAuthFlow();
+    } else if (authMech == OAUTH) {
+      AuthFlow authFlow = connectionContext.getAuthFlow();
 
       if (connectionContext.isPropertyPresent(AUTH_FLOW)) {
         switch (authFlow) {

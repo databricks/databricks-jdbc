@@ -183,6 +183,9 @@ public class FakeServiceExtension extends DatabricksWireMockExtension {
 
     if (fakeServiceMode == FakeServiceMode.RECORD) {
       saveStubMappings(wireMockRuntimeInfo, context);
+    } else if (fakeServiceMode == FakeServiceMode.DRY) {
+      // Stop recording without saving stub mappings
+      wireMockRuntimeInfo.getWireMock().stopStubRecording();
     }
 
     super.onAfterEach(wireMockRuntimeInfo, context);
@@ -237,6 +240,7 @@ public class FakeServiceExtension extends DatabricksWireMockExtension {
       uniqueID =
           uniqueID.substring(
               uniqueID.lastIndexOf(TEST_INVOCATION_INDEX_KEY), uniqueID.length() - 1);
+      uniqueID = uniqueID.replace(":#", "");
       return String.format("%s/%s/%s.%s", basePath, testClassName, testMethodName, uniqueID);
     } else {
       return String.format("%s/%s/%s", basePath, testClassName, testMethodName);

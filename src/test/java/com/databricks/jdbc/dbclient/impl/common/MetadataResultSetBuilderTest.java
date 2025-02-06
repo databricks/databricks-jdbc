@@ -2,10 +2,13 @@ package com.databricks.jdbc.dbclient.impl.common;
 
 import static com.databricks.jdbc.common.MetadataResultConstants.*;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.mockito.Mockito.mock;
 
+import com.databricks.jdbc.model.core.ResultColumn;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
@@ -110,12 +113,33 @@ public class MetadataResultSetBuilderTest {
         Arguments.of("TEXT", 10, 255));
   }
 
+  private static Stream<Arguments> getSizeFromTypeValArguments() {
+    return Stream.of(
+        Arguments.of("VARCHAR(100)", 100),
+        Arguments.of("VARCHAR", -1),
+        Arguments.of("char(10)", 10),
+        Arguments.of("", -1));
+  }
+
   private static Stream<Arguments> getRowsTableTypeColumnArguments() {
     return Stream.of(
         Arguments.of("TABLE", "TABLE"),
         Arguments.of("VIEW", "VIEW"),
         Arguments.of("SYSTEM TABLE", "SYSTEM TABLE"),
         Arguments.of("", "TABLE"));
+  }
+
+  private static Stream<Arguments> provideSpecialColumnsArguments() {
+    return Stream.of(
+        Arguments.of(List.of("INTEGER", "", "", 0, ""), Arrays.asList("INTEGER", 4, null, 1, null)),
+        Arguments.of(List.of("DATE", "", "", 1, ""), Arrays.asList("DATE", 91, 91, 2, null)));
+  }
+
+  private static Stream<Arguments> provideColumnSizeArguments() {
+    return Stream.of(
+        Arguments.of(List.of("VARCHAR(50)", 0, 0), List.of("VARCHAR", 50, 0)),
+        Arguments.of(List.of("INT", 4, 10), List.of("INT", 10, 10)),
+        Arguments.of(List.of("VARCHAR", 0, 0), List.of("VARCHAR", 255, 0)));
   }
 
   @ParameterizedTest
@@ -143,7 +167,7 @@ public class MetadataResultSetBuilderTest {
       throws SQLException {
     ResultSet resultSet = mock(ResultSet.class);
     Mockito.when(resultSet.next()).thenReturn(true).thenReturn(false);
-    Mockito.when(resultSet.getObject(NULLABLE_COLUMN.getResultSetColumnName()))
+    Mockito.when(resultSet.getObject(IS_NULLABLE_COLUMN.getResultSetColumnName()))
         .thenReturn(isNullableValue);
 
     List<List<Object>> rows = MetadataResultSetBuilder.getRows(resultSet, COLUMN_COLUMNS);
@@ -153,10 +177,66 @@ public class MetadataResultSetBuilderTest {
         Integer.class, rows.get(0).get(10).getClass()); // test column type of nullable column
   }
 
+  @Test
+  void testGetThriftRowsWithRowIndexOutOfBounds() {
+    List<ResultColumn> columns = List.of(COLUMN_TYPE_COLUMN, COL_NAME_COLUMN);
+    List<Object> row = List.of("VARCHAR(50)");
+    List<List<Object>> rows = List.of(row);
+
+    List<List<Object>> updatedRows = MetadataResultSetBuilder.getThriftRows(rows, columns);
+    List<Object> updatedRow = updatedRows.get(0);
+    assertEquals("VARCHAR", updatedRow.get(0));
+    assertNull(updatedRow.get(1));
+  }
+
+  @ParameterizedTest
+  @MethodSource("provideSpecialColumnsArguments")
+  void testGetThriftRowsSpecialColumns(List<Object> row, List<Object> expectedRow) {
+    List<ResultColumn> columns =
+        List.of(
+            COLUMN_TYPE_COLUMN,
+            SQL_DATA_TYPE_COLUMN,
+            SQL_DATETIME_SUB_COLUMN,
+            ORDINAL_POSITION_COLUMN,
+            SCOPE_CATALOG_COLUMN);
+
+    List<List<Object>> updatedRows = MetadataResultSetBuilder.getThriftRows(List.of(row), columns);
+    List<Object> updatedRow = updatedRows.get(0);
+    // verify following
+    // 1. ordinal position is 1, 2
+    // 2. sql data type is 4, 91
+    // 3. sql_date_time_sub is null, 91
+    // 4. scope_catalog_col is null, null
+    assertEquals(expectedRow.get(1), updatedRow.get(1));
+    assertEquals(expectedRow.get(2), updatedRow.get(2));
+    assertEquals(expectedRow.get(3), updatedRow.get(3));
+    assertEquals(expectedRow.get(4), updatedRow.get(4));
+  }
+
+  @ParameterizedTest
+  @MethodSource("provideColumnSizeArguments")
+  void testGetThriftRowsColumnSize(List<Object> row, List<Object> expectedRow) {
+    List<ResultColumn> columns =
+        List.of(COLUMN_TYPE_COLUMN, COLUMN_SIZE_COLUMN, NUM_PREC_RADIX_COLUMN);
+
+    List<List<Object>> updatedRows = MetadataResultSetBuilder.getThriftRows(List.of(row), columns);
+    List<Object> updatedRow = updatedRows.get(0);
+
+    assertEquals(expectedRow.get(0), updatedRow.get(0));
+    assertEquals(expectedRow.get(1), updatedRow.get(1));
+  }
+
   @ParameterizedTest
   @MethodSource("getBufferLengthArguments")
   public void testGetBufferLength(String typeVal, int columnSize, int expected) {
     int actual = MetadataResultSetBuilder.getBufferLength(typeVal, columnSize);
+    assertEquals(expected, actual);
+  }
+
+  @ParameterizedTest
+  @MethodSource("getSizeFromTypeValArguments")
+  public void testGetSizeFromTypeVal(String typeVal, int expected) {
+    int actual = MetadataResultSetBuilder.getSizeFromTypeVal(typeVal);
     assertEquals(expected, actual);
   }
 

@@ -1,10 +1,10 @@
 package com.databricks.jdbc.api.impl.batch;
 
 import com.databricks.jdbc.exception.DatabricksBatchUpdateException;
-import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.exception.DatabricksValidationException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
+import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.time.Duration;
@@ -189,7 +189,7 @@ public class DatabricksBatchExecutor {
     } else {
       exception =
           new DatabricksBatchUpdateException(
-              message, countsSoFar, new DatabricksSQLException(message));
+              message, DatabricksDriverErrorCode.BATCH_EXECUTE_EXCEPTION, countsSoFar);
     }
 
     throw exception;

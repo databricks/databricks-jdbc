@@ -10,20 +10,22 @@ import com.databricks.jdbc.api.impl.*;
 import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
 import com.databricks.jdbc.common.*;
 import com.databricks.jdbc.common.IDatabricksComputeResource;
+import com.databricks.jdbc.common.util.DatabricksThreadContextHolder;
 import com.databricks.jdbc.dbclient.IDatabricksClient;
 import com.databricks.jdbc.dbclient.impl.common.ClientConfigurator;
 import com.databricks.jdbc.dbclient.impl.common.StatementId;
-import com.databricks.jdbc.exception.DatabricksParsingException;
-import com.databricks.jdbc.exception.DatabricksSQLException;
-import com.databricks.jdbc.exception.DatabricksTimeoutException;
+import com.databricks.jdbc.exception.*;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.model.client.sqlexec.*;
 import com.databricks.jdbc.model.client.sqlexec.ExecuteStatementRequest;
 import com.databricks.jdbc.model.client.sqlexec.ExecuteStatementResponse;
 import com.databricks.jdbc.model.client.sqlexec.GetStatementResponse;
+import com.databricks.jdbc.model.client.thrift.generated.TFetchResultsResp;
+import com.databricks.jdbc.model.core.Disposition;
 import com.databricks.jdbc.model.core.ExternalLink;
 import com.databricks.jdbc.model.core.ResultData;
+import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import com.databricks.sdk.WorkspaceClient;
 import com.databricks.sdk.core.ApiClient;
 import com.databricks.sdk.service.sql.*;
@@ -38,6 +40,7 @@ public class DatabricksSdkClient implements IDatabricksClient {
 
   private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(DatabricksSdkClient.class);
   private static final String SYNC_TIMEOUT_VALUE = "10s";
+  private static final String ASYNC_TIMEOUT_VALUE = "0s";
   private final IDatabricksConnectionContext connectionContext;
   private final ClientConfigurator clientConfigurator;
   private volatile WorkspaceClient workspaceClient;
@@ -101,14 +104,14 @@ public class DatabricksSdkClient implements IDatabricksClient {
   }
 
   @Override
-  public void deleteSession(IDatabricksSession session, IDatabricksComputeResource warehouse) {
+  public void deleteSession(ImmutableSessionInfo sessionInfo) {
     LOGGER.debug(
         String.format(
-            "public void deleteSession(String sessionId = {%s})", session.getSessionId()));
+            "public void deleteSession(String sessionId = {%s})", sessionInfo.sessionId()));
     DeleteSessionRequest request =
         new DeleteSessionRequest()
-            .setSessionId(session.getSessionId())
-            .setWarehouseId(((Warehouse) warehouse).getWarehouseId());
+            .setSessionId(sessionInfo.sessionId())
+            .setWarehouseId(((Warehouse) sessionInfo.computeResource()).getWarehouseId());
     String path = String.format(SESSION_PATH_WITH_ID, request.getSessionId());
     workspaceClient.apiClient().DELETE(path, request, Void.class, JSON_HTTP_HEADERS);
   }
@@ -128,6 +131,7 @@ public class DatabricksSdkClient implements IDatabricksClient {
             sql, computeResource.toString(), statementType));
     long pollCount = 0;
     long executionStartTime = Instant.now().toEpochMilli();
+    DatabricksThreadContextHolder.setStatementType(statementType);
     ExecuteStatementRequest request =
         getRequest(
             statementType,
@@ -135,7 +139,8 @@ public class DatabricksSdkClient implements IDatabricksClient {
             ((Warehouse) computeResource).getWarehouseId(),
             session,
             parameters,
-            parentStatement);
+            parentStatement,
+            false);
     ExecuteStatementResponse response =
         workspaceClient
             .apiClient()
@@ -217,7 +222,8 @@ public class DatabricksSdkClient implements IDatabricksClient {
             ((Warehouse) computeResource).getWarehouseId(),
             session,
             parameters,
-            parentStatement);
+            parentStatement,
+            true);
     ExecuteStatementResponse response =
         workspaceClient
             .apiClient()
@@ -308,9 +314,17 @@ public class DatabricksSdkClient implements IDatabricksClient {
     this.workspaceClient = clientConfigurator.getWorkspaceClient();
   }
 
+  @Override
+  public TFetchResultsResp getMoreResults(IDatabricksStatementInternal parentStatement)
+      throws DatabricksSQLException {
+    throw new DatabricksValidationException("Get more results cannot be called for SEA flow");
+  }
+
   private boolean useCloudFetchForResult(StatementType statementType) {
     return this.connectionContext.shouldEnableArrow()
-        && (statementType == StatementType.QUERY || statementType == StatementType.SQL);
+        && (statementType == StatementType.QUERY
+            || statementType == StatementType.SQL
+            || statementType == StatementType.METADATA);
   }
 
   private ExecuteStatementRequest getRequest(
@@ -319,11 +333,16 @@ public class DatabricksSdkClient implements IDatabricksClient {
       String warehouseId,
       IDatabricksSession session,
       Map<Integer, ImmutableSqlParameter> parameters,
-      IDatabricksStatementInternal parentStatement)
+      IDatabricksStatementInternal parentStatement,
+      boolean executeAsync)
       throws SQLException {
     Format format = useCloudFetchForResult(statementType) ? Format.ARROW_STREAM : Format.JSON_ARRAY;
+    Disposition defaultDisposition =
+        connectionContext.isSqlExecHybridResultsEnabled()
+            ? Disposition.INLINE_OR_EXTERNAL_LINKS
+            : Disposition.EXTERNAL_LINKS;
     Disposition disposition =
-        useCloudFetchForResult(statementType) ? Disposition.EXTERNAL_LINKS : Disposition.INLINE;
+        useCloudFetchForResult(statementType) ? defaultDisposition : Disposition.INLINE;
     long maxRows = (parentStatement == null) ? DEFAULT_ROW_LIMIT : parentStatement.getMaxRows();
     CompressionCodec compressionCodec = session.getCompressionCodec();
     if (disposition.equals(Disposition.INLINE)) {
@@ -341,9 +360,14 @@ public class DatabricksSdkClient implements IDatabricksClient {
             .setDisposition(disposition)
             .setFormat(format)
             .setResultCompression(compressionCodec)
-            .setWaitTimeout(SYNC_TIMEOUT_VALUE)
-            .setOnWaitTimeout(ExecuteStatementRequestOnWaitTimeout.CONTINUE)
             .setParameters(parameterListItems);
+    if (executeAsync) {
+      request.setWaitTimeout(ASYNC_TIMEOUT_VALUE);
+    } else {
+      request
+          .setWaitTimeout(SYNC_TIMEOUT_VALUE)
+          .setOnWaitTimeout(ExecuteStatementRequestOnWaitTimeout.CONTINUE);
+    }
     if (maxRows != DEFAULT_ROW_LIMIT) {
       request.setRowLimit(maxRows);
     }
@@ -371,7 +395,8 @@ public class DatabricksSdkClient implements IDatabricksClient {
               " Error Message: %s, Error code: %s", error.getMessage(), error.getErrorCode());
     }
     LOGGER.debug(errorMessage);
-    throw new DatabricksSQLException(errorMessage);
+    throw new DatabricksSQLException(
+        errorMessage, DatabricksDriverErrorCode.EXECUTE_STATEMENT_FAILED);
   }
 
   private ExecuteStatementResponse wrapGetStatementResponse(

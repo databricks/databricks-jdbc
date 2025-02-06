@@ -27,6 +27,8 @@ public class TestConstants {
   public static final String TEST_CATALOG = "catalog1";
   public static final String TEST_FUNCTION_PATTERN = "functionPattern";
   public static final String TEST_STRING = "test";
+  public static final String TEST_USER = "testUser";
+  public static final String TEST_PASSWORD = "testPassword";
   public static final String TEST_STATEMENT_ID = "testStatementId";
   public static final String UC_VOLUME_CATALOG = "uc_volume_test_catalog";
   public static final String UC_VOLUME_SCHEMA = "uc_volume_test_schema";
@@ -99,6 +101,7 @@ public class TestConstants {
       ByteBuffer.allocate(Long.BYTES).putLong(123456789L).array();
   public static final String TEST_CLIENT_ID = "test-client-id";
   public static final String TEST_TOKEN_URL = "https://test.token.url";
+  public static final String TEST_AUTH_URL = "https://test.auth.url";
   public static final String TEST_DISCOVERY_URL = "https://test.discovery.url";
   public static final String TEST_JWT_KID = "test-kid";
   public static final String TEST_SCOPE = "test-scope";
@@ -126,7 +129,7 @@ public class TestConstants {
   public static final String GCP_TEST_URL =
       "jdbc:databricks://4371047901336987.7.gcp.databricks.com:443/default;transportMode=http;AuthMech=11;Auth_Flow=1;httpPath=/sql/1.0/warehouses/dd5955aacf3f09e5;GoogleServiceAccount=abc-compute@developer.gserviceaccount.com;";
   public static final String VALID_URL_1 =
-      "jdbc:databricks://adb-565757575.18.azuredatabricks.net:4423/default;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/erg6767gg;LogLevel=debug;LogPath=./test1;auth_flow=2";
+      "jdbc:databricks://adb-565757575.18.azuredatabricks.net:4423;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/erg6767gg;LogLevel=debug;LogPath=./test1;auth_flow=2";
   public static final String VALID_URL_2 =
       "jdbc:databricks://adb-565656.azuredatabricks.net/default;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/fgff575757;LogLevel=invalid;EnableQueryResultLZ4Compression=1;UseThriftClient=0";
   public static final String VALID_URL_3 =
@@ -171,6 +174,10 @@ public class TestConstants {
       "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/5c89f447c476a5a8;UseSystemProxy=1;UseProxy=1;ProxyHost=127.0.0.1;ProxyPort=8080;ProxyAuth=1;ProxyUID=proxyUser;ProxyPwd=proxyPassword;UseCFProxy=1;CFProxyHost=127.0.1.2;CFProxyPort=8081;CFProxyAuth=2;CFProxyUID=cfProxyUser;CFProxyPwd=cfProxyPassword;";
   public static final String VALID_URL_POLLING =
       "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:4473;ssl=1;asyncexecpollinterval=500;AuthMech=3;httpPath=/sql/1.0/warehouses/5c89f447c476a5a8;QueryResultCompressionType=1";
+  public static final String VALID_URL_WITH_STAGING_ALLOWED_PATH =
+      "jdbc:databricks://adb-565757575.18.azuredatabricks.net:4423/default;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/erg6767gg;LogLevel=debug;LogPath=./test1;auth_flow=2;StagingAllowedLocalPaths=/tmp";
+  public static final String VALID_URL_WITH_VOLUME_ALLOWED_PATH =
+      "jdbc:databricks://adb-565757575.18.azuredatabricks.net:4423/default;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/erg6767gg;LogLevel=debug;LogPath=./test1;auth_flow=2;VolumeOperationAllowedLocalPaths=/tmp2";
   public static final List<TSparkArrowBatch> ARROW_BATCH_LIST =
       Collections.singletonList(
           new TSparkArrowBatch().setRowCount(0).setBatch(new byte[] {65, 66, 67}));

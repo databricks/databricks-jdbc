@@ -17,6 +17,7 @@ import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.model.client.sqlexec.*;
 import com.databricks.jdbc.model.client.sqlexec.ExecuteStatementRequest;
 import com.databricks.jdbc.model.client.sqlexec.ExecuteStatementResponse;
+import com.databricks.jdbc.model.core.Disposition;
 import com.databricks.jdbc.model.core.ResultData;
 import com.databricks.jdbc.model.core.ResultManifest;
 import com.databricks.sdk.core.ApiClient;
@@ -57,7 +58,7 @@ public class DatabricksSdkClientTest {
         .thenReturn(response);
   }
 
-  private void setupClientMocks(boolean includeResults) {
+  private void setupClientMocks(boolean includeResults, boolean async) {
     List<StatementParameterListItem> params =
         new ArrayList<>() {
           {
@@ -76,10 +77,15 @@ public class DatabricksSdkClientTest {
             .setStatement(STATEMENT)
             .setDisposition(Disposition.EXTERNAL_LINKS)
             .setFormat(Format.ARROW_STREAM)
-            .setWaitTimeout("10s")
             .setRowLimit(100L)
-            .setOnWaitTimeout(ExecuteStatementRequestOnWaitTimeout.CONTINUE)
             .setParameters(params);
+    if (async) {
+      executeStatementRequest.setWaitTimeout("0s");
+    } else {
+      executeStatementRequest
+          .setWaitTimeout("10s")
+          .setOnWaitTimeout(ExecuteStatementRequestOnWaitTimeout.CONTINUE);
+    }
     ExecuteStatementResponse response =
         new ExecuteStatementResponse()
             .setStatementId(STATEMENT_ID.toSQLExecStatementId())
@@ -133,8 +139,12 @@ public class DatabricksSdkClientTest {
         DatabricksConnectionContext.parse(JDBC_URL, new Properties());
     DatabricksSdkClient databricksSdkClient =
         new DatabricksSdkClient(connectionContext, statementExecutionService, apiClient);
-    when(session.getSessionId()).thenReturn(SESSION_ID);
-    databricksSdkClient.deleteSession(session, warehouse);
+    ImmutableSessionInfo sessionInfo =
+        ImmutableSessionInfo.builder()
+            .sessionId(SESSION_ID)
+            .computeResource(new Warehouse(WAREHOUSE_ID))
+            .build();
+    databricksSdkClient.deleteSession(sessionInfo);
     DeleteSessionRequest request =
         new DeleteSessionRequest().setSessionId(SESSION_ID).setWarehouseId(WAREHOUSE_ID);
     verify(apiClient).DELETE(eq(path), eq(request), eq(Void.class), eq(headers));
@@ -142,7 +152,7 @@ public class DatabricksSdkClientTest {
 
   @Test
   public void testExecuteStatement() throws Exception {
-    setupClientMocks(true);
+    setupClientMocks(true, false);
     IDatabricksConnectionContext connectionContext =
         DatabricksConnectionContext.parse(JDBC_URL, new Properties());
     DatabricksSdkClient databricksSdkClient =
@@ -176,7 +186,7 @@ public class DatabricksSdkClientTest {
 
   @Test
   public void testExecuteStatementAsync() throws Exception {
-    setupClientMocks(false);
+    setupClientMocks(false, true);
     IDatabricksConnectionContext connectionContext =
         DatabricksConnectionContext.parse(JDBC_URL, new Properties());
     DatabricksSdkClient databricksSdkClient =

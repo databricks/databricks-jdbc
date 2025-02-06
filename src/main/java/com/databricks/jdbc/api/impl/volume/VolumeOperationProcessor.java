@@ -1,10 +1,13 @@
 package com.databricks.jdbc.api.impl.volume;
 
+import com.databricks.jdbc.api.impl.VolumeOperationStatus;
 import com.databricks.jdbc.common.util.HttpUtil;
+import com.databricks.jdbc.common.util.VolumeUtil;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
 import com.databricks.jdbc.exception.DatabricksHttpException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
+import com.google.common.annotations.VisibleForTesting;
 import java.io.*;
 import java.util.*;
 import java.util.function.Consumer;
@@ -24,12 +27,9 @@ class VolumeOperationProcessor {
       JdbcLoggerFactory.getLogger(VolumeOperationProcessor.class);
   private static final String COMMA_SEPARATOR = ",";
   private static final String PARENT_DIRECTORY_REF = "..";
-  private static final String GET_OPERATION = "get";
-  private static final String PUT_OPERATION = "put";
-  private static final String REMOVE_OPERATION = "remove";
 
   private static final Long PUT_SIZE_LIMITS = 5 * 1024 * 1024 * 1024L; // 5GB
-  private final String operationType;
+  private final VolumeUtil.VolumeOperationType operationType;
   private final String operationUrl;
   private final String localFilePath;
   private final Map<String, String> headers;
@@ -41,27 +41,96 @@ class VolumeOperationProcessor {
   private VolumeOperationStatus status;
   private String errorMessage;
 
-  VolumeOperationProcessor(
-      String operationType,
-      String operationUrl,
-      Map<String, String> headers,
-      String localFilePath,
-      String allowedVolumeIngestionPathString,
-      boolean isAllowedInputStreamForVolumeOperation,
-      InputStreamEntity inputStream,
-      IDatabricksHttpClient databricksHttpClient,
-      Consumer<HttpEntity> getStreamReceiver) {
-    this.operationType = operationType;
-    this.operationUrl = operationUrl;
-    this.localFilePath = localFilePath;
-    this.headers = headers;
-    this.allowedVolumeIngestionPaths = getAllowedPaths(allowedVolumeIngestionPathString);
-    this.isAllowedInputStreamForVolumeOperation = isAllowedInputStreamForVolumeOperation;
-    this.inputStream = inputStream;
-    this.getStreamReceiver = getStreamReceiver;
-    this.databricksHttpClient = databricksHttpClient;
-    this.status = VolumeOperationStatus.PENDING;
-    this.errorMessage = null;
+  private VolumeOperationProcessor(Builder builder) {
+    this.operationType = builder.operationType;
+    this.operationUrl = builder.operationUrl;
+    this.localFilePath = builder.localFilePath;
+    this.headers = builder.headers;
+    this.allowedVolumeIngestionPaths = builder.allowedVolumeIngestionPaths;
+    this.isAllowedInputStreamForVolumeOperation = builder.isAllowedInputStreamForVolumeOperation;
+    this.inputStream = builder.inputStream;
+    this.getStreamReceiver = builder.getStreamReceiver;
+    this.databricksHttpClient = builder.databricksHttpClient;
+    this.status = builder.status;
+    this.errorMessage = builder.errorMessage;
+  }
+
+  public static class Builder {
+    private VolumeUtil.VolumeOperationType operationType;
+    private String operationUrl;
+    private String localFilePath = null;
+    private Map<String, String> headers = new HashMap<>();
+    private Set<String> allowedVolumeIngestionPaths = null;
+    private boolean isAllowedInputStreamForVolumeOperation = false;
+    private IDatabricksHttpClient databricksHttpClient = null;
+    private InputStreamEntity inputStream = null;
+    private Consumer<HttpEntity> getStreamReceiver = null;
+    private VolumeOperationStatus status = VolumeOperationStatus.PENDING;
+    private String errorMessage = null;
+
+    public static Builder createBuilder() {
+      return new Builder();
+    }
+
+    public Builder operationType(VolumeUtil.VolumeOperationType operationType) {
+      this.operationType = operationType;
+      return this;
+    }
+
+    public Builder operationUrl(String operationUrl) {
+      this.operationUrl = operationUrl;
+      return this;
+    }
+
+    public Builder localFilePath(String localFilePath) {
+      this.localFilePath = localFilePath;
+      return this;
+    }
+
+    public Builder headers(Map<String, String> headers) {
+      this.headers = headers;
+      return this;
+    }
+
+    public Builder allowedVolumeIngestionPathString(String allowedVolumeIngestionPathString) {
+      this.allowedVolumeIngestionPaths = getAllowedPaths(allowedVolumeIngestionPathString);
+      return this;
+    }
+
+    public Builder isAllowedInputStreamForVolumeOperation(
+        boolean isAllowedInputStreamForVolumeOperation) {
+      this.isAllowedInputStreamForVolumeOperation = isAllowedInputStreamForVolumeOperation;
+      return this;
+    }
+
+    public Builder databricksHttpClient(IDatabricksHttpClient databricksHttpClient) {
+      this.databricksHttpClient = databricksHttpClient;
+      return this;
+    }
+
+    public Builder inputStream(InputStreamEntity inputStream) {
+      this.inputStream = inputStream;
+      return this;
+    }
+
+    public Builder getStreamReceiver(Consumer<HttpEntity> getStreamReceiver) {
+      this.getStreamReceiver = getStreamReceiver;
+      return this;
+    }
+
+    public Builder status(VolumeOperationStatus status) {
+      this.status = status;
+      return this;
+    }
+
+    public Builder errorMessage(String errorMessage) {
+      this.errorMessage = errorMessage;
+      return this;
+    }
+
+    public VolumeOperationProcessor build() {
+      return new VolumeOperationProcessor(this);
+    }
   }
 
   private static Set<String> getAllowedPaths(String allowedVolumeIngestionPathString) {
@@ -87,14 +156,14 @@ class VolumeOperationProcessor {
       return;
     }
     status = VolumeOperationStatus.RUNNING;
-    switch (operationType.toLowerCase()) {
-      case GET_OPERATION:
+    switch (operationType) {
+      case GET:
         executeGetOperation();
         break;
-      case PUT_OPERATION:
+      case PUT:
         executePutOperation();
         break;
-      case REMOVE_OPERATION:
+      case REMOVE:
         executeDeleteOperation();
         break;
       default:
@@ -122,7 +191,7 @@ class VolumeOperationProcessor {
       LOGGER.error(errorMessage);
       return;
     }
-    if (operationType.equalsIgnoreCase(REMOVE_OPERATION)) {
+    if (operationType == VolumeUtil.VolumeOperationType.REMOVE) {
       return;
     }
     if (localFilePath == null
@@ -158,7 +227,8 @@ class VolumeOperationProcessor {
     }
   }
 
-  private void executeGetOperation() {
+  @VisibleForTesting
+  void executeGetOperation() {
     HttpGet httpGet = new HttpGet(operationUrl);
     headers.forEach(httpGet::addHeader);
 
@@ -246,7 +316,8 @@ class VolumeOperationProcessor {
     }
   }
 
-  private void executePutOperation() {
+  @VisibleForTesting
+  void executePutOperation() {
     HttpPut httpPut = new HttpPut(operationUrl);
     headers.forEach(httpPut::addHeader);
 
@@ -331,18 +402,5 @@ class VolumeOperationProcessor {
       status = VolumeOperationStatus.FAILED;
       errorMessage = "Failed to delete volume: " + e.getMessage();
     }
-  }
-
-  private boolean isSuccessfulHttpResponse(CloseableHttpResponse response) {
-    return response.getStatusLine().getStatusCode() >= 200
-        && response.getStatusLine().getStatusCode() < 300;
-  }
-
-  enum VolumeOperationStatus {
-    PENDING,
-    RUNNING,
-    ABORTED,
-    SUCCEEDED,
-    FAILED
   }
 }

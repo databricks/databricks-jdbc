@@ -5,6 +5,8 @@ import static com.databricks.jdbc.integration.fakeservice.FakeServiceConfigLoade
 import static com.databricks.jdbc.integration.fakeservice.FakeServiceConfigLoader.TEST_SCHEMA;
 import static com.databricks.jdbc.integration.fakeservice.FakeServiceExtension.TARGET_URI_PROP_SUFFIX;
 
+import com.databricks.jdbc.api.IDatabricksConnectionContext;
+import com.databricks.jdbc.api.impl.DatabricksConnectionContextFactory;
 import com.databricks.jdbc.common.DatabricksJdbcConstants.FakeServiceType;
 import com.databricks.jdbc.common.DatabricksJdbcUrlParams;
 import com.databricks.jdbc.common.util.DriverUtil;
@@ -53,6 +55,10 @@ public class IntegrationTestUtil {
         FakeServiceConfigLoader.getProperty(DatabricksJdbcUrlParams.HTTP_PATH.getParamName()));
   }
 
+  public static String getFakeServiceHTTPPath() {
+    return FakeServiceConfigLoader.getProperty(DatabricksJdbcUrlParams.HTTP_PATH.getParamName());
+  }
+
   public static String getDatabricksHost() {
     // includes port
     return System.getenv("DATABRICKS_HOST");
@@ -63,8 +69,29 @@ public class IntegrationTestUtil {
     return System.getenv("DATABRICKS_BENCHFOOD_HOST");
   }
 
-  public static String getDatabricksUrlForM2M() {
-    return System.getenv("DATABRICKS_JDBC_M2M_URL");
+  public static String getM2MHost() {
+    return System.getenv("DATABRICKS_JDBC_M2M_HOST");
+  }
+
+  public static String getM2MHTTPPath() {
+    return System.getenv("DATABRICKS_JDBC_M2M_HTTP_PATH");
+  }
+
+  public static String getJdbcM2MUrl() {
+    String template =
+        "jdbc:databricks://%s/default;transportMode=http;ssl=0;authmech=11;auth_flow=1;httpPath=%s";
+    return String.format(template, getM2MHost(), getM2MHTTPPath());
+  }
+
+  public static Connection getValidM2MConnection() throws SQLException {
+    return DriverManager.getConnection(getJdbcM2MUrl(), createM2MConnectionProperties());
+  }
+
+  public static Properties createM2MConnectionProperties() {
+    Properties connProps = new Properties();
+    connProps.put("OAuth2ClientId", System.getenv("DATABRICKS_JDBC_M2M_CLIENT_ID"));
+    connProps.put("OAuth2Secret", System.getenv("DATABRICKS_JDBC_M2M_CLIENT_SECRET"));
+    return connProps;
   }
 
   public static String getDatabricksDogfoodHost() {
@@ -111,6 +138,10 @@ public class IntegrationTestUtil {
     return System.getenv("DATABRICKS_USER");
   }
 
+  public static String getPreSignedUrlHost() {
+    return System.getenv("DATABRICKS_PRE_SIGNED_URL_HOST");
+  }
+
   public static Connection getValidJDBCConnection() throws SQLException {
     Properties connectionProperties = new Properties();
     connectionProperties.put(DatabricksJdbcUrlParams.USER.getParamName(), getDatabricksUser());
@@ -142,6 +173,22 @@ public class IntegrationTestUtil {
   public static Connection getDogfoodJDBCConnection() throws SQLException {
     return DriverManager.getConnection(
         getDogfoodJDBCUrl(), getDatabricksUser(), getDatabricksDogfoodToken());
+  }
+
+  /** Used by the DBFSVolumeClient to bypass creation of connection */
+  public static IDatabricksConnectionContext getDogfoodJDBCConnectionContext() throws SQLException {
+    return DatabricksConnectionContextFactory.create(
+        getDogfoodJDBCUrl(), getDatabricksUser(), getDatabricksDogfoodToken());
+  }
+
+  public static IDatabricksConnectionContext getDogfoodJDBCConnectionContext(
+      List<List<String>> extraArgs) throws SQLException {
+    String jdbcUrl = getDogfoodJDBCUrl();
+    for (List<String> args : extraArgs) {
+      jdbcUrl += ";" + args.get(0) + "=" + args.get(1);
+    }
+    return DatabricksConnectionContextFactory.create(
+        jdbcUrl, getDatabricksUser(), getDatabricksDogfoodToken());
   }
 
   public static Connection getDogfoodJDBCConnection(List<List<String>> extraArgs)

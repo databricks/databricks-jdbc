@@ -9,6 +9,7 @@ import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
+import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import com.databricks.sdk.core.DatabricksEnvironment;
 import com.databricks.sdk.core.ProxyConfig;
 import com.databricks.sdk.core.utils.Cloud;
@@ -70,8 +71,8 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
       String connectionParamString, Properties properties) {
     ImmutableMap.Builder<String, String> parametersBuilder = ImmutableMap.builder();
     String[] urlParts = connectionParamString.split(DatabricksJdbcConstants.URL_DELIMITER);
-    for (int urlPartIndex = 1; urlPartIndex < urlParts.length; urlPartIndex++) {
-      String[] pair = urlParts[urlPartIndex].split(DatabricksJdbcConstants.PAIR_DELIMITER);
+    for (String urlPart : urlParts) {
+      String[] pair = urlPart.split(DatabricksJdbcConstants.PAIR_DELIMITER);
       if (pair.length == 1) {
         pair = new String[] {pair[0], ""};
       }
@@ -87,7 +88,7 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
     Matcher urlMatcher = JDBC_URL_PATTERN.matcher(url);
     if (urlMatcher.find()) {
       String host = urlMatcher.group(1).split(DatabricksJdbcConstants.PORT_DELIMITER)[0];
-      String connectionParamString = urlMatcher.group(2);
+      String connectionParamString = urlMatcher.group(3);
       ImmutableMap<String, String> connectionPropertiesMap =
           buildPropertiesMap(connectionParamString, properties);
       return new DatabricksConnectionContext(url, host, connectionPropertiesMap);
@@ -102,15 +103,17 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
    * @param properties connection properties
    * @return a connection context
    */
-  static IDatabricksConnectionContext parse(String url, Properties properties)
+  public static IDatabricksConnectionContext parse(String url, Properties properties)
       throws DatabricksSQLException {
     if (!ValidationUtil.isValidJdbcUrl(url)) {
-      throw new DatabricksParsingException("Invalid url " + url);
+      throw new DatabricksParsingException(
+          "Invalid url " + url, DatabricksDriverErrorCode.CONNECTION_ERROR);
     }
     Matcher urlMatcher = JDBC_URL_PATTERN.matcher(url);
     if (urlMatcher.find()) {
       String hostUrlVal = urlMatcher.group(1);
-      String urlMinusHost = urlMatcher.group(2);
+      String schema = urlMatcher.group(2);
+      String urlMinusHost = urlMatcher.group(3);
       String[] hostAndPort = hostUrlVal.split(DatabricksJdbcConstants.PORT_DELIMITER);
       String hostValue = hostAndPort[0];
       int portValue =
@@ -118,17 +121,14 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
               ? Integer.parseInt(hostAndPort[1])
               : DatabricksJdbcConstants.DEFAULT_PORT;
 
-      String[] urlParts = urlMinusHost.split(DatabricksJdbcConstants.URL_DELIMITER);
-      String schema = urlParts[0];
-      if (nullOrEmptyString(schema)) {
-        schema = DEFAULT_SCHEMA;
-      }
       ImmutableMap<String, String> propertiesMap = buildPropertiesMap(urlMinusHost, properties);
       if (propertiesMap.containsKey(PORT)) {
         try {
           portValue = Integer.parseInt(propertiesMap.get(PORT));
         } catch (NumberFormatException e) {
-          throw new DatabricksParsingException("Invalid port number " + propertiesMap.get(PORT));
+          throw new DatabricksParsingException(
+              "Invalid port number " + propertiesMap.get(PORT),
+              DatabricksDriverErrorCode.CONNECTION_ERROR);
         }
       }
       return new DatabricksConnectionContext(url, hostValue, portValue, schema, propertiesMap);
@@ -182,7 +182,9 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
       return uriBuilder.build().toString();
     } catch (Exception e) {
       LOGGER.debug("URI Building failed with exception: " + e.getMessage());
-      throw new DatabricksParsingException("URI Building failed with exception: " + e.getMessage());
+      throw new DatabricksParsingException(
+          "URI Building failed with exception: " + e.getMessage(),
+          DatabricksDriverErrorCode.CONNECTION_ERROR);
     }
   }
 
@@ -346,7 +348,7 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
 
   @Override
   public String getClientUserAgent() {
-    return getClientType().equals(DatabricksClientType.SQL_EXEC)
+    return getClientType().equals(DatabricksClientType.SEA)
         ? DatabricksJdbcConstants.USER_AGENT_SEA_CLIENT
         : DatabricksJdbcConstants.USER_AGENT_THRIFT_CLIENT;
   }
@@ -373,7 +375,7 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
     if (useThriftClient != null && useThriftClient.equals("1")) {
       return DatabricksClientType.THRIFT;
     }
-    return DatabricksClientType.SQL_EXEC;
+    return DatabricksClientType.SEA;
   }
 
   @Override
@@ -389,6 +391,10 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
 
   @Override
   public String getSchema() {
+    if (!nullOrEmptyString(schema)) {
+      return schema;
+    }
+
     return getParameter(
         DatabricksJdbcUrlParams.CONN_SCHEMA, getParameter(DatabricksJdbcUrlParams.SCHEMA));
   }
@@ -543,11 +549,6 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   }
 
   @Override
-  public boolean useFileSystemAPI() {
-    return getParameter(DatabricksJdbcUrlParams.USE_FILE_SYSTEM_API).equals("1");
-  }
-
-  @Override
   public String getConnectionURL() {
     return connectionURL;
   }
@@ -654,6 +655,28 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
     return connectionUuid;
   }
 
+  @Override
+  public int getTelemetryBatchSize() {
+    return Integer.parseInt(getParameter(DatabricksJdbcUrlParams.TELEMETRY_BATCH_SIZE));
+  }
+
+  @Override
+  public boolean isTelemetryEnabled() {
+    return getParameter(DatabricksJdbcUrlParams.ENABLE_TELEMETRY, "0").equals("1");
+  }
+
+  @Override
+  public String getVolumeOperationAllowedPaths() {
+    return getParameter(
+        DatabricksJdbcUrlParams.ALLOWED_VOLUME_INGESTION_PATHS,
+        getParameter(DatabricksJdbcUrlParams.ALLOWED_STAGING_INGESTION_PATHS, ""));
+  }
+
+  @Override
+  public boolean isSqlExecHybridResultsEnabled() {
+    return getParameter(DatabricksJdbcUrlParams.ENABLE_SQL_EXEC_HYBRID_RESULTS).equals("1");
+  }
+
   private static boolean nullOrEmptyString(String s) {
     return s == null || s.isEmpty();
   }
@@ -681,7 +704,9 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
       return new AllPurposeCluster("default", "default");
     }
     // the control should never reach here, as the parsing already ensured the URL is valid
-    throw new DatabricksParsingException("Invalid HTTP Path provided " + this.getHttpPath());
+    throw new DatabricksParsingException(
+        "Invalid HTTP Path provided " + this.getHttpPath(),
+        DatabricksDriverErrorCode.CONNECTION_ERROR);
   }
 
   private String getParameter(DatabricksJdbcUrlParams key) {

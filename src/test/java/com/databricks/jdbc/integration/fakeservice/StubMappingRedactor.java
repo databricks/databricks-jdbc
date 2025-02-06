@@ -1,6 +1,6 @@
 package com.databricks.jdbc.integration.fakeservice;
 
-import static com.databricks.jdbc.dbclient.impl.sqlexec.PathConstants.STATEMENT_PATH;
+import static com.databricks.jdbc.dbclient.impl.sqlexec.PathConstants.*;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.github.tomakehurst.wiremock.common.FileSource;
@@ -37,6 +37,7 @@ public class StubMappingRedactor extends StubMappingTransformer {
 
     if (AMAZON_S3_SERVER_VALUE.equals(serverHeaderValue)
         || requestUrl.startsWith(STATEMENT_PATH)
+        || requestUrl.startsWith(FS_BASE_PATH)
         || serverHeaderValue.startsWith(AZURE_STORAGE_SERVER_VALUE)) {
       // Clean credentials from statement requests (embedded S3 links) and Amazon S3 responses.
       try {

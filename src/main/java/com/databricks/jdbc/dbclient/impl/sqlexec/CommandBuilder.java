@@ -26,7 +26,7 @@ public class CommandBuilder {
 
   private final String sessionContext;
 
-  public CommandBuilder(String catalogName, IDatabricksSession session) throws SQLException {
+  public CommandBuilder(String catalogName, IDatabricksSession session) {
     this.sessionContext = session.toString();
     this.catalogName = catalogName;
   }

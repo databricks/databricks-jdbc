@@ -1,7 +1,5 @@
 package com.databricks.jdbc.api.impl;
 
-import static com.databricks.jdbc.common.util.DatabricksThriftUtil.*;
-
 import com.databricks.jdbc.api.IDatabricksResultSet;
 import com.databricks.jdbc.api.IDatabricksSession;
 import com.databricks.jdbc.api.impl.converters.ConverterHelper;
@@ -9,20 +7,20 @@ import com.databricks.jdbc.api.impl.converters.ObjectConverter;
 import com.databricks.jdbc.api.impl.volume.VolumeOperationResult;
 import com.databricks.jdbc.api.internal.IDatabricksResultSetInternal;
 import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
+import com.databricks.jdbc.common.Nullable;
 import com.databricks.jdbc.common.StatementType;
 import com.databricks.jdbc.common.util.WarningUtil;
 import com.databricks.jdbc.dbclient.impl.common.StatementId;
-import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.exception.DatabricksSQLFeatureNotSupportedException;
+import com.databricks.jdbc.exception.DatabricksValidationException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.model.client.thrift.generated.TFetchResultsResp;
-import com.databricks.jdbc.model.client.thrift.generated.TStatus;
 import com.databricks.jdbc.model.core.ColumnMetadata;
 import com.databricks.jdbc.model.core.ResultData;
 import com.databricks.jdbc.model.core.ResultManifest;
-import com.databricks.sdk.service.sql.StatementState;
+import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import com.databricks.sdk.service.sql.StatementStatus;
 import com.google.common.annotations.VisibleForTesting;
 import java.io.InputStream;
@@ -51,7 +49,6 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
   private boolean isClosed;
   private SQLWarning warnings = null;
   private boolean wasNull;
-  private boolean isResultInitialized = true;
 
   // Constructor for SEA result set
   public DatabricksResultSet(
@@ -62,7 +59,7 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
       StatementType statementType,
       IDatabricksSession session,
       IDatabricksStatementInternal parentStatement)
-      throws DatabricksParsingException {
+      throws DatabricksSQLException {
     this.statementStatus = statementStatus;
     this.statementId = statementId;
     if (resultData != null) {
@@ -73,7 +70,6 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
     } else {
       executionResult = null;
       resultSetMetaData = null;
-      isResultInitialized = false;
     }
     this.statementType = statementType;
     this.updateCount = null;
@@ -103,25 +99,14 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
 
   // Constructor for thrift result set
   public DatabricksResultSet(
-      TStatus statementStatus,
+      StatementStatus statementStatus,
       StatementId statementId,
       TFetchResultsResp resultsResp,
       StatementType statementType,
       IDatabricksStatementInternal parentStatement,
       IDatabricksSession session)
       throws SQLException {
-    switch (statementStatus.getStatusCode()) {
-      case SUCCESS_STATUS:
-      case SUCCESS_WITH_INFO_STATUS:
-        this.statementStatus = new StatementStatus().setState(StatementState.SUCCEEDED);
-        break;
-      case STILL_EXECUTING_STATUS:
-        this.statementStatus = new StatementStatus().setState(StatementState.RUNNING);
-        break;
-      default:
-        this.statementStatus = new StatementStatus().setState(StatementState.FAILED);
-    }
-
+    this.statementStatus = statementStatus;
     this.statementId = statementId;
     if (resultsResp != null) {
       this.executionResult =
@@ -136,7 +121,6 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
     } else {
       this.executionResult = null;
       this.resultSetMetaData = null;
-      this.isResultInitialized = false;
     }
     this.statementType = statementType;
     this.updateCount = null;
@@ -145,14 +129,15 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
     this.wasNull = false;
   }
 
-  // Constructing results for getUDTs, getTypeInfo, getProcedures metadata calls
+  /* Constructing results for getUDTs, getTypeInfo, getProcedures metadata calls */
   public DatabricksResultSet(
       StatementStatus statementStatus,
       StatementId statementId,
       List<String> columnNames,
       List<String> columnTypeText,
-      List<Integer> columnTypes,
-      List<Integer> columnTypePrecisions,
+      int[] columnTypes,
+      int[] columnTypePrecisions,
+      int[] isNullables,
       Object[][] rows,
       StatementType statementType) {
     this.statementStatus = statementStatus;
@@ -165,6 +150,7 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
             columnTypeText,
             columnTypes,
             columnTypePrecisions,
+            isNullables,
             rows.length);
     this.statementType = statementType;
     this.updateCount = null;
@@ -181,6 +167,7 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
       List<String> columnTypeText,
       List<Integer> columnTypes,
       List<Integer> columnTypePrecisions,
+      List<Nullable> columnNullables,
       List<List<Object>> rows,
       StatementType statementType) {
     this.statementStatus = statementStatus;
@@ -193,6 +180,7 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
             columnTypeText,
             columnTypes,
             columnTypePrecisions,
+            columnNullables,
             rows.size());
     this.statementType = statementType;
     this.updateCount = null;
@@ -1005,10 +993,112 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
   }
 
   @Override
+  /**
+   * Retrieves the SQL `Array` from the specified column index in the result set.
+   *
+   * @param columnIndex the index of the column in the result set (1-based)
+   * @return an `Array` object if the column contains an array; `null` if the value is SQL `NULL`
+   * @throws SQLException if the column is not of `ARRAY` type or if any SQL error occurs
+   */
   public Array getArray(int columnIndex) throws SQLException {
+    LOGGER.debug("Getting Array from column index: {}", columnIndex);
     checkIfClosed();
-    throw new DatabricksSQLFeatureNotSupportedException(
-        "Not implemented in DatabricksResultSet - getArray(int columnIndex)");
+    Object obj = getObjectInternal(columnIndex);
+
+    if (obj == null) {
+      LOGGER.debug("Column at index {} is NULL, returning null", columnIndex);
+      return null;
+    }
+
+    String columnTypeName = resultSetMetaData.getColumnTypeName(columnIndex);
+    if (!columnTypeName.toUpperCase().startsWith("ARRAY")) {
+      String errMsg =
+          String.format(
+              "Column type is not ARRAY. Cannot convert to Array. Column type: %s", columnTypeName);
+      LOGGER.error(errMsg);
+      throw new DatabricksValidationException(errMsg);
+    }
+
+    LOGGER.trace("Parsing Array data for column with type name: {}", columnTypeName);
+    ComplexDataTypeParser parser = new ComplexDataTypeParser();
+    List<Object> arrayList =
+        parser.parseToArray(
+            parser.parse(obj.toString()), MetadataParser.parseArrayMetadata(columnTypeName));
+
+    LOGGER.debug("Returning DatabricksArray for column index: {}", columnIndex);
+    return new DatabricksArray(arrayList, columnTypeName);
+  }
+
+  /**
+   * Retrieves the SQL `Struct` from the specified column index in the result set.
+   *
+   * @param columnIndex the index of the column in the result set (1-based)
+   * @return a `Struct` object if the column contains a struct; `null` if the value is SQL `NULL`
+   * @throws SQLException if the column is not of `STRUCT` type or if any SQL error occurs
+   */
+  @Override
+  public Struct getStruct(int columnIndex) throws SQLException {
+    LOGGER.debug("Getting Struct from column index: {}", columnIndex);
+    checkIfClosed();
+    Object obj = getObjectInternal(columnIndex);
+
+    if (obj == null) {
+      LOGGER.debug("Column at index {} is NULL, returning null", columnIndex);
+      return null;
+    }
+
+    String columnTypeName = resultSetMetaData.getColumnTypeName(columnIndex);
+    if (!columnTypeName.toUpperCase().startsWith("STRUCT")) {
+      String errMessage =
+          String.format(
+              "Column type is not STRUCT. Cannot convert to Struct. Column type: %s",
+              columnTypeName);
+      LOGGER.error(errMessage);
+      throw new DatabricksValidationException(errMessage);
+    }
+
+    LOGGER.trace("Parsing Struct data for column with type name: {}", columnTypeName);
+    Map<String, String> typeMap = MetadataParser.parseStructMetadata(columnTypeName);
+    ComplexDataTypeParser parser = new ComplexDataTypeParser();
+    Map<String, Object> structMap = parser.parseToStruct(parser.parse(obj.toString()), typeMap);
+
+    LOGGER.debug("Returning DatabricksStruct for column index: {}", columnIndex);
+    return new DatabricksStruct(structMap, columnTypeName);
+  }
+
+  /**
+   * Retrieves the SQL `Map` from the specified column index in the result set.
+   *
+   * @param columnIndex the index of the column in the result set (1-based)
+   * @return a `Map<String, Object>` if the column contains a map; `null` if the value is SQL `NULL`
+   * @throws SQLException if the column is not of `MAP` type or if any SQL error occurs
+   */
+  @Override
+  public Map getMap(int columnIndex) throws SQLException {
+    LOGGER.debug("Getting Map from column index: {}", columnIndex);
+    checkIfClosed();
+    Object obj = getObjectInternal(columnIndex);
+
+    if (obj == null) {
+      LOGGER.debug("Column at index {} is NULL, returning null", columnIndex);
+      return null;
+    }
+
+    String columnTypeName = resultSetMetaData.getColumnTypeName(columnIndex);
+    if (!columnTypeName.toUpperCase().startsWith("MAP")) {
+      String errMsg =
+          String.format(
+              "Column type is not MAP. Cannot convert to Map. Column type: %s", columnTypeName);
+      LOGGER.error(errMsg);
+      throw new DatabricksValidationException(errMsg);
+    }
+
+    LOGGER.trace("Parsing Map data for column with type name: {}", columnTypeName);
+    ComplexDataTypeParser parser = new ComplexDataTypeParser();
+    Map<String, Object> map = parser.parseToMap(obj.toString(), columnTypeName);
+
+    LOGGER.debug("Returning parsed Map for column index: {}", columnIndex);
+    return map;
   }
 
   @Override
@@ -1038,6 +1128,16 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
   public Array getArray(String columnLabel) throws SQLException {
     checkIfClosed();
     return getArray(getColumnNameIndex(columnLabel));
+  }
+
+  public Struct getStruct(String columnLabel) throws SQLException {
+    checkIfClosed();
+    return getStruct(getColumnNameIndex(columnLabel));
+  }
+
+  public Map getMap(String columnLabel) throws SQLException {
+    checkIfClosed();
+    return getMap(getColumnNameIndex(columnLabel));
   }
 
   @Override
@@ -1505,7 +1605,7 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
               "Exception occurred while converting object into corresponding return object type using getObject(int columnIndex, Class<T> type). ErrorMessage: %s",
               e.getMessage());
       LOGGER.error(errorMessage);
-      throw new DatabricksSQLException(errorMessage, e);
+      throw new DatabricksSQLException(errorMessage, e, DatabricksDriverErrorCode.INVALID_STATE);
     }
   }
 
@@ -1520,7 +1620,7 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
     if (iface.isInstance(this)) {
       return (T) this;
     }
-    throw new DatabricksSQLException(
+    throw new DatabricksValidationException(
         String.format(
             "Class {%s} cannot be wrapped from {%s}", this.getClass().getName(), iface.getName()));
   }
@@ -1577,7 +1677,7 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
     if (executionResult instanceof VolumeOperationResult) {
       return ((VolumeOperationResult) executionResult).getVolumeOperationInputStream();
     }
-    throw new DatabricksSQLException("Invalid volume operation");
+    throw new DatabricksValidationException("Invalid volume operation");
   }
 
   private void addWarningAndLog(String warningMessage) {
@@ -1587,7 +1687,8 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
 
   private Object getObjectInternal(int columnIndex) throws SQLException {
     if (columnIndex <= 0) {
-      throw new DatabricksSQLException("Invalid column index");
+      throw new DatabricksSQLException(
+          "Invalid column index", DatabricksDriverErrorCode.INVALID_STATE);
     }
     Object object = executionResult.getObject(columnIndex - 1);
     this.wasNull = object == null;
@@ -1600,7 +1701,9 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
 
   private void checkIfClosed() throws SQLException {
     if (this.isClosed) {
-      throw new DatabricksSQLException("Operation not allowed - ResultSet is closed");
+      throw new DatabricksSQLException(
+          "Operation not allowed - ResultSet is closed",
+          DatabricksDriverErrorCode.RESULT_SET_CLOSED);
     }
   }
 

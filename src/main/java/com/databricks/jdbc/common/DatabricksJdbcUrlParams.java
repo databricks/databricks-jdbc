@@ -62,19 +62,24 @@ public enum DatabricksJdbcUrlParams {
   RATE_LIMIT_RETRY("RateLimitRetry", "Retry on rate limit", "1"),
   IDLE_HTTP_CONNECTION_EXPIRY("IdleHttpConnectionExpiry", "Idle HTTP connection expiry", "60"),
   SUPPORT_MANY_PARAMETERS("supportManyParameters", "Support many parameters", "0"),
-  USE_FILE_SYSTEM_API("useFileSystemAPI", "Use file system API", "0"),
   CLOUD_FETCH_THREAD_POOL_SIZE("cloudFetchThreadPoolSize", "Cloud fetch thread pool size", "16"),
   TOKEN_ENDPOINT("OAuth2TokenEndpoint", "OAuth2 token endpoint"),
   AUTH_ENDPOINT("OAuth2AuthorizationEndPoint", "OAuth2 authorization endpoint"),
   SSL_TRUST_STORE("SSLTrustStore", "SSL trust store"),
   SSL_TRUST_STORE_PASSWORD("SSLTrustStorePwd", "SSL trust store password"),
   SSL_TRUST_STORE_TYPE("SSLTrustStoreType", "SSL trust store type", "JKS"),
-  CHECK_CERTIFICATE_REVOCATION("CheckCertificateRevocation", "Check certificate revocation", "1"),
+  CHECK_CERTIFICATE_REVOCATION("CheckCertRevocation", "Check certificate revocation", "1"),
   ACCEPT_UNDETERMINED_CERTIFICATE_REVOCATION(
       "AcceptUndeterminedRevocation", "Accept undetermined revocation", "0"),
   GOOGLE_SERVICE_ACCOUNT("GoogleServiceAccount", "Gcp service account email"),
   GOOGLE_CREDENTIALS_FILE("GoogleCredentialsFile", "path to gcp credentials json"),
-  MAX_BATCH_SIZE("MaxBatchSize", "Maximum batch size", "500");
+  ENABLE_TELEMETRY("EnableTelemetry", "flag to enable telemetry", "0"), // Disabled for now
+  TELEMETRY_BATCH_SIZE("TelemetryBatchSize", "Batch size for telemetry", "200"),
+  MAX_BATCH_SIZE("MaxBatchSize", "Maximum batch size", "500"),
+  ALLOWED_VOLUME_INGESTION_PATHS("VolumeOperationAllowedLocalPaths", ""),
+  ALLOWED_STAGING_INGESTION_PATHS("StagingAllowedLocalPaths", ""),
+  ENABLE_SQL_EXEC_HYBRID_RESULTS(
+      "EnableSQLExecHybridResults", "flag to enable hybrid results", "0");
 
   private final String paramName;
   private final String defaultValue;

@@ -28,4 +28,35 @@ public class StringUtil {
     }
     return str.replace("'", "''");
   }
+
+  /** Function to check if the given prefix exists in the fileName */
+  public static boolean checkPrefixMatch(String prefix, String fileName, boolean caseSensitive) {
+    return prefix.isEmpty()
+        || fileName.regionMatches(
+            /* ignoreCase= */ !caseSensitive,
+            /* targetOffset= */ 0,
+            /* StringToCheck= */ prefix,
+            /* sourceOffset= */ 0,
+            /* lengthToMatch= */ prefix.length());
+  }
+
+  /** Function to return the folder name from the path */
+  public static String getFolderNameFromPath(String path) {
+    if (path == null) return "";
+    int lastSlashIndex = path.lastIndexOf("/");
+    return (lastSlashIndex >= 0) ? path.substring(0, lastSlashIndex) : "";
+  }
+
+  /** Function to return the base name from the path */
+  public static String getBaseNameFromPath(String path) {
+    if (path == null) return "";
+    int lastSlashIndex = path.lastIndexOf("/");
+    return (lastSlashIndex >= 0) ? path.substring(lastSlashIndex + 1) : path;
+  }
+
+  /** Building the volume path using the provided catalog, schema and volume */
+  public static String getVolumePath(String catalog, String schema, String volume) {
+    // We need to escape '' to prevent SQL injection
+    return escapeStringLiteral(String.format("/Volumes/%s/%s/%s/", catalog, schema, volume));
+  }
 }
