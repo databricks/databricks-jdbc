@@ -37,6 +37,14 @@ import org.apache.http.entity.InputStreamEntity;
 
 public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksResultSetInternal {
 
+  enum ResultSetType {
+    SEA_ARROW_ENABLED,
+    SEA_INLINE,
+    THRIFT_ARROW_ENABLED,
+    THRIFT_INLINE,
+    UNASSIGNED
+  }
+
   private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(DatabricksResultSet.class);
   protected static final String AFFECTED_ROWS_COUNT = "num_affected_rows";
   private final StatementStatus statementStatus;
@@ -49,6 +57,8 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
   private boolean isClosed;
   private SQLWarning warnings = null;
   private boolean wasNull;
+
+  private ResultSetType resultSetType = ResultSetType.UNASSIGNED;
 
   // Constructor for SEA result set
   public DatabricksResultSet(
@@ -67,6 +77,14 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
           ExecutionResultFactory.getResultSet(
               resultData, resultManifest, statementId, session, parentStatement);
       this.resultSetMetaData = new DatabricksResultSetMetaData(statementId, resultManifest);
+      switch (resultManifest.getFormat()) {
+        case ARROW_STREAM:
+          this.resultSetType = ResultSetType.SEA_ARROW_ENABLED;
+          break;
+        case JSON_ARRAY:
+          this.resultSetType = ResultSetType.SEA_INLINE;
+          break;
+      }
     } else {
       executionResult = null;
       resultSetMetaData = null;
@@ -118,6 +136,15 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
               resultsResp.getResultSetMetadata(),
               rowSize,
               executionResult.getChunkCount());
+      switch (resultsResp.getResultSetMetadata().getResultFormat()) {
+        case COLUMN_BASED_SET:
+          this.resultSetType = ResultSetType.THRIFT_INLINE;
+          break;
+        case URL_BASED_SET:
+        case ARROW_BASED_SET:
+          this.resultSetType = ResultSetType.THRIFT_ARROW_ENABLED;
+          break;
+      }
     } else {
       this.executionResult = null;
       this.resultSetMetaData = null;
@@ -998,31 +1025,14 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
    */
   public Array getArray(int columnIndex) throws SQLException {
     LOGGER.debug("Getting Array from column index: {}", columnIndex);
+    if (this.resultSetType.equals(ResultSetType.THRIFT_INLINE)
+        || this.resultSetType.equals(ResultSetType.SEA_INLINE)) {
+      throw new SQLException("Complex data types are not supported in inline mode");
+    }
     checkIfClosed();
     Object obj = getObjectInternal(columnIndex);
 
-    if (obj == null) {
-      LOGGER.debug("Column at index {} is NULL, returning null", columnIndex);
-      return null;
-    }
-
-    String columnTypeName = resultSetMetaData.getColumnTypeName(columnIndex);
-    if (!columnTypeName.toUpperCase().startsWith("ARRAY")) {
-      String errMsg =
-          String.format(
-              "Column type is not ARRAY. Cannot convert to Array. Column type: %s", columnTypeName);
-      LOGGER.error(errMsg);
-      throw new DatabricksValidationException(errMsg);
-    }
-
-    LOGGER.trace("Parsing Array data for column with type name: {}", columnTypeName);
-    ComplexDataTypeParser parser = new ComplexDataTypeParser();
-    List<Object> arrayList =
-        parser.parseToArray(
-            parser.parse(obj.toString()), MetadataParser.parseArrayMetadata(columnTypeName));
-
-    LOGGER.debug("Returning DatabricksArray for column index: {}", columnIndex);
-    return new DatabricksArray(arrayList, columnTypeName);
+    return (DatabricksArray) obj;
   }
 
   /**
@@ -1035,31 +1045,14 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
   @Override
   public Struct getStruct(int columnIndex) throws SQLException {
     LOGGER.debug("Getting Struct from column index: {}", columnIndex);
+    if (this.resultSetType.equals(ResultSetType.THRIFT_INLINE)
+        || this.resultSetType.equals(ResultSetType.SEA_INLINE)) {
+      throw new SQLException("Complex data types are not supported in inline mode");
+    }
     checkIfClosed();
     Object obj = getObjectInternal(columnIndex);
 
-    if (obj == null) {
-      LOGGER.debug("Column at index {} is NULL, returning null", columnIndex);
-      return null;
-    }
-
-    String columnTypeName = resultSetMetaData.getColumnTypeName(columnIndex);
-    if (!columnTypeName.toUpperCase().startsWith("STRUCT")) {
-      String errMessage =
-          String.format(
-              "Column type is not STRUCT. Cannot convert to Struct. Column type: %s",
-              columnTypeName);
-      LOGGER.error(errMessage);
-      throw new DatabricksValidationException(errMessage);
-    }
-
-    LOGGER.trace("Parsing Struct data for column with type name: {}", columnTypeName);
-    Map<String, String> typeMap = MetadataParser.parseStructMetadata(columnTypeName);
-    ComplexDataTypeParser parser = new ComplexDataTypeParser();
-    Map<String, Object> structMap = parser.parseToStruct(parser.parse(obj.toString()), typeMap);
-
-    LOGGER.debug("Returning DatabricksStruct for column index: {}", columnIndex);
-    return new DatabricksStruct(structMap, columnTypeName);
+    return (DatabricksStruct) obj;
   }
 
   /**
@@ -1072,29 +1065,14 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
   @Override
   public Map getMap(int columnIndex) throws SQLException {
     LOGGER.debug("Getting Map from column index: {}", columnIndex);
+    if (this.resultSetType.equals(ResultSetType.THRIFT_INLINE)
+        || this.resultSetType.equals(ResultSetType.SEA_INLINE)) {
+      throw new SQLException("Complex data types are not supported in inline mode");
+    }
     checkIfClosed();
     Object obj = getObjectInternal(columnIndex);
 
-    if (obj == null) {
-      LOGGER.debug("Column at index {} is NULL, returning null", columnIndex);
-      return null;
-    }
-
-    String columnTypeName = resultSetMetaData.getColumnTypeName(columnIndex);
-    if (!columnTypeName.toUpperCase().startsWith("MAP")) {
-      String errMsg =
-          String.format(
-              "Column type is not MAP. Cannot convert to Map. Column type: %s", columnTypeName);
-      LOGGER.error(errMsg);
-      throw new DatabricksValidationException(errMsg);
-    }
-
-    LOGGER.trace("Parsing Map data for column with type name: {}", columnTypeName);
-    ComplexDataTypeParser parser = new ComplexDataTypeParser();
-    Map<String, Object> map = parser.parseToMap(obj.toString(), columnTypeName);
-
-    LOGGER.debug("Returning parsed Map for column index: {}", columnIndex);
-    return map;
+    return (Map<String, Object>) obj;
   }
 
   @Override

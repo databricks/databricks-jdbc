@@ -1,5 +1,9 @@
 package com.databricks.jdbc.api.impl.converters;
 
+import com.databricks.jdbc.api.impl.ComplexDataTypeParser;
+import com.databricks.jdbc.api.impl.DatabricksArray;
+import com.databricks.jdbc.api.impl.DatabricksStruct;
+import com.databricks.jdbc.api.impl.MetadataParser;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.exception.DatabricksValidationException;
 import com.databricks.jdbc.log.JdbcLogger;
@@ -15,6 +19,7 @@ import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.function.Function;
 import org.apache.arrow.vector.util.Text;
 
@@ -47,8 +52,19 @@ public class ArrowToJavaObjectConverter {
           DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.S"),
           DateTimeFormatter.RFC_1123_DATE_TIME);
 
-  public static Object convert(Object object, ColumnInfoTypeName requiredType)
+  public static Object convert(Object object, ColumnInfoTypeName requiredType, String arrowMetadata)
       throws DatabricksSQLException {
+    if (arrowMetadata != null) {
+      if (arrowMetadata.startsWith("ARRAY")) {
+        requiredType = ColumnInfoTypeName.ARRAY;
+      }
+      if (arrowMetadata.startsWith("STRUCT")) {
+        requiredType = ColumnInfoTypeName.STRUCT;
+      }
+      if (arrowMetadata.startsWith("MAP")) {
+        requiredType = ColumnInfoTypeName.MAP;
+      }
+    }
     if (object == null) {
       return null;
     }
@@ -74,11 +90,13 @@ public class ArrowToJavaObjectConverter {
         return convertToBoolean(object);
       case CHAR:
         return convertToChar(object);
-      case STRING:
-        // Struct and Array are present in Arrow data in the VARCHAR ValueVector format
       case STRUCT:
+        return convertToStruct(object, arrowMetadata);
       case ARRAY:
+        return convertToArray(object, arrowMetadata);
       case MAP:
+        return convertToMap(object, arrowMetadata);
+      case STRING:
         return convertToString(object);
       case DATE:
         return convertToDate(object);
@@ -91,6 +109,28 @@ public class ArrowToJavaObjectConverter {
         LOGGER.error(errorMessage);
         throw new DatabricksValidationException(errorMessage);
     }
+  }
+
+  private static Object convertToMap(Object object, String arrowMetadata) {
+    ComplexDataTypeParser parser = new ComplexDataTypeParser();
+    Map<String, Object> map = parser.parseToMap(object.toString(), arrowMetadata);
+    return map;
+  }
+
+  private static DatabricksArray convertToArray(Object object, String arrowMetadata) {
+    ComplexDataTypeParser parser = new ComplexDataTypeParser();
+    List<Object> arrayList =
+        parser.parseToArray(
+            parser.parse(object.toString()), MetadataParser.parseArrayMetadata(arrowMetadata));
+    return new DatabricksArray(arrayList, arrowMetadata);
+  }
+
+  private static Object convertToStruct(Object object, String arrowMetadata) {
+    ComplexDataTypeParser parser = new ComplexDataTypeParser();
+    Map<String, Object> structMap =
+        parser.parseToStruct(
+            parser.parse(object.toString()), MetadataParser.parseStructMetadata(arrowMetadata));
+    return new DatabricksStruct(structMap, arrowMetadata);
   }
 
   private static Object convertToTimestamp(Object object) throws DatabricksSQLException {

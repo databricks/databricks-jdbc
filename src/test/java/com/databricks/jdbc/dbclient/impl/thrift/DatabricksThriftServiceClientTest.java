@@ -87,6 +87,13 @@ public class DatabricksThriftServiceClientTest {
     when(session.getSessionInfo()).thenReturn(SESSION_INFO);
     when(parentStatement.getStatement()).thenReturn(statement);
     when(statement.getQueryTimeout()).thenReturn(10);
+    TSparkArrowTypes arrowNativeTypes =
+        new TSparkArrowTypes()
+            .setComplexTypesAsArrow(true)
+            .setIntervalTypesAsArrow(true)
+            .setNullTypeAsArrow(true)
+            .setDecimalAsArrow(true)
+            .setTimestampAsArrow(true);
     TExecuteStatementReq executeStatementReq =
         new TExecuteStatementReq()
             .setStatement(TEST_STRING)
@@ -95,7 +102,8 @@ public class DatabricksThriftServiceClientTest {
             .setQueryTimeout(10)
             .setCanDecompressLZ4Result(true)
             .setCanDownloadResult(true)
-            .setRunAsync(true);
+            .setRunAsync(true)
+            .setUseArrowNativeTypes(arrowNativeTypes);
     when(thriftAccessor.execute(executeStatementReq, parentStatement, session, StatementType.SQL))
         .thenReturn(resultSet);
     DatabricksResultSet actualResultSet =
@@ -117,6 +125,13 @@ public class DatabricksThriftServiceClientTest {
     when(session.getSessionInfo()).thenReturn(SESSION_INFO);
     when(parentStatement.getStatement()).thenReturn(statement);
     when(statement.getQueryTimeout()).thenReturn(20);
+    TSparkArrowTypes arrowNativeTypes =
+        new TSparkArrowTypes()
+            .setComplexTypesAsArrow(true)
+            .setIntervalTypesAsArrow(true)
+            .setNullTypeAsArrow(true)
+            .setDecimalAsArrow(true)
+            .setTimestampAsArrow(true);
     TExecuteStatementReq executeStatementReq =
         new TExecuteStatementReq()
             .setStatement(TEST_STRING)
@@ -125,7 +140,8 @@ public class DatabricksThriftServiceClientTest {
             .setCanReadArrowResult(true)
             .setCanDecompressLZ4Result(true)
             .setRunAsync(true)
-            .setCanDownloadResult(true);
+            .setCanDownloadResult(true)
+            .setUseArrowNativeTypes(arrowNativeTypes);
     when(thriftAccessor.executeAsync(
             executeStatementReq, parentStatement, session, StatementType.SQL))
         .thenReturn(resultSet);

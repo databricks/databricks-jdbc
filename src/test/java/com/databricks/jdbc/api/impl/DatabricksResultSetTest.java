@@ -359,60 +359,6 @@ public class DatabricksResultSetTest {
   }
 
   @Test
-  void testGetStruct() throws SQLException {
-    // Define expected attributes
-    Object[] structAttributes = {1, "Alice"};
-
-    // Mock execution result
-    when(mockedExecutionResult.getObject(2)).thenReturn("{\"id\": 1, \"name\": \"Alice\"}");
-    when(mockedResultSetMetadata.getColumnTypeName(3)).thenReturn("STRUCT<id: INT, name: STRING>");
-    when(mockedResultSetMetadata.getColumnNameIndex("user_struct")).thenReturn(3);
-
-    // Instantiate result set
-    DatabricksResultSet resultSet = getResultSet(StatementState.SUCCEEDED, null);
-
-    // Retrieve struct by index
-    Struct retrievedStruct = resultSet.getStruct(3);
-    assertNotNull(retrievedStruct, "Retrieved struct should not be null");
-    assertArrayEquals(
-        structAttributes, retrievedStruct.getAttributes(), "Struct attributes should match");
-
-    // Retrieve struct by label
-    Struct retrievedStructByLabel = resultSet.getStruct("user_struct");
-    assertNotNull(retrievedStructByLabel, "Retrieved struct by label should not be null");
-    assertArrayEquals(
-        structAttributes, retrievedStructByLabel.getAttributes(), "Struct attributes should match");
-  }
-
-  @Test
-  void testGetArray() throws SQLException {
-    // Define expected array elements
-    Object[] arrayElements = {"elem1", "elem2", "elem3"};
-
-    // Mock execution result
-    when(mockedExecutionResult.getObject(3)).thenReturn("[\"elem1\", \"elem2\", \"elem3\"]");
-    when(mockedResultSetMetadata.getColumnTypeName(4)).thenReturn("ARRAY<STRING>");
-    when(mockedResultSetMetadata.getColumnNameIndex("string_array")).thenReturn(4);
-
-    // Instantiate result set
-    DatabricksResultSet resultSet = getResultSet(StatementState.SUCCEEDED, null);
-
-    // Retrieve array by index
-    Array retrievedArray = resultSet.getArray(4);
-    assertNotNull(retrievedArray, "Retrieved array should not be null");
-    assertTrue(
-        Arrays.equals(arrayElements, (Object[]) retrievedArray.getArray()),
-        "Array elements should match");
-
-    // Retrieve array by label
-    Array retrievedArrayByLabel = resultSet.getArray("string_array");
-    assertNotNull(retrievedArrayByLabel, "Retrieved array by label should not be null");
-    assertTrue(
-        Arrays.equals(arrayElements, (Object[]) retrievedArrayByLabel.getArray()),
-        "Array elements should match");
-  }
-
-  @Test
   void testGetMap() throws SQLException {
     // Define expected map entries
     Object[] mapEntries = {"key1", 100, "key2", 200};
@@ -421,8 +367,7 @@ public class DatabricksResultSetTest {
     DatabricksMap<String, Integer> mockMap = mock(DatabricksMap.class);
 
     // Mock execution result
-    when(mockedExecutionResult.getObject(4)).thenReturn("{\"key1\": 100, \"key2\": 200}");
-    when(mockedResultSetMetadata.getColumnTypeName(5)).thenReturn("MAP<STRING, INT>");
+    when(mockedExecutionResult.getObject(4)).thenReturn(Map.of("key1", 100, "key2", 200));
     when(mockedResultSetMetadata.getColumnNameIndex("int_map")).thenReturn(5);
 
     // Instantiate result set

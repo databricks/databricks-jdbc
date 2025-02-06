@@ -121,6 +121,59 @@ public class DriverTest {
   }
 
   @Test
+  void testComplexDataTypesForThrift_Array() throws Exception {
+    DriverManager.registerDriver(new Driver());
+    DriverManager.drivers().forEach(driver -> System.out.println(driver.getClass()));
+    // Getting the connection
+    String jdbcUrl =
+        "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=https;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/791ba2a31c7fd70a;usethriftclient=1";
+    Connection con = DriverManager.getConnection(jdbcUrl, "token", "x");
+    System.out.println("Connection established......");
+    ResultSet resultSet = con.createStatement().executeQuery("SELECT array(1, 4, 2, 5, 3, 6)");
+    printResultSet(resultSet);
+    resultSet.close();
+    con.close();
+  }
+
+  @Test
+  void testComplexDataTypesForThrift_Map() throws Exception {
+    DriverManager.registerDriver(new Driver());
+    DriverManager.drivers().forEach(driver -> System.out.println(driver.getClass()));
+
+    // Getting the connection
+    String jdbcUrl =
+        "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=https;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/791ba2a31c7fd70a;usethriftclient=1";
+    Connection con = DriverManager.getConnection(jdbcUrl, "token", "x");
+    System.out.println("Connection established......");
+
+    ResultSet resultSet =
+        con.createStatement().executeQuery("SELECT map(1, 'one', 2, 'two', 3, 'three')");
+    printResultSet(resultSet);
+
+    resultSet.close();
+    con.close();
+  }
+
+  @Test
+  void testComplexDataTypesForThrift_Struct() throws Exception {
+    DriverManager.registerDriver(new Driver());
+    DriverManager.drivers().forEach(driver -> System.out.println(driver.getClass()));
+
+    // Getting the connection
+    String jdbcUrl =
+        "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=https;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/791ba2a31c7fd70a;usethriftclient=1";
+    Connection con = DriverManager.getConnection(jdbcUrl, "token", "x");
+    System.out.println("Connection established......");
+
+    ResultSet resultSet =
+        con.createStatement().executeQuery("SELECT named_struct('key1', 1, 'key2', 'value2')");
+    printResultSet(resultSet);
+
+    resultSet.close();
+    con.close();
+  }
+
+  @Test
   void testResultSetMetaData() throws Exception {
     DriverManager.registerDriver(new Driver());
     String jdbcUrl =
