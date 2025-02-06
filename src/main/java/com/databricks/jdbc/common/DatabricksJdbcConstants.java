@@ -7,7 +7,14 @@ import java.util.regex.Pattern;
 
 public final class DatabricksJdbcConstants {
   public static final Pattern JDBC_URL_PATTERN =
-      Pattern.compile("jdbc:databricks://([^/;]*)(?::\\d+)?/*(.*)");
+      Pattern.compile(
+          "jdbc:databricks://"
+              + // Protocol prefix
+              "([^/;]+)"
+              + // Host[:Port] (captured)
+              "(?:/([^;]*))?"
+              + // Optional Schema (captured without /)
+              "(?:;(.*))?"); // Optional Property=Value pairs (captured without leading ;)
   public static final Pattern HTTP_WAREHOUSE_PATH_PATTERN = Pattern.compile(".*/warehouses/(.+)");
   public static final Pattern HTTP_ENDPOINT_PATH_PATTERN = Pattern.compile(".*/endpoints/(.+)");
   public static final Pattern HTTP_CLI_PATTERN = Pattern.compile(".*cliservice(.+)");
