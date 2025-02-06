@@ -12,9 +12,9 @@ import org.junit.jupiter.api.Test;
 public class DatabricksDriverPropertyUtilTest {
 
   private static final String test_host =
-      "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443";
+      "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443;transportMode=http;httpPath=sql/protocolv1/o/6051921418418893/1115-130834-ms4m0yv;";
   private static final String gcp_host =
-      "jdbc:databricks://4371047901336987.7.gcp.databricks.com:443";
+      "jdbc:databricks://4371047901336987.7.gcp.databricks.com:443;transportMode=http;httpPath=sql/protocolv1/o/6051921418418893/1115-130834-ms4m0yv;";
 
   private void assertMissingProperties(String jdbcUrl, String... expectedProperties)
       throws DatabricksSQLException {
@@ -30,15 +30,13 @@ public class DatabricksDriverPropertyUtilTest {
 
   @Test
   public void testGetMissingProperties() throws DatabricksSQLException {
-    String jdbcUrl =
-        test_host
-            + ";transportMode=http;httpPath=sql/protocolv1/o/6051921418418893/1115-130834-ms4m0yv;AuthMech=3";
+    assertMissingProperties(null, "host");
+
+    String jdbcUrl = test_host + "AuthMech=3";
     assertMissingProperties(jdbcUrl, PWD.getParamName());
 
     // log-level properties
-    jdbcUrl =
-        test_host
-            + ";transportMode=http;httpPath=sql/protocolv1/o/6051921418418893/1115-130834-ms4m0yv;AuthMech=3;logLevel=DEBUG;";
+    jdbcUrl = test_host + "AuthMech=3;logLevel=DEBUG;";
     assertMissingProperties(
         jdbcUrl,
         LOG_PATH.getParamName(),
@@ -46,22 +44,16 @@ public class DatabricksDriverPropertyUtilTest {
         LOG_FILE_COUNT.getParamName());
 
     // auth-flow missing OAUTH auth mech
-    jdbcUrl =
-        test_host
-            + ";transportMode=http;httpPath=sql/protocolv1/o/6051921418418893/1115-130834-ms4m0yv;AuthMech=11";
+    jdbcUrl = test_host + "AuthMech=11";
     assertMissingProperties(jdbcUrl, AUTH_FLOW.getParamName());
 
     // TOKEN_PASSTHROUGH with auth-access token.
-    jdbcUrl =
-        test_host
-            + ";transportMode=http;httpPath=sql/protocolv1/o/6051921418418893/1115-130834-ms4m0yv;AuthMech=11;Auth_Flow=0";
+    jdbcUrl = test_host + "AuthMech=11;Auth_Flow=0";
     assertMissingProperties(
         jdbcUrl, OAUTH_REFRESH_TOKEN.getParamName(), AUTH_ACCESS_TOKEN.getParamName());
 
     // TOKEN_PASSTHROUGH with refresh token.
-    jdbcUrl =
-        test_host
-            + ";transportMode=http;httpPath=sql/protocolv1/o/6051921418418893/1115-130834-ms4m0yv;AuthMech=11;Auth_Flow=0;OAuthRefreshToken=token;OAuthDiscoveryMode=0";
+    jdbcUrl = test_host + "AuthMech=11;Auth_Flow=0;OAuthRefreshToken=token;OAuthDiscoveryMode=0";
     assertMissingProperties(
         jdbcUrl,
         CLIENT_ID.getParamName(),
@@ -70,9 +62,7 @@ public class DatabricksDriverPropertyUtilTest {
         DISCOVERY_URL.getParamName());
 
     // TOKEN_PASSTHROUGH with discovery mode and refresh token.
-    jdbcUrl =
-        test_host
-            + ";transportMode=http;httpPath=sql/protocolv1/o/6051921418418893/1115-130834-ms4m0yv;AuthMech=11;Auth_Flow=0;OAuthRefreshToken=token;";
+    jdbcUrl = test_host + "AuthMech=11;Auth_Flow=0;OAuthRefreshToken=token;";
     assertMissingProperties(
         jdbcUrl,
         CLIENT_ID.getParamName(),
@@ -80,25 +70,19 @@ public class DatabricksDriverPropertyUtilTest {
         DISCOVERY_URL.getParamName());
 
     // client credentials auth flow
-    jdbcUrl =
-        test_host
-            + ";transportMode=http;httpPath=sql/protocolv1/o/6051921418418893/1115-130834-ms4m0yv;AuthMech=11;Auth_Flow=1;";
+    jdbcUrl = test_host + "AuthMech=11;Auth_Flow=1;";
     assertMissingProperties(
         jdbcUrl,
         CLIENT_ID.getParamName(),
         CLIENT_SECRET.getParamName(),
         USE_JWT_ASSERTION.getParamName());
 
-    jdbcUrl =
-        gcp_host
-            + ";transportMode=http;httpPath=sql/protocolv1/o/6051921418418893/1115-130834-ms4m0yv;AuthMech=11;Auth_Flow=1;";
+    jdbcUrl = gcp_host + "AuthMech=11;Auth_Flow=1;";
     assertMissingProperties(
         jdbcUrl, GOOGLE_SERVICE_ACCOUNT.getParamName(), GOOGLE_CREDENTIALS_FILE.getParamName());
 
     // client credentials auth flow with jwt assertion
-    jdbcUrl =
-        test_host
-            + ";transportMode=http;httpPath=sql/protocolv1/o/6051921418418893/1115-130834-ms4m0yv;AuthMech=11;Auth_Flow=1;UseJWTAssertion=1";
+    jdbcUrl = test_host + "AuthMech=11;Auth_Flow=1;UseJWTAssertion=1";
     assertMissingProperties(
         jdbcUrl,
         CLIENT_ID.getParamName(),
@@ -109,16 +93,12 @@ public class DatabricksDriverPropertyUtilTest {
         JWT_KID.getParamName());
 
     // browser-based auth flow
-    jdbcUrl =
-        test_host
-            + ";transportMode=http;httpPath=sql/protocolv1/o/6051921418418893/1115-130834-ms4m0yv;AuthMech=11;Auth_Flow=2;";
+    jdbcUrl = test_host + "AuthMech=11;Auth_Flow=2;";
     assertMissingProperties(
         jdbcUrl, CLIENT_ID.getParamName(), CLIENT_SECRET.getParamName(), AUTH_SCOPE.getParamName());
 
     // proxy based connection
-    jdbcUrl =
-        test_host
-            + ";transportMode=http;httpPath=sql/protocolv1/o/6051921418418893/1115-130834-ms4m0yv;AuthMech=11;Auth_Flow=2;useproxy=1";
+    jdbcUrl = test_host + "AuthMech=11;Auth_Flow=2;useproxy=1";
     assertMissingProperties(
         jdbcUrl,
         PROXY_HOST.getParamName(),

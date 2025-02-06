@@ -29,6 +29,9 @@ public class DatabricksDriverPropertyUtil {
 
   public static List<DriverPropertyInfo> getMissingProperties(String url, Properties info)
       throws DatabricksParsingException {
+    if (url == null) {
+      url = "";
+    }
     DatabricksConnectionContext connectionContext =
         (DatabricksConnectionContext)
             DatabricksConnectionContextFactory.createWithoutError(url, info);

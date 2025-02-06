@@ -86,17 +86,11 @@ public class Driver implements java.sql.Driver {
   @Override
   public DriverPropertyInfo[] getPropertyInfo(String url, Properties info)
       throws DatabricksSQLException {
-    DriverPropertyInfo[] propertyInfos = null;
-    if (url == null) {
-      url = "";
-    }
     List<DriverPropertyInfo> missingProperties =
         DatabricksDriverPropertyUtil.getMissingProperties(url, info);
-    if (!missingProperties.isEmpty()) {
-      propertyInfos = new DriverPropertyInfo[missingProperties.size()];
-      propertyInfos = missingProperties.toArray(propertyInfos);
-    }
-    return propertyInfos;
+    return missingProperties.isEmpty()
+        ? null
+        : missingProperties.toArray(new DriverPropertyInfo[0]);
   }
 
   @Override

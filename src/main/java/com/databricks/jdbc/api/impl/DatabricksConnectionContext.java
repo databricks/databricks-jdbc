@@ -691,7 +691,4 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   private String getParameter(DatabricksJdbcUrlParams key, String defaultValue) {
     return this.parameters.getOrDefault(key.getParamName().toLowerCase(), defaultValue);
   }
-
-  // getter for parameters
-
 }
