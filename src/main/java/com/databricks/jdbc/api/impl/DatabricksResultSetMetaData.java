@@ -2,9 +2,10 @@ package com.databricks.jdbc.api.impl;
 
 import static com.databricks.jdbc.common.DatabricksJdbcConstants.EMPTY_STRING;
 import static com.databricks.jdbc.common.DatabricksJdbcConstants.VOLUME_OPERATION_STATUS_COLUMN_NAME;
+import static com.databricks.jdbc.common.MetadataResultConstants.LARGE_DISPLAY_COLUMNS;
 import static com.databricks.jdbc.common.MetadataResultConstants.REMARKS_COLUMN;
-import static com.databricks.jdbc.common.MetadataResultConstants.TABLE_TYPE_COLUMN;
 import static com.databricks.jdbc.common.util.DatabricksThriftUtil.getTypeFromTypeDesc;
+import static com.databricks.jdbc.common.util.DatabricksThriftUtil.getTypeTextFromTypeDesc;
 import static com.databricks.jdbc.dbclient.impl.common.MetadataResultSetBuilder.stripTypeName;
 
 import com.databricks.jdbc.common.AccessType;
@@ -66,6 +67,8 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
               DatabricksTypeUtil.getDisplaySize(
                   ColumnInfoTypeName.STRING, 0, 0)) // passing default scale, precision
           .isSearchable(true)
+          .schemaName(null)
+          .tableName(null)
           .isSigned(DatabricksTypeUtil.isSigned(ColumnInfoTypeName.STRING));
       columnsBuilder.add(columnBuilder.build());
       columnNameToIndexMap.putIfAbsent(VOLUME_OPERATION_STATUS_COLUMN_NAME, ++currIndex);
@@ -90,6 +93,9 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
               .typeScale(scale)
               .displaySize(DatabricksTypeUtil.getDisplaySize(columnTypeName, precision, scale))
               .isSearchable(true) // set all columns to be searchable in execute query result set
+              .schemaName(
+                  null) // set schema and table name to null, as server do not return these fields.
+              .tableName(null)
               .isSigned(DatabricksTypeUtil.isSigned(columnTypeName));
           columnsBuilder.add(columnBuilder.build());
           // Keep index starting from 1, to be consistent with JDBC convention
@@ -136,6 +142,8 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
           .columnTypeClassName(DatabricksTypeUtil.getColumnTypeClassName(ColumnInfoTypeName.STRING))
           .displaySize(DatabricksTypeUtil.getDisplaySize(ColumnInfoTypeName.STRING, 0, 0))
           .isSearchable(true)
+          .schemaName(null)
+          .tableName(null)
           .isSigned(DatabricksTypeUtil.isSigned(ColumnInfoTypeName.STRING));
       columnsBuilder.add(columnBuilder.build());
       columnNameToIndexMap.putIfAbsent(VOLUME_OPERATION_STATUS_COLUMN_NAME, ++currIndex);
@@ -153,11 +161,17 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
               .columnName(columnInfo.getColumnName())
               .columnTypeClassName(DatabricksTypeUtil.getColumnTypeClassName(columnTypeName))
               .columnType(columnType)
-              .columnTypeText(columnTypeName.name())
+              .columnTypeText(
+                  getTypeTextFromTypeDesc(
+                      columnInfo
+                          .getTypeDesc())) // columnInfoTypeName does not have BIGINT, SMALLINT.
+              // Extracting from thriftType in typeDesc
               .typePrecision(precision)
               .typeScale(scale)
               .displaySize(DatabricksTypeUtil.getDisplaySize(columnTypeName, precision, scale))
               .isSearchable(true)
+              .schemaName(null)
+              .tableName(null)
               .isSigned(DatabricksTypeUtil.isSigned(columnTypeName));
           columnsBuilder.add(columnBuilder.build());
           columnNameToIndexMap.putIfAbsent(columnInfo.getColumnName(), ++currIndex);
@@ -201,10 +215,14 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
           .nullable(DatabricksTypeUtil.getNullableFromValue(metadata.getNullable()))
           .displaySize(
               DatabricksTypeUtil.getDisplaySize(
-                  columnTypeName,
-                  metadata.getPrecision(),
-                  metadata.getScale())) // pass scale and precision from metadata result set
+                  metadata.getTypeInt(),
+                  metadata.getPrecision())) // pass scale and precision from metadata result set
           .isSigned(DatabricksTypeUtil.isSigned(columnTypeName));
+      if (isLargeColumn(
+          metadata.getName())) { // special case: overriding default value of 128 for VARCHAR cols.
+        columnBuilder.typePrecision(254);
+        columnBuilder.displaySize(254);
+      }
 
       columnsBuilder.add(columnBuilder.build());
       columnNameToIndexMap.putIfAbsent(metadata.getName(), i + 1); // JDBC index starts from 1
@@ -224,6 +242,7 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
    * @param columnTypeText type text of each column
    * @param columnTypes types of each column
    * @param columnTypePrecisions precisions of each column
+   * @param columnNullables nullable value of each column
    * @param totalRows total number of rows in result set
    */
   public DatabricksResultSetMetaData(
@@ -232,6 +251,7 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
       List<String> columnTypeText,
       List<Integer> columnTypes,
       List<Integer> columnTypePrecisions,
+      List<Nullable> columnNullables,
       long totalRows) {
     this.statementId = statementId;
 
@@ -242,10 +262,6 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
           ColumnInfoTypeName.valueOf(
               DatabricksTypeUtil.getDatabricksTypeFromSQLType(columnTypes.get(i)));
       ImmutableDatabricksColumn.Builder columnBuilder = getColumnBuilder();
-      if (columnNames.get(i).equals(TABLE_TYPE_COLUMN.getColumnName())) {
-        columnBuilder.nullable(
-            Nullable.NO_NULLS); // non-nullable column for getTableTypes, getTables
-      }
       columnBuilder
           .columnName(columnNames.get(i))
           .columnType(columnTypes.get(i))
@@ -253,9 +269,13 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
           .typePrecision(columnTypePrecisions.get(i))
           .columnTypeClassName(DatabricksTypeUtil.getColumnTypeClassName(columnTypeName))
           .displaySize(
-              DatabricksTypeUtil.getDisplaySize(
-                  columnTypeName, columnTypePrecisions.get(i), 0)) // default scale passed
+              DatabricksTypeUtil.getDisplaySize(columnTypes.get(i), columnTypePrecisions.get(i)))
+          .nullable(columnNullables.get(i))
           .isSigned(DatabricksTypeUtil.isSigned(columnTypeName));
+      if (isLargeColumn(columnNames.get(i))) {
+        columnBuilder.typePrecision(254);
+        columnBuilder.displaySize(254);
+      }
       columnsBuilder.add(columnBuilder.build());
       // Keep index starting from 1, to be consistent with JDBC convention
       columnNameToIndexMap.putIfAbsent(columnNames.get(i), i + 1);
@@ -504,6 +524,11 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
       }
     }
     return new int[] {precision, scale};
+  }
+
+  private boolean isLargeColumn(String columnName) {
+    return LARGE_DISPLAY_COLUMNS.stream()
+        .anyMatch(column -> column.getColumnName().equals(columnName));
   }
 
   private ImmutableDatabricksColumn.Builder getColumnBuilder() {

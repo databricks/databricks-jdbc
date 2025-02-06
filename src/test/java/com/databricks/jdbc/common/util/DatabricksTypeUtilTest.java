@@ -124,6 +124,17 @@ class DatabricksTypeUtilTest {
   }
 
   @Test
+  void testGetMetadataColPrecision() {
+    assertEquals(5, DatabricksTypeUtil.getMetadataColPrecision(Types.SMALLINT));
+    assertEquals(10, DatabricksTypeUtil.getMetadataColPrecision(Types.INTEGER));
+    assertEquals(1, DatabricksTypeUtil.getMetadataColPrecision(Types.CHAR));
+    assertEquals(1, DatabricksTypeUtil.getMetadataColPrecision(Types.BOOLEAN));
+    assertEquals(1, DatabricksTypeUtil.getMetadataColPrecision(Types.BIT));
+    assertEquals(128, DatabricksTypeUtil.getMetadataColPrecision(Types.VARCHAR));
+    assertEquals(255, DatabricksTypeUtil.getMetadataColPrecision(Types.OTHER));
+  }
+
+  @Test
   void testIsSigned() {
     assertTrue(DatabricksTypeUtil.isSigned(ColumnInfoTypeName.INT));
     assertFalse(DatabricksTypeUtil.isSigned(ColumnInfoTypeName.BOOLEAN));

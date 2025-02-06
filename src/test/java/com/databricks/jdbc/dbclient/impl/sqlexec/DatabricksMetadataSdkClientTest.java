@@ -275,27 +275,27 @@ public class DatabricksMetadataSdkClientTest {
     assertEquals(actualMetaData.getColumnCount(), 10);
     assertEquals(actualMetaData.getColumnName(1), "TABLE_CAT");
     assertEquals(actualMetaData.getColumnType(1), Types.VARCHAR);
-    assertEquals(actualMetaData.getPrecision(1), 255);
+    assertEquals(actualMetaData.getPrecision(1), 128);
     assertEquals(actualMetaData.isNullable(1), ResultSetMetaData.columnNullable);
 
     assertEquals(actualMetaData.getColumnName(2), "TABLE_SCHEM");
     assertEquals(actualMetaData.getColumnType(2), Types.VARCHAR);
-    assertEquals(actualMetaData.getPrecision(2), 255);
+    assertEquals(actualMetaData.getPrecision(2), 128);
     assertEquals(actualMetaData.isNullable(2), ResultSetMetaData.columnNullable);
 
     assertEquals(actualMetaData.getColumnName(3), "TABLE_NAME");
     assertEquals(actualMetaData.getColumnType(3), Types.VARCHAR);
-    assertEquals(actualMetaData.getPrecision(3), 255);
+    assertEquals(actualMetaData.getPrecision(3), 128);
     assertEquals(actualMetaData.isNullable(3), ResultSetMetaData.columnNoNulls);
 
     assertEquals(actualMetaData.getColumnName(4), "TABLE_TYPE");
     assertEquals(actualMetaData.getColumnType(4), Types.VARCHAR);
-    assertEquals(actualMetaData.getPrecision(4), 255);
+    assertEquals(actualMetaData.getPrecision(4), 128);
     assertEquals(actualMetaData.isNullable(4), ResultSetMetaData.columnNoNulls);
 
     assertEquals(actualMetaData.getColumnName(5), "REMARKS");
     assertEquals(actualMetaData.getColumnType(5), Types.VARCHAR);
-    assertEquals(actualMetaData.getPrecision(5), 255);
+    assertEquals(actualMetaData.getPrecision(5), 254);
     assertEquals(actualMetaData.isNullable(5), ResultSetMetaData.columnNullable);
   }
 
@@ -361,7 +361,12 @@ public class DatabricksMetadataSdkClientTest {
       assertEquals(actualMetaData.getColumnName(i + 1), resultColumn.getColumnName());
       assertEquals(actualMetaData.getColumnType(i + 1), resultColumn.getColumnTypeInt());
       assertEquals(actualMetaData.getColumnTypeName(i + 1), resultColumn.getColumnTypeString());
-      assertEquals(actualMetaData.getPrecision(i + 1), resultColumn.getColumnPrecision());
+      if (LARGE_DISPLAY_COLUMNS.contains(resultColumn)) {
+        assertEquals(actualMetaData.getPrecision(i + 1), 254);
+      } else {
+        assertEquals(actualMetaData.getPrecision(i + 1), resultColumn.getColumnPrecision());
+      }
+
       if (non_nullable_columns.contains(resultColumn)) {
         assertEquals(actualMetaData.isNullable(i + 1), ResultSetMetaData.columnNoNulls);
       } else {
