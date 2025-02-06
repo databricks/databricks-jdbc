@@ -19,6 +19,8 @@ import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.Types;
 import java.util.*;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 public class MetadataResultSetBuilder {
@@ -166,13 +168,7 @@ public class MetadataResultSetBuilder {
                   object = null;
                 }
               } else if (column.getColumnName().equals(BUFFER_LENGTH_COLUMN.getColumnName())) {
-                int columnSize =
-                    (resultSet.getObject(COLUMN_SIZE_COLUMN.getResultSetColumnName()) == null)
-                        ? 0
-                        : resultSet.getInt(COLUMN_SIZE_COLUMN.getResultSetColumnName());
-                object =
-                    getBufferLength(
-                        typeVal, columnSize); // columnSize does not come for VARCHAR, STRING fields
+                object = getBufferLength(typeVal);
               } else {
                 // Handle other cases where the result set does not contain the expected column
                 object = null;
@@ -197,14 +193,7 @@ public class MetadataResultSetBuilder {
             }
             // Set COLUMN_SIZE to 255 if it's not present
             if (column.getColumnName().equals(COLUMN_SIZE_COLUMN.getColumnName())) {
-              Object precision =
-                  resultSet.getObject(NUM_PREC_RADIX_COLUMN.getResultSetColumnName());
-              if (precision == null) {
-                precision = 0;
-              } else {
-                precision = Integer.parseInt(precision.toString());
-              }
-              object = getColumnSize(typeVal, (int) precision);
+              object = getColumnSize(typeVal);
             }
 
             break;
@@ -246,7 +235,28 @@ public class MetadataResultSetBuilder {
     return -1;
   }
 
-  static int getColumnSize(String typeVal, int precision) {
+  /*
+   * Extracts the precision from DECIMAL, NUMERIC types.
+   * @param typeVal The SQL type string
+   * Note: typeVal can be of format <data_type>, <data_type>(p), <data_type>(p,s)
+   */
+  static int extractPrecision(String typeVal) {
+    String lowerType = typeVal.toLowerCase().trim();
+    Pattern pattern = Pattern.compile("\\((\\d+)(?:,\\s*\\d+)?\\)");
+    Matcher matcher = pattern.matcher(lowerType);
+    if (matcher.find()) {
+      try {
+        return Integer.parseInt(matcher.group(1));
+      } catch (NumberFormatException e) {
+        // In case of a parsing error, return default
+        return 10;
+      }
+    }
+    // If no parentheses with precision are found, return default
+    return 10;
+  }
+
+  static int getColumnSize(String typeVal) {
     if (typeVal == null || typeVal.isEmpty()) {
       return 0;
     }
@@ -258,7 +268,7 @@ public class MetadataResultSetBuilder {
     switch (typeName) {
       case "DECIMAL":
       case "NUMERIC":
-        return precision;
+        return extractPrecision(typeVal);
       case "SMALLINT":
         return 5;
       case "DATE":
@@ -280,39 +290,52 @@ public class MetadataResultSetBuilder {
     }
   }
 
-  static int getBufferLength(String typeVal, int columnSize) {
+  /*
+   * Extracts the size in bytes from a given SQL type.
+   * @param sqlType The SQL type
+   */
+  static int getSizeInBytes(int sqlType) {
+    switch (sqlType) {
+      case Types.TIME:
+      case Types.DATE:
+        return 6;
+      case Types.TIMESTAMP:
+        return 16;
+      case Types.NUMERIC:
+      case Types.DECIMAL:
+        return 40;
+      case Types.REAL:
+      case Types.INTEGER:
+        return 4;
+      case Types.FLOAT:
+      case Types.DOUBLE:
+      case Types.BIGINT:
+        return 8;
+      case Types.BINARY:
+        return 32767;
+      case Types.BIT:
+      case Types.BOOLEAN:
+      case Types.TINYINT:
+        return 1;
+      case Types.SMALLINT:
+        return 2;
+      default:
+        return 0;
+    }
+  }
+
+  static int getBufferLength(String typeVal) {
     if (typeVal == null || typeVal.isEmpty()) {
       return 0;
     }
     if (typeVal.contains("ARRAY") || typeVal.contains("MAP")) {
       return 255;
     }
-    if (!typeVal.contains("(")) {
-      switch (typeVal) {
-        case DATE_TYPE:
-          return 6;
-        case TIMESTAMP_TYPE:
-          return 16;
-        case BINARY_TYPE:
-          return 32767;
-      }
-      if (isTextType(typeVal)) {
-        return 255;
-      }
-      return columnSize;
+    if (isTextType(typeVal)) {
+      return getColumnSize(typeVal);
     }
-
-    String[] lengthConstraints = typeVal.substring(typeVal.indexOf('(') + 1).split("[,)]");
-    if (lengthConstraints.length == 0) {
-      return 0;
-    }
-    String max_char_length = lengthConstraints[0].trim();
-    try {
-      if (isTextType(typeVal)) return Integer.parseInt(max_char_length);
-      else return 4 * Integer.parseInt(max_char_length);
-    } catch (NumberFormatException e) {
-      return 0;
-    }
+    int sqlType = getCode(stripTypeName(typeVal));
+    return getSizeInBytes(sqlType);
   }
 
   /**
@@ -386,6 +409,8 @@ public class MetadataResultSetBuilder {
         return 93;
       case "DECIMAL":
         return 3;
+      case "NUMERIC":
+        return 2;
       case "BINARY":
         return -2;
       case "ARRAY":
@@ -692,8 +717,7 @@ public class MetadataResultSetBuilder {
                 }
               }
               if (column.getColumnName().equals(BUFFER_LENGTH_COLUMN.getColumnName())) {
-                int columnSize = (int) row.get(columns.indexOf(COLUMN_SIZE_COLUMN));
-                object = getBufferLength(typeVal, columnSize);
+                object = getBufferLength(typeVal);
               }
               if (column.getColumnName().equals(TABLE_TYPE_COLUMN.getColumnName())
                   && (object == null || object.equals(""))) {
@@ -706,8 +730,7 @@ public class MetadataResultSetBuilder {
               }
               // Set COLUMN_SIZE to 255 if it's not present
               if (column.getColumnName().equals(COLUMN_SIZE_COLUMN.getColumnName())) {
-                int precision = (int) row.get(columns.indexOf(NUM_PREC_RADIX_COLUMN));
-                object = getColumnSize(typeVal, precision);
+                object = getColumnSize(typeVal);
               }
             }
             break;

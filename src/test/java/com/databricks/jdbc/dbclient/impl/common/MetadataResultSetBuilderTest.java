@@ -8,6 +8,7 @@ import static org.mockito.Mockito.mock;
 import com.databricks.jdbc.model.core.ResultColumn;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Types;
 import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Stream;
@@ -48,6 +49,27 @@ public class MetadataResultSetBuilderTest {
     assert MetadataResultSetBuilder.getCode("INTEGER") == 4;
   }
 
+  private static Stream<Arguments> provideSqlTypesAndExpectedSizes() {
+    return Stream.of(
+        Arguments.of(Types.TIME, 6),
+        Arguments.of(Types.DATE, 6),
+        Arguments.of(Types.TIMESTAMP, 16),
+        Arguments.of(Types.NUMERIC, 40),
+        Arguments.of(Types.DECIMAL, 40),
+        Arguments.of(Types.REAL, 4),
+        Arguments.of(Types.INTEGER, 4),
+        Arguments.of(Types.FLOAT, 8),
+        Arguments.of(Types.DOUBLE, 8),
+        Arguments.of(Types.BIGINT, 8),
+        Arguments.of(Types.BINARY, 32767),
+        Arguments.of(Types.BIT, 1),
+        Arguments.of(Types.BOOLEAN, 1),
+        Arguments.of(Types.TINYINT, 1),
+        Arguments.of(Types.SMALLINT, 2),
+        Arguments.of(999, 0) // default case
+        );
+  }
+
   private static Stream<Arguments> charOctetArguments() {
     return Stream.of(
         Arguments.of("VARCHAR(100)", 100),
@@ -86,31 +108,33 @@ public class MetadataResultSetBuilderTest {
   private static Stream<Arguments> getBufferLengthArguments() {
     return Stream.of(
         // Null or empty typeVal
-        Arguments.of(null, 10, 0),
-        Arguments.of("", 10, 0),
+        Arguments.of(null, 0),
+        Arguments.of("", 0),
 
         // Simple types without length specification
-        Arguments.of("DATE", 10, 6),
-        Arguments.of("TIMESTAMP", 10, 16),
-        Arguments.of("BINARY", 10, 32767),
-        Arguments.of("STRING", 10, 255),
-        Arguments.of("INT", 4, 4),
+        Arguments.of("DATE", 6),
+        Arguments.of("TIMESTAMP", 16),
+        Arguments.of("BINARY", 32767),
+        Arguments.of("STRING", 255),
+        Arguments.of("INT", 4),
 
         // Types with length specification
-        Arguments.of("CHAR(10)", 10, 10),
-        Arguments.of("VARCHAR(50)", 10, 50),
-        Arguments.of("DECIMAL(10,2)", 10, 40), // DECIMAL gets multiplied by 4
-        Arguments.of("NUMERIC(20)", 10, 80), // NUMERIC gets multiplied by 4
-
-        // Type with invalid length specification
-        Arguments.of("VARCHAR(abc)", 10, 0),
-        Arguments.of("VARCHAR()", 10, 0),
-        Arguments.of("VARCHAR(100,200)", 10, 100),
+        Arguments.of("CHAR(10)", 10),
+        Arguments.of("VARCHAR(50)", 50),
+        Arguments.of("DECIMAL(10,2)", 40),
+        Arguments.of("NUMERIC(20)", 40),
 
         // Types without length but still valid strings
-        Arguments.of("CHAR", 10, 255),
-        Arguments.of("VARCHAR", 10, 255),
-        Arguments.of("TEXT", 10, 255));
+        Arguments.of("CHAR", 255),
+        Arguments.of("VARCHAR", 255),
+        Arguments.of("TEXT", 255));
+  }
+
+  private static Stream<Arguments> extractPrecisionArguments() {
+    return Stream.of(
+        Arguments.of("DECIMAL(100)", 100),
+        Arguments.of("DECIMAL", 10),
+        Arguments.of("DECIMAL(5,2)", 5));
   }
 
   private static Stream<Arguments> getSizeFromTypeValArguments() {
@@ -140,6 +164,13 @@ public class MetadataResultSetBuilderTest {
         Arguments.of(List.of("VARCHAR(50)", 0, 0), List.of("VARCHAR", 50, 0)),
         Arguments.of(List.of("INT", 4, 10), List.of("INT", 10, 10)),
         Arguments.of(List.of("VARCHAR", 0, 0), List.of("VARCHAR", 255, 0)));
+  }
+
+  @ParameterizedTest
+  @MethodSource("provideSqlTypesAndExpectedSizes")
+  void testGetSizeInBytes(int sqlType, int expectedSize) {
+    int actualSize = MetadataResultSetBuilder.getSizeInBytes(sqlType);
+    assertEquals(expectedSize, actualSize);
   }
 
   @ParameterizedTest
@@ -227,9 +258,16 @@ public class MetadataResultSetBuilderTest {
   }
 
   @ParameterizedTest
+  @MethodSource("extractPrecisionArguments")
+  public void testExtractPrecision(String typeVal, int expected) {
+    int actual = MetadataResultSetBuilder.extractPrecision(typeVal);
+    assertEquals(expected, actual);
+  }
+
+  @ParameterizedTest
   @MethodSource("getBufferLengthArguments")
-  public void testGetBufferLength(String typeVal, int columnSize, int expected) {
-    int actual = MetadataResultSetBuilder.getBufferLength(typeVal, columnSize);
+  public void testGetBufferLength(String typeVal, int expected) {
+    int actual = MetadataResultSetBuilder.getBufferLength(typeVal);
     assertEquals(expected, actual);
   }
 
