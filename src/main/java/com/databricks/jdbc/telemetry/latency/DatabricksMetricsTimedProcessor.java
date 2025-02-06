@@ -34,7 +34,6 @@ public class DatabricksMetricsTimedProcessor {
           Object result = method.invoke(target, args);
           // Calculate execution time
           long executionTime = System.currentTimeMillis() - startTime;
-          System.out.println("here is start of log " + method.getName());
           exportLatencyLog(executionTime);
           return result;
         } catch (Throwable throwable) {
