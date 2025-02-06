@@ -88,7 +88,9 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
     Matcher urlMatcher = JDBC_URL_PATTERN.matcher(url);
     if (urlMatcher.find()) {
       String host = urlMatcher.group(1).split(DatabricksJdbcConstants.PORT_DELIMITER)[0];
-      String connectionParamString = urlMatcher.group(3);
+      // Explicitly check for null before accessing. covers cases like "jdbc:databricks://test"
+      // (no <;> after host)
+      String connectionParamString = urlMatcher.group(3) != null ? urlMatcher.group(3) : "";
       ImmutableMap<String, String> connectionPropertiesMap =
           buildPropertiesMap(connectionParamString, properties);
       return new DatabricksConnectionContext(url, host, connectionPropertiesMap);

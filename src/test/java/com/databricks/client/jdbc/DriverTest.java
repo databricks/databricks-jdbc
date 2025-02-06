@@ -181,8 +181,8 @@ public class DriverTest {
     String emptyJdbcUrl = "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com";
     DriverPropertyInfo[] driverPropertyInfos =
         new Driver().getPropertyInfo(emptyJdbcUrl, new Properties());
-    assertEquals(driverPropertyInfos.length, 1);
-    assertEquals(driverPropertyInfos[0].name, HTTP_PATH.getParamName());
+    assertEquals(1, driverPropertyInfos.length);
+    assertEquals(HTTP_PATH.getParamName(), driverPropertyInfos[0].name);
 
     String jdbcUrl =
         "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com;AuthMech=11;Auth_Flow=0;httpPath=/sql/1.0/warehouses/58aa1b363649e722;loglevel=1";
