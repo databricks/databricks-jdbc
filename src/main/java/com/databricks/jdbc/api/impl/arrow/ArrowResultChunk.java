@@ -197,7 +197,6 @@ public class ArrowResultChunk {
     }
 
     String getType(int columnIndex) {
-      System.out.println("M1");
       return this.resultChunk.getArrowMetadata().get(columnIndex);
     }
   }
