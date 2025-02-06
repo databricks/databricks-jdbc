@@ -192,6 +192,15 @@ public class MetadataResultSetBuilderTest {
     return Stream.of(Arguments.of("true", 1), Arguments.of("false", 0), Arguments.of(null, 1));
   }
 
+  private static Stream<Arguments> getRowsColumnTypeArguments() {
+    return Stream.of(
+        Arguments.of("INT", "INT"),
+        Arguments.of("DECIMAL", "DECIMAL"),
+        Arguments.of("DECIMAL(6,2)", "DECIMAL"),
+        Arguments.of("MAP<STRING, ARRAY<STRING>>", "MAP<STRING, ARRAY<STRING>>"),
+        Arguments.of("ARRAY<DOUBLE>", "ARRAY<DOUBLE>"));
+  }
+
   @ParameterizedTest
   @MethodSource("getRowsNullableColumnArguments")
   void testGetRowsHandlesNullableColumn(String isNullableValue, int expectedNullable)
@@ -206,6 +215,19 @@ public class MetadataResultSetBuilderTest {
     assertEquals(expectedNullable, rows.get(0).get(10));
     assertEquals(
         Integer.class, rows.get(0).get(10).getClass()); // test column type of nullable column
+  }
+
+  @ParameterizedTest
+  @MethodSource("getRowsColumnTypeArguments")
+  void testGetRowsColumnType(String typeName, String expectedTypeName) throws SQLException {
+    ResultSet resultSet = mock(ResultSet.class);
+    Mockito.when(resultSet.next()).thenReturn(true).thenReturn(false);
+    Mockito.when(resultSet.getString(COLUMN_TYPE_COLUMN.getResultSetColumnName()))
+        .thenReturn(typeName);
+
+    List<List<Object>> rows = MetadataResultSetBuilder.getRows(resultSet, COLUMN_COLUMNS);
+
+    assertEquals(expectedTypeName, rows.get(0).get(5));
   }
 
   @Test

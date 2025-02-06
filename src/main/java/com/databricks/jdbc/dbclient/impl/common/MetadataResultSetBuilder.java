@@ -189,7 +189,14 @@ public class MetadataResultSetBuilder {
 
             // Handle TYPE_NAME separately for potential modifications
             if (column.getColumnName().equals(COLUMN_TYPE_COLUMN.getColumnName())) {
-              object = stripTypeName((String) object);
+              if (typeVal != null
+                  && (typeVal.contains(ARRAY_TYPE)
+                      || typeVal.contains(
+                          MAP_TYPE))) { // for complex data types, do not strip type name
+                object = typeVal;
+              } else {
+                object = stripTypeName(typeVal);
+              }
             }
             // Set COLUMN_SIZE to 255 if it's not present
             if (column.getColumnName().equals(COLUMN_SIZE_COLUMN.getColumnName())) {
@@ -726,7 +733,12 @@ public class MetadataResultSetBuilder {
 
               // Handle TYPE_NAME separately for potential modifications
               if (column.getColumnName().equals(COLUMN_TYPE_COLUMN.getColumnName())) {
-                object = stripTypeName((String) object);
+                if (typeVal != null
+                    && (typeVal.contains(ARRAY_TYPE) || typeVal.contains(MAP_TYPE))) {
+                  object = typeVal;
+                } else {
+                  object = stripTypeName(typeVal);
+                }
               }
               // Set COLUMN_SIZE to 255 if it's not present
               if (column.getColumnName().equals(COLUMN_SIZE_COLUMN.getColumnName())) {
