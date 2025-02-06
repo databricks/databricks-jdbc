@@ -138,7 +138,8 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
             .setCanDecompressLZ4Result(true)
             .setQueryTimeout(parentStatement.getStatement().getQueryTimeout())
             .setCanReadArrowResult(this.connectionContext.shouldEnableArrow())
-            .setCanDownloadResult(true).setUseArrowNativeTypes(arrowNativeTypes);
+            .setCanDownloadResult(true)
+            .setUseArrowNativeTypes(arrowNativeTypes);
     if (!DriverUtil.isRunningAgainstFake()) {
       // run queries in async mode if not using fake services
       request.setRunAsync(true);
@@ -173,7 +174,8 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
             .setCanDecompressLZ4Result(true)
             .setCanReadArrowResult(this.connectionContext.shouldEnableArrow())
             .setRunAsync(true)
-            .setCanDownloadResult(true).setUseArrowNativeTypes(arrowNativeTypes);
+            .setCanDownloadResult(true)
+            .setUseArrowNativeTypes(arrowNativeTypes);
     return thriftAccessor.executeAsync(request, parentStatement, session, StatementType.SQL);
   }
 
