@@ -359,6 +359,62 @@ public class DatabricksResultSetTest {
   }
 
   @Test
+  void testGetStruct() throws SQLException {
+    // Define expected attributes
+    Object[] structAttributes = {1, "Alice"};
+
+    // Mock execution result
+    when(mockedExecutionResult.getObject(2))
+        .thenReturn(
+            new DatabricksStruct(
+                Map.of("id", 1, "name", "Alice"), "STRUCT<id: INT, name: STRING>"));
+    when(mockedResultSetMetadata.getColumnNameIndex("user_struct")).thenReturn(3);
+
+    // Instantiate result set
+    DatabricksResultSet resultSet = getResultSet(StatementState.SUCCEEDED, null);
+
+    // Retrieve struct by index
+    Struct retrievedStruct = resultSet.getStruct(3);
+    assertNotNull(retrievedStruct, "Retrieved struct should not be null");
+    assertArrayEquals(
+        structAttributes, retrievedStruct.getAttributes(), "Struct attributes should match");
+
+    // Retrieve struct by label
+    Struct retrievedStructByLabel = resultSet.getStruct("user_struct");
+    assertNotNull(retrievedStructByLabel, "Retrieved struct by label should not be null");
+    assertArrayEquals(
+        structAttributes, retrievedStructByLabel.getAttributes(), "Struct attributes should match");
+  }
+
+  @Test
+  void testGetArray() throws SQLException {
+    // Define expected array elements
+    Object[] arrayElements = {"elem1", "elem2", "elem3"};
+
+    // Mock execution result
+    when(mockedExecutionResult.getObject(3))
+        .thenReturn(new DatabricksArray(List.of(arrayElements), "ARRAY<STRING>"));
+    when(mockedResultSetMetadata.getColumnNameIndex("string_array")).thenReturn(4);
+
+    // Instantiate result set
+    DatabricksResultSet resultSet = getResultSet(StatementState.SUCCEEDED, null);
+
+    // Retrieve array by index
+    Array retrievedArray = resultSet.getArray(4);
+    assertNotNull(retrievedArray, "Retrieved array should not be null");
+    assertTrue(
+        Arrays.equals(arrayElements, (Object[]) retrievedArray.getArray()),
+        "Array elements should match");
+
+    // Retrieve array by label
+    Array retrievedArrayByLabel = resultSet.getArray("string_array");
+    assertNotNull(retrievedArrayByLabel, "Retrieved array by label should not be null");
+    assertTrue(
+        Arrays.equals(arrayElements, (Object[]) retrievedArrayByLabel.getArray()),
+        "Array elements should match");
+  }
+
+  @Test
   void testGetMap() throws SQLException {
     // Define expected map entries
     Object[] mapEntries = {"key1", 100, "key2", 200};
