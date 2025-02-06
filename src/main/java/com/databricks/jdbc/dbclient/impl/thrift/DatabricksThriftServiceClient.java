@@ -10,6 +10,7 @@ import com.databricks.jdbc.api.impl.*;
 import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
 import com.databricks.jdbc.common.IDatabricksComputeResource;
 import com.databricks.jdbc.common.StatementType;
+import com.databricks.jdbc.common.util.DatabricksThreadContextHolder;
 import com.databricks.jdbc.common.util.DriverUtil;
 import com.databricks.jdbc.dbclient.IDatabricksClient;
 import com.databricks.jdbc.dbclient.IDatabricksMetadataClient;
@@ -122,7 +123,7 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
         String.format(
             "public DatabricksResultSet executeStatement(String sql = {%s}, Compute cluster = {%s}, Map<Integer, ImmutableSqlParameter> parameters = {%s}, StatementType statementType = {%s}, IDatabricksSession session)",
             sql, computeResource.toString(), parameters.toString(), statementType));
-    System.out.println("ABCP");
+    DatabricksThreadContextHolder.setStatementType(statementType);
     TSparkArrowTypes arrowNativeTypes =
         new TSparkArrowTypes()
             .setComplexTypesAsArrow(true)
@@ -137,10 +138,7 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
             .setCanDecompressLZ4Result(true)
             .setQueryTimeout(parentStatement.getStatement().getQueryTimeout())
             .setCanReadArrowResult(this.connectionContext.shouldEnableArrow())
-            .setCanDownloadResult(true);
-    if (this.connectionContext.shouldEnableArrow()) {
-      request.setUseArrowNativeTypes(arrowNativeTypes);
-    }
+            .setCanDownloadResult(true).setUseArrowNativeTypes(arrowNativeTypes);
     if (!DriverUtil.isRunningAgainstFake()) {
       // run queries in async mode if not using fake services
       request.setRunAsync(true);
@@ -175,10 +173,7 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
             .setCanDecompressLZ4Result(true)
             .setCanReadArrowResult(this.connectionContext.shouldEnableArrow())
             .setRunAsync(true)
-            .setCanDownloadResult(true);
-    if (this.connectionContext.shouldEnableArrow()) {
-      request.setUseArrowNativeTypes(arrowNativeTypes);
-    }
+            .setCanDownloadResult(true).setUseArrowNativeTypes(arrowNativeTypes);
     return thriftAccessor.executeAsync(request, parentStatement, session, StatementType.SQL);
   }
 

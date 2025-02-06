@@ -16,6 +16,7 @@ import com.google.common.annotations.VisibleForTesting;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
+import java.sql.Types;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -110,10 +111,30 @@ public class MetadataResultSetBuilder {
       List<Object> row = new ArrayList<>();
       for (ResultColumn column : columns) {
         Object object;
+        String typeVal = null;
+        try {
+          typeVal =
+              resultSet.getString(
+                  COLUMN_TYPE_COLUMN
+                      .getResultSetColumnName()); // only valid for result set of getColumns
+        } catch (SQLException ignored) {
+        }
         switch (column.getColumnName()) {
           case "SQL_DATA_TYPE":
+            if (typeVal == null) { // safety check
+              object = null;
+            } else {
+              object = getCode(stripTypeName(typeVal));
+            }
+            break;
           case "SQL_DATETIME_SUB":
-            object = 0;
+            // check if typeVal is a date/time related field
+            if (typeVal != null
+                && (typeVal.contains(DATE_TYPE) || typeVal.contains(TIMESTAMP_TYPE))) {
+              object = getCode(stripTypeName(typeVal));
+            } else {
+              object = null;
+            }
             break;
           default:
             // If column does not match any of the special cases, try to get it from the ResultSet
@@ -130,21 +151,27 @@ public class MetadataResultSetBuilder {
                 if (object == null) {
                   object = 0;
                 }
+              } else if (column.getColumnName().equals(REMARKS_COLUMN.getColumnName())) {
+                if (object == null) {
+                  object = "";
+                }
               }
             } catch (SQLException e) {
               if (column.getColumnName().equals(DATA_TYPE_COLUMN.getColumnName())) {
-                String typeVal = resultSet.getString(COLUMN_TYPE_COLUMN.getResultSetColumnName());
                 object = getCode(stripTypeName(typeVal));
               } else if (column.getColumnName().equals(CHAR_OCTET_LENGTH_COLUMN.getColumnName())) {
-                String typeVal = resultSet.getString(COLUMN_TYPE_COLUMN.getResultSetColumnName());
                 object = getCharOctetLength(typeVal);
+                if (object.equals(0)) {
+                  object = null;
+                }
               } else if (column.getColumnName().equals(BUFFER_LENGTH_COLUMN.getColumnName())) {
-                String typeVal = resultSet.getString(COLUMN_TYPE_COLUMN.getResultSetColumnName());
                 int columnSize =
                     (resultSet.getObject(COLUMN_SIZE_COLUMN.getResultSetColumnName()) == null)
                         ? 0
                         : resultSet.getInt(COLUMN_SIZE_COLUMN.getResultSetColumnName());
-                object = getBufferLength(typeVal, columnSize);
+                object =
+                    getBufferLength(
+                        typeVal, columnSize); // columnSize does not come for VARCHAR, STRING fields
               } else {
                 // Handle other cases where the result set does not contain the expected column
                 object = null;
@@ -171,7 +198,6 @@ public class MetadataResultSetBuilder {
             if (column.getColumnName().equals(COLUMN_SIZE_COLUMN.getColumnName())
                 && object == null) {
               // check if typeVal is a text related field
-              String typeVal = resultSet.getString(COLUMN_TYPE_COLUMN.getResultSetColumnName());
               if (typeVal == null) {
                 object = 0;
               } else {
@@ -224,14 +250,13 @@ public class MetadataResultSetBuilder {
       return 0;
     }
     if (!typeVal.contains("(")) {
-      if (typeVal.equals(DATE_TYPE)) {
-        return 6;
-      }
-      if (typeVal.equals(TIMESTAMP_TYPE)) {
-        return 16;
-      }
-      if (typeVal.equals(BINARY_TYPE)) {
-        return 32767;
+      switch (typeVal) {
+        case DATE_TYPE:
+          return 6;
+        case TIMESTAMP_TYPE:
+          return 16;
+        case BINARY_TYPE:
+          return 32767;
       }
       if (isTextType(typeVal)) {
         return 255;
@@ -283,7 +308,7 @@ public class MetadataResultSetBuilder {
   }
 
   @VisibleForTesting
-  static String stripTypeName(String typeName) {
+  public static String stripTypeName(String typeName) {
     if (typeName == null) {
       return null;
     }
@@ -457,12 +482,16 @@ public class MetadataResultSetBuilder {
 
       // Fetch metadata from ResultSetMetaData or use default values from the ResultColumn
       int precision =
-          metaColumnIndex != null && metaData.getPrecision(metaColumnIndex) != 0
+          metaColumnIndex != null
+                  && metaData.getPrecision(metaColumnIndex) != 0
+                  && (typeInt == Types.DECIMAL || typeInt == Types.NUMERIC)
               ? metaData.getPrecision(metaColumnIndex)
               : column.getColumnPrecision();
 
       int scale =
-          metaColumnIndex != null && metaData.getScale(metaColumnIndex) != 0
+          metaColumnIndex != null
+                  && metaData.getScale(metaColumnIndex) != 0
+                  && (typeInt == Types.DECIMAL || typeInt == Types.NUMERIC)
               ? metaData.getScale(metaColumnIndex)
               : column.getColumnScale();
 

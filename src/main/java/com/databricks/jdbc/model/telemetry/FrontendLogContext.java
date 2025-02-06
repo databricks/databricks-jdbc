@@ -1,5 +1,6 @@
 package com.databricks.jdbc.model.telemetry;
 
+import com.databricks.sdk.support.ToStringer;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 public class FrontendLogContext {
@@ -15,5 +16,12 @@ public class FrontendLogContext {
   public FrontendLogContext setClientContext(TelemetryClientContext clientContext) {
     this.clientContext = clientContext;
     return this;
+  }
+
+  @Override
+  public String toString() {
+    return new ToStringer(TelemetryFrontendLog.class)
+        .add("client_context", clientContext)
+        .toString();
   }
 }

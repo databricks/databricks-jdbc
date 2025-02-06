@@ -2,6 +2,7 @@ package com.databricks.jdbc.model.telemetry;
 
 import com.databricks.jdbc.common.StatementType;
 import com.databricks.jdbc.model.telemetry.enums.ExecutionResultFormat;
+import com.databricks.sdk.support.ToStringer;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 public class SqlExecutionEvent {
@@ -18,7 +19,7 @@ public class SqlExecutionEvent {
   Long chunkId;
 
   @JsonProperty("retry_count")
-  int retryCount;
+  Integer retryCount;
 
   public SqlExecutionEvent setDriverStatementType(StatementType driverStatementType) {
     this.driverStatementType = driverStatementType;
@@ -40,8 +41,19 @@ public class SqlExecutionEvent {
     return this;
   }
 
-  public SqlExecutionEvent setRetryCount(int retryCount) {
+  public SqlExecutionEvent setRetryCount(Integer retryCount) {
     this.retryCount = retryCount;
     return this;
+  }
+
+  @Override
+  public String toString() {
+    return new ToStringer(SqlExecutionEvent.class)
+        .add("statement_type", driverStatementType)
+        .add("is_compressed", isCompressed)
+        .add("execution_result", executionResultFormat)
+        .add("chunk_id", chunkId)
+        .add("retry_count", retryCount)
+        .toString();
   }
 }

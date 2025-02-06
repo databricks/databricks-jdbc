@@ -10,18 +10,19 @@ import com.databricks.jdbc.api.impl.*;
 import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
 import com.databricks.jdbc.common.*;
 import com.databricks.jdbc.common.IDatabricksComputeResource;
+import com.databricks.jdbc.common.util.DatabricksThreadContextHolder;
 import com.databricks.jdbc.dbclient.IDatabricksClient;
 import com.databricks.jdbc.dbclient.impl.common.ClientConfigurator;
 import com.databricks.jdbc.dbclient.impl.common.StatementId;
-import com.databricks.jdbc.exception.DatabricksParsingException;
-import com.databricks.jdbc.exception.DatabricksSQLException;
-import com.databricks.jdbc.exception.DatabricksTimeoutException;
+import com.databricks.jdbc.exception.*;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.model.client.sqlexec.*;
 import com.databricks.jdbc.model.client.sqlexec.ExecuteStatementRequest;
 import com.databricks.jdbc.model.client.sqlexec.ExecuteStatementResponse;
 import com.databricks.jdbc.model.client.sqlexec.GetStatementResponse;
+import com.databricks.jdbc.model.client.thrift.generated.TFetchResultsResp;
+import com.databricks.jdbc.model.core.Disposition;
 import com.databricks.jdbc.model.core.ExternalLink;
 import com.databricks.jdbc.model.core.ResultData;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
@@ -130,6 +131,7 @@ public class DatabricksSdkClient implements IDatabricksClient {
             sql, computeResource.toString(), statementType));
     long pollCount = 0;
     long executionStartTime = Instant.now().toEpochMilli();
+    DatabricksThreadContextHolder.setStatementType(statementType);
     ExecuteStatementRequest request =
         getRequest(
             statementType,
@@ -312,9 +314,17 @@ public class DatabricksSdkClient implements IDatabricksClient {
     this.workspaceClient = clientConfigurator.getWorkspaceClient();
   }
 
+  @Override
+  public TFetchResultsResp getMoreResults(IDatabricksStatementInternal parentStatement)
+      throws DatabricksSQLException {
+    throw new DatabricksValidationException("Get more results cannot be called for SEA flow");
+  }
+
   private boolean useCloudFetchForResult(StatementType statementType) {
     return this.connectionContext.shouldEnableArrow()
-        && (statementType == StatementType.QUERY || statementType == StatementType.SQL);
+        && (statementType == StatementType.QUERY
+            || statementType == StatementType.SQL
+            || statementType == StatementType.METADATA);
   }
 
   private ExecuteStatementRequest getRequest(
@@ -327,8 +337,12 @@ public class DatabricksSdkClient implements IDatabricksClient {
       boolean executeAsync)
       throws SQLException {
     Format format = useCloudFetchForResult(statementType) ? Format.ARROW_STREAM : Format.JSON_ARRAY;
+    Disposition defaultDisposition =
+        connectionContext.isSqlExecHybridResultsEnabled()
+            ? Disposition.INLINE_OR_EXTERNAL_LINKS
+            : Disposition.EXTERNAL_LINKS;
     Disposition disposition =
-        useCloudFetchForResult(statementType) ? Disposition.EXTERNAL_LINKS : Disposition.INLINE;
+        useCloudFetchForResult(statementType) ? defaultDisposition : Disposition.INLINE;
     long maxRows = (parentStatement == null) ? DEFAULT_ROW_LIMIT : parentStatement.getMaxRows();
     CompressionCodec compressionCodec = session.getCompressionCodec();
     if (disposition.equals(Disposition.INLINE)) {
