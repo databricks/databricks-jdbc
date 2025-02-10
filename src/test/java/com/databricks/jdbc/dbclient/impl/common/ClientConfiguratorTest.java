@@ -106,6 +106,33 @@ public class ClientConfiguratorTest {
   }
 
   @Test
+  void getWorkspaceClient_OAuthWithClientCredentials_AuthenticatesCorrectlyWithJWT()
+      throws DatabricksParsingException {
+    when(mockContext.getConnectionUuid()).thenReturn("connection-uuid");
+    when(mockContext.getAuthMech()).thenReturn(AuthMech.OAUTH);
+    when(mockContext.getAuthFlow()).thenReturn(AuthFlow.CLIENT_CREDENTIALS);
+    when(mockContext.getHostForOAuth()).thenReturn("https://jwt-auth.databricks.com");
+    when(mockContext.getClientId()).thenReturn("client-id");
+    when(mockContext.getClientSecret()).thenReturn("client-secret");
+    when(mockContext.useJWTAssertion()).thenReturn(true);
+    when(mockContext.getTokenEndpoint()).thenReturn("token-endpoint");
+    configurator = new ClientConfigurator(mockContext);
+
+    WorkspaceClient client = configurator.getWorkspaceClient();
+    assertNotNull(client);
+    DatabricksConfig config = client.config();
+
+    assertEquals("https://jwt-auth.databricks.com", config.getHost());
+    assertEquals("client-id", config.getClientId());
+    assertEquals("client-secret", config.getClientSecret());
+    assertEquals(DatabricksJdbcConstants.M2M_AUTH_TYPE, config.getAuthType());
+    CredentialsProvider provider = config.getCredentialsProvider();
+    assertNotNull(provider);
+    assertEquals(PrivateKeyClientCredentialProvider.class, provider.getClass());
+    assertEquals("custom-oauth-m2m", provider.authType());
+  }
+
+  @Test
   void testM2MWithJWT() throws DatabricksSQLException {
     String jdbcUrl =
         "jdbc:databricks://adb-565757575.18.azuredatabricks.net:123/default;ssl=1;port=123;AuthMech=11;"

@@ -1,0 +1,39 @@
+{
+  "id" : "59fb1c11-7dd9-4801-ba74-bf81d62cf33e",
+  "name" : "oauth2_aus1mzu4zk5twwmvx0h8_v1_token",
+  "request" : {
+    "url" : "/oauth2/aus1mzu4zk5TWwMvx0h8/v1/token",
+    "method" : "POST",
+    "bodyPatterns" : [ {
+      "equalTo" : "client_assertion_type=urn%3Aietf%3Aparams%3Aoauth%3Aclient-assertion-type%3Ajwt-bearer&grant_type=client_credentials&scope=all-apis&client_assertion=my-private-key",
+      "caseInsensitive" : false
+    } ]
+  },
+  "response" : {
+    "status" : 200,
+    "body" : "{\"token_type\":\"Bearer\",\"expires_in\":3600,\"access_token\":\"my-test-token\",\"scope\":\"all-apis\"}",
+    "headers" : {
+      "expires" : "0",
+      "Server" : "nginx",
+      "x-rate-limit-reset" : "1736494178",
+      "x-rate-limit-remaining" : "999",
+      "x-rate-limit-limit" : "1000",
+      "p3p" : "CP=\"HONK\"",
+      "accept-ch" : "Sec-CH-UA-Platform-Version",
+      "pragma" : "no-cache",
+      "Date" : "Fri, 10 Jan 2025 07:28:38 GMT",
+      "set-cookie" : [ "sid=\"\";Version=1;Path=/;Max-Age=0", "xids=\"\";Version=1;Path=/;Max-Age=0", "autolaunch_triggered=\"\"; Expires=Thu, 01 Jan 1970 00:00:10 GMT; Path=/", "activate_ca_modal_triggered=\"\"; Expires=Thu, 01 Jan 1970 00:00:10 GMT; Path=/", "JSESSIONID=440D43DADE75B10FEB0ED646D417B2BC; Path=/; Secure; HttpOnly" ],
+      "X-Robots-Tag" : "noindex,nofollow",
+      "Strict-Transport-Security" : "max-age=315360000; includeSubDomains",
+      "content-security-policy" : "default-src 'self' dev-591123.oktapreview.com *.oktacdn.com; connect-src 'self' dev-591123.oktapreview.com dev-591123-admin.oktapreview.com *.oktacdn.com *.mixpanel.com *.mapbox.com *.mtls.oktapreview.com dev-591123.kerberos.oktapreview.com https://oinmanager.okta.com data: *.ingest.sentry.io data.pendo.io pendo-static-5634101834153984.storage.googleapis.com pendo-static-5391521872216064.storage.googleapis.com; script-src 'unsafe-inline' 'unsafe-eval' 'self' 'report-sample' dev-591123.oktapreview.com *.oktacdn.com; style-src 'unsafe-inline' 'self' dev-591123.oktapreview.com *.oktacdn.com; frame-src 'self' dev-591123.oktapreview.com dev-591123-admin.oktapreview.com login.okta.com *.vidyard.com; img-src 'self' dev-591123.oktapreview.com *.oktacdn.com *.tiles.mapbox.com *.mapbox.com *.vidyard.com data: data.pendo.io pendo-static-5634101834153984.storage.googleapis.com pendo-static-5391521872216064.storage.googleapis.com blob:; font-src 'self' dev-591123.oktapreview.com data: *.oktacdn.com fonts.gstatic.com; frame-ancestors 'self'",
+      "x-content-type-options" : "nosniff",
+      "x-xss-protection" : "0",
+      "referrer-policy" : "strict-origin-when-cross-origin",
+      "x-okta-request-id" : "fc602fb5252ce71188e4ba6c2bb7e2d8",
+      "cache-control" : "no-cache, no-store",
+      "Content-Type" : "application/json"
+    }
+  },
+  "uuid" : "59fb1c11-7dd9-4801-ba74-bf81d62cf33e",
+  "insertionIndex" : 1
+}
