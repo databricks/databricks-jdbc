@@ -4,6 +4,6 @@ import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 
 public class DatabricksTemporaryRedirectException extends DatabricksSQLException {
   public DatabricksTemporaryRedirectException(DatabricksDriverErrorCode internalError) {
-    super("Temporary redirect exception", internalError);
+    super("Redirect to Thrift Client", internalError);
   }
 }

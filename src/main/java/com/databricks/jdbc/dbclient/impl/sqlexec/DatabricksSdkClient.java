@@ -104,7 +104,6 @@ public class DatabricksSdkClient implements IDatabricksClient {
               .POST(SESSION_PATH, request, CreateSessionResponse.class, JSON_HTTP_HEADERS);
     } catch (DatabricksError e) {
       if (e.getStatusCode() == TEMPORARY_REDIRECT_STATUS_CODE) {
-        System.out.println("Temporary Redirect Error: " + e.getMessage());
         throw new DatabricksTemporaryRedirectException(TEMPORARY_REDIRECT_EXCEPTION);
       }
     }

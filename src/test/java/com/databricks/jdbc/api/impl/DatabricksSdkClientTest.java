@@ -139,8 +139,7 @@ public class DatabricksSdkClientTest {
   public void testCreateSessionRedirect() throws DatabricksSQLException {
     // Create a DatabricksError with 307 status code to simulate the temporary redirect.
     DatabricksError redirectError =
-        new DatabricksError(
-            "307", "Simulated temporary redirect error", TEMPORARY_REDIRECT_STATUS_CODE);
+        new DatabricksError("307", "Redirect to Thrift Client", TEMPORARY_REDIRECT_STATUS_CODE);
 
     // When the POST is called with the SESSION_PATH, throw the redirect error.
     when(apiClient.POST(eq(SESSION_PATH), any(), eq(CreateSessionResponse.class), eq(headers)))
