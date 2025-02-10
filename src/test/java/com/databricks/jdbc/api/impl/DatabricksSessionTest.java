@@ -1,6 +1,7 @@
 package com.databricks.jdbc.api.impl;
 
 import static com.databricks.jdbc.TestConstants.*;
+import static com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode.TEMPORARY_REDIRECT_EXCEPTION;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -15,6 +16,7 @@ import com.databricks.jdbc.dbclient.impl.sqlexec.DatabricksSdkClient;
 import com.databricks.jdbc.dbclient.impl.thrift.DatabricksThriftServiceClient;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
+import com.databricks.jdbc.exception.DatabricksTemporaryRedirectException;
 import com.databricks.jdbc.model.client.thrift.generated.TSessionHandle;
 import java.util.Properties;
 import org.junit.jupiter.api.Test;
@@ -69,6 +71,32 @@ public class DatabricksSessionTest {
     assertTrue(session.isOpen());
     assertEquals(SESSION_ID, session.getSessionId());
     assertTrue(session.getDatabricksMetadataClient() instanceof DatabricksMetadataSdkClient);
+    assertEquals(WAREHOUSE_COMPUTE, session.getComputeResource());
+    session.close();
+    assertFalse(session.isOpen());
+    assertNull(session.getSessionId());
+  }
+
+  @Test
+  public void testOpenRedirectedThriftSession() throws DatabricksSQLException {
+    setupWarehouse(false);
+    ImmutableSessionInfo sessionInfo =
+        ImmutableSessionInfo.builder()
+            .sessionId(SESSION_ID)
+            .computeResource(WAREHOUSE_COMPUTE)
+            .build();
+    when(sdkClient.createSession(eq(WAREHOUSE_COMPUTE), any(), any(), any()))
+        .thenThrow(new DatabricksTemporaryRedirectException(TEMPORARY_REDIRECT_EXCEPTION));
+    when(thriftClient.createSession(any(), any(), any(), any())).thenReturn(sessionInfo);
+    DatabricksSession session = new DatabricksSession(connectionContext, sdkClient, thriftClient);
+    assertEquals(DatabricksClientType.SEA, connectionContext.getClientType());
+    assertFalse(session.isOpen());
+    session.open();
+    assertTrue(session.isOpen());
+    assertEquals(SESSION_ID, session.getSessionId());
+    assertEquals(DatabricksClientType.THRIFT, session.getConnectionContext().getClientType());
+    assertTrue(session.getDatabricksClient() instanceof DatabricksThriftServiceClient);
+    assertTrue(session.getDatabricksMetadataClient() instanceof DatabricksThriftServiceClient);
     assertEquals(WAREHOUSE_COMPUTE, session.getComputeResource());
     session.close();
     assertFalse(session.isOpen());

@@ -13,6 +13,7 @@ import com.databricks.jdbc.dbclient.impl.sqlexec.DatabricksMetadataSdkClient;
 import com.databricks.jdbc.dbclient.impl.sqlexec.DatabricksSdkClient;
 import com.databricks.jdbc.dbclient.impl.thrift.DatabricksThriftServiceClient;
 import com.databricks.jdbc.exception.DatabricksSQLException;
+import com.databricks.jdbc.exception.DatabricksTemporaryRedirectException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.telemetry.latency.DatabricksMetricsTimedProcessor;
@@ -29,7 +30,7 @@ import javax.annotation.Nullable;
 public class DatabricksSession implements IDatabricksSession {
 
   private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(DatabricksSession.class);
-  private final IDatabricksClient databricksClient;
+  private IDatabricksClient databricksClient;
   private IDatabricksMetadataClient databricksMetadataClient;
   private final IDatabricksComputeResource computeResource;
   private boolean isSessionOpen;
@@ -43,6 +44,8 @@ public class DatabricksSession implements IDatabricksSession {
   private final Map<String, String> clientInfoProperties;
   private final CompressionCodec compressionCodec;
   private final IDatabricksConnectionContext connectionContext;
+
+  @VisibleForTesting IDatabricksClient databricksMockThriftClient;
 
   /**
    * Creates an instance of Databricks session for given connection context
@@ -92,6 +95,21 @@ public class DatabricksSession implements IDatabricksSession {
     this.connectionContext = connectionContext;
   }
 
+  @VisibleForTesting
+  public DatabricksSession(
+      IDatabricksConnectionContext connectionContext,
+      IDatabricksClient testDatabricksSeaClient,
+      IDatabricksClient testDatabricksThriftClient) {
+    this.databricksClient = testDatabricksSeaClient;
+    this.databricksMockThriftClient = testDatabricksThriftClient;
+    this.isSessionOpen = false;
+    this.computeResource = connectionContext.getComputeResource();
+    this.sessionConfigs = connectionContext.getSessionConfigs();
+    this.clientInfoProperties = new HashMap<>();
+    this.compressionCodec = connectionContext.getCompressionCodec();
+    this.connectionContext = connectionContext;
+  }
+
   @Nullable
   @Override
   public String getSessionId() {
@@ -130,9 +148,22 @@ public class DatabricksSession implements IDatabricksSession {
     LOGGER.debug("public void open()");
     synchronized (this) {
       if (!isSessionOpen) {
-        this.sessionInfo =
-            databricksClient.createSession(
-                this.computeResource, this.catalog, this.schema, this.sessionConfigs);
+        try {
+          this.sessionInfo =
+              databricksClient.createSession(
+                  this.computeResource, this.catalog, this.schema, this.sessionConfigs);
+        } catch (DatabricksTemporaryRedirectException e) {
+          this.connectionContext.setClientType(DatabricksClientType.THRIFT);
+          this.databricksClient =
+              DatabricksMetricsTimedProcessor.createProxy(
+                  new DatabricksThriftServiceClient(connectionContext));
+          if (databricksMockThriftClient != null) {
+            this.databricksClient = databricksMockThriftClient;
+          }
+          this.sessionInfo =
+              this.databricksClient.createSession(
+                  this.computeResource, this.catalog, this.schema, this.sessionConfigs);
+        }
         this.isSessionOpen = true;
       }
     }

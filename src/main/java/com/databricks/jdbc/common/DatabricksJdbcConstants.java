@@ -95,6 +95,7 @@ public final class DatabricksJdbcConstants {
   public static final String GCP_GOOGLE_CREDENTIALS_AUTH_TYPE = "google-credentials";
   public static final String GCP_GOOGLE_ID_AUTH_TYPE = "google-id";
   public static final String DEFAULT_HTTP_EXCEPTION_SQLSTATE = "08000";
+  public static final int TEMPORARY_REDIRECT_STATUS_CODE = 307;
 
   /** Enum for the services that can be replaced with a fake service in integration tests. */
   @VisibleForTesting

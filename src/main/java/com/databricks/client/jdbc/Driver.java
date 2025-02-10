@@ -108,6 +108,7 @@ public class Driver implements IDatabricksDriver, java.sql.Driver {
   @Override
   public void closeConnection(String url, Properties info, String connectionId)
       throws SQLException {
+    System.out.println("[SHIVAM] Driver.closeConnection");
     if (!acceptsURL(url)) {
       throw new DatabricksSQLException(
           String.format("Invalid connection Url {%s}, Can't close connection.", url),

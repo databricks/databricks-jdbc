@@ -112,6 +112,8 @@ public interface IDatabricksConnectionContext {
 
   DatabricksClientType getClientType();
 
+  void setClientType(DatabricksClientType clientType);
+
   Boolean getUseEmptyMetadata();
 
   /** Returns the number of threads to be used for fetching data from cloud storage */
