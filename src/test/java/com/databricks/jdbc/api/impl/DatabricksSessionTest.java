@@ -18,10 +18,13 @@ import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.exception.DatabricksTemporaryRedirectException;
 import com.databricks.jdbc.model.client.thrift.generated.TSessionHandle;
+import com.databricks.jdbc.telemetry.latency.DatabricksMetricsTimedProcessor;
 import java.util.Properties;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
+import org.mockito.MockedStatic;
+import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
@@ -70,7 +73,7 @@ public class DatabricksSessionTest {
     session.open();
     assertTrue(session.isOpen());
     assertEquals(SESSION_ID, session.getSessionId());
-    assertTrue(session.getDatabricksMetadataClient() instanceof DatabricksMetadataSdkClient);
+    assertInstanceOf(DatabricksMetadataSdkClient.class, session.getDatabricksMetadataClient());
     assertEquals(WAREHOUSE_COMPUTE, session.getComputeResource());
     session.close();
     assertFalse(session.isOpen());
@@ -88,20 +91,30 @@ public class DatabricksSessionTest {
     when(sdkClient.createSession(eq(WAREHOUSE_COMPUTE), any(), any(), any()))
         .thenThrow(new DatabricksTemporaryRedirectException(TEMPORARY_REDIRECT_EXCEPTION));
     when(thriftClient.createSession(any(), any(), any(), any())).thenReturn(sessionInfo);
-    DatabricksSession session = new DatabricksSession(connectionContext, sdkClient);
-    session.setThriftClientFactory(ctx -> thriftClient);
-    assertEquals(DatabricksClientType.SEA, connectionContext.getClientType());
-    assertFalse(session.isOpen());
-    session.open();
-    assertTrue(session.isOpen());
-    assertEquals(SESSION_ID, session.getSessionId());
-    assertEquals(DatabricksClientType.THRIFT, session.getConnectionContext().getClientType());
-    assertTrue(session.getDatabricksClient() instanceof DatabricksThriftServiceClient);
-    assertTrue(session.getDatabricksMetadataClient() instanceof DatabricksThriftServiceClient);
-    assertEquals(WAREHOUSE_COMPUTE, session.getComputeResource());
-    session.close();
-    assertFalse(session.isOpen());
-    assertNull(session.getSessionId());
+    try (MockedStatic<DatabricksMetricsTimedProcessor> proxyMock =
+        Mockito.mockStatic(DatabricksMetricsTimedProcessor.class)) {
+      proxyMock
+          .when(() -> DatabricksMetricsTimedProcessor.createProxy(any()))
+          .thenReturn(thriftClient);
+
+      DatabricksSession session = new DatabricksSession(connectionContext, sdkClient);
+      assertEquals(DatabricksClientType.SEA, connectionContext.getClientType());
+      assertInstanceOf(DatabricksMetadataSdkClient.class, session.getDatabricksMetadataClient());
+      assertFalse(session.isOpen());
+
+      session.open();
+
+      assertTrue(session.isOpen());
+      assertEquals(SESSION_ID, session.getSessionId());
+      assertEquals(DatabricksClientType.THRIFT, connectionContext.getClientType());
+      assertInstanceOf(DatabricksThriftServiceClient.class, session.getDatabricksClient());
+      assertInstanceOf(DatabricksThriftServiceClient.class, session.getDatabricksMetadataClient());
+      assertEquals(WAREHOUSE_COMPUTE, session.getComputeResource());
+
+      session.close();
+      assertFalse(session.isOpen());
+      assertNull(session.getSessionId());
+    }
   }
 
   @Test

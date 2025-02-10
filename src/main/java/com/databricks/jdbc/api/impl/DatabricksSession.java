@@ -12,7 +12,6 @@ import com.databricks.jdbc.dbclient.impl.sqlexec.DatabricksEmptyMetadataClient;
 import com.databricks.jdbc.dbclient.impl.sqlexec.DatabricksMetadataSdkClient;
 import com.databricks.jdbc.dbclient.impl.sqlexec.DatabricksSdkClient;
 import com.databricks.jdbc.dbclient.impl.thrift.DatabricksThriftServiceClient;
-import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.exception.DatabricksTemporaryRedirectException;
 import com.databricks.jdbc.log.JdbcLogger;
@@ -22,7 +21,6 @@ import com.databricks.sdk.support.ToStringer;
 import com.google.common.annotations.VisibleForTesting;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.function.Function;
 import javax.annotation.Nullable;
 
 /**
@@ -46,22 +44,6 @@ public class DatabricksSession implements IDatabricksSession {
   private final Map<String, String> clientInfoProperties;
   private final CompressionCodec compressionCodec;
   private final IDatabricksConnectionContext connectionContext;
-
-  private Function<IDatabricksConnectionContext, IDatabricksClient> thriftClientFactory =
-      connectionContext -> {
-        try {
-          return DatabricksMetricsTimedProcessor.createProxy(
-              new DatabricksThriftServiceClient(connectionContext));
-        } catch (DatabricksParsingException e) {
-          throw new RuntimeException(e);
-        }
-      };
-
-  @VisibleForTesting
-  public void setThriftClientFactory(
-      Function<IDatabricksConnectionContext, IDatabricksClient> factory) {
-    this.thriftClientFactory = factory;
-  }
 
   /**
    * Creates an instance of Databricks session for given connection context
@@ -154,9 +136,10 @@ public class DatabricksSession implements IDatabricksSession {
               databricksClient.createSession(
                   this.computeResource, this.catalog, this.schema, this.sessionConfigs);
         } catch (DatabricksTemporaryRedirectException e) {
-          // Switch client type to thrift and use the factory to create the fallback client.
           this.connectionContext.setClientType(DatabricksClientType.THRIFT);
-          this.databricksClient = thriftClientFactory.apply(connectionContext);
+          this.databricksClient =
+              DatabricksMetricsTimedProcessor.createProxy(
+                  new DatabricksThriftServiceClient(connectionContext));
           this.sessionInfo =
               this.databricksClient.createSession(
                   this.computeResource, this.catalog, this.schema, this.sessionConfigs);
