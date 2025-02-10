@@ -88,7 +88,8 @@ public class DatabricksSessionTest {
     when(sdkClient.createSession(eq(WAREHOUSE_COMPUTE), any(), any(), any()))
         .thenThrow(new DatabricksTemporaryRedirectException(TEMPORARY_REDIRECT_EXCEPTION));
     when(thriftClient.createSession(any(), any(), any(), any())).thenReturn(sessionInfo);
-    DatabricksSession session = new DatabricksSession(connectionContext, sdkClient, thriftClient);
+    DatabricksSession session = new DatabricksSession(connectionContext, sdkClient);
+    session.setThriftClientFactory(ctx -> thriftClient);
     assertEquals(DatabricksClientType.SEA, connectionContext.getClientType());
     assertFalse(session.isOpen());
     session.open();
