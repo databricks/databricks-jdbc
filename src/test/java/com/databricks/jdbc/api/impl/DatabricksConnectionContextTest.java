@@ -3,6 +3,7 @@ package com.databricks.jdbc.api.impl;
 import static com.databricks.jdbc.api.impl.DatabricksConnectionContext.getLogLevel;
 import static com.databricks.jdbc.common.DatabricksJdbcConstants.GCP_GOOGLE_CREDENTIALS_AUTH_TYPE;
 import static com.databricks.jdbc.common.DatabricksJdbcConstants.GCP_GOOGLE_ID_AUTH_TYPE;
+import static com.databricks.jdbc.common.DatabricksJdbcConstants.M2M_AUTH_TYPE;
 import static org.junit.jupiter.api.Assertions.*;
 
 import com.databricks.jdbc.TestConstants;
@@ -126,6 +127,14 @@ class DatabricksConnectionContextTest {
         (DatabricksConnectionContext)
             DatabricksConnectionContext.parse(TestConstants.GCP_TEST_URL, p2);
     assertEquals(GCP_GOOGLE_CREDENTIALS_AUTH_TYPE, connectionContext.getGcpAuthType());
+
+    // test gcp with Client Secret
+    Properties p3 = new Properties();
+    p3.setProperty("OAuth2Secret", "client_secret");
+    connectionContext =
+        (DatabricksConnectionContext)
+            DatabricksConnectionContext.parse(TestConstants.GCP_TEST_URL, p3);
+    assertEquals(M2M_AUTH_TYPE, connectionContext.getGcpAuthType());
   }
 
   @Test
