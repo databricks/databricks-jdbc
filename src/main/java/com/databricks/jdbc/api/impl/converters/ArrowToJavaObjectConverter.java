@@ -1,6 +1,7 @@
 package com.databricks.jdbc.api.impl.converters;
 
 import com.databricks.jdbc.api.impl.*;
+import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.exception.DatabricksValidationException;
 import com.databricks.jdbc.log.JdbcLogger;
@@ -107,17 +108,20 @@ public class ArrowToJavaObjectConverter {
     }
   }
 
-  private static DatabricksMap convertToMap(Object object, String arrowMetadata) {
+  private static DatabricksMap convertToMap(Object object, String arrowMetadata)
+      throws DatabricksParsingException {
     ComplexDataTypeParser parser = new ComplexDataTypeParser();
     return parser.parseJsonStringToDbMap(object.toString(), arrowMetadata);
   }
 
-  private static DatabricksArray convertToArray(Object object, String arrowMetadata) {
+  private static DatabricksArray convertToArray(Object object, String arrowMetadata)
+      throws DatabricksParsingException {
     ComplexDataTypeParser parser = new ComplexDataTypeParser();
     return parser.parseJsonStringToDbArray(object.toString(), arrowMetadata);
   }
 
-  private static Object convertToStruct(Object object, String arrowMetadata) {
+  private static Object convertToStruct(Object object, String arrowMetadata)
+      throws DatabricksParsingException {
     ComplexDataTypeParser parser = new ComplexDataTypeParser();
     return parser.parseJsonStringToDbStruct(object.toString(), arrowMetadata);
   }

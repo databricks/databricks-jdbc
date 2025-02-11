@@ -2,6 +2,7 @@ package com.databricks.jdbc.api.impl;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+import com.databricks.jdbc.exception.DatabricksParsingException;
 import java.sql.Date;
 import java.sql.Time;
 import java.sql.Timestamp;
@@ -18,7 +19,7 @@ public class ComplexDataTypeParserTest {
   }
 
   @Test
-  void testParseJsonStringToDbArray_valid() {
+  void testParseJsonStringToDbArray_valid() throws DatabricksParsingException {
     String json = "[1,2,3]";
 
     DatabricksArray dbArray = parser.parseJsonStringToDbArray(json, "ARRAY<INT>");
@@ -40,13 +41,13 @@ public class ComplexDataTypeParserTest {
     String invalidJson = "[1, 2"; // missing bracket
     Exception ex =
         assertThrows(
-            RuntimeException.class,
+            DatabricksParsingException.class,
             () -> parser.parseJsonStringToDbArray(invalidJson, "ARRAY<INT>"));
     assertTrue(ex.getMessage().contains("Failed to parse JSON array from"));
   }
 
   @Test
-  void testParseJsonStringToDbMap_valid() {
+  void testParseJsonStringToDbMap_valid() throws DatabricksParsingException {
 
     String json = "{\"k1\":100, \"k2\":200}";
 
@@ -62,13 +63,13 @@ public class ComplexDataTypeParserTest {
     String invalidJson = "{\"k1\":100";
     Exception ex =
         assertThrows(
-            RuntimeException.class,
+            DatabricksParsingException.class,
             () -> parser.parseJsonStringToDbMap(invalidJson, "MAP<STRING,INT>"));
     assertTrue(ex.getMessage().contains("Failed to parse JSON map from"));
   }
 
   @Test
-  void testParseJsonStringToDbStruct_valid() {
+  void testParseJsonStringToDbStruct_valid() throws DatabricksParsingException {
     String json = "{\"name\":\"Alice\", \"age\":30}";
 
     DatabricksStruct dbStruct =
@@ -91,13 +92,13 @@ public class ComplexDataTypeParserTest {
     String invalidJson = "{\"name\":\"Alice\""; // missing brace
     Exception ex =
         assertThrows(
-            RuntimeException.class,
+            DatabricksParsingException.class,
             () -> parser.parseJsonStringToDbStruct(invalidJson, "STRUCT<name:STRING,age:INT>"));
     assertTrue(ex.getMessage().contains("Failed to parse JSON struct from"));
   }
 
   @Test
-  void testComplexPrimitiveConversions() {
+  void testComplexPrimitiveConversions() throws DatabricksParsingException {
     // We'll parse a small JSON struct that includes DECIMAL, DATE, TIME, TIMESTAMP, etc.
     String json =
         "{"
@@ -107,9 +108,6 @@ public class ComplexDataTypeParserTest {
             + "\"ts\":\"2023-10-05 15:20:30\""
             + "}";
 
-    // Suppose your real parseStructMetadata(...) for
-    // "STRUCT<dec:DECIMAL,dt:DATE,tm:TIME,ts:TIMESTAMP>"
-    // returns { dec=DECIMAL, dt=DATE, tm=TIME, ts=TIMESTAMP }
     DatabricksStruct dbStruct =
         parser.parseJsonStringToDbStruct(json, "STRUCT<dec:DECIMAL,dt:DATE,tm:TIME,ts:TIMESTAMP>");
     assertNotNull(dbStruct);
