@@ -1,5 +1,6 @@
 package com.databricks.jdbc.api.impl.arrow;
 
+import static com.databricks.jdbc.common.DatabricksJdbcConstants.ARROW_METADATA_KEY;
 import static com.databricks.jdbc.common.util.DatabricksThriftUtil.createExternalLink;
 import static com.databricks.jdbc.common.util.ValidationUtil.checkHTTPError;
 
@@ -412,7 +413,7 @@ public class ArrowResultChunk {
   private static List<String> getMetadataInformationFromSchemaRoot(
       VectorSchemaRoot vectorSchemaRoot) {
     return vectorSchemaRoot.getFieldVectors().stream()
-        .map(fieldVector -> fieldVector.getField().getMetadata().get("Spark:DataType:SqlName"))
+        .map(fieldVector -> fieldVector.getField().getMetadata().get(ARROW_METADATA_KEY))
         .collect(Collectors.toList());
   }
 
