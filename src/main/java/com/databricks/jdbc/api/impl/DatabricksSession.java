@@ -13,6 +13,7 @@ import com.databricks.jdbc.dbclient.impl.sqlexec.DatabricksMetadataSdkClient;
 import com.databricks.jdbc.dbclient.impl.sqlexec.DatabricksSdkClient;
 import com.databricks.jdbc.dbclient.impl.thrift.DatabricksThriftServiceClient;
 import com.databricks.jdbc.exception.DatabricksSQLException;
+import com.databricks.jdbc.exception.DatabricksTemporaryRedirectException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.telemetry.latency.DatabricksMetricsTimedProcessor;
@@ -29,7 +30,7 @@ import javax.annotation.Nullable;
 public class DatabricksSession implements IDatabricksSession {
 
   private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(DatabricksSession.class);
-  private final IDatabricksClient databricksClient;
+  private IDatabricksClient databricksClient;
   private IDatabricksMetadataClient databricksMetadataClient;
   private final IDatabricksComputeResource computeResource;
   private boolean isSessionOpen;
@@ -130,9 +131,19 @@ public class DatabricksSession implements IDatabricksSession {
     LOGGER.debug("public void open()");
     synchronized (this) {
       if (!isSessionOpen) {
-        this.sessionInfo =
-            databricksClient.createSession(
-                this.computeResource, this.catalog, this.schema, this.sessionConfigs);
+        try {
+          this.sessionInfo =
+              databricksClient.createSession(
+                  this.computeResource, this.catalog, this.schema, this.sessionConfigs);
+        } catch (DatabricksTemporaryRedirectException e) {
+          this.connectionContext.setClientType(DatabricksClientType.THRIFT);
+          this.databricksClient =
+              DatabricksMetricsTimedProcessor.createProxy(
+                  new DatabricksThriftServiceClient(connectionContext));
+          this.sessionInfo =
+              this.databricksClient.createSession(
+                  this.computeResource, this.catalog, this.schema, this.sessionConfigs);
+        }
         this.isSessionOpen = true;
       }
     }

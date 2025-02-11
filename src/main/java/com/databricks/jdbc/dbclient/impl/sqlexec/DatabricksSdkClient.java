@@ -1,8 +1,10 @@
 package com.databricks.jdbc.dbclient.impl.sqlexec;
 
 import static com.databricks.jdbc.common.DatabricksJdbcConstants.JSON_HTTP_HEADERS;
+import static com.databricks.jdbc.common.DatabricksJdbcConstants.TEMPORARY_REDIRECT_STATUS_CODE;
 import static com.databricks.jdbc.common.EnvironmentVariables.DEFAULT_ROW_LIMIT;
 import static com.databricks.jdbc.dbclient.impl.sqlexec.PathConstants.*;
+import static com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode.TEMPORARY_REDIRECT_EXCEPTION;
 
 import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.api.IDatabricksSession;
@@ -28,6 +30,7 @@ import com.databricks.jdbc.model.core.ResultData;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import com.databricks.sdk.WorkspaceClient;
 import com.databricks.sdk.core.ApiClient;
+import com.databricks.sdk.core.DatabricksError;
 import com.databricks.sdk.service.sql.*;
 import com.google.common.annotations.VisibleForTesting;
 import java.sql.SQLException;
@@ -75,7 +78,8 @@ public class DatabricksSdkClient implements IDatabricksClient {
       IDatabricksComputeResource warehouse,
       String catalog,
       String schema,
-      Map<String, String> sessionConf) {
+      Map<String, String> sessionConf)
+      throws DatabricksTemporaryRedirectException {
     // TODO (PECO-1460): Handle sessionConf in public session API
     LOGGER.debug(
         String.format(
@@ -92,10 +96,17 @@ public class DatabricksSdkClient implements IDatabricksClient {
     if (sessionConf != null && !sessionConf.isEmpty()) {
       request.setSessionConfigs(sessionConf);
     }
-    CreateSessionResponse createSessionResponse =
-        workspaceClient
-            .apiClient()
-            .POST(SESSION_PATH, request, CreateSessionResponse.class, JSON_HTTP_HEADERS);
+    CreateSessionResponse createSessionResponse = null;
+    try {
+      createSessionResponse =
+          workspaceClient
+              .apiClient()
+              .POST(SESSION_PATH, request, CreateSessionResponse.class, JSON_HTTP_HEADERS);
+    } catch (DatabricksError e) {
+      if (e.getStatusCode() == TEMPORARY_REDIRECT_STATUS_CODE) {
+        throw new DatabricksTemporaryRedirectException(TEMPORARY_REDIRECT_EXCEPTION);
+      }
+    }
 
     return ImmutableSessionInfo.builder()
         .computeResource(warehouse)
