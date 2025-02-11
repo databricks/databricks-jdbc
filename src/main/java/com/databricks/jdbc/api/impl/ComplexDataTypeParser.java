@@ -1,15 +1,28 @@
 package com.databricks.jdbc.api.impl;
 
 import com.databricks.jdbc.common.util.DatabricksTypeUtil;
+import com.databricks.jdbc.log.JdbcLogger;
+import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.io.IOException;
 import java.math.BigDecimal;
 import java.sql.Date;
+import java.sql.Time;
 import java.sql.Timestamp;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
 
-/** Utility class for parsing complex data type objects (map, array, struct). */
+/**
+ * Utility class for parsing complex data type objects (map, array, struct)
+ * into the custom JDBC wrapper objects (DatabricksArray, DatabricksMap, DatabricksStruct).
+ */
 public class ComplexDataTypeParser {
+
+  private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(ComplexDataTypeParser.class);
+
   private final ObjectMapper objectMapper;
 
   /** Constructor class for ComplexDataTypeParser. */
@@ -18,197 +31,223 @@ public class ComplexDataTypeParser {
   }
 
   /**
-   * Parses a JSON string into a JsonNode.
+   * Parses a JSON string representing an ARRAY into a DatabricksArray.
    *
-   * @param json the JSON string to parse
-   * @return the parsed JsonNode
+   * @param json The JSON string (e.g. "[1,2,3]" or "[{\"name\":\"John\"}, ...]")
+   * @param arrayMetadata The type metadata (e.g. "ARRAY<INT>" or "ARRAY<STRUCT<...>>")
+   * @return A DatabricksArray implementing java.sql.Array
    */
-  public JsonNode parse(String json) {
-    try {
-      return objectMapper.readTree(json);
-    } catch (Exception e) {
-      throw new RuntimeException("Failed to parse JSON: " + json, e);
-    }
-  }
-
-  /**
-   * Parses a JsonNode into a Struct representation using the provided type map.
-   *
-   * @param node the JsonNode to parse
-   * @param typeMap the type map defining the structure of the Struct
-   * @return a Map representing the Struct
-   */
-  public Map<String, Object> parseToStruct(JsonNode node, Map<String, String> typeMap) {
-    if (!node.isObject()) {
-      throw new IllegalArgumentException("Expected JSON object, but got: " + node);
-    }
-
-    Map<String, Object> structMap = new LinkedHashMap<>();
-    node.fields()
-        .forEachRemaining(
-            entry -> {
-              String fieldName = entry.getKey();
-              JsonNode fieldNode = entry.getValue();
-
-              String fieldType = typeMap.getOrDefault(fieldName, DatabricksTypeUtil.STRING);
-
-              if (fieldType.startsWith(DatabricksTypeUtil.STRUCT)) {
-                Map<String, String> nestedTypeMap = MetadataParser.parseStructMetadata(fieldType);
-                structMap.put(fieldName, parseToStruct(fieldNode, nestedTypeMap));
-              } else if (fieldType.startsWith(DatabricksTypeUtil.ARRAY)) {
-                String nestedArrayType = MetadataParser.parseArrayMetadata(fieldType);
-                structMap.put(fieldName, parseToArray(fieldNode, nestedArrayType));
-              } else if (fieldType.startsWith(DatabricksTypeUtil.MAP)) {
-                structMap.put(fieldName, parseToMap(fieldNode.toString(), fieldType));
-              } else {
-                structMap.put(fieldName, convertValueNode(fieldNode, fieldType));
-              }
-            });
-    return structMap;
-  }
-
-  /**
-   * Parses a JsonNode into an Array representation using the provided element type.
-   *
-   * @param node the JsonNode to parse
-   * @param elementType the type of elements in the array
-   * @return a List representing the Array
-   */
-  public List<Object> parseToArray(JsonNode node, String elementType) {
-    if (!node.isArray()) {
-      throw new IllegalArgumentException("Expected JSON array, but got: " + node);
-    }
-
-    List<Object> arrayList = new ArrayList<>();
-    for (JsonNode element : node) {
-      if (elementType.startsWith(DatabricksTypeUtil.STRUCT)) {
-        Map<String, String> structTypeMap = MetadataParser.parseStructMetadata(elementType);
-        arrayList.add(parseToStruct(element, structTypeMap));
-      } else if (elementType.startsWith(DatabricksTypeUtil.ARRAY)) {
-        String nestedArrayType = MetadataParser.parseArrayMetadata(elementType);
-        arrayList.add(parseToArray(element, nestedArrayType));
-      } else if (elementType.startsWith(DatabricksTypeUtil.MAP)) {
-        arrayList.add(parseToMap(element.toString(), elementType));
-      } else {
-        arrayList.add(convertValueNode(element, elementType));
-      }
-    }
-
-    return arrayList;
-  }
-
-  /**
-   * Parses a JSON string into a Map representation based on the provided metadata.
-   *
-   * @param json the JSON string to parse
-   * @param metadata the metadata defining the structure of the Map
-   * @return a Map representing the parsed JSON
-   */
-  public Map<String, Object> parseToMap(String json, String metadata) {
+  public DatabricksArray parseJsonStringToDbArray(String json, String arrayMetadata) {
     try {
       JsonNode node = objectMapper.readTree(json);
-      if (node.isObject()) {
-        if (metadata.startsWith("MAP")) {
-          return convertToMap(node, metadata);
-        }
-        return parseToStruct(node, MetadataParser.parseStructMetadata(metadata));
-      } else if (node.isArray()) {
-        return convertArrayToMap(node, metadata);
-      } else {
-        throw new IllegalArgumentException(
-            "Expected JSON object or array for Map, but got: " + node);
-      }
-    } catch (Exception e) {
-      throw new RuntimeException("Failed to parse JSON: " + json, e);
+      return parseToArray(node, arrayMetadata);
+    } catch (IOException e) {
+      throw new RuntimeException("Failed to parse JSON array from: " + json, e);
     }
-  }
-
-  private Map<String, Object> convertToMap(JsonNode node, String metadata) {
-    Map<String, Object> map = new LinkedHashMap<>();
-    String[] mapMetadata = MetadataParser.parseMapMetadata(metadata).split(",", 2);
-    String keyType = mapMetadata[0].trim();
-    String valueType = mapMetadata[1].trim();
-
-    node.fields()
-        .forEachRemaining(
-            entry -> {
-              String key = entry.getKey();
-              JsonNode valueNode = entry.getValue();
-              Object value = convertValueNode(valueNode, valueType);
-              map.put(key, value);
-            });
-
-    return map;
-  }
-
-  private Map<String, Object> convertArrayToMap(JsonNode arrayNode, String metadata) {
-    Map<String, Object> map = new LinkedHashMap<>();
-    String[] mapMetadata = MetadataParser.parseMapMetadata(metadata).split(",", 2);
-    String keyType = mapMetadata[0].trim();
-    String valueType = mapMetadata[1].trim();
-
-    for (JsonNode element : arrayNode) {
-      if (element.isObject() && element.has("key") && element.has("value")) {
-        Object key = convertValueNode(element.get("key"), keyType);
-        Object value = convertValueNode(element.get("value"), valueType);
-        map.put(key.toString(), value);
-      } else {
-        throw new IllegalArgumentException(
-            "Expected array elements with 'key' and 'value' fields, but got: " + element);
-      }
-    }
-
-    return map;
-  }
-
-  private Object parseToJavaObject(JsonNode node) {
-    if (node.isObject()) {
-      return parseToStruct(node, Collections.emptyMap());
-    } else if (node.isArray()) {
-      return parseToArray(node, DatabricksTypeUtil.STRING);
-    } else if (node.isValueNode()) {
-      return convertValueNode(node, DatabricksTypeUtil.STRING);
-    }
-    return null;
   }
 
   /**
-   * Converts a JsonNode value to the specified type.
+   * Parses a JSON string representing a MAP into a DatabricksMap.
    *
-   * @param node the JsonNode value to convert
-   * @param expectedType the expected type of the value
-   * @return the converted value
+   * @param json The JSON string (e.g. "{\"key1\": 123, \"key2\": 456}" or "[{\"key\":...,\"value\":...},...]")
+   * @param mapMetadata The type metadata (e.g. "MAP<STRING,INT>" or "MAP<STRING,ARRAY<INT>>")
+   * @return A DatabricksMap implementing a JDBC-like Map interface
+   */
+  public DatabricksMap<String, Object> parseJsonStringToDbMap(String json, String mapMetadata) {
+    try {
+      JsonNode node = objectMapper.readTree(json);
+      return parseToMap(node, mapMetadata);
+    } catch (IOException e) {
+      throw new RuntimeException("Failed to parse JSON map from: " + json, e);
+    }
+  }
+
+  /**
+   * Parses a JSON string representing a STRUCT into a DatabricksStruct.
+   *
+   * @param json The JSON string (e.g. "{\"name\":\"John\", \"age\":30}")
+   * @param structMetadata The type metadata (e.g. "STRUCT<name:STRING, age:INT>")
+   * @return A DatabricksStruct implementing java.sql.Struct
+   */
+  public DatabricksStruct parseJsonStringToDbStruct(String json, String structMetadata) {
+    try {
+      JsonNode node = objectMapper.readTree(json);
+      return parseToStruct(node, structMetadata);
+    } catch (IOException e) {
+      throw new RuntimeException("Failed to parse JSON struct from: " + json, e);
+    }
+  }
+
+  /**
+   * Parses a JsonNode into a DatabricksArray, given full array metadata (e.g. "ARRAY<INT>").
+   */
+  public DatabricksArray parseToArray(JsonNode node, String arrayMetadata) {
+    if (!node.isArray()) {
+      throw new IllegalArgumentException("Expected JSON array, got: " + node);
+    }
+    LOGGER.debug("Parsing array with metadata: {}", arrayMetadata);
+
+    String elementType = MetadataParser.parseArrayMetadata(arrayMetadata);
+
+    List<Object> list = new ArrayList<>();
+    for (JsonNode elementNode : node) {
+      Object converted = convertValueNode(elementNode, elementType);
+      list.add(converted);
+    }
+
+    return new DatabricksArray(list, arrayMetadata);
+  }
+
+  /**
+   * Parses a JsonNode into a DatabricksMap, given full map metadata (e.g. "MAP<STRING, ARRAY<INT>>").
+   */
+  public DatabricksMap<String, Object> parseToMap(JsonNode node, String mapMetadata) {
+    if (!mapMetadata.startsWith(DatabricksTypeUtil.MAP)) {
+      throw new IllegalArgumentException("Type is not a MAP: " + mapMetadata);
+    }
+    LOGGER.debug("Parsing map with metadata: {}", mapMetadata);
+
+    String[] kv = MetadataParser.parseMapMetadata(mapMetadata).split(",", 2);
+    String keyType = kv[0].trim();
+    String valueType = kv[1].trim();
+
+    Map<String, Object> rawMap = convertJsonNodeToJavaMap(node, keyType, valueType);
+
+    return new DatabricksMap<>(rawMap, mapMetadata);
+  }
+
+  /**
+   * Parses a JsonNode into a DatabricksStruct, given full struct metadata.
+   * e.g. "STRUCT<name:STRING, age:INT>".
+   */
+  public DatabricksStruct parseToStruct(JsonNode node, String structMetadata) {
+    if (!node.isObject()) {
+      throw new IllegalArgumentException("Expected JSON object for STRUCT, got: " + node);
+    }
+    LOGGER.debug("Parsing struct with metadata: {}", structMetadata);
+
+    Map<String, String> fieldTypeMap = MetadataParser.parseStructMetadata(structMetadata);
+
+    Map<String, Object> structMap = new LinkedHashMap<>();
+
+    node.fields().forEachRemaining(entry -> {
+      String fieldName = entry.getKey();
+      JsonNode fieldNode = entry.getValue();
+
+      String fieldType = fieldTypeMap.getOrDefault(fieldName, DatabricksTypeUtil.STRING);
+
+      Object convertedValue = convertValueNode(fieldNode, fieldType);
+      structMap.put(fieldName, convertedValue);
+    });
+
+    return new DatabricksStruct(structMap, structMetadata);
+  }
+
+
+  /**
+   * Converts a single JsonNode into the correct Java object based on `expectedType`.
+   * If `expectedType` is a complex type (ARRAY, MAP, STRUCT), we recurse.
    */
   private Object convertValueNode(JsonNode node, String expectedType) {
-    if (node.isNull()) {
+    if (node == null || node.isNull()) {
       return null;
     }
 
-    try {
-      switch (expectedType.toUpperCase()) {
-        case DatabricksTypeUtil.INT:
-          return node.isNumber() ? node.intValue() : Integer.parseInt(node.asText());
-        case DatabricksTypeUtil.BIGINT:
-          return node.isNumber() ? node.longValue() : Long.parseLong(node.asText());
-        case DatabricksTypeUtil.FLOAT:
-          return node.isNumber() ? node.floatValue() : Float.parseFloat(node.asText());
-        case DatabricksTypeUtil.DOUBLE:
-          return node.isNumber() ? node.doubleValue() : Double.parseDouble(node.asText());
-        case DatabricksTypeUtil.DECIMAL:
-          return new BigDecimal(node.asText());
-        case DatabricksTypeUtil.BOOLEAN:
-          return node.isBoolean() ? node.booleanValue() : Boolean.parseBoolean(node.asText());
-        case DatabricksTypeUtil.DATE:
-          return Date.valueOf(node.asText());
-        case DatabricksTypeUtil.TIMESTAMP:
-          return Timestamp.valueOf(node.asText());
-        case DatabricksTypeUtil.STRING:
-        default:
-          return node.asText();
+    if (expectedType.startsWith(DatabricksTypeUtil.ARRAY)) {
+      return parseToArray(node, expectedType);
+    }
+    if (expectedType.startsWith(DatabricksTypeUtil.STRUCT)) {
+      return parseToStruct(node, expectedType);
+    }
+    if (expectedType.startsWith(DatabricksTypeUtil.MAP)) {
+      return parseToMap(node, expectedType);
+    }
+
+    return convertPrimitive(node.asText(), expectedType);
+  }
+
+  /**
+   * Converts the given JsonNode into a Java Map<String,Object>, according to keyType and valueType.
+   * - If the node is a JSON Object: each field is "key" -> value
+   * - If the node is a JSON Array: assume each element has "key" and "value" fields
+   */
+  private Map<String, Object> convertJsonNodeToJavaMap(JsonNode node, String keyType, String valueType) {
+    Map<String, Object> result = new LinkedHashMap<>();
+
+    if (node.isObject()) {
+      node.fields().forEachRemaining(entry -> {
+        String keyString = entry.getKey();
+        JsonNode valNode = entry.getValue();
+
+        Object typedKey = convertValueNode(objectMapper.valueToTree(keyString), keyType);
+        String mapKey = (typedKey == null) ? "null" : typedKey.toString();
+
+        Object typedVal = convertValueNode(valNode, valueType);
+        result.put(mapKey, typedVal);
+      });
+
+    } else if (node.isArray()) {
+      for (JsonNode element : node) {
+        if (!element.has("key")) {
+          throw new IllegalArgumentException(
+                  "Expected array element with at least 'key' field. Found: " + element);
+        }
+
+        JsonNode keyNode = element.get("key");
+        Object typedKey = convertValueNode(keyNode, keyType);
+        String mapKey = (typedKey == null) ? "null" : typedKey.toString();
+
+        JsonNode valueNode = element.get("value");
+        Object typedVal = null;
+        if (valueNode != null && !valueNode.isNull()) {
+          typedVal = convertValueNode(valueNode, valueType);
+        }
+
+        result.put(mapKey, typedVal);
       }
-    } catch (Exception e) {
+    } else {
       throw new IllegalArgumentException(
-          "Failed to convert value " + node + " to type " + expectedType, e);
+              "Expected JSON object or array for a MAP. Found: " + node);
+    }
+
+    return result;
+  }
+
+
+  /**
+   * Converts a primitive value (String -> int, String -> long, etc.)
+   * based on the type (INT, BIGINT, FLOAT, DOUBLE, DECIMAL, BOOLEAN, DATE, TIMESTAMP, TIME, BINARY, STRING, etc.).
+   */
+  private Object convertPrimitive(String text, String type) {
+    if (text == null) {
+      return null;
+    }
+    switch (type.toUpperCase()) {
+      case DatabricksTypeUtil.INT:
+        return Integer.parseInt(text);
+      case DatabricksTypeUtil.BIGINT:
+        return Long.parseLong(text);
+      case DatabricksTypeUtil.SMALLINT:
+        return Short.parseShort(text);
+      case DatabricksTypeUtil.FLOAT:
+        return Float.parseFloat(text);
+      case DatabricksTypeUtil.DOUBLE:
+        return Double.parseDouble(text);
+      case DatabricksTypeUtil.DECIMAL:
+        return new BigDecimal(text);
+      case DatabricksTypeUtil.BOOLEAN:
+        return Boolean.parseBoolean(text);
+      case DatabricksTypeUtil.DATE:
+        return Date.valueOf(text);
+      case DatabricksTypeUtil.TIMESTAMP:
+        return Timestamp.valueOf(text);
+      case DatabricksTypeUtil.TIME:
+        return Time.valueOf(text);
+      case DatabricksTypeUtil.BINARY:
+        return text.getBytes();
+      case DatabricksTypeUtil.STRING:
+      default:
+        return text;
     }
   }
 }

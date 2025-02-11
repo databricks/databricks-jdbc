@@ -59,6 +59,8 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
 
   private ResultSetType resultSetType = ResultSetType.UNASSIGNED;
 
+  private boolean complexDatatypeSupport = false;
+
   // Constructor for SEA result set
   public DatabricksResultSet(
       StatementStatus statementStatus,
@@ -88,6 +90,7 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
       executionResult = null;
       resultSetMetaData = null;
     }
+    this.complexDatatypeSupport = session.getConnectionContext().isComplexDatatypeSupportEnabled();
     this.statementType = statementType;
     this.updateCount = null;
     this.parentStatement = parentStatement;
@@ -148,6 +151,7 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
       this.executionResult = null;
       this.resultSetMetaData = null;
     }
+    this.complexDatatypeSupport = session.getConnectionContext().isComplexDatatypeSupportEnabled();
     this.statementType = statementType;
     this.updateCount = null;
     this.parentStatement = parentStatement;
@@ -453,7 +457,18 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
       return null;
     }
     int columnType = resultSetMetaData.getColumnType(columnIndex);
+    String columnName = resultSetMetaData.getColumnTypeName(columnIndex);
+    // separate handling for complex data types
+    if (columnName.equals("ARRAY") || columnName.equals("MAP") || columnName.equals("STRUCT")) {
+      return handleComplexDataTypes(obj, columnIndex);
+    }
     return ConverterHelper.convertSqlTypeToJavaType(columnType, obj);
+  }
+
+  private Object handleComplexDataTypes(Object obj, int columnIndex) {
+    if (complexDatatypeSupport)
+      return obj;
+    return obj.toString();
   }
 
   @Override
@@ -1026,6 +1041,9 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
    */
   public Array getArray(int columnIndex) throws SQLException {
     LOGGER.debug("Getting Array from column index: {}", columnIndex);
+    if(!complexDatatypeSupport) {
+      throw new SQLException("Complex datatype support support is disabled");
+    }
     if (this.resultSetType.equals(ResultSetType.THRIFT_INLINE)
         || this.resultSetType.equals(ResultSetType.SEA_INLINE)) {
       throw new SQLException("Complex data types are not supported in inline mode");
@@ -1046,6 +1064,9 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
   @Override
   public Struct getStruct(int columnIndex) throws SQLException {
     LOGGER.debug("Getting Struct from column index: {}", columnIndex);
+    if(!complexDatatypeSupport) {
+      throw new SQLException("Complex datatype support support is disabled");
+    }
     if (this.resultSetType.equals(ResultSetType.THRIFT_INLINE)
         || this.resultSetType.equals(ResultSetType.SEA_INLINE)) {
       throw new SQLException("Complex data types are not supported in inline mode");
@@ -1066,6 +1087,9 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
   @Override
   public Map getMap(int columnIndex) throws SQLException {
     LOGGER.debug("Getting Map from column index: {}", columnIndex);
+    if(!complexDatatypeSupport) {
+      throw new SQLException("Complex datatype support support is disabled");
+    }
     if (this.resultSetType.equals(ResultSetType.THRIFT_INLINE)
         || this.resultSetType.equals(ResultSetType.SEA_INLINE)) {
       throw new SQLException("Complex data types are not supported in inline mode");

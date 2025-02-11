@@ -1,9 +1,6 @@
 package com.databricks.jdbc.api.impl.converters;
 
-import com.databricks.jdbc.api.impl.ComplexDataTypeParser;
-import com.databricks.jdbc.api.impl.DatabricksArray;
-import com.databricks.jdbc.api.impl.DatabricksStruct;
-import com.databricks.jdbc.api.impl.MetadataParser;
+import com.databricks.jdbc.api.impl.*;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.exception.DatabricksValidationException;
 import com.databricks.jdbc.log.JdbcLogger;
@@ -111,26 +108,19 @@ public class ArrowToJavaObjectConverter {
     }
   }
 
-  private static Object convertToMap(Object object, String arrowMetadata) {
+  private static DatabricksMap convertToMap(Object object, String arrowMetadata) {
     ComplexDataTypeParser parser = new ComplexDataTypeParser();
-    Map<String, Object> map = parser.parseToMap(object.toString(), arrowMetadata);
-    return map;
+    return parser.parseJsonStringToDbMap(object.toString(), arrowMetadata);
   }
 
   private static DatabricksArray convertToArray(Object object, String arrowMetadata) {
     ComplexDataTypeParser parser = new ComplexDataTypeParser();
-    List<Object> arrayList =
-        parser.parseToArray(
-            parser.parse(object.toString()), MetadataParser.parseArrayMetadata(arrowMetadata));
-    return new DatabricksArray(arrayList, arrowMetadata);
+    return parser.parseJsonStringToDbArray(object.toString(), arrowMetadata);
   }
 
   private static Object convertToStruct(Object object, String arrowMetadata) {
     ComplexDataTypeParser parser = new ComplexDataTypeParser();
-    Map<String, Object> structMap =
-        parser.parseToStruct(
-            parser.parse(object.toString()), MetadataParser.parseStructMetadata(arrowMetadata));
-    return new DatabricksStruct(structMap, arrowMetadata);
+    return parser.parseJsonStringToDbStruct(object.toString(), arrowMetadata);
   }
 
   private static Object convertToTimestamp(Object object) throws DatabricksSQLException {

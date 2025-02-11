@@ -2,6 +2,7 @@ package com.databricks.jdbc.api.impl;
 
 import static com.databricks.jdbc.api.impl.DatabricksResultSet.AFFECTED_ROWS_COUNT;
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -42,6 +43,8 @@ public class DatabricksResultSetTest {
   @Mock DatabricksResultSetMetaData mockedResultSetMetadata;
   @Mock IDatabricksSession session;
   @Mock DatabricksStatement mockedDatabricksStatement;
+
+  @Mock DatabricksConnectionContext databricksConnectionContext;
   @Mock Statement mockedStatement;
 
   private DatabricksResultSet getResultSet(
@@ -85,6 +88,8 @@ public class DatabricksResultSetTest {
 
   @Test
   void testThriftResultSet() throws SQLException {
+    when(session.getConnectionContext()).thenReturn(databricksConnectionContext);
+    when(databricksConnectionContext.isComplexDatatypeSupportEnabled()).thenReturn(false);
     DatabricksResultSet resultSet = getThriftResultSetMetadata();
     assertFalse(resultSet.next());
   }
@@ -154,6 +159,7 @@ public class DatabricksResultSetTest {
   void testGetShort() throws SQLException {
     DatabricksResultSet resultSet = getResultSet(StatementState.SUCCEEDED, null);
     when(mockedExecutionResult.getObject(0)).thenReturn((short) 100);
+    when(mockedResultSetMetadata.getColumnTypeName(anyInt())).thenReturn("");
     when(mockedResultSetMetadata.getColumnType(1)).thenReturn(Types.SMALLINT);
     assertEquals((short) 100, resultSet.getShort(1));
     // null object
@@ -502,6 +508,7 @@ public class DatabricksResultSetTest {
     String expected = "testObject";
     DatabricksResultSet resultSet = getResultSet(StatementState.SUCCEEDED, null);
     when(mockedExecutionResult.getObject(2)).thenReturn(expected);
+    when(mockedResultSetMetadata.getColumnTypeName(anyInt())).thenReturn("");
     assertEquals(expected, resultSet.getObject(3));
     // null object
     when(mockedExecutionResult.getObject(2)).thenReturn(null);
