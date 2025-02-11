@@ -16,6 +16,7 @@ import com.databricks.jdbc.common.util.DatabricksThreadContextHolder;
 import com.databricks.jdbc.dbclient.IDatabricksClient;
 import com.databricks.jdbc.dbclient.impl.common.ClientConfigurator;
 import com.databricks.jdbc.dbclient.impl.common.StatementId;
+import com.databricks.jdbc.dbclient.impl.common.TracingUtil;
 import com.databricks.jdbc.exception.*;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
@@ -101,7 +102,7 @@ public class DatabricksSdkClient implements IDatabricksClient {
       createSessionResponse =
           workspaceClient
               .apiClient()
-              .POST(SESSION_PATH, request, CreateSessionResponse.class, JSON_HTTP_HEADERS);
+              .POST(SESSION_PATH, request, CreateSessionResponse.class, getHeaders());
     } catch (DatabricksError e) {
       if (e.getStatusCode() == TEMPORARY_REDIRECT_STATUS_CODE) {
         throw new DatabricksTemporaryRedirectException(TEMPORARY_REDIRECT_EXCEPTION);
@@ -124,7 +125,7 @@ public class DatabricksSdkClient implements IDatabricksClient {
             .setSessionId(sessionInfo.sessionId())
             .setWarehouseId(((Warehouse) sessionInfo.computeResource()).getWarehouseId());
     String path = String.format(SESSION_PATH_WITH_ID, request.getSessionId());
-    workspaceClient.apiClient().DELETE(path, request, Void.class, JSON_HTTP_HEADERS);
+    workspaceClient.apiClient().DELETE(path, request, Void.class, getHeaders());
   }
 
   @Override
@@ -155,7 +156,7 @@ public class DatabricksSdkClient implements IDatabricksClient {
     ExecuteStatementResponse response =
         workspaceClient
             .apiClient()
-            .POST(STATEMENT_PATH, request, ExecuteStatementResponse.class, JSON_HTTP_HEADERS);
+            .POST(STATEMENT_PATH, request, ExecuteStatementResponse.class, getHeaders());
     String statementId = response.getStatementId();
     if (statementId == null) {
       LOGGER.error(
@@ -189,7 +190,7 @@ public class DatabricksSdkClient implements IDatabricksClient {
           wrapGetStatementResponse(
               workspaceClient
                   .apiClient()
-                  .GET(getStatusPath, request, GetStatementResponse.class, JSON_HTTP_HEADERS));
+                  .GET(getStatusPath, request, GetStatementResponse.class, getHeaders()));
       responseState = response.getStatus().getState();
       LOGGER.debug(
           String.format(
@@ -238,7 +239,7 @@ public class DatabricksSdkClient implements IDatabricksClient {
     ExecuteStatementResponse response =
         workspaceClient
             .apiClient()
-            .POST(STATEMENT_PATH, request, ExecuteStatementResponse.class, JSON_HTTP_HEADERS);
+            .POST(STATEMENT_PATH, request, ExecuteStatementResponse.class, getHeaders());
     String statementId = response.getStatementId();
     if (statementId == null) {
       LOGGER.error("Empty Statement ID for sql %s, compute %s", sql, computeResource.toString());
@@ -272,7 +273,7 @@ public class DatabricksSdkClient implements IDatabricksClient {
     GetStatementResponse response =
         workspaceClient
             .apiClient()
-            .GET(getStatusPath, request, GetStatementResponse.class, JSON_HTTP_HEADERS);
+            .GET(getStatusPath, request, GetStatementResponse.class, getHeaders());
     return new DatabricksResultSet(
         response.getStatus(),
         typedStatementId,
@@ -290,7 +291,7 @@ public class DatabricksSdkClient implements IDatabricksClient {
         String.format("public void closeStatement(String statementId = {%s})", statementId));
     CloseStatementRequest request = new CloseStatementRequest().setStatementId(statementId);
     String path = String.format(STATEMENT_PATH_WITH_ID, request.getStatementId());
-    workspaceClient.apiClient().DELETE(path, request, Void.class, JSON_HTTP_HEADERS);
+    workspaceClient.apiClient().DELETE(path, request, Void.class, getHeaders());
   }
 
   @Override
@@ -300,7 +301,7 @@ public class DatabricksSdkClient implements IDatabricksClient {
         String.format("public void cancelStatement(String statementId = {%s})", statementId));
     CancelStatementRequest request = new CancelStatementRequest().setStatementId(statementId);
     String path = String.format(CANCEL_STATEMENT_PATH_WITH_ID, request.getStatementId());
-    workspaceClient.apiClient().POST(path, request, Void.class, JSON_HTTP_HEADERS);
+    workspaceClient.apiClient().POST(path, request, Void.class, getHeaders());
   }
 
   @Override
@@ -315,7 +316,7 @@ public class DatabricksSdkClient implements IDatabricksClient {
     String path = String.format(RESULT_CHUNK_PATH, statementId, chunkIndex);
     return workspaceClient
         .apiClient()
-        .GET(path, request, ResultData.class, JSON_HTTP_HEADERS)
+        .GET(path, request, ResultData.class, getHeaders())
         .getExternalLinks();
   }
 
@@ -336,6 +337,16 @@ public class DatabricksSdkClient implements IDatabricksClient {
         && (statementType == StatementType.QUERY
             || statementType == StatementType.SQL
             || statementType == StatementType.METADATA);
+  }
+
+  private Map<String, String> getHeaders() {
+    Map<String, String> headers = new HashMap<>(JSON_HTTP_HEADERS);
+    if (connectionContext.isRequestTracingEnabled()) {
+      String traceHeader = TracingUtil.getTraceHeader();
+      LOGGER.debug("Tracing header: " + traceHeader);
+      headers.put(TracingUtil.TRACE_HEADER, traceHeader);
+    }
+    return headers;
   }
 
   private ExecuteStatementRequest getRequest(

@@ -72,6 +72,7 @@ public enum DatabricksJdbcUrlParams {
   MAX_BATCH_SIZE("MaxBatchSize", "500"),
   ALLOWED_VOLUME_INGESTION_PATHS("VolumeOperationAllowedLocalPaths"),
   ALLOWED_STAGING_INGESTION_PATHS("StagingAllowedLocalPaths"),
+  ENABLE_REQUEST_TRACING("EnableRequestTracing", "0"),
   ENABLE_SQL_EXEC_HYBRID_RESULTS("EnableSQLExecHybridResults", "0");
 
   private final String paramName;
