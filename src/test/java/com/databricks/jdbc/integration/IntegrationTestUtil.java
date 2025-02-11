@@ -7,6 +7,7 @@ import static com.databricks.jdbc.integration.fakeservice.FakeServiceExtension.T
 
 import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.api.impl.DatabricksConnectionContextFactory;
+import com.databricks.jdbc.common.DatabricksJdbcConstants;
 import com.databricks.jdbc.common.DatabricksJdbcConstants.FakeServiceType;
 import com.databricks.jdbc.common.DatabricksJdbcUrlParams;
 import com.databricks.jdbc.common.util.DriverUtil;
@@ -27,10 +28,7 @@ public class IntegrationTestUtil {
   /** Get the host of the embedded web server of fake service to be used in the tests. */
   public static String getFakeServiceHost() {
     // Target base URL of the fake service type
-    FakeServiceType databricksFakeServiceType =
-        FakeServiceConfigLoader.shouldUseThriftClient
-            ? FakeServiceType.SQL_GATEWAY
-            : FakeServiceType.SQL_EXEC;
+    FakeServiceType databricksFakeServiceType = getFakeServiceType();
     String serviceURI =
         System.getProperty(databricksFakeServiceType.name().toLowerCase() + TARGET_URI_PROP_SUFFIX);
 
@@ -43,6 +41,28 @@ public class IntegrationTestUtil {
     }
 
     return fakeServiceURI.getAuthority();
+  }
+
+  public static DatabricksJdbcConstants.FakeServiceType getFakeServiceType() {
+    switch (FakeServiceConfigLoader.connectionInfo) {
+      case SQL_GATEWAY_WAREHOUSE:
+        return DatabricksJdbcConstants.FakeServiceType.SQL_GATEWAY_WAREHOUSE;
+      case SQL_GATEWAY:
+        return DatabricksJdbcConstants.FakeServiceType.SQL_GATEWAY;
+      default:
+        return DatabricksJdbcConstants.FakeServiceType.SQL_EXEC;
+    }
+  }
+
+  public static DatabricksJdbcConstants.FakeServiceType getFakeServiceTypeCloudfetch() {
+    switch (FakeServiceConfigLoader.connectionInfo) {
+      case SQL_GATEWAY_WAREHOUSE:
+        return DatabricksJdbcConstants.FakeServiceType.CLOUD_FETCH_SQL_GATEWAY_WAREHOUSE;
+      case SQL_GATEWAY:
+        return DatabricksJdbcConstants.FakeServiceType.CLOUD_FETCH_SQL_GATEWAY;
+      default:
+        return DatabricksJdbcConstants.FakeServiceType.CLOUD_FETCH;
+    }
   }
 
   public static String getFakeServiceJDBCUrl() {
