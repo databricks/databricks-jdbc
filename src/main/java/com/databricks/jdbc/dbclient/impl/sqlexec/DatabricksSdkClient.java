@@ -346,7 +346,6 @@ public class DatabricksSdkClient implements IDatabricksClient {
     long maxRows = (parentStatement == null) ? DEFAULT_ROW_LIMIT : parentStatement.getMaxRows();
     CompressionCodec compressionCodec = session.getCompressionCodec();
     if (disposition.equals(Disposition.INLINE)) {
-      // TODO: Evaluate if inline results need compression based on performance.
       LOGGER.debug("Results are inline, skipping compression.");
       compressionCodec = CompressionCodec.NONE;
     }
