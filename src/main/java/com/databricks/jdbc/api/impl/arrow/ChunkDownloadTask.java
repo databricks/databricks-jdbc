@@ -1,5 +1,7 @@
 package com.databricks.jdbc.api.impl.arrow;
 
+import static com.databricks.jdbc.telemetry.TelemetryHelper.exportLatencyLog;
+
 import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.common.util.DatabricksThreadContextHolder;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
@@ -36,13 +38,17 @@ class ChunkDownloadTask implements DatabricksCallableTask {
 
   @Override
   public Void call() throws DatabricksSQLException {
+    long startTime = System.currentTimeMillis();
     int retries = 0;
     boolean downloadSuccessful = false;
-    DatabricksThreadContextHolder.setChunkId(chunk.getChunkIndex());
+
     // Sets  context in the newly spawned thread
+    DatabricksThreadContextHolder.setChunkId(chunk.getChunkIndex());
     DatabricksThreadContextHolder.setConnectionContext(this.connectionContext);
     DatabricksThreadContextHolder.setStatementId(this.statementId);
+
     try {
+      DatabricksThreadContextHolder.setRetryCount(retries);
       while (retries < MAX_RETRIES && !downloadSuccessful) {
         try {
           if (chunk.isChunkLinkInvalid()) {
@@ -86,6 +92,7 @@ class ChunkDownloadTask implements DatabricksCallableTask {
       if (!downloadSuccessful) {
         chunk.setStatus(ArrowResultChunk.ChunkStatus.DOWNLOAD_FAILED);
       }
+      exportLatencyLog(System.currentTimeMillis() - startTime);
       chunkDownloader.downloadProcessed(chunk.getChunkIndex());
       DatabricksThreadContextHolder.clearAllContext();
     }

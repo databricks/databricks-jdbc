@@ -214,18 +214,9 @@ public class DatabricksThriftServiceClientTest {
   void testListTypeInfo() throws SQLException {
     DatabricksThriftServiceClient client =
         new DatabricksThriftServiceClient(thriftAccessor, connectionContext);
-    when(session.getSessionInfo()).thenReturn(SESSION_INFO);
-    TGetTypeInfoReq request =
-        new TGetTypeInfoReq().setSessionHandle(SESSION_HANDLE).setRunAsync(true);
-    TFetchResultsResp response =
-        new TFetchResultsResp()
-            .setStatus(new TStatus().setStatusCode(TStatusCode.SUCCESS_STATUS))
-            .setResults(resultData)
-            .setResultSetMetadata(resultMetadataData);
-    when(resultData.getColumns()).thenReturn(Collections.emptyList());
-    when(thriftAccessor.getThriftResponse(request)).thenReturn(response);
     DatabricksResultSet resultSet = client.listTypeInfo(session);
-    assertEquals(resultSet.getStatementStatus().getState(), StatementState.SUCCEEDED);
+    assertNotNull(resultSet);
+    assertEquals(StatementState.SUCCEEDED, resultSet.getStatementStatus().getState());
   }
 
   @Test
@@ -308,7 +299,11 @@ public class DatabricksThriftServiceClientTest {
       assertEquals(metaData.getColumnName(i + 1), resultColumn.getColumnName());
       assertEquals(metaData.getColumnType(i + 1), resultColumn.getColumnTypeInt());
       assertEquals(metaData.getColumnTypeName(i + 1), resultColumn.getColumnTypeString());
-      assertEquals(metaData.getPrecision(i + 1), resultColumn.getColumnPrecision());
+      if (LARGE_DISPLAY_COLUMNS.contains(resultColumn)) {
+        assertEquals(254, metaData.getPrecision(i + 1));
+      } else {
+        assertEquals(metaData.getPrecision(i + 1), resultColumn.getColumnPrecision());
+      }
     }
   }
 

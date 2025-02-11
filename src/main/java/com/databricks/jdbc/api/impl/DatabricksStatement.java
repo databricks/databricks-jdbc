@@ -501,6 +501,7 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
     LOGGER.debug("ResultSet executeAsync() for statement {%s}", sql);
     checkIfClosed();
     IDatabricksClient client = connection.getSession().getDatabricksClient();
+    DatabricksThreadContextHolder.setStatementType(StatementType.SQL);
     return client.executeStatementAsync(
         sql,
         connection.getSession().getComputeResource(),
@@ -610,6 +611,7 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
   DatabricksResultSet executeInternal(
       String sql, Map<Integer, ImmutableSqlParameter> params, StatementType statementType)
       throws SQLException {
+    DatabricksThreadContextHolder.setStatementType(statementType);
     return executeInternal(sql, params, statementType, true);
   }
 

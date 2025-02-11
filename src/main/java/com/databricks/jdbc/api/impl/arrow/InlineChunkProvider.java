@@ -6,12 +6,13 @@ import static com.databricks.jdbc.common.util.DecompressionUtil.decompress;
 import com.databricks.jdbc.api.IDatabricksSession;
 import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
 import com.databricks.jdbc.common.CompressionCodec;
-import com.databricks.jdbc.dbclient.impl.thrift.DatabricksThriftServiceClient;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.model.client.thrift.generated.*;
+import com.databricks.jdbc.model.core.ResultData;
+import com.databricks.jdbc.model.core.ResultManifest;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import com.google.common.annotations.VisibleForTesting;
 import java.io.ByteArrayInputStream;
@@ -44,6 +45,31 @@ public class InlineChunkProvider implements ChunkProvider {
     this.totalRows = 0;
     ByteArrayInputStream byteStream = initializeByteStream(resultsResp, session, parentStatement);
     arrowResultChunk = ArrowResultChunk.builder().withInputStream(byteStream, totalRows).build();
+  }
+
+  /**
+   * Constructor for inline arrow chunk provider from {@link ResultData} and {@link ResultManifest}.
+   *
+   * @param resultData Data object containing the result data
+   * @param resultManifest Manifest object containing the result metadata
+   * @throws DatabricksSQLException if there is an error in processing the inline arrow data
+   */
+  InlineChunkProvider(ResultData resultData, ResultManifest resultManifest)
+      throws DatabricksSQLException {
+    this.currentChunkIndex = -1;
+    this.totalRows = resultManifest.getTotalRowCount();
+
+    // Decompress the inline data if applicable and create an ArrowResultChunk
+    CompressionCodec compressionType = resultManifest.getResultCompression();
+    byte[] decompressedBytes =
+        decompress(
+            resultData.getAttachment(),
+            compressionType,
+            "Data fetch for inline arrow batch with decompression algorithm : " + compressionType);
+    this.arrowResultChunk =
+        ArrowResultChunk.builder()
+            .withInputStream(new ByteArrayInputStream(decompressedBytes), totalRows)
+            .build();
   }
 
   /** {@inheritDoc} */
@@ -100,9 +126,7 @@ public class InlineChunkProvider implements ChunkProvider {
       writeToByteOutputStream(
           compressionType, parentStatement, resultsResp.getResults().getArrowBatches(), baos);
       while (resultsResp.hasMoreRows) {
-        resultsResp =
-            ((DatabricksThriftServiceClient) session.getDatabricksClient())
-                .getMoreResults(parentStatement);
+        resultsResp = session.getDatabricksClient().getMoreResults(parentStatement);
         writeToByteOutputStream(
             compressionType, parentStatement, resultsResp.getResults().getArrowBatches(), baos);
       }

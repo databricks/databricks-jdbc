@@ -7,7 +7,6 @@ import com.databricks.jdbc.common.util.DatabricksThreadContextHolder;
 import com.databricks.jdbc.common.util.DatabricksThriftUtil;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
 import com.databricks.jdbc.dbclient.impl.common.StatementId;
-import com.databricks.jdbc.dbclient.impl.thrift.DatabricksThriftServiceClient;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.log.JdbcLogger;
@@ -19,7 +18,6 @@ import com.databricks.jdbc.model.core.ExternalLink;
 import com.databricks.jdbc.model.core.ResultData;
 import com.databricks.jdbc.model.core.ResultManifest;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
-import com.databricks.jdbc.telemetry.latency.DatabricksMetricsTimedProcessor;
 import com.databricks.sdk.service.sql.BaseChunkInfo;
 import com.google.common.annotations.VisibleForTesting;
 import java.util.Collection;
@@ -219,9 +217,7 @@ public class RemoteChunkProvider implements ChunkProvider, ChunkDownloadCallback
         && totalChunksInMemory < allowedChunksInMemory) {
       ArrowResultChunk chunk = chunkIndexToChunksMap.get(nextChunkToDownload);
       if (chunk.getStatus() != ArrowResultChunk.ChunkStatus.DOWNLOAD_SUCCEEDED) {
-        this.chunkDownloaderExecutorService.submit(
-            DatabricksMetricsTimedProcessor.createProxy(
-                new ChunkDownloadTask(chunk, httpClient, this)));
+        this.chunkDownloaderExecutorService.submit(new ChunkDownloadTask(chunk, httpClient, this));
         totalChunksInMemory++;
       }
       nextChunkToDownload++;
@@ -253,9 +249,7 @@ public class RemoteChunkProvider implements ChunkProvider, ChunkDownloadCallback
     this.rowCount = 0;
     populateChunkIndexMap(resultsResp.getResults(), chunkIndexMap);
     while (resultsResp.hasMoreRows) {
-      resultsResp =
-          ((DatabricksThriftServiceClient) session.getDatabricksClient())
-              .getMoreResults(parentStatement);
+      resultsResp = session.getDatabricksClient().getMoreResults(parentStatement);
       populateChunkIndexMap(resultsResp.getResults(), chunkIndexMap);
     }
     return chunkIndexMap;

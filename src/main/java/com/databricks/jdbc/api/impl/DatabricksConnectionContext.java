@@ -30,6 +30,7 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   private final String schema;
   private final String connectionURL;
   private final IDatabricksComputeResource computeResource;
+  private DatabricksClientType clientType;
   @VisibleForTesting final ImmutableMap<String, String> parameters;
   @VisibleForTesting final String connectionUuid;
 
@@ -47,6 +48,7 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
     this.parameters = parameters;
     this.computeResource = buildCompute();
     this.connectionUuid = UUID.randomUUID().toString();
+    this.clientType = getClientTypeFromContext();
   }
 
   /**
@@ -65,7 +67,8 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
     Matcher urlMatcher = JDBC_URL_PATTERN.matcher(url);
     if (urlMatcher.find()) {
       String hostUrlVal = urlMatcher.group(1);
-      String urlMinusHost = urlMatcher.group(2);
+      String schema = urlMatcher.group(2);
+      String urlMinusHost = urlMatcher.group(3);
       String[] hostAndPort = hostUrlVal.split(DatabricksJdbcConstants.PORT_DELIMITER);
       String hostValue = hostAndPort[0];
       int portValue =
@@ -75,12 +78,8 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
 
       ImmutableMap.Builder<String, String> parametersBuilder = ImmutableMap.builder();
       String[] urlParts = urlMinusHost.split(DatabricksJdbcConstants.URL_DELIMITER);
-      String schema = urlParts[0];
-      if (nullOrEmptyString(schema)) {
-        schema = DEFAULT_SCHEMA;
-      }
-      for (int urlPartIndex = 1; urlPartIndex < urlParts.length; urlPartIndex++) {
-        String[] pair = urlParts[urlPartIndex].split(DatabricksJdbcConstants.PAIR_DELIMITER);
+      for (String urlPart : urlParts) {
+        String[] pair = urlPart.split(DatabricksJdbcConstants.PAIR_DELIMITER);
         if (pair.length == 1) {
           pair = new String[] {pair[0], ""};
         }
@@ -334,8 +333,7 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
     return CompressionCodec.parseCompressionType(compressionType);
   }
 
-  @Override
-  public DatabricksClientType getClientType() {
+  public DatabricksClientType getClientTypeFromContext() {
     if (computeResource instanceof AllPurposeCluster) {
       return DatabricksClientType.THRIFT;
     }
@@ -344,6 +342,15 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
       return DatabricksClientType.THRIFT;
     }
     return DatabricksClientType.SEA;
+  }
+
+  @Override
+  public DatabricksClientType getClientType() {
+    return clientType;
+  }
+
+  public void setClientType(DatabricksClientType clientType) {
+    this.clientType = clientType;
   }
 
   @Override
@@ -359,6 +366,10 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
 
   @Override
   public String getSchema() {
+    if (!nullOrEmptyString(schema)) {
+      return schema;
+    }
+
     return getParameter(
         DatabricksJdbcUrlParams.CONN_SCHEMA, getParameter(DatabricksJdbcUrlParams.SCHEMA));
   }
@@ -634,6 +645,11 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
     return getParameter(
         DatabricksJdbcUrlParams.ALLOWED_VOLUME_INGESTION_PATHS,
         getParameter(DatabricksJdbcUrlParams.ALLOWED_STAGING_INGESTION_PATHS, ""));
+  }
+
+  @Override
+  public boolean isSqlExecHybridResultsEnabled() {
+    return getParameter(DatabricksJdbcUrlParams.ENABLE_SQL_EXEC_HYBRID_RESULTS).equals("1");
   }
 
   private static boolean nullOrEmptyString(String s) {

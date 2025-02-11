@@ -1,7 +1,7 @@
 package com.databricks.jdbc.model.client.sqlexec;
 
 import com.databricks.jdbc.common.CompressionCodec;
-import com.databricks.sdk.service.sql.Disposition;
+import com.databricks.jdbc.model.core.Disposition;
 import com.databricks.sdk.service.sql.ExecuteStatementRequestOnWaitTimeout;
 import com.databricks.sdk.service.sql.Format;
 import com.databricks.sdk.service.sql.StatementParameterListItem;

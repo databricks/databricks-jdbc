@@ -3,6 +3,7 @@ package com.databricks.jdbc.model.telemetry;
 import com.databricks.jdbc.common.AuthFlow;
 import com.databricks.jdbc.common.AuthMech;
 import com.databricks.jdbc.common.DatabricksClientType;
+import com.databricks.sdk.support.ToStringer;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import java.util.List;
 
@@ -159,5 +160,30 @@ public class DriverConnectionParameters {
       boolean acceptUndeterminedCertificateRevocation) {
     this.acceptUndeterminedCertificateRevocation = acceptUndeterminedCertificateRevocation;
     return this;
+  }
+
+  @Override
+  public String toString() {
+    return new ToStringer(DriverConnectionParameters.class)
+        .add("httpPath", httpPath)
+        .add("driverMode", driverMode)
+        .add("hostDetails", hostDetails)
+        .add("authMech", authMech)
+        .add("driverAuthFlow", driverAuthFlow)
+        .add("authScope", authScope)
+        .add("useProxy", useProxy)
+        .add("nonProxyHosts", non_proxy_hosts)
+        .add("useSystemProxy", useSystemProxy)
+        .add("useCfProxy", useCfProxy)
+        .add("proxyHostDetails", proxyHostDetails)
+        .add("cfProxyHostDetails", cfProxyHostDetails)
+        .add("discoveryModeEnabled", discoveryModeEnabled)
+        .add("discoveryUrl", discoveryUrl)
+        .add("useEmptyMetadata", useEmptyMetadata)
+        .add("supportManyParameters", supportManyParameters)
+        .add("sslTrustStoreType", sslTrustStoreType)
+        .add("checkCertificateRevocation", checkCertificateRevocation)
+        .add("acceptUndeterminedCertificateRevocation", acceptUndeterminedCertificateRevocation)
+        .toString();
   }
 }

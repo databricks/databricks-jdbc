@@ -3,6 +3,7 @@ package com.databricks.jdbc.dbclient.impl.thrift;
 import static com.databricks.jdbc.common.EnvironmentVariables.JDBC_THRIFT_VERSION;
 import static com.databricks.jdbc.common.util.DatabricksThriftUtil.*;
 import static com.databricks.jdbc.dbclient.impl.common.MetadataResultSetBuilder.*;
+import static com.databricks.jdbc.dbclient.impl.sqlexec.ResultConstants.TYPE_INFO_RESULT;
 
 import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.api.IDatabricksSession;
@@ -10,6 +11,7 @@ import com.databricks.jdbc.api.impl.*;
 import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
 import com.databricks.jdbc.common.IDatabricksComputeResource;
 import com.databricks.jdbc.common.StatementType;
+import com.databricks.jdbc.common.util.DatabricksThreadContextHolder;
 import com.databricks.jdbc.common.util.DriverUtil;
 import com.databricks.jdbc.dbclient.IDatabricksClient;
 import com.databricks.jdbc.dbclient.IDatabricksMetadataClient;
@@ -122,6 +124,7 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
         String.format(
             "public DatabricksResultSet executeStatement(String sql = {%s}, Compute cluster = {%s}, Map<Integer, ImmutableSqlParameter> parameters = {%s}, StatementType statementType = {%s}, IDatabricksSession session)",
             sql, computeResource.toString(), parameters.toString(), statementType));
+    DatabricksThreadContextHolder.setStatementType(statementType);
     TExecuteStatementReq request =
         new TExecuteStatementReq()
             .setStatement(sql)
@@ -228,15 +231,9 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
   }
 
   @Override
-  public DatabricksResultSet listTypeInfo(IDatabricksSession session)
-      throws DatabricksSQLException {
+  public DatabricksResultSet listTypeInfo(IDatabricksSession session) {
     LOGGER.debug("public ResultSet getTypeInfo()");
-    TGetTypeInfoReq request =
-        new TGetTypeInfoReq()
-            .setSessionHandle(Objects.requireNonNull(session.getSessionInfo()).sessionHandle())
-            .setRunAsync(true);
-    TFetchResultsResp response = (TFetchResultsResp) thriftAccessor.getThriftResponse(request);
-    return getTypeInfoResult(extractValuesColumnar(response.getResults().getColumns()));
+    return TYPE_INFO_RESULT;
   }
 
   @Override
@@ -353,7 +350,7 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
             .setFunctionName(functionNamePattern)
             .setRunAsync(true);
     TFetchResultsResp response = (TFetchResultsResp) thriftAccessor.getThriftResponse(request);
-    return getFunctionsResult(extractValuesColumnar(response.getResults().getColumns()));
+    return getFunctionsResult(catalog, extractValuesColumnar(response.getResults().getColumns()));
   }
 
   @Override

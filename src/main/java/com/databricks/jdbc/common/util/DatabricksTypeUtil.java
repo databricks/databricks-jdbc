@@ -190,7 +190,14 @@ public class DatabricksTypeUtil {
     }
   }
 
-  public static int getDisplaySize(ColumnInfoTypeName typeName, int precision) {
+  private static int calculateDisplaySize(int scale, int precision) {
+    // scale = precision => only fractional digits. +3 for decimal point, sign and leading zero
+    // scale = 0 => only integral part. +1 for sign
+    // scale > 0 => both integral and fractional part. +2 for sign and decimal point
+    return scale == precision ? precision + 3 : scale == 0 ? precision + 1 : precision + 2;
+  }
+
+  public static int getDisplaySize(ColumnInfoTypeName typeName, int precision, int scale) {
     if (typeName == null) {
       return 255;
     }
@@ -205,8 +212,9 @@ public class DatabricksTypeUtil {
         return precision;
       case FLOAT:
       case DOUBLE:
-      case DECIMAL:
         return 24;
+      case DECIMAL:
+        return calculateDisplaySize(scale, precision);
       case BOOLEAN:
         return 5; // length of `false`
       case TIMESTAMP:
@@ -219,6 +227,49 @@ public class DatabricksTypeUtil {
       case ARRAY:
       case STRING:
       case STRUCT:
+      default:
+        return 255;
+    }
+  }
+
+  /**
+   * Returns the display size for a given SQL type and precision. This method is used only in
+   * pre-defined result set metadata flow.
+   *
+   * @param sqlType the SQL type as defined in {@link java.sql.Types}
+   * @param precision the precision of the column
+   * @return the display size for the given SQL type and precision
+   */
+  public static int getDisplaySize(int sqlType, int precision) {
+    switch (sqlType) {
+      case Types.SMALLINT:
+      case Types.INTEGER:
+        return precision + 1;
+      case Types.CHAR:
+        return precision;
+      case Types.BOOLEAN:
+        return 5;
+      case Types.BIT:
+        return 1;
+      case Types.VARCHAR:
+        return 128;
+      default:
+        return 255; // Default size for unhandled types
+    }
+  }
+
+  public static int getMetadataColPrecision(Integer columnType) {
+    switch (columnType) {
+      case Types.SMALLINT:
+        return 5;
+      case Types.INTEGER:
+        return 10;
+      case Types.CHAR:
+      case Types.BOOLEAN:
+      case Types.BIT:
+        return 1;
+      case Types.VARCHAR:
+        return 128;
       default:
         return 255;
     }
@@ -300,6 +351,7 @@ public class DatabricksTypeUtil {
         return DATE;
       case Types.DECIMAL:
         return DECIMAL;
+      case Types.BIT:
       case Types.BOOLEAN:
         return BOOLEAN;
       case Types.DOUBLE:

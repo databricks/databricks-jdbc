@@ -1,9 +1,11 @@
 package com.databricks.jdbc.api.impl;
 
+import static com.databricks.jdbc.common.Nullable.NULLABLE;
 import static com.databricks.jdbc.common.util.DatabricksThriftUtil.getTypeFromTypeDesc;
 import static org.junit.jupiter.api.Assertions.*;
 
 import com.databricks.jdbc.common.DatabricksJdbcConstants;
+import com.databricks.jdbc.common.StatementType;
 import com.databricks.jdbc.common.util.DatabricksTypeUtil;
 import com.databricks.jdbc.dbclient.impl.common.StatementId;
 import com.databricks.jdbc.model.client.thrift.generated.*;
@@ -86,6 +88,7 @@ public class DatabricksResultSetMetaDataTest {
             List.of("int", "string", "double"),
             List.of(4, 12, 8),
             List.of(0, 0, 0),
+            List.of(NULLABLE, NULLABLE, NULLABLE),
             10);
     assertEquals(3, metaData.getColumnCount());
     assertEquals("col1", metaData.getColumnName(1));
@@ -93,6 +96,48 @@ public class DatabricksResultSetMetaDataTest {
     assertEquals("col2", metaData.getColumnName(3));
     assertEquals(10, metaData.getTotalRows());
     assertEquals(2, metaData.getColumnNameIndex("col2"));
+  }
+
+  @Test
+  public void testDatabricksResultSetMetaDataInitialization() throws SQLException {
+    // Instantiate the DatabricksResultSetMetaData
+    DatabricksResultSetMetaData metaData =
+        new DatabricksResultSetMetaData(
+            STATEMENT_ID,
+            List.of("col1", "col2", "col3"),
+            List.of("INTEGER", "VARCHAR", "DOUBLE"),
+            new int[] {4, 12, 8},
+            new int[] {10, 255, 15},
+            new int[] {
+              ResultSetMetaData.columnNullable,
+              ResultSetMetaData.columnNoNulls,
+              ResultSetMetaData.columnNullable
+            },
+            100);
+
+    // Assertions to validate initialization
+    assertEquals(3, metaData.getColumnCount());
+    assertEquals(100, metaData.getTotalRows());
+
+    // Validate column properties
+    assertEquals("col1", metaData.getColumnName(1));
+    assertEquals("col2", metaData.getColumnName(2));
+    assertEquals("col3", metaData.getColumnName(3));
+    assertEquals(4, metaData.getColumnType(1)); // INTEGER
+    assertEquals(12, metaData.getColumnType(2)); // VARCHAR
+    assertEquals(8, metaData.getColumnType(3)); // DOUBLE
+
+    // Validate column type text and precision
+    assertEquals("INTEGER", metaData.getColumnTypeName(1));
+    assertEquals("VARCHAR", metaData.getColumnTypeName(2));
+    assertEquals("DOUBLE", metaData.getColumnTypeName(3));
+    assertEquals(10, metaData.getPrecision(1));
+    assertEquals(255, metaData.getPrecision(2));
+    assertEquals(15, metaData.getPrecision(3));
+
+    assertEquals(ResultSetMetaData.columnNullable, metaData.isNullable(1));
+    assertEquals(ResultSetMetaData.columnNoNulls, metaData.isNullable(2));
+    assertEquals(ResultSetMetaData.columnNullable, metaData.isNullable(3));
   }
 
   @Test
@@ -173,7 +218,7 @@ public class DatabricksResultSetMetaDataTest {
     DatabricksResultSetMetaData metaData =
         new DatabricksResultSetMetaData(STATEMENT_ID, resultManifest);
     assertEquals(4, metaData.getColumnCount());
-    verifyDefaultMetadataProperties(metaData);
+    verifyDefaultMetadataProperties(metaData, StatementType.SQL);
 
     metaData =
         new DatabricksResultSetMetaData(
@@ -182,14 +227,15 @@ public class DatabricksResultSetMetaDataTest {
             List.of("int", "string", "double"),
             List.of(4, 12, 8),
             List.of(0, 0, 0),
+            List.of(NULLABLE, NULLABLE, NULLABLE),
             10);
     assertEquals(3, metaData.getColumnCount());
-    verifyDefaultMetadataProperties(metaData);
+    verifyDefaultMetadataProperties(metaData, StatementType.METADATA);
 
     TGetResultSetMetadataResp thriftResultManifest = getThriftResultManifest();
     metaData = new DatabricksResultSetMetaData(STATEMENT_ID, thriftResultManifest, 1, 1);
     assertEquals(1, metaData.getColumnCount());
-    verifyDefaultMetadataProperties(metaData);
+    verifyDefaultMetadataProperties(metaData, StatementType.SQL);
   }
 
   @Test
@@ -268,16 +314,15 @@ public class DatabricksResultSetMetaDataTest {
     }
   }
 
-  private void verifyDefaultMetadataProperties(DatabricksResultSetMetaData metaData)
-      throws SQLException {
+  private void verifyDefaultMetadataProperties(
+      DatabricksResultSetMetaData metaData, StatementType type) throws SQLException {
     for (int i = 1; i <= metaData.getColumnCount(); i++) {
       // verify metadata properties default value
       assertFalse(metaData.isAutoIncrement(i));
-      assertFalse(metaData.isSearchable(i));
       assertEquals(ResultSetMetaData.columnNullable, metaData.isNullable(i));
       assertFalse(metaData.isDefinitelyWritable(i));
-      assertEquals("", metaData.getSchemaName(i));
-      assertEquals("", metaData.getTableName(i));
+      assertEquals(type == StatementType.METADATA ? "" : null, metaData.getSchemaName(i));
+      assertEquals(type == StatementType.METADATA ? "" : null, metaData.getTableName(i));
       assertEquals("", metaData.getCatalogName(i));
       assertFalse(metaData.isCurrency(i));
       assertEquals(0, metaData.getScale(i));

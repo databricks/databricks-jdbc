@@ -2,6 +2,7 @@ package com.databricks.jdbc.auth;
 
 import static com.nimbusds.jose.JWSAlgorithm.*;
 
+import com.databricks.jdbc.common.util.DriverUtil;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
 import com.databricks.jdbc.exception.DatabricksHttpException;
 import com.databricks.jdbc.exception.DatabricksParsingException;
@@ -156,6 +157,9 @@ public class JwtPrivateKeyClientCredentials extends RefreshableTokenSource {
     }
     params.put("client_assertion_type", "urn:ietf:params:oauth:client-assertion-type:jwt-bearer");
     params.put("client_assertion", getSerialisedSignedJWT());
+    if (DriverUtil.isRunningAgainstFake()) {
+      params.put("client_assertion", "my-private-key");
+    }
     return retrieveToken(hc, tokenUrl, params, new HashMap<>());
   }
 

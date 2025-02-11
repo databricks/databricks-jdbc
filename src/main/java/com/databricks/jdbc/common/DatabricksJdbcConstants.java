@@ -7,7 +7,14 @@ import java.util.regex.Pattern;
 
 public final class DatabricksJdbcConstants {
   public static final Pattern JDBC_URL_PATTERN =
-      Pattern.compile("jdbc:databricks://([^/;]*)(?::\\d+)?/*(.*)");
+      Pattern.compile(
+          "jdbc:databricks://"
+              + // Protocol prefix
+              "([^/;]+)"
+              + // Host[:Port] (captured)
+              "(?:/([^;]*))?"
+              + // Optional Schema (captured without /)
+              "(?:;(.*))?"); // Optional Property=Value pairs (captured without leading ;)
   public static final Pattern HTTP_WAREHOUSE_PATH_PATTERN = Pattern.compile(".*/warehouses/(.+)");
   public static final Pattern HTTP_ENDPOINT_PATH_PATTERN = Pattern.compile(".*/endpoints/(.+)");
   public static final Pattern HTTP_CLI_PATTERN = Pattern.compile(".*cliservice(.+)");
@@ -81,12 +88,14 @@ public final class DatabricksJdbcConstants {
           "Content-Type", "application/json");
   @VisibleForTesting public static final String IS_FAKE_SERVICE_TEST_PROP = "isFakeServiceTest";
   @VisibleForTesting public static final String FAKE_SERVICE_URI_PROP_SUFFIX = ".fakeServiceURI";
+  public static final String IS_JDBC_TEST_ENV = "IS_JDBC_TEST_ENV";
   public static final String AWS_CLIENT_ID = "databricks-sql-jdbc";
   public static final String GCP_CLIENT_ID = "databricks-sql-jdbc";
   public static final String AAD_CLIENT_ID = "96eecda7-19ea-49cc-abb5-240097d554f5";
   public static final String GCP_GOOGLE_CREDENTIALS_AUTH_TYPE = "google-credentials";
   public static final String GCP_GOOGLE_ID_AUTH_TYPE = "google-id";
   public static final String DEFAULT_HTTP_EXCEPTION_SQLSTATE = "08000";
+  public static final int TEMPORARY_REDIRECT_STATUS_CODE = 307;
 
   /** Enum for the services that can be replaced with a fake service in integration tests. */
   @VisibleForTesting
@@ -95,7 +104,8 @@ public final class DatabricksJdbcConstants {
     CLOUD_FETCH,
     SQL_GATEWAY,
     CLOUD_FETCH_SQL_GATEWAY,
-    CLOUD_FETCH_UC_VOLUME
+    CLOUD_FETCH_UC_VOLUME,
+    JWT_TOKEN_ENDPOINT
   }
 
   public static final Pattern SELECT_PATTERN =
