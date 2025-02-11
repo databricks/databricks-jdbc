@@ -43,7 +43,7 @@ public class DatabricksStruct implements Struct {
       if (fieldType.startsWith(DatabricksTypeUtil.STRUCT)) {
         if (value instanceof Map) {
           convertedAttributes[index] = new DatabricksStruct((Map<String, Object>) value, fieldType);
-        }  else if(value instanceof DatabricksStruct) {
+        } else if (value instanceof DatabricksStruct) {
           convertedAttributes[index] = value;
         } else {
           throw new IllegalArgumentException(
@@ -53,7 +53,7 @@ public class DatabricksStruct implements Struct {
       } else if (fieldType.startsWith(DatabricksTypeUtil.ARRAY)) {
         if (value instanceof List) {
           convertedAttributes[index] = new DatabricksArray((List<Object>) value, fieldType);
-        }   else if(value instanceof DatabricksArray) {
+        } else if (value instanceof DatabricksArray) {
           convertedAttributes[index] = value;
         } else {
           throw new IllegalArgumentException(
@@ -63,7 +63,7 @@ public class DatabricksStruct implements Struct {
       } else if (fieldType.startsWith(DatabricksTypeUtil.MAP)) {
         if (value instanceof Map) {
           convertedAttributes[index] = new DatabricksMap<>((Map<String, Object>) value, fieldType);
-        }   else if(value instanceof DatabricksMap) {
+        } else if (value instanceof DatabricksMap) {
           convertedAttributes[index] = value;
         } else {
           throw new IllegalArgumentException(

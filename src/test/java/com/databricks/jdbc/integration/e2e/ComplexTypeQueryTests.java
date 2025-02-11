@@ -23,14 +23,15 @@ public class ComplexTypeQueryTests {
   }
 
   private void setupConnection(int thriftVal, int complexSupport) throws SQLException {
-    connection = getValidJDBCConnection(
+    connection =
+        getValidJDBCConnection(
             List.of(
-                    List.of("EnableComplexDatatypeSupport", String.valueOf(complexSupport)),
-                    List.of("usethriftclient", String.valueOf(thriftVal))));
+                List.of("EnableComplexDatatypeSupport", String.valueOf(complexSupport)),
+                List.of("usethriftclient", String.valueOf(thriftVal))));
   }
 
   @ParameterizedTest
-  @CsvSource({ "0,0", "1,0", "0,1", "1,1" })
+  @CsvSource({"0,0", "1,0", "0,1", "1,1"})
   void testQueryYieldingStruct(int thriftVal, int complexSupport) throws SQLException {
     setupConnection(thriftVal, complexSupport);
 
@@ -56,7 +57,7 @@ public class ComplexTypeQueryTests {
   }
 
   @ParameterizedTest
-  @CsvSource({ "0,0", "1,0", "0,1", "1,1" })
+  @CsvSource({"0,0", "1,0", "0,1", "1,1"})
   void testQueryYieldingArray(int thriftVal, int complexSupport) throws SQLException {
     setupConnection(thriftVal, complexSupport);
 
@@ -81,7 +82,7 @@ public class ComplexTypeQueryTests {
   }
 
   @ParameterizedTest
-  @CsvSource({ "0,0", "1,0", "0,1", "1,1" })
+  @CsvSource({"0,0", "1,0", "0,1", "1,1"})
   void testQueryYieldingMap(int thriftVal, int complexSupport) throws SQLException {
     setupConnection(thriftVal, complexSupport);
 
@@ -91,7 +92,7 @@ public class ComplexTypeQueryTests {
     while (rs.next()) {
       if (complexSupport == 1) {
         @SuppressWarnings("unchecked")
-        Map<String,Integer> map = rs.getMap("keyValuePairs");
+        Map<String, Integer> map = rs.getMap("keyValuePairs");
         assertNotNull(map);
         assertEquals(100, map.get("key1"));
         assertEquals(200, map.get("key2"));
@@ -107,11 +108,12 @@ public class ComplexTypeQueryTests {
   }
 
   @ParameterizedTest
-  @CsvSource({ "0,0", "1,0", "0,1", "1,1" })
+  @CsvSource({"0,0", "1,0", "0,1", "1,1"})
   void testQueryYieldingNestedStructs(int thriftVal, int complexSupport) throws SQLException {
     setupConnection(thriftVal, complexSupport);
 
-    String sql = "SELECT named_struct('person', named_struct('age', 30, 'name', 'John Doe')) AS personInfo";
+    String sql =
+        "SELECT named_struct('person', named_struct('age', 30, 'name', 'John Doe')) AS personInfo";
     DatabricksResultSet rs = (DatabricksResultSet) executeQuery(connection, sql);
     assertNotNull(rs);
     while (rs.next()) {
@@ -134,13 +136,13 @@ public class ComplexTypeQueryTests {
   }
 
   @ParameterizedTest
-  @CsvSource({ "0,0", "1,0", "0,1", "1,1" })
+  @CsvSource({"0,0", "1,0", "0,1", "1,1"})
   void testQueryYieldingArrayOfStructs(int thriftVal, int complexSupport) throws SQLException {
     setupConnection(thriftVal, complexSupport);
 
     String sql =
-            "SELECT array(named_struct('age', 30, 'name', 'John'), " +
-                    "             named_struct('age', 40, 'name', 'Jane')) AS persons";
+        "SELECT array(named_struct('age', 30, 'name', 'John'), "
+            + "             named_struct('age', 40, 'name', 'Jane')) AS persons";
     ResultSet rs = executeQuery(connection, sql);
     assertNotNull(rs);
     while (rs.next()) {
@@ -165,7 +167,7 @@ public class ComplexTypeQueryTests {
   }
 
   @ParameterizedTest
-  @CsvSource({ "0,0", "1,0", "0,1", "1,1" })
+  @CsvSource({"0,0", "1,0", "0,1", "1,1"})
   void testEmptyArray(int thriftVal, int complexSupport) throws SQLException {
     setupConnection(thriftVal, complexSupport);
 
@@ -189,7 +191,7 @@ public class ComplexTypeQueryTests {
   }
 
   @ParameterizedTest
-  @CsvSource({ "0,0", "1,0", "0,1", "1,1" })
+  @CsvSource({"0,0", "1,0", "0,1", "1,1"})
   void testNullArray(int thriftVal, int complexSupport) throws SQLException {
     setupConnection(thriftVal, complexSupport);
 
@@ -215,7 +217,7 @@ public class ComplexTypeQueryTests {
   }
 
   @ParameterizedTest
-  @CsvSource({ "0,0", "1,0", "0,1", "1,1" })
+  @CsvSource({"0,0", "1,0", "0,1", "1,1"})
   void testNestedArray(int thriftVal, int complexSupport) throws SQLException {
     setupConnection(thriftVal, complexSupport);
 
@@ -243,7 +245,7 @@ public class ComplexTypeQueryTests {
   }
 
   @ParameterizedTest
-  @CsvSource({ "0,0", "1,0", "0,1", "1,1" })
+  @CsvSource({"0,0", "1,0", "0,1", "1,1"})
   void testStructWithArray(int thriftVal, int complexSupport) throws SQLException {
     setupConnection(thriftVal, complexSupport);
 
@@ -255,7 +257,7 @@ public class ComplexTypeQueryTests {
         Struct s = rs.getStruct("structWithArray");
         Object[] attrs = s.getAttributes();
         Array arr = (Array) attrs[0];
-        assertArrayEquals(new Object[] {1,2,3}, (Object[]) arr.getArray());
+        assertArrayEquals(new Object[] {1, 2, 3}, (Object[]) arr.getArray());
         assertEquals(40, attrs[1]);
       } else {
         assertThrows(SQLException.class, () -> rs.getStruct("structWithArray"));
@@ -270,7 +272,7 @@ public class ComplexTypeQueryTests {
   }
 
   @ParameterizedTest
-  @CsvSource({ "0,0", "1,0", "0,1", "1,1" })
+  @CsvSource({"0,0", "1,0", "0,1", "1,1"})
   void testStructWithMap(int thriftVal, int complexSupport) throws SQLException {
     setupConnection(thriftVal, complexSupport);
 
@@ -282,7 +284,7 @@ public class ComplexTypeQueryTests {
         Struct s = rs.getStruct("structWithMap");
         Object[] attrs = s.getAttributes();
         @SuppressWarnings("unchecked")
-        Map<String,String> meta = (Map<String,String>) attrs[0];
+        Map<String, String> meta = (Map<String, String>) attrs[0];
         assertEquals("val1", meta.get("key1"));
         assertEquals(2, attrs[1]);
       } else {
@@ -298,7 +300,7 @@ public class ComplexTypeQueryTests {
   }
 
   @ParameterizedTest
-  @CsvSource({ "0,0", "1,0", "0,1", "1,1" })
+  @CsvSource({"0,0", "1,0", "0,1", "1,1"})
   void testMapOfArrays(int thriftVal, int complexSupport) throws SQLException {
     setupConnection(thriftVal, complexSupport);
 
@@ -325,7 +327,7 @@ public class ComplexTypeQueryTests {
   }
 
   @ParameterizedTest
-  @CsvSource({ "0,0", "1,0", "0,1", "1,1" })
+  @CsvSource({"0,0", "1,0", "0,1", "1,1"})
   void testArrayOfMaps(int thriftVal, int complexSupport) throws SQLException {
     setupConnection(thriftVal, complexSupport);
 
@@ -337,9 +339,9 @@ public class ComplexTypeQueryTests {
         Array arr = rs.getArray("arrayOfMaps");
         Object[] maps = (Object[]) arr.getArray();
         @SuppressWarnings("unchecked")
-        Map<String,Integer> m1 = (Map<String,Integer>) maps[0];
+        Map<String, Integer> m1 = (Map<String, Integer>) maps[0];
         @SuppressWarnings("unchecked")
-        Map<String,Integer> m2 = (Map<String,Integer>) maps[1];
+        Map<String, Integer> m2 = (Map<String, Integer>) maps[1];
         assertEquals(1, m1.get("k1"));
         assertEquals(2, m2.get("k2"));
         assertEquals(3, m2.get("k3"));
@@ -355,11 +357,12 @@ public class ComplexTypeQueryTests {
   }
 
   @ParameterizedTest
-  @CsvSource({ "0,0", "1,0", "0,1", "1,1" })
+  @CsvSource({"0,0", "1,0", "0,1", "1,1"})
   void testNullInStruct(int thriftVal, int complexSupport) throws SQLException {
     setupConnection(thriftVal, complexSupport);
 
-    String sql = "SELECT named_struct('name', 'Alice', 'age', CAST(NULL AS INT)) AS partialNullStruct";
+    String sql =
+        "SELECT named_struct('name', 'Alice', 'age', CAST(NULL AS INT)) AS partialNullStruct";
     DatabricksResultSet rs = (DatabricksResultSet) executeQuery(connection, sql);
     assertNotNull(rs);
     while (rs.next()) {
@@ -379,7 +382,7 @@ public class ComplexTypeQueryTests {
   }
 
   @ParameterizedTest
-  @CsvSource({ "0,0", "1,0", "0,1", "1,1" })
+  @CsvSource({"0,0", "1,0", "0,1", "1,1"})
   void testFullyNullStruct(int thriftVal, int complexSupport) throws SQLException {
     setupConnection(thriftVal, complexSupport);
 
@@ -406,7 +409,7 @@ public class ComplexTypeQueryTests {
   }
 
   @ParameterizedTest
-  @CsvSource({ "0,0", "1,0", "0,1", "1,1" })
+  @CsvSource({"0,0", "1,0", "0,1", "1,1"})
   void testMapWithNullValue(int thriftVal, int complexSupport) throws SQLException {
     setupConnection(thriftVal, complexSupport);
 
@@ -416,7 +419,7 @@ public class ComplexTypeQueryTests {
     while (rs.next()) {
       if (complexSupport == 1) {
         @SuppressWarnings("unchecked")
-        Map<String,Integer> map = rs.getMap("mapWithNull");
+        Map<String, Integer> map = rs.getMap("mapWithNull");
         assertNotNull(map);
         assertTrue(map.containsKey("k1"));
         assertNull(map.get("k1"));

@@ -50,8 +50,7 @@ public class DatabricksArray implements Array {
         if (elementType.startsWith(DatabricksTypeUtil.STRUCT)) {
           if (element instanceof Map) {
             convertedElements[i] = new DatabricksStruct((Map<String, Object>) element, elementType);
-          }
-          else if(element instanceof DatabricksStruct) {
+          } else if (element instanceof DatabricksStruct) {
             convertedElements[i] = element;
           } else {
             throw new IllegalArgumentException(
@@ -60,7 +59,7 @@ public class DatabricksArray implements Array {
         } else if (elementType.startsWith(DatabricksTypeUtil.ARRAY)) {
           if (element instanceof List) {
             convertedElements[i] = new DatabricksArray((List<Object>) element, elementType);
-          } else if(element instanceof DatabricksArray) {
+          } else if (element instanceof DatabricksArray) {
             convertedElements[i] = element;
           } else {
             throw new IllegalArgumentException(
@@ -69,9 +68,9 @@ public class DatabricksArray implements Array {
         } else if (elementType.startsWith(DatabricksTypeUtil.MAP)) {
           if (element instanceof Map) {
             convertedElements[i] = new DatabricksMap<>((Map<String, Object>) element, elementType);
-          } else if(element instanceof DatabricksMap) {
+          } else if (element instanceof DatabricksMap) {
             convertedElements[i] = element;
-          }  else {
+          } else {
             throw new IllegalArgumentException(
                 "Expected a Map for MAP but found: " + element.getClass().getSimpleName());
           }

@@ -105,7 +105,8 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
       StatementType statementType,
       IDatabricksStatementInternal parentStatement,
       IExecutionResult executionResult,
-      DatabricksResultSetMetaData resultSetMetaData) {
+      DatabricksResultSetMetaData resultSetMetaData,
+      boolean complexDatatypeSupport) {
     this.statementStatus = statementStatus;
     this.statementId = statementId;
     this.executionResult = executionResult;
@@ -115,6 +116,7 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
     this.parentStatement = parentStatement;
     this.isClosed = false;
     this.wasNull = false;
+    this.complexDatatypeSupport = complexDatatypeSupport;
   }
 
   // Constructor for thrift result set
@@ -466,8 +468,7 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
   }
 
   private Object handleComplexDataTypes(Object obj, int columnIndex) {
-    if (complexDatatypeSupport)
-      return obj;
+    if (complexDatatypeSupport) return obj;
     return obj.toString();
   }
 
@@ -1041,7 +1042,7 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
    */
   public Array getArray(int columnIndex) throws SQLException {
     LOGGER.debug("Getting Array from column index: {}", columnIndex);
-    if(!complexDatatypeSupport) {
+    if (!complexDatatypeSupport) {
       throw new SQLException("Complex datatype support support is disabled");
     }
     if (this.resultSetType.equals(ResultSetType.THRIFT_INLINE)
@@ -1064,7 +1065,7 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
   @Override
   public Struct getStruct(int columnIndex) throws SQLException {
     LOGGER.debug("Getting Struct from column index: {}", columnIndex);
-    if(!complexDatatypeSupport) {
+    if (!complexDatatypeSupport) {
       throw new SQLException("Complex datatype support support is disabled");
     }
     if (this.resultSetType.equals(ResultSetType.THRIFT_INLINE)
@@ -1087,7 +1088,7 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
   @Override
   public Map getMap(int columnIndex) throws SQLException {
     LOGGER.debug("Getting Map from column index: {}", columnIndex);
-    if(!complexDatatypeSupport) {
+    if (!complexDatatypeSupport) {
       throw new SQLException("Complex datatype support support is disabled");
     }
     if (this.resultSetType.equals(ResultSetType.THRIFT_INLINE)

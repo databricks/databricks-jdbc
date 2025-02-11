@@ -16,8 +16,8 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Utility class for parsing complex data type objects (map, array, struct)
- * into the custom JDBC wrapper objects (DatabricksArray, DatabricksMap, DatabricksStruct).
+ * Utility class for parsing complex data type objects (map, array, struct) into the custom JDBC
+ * wrapper objects (DatabricksArray, DatabricksMap, DatabricksStruct).
  */
 public class ComplexDataTypeParser {
 
@@ -49,7 +49,8 @@ public class ComplexDataTypeParser {
   /**
    * Parses a JSON string representing a MAP into a DatabricksMap.
    *
-   * @param json The JSON string (e.g. "{\"key1\": 123, \"key2\": 456}" or "[{\"key\":...,\"value\":...},...]")
+   * @param json The JSON string (e.g. "{\"key1\": 123, \"key2\": 456}" or
+   *     "[{\"key\":...,\"value\":...},...]")
    * @param mapMetadata The type metadata (e.g. "MAP<STRING,INT>" or "MAP<STRING,ARRAY<INT>>")
    * @return A DatabricksMap implementing a JDBC-like Map interface
    */
@@ -78,9 +79,7 @@ public class ComplexDataTypeParser {
     }
   }
 
-  /**
-   * Parses a JsonNode into a DatabricksArray, given full array metadata (e.g. "ARRAY<INT>").
-   */
+  /** Parses a JsonNode into a DatabricksArray, given full array metadata (e.g. "ARRAY<INT>"). */
   public DatabricksArray parseToArray(JsonNode node, String arrayMetadata) {
     if (!node.isArray()) {
       throw new IllegalArgumentException("Expected JSON array, got: " + node);
@@ -99,7 +98,8 @@ public class ComplexDataTypeParser {
   }
 
   /**
-   * Parses a JsonNode into a DatabricksMap, given full map metadata (e.g. "MAP<STRING, ARRAY<INT>>").
+   * Parses a JsonNode into a DatabricksMap, given full map metadata (e.g. "MAP<STRING,
+   * ARRAY<INT>>").
    */
   public DatabricksMap<String, Object> parseToMap(JsonNode node, String mapMetadata) {
     if (!mapMetadata.startsWith(DatabricksTypeUtil.MAP)) {
@@ -117,8 +117,8 @@ public class ComplexDataTypeParser {
   }
 
   /**
-   * Parses a JsonNode into a DatabricksStruct, given full struct metadata.
-   * e.g. "STRUCT<name:STRING, age:INT>".
+   * Parses a JsonNode into a DatabricksStruct, given full struct metadata. e.g.
+   * "STRUCT<name:STRING, age:INT>".
    */
   public DatabricksStruct parseToStruct(JsonNode node, String structMetadata) {
     if (!node.isObject()) {
@@ -130,23 +130,24 @@ public class ComplexDataTypeParser {
 
     Map<String, Object> structMap = new LinkedHashMap<>();
 
-    node.fields().forEachRemaining(entry -> {
-      String fieldName = entry.getKey();
-      JsonNode fieldNode = entry.getValue();
+    node.fields()
+        .forEachRemaining(
+            entry -> {
+              String fieldName = entry.getKey();
+              JsonNode fieldNode = entry.getValue();
 
-      String fieldType = fieldTypeMap.getOrDefault(fieldName, DatabricksTypeUtil.STRING);
+              String fieldType = fieldTypeMap.getOrDefault(fieldName, DatabricksTypeUtil.STRING);
 
-      Object convertedValue = convertValueNode(fieldNode, fieldType);
-      structMap.put(fieldName, convertedValue);
-    });
+              Object convertedValue = convertValueNode(fieldNode, fieldType);
+              structMap.put(fieldName, convertedValue);
+            });
 
     return new DatabricksStruct(structMap, structMetadata);
   }
 
-
   /**
-   * Converts a single JsonNode into the correct Java object based on `expectedType`.
-   * If `expectedType` is a complex type (ARRAY, MAP, STRUCT), we recurse.
+   * Converts a single JsonNode into the correct Java object based on `expectedType`. If
+   * `expectedType` is a complex type (ARRAY, MAP, STRUCT), we recurse.
    */
   private Object convertValueNode(JsonNode node, String expectedType) {
     if (node == null || node.isNull()) {
@@ -168,29 +169,32 @@ public class ComplexDataTypeParser {
 
   /**
    * Converts the given JsonNode into a Java Map<String,Object>, according to keyType and valueType.
-   * - If the node is a JSON Object: each field is "key" -> value
-   * - If the node is a JSON Array: assume each element has "key" and "value" fields
+   * - If the node is a JSON Object: each field is "key" -> value - If the node is a JSON Array:
+   * assume each element has "key" and "value" fields
    */
-  private Map<String, Object> convertJsonNodeToJavaMap(JsonNode node, String keyType, String valueType) {
+  private Map<String, Object> convertJsonNodeToJavaMap(
+      JsonNode node, String keyType, String valueType) {
     Map<String, Object> result = new LinkedHashMap<>();
 
     if (node.isObject()) {
-      node.fields().forEachRemaining(entry -> {
-        String keyString = entry.getKey();
-        JsonNode valNode = entry.getValue();
+      node.fields()
+          .forEachRemaining(
+              entry -> {
+                String keyString = entry.getKey();
+                JsonNode valNode = entry.getValue();
 
-        Object typedKey = convertValueNode(objectMapper.valueToTree(keyString), keyType);
-        String mapKey = (typedKey == null) ? "null" : typedKey.toString();
+                Object typedKey = convertValueNode(objectMapper.valueToTree(keyString), keyType);
+                String mapKey = (typedKey == null) ? "null" : typedKey.toString();
 
-        Object typedVal = convertValueNode(valNode, valueType);
-        result.put(mapKey, typedVal);
-      });
+                Object typedVal = convertValueNode(valNode, valueType);
+                result.put(mapKey, typedVal);
+              });
 
     } else if (node.isArray()) {
       for (JsonNode element : node) {
         if (!element.has("key")) {
           throw new IllegalArgumentException(
-                  "Expected array element with at least 'key' field. Found: " + element);
+              "Expected array element with at least 'key' field. Found: " + element);
         }
 
         JsonNode keyNode = element.get("key");
@@ -206,17 +210,15 @@ public class ComplexDataTypeParser {
         result.put(mapKey, typedVal);
       }
     } else {
-      throw new IllegalArgumentException(
-              "Expected JSON object or array for a MAP. Found: " + node);
+      throw new IllegalArgumentException("Expected JSON object or array for a MAP. Found: " + node);
     }
 
     return result;
   }
 
-
   /**
-   * Converts a primitive value (String -> int, String -> long, etc.)
-   * based on the type (INT, BIGINT, FLOAT, DOUBLE, DECIMAL, BOOLEAN, DATE, TIMESTAMP, TIME, BINARY, STRING, etc.).
+   * Converts a primitive value (String -> int, String -> long, etc.) based on the type (INT,
+   * BIGINT, FLOAT, DOUBLE, DECIMAL, BOOLEAN, DATE, TIMESTAMP, TIME, BINARY, STRING, etc.).
    */
   private Object convertPrimitive(String text, String type) {
     if (text == null) {
