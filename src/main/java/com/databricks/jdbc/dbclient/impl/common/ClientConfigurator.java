@@ -5,12 +5,14 @@ import static com.databricks.jdbc.common.DatabricksJdbcConstants.*;
 import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.auth.OAuthRefreshCredentialsProvider;
 import com.databricks.jdbc.auth.PrivateKeyClientCredentialProvider;
+import com.databricks.jdbc.common.AuthFlow;
 import com.databricks.jdbc.common.AuthMech;
 import com.databricks.jdbc.common.DatabricksJdbcConstants;
 import com.databricks.jdbc.common.util.DriverUtil;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
+import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import com.databricks.sdk.WorkspaceClient;
 import com.databricks.sdk.core.CredentialsProvider;
 import com.databricks.sdk.core.DatabricksConfig;
@@ -182,6 +184,17 @@ public class ClientConfigurator {
       } else {
         databricksConfig.setGoogleServiceAccount(connectionContext.getGoogleServiceAccount());
       }
+    } else if (connectionContext.getAuthFlow() == AuthFlow.AZURE_CLIENT_CREDENTIALS) {
+      if (connectionContext.getCloud() != Cloud.AZURE) {
+        throw new DatabricksParsingException(
+            "Azure client credentials flow is only supported for Azure cloud",
+            DatabricksDriverErrorCode.UNSUPPORTED_OPERATION);
+      }
+      databricksConfig
+          .setAuthType(M2M_AZURE_CLIENT_SECRET_AUTH_TYPE)
+          .setClientId(connectionContext.getClientId())
+          .setClientSecret(connectionContext.getClientSecret())
+          .setAzureTenantId(connectionContext.getAzureTenantId());
     } else {
       databricksConfig
           .setAuthType(DatabricksJdbcConstants.M2M_AUTH_TYPE)

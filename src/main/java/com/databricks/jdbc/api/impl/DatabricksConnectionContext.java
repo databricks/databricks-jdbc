@@ -642,6 +642,11 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
     return getParameter(DatabricksJdbcUrlParams.ENABLE_SQL_EXEC_HYBRID_RESULTS).equals("1");
   }
 
+  @Override
+  public String getAzureTenantId() {
+    return getParameter(DatabricksJdbcUrlParams.AZURE_TENANT_ID);
+  }
+
   private static boolean nullOrEmptyString(String s) {
     return s == null || s.isEmpty();
   }
