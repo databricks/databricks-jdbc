@@ -1,6 +1,6 @@
 # Version Changelog
 
-## [v0.9.9-oss] - 2025-01-03
+## [v0.9.9-oss] - 2025-01-02
 
 ### Added
 - Telemetry support in OSS JDBC.
