@@ -406,7 +406,9 @@ public class DatabricksSdkClient implements IDatabricksClient {
     }
     LOGGER.debug(errorMessage);
     throw new DatabricksSQLException(
-        errorMessage, DatabricksDriverErrorCode.EXECUTE_STATEMENT_FAILED);
+        errorMessage,
+        response.getStatus().getSqlState(),
+        DatabricksDriverErrorCode.EXECUTE_STATEMENT_FAILED);
   }
 
   private ExecuteStatementResponse wrapGetStatementResponse(

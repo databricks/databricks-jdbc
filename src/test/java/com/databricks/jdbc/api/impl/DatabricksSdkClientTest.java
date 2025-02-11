@@ -22,6 +22,7 @@ import com.databricks.jdbc.model.client.sqlexec.ExecuteStatementResponse;
 import com.databricks.jdbc.model.core.Disposition;
 import com.databricks.jdbc.model.core.ResultData;
 import com.databricks.jdbc.model.core.ResultManifest;
+import com.databricks.jdbc.model.core.StatementStatus;
 import com.databricks.sdk.core.ApiClient;
 import com.databricks.sdk.core.DatabricksError;
 import com.databricks.sdk.service.sql.*;

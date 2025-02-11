@@ -1,6 +1,6 @@
 package com.databricks.jdbc.api;
 
-import com.databricks.sdk.service.sql.StatementStatus;
+import com.databricks.jdbc.model.core.StatementStatus;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Struct;
