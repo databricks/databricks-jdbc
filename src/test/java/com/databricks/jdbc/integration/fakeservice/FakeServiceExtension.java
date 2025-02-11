@@ -95,6 +95,9 @@ public class FakeServiceExtension extends DatabricksWireMockExtension {
   /** Path to the stubbing directory for SQL Execution API. */
   public static final String SQL_EXEC_API_STUBBING_FILE_PATH = "src/test/resources/sqlexecapi";
 
+  public static final String JWT_TOKEN_ENDPOINT_STUBBING_FILE_PATH =
+      "src/test/resources/jwttokenendpoint";
+
   /** Path to the stubbing directory for Cloud Fetch API. */
   public static final String CLOUD_FETCH_API_STUBBING_FILE_PATH =
       "src/test/resources/cloudfetchapi";
@@ -215,6 +218,9 @@ public class FakeServiceExtension extends DatabricksWireMockExtension {
 
     String basePath;
     switch (fakeServiceType) {
+      case JWT_TOKEN_ENDPOINT:
+        basePath = JWT_TOKEN_ENDPOINT_STUBBING_FILE_PATH;
+        break;
       case SQL_EXEC:
         basePath = SQL_EXEC_API_STUBBING_FILE_PATH;
         break;
