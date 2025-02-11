@@ -103,7 +103,8 @@ public final class DatabricksJdbcConstants {
     CLOUD_FETCH,
     SQL_GATEWAY,
     CLOUD_FETCH_SQL_GATEWAY,
-    CLOUD_FETCH_UC_VOLUME
+    CLOUD_FETCH_UC_VOLUME,
+    JWT_TOKEN_ENDPOINT
   }
 
   public static final Pattern SELECT_PATTERN =

@@ -45,6 +45,27 @@ public class IntegrationTestUtil {
     return fakeServiceURI.getAuthority();
   }
 
+  public static String getFakeServiceM2MUrl() {
+    // SSL is disabled as embedded web server of fake service uses HTTP protocol.
+    // Note that in RECORD mode, the web server interacts with production services over HTTPS.
+    String template =
+        "jdbc:databricks://%s/default;transportMode=http;ssl=0;authmech=11;auth_flow=1;httpPath=%s";
+    return String.format(template, getFakeServiceHost(), getM2MHTTPPath());
+  }
+
+  public static String getFakeServiceM2MPrivateKeyCredentialsUrl() {
+    // SSL is disabled as embedded web server of fake service uses HTTP protocol.
+    // Note that in RECORD mode, the web server interacts with production services over HTTPS.
+    String template =
+        "jdbc:databricks://%s/default;transportMode=http;ssl=0;authmech=11;auth_flow=1;httpPath=%s;UseJWTAssertion=1;";
+    return String.format(template, getFakeServiceHost(), getM2MPrivateKeyCredentialsHTTPPath());
+  }
+
+  public static String getJWTTokenEndpointHost() {
+    String tokenEndpoint = System.getenv("DATABRICKS_JDBC_M2M_PRIVATE_KEY_TOKEN_ENDPOINT");
+    return tokenEndpoint.replaceAll("^(https?://[^/]+).*", "$1");
+  }
+
   public static String getFakeServiceJDBCUrl() {
     // The fake service client has SSL disabled, but SSL is enabled for its communication with
     // production services.
@@ -73,8 +94,16 @@ public class IntegrationTestUtil {
     return System.getenv("DATABRICKS_JDBC_M2M_HOST");
   }
 
+  public static String getM2MPrivateKeyCredentialsHost() {
+    return System.getenv("DATABRICKS_JDBC_M2M_PRIVATE_KEY_CREDENTIALS_HOST");
+  }
+
   public static String getM2MHTTPPath() {
     return System.getenv("DATABRICKS_JDBC_M2M_HTTP_PATH");
+  }
+
+  public static String getM2MPrivateKeyCredentialsHTTPPath() {
+    return System.getenv("DATABRICKS_JDBC_M2M_PRIVATE_KEY_CREDENTIALS_HTTP_PATH");
   }
 
   public static String getJdbcM2MUrl() {

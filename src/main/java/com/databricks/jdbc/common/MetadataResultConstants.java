@@ -61,7 +61,7 @@ public class MetadataResultConstants {
   public static final ResultColumn FUNCTION_NAME_COLUMN =
       new ResultColumn("FUNCTION_NAME", "functionName", Types.VARCHAR);
   public static final ResultColumn FUNCTION_TYPE_COLUMN =
-      new ResultColumn("FUNCTION_TYPE", "functionType", Types.INTEGER);
+      new ResultColumn("FUNCTION_TYPE", "functionType", Types.SMALLINT);
   public static final ResultColumn SPECIFIC_NAME_COLUMN =
       new ResultColumn("SPECIFIC_NAME", "specificName", Types.VARCHAR);
   public static final ResultColumn NUM_PREC_RADIX_COLUMN =
@@ -176,26 +176,33 @@ public class MetadataResultConstants {
       Arrays.asList(List.of("SYSTEM TABLE"), List.of("TABLE"), List.of("VIEW"));
   public static List<ResultColumn> TABLE_TYPE_COLUMNS = List.of(TABLE_TYPE_COLUMN);
   public static String NULL_STRING = "NULL";
-  public static List<ResultColumn> TYPE_INFO_COLUMNS =
+
+  public static final List<ResultColumn> NULL_COLUMN_COLUMNS =
       List.of(
+          SCOPE_CATALOG_COLUMN,
+          SCOPE_SCHEMA_COLUMN,
+          SCOPE_TABLE_COLUMN,
+          SOURCE_DATA_TYPE_COLUMN,
+          IS_AUTO_INCREMENT_COLUMN,
+          IS_GENERATED_COLUMN);
+
+  public static final List<ResultColumn> NULL_TABLE_COLUMNS =
+      List.of(
+          TYPE_CATALOG_COLUMN,
+          TYPE_SCHEMA_COLUMN,
           TYPE_NAME_COLUMN,
-          DATA_TYPE_COLUMN,
-          PRECISION_COLUMN,
-          LITERAL_PREFIX_COLUMN,
-          LITERAL_SUFFIX_COLUMN,
-          CREATE_PARAMS_COLUMN,
-          NULLABLE_COLUMN,
-          CASE_SENSITIVE_COLUMN,
-          SEARCHABLE_COLUMN,
-          UNSIGNED_ATTRIBUTE_COLUMN,
-          FIXED_PREC_SCALE_COLUMN,
-          AUTO_INCREMENT_COLUMN,
-          LOCAL_TYPE_NAME_COLUMN,
-          MINIMUM_SCALE_COLUMN,
-          MAXIMUM_SCALE_COLUMN,
-          SQL_DATA_TYPE_COLUMN,
-          SQL_DATETIME_SUB_COLUMN,
-          NUM_PREC_RADIX_COLUMN);
+          SELF_REFERENCING_COLUMN_NAME,
+          REF_GENERATION_COLUMN);
+
+  public static final List<ResultColumn> LARGE_DISPLAY_COLUMNS =
+      List.of(
+          REMARKS_COLUMN,
+          SPECIFIC_NAME_COLUMN,
+          COLUMN_DEF_COLUMN,
+          IS_NULLABLE_COLUMN,
+          SCOPE_CATALOG_COLUMN,
+          SCOPE_SCHEMA_COLUMN,
+          SCOPE_TABLE_COLUMN);
   public static final Map<CommandName, List<ResultColumn>> NON_NULLABLE_COLUMNS_MAP =
       Map.of(
           CommandName.LIST_TYPE_INFO,

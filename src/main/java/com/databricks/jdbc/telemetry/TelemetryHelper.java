@@ -104,7 +104,6 @@ public class TelemetryHelper {
     }
     TelemetryFrontendLog telemetryFrontendLog =
         new TelemetryFrontendLog().setEntry(new FrontendLogEntry().setSqlDriverLog(telemetryEvent));
-    System.out.println("here is telemetry log " + telemetryFrontendLog);
     TelemetryClientFactory.getInstance()
         .getUnauthenticatedTelemetryClient(connectionContext)
         .exportEvent(telemetryFrontendLog);
