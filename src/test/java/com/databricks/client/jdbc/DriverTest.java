@@ -50,6 +50,25 @@ public class DriverTest {
   }
 
   @Test
+  void testSeaSqlState() throws Exception {
+    DriverManager.registerDriver(new Driver());
+    String jdbcUrl =
+        "jdbc:databricks://redash-team-dev-default.dev.databricks.com:443/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/81fe4adcc7698105;";
+    Connection con = DriverManager.getConnection(jdbcUrl, "token", "xx");
+    System.out.println("Connection established......");
+    Statement s = con.createStatement();
+    try {
+      s.executeQuery("some fake sql query");
+    } catch (DatabricksSQLException e) {
+      System.out.println("Error message: " + e.getMessage());
+      if (e.getSQLState() != null && !Objects.equals(e.getSQLState(), "")) {
+        System.out.println("SQL State: " + e.getSQLState());
+      }
+    }
+    con.close();
+  }
+
+  @Test
   void testGetTablesOSS_StatementExecution() throws Exception {
     DriverManager.registerDriver(new Driver());
     DriverManager.drivers().forEach(driver -> System.out.println(driver.getClass()));

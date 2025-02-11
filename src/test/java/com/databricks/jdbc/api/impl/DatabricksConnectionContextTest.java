@@ -1,7 +1,9 @@
 package com.databricks.jdbc.api.impl;
 
 import static com.databricks.jdbc.api.impl.DatabricksConnectionContext.getLogLevel;
+import static com.databricks.jdbc.common.DatabricksJdbcConstants.GCP_GOOGLE_CREDENTIALS_AUTH_TYPE;
 import static com.databricks.jdbc.common.DatabricksJdbcConstants.GCP_GOOGLE_ID_AUTH_TYPE;
+import static com.databricks.jdbc.common.DatabricksJdbcConstants.M2M_AUTH_TYPE;
 import static org.junit.jupiter.api.Assertions.*;
 
 import com.databricks.jdbc.TestConstants;
@@ -97,25 +99,42 @@ class DatabricksConnectionContextTest {
     assertEquals(DatabricksClientType.THRIFT, connectionContext.getClientType());
 
     // test gcp port
+    Properties p1 = new Properties();
+    p1.setProperty("GoogleServiceAccount", "abc-compute@developer.gserviceaccount.com");
     connectionContext =
         (DatabricksConnectionContext)
-            DatabricksConnectionContext.parse(TestConstants.GCP_TEST_URL, properties);
+            DatabricksConnectionContext.parse(TestConstants.GCP_TEST_URL, p1);
     assertEquals(
         "https://4371047901336987.7.gcp.databricks.com:443", connectionContext.getHostUrl());
     assertEquals("/sql/1.0/warehouses/dd5955aacf3f09e5", connectionContext.getHttpPath());
-    assertEquals("passwd", connectionContext.getToken());
     assertEquals("databricks-sql-jdbc", connectionContext.getClientId());
     assertEquals("4371047901336987.7.gcp.databricks.com", connectionContext.getHostForOAuth());
     assertEquals(AuthMech.OAUTH, connectionContext.getAuthMech());
     assertEquals(AuthFlow.CLIENT_CREDENTIALS, connectionContext.getAuthFlow());
     assertEquals(connectionContext.getOAuthScopesForU2M(), expected_scopes);
     assertFalse(connectionContext.isAllPurposeCluster());
-    assertEquals(6, connectionContext.parameters.size());
+    assertEquals(5, connectionContext.parameters.size());
     assertEquals(DatabricksClientType.SEA, connectionContext.getClientType());
     assertEquals(
         "abc-compute@developer.gserviceaccount.com", connectionContext.getGoogleServiceAccount());
     assertNull(connectionContext.getGoogleCredentials());
     assertEquals(GCP_GOOGLE_ID_AUTH_TYPE, connectionContext.getGcpAuthType());
+
+    // test gcp port with google credentials file
+    Properties p2 = new Properties();
+    p2.setProperty("GoogleCredentialsFile", "/path/to/credentials.json");
+    connectionContext =
+        (DatabricksConnectionContext)
+            DatabricksConnectionContext.parse(TestConstants.GCP_TEST_URL, p2);
+    assertEquals(GCP_GOOGLE_CREDENTIALS_AUTH_TYPE, connectionContext.getGcpAuthType());
+
+    // test gcp with Client Secret
+    Properties p3 = new Properties();
+    p3.setProperty("OAuth2Secret", "client_secret");
+    connectionContext =
+        (DatabricksConnectionContext)
+            DatabricksConnectionContext.parse(TestConstants.GCP_TEST_URL, p3);
+    assertEquals(M2M_AUTH_TYPE, connectionContext.getGcpAuthType());
   }
 
   @Test

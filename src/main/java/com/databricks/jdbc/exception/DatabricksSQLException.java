@@ -9,7 +9,7 @@ import java.sql.SQLException;
 /** Top level exception for Databricks driver */
 public class DatabricksSQLException extends SQLException {
   public DatabricksSQLException(String reason, DatabricksDriverErrorCode internalError) {
-    this(reason, null, internalError);
+    this(reason, internalError.name());
   }
 
   public DatabricksSQLException(
@@ -28,5 +28,12 @@ public class DatabricksSQLException extends SQLException {
   public DatabricksSQLException(String reason, String sqlState) {
     super(reason, sqlState);
     exportFailureLog(DatabricksThreadContextHolder.getConnectionContext(), sqlState, reason);
+  }
+
+  public DatabricksSQLException(
+      String reason, String sqlState, DatabricksDriverErrorCode internalError) {
+    super(reason, sqlState);
+    exportFailureLog(
+        DatabricksThreadContextHolder.getConnectionContext(), internalError.name(), reason);
   }
 }

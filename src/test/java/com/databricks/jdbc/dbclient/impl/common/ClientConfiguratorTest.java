@@ -18,12 +18,15 @@ import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.sdk.WorkspaceClient;
 import com.databricks.sdk.core.CredentialsProvider;
 import com.databricks.sdk.core.DatabricksConfig;
+import com.databricks.sdk.core.ProxyConfig;
+import com.databricks.sdk.core.commons.CommonsHttpClient;
 import com.databricks.sdk.core.utils.Cloud;
 import java.io.IOException;
 import java.util.List;
 import java.util.Properties;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -226,5 +229,34 @@ public class ClientConfiguratorTest {
         "staging.example.*|blabla.net|*.xyz.abc",
         ClientConfigurator.convertNonProxyHostConfigToBeSystemPropertyCompliant(
             nonProxyHostsInput3));
+  }
+
+  @Test
+  void testSetupProxyConfig() {
+    when(mockContext.getAuthMech()).thenReturn(AuthMech.PAT);
+    when(mockContext.getUseProxy()).thenReturn(true);
+    when(mockContext.getProxyHost()).thenReturn("proxy.host.com");
+    when(mockContext.getProxyPort()).thenReturn(3128);
+    when(mockContext.getProxyUser()).thenReturn("proxyUser");
+    when(mockContext.getProxyPassword()).thenReturn("proxyPass");
+    when(mockContext.getProxyAuthType()).thenReturn(ProxyConfig.ProxyAuthType.values()[0]);
+    // For non-proxy hosts conversion, an input of ".example.com,localhost"
+    // is expected to be converted to "*.example.com|localhost"
+    when(mockContext.getNonProxyHosts()).thenReturn(".example.com,localhost");
+    configurator = new ClientConfigurator(mockContext);
+    CommonsHttpClient.Builder builder = mock(CommonsHttpClient.Builder.class);
+
+    configurator.setupProxyConfig(builder);
+
+    ArgumentCaptor<ProxyConfig> captor = ArgumentCaptor.forClass(ProxyConfig.class);
+    verify(builder).withProxyConfig(captor.capture());
+    ProxyConfig proxyConfig = captor.getValue();
+
+    // Verify that the ProxyConfig is set as expected.
+    assertEquals("proxy.host.com", proxyConfig.getHost());
+    assertEquals(3128, proxyConfig.getPort());
+    assertEquals("proxyUser", proxyConfig.getUsername());
+    assertEquals("proxyPass", proxyConfig.getPassword());
+    assertEquals("*.example.com|localhost", proxyConfig.getNonProxyHosts());
   }
 }
