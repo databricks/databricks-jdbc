@@ -701,7 +701,7 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
 
   @Override
   public int getHttpConnectionPoolSize() {
-    return Integer.parseInt(getParameter(DatabricksJdbcUrlParams.HTTP_CONNECTION_POOL_SIZE, "100"));
+    return Integer.parseInt(getParameter(DatabricksJdbcUrlParams.HTTP_CONNECTION_POOL_SIZE));
   }
 
   private static boolean nullOrEmptyString(String s) {
