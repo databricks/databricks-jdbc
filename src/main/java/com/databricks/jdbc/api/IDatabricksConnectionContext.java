@@ -216,6 +216,9 @@ public interface IDatabricksConnectionContext {
   /** Returns true if driver should use hybrid results in SQL_EXEC API. */
   boolean isSqlExecHybridResultsEnabled();
 
+  /** Returns true if request tracing should be enabled. */
+  boolean isRequestTracingEnabled();
+
   /** Returns true if driver return complex data type java objects natively as opposed to string */
   boolean isComplexDatatypeSupportEnabled();
 }

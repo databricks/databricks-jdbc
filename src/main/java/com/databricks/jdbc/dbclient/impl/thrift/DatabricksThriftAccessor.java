@@ -455,7 +455,8 @@ final class DatabricksThriftAccessor {
         new DatabricksHttpTTransport(
             DatabricksHttpClientFactory.getInstance().getClient(connectionContext),
             endPointUrl,
-            databricksConfig);
+            databricksConfig,
+            connectionContext);
     TBinaryProtocol protocol = new TBinaryProtocol(transport);
 
     return new TCLIService.Client(protocol);

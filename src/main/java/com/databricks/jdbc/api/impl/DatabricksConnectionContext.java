@@ -657,6 +657,11 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
     return getParameter(DatabricksJdbcUrlParams.ENABLE_COMPLEX_DATATYPE_SUPPORT).equals("1");
   }
 
+  @Override
+  public boolean isRequestTracingEnabled() {
+    return getParameter(DatabricksJdbcUrlParams.ENABLE_REQUEST_TRACING).equals("1");
+  }
+
   private static boolean nullOrEmptyString(String s) {
     return s == null || s.isEmpty();
   }
