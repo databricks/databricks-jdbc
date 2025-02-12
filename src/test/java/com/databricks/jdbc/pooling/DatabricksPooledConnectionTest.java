@@ -205,7 +205,7 @@ public class DatabricksPooledConnectionTest {
     assertNotEquals(0, statement.hashCode());
     assertTrue(statement.toString().startsWith("Pooled statement wrapping physical statement "));
     // Check delegated invoke
-    assertEquals(300, statement.getQueryTimeout());
+    assertEquals(0, statement.getQueryTimeout());
     statement.close();
     assertThrows(DatabricksSQLException.class, statement::getConnection);
     assertTrue(statement.isClosed());

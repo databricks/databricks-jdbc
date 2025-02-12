@@ -3,7 +3,7 @@ package com.databricks.jdbc.common;
 import com.databricks.jdbc.model.client.thrift.generated.TProtocolVersion;
 
 public final class EnvironmentVariables {
-  public static final int DEFAULT_STATEMENT_TIMEOUT_SECONDS = 300; // Timeout of 5 minutes
+  public static final int DEFAULT_STATEMENT_TIMEOUT_SECONDS = 0; // Infinite timeout
   public static final int DEFAULT_ROW_LIMIT =
       2000000; // Setting a limit for resource and cost efficiency
   public static final int DEFAULT_BYTE_LIMIT = 404857600;
