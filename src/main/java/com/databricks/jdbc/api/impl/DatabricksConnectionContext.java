@@ -51,6 +51,55 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
     this.clientType = getClientTypeFromContext();
   }
 
+  private DatabricksConnectionContext(
+      String connectionURL, String host, ImmutableMap<String, String> parameters) {
+    this.connectionURL = connectionURL;
+    this.host = host;
+    this.port = DEFAULT_PORT;
+    this.schema = DEFAULT_SCHEMA;
+    this.parameters = parameters;
+    this.computeResource = null;
+    this.connectionUuid = UUID.randomUUID().toString();
+  }
+
+  /**
+   * Builds a map of properties from the given connection parameter string and properties object.
+   *
+   * @param connectionParamString the connection parameter string
+   * @param properties the properties object
+   * @return an immutable map of properties
+   */
+  public static ImmutableMap<String, String> buildPropertiesMap(
+      String connectionParamString, Properties properties) {
+    ImmutableMap.Builder<String, String> parametersBuilder = ImmutableMap.builder();
+    String[] urlParts = connectionParamString.split(DatabricksJdbcConstants.URL_DELIMITER);
+    for (String urlPart : urlParts) {
+      String[] pair = urlPart.split(DatabricksJdbcConstants.PAIR_DELIMITER);
+      if (pair.length == 1) {
+        pair = new String[] {pair[0], ""};
+      }
+      parametersBuilder.put(pair[0].toLowerCase(), pair[1]);
+    }
+    for (Map.Entry<Object, Object> entry : properties.entrySet()) {
+      parametersBuilder.put(entry.getKey().toString().toLowerCase(), entry.getValue().toString());
+    }
+    return parametersBuilder.build();
+  }
+
+  static IDatabricksConnectionContext parseWithoutError(String url, Properties properties) {
+    Matcher urlMatcher = JDBC_URL_PATTERN.matcher(url);
+    if (urlMatcher.find()) {
+      String host = urlMatcher.group(1).split(DatabricksJdbcConstants.PORT_DELIMITER)[0];
+      // Explicitly check for null before accessing. covers cases like "jdbc:databricks://test"
+      // (no <;> after host)
+      String connectionParamString = urlMatcher.group(3) != null ? urlMatcher.group(3) : "";
+      ImmutableMap<String, String> connectionPropertiesMap =
+          buildPropertiesMap(connectionParamString, properties);
+      return new DatabricksConnectionContext(url, host, connectionPropertiesMap);
+    }
+    return null;
+  }
+
   /**
    * Parses connection Url and properties into a Databricks specific connection context
    *
@@ -76,28 +125,17 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
               ? Integer.parseInt(hostAndPort[1])
               : DatabricksJdbcConstants.DEFAULT_PORT;
 
-      ImmutableMap.Builder<String, String> parametersBuilder = ImmutableMap.builder();
-      String[] urlParts = urlMinusHost.split(DatabricksJdbcConstants.URL_DELIMITER);
-      for (String urlPart : urlParts) {
-        String[] pair = urlPart.split(DatabricksJdbcConstants.PAIR_DELIMITER);
-        if (pair.length == 1) {
-          pair = new String[] {pair[0], ""};
+      ImmutableMap<String, String> propertiesMap = buildPropertiesMap(urlMinusHost, properties);
+      if (propertiesMap.containsKey(PORT)) {
+        try {
+          portValue = Integer.parseInt(propertiesMap.get(PORT));
+        } catch (NumberFormatException e) {
+          throw new DatabricksParsingException(
+              "Invalid port number " + propertiesMap.get(PORT),
+              DatabricksDriverErrorCode.CONNECTION_ERROR);
         }
-        if (pair[0].equalsIgnoreCase(PORT)) {
-          try {
-            portValue = Integer.parseInt(pair[1]);
-          } catch (NumberFormatException e) {
-            throw new DatabricksParsingException(
-                "Invalid port number " + pair[1], DatabricksDriverErrorCode.CONNECTION_ERROR);
-          }
-        }
-        parametersBuilder.put(pair[0].toLowerCase(), pair[1]);
       }
-      for (Map.Entry<Object, Object> entry : properties.entrySet()) {
-        parametersBuilder.put(entry.getKey().toString().toLowerCase(), entry.getValue().toString());
-      }
-      return new DatabricksConnectionContext(
-          url, hostValue, portValue, schema, parametersBuilder.build());
+      return new DatabricksConnectionContext(url, hostValue, portValue, schema, propertiesMap);
     } else {
       // Should never reach here, since we have already checked for url validity
       throw new IllegalArgumentException("Invalid url " + "incorrect");
@@ -118,6 +156,11 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
         && Objects.equals(host, that.host)
         && Objects.equals(schema, that.schema)
         && Objects.equals(parameters, that.parameters);
+  }
+
+  @Override
+  public boolean isPropertyPresent(DatabricksJdbcUrlParams urlParam) {
+    return parameters.containsKey(urlParam.getParamName().toLowerCase());
   }
 
   @Override
@@ -200,13 +243,7 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
         DatabricksJdbcUrlParams.GOOGLE_CREDENTIALS_FILE.getParamName().toLowerCase())) {
       return DatabricksJdbcConstants.GCP_GOOGLE_CREDENTIALS_AUTH_TYPE;
     }
-    if (parameters.containsKey(
-        DatabricksJdbcUrlParams.CLIENT_SECRET.getParamName().toLowerCase())) {
-      return DatabricksJdbcConstants.M2M_AUTH_TYPE;
-    }
-    throw new DatabricksParsingException(
-        "GCP Auth Type not found. Provide either Google Service Account or Google Credentials file path",
-        DatabricksDriverErrorCode.CONNECTION_ERROR);
+    return DatabricksJdbcConstants.M2M_AUTH_TYPE;
   }
 
   @Override

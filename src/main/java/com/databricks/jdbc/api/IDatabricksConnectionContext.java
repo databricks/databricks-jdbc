@@ -50,6 +50,8 @@ public interface IDatabricksConnectionContext {
 
   AuthFlow getAuthFlow();
 
+  boolean isPropertyPresent(DatabricksJdbcUrlParams urlParam);
+
   LogLevel getLogLevel();
 
   String getLogPathString();

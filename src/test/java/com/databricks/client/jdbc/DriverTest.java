@@ -1,7 +1,9 @@
 package com.databricks.client.jdbc;
 
+import static com.databricks.jdbc.common.DatabricksJdbcUrlParams.HTTP_PATH;
 import static com.databricks.jdbc.integration.IntegrationTestUtil.getFullyQualifiedTableName;
 import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import com.databricks.jdbc.api.*;
 import com.databricks.jdbc.api.impl.DatabricksConnectionContextFactory;
@@ -79,7 +81,7 @@ public class DriverTest {
     System.out.println("Connection established......");
     Statement statement = con.createStatement();
     statement.setMaxRows(10);
-    ResultSet rs = con.createStatement().executeQuery("SELECT * from range(100)");
+    ResultSet rs = con.getMetaData().getTables("main", "%", "%", null);
     printResultSet(rs);
     rs.close();
     statement.close();
@@ -243,6 +245,25 @@ public class DriverTest {
     rs.close();
     statement.close();
     con.close();
+  }
+
+  @Test
+  void testGetPropertyInfo() throws Exception {
+    DriverManager.registerDriver(new Driver());
+    String emptyJdbcUrl = "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com";
+    DriverPropertyInfo[] driverPropertyInfos =
+        new Driver().getPropertyInfo(emptyJdbcUrl, new Properties());
+    assertEquals(1, driverPropertyInfos.length);
+    assertEquals(HTTP_PATH.getParamName(), driverPropertyInfos[0].name);
+
+    String jdbcUrl =
+        "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com;AuthMech=11;Auth_Flow=0;httpPath=/sql/1.0/warehouses/58aa1b363649e722;loglevel=1";
+    driverPropertyInfos = new Driver().getPropertyInfo(jdbcUrl, new Properties());
+    for (DriverPropertyInfo driverPropertyInfo : driverPropertyInfos) {
+      if (driverPropertyInfo.required) {
+        System.out.println(driverPropertyInfo.name + " " + driverPropertyInfo.description);
+      }
+    }
   }
 
   @Test
