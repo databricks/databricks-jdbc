@@ -19,10 +19,10 @@ import com.databricks.jdbc.exception.DatabricksSQLFeatureNotSupportedException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.model.client.thrift.generated.*;
+import com.databricks.jdbc.model.core.StatementStatus;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import com.databricks.sdk.core.DatabricksConfig;
 import com.databricks.sdk.service.sql.StatementState;
-import com.databricks.sdk.service.sql.StatementStatus;
 import com.google.common.annotations.VisibleForTesting;
 import java.sql.SQLException;
 import java.util.Arrays;
@@ -455,7 +455,8 @@ final class DatabricksThriftAccessor {
         new DatabricksHttpTTransport(
             DatabricksHttpClientFactory.getInstance().getClient(connectionContext),
             endPointUrl,
-            databricksConfig);
+            databricksConfig,
+            connectionContext);
     TBinaryProtocol protocol = new TBinaryProtocol(transport);
 
     return new TCLIService.Client(protocol);

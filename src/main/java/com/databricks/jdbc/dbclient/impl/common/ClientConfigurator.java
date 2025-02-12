@@ -7,6 +7,7 @@ import com.databricks.jdbc.auth.OAuthRefreshCredentialsProvider;
 import com.databricks.jdbc.auth.PrivateKeyClientCredentialProvider;
 import com.databricks.jdbc.common.AuthMech;
 import com.databricks.jdbc.common.DatabricksJdbcConstants;
+import com.databricks.jdbc.common.util.DriverUtil;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
@@ -166,7 +167,12 @@ public class ClientConfigurator {
 
   /** Setup the OAuth M2M authentication settings in the databricks config. */
   public void setupM2MConfig() throws DatabricksParsingException {
-    databricksConfig.setHost(connectionContext.getHostForOAuth());
+    if (DriverUtil.isRunningAgainstFake()) {
+      databricksConfig.setHost(
+          connectionContext.getHostUrl()); // add port when running fake service test
+    } else {
+      databricksConfig.setHost(connectionContext.getHostForOAuth());
+    }
     if (connectionContext.getCloud() == Cloud.GCP
         && !connectionContext.getGcpAuthType().equals(M2M_AUTH_TYPE)) {
       String authType = connectionContext.getGcpAuthType();

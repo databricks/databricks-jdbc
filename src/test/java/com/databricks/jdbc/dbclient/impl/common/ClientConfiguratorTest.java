@@ -18,12 +18,15 @@ import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.sdk.WorkspaceClient;
 import com.databricks.sdk.core.CredentialsProvider;
 import com.databricks.sdk.core.DatabricksConfig;
+import com.databricks.sdk.core.ProxyConfig;
+import com.databricks.sdk.core.commons.CommonsHttpClient;
 import com.databricks.sdk.core.utils.Cloud;
 import java.io.IOException;
 import java.util.List;
 import java.util.Properties;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -103,6 +106,33 @@ public class ClientConfiguratorTest {
     assertEquals("https://oauth-client.databricks.com", config.getHost());
     assertEquals("google-credentials", config.getGoogleCredentials());
     assertEquals(GCP_GOOGLE_CREDENTIALS_AUTH_TYPE, config.getAuthType());
+  }
+
+  @Test
+  void getWorkspaceClient_OAuthWithClientCredentials_AuthenticatesCorrectlyWithJWT()
+      throws DatabricksParsingException {
+    when(mockContext.getConnectionUuid()).thenReturn("connection-uuid");
+    when(mockContext.getAuthMech()).thenReturn(AuthMech.OAUTH);
+    when(mockContext.getAuthFlow()).thenReturn(AuthFlow.CLIENT_CREDENTIALS);
+    when(mockContext.getHostForOAuth()).thenReturn("https://jwt-auth.databricks.com");
+    when(mockContext.getClientId()).thenReturn("client-id");
+    when(mockContext.getClientSecret()).thenReturn("client-secret");
+    when(mockContext.useJWTAssertion()).thenReturn(true);
+    when(mockContext.getTokenEndpoint()).thenReturn("token-endpoint");
+    configurator = new ClientConfigurator(mockContext);
+
+    WorkspaceClient client = configurator.getWorkspaceClient();
+    assertNotNull(client);
+    DatabricksConfig config = client.config();
+
+    assertEquals("https://jwt-auth.databricks.com", config.getHost());
+    assertEquals("client-id", config.getClientId());
+    assertEquals("client-secret", config.getClientSecret());
+    assertEquals(DatabricksJdbcConstants.M2M_AUTH_TYPE, config.getAuthType());
+    CredentialsProvider provider = config.getCredentialsProvider();
+    assertNotNull(provider);
+    assertEquals(PrivateKeyClientCredentialProvider.class, provider.getClass());
+    assertEquals("custom-oauth-m2m", provider.authType());
   }
 
   @Test
@@ -199,5 +229,34 @@ public class ClientConfiguratorTest {
         "staging.example.*|blabla.net|*.xyz.abc",
         ClientConfigurator.convertNonProxyHostConfigToBeSystemPropertyCompliant(
             nonProxyHostsInput3));
+  }
+
+  @Test
+  void testSetupProxyConfig() {
+    when(mockContext.getAuthMech()).thenReturn(AuthMech.PAT);
+    when(mockContext.getUseProxy()).thenReturn(true);
+    when(mockContext.getProxyHost()).thenReturn("proxy.host.com");
+    when(mockContext.getProxyPort()).thenReturn(3128);
+    when(mockContext.getProxyUser()).thenReturn("proxyUser");
+    when(mockContext.getProxyPassword()).thenReturn("proxyPass");
+    when(mockContext.getProxyAuthType()).thenReturn(ProxyConfig.ProxyAuthType.values()[0]);
+    // For non-proxy hosts conversion, an input of ".example.com,localhost"
+    // is expected to be converted to "*.example.com|localhost"
+    when(mockContext.getNonProxyHosts()).thenReturn(".example.com,localhost");
+    configurator = new ClientConfigurator(mockContext);
+    CommonsHttpClient.Builder builder = mock(CommonsHttpClient.Builder.class);
+
+    configurator.setupProxyConfig(builder);
+
+    ArgumentCaptor<ProxyConfig> captor = ArgumentCaptor.forClass(ProxyConfig.class);
+    verify(builder).withProxyConfig(captor.capture());
+    ProxyConfig proxyConfig = captor.getValue();
+
+    // Verify that the ProxyConfig is set as expected.
+    assertEquals("proxy.host.com", proxyConfig.getHost());
+    assertEquals(3128, proxyConfig.getPort());
+    assertEquals("proxyUser", proxyConfig.getUsername());
+    assertEquals("proxyPass", proxyConfig.getPassword());
+    assertEquals("*.example.com|localhost", proxyConfig.getNonProxyHosts());
   }
 }

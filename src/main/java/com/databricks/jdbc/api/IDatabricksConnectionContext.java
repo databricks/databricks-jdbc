@@ -114,6 +114,8 @@ public interface IDatabricksConnectionContext {
 
   DatabricksClientType getClientType();
 
+  void setClientType(DatabricksClientType clientType);
+
   Boolean getUseEmptyMetadata();
 
   /** Returns the number of threads to be used for fetching data from cloud storage */
@@ -215,4 +217,7 @@ public interface IDatabricksConnectionContext {
 
   /** Returns true if driver should use hybrid results in SQL_EXEC API. */
   boolean isSqlExecHybridResultsEnabled();
+
+  /** Returns true if request tracing should be enabled. */
+  boolean isRequestTracingEnabled();
 }
