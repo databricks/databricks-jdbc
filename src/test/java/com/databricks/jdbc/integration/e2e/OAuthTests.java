@@ -5,14 +5,21 @@ import static com.databricks.jdbc.common.DatabricksJdbcUrlParams.USER;
 import static com.databricks.jdbc.integration.IntegrationTestUtil.*;
 import static org.junit.jupiter.api.Assertions.*;
 
+import com.databricks.sdk.core.utils.Cloud;
 import java.sql.*;
 import java.util.Properties;
 import org.junit.jupiter.api.Test;
 
 public class OAuthTests {
   @Test
-  void testM2M() throws SQLException {
-    Connection connection = getValidM2MConnection();
+  void test_M2M_Azure() throws SQLException {
+    Connection connection = getValidM2MConnection(Cloud.AZURE);
+    assertDoesNotThrow(() -> connection.createStatement().execute("select 1"));
+  }
+
+  @Test
+  void test_M2M_Aws() throws SQLException {
+    Connection connection = getValidM2MConnection(Cloud.AWS);
     assertDoesNotThrow(() -> connection.createStatement().execute("select 1"));
   }
 
