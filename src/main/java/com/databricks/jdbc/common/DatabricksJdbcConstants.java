@@ -66,6 +66,8 @@ public final class DatabricksJdbcConstants {
   public static final String ALLOWED_STAGING_INGESTION_PATHS = "StagingAllowedLocalPaths";
   public static final String VOLUME_OPERATION_STATUS_COLUMN_NAME = "operation_status";
   public static final String VOLUME_OPERATION_STATUS_SUCCEEDED = "SUCCEEDED";
+
+  public static final String ARROW_METADATA_KEY = "Spark:DataType:SqlName";
   public static final Map<String, String> ALLOWED_SESSION_CONF_TO_DEFAULT_VALUES_MAP =
       // This map comes from
       // https://docs.databricks.com/en/sql/language-manual/sql-ref-parameters.html
@@ -96,6 +98,7 @@ public final class DatabricksJdbcConstants {
   public static final String GCP_GOOGLE_CREDENTIALS_AUTH_TYPE = "google-credentials";
   public static final String GCP_GOOGLE_ID_AUTH_TYPE = "google-id";
   public static final String DEFAULT_HTTP_EXCEPTION_SQLSTATE = "08000";
+  public static final int TEMPORARY_REDIRECT_STATUS_CODE = 307;
 
   /** Enum for the services that can be replaced with a fake service in integration tests. */
   @VisibleForTesting

@@ -1,5 +1,6 @@
 package com.databricks.jdbc.api.impl.arrow;
 
+import static com.databricks.jdbc.common.DatabricksJdbcConstants.ARROW_METADATA_KEY;
 import static com.databricks.jdbc.common.util.DatabricksThriftUtil.createExternalLink;
 import static com.databricks.jdbc.common.util.ValidationUtil.checkHTTPError;
 
@@ -95,6 +96,8 @@ public class ArrowResultChunk {
   private static boolean injectError = false;
   private static int errorInjectionCountMaxValue = 0;
   private int errorInjectionCount = 0;
+
+  private List<String> arrowMetadata;
 
   private ArrowResultChunk(Builder builder) throws DatabricksParsingException {
     this.chunkIndex = builder.chunkIndex;
@@ -193,6 +196,10 @@ public class ArrowResultChunk {
           .getColumnVector(this.recordBatchCursorInChunk, columnIndex)
           .getObject(this.rowCursorInRecordBatch);
     }
+
+    String getType(int columnIndex) {
+      return this.resultChunk.getArrowMetadata().get(columnIndex);
+    }
   }
 
   @VisibleForTesting
@@ -288,8 +295,10 @@ public class ArrowResultChunk {
         String.format(
             "Parsing data for chunk index [%s] and statement [%s]",
             this.chunkIndex, this.statementId));
-    this.recordBatchList =
+    ArrowData arrowData =
         getRecordBatchList(inputStream, this.rootAllocator, this.statementId, this.chunkIndex);
+    this.recordBatchList = arrowData.getValueVectors();
+    this.arrowMetadata = arrowData.getMetadata();
     LOGGER.debug(
         String.format(
             "Data parsed for chunk index [%s] and statement [%s]",
@@ -349,13 +358,37 @@ public class ArrowResultChunk {
     return this.recordBatchList.get(recordBatchIndex).get(columnIndex);
   }
 
-  private static List<List<ValueVector>> getRecordBatchList(
+  static final class ArrowData {
+    private final List<List<ValueVector>> valueVectors;
+    private final List<String> metadata;
+
+    public ArrowData(List<List<ValueVector>> valueVectors, List<String> metadata) {
+      this.valueVectors = valueVectors;
+      this.metadata = metadata;
+    }
+
+    public List<List<ValueVector>> getValueVectors() {
+      return valueVectors;
+    }
+
+    public List<String> getMetadata() {
+      return metadata;
+    }
+  }
+
+  private static ArrowData getRecordBatchList(
       InputStream inputStream, BufferAllocator rootAllocator, String statementId, long chunkIndex)
       throws IOException {
     List<List<ValueVector>> recordBatchList = new ArrayList<>();
+    List<String> metadata = new ArrayList<>();
     try (ArrowStreamReader arrowStreamReader = new ArrowStreamReader(inputStream, rootAllocator)) {
       VectorSchemaRoot vectorSchemaRoot = arrowStreamReader.getVectorSchemaRoot();
+      boolean fetchedMetadata = false;
       while (arrowStreamReader.loadNextBatch()) {
+        if (!fetchedMetadata) {
+          metadata = getMetadataInformationFromSchemaRoot(vectorSchemaRoot);
+          fetchedMetadata = true;
+        }
         recordBatchList.add(getVectorsFromSchemaRoot(vectorSchemaRoot, rootAllocator));
         vectorSchemaRoot.clear();
       }
@@ -374,8 +407,14 @@ public class ArrowResultChunk {
       purgeArrowData(recordBatchList);
       throw e;
     }
+    return new ArrowData(recordBatchList, metadata);
+  }
 
-    return recordBatchList;
+  private static List<String> getMetadataInformationFromSchemaRoot(
+      VectorSchemaRoot vectorSchemaRoot) {
+    return vectorSchemaRoot.getFieldVectors().stream()
+        .map(fieldVector -> fieldVector.getField().getMetadata().get(ARROW_METADATA_KEY))
+        .collect(Collectors.toList());
   }
 
   private static List<ValueVector> getVectorsFromSchemaRoot(
@@ -465,5 +504,9 @@ public class ArrowResultChunk {
 
   public static void setErrorInjectionCountMaxValue(int errorInjectionCountMaxValue) {
     ArrowResultChunk.errorInjectionCountMaxValue = errorInjectionCountMaxValue;
+  }
+
+  public List<String> getArrowMetadata() {
+    return arrowMetadata;
   }
 }

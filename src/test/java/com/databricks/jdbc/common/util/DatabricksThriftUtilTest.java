@@ -141,7 +141,9 @@ public class DatabricksThriftUtilTest {
         Arguments.of(TTypeId.INTERVAL_YEAR_MONTH_TYPE, ColumnInfoTypeName.INTERVAL),
         Arguments.of(TTypeId.INTERVAL_DAY_TIME_TYPE, ColumnInfoTypeName.INTERVAL),
         Arguments.of(TTypeId.DOUBLE_TYPE, ColumnInfoTypeName.DOUBLE),
-        Arguments.of(TTypeId.MAP_TYPE, ColumnInfoTypeName.STRING));
+        Arguments.of(TTypeId.MAP_TYPE, ColumnInfoTypeName.MAP),
+        Arguments.of(TTypeId.ARRAY_TYPE, ColumnInfoTypeName.ARRAY),
+        Arguments.of(TTypeId.STRUCT_TYPE, ColumnInfoTypeName.STRUCT));
   }
 
   private static Stream<Arguments> typeIdColumnTypeText() {

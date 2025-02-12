@@ -1,7 +1,9 @@
 package com.databricks.client.jdbc;
 
+import static com.databricks.jdbc.common.DatabricksJdbcUrlParams.HTTP_PATH;
 import static com.databricks.jdbc.integration.IntegrationTestUtil.getFullyQualifiedTableName;
 import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import com.databricks.jdbc.api.*;
 import com.databricks.jdbc.api.impl.DatabricksConnectionContextFactory;
@@ -50,6 +52,25 @@ public class DriverTest {
   }
 
   @Test
+  void testSeaSqlState() throws Exception {
+    DriverManager.registerDriver(new Driver());
+    String jdbcUrl =
+        "jdbc:databricks://redash-team-dev-default.dev.databricks.com:443/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/81fe4adcc7698105;";
+    Connection con = DriverManager.getConnection(jdbcUrl, "token", "xx");
+    System.out.println("Connection established......");
+    Statement s = con.createStatement();
+    try {
+      s.executeQuery("some fake sql query");
+    } catch (DatabricksSQLException e) {
+      System.out.println("Error message: " + e.getMessage());
+      if (e.getSQLState() != null && !Objects.equals(e.getSQLState(), "")) {
+        System.out.println("SQL State: " + e.getSQLState());
+      }
+    }
+    con.close();
+  }
+
+  @Test
   void testGetTablesOSS_StatementExecution() throws Exception {
     DriverManager.registerDriver(new Driver());
     DriverManager.drivers().forEach(driver -> System.out.println(driver.getClass()));
@@ -60,7 +81,7 @@ public class DriverTest {
     System.out.println("Connection established......");
     Statement statement = con.createStatement();
     statement.setMaxRows(10);
-    ResultSet rs = con.createStatement().executeQuery("SELECT * from range(100)");
+    ResultSet rs = con.getMetaData().getTables("main", "%", "%", null);
     printResultSet(rs);
     rs.close();
     statement.close();
@@ -109,6 +130,59 @@ public class DriverTest {
     // Getting the connection
     String jdbcUrl =
         "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=https;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/791ba2a31c7fd70a;";
+    Connection con = DriverManager.getConnection(jdbcUrl, "token", "x");
+    System.out.println("Connection established......");
+
+    ResultSet resultSet =
+        con.createStatement().executeQuery("SELECT named_struct('key1', 1, 'key2', 'value2')");
+    printResultSet(resultSet);
+
+    resultSet.close();
+    con.close();
+  }
+
+  @Test
+  void testComplexDataTypesForThrift_Array() throws Exception {
+    DriverManager.registerDriver(new Driver());
+    DriverManager.drivers().forEach(driver -> System.out.println(driver.getClass()));
+    // Getting the connection
+    String jdbcUrl =
+        "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=https;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/791ba2a31c7fd70a;usethriftclient=1";
+    Connection con = DriverManager.getConnection(jdbcUrl, "token", "x");
+    System.out.println("Connection established......");
+    ResultSet resultSet = con.createStatement().executeQuery("SELECT array(1, 4, 2, 5, 3, 6)");
+    printResultSet(resultSet);
+    resultSet.close();
+    con.close();
+  }
+
+  @Test
+  void testComplexDataTypesForThrift_Map() throws Exception {
+    DriverManager.registerDriver(new Driver());
+    DriverManager.drivers().forEach(driver -> System.out.println(driver.getClass()));
+
+    // Getting the connection
+    String jdbcUrl =
+        "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=https;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/791ba2a31c7fd70a;usethriftclient=1";
+    Connection con = DriverManager.getConnection(jdbcUrl, "token", "x");
+    System.out.println("Connection established......");
+
+    ResultSet resultSet =
+        con.createStatement().executeQuery("SELECT map(1, 'one', 2, 'two', 3, 'three')");
+    printResultSet(resultSet);
+
+    resultSet.close();
+    con.close();
+  }
+
+  @Test
+  void testComplexDataTypesForThrift_Struct() throws Exception {
+    DriverManager.registerDriver(new Driver());
+    DriverManager.drivers().forEach(driver -> System.out.println(driver.getClass()));
+
+    // Getting the connection
+    String jdbcUrl =
+        "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=https;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/791ba2a31c7fd70a;usethriftclient=1";
     Connection con = DriverManager.getConnection(jdbcUrl, "token", "x");
     System.out.println("Connection established......");
 
@@ -171,6 +245,25 @@ public class DriverTest {
     rs.close();
     statement.close();
     con.close();
+  }
+
+  @Test
+  void testGetPropertyInfo() throws Exception {
+    DriverManager.registerDriver(new Driver());
+    String emptyJdbcUrl = "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com";
+    DriverPropertyInfo[] driverPropertyInfos =
+        new Driver().getPropertyInfo(emptyJdbcUrl, new Properties());
+    assertEquals(1, driverPropertyInfos.length);
+    assertEquals(HTTP_PATH.getParamName(), driverPropertyInfos[0].name);
+
+    String jdbcUrl =
+        "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com;AuthMech=11;Auth_Flow=0;httpPath=/sql/1.0/warehouses/58aa1b363649e722;loglevel=1";
+    driverPropertyInfos = new Driver().getPropertyInfo(jdbcUrl, new Properties());
+    for (DriverPropertyInfo driverPropertyInfo : driverPropertyInfos) {
+      if (driverPropertyInfo.required) {
+        System.out.println(driverPropertyInfo.name + " " + driverPropertyInfo.description);
+      }
+    }
   }
 
   @Test

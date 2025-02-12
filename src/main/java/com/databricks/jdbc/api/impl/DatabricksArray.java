@@ -9,6 +9,7 @@ import java.sql.Date;
 import java.sql.SQLException;
 import java.sql.Time;
 import java.sql.Timestamp;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 
@@ -49,6 +50,8 @@ public class DatabricksArray implements Array {
         if (elementType.startsWith(DatabricksTypeUtil.STRUCT)) {
           if (element instanceof Map) {
             convertedElements[i] = new DatabricksStruct((Map<String, Object>) element, elementType);
+          } else if (element instanceof DatabricksStruct) {
+            convertedElements[i] = element;
           } else {
             throw new IllegalArgumentException(
                 "Expected a Map for STRUCT but found: " + element.getClass().getSimpleName());
@@ -56,6 +59,8 @@ public class DatabricksArray implements Array {
         } else if (elementType.startsWith(DatabricksTypeUtil.ARRAY)) {
           if (element instanceof List) {
             convertedElements[i] = new DatabricksArray((List<Object>) element, elementType);
+          } else if (element instanceof DatabricksArray) {
+            convertedElements[i] = element;
           } else {
             throw new IllegalArgumentException(
                 "Expected a List for ARRAY but found: " + element.getClass().getSimpleName());
@@ -63,6 +68,8 @@ public class DatabricksArray implements Array {
         } else if (elementType.startsWith(DatabricksTypeUtil.MAP)) {
           if (element instanceof Map) {
             convertedElements[i] = new DatabricksMap<>((Map<String, Object>) element, elementType);
+          } else if (element instanceof DatabricksMap) {
+            convertedElements[i] = element;
           } else {
             throw new IllegalArgumentException(
                 "Expected a Map for MAP but found: " + element.getClass().getSimpleName());
@@ -192,5 +199,10 @@ public class DatabricksArray implements Array {
     LOGGER.error("getResultSet(long index, int count, Map<String, Class<?>> map) not implemented");
     throw new UnsupportedOperationException(
         "getResultSet(long index, int count, Map<String, Class<?>> map) not implemented");
+  }
+
+  @Override
+  public String toString() {
+    return Arrays.deepToString(elements);
   }
 }

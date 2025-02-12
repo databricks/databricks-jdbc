@@ -13,9 +13,9 @@ import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.model.client.thrift.generated.*;
 import com.databricks.jdbc.model.core.ExternalLink;
+import com.databricks.jdbc.model.core.StatementStatus;
 import com.databricks.sdk.service.sql.ColumnInfoTypeName;
 import com.databricks.sdk.service.sql.StatementState;
-import com.databricks.sdk.service.sql.StatementStatus;
 import java.nio.ByteBuffer;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -228,6 +228,12 @@ public class DatabricksThriftUtil {
       case INTERVAL_YEAR_MONTH_TYPE:
       case INTERVAL_DAY_TIME_TYPE:
         return ColumnInfoTypeName.INTERVAL;
+      case ARRAY_TYPE:
+        return ColumnInfoTypeName.ARRAY;
+      case MAP_TYPE:
+        return ColumnInfoTypeName.MAP;
+      case STRUCT_TYPE:
+        return ColumnInfoTypeName.STRUCT;
       default:
         return ColumnInfoTypeName.STRING;
     }

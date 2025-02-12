@@ -117,7 +117,11 @@ public class ArrowStreamResult implements IExecutionResult {
   public Object getObject(int columnIndex) throws DatabricksSQLException {
     ColumnInfoTypeName requiredType = columnInfos.get(columnIndex).getTypeName();
     Object unconvertedObject = chunkIterator.getColumnObjectAtCurrentRow(columnIndex);
-    return ArrowToJavaObjectConverter.convert(unconvertedObject, requiredType);
+    String arrowMetadata = chunkIterator.getType(columnIndex);
+    if (arrowMetadata == null) {
+      arrowMetadata = columnInfos.get(columnIndex).getTypeText();
+    }
+    return ArrowToJavaObjectConverter.convert(unconvertedObject, requiredType, arrowMetadata);
   }
 
   /** {@inheritDoc} */

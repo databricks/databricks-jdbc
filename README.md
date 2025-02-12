@@ -35,7 +35,7 @@ The project includes a suite of integration tests located in the
 `src/test/java/com/databricks/jdbc/integration/fakeservice/tests`. Each test runs against a set of fake-services
 corresponding to each production service, namely `SQL_EXEC`/`SQL_GATEWAY` and `DBFS`. The [fake-service](./src/test/java/com/databricks/jdbc/integration/fakeservice/FakeServiceExtension.java)
 is based on the open-source project [WireMock](https://wiremock.org/). The tests can be run in the following
-fake-service modes controlled by the environment variable <u>`FAKE_SERVICE_MODE`</u>:
+fake-service modes controlled by the environment variable <u>`FAKE_SERVICE_TEST_MODE`</u>:
 
 1. `RECORD`: In this mode, the fake-service will record the responses from the production service and save them to the
    corresponding directory in `/src/test/resources/`. This mode is useful for updating the responses when contract with
