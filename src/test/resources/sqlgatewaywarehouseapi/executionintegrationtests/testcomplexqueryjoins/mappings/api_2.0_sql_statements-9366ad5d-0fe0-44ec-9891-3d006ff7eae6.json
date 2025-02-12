@@ -1,0 +1,33 @@
+{
+  "id" : "9366ad5d-0fe0-44ec-9891-3d006ff7eae6",
+  "name" : "api_2.0_sql_statements",
+  "request" : {
+    "url" : "/api/2.0/sql/statements/",
+    "method" : "POST",
+    "bodyPatterns" : [ {
+      "equalToJson" : "{\"statement\":\"INSERT INTO main.jdbc_test_schema.table1_cqj (id, col1, col2) VALUES (1, 'value1_table1', 'value2_table1')\",\"warehouse_id\":\"dd43ee29fedd958d\",\"session_id\":\"01efe8f8-c5d6-194e-90f1-b280ec1d8c93\",\"disposition\":\"EXTERNAL_LINKS\",\"format\":\"ARROW_STREAM\",\"on_wait_timeout\":\"CONTINUE\",\"wait_timeout\":\"10s\",\"parameters\":[],\"result_compression\":\"LZ4_FRAME\"}",
+      "ignoreArrayOrder" : true,
+      "ignoreExtraElements" : true
+    } ]
+  },
+  "response" : {
+    "status" : 200,
+    "body" : "{\"statement_id\":\"01efe8f8-cc5e-1d7a-b838-60546b78961d\",\"status\":{\"state\":\"PENDING\"}}",
+    "headers" : {
+      "x-request-id" : "bdb73fd2-eeba-4722-902f-dae51b2a46d4",
+      "date" : "Wed, 12 Feb 2025 04:21:25 GMT",
+      "server" : "databricks",
+      "x-databricks-popp-response-code-details" : "via_upstream",
+      "x-databricks-shard-debug" : "oregon-staging",
+      "vary" : "Accept-Encoding",
+      "x-databricks-org-id" : "6051921418418893",
+      "strict-transport-security" : "max-age=31536000; includeSubDomains; preload",
+      "x-content-type-options" : "nosniff",
+      "x-databricks-popp-routing-reason" : "deployment-name",
+      "content-type" : "application/json",
+      "x-databricks-apiproxy-response-code-details" : "via_upstream"
+    }
+  },
+  "uuid" : "9366ad5d-0fe0-44ec-9891-3d006ff7eae6",
+  "insertionIndex" : 96
+}

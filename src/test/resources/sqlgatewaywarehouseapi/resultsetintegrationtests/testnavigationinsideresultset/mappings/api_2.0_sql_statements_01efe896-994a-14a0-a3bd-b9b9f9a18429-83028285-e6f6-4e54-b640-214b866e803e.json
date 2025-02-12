@@ -1,0 +1,30 @@
+{
+  "id" : "83028285-e6f6-4e54-b640-214b866e803e",
+  "name" : "api_2.0_sql_statements_01efe896-994a-14a0-a3bd-b9b9f9a18429",
+  "request" : {
+    "url" : "/api/2.0/sql/statements/01efe896-994a-14a0-a3bd-b9b9f9a18429",
+    "method" : "GET"
+  },
+  "response" : {
+    "status" : 200,
+    "body" : "{\"statement_id\":\"01efe896-994a-14a0-a3bd-b9b9f9a18429\",\"status\":{\"state\":\"FAILED\",\"error\":{\"error_code\":\"BAD_REQUEST\",\"message\":\"Access Denied; request: GET https://us-west-2-extstaging-managed-catalog-test-bucket-1.s3.us-west-2.amazonaws.com  {key=[2], key=[1], key=[19a85dee-54bc-43a2-87ab-023d0ec16013/tables/dfa94179-e24f-4d5d-beda-4b4328959003/part-00000-b31f1d80-42de-4886-9b00-6b3f6157669c.c000.snappy.parquet], key=[false]} Hadoop 3.3.6, aws-sdk-java/1.12.638 Linux/5.15.0-1072-aws OpenJDK_64-Bit_Server_VM/17.0.13+11-LTS java/17.0.13 scala/2.12.15 kotlin/1.9.10 vendor/Azul_Systems,_Inc. cfg/retry-mode/legacy com.amazonaws.services.s3.model.ListObjectsV2Request; Request ID: A4KDPPRVJGQNZEVH, Extended Request ID: 0vUU2z8TKTJ+wgWOEHaTrst2fTbbNDvW0nwgwK8mn0ZLLhVMYxyqj+dUzx8e2AMhC11YuKUqSLg=, Cloud Provider: unknown, Instance ID: unknown credentials-provider: com.amazonaws.auth.AnonymousAWSCredentials credential-header: no-credential-header signature-present: false (Service: Amazon S3; Status Code: 403; Error Code: AccessDenied; Request ID: A4KDPPRVJGQNZEVH; S3 Extended Request ID: 0vUU2z8TKTJ+wgWOEHaTrst2fTbbNDvW0nwgwK8mn0ZLLhVMYxyqj+dUzx8e2AMhC11YuKUqSLg=; Proxy: null)\"}}}",
+    "headers" : {
+      "x-request-id" : "9f044143-6681-4ead-ad74-d5d32d18693e",
+      "date" : "Tue, 11 Feb 2025 16:38:39 GMT",
+      "server" : "databricks",
+      "x-databricks-popp-response-code-details" : "via_upstream",
+      "x-databricks-shard-debug" : "oregon-staging",
+      "vary" : "Accept-Encoding",
+      "x-databricks-org-id" : "6051921418418893",
+      "strict-transport-security" : "max-age=31536000; includeSubDomains; preload",
+      "x-content-type-options" : "nosniff",
+      "x-databricks-popp-routing-reason" : "deployment-name",
+      "content-type" : "application/json",
+      "x-databricks-apiproxy-response-code-details" : "via_upstream"
+    }
+  },
+  "uuid" : "83028285-e6f6-4e54-b640-214b866e803e",
+  "scenarioName" : "scenario-5-api-2.0-sql-statements-01efe896-994a-14a0-a3bd-b9b9f9a18429",
+  "requiredScenarioState" : "scenario-5-api-2.0-sql-statements-01efe896-994a-14a0-a3bd-b9b9f9a18429-2",
+  "insertionIndex" : 28
+}

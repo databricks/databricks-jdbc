@@ -1,0 +1,31 @@
+{
+  "id" : "ebdd4428-e4f3-41e0-897a-538ffa65d719",
+  "name" : "api_2.0_sql_statements_01efe8f8-845b-14d0-9bec-28268854285a",
+  "request" : {
+    "url" : "/api/2.0/sql/statements/01efe8f8-845b-14d0-9bec-28268854285a",
+    "method" : "GET"
+  },
+  "response" : {
+    "status" : 200,
+    "body" : "{\"statement_id\":\"01efe8f8-845b-14d0-9bec-28268854285a\",\"status\":{\"state\":\"RUNNING\"}}",
+    "headers" : {
+      "x-request-id" : "922d979a-b98b-455b-882f-322f87d23d50",
+      "date" : "Wed, 12 Feb 2025 04:19:30 GMT",
+      "server" : "databricks",
+      "x-databricks-popp-response-code-details" : "via_upstream",
+      "x-databricks-shard-debug" : "oregon-staging",
+      "vary" : "Accept-Encoding",
+      "x-databricks-org-id" : "6051921418418893",
+      "strict-transport-security" : "max-age=31536000; includeSubDomains; preload",
+      "x-content-type-options" : "nosniff",
+      "x-databricks-popp-routing-reason" : "deployment-name",
+      "content-type" : "application/json",
+      "x-databricks-apiproxy-response-code-details" : "via_upstream"
+    }
+  },
+  "uuid" : "ebdd4428-e4f3-41e0-897a-538ffa65d719",
+  "scenarioName" : "scenario-1-api-2.0-sql-statements-01efe8f8-845b-14d0-9bec-28268854285a",
+  "requiredScenarioState" : "Started",
+  "newScenarioState" : "scenario-1-api-2.0-sql-statements-01efe8f8-845b-14d0-9bec-28268854285a-2",
+  "insertionIndex" : 42
+}
