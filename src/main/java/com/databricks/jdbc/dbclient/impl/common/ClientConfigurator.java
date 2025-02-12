@@ -150,7 +150,12 @@ public class ClientConfigurator {
   }
 
   public void resetAccessTokenInConfig(String newAccessToken) {
+    CommonsHttpClient.Builder httpClientBuilder = new CommonsHttpClient.Builder();
+    setupProxyConfig(httpClientBuilder);
+    setupConnectionManager(httpClientBuilder);
+    this.databricksConfig.setHttpClient(httpClientBuilder.build());
     databricksConfig.setToken(newAccessToken);
+    databricksConfig.resolve();
   }
 
   /** Setup the OAuth U2M refresh token authentication settings in the databricks config. */
