@@ -113,6 +113,8 @@ public class IntegrationTestUtil {
   }
 
   public static Connection getValidM2MConnection() throws SQLException {
+    System.out.println("here is M2M URL "+ getJdbcM2MUrl());
+    System.out.println("here is M2M connection path "+ createM2MConnectionProperties());
     return DriverManager.getConnection(getJdbcM2MUrl(), createM2MConnectionProperties());
   }
 
