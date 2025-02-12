@@ -115,8 +115,15 @@ public class IntegrationTestUtil {
 
   public static Connection getValidM2MConnection(Cloud cloud) throws SQLException {
     String prefix = (cloud == Cloud.AZURE) ? "DATABRICKS_JDBC_M2M" : "DATABRICKS_JDBC_AWS_M2M";
+    String hostUrlM2M = System.getenv(prefix + "_HOST");
+    String httpPathM2M = System.getenv(prefix + "_HTTP_PATH");
+    String jdbcM2MUrl = getJdbcM2MUrl(hostUrlM2M, httpPathM2M);
+    System.out.println("jerrrrrr " + jdbcM2MUrl);
+    System.out.println(
+        createM2MConnectionProperties(
+            System.getenv(prefix + "_CLIENT_ID"), System.getenv(prefix + "_CLIENT_SECRET")));
     return DriverManager.getConnection(
-        getJdbcM2MUrl(System.getenv(prefix + "_HOST"), System.getenv(prefix + "_HTTP_PATH")),
+        jdbcM2MUrl,
         createM2MConnectionProperties(
             System.getenv(prefix + "_CLIENT_ID"), System.getenv(prefix + "_CLIENT_SECRET")));
   }
