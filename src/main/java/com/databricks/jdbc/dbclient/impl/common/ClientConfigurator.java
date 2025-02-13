@@ -53,8 +53,8 @@ public class ClientConfigurator {
   void setupConnectionManager(CommonsHttpClient.Builder httpClientBuilder) {
     PoolingHttpClientConnectionManager connManager =
         ConfiguratorUtils.getBaseConnectionManager(connectionContext);
-    // This is consistent with the value in the SDK
-    connManager.setMaxTotal(100);
+    // Default value is 100 which is consistent with the value in the SDK
+    connManager.setMaxTotal(connectionContext.getHttpConnectionPoolSize());
     httpClientBuilder.withConnectionManager(connManager);
   }
 
