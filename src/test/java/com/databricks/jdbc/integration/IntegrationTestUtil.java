@@ -108,8 +108,7 @@ public class IntegrationTestUtil {
   }
 
   public static String getJdbcM2MUrl(String host, String httpPath) {
-    String template =
-        "jdbc:databricks://%s/default;ssl=1;authmech=11;auth_flow=1;httpPath=%s";
+    String template = "jdbc:databricks://%s/default;ssl=1;authmech=11;auth_flow=1;httpPath=%s";
     return String.format(template, host, httpPath);
   }
 
