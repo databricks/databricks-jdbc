@@ -118,7 +118,6 @@ public class IntegrationTestUtil {
     String hostUrlM2M = System.getenv(prefix + "_HOST");
     String httpPathM2M = System.getenv(prefix + "_HTTP_PATH");
     String jdbcM2MUrl = getJdbcM2MUrl(hostUrlM2M, httpPathM2M);
-    System.out.println("jerrrrrr " + jdbcM2MUrl);
     System.out.println(
         createM2MConnectionProperties(
             System.getenv(prefix + "_CLIENT_ID"), System.getenv(prefix + "_CLIENT_SECRET")));
