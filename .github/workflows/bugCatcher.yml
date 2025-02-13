@@ -39,6 +39,7 @@ jobs:
         run: mvn -B test -Dtest=*e2e/OAuthTests*
         env:
           DATABRICKS_USER: ${{ secrets.DATABRICKS_USER }}
+          DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
           DATABRICKS_JDBC_M2M_CLIENT_ID: ${{ secrets.DATABRICKS_JDBC_M2M_CLIENT_ID }}
           DATABRICKS_JDBC_M2M_CLIENT_SECRET: ${{ secrets.DATABRICKS_JDBC_M2M_CLIENT_SECRET }}
           DATABRICKS_JDBC_M2M_HTTP_PATH: ${{ secrets.DATABRICKS_JDBC_M2M_HTTP_PATH }}
