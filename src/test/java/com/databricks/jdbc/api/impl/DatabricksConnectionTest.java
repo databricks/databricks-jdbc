@@ -1,5 +1,6 @@
 package com.databricks.jdbc.api.impl;
 
+import static com.databricks.jdbc.common.DatabricksJdbcConstants.ALLOWED_SESSION_CONF_TO_DEFAULT_VALUES_MAP;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -211,6 +212,7 @@ public class DatabricksConnectionTest {
     Properties properties = new Properties();
     properties.put("ENABLE_PHOTON", "TRUE");
     properties.put("TIMEZONE", "UTC");
+    properties.put("use_cached_result", "false");
     IDatabricksConnectionContext connectionContext =
         DatabricksConnectionContext.parse(JDBC_URL, new Properties());
     ImmutableSessionInfo session =
@@ -224,9 +226,14 @@ public class DatabricksConnectionTest {
     Mockito.doReturn(statement).when(connection).createStatement();
     Mockito.doReturn(true).when(statement).execute("SET ENABLE_PHOTON = TRUE");
     Mockito.doReturn(true).when(statement).execute("SET TIMEZONE = UTC");
+    Mockito.doReturn(true).when(statement).execute("SET use_cached_result = false");
 
     connection.setClientInfo(properties);
     Properties clientInfoProperties = connection.getClientInfo();
+    assertEquals(
+        clientInfoProperties.size(),
+        ALLOWED_SESSION_CONF_TO_DEFAULT_VALUES_MAP
+            .size()); // no duplicate values because of case check.
     // Check valid session confs are set
     assertEquals(connection.getClientInfo("ENABLE_PHOTON"), "TRUE");
     assertEquals(connection.getClientInfo("TIMEZONE"), "UTC");
@@ -235,6 +242,8 @@ public class DatabricksConnectionTest {
     // Check conf not supplied returns default value
     assertEquals(connection.getClientInfo("MAX_FILE_PARTITION_BYTES"), "128m");
     assertEquals(clientInfoProperties.get("MAX_FILE_PARTITION_BYTES"), "128m");
+    assertEquals(clientInfoProperties.get("use_cached_result"), "false");
+    assertNull(clientInfoProperties.get("USE_CACHED_RESULT"));
     // Checks for unknown conf
     assertThrows(
         SQLClientInfoException.class, () -> connection.setClientInfo("RANDOM_CONF", "UNLIMITED"));

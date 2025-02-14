@@ -442,12 +442,24 @@ public class DatabricksConnection implements IDatabricksConnection, IDatabricksC
   public Properties getClientInfo() throws SQLException {
     LOGGER.debug("public Properties getClientInfo()");
     Properties properties = new Properties();
-    // Put in default values first
-    properties.putAll(DatabricksJdbcConstants.ALLOWED_SESSION_CONF_TO_DEFAULT_VALUES_MAP);
-    // Then override with session confs
+
+    // Add session configs and client info properties
     properties.putAll(this.session.getSessionConfigs());
-    // Add all client info properties
     properties.putAll(this.session.getClientInfoProperties());
+
+    // Convert existing keys to a case-insensitive set
+    Set<String> existingKeys =
+        properties.stringPropertyNames().stream()
+            .map(String::toLowerCase)
+            .collect(Collectors.toSet());
+
+    for (Map.Entry<String, String> entry :
+        DatabricksJdbcConstants.ALLOWED_SESSION_CONF_TO_DEFAULT_VALUES_MAP.entrySet()) {
+      if (!existingKeys.contains(entry.getKey().toLowerCase())) {
+        properties.setProperty(entry.getKey(), entry.getValue());
+      }
+    }
+
     return properties;
   }
 
