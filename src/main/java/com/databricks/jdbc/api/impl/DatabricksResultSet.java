@@ -445,8 +445,7 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
   @Override
   public String getCursorName() throws SQLException {
     checkIfClosed();
-    throw new DatabricksSQLFeatureNotSupportedException(
-        "Not supported in DatabricksResultSet - getCursorName()");
+    return "";
   }
 
   @Override
@@ -575,8 +574,17 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
   @Override
   public boolean absolute(int row) throws SQLException {
     checkIfClosed();
-    throw new DatabricksSQLFeatureNotSupportedException(
-        "Databricks JDBC does not support random access (absolute)");
+    if (row < 1 || row < executionResult.getCurrentRow()) {
+      throw new DatabricksSQLException(
+          "Invalid operation for forward only ResultSets",
+          DatabricksDriverErrorCode.UNSUPPORTED_OPERATION);
+    }
+    while (executionResult.getCurrentRow() < row - 1) {
+      if (!next()) {
+        return false;
+      }
+    }
+    return true;
   }
 
   @Override
@@ -1286,8 +1294,8 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
 
   @Override
   public int getHoldability() throws SQLException {
-    throw new DatabricksSQLFeatureNotSupportedException(
-        "Not implemented in DatabricksResultSet - getHoldability()");
+    checkIfClosed();
+    return ResultSet.CLOSE_CURSORS_AT_COMMIT;
   }
 
   @Override
