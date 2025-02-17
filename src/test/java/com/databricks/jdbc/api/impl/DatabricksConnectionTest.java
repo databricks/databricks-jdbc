@@ -254,13 +254,13 @@ public class DatabricksConnectionTest {
     assertThrows(
         DatabricksSQLFeatureNotImplementedException.class, () -> connection.nativeSQL(SQL));
     assertThrows(
-        DatabricksSQLFeatureNotImplementedException.class, () -> connection.setAutoCommit(true));
+        DatabricksSQLFeatureNotSupportedException.class, () -> connection.setAutoCommit(false));
     assertThrows(
-        DatabricksSQLFeatureNotImplementedException.class, () -> connection.setReadOnly(true));
+        DatabricksSQLFeatureNotSupportedException.class, () -> connection.setReadOnly(true));
     assertThrows(DatabricksSQLFeatureNotImplementedException.class, connection::commit);
     assertThrows(DatabricksSQLFeatureNotImplementedException.class, connection::rollback);
     assertThrows(
-        DatabricksSQLFeatureNotImplementedException.class,
+        DatabricksSQLFeatureNotSupportedException.class,
         () -> connection.setTransactionIsolation(10));
     assertThrows(
         DatabricksSQLFeatureNotImplementedException.class,
@@ -304,12 +304,11 @@ public class DatabricksConnectionTest {
         DatabricksSQLFeatureNotImplementedException.class, () -> connection.rollback(null));
     assertThrows(
         DatabricksSQLFeatureNotImplementedException.class, () -> connection.releaseSavepoint(null));
-    assertThrows(DatabricksSQLFeatureNotImplementedException.class, () -> connection.abort(null));
     assertThrows(
-        DatabricksSQLFeatureNotImplementedException.class,
+        DatabricksSQLFeatureNotSupportedException.class,
         () -> connection.setNetworkTimeout(null, 1));
     assertThrows(
-        DatabricksSQLFeatureNotImplementedException.class, () -> connection.getNetworkTimeout());
+        DatabricksSQLFeatureNotSupportedException.class, () -> connection.getNetworkTimeout());
     assertInstanceOf(
         IDatabricksConnectionInternal.class,
         connection.unwrap(IDatabricksConnectionInternal.class));

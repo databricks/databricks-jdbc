@@ -112,8 +112,10 @@ public class DatabricksConnection implements IDatabricksConnection, IDatabricksC
 
   @Override
   public void setAutoCommit(boolean autoCommit) throws SQLException {
-    throw new DatabricksSQLFeatureNotImplementedException(
-        "Not implemented in DatabricksConnection - setAutoCommit(boolean autoCommit)");
+    if (!autoCommit) {
+      throw new DatabricksSQLFeatureNotSupportedException(
+          "In OSS JDBC, every SQL statement is committed immediately upon execution. Setting autoCommit=false is not supported.");
+    }
   }
 
   @Override
@@ -164,9 +166,12 @@ public class DatabricksConnection implements IDatabricksConnection, IDatabricksC
 
   @Override
   public void setReadOnly(boolean readOnly) throws SQLException {
-    LOGGER.debug("public void setReadOnly(boolean readOnly = {})");
-    throw new DatabricksSQLFeatureNotImplementedException(
-        "Not implemented in DatabricksConnection - setReadOnly(boolean readOnly)");
+    LOGGER.debug("public void setReadOnly(boolean readOnly)");
+    throwExceptionIfConnectionIsClosed();
+    if (readOnly) {
+      throw new DatabricksSQLFeatureNotSupportedException(
+          "Databricks OSS JDBC does not support readOnly mode.");
+    }
   }
 
   @Override
@@ -192,8 +197,11 @@ public class DatabricksConnection implements IDatabricksConnection, IDatabricksC
   @Override
   public void setTransactionIsolation(int level) throws SQLException {
     LOGGER.debug("public void setTransactionIsolation(int level = {})");
-    throw new DatabricksSQLFeatureNotImplementedException(
-        "Not implemented in DatabricksConnection - setTransactionIsolation(int level)");
+    throwExceptionIfConnectionIsClosed();
+    if (level != Connection.TRANSACTION_READ_UNCOMMITTED) {
+      throw new DatabricksSQLFeatureNotSupportedException(
+          "Setting of the given transaction isolation is not supported");
+    }
   }
 
   @Override
@@ -481,22 +489,22 @@ public class DatabricksConnection implements IDatabricksConnection, IDatabricksC
   @Override
   public void abort(Executor executor) throws SQLException {
     LOGGER.debug("public void abort(Executor executor)");
-    throw new DatabricksSQLFeatureNotImplementedException(
-        "Not implemented in DatabricksConnection - abort(Executor executor)");
+    // executor.
+    // todo
   }
 
   @Override
   public void setNetworkTimeout(Executor executor, int milliseconds) throws SQLException {
     LOGGER.debug("public void setNetworkTimeout(Executor executor, int milliseconds)");
-    throw new DatabricksSQLFeatureNotImplementedException(
-        "Not implemented in DatabricksConnection - setNetworkTimeout(Executor executor, int milliseconds)");
+    throw new DatabricksSQLFeatureNotSupportedException(
+        "Not supported in DatabricksConnection - setNetworkTimeout(Executor executor, int milliseconds)");
   }
 
   @Override
   public int getNetworkTimeout() throws SQLException {
     LOGGER.debug("public int getNetworkTimeout()");
-    throw new DatabricksSQLFeatureNotImplementedException(
-        "Not implemented in DatabricksConnection - getNetworkTimeout()");
+    throw new DatabricksSQLFeatureNotSupportedException(
+        "Not supported in DatabricksConnection - getNetworkTimeout()");
   }
 
   @Override
