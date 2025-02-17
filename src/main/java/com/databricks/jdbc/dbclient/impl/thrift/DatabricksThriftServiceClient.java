@@ -125,6 +125,13 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
             "public DatabricksResultSet executeStatement(String sql = {%s}, Compute cluster = {%s}, Map<Integer, ImmutableSqlParameter> parameters = {%s}, StatementType statementType = {%s}, IDatabricksSession session)",
             sql, computeResource.toString(), parameters.toString(), statementType));
     DatabricksThreadContextHolder.setStatementType(statementType);
+    TSparkArrowTypes arrowNativeTypes =
+        new TSparkArrowTypes()
+            .setComplexTypesAsArrow(true)
+            .setIntervalTypesAsArrow(true)
+            .setNullTypeAsArrow(true)
+            .setDecimalAsArrow(true)
+            .setTimestampAsArrow(true);
     TExecuteStatementReq request =
         new TExecuteStatementReq()
             .setStatement(sql)
@@ -132,7 +139,8 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
             .setCanDecompressLZ4Result(true)
             .setQueryTimeout(parentStatement.getStatement().getQueryTimeout())
             .setCanReadArrowResult(this.connectionContext.shouldEnableArrow())
-            .setCanDownloadResult(true);
+            .setCanDownloadResult(true)
+            .setUseArrowNativeTypes(arrowNativeTypes);
     if (!DriverUtil.isRunningAgainstFake()) {
       // run queries in async mode if not using fake services
       request.setRunAsync(true);
@@ -152,6 +160,13 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
         String.format(
             "public DatabricksResultSet executeStatementAsync(String sql = {%s}, Compute cluster = {%s}, Map<Integer, ImmutableSqlParameter> parameters = {%s})",
             sql, computeResource.toString(), parameters.toString()));
+    TSparkArrowTypes arrowNativeTypes =
+        new TSparkArrowTypes()
+            .setComplexTypesAsArrow(true)
+            .setIntervalTypesAsArrow(true)
+            .setNullTypeAsArrow(true)
+            .setDecimalAsArrow(true)
+            .setTimestampAsArrow(true);
     TExecuteStatementReq request =
         new TExecuteStatementReq()
             .setStatement(sql)
@@ -160,7 +175,8 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
             .setCanDecompressLZ4Result(true)
             .setCanReadArrowResult(this.connectionContext.shouldEnableArrow())
             .setRunAsync(true)
-            .setCanDownloadResult(true);
+            .setCanDownloadResult(true)
+            .setUseArrowNativeTypes(arrowNativeTypes);
     return thriftAccessor.executeAsync(request, parentStatement, session, StatementType.SQL);
   }
 

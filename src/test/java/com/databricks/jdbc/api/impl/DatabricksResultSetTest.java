@@ -2,6 +2,7 @@ package com.databricks.jdbc.api.impl;
 
 import static com.databricks.jdbc.api.impl.DatabricksResultSet.AFFECTED_ROWS_COUNT;
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -42,6 +43,8 @@ public class DatabricksResultSetTest {
   @Mock DatabricksResultSetMetaData mockedResultSetMetadata;
   @Mock IDatabricksSession session;
   @Mock DatabricksStatement mockedDatabricksStatement;
+
+  @Mock DatabricksConnectionContext databricksConnectionContext;
   @Mock Statement mockedStatement;
 
   private DatabricksResultSet getResultSet(
@@ -52,7 +55,8 @@ public class DatabricksResultSetTest {
         StatementType.METADATA,
         statement,
         mockedExecutionResult,
-        mockedResultSetMetadata);
+        mockedResultSetMetadata,
+        false);
   }
 
   private DatabricksResultSet getThriftResultSetMetadata() throws SQLException {
@@ -85,6 +89,8 @@ public class DatabricksResultSetTest {
 
   @Test
   void testThriftResultSet() throws SQLException {
+    when(session.getConnectionContext()).thenReturn(databricksConnectionContext);
+    when(databricksConnectionContext.isComplexDatatypeSupportEnabled()).thenReturn(false);
     DatabricksResultSet resultSet = getThriftResultSetMetadata();
     assertFalse(resultSet.next());
   }
@@ -154,6 +160,7 @@ public class DatabricksResultSetTest {
   void testGetShort() throws SQLException {
     DatabricksResultSet resultSet = getResultSet(StatementState.SUCCEEDED, null);
     when(mockedExecutionResult.getObject(0)).thenReturn((short) 100);
+    when(mockedResultSetMetadata.getColumnTypeName(anyInt())).thenReturn("");
     when(mockedResultSetMetadata.getColumnType(1)).thenReturn(Types.SMALLINT);
     assertEquals((short) 100, resultSet.getShort(1));
     // null object
@@ -364,12 +371,22 @@ public class DatabricksResultSetTest {
     Object[] structAttributes = {1, "Alice"};
 
     // Mock execution result
-    when(mockedExecutionResult.getObject(2)).thenReturn("{\"id\": 1, \"name\": \"Alice\"}");
-    when(mockedResultSetMetadata.getColumnTypeName(3)).thenReturn("STRUCT<id: INT, name: STRING>");
+    when(mockedExecutionResult.getObject(2))
+        .thenReturn(
+            new DatabricksStruct(
+                Map.of("id", 1, "name", "Alice"), "STRUCT<id: INT, name: STRING>"));
     when(mockedResultSetMetadata.getColumnNameIndex("user_struct")).thenReturn(3);
 
     // Instantiate result set
-    DatabricksResultSet resultSet = getResultSet(StatementState.SUCCEEDED, null);
+    DatabricksResultSet resultSet =
+        new DatabricksResultSet(
+            new StatementStatus().setState(StatementState.SUCCEEDED),
+            STATEMENT_ID,
+            StatementType.METADATA,
+            null,
+            mockedExecutionResult,
+            mockedResultSetMetadata,
+            true);
 
     // Retrieve struct by index
     Struct retrievedStruct = resultSet.getStruct(3);
@@ -390,12 +407,20 @@ public class DatabricksResultSetTest {
     Object[] arrayElements = {"elem1", "elem2", "elem3"};
 
     // Mock execution result
-    when(mockedExecutionResult.getObject(3)).thenReturn("[\"elem1\", \"elem2\", \"elem3\"]");
-    when(mockedResultSetMetadata.getColumnTypeName(4)).thenReturn("ARRAY<STRING>");
+    when(mockedExecutionResult.getObject(3))
+        .thenReturn(new DatabricksArray(List.of(arrayElements), "ARRAY<STRING>"));
     when(mockedResultSetMetadata.getColumnNameIndex("string_array")).thenReturn(4);
 
     // Instantiate result set
-    DatabricksResultSet resultSet = getResultSet(StatementState.SUCCEEDED, null);
+    DatabricksResultSet resultSet =
+        new DatabricksResultSet(
+            new StatementStatus().setState(StatementState.SUCCEEDED),
+            STATEMENT_ID,
+            StatementType.METADATA,
+            null,
+            mockedExecutionResult,
+            mockedResultSetMetadata,
+            true);
 
     // Retrieve array by index
     Array retrievedArray = resultSet.getArray(4);
@@ -421,12 +446,19 @@ public class DatabricksResultSetTest {
     DatabricksMap<String, Integer> mockMap = mock(DatabricksMap.class);
 
     // Mock execution result
-    when(mockedExecutionResult.getObject(4)).thenReturn("{\"key1\": 100, \"key2\": 200}");
-    when(mockedResultSetMetadata.getColumnTypeName(5)).thenReturn("MAP<STRING, INT>");
+    when(mockedExecutionResult.getObject(4)).thenReturn(Map.of("key1", 100, "key2", 200));
     when(mockedResultSetMetadata.getColumnNameIndex("int_map")).thenReturn(5);
 
     // Instantiate result set
-    DatabricksResultSet resultSet = getResultSet(StatementState.SUCCEEDED, null);
+    DatabricksResultSet resultSet =
+        new DatabricksResultSet(
+            new StatementStatus().setState(StatementState.SUCCEEDED),
+            STATEMENT_ID,
+            StatementType.METADATA,
+            null,
+            mockedExecutionResult,
+            mockedResultSetMetadata,
+            true);
 
     // Retrieve map by index
     Map<String, Integer> retrievedMap = resultSet.getMap(5);
@@ -448,7 +480,8 @@ public class DatabricksResultSetTest {
             StatementType.QUERY,
             null,
             mockedExecResult,
-            mockedMeta);
+            mockedMeta,
+            true);
 
     // Mock closed result set
     resultSet.close();
@@ -501,6 +534,7 @@ public class DatabricksResultSetTest {
     String expected = "testObject";
     DatabricksResultSet resultSet = getResultSet(StatementState.SUCCEEDED, null);
     when(mockedExecutionResult.getObject(2)).thenReturn(expected);
+    when(mockedResultSetMetadata.getColumnTypeName(anyInt())).thenReturn("");
     assertEquals(expected, resultSet.getObject(3));
     // null object
     when(mockedExecutionResult.getObject(2)).thenReturn(null);
@@ -873,7 +907,8 @@ public class DatabricksResultSetTest {
             StatementType.METADATA,
             mockedDatabricksStatement,
             mockedVolumeResult,
-            mockedResultSetMetadata);
+            mockedResultSetMetadata,
+            false);
     String fakeInput = "Hello World\n42\n";
 
     when(mockedVolumeResult.getVolumeOperationInputStream())
@@ -897,7 +932,8 @@ public class DatabricksResultSetTest {
             StatementType.QUERY,
             null,
             mockedExecutionResult,
-            mockedResultSetMetadata);
+            mockedResultSetMetadata,
+            false);
 
     assertEquals(0, resultSet.getUpdateCount());
   }
@@ -916,7 +952,8 @@ public class DatabricksResultSetTest {
             StatementType.UPDATE,
             null,
             mockedExecutionResult,
-            mockedResultSetMetadata);
+            mockedResultSetMetadata,
+            false);
 
     assertEquals(5L, resultSet.getUpdateCount());
   }
@@ -935,7 +972,8 @@ public class DatabricksResultSetTest {
             StatementType.UPDATE,
             null,
             mockedExecutionResult,
-            mockedResultSetMetadata);
+            mockedResultSetMetadata,
+            false);
 
     assertEquals(5L, resultSet.getUpdateCount());
   }

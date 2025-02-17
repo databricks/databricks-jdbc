@@ -40,6 +40,7 @@ public class DatabricksSdkClientTest {
     when(status.getSqlState()).thenReturn(DEFAULT_HTTP_EXCEPTION_SQLSTATE);
     when(errorInfo.getMessage()).thenReturn("Error message");
     when(errorInfo.getErrorCode()).thenReturn(ServiceErrorCode.BAD_REQUEST);
+    when(connectionContext.getHttpConnectionPoolSize()).thenReturn(100);
     DatabricksSdkClient databricksSdkClient =
         new DatabricksSdkClient(connectionContext, statementExecutionService, apiClient);
     assertThrows(SQLException.class, () -> databricksSdkClient.getMoreResults(statementInternal));

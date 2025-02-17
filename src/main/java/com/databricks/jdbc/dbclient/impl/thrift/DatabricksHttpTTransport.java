@@ -5,6 +5,7 @@ import com.databricks.jdbc.common.DatabricksJdbcConstants;
 import com.databricks.jdbc.common.util.ValidationUtil;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
 import com.databricks.jdbc.dbclient.impl.common.ConfiguratorUtils;
+import com.databricks.jdbc.dbclient.impl.common.TracingUtil;
 import com.databricks.jdbc.exception.DatabricksHttpException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
@@ -40,15 +41,20 @@ public class DatabricksHttpTTransport extends TTransport {
   private Map<String, String> customHeaders = Collections.emptyMap();
   private final ByteArrayOutputStream requestBuffer;
   private ByteArrayInputStream responseBuffer;
+  private final IDatabricksConnectionContext connectionContext;
   DatabricksConfig databricksConfig;
 
   public DatabricksHttpTTransport(
-      IDatabricksHttpClient httpClient, String url, DatabricksConfig databricksConfig) {
+      IDatabricksHttpClient httpClient,
+      String url,
+      DatabricksConfig databricksConfig,
+      IDatabricksConnectionContext connectionContext) {
     this.httpClient = httpClient;
     this.url = url;
     this.requestBuffer = new ByteArrayOutputStream();
     this.responseBuffer = null;
     this.databricksConfig = databricksConfig;
+    this.connectionContext = connectionContext;
   }
 
   @Override
@@ -93,6 +99,13 @@ public class DatabricksHttpTTransport extends TTransport {
     HttpPost request = new HttpPost(this.url);
     DEFAULT_HEADERS.forEach(request::addHeader);
     customHeaders.forEach(request::addHeader);
+
+    if (connectionContext.isRequestTracingEnabled()) {
+      String traceHeader = TracingUtil.getTraceHeader();
+      LOGGER.debug("Thrift tracing header: " + traceHeader);
+
+      request.addHeader(TracingUtil.TRACE_HEADER, traceHeader);
+    }
 
     // Set the request entity
     request.setEntity(new ByteArrayEntity(requestBuffer.toByteArray()));

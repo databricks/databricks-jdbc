@@ -228,6 +228,12 @@ public class DatabricksThriftUtil {
       case INTERVAL_YEAR_MONTH_TYPE:
       case INTERVAL_DAY_TIME_TYPE:
         return ColumnInfoTypeName.INTERVAL;
+      case ARRAY_TYPE:
+        return ColumnInfoTypeName.ARRAY;
+      case MAP_TYPE:
+        return ColumnInfoTypeName.MAP;
+      case STRUCT_TYPE:
+        return ColumnInfoTypeName.STRUCT;
       default:
         return ColumnInfoTypeName.STRING;
     }

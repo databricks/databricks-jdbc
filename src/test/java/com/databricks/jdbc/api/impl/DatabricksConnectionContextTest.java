@@ -1,5 +1,6 @@
 package com.databricks.jdbc.api.impl;
 
+import static com.databricks.jdbc.api.impl.DatabricksConnectionContext.buildPropertiesMap;
 import static com.databricks.jdbc.api.impl.DatabricksConnectionContext.getLogLevel;
 import static com.databricks.jdbc.common.DatabricksJdbcConstants.GCP_GOOGLE_CREDENTIALS_AUTH_TYPE;
 import static com.databricks.jdbc.common.DatabricksJdbcConstants.GCP_GOOGLE_ID_AUTH_TYPE;
@@ -12,6 +13,7 @@ import com.databricks.jdbc.common.*;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.sdk.core.ProxyConfig;
+import com.google.common.collect.ImmutableMap;
 import java.util.List;
 import java.util.Properties;
 import org.junit.jupiter.api.BeforeAll;
@@ -26,6 +28,21 @@ class DatabricksConnectionContextTest {
   public static void setUp() {
     properties.setProperty("password", "passwd");
     properties_with_pwd.setProperty("pwd", "passwd2");
+  }
+
+  @Test
+  public void testBuildPropertiesMap() {
+    String connectionParamString = "param1=value1;param2=value2";
+    Properties properties = new Properties();
+    properties.setProperty("param3", "value3");
+
+    ImmutableMap<String, String> propertiesMap =
+        buildPropertiesMap(connectionParamString, properties);
+    assertNotNull(propertiesMap);
+    assertEquals(3, propertiesMap.size());
+    assertEquals("value1", propertiesMap.get("param1"));
+    assertEquals("value2", propertiesMap.get("param2"));
+    assertEquals("value3", propertiesMap.get("param3"));
   }
 
   @Test

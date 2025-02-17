@@ -43,4 +43,8 @@ public class DatabricksConnectionContextFactory {
 
     return create(url, info);
   }
+
+  public static IDatabricksConnectionContext createWithoutError(String url, Properties properties) {
+    return DatabricksConnectionContext.parseWithoutError(url, properties);
+  }
 }

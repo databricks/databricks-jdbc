@@ -98,6 +98,8 @@ public class DatabricksThriftAccessorTest {
     when(thriftClient.ExecuteStatement(request)).thenReturn(tExecuteStatementResp);
     when(parentStatement.getMaxRows()).thenReturn(DEFAULT_ROW_LIMIT);
     when(thriftClient.GetOperationStatus(operationStatusReq)).thenReturn(operationStatusResp);
+    when(session.getConnectionContext()).thenReturn(connectionContext);
+    when(connectionContext.isComplexDatatypeSupportEnabled()).thenReturn(false);
     DatabricksResultSet resultSet =
         accessor.execute(request, parentStatement, session, StatementType.SQL);
     assertEquals(resultSet.getStatementStatus().getState(), StatementState.SUCCEEDED);
@@ -112,6 +114,8 @@ public class DatabricksThriftAccessorTest {
             .setOperationHandle(tOperationHandle)
             .setStatus(new TStatus().setStatusCode(TStatusCode.SUCCESS_STATUS));
     when(thriftClient.ExecuteStatement(request)).thenReturn(tExecuteStatementResp);
+    when(session.getConnectionContext()).thenReturn(connectionContext);
+    when(connectionContext.isComplexDatatypeSupportEnabled()).thenReturn(false);
     DatabricksResultSet resultSet =
         accessor.executeAsync(request, parentStatement, session, StatementType.SQL);
     assertEquals(resultSet.getStatementStatus().getState(), StatementState.RUNNING);
@@ -168,6 +172,8 @@ public class DatabricksThriftAccessorTest {
             .setDirectResults(directResults);
     when(thriftClient.ExecuteStatement(request)).thenReturn(tExecuteStatementResp);
     when(statement.getMaxRows()).thenReturn(25);
+    when(session.getConnectionContext()).thenReturn(connectionContext);
+    when(connectionContext.isComplexDatatypeSupportEnabled()).thenReturn(false);
     DatabricksResultSet resultSet =
         accessor.execute(request, statement, session, StatementType.SQL);
     assertEquals(resultSet.getStatementStatus().getState(), StatementState.SUCCEEDED);
@@ -184,6 +190,8 @@ public class DatabricksThriftAccessorTest {
             .setStatus(new TStatus().setStatusCode(TStatusCode.SUCCESS_STATUS))
             .setDirectResults(directResults);
     when(thriftClient.ExecuteStatement(request)).thenReturn(tExecuteStatementResp);
+    when(session.getConnectionContext()).thenReturn(connectionContext);
+    when(connectionContext.isComplexDatatypeSupportEnabled()).thenReturn(false);
     DatabricksResultSet resultSet = accessor.execute(request, null, session, StatementType.SQL);
     assertEquals(resultSet.getStatementStatus().getState(), StatementState.SUCCEEDED);
   }
@@ -199,6 +207,8 @@ public class DatabricksThriftAccessorTest {
             .setStatus(new TStatus().setStatusCode(TStatusCode.SUCCESS_STATUS))
             .setDirectResults(directResults);
     when(thriftClient.ExecuteStatement(request)).thenReturn(tExecuteStatementResp);
+    when(session.getConnectionContext()).thenReturn(connectionContext);
+    when(connectionContext.isComplexDatatypeSupportEnabled()).thenReturn(false);
     DatabricksResultSet resultSet = accessor.execute(request, null, session, StatementType.SQL);
     assertEquals(resultSet.getStatementStatus().getState(), StatementState.SUCCEEDED);
   }
@@ -321,7 +331,8 @@ public class DatabricksThriftAccessorTest {
             .setIncludeResultSetMetadata(true)
             .setMaxBytes(DEFAULT_BYTE_LIMIT);
     when(thriftClient.FetchResults(fetchReq)).thenReturn(response);
-
+    when(session.getConnectionContext()).thenReturn(connectionContext);
+    when(connectionContext.isComplexDatatypeSupportEnabled()).thenReturn(false);
     DatabricksResultSet resultSet = accessor.getStatementResult(tOperationHandle, null, session);
     assertEquals(StatementState.SUCCEEDED, resultSet.getStatementStatus().getState());
     assertNotNull(resultSet.getMetaData());
@@ -336,7 +347,8 @@ public class DatabricksThriftAccessorTest {
             .setStatus(new TStatus().setStatusCode(TStatusCode.STILL_EXECUTING_STATUS))
             .setOperationState(TOperationState.RUNNING_STATE);
     when(thriftClient.GetOperationStatus(operationStatusReq)).thenReturn(resp);
-
+    when(session.getConnectionContext()).thenReturn(connectionContext);
+    when(connectionContext.isComplexDatatypeSupportEnabled()).thenReturn(false);
     DatabricksResultSet resultSet = accessor.getStatementResult(tOperationHandle, null, session);
     assertEquals(StatementState.RUNNING, resultSet.getStatementStatus().getState());
     assertNull(resultSet.getMetaData());

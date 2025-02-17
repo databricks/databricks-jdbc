@@ -40,6 +40,7 @@ public class ClientConfiguratorTest {
     when(mockContext.getAuthMech()).thenReturn(AuthMech.PAT);
     when(mockContext.getHostUrl()).thenReturn("https://pat.databricks.com");
     when(mockContext.getToken()).thenReturn("pat-token");
+    when(mockContext.getHttpConnectionPoolSize()).thenReturn(100);
     configurator = new ClientConfigurator(mockContext);
 
     WorkspaceClient client = configurator.getWorkspaceClient();
@@ -58,6 +59,7 @@ public class ClientConfiguratorTest {
     when(mockContext.getAuthFlow()).thenReturn(AuthFlow.TOKEN_PASSTHROUGH);
     when(mockContext.getHostUrl()).thenReturn("https://oauth-token.databricks.com");
     when(mockContext.getPassThroughAccessToken()).thenReturn("oauth-token");
+    when(mockContext.getHttpConnectionPoolSize()).thenReturn(100);
     configurator = new ClientConfigurator(mockContext);
 
     WorkspaceClient client = configurator.getWorkspaceClient();
@@ -77,6 +79,7 @@ public class ClientConfiguratorTest {
     when(mockContext.getHostForOAuth()).thenReturn("https://oauth-client.databricks.com");
     when(mockContext.getClientId()).thenReturn("client-id");
     when(mockContext.getClientSecret()).thenReturn("client-secret");
+    when(mockContext.getHttpConnectionPoolSize()).thenReturn(100);
     configurator = new ClientConfigurator(mockContext);
 
     WorkspaceClient client = configurator.getWorkspaceClient();
@@ -98,6 +101,7 @@ public class ClientConfiguratorTest {
     when(mockContext.getCloud()).thenReturn(Cloud.GCP);
     when(mockContext.getGcpAuthType()).thenReturn(GCP_GOOGLE_CREDENTIALS_AUTH_TYPE);
     when(mockContext.getGoogleCredentials()).thenReturn("google-credentials");
+    when(mockContext.getHttpConnectionPoolSize()).thenReturn(100);
     configurator = new ClientConfigurator(mockContext);
     WorkspaceClient client = configurator.getWorkspaceClient();
     assertNotNull(client);
@@ -119,6 +123,7 @@ public class ClientConfiguratorTest {
     when(mockContext.getClientSecret()).thenReturn("client-secret");
     when(mockContext.useJWTAssertion()).thenReturn(true);
     when(mockContext.getTokenEndpoint()).thenReturn("token-endpoint");
+    when(mockContext.getHttpConnectionPoolSize()).thenReturn(100);
     configurator = new ClientConfigurator(mockContext);
 
     WorkspaceClient client = configurator.getWorkspaceClient();
@@ -163,6 +168,7 @@ public class ClientConfiguratorTest {
     when(mockContext.getClientId()).thenReturn("browser-client-id");
     when(mockContext.getClientSecret()).thenReturn("browser-client-secret");
     when(mockContext.getOAuthScopesForU2M()).thenReturn(List.of(new String[] {"scope1", "scope2"}));
+    when(mockContext.getHttpConnectionPoolSize()).thenReturn(100);
     configurator = new ClientConfigurator(mockContext);
     WorkspaceClient client = configurator.getWorkspaceClient();
     assertNotNull(client);
@@ -188,6 +194,7 @@ public class ClientConfiguratorTest {
     when(mockContext.getOAuthScopesForU2M()).thenReturn(List.of(new String[] {"scope1", "scope2"}));
     when(mockContext.isOAuthDiscoveryModeEnabled()).thenReturn(true);
     when(mockContext.getOAuthDiscoveryURL()).thenReturn(TEST_DISCOVERY_URL);
+    when(mockContext.getHttpConnectionPoolSize()).thenReturn(100);
     configurator = new ClientConfigurator(mockContext);
     WorkspaceClient client = configurator.getWorkspaceClient();
     assertNotNull(client);
@@ -205,6 +212,7 @@ public class ClientConfiguratorTest {
   @Test
   void testNonOauth() {
     when(mockContext.getAuthMech()).thenReturn(AuthMech.OTHER);
+    when(mockContext.getHttpConnectionPoolSize()).thenReturn(100);
     configurator = new ClientConfigurator(mockContext);
     DatabricksConfig config = configurator.getDatabricksConfig();
     assertEquals(DatabricksJdbcConstants.ACCESS_TOKEN_AUTH_TYPE, config.getAuthType());
@@ -240,6 +248,7 @@ public class ClientConfiguratorTest {
     when(mockContext.getProxyUser()).thenReturn("proxyUser");
     when(mockContext.getProxyPassword()).thenReturn("proxyPass");
     when(mockContext.getProxyAuthType()).thenReturn(ProxyConfig.ProxyAuthType.values()[0]);
+    when(mockContext.getHttpConnectionPoolSize()).thenReturn(100);
     // For non-proxy hosts conversion, an input of ".example.com,localhost"
     // is expected to be converted to "*.example.com|localhost"
     when(mockContext.getNonProxyHosts()).thenReturn(".example.com,localhost");

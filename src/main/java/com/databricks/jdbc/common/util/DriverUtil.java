@@ -10,8 +10,6 @@ import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import java.io.IOException;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
 
 /**
  * Utility class for operations related to the Databricks JDBC driver.
@@ -22,20 +20,14 @@ import java.util.concurrent.ConcurrentMap;
 public class DriverUtil {
 
   private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(DriverUtil.class);
-  public static final String DBSQL_VERSION_SQL = "SELECT current_version().dbsql_version";
-  private static final String VERSION = "0.9.9-oss";
+  private static final String DRIVER_VERSION = "0.9.9-oss";
   private static final String DRIVER_NAME = "oss-jdbc";
-  private static final int DBSQL_MIN_MAJOR_VERSION_FOR_SEA_SUPPORT = 2024;
-  private static final int DBSQL_MIN_MINOR_VERSION_FOR_SEA_SUPPORT = 30;
+  private static final String JDBC_VERSION = "4.3";
 
-  /** Cached DBSQL version mapped by HTTP path to avoid repeated queries to the cluster. */
-  private static final ConcurrentMap<String, String> cachedDBSQLVersions =
-      new ConcurrentHashMap<>();
-
-  private static final String[] VERSION_PARTS = VERSION.split("[.-]");
+  private static final String[] JDBC_VERSION_PARTS = JDBC_VERSION.split("[.-]");
 
   public static String getVersion() {
-    return VERSION;
+    return DRIVER_VERSION;
   }
 
   public static String getDriverName() {
@@ -43,11 +35,11 @@ public class DriverUtil {
   }
 
   public static int getMajorVersion() {
-    return Integer.parseInt(VERSION_PARTS[0]);
+    return Integer.parseInt(JDBC_VERSION_PARTS[0]);
   }
 
   public static int getMinorVersion() {
-    return Integer.parseInt(VERSION_PARTS[1]);
+    return Integer.parseInt(JDBC_VERSION_PARTS[1]);
   }
 
   public static void resolveMetadataClient(IDatabricksConnectionInternal connection)
