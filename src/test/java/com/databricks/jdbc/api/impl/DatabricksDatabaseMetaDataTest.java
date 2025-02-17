@@ -14,8 +14,12 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Properties;
 import java.util.concurrent.Callable;
+import java.util.stream.Stream;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.Mockito;
 
 public class DatabricksDatabaseMetaDataTest {
@@ -1015,7 +1019,6 @@ public class DatabricksDatabaseMetaDataTest {
             () -> metaData.getClientInfoProperties(),
             () -> metaData.getFunctionColumns(null, null, null, null),
             () -> metaData.getPseudoColumns(null, null, null, null),
-            () -> metaData.deletesAreDetected(ResultSet.TYPE_FORWARD_ONLY),
             () -> metaData.isWrapperFor(DatabricksDatabaseMetaData.class),
             () -> metaData.unwrap(DatabricksDatabaseMetaData.class));
 
@@ -1029,5 +1032,18 @@ public class DatabricksDatabaseMetaDataTest {
         fail("Unexpected exception type thrown: " + e);
       }
     }
+  }
+
+  @ParameterizedTest
+  @MethodSource("resultSetTypes")
+  public void testDeletesAreDetected(int resultSetType, String typeName) {
+    assertFalse(metaData.deletesAreDetected(resultSetType));
+  }
+
+  private static Stream<Arguments> resultSetTypes() {
+    return Stream.of(
+        Arguments.of(ResultSet.TYPE_FORWARD_ONLY, "TYPE_FORWARD_ONLY"),
+        Arguments.of(ResultSet.TYPE_SCROLL_INSENSITIVE, "TYPE_SCROLL_INSENSITIVE"),
+        Arguments.of(ResultSet.TYPE_SCROLL_SENSITIVE, "TYPE_SCROLL_SENSITIVE"));
   }
 }
