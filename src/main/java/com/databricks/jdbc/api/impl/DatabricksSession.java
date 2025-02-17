@@ -253,4 +253,15 @@ public class DatabricksSession implements IDatabricksSession {
   public void setEmptyMetadataClient() {
     databricksMetadataClient = new DatabricksEmptyMetadataClient();
   }
+
+  @Override
+  public void forceClose() {
+    try {
+      this.close();
+    } catch (DatabricksSQLException e) {
+      LOGGER.error("Error closing session resources, but marking the session as closed.");
+    } finally {
+      this.isSessionOpen = false;
+    }
+  }
 }

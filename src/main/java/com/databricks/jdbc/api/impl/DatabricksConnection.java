@@ -489,8 +489,16 @@ public class DatabricksConnection implements IDatabricksConnection, IDatabricksC
   @Override
   public void abort(Executor executor) throws SQLException {
     LOGGER.debug("public void abort(Executor executor)");
-    // executor.
-    // todo
+    executor.execute(
+        () -> {
+          try {
+            this.close();
+          } catch (Exception e) {
+            LOGGER.error(
+                "Error closing connection resources, but marking the connection as closed.", e);
+            this.session.forceClose();
+          }
+        });
   }
 
   @Override

@@ -83,4 +83,6 @@ public interface IDatabricksSession {
   IDatabricksConnectionContext getConnectionContext();
 
   void setEmptyMetadataClient();
+
+  void forceClose();
 }

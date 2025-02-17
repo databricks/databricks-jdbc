@@ -255,13 +255,8 @@ public class DatabricksConnectionTest {
         DatabricksSQLFeatureNotImplementedException.class, () -> connection.nativeSQL(SQL));
     assertThrows(
         DatabricksSQLFeatureNotSupportedException.class, () -> connection.setAutoCommit(false));
-    assertThrows(
-        DatabricksSQLFeatureNotSupportedException.class, () -> connection.setReadOnly(true));
     assertThrows(DatabricksSQLFeatureNotImplementedException.class, connection::commit);
     assertThrows(DatabricksSQLFeatureNotImplementedException.class, connection::rollback);
-    assertThrows(
-        DatabricksSQLFeatureNotSupportedException.class,
-        () -> connection.setTransactionIsolation(10));
     assertThrows(
         DatabricksSQLFeatureNotImplementedException.class,
         () -> connection.setTypeMap(Collections.emptyMap()));
@@ -335,5 +330,25 @@ public class DatabricksConnectionTest {
     assertNull(connection.getWarnings());
     assertTrue(connection.getAutoCommit());
     assertEquals(connection.getTransactionIsolation(), Connection.TRANSACTION_READ_UNCOMMITTED);
+  }
+
+  @Test
+  void testTranslationIsolation() throws DatabricksSQLException {
+    connection = new DatabricksConnection(connectionContext, databricksClient);
+    connection.open();
+    assertDoesNotThrow(
+        () -> connection.setTransactionIsolation(Connection.TRANSACTION_READ_UNCOMMITTED));
+    assertThrows(
+        DatabricksSQLFeatureNotSupportedException.class,
+        () -> connection.setTransactionIsolation(10));
+  }
+
+  @Test
+  void testReadOnly() throws DatabricksSQLException {
+    connection = new DatabricksConnection(connectionContext, databricksClient);
+    connection.open();
+    assertDoesNotThrow(() -> connection.setReadOnly(false));
+    assertThrows(
+        DatabricksSQLFeatureNotSupportedException.class, () -> connection.setReadOnly(true));
   }
 }
