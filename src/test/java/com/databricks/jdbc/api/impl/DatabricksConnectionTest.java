@@ -18,6 +18,8 @@ import com.databricks.jdbc.exception.DatabricksSQLFeatureNotImplementedException
 import com.databricks.jdbc.exception.DatabricksSQLFeatureNotSupportedException;
 import java.sql.*;
 import java.util.*;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.stream.Collectors;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -330,6 +332,7 @@ public class DatabricksConnectionTest {
     assertNull(connection.getWarnings());
     assertTrue(connection.getAutoCommit());
     assertEquals(connection.getTransactionIsolation(), Connection.TRANSACTION_READ_UNCOMMITTED);
+    connection.close();
   }
 
   @Test
@@ -341,14 +344,19 @@ public class DatabricksConnectionTest {
     assertThrows(
         DatabricksSQLFeatureNotSupportedException.class,
         () -> connection.setTransactionIsolation(10));
+    connection.close();
   }
 
   @Test
-  void testReadOnly() throws DatabricksSQLException {
+  void testReadOnlyAndAbort() throws DatabricksSQLException {
     connection = new DatabricksConnection(connectionContext, databricksClient);
     connection.open();
     assertDoesNotThrow(() -> connection.setReadOnly(false));
     assertThrows(
         DatabricksSQLFeatureNotSupportedException.class, () -> connection.setReadOnly(true));
+    ExecutorService executorService = Executors.newFixedThreadPool(10);
+    assertDoesNotThrow(() -> connection.abort(executorService));
+    executorService.close();
+    connection.close();
   }
 }
