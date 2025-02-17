@@ -2,8 +2,8 @@ package com.databricks.client.jdbc;
 
 import static com.databricks.jdbc.common.DatabricksJdbcUrlParams.HTTP_PATH;
 import static com.databricks.jdbc.integration.IntegrationTestUtil.getFullyQualifiedTableName;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import com.databricks.jdbc.api.IDatabricksConnection;
 import com.databricks.jdbc.api.IDatabricksConnectionContext;
@@ -36,24 +36,20 @@ import org.apache.http.entity.InputStreamEntity;
 import org.junit.jupiter.api.Test;
 
 /**
- * Example implementation demonstrating how to use the Databricks JDBC Driver
- * in various scenarios. Each method illustrates a different operation such as:
- * - Connecting to a Databricks cluster or SQL warehouse
- * - Handling complex data types
- * - Retrieving JDBC metadata
- * - Executing statements asynchronously
- * - Using volumes (UC or DBFS)
- * - Working with prepared/batch statements
- * - Performing OAuth/JWT-based authentication
+ * Example implementation demonstrating how to use the Databricks JDBC Driver in various scenarios.
+ * Each method illustrates a different operation such as: - Connecting to a Databricks cluster or
+ * SQL warehouse - Handling complex data types - Retrieving JDBC metadata - Executing statements
+ * asynchronously - Using volumes (UC or DBFS) - Working with prepared/batch statements - Performing
+ * OAuth/JWT-based authentication
  *
- * If you wish to run these examples, please use your own Databricks workspace and token, you can replace
- * the httpPath and token in the example JDBC connections accordingly.
+ * <p>If you wish to run these examples, please use your own Databricks workspace and token, you can
+ * replace the httpPath and token in the example JDBC connections accordingly.
  */
 public class DatabricksDriverExamples {
 
   /**
-   * Utility method to print the contents of a {@link ResultSet}.
-   * It displays column names, data types, precision, and row data.
+   * Utility method to print the contents of a {@link ResultSet}. It displays column names, data
+   * types, precision, and row data.
    */
   public void printResultSet(ResultSet resultSet) throws SQLException {
     System.out.println("\n\nPrinting ResultSet contents:\n");
@@ -100,8 +96,8 @@ public class DatabricksDriverExamples {
   }
 
   /**
-   * Demonstrates how SQLState is set/returned when an error occurs,
-   * for example using an invalid SQL query.
+   * Demonstrates how SQLState is set/returned when an error occurs, for example using an invalid
+   * SQL query.
    */
   @Test
   void exampleSeaSqlState() throws Exception {
@@ -109,9 +105,9 @@ public class DatabricksDriverExamples {
     DriverManager.registerDriver(new Driver());
 
     String jdbcUrl =
-            "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;"
-                    + "transportMode=https;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/791ba2a31c7fd70a;"
-                    + "EnableTelemetry=1";
+        "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;"
+            + "transportMode=https;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/791ba2a31c7fd70a;"
+            + "EnableTelemetry=1";
 
     Connection con = DriverManager.getConnection(jdbcUrl, "token", "insert_your_token");
     System.out.println("Connection established......");
@@ -130,17 +126,17 @@ public class DatabricksDriverExamples {
   }
 
   /**
-   * Demonstrates how to retrieve a list of tables from Databricks
-   * via JDBC metadata, verifying statement execution and printing the result.
+   * Demonstrates how to retrieve a list of tables from Databricks via JDBC metadata, verifying
+   * statement execution and printing the result.
    */
   @Test
   void exampleGetTables() throws Exception {
     DriverManager.registerDriver(new Driver());
 
     String jdbcUrl =
-            "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;"
-                    + "transportMode=https;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/791ba2a31c7fd70a;"
-                    + "EnableTelemetry=1";
+        "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;"
+            + "transportMode=https;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/791ba2a31c7fd70a;"
+            + "EnableTelemetry=1";
     Connection con = DriverManager.getConnection(jdbcUrl, "token", "insert_your_token");
     System.out.println("Connection established......");
 
@@ -152,15 +148,15 @@ public class DatabricksDriverExamples {
   }
 
   /**
-   * Demonstrates how to handle complex data types (Array, Map, Struct)
-   * when Arrow client is used (default arrow-based fetch).
+   * Demonstrates how to handle complex data types (Array, Map, Struct) when Arrow client is used
+   * (default arrow-based fetch).
    */
   @Test
   void exampleComplexDataTypes() throws Exception {
     DriverManager.registerDriver(new Driver());
     String jdbcUrl =
-            "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;"
-                    + "transportMode=https;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/791ba2a31c7fd70a;EnableComplexDatatypeSupport=1";
+        "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;"
+            + "transportMode=https;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/791ba2a31c7fd70a;EnableComplexDatatypeSupport=1";
     Connection con = DriverManager.getConnection(jdbcUrl, "token", "insert_your_token");
     System.out.println("Connection established......");
 
@@ -173,14 +169,14 @@ public class DatabricksDriverExamples {
     // Example of retrieving a Map column
     System.out.println("\n-- Example Map --");
     ResultSet rs2 =
-            con.createStatement().executeQuery("SELECT map(1, 'one', 2, 'two', 3, 'three')");
+        con.createStatement().executeQuery("SELECT map(1, 'one', 2, 'two', 3, 'three')");
     printResultSet(rs2);
     rs2.close();
 
     // Example of retrieving a Struct column
     System.out.println("\n-- Example Struct --");
     ResultSet rs3 =
-            con.createStatement().executeQuery("SELECT named_struct('key1', 1, 'key2', 'value2')");
+        con.createStatement().executeQuery("SELECT named_struct('key1', 1, 'key2', 'value2')");
     printResultSet(rs3);
     rs3.close();
 
@@ -188,17 +184,17 @@ public class DatabricksDriverExamples {
   }
 
   /**
-   * Demonstrates how to handle complex data types (Array, Map, Struct)
-   * when Thrift client is used (useThriftClient=1).
+   * Demonstrates how to handle complex data types (Array, Map, Struct) when Thrift client is used
+   * (useThriftClient=1).
    */
   @Test
   void exampleComplexDataTypesThrift() throws Exception {
     DriverManager.registerDriver(new Driver());
     // You can replace the httpPath or token as needed
     String jdbcUrl =
-            "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;"
-                    + "transportMode=https;ssl=1;AuthMech=3;"
-                    + "httpPath=/sql/1.0/warehouses/791ba2a31c7fd70a;usethriftclient=1;EnableComplexDatatypeSupport=1";
+        "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;"
+            + "transportMode=https;ssl=1;AuthMech=3;"
+            + "httpPath=/sql/1.0/warehouses/791ba2a31c7fd70a;usethriftclient=1;EnableComplexDatatypeSupport=1";
     Connection con = DriverManager.getConnection(jdbcUrl, "token", "insert_your_token");
     System.out.println("Connection established......");
 
@@ -211,14 +207,14 @@ public class DatabricksDriverExamples {
     // Map example
     System.out.println("\n-- Thrift Example Map --");
     ResultSet rs2 =
-            con.createStatement().executeQuery("SELECT map(1, 'one', 2, 'two', 3, 'three')");
+        con.createStatement().executeQuery("SELECT map(1, 'one', 2, 'two', 3, 'three')");
     printResultSet(rs2);
     rs2.close();
 
     // Struct example
     System.out.println("\n-- Thrift Example Struct --");
     ResultSet rs3 =
-            con.createStatement().executeQuery("SELECT named_struct('key1', 1, 'key2', 'value2')");
+        con.createStatement().executeQuery("SELECT named_struct('key1', 1, 'key2', 'value2')");
     printResultSet(rs3);
     rs3.close();
 
@@ -226,15 +222,15 @@ public class DatabricksDriverExamples {
   }
 
   /**
-   * Demonstrates retrieving ResultSet metadata (column precision, type, etc.)
-   * from a Databricks table.
+   * Demonstrates retrieving ResultSet metadata (column precision, type, etc.) from a Databricks
+   * table.
    */
   @Test
   void exampleResultSetMetaData() throws Exception {
     DriverManager.registerDriver(new Driver());
     String jdbcUrl =
-            "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;"
-                    + "transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/58aa1b363649e722";
+        "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;"
+            + "transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/58aa1b363649e722";
 
     Connection con = DriverManager.getConnection(jdbcUrl, "token", "insert_your_token");
     System.out.println("Connection established with jdbc driver......");
@@ -244,23 +240,21 @@ public class DatabricksDriverExamples {
 
     // Example query to retrieve a subset of data
     ResultSet rs =
-            statement.executeQuery("select * from ml.feature_store_ol_dynamodb_.test_ft_data_types LIMIT 10");
+        statement.executeQuery(
+            "select * from ml.feature_store_ol_dynamodb_.test_ft_data_types LIMIT 10");
     printResultSet(rs);
     rs.close();
     statement.close();
     con.close();
   }
 
-  /**
-   * Demonstrates GCP Service Account OAuth M2M connection.
-   * You can replace the token if needed.
-   */
+  /** Demonstrates GCP Service Account OAuth M2M connection. You can replace the token if needed. */
   @Test
   void exampleGcpServiceAccountOauthM2M() throws Exception {
     DriverManager.registerDriver(new Driver());
     String jdbcUrl =
-            "jdbc:databricks://3396486410346666.6.gcp.databricks.com:443/default;transportMode=http;ssl=1;AuthMech=11;AuthFlow=1;OAuth2ClientId=your_client_id;OAuth2Secret=your_client_secret;httpPath=/sql/1.0/warehouses/2ce45060dd7d2a66;"
-                    + "GoogleServiceAccount=x-compute@developer.gserviceaccount.com";
+        "jdbc:databricks://3396486410346666.6.gcp.databricks.com:443/default;transportMode=http;ssl=1;AuthMech=11;AuthFlow=1;OAuth2ClientId=your_client_id;OAuth2Secret=your_client_secret;httpPath=/sql/1.0/warehouses/2ce45060dd7d2a66;"
+            + "GoogleServiceAccount=x-compute@developer.gserviceaccount.com";
 
     Connection con = DriverManager.getConnection(jdbcUrl);
     System.out.println("Connection established with jdbc driver......");
@@ -276,15 +270,15 @@ public class DatabricksDriverExamples {
   }
 
   /**
-   * Demonstrates GCP Credential JSON OAuth M2M connection.
-   * If you have a JSON credentials file, specify it in 'GoogleCredentialsFile'.
+   * Demonstrates GCP Credential JSON OAuth M2M connection. If you have a JSON credentials file,
+   * specify it in 'GoogleCredentialsFile'.
    */
   @Test
   void exampleGcpCredentialJsonOauthM2M() throws Exception {
     DriverManager.registerDriver(new Driver());
     String jdbcUrl =
-            "jdbc:databricks://3396486410346666.6.gcp.databricks.com:443/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/2ce45060dd7d2a66;"
-                    + "GoogleCredentialsFile=<path_to_json_credential_file>";
+        "jdbc:databricks://3396486410346666.6.gcp.databricks.com:443/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/2ce45060dd7d2a66;"
+            + "GoogleCredentialsFile=<path_to_json_credential_file>";
 
     Connection con = DriverManager.getConnection(jdbcUrl, "token", "insert_your_token");
     System.out.println("Connection established with jdbc driver......");
@@ -298,9 +292,7 @@ public class DatabricksDriverExamples {
     con.close();
   }
 
-  /**
-   * Demonstrates how to query driver property info from a given JDBC URL.
-   */
+  /** Demonstrates how to query driver property info from a given JDBC URL. */
   @Test
   void exampleGetPropertyInfo() throws Exception {
     DriverManager.registerDriver(new Driver());
@@ -308,33 +300,32 @@ public class DatabricksDriverExamples {
 
     // Retrieve driver property info for an "empty" URL
     DriverPropertyInfo[] driverPropertyInfos =
-            new Driver().getPropertyInfo(emptyJdbcUrl, new Properties());
+        new Driver().getPropertyInfo(emptyJdbcUrl, new Properties());
     assertEquals(1, driverPropertyInfos.length);
     assertEquals(HTTP_PATH.getParamName(), driverPropertyInfos[0].name);
 
     String jdbcUrl =
-            "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com;AuthMech=11;Auth_Flow=0;"
-                    + "httpPath=/sql/1.0/warehouses/58aa1b363649e722;loglevel=1";
+        "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com;AuthMech=11;Auth_Flow=0;"
+            + "httpPath=/sql/1.0/warehouses/58aa1b363649e722;loglevel=1";
     driverPropertyInfos = new Driver().getPropertyInfo(jdbcUrl, new Properties());
     for (DriverPropertyInfo driverPropertyInfo : driverPropertyInfos) {
       if (driverPropertyInfo.required) {
-        System.out.println(
-                driverPropertyInfo.name + " " + driverPropertyInfo.description);
+        System.out.println(driverPropertyInfo.name + " " + driverPropertyInfo.description);
       }
     }
   }
 
   /**
-   * Demonstrates how to query Databricks result set "disposition" and see if
-   * Cloud Fetch is in use (via DatabricksResultSetMetaData).
+   * Demonstrates how to query Databricks result set "disposition" and see if Cloud Fetch is in use
+   * (via DatabricksResultSetMetaData).
    */
   @Test
   void exampleGetDisposition() throws Exception {
     DriverManager.registerDriver(new Driver());
     String jdbcUrl =
-            "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;"
-                    + "transportMode=https;ssl=1;AuthMech=3;"
-                    + "httpPath=/sql/1.0/warehouses/791ba2a31c7fd70a;";
+        "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;"
+            + "transportMode=https;ssl=1;AuthMech=3;"
+            + "httpPath=/sql/1.0/warehouses/791ba2a31c7fd70a;";
     Connection con = DriverManager.getConnection(jdbcUrl, "token", "insert_your_token");
     System.out.println("Connection established. Arrow is enabled by default......");
 
@@ -350,15 +341,15 @@ public class DatabricksDriverExamples {
   }
 
   /**
-   * Demonstrates a simple query on an Arclight staging environment
-   * to illustrate general connectivity.
+   * Demonstrates a simple query on an Arclight staging environment to illustrate general
+   * connectivity.
    */
   @Test
   void exampleArclightConnection() throws Exception {
     DriverManager.registerDriver(new Driver());
     String jdbcUrl =
-            "jdbc:databricks://arclight-staging-e2-arclight-dmk-qa-staging-us-east-1.staging.cloud.databricks.com:443/"
-                    + "default;transportMode=https;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/8561171c1d9afb1f;";
+        "jdbc:databricks://arclight-staging-e2-arclight-dmk-qa-staging-us-east-1.staging.cloud.databricks.com:443/"
+            + "default;transportMode=https;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/8561171c1d9afb1f;";
 
     Connection con = DriverManager.getConnection(jdbcUrl, "token", "insert_your_token");
     System.out.println("Connection established......");
@@ -368,8 +359,8 @@ public class DatabricksDriverExamples {
 
     // Query some sample data
     ResultSet rs =
-            statement.executeQuery(
-                    "select * from `arclight-dmk-catalog`.default.test_large_table limit 10");
+        statement.executeQuery(
+            "select * from `arclight-dmk-catalog`.default.test_large_table limit 10");
     printResultSet(rs);
     rs.close();
     statement.close();
@@ -377,16 +368,13 @@ public class DatabricksDriverExamples {
     System.out.println("Query & print finished successfully.");
   }
 
-  /**
-   * Demonstrates checking SQLState for a Thrift-based connection
-   * when a bad query is executed.
-   */
+  /** Demonstrates checking SQLState for a Thrift-based connection when a bad query is executed. */
   @Test
   void exampleThriftSqlState() throws Exception {
     String jdbcUrl =
-            "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;"
-                    + "ssl=1;AuthMech=3;"
-                    + "httpPath=sql/protocolv1/o/6051921418418893/1115-130834-ms4m0yv";
+        "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;"
+            + "ssl=1;AuthMech=3;"
+            + "httpPath=sql/protocolv1/o/6051921418418893/1115-130834-ms4m0yv";
     Connection con = DriverManager.getConnection(jdbcUrl, "token", "insert_your_token");
     System.out.println("Connection established......");
 
@@ -402,16 +390,13 @@ public class DatabricksDriverExamples {
     con.close();
   }
 
-  /**
-   * Demonstrates connecting to an all-purpose cluster on Databricks
-   * and running a simple query.
-   */
+  /** Demonstrates connecting to an all-purpose cluster on Databricks and running a simple query. */
   @Test
   void exampleAllPurposeClusters() throws Exception {
     String jdbcUrl =
-            "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;"
-                    + "ssl=1;AuthMech=3;"
-                    + "httpPath=sql/protocolv1/o/6051921418418893/1115-130834-ms4m0yv";
+        "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;"
+            + "ssl=1;AuthMech=3;"
+            + "httpPath=sql/protocolv1/o/6051921418418893/1115-130834-ms4m0yv";
     Connection con = DriverManager.getConnection(jdbcUrl, "token", "insert_your_token");
     System.out.println("Connection established......");
 
@@ -422,15 +407,15 @@ public class DatabricksDriverExamples {
   }
 
   /**
-   * Demonstrates inline queries that retrieve special data types (e.g., bytes, structs)
-   * from an all-purpose cluster with Arrow disabled (enableArrow=0).
+   * Demonstrates inline queries that retrieve special data types (e.g., bytes, structs) from an
+   * all-purpose cluster with Arrow disabled (enableArrow=0).
    */
   @Test
   void exampleAllPurposeClustersInline() throws Exception {
     String jdbcUrl =
-            "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;"
-                    + "ssl=1;AuthMech=3;"
-                    + "httpPath=sql/protocolv1/o/6051921418418893/1115-130834-ms4m0yv;enableArrow=0";
+        "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;"
+            + "ssl=1;AuthMech=3;"
+            + "httpPath=sql/protocolv1/o/6051921418418893/1115-130834-ms4m0yv;enableArrow=0";
     Connection con = DriverManager.getConnection(jdbcUrl, "token", "insert_your_token");
     System.out.println("Connection established......");
 
@@ -451,66 +436,66 @@ public class DatabricksDriverExamples {
   }
 
   /**
-   * Demonstrates how to query schema/catalog/other metadata from an all-purpose cluster,
-   * such as getting the list of functions matching a certain pattern.
+   * Demonstrates how to query schema/catalog/other metadata from an all-purpose cluster, such as
+   * getting the list of functions matching a certain pattern.
    */
   @Test
   void exampleAllPurposeClustersMetadata() throws Exception {
     String jdbcUrl =
-            "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;"
-                    + "AuthMech=3;httpPath=sql/protocolv1/o/6051921418418893/1115-130834-ms4m0yv";
+        "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;"
+            + "AuthMech=3;httpPath=sql/protocolv1/o/6051921418418893/1115-130834-ms4m0yv";
     Connection con = DriverManager.getConnection(jdbcUrl, "token", "insert_your_token");
     System.out.println("Connection established......");
 
     // Example: retrieve functions with name matching "current_%"
     ResultSet resultSet =
-            con.getMetaData().getFunctions("uc_1716360380283_cata", "uc_1716360380283_db1", "current_%");
+        con.getMetaData()
+            .getFunctions("uc_1716360380283_cata", "uc_1716360380283_db1", "current_%");
     printResultSet(resultSet);
     resultSet.close();
     con.close();
   }
 
-  /**
-   * Demonstrates how to enable logging at a particular level, specify log paths, etc.
-   */
+  /** Demonstrates how to enable logging at a particular level, specify log paths, etc. */
   @Test
   void exampleLogging() throws Exception {
     DriverManager.registerDriver(new Driver());
 
     // Logging parameters specified in the JDBC URL
     String jdbcUrl =
-            "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;"
-                    + "transportMode=https;ssl=1;"
-                    + "httpPath=sql/protocolv1/o/6051921418418893/1115-130834-ms4m0yv;"
-                    + "AuthMech=3;UID=token;LogLevel=debug;LogPath=./logDir;LogFileCount=3;LogFileSize=2;";
+        "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;"
+            + "transportMode=https;ssl=1;"
+            + "httpPath=sql/protocolv1/o/6051921418418893/1115-130834-ms4m0yv;"
+            + "AuthMech=3;UID=token;LogLevel=debug;LogPath=./logDir;LogFileCount=3;LogFileSize=2;";
     Connection con = DriverManager.getConnection(jdbcUrl, "token", "insert_your_token");
     System.out.println("Connection established......");
 
     // Sample query
     ResultSet resultSet =
-            con.createStatement().executeQuery("SELECT * from lb_demo.demographics_fs.demographics LIMIT 10");
+        con.createStatement()
+            .executeQuery("SELECT * from lb_demo.demographics_fs.demographics LIMIT 10");
     printResultSet(resultSet);
     resultSet.close();
     con.close();
   }
 
   /**
-   * Demonstrates conversion of date/bigint/decimal columns into Java's LocalDate, BigInteger, BigDecimal
-   * by calling getObject with the appropriate class type.
+   * Demonstrates conversion of date/bigint/decimal columns into Java's LocalDate, BigInteger,
+   * BigDecimal by calling getObject with the appropriate class type.
    */
   @Test
   void exampleDatatypeConversion() throws SQLException {
     DriverManager.registerDriver(new Driver());
     String jdbcUrl =
-            "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;"
-                    + "transportMode=https;ssl=1;AuthMech=3;"
-                    + "httpPath=/sql/1.0/warehouses/791ba2a31c7fd70a;";
+        "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;"
+            + "transportMode=https;ssl=1;AuthMech=3;"
+            + "httpPath=/sql/1.0/warehouses/791ba2a31c7fd70a;";
     Connection con = DriverManager.getConnection(jdbcUrl, "token", "insert_your_token");
     System.out.println("Connection established......");
 
     // Example table containing columns of date, bigint, decimal, etc.
     String selectSQL =
-            "SELECT id, local_date, big_integer, big_decimal FROM main.jdbc_test_schema.test_table_typeconversion";
+        "SELECT id, local_date, big_integer, big_decimal FROM main.jdbc_test_schema.test_table_typeconversion";
     ResultSet rs = con.createStatement().executeQuery(selectSQL);
     printResultSet(rs);
 
@@ -527,24 +512,22 @@ public class DatabricksDriverExamples {
     con.close();
   }
 
-  /**
-   * Demonstrates configuration of HTTP retry flags, such as TemporarilyUnavailableRetry.
-   */
+  /** Demonstrates configuration of HTTP retry flags, such as TemporarilyUnavailableRetry. */
   @Test
   void exampleHttpFlags() throws Exception {
     DriverManager.registerDriver(new Driver());
     String jdbcUrl =
-            "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;"
-                    + "transportMode=https;ssl=1;AuthMech=3;"
-                    + "httpPath=/sql/1.0/warehouses/791ba2a31c7fd70a;TemporarilyUnavailableRetry=3;";
+        "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;"
+            + "transportMode=https;ssl=1;AuthMech=3;"
+            + "httpPath=/sql/1.0/warehouses/791ba2a31c7fd70a;TemporarilyUnavailableRetry=3;";
     Connection con = DriverManager.getConnection(jdbcUrl, "token", "insert_your_token");
     System.out.println("Connection established......");
     con.close();
   }
 
   /**
-   * Demonstrates Unity Catalog (UC) volume operations (PUT, GET, DELETE) using InputStream.
-   * Assumes the user has privileges to ingest to UC volumes, and the volume path is valid.
+   * Demonstrates Unity Catalog (UC) volume operations (PUT, GET, DELETE) using InputStream. Assumes
+   * the user has privileges to ingest to UC volumes, and the volume path is valid.
    */
   @Test
   void exampleUCVolumeUsingInputStream() throws Exception {
@@ -552,9 +535,9 @@ public class DatabricksDriverExamples {
     System.out.println("Starting UC volume test...");
 
     String jdbcUrl =
-            "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;"
-                    + "transportMode=http;ssl=1;AuthMech=3;"
-                    + "httpPath=/sql/1.0/warehouses/791ba2a31c7fd70a;";
+        "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;"
+            + "transportMode=http;ssl=1;AuthMech=3;"
+            + "httpPath=/sql/1.0/warehouses/791ba2a31c7fd70a;";
 
     Connection con = DriverManager.getConnection(jdbcUrl, "token", "insert_your_token");
 
@@ -571,34 +554,34 @@ public class DatabricksDriverExamples {
 
       // Put object
       System.out.println(
-              "Object inserted: "
-                      + client.putObject(
-                      "main",
-                      "jdbc_test_schema",
-                      "jdbc_test_volume",
-                      "test-stream.csv",
-                      new FileInputStream(file),
-                      file.length(),
-                      true));
+          "Object inserted: "
+              + client.putObject(
+                  "main",
+                  "jdbc_test_schema",
+                  "jdbc_test_volume",
+                  "test-stream.csv",
+                  new FileInputStream(file),
+                  file.length(),
+                  true));
 
       // Get object
       InputStreamEntity inputStream =
-              client.getObject("main", "jdbc_test_schema", "jdbc_test_volume", "test-stream.csv");
+          client.getObject("main", "jdbc_test_schema", "jdbc_test_volume", "test-stream.csv");
       System.out.println("Got data: " + new String(inputStream.getContent().readAllBytes()));
       inputStream.getContent().close();
 
       // Check existence
       System.out.println(
-              "Object exists? "
-                      + client.objectExists(
-                      "main", "jdbc_test_schema", "jdbc_test_volume", "test-stream.csv", false));
+          "Object exists? "
+              + client.objectExists(
+                  "main", "jdbc_test_schema", "jdbc_test_volume", "test-stream.csv", false));
 
       // Delete object
       client.deleteObject("main", "jdbc_test_schema", "jdbc_test_volume", "test-stream.csv");
       System.out.println(
-              "Object exists after deletion? "
-                      + client.objectExists(
-                      "main", "jdbc_test_schema", "jdbc_test_volume", "test-stream.csv", false));
+          "Object exists after deletion? "
+              + client.objectExists(
+                  "main", "jdbc_test_schema", "jdbc_test_volume", "test-stream.csv", false));
     } finally {
       file.delete();
       con.close();
@@ -606,8 +589,8 @@ public class DatabricksDriverExamples {
   }
 
   /**
-   * Demonstrates DBFS volume operations (PUT, GET, LIST, DELETE) using streams.
-   * Replace the relevant path or volume name if you use a different setup.
+   * Demonstrates DBFS volume operations (PUT, GET, LIST, DELETE) using streams. Replace the
+   * relevant path or volume name if you use a different setup.
    */
   @Test
   void exampleDBFSVolumeOperationUsingStream() throws Exception {
@@ -615,12 +598,12 @@ public class DatabricksDriverExamples {
 
     // You can replace the token if using a different workspace/token
     String jdbcUrl =
-            "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;"
-                    + "transportMode=http;ssl=1;AuthMech=3;"
-                    + "httpPath=/sql/1.0/warehouses/58aa1b363649e722;Loglevel=debug;";
+        "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;"
+            + "transportMode=http;ssl=1;AuthMech=3;"
+            + "httpPath=/sql/1.0/warehouses/58aa1b363649e722;Loglevel=debug;";
 
     IDatabricksConnectionContext connectionContext =
-            DatabricksConnectionContextFactory.create(jdbcUrl, "token", "insert_your_token");
+        DatabricksConnectionContextFactory.create(jdbcUrl, "token", "insert_your_token");
     var client = DatabricksVolumeClientFactory.getVolumeClient(connectionContext);
 
     File file = new File("/tmp/put.txt");
@@ -629,49 +612,49 @@ public class DatabricksDriverExamples {
       System.out.println("File created at /tmp/put.txt");
 
       System.out.println(
-              "Object inserted: "
-                      + client.putObject(
-                      "main",
-                      "jdbc_test_schema",
-                      "jdbc_test_volume",
-                      "test-stream.csv",
-                      new FileInputStream(file),
-                      file.length(),
-                      true));
+          "Object inserted: "
+              + client.putObject(
+                  "main",
+                  "jdbc_test_schema",
+                  "jdbc_test_volume",
+                  "test-stream.csv",
+                  new FileInputStream(file),
+                  file.length(),
+                  true));
 
       InputStreamEntity inputStream =
-              client.getObject("main", "jdbc_test_schema", "jdbc_test_volume", "test-stream.csv");
+          client.getObject("main", "jdbc_test_schema", "jdbc_test_volume", "test-stream.csv");
       System.out.println("Got data: " + new String(inputStream.getContent().readAllBytes()));
       inputStream.getContent().close();
 
       System.out.println(
-              "Listed objects: "
-                      + client.listObjects("main", "jdbc_test_schema", "jdbc_test_volume", "test", false));
+          "Listed objects: "
+              + client.listObjects("main", "jdbc_test_schema", "jdbc_test_volume", "test", false));
 
       System.out.println(
-              "Delete object result: "
-                      + client.deleteObject(
-                      "main", "jdbc_test_schema", "jdbc_test_volume", "test-stream.csv"));
+          "Delete object result: "
+              + client.deleteObject(
+                  "main", "jdbc_test_schema", "jdbc_test_volume", "test-stream.csv"));
     } finally {
       file.delete();
     }
   }
 
   /**
-   * Demonstrates DBFS volume operations with local file paths instead of streams.
-   * (PUT, GET, LIST, DELETE)
+   * Demonstrates DBFS volume operations with local file paths instead of streams. (PUT, GET, LIST,
+   * DELETE)
    */
   @Test
   void exampleDBFSVolumeOperation() throws Exception {
     System.out.println("Starting DBFS volume test...");
 
     String jdbcUrl =
-            "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;"
-                    + "transportMode=http;ssl=1;AuthMech=3;"
-                    + "httpPath=/sql/1.0/warehouses/58aa1b363649e722;Loglevel=debug;VolumeOperationAllowedLocalPaths=/tmp;";
+        "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;"
+            + "transportMode=http;ssl=1;AuthMech=3;"
+            + "httpPath=/sql/1.0/warehouses/58aa1b363649e722;Loglevel=debug;VolumeOperationAllowedLocalPaths=/tmp;";
 
     IDatabricksConnectionContext connectionContext =
-            DatabricksConnectionContextFactory.create(jdbcUrl, "token", "insert_your_token");
+        DatabricksConnectionContextFactory.create(jdbcUrl, "token", "insert_your_token");
     var client = DatabricksVolumeClientFactory.getVolumeClient(connectionContext);
 
     File file = new File("/tmp/put.txt");
@@ -682,36 +665,32 @@ public class DatabricksDriverExamples {
       System.out.println("File created at /tmp/put.txt");
 
       System.out.println(
-              "Object inserted: "
-                      + client.putObject(
-                      "main",
-                      "jdbc_test_schema",
-                      "jdbc_test_volume",
-                      "test-stream.csv",
-                      "/tmp/put.txt",
-                      true));
+          "Object inserted: "
+              + client.putObject(
+                  "main",
+                  "jdbc_test_schema",
+                  "jdbc_test_volume",
+                  "test-stream.csv",
+                  "/tmp/put.txt",
+                  true));
 
       System.out.println(
-              "Get object result: "
-                      + client.getObject(
-                      "main",
-                      "jdbc_test_schema",
-                      "jdbc_test_volume",
-                      "test-stream.csv",
-                      "/tmp/dbfs.txt"));
+          "Get object result: "
+              + client.getObject(
+                  "main",
+                  "jdbc_test_schema",
+                  "jdbc_test_volume",
+                  "test-stream.csv",
+                  "/tmp/dbfs.txt"));
 
       System.out.println(
-              "List objects: "
-                      + client.listObjects(
-                      "main", "jdbc_test_schema", "jdbc_test_volume", "test", false));
+          "List objects: "
+              + client.listObjects("main", "jdbc_test_schema", "jdbc_test_volume", "test", false));
 
       System.out.println(
-              "Delete object result: "
-                      + client.deleteObject(
-                      "main",
-                      "jdbc_test_schema",
-                      "jdbc_test_volume",
-                      "test-stream.csv"));
+          "Delete object result: "
+              + client.deleteObject(
+                  "main", "jdbc_test_schema", "jdbc_test_volume", "test-stream.csv"));
     } finally {
       file.delete();
       fileGet.delete();
@@ -719,16 +698,16 @@ public class DatabricksDriverExamples {
   }
 
   /**
-   * Demonstrates using prepared statements with a large number of parameters
-   * by setting 'supportManyParameters=1' in the connection URL.
+   * Demonstrates using prepared statements with a large number of parameters by setting
+   * 'supportManyParameters=1' in the connection URL.
    */
   @Test
   public void exampleTooManyParameters() throws SQLException {
     DriverManager.registerDriver(new Driver());
 
     // Building a query with 300 parameters in the IN clause
-    StringBuilder sql = new StringBuilder(
-            "SELECT * FROM lb_demo.demographics_fs.demographics WHERE age IN (");
+    StringBuilder sql =
+        new StringBuilder("SELECT * FROM lb_demo.demographics_fs.demographics WHERE age IN (");
     StringJoiner joiner = new StringJoiner(",");
     for (int i = 0; i < 300; i++) {
       joiner.add("?");
@@ -737,9 +716,9 @@ public class DatabricksDriverExamples {
     System.out.println("SQL: " + sql);
 
     String jdbcUrl =
-            "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;"
-                    + "transportMode=https;ssl=1;AuthMech=3;"
-                    + "httpPath=/sql/1.0/warehouses/791ba2a31c7fd70a;supportManyParameters=1";
+        "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;"
+            + "transportMode=https;ssl=1;AuthMech=3;"
+            + "httpPath=/sql/1.0/warehouses/791ba2a31c7fd70a;supportManyParameters=1";
 
     Connection con = DriverManager.getConnection(jdbcUrl, "token", "insert_your_token");
     PreparedStatement pstmt = con.prepareStatement(sql.toString());
@@ -760,16 +739,16 @@ public class DatabricksDriverExamples {
   }
 
   /**
-   * Demonstrates error handling on an all-purpose cluster
-   * with direct results enabled (enableDirectResults=1).
+   * Demonstrates error handling on an all-purpose cluster with direct results enabled
+   * (enableDirectResults=1).
    */
   @Test
   void exampleAllPurposeClusters_errorHandling() throws Exception {
     String jdbcUrl =
-            "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;"
-                    + "ssl=1;AuthMech=3;"
-                    + "httpPath=sql/protocolv1/o/6051921418418893/1115-130834-ms4m0yv;"
-                    + "enableDirectResults=1";
+        "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;"
+            + "ssl=1;AuthMech=3;"
+            + "httpPath=sql/protocolv1/o/6051921418418893/1115-130834-ms4m0yv;"
+            + "enableDirectResults=1";
     Connection con = DriverManager.getConnection(jdbcUrl, "token", "insert_your_token");
     System.out.println("Connection established......");
 
@@ -780,17 +759,16 @@ public class DatabricksDriverExamples {
   }
 
   /**
-   * Demonstrates asynchronous statement execution on an all-purpose cluster,
-   * polling the statement status until it succeeds or fails.
+   * Demonstrates asynchronous statement execution on an all-purpose cluster, polling the statement
+   * status until it succeeds or fails.
    */
   @Test
   void exampleAllPurposeClusters_async() throws Exception {
     String jdbcUrl =
-            "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;"
-                    + "ssl=1;AuthMech=3;"
-                    + "httpPath=sql/protocolv1/o/6051921418418893/1115-130834-ms4m0yv;"
-                    + "enableDirectResults=1";
-
+        "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;"
+            + "ssl=1;AuthMech=3;"
+            + "httpPath=sql/protocolv1/o/6051921418418893/1115-130834-ms4m0yv;"
+            + "enableDirectResults=1";
 
     Connection con = DriverManager.getConnection(jdbcUrl, "token", "insert_your_token");
     System.out.println("Connection established... (con1)");
@@ -806,16 +784,16 @@ public class DatabricksDriverExamples {
 
     long initialTime = System.currentTimeMillis();
     String sql =
-            "CREATE TABLE JDBC_ASYNC_CLUSTER AS ("
-                    + "  SELECT * FROM ("
-                    + "    SELECT * FROM ("
-                    + "      SELECT t1.*"
-                    + "      FROM main.streaming.random_large_table t1"
-                    + "      INNER JOIN main.streaming.random_large_table t2"
-                    + "      ON t1.prompt = t2.prompt"
-                    + "    ) nested_t1"
-                    + "  ) nested_t2"
-                    + ")";
+        "CREATE TABLE JDBC_ASYNC_CLUSTER AS ("
+            + "  SELECT * FROM ("
+            + "    SELECT * FROM ("
+            + "      SELECT t1.*"
+            + "      FROM main.streaming.random_large_table t1"
+            + "      INNER JOIN main.streaming.random_large_table t2"
+            + "      ON t1.prompt = t2.prompt"
+            + "    ) nested_t1"
+            + "  ) nested_t2"
+            + ")";
 
     // Execute asynchronously
     ResultSet rs = ids.executeAsync(sql);
@@ -831,9 +809,12 @@ public class DatabricksDriverExamples {
       rs = s.unwrap(IDatabricksStatement.class).getExecutionResult();
       state = rs.unwrap(IDatabricksResultSet.class).getStatementStatus().getState();
       System.out.println(
-              "Status: " + state
-                      + ", attempt " + count++
-                      + ", time taken " + (System.currentTimeMillis() - initialTime));
+          "Status: "
+              + state
+              + ", attempt "
+              + count++
+              + ", time taken "
+              + (System.currentTimeMillis() - initialTime));
     }
 
     // Use a second connection to check status
@@ -843,7 +824,8 @@ public class DatabricksDriverExamples {
     Statement stm = idc.getStatement(rs.unwrap(IDatabricksResultSet.class).getStatementId());
     ResultSet rs2 = stm.unwrap(IDatabricksStatement.class).getExecutionResult();
 
-    System.out.println("Async execution final status (con2): "
+    System.out.println(
+        "Async execution final status (con2): "
             + rs2.unwrap(IDatabricksResultSet.class).getStatementStatus().getState());
 
     // Cleanup
@@ -858,15 +840,15 @@ public class DatabricksDriverExamples {
   }
 
   /**
-   * Demonstrates asynchronous execution on a DBSQL warehouse.
-   * Similar approach to the all-purpose clusters example.
+   * Demonstrates asynchronous execution on a DBSQL warehouse. Similar approach to the all-purpose
+   * clusters example.
    */
   @Test
   void exampleDBSQL_async() throws Exception {
     String jdbcUrl =
-            "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;"
-                    + "ssl=1;AuthMech=3;"
-                    + "httpPath=/sql/1.0/warehouses/791ba2a31c7fd70a;enableDirectResults=1";
+        "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;"
+            + "ssl=1;AuthMech=3;"
+            + "httpPath=/sql/1.0/warehouses/791ba2a31c7fd70a;enableDirectResults=1";
 
     Connection con = DriverManager.getConnection(jdbcUrl, "token", "insert_your_token");
     System.out.println("Connection established... (con1)");
@@ -881,16 +863,16 @@ public class DatabricksDriverExamples {
 
     long initialTime = System.currentTimeMillis();
     String sql =
-            "CREATE TABLE JDBC_ASYNC_DBSQL AS ("
-                    + "  SELECT * FROM ("
-                    + "    SELECT * FROM ("
-                    + "      SELECT t1.*"
-                    + "      FROM main.streaming.random_large_table t1"
-                    + "      INNER JOIN main.streaming.random_large_table t2"
-                    + "      ON t1.prompt = t2.prompt"
-                    + "    ) nested_t1"
-                    + "  ) nested_t2"
-                    + ")";
+        "CREATE TABLE JDBC_ASYNC_DBSQL AS ("
+            + "  SELECT * FROM ("
+            + "    SELECT * FROM ("
+            + "      SELECT t1.*"
+            + "      FROM main.streaming.random_large_table t1"
+            + "      INNER JOIN main.streaming.random_large_table t2"
+            + "      ON t1.prompt = t2.prompt"
+            + "    ) nested_t1"
+            + "  ) nested_t2"
+            + ")";
 
     // Execute asynchronously
     ResultSet rs = ids.executeAsync(sql);
@@ -905,9 +887,12 @@ public class DatabricksDriverExamples {
       rs = s.unwrap(IDatabricksStatement.class).getExecutionResult();
       state = rs.unwrap(IDatabricksResultSet.class).getStatementStatus().getState();
       System.out.println(
-              "Status: " + state
-                      + ", attempt " + count++
-                      + ", time taken " + (System.currentTimeMillis() - initialTime));
+          "Status: "
+              + state
+              + ", attempt "
+              + count++
+              + ", time taken "
+              + (System.currentTimeMillis() - initialTime));
     }
 
     // Second connection
@@ -917,7 +902,8 @@ public class DatabricksDriverExamples {
     Statement stm = idc.getStatement(rs.unwrap(IDatabricksResultSet.class).getStatementId());
     ResultSet rs2 = stm.unwrap(IDatabricksStatement.class).getExecutionResult();
 
-    System.out.println("Final status (con2): "
+    System.out.println(
+        "Final status (con2): "
             + rs2.unwrap(IDatabricksResultSet.class).getStatementStatus().getState());
 
     // Cleanup
@@ -931,15 +917,13 @@ public class DatabricksDriverExamples {
     System.out.println("Connections closed successfully.");
   }
 
-  /**
-   * Demonstrates how to close a connection by session ID on an all-purpose cluster.
-   */
+  /** Demonstrates how to close a connection by session ID on an all-purpose cluster. */
   @Test
   void exampleAllPurposeClusters_closeBySessionId() throws Exception {
     String jdbcUrl =
-            "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;"
-                    + "ssl=1;AuthMech=3;"
-                    + "httpPath=sql/protocolv1/o/6051921418418893/1115-130834-ms4m0yv;enableDirectResults=1";
+        "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;"
+            + "ssl=1;AuthMech=3;"
+            + "httpPath=sql/protocolv1/o/6051921418418893/1115-130834-ms4m0yv;enableDirectResults=1";
 
     Connection con = DriverManager.getConnection(jdbcUrl, "token", "insert_your_token");
     System.out.println("Connection established (con1)...");
@@ -966,15 +950,13 @@ public class DatabricksDriverExamples {
     assertThrows(DatabricksSQLException.class, () -> s.executeQuery("Select 1"));
   }
 
-  /**
-   * Demonstrates how to close a connection by session ID on a DBSQL warehouse.
-   */
+  /** Demonstrates how to close a connection by session ID on a DBSQL warehouse. */
   @Test
   void exampleDBSQL_closeBySessionId() throws Exception {
     String jdbcUrl =
-            "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;"
-                    + "ssl=1;AuthMech=3;"
-                    + "httpPath=/sql/1.0/warehouses/791ba2a31c7fd70a;enableDirectResults=1";
+        "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;"
+            + "ssl=1;AuthMech=3;"
+            + "httpPath=/sql/1.0/warehouses/791ba2a31c7fd70a;enableDirectResults=1";
 
     Connection con = DriverManager.getConnection(jdbcUrl, "token", "insert_your_token");
     System.out.println("Connection established (con1)...");
@@ -1001,16 +983,16 @@ public class DatabricksDriverExamples {
   }
 
   /**
-   * Demonstrates batch statement execution (with addBatch/executeBatch) on
-   * an all-purpose cluster. The 'MaxBatchSize=4' parameter in the JDBC URL
-   * indicates how many statements can be grouped at once on the server side.
+   * Demonstrates batch statement execution (with addBatch/executeBatch) on an all-purpose cluster.
+   * The 'MaxBatchSize=4' parameter in the JDBC URL indicates how many statements can be grouped at
+   * once on the server side.
    */
   @Test
   void exampleBatchAllPurposeClusters() throws Exception {
     String jdbcUrl =
-            "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;"
-                    + "ssl=1;AuthMech=3;"
-                    + "httpPath=sql/protocolv1/o/6051921418418893/1115-130834-ms4m0yv;MaxBatchSize=4";
+        "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;"
+            + "ssl=1;AuthMech=3;"
+            + "httpPath=sql/protocolv1/o/6051921418418893/1115-130834-ms4m0yv;MaxBatchSize=4";
     String tableName = "batch_test_table";
     Connection con = DriverManager.getConnection(jdbcUrl, "token", "insert_your_token");
     System.out.println("Connection established......");
@@ -1018,28 +1000,28 @@ public class DatabricksDriverExamples {
     Statement s = con.createStatement();
     s.addBatch("DROP TABLE IF EXISTS " + getFullyQualifiedTableName(tableName));
     s.addBatch(
-            "CREATE TABLE IF NOT EXISTS "
-                    + getFullyQualifiedTableName(tableName)
-                    + " (id INT PRIMARY KEY, col1 VARCHAR(255), col2 VARCHAR(255))");
+        "CREATE TABLE IF NOT EXISTS "
+            + getFullyQualifiedTableName(tableName)
+            + " (id INT PRIMARY KEY, col1 VARCHAR(255), col2 VARCHAR(255))");
     s.executeBatch();
     s.clearBatch();
 
     s.addBatch(
-            "INSERT INTO "
-                    + getFullyQualifiedTableName(tableName)
-                    + " (id, col1, col2) VALUES (1, 'value1', 'value2')");
+        "INSERT INTO "
+            + getFullyQualifiedTableName(tableName)
+            + " (id, col1, col2) VALUES (1, 'value1', 'value2')");
     s.addBatch(
-            "INSERT INTO "
-                    + getFullyQualifiedTableName(tableName)
-                    + " (id, col1, col2) VALUES (2, 'value3', 'value4')");
+        "INSERT INTO "
+            + getFullyQualifiedTableName(tableName)
+            + " (id, col1, col2) VALUES (2, 'value3', 'value4')");
     s.addBatch(
-            "INSERT INTO "
-                    + getFullyQualifiedTableName(tableName)
-                    + " (id, col1, col2) VALUES (3, 'value5', 'value6')");
+        "INSERT INTO "
+            + getFullyQualifiedTableName(tableName)
+            + " (id, col1, col2) VALUES (3, 'value5', 'value6')");
     s.addBatch(
-            "UPDATE "
-                    + getFullyQualifiedTableName(tableName)
-                    + " SET col1 = 'updatedValue1' WHERE id = 1");
+        "UPDATE "
+            + getFullyQualifiedTableName(tableName)
+            + " SET col1 = 'updatedValue1' WHERE id = 1");
 
     System.out.println("Batch result: " + Arrays.toString(s.executeBatch()));
     s.clearBatch();
@@ -1048,20 +1030,20 @@ public class DatabricksDriverExamples {
   }
 
   /**
-   * Demonstrates batch inserts using a PreparedStatement.
-   * The logic shows how to accumulate multiple parameter sets in one batch.
+   * Demonstrates batch inserts using a PreparedStatement. The logic shows how to accumulate
+   * multiple parameter sets in one batch.
    */
   @Test
   void exampleBatchFunction() throws Exception {
     String jdbcUrl =
-            "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;"
-                    + "transportMode=http;ssl=1;AuthMech=3;"
-                    + "httpPath=/sql/1.0/warehouses/dd43ee29fedd958d;";
+        "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;"
+            + "transportMode=http;ssl=1;AuthMech=3;"
+            + "httpPath=/sql/1.0/warehouses/dd43ee29fedd958d;";
     Connection con = DriverManager.getConnection(jdbcUrl, "token", "insert_your_token");
     System.out.println("Connection established......");
 
     String sqlStatement =
-            "INSERT INTO main.jdbc_test_schema.diamonds (carat, cut, color, clarity) VALUES (?, ?, ?, ?)";
+        "INSERT INTO main.jdbc_test_schema.diamonds (carat, cut, color, clarity) VALUES (?, ?, ?, ?)";
     PreparedStatement pstmt = con.prepareStatement(sqlStatement);
 
     // Add several parameter sets to the batch
@@ -1098,22 +1080,22 @@ public class DatabricksDriverExamples {
   }
 
   /**
-   * Demonstrates JWT-based M2M flow using a private key and passphrase
-   * (for instance with Okta as the OAuth provider). The parameters in the
-   * JDBC URL can be adapted for your OAuth2 provider, if needed.
+   * Demonstrates JWT-based M2M flow using a private key and passphrase (for instance with Okta as
+   * the OAuth provider). The parameters in the JDBC URL can be adapted for your OAuth2 provider, if
+   * needed.
    */
   @Test
   void exampleM2MJWT() throws SQLException {
     String jdbcUrl =
-            "jdbc:databricks://mkazia-pl-sandbox.staging.cloud.databricks.com:443/default;"
-                    + "httpPath=sql/1.0/warehouses/31e4555776d18496;"
-                    + "AuthMech=11;ssl=1;Auth_Flow=1;"
-                    + "OAuth2TokenEndpoint=https://dev-591123.oktapreview.com/oauth2/aus1mzu4zk5TWwMvx0h8/v1/token;"
-                    + "Auth_Scope=sql;OAuth2ClientId=0oa25wnir4ehnKDj10h8;"
-                    + "Auth_KID=EbKQzTAVP1_3E59Bq5P3Uv8krHCpj3hIWTodcmDwQ5k;"
-                    + "UseJWTAssertion=1;"
-                    + "Auth_JWT_Key_File=jdbc-testing-enc.pem;"
-                    + "Auth_JWT_Key_Passphrase=s3cr3t";
+        "jdbc:databricks://mkazia-pl-sandbox.staging.cloud.databricks.com:443/default;"
+            + "httpPath=sql/1.0/warehouses/31e4555776d18496;"
+            + "AuthMech=11;ssl=1;Auth_Flow=1;"
+            + "OAuth2TokenEndpoint=https://dev-591123.oktapreview.com/oauth2/aus1mzu4zk5TWwMvx0h8/v1/token;"
+            + "Auth_Scope=sql;OAuth2ClientId=0oa25wnir4ehnKDj10h8;"
+            + "Auth_KID=EbKQzTAVP1_3E59Bq5P3Uv8krHCpj3hIWTodcmDwQ5k;"
+            + "UseJWTAssertion=1;"
+            + "Auth_JWT_Key_File=jdbc-testing-enc.pem;"
+            + "Auth_JWT_Key_Passphrase=s3cr3t";
 
     Connection con = DriverManager.getConnection(jdbcUrl);
     System.out.println("Connection established via JWT M2M OAuth...");
@@ -1125,8 +1107,8 @@ public class DatabricksDriverExamples {
   }
 
   /**
-   * Demonstrates chunk download retry logic by injecting
-   * artificial errors in ArrowResultChunk (for advanced debugging).
+   * Demonstrates chunk download retry logic by injecting artificial errors in ArrowResultChunk (for
+   * advanced debugging).
    */
   @Test
   void exampleChunkDownloadRetry() throws Exception {
@@ -1135,9 +1117,9 @@ public class DatabricksDriverExamples {
     ArrowResultChunk.setErrorInjectionCountMaxValue(2);
 
     String jdbcUrl =
-            "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;"
-                    + "ssl=1;AuthMech=3;"
-                    + "httpPath=/sql/1.0/warehouses/58aa1b363649e722";
+        "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;"
+            + "ssl=1;AuthMech=3;"
+            + "httpPath=/sql/1.0/warehouses/58aa1b363649e722";
     Connection con = DriverManager.getConnection(jdbcUrl, "token", "insert_your_token");
     System.out.println("Connection established......");
 
@@ -1146,7 +1128,8 @@ public class DatabricksDriverExamples {
     s.executeQuery("SELECT * from RANGE(37500000)");
 
     ResultSet rs = s.getResultSet();
-    while(rs.next());
+    while (rs.next())
+      ;
 
     con.close();
     System.out.println("Connection closed successfully......");
