@@ -4,6 +4,8 @@ import static com.databricks.jdbc.TestConstants.TEST_STRING;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
+import com.databricks.jdbc.api.IDatabricksConnectionContext;
+import com.databricks.jdbc.common.DatabricksJdbcConstants;
 import com.databricks.jdbc.dbclient.impl.http.DatabricksHttpClient;
 import com.databricks.jdbc.exception.DatabricksHttpException;
 import com.databricks.sdk.core.DatabricksConfig;
@@ -30,6 +32,7 @@ public class DatabricksHttpTTransportTest {
   @Mock CloseableHttpResponse mockResponse;
   @Mock StatusLine mockStatusLine;
   @Mock DatabricksConfig mockDatabricksConfig;
+  @Mock IDatabricksConnectionContext mockDatabricksConnectionContext;
 
   @Test
   public void isOpen_AlwaysReturnsTrue() {
@@ -86,10 +89,19 @@ public class DatabricksHttpTTransportTest {
   }
 
   @Test
-  void testResetAccessToken() {
+  public void resetAccessToken_UpdatesConfigCorrectly() {
+    IDatabricksConnectionContext mockConnectionContext = mock(IDatabricksConnectionContext.class);
     DatabricksHttpTTransport transport =
         new DatabricksHttpTTransport(mockedHttpClient, testUrl, mockDatabricksConfig);
-    transport.resetAccessToken(NEW_ACCESS_TOKEN);
-    verify(mockDatabricksConfig).setToken(NEW_ACCESS_TOKEN);
+
+    when(mockDatabricksConfig.getHost()).thenReturn(testUrl);
+
+    transport.resetAccessToken(NEW_ACCESS_TOKEN, mockConnectionContext);
+
+    assertEquals(NEW_ACCESS_TOKEN, transport.databricksConfig.getToken());
+    assertEquals(testUrl, transport.databricksConfig.getHost());
+    assertEquals(
+        DatabricksJdbcConstants.ACCESS_TOKEN_AUTH_TYPE, transport.databricksConfig.getAuthType());
+    assertNotNull(transport.databricksConfig.getHttpClient());
   }
 }

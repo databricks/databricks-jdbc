@@ -1,11 +1,15 @@
 package com.databricks.jdbc.dbclient.impl.thrift;
 
+import com.databricks.jdbc.api.IDatabricksConnectionContext;
+import com.databricks.jdbc.common.DatabricksJdbcConstants;
 import com.databricks.jdbc.common.util.ValidationUtil;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
+import com.databricks.jdbc.dbclient.impl.common.ConfiguratorUtils;
 import com.databricks.jdbc.exception.DatabricksHttpException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.sdk.core.DatabricksConfig;
+import com.databricks.sdk.core.commons.CommonsHttpClient;
 import com.google.common.annotations.VisibleForTesting;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -17,6 +21,7 @@ import org.apache.http.HttpEntity;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.entity.ByteArrayEntity;
+import org.apache.http.impl.conn.PoolingHttpClientConnectionManager;
 import org.apache.http.util.EntityUtils;
 import org.apache.thrift.TConfiguration;
 import org.apache.thrift.transport.TTransport;
@@ -35,7 +40,7 @@ public class DatabricksHttpTTransport extends TTransport {
   private Map<String, String> customHeaders = Collections.emptyMap();
   private final ByteArrayOutputStream requestBuffer;
   private ByteArrayInputStream responseBuffer;
-  private final DatabricksConfig databricksConfig;
+  DatabricksConfig databricksConfig;
 
   public DatabricksHttpTTransport(
       IDatabricksHttpClient httpClient, String url, DatabricksConfig databricksConfig) {
@@ -130,8 +135,20 @@ public class DatabricksHttpTTransport extends TTransport {
         refreshedHeaders != null ? new HashMap<>(refreshedHeaders) : Collections.emptyMap();
   }
 
-  void resetAccessToken(String newAccessToken) {
-    this.databricksConfig.setToken(newAccessToken);
+  void resetAccessToken(String newAccessToken, IDatabricksConnectionContext connectionContext) {
+    String hostUrl = databricksConfig.getHost();
+    this.databricksConfig = new DatabricksConfig();
+    CommonsHttpClient.Builder httpClientBuilder = new CommonsHttpClient.Builder();
+    PoolingHttpClientConnectionManager connManager =
+        ConfiguratorUtils.getBaseConnectionManager(connectionContext);
+    connManager.setMaxTotal(100);
+    httpClientBuilder.withConnectionManager(connManager);
+    this.databricksConfig.setHttpClient(httpClientBuilder.build());
+    databricksConfig
+        .setAuthType(DatabricksJdbcConstants.ACCESS_TOKEN_AUTH_TYPE)
+        .setHost(hostUrl)
+        .setToken(newAccessToken);
+    this.databricksConfig.resolve();
   }
 
   @VisibleForTesting

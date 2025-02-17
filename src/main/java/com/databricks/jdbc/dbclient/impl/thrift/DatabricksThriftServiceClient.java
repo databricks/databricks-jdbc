@@ -57,7 +57,7 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
   @Override
   public void resetAccessToken(String newAccessToken) {
     ((DatabricksHttpTTransport) thriftAccessor.getThriftClient().getInputProtocol().getTransport())
-        .resetAccessToken(newAccessToken);
+        .resetAccessToken(newAccessToken, connectionContext);
   }
 
   @Override
