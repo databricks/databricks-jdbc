@@ -47,6 +47,8 @@ import org.junit.jupiter.api.Test;
  */
 public class DatabricksDriverExamples {
 
+  private static final String DATABRICKS_TOKEN = System.getenv("DATABRICKS_EXAMPLE_TOKEN");
+
   /**
    * Utility method to print the contents of a {@link ResultSet}. It displays column names, data
    * types, precision, and row data.
@@ -109,7 +111,7 @@ public class DatabricksDriverExamples {
             + "transportMode=https;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/791ba2a31c7fd70a;"
             + "EnableTelemetry=1";
 
-    Connection con = DriverManager.getConnection(jdbcUrl, "token", "insert_your_token");
+    Connection con = DriverManager.getConnection(jdbcUrl, "token", DATABRICKS_TOKEN);
     System.out.println("Connection established......");
     Statement s = con.createStatement();
 
@@ -137,7 +139,7 @@ public class DatabricksDriverExamples {
         "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;"
             + "transportMode=https;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/791ba2a31c7fd70a;"
             + "EnableTelemetry=1";
-    Connection con = DriverManager.getConnection(jdbcUrl, "token", "insert_your_token");
+    Connection con = DriverManager.getConnection(jdbcUrl, "token", DATABRICKS_TOKEN);
     System.out.println("Connection established......");
 
     // Retrieve tables via DatabaseMetaData
@@ -157,7 +159,7 @@ public class DatabricksDriverExamples {
     String jdbcUrl =
         "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;"
             + "transportMode=https;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/791ba2a31c7fd70a;EnableComplexDatatypeSupport=1";
-    Connection con = DriverManager.getConnection(jdbcUrl, "token", "insert_your_token");
+    Connection con = DriverManager.getConnection(jdbcUrl, "token", DATABRICKS_TOKEN);
     System.out.println("Connection established......");
 
     // Example of retrieving an Array column
@@ -195,7 +197,7 @@ public class DatabricksDriverExamples {
         "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;"
             + "transportMode=https;ssl=1;AuthMech=3;"
             + "httpPath=/sql/1.0/warehouses/791ba2a31c7fd70a;usethriftclient=1;EnableComplexDatatypeSupport=1";
-    Connection con = DriverManager.getConnection(jdbcUrl, "token", "insert_your_token");
+    Connection con = DriverManager.getConnection(jdbcUrl, "token", DATABRICKS_TOKEN);
     System.out.println("Connection established......");
 
     // Array example
@@ -232,7 +234,7 @@ public class DatabricksDriverExamples {
         "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;"
             + "transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/58aa1b363649e722";
 
-    Connection con = DriverManager.getConnection(jdbcUrl, "token", "insert_your_token");
+    Connection con = DriverManager.getConnection(jdbcUrl, "token", DATABRICKS_TOKEN);
     System.out.println("Connection established with jdbc driver......");
 
     Statement statement = con.createStatement();
@@ -280,7 +282,7 @@ public class DatabricksDriverExamples {
         "jdbc:databricks://3396486410346666.6.gcp.databricks.com:443/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/2ce45060dd7d2a66;"
             + "GoogleCredentialsFile=<path_to_json_credential_file>";
 
-    Connection con = DriverManager.getConnection(jdbcUrl, "token", "insert_your_token");
+    Connection con = DriverManager.getConnection(jdbcUrl, "token", DATABRICKS_TOKEN);
     System.out.println("Connection established with jdbc driver......");
     Statement statement = con.createStatement();
     statement.setMaxRows(10000);
@@ -326,7 +328,7 @@ public class DatabricksDriverExamples {
         "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;"
             + "transportMode=https;ssl=1;AuthMech=3;"
             + "httpPath=/sql/1.0/warehouses/791ba2a31c7fd70a;";
-    Connection con = DriverManager.getConnection(jdbcUrl, "token", "insert_your_token");
+    Connection con = DriverManager.getConnection(jdbcUrl, "token", DATABRICKS_TOKEN);
     System.out.println("Connection established. Arrow is enabled by default......");
 
     String query = "SELECT * FROM RANGE(10)";
@@ -351,7 +353,7 @@ public class DatabricksDriverExamples {
         "jdbc:databricks://arclight-staging-e2-arclight-dmk-qa-staging-us-east-1.staging.cloud.databricks.com:443/"
             + "default;transportMode=https;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/8561171c1d9afb1f;";
 
-    Connection con = DriverManager.getConnection(jdbcUrl, "token", "insert_your_token");
+    Connection con = DriverManager.getConnection(jdbcUrl, "token", DATABRICKS_TOKEN);
     System.out.println("Connection established......");
 
     Statement statement = con.createStatement();
@@ -375,7 +377,7 @@ public class DatabricksDriverExamples {
         "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;"
             + "ssl=1;AuthMech=3;"
             + "httpPath=sql/protocolv1/o/6051921418418893/1115-130834-ms4m0yv";
-    Connection con = DriverManager.getConnection(jdbcUrl, "token", "insert_your_token");
+    Connection con = DriverManager.getConnection(jdbcUrl, "token", DATABRICKS_TOKEN);
     System.out.println("Connection established......");
 
     Statement s = con.createStatement();
@@ -397,7 +399,7 @@ public class DatabricksDriverExamples {
         "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;"
             + "ssl=1;AuthMech=3;"
             + "httpPath=sql/protocolv1/o/6051921418418893/1115-130834-ms4m0yv";
-    Connection con = DriverManager.getConnection(jdbcUrl, "token", "insert_your_token");
+    Connection con = DriverManager.getConnection(jdbcUrl, "token", DATABRICKS_TOKEN);
     System.out.println("Connection established......");
 
     Statement s = con.createStatement();
@@ -416,7 +418,7 @@ public class DatabricksDriverExamples {
         "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;"
             + "ssl=1;AuthMech=3;"
             + "httpPath=sql/protocolv1/o/6051921418418893/1115-130834-ms4m0yv;enableArrow=0";
-    Connection con = DriverManager.getConnection(jdbcUrl, "token", "insert_your_token");
+    Connection con = DriverManager.getConnection(jdbcUrl, "token", DATABRICKS_TOKEN);
     System.out.println("Connection established......");
 
     Statement s = con.createStatement();
@@ -444,7 +446,7 @@ public class DatabricksDriverExamples {
     String jdbcUrl =
         "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;"
             + "AuthMech=3;httpPath=sql/protocolv1/o/6051921418418893/1115-130834-ms4m0yv";
-    Connection con = DriverManager.getConnection(jdbcUrl, "token", "insert_your_token");
+    Connection con = DriverManager.getConnection(jdbcUrl, "token", DATABRICKS_TOKEN);
     System.out.println("Connection established......");
 
     // Example: retrieve functions with name matching "current_%"
@@ -467,7 +469,7 @@ public class DatabricksDriverExamples {
             + "transportMode=https;ssl=1;"
             + "httpPath=sql/protocolv1/o/6051921418418893/1115-130834-ms4m0yv;"
             + "AuthMech=3;UID=token;LogLevel=debug;LogPath=./logDir;LogFileCount=3;LogFileSize=2;";
-    Connection con = DriverManager.getConnection(jdbcUrl, "token", "insert_your_token");
+    Connection con = DriverManager.getConnection(jdbcUrl, "token", DATABRICKS_TOKEN);
     System.out.println("Connection established......");
 
     // Sample query
@@ -490,7 +492,7 @@ public class DatabricksDriverExamples {
         "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;"
             + "transportMode=https;ssl=1;AuthMech=3;"
             + "httpPath=/sql/1.0/warehouses/791ba2a31c7fd70a;";
-    Connection con = DriverManager.getConnection(jdbcUrl, "token", "insert_your_token");
+    Connection con = DriverManager.getConnection(jdbcUrl, "token", DATABRICKS_TOKEN);
     System.out.println("Connection established......");
 
     // Example table containing columns of date, bigint, decimal, etc.
@@ -520,7 +522,7 @@ public class DatabricksDriverExamples {
         "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;"
             + "transportMode=https;ssl=1;AuthMech=3;"
             + "httpPath=/sql/1.0/warehouses/791ba2a31c7fd70a;TemporarilyUnavailableRetry=3;";
-    Connection con = DriverManager.getConnection(jdbcUrl, "token", "insert_your_token");
+    Connection con = DriverManager.getConnection(jdbcUrl, "token", DATABRICKS_TOKEN);
     System.out.println("Connection established......");
     con.close();
   }
@@ -539,7 +541,7 @@ public class DatabricksDriverExamples {
             + "transportMode=http;ssl=1;AuthMech=3;"
             + "httpPath=/sql/1.0/warehouses/791ba2a31c7fd70a;";
 
-    Connection con = DriverManager.getConnection(jdbcUrl, "token", "insert_your_token");
+    Connection con = DriverManager.getConnection(jdbcUrl, "token", DATABRICKS_TOKEN);
 
     // Example setting an allowed ingestion path
     con.setClientInfo(DatabricksJdbcConstants.ALLOWED_VOLUME_INGESTION_PATHS, "delete");
@@ -603,7 +605,7 @@ public class DatabricksDriverExamples {
             + "httpPath=/sql/1.0/warehouses/58aa1b363649e722;Loglevel=debug;";
 
     IDatabricksConnectionContext connectionContext =
-        DatabricksConnectionContextFactory.create(jdbcUrl, "token", "insert_your_token");
+        DatabricksConnectionContextFactory.create(jdbcUrl, "token", DATABRICKS_TOKEN);
     var client = DatabricksVolumeClientFactory.getVolumeClient(connectionContext);
 
     File file = new File("/tmp/put.txt");
@@ -654,7 +656,7 @@ public class DatabricksDriverExamples {
             + "httpPath=/sql/1.0/warehouses/58aa1b363649e722;Loglevel=debug;VolumeOperationAllowedLocalPaths=/tmp;";
 
     IDatabricksConnectionContext connectionContext =
-        DatabricksConnectionContextFactory.create(jdbcUrl, "token", "insert_your_token");
+        DatabricksConnectionContextFactory.create(jdbcUrl, "token", DATABRICKS_TOKEN);
     var client = DatabricksVolumeClientFactory.getVolumeClient(connectionContext);
 
     File file = new File("/tmp/put.txt");
@@ -720,7 +722,7 @@ public class DatabricksDriverExamples {
             + "transportMode=https;ssl=1;AuthMech=3;"
             + "httpPath=/sql/1.0/warehouses/791ba2a31c7fd70a;supportManyParameters=1";
 
-    Connection con = DriverManager.getConnection(jdbcUrl, "token", "insert_your_token");
+    Connection con = DriverManager.getConnection(jdbcUrl, "token", DATABRICKS_TOKEN);
     PreparedStatement pstmt = con.prepareStatement(sql.toString());
 
     // Fill parameters
@@ -749,7 +751,7 @@ public class DatabricksDriverExamples {
             + "ssl=1;AuthMech=3;"
             + "httpPath=sql/protocolv1/o/6051921418418893/1115-130834-ms4m0yv;"
             + "enableDirectResults=1";
-    Connection con = DriverManager.getConnection(jdbcUrl, "token", "insert_your_token");
+    Connection con = DriverManager.getConnection(jdbcUrl, "token", DATABRICKS_TOKEN);
     System.out.println("Connection established......");
 
     Statement s = con.createStatement();
@@ -770,7 +772,7 @@ public class DatabricksDriverExamples {
             + "httpPath=sql/protocolv1/o/6051921418418893/1115-130834-ms4m0yv;"
             + "enableDirectResults=1";
 
-    Connection con = DriverManager.getConnection(jdbcUrl, "token", "insert_your_token");
+    Connection con = DriverManager.getConnection(jdbcUrl, "token", DATABRICKS_TOKEN);
     System.out.println("Connection established... (con1)");
 
     Statement s = con.createStatement();
@@ -818,7 +820,7 @@ public class DatabricksDriverExamples {
     }
 
     // Use a second connection to check status
-    Connection con2 = DriverManager.getConnection(jdbcUrl, "token", "insert_your_token");
+    Connection con2 = DriverManager.getConnection(jdbcUrl, "token", DATABRICKS_TOKEN);
     System.out.println("Connection established... (con2)");
     IDatabricksConnection idc = con2.unwrap(IDatabricksConnection.class);
     Statement stm = idc.getStatement(rs.unwrap(IDatabricksResultSet.class).getStatementId());
@@ -850,7 +852,7 @@ public class DatabricksDriverExamples {
             + "ssl=1;AuthMech=3;"
             + "httpPath=/sql/1.0/warehouses/791ba2a31c7fd70a;enableDirectResults=1";
 
-    Connection con = DriverManager.getConnection(jdbcUrl, "token", "insert_your_token");
+    Connection con = DriverManager.getConnection(jdbcUrl, "token", DATABRICKS_TOKEN);
     System.out.println("Connection established... (con1)");
 
     Statement s = con.createStatement();
@@ -896,7 +898,7 @@ public class DatabricksDriverExamples {
     }
 
     // Second connection
-    Connection con2 = DriverManager.getConnection(jdbcUrl, "token", "insert_your_token");
+    Connection con2 = DriverManager.getConnection(jdbcUrl, "token", DATABRICKS_TOKEN);
     System.out.println("Connection established... (con2)");
     IDatabricksConnection idc = con2.unwrap(IDatabricksConnection.class);
     Statement stm = idc.getStatement(rs.unwrap(IDatabricksResultSet.class).getStatementId());
@@ -925,7 +927,7 @@ public class DatabricksDriverExamples {
             + "ssl=1;AuthMech=3;"
             + "httpPath=sql/protocolv1/o/6051921418418893/1115-130834-ms4m0yv;enableDirectResults=1";
 
-    Connection con = DriverManager.getConnection(jdbcUrl, "token", "insert_your_token");
+    Connection con = DriverManager.getConnection(jdbcUrl, "token", DATABRICKS_TOKEN);
     System.out.println("Connection established (con1)...");
     Statement s = con.createStatement();
 
@@ -941,7 +943,7 @@ public class DatabricksDriverExamples {
 
     // Properties for closing by session ID (PWD must be the token)
     Properties p = new Properties();
-    p.setProperty("PWD", "insert_your_token");
+    p.setProperty("PWD", DATABRICKS_TOKEN);
 
     // Close connection by session ID
     Driver.getInstance().closeConnection(jdbcUrl, p, connectionId);
@@ -958,7 +960,7 @@ public class DatabricksDriverExamples {
             + "ssl=1;AuthMech=3;"
             + "httpPath=/sql/1.0/warehouses/791ba2a31c7fd70a;enableDirectResults=1";
 
-    Connection con = DriverManager.getConnection(jdbcUrl, "token", "insert_your_token");
+    Connection con = DriverManager.getConnection(jdbcUrl, "token", DATABRICKS_TOKEN);
     System.out.println("Connection established (con1)...");
     Statement s = con.createStatement();
 
@@ -973,7 +975,7 @@ public class DatabricksDriverExamples {
     String connectionId = con.unwrap(IDatabricksConnection.class).getConnectionId();
 
     Properties p = new Properties();
-    p.setProperty("PWD", "insert_your_token");
+    p.setProperty("PWD", DATABRICKS_TOKEN);
 
     // Close connection by session ID
     Driver.getInstance().closeConnection(jdbcUrl, p, connectionId);
@@ -994,7 +996,7 @@ public class DatabricksDriverExamples {
             + "ssl=1;AuthMech=3;"
             + "httpPath=sql/protocolv1/o/6051921418418893/1115-130834-ms4m0yv;MaxBatchSize=4";
     String tableName = "batch_test_table";
-    Connection con = DriverManager.getConnection(jdbcUrl, "token", "insert_your_token");
+    Connection con = DriverManager.getConnection(jdbcUrl, "token", DATABRICKS_TOKEN);
     System.out.println("Connection established......");
 
     Statement s = con.createStatement();
@@ -1039,7 +1041,7 @@ public class DatabricksDriverExamples {
         "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;"
             + "transportMode=http;ssl=1;AuthMech=3;"
             + "httpPath=/sql/1.0/warehouses/dd43ee29fedd958d;";
-    Connection con = DriverManager.getConnection(jdbcUrl, "token", "insert_your_token");
+    Connection con = DriverManager.getConnection(jdbcUrl, "token", DATABRICKS_TOKEN);
     System.out.println("Connection established......");
 
     String sqlStatement =
@@ -1087,8 +1089,8 @@ public class DatabricksDriverExamples {
   @Test
   void exampleM2MJWT() throws SQLException {
     String jdbcUrl =
-        "jdbc:databricks://mkazia-pl-sandbox.staging.cloud.databricks.com:443/default;"
-            + "httpPath=sql/1.0/warehouses/31e4555776d18496;"
+        "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;"
+            + "httpPath=sql/1.0/warehouses/58aa1b363649e722;"
             + "AuthMech=11;ssl=1;Auth_Flow=1;"
             + "OAuth2TokenEndpoint=https://dev-591123.oktapreview.com/oauth2/aus1mzu4zk5TWwMvx0h8/v1/token;"
             + "Auth_Scope=sql;OAuth2ClientId=0oa25wnir4ehnKDj10h8;"
@@ -1120,7 +1122,7 @@ public class DatabricksDriverExamples {
         "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;"
             + "ssl=1;AuthMech=3;"
             + "httpPath=/sql/1.0/warehouses/58aa1b363649e722";
-    Connection con = DriverManager.getConnection(jdbcUrl, "token", "insert_your_token");
+    Connection con = DriverManager.getConnection(jdbcUrl, "token", DATABRICKS_TOKEN);
     System.out.println("Connection established......");
 
     Statement s = con.createStatement();
