@@ -346,9 +346,8 @@ public class DatabricksConnectionTest {
     assertDoesNotThrow(() -> connection.setReadOnly(false));
     assertThrows(
         DatabricksSQLFeatureNotSupportedException.class, () -> connection.setReadOnly(true));
-    ExecutorService executorService = Executors.newFixedThreadPool(10);
+    ExecutorService executorService = Executors.newFixedThreadPool(1);
     assertDoesNotThrow(() -> connection.abort(executorService));
-    executorService.close();
     connection.close();
   }
 
