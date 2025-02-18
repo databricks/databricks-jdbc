@@ -253,22 +253,14 @@ public class DatabricksConnectionTest {
     connection.open();
     assertThrows(
         DatabricksSQLFeatureNotSupportedException.class, () -> connection.prepareCall(SQL));
-    assertThrows(
-        DatabricksSQLFeatureNotImplementedException.class, () -> connection.nativeSQL(SQL));
+    assertThrows(DatabricksSQLFeatureNotSupportedException.class, () -> connection.nativeSQL(SQL));
     assertThrows(
         DatabricksSQLFeatureNotSupportedException.class, () -> connection.setAutoCommit(false));
     assertThrows(DatabricksSQLFeatureNotImplementedException.class, connection::commit);
     assertThrows(DatabricksSQLFeatureNotImplementedException.class, connection::rollback);
     assertThrows(
         DatabricksSQLFeatureNotImplementedException.class,
-        () -> connection.setTypeMap(Collections.emptyMap()));
-    assertThrows(
-        DatabricksSQLFeatureNotImplementedException.class,
         () -> connection.prepareCall(SQL, 10, 10));
-    assertThrows(DatabricksSQLFeatureNotImplementedException.class, connection::getTypeMap);
-    assertThrows(DatabricksSQLFeatureNotImplementedException.class, connection::getHoldability);
-    assertThrows(
-        DatabricksSQLFeatureNotImplementedException.class, () -> connection.setHoldability(1));
     assertThrows(
         DatabricksSQLFeatureNotImplementedException.class,
         () -> connection.prepareCall(SQL, 1, 1, 1));
@@ -358,5 +350,21 @@ public class DatabricksConnectionTest {
     assertDoesNotThrow(() -> connection.abort(executorService));
     executorService.close();
     connection.close();
+  }
+
+  @Test
+  void testTypeMap() {
+    assertEquals(new HashMap<>(), connection.getTypeMap());
+    assertThrows(
+        DatabricksSQLFeatureNotSupportedException.class,
+        () -> connection.setTypeMap(Collections.emptyMap()));
+  }
+
+  @Test
+  void testHoldability() throws SQLException {
+    assertEquals(2, connection.getHoldability());
+    assertDoesNotThrow(() -> connection.setHoldability(2));
+    assertThrows(
+        DatabricksSQLFeatureNotSupportedException.class, () -> connection.setHoldability(3));
   }
 }

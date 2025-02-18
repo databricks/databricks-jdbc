@@ -106,15 +106,16 @@ public class DatabricksConnection implements IDatabricksConnection, IDatabricksC
   @Override
   public String nativeSQL(String sql) throws SQLException {
     LOGGER.debug(String.format("public String nativeSQL(String sql{%s})", sql));
-    throw new DatabricksSQLFeatureNotImplementedException(
-        "Not implemented in DatabricksConnection - nativeSQL(String sql)");
+    throw new DatabricksSQLFeatureNotSupportedException(
+        "Databricks OSS JDBC does not support conversion to native query.");
   }
 
   @Override
   public void setAutoCommit(boolean autoCommit) throws SQLException {
     if (!autoCommit) {
       throw new DatabricksSQLFeatureNotSupportedException(
-          "In OSS JDBC, every SQL statement is committed immediately upon execution. Setting autoCommit=false is not supported.");
+          "In Databricks OSS JDBC, every SQL statement is committed immediately upon execution."
+              + " Setting autoCommit=false is not supported.");
     }
   }
 
@@ -258,30 +259,30 @@ public class DatabricksConnection implements IDatabricksConnection, IDatabricksC
   }
 
   @Override
-  public Map<String, Class<?>> getTypeMap() throws SQLException {
+  public Map<String, Class<?>> getTypeMap() {
     LOGGER.debug("public Map<String, Class<?>> getTypeMap()");
-    throw new DatabricksSQLFeatureNotImplementedException(
-        "Not implemented in DatabricksConnection - getTypeMap()");
+    return new HashMap<>();
   }
 
   @Override
   public void setTypeMap(Map<String, Class<?>> map) throws SQLException {
     LOGGER.debug("public void setTypeMap(Map<String, Class<?>> map)");
-    throw new DatabricksSQLFeatureNotImplementedException(
-        "Not implemented in DatabricksConnection - setTypeMap(Map<String, Class<?>> map)");
+    throw new DatabricksSQLFeatureNotSupportedException(
+        "Databricks OSS JDBC does not support setting of type map in connection");
   }
 
   @Override
   public void setHoldability(int holdability) throws SQLException {
-    throw new DatabricksSQLFeatureNotImplementedException(
-        "Not implemented in DatabricksConnection - setHoldability(int holdability)");
+    if (holdability != ResultSet.CLOSE_CURSORS_AT_COMMIT) {
+      throw new DatabricksSQLFeatureNotSupportedException(
+          "Databricks OSS JDBC only supports holdability of CLOSE_CURSORS_AT_COMMIT");
+    }
   }
 
   @Override
   public int getHoldability() throws SQLException {
     LOGGER.debug("public int getHoldability()");
-    throw new DatabricksSQLFeatureNotImplementedException(
-        "Not implemented in DatabricksConnection - getHoldability()");
+    return ResultSet.CLOSE_CURSORS_AT_COMMIT;
   }
 
   @Override
