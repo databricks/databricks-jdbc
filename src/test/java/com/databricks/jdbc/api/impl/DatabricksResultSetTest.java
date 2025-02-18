@@ -91,14 +91,14 @@ public class DatabricksResultSetTest {
   @Test
   void testAbsolute() throws SQLException {
     DatabricksResultSet resultSet = getResultSet(StatementState.SUCCEEDED, null);
-    assertThrows(DatabricksSQLException.class, () -> resultSet.absolute(0));
+    assertThrows(DatabricksSQLFeatureNotSupportedException.class, () -> resultSet.absolute(0));
 
     when(mockedExecutionResult.getCurrentRow()).thenReturn(0L, 1L, 2L);
     doReturn(true).doReturn(true).doReturn(false).when(mockedExecutionResult).next();
 
     assertTrue(resultSet.absolute(3));
     // throws exception for backward exception
-    assertThrows(DatabricksSQLException.class, () -> resultSet.absolute(1));
+    assertThrows(DatabricksSQLFeatureNotSupportedException.class, () -> resultSet.absolute(1));
 
     assertFalse(resultSet.absolute(4));
   }

@@ -1,5 +1,7 @@
 package com.databricks.jdbc.api.impl;
 
+import static com.databricks.jdbc.common.DatabricksJdbcConstants.EMPTY_STRING;
+
 import com.databricks.jdbc.api.IDatabricksResultSet;
 import com.databricks.jdbc.api.IDatabricksSession;
 import com.databricks.jdbc.api.impl.converters.ConverterHelper;
@@ -445,7 +447,7 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
   @Override
   public String getCursorName() throws SQLException {
     checkIfClosed();
-    return "";
+    return EMPTY_STRING;
   }
 
   @Override
@@ -575,9 +577,8 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
   public boolean absolute(int row) throws SQLException {
     checkIfClosed();
     if (row < 1 || row < executionResult.getCurrentRow()) {
-      throw new DatabricksSQLException(
-          "Invalid operation for forward only ResultSets",
-          DatabricksDriverErrorCode.UNSUPPORTED_OPERATION);
+      throw new DatabricksSQLFeatureNotSupportedException(
+          "Invalid operation for forward only ResultSets");
     }
     while (executionResult.getCurrentRow() < row - 1) {
       if (!next()) {
