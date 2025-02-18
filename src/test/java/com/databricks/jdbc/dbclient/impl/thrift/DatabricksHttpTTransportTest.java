@@ -125,14 +125,13 @@ public class DatabricksHttpTTransportTest {
 
   @Test
   public void resetAccessToken_UpdatesConfigCorrectly() {
-    IDatabricksConnectionContext mockConnectionContext = mock(IDatabricksConnectionContext.class);
     DatabricksHttpTTransport transport =
         new DatabricksHttpTTransport(
             mockedHttpClient, testUrl, mockDatabricksConfig, mockConnectionContext);
 
     when(mockDatabricksConfig.getHost()).thenReturn(testUrl);
 
-    transport.resetAccessToken(NEW_ACCESS_TOKEN, mockConnectionContext);
+    transport.resetAccessToken(NEW_ACCESS_TOKEN);
 
     assertEquals(NEW_ACCESS_TOKEN, transport.databricksConfig.getToken());
     assertEquals(testUrl, transport.databricksConfig.getHost());

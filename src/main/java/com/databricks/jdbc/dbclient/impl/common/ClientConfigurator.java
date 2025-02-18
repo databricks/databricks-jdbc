@@ -1,6 +1,7 @@
 package com.databricks.jdbc.dbclient.impl.common;
 
 import static com.databricks.jdbc.common.DatabricksJdbcConstants.*;
+import static com.databricks.jdbc.common.util.DatabricksAuthUtil.initializeConfigWithToken;
 
 import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.auth.OAuthRefreshCredentialsProvider;
@@ -33,7 +34,8 @@ public class ClientConfigurator {
   private final IDatabricksConnectionContext connectionContext;
   private DatabricksConfig databricksConfig;
 
-  private void initializeConfig() {
+  public ClientConfigurator(IDatabricksConnectionContext connectionContext) {
+    this.connectionContext = connectionContext;
     this.databricksConfig = new DatabricksConfig();
     CommonsHttpClient.Builder httpClientBuilder = new CommonsHttpClient.Builder();
     setupProxyConfig(httpClientBuilder);
@@ -41,11 +43,6 @@ public class ClientConfigurator {
     this.databricksConfig.setHttpClient(httpClientBuilder.build());
     setupDiscoveryEndpoint();
     setupAuthConfig();
-  }
-
-  public ClientConfigurator(IDatabricksConnectionContext connectionContext) {
-    this.connectionContext = connectionContext;
-    initializeConfig();
     this.databricksConfig.resolve();
   }
 
@@ -154,8 +151,7 @@ public class ClientConfigurator {
   }
 
   public void resetAccessTokenInConfig(String newAccessToken) {
-    initializeConfig();
-    databricksConfig.setToken(newAccessToken);
+    this.databricksConfig = initializeConfigWithToken(newAccessToken, databricksConfig);
     this.databricksConfig.resolve();
   }
 

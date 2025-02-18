@@ -402,6 +402,6 @@ public class DatabricksThriftServiceClientTest {
     when(mockTCLIServiceClient.getInputProtocol()).thenReturn(mockProtocol);
     when(mockProtocol.getTransport()).thenReturn(mockDatabricksHttpTTransport);
     client.resetAccessToken(NEW_ACCESS_TOKEN);
-    verify(mockDatabricksHttpTTransport).resetAccessToken(NEW_ACCESS_TOKEN, connectionContext);
+    verify(mockDatabricksHttpTTransport).resetAccessToken(NEW_ACCESS_TOKEN);
   }
 }
