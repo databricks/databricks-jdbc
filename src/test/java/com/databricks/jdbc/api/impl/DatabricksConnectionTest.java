@@ -252,7 +252,7 @@ public class DatabricksConnectionTest {
     connection = new DatabricksConnection(connectionContext, databricksClient);
     connection.open();
     assertThrows(
-        DatabricksSQLFeatureNotSupportedException.class, () -> connection.prepareCall(SQL));
+        DatabricksSQLFeatureNotImplementedException.class, () -> connection.prepareCall(SQL));
     assertThrows(DatabricksSQLFeatureNotSupportedException.class, () -> connection.nativeSQL(SQL));
     assertThrows(
         DatabricksSQLFeatureNotSupportedException.class, () -> connection.setAutoCommit(false));

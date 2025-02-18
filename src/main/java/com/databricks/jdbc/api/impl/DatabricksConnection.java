@@ -100,7 +100,8 @@ public class DatabricksConnection implements IDatabricksConnection, IDatabricksC
   @Override
   public CallableStatement prepareCall(String sql) throws SQLException {
     LOGGER.debug(String.format("public CallableStatement prepareCall= {%s})", sql));
-    throw new DatabricksSQLFeatureNotSupportedException("prepareCall not Supported");
+    throw new DatabricksSQLFeatureNotImplementedException(
+        "Callable statements are not implemented in OSS JDBC");
   }
 
   @Override
@@ -253,9 +254,8 @@ public class DatabricksConnection implements IDatabricksConnection, IDatabricksC
   @Override
   public CallableStatement prepareCall(String sql, int resultSetType, int resultSetConcurrency)
       throws SQLException {
-
     throw new DatabricksSQLFeatureNotImplementedException(
-        "Not implemented in DatabricksConnection - prepareCall(String sql, int resultSetType, int resultSetConcurrency)");
+        "Callable statements are not implemented in OSS JDBC");
   }
 
   @Override
@@ -333,9 +333,8 @@ public class DatabricksConnection implements IDatabricksConnection, IDatabricksC
   public CallableStatement prepareCall(
       String sql, int resultSetType, int resultSetConcurrency, int resultSetHoldability)
       throws SQLException {
-
     throw new DatabricksSQLFeatureNotImplementedException(
-        "Not implemented in DatabricksConnection - prepareCall(String sql, int resultSetType, int resultSetConcurrency, int resultSetHoldability)");
+        "Callable statements are not implemented in OSS JDBC");
   }
 
   @Override
