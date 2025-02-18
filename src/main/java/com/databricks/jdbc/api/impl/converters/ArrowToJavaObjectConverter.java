@@ -81,8 +81,6 @@ public class ArrowToJavaObjectConverter {
         return convertToNumber(object, Double::parseDouble, Number::doubleValue);
       case DECIMAL:
         return convertToDecimal(object, arrowMetadata);
-        //        return convertToNumber(
-        //            object, BigDecimal::new, num -> BigDecimal.valueOf(num.doubleValue()));
       case BINARY:
         return convertToByteArray(object);
       case BOOLEAN:
