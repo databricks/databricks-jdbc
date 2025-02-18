@@ -123,7 +123,7 @@ public class ArrowToJavaObjectConverterTest {
     Object unconvertedObject = decimalVector.getObject(0);
     Object convertedObject =
         ArrowToJavaObjectConverter.convert(
-            unconvertedObject, ColumnInfoTypeName.DECIMAL, "DECIMAL");
+            unconvertedObject, ColumnInfoTypeName.DECIMAL, "DECIMAL(30,10)");
 
     assertInstanceOf(BigDecimal.class, convertedObject);
     assertEquals(convertedObject, BigDecimal.valueOf(4.1111111111));
