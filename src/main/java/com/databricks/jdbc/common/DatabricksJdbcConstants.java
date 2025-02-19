@@ -49,6 +49,7 @@ public final class DatabricksJdbcConstants {
   public static final String ASTERISK = "*";
   public static final String EMPTY_STRING = "";
   public static final String IDENTIFIER_QUOTE_STRING = "`";
+  public static final String BACKWARD_SLASH = "\\";
   public static final String CATALOG = "catalog";
   public static final String PROCEDURE = "procedure";
   public static final String SCHEMA = "schema";

@@ -261,8 +261,7 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
   @Override
   public String getSearchStringEscape() throws SQLException {
     LOGGER.debug("public String getSearchStringEscape()");
-    throw new UnsupportedOperationException(
-        "Not implemented in DatabricksDatabaseMetaData - getSearchStringEscape()");
+    return DatabricksJdbcConstants.BACKWARD_SLASH;
   }
 
   @Override
@@ -823,7 +822,7 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
   public int getDefaultTransactionIsolation() throws SQLException {
     LOGGER.debug("public int getDefaultTransactionIsolation()");
     throwExceptionIfConnectionIsClosed();
-    return Connection.TRANSACTION_READ_COMMITTED;
+    return Connection.TRANSACTION_READ_UNCOMMITTED;
   }
 
   @Override
@@ -1393,8 +1392,8 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
   @Override
   public ResultSet getClientInfoProperties() throws SQLException {
     LOGGER.debug("public ResultSet getClientInfoProperties()");
-    throw new UnsupportedOperationException(
-        "Not implemented in DatabricksDatabaseMetaData - getClientInfoProperties()");
+    throwExceptionIfConnectionIsClosed();
+    return new EmptyResultSet();
   }
 
   @Override
