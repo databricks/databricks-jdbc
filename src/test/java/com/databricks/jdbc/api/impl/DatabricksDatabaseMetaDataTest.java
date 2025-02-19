@@ -8,6 +8,7 @@ import static org.mockito.Mockito.when;
 
 import com.databricks.jdbc.api.IDatabricksSession;
 import com.databricks.jdbc.api.internal.IDatabricksConnectionInternal;
+import com.databricks.jdbc.common.DatabricksJdbcConstants;
 import com.databricks.jdbc.dbclient.IDatabricksMetadataClient;
 import java.sql.*;
 import java.util.Arrays;
@@ -422,7 +423,7 @@ public class DatabricksDatabaseMetaDataTest {
   @Test
   public void getDefaultTransactionIsolation_returnsExpectedIsolationLevel() throws Exception {
     int defaultTransactionIsolation = metaData.getDefaultTransactionIsolation();
-    assertEquals(Connection.TRANSACTION_READ_COMMITTED, defaultTransactionIsolation);
+    assertEquals(Connection.TRANSACTION_READ_UNCOMMITTED, defaultTransactionIsolation);
   }
 
   @Test
@@ -995,11 +996,16 @@ public class DatabricksDatabaseMetaDataTest {
   }
 
   @Test
+  public void testGetSearchStringEscape() throws SQLException {
+    String result = metaData.getSearchStringEscape();
+    assertEquals(DatabricksJdbcConstants.BACKWARD_SLASH, result);
+  }
+
+  @Test
   public void testUnsupportedOperations() {
     List<Callable<Object>> tasks =
         Arrays.asList(
             () -> metaData.supportsTransactionIsolationLevel(0),
-            () -> metaData.getSearchStringEscape(),
             () -> metaData.getProcedureColumns(null, null, null, null),
             () -> metaData.getBestRowIdentifier(null, null, null, 0, false),
             () -> metaData.getVersionColumns(null, null, null),
