@@ -1015,7 +1015,6 @@ public class DatabricksDatabaseMetaDataTest {
             () -> metaData.getTablePrivileges(null, null, null),
             () -> metaData.getSuperTypes(null, null, null),
             () -> metaData.getSuperTables(null, null, null),
-            () -> metaData.getClientInfoProperties(),
             () -> metaData.getFunctionColumns(null, null, null, null),
             () -> metaData.getPseudoColumns(null, null, null, null),
             () -> metaData.deletesAreDetected(ResultSet.TYPE_FORWARD_ONLY),
@@ -1098,5 +1097,23 @@ public class DatabricksDatabaseMetaDataTest {
 
         // Test case 9: Special characters in patterns
         Arguments.of(null, "_test%", "%TYPE_", "_attr%", "Special characters in patterns"));
+  }
+
+  @Test
+  public void testGetClientInfoProperties() throws SQLException {
+    ResultSet resultSet = metaData.getClientInfoProperties();
+    assertNotNull(resultSet);
+
+    assertEquals(4, resultSet.getMetaData().getColumnCount());
+    assertEquals("NAME", resultSet.getMetaData().getColumnName(1));
+    assertEquals("MAX_LEN", resultSet.getMetaData().getColumnName(2));
+    assertEquals("DEFAULT_VALUE", resultSet.getMetaData().getColumnName(3));
+    assertEquals("DESCRIPTION", resultSet.getMetaData().getColumnName(4));
+
+    // Verify the first row
+    resultSet.next();
+    assertEquals("APPLICATIONNAME", resultSet.getString(1));
+    assertEquals(25, resultSet.getInt(2));
+    assertNull(resultSet.getString(3));
   }
 }

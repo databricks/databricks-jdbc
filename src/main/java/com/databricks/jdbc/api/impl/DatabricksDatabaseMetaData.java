@@ -1,5 +1,7 @@
 package com.databricks.jdbc.api.impl;
 
+import static com.databricks.jdbc.dbclient.impl.sqlexec.ResultConstants.CLIENT_INFO_PROPERTIES_RESULT;
+
 import com.databricks.jdbc.api.IDatabricksSession;
 import com.databricks.jdbc.api.internal.IDatabricksConnectionInternal;
 import com.databricks.jdbc.common.DatabricksClientType;
@@ -1392,8 +1394,8 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
   @Override
   public ResultSet getClientInfoProperties() throws SQLException {
     LOGGER.debug("public ResultSet getClientInfoProperties()");
-    throw new UnsupportedOperationException(
-        "Not implemented in DatabricksDatabaseMetaData - getClientInfoProperties()");
+    throwExceptionIfConnectionIsClosed();
+    return CLIENT_INFO_PROPERTIES_RESULT;
   }
 
   @Override

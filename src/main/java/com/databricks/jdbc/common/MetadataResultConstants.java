@@ -72,12 +72,6 @@ public class MetadataResultConstants {
       new ResultColumn("SQL_DATA_TYPE", "SQLDataType", Types.INTEGER);
   public static final ResultColumn DATA_TYPE_COLUMN =
       new ResultColumn("DATA_TYPE", "dataType", Types.INTEGER);
-  private static final ResultColumn LITERAL_PREFIX_COLUMN =
-      new ResultColumn("LITERAL_PREFIX", "literalPrefix", Types.VARCHAR);
-  private static final ResultColumn LITERAL_SUFFIX_COLUMN =
-      new ResultColumn("LITERAL_SUFFIX", "literalSuffix", Types.VARCHAR);
-  private static final ResultColumn CREATE_PARAMS_COLUMN =
-      new ResultColumn("CREATE_PARAMS", "createParams", Types.VARCHAR);
   public static final ResultColumn SQL_DATETIME_SUB_COLUMN =
       new ResultColumn("SQL_DATETIME_SUB", "SQLDateTimeSub", Types.INTEGER);
   public static final ResultColumn CHAR_OCTET_LENGTH_COLUMN =
@@ -98,22 +92,6 @@ public class MetadataResultConstants {
       new ResultColumn("IS_AUTOINCREMENT", "isAutoIncrement", Types.VARCHAR);
   public static final ResultColumn IS_GENERATED_COLUMN =
       new ResultColumn("IS_GENERATEDCOLUMN", "isGenerated", Types.VARCHAR);
-  private static final ResultColumn CASE_SENSITIVE_COLUMN =
-      new ResultColumn("CASE_SENSITIVE", "caseSensitive", Types.BIT);
-  private static final ResultColumn SEARCHABLE_COLUMN =
-      new ResultColumn("SEARCHABLE", "searchable", Types.SMALLINT);
-  private static final ResultColumn UNSIGNED_ATTRIBUTE_COLUMN =
-      new ResultColumn("UNSIGNED_ATTRIBUTE", "unsignedAttribute", Types.BIT);
-  private static final ResultColumn FIXED_PREC_SCALE_COLUMN =
-      new ResultColumn("FIXED_PREC_SCALE", "fixedPrecScale", Types.BIT);
-  private static final ResultColumn AUTO_INCREMENT_COLUMN =
-      new ResultColumn("AUTO_INCREMENT", "autoIncrement", Types.BIT);
-  private static final ResultColumn LOCAL_TYPE_NAME_COLUMN =
-      new ResultColumn("LOCAL_TYPE_NAME", "localTypeName", Types.VARCHAR);
-  private static final ResultColumn MINIMUM_SCALE_COLUMN =
-      new ResultColumn("MINIMUM_SCALE", "minimumScale", Types.SMALLINT);
-  private static final ResultColumn MAXIMUM_SCALE_COLUMN =
-      new ResultColumn("MAXIMUM_SCALE", "maximumScale", Types.SMALLINT);
   private static final ResultColumn TYPE_CAT =
       new ResultColumn("TYPE_CAT", "typeCat", Types.VARCHAR);
   private static final ResultColumn TYPE_SCHEM =
