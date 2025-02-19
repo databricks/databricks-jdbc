@@ -1401,8 +1401,8 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
   @Override
   public ResultSet getClientInfoProperties() throws SQLException {
     LOGGER.debug("public ResultSet getClientInfoProperties()");
-    throwExceptionIfConnectionIsClosed();
-    return new EmptyResultSet();
+    throw new UnsupportedOperationException(
+        "Not implemented in DatabricksDatabaseMetaData - getClientInfoProperties()");
   }
 
   @Override
