@@ -1173,11 +1173,21 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
     return false;
   }
 
+  /**
+   * {@inheritDoc}
+   *
+   * <p>Databricks driver result set is of type {@link ResultSet#TYPE_FORWARD_ONLY} where deletes by
+   * other database operations are not detected.
+   *
+   * @param type the <code>ResultSet</code> type; one of <code>ResultSet.TYPE_FORWARD_ONLY</code>,
+   *     <code>ResultSet.TYPE_SCROLL_INSENSITIVE</code>, or <code>ResultSet.TYPE_SCROLL_SENSITIVE
+   *     </code>
+   * @return The method returns false irrespective of the <code>type</code> parameter.
+   */
   @Override
-  public boolean deletesAreDetected(int type) throws SQLException {
+  public boolean deletesAreDetected(int type) {
     LOGGER.debug(String.format("public boolean deletesAreDetected(int type = {%s})", type));
-    throw new UnsupportedOperationException(
-        "Not implemented in DatabricksDatabaseMetaData - deletesAreDetected(int type)");
+    return false;
   }
 
   @Override

@@ -1018,7 +1018,6 @@ public class DatabricksDatabaseMetaDataTest {
             () -> metaData.getClientInfoProperties(),
             () -> metaData.getFunctionColumns(null, null, null, null),
             () -> metaData.getPseudoColumns(null, null, null, null),
-            () -> metaData.deletesAreDetected(ResultSet.TYPE_FORWARD_ONLY),
             () -> metaData.isWrapperFor(DatabricksDatabaseMetaData.class),
             () -> metaData.unwrap(DatabricksDatabaseMetaData.class));
 
@@ -1032,6 +1031,19 @@ public class DatabricksDatabaseMetaDataTest {
         fail("Unexpected exception type thrown: " + e);
       }
     }
+  }
+
+  @ParameterizedTest
+  @MethodSource("resultSetTypes")
+  public void testDeletesAreDetected(int resultSetType, String typeName) {
+    assertFalse(metaData.deletesAreDetected(resultSetType));
+  }
+
+  private static Stream<Arguments> resultSetTypes() {
+    return Stream.of(
+        Arguments.of(ResultSet.TYPE_FORWARD_ONLY, "TYPE_FORWARD_ONLY"),
+        Arguments.of(ResultSet.TYPE_SCROLL_INSENSITIVE, "TYPE_SCROLL_INSENSITIVE"),
+        Arguments.of(ResultSet.TYPE_SCROLL_SENSITIVE, "TYPE_SCROLL_SENSITIVE"));
   }
 
   @ParameterizedTest
