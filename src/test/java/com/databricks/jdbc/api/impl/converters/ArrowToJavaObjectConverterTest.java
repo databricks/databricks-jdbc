@@ -265,6 +265,10 @@ public class ArrowToJavaObjectConverterTest {
     result = ArrowToJavaObjectConverter.convertToDecimal(numberObject, arrowMetadata);
     assertEquals(new BigDecimal("123.46"), result); // Rounded to 2 decimal places
 
+    numberObject = 123.45;
+    result = ArrowToJavaObjectConverter.convertToDecimal(numberObject, arrowMetadata);
+    assertEquals(new BigDecimal("123.45"), result); // No rounding
+
     // Test with Number object and invalid metadata
     arrowMetadata = "DECIMAL(10,invalid)";
     result = ArrowToJavaObjectConverter.convertToDecimal(numberObject, arrowMetadata);
