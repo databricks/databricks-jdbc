@@ -114,6 +114,46 @@ public class MetadataResultConstants {
       new ResultColumn("MINIMUM_SCALE", "minimumScale", Types.SMALLINT);
   private static final ResultColumn MAXIMUM_SCALE_COLUMN =
       new ResultColumn("MAXIMUM_SCALE", "maximumScale", Types.SMALLINT);
+  private static final ResultColumn TYPE_CAT =
+      new ResultColumn("TYPE_CAT", "typeCat", Types.VARCHAR);
+  private static final ResultColumn TYPE_SCHEM =
+      new ResultColumn("TYPE_SCHEM", "typeSchem", Types.VARCHAR);
+  private static final ResultColumn ATTR_NAME =
+      new ResultColumn("ATTR_NAME", "attrName", Types.VARCHAR);
+  private static final ResultColumn DATA_TYPE =
+      new ResultColumn("DATA_TYPE", "dataType", Types.INTEGER);
+  private static final ResultColumn ATTR_TYPE_NAME =
+      new ResultColumn("ATTR_TYPE_NAME", "attrTypeName", Types.VARCHAR);
+  private static final ResultColumn ATTR_SIZE =
+      new ResultColumn("ATTR_SIZE", "attrSize", Types.INTEGER);
+  private static final ResultColumn DECIMAL_DIGITS =
+      new ResultColumn("DECIMAL_DIGITS", "decimalDigits", Types.INTEGER);
+  private static final ResultColumn NUM_PREC_RADIX =
+      new ResultColumn("NUM_PREC_RADIX", "numPrecRadix", Types.INTEGER);
+  private static final ResultColumn NULLABLE =
+      new ResultColumn("NULLABLE", "nullable", Types.INTEGER);
+  private static final ResultColumn REMARKS = new ResultColumn("REMARKS", "remarks", Types.VARCHAR);
+  private static final ResultColumn ATTR_DEF =
+      new ResultColumn("ATTR_DEF", "attrDef", Types.VARCHAR);
+  private static final ResultColumn SQL_DATA_TYPE =
+      new ResultColumn("SQL_DATA_TYPE", "SQLDataType", Types.INTEGER);
+  private static final ResultColumn SQL_DATETIME_SUB =
+      new ResultColumn("SQL_DATETIME_SUB", "SQLDateTimeSub", Types.INTEGER);
+  private static final ResultColumn CHAR_OCTET_LENGTH =
+      new ResultColumn("CHAR_OCTET_LENGTH", "CharOctetLength", Types.INTEGER);
+  private static final ResultColumn ORDINAL_POSITION =
+      new ResultColumn("ORDINAL_POSITION", "ordinalPosition", Types.INTEGER);
+  private static final ResultColumn IS_NULLABLE =
+      new ResultColumn("IS_NULLABLE", "isNullable", Types.VARCHAR);
+  private static final ResultColumn SCOPE_CATALOG =
+      new ResultColumn("SCOPE_CATALOG", "ScopeCatalog", Types.VARCHAR);
+  private static final ResultColumn SCOPE_SCHEMA =
+      new ResultColumn("SCOPE_SCHEMA", "ScopeSchema", Types.VARCHAR);
+  private static final ResultColumn SCOPE_TABLE =
+      new ResultColumn("SCOPE_TABLE", "ScopeTable", Types.VARCHAR);
+  private static final ResultColumn SOURCE_DATA_TYPE =
+      new ResultColumn("SOURCE_DATA_TYPE", "SourceDataType", Types.SMALLINT);
+
   public static List<ResultColumn> FUNCTION_COLUMNS =
       List.of(
           FUNCTION_CATALOG_COLUMN,
@@ -203,6 +243,31 @@ public class MetadataResultConstants {
           SCOPE_CATALOG_COLUMN,
           SCOPE_SCHEMA_COLUMN,
           SCOPE_TABLE_COLUMN);
+
+  public static final List<ResultColumn> ATTRIBUTES_COLUMNS =
+      List.of(
+          TYPE_CAT,
+          TYPE_SCHEM,
+          TYPE_NAME_COLUMN,
+          ATTR_NAME,
+          DATA_TYPE,
+          ATTR_TYPE_NAME,
+          ATTR_SIZE,
+          DECIMAL_DIGITS,
+          NUM_PREC_RADIX,
+          NULLABLE,
+          REMARKS,
+          ATTR_DEF,
+          SQL_DATA_TYPE,
+          SQL_DATETIME_SUB,
+          CHAR_OCTET_LENGTH,
+          ORDINAL_POSITION,
+          IS_NULLABLE,
+          SCOPE_CATALOG,
+          SCOPE_SCHEMA,
+          SCOPE_TABLE,
+          SOURCE_DATA_TYPE);
+
   public static final Map<CommandName, List<ResultColumn>> NON_NULLABLE_COLUMNS_MAP =
       Map.of(
           CommandName.LIST_TYPE_INFO,

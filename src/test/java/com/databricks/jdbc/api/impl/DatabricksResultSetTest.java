@@ -3,6 +3,7 @@ package com.databricks.jdbc.api.impl;
 import static com.databricks.jdbc.api.impl.DatabricksResultSet.AFFECTED_ROWS_COUNT;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -85,6 +86,21 @@ public class DatabricksResultSetTest {
     when(mockedExecutionResult.next()).thenReturn(true);
     DatabricksResultSet resultSet = getResultSet(StatementState.SUCCEEDED, null);
     assertTrue(resultSet.next());
+  }
+
+  @Test
+  void testAbsolute() throws SQLException {
+    DatabricksResultSet resultSet = getResultSet(StatementState.SUCCEEDED, null);
+    assertThrows(DatabricksSQLFeatureNotSupportedException.class, () -> resultSet.absolute(0));
+
+    when(mockedExecutionResult.getCurrentRow()).thenReturn(0L, 1L, 2L);
+    doReturn(true).doReturn(true).doReturn(false).when(mockedExecutionResult).next();
+
+    assertTrue(resultSet.absolute(3));
+    // throws exception for backward exception
+    assertThrows(DatabricksSQLFeatureNotSupportedException.class, () -> resultSet.absolute(1));
+
+    assertFalse(resultSet.absolute(4));
   }
 
   @Test
@@ -777,7 +793,6 @@ public class DatabricksResultSetTest {
     assertThrows(DatabricksSQLFeatureNotSupportedException.class, resultSet::last);
     assertThrows(DatabricksSQLFeatureNotSupportedException.class, resultSet::beforeFirst);
     assertThrows(DatabricksSQLFeatureNotSupportedException.class, resultSet::afterLast);
-    assertThrows(DatabricksSQLFeatureNotSupportedException.class, () -> resultSet.absolute(1));
     assertThrows(DatabricksSQLFeatureNotSupportedException.class, () -> resultSet.relative(1));
     assertThrows(DatabricksSQLFeatureNotSupportedException.class, resultSet::previous);
 
@@ -790,7 +805,6 @@ public class DatabricksResultSetTest {
   void testUnsupportedOperationsThrowDatabricksSQLFeatureNotSupportedException() throws Exception {
     when(mockedResultSetMetadata.getColumnNameIndex("column")).thenReturn(1);
     DatabricksResultSet resultSet = getResultSet(StatementState.SUCCEEDED, null);
-    assertThrows(DatabricksSQLFeatureNotSupportedException.class, resultSet::getHoldability);
     assertThrows(DatabricksSQLFeatureNotSupportedException.class, () -> resultSet.getBlob(1));
     assertThrows(DatabricksSQLFeatureNotSupportedException.class, () -> resultSet.getRef(1));
     assertThrows(DatabricksSQLFeatureNotSupportedException.class, () -> resultSet.getRef("column"));

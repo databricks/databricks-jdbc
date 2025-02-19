@@ -505,7 +505,8 @@ public class MetadataResultSetBuilder {
       String statementId,
       CommandName commandName) {
     List<ResultColumn> nonNullableColumns =
-        NON_NULLABLE_COLUMNS_MAP.get(commandName); // Get non-nullable columns
+        NON_NULLABLE_COLUMNS_MAP.getOrDefault(
+            commandName, new ArrayList<>()); // Get non-nullable columns
     List<Nullable> nullableList = new ArrayList<>();
     for (ResultColumn column : columns) {
       if (nonNullableColumns.contains(column)) {
@@ -609,6 +610,11 @@ public class MetadataResultSetBuilder {
         getThriftRows(rows, SCHEMA_COLUMNS),
         METADATA_STATEMENT_ID,
         CommandName.LIST_SCHEMAS);
+  }
+
+  public static DatabricksResultSet getAttributesEmptyResultSet() {
+    return buildResultSet(
+        ATTRIBUTES_COLUMNS, new ArrayList<>(), METADATA_STATEMENT_ID, CommandName.GET_ATTRIBUTES);
   }
 
   public static DatabricksResultSet getTablesResult(String catalog, List<List<Object>> rows) {

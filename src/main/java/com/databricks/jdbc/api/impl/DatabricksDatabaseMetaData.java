@@ -1304,8 +1304,7 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
         String.format(
             "public ResultSet getAttributes(String catalog = {%s}, String schemaPattern = {%s}, String typeNamePattern = {%s}, String attributeNamePattern = {%s})",
             catalog, schemaPattern, typeNamePattern, attributeNamePattern));
-    throw new UnsupportedOperationException(
-        "Not implemented in DatabricksDatabaseMetaData - getAttributes(String catalog, String schemaPattern, String typeNamePattern, String attributeNamePattern)");
+    return MetadataResultSetBuilder.getAttributesEmptyResultSet();
   }
 
   @Override

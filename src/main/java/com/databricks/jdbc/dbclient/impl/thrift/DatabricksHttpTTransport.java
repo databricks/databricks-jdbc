@@ -1,5 +1,7 @@
 package com.databricks.jdbc.dbclient.impl.thrift;
 
+import static com.databricks.jdbc.common.util.DatabricksAuthUtil.initializeConfigWithToken;
+
 import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.common.util.ValidationUtil;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
@@ -37,8 +39,8 @@ public class DatabricksHttpTTransport extends TTransport {
   private Map<String, String> customHeaders = Collections.emptyMap();
   private final ByteArrayOutputStream requestBuffer;
   private ByteArrayInputStream responseBuffer;
-  private final DatabricksConfig databricksConfig;
   private final IDatabricksConnectionContext connectionContext;
+  DatabricksConfig databricksConfig;
 
   public DatabricksHttpTTransport(
       IDatabricksHttpClient httpClient,
@@ -145,7 +147,8 @@ public class DatabricksHttpTTransport extends TTransport {
   }
 
   void resetAccessToken(String newAccessToken) {
-    this.databricksConfig.setToken(newAccessToken);
+    this.databricksConfig = initializeConfigWithToken(newAccessToken, databricksConfig);
+    this.databricksConfig.resolve();
   }
 
   @VisibleForTesting
