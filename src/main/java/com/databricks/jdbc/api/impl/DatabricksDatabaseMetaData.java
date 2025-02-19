@@ -1003,8 +1003,8 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
         String.format(
             "public ResultSet getColumnPrivileges(String catalog = {%s}, String schema = {%s}, String table = {%s}, String columnNamePattern = {%s})",
             catalog, schema, table, columnNamePattern));
-    throw new UnsupportedOperationException(
-        "Not implemented in DatabricksDatabaseMetaData - getColumnPrivileges(String catalog, String schema, String table, String columnNamePattern)");
+    throwExceptionIfConnectionIsClosed();
+    return MetadataResultSetBuilder.getColumnPrivilegesResult(new ArrayList<>());
   }
 
   @Override

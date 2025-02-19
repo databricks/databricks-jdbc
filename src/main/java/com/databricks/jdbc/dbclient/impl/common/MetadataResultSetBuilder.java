@@ -781,4 +781,9 @@ public class MetadataResultSetBuilder {
         GET_FUNCTIONS_STATEMENT_ID,
         CommandName.LIST_FUNCTIONS);
   }
+
+  public static DatabricksResultSet getColumnPrivilegesResult(List<List<Object>> rows) {
+    return buildResultSet(
+        COLUMN_PRIVILEGES_COLUMNS, rows, METADATA_STATEMENT_ID, CommandName.GET_COLUMN_PRIVILEGES);
+  }
 }
