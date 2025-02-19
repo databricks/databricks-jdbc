@@ -11,10 +11,16 @@ import java.util.stream.Stream;
 import org.junit.jupiter.params.provider.Arguments;
 
 public class ReflectionUtils {
+  private static final Set<Object[]> NO_PARAMS = new HashSet<>();
+
+  static {
+    NO_PARAMS.add(new Object[] {});
+  }
 
   public static Stream<Arguments> provideMethodsForClass(Class<?> clazz, TestParams testParams) {
     Set<Map.Entry<String, Integer>> acceptedKnownDiffs = testParams.getAcceptedKnownDiffs();
-    Map<Map.Entry<String, Integer>, Object[]> functionToArgsMap = testParams.getFunctionToArgsMap();
+    Map<Map.Entry<String, Integer>, Set<Object[]>> functionToArgsMap =
+        testParams.getFunctionToArgsMap();
     Set<Arguments> argumentsStream = new HashSet<>();
     try {
       Method[] methods = clazz.getMethods();
@@ -25,13 +31,15 @@ public class ReflectionUtils {
         if (acceptedKnownDiffs.contains(methodWithArgs)) {
           continue;
         }
-        Object[] params = functionToArgsMap.getOrDefault(methodWithArgs, new Object[] {});
-        if (parameterCount != params.length) {
-          // This will ensure that we do not skip any methods in the class
-          throw new RuntimeException("Please provide parameters for method: " + method);
+        Set<Object[]> paramSet = functionToArgsMap.getOrDefault(methodWithArgs, NO_PARAMS);
+        for (Object[] params : paramSet) {
+          if (parameterCount != params.length) {
+            // This will ensure that we do not skip any methods in the class
+            throw new RuntimeException("Please provide parameters for method: " + method);
+          }
+          Arguments arguments = Arguments.of(methodName, params);
+          argumentsStream.add(arguments);
         }
-        Arguments arguments = Arguments.of(methodName, params);
-        argumentsStream.add(arguments);
       }
     } catch (SecurityException e) {
       e.printStackTrace();

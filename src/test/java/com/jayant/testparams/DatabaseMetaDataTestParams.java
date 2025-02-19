@@ -9,100 +9,146 @@ import java.util.*;
 
 public class DatabaseMetaDataTestParams implements TestParams {
 
-  @Override
-  public Map<Map.Entry<String, Integer>, Object[]> getFunctionToArgsMap() {
-    Map<Map.Entry<String, Integer>, Object[]> functionToArgsMap = new HashMap<>();
+  private void putInMapForKey(
+      Map<Map.Entry<String, Integer>, Set<Object[]>> functionToArgsMap,
+      Map.Entry<String, Integer> key,
+      Object[] value) {
+    functionToArgsMap.putIfAbsent(key, new HashSet<>());
+    functionToArgsMap.get(key).add(value);
+  }
 
-    functionToArgsMap.put(
-        Map.entry("getTables", 4), new String[] {"main", "tpcds_sf100_delta", "%", null});
-    functionToArgsMap.put(
-        Map.entry("getTablePrivileges", 3), new String[] {"main", "tpcds_sf100_delta", "%"});
-    functionToArgsMap.put(Map.entry("getSchemas", 2), new String[] {"main", "tpcds_%"});
-    functionToArgsMap.put(
+  @Override
+  public Map<Map.Entry<String, Integer>, Set<Object[]>> getFunctionToArgsMap() {
+    Map<Map.Entry<String, Integer>, Set<Object[]>> functionToArgsMap = new HashMap<>();
+
+    putInMapForKey(
+        functionToArgsMap,
+        Map.entry("getTables", 4),
+        new String[] {"main", "tpcds_sf100_delta", "%", null});
+    putInMapForKey(
+        functionToArgsMap,
+        Map.entry("getTablePrivileges", 3),
+        new String[] {"main", "tpcds_sf100_delta", "%"});
+    putInMapForKey(functionToArgsMap, Map.entry("getSchemas", 2), new String[] {"main", "tpcds_%"});
+    putInMapForKey(
+        functionToArgsMap,
         Map.entry("getColumns", 4),
         new String[] {"main", "tpcds_sf100_delta", "catalog_sales", "%"});
-    functionToArgsMap.put(
+    putInMapForKey(
+        functionToArgsMap,
         Map.entry("getPseudoColumns", 4),
         new String[] {"main", "tpcds_sf100_delta", "catalog_sales", "%"});
-    functionToArgsMap.put(
+    putInMapForKey(
+        functionToArgsMap,
         Map.entry("getColumnPrivileges", 4),
         new String[] {"main", "tpcds_sf100_delta", "catalog_sales", "%"});
-    functionToArgsMap.put(
+    putInMapForKey(
+        functionToArgsMap,
         Map.entry("getVersionColumns", 3),
         new String[] {"main", "tpcds_sf100_delta", "catalog_sales"});
-    functionToArgsMap.put(
-        Map.entry("getFunctions", 3), new String[] {"main", "tpcds_sf100_delta", "aggregate"});
-    functionToArgsMap.put(
+    putInMapForKey(
+        functionToArgsMap,
+        Map.entry("getFunctions", 3),
+        new String[] {"main", "tpcds_sf100_delta", "aggregate"});
+    putInMapForKey(
+        functionToArgsMap,
         Map.entry("getFunctionColumns", 4),
         new String[] {"main", "tpcds_sf100_delta", "aggregate", "%"});
-    functionToArgsMap.put(
-        Map.entry("getProcedures", 3), new String[] {"main", "tpcds_sf100_delta", "%"});
-    functionToArgsMap.put(
-        Map.entry("getProcedureColumns", 4), new String[] {"main", "tpcds_sf100_delta", "%", "%"});
-    functionToArgsMap.put(
+    putInMapForKey(
+        functionToArgsMap,
+        Map.entry("getProcedures", 3),
+        new String[] {"main", "tpcds_sf100_delta", "%"});
+    putInMapForKey(
+        functionToArgsMap,
+        Map.entry("getProcedureColumns", 4),
+        new String[] {"main", "tpcds_sf100_delta", "%", "%"});
+    putInMapForKey(
+        functionToArgsMap,
         Map.entry("getPrimaryKeys", 3),
         new String[] {"main", "tpcds_sf100_delta", "catalog_sales"});
-    functionToArgsMap.put(
+    putInMapForKey(
+        functionToArgsMap,
         Map.entry("getImportedKeys", 3),
         new String[] {"main", "tpcds_sf100_delta", "catalog_sales"});
-    functionToArgsMap.put(
+    putInMapForKey(
+        functionToArgsMap,
         Map.entry("getExportedKeys", 3),
         new String[] {"main", "tpcds_sf100_delta", "catalog_sales"});
     // TODO: Add a proper cross reference test
-    functionToArgsMap.put(
+    putInMapForKey(
+        functionToArgsMap,
         Map.entry("getCrossReference", 6),
         new String[] {
           "main", "tpcds_sf100_delta", "catalog_sales", "main", "tpcds_sf100_delta", "catalog_sales"
         });
-    functionToArgsMap.put(
+    putInMapForKey(
+        functionToArgsMap,
         Map.entry("getIndexInfo", 5),
         new Object[] {"main", "tpcds_sf100_delta", "catalog_sales", true, false});
-    functionToArgsMap.put(
-        Map.entry("getUDTs", 4), new String[] {"main", "tpcds_sf100_delta", "%", null});
-    functionToArgsMap.put(
-        Map.entry("getSuperTypes", 3), new String[] {"main", "tpcds_sf100_delta", "%"});
-    functionToArgsMap.put(
+    putInMapForKey(
+        functionToArgsMap,
+        Map.entry("getUDTs", 4),
+        new String[] {"main", "tpcds_sf100_delta", "%", null});
+    putInMapForKey(
+        functionToArgsMap,
+        Map.entry("getSuperTypes", 3),
+        new String[] {"main", "tpcds_sf100_delta", "%"});
+    putInMapForKey(
+        functionToArgsMap,
         Map.entry("getSuperTables", 3),
         new String[] {"main", "tpcds_sf100_delta", "catalog_sales"});
-    functionToArgsMap.put(
-        Map.entry("getAttributes", 4), new String[] {"main", "tpcds_sf100_delta", "%", "%"});
+    putInMapForKey(
+        functionToArgsMap,
+        Map.entry("getAttributes", 4),
+        new String[] {"main", "tpcds_sf100_delta", "%", "%"});
 
     // Methods for ResultSet concurrency and visibility
     for (Integer type : getResultSetTypes()) {
-      functionToArgsMap.put(Map.entry("supportsResultSetType", 1), new Integer[] {type});
-      functionToArgsMap.put(
+      putInMapForKey(
+          functionToArgsMap, Map.entry("supportsResultSetType", 1), new Integer[] {type});
+      putInMapForKey(
+          functionToArgsMap,
           Map.entry("supportsResultSetConcurrency", 2),
           new Integer[] {type, ResultSet.CONCUR_READ_ONLY});
-      functionToArgsMap.put(
+      putInMapForKey(
+          functionToArgsMap,
           Map.entry("supportsResultSetConcurrency", 2),
           new Integer[] {type, ResultSet.CONCUR_UPDATABLE});
-      functionToArgsMap.put(Map.entry("ownUpdatesAreVisible", 1), new Integer[] {type});
-      functionToArgsMap.put(Map.entry("ownDeletesAreVisible", 1), new Integer[] {type});
-      functionToArgsMap.put(Map.entry("ownInsertsAreVisible", 1), new Integer[] {type});
-      functionToArgsMap.put(Map.entry("othersUpdatesAreVisible", 1), new Integer[] {type});
-      functionToArgsMap.put(Map.entry("othersDeletesAreVisible", 1), new Integer[] {type});
-      functionToArgsMap.put(Map.entry("othersInsertsAreVisible", 1), new Integer[] {type});
-      functionToArgsMap.put(Map.entry("updatesAreDetected", 1), new Integer[] {type});
-      functionToArgsMap.put(Map.entry("deletesAreDetected", 1), new Integer[] {type});
-      functionToArgsMap.put(Map.entry("insertsAreDetected", 1), new Integer[] {type});
+      putInMapForKey(functionToArgsMap, Map.entry("ownUpdatesAreVisible", 1), new Integer[] {type});
+      putInMapForKey(functionToArgsMap, Map.entry("ownDeletesAreVisible", 1), new Integer[] {type});
+      putInMapForKey(functionToArgsMap, Map.entry("ownInsertsAreVisible", 1), new Integer[] {type});
+      putInMapForKey(
+          functionToArgsMap, Map.entry("othersUpdatesAreVisible", 1), new Integer[] {type});
+      putInMapForKey(
+          functionToArgsMap, Map.entry("othersDeletesAreVisible", 1), new Integer[] {type});
+      putInMapForKey(
+          functionToArgsMap, Map.entry("othersInsertsAreVisible", 1), new Integer[] {type});
+      putInMapForKey(functionToArgsMap, Map.entry("updatesAreDetected", 1), new Integer[] {type});
+      putInMapForKey(functionToArgsMap, Map.entry("deletesAreDetected", 1), new Integer[] {type});
+      putInMapForKey(functionToArgsMap, Map.entry("insertsAreDetected", 1), new Integer[] {type});
     }
 
     for (Integer type : getAllSqlTypes()) {
       for (Integer type2 : getAllSqlTypes()) {
-        functionToArgsMap.put(Map.entry("supportsConvert", 2), new Integer[] {type, type2});
-        functionToArgsMap.put(Map.entry("supportsConvert", 2), new Integer[] {type2, type});
+        putInMapForKey(
+            functionToArgsMap, Map.entry("supportsConvert", 2), new Integer[] {type, type2});
+        putInMapForKey(
+            functionToArgsMap, Map.entry("supportsConvert", 2), new Integer[] {type2, type});
       }
     }
     for (Integer i : getAllTransactionIsolationLevels()) {
-      functionToArgsMap.put(Map.entry("supportsTransactionIsolationLevel", 1), new Integer[] {i});
+      putInMapForKey(
+          functionToArgsMap, Map.entry("supportsTransactionIsolationLevel", 1), new Integer[] {i});
     }
     for (Integer i : getAllBestRowIdentifierScopes()) {
-      functionToArgsMap.put(
+      putInMapForKey(
+          functionToArgsMap,
           Map.entry("getBestRowIdentifier", 5),
           new Object[] {"main", "tpcds_sf100_delta", "catalog_sales", i, true});
     }
     for (Integer i : getResultSetHoldability()) {
-      functionToArgsMap.put(Map.entry("supportsResultSetHoldability", 1), new Integer[] {i});
+      putInMapForKey(
+          functionToArgsMap, Map.entry("supportsResultSetHoldability", 1), new Integer[] {i});
     }
 
     return functionToArgsMap;

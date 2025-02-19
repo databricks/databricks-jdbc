@@ -4,7 +4,9 @@ import java.util.Map;
 import java.util.Set;
 
 public interface TestParams {
-  public Set<Map.Entry<String, Integer>> getAcceptedKnownDiffs();
+  // Set(<methodName1, paramCount1>, <methodName2, paramCount2>, ...)
+  Set<Map.Entry<String, Integer>> getAcceptedKnownDiffs();
 
-  public Map<Map.Entry<String, Integer>, Object[]> getFunctionToArgsMap();
+  // Map (<methodName, paramCount>) -> Set(testParams1, testParams2, ...)
+  Map<Map.Entry<String, Integer>, Set<Object[]>> getFunctionToArgsMap();
 }
