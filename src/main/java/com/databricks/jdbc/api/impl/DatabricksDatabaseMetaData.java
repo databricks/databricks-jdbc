@@ -1026,8 +1026,15 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
         String.format(
             "public ResultSet getBestRowIdentifier(String catalog = {%s}, String schema = {%s}, String table = {%s}, int scope = {%s}, boolean nullable = {%s})",
             catalog, schema, table, scope, nullable));
-    throw new UnsupportedOperationException(
-        "Not implemented in DatabricksDatabaseMetaData - getBestRowIdentifier(String catalog, String schema, String table, int scope, boolean nullable)");
+    switch (scope) {
+      case 0:
+      case 1:
+      case 2:
+        return MetadataResultSetBuilder.getBestRowIdentifierEmptyResultSet();
+      default:
+        throw new DatabricksSQLException(
+            "Unknown scope value: " + scope, DatabricksDriverErrorCode.UNSUPPORTED_OPERATION);
+    }
   }
 
   @Override

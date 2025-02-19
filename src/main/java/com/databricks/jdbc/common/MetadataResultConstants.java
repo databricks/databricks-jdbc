@@ -153,6 +153,19 @@ public class MetadataResultConstants {
       new ResultColumn("SCOPE_TABLE", "ScopeTable", Types.VARCHAR);
   private static final ResultColumn SOURCE_DATA_TYPE =
       new ResultColumn("SOURCE_DATA_TYPE", "SourceDataType", Types.SMALLINT);
+  private static final ResultColumn SCOPE = new ResultColumn("SCOPE", "scope", Types.SMALLINT);
+  private static final ResultColumn COLUMN_NAME =
+      new ResultColumn("COLUMN_NAME", "columnName", Types.VARCHAR);
+  private static final ResultColumn TYPE_NAME =
+      new ResultColumn("TYPE_NAME", "typeName", Types.VARCHAR);
+  private static final ResultColumn COLUMN_SIZE =
+      new ResultColumn("COLUMN_SIZE", "columnSize", Types.INTEGER);
+  private static final ResultColumn BUFFER_LENGTH =
+      new ResultColumn("BUFFER_LENGTH", "bufferLength", Types.INTEGER);
+  private static final ResultColumn DECIMAL_DIGITS_SHORT =
+      new ResultColumn("DECIMAL_DIGITS", "decimalDigits", Types.SMALLINT);
+  private static final ResultColumn PSEUDO_COLUMN =
+      new ResultColumn("PSEUDO_COLUMN", "pseudoColumn", Types.SMALLINT);
 
   public static List<ResultColumn> FUNCTION_COLUMNS =
       List.of(
@@ -267,6 +280,17 @@ public class MetadataResultConstants {
           SCOPE_SCHEMA,
           SCOPE_TABLE,
           SOURCE_DATA_TYPE);
+
+  public static final List<ResultColumn> BEST_ROW_IDENTIFIER_COLUMNS =
+      List.of(
+          SCOPE,
+          COLUMN_NAME,
+          DATA_TYPE,
+          TYPE_NAME,
+          COLUMN_SIZE,
+          BUFFER_LENGTH,
+          DECIMAL_DIGITS_SHORT,
+          PSEUDO_COLUMN);
 
   public static final Map<CommandName, List<ResultColumn>> NON_NULLABLE_COLUMNS_MAP =
       Map.of(
