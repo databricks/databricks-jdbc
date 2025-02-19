@@ -5,8 +5,8 @@ import static java.sql.DatabaseMetaData.*;
 import com.databricks.jdbc.api.impl.DatabricksResultSet;
 import com.databricks.jdbc.common.StatementType;
 import com.databricks.jdbc.dbclient.impl.common.StatementId;
+import com.databricks.jdbc.model.core.StatementStatus;
 import com.databricks.sdk.service.sql.StatementState;
-import com.databricks.sdk.service.sql.StatementStatus;
 import java.sql.Types;
 import java.util.Arrays;
 
@@ -53,26 +53,28 @@ public class ResultConstants {
               "INTEGER",
               "INTEGER",
               "INTEGER"),
-          Arrays.asList(
-              Types.VARCHAR,
-              Types.INTEGER,
-              Types.INTEGER,
-              Types.VARCHAR,
-              Types.VARCHAR,
-              Types.VARCHAR,
-              Types.SMALLINT,
-              Types.BOOLEAN,
-              Types.SMALLINT,
-              Types.BOOLEAN,
-              Types.BOOLEAN,
-              Types.BOOLEAN,
-              Types.VARCHAR,
-              Types.SMALLINT,
-              Types.SMALLINT,
-              Types.INTEGER,
-              Types.INTEGER,
-              Types.INTEGER),
-          Arrays.asList(128, 10, 10, 128, 128, 128, 5, 1, 5, 1, 1, 1, 128, 5, 5, 10, 10, 10),
+          new int[] {
+            Types.VARCHAR,
+            Types.INTEGER,
+            Types.INTEGER,
+            Types.VARCHAR,
+            Types.VARCHAR,
+            Types.VARCHAR,
+            Types.SMALLINT,
+            Types.BIT,
+            Types.SMALLINT,
+            Types.BIT,
+            Types.BIT,
+            Types.BIT,
+            Types.VARCHAR,
+            Types.SMALLINT,
+            Types.SMALLINT,
+            Types.INTEGER,
+            Types.INTEGER,
+            Types.INTEGER
+          },
+          new int[] {128, 10, 10, 128, 128, 128, 5, 1, 5, 1, 1, 1, 128, 5, 5, 10, 10, 10},
+          new int[] {0, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 1},
           new Object[][] {
             {
               "TINYINT",
@@ -362,7 +364,7 @@ public class ResultConstants {
               null,
               null,
               typeNullable,
-              true,
+              false,
               typePredBasic,
               null,
               false,
@@ -391,7 +393,7 @@ public class ResultConstants {
               null,
               null,
               Types.DATE,
-              null,
+              1,
               null
             },
             {
@@ -411,7 +413,7 @@ public class ResultConstants {
               0,
               0,
               Types.DATE,
-              null,
+              3,
               null
             }
           },

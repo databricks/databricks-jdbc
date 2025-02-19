@@ -83,8 +83,7 @@ jobs:
           if [ -f "$LOG_FILE" ]; then
             echo "Log file found. Checking contents..."
           
-            REQUIRED_STRINGS=("Executed sql [SELECT current_version().dbsql_version] with status [SUCCEEDED]"
-                              "Executed sql [SELECT 1] with status [SUCCEEDED]"
+            REQUIRED_STRINGS=("Executed sql [SELECT 1] with status [SUCCEEDED]"
                               "Executing HTTP request"
                               "Result retrieved successfully"
                               "Parsing data for chunk index [0]"

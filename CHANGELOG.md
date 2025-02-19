@@ -1,21 +1,24 @@
 # Version Changelog
 
-## [v0.9.9-oss] - 2025-01-08
+## [v0.9.9-oss] - 2025-01-03
 
 ### Added
-* Add client code for Telemetry in JDBC
-* Implement complex data types
-* Add support to fetch ConnectionId and close connection by connection-Id
-* Implementing the Stream support in the DBFS Client
-
+- Telemetry support in OSS JDBC.
+- Support for fetching connection ID and closing connections by connection ID.
+- Stream support implementation in the UC Volume DBFS Client.
+- Hybrid result support added to the driver (for both metadata and executed queries).
+- Support for complex data types.
+- Apache Async HTTP Client 5.3 added for parallel query result downloads, optimizing query fetching and resource cleanup.
 
 ### Updated
-* Run metadata queries in async mode
-* Change integration test cached API call file paths to Windows-friendly paths
+- Enhanced end-to-end testing for M2M and DBFS UCVolume operations, including improved logging and proxy handling.
+- Removed the version check SQL call when connection is established.
 
 ### Fixed
-* Fix statementId extraction from thrift guid
-* Make volume operations flag backward compatible with existing Databricks driver
+- Fixed statement ID extraction from Thrift GUID.
+- Made volume operations flag backward-compatible with the existing Databricks driver.
+- Improved backward compatibility of ResultSetMetadata with the legacy driver.
+- Fix schema in connection string
 
 ---
 

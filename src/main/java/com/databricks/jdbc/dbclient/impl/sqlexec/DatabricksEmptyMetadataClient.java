@@ -74,7 +74,7 @@ public class DatabricksEmptyMetadataClient implements IDatabricksMetadataClient 
       String functionNamePattern)
       throws SQLException {
     LOGGER.warn("Empty metadata implementation for listFunctions.");
-    return MetadataResultSetBuilder.getFunctionsResult(null);
+    return MetadataResultSetBuilder.getFunctionsResult("", null);
   }
 
   @Override

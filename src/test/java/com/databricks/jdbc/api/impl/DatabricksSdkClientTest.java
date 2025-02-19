@@ -1,5 +1,6 @@
 package com.databricks.jdbc.api.impl;
 
+import static com.databricks.jdbc.common.DatabricksJdbcConstants.TEMPORARY_REDIRECT_STATUS_CODE;
 import static com.databricks.jdbc.dbclient.impl.sqlexec.PathConstants.*;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
@@ -14,12 +15,16 @@ import com.databricks.jdbc.common.util.DatabricksTypeUtil;
 import com.databricks.jdbc.dbclient.impl.common.StatementId;
 import com.databricks.jdbc.dbclient.impl.sqlexec.DatabricksSdkClient;
 import com.databricks.jdbc.exception.DatabricksSQLException;
+import com.databricks.jdbc.exception.DatabricksTemporaryRedirectException;
 import com.databricks.jdbc.model.client.sqlexec.*;
 import com.databricks.jdbc.model.client.sqlexec.ExecuteStatementRequest;
 import com.databricks.jdbc.model.client.sqlexec.ExecuteStatementResponse;
+import com.databricks.jdbc.model.core.Disposition;
 import com.databricks.jdbc.model.core.ResultData;
 import com.databricks.jdbc.model.core.ResultManifest;
+import com.databricks.jdbc.model.core.StatementStatus;
 import com.databricks.sdk.core.ApiClient;
+import com.databricks.sdk.core.DatabricksError;
 import com.databricks.sdk.service.sql.*;
 import java.util.*;
 import org.junit.jupiter.api.Test;
@@ -129,6 +134,29 @@ public class DatabricksSdkClientTest {
         databricksSdkClient.createSession(warehouse, null, null, null);
     assertEquals(sessionInfo.sessionId(), SESSION_ID);
     assertEquals(sessionInfo.computeResource(), warehouse);
+  }
+
+  @Test
+  public void testCreateSessionRedirect() throws DatabricksSQLException {
+    // Create a DatabricksError with 307 status code to simulate the temporary redirect.
+    DatabricksError redirectError =
+        new DatabricksError("307", "Redirect to Thrift Client", TEMPORARY_REDIRECT_STATUS_CODE);
+
+    // When the POST is called with the SESSION_PATH, throw the redirect error.
+    when(apiClient.POST(eq(SESSION_PATH), any(), eq(CreateSessionResponse.class), eq(headers)))
+        .thenThrow(redirectError);
+
+    // Set up the connection context and the client.
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContext.parse(JDBC_URL, new Properties());
+    DatabricksSdkClient databricksSdkClient =
+        new DatabricksSdkClient(connectionContext, statementExecutionService, apiClient);
+
+    // Assert that createSession throws a DatabricksTemporaryRedirectException.
+    DatabricksTemporaryRedirectException thrown =
+        assertThrows(
+            DatabricksTemporaryRedirectException.class,
+            () -> databricksSdkClient.createSession(warehouse, null, null, null));
   }
 
   @Test

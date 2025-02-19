@@ -1,12 +1,14 @@
 package com.databricks.jdbc.dbclient.impl.common;
 
 import static com.databricks.jdbc.common.DatabricksJdbcConstants.*;
+import static com.databricks.jdbc.common.util.DatabricksAuthUtil.initializeConfigWithToken;
 
 import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.auth.OAuthRefreshCredentialsProvider;
 import com.databricks.jdbc.auth.PrivateKeyClientCredentialProvider;
 import com.databricks.jdbc.common.AuthMech;
 import com.databricks.jdbc.common.DatabricksJdbcConstants;
+import com.databricks.jdbc.common.util.DriverUtil;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
@@ -30,7 +32,7 @@ public class ClientConfigurator {
 
   private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(ClientConfigurator.class);
   private final IDatabricksConnectionContext connectionContext;
-  private final DatabricksConfig databricksConfig;
+  private DatabricksConfig databricksConfig;
 
   public ClientConfigurator(IDatabricksConnectionContext connectionContext) {
     this.connectionContext = connectionContext;
@@ -52,8 +54,8 @@ public class ClientConfigurator {
   void setupConnectionManager(CommonsHttpClient.Builder httpClientBuilder) {
     PoolingHttpClientConnectionManager connManager =
         ConfiguratorUtils.getBaseConnectionManager(connectionContext);
-    // This is consistent with the value in the SDK
-    connManager.setMaxTotal(100);
+    // Default value is 100 which is consistent with the value in the SDK
+    connManager.setMaxTotal(connectionContext.getHttpConnectionPoolSize());
     httpClientBuilder.withConnectionManager(connManager);
   }
 
@@ -149,7 +151,8 @@ public class ClientConfigurator {
   }
 
   public void resetAccessTokenInConfig(String newAccessToken) {
-    databricksConfig.setToken(newAccessToken);
+    this.databricksConfig = initializeConfigWithToken(newAccessToken, databricksConfig);
+    this.databricksConfig.resolve();
   }
 
   /** Setup the OAuth U2M refresh token authentication settings in the databricks config. */
@@ -166,7 +169,12 @@ public class ClientConfigurator {
 
   /** Setup the OAuth M2M authentication settings in the databricks config. */
   public void setupM2MConfig() throws DatabricksParsingException {
-    databricksConfig.setHost(connectionContext.getHostForOAuth());
+    if (DriverUtil.isRunningAgainstFake()) {
+      databricksConfig.setHost(
+          connectionContext.getHostUrl()); // add port when running fake service test
+    } else {
+      databricksConfig.setHost(connectionContext.getHostForOAuth());
+    }
     if (connectionContext.getCloud() == Cloud.GCP
         && !connectionContext.getGcpAuthType().equals(M2M_AUTH_TYPE)) {
       String authType = connectionContext.getGcpAuthType();

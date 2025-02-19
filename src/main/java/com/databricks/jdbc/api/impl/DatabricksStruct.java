@@ -3,6 +3,7 @@ package com.databricks.jdbc.api.impl;
 import com.databricks.jdbc.common.util.DatabricksTypeUtil;
 import java.math.BigDecimal;
 import java.sql.*;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 
@@ -42,6 +43,8 @@ public class DatabricksStruct implements Struct {
       if (fieldType.startsWith(DatabricksTypeUtil.STRUCT)) {
         if (value instanceof Map) {
           convertedAttributes[index] = new DatabricksStruct((Map<String, Object>) value, fieldType);
+        } else if (value instanceof DatabricksStruct) {
+          convertedAttributes[index] = value;
         } else {
           throw new IllegalArgumentException(
               "Expected a Map for STRUCT but found: "
@@ -50,6 +53,8 @@ public class DatabricksStruct implements Struct {
       } else if (fieldType.startsWith(DatabricksTypeUtil.ARRAY)) {
         if (value instanceof List) {
           convertedAttributes[index] = new DatabricksArray((List<Object>) value, fieldType);
+        } else if (value instanceof DatabricksArray) {
+          convertedAttributes[index] = value;
         } else {
           throw new IllegalArgumentException(
               "Expected a List for ARRAY but found: "
@@ -58,6 +63,8 @@ public class DatabricksStruct implements Struct {
       } else if (fieldType.startsWith(DatabricksTypeUtil.MAP)) {
         if (value instanceof Map) {
           convertedAttributes[index] = new DatabricksMap<>((Map<String, Object>) value, fieldType);
+        } else if (value instanceof DatabricksMap) {
+          convertedAttributes[index] = value;
         } else {
           throw new IllegalArgumentException(
               "Expected a Map for MAP but found: "
@@ -151,5 +158,10 @@ public class DatabricksStruct implements Struct {
   @Override
   public Object[] getAttributes(Map<String, Class<?>> map) throws SQLException {
     return this.getAttributes();
+  }
+
+  @Override
+  public String toString() {
+    return Arrays.deepToString(attributes);
   }
 }

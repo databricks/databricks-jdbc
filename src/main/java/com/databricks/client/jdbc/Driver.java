@@ -17,8 +17,14 @@ import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import java.sql.*;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.DriverPropertyInfo;
+import java.sql.SQLException;
+import java.util.List;
 import java.util.Properties;
 import java.util.TimeZone;
+import java.util.logging.Logger;
 
 /** Databricks JDBC driver. */
 public class Driver implements IDatabricksDriver, java.sql.Driver {
@@ -87,8 +93,13 @@ public class Driver implements IDatabricksDriver, java.sql.Driver {
   }
 
   @Override
-  public DriverPropertyInfo[] getPropertyInfo(String url, Properties info) {
-    throw new UnsupportedOperationException("Not implemented");
+  public DriverPropertyInfo[] getPropertyInfo(String url, Properties info)
+      throws DatabricksSQLException {
+    List<DriverPropertyInfo> missingProperties =
+        DatabricksDriverPropertyUtil.getMissingProperties(url, info);
+    return missingProperties.isEmpty()
+        ? null
+        : missingProperties.toArray(new DriverPropertyInfo[0]);
   }
 
   @Override
@@ -97,7 +108,7 @@ public class Driver implements IDatabricksDriver, java.sql.Driver {
   }
 
   @Override
-  public java.util.logging.Logger getParentLogger() {
+  public Logger getParentLogger() {
     return null;
   }
 

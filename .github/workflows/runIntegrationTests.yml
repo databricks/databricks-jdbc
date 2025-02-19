@@ -30,15 +30,29 @@ jobs:
         with:
           java-version: 21
           distribution: 'adopt'
-      - uses: actions/cache@v2
+      - uses: actions/cache@v4
         with:
           path: ~/.m2
           key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
           restore-keys: ${{ runner.os }}-m2
+      - name: Create .pem file from secret
+        run: |
+          echo "${{ secrets.DATABRICKS_M2M_PEM }}" > /tmp/jdbc-testing-enc.pem
+          chmod 600 /tmp/jdbc-testing-enc.pem
       - name: Run Integration Tests
         run: ${{ matrix.test-command }}
         env:
           DATABRICKS_TOKEN: ${{ secrets[matrix.token-secret] }}
           DATABRICKS_USER: ${{ secrets.DATABRICKS_USER }}
           USE_THRIFT_CLIENT: ${{ matrix.use-thrift-client }}
+          DATABRICKS_JDBC_M2M_CLIENT_ID: ${{ secrets.DATABRICKS_JDBC_M2M_CLIENT_ID }}
+          DATABRICKS_JDBC_M2M_CLIENT_SECRET: ${{ secrets.DATABRICKS_JDBC_M2M_CLIENT_SECRET }}
+          DATABRICKS_JDBC_M2M_HOST: ${{ secrets.DATABRICKS_JDBC_M2M_HOST }}
+          DATABRICKS_JDBC_M2M_HTTP_PATH: ${{ secrets.DATABRICKS_JDBC_M2M_HTTP_PATH }}
+          DATABRICKS_JDBC_M2M_PRIVATE_KEY_CLIENT_ID: ${{ secrets.DATABRICKS_JDBC_M2M_PRIVATE_KEY_CLIENT_ID }}
+          DATABRICKS_JDBC_M2M_PRIVATE_KEY_TOKEN_ENDPOINT: ${{ secrets.DATABRICKS_JDBC_M2M_PRIVATE_KEY_TOKEN_ENDPOINT }}
+          DATABRICKS_JDBC_M2M_PRIVATE_KEY_AUTH_KID: ${{ secrets.DATABRICKS_JDBC_M2M_PRIVATE_KEY_AUTH_KID }}
+          DATABRICKS_JDBC_M2M_PRIVATE_KEY_JWT_KEY_PASSPHRASE: ${{ secrets.DATABRICKS_JDBC_M2M_PRIVATE_KEY_JWT_KEY_PASSPHRASE }}
+          DATABRICKS_JDBC_M2M_PRIVATE_KEY_CREDENTIALS_HTTP_PATH: ${{ secrets.DATABRICKS_JDBC_M2M_PRIVATE_KEY_CREDENTIALS_HTTP_PATH }}
+          DATABRICKS_JDBC_M2M_PRIVATE_KEY_CREDENTIALS_HOST: ${{ secrets.DATABRICKS_JDBC_M2M_PRIVATE_KEY_CREDENTIALS_HOST }}
           DATABRICKS_PRE_SIGNED_URL_HOST: ${{ secrets.DATABRICKS_PRE_SIGNED_URL_HOST }}

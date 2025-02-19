@@ -1,6 +1,7 @@
 package com.databricks.jdbc.api.impl;
 
 import static com.databricks.jdbc.TestConstants.*;
+import static com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode.TEMPORARY_REDIRECT_EXCEPTION;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -15,11 +16,15 @@ import com.databricks.jdbc.dbclient.impl.sqlexec.DatabricksSdkClient;
 import com.databricks.jdbc.dbclient.impl.thrift.DatabricksThriftServiceClient;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
+import com.databricks.jdbc.exception.DatabricksTemporaryRedirectException;
 import com.databricks.jdbc.model.client.thrift.generated.TSessionHandle;
+import com.databricks.jdbc.telemetry.latency.DatabricksMetricsTimedProcessor;
 import java.util.Properties;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
+import org.mockito.MockedStatic;
+import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
@@ -29,7 +34,6 @@ public class DatabricksSessionTest {
   @Mock TSessionHandle tSessionHandle;
   private static final String JDBC_URL_INVALID =
       "jdbc:databricks://adb-565757575.18.azuredatabricks.net:4423/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehou/erg6767gg;";
-  private static final String WAREHOUSE_ID = "erg6767gg";
   private static final String NEW_CATALOG = "new_catalog";
   private static final String NEW_SCHEMA = "new_schema";
   private static final String SESSION_ID = "session_id";
@@ -69,11 +73,48 @@ public class DatabricksSessionTest {
     session.open();
     assertTrue(session.isOpen());
     assertEquals(SESSION_ID, session.getSessionId());
-    assertTrue(session.getDatabricksMetadataClient() instanceof DatabricksMetadataSdkClient);
+    assertInstanceOf(DatabricksMetadataSdkClient.class, session.getDatabricksMetadataClient());
     assertEquals(WAREHOUSE_COMPUTE, session.getComputeResource());
     session.close();
     assertFalse(session.isOpen());
     assertNull(session.getSessionId());
+  }
+
+  @Test
+  public void testOpenRedirectedThriftSession() throws DatabricksSQLException {
+    setupWarehouse(false);
+    ImmutableSessionInfo sessionInfo =
+        ImmutableSessionInfo.builder()
+            .sessionId(SESSION_ID)
+            .computeResource(WAREHOUSE_COMPUTE)
+            .build();
+    when(sdkClient.createSession(eq(WAREHOUSE_COMPUTE), any(), any(), any()))
+        .thenThrow(new DatabricksTemporaryRedirectException(TEMPORARY_REDIRECT_EXCEPTION));
+    when(thriftClient.createSession(any(), any(), any(), any())).thenReturn(sessionInfo);
+    try (MockedStatic<DatabricksMetricsTimedProcessor> proxyMock =
+        Mockito.mockStatic(DatabricksMetricsTimedProcessor.class)) {
+      proxyMock
+          .when(() -> DatabricksMetricsTimedProcessor.createProxy(any()))
+          .thenReturn(thriftClient);
+
+      DatabricksSession session = new DatabricksSession(connectionContext, sdkClient);
+      assertEquals(DatabricksClientType.SEA, connectionContext.getClientType());
+      assertInstanceOf(DatabricksMetadataSdkClient.class, session.getDatabricksMetadataClient());
+      assertFalse(session.isOpen());
+
+      session.open();
+
+      assertTrue(session.isOpen());
+      assertEquals(SESSION_ID, session.getSessionId());
+      assertEquals(DatabricksClientType.THRIFT, connectionContext.getClientType());
+      assertInstanceOf(DatabricksThriftServiceClient.class, session.getDatabricksClient());
+      assertInstanceOf(DatabricksThriftServiceClient.class, session.getDatabricksMetadataClient());
+      assertEquals(WAREHOUSE_COMPUTE, session.getComputeResource());
+
+      session.close();
+      assertFalse(session.isOpen());
+      assertNull(session.getSessionId());
+    }
   }
 
   @Test
@@ -148,7 +189,7 @@ public class DatabricksSessionTest {
     setupWarehouse(false);
     DatabricksSession session = new DatabricksSession(connectionContext);
     assertEquals(
-        "DatabricksSession[compute='SQL Warehouse with warehouse ID {warehouse_id}']",
+        "DatabricksSession[compute='SQL Warehouse with warehouse ID {warehouse_id}', schema='default']",
         session.toString());
   }
 

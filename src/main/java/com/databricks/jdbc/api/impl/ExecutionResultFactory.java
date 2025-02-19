@@ -8,9 +8,11 @@ import com.databricks.jdbc.api.impl.volume.VolumeOperationResult;
 import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
 import com.databricks.jdbc.common.util.DatabricksThriftUtil;
 import com.databricks.jdbc.dbclient.impl.common.StatementId;
-import com.databricks.jdbc.exception.DatabricksParsingException;
+import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.exception.DatabricksSQLFeatureNotImplementedException;
 import com.databricks.jdbc.exception.DatabricksSQLFeatureNotSupportedException;
+import com.databricks.jdbc.log.JdbcLogger;
+import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.model.client.thrift.generated.TFetchResultsResp;
 import com.databricks.jdbc.model.client.thrift.generated.TSparkRowSetType;
 import com.databricks.jdbc.model.core.ResultData;
@@ -19,13 +21,16 @@ import java.sql.SQLException;
 import java.util.List;
 
 class ExecutionResultFactory {
+  private static final JdbcLogger LOGGER =
+      JdbcLoggerFactory.getLogger(ExecutionResultFactory.class);
+
   static IExecutionResult getResultSet(
       ResultData data,
       ResultManifest manifest,
       StatementId statementId,
       IDatabricksSession session,
       IDatabricksStatementInternal statement)
-      throws DatabricksParsingException {
+      throws DatabricksSQLException {
     IExecutionResult resultHandler = getResultHandler(data, manifest, statementId, session);
     if (manifest.getIsVolumeOperation() != null && manifest.getIsVolumeOperation()) {
       return new VolumeOperationResult(
@@ -41,10 +46,11 @@ class ExecutionResultFactory {
 
   private static IExecutionResult getResultHandler(
       ResultData data, ResultManifest manifest, StatementId statementId, IDatabricksSession session)
-      throws DatabricksParsingException {
+      throws DatabricksSQLException {
     if (manifest.getFormat() == null) {
       throw new IllegalStateException("Empty response format");
     }
+    LOGGER.info("Processing result of format {} from SQL Execution API", manifest.getFormat());
     // We use JSON_ARRAY for metadata and update commands, and ARROW_STREAM for query results
     switch (manifest.getFormat()) {
       case ARROW_STREAM:
@@ -82,6 +88,7 @@ class ExecutionResultFactory {
       IDatabricksSession session)
       throws SQLException {
     TSparkRowSetType resultFormat = resultsResp.getResultSetMetadata().getResultFormat();
+    LOGGER.info("Processing result of format {} from SQL Gateway", resultFormat);
     switch (resultFormat) {
       case COLUMN_BASED_SET:
         return getResultSet(convertColumnarToRowBased(resultsResp, parentStatement, session));

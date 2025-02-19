@@ -141,12 +141,32 @@ public class DatabricksThriftUtilTest {
         Arguments.of(TTypeId.INTERVAL_YEAR_MONTH_TYPE, ColumnInfoTypeName.INTERVAL),
         Arguments.of(TTypeId.INTERVAL_DAY_TIME_TYPE, ColumnInfoTypeName.INTERVAL),
         Arguments.of(TTypeId.DOUBLE_TYPE, ColumnInfoTypeName.DOUBLE),
-        Arguments.of(TTypeId.MAP_TYPE, ColumnInfoTypeName.STRING));
+        Arguments.of(TTypeId.MAP_TYPE, ColumnInfoTypeName.MAP),
+        Arguments.of(TTypeId.ARRAY_TYPE, ColumnInfoTypeName.ARRAY),
+        Arguments.of(TTypeId.STRUCT_TYPE, ColumnInfoTypeName.STRUCT));
+  }
+
+  private static Stream<Arguments> typeIdColumnTypeText() {
+    return Stream.of(
+        Arguments.of(TTypeId.BOOLEAN_TYPE, "BOOLEAN"),
+        Arguments.of(TTypeId.TINYINT_TYPE, "TINYINT"),
+        Arguments.of(TTypeId.SMALLINT_TYPE, "SMALLINT"),
+        Arguments.of(TTypeId.INT_TYPE, "INT"),
+        Arguments.of(TTypeId.BIGINT_TYPE, "BIGINT"),
+        Arguments.of(TTypeId.FLOAT_TYPE, "FLOAT"),
+        Arguments.of(TTypeId.DOUBLE_TYPE, "DOUBLE"),
+        Arguments.of(TTypeId.TIMESTAMP_TYPE, "TIMESTAMP"),
+        Arguments.of(TTypeId.BINARY_TYPE, "BINARY"),
+        Arguments.of(TTypeId.DECIMAL_TYPE, "DECIMAL"),
+        Arguments.of(TTypeId.DATE_TYPE, "DATE"),
+        Arguments.of(TTypeId.CHAR_TYPE, "CHAR"),
+        Arguments.of(TTypeId.STRING_TYPE, "STRING"),
+        Arguments.of(TTypeId.VARCHAR_TYPE, "VARCHAR"));
   }
 
   private static Stream<Arguments> resultDataTypesForGetColumnValue() {
     return Stream.of(
-        Arguments.of(new TRowSet(), Collections.singletonList(Collections.emptyList())),
+        Arguments.of(new TRowSet(), null),
         Arguments.of(
             new TRowSet().setColumns(Collections.emptyList()),
             Collections.singletonList(Collections.emptyList())),
@@ -213,14 +233,25 @@ public class DatabricksThriftUtilTest {
     assertEquals(rowBasedData.size(), 0);
   }
 
-  @ParameterizedTest
-  @MethodSource("typeIdAndColumnInfoType")
-  public void testGetTypeFromTypeDesc(TTypeId type, ColumnInfoTypeName typeName) {
+  private static TTypeDesc createTypeDesc(TTypeId type) {
     TPrimitiveTypeEntry primitiveType = new TPrimitiveTypeEntry().setType(type);
     TTypeEntry typeEntry = new TTypeEntry();
     typeEntry.setPrimitiveEntry(primitiveType);
-    TTypeDesc typeDesc = new TTypeDesc().setTypes(Collections.singletonList(typeEntry));
+    return new TTypeDesc().setTypes(Collections.singletonList(typeEntry));
+  }
+
+  @ParameterizedTest
+  @MethodSource("typeIdAndColumnInfoType")
+  public void testGetTypeFromTypeDesc(TTypeId type, ColumnInfoTypeName typeName) {
+    TTypeDesc typeDesc = createTypeDesc(type);
     assertEquals(DatabricksThriftUtil.getTypeFromTypeDesc(typeDesc), typeName);
+  }
+
+  @ParameterizedTest
+  @MethodSource("typeIdColumnTypeText")
+  public void testGetTypeTextFromTypeDesc(TTypeId type, String expectedColumnTypeText) {
+    TTypeDesc typeDesc = createTypeDesc(type);
+    assertEquals(DatabricksThriftUtil.getTypeTextFromTypeDesc(typeDesc), expectedColumnTypeText);
   }
 
   @ParameterizedTest

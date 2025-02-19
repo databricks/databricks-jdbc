@@ -1,5 +1,6 @@
 package com.databricks.jdbc.model.telemetry;
 
+import com.databricks.sdk.support.ToStringer;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 public class TelemetryEvent {
@@ -90,5 +91,20 @@ public class TelemetryEvent {
   public TelemetryEvent setDriverErrorInfo(DriverErrorInfo driverErrorInfo) {
     this.driverErrorInfo = driverErrorInfo;
     return this;
+  }
+
+  @Override
+  public String toString() {
+    return new ToStringer(TelemetryEvent.class)
+        .add("sessionId", sessionId)
+        .add("sqlStatementId", sqlStatementId)
+        .add("driverSystemConfiguration", driverSystemConfiguration)
+        .add("driverConnectionParameters", driverConnectionParameters)
+        .add("authType", authType)
+        .add("volumeOperation", volumeOperation)
+        .add("sqlOperation", sqlOperation)
+        .add("driverErrorInfo", driverErrorInfo)
+        .add("latency", latency)
+        .toString();
   }
 }

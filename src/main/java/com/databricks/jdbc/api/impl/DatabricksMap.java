@@ -212,4 +212,9 @@ public class DatabricksMap<K, V> implements Map<K, V> {
   public java.util.Set<Entry<K, V>> entrySet() {
     return map.entrySet();
   }
+
+  @Override
+  public String toString() {
+    return map.toString();
+  }
 }

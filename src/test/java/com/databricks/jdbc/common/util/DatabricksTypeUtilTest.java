@@ -96,11 +96,17 @@ class DatabricksTypeUtilTest {
 
   @Test
   void testGetDisplaySize() {
-    assertEquals(24, DatabricksTypeUtil.getDisplaySize(ColumnInfoTypeName.FLOAT, 0));
-    assertEquals(29, DatabricksTypeUtil.getDisplaySize(ColumnInfoTypeName.TIMESTAMP, 0));
-    assertEquals(1, DatabricksTypeUtil.getDisplaySize(ColumnInfoTypeName.CHAR, 1));
-    assertEquals(4, DatabricksTypeUtil.getDisplaySize(ColumnInfoTypeName.NULL, 1));
-    assertEquals(10, DatabricksTypeUtil.getDisplaySize(ColumnInfoTypeName.DATE, 1));
+    assertEquals(24, DatabricksTypeUtil.getDisplaySize(ColumnInfoTypeName.FLOAT, 0, 0));
+    assertEquals(29, DatabricksTypeUtil.getDisplaySize(ColumnInfoTypeName.TIMESTAMP, 0, 0));
+    assertEquals(1, DatabricksTypeUtil.getDisplaySize(ColumnInfoTypeName.CHAR, 1, 0));
+    assertEquals(4, DatabricksTypeUtil.getDisplaySize(ColumnInfoTypeName.NULL, 1, 0));
+    assertEquals(10, DatabricksTypeUtil.getDisplaySize(ColumnInfoTypeName.DATE, 1, 0));
+    assertEquals(6, DatabricksTypeUtil.getDisplaySize(Types.SMALLINT, 5));
+    assertEquals(11, DatabricksTypeUtil.getDisplaySize(Types.INTEGER, 10));
+    assertEquals(5, DatabricksTypeUtil.getDisplaySize(Types.BOOLEAN, 0));
+    assertEquals(1, DatabricksTypeUtil.getDisplaySize(Types.BIT, 0));
+    assertEquals(128, DatabricksTypeUtil.getDisplaySize(Types.VARCHAR, 0));
+    assertEquals(255, DatabricksTypeUtil.getDisplaySize(Types.OTHER, 0)); // Default case
   }
 
   @Test
@@ -115,6 +121,17 @@ class DatabricksTypeUtilTest {
     assertEquals(5, DatabricksTypeUtil.getPrecision(Types.TINYINT));
     assertEquals(5, DatabricksTypeUtil.getPrecision(Types.SMALLINT));
     assertEquals(10, DatabricksTypeUtil.getPrecision(Types.INTEGER));
+  }
+
+  @Test
+  void testGetMetadataColPrecision() {
+    assertEquals(5, DatabricksTypeUtil.getMetadataColPrecision(Types.SMALLINT));
+    assertEquals(10, DatabricksTypeUtil.getMetadataColPrecision(Types.INTEGER));
+    assertEquals(1, DatabricksTypeUtil.getMetadataColPrecision(Types.CHAR));
+    assertEquals(1, DatabricksTypeUtil.getMetadataColPrecision(Types.BOOLEAN));
+    assertEquals(1, DatabricksTypeUtil.getMetadataColPrecision(Types.BIT));
+    assertEquals(128, DatabricksTypeUtil.getMetadataColPrecision(Types.VARCHAR));
+    assertEquals(255, DatabricksTypeUtil.getMetadataColPrecision(Types.OTHER));
   }
 
   @Test

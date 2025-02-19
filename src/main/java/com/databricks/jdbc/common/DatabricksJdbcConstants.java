@@ -7,7 +7,14 @@ import java.util.regex.Pattern;
 
 public final class DatabricksJdbcConstants {
   public static final Pattern JDBC_URL_PATTERN =
-      Pattern.compile("jdbc:databricks://([^/;]*)(?::\\d+)?/*(.*)");
+      Pattern.compile(
+          "jdbc:databricks://"
+              + // Protocol prefix
+              "([^/;]+)"
+              + // Host[:Port] (captured)
+              "(?:/([^;]*))?"
+              + // Optional Schema (captured without /)
+              "(?:;(.*))?"); // Optional Property=Value pairs (captured without leading ;)
   public static final Pattern HTTP_WAREHOUSE_PATH_PATTERN = Pattern.compile(".*/warehouses/(.+)");
   public static final Pattern HTTP_ENDPOINT_PATH_PATTERN = Pattern.compile(".*/endpoints/(.+)");
   public static final Pattern HTTP_CLI_PATTERN = Pattern.compile(".*cliservice(.+)");
@@ -42,6 +49,7 @@ public final class DatabricksJdbcConstants {
   public static final String ASTERISK = "*";
   public static final String EMPTY_STRING = "";
   public static final String IDENTIFIER_QUOTE_STRING = "`";
+  public static final String BACKWARD_SLASH = "\\";
   public static final String CATALOG = "catalog";
   public static final String PROCEDURE = "procedure";
   public static final String SCHEMA = "schema";
@@ -58,6 +66,8 @@ public final class DatabricksJdbcConstants {
   public static final String ALLOWED_STAGING_INGESTION_PATHS = "StagingAllowedLocalPaths";
   public static final String VOLUME_OPERATION_STATUS_COLUMN_NAME = "operation_status";
   public static final String VOLUME_OPERATION_STATUS_SUCCEEDED = "SUCCEEDED";
+
+  public static final String ARROW_METADATA_KEY = "Spark:DataType:SqlName";
   public static final Map<String, String> ALLOWED_SESSION_CONF_TO_DEFAULT_VALUES_MAP =
       // This map comes from
       // https://docs.databricks.com/en/sql/language-manual/sql-ref-parameters.html
@@ -88,6 +98,7 @@ public final class DatabricksJdbcConstants {
   public static final String GCP_GOOGLE_CREDENTIALS_AUTH_TYPE = "google-credentials";
   public static final String GCP_GOOGLE_ID_AUTH_TYPE = "google-id";
   public static final String DEFAULT_HTTP_EXCEPTION_SQLSTATE = "08000";
+  public static final int TEMPORARY_REDIRECT_STATUS_CODE = 307;
 
   /** Enum for the services that can be replaced with a fake service in integration tests. */
   @VisibleForTesting
@@ -96,7 +107,8 @@ public final class DatabricksJdbcConstants {
     CLOUD_FETCH,
     SQL_GATEWAY,
     CLOUD_FETCH_SQL_GATEWAY,
-    CLOUD_FETCH_UC_VOLUME
+    CLOUD_FETCH_UC_VOLUME,
+    JWT_TOKEN_ENDPOINT
   }
 
   public static final Pattern SELECT_PATTERN =

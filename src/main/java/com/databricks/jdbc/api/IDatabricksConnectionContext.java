@@ -50,6 +50,8 @@ public interface IDatabricksConnectionContext {
 
   AuthFlow getAuthFlow();
 
+  boolean isPropertyPresent(DatabricksJdbcUrlParams urlParam);
+
   LogLevel getLogLevel();
 
   String getLogPathString();
@@ -111,6 +113,8 @@ public interface IDatabricksConnectionContext {
   Boolean shouldEnableArrow();
 
   DatabricksClientType getClientType();
+
+  void setClientType(DatabricksClientType clientType);
 
   Boolean getUseEmptyMetadata();
 
@@ -210,4 +214,16 @@ public interface IDatabricksConnectionContext {
 
   /** Returns allowlisted local file paths for UC Volume operations */
   String getVolumeOperationAllowedPaths();
+
+  /** Returns true if driver should use hybrid results in SQL_EXEC API. */
+  boolean isSqlExecHybridResultsEnabled();
+
+  /** Returns true if request tracing should be enabled. */
+  boolean isRequestTracingEnabled();
+
+  /** Returns true if driver return complex data type java objects natively as opposed to string */
+  boolean isComplexDatatypeSupportEnabled();
+
+  /** Returns the size for HTTP connection pool */
+  int getHttpConnectionPoolSize();
 }

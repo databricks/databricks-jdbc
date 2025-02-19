@@ -133,9 +133,6 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
       CreateDownloadUrlResponse response =
           getCreateDownloadUrlResponse(getObjectFullPath(catalog, schema, volume, objectPath));
 
-      // TODO : allowedVolumeIngestionPathString is currently set to only /tmp foler.
-      //        Make it configurable
-
       // Downloading the object from the presigned url
       VolumeOperationProcessor volumeOperationProcessor =
           VolumeOperationProcessor.Builder.createBuilder()
@@ -222,9 +219,6 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
       // Fetching the Pre Signed Url
       CreateUploadUrlResponse response =
           getCreateUploadUrlResponse(getObjectFullPath(catalog, schema, volume, objectPath));
-
-      // TODO : allowedVolumeIngestionPathString is currently set to only /tmp foler.
-      //        Make it configurable
 
       // Uploading the object to the Pre Signed Url
       VolumeOperationProcessor volumeOperationProcessor =

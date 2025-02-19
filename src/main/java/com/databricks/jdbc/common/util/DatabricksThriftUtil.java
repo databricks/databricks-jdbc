@@ -13,9 +13,9 @@ import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.model.client.thrift.generated.*;
 import com.databricks.jdbc.model.core.ExternalLink;
+import com.databricks.jdbc.model.core.StatementStatus;
 import com.databricks.sdk.service.sql.ColumnInfoTypeName;
 import com.databricks.sdk.service.sql.StatementState;
-import com.databricks.sdk.service.sql.StatementStatus;
 import java.nio.ByteBuffer;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -69,7 +69,7 @@ public class DatabricksThriftUtil {
    */
   public static List<List<Object>> extractValues(List<TColumn> columnList) {
     if (columnList == null) {
-      return new ArrayList<>(List.of(new ArrayList<>()));
+      return null;
     }
     List<Object> obj =
         columnList.stream()
@@ -88,7 +88,7 @@ public class DatabricksThriftUtil {
 
   public static List<List<Object>> extractValuesColumnar(List<TColumn> columnList) {
     if (columnList == null || columnList.isEmpty()) {
-      return new ArrayList<>(List.of(new ArrayList<>()));
+      return null;
     }
     int numberOfItems = columnList.get(0).getStringVal().getValuesSize();
     return IntStream.range(0, numberOfItems)
@@ -193,6 +193,11 @@ public class DatabricksThriftUtil {
     return getColumnValues(column).get(0);
   }
 
+  public static String getTypeTextFromTypeDesc(TTypeDesc typeDesc) {
+    TTypeId type = getThriftTypeFromTypeDesc(typeDesc);
+    return type.name().replace("_TYPE", "");
+  }
+
   public static ColumnInfoTypeName getTypeFromTypeDesc(TTypeDesc typeDesc) {
     TTypeId type = getThriftTypeFromTypeDesc(typeDesc);
     switch (type) {
@@ -223,6 +228,12 @@ public class DatabricksThriftUtil {
       case INTERVAL_YEAR_MONTH_TYPE:
       case INTERVAL_DAY_TIME_TYPE:
         return ColumnInfoTypeName.INTERVAL;
+      case ARRAY_TYPE:
+        return ColumnInfoTypeName.ARRAY;
+      case MAP_TYPE:
+        return ColumnInfoTypeName.MAP;
+      case STRUCT_TYPE:
+        return ColumnInfoTypeName.STRUCT;
       default:
         return ColumnInfoTypeName.STRING;
     }
