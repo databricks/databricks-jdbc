@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.api.impl.DatabricksArray;
 import com.databricks.jdbc.api.impl.DatabricksStruct;
+import com.databricks.jdbc.exception.DatabricksValidationException;
 import com.databricks.sdk.service.sql.ColumnInfoTypeName;
 import java.math.BigDecimal;
 import java.sql.Date;
@@ -15,6 +16,7 @@ import java.util.*;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.*;
+import org.apache.arrow.vector.util.Text;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -247,5 +249,38 @@ public class ArrowToJavaObjectConverterTest {
         ArrowToJavaObjectConverter.convert(
             "[\"A\", \"B\"]", ColumnInfoTypeName.STRING, "ARRAY<STRING>");
     assertInstanceOf(DatabricksArray.class, convertedObject);
+  }
+
+  @Test
+  public void testConvertToDecimal() throws DatabricksValidationException {
+    // Test with Text object
+    Text textObject = new Text("123.456");
+    String arrowMetadata = "DECIMAL(10,3)";
+    BigDecimal result = ArrowToJavaObjectConverter.convertToDecimal(textObject, arrowMetadata);
+    assertEquals(new BigDecimal("123.456"), result);
+
+    // Test with Number object and valid metadata
+    Double numberObject = 123.456;
+    arrowMetadata = "DECIMAL(10,2)";
+    result = ArrowToJavaObjectConverter.convertToDecimal(numberObject, arrowMetadata);
+    assertEquals(new BigDecimal("123.46"), result); // Rounded to 2 decimal places
+
+    // Test with Number object and invalid metadata
+    arrowMetadata = "DECIMAL(10,invalid)";
+    result = ArrowToJavaObjectConverter.convertToDecimal(numberObject, arrowMetadata);
+    assertEquals(new BigDecimal("123"), result); // Default scale to 0
+
+    // Test with unsupported object type
+    assertThrows(
+        DatabricksValidationException.class,
+        () -> {
+          ArrowToJavaObjectConverter.convertToDecimal(new Object(), "DECIMAL(10,2)");
+        });
+
+    // Test with rounding
+    numberObject = 123.456789;
+    arrowMetadata = "DECIMAL(10,4)";
+    result = ArrowToJavaObjectConverter.convertToDecimal(numberObject, arrowMetadata);
+    assertEquals(new BigDecimal("123.4568"), result); // Rounded to 4 decimal places
   }
 }

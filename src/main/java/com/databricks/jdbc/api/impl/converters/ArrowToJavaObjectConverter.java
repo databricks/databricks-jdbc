@@ -187,11 +187,10 @@ public class ArrowToJavaObjectConverter {
     return (byte[]) object;
   }
 
-  private static BigDecimal convertToDecimal(Object object, String arrowMetadata)
+  static BigDecimal convertToDecimal(Object object, String arrowMetadata)
       throws DatabricksValidationException {
-    BigDecimal bd = new BigDecimal(object.toString());
     if (object instanceof Text) {
-      return bd;
+      return new BigDecimal(object.toString());
     }
     int scale;
     try {
@@ -204,7 +203,7 @@ public class ArrowToJavaObjectConverter {
       scale = 0;
     }
     if (object instanceof Number) {
-      return bd.setScale(scale, RoundingMode.UNNECESSARY);
+      return new BigDecimal(object.toString()).setScale(scale, RoundingMode.HALF_UP);
     }
     String errorMessage =
         String.format("Unsupported object type for decimal conversion: %s", object.getClass());
