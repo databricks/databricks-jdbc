@@ -27,6 +27,8 @@ public class ResultSetComparator {
         result.dataDifferences.add(result1 + " vs " + result2);
       }
     } else {
+      // when we see different classes of results, it would generally mean that one result is an
+      // exception and the other is an actual result set.
       result.metadataDifferences.add(result1.getClass() + " vs " + result2.getClass());
     }
 
