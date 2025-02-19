@@ -8,14 +8,19 @@ import static org.mockito.Mockito.when;
 
 import com.databricks.jdbc.api.IDatabricksSession;
 import com.databricks.jdbc.api.internal.IDatabricksConnectionInternal;
+import com.databricks.jdbc.common.DatabricksJdbcConstants;
 import com.databricks.jdbc.dbclient.IDatabricksMetadataClient;
 import java.sql.*;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Properties;
 import java.util.concurrent.Callable;
+import java.util.stream.Stream;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.Mockito;
 
 public class DatabricksDatabaseMetaDataTest {
@@ -422,7 +427,7 @@ public class DatabricksDatabaseMetaDataTest {
   @Test
   public void getDefaultTransactionIsolation_returnsExpectedIsolationLevel() throws Exception {
     int defaultTransactionIsolation = metaData.getDefaultTransactionIsolation();
-    assertEquals(Connection.TRANSACTION_READ_COMMITTED, defaultTransactionIsolation);
+    assertEquals(Connection.TRANSACTION_READ_UNCOMMITTED, defaultTransactionIsolation);
   }
 
   @Test
@@ -995,11 +1000,16 @@ public class DatabricksDatabaseMetaDataTest {
   }
 
   @Test
+  public void testGetSearchStringEscape() throws SQLException {
+    String result = metaData.getSearchStringEscape();
+    assertEquals(DatabricksJdbcConstants.BACKWARD_SLASH, result);
+  }
+
+  @Test
   public void testUnsupportedOperations() {
     List<Callable<Object>> tasks =
         Arrays.asList(
             () -> metaData.supportsTransactionIsolationLevel(0),
-            () -> metaData.getSearchStringEscape(),
             () -> metaData.getProcedureColumns(null, null, null, null),
             () -> metaData.getBestRowIdentifier(null, null, null, 0, false),
             () -> metaData.getVersionColumns(null, null, null),
@@ -1011,11 +1021,9 @@ public class DatabricksDatabaseMetaDataTest {
             () -> metaData.getTablePrivileges(null, null, null),
             () -> metaData.getSuperTypes(null, null, null),
             () -> metaData.getSuperTables(null, null, null),
-            () -> metaData.getAttributes(null, null, null, null),
             () -> metaData.getClientInfoProperties(),
             () -> metaData.getFunctionColumns(null, null, null, null),
             () -> metaData.getPseudoColumns(null, null, null, null),
-            () -> metaData.deletesAreDetected(ResultSet.TYPE_FORWARD_ONLY),
             () -> metaData.isWrapperFor(DatabricksDatabaseMetaData.class),
             () -> metaData.unwrap(DatabricksDatabaseMetaData.class));
 
@@ -1029,5 +1037,84 @@ public class DatabricksDatabaseMetaDataTest {
         fail("Unexpected exception type thrown: " + e);
       }
     }
+  }
+
+  @ParameterizedTest
+  @MethodSource("resultSetTypes")
+  public void testDeletesAreDetected(int resultSetType, String typeName) {
+    assertFalse(metaData.deletesAreDetected(resultSetType));
+  }
+
+  private static Stream<Arguments> resultSetTypes() {
+    return Stream.of(
+        Arguments.of(ResultSet.TYPE_FORWARD_ONLY, "TYPE_FORWARD_ONLY"),
+        Arguments.of(ResultSet.TYPE_SCROLL_INSENSITIVE, "TYPE_SCROLL_INSENSITIVE"),
+        Arguments.of(ResultSet.TYPE_SCROLL_SENSITIVE, "TYPE_SCROLL_SENSITIVE"));
+  }
+
+  @ParameterizedTest
+  @MethodSource("provideAttributeParameters")
+  public void testGetAttributes(
+      String catalog,
+      String schemaPattern,
+      String typeNamePattern,
+      String attributeNamePattern,
+      String testDescription)
+      throws SQLException {
+    ResultSet resultSet =
+        metaData.getAttributes(catalog, schemaPattern, typeNamePattern, attributeNamePattern);
+    assertNotNull(resultSet);
+
+    assertEquals(21, resultSet.getMetaData().getColumnCount());
+    assertSame("TYPE_CAT", resultSet.getMetaData().getColumnName(1));
+    assertSame("TYPE_SCHEM", resultSet.getMetaData().getColumnName(2));
+    assertEquals("TYPE_NAME", resultSet.getMetaData().getColumnName(3));
+    assertEquals("ATTR_NAME", resultSet.getMetaData().getColumnName(4));
+    assertEquals("DATA_TYPE", resultSet.getMetaData().getColumnName(5));
+    assertEquals("ATTR_TYPE_NAME", resultSet.getMetaData().getColumnName(6));
+
+    // Result set is empty
+    assertFalse(resultSet.next());
+  }
+
+  private static Stream<Arguments> provideAttributeParameters() {
+    return Stream.of(
+        // Test case 1: All nulls (should return empty result set)
+        Arguments.of(null, null, null, null, "All parameters null"),
+
+        // Test case 2: Valid catalog, others null
+        Arguments.of("test_catalog", null, null, null, "Only catalog specified"),
+
+        // Test case 3: Valid schema pattern, others null
+        Arguments.of(null, "test_schema%", null, null, "Only schema pattern specified"),
+
+        // Test case 4: Valid type name pattern, others null
+        Arguments.of(null, null, "TEST_TYPE%", null, "Only type name pattern specified"),
+
+        // Test case 5: Valid attribute name pattern, others null
+        Arguments.of(null, null, null, "attr%", "Only attribute name pattern specified"),
+
+        // Test case 6: All parameters specified with wildcards
+        Arguments.of(
+            "test_catalog",
+            "test_schema%",
+            "TEST_TYPE%",
+            "attr%",
+            "All parameters specified with wildcards"),
+
+        // Test case 7: Exact match patterns
+        Arguments.of(
+            "test_catalog", "test_schema", "TEST_TYPE", "attribute_name", "Exact match patterns"),
+
+        // Test case 8: Invalid patterns (should return empty result set)
+        Arguments.of(
+            "invalid_catalog",
+            "invalid_schema",
+            "INVALID_TYPE",
+            "invalid_attr",
+            "Invalid patterns"),
+
+        // Test case 9: Special characters in patterns
+        Arguments.of(null, "_test%", "%TYPE_", "_attr%", "Special characters in patterns"));
   }
 }

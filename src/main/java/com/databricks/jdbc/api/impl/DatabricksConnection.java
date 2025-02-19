@@ -100,20 +100,24 @@ public class DatabricksConnection implements IDatabricksConnection, IDatabricksC
   @Override
   public CallableStatement prepareCall(String sql) throws SQLException {
     LOGGER.debug(String.format("public CallableStatement prepareCall= {%s})", sql));
-    throw new DatabricksSQLFeatureNotSupportedException("prepareCall not Supported");
+    throw new DatabricksSQLFeatureNotImplementedException(
+        "Callable statements are not implemented in OSS JDBC");
   }
 
   @Override
   public String nativeSQL(String sql) throws SQLException {
     LOGGER.debug(String.format("public String nativeSQL(String sql{%s})", sql));
-    throw new DatabricksSQLFeatureNotImplementedException(
-        "Not implemented in DatabricksConnection - nativeSQL(String sql)");
+    throw new DatabricksSQLFeatureNotSupportedException(
+        "Databricks OSS JDBC does not support conversion to native query.");
   }
 
   @Override
   public void setAutoCommit(boolean autoCommit) throws SQLException {
-    throw new DatabricksSQLFeatureNotImplementedException(
-        "Not implemented in DatabricksConnection - setAutoCommit(boolean autoCommit)");
+    if (!autoCommit) {
+      throw new DatabricksSQLFeatureNotSupportedException(
+          "In Databricks OSS JDBC, every SQL statement is committed immediately upon execution."
+              + " Setting autoCommit=false is not supported.");
+    }
   }
 
   @Override
@@ -164,9 +168,12 @@ public class DatabricksConnection implements IDatabricksConnection, IDatabricksC
 
   @Override
   public void setReadOnly(boolean readOnly) throws SQLException {
-    LOGGER.debug("public void setReadOnly(boolean readOnly = {})");
-    throw new DatabricksSQLFeatureNotImplementedException(
-        "Not implemented in DatabricksConnection - setReadOnly(boolean readOnly)");
+    LOGGER.debug("public void setReadOnly(boolean readOnly)");
+    throwExceptionIfConnectionIsClosed();
+    if (readOnly) {
+      throw new DatabricksSQLFeatureNotSupportedException(
+          "Databricks OSS JDBC does not support readOnly mode.");
+    }
   }
 
   @Override
@@ -192,8 +199,11 @@ public class DatabricksConnection implements IDatabricksConnection, IDatabricksC
   @Override
   public void setTransactionIsolation(int level) throws SQLException {
     LOGGER.debug("public void setTransactionIsolation(int level = {})");
-    throw new DatabricksSQLFeatureNotImplementedException(
-        "Not implemented in DatabricksConnection - setTransactionIsolation(int level)");
+    throwExceptionIfConnectionIsClosed();
+    if (level != Connection.TRANSACTION_READ_UNCOMMITTED) {
+      throw new DatabricksSQLFeatureNotSupportedException(
+          "Setting of the given transaction isolation is not supported");
+    }
   }
 
   @Override
@@ -244,36 +254,35 @@ public class DatabricksConnection implements IDatabricksConnection, IDatabricksC
   @Override
   public CallableStatement prepareCall(String sql, int resultSetType, int resultSetConcurrency)
       throws SQLException {
-
     throw new DatabricksSQLFeatureNotImplementedException(
-        "Not implemented in DatabricksConnection - prepareCall(String sql, int resultSetType, int resultSetConcurrency)");
+        "Callable statements are not implemented in OSS JDBC");
   }
 
   @Override
-  public Map<String, Class<?>> getTypeMap() throws SQLException {
+  public Map<String, Class<?>> getTypeMap() {
     LOGGER.debug("public Map<String, Class<?>> getTypeMap()");
-    throw new DatabricksSQLFeatureNotImplementedException(
-        "Not implemented in DatabricksConnection - getTypeMap()");
+    return new HashMap<>();
   }
 
   @Override
   public void setTypeMap(Map<String, Class<?>> map) throws SQLException {
     LOGGER.debug("public void setTypeMap(Map<String, Class<?>> map)");
-    throw new DatabricksSQLFeatureNotImplementedException(
-        "Not implemented in DatabricksConnection - setTypeMap(Map<String, Class<?>> map)");
+    throw new DatabricksSQLFeatureNotSupportedException(
+        "Databricks OSS JDBC does not support setting of type map in connection");
   }
 
   @Override
   public void setHoldability(int holdability) throws SQLException {
-    throw new DatabricksSQLFeatureNotImplementedException(
-        "Not implemented in DatabricksConnection - setHoldability(int holdability)");
+    if (holdability != ResultSet.CLOSE_CURSORS_AT_COMMIT) {
+      throw new DatabricksSQLFeatureNotSupportedException(
+          "Databricks OSS JDBC only supports holdability of CLOSE_CURSORS_AT_COMMIT");
+    }
   }
 
   @Override
   public int getHoldability() throws SQLException {
     LOGGER.debug("public int getHoldability()");
-    throw new DatabricksSQLFeatureNotImplementedException(
-        "Not implemented in DatabricksConnection - getHoldability()");
+    return ResultSet.CLOSE_CURSORS_AT_COMMIT;
   }
 
   @Override
@@ -324,9 +333,8 @@ public class DatabricksConnection implements IDatabricksConnection, IDatabricksC
   public CallableStatement prepareCall(
       String sql, int resultSetType, int resultSetConcurrency, int resultSetHoldability)
       throws SQLException {
-
     throw new DatabricksSQLFeatureNotImplementedException(
-        "Not implemented in DatabricksConnection - prepareCall(String sql, int resultSetType, int resultSetConcurrency, int resultSetHoldability)");
+        "Callable statements are not implemented in OSS JDBC");
   }
 
   @Override
@@ -481,22 +489,30 @@ public class DatabricksConnection implements IDatabricksConnection, IDatabricksC
   @Override
   public void abort(Executor executor) throws SQLException {
     LOGGER.debug("public void abort(Executor executor)");
-    throw new DatabricksSQLFeatureNotImplementedException(
-        "Not implemented in DatabricksConnection - abort(Executor executor)");
+    executor.execute(
+        () -> {
+          try {
+            this.close();
+          } catch (Exception e) {
+            LOGGER.error(
+                "Error closing connection resources, but marking the connection as closed.", e);
+            this.session.forceClose();
+          }
+        });
   }
 
   @Override
   public void setNetworkTimeout(Executor executor, int milliseconds) throws SQLException {
     LOGGER.debug("public void setNetworkTimeout(Executor executor, int milliseconds)");
-    throw new DatabricksSQLFeatureNotImplementedException(
-        "Not implemented in DatabricksConnection - setNetworkTimeout(Executor executor, int milliseconds)");
+    throw new DatabricksSQLFeatureNotSupportedException(
+        "Not supported in DatabricksConnection - setNetworkTimeout(Executor executor, int milliseconds)");
   }
 
   @Override
   public int getNetworkTimeout() throws SQLException {
     LOGGER.debug("public int getNetworkTimeout()");
-    throw new DatabricksSQLFeatureNotImplementedException(
-        "Not implemented in DatabricksConnection - getNetworkTimeout()");
+    throw new DatabricksSQLFeatureNotSupportedException(
+        "Not supported in DatabricksConnection - getNetworkTimeout()");
   }
 
   @Override

@@ -8,6 +8,7 @@ import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.sdk.service.sql.ColumnInfoTypeName;
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.sql.Date;
 import java.sql.Timestamp;
 import java.time.Instant;
@@ -79,8 +80,7 @@ public class ArrowToJavaObjectConverter {
       case DOUBLE:
         return convertToNumber(object, Double::parseDouble, Number::doubleValue);
       case DECIMAL:
-        return convertToNumber(
-            object, BigDecimal::new, num -> BigDecimal.valueOf(num.doubleValue()));
+        return convertToDecimal(object, arrowMetadata);
       case BINARY:
         return convertToByteArray(object);
       case BOOLEAN:
@@ -185,6 +185,30 @@ public class ArrowToJavaObjectConverter {
       return object.toString().getBytes();
     }
     return (byte[]) object;
+  }
+
+  static BigDecimal convertToDecimal(Object object, String arrowMetadata)
+      throws DatabricksValidationException {
+    if (object instanceof Text) {
+      return new BigDecimal(object.toString());
+    }
+    int scale;
+    try {
+      scale =
+          Integer.parseInt(
+              arrowMetadata
+                  .substring(arrowMetadata.indexOf(',') + 1, arrowMetadata.indexOf(')'))
+                  .trim());
+    } catch (Exception e) {
+      scale = 0;
+    }
+    if (object instanceof Number) {
+      return new BigDecimal(object.toString()).setScale(scale, RoundingMode.HALF_UP);
+    }
+    String errorMessage =
+        String.format("Unsupported object type for decimal conversion: %s", object.getClass());
+    LOGGER.error(errorMessage);
+    throw new DatabricksValidationException(errorMessage);
   }
 
   private static <T extends Number> T convertToNumber(
