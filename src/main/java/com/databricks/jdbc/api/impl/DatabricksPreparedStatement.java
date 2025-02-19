@@ -198,6 +198,10 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
   @Override
   public void setBinaryStream(int parameterIndex, InputStream x, int length) throws SQLException {
     LOGGER.debug("public void setBinaryStream(int parameterIndex, InputStream x, int length)");
+//    if(parameterIndex < 1 || databricksParameterMetaData.getParameterCount() < parameterIndex) {
+//        throw new DatabricksValidationException("Invalid parameter index: " + parameterIndex);
+//    }
+
     throw new UnsupportedOperationException(
         "Not implemented in DatabricksPreparedStatement - setBinaryStream(int parameterIndex, InputStream x, int length)");
   }
