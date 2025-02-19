@@ -10,9 +10,9 @@ public class ComparisonResult {
   public List<String> dataDifferences;
   public String queryType;
   public String queryOrMethod;
-  public String[] methodArgs;
+  public Object[] methodArgs;
 
-  public ComparisonResult(String queryType, String queryOrMethod, String[] methodArgs) {
+  public ComparisonResult(String queryType, String queryOrMethod, Object[] methodArgs) {
     this.queryType = queryType;
     this.queryOrMethod = queryOrMethod;
     this.methodArgs = methodArgs;
@@ -29,7 +29,7 @@ public class ComparisonResult {
     sb.append("Query/Method: ").append(queryOrMethod).append("\n");
     if (methodArgs.length > 0) {
       sb.append("Method Arguments: ");
-      for (String arg : methodArgs) {
+      for (Object arg : methodArgs) {
         sb.append(arg).append(" ");
       }
       sb.append("\n");

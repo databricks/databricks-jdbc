@@ -2,19 +2,17 @@ package com.jayant;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 
+import com.jayant.testparams.DatabaseMetaDataTestParams;
 import java.io.IOException;
 import java.io.InputStream;
-import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Method;
 import java.net.URL;
 import java.net.URLClassLoader;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.sql.*;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Properties;
+import java.util.*;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -106,14 +104,14 @@ public class JDBCDriverComparisonTest {
   @ParameterizedTest
   @MethodSource("provideMetadataMethods")
   @DisplayName("Compare Metadata API Results")
-  void compareMetadataResults(String methodName, String[] args) {
+  void compareMetadataResults(String methodName, Object[] args) {
     assertDoesNotThrow(
         () -> {
           DatabaseMetaData simbaMetadata = simbaConnection.getMetaData();
           DatabaseMetaData ossMetadata = ossConnection.getMetaData();
 
-          Object simbaRs = executeMetadataMethod(simbaMetadata, methodName, args);
-          Object ossRs = executeMetadataMethod(ossMetadata, methodName, args);
+          Object simbaRs = ReflectionUtils.executeMethod(simbaMetadata, methodName, args);
+          Object ossRs = ReflectionUtils.executeMethod(ossMetadata, methodName, args);
 
           ComparisonResult result =
               ResultSetComparator.compare("metadata", methodName, args, simbaRs, ossRs);
@@ -121,7 +119,9 @@ public class JDBCDriverComparisonTest {
 
           if (result.hasDifferences()) {
             System.err.println("Differences found in metadata results for method: " + methodName);
-            System.err.println("Args: " + String.join(", ", args));
+            System.err.println(
+                "Args: "
+                    + Arrays.stream(args).map(Object::toString).collect(Collectors.joining(", ")));
             System.err.println(result);
           }
         });
@@ -133,91 +133,8 @@ public class JDBCDriverComparisonTest {
   }
 
   private static Stream<Arguments> provideMetadataMethods() {
-    List<Arguments> argumentsStream = new ArrayList<>(List.of(
-        Arguments.of(
-            "getTables", new String[] {"main", "tpcds_sf100_delta", "%", null}),
-        Arguments.of("getTableTypes", new String[] {}),
-        Arguments.of("getCatalogs", new String[] {}),
-        Arguments.of("getSchemas", new String[] {"main", "tpcds_%"}),
-        Arguments.of(
-            "getColumns",
-            new String[] {"main", "tpcds_sf100_delta", "catalog_sales", "%"}),
-        Arguments.of("getTypeInfo", new String[] {}),
-        Arguments.of(
-            "getFunctions",
-            new String[] {"main", "tpcds_sf100_delta", "aggregate"}),
-        Arguments.of(
-            "getProcedures", new String[] {"main", "tpcds_sf100_delta", "%"})));
-
-    // Use reflection to get methods with 0 arguments
-    // TODO: can enhance this to support multiple args
-    try {
-      Method[] methods = DatabaseMetaData.class.getMethods();
-      for (Method method : methods) {
-        if (method.getParameterCount() == 0) {
-          // Add the method to the stream if it has 0 arguments
-          String methodName = method.getName();
-          if (methodName.equals("getSchemas")) {
-            // getSchemas with empty args is generating a lot of diff, need to investigate first before including in the email report
-            continue;
-          }
-          Arguments arguments = Arguments.of(methodName, new String[] {});
-          if (!argumentsStream.contains(arguments)) {
-            argumentsStream.add(arguments);
-          }
-        }
-      }
-    } catch (SecurityException e) {
-      e.printStackTrace();
-    }
-
-    return argumentsStream.stream();
-  }
-
-  private Object executeMetadataMethod(
-      DatabaseMetaData metadata, String methodName, String[] args) throws SQLException {
-    switch (methodName) {
-      case "getTables":
-        return metadata.getTables(
-            args[0], args[1], args[2], args[3] == null ? null : args[3].split(","));
-      default:
-        return executeGenericMetadataMethod(metadata, methodName, args);
-    }
-  }
-
-  private Object executeGenericMetadataMethod(DatabaseMetaData metadata, String methodName, String[] args) throws SQLException {
-    try {
-      // Get the method by its name and parameter types
-      Method method;
-      if (args == null || args.length == 0) {
-        method = metadata.getClass().getMethod(methodName);
-      } else {
-        // Create an array of parameter types to match the method signature
-        Class<?>[] paramTypes = new Class[args.length];
-        for (int i = 0; i < args.length; i++) {
-          paramTypes[i] = String.class;  // Assuming all arguments are Strings
-        }
-
-        method = metadata.getClass().getMethod(methodName, paramTypes);
-      }
-
-      // Invoke the method dynamically with the arguments
-      Object result;
-      try {
-        result = method.invoke(metadata, (Object[]) args);
-      } catch (InvocationTargetException e) {
-        if (e.getCause() instanceof UnsupportedOperationException) {
-          result = "UnsupportedOperationException";
-        } else {
-          throw e;
-        }
-      }
-      return result;
-    } catch (NoSuchMethodException e) {
-      throw new SQLException("No such method: " + methodName, e);
-    } catch (Exception e) {
-      throw new SQLException("Error executing method: " + methodName, e);
-    }
+    DatabaseMetaDataTestParams params = new DatabaseMetaDataTestParams();
+    return ReflectionUtils.provideMethodsForClass(DatabaseMetaData.class, params);
   }
 
   private static URL extractJarToTemp(String jarName, Path tempDir) {

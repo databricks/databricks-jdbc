@@ -1,4 +1,4 @@
-package com.jayant;
+package com.jayant.testparams;
 
 import java.lang.reflect.Field;
 import java.sql.Connection;
@@ -7,12 +7,12 @@ import java.sql.ResultSet;
 import java.sql.Types;
 import java.util.*;
 
-public class DatabaseMetaDataTestParams {
-  private static List<Integer> allSqlTypes = getAllSqlTypes();
-  private static List<Integer> allTransactionIsolationLevels = getAllTransactionIsolationLevels();
+public class DatabaseMetaDataTestParams implements TestParams {
 
-  public static Map<Map.Entry<String, Integer>, Object[]> getFunctionToArgsMap() {
+  @Override
+  public Map<Map.Entry<String, Integer>, Object[]> getFunctionToArgsMap() {
     Map<Map.Entry<String, Integer>, Object[]> functionToArgsMap = new HashMap<>();
+
     functionToArgsMap.put(
         Map.entry("getTables", 4), new String[] {"main", "tpcds_sf100_delta", "%", null});
     functionToArgsMap.put(
@@ -22,6 +22,9 @@ public class DatabaseMetaDataTestParams {
         Map.entry("getColumns", 4),
         new String[] {"main", "tpcds_sf100_delta", "catalog_sales", "%"});
     functionToArgsMap.put(
+        Map.entry("getPseudoColumns", 4),
+        new String[] {"main", "tpcds_sf100_delta", "catalog_sales", "%"});
+    functionToArgsMap.put(
         Map.entry("getColumnPrivileges", 4),
         new String[] {"main", "tpcds_sf100_delta", "catalog_sales", "%"});
     functionToArgsMap.put(
@@ -29,6 +32,9 @@ public class DatabaseMetaDataTestParams {
         new String[] {"main", "tpcds_sf100_delta", "catalog_sales"});
     functionToArgsMap.put(
         Map.entry("getFunctions", 3), new String[] {"main", "tpcds_sf100_delta", "aggregate"});
+    functionToArgsMap.put(
+        Map.entry("getFunctionColumns", 4),
+        new String[] {"main", "tpcds_sf100_delta", "aggregate", "%"});
     functionToArgsMap.put(
         Map.entry("getProcedures", 3), new String[] {"main", "tpcds_sf100_delta", "%"});
     functionToArgsMap.put(
@@ -44,7 +50,7 @@ public class DatabaseMetaDataTestParams {
         new String[] {"main", "tpcds_sf100_delta", "catalog_sales"});
     // TODO: Add a proper cross reference test
     functionToArgsMap.put(
-        Map.entry("getCrossReference", 3),
+        Map.entry("getCrossReference", 6),
         new String[] {
           "main", "tpcds_sf100_delta", "catalog_sales", "main", "tpcds_sf100_delta", "catalog_sales"
         });
@@ -52,35 +58,65 @@ public class DatabaseMetaDataTestParams {
         Map.entry("getIndexInfo", 5),
         new Object[] {"main", "tpcds_sf100_delta", "catalog_sales", true, false});
     functionToArgsMap.put(
-        Map.entry("supportsResultSetType", 1),
-        new String[] {"main", "tpcds_sf100_delta", "catalog_sales", "true"});
+        Map.entry("getUDTs", 4), new String[] {"main", "tpcds_sf100_delta", "%", null});
     functionToArgsMap.put(
-        Map.entry("getIndexInfo", 4),
-        new String[] {"main", "tpcds_sf100_delta", "catalog_sales", "true"});
+        Map.entry("getSuperTypes", 3), new String[] {"main", "tpcds_sf100_delta", "%"});
+    functionToArgsMap.put(
+        Map.entry("getSuperTables", 3),
+        new String[] {"main", "tpcds_sf100_delta", "catalog_sales"});
+    functionToArgsMap.put(
+        Map.entry("getAttributes", 4), new String[] {"main", "tpcds_sf100_delta", "%", "%"});
 
-    for (Integer type : allSqlTypes) {
-      for (Integer type2 : allSqlTypes) {
+    // Methods for ResultSet concurrency and visibility
+    for (Integer type : getResultSetTypes()) {
+      functionToArgsMap.put(Map.entry("supportsResultSetType", 1), new Integer[] {type});
+      functionToArgsMap.put(
+          Map.entry("supportsResultSetConcurrency", 2),
+          new Integer[] {type, ResultSet.CONCUR_READ_ONLY});
+      functionToArgsMap.put(
+          Map.entry("supportsResultSetConcurrency", 2),
+          new Integer[] {type, ResultSet.CONCUR_UPDATABLE});
+      functionToArgsMap.put(Map.entry("ownUpdatesAreVisible", 1), new Integer[] {type});
+      functionToArgsMap.put(Map.entry("ownDeletesAreVisible", 1), new Integer[] {type});
+      functionToArgsMap.put(Map.entry("ownInsertsAreVisible", 1), new Integer[] {type});
+      functionToArgsMap.put(Map.entry("othersUpdatesAreVisible", 1), new Integer[] {type});
+      functionToArgsMap.put(Map.entry("othersDeletesAreVisible", 1), new Integer[] {type});
+      functionToArgsMap.put(Map.entry("othersInsertsAreVisible", 1), new Integer[] {type});
+      functionToArgsMap.put(Map.entry("updatesAreDetected", 1), new Integer[] {type});
+      functionToArgsMap.put(Map.entry("deletesAreDetected", 1), new Integer[] {type});
+      functionToArgsMap.put(Map.entry("insertsAreDetected", 1), new Integer[] {type});
+    }
+
+    for (Integer type : getAllSqlTypes()) {
+      for (Integer type2 : getAllSqlTypes()) {
         functionToArgsMap.put(Map.entry("supportsConvert", 2), new Integer[] {type, type2});
         functionToArgsMap.put(Map.entry("supportsConvert", 2), new Integer[] {type2, type});
       }
     }
-    for (Integer i : allTransactionIsolationLevels) {
+    for (Integer i : getAllTransactionIsolationLevels()) {
       functionToArgsMap.put(Map.entry("supportsTransactionIsolationLevel", 1), new Integer[] {i});
     }
     for (Integer i : getAllBestRowIdentifierScopes()) {
-      functionToArgsMap.put(Map.entry("getBestRowIdentifier", 1), new Integer[] {i});
+      functionToArgsMap.put(
+          Map.entry("getBestRowIdentifier", 5),
+          new Object[] {"main", "tpcds_sf100_delta", "catalog_sales", i, true});
     }
-    for (Integer i : getResultSetTypes()) {
-      functionToArgsMap.put(Map.entry("supportsResultSetType", 1), new Integer[] {i});
+    for (Integer i : getResultSetHoldability()) {
+      functionToArgsMap.put(Map.entry("supportsResultSetHoldability", 1), new Integer[] {i});
     }
 
     return functionToArgsMap;
   }
 
-  public static Set<Map.Entry<String, Integer>> getAcceptedKnownDiffs() {
+  @Override
+  public Set<Map.Entry<String, Integer>> getAcceptedKnownDiffs() {
     Set<Map.Entry<String, Integer>> acceptedKnownDiffs = new HashSet<>();
     // getSchemas with no args returns empty result set for SEA
     acceptedKnownDiffs.add(Map.entry("getSchemas", 0));
+
+    // Methods that we do not need to test from the Super class
+    acceptedKnownDiffs.add(Map.entry("unwrap", 1));
+    acceptedKnownDiffs.add(Map.entry("isWrapperFor", 1));
     return acceptedKnownDiffs;
   }
 
@@ -128,5 +164,10 @@ public class DatabaseMetaDataTestParams {
             ResultSet.TYPE_FORWARD_ONLY,
             ResultSet.TYPE_SCROLL_INSENSITIVE,
             ResultSet.TYPE_SCROLL_SENSITIVE));
+  }
+
+  private static List<Integer> getResultSetHoldability() {
+    return new ArrayList<>(
+        Arrays.asList(ResultSet.HOLD_CURSORS_OVER_COMMIT, ResultSet.CLOSE_CURSORS_AT_COMMIT));
   }
 }

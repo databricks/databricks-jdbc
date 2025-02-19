@@ -8,7 +8,7 @@ import java.util.List;
 
 public class ResultSetComparator {
   public static ComparisonResult compare(
-      String queryType, String queryOrMethod, String[] methodArgs, Object result1, Object result2)
+      String queryType, String queryOrMethod, Object[] methodArgs, Object result1, Object result2)
       throws SQLException {
     ComparisonResult result = new ComparisonResult(queryType, queryOrMethod, methodArgs);
     result.metadataDifferences = new ArrayList<>();
@@ -16,12 +16,12 @@ public class ResultSetComparator {
 
     if (result1 instanceof ResultSet && result2 instanceof ResultSet) {
       ResultSet rs1 = (ResultSet) result1;
-        ResultSet rs2 = (ResultSet) result2;
-        // Compare metadata
-        result.metadataDifferences = compareMetadata(rs1.getMetaData(), rs2.getMetaData());
+      ResultSet rs2 = (ResultSet) result2;
+      // Compare metadata
+      result.metadataDifferences = compareMetadata(rs1.getMetaData(), rs2.getMetaData());
 
-        // Compare data
-        result.dataDifferences = compareData(rs1, rs2);
+      // Compare data
+      result.dataDifferences = compareData(rs1, rs2);
     } else if (!(result1 instanceof ResultSet) && !(result2 instanceof ResultSet)) {
       if (!result1.equals(result2)) {
         result.dataDifferences.add(result1 + " vs " + result2);
