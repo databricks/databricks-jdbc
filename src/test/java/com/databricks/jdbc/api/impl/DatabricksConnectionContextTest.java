@@ -205,7 +205,7 @@ class DatabricksConnectionContextTest {
     DatabricksConnectionContext connectionContext =
         (DatabricksConnectionContext)
             DatabricksConnectionContext.parse(TestConstants.VALID_URL_5, properties);
-    assertEquals("default", connectionContext.getSchema());
+    assertNull(connectionContext.getSchema());
 
     connectionContext =
         (DatabricksConnectionContext)
@@ -236,7 +236,7 @@ class DatabricksConnectionContextTest {
     DatabricksConnectionContext connectionContext =
         (DatabricksConnectionContext)
             DatabricksConnectionContext.parse(TestConstants.VALID_URL_5, properties);
-    assertEquals("main", connectionContext.getCatalog());
+    assertNull(connectionContext.getCatalog());
 
     connectionContext =
         (DatabricksConnectionContext)
@@ -374,13 +374,13 @@ class DatabricksConnectionContextTest {
         DatabricksConnectionContext.parse(
             TestConstants.VALID_URL_WITH_CONN_CATALOG_CONN_SCHEMA_NOT_PROVIDED, properties);
     assertEquals("default", connectionContext2.getSchema());
-    assertEquals("main", connectionContext2.getCatalog());
+    assertEquals(null, connectionContext2.getCatalog());
     IDatabricksConnectionContext connectionContext3 =
         DatabricksConnectionContext.parse(
             TestConstants.VALID_URL_WITH_CONN_CATALOG_CONN_SCHEMA_NOT_PROVIDED_WITHOUT_SCHEMA,
             properties);
-    assertEquals("default", connectionContext3.getSchema());
-    assertEquals("main", connectionContext3.getCatalog());
+    assertEquals(null, connectionContext3.getSchema());
+    assertEquals(null, connectionContext3.getCatalog());
   }
 
   @Test
