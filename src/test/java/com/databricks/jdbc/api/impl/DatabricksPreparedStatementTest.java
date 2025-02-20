@@ -49,9 +49,11 @@ public class DatabricksPreparedStatementTest {
   @Mock DatabricksConnection connection;
   @Mock DatabricksSession session;
   private static final String INTERPOLATED_INITIAL_STATEMENT =
-      "SELECT * FROM orders WHERE user_id = ? AND name = ?";
+      "SELECT * FROM orders WHERE user_id = ? AND data = ?";
   private static final String INTERPOLATED_PROCESSED_STATEMENT =
-      "SELECT * FROM orders WHERE user_id = 1 AND name = 'test'";
+      "SELECT * FROM orders WHERE user_id = 1 AND data = 'test'";
+  private static final String INTERPOLATED_PROCESSED_STATEMENT_WITH_BYTES =
+      "SELECT * FROM orders WHERE user_id = 1 AND data = X'01020304'";
 
   void setupMocks() throws DatabricksSQLException {
     IDatabricksConnectionContext connectionContext =
@@ -96,6 +98,31 @@ public class DatabricksPreparedStatementTest {
     statement.setString(2, TEST_STRING);
     when(client.executeStatement(
             eq(INTERPOLATED_PROCESSED_STATEMENT),
+            eq(new Warehouse(WAREHOUSE_ID)),
+            any(HashMap.class),
+            eq(StatementType.QUERY),
+            any(IDatabricksSession.class),
+            eq(statement)))
+        .thenReturn(resultSet);
+
+    DatabricksResultSet newResultSet = (DatabricksResultSet) statement.executeQuery();
+    assertFalse(statement.isClosed());
+    assertEquals(resultSet, newResultSet);
+    statement.close();
+    assertTrue(statement.isClosed());
+  }
+
+  @Test
+  public void testExecuteStatementWithManyParametersAndSetBytes() throws Exception {
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContext.parse(JDBC_URL_WITH_MANY_PARAMETERS, new Properties());
+    DatabricksConnection connection = new DatabricksConnection(connectionContext, client);
+    DatabricksPreparedStatement statement =
+        new DatabricksPreparedStatement(connection, INTERPOLATED_INITIAL_STATEMENT);
+    statement.setInt(1, 1);
+    statement.setBytes(2, new byte[] {0x01, 0x02, 0x03, 0x04});
+    when(client.executeStatement(
+            eq(INTERPOLATED_PROCESSED_STATEMENT_WITH_BYTES),
             eq(new Warehouse(WAREHOUSE_ID)),
             any(HashMap.class),
             eq(StatementType.QUERY),
@@ -385,6 +412,17 @@ public class DatabricksPreparedStatementTest {
   }
 
   @Test
+  public void testSetBytes() throws DatabricksSQLException {
+    setupMocks();
+    DatabricksPreparedStatement preparedStatement =
+        new DatabricksPreparedStatement(connection, STATEMENT);
+
+    byte[] bytes = {0x01, 0x02, 0x03, 0x04};
+
+    assertDoesNotThrow(() -> preparedStatement.setBytes(1, bytes));
+  }
+
+  @Test
   public void testSetCharacterStreamWithoutLength() throws DatabricksSQLException {
     setupMocks();
     DatabricksPreparedStatement preparedStatement =
@@ -449,7 +487,6 @@ public class DatabricksPreparedStatementTest {
     assertThrows(UnsupportedOperationException.class, () -> preparedStatement.setTime(1, null));
     assertThrows(
         UnsupportedOperationException.class, () -> preparedStatement.setTime(1, null, null));
-    assertThrows(UnsupportedOperationException.class, () -> preparedStatement.setBytes(1, null));
     assertThrows(
         SQLFeatureNotSupportedException.class, () -> preparedStatement.setObject(1, null, null));
     assertThrows(

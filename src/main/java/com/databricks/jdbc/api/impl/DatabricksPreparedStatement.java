@@ -1,5 +1,6 @@
 package com.databricks.jdbc.api.impl;
 
+import static com.databricks.jdbc.common.util.DatabricksTypeUtil.NULL;
 import static com.databricks.jdbc.common.util.DatabricksTypeUtil.getDatabricksTypeFromSQLType;
 import static com.databricks.jdbc.common.util.DatabricksTypeUtil.inferDatabricksType;
 import static com.databricks.jdbc.common.util.SQLInterpolator.interpolateSQL;
@@ -150,11 +151,27 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
     setObject(parameterIndex, x, DatabricksTypeUtil.STRING);
   }
 
+  private static String bytesToHexLiteral(byte[] bytes) {
+    if (bytes == null) {
+      return NULL;
+    }
+    StringBuilder hex = new StringBuilder("X'");
+    for (byte b : bytes) {
+      hex.append(String.format("%02X", b));
+    }
+    hex.append("'");
+    return hex.toString();
+  }
+
   @Override
   public void setBytes(int parameterIndex, byte[] x) throws SQLException {
     LOGGER.debug("public void setBytes(int parameterIndex, byte[] x)");
-    throw new UnsupportedOperationException(
-        "Not implemented in DatabricksPreparedStatement - setBytes(int parameterIndex, byte[] x)");
+    if (x == null) {
+      setObject(parameterIndex, null);
+    } else {
+      // Convert to hex literal
+      setObject(parameterIndex, bytesToHexLiteral(x), Types.BINARY);
+    }
   }
 
   @Override
