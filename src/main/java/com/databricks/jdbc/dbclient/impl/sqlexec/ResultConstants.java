@@ -428,7 +428,7 @@ public class ResultConstants {
           Arrays.asList("VARCHAR", "INTEGER", "VARCHAR", "VARCHAR"),
           new int[] {Types.VARCHAR, Types.INTEGER, Types.VARCHAR, Types.VARCHAR},
           new int[] {128, 10, 128, 128},
-          new int[] {0, 0, 0, 0},
+          new int[] {0, 0, 1, 1},
           new Object[][] {
             {
               "APPLICATIONNAME",

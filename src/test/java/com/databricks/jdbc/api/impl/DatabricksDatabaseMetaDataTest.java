@@ -1159,10 +1159,16 @@ public class DatabricksDatabaseMetaDataTest {
     assertEquals("DESCRIPTION", resultSet.getMetaData().getColumnName(4));
 
     // Verify the first row
-    resultSet.next();
+    assertTrue(resultSet.next());
     assertEquals("APPLICATIONNAME", resultSet.getString(1));
     assertEquals(25, resultSet.getInt(2));
     assertNull(resultSet.getString(3));
+
+    assertTrue(resultSet.next());
+    assertTrue(resultSet.next());
+
+    // No more than 3 rows
+    assertFalse(resultSet.next());
   }
 
   private static Stream<Arguments> provideGetBestRowIdentifierParameters() {
