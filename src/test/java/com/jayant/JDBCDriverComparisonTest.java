@@ -3,6 +3,7 @@ package com.jayant;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 
 import com.jayant.testparams.DatabaseMetaDataTestParams;
+import com.jayant.testparams.ResultSetMetaDataTestParams;
 import com.jayant.testparams.ResultSetTestParams;
 import java.io.IOException;
 import java.io.InputStream;
@@ -160,6 +161,33 @@ public class JDBCDriverComparisonTest {
         });
   }
 
+  @ParameterizedTest
+  @MethodSource("provideResultSetMetaDataMethods")
+  @DisplayName("Compare ResultSetMetaData API Results")
+  void compareResultSetMetaDataResults(String methodName, Object[] args) {
+    assertDoesNotThrow(
+        () -> {
+          ResultSetMetaData simbaRsMd = simbaResultSet.getMetaData();
+          ResultSetMetaData ossRsMd = ossResultSet.getMetaData();
+          Object simbaResult = ReflectionUtils.executeMethod(simbaRsMd, methodName, args);
+          Object ossResult = ReflectionUtils.executeMethod(ossRsMd, methodName, args);
+
+          ComparisonResult result =
+              ResultSetComparator.compare(
+                  "ResultSetMetaData", methodName, args, simbaResult, ossResult);
+          reporter.addResult(result);
+
+          if (result.hasDifferences()) {
+            System.err.println(
+                "Differences found in ResultSetMetaData results for method: " + methodName);
+            System.err.println(
+                "Args: "
+                    + Arrays.stream(args).map(Object::toString).collect(Collectors.joining(", ")));
+            System.err.println(result);
+          }
+        });
+  }
+
   private static Stream<Arguments> provideSQLQueries() {
     return Stream.of(
         Arguments.of("SELECT * FROM main.tpcds_sf100_delta.catalog_sales limit 5", "TPC-DS query"));
@@ -173,6 +201,11 @@ public class JDBCDriverComparisonTest {
   private static Stream<Arguments> provideResultSetMethods() {
     ResultSetTestParams params = new ResultSetTestParams();
     return ReflectionUtils.provideMethodsForClass(ResultSet.class, params);
+  }
+
+  private static Stream<Arguments> provideResultSetMetaDataMethods() {
+    ResultSetMetaDataTestParams params = new ResultSetMetaDataTestParams();
+    return ReflectionUtils.provideMethodsForClass(ResultSetMetaData.class, params);
   }
 
   private static URL extractJarToTemp(String jarName, Path tempDir) {
