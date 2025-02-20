@@ -1,7 +1,5 @@
 package com.databricks.jdbc.common;
 
-import static javax.swing.UIManager.put;
-
 import com.databricks.jdbc.model.core.ResultColumn;
 import java.sql.Types;
 import java.util.Arrays;
@@ -140,6 +138,12 @@ public class MetadataResultConstants {
   private static final ResultColumn PK_NAME = new ResultColumn("PK_NAME", "pkName", Types.VARCHAR);
   private static final ResultColumn DEFERRABILITY =
       new ResultColumn("DEFERRABILITY", "deferrability", Types.SMALLINT);
+  private static final ResultColumn SUPERTYPE_CAT =
+      new ResultColumn("SUPERTYPE_CAT", "supertypeCat", Types.VARCHAR);
+  private static final ResultColumn SUPERTYPE_SCHEM =
+      new ResultColumn("SUPERTYPE_SCHEM", "supertypeSchem", Types.VARCHAR);
+  private static final ResultColumn SUPERTYPE_NAME =
+      new ResultColumn("SUPERTYPE_NAME", "supertypeName", Types.VARCHAR);
 
   public static List<ResultColumn> FUNCTION_COLUMNS =
       List.of(
@@ -149,6 +153,7 @@ public class MetadataResultConstants {
           REMARKS_COLUMN,
           FUNCTION_TYPE_COLUMN,
           SPECIFIC_NAME_COLUMN);
+
   public static List<ResultColumn> COLUMN_COLUMNS =
       List.of(
           CATALOG_COLUMN,
@@ -175,9 +180,12 @@ public class MetadataResultConstants {
           SOURCE_DATA_TYPE_COLUMN,
           IS_AUTO_INCREMENT_COLUMN,
           IS_GENERATED_COLUMN);
+
   public static List<ResultColumn> CATALOG_COLUMNS = List.of(CATALOG_COLUMN_FOR_GET_CATALOGS);
+
   public static List<ResultColumn> SCHEMA_COLUMNS =
       List.of(SCHEMA_COLUMN_FOR_GET_SCHEMA, CATALOG_FULL_COLUMN);
+
   public static List<ResultColumn> TABLE_COLUMNS =
       List.of(
           CATALOG_COLUMN,
@@ -191,6 +199,7 @@ public class MetadataResultConstants {
           // Note that a few fields like the following is for backward compatibility
           SELF_REFERENCING_COLUMN_NAME,
           REF_GENERATION_COLUMN);
+
   public static List<ResultColumn> PRIMARY_KEYS_COLUMNS =
       List.of(
           CATALOG_COLUMN,
@@ -199,9 +208,12 @@ public class MetadataResultConstants {
           COLUMN_NAME_COLUMN,
           KEY_SEQUENCE_COLUMN,
           PRIMARY_KEY_NAME_COLUMN);
+
   public static List<List<Object>> TABLE_TYPES_ROWS =
       Arrays.asList(List.of("SYSTEM TABLE"), List.of("TABLE"), List.of("VIEW"));
+
   public static List<ResultColumn> TABLE_TYPE_COLUMNS = List.of(TABLE_TYPE_COLUMN);
+
   public static String NULL_STRING = "NULL";
 
   public static final List<ResultColumn> NULL_COLUMN_COLUMNS =
@@ -294,6 +306,36 @@ public class MetadataResultConstants {
           PK_NAME,
           DEFERRABILITY);
 
+  public static final List<ResultColumn> TABLE_PRIVILEGES_COLUMNS =
+      List.of(
+          CATALOG_COLUMN,
+          SCHEMA_COLUMN,
+          TABLE_NAME_COLUMN,
+          GRANTOR,
+          GRANTEE,
+          PRIVILEGE,
+          IS_GRANTABLE);
+
+  public static final List<ResultColumn> VERSION_COLUMNS_COLUMNS =
+      List.of(
+          SCOPE,
+          COL_NAME_COLUMN,
+          DATA_TYPE_COLUMN,
+          TYPE_NAME_COLUMN,
+          COLUMN_SIZE_COLUMN,
+          BUFFER_LENGTH_COLUMN,
+          DECIMAL_DIGITS_SHORT,
+          PSEUDO_COLUMN);
+
+  public static final List<ResultColumn> SUPER_TYPES_COLUMNS =
+      List.of(
+          TYPE_CATALOG_COLUMN,
+          TYPE_SCHEMA_COLUMN,
+          TYPE_NAME_COLUMN,
+          SUPERTYPE_CAT,
+          SUPERTYPE_SCHEM,
+          SUPERTYPE_NAME);
+
   public static final Map<CommandName, List<ResultColumn>> NON_NULLABLE_COLUMNS_MAP =
       new HashMap<>() {
         {
@@ -354,6 +396,11 @@ public class MetadataResultConstants {
                   MetadataResultConstants.FKCOLUMN_NAME,
                   MetadataResultConstants.KEY_SEQUENCE_COLUMN,
                   MetadataResultConstants.DEFERRABILITY));
+          put(CommandName.GET_TABLE_PRIVILEGES, List.of(TABLE_NAME_COLUMN, GRANTEE, PRIVILEGE));
+          put(
+              CommandName.GET_VERSION_COLUMNS,
+              List.of(SCOPE, COL_NAME_COLUMN, DATA_TYPE_COLUMN, TYPE_NAME_COLUMN, PSEUDO_COLUMN));
+          put(CommandName.GET_SUPER_TYPES, List.of(TYPE_NAME_COLUMN, SUPERTYPE_NAME));
         }
       };
 }

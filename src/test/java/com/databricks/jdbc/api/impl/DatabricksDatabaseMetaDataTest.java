@@ -1012,12 +1012,8 @@ public class DatabricksDatabaseMetaDataTest {
         Arrays.asList(
             () -> metaData.supportsTransactionIsolationLevel(0),
             () -> metaData.getProcedureColumns(null, null, null, null),
-            () -> metaData.getVersionColumns(null, null, null),
             () -> metaData.getIndexInfo(null, null, null, false, false),
             () -> metaData.supportsConvert(0, 0),
-            () -> metaData.getProcedureColumns(null, null, null, null),
-            () -> metaData.getTablePrivileges(null, null, null),
-            () -> metaData.getSuperTypes(null, null, null),
             () -> metaData.getSuperTables(null, null, null),
             () -> metaData.getFunctionColumns(null, null, null, null),
             () -> metaData.getPseudoColumns(null, null, null, null),
@@ -1182,6 +1178,65 @@ public class DatabricksDatabaseMetaDataTest {
                 null));
   }
 
+  @ParameterizedTest
+  @MethodSource("provideCatalogSchemaTableParameters")
+  public void testGetTablePrivileges(
+      String catalog, String schemaPattern, String tableNamePattern, String testDesc)
+      throws SQLException {
+    ResultSet resultSet = metaData.getTablePrivileges(catalog, schemaPattern, tableNamePattern);
+    assertNotNull(resultSet);
+
+    assertEquals(7, resultSet.getMetaData().getColumnCount());
+    assertSame("TABLE_CAT", resultSet.getMetaData().getColumnName(1));
+    assertSame("TABLE_SCHEM", resultSet.getMetaData().getColumnName(2));
+    assertEquals("TABLE_NAME", resultSet.getMetaData().getColumnName(3));
+    assertEquals("GRANTOR", resultSet.getMetaData().getColumnName(4));
+    assertEquals("GRANTEE", resultSet.getMetaData().getColumnName(5));
+    assertEquals("PRIVILEGE", resultSet.getMetaData().getColumnName(6));
+    assertEquals("IS_GRANTABLE", resultSet.getMetaData().getColumnName(7));
+
+    // Result set is empty
+    assertFalse(resultSet.next());
+  }
+
+  @ParameterizedTest
+  @MethodSource("provideCatalogSchemaTableParameters")
+  public void testGetVersionColumns(
+      String catalog, String schemaPattern, String tableNamePattern, String testDesc)
+      throws SQLException {
+    ResultSet resultSet = metaData.getVersionColumns(catalog, schemaPattern, tableNamePattern);
+    assertNotNull(resultSet);
+
+    assertEquals(8, resultSet.getMetaData().getColumnCount());
+    assertSame("SCOPE", resultSet.getMetaData().getColumnName(1));
+    assertSame("COLUMN_NAME", resultSet.getMetaData().getColumnName(2));
+    assertSame("DATA_TYPE", resultSet.getMetaData().getColumnName(3));
+    assertSame("TYPE_NAME", resultSet.getMetaData().getColumnName(4));
+
+    // Result set is empty
+    assertFalse(resultSet.next());
+  }
+
+  @ParameterizedTest
+  @MethodSource("provideCatalogSchemaTableParameters")
+  public void testGetSuperTypes(
+      String catalog, String schemaPattern, String typeNamePattern, String testDesc)
+      throws SQLException {
+    ResultSet resultSet = metaData.getSuperTypes(catalog, schemaPattern, typeNamePattern);
+    assertNotNull(resultSet);
+
+    assertEquals(6, resultSet.getMetaData().getColumnCount());
+    assertSame("TYPE_CAT", resultSet.getMetaData().getColumnName(1));
+    assertSame("TYPE_SCHEM", resultSet.getMetaData().getColumnName(2));
+    assertEquals("TYPE_NAME", resultSet.getMetaData().getColumnName(3));
+    assertEquals("SUPERTYPE_CAT", resultSet.getMetaData().getColumnName(4));
+    assertEquals("SUPERTYPE_SCHEM", resultSet.getMetaData().getColumnName(5));
+    assertEquals("SUPERTYPE_NAME", resultSet.getMetaData().getColumnName(6));
+
+    // Result set is empty
+    assertFalse(resultSet.next());
+  }
+
   private static Stream<Arguments> provideAttributeParameters() {
     return Stream.of(
         // Test case 1: All nulls (should return empty result set)
@@ -1253,5 +1308,23 @@ public class DatabricksDatabaseMetaDataTest {
         Arguments.of(ResultSet.TYPE_FORWARD_ONLY, "TYPE_FORWARD_ONLY"),
         Arguments.of(ResultSet.TYPE_SCROLL_INSENSITIVE, "TYPE_SCROLL_INSENSITIVE"),
         Arguments.of(ResultSet.TYPE_SCROLL_SENSITIVE, "TYPE_SCROLL_SENSITIVE"));
+  }
+
+  private static Stream<Arguments> provideCatalogSchemaTableParameters() {
+    return Stream.of(
+        // Test case 1: All nulls (should return empty result set)
+        Arguments.of(null, null, null, "All parameters null"),
+
+        // Test case 2: Valid catalog, others null
+        Arguments.of("test_catalog", null, null, "Only catalog specified"),
+
+        // Test case 3: Valid schema, others null
+        Arguments.of(null, "test_schema", null, "Only schema specified"),
+
+        // Test case 4: Valid table, others null
+        Arguments.of(null, null, "test_table", "Only table specified"),
+
+        // Test case 5: All parameters specified
+        Arguments.of("test_catalog", "test_schema", "test_table", "All parameters specified"));
   }
 }
