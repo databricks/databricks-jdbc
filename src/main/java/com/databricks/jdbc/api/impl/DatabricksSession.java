@@ -1,5 +1,7 @@
 package com.databricks.jdbc.api.impl;
 
+import static com.databricks.jdbc.common.DatabricksJdbcConstants.REDACTED_TOKEN;
+
 import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.api.IDatabricksSession;
 import com.databricks.jdbc.common.CompressionCodec;
@@ -19,7 +21,6 @@ import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.telemetry.latency.DatabricksMetricsTimedProcessor;
 import com.databricks.sdk.support.ToStringer;
 import com.google.common.annotations.VisibleForTesting;
-import java.util.HashMap;
 import java.util.Map;
 import javax.annotation.Nullable;
 
@@ -69,7 +70,7 @@ public class DatabricksSession implements IDatabricksSession {
     this.catalog = connectionContext.getCatalog();
     this.schema = connectionContext.getSchema();
     this.sessionConfigs = connectionContext.getSessionConfigs();
-    this.clientInfoProperties = new HashMap<>();
+    this.clientInfoProperties = connectionContext.getClientInfoProperties();
     this.compressionCodec = connectionContext.getCompressionCodec();
     this.connectionContext = connectionContext;
   }
@@ -88,7 +89,7 @@ public class DatabricksSession implements IDatabricksSession {
     this.catalog = connectionContext.getCatalog();
     this.schema = connectionContext.getSchema();
     this.sessionConfigs = connectionContext.getSessionConfigs();
-    this.clientInfoProperties = new HashMap<>();
+    this.clientInfoProperties = connectionContext.getClientInfoProperties();
     this.compressionCodec = connectionContext.getCompressionCodec();
     this.connectionContext = connectionContext;
   }
@@ -231,6 +232,13 @@ public class DatabricksSession implements IDatabricksSession {
   }
 
   @Override
+  public String getConfigValue(String name) {
+    LOGGER.debug(String.format("public String getConfigValue(String name = {%s})", name));
+    return sessionConfigs.getOrDefault(
+        name.toLowerCase(), clientInfoProperties.getOrDefault(name.toLowerCase(), null));
+  }
+
+  @Override
   public void setClientInfoProperty(String name, String value) {
     LOGGER.debug(
         String.format(
@@ -239,9 +247,9 @@ public class DatabricksSession implements IDatabricksSession {
     if (name.equalsIgnoreCase(DatabricksJdbcUrlParams.AUTH_ACCESS_TOKEN.getParamName())) {
       // refresh the access token if provided a new value in client info
       this.databricksClient.resetAccessToken(value);
-    } else {
-      clientInfoProperties.put(name, value);
+      value = REDACTED_TOKEN; // mask access token
     }
+    clientInfoProperties.put(name, value);
   }
 
   @Override

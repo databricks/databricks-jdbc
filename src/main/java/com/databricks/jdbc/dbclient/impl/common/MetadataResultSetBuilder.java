@@ -617,6 +617,14 @@ public class MetadataResultSetBuilder {
         ATTRIBUTES_COLUMNS, new ArrayList<>(), METADATA_STATEMENT_ID, CommandName.GET_ATTRIBUTES);
   }
 
+  public static DatabricksResultSet getBestRowIdentifierEmptyResultSet() {
+    return buildResultSet(
+        BEST_ROW_IDENTIFIER_COLUMNS,
+        new ArrayList<>(),
+        METADATA_STATEMENT_ID,
+        CommandName.GET_BEST_ROW_IDENTIFIER);
+  }
+
   public static DatabricksResultSet getTablesResult(String catalog, List<List<Object>> rows) {
     List<List<Object>> updatedRows = new ArrayList<>();
     for (List<Object> row : rows) {

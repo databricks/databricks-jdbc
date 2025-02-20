@@ -178,6 +178,16 @@ public class TestConstants {
       "jdbc:databricks://adb-565757575.18.azuredatabricks.net:4423/default;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/erg6767gg;LogLevel=debug;LogPath=./test1;auth_flow=2;StagingAllowedLocalPaths=/tmp";
   public static final String VALID_URL_WITH_VOLUME_ALLOWED_PATH =
       "jdbc:databricks://adb-565757575.18.azuredatabricks.net:4423/default;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/erg6767gg;LogLevel=debug;LogPath=./test1;auth_flow=2;VolumeOperationAllowedLocalPaths=/tmp2";
+
+  public static final String VALID_URL_WITH_CONN_CATALOG_CONN_SCHEMA_PROVIDED =
+      "jdbc:databricks://adb-565757575.18.azuredatabricks.net:4423/default;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/erg6767gg;LogLevel=debug;LogPath=./test1;auth_flow=2;VolumeOperationAllowedLocalPaths=/tmp2;connCatalog=sampleCatalog;connSchema=sampleSchema";
+
+  public static final String VALID_URL_WITH_CONN_CATALOG_CONN_SCHEMA_NOT_PROVIDED =
+      "jdbc:databricks://adb-565757575.18.azuredatabricks.net:4423/default;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/erg6767gg;LogLevel=debug;LogPath=./test1;auth_flow=2;VolumeOperationAllowedLocalPaths=/tmp2;";
+
+  public static final String VALID_URL_WITH_CONN_CATALOG_CONN_SCHEMA_NOT_PROVIDED_WITHOUT_SCHEMA =
+      "jdbc:databricks://adb-565757575.18.azuredatabricks.net:4423;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/erg6767gg;LogLevel=debug;LogPath=./test1;auth_flow=2;VolumeOperationAllowedLocalPaths=/tmp2;";
+
   public static final List<TSparkArrowBatch> ARROW_BATCH_LIST =
       Collections.singletonList(
           new TSparkArrowBatch().setRowCount(0).setBatch(new byte[] {65, 66, 67}));

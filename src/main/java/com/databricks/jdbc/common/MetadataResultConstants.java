@@ -72,12 +72,6 @@ public class MetadataResultConstants {
       new ResultColumn("SQL_DATA_TYPE", "SQLDataType", Types.INTEGER);
   public static final ResultColumn DATA_TYPE_COLUMN =
       new ResultColumn("DATA_TYPE", "dataType", Types.INTEGER);
-  private static final ResultColumn LITERAL_PREFIX_COLUMN =
-      new ResultColumn("LITERAL_PREFIX", "literalPrefix", Types.VARCHAR);
-  private static final ResultColumn LITERAL_SUFFIX_COLUMN =
-      new ResultColumn("LITERAL_SUFFIX", "literalSuffix", Types.VARCHAR);
-  private static final ResultColumn CREATE_PARAMS_COLUMN =
-      new ResultColumn("CREATE_PARAMS", "createParams", Types.VARCHAR);
   public static final ResultColumn SQL_DATETIME_SUB_COLUMN =
       new ResultColumn("SQL_DATETIME_SUB", "SQLDateTimeSub", Types.INTEGER);
   public static final ResultColumn CHAR_OCTET_LENGTH_COLUMN =
@@ -98,22 +92,6 @@ public class MetadataResultConstants {
       new ResultColumn("IS_AUTOINCREMENT", "isAutoIncrement", Types.VARCHAR);
   public static final ResultColumn IS_GENERATED_COLUMN =
       new ResultColumn("IS_GENERATEDCOLUMN", "isGenerated", Types.VARCHAR);
-  private static final ResultColumn CASE_SENSITIVE_COLUMN =
-      new ResultColumn("CASE_SENSITIVE", "caseSensitive", Types.BIT);
-  private static final ResultColumn SEARCHABLE_COLUMN =
-      new ResultColumn("SEARCHABLE", "searchable", Types.SMALLINT);
-  private static final ResultColumn UNSIGNED_ATTRIBUTE_COLUMN =
-      new ResultColumn("UNSIGNED_ATTRIBUTE", "unsignedAttribute", Types.BIT);
-  private static final ResultColumn FIXED_PREC_SCALE_COLUMN =
-      new ResultColumn("FIXED_PREC_SCALE", "fixedPrecScale", Types.BIT);
-  private static final ResultColumn AUTO_INCREMENT_COLUMN =
-      new ResultColumn("AUTO_INCREMENT", "autoIncrement", Types.BIT);
-  private static final ResultColumn LOCAL_TYPE_NAME_COLUMN =
-      new ResultColumn("LOCAL_TYPE_NAME", "localTypeName", Types.VARCHAR);
-  private static final ResultColumn MINIMUM_SCALE_COLUMN =
-      new ResultColumn("MINIMUM_SCALE", "minimumScale", Types.SMALLINT);
-  private static final ResultColumn MAXIMUM_SCALE_COLUMN =
-      new ResultColumn("MAXIMUM_SCALE", "maximumScale", Types.SMALLINT);
   private static final ResultColumn ATTR_NAME =
       new ResultColumn("ATTR_NAME", "attrName", Types.VARCHAR);
   private static final ResultColumn ATTR_TYPE_NAME =
@@ -130,6 +108,11 @@ public class MetadataResultConstants {
       new ResultColumn("PRIVILEGE", "privilege", Types.VARCHAR);
   private static final ResultColumn IS_GRANTABLE =
       new ResultColumn("IS_GRANTABLE", "isGrantable", Types.VARCHAR);
+  private static final ResultColumn SCOPE = new ResultColumn("SCOPE", "scope", Types.SMALLINT);
+  private static final ResultColumn DECIMAL_DIGITS_SHORT =
+      new ResultColumn("DECIMAL_DIGITS", "decimalDigits", Types.SMALLINT);
+  private static final ResultColumn PSEUDO_COLUMN =
+      new ResultColumn("PSEUDO_COLUMN", "pseudoColumn", Types.SMALLINT);
 
   public static List<ResultColumn> FUNCTION_COLUMNS =
       List.of(
@@ -256,6 +239,17 @@ public class MetadataResultConstants {
           PRIVILEGE,
           IS_GRANTABLE);
 
+  public static final List<ResultColumn> BEST_ROW_IDENTIFIER_COLUMNS =
+      List.of(
+          SCOPE,
+          COL_NAME_COLUMN,
+          DATA_TYPE_COLUMN,
+          COLUMN_TYPE_COLUMN,
+          COLUMN_SIZE_COLUMN,
+          BUFFER_LENGTH_COLUMN,
+          DECIMAL_DIGITS_SHORT,
+          PSEUDO_COLUMN);
+
   public static final Map<CommandName, List<ResultColumn>> NON_NULLABLE_COLUMNS_MAP =
       Map.of(
           CommandName.LIST_TYPE_INFO,
@@ -292,5 +286,12 @@ public class MetadataResultConstants {
               MetadataResultConstants.FUNCTION_NAME_COLUMN,
               MetadataResultConstants.SPECIFIC_NAME_COLUMN),
           CommandName.GET_COLUMN_PRIVILEGES,
-          List.of(TABLE_NAME_COLUMN, COLUMN_NAME_COLUMN, GRANTEE, PRIVILEGE));
+          List.of(TABLE_NAME_COLUMN, COLUMN_NAME_COLUMN, GRANTEE, PRIVILEGE),
+          CommandName.GET_BEST_ROW_IDENTIFIER,
+          List.of(
+              MetadataResultConstants.SCOPE,
+              MetadataResultConstants.COL_NAME_COLUMN,
+              MetadataResultConstants.DATA_TYPE_COLUMN,
+              MetadataResultConstants.COLUMN_TYPE_COLUMN,
+              MetadataResultConstants.PSEUDO_COLUMN));
 }

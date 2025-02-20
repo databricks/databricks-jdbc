@@ -418,4 +418,36 @@ public class ResultConstants {
             }
           },
           StatementType.METADATA);
+
+  /** The static result set for the client info properties metadata. */
+  public static final DatabricksResultSet CLIENT_INFO_PROPERTIES_RESULT =
+      new DatabricksResultSet(
+          new StatementStatus().setState(StatementState.SUCCEEDED),
+          new StatementId("client-info-properties-metadata"),
+          Arrays.asList("NAME", "MAX_LEN", "DEFAULT_VALUE", "DESCRIPTION"),
+          Arrays.asList("VARCHAR", "INTEGER", "VARCHAR", "VARCHAR"),
+          new int[] {Types.VARCHAR, Types.INTEGER, Types.VARCHAR, Types.VARCHAR},
+          new int[] {128, 10, 128, 128},
+          new int[] {0, 0, 1, 1},
+          new Object[][] {
+            {
+              "APPLICATIONNAME",
+              25,
+              null,
+              "The name of the application currently utilizing the connection."
+            },
+            {
+              "CLIENTHOSTNAME",
+              25,
+              null,
+              "The hostname of the computer the application using the connection is running on."
+            },
+            {
+              "CLIENTUSER",
+              25,
+              null,
+              "The name of the user that the application using the connection is performing work for."
+            }
+          },
+          StatementType.METADATA);
 }

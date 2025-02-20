@@ -57,8 +57,8 @@ public class M2MAuthIntegrationTests extends AbstractFakeServiceIntegrationTests
     connProps.put("OAuth2ClientId", TEST_CLIENT_ID);
     connProps.put("OAuth2Secret", clientSecret);
     connProps.put(
-        DatabricksJdbcUrlParams.CATALOG.getParamName(),
-        FakeServiceConfigLoader.getProperty(DatabricksJdbcUrlParams.CATALOG.getParamName()));
+        DatabricksJdbcUrlParams.CONN_CATALOG.getParamName(),
+        FakeServiceConfigLoader.getProperty(DatabricksJdbcUrlParams.CONN_CATALOG.getParamName()));
     connProps.put(
         DatabricksJdbcUrlParams.CONN_SCHEMA.getParamName(),
         FakeServiceConfigLoader.getProperty(DatabricksJdbcUrlParams.CONN_SCHEMA.getParamName()));
