@@ -7,6 +7,7 @@ import java.sql.SQLException;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.junit.jupiter.params.provider.Arguments;
 
@@ -22,12 +23,17 @@ public class ReflectionUtils {
     Map<Map.Entry<String, Integer>, Set<Object[]>> functionToArgsMap =
         testParams.getFunctionToArgsMap();
     Set<Arguments> argumentsStream = new HashSet<>();
+    Set<Method> methodsWhereArgsAreNotProvided = new HashSet<>();
+    Set<Map.Entry<String, Integer>> alreadyAdded = new HashSet<>();
     try {
       Method[] methods = clazz.getMethods();
       for (Method method : methods) {
         String methodName = method.getName();
         int parameterCount = method.getParameterCount();
         Map.Entry<String, Integer> methodWithArgs = Map.entry(methodName, parameterCount);
+        if (alreadyAdded.contains(methodWithArgs)) {
+          continue;
+        }
         if (acceptedKnownDiffs.contains(methodWithArgs)) {
           continue;
         }
@@ -35,14 +41,23 @@ public class ReflectionUtils {
         for (Object[] params : paramSet) {
           if (parameterCount != params.length) {
             // This will ensure that we do not skip any methods in the class
-            throw new RuntimeException("Please provide parameters for method: " + method);
+            methodsWhereArgsAreNotProvided.add(method);
           }
           Arguments arguments = Arguments.of(methodName, params);
           argumentsStream.add(arguments);
         }
+        alreadyAdded.add(methodWithArgs);
       }
     } catch (SecurityException e) {
       e.printStackTrace();
+    }
+
+    if (!methodsWhereArgsAreNotProvided.isEmpty()) {
+      throw new RuntimeException(
+          "Method parameters were not provided for:\n"
+              + methodsWhereArgsAreNotProvided.stream()
+                  .map(Method::toString)
+                  .collect(Collectors.joining("\n")));
     }
 
     return argumentsStream.stream();
@@ -60,7 +75,7 @@ public class ReflectionUtils {
         // Create an array of parameter types to match the method signature
         Class<?>[] paramTypes = new Class[args.length];
         for (int i = 0; i < args.length; i++) {
-          paramTypes[i] = String.class; // Assuming all arguments are Strings
+          paramTypes[i] = args[i].getClass();
         }
 
         method = object.getClass().getMethod(methodName, paramTypes);
@@ -70,11 +85,7 @@ public class ReflectionUtils {
       try {
         result = method.invoke(object, args);
       } catch (InvocationTargetException e) {
-        if (e.getCause() instanceof UnsupportedOperationException) {
-          result = "UnsupportedOperationException";
-        } else {
-          throw e;
-        }
+        result = e.getCause() + " " + e.getCause().getMessage();
       }
     } catch (NoSuchMethodException e) {
       // This is generally thrown due to the difference in JDBC spec versions

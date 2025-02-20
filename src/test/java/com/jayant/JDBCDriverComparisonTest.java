@@ -3,6 +3,7 @@ package com.jayant;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 
 import com.jayant.testparams.DatabaseMetaDataTestParams;
+import com.jayant.testparams.ResultSetTestParams;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URL;
@@ -30,6 +31,8 @@ public class JDBCDriverComparisonTest {
   private static Connection ossConnection;
   private static Path tempDir;
   private static TestReporter reporter;
+  private static ResultSet simbaResultSet;
+  private static ResultSet ossResultSet;
 
   @BeforeAll
   static void setup() throws Exception {
@@ -59,6 +62,13 @@ public class JDBCDriverComparisonTest {
     ossConnection = DriverManager.getConnection(OSS_JDBC_URL, "token", pwd);
     simbaConnection = simbaDriver.connect(SIMBA_JDBC_URL + "PWD=" + pwd, props);
     reporter = new TestReporter(Path.of("jdbc-comparison-report.txt"));
+
+    String queryResultSetTypesTable =
+        "select * from main.oss_jdbc_tests.test_result_set_types limit 100";
+    simbaResultSet = simbaConnection.createStatement().executeQuery(queryResultSetTypesTable);
+    simbaResultSet.next();
+    ossResultSet = ossConnection.createStatement().executeQuery(queryResultSetTypesTable);
+    ossResultSet.next();
   }
 
   @AfterAll
@@ -114,11 +124,34 @@ public class JDBCDriverComparisonTest {
           Object ossRs = ReflectionUtils.executeMethod(ossMetadata, methodName, args);
 
           ComparisonResult result =
-              ResultSetComparator.compare("metadata", methodName, args, simbaRs, ossRs);
+              ResultSetComparator.compare("DatabaseMetaData", methodName, args, simbaRs, ossRs);
           reporter.addResult(result);
 
           if (result.hasDifferences()) {
             System.err.println("Differences found in metadata results for method: " + methodName);
+            System.err.println(
+                "Args: "
+                    + Arrays.stream(args).map(Object::toString).collect(Collectors.joining(", ")));
+            System.err.println(result);
+          }
+        });
+  }
+
+  @ParameterizedTest
+  @MethodSource("provideResultSetMethods")
+  @DisplayName("Compare ResultSet API Results")
+  void compareResultSetResults(String methodName, Object[] args) {
+    assertDoesNotThrow(
+        () -> {
+          Object simbaResult = ReflectionUtils.executeMethod(simbaResultSet, methodName, args);
+          Object ossResult = ReflectionUtils.executeMethod(ossResultSet, methodName, args);
+
+          ComparisonResult result =
+              ResultSetComparator.compare("ResultSet", methodName, args, simbaResult, ossResult);
+          reporter.addResult(result);
+
+          if (result.hasDifferences()) {
+            System.err.println("Differences found in ResultSet results for method: " + methodName);
             System.err.println(
                 "Args: "
                     + Arrays.stream(args).map(Object::toString).collect(Collectors.joining(", ")));
@@ -135,6 +168,11 @@ public class JDBCDriverComparisonTest {
   private static Stream<Arguments> provideMetadataMethods() {
     DatabaseMetaDataTestParams params = new DatabaseMetaDataTestParams();
     return ReflectionUtils.provideMethodsForClass(DatabaseMetaData.class, params);
+  }
+
+  private static Stream<Arguments> provideResultSetMethods() {
+    ResultSetTestParams params = new ResultSetTestParams();
+    return ReflectionUtils.provideMethodsForClass(ResultSet.class, params);
   }
 
   private static URL extractJarToTemp(String jarName, Path tempDir) {

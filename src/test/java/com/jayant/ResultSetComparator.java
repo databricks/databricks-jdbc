@@ -23,7 +23,7 @@ public class ResultSetComparator {
       // Compare data
       result.dataDifferences = compareData(rs1, rs2);
     } else if (!(result1 instanceof ResultSet) && !(result2 instanceof ResultSet)) {
-      if (!result1.equals(result2)) {
+      if (result1 == null || !result1.equals(result2)) {
         result.dataDifferences.add(result1 + " vs " + result2);
       }
     } else {
