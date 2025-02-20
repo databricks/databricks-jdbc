@@ -11,7 +11,6 @@ import com.databricks.jdbc.common.DatabricksJdbcConstants.FakeServiceType;
 import com.databricks.jdbc.common.DatabricksJdbcUrlParams;
 import com.databricks.jdbc.common.util.DriverUtil;
 import com.databricks.jdbc.integration.fakeservice.FakeServiceConfigLoader;
-import com.databricks.sdk.core.utils.Cloud;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.sql.Connection;
@@ -99,34 +98,28 @@ public class IntegrationTestUtil {
     return System.getenv("DATABRICKS_JDBC_M2M_PRIVATE_KEY_CREDENTIALS_HOST");
   }
 
-  public static String getM2MPrivateKeyCredentialsHTTPPath() {
-    return System.getenv("DATABRICKS_JDBC_M2M_PRIVATE_KEY_CREDENTIALS_HTTP_PATH");
-  }
-
   public static String getM2MHTTPPath() {
     return System.getenv("DATABRICKS_JDBC_M2M_HTTP_PATH");
   }
 
-  public static String getJdbcM2MUrl(String host, String httpPath) {
-    String template = "jdbc:databricks://%s/default;ssl=1;authmech=11;auth_flow=1;httpPath=%s";
-    return String.format(template, host, httpPath);
+  public static String getM2MPrivateKeyCredentialsHTTPPath() {
+    return System.getenv("DATABRICKS_JDBC_M2M_PRIVATE_KEY_CREDENTIALS_HTTP_PATH");
   }
 
-  public static Connection getValidM2MConnection(Cloud cloud) throws SQLException {
-    String prefix = (cloud == Cloud.AZURE) ? "DATABRICKS_JDBC_M2M" : "DATABRICKS_JDBC_AWS_M2M";
-    String hostUrlM2M = System.getenv(prefix + "_HOST");
-    String httpPathM2M = System.getenv(prefix + "_HTTP_PATH");
-    String jdbcM2MUrl = getJdbcM2MUrl(hostUrlM2M, httpPathM2M);
-    return DriverManager.getConnection(
-        jdbcM2MUrl,
-        createM2MConnectionProperties(
-            System.getenv(prefix + "_CLIENT_ID"), System.getenv(prefix + "_CLIENT_SECRET")));
+  public static String getJdbcM2MUrl() {
+    String template =
+        "jdbc:databricks://%s/default;transportMode=http;ssl=0;authmech=11;auth_flow=1;httpPath=%s";
+    return String.format(template, getM2MHost(), getM2MHTTPPath());
   }
 
-  public static Properties createM2MConnectionProperties(String clientId, String clientSecret) {
+  public static Connection getValidM2MConnection() throws SQLException {
+    return DriverManager.getConnection(getJdbcM2MUrl(), createM2MConnectionProperties());
+  }
+
+  public static Properties createM2MConnectionProperties() {
     Properties connProps = new Properties();
-    connProps.put("OAuth2ClientId", clientId);
-    connProps.put("OAuth2Secret", clientSecret);
+    connProps.put("OAuth2ClientId", System.getenv("DATABRICKS_JDBC_M2M_CLIENT_ID"));
+    connProps.put("OAuth2Secret", System.getenv("DATABRICKS_JDBC_M2M_CLIENT_SECRET"));
     return connProps;
   }
 
@@ -185,8 +178,8 @@ public class IntegrationTestUtil {
 
     if (DriverUtil.isRunningAgainstFake()) {
       connectionProperties.put(
-          DatabricksJdbcUrlParams.CATALOG.getParamName(),
-          FakeServiceConfigLoader.getProperty(DatabricksJdbcUrlParams.CATALOG.getParamName()));
+          DatabricksJdbcUrlParams.CONN_CATALOG.getParamName(),
+          FakeServiceConfigLoader.getProperty(DatabricksJdbcUrlParams.CONN_CATALOG.getParamName()));
       connectionProperties.put(
           DatabricksJdbcUrlParams.CONN_SCHEMA.getParamName(),
           FakeServiceConfigLoader.getProperty(DatabricksJdbcUrlParams.CONN_SCHEMA.getParamName()));
