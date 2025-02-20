@@ -131,6 +131,19 @@ public class MetadataResultConstants {
       new ResultColumn("SCOPE_TABLE", "ScopeTable", Types.VARCHAR);
   private static final ResultColumn SOURCE_DATA_TYPE =
       new ResultColumn("SOURCE_DATA_TYPE", "SourceDataType", Types.SMALLINT);
+  private static final ResultColumn SCOPE = new ResultColumn("SCOPE", "scope", Types.SMALLINT);
+  private static final ResultColumn COLUMN_NAME =
+      new ResultColumn("COLUMN_NAME", "columnName", Types.VARCHAR);
+  private static final ResultColumn TYPE_NAME =
+      new ResultColumn("TYPE_NAME", "typeName", Types.VARCHAR);
+  private static final ResultColumn COLUMN_SIZE =
+      new ResultColumn("COLUMN_SIZE", "columnSize", Types.INTEGER);
+  private static final ResultColumn BUFFER_LENGTH =
+      new ResultColumn("BUFFER_LENGTH", "bufferLength", Types.INTEGER);
+  private static final ResultColumn DECIMAL_DIGITS_SHORT =
+      new ResultColumn("DECIMAL_DIGITS", "decimalDigits", Types.SMALLINT);
+  private static final ResultColumn PSEUDO_COLUMN =
+      new ResultColumn("PSEUDO_COLUMN", "pseudoColumn", Types.SMALLINT);
 
   public static List<ResultColumn> FUNCTION_COLUMNS =
       List.of(
@@ -246,37 +259,57 @@ public class MetadataResultConstants {
           SCOPE_TABLE,
           SOURCE_DATA_TYPE);
 
+  public static final List<ResultColumn> BEST_ROW_IDENTIFIER_COLUMNS =
+      List.of(
+          SCOPE,
+          COLUMN_NAME,
+          DATA_TYPE,
+          TYPE_NAME,
+          COLUMN_SIZE,
+          BUFFER_LENGTH,
+          DECIMAL_DIGITS_SHORT,
+          PSEUDO_COLUMN);
+
   public static final Map<CommandName, List<ResultColumn>> NON_NULLABLE_COLUMNS_MAP =
       Map.of(
           CommandName.LIST_TYPE_INFO,
-              List.of(
-                  MetadataResultConstants.TYPE_NAME_COLUMN,
-                  MetadataResultConstants.DATA_TYPE_COLUMN,
-                  MetadataResultConstants
-                      .PRECISION_COLUMN // Assuming COLUMN_SIZE_COLUMN maps to precision
-                  ),
+          List.of(
+              MetadataResultConstants.TYPE_NAME_COLUMN,
+              MetadataResultConstants.DATA_TYPE_COLUMN,
+              MetadataResultConstants
+                  .PRECISION_COLUMN // Assuming COLUMN_SIZE_COLUMN maps to precision
+              ),
           CommandName.LIST_CATALOGS,
-              List.of(MetadataResultConstants.CATALOG_COLUMN_FOR_GET_CATALOGS),
+          List.of(MetadataResultConstants.CATALOG_COLUMN_FOR_GET_CATALOGS),
           CommandName.LIST_TABLES,
-              List.of(MetadataResultConstants.TABLE_NAME_COLUMN, TABLE_TYPE_COLUMN),
+          List.of(MetadataResultConstants.TABLE_NAME_COLUMN, TABLE_TYPE_COLUMN),
           CommandName.LIST_PRIMARY_KEYS,
-              List.of(
-                  MetadataResultConstants.TABLE_NAME_COLUMN,
-                  MetadataResultConstants.COLUMN_NAME_COLUMN),
-          CommandName.LIST_SCHEMAS, List.of(MetadataResultConstants.SCHEMA_COLUMN_FOR_GET_SCHEMA),
-          CommandName.LIST_TABLE_TYPES, List.of(TABLE_TYPE_COLUMN),
+          List.of(
+              MetadataResultConstants.TABLE_NAME_COLUMN,
+              MetadataResultConstants.COLUMN_NAME_COLUMN),
+          CommandName.LIST_SCHEMAS,
+          List.of(MetadataResultConstants.SCHEMA_COLUMN_FOR_GET_SCHEMA),
+          CommandName.LIST_TABLE_TYPES,
+          List.of(TABLE_TYPE_COLUMN),
           CommandName.LIST_COLUMNS,
-              List.of(
-                  MetadataResultConstants.TABLE_NAME_COLUMN,
-                  MetadataResultConstants.COL_NAME_COLUMN,
-                  MetadataResultConstants.DATA_TYPE_COLUMN,
-                  MetadataResultConstants.COLUMN_TYPE_COLUMN,
-                  MetadataResultConstants.NULLABLE_COLUMN,
-                  MetadataResultConstants.SQL_DATA_TYPE_COLUMN,
-                  MetadataResultConstants.ORDINAL_POSITION_COLUMN,
-                  MetadataResultConstants.IS_NULLABLE_COLUMN),
+          List.of(
+              MetadataResultConstants.TABLE_NAME_COLUMN,
+              MetadataResultConstants.COL_NAME_COLUMN,
+              MetadataResultConstants.DATA_TYPE_COLUMN,
+              MetadataResultConstants.COLUMN_TYPE_COLUMN,
+              MetadataResultConstants.NULLABLE_COLUMN,
+              MetadataResultConstants.SQL_DATA_TYPE_COLUMN,
+              MetadataResultConstants.ORDINAL_POSITION_COLUMN,
+              MetadataResultConstants.IS_NULLABLE_COLUMN),
           CommandName.LIST_FUNCTIONS,
-              List.of(
-                  MetadataResultConstants.FUNCTION_NAME_COLUMN,
-                  MetadataResultConstants.SPECIFIC_NAME_COLUMN));
+          List.of(
+              MetadataResultConstants.FUNCTION_NAME_COLUMN,
+              MetadataResultConstants.SPECIFIC_NAME_COLUMN),
+          CommandName.GET_BEST_ROW_IDENTIFIER,
+          List.of(
+              MetadataResultConstants.SCOPE,
+              MetadataResultConstants.COLUMN_NAME,
+              MetadataResultConstants.DATA_TYPE,
+              MetadataResultConstants.TYPE_NAME,
+              MetadataResultConstants.PSEUDO_COLUMN));
 }

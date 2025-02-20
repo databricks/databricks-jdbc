@@ -74,6 +74,8 @@ public interface IDatabricksConnectionContext {
 
   Map<String, String> getSessionConfigs();
 
+  Map<String, String> getClientInfoProperties();
+
   boolean isAllPurposeCluster();
 
   String getHttpPath();

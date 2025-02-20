@@ -178,8 +178,8 @@ public class IntegrationTestUtil {
 
     if (DriverUtil.isRunningAgainstFake()) {
       connectionProperties.put(
-          DatabricksJdbcUrlParams.CATALOG.getParamName(),
-          FakeServiceConfigLoader.getProperty(DatabricksJdbcUrlParams.CATALOG.getParamName()));
+          DatabricksJdbcUrlParams.CONN_CATALOG.getParamName(),
+          FakeServiceConfigLoader.getProperty(DatabricksJdbcUrlParams.CONN_CATALOG.getParamName()));
       connectionProperties.put(
           DatabricksJdbcUrlParams.CONN_SCHEMA.getParamName(),
           FakeServiceConfigLoader.getProperty(DatabricksJdbcUrlParams.CONN_SCHEMA.getParamName()));

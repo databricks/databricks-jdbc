@@ -76,6 +76,8 @@ public interface IDatabricksSession {
   /** Returns the client info properties */
   Map<String, String> getClientInfoProperties();
 
+  String getConfigValue(String name);
+
   /** Sets the client info property */
   void setClientInfoProperty(String name, String value);
 

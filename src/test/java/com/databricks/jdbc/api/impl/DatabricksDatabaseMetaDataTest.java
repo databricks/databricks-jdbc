@@ -8,7 +8,9 @@ import static org.mockito.Mockito.when;
 
 import com.databricks.jdbc.api.IDatabricksSession;
 import com.databricks.jdbc.api.internal.IDatabricksConnectionInternal;
+import com.databricks.jdbc.common.DatabricksJdbcConstants;
 import com.databricks.jdbc.dbclient.IDatabricksMetadataClient;
+import com.databricks.jdbc.exception.DatabricksSQLException;
 import java.sql.*;
 import java.util.Arrays;
 import java.util.List;
@@ -426,7 +428,7 @@ public class DatabricksDatabaseMetaDataTest {
   @Test
   public void getDefaultTransactionIsolation_returnsExpectedIsolationLevel() throws Exception {
     int defaultTransactionIsolation = metaData.getDefaultTransactionIsolation();
-    assertEquals(Connection.TRANSACTION_READ_COMMITTED, defaultTransactionIsolation);
+    assertEquals(Connection.TRANSACTION_READ_UNCOMMITTED, defaultTransactionIsolation);
   }
 
   @Test
@@ -999,13 +1001,17 @@ public class DatabricksDatabaseMetaDataTest {
   }
 
   @Test
+  public void testGetSearchStringEscape() throws SQLException {
+    String result = metaData.getSearchStringEscape();
+    assertEquals(DatabricksJdbcConstants.BACKWARD_SLASH, result);
+  }
+
+  @Test
   public void testUnsupportedOperations() {
     List<Callable<Object>> tasks =
         Arrays.asList(
             () -> metaData.supportsTransactionIsolationLevel(0),
-            () -> metaData.getSearchStringEscape(),
             () -> metaData.getProcedureColumns(null, null, null, null),
-            () -> metaData.getBestRowIdentifier(null, null, null, 0, false),
             () -> metaData.getVersionColumns(null, null, null),
             () -> metaData.getCrossReference(null, null, null, null, null, null),
             () -> metaData.getIndexInfo(null, null, null, false, false),
@@ -1017,7 +1023,6 @@ public class DatabricksDatabaseMetaDataTest {
             () -> metaData.getSuperTables(null, null, null),
             () -> metaData.getFunctionColumns(null, null, null, null),
             () -> metaData.getPseudoColumns(null, null, null, null),
-            () -> metaData.deletesAreDetected(ResultSet.TYPE_FORWARD_ONLY),
             () -> metaData.isWrapperFor(DatabricksDatabaseMetaData.class),
             () -> metaData.unwrap(DatabricksDatabaseMetaData.class));
 
@@ -1031,6 +1036,19 @@ public class DatabricksDatabaseMetaDataTest {
         fail("Unexpected exception type thrown: " + e);
       }
     }
+  }
+
+  @ParameterizedTest
+  @MethodSource("resultSetTypes")
+  public void testDeletesAreDetected(int resultSetType, String typeName) {
+    assertFalse(metaData.deletesAreDetected(resultSetType));
+  }
+
+  private static Stream<Arguments> resultSetTypes() {
+    return Stream.of(
+        Arguments.of(ResultSet.TYPE_FORWARD_ONLY, "TYPE_FORWARD_ONLY"),
+        Arguments.of(ResultSet.TYPE_SCROLL_INSENSITIVE, "TYPE_SCROLL_INSENSITIVE"),
+        Arguments.of(ResultSet.TYPE_SCROLL_SENSITIVE, "TYPE_SCROLL_SENSITIVE"));
   }
 
   @ParameterizedTest
@@ -1056,6 +1074,36 @@ public class DatabricksDatabaseMetaDataTest {
 
     // Result set is empty
     assertFalse(resultSet.next());
+  }
+
+  @ParameterizedTest
+  @MethodSource("provideGetBestRowIdentifierParameters")
+  public void testGetBestRowIdentifier(
+      String catalog,
+      String schema,
+      String table,
+      int scope,
+      boolean nullable,
+      String testDescription)
+      throws SQLException {
+    ResultSet resultSet = metaData.getBestRowIdentifier(catalog, schema, table, scope, nullable);
+    assertNotNull(resultSet);
+
+    assertEquals(8, resultSet.getMetaData().getColumnCount());
+    assertSame("SCOPE", resultSet.getMetaData().getColumnName(1));
+    assertSame("COLUMN_NAME", resultSet.getMetaData().getColumnName(2));
+    assertSame("DATA_TYPE", resultSet.getMetaData().getColumnName(3));
+    assertSame("TYPE_NAME", resultSet.getMetaData().getColumnName(4));
+
+    // Result set is empty
+    assertFalse(resultSet.next());
+  }
+
+  @Test
+  public void testGetBestRowIdentifier_throwsExceptionWhenInvalidScope() throws SQLException {
+    assertThrows(
+        DatabricksSQLException.class,
+        () -> metaData.getBestRowIdentifier(null, null, null, 3, false));
   }
 
   private static Stream<Arguments> provideAttributeParameters() {
@@ -1115,5 +1163,30 @@ public class DatabricksDatabaseMetaDataTest {
     assertEquals("APPLICATIONNAME", resultSet.getString(1));
     assertEquals(25, resultSet.getInt(2));
     assertNull(resultSet.getString(3));
+  }
+
+  private static Stream<Arguments> provideGetBestRowIdentifierParameters() {
+    return Stream.of(
+        // Test case 1: All nulls (should return empty result set)
+        Arguments.of(null, null, null, 0, false, "All parameters null"),
+
+        // Test case 2: Valid catalog, others null
+        Arguments.of("test_catalog", null, null, 0, false, "Only catalog specified"),
+
+        // Test case 3: Valid schema, others null
+        Arguments.of(null, "test_schema", null, 0, false, "Only schema specified"),
+
+        // Test case 4: Valid table, others null
+        Arguments.of(null, null, "test_table", 0, false, "Only table specified"),
+
+        // Test case 5: Valid scope, others null
+        Arguments.of(null, null, null, 1, false, "Only scope specified"),
+
+        // Test case 6: Valid nullable, others null
+        Arguments.of(null, null, null, 0, true, "Only nullable specified"),
+
+        // Test case 7: All parameters specified
+        Arguments.of(
+            "test_catalog", "test_schema", "test_table", 1, true, "All parameters specified"));
   }
 }

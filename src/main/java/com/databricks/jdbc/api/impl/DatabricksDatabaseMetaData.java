@@ -263,8 +263,7 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
   @Override
   public String getSearchStringEscape() throws SQLException {
     LOGGER.debug("public String getSearchStringEscape()");
-    throw new UnsupportedOperationException(
-        "Not implemented in DatabricksDatabaseMetaData - getSearchStringEscape()");
+    return DatabricksJdbcConstants.BACKWARD_SLASH;
   }
 
   @Override
@@ -825,7 +824,7 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
   public int getDefaultTransactionIsolation() throws SQLException {
     LOGGER.debug("public int getDefaultTransactionIsolation()");
     throwExceptionIfConnectionIsClosed();
-    return Connection.TRANSACTION_READ_COMMITTED;
+    return Connection.TRANSACTION_READ_UNCOMMITTED;
   }
 
   @Override
@@ -1028,8 +1027,15 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
         String.format(
             "public ResultSet getBestRowIdentifier(String catalog = {%s}, String schema = {%s}, String table = {%s}, int scope = {%s}, boolean nullable = {%s})",
             catalog, schema, table, scope, nullable));
-    throw new UnsupportedOperationException(
-        "Not implemented in DatabricksDatabaseMetaData - getBestRowIdentifier(String catalog, String schema, String table, int scope, boolean nullable)");
+    switch (scope) {
+      case 0:
+      case 1:
+      case 2:
+        return MetadataResultSetBuilder.getBestRowIdentifierEmptyResultSet();
+      default:
+        throw new DatabricksSQLException(
+            "Unknown scope value: " + scope, DatabricksDriverErrorCode.UNSUPPORTED_OPERATION);
+    }
   }
 
   @Override
@@ -1175,11 +1181,21 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
     return false;
   }
 
+  /**
+   * {@inheritDoc}
+   *
+   * <p>Databricks driver result set is of type {@link ResultSet#TYPE_FORWARD_ONLY} where deletes by
+   * other database operations are not detected.
+   *
+   * @param type the <code>ResultSet</code> type; one of <code>ResultSet.TYPE_FORWARD_ONLY</code>,
+   *     <code>ResultSet.TYPE_SCROLL_INSENSITIVE</code>, or <code>ResultSet.TYPE_SCROLL_SENSITIVE
+   *     </code>
+   * @return The method returns false irrespective of the <code>type</code> parameter.
+   */
   @Override
-  public boolean deletesAreDetected(int type) throws SQLException {
+  public boolean deletesAreDetected(int type) {
     LOGGER.debug(String.format("public boolean deletesAreDetected(int type = {%s})", type));
-    throw new UnsupportedOperationException(
-        "Not implemented in DatabricksDatabaseMetaData - deletesAreDetected(int type)");
+    return false;
   }
 
   @Override
