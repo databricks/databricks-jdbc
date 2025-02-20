@@ -224,8 +224,7 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
   @Override
   public boolean getMoreResults() throws SQLException {
     LOGGER.debug("public boolean getMoreResults()");
-    throw new DatabricksSQLFeatureNotSupportedException(
-        "Not implemented in DatabricksStatement - getMoreResults()");
+    return false;
   }
 
   @Override
