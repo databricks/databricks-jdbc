@@ -470,7 +470,7 @@ public class DatabricksConnection implements IDatabricksConnection, IDatabricksC
    */
   @Override
   public Properties getClientInfo() throws SQLException {
-    LOGGER.debug("getClientInfo()");
+    LOGGER.debug("public Properties getClientInfo()");
 
     Properties properties = new Properties();
 
