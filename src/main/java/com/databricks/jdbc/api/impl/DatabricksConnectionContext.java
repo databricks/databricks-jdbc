@@ -397,12 +397,12 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
 
   @Override
   public String getCatalog() {
-    return getParameter(DatabricksJdbcUrlParams.CONN_CATALOG);
+    return getParameter(DatabricksJdbcUrlParams.CONN_CATALOG, "main");
   }
 
   @Override
   public String getSchema() {
-    return getParameter(DatabricksJdbcUrlParams.CONN_SCHEMA, schema);
+    return getParameter(DatabricksJdbcUrlParams.CONN_SCHEMA, schema == null ? "default" : schema);
   }
 
   @Override

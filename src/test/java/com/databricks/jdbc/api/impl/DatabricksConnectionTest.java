@@ -18,6 +18,7 @@ import com.databricks.jdbc.dbclient.impl.sqlexec.DatabricksSdkClient;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.exception.DatabricksSQLFeatureNotImplementedException;
 import com.databricks.jdbc.exception.DatabricksSQLFeatureNotSupportedException;
+import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import java.sql.*;
 import java.util.*;
 import java.util.concurrent.ExecutorService;
@@ -119,6 +120,44 @@ public class DatabricksConnectionTest {
   }
 
   @Test
+  public void testGetAndSetSchemaAndCatalog_invalidSchemaAndCatalog_throwsException()
+      throws SQLException {
+    when(databricksClient.createSession(
+            new Warehouse(WAREHOUSE_ID), CATALOG, SCHEMA, new HashMap<>()))
+        .thenReturn(IMMUTABLE_SESSION_INFO);
+    connection = new DatabricksConnection(connectionContext, databricksClient);
+    connection.open();
+    when(databricksClient.executeStatement(
+            eq("SET CATALOG invalid catalog"),
+            eq(new Warehouse(WAREHOUSE_ID)),
+            eq(new HashMap<>()),
+            eq(StatementType.SQL),
+            any(),
+            any()))
+        .thenThrow(
+            new DatabricksSQLException(
+                "[PARSE_SYNTAX_ERROR] Syntax error at or near 'schema'",
+                DatabricksDriverErrorCode.EXECUTE_STATEMENT_FAILED));
+    when(databricksClient.executeStatement(
+            eq("USE SCHEMA invalid schema"),
+            eq(new Warehouse(WAREHOUSE_ID)),
+            eq(new HashMap<>()),
+            eq(StatementType.SQL),
+            any(),
+            any()))
+        .thenThrow(
+            new DatabricksSQLException(
+                "[INVALID_SET_SYNTAX] Expected format is 'SET', 'SET key', or 'SET key=value'.",
+                DatabricksDriverErrorCode.EXECUTE_STATEMENT_FAILED));
+    assertEquals(connection.getCatalog(), CATALOG);
+    assertThrows(DatabricksSQLException.class, () -> connection.setCatalog("invalid catalog"));
+    assertEquals(connection.getCatalog(), CATALOG);
+    assertEquals(connection.getSchema(), SCHEMA);
+    assertThrows(DatabricksSQLException.class, () -> connection.setSchema("invalid schema"));
+    assertEquals(connection.getSchema(), SCHEMA);
+  }
+
+  @Test
   public void testCatalogSettingInConnection() throws SQLException {
     when(databricksClient.createSession(
             new Warehouse(WAREHOUSE_ID), CATALOG, SCHEMA, new HashMap<>()))
@@ -149,7 +188,7 @@ public class DatabricksConnectionTest {
         SESSION_CONFIGS.entrySet().stream()
             .collect(Collectors.toMap(e -> e.getKey().toLowerCase(), Map.Entry::getValue));
     when(databricksClient.createSession(
-            new Warehouse(WAREHOUSE_ID), null, "default", lowercaseSessionConfigs))
+            new Warehouse(WAREHOUSE_ID), "main", "default", lowercaseSessionConfigs))
         .thenReturn(IMMUTABLE_SESSION_INFO);
     IDatabricksConnectionContext connectionContext =
         DatabricksConnectionContext.parse(SESSION_CONF_JDBC_URL, new Properties());
@@ -222,7 +261,7 @@ public class DatabricksConnectionTest {
         DatabricksConnectionContext.parse(JDBC_URL, new Properties());
     ImmutableSessionInfo session =
         ImmutableSessionInfo.builder().computeResource(warehouse).sessionId(SESSION_ID).build();
-    when(databricksClient.createSession(warehouse, null, "default", new HashMap<>()))
+    when(databricksClient.createSession(warehouse, "main", "default", new HashMap<>()))
         .thenReturn(session);
     DatabricksConnection connection =
         Mockito.spy(new DatabricksConnection(connectionContext, databricksClient));
