@@ -1,6 +1,7 @@
 package com.databricks.jdbc.api.impl;
 
 import static com.databricks.jdbc.common.DatabricksJdbcConstants.ALLOWED_SESSION_CONF_TO_DEFAULT_VALUES_MAP;
+import static com.databricks.jdbc.common.DatabricksJdbcConstants.REDACTED_TOKEN;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -213,6 +214,8 @@ public class DatabricksConnectionTest {
     properties.put("ENABLE_PHOTON", "TRUE");
     properties.put("TIMEZONE", "UTC");
     properties.put("use_cached_result", "false");
+    properties.put("StagingAllowedLocalPaths", "/tmp");
+    properties.put("Auth_AccessToken", "token");
     IDatabricksConnectionContext connectionContext =
         DatabricksConnectionContext.parse(JDBC_URL, new Properties());
     ImmutableSessionInfo session =
@@ -230,20 +233,27 @@ public class DatabricksConnectionTest {
 
     connection.setClientInfo(properties);
     Properties clientInfoProperties = connection.getClientInfo();
+    System.out.println("client info properties: " + clientInfoProperties);
     assertEquals(
         clientInfoProperties.size(),
-        ALLOWED_SESSION_CONF_TO_DEFAULT_VALUES_MAP
-            .size()); // no duplicate values because of case check.
+        ALLOWED_SESSION_CONF_TO_DEFAULT_VALUES_MAP.size()
+            + 2); // no duplicate values. +2 for client confs
     // Check valid session confs are set
     assertEquals(connection.getClientInfo("ENABLE_PHOTON"), "TRUE");
-    assertEquals(connection.getClientInfo("TIMEZONE"), "UTC");
-    assertEquals(clientInfoProperties.get("ENABLE_PHOTON"), "TRUE");
-    assertEquals(clientInfoProperties.get("TIMEZONE"), "UTC");
+    assertEquals(connection.getClientInfo("timezone"), "UTC");
+    assertEquals(clientInfoProperties.get("enable_photon"), "TRUE");
+    assertEquals(clientInfoProperties.get("timezone"), "UTC");
     // Check conf not supplied returns default value
     assertEquals(connection.getClientInfo("MAX_FILE_PARTITION_BYTES"), "128m");
-    assertEquals(clientInfoProperties.get("MAX_FILE_PARTITION_BYTES"), "128m");
+    assertEquals(clientInfoProperties.get("max_file_partition_bytes"), "128m");
     assertEquals(clientInfoProperties.get("use_cached_result"), "false");
     assertNull(clientInfoProperties.get("USE_CACHED_RESULT"));
+
+    assertEquals(connection.getClientInfo("STAGINGALLOWEDLOCALPATHS"), "/tmp"); // case insensitive
+    assertEquals(clientInfoProperties.get("stagingallowedlocalpaths"), "/tmp");
+
+    assertEquals(connection.getClientInfo("Auth_ACCESSTOKEN"), REDACTED_TOKEN);
+    assertEquals(clientInfoProperties.get("auth_accesstoken"), REDACTED_TOKEN);
     // Checks for unknown conf
     assertThrows(
         SQLClientInfoException.class, () -> connection.setClientInfo("RANDOM_CONF", "UNLIMITED"));

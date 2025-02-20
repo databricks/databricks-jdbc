@@ -232,6 +232,13 @@ public class DatabricksSession implements IDatabricksSession {
   }
 
   @Override
+  public String getConfigValue(String name) {
+    LOGGER.debug(String.format("public String getConfigValue(String name = {%s})", name));
+    return sessionConfigs.getOrDefault(
+        name.toLowerCase(), clientInfoProperties.getOrDefault(name.toLowerCase(), null));
+  }
+
+  @Override
   public void setClientInfoProperty(String name, String value) {
     LOGGER.debug(
         String.format(

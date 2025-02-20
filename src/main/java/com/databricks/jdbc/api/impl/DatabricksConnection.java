@@ -1,5 +1,7 @@
 package com.databricks.jdbc.api.impl;
 
+import static com.databricks.jdbc.common.DatabricksJdbcConstants.ALLOWED_SESSION_CONF_TO_DEFAULT_VALUES_MAP;
+
 import com.databricks.jdbc.api.*;
 import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.api.IDatabricksSession;
@@ -386,7 +388,7 @@ public class DatabricksConnection implements IDatabricksConnection, IDatabricksC
 
   @Override
   public void setClientInfo(String name, String value) throws SQLClientInfoException {
-    if (DatabricksJdbcConstants.ALLOWED_SESSION_CONF_TO_DEFAULT_VALUES_MAP.keySet().stream()
+    if (ALLOWED_SESSION_CONF_TO_DEFAULT_VALUES_MAP.keySet().stream()
         .map(String::toLowerCase)
         .anyMatch(s -> s.equalsIgnoreCase(name))) {
       Map<String, ClientInfoStatus> failedProperties = new HashMap<>();
@@ -426,39 +428,26 @@ public class DatabricksConnection implements IDatabricksConnection, IDatabricksC
 
   @Override
   public String getClientInfo(String name) throws SQLException {
-    // Return session conf if set
-    if (this.session.getSessionConfigs().containsKey(name)) {
-      return this.session.getSessionConfigs().get(name);
-    } else if (this.session.getClientInfoProperties().containsKey(name.toLowerCase())) {
-      return this.session.getClientInfoProperties().get(name.toLowerCase());
+    // Return session/client conf if set
+    String value = session.getConfigValue(name);
+    if (value != null) {
+      return value;
     }
-
-    // Else return default value or null if the conf name is invalid
-    return DatabricksJdbcConstants.ALLOWED_SESSION_CONF_TO_DEFAULT_VALUES_MAP.getOrDefault(
-        name, null);
+    return ALLOWED_SESSION_CONF_TO_DEFAULT_VALUES_MAP.getOrDefault(name.toUpperCase(), null);
   }
 
   @Override
   public Properties getClientInfo() throws SQLException {
-    LOGGER.debug("public Properties getClientInfo()");
+    LOGGER.debug("getClientInfo()");
+
     Properties properties = new Properties();
 
-    // Add session configs and client info properties
-    properties.putAll(this.session.getSessionConfigs());
-    properties.putAll(this.session.getClientInfoProperties());
+    // add default session configs
+    ALLOWED_SESSION_CONF_TO_DEFAULT_VALUES_MAP.forEach(
+        (key, value) -> properties.setProperty(key.toLowerCase(), value));
 
-    // Convert existing keys to a case-insensitive set
-    Set<String> existingKeys =
-        properties.stringPropertyNames().stream()
-            .map(String::toLowerCase)
-            .collect(Collectors.toSet());
-
-    for (Map.Entry<String, String> entry :
-        DatabricksJdbcConstants.ALLOWED_SESSION_CONF_TO_DEFAULT_VALUES_MAP.entrySet()) {
-      if (!existingKeys.contains(entry.getKey().toLowerCase())) {
-        properties.setProperty(entry.getKey(), entry.getValue());
-      }
-    }
+    properties.putAll(session.getSessionConfigs());
+    properties.putAll(session.getClientInfoProperties());
 
     return properties;
   }
@@ -591,7 +580,7 @@ public class DatabricksConnection implements IDatabricksConnection, IDatabricksC
       String key, String value, Map<String, ClientInfoStatus> failedProperties) {
     try {
       this.createStatement().execute(String.format("SET %s = %s", key, value));
-      this.session.setSessionConfig(key, value);
+      this.session.setSessionConfig(key.toLowerCase(), value);
     } catch (SQLException e) {
       ClientInfoStatus status = determineClientInfoStatus(key, value, e);
       failedProperties.put(key, status);
