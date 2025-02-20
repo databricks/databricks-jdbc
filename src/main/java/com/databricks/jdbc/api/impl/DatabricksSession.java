@@ -247,7 +247,7 @@ public class DatabricksSession implements IDatabricksSession {
     if (name.equalsIgnoreCase(DatabricksJdbcUrlParams.AUTH_ACCESS_TOKEN.getParamName())) {
       // refresh the access token if provided a new value in client info
       this.databricksClient.resetAccessToken(value);
-      value = REDACTED_TOKEN;
+      value = REDACTED_TOKEN; // mask access token
     }
     clientInfoProperties.put(name, value);
   }

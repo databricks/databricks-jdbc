@@ -428,7 +428,11 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
         .filter(parameters::containsKey)
         .collect(
             Collectors.toMap(
-                key -> key, key -> isAccessToken(key) ? REDACTED_TOKEN : parameters.get(key)));
+                key -> key,
+                key ->
+                    isAccessToken(key)
+                        ? REDACTED_TOKEN
+                        : parameters.get(key))); // mask access token
   }
 
   private boolean isAccessToken(String key) {

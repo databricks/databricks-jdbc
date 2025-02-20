@@ -386,6 +386,14 @@ public class DatabricksConnection implements IDatabricksConnection, IDatabricksC
     return !isClosed();
   }
 
+  /**
+   * Sets a client info property/session config
+   *
+   * @param name The name of the property to set
+   * @param value The value to set
+   * @throws SQLClientInfoException If the property cannot be set due to validation errors or if the
+   *     property name is not recognized
+   */
   @Override
   public void setClientInfo(String name, String value) throws SQLClientInfoException {
     if (ALLOWED_SESSION_CONF_TO_DEFAULT_VALUES_MAP.keySet().stream()
@@ -403,7 +411,8 @@ public class DatabricksConnection implements IDatabricksConnection, IDatabricksC
       if (DatabricksJdbcConstants.ALLOWED_CLIENT_INFO_PROPERTIES.stream()
           .map(String::toLowerCase)
           .anyMatch(s -> s.equalsIgnoreCase(name))) {
-        this.session.setClientInfoProperty(name.toLowerCase(), value);
+        this.session.setClientInfoProperty(
+            name.toLowerCase(), value); // insert properties in lower case
       } else {
         String errorMessage =
             String.format(
@@ -418,6 +427,12 @@ public class DatabricksConnection implements IDatabricksConnection, IDatabricksC
     }
   }
 
+  /**
+   * Sets multiple client info properties from the provided Properties object.
+   *
+   * @param properties The properties containing client info to set
+   * @throws SQLClientInfoException If any property cannot be set
+   */
   @Override
   public void setClientInfo(Properties properties) throws SQLClientInfoException {
     LOGGER.debug("public void setClientInfo(Properties properties)");
@@ -426,6 +441,13 @@ public class DatabricksConnection implements IDatabricksConnection, IDatabricksC
     }
   }
 
+  /**
+   * Retrieves the value of the specified client info property. case-insensitive
+   *
+   * @param name The name of the client info property to retrieve
+   * @return The value of the specified client info property, or null if not found
+   * @throws SQLException If a database access error occurs
+   */
   @Override
   public String getClientInfo(String name) throws SQLException {
     // Return session/client conf if set
@@ -433,9 +455,19 @@ public class DatabricksConnection implements IDatabricksConnection, IDatabricksC
     if (value != null) {
       return value;
     }
-    return ALLOWED_SESSION_CONF_TO_DEFAULT_VALUES_MAP.getOrDefault(name.toUpperCase(), null);
+    return ALLOWED_SESSION_CONF_TO_DEFAULT_VALUES_MAP.getOrDefault(
+        name.toUpperCase(), null); // Conf Map stores keys in upper case
   }
 
+  /**
+   * Retrieves all client and session properties as a Properties object. Keys are in lower case.
+   *
+   * <p>The returned Properties object contains default session configurations, user-defined session
+   * configurations, and client info properties.
+   *
+   * @return A Properties object containing all client info properties
+   * @throws SQLException If a database access error occurs
+   */
   @Override
   public Properties getClientInfo() throws SQLException {
     LOGGER.debug("getClientInfo()");
@@ -446,7 +478,9 @@ public class DatabricksConnection implements IDatabricksConnection, IDatabricksC
     ALLOWED_SESSION_CONF_TO_DEFAULT_VALUES_MAP.forEach(
         (key, value) -> properties.setProperty(key.toLowerCase(), value));
 
+    // update session configs if set by user
     properties.putAll(session.getSessionConfigs());
+    // add client info properties
     properties.putAll(session.getClientInfoProperties());
 
     return properties;
@@ -580,7 +614,7 @@ public class DatabricksConnection implements IDatabricksConnection, IDatabricksC
       String key, String value, Map<String, ClientInfoStatus> failedProperties) {
     try {
       this.createStatement().execute(String.format("SET %s = %s", key, value));
-      this.session.setSessionConfig(key.toLowerCase(), value);
+      this.session.setSessionConfig(key.toLowerCase(), value); // insert properties in lower case
     } catch (SQLException e) {
       ClientInfoStatus status = determineClientInfoStatus(key, value, e);
       failedProperties.put(key, status);
