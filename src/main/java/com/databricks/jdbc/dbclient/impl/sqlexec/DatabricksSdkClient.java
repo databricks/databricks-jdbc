@@ -3,6 +3,7 @@ package com.databricks.jdbc.dbclient.impl.sqlexec;
 import static com.databricks.jdbc.common.DatabricksJdbcConstants.JSON_HTTP_HEADERS;
 import static com.databricks.jdbc.common.DatabricksJdbcConstants.TEMPORARY_REDIRECT_STATUS_CODE;
 import static com.databricks.jdbc.common.EnvironmentVariables.DEFAULT_ROW_LIMIT;
+import static com.databricks.jdbc.common.util.DatabricksTypeUtil.BINARY;
 import static com.databricks.jdbc.dbclient.impl.sqlexec.PathConstants.*;
 import static com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode.TEMPORARY_REDIRECT_EXCEPTION;
 
@@ -411,7 +412,10 @@ public class DatabricksSdkClient implements IDatabricksClient {
   private StatementParameterListItem mapToParameterListItem(ImmutableSqlParameter parameter) {
     return new PositionalStatementParameterListItem()
         .setOrdinal(parameter.cardinal())
-        .setType(parameter.type().name())
+        .setType(
+            parameter.type().name().equals(BINARY)
+                ? ColumnInfoTypeName.STRING.name()
+                : parameter.type().name())
         .setValue(parameter.value() != null ? parameter.value().toString() : null);
   }
 
