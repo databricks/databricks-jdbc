@@ -82,6 +82,12 @@ public class DatabricksDriverExamples {
     }
     System.out.println();
 
+    // Print column precision
+    for (int i = 1; i <= columnsNumber; i++) {
+      System.out.print(rsmd.isNullable(i) + "\t\t\t");
+    }
+    System.out.println();
+
     // Print row data
     while (resultSet.next()) {
       for (int i = 1; i <= columnsNumber; i++) {
