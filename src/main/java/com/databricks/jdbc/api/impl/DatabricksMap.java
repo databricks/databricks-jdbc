@@ -223,19 +223,16 @@ public class DatabricksMap<K, V> implements Map<K, V> {
       } else {
         first = false;
       }
-      sb.append(formatForJson(entry.getKey()))
-              .append(":")
-              .append(formatForJson(entry.getValue()));
+      sb.append(formatForJson(entry.getKey())).append(":").append(formatForJson(entry.getValue()));
     }
     sb.append("}");
     return sb.toString();
   }
 
   /**
-   * Returns a String suitable for JSON-like output.
-   * - If obj is a String, encloses it in double-quotes.
-   * - Otherwise, uses obj.toString() without quotes.
-   * - If obj is null, returns "null".
+   * Returns a String suitable for JSON-like output. - If obj is a String, encloses it in
+   * double-quotes. - Otherwise, uses obj.toString() without quotes. - If obj is null, returns
+   * "null".
    */
   private String formatForJson(Object obj) {
     if (obj == null) {

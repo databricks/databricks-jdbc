@@ -4,7 +4,6 @@ import com.databricks.jdbc.common.util.DatabricksTypeUtil;
 import java.math.BigDecimal;
 import java.sql.*;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 
@@ -171,9 +170,7 @@ public class DatabricksStruct implements Struct {
     return this.getAttributes();
   }
 
-  /**
-   * Returns a JSON-like string with field names.
-   */
+  /** Returns a JSON-like string with field names. */
   @Override
   public String toString() {
     StringBuilder sb = new StringBuilder("{");
