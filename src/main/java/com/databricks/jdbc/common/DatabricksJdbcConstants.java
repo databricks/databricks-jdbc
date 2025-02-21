@@ -72,14 +72,14 @@ public final class DatabricksJdbcConstants {
       // This map comes from
       // https://docs.databricks.com/en/sql/language-manual/sql-ref-parameters.html
       Map.of(
-          "ANSI_MODE", "TRUE",
-          "ENABLE_PHOTON", "TRUE",
-          "LEGACY_TIME_PARSER_POLICY", "EXCEPTION",
+          "ANSI_MODE", "true",
+          "ENABLE_PHOTON", "true",
+          "LEGACY_TIME_PARSER_POLICY", "Exception",
           "MAX_FILE_PARTITION_BYTES", "128m",
-          "READ_ONLY_EXTERNAL_METASTORE", "FALSE",
-          "STATEMENT_TIMEOUT", "172800",
+          "READ_ONLY_EXTERNAL_METASTORE", "false",
+          "STATEMENT_TIMEOUT", "0",
           "TIMEZONE", "UTC",
-          "USE_CACHED_RESULT", "TRUE");
+          "USE_CACHED_RESULT", "true");
   public static final Set<String> ALLOWED_CLIENT_INFO_PROPERTIES =
       Set.of(
           ALLOWED_VOLUME_INGESTION_PATHS,
@@ -99,6 +99,7 @@ public final class DatabricksJdbcConstants {
   public static final String GCP_GOOGLE_ID_AUTH_TYPE = "google-id";
   public static final String DEFAULT_HTTP_EXCEPTION_SQLSTATE = "08000";
   public static final int TEMPORARY_REDIRECT_STATUS_CODE = 307;
+  public static final String REDACTED_TOKEN = "****";
 
   /** Enum for the services that can be replaced with a fake service in integration tests. */
   @VisibleForTesting

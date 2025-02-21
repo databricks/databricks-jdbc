@@ -416,6 +416,24 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   }
 
   @Override
+  public Map<String, String> getClientInfoProperties() {
+    return ALLOWED_CLIENT_INFO_PROPERTIES.stream()
+        .map(String::toLowerCase)
+        .filter(parameters::containsKey)
+        .collect(
+            Collectors.toMap(
+                key -> key,
+                key ->
+                    isAccessToken(key)
+                        ? REDACTED_TOKEN
+                        : parameters.get(key))); // mask access token
+  }
+
+  private boolean isAccessToken(String key) {
+    return key.equalsIgnoreCase(DatabricksJdbcUrlParams.AUTH_ACCESS_TOKEN.getParamName());
+  }
+
+  @Override
   public boolean isAllPurposeCluster() {
     return this.computeResource instanceof AllPurposeCluster;
   }
