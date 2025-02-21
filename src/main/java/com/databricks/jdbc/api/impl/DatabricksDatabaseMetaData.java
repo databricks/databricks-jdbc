@@ -1339,7 +1339,10 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
     throwExceptionIfConnectionIsClosed();
 
     return MetadataResultSetBuilder.getResultSetWithGivenRowsAndColumns(
-        SUPER_TABLES_COLUMNS, new ArrayList<>(), METADATA_STATEMENT_ID, CommandName.GET_SUPER_TABLES);
+        SUPER_TABLES_COLUMNS,
+        new ArrayList<>(),
+        METADATA_STATEMENT_ID,
+        CommandName.GET_SUPER_TABLES);
   }
 
   @Override

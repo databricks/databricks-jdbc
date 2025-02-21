@@ -405,7 +405,8 @@ public class MetadataResultConstants {
           PAGES,
           FILTER_CONDITION);
 
-  public static final List<ResultColumn> SUPER_TABLES_COLUMNS = List.of(CATALOG_COLUMN, SCHEMA_COLUMN, TABLE_NAME_COLUMN, SUPERTABLE_NAME);
+  public static final List<ResultColumn> SUPER_TABLES_COLUMNS =
+      List.of(CATALOG_COLUMN, SCHEMA_COLUMN, TABLE_NAME_COLUMN, SUPERTABLE_NAME);
 
   public static final Map<CommandName, List<ResultColumn>> NON_NULLABLE_COLUMNS_MAP =
       new HashMap<>() {

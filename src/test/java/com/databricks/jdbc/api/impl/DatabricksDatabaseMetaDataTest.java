@@ -1321,7 +1321,9 @@ public class DatabricksDatabaseMetaDataTest {
 
   @ParameterizedTest
   @MethodSource("provideCatalogSchemaTableParameters")
-  public void testGetSuperTables(String catalog, String schemaPattern, String tableNamePattern, String testDesc) throws SQLException {
+  public void testGetSuperTables(
+      String catalog, String schemaPattern, String tableNamePattern, String testDesc)
+      throws SQLException {
     ResultSet resultSet = metaData.getSuperTables(catalog, schemaPattern, tableNamePattern);
     assertNotNull(resultSet);
 
