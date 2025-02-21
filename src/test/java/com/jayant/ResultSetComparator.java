@@ -23,8 +23,18 @@ public class ResultSetComparator {
       // Compare data
       result.dataDifferences = compareData(rs1, rs2);
     } else if (!(result1 instanceof ResultSet) && !(result2 instanceof ResultSet)) {
+      // Both are not of type ResultSet
       if (result1 == null || !result1.equals(result2)) {
-        result.dataDifferences.add(result1 + " vs " + result2);
+        if (result1 instanceof Throwable && result2 instanceof Throwable) {
+          // When both are exceptions, first must be a super of the second
+          // This is ok as new driver is throwing a subclass exception of the existing driver's
+          // exception
+          if (!result1.getClass().isAssignableFrom(result2.getClass())) {
+            result.dataDifferences.add(result1 + " vs " + result2);
+          }
+        } else {
+          result.dataDifferences.add(result1 + " vs " + result2);
+        }
       }
     } else {
       // when we see different classes of results, it would generally mean that one result is an

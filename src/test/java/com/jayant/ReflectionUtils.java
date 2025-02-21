@@ -85,7 +85,7 @@ public class ReflectionUtils {
       try {
         result = method.invoke(object, args);
       } catch (InvocationTargetException e) {
-        result = e.getCause() + " " + e.getCause().getMessage();
+        result = e.getCause();
       }
     } catch (NoSuchMethodException e) {
       // This is generally thrown due to the difference in JDBC spec versions
