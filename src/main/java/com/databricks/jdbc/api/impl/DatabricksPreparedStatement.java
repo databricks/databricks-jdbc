@@ -232,12 +232,13 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
     LOGGER.debug("public void setObject(int parameterIndex, Object x, int targetSqlType)");
     checkIfClosed();
     String databricksType = getDatabricksTypeFromSQLType(targetSqlType);
-    if (databricksType != null) {
+    if (!Objects.equals(databricksType, NULL)) {
       setObject(parameterIndex, x, databricksType);
       return;
     }
-    throw new DatabricksSQLFeatureNotImplementedException(
-        "Not implemented in DatabricksPreparedStatement - setObject(int parameterIndex, Object x, int targetSqlType)");
+    throw new DatabricksSQLFeatureNotSupportedException(
+        "setObject(int parameterIndex, Object x, int targetSqlType) Not supported SQL type: "
+            + targetSqlType);
   }
 
   @Override
@@ -249,8 +250,8 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
       setObject(parameterIndex, x, type);
       return;
     }
-    throw new UnsupportedOperationException(
-        "Not implemented in DatabricksPreparedStatement - setObject(int parameterIndex, Object x)");
+    throw new DatabricksSQLFeatureNotSupportedException(
+        "setObject(int parameterIndex, Object x) Not supported object type: " + x.getClass());
   }
 
   @Override
@@ -454,20 +455,24 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
     }
 
     String databricksType = getDatabricksTypeFromSQLType(targetSqlType);
-    if (databricksType == null) {
+    if (Objects.equals(databricksType, NULL)) {
       throw new DatabricksSQLFeatureNotSupportedException(
           "setObject(int parameterIndex, Object x, int targetSqlType, int scaleOrLength) Not supported SQL type: "
               + targetSqlType);
     }
 
     if (targetSqlType == Types.DECIMAL || targetSqlType == Types.NUMERIC) {
+      BigDecimal bd;
       if (x instanceof BigDecimal) {
-        BigDecimal bd = (BigDecimal) x;
-        bd = bd.setScale(scaleOrLength, RoundingMode.HALF_UP);
-        setObject(parameterIndex, bd, databricksType);
+        bd = (BigDecimal) x;
+      } else if (x instanceof Number) {
+        // Convert Number to BigDecimal. Using valueOf preserves the value for double inputs.
+        bd = BigDecimal.valueOf(((Number) x).doubleValue());
       } else {
         throw new SQLException("Invalid object type for DECIMAL/NUMERIC");
       }
+      bd = bd.setScale(scaleOrLength, RoundingMode.HALF_UP);
+      setObject(parameterIndex, bd, databricksType);
     } else {
       setObject(parameterIndex, x, databricksType);
     }

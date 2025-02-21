@@ -309,6 +309,36 @@ public class DatabricksPreparedStatementTest {
   }
 
   @Test
+  public void testSetObject() throws SQLException {
+    setupMocks();
+
+    // setObject(int parameterIndex, Object x, int targetSqlType)
+    // setObject(int parameterIndex, Object x)
+    // setObject(int parameterIndex, Object x, int targetSqlType, int scaleOrLength)
+
+    DatabricksPreparedStatement preparedStatement =
+        new DatabricksPreparedStatement(connection, STATEMENT);
+
+    assertDoesNotThrow(() -> preparedStatement.setObject(1, 1, Types.INTEGER));
+    assertEquals(Types.INTEGER, preparedStatement.getParameterMetaData().getParameterType(1));
+    assertThrows(
+        DatabricksSQLFeatureNotSupportedException.class,
+        () -> preparedStatement.setObject(1, 1, Types.ROWID)); // Unsupported type
+
+    assertDoesNotThrow(() -> preparedStatement.setObject(1, "1"));
+    assertEquals(Types.VARCHAR, preparedStatement.getParameterMetaData().getParameterType(1));
+
+    assertThrows(
+        DatabricksSQLFeatureNotSupportedException.class,
+        () ->
+            preparedStatement.setObject(
+                1, new Time(System.currentTimeMillis()))); // Unsupported type
+
+    assertDoesNotThrow(() -> preparedStatement.setObject(1, 2.567, Types.DECIMAL, 2));
+    assertEquals(Types.DECIMAL, preparedStatement.getParameterMetaData().getParameterType(1));
+  }
+
+  @Test
   public void testSetDateWithCalendar() throws DatabricksSQLException {
     setupMocks();
     DatabricksPreparedStatement preparedStatement =
