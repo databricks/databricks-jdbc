@@ -75,7 +75,7 @@ public class ReflectionUtils {
         // Create an array of parameter types to match the method signature
         Class<?>[] paramTypes = new Class[args.length];
         for (int i = 0; i < args.length; i++) {
-          paramTypes[i] = args[i].getClass();
+          paramTypes[i] = args[i] == null ? String.class : args[i].getClass();
         }
 
         method = object.getClass().getMethod(methodName, paramTypes);
