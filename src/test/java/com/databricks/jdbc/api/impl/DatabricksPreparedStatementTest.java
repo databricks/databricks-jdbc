@@ -14,6 +14,7 @@ import com.databricks.jdbc.common.util.DatabricksTypeUtil;
 import com.databricks.jdbc.dbclient.impl.sqlexec.DatabricksSdkClient;
 import com.databricks.jdbc.dbclient.impl.thrift.DatabricksThriftServiceClient;
 import com.databricks.jdbc.exception.DatabricksSQLException;
+import com.databricks.jdbc.exception.DatabricksSQLFeatureNotSupportedException;
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
 import java.io.Reader;
@@ -484,7 +485,8 @@ public class DatabricksPreparedStatementTest {
     assertThrows(
         UnsupportedOperationException.class,
         () -> preparedStatement.setNClob(1, Reader.nullReader()));
-    assertThrows(UnsupportedOperationException.class, () -> preparedStatement.setTime(1, null));
+    assertThrows(
+        DatabricksSQLFeatureNotSupportedException.class, () -> preparedStatement.setTime(1, null));
     assertThrows(
         UnsupportedOperationException.class, () -> preparedStatement.setTime(1, null, null));
     assertThrows(

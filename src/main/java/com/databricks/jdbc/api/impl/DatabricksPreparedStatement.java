@@ -10,6 +10,7 @@ import com.databricks.jdbc.common.StatementType;
 import com.databricks.jdbc.common.util.DatabricksTypeUtil;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.exception.DatabricksSQLFeatureNotImplementedException;
+import com.databricks.jdbc.exception.DatabricksSQLFeatureNotSupportedException;
 import com.databricks.jdbc.exception.DatabricksValidationException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
@@ -19,6 +20,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.Reader;
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.net.URL;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
@@ -185,8 +187,7 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
   public void setTime(int parameterIndex, Time x) throws SQLException {
     LOGGER.debug("public void setTime(int parameterIndex, Time x)");
     checkIfClosed();
-    throw new UnsupportedOperationException(
-        "Not implemented in DatabricksPreparedStatement - setTime(int parameterIndex, Time x)");
+    throw new DatabricksSQLFeatureNotSupportedException("Unsupported data type TIME");
   }
 
   @Override
@@ -445,8 +446,31 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
       throws SQLException {
     LOGGER.debug(
         "public void setObject(int parameterIndex, Object x, int targetSqlType, int scaleOrLength)");
-    throw new UnsupportedOperationException(
-        "Not implemented in DatabricksPreparedStatement - setCharacterStream(int parameterIndex, Reader reader)");
+    checkIfClosed();
+
+    if (x == null) {
+      setObject(parameterIndex, null, targetSqlType);
+      return;
+    }
+
+    String databricksType = getDatabricksTypeFromSQLType(targetSqlType);
+    if (databricksType == null) {
+      throw new DatabricksSQLFeatureNotSupportedException(
+          "setObject(int parameterIndex, Object x, int targetSqlType, int scaleOrLength) Not supported SQL type: "
+              + targetSqlType);
+    }
+
+    if (targetSqlType == Types.DECIMAL || targetSqlType == Types.NUMERIC) {
+      if (x instanceof BigDecimal) {
+        BigDecimal bd = (BigDecimal) x;
+        bd = bd.setScale(scaleOrLength, RoundingMode.HALF_UP);
+        setObject(parameterIndex, bd, databricksType);
+      } else {
+        throw new SQLException("Invalid object type for DECIMAL/NUMERIC");
+      }
+    } else {
+      setObject(parameterIndex, x, databricksType);
+    }
   }
 
   @Override
