@@ -612,6 +612,30 @@ public class MetadataResultSetBuilder {
         CommandName.LIST_SCHEMAS);
   }
 
+  public static DatabricksResultSet getCrossRefsResult(List<List<Object>> rows) {
+    return buildResultSet(
+        CROSS_REFERENCE_COLUMNS,
+        getThriftRows(rows, CROSS_REFERENCE_COLUMNS),
+        METADATA_STATEMENT_ID,
+        CommandName.GET_CROSS_REFERENCE);
+  }
+
+  public static DatabricksResultSet getImportedKeys(List<List<Object>> rows) {
+    return buildResultSet(
+        IMPORTED_KEYS_COLUMNS,
+        getThriftRows(rows, IMPORTED_KEYS_COLUMNS),
+        METADATA_STATEMENT_ID,
+        CommandName.GET_IMPORTED_KEYS);
+  }
+
+  public static DatabricksResultSet getExportedKeys(List<List<Object>> rows) {
+    return buildResultSet(
+        EXPORTED_KEYS_COLUMNS,
+        getThriftRows(rows, EXPORTED_KEYS_COLUMNS),
+        METADATA_STATEMENT_ID,
+        CommandName.GET_EXPORTED_KEYS);
+  }
+
   public static DatabricksResultSet getResultSetWithGivenRowsAndColumns(
       List<ResultColumn> columns,
       List<List<Object>> rows,

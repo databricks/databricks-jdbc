@@ -294,6 +294,40 @@ public class MetadataResultConstants {
           PK_NAME,
           DEFERRABILITY);
 
+  public static List<ResultColumn> IMPORTED_KEYS_COLUMNS =
+      List.of(
+          PKTABLE_CAT,
+          PKTABLE_SCHEM,
+          PKTABLE_NAME,
+          PKCOLUMN_NAME,
+          FKTABLE_CAT,
+          FKTABLE_SCHEM,
+          FKTABLE_NAME,
+          FKCOLUMN_NAME,
+          KEY_SEQUENCE_COLUMN,
+          UPDATE_RULE,
+          DELETE_RULE,
+          FK_NAME,
+          PK_NAME,
+          DEFERRABILITY);
+
+  public static List<ResultColumn> EXPORTED_KEYS_COLUMNS =
+      List.of(
+          PKTABLE_CAT,
+          PKTABLE_SCHEM,
+          PKTABLE_NAME,
+          PKCOLUMN_NAME,
+          FKTABLE_CAT,
+          FKTABLE_SCHEM,
+          FKTABLE_NAME,
+          FKCOLUMN_NAME,
+          KEY_SEQUENCE_COLUMN,
+          UPDATE_RULE,
+          DELETE_RULE,
+          FK_NAME,
+          PK_NAME,
+          DEFERRABILITY);
+
   public static final Map<CommandName, List<ResultColumn>> NON_NULLABLE_COLUMNS_MAP =
       new HashMap<>() {
         {
