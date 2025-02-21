@@ -154,6 +154,15 @@ public class DatabaseMetaDataTestParams implements TestParams {
     // getSchemas with no args returns empty result set for SEA
     acceptedKnownDiffs.add(Map.entry("getSchemas", 0));
 
+    // don't compare classes
+    acceptedKnownDiffs.add(Map.entry("getConnection", 0));
+
+    // don't compare driver version
+    acceptedKnownDiffs.add(Map.entry("getDriverVersion", 0));
+
+    // URL passes is different
+    acceptedKnownDiffs.add(Map.entry("getURL", 0));
+
     // Methods that we do not need to test from the Super class
     acceptedKnownDiffs.add(Map.entry("unwrap", 1));
     acceptedKnownDiffs.add(Map.entry("isWrapperFor", 1));

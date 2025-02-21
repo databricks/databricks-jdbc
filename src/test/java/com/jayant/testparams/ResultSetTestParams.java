@@ -17,6 +17,10 @@ public class ResultSetTestParams implements TestParams {
     // Do not close result set
     set.add(Map.entry("close", 0));
 
+    // Don't compare classes
+    set.add(Map.entry("getStatement", 0));
+    set.add(Map.entry("getMetaData", 0));
+
     // Unsupported types in dbsql:
     // https://docs.databricks.com/aws/en/sql/language-manual/sql-ref-datatypes
     set.add(Map.entry("getURL", 1));
