@@ -24,14 +24,14 @@ public class ReflectionUtils {
         testParams.getFunctionToArgsMap();
     Set<Arguments> argumentsStream = new HashSet<>();
     Set<Method> methodsWhereArgsAreNotProvided = new HashSet<>();
-    Set<Map.Entry<String, Integer>> alreadyAdded = new HashSet<>();
+    Set<Map.Entry<String, Integer>> argumentsAdded = new HashSet<>();
     try {
       Method[] methods = clazz.getMethods();
       for (Method method : methods) {
         String methodName = method.getName();
         int parameterCount = method.getParameterCount();
         Map.Entry<String, Integer> methodWithArgs = Map.entry(methodName, parameterCount);
-        if (alreadyAdded.contains(methodWithArgs)) {
+        if (argumentsAdded.contains(methodWithArgs)) {
           continue;
         }
         if (acceptedKnownDiffs.contains(methodWithArgs)) {
@@ -46,7 +46,7 @@ public class ReflectionUtils {
           Arguments arguments = Arguments.of(methodName, params);
           argumentsStream.add(arguments);
         }
-        alreadyAdded.add(methodWithArgs);
+        argumentsAdded.add(methodWithArgs);
       }
     } catch (SecurityException e) {
       e.printStackTrace();

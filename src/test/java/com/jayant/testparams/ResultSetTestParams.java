@@ -128,6 +128,8 @@ public class ResultSetTestParams implements TestParams {
     putInMapForKey(functionToArgsMap, Map.entry("getDouble", 1), new Integer[] {9});
     putInMapForKey(functionToArgsMap, Map.entry("getBigDecimal", 1), new Integer[] {9});
     putInMapForKey(functionToArgsMap, Map.entry("getBigDecimal", 2), new Integer[] {9, 2});
+    putInMapForKey(functionToArgsMap, Map.entry("getBigDecimal", 1), new Integer[] {10});
+    putInMapForKey(functionToArgsMap, Map.entry("getBigDecimal", 2), new Integer[] {10, 2});
     putInMapForKey(functionToArgsMap, Map.entry("getDouble", 1), new Integer[] {10});
     putInMapForKey(functionToArgsMap, Map.entry("getDate", 1), new Integer[] {11});
     putInMapForKey(
@@ -160,6 +162,10 @@ public class ResultSetTestParams implements TestParams {
         functionToArgsMap, Map.entry("getBigDecimal", 1), new String[] {"double_column"});
     putInMapForKey(
         functionToArgsMap, Map.entry("getBigDecimal", 2), new Object[] {"double_column", 2});
+    putInMapForKey(
+        functionToArgsMap, Map.entry("getBigDecimal", 1), new String[] {"decimal_column"});
+    putInMapForKey(
+        functionToArgsMap, Map.entry("getBigDecimal", 2), new Object[] {"decimal_column", 2});
     putInMapForKey(functionToArgsMap, Map.entry("getDouble", 1), new String[] {"decimal_column"});
     putInMapForKey(functionToArgsMap, Map.entry("getDate", 1), new String[] {"date_column"});
     putInMapForKey(

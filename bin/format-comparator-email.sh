@@ -109,7 +109,7 @@ cat > jdbc-comparison-report.html << 'EOL'
         <div class="driver-info">
             In the comparison results below:
             <ul>
-                <li>Values before <span class="vs-highlight">vs</span> are from <code>Simba</code> driver</li>
+                <li>Values before <span class="vs-highlight">vs</span> are from <code>Old</code> driver</li>
                 <li>Values after <span class="vs-highlight">vs</span> are from <code>OSS</code> driver</li>
             </ul>
         </div>
