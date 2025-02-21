@@ -1,5 +1,7 @@
 package com.databricks.jdbc.api.impl;
 
+import static com.databricks.jdbc.common.DatabricksJdbcConstants.EMPTY_STRING;
+
 import com.databricks.jdbc.api.IDatabricksResultSet;
 import com.databricks.jdbc.api.IDatabricksSession;
 import com.databricks.jdbc.api.impl.converters.ConverterHelper;
@@ -22,6 +24,7 @@ import com.databricks.jdbc.model.core.ResultData;
 import com.databricks.jdbc.model.core.ResultManifest;
 import com.databricks.jdbc.model.core.StatementStatus;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
+import com.databricks.sdk.support.ToStringer;
 import com.google.common.annotations.VisibleForTesting;
 import java.io.InputStream;
 import java.io.Reader;
@@ -445,8 +448,7 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
   @Override
   public String getCursorName() throws SQLException {
     checkIfClosed();
-    throw new DatabricksSQLFeatureNotSupportedException(
-        "Not supported in DatabricksResultSet - getCursorName()");
+    return EMPTY_STRING;
   }
 
   @Override
@@ -575,8 +577,16 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
   @Override
   public boolean absolute(int row) throws SQLException {
     checkIfClosed();
-    throw new DatabricksSQLFeatureNotSupportedException(
-        "Databricks JDBC does not support random access (absolute)");
+    if (row < 1 || row < executionResult.getCurrentRow()) {
+      throw new DatabricksSQLFeatureNotSupportedException(
+          "Invalid operation for forward only ResultSets");
+    }
+    while (executionResult.getCurrentRow() < row - 1) {
+      if (!next()) {
+        return false;
+      }
+    }
+    return true;
   }
 
   @Override
@@ -1286,8 +1296,8 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
 
   @Override
   public int getHoldability() throws SQLException {
-    throw new DatabricksSQLFeatureNotSupportedException(
-        "Not implemented in DatabricksResultSet - getHoldability()");
+    checkIfClosed();
+    return ResultSet.CLOSE_CURSORS_AT_COMMIT;
   }
 
   @Override
@@ -1726,5 +1736,18 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
     int columnType = resultSetMetaData.getColumnType(columnIndex);
     ObjectConverter converter = ConverterHelper.getConverterForSqlType(columnType);
     return convertMethod.apply(converter, obj);
+  }
+
+  @Override
+  public String toString() {
+    return (new ToStringer(DatabricksResultSet.class))
+        .add("statementStatus", this.statementStatus)
+        .add("statementId", this.statementId)
+        .add("statementType", this.statementType)
+        .add("updateCount", this.updateCount)
+        .add("isClosed", this.isClosed)
+        .add("wasNull", this.wasNull)
+        .add("resultSetType", this.resultSetType)
+        .toString();
   }
 }

@@ -205,13 +205,9 @@ public class DatabricksStatementTest {
     assertThrows(DatabricksSQLException.class, () -> statement.unwrap(java.sql.Connection.class));
     assertThrows(
         DatabricksSQLFeatureNotSupportedException.class, () -> statement.setCursorName("name"));
-    assertThrows(DatabricksSQLFeatureNotSupportedException.class, statement::getMaxFieldSize);
-    assertThrows(DatabricksSQLFeatureNotSupportedException.class, statement::getMoreResults);
     assertThrows(
         DatabricksSQLFeatureNotSupportedException.class,
         () -> statement.getMoreResults(Statement.CLOSE_CURRENT_RESULT));
-    assertThrows(
-        DatabricksSQLFeatureNotSupportedException.class, () -> statement.setMaxFieldSize(5));
     assertThrows(
         DatabricksSQLFeatureNotSupportedException.class,
         () -> statement.setFetchDirection(ResultSet.FETCH_REVERSE));

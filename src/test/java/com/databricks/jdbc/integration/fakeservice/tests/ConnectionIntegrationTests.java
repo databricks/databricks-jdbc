@@ -61,8 +61,8 @@ public class ConnectionIntegrationTests extends AbstractFakeServiceIntegrationTe
     connProps.put(DatabricksJdbcUrlParams.USER.getParamName(), getDatabricksUser());
     connProps.put(DatabricksJdbcUrlParams.PASSWORD.getParamName(), password);
     connProps.put(
-        DatabricksJdbcUrlParams.CATALOG.getParamName(),
-        FakeServiceConfigLoader.getProperty(DatabricksJdbcUrlParams.CATALOG.getParamName()));
+        DatabricksJdbcUrlParams.CONN_CATALOG.getParamName(),
+        FakeServiceConfigLoader.getProperty(DatabricksJdbcUrlParams.CONN_CATALOG.getParamName()));
     connProps.put(
         DatabricksJdbcUrlParams.CONN_SCHEMA.getParamName(),
         FakeServiceConfigLoader.getProperty(DatabricksJdbcUrlParams.CONN_SCHEMA.getParamName()));
