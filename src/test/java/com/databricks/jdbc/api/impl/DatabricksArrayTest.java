@@ -763,4 +763,34 @@ public class DatabricksArrayTest {
     // Verify that the mock was called once with the correct metadata
     metadataParserMock.verify(() -> MetadataParser.parseArrayMetadata("ARRAY<STRING>"), times(1));
   }
+
+  @Test
+  public void testToString_WithStringElements_ShouldProduceJsonLikeString() throws SQLException {
+    // Arrange
+    String metadata = "ARRAY<STRING>";
+    // Mock the parser so DatabricksArray knows to treat elements as STRING
+    metadataParserMock
+        .when(() -> MetadataParser.parseArrayMetadata("ARRAY<STRING>"))
+        .thenReturn("STRING");
+
+    // Suppose the array is ["apple", "banana"]
+    List<Object> originalList = Arrays.asList("apple", "banana");
+
+    // Create the DatabricksArray
+    DatabricksArray databricksArray = new DatabricksArray(originalList, metadata);
+
+    // Act: call toString()
+    String actual = databricksArray.toString();
+
+    // Assert:
+    // Expect each string element in double-quotes, overall in bracket notation: ["apple","banana"]
+    String expected = "[\"apple\",\"banana\"]";
+    assertEquals(
+        expected,
+        actual,
+        "DatabricksArray.toString() should produce a JSON-like array with quoted string elements");
+
+    // Verify that parseArrayMetadata was called once for this metadata
+    metadataParserMock.verify(() -> MetadataParser.parseArrayMetadata("ARRAY<STRING>"), times(1));
+  }
 }

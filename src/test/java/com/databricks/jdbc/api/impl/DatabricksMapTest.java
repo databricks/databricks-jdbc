@@ -792,4 +792,30 @@ public class DatabricksMapTest {
         "DatabricksMap should still contain 'key1' with 'value1'");
     assertFalse(databricksMap.containsKey("key2"), "DatabricksMap should not contain 'key2'");
   }
+
+  @Test
+  public void testMapToString_WithIntKeyAndStringValue_ShouldProduceJsonLikeString()
+      throws SQLException {
+    // Arrange
+    String metadata = "MAP<INT, STRING>";
+    // Mock MetadataParser to return "INT,STRING" for the map metadata
+    mockParseMapMetadata(metadata, "INT", "STRING");
+
+    // Use LinkedHashMap to maintain insertion order, so we can predict the toString() output
+    Map<Integer, String> originalMap = new LinkedHashMap<>();
+    originalMap.put(1, "one");
+    originalMap.put(2, "two");
+
+    // Act
+    DatabricksMap<Integer, String> databricksMap = new DatabricksMap<>(originalMap, metadata);
+    String result = databricksMap.toString();
+
+    // Assert
+    // The toString() output should be {1:"one",2:"two"}
+    String expected = "{1:\"one\",2:\"two\"}";
+    assertEquals(
+        expected,
+        result,
+        "toString() should produce JSON-like output with INT keys unquoted and STRING values quoted");
+  }
 }
