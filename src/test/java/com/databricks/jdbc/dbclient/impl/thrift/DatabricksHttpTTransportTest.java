@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 import com.databricks.jdbc.api.IDatabricksConnectionContext;
+import com.databricks.jdbc.common.DatabricksJdbcConstants;
 import com.databricks.jdbc.dbclient.impl.common.TracingUtil;
 import com.databricks.jdbc.dbclient.impl.http.DatabricksHttpClient;
 import com.databricks.jdbc.exception.DatabricksHttpException;
@@ -123,11 +124,19 @@ public class DatabricksHttpTTransportTest {
   }
 
   @Test
-  void testResetAccessToken() {
+  public void resetAccessToken_UpdatesConfigCorrectly() {
     DatabricksHttpTTransport transport =
         new DatabricksHttpTTransport(
             mockedHttpClient, testUrl, mockDatabricksConfig, mockConnectionContext);
+
+    when(mockDatabricksConfig.getHost()).thenReturn(testUrl);
+
     transport.resetAccessToken(NEW_ACCESS_TOKEN);
-    verify(mockDatabricksConfig).setToken(NEW_ACCESS_TOKEN);
+
+    assertEquals(NEW_ACCESS_TOKEN, transport.databricksConfig.getToken());
+    assertEquals(testUrl, transport.databricksConfig.getHost());
+    assertEquals(
+        DatabricksJdbcConstants.ACCESS_TOKEN_AUTH_TYPE, transport.databricksConfig.getAuthType());
+    assertNotNull(transport.databricksConfig.getHttpClient());
   }
 }
