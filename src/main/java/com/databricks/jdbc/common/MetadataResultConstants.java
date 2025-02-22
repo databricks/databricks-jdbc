@@ -273,7 +273,8 @@ public class MetadataResultConstants {
           IS_NULLABLE_COLUMN,
           SCOPE_CATALOG_COLUMN,
           SCOPE_SCHEMA_COLUMN,
-          SCOPE_TABLE_COLUMN);
+          SCOPE_TABLE_COLUMN,
+          COLUMN_USAGE);
 
   public static final List<ResultColumn> ATTRIBUTES_COLUMNS =
       List.of(
@@ -575,11 +576,7 @@ public class MetadataResultConstants {
                   COLUMN_TYPE,
                   DATA_TYPE_COLUMN,
                   TYPE_NAME_COLUMN,
-                  PRECISION_COLUMN,
-                  LENGTH,
-                  RADIX,
                   NULLABLE_SHORT,
-                  REMARKS_COLUMN,
                   ORDINAL_POSITION_COLUMN,
                   IS_NULLABLE_COLUMN,
                   SPECIFIC_NAME_COLUMN));
@@ -589,10 +586,7 @@ public class MetadataResultConstants {
                   TABLE_NAME_COLUMN,
                   COLUMN_NAME_COLUMN,
                   DATA_TYPE_COLUMN,
-                  COLUMN_SIZE_COLUMN,
-                  NUM_PREC_RADIX_COLUMN,
                   COLUMN_USAGE,
-                  CHAR_OCTET_LENGTH_COLUMN,
                   IS_NULLABLE_COLUMN));
           put(
               CommandName.GET_IMPORTED_KEYS,
@@ -602,8 +596,6 @@ public class MetadataResultConstants {
                   FKTABLE_NAME,
                   FKCOLUMN_NAME,
                   KEY_SEQUENCE_COLUMN,
-                  UPDATE_RULE,
-                  DELETE_RULE,
                   DEFERRABILITY));
           put(
               CommandName.GET_EXPORTED_KEYS,
@@ -613,8 +605,6 @@ public class MetadataResultConstants {
                   FKTABLE_NAME,
                   FKCOLUMN_NAME,
                   KEY_SEQUENCE_COLUMN,
-                  UPDATE_RULE,
-                  DELETE_RULE,
                   DEFERRABILITY));
         }
       };

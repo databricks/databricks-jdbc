@@ -1375,12 +1375,12 @@ public class DatabricksDatabaseMetaDataTest {
     assertEquals(0, resultSet.getMetaData().isNullable(5));
     assertEquals(0, resultSet.getMetaData().isNullable(6));
     assertEquals(0, resultSet.getMetaData().isNullable(7));
-    assertEquals(0, resultSet.getMetaData().isNullable(8));
-    assertEquals(0, resultSet.getMetaData().isNullable(9));
+    assertEquals(1, resultSet.getMetaData().isNullable(8));
+    assertEquals(1, resultSet.getMetaData().isNullable(9));
     assertEquals(1, resultSet.getMetaData().isNullable(10));
-    assertEquals(0, resultSet.getMetaData().isNullable(11));
+    assertEquals(1, resultSet.getMetaData().isNullable(11));
     assertEquals(0, resultSet.getMetaData().isNullable(12));
-    assertEquals(0, resultSet.getMetaData().isNullable(13));
+    assertEquals(1, resultSet.getMetaData().isNullable(13));
     assertEquals(1, resultSet.getMetaData().isNullable(14));
     assertEquals(0, resultSet.getMetaData().isNullable(15));
     assertEquals(0, resultSet.getMetaData().isNullable(16));
@@ -1435,12 +1435,12 @@ public class DatabricksDatabaseMetaDataTest {
     assertEquals(0, resultSet.getMetaData().isNullable(3));
     assertEquals(0, resultSet.getMetaData().isNullable(4));
     assertEquals(0, resultSet.getMetaData().isNullable(5));
-    assertEquals(0, resultSet.getMetaData().isNullable(6));
+    assertEquals(1, resultSet.getMetaData().isNullable(6));
     assertEquals(1, resultSet.getMetaData().isNullable(7));
-    assertEquals(0, resultSet.getMetaData().isNullable(8));
+    assertEquals(1, resultSet.getMetaData().isNullable(8));
     assertEquals(0, resultSet.getMetaData().isNullable(9));
     assertEquals(1, resultSet.getMetaData().isNullable(10));
-    assertEquals(0, resultSet.getMetaData().isNullable(11));
+    assertEquals(1, resultSet.getMetaData().isNullable(11));
     assertEquals(0, resultSet.getMetaData().isNullable(12));
 
     // Result set is empty
@@ -1469,8 +1469,8 @@ public class DatabricksDatabaseMetaDataTest {
     assertEquals(0, resultSet.getMetaData().isNullable(7));
     assertEquals(0, resultSet.getMetaData().isNullable(8));
     assertEquals(0, resultSet.getMetaData().isNullable(9));
-    assertEquals(0, resultSet.getMetaData().isNullable(10));
-    assertEquals(0, resultSet.getMetaData().isNullable(11));
+    assertEquals(1, resultSet.getMetaData().isNullable(10));
+    assertEquals(1, resultSet.getMetaData().isNullable(11));
     assertEquals(1, resultSet.getMetaData().isNullable(12));
     assertEquals(1, resultSet.getMetaData().isNullable(13));
     assertEquals(0, resultSet.getMetaData().isNullable(14));
@@ -1481,7 +1481,7 @@ public class DatabricksDatabaseMetaDataTest {
 
   @Test
   public void testGetExportedKeys() throws SQLException {
-    ResultSet resultSet = metaData.getImportedKeys("catalog", "schema", "table");
+    ResultSet resultSet = metaData.getExportedKeys("catalog", "schema", "table");
     assertNotNull(resultSet);
 
     assertEquals(14, resultSet.getMetaData().getColumnCount());
@@ -1501,8 +1501,8 @@ public class DatabricksDatabaseMetaDataTest {
     assertEquals(0, resultSet.getMetaData().isNullable(7));
     assertEquals(0, resultSet.getMetaData().isNullable(8));
     assertEquals(0, resultSet.getMetaData().isNullable(9));
-    assertEquals(0, resultSet.getMetaData().isNullable(10));
-    assertEquals(0, resultSet.getMetaData().isNullable(11));
+    assertEquals(1, resultSet.getMetaData().isNullable(10));
+    assertEquals(1, resultSet.getMetaData().isNullable(11));
     assertEquals(1, resultSet.getMetaData().isNullable(12));
     assertEquals(1, resultSet.getMetaData().isNullable(13));
     assertEquals(0, resultSet.getMetaData().isNullable(14));
