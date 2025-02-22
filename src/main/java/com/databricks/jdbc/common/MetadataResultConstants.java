@@ -481,13 +481,8 @@ public class MetadataResultConstants {
                   COLUMN_TYPE,
                   DATA_TYPE_COLUMN,
                   TYPE_NAME_COLUMN,
-                  PRECISION_COLUMN,
-                  LENGTH,
-                  RADIX,
                   NULLABLE_SHORT,
-                  REMARKS_COLUMN,
                   SQL_DATA_TYPE_COLUMN,
-                  SQL_DATETIME_SUB_COLUMN,
                   ORDINAL_POSITION_COLUMN,
                   IS_NULLABLE_COLUMN,
                   SPECIFIC_NAME_COLUMN));
