@@ -229,7 +229,8 @@ public class MetadataResultConstants {
           IS_NULLABLE_COLUMN,
           SCOPE_CATALOG_COLUMN,
           SCOPE_SCHEMA_COLUMN,
-          SCOPE_TABLE_COLUMN);
+          SCOPE_TABLE_COLUMN,
+          ATTR_DEF);
 
   public static final List<ResultColumn> ATTRIBUTES_COLUMNS =
       List.of(
@@ -354,6 +355,17 @@ public class MetadataResultConstants {
                   MetadataResultConstants.FKCOLUMN_NAME,
                   MetadataResultConstants.KEY_SEQUENCE_COLUMN,
                   MetadataResultConstants.DEFERRABILITY));
+          put(
+              CommandName.GET_ATTRIBUTES,
+              List.of(
+                  TYPE_NAME_COLUMN,
+                  ATTR_NAME,
+                  DATA_TYPE_COLUMN,
+                  ATTR_TYPE_NAME,
+                  NULLABLE_COLUMN,
+                  SQL_DATA_TYPE_COLUMN,
+                  ORDINAL_POSITION_COLUMN,
+                  IS_NULLABLE_COLUMN));
         }
       };
 }
