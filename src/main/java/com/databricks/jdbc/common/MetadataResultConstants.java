@@ -313,7 +313,8 @@ public class MetadataResultConstants {
               CommandName.LIST_PRIMARY_KEYS,
               List.of(
                   MetadataResultConstants.TABLE_NAME_COLUMN,
-                  MetadataResultConstants.COLUMN_NAME_COLUMN));
+                  MetadataResultConstants.COLUMN_NAME_COLUMN,
+                  MetadataResultConstants.KEY_SEQUENCE_COLUMN));
           put(
               CommandName.LIST_SCHEMAS,
               List.of(MetadataResultConstants.SCHEMA_COLUMN_FOR_GET_SCHEMA));
