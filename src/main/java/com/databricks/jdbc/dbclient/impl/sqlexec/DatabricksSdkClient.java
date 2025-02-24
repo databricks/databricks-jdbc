@@ -80,7 +80,7 @@ public class DatabricksSdkClient implements IDatabricksClient {
       String catalog,
       String schema,
       Map<String, String> sessionConf)
-      throws DatabricksTemporaryRedirectException {
+      throws DatabricksSQLException {
     // TODO (PECO-1460): Handle sessionConf in public session API
     LOGGER.debug(
         String.format(
@@ -108,8 +108,9 @@ public class DatabricksSdkClient implements IDatabricksClient {
       if (e.getStatusCode() == TEMPORARY_REDIRECT_STATUS_CODE) {
         throw new DatabricksTemporaryRedirectException(TEMPORARY_REDIRECT_EXCEPTION);
       }
+      String errorReason = "Error while establishing a connection in databricks";
+      throw new DatabricksSQLException(errorReason, e, DatabricksDriverErrorCode.CONNECTION_ERROR);
     }
-
     return ImmutableSessionInfo.builder()
         .computeResource(warehouse)
         .sessionId(createSessionResponse.getSessionId())

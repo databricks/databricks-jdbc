@@ -1,6 +1,5 @@
 package com.databricks.client.jdbc;
 
-import static com.databricks.jdbc.common.util.DriverUtil.getRootCauseMessage;
 import static com.databricks.jdbc.telemetry.TelemetryHelper.*;
 
 import com.databricks.jdbc.api.IDatabricksConnectionContext;
@@ -76,7 +75,7 @@ public class Driver implements IDatabricksDriver, java.sql.Driver {
       String errorMessage =
           String.format(
               "Connection failure while using the OSS Databricks JDBC driver. Failed to connect to server: %s\n%s",
-              connectionContext.getHostUrl(), getRootCauseMessage(e));
+              connectionContext.getHostUrl(), e);
       LOGGER.error(e, errorMessage);
       throw new DatabricksSQLException(errorMessage, e, DatabricksDriverErrorCode.CONNECTION_ERROR);
     }
