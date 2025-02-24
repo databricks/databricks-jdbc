@@ -457,15 +457,15 @@ public class DatabricksDriverExamples {
   @Test
   void exampleAllPurposeClustersMetadata() throws Exception {
     String jdbcUrl =
-            "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;"
-                    + "AuthMech=3;httpPath=/sql/1.0/warehouses/791ba2a31c7fd70a";
-    Connection con = DriverManager.getConnection(jdbcUrl, "token", "dapifba27d3d7b35f735d40d65e903266de2");
+        "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;"
+            + "AuthMech=3;httpPath=sql/protocolv1/o/6051921418418893/1115-130834-ms4m0yv";
+    Connection con = DriverManager.getConnection(jdbcUrl, "token", DATABRICKS_TOKEN);
     System.out.println("Connection established......");
 
     // Example: retrieve functions with name matching "current_%"
     ResultSet resultSet =
-            con.getMetaData()
-                    .getProcedureColumns(null, null, "current_%", null);
+        con.getMetaData()
+            .getFunctions("uc_1716360380283_cata", "uc_1716360380283_db1", "current_%");
     printResultSet(resultSet);
     resultSet.close();
     con.close();
