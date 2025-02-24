@@ -292,7 +292,7 @@ public class DatabricksResultSetTest {
     when(mockedResultSetMetadata.getColumnNameIndex("columnLabel")).thenReturn(2);
     assertEquals(new BigDecimal("123.423123"), resultSet.getBigDecimal("columnLabel"));
   }
-  
+
   @Test
   void testGetDate() throws SQLException {
     DatabricksResultSet resultSet = getResultSet(StatementState.SUCCEEDED, null);
