@@ -30,6 +30,7 @@ public class DatabricksTypeUtil {
 
   private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(DatabricksTypeUtil.class);
   public static final String BIGINT = "BIGINT";
+  public static final String LONG = "LONG";
   public static final String BINARY = "BINARY";
   public static final String BOOLEAN = "BOOLEAN";
   public static final String DATE = "DATE";
@@ -342,7 +343,7 @@ public class DatabricksTypeUtil {
       case Types.ARRAY:
         return ARRAY;
       case Types.BIGINT:
-        return BIGINT;
+        return LONG;
       case Types.BINARY:
       case Types.VARBINARY:
       case Types.LONGVARBINARY:
