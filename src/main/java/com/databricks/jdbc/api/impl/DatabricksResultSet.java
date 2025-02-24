@@ -1743,8 +1743,9 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
     if (bigDecimal == null) {
       return null;
     }
-    // Double columns do not have scale defined, hence, return the double at full scale
-    if (resultSetMetaData.getColumnType(columnIndex) == Types.DOUBLE) {
+    // Double/Float columns do not have scale defined, hence, return them at full scale
+    if (resultSetMetaData.getColumnType(columnIndex) == Types.DOUBLE
+        || resultSetMetaData.getColumnType(columnIndex) == Types.FLOAT) {
       return bigDecimal;
     }
     return bigDecimal.setScale(scale, RoundingMode.HALF_UP);
