@@ -499,7 +499,8 @@ public class MetadataResultConstants {
               CommandName.LIST_PRIMARY_KEYS,
               List.of(
                   MetadataResultConstants.TABLE_NAME_COLUMN,
-                  MetadataResultConstants.COLUMN_NAME_COLUMN));
+                  MetadataResultConstants.COLUMN_NAME_COLUMN,
+                  MetadataResultConstants.KEY_SEQUENCE_COLUMN));
           put(
               CommandName.LIST_SCHEMAS,
               List.of(MetadataResultConstants.SCHEMA_COLUMN_FOR_GET_SCHEMA));
@@ -553,13 +554,8 @@ public class MetadataResultConstants {
                   COLUMN_TYPE,
                   DATA_TYPE_COLUMN,
                   TYPE_NAME_COLUMN,
-                  PRECISION_COLUMN,
-                  LENGTH,
-                  RADIX,
                   NULLABLE_SHORT,
-                  REMARKS_COLUMN,
                   SQL_DATA_TYPE_COLUMN,
-                  SQL_DATETIME_SUB_COLUMN,
                   ORDINAL_POSITION_COLUMN,
                   IS_NULLABLE_COLUMN,
                   SPECIFIC_NAME_COLUMN));
