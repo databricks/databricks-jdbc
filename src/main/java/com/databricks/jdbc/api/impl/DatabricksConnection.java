@@ -45,9 +45,6 @@ public class DatabricksConnection implements IDatabricksConnection, IDatabricksC
       throws DatabricksSQLException {
     this.connectionContext = connectionContext;
     this.session = new DatabricksSession(connectionContext);
-    if (this.session.getCatalog() == null || this.session.getSchema() == null) {
-      fetchCurrentSchemaAndCatalog();
-    }
     DatabricksThreadContextHolder.setConnectionContext(connectionContext);
   }
 
