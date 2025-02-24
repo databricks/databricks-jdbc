@@ -328,9 +328,7 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
 
   @Override
   public Time getTime(int columnIndex) throws SQLException {
-    checkIfClosed();
-    throw new DatabricksSQLFeatureNotSupportedException(
-        "Not implemented in DatabricksResultSet - getTime(int columnIndex)");
+    return getConvertedObject(columnIndex, ObjectConverter::toTime, () -> null);
   }
 
   @Override
@@ -1155,9 +1153,15 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
 
   @Override
   public Date getDate(int columnIndex, Calendar cal) throws SQLException {
-    checkIfClosed();
-    throw new DatabricksSQLFeatureNotSupportedException(
-        "Not implemented in DatabricksResultSet - getDate(int columnIndex, Calendar cal)");
+    Date date = getDate(columnIndex);
+
+    if (date != null && cal != null) {
+      Calendar tempCal = (Calendar) cal.clone();
+      tempCal.setTime(date);
+      return new Date(tempCal.getTimeInMillis());
+    }
+
+    return date;
   }
 
   @Override
@@ -1168,9 +1172,15 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
 
   @Override
   public Time getTime(int columnIndex, Calendar cal) throws SQLException {
-    checkIfClosed();
-    throw new DatabricksSQLFeatureNotSupportedException(
-        "Not implemented in DatabricksResultSet - getTime(int columnIndex, Calendar cal)");
+    Time time = getTime(columnIndex);
+
+    if (time != null && cal != null) {
+      Calendar tempCal = (Calendar) cal.clone();
+      tempCal.setTime(time);
+      return new Time(tempCal.getTimeInMillis());
+    }
+
+    return time;
   }
 
   @Override

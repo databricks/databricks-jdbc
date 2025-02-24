@@ -26,6 +26,7 @@ public class ObjectConverterTest {
     assertThrows(DatabricksSQLException.class, () -> objectConverter.toByteArray("testString"));
     assertThrows(DatabricksSQLException.class, () -> objectConverter.toChar("testString"));
     assertThrows(DatabricksSQLException.class, () -> objectConverter.toString("testString"));
+    assertThrows(DatabricksSQLException.class, () -> objectConverter.toTime("testString"));
     assertThrows(DatabricksSQLException.class, () -> objectConverter.toTimestamp("testString"));
     assertThrows(DatabricksSQLException.class, () -> objectConverter.toDate("testString"));
     assertThrows(DatabricksSQLException.class, () -> objectConverter.toTimestamp("testString", 10));

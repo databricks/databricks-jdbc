@@ -341,10 +341,31 @@ public class DatabricksResultSetTest {
   }
 
   @Test
+  void testGetTime() throws SQLException {
+    DatabricksResultSet resultSet = getResultSet(StatementState.SUCCEEDED, null);
+    int columnIndex = 5;
+    String expectedTimestampString = "2023-01-01 12:30:00";
+    // Test using timestamp object
+    Timestamp expectedTimestamp = Timestamp.valueOf(expectedTimestampString);
+    Time expectedTime = new Time(expectedTimestamp.getTime());
+    when(resultSet.getObject(columnIndex)).thenReturn(expectedTimestamp);
+    when(mockedResultSetMetadata.getColumnType(columnIndex)).thenReturn(java.sql.Types.TIMESTAMP);
+    assertEquals(expectedTime, resultSet.getTime(columnIndex));
+    // null object
+    when(mockedExecutionResult.getObject(2)).thenReturn(null);
+    assertNull(resultSet.getTime(3));
+    // Test with column label
+    when(mockedResultSetMetadata.getColumnNameIndex("columnLabel")).thenReturn(columnIndex);
+    assertEquals(expectedTime, resultSet.getTime("columnLabel"));
+  }
+
+  @Test
   void testGetTimestamp() throws SQLException {
     DatabricksResultSet resultSet = getResultSet(StatementState.SUCCEEDED, null);
     int columnIndex = 5;
-    Timestamp expectedTimestamp = new Timestamp(System.currentTimeMillis());
+    String expectedTimestampString = "2023-01-01 12:30:00";
+    // Test using timestamp object
+    Timestamp expectedTimestamp = Timestamp.valueOf(expectedTimestampString);
     when(resultSet.getObject(columnIndex)).thenReturn(expectedTimestamp);
     when(mockedResultSetMetadata.getColumnType(columnIndex)).thenReturn(java.sql.Types.TIMESTAMP);
     assertEquals(expectedTimestamp, resultSet.getTimestamp(columnIndex));
@@ -824,21 +845,6 @@ public class DatabricksResultSetTest {
     assertThrows(DatabricksSQLFeatureNotSupportedException.class, () -> resultSet.getClob(1));
     assertThrows(
         DatabricksSQLFeatureNotSupportedException.class, () -> resultSet.getClob("column"));
-    assertThrows(
-        DatabricksSQLFeatureNotSupportedException.class,
-        () -> resultSet.getDate(1, new GregorianCalendar()));
-    assertThrows(
-        DatabricksSQLFeatureNotSupportedException.class,
-        () -> resultSet.getDate("column", new GregorianCalendar()));
-    assertThrows(
-        DatabricksSQLFeatureNotSupportedException.class,
-        () -> resultSet.getTime(1, new GregorianCalendar()));
-    assertThrows(
-        DatabricksSQLFeatureNotSupportedException.class,
-        () -> resultSet.getTime("column", new GregorianCalendar()));
-    assertThrows(DatabricksSQLFeatureNotSupportedException.class, () -> resultSet.getTime(1));
-    assertThrows(
-        DatabricksSQLFeatureNotSupportedException.class, () -> resultSet.getTime("column"));
     assertThrows(DatabricksSQLFeatureNotSupportedException.class, () -> resultSet.getURL(1));
     assertThrows(DatabricksSQLFeatureNotSupportedException.class, () -> resultSet.getURL("column"));
     assertThrows(

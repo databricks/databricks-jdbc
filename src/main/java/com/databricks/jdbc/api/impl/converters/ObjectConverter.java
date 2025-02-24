@@ -7,6 +7,7 @@ import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.nio.charset.StandardCharsets;
 import java.sql.Date;
+import java.sql.Time;
 import java.sql.Timestamp;
 import java.time.LocalDate;
 
@@ -89,6 +90,11 @@ public interface ObjectConverter {
   default String toString(Object object) throws DatabricksSQLException {
     throw new DatabricksSQLException(
         "Unsupported String conversion operation", DatabricksDriverErrorCode.UNSUPPORTED_OPERATION);
+  }
+
+  default Time toTime(Object object) throws DatabricksSQLException {
+    throw new DatabricksSQLException(
+        "Unsupported Time conversion operation", DatabricksDriverErrorCode.UNSUPPORTED_OPERATION);
   }
 
   default Timestamp toTimestamp(Object object) throws DatabricksSQLException {
