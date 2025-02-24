@@ -157,7 +157,7 @@ class DatabricksTypeUtilTest {
     assertEquals(
         DatabricksTypeUtil.ARRAY, DatabricksTypeUtil.getDatabricksTypeFromSQLType(Types.ARRAY));
     assertEquals(
-        DatabricksTypeUtil.BIGINT, DatabricksTypeUtil.getDatabricksTypeFromSQLType(Types.BIGINT));
+        DatabricksTypeUtil.LONG, DatabricksTypeUtil.getDatabricksTypeFromSQLType(Types.BIGINT));
     assertEquals(
         DatabricksTypeUtil.BINARY, DatabricksTypeUtil.getDatabricksTypeFromSQLType(Types.BINARY));
     assertEquals(
