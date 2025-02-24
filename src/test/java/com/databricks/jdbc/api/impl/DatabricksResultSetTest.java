@@ -270,6 +270,11 @@ public class DatabricksResultSetTest {
   void testGetBigDecimal() throws SQLException {
     DatabricksResultSet resultSet = getResultSet(StatementState.SUCCEEDED, null);
     BigDecimal expected = new BigDecimal("123.423123");
+    // Test with float type column
+    when(mockedExecutionResult.getObject(1)).thenReturn(expected);
+    when(mockedResultSetMetadata.getColumnType(2)).thenReturn(Types.FLOAT);
+    when(mockedResultSetMetadata.getScale(2)).thenReturn(0);
+    assertEquals(expected, resultSet.getBigDecimal(2));
     // Test with double type column
     when(mockedExecutionResult.getObject(1)).thenReturn(expected);
     when(mockedResultSetMetadata.getColumnType(2)).thenReturn(Types.DOUBLE);
