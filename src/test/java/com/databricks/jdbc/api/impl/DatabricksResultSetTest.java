@@ -269,31 +269,30 @@ public class DatabricksResultSetTest {
   @Test
   void testGetBigDecimal() throws SQLException {
     DatabricksResultSet resultSet = getResultSet(StatementState.SUCCEEDED, null);
-    BigDecimal expected = new BigDecimal("123.423123");
     // Test with float type column
-    when(mockedExecutionResult.getObject(1)).thenReturn(expected);
+    when(mockedExecutionResult.getObject(1)).thenReturn(123.423123f);
     when(mockedResultSetMetadata.getColumnType(2)).thenReturn(Types.FLOAT);
     when(mockedResultSetMetadata.getScale(2)).thenReturn(0);
-    assertEquals(expected, resultSet.getBigDecimal(2));
+    assertEquals(new BigDecimal("123.42313"), resultSet.getBigDecimal(2));
     // Test with double type column
-    when(mockedExecutionResult.getObject(1)).thenReturn(expected);
+    when(mockedExecutionResult.getObject(1)).thenReturn(123.423123d);
     when(mockedResultSetMetadata.getColumnType(2)).thenReturn(Types.DOUBLE);
     when(mockedResultSetMetadata.getScale(2)).thenReturn(0);
-    assertEquals(expected, resultSet.getBigDecimal(2));
+    assertEquals(new BigDecimal("123.423123"), resultSet.getBigDecimal(2));
     // Test with decimal type column
-    when(mockedExecutionResult.getObject(1)).thenReturn(expected);
+    when(mockedExecutionResult.getObject(1)).thenReturn(new BigDecimal("123.423123"));
     when(mockedResultSetMetadata.getColumnType(2)).thenReturn(Types.DECIMAL);
     when(mockedResultSetMetadata.getScale(2)).thenReturn(6);
-    assertEquals(expected, resultSet.getBigDecimal(2));
+    assertEquals(new BigDecimal("123.423123"), resultSet.getBigDecimal(2));
     // null object
     when(mockedExecutionResult.getObject(0)).thenReturn(null);
     assertEquals(BigDecimal.ZERO, resultSet.getBigDecimal(1));
     // Test with column label
-    when(mockedExecutionResult.getObject(1)).thenReturn(expected);
+    when(mockedExecutionResult.getObject(1)).thenReturn(new BigDecimal("123.423123"));
     when(mockedResultSetMetadata.getColumnNameIndex("columnLabel")).thenReturn(2);
-    assertEquals(expected, resultSet.getBigDecimal("columnLabel"));
+    assertEquals(new BigDecimal("123.423123"), resultSet.getBigDecimal("columnLabel"));
   }
-
+  
   @Test
   void testGetDate() throws SQLException {
     DatabricksResultSet resultSet = getResultSet(StatementState.SUCCEEDED, null);
