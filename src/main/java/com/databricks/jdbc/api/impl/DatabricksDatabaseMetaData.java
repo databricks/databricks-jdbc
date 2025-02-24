@@ -1249,20 +1249,20 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
             "TYPE_NAME",
             "CLASS_NAME",
             "DATA_TYPE",
-            "REMAKRS",
+            "REMARKS",
             "BASE_TYPE"),
-        Arrays.asList("VARCHAR", "VARCHAR", "VARCHAR", "VARCHAR", "VARCHAR", "VARCHAR", "VARCHAR"),
+        Arrays.asList("VARCHAR", "VARCHAR", "VARCHAR", "VARCHAR", "INTEGER", "VARCHAR", "SMALLINT"),
         new int[] {
           Types.VARCHAR,
           Types.VARCHAR,
           Types.VARCHAR,
           Types.VARCHAR,
+          Types.INTEGER,
           Types.VARCHAR,
-          Types.VARCHAR,
-          Types.VARCHAR
+          Types.SMALLINT
         },
-        new int[] {128, 128, 128, 128, 128, 128, 128},
-        new int[] {1, 1, 0, 1, 1, 1, 1},
+        new int[] {128, 128, 128, 128, 10, 254, 5},
+        new int[] {1, 1, 0, 0, 0, 1, 1},
         new String[0][0],
         StatementType.METADATA);
   }
