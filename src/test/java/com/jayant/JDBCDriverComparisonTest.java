@@ -2,6 +2,7 @@ package com.jayant;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 
+import com.jayant.testparams.ConnectionTestParams;
 import com.jayant.testparams.DatabaseMetaDataTestParams;
 import com.jayant.testparams.ResultSetMetaDataTestParams;
 import com.jayant.testparams.ResultSetTestParams;
@@ -188,6 +189,30 @@ public class JDBCDriverComparisonTest {
         });
   }
 
+  @ParameterizedTest
+  @MethodSource("provideConnectionMethods")
+  @DisplayName("Compare Connection API Results")
+  void compareConnectionResults(String methodName, Object[] args) {
+    assertDoesNotThrow(
+        () -> {
+          Object oldDriverResult =
+              ReflectionUtils.executeMethod(oldDriverConnection, methodName, args);
+          Object ossDriverResult =
+              ReflectionUtils.executeMethod(ossDriverConnection, methodName, args);
+
+          ComparisonResult result =
+              ResultSetComparator.compare(
+                  "Connection", methodName, args, oldDriverResult, ossDriverResult);
+          reporter.addResult(result);
+
+          if (result.hasDifferences()) {
+            System.err.println("Differences found in Connection results for method: " + methodName);
+            System.err.println("Args: " + getStringForArgs(args));
+            System.err.println(result);
+          }
+        });
+  }
+
   private static Stream<Arguments> provideSQLQueries() {
     return Stream.of(
         Arguments.of("SELECT * FROM main.tpcds_sf100_delta.catalog_sales limit 5", "TPC-DS query"));
@@ -206,6 +231,11 @@ public class JDBCDriverComparisonTest {
   private static Stream<Arguments> provideResultSetMetaDataMethods() {
     ResultSetMetaDataTestParams params = new ResultSetMetaDataTestParams();
     return ReflectionUtils.provideMethodsForClass(ResultSetMetaData.class, params);
+  }
+
+  private static Stream<Arguments> provideConnectionMethods() {
+    ConnectionTestParams params = new ConnectionTestParams();
+    return ReflectionUtils.provideMethodsForClass(Connection.class, params);
   }
 
   private static URL extractJarToTemp(String jarName, Path tempDir) {
