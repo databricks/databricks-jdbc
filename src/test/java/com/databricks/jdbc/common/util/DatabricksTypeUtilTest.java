@@ -105,6 +105,8 @@ class DatabricksTypeUtilTest {
     assertEquals(29, DatabricksTypeUtil.getDisplaySize(ColumnInfoTypeName.TIMESTAMP, 0, 0));
     assertEquals(1, DatabricksTypeUtil.getDisplaySize(ColumnInfoTypeName.CHAR, 1, 0));
     assertEquals(4, DatabricksTypeUtil.getDisplaySize(ColumnInfoTypeName.NULL, 1, 0));
+    assertEquals(4, DatabricksTypeUtil.getDisplaySize(ColumnInfoTypeName.BYTE, 1, 0));
+    assertEquals(1, DatabricksTypeUtil.getDisplaySize(ColumnInfoTypeName.BOOLEAN, 1, 0));
     assertEquals(10, DatabricksTypeUtil.getDisplaySize(ColumnInfoTypeName.DATE, 1, 0));
     assertEquals(6, DatabricksTypeUtil.getDisplaySize(Types.SMALLINT, 5));
     assertEquals(11, DatabricksTypeUtil.getDisplaySize(Types.INTEGER, 10));
@@ -118,6 +120,7 @@ class DatabricksTypeUtilTest {
   void testGetPrecision() {
     assertEquals(15, DatabricksTypeUtil.getPrecision(Types.DOUBLE));
     assertEquals(19, DatabricksTypeUtil.getPrecision(Types.BIGINT));
+    assertEquals(3, DatabricksTypeUtil.getPrecision(Types.TINYINT));
     assertEquals(1, DatabricksTypeUtil.getPrecision(Types.BOOLEAN));
     assertEquals(7, DatabricksTypeUtil.getPrecision(Types.FLOAT));
     assertEquals(29, DatabricksTypeUtil.getPrecision(Types.TIMESTAMP));
