@@ -32,6 +32,8 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.net.URL;
 import java.sql.*;
+import java.time.Instant;
+import java.time.LocalDate;
 import java.util.Calendar;
 import java.util.List;
 import java.util.Map;
@@ -1156,9 +1158,9 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
     Date date = getDate(columnIndex);
 
     if (date != null && cal != null) {
-      Calendar tempCal = (Calendar) cal.clone();
-      tempCal.setTime(date);
-      return new Date(tempCal.getTimeInMillis());
+      Instant instant = Instant.ofEpochMilli(date.getTime());
+      LocalDate localDate = LocalDate.ofInstant(instant, cal.getTimeZone().toZoneId());
+      return Date.valueOf(localDate);
     }
 
     return date;
@@ -1172,15 +1174,9 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
 
   @Override
   public Time getTime(int columnIndex, Calendar cal) throws SQLException {
-    Time time = getTime(columnIndex);
-
-    if (time != null && cal != null) {
-      Calendar tempCal = (Calendar) cal.clone();
-      tempCal.setTime(time);
-      return new Time(tempCal.getTimeInMillis());
-    }
-
-    return time;
+    // In Databricks, we always get the epoch value directly from the server
+    // Hence, no need to enforce calendar
+    return getTime(columnIndex);
   }
 
   @Override
@@ -1191,16 +1187,9 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
 
   @Override
   public Timestamp getTimestamp(int columnIndex, Calendar cal) throws SQLException {
-    Timestamp defaultTimestamp = getTimestamp(columnIndex);
-
-    if (defaultTimestamp != null && cal != null) {
-      // Clone the calendar to avoid modifying the passed instance
-      Calendar tempCal = (Calendar) cal.clone();
-      tempCal.setTimeInMillis(defaultTimestamp.getTime());
-      return new Timestamp(tempCal.getTimeInMillis());
-    }
-
-    return defaultTimestamp;
+    // In Databricks, we always get the epoch value directly from the server
+    // Hence, no need to enforce calendar
+    return getTimestamp(columnIndex);
   }
 
   @Override
