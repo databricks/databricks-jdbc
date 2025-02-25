@@ -1157,6 +1157,7 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
   public Date getDate(int columnIndex, Calendar cal) throws SQLException {
     Date date = getDate(columnIndex);
 
+    // For date columns, we only get the date, calibrate it to the provided calendar timezone
     if (date != null && cal != null) {
       Instant instant = Instant.ofEpochMilli(date.getTime());
       LocalDate localDate = LocalDate.ofInstant(instant, cal.getTimeZone().toZoneId());

@@ -23,6 +23,10 @@ import java.io.*;
 import java.math.BigDecimal;
 import java.sql.*;
 import java.sql.Date;
+import java.time.LocalDate;
+import java.time.ZoneId;
+import java.time.ZoneOffset;
+import java.time.ZonedDateTime;
 import java.util.*;
 import org.apache.http.entity.InputStreamEntity;
 import org.junit.jupiter.api.Test;
@@ -296,7 +300,9 @@ public class DatabricksResultSetTest {
   @Test
   void testGetDate() throws SQLException {
     DatabricksResultSet resultSet = getResultSet(StatementState.SUCCEEDED, null);
-    Date expected = Date.valueOf("2023-01-01");
+
+    int epochDay = 19722;
+    Date expected = Date.valueOf(LocalDate.ofEpochDay(epochDay)); // 2023-12-31
     int columnIndex = 2;
     when(mockedExecutionResult.getObject(columnIndex - 1)).thenReturn(expected);
     when(mockedResultSetMetadata.getColumnType(columnIndex)).thenReturn(Types.DATE);
@@ -312,12 +318,22 @@ public class DatabricksResultSetTest {
     // Test with Calendar argument
     Calendar calendar = Calendar.getInstance();
     Date actualDate = resultSet.getDate(columnIndex, calendar);
-    assertEquals("2023-01-01", actualDate.toString());
+    assertEquals(expected, actualDate);
 
     // Test with Calendar argument in different TZ
-    calendar = Calendar.getInstance(TimeZone.getTimeZone("UTC"));
+    ZoneId systemZoneId = ZoneId.systemDefault();
+    ZoneId inputZoneId = ZoneId.of("America/New_York");
+    ZoneOffset currentOffset = ZonedDateTime.now(systemZoneId).getOffset();
+    ZoneOffset inputOffset = ZonedDateTime.now(inputZoneId).getOffset();
+
+    // Calculate the offset difference in minutes
+    int offsetDifference = currentOffset.getTotalSeconds() - inputOffset.getTotalSeconds();
+    int expectedEpochDay = epochDay - (offsetDifference > 0 ? 1 : 0);
+
+    calendar = Calendar.getInstance(TimeZone.getTimeZone(inputZoneId));
+    Date expectedDate = Date.valueOf(LocalDate.ofEpochDay(expectedEpochDay)); //
     actualDate = resultSet.getDate(columnIndex, calendar);
-    assertEquals("2022-12-31", actualDate.toString()); // UTC time is -5:30 from input string
+    assertEquals(expectedDate, actualDate);
 
     // Test with null Calendar argument
     assertEquals(expected, resultSet.getDate(columnIndex, null));
