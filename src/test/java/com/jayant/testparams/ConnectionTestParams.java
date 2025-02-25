@@ -34,7 +34,6 @@ public class ConnectionTestParams implements TestParams {
   public Map<Map.Entry<String, Integer>, Set<Object[]>> getFunctionToArgsMap() {
     Map<Map.Entry<String, Integer>, Set<Object[]>> functionToArgsMap = new HashMap<>();
 
-    putInMapForKey(functionToArgsMap, Map.entry("createStatement", 0), new Object[] {});
     putInMapForKey(
         functionToArgsMap, Map.entry("prepareStatement", 1), new String[] {parameterizedQuery});
     for (Integer fetchDirection : ParamUtils.getAllFetchDirection()) {
@@ -54,26 +53,13 @@ public class ConnectionTestParams implements TestParams {
     putInMapForKey(functionToArgsMap, Map.entry("prepareCall", 1), new String[] {"SELECT 1"});
     putInMapForKey(functionToArgsMap, Map.entry("nativeSQL", 1), new String[] {parameterizedQuery});
     putInMapForKey(functionToArgsMap, Map.entry("setAutoCommit", 1), new Boolean[] {true});
-    putInMapForKey(functionToArgsMap, Map.entry("getAutoCommit", 0), new Object[] {});
-    putInMapForKey(functionToArgsMap, Map.entry("commit", 0), new Object[] {});
-    putInMapForKey(functionToArgsMap, Map.entry("rollback", 0), new Object[] {});
-    putInMapForKey(functionToArgsMap, Map.entry("isClosed", 0), new Object[] {});
-    putInMapForKey(functionToArgsMap, Map.entry("getMetaData", 0), new Object[] {});
     putInMapForKey(functionToArgsMap, Map.entry("setReadOnly", 1), new Boolean[] {true});
-    putInMapForKey(functionToArgsMap, Map.entry("isReadOnly", 0), new Object[] {});
-    putInMapForKey(functionToArgsMap, Map.entry("getCatalog", 0), new Object[] {});
     putInMapForKey(functionToArgsMap, Map.entry("setCatalog", 1), new Object[] {"hive_metastore"});
     putInMapForKey(functionToArgsMap, Map.entry("setTransactionIsolation", 1), new Integer[] {1});
-    putInMapForKey(functionToArgsMap, Map.entry("getTransactionIsolation", 0), new Object[] {});
-    putInMapForKey(functionToArgsMap, Map.entry("getWarnings", 0), new Object[] {});
-    putInMapForKey(functionToArgsMap, Map.entry("clearWarnings", 0), new Object[] {});
     putInMapForKey(functionToArgsMap, Map.entry("createStatement", 2), new Integer[] {1, 1});
     putInMapForKey(functionToArgsMap, Map.entry("prepareCall", 3), new Object[] {"SELECT 1", 1, 1});
-    putInMapForKey(functionToArgsMap, Map.entry("getTypeMap", 0), new Object[] {});
     putInMapForKey(functionToArgsMap, Map.entry("setTypeMap", 1), new Object[] {new HashMap<>()});
     putInMapForKey(functionToArgsMap, Map.entry("setHoldability", 1), new Integer[] {1});
-    putInMapForKey(functionToArgsMap, Map.entry("getHoldability", 0), new Object[] {});
-    putInMapForKey(functionToArgsMap, Map.entry("setSavepoint", 0), new Object[] {});
     putInMapForKey(
         functionToArgsMap,
         Map.entry("setSavepoint", 1),
@@ -83,10 +69,6 @@ public class ConnectionTestParams implements TestParams {
     putInMapForKey(functionToArgsMap, Map.entry("createStatement", 3), new Object[] {1, 1, 1});
     putInMapForKey(
         functionToArgsMap, Map.entry("prepareCall", 4), new Object[] {"SELECT 1", 1, 1, 1});
-    putInMapForKey(functionToArgsMap, Map.entry("createClob", 0), new Object[] {});
-    putInMapForKey(functionToArgsMap, Map.entry("createBlob", 0), new Object[] {});
-    putInMapForKey(functionToArgsMap, Map.entry("createNClob", 0), new Object[] {});
-    putInMapForKey(functionToArgsMap, Map.entry("createSQLXML", 0), new Object[] {});
     putInMapForKey(functionToArgsMap, Map.entry("isValid", 1), new Integer[] {5});
     putInMapForKey(
         functionToArgsMap,
@@ -102,7 +84,6 @@ public class ConnectionTestParams implements TestParams {
         functionToArgsMap, Map.entry("getClientInfo", 1), new String[] {"ClientInfoName"});
     putInMapForKey(
         functionToArgsMap, Map.entry("getClientInfo", 1), new String[] {"ApplicationName"});
-    putInMapForKey(functionToArgsMap, Map.entry("getClientInfo", 0), new Object[] {});
     putInMapForKey(
         functionToArgsMap,
         Map.entry("createArrayOf", 2),
@@ -112,17 +93,13 @@ public class ConnectionTestParams implements TestParams {
         Map.entry("createStruct", 2),
         new Object[] {"Integer", new Object[] {1, "Object2", 3.241}});
     putInMapForKey(functionToArgsMap, Map.entry("setSchema", 1), new String[] {"hive_metastore"});
-    putInMapForKey(functionToArgsMap, Map.entry("getSchema", 0), new Object[] {});
     putInMapForKey(
         functionToArgsMap,
         Map.entry("setNetworkTimeout", 2),
         new Object[] {Executors.newSingleThreadExecutor(), 5});
-    putInMapForKey(functionToArgsMap, Map.entry("getNetworkTimeout", 0), new Object[] {});
     putInMapForKey(functionToArgsMap, Map.entry("unwrap", 1), new Object[] {Connection.class});
     putInMapForKey(
         functionToArgsMap, Map.entry("isWrapperFor", 1), new Object[] {Connection.class});
-    putInMapForKey(functionToArgsMap, Map.entry("getConnection", 0), new Object[] {});
-    putInMapForKey(functionToArgsMap, Map.entry("getConnectionContext", 0), new Object[] {});
 
     return functionToArgsMap;
   }
