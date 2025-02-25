@@ -195,6 +195,9 @@ public class DatabricksConnection implements IDatabricksConnection, IDatabricksC
   @Override
   public String getCatalog() throws SQLException {
     LOGGER.debug("public String getCatalog()");
+    if (session.getCatalog() == null) {
+      fetchCurrentSchemaAndCatalog();
+    }
     return this.session.getCatalog();
   }
 
@@ -518,6 +521,9 @@ public class DatabricksConnection implements IDatabricksConnection, IDatabricksC
   @Override
   public String getSchema() throws SQLException {
     LOGGER.debug("public String getSchema()");
+    if (session.getSchema() == null) {
+      fetchCurrentSchemaAndCatalog();
+    }
     return session.getSchema();
   }
 
@@ -641,6 +647,22 @@ public class DatabricksConnection implements IDatabricksConnection, IDatabricksC
     if (this.isClosed()) {
       throw new DatabricksSQLException(
           "Connection closed!", DatabricksDriverErrorCode.CONNECTION_CLOSED);
+    }
+  }
+
+  private void fetchCurrentSchemaAndCatalog() throws DatabricksSQLException {
+    try {
+      DatabricksStatement statement = (DatabricksStatement) this.createStatement();
+      ResultSet rs = statement.executeQuery("SELECT CURRENT_CATALOG(), CURRENT_SCHEMA()");
+      if (rs.next()) {
+        session.setCatalog(rs.getString(1));
+        session.setSchema(rs.getString(2));
+      }
+    } catch (SQLException e) {
+      LOGGER.error("Error fetching current schema and catalog", e);
+      throw new DatabricksSQLException(
+          "Error fetching current schema and catalog",
+          DatabricksDriverErrorCode.CATALOG_OR_SCHEMA_FETCH_ERROR);
     }
   }
 }

@@ -45,6 +45,9 @@ public class DatabricksConnectionTest {
       Map.of("ANSI_MODE", "TRUE", "TIMEZONE", "UTC", "MAX_FILE_PARTITION_BYTES", "64m");
   private static final String JDBC_URL =
       "jdbc:databricks://adb-565757575.18.azuredatabricks.net:4423/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/erg6767gg;UserAgentEntry=MyApp";
+
+  private static final String JDBC_URL_WITHOUT_SCHEMA_AND_CATALOG =
+      "jdbc:databricks://adb-565757575.18.azuredatabricks.net:4423;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/erg6767gg;UserAgentEntry=MyApp";
   private static final String CATALOG_SCHEMA_JDBC_URL =
       String.format(
           "jdbc:databricks://adb-565757575.18.azuredatabricks.net:4423/%s;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/erg6767gg;ConnCatalog=%s;ConnSchema=%s;logLevel=FATAL",
@@ -115,6 +118,29 @@ public class DatabricksConnectionTest {
     assertEquals(connection.getCatalog(), DEFAULT_CATALOG);
     assertEquals(connection.getSchema(), SCHEMA);
     connection.setSchema(DEFAULT_SCHEMA);
+    assertEquals(connection.getSchema(), DEFAULT_SCHEMA);
+  }
+
+  @Test
+  public void testGetSchemaAndCatalog_schemaAndCatalogNotSetViaURL() throws SQLException {
+    when(databricksClient.createSession(new Warehouse(WAREHOUSE_ID), null, null, new HashMap<>()))
+        .thenReturn(IMMUTABLE_SESSION_INFO);
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContext.parse(JDBC_URL_WITHOUT_SCHEMA_AND_CATALOG, new Properties());
+    connection = new DatabricksConnection(connectionContext, databricksClient);
+    connection.open();
+    when(resultSet.next()).thenReturn(true);
+    when(resultSet.getString(1)).thenReturn(DEFAULT_CATALOG);
+    when(resultSet.getString(2)).thenReturn(DEFAULT_SCHEMA);
+    when(databricksClient.executeStatement(
+            eq("SELECT CURRENT_CATALOG(), CURRENT_SCHEMA()"),
+            eq(new Warehouse(WAREHOUSE_ID)),
+            eq(new HashMap<>()),
+            eq(StatementType.QUERY),
+            any(),
+            any()))
+        .thenReturn(resultSet);
+    assertEquals(connection.getCatalog(), DEFAULT_CATALOG);
     assertEquals(connection.getSchema(), DEFAULT_SCHEMA);
   }
 
