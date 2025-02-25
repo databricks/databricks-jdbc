@@ -1089,11 +1089,7 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
             catalog, schema, table));
     throwExceptionIfConnectionIsClosed();
 
-    return MetadataResultSetBuilder.getResultSetWithGivenRowsAndColumns(
-        MetadataResultConstants.IMPORTED_KEYS_COLUMNS,
-        new ArrayList<>(),
-        METADATA_STATEMENT_ID,
-        CommandName.GET_IMPORTED_KEYS);
+    return session.getDatabricksMetadataClient().listImportedKeys(session, catalog, schema, table);
   }
 
   @Override
@@ -1105,11 +1101,7 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
             catalog, schema, table));
     throwExceptionIfConnectionIsClosed();
 
-    return MetadataResultSetBuilder.getResultSetWithGivenRowsAndColumns(
-        MetadataResultConstants.EXPORTED_KEYS_COLUMNS,
-        new ArrayList<>(),
-        METADATA_STATEMENT_ID,
-        CommandName.GET_EXPORTED_KEYS);
+    return session.getDatabricksMetadataClient().listExportedKeys(session, catalog, schema, table);
   }
 
   @Override
@@ -1133,11 +1125,13 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
           DatabricksDriverErrorCode.INVALID_STATE);
     }
 
+    return session.getDatabricksMetadataClient().listCrossReferences(session, parentCatalog, parentSchema, parentTable, foreignCatalog, foreignSchema, foreignTable);
+    /*
     return MetadataResultSetBuilder.getResultSetWithGivenRowsAndColumns(
         MetadataResultConstants.CROSS_REFERENCE_COLUMNS,
         new ArrayList<>(),
         METADATA_STATEMENT_ID,
-        CommandName.GET_CROSS_REFERENCE);
+        CommandName.GET_CROSS_REFERENCE); */
   }
 
   @Override
