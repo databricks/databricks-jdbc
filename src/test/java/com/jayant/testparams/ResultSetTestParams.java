@@ -5,7 +5,6 @@ import static com.jayant.testparams.ParamUtils.putInMapForKey;
 import java.io.StringReader;
 import java.math.BigDecimal;
 import java.sql.Date;
-import java.sql.ResultSet;
 import java.sql.Time;
 import java.sql.Timestamp;
 import java.util.*;
@@ -114,7 +113,7 @@ public class ResultSetTestParams implements TestParams {
     putInMapForKey(functionToArgsMap, Map.entry("absolute", 1), new Integer[] {1});
     putInMapForKey(functionToArgsMap, Map.entry("relative", 1), new Integer[] {-1});
     putInMapForKey(functionToArgsMap, Map.entry("setFetchSize", 1), new Integer[] {10});
-    for (Integer i : getAllFetchDirection()) {
+    for (Integer i : ParamUtils.getAllFetchDirection()) {
       putInMapForKey(functionToArgsMap, Map.entry("setFetchDirection", 1), new Integer[] {i});
     }
 
@@ -302,9 +301,5 @@ public class ResultSetTestParams implements TestParams {
     putInMapForKey(functionToArgsMap, Map.entry("updateNull", 1), new Object[] {2});
 
     return functionToArgsMap;
-  }
-
-  private static List<Integer> getAllFetchDirection() {
-    return Arrays.asList(ResultSet.FETCH_FORWARD, ResultSet.FETCH_REVERSE, ResultSet.FETCH_UNKNOWN);
   }
 }

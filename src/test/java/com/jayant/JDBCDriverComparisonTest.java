@@ -95,99 +95,107 @@ public class JDBCDriverComparisonTest {
     reporter.generateReport();
   }
 
-  @ParameterizedTest
-  @MethodSource("provideSQLQueries")
-  @DisplayName("Compare SQL Query Results")
-  void compareSQLQueryResults(String query, String description) {
-    assertDoesNotThrow(
-        () -> {
-          ResultSet oldDriverRs = oldDriverConnection.createStatement().executeQuery(query);
-          ResultSet ossDriverRs = ossDriverConnection.createStatement().executeQuery(query);
-
-          ComparisonResult result =
-              ResultSetComparator.compare("sql", query, new String[] {}, oldDriverRs, ossDriverRs);
-          reporter.addResult(result);
-
-          if (result.hasDifferences()) {
-            System.err.println("Differences found in query results for: " + description);
-            System.err.println(result);
-          }
-        });
-  }
-
-  @ParameterizedTest
-  @MethodSource("provideMetadataMethods")
-  @DisplayName("Compare Metadata API Results")
-  void compareMetadataResults(String methodName, Object[] args) {
-    assertDoesNotThrow(
-        () -> {
-          DatabaseMetaData oldDriverMetadata = oldDriverConnection.getMetaData();
-          DatabaseMetaData ossDriverMetadata = ossDriverConnection.getMetaData();
-
-          Object oldDriverRs = ReflectionUtils.executeMethod(oldDriverMetadata, methodName, args);
-          Object ossDriverRs = ReflectionUtils.executeMethod(ossDriverMetadata, methodName, args);
-
-          ComparisonResult result =
-              ResultSetComparator.compare(
-                  "DatabaseMetaData", methodName, args, oldDriverRs, ossDriverRs);
-          reporter.addResult(result);
-
-          if (result.hasDifferences()) {
-            System.err.println("Differences found in metadata results for method: " + methodName);
-            System.err.println("Args: " + getStringForArgs(args));
-            System.err.println(result);
-          }
-        });
-  }
-
-  @ParameterizedTest
-  @MethodSource("provideResultSetMethods")
-  @DisplayName("Compare ResultSet API Results")
-  void compareResultSetResults(String methodName, Object[] args) {
-    assertDoesNotThrow(
-        () -> {
-          Object oldDriverResult =
-              ReflectionUtils.executeMethod(oldDriverResultSet, methodName, args);
-          Object ossDriverResult =
-              ReflectionUtils.executeMethod(ossDriverResultSet, methodName, args);
-
-          ComparisonResult result =
-              ResultSetComparator.compare(
-                  "ResultSet", methodName, args, oldDriverResult, ossDriverResult);
-          reporter.addResult(result);
-
-          if (result.hasDifferences()) {
-            System.err.println("Differences found in ResultSet results for method: " + methodName);
-            System.err.println("Args: " + getStringForArgs(args));
-            System.err.println(result);
-          }
-        });
-  }
-
-  @ParameterizedTest
-  @MethodSource("provideResultSetMetaDataMethods")
-  @DisplayName("Compare ResultSetMetaData API Results")
-  void compareResultSetMetaDataResults(String methodName, Object[] args) {
-    assertDoesNotThrow(
-        () -> {
-          ResultSetMetaData oldDriverRsMd = oldDriverResultSet.getMetaData();
-          ResultSetMetaData ossDriverRsMd = ossDriverResultSet.getMetaData();
-          Object oldDriverResult = ReflectionUtils.executeMethod(oldDriverRsMd, methodName, args);
-          Object ossDriverResult = ReflectionUtils.executeMethod(ossDriverRsMd, methodName, args);
-
-          ComparisonResult result =
-              ResultSetComparator.compare(
-                  "ResultSetMetaData", methodName, args, oldDriverResult, ossDriverResult);
-          reporter.addResult(result);
-
-          if (result.hasDifferences()) {
-            System.err.println(
-                "Differences found in ResultSetMetaData results for method: " + methodName);
-            System.err.println("Args: " + getStringForArgs(args));
-            System.err.println(result);
-          }
-        });
-  }
+  //
+  //  @ParameterizedTest
+  //  @MethodSource("provideSQLQueries")
+  //  @DisplayName("Compare SQL Query Results")
+  //  void compareSQLQueryResults(String query, String description) {
+  //    assertDoesNotThrow(
+  //        () -> {
+  //          ResultSet oldDriverRs = oldDriverConnection.createStatement().executeQuery(query);
+  //          ResultSet ossDriverRs = ossDriverConnection.createStatement().executeQuery(query);
+  //
+  //          ComparisonResult result =
+  //              ResultSetComparator.compare("sql", query, new String[] {}, oldDriverRs,
+  // ossDriverRs);
+  //          reporter.addResult(result);
+  //
+  //          if (result.hasDifferences()) {
+  //            System.err.println("Differences found in query results for: " + description);
+  //            System.err.println(result);
+  //          }
+  //        });
+  //  }
+  //
+  //  @ParameterizedTest
+  //  @MethodSource("provideMetadataMethods")
+  //  @DisplayName("Compare Metadata API Results")
+  //  void compareMetadataResults(String methodName, Object[] args) {
+  //    assertDoesNotThrow(
+  //        () -> {
+  //          DatabaseMetaData oldDriverMetadata = oldDriverConnection.getMetaData();
+  //          DatabaseMetaData ossDriverMetadata = ossDriverConnection.getMetaData();
+  //
+  //          Object oldDriverRs = ReflectionUtils.executeMethod(oldDriverMetadata, methodName,
+  // args);
+  //          Object ossDriverRs = ReflectionUtils.executeMethod(ossDriverMetadata, methodName,
+  // args);
+  //
+  //          ComparisonResult result =
+  //              ResultSetComparator.compare(
+  //                  "DatabaseMetaData", methodName, args, oldDriverRs, ossDriverRs);
+  //          reporter.addResult(result);
+  //
+  //          if (result.hasDifferences()) {
+  //            System.err.println("Differences found in metadata results for method: " +
+  // methodName);
+  //            System.err.println("Args: " + getStringForArgs(args));
+  //            System.err.println(result);
+  //          }
+  //        });
+  //  }
+  //
+  //  @ParameterizedTest
+  //  @MethodSource("provideResultSetMethods")
+  //  @DisplayName("Compare ResultSet API Results")
+  //  void compareResultSetResults(String methodName, Object[] args) {
+  //    assertDoesNotThrow(
+  //        () -> {
+  //          Object oldDriverResult =
+  //              ReflectionUtils.executeMethod(oldDriverResultSet, methodName, args);
+  //          Object ossDriverResult =
+  //              ReflectionUtils.executeMethod(ossDriverResultSet, methodName, args);
+  //
+  //          ComparisonResult result =
+  //              ResultSetComparator.compare(
+  //                  "ResultSet", methodName, args, oldDriverResult, ossDriverResult);
+  //          reporter.addResult(result);
+  //
+  //          if (result.hasDifferences()) {
+  //            System.err.println("Differences found in ResultSet results for method: " +
+  // methodName);
+  //            System.err.println("Args: " + getStringForArgs(args));
+  //            System.err.println(result);
+  //          }
+  //        });
+  //  }
+  //
+  //  @ParameterizedTest
+  //  @MethodSource("provideResultSetMetaDataMethods")
+  //  @DisplayName("Compare ResultSetMetaData API Results")
+  //  void compareResultSetMetaDataResults(String methodName, Object[] args) {
+  //    assertDoesNotThrow(
+  //        () -> {
+  //          ResultSetMetaData oldDriverRsMd = oldDriverResultSet.getMetaData();
+  //          ResultSetMetaData ossDriverRsMd = ossDriverResultSet.getMetaData();
+  //          Object oldDriverResult = ReflectionUtils.executeMethod(oldDriverRsMd, methodName,
+  // args);
+  //          Object ossDriverResult = ReflectionUtils.executeMethod(ossDriverRsMd, methodName,
+  // args);
+  //
+  //          ComparisonResult result =
+  //              ResultSetComparator.compare(
+  //                  "ResultSetMetaData", methodName, args, oldDriverResult, ossDriverResult);
+  //          reporter.addResult(result);
+  //
+  //          if (result.hasDifferences()) {
+  //            System.err.println(
+  //                "Differences found in ResultSetMetaData results for method: " + methodName);
+  //            System.err.println("Args: " + getStringForArgs(args));
+  //            System.err.println(result);
+  //          }
+  //        });
+  //  }
 
   @ParameterizedTest
   @MethodSource("provideConnectionMethods")

@@ -7,18 +7,22 @@ import java.util.*;
 import java.util.concurrent.Executors;
 
 public class ConnectionTestParams implements TestParams {
+
+  private static final String parameterizedQuery =
+      "SELECT * FROM main.tpcds_sf100_delta.catalog_sales where cs_bill_customer_sk = ? and cs_warehouse_sk = ? limit 5";
+
   @Override
   public Set<Map.Entry<String, Integer>> getAcceptedKnownDiffs() {
     Set<Map.Entry<String, Integer>> set = new HashSet<>();
 
-    // Do not close result set
+    // Do not close connection
     set.add(Map.entry("close", 0));
     set.add(Map.entry("abort", 1));
 
     // Do not close the statement
     set.add(Map.entry("closeStatement", 1));
 
-    // Currently not supported
+    // JDBC needs to provide shardingKeyBuilder support, to test these functions
     set.add(Map.entry("setShardingKeyIfValid", 3));
     set.add(Map.entry("setShardingKeyIfValid", 2));
     set.add(Map.entry("setShardingKey", 2));
@@ -28,19 +32,27 @@ public class ConnectionTestParams implements TestParams {
 
   @Override
   public Map<Map.Entry<String, Integer>, Set<Object[]>> getFunctionToArgsMap() {
-    System.out.println("ConnectionTestParams.getFunctionToArgsMap");
     Map<Map.Entry<String, Integer>, Set<Object[]>> functionToArgsMap = new HashMap<>();
 
     putInMapForKey(functionToArgsMap, Map.entry("createStatement", 0), new Object[] {});
-    putInMapForKey(functionToArgsMap, Map.entry("prepareStatement", 1), new String[] {"SELECT 1"});
     putInMapForKey(
-        functionToArgsMap, Map.entry("prepareStatement", 3), new Object[] {"SELECT 1", 1, 1});
+        functionToArgsMap, Map.entry("prepareStatement", 1), new String[] {parameterizedQuery});
+    for (Integer fetchDirection : ParamUtils.getAllFetchDirection()) {
+      for (Integer concurrencyCondition : ParamUtils.getAllConcurrencyCondition()) {
+        putInMapForKey(
+            functionToArgsMap,
+            Map.entry("prepareStatement", 3),
+            new Object[] {parameterizedQuery, fetchDirection, concurrencyCondition});
+        putInMapForKey(
+            functionToArgsMap,
+            Map.entry("prepareStatement", 4),
+            new Object[] {parameterizedQuery, fetchDirection, concurrencyCondition, 1});
+      }
+    }
     putInMapForKey(
-        functionToArgsMap, Map.entry("prepareStatement", 4), new Object[] {"SELECT 1", 1, 1, 1});
-    putInMapForKey(
-        functionToArgsMap, Map.entry("prepareStatement", 2), new Object[] {"SELECT 1", 1});
+        functionToArgsMap, Map.entry("prepareStatement", 2), new Object[] {parameterizedQuery, 1});
     putInMapForKey(functionToArgsMap, Map.entry("prepareCall", 1), new String[] {"SELECT 1"});
-    putInMapForKey(functionToArgsMap, Map.entry("nativeSQL", 1), new String[] {"SELECT 1"});
+    putInMapForKey(functionToArgsMap, Map.entry("nativeSQL", 1), new String[] {parameterizedQuery});
     putInMapForKey(functionToArgsMap, Map.entry("setAutoCommit", 1), new Boolean[] {true});
     putInMapForKey(functionToArgsMap, Map.entry("getAutoCommit", 0), new Object[] {});
     putInMapForKey(functionToArgsMap, Map.entry("commit", 0), new Object[] {});
@@ -77,15 +89,28 @@ public class ConnectionTestParams implements TestParams {
     putInMapForKey(functionToArgsMap, Map.entry("createSQLXML", 0), new Object[] {});
     putInMapForKey(functionToArgsMap, Map.entry("isValid", 1), new Integer[] {5});
     putInMapForKey(
-        functionToArgsMap, Map.entry("setClientInfo", 2), new String[] {"NAME", "VALUE"});
+        functionToArgsMap,
+        Map.entry("setClientInfo", 2),
+        new String[] {"ClientInfoName", "ClientInfoValue"});
+
+    Properties clientInfo = new Properties();
+    clientInfo.setProperty("ApplicationName", "ConnectionTestParams");
+    clientInfo.setProperty("ClientUser", "jdbc_comparator");
+    putInMapForKey(functionToArgsMap, Map.entry("setClientInfo", 1), new Object[] {clientInfo});
+
     putInMapForKey(
-        functionToArgsMap, Map.entry("setClientInfo", 1), new Object[] {new Properties()});
-    putInMapForKey(functionToArgsMap, Map.entry("getClientInfo", 1), new String[] {"NAME"});
+        functionToArgsMap, Map.entry("getClientInfo", 1), new String[] {"ClientInfoName"});
+    putInMapForKey(
+        functionToArgsMap, Map.entry("getClientInfo", 1), new String[] {"ApplicationName"});
     putInMapForKey(functionToArgsMap, Map.entry("getClientInfo", 0), new Object[] {});
     putInMapForKey(
-        functionToArgsMap, Map.entry("createArrayOf", 2), new Object[] {"NAME", new Object[] {}});
+        functionToArgsMap,
+        Map.entry("createArrayOf", 2),
+        new Object[] {"String", new Object[] {"String1", "String2", "String3"}});
     putInMapForKey(
-        functionToArgsMap, Map.entry("createStruct", 2), new Object[] {"NAME", new Object[] {}});
+        functionToArgsMap,
+        Map.entry("createStruct", 2),
+        new Object[] {"Integer", new Object[] {1, "Object2", 3.241}});
     putInMapForKey(functionToArgsMap, Map.entry("setSchema", 1), new String[] {"hive_metastore"});
     putInMapForKey(functionToArgsMap, Map.entry("getSchema", 0), new Object[] {});
     putInMapForKey(
@@ -98,6 +123,7 @@ public class ConnectionTestParams implements TestParams {
         functionToArgsMap, Map.entry("isWrapperFor", 1), new Object[] {Connection.class});
     putInMapForKey(functionToArgsMap, Map.entry("getConnection", 0), new Object[] {});
     putInMapForKey(functionToArgsMap, Map.entry("getConnectionContext", 0), new Object[] {});
+
     return functionToArgsMap;
   }
 }
