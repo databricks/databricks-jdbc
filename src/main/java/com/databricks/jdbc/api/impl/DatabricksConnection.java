@@ -187,9 +187,9 @@ public class DatabricksConnection implements IDatabricksConnection, IDatabricksC
 
   @Override
   public void setCatalog(String catalog) throws SQLException {
-    this.session.setCatalog(catalog);
     Statement statement = this.createStatement();
     statement.execute("SET CATALOG " + catalog);
+    this.session.setCatalog(catalog);
   }
 
   @Override
@@ -513,9 +513,9 @@ public class DatabricksConnection implements IDatabricksConnection, IDatabricksC
 
   @Override
   public void setSchema(String schema) throws SQLException {
-    session.setSchema(schema);
     Statement statement = this.createStatement();
     statement.execute("USE SCHEMA " + schema);
+    session.setSchema(schema);
   }
 
   @Override

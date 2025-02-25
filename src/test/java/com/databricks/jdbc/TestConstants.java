@@ -25,6 +25,9 @@ public class TestConstants {
   public static final Map<String, String> EMPTY_MAP = Collections.emptyMap();
   public static final String TEST_COLUMN = "testColumn";
   public static final String TEST_CATALOG = "catalog1";
+  public static final String TEST_FOREIGN_CATALOG = "foreignCatalog";
+  public static final String TEST_FOREIGN_SCHEMA = "foreignSchema";
+  public static final String TEST_FOREIGN_TABLE = "foreignTable";
   public static final String TEST_FUNCTION_PATTERN = "functionPattern";
   public static final String TEST_STRING = "test";
   public static final String TEST_USER = "testUser";
