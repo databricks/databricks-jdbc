@@ -1733,6 +1733,14 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
     if (obj == null) {
       return defaultValue.get();
     }
+    if (obj instanceof String) {
+      // get rid of extra quotes
+      String str = ((String) obj).trim();
+      if (str.startsWith("\"") && str.endsWith("\"") && str.length() > 1) {
+        str = str.substring(1, str.length() - 1).trim();
+      }
+      obj = str;
+    }
     int columnType = resultSetMetaData.getColumnType(columnIndex);
     ObjectConverter converter = ConverterHelper.getConverterForSqlType(columnType);
     return convertMethod.apply(converter, obj);

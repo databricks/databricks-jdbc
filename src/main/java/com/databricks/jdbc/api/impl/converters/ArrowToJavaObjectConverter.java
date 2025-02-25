@@ -62,6 +62,9 @@ public class ArrowToJavaObjectConverter {
       if (arrowMetadata.startsWith("MAP")) {
         requiredType = ColumnInfoTypeName.MAP;
       }
+      if (arrowMetadata.startsWith("VARIANT")) {
+        requiredType = ColumnInfoTypeName.STRING;
+      }
     }
     if (object == null) {
       return null;

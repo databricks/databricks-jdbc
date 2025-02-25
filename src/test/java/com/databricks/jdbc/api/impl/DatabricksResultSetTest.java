@@ -557,6 +557,23 @@ public class DatabricksResultSetTest {
   }
 
   @Test
+  void testGetObjectWithVariant() throws Exception {
+    DatabricksResultSet resultSet = getResultSet(StatementState.SUCCEEDED, null);
+    when(mockedExecutionResult.getObject(2)).thenReturn("testObject");
+    when(mockedResultSetMetadata.getColumnTypeName(anyInt())).thenReturn("VARIANT");
+    assertEquals("testObject", resultSet.getObject(3));
+
+    // null object
+    when(mockedExecutionResult.getObject(2)).thenReturn(null);
+    assertNull(resultSet.getObject(3));
+
+    // Test with column label
+    when(mockedExecutionResult.getObject(2)).thenReturn("testObject");
+    when(mockedResultSetMetadata.getColumnNameIndex("columnLabel")).thenReturn(3);
+    assertEquals("testObject", resultSet.getObject("columnLabel"));
+  }
+
+  @Test
   void testGetObject() throws SQLException {
     String expected = "testObject";
     DatabricksResultSet resultSet = getResultSet(StatementState.SUCCEEDED, null);
