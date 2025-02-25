@@ -30,6 +30,7 @@ public class DatabricksTypeUtil {
 
   private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(DatabricksTypeUtil.class);
   public static final String BIGINT = "BIGINT";
+  public static final String LONG = "LONG";
   public static final String BINARY = "BINARY";
   public static final String BOOLEAN = "BOOLEAN";
   public static final String DATE = "DATE";
@@ -158,6 +159,7 @@ public class DatabricksTypeUtil {
       case LONG:
         return "java.lang.Long";
       case FLOAT:
+        return "java.lang.Float";
       case DOUBLE:
         return "java.lang.Double";
       case DECIMAL:
@@ -203,6 +205,7 @@ public class DatabricksTypeUtil {
     }
     switch (typeName) {
       case BYTE:
+        return 4;
       case SHORT:
       case INT:
       case LONG:
@@ -211,12 +214,13 @@ public class DatabricksTypeUtil {
       case CHAR:
         return precision;
       case FLOAT:
+        return 14;
       case DOUBLE:
         return 24;
       case DECIMAL:
         return calculateDisplaySize(scale, precision);
       case BOOLEAN:
-        return 5; // length of `false`
+        return 1; // 0 or 1
       case TIMESTAMP:
         return 29; // as per
         // https://docs.oracle.com/en/java/javase/21/docs/api/java.sql/java/sql/Timestamp.html#toString()
@@ -281,6 +285,7 @@ public class DatabricksTypeUtil {
     }
     switch (columnType) {
       case Types.TINYINT:
+        return 3;
       case Types.SMALLINT:
         return 5;
       case Types.INTEGER:
@@ -342,7 +347,7 @@ public class DatabricksTypeUtil {
       case Types.ARRAY:
         return ARRAY;
       case Types.BIGINT:
-        return BIGINT;
+        return LONG;
       case Types.BINARY:
       case Types.VARBINARY:
       case Types.LONGVARBINARY:

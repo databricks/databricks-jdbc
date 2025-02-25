@@ -21,12 +21,14 @@ public class ChunkDownloadTaskTest {
   @Mock ArrowResultChunk chunk;
   @Mock IDatabricksHttpClient httpClient;
   @Mock RemoteChunkProvider remoteChunkProvider;
+  @Mock ChunkLinkDownloadService chunkLinkDownloadService;
   private ChunkDownloadTask chunkDownloadTask;
 
   @BeforeEach
   void setUp() {
     MockitoAnnotations.openMocks(this);
-    chunkDownloadTask = new ChunkDownloadTask(chunk, httpClient, remoteChunkProvider);
+    chunkDownloadTask =
+        new ChunkDownloadTask(chunk, httpClient, remoteChunkProvider, chunkLinkDownloadService);
   }
 
   @Test

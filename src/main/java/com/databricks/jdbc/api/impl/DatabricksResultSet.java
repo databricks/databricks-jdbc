@@ -24,6 +24,7 @@ import com.databricks.jdbc.model.core.ResultData;
 import com.databricks.jdbc.model.core.ResultManifest;
 import com.databricks.jdbc.model.core.StatementStatus;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
+import com.databricks.sdk.support.ToStringer;
 import com.google.common.annotations.VisibleForTesting;
 import java.io.InputStream;
 import java.io.Reader;
@@ -296,7 +297,7 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
 
   @Override
   public float getFloat(int columnIndex) throws SQLException {
-    return getConvertedObject(columnIndex, ObjectConverter::toLong, () -> 0L);
+    return getConvertedObject(columnIndex, ObjectConverter::toFloat, () -> 0.0f);
   }
 
   @Override
@@ -310,7 +311,7 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
         columnIndex,
         (converter, object) -> {
           BigDecimal bd = converter.toBigDecimal(object);
-          return (bd != null) ? bd.setScale(scale, RoundingMode.HALF_UP) : null;
+          return applyScaleToBigDecimal(bd, columnIndex, scale);
         },
         () -> BigDecimal.ZERO.setScale(scale, RoundingMode.HALF_UP));
   }
@@ -1735,5 +1736,31 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
     int columnType = resultSetMetaData.getColumnType(columnIndex);
     ObjectConverter converter = ConverterHelper.getConverterForSqlType(columnType);
     return convertMethod.apply(converter, obj);
+  }
+
+  private BigDecimal applyScaleToBigDecimal(BigDecimal bigDecimal, int columnIndex, int scale)
+      throws SQLException {
+    if (bigDecimal == null) {
+      return null;
+    }
+    // Double/Float columns do not have scale defined, hence, return them at full scale
+    if (resultSetMetaData.getColumnType(columnIndex) == Types.DOUBLE
+        || resultSetMetaData.getColumnType(columnIndex) == Types.FLOAT) {
+      return bigDecimal;
+    }
+    return bigDecimal.setScale(scale, RoundingMode.HALF_UP);
+  }
+
+  @Override
+  public String toString() {
+    return (new ToStringer(DatabricksResultSet.class))
+        .add("statementStatus", this.statementStatus)
+        .add("statementId", this.statementId)
+        .add("statementType", this.statementType)
+        .add("updateCount", this.updateCount)
+        .add("isClosed", this.isClosed)
+        .add("wasNull", this.wasNull)
+        .add("resultSetType", this.resultSetType)
+        .toString();
   }
 }

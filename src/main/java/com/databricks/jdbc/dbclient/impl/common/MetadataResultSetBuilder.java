@@ -612,17 +612,12 @@ public class MetadataResultSetBuilder {
         CommandName.LIST_SCHEMAS);
   }
 
-  public static DatabricksResultSet getAttributesEmptyResultSet() {
-    return buildResultSet(
-        ATTRIBUTES_COLUMNS, new ArrayList<>(), METADATA_STATEMENT_ID, CommandName.GET_ATTRIBUTES);
-  }
-
-  public static DatabricksResultSet getBestRowIdentifierEmptyResultSet() {
-    return buildResultSet(
-        BEST_ROW_IDENTIFIER_COLUMNS,
-        new ArrayList<>(),
-        METADATA_STATEMENT_ID,
-        CommandName.GET_BEST_ROW_IDENTIFIER);
+  public static DatabricksResultSet getResultSetWithGivenRowsAndColumns(
+      List<ResultColumn> columns,
+      List<List<Object>> rows,
+      String statementId,
+      CommandName commandName) {
+    return buildResultSet(columns, rows, statementId, commandName);
   }
 
   public static DatabricksResultSet getTablesResult(String catalog, List<List<Object>> rows) {

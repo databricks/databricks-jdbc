@@ -42,6 +42,7 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
   private boolean closeOnCompletion;
   private SQLWarning warnings = null;
   private int maxRows = DEFAULT_ROW_LIMIT;
+  private int maxFieldSize = 0;
   private boolean escapeProcessing = DEFAULT_ESCAPE_PROCESSING;
   private InputStreamEntity inputStream = null;
   private boolean allowInputStreamForUCVolume = false;
@@ -121,15 +122,13 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
   @Override
   public int getMaxFieldSize() throws SQLException {
     LOGGER.debug("public int getMaxFieldSize()");
-    throw new DatabricksSQLFeatureNotSupportedException(
-        "Not implemented in DatabricksStatement - getMaxFieldSize()");
+    return maxFieldSize;
   }
 
   @Override
   public void setMaxFieldSize(int max) throws SQLException {
     LOGGER.debug(String.format("public void setMaxFieldSize(int max = {%s})", max));
-    throw new DatabricksSQLFeatureNotSupportedException(
-        "Not implemented in DatabricksStatement - setMaxFieldSize(int max)");
+    maxFieldSize = max;
   }
 
   @Override
@@ -225,8 +224,7 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
   @Override
   public boolean getMoreResults() throws SQLException {
     LOGGER.debug("public boolean getMoreResults()");
-    throw new DatabricksSQLFeatureNotSupportedException(
-        "Not implemented in DatabricksStatement - getMoreResults()");
+    return false;
   }
 
   @Override

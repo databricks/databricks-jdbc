@@ -68,25 +68,10 @@ public class DriverUtil {
     }
   }
 
-  public static String getRootCauseMessage(Throwable e) {
-    Throwable rootCause = getRootCause(e);
-    return rootCause instanceof DatabricksSQLException && rootCause.getMessage() != null
-        ? rootCause.getMessage()
-        : e.getMessage();
-  }
-
   /**
    * Returns whether the driver is running against fake services based on request/response stubs.
    */
   public static boolean isRunningAgainstFake() {
     return Boolean.parseBoolean(System.getProperty(IS_FAKE_SERVICE_TEST_PROP));
-  }
-
-  private static Throwable getRootCause(Throwable throwable) {
-    Throwable cause;
-    while ((cause = throwable.getCause()) != null && cause != throwable) {
-      throwable = cause;
-    }
-    return throwable;
   }
 }
