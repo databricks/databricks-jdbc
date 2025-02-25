@@ -81,7 +81,7 @@ public class ArrowResultChunk {
     DOWNLOAD_RETRY
   }
 
-  private static final Integer SECONDS_BUFFER_FOR_EXPIRY = 60;
+  public static final Integer SECONDS_BUFFER_FOR_EXPIRY = 60;
   final long numRows;
   long rowOffset;
   List<List<ValueVector>> recordBatchList;
