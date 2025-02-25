@@ -26,7 +26,13 @@ public abstract class AbstractFakeServiceIntegrationTests {
       new FakeServiceExtension(
           new DatabricksWireMockExtension.Builder()
               .options(
-                  wireMockConfig().dynamicPort().dynamicHttpsPort().extensions(getExtensions())),
+                  wireMockConfig()
+                      .dynamicPort()
+                      .dynamicHttpsPort()
+                      .extensions(getExtensions())
+                      .httpClientFactory(
+                          new FakeServiceHttpClientFactory(
+                              FakeServiceConfigLoader.getFakeServiceUserAgent()))),
           FakeServiceConfigLoader.shouldUseThriftClient
               ? DatabricksJdbcConstants.FakeServiceType.SQL_GATEWAY
               : DatabricksJdbcConstants.FakeServiceType.SQL_EXEC,
@@ -41,7 +47,13 @@ public abstract class AbstractFakeServiceIntegrationTests {
       new FakeServiceExtension(
           new DatabricksWireMockExtension.Builder()
               .options(
-                  wireMockConfig().dynamicPort().dynamicHttpsPort().extensions(getExtensions())),
+                  wireMockConfig()
+                      .dynamicPort()
+                      .dynamicHttpsPort()
+                      .extensions(getExtensions())
+                      .httpClientFactory(
+                          new FakeServiceHttpClientFactory(
+                              FakeServiceConfigLoader.getFakeServiceUserAgent()))),
           FakeServiceConfigLoader.shouldUseThriftClient
               ? DatabricksJdbcConstants.FakeServiceType.CLOUD_FETCH_SQL_GATEWAY
               : DatabricksJdbcConstants.FakeServiceType.CLOUD_FETCH,
@@ -52,7 +64,13 @@ public abstract class AbstractFakeServiceIntegrationTests {
       new FakeServiceExtension(
           new DatabricksWireMockExtension.Builder()
               .options(
-                  wireMockConfig().dynamicPort().dynamicHttpsPort().extensions(getExtensions())),
+                  wireMockConfig()
+                      .dynamicPort()
+                      .dynamicHttpsPort()
+                      .extensions(getExtensions())
+                      .httpClientFactory(
+                          new FakeServiceHttpClientFactory(
+                              FakeServiceConfigLoader.getFakeServiceUserAgent()))),
           DatabricksJdbcConstants.FakeServiceType.JWT_TOKEN_ENDPOINT,
           getJWTTokenEndpointHost());
 
