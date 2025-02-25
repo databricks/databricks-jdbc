@@ -1125,7 +1125,16 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
           DatabricksDriverErrorCode.INVALID_STATE);
     }
 
-    return session.getDatabricksMetadataClient().listCrossReferences(session, parentCatalog, parentSchema, parentTable, foreignCatalog, foreignSchema, foreignTable);
+    return session
+        .getDatabricksMetadataClient()
+        .listCrossReferences(
+            session,
+            parentCatalog,
+            parentSchema,
+            parentTable,
+            foreignCatalog,
+            foreignSchema,
+            foreignTable);
     /*
     return MetadataResultSetBuilder.getResultSetWithGivenRowsAndColumns(
         MetadataResultConstants.CROSS_REFERENCE_COLUMNS,

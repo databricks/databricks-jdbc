@@ -11,7 +11,6 @@ import com.databricks.jdbc.common.StatementType;
 import com.databricks.jdbc.dbclient.IDatabricksClient;
 import com.databricks.jdbc.dbclient.IDatabricksMetadataClient;
 import com.databricks.jdbc.dbclient.impl.common.MetadataResultSetBuilder;
-import com.databricks.jdbc.exception.DatabricksSQLFeatureNotImplementedException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import java.sql.ResultSet;
@@ -132,10 +131,10 @@ public class DatabricksMetadataSdkClient implements IDatabricksMetadataClient {
       IDatabricksSession session, String catalog, String schema, String table) throws SQLException {
     LOGGER.debug("public ResultSet getImportedKeys()");
     return MetadataResultSetBuilder.getResultSetWithGivenRowsAndColumns(
-            MetadataResultConstants.IMPORTED_KEYS_COLUMNS,
-            new ArrayList<>(),
-            METADATA_STATEMENT_ID,
-            com.databricks.jdbc.common.CommandName.GET_IMPORTED_KEYS);
+        MetadataResultConstants.IMPORTED_KEYS_COLUMNS,
+        new ArrayList<>(),
+        METADATA_STATEMENT_ID,
+        com.databricks.jdbc.common.CommandName.GET_IMPORTED_KEYS);
   }
 
   @Override
@@ -143,10 +142,10 @@ public class DatabricksMetadataSdkClient implements IDatabricksMetadataClient {
       IDatabricksSession session, String catalog, String schema, String table) throws SQLException {
     LOGGER.debug("public ResultSet getExportedKeys()");
     return MetadataResultSetBuilder.getResultSetWithGivenRowsAndColumns(
-            MetadataResultConstants.EXPORTED_KEYS_COLUMNS,
-            new ArrayList<>(),
-            METADATA_STATEMENT_ID,
-            com.databricks.jdbc.common.CommandName.GET_EXPORTED_KEYS);
+        MetadataResultConstants.EXPORTED_KEYS_COLUMNS,
+        new ArrayList<>(),
+        METADATA_STATEMENT_ID,
+        com.databricks.jdbc.common.CommandName.GET_EXPORTED_KEYS);
   }
 
   @Override
@@ -160,10 +159,10 @@ public class DatabricksMetadataSdkClient implements IDatabricksMetadataClient {
       String foreignTable) {
     LOGGER.debug("public ResultSet getCrossReferences()");
     return MetadataResultSetBuilder.getResultSetWithGivenRowsAndColumns(
-            MetadataResultConstants.CROSS_REFERENCE_COLUMNS,
-            new ArrayList<>(),
-            METADATA_STATEMENT_ID,
-            com.databricks.jdbc.common.CommandName.GET_CROSS_REFERENCE);
+        MetadataResultConstants.CROSS_REFERENCE_COLUMNS,
+        new ArrayList<>(),
+        METADATA_STATEMENT_ID,
+        com.databricks.jdbc.common.CommandName.GET_CROSS_REFERENCE);
   }
 
   private ResultSet getResultSet(String SQL, IDatabricksSession session) throws SQLException {
