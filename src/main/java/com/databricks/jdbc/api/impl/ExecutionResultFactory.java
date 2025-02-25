@@ -50,7 +50,7 @@ class ExecutionResultFactory {
     if (manifest.getFormat() == null) {
       throw new IllegalStateException("Empty response format");
     }
-    LOGGER.info("Processing result of format {%s} from SQL Execution API", manifest.getFormat());
+    LOGGER.info("Processing result of format %s from SQL Execution API", manifest.getFormat());
     // We use JSON_ARRAY for metadata and update commands, and ARROW_STREAM for query results
     switch (manifest.getFormat()) {
       case ARROW_STREAM:
@@ -88,7 +88,7 @@ class ExecutionResultFactory {
       IDatabricksSession session)
       throws SQLException {
     TSparkRowSetType resultFormat = resultsResp.getResultSetMetadata().getResultFormat();
-    LOGGER.info("Processing result of format {%s} from SQL Gateway", resultFormat);
+    LOGGER.info("Processing result of format %s from SQL Gateway", resultFormat);
     switch (resultFormat) {
       case COLUMN_BASED_SET:
         return getResultSet(convertColumnarToRowBased(resultsResp, parentStatement, session));

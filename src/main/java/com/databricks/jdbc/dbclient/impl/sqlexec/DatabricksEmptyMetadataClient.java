@@ -83,4 +83,29 @@ public class DatabricksEmptyMetadataClient implements IDatabricksMetadataClient 
     LOGGER.warn("Empty metadata implementation for listPrimaryKeys.");
     return MetadataResultSetBuilder.getPrimaryKeysResult((List<List<Object>>) null);
   }
+
+  @Override
+  public DatabricksResultSet listImportedKeys(
+      IDatabricksSession session, String catalog, String schema, String table) throws SQLException {
+    return MetadataResultSetBuilder.getImportedKeys((List<List<Object>>) null);
+  }
+
+  @Override
+  public DatabricksResultSet listExportedKeys(
+      IDatabricksSession session, String catalog, String schema, String table) throws SQLException {
+    return MetadataResultSetBuilder.getExportedKeys((List<List<Object>>) null);
+  }
+
+  @Override
+  public DatabricksResultSet listCrossReferences(
+      IDatabricksSession session,
+      String parentCatalog,
+      String parentSchema,
+      String parentTable,
+      String foreignCatalog,
+      String foreignSchema,
+      String foreignTable)
+      throws SQLException {
+    return MetadataResultSetBuilder.getCrossRefsResult((List<List<Object>>) null);
+  }
 }

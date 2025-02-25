@@ -9,6 +9,7 @@ import com.databricks.jdbc.common.StatementType;
 import com.databricks.jdbc.dbclient.IDatabricksClient;
 import com.databricks.jdbc.dbclient.IDatabricksMetadataClient;
 import com.databricks.jdbc.dbclient.impl.common.MetadataResultSetBuilder;
+import com.databricks.jdbc.exception.DatabricksSQLFeatureNotImplementedException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import java.sql.ResultSet;
@@ -121,6 +122,31 @@ public class DatabricksMetadataSdkClient implements IDatabricksMetadataClient {
     String SQL = commandBuilder.getSQLString(CommandName.LIST_PRIMARY_KEYS);
     LOGGER.debug(String.format("SQL command to fetch primary keys: {%s}", SQL));
     return MetadataResultSetBuilder.getPrimaryKeysResult(getResultSet(SQL, session));
+  }
+
+  @Override
+  public DatabricksResultSet listImportedKeys(
+      IDatabricksSession session, String catalog, String schema, String table) throws SQLException {
+    throw new DatabricksSQLFeatureNotImplementedException("getImportedKeys not implemented");
+  }
+
+  @Override
+  public DatabricksResultSet listExportedKeys(
+      IDatabricksSession session, String catalog, String schema, String table) throws SQLException {
+    throw new DatabricksSQLFeatureNotImplementedException("getExportedKeys not implemented");
+  }
+
+  @Override
+  public DatabricksResultSet listCrossReferences(
+      IDatabricksSession session,
+      String catalog,
+      String schema,
+      String table,
+      String foreignCatalog,
+      String foreignSchema,
+      String foreignTable)
+      throws SQLException {
+    throw new DatabricksSQLFeatureNotImplementedException("getCrossReferences not implemented");
   }
 
   private ResultSet getResultSet(String SQL, IDatabricksSession session) throws SQLException {

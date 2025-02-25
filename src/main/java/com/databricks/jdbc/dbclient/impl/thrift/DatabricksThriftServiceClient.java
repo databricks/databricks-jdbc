@@ -184,7 +184,7 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
   public void closeStatement(StatementId statementId) throws DatabricksSQLException {
     LOGGER.debug(
         String.format(
-            "public void closeStatement(String statementId = {%s}) for all purpose cluster",
+            "public void closeStatement(String statementId = {%s}) using Thrift client",
             statementId));
     TCloseOperationReq request =
         new TCloseOperationReq().setOperationHandle(getOperationHandle(statementId));
@@ -196,7 +196,7 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
   public void cancelStatement(StatementId statementId) throws DatabricksSQLException {
     LOGGER.debug(
         String.format(
-            "public void cancelStatement(String statementId = {%s}) for all purpose cluster",
+            "public void cancelStatement(String statementId = {%s}) using Thrift client",
             statementId));
     TCancelOperationReq request =
         new TCancelOperationReq().setOperationHandle(getOperationHandle(statementId));
@@ -212,7 +212,7 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
       throws SQLException {
     LOGGER.debug(
         String.format(
-            "public DatabricksResultSet getStatementResult(String statementId = {%s}) for all purpose cluster",
+            "public DatabricksResultSet getStatementResult(String statementId = {%s}) using Thrift client",
             statementId));
     return thriftAccessor.getStatementResult(
         getOperationHandle(statementId), parentStatement, session);
@@ -223,7 +223,7 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
       throws DatabricksSQLException {
     String context =
         String.format(
-            "public Optional<ExternalLink> getResultChunk(String statementId = {%s}, long chunkIndex = {%s}) for all purpose cluster",
+            "public Optional<ExternalLink> getResultChunk(String statementId = {%s}, long chunkIndex = {%s}) using Thrift client",
             statementId, chunkIndex);
     LOGGER.debug(context);
     TFetchResultsResp fetchResultsResp;
@@ -255,8 +255,7 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
   @Override
   public DatabricksResultSet listCatalogs(IDatabricksSession session) throws SQLException {
     String context =
-        String.format(
-            "Fetching catalogs for all purpose cluster. Session {%s}", session.toString());
+        String.format("Fetching catalogs using Thrift client. Session {%s}", session.toString());
     LOGGER.debug(context);
     TGetCatalogsReq request =
         new TGetCatalogsReq()
@@ -271,7 +270,7 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
       IDatabricksSession session, String catalog, String schemaNamePattern) throws SQLException {
     String context =
         String.format(
-            "Fetching schemas for all purpose cluster. Session {%s}, catalog {%s}, schemaNamePattern {%s}",
+            "Fetching schemas using Thrift client. Session {%s}, catalog {%s}, schemaNamePattern {%s}",
             session.toString(), catalog, schemaNamePattern);
     LOGGER.debug(context);
     TGetSchemasReq request =
@@ -296,7 +295,7 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
       throws SQLException {
     String context =
         String.format(
-            "Fetching tables for all purpose cluster. Session {%s}, catalog {%s}, schemaNamePattern {%s}, tableNamePattern {%s}",
+            "Fetching tables using Thrift client. Session {%s}, catalog {%s}, schemaNamePattern {%s}, tableNamePattern {%s}",
             session.toString(), catalog, schemaNamePattern, tableNamePattern);
     LOGGER.debug(context);
     TGetTablesReq request =
@@ -317,7 +316,7 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
   public DatabricksResultSet listTableTypes(IDatabricksSession session) {
     LOGGER.debug(
         String.format(
-            "Fetching table types for all purpose cluster. Session {%s}", session.toString()));
+            "Fetching table types using Thrift client. Session {%s}", session.toString()));
     return MetadataResultSetBuilder.getTableTypesResult();
   }
 
@@ -331,7 +330,7 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
       throws DatabricksSQLException {
     String context =
         String.format(
-            "Fetching columns for all purpose cluster. Session {%s}, catalog {%s}, schemaNamePattern {%s}, tableNamePattern {%s}, columnNamePattern {%s}",
+            "Fetching columns using Thrift client. Session {%s}, catalog {%s}, schemaNamePattern {%s}, tableNamePattern {%s}, columnNamePattern {%s}",
             session.toString(), catalog, schemaNamePattern, tableNamePattern, columnNamePattern);
     LOGGER.debug(context);
     TGetColumnsReq request =
@@ -355,7 +354,7 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
       throws DatabricksSQLException {
     String context =
         String.format(
-            "Fetching functions for all purpose cluster. Session {%s}, catalog {%s}, schemaNamePattern {%s}, functionNamePattern {%s}.",
+            "Fetching functions using Thrift client. Session {%s}, catalog {%s}, schemaNamePattern {%s}, functionNamePattern {%s}.",
             session.toString(), catalog, schemaNamePattern, functionNamePattern);
     LOGGER.debug(context);
     TGetFunctionsReq request =
@@ -374,7 +373,7 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
       IDatabricksSession session, String catalog, String schema, String table) throws SQLException {
     String context =
         String.format(
-            "Fetching primary keys for all purpose cluster. session {%s}, catalog {%s}, schema {%s}, table {%s}",
+            "Fetching primary keys using Thrift client. session {%s}, catalog {%s}, schema {%s}, table {%s}",
             session.toString(), catalog, schema, table);
     LOGGER.debug(context);
     TGetPrimaryKeysReq request =
@@ -386,6 +385,83 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
             .setRunAsync(true);
     TFetchResultsResp response = (TFetchResultsResp) thriftAccessor.getThriftResponse(request);
     return getPrimaryKeysResult(extractValues(response.getResults().getColumns()));
+  }
+
+  @Override
+  public DatabricksResultSet listImportedKeys(
+      IDatabricksSession session, String catalog, String schema, String table) throws SQLException {
+    String context =
+        String.format(
+            "Fetching imported keys using Thrift client for session {%s}, catalog {%s}, schema {%s}, table {%s}",
+            session.toString(), catalog, schema, table);
+    LOGGER.debug(context);
+    // GetImportedKeys is implemented using GetCrossReferences
+    // When only foreign table name is provided, we get imported keys
+    TGetCrossReferenceReq request =
+        new TGetCrossReferenceReq()
+            .setSessionHandle(Objects.requireNonNull(session.getSessionInfo()).sessionHandle())
+            .setForeignCatalogName(catalog)
+            .setForeignSchemaName(schema)
+            .setForeignTableName(table)
+            .setRunAsync(true);
+    TFetchResultsResp response = (TFetchResultsResp) thriftAccessor.getThriftResponse(request);
+    return getImportedKeys(extractValues(response.getResults().getColumns()));
+  }
+
+  @Override
+  public DatabricksResultSet listExportedKeys(
+      IDatabricksSession session, String catalog, String schema, String table) throws SQLException {
+    String context =
+        String.format(
+            "Fetching exported keys using Thrift client for session {%s}, catalog {%s}, schema {%s}, table {%s}",
+            session.toString(), catalog, schema, table);
+    LOGGER.debug(context);
+    // GetImportedKeys is implemented using GetCrossReferences
+    // When only parent table name is provided, we get exported keys
+    TGetCrossReferenceReq request =
+        new TGetCrossReferenceReq()
+            .setSessionHandle(Objects.requireNonNull(session.getSessionInfo()).sessionHandle())
+            .setParentCatalogName(catalog)
+            .setParentSchemaName(schema)
+            .setParentTableName(table)
+            .setRunAsync(true);
+    TFetchResultsResp response = (TFetchResultsResp) thriftAccessor.getThriftResponse(request);
+    return getExportedKeys(extractValues(response.getResults().getColumns()));
+  }
+
+  @Override
+  public DatabricksResultSet listCrossReferences(
+      IDatabricksSession session,
+      String parentCatalog,
+      String parentSchema,
+      String parentTable,
+      String foreignCatalog,
+      String foreignSchema,
+      String foreignTable)
+      throws SQLException {
+    String context =
+        String.format(
+            "Fetching cross references using Thrift client for session {%s}, catalog {%s}, schema {%s}, table {%s}, foreign catalog {%s}, foreign schema {%s}, foreign table {%s}",
+            session.toString(),
+            parentCatalog,
+            parentSchema,
+            parentTable,
+            foreignCatalog,
+            foreignSchema,
+            foreignTable);
+    LOGGER.debug(context);
+    TGetCrossReferenceReq request =
+        new TGetCrossReferenceReq()
+            .setSessionHandle(Objects.requireNonNull(session.getSessionInfo()).sessionHandle())
+            .setParentCatalogName(parentCatalog)
+            .setParentSchemaName(parentSchema)
+            .setParentTableName(parentTable)
+            .setForeignCatalogName(foreignCatalog)
+            .setForeignSchemaName(foreignSchema)
+            .setForeignTableName(foreignTable)
+            .setRunAsync(true);
+    TFetchResultsResp response = (TFetchResultsResp) thriftAccessor.getThriftResponse(request);
+    return getCrossRefsResult(extractValues(response.getResults().getColumns()));
   }
 
   public TFetchResultsResp getMoreResults(IDatabricksStatementInternal parentStatement)

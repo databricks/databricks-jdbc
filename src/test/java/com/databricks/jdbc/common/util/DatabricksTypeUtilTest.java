@@ -77,6 +77,10 @@ class DatabricksTypeUtilTest {
     assertEquals(
         "java.lang.Long", DatabricksTypeUtil.getColumnTypeClassName(ColumnInfoTypeName.LONG));
     assertEquals(
+        "java.lang.Float", DatabricksTypeUtil.getColumnTypeClassName(ColumnInfoTypeName.FLOAT));
+    assertEquals(
+        "java.lang.Double", DatabricksTypeUtil.getColumnTypeClassName(ColumnInfoTypeName.DOUBLE));
+    assertEquals(
         "java.math.BigDecimal",
         DatabricksTypeUtil.getColumnTypeClassName(ColumnInfoTypeName.DECIMAL));
     assertEquals("[B", DatabricksTypeUtil.getColumnTypeClassName(ColumnInfoTypeName.BINARY));
@@ -96,10 +100,13 @@ class DatabricksTypeUtilTest {
 
   @Test
   void testGetDisplaySize() {
-    assertEquals(24, DatabricksTypeUtil.getDisplaySize(ColumnInfoTypeName.FLOAT, 0, 0));
+    assertEquals(14, DatabricksTypeUtil.getDisplaySize(ColumnInfoTypeName.FLOAT, 0, 0));
+    assertEquals(24, DatabricksTypeUtil.getDisplaySize(ColumnInfoTypeName.DOUBLE, 0, 0));
     assertEquals(29, DatabricksTypeUtil.getDisplaySize(ColumnInfoTypeName.TIMESTAMP, 0, 0));
     assertEquals(1, DatabricksTypeUtil.getDisplaySize(ColumnInfoTypeName.CHAR, 1, 0));
     assertEquals(4, DatabricksTypeUtil.getDisplaySize(ColumnInfoTypeName.NULL, 1, 0));
+    assertEquals(4, DatabricksTypeUtil.getDisplaySize(ColumnInfoTypeName.BYTE, 1, 0));
+    assertEquals(1, DatabricksTypeUtil.getDisplaySize(ColumnInfoTypeName.BOOLEAN, 1, 0));
     assertEquals(10, DatabricksTypeUtil.getDisplaySize(ColumnInfoTypeName.DATE, 1, 0));
     assertEquals(6, DatabricksTypeUtil.getDisplaySize(Types.SMALLINT, 5));
     assertEquals(11, DatabricksTypeUtil.getDisplaySize(Types.INTEGER, 10));
@@ -113,12 +120,13 @@ class DatabricksTypeUtilTest {
   void testGetPrecision() {
     assertEquals(15, DatabricksTypeUtil.getPrecision(Types.DOUBLE));
     assertEquals(19, DatabricksTypeUtil.getPrecision(Types.BIGINT));
+    assertEquals(3, DatabricksTypeUtil.getPrecision(Types.TINYINT));
     assertEquals(1, DatabricksTypeUtil.getPrecision(Types.BOOLEAN));
     assertEquals(7, DatabricksTypeUtil.getPrecision(Types.FLOAT));
     assertEquals(29, DatabricksTypeUtil.getPrecision(Types.TIMESTAMP));
     assertEquals(255, DatabricksTypeUtil.getPrecision(Types.STRUCT));
     assertEquals(255, DatabricksTypeUtil.getPrecision(Types.ARRAY));
-    assertEquals(5, DatabricksTypeUtil.getPrecision(Types.TINYINT));
+    assertEquals(3, DatabricksTypeUtil.getPrecision(Types.TINYINT));
     assertEquals(5, DatabricksTypeUtil.getPrecision(Types.SMALLINT));
     assertEquals(10, DatabricksTypeUtil.getPrecision(Types.INTEGER));
   }

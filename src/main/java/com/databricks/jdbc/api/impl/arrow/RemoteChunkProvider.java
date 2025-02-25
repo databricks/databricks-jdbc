@@ -20,7 +20,6 @@ import com.databricks.jdbc.model.core.ResultManifest;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import com.databricks.sdk.service.sql.BaseChunkInfo;
 import com.google.common.annotations.VisibleForTesting;
-import java.util.Collection;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -34,7 +33,6 @@ public class RemoteChunkProvider implements ChunkProvider, ChunkDownloadCallback
   private static final String CHUNKS_DOWNLOADER_THREAD_POOL_PREFIX =
       "databricks-jdbc-chunks-downloader-";
   private static int chunksDownloaderThreadPoolSize;
-  private final IDatabricksSession session;
   private final StatementId statementId;
   private long chunkCount;
   private long rowCount;
@@ -47,6 +45,7 @@ public class RemoteChunkProvider implements ChunkProvider, ChunkDownloadCallback
   private boolean isClosed;
   private final CompressionCodec compressionCodec;
   private final ConcurrentHashMap<Long, ArrowResultChunk> chunkIndexToChunksMap;
+  private final ChunkLinkDownloadService linkDownloadService;
 
   RemoteChunkProvider(
       StatementId statementId,
@@ -59,12 +58,18 @@ public class RemoteChunkProvider implements ChunkProvider, ChunkDownloadCallback
     RemoteChunkProvider.chunksDownloaderThreadPoolSize = chunksDownloaderThreadPoolSize;
     this.chunkDownloaderExecutorService = createChunksDownloaderExecutorService();
     this.httpClient = httpClient;
-    this.session = session;
     this.statementId = statementId;
     this.chunkCount = resultManifest.getTotalChunkCount();
     this.rowCount = resultManifest.getTotalRowCount();
     this.chunkIndexToChunksMap = initializeChunksMap(resultManifest, resultData, statementId);
     this.compressionCodec = resultManifest.getResultCompression();
+    this.linkDownloadService =
+        new ChunkLinkDownloadService(
+            session,
+            statementId,
+            chunkCount,
+            chunkIndexToChunksMap,
+            resultData.getExternalLinks() != null ? resultData.getExternalLinks().size() : 1);
     initializeData();
   }
 
@@ -82,9 +87,11 @@ public class RemoteChunkProvider implements ChunkProvider, ChunkDownloadCallback
     this.httpClient = httpClient;
     this.compressionCodec = compressionCodec;
     this.rowCount = 0;
-    this.session = session;
     this.statementId = parentStatement.getStatementId();
     this.chunkIndexToChunksMap = initializeChunksMap(resultsResp, parentStatement, session);
+    this.linkDownloadService =
+        new ChunkLinkDownloadService(
+            session, statementId, chunkCount, chunkIndexToChunksMap, chunkCount);
     initializeData();
   }
 
@@ -94,16 +101,6 @@ public class RemoteChunkProvider implements ChunkProvider, ChunkDownloadCallback
     ArrowResultChunk chunk = chunkIndexToChunksMap.get(chunkIndex);
     synchronized (chunk) {
       chunk.notify();
-    }
-  }
-
-  /** {@inheritDoc} */
-  @Override
-  public void downloadLinks(long chunkIndexToDownloadLink) throws DatabricksSQLException {
-    Collection<ExternalLink> chunks =
-        session.getDatabricksClient().getResultChunks(statementId, chunkIndexToDownloadLink);
-    for (ExternalLink chunkLink : chunks) {
-      setChunkLink(chunkLink);
     }
   }
 
@@ -177,6 +174,7 @@ public class RemoteChunkProvider implements ChunkProvider, ChunkDownloadCallback
   @Override
   public void close() {
     this.isClosed = true;
+    this.linkDownloadService.shutdown();
     this.chunkDownloaderExecutorService.shutdownNow();
     this.chunkIndexToChunksMap.values().forEach(ArrowResultChunk::releaseChunk);
     DatabricksThreadContextHolder.clearStatementInfo();
@@ -200,24 +198,14 @@ public class RemoteChunkProvider implements ChunkProvider, ChunkDownloadCallback
     }
   }
 
-  /**
-   * Initialize chunk with external link details
-   *
-   * @param chunkLink external link details for chunk
-   */
-  void setChunkLink(ExternalLink chunkLink) {
-    if (!isDownloadComplete(chunkIndexToChunksMap.get(chunkLink.getChunkIndex()).getStatus())) {
-      chunkIndexToChunksMap.get(chunkLink.getChunkIndex()).setChunkLink(chunkLink);
-    }
-  }
-
   void downloadNextChunks() {
     while (!this.isClosed
         && nextChunkToDownload < chunkCount
         && totalChunksInMemory < allowedChunksInMemory) {
       ArrowResultChunk chunk = chunkIndexToChunksMap.get(nextChunkToDownload);
       if (chunk.getStatus() != ArrowResultChunk.ChunkStatus.DOWNLOAD_SUCCEEDED) {
-        this.chunkDownloaderExecutorService.submit(new ChunkDownloadTask(chunk, httpClient, this));
+        this.chunkDownloaderExecutorService.submit(
+            new ChunkDownloadTask(chunk, httpClient, this, linkDownloadService));
         totalChunksInMemory++;
       }
       nextChunkToDownload++;

@@ -96,4 +96,50 @@ public interface IDatabricksMetadataClient {
    */
   DatabricksResultSet listPrimaryKeys(
       IDatabricksSession session, String catalog, String schema, String table) throws SQLException;
+
+  /**
+   * Returns the list of imported keys
+   *
+   * @param session underlying session
+   * @param catalog catalogName which must match to catalog in database
+   * @param schema must match to a schema in database
+   * @param table must match to a table in database
+   * @return a DatabricksResultSet representing list of imported keys
+   */
+  DatabricksResultSet listImportedKeys(
+      IDatabricksSession session, String catalog, String schema, String table) throws SQLException;
+
+  /**
+   * Returns the list of imported keys
+   *
+   * @param session underlying session
+   * @param catalog catalogName which must match to catalog in database
+   * @param schema must match to a schema in database
+   * @param table must match to a table in database
+   * @return a DatabricksResultSet representing list of imported keys
+   */
+  DatabricksResultSet listExportedKeys(
+      IDatabricksSession session, String catalog, String schema, String table) throws SQLException;
+
+  /**
+   * Returns the list of cross references between a parent table and a foreign table
+   *
+   * @param session underlying session
+   * @param parentCatalog catalogName which must match to catalog in database
+   * @param parentSchema must match to a schema in database
+   * @param parentTable must match to a table in database
+   * @param foreignCatalog catalogName which must match to foreign catalog in database
+   * @param foreignSchema must match to a foreign schema in database
+   * @param foreignTable must match to a foreign table in database
+   * @return a DatabricksResultSet representing list of cross references
+   */
+  DatabricksResultSet listCrossReferences(
+      IDatabricksSession session,
+      String parentCatalog,
+      String parentSchema,
+      String parentTable,
+      String foreignCatalog,
+      String foreignSchema,
+      String foreignTable)
+      throws SQLException;
 }

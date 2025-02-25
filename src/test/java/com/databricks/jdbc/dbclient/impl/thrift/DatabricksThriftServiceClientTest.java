@@ -372,6 +372,89 @@ public class DatabricksThriftServiceClientTest {
   }
 
   @Test
+  void testListImportedKeys() throws SQLException {
+    DatabricksThriftServiceClient client =
+        new DatabricksThriftServiceClient(thriftAccessor, connectionContext);
+    when(session.getSessionInfo()).thenReturn(SESSION_INFO);
+    TGetCrossReferenceReq request =
+        new TGetCrossReferenceReq()
+            .setSessionHandle(SESSION_HANDLE)
+            .setForeignCatalogName(TEST_FOREIGN_CATALOG)
+            .setForeignSchemaName(TEST_FOREIGN_SCHEMA)
+            .setForeignTableName(TEST_FOREIGN_TABLE)
+            .setRunAsync(true);
+    TFetchResultsResp response =
+        new TFetchResultsResp()
+            .setStatus(new TStatus().setStatusCode(TStatusCode.SUCCESS_STATUS))
+            .setResults(resultData)
+            .setResultSetMetadata(resultMetadataData);
+    when(resultData.getColumns()).thenReturn(null);
+    when(thriftAccessor.getThriftResponse(request)).thenReturn(response);
+    DatabricksResultSet resultSet =
+        client.listImportedKeys(
+            session, TEST_FOREIGN_CATALOG, TEST_FOREIGN_SCHEMA, TEST_FOREIGN_TABLE);
+    assertEquals(resultSet.getStatementStatus().getState(), StatementState.SUCCEEDED);
+  }
+
+  @Test
+  void testListExportedKeys() throws SQLException {
+    DatabricksThriftServiceClient client =
+        new DatabricksThriftServiceClient(thriftAccessor, connectionContext);
+    when(session.getSessionInfo()).thenReturn(SESSION_INFO);
+    TGetCrossReferenceReq request =
+        new TGetCrossReferenceReq()
+            .setSessionHandle(SESSION_HANDLE)
+            .setParentCatalogName(TEST_CATALOG)
+            .setParentSchemaName(TEST_SCHEMA)
+            .setParentTableName(TEST_TABLE)
+            .setRunAsync(true);
+    TFetchResultsResp response =
+        new TFetchResultsResp()
+            .setStatus(new TStatus().setStatusCode(TStatusCode.SUCCESS_STATUS))
+            .setResults(resultData)
+            .setResultSetMetadata(resultMetadataData);
+    when(resultData.getColumns()).thenReturn(null);
+    when(thriftAccessor.getThriftResponse(request)).thenReturn(response);
+    DatabricksResultSet resultSet =
+        client.listExportedKeys(session, TEST_CATALOG, TEST_SCHEMA, TEST_TABLE);
+    assertEquals(resultSet.getStatementStatus().getState(), StatementState.SUCCEEDED);
+  }
+
+  @Test
+  void testListCrossReferences() throws SQLException {
+    DatabricksThriftServiceClient client =
+        new DatabricksThriftServiceClient(thriftAccessor, connectionContext);
+    when(session.getSessionInfo()).thenReturn(SESSION_INFO);
+    TGetCrossReferenceReq request =
+        new TGetCrossReferenceReq()
+            .setSessionHandle(SESSION_HANDLE)
+            .setParentCatalogName(TEST_CATALOG)
+            .setParentSchemaName(TEST_SCHEMA)
+            .setParentTableName(TEST_TABLE)
+            .setForeignCatalogName(TEST_FOREIGN_CATALOG)
+            .setForeignSchemaName(TEST_FOREIGN_SCHEMA)
+            .setForeignTableName(TEST_FOREIGN_TABLE)
+            .setRunAsync(true);
+    TFetchResultsResp response =
+        new TFetchResultsResp()
+            .setStatus(new TStatus().setStatusCode(TStatusCode.SUCCESS_STATUS))
+            .setResults(resultData)
+            .setResultSetMetadata(resultMetadataData);
+    when(resultData.getColumns()).thenReturn(null);
+    when(thriftAccessor.getThriftResponse(request)).thenReturn(response);
+    DatabricksResultSet resultSet =
+        client.listCrossReferences(
+            session,
+            TEST_CATALOG,
+            TEST_SCHEMA,
+            TEST_TABLE,
+            TEST_FOREIGN_CATALOG,
+            TEST_FOREIGN_SCHEMA,
+            TEST_FOREIGN_TABLE);
+    assertEquals(resultSet.getStatementStatus().getState(), StatementState.SUCCEEDED);
+  }
+
+  @Test
   void testCancelStatement() throws Exception {
     DatabricksThriftServiceClient client =
         new DatabricksThriftServiceClient(thriftAccessor, connectionContext);
