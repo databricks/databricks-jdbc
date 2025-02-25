@@ -104,7 +104,7 @@ public interface IDatabricksMetadataClient {
    * @param catalog catalogName which must match to catalog in database
    * @param schema must match to a schema in database
    * @param table must match to a table in database
-   * @return a DatabricksResultSet representing list of functions
+   * @return a DatabricksResultSet representing list of imported keys
    */
   DatabricksResultSet listImportedKeys(
       IDatabricksSession session, String catalog, String schema, String table) throws SQLException;
@@ -116,13 +116,13 @@ public interface IDatabricksMetadataClient {
    * @param catalog catalogName which must match to catalog in database
    * @param schema must match to a schema in database
    * @param table must match to a table in database
-   * @return a DatabricksResultSet representing list of functions
+   * @return a DatabricksResultSet representing list of imported keys
    */
   DatabricksResultSet listExportedKeys(
       IDatabricksSession session, String catalog, String schema, String table) throws SQLException;
 
   /**
-   * Returns the list of cross references between a parant table and a foreign table
+   * Returns the list of cross references between a parent table and a foreign table
    *
    * @param session underlying session
    * @param parentCatalog catalogName which must match to catalog in database
@@ -131,7 +131,7 @@ public interface IDatabricksMetadataClient {
    * @param foreignCatalog catalogName which must match to foreign catalog in database
    * @param foreignSchema must match to a foreign schema in database
    * @param foreignTable must match to a foreign table in database
-   * @return a DatabricksResultSet representing list of functions
+   * @return a DatabricksResultSet representing list of cross references
    */
   DatabricksResultSet listCrossReferences(
       IDatabricksSession session,

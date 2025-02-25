@@ -392,9 +392,11 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
       IDatabricksSession session, String catalog, String schema, String table) throws SQLException {
     String context =
         String.format(
-            "Fetching imported keys for session {%s}, catalog {%s}, schema {%s}, table {%s}",
+            "Fetching imported keys using Thrift client for session {%s}, catalog {%s}, schema {%s}, table {%s}",
             session.toString(), catalog, schema, table);
     LOGGER.debug(context);
+    // GetImportedKeys is implemented using GetCrossReferences
+    // When only foreign table name is provided, we get imported keys
     TGetCrossReferenceReq request =
         new TGetCrossReferenceReq()
             .setSessionHandle(Objects.requireNonNull(session.getSessionInfo()).sessionHandle())
@@ -411,9 +413,11 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
       IDatabricksSession session, String catalog, String schema, String table) throws SQLException {
     String context =
         String.format(
-            "Fetching exported keys using Thrift client. session {%s}, catalog {%s}, schema {%s}, table {%s}",
+            "Fetching exported keys using Thrift client for session {%s}, catalog {%s}, schema {%s}, table {%s}",
             session.toString(), catalog, schema, table);
     LOGGER.debug(context);
+    // GetImportedKeys is implemented using GetCrossReferences
+    // When only parent table name is provided, we get exported keys
     TGetCrossReferenceReq request =
         new TGetCrossReferenceReq()
             .setSessionHandle(Objects.requireNonNull(session.getSessionInfo()).sessionHandle())
@@ -437,7 +441,7 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
       throws SQLException {
     String context =
         String.format(
-            "Fetching cross references using Thrift client. session {%s}, catalog {%s}, schema {%s}, table {%s}, foreign catalog {%s}, foreign schema {%s}, foreign table {%s}",
+            "Fetching cross references using Thrift client for session {%s}, catalog {%s}, schema {%s}, table {%s}, foreign catalog {%s}, foreign schema {%s}, foreign table {%s}",
             session.toString(),
             parentCatalog,
             parentSchema,
