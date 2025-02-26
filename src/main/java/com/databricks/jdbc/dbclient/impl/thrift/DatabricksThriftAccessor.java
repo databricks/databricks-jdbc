@@ -53,8 +53,7 @@ final class DatabricksThriftAccessor {
   DatabricksThriftAccessor(IDatabricksConnectionContext connectionContext)
       throws DatabricksParsingException {
     this.enableDirectResults = connectionContext.getDirectResultMode();
-    this.databricksConfig =
-        new ClientConfigurator(connectionContext).getDatabricksConfig();
+    this.databricksConfig = new ClientConfigurator(connectionContext).getDatabricksConfig();
     String endPointUrl = connectionContext.getEndpointURL();
 
     if (!DriverUtil.isRunningAgainstFake()) {
@@ -74,6 +73,16 @@ final class DatabricksThriftAccessor {
   DatabricksThriftAccessor(
       TCLIService.Client client, IDatabricksConnectionContext connectionContext) {
     this.databricksConfig = null;
+    this.thriftClient = ThreadLocal.withInitial(() -> client);
+    this.enableDirectResults = connectionContext.getDirectResultMode();
+  }
+
+  @VisibleForTesting
+  DatabricksThriftAccessor(
+      TCLIService.Client client,
+      IDatabricksConnectionContext connectionContext,
+      DatabricksConfig databricksConfig) {
+    this.databricksConfig = databricksConfig;
     this.thriftClient = ThreadLocal.withInitial(() -> client);
     this.enableDirectResults = connectionContext.getDirectResultMode();
   }

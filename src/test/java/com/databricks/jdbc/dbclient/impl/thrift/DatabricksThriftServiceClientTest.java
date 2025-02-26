@@ -21,6 +21,7 @@ import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.model.client.thrift.generated.*;
 import com.databricks.jdbc.model.core.ExternalLink;
 import com.databricks.jdbc.model.core.ResultColumn;
+import com.databricks.sdk.core.DatabricksConfig;
 import com.databricks.sdk.service.sql.StatementState;
 import java.sql.SQLException;
 import java.util.*;
@@ -46,6 +47,7 @@ public class DatabricksThriftServiceClientTest {
   @Mock IDatabricksConnectionContext connectionContext;
   @Mock IDatabricksStatementInternal parentStatement;
   @Mock DatabricksStatement statement;
+  @Mock DatabricksConfig databricksConfig;
 
   @Test
   void testCreateSession() throws DatabricksSQLException {
@@ -471,6 +473,14 @@ public class DatabricksThriftServiceClientTest {
     DatabricksThriftServiceClient client =
         new DatabricksThriftServiceClient(thriftAccessor, connectionContext);
     assertEquals(client.getConnectionContext(), connectionContext);
+  }
+
+  @Test
+  void testGetDatabricksConfig() {
+    DatabricksThriftServiceClient client =
+        new DatabricksThriftServiceClient(thriftAccessor, connectionContext);
+    when(thriftAccessor.getDatabricksConfig()).thenReturn(databricksConfig);
+    assertEquals(client.getDatabricksConfig(), databricksConfig);
   }
 
   @Test

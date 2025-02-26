@@ -78,16 +78,17 @@ class TelemetryPushTask implements Runnable {
                   .collect(Collectors.toList()));
       IDatabricksHttpClient httpClient =
           DatabricksHttpClientFactory.getInstance().getClient(connectionContext);
-      String path = isAuthenticated ? PathConstants.TELEMETRY_PATH : PathConstants.TELEMETRY_PATH_UNAUTHENTICATED;
-      String uri =
-          new URIBuilder(connectionContext.getHostUrl())
-              .setPath(path)
-              .toString();
+      String path =
+          isAuthenticated
+              ? PathConstants.TELEMETRY_PATH
+              : PathConstants.TELEMETRY_PATH_UNAUTHENTICATED;
+      String uri = new URIBuilder(connectionContext.getHostUrl()).setPath(path).toString();
       HttpPost post = new HttpPost(uri);
       post.setEntity(
           new StringEntity(objectMapper.writeValueAsString(request), StandardCharsets.UTF_8));
       DatabricksJdbcConstants.JSON_HTTP_HEADERS.forEach(post::addHeader);
-      Map<String, String> authHeaders = isAuthenticated ? databricksConfig.authenticate() : Collections.emptyMap();
+      Map<String, String> authHeaders =
+          isAuthenticated ? databricksConfig.authenticate() : Collections.emptyMap();
       authHeaders.forEach(post::addHeader);
 
       try (CloseableHttpResponse response = httpClient.execute(post)) {

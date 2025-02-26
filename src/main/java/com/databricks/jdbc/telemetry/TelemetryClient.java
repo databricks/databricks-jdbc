@@ -4,7 +4,6 @@ import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.api.IDatabricksSession;
 import com.databricks.jdbc.model.telemetry.TelemetryFrontendLog;
 import com.databricks.sdk.core.DatabricksConfig;
-
 import java.util.LinkedList;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
@@ -18,17 +17,19 @@ public class TelemetryClient implements ITelemetryClient {
   private final ExecutorService executorService;
   private List<TelemetryFrontendLog> eventsBatch;
 
-  /**
-   * Returns an athenticated Telemetry Client
-   */
+  /** Returns an athenticated Telemetry Client */
   public TelemetryClient(
-          IDatabricksConnectionContext connectionContext, ExecutorService executorService, IDatabricksSession databricksSession) {
-    this(connectionContext, true, databricksSession.getDatabricksClient().getDatabricksConfig(), executorService);
+      IDatabricksConnectionContext connectionContext,
+      ExecutorService executorService,
+      IDatabricksSession databricksSession) {
+    this(
+        connectionContext,
+        true,
+        databricksSession.getDatabricksClient().getDatabricksConfig(),
+        executorService);
   }
 
-  /**
-   * Returns an unathenticated Telemetry Client
-   */
+  /** Returns an unathenticated Telemetry Client */
   public TelemetryClient(
       IDatabricksConnectionContext connectionContext,
       boolean isAuthenticated,
@@ -37,10 +38,10 @@ public class TelemetryClient implements ITelemetryClient {
   }
 
   private TelemetryClient(
-          IDatabricksConnectionContext connectionContext,
-          boolean isAuthenticated,
-          DatabricksConfig databricksConfig,
-          ExecutorService executorService) {
+      IDatabricksConnectionContext connectionContext,
+      boolean isAuthenticated,
+      DatabricksConfig databricksConfig,
+      ExecutorService executorService) {
     this.eventsBatch = new LinkedList<>();
     this.eventsBatchSize = connectionContext.getTelemetryBatchSize();
     this.isAuthEnabled = isAuthenticated;
@@ -68,7 +69,8 @@ public class TelemetryClient implements ITelemetryClient {
   private void flush() {
     synchronized (this) {
       List<TelemetryFrontendLog> logsToBeFlushed = eventsBatch;
-      executorService.submit(new TelemetryPushTask(logsToBeFlushed, isAuthEnabled, context, databricksConfig));
+      executorService.submit(
+          new TelemetryPushTask(logsToBeFlushed, isAuthEnabled, context, databricksConfig));
       eventsBatch = new LinkedList<>();
     }
   }
