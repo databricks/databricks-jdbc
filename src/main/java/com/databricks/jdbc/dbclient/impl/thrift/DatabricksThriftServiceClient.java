@@ -24,6 +24,7 @@ import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.model.client.thrift.generated.*;
 import com.databricks.jdbc.model.core.ExternalLink;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
+import com.databricks.sdk.core.DatabricksConfig;
 import com.google.common.annotations.VisibleForTesting;
 import java.sql.SQLException;
 import java.util.*;
@@ -467,6 +468,11 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
   public TFetchResultsResp getMoreResults(IDatabricksStatementInternal parentStatement)
       throws DatabricksSQLException {
     return thriftAccessor.getMoreResults(parentStatement);
+  }
+
+  @Override
+  public DatabricksConfig getDatabricksConfig() {
+    return thriftAccessor.getDatabricksConfig();
   }
 
   private TNamespace getNamespace(String catalog, String schema) {

@@ -47,12 +47,13 @@ final class DatabricksThriftAccessor {
       TExecuteStatementResp._Fields.STATUS.getThriftFieldId();
   private static final int POLLING_INTERVAL_SECONDS = 1;
   private final ThreadLocal<TCLIService.Client> thriftClient;
+  private final DatabricksConfig databricksConfig;
   private final boolean enableDirectResults;
 
   DatabricksThriftAccessor(IDatabricksConnectionContext connectionContext)
       throws DatabricksParsingException {
     this.enableDirectResults = connectionContext.getDirectResultMode();
-    DatabricksConfig databricksConfig =
+    this.databricksConfig =
         new ClientConfigurator(connectionContext).getDatabricksConfig();
     String endPointUrl = connectionContext.getEndpointURL();
 
@@ -72,6 +73,7 @@ final class DatabricksThriftAccessor {
   @VisibleForTesting
   DatabricksThriftAccessor(
       TCLIService.Client client, IDatabricksConnectionContext connectionContext) {
+    this.databricksConfig = null;
     this.thriftClient = ThreadLocal.withInitial(() -> client);
     this.enableDirectResults = connectionContext.getDirectResultMode();
   }
@@ -347,6 +349,10 @@ final class DatabricksThriftAccessor {
 
   TCLIService.Client getThriftClient() {
     return thriftClient.get();
+  }
+
+  DatabricksConfig getDatabricksConfig() {
+    return databricksConfig;
   }
 
   private TFetchResultsResp getResultSetResp(

@@ -1,6 +1,7 @@
 package com.databricks.jdbc.telemetry;
 
 import com.databricks.jdbc.api.IDatabricksConnectionContext;
+import com.databricks.jdbc.api.IDatabricksSession;
 import com.databricks.jdbc.api.impl.DatabricksConnection;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
@@ -31,11 +32,11 @@ public class TelemetryClientFactory {
     return INSTANCE;
   }
 
-  public ITelemetryClient getTelemetryClient(IDatabricksConnectionContext connectionContext) {
+  public ITelemetryClient getTelemetryClient(IDatabricksConnectionContext connectionContext, IDatabricksSession session) {
     if (connectionContext.isTelemetryEnabled()) {
       return telemetryClients.computeIfAbsent(
           connectionContext.getConnectionUuid(),
-          k -> new TelemetryClient(connectionContext, getTelemetryExecutorService()));
+          k -> new TelemetryClient(connectionContext, getTelemetryExecutorService(), session));
     }
     return NoopTelemetryClient.getInstance();
   }
