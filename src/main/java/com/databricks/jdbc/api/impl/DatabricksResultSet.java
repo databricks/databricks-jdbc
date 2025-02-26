@@ -32,6 +32,8 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.net.URL;
 import java.sql.*;
+import java.time.Instant;
+import java.time.LocalDate;
 import java.util.Calendar;
 import java.util.List;
 import java.util.Map;
@@ -328,9 +330,7 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
 
   @Override
   public Time getTime(int columnIndex) throws SQLException {
-    checkIfClosed();
-    throw new DatabricksSQLFeatureNotSupportedException(
-        "Not implemented in DatabricksResultSet - getTime(int columnIndex)");
+    return getConvertedObject(columnIndex, ObjectConverter::toTime, () -> null);
   }
 
   @Override
@@ -1155,9 +1155,16 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
 
   @Override
   public Date getDate(int columnIndex, Calendar cal) throws SQLException {
-    checkIfClosed();
-    throw new DatabricksSQLFeatureNotSupportedException(
-        "Not implemented in DatabricksResultSet - getDate(int columnIndex, Calendar cal)");
+    Date date = getDate(columnIndex);
+
+    // For date columns, we only get the date, calibrate it to the provided calendar timezone
+    if (date != null && cal != null) {
+      Instant instant = Instant.ofEpochMilli(date.getTime());
+      LocalDate localDate = LocalDate.ofInstant(instant, cal.getTimeZone().toZoneId());
+      return Date.valueOf(localDate);
+    }
+
+    return date;
   }
 
   @Override
@@ -1168,9 +1175,9 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
 
   @Override
   public Time getTime(int columnIndex, Calendar cal) throws SQLException {
-    checkIfClosed();
-    throw new DatabricksSQLFeatureNotSupportedException(
-        "Not implemented in DatabricksResultSet - getTime(int columnIndex, Calendar cal)");
+    // In Databricks, we always get the epoch value directly from the server
+    // Hence, no need to enforce calendar
+    return getTime(columnIndex);
   }
 
   @Override
@@ -1181,16 +1188,9 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
 
   @Override
   public Timestamp getTimestamp(int columnIndex, Calendar cal) throws SQLException {
-    Timestamp defaultTimestamp = getTimestamp(columnIndex);
-
-    if (defaultTimestamp != null && cal != null) {
-      // Clone the calendar to avoid modifying the passed instance
-      Calendar tempCal = (Calendar) cal.clone();
-      tempCal.setTimeInMillis(defaultTimestamp.getTime());
-      return new Timestamp(tempCal.getTimeInMillis());
-    }
-
-    return defaultTimestamp;
+    // In Databricks, we always get the epoch value directly from the server
+    // Hence, no need to enforce calendar
+    return getTimestamp(columnIndex);
   }
 
   @Override
