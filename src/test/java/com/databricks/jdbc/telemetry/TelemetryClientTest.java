@@ -5,9 +5,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
 import com.databricks.jdbc.api.IDatabricksConnectionContext;
-import com.databricks.jdbc.api.IDatabricksSession;
 import com.databricks.jdbc.api.impl.DatabricksConnectionContext;
-import com.databricks.jdbc.dbclient.IDatabricksClient;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
 import com.databricks.jdbc.dbclient.impl.http.DatabricksHttpClientFactory;
 import com.databricks.jdbc.model.telemetry.TelemetryFrontendLog;
@@ -40,8 +38,6 @@ public class TelemetryClientTest {
   @Mock CloseableHttpResponse mockHttpResponse;
   @Mock StatusLine mockStatusLine;
   @Mock DatabricksConfig databricksConfig;
-  @Mock IDatabricksSession session;
-  @Mock IDatabricksClient databricksClient;
 
   @Test
   public void testExportEvent() throws Exception {
@@ -89,8 +85,6 @@ public class TelemetryClientTest {
       when(mockHttpClient.execute(any())).thenReturn(mockHttpResponse);
       when(mockHttpResponse.getStatusLine()).thenReturn(mockStatusLine);
       when(mockStatusLine.getStatusCode()).thenReturn(200);
-      when(session.getDatabricksClient()).thenReturn(databricksClient);
-      when(databricksClient.getDatabricksConfig()).thenReturn(databricksConfig);
 
       Map<String, String> headers = Map.of(HttpHeaders.AUTHORIZATION, "token");
       when(databricksConfig.authenticate()).thenReturn(headers);
@@ -101,7 +95,7 @@ public class TelemetryClientTest {
       IDatabricksConnectionContext context =
           DatabricksConnectionContext.parse(JDBC_URL, new Properties());
       TelemetryClient client =
-          new TelemetryClient(context, MoreExecutors.newDirectExecutorService(), session);
+          new TelemetryClient(context, MoreExecutors.newDirectExecutorService(), databricksConfig);
 
       client.exportEvent(new TelemetryFrontendLog().setFrontendLogEventId("event1"));
       Mockito.verifyNoInteractions(mockHttpClient);

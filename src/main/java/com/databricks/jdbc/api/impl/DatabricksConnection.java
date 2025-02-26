@@ -61,6 +61,8 @@ public class DatabricksConnection implements IDatabricksConnection, IDatabricksC
   @Override
   public void open() throws DatabricksSQLException {
     this.session.open();
+    DatabricksThreadContextHolder.setDatabricksConfig(
+        this.session.getDatabricksClient().getDatabricksConfig());
   }
 
   @Override

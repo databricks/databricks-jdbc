@@ -1,7 +1,6 @@
 package com.databricks.jdbc.telemetry;
 
 import com.databricks.jdbc.api.IDatabricksConnectionContext;
-import com.databricks.jdbc.api.IDatabricksSession;
 import com.databricks.jdbc.model.telemetry.TelemetryFrontendLog;
 import com.databricks.sdk.core.DatabricksConfig;
 import java.util.LinkedList;
@@ -21,12 +20,8 @@ public class TelemetryClient implements ITelemetryClient {
   public TelemetryClient(
       IDatabricksConnectionContext connectionContext,
       ExecutorService executorService,
-      IDatabricksSession databricksSession) {
-    this(
-        connectionContext,
-        true,
-        databricksSession.getDatabricksClient().getDatabricksConfig(),
-        executorService);
+      DatabricksConfig config) {
+    this(connectionContext, true, config, executorService);
   }
 
   /** Returns an unathenticated Telemetry Client */
