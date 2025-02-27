@@ -4,6 +4,7 @@ import static com.databricks.jdbc.common.DatabricksJdbcConstants.EMPTY_STRING;
 
 import com.databricks.jdbc.api.IDatabricksResultSet;
 import com.databricks.jdbc.api.IDatabricksSession;
+import com.databricks.jdbc.api.impl.arrow.ArrowStreamResult;
 import com.databricks.jdbc.api.impl.converters.ConverterHelper;
 import com.databricks.jdbc.api.impl.converters.ObjectConverter;
 import com.databricks.jdbc.api.impl.volume.VolumeOperationResult;
@@ -132,18 +133,24 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
       IDatabricksStatementInternal parentStatement,
       IDatabricksSession session)
       throws SQLException {
+
     this.statementStatus = statementStatus;
     this.statementId = statementId;
     if (resultsResp != null) {
       this.executionResult =
           ExecutionResultFactory.getResultSet(resultsResp, session, parentStatement);
       long rowSize = executionResult.getRowCount();
+      List<String> arrowMetadata = null;
+      if (executionResult instanceof ArrowStreamResult) {
+        arrowMetadata = ((ArrowStreamResult) executionResult).getArrowMetadata();
+      }
       this.resultSetMetaData =
           new DatabricksResultSetMetaData(
               statementId,
               resultsResp.getResultSetMetadata(),
               rowSize,
-              executionResult.getChunkCount());
+              executionResult.getChunkCount(),
+              arrowMetadata);
       switch (resultsResp.getResultSetMetadata().getResultFormat()) {
         case COLUMN_BASED_SET:
           this.resultSetType = ResultSetType.THRIFT_INLINE;
