@@ -838,8 +838,8 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
   public boolean supportsTransactionIsolationLevel(int level) throws SQLException {
     LOGGER.debug(
         String.format("public boolean supportsTransactionIsolationLevel(int level = {%s})", level));
-    throw new UnsupportedOperationException(
-        "Not implemented in DatabricksDatabaseMetaData - supportsTransactionIsolationLevel(int level)");
+    throwExceptionIfConnectionIsClosed();
+    return level == Connection.TRANSACTION_READ_UNCOMMITTED;
   }
 
   @Override

@@ -1010,7 +1010,6 @@ public class DatabricksDatabaseMetaDataTest {
   public void testUnsupportedOperations() {
     List<Callable<Object>> tasks =
         Arrays.asList(
-            () -> metaData.supportsTransactionIsolationLevel(0),
             () -> metaData.supportsConvert(0, 0),
             () -> metaData.isWrapperFor(DatabricksDatabaseMetaData.class),
             () -> metaData.unwrap(DatabricksDatabaseMetaData.class));
@@ -1509,6 +1508,15 @@ public class DatabricksDatabaseMetaDataTest {
 
     // Result set is empty
     assertFalse(resultSet.next());
+  }
+
+  @Test
+  public void testSupportsTransactionIsolationLevel() throws SQLException {
+    assertFalse(metaData.supportsTransactionIsolationLevel(Connection.TRANSACTION_NONE));
+    assertTrue(metaData.supportsTransactionIsolationLevel(Connection.TRANSACTION_READ_UNCOMMITTED));
+    assertFalse(metaData.supportsTransactionIsolationLevel(Connection.TRANSACTION_READ_COMMITTED));
+    assertFalse(metaData.supportsTransactionIsolationLevel(Connection.TRANSACTION_REPEATABLE_READ));
+    assertFalse(metaData.supportsTransactionIsolationLevel(Connection.TRANSACTION_SERIALIZABLE));
   }
 
   private static Stream<Arguments> provideAttributeParameters() {
