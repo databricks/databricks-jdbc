@@ -1516,18 +1516,25 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
     return false;
   }
 
+  /** {@inheritDoc} */
   @Override
   public <T> T unwrap(Class<T> iface) throws SQLException {
     LOGGER.debug(String.format("public <T> T unwrap(Class<T> iface = {%s})", iface));
-    throw new UnsupportedOperationException(
-        "Not implemented in DatabricksDatabaseMetaData - unwrap(Class<T> iface)");
+
+    if (isWrapperFor(iface)) {
+      return iface.cast(this);
+    }
+
+    throw new DatabricksSQLException(
+        "Cannot unwrap to " + iface.getName(), DatabricksDriverErrorCode.INVALID_STATE);
   }
 
+  /** {@inheritDoc} */
   @Override
   public boolean isWrapperFor(Class<?> iface) throws SQLException {
     LOGGER.debug(String.format("public boolean isWrapperFor(Class<?> iface = {%s})", iface));
-    throw new UnsupportedOperationException(
-        "Not implemented in DatabricksDatabaseMetaData - isWrapperFor(Class<?> iface)");
+
+    return iface != null && iface.isAssignableFrom(this.getClass());
   }
 
   private void throwExceptionIfConnectionIsClosed() throws SQLException {
