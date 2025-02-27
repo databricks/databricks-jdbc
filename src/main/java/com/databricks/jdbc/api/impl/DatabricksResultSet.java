@@ -133,7 +133,6 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
       IDatabricksStatementInternal parentStatement,
       IDatabricksSession session)
       throws SQLException {
-
     this.statementStatus = statementStatus;
     this.statementId = statementId;
     if (resultsResp != null) {
