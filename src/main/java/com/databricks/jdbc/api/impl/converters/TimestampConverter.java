@@ -7,7 +7,8 @@ import java.sql.Date;
 import java.sql.Time;
 import java.sql.Timestamp;
 import java.time.Instant;
-import java.util.TimeZone;
+import java.time.OffsetDateTime;
+import java.time.format.DateTimeParseException;
 
 public class TimestampConverter implements ObjectConverter {
 
@@ -22,11 +23,25 @@ public class TimestampConverter implements ObjectConverter {
     if (object instanceof Timestamp) {
       return (Timestamp) object;
     } else if (object instanceof String) {
+      String input = (String) object;
+      // Check if the string contains a timezone offset.
+      // This regex checks for a '+' or '-' after the time component.
+      boolean hasOffset = input.matches(".*T.*([+\\-]\\d\\d:\\d\\d)$");
       try {
-        return Timestamp.valueOf((String) object);
-      } catch (IllegalArgumentException e) {
+        if (hasOffset) {
+          // Parse using OffsetDateTime for strings with timezone offset
+          OffsetDateTime odt = OffsetDateTime.parse(input);
+          return Timestamp.from(odt.toInstant());
+        } else {
+          // For strings without offset, replace 'T' with a space and use Timestamp.valueOf
+          // Timestamp_ntz columns don't have offset.
+          String timestamp = input.replace("T", " ");
+          return Timestamp.valueOf(timestamp);
+        }
+      } catch (IllegalArgumentException | DateTimeParseException e) {
+        // As a fallback, try parsing as an Instant using the original input
         try {
-          Instant instant = Instant.parse((String) object);
+          Instant instant = Instant.parse(input);
           return Timestamp.from(instant);
         } catch (Exception ex) {
           throw new DatabricksSQLException(
@@ -58,7 +73,32 @@ public class TimestampConverter implements ObjectConverter {
 
   @Override
   public Date toDate(Object object) throws DatabricksSQLException {
-    TimeZone.setDefault(TimeZone.getTimeZone("GMT"));
+    if (object instanceof Date) {
+      return (Date) object;
+    } else if (object instanceof Timestamp) {
+      return new Date(((Timestamp) object).getTime());
+    } else if (object instanceof String) {
+      String dateString = (String) object;
+      try {
+        // Check if the string ends with a timezone offset (e.g., -08:00 or +05:30)
+        if (dateString.matches(".*[+-]\\d{2}:\\d{2}$")) {
+          // Parse the string as an OffsetDateTime which respects the embedded offset.
+          OffsetDateTime odt = OffsetDateTime.parse(dateString);
+          return new Date(odt.toInstant().toEpochMilli());
+        } else {
+          // Otherwise, assume no offset information and parse as LocalDateTime.
+          if (dateString.contains("T")) {
+            dateString = dateString.replace("T", " ");
+          }
+          // Parse as a local date-time using Timestamp.valueOf, then convert to java.sql.Date.
+          Timestamp ts = Timestamp.valueOf(dateString);
+          return new Date(ts.getTime());
+        }
+      } catch (DateTimeParseException e) {
+        throw new DatabricksSQLException(
+            "Invalid conversion to Date", e, DatabricksDriverErrorCode.UNSUPPORTED_OPERATION);
+      }
+    }
     return new Date(toLong(object));
   }
 }

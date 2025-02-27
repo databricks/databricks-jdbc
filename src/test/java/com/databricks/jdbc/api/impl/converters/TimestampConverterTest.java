@@ -6,6 +6,7 @@ import com.databricks.jdbc.exception.DatabricksSQLException;
 import java.math.BigInteger;
 import java.sql.Time;
 import java.sql.Timestamp;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.Month;
 import java.time.ZoneId;
@@ -65,7 +66,16 @@ public class TimestampConverterTest {
 
   @Test
   public void testConvertToDate() throws DatabricksSQLException {
-    assertEquals("2023-09-10", new TimestampConverter().toDate(TIMESTAMP).toString());
+    TimestampConverter converter = new TimestampConverter();
+    java.sql.Date actualDate = converter.toDate(TIMESTAMP);
+
+    // Convert the java.sql.Date to a LocalDate
+    LocalDate actualLocalDate = actualDate.toLocalDate();
+    // Compute the expected LocalDate based on the system default time zone.
+    LocalDate expectedLocalDate =
+        TIMESTAMP.toInstant().atZone(ZoneId.systemDefault()).toLocalDate();
+
+    assertEquals(expectedLocalDate, actualLocalDate);
   }
 
   @Test

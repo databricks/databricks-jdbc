@@ -6,6 +6,8 @@ import static com.databricks.jdbc.common.MetadataResultConstants.LARGE_DISPLAY_C
 import static com.databricks.jdbc.common.MetadataResultConstants.REMARKS_COLUMN;
 import static com.databricks.jdbc.common.util.DatabricksThriftUtil.getTypeFromTypeDesc;
 import static com.databricks.jdbc.common.util.DatabricksThriftUtil.getTypeTextFromTypeDesc;
+import static com.databricks.jdbc.common.util.DatabricksTypeUtil.TIMESTAMP;
+import static com.databricks.jdbc.common.util.DatabricksTypeUtil.TIMESTAMP_NTZ;
 import static com.databricks.jdbc.dbclient.impl.common.MetadataResultSetBuilder.stripTypeName;
 
 import com.databricks.jdbc.common.AccessType;
@@ -76,6 +78,10 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
       if (resultManifest.getSchema().getColumnCount() > 0) {
         for (ColumnInfo columnInfo : resultManifest.getSchema().getColumns()) {
           ColumnInfoTypeName columnTypeName = columnInfo.getTypeName();
+          if (columnInfo.getTypeText().equalsIgnoreCase(TIMESTAMP_NTZ)) {
+            columnTypeName = ColumnInfoTypeName.TIMESTAMP;
+            columnInfo.setTypeText(TIMESTAMP);
+          }
           int columnType = DatabricksTypeUtil.getColumnType(columnTypeName);
           int[] scaleAndPrecision = getScaleAndPrecision(columnInfo, columnType);
           int precision = scaleAndPrecision[0];

@@ -62,6 +62,9 @@ public class ArrowToJavaObjectConverter {
       if (arrowMetadata.startsWith("MAP")) {
         requiredType = ColumnInfoTypeName.MAP;
       }
+      if (arrowMetadata.startsWith("TIMESTAMP")) { // for timestamp_ntz column
+        requiredType = ColumnInfoTypeName.TIMESTAMP;
+      }
     }
     if (object == null) {
       return null;
@@ -129,6 +132,10 @@ public class ArrowToJavaObjectConverter {
   private static Object convertToTimestamp(Object object) throws DatabricksSQLException {
     if (object instanceof Text) {
       return convertArrowTextToTimestamp(object.toString());
+    }
+    if (object instanceof LocalDateTime) {
+      // timestamp_ntz result is returned as local date time
+      return Timestamp.valueOf((LocalDateTime) object);
     }
     // Divide by 1000 since we need to convert from microseconds to milliseconds.
     Instant instant =
