@@ -19,7 +19,7 @@ public abstract class AbstractFakeServiceIntegrationTests {
 
   /**
    * {@link FakeServiceExtension} for {@link DatabricksJdbcConstants.FakeServiceType#SQL_EXEC}.
-   * Intercepts all requests to SQL Execution API.
+   * Intercepts all requests to SQL Execution API and uses a custom user agent.
    */
   @RegisterExtension
   private static final FakeServiceExtension databricksApiExtension =
@@ -40,7 +40,7 @@ public abstract class AbstractFakeServiceIntegrationTests {
 
   /**
    * {@link FakeServiceExtension} for {@link DatabricksJdbcConstants.FakeServiceType#CLOUD_FETCH}.
-   * Intercepts all requests to Cloud Fetch API.
+   * Intercepts all requests to Cloud Fetch API and uses a custom user agent.
    */
   @RegisterExtension
   private static final FakeServiceExtension cloudFetchApiExtension =
@@ -59,6 +59,11 @@ public abstract class AbstractFakeServiceIntegrationTests {
               : DatabricksJdbcConstants.FakeServiceType.CLOUD_FETCH,
           FakeServiceConfigLoader.getProperty(CLOUD_FETCH_HOST_PROP));
 
+  /**
+   * {@link FakeServiceExtension} for {@link
+   * DatabricksJdbcConstants.FakeServiceType#JWT_TOKEN_ENDPOINT}. Iy uses a custom user agent for
+   * all its interactions with the endpoint in the record mode.
+   */
   @RegisterExtension
   private static final FakeServiceExtension tokenEndpointApiExtension =
       new FakeServiceExtension(
