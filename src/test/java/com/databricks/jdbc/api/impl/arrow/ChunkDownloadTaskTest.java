@@ -3,11 +3,14 @@ package com.databricks.jdbc.api.impl.arrow;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.*;
 
+import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.common.CompressionCodec;
+import com.databricks.jdbc.common.util.DatabricksThreadContextHolder;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
+import com.databricks.sdk.core.DatabricksConfig;
 import java.net.SocketException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -22,11 +25,15 @@ public class ChunkDownloadTaskTest {
   @Mock IDatabricksHttpClient httpClient;
   @Mock RemoteChunkProvider remoteChunkProvider;
   @Mock ChunkLinkDownloadService chunkLinkDownloadService;
+  @Mock IDatabricksConnectionContext connectionContext;
+  @Mock DatabricksConfig databricksConfig;
   private ChunkDownloadTask chunkDownloadTask;
 
   @BeforeEach
   void setUp() {
     MockitoAnnotations.openMocks(this);
+    DatabricksThreadContextHolder.setConnectionContext(connectionContext);
+    DatabricksThreadContextHolder.setDatabricksConfig(databricksConfig);
     chunkDownloadTask =
         new ChunkDownloadTask(chunk, httpClient, remoteChunkProvider, chunkLinkDownloadService);
   }
