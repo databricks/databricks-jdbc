@@ -6,7 +6,6 @@ import static com.databricks.jdbc.common.util.DatabricksAuthUtil.initializeConfi
 import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.auth.OAuthRefreshCredentialsProvider;
 import com.databricks.jdbc.auth.PrivateKeyClientCredentialProvider;
-import com.databricks.jdbc.common.AuthFlow;
 import com.databricks.jdbc.common.AuthMech;
 import com.databricks.jdbc.common.DatabricksJdbcConstants;
 import com.databricks.jdbc.common.util.DriverUtil;
@@ -186,7 +185,8 @@ public class ClientConfigurator {
       } else {
         databricksConfig.setGoogleServiceAccount(connectionContext.getGoogleServiceAccount());
       }
-    } else if (connectionContext.getAuthFlow() == AuthFlow.AZURE_CLIENT_CREDENTIALS) {
+    } else if (connectionContext.getAzureTenantId() != null) {
+      // If azure tenant id is specified, use Azure Active Directory (AAD) Service Principal OAuth
       if (connectionContext.getCloud() != Cloud.AZURE) {
         throw new DatabricksParsingException(
             "Azure client credentials flow is only supported for Azure cloud",
