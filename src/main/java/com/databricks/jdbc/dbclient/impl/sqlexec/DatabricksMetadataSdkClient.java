@@ -129,7 +129,7 @@ public class DatabricksMetadataSdkClient implements IDatabricksMetadataClient {
   @Override
   public DatabricksResultSet listImportedKeys(
       IDatabricksSession session, String catalog, String schema, String table) throws SQLException {
-    LOGGER.debug("public ResultSet getImportedKeys()");
+    LOGGER.debug("public ResultSet listImportedKeys() using SDK");
     return MetadataResultSetBuilder.getResultSetWithGivenRowsAndColumns(
         MetadataResultConstants.IMPORTED_KEYS_COLUMNS,
         new ArrayList<>(),
@@ -140,7 +140,7 @@ public class DatabricksMetadataSdkClient implements IDatabricksMetadataClient {
   @Override
   public DatabricksResultSet listExportedKeys(
       IDatabricksSession session, String catalog, String schema, String table) throws SQLException {
-    LOGGER.debug("public ResultSet getExportedKeys()");
+    LOGGER.debug("public ResultSet listExportedKeys() using SDK");
     return MetadataResultSetBuilder.getResultSetWithGivenRowsAndColumns(
         MetadataResultConstants.EXPORTED_KEYS_COLUMNS,
         new ArrayList<>(),
@@ -157,7 +157,7 @@ public class DatabricksMetadataSdkClient implements IDatabricksMetadataClient {
       String foreignCatalog,
       String foreignSchema,
       String foreignTable) {
-    LOGGER.debug("public ResultSet getCrossReferences()");
+    LOGGER.debug("public ResultSet listCrossReferences() using SDK");
     return MetadataResultSetBuilder.getResultSetWithGivenRowsAndColumns(
         MetadataResultConstants.CROSS_REFERENCE_COLUMNS,
         new ArrayList<>(),

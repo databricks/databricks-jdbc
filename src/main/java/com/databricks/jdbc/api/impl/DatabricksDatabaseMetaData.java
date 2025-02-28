@@ -1135,12 +1135,6 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
             foreignCatalog,
             foreignSchema,
             foreignTable);
-    /*
-    return MetadataResultSetBuilder.getResultSetWithGivenRowsAndColumns(
-        MetadataResultConstants.CROSS_REFERENCE_COLUMNS,
-        new ArrayList<>(),
-        METADATA_STATEMENT_ID,
-        CommandName.GET_CROSS_REFERENCE); */
   }
 
   @Override
