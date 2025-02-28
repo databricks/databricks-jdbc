@@ -12,7 +12,6 @@ import com.databricks.jdbc.common.DatabricksJdbcConstants;
 import com.databricks.jdbc.dbclient.IDatabricksMetadataClient;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import java.sql.*;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Properties;
 import java.util.concurrent.Callable;
@@ -1008,11 +1007,7 @@ public class DatabricksDatabaseMetaDataTest {
 
   @Test
   public void testUnsupportedOperations() {
-    List<Callable<Object>> tasks =
-        Arrays.asList(
-            () -> metaData.supportsConvert(0, 0),
-            () -> metaData.isWrapperFor(DatabricksDatabaseMetaData.class),
-            () -> metaData.unwrap(DatabricksDatabaseMetaData.class));
+    List<Callable<Object>> tasks = List.of(() -> metaData.supportsConvert(0, 0));
 
     for (Callable<Object> task : tasks) {
       try {
@@ -1517,6 +1512,46 @@ public class DatabricksDatabaseMetaDataTest {
     assertFalse(metaData.supportsTransactionIsolationLevel(Connection.TRANSACTION_READ_COMMITTED));
     assertFalse(metaData.supportsTransactionIsolationLevel(Connection.TRANSACTION_REPEATABLE_READ));
     assertFalse(metaData.supportsTransactionIsolationLevel(Connection.TRANSACTION_SERIALIZABLE));
+  }
+
+  @Test
+  public void testIsWrapperFor_ReturnsTrueForDatabaseMetaData() throws SQLException {
+    // Test that it returns true for DatabaseMetaData interface
+    assertTrue(metaData.isWrapperFor(DatabaseMetaData.class));
+  }
+
+  @Test
+  public void testIsWrapperFor_ReturnsTrueForSameClass() throws SQLException {
+    // Test that it returns true for its own class
+    assertTrue(metaData.isWrapperFor(DatabricksDatabaseMetaData.class));
+  }
+
+  @Test
+  public void testIsWrapperFor_ReturnsFalseForUnrelatedInterface() throws SQLException {
+    // Test that it returns false for unrelated interfaces
+    assertFalse(metaData.isWrapperFor(Runnable.class));
+  }
+
+  @Test
+  public void testUnwrap_SuccessfullyUnwrapsDatabaseMetaData() throws SQLException {
+    // Test unwrapping to DatabaseMetaData interface
+    DatabaseMetaData unwrapped = metaData.unwrap(DatabaseMetaData.class);
+    assertNotNull(unwrapped);
+    assertSame(metaData, unwrapped);
+  }
+
+  @Test
+  public void testUnwrap_SuccessfullyUnwrapsSameClass() throws SQLException {
+    // Test unwrapping to its own class
+    DatabricksDatabaseMetaData unwrapped = metaData.unwrap(DatabricksDatabaseMetaData.class);
+    assertNotNull(unwrapped);
+    assertSame(metaData, unwrapped);
+  }
+
+  @Test
+  public void testUnwrap_ThrowsExceptionForUnrelatedInterface() throws SQLException {
+    // Test that unwrapping to an unrelated interface throws exception
+    assertThrows(DatabricksSQLException.class, () -> metaData.unwrap(Runnable.class));
   }
 
   private static Stream<Arguments> provideAttributeParameters() {
