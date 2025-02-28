@@ -74,6 +74,8 @@ public interface IDatabricksConnectionContext {
 
   Map<String, String> getSessionConfigs();
 
+  Map<String, String> getClientInfoProperties();
+
   boolean isAllPurposeCluster();
 
   String getHttpPath();
@@ -226,4 +228,7 @@ public interface IDatabricksConnectionContext {
 
   /** Returns true if driver return complex data type java objects natively as opposed to string */
   boolean isComplexDatatypeSupportEnabled();
+
+  /** Returns the size for HTTP connection pool */
+  int getHttpConnectionPoolSize();
 }

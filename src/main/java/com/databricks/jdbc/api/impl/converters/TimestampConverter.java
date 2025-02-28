@@ -4,11 +4,18 @@ import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import java.math.BigInteger;
 import java.sql.Date;
+import java.sql.Time;
 import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.TimeZone;
 
 public class TimestampConverter implements ObjectConverter {
+
+  @Override
+  public Time toTime(Object object) throws DatabricksSQLException {
+    Timestamp timestamp = toTimestamp(object);
+    return new Time(timestamp.getTime());
+  }
 
   @Override
   public Timestamp toTimestamp(Object object) throws DatabricksSQLException {

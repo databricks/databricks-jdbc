@@ -1,5 +1,7 @@
 package com.databricks.jdbc.api.impl;
 
+import static com.databricks.jdbc.common.DatabricksJdbcConstants.ALLOWED_SESSION_CONF_TO_DEFAULT_VALUES_MAP;
+import static com.databricks.jdbc.common.DatabricksJdbcConstants.REDACTED_TOKEN;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -16,8 +18,11 @@ import com.databricks.jdbc.dbclient.impl.sqlexec.DatabricksSdkClient;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.exception.DatabricksSQLFeatureNotImplementedException;
 import com.databricks.jdbc.exception.DatabricksSQLFeatureNotSupportedException;
+import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import java.sql.*;
 import java.util.*;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.stream.Collectors;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -41,6 +46,9 @@ public class DatabricksConnectionTest {
       Map.of("ANSI_MODE", "TRUE", "TIMEZONE", "UTC", "MAX_FILE_PARTITION_BYTES", "64m");
   private static final String JDBC_URL =
       "jdbc:databricks://adb-565757575.18.azuredatabricks.net:4423/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/erg6767gg;UserAgentEntry=MyApp";
+
+  private static final String JDBC_URL_WITHOUT_SCHEMA_AND_CATALOG =
+      "jdbc:databricks://adb-565757575.18.azuredatabricks.net:4423;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/erg6767gg;UserAgentEntry=MyApp";
   private static final String CATALOG_SCHEMA_JDBC_URL =
       String.format(
           "jdbc:databricks://adb-565757575.18.azuredatabricks.net:4423/%s;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/erg6767gg;ConnCatalog=%s;ConnSchema=%s;logLevel=FATAL",
@@ -112,6 +120,67 @@ public class DatabricksConnectionTest {
     assertEquals(connection.getSchema(), SCHEMA);
     connection.setSchema(DEFAULT_SCHEMA);
     assertEquals(connection.getSchema(), DEFAULT_SCHEMA);
+  }
+
+  @Test
+  public void testGetSchemaAndCatalog_schemaAndCatalogNotSetViaURL() throws SQLException {
+    when(databricksClient.createSession(new Warehouse(WAREHOUSE_ID), null, null, new HashMap<>()))
+        .thenReturn(IMMUTABLE_SESSION_INFO);
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContext.parse(JDBC_URL_WITHOUT_SCHEMA_AND_CATALOG, new Properties());
+    connection = new DatabricksConnection(connectionContext, databricksClient);
+    connection.open();
+    when(resultSet.next()).thenReturn(true);
+    when(resultSet.getString(1)).thenReturn(DEFAULT_CATALOG);
+    when(resultSet.getString(2)).thenReturn(DEFAULT_SCHEMA);
+    when(databricksClient.executeStatement(
+            eq("SELECT CURRENT_CATALOG(), CURRENT_SCHEMA()"),
+            eq(new Warehouse(WAREHOUSE_ID)),
+            eq(new HashMap<>()),
+            eq(StatementType.QUERY),
+            any(),
+            any()))
+        .thenReturn(resultSet);
+    assertEquals(connection.getCatalog(), DEFAULT_CATALOG);
+    assertEquals(connection.getSchema(), DEFAULT_SCHEMA);
+  }
+
+  @Test
+  public void testGetAndSetSchemaAndCatalog_invalidSchemaAndCatalog_throwsException()
+      throws SQLException {
+    when(databricksClient.createSession(
+            new Warehouse(WAREHOUSE_ID), CATALOG, SCHEMA, new HashMap<>()))
+        .thenReturn(IMMUTABLE_SESSION_INFO);
+    connection = new DatabricksConnection(connectionContext, databricksClient);
+    connection.open();
+    when(databricksClient.executeStatement(
+            eq("SET CATALOG invalid catalog"),
+            eq(new Warehouse(WAREHOUSE_ID)),
+            eq(new HashMap<>()),
+            eq(StatementType.SQL),
+            any(),
+            any()))
+        .thenThrow(
+            new DatabricksSQLException(
+                "[PARSE_SYNTAX_ERROR] Syntax error at or near 'schema'",
+                DatabricksDriverErrorCode.EXECUTE_STATEMENT_FAILED));
+    when(databricksClient.executeStatement(
+            eq("USE SCHEMA invalid schema"),
+            eq(new Warehouse(WAREHOUSE_ID)),
+            eq(new HashMap<>()),
+            eq(StatementType.SQL),
+            any(),
+            any()))
+        .thenThrow(
+            new DatabricksSQLException(
+                "[INVALID_SET_SYNTAX] Expected format is 'SET', 'SET key', or 'SET key=value'.",
+                DatabricksDriverErrorCode.EXECUTE_STATEMENT_FAILED));
+    assertEquals(connection.getCatalog(), CATALOG);
+    assertThrows(DatabricksSQLException.class, () -> connection.setCatalog("invalid catalog"));
+    assertEquals(connection.getCatalog(), CATALOG);
+    assertEquals(connection.getSchema(), SCHEMA);
+    assertThrows(DatabricksSQLException.class, () -> connection.setSchema("invalid schema"));
+    assertEquals(connection.getSchema(), SCHEMA);
   }
 
   @Test
@@ -211,6 +280,9 @@ public class DatabricksConnectionTest {
     Properties properties = new Properties();
     properties.put("ENABLE_PHOTON", "TRUE");
     properties.put("TIMEZONE", "UTC");
+    properties.put("use_cached_result", "false");
+    properties.put("StagingAllowedLocalPaths", "/tmp");
+    properties.put("Auth_AccessToken", "token");
     IDatabricksConnectionContext connectionContext =
         DatabricksConnectionContext.parse(JDBC_URL, new Properties());
     ImmutableSessionInfo session =
@@ -224,17 +296,31 @@ public class DatabricksConnectionTest {
     Mockito.doReturn(statement).when(connection).createStatement();
     Mockito.doReturn(true).when(statement).execute("SET ENABLE_PHOTON = TRUE");
     Mockito.doReturn(true).when(statement).execute("SET TIMEZONE = UTC");
+    Mockito.doReturn(true).when(statement).execute("SET use_cached_result = false");
 
     connection.setClientInfo(properties);
     Properties clientInfoProperties = connection.getClientInfo();
+    System.out.println("client info properties: " + clientInfoProperties);
+    assertEquals(
+        clientInfoProperties.size(),
+        ALLOWED_SESSION_CONF_TO_DEFAULT_VALUES_MAP.size()
+            + 2); // no duplicate values. +2 for client confs
     // Check valid session confs are set
     assertEquals(connection.getClientInfo("ENABLE_PHOTON"), "TRUE");
-    assertEquals(connection.getClientInfo("TIMEZONE"), "UTC");
-    assertEquals(clientInfoProperties.get("ENABLE_PHOTON"), "TRUE");
-    assertEquals(clientInfoProperties.get("TIMEZONE"), "UTC");
+    assertEquals(connection.getClientInfo("timezone"), "UTC");
+    assertEquals(clientInfoProperties.get("enable_photon"), "TRUE");
+    assertEquals(clientInfoProperties.get("timezone"), "UTC");
     // Check conf not supplied returns default value
     assertEquals(connection.getClientInfo("MAX_FILE_PARTITION_BYTES"), "128m");
-    assertEquals(clientInfoProperties.get("MAX_FILE_PARTITION_BYTES"), "128m");
+    assertEquals(clientInfoProperties.get("max_file_partition_bytes"), "128m");
+    assertEquals(clientInfoProperties.get("use_cached_result"), "false");
+    assertNull(clientInfoProperties.get("USE_CACHED_RESULT"));
+
+    assertEquals(connection.getClientInfo("STAGINGALLOWEDLOCALPATHS"), "/tmp"); // case insensitive
+    assertEquals(clientInfoProperties.get("stagingallowedlocalpaths"), "/tmp");
+
+    assertEquals(connection.getClientInfo("Auth_ACCESSTOKEN"), REDACTED_TOKEN);
+    assertEquals(clientInfoProperties.get("auth_accesstoken"), REDACTED_TOKEN);
     // Checks for unknown conf
     assertThrows(
         SQLClientInfoException.class, () -> connection.setClientInfo("RANDOM_CONF", "UNLIMITED"));
@@ -250,28 +336,15 @@ public class DatabricksConnectionTest {
     connection = new DatabricksConnection(connectionContext, databricksClient);
     connection.open();
     assertThrows(
-        DatabricksSQLFeatureNotSupportedException.class, () -> connection.prepareCall(SQL));
+        DatabricksSQLFeatureNotImplementedException.class, () -> connection.prepareCall(SQL));
+    assertThrows(DatabricksSQLFeatureNotSupportedException.class, () -> connection.nativeSQL(SQL));
     assertThrows(
-        DatabricksSQLFeatureNotImplementedException.class, () -> connection.nativeSQL(SQL));
-    assertThrows(
-        DatabricksSQLFeatureNotImplementedException.class, () -> connection.setAutoCommit(true));
-    assertThrows(
-        DatabricksSQLFeatureNotImplementedException.class, () -> connection.setReadOnly(true));
+        DatabricksSQLFeatureNotSupportedException.class, () -> connection.setAutoCommit(false));
     assertThrows(DatabricksSQLFeatureNotImplementedException.class, connection::commit);
     assertThrows(DatabricksSQLFeatureNotImplementedException.class, connection::rollback);
     assertThrows(
         DatabricksSQLFeatureNotImplementedException.class,
-        () -> connection.setTransactionIsolation(10));
-    assertThrows(
-        DatabricksSQLFeatureNotImplementedException.class,
-        () -> connection.setTypeMap(Collections.emptyMap()));
-    assertThrows(
-        DatabricksSQLFeatureNotImplementedException.class,
         () -> connection.prepareCall(SQL, 10, 10));
-    assertThrows(DatabricksSQLFeatureNotImplementedException.class, connection::getTypeMap);
-    assertThrows(DatabricksSQLFeatureNotImplementedException.class, connection::getHoldability);
-    assertThrows(
-        DatabricksSQLFeatureNotImplementedException.class, () -> connection.setHoldability(1));
     assertThrows(
         DatabricksSQLFeatureNotImplementedException.class,
         () -> connection.prepareCall(SQL, 1, 1, 1));
@@ -304,12 +377,11 @@ public class DatabricksConnectionTest {
         DatabricksSQLFeatureNotImplementedException.class, () -> connection.rollback(null));
     assertThrows(
         DatabricksSQLFeatureNotImplementedException.class, () -> connection.releaseSavepoint(null));
-    assertThrows(DatabricksSQLFeatureNotImplementedException.class, () -> connection.abort(null));
     assertThrows(
-        DatabricksSQLFeatureNotImplementedException.class,
+        DatabricksSQLFeatureNotSupportedException.class,
         () -> connection.setNetworkTimeout(null, 1));
     assertThrows(
-        DatabricksSQLFeatureNotImplementedException.class, () -> connection.getNetworkTimeout());
+        DatabricksSQLFeatureNotSupportedException.class, () -> connection.getNetworkTimeout());
     assertInstanceOf(
         IDatabricksConnectionInternal.class,
         connection.unwrap(IDatabricksConnectionInternal.class));
@@ -336,5 +408,46 @@ public class DatabricksConnectionTest {
     assertNull(connection.getWarnings());
     assertTrue(connection.getAutoCommit());
     assertEquals(connection.getTransactionIsolation(), Connection.TRANSACTION_READ_UNCOMMITTED);
+    connection.close();
+  }
+
+  @Test
+  void testTranslationIsolation() throws DatabricksSQLException {
+    connection = new DatabricksConnection(connectionContext, databricksClient);
+    connection.open();
+    assertDoesNotThrow(
+        () -> connection.setTransactionIsolation(Connection.TRANSACTION_READ_UNCOMMITTED));
+    assertThrows(
+        DatabricksSQLFeatureNotSupportedException.class,
+        () -> connection.setTransactionIsolation(10));
+    connection.close();
+  }
+
+  @Test
+  void testReadOnlyAndAbort() throws DatabricksSQLException {
+    connection = new DatabricksConnection(connectionContext, databricksClient);
+    connection.open();
+    assertDoesNotThrow(() -> connection.setReadOnly(false));
+    assertThrows(
+        DatabricksSQLFeatureNotSupportedException.class, () -> connection.setReadOnly(true));
+    ExecutorService executorService = Executors.newFixedThreadPool(1);
+    assertDoesNotThrow(() -> connection.abort(executorService));
+    connection.close();
+  }
+
+  @Test
+  void testTypeMap() {
+    assertEquals(new HashMap<>(), connection.getTypeMap());
+    assertThrows(
+        DatabricksSQLFeatureNotSupportedException.class,
+        () -> connection.setTypeMap(Collections.emptyMap()));
+  }
+
+  @Test
+  void testHoldability() throws SQLException {
+    assertEquals(2, connection.getHoldability());
+    assertDoesNotThrow(() -> connection.setHoldability(2));
+    assertThrows(
+        DatabricksSQLFeatureNotSupportedException.class, () -> connection.setHoldability(3));
   }
 }

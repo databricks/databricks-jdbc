@@ -1,5 +1,7 @@
 package com.databricks.jdbc.api.impl;
 
+import static com.databricks.jdbc.common.DatabricksJdbcConstants.EMPTY_STRING;
+
 import com.databricks.jdbc.api.IDatabricksResultSet;
 import com.databricks.jdbc.api.IDatabricksSession;
 import com.databricks.jdbc.api.impl.converters.ConverterHelper;
@@ -22,6 +24,7 @@ import com.databricks.jdbc.model.core.ResultData;
 import com.databricks.jdbc.model.core.ResultManifest;
 import com.databricks.jdbc.model.core.StatementStatus;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
+import com.databricks.sdk.support.ToStringer;
 import com.google.common.annotations.VisibleForTesting;
 import java.io.InputStream;
 import java.io.Reader;
@@ -29,6 +32,8 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.net.URL;
 import java.sql.*;
+import java.time.Instant;
+import java.time.LocalDate;
 import java.util.Calendar;
 import java.util.List;
 import java.util.Map;
@@ -294,7 +299,7 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
 
   @Override
   public float getFloat(int columnIndex) throws SQLException {
-    return getConvertedObject(columnIndex, ObjectConverter::toLong, () -> 0L);
+    return getConvertedObject(columnIndex, ObjectConverter::toFloat, () -> 0.0f);
   }
 
   @Override
@@ -308,7 +313,7 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
         columnIndex,
         (converter, object) -> {
           BigDecimal bd = converter.toBigDecimal(object);
-          return (bd != null) ? bd.setScale(scale, RoundingMode.HALF_UP) : null;
+          return applyScaleToBigDecimal(bd, columnIndex, scale);
         },
         () -> BigDecimal.ZERO.setScale(scale, RoundingMode.HALF_UP));
   }
@@ -325,9 +330,7 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
 
   @Override
   public Time getTime(int columnIndex) throws SQLException {
-    checkIfClosed();
-    throw new DatabricksSQLFeatureNotSupportedException(
-        "Not implemented in DatabricksResultSet - getTime(int columnIndex)");
+    return getConvertedObject(columnIndex, ObjectConverter::toTime, () -> null);
   }
 
   @Override
@@ -445,8 +448,7 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
   @Override
   public String getCursorName() throws SQLException {
     checkIfClosed();
-    throw new DatabricksSQLFeatureNotSupportedException(
-        "Not supported in DatabricksResultSet - getCursorName()");
+    return EMPTY_STRING;
   }
 
   @Override
@@ -575,8 +577,16 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
   @Override
   public boolean absolute(int row) throws SQLException {
     checkIfClosed();
-    throw new DatabricksSQLFeatureNotSupportedException(
-        "Databricks JDBC does not support random access (absolute)");
+    if (row < 1 || row < executionResult.getCurrentRow()) {
+      throw new DatabricksSQLFeatureNotSupportedException(
+          "Invalid operation for forward only ResultSets");
+    }
+    while (executionResult.getCurrentRow() < row - 1) {
+      if (!next()) {
+        return false;
+      }
+    }
+    return true;
   }
 
   @Override
@@ -1145,9 +1155,16 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
 
   @Override
   public Date getDate(int columnIndex, Calendar cal) throws SQLException {
-    checkIfClosed();
-    throw new DatabricksSQLFeatureNotSupportedException(
-        "Not implemented in DatabricksResultSet - getDate(int columnIndex, Calendar cal)");
+    Date date = getDate(columnIndex);
+
+    // For date columns, we only get the date, calibrate it to the provided calendar timezone
+    if (date != null && cal != null) {
+      Instant instant = Instant.ofEpochMilli(date.getTime());
+      LocalDate localDate = LocalDate.ofInstant(instant, cal.getTimeZone().toZoneId());
+      return Date.valueOf(localDate);
+    }
+
+    return date;
   }
 
   @Override
@@ -1158,9 +1175,9 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
 
   @Override
   public Time getTime(int columnIndex, Calendar cal) throws SQLException {
-    checkIfClosed();
-    throw new DatabricksSQLFeatureNotSupportedException(
-        "Not implemented in DatabricksResultSet - getTime(int columnIndex, Calendar cal)");
+    // In Databricks, we always get the epoch value directly from the server
+    // Hence, no need to enforce calendar
+    return getTime(columnIndex);
   }
 
   @Override
@@ -1171,16 +1188,9 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
 
   @Override
   public Timestamp getTimestamp(int columnIndex, Calendar cal) throws SQLException {
-    Timestamp defaultTimestamp = getTimestamp(columnIndex);
-
-    if (defaultTimestamp != null && cal != null) {
-      // Clone the calendar to avoid modifying the passed instance
-      Calendar tempCal = (Calendar) cal.clone();
-      tempCal.setTimeInMillis(defaultTimestamp.getTime());
-      return new Timestamp(tempCal.getTimeInMillis());
-    }
-
-    return defaultTimestamp;
+    // In Databricks, we always get the epoch value directly from the server
+    // Hence, no need to enforce calendar
+    return getTimestamp(columnIndex);
   }
 
   @Override
@@ -1286,8 +1296,8 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
 
   @Override
   public int getHoldability() throws SQLException {
-    throw new DatabricksSQLFeatureNotSupportedException(
-        "Not implemented in DatabricksResultSet - getHoldability()");
+    checkIfClosed();
+    return ResultSet.CLOSE_CURSORS_AT_COMMIT;
   }
 
   @Override
@@ -1726,5 +1736,31 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
     int columnType = resultSetMetaData.getColumnType(columnIndex);
     ObjectConverter converter = ConverterHelper.getConverterForSqlType(columnType);
     return convertMethod.apply(converter, obj);
+  }
+
+  private BigDecimal applyScaleToBigDecimal(BigDecimal bigDecimal, int columnIndex, int scale)
+      throws SQLException {
+    if (bigDecimal == null) {
+      return null;
+    }
+    // Double/Float columns do not have scale defined, hence, return them at full scale
+    if (resultSetMetaData.getColumnType(columnIndex) == Types.DOUBLE
+        || resultSetMetaData.getColumnType(columnIndex) == Types.FLOAT) {
+      return bigDecimal;
+    }
+    return bigDecimal.setScale(scale, RoundingMode.HALF_UP);
+  }
+
+  @Override
+  public String toString() {
+    return (new ToStringer(DatabricksResultSet.class))
+        .add("statementStatus", this.statementStatus)
+        .add("statementId", this.statementId)
+        .add("statementType", this.statementType)
+        .add("updateCount", this.updateCount)
+        .add("isClosed", this.isClosed)
+        .add("wasNull", this.wasNull)
+        .add("resultSetType", this.resultSetType)
+        .toString();
   }
 }

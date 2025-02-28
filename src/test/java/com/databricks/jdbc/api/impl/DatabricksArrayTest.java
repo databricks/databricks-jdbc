@@ -763,4 +763,102 @@ public class DatabricksArrayTest {
     // Verify that the mock was called once with the correct metadata
     metadataParserMock.verify(() -> MetadataParser.parseArrayMetadata("ARRAY<STRING>"), times(1));
   }
+
+  @Test
+  public void testToString_WithStringElements_ShouldProduceJsonLikeString() throws SQLException {
+    // Arrange
+    String metadata = "ARRAY<STRING>";
+    // Mock the parser so DatabricksArray knows to treat elements as STRING
+    metadataParserMock
+        .when(() -> MetadataParser.parseArrayMetadata("ARRAY<STRING>"))
+        .thenReturn("STRING");
+
+    // Suppose the array is ["apple", "banana"]
+    List<Object> originalList = Arrays.asList("apple", "banana");
+
+    // Create the DatabricksArray
+    DatabricksArray databricksArray = new DatabricksArray(originalList, metadata);
+
+    // Act: call toString()
+    String actual = databricksArray.toString();
+
+    // Assert:
+    // Expect each string element in double-quotes, overall in bracket notation: ["apple","banana"]
+    String expected = "[\"apple\",\"banana\"]";
+    assertEquals(
+        expected,
+        actual,
+        "DatabricksArray.toString() should produce a JSON-like array with quoted string elements");
+
+    // Verify that parseArrayMetadata was called once for this metadata
+    metadataParserMock.verify(() -> MetadataParser.parseArrayMetadata("ARRAY<STRING>"), times(1));
+  }
+
+  @Test
+  public void testToString_WithStructElements_ShouldProduceJsonLikeString() throws SQLException {
+    // Arrange
+    String metadata = "ARRAY<STRUCT<age:INT,email:STRING>>";
+
+    when(MetadataParser.parseArrayMetadata("ARRAY<STRUCT<age:INT,email:STRING>>"))
+        .thenReturn("STRUCT<age:INT,email:STRING>");
+
+    Map<String, String> structTypeMap = new LinkedHashMap<>();
+    structTypeMap.put("age", "INT");
+    structTypeMap.put("email", "STRING");
+    when(MetadataParser.parseStructMetadata("STRUCT<age:INT,email:STRING>"))
+        .thenReturn(structTypeMap);
+
+    Map<String, Object> structData1 = new LinkedHashMap<>();
+    structData1.put("age", 30);
+    structData1.put("email", "john@example.com");
+
+    Map<String, Object> structData2 = new LinkedHashMap<>();
+    structData2.put("age", 40);
+    structData2.put("email", "jane@example.com");
+
+    List<Object> originalList = Arrays.asList(structData1, structData2);
+
+    // Act
+    DatabricksArray databricksArray = new DatabricksArray(originalList, metadata);
+    String actual = databricksArray.toString();
+
+    // Assert
+    String expected =
+        "[{\"age\":30,\"email\":\"john@example.com\"},{\"age\":40,\"email\":\"jane@example.com\"}]";
+    assertEquals(
+        expected,
+        actual,
+        "DatabricksArray.toString() should produce a JSON-like array of struct elements");
+  }
+
+  @Test
+  public void testToString_WithMapElements_ShouldProduceJsonLikeString() throws SQLException {
+    // Arrange
+    String metadata = "ARRAY<MAP<STRING,INT>>";
+
+    when(MetadataParser.parseArrayMetadata("ARRAY<MAP<STRING,INT>>")).thenReturn("MAP<STRING,INT>");
+
+    when(MetadataParser.parseMapMetadata("MAP<STRING,INT>")).thenReturn("STRING,INT");
+
+    Map<String, Object> map1 = new LinkedHashMap<>();
+    map1.put("key1", 10);
+    map1.put("key2", 20);
+
+    Map<String, Object> map2 = new LinkedHashMap<>();
+    map2.put("key1", 30);
+    map2.put("key2", 40);
+
+    List<Object> originalList = Arrays.asList(map1, map2);
+
+    // Act
+    DatabricksArray databricksArray = new DatabricksArray(originalList, metadata);
+    String actual = databricksArray.toString();
+
+    // Assert
+    String expected = "[{\"key1\":10,\"key2\":20},{\"key1\":30,\"key2\":40}]";
+    assertEquals(
+        expected,
+        actual,
+        "DatabricksArray.toString() should produce a JSON-like array of map elements with string keys quoted and int values unquoted");
+  }
 }

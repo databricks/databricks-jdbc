@@ -364,6 +364,26 @@ class DatabricksConnectionContextTest {
   }
 
   @Test
+  public void testParsingOfUrlWithSpecifiedCatalogAndSchema() throws DatabricksSQLException {
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContext.parse(
+            TestConstants.VALID_URL_WITH_CONN_CATALOG_CONN_SCHEMA_PROVIDED, properties);
+    assertEquals("sampleCatalog", connectionContext.getCatalog());
+    assertEquals("sampleSchema", connectionContext.getSchema());
+    IDatabricksConnectionContext connectionContext2 =
+        DatabricksConnectionContext.parse(
+            TestConstants.VALID_URL_WITH_CONN_CATALOG_CONN_SCHEMA_NOT_PROVIDED, properties);
+    assertEquals("default", connectionContext2.getSchema());
+    assertEquals(null, connectionContext2.getCatalog());
+    IDatabricksConnectionContext connectionContext3 =
+        DatabricksConnectionContext.parse(
+            TestConstants.VALID_URL_WITH_CONN_CATALOG_CONN_SCHEMA_NOT_PROVIDED_WITHOUT_SCHEMA,
+            properties);
+    assertEquals(null, connectionContext3.getSchema());
+    assertEquals(null, connectionContext3.getCatalog());
+  }
+
+  @Test
   void testLogLevels() {
     assertEquals(getLogLevel(123), LogLevel.OFF);
     assertEquals(getLogLevel(0), LogLevel.OFF);

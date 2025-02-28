@@ -3,6 +3,7 @@ package com.databricks.jdbc.api.impl;
 import static com.databricks.jdbc.api.impl.DatabricksResultSet.AFFECTED_ROWS_COUNT;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -22,6 +23,10 @@ import java.io.*;
 import java.math.BigDecimal;
 import java.sql.*;
 import java.sql.Date;
+import java.time.LocalDate;
+import java.time.ZoneId;
+import java.time.ZoneOffset;
+import java.time.ZonedDateTime;
 import java.util.*;
 import org.apache.http.entity.InputStreamEntity;
 import org.junit.jupiter.api.Test;
@@ -85,6 +90,21 @@ public class DatabricksResultSetTest {
     when(mockedExecutionResult.next()).thenReturn(true);
     DatabricksResultSet resultSet = getResultSet(StatementState.SUCCEEDED, null);
     assertTrue(resultSet.next());
+  }
+
+  @Test
+  void testAbsolute() throws SQLException {
+    DatabricksResultSet resultSet = getResultSet(StatementState.SUCCEEDED, null);
+    assertThrows(DatabricksSQLFeatureNotSupportedException.class, () -> resultSet.absolute(0));
+
+    when(mockedExecutionResult.getCurrentRow()).thenReturn(0L, 1L, 2L);
+    doReturn(true).doReturn(true).doReturn(false).when(mockedExecutionResult).next();
+
+    assertTrue(resultSet.absolute(3));
+    // throws exception for backward exception
+    assertThrows(DatabricksSQLFeatureNotSupportedException.class, () -> resultSet.absolute(1));
+
+    assertFalse(resultSet.absolute(4));
   }
 
   @Test
@@ -207,16 +227,16 @@ public class DatabricksResultSetTest {
   @Test
   void testGetFloat() throws SQLException {
     DatabricksResultSet resultSet = getResultSet(StatementState.SUCCEEDED, null);
-    when(mockedExecutionResult.getObject(0)).thenReturn((float) 100);
+    when(mockedExecutionResult.getObject(0)).thenReturn((float) 100.43);
     when(mockedResultSetMetadata.getColumnType(1)).thenReturn(Types.FLOAT);
-    assertEquals(100f, resultSet.getFloat(1));
+    assertEquals(100.43f, resultSet.getFloat(1));
     // null object
     when(mockedExecutionResult.getObject(0)).thenReturn(null);
     assertEquals(0, resultSet.getFloat(1));
     // Test with column label
-    when(mockedExecutionResult.getObject(0)).thenReturn((float) 100);
+    when(mockedExecutionResult.getObject(0)).thenReturn((float) 100.43);
     when(mockedResultSetMetadata.getColumnNameIndex("columnLabel")).thenReturn(1);
-    assertEquals(100f, resultSet.getFloat("columnLabel"));
+    assertEquals(100.43f, resultSet.getFloat("columnLabel"));
   }
 
   @Test
@@ -253,33 +273,70 @@ public class DatabricksResultSetTest {
   @Test
   void testGetBigDecimal() throws SQLException {
     DatabricksResultSet resultSet = getResultSet(StatementState.SUCCEEDED, null);
-    BigDecimal expected = new BigDecimal("123");
-    when(mockedExecutionResult.getObject(1)).thenReturn(expected);
+    // Test with float type column
+    when(mockedExecutionResult.getObject(1)).thenReturn(123.423123f);
+    when(mockedResultSetMetadata.getColumnType(2)).thenReturn(Types.FLOAT);
+    when(mockedResultSetMetadata.getScale(2)).thenReturn(0);
+    assertEquals(new BigDecimal("123.42313"), resultSet.getBigDecimal(2));
+    // Test with double type column
+    when(mockedExecutionResult.getObject(1)).thenReturn(123.423123d);
+    when(mockedResultSetMetadata.getColumnType(2)).thenReturn(Types.DOUBLE);
+    when(mockedResultSetMetadata.getScale(2)).thenReturn(0);
+    assertEquals(new BigDecimal("123.423123"), resultSet.getBigDecimal(2));
+    // Test with decimal type column
+    when(mockedExecutionResult.getObject(1)).thenReturn(new BigDecimal("123.423123"));
     when(mockedResultSetMetadata.getColumnType(2)).thenReturn(Types.DECIMAL);
-    assertEquals(expected, resultSet.getBigDecimal(2));
+    when(mockedResultSetMetadata.getScale(2)).thenReturn(6);
+    assertEquals(new BigDecimal("123.423123"), resultSet.getBigDecimal(2));
     // null object
     when(mockedExecutionResult.getObject(0)).thenReturn(null);
     assertEquals(BigDecimal.ZERO, resultSet.getBigDecimal(1));
     // Test with column label
-    when(mockedExecutionResult.getObject(1)).thenReturn(expected);
+    when(mockedExecutionResult.getObject(1)).thenReturn(new BigDecimal("123.423123"));
     when(mockedResultSetMetadata.getColumnNameIndex("columnLabel")).thenReturn(2);
-    assertEquals(expected, resultSet.getBigDecimal("columnLabel"));
+    assertEquals(new BigDecimal("123.423123"), resultSet.getBigDecimal("columnLabel"));
   }
 
   @Test
   void testGetDate() throws SQLException {
     DatabricksResultSet resultSet = getResultSet(StatementState.SUCCEEDED, null);
-    Date expected = Date.valueOf("2023-01-01");
-    when(mockedExecutionResult.getObject(2)).thenReturn(expected);
-    when(mockedResultSetMetadata.getColumnType(3)).thenReturn(Types.DATE);
-    assertEquals(expected, resultSet.getDate(3));
+
+    int epochDay = 19722;
+    Date expected = Date.valueOf(LocalDate.ofEpochDay(epochDay)); // 2023-12-31
+    int columnIndex = 2;
+    when(mockedExecutionResult.getObject(columnIndex - 1)).thenReturn(expected);
+    when(mockedResultSetMetadata.getColumnType(columnIndex)).thenReturn(Types.DATE);
+    assertEquals(expected, resultSet.getDate(columnIndex));
     // null object
-    when(mockedExecutionResult.getObject(2)).thenReturn(null);
-    assertNull(resultSet.getDate(3));
+    when(mockedExecutionResult.getObject(columnIndex - 1)).thenReturn(null);
+    assertNull(resultSet.getDate(columnIndex));
     // Test with column label
-    when(mockedExecutionResult.getObject(2)).thenReturn(expected);
-    when(mockedResultSetMetadata.getColumnNameIndex("columnLabel")).thenReturn(3);
+    when(mockedExecutionResult.getObject(columnIndex - 1)).thenReturn(expected);
+    when(mockedResultSetMetadata.getColumnNameIndex("columnLabel")).thenReturn(columnIndex);
     assertEquals(expected, resultSet.getDate("columnLabel"));
+
+    // Test with Calendar argument
+    Calendar calendar = Calendar.getInstance();
+    Date actualDate = resultSet.getDate(columnIndex, calendar);
+    assertEquals(expected, actualDate);
+
+    // Test with Calendar argument in different TZ
+    ZoneId systemZoneId = ZoneId.systemDefault();
+    ZoneId inputZoneId = ZoneId.of("America/New_York");
+    ZoneOffset currentOffset = ZonedDateTime.now(systemZoneId).getOffset();
+    ZoneOffset inputOffset = ZonedDateTime.now(inputZoneId).getOffset();
+
+    // Calculate the offset difference in minutes
+    int offsetDifference = currentOffset.getTotalSeconds() - inputOffset.getTotalSeconds();
+    int expectedEpochDay = epochDay - (offsetDifference > 0 ? 1 : 0);
+
+    calendar = Calendar.getInstance(TimeZone.getTimeZone(inputZoneId));
+    Date expectedDate = Date.valueOf(LocalDate.ofEpochDay(expectedEpochDay)); //
+    actualDate = resultSet.getDate(columnIndex, calendar);
+    assertEquals(expectedDate, actualDate);
+
+    // Test with null Calendar argument
+    assertEquals(expected, resultSet.getDate(columnIndex, null));
   }
 
   @Test
@@ -314,10 +371,41 @@ public class DatabricksResultSetTest {
   }
 
   @Test
+  void testGetTime() throws SQLException {
+    DatabricksResultSet resultSet = getResultSet(StatementState.SUCCEEDED, null);
+    int columnIndex = 5;
+    String expectedTimestampString = "2023-01-01 12:30:00";
+    // Test using timestamp object
+    Timestamp expectedTimestamp = Timestamp.valueOf(expectedTimestampString);
+    Time expectedTime = new Time(expectedTimestamp.getTime());
+    when(resultSet.getObject(columnIndex)).thenReturn(expectedTimestamp);
+    when(mockedResultSetMetadata.getColumnType(columnIndex)).thenReturn(java.sql.Types.TIMESTAMP);
+    assertEquals(expectedTime, resultSet.getTime(columnIndex));
+
+    // null object
+    when(mockedExecutionResult.getObject(2)).thenReturn(null);
+    assertNull(resultSet.getTime(3));
+
+    // Test with column label
+    when(mockedResultSetMetadata.getColumnNameIndex("columnLabel")).thenReturn(columnIndex);
+    assertEquals(expectedTime, resultSet.getTime("columnLabel"));
+
+    // Test with Calendar argument
+    Calendar calendar = Calendar.getInstance(TimeZone.getTimeZone("UTC"));
+    Time actualTime = resultSet.getTime(columnIndex, calendar);
+    assertEquals(expectedTime, actualTime);
+
+    // Test with null Calendar argument
+    assertEquals(expectedTime, resultSet.getTime(columnIndex, null));
+  }
+
+  @Test
   void testGetTimestamp() throws SQLException {
     DatabricksResultSet resultSet = getResultSet(StatementState.SUCCEEDED, null);
     int columnIndex = 5;
-    Timestamp expectedTimestamp = new Timestamp(System.currentTimeMillis());
+    String expectedTimestampString = "2023-01-01 12:30:00";
+    // Test using timestamp object
+    Timestamp expectedTimestamp = Timestamp.valueOf(expectedTimestampString);
     when(resultSet.getObject(columnIndex)).thenReturn(expectedTimestamp);
     when(mockedResultSetMetadata.getColumnType(columnIndex)).thenReturn(java.sql.Types.TIMESTAMP);
     assertEquals(expectedTimestamp, resultSet.getTimestamp(columnIndex));
@@ -327,26 +415,13 @@ public class DatabricksResultSetTest {
     // Test with column label
     when(mockedResultSetMetadata.getColumnNameIndex("columnLabel")).thenReturn(columnIndex);
     assertEquals(expectedTimestamp, resultSet.getTimestamp("columnLabel"));
-  }
 
-  @Test
-  void testGetTimestampWithCalendar() throws SQLException {
-    DatabricksResultSet resultSet = getResultSet(StatementState.SUCCEEDED, null);
-    int columnIndex = 5;
-    String columnLabel = "columnLabel";
-    Calendar cal = Calendar.getInstance(TimeZone.getTimeZone("Asia/Tokyo"));
-    Timestamp expectedTimestamp = new Timestamp(System.currentTimeMillis());
-    // Mocking for columnIndex
-    when(resultSet.getObject(columnIndex)).thenReturn(expectedTimestamp);
-    when(mockedResultSetMetadata.getColumnType(columnIndex)).thenReturn(java.sql.Types.TIMESTAMP);
-    assertEquals(expectedTimestamp, resultSet.getTimestamp(columnIndex, cal));
+    // Test with Calendar argument
+    Calendar calendar = Calendar.getInstance(TimeZone.getTimeZone("UTC"));
+    assertEquals(expectedTimestamp, resultSet.getTimestamp(columnIndex, calendar));
 
-    // Mocking for columnLabel
-    when(mockedResultSetMetadata.getColumnNameIndex(columnLabel)).thenReturn(columnIndex);
-    assertEquals(expectedTimestamp, resultSet.getTimestamp(columnLabel, cal));
-
-    //  Test null calendar
-    assertEquals(expectedTimestamp, resultSet.getTimestamp(columnLabel, null));
+    // Test with null Calendar argument
+    assertEquals(expectedTimestamp, resultSet.getTimestamp(columnIndex, null));
   }
 
   @Test
@@ -777,7 +852,6 @@ public class DatabricksResultSetTest {
     assertThrows(DatabricksSQLFeatureNotSupportedException.class, resultSet::last);
     assertThrows(DatabricksSQLFeatureNotSupportedException.class, resultSet::beforeFirst);
     assertThrows(DatabricksSQLFeatureNotSupportedException.class, resultSet::afterLast);
-    assertThrows(DatabricksSQLFeatureNotSupportedException.class, () -> resultSet.absolute(1));
     assertThrows(DatabricksSQLFeatureNotSupportedException.class, () -> resultSet.relative(1));
     assertThrows(DatabricksSQLFeatureNotSupportedException.class, resultSet::previous);
 
@@ -790,7 +864,6 @@ public class DatabricksResultSetTest {
   void testUnsupportedOperationsThrowDatabricksSQLFeatureNotSupportedException() throws Exception {
     when(mockedResultSetMetadata.getColumnNameIndex("column")).thenReturn(1);
     DatabricksResultSet resultSet = getResultSet(StatementState.SUCCEEDED, null);
-    assertThrows(DatabricksSQLFeatureNotSupportedException.class, resultSet::getHoldability);
     assertThrows(DatabricksSQLFeatureNotSupportedException.class, () -> resultSet.getBlob(1));
     assertThrows(DatabricksSQLFeatureNotSupportedException.class, () -> resultSet.getRef(1));
     assertThrows(DatabricksSQLFeatureNotSupportedException.class, () -> resultSet.getRef("column"));
@@ -799,21 +872,6 @@ public class DatabricksResultSetTest {
     assertThrows(DatabricksSQLFeatureNotSupportedException.class, () -> resultSet.getClob(1));
     assertThrows(
         DatabricksSQLFeatureNotSupportedException.class, () -> resultSet.getClob("column"));
-    assertThrows(
-        DatabricksSQLFeatureNotSupportedException.class,
-        () -> resultSet.getDate(1, new GregorianCalendar()));
-    assertThrows(
-        DatabricksSQLFeatureNotSupportedException.class,
-        () -> resultSet.getDate("column", new GregorianCalendar()));
-    assertThrows(
-        DatabricksSQLFeatureNotSupportedException.class,
-        () -> resultSet.getTime(1, new GregorianCalendar()));
-    assertThrows(
-        DatabricksSQLFeatureNotSupportedException.class,
-        () -> resultSet.getTime("column", new GregorianCalendar()));
-    assertThrows(DatabricksSQLFeatureNotSupportedException.class, () -> resultSet.getTime(1));
-    assertThrows(
-        DatabricksSQLFeatureNotSupportedException.class, () -> resultSet.getTime("column"));
     assertThrows(DatabricksSQLFeatureNotSupportedException.class, () -> resultSet.getURL(1));
     assertThrows(DatabricksSQLFeatureNotSupportedException.class, () -> resultSet.getURL("column"));
     assertThrows(

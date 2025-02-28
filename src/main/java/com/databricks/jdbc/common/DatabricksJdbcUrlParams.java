@@ -31,8 +31,6 @@ public enum DatabricksJdbcUrlParams {
   CF_PROXY_USER("cfproxyuid", "Cloudflare proxy username"),
   CF_PROXY_PWD("cfproxypwd", "Cloudflare proxy password"),
   AUTH_FLOW("auth_flow", "Authentication flow"),
-  CATALOG("catalog", "Catalog name"),
-  SCHEMA("schema", "Schema name"),
   OAUTH_REFRESH_TOKEN("OAuthRefreshToken", "OAuth2 Refresh Token"),
   PWD("pwd", "Password (used when AUTH_MECH = 3)", true),
   POLL_INTERVAL("asyncexecpollinterval", "Async execution poll interval", "200"),
@@ -79,6 +77,7 @@ public enum DatabricksJdbcUrlParams {
   ALLOWED_VOLUME_INGESTION_PATHS("VolumeOperationAllowedLocalPaths", ""),
   ALLOWED_STAGING_INGESTION_PATHS("StagingAllowedLocalPaths", ""),
   ENABLE_REQUEST_TRACING("EnableRequestTracing", "flag to enable request tracing", "0"),
+  HTTP_CONNECTION_POOL_SIZE("HttpConnectionPoolSize", "Maximum HTTP connection pool size", "100"),
   ENABLE_SQL_EXEC_HYBRID_RESULTS(
       "EnableSQLExecHybridResults", "flag to enable hybrid results", "0"),
   ENABLE_COMPLEX_DATATYPE_SUPPORT(

@@ -1,6 +1,7 @@
 package com.databricks.jdbc.dbclient.impl.common;
 
 import static com.databricks.jdbc.common.DatabricksJdbcConstants.*;
+import static com.databricks.jdbc.common.util.DatabricksAuthUtil.initializeConfigWithToken;
 
 import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.auth.OAuthRefreshCredentialsProvider;
@@ -33,7 +34,7 @@ public class ClientConfigurator {
 
   private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(ClientConfigurator.class);
   private final IDatabricksConnectionContext connectionContext;
-  private final DatabricksConfig databricksConfig;
+  private DatabricksConfig databricksConfig;
 
   public ClientConfigurator(IDatabricksConnectionContext connectionContext) {
     this.connectionContext = connectionContext;
@@ -55,8 +56,8 @@ public class ClientConfigurator {
   void setupConnectionManager(CommonsHttpClient.Builder httpClientBuilder) {
     PoolingHttpClientConnectionManager connManager =
         ConfiguratorUtils.getBaseConnectionManager(connectionContext);
-    // This is consistent with the value in the SDK
-    connManager.setMaxTotal(100);
+    // Default value is 100 which is consistent with the value in the SDK
+    connManager.setMaxTotal(connectionContext.getHttpConnectionPoolSize());
     httpClientBuilder.withConnectionManager(connManager);
   }
 
@@ -152,7 +153,8 @@ public class ClientConfigurator {
   }
 
   public void resetAccessTokenInConfig(String newAccessToken) {
-    databricksConfig.setToken(newAccessToken);
+    this.databricksConfig = initializeConfigWithToken(newAccessToken, databricksConfig);
+    this.databricksConfig.resolve();
   }
 
   /** Setup the OAuth U2M refresh token authentication settings in the databricks config. */

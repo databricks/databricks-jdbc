@@ -74,7 +74,7 @@ jobs:
 
       - name: Check Unit Tests
         shell: bash
-        run: mvn test -Dtest='!**/integration/**,!**/DriverTest.java,!**/ProxyTest.java,!**/LoggingTest.java'
+        run: mvn test -Dtest='!**/integration/**,!**/DatabricksDriverExamples.java,!**/ProxyTest.java,!**/LoggingTest.java'
 
       - name: Install xmllint
         if: runner.os == 'Linux'

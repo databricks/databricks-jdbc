@@ -1,10 +1,12 @@
 package com.databricks.jdbc.api.impl;
 
+import static com.databricks.jdbc.common.MetadataResultConstants.*;
+import static com.databricks.jdbc.dbclient.impl.common.CommandConstants.METADATA_STATEMENT_ID;
+import static com.databricks.jdbc.dbclient.impl.sqlexec.ResultConstants.CLIENT_INFO_PROPERTIES_RESULT;
+
 import com.databricks.jdbc.api.IDatabricksSession;
 import com.databricks.jdbc.api.internal.IDatabricksConnectionInternal;
-import com.databricks.jdbc.common.DatabricksClientType;
-import com.databricks.jdbc.common.DatabricksJdbcConstants;
-import com.databricks.jdbc.common.StatementType;
+import com.databricks.jdbc.common.*;
 import com.databricks.jdbc.common.util.DriverUtil;
 import com.databricks.jdbc.dbclient.impl.common.MetadataResultSetBuilder;
 import com.databricks.jdbc.dbclient.impl.common.StatementId;
@@ -261,8 +263,7 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
   @Override
   public String getSearchStringEscape() throws SQLException {
     LOGGER.debug("public String getSearchStringEscape()");
-    throw new UnsupportedOperationException(
-        "Not implemented in DatabricksDatabaseMetaData - getSearchStringEscape()");
+    return DatabricksJdbcConstants.BACKWARD_SLASH;
   }
 
   @Override
@@ -823,7 +824,7 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
   public int getDefaultTransactionIsolation() throws SQLException {
     LOGGER.debug("public int getDefaultTransactionIsolation()");
     throwExceptionIfConnectionIsClosed();
-    return Connection.TRANSACTION_READ_COMMITTED;
+    return Connection.TRANSACTION_READ_UNCOMMITTED;
   }
 
   @Override
@@ -837,8 +838,8 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
   public boolean supportsTransactionIsolationLevel(int level) throws SQLException {
     LOGGER.debug(
         String.format("public boolean supportsTransactionIsolationLevel(int level = {%s})", level));
-    throw new UnsupportedOperationException(
-        "Not implemented in DatabricksDatabaseMetaData - supportsTransactionIsolationLevel(int level)");
+    throwExceptionIfConnectionIsClosed();
+    return level == Connection.TRANSACTION_READ_UNCOMMITTED;
   }
 
   @Override
@@ -940,8 +941,13 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
         String.format(
             "public ResultSet getProcedureColumns(String catalog = {%s}, String schemaPattern = {%s}, String procedureNamePattern = {%s}, String columnNamePattern = {%s})",
             catalog, schemaPattern, procedureNamePattern, columnNamePattern));
-    throw new UnsupportedOperationException(
-        "Not implemented in DatabricksDatabaseMetaData - getProcedureColumns(String catalog, String schemaPattern, String procedureNamePattern, String columnNamePattern)");
+    throwExceptionIfConnectionIsClosed();
+
+    return MetadataResultSetBuilder.getResultSetWithGivenRowsAndColumns(
+        PROCEDURE_COLUMNS_COLUMNS,
+        new ArrayList<>(),
+        METADATA_STATEMENT_ID,
+        CommandName.GET_PROCEDURES_COLUMNS);
   }
 
   @Override
@@ -1003,8 +1009,12 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
         String.format(
             "public ResultSet getColumnPrivileges(String catalog = {%s}, String schema = {%s}, String table = {%s}, String columnNamePattern = {%s})",
             catalog, schema, table, columnNamePattern));
-    throw new UnsupportedOperationException(
-        "Not implemented in DatabricksDatabaseMetaData - getColumnPrivileges(String catalog, String schema, String table, String columnNamePattern)");
+    throwExceptionIfConnectionIsClosed();
+    return MetadataResultSetBuilder.getResultSetWithGivenRowsAndColumns(
+        COLUMN_PRIVILEGES_COLUMNS,
+        new ArrayList<>(),
+        METADATA_STATEMENT_ID,
+        CommandName.GET_COLUMN_PRIVILEGES);
   }
 
   @Override
@@ -1014,8 +1024,12 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
         String.format(
             "public ResultSet getTablePrivileges(String catalog = {%s}, String schemaPattern = {%s}, String tableNamePattern = {%s})",
             catalog, schemaPattern, tableNamePattern));
-    throw new UnsupportedOperationException(
-        "Not implemented in DatabricksDatabaseMetaData - getTablePrivileges(String catalog, String schemaPattern, String tableNamePattern)");
+    throwExceptionIfConnectionIsClosed();
+    return MetadataResultSetBuilder.getResultSetWithGivenRowsAndColumns(
+        TABLE_PRIVILEGES_COLUMNS,
+        new ArrayList<>(),
+        METADATA_STATEMENT_ID,
+        CommandName.GET_TABLE_PRIVILEGES);
   }
 
   @Override
@@ -1026,8 +1040,19 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
         String.format(
             "public ResultSet getBestRowIdentifier(String catalog = {%s}, String schema = {%s}, String table = {%s}, int scope = {%s}, boolean nullable = {%s})",
             catalog, schema, table, scope, nullable));
-    throw new UnsupportedOperationException(
-        "Not implemented in DatabricksDatabaseMetaData - getBestRowIdentifier(String catalog, String schema, String table, int scope, boolean nullable)");
+    switch (scope) {
+      case 0:
+      case 1:
+      case 2:
+        return MetadataResultSetBuilder.getResultSetWithGivenRowsAndColumns(
+            BEST_ROW_IDENTIFIER_COLUMNS,
+            new ArrayList<>(),
+            METADATA_STATEMENT_ID,
+            CommandName.GET_BEST_ROW_IDENTIFIER);
+      default:
+        throw new DatabricksSQLException(
+            "Unknown scope value: " + scope, DatabricksDriverErrorCode.UNSUPPORTED_OPERATION);
+    }
   }
 
   @Override
@@ -1037,8 +1062,12 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
         String.format(
             "public ResultSet getVersionColumns(String catalog = {%s}, String schema = {%s}, String table = {%s})",
             catalog, schema, table));
-    throw new UnsupportedOperationException(
-        "Not implemented in DatabricksDatabaseMetaData - getVersionColumns(String catalog, String schema, String table)");
+    throwExceptionIfConnectionIsClosed();
+    return MetadataResultSetBuilder.getResultSetWithGivenRowsAndColumns(
+        VERSION_COLUMNS_COLUMNS,
+        new ArrayList<>(),
+        METADATA_STATEMENT_ID,
+        CommandName.GET_VERSION_COLUMNS);
   }
 
   @Override
@@ -1058,8 +1087,13 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
         String.format(
             "public ResultSet getImportedKeys(String catalog = {%s}, String schema = {%s}, String table = {%s})",
             catalog, schema, table));
-    // TODO (PECO-1696): Implement getImportedKeys
-    return new EmptyResultSet();
+    throwExceptionIfConnectionIsClosed();
+
+    return MetadataResultSetBuilder.getResultSetWithGivenRowsAndColumns(
+        MetadataResultConstants.IMPORTED_KEYS_COLUMNS,
+        new ArrayList<>(),
+        METADATA_STATEMENT_ID,
+        CommandName.GET_IMPORTED_KEYS);
   }
 
   @Override
@@ -1069,8 +1103,13 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
         String.format(
             "public ResultSet getExportedKeys(String catalog = {%s}, String schema = {%s}, String table = {%s})",
             catalog, schema, table));
-    // TODO (PECO-1696): Implement getExportedKeys
-    return new EmptyResultSet();
+    throwExceptionIfConnectionIsClosed();
+
+    return MetadataResultSetBuilder.getResultSetWithGivenRowsAndColumns(
+        MetadataResultConstants.EXPORTED_KEYS_COLUMNS,
+        new ArrayList<>(),
+        METADATA_STATEMENT_ID,
+        CommandName.GET_EXPORTED_KEYS);
   }
 
   @Override
@@ -1086,8 +1125,19 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
         String.format(
             "public ResultSet getCrossReference(String parentCatalog = {%s}, String parentSchema = {%s}, String parentTable = {%s}, String foreignCatalog = {%s}, String foreignSchema = {%s}, String foreignTable = {%s})",
             parentCatalog, parentSchema, parentTable, foreignCatalog, foreignSchema, foreignTable));
-    throw new UnsupportedOperationException(
-        "Not implemented in DatabricksDatabaseMetaData - getCrossReference(String parentCatalog, String parentSchema, String parentTable, String foreignCatalog, String foreignSchema, String foreignTable)");
+
+    throwExceptionIfConnectionIsClosed();
+    if (parentTable == null && foreignTable == null) {
+      throw new DatabricksSQLException(
+          "Invalid argument: foreignTable and parentTableName are both null",
+          DatabricksDriverErrorCode.INVALID_STATE);
+    }
+
+    return MetadataResultSetBuilder.getResultSetWithGivenRowsAndColumns(
+        MetadataResultConstants.CROSS_REFERENCE_COLUMNS,
+        new ArrayList<>(),
+        METADATA_STATEMENT_ID,
+        CommandName.GET_CROSS_REFERENCE);
   }
 
   @Override
@@ -1099,13 +1149,16 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
 
   @Override
   public ResultSet getIndexInfo(
-      String catalog, String schema, String table, boolean unique, boolean approximate) {
+      String catalog, String schema, String table, boolean unique, boolean approximate)
+      throws SQLException {
     LOGGER.debug(
         String.format(
             "public ResultSet getIndexInfo(String catalog = {%s}, String schema = {%s}, String table = {%s}, boolean unique = {%s}, boolean approximate = {%s})",
             catalog, schema, table, unique, approximate));
-    throw new UnsupportedOperationException(
-        "Not implemented in DatabricksDatabaseMetaData - getIndexInfo(String catalog, String schema, String table, boolean unique, boolean approximate)");
+    throwExceptionIfConnectionIsClosed();
+
+    return MetadataResultSetBuilder.getResultSetWithGivenRowsAndColumns(
+        INDEX_INFO_COLUMNS, new ArrayList<>(), METADATA_STATEMENT_ID, CommandName.GET_INDEX_INFO);
   }
 
   @Override
@@ -1173,11 +1226,21 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
     return false;
   }
 
+  /**
+   * {@inheritDoc}
+   *
+   * <p>Databricks driver result set is of type {@link ResultSet#TYPE_FORWARD_ONLY} where deletes by
+   * other database operations are not detected.
+   *
+   * @param type the <code>ResultSet</code> type; one of <code>ResultSet.TYPE_FORWARD_ONLY</code>,
+   *     <code>ResultSet.TYPE_SCROLL_INSENSITIVE</code>, or <code>ResultSet.TYPE_SCROLL_SENSITIVE
+   *     </code>
+   * @return The method returns false irrespective of the <code>type</code> parameter.
+   */
   @Override
-  public boolean deletesAreDetected(int type) throws SQLException {
+  public boolean deletesAreDetected(int type) {
     LOGGER.debug(String.format("public boolean deletesAreDetected(int type = {%s})", type));
-    throw new UnsupportedOperationException(
-        "Not implemented in DatabricksDatabaseMetaData - deletesAreDetected(int type)");
+    return false;
   }
 
   @Override
@@ -1212,20 +1275,20 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
             "TYPE_NAME",
             "CLASS_NAME",
             "DATA_TYPE",
-            "REMAKRS",
+            "REMARKS",
             "BASE_TYPE"),
-        Arrays.asList("VARCHAR", "VARCHAR", "VARCHAR", "VARCHAR", "VARCHAR", "VARCHAR", "VARCHAR"),
+        Arrays.asList("VARCHAR", "VARCHAR", "VARCHAR", "VARCHAR", "INTEGER", "VARCHAR", "SMALLINT"),
         new int[] {
           Types.VARCHAR,
           Types.VARCHAR,
           Types.VARCHAR,
           Types.VARCHAR,
+          Types.INTEGER,
           Types.VARCHAR,
-          Types.VARCHAR,
-          Types.VARCHAR
+          Types.SMALLINT
         },
-        new int[] {128, 128, 128, 128, 128, 128, 128},
-        new int[] {1, 1, 0, 1, 1, 1, 1},
+        new int[] {128, 128, 128, 128, 10, 254, 5},
+        new int[] {1, 1, 0, 0, 0, 1, 1},
         new String[0][0],
         StatementType.METADATA);
   }
@@ -1271,8 +1334,9 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
         String.format(
             "public ResultSet getSuperTypes(String catalog = {%s}, String schemaPattern = {%s}, String typeNamePattern = {%s})",
             catalog, schemaPattern, typeNamePattern));
-    throw new UnsupportedOperationException(
-        "Not implemented in DatabricksDatabaseMetaData - getSuperTypes(String catalog, String schemaPattern, String typeNamePattern)");
+    throwExceptionIfConnectionIsClosed();
+    return MetadataResultSetBuilder.getResultSetWithGivenRowsAndColumns(
+        SUPER_TYPES_COLUMNS, new ArrayList<>(), METADATA_STATEMENT_ID, CommandName.GET_SUPER_TYPES);
   }
 
   @Override
@@ -1282,8 +1346,13 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
         String.format(
             "public ResultSet getSuperTables(String catalog = {%s}, String schemaPattern = {%s}, String tableNamePattern = {%s})",
             catalog, schemaPattern, tableNamePattern));
-    throw new UnsupportedOperationException(
-        "Not implemented in DatabricksDatabaseMetaData - getSuperTables(String catalog, String schemaPattern, String tableNamePattern)");
+    throwExceptionIfConnectionIsClosed();
+
+    return MetadataResultSetBuilder.getResultSetWithGivenRowsAndColumns(
+        SUPER_TABLES_COLUMNS,
+        new ArrayList<>(),
+        METADATA_STATEMENT_ID,
+        CommandName.GET_SUPER_TABLES);
   }
 
   @Override
@@ -1294,8 +1363,8 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
         String.format(
             "public ResultSet getAttributes(String catalog = {%s}, String schemaPattern = {%s}, String typeNamePattern = {%s}, String attributeNamePattern = {%s})",
             catalog, schemaPattern, typeNamePattern, attributeNamePattern));
-    throw new UnsupportedOperationException(
-        "Not implemented in DatabricksDatabaseMetaData - getAttributes(String catalog, String schemaPattern, String typeNamePattern, String attributeNamePattern)");
+    return MetadataResultSetBuilder.getResultSetWithGivenRowsAndColumns(
+        ATTRIBUTES_COLUMNS, new ArrayList<>(), METADATA_STATEMENT_ID, CommandName.GET_ATTRIBUTES);
   }
 
   @Override
@@ -1393,8 +1462,8 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
   @Override
   public ResultSet getClientInfoProperties() throws SQLException {
     LOGGER.debug("public ResultSet getClientInfoProperties()");
-    throw new UnsupportedOperationException(
-        "Not implemented in DatabricksDatabaseMetaData - getClientInfoProperties()");
+    throwExceptionIfConnectionIsClosed();
+    return CLIENT_INFO_PROPERTIES_RESULT;
   }
 
   @Override
@@ -1414,19 +1483,30 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
         String.format(
             "public ResultSet getFunctionColumns(String catalog = {%s}, String schemaPattern = {%s}, String functionNamePattern = {%s}, String columnNamePattern = {%s})",
             catalog, schemaPattern, functionNamePattern, columnNamePattern));
-    throw new UnsupportedOperationException(
-        "Not implemented in DatabricksDatabaseMetaData - getFunctionColumns(String catalog, String schemaPattern, String functionNamePattern, String columnNamePattern)");
+    throwExceptionIfConnectionIsClosed();
+
+    return MetadataResultSetBuilder.getResultSetWithGivenRowsAndColumns(
+        FUNCTION_COLUMNS_COLUMNS,
+        new ArrayList<>(),
+        METADATA_STATEMENT_ID,
+        CommandName.GET_FUNCTION_COLUMNS);
   }
 
   @Override
   public ResultSet getPseudoColumns(
-      String catalog, String schemaPattern, String tableNamePattern, String columnNamePattern) {
+      String catalog, String schemaPattern, String tableNamePattern, String columnNamePattern)
+      throws SQLException {
     LOGGER.debug(
         String.format(
             "public ResultSet getPseudoColumns(String catalog = {%s}, String schemaPattern = {%s}, String tableNamePattern = {%s}, String columnNamePattern = {%s})",
             catalog, schemaPattern, tableNamePattern, columnNamePattern));
-    throw new UnsupportedOperationException(
-        "Not implemented in DatabricksDatabaseMetaData - getPseudoColumns(String catalog, String schemaPattern, String tableNamePattern, String columnNamePattern)");
+    throwExceptionIfConnectionIsClosed();
+
+    return MetadataResultSetBuilder.getResultSetWithGivenRowsAndColumns(
+        PSEUDO_COLUMNS_COLUMNS,
+        new ArrayList<>(),
+        METADATA_STATEMENT_ID,
+        CommandName.GET_PSEUDO_COLUMNS);
   }
 
   @Override
@@ -1436,18 +1516,25 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
     return false;
   }
 
+  /** {@inheritDoc} */
   @Override
   public <T> T unwrap(Class<T> iface) throws SQLException {
     LOGGER.debug(String.format("public <T> T unwrap(Class<T> iface = {%s})", iface));
-    throw new UnsupportedOperationException(
-        "Not implemented in DatabricksDatabaseMetaData - unwrap(Class<T> iface)");
+
+    if (isWrapperFor(iface)) {
+      return iface.cast(this);
+    }
+
+    throw new DatabricksSQLException(
+        "Cannot unwrap to " + iface.getName(), DatabricksDriverErrorCode.INVALID_STATE);
   }
 
+  /** {@inheritDoc} */
   @Override
   public boolean isWrapperFor(Class<?> iface) throws SQLException {
     LOGGER.debug(String.format("public boolean isWrapperFor(Class<?> iface = {%s})", iface));
-    throw new UnsupportedOperationException(
-        "Not implemented in DatabricksDatabaseMetaData - isWrapperFor(Class<?> iface)");
+
+    return iface != null && iface.isAssignableFrom(this.getClass());
   }
 
   private void throwExceptionIfConnectionIsClosed() throws SQLException {

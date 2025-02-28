@@ -281,7 +281,7 @@
         <version>${maven-surefire-plugin.version}</version>
         <configuration>
           <excludes>
-            <exclude>**/DriverTest.java</exclude>
+            <exclude>**/DatabricksDriverExamples.java</exclude>
             <exclude>**/integration/**/*.java</exclude>
             <exclude>**/ErrorTypes.java</exclude>
             <exclude>**/ErrorCodes.java</exclude>

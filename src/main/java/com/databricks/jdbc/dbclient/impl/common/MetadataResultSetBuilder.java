@@ -505,7 +505,8 @@ public class MetadataResultSetBuilder {
       String statementId,
       CommandName commandName) {
     List<ResultColumn> nonNullableColumns =
-        NON_NULLABLE_COLUMNS_MAP.get(commandName); // Get non-nullable columns
+        NON_NULLABLE_COLUMNS_MAP.getOrDefault(
+            commandName, new ArrayList<>()); // Get non-nullable columns
     List<Nullable> nullableList = new ArrayList<>();
     for (ResultColumn column : columns) {
       if (nonNullableColumns.contains(column)) {
@@ -609,6 +610,38 @@ public class MetadataResultSetBuilder {
         getThriftRows(rows, SCHEMA_COLUMNS),
         METADATA_STATEMENT_ID,
         CommandName.LIST_SCHEMAS);
+  }
+
+  public static DatabricksResultSet getCrossRefsResult(List<List<Object>> rows) {
+    return buildResultSet(
+        CROSS_REFERENCE_COLUMNS,
+        getThriftRows(rows, CROSS_REFERENCE_COLUMNS),
+        METADATA_STATEMENT_ID,
+        CommandName.GET_CROSS_REFERENCE);
+  }
+
+  public static DatabricksResultSet getImportedKeys(List<List<Object>> rows) {
+    return buildResultSet(
+        IMPORTED_KEYS_COLUMNS,
+        getThriftRows(rows, IMPORTED_KEYS_COLUMNS),
+        METADATA_STATEMENT_ID,
+        CommandName.GET_IMPORTED_KEYS);
+  }
+
+  public static DatabricksResultSet getExportedKeys(List<List<Object>> rows) {
+    return buildResultSet(
+        EXPORTED_KEYS_COLUMNS,
+        getThriftRows(rows, EXPORTED_KEYS_COLUMNS),
+        METADATA_STATEMENT_ID,
+        CommandName.GET_EXPORTED_KEYS);
+  }
+
+  public static DatabricksResultSet getResultSetWithGivenRowsAndColumns(
+      List<ResultColumn> columns,
+      List<List<Object>> rows,
+      String statementId,
+      CommandName commandName) {
+    return buildResultSet(columns, rows, statementId, commandName);
   }
 
   public static DatabricksResultSet getTablesResult(String catalog, List<List<Object>> rows) {

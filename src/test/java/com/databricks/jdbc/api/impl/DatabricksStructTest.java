@@ -699,4 +699,83 @@ public class DatabricksStructTest {
     metadataParserMock.verify(
         () -> MetadataParser.parseStructMetadata("STRUCT<street:STRING,zipcode:INT>"), times(1));
   }
+
+  @Test
+  public void testStructToString_WithIntAndStringFields_ShouldProduceJsonLikeString()
+      throws SQLException {
+    // Arrange
+    String structMetadata = "STRUCT<id:INT,name:STRING>";
+
+    // Since the static mocking is already set up in this thread,
+    // we directly tell the mock how to respond for parseStructMetadata(...).
+    Map<String, String> typeMap = new LinkedHashMap<>();
+    typeMap.put("id", "INT");
+    typeMap.put("name", "STRING");
+
+    // This metadataParserMock is presumably a static mock created in your @BeforeEach or a global
+    // rule
+    metadataParserMock
+        .when(() -> MetadataParser.parseStructMetadata(structMetadata))
+        .thenReturn(typeMap);
+
+    // Create attributes consistent with the metadata
+    Map<String, Object> attributes = new LinkedHashMap<>();
+    attributes.put("id", 123); // Matches INT
+    attributes.put("name", "foo"); // Matches STRING
+
+    // Act
+    DatabricksStruct databricksStruct = new DatabricksStruct(attributes, structMetadata);
+    String actual = databricksStruct.toString();
+
+    // Assert
+    // Expect JSON-like output with unquoted int and quoted string: {"id":123,"name":"foo"}
+    String expected = "{\"id\":123,\"name\":\"foo\"}";
+    assertEquals(
+        expected,
+        actual,
+        "Struct toString() must produce JSON-like output with int unquoted and string quoted");
+  }
+
+  @Test
+  public void testStructToString_WithNestedArrayAndMap_ShouldProduceJsonLikeString()
+      throws SQLException {
+    // Arrange
+    String structMetadata = "STRUCT<id:INT,fruits:ARRAY<STRING>,scores:MAP<STRING,INT>>";
+
+    Map<String, String> structTypeMap = new LinkedHashMap<>();
+    structTypeMap.put("id", "INT");
+    structTypeMap.put("fruits", "ARRAY<STRING>");
+    structTypeMap.put("scores", "MAP<STRING,INT>");
+    metadataParserMock
+        .when(() -> MetadataParser.parseStructMetadata(structMetadata))
+        .thenReturn(structTypeMap);
+
+    metadataParserMock
+        .when(() -> MetadataParser.parseArrayMetadata("ARRAY<STRING>"))
+        .thenReturn("STRING");
+
+    metadataParserMock
+        .when(() -> MetadataParser.parseMapMetadata("MAP<STRING,INT>"))
+        .thenReturn("STRING,INT");
+
+    Map<String, Object> attributes = new LinkedHashMap<>();
+    attributes.put("id", 123);
+    attributes.put("fruits", Arrays.asList("apple", "banana")); // array of strings
+    Map<String, Integer> scoresMap = new LinkedHashMap<>();
+    scoresMap.put("key1", 10);
+    scoresMap.put("key2", 20);
+    attributes.put("scores", scoresMap);
+
+    // Act
+    DatabricksStruct databricksStruct = new DatabricksStruct(attributes, structMetadata);
+    String actual = databricksStruct.toString();
+
+    // Assert
+    String expected =
+        "{\"id\":123,\"fruits\":[\"apple\",\"banana\"],\"scores\":{\"key1\":10,\"key2\":20}}";
+    assertEquals(
+        expected,
+        actual,
+        "Struct toString() must produce JSON-like output with int unquoted, array of quoted strings, and map with string keys/ int values");
+  }
 }

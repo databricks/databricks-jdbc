@@ -397,18 +397,12 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
 
   @Override
   public String getCatalog() {
-    return getParameter(
-        DatabricksJdbcUrlParams.CATALOG, getParameter(DatabricksJdbcUrlParams.CONN_CATALOG));
+    return getParameter(DatabricksJdbcUrlParams.CONN_CATALOG);
   }
 
   @Override
   public String getSchema() {
-    if (!nullOrEmptyString(schema)) {
-      return schema;
-    }
-
-    return getParameter(
-        DatabricksJdbcUrlParams.CONN_SCHEMA, getParameter(DatabricksJdbcUrlParams.SCHEMA));
+    return getParameter(DatabricksJdbcUrlParams.CONN_SCHEMA, schema);
   }
 
   @Override
@@ -419,6 +413,24 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
                 ALLOWED_SESSION_CONF_TO_DEFAULT_VALUES_MAP.keySet().stream()
                     .anyMatch(allowedConf -> allowedConf.toLowerCase().equals(e.getKey())))
         .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+  }
+
+  @Override
+  public Map<String, String> getClientInfoProperties() {
+    return ALLOWED_CLIENT_INFO_PROPERTIES.stream()
+        .map(String::toLowerCase)
+        .filter(parameters::containsKey)
+        .collect(
+            Collectors.toMap(
+                key -> key,
+                key ->
+                    isAccessToken(key)
+                        ? REDACTED_TOKEN
+                        : parameters.get(key))); // mask access token
+  }
+
+  private boolean isAccessToken(String key) {
+    return key.equalsIgnoreCase(DatabricksJdbcUrlParams.AUTH_ACCESS_TOKEN.getParamName());
   }
 
   @Override
@@ -702,6 +714,11 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   @Override
   public boolean isRequestTracingEnabled() {
     return getParameter(DatabricksJdbcUrlParams.ENABLE_REQUEST_TRACING).equals("1");
+  }
+
+  @Override
+  public int getHttpConnectionPoolSize() {
+    return Integer.parseInt(getParameter(DatabricksJdbcUrlParams.HTTP_CONNECTION_POOL_SIZE));
   }
 
   private static boolean nullOrEmptyString(String s) {
