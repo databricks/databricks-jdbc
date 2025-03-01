@@ -178,8 +178,7 @@ public class DatabricksDriverExamples {
         "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;"
             + "transportMode=https;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/791ba2a31c7fd70a;"
             + "EnableTelemetry=1;UseThriftClient=1";
-    Connection con =
-        DriverManager.getConnection(jdbcUrl, "token", DATABRICKS_TOKEN);
+    Connection con = DriverManager.getConnection(jdbcUrl, "token", DATABRICKS_TOKEN);
     System.out.println("Connection established......");
 
     // Retrieve imported keys via DatabaseMetaData
@@ -202,8 +201,7 @@ public class DatabricksDriverExamples {
         "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;"
             + "transportMode=https;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/791ba2a31c7fd70a;"
             + "EnableTelemetry=1;UseThriftClient=1";
-    Connection con =
-        DriverManager.getConnection(jdbcUrl, "token", DATABRICKS_TOKEN);
+    Connection con = DriverManager.getConnection(jdbcUrl, "token", DATABRICKS_TOKEN);
     System.out.println("Connection established......");
 
     // Retrieve imported keys via DatabaseMetaData
