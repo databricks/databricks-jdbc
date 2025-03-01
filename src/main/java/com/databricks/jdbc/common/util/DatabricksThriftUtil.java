@@ -58,6 +58,12 @@ public class DatabricksThriftUtil {
     return resultManifest.getSchema().getColumnsSize();
   }
 
+  /**
+   * This functions extracts columnar data from a RowSet into rows
+   *
+   * @param rowSet that contains columnar data
+   * @return a list of rows
+   */
   public static List<List<Object>> extractRowsFromColumnar(TRowSet rowSet) {
     if (rowSet == null || rowSet.getColumns() == null || rowSet.getColumns().isEmpty()) {
       return Collections.emptyList();
@@ -262,12 +268,12 @@ public class DatabricksThriftUtil {
       IDatabricksStatementInternal parentStatement,
       IDatabricksSession session)
       throws DatabricksSQLException {
-    List<List<Object>> columnarData = extractRowsFromColumnar(resultsResp.getResults());
+    List<List<Object>> rows = extractRowsFromColumnar(resultsResp.getResults());
     while (resultsResp.hasMoreRows) {
       resultsResp = session.getDatabricksClient().getMoreResults(parentStatement);
-      columnarData.addAll(extractRowsFromColumnar(resultsResp.getResults()));
+      rows.addAll(extractRowsFromColumnar(resultsResp.getResults()));
     }
-    return columnarData;
+    return rows;
   }
 
   public static TOperationHandle getOperationHandle(StatementId statementId) {
