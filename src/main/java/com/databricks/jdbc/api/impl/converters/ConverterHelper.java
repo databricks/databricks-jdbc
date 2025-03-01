@@ -3,6 +3,7 @@ package com.databricks.jdbc.api.impl.converters;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import java.math.BigDecimal;
 import java.math.BigInteger;
+import java.sql.Time;
 import java.sql.Timestamp;
 import java.sql.Types;
 import java.time.LocalDate;
@@ -22,6 +23,7 @@ public class ConverterHelper {
     CONVERTER_CACHE.put(Types.DECIMAL, new BigDecimalConverter());
     CONVERTER_CACHE.put(Types.BOOLEAN, new BooleanConverter());
     CONVERTER_CACHE.put(Types.DATE, new DateConverter());
+    CONVERTER_CACHE.put(Types.TIME, new TimestampConverter());
     CONVERTER_CACHE.put(Types.TIMESTAMP, new TimestampConverter());
     CONVERTER_CACHE.put(Types.BINARY, new ByteArrayConverter());
     CONVERTER_CACHE.put(Types.BIT, new BitConverter());
@@ -59,6 +61,8 @@ public class ConverterHelper {
         return convertSqlTypeToSpecificJavaType(Boolean.class, Types.BOOLEAN, object);
       case Types.DATE:
         return convertSqlTypeToSpecificJavaType(Date.class, Types.DATE, object);
+      case Types.TIME:
+        return convertSqlTypeToSpecificJavaType(Time.class, Types.TIME, object);
       case Types.TIMESTAMP:
         return convertSqlTypeToSpecificJavaType(Timestamp.class, Types.TIMESTAMP, object);
       case Types.BINARY:
@@ -106,6 +110,8 @@ public class ConverterHelper {
       return converter.toBigInteger(obj);
     } else if (javaType == Date.class || javaType == java.sql.Date.class) {
       return converter.toDate(obj);
+    } else if (javaType == Time.class) {
+      return converter.toTime(obj);
     } else if (javaType == Timestamp.class || javaType == Calendar.class) {
       return converter.toTimestamp(obj);
     } else if (javaType == byte.class || javaType == Byte.class) {

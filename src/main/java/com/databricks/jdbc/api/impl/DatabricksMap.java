@@ -215,6 +215,32 @@ public class DatabricksMap<K, V> implements Map<K, V> {
 
   @Override
   public String toString() {
-    return map.toString();
+    StringBuilder sb = new StringBuilder("{");
+    boolean first = true;
+    for (Map.Entry<K, V> entry : map.entrySet()) {
+      if (!first) {
+        sb.append(",");
+      } else {
+        first = false;
+      }
+      sb.append(formatForJson(entry.getKey())).append(":").append(formatForJson(entry.getValue()));
+    }
+    sb.append("}");
+    return sb.toString();
+  }
+
+  /**
+   * Returns a String suitable for JSON-like output. - If obj is a String, encloses it in
+   * double-quotes. - Otherwise, uses obj.toString() without quotes. - If obj is null, returns
+   * "null".
+   */
+  private String formatForJson(Object obj) {
+    if (obj == null) {
+      return "null";
+    }
+    if (obj instanceof String) {
+      return "\"" + obj + "\"";
+    }
+    return obj.toString();
   }
 }

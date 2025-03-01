@@ -3,7 +3,7 @@ package com.databricks.jdbc.api.impl;
 import com.databricks.jdbc.common.util.DatabricksTypeUtil;
 import java.math.BigDecimal;
 import java.sql.*;
-import java.util.Arrays;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -12,6 +12,9 @@ public class DatabricksStruct implements Struct {
   private final Object[] attributes;
   private final String typeName;
 
+  // Field names to preserve ordering and allow mapping back in toString().
+  private final List<String> fieldNames;
+
   /**
    * Constructs a DatabricksStruct with the specified attributes and metadata.
    *
@@ -19,8 +22,16 @@ public class DatabricksStruct implements Struct {
    * @param metadata the metadata describing types of struct fields
    */
   public DatabricksStruct(Map<String, Object> attributes, String metadata) {
+    // Parse the metadata into a map: fieldName -> fieldType
     Map<String, String> typeMap = MetadataParser.parseStructMetadata(metadata);
+
+    // Capture field names (in the same order they appear in typeMap).
+    this.fieldNames = new ArrayList<>(typeMap.keySet());
+
+    // Convert attributes to the appropriate array of Objects.
     this.attributes = convertAttributes(attributes, typeMap);
+
+    // Store the entire type definition for getSQLTypeName().
     this.typeName = metadata;
   }
 
@@ -35,9 +46,8 @@ public class DatabricksStruct implements Struct {
     Object[] convertedAttributes = new Object[typeMap.size()];
     int index = 0;
 
-    for (Map.Entry<String, String> entry : typeMap.entrySet()) {
-      String fieldName = entry.getKey();
-      String fieldType = entry.getValue();
+    for (String fieldName : fieldNames) {
+      String fieldType = typeMap.get(fieldName);
       Object value = attributes.get(fieldName);
 
       if (fieldType.startsWith(DatabricksTypeUtil.STRUCT)) {
@@ -160,8 +170,29 @@ public class DatabricksStruct implements Struct {
     return this.getAttributes();
   }
 
+  /** Returns a JSON-like string with field names. */
   @Override
   public String toString() {
-    return Arrays.deepToString(attributes);
+    StringBuilder sb = new StringBuilder("{");
+    for (int i = 0; i < fieldNames.size(); i++) {
+      if (i > 0) {
+        sb.append(",");
+      }
+      sb.append("\"").append(fieldNames.get(i)).append("\":");
+
+      Object val = attributes[i];
+      if (val == null) {
+        // JSON-like null
+        sb.append("null");
+      } else if (val instanceof String) {
+        // Strings get quoted
+        sb.append("\"").append(val).append("\"");
+      } else {
+        // For non-string values, rely on their existing toString()
+        sb.append(val);
+      }
+    }
+    sb.append("}");
+    return sb.toString();
   }
 }

@@ -19,14 +19,20 @@ public abstract class AbstractFakeServiceIntegrationTests {
 
   /**
    * {@link FakeServiceExtension} for {@link DatabricksJdbcConstants.FakeServiceType#SQL_EXEC}.
-   * Intercepts all requests to SQL Execution API.
+   * Intercepts all requests to SQL Execution API and uses a custom user agent.
    */
   @RegisterExtension
   private static final FakeServiceExtension databricksApiExtension =
       new FakeServiceExtension(
           new DatabricksWireMockExtension.Builder()
               .options(
-                  wireMockConfig().dynamicPort().dynamicHttpsPort().extensions(getExtensions())),
+                  wireMockConfig()
+                      .dynamicPort()
+                      .dynamicHttpsPort()
+                      .extensions(getExtensions())
+                      .httpClientFactory(
+                          new FakeServiceHttpClientFactory(
+                              FakeServiceConfigLoader.getFakeServiceUserAgent()))),
           FakeServiceConfigLoader.shouldUseThriftClient
               ? DatabricksJdbcConstants.FakeServiceType.SQL_GATEWAY
               : DatabricksJdbcConstants.FakeServiceType.SQL_EXEC,
@@ -34,25 +40,42 @@ public abstract class AbstractFakeServiceIntegrationTests {
 
   /**
    * {@link FakeServiceExtension} for {@link DatabricksJdbcConstants.FakeServiceType#CLOUD_FETCH}.
-   * Intercepts all requests to Cloud Fetch API.
+   * Intercepts all requests to Cloud Fetch API and uses a custom user agent.
    */
   @RegisterExtension
   private static final FakeServiceExtension cloudFetchApiExtension =
       new FakeServiceExtension(
           new DatabricksWireMockExtension.Builder()
               .options(
-                  wireMockConfig().dynamicPort().dynamicHttpsPort().extensions(getExtensions())),
+                  wireMockConfig()
+                      .dynamicPort()
+                      .dynamicHttpsPort()
+                      .extensions(getExtensions())
+                      .httpClientFactory(
+                          new FakeServiceHttpClientFactory(
+                              FakeServiceConfigLoader.getFakeServiceUserAgent()))),
           FakeServiceConfigLoader.shouldUseThriftClient
               ? DatabricksJdbcConstants.FakeServiceType.CLOUD_FETCH_SQL_GATEWAY
               : DatabricksJdbcConstants.FakeServiceType.CLOUD_FETCH,
           FakeServiceConfigLoader.getProperty(CLOUD_FETCH_HOST_PROP));
 
+  /**
+   * {@link FakeServiceExtension} for {@link
+   * DatabricksJdbcConstants.FakeServiceType#JWT_TOKEN_ENDPOINT}. Iy uses a custom user agent for
+   * all its interactions with the endpoint in the record mode.
+   */
   @RegisterExtension
   private static final FakeServiceExtension tokenEndpointApiExtension =
       new FakeServiceExtension(
           new DatabricksWireMockExtension.Builder()
               .options(
-                  wireMockConfig().dynamicPort().dynamicHttpsPort().extensions(getExtensions())),
+                  wireMockConfig()
+                      .dynamicPort()
+                      .dynamicHttpsPort()
+                      .extensions(getExtensions())
+                      .httpClientFactory(
+                          new FakeServiceHttpClientFactory(
+                              FakeServiceConfigLoader.getFakeServiceUserAgent()))),
           DatabricksJdbcConstants.FakeServiceType.JWT_TOKEN_ENDPOINT,
           getJWTTokenEndpointHost());
 
