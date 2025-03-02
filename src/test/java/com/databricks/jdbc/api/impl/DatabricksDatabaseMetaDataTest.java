@@ -12,7 +12,6 @@ import com.databricks.jdbc.common.DatabricksJdbcConstants;
 import com.databricks.jdbc.dbclient.IDatabricksMetadataClient;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import java.sql.*;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Properties;
 import java.util.concurrent.Callable;
@@ -53,6 +52,12 @@ public class DatabricksDatabaseMetaDataTest {
     when(metadataClient.listFunctions(any(), any(), any(), any()))
         .thenReturn(Mockito.mock(DatabricksResultSet.class));
     when(metadataClient.listColumns(any(), any(), any(), any(), any()))
+        .thenReturn(Mockito.mock(DatabricksResultSet.class));
+    when(metadataClient.listImportedKeys(any(), any(), any(), any()))
+        .thenReturn(Mockito.mock(DatabricksResultSet.class));
+    when(metadataClient.listExportedKeys(any(), any(), any(), any()))
+        .thenReturn(Mockito.mock(DatabricksResultSet.class));
+    when(metadataClient.listCrossReferences(any(), any(), any(), any(), any(), any(), any()))
         .thenReturn(Mockito.mock(DatabricksResultSet.class));
     when(connection.getConnection()).thenReturn(Mockito.mock(Connection.class));
     when(session.isOpen()).thenReturn(true);
@@ -1008,12 +1013,7 @@ public class DatabricksDatabaseMetaDataTest {
 
   @Test
   public void testUnsupportedOperations() {
-    List<Callable<Object>> tasks =
-        Arrays.asList(
-            () -> metaData.supportsTransactionIsolationLevel(0),
-            () -> metaData.supportsConvert(0, 0),
-            () -> metaData.isWrapperFor(DatabricksDatabaseMetaData.class),
-            () -> metaData.unwrap(DatabricksDatabaseMetaData.class));
+    List<Callable<Object>> tasks = List.of(() -> metaData.supportsConvert(0, 0));
 
     for (Callable<Object> task : tasks) {
       try {
@@ -1138,25 +1138,6 @@ public class DatabricksDatabaseMetaDataTest {
             "foreign_schema",
             "foreign_table");
     assertNotNull(resultSet);
-
-    assertEquals(14, resultSet.getMetaData().getColumnCount());
-    assertEquals("PKTABLE_CAT", resultSet.getMetaData().getColumnName(1));
-    assertEquals("PKTABLE_SCHEM", resultSet.getMetaData().getColumnName(2));
-    assertEquals("PKTABLE_NAME", resultSet.getMetaData().getColumnName(3));
-    assertEquals("PKCOLUMN_NAME", resultSet.getMetaData().getColumnName(4));
-    assertEquals("FKTABLE_CAT", resultSet.getMetaData().getColumnName(5));
-    assertEquals("FKTABLE_SCHEM", resultSet.getMetaData().getColumnName(6));
-    assertEquals("FKTABLE_NAME", resultSet.getMetaData().getColumnName(7));
-    assertEquals("FKCOLUMN_NAME", resultSet.getMetaData().getColumnName(8));
-    assertEquals("KEY_SEQ", resultSet.getMetaData().getColumnName(9));
-    assertEquals("UPDATE_RULE", resultSet.getMetaData().getColumnName(10));
-    assertEquals("DELETE_RULE", resultSet.getMetaData().getColumnName(11));
-    assertEquals("FK_NAME", resultSet.getMetaData().getColumnName(12));
-    assertEquals("PK_NAME", resultSet.getMetaData().getColumnName(13));
-    assertEquals("DEFERRABILITY", resultSet.getMetaData().getColumnName(14));
-
-    // Result set is empty
-    assertFalse(resultSet.next());
   }
 
   @Test
@@ -1451,64 +1432,61 @@ public class DatabricksDatabaseMetaDataTest {
   public void testGetImportedKeys() throws SQLException {
     ResultSet resultSet = metaData.getImportedKeys("catalog", "schema", "table");
     assertNotNull(resultSet);
-
-    assertEquals(14, resultSet.getMetaData().getColumnCount());
-    assertSame("PKTABLE_CAT", resultSet.getMetaData().getColumnName(1));
-    assertSame("PKTABLE_SCHEM", resultSet.getMetaData().getColumnName(2));
-    assertEquals("PKTABLE_NAME", resultSet.getMetaData().getColumnName(3));
-    assertEquals("PKCOLUMN_NAME", resultSet.getMetaData().getColumnName(4));
-    assertEquals("FKTABLE_CAT", resultSet.getMetaData().getColumnName(5));
-    assertEquals("FKTABLE_SCHEM", resultSet.getMetaData().getColumnName(6));
-
-    assertEquals(1, resultSet.getMetaData().isNullable(1));
-    assertEquals(1, resultSet.getMetaData().isNullable(2));
-    assertEquals(0, resultSet.getMetaData().isNullable(3));
-    assertEquals(0, resultSet.getMetaData().isNullable(4));
-    assertEquals(1, resultSet.getMetaData().isNullable(5));
-    assertEquals(1, resultSet.getMetaData().isNullable(6));
-    assertEquals(0, resultSet.getMetaData().isNullable(7));
-    assertEquals(0, resultSet.getMetaData().isNullable(8));
-    assertEquals(0, resultSet.getMetaData().isNullable(9));
-    assertEquals(1, resultSet.getMetaData().isNullable(10));
-    assertEquals(1, resultSet.getMetaData().isNullable(11));
-    assertEquals(1, resultSet.getMetaData().isNullable(12));
-    assertEquals(1, resultSet.getMetaData().isNullable(13));
-    assertEquals(0, resultSet.getMetaData().isNullable(14));
-
-    // Result set is empty
-    assertFalse(resultSet.next());
   }
 
   @Test
   public void testGetExportedKeys() throws SQLException {
     ResultSet resultSet = metaData.getExportedKeys("catalog", "schema", "table");
     assertNotNull(resultSet);
+  }
 
-    assertEquals(14, resultSet.getMetaData().getColumnCount());
-    assertSame("PKTABLE_CAT", resultSet.getMetaData().getColumnName(1));
-    assertSame("PKTABLE_SCHEM", resultSet.getMetaData().getColumnName(2));
-    assertEquals("PKTABLE_NAME", resultSet.getMetaData().getColumnName(3));
-    assertEquals("PKCOLUMN_NAME", resultSet.getMetaData().getColumnName(4));
-    assertEquals("FKTABLE_CAT", resultSet.getMetaData().getColumnName(5));
-    assertEquals("FKTABLE_SCHEM", resultSet.getMetaData().getColumnName(6));
+  @Test
+  public void testSupportsTransactionIsolationLevel() throws SQLException {
+    assertFalse(metaData.supportsTransactionIsolationLevel(Connection.TRANSACTION_NONE));
+    assertTrue(metaData.supportsTransactionIsolationLevel(Connection.TRANSACTION_READ_UNCOMMITTED));
+    assertFalse(metaData.supportsTransactionIsolationLevel(Connection.TRANSACTION_READ_COMMITTED));
+    assertFalse(metaData.supportsTransactionIsolationLevel(Connection.TRANSACTION_REPEATABLE_READ));
+    assertFalse(metaData.supportsTransactionIsolationLevel(Connection.TRANSACTION_SERIALIZABLE));
+  }
 
-    assertEquals(1, resultSet.getMetaData().isNullable(1));
-    assertEquals(1, resultSet.getMetaData().isNullable(2));
-    assertEquals(0, resultSet.getMetaData().isNullable(3));
-    assertEquals(0, resultSet.getMetaData().isNullable(4));
-    assertEquals(1, resultSet.getMetaData().isNullable(5));
-    assertEquals(1, resultSet.getMetaData().isNullable(6));
-    assertEquals(0, resultSet.getMetaData().isNullable(7));
-    assertEquals(0, resultSet.getMetaData().isNullable(8));
-    assertEquals(0, resultSet.getMetaData().isNullable(9));
-    assertEquals(1, resultSet.getMetaData().isNullable(10));
-    assertEquals(1, resultSet.getMetaData().isNullable(11));
-    assertEquals(1, resultSet.getMetaData().isNullable(12));
-    assertEquals(1, resultSet.getMetaData().isNullable(13));
-    assertEquals(0, resultSet.getMetaData().isNullable(14));
+  @Test
+  public void testIsWrapperFor_ReturnsTrueForDatabaseMetaData() throws SQLException {
+    // Test that it returns true for DatabaseMetaData interface
+    assertTrue(metaData.isWrapperFor(DatabaseMetaData.class));
+  }
 
-    // Result set is empty
-    assertFalse(resultSet.next());
+  @Test
+  public void testIsWrapperFor_ReturnsTrueForSameClass() throws SQLException {
+    // Test that it returns true for its own class
+    assertTrue(metaData.isWrapperFor(DatabricksDatabaseMetaData.class));
+  }
+
+  @Test
+  public void testIsWrapperFor_ReturnsFalseForUnrelatedInterface() throws SQLException {
+    // Test that it returns false for unrelated interfaces
+    assertFalse(metaData.isWrapperFor(Runnable.class));
+  }
+
+  @Test
+  public void testUnwrap_SuccessfullyUnwrapsDatabaseMetaData() throws SQLException {
+    // Test unwrapping to DatabaseMetaData interface
+    DatabaseMetaData unwrapped = metaData.unwrap(DatabaseMetaData.class);
+    assertNotNull(unwrapped);
+    assertSame(metaData, unwrapped);
+  }
+
+  @Test
+  public void testUnwrap_SuccessfullyUnwrapsSameClass() throws SQLException {
+    // Test unwrapping to its own class
+    DatabricksDatabaseMetaData unwrapped = metaData.unwrap(DatabricksDatabaseMetaData.class);
+    assertNotNull(unwrapped);
+    assertSame(metaData, unwrapped);
+  }
+
+  @Test
+  public void testUnwrap_ThrowsExceptionForUnrelatedInterface() throws SQLException {
+    // Test that unwrapping to an unrelated interface throws exception
+    assertThrows(DatabricksSQLException.class, () -> metaData.unwrap(Runnable.class));
   }
 
   private static Stream<Arguments> provideAttributeParameters() {

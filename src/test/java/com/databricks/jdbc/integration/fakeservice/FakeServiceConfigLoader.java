@@ -23,6 +23,8 @@ public class FakeServiceConfigLoader {
   private static final String SQL_GATEWAY_FAKE_SERVICE_TEST_PROPS =
       "sqlgatewayfakeservicetest.properties";
 
+  private static final String FAKE_SERVICE_USER_AGENT = "DatabricksJdbcDriverOss-FakeService";
+
   private static final Properties properties = new Properties();
 
   static {
@@ -45,5 +47,9 @@ public class FakeServiceConfigLoader {
 
   public static Properties getProperties() {
     return properties;
+  }
+
+  public static String getFakeServiceUserAgent() {
+    return FAKE_SERVICE_USER_AGENT;
   }
 }

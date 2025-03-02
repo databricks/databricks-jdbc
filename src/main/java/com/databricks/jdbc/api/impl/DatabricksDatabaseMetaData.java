@@ -838,8 +838,8 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
   public boolean supportsTransactionIsolationLevel(int level) throws SQLException {
     LOGGER.debug(
         String.format("public boolean supportsTransactionIsolationLevel(int level = {%s})", level));
-    throw new UnsupportedOperationException(
-        "Not implemented in DatabricksDatabaseMetaData - supportsTransactionIsolationLevel(int level)");
+    throwExceptionIfConnectionIsClosed();
+    return level == Connection.TRANSACTION_READ_UNCOMMITTED;
   }
 
   @Override
@@ -1089,11 +1089,7 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
             catalog, schema, table));
     throwExceptionIfConnectionIsClosed();
 
-    return MetadataResultSetBuilder.getResultSetWithGivenRowsAndColumns(
-        MetadataResultConstants.IMPORTED_KEYS_COLUMNS,
-        new ArrayList<>(),
-        METADATA_STATEMENT_ID,
-        CommandName.GET_IMPORTED_KEYS);
+    return session.getDatabricksMetadataClient().listImportedKeys(session, catalog, schema, table);
   }
 
   @Override
@@ -1105,11 +1101,7 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
             catalog, schema, table));
     throwExceptionIfConnectionIsClosed();
 
-    return MetadataResultSetBuilder.getResultSetWithGivenRowsAndColumns(
-        MetadataResultConstants.EXPORTED_KEYS_COLUMNS,
-        new ArrayList<>(),
-        METADATA_STATEMENT_ID,
-        CommandName.GET_EXPORTED_KEYS);
+    return session.getDatabricksMetadataClient().listExportedKeys(session, catalog, schema, table);
   }
 
   @Override
@@ -1133,11 +1125,16 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
           DatabricksDriverErrorCode.INVALID_STATE);
     }
 
-    return MetadataResultSetBuilder.getResultSetWithGivenRowsAndColumns(
-        MetadataResultConstants.CROSS_REFERENCE_COLUMNS,
-        new ArrayList<>(),
-        METADATA_STATEMENT_ID,
-        CommandName.GET_CROSS_REFERENCE);
+    return session
+        .getDatabricksMetadataClient()
+        .listCrossReferences(
+            session,
+            parentCatalog,
+            parentSchema,
+            parentTable,
+            foreignCatalog,
+            foreignSchema,
+            foreignTable);
   }
 
   @Override
@@ -1516,18 +1513,25 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
     return false;
   }
 
+  /** {@inheritDoc} */
   @Override
   public <T> T unwrap(Class<T> iface) throws SQLException {
     LOGGER.debug(String.format("public <T> T unwrap(Class<T> iface = {%s})", iface));
-    throw new UnsupportedOperationException(
-        "Not implemented in DatabricksDatabaseMetaData - unwrap(Class<T> iface)");
+
+    if (isWrapperFor(iface)) {
+      return iface.cast(this);
+    }
+
+    throw new DatabricksSQLException(
+        "Cannot unwrap to " + iface.getName(), DatabricksDriverErrorCode.INVALID_STATE);
   }
 
+  /** {@inheritDoc} */
   @Override
   public boolean isWrapperFor(Class<?> iface) throws SQLException {
     LOGGER.debug(String.format("public boolean isWrapperFor(Class<?> iface = {%s})", iface));
-    throw new UnsupportedOperationException(
-        "Not implemented in DatabricksDatabaseMetaData - isWrapperFor(Class<?> iface)");
+
+    return iface != null && iface.isAssignableFrom(this.getClass());
   }
 
   private void throwExceptionIfConnectionIsClosed() throws SQLException {
