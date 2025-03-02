@@ -59,25 +59,31 @@ public class TelemetryHelper {
   public static void exportFailureLog(
       IDatabricksConnectionContext connectionContext, String errorName, String errorMessage) {
 
-    DriverErrorInfo errorInfo =
-        new DriverErrorInfo().setErrorName(errorName).setStackTrace(errorMessage);
-    TelemetryFrontendLog telemetryFrontendLog =
-        new TelemetryFrontendLog()
-            .setEntry(
-                new FrontendLogEntry()
-                    .setSqlDriverLog(
-                        new TelemetryEvent()
-                            .setDriverConnectionParameters(
-                                getDriverConnectionParameter(connectionContext))
-                            .setDriverErrorInfo(errorInfo)
-                            .setDriverSystemConfiguration(getDriverSystemConfiguration())));
-    DatabricksConfig config = DatabricksThreadContextHolder.getDatabricksConfig();
-    ITelemetryClient client =
-        config == null
-            ? TelemetryClientFactory.getInstance()
-                .getUnauthenticatedTelemetryClient(connectionContext)
-            : TelemetryClientFactory.getInstance().getTelemetryClient(connectionContext, config);
-    client.exportEvent(telemetryFrontendLog);
+    // Connection context is not set in following scenarios:
+    // a. Unit tests
+    // b. When Url parsing has failed
+    // In either of these scenarios, we don't export logs
+    if (connectionContext != null) {
+      DriverErrorInfo errorInfo =
+          new DriverErrorInfo().setErrorName(errorName).setStackTrace(errorMessage);
+      TelemetryFrontendLog telemetryFrontendLog =
+          new TelemetryFrontendLog()
+              .setEntry(
+                  new FrontendLogEntry()
+                      .setSqlDriverLog(
+                          new TelemetryEvent()
+                              .setDriverConnectionParameters(
+                                  getDriverConnectionParameter(connectionContext))
+                              .setDriverErrorInfo(errorInfo)
+                              .setDriverSystemConfiguration(getDriverSystemConfiguration())));
+      DatabricksConfig config = DatabricksThreadContextHolder.getDatabricksConfig();
+      ITelemetryClient client =
+          config == null
+              ? TelemetryClientFactory.getInstance()
+                  .getUnauthenticatedTelemetryClient(connectionContext)
+              : TelemetryClientFactory.getInstance().getTelemetryClient(connectionContext, config);
+      client.exportEvent(telemetryFrontendLog);
+    }
   }
 
   public static void exportLatencyLog(long executionTime) {
