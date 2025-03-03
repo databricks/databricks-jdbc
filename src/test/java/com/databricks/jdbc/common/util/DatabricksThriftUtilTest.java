@@ -10,7 +10,6 @@ import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
 import com.databricks.jdbc.exception.DatabricksHttpException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.model.client.thrift.generated.*;
-import com.databricks.sdk.core.DatabricksException;
 import com.databricks.sdk.service.sql.ColumnInfoTypeName;
 import com.databricks.sdk.service.sql.StatementState;
 import java.nio.ByteBuffer;
@@ -208,7 +207,8 @@ public class DatabricksThriftUtilTest {
 
   @ParameterizedTest
   @MethodSource("resultDataTypesForGetColumnValue")
-  public void testColumnCount(TRowSet resultData, List<List<Object>> expectedValues) {
+  public void testColumnCount(TRowSet resultData, List<List<Object>> expectedValues)
+      throws DatabricksSQLException {
     assertEquals(expectedValues, DatabricksThriftUtil.extractRowsFromColumnar(resultData));
   }
 
@@ -217,7 +217,7 @@ public class DatabricksThriftUtilTest {
     TRowSet rowSetWithNoColumnType =
         new TRowSet().setColumns(Collections.singletonList(new TColumn()));
     assertThrows(
-        DatabricksException.class,
+        DatabricksSQLException.class,
         () -> DatabricksThriftUtil.extractRowsFromColumnar(rowSetWithNoColumnType));
   }
 

@@ -12,12 +12,11 @@ import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.model.client.thrift.generated.*;
 import com.databricks.jdbc.model.core.ExternalLink;
 import com.databricks.jdbc.model.core.StatementStatus;
-import com.databricks.sdk.core.DatabricksException;
+import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import com.databricks.sdk.service.sql.ColumnInfoTypeName;
 import com.databricks.sdk.service.sql.StatementState;
 import java.nio.ByteBuffer;
 import java.util.*;
-import java.util.stream.Collectors;
 
 public class DatabricksThriftUtil {
 
@@ -64,15 +63,16 @@ public class DatabricksThriftUtil {
    * @param rowSet that contains columnar data
    * @return a list of rows
    */
-  public static List<List<Object>> extractRowsFromColumnar(TRowSet rowSet) {
+  public static List<List<Object>> extractRowsFromColumnar(TRowSet rowSet)
+      throws DatabricksSQLException {
     if (rowSet == null || rowSet.getColumns() == null || rowSet.getColumns().isEmpty()) {
       return Collections.emptyList();
     }
     List<List<Object>> rows = new ArrayList<>();
-    List<Iterator<?>> columnIterators =
-        rowSet.getColumns().stream()
-            .map(DatabricksThriftUtil::getIteratorForColumn)
-            .collect(Collectors.toList());
+    List<Iterator<?>> columnIterators = new ArrayList<>();
+    for (TColumn column : rowSet.getColumns()) {
+      columnIterators.add(getIteratorForColumn(column));
+    }
     while (columnIterators.get(0).hasNext()) {
       List<Object> row = new ArrayList<>();
       columnIterators.forEach(columnIterator -> row.add(columnIterator.next()));
@@ -146,7 +146,7 @@ public class DatabricksThriftUtil {
     return new StatementStatus().setState(state);
   }
 
-  private static Iterator<?> getIteratorForColumn(TColumn column) {
+  private static Iterator<?> getIteratorForColumn(TColumn column) throws DatabricksSQLException {
     if (column.isSetStringVal()) {
       return column.getStringVal().getValuesIterator();
     } else if (column.isSetBoolVal()) {
@@ -164,7 +164,8 @@ public class DatabricksThriftUtil {
     } else if (column.isSetByteVal()) {
       return column.getByteVal().getValuesIterator();
     }
-    throw new DatabricksException("Unsupported column type: " + column);
+    throw new DatabricksSQLException(
+        "Unsupported column type: " + column, DatabricksDriverErrorCode.UNSUPPORTED_OPERATION);
   }
 
   public static String getTypeTextFromTypeDesc(TTypeDesc typeDesc) {
