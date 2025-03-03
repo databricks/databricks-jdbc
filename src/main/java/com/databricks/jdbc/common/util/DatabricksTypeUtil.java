@@ -50,6 +50,7 @@ public class DatabricksTypeUtil {
   public static final String MAP = "MAP";
   public static final String ARRAY = "ARRAY";
   public static final String STRUCT = "STRUCT";
+  public static final String VARIANT = "VARIANT";
   private static final ArrayList<ColumnInfoTypeName> SIGNED_TYPES =
       new ArrayList<>(
           Arrays.asList(
