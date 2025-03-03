@@ -1,6 +1,7 @@
 package com.databricks.jdbc.api.impl;
 
 import static com.databricks.jdbc.api.impl.DatabricksResultSet.AFFECTED_ROWS_COUNT;
+import static com.databricks.jdbc.common.util.DatabricksTypeUtil.VARIANT;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.doReturn;
@@ -560,7 +561,7 @@ public class DatabricksResultSetTest {
   void testGetObjectWithVariant() throws Exception {
     DatabricksResultSet resultSet = getResultSet(StatementState.SUCCEEDED, null);
     when(mockedExecutionResult.getObject(2)).thenReturn("testObject");
-    when(mockedResultSetMetadata.getColumnTypeName(anyInt())).thenReturn("VARIANT");
+    when(mockedResultSetMetadata.getColumnTypeName(anyInt())).thenReturn(VARIANT);
     assertEquals("testObject", resultSet.getObject(3));
 
     // null object

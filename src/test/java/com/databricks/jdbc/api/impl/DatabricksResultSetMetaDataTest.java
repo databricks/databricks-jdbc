@@ -2,6 +2,7 @@ package com.databricks.jdbc.api.impl;
 
 import static com.databricks.jdbc.common.Nullable.NULLABLE;
 import static com.databricks.jdbc.common.util.DatabricksThriftUtil.getTypeFromTypeDesc;
+import static com.databricks.jdbc.common.util.DatabricksTypeUtil.VARIANT;
 import static org.junit.jupiter.api.Assertions.*;
 
 import com.databricks.jdbc.common.DatabricksJdbcConstants;
@@ -185,14 +186,14 @@ public class DatabricksResultSetMetaDataTest {
     resultManifest.setSchema(schema);
     DatabricksResultSetMetaData metaData =
         new DatabricksResultSetMetaData(
-            THRIFT_STATEMENT_ID, resultManifest, 1, 1, List.of("VARIANT"));
+            THRIFT_STATEMENT_ID, resultManifest, 1, 1, List.of(VARIANT));
     assertEquals(1, metaData.getColumnCount());
     assertEquals("testCol", metaData.getColumnName(1));
     assertEquals(1, metaData.getTotalRows());
     assertEquals(1, metaData.getColumnNameIndex("testCol"));
     assertEquals(Types.OTHER, metaData.getColumnType(1));
     assertEquals("java.lang.String", metaData.getColumnClassName(1));
-    assertEquals("VARIANT", metaData.getColumnTypeName(1));
+    assertEquals(VARIANT, metaData.getColumnTypeName(1));
     assertEquals(255, metaData.getPrecision(1));
     assertEquals(ResultSetMetaData.columnNullable, metaData.isNullable(1));
   }
