@@ -49,7 +49,7 @@ public class TimestampConverterTest {
   }
 
   @Test
-  public void testToTimestamps() throws DatabricksSQLException {
+  public void testToTimestamp() throws DatabricksSQLException {
     // Case 1: Input is already a Timestamp.
     Timestamp ts = Timestamp.valueOf("2023-03-15 12:34:56");
     assertSame(ts, converter.toTimestamp(ts));
@@ -105,7 +105,7 @@ public class TimestampConverterTest {
   }
 
   @Test
-  public void testToDate_AllCases() throws DatabricksSQLException {
+  public void testToDate() throws DatabricksSQLException {
     // Case 1: Input is already a Date.
     Date date = new Date(System.currentTimeMillis());
     assertSame(date, converter.toDate(date));

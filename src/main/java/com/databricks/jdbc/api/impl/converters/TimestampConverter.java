@@ -62,16 +62,6 @@ public class TimestampConverter implements ObjectConverter {
   /**
    * Parses a timestamp represented as a string.
    *
-   * <p>This method unifies the logic for strings with and without timezone offsets.
-   *
-   * <ul>
-   *   <li>If the string contains a timezone offset (e.g., "2023-03-15T12:34:56+05:30"), it is
-   *       parsed using OffsetDateTime.
-   *   <li>If not (e.g., "2023-03-15T12:34:56"), the 'T' is replaced with a space and
-   *       Timestamp.valueOf is used.
-   *   <li>If both approaches fail, it falls back to parsing via Instant.parse.
-   * </ul>
-   *
    * @param inputTimestamp the string to parse
    * @return the parsed Timestamp
    * @throws DatabricksSQLException if the string cannot be parsed into a Timestamp

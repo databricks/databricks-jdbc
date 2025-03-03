@@ -3,6 +3,7 @@ package com.databricks.jdbc.api.impl.converters;
 import static com.databricks.jdbc.common.util.DatabricksTypeUtil.ARRAY;
 import static com.databricks.jdbc.common.util.DatabricksTypeUtil.MAP;
 import static com.databricks.jdbc.common.util.DatabricksTypeUtil.STRUCT;
+import static com.databricks.jdbc.common.util.DatabricksTypeUtil.TIMESTAMP;
 import static com.databricks.jdbc.common.util.DatabricksTypeUtil.VARIANT;
 
 import com.databricks.jdbc.api.impl.*;
@@ -70,7 +71,7 @@ public class ArrowToJavaObjectConverter {
       if (arrowMetadata.startsWith(VARIANT)) {
         requiredType = ColumnInfoTypeName.STRING;
       }
-      if (arrowMetadata.startsWith("TIMESTAMP")) { // for timestamp_ntz column
+      if (arrowMetadata.startsWith(TIMESTAMP)) { // for timestamp_ntz column
         requiredType = ColumnInfoTypeName.TIMESTAMP;
       }
     }
