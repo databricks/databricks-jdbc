@@ -1,6 +1,9 @@
 package com.databricks.jdbc.api.impl;
 
 import static com.databricks.jdbc.common.DatabricksJdbcConstants.EMPTY_STRING;
+import static com.databricks.jdbc.common.util.DatabricksTypeUtil.ARRAY;
+import static com.databricks.jdbc.common.util.DatabricksTypeUtil.MAP;
+import static com.databricks.jdbc.common.util.DatabricksTypeUtil.STRUCT;
 
 import com.databricks.jdbc.api.IDatabricksResultSet;
 import com.databricks.jdbc.api.IDatabricksSession;
@@ -470,9 +473,11 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
       return null;
     }
     int columnType = resultSetMetaData.getColumnType(columnIndex);
-    String columnName = resultSetMetaData.getColumnTypeName(columnIndex);
+    String columnTypeName = resultSetMetaData.getColumnTypeName(columnIndex);
     // separate handling for complex data types
-    if (columnName.equals("ARRAY") || columnName.equals("MAP") || columnName.equals("STRUCT")) {
+    if (columnTypeName.equals(ARRAY)
+        || columnTypeName.equals(MAP)
+        || columnTypeName.equals(STRUCT)) {
       return handleComplexDataTypes(obj, columnIndex);
     }
     return ConverterHelper.convertSqlTypeToJavaType(columnType, obj);

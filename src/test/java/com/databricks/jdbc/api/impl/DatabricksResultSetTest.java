@@ -568,6 +568,13 @@ public class DatabricksResultSetTest {
     when(mockedExecutionResult.getObject(2)).thenReturn(null);
     assertNull(resultSet.getObject(3));
 
+    // non-string type
+    when(mockedExecutionResult.getObject(2)).thenReturn(100);
+    assertThrows(
+        DatabricksSQLException.class,
+        () -> resultSet.getObject(3),
+        "Expected getObject to fail for non-string VARIANT type");
+
     // Test with column label
     when(mockedExecutionResult.getObject(2)).thenReturn("testObject");
     when(mockedResultSetMetadata.getColumnNameIndex("columnLabel")).thenReturn(3);
