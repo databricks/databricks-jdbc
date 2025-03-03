@@ -1,9 +1,13 @@
 package com.databricks.jdbc.api.impl;
 
 import static com.databricks.jdbc.common.DatabricksJdbcConstants.EMPTY_STRING;
+import static com.databricks.jdbc.common.util.DatabricksTypeUtil.ARRAY;
+import static com.databricks.jdbc.common.util.DatabricksTypeUtil.MAP;
+import static com.databricks.jdbc.common.util.DatabricksTypeUtil.STRUCT;
 
 import com.databricks.jdbc.api.IDatabricksResultSet;
 import com.databricks.jdbc.api.IDatabricksSession;
+import com.databricks.jdbc.api.impl.arrow.ArrowStreamResult;
 import com.databricks.jdbc.api.impl.converters.ConverterHelper;
 import com.databricks.jdbc.api.impl.converters.ObjectConverter;
 import com.databricks.jdbc.api.impl.volume.VolumeOperationResult;
@@ -140,12 +144,17 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
       this.executionResult =
           ExecutionResultFactory.getResultSet(resultsResp, session, parentStatement);
       long rowSize = executionResult.getRowCount();
+      List<String> arrowMetadata = null;
+      if (executionResult instanceof ArrowStreamResult) {
+        arrowMetadata = ((ArrowStreamResult) executionResult).getArrowMetadata();
+      }
       this.resultSetMetaData =
           new DatabricksResultSetMetaData(
               statementId,
               resultsResp.getResultSetMetadata(),
               rowSize,
-              executionResult.getChunkCount());
+              executionResult.getChunkCount(),
+              arrowMetadata);
       switch (resultsResp.getResultSetMetadata().getResultFormat()) {
         case COLUMN_BASED_SET:
           this.resultSetType = ResultSetType.THRIFT_INLINE;
@@ -464,9 +473,11 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
       return null;
     }
     int columnType = resultSetMetaData.getColumnType(columnIndex);
-    String columnName = resultSetMetaData.getColumnTypeName(columnIndex);
+    String columnTypeName = resultSetMetaData.getColumnTypeName(columnIndex);
     // separate handling for complex data types
-    if (columnName.equals("ARRAY") || columnName.equals("MAP") || columnName.equals("STRUCT")) {
+    if (columnTypeName.equals(ARRAY)
+        || columnTypeName.equals(MAP)
+        || columnTypeName.equals(STRUCT)) {
       return handleComplexDataTypes(obj, columnIndex);
     }
     return ConverterHelper.convertSqlTypeToJavaType(columnType, obj);
@@ -1733,6 +1744,9 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
     if (obj == null) {
       return defaultValue.get();
     }
+    if (obj instanceof String) {
+      obj = removeExtraQuotes((String) obj);
+    }
     int columnType = resultSetMetaData.getColumnType(columnIndex);
     ObjectConverter converter = ConverterHelper.getConverterForSqlType(columnType);
     return convertMethod.apply(converter, obj);
@@ -1749,6 +1763,14 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
       return bigDecimal;
     }
     return bigDecimal.setScale(scale, RoundingMode.HALF_UP);
+  }
+
+  private String removeExtraQuotes(String str) {
+    str = str.trim();
+    if (str.startsWith("\"") && str.endsWith("\"") && str.length() > 1) {
+      str = str.substring(1, str.length() - 1).trim();
+    }
+    return str;
   }
 
   @Override

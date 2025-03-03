@@ -100,6 +100,8 @@ final class DatabricksThriftAccessor {
         return getTableTypes((TGetTableTypesReq) request);
       } else if (request instanceof TGetTypeInfoReq) {
         return getTypeInfo((TGetTypeInfoReq) request);
+      } else if (request instanceof TGetCrossReferenceReq) {
+        return listCrossReferences((TGetCrossReferenceReq) request);
       } else {
         String errorMessage =
             String.format(
@@ -396,6 +398,13 @@ final class DatabricksThriftAccessor {
       throws TException, DatabricksSQLException {
     if (enableDirectResults) request.setGetDirectResults(DEFAULT_DIRECT_RESULTS);
     TGetPrimaryKeysResp response = getThriftClient().GetPrimaryKeys(request);
+    return fetchMetadataResults(response, response.toString());
+  }
+
+  private TFetchResultsResp listCrossReferences(TGetCrossReferenceReq request)
+      throws TException, DatabricksSQLException {
+    if (enableDirectResults) request.setGetDirectResults(DEFAULT_DIRECT_RESULTS);
+    TGetCrossReferenceResp response = getThriftClient().GetCrossReference(request);
     return fetchMetadataResults(response, response.toString());
   }
 
