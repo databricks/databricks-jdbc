@@ -381,18 +381,9 @@ public class MetadataResultSetBuilder {
       return null;
     }
     int typeArgumentIndex = typeName.indexOf('(');
-    int complexTypeIndex = typeName.indexOf('<');
-    // if both are present return the minimum of the two
-    if (typeArgumentIndex != -1 && complexTypeIndex != -1) {
-      return typeName.substring(0, Math.min(typeArgumentIndex, complexTypeIndex));
-    }
     if (typeArgumentIndex != -1) {
       return typeName.substring(0, typeArgumentIndex);
     }
-    if (complexTypeIndex != -1) {
-      return typeName.substring(0, complexTypeIndex);
-    }
-
     return typeName;
   }
 
