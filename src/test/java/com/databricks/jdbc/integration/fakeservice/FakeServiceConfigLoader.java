@@ -14,8 +14,10 @@ public class FakeServiceConfigLoader {
 
   public static final String TEST_SCHEMA = "testschema";
 
-  public static final boolean shouldUseThriftClient =
-      Boolean.parseBoolean(System.getenv("USE_THRIFT_CLIENT"));
+  public static final ConnectionInfoType connectionInfo =
+      System.getenv("CONNECTION_INFO") != null
+          ? ConnectionInfoType.valueOf(System.getenv("CONNECTION_INFO").toUpperCase())
+          : ConnectionInfoType.SQL_EXEC;
 
   private static final String SQL_EXEC_FAKE_SERVICE_TEST_PROPS =
       "sqlexecfakeservicetest.properties";
@@ -25,19 +27,36 @@ public class FakeServiceConfigLoader {
 
   private static final String FAKE_SERVICE_USER_AGENT = "DatabricksJdbcDriverOss-FakeService";
 
+  private static final String THRIFT_SERVER_FAKE_SERVICE_TEST_PROPS =
+      "thriftserverfakeservicetest.properties";
+
+  public enum ConnectionInfoType {
+    THRIFT_SERVER,
+    SQL_GATEWAY,
+    SQL_EXEC
+  }
+
   private static final Properties properties = new Properties();
 
   static {
-    final String propsFileName =
-        shouldUseThriftClient
-            ? SQL_GATEWAY_FAKE_SERVICE_TEST_PROPS
-            : SQL_EXEC_FAKE_SERVICE_TEST_PROPS;
+    final String propsFileName = getPropsFileName();
 
     try (InputStream input =
         FakeServiceConfigLoader.class.getClassLoader().getResourceAsStream(propsFileName)) {
       properties.load(input);
     } catch (IOException e) {
       throw new RuntimeException("Failed to load properties file: " + propsFileName, e);
+    }
+  }
+
+  private static String getPropsFileName() {
+    switch (connectionInfo) {
+      case THRIFT_SERVER:
+        return THRIFT_SERVER_FAKE_SERVICE_TEST_PROPS;
+      case SQL_GATEWAY:
+        return SQL_GATEWAY_FAKE_SERVICE_TEST_PROPS;
+      default:
+        return SQL_EXEC_FAKE_SERVICE_TEST_PROPS;
     }
   }
 

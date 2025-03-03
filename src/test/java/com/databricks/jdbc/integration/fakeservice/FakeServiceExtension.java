@@ -106,9 +106,20 @@ public class FakeServiceExtension extends DatabricksWireMockExtension {
   public static final String SQL_GATEWAY_API_STUBBING_FILE_PATH =
       "src/test/resources/sqlgatewayapi";
 
+  /** Path to the stubbing directory for SQL Gateway API using warehouses. */
+  public static final String THRIFT_SERVER_API_STUBBING_FILE_PATH =
+      "src/test/resources/thriftserverapi";
+
   /** Path to the stubbing directory for Cloud Fetch when using SQL Gateway API. */
   public static final String CLOUD_FETCH_SQL_GATEWAY_API_STUBBING_FILE_PATH =
       "src/test/resources/cloudfetchsqlgatewayapi";
+
+  public static final String CLOUD_FETCH_UC_VOLUME_API_STUBBING_FILE_PATH =
+      "src/test/resources/cloudfetchucvolume";
+
+  /** Path to the stubbing directory for Cloud Fetch when using SQL Gateway API with warehouses. */
+  public static final String CLOUD_FETCH_THRIFT_SERVER_API_STUBBING_FILE_PATH =
+      "src/test/resources/cloudfetchthriftserverapi";
 
   /** Fake service to manage. */
   private final FakeServiceType fakeServiceType;
@@ -224,6 +235,9 @@ public class FakeServiceExtension extends DatabricksWireMockExtension {
       case SQL_EXEC:
         basePath = SQL_EXEC_API_STUBBING_FILE_PATH;
         break;
+      case THRIFT_SERVER:
+        basePath = THRIFT_SERVER_API_STUBBING_FILE_PATH;
+        break;
       case CLOUD_FETCH:
         basePath = CLOUD_FETCH_API_STUBBING_FILE_PATH;
         break;
@@ -233,8 +247,11 @@ public class FakeServiceExtension extends DatabricksWireMockExtension {
       case CLOUD_FETCH_SQL_GATEWAY:
         basePath = CLOUD_FETCH_SQL_GATEWAY_API_STUBBING_FILE_PATH;
         break;
+      case CLOUD_FETCH_THRIFT_SERVER:
+        basePath = CLOUD_FETCH_THRIFT_SERVER_API_STUBBING_FILE_PATH;
+        break;
       case CLOUD_FETCH_UC_VOLUME:
-        basePath = "src/test/resources/cloudfetchucvolume";
+        basePath = CLOUD_FETCH_UC_VOLUME_API_STUBBING_FILE_PATH;
         break;
       default:
         throw new IllegalStateException("Unsupported fake service type: " + fakeServiceType);

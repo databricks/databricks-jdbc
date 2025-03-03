@@ -145,6 +145,7 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
       // run queries in async mode if not using fake services
       request.setRunAsync(true);
     }
+
     return thriftAccessor.execute(request, parentStatement, session, statementType);
   }
 
