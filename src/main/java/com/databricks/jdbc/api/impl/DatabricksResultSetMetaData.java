@@ -78,6 +78,9 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
       if (resultManifest.getSchema().getColumnCount() > 0) {
         for (ColumnInfo columnInfo : resultManifest.getSchema().getColumns()) {
           ColumnInfoTypeName columnTypeName = columnInfo.getTypeName();
+          // For TIMESTAMP_NTZ columns, getTypeName() returns null.
+          // use typeText (initially "TIMESTAMP_NTZ") to identify the type,
+          // overwrite it to "TIMESTAMP" to maintain parity with thrift output.
           if (columnInfo.getTypeText().equalsIgnoreCase(TIMESTAMP_NTZ)) {
             columnTypeName = ColumnInfoTypeName.TIMESTAMP;
             columnInfo.setTypeText(TIMESTAMP);
