@@ -23,35 +23,7 @@ public class TimestampConverter implements ObjectConverter {
     if (object instanceof Timestamp) {
       return (Timestamp) object;
     } else if (object instanceof String) {
-      String inputTimestamp = (String) object;
-      // Check if the string contains a timezone offset.
-      // This regex checks for a '+' or '-' after the time component.
-      // Example with offset: "2023-03-15T12:34:56+05:30"
-      boolean hasOffset = inputTimestamp.matches(".*T.*([+\\-]\\d\\d:\\d\\d)$");
-      try {
-        if (hasOffset) {
-          // Parse using OffsetDateTime for strings with timezone offset
-          OffsetDateTime odt = OffsetDateTime.parse(inputTimestamp);
-          return Timestamp.from(odt.toInstant());
-        } else {
-          // For strings without offset, replace 'T' with a space and use Timestamp.valueOf
-          // Timestamp_ntz columns don't have offset. No timezone info.
-          // Example without offset: "2023-03-15T12:34:56"
-          String timestamp = inputTimestamp.replace("T", " ");
-          return Timestamp.valueOf(timestamp);
-        }
-      } catch (IllegalArgumentException | DateTimeParseException e) {
-        // As a fallback, try parsing as an Instant using the original inputTimestamp
-        try {
-          Instant instant = Instant.parse(inputTimestamp);
-          return Timestamp.from(instant);
-        } catch (Exception ex) {
-          throw new DatabricksSQLException(
-              "Invalid conversion to Timestamp",
-              ex,
-              DatabricksDriverErrorCode.UNSUPPORTED_OPERATION);
-        }
-      }
+      return parseStringToTimestamp((String) object);
     }
     throw new DatabricksSQLException(
         "Unsupported conversion to Timestamp for type: " + object.getClass().getName(),
@@ -80,29 +52,53 @@ public class TimestampConverter implements ObjectConverter {
     } else if (object instanceof Timestamp) {
       return new Date(((Timestamp) object).getTime());
     } else if (object instanceof String) {
-      String dateString = (String) object;
-      try {
-        // Check if the string ends with a timezone offset (e.g., -08:00 or +05:30)
-        if (dateString.matches(".*[+-]\\d{2}:\\d{2}$")) {
-          // Parse the string as an OffsetDateTime which respects the embedded offset.
-          // Example with offset: "2023-03-15T12:34:56+05:30"
-          OffsetDateTime odt = OffsetDateTime.parse(dateString);
-          return new Date(odt.toInstant().toEpochMilli());
-        } else {
-          // Otherwise, assume no offset information and parse as LocalDateTime. TIMESTAMP_NTZ
-          // Example without offset: "2023-03-15T12:34:56"
-          if (dateString.contains("T")) {
-            dateString = dateString.replace("T", " ");
-          }
-          // Parse as a local date-time using Timestamp.valueOf, then convert to java.sql.Date.
-          Timestamp ts = Timestamp.valueOf(dateString);
-          return new Date(ts.getTime());
-        }
-      } catch (Exception e) {
-        throw new DatabricksSQLException(
-            "Invalid conversion to Date", e, DatabricksDriverErrorCode.UNSUPPORTED_OPERATION);
-      }
+      // Use the common helper method to parse the string into a Timestamp.
+      Timestamp ts = parseStringToTimestamp((String) object);
+      return new Date(ts.getTime());
     }
     return new Date(toLong(object));
+  }
+
+  /**
+   * Parses a timestamp represented as a string.
+   *
+   * <p>This method unifies the logic for strings with and without timezone offsets.
+   *
+   * <ul>
+   *   <li>If the string contains a timezone offset (e.g., "2023-03-15T12:34:56+05:30"), it is
+   *       parsed using OffsetDateTime.
+   *   <li>If not (e.g., "2023-03-15T12:34:56"), the 'T' is replaced with a space and
+   *       Timestamp.valueOf is used.
+   *   <li>If both approaches fail, it falls back to parsing via Instant.parse.
+   * </ul>
+   *
+   * @param inputTimestamp the string to parse
+   * @return the parsed Timestamp
+   * @throws DatabricksSQLException if the string cannot be parsed into a Timestamp
+   */
+  private Timestamp parseStringToTimestamp(String inputTimestamp) throws DatabricksSQLException {
+    try {
+      // Check if the string contains a timezone offset.
+      // Example with offset: "2023-03-15T12:34:56+05:30"
+      if (inputTimestamp.matches(".*T.*([+\\-]\\d\\d:\\d\\d)$")) {
+        // Parse using OffsetDateTime for strings with timezone offset.
+        OffsetDateTime odt = OffsetDateTime.parse(inputTimestamp);
+        return Timestamp.from(odt.toInstant());
+      } else {
+        // For strings without offset, replace 'T' with a space.
+        // Example: "2023-03-15T12:34:56" becomes "2023-03-15 12:34:56"
+        String tsStr = inputTimestamp.replace("T", " ");
+        return Timestamp.valueOf(tsStr);
+      }
+    } catch (IllegalArgumentException | DateTimeParseException e) {
+      // As a fallback, try parsing as an Instant using the original inputTimestamp.
+      try {
+        Instant instant = Instant.parse(inputTimestamp);
+        return Timestamp.from(instant);
+      } catch (Exception ex) {
+        throw new DatabricksSQLException(
+            "Invalid conversion to Timestamp", ex, DatabricksDriverErrorCode.UNSUPPORTED_OPERATION);
+      }
+    }
   }
 }
