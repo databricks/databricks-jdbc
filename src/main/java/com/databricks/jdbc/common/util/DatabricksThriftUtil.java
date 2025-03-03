@@ -146,23 +146,43 @@ public class DatabricksThriftUtil {
     return new StatementStatus().setState(state);
   }
 
+  private static <T> Iterator<T> wrapIterator(final List<T> values, final byte[] nulls) {
+    return new Iterator<T>() {
+      int idx = 0;
+
+      @Override
+      public boolean hasNext() {
+        return idx < values.size();
+      }
+
+      @Override
+      public T next() {
+        // Check if the nulls array indicates a null at this index.
+        boolean isNull = (nulls != null && nulls.length > idx && nulls[idx] == 1);
+        T value = isNull ? null : values.get(idx);
+        idx++;
+        return value;
+      }
+    };
+  }
+
   private static Iterator<?> getIteratorForColumn(TColumn column) throws DatabricksSQLException {
     if (column.isSetStringVal()) {
-      return column.getStringVal().getValuesIterator();
+      return wrapIterator(column.getStringVal().getValues(), column.getStringVal().getNulls());
     } else if (column.isSetBoolVal()) {
-      return column.getBoolVal().getValuesIterator();
+      return wrapIterator(column.getBoolVal().getValues(), column.getBoolVal().getNulls());
     } else if (column.isSetDoubleVal()) {
-      return column.getDoubleVal().getValuesIterator();
+      return wrapIterator(column.getDoubleVal().getValues(), column.getDoubleVal().getNulls());
     } else if (column.isSetI16Val()) {
-      return column.getI16Val().getValuesIterator();
+      return wrapIterator(column.getI16Val().getValues(), column.getI16Val().getNulls());
     } else if (column.isSetI32Val()) {
-      return column.getI32Val().getValuesIterator();
+      return wrapIterator(column.getI32Val().getValues(), column.getI32Val().getNulls());
     } else if (column.isSetI64Val()) {
-      return column.getI64Val().getValuesIterator();
+      return wrapIterator(column.getI64Val().getValues(), column.getI64Val().getNulls());
     } else if (column.isSetBinaryVal()) {
-      return column.getBinaryVal().getValuesIterator();
+      return wrapIterator(column.getBinaryVal().getValues(), column.getBinaryVal().getNulls());
     } else if (column.isSetByteVal()) {
-      return column.getByteVal().getValuesIterator();
+      return wrapIterator(column.getByteVal().getValues(), column.getByteVal().getNulls());
     }
     throw new DatabricksSQLException(
         "Unsupported column type: " + column, DatabricksDriverErrorCode.UNSUPPORTED_OPERATION);

@@ -359,4 +359,89 @@ public class DatabricksThriftUtilTest {
         DatabricksThriftUtil.getAsyncStatus(new TStatus().setStatusCode(TStatusCode.ERROR_STATUS))
             .getState());
   }
+
+  @Test
+  public void testExtractRowsWithNullsForAllTypes() throws DatabricksSQLException {
+    // Create a TRowSet with three columns: STRING, DOUBLE, and BOOLEAN.
+    TRowSet rowSet = new TRowSet();
+    List<TColumn> columns = new ArrayList<>();
+
+    // STRING column: two rows. First value is non-null, second is marked null.
+    TStringColumn stringColumn = new TStringColumn();
+    stringColumn.setValues(Arrays.asList("value1", "value2"));
+    stringColumn.setNulls(new byte[] {0, 1});
+    TColumn stringTColumn = new TColumn();
+    stringTColumn.setStringVal(stringColumn);
+    columns.add(stringTColumn);
+
+    // DOUBLE column: two rows. First value is marked null, second is non-null.
+    TDoubleColumn doubleColumn = new TDoubleColumn();
+    doubleColumn.setValues(Arrays.asList(1.1, 2.2));
+    doubleColumn.setNulls(new byte[] {1, 0});
+    TColumn doubleTColumn = new TColumn();
+    doubleTColumn.setDoubleVal(doubleColumn);
+    columns.add(doubleTColumn);
+
+    // BOOLEAN column: two rows with no nulls.
+    TBoolColumn boolColumn = new TBoolColumn();
+    boolColumn.setValues(Arrays.asList(true, false));
+    boolColumn.setNulls(new byte[] {0, 0});
+    TColumn boolTColumn = new TColumn();
+    boolTColumn.setBoolVal(boolColumn);
+    columns.add(boolTColumn);
+
+    rowSet.setColumns(columns);
+
+    // Expected rows:
+    // Row 1: [ "value1", null, true ]
+    // Row 2: [ null, 2.2, false ]
+    List<List<Object>> expected = new ArrayList<>();
+    expected.add(Arrays.asList("value1", null, true));
+    expected.add(Arrays.asList(null, 2.2, false));
+
+    List<List<Object>> actual = DatabricksThriftUtil.extractRowsFromColumnar(rowSet);
+    assertEquals(expected.size(), actual.size(), "Expected row count of 2");
+    for (int i = 0; i < expected.size(); i++) {
+      assertEquals(expected.get(i), actual.get(i), "Mismatch in row " + i);
+    }
+  }
+
+  @Test
+  public void testExtractRowsWhenNullsArrayIsNull() throws DatabricksSQLException {
+    // Create a TRowSet with two columns: STRING and DOUBLE, where the nulls arrays are null.
+    TRowSet rowSet = new TRowSet();
+    List<TColumn> columns = new ArrayList<>();
+
+    // STRING column: two rows, no null indicators.
+    TStringColumn stringColumn = new TStringColumn();
+    stringColumn.setValues(Arrays.asList("a", "b"));
+    stringColumn.setNulls((byte[]) null);
+    // No nulls array provided.
+    TColumn stringTColumn = new TColumn();
+    stringTColumn.setStringVal(stringColumn);
+    columns.add(stringTColumn);
+
+    // DOUBLE column: two rows, no null indicators.
+    TDoubleColumn doubleColumn = new TDoubleColumn();
+    doubleColumn.setValues(Arrays.asList(10.0, 20.0));
+    stringColumn.setNulls((byte[]) null);
+    TColumn doubleTColumn = new TColumn();
+    doubleTColumn.setDoubleVal(doubleColumn);
+    columns.add(doubleTColumn);
+
+    rowSet.setColumns(columns);
+
+    // Expected rows:
+    // Row 1: [ "a", 10.0 ]
+    // Row 2: [ "b", 20.0 ]
+    List<List<Object>> expected = new ArrayList<>();
+    expected.add(Arrays.asList("a", 10.0));
+    expected.add(Arrays.asList("b", 20.0));
+
+    List<List<Object>> actual = DatabricksThriftUtil.extractRowsFromColumnar(rowSet);
+    assertEquals(expected.size(), actual.size(), "Expected row count of 2");
+    for (int i = 0; i < expected.size(); i++) {
+      assertEquals(expected.get(i), actual.get(i), "Mismatch in row " + i);
+    }
+  }
 }
