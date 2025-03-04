@@ -194,8 +194,8 @@ public class ClientConfigurator {
       }
       databricksConfig
           .setAuthType(M2M_AZURE_CLIENT_SECRET_AUTH_TYPE)
-          .setClientId(connectionContext.getClientId())
-          .setClientSecret(connectionContext.getClientSecret())
+          .setAzureClientId(connectionContext.getClientId())
+          .setAzureClientSecret(connectionContext.getClientSecret())
           .setAzureTenantId(connectionContext.getAzureTenantId());
     } else {
       databricksConfig
