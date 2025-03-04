@@ -112,6 +112,13 @@ public class ArrowStreamResult implements IExecutionResult {
     }
   }
 
+  public List<String> getArrowMetadata() throws DatabricksSQLException {
+    if (chunkProvider == null || chunkProvider.getChunk() == null) {
+      return null;
+    }
+    return chunkProvider.getChunk().getArrowMetadata();
+  }
+
   /** {@inheritDoc} */
   @Override
   public Object getObject(int columnIndex) throws DatabricksSQLException {
