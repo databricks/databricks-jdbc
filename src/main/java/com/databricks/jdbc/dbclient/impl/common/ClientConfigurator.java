@@ -187,6 +187,7 @@ public class ClientConfigurator {
       }
     } else if (connectionContext.getAzureTenantId() != null) {
       // If azure tenant id is specified, use Azure Active Directory (AAD) Service Principal OAuth
+      LOGGER.debug("Using Azure Active Directory (AAD) Service Principal OAuth");
       if (connectionContext.getCloud() != Cloud.AZURE) {
         throw new DatabricksParsingException(
             "Azure client credentials flow is only supported for Azure cloud",
