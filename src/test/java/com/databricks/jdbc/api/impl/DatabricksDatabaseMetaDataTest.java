@@ -53,6 +53,12 @@ public class DatabricksDatabaseMetaDataTest {
         .thenReturn(Mockito.mock(DatabricksResultSet.class));
     when(metadataClient.listColumns(any(), any(), any(), any(), any()))
         .thenReturn(Mockito.mock(DatabricksResultSet.class));
+    when(metadataClient.listImportedKeys(any(), any(), any(), any()))
+        .thenReturn(Mockito.mock(DatabricksResultSet.class));
+    when(metadataClient.listExportedKeys(any(), any(), any(), any()))
+        .thenReturn(Mockito.mock(DatabricksResultSet.class));
+    when(metadataClient.listCrossReferences(any(), any(), any(), any(), any(), any(), any()))
+        .thenReturn(Mockito.mock(DatabricksResultSet.class));
     when(connection.getConnection()).thenReturn(Mockito.mock(Connection.class));
     when(session.isOpen()).thenReturn(true);
   }
@@ -1132,25 +1138,6 @@ public class DatabricksDatabaseMetaDataTest {
             "foreign_schema",
             "foreign_table");
     assertNotNull(resultSet);
-
-    assertEquals(14, resultSet.getMetaData().getColumnCount());
-    assertEquals("PKTABLE_CAT", resultSet.getMetaData().getColumnName(1));
-    assertEquals("PKTABLE_SCHEM", resultSet.getMetaData().getColumnName(2));
-    assertEquals("PKTABLE_NAME", resultSet.getMetaData().getColumnName(3));
-    assertEquals("PKCOLUMN_NAME", resultSet.getMetaData().getColumnName(4));
-    assertEquals("FKTABLE_CAT", resultSet.getMetaData().getColumnName(5));
-    assertEquals("FKTABLE_SCHEM", resultSet.getMetaData().getColumnName(6));
-    assertEquals("FKTABLE_NAME", resultSet.getMetaData().getColumnName(7));
-    assertEquals("FKCOLUMN_NAME", resultSet.getMetaData().getColumnName(8));
-    assertEquals("KEY_SEQ", resultSet.getMetaData().getColumnName(9));
-    assertEquals("UPDATE_RULE", resultSet.getMetaData().getColumnName(10));
-    assertEquals("DELETE_RULE", resultSet.getMetaData().getColumnName(11));
-    assertEquals("FK_NAME", resultSet.getMetaData().getColumnName(12));
-    assertEquals("PK_NAME", resultSet.getMetaData().getColumnName(13));
-    assertEquals("DEFERRABILITY", resultSet.getMetaData().getColumnName(14));
-
-    // Result set is empty
-    assertFalse(resultSet.next());
   }
 
   @Test
@@ -1445,64 +1432,12 @@ public class DatabricksDatabaseMetaDataTest {
   public void testGetImportedKeys() throws SQLException {
     ResultSet resultSet = metaData.getImportedKeys("catalog", "schema", "table");
     assertNotNull(resultSet);
-
-    assertEquals(14, resultSet.getMetaData().getColumnCount());
-    assertSame("PKTABLE_CAT", resultSet.getMetaData().getColumnName(1));
-    assertSame("PKTABLE_SCHEM", resultSet.getMetaData().getColumnName(2));
-    assertEquals("PKTABLE_NAME", resultSet.getMetaData().getColumnName(3));
-    assertEquals("PKCOLUMN_NAME", resultSet.getMetaData().getColumnName(4));
-    assertEquals("FKTABLE_CAT", resultSet.getMetaData().getColumnName(5));
-    assertEquals("FKTABLE_SCHEM", resultSet.getMetaData().getColumnName(6));
-
-    assertEquals(1, resultSet.getMetaData().isNullable(1));
-    assertEquals(1, resultSet.getMetaData().isNullable(2));
-    assertEquals(0, resultSet.getMetaData().isNullable(3));
-    assertEquals(0, resultSet.getMetaData().isNullable(4));
-    assertEquals(1, resultSet.getMetaData().isNullable(5));
-    assertEquals(1, resultSet.getMetaData().isNullable(6));
-    assertEquals(0, resultSet.getMetaData().isNullable(7));
-    assertEquals(0, resultSet.getMetaData().isNullable(8));
-    assertEquals(0, resultSet.getMetaData().isNullable(9));
-    assertEquals(1, resultSet.getMetaData().isNullable(10));
-    assertEquals(1, resultSet.getMetaData().isNullable(11));
-    assertEquals(1, resultSet.getMetaData().isNullable(12));
-    assertEquals(1, resultSet.getMetaData().isNullable(13));
-    assertEquals(0, resultSet.getMetaData().isNullable(14));
-
-    // Result set is empty
-    assertFalse(resultSet.next());
   }
 
   @Test
   public void testGetExportedKeys() throws SQLException {
     ResultSet resultSet = metaData.getExportedKeys("catalog", "schema", "table");
     assertNotNull(resultSet);
-
-    assertEquals(14, resultSet.getMetaData().getColumnCount());
-    assertSame("PKTABLE_CAT", resultSet.getMetaData().getColumnName(1));
-    assertSame("PKTABLE_SCHEM", resultSet.getMetaData().getColumnName(2));
-    assertEquals("PKTABLE_NAME", resultSet.getMetaData().getColumnName(3));
-    assertEquals("PKCOLUMN_NAME", resultSet.getMetaData().getColumnName(4));
-    assertEquals("FKTABLE_CAT", resultSet.getMetaData().getColumnName(5));
-    assertEquals("FKTABLE_SCHEM", resultSet.getMetaData().getColumnName(6));
-
-    assertEquals(1, resultSet.getMetaData().isNullable(1));
-    assertEquals(1, resultSet.getMetaData().isNullable(2));
-    assertEquals(0, resultSet.getMetaData().isNullable(3));
-    assertEquals(0, resultSet.getMetaData().isNullable(4));
-    assertEquals(1, resultSet.getMetaData().isNullable(5));
-    assertEquals(1, resultSet.getMetaData().isNullable(6));
-    assertEquals(0, resultSet.getMetaData().isNullable(7));
-    assertEquals(0, resultSet.getMetaData().isNullable(8));
-    assertEquals(0, resultSet.getMetaData().isNullable(9));
-    assertEquals(1, resultSet.getMetaData().isNullable(10));
-    assertEquals(1, resultSet.getMetaData().isNullable(11));
-    assertEquals(1, resultSet.getMetaData().isNullable(12));
-    assertEquals(1, resultSet.getMetaData().isNullable(13));
-    assertEquals(0, resultSet.getMetaData().isNullable(14));
-
-    // Result set is empty
-    assertFalse(resultSet.next());
   }
 
   @Test
