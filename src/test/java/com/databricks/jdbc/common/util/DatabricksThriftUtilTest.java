@@ -201,7 +201,7 @@ public class DatabricksThriftUtilTest {
 
   @ParameterizedTest
   @MethodSource("resultDataTypes")
-  public void testRowCount(TRowSet resultData, int expectedRowCount) {
+  public void testRowCount(TRowSet resultData, int expectedRowCount) throws DatabricksSQLException {
     assertEquals(expectedRowCount, DatabricksThriftUtil.getRowCount(resultData));
   }
 

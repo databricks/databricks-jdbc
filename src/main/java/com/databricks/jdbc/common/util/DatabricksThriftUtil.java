@@ -71,7 +71,7 @@ public class DatabricksThriftUtil {
     List<List<Object>> rows = new ArrayList<>();
     List<Iterator<?>> columnIterators = new ArrayList<>();
     for (TColumn column : rowSet.getColumns()) {
-      columnIterators.add(getIteratorForColumn(column));
+      columnIterators.add(getColumnValues(column).iterator());
     }
     while (columnIterators.get(0).hasNext()) {
       List<Object> row = new ArrayList<>();
@@ -146,56 +146,6 @@ public class DatabricksThriftUtil {
     return new StatementStatus().setState(state);
   }
 
-  private static <T> Iterator<T> wrapIterator(final List<T> values, final byte[] nulls) {
-    return new Iterator<T>() {
-      int idx = 0;
-
-      @Override
-      public boolean hasNext() {
-        return idx < values.size();
-      }
-
-      @Override
-      public T next() {
-        // Check if the nulls array indicates a null at this index.
-        boolean isNull = false;
-        if (nulls != null && nulls.length > 0) {
-          int byteIndex = idx / 8;
-          int bitIndex = idx % 8;
-          if (byteIndex < nulls.length) {
-            // Check if the bit at 'bitIndex' in the byte at 'byteIndex' is set.
-            isNull = (((nulls[byteIndex] >> bitIndex) & 1) == 1);
-          }
-        }
-        T value = isNull ? null : values.get(idx);
-        idx++;
-        return value;
-      }
-    };
-  }
-
-  private static Iterator<?> getIteratorForColumn(TColumn column) throws DatabricksSQLException {
-    if (column.isSetStringVal()) {
-      return wrapIterator(column.getStringVal().getValues(), column.getStringVal().getNulls());
-    } else if (column.isSetBoolVal()) {
-      return wrapIterator(column.getBoolVal().getValues(), column.getBoolVal().getNulls());
-    } else if (column.isSetDoubleVal()) {
-      return wrapIterator(column.getDoubleVal().getValues(), column.getDoubleVal().getNulls());
-    } else if (column.isSetI16Val()) {
-      return wrapIterator(column.getI16Val().getValues(), column.getI16Val().getNulls());
-    } else if (column.isSetI32Val()) {
-      return wrapIterator(column.getI32Val().getValues(), column.getI32Val().getNulls());
-    } else if (column.isSetI64Val()) {
-      return wrapIterator(column.getI64Val().getValues(), column.getI64Val().getNulls());
-    } else if (column.isSetBinaryVal()) {
-      return wrapIterator(column.getBinaryVal().getValues(), column.getBinaryVal().getNulls());
-    } else if (column.isSetByteVal()) {
-      return wrapIterator(column.getByteVal().getValues(), column.getByteVal().getNulls());
-    }
-    throw new DatabricksSQLException(
-        "Unsupported column type: " + column, DatabricksDriverErrorCode.UNSUPPORTED_OPERATION);
-  }
-
   public static String getTypeTextFromTypeDesc(TTypeDesc typeDesc) {
     TTypeId type = getThriftTypeFromTypeDesc(typeDesc);
     return type.name().replace("_TYPE", "");
@@ -248,7 +198,7 @@ public class DatabricksThriftUtil {
    * @param column the TColumn from which to extract values
    * @return a list of values from the specified column
    */
-  private static List<?> getColumnValues(TColumn column) {
+  private static List<?> getColumnValues(TColumn column) throws DatabricksSQLException {
     if (column.isSetBinaryVal())
       return getColumnValuesWithNulls(
           column.getBinaryVal().getValues(), column.getBinaryVal().getNulls());
@@ -270,9 +220,15 @@ public class DatabricksThriftUtil {
     if (column.isSetI64Val())
       return getColumnValuesWithNulls(
           column.getI64Val().getValues(), column.getI64Val().getNulls());
+    if (column.isSetDoubleVal())
+      return getColumnValuesWithNulls(
+          column.getDoubleVal().getValues(), column.getDoubleVal().getNulls());
+    if (column.isSetStringVal())
+      return getColumnValuesWithNulls(
+          column.getStringVal().getValues(), column.getStringVal().getNulls());
 
-    return getColumnValuesWithNulls(
-        column.getStringVal().getValues(), column.getStringVal().getNulls()); // default to string
+    throw new DatabricksSQLException(
+        "Unsupported column type: " + column, DatabricksDriverErrorCode.UNSUPPORTED_OPERATION);
   }
 
   private static <T> List<T> getColumnValuesWithNulls(List<T> values, byte[] nulls) {
@@ -316,7 +272,7 @@ public class DatabricksThriftUtil {
         .setOperationType(TOperationType.UNKNOWN);
   }
 
-  public static long getRowCount(TRowSet resultData) {
+  public static long getRowCount(TRowSet resultData) throws DatabricksSQLException {
     if (resultData == null) {
       return 0;
     } else if (resultData.isSetColumns()) {
