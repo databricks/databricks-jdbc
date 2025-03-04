@@ -369,7 +369,8 @@ public class DatabricksThriftUtilTest {
     // STRING column: two rows. First value is non-null, second is marked null.
     TStringColumn stringColumn = new TStringColumn();
     stringColumn.setValues(Arrays.asList("value1", "value2"));
-    stringColumn.setNulls(new byte[] {0, 1});
+    // Bit mask: 2 (binary 00000010): row0 = 0 (non-null), row1 = 1 (null)
+    stringColumn.setNulls(new byte[] {2});
     TColumn stringTColumn = new TColumn();
     stringTColumn.setStringVal(stringColumn);
     columns.add(stringTColumn);
@@ -377,7 +378,8 @@ public class DatabricksThriftUtilTest {
     // DOUBLE column: two rows. First value is marked null, second is non-null.
     TDoubleColumn doubleColumn = new TDoubleColumn();
     doubleColumn.setValues(Arrays.asList(1.1, 2.2));
-    doubleColumn.setNulls(new byte[] {1, 0});
+    // Bit mask: 1 (binary 00000001): row0 = 1 (null), row1 = 0 (non-null)
+    doubleColumn.setNulls(new byte[] {1});
     TColumn doubleTColumn = new TColumn();
     doubleTColumn.setDoubleVal(doubleColumn);
     columns.add(doubleTColumn);
@@ -385,7 +387,8 @@ public class DatabricksThriftUtilTest {
     // BOOLEAN column: two rows with no nulls.
     TBoolColumn boolColumn = new TBoolColumn();
     boolColumn.setValues(Arrays.asList(true, false));
-    boolColumn.setNulls(new byte[] {0, 0});
+    // Bit mask: 0 (binary 00000000): no nulls
+    boolColumn.setNulls(new byte[] {0});
     TColumn boolTColumn = new TColumn();
     boolTColumn.setBoolVal(boolColumn);
     columns.add(boolTColumn);

@@ -158,7 +158,15 @@ public class DatabricksThriftUtil {
       @Override
       public T next() {
         // Check if the nulls array indicates a null at this index.
-        boolean isNull = (nulls != null && nulls.length > idx && nulls[idx] == 1);
+        boolean isNull = false;
+        if (nulls != null && nulls.length > 0) {
+          int byteIndex = idx / 8;
+          int bitIndex = idx % 8;
+          if (byteIndex < nulls.length) {
+            // Check if the bit at 'bitIndex' in the byte at 'byteIndex' is set.
+            isNull = (((nulls[byteIndex] >> bitIndex) & 1) == 1);
+          }
+        }
         T value = isNull ? null : values.get(idx);
         idx++;
         return value;
