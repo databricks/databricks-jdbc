@@ -1,9 +1,13 @@
 package com.databricks.jdbc.api.impl;
 
 import static com.databricks.jdbc.common.DatabricksJdbcConstants.EMPTY_STRING;
+import static com.databricks.jdbc.common.util.DatabricksTypeUtil.ARRAY;
+import static com.databricks.jdbc.common.util.DatabricksTypeUtil.MAP;
+import static com.databricks.jdbc.common.util.DatabricksTypeUtil.STRUCT;
 
 import com.databricks.jdbc.api.IDatabricksResultSet;
 import com.databricks.jdbc.api.IDatabricksSession;
+import com.databricks.jdbc.api.impl.arrow.ArrowStreamResult;
 import com.databricks.jdbc.api.impl.converters.ConverterHelper;
 import com.databricks.jdbc.api.impl.converters.ObjectConverter;
 import com.databricks.jdbc.api.impl.volume.VolumeOperationResult;
@@ -13,6 +17,7 @@ import com.databricks.jdbc.common.Nullable;
 import com.databricks.jdbc.common.StatementType;
 import com.databricks.jdbc.common.util.WarningUtil;
 import com.databricks.jdbc.dbclient.impl.common.StatementId;
+import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.exception.DatabricksSQLFeatureNotSupportedException;
 import com.databricks.jdbc.exception.DatabricksValidationException;
@@ -140,12 +145,17 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
       this.executionResult =
           ExecutionResultFactory.getResultSet(resultsResp, session, parentStatement);
       long rowSize = executionResult.getRowCount();
+      List<String> arrowMetadata = null;
+      if (executionResult instanceof ArrowStreamResult) {
+        arrowMetadata = ((ArrowStreamResult) executionResult).getArrowMetadata();
+      }
       this.resultSetMetaData =
           new DatabricksResultSetMetaData(
               statementId,
               resultsResp.getResultSetMetadata(),
               rowSize,
-              executionResult.getChunkCount());
+              executionResult.getChunkCount(),
+              arrowMetadata);
       switch (resultsResp.getResultSetMetadata().getResultFormat()) {
         case COLUMN_BASED_SET:
           this.resultSetType = ResultSetType.THRIFT_INLINE;
@@ -464,17 +474,38 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
       return null;
     }
     int columnType = resultSetMetaData.getColumnType(columnIndex);
-    String columnName = resultSetMetaData.getColumnTypeName(columnIndex);
+    String columnTypeName = resultSetMetaData.getColumnTypeName(columnIndex);
     // separate handling for complex data types
-    if (columnName.equals("ARRAY") || columnName.equals("MAP") || columnName.equals("STRUCT")) {
-      return handleComplexDataTypes(obj, columnIndex);
+    if (columnTypeName.startsWith(ARRAY)
+        || columnTypeName.startsWith(MAP)
+        || columnTypeName.startsWith(STRUCT)) {
+      return handleComplexDataTypes(obj, columnTypeName);
     }
     return ConverterHelper.convertSqlTypeToJavaType(columnType, obj);
   }
 
-  private Object handleComplexDataTypes(Object obj, int columnIndex) {
+  private Object handleComplexDataTypes(Object obj, String columnName)
+      throws DatabricksParsingException {
     if (complexDatatypeSupport) return obj;
+    if (resultSetType == ResultSetType.SEA_INLINE) {
+      return handleComplexDataTypesForSEAInline(obj, columnName);
+    }
     return obj.toString();
+  }
+
+  private Object handleComplexDataTypesForSEAInline(Object obj, String columnName)
+      throws DatabricksParsingException {
+    ComplexDataTypeParser parser = new ComplexDataTypeParser();
+    if (columnName.startsWith(ARRAY)) {
+      return parser.parseJsonStringToDbArray(obj.toString(), columnName).toString();
+    } else if (columnName.startsWith(MAP)) {
+      return parser.parseJsonStringToDbMap(obj.toString(), columnName).toString();
+    } else if (columnName.startsWith(STRUCT)) {
+      return parser.parseJsonStringToDbStruct(obj.toString(), columnName).toString();
+    }
+    throw new DatabricksParsingException(
+        "Unexpected metadata format. Type is not a COMPLEX: " + columnName,
+        DatabricksDriverErrorCode.JSON_PARSING_ERROR);
   }
 
   @Override
@@ -1733,6 +1764,9 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
     if (obj == null) {
       return defaultValue.get();
     }
+    if (obj instanceof String) {
+      obj = removeExtraQuotes((String) obj);
+    }
     int columnType = resultSetMetaData.getColumnType(columnIndex);
     ObjectConverter converter = ConverterHelper.getConverterForSqlType(columnType);
     return convertMethod.apply(converter, obj);
@@ -1749,6 +1783,14 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
       return bigDecimal;
     }
     return bigDecimal.setScale(scale, RoundingMode.HALF_UP);
+  }
+
+  private String removeExtraQuotes(String str) {
+    str = str.trim();
+    if (str.startsWith("\"") && str.endsWith("\"") && str.length() > 1) {
+      str = str.substring(1, str.length() - 1).trim();
+    }
+    return str;
   }
 
   @Override

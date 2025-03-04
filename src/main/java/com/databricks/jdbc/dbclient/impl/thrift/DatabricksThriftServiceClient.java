@@ -263,7 +263,7 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
             .setSessionHandle(Objects.requireNonNull(session.getSessionInfo()).sessionHandle())
             .setRunAsync(true);
     TFetchResultsResp response = (TFetchResultsResp) thriftAccessor.getThriftResponse(request);
-    return getCatalogsResult(extractValuesColumnar(response.getResults().getColumns()));
+    return getCatalogsResult(extractRowsFromColumnar(response.getResults()));
   }
 
   @Override
@@ -283,7 +283,7 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
       request.setSchemaName(schemaNamePattern);
     }
     TFetchResultsResp response = (TFetchResultsResp) thriftAccessor.getThriftResponse(request);
-    return getSchemasResult(extractValuesColumnar(response.getResults().getColumns()));
+    return getSchemasResult(extractRowsFromColumnar(response.getResults()));
   }
 
   @Override
@@ -310,7 +310,7 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
       request.setTableTypes(Arrays.asList(tableTypes));
     }
     TFetchResultsResp response = (TFetchResultsResp) thriftAccessor.getThriftResponse(request);
-    return getTablesResult(catalog, extractValuesColumnar(response.getResults().getColumns()));
+    return getTablesResult(catalog, extractRowsFromColumnar(response.getResults()));
   }
 
   @Override
@@ -343,7 +343,7 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
             .setColumnName(columnNamePattern)
             .setRunAsync(true);
     TFetchResultsResp response = (TFetchResultsResp) thriftAccessor.getThriftResponse(request);
-    return getColumnsResult(extractValuesColumnar(response.getResults().getColumns()));
+    return getColumnsResult(extractRowsFromColumnar(response.getResults()));
   }
 
   @Override
@@ -366,7 +366,7 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
             .setFunctionName(functionNamePattern)
             .setRunAsync(true);
     TFetchResultsResp response = (TFetchResultsResp) thriftAccessor.getThriftResponse(request);
-    return getFunctionsResult(catalog, extractValuesColumnar(response.getResults().getColumns()));
+    return getFunctionsResult(catalog, extractRowsFromColumnar(response.getResults()));
   }
 
   @Override
@@ -385,7 +385,7 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
             .setTableName(table)
             .setRunAsync(true);
     TFetchResultsResp response = (TFetchResultsResp) thriftAccessor.getThriftResponse(request);
-    return getPrimaryKeysResult(extractValues(response.getResults().getColumns()));
+    return getPrimaryKeysResult(extractRowsFromColumnar(response.getResults()));
   }
 
   @Override
@@ -406,7 +406,7 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
             .setForeignTableName(table)
             .setRunAsync(true);
     TFetchResultsResp response = (TFetchResultsResp) thriftAccessor.getThriftResponse(request);
-    return getImportedKeys(extractValues(response.getResults().getColumns()));
+    return getImportedKeys(extractRowsFromColumnar(response.getResults()));
   }
 
   @Override
@@ -427,7 +427,7 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
             .setParentTableName(table)
             .setRunAsync(true);
     TFetchResultsResp response = (TFetchResultsResp) thriftAccessor.getThriftResponse(request);
-    return getExportedKeys(extractValues(response.getResults().getColumns()));
+    return getExportedKeys(extractRowsFromColumnar(response.getResults()));
   }
 
   @Override
@@ -462,7 +462,7 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
             .setForeignTableName(foreignTable)
             .setRunAsync(true);
     TFetchResultsResp response = (TFetchResultsResp) thriftAccessor.getThriftResponse(request);
-    return getCrossRefsResult(extractValues(response.getResults().getColumns()));
+    return getCrossRefsResult(extractRowsFromColumnar(response.getResults()));
   }
 
   public TFetchResultsResp getMoreResults(IDatabricksStatementInternal parentStatement)

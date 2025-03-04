@@ -1,5 +1,10 @@
 package com.databricks.jdbc.api.impl.converters;
 
+import static com.databricks.jdbc.common.util.DatabricksTypeUtil.ARRAY;
+import static com.databricks.jdbc.common.util.DatabricksTypeUtil.MAP;
+import static com.databricks.jdbc.common.util.DatabricksTypeUtil.STRUCT;
+import static com.databricks.jdbc.common.util.DatabricksTypeUtil.VARIANT;
+
 import com.databricks.jdbc.api.impl.*;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
@@ -53,14 +58,17 @@ public class ArrowToJavaObjectConverter {
   public static Object convert(Object object, ColumnInfoTypeName requiredType, String arrowMetadata)
       throws DatabricksSQLException {
     if (arrowMetadata != null) {
-      if (arrowMetadata.startsWith("ARRAY")) {
+      if (arrowMetadata.startsWith(ARRAY)) {
         requiredType = ColumnInfoTypeName.ARRAY;
       }
-      if (arrowMetadata.startsWith("STRUCT")) {
+      if (arrowMetadata.startsWith(STRUCT)) {
         requiredType = ColumnInfoTypeName.STRUCT;
       }
-      if (arrowMetadata.startsWith("MAP")) {
+      if (arrowMetadata.startsWith(MAP)) {
         requiredType = ColumnInfoTypeName.MAP;
+      }
+      if (arrowMetadata.startsWith(VARIANT)) {
+        requiredType = ColumnInfoTypeName.STRING;
       }
     }
     if (object == null) {

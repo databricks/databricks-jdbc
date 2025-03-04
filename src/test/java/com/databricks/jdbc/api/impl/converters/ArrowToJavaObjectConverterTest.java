@@ -1,5 +1,6 @@
 package com.databricks.jdbc.api.impl.converters;
 
+import static com.databricks.jdbc.common.util.DatabricksTypeUtil.VARIANT;
 import static org.junit.jupiter.api.Assertions.*;
 
 import com.databricks.jdbc.api.IDatabricksConnectionContext;
@@ -7,6 +8,7 @@ import com.databricks.jdbc.api.impl.DatabricksArray;
 import com.databricks.jdbc.api.impl.DatabricksStruct;
 import com.databricks.jdbc.exception.DatabricksValidationException;
 import com.databricks.sdk.service.sql.ColumnInfoTypeName;
+import com.fasterxml.jackson.core.JsonProcessingException;
 import java.math.BigDecimal;
 import java.sql.Date;
 import java.sql.SQLException;
@@ -50,6 +52,24 @@ public class ArrowToJavaObjectConverterTest {
 
     assertInstanceOf(Byte.class, convertedObject);
     assertEquals(convertedObject, (byte) 65);
+  }
+
+  @Test
+  public void testVariantConversion() throws SQLException, JsonProcessingException {
+    Object nullObject = ArrowToJavaObjectConverter.convert(null, null, VARIANT);
+    assertNull(nullObject);
+
+    Object intObject = ArrowToJavaObjectConverter.convert(1, null, VARIANT);
+    assertNotNull(intObject);
+    assertInstanceOf(String.class, intObject, "Expected result to be a String");
+    assertEquals("1", intObject, "The integer should be converted to a string.");
+
+    Map map = new HashMap();
+    map.put("key", "value");
+    Object mapObject = ArrowToJavaObjectConverter.convert(map, null, VARIANT);
+    assertNotNull(mapObject);
+    assertInstanceOf(String.class, mapObject, "Expected result to be a String");
+    assertEquals(mapObject.toString(), mapObject, "The map should be converted to a JSON string.");
   }
 
   @Test
