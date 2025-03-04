@@ -1,0 +1,31 @@
+{
+  "id" : "c21c1bc6-3351-49b8-aefa-3f11b0710e4b",
+  "name" : "sql_1.0_warehouses_dd43ee29fedd958d",
+  "request" : {
+    "url" : "/sql/1.0/warehouses/dd43ee29fedd958d",
+    "method" : "POST",
+    "bodyPatterns" : [ {
+      "binaryEqualTo" : "gAEAAQAAAApHZXRTY2hlbWFzAAAAAwwAAQwAAQwAAQsAAQAAABAB7/i1dMkW6q1h39ScuijuCwACAAAAEDONUp2CckbrhILLQZRmg50AAAsAAgAAAARtYWluCwADAAAAASUMBQEKAAEAAAAAAB6EgAoAAgAAAAAYIaMAAAIFAgEAAA=="
+    } ]
+  },
+  "response" : {
+    "status" : 200,
+    "bodyFileName" : "sql_1.0_warehouses_dd43ee29fedd958d-c21c1bc6-3351-49b8-aefa-3f11b0710e4b.txt",
+    "headers" : {
+      "x-request-id" : "6707b77f-36bb-422f-aa3c-469fdf2f5d30",
+      "date" : "Tue, 4 Mar 2025 04:59:37 GMT",
+      "server" : "databricks",
+      "x-databricks-popp-response-code-details" : "via_upstream",
+      "x-databricks-shard-debug" : "oregon-staging",
+      "vary" : "accept-encoding",
+      "x-databricks-org-id" : "6051921418418893",
+      "strict-transport-security" : "max-age=31536000; includeSubDomains; preload",
+      "x-content-type-options" : "nosniff",
+      "x-databricks-popp-routing-reason" : "deployment-name",
+      "content-type" : "application/x-thrift; protocol=TBINARY",
+      "x-databricks-apiproxy-response-code-details" : "via_upstream"
+    }
+  },
+  "uuid" : "c21c1bc6-3351-49b8-aefa-3f11b0710e4b",
+  "insertionIndex" : 26
+}
