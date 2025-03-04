@@ -142,7 +142,7 @@ public class ArrowToJavaObjectConverter {
     if (object instanceof Text) {
       return convertArrowTextToTimestamp(object.toString());
     }
-    if (object instanceof LocalDateTime) {
+    if (object instanceof java.time.LocalDateTime) {
       // timestamp_ntz result is returned as local date time
       return Timestamp.valueOf((LocalDateTime) object);
     }
