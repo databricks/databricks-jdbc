@@ -245,7 +245,7 @@ public class RemoteChunkProvider implements ChunkProvider, ChunkDownloadCallback
 
   private void populateChunkIndexMap(
       TRowSet resultData, ConcurrentHashMap<Long, ArrowResultChunk> chunkIndexMap)
-      throws DatabricksParsingException {
+      throws DatabricksSQLException {
     rowCount += DatabricksThriftUtil.getRowCount(resultData);
     for (TSparkArrowResultLink resultLink : resultData.getResultLinks()) {
       String chunkInformationLog =

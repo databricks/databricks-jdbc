@@ -104,6 +104,7 @@ public class DatabricksThriftServiceClientTest {
             .setQueryTimeout(10)
             .setCanDecompressLZ4Result(true)
             .setCanDownloadResult(true)
+            .setParameters(Collections.emptyList())
             .setRunAsync(true)
             .setUseArrowNativeTypes(arrowNativeTypes);
     when(thriftAccessor.execute(executeStatementReq, parentStatement, session, StatementType.SQL))
@@ -143,6 +144,7 @@ public class DatabricksThriftServiceClientTest {
             .setCanDecompressLZ4Result(true)
             .setRunAsync(true)
             .setCanDownloadResult(true)
+            .setParameters(Collections.emptyList())
             .setUseArrowNativeTypes(arrowNativeTypes);
     when(thriftAccessor.executeAsync(
             executeStatementReq, parentStatement, session, StatementType.SQL))

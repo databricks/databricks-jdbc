@@ -702,6 +702,11 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   }
 
   @Override
+  public String getAzureTenantId() {
+    return getParameter(DatabricksJdbcUrlParams.AZURE_TENANT_ID);
+  }
+
+  @Override
   public boolean isComplexDatatypeSupportEnabled() {
     return getParameter(DatabricksJdbcUrlParams.ENABLE_COMPLEX_DATATYPE_SUPPORT).equals("1");
   }
