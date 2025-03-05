@@ -128,13 +128,14 @@ public class PreparedStatementIntegrationTests extends AbstractFakeServiceIntegr
   @ParameterizedTest
   @MethodSource("sampleByteDataProvider")
   void testPreparedStatementSetBytesValidArray(byte[] sampleData) throws SQLException {
+    Properties p = new Properties();
+    p.setProperty("supportManyParameters", "1");
+    connection = getValidJDBCConnection(p);
     String tableName = "prepared_statement_test_bytes_table";
     String createSql =
         "CREATE TABLE " + getFullyQualifiedTableName(tableName) + " (col1 INT, col2 BINARY)";
     setupDatabaseTable(connection, tableName, createSql);
-    Properties p = new Properties();
-    p.setProperty("supportManyParameters", "1");
-    connection = getValidJDBCConnection(p);
+
     String insertSql = "INSERT INTO " + getFullyQualifiedTableName(tableName) + " VALUES (?, ?)";
     try (PreparedStatement statement = connection.prepareStatement(insertSql)) {
       statement.setInt(1, 1);
