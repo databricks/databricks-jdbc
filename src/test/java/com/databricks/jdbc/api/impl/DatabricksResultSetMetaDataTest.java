@@ -196,6 +196,12 @@ public class DatabricksResultSetMetaDataTest {
     assertEquals(VARIANT, metaData.getColumnTypeName(1));
     assertEquals(255, metaData.getPrecision(1));
     assertEquals(ResultSetMetaData.columnNullable, metaData.isNullable(1));
+
+    List<String> nullArrowMetadata = Collections.singletonList(null);
+    metaData =
+        new DatabricksResultSetMetaData(
+            THRIFT_STATEMENT_ID, resultManifest, 1, 1, nullArrowMetadata);
+    assertEquals(Types.VARCHAR, metaData.getColumnType(1));
   }
 
   @Test

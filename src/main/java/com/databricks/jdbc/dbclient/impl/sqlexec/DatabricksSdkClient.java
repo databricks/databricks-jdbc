@@ -31,6 +31,7 @@ import com.databricks.jdbc.model.core.ResultData;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import com.databricks.sdk.WorkspaceClient;
 import com.databricks.sdk.core.ApiClient;
+import com.databricks.sdk.core.DatabricksConfig;
 import com.databricks.sdk.core.DatabricksError;
 import com.databricks.sdk.service.sql.*;
 import com.google.common.annotations.VisibleForTesting;
@@ -344,6 +345,11 @@ public class DatabricksSdkClient implements IDatabricksClient {
   public TFetchResultsResp getMoreResults(IDatabricksStatementInternal parentStatement)
       throws DatabricksSQLException {
     throw new DatabricksValidationException("Get more results cannot be called for SEA flow");
+  }
+
+  @Override
+  public DatabricksConfig getDatabricksConfig() {
+    return clientConfigurator.getDatabricksConfig();
   }
 
   private boolean useCloudFetchForResult(StatementType statementType) {

@@ -545,7 +545,8 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
   private boolean isVariantColumn(List<String> arrowMetadata, int i) {
     return arrowMetadata != null
         && arrowMetadata.size() > i
-        && (arrowMetadata.get(i).equalsIgnoreCase(VARIANT));
+        && arrowMetadata.get(i) != null
+        && arrowMetadata.get(i).equalsIgnoreCase(VARIANT);
   }
 
   private ImmutableDatabricksColumn.Builder getColumnBuilder() {

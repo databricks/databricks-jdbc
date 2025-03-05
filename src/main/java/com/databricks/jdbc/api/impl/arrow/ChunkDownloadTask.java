@@ -12,6 +12,7 @@ import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.model.core.ExternalLink;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
+import com.databricks.sdk.core.DatabricksConfig;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.concurrent.ExecutionException;
@@ -28,6 +29,7 @@ class ChunkDownloadTask implements DatabricksCallableTask {
   private final IDatabricksConnectionContext connectionContext;
   private final StatementId statementId;
   private final ChunkLinkDownloadService linkDownloadService;
+  private final DatabricksConfig databricksConfig;
   Throwable uncaughtException = null;
 
   ChunkDownloadTask(
@@ -41,6 +43,7 @@ class ChunkDownloadTask implements DatabricksCallableTask {
     this.connectionContext = DatabricksThreadContextHolder.getConnectionContext();
     this.statementId = DatabricksThreadContextHolder.getStatementId();
     this.linkDownloadService = linkDownloadService;
+    this.databricksConfig = DatabricksThreadContextHolder.getDatabricksConfig();
   }
 
   @Override
@@ -53,6 +56,7 @@ class ChunkDownloadTask implements DatabricksCallableTask {
     DatabricksThreadContextHolder.setChunkId(chunk.getChunkIndex());
     DatabricksThreadContextHolder.setConnectionContext(this.connectionContext);
     DatabricksThreadContextHolder.setStatementId(this.statementId);
+    DatabricksThreadContextHolder.setDatabricksConfig(this.databricksConfig);
 
     try {
       DatabricksThreadContextHolder.setRetryCount(retries);

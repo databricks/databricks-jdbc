@@ -3,10 +3,12 @@ package com.databricks.jdbc.common.util;
 import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.common.StatementType;
 import com.databricks.jdbc.dbclient.impl.common.StatementId;
+import com.databricks.sdk.core.DatabricksConfig;
 
 public class DatabricksThreadContextHolder {
   private static final ThreadLocal<IDatabricksConnectionContext> localConnectionContext =
       new ThreadLocal<>();
+  private static final ThreadLocal<DatabricksConfig> localDatabricksConfig = new ThreadLocal<>();
   private static final ThreadLocal<StatementId> localStatementId = new ThreadLocal<>();
   private static final ThreadLocal<Long> localChunkId = new ThreadLocal<>();
   private static final ThreadLocal<Integer> localRetryCount = new ThreadLocal<>();
@@ -18,6 +20,14 @@ public class DatabricksThreadContextHolder {
 
   public static IDatabricksConnectionContext getConnectionContext() {
     return localConnectionContext.get();
+  }
+
+  public static void setDatabricksConfig(DatabricksConfig databricksConfig) {
+    localDatabricksConfig.set(databricksConfig);
+  }
+
+  public static DatabricksConfig getDatabricksConfig() {
+    return localDatabricksConfig.get();
   }
 
   public static void setStatementId(StatementId statementId) {
