@@ -17,7 +17,7 @@ public class SQLInterpolator {
     if (object == null || object.value() == null) {
       return NULL_STRING;
     } else if (object.type() == ColumnInfoTypeName.BINARY) {
-      // Don't wrap within quotes
+      // Don't wrap within quotes. Don't treat hex literals as string.
       return object.value().toString();
     } else if (object.value() instanceof String) {
       return "'" + escapeApostrophes((String) object.value()) + "'";

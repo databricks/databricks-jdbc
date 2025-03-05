@@ -171,10 +171,6 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
    * <p>Each byte in the array is converted to its hexadecimal representation and concatenated into
    * a single string prefixed with "X'".
    *
-   * <p>Reference: <a
-   * href="https://stackoverflow.com/questions/9655181/how-to-convert-a-byte-array-to-a-hex-string-in-java">Stack
-   * Overflow</a>
-   *
    * @param bytes the byte array to convert; must not be null
    * @return the hexadecimal literal as a string, or null if the input byte array is null
    */
@@ -486,9 +482,10 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
         // Convert Number to BigDecimal. Using valueOf preserves the value for double inputs.
         bd = BigDecimal.valueOf(((Number) x).doubleValue());
       } else {
-        throw new SQLException("Invalid object type for DECIMAL/NUMERIC");
+        throw new DatabricksSQLException(
+            "Invalid object type for DECIMAL/NUMERIC", DatabricksDriverErrorCode.INVALID_STATE);
       }
-      bd = bd.setScale(scaleOrLength, RoundingMode.HALF_UP);
+      bd = bd.setScale(scaleOrLength, RoundingMode.HALF_UP); // Round up to nearest value.
       setObject(parameterIndex, bd, databricksType);
     } else {
       setObject(parameterIndex, x, databricksType);
