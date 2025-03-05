@@ -32,6 +32,7 @@ import com.databricks.jdbc.model.core.ResultData;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import com.databricks.sdk.WorkspaceClient;
 import com.databricks.sdk.core.ApiClient;
+import com.databricks.sdk.core.DatabricksConfig;
 import com.databricks.sdk.core.DatabricksError;
 import com.databricks.sdk.service.sql.*;
 import com.google.common.annotations.VisibleForTesting;
@@ -81,7 +82,7 @@ public class DatabricksSdkClient implements IDatabricksClient {
       String catalog,
       String schema,
       Map<String, String> sessionConf)
-      throws DatabricksTemporaryRedirectException {
+      throws DatabricksSQLException {
     // TODO (PECO-1460): Handle sessionConf in public session API
     LOGGER.debug(
         String.format(
@@ -109,8 +110,9 @@ public class DatabricksSdkClient implements IDatabricksClient {
       if (e.getStatusCode() == TEMPORARY_REDIRECT_STATUS_CODE) {
         throw new DatabricksTemporaryRedirectException(TEMPORARY_REDIRECT_EXCEPTION);
       }
+      String errorReason = "Error while establishing a connection in databricks";
+      throw new DatabricksSQLException(errorReason, e, DatabricksDriverErrorCode.CONNECTION_ERROR);
     }
-
     return ImmutableSessionInfo.builder()
         .computeResource(warehouse)
         .sessionId(createSessionResponse.getSessionId())
@@ -344,6 +346,11 @@ public class DatabricksSdkClient implements IDatabricksClient {
   public TFetchResultsResp getMoreResults(IDatabricksStatementInternal parentStatement)
       throws DatabricksSQLException {
     throw new DatabricksValidationException("Get more results cannot be called for SEA flow");
+  }
+
+  @Override
+  public DatabricksConfig getDatabricksConfig() {
+    return clientConfigurator.getDatabricksConfig();
   }
 
   private boolean useCloudFetchForResult(StatementType statementType) {

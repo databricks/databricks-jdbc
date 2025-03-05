@@ -792,4 +792,74 @@ public class DatabricksMapTest {
         "DatabricksMap should still contain 'key1' with 'value1'");
     assertFalse(databricksMap.containsKey("key2"), "DatabricksMap should not contain 'key2'");
   }
+
+  @Test
+  public void testMapToString_WithIntKeyAndStringValue_ShouldProduceJsonLikeString()
+      throws SQLException {
+    // Arrange
+    String metadata = "MAP<INT, STRING>";
+    // Mock MetadataParser to return "INT,STRING" for the map metadata
+    mockParseMapMetadata(metadata, "INT", "STRING");
+
+    // Use LinkedHashMap to maintain insertion order, so we can predict the toString() output
+    Map<Integer, String> originalMap = new LinkedHashMap<>();
+    originalMap.put(1, "one");
+    originalMap.put(2, "two");
+
+    // Act
+    DatabricksMap<Integer, String> databricksMap = new DatabricksMap<>(originalMap, metadata);
+    String result = databricksMap.toString();
+
+    // Assert
+    // The toString() output should be {1:"one",2:"two"}
+    String expected = "{1:\"one\",2:\"two\"}";
+    assertEquals(
+        expected,
+        result,
+        "toString() should produce JSON-like output with INT keys unquoted and STRING values quoted");
+  }
+
+  @Test
+  public void testMapToString_WithStringKeyAndNestedStructArrayValue_ShouldProduceJsonLikeString()
+      throws SQLException {
+    // Arrange
+    String metadata = "MAP<STRING, STRUCT<age:INT, tags:ARRAY<STRING>>>";
+
+    mockParseMapMetadata(metadata, "STRING", "STRUCT<age:INT,tags:ARRAY<STRING>>");
+
+    Map<String, String> structTypeMap = new LinkedHashMap<>();
+    structTypeMap.put("age", "INT");
+    structTypeMap.put("tags", "ARRAY<STRING>");
+    when(MetadataParser.parseStructMetadata("STRUCT<age:INT,tags:ARRAY<STRING>>"))
+        .thenReturn(structTypeMap);
+
+    when(MetadataParser.parseArrayMetadata("ARRAY<STRING>")).thenReturn("STRING");
+
+    Map<String, Object> nestedStruct1 = new LinkedHashMap<>();
+    nestedStruct1.put("age", 30);
+    nestedStruct1.put("tags", Arrays.asList("red", "green", "blue"));
+
+    Map<String, Object> nestedStruct2 = new LinkedHashMap<>();
+    nestedStruct2.put("age", 40);
+    nestedStruct2.put("tags", Arrays.asList("xyz"));
+
+    Map<String, Map<String, Object>> originalMap = new LinkedHashMap<>();
+    originalMap.put("person1", nestedStruct1);
+    originalMap.put("person2", nestedStruct2);
+
+    // Act
+    DatabricksMap<String, Map<String, Object>> databricksMap =
+        new DatabricksMap<>(originalMap, metadata);
+
+    String result = databricksMap.toString();
+
+    // Assert
+    String expected =
+        "{\"person1\":{\"age\":30,\"tags\":[\"red\",\"green\",\"blue\"]},\"person2\":{\"age\":40,\"tags\":[\"xyz\"]}}";
+
+    assertEquals(
+        expected,
+        result,
+        "toString() should produce JSON-like output with string keys, nested struct with int field, and array of strings");
+  }
 }

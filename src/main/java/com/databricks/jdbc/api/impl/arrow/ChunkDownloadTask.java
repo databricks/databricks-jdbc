@@ -10,8 +10,12 @@ import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
+import com.databricks.jdbc.model.core.ExternalLink;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
+import com.databricks.sdk.core.DatabricksConfig;
 import java.io.IOException;
+import java.util.Arrays;
+import java.util.concurrent.ExecutionException;
 
 /** Task class to manage download for a single chunk. */
 class ChunkDownloadTask implements DatabricksCallableTask {
@@ -24,36 +28,48 @@ class ChunkDownloadTask implements DatabricksCallableTask {
   private final ChunkDownloadCallback chunkDownloader;
   private final IDatabricksConnectionContext connectionContext;
   private final StatementId statementId;
+  private final ChunkLinkDownloadService linkDownloadService;
+  private final DatabricksConfig databricksConfig;
+  Throwable uncaughtException = null;
 
   ChunkDownloadTask(
       ArrowResultChunk chunk,
       IDatabricksHttpClient httpClient,
-      ChunkDownloadCallback chunkDownloader) {
+      ChunkDownloadCallback chunkDownloader,
+      ChunkLinkDownloadService linkDownloadService) {
     this.chunk = chunk;
     this.httpClient = httpClient;
     this.chunkDownloader = chunkDownloader;
     this.connectionContext = DatabricksThreadContextHolder.getConnectionContext();
     this.statementId = DatabricksThreadContextHolder.getStatementId();
+    this.linkDownloadService = linkDownloadService;
+    this.databricksConfig = DatabricksThreadContextHolder.getDatabricksConfig();
   }
 
   @Override
-  public Void call() throws DatabricksSQLException {
+  public Void call() throws DatabricksSQLException, ExecutionException, InterruptedException {
     long startTime = System.currentTimeMillis();
     int retries = 0;
     boolean downloadSuccessful = false;
 
-    // Sets  context in the newly spawned thread
+    // Sets context in the newly spawned thread
     DatabricksThreadContextHolder.setChunkId(chunk.getChunkIndex());
     DatabricksThreadContextHolder.setConnectionContext(this.connectionContext);
     DatabricksThreadContextHolder.setStatementId(this.statementId);
+    DatabricksThreadContextHolder.setDatabricksConfig(this.databricksConfig);
 
     try {
       DatabricksThreadContextHolder.setRetryCount(retries);
-      while (retries < MAX_RETRIES && !downloadSuccessful) {
+      while (!downloadSuccessful) {
         try {
           if (chunk.isChunkLinkInvalid()) {
-            chunkDownloader.downloadLinks(chunk.getChunkIndex());
+            ExternalLink link =
+                linkDownloadService
+                    .getLinkForChunk(chunk.getChunkIndex())
+                    .get(); // Block until link is available
+            chunk.setChunkLink(link);
           }
+
           chunk.downloadData(httpClient, chunkDownloader.getCompressionCodec());
           downloadSuccessful = true;
         } catch (DatabricksParsingException | IOException e) {
@@ -88,14 +104,22 @@ class ChunkDownloadTask implements DatabricksCallableTask {
           }
         }
       }
+    } catch (Throwable t) {
+      uncaughtException = t;
+      throw t;
     } finally {
       if (!downloadSuccessful) {
+        LOGGER.info(
+            "Uncaught exception during chunk download. Chunk index: %d, Error: %s",
+            chunk.getChunkIndex(), Arrays.toString(uncaughtException.getStackTrace()));
         chunk.setStatus(ArrowResultChunk.ChunkStatus.DOWNLOAD_FAILED);
       }
+
       exportLatencyLog(System.currentTimeMillis() - startTime);
       chunkDownloader.downloadProcessed(chunk.getChunkIndex());
       DatabricksThreadContextHolder.clearAllContext();
     }
+
     return null;
   }
 }

@@ -1,12 +1,10 @@
 package com.databricks.jdbc.common.util;
 
-import static com.databricks.jdbc.common.MetadataResultConstants.NULL_STRING;
 import static com.databricks.jdbc.common.util.DatabricksTypeUtil.*;
 
 import com.databricks.jdbc.api.IDatabricksSession;
 import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
 import com.databricks.jdbc.dbclient.impl.common.StatementId;
-import com.databricks.jdbc.dbclient.impl.thrift.DatabricksThriftServiceClient;
 import com.databricks.jdbc.exception.DatabricksHttpException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.log.JdbcLogger;
@@ -14,12 +12,11 @@ import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.model.client.thrift.generated.*;
 import com.databricks.jdbc.model.core.ExternalLink;
 import com.databricks.jdbc.model.core.StatementStatus;
+import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import com.databricks.sdk.service.sql.ColumnInfoTypeName;
 import com.databricks.sdk.service.sql.StatementState;
 import java.nio.ByteBuffer;
 import java.util.*;
-import java.util.stream.Collectors;
-import java.util.stream.IntStream;
 
 public class DatabricksThriftUtil {
 
@@ -61,43 +58,27 @@ public class DatabricksThriftUtil {
   }
 
   /**
-   * In metadata operations, a list of singleton lists is obtained. This function extracts metadata
-   * values from these TColumn lists based on the data type set in the column.
+   * This functions extracts columnar data from a RowSet into rows
    *
-   * @param columnList the TColumn from which to extract values
-   * @return a singleton list of metadata result
+   * @param rowSet that contains columnar data
+   * @return a list of rows
    */
-  public static List<List<Object>> extractValues(List<TColumn> columnList) {
-    if (columnList == null) {
-      return null;
+  public static List<List<Object>> extractRowsFromColumnar(TRowSet rowSet)
+      throws DatabricksSQLException {
+    if (rowSet == null || rowSet.getColumns() == null || rowSet.getColumns().isEmpty()) {
+      return Collections.emptyList();
     }
-    List<Object> obj =
-        columnList.stream()
-            .map(
-                column -> {
-                  try {
-                    return getColumnFirstValue(column);
-                  } catch (Exception e) {
-                    // In case a column doesn't have an object, add the default null value
-                    return NULL_STRING;
-                  }
-                })
-            .collect(Collectors.toList());
-    return new ArrayList<>(Collections.singletonList(obj));
-  }
-
-  public static List<List<Object>> extractValuesColumnar(List<TColumn> columnList) {
-    if (columnList == null || columnList.isEmpty()) {
-      return null;
+    List<List<Object>> rows = new ArrayList<>();
+    List<Iterator<?>> columnIterators = new ArrayList<>();
+    for (TColumn column : rowSet.getColumns()) {
+      columnIterators.add(getColumnValues(column).iterator());
     }
-    int numberOfItems = columnList.get(0).getStringVal().getValuesSize();
-    return IntStream.range(0, numberOfItems)
-        .mapToObj(
-            i ->
-                columnList.stream()
-                    .map(column -> getObjectInColumn(column, i))
-                    .collect(Collectors.toList()))
-        .collect(Collectors.toList());
+    while (columnIterators.get(0).hasNext()) {
+      List<Object> row = new ArrayList<>();
+      columnIterators.forEach(columnIterator -> row.add(columnIterator.next()));
+      rows.add(row);
+    }
+    return rows;
   }
 
   /** Returns statement status for given operation status response */
@@ -165,34 +146,6 @@ public class DatabricksThriftUtil {
     return new StatementStatus().setState(state);
   }
 
-  private static Object getObjectInColumn(TColumn column, int index) {
-    if (column == null) {
-      return NULL_STRING;
-    }
-    if (column.isSetStringVal()) {
-      return column.getStringVal().getValues().get(index);
-    } else if (column.isSetBoolVal()) {
-      return column.getBoolVal().getValues().get(index);
-    } else if (column.isSetDoubleVal()) {
-      return column.getDoubleVal().getValues().get(index);
-    } else if (column.isSetI16Val()) {
-      return column.getI16Val().getValues().get(index);
-    } else if (column.isSetI32Val()) {
-      return column.getI32Val().getValues().get(index);
-    } else if (column.isSetI64Val()) {
-      return column.getI64Val().getValues().get(index);
-    } else if (column.isSetBinaryVal()) {
-      return column.getBinaryVal().getValues().get(index);
-    } else if (column.isSetByteVal()) {
-      return column.getByteVal().getValues().get(index);
-    }
-    return NULL_STRING;
-  }
-
-  private static Object getColumnFirstValue(TColumn column) {
-    return getColumnValues(column).get(0);
-  }
-
   public static String getTypeTextFromTypeDesc(TTypeDesc typeDesc) {
     TTypeId type = getThriftTypeFromTypeDesc(typeDesc);
     return type.name().replace("_TYPE", "");
@@ -245,7 +198,7 @@ public class DatabricksThriftUtil {
    * @param column the TColumn from which to extract values
    * @return a list of values from the specified column
    */
-  private static List<?> getColumnValues(TColumn column) {
+  private static List<?> getColumnValues(TColumn column) throws DatabricksSQLException {
     if (column.isSetBinaryVal())
       return getColumnValuesWithNulls(
           column.getBinaryVal().getValues(), column.getBinaryVal().getNulls());
@@ -267,9 +220,15 @@ public class DatabricksThriftUtil {
     if (column.isSetI64Val())
       return getColumnValuesWithNulls(
           column.getI64Val().getValues(), column.getI64Val().getNulls());
+    if (column.isSetDoubleVal())
+      return getColumnValuesWithNulls(
+          column.getDoubleVal().getValues(), column.getDoubleVal().getNulls());
+    if (column.isSetStringVal())
+      return getColumnValuesWithNulls(
+          column.getStringVal().getValues(), column.getStringVal().getNulls());
 
-    return getColumnValuesWithNulls(
-        column.getStringVal().getValues(), column.getStringVal().getNulls()); // default to string
+    throw new DatabricksSQLException(
+        "Unsupported column type: " + column, DatabricksDriverErrorCode.UNSUPPORTED_OPERATION);
   }
 
   private static <T> List<T> getColumnValuesWithNulls(List<T> values, byte[] nulls) {
@@ -289,45 +248,17 @@ public class DatabricksThriftUtil {
     return result;
   }
 
-  /**
-   * Converts columnar data from a TRowSet to a row-based list format.
-   *
-   * @param rowSet the TRowSet containing the data
-   * @return a list where each sublist represents a row with column values, or an empty list if
-   *     rowSet is empty
-   */
-  private static List<List<Object>> convertRowSetToList(TRowSet rowSet) {
-    List<List<Object>> columnarData = extractValuesFromRowSet(rowSet);
-    if (columnarData.isEmpty()) {
-      return Collections.emptyList();
-    }
-    int numRows =
-        columnarData.get(0).size(); // Number of rows (if the data was displayed in row format)
-    List<List<Object>> rowBasedData =
-        IntStream.range(0, numRows)
-            .mapToObj(i -> new ArrayList<>(columnarData.size()))
-            .collect(Collectors.toList());
-    for (List<Object> column : columnarData) {
-      for (int rowIndex = 0; rowIndex < numRows; rowIndex++) {
-        rowBasedData.get(rowIndex).add(column.get(rowIndex));
-      }
-    }
-    return rowBasedData;
-  }
-
   public static List<List<Object>> convertColumnarToRowBased(
       TFetchResultsResp resultsResp,
       IDatabricksStatementInternal parentStatement,
       IDatabricksSession session)
       throws DatabricksSQLException {
-    List<List<Object>> columnarData = convertRowSetToList(resultsResp.getResults());
+    List<List<Object>> rows = extractRowsFromColumnar(resultsResp.getResults());
     while (resultsResp.hasMoreRows) {
-      resultsResp =
-          ((DatabricksThriftServiceClient) session.getDatabricksClient())
-              .getMoreResults(parentStatement);
-      columnarData.addAll(convertRowSetToList(resultsResp.getResults()));
+      resultsResp = session.getDatabricksClient().getMoreResults(parentStatement);
+      rows.addAll(extractRowsFromColumnar(resultsResp.getResults()));
     }
-    return columnarData;
+    return rows;
   }
 
   public static TOperationHandle getOperationHandle(StatementId statementId) {
@@ -341,26 +272,7 @@ public class DatabricksThriftUtil {
         .setOperationType(TOperationType.UNKNOWN);
   }
 
-  /**
-   * Extracts and returns the values from each column of a TRowSet as a list of lists. Each sublist
-   * represents a column of values. Returns an empty list if the input is null or contains no
-   * columns.
-   *
-   * @param rowSet the TRowSet to extract values from
-   * @return a list of lists, each containing the values of a column, or an empty list if the input
-   *     is invalid
-   */
-  public static List<List<Object>> extractValuesFromRowSet(TRowSet rowSet) {
-    if (rowSet == null || rowSet.getColumns() == null) {
-      return Collections.emptyList();
-    }
-    return rowSet.getColumns().stream()
-        .map(DatabricksThriftUtil::getColumnValues)
-        .map(list -> new ArrayList<Object>(list))
-        .collect(Collectors.toUnmodifiableList());
-  }
-
-  public static long getRowCount(TRowSet resultData) {
+  public static long getRowCount(TRowSet resultData) throws DatabricksSQLException {
     if (resultData == null) {
       return 0;
     } else if (resultData.isSetColumns()) {

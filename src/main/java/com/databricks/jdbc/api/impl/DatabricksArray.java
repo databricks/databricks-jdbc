@@ -9,7 +9,6 @@ import java.sql.Date;
 import java.sql.SQLException;
 import java.sql.Time;
 import java.sql.Timestamp;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 
@@ -203,6 +202,25 @@ public class DatabricksArray implements Array {
 
   @Override
   public String toString() {
-    return Arrays.deepToString(elements);
+    StringBuilder sb = new StringBuilder("[");
+    for (int i = 0; i < elements.length; i++) {
+      if (i > 0) {
+        sb.append(",");
+      }
+
+      Object element = elements[i];
+      if (element == null) {
+        // JSON-like null
+        sb.append("null");
+      } else if (element instanceof String) {
+        // Wrap string in double quotes
+        sb.append("\"").append(element).append("\"");
+      } else {
+        // For non-string, just call toString()
+        sb.append(element.toString());
+      }
+    }
+    sb.append("]");
+    return sb.toString();
   }
 }

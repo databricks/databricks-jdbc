@@ -1,9 +1,13 @@
 package com.databricks.jdbc.api.impl;
 
 import static com.databricks.jdbc.common.DatabricksJdbcConstants.EMPTY_STRING;
+import static com.databricks.jdbc.common.util.DatabricksTypeUtil.ARRAY;
+import static com.databricks.jdbc.common.util.DatabricksTypeUtil.MAP;
+import static com.databricks.jdbc.common.util.DatabricksTypeUtil.STRUCT;
 
 import com.databricks.jdbc.api.IDatabricksResultSet;
 import com.databricks.jdbc.api.IDatabricksSession;
+import com.databricks.jdbc.api.impl.arrow.ArrowStreamResult;
 import com.databricks.jdbc.api.impl.converters.ConverterHelper;
 import com.databricks.jdbc.api.impl.converters.ObjectConverter;
 import com.databricks.jdbc.api.impl.volume.VolumeOperationResult;
@@ -13,6 +17,7 @@ import com.databricks.jdbc.common.Nullable;
 import com.databricks.jdbc.common.StatementType;
 import com.databricks.jdbc.common.util.WarningUtil;
 import com.databricks.jdbc.dbclient.impl.common.StatementId;
+import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.exception.DatabricksSQLFeatureNotSupportedException;
 import com.databricks.jdbc.exception.DatabricksValidationException;
@@ -24,6 +29,7 @@ import com.databricks.jdbc.model.core.ResultData;
 import com.databricks.jdbc.model.core.ResultManifest;
 import com.databricks.jdbc.model.core.StatementStatus;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
+import com.databricks.sdk.support.ToStringer;
 import com.google.common.annotations.VisibleForTesting;
 import java.io.InputStream;
 import java.io.Reader;
@@ -31,6 +37,8 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.net.URL;
 import java.sql.*;
+import java.time.Instant;
+import java.time.LocalDate;
 import java.util.Calendar;
 import java.util.List;
 import java.util.Map;
@@ -137,12 +145,17 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
       this.executionResult =
           ExecutionResultFactory.getResultSet(resultsResp, session, parentStatement);
       long rowSize = executionResult.getRowCount();
+      List<String> arrowMetadata = null;
+      if (executionResult instanceof ArrowStreamResult) {
+        arrowMetadata = ((ArrowStreamResult) executionResult).getArrowMetadata();
+      }
       this.resultSetMetaData =
           new DatabricksResultSetMetaData(
               statementId,
               resultsResp.getResultSetMetadata(),
               rowSize,
-              executionResult.getChunkCount());
+              executionResult.getChunkCount(),
+              arrowMetadata);
       switch (resultsResp.getResultSetMetadata().getResultFormat()) {
         case COLUMN_BASED_SET:
           this.resultSetType = ResultSetType.THRIFT_INLINE;
@@ -296,7 +309,7 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
 
   @Override
   public float getFloat(int columnIndex) throws SQLException {
-    return getConvertedObject(columnIndex, ObjectConverter::toLong, () -> 0L);
+    return getConvertedObject(columnIndex, ObjectConverter::toFloat, () -> 0.0f);
   }
 
   @Override
@@ -310,7 +323,7 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
         columnIndex,
         (converter, object) -> {
           BigDecimal bd = converter.toBigDecimal(object);
-          return (bd != null) ? bd.setScale(scale, RoundingMode.HALF_UP) : null;
+          return applyScaleToBigDecimal(bd, columnIndex, scale);
         },
         () -> BigDecimal.ZERO.setScale(scale, RoundingMode.HALF_UP));
   }
@@ -327,9 +340,7 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
 
   @Override
   public Time getTime(int columnIndex) throws SQLException {
-    checkIfClosed();
-    throw new DatabricksSQLFeatureNotSupportedException(
-        "Not implemented in DatabricksResultSet - getTime(int columnIndex)");
+    return getConvertedObject(columnIndex, ObjectConverter::toTime, () -> null);
   }
 
   @Override
@@ -463,17 +474,38 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
       return null;
     }
     int columnType = resultSetMetaData.getColumnType(columnIndex);
-    String columnName = resultSetMetaData.getColumnTypeName(columnIndex);
+    String columnTypeName = resultSetMetaData.getColumnTypeName(columnIndex);
     // separate handling for complex data types
-    if (columnName.equals("ARRAY") || columnName.equals("MAP") || columnName.equals("STRUCT")) {
-      return handleComplexDataTypes(obj, columnIndex);
+    if (columnTypeName.startsWith(ARRAY)
+        || columnTypeName.startsWith(MAP)
+        || columnTypeName.startsWith(STRUCT)) {
+      return handleComplexDataTypes(obj, columnTypeName);
     }
     return ConverterHelper.convertSqlTypeToJavaType(columnType, obj);
   }
 
-  private Object handleComplexDataTypes(Object obj, int columnIndex) {
+  private Object handleComplexDataTypes(Object obj, String columnName)
+      throws DatabricksParsingException {
     if (complexDatatypeSupport) return obj;
+    if (resultSetType == ResultSetType.SEA_INLINE) {
+      return handleComplexDataTypesForSEAInline(obj, columnName);
+    }
     return obj.toString();
+  }
+
+  private Object handleComplexDataTypesForSEAInline(Object obj, String columnName)
+      throws DatabricksParsingException {
+    ComplexDataTypeParser parser = new ComplexDataTypeParser();
+    if (columnName.startsWith(ARRAY)) {
+      return parser.parseJsonStringToDbArray(obj.toString(), columnName).toString();
+    } else if (columnName.startsWith(MAP)) {
+      return parser.parseJsonStringToDbMap(obj.toString(), columnName).toString();
+    } else if (columnName.startsWith(STRUCT)) {
+      return parser.parseJsonStringToDbStruct(obj.toString(), columnName).toString();
+    }
+    throw new DatabricksParsingException(
+        "Unexpected metadata format. Type is not a COMPLEX: " + columnName,
+        DatabricksDriverErrorCode.JSON_PARSING_ERROR);
   }
 
   @Override
@@ -1154,9 +1186,16 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
 
   @Override
   public Date getDate(int columnIndex, Calendar cal) throws SQLException {
-    checkIfClosed();
-    throw new DatabricksSQLFeatureNotSupportedException(
-        "Not implemented in DatabricksResultSet - getDate(int columnIndex, Calendar cal)");
+    Date date = getDate(columnIndex);
+
+    // For date columns, we only get the date, calibrate it to the provided calendar timezone
+    if (date != null && cal != null) {
+      Instant instant = Instant.ofEpochMilli(date.getTime());
+      LocalDate localDate = LocalDate.ofInstant(instant, cal.getTimeZone().toZoneId());
+      return Date.valueOf(localDate);
+    }
+
+    return date;
   }
 
   @Override
@@ -1167,9 +1206,9 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
 
   @Override
   public Time getTime(int columnIndex, Calendar cal) throws SQLException {
-    checkIfClosed();
-    throw new DatabricksSQLFeatureNotSupportedException(
-        "Not implemented in DatabricksResultSet - getTime(int columnIndex, Calendar cal)");
+    // In Databricks, we always get the epoch value directly from the server
+    // Hence, no need to enforce calendar
+    return getTime(columnIndex);
   }
 
   @Override
@@ -1180,16 +1219,9 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
 
   @Override
   public Timestamp getTimestamp(int columnIndex, Calendar cal) throws SQLException {
-    Timestamp defaultTimestamp = getTimestamp(columnIndex);
-
-    if (defaultTimestamp != null && cal != null) {
-      // Clone the calendar to avoid modifying the passed instance
-      Calendar tempCal = (Calendar) cal.clone();
-      tempCal.setTimeInMillis(defaultTimestamp.getTime());
-      return new Timestamp(tempCal.getTimeInMillis());
-    }
-
-    return defaultTimestamp;
+    // In Databricks, we always get the epoch value directly from the server
+    // Hence, no need to enforce calendar
+    return getTimestamp(columnIndex);
   }
 
   @Override
@@ -1732,8 +1764,45 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
     if (obj == null) {
       return defaultValue.get();
     }
+    if (obj instanceof String) {
+      obj = removeExtraQuotes((String) obj);
+    }
     int columnType = resultSetMetaData.getColumnType(columnIndex);
     ObjectConverter converter = ConverterHelper.getConverterForSqlType(columnType);
     return convertMethod.apply(converter, obj);
+  }
+
+  private BigDecimal applyScaleToBigDecimal(BigDecimal bigDecimal, int columnIndex, int scale)
+      throws SQLException {
+    if (bigDecimal == null) {
+      return null;
+    }
+    // Double/Float columns do not have scale defined, hence, return them at full scale
+    if (resultSetMetaData.getColumnType(columnIndex) == Types.DOUBLE
+        || resultSetMetaData.getColumnType(columnIndex) == Types.FLOAT) {
+      return bigDecimal;
+    }
+    return bigDecimal.setScale(scale, RoundingMode.HALF_UP);
+  }
+
+  private String removeExtraQuotes(String str) {
+    str = str.trim();
+    if (str.startsWith("\"") && str.endsWith("\"") && str.length() > 1) {
+      str = str.substring(1, str.length() - 1).trim();
+    }
+    return str;
+  }
+
+  @Override
+  public String toString() {
+    return (new ToStringer(DatabricksResultSet.class))
+        .add("statementStatus", this.statementStatus)
+        .add("statementId", this.statementId)
+        .add("statementType", this.statementType)
+        .add("updateCount", this.updateCount)
+        .add("isClosed", this.isClosed)
+        .add("wasNull", this.wasNull)
+        .add("resultSetType", this.resultSetType)
+        .toString();
   }
 }

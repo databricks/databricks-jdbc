@@ -381,18 +381,9 @@ public class MetadataResultSetBuilder {
       return null;
     }
     int typeArgumentIndex = typeName.indexOf('(');
-    int complexTypeIndex = typeName.indexOf('<');
-    // if both are present return the minimum of the two
-    if (typeArgumentIndex != -1 && complexTypeIndex != -1) {
-      return typeName.substring(0, Math.min(typeArgumentIndex, complexTypeIndex));
-    }
     if (typeArgumentIndex != -1) {
       return typeName.substring(0, typeArgumentIndex);
     }
-    if (complexTypeIndex != -1) {
-      return typeName.substring(0, complexTypeIndex);
-    }
-
     return typeName;
   }
 
@@ -610,6 +601,30 @@ public class MetadataResultSetBuilder {
         getThriftRows(rows, SCHEMA_COLUMNS),
         METADATA_STATEMENT_ID,
         CommandName.LIST_SCHEMAS);
+  }
+
+  public static DatabricksResultSet getCrossRefsResult(List<List<Object>> rows) {
+    return buildResultSet(
+        CROSS_REFERENCE_COLUMNS,
+        getThriftRows(rows, CROSS_REFERENCE_COLUMNS),
+        METADATA_STATEMENT_ID,
+        CommandName.GET_CROSS_REFERENCE);
+  }
+
+  public static DatabricksResultSet getImportedKeys(List<List<Object>> rows) {
+    return buildResultSet(
+        IMPORTED_KEYS_COLUMNS,
+        getThriftRows(rows, IMPORTED_KEYS_COLUMNS),
+        METADATA_STATEMENT_ID,
+        CommandName.GET_IMPORTED_KEYS);
+  }
+
+  public static DatabricksResultSet getExportedKeys(List<List<Object>> rows) {
+    return buildResultSet(
+        EXPORTED_KEYS_COLUMNS,
+        getThriftRows(rows, EXPORTED_KEYS_COLUMNS),
+        METADATA_STATEMENT_ID,
+        CommandName.GET_EXPORTED_KEYS);
   }
 
   public static DatabricksResultSet getResultSetWithGivenRowsAndColumns(

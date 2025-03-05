@@ -6,6 +6,9 @@ import static com.databricks.jdbc.common.MetadataResultConstants.LARGE_DISPLAY_C
 import static com.databricks.jdbc.common.MetadataResultConstants.REMARKS_COLUMN;
 import static com.databricks.jdbc.common.util.DatabricksThriftUtil.getTypeFromTypeDesc;
 import static com.databricks.jdbc.common.util.DatabricksThriftUtil.getTypeTextFromTypeDesc;
+import static com.databricks.jdbc.common.util.DatabricksTypeUtil.TIMESTAMP;
+import static com.databricks.jdbc.common.util.DatabricksTypeUtil.TIMESTAMP_NTZ;
+import static com.databricks.jdbc.common.util.DatabricksTypeUtil.VARIANT;
 import static com.databricks.jdbc.dbclient.impl.common.MetadataResultSetBuilder.stripTypeName;
 
 import com.databricks.jdbc.common.AccessType;
@@ -76,6 +79,13 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
       if (resultManifest.getSchema().getColumnCount() > 0) {
         for (ColumnInfo columnInfo : resultManifest.getSchema().getColumns()) {
           ColumnInfoTypeName columnTypeName = columnInfo.getTypeName();
+          // For TIMESTAMP_NTZ columns, getTypeName() returns null.
+          // use typeText (initially "TIMESTAMP_NTZ") to identify the type,
+          // overwrite it to "TIMESTAMP" to maintain parity with thrift output.
+          if (columnInfo.getTypeText().equalsIgnoreCase(TIMESTAMP_NTZ)) {
+            columnTypeName = ColumnInfoTypeName.TIMESTAMP;
+            columnInfo.setTypeText(TIMESTAMP);
+          }
           int columnType = DatabricksTypeUtil.getColumnType(columnTypeName);
           int[] scaleAndPrecision = getScaleAndPrecision(columnInfo, columnType);
           int precision = scaleAndPrecision[0];
@@ -123,7 +133,8 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
       StatementId statementId,
       TGetResultSetMetadataResp resultManifest,
       long rows,
-      long chunkCount) {
+      long chunkCount,
+      List<String> arrowMetadata) {
     this.statementId = statementId;
     Map<String, Integer> columnNameToIndexMap = new HashMap<>();
     ImmutableList.Builder<ImmutableDatabricksColumn> columnsBuilder = ImmutableList.builder();
@@ -149,7 +160,10 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
       columnNameToIndexMap.putIfAbsent(VOLUME_OPERATION_STATUS_COLUMN_NAME, ++currIndex);
     } else {
       if (resultManifest.getSchema() != null && resultManifest.getSchema().getColumnsSize() > 0) {
-        for (TColumnDesc columnInfo : resultManifest.getSchema().getColumns()) {
+        for (int columnIndex = 0;
+            columnIndex < resultManifest.getSchema().getColumnsSize();
+            columnIndex++) {
+          TColumnDesc columnInfo = resultManifest.getSchema().getColumns().get(columnIndex);
           ColumnInfoTypeName columnTypeName = getTypeFromTypeDesc(columnInfo.getTypeDesc());
           int columnType = DatabricksTypeUtil.getColumnType(columnTypeName);
           int[] scaleAndPrecision = getScaleAndPrecision(columnInfo, columnType);
@@ -173,6 +187,12 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
               .schemaName(null)
               .tableName(null)
               .isSigned(DatabricksTypeUtil.isSigned(columnTypeName));
+          if (isVariantColumn(arrowMetadata, columnIndex)) {
+            columnBuilder
+                .columnTypeClassName("java.lang.String")
+                .columnType(Types.OTHER)
+                .columnTypeText(VARIANT);
+          }
           columnsBuilder.add(columnBuilder.build());
           columnNameToIndexMap.putIfAbsent(columnInfo.getColumnName(), ++currIndex);
         }
@@ -529,6 +549,13 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
   private boolean isLargeColumn(String columnName) {
     return LARGE_DISPLAY_COLUMNS.stream()
         .anyMatch(column -> column.getColumnName().equals(columnName));
+  }
+
+  private boolean isVariantColumn(List<String> arrowMetadata, int i) {
+    return arrowMetadata != null
+        && arrowMetadata.size() > i
+        && arrowMetadata.get(i) != null
+        && arrowMetadata.get(i).equalsIgnoreCase(VARIANT);
   }
 
   private ImmutableDatabricksColumn.Builder getColumnBuilder() {
