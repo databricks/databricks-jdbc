@@ -2,6 +2,7 @@ package com.databricks.jdbc.dbclient.impl.thrift;
 
 import static com.databricks.jdbc.common.EnvironmentVariables.JDBC_THRIFT_VERSION;
 import static com.databricks.jdbc.common.util.DatabricksThriftUtil.*;
+import static com.databricks.jdbc.common.util.DatabricksTypeUtil.DECIMAL;
 import static com.databricks.jdbc.dbclient.impl.common.MetadataResultSetBuilder.*;
 import static com.databricks.jdbc.dbclient.impl.sqlexec.ResultConstants.TYPE_INFO_RESULT;
 
@@ -26,6 +27,7 @@ import com.databricks.jdbc.model.core.ExternalLink;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import com.databricks.sdk.core.DatabricksConfig;
 import com.google.common.annotations.VisibleForTesting;
+import java.math.BigDecimal;
 import java.sql.SQLException;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -154,13 +156,19 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
   }
 
   private TSparkParameter mapToSparkParameterListItem(ImmutableSqlParameter parameter) {
+    Object value = parameter.value();
+    String typeString = parameter.type().name();
+    if (typeString.equals(DECIMAL)) {
+      // Add precision and scale info to type
+      if (value instanceof BigDecimal) {
+        typeString +=
+            "(" + ((BigDecimal) value).precision() + "," + ((BigDecimal) value).scale() + ")";
+      }
+    }
     return new TSparkParameter()
         .setOrdinal(parameter.cardinal())
-        .setType(parameter.type().name())
-        .setValue(
-            parameter.value() != null
-                ? TSparkParameterValue.stringValue(parameter.value().toString())
-                : null);
+        .setType(typeString)
+        .setValue(value != null ? TSparkParameterValue.stringValue(value.toString()) : null);
   }
 
   private TExecuteStatementReq getRequest(

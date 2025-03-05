@@ -150,9 +150,19 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
     setObject(parameterIndex, x, DatabricksTypeUtil.STRING);
   }
 
+  /*
+   * Sets the designated parameter to the given array of bytes. The driver converts this to hex literal in the format X'hex' and interpolate it into the SQL statement.
+   * Works only when supportManyParameters is enabled in the connection string.
+
+   * @param parameterIndex – the first parameter is 1, the second is 2, ...
+   * @param x – the parameter value
+   * @throws SQLException - if a database access error occurs or this method is called on a closed PreparedStatement
+   * @throws DatabricksSQLFeatureNotSupportedException - if parameter interpolation is not enabled
+  */
   @Override
   public void setBytes(int parameterIndex, byte[] x) throws SQLException {
     LOGGER.debug("public void setBytes(int parameterIndex, byte[] x)");
+    checkIfClosed();
     if (x == null) {
       setObject(parameterIndex, null);
     } else {
@@ -160,7 +170,7 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
         setObject(parameterIndex, bytesToHex(x), Types.BINARY);
       } else {
         throw new DatabricksSQLFeatureNotSupportedException(
-            "setBytes(int parameterIndex, byte[] x) not supported.");
+            "setBytes(int parameterIndex, byte[] x) not supported with parametrised query. Enable supportManyParameters in the connection string to use this method.");
       }
     }
   }
