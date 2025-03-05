@@ -165,6 +165,19 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
     }
   }
 
+  /**
+   * Converts a byte array to a hexadecimal literal in the format X'hex'.
+   *
+   * <p>Each byte in the array is converted to its hexadecimal representation and concatenated into
+   * a single string prefixed with "X'".
+   *
+   * <p>Reference: <a
+   * href="https://stackoverflow.com/questions/9655181/how-to-convert-a-byte-array-to-a-hex-string-in-java">Stack
+   * Overflow</a>
+   *
+   * @param bytes the byte array to convert; must not be null
+   * @return the hexadecimal literal as a string, or null if the input byte array is null
+   */
   private static String bytesToHex(byte[] bytes) {
     if (bytes == null) {
       return null;
