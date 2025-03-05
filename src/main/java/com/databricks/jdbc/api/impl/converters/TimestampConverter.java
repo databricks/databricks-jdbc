@@ -1,6 +1,8 @@
 package com.databricks.jdbc.api.impl.converters;
 
 import com.databricks.jdbc.exception.DatabricksSQLException;
+import com.databricks.jdbc.log.JdbcLogger;
+import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import java.math.BigInteger;
 import java.sql.Date;
@@ -11,6 +13,7 @@ import java.time.OffsetDateTime;
 import java.time.format.DateTimeParseException;
 
 public class TimestampConverter implements ObjectConverter {
+  private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(IntConverter.class);
 
   @Override
   public Time toTime(Object object) throws DatabricksSQLException {
@@ -81,13 +84,16 @@ public class TimestampConverter implements ObjectConverter {
         return Timestamp.valueOf(tsStr);
       }
     } catch (IllegalArgumentException | DateTimeParseException e) {
+      LOGGER.error("Failed to parse timestamp: {}", inputTimestamp, e);
       // As a fallback, try parsing as an Instant using the original inputTimestamp.
       try {
         Instant instant = Instant.parse(inputTimestamp);
         return Timestamp.from(instant);
       } catch (Exception ex) {
         throw new DatabricksSQLException(
-            "Invalid conversion to Timestamp", ex, DatabricksDriverErrorCode.UNSUPPORTED_OPERATION);
+            "Invalid conversion to Timestamp for input: " + inputTimestamp,
+            ex,
+            DatabricksDriverErrorCode.UNSUPPORTED_OPERATION);
       }
     }
   }
