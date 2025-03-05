@@ -1,0 +1,30 @@
+{
+  "id" : "b896594a-e7fd-4179-93d3-933c1635619a",
+  "name" : "oauth2_aus1mzu4zk5twwmvx0h8_v1_token",
+  "request" : {
+    "url" : "/oauth2/aus1mzu4zk5TWwMvx0h8/v1/token",
+    "method" : "POST",
+    "bodyPatterns" : [ {
+      "equalTo" : "client_assertion_type=urn%3Aietf%3Aparams%3Aoauth%3Aclient-assertion-type%3Ajwt-bearer&grant_type=client_credentials&scope=all-apis&client_assertion=my-private-key",
+      "caseInsensitive" : false
+    } ]
+  },
+  "response" : {
+    "status" : 400,
+    "body" : "{\"errorCode\":\"invalid_client\",\"errorSummary\":\"A client_id must be provided in the request.\",\"errorLink\":\"invalid_client\",\"errorId\":\"oaenUa-NtqPS7mS89_ixqDs3w\",\"errorCauses\":[]}",
+    "headers" : {
+      "set-cookie" : [ "sid=\"\";Version=1;Path=/;Max-Age=0", "xids=\"\";Version=1;Path=/;Max-Age=0", "autolaunch_triggered=\"\"; Expires=Thu, 01 Jan 1970 00:00:10 GMT; Path=/", "activate_ca_modal_triggered=\"\"; Expires=Thu, 01 Jan 1970 00:00:10 GMT; Path=/" ],
+      "Strict-Transport-Security" : "max-age=315360000; includeSubDomains",
+      "content-security-policy" : "default-src 'self' dev-591123.oktapreview.com *.oktacdn.com; connect-src 'self' dev-591123.oktapreview.com dev-591123-admin.oktapreview.com *.oktacdn.com *.mixpanel.com *.mapbox.com *.mtls.oktapreview.com dev-591123.kerberos.oktapreview.com https://oinmanager.okta.com data: *.ingest.sentry.io data.pendo.io pendo-static-5634101834153984.storage.googleapis.com pendo-static-5391521872216064.storage.googleapis.com; script-src 'unsafe-inline' 'unsafe-eval' 'self' 'report-sample' dev-591123.oktapreview.com *.oktacdn.com; style-src 'unsafe-inline' 'self' dev-591123.oktapreview.com *.oktacdn.com; frame-src 'self' dev-591123.oktapreview.com dev-591123-admin.oktapreview.com login.okta.com *.vidyard.com; img-src 'self' dev-591123.oktapreview.com *.oktacdn.com *.tiles.mapbox.com *.mapbox.com *.vidyard.com data: data.pendo.io pendo-static-5634101834153984.storage.googleapis.com pendo-static-5391521872216064.storage.googleapis.com blob:; font-src 'self' dev-591123.oktapreview.com data: *.oktacdn.com fonts.gstatic.com; frame-ancestors 'self'",
+      "x-content-type-options" : "nosniff",
+      "x-xss-protection" : "0",
+      "Server" : "nginx",
+      "x-okta-request-id" : "13726ffcb055bc9e7f0850092546f3d4",
+      "p3p" : "CP=\"HONK\"",
+      "Date" : "Wed, 05 Mar 2025 17:04:30 GMT",
+      "Content-Type" : "application/json"
+    }
+  },
+  "uuid" : "b896594a-e7fd-4179-93d3-933c1635619a",
+  "insertionIndex" : 1
+}
