@@ -4,6 +4,7 @@ import static com.databricks.jdbc.TestConstants.*;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import com.databricks.jdbc.api.IDatabricksConnectionContext;
@@ -450,7 +451,18 @@ public class DatabricksPreparedStatementTest {
 
     byte[] bytes = {0x01, 0x02, 0x03, 0x04};
 
-    assertDoesNotThrow(() -> preparedStatement.setBytes(1, bytes));
+    assertThrows(
+        DatabricksSQLFeatureNotSupportedException.class,
+        () -> preparedStatement.setBytes(1, bytes));
+
+    DatabricksConnectionContext connectionContext = mock(DatabricksConnectionContext.class);
+    when(connection.getConnectionContext()).thenReturn(connectionContext);
+    when(connectionContext.supportManyParameters()).thenReturn(true);
+
+    DatabricksPreparedStatement preparedStatementWithManyParameters =
+        new DatabricksPreparedStatement(connection, STATEMENT);
+
+    assertDoesNotThrow(() -> preparedStatementWithManyParameters.setBytes(1, bytes));
   }
 
   @Test

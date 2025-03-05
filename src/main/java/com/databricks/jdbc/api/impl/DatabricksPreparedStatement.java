@@ -153,27 +153,34 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
     setObject(parameterIndex, x, DatabricksTypeUtil.STRING);
   }
 
-  private static String bytesToHexLiteral(byte[] bytes) {
-    if (bytes == null) {
-      return NULL;
-    }
-    StringBuilder hex = new StringBuilder("X'");
-    for (byte b : bytes) {
-      hex.append(String.format("%02X", b));
-    }
-    hex.append("'");
-    return hex.toString();
-  }
-
   @Override
   public void setBytes(int parameterIndex, byte[] x) throws SQLException {
     LOGGER.debug("public void setBytes(int parameterIndex, byte[] x)");
     if (x == null) {
       setObject(parameterIndex, null);
     } else {
-      // Convert to hex literal
-      setObject(parameterIndex, bytesToHexLiteral(x), Types.BINARY);
+      if (this.interpolateParameters) {
+        setObject(parameterIndex, bytesToHex(x), Types.BINARY);
+      } else {
+        throw new DatabricksSQLFeatureNotSupportedException(
+            "setBytes(int parameterIndex, byte[] x) not supported.");
+      }
     }
+  }
+
+  private static String bytesToHex(byte[] bytes) {
+    if (bytes == null) {
+      return null;
+    }
+    char[] hexArray = "0123456789ABCDEF".toCharArray();
+    char[] hexChars = new char[bytes.length * 2];
+    String hexLiteral = "X'";
+    for (int j = 0; j < bytes.length; j++) {
+      int v = bytes[j] & 0xFF;
+      hexChars[j * 2] = hexArray[v >>> 4];
+      hexChars[j * 2 + 1] = hexArray[v & 0x0F];
+    }
+    return hexLiteral + new String(hexChars) + "'";
   }
 
   @Override
