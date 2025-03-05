@@ -5,7 +5,6 @@ import static com.databricks.jdbc.common.util.DatabricksTypeUtil.getDatabricksTy
 import static com.databricks.jdbc.common.util.DatabricksTypeUtil.inferDatabricksType;
 import static com.databricks.jdbc.common.util.SQLInterpolator.interpolateSQL;
 
-import com.databricks.jdbc.common.AllPurposeCluster;
 import com.databricks.jdbc.common.StatementType;
 import com.databricks.jdbc.common.util.DatabricksTypeUtil;
 import com.databricks.jdbc.exception.DatabricksSQLException;
@@ -42,9 +41,7 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
   public DatabricksPreparedStatement(DatabricksConnection connection, String sql) {
     super(connection);
     this.sql = sql;
-    this.interpolateParameters =
-        connection.getConnectionContext().supportManyParameters()
-            || connection.getConnectionContext().getComputeResource() instanceof AllPurposeCluster;
+    this.interpolateParameters = connection.getConnectionContext().supportManyParameters();
     this.databricksParameterMetaData = new DatabricksParameterMetaData();
     this.databricksBatchParameterMetaData = new ArrayList<>();
   }
