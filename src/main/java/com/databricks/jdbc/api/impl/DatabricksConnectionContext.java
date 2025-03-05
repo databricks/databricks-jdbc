@@ -641,7 +641,9 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
 
   @Override
   public String getOAuthRefreshToken() {
-    return getParameter(DatabricksJdbcUrlParams.OAUTH_REFRESH_TOKEN);
+    return getParameter(
+        DatabricksJdbcUrlParams.OAUTH_REFRESH_TOKEN,
+        getParameter(DatabricksJdbcUrlParams.OAUTH_REFRESH_TOKEN_2));
   }
 
   @Override

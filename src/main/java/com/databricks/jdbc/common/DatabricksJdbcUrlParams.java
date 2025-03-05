@@ -32,6 +32,7 @@ public enum DatabricksJdbcUrlParams {
   CF_PROXY_PWD("cfproxypwd", "Cloudflare proxy password"),
   AUTH_FLOW("auth_flow", "Authentication flow"),
   OAUTH_REFRESH_TOKEN("OAuthRefreshToken", "OAuth2 Refresh Token"),
+  OAUTH_REFRESH_TOKEN_2("Auth_RefreshToken", "OAuth2 Refresh Token"), // Same as OAUTH_REFRESH_TOKEN
   PWD("pwd", "Password (used when AUTH_MECH = 3)", true),
   POLL_INTERVAL("asyncexecpollinterval", "Async execution poll interval", "200"),
   HTTP_PATH("httppath", "HTTP path", true),
