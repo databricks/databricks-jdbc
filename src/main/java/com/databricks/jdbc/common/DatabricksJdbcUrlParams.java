@@ -62,6 +62,8 @@ public enum DatabricksJdbcUrlParams {
   SUPPORT_MANY_PARAMETERS("supportManyParameters", "Support many parameters", "0"),
   CLOUD_FETCH_THREAD_POOL_SIZE("cloudFetchThreadPoolSize", "Cloud fetch thread pool size", "16"),
   TOKEN_ENDPOINT("OAuth2TokenEndpoint", "OAuth2 token endpoint"),
+  OAUTH_TOKEN_ENDPOINT(
+      "OAuth2ConnAuthTokenEndpoint", "OAuth2 token endpoint"), // Same as TOKEN_ENDPOINT
   AUTH_ENDPOINT("OAuth2AuthorizationEndPoint", "OAuth2 authorization endpoint"),
   SSL_TRUST_STORE("SSLTrustStore", "SSL trust store"),
   SSL_TRUST_STORE_PASSWORD("SSLTrustStorePwd", "SSL trust store password"),
