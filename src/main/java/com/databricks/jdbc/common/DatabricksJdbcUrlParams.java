@@ -46,6 +46,7 @@ public enum DatabricksJdbcUrlParams {
   DISCOVERY_MODE("OAuthDiscoveryMode", "OAuth discovery mode", "1"),
   AUTH_SCOPE("Auth_Scope", "Authentication scope", "all-apis"),
   DISCOVERY_URL("OAuthDiscoveryURL", "OAuth discovery URL"),
+  OIDC_DISCOVERY_ENDPOINT("OIDCDiscoveryEndpoint", "OIDC Discovery Endpoint"),
   ENABLE_ARROW("EnableArrow", "Enable Arrow", "1"),
   DIRECT_RESULT("EnableDirectResults", "Enable direct results", "1"),
   LZ4_COMPRESSION_FLAG(
