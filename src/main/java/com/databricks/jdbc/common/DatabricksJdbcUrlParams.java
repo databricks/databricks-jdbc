@@ -63,6 +63,8 @@ public enum DatabricksJdbcUrlParams {
   CLOUD_FETCH_THREAD_POOL_SIZE("cloudFetchThreadPoolSize", "Cloud fetch thread pool size", "16"),
   TOKEN_ENDPOINT("OAuth2TokenEndpoint", "OAuth2 token endpoint"),
   AUTH_ENDPOINT("OAuth2AuthorizationEndPoint", "OAuth2 authorization endpoint"),
+  OAUTH_ENDPOINT(
+      "OAuth2ConnAuthAuthorizeEndpoint", "OAuth2 authorization endpoint"), // Same as AUTH_ENDPOINT
   SSL_TRUST_STORE("SSLTrustStore", "SSL trust store"),
   SSL_TRUST_STORE_PASSWORD("SSLTrustStorePwd", "SSL trust store password"),
   SSL_TRUST_STORE_TYPE("SSLTrustStoreType", "SSL trust store type", "JKS"),
