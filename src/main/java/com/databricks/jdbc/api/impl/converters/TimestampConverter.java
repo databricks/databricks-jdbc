@@ -21,6 +21,32 @@ public class TimestampConverter implements ObjectConverter {
     return new Time(timestamp.getTime());
   }
 
+  /**
+   * Converts an object to a {@link Timestamp}.
+   *
+   * <p>The method supports various input formats depending on the mode:
+   *
+   * <ul>
+   *   <li><b>timestamp_ntz:</b>
+   *       <ul>
+   *         <li><b>Thrift Arrow:</b> <code>timestamp yyyy-MM-dd HH:mm:ss.S</code>
+   *         <li><b>Thrift Inline:</b> <code>yyyy-MM-dd HH:mm:ss.S</code> (String)
+   *         <li><b>Sea Inline:</b> <code>yyyy-MM-dd'T'HH:mm:ss.SSS</code> (String)
+   *         <li><b>Sea Arrow:</b> <code>timestamp yyyy-MM-dd HH:mm:ss.S</code>
+   *       </ul>
+   *   <li><b>Timestamp:</b>
+   *       <ul>
+   *         <li><b>Thrift Arrow:</b> <code>timestamp yyyy-MM-dd HH:mm:ss.S</code>
+   *         <li><b>Thrift Inline:</b> <code>yyyy-MM-dd HH:mm:ss</code> (String)
+   *         <li><b>Sea Inline:</b> <code>yyyy-MM-dd'T'HH:mm:ss.SSSXXX</code> (String)
+   *         <li><b>Sea Arrow:</b> <code>yyyy-MM-dd HH:mm:ss.S</code>
+   *       </ul>
+   * </ul>
+   *
+   * @param object the object to convert
+   * @return the converted {@link Timestamp}
+   * @throws DatabricksSQLException if the conversion fails
+   */
   @Override
   public Timestamp toTimestamp(Object object) throws DatabricksSQLException {
     if (object instanceof Timestamp) {
