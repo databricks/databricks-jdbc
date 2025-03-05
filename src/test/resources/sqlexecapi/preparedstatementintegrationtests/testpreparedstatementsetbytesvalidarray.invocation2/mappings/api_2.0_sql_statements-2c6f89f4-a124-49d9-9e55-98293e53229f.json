@@ -1,0 +1,33 @@
+{
+  "id" : "2c6f89f4-a124-49d9-9e55-98293e53229f",
+  "name" : "api_2.0_sql_statements",
+  "request" : {
+    "url" : "/api/2.0/sql/statements/",
+    "method" : "POST",
+    "bodyPatterns" : [ {
+      "equalToJson" : "{\"statement\":\"SELECT col1, col2 FROM main.jdbc_test_schema.prepared_statement_test_bytes_table WHERE col1 = 1\",\"warehouse_id\":\"dd43ee29fedd958d\",\"session_id\":\"01effa0a-23d9-1d46-9cee-6e57a4cf35ed\",\"disposition\":\"EXTERNAL_LINKS\",\"format\":\"ARROW_STREAM\",\"on_wait_timeout\":\"CONTINUE\",\"wait_timeout\":\"10s\",\"parameters\":[],\"result_compression\":\"LZ4_FRAME\"}",
+      "ignoreArrayOrder" : true,
+      "ignoreExtraElements" : true
+    } ]
+  },
+  "response" : {
+    "status" : 200,
+    "body" : "{\"statement_id\":\"01effa0a-2793-15b3-aa09-38d2feaca552\",\"status\":{\"state\":\"SUCCEEDED\"},\"manifest\":{\"format\":\"ARROW_STREAM\",\"schema\":{\"column_count\":2,\"columns\":[{\"name\":\"col1\",\"type_text\":\"INT\",\"type_name\":\"INT\",\"position\":0},{\"name\":\"col2\",\"type_text\":\"BINARY\",\"type_name\":\"BINARY\",\"position\":1}]},\"total_chunk_count\":1,\"chunks\":[{\"chunk_index\":0,\"row_offset\":0,\"row_count\":1,\"byte_count\":480}],\"total_row_count\":1,\"total_byte_count\":480,\"truncated\":false,\"result_compression\":\"LZ4_FRAME\"},\"result\":{\"external_links\":[{\"chunk_index\":0,\"row_offset\":0,\"row_count\":1,\"byte_count\":380,\"external_link\":\"https://e2-dogfood-core.s3.us-west-2.amazonaws.com/oregon-staging/6051921418418893.jobs/sql/extended/results_2025-03-06T22%3A38%3A19Z_faa68614-3242-4ed1-bdb1-9bbd1a55a72d?[REDACTED]X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Date=20250305T213819Z&X-Amz-SignedHeaders=host&X-Amz-Expires=899&[REDACTED]X-Amz-Signature=2062e73d493245225684eaccaa3c715145f4536ecdeba1b3d23351b4aeb8d5b2\",\"expiration\":\"2025-03-05T21:53:19.728Z\"}]}}",
+    "headers" : {
+      "x-request-id" : "f7ab7b18-d89f-4a2f-ad1e-520a01403b1a",
+      "date" : "Wed, 5 Mar 2025 21:38:19 GMT",
+      "server" : "databricks",
+      "x-databricks-popp-response-code-details" : "via_upstream",
+      "x-databricks-shard-debug" : "oregon-staging",
+      "vary" : "Accept-Encoding",
+      "x-databricks-org-id" : "6051921418418893",
+      "strict-transport-security" : "max-age=31536000; includeSubDomains; preload",
+      "x-content-type-options" : "nosniff",
+      "x-databricks-popp-routing-reason" : "deployment-name",
+      "content-type" : "application/json",
+      "x-databricks-apiproxy-response-code-details" : "via_upstream"
+    }
+  },
+  "uuid" : "2c6f89f4-a124-49d9-9e55-98293e53229f",
+  "insertionIndex" : 17
+}

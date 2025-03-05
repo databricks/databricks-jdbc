@@ -8,8 +8,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import com.databricks.jdbc.integration.fakeservice.AbstractFakeServiceIntegrationTests;
 import java.math.BigDecimal;
 import java.sql.*;
-import java.util.Arrays;
-import java.util.List;
+import java.util.Properties;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -133,7 +132,9 @@ public class PreparedStatementIntegrationTests extends AbstractFakeServiceIntegr
     String createSql =
         "CREATE TABLE " + getFullyQualifiedTableName(tableName) + " (col1 INT, col2 BINARY)";
     setupDatabaseTable(connection, tableName, createSql);
-    connection = getValidJDBCConnection(List.of(Arrays.asList("supportManyParameters", "1")));
+    Properties p = new Properties();
+    p.setProperty("supportManyParameters", "1");
+    connection = getValidJDBCConnection(p);
     String insertSql = "INSERT INTO " + getFullyQualifiedTableName(tableName) + " VALUES (?, ?)";
     try (PreparedStatement statement = connection.prepareStatement(insertSql)) {
       statement.setInt(1, 1);
