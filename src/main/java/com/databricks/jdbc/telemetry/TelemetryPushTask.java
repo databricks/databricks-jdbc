@@ -101,6 +101,7 @@ class TelemetryPushTask implements Runnable {
         TelemetryResponse telResponse =
             objectMapper.readValue(
                 EntityUtils.toString(response.getEntity()), TelemetryResponse.class);
+        logger.debug("Pushed Telemetry logs " + telResponse);
         if (queueToBePushed.size() != telResponse.getNumProtoSuccess()) {
           logger.error(
               "Partial failure while pushing telemetry logs with error response: [%s], request count: [%d], upload count: [%d]",
@@ -117,7 +118,5 @@ class TelemetryPushTask implements Runnable {
       logger.error(e, "Failed to push Telemetry logs: {}", e.getMessage());
       return;
     }
-
-    // Add handling for authenticated and unauthenticated push request
   }
 }

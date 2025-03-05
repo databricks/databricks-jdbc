@@ -51,8 +51,9 @@ public class TelemetryHelper {
                             .setDriverConnectionParameters(
                                 getDriverConnectionParameter(connectionContext))
                             .setDriverSystemConfiguration(getDriverSystemConfiguration())));
+    DatabricksConfig config = DatabricksThreadContextHolder.getDatabricksConfig();
     TelemetryClientFactory.getInstance()
-        .getUnauthenticatedTelemetryClient(connectionContext)
+        .getTelemetryClient(connectionContext, config)
         .exportEvent(telemetryFrontendLog);
   }
 
