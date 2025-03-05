@@ -626,7 +626,10 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   @Override
   public boolean isOAuthDiscoveryModeEnabled() {
     // By default, set to true
-    return getParameter(DatabricksJdbcUrlParams.DISCOVERY_MODE).equals("1");
+    return getParameter(
+            DatabricksJdbcUrlParams.DISCOVERY_MODE,
+            getParameter(DatabricksJdbcUrlParams.OIDC_DISCOVERY_MODE))
+        .equals("1");
   }
 
   @Override
