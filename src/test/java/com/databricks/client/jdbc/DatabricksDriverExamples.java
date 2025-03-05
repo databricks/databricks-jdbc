@@ -765,6 +765,28 @@ public class DatabricksDriverExamples {
     }
   }
 
+  /** Demonstrates using prepared statements on DBSQL in Thrift mode (useThriftClient=1). */
+  @Test
+  public void exampleThriftPreparedStatements() throws SQLException {
+    DriverManager.registerDriver(new Driver());
+    String jdbcUrl =
+        "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;"
+            + "transportMode=https;ssl=1;AuthMech=3;"
+            + "httpPath=/sql/1.0/warehouses/791ba2a31c7fd70a;usethriftclient=1";
+    Connection con = DriverManager.getConnection(jdbcUrl, "token", DATABRICKS_TOKEN);
+    System.out.println("Connection established......");
+
+    // Example query with a parameter
+    String sql = "SELECT * FROM RANGE(?)";
+    PreparedStatement pstmt = con.prepareStatement(sql);
+    pstmt.setInt(1, 10);
+
+    ResultSet rs = pstmt.executeQuery();
+    printResultSet(rs);
+    rs.close();
+    con.close();
+  }
+
   /**
    * Demonstrates using prepared statements with a large number of parameters by setting
    * 'supportManyParameters=1' in the connection URL.

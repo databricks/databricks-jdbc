@@ -13,13 +13,16 @@ import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.model.telemetry.TelemetryFrontendLog;
 import com.databricks.jdbc.model.telemetry.TelemetryRequest;
 import com.databricks.jdbc.model.telemetry.TelemetryResponse;
+import com.databricks.sdk.core.DatabricksConfig;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.IOException;
 import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
+import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Collectors;
 import org.apache.http.client.methods.CloseableHttpResponse;
@@ -31,19 +34,22 @@ import org.apache.http.util.EntityUtils;
 class TelemetryPushTask implements Runnable {
 
   private static final JdbcLogger logger = JdbcLoggerFactory.getLogger(TelemetryPushTask.class);
-  private List<TelemetryFrontendLog> queueToBePushed;
-  private boolean isAuthenticated;
-  private IDatabricksConnectionContext connectionContext;
+  private final List<TelemetryFrontendLog> queueToBePushed;
+  private final boolean isAuthenticated;
+  private final IDatabricksConnectionContext connectionContext;
+  private final DatabricksConfig databricksConfig;
   private final ObjectMapper objectMapper =
       new ObjectMapper().setSerializationInclusion(JsonInclude.Include.NON_NULL);
 
   TelemetryPushTask(
       List<TelemetryFrontendLog> eventsQueue,
       boolean isAuthenticated,
-      IDatabricksConnectionContext connectionContext) {
+      IDatabricksConnectionContext connectionContext,
+      DatabricksConfig databricksConfig) {
     this.queueToBePushed = eventsQueue;
     this.isAuthenticated = isAuthenticated;
     this.connectionContext = connectionContext;
+    this.databricksConfig = databricksConfig;
   }
 
   @Override
@@ -72,14 +78,18 @@ class TelemetryPushTask implements Runnable {
                   .collect(Collectors.toList()));
       IDatabricksHttpClient httpClient =
           DatabricksHttpClientFactory.getInstance().getClient(connectionContext);
-      String uri =
-          new URIBuilder(connectionContext.getHostUrl())
-              .setPath(PathConstants.TELEMETRY_PATH_UNAUTHENTICATED)
-              .toString();
+      String path =
+          isAuthenticated
+              ? PathConstants.TELEMETRY_PATH
+              : PathConstants.TELEMETRY_PATH_UNAUTHENTICATED;
+      String uri = new URIBuilder(connectionContext.getHostUrl()).setPath(path).toString();
       HttpPost post = new HttpPost(uri);
       post.setEntity(
           new StringEntity(objectMapper.writeValueAsString(request), StandardCharsets.UTF_8));
       DatabricksJdbcConstants.JSON_HTTP_HEADERS.forEach(post::addHeader);
+      Map<String, String> authHeaders =
+          isAuthenticated ? databricksConfig.authenticate() : Collections.emptyMap();
+      authHeaders.forEach(post::addHeader);
 
       try (CloseableHttpResponse response = httpClient.execute(post)) {
         // TODO: check response and add retry for partial failures

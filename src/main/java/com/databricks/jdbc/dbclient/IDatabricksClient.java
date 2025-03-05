@@ -11,6 +11,7 @@ import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.model.client.thrift.generated.TFetchResultsResp;
 import com.databricks.jdbc.model.core.ExternalLink;
 import com.databricks.jdbc.telemetry.latency.DatabricksMetricsTimed;
+import com.databricks.sdk.core.DatabricksConfig;
 import java.sql.SQLException;
 import java.util.Collection;
 import java.util.Map;
@@ -127,4 +128,7 @@ public interface IDatabricksClient {
 
   TFetchResultsResp getMoreResults(IDatabricksStatementInternal parentStatement)
       throws DatabricksSQLException;
+
+  /** Retrieves underlying DatabricksConfig */
+  DatabricksConfig getDatabricksConfig();
 }
