@@ -177,7 +177,7 @@ public class DatabricksDriverExamples {
     String jdbcUrl =
         "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;"
             + "transportMode=https;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/791ba2a31c7fd70a;"
-            + "EnableTelemetry=1;UseThriftClient=1";
+            + "EnableTelemetry=1;UseThriftClient=1;LogLevel=6;LogPath=/tmp";
     Connection con = DriverManager.getConnection(jdbcUrl, "token", DATABRICKS_TOKEN);
     System.out.println("Connection established......");
 
@@ -763,6 +763,28 @@ public class DatabricksDriverExamples {
       file.delete();
       fileGet.delete();
     }
+  }
+
+  /** Demonstrates using prepared statements on DBSQL in Thrift mode (useThriftClient=1). */
+  @Test
+  public void exampleThriftPreparedStatements() throws SQLException {
+    DriverManager.registerDriver(new Driver());
+    String jdbcUrl =
+        "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;"
+            + "transportMode=https;ssl=1;AuthMech=3;"
+            + "httpPath=/sql/1.0/warehouses/791ba2a31c7fd70a;usethriftclient=1";
+    Connection con = DriverManager.getConnection(jdbcUrl, "token", DATABRICKS_TOKEN);
+    System.out.println("Connection established......");
+
+    // Example query with a parameter
+    String sql = "SELECT * FROM RANGE(?)";
+    PreparedStatement pstmt = con.prepareStatement(sql);
+    pstmt.setInt(1, 10);
+
+    ResultSet rs = pstmt.executeQuery();
+    printResultSet(rs);
+    rs.close();
+    con.close();
   }
 
   /**

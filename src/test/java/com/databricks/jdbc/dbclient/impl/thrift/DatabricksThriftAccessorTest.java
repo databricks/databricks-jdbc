@@ -14,6 +14,7 @@ import com.databricks.jdbc.dbclient.impl.common.StatementId;
 import com.databricks.jdbc.exception.DatabricksHttpException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.model.client.thrift.generated.*;
+import com.databricks.sdk.core.DatabricksConfig;
 import com.databricks.sdk.service.sql.StatementState;
 import java.sql.SQLException;
 import java.util.ArrayList;
@@ -31,6 +32,7 @@ public class DatabricksThriftAccessorTest {
   @Mock IDatabricksStatementInternal statement;
   @Mock IDatabricksConnectionContext connectionContext;
   @Mock IDatabricksStatementInternal parentStatement;
+  @Mock DatabricksConfig databricksConfig;
   private static DatabricksThriftAccessor accessor;
   private static final String TEST_STMT_ID =
       "01efc77c-7c8b-1a8e-9ecb-a9a6e6aa050a|338d529d-8272-46eb-8482-cb419466839d";
@@ -65,7 +67,7 @@ public class DatabricksThriftAccessorTest {
 
   void setup(Boolean directResultsEnabled) {
     when(connectionContext.getDirectResultMode()).thenReturn(directResultsEnabled);
-    accessor = new DatabricksThriftAccessor(thriftClient, connectionContext);
+    accessor = new DatabricksThriftAccessor(thriftClient, connectionContext, databricksConfig);
   }
 
   @Test
@@ -75,6 +77,7 @@ public class DatabricksThriftAccessorTest {
     TOpenSessionResp response = new TOpenSessionResp();
     when(thriftClient.OpenSession(request)).thenReturn(response);
     assertEquals(accessor.getThriftResponse(request), response);
+    assertNotNull(accessor.getDatabricksConfig());
   }
 
   @Test

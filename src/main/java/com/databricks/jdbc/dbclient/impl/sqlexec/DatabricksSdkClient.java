@@ -3,6 +3,7 @@ package com.databricks.jdbc.dbclient.impl.sqlexec;
 import static com.databricks.jdbc.common.DatabricksJdbcConstants.JSON_HTTP_HEADERS;
 import static com.databricks.jdbc.common.DatabricksJdbcConstants.TEMPORARY_REDIRECT_STATUS_CODE;
 import static com.databricks.jdbc.common.EnvironmentVariables.DEFAULT_ROW_LIMIT;
+import static com.databricks.jdbc.common.util.DatabricksTypeUtil.DECIMAL;
 import static com.databricks.jdbc.dbclient.impl.sqlexec.PathConstants.*;
 import static com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode.TEMPORARY_REDIRECT_EXCEPTION;
 
@@ -31,9 +32,11 @@ import com.databricks.jdbc.model.core.ResultData;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import com.databricks.sdk.WorkspaceClient;
 import com.databricks.sdk.core.ApiClient;
+import com.databricks.sdk.core.DatabricksConfig;
 import com.databricks.sdk.core.DatabricksError;
 import com.databricks.sdk.service.sql.*;
 import com.google.common.annotations.VisibleForTesting;
+import java.math.BigDecimal;
 import java.sql.SQLException;
 import java.time.Instant;
 import java.util.*;
@@ -346,6 +349,11 @@ public class DatabricksSdkClient implements IDatabricksClient {
     throw new DatabricksValidationException("Get more results cannot be called for SEA flow");
   }
 
+  @Override
+  public DatabricksConfig getDatabricksConfig() {
+    return clientConfigurator.getDatabricksConfig();
+  }
+
   private boolean useCloudFetchForResult(StatementType statementType) {
     return this.connectionContext.shouldEnableArrow()
         && (statementType == StatementType.QUERY
@@ -410,10 +418,19 @@ public class DatabricksSdkClient implements IDatabricksClient {
   }
 
   private StatementParameterListItem mapToParameterListItem(ImmutableSqlParameter parameter) {
+    Object value = parameter.value();
+    String typeString = parameter.type().name();
+    if (typeString.equals(DECIMAL)) {
+      // Add precision and scale info to type
+      if (value instanceof BigDecimal) {
+        typeString +=
+            "(" + ((BigDecimal) value).precision() + "," + ((BigDecimal) value).scale() + ")";
+      }
+    }
     return new PositionalStatementParameterListItem()
         .setOrdinal(parameter.cardinal())
-        .setType(parameter.type().name())
-        .setValue(parameter.value() != null ? parameter.value().toString() : null);
+        .setType(typeString)
+        .setValue(value != null ? value.toString() : null);
   }
 
   /** Handles a failed execution and throws appropriate exception */

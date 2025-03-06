@@ -615,7 +615,9 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
 
   @Override
   public String getTokenEndpoint() {
-    return getParameter(DatabricksJdbcUrlParams.TOKEN_ENDPOINT);
+    return getParameter(
+        DatabricksJdbcUrlParams.OAUTH_TOKEN_ENDPOINT,
+        getParameter(DatabricksJdbcUrlParams.TOKEN_ENDPOINT));
   }
 
   @Override
@@ -628,7 +630,10 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   @Override
   public boolean isOAuthDiscoveryModeEnabled() {
     // By default, set to true
-    return getParameter(DatabricksJdbcUrlParams.DISCOVERY_MODE).equals("1");
+    return getParameter(
+            DatabricksJdbcUrlParams.OIDC_DISCOVERY_MODE,
+            getParameter(DatabricksJdbcUrlParams.DISCOVERY_MODE))
+        .equals("1");
   }
 
   @Override
@@ -643,7 +648,9 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
 
   @Override
   public String getOAuthRefreshToken() {
-    return getParameter(DatabricksJdbcUrlParams.OAUTH_REFRESH_TOKEN);
+    return getParameter(
+        DatabricksJdbcUrlParams.OAUTH_REFRESH_TOKEN,
+        getParameter(DatabricksJdbcUrlParams.OAUTH_REFRESH_TOKEN_2));
   }
 
   @Override
@@ -701,6 +708,11 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   @Override
   public boolean isSqlExecHybridResultsEnabled() {
     return getParameter(DatabricksJdbcUrlParams.ENABLE_SQL_EXEC_HYBRID_RESULTS).equals("1");
+  }
+
+  @Override
+  public String getAzureTenantId() {
+    return getParameter(DatabricksJdbcUrlParams.AZURE_TENANT_ID);
   }
 
   @Override

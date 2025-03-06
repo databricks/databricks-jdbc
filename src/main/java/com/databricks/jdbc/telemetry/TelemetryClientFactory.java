@@ -4,6 +4,7 @@ import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.api.impl.DatabricksConnection;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
+import com.databricks.sdk.core.DatabricksConfig;
 import com.google.common.annotations.VisibleForTesting;
 import java.util.LinkedHashMap;
 import java.util.concurrent.ExecutorService;
@@ -31,11 +32,14 @@ public class TelemetryClientFactory {
     return INSTANCE;
   }
 
-  public ITelemetryClient getTelemetryClient(IDatabricksConnectionContext connectionContext) {
-    if (connectionContext.isTelemetryEnabled()) {
+  public ITelemetryClient getTelemetryClient(
+      IDatabricksConnectionContext connectionContext, DatabricksConfig databricksConfig) {
+    if (connectionContext != null && connectionContext.isTelemetryEnabled()) {
       return telemetryClients.computeIfAbsent(
           connectionContext.getConnectionUuid(),
-          k -> new TelemetryClient(connectionContext, getTelemetryExecutorService()));
+          k ->
+              new TelemetryClient(
+                  connectionContext, getTelemetryExecutorService(), databricksConfig));
     }
     return NoopTelemetryClient.getInstance();
   }

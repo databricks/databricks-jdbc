@@ -12,6 +12,7 @@ import com.databricks.jdbc.common.util.DriverUtil;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
+import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import com.databricks.sdk.WorkspaceClient;
 import com.databricks.sdk.core.CredentialsProvider;
 import com.databricks.sdk.core.DatabricksConfig;
@@ -184,6 +185,19 @@ public class ClientConfigurator {
       } else {
         databricksConfig.setGoogleServiceAccount(connectionContext.getGoogleServiceAccount());
       }
+    } else if (connectionContext.getAzureTenantId() != null) {
+      // If azure tenant id is specified, use Azure Active Directory (AAD) Service Principal OAuth
+      LOGGER.debug("Using Azure Active Directory (AAD) Service Principal OAuth");
+      if (connectionContext.getCloud() != Cloud.AZURE) {
+        throw new DatabricksParsingException(
+            "Azure client credentials flow is only supported for Azure cloud",
+            DatabricksDriverErrorCode.UNSUPPORTED_OPERATION);
+      }
+      databricksConfig
+          .setAuthType(M2M_AZURE_CLIENT_SECRET_AUTH_TYPE)
+          .setAzureClientId(connectionContext.getClientId())
+          .setAzureClientSecret(connectionContext.getClientSecret())
+          .setAzureTenantId(connectionContext.getAzureTenantId());
     } else {
       databricksConfig
           .setAuthType(DatabricksJdbcConstants.M2M_AUTH_TYPE)

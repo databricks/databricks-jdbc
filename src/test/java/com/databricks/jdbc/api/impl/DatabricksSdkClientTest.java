@@ -267,6 +267,15 @@ public class DatabricksSdkClientTest {
     verify(apiClient).POST(eq(path), eq(request), eq(Void.class), eq(headers));
   }
 
+  @Test
+  public void testGetDatabricksConfig() throws Exception {
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContext.parse(JDBC_URL, new Properties());
+    DatabricksSdkClient databricksSdkClient =
+        new DatabricksSdkClient(connectionContext, statementExecutionService, apiClient);
+    assertNotNull(databricksSdkClient.getDatabricksConfig());
+  }
+
   private StatementParameterListItem getParam(String type, String value, int ordinal) {
     return new PositionalStatementParameterListItem()
         .setOrdinal(ordinal)
