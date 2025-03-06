@@ -122,8 +122,7 @@ public interface ObjectConverter {
       return (DatabricksArray) object;
     }
     throw new DatabricksSQLException(
-        "Unsupported Array conversion operation",
-        DatabricksDriverErrorCode.UNSUPPORTED_OPERATION);
+        "Unsupported Array conversion operation", DatabricksDriverErrorCode.UNSUPPORTED_OPERATION);
   }
 
   default DatabricksMap toDatabricksMap(Object object) throws DatabricksSQLException {
@@ -131,8 +130,7 @@ public interface ObjectConverter {
       return (DatabricksMap) object;
     }
     throw new DatabricksSQLException(
-        "Unsupported Map conversion operation",
-        DatabricksDriverErrorCode.UNSUPPORTED_OPERATION);
+        "Unsupported Map conversion operation", DatabricksDriverErrorCode.UNSUPPORTED_OPERATION);
   }
 
   default DatabricksStruct toDatabricksStruct(Object object) throws DatabricksSQLException {
@@ -140,8 +138,7 @@ public interface ObjectConverter {
       return (DatabricksStruct) object;
     }
     throw new DatabricksSQLException(
-        "Unsupported Struct conversion operation",
-        DatabricksDriverErrorCode.UNSUPPORTED_OPERATION);
+        "Unsupported Struct conversion operation", DatabricksDriverErrorCode.UNSUPPORTED_OPERATION);
   }
 
   default InputStream toBinaryStream(Object object) throws DatabricksSQLException {
