@@ -62,6 +62,7 @@ import org.apache.hc.core5.util.Timeout;
 public class FakeServiceHttpClientFactory implements HttpClientFactory {
   private final String userAgent;
 
+  // Comment
   public FakeServiceHttpClientFactory(String userAgent) {
     this.userAgent = userAgent;
   }
