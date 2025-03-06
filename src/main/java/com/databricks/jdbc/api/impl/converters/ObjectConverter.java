@@ -1,5 +1,8 @@
 package com.databricks.jdbc.api.impl.converters;
 
+import com.databricks.jdbc.api.impl.DatabricksArray;
+import com.databricks.jdbc.api.impl.DatabricksMap;
+import com.databricks.jdbc.api.impl.DatabricksStruct;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import java.io.*;
@@ -112,6 +115,30 @@ public interface ObjectConverter {
   default Date toDate(Object object) throws DatabricksSQLException {
     throw new DatabricksSQLException(
         "Unsupported Date conversion operation", DatabricksDriverErrorCode.UNSUPPORTED_OPERATION);
+  }
+
+  default DatabricksArray toDatabricksArray(Object object) throws DatabricksSQLException {
+    if (object instanceof DatabricksArray) {
+      return (DatabricksArray) object;
+    }
+    throw new DatabricksSQLException(
+        "Unsupported Array conversion operation", DatabricksDriverErrorCode.UNSUPPORTED_OPERATION);
+  }
+
+  default DatabricksMap toDatabricksMap(Object object) throws DatabricksSQLException {
+    if (object instanceof DatabricksMap) {
+      return (DatabricksMap) object;
+    }
+    throw new DatabricksSQLException(
+        "Unsupported Map conversion operation", DatabricksDriverErrorCode.UNSUPPORTED_OPERATION);
+  }
+
+  default DatabricksStruct toDatabricksStruct(Object object) throws DatabricksSQLException {
+    if (object instanceof DatabricksStruct) {
+      return (DatabricksStruct) object;
+    }
+    throw new DatabricksSQLException(
+        "Unsupported Struct conversion operation", DatabricksDriverErrorCode.UNSUPPORTED_OPERATION);
   }
 
   default InputStream toBinaryStream(Object object) throws DatabricksSQLException {
