@@ -4,6 +4,7 @@ import static com.databricks.jdbc.common.MetadataResultConstants.NULL_STRING;
 
 import com.databricks.jdbc.api.impl.ImmutableSqlParameter;
 import com.databricks.jdbc.exception.DatabricksValidationException;
+import com.databricks.sdk.service.sql.ColumnInfoTypeName;
 import java.util.Map;
 
 public class SQLInterpolator {
@@ -15,6 +16,9 @@ public class SQLInterpolator {
   private static String formatObject(ImmutableSqlParameter object) {
     if (object == null || object.value() == null) {
       return NULL_STRING;
+    } else if (object.type() == ColumnInfoTypeName.BINARY) {
+      // Don't wrap within quotes. Don't treat hex literals as string.
+      return object.value().toString();
     } else if (object.value() instanceof String) {
       return "'" + escapeApostrophes((String) object.value()) + "'";
     } else {

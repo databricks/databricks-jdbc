@@ -199,6 +199,25 @@ public class IntegrationTestUtil {
     return DriverManager.getConnection(jdbcUrl, getDatabricksUser(), getDatabricksToken());
   }
 
+  public static Connection getValidJDBCConnection(Properties connectionProperties)
+      throws SQLException {
+    connectionProperties.put(DatabricksJdbcUrlParams.USER.getParamName(), getDatabricksUser());
+    connectionProperties.put(DatabricksJdbcUrlParams.PASSWORD.getParamName(), getDatabricksToken());
+
+    if (DriverUtil.isRunningAgainstFake()) {
+      connectionProperties.put(
+          DatabricksJdbcUrlParams.CONN_CATALOG.getParamName(),
+          FakeServiceConfigLoader.getProperty(DatabricksJdbcUrlParams.CONN_CATALOG.getParamName()));
+      connectionProperties.put(
+          DatabricksJdbcUrlParams.CONN_SCHEMA.getParamName(),
+          FakeServiceConfigLoader.getProperty(DatabricksJdbcUrlParams.CONN_SCHEMA.getParamName()));
+
+      return DriverManager.getConnection(getFakeServiceJDBCUrl(), connectionProperties);
+    }
+
+    return DriverManager.getConnection(getJDBCUrl(), connectionProperties);
+  }
+
   public static Connection getDogfoodJDBCConnection() throws SQLException {
     return DriverManager.getConnection(
         getDogfoodJDBCUrl(), getDatabricksUser(), getDatabricksDogfoodToken());

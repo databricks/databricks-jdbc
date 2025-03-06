@@ -2,6 +2,7 @@ package com.databricks.jdbc.api.impl;
 
 import static com.databricks.jdbc.common.Nullable.NULLABLE;
 import static com.databricks.jdbc.common.util.DatabricksThriftUtil.getTypeFromTypeDesc;
+import static com.databricks.jdbc.common.util.DatabricksTypeUtil.TIMESTAMP;
 import static com.databricks.jdbc.common.util.DatabricksTypeUtil.VARIANT;
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -98,6 +99,26 @@ public class DatabricksResultSetMetaDataTest {
     assertEquals("col2", metaData.getColumnName(3));
     assertEquals(10, metaData.getTotalRows());
     assertEquals(2, metaData.getColumnNameIndex("col2"));
+  }
+
+  @Test
+  public void testColumnsWithTimestampNTZ() throws SQLException {
+    ResultManifest resultManifest = new ResultManifest();
+    resultManifest.setTotalRowCount(10L);
+    ResultSchema schema = new ResultSchema();
+    schema.setColumnCount(1L);
+
+    ColumnInfo timestampColumnInfo = getColumn("timestamp_ntz", null, "TIMESTAMP_NTZ");
+    schema.setColumns(List.of(timestampColumnInfo));
+    resultManifest.setSchema(schema);
+
+    DatabricksResultSetMetaData metaData =
+        new DatabricksResultSetMetaData(STATEMENT_ID, resultManifest);
+    assertEquals(1, metaData.getColumnCount());
+    assertEquals("timestamp_ntz", metaData.getColumnName(1));
+    assertEquals(TIMESTAMP, metaData.getColumnTypeName(1));
+    assertEquals(Types.TIMESTAMP, metaData.getColumnType(1));
+    assertEquals(10, metaData.getTotalRows());
   }
 
   @Test

@@ -14,6 +14,7 @@ import java.sql.Date;
 import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.time.Instant;
+import java.time.LocalDateTime;
 import java.util.*;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
@@ -83,6 +84,16 @@ public class ArrowToJavaObjectConverterTest {
 
     assertInstanceOf(Short.class, convertedObject);
     assertEquals(convertedObject, (short) 4);
+  }
+
+  @Test
+  public void testTimestampNTZConversion() throws SQLException {
+    // create a local timestamp object
+    LocalDateTime localDateTime = LocalDateTime.of(2023, 8, 29, 12, 34, 56);
+    Object convertedObject = ArrowToJavaObjectConverter.convert(localDateTime, null, "TIMESTAMP");
+
+    assertInstanceOf(Timestamp.class, convertedObject);
+    assertEquals(Timestamp.valueOf(localDateTime), convertedObject);
   }
 
   @Test

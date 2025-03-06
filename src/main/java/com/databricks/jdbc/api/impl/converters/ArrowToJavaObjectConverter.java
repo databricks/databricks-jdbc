@@ -3,6 +3,7 @@ package com.databricks.jdbc.api.impl.converters;
 import static com.databricks.jdbc.common.util.DatabricksTypeUtil.ARRAY;
 import static com.databricks.jdbc.common.util.DatabricksTypeUtil.MAP;
 import static com.databricks.jdbc.common.util.DatabricksTypeUtil.STRUCT;
+import static com.databricks.jdbc.common.util.DatabricksTypeUtil.TIMESTAMP;
 import static com.databricks.jdbc.common.util.DatabricksTypeUtil.VARIANT;
 
 import com.databricks.jdbc.api.impl.*;
@@ -69,6 +70,9 @@ public class ArrowToJavaObjectConverter {
       }
       if (arrowMetadata.startsWith(VARIANT)) {
         requiredType = ColumnInfoTypeName.STRING;
+      }
+      if (arrowMetadata.startsWith(TIMESTAMP)) { // for timestamp_ntz column
+        requiredType = ColumnInfoTypeName.TIMESTAMP;
       }
     }
     if (object == null) {
@@ -137,6 +141,10 @@ public class ArrowToJavaObjectConverter {
   private static Object convertToTimestamp(Object object) throws DatabricksSQLException {
     if (object instanceof Text) {
       return convertArrowTextToTimestamp(object.toString());
+    }
+    if (object instanceof java.time.LocalDateTime) {
+      // timestamp_ntz result is returned as local date time
+      return Timestamp.valueOf((LocalDateTime) object);
     }
     // Divide by 1000 since we need to convert from microseconds to milliseconds.
     Instant instant =
