@@ -1,0 +1,25 @@
+{
+  "id" : "c2a92766-c1fb-4ba0-a5b1-60da921194fb",
+  "name" : "oregon-staging_6051921418418893.jobs_sql_2025-03-06_17_results_2025-03-06t173624z_a893a176-4dc6-4e98-a0da-7a60706436cd",
+  "request" : {
+    "urlPath" : "/oregon-staging/6051921418418893.jobs/sql/2025-03-06/17/results_2025-03-06T17%3A36%3A24Z_a893a176-4dc6-4e98-a0da-7a60706436cd",
+    "method" : "GET"
+  },
+  "response" : {
+    "status" : 200,
+    "bodyFileName" : "oregon-staging_6051921418418893.jobs_sql_2025-03-06_17_results_2025-03-06t173624z_a893a176-4dc6-4e98-a0da-7a60706436cd-c2a92766-c1fb-4ba0-a5b1-60da921194fb.txt",
+    "headers" : {
+      "Accept-Ranges" : "bytes",
+      "Server" : "AmazonS3",
+      "ETag" : "\"bd12c79bc503fc8fb7c95e22ac6174f4\"",
+      "Last-Modified" : "Thu, 06 Mar 2025 17:36:25 GMT",
+      "x-amz-request-id" : "PNCAQZBPR7A02TXY",
+      "x-amz-server-side-encryption" : "AES256",
+      "x-amz-id-2" : "Ga0eAbKvLmSBob+7eDX9Z8lKuZ+tGOchLyOxA9m1mpb4I0JTdjZvCtKuD5ihqoXvPpRQu+1TFgo4F/gM4u5b2A==",
+      "Date" : "Thu, 06 Mar 2025 17:36:27 GMT",
+      "Content-Type" : "binary/octet-stream"
+    }
+  },
+  "uuid" : "c2a92766-c1fb-4ba0-a5b1-60da921194fb",
+  "insertionIndex" : 2
+}
