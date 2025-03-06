@@ -1,19 +1,19 @@
 {
-  "id" : "55104aa6-822a-41cd-a440-de695ac0565f",
+  "id" : "3fe100a0-9a41-43b3-a0e0-e92ada3c45df",
   "name" : "sql_protocolv1_o_6051921418418893_0819-204509-hill72",
   "request" : {
     "url" : "/sql/protocolv1/o/6051921418418893/0819-204509-hill72",
     "method" : "POST",
     "bodyPatterns" : [ {
-      "binaryEqualTo" : "gAEAAQAAAAtPcGVuU2Vzc2lvbgAAAAEMAAEIAAH////5DQAECwsAAAAACgUCAAAAAAAApQkMBQQLAAEAAAAFU1BBUksLAAIAAAAHZGVmYXVsdAACBQUBAAA="
+      "binaryEqualTo" : "gAEAAQAAAAxDbG9zZVNlc3Npb24AAAACDAABDAABDAABCwABAAAAEE00Smqy2kTVv8NK75xThP0LAAIAAAAQ0/TA0JalTD6YdHcIT5O8kAAAAAA="
     } ]
   },
   "response" : {
     "status" : 200,
-    "base64Body" : "gAEAAgAAAAtPcGVuU2Vzc2lvbgAAAAEMAAAMAAEIAAEAAAAAAAgAAgAApQgMAAMMAAELAAEAAAAQgWAbxY+CTCKWQdka5SkhSwsAAgAAABBDu1+Z3JtHyIjir3C/5d7VBg0BAAAACA0BAAClCAANAAQLCwAAAAAMBQQLAAEAAAAFc3BhcmsLAAIAAAAHZGVmYXVsdAACBQUBAAA=",
+    "base64Body" : "gAEAAgAAAAxDbG9zZVNlc3Npb24AAAACDAAADAABCAABAAAAAAAAAA==",
     "headers" : {
-      "x-request-id" : "438e801a-f747-48f1-9b2e-86b11e9bfcab",
-      "date" : "Wed, 05 Mar 2025 17:15:37 GMT,Wed, 05 Mar 2025 17:15:37 GMT",
+      "x-request-id" : "28aa636d-6640-4be0-9e15-043944306f00",
+      "date" : "Thu, 06 Mar 2025 08:16:43 GMT,Thu, 06 Mar 2025 08:16:43 GMT",
       "server" : "databricks",
       "x-databricks-popp-response-code-details" : "via_upstream",
       "x-databricks-shard-debug" : "oregon-staging",
@@ -27,6 +27,6 @@
       "x-databricks-apiproxy-response-code-details" : "via_upstream"
     }
   },
-  "uuid" : "55104aa6-822a-41cd-a440-de695ac0565f",
-  "insertionIndex" : 5
+  "uuid" : "3fe100a0-9a41-43b3-a0e0-e92ada3c45df",
+  "insertionIndex" : 4
 }
