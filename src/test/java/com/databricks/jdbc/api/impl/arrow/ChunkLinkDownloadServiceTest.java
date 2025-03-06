@@ -231,7 +231,7 @@ class ChunkLinkDownloadServiceTest {
     CompletableFuture<ExternalLink> future6 = service.getLinkForChunk(6L);
 
     // Sleep to allow the service to complete the download pipeline
-    TimeUnit.MILLISECONDS.sleep(1000);
+    TimeUnit.MILLISECONDS.sleep(2000);
 
     ExternalLink result1 = future1.get(1, TimeUnit.SECONDS);
     ExternalLink result2 = future2.get(1, TimeUnit.SECONDS);

@@ -1,5 +1,11 @@
 package com.databricks.jdbc.api.impl.converters;
 
+import static com.databricks.jdbc.common.util.DatabricksTypeUtil.ARRAY;
+import static com.databricks.jdbc.common.util.DatabricksTypeUtil.MAP;
+import static com.databricks.jdbc.common.util.DatabricksTypeUtil.STRUCT;
+import static com.databricks.jdbc.common.util.DatabricksTypeUtil.TIMESTAMP;
+import static com.databricks.jdbc.common.util.DatabricksTypeUtil.VARIANT;
+
 import com.databricks.jdbc.api.impl.*;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
@@ -53,14 +59,20 @@ public class ArrowToJavaObjectConverter {
   public static Object convert(Object object, ColumnInfoTypeName requiredType, String arrowMetadata)
       throws DatabricksSQLException {
     if (arrowMetadata != null) {
-      if (arrowMetadata.startsWith("ARRAY")) {
+      if (arrowMetadata.startsWith(ARRAY)) {
         requiredType = ColumnInfoTypeName.ARRAY;
       }
-      if (arrowMetadata.startsWith("STRUCT")) {
+      if (arrowMetadata.startsWith(STRUCT)) {
         requiredType = ColumnInfoTypeName.STRUCT;
       }
-      if (arrowMetadata.startsWith("MAP")) {
+      if (arrowMetadata.startsWith(MAP)) {
         requiredType = ColumnInfoTypeName.MAP;
+      }
+      if (arrowMetadata.startsWith(VARIANT)) {
+        requiredType = ColumnInfoTypeName.STRING;
+      }
+      if (arrowMetadata.startsWith(TIMESTAMP)) { // for timestamp_ntz column
+        requiredType = ColumnInfoTypeName.TIMESTAMP;
       }
     }
     if (object == null) {
@@ -129,6 +141,10 @@ public class ArrowToJavaObjectConverter {
   private static Object convertToTimestamp(Object object) throws DatabricksSQLException {
     if (object instanceof Text) {
       return convertArrowTextToTimestamp(object.toString());
+    }
+    if (object instanceof java.time.LocalDateTime) {
+      // timestamp_ntz result is returned as local date time
+      return Timestamp.valueOf((LocalDateTime) object);
     }
     // Divide by 1000 since we need to convert from microseconds to milliseconds.
     Instant instant =

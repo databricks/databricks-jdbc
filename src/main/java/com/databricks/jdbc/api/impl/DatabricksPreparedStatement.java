@@ -1,14 +1,15 @@
 package com.databricks.jdbc.api.impl;
 
+import static com.databricks.jdbc.common.util.DatabricksTypeUtil.NULL;
 import static com.databricks.jdbc.common.util.DatabricksTypeUtil.getDatabricksTypeFromSQLType;
 import static com.databricks.jdbc.common.util.DatabricksTypeUtil.inferDatabricksType;
 import static com.databricks.jdbc.common.util.SQLInterpolator.interpolateSQL;
 
-import com.databricks.jdbc.common.AllPurposeCluster;
 import com.databricks.jdbc.common.StatementType;
 import com.databricks.jdbc.common.util.DatabricksTypeUtil;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.exception.DatabricksSQLFeatureNotImplementedException;
+import com.databricks.jdbc.exception.DatabricksSQLFeatureNotSupportedException;
 import com.databricks.jdbc.exception.DatabricksValidationException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
@@ -18,6 +19,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.Reader;
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.net.URL;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
@@ -39,9 +41,7 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
   public DatabricksPreparedStatement(DatabricksConnection connection, String sql) {
     super(connection);
     this.sql = sql;
-    this.interpolateParameters =
-        connection.getConnectionContext().supportManyParameters()
-            || connection.getConnectionContext().getComputeResource() instanceof AllPurposeCluster;
+    this.interpolateParameters = connection.getConnectionContext().supportManyParameters();
     this.databricksParameterMetaData = new DatabricksParameterMetaData();
     this.databricksBatchParameterMetaData = new ArrayList<>();
   }
@@ -150,11 +150,53 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
     setObject(parameterIndex, x, DatabricksTypeUtil.STRING);
   }
 
+  /*
+   * Sets the designated parameter to the given array of bytes. The driver converts this to hex literal in the format X'hex' and interpolate it into the SQL statement.
+   * Works only when supportManyParameters is enabled in the connection string.
+
+   * @param parameterIndex – the first parameter is 1, the second is 2, ...
+   * @param x – the parameter value
+   * @throws SQLException - if a database access error occurs or this method is called on a closed PreparedStatement
+   * @throws DatabricksSQLFeatureNotSupportedException - if parameter interpolation is not enabled
+  */
   @Override
   public void setBytes(int parameterIndex, byte[] x) throws SQLException {
     LOGGER.debug("public void setBytes(int parameterIndex, byte[] x)");
-    throw new UnsupportedOperationException(
-        "Not implemented in DatabricksPreparedStatement - setBytes(int parameterIndex, byte[] x)");
+    checkIfClosed();
+    if (x == null) {
+      setObject(parameterIndex, null);
+    } else {
+      if (this.interpolateParameters) {
+        setObject(parameterIndex, bytesToHex(x), Types.BINARY);
+      } else {
+        throw new DatabricksSQLFeatureNotSupportedException(
+            "setBytes(int parameterIndex, byte[] x) not supported with parametrised query. Enable supportManyParameters in the connection string to use this method.");
+      }
+    }
+  }
+
+  /**
+   * Converts a byte array to a hexadecimal literal in the format X'hex'.
+   *
+   * <p>Each byte in the array is converted to its hexadecimal representation and concatenated into
+   * a single string prefixed with "X'".
+   *
+   * @param bytes the byte array to convert; must not be null
+   * @return the hexadecimal literal as a string, or null if the input byte array is null
+   */
+  private static String bytesToHex(byte[] bytes) {
+    if (bytes == null) {
+      return null;
+    }
+    char[] hexArray = "0123456789ABCDEF".toCharArray();
+    char[] hexChars = new char[bytes.length * 2];
+    String hexLiteral = "X'";
+    for (int j = 0; j < bytes.length; j++) {
+      int v = bytes[j] & 0xFF;
+      hexChars[j * 2] = hexArray[v >>> 4];
+      hexChars[j * 2 + 1] = hexArray[v & 0x0F];
+    }
+    return hexLiteral + new String(hexChars) + "'";
   }
 
   @Override
@@ -168,8 +210,7 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
   public void setTime(int parameterIndex, Time x) throws SQLException {
     LOGGER.debug("public void setTime(int parameterIndex, Time x)");
     checkIfClosed();
-    throw new UnsupportedOperationException(
-        "Not implemented in DatabricksPreparedStatement - setTime(int parameterIndex, Time x)");
+    throw new DatabricksSQLFeatureNotSupportedException("Unsupported data type TIME");
   }
 
   @Override
@@ -214,12 +255,13 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
     LOGGER.debug("public void setObject(int parameterIndex, Object x, int targetSqlType)");
     checkIfClosed();
     String databricksType = getDatabricksTypeFromSQLType(targetSqlType);
-    if (databricksType != null) {
+    if (!Objects.equals(databricksType, NULL)) {
       setObject(parameterIndex, x, databricksType);
       return;
     }
-    throw new DatabricksSQLFeatureNotImplementedException(
-        "Not implemented in DatabricksPreparedStatement - setObject(int parameterIndex, Object x, int targetSqlType)");
+    throw new DatabricksSQLFeatureNotSupportedException(
+        "setObject(int parameterIndex, Object x, int targetSqlType) Not supported SQL type: "
+            + targetSqlType);
   }
 
   @Override
@@ -231,8 +273,8 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
       setObject(parameterIndex, x, type);
       return;
     }
-    throw new UnsupportedOperationException(
-        "Not implemented in DatabricksPreparedStatement - setObject(int parameterIndex, Object x)");
+    throw new DatabricksSQLFeatureNotSupportedException(
+        "setObject(int parameterIndex, Object x) Not supported object type: " + x.getClass());
   }
 
   @Override
@@ -428,8 +470,36 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
       throws SQLException {
     LOGGER.debug(
         "public void setObject(int parameterIndex, Object x, int targetSqlType, int scaleOrLength)");
-    throw new UnsupportedOperationException(
-        "Not implemented in DatabricksPreparedStatement - setCharacterStream(int parameterIndex, Reader reader)");
+    checkIfClosed();
+
+    if (x == null) {
+      setObject(parameterIndex, null, targetSqlType);
+      return;
+    }
+
+    String databricksType = getDatabricksTypeFromSQLType(targetSqlType);
+    if (Objects.equals(databricksType, NULL)) {
+      throw new DatabricksSQLFeatureNotSupportedException(
+          "setObject(int parameterIndex, Object x, int targetSqlType, int scaleOrLength) Not supported SQL type: "
+              + targetSqlType);
+    }
+
+    if (targetSqlType == Types.DECIMAL || targetSqlType == Types.NUMERIC) {
+      BigDecimal bd;
+      if (x instanceof BigDecimal) {
+        bd = (BigDecimal) x;
+      } else if (x instanceof Number) {
+        // Convert Number to BigDecimal. Using valueOf preserves the value for double inputs.
+        bd = BigDecimal.valueOf(((Number) x).doubleValue());
+      } else {
+        throw new DatabricksSQLException(
+            "Invalid object type for DECIMAL/NUMERIC", DatabricksDriverErrorCode.INVALID_STATE);
+      }
+      bd = bd.setScale(scaleOrLength, RoundingMode.HALF_UP); // Round up to nearest value.
+      setObject(parameterIndex, bd, databricksType);
+    } else {
+      setObject(parameterIndex, x, databricksType);
+    }
   }
 
   @Override

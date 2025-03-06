@@ -349,14 +349,10 @@ public class DatabricksConnectionTest {
         DatabricksSQLFeatureNotImplementedException.class,
         () -> connection.prepareCall(SQL, 1, 1, 1));
     assertThrows(
-        DatabricksSQLFeatureNotImplementedException.class,
+        DatabricksSQLFeatureNotSupportedException.class,
         () -> connection.prepareStatement(SQL, 1, 1, 1));
     assertThrows(
-        DatabricksSQLFeatureNotImplementedException.class,
-        () -> connection.prepareStatement(SQL, 1));
-    assertThrows(
-        DatabricksSQLFeatureNotImplementedException.class,
-        () -> connection.prepareStatement(SQL, 1));
+        DatabricksSQLFeatureNotSupportedException.class, () -> connection.prepareStatement(SQL, 1));
     assertThrows(
         DatabricksSQLFeatureNotImplementedException.class,
         () -> connection.createStatement(1, 1, 1));
@@ -368,10 +364,10 @@ public class DatabricksConnectionTest {
     assertThrows(DatabricksSQLFeatureNotImplementedException.class, connection::createNClob);
     assertThrows(DatabricksSQLFeatureNotImplementedException.class, connection::createSQLXML);
     assertThrows(
-        DatabricksSQLFeatureNotImplementedException.class,
+        DatabricksSQLFeatureNotSupportedException.class,
         () -> connection.prepareStatement(SQL, new int[0]));
     assertThrows(
-        DatabricksSQLFeatureNotImplementedException.class,
+        DatabricksSQLFeatureNotSupportedException.class,
         () -> connection.prepareStatement(SQL, new String[0]));
     assertThrows(
         DatabricksSQLFeatureNotImplementedException.class, () -> connection.rollback(null));

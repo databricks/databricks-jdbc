@@ -2,9 +2,8 @@ package com.databricks.jdbc.dbclient.impl.common;
 
 import static com.databricks.jdbc.TestConstants.TEST_DISCOVERY_URL;
 import static com.databricks.jdbc.common.DatabricksJdbcConstants.GCP_GOOGLE_CREDENTIALS_AUTH_TYPE;
-import static com.databricks.jdbc.dbclient.impl.common.ConfiguratorUtilsTest.*;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static com.databricks.jdbc.common.DatabricksJdbcConstants.M2M_AZURE_CLIENT_SECRET_AUTH_TYPE;
+import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 import com.databricks.jdbc.api.IDatabricksConnectionContext;
@@ -18,6 +17,7 @@ import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.sdk.WorkspaceClient;
 import com.databricks.sdk.core.CredentialsProvider;
 import com.databricks.sdk.core.DatabricksConfig;
+import com.databricks.sdk.core.DatabricksException;
 import com.databricks.sdk.core.ProxyConfig;
 import com.databricks.sdk.core.commons.CommonsHttpClient;
 import com.databricks.sdk.core.utils.Cloud;
@@ -267,5 +267,52 @@ public class ClientConfiguratorTest {
     assertEquals("proxyUser", proxyConfig.getUsername());
     assertEquals("proxyPass", proxyConfig.getPassword());
     assertEquals("*.example.com|localhost", proxyConfig.getNonProxyHosts());
+  }
+
+  @Test
+  void setupM2MConfig_WithAzureTenantId_ConfiguresCorrectly() throws DatabricksParsingException {
+    when(mockContext.getAuthMech()).thenReturn(AuthMech.OAUTH);
+    when(mockContext.getAuthFlow()).thenReturn(AuthFlow.CLIENT_CREDENTIALS);
+    when(mockContext.getHostForOAuth()).thenReturn("https://azure-oauth.databricks.com");
+    when(mockContext.getHttpConnectionPoolSize()).thenReturn(100);
+    when(mockContext.getAzureTenantId()).thenReturn("azure-tenant-id");
+    when(mockContext.getCloud()).thenReturn(Cloud.AZURE);
+    when(mockContext.getClientId()).thenReturn("azure-client-id");
+    when(mockContext.getClientSecret()).thenReturn("azure-client-secret");
+
+    configurator = new ClientConfigurator(mockContext);
+
+    DatabricksConfig config = configurator.getDatabricksConfig();
+    assertEquals("https://azure-oauth.databricks.com", config.getHost());
+    assertEquals(M2M_AZURE_CLIENT_SECRET_AUTH_TYPE, config.getAuthType());
+    assertEquals("azure-client-id", config.getAzureClientId());
+    assertEquals("azure-client-secret", config.getAzureClientSecret());
+    assertEquals("azure-tenant-id", config.getAzureTenantId());
+
+    verify(mockContext, times(2)).getAzureTenantId();
+    verify(mockContext, times(2)).getCloud();
+    verify(mockContext).getClientId();
+    verify(mockContext).getClientSecret();
+  }
+
+  @Test
+  void setupM2MConfig_WithAzureTenantIdButNonAzureCloud_ThrowsException()
+      throws DatabricksParsingException {
+    when(mockContext.getAuthMech()).thenReturn(AuthMech.OAUTH);
+    when(mockContext.getAuthFlow()).thenReturn(AuthFlow.CLIENT_CREDENTIALS);
+    when(mockContext.getHostForOAuth()).thenReturn("https://azure-oauth.databricks.com");
+    when(mockContext.getHttpConnectionPoolSize()).thenReturn(100);
+    when(mockContext.getAzureTenantId()).thenReturn("azure-tenant-id");
+    when(mockContext.getCloud()).thenReturn(Cloud.AWS);
+
+    DatabricksException exception =
+        assertThrows(DatabricksException.class, () -> new ClientConfigurator(mockContext));
+
+    assertEquals(
+        "Azure client credentials flow is only supported for Azure cloud",
+        exception.getCause().getMessage());
+
+    verify(mockContext).getAzureTenantId();
+    verify(mockContext, times(2)).getCloud();
   }
 }

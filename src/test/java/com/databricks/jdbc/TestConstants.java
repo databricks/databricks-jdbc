@@ -51,51 +51,78 @@ public class TestConstants {
       "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=http;ssl=1;httpPath=sql/protocolv1/o/6051921418418893/1115-130834-ms4m0yv;AuthMech=3;UserAgentEntry=TEST/24.2.0.2712019";
   public static final String CLUSTER_JDBC_URL =
       "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=http;ssl=1;httpPath=sql/protocolv1/o/6051921418418893/1115-130834-ms4m0yv;AuthMech=3;UserAgentEntry=MyApp";
-  public static final TRowSet binaryRowSet =
+  public static final List<ByteBuffer> BINARY_ROW_SET_VALUES =
+      List.of(ByteBuffer.wrap(TEST_STRING.getBytes()));
+  public static final List<Boolean> BOOL_ROW_SET_VALUES = List.of(false, true, false, true);
+  public static final List<Byte> BYTE_ROW_SET_VALUES =
+      List.of((byte) 5, (byte) 4, (byte) 3, (byte) 2, (byte) 1);
+  public static final List<Double> DOUBLE_ROW_SET_VALUES = List.of(1.0, 2.0, 3.0, 4.0, 5.0, 6.0);
+  public static final List<Short> SHORT_ROW_SET_VALUES =
+      List.of((short) 1, (short) 2, (short) 3, (short) 4);
+  public static final List<Integer> INT_ROW_SET_VALUES = List.of(143, 243, 343, 443);
+  public static final List<Long> LONG_ROW_SET_VALUES =
+      List.of(1344343433L, 243433343443L, 3434343433443L, 443434343434L);
+  public static final List<String> STRING_ROW_SET_VALUES =
+      List.of(TEST_STRING, TEST_STRING, TEST_STRING);
+  public static final TRowSet BINARY_ROW_SET =
       new TRowSet()
           .setColumns(
               Collections.singletonList(
-                  TColumn.binaryVal(
-                      new TBinaryColumn()
-                          .setValues(
-                              Collections.singletonList(
-                                  ByteBuffer.wrap(TEST_STRING.getBytes()))))));
-  public static final TRowSet boolRowSet =
+                  TColumn.binaryVal(new TBinaryColumn().setValues(BINARY_ROW_SET_VALUES))));
+  public static final TRowSet BOOL_ROW_SET =
       new TRowSet()
           .setColumns(
               Collections.singletonList(
-                  TColumn.boolVal(new TBoolColumn().setValues(List.of(false, true, false, true)))));
-  public static final TRowSet byteRowSet =
+                  TColumn.boolVal(new TBoolColumn().setValues(BOOL_ROW_SET_VALUES))));
+  public static final TRowSet BYTE_ROW_SET =
       new TRowSet()
           .setColumns(
               Collections.singletonList(
-                  TColumn.byteVal(new TByteColumn().setValues(List.of((byte) 5)))));
-  public static final TRowSet doubleRowSet =
+                  TColumn.byteVal(new TByteColumn().setValues(BYTE_ROW_SET_VALUES))));
+  public static final TRowSet DOUBLE_ROW_SET =
       new TRowSet()
           .setColumns(
               Collections.singletonList(
+                  TColumn.doubleVal(new TDoubleColumn().setValues(DOUBLE_ROW_SET_VALUES))));
+  public static final TRowSet I16_ROW_SET =
+      new TRowSet()
+          .setColumns(
+              Collections.singletonList(
+                  TColumn.i16Val(new TI16Column().setValues(SHORT_ROW_SET_VALUES))));
+  public static final TRowSet I32_ROW_SET =
+      new TRowSet()
+          .setColumns(
+              Collections.singletonList(
+                  TColumn.i32Val(new TI32Column().setValues(INT_ROW_SET_VALUES))));
+  public static final TRowSet I64_ROW_SET =
+      new TRowSet()
+          .setColumns(
+              Collections.singletonList(
+                  TColumn.i64Val(new TI64Column().setValues(LONG_ROW_SET_VALUES))));
+  public static final TRowSet STRING_ROW_SET =
+      new TRowSet()
+          .setColumns(
+              Collections.singletonList(
+                  TColumn.stringVal(new TStringColumn().setValues(STRING_ROW_SET_VALUES))));
+  public static final int MIXED_ROW_SET_COUNT =
+      Collections.min(
+          List.of(
+              BYTE_ROW_SET_VALUES.size(),
+              DOUBLE_ROW_SET_VALUES.size(),
+              STRING_ROW_SET_VALUES.size()));
+  public static final TRowSet MIXED_ROW_SET =
+      new TRowSet()
+          .setColumns(
+              List.of(
+                  TColumn.byteVal(
+                      new TByteColumn()
+                          .setValues(BYTE_ROW_SET_VALUES.subList(0, MIXED_ROW_SET_COUNT))),
                   TColumn.doubleVal(
-                      new TDoubleColumn().setValues(List.of(1.0, 2.0, 3.0, 4.0, 5.0, 6.0)))));
-  public static final TRowSet i16RowSet =
-      new TRowSet()
-          .setColumns(
-              Collections.singletonList(
-                  TColumn.i16Val(new TI16Column().setValues(List.of((short) 1)))));
-  public static final TRowSet i32RowSet =
-      new TRowSet()
-          .setColumns(
-              Collections.singletonList(TColumn.i32Val(new TI32Column().setValues(List.of(1)))));
-  public static final TRowSet i64RowSet =
-      new TRowSet()
-          .setColumns(
-              Collections.singletonList(
-                  TColumn.i64Val(new TI64Column().setValues(List.of(1L, 5L)))));
-  public static final TRowSet stringRowSet =
-      new TRowSet()
-          .setColumns(
-              Collections.singletonList(
+                      new TDoubleColumn()
+                          .setValues(DOUBLE_ROW_SET_VALUES.subList(0, MIXED_ROW_SET_COUNT))),
                   TColumn.stringVal(
-                      new TStringColumn().setValues(List.of(TEST_STRING, TEST_STRING)))));
+                      new TStringColumn()
+                          .setValues(STRING_ROW_SET_VALUES.subList(0, MIXED_ROW_SET_COUNT)))));
   private static final TColumnDesc TEST_COLUMN_DESCRIPTION =
       new TColumnDesc().setColumnName("testCol");
   public static final TTableSchema TEST_TABLE_SCHEMA =

@@ -3,11 +3,10 @@ package com.databricks.jdbc.api.impl.converters;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import java.math.BigDecimal;
 import java.math.BigInteger;
-import java.sql.Time;
-import java.sql.Timestamp;
-import java.sql.Types;
+import java.sql.*;
 import java.time.LocalDate;
 import java.util.*;
+import java.util.Date;
 
 public class ConverterHelper {
 
@@ -122,6 +121,12 @@ public class ConverterHelper {
       return converter.toByteArray(obj);
     } else if (javaType == char.class || javaType == Character.class) {
       return converter.toChar(obj);
+    } else if (javaType == Map.class) {
+      return converter.toDatabricksMap(obj);
+    } else if (javaType == Array.class) {
+      return converter.toDatabricksArray(obj);
+    } else if (javaType == Struct.class) {
+      return converter.toDatabricksStruct(obj);
     }
     return converter.toString(obj); // By default, convert to string
   }

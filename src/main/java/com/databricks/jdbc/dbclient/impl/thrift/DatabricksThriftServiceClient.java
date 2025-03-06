@@ -2,6 +2,7 @@ package com.databricks.jdbc.dbclient.impl.thrift;
 
 import static com.databricks.jdbc.common.EnvironmentVariables.JDBC_THRIFT_VERSION;
 import static com.databricks.jdbc.common.util.DatabricksThriftUtil.*;
+import static com.databricks.jdbc.common.util.DatabricksTypeUtil.DECIMAL;
 import static com.databricks.jdbc.dbclient.impl.common.MetadataResultSetBuilder.*;
 import static com.databricks.jdbc.dbclient.impl.sqlexec.ResultConstants.TYPE_INFO_RESULT;
 
@@ -24,10 +25,13 @@ import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.model.client.thrift.generated.*;
 import com.databricks.jdbc.model.core.ExternalLink;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
+import com.databricks.sdk.core.DatabricksConfig;
 import com.google.common.annotations.VisibleForTesting;
+import java.math.BigDecimal;
 import java.sql.SQLException;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Collectors;
 
 public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabricksMetadataClient {
 
@@ -119,32 +123,15 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
       IDatabricksSession session,
       IDatabricksStatementInternal parentStatement)
       throws SQLException {
-    // Note that prepared statement is not supported by SEA/Thrift flow.
+
     LOGGER.debug(
         String.format(
             "public DatabricksResultSet executeStatement(String sql = {%s}, Compute cluster = {%s}, Map<Integer, ImmutableSqlParameter> parameters = {%s}, StatementType statementType = {%s}, IDatabricksSession session)",
             sql, computeResource.toString(), parameters.toString(), statementType));
+
     DatabricksThreadContextHolder.setStatementType(statementType);
-    TSparkArrowTypes arrowNativeTypes =
-        new TSparkArrowTypes()
-            .setComplexTypesAsArrow(true)
-            .setIntervalTypesAsArrow(true)
-            .setNullTypeAsArrow(true)
-            .setDecimalAsArrow(true)
-            .setTimestampAsArrow(true);
-    TExecuteStatementReq request =
-        new TExecuteStatementReq()
-            .setStatement(sql)
-            .setSessionHandle(Objects.requireNonNull(session.getSessionInfo()).sessionHandle())
-            .setCanDecompressLZ4Result(true)
-            .setQueryTimeout(parentStatement.getStatement().getQueryTimeout())
-            .setCanReadArrowResult(this.connectionContext.shouldEnableArrow())
-            .setCanDownloadResult(true)
-            .setUseArrowNativeTypes(arrowNativeTypes);
-    if (!DriverUtil.isRunningAgainstFake()) {
-      // run queries in async mode if not using fake services
-      request.setRunAsync(true);
-    }
+
+    TExecuteStatementReq request = getRequest(sql, parameters, session, parentStatement, false);
 
     return thriftAccessor.execute(request, parentStatement, session, statementType);
   }
@@ -157,10 +144,41 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
       IDatabricksSession session,
       IDatabricksStatementInternal parentStatement)
       throws SQLException {
+
     LOGGER.debug(
         String.format(
             "public DatabricksResultSet executeStatementAsync(String sql = {%s}, Compute cluster = {%s}, Map<Integer, ImmutableSqlParameter> parameters = {%s})",
             sql, computeResource.toString(), parameters.toString()));
+
+    TExecuteStatementReq request = getRequest(sql, parameters, session, parentStatement, true);
+
+    return thriftAccessor.executeAsync(request, parentStatement, session, StatementType.SQL);
+  }
+
+  private TSparkParameter mapToSparkParameterListItem(ImmutableSqlParameter parameter) {
+    Object value = parameter.value();
+    String typeString = parameter.type().name();
+    if (typeString.equals(DECIMAL)) {
+      // Add precision and scale info to type
+      if (value instanceof BigDecimal) {
+        typeString +=
+            "(" + ((BigDecimal) value).precision() + "," + ((BigDecimal) value).scale() + ")";
+      }
+    }
+    return new TSparkParameter()
+        .setOrdinal(parameter.cardinal())
+        .setType(typeString)
+        .setValue(value != null ? TSparkParameterValue.stringValue(value.toString()) : null);
+  }
+
+  private TExecuteStatementReq getRequest(
+      String sql,
+      Map<Integer, ImmutableSqlParameter> parameters,
+      IDatabricksSession session,
+      IDatabricksStatementInternal parentStatement,
+      boolean runAsync)
+      throws SQLException {
+
     TSparkArrowTypes arrowNativeTypes =
         new TSparkArrowTypes()
             .setComplexTypesAsArrow(true)
@@ -168,6 +186,13 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
             .setNullTypeAsArrow(true)
             .setDecimalAsArrow(true)
             .setTimestampAsArrow(true);
+
+    // Convert the parameters to a list of TSparkParameter objects.
+    List<TSparkParameter> sparkParameters =
+        parameters.values().stream()
+            .map(this::mapToSparkParameterListItem)
+            .collect(Collectors.toList());
+
     TExecuteStatementReq request =
         new TExecuteStatementReq()
             .setStatement(sql)
@@ -175,10 +200,15 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
             .setSessionHandle(Objects.requireNonNull(session.getSessionInfo()).sessionHandle())
             .setCanDecompressLZ4Result(true)
             .setCanReadArrowResult(this.connectionContext.shouldEnableArrow())
-            .setRunAsync(true)
             .setCanDownloadResult(true)
+            .setParameters(sparkParameters)
             .setUseArrowNativeTypes(arrowNativeTypes);
-    return thriftAccessor.executeAsync(request, parentStatement, session, StatementType.SQL);
+
+    if (runAsync || !DriverUtil.isRunningAgainstFake()) {
+      request.setRunAsync(true);
+    }
+
+    return request;
   }
 
   @Override
@@ -263,7 +293,7 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
             .setSessionHandle(Objects.requireNonNull(session.getSessionInfo()).sessionHandle())
             .setRunAsync(true);
     TFetchResultsResp response = (TFetchResultsResp) thriftAccessor.getThriftResponse(request);
-    return getCatalogsResult(extractValuesColumnar(response.getResults().getColumns()));
+    return getCatalogsResult(extractRowsFromColumnar(response.getResults()));
   }
 
   @Override
@@ -283,7 +313,7 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
       request.setSchemaName(schemaNamePattern);
     }
     TFetchResultsResp response = (TFetchResultsResp) thriftAccessor.getThriftResponse(request);
-    return getSchemasResult(extractValuesColumnar(response.getResults().getColumns()));
+    return getSchemasResult(extractRowsFromColumnar(response.getResults()));
   }
 
   @Override
@@ -310,7 +340,7 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
       request.setTableTypes(Arrays.asList(tableTypes));
     }
     TFetchResultsResp response = (TFetchResultsResp) thriftAccessor.getThriftResponse(request);
-    return getTablesResult(catalog, extractValuesColumnar(response.getResults().getColumns()));
+    return getTablesResult(catalog, extractRowsFromColumnar(response.getResults()));
   }
 
   @Override
@@ -343,7 +373,7 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
             .setColumnName(columnNamePattern)
             .setRunAsync(true);
     TFetchResultsResp response = (TFetchResultsResp) thriftAccessor.getThriftResponse(request);
-    return getColumnsResult(extractValuesColumnar(response.getResults().getColumns()));
+    return getColumnsResult(extractRowsFromColumnar(response.getResults()));
   }
 
   @Override
@@ -366,7 +396,7 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
             .setFunctionName(functionNamePattern)
             .setRunAsync(true);
     TFetchResultsResp response = (TFetchResultsResp) thriftAccessor.getThriftResponse(request);
-    return getFunctionsResult(catalog, extractValuesColumnar(response.getResults().getColumns()));
+    return getFunctionsResult(catalog, extractRowsFromColumnar(response.getResults()));
   }
 
   @Override
@@ -385,7 +415,7 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
             .setTableName(table)
             .setRunAsync(true);
     TFetchResultsResp response = (TFetchResultsResp) thriftAccessor.getThriftResponse(request);
-    return getPrimaryKeysResult(extractValues(response.getResults().getColumns()));
+    return getPrimaryKeysResult(extractRowsFromColumnar(response.getResults()));
   }
 
   @Override
@@ -406,7 +436,7 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
             .setForeignTableName(table)
             .setRunAsync(true);
     TFetchResultsResp response = (TFetchResultsResp) thriftAccessor.getThriftResponse(request);
-    return getImportedKeys(extractValues(response.getResults().getColumns()));
+    return getImportedKeys(extractRowsFromColumnar(response.getResults()));
   }
 
   @Override
@@ -427,7 +457,7 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
             .setParentTableName(table)
             .setRunAsync(true);
     TFetchResultsResp response = (TFetchResultsResp) thriftAccessor.getThriftResponse(request);
-    return getExportedKeys(extractValues(response.getResults().getColumns()));
+    return getExportedKeys(extractRowsFromColumnar(response.getResults()));
   }
 
   @Override
@@ -462,12 +492,17 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
             .setForeignTableName(foreignTable)
             .setRunAsync(true);
     TFetchResultsResp response = (TFetchResultsResp) thriftAccessor.getThriftResponse(request);
-    return getCrossRefsResult(extractValues(response.getResults().getColumns()));
+    return getCrossRefsResult(extractRowsFromColumnar(response.getResults()));
   }
 
   public TFetchResultsResp getMoreResults(IDatabricksStatementInternal parentStatement)
       throws DatabricksSQLException {
     return thriftAccessor.getMoreResults(parentStatement);
+  }
+
+  @Override
+  public DatabricksConfig getDatabricksConfig() {
+    return thriftAccessor.getDatabricksConfig();
   }
 
   private TNamespace getNamespace(String catalog, String schema) {

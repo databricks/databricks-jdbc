@@ -1,6 +1,7 @@
 package com.databricks.jdbc.api.impl;
 
 import static com.databricks.jdbc.api.impl.DatabricksResultSet.AFFECTED_ROWS_COUNT;
+import static com.databricks.jdbc.common.util.DatabricksTypeUtil.VARIANT;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.doReturn;
@@ -602,6 +603,30 @@ public class DatabricksResultSetTest {
         SQLException.class,
         () -> resultSet.getMap(1),
         "Expected getMap to fail on invalid data parse");
+  }
+
+  @Test
+  void testGetObjectWithVariant() throws Exception {
+    DatabricksResultSet resultSet = getResultSet(StatementState.SUCCEEDED, null);
+    when(mockedExecutionResult.getObject(2)).thenReturn("testObject");
+    when(mockedResultSetMetadata.getColumnTypeName(anyInt())).thenReturn(VARIANT);
+    assertEquals("testObject", resultSet.getObject(3));
+
+    // null object
+    when(mockedExecutionResult.getObject(2)).thenReturn(null);
+    assertNull(resultSet.getObject(3));
+
+    // non-string type
+    when(mockedExecutionResult.getObject(2)).thenReturn(100);
+    assertThrows(
+        DatabricksSQLException.class,
+        () -> resultSet.getObject(3),
+        "Expected getObject to fail for non-string VARIANT type");
+
+    // Test with column label
+    when(mockedExecutionResult.getObject(2)).thenReturn("testObject");
+    when(mockedResultSetMetadata.getColumnNameIndex("columnLabel")).thenReturn(3);
+    assertEquals("testObject", resultSet.getObject("columnLabel"));
   }
 
   @Test

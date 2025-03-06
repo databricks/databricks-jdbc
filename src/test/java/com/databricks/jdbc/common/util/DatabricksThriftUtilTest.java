@@ -1,7 +1,6 @@
 package com.databricks.jdbc.common.util;
 
 import static com.databricks.jdbc.TestConstants.*;
-import static com.databricks.jdbc.common.MetadataResultConstants.NULL_STRING;
 import static com.databricks.jdbc.common.util.DatabricksThriftUtil.checkDirectResultsForErrorStatus;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.when;
@@ -14,9 +13,7 @@ import com.databricks.jdbc.model.client.thrift.generated.*;
 import com.databricks.sdk.service.sql.ColumnInfoTypeName;
 import com.databricks.sdk.service.sql.StatementState;
 import java.nio.ByteBuffer;
-import java.util.Collections;
-import java.util.List;
-import java.util.UUID;
+import java.util.*;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -88,14 +85,15 @@ public class DatabricksThriftUtilTest {
         Arguments.of(new TRowSet(), 0),
         Arguments.of(new TRowSet().setColumns(Collections.emptyList()), 0),
         Arguments.of(resultChunkRowSet, 10),
-        Arguments.of(boolRowSet, 4),
-        Arguments.of(byteRowSet, 1),
-        Arguments.of(doubleRowSet, 6),
-        Arguments.of(i16RowSet, 1),
-        Arguments.of(i32RowSet, 1),
-        Arguments.of(i64RowSet, 2),
-        Arguments.of(stringRowSet, 2),
-        Arguments.of(binaryRowSet, 1));
+        Arguments.of(BOOL_ROW_SET, BOOL_ROW_SET_VALUES.size()),
+        Arguments.of(BYTE_ROW_SET, BYTE_ROW_SET_VALUES.size()),
+        Arguments.of(DOUBLE_ROW_SET, DOUBLE_ROW_SET_VALUES.size()),
+        Arguments.of(I16_ROW_SET, SHORT_ROW_SET_VALUES.size()),
+        Arguments.of(I32_ROW_SET, INT_ROW_SET_VALUES.size()),
+        Arguments.of(I64_ROW_SET, LONG_ROW_SET_VALUES.size()),
+        Arguments.of(STRING_ROW_SET, STRING_ROW_SET_VALUES.size()),
+        Arguments.of(BINARY_ROW_SET, BINARY_ROW_SET_VALUES.size()),
+        Arguments.of(MIXED_ROW_SET, MIXED_ROW_SET_COUNT));
   }
 
   private static Stream<Arguments> thriftDirectResultSets() {
@@ -164,37 +162,63 @@ public class DatabricksThriftUtilTest {
         Arguments.of(TTypeId.VARCHAR_TYPE, "VARCHAR"));
   }
 
+  private static List<List<Object>> getExpectedResults(int rowCount, List<?>... typeValues) {
+    List<List<Object>> rows = new ArrayList<>();
+    for (int i = 0; i < rowCount; i++) {
+      List<Object> row = new ArrayList<>();
+      for (List<?> typeValue : typeValues) {
+        row.add(typeValue.get(i));
+      }
+      rows.add(row);
+    }
+    return rows;
+  }
+
+  private static List<List<Object>> getExpectedResults(List<?>... typeValues) {
+    return getExpectedResults(typeValues[0].size(), typeValues);
+  }
+
   private static Stream<Arguments> resultDataTypesForGetColumnValue() {
     return Stream.of(
-        Arguments.of(new TRowSet(), null),
+        Arguments.of(new TRowSet(), List.of()),
+        Arguments.of(new TRowSet().setColumns(Collections.emptyList()), List.of()),
+        Arguments.of(BOOL_ROW_SET, getExpectedResults(BOOL_ROW_SET_VALUES)),
+        Arguments.of(BYTE_ROW_SET, getExpectedResults(BYTE_ROW_SET_VALUES)),
+        Arguments.of(DOUBLE_ROW_SET, getExpectedResults(DOUBLE_ROW_SET_VALUES)),
+        Arguments.of(I16_ROW_SET, getExpectedResults(SHORT_ROW_SET_VALUES)),
+        Arguments.of(I32_ROW_SET, getExpectedResults(INT_ROW_SET_VALUES)),
+        Arguments.of(I64_ROW_SET, getExpectedResults(LONG_ROW_SET_VALUES)),
+        Arguments.of(STRING_ROW_SET, getExpectedResults(STRING_ROW_SET_VALUES)),
+        Arguments.of(BINARY_ROW_SET, getExpectedResults(BINARY_ROW_SET_VALUES)),
         Arguments.of(
-            new TRowSet().setColumns(Collections.emptyList()),
-            Collections.singletonList(Collections.emptyList())),
-        Arguments.of(
-            new TRowSet().setColumns(Collections.singletonList(new TColumn())),
-            Collections.singletonList(Collections.singletonList(NULL_STRING))),
-        Arguments.of(boolRowSet, Collections.singletonList(List.of(false))),
-        Arguments.of(byteRowSet, Collections.singletonList(List.of((byte) 5))),
-        Arguments.of(doubleRowSet, Collections.singletonList(List.of(1.0))),
-        Arguments.of(i16RowSet, Collections.singletonList(List.of((short) 1))),
-        Arguments.of(i32RowSet, Collections.singletonList(List.of(1))),
-        Arguments.of(i64RowSet, Collections.singletonList(List.of(1L))),
-        Arguments.of(stringRowSet, Collections.singletonList(List.of(TEST_STRING))),
-        Arguments.of(
-            binaryRowSet,
-            Collections.singletonList(List.of(ByteBuffer.wrap(TEST_STRING.getBytes())))));
+            MIXED_ROW_SET,
+            getExpectedResults(
+                MIXED_ROW_SET_COUNT,
+                BYTE_ROW_SET_VALUES,
+                DOUBLE_ROW_SET_VALUES,
+                STRING_ROW_SET_VALUES)));
   }
 
   @ParameterizedTest
   @MethodSource("resultDataTypes")
-  public void testRowCount(TRowSet resultData, int expectedRowCount) {
+  public void testRowCount(TRowSet resultData, int expectedRowCount) throws DatabricksSQLException {
     assertEquals(expectedRowCount, DatabricksThriftUtil.getRowCount(resultData));
   }
 
   @ParameterizedTest
   @MethodSource("resultDataTypesForGetColumnValue")
-  public void testColumnCount(TRowSet resultData, List<List<Object>> expectedValues) {
-    assertEquals(expectedValues, DatabricksThriftUtil.extractValues(resultData.getColumns()));
+  public void testColumnCount(TRowSet resultData, List<List<Object>> expectedValues)
+      throws DatabricksSQLException {
+    assertEquals(expectedValues, DatabricksThriftUtil.extractRowsFromColumnar(resultData));
+  }
+
+  @Test
+  public void testUnknownColumnType() {
+    TRowSet rowSetWithNoColumnType =
+        new TRowSet().setColumns(Collections.singletonList(new TColumn()));
+    assertThrows(
+        DatabricksSQLException.class,
+        () -> DatabricksThriftUtil.extractRowsFromColumnar(rowSetWithNoColumnType));
   }
 
   private static Stream<Arguments> manifestTypes() {
@@ -216,7 +240,7 @@ public class DatabricksThriftUtilTest {
 
   @Test
   public void testConvertColumnarToRowBased() throws DatabricksSQLException {
-    when(fetchResultsResp.getResults()).thenReturn(boolRowSet);
+    when(fetchResultsResp.getResults()).thenReturn(BOOL_ROW_SET);
     List<List<Object>> rowBasedData =
         DatabricksThriftUtil.convertColumnarToRowBased(fetchResultsResp, parentStatement, session);
     assertEquals(rowBasedData.size(), 4);
@@ -334,5 +358,93 @@ public class DatabricksThriftUtilTest {
         StatementState.FAILED,
         DatabricksThriftUtil.getAsyncStatus(new TStatus().setStatusCode(TStatusCode.ERROR_STATUS))
             .getState());
+  }
+
+  @Test
+  public void testExtractRowsWithNullsForAllTypes() throws DatabricksSQLException {
+    // Create a TRowSet with three columns: STRING, DOUBLE, and BOOLEAN.
+    TRowSet rowSet = new TRowSet();
+    List<TColumn> columns = new ArrayList<>();
+
+    // STRING column: two rows. First value is non-null, second is marked null.
+    TStringColumn stringColumn = new TStringColumn();
+    stringColumn.setValues(Arrays.asList("value1", "value2"));
+    // Bit mask: 2 (binary 00000010): row0 = 0 (non-null), row1 = 1 (null)
+    stringColumn.setNulls(new byte[] {2});
+    TColumn stringTColumn = new TColumn();
+    stringTColumn.setStringVal(stringColumn);
+    columns.add(stringTColumn);
+
+    // DOUBLE column: two rows. First value is marked null, second is non-null.
+    TDoubleColumn doubleColumn = new TDoubleColumn();
+    doubleColumn.setValues(Arrays.asList(1.1, 2.2));
+    // Bit mask: 1 (binary 00000001): row0 = 1 (null), row1 = 0 (non-null)
+    doubleColumn.setNulls(new byte[] {1});
+    TColumn doubleTColumn = new TColumn();
+    doubleTColumn.setDoubleVal(doubleColumn);
+    columns.add(doubleTColumn);
+
+    // BOOLEAN column: two rows with no nulls.
+    TBoolColumn boolColumn = new TBoolColumn();
+    boolColumn.setValues(Arrays.asList(true, false));
+    // Bit mask: 0 (binary 00000000): no nulls
+    boolColumn.setNulls(new byte[] {0});
+    TColumn boolTColumn = new TColumn();
+    boolTColumn.setBoolVal(boolColumn);
+    columns.add(boolTColumn);
+
+    rowSet.setColumns(columns);
+
+    // Expected rows:
+    // Row 1: [ "value1", null, true ]
+    // Row 2: [ null, 2.2, false ]
+    List<List<Object>> expected = new ArrayList<>();
+    expected.add(Arrays.asList("value1", null, true));
+    expected.add(Arrays.asList(null, 2.2, false));
+
+    List<List<Object>> actual = DatabricksThriftUtil.extractRowsFromColumnar(rowSet);
+    assertEquals(expected.size(), actual.size(), "Expected row count of 2");
+    for (int i = 0; i < expected.size(); i++) {
+      assertEquals(expected.get(i), actual.get(i), "Mismatch in row " + i);
+    }
+  }
+
+  @Test
+  public void testExtractRowsWhenNullsArrayIsNull() throws DatabricksSQLException {
+    // Create a TRowSet with two columns: STRING and DOUBLE, where the nulls arrays are null.
+    TRowSet rowSet = new TRowSet();
+    List<TColumn> columns = new ArrayList<>();
+
+    // STRING column: two rows, no null indicators.
+    TStringColumn stringColumn = new TStringColumn();
+    stringColumn.setValues(Arrays.asList("a", "b"));
+    stringColumn.setNulls((byte[]) null);
+    // No nulls array provided.
+    TColumn stringTColumn = new TColumn();
+    stringTColumn.setStringVal(stringColumn);
+    columns.add(stringTColumn);
+
+    // DOUBLE column: two rows, no null indicators.
+    TDoubleColumn doubleColumn = new TDoubleColumn();
+    doubleColumn.setValues(Arrays.asList(10.0, 20.0));
+    stringColumn.setNulls((byte[]) null);
+    TColumn doubleTColumn = new TColumn();
+    doubleTColumn.setDoubleVal(doubleColumn);
+    columns.add(doubleTColumn);
+
+    rowSet.setColumns(columns);
+
+    // Expected rows:
+    // Row 1: [ "a", 10.0 ]
+    // Row 2: [ "b", 20.0 ]
+    List<List<Object>> expected = new ArrayList<>();
+    expected.add(Arrays.asList("a", 10.0));
+    expected.add(Arrays.asList("b", 20.0));
+
+    List<List<Object>> actual = DatabricksThriftUtil.extractRowsFromColumnar(rowSet);
+    assertEquals(expected.size(), actual.size(), "Expected row count of 2");
+    for (int i = 0; i < expected.size(); i++) {
+      assertEquals(expected.get(i), actual.get(i), "Mismatch in row " + i);
+    }
   }
 }

@@ -321,7 +321,9 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
 
   WorkspaceClient getWorkspaceClientFromConnectionContext(
       IDatabricksConnectionContext connectionContext) {
-    return new ClientConfigurator(connectionContext).getWorkspaceClient();
+    ClientConfigurator clientConfigurator = new ClientConfigurator(connectionContext);
+    DatabricksThreadContextHolder.setDatabricksConfig(clientConfigurator.getDatabricksConfig());
+    return clientConfigurator.getWorkspaceClient();
   }
 
   /** Fetches the pre signed url for uploading to the volume using the SQL Exec API */
