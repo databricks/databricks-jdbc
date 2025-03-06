@@ -1,11 +1,11 @@
 name: Integration Tests Workflow
 
 on:
-  push:
-    branches: [main, benchmarking-branch]
-  pull_request:
-    types: [opened, synchronize, reopened]
-    branches: [main, benchmarking-branch]
+#  push:
+#    branches: [main, benchmarking-branch]
+#  pull_request:
+#    types: [opened, synchronize, reopened]
+#    branches: [main, benchmarking-branch]
   workflow_dispatch:
 
 jobs:
