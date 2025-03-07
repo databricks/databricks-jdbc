@@ -58,10 +58,6 @@ public final class DatabricksJdbcConstants {
   public static final String USER_NAME = "User";
   public static final String PORT = "port";
   public static final int DEFAULT_PORT = 443;
-  public static final String DEFAULT_USER_AGENT = "DatabricksJDBCDriverOSS";
-  public static final String CLIENT_USER_AGENT_PREFIX = "Java";
-  public static final String USER_AGENT_SEA_CLIENT = "SQLExecHttpClient/HC";
-  public static final String USER_AGENT_THRIFT_CLIENT = "THttpClient/HC";
   public static final String THRIFT_ERROR_MESSAGE_HEADER = "X-Thriftserver-Error-Message";
   public static final String ALLOWED_VOLUME_INGESTION_PATHS = "VolumeOperationAllowedLocalPaths";
   public static final String ALLOWED_STAGING_INGESTION_PATHS = "StagingAllowedLocalPaths";
