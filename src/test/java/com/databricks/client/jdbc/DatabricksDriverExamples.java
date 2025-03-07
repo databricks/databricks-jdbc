@@ -167,6 +167,29 @@ public class DatabricksDriverExamples {
   }
 
   /**
+   * Demonstrates how to execute a simple query and printing the result.
+   */
+  @Test
+  void exampleRunQuery() throws Exception {
+    DriverManager.registerDriver(new Driver());
+
+    String jdbcUrl =
+        "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;"
+            + "transportMode=https;ssl=1;AuthMech=3;httpPath=sql/protocolv1/o/6051921418418893/0819-204509-hill72;usethriftclient=1;"
+            + "EnableTelemetry=1";
+    Connection con =
+        DriverManager.getConnection(jdbcUrl, "token", DATABRICKS_TOKEN);
+    System.out.println("Connection established......");
+
+    // Execute a statement
+    Statement s = con.createStatement();
+    ResultSet rs = s.executeQuery("select 1");
+    printResultSet(rs);
+    rs.close();
+    con.close();
+  }
+
+  /**
    * Demonstrates how to retrieve a list of imported keys from Databricks via JDBC metadata,
    * verifying statement execution and printing the result.
    */
