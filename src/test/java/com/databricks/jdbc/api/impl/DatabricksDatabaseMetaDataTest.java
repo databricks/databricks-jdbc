@@ -932,6 +932,7 @@ public class DatabricksDatabaseMetaDataTest {
   public void testSupportsConvert() throws SQLException {
     boolean result = metaData.supportsConvert();
     assertTrue(result);
+    assertTrue(metaData.supportsConvert(Types.INTEGER, Types.INTEGER));
   }
 
   @Test
@@ -1011,7 +1012,6 @@ public class DatabricksDatabaseMetaDataTest {
     List<Callable<Object>> tasks =
         Arrays.asList(
             () -> metaData.supportsTransactionIsolationLevel(0),
-            () -> metaData.supportsConvert(0, 0),
             () -> metaData.isWrapperFor(DatabricksDatabaseMetaData.class),
             () -> metaData.unwrap(DatabricksDatabaseMetaData.class));
 

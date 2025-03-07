@@ -112,6 +112,25 @@ class ConverterHelperTest {
   }
 
   @Test
+  void testIsConvertSupported() {
+    assertTrue(ConverterHelper.isConversionSupported(Types.TINYINT, Types.INTEGER));
+    assertTrue(ConverterHelper.isConversionSupported(Types.INTEGER, Types.BIGINT));
+    assertTrue(ConverterHelper.isConversionSupported(Types.FLOAT, Types.DOUBLE));
+
+    // Boolean conversions
+    assertTrue(ConverterHelper.isConversionSupported(Types.BOOLEAN, Types.INTEGER));
+    assertTrue(ConverterHelper.isConversionSupported(Types.BIT, Types.BOOLEAN));
+
+    // Date/Time conversions
+    assertTrue(ConverterHelper.isConversionSupported(Types.DATE, Types.TIMESTAMP));
+    assertTrue(ConverterHelper.isConversionSupported(Types.TIME, Types.VARCHAR));
+    assertTrue(ConverterHelper.isConversionSupported(Types.BINARY, Types.VARBINARY));
+    assertTrue(ConverterHelper.isConversionSupported(Types.VARCHAR, Types.CHAR));
+
+    assertFalse(ConverterHelper.isConversionSupported(Types.BLOB, Types.CHAR));
+  }
+
+  @Test
   void testConvertToDate() throws DatabricksSQLException {
     Date current = new Date(System.currentTimeMillis());
     assertEquals(

@@ -5,6 +5,7 @@ import static com.databricks.jdbc.dbclient.impl.common.CommandConstants.METADATA
 import static com.databricks.jdbc.dbclient.impl.sqlexec.ResultConstants.CLIENT_INFO_PROPERTIES_RESULT;
 
 import com.databricks.jdbc.api.IDatabricksSession;
+import com.databricks.jdbc.api.impl.converters.ConverterHelper;
 import com.databricks.jdbc.api.internal.IDatabricksConnectionInternal;
 import com.databricks.jdbc.common.*;
 import com.databricks.jdbc.common.util.DriverUtil;
@@ -309,9 +310,8 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
   }
 
   @Override
-  public boolean supportsConvert(int fromType, int toType) throws SQLException {
-    throw new UnsupportedOperationException(
-        "Not implemented in DatabricksDatabaseMetaData - supportsConvert(int fromType, int toType)");
+  public boolean supportsConvert(int fromType, int toType) {
+    return ConverterHelper.isConversionSupported(fromType, toType);
   }
 
   @Override

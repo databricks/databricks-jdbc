@@ -12,6 +12,54 @@ import java.util.*;
 public class ConverterHelper {
 
   private static final Map<Integer, ObjectConverter> CONVERTER_CACHE = new HashMap<>();
+  private static final Map<Integer, List<Integer>> SUPPORTED_CONVERSIONS = new HashMap<>();
+
+  static {
+    // Numeric Types
+    SUPPORTED_CONVERSIONS.put(
+        Types.TINYINT,
+        List.of(Types.SMALLINT, Types.INTEGER, Types.BIGINT, Types.DECIMAL, Types.DOUBLE));
+    SUPPORTED_CONVERSIONS.put(
+        Types.SMALLINT, List.of(Types.INTEGER, Types.BIGINT, Types.DECIMAL, Types.DOUBLE));
+    SUPPORTED_CONVERSIONS.put(Types.INTEGER, List.of(Types.BIGINT, Types.DECIMAL, Types.DOUBLE));
+    SUPPORTED_CONVERSIONS.put(Types.BIGINT, List.of(Types.DECIMAL, Types.DOUBLE));
+    SUPPORTED_CONVERSIONS.put(Types.FLOAT, List.of(Types.DOUBLE, Types.DECIMAL));
+    SUPPORTED_CONVERSIONS.put(Types.REAL, List.of(Types.DOUBLE, Types.DECIMAL));
+    SUPPORTED_CONVERSIONS.put(Types.DOUBLE, List.of(Types.DECIMAL));
+    SUPPORTED_CONVERSIONS.put(Types.DECIMAL, List.of(Types.NUMERIC, Types.DOUBLE));
+    SUPPORTED_CONVERSIONS.put(Types.NUMERIC, List.of(Types.DECIMAL, Types.DOUBLE));
+
+    // Boolean/Bit Types
+    SUPPORTED_CONVERSIONS.put(Types.BOOLEAN, List.of(Types.BIT, Types.INTEGER, Types.VARCHAR));
+    SUPPORTED_CONVERSIONS.put(Types.BIT, List.of(Types.BOOLEAN, Types.INTEGER, Types.VARCHAR));
+
+    // Date/Time Types
+    SUPPORTED_CONVERSIONS.put(Types.DATE, List.of(Types.TIMESTAMP, Types.VARCHAR));
+    SUPPORTED_CONVERSIONS.put(Types.TIME, List.of(Types.TIMESTAMP, Types.VARCHAR));
+    SUPPORTED_CONVERSIONS.put(Types.TIMESTAMP, List.of(Types.DATE, Types.TIME, Types.VARCHAR));
+
+    // Binary Types
+    SUPPORTED_CONVERSIONS.put(
+        Types.BINARY, List.of(Types.VARBINARY, Types.LONGVARBINARY, Types.VARCHAR));
+    SUPPORTED_CONVERSIONS.put(
+        Types.VARBINARY, List.of(Types.BINARY, Types.LONGVARBINARY, Types.VARCHAR));
+    SUPPORTED_CONVERSIONS.put(
+        Types.LONGVARBINARY, List.of(Types.BINARY, Types.VARBINARY, Types.VARCHAR));
+
+    // Character Types
+    SUPPORTED_CONVERSIONS.put(Types.CHAR, List.of(Types.VARCHAR, Types.LONGVARCHAR));
+    SUPPORTED_CONVERSIONS.put(Types.VARCHAR, List.of(Types.CHAR, Types.LONGVARCHAR));
+    SUPPORTED_CONVERSIONS.put(Types.LONGVARCHAR, List.of(Types.VARCHAR));
+    SUPPORTED_CONVERSIONS.put(Types.NCHAR, List.of(Types.NVARCHAR, Types.LONGNVARCHAR));
+    SUPPORTED_CONVERSIONS.put(Types.NVARCHAR, List.of(Types.NCHAR, Types.LONGNVARCHAR));
+    SUPPORTED_CONVERSIONS.put(Types.LONGNVARCHAR, List.of(Types.NVARCHAR));
+
+    // Special and Miscellaneous Types
+    SUPPORTED_CONVERSIONS.put(Types.OTHER, List.of(Types.VARCHAR));
+    SUPPORTED_CONVERSIONS.put(Types.JAVA_OBJECT, List.of(Types.OTHER, Types.VARCHAR));
+    SUPPORTED_CONVERSIONS.put(Types.STRUCT, List.of(Types.OTHER, Types.VARCHAR));
+    SUPPORTED_CONVERSIONS.put(Types.ARRAY, List.of(Types.OTHER, Types.VARCHAR));
+  }
 
   static {
     CONVERTER_CACHE.put(Types.TINYINT, new ByteConverter());
@@ -134,5 +182,13 @@ public class ConverterHelper {
    */
   public static ObjectConverter getConverterForSqlType(int columnSqlType) {
     return CONVERTER_CACHE.getOrDefault(columnSqlType, CONVERTER_CACHE.get(Types.VARCHAR));
+  }
+
+  public static boolean isConversionSupported(int fromType, int toType) {
+    if (fromType == toType) {
+      return true; // Same type conversion is always supported
+    }
+    return SUPPORTED_CONVERSIONS.containsKey(fromType)
+        && SUPPORTED_CONVERSIONS.get(fromType).contains(toType);
   }
 }
