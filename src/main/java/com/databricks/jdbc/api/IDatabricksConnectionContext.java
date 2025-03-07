@@ -220,6 +220,9 @@ public interface IDatabricksConnectionContext {
   /** Returns true if driver should use hybrid results in SQL_EXEC API. */
   boolean isSqlExecHybridResultsEnabled();
 
+  /** Returns the Azure tenant ID for the Azure Databricks workspace. */
+  String getAzureTenantId();
+
   /** Returns true if request tracing should be enabled. */
   boolean isRequestTracingEnabled();
 

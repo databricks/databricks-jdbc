@@ -1,19 +1,21 @@
 package com.databricks.jdbc.dbclient.impl.sqlexec;
 
 import static com.databricks.jdbc.common.MetadataResultConstants.DEFAULT_TABLE_TYPES;
+import static com.databricks.jdbc.dbclient.impl.common.CommandConstants.METADATA_STATEMENT_ID;
 import static com.databricks.jdbc.dbclient.impl.sqlexec.ResultConstants.TYPE_INFO_RESULT;
 
 import com.databricks.jdbc.api.IDatabricksSession;
 import com.databricks.jdbc.api.impl.DatabricksResultSet;
+import com.databricks.jdbc.common.MetadataResultConstants;
 import com.databricks.jdbc.common.StatementType;
 import com.databricks.jdbc.dbclient.IDatabricksClient;
 import com.databricks.jdbc.dbclient.IDatabricksMetadataClient;
 import com.databricks.jdbc.dbclient.impl.common.MetadataResultSetBuilder;
-import com.databricks.jdbc.exception.DatabricksSQLFeatureNotImplementedException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Optional;
 
@@ -127,13 +129,23 @@ public class DatabricksMetadataSdkClient implements IDatabricksMetadataClient {
   @Override
   public DatabricksResultSet listImportedKeys(
       IDatabricksSession session, String catalog, String schema, String table) throws SQLException {
-    throw new DatabricksSQLFeatureNotImplementedException("getImportedKeys not implemented");
+    LOGGER.debug("public ResultSet listImportedKeys() using SDK");
+    return MetadataResultSetBuilder.getResultSetWithGivenRowsAndColumns(
+        MetadataResultConstants.IMPORTED_KEYS_COLUMNS,
+        new ArrayList<>(),
+        METADATA_STATEMENT_ID,
+        com.databricks.jdbc.common.CommandName.GET_IMPORTED_KEYS);
   }
 
   @Override
   public DatabricksResultSet listExportedKeys(
       IDatabricksSession session, String catalog, String schema, String table) throws SQLException {
-    throw new DatabricksSQLFeatureNotImplementedException("getExportedKeys not implemented");
+    LOGGER.debug("public ResultSet listExportedKeys() using SDK");
+    return MetadataResultSetBuilder.getResultSetWithGivenRowsAndColumns(
+        MetadataResultConstants.EXPORTED_KEYS_COLUMNS,
+        new ArrayList<>(),
+        METADATA_STATEMENT_ID,
+        com.databricks.jdbc.common.CommandName.GET_EXPORTED_KEYS);
   }
 
   @Override
@@ -144,9 +156,13 @@ public class DatabricksMetadataSdkClient implements IDatabricksMetadataClient {
       String table,
       String foreignCatalog,
       String foreignSchema,
-      String foreignTable)
-      throws SQLException {
-    throw new DatabricksSQLFeatureNotImplementedException("getCrossReferences not implemented");
+      String foreignTable) {
+    LOGGER.debug("public ResultSet listCrossReferences() using SDK");
+    return MetadataResultSetBuilder.getResultSetWithGivenRowsAndColumns(
+        MetadataResultConstants.CROSS_REFERENCE_COLUMNS,
+        new ArrayList<>(),
+        METADATA_STATEMENT_ID,
+        com.databricks.jdbc.common.CommandName.GET_CROSS_REFERENCE);
   }
 
   private ResultSet getResultSet(String SQL, IDatabricksSession session) throws SQLException {

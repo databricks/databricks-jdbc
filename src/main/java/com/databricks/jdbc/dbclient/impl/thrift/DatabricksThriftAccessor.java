@@ -47,13 +47,13 @@ final class DatabricksThriftAccessor {
       TExecuteStatementResp._Fields.STATUS.getThriftFieldId();
   private static final int POLLING_INTERVAL_SECONDS = 1;
   private final ThreadLocal<TCLIService.Client> thriftClient;
+  private final DatabricksConfig databricksConfig;
   private final boolean enableDirectResults;
 
   DatabricksThriftAccessor(IDatabricksConnectionContext connectionContext)
       throws DatabricksParsingException {
     this.enableDirectResults = connectionContext.getDirectResultMode();
-    DatabricksConfig databricksConfig =
-        new ClientConfigurator(connectionContext).getDatabricksConfig();
+    this.databricksConfig = new ClientConfigurator(connectionContext).getDatabricksConfig();
     String endPointUrl = connectionContext.getEndpointURL();
 
     if (!DriverUtil.isRunningAgainstFake()) {
@@ -72,6 +72,17 @@ final class DatabricksThriftAccessor {
   @VisibleForTesting
   DatabricksThriftAccessor(
       TCLIService.Client client, IDatabricksConnectionContext connectionContext) {
+    this.databricksConfig = null;
+    this.thriftClient = ThreadLocal.withInitial(() -> client);
+    this.enableDirectResults = connectionContext.getDirectResultMode();
+  }
+
+  @VisibleForTesting
+  DatabricksThriftAccessor(
+      TCLIService.Client client,
+      IDatabricksConnectionContext connectionContext,
+      DatabricksConfig databricksConfig) {
+    this.databricksConfig = databricksConfig;
     this.thriftClient = ThreadLocal.withInitial(() -> client);
     this.enableDirectResults = connectionContext.getDirectResultMode();
   }
@@ -100,6 +111,8 @@ final class DatabricksThriftAccessor {
         return getTableTypes((TGetTableTypesReq) request);
       } else if (request instanceof TGetTypeInfoReq) {
         return getTypeInfo((TGetTypeInfoReq) request);
+      } else if (request instanceof TGetCrossReferenceReq) {
+        return listCrossReferences((TGetCrossReferenceReq) request);
       } else {
         String errorMessage =
             String.format(
@@ -349,6 +362,10 @@ final class DatabricksThriftAccessor {
     return thriftClient.get();
   }
 
+  DatabricksConfig getDatabricksConfig() {
+    return databricksConfig;
+  }
+
   private TFetchResultsResp getResultSetResp(
       TStatus responseStatus,
       TOperationHandle operationHandle,
@@ -396,6 +413,13 @@ final class DatabricksThriftAccessor {
       throws TException, DatabricksSQLException {
     if (enableDirectResults) request.setGetDirectResults(DEFAULT_DIRECT_RESULTS);
     TGetPrimaryKeysResp response = getThriftClient().GetPrimaryKeys(request);
+    return fetchMetadataResults(response, response.toString());
+  }
+
+  private TFetchResultsResp listCrossReferences(TGetCrossReferenceReq request)
+      throws TException, DatabricksSQLException {
+    if (enableDirectResults) request.setGetDirectResults(DEFAULT_DIRECT_RESULTS);
+    TGetCrossReferenceResp response = getThriftClient().GetCrossReference(request);
     return fetchMetadataResults(response, response.toString());
   }
 

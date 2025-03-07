@@ -39,6 +39,7 @@ public final class DatabricksJdbcConstants {
   public static final String LOGIN_TIMEOUT = "loginTimeout";
   public static final String U2M_AUTH_TYPE = "external-browser";
   public static final String M2M_AUTH_TYPE = "oauth-m2m";
+  public static final String M2M_AZURE_CLIENT_SECRET_AUTH_TYPE = "azure-client-secret";
   public static final String ACCESS_TOKEN_AUTH_TYPE = "pat";
   public static final String U2M_AUTH_REDIRECT_URL = "http://localhost:8020";
   public static final String SQL_SCOPE = "sql";

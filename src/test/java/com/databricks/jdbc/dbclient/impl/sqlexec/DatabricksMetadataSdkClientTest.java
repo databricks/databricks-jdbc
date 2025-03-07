@@ -17,6 +17,7 @@ import com.databricks.jdbc.common.StatementType;
 import com.databricks.jdbc.exception.DatabricksValidationException;
 import com.databricks.jdbc.model.core.ResultColumn;
 import com.databricks.sdk.service.sql.StatementState;
+import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.Types;
@@ -434,6 +435,108 @@ public class DatabricksMetadataSdkClientTest {
     assertEquals(actualResult.getStatementStatus().getState(), StatementState.SUCCEEDED);
     assertEquals(actualResult.getStatementId(), METADATA_STATEMENT_ID);
     assertEquals(((DatabricksResultSetMetaData) actualResult.getMetaData()).getTotalRows(), 1);
+  }
+
+  @Test
+  void testListImportedKeys() throws Exception {
+    DatabricksMetadataSdkClient metadataClient = new DatabricksMetadataSdkClient(mockClient);
+    ResultSet resultSet = metadataClient.listImportedKeys(session, "catalog", "schema", "table");
+    assertNotNull(resultSet);
+
+    assertEquals(14, resultSet.getMetaData().getColumnCount());
+    assertSame("PKTABLE_CAT", resultSet.getMetaData().getColumnName(1));
+    assertSame("PKTABLE_SCHEM", resultSet.getMetaData().getColumnName(2));
+    assertEquals("PKTABLE_NAME", resultSet.getMetaData().getColumnName(3));
+    assertEquals("PKCOLUMN_NAME", resultSet.getMetaData().getColumnName(4));
+    assertEquals("FKTABLE_CAT", resultSet.getMetaData().getColumnName(5));
+    assertEquals("FKTABLE_SCHEM", resultSet.getMetaData().getColumnName(6));
+
+    assertEquals(1, resultSet.getMetaData().isNullable(1));
+    assertEquals(1, resultSet.getMetaData().isNullable(2));
+    assertEquals(0, resultSet.getMetaData().isNullable(3));
+    assertEquals(0, resultSet.getMetaData().isNullable(4));
+    assertEquals(1, resultSet.getMetaData().isNullable(5));
+    assertEquals(1, resultSet.getMetaData().isNullable(6));
+    assertEquals(0, resultSet.getMetaData().isNullable(7));
+    assertEquals(0, resultSet.getMetaData().isNullable(8));
+    assertEquals(0, resultSet.getMetaData().isNullable(9));
+    assertEquals(1, resultSet.getMetaData().isNullable(10));
+    assertEquals(1, resultSet.getMetaData().isNullable(11));
+    assertEquals(1, resultSet.getMetaData().isNullable(12));
+    assertEquals(1, resultSet.getMetaData().isNullable(13));
+    assertEquals(0, resultSet.getMetaData().isNullable(14));
+
+    // Result set is empty
+    assertFalse(resultSet.next());
+  }
+
+  @Test
+  void testListExportedKeys() throws Exception {
+    DatabricksMetadataSdkClient metadataClient = new DatabricksMetadataSdkClient(mockClient);
+
+    ResultSet resultSet = metadataClient.listExportedKeys(session, "catalog", "schema", "table");
+    assertNotNull(resultSet);
+
+    assertEquals(14, resultSet.getMetaData().getColumnCount());
+    assertSame("PKTABLE_CAT", resultSet.getMetaData().getColumnName(1));
+    assertSame("PKTABLE_SCHEM", resultSet.getMetaData().getColumnName(2));
+    assertEquals("PKTABLE_NAME", resultSet.getMetaData().getColumnName(3));
+    assertEquals("PKCOLUMN_NAME", resultSet.getMetaData().getColumnName(4));
+    assertEquals("FKTABLE_CAT", resultSet.getMetaData().getColumnName(5));
+    assertEquals("FKTABLE_SCHEM", resultSet.getMetaData().getColumnName(6));
+
+    assertEquals(1, resultSet.getMetaData().isNullable(1));
+    assertEquals(1, resultSet.getMetaData().isNullable(2));
+    assertEquals(0, resultSet.getMetaData().isNullable(3));
+    assertEquals(0, resultSet.getMetaData().isNullable(4));
+    assertEquals(1, resultSet.getMetaData().isNullable(5));
+    assertEquals(1, resultSet.getMetaData().isNullable(6));
+    assertEquals(0, resultSet.getMetaData().isNullable(7));
+    assertEquals(0, resultSet.getMetaData().isNullable(8));
+    assertEquals(0, resultSet.getMetaData().isNullable(9));
+    assertEquals(1, resultSet.getMetaData().isNullable(10));
+    assertEquals(1, resultSet.getMetaData().isNullable(11));
+    assertEquals(1, resultSet.getMetaData().isNullable(12));
+    assertEquals(1, resultSet.getMetaData().isNullable(13));
+    assertEquals(0, resultSet.getMetaData().isNullable(14));
+
+    // Result set is empty
+    assertFalse(resultSet.next());
+  }
+
+  @Test
+  void testListCrossReferences() throws Exception {
+    DatabricksMetadataSdkClient metadataClient = new DatabricksMetadataSdkClient(mockClient);
+
+    ResultSet resultSet =
+        metadataClient.listCrossReferences(
+            session,
+            "primary_catalog",
+            "primary_schema",
+            "primary_table",
+            "foreign_catalog",
+            "foreign_schema",
+            "foreign_table");
+    assertNotNull(resultSet);
+
+    assertEquals(14, resultSet.getMetaData().getColumnCount());
+    assertEquals("PKTABLE_CAT", resultSet.getMetaData().getColumnName(1));
+    assertEquals("PKTABLE_SCHEM", resultSet.getMetaData().getColumnName(2));
+    assertEquals("PKTABLE_NAME", resultSet.getMetaData().getColumnName(3));
+    assertEquals("PKCOLUMN_NAME", resultSet.getMetaData().getColumnName(4));
+    assertEquals("FKTABLE_CAT", resultSet.getMetaData().getColumnName(5));
+    assertEquals("FKTABLE_SCHEM", resultSet.getMetaData().getColumnName(6));
+    assertEquals("FKTABLE_NAME", resultSet.getMetaData().getColumnName(7));
+    assertEquals("FKCOLUMN_NAME", resultSet.getMetaData().getColumnName(8));
+    assertEquals("KEY_SEQ", resultSet.getMetaData().getColumnName(9));
+    assertEquals("UPDATE_RULE", resultSet.getMetaData().getColumnName(10));
+    assertEquals("DELETE_RULE", resultSet.getMetaData().getColumnName(11));
+    assertEquals("FK_NAME", resultSet.getMetaData().getColumnName(12));
+    assertEquals("PK_NAME", resultSet.getMetaData().getColumnName(13));
+    assertEquals("DEFERRABILITY", resultSet.getMetaData().getColumnName(14));
+
+    // Result set is empty
+    assertFalse(resultSet.next());
   }
 
   @ParameterizedTest

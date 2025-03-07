@@ -6,6 +6,7 @@ import com.databricks.jdbc.common.util.DriverUtil;
 import com.databricks.jdbc.dbclient.impl.common.StatementId;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.model.telemetry.*;
+import com.databricks.sdk.core.DatabricksConfig;
 import com.databricks.sdk.core.ProxyConfig;
 import com.google.common.annotations.VisibleForTesting;
 import java.nio.charset.Charset;
@@ -50,29 +51,40 @@ public class TelemetryHelper {
                             .setDriverConnectionParameters(
                                 getDriverConnectionParameter(connectionContext))
                             .setDriverSystemConfiguration(getDriverSystemConfiguration())));
+    DatabricksConfig config = DatabricksThreadContextHolder.getDatabricksConfig();
     TelemetryClientFactory.getInstance()
-        .getUnauthenticatedTelemetryClient(connectionContext)
+        .getTelemetryClient(connectionContext, config)
         .exportEvent(telemetryFrontendLog);
   }
 
   public static void exportFailureLog(
       IDatabricksConnectionContext connectionContext, String errorName, String errorMessage) {
 
-    DriverErrorInfo errorInfo =
-        new DriverErrorInfo().setErrorName(errorName).setStackTrace(errorMessage);
-    TelemetryFrontendLog telemetryFrontendLog =
-        new TelemetryFrontendLog()
-            .setEntry(
-                new FrontendLogEntry()
-                    .setSqlDriverLog(
-                        new TelemetryEvent()
-                            .setDriverConnectionParameters(
-                                getDriverConnectionParameter(connectionContext))
-                            .setDriverErrorInfo(errorInfo)
-                            .setDriverSystemConfiguration(getDriverSystemConfiguration())));
-    TelemetryClientFactory.getInstance()
-        .getUnauthenticatedTelemetryClient(connectionContext)
-        .exportEvent(telemetryFrontendLog);
+    // Connection context is not set in following scenarios:
+    // a. Unit tests
+    // b. When Url parsing has failed
+    // In either of these scenarios, we don't export logs
+    if (connectionContext != null) {
+      DriverErrorInfo errorInfo =
+          new DriverErrorInfo().setErrorName(errorName).setStackTrace(errorMessage);
+      TelemetryFrontendLog telemetryFrontendLog =
+          new TelemetryFrontendLog()
+              .setEntry(
+                  new FrontendLogEntry()
+                      .setSqlDriverLog(
+                          new TelemetryEvent()
+                              .setDriverConnectionParameters(
+                                  getDriverConnectionParameter(connectionContext))
+                              .setDriverErrorInfo(errorInfo)
+                              .setDriverSystemConfiguration(getDriverSystemConfiguration())));
+      DatabricksConfig config = DatabricksThreadContextHolder.getDatabricksConfig();
+      ITelemetryClient client =
+          config == null
+              ? TelemetryClientFactory.getInstance()
+                  .getUnauthenticatedTelemetryClient(connectionContext)
+              : TelemetryClientFactory.getInstance().getTelemetryClient(connectionContext, config);
+      client.exportEvent(telemetryFrontendLog);
+    }
   }
 
   public static void exportLatencyLog(long executionTime) {
@@ -105,7 +117,7 @@ public class TelemetryHelper {
     TelemetryFrontendLog telemetryFrontendLog =
         new TelemetryFrontendLog().setEntry(new FrontendLogEntry().setSqlDriverLog(telemetryEvent));
     TelemetryClientFactory.getInstance()
-        .getUnauthenticatedTelemetryClient(connectionContext)
+        .getTelemetryClient(connectionContext, DatabricksThreadContextHolder.getDatabricksConfig())
         .exportEvent(telemetryFrontendLog);
   }
 
@@ -123,8 +135,9 @@ public class TelemetryHelper {
                             .setVolumeOperation(volumeOperationEvent)
                             .setDriverConnectionParameters(
                                 getDriverConnectionParameter(connectionContext))));
+
     TelemetryClientFactory.getInstance()
-        .getUnauthenticatedTelemetryClient(connectionContext)
+        .getTelemetryClient(connectionContext, DatabricksThreadContextHolder.getDatabricksConfig())
         .exportEvent(telemetryFrontendLog);
   }
 
