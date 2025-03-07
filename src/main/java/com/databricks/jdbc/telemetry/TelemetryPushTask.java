@@ -109,10 +109,10 @@ class TelemetryPushTask implements Runnable {
             telResponse.getNumProtoSuccess(),
             telResponse.getErrors().size());
         if (!telResponse.getErrors().isEmpty()) {
-          logger.error("Failed to push telemetry logs with error: {%s}", telResponse.getErrors());
+          logger.debug("Failed to push telemetry logs with error: {%s}", telResponse.getErrors());
         }
         if (queueToBePushed.size() != telResponse.getNumProtoSuccess()) {
-          logger.error(
+          logger.debug(
               "Partial failure while pushing telemetry logs with error response: [%s], request count: [%d], upload count: [%d]",
               telResponse.getErrors(), queueToBePushed.size(), telResponse.getNumProtoSuccess());
           return;
