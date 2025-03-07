@@ -1,0 +1,32 @@
+{
+  "id" : "200ed0e2-0b2e-44f5-b244-6ad1358837ca",
+  "name" : "sql_protocolv1_o_6051921418418893_0819-204509-hill72",
+  "request" : {
+    "url" : "/sql/protocolv1/o/6051921418418893/0819-204509-hill72",
+    "method" : "POST",
+    "bodyPatterns" : [ {
+      "binaryEqualTo" : "gAEAAQAAAA5DbG9zZU9wZXJhdGlvbgAAAAMMAAEMAAEMAAELAAEAAAAQBD/9x7vsQ0+gl6lkTzc+YgsAAgAAABBCALWR3EZHa4C2H1XWpStgAAgAAgAAAAgCAAMAAAAA"
+    } ]
+  },
+  "response" : {
+    "status" : 200,
+    "base64Body" : "gAEAAgAAAA5DbG9zZU9wZXJhdGlvbgAAAAMMAAAMAAEIAAEAAAAAAAAA",
+    "headers" : {
+      "x-request-id" : "2bd7483f-16a4-4db6-8487-629a985f36aa",
+      "date" : "Fri, 07 Mar 2025 06:28:33 GMT,Fri, 07 Mar 2025 06:28:33 GMT",
+      "server" : "databricks",
+      "x-databricks-popp-response-code-details" : "via_upstream",
+      "x-databricks-shard-debug" : "oregon-staging",
+      "x-frame-options" : "SAMEORIGIN",
+      "x-databricks-org-id" : "6051921418418893",
+      "strict-transport-security" : [ "max-age=31536000; includeSubDomains; preload", "max-age=31536000; includeSubDomains; preload" ],
+      "x-content-type-options" : [ "nosniff", "nosniff" ],
+      "x-xss-protection" : "1; mode=block",
+      "x-databricks-popp-routing-reason" : "deployment-name",
+      "content-type" : "application/x-thrift",
+      "x-databricks-apiproxy-response-code-details" : "via_upstream"
+    }
+  },
+  "uuid" : "200ed0e2-0b2e-44f5-b244-6ad1358837ca",
+  "insertionIndex" : 2
+}

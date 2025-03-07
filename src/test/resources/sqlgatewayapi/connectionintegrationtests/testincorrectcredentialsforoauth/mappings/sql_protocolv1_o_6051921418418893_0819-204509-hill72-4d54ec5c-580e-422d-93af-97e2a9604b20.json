@@ -1,0 +1,27 @@
+{
+  "id" : "4d54ec5c-580e-422d-93af-97e2a9604b20",
+  "name" : "sql_protocolv1_o_6051921418418893_0819-204509-hill72",
+  "request" : {
+    "url" : "/sql/protocolv1/o/6051921418418893/0819-204509-hill72",
+    "method" : "POST",
+    "bodyPatterns" : [ {
+      "binaryEqualTo" : "gAEAAQAAAAtPcGVuU2Vzc2lvbgAAAAEMAAEIAAH////5DQAECwsAAAAACgUCAAAAAAAApQkMBQQLAAEAAAAFU1BBUksLAAIAAAAHZGVmYXVsdAACBQUBAAA="
+    } ]
+  },
+  "response" : {
+    "status" : 403,
+    "body" : "{\"error_code\":403,\"message\":\"Invalid access token.\"}",
+    "headers" : {
+      "date" : "Mon, 04 Nov 2024 06:47:41 GMT",
+      "x-request-id" : "e300897d-e930-44cd-9837-f449aa5d0aa4",
+      "server" : "databricks",
+      "x-databricks-shard-debug" : "oregon-staging",
+      "vary" : "Accept-Encoding",
+      "x-databricks-popp-routing-reason" : "deployment-name",
+      "content-type" : "application/json; charset=utf-8",
+      "x-databricks-reason-phrase" : "Invalid access token."
+    }
+  },
+  "uuid" : "4d54ec5c-580e-422d-93af-97e2a9604b20",
+  "insertionIndex" : 1
+}
