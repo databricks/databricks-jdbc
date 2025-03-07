@@ -615,23 +615,32 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
 
   @Override
   public String getTokenEndpoint() {
-    return getParameter(DatabricksJdbcUrlParams.TOKEN_ENDPOINT);
+    return getParameter(
+        DatabricksJdbcUrlParams.OAUTH_TOKEN_ENDPOINT,
+        getParameter(DatabricksJdbcUrlParams.TOKEN_ENDPOINT));
   }
 
   @Override
   public String getAuthEndpoint() {
-    return getParameter(DatabricksJdbcUrlParams.AUTH_ENDPOINT);
+    return getParameter(
+        DatabricksJdbcUrlParams.OAUTH_ENDPOINT,
+        getParameter(DatabricksJdbcUrlParams.AUTH_ENDPOINT));
   }
 
   @Override
   public boolean isOAuthDiscoveryModeEnabled() {
     // By default, set to true
-    return getParameter(DatabricksJdbcUrlParams.DISCOVERY_MODE).equals("1");
+    return getParameter(
+            DatabricksJdbcUrlParams.OIDC_DISCOVERY_MODE,
+            getParameter(DatabricksJdbcUrlParams.DISCOVERY_MODE))
+        .equals("1");
   }
 
   @Override
   public String getOAuthDiscoveryURL() {
-    return getParameter(DatabricksJdbcUrlParams.DISCOVERY_URL);
+    return getParameter(
+        DatabricksJdbcUrlParams.OIDC_DISCOVERY_ENDPOINT,
+        getParameter(DatabricksJdbcUrlParams.DISCOVERY_URL));
   }
 
   @Override
@@ -641,7 +650,9 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
 
   @Override
   public String getOAuthRefreshToken() {
-    return getParameter(DatabricksJdbcUrlParams.OAUTH_REFRESH_TOKEN);
+    return getParameter(
+        DatabricksJdbcUrlParams.OAUTH_REFRESH_TOKEN,
+        getParameter(DatabricksJdbcUrlParams.OAUTH_REFRESH_TOKEN_2));
   }
 
   @Override

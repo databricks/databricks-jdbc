@@ -8,6 +8,9 @@ public class TelemetryClientContext {
   @JsonProperty("timestamp_millis")
   Long timestampMillis;
 
+  @JsonProperty("user_agent")
+  String userAgent;
+
   public TelemetryClientContext() {}
 
   public Long getTimestampMillis() {
@@ -19,10 +22,20 @@ public class TelemetryClientContext {
     return this;
   }
 
+  public String getUserAgent() {
+    return userAgent;
+  }
+
+  public TelemetryClientContext setUserAgent(String userAgent) {
+    this.userAgent = userAgent;
+    return this;
+  }
+
   @Override
   public String toString() {
     return new ToStringer(TelemetryFrontendLog.class)
         .add("timestampMillis", timestampMillis)
+        .add("userAgent", userAgent)
         .toString();
   }
 }
