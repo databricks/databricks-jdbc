@@ -24,8 +24,7 @@ import java.io.*;
 import java.math.BigDecimal;
 import java.sql.*;
 import java.sql.Date;
-import java.time.LocalDate;
-import java.time.ZoneId;
+import java.time.*;
 import java.util.*;
 import org.apache.http.entity.InputStreamEntity;
 import org.junit.jupiter.api.Test;
@@ -380,9 +379,11 @@ public class DatabricksResultSetTest {
     assertEquals(Time.valueOf("12:30:00"), resultSet.getTime("columnLabel"));
 
     // Test with Calendar argument
-    Calendar calendar = Calendar.getInstance(TimeZone.getTimeZone("UTC"));
+    Calendar calendar = Calendar.getInstance(TimeZone.getTimeZone("Asia/Tokyo"));
     Time actualTime = resultSet.getTime(columnIndex, calendar);
-    assertEquals(Time.valueOf("18:00:00"), actualTime);
+    assertEquals(
+        new Time(OffsetTime.parse("12:30:00+09:00").toEpochSecond(LocalDate.EPOCH) * 1000),
+        actualTime);
 
     // Test with null Calendar argument
     assertEquals(Time.valueOf("12:30:00"), resultSet.getTime(columnIndex, null));
@@ -406,12 +407,20 @@ public class DatabricksResultSetTest {
     assertEquals(expectedTimestamp, resultSet.getTimestamp("columnLabel"));
 
     // Test with Calendar argument
-    Calendar calendar = Calendar.getInstance(TimeZone.getTimeZone("UTC"));
+    Calendar calendar = Calendar.getInstance(TimeZone.getTimeZone("Asia/Tokyo"));
+    // Asia/Tokyo is GMT+9
     assertEquals(
-        Timestamp.valueOf("2023-01-01 18:00:00"), resultSet.getTimestamp(columnIndex, calendar));
+        new Timestamp(OffsetDateTime.parse("2023-01-01T12:30:00+09:00").toEpochSecond() * 1000),
+        resultSet.getTimestamp(columnIndex, calendar));
 
     // Test with null Calendar argument
     assertEquals(expectedTimestamp, resultSet.getTimestamp(columnIndex, null));
+  }
+
+  private static Timestamp getTimestampAdjustedToTimeZone(long timestamp, String timeZone) {
+    Instant instant = Instant.ofEpochMilli(timestamp);
+    LocalDateTime localDateTime = LocalDateTime.ofInstant(instant, ZoneId.of(timeZone));
+    return Timestamp.valueOf(localDateTime);
   }
 
   @Test
