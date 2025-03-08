@@ -95,7 +95,9 @@ public class TimestampConverterTest {
 
   @Test
   public void testConvertToTime() throws DatabricksSQLException {
-    assertEquals(new Time(TIMESTAMP.getTime()), converter.toTime("2023-09-10T20:45:00Z"));
+    assertEquals(
+        Time.valueOf(TIMESTAMP.toLocalDateTime().toLocalTime()),
+        converter.toTime("2023-09-10T20:45:00Z"));
   }
 
   @Test

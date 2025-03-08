@@ -193,9 +193,13 @@ public class ArrowResultChunk {
     }
 
     /** Returns object in the current row at the specified columnIndex. */
-    Object getColumnObjectAtCurrentRow(int columnIndex, ColumnInfoTypeName requiredType, String arrowMetadata) throws DatabricksSQLException {
-      ValueVector columnVector = this.resultChunk.getColumnVector(this.recordBatchCursorInChunk, columnIndex);
-      return ArrowToJavaObjectConverter.convert(columnVector, this.rowCursorInRecordBatch, requiredType, arrowMetadata);
+    Object getColumnObjectAtCurrentRow(
+        int columnIndex, ColumnInfoTypeName requiredType, String arrowMetadata)
+        throws DatabricksSQLException {
+      ValueVector columnVector =
+          this.resultChunk.getColumnVector(this.recordBatchCursorInChunk, columnIndex);
+      return ArrowToJavaObjectConverter.convert(
+          columnVector, this.rowCursorInRecordBatch, requiredType, arrowMetadata);
     }
 
     String getType(int columnIndex) {

@@ -1221,6 +1221,10 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
       // Convert Time to LocalTime
       LocalTime lt = time.toLocalTime();
 
+      // Reset date to epoch (1970-01-01)
+      useCal.set(Calendar.YEAR, 1970);
+      useCal.set(Calendar.MONTH, Calendar.JANUARY);
+      useCal.set(Calendar.DAY_OF_MONTH, 1);
       // Set time fields in calendar (keeping current date)
       useCal.set(Calendar.HOUR_OF_DAY, lt.getHour());
       useCal.set(Calendar.MINUTE, lt.getMinute());

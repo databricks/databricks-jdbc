@@ -24,7 +24,6 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import java.util.function.Function;
-
 import org.apache.arrow.vector.TimeStampMicroTZVector;
 import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.util.Text;
@@ -58,7 +57,11 @@ public class ArrowToJavaObjectConverter {
           DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.S"),
           DateTimeFormatter.RFC_1123_DATE_TIME);
 
-  public static Object convert(ValueVector columnVector, int vectorIndex, ColumnInfoTypeName requiredType, String arrowMetadata)
+  public static Object convert(
+      ValueVector columnVector,
+      int vectorIndex,
+      ColumnInfoTypeName requiredType,
+      String arrowMetadata)
       throws DatabricksSQLException {
     Object object = columnVector.getObject(vectorIndex);
     if (arrowMetadata != null) {
@@ -145,7 +148,8 @@ public class ArrowToJavaObjectConverter {
     return parser.parseJsonStringToDbStruct(object.toString(), arrowMetadata);
   }
 
-  private static Object convertToTimestamp(Object object, Optional<String> timeZoneOpt) throws DatabricksSQLException {
+  private static Object convertToTimestamp(Object object, Optional<String> timeZoneOpt)
+      throws DatabricksSQLException {
     if (object instanceof Text) {
       return convertArrowTextToTimestamp(object.toString());
     }
@@ -163,13 +167,13 @@ public class ArrowToJavaObjectConverter {
   }
 
   /**
-   * For TIMESTAMP columns, timeZone will be in the form 'Asia/Kolkata' or '+4:30'
-   * For TIMESTAMP_NTZ columns, the opt will be empty
+   * For TIMESTAMP columns, timeZone will be in the form 'Asia/Kolkata' or '+4:30' For TIMESTAMP_NTZ
+   * columns, the opt will be empty
    *
    * @param timeZoneOpt to fetch the zoneId for
    * @return the zone ID for the timezone opt
    */
-  private static ZoneId getZoneIdFromTimeZoneOpt(Optional<String> timeZoneOpt) {
+  static ZoneId getZoneIdFromTimeZoneOpt(Optional<String> timeZoneOpt) {
     if (timeZoneOpt.isPresent()) {
       String tz = timeZoneOpt.get();
       try {
@@ -185,9 +189,9 @@ public class ArrowToJavaObjectConverter {
 
           // Always pass positive values and use the sign parameter
           return ZoneOffset.ofHoursMinutes(
-                  isNegative ? -hours : hours,
-                  isNegative ? -minutes : minutes
-          );
+              isNegative ? -hours : hours, isNegative ? -minutes : minutes);
+        } else {
+          throw e;
         }
       }
     }

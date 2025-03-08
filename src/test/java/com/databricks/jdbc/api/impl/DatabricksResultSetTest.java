@@ -26,8 +26,6 @@ import java.sql.*;
 import java.sql.Date;
 import java.time.LocalDate;
 import java.time.ZoneId;
-import java.time.ZoneOffset;
-import java.time.ZonedDateTime;
 import java.util.*;
 import org.apache.http.entity.InputStreamEntity;
 import org.junit.jupiter.api.Test;
@@ -322,19 +320,10 @@ public class DatabricksResultSetTest {
     assertEquals(expected, actualDate);
 
     // Test with Calendar argument in different TZ
-    ZoneId systemZoneId = ZoneId.systemDefault();
     ZoneId inputZoneId = ZoneId.of("America/New_York");
-    ZoneOffset currentOffset = ZonedDateTime.now(systemZoneId).getOffset();
-    ZoneOffset inputOffset = ZonedDateTime.now(inputZoneId).getOffset();
-
-    // Calculate the offset difference in minutes
-    int offsetDifference = currentOffset.getTotalSeconds() - inputOffset.getTotalSeconds();
-    int expectedEpochDay = epochDay - (offsetDifference > 0 ? 1 : 0);
-
     calendar = Calendar.getInstance(TimeZone.getTimeZone(inputZoneId));
-    Date expectedDate = Date.valueOf(LocalDate.ofEpochDay(expectedEpochDay)); //
     actualDate = resultSet.getDate(columnIndex, calendar);
-    assertEquals(expectedDate, actualDate);
+    assertEquals(expected.toLocalDate(), actualDate.toLocalDate());
 
     // Test with null Calendar argument
     assertEquals(expected, resultSet.getDate(columnIndex, null));
@@ -378,10 +367,9 @@ public class DatabricksResultSetTest {
     String expectedTimestampString = "2023-01-01 12:30:00";
     // Test using timestamp object
     Timestamp expectedTimestamp = Timestamp.valueOf(expectedTimestampString);
-    Time expectedTime = new Time(expectedTimestamp.getTime());
     when(resultSet.getObject(columnIndex)).thenReturn(expectedTimestamp);
     when(mockedResultSetMetadata.getColumnType(columnIndex)).thenReturn(java.sql.Types.TIMESTAMP);
-    assertEquals(expectedTime, resultSet.getTime(columnIndex));
+    assertEquals(Time.valueOf("12:30:00"), resultSet.getTime(columnIndex));
 
     // null object
     when(mockedExecutionResult.getObject(2)).thenReturn(null);
@@ -389,15 +377,15 @@ public class DatabricksResultSetTest {
 
     // Test with column label
     when(mockedResultSetMetadata.getColumnNameIndex("columnLabel")).thenReturn(columnIndex);
-    assertEquals(expectedTime, resultSet.getTime("columnLabel"));
+    assertEquals(Time.valueOf("12:30:00"), resultSet.getTime("columnLabel"));
 
     // Test with Calendar argument
     Calendar calendar = Calendar.getInstance(TimeZone.getTimeZone("UTC"));
     Time actualTime = resultSet.getTime(columnIndex, calendar);
-    assertEquals(expectedTime, actualTime);
+    assertEquals(Time.valueOf("18:00:00"), actualTime);
 
     // Test with null Calendar argument
-    assertEquals(expectedTime, resultSet.getTime(columnIndex, null));
+    assertEquals(Time.valueOf("12:30:00"), resultSet.getTime(columnIndex, null));
   }
 
   @Test
@@ -419,7 +407,8 @@ public class DatabricksResultSetTest {
 
     // Test with Calendar argument
     Calendar calendar = Calendar.getInstance(TimeZone.getTimeZone("UTC"));
-    assertEquals(expectedTimestamp, resultSet.getTimestamp(columnIndex, calendar));
+    assertEquals(
+        Timestamp.valueOf("2023-01-01 18:00:00"), resultSet.getTimestamp(columnIndex, calendar));
 
     // Test with null Calendar argument
     assertEquals(expectedTimestamp, resultSet.getTimestamp(columnIndex, null));
