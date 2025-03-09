@@ -1,6 +1,8 @@
 package com.databricks.jdbc.api.impl;
 
 import static com.databricks.jdbc.common.DatabricksJdbcConstants.*;
+import static com.databricks.jdbc.common.util.UserAgentManager.USER_AGENT_SEA_CLIENT;
+import static com.databricks.jdbc.common.util.UserAgentManager.USER_AGENT_THRIFT_CLIENT;
 
 import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.common.*;
@@ -353,8 +355,8 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   @Override
   public String getClientUserAgent() {
     return getClientType().equals(DatabricksClientType.SEA)
-        ? DatabricksJdbcConstants.USER_AGENT_SEA_CLIENT
-        : DatabricksJdbcConstants.USER_AGENT_THRIFT_CLIENT;
+        ? USER_AGENT_SEA_CLIENT
+        : USER_AGENT_THRIFT_CLIENT;
   }
 
   public String getCustomerUserAgent() {
