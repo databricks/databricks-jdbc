@@ -1229,7 +1229,7 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
       useCal.set(Calendar.HOUR_OF_DAY, lt.getHour());
       useCal.set(Calendar.MINUTE, lt.getMinute());
       useCal.set(Calendar.SECOND, lt.getSecond());
-      useCal.set(Calendar.MILLISECOND, 0);
+      useCal.set(Calendar.MILLISECOND, (int) time.getTime() % 1_000);
 
       return new Time(useCal.getTimeInMillis());
     }

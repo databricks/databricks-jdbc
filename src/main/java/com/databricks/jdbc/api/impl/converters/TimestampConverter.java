@@ -23,7 +23,8 @@ public class TimestampConverter implements ObjectConverter {
     // Extract just the time components
     LocalTime localTime = timestamp.toLocalDateTime().toLocalTime();
     // Create Time from LocalTime (this strips date components)
-    return Time.valueOf(localTime);
+    long epochWithMillis = Time.valueOf(localTime).getTime() + timestamp.getTime() % 1000;
+    return new Time(epochWithMillis);
   }
 
   /**
