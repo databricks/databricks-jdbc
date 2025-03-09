@@ -122,19 +122,13 @@ public class DatabaseMetaDataTestParams implements TestParams {
       putInMapForKey(functionToArgsMap, Map.entry("insertsAreDetected", 1), new Integer[] {type});
     }
 
-    // TODO: Need to implement the below function, commenting all permutations to avoid polluting
-    // the comparator result
+    for (Integer type : getAllSqlTypes()) {
+      for (Integer type2 : getAllSqlTypes()) {
+        putInMapForKey(
+            functionToArgsMap, Map.entry("supportsConvert", 2), new Integer[] {type, type2});
+      }
+    }
 
-    //    for (Integer type : getAllSqlTypes()) {
-    //      for (Integer type2 : getAllSqlTypes()) {
-    //        putInMapForKey(
-    //            functionToArgsMap, Map.entry("supportsConvert", 2), new Integer[] {type, type2});
-    //        putInMapForKey(
-    //            functionToArgsMap, Map.entry("supportsConvert", 2), new Integer[] {type2, type});
-    //      }
-    //    }
-
-    putInMapForKey(functionToArgsMap, Map.entry("supportsConvert", 2), new Integer[] {7, 70});
     for (Integer i : getAllTransactionIsolationLevels()) {
       putInMapForKey(
           functionToArgsMap, Map.entry("supportsTransactionIsolationLevel", 1), new Integer[] {i});
