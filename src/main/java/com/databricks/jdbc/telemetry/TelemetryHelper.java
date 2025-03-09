@@ -8,8 +8,11 @@ import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.model.telemetry.*;
 import com.databricks.sdk.core.DatabricksConfig;
 import com.databricks.sdk.core.ProxyConfig;
+import com.databricks.sdk.core.UserAgent;
 import com.google.common.annotations.VisibleForTesting;
 import java.nio.charset.Charset;
+import java.time.Instant;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class TelemetryHelper {
@@ -44,6 +47,8 @@ public class TelemetryHelper {
     }
     TelemetryFrontendLog telemetryFrontendLog =
         new TelemetryFrontendLog()
+            .setFrontendLogEventId(getEventUUID())
+            .setContext(getLogContext())
             .setEntry(
                 new FrontendLogEntry()
                     .setSqlDriverLog(
@@ -69,6 +74,8 @@ public class TelemetryHelper {
           new DriverErrorInfo().setErrorName(errorName).setStackTrace(errorMessage);
       TelemetryFrontendLog telemetryFrontendLog =
           new TelemetryFrontendLog()
+              .setFrontendLogEventId(getEventUUID())
+              .setContext(getLogContext())
               .setEntry(
                   new FrontendLogEntry()
                       .setSqlDriverLog(
@@ -115,7 +122,10 @@ public class TelemetryHelper {
       telemetryEvent.setSqlStatementId(statementId.toString());
     }
     TelemetryFrontendLog telemetryFrontendLog =
-        new TelemetryFrontendLog().setEntry(new FrontendLogEntry().setSqlDriverLog(telemetryEvent));
+        new TelemetryFrontendLog()
+            .setFrontendLogEventId(getEventUUID())
+            .setContext(getLogContext())
+            .setEntry(new FrontendLogEntry().setSqlDriverLog(telemetryEvent));
     TelemetryClientFactory.getInstance()
         .getTelemetryClient(connectionContext, DatabricksThreadContextHolder.getDatabricksConfig())
         .exportEvent(telemetryFrontendLog);
@@ -127,6 +137,8 @@ public class TelemetryHelper {
       DriverVolumeOperation volumeOperationEvent) {
     TelemetryFrontendLog telemetryFrontendLog =
         new TelemetryFrontendLog()
+            .setFrontendLogEventId(getEventUUID())
+            .setContext(getLogContext())
             .setEntry(
                 new FrontendLogEntry()
                     .setSqlDriverLog(
@@ -200,6 +212,18 @@ public class TelemetryHelper {
               connectionContext.getProxyAuthType()));
     }
     return connectionParameters;
+  }
+
+  private static String getEventUUID() {
+    return UUID.randomUUID().toString();
+  }
+
+  private static FrontendLogContext getLogContext() {
+    return new FrontendLogContext()
+        .setClientContext(
+            new TelemetryClientContext()
+                .setTimestampMillis(Instant.now().toEpochMilli())
+                .setUserAgent(UserAgent.asString()));
   }
 
   private static HostDetails getHostDetails(

@@ -4,6 +4,7 @@ import static com.databricks.jdbc.TestConstants.*;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import com.databricks.jdbc.api.IDatabricksConnectionContext;
@@ -14,6 +15,7 @@ import com.databricks.jdbc.common.util.DatabricksTypeUtil;
 import com.databricks.jdbc.dbclient.impl.sqlexec.DatabricksSdkClient;
 import com.databricks.jdbc.dbclient.impl.thrift.DatabricksThriftServiceClient;
 import com.databricks.jdbc.exception.DatabricksSQLException;
+import com.databricks.jdbc.exception.DatabricksSQLFeatureNotSupportedException;
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
 import java.io.Reader;
@@ -49,9 +51,11 @@ public class DatabricksPreparedStatementTest {
   @Mock DatabricksConnection connection;
   @Mock DatabricksSession session;
   private static final String INTERPOLATED_INITIAL_STATEMENT =
-      "SELECT * FROM orders WHERE user_id = ? AND name = ?";
+      "SELECT * FROM orders WHERE user_id = ? AND data = ?";
   private static final String INTERPOLATED_PROCESSED_STATEMENT =
-      "SELECT * FROM orders WHERE user_id = 1 AND name = 'test'";
+      "SELECT * FROM orders WHERE user_id = 1 AND data = 'test'";
+  private static final String INTERPOLATED_PROCESSED_STATEMENT_WITH_BYTES =
+      "SELECT * FROM orders WHERE user_id = 1 AND data = X'01020304'";
 
   void setupMocks() throws DatabricksSQLException {
     IDatabricksConnectionContext connectionContext =
@@ -96,6 +100,31 @@ public class DatabricksPreparedStatementTest {
     statement.setString(2, TEST_STRING);
     when(client.executeStatement(
             eq(INTERPOLATED_PROCESSED_STATEMENT),
+            eq(new Warehouse(WAREHOUSE_ID)),
+            any(HashMap.class),
+            eq(StatementType.QUERY),
+            any(IDatabricksSession.class),
+            eq(statement)))
+        .thenReturn(resultSet);
+
+    DatabricksResultSet newResultSet = (DatabricksResultSet) statement.executeQuery();
+    assertFalse(statement.isClosed());
+    assertEquals(resultSet, newResultSet);
+    statement.close();
+    assertTrue(statement.isClosed());
+  }
+
+  @Test
+  public void testExecuteStatementWithManyParametersAndSetBytes() throws Exception {
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContext.parse(JDBC_URL_WITH_MANY_PARAMETERS, new Properties());
+    DatabricksConnection connection = new DatabricksConnection(connectionContext, client);
+    DatabricksPreparedStatement statement =
+        new DatabricksPreparedStatement(connection, INTERPOLATED_INITIAL_STATEMENT);
+    statement.setInt(1, 1);
+    statement.setBytes(2, new byte[] {0x01, 0x02, 0x03, 0x04});
+    when(client.executeStatement(
+            eq(INTERPOLATED_PROCESSED_STATEMENT_WITH_BYTES),
             eq(new Warehouse(WAREHOUSE_ID)),
             any(HashMap.class),
             eq(StatementType.QUERY),
@@ -281,6 +310,36 @@ public class DatabricksPreparedStatementTest {
   }
 
   @Test
+  public void testSetObject() throws SQLException {
+    setupMocks();
+
+    // setObject(int parameterIndex, Object x, int targetSqlType)
+    // setObject(int parameterIndex, Object x)
+    // setObject(int parameterIndex, Object x, int targetSqlType, int scaleOrLength)
+
+    DatabricksPreparedStatement preparedStatement =
+        new DatabricksPreparedStatement(connection, STATEMENT);
+
+    assertDoesNotThrow(() -> preparedStatement.setObject(1, 1, Types.INTEGER));
+    assertEquals(Types.INTEGER, preparedStatement.getParameterMetaData().getParameterType(1));
+    assertThrows(
+        DatabricksSQLFeatureNotSupportedException.class,
+        () -> preparedStatement.setObject(1, 1, Types.ROWID)); // Unsupported type
+
+    assertDoesNotThrow(() -> preparedStatement.setObject(1, "1"));
+    assertEquals(Types.VARCHAR, preparedStatement.getParameterMetaData().getParameterType(1));
+
+    assertThrows(
+        DatabricksSQLFeatureNotSupportedException.class,
+        () ->
+            preparedStatement.setObject(
+                1, new Time(System.currentTimeMillis()))); // Unsupported type
+
+    assertDoesNotThrow(() -> preparedStatement.setObject(1, 2.567, Types.DECIMAL, 2));
+    assertEquals(Types.DECIMAL, preparedStatement.getParameterMetaData().getParameterType(1));
+  }
+
+  @Test
   public void testSetDateWithCalendar() throws DatabricksSQLException {
     setupMocks();
     DatabricksPreparedStatement preparedStatement =
@@ -385,6 +444,28 @@ public class DatabricksPreparedStatementTest {
   }
 
   @Test
+  public void testSetBytes() throws DatabricksSQLException {
+    setupMocks();
+    DatabricksPreparedStatement preparedStatement =
+        new DatabricksPreparedStatement(connection, STATEMENT);
+
+    byte[] bytes = {0x01, 0x02, 0x03, 0x04};
+
+    assertThrows(
+        DatabricksSQLFeatureNotSupportedException.class,
+        () -> preparedStatement.setBytes(1, bytes));
+
+    DatabricksConnectionContext connectionContext = mock(DatabricksConnectionContext.class);
+    when(connection.getConnectionContext()).thenReturn(connectionContext);
+    when(connectionContext.supportManyParameters()).thenReturn(true);
+
+    DatabricksPreparedStatement preparedStatementWithManyParameters =
+        new DatabricksPreparedStatement(connection, STATEMENT);
+
+    assertDoesNotThrow(() -> preparedStatementWithManyParameters.setBytes(1, bytes));
+  }
+
+  @Test
   public void testSetCharacterStreamWithoutLength() throws DatabricksSQLException {
     setupMocks();
     DatabricksPreparedStatement preparedStatement =
@@ -446,10 +527,10 @@ public class DatabricksPreparedStatementTest {
     assertThrows(
         UnsupportedOperationException.class,
         () -> preparedStatement.setNClob(1, Reader.nullReader()));
-    assertThrows(UnsupportedOperationException.class, () -> preparedStatement.setTime(1, null));
+    assertThrows(
+        DatabricksSQLFeatureNotSupportedException.class, () -> preparedStatement.setTime(1, null));
     assertThrows(
         UnsupportedOperationException.class, () -> preparedStatement.setTime(1, null, null));
-    assertThrows(UnsupportedOperationException.class, () -> preparedStatement.setBytes(1, null));
     assertThrows(
         SQLFeatureNotSupportedException.class, () -> preparedStatement.setObject(1, null, null));
     assertThrows(

@@ -31,7 +31,8 @@ public enum DatabricksJdbcUrlParams {
   CF_PROXY_USER("cfproxyuid", "Cloudflare proxy username"),
   CF_PROXY_PWD("cfproxypwd", "Cloudflare proxy password"),
   AUTH_FLOW("auth_flow", "Authentication flow"),
-  OAUTH_REFRESH_TOKEN("OAuthRefreshToken", "OAuth2 Refresh Token"),
+  OAUTH_REFRESH_TOKEN("Auth_RefreshToken", "OAuth2 Refresh Token"),
+  OAUTH_REFRESH_TOKEN_2("OAuthRefreshToken", "OAuth2 Refresh Token"), // Same as OAUTH_REFRESH_TOKEN
   PWD("pwd", "Password (used when AUTH_MECH = 3)", true),
   POLL_INTERVAL("asyncexecpollinterval", "Async execution poll interval", "200"),
   HTTP_PATH("httppath", "HTTP path", true),
@@ -43,9 +44,11 @@ public enum DatabricksJdbcUrlParams {
   JWT_PASS_PHRASE("Auth_JWT_Key_Passphrase", "JWT key passphrase"),
   JWT_KID("Auth_KID", "JWT key ID"),
   USE_JWT_ASSERTION("UseJWTAssertion", "Use JWT assertion", "0"),
-  DISCOVERY_MODE("OAuthDiscoveryMode", "OAuth discovery mode", "1"),
+  OIDC_DISCOVERY_MODE("EnableOIDCDiscovery", "OIDC discovery mode", "1"),
+  DISCOVERY_MODE("OAuthDiscoveryMode", "OAuth discovery mode", "1"), // Same as OIDC_DISCOVERY_MODE
   AUTH_SCOPE("Auth_Scope", "Authentication scope", "all-apis"),
-  DISCOVERY_URL("OAuthDiscoveryURL", "OAuth discovery URL"),
+  OIDC_DISCOVERY_ENDPOINT("OIDCDiscoveryEndpoint", "OIDC Discovery Endpoint"),
+  DISCOVERY_URL("OAuthDiscoveryURL", "OAuth discovery URL"), // Same as OIDC_DISCOVERY_ENDPOINT
   ENABLE_ARROW("EnableArrow", "Enable Arrow", "1"),
   DIRECT_RESULT("EnableDirectResults", "Enable direct results", "1"),
   LZ4_COMPRESSION_FLAG(
@@ -61,8 +64,11 @@ public enum DatabricksJdbcUrlParams {
   IDLE_HTTP_CONNECTION_EXPIRY("IdleHttpConnectionExpiry", "Idle HTTP connection expiry", "60"),
   SUPPORT_MANY_PARAMETERS("supportManyParameters", "Support many parameters", "0"),
   CLOUD_FETCH_THREAD_POOL_SIZE("cloudFetchThreadPoolSize", "Cloud fetch thread pool size", "16"),
-  TOKEN_ENDPOINT("OAuth2TokenEndpoint", "OAuth2 token endpoint"),
-  AUTH_ENDPOINT("OAuth2AuthorizationEndPoint", "OAuth2 authorization endpoint"),
+  OAUTH_ENDPOINT("OAuth2ConnAuthAuthorizeEndpoint", "OAuth2 authorization endpoint"),
+  AUTH_ENDPOINT(
+      "OAuth2AuthorizationEndPoint", "OAuth2 authorization endpoint"), // Same as OAUTH_ENDPOINT
+  OAUTH_TOKEN_ENDPOINT("OAuth2ConnAuthTokenEndpoint", "OAuth2 token endpoint"),
+  TOKEN_ENDPOINT("OAuth2TokenEndpoint", "OAuth2 token endpoint"), // Same as OAUTH_TOKEN_ENDPOINT
   SSL_TRUST_STORE("SSLTrustStore", "SSL trust store"),
   SSL_TRUST_STORE_PASSWORD("SSLTrustStorePwd", "SSL trust store password"),
   SSL_TRUST_STORE_TYPE("SSLTrustStoreType", "SSL trust store type", "JKS"),

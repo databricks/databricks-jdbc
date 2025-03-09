@@ -77,4 +77,14 @@ public class SQLInterpolatorTest {
     String expected = "UPDATE products SET price = 'O''Reilly' WHERE id = 200";
     assertEquals(expected, SQLInterpolator.interpolateSQL(sql, params));
   }
+
+  @Test
+  public void testBinaryType() throws DatabricksValidationException {
+    String sql = "INSERT INTO sales (id, data) VALUES (?, ?)";
+    Map<Integer, ImmutableSqlParameter> params = new HashMap<>();
+    params.put(1, getSqlParam(1, 101, DatabricksTypeUtil.INT));
+    params.put(2, getSqlParam(2, "X'0102030405'", DatabricksTypeUtil.BINARY));
+    String expected = "INSERT INTO sales (id, data) VALUES (101, X'0102030405')";
+    assertEquals(expected, SQLInterpolator.interpolateSQL(sql, params));
+  }
 }
