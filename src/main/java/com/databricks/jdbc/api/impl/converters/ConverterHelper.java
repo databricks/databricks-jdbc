@@ -521,9 +521,6 @@ public class ConverterHelper {
   }
 
   public static boolean isConversionSupported(int fromType, int toType) {
-    if (fromType == toType) {
-      return true; // Same type conversion is always supported
-    }
     return SUPPORTED_CONVERSIONS.containsKey(fromType)
         && SUPPORTED_CONVERSIONS.get(fromType).contains(toType);
   }
