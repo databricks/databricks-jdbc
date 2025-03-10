@@ -17,6 +17,7 @@ import com.databricks.jdbc.model.client.thrift.generated.TRowSet;
 import com.databricks.jdbc.model.client.thrift.generated.TSparkArrowBatch;
 import com.databricks.jdbc.model.core.ResultData;
 import com.databricks.jdbc.model.core.ResultManifest;
+import com.databricks.sdk.service.sql.ColumnInfoTypeName;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.util.Collections;
@@ -97,9 +98,9 @@ public class InlineChunkProviderTest {
 
     // Verify the data
     assertTrue(iterator.nextRow());
-    assertEquals(1, iterator.getColumnObjectAtCurrentRow(0));
+    assertEquals(1, iterator.getColumnObjectAtCurrentRow(0, ColumnInfoTypeName.INT, "INT"));
     assertTrue(iterator.nextRow());
-    assertEquals(2, iterator.getColumnObjectAtCurrentRow(0));
+    assertEquals(2, iterator.getColumnObjectAtCurrentRow(0, ColumnInfoTypeName.INT, "INT"));
 
     // No more chunk
     assertFalse(provider.next());
@@ -136,9 +137,9 @@ public class InlineChunkProviderTest {
 
     // Verify the data
     assertTrue(iterator.nextRow());
-    assertEquals(1, iterator.getColumnObjectAtCurrentRow(0));
+    assertEquals(1, iterator.getColumnObjectAtCurrentRow(0, ColumnInfoTypeName.INT, "INT"));
     assertTrue(iterator.nextRow());
-    assertEquals(2, iterator.getColumnObjectAtCurrentRow(0));
+    assertEquals(2, iterator.getColumnObjectAtCurrentRow(0, ColumnInfoTypeName.INT, "INT"));
 
     // No more chunk
     assertFalse(provider.next());

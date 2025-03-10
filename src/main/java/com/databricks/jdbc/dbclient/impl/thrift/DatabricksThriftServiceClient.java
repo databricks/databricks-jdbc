@@ -340,7 +340,7 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
       request.setTableTypes(Arrays.asList(tableTypes));
     }
     TFetchResultsResp response = (TFetchResultsResp) thriftAccessor.getThriftResponse(request);
-    return getTablesResult(catalog, extractRowsFromColumnar(response.getResults()));
+    return getTablesResult(catalog, tableTypes, extractRowsFromColumnar(response.getResults()));
   }
 
   @Override

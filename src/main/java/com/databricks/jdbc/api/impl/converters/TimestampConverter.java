@@ -9,6 +9,8 @@ import java.sql.Date;
 import java.sql.Time;
 import java.sql.Timestamp;
 import java.time.Instant;
+import java.time.LocalDate;
+import java.time.LocalTime;
 import java.time.OffsetDateTime;
 import java.time.format.DateTimeParseException;
 
@@ -18,7 +20,11 @@ public class TimestampConverter implements ObjectConverter {
   @Override
   public Time toTime(Object object) throws DatabricksSQLException {
     Timestamp timestamp = toTimestamp(object);
-    return new Time(timestamp.getTime());
+    // Extract just the time components
+    LocalTime localTime = timestamp.toLocalDateTime().toLocalTime();
+    // Create Time from LocalTime (this strips date components)
+    long epochWithMillis = Time.valueOf(localTime).getTime() + timestamp.getTime() % 1000;
+    return new Time(epochWithMillis);
   }
 
   /**
@@ -83,7 +89,8 @@ public class TimestampConverter implements ObjectConverter {
     } else if (object instanceof String) {
       // Use the common helper method to parse the string into a Timestamp.
       Timestamp ts = parseStringToTimestamp((String) object);
-      return new Date(ts.getTime());
+      LocalDate date = ts.toLocalDateTime().toLocalDate();
+      return Date.valueOf(date);
     }
     return new Date(toLong(object));
   }
@@ -102,7 +109,9 @@ public class TimestampConverter implements ObjectConverter {
       if (inputTimestamp.matches(".*T.*([+\\-]\\d\\d:\\d\\d)$")) {
         // Parse using OffsetDateTime for strings with timezone offset.
         OffsetDateTime odt = OffsetDateTime.parse(inputTimestamp);
-        return Timestamp.from(odt.toInstant());
+        // JDBC always assumes that the time returned is local time and hence, the offset is
+        // actually ignored.
+        return Timestamp.valueOf(odt.toLocalDateTime());
       } else {
         // For strings without offset, replace 'T' with a space.
         // Example: "2023-03-15T12:34:56" becomes "2023-03-15 12:34:56"

@@ -1,5 +1,6 @@
 package com.databricks.jdbc.api.impl.converters;
 
+import static com.databricks.jdbc.api.impl.converters.ArrowToJavaObjectConverter.getZoneIdFromTimeZoneOpt;
 import static com.databricks.jdbc.common.util.DatabricksTypeUtil.VARIANT;
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -13,8 +14,7 @@ import java.math.BigDecimal;
 import java.sql.Date;
 import java.sql.SQLException;
 import java.sql.Timestamp;
-import java.time.Instant;
-import java.time.LocalDateTime;
+import java.time.*;
 import java.util.*;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
@@ -36,9 +36,10 @@ public class ArrowToJavaObjectConverterTest {
 
   @Test
   public void testNullObjectConversion() throws SQLException {
-    Object unconvertedObject = null;
+    TinyIntVector tinyIntVector = new TinyIntVector("tinyIntVector", this.bufferAllocator);
+    tinyIntVector.allocateNew(1);
     Object convertedObject =
-        ArrowToJavaObjectConverter.convert(unconvertedObject, ColumnInfoTypeName.BYTE, "BYTE");
+        ArrowToJavaObjectConverter.convert(tinyIntVector, 0, ColumnInfoTypeName.BYTE, "BYTE");
     assertNull(convertedObject);
   }
 
@@ -47,27 +48,34 @@ public class ArrowToJavaObjectConverterTest {
     TinyIntVector tinyIntVector = new TinyIntVector("tinyIntVector", this.bufferAllocator);
     tinyIntVector.allocateNew(1);
     tinyIntVector.set(0, 65);
-    Object unconvertedObject = tinyIntVector.getObject(0);
     Object convertedObject =
-        ArrowToJavaObjectConverter.convert(unconvertedObject, ColumnInfoTypeName.BYTE, "BYTE");
+        ArrowToJavaObjectConverter.convert(tinyIntVector, 0, ColumnInfoTypeName.BYTE, "BYTE");
 
     assertInstanceOf(Byte.class, convertedObject);
-    assertEquals(convertedObject, (byte) 65);
+    assertEquals((byte) 65, convertedObject);
   }
 
   @Test
   public void testVariantConversion() throws SQLException, JsonProcessingException {
-    Object nullObject = ArrowToJavaObjectConverter.convert(null, null, VARIANT);
+    VarCharVector varCharVector = new VarCharVector("varCharVector", this.bufferAllocator);
+    varCharVector.allocateNew(3);
+
+    // Test null
+    Object nullObject = ArrowToJavaObjectConverter.convert(varCharVector, 0, null, VARIANT);
     assertNull(nullObject);
 
-    Object intObject = ArrowToJavaObjectConverter.convert(1, null, VARIANT);
+    // Test integer
+    varCharVector.set(1, "1".getBytes());
+    Object intObject = ArrowToJavaObjectConverter.convert(varCharVector, 1, null, VARIANT);
     assertNotNull(intObject);
     assertInstanceOf(String.class, intObject, "Expected result to be a String");
     assertEquals("1", intObject, "The integer should be converted to a string.");
 
-    Map map = new HashMap();
+    // Test map
+    Map<String, String> map = new HashMap<>();
     map.put("key", "value");
-    Object mapObject = ArrowToJavaObjectConverter.convert(map, null, VARIANT);
+    varCharVector.set(2, map.toString().getBytes());
+    Object mapObject = ArrowToJavaObjectConverter.convert(varCharVector, 2, null, VARIANT);
     assertNotNull(mapObject);
     assertInstanceOf(String.class, mapObject, "Expected result to be a String");
     assertEquals(mapObject.toString(), mapObject, "The map should be converted to a JSON string.");
@@ -78,22 +86,27 @@ public class ArrowToJavaObjectConverterTest {
     SmallIntVector smallIntVector = new SmallIntVector("smallIntVector", this.bufferAllocator);
     smallIntVector.allocateNew(1);
     smallIntVector.set(0, 4);
-    Object unconvertedObject = smallIntVector.getObject(0);
     Object convertedObject =
-        ArrowToJavaObjectConverter.convert(unconvertedObject, ColumnInfoTypeName.SHORT, "SHORT");
+        ArrowToJavaObjectConverter.convert(smallIntVector, 0, ColumnInfoTypeName.SHORT, "SHORT");
 
     assertInstanceOf(Short.class, convertedObject);
-    assertEquals(convertedObject, (short) 4);
+    assertEquals((short) 4, convertedObject);
   }
 
   @Test
   public void testTimestampNTZConversion() throws SQLException {
-    // create a local timestamp object
-    LocalDateTime localDateTime = LocalDateTime.of(2023, 8, 29, 12, 34, 56);
-    Object convertedObject = ArrowToJavaObjectConverter.convert(localDateTime, null, "TIMESTAMP");
+    long timestamp = 1704054600000000L;
+
+    TimeStampMicroVector timestampMicroVector =
+        new TimeStampMicroVector("timestampMicroVector", this.bufferAllocator);
+    timestampMicroVector.allocateNew(1);
+    timestampMicroVector.set(0, timestamp);
+    Object convertedObject =
+        ArrowToJavaObjectConverter.convert(
+            timestampMicroVector, 0, ColumnInfoTypeName.TIMESTAMP, "TIMESTAMP_NTZ");
 
     assertInstanceOf(Timestamp.class, convertedObject);
-    assertEquals(Timestamp.valueOf(localDateTime), convertedObject);
+    assertEquals(getTimestampAdjustedToTimeZone(timestamp, "UTC"), convertedObject);
   }
 
   @Test
@@ -101,12 +114,11 @@ public class ArrowToJavaObjectConverterTest {
     IntVector intVector = new IntVector("intVector", this.bufferAllocator);
     intVector.allocateNew(1);
     intVector.set(0, 1111111111);
-    Object unconvertedObject = intVector.getObject(0);
     Object convertedObject =
-        ArrowToJavaObjectConverter.convert(unconvertedObject, ColumnInfoTypeName.INT, "INT");
+        ArrowToJavaObjectConverter.convert(intVector, 0, ColumnInfoTypeName.INT, "INT");
 
     assertInstanceOf(Integer.class, convertedObject);
-    assertEquals(convertedObject, 1111111111);
+    assertEquals(1111111111, convertedObject);
   }
 
   @Test
@@ -114,12 +126,11 @@ public class ArrowToJavaObjectConverterTest {
     BigIntVector bigIntVector = new BigIntVector("bigIntVector", this.bufferAllocator);
     bigIntVector.allocateNew(1);
     bigIntVector.set(0, 1111111111111111111L);
-    Object unconvertedObject = bigIntVector.getObject(0);
     Object convertedObject =
-        ArrowToJavaObjectConverter.convert(unconvertedObject, ColumnInfoTypeName.LONG, "LONG");
+        ArrowToJavaObjectConverter.convert(bigIntVector, 0, ColumnInfoTypeName.LONG, "LONG");
 
     assertInstanceOf(Long.class, convertedObject);
-    assertEquals(convertedObject, 1111111111111111111L);
+    assertEquals(1111111111111111111L, convertedObject);
   }
 
   @Test
@@ -127,12 +138,11 @@ public class ArrowToJavaObjectConverterTest {
     Float4Vector float4Vector = new Float4Vector("float4Vector", this.bufferAllocator);
     float4Vector.allocateNew(1);
     float4Vector.set(0, 4.2f);
-    Object unconvertedObject = float4Vector.getObject(0);
     Object convertedObject =
-        ArrowToJavaObjectConverter.convert(unconvertedObject, ColumnInfoTypeName.FLOAT, "FLOAT");
+        ArrowToJavaObjectConverter.convert(float4Vector, 0, ColumnInfoTypeName.FLOAT, "FLOAT");
 
     assertInstanceOf(Float.class, convertedObject);
-    assertEquals(convertedObject, 4.2f);
+    assertEquals(4.2f, convertedObject);
   }
 
   @Test
@@ -140,12 +150,11 @@ public class ArrowToJavaObjectConverterTest {
     Float8Vector float8Vector = new Float8Vector("float8Vector", this.bufferAllocator);
     float8Vector.allocateNew(1);
     float8Vector.set(0, 4.11111111);
-    Object unconvertedObject = float8Vector.getObject(0);
     Object convertedObject =
-        ArrowToJavaObjectConverter.convert(unconvertedObject, ColumnInfoTypeName.DOUBLE, "DOUBLE");
+        ArrowToJavaObjectConverter.convert(float8Vector, 0, ColumnInfoTypeName.DOUBLE, "DOUBLE");
 
     assertInstanceOf(Double.class, convertedObject);
-    assertEquals(convertedObject, 4.11111111);
+    assertEquals(4.11111111, convertedObject);
   }
 
   @Test
@@ -153,13 +162,12 @@ public class ArrowToJavaObjectConverterTest {
     DecimalVector decimalVector = new DecimalVector("decimalVector", this.bufferAllocator, 30, 10);
     decimalVector.allocateNew(1);
     decimalVector.set(0, BigDecimal.valueOf(4.1111111111));
-    Object unconvertedObject = decimalVector.getObject(0);
     Object convertedObject =
         ArrowToJavaObjectConverter.convert(
-            unconvertedObject, ColumnInfoTypeName.DECIMAL, "DECIMAL(30,10)");
+            decimalVector, 0, ColumnInfoTypeName.DECIMAL, "DECIMAL(30,10)");
 
     assertInstanceOf(BigDecimal.class, convertedObject);
-    assertEquals(convertedObject, BigDecimal.valueOf(4.1111111111));
+    assertEquals(BigDecimal.valueOf(4.1111111111), convertedObject);
   }
 
   @Test
@@ -167,12 +175,11 @@ public class ArrowToJavaObjectConverterTest {
     VarBinaryVector varBinaryVector = new VarBinaryVector("varBinaryVector", this.bufferAllocator);
     varBinaryVector.allocateNew(1);
     varBinaryVector.set(0, new byte[] {65, 66, 67});
-    Object unconvertedObject = varBinaryVector.getObject(0);
     Object convertedObject =
-        ArrowToJavaObjectConverter.convert(unconvertedObject, ColumnInfoTypeName.BINARY, "BINARY");
+        ArrowToJavaObjectConverter.convert(varBinaryVector, 0, ColumnInfoTypeName.BINARY, "BINARY");
 
     assertInstanceOf(byte[].class, convertedObject);
-    assertArrayEquals((byte[]) convertedObject, "ABC".getBytes());
+    assertArrayEquals("ABC".getBytes(), (byte[]) convertedObject);
   }
 
   @Test
@@ -181,19 +188,15 @@ public class ArrowToJavaObjectConverterTest {
     bitVector.allocateNew(2);
     bitVector.set(0, 0);
     bitVector.set(1, 1);
-    Object unconvertedFalseObject = bitVector.getObject(0);
     Object convertedFalseObject =
-        ArrowToJavaObjectConverter.convert(
-            unconvertedFalseObject, ColumnInfoTypeName.BOOLEAN, "BOOLEAN");
-    Object unconvertedTrueObject = bitVector.getObject(1);
+        ArrowToJavaObjectConverter.convert(bitVector, 0, ColumnInfoTypeName.BOOLEAN, "BOOLEAN");
     Object convertedTrueObject =
-        ArrowToJavaObjectConverter.convert(
-            unconvertedTrueObject, ColumnInfoTypeName.BOOLEAN, "BOOLEAN");
+        ArrowToJavaObjectConverter.convert(bitVector, 1, ColumnInfoTypeName.BOOLEAN, "BOOLEAN");
 
-    assertInstanceOf(Boolean.class, unconvertedTrueObject);
-    assertInstanceOf(Boolean.class, unconvertedFalseObject);
-    assertEquals(convertedFalseObject, false);
-    assertEquals(convertedTrueObject, true);
+    assertInstanceOf(Boolean.class, convertedTrueObject);
+    assertInstanceOf(Boolean.class, convertedFalseObject);
+    assertEquals(false, convertedFalseObject);
+    assertEquals(true, convertedTrueObject);
   }
 
   @Test
@@ -201,12 +204,11 @@ public class ArrowToJavaObjectConverterTest {
     VarCharVector varCharVector = new VarCharVector("varCharVector", this.bufferAllocator);
     varCharVector.allocateNew(1);
     varCharVector.set(0, new byte[] {65});
-    Object unconvertedObject = varCharVector.getObject(0);
     Object convertedObject =
-        ArrowToJavaObjectConverter.convert(unconvertedObject, ColumnInfoTypeName.CHAR, "CHAR");
+        ArrowToJavaObjectConverter.convert(varCharVector, 0, ColumnInfoTypeName.CHAR, "CHAR");
 
     assertInstanceOf(Character.class, convertedObject);
-    assertEquals(convertedObject, 'A');
+    assertEquals('A', convertedObject);
   }
 
   @Test
@@ -214,12 +216,11 @@ public class ArrowToJavaObjectConverterTest {
     VarCharVector varCharVector = new VarCharVector("varCharVector", this.bufferAllocator);
     varCharVector.allocateNew(1);
     varCharVector.set(0, new byte[] {65, 66, 67});
-    Object unconvertedObject = varCharVector.getObject(0);
     Object convertedObject =
-        ArrowToJavaObjectConverter.convert(unconvertedObject, ColumnInfoTypeName.STRING, "STRING");
+        ArrowToJavaObjectConverter.convert(varCharVector, 0, ColumnInfoTypeName.STRING, "STRING");
 
     assertInstanceOf(String.class, convertedObject);
-    assertEquals(convertedObject, "ABC");
+    assertEquals("ABC", convertedObject);
   }
 
   @Test
@@ -227,58 +228,54 @@ public class ArrowToJavaObjectConverterTest {
     DateDayVector dateDayVector = new DateDayVector("dateDayVector", this.bufferAllocator);
     dateDayVector.allocateNew(1);
     dateDayVector.set(0, 19598); // 29th August 2023
-    Object unconvertedObject = dateDayVector.getObject(0);
     Object convertedObject =
-        ArrowToJavaObjectConverter.convert(unconvertedObject, ColumnInfoTypeName.DATE, "DATE");
+        ArrowToJavaObjectConverter.convert(dateDayVector, 0, ColumnInfoTypeName.DATE, "DATE");
 
     assertInstanceOf(Date.class, convertedObject);
-    assertEquals(convertedObject, Date.valueOf("2023-08-29"));
+    assertEquals(Date.valueOf("2023-08-29"), convertedObject);
   }
 
   @Test
   public void testTimestampConversion() throws SQLException {
-    IntVector intVector = new IntVector("intVector", this.bufferAllocator);
-    intVector.allocateNew(1);
-    intVector.set(0, 4000);
-    Object unconvertedIntObject = intVector.getObject(0);
-    Object convertedFromIntObject =
+    long timestamp = 1704054600000000L;
+    String timeZone = "Asia/Tokyo";
+    TimeStampMicroTZVector timeStampMicroTZVector =
+        new TimeStampMicroTZVector("timeStampMicroTzVector", this.bufferAllocator, timeZone);
+    timeStampMicroTZVector.allocateNew(1);
+    timeStampMicroTZVector.set(0, timestamp);
+    Object convertedObject =
         ArrowToJavaObjectConverter.convert(
-            unconvertedIntObject, ColumnInfoTypeName.TIMESTAMP, "TIMESTAMP");
-    BigIntVector bigIntVector = new BigIntVector("bigIntVector", this.bufferAllocator);
-    bigIntVector.allocateNew(1);
-    bigIntVector.set(0, 1693312639000000L);
-    Object unconvertedBigIntObject = bigIntVector.getObject(0);
-    Object convertedFromBigIntObject =
-        ArrowToJavaObjectConverter.convert(
-            unconvertedBigIntObject, ColumnInfoTypeName.TIMESTAMP, "TIMESTAMP");
+            timeStampMicroTZVector, 0, ColumnInfoTypeName.TIMESTAMP, "TIMESTAMP");
 
-    assertInstanceOf(Timestamp.class, convertedFromIntObject);
-    assertEquals(((Timestamp) convertedFromIntObject).toInstant(), Instant.ofEpochMilli(4));
-    assertInstanceOf(Timestamp.class, convertedFromBigIntObject);
-    assertEquals(
-        ((Timestamp) convertedFromBigIntObject).toInstant(), Instant.ofEpochMilli(1693312639000L));
+    assertInstanceOf(Timestamp.class, convertedObject);
+    assertEquals(getTimestampAdjustedToTimeZone(timestamp, timeZone), convertedObject);
+  }
+
+  private static Timestamp getTimestampAdjustedToTimeZone(long timestampMicro, String timeZone) {
+    Instant instant = Instant.ofEpochMilli(timestampMicro / 1000);
+    LocalDateTime localDateTime = LocalDateTime.ofInstant(instant, ZoneId.of(timeZone));
+    return Timestamp.valueOf(localDateTime);
   }
 
   @Test
   public void testStructConversion() throws SQLException {
+    VarCharVector varCharVector = new VarCharVector("varCharVector", this.bufferAllocator);
+    varCharVector.allocateNew(1);
+    varCharVector.set(0, "{\"k\": 10}".getBytes());
     Object convertedObject =
         ArrowToJavaObjectConverter.convert(
-            "{\"k\": 10}", ColumnInfoTypeName.STRUCT, "STRUCT<key: STRING, value: INT>");
+            varCharVector, 0, ColumnInfoTypeName.STRUCT, "STRUCT<key: STRING, value: INT>");
     assertInstanceOf(DatabricksStruct.class, convertedObject);
   }
 
   @Test
   public void testArrayConversion() throws SQLException {
-    ArrayList<String> list = new ArrayList<>();
-    list.add("A");
-    list.add("B");
     VarCharVector varCharVector = new VarCharVector("varCharVector", this.bufferAllocator);
     varCharVector.allocateNew(1);
-    varCharVector.set(0, list.toString().getBytes());
-    Object unconvertedObject = varCharVector.getObject(0);
+    varCharVector.set(0, "[\"A\", \"B\"]".getBytes());
     Object convertedObject =
         ArrowToJavaObjectConverter.convert(
-            "[\"A\", \"B\"]", ColumnInfoTypeName.STRING, "ARRAY<STRING>");
+            varCharVector, 0, ColumnInfoTypeName.STRING, "ARRAY<STRING>");
     assertInstanceOf(DatabricksArray.class, convertedObject);
   }
 
@@ -317,5 +314,67 @@ public class ArrowToJavaObjectConverterTest {
     arrowMetadata = "DECIMAL(10,4)";
     result = ArrowToJavaObjectConverter.convertToDecimal(numberObject, arrowMetadata);
     assertEquals(new BigDecimal("123.4568"), result); // Rounded to 4 decimal places
+  }
+
+  @Test
+  public void testGetZoneIdFromTimeZoneOpt_StandardTimeZones() {
+    assertEquals(
+        ZoneId.of("America/New_York"), getZoneIdFromTimeZoneOpt(Optional.of("America/New_York")));
+
+    assertEquals(
+        ZoneId.of("Europe/London"), getZoneIdFromTimeZoneOpt(Optional.of("Europe/London")));
+
+    assertEquals(ZoneId.of("Asia/Kolkata"), getZoneIdFromTimeZoneOpt(Optional.of("Asia/Kolkata")));
+
+    assertEquals(
+        ZoneId.of("Australia/Sydney"), getZoneIdFromTimeZoneOpt(Optional.of("Australia/Sydney")));
+  }
+
+  @Test
+  public void testGetZoneIdFromTimeZoneOpt_PositiveOffsets() {
+    ZoneId expected = ZoneOffset.ofHoursMinutes(4, 30);
+    assertEquals(expected, getZoneIdFromTimeZoneOpt(Optional.of("+4:30")));
+
+    expected = ZoneOffset.ofHoursMinutes(1, 0);
+    assertEquals(expected, getZoneIdFromTimeZoneOpt(Optional.of("+1:00")));
+
+    expected = ZoneOffset.ofHoursMinutes(5, 45);
+    assertEquals(expected, getZoneIdFromTimeZoneOpt(Optional.of("+5:45")));
+
+    expected = ZoneOffset.ofHoursMinutes(12, 0);
+    assertEquals(expected, getZoneIdFromTimeZoneOpt(Optional.of("+12:00")));
+  }
+
+  @Test
+  public void testGetZoneIdFromTimeZoneOpt_NegativeOffsets() {
+    ZoneId expected = ZoneOffset.ofHoursMinutes(-3, 0);
+    assertEquals(expected, getZoneIdFromTimeZoneOpt(Optional.of("-3:00")));
+
+    expected = ZoneOffset.ofHoursMinutes(-9, -30);
+    assertEquals(expected, getZoneIdFromTimeZoneOpt(Optional.of("-9:30")));
+
+    expected = ZoneOffset.ofHoursMinutes(-11, -45);
+    assertEquals(expected, getZoneIdFromTimeZoneOpt(Optional.of("-11:45")));
+  }
+
+  @Test
+  public void testGetZoneIdFromTimeZoneOpt_EmptyOptional() {
+    assertEquals(ZoneId.systemDefault(), getZoneIdFromTimeZoneOpt(Optional.empty()));
+  }
+
+  @Test
+  public void testGetZoneIdFromTimeZoneOpt_InvalidTimeZones() {
+    assertThrows(
+        DateTimeException.class, () -> getZoneIdFromTimeZoneOpt(Optional.of("Invalid/TimeZone")));
+
+    assertThrows(
+        DateTimeException.class,
+        () -> getZoneIdFromTimeZoneOpt(Optional.of("+25:00"))); // Hours out of range
+    assertThrows(
+        DateTimeException.class,
+        () -> getZoneIdFromTimeZoneOpt(Optional.of("+12:60"))); // Minutes out of range
+    assertThrows(
+        DateTimeException.class,
+        () -> getZoneIdFromTimeZoneOpt(Optional.of("5:30"))); // Missing sign
   }
 }

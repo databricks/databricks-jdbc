@@ -2,6 +2,7 @@ package com.databricks.jdbc.api.impl;
 
 import static com.databricks.jdbc.common.MetadataResultConstants.*;
 import static com.databricks.jdbc.dbclient.impl.common.CommandConstants.METADATA_STATEMENT_ID;
+import static com.databricks.jdbc.dbclient.impl.common.MetadataResultSetBuilder.getFunctionsResult;
 import static com.databricks.jdbc.dbclient.impl.sqlexec.ResultConstants.CLIENT_INFO_PROPERTIES_RESULT;
 
 import com.databricks.jdbc.api.IDatabricksSession;
@@ -1466,10 +1467,19 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
   @Override
   public ResultSet getFunctions(String catalog, String schemaPattern, String functionNamePattern)
       throws SQLException {
+    LOGGER.debug(
+        String.format(
+            "public ResultSet getFunctions(String catalog = {%s}, String schemaPattern = {%s}, String functionNamePattern = {%s})",
+            catalog, schemaPattern, functionNamePattern));
     throwExceptionIfConnectionIsClosed();
-    return session
-        .getDatabricksMetadataClient()
-        .listFunctions(session, catalog, schemaPattern, functionNamePattern);
+    try {
+      return session
+          .getDatabricksMetadataClient()
+          .listFunctions(session, catalog, schemaPattern, functionNamePattern);
+    } catch (Exception e) {
+      LOGGER.error("Unable to fetch functions, returning empty result set", e);
+      return getFunctionsResult(catalog, List.of());
+    }
   }
 
   @Override

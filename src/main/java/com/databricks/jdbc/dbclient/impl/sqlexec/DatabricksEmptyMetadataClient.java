@@ -45,7 +45,7 @@ public class DatabricksEmptyMetadataClient implements IDatabricksMetadataClient 
       String[] tableTypes)
       throws SQLException {
     LOGGER.warn("Empty metadata implementation for listTables.");
-    return MetadataResultSetBuilder.getTablesResult(catalog, new ArrayList<>());
+    return MetadataResultSetBuilder.getTablesResult(catalog, tableTypes, new ArrayList<>());
   }
 
   @Override
