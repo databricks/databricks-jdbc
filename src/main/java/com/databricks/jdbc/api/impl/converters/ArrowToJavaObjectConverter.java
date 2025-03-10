@@ -167,8 +167,8 @@ public class ArrowToJavaObjectConverter {
   }
 
   /**
-   * For TIMESTAMP columns, timeZone will be in the form 'Asia/Kolkata' or '+4:30' For TIMESTAMP_NTZ
-   * columns, the opt will be empty
+   * For TIMESTAMP columns, timeZone will be in the form 'Asia/Kolkata' or '+5:30'. For
+   * TIMESTAMP_NTZ columns, timeZoneOpt will be empty
    *
    * @param timeZoneOpt to fetch the zoneId for
    * @return the zone ID for the timezone opt
