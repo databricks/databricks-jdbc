@@ -2,6 +2,7 @@ package com.databricks.client.jdbc;
 
 import java.sql.Connection;
 import java.sql.DriverManager;
+import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.logging.Logger;
 
@@ -25,24 +26,19 @@ public class LoggingTest {
     return jdbcUrl;
   }
 
-  public static void main(String[] args) {
+  public static void main(String[] args) throws SQLException {
     String jdbcUrl = buildJdbcUrl();
     String patToken = System.getenv("DATABRICKS_TOKEN");
 
-    try {
-      Connection connection = DriverManager.getConnection(jdbcUrl, "token", patToken);
-      logger.info("Connected to the database.");
+    Connection connection = DriverManager.getConnection(jdbcUrl, "token", patToken);
+    logger.info("Connected to the database.");
 
-      Statement statement = connection.createStatement();
-      statement.execute("SELECT 1");
-      logger.info("Executed a sample query.");
+    Statement statement = connection.createStatement();
+    statement.execute("SELECT 1");
+    logger.info("Executed a sample query.");
 
-      // Close the connection
-      connection.close();
-      logger.info("Connection closed.");
-    } catch (Exception e) {
-      logger.severe("Error during logging test: " + e.getMessage());
-      e.printStackTrace();
-    }
+    // Close the connection
+    connection.close();
+    logger.info("Connection closed.");
   }
 }
