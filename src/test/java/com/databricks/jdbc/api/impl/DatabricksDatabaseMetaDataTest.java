@@ -803,6 +803,18 @@ public class DatabricksDatabaseMetaDataTest {
   }
 
   @Test
+  public void testGetDriverMajorVersion() {
+    int result = metaData.getDriverMajorVersion();
+    assertEquals(0, result);
+  }
+
+  @Test
+  public void testGetDriverMinorVersion() {
+    int result = metaData.getDriverMinorVersion();
+    assertEquals(9, result);
+  }
+
+  @Test
   public void testUsesLocalFiles() throws SQLException {
     boolean result = metaData.usesLocalFiles();
     assertFalse(result);
