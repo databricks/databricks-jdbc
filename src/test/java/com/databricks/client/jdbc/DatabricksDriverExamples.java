@@ -377,7 +377,7 @@ public class DatabricksDriverExamples {
   @Test
   void exampleGetCloudFetchUsed() throws Exception {
     DriverManager.registerDriver(new Driver());
-    String jdbcUrl = JDBC_URL_WAREHOUSE + "EnableSqlExecHybridResults=1";
+    String jdbcUrl = JDBC_URL_WAREHOUSE + "UseThriftClient=0;EnableSqlExecHybridResults=1";
     Connection con = DriverManager.getConnection(jdbcUrl, "token", DATABRICKS_TOKEN);
     System.out.println("Connection established. Arrow is enabled by default......");
 
