@@ -20,7 +20,7 @@ import java.io.IOException;
 public class DriverUtil {
 
   private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(DriverUtil.class);
-  private static final String DRIVER_VERSION = "0.9.9-oss";
+  private static final String DRIVER_VERSION = "0.9.11-oss";
   private static final String DRIVER_NAME = "oss-jdbc";
   private static final String JDBC_VERSION = "4.3";
 
