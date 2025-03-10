@@ -14,7 +14,7 @@ public class FakeServiceConfigLoader {
 
   public static final String TEST_SCHEMA = "testschema";
 
-  public static boolean shouldUseThriftClient =
+  public static final boolean shouldUseThriftClient =
       Boolean.parseBoolean(System.getenv("USE_THRIFT_CLIENT"));
 
   private static final String SQL_EXEC_FAKE_SERVICE_TEST_PROPS =

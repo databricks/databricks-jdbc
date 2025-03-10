@@ -12,8 +12,8 @@ public class LoggingTest {
   private static String buildJdbcUrl() {
     String host = System.getenv("DATABRICKS_HOST");
     String httpPath = System.getenv("DATABRICKS_HTTP_PATH");
-    // Use the user's home directory for logging
-    String logDir = System.getProperty("user.home") + "/logstest";
+    // Use the tmp directory for logging
+    String logDir = System.getProperty("java.io.tmpdir") + "/logstest";
     // Build the JDBC URL with the new logPath
     String jdbcUrl =
         "jdbc:databricks://"
@@ -22,7 +22,8 @@ public class LoggingTest {
             + httpPath
             + ";logPath="
             + logDir
-            + ";loglevel=DEBUG";
+            + ";loglevel=DEBUG"
+            + ";usethriftclient=0";
     return jdbcUrl;
   }
 
