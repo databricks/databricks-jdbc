@@ -567,6 +567,14 @@ public class DatabricksDatabaseMetaDataTest {
   }
 
   @Test
+  public void getFunctions_returnsEmptyResultSetWhenExceptionIsThrown() throws Exception {
+    when(metadataClient.listFunctions(session, null, "%", "%")).thenThrow(new SQLException());
+    ResultSet resultSet = metaData.getFunctions(null, "%", "%");
+    assertNotNull(resultSet);
+    assertFalse(resultSet.next());
+  }
+
+  @Test
   public void supportsGroupBy_returnsTrue() throws Exception {
     assertTrue(metaData.supportsGroupBy());
   }
