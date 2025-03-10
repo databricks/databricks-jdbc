@@ -183,6 +183,10 @@ public class IntegrationTestUtil {
       connectionProperties.put(
           DatabricksJdbcUrlParams.CONN_SCHEMA.getParamName(),
           FakeServiceConfigLoader.getProperty(DatabricksJdbcUrlParams.CONN_SCHEMA.getParamName()));
+      connectionProperties.put(
+          DatabricksJdbcUrlParams.USE_THRIFT_CLIENT.getParamName(),
+          FakeServiceConfigLoader.getProperty(
+              DatabricksJdbcUrlParams.USE_THRIFT_CLIENT.getParamName()));
 
       return DriverManager.getConnection(getFakeServiceJDBCUrl(), connectionProperties);
     }

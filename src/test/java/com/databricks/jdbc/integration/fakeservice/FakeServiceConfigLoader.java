@@ -39,7 +39,6 @@ public class FakeServiceConfigLoader {
     } catch (IOException e) {
       throw new RuntimeException("Failed to load properties file: " + propsFileName, e);
     }
-    shouldUseThriftClient = properties.get("usethriftclient").equals("1");
   }
 
   public static String getProperty(String key) {
