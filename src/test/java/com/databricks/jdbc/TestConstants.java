@@ -47,6 +47,8 @@ public class TestConstants {
       "jdbc:databricks://adb-565757575.18.azuredatabricks.net:4423/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/warehouse_id;UserAgentEntry=MyApp";
   public static final String WAREHOUSE_JDBC_URL_WITH_THRIFT =
       "jdbc:databricks://adb-565757575.18.azuredatabricks.net:4423/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/warehouse_id;UseThriftClient=1;";
+  public static final String WAREHOUSE_JDBC_URL_WITH_SEA =
+      "jdbc:databricks://adb-565757575.18.azuredatabricks.net:4423/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/warehouse_id;UseThriftClient=0;";
   public static final String USER_AGENT_URL =
       "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=http;ssl=1;httpPath=sql/protocolv1/o/6051921418418893/1115-130834-ms4m0yv;AuthMech=3;UserAgentEntry=TEST/24.2.0.2712019";
   public static final String CLUSTER_JDBC_URL =

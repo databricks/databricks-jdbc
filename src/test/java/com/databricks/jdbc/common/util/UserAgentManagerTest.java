@@ -13,12 +13,22 @@ import org.junit.jupiter.api.Test;
 public class UserAgentManagerTest {
   @Test
   void testUserAgentSetsClientCorrectly() throws DatabricksSQLException {
-    // Thrift
+    // Thrift with all-purpose cluster
     IDatabricksConnectionContext connectionContext =
         DatabricksConnectionContextFactory.create(CLUSTER_JDBC_URL, new Properties());
     UserAgentManager.setUserAgent(connectionContext);
     String userAgent = getUserAgentString();
-    System.out.println(getUserAgentString());
+    assertTrue(userAgent.contains("DatabricksJDBCDriverOSS/0.9.9-oss"));
+    assertTrue(userAgent.contains(" Java/THttpClient"));
+    assertTrue(userAgent.contains(" MyApp/version"));
+    assertTrue(userAgent.contains(" databricks-jdbc-http "));
+    assertFalse(userAgent.contains("databricks-sdk-java"));
+
+    // Thrift with warehouse
+    connectionContext =
+        DatabricksConnectionContextFactory.create(WAREHOUSE_JDBC_URL, new Properties());
+    UserAgentManager.setUserAgent(connectionContext);
+    userAgent = getUserAgentString();
     assertTrue(userAgent.contains("DatabricksJDBCDriverOSS/0.9.9-oss"));
     assertTrue(userAgent.contains(" Java/THttpClient"));
     assertTrue(userAgent.contains(" MyApp/version"));
@@ -27,7 +37,7 @@ public class UserAgentManagerTest {
 
     // SEA
     connectionContext =
-        DatabricksConnectionContextFactory.create(WAREHOUSE_JDBC_URL, new Properties());
+        DatabricksConnectionContextFactory.create(WAREHOUSE_JDBC_URL_WITH_SEA, new Properties());
     UserAgentManager.setUserAgent(connectionContext);
     userAgent = getUserAgentString();
     assertTrue(userAgent.contains("DatabricksJDBCDriverOSS/0.9.9-oss"));
