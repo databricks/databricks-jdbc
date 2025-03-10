@@ -88,7 +88,11 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
       this.executionResult =
           ExecutionResultFactory.getResultSet(
               resultData, resultManifest, statementId, session, parentStatement);
-      this.resultSetMetaData = new DatabricksResultSetMetaData(statementId, resultManifest);
+      System.out.println("CHECK");
+      System.out.println(resultData);
+      this.resultSetMetaData =
+          new DatabricksResultSetMetaData(
+              statementId, resultManifest, resultData.getExternalLinks() != null);
       switch (resultManifest.getFormat()) {
         case ARROW_STREAM:
           this.resultSetType = ResultSetType.SEA_ARROW_ENABLED;

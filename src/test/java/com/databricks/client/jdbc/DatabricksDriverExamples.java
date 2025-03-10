@@ -384,27 +384,34 @@ public class DatabricksDriverExamples {
   }
 
   /**
-   * Demonstrates how to query Databricks result set "disposition" and see if Cloud Fetch is in use
-   * (via DatabricksResultSetMetaData).
+   * Demonstrates how to query and see if Cloud Fetch is in use (via DatabricksResultSetMetaData).
    */
   @Test
-  void exampleGetDisposition() throws Exception {
+  void exampleGetCloudFetchUsed() throws Exception {
     DriverManager.registerDriver(new Driver());
     String jdbcUrl =
         "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;"
             + "transportMode=https;ssl=1;AuthMech=3;"
-            + "httpPath=/sql/1.0/warehouses/791ba2a31c7fd70a;";
+            + "httpPath=/sql/1.0/warehouses/791ba2a31c7fd70a;EnableSqlExecHybridResults=1";
     Connection con = DriverManager.getConnection(jdbcUrl, "token", DATABRICKS_TOKEN);
     System.out.println("Connection established. Arrow is enabled by default......");
 
-    String query = "SELECT * FROM RANGE(10)";
-    ResultSet resultSet = con.createStatement().executeQuery(query);
+    String query = "SELECT * FROM RANGE(1)";
+    ResultSet smallResultSet = con.createStatement().executeQuery(query);
 
     // Cast metadata to Databricks-specific class
-    DatabricksResultSetMetaData rsmd = (DatabricksResultSetMetaData) resultSet.getMetaData();
-    System.out.println("isCloudFetchUsed when arrow is enabled: " + rsmd.getIsCloudFetchUsed());
+    DatabricksResultSetMetaData rsmd = (DatabricksResultSetMetaData) smallResultSet.getMetaData();
+    System.out.println("isCloudFetchUsed for small query: " + rsmd.getIsCloudFetchUsed());
+    smallResultSet.close();
 
-    resultSet.close();
+    query = "SELECT * FROM RANGE(10000000)";
+    ResultSet largeResultSet = con.createStatement().executeQuery(query);
+
+    // Cast metadata to Databricks-specific class
+    rsmd = (DatabricksResultSetMetaData) largeResultSet.getMetaData();
+    System.out.println("isCloudFetchUsed for large query: " + rsmd.getIsCloudFetchUsed());
+    largeResultSet.close();
+
     con.close();
   }
 

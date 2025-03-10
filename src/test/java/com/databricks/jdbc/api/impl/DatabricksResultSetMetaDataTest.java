@@ -75,7 +75,7 @@ public class DatabricksResultSetMetaDataTest {
   public void testColumnsWithSameNameAndNullTypeName() throws SQLException {
     ResultManifest resultManifest = getResultManifest();
     DatabricksResultSetMetaData metaData =
-        new DatabricksResultSetMetaData(STATEMENT_ID, resultManifest);
+        new DatabricksResultSetMetaData(STATEMENT_ID, resultManifest, false);
     assertEquals(4, metaData.getColumnCount());
     assertEquals("col1", metaData.getColumnName(1));
     assertEquals("col2", metaData.getColumnName(2));
@@ -113,7 +113,7 @@ public class DatabricksResultSetMetaDataTest {
     resultManifest.setSchema(schema);
 
     DatabricksResultSetMetaData metaData =
-        new DatabricksResultSetMetaData(STATEMENT_ID, resultManifest);
+        new DatabricksResultSetMetaData(STATEMENT_ID, resultManifest, false);
     assertEquals(1, metaData.getColumnCount());
     assertEquals("timestamp_ntz", metaData.getColumnName(1));
     assertEquals(TIMESTAMP, metaData.getColumnTypeName(1));
@@ -167,7 +167,7 @@ public class DatabricksResultSetMetaDataTest {
   public void testColumnsForVolumeOperation() throws SQLException {
     ResultManifest resultManifest = getResultManifest().setIsVolumeOperation(true);
     DatabricksResultSetMetaData metaData =
-        new DatabricksResultSetMetaData(STATEMENT_ID, resultManifest);
+        new DatabricksResultSetMetaData(STATEMENT_ID, resultManifest, false);
     assertEquals(1, metaData.getColumnCount());
     assertEquals(
         DatabricksJdbcConstants.VOLUME_OPERATION_STATUS_COLUMN_NAME, metaData.getColumnName(1));
@@ -249,7 +249,7 @@ public class DatabricksResultSetMetaDataTest {
   @Test
   public void testGetScaleAndPrecisionWithColumnInfo() throws SQLException {
     DatabricksResultSetMetaData metaData =
-        new DatabricksResultSetMetaData(STATEMENT_ID, getResultManifest());
+        new DatabricksResultSetMetaData(STATEMENT_ID, getResultManifest(), false);
     ColumnInfo decimalColumnInfo = getColumn("col1", ColumnInfoTypeName.DECIMAL, "decimal");
     decimalColumnInfo.setTypePrecision(10L);
     decimalColumnInfo.setTypeScale(2L);
@@ -272,7 +272,7 @@ public class DatabricksResultSetMetaDataTest {
   public void testColumnBuilderDefaultMetadata() throws SQLException {
     ResultManifest resultManifest = getResultManifest();
     DatabricksResultSetMetaData metaData =
-        new DatabricksResultSetMetaData(STATEMENT_ID, resultManifest);
+        new DatabricksResultSetMetaData(STATEMENT_ID, resultManifest, false);
     assertEquals(4, metaData.getColumnCount());
     verifyDefaultMetadataProperties(metaData, StatementType.SQL);
 
@@ -297,7 +297,7 @@ public class DatabricksResultSetMetaDataTest {
   @Test
   public void testGetScaleAndPrecisionWithTColumnDesc() {
     DatabricksResultSetMetaData metaData =
-        new DatabricksResultSetMetaData(THRIFT_STATEMENT_ID, getResultManifest());
+        new DatabricksResultSetMetaData(THRIFT_STATEMENT_ID, getResultManifest(), false);
 
     TColumnDesc columnInfo = new TColumnDesc();
     TTypeDesc typeDesc = new TTypeDesc();
@@ -355,19 +355,16 @@ public class DatabricksResultSetMetaDataTest {
     }
   }
 
-  @ParameterizedTest
-  @MethodSource("sdkResultFormats")
-  public void testDispositionSdk(Format format) {
+  @Test
+  public void testCloudFetchUsedSdk() {
     ResultManifest resultManifest = getResultManifest();
-    resultManifest.setFormat(format);
-    DatabricksResultSetMetaData metaData =
-        new DatabricksResultSetMetaData(STATEMENT_ID, resultManifest);
 
-    if (format == Format.ARROW_STREAM) {
-      assertTrue(metaData.getIsCloudFetchUsed());
-    } else {
-      assertFalse(metaData.getIsCloudFetchUsed());
-    }
+    DatabricksResultSetMetaData metaData =
+        new DatabricksResultSetMetaData(STATEMENT_ID, resultManifest, true);
+    assertTrue(metaData.getIsCloudFetchUsed());
+
+    metaData = new DatabricksResultSetMetaData(STATEMENT_ID, resultManifest, false);
+    assertFalse(metaData.getIsCloudFetchUsed());
   }
 
   private void verifyDefaultMetadataProperties(
