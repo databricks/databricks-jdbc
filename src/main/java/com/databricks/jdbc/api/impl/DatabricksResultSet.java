@@ -88,8 +88,6 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
       this.executionResult =
           ExecutionResultFactory.getResultSet(
               resultData, resultManifest, statementId, session, parentStatement);
-      System.out.println("CHECK");
-      System.out.println(resultData);
       this.resultSetMetaData =
           new DatabricksResultSetMetaData(
               statementId, resultManifest, resultData.getExternalLinks() != null);
