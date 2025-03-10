@@ -1,7 +1,5 @@
 package com.databricks.client.jdbc;
 
-import java.net.URLEncoder;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Paths;
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -17,8 +15,7 @@ public class LoggingTest {
     String httpPath = System.getenv("DATABRICKS_HTTP_PATH");
     // Use the user's directory for logging
     String logDir = Paths.get(System.getProperty("user.home"), "logstest").toString();
-    String encodedLogDir = URLEncoder.encode(logDir, StandardCharsets.UTF_8);
-    logger.info("Logging to: " + encodedLogDir);
+    logger.info("Logging to: " + logDir);
     // Build the JDBC URL with the new logPath
     String jdbcUrl =
         "jdbc:databricks://"
@@ -26,7 +23,7 @@ public class LoggingTest {
             + "/default;transportMode=http;ssl=1;AuthMech=3;httpPath="
             + httpPath
             + ";logPath="
-            + encodedLogDir
+            + logDir
             + ";loglevel=DEBUG"
             + ";usethriftclient=0";
     return jdbcUrl;
