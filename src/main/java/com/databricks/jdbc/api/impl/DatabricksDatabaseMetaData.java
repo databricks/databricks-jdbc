@@ -137,17 +137,17 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
   public String getDriverVersion() throws SQLException {
     LOGGER.debug("public String getDriverVersion()");
     throwExceptionIfConnectionIsClosed();
-    return DriverUtil.getVersion();
+    return DriverUtil.getDriverVersion();
   }
 
   @Override
   public int getDriverMajorVersion() {
-    return DriverUtil.getMajorVersion();
+    return DriverUtil.getDriverMajorVersion();
   }
 
   @Override
   public int getDriverMinorVersion() {
-    return DriverUtil.getMinorVersion();
+    return DriverUtil.getDriverMinorVersion();
   }
 
   @Override
@@ -1382,27 +1382,27 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
   }
 
   @Override
-  public int getDatabaseMajorVersion() throws SQLException {
+  public int getDatabaseMajorVersion() {
     LOGGER.debug("public int getDatabaseMajorVersion()");
     return DATABASE_MAJOR_VERSION;
   }
 
   @Override
-  public int getDatabaseMinorVersion() throws SQLException {
+  public int getDatabaseMinorVersion() {
     LOGGER.debug("public int getDatabaseMinorVersion()");
     return DATABASE_MINOR_VERSION;
   }
 
   @Override
-  public int getJDBCMajorVersion() throws SQLException {
+  public int getJDBCMajorVersion() {
     LOGGER.debug("public int getJDBCMajorVersion()");
-    return DriverUtil.getMajorVersion();
+    return DriverUtil.getJDBCMajorVersion();
   }
 
   @Override
-  public int getJDBCMinorVersion() throws SQLException {
+  public int getJDBCMinorVersion() {
     LOGGER.debug("public int getJDBCMinorVersion()");
-    return DriverUtil.getMinorVersion();
+    return DriverUtil.getJDBCMinorVersion();
   }
 
   @Override

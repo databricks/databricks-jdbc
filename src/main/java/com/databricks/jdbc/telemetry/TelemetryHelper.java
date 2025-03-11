@@ -25,7 +25,7 @@ public class TelemetryHelper {
           .setClientAppName(null)
           .setCharSetEncoding(Charset.defaultCharset().displayName())
           .setDriverName(DriverUtil.getDriverName())
-          .setDriverVersion(DriverUtil.getVersion())
+          .setDriverVersion(DriverUtil.getDriverVersion())
           .setLocaleName(
               System.getProperty("user.language") + '_' + System.getProperty("user.country"))
           .setRuntimeVendor(System.getProperty("java.vendor"))

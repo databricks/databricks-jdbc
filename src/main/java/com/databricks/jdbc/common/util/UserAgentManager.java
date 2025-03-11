@@ -20,7 +20,7 @@ public class UserAgentManager {
    * @param connectionContext The connection context.
    */
   public static void setUserAgent(IDatabricksConnectionContext connectionContext) {
-    UserAgent.withProduct(DEFAULT_USER_AGENT, DriverUtil.getVersion());
+    UserAgent.withProduct(DEFAULT_USER_AGENT, DriverUtil.getDriverVersion());
     UserAgent.withOtherInfo(CLIENT_USER_AGENT_PREFIX, connectionContext.getClientUserAgent());
     String customerUA = connectionContext.getCustomerUserAgent();
     if (!isNullOrEmpty(customerUA)) {

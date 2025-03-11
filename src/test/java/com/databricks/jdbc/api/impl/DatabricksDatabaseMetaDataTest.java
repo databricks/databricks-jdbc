@@ -1,7 +1,6 @@
 package com.databricks.jdbc.api.impl;
 
-import static com.databricks.jdbc.TestConstants.WAREHOUSE_JDBC_URL;
-import static com.databricks.jdbc.TestConstants.WAREHOUSE_JDBC_URL_WITH_THRIFT;
+import static com.databricks.jdbc.TestConstants.*;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
@@ -679,6 +678,9 @@ public class DatabricksDatabaseMetaDataTest {
 
   @Test
   public void testGetSchemas_SqlExec() throws SQLException {
+    when(session.getConnectionContext())
+        .thenReturn(
+            DatabricksConnectionContext.parse(WAREHOUSE_JDBC_URL_WITH_SEA, new Properties()));
     ResultSet resultSet = metaData.getSchemas();
     assertNotNull(resultSet);
 
@@ -800,6 +802,18 @@ public class DatabricksDatabaseMetaDataTest {
   public void testGetDriverVersion() throws SQLException {
     String result = metaData.getDriverVersion();
     assertEquals("1.0.1-oss", result);
+  }
+
+  @Test
+  public void testGetDriverMajorVersion() {
+    int result = metaData.getDriverMajorVersion();
+    assertEquals(0, result);
+  }
+
+  @Test
+  public void testGetDriverMinorVersion() {
+    int result = metaData.getDriverMinorVersion();
+    assertEquals(9, result);
   }
 
   @Test
