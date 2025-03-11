@@ -807,13 +807,13 @@ public class DatabricksDatabaseMetaDataTest {
   @Test
   public void testGetDriverMajorVersion() {
     int result = metaData.getDriverMajorVersion();
-    assertEquals(0, result);
+    assertEquals(1, result);
   }
 
   @Test
   public void testGetDriverMinorVersion() {
     int result = metaData.getDriverMinorVersion();
-    assertEquals(9, result);
+    assertEquals(0, result);
   }
 
   @Test
