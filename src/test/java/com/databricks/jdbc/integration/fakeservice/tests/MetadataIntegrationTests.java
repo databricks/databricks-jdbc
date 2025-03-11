@@ -26,7 +26,7 @@ public class MetadataIntegrationTests extends AbstractFakeServiceIntegrationTest
 
   @AfterEach
   void cleanUp() throws SQLException {
-    if (connection != null) {
+    if (connection != null && !isFakeReplayInThriftMode()) {
       connection.close();
     }
   }
