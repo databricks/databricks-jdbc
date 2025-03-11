@@ -1,0 +1,30 @@
+{
+  "id" : "9f9d204c-9653-4a7a-89ee-a4466f068575",
+  "name" : "sql_1.0_warehouses_dd43ee29fedd958d",
+  "request" : {
+    "url" : "/sql/1.0/warehouses/dd43ee29fedd958d",
+    "method" : "POST",
+    "bodyPatterns" : [ {
+      "binaryEqualTo" : "gAEAAQAAABBFeGVjdXRlU3RhdGVtZW50AAAABwwAAQwAAQwAAQsAAQAAABAB7/6jN08XOb9/z1MHAXLcCwACAAAAEDONUp2CckbrhILLQZRmg50AAAsAAgAAADxEUk9QIFRBQkxFIElGIEVYSVNUUyBtYWluLmpkYmNfdGVzdF9zY2hlbWEuZGVsZXRlX3Rlc3RfdGFibGUKAAUAAAAAAAAAAAwFAQoAAQAAAAAAHoSACgACAAAAABghowAAAgUCAQIFAwECBQQBDAUGAgABAQIAAgECAAMBAgAEAQIABQEADwUIDAAAAAAAAA=="
+    } ]
+  },
+  "response" : {
+    "status" : 200,
+    "base64Body" : "gAEAAgAAABBFeGVjdXRlU3RhdGVtZW50AAAABwwAAAwAAQgAAQAAAAAADAACDAABCwABAAAAEAHv/qNAIBlUjK4p5Dxr1lkLAAIAAAAQM41SnYJyRuuEgstBlGaDnQYNAQAAAAgAAgAAAAACAAMBAAwFAQwAAQwAAQgAAQAAAAAACAACAAAAAgoABwAAAZWGYP02CgAIAAABlYZg/ikIDQIAAAABCg0DAAAAAAACowAADAACDAABCAABAAAAAAAMAAIPAAEMAAAAAQsAAQAAAAZSZXN1bHQMAAIPAAEMAAAAAQwAAQgAAQAAAAcAAAAIAAMAAAABCwAEAAAAAAAACAUBAAAAAAIFAgELBQMAAABI/////0AAAAAQAAAAAAAKAA4ABgANAAgACgAAAAAABAAQAAAAAAEKAAwAAAAIAAQACgAAAAgAAAAIAAAAAAAAAAAAAAAAAAAACAUEAAAAAAoFBQAAAAAAAAAACgUGAAAAAAAAAAACBQcACA0BAAAABQoNBQAAAAAAAAABAg0IAQINCQECDREAAAwAAwwAAQgAAQAAAAAAAgACAAwAAwoAAQAAAAAAAAAADwACDAAAAAAPBQEMAAAAAAAADAAEDAABCAABAAAAAAAAAAINBwECDQgBAAA=",
+    "headers" : {
+      "x-request-id" : "1f2c780c-6790-4f23-aeb1-768cc926f50f",
+      "date" : "Tue, 11 Mar 2025 18:04:18 GMT",
+      "server" : "databricks",
+      "x-databricks-popp-response-code-details" : "via_upstream",
+      "x-content-type-options" : "nosniff",
+      "x-databricks-shard-debug" : "oregon-staging",
+      "x-databricks-org-id" : "6051921418418893",
+      "x-databricks-popp-routing-reason" : "deployment-name",
+      "content-type" : "application/x-thrift; protocol=TBINARY",
+      "x-databricks-apiproxy-response-code-details" : "via_upstream",
+      "strict-transport-security" : "max-age=31536000; includeSubDomains; preload"
+    }
+  },
+  "uuid" : "9f9d204c-9653-4a7a-89ee-a4466f068575",
+  "insertionIndex" : 8
+}

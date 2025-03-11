@@ -1,8 +1,8 @@
 package com.databricks.jdbc.integration;
 
 import static com.databricks.jdbc.common.DatabricksJdbcConstants.*;
-import static com.databricks.jdbc.integration.fakeservice.FakeServiceConfigLoader.TEST_CATALOG;
-import static com.databricks.jdbc.integration.fakeservice.FakeServiceConfigLoader.TEST_SCHEMA;
+import static com.databricks.jdbc.integration.fakeservice.AbstractFakeServiceIntegrationTests.getFakeServiceMode;
+import static com.databricks.jdbc.integration.fakeservice.FakeServiceConfigLoader.*;
 import static com.databricks.jdbc.integration.fakeservice.FakeServiceExtension.TARGET_URI_PROP_SUFFIX;
 
 import com.databricks.jdbc.api.IDatabricksConnectionContext;
@@ -12,6 +12,7 @@ import com.databricks.jdbc.common.DatabricksJdbcConstants.FakeServiceType;
 import com.databricks.jdbc.common.DatabricksJdbcUrlParams;
 import com.databricks.jdbc.common.util.DriverUtil;
 import com.databricks.jdbc.integration.fakeservice.FakeServiceConfigLoader;
+import com.databricks.jdbc.integration.fakeservice.FakeServiceExtension;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.sql.Connection;
@@ -407,5 +408,13 @@ public class IntegrationTestUtil {
             + getFullyQualifiedTableName(tableName)
             + " (id, col1, col2) VALUES (1, 'value1', 'value2')";
     executeSQL(conn, insertSQL);
+  }
+
+  public static boolean isThriftMode() {
+    return getProperty(DatabricksJdbcUrlParams.USE_THRIFT_CLIENT.getParamName()).equals("1");
+  }
+
+  public static boolean isFakeReplayInThriftMode() {
+    return isThriftMode() && getFakeServiceMode() == FakeServiceExtension.FakeServiceMode.REPLAY;
   }
 }

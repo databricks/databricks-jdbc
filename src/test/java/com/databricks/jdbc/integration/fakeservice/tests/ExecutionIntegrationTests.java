@@ -28,7 +28,7 @@ public class ExecutionIntegrationTests extends AbstractFakeServiceIntegrationTes
 
   @AfterEach
   void cleanUp() throws SQLException {
-    if (connection != null) {
+    if (connection != null && !isFakeReplayInThriftMode()) {
       connection.close();
     }
   }

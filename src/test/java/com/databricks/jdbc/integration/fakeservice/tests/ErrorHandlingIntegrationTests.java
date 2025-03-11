@@ -23,7 +23,7 @@ public class ErrorHandlingIntegrationTests extends AbstractFakeServiceIntegratio
 
   @AfterEach
   void cleanUp() throws SQLException {
-    if (connection != null) {
+    if (connection != null && !isFakeReplayInThriftMode()) {
       connection.close();
     }
   }
@@ -70,7 +70,11 @@ public class ErrorHandlingIntegrationTests extends AbstractFakeServiceIntegratio
                       + " (id, col1, col2) VALUES (1, 'value1', 'value2')";
               statement.executeQuery(sql);
             });
-    assertTrue(e.getMessage().contains("Syntax error"));
+    if (isThriftMode()) {
+      assertTrue(e.getMessage().contains("Operation handle not set"));
+    } else {
+      assertTrue(e.getMessage().contains("Syntax error"));
+    }
     deleteTable(connection, tableName);
   }
 

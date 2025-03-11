@@ -1,0 +1,30 @@
+{
+  "id" : "1495afbd-f645-4ed6-86af-6e0c5f47abeb",
+  "name" : "sql_1.0_warehouses_dd43ee29fedd958d",
+  "request" : {
+    "url" : "/sql/1.0/warehouses/dd43ee29fedd958d",
+    "method" : "POST",
+    "bodyPatterns" : [ {
+      "binaryEqualTo" : "gAEAAQAAABBFeGVjdXRlU3RhdGVtZW50AAAAAwwAAQwAAQwAAQsAAQAAABAB7/6gDKYZ26+T+wGu0gMCCwACAAAAEDONUp2CckbrhILLQZRmg50AAAsAAgAAAI5DUkVBVEUgVEFCTEUgSUYgTk9UIEVYSVNUUyBtYWluLmpkYmNfdGVzdF9zY2hlbWEudW5zdXBwb3J0ZWRfc3FsX2ZlYXR1cmVfdGVzdF90YWJsZSAoaWQgSU5UIFBSSU1BUlkgS0VZLCBjb2wxIFZBUkNIQVIoMjU1KSwgY29sMiBWQVJDSEFSKDI1NSkpCgAFAAAAAAAAAAAMBQEKAAEAAAAAAB6EgAoAAgAAAAAYIaMAAAIFAgECBQMBAgUEAQwFBgIAAQECAAIBAgADAQIABAECAAUBAA8FCAwAAAAAAAA="
+    } ]
+  },
+  "response" : {
+    "status" : 200,
+    "base64Body" : "gAEAAgAAABBFeGVjdXRlU3RhdGVtZW50AAAAAwwAAAwAAQgAAQAAAAAADAACDAABCwABAAAAEAHv/qAOXR5Yo53nzBURzjULAAIAAAAQM41SnYJyRuuEgstBlGaDnQYNAQAAAAgAAgAAAAACAAMBAAwFAQwAAQwAAQgAAQAAAAAACAACAAAAAgoABwAAAZWGTA3wCgAIAAABlYZME08IDQIAAAABCg0DAAAAAAACowAADAACDAABCAABAAAAAAAMAAIPAAEMAAAAAQsAAQAAAAZSZXN1bHQMAAIPAAEMAAAAAQwAAQgAAQAAAAcAAAAIAAMAAAABCwAEAAAAAAAACAUBAAAAAAIFAgELBQMAAABI/////0AAAAAQAAAAAAAKAA4ABgANAAgACgAAAAAABAAQAAAAAAEKAAwAAAAIAAQACgAAAAgAAAAIAAAAAAAAAAAAAAAAAAAACAUEAAAAAAoFBQAAAAAAAAAACgUGAAAAAAAAAAACBQcACA0BAAAABQoNBQAAAAAAAAABAg0IAQINCQECDREAAAwAAwwAAQgAAQAAAAAAAgACAAwAAwoAAQAAAAAAAAAADwACDAAAAAAPBQEMAAAAAAAADAAEDAABCAABAAAAAAAAAAINBwECDQgBAAA=",
+    "headers" : {
+      "x-request-id" : "00baa2fe-d873-4ce6-a6e9-d1ffec0881a3",
+      "date" : "Tue, 11 Mar 2025 17:41:27 GMT",
+      "server" : "databricks",
+      "x-databricks-popp-response-code-details" : "via_upstream",
+      "x-content-type-options" : "nosniff",
+      "x-databricks-shard-debug" : "oregon-staging",
+      "x-databricks-org-id" : "6051921418418893",
+      "x-databricks-popp-routing-reason" : "deployment-name",
+      "content-type" : "application/x-thrift; protocol=TBINARY",
+      "x-databricks-apiproxy-response-code-details" : "via_upstream",
+      "strict-transport-security" : "max-age=31536000; includeSubDomains; preload"
+    }
+  },
+  "uuid" : "1495afbd-f645-4ed6-86af-6e0c5f47abeb",
+  "insertionIndex" : 39
+}

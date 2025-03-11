@@ -118,7 +118,7 @@ public abstract class AbstractFakeServiceIntegrationTests {
     return new Extension[] {new StubMappingRedactor()};
   }
 
-  protected static FakeServiceExtension.FakeServiceMode getFakeServiceMode() {
+  public static FakeServiceExtension.FakeServiceMode getFakeServiceMode() {
     return databricksApiExtension.getFakeServiceMode();
   }
 }
