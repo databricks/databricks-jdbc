@@ -6,24 +6,24 @@
 - Support for complex data types, including MAP, ARRAY, and STRUCT.
 - Support for TIMESTAMP_NTZ and VARIANT data types.
 - Extended support for prepared statement when using thrift DBSQL/all-purpose clusters.
-- Added full backward compatibility with the latest driver version.
+- Improved backward compatibility with the latest Databricks driver.
 - Improved driver performance for large queries by optimizing chunk handling.
 - Configurable HTTP connection pool size for better resource management.
-- Support for Azure client secret authentication in M2M OAuth.
-- Added support for getPropertyInfo to fetch driver properties.
+- Support for Azure Active Directory (AAD) Service Principal in M2M OAuth.
+- Implemented java.sql.Driver#getPropertyInfo to fetch driver properties.
 
 ### Updated
 - Set Thrift mode as the default for the driver.
 - Improved driver telemetry (opt-in feature) for better monitoring and debugging.
 - Enhanced test infrastructure to improve accuracy and reliability.
 - Added SQL state support in SEA mode.
-- Changes to JDBC URL parameters (to ensure compatibility with latest driver version):
+- Changes to JDBC URL parameters (to ensure compatibility with the latest Databricks driver):
   1. catalog and schema are no longer supported, inline with existing driver, please use ConnCatalog and ConnSchema
-  2. Renamed OAuthDiscoveryURL to OIDCDiscoveryEndpoint
-  3. Renamed OAuth2TokenEndpoint to OAuth2ConnAuthTokenEndpoint
-  4. Renamed OAuth2AuthorizationEndPoint to OAuth2ConnAuthAuthorizeEndpoint
-  5. Renamed OAuthDiscoveryMode to EnableOIDCDiscovery
-  6. Renamed OAuthRefreshToken to Auth_RefreshToken
+  2. Deprecated OAuthDiscoveryURL in favour of OIDCDiscoveryEndpoint (OAuthDiscoveryURL will be removed in the future)
+  3. Deprecated OAuth2TokenEndpoint in favour of OAuth2ConnAuthTokenEndpoint (OAuth2TokenEndpoint will be removed in the future)
+  4. Deprecated OAuth2AuthorizationEndPoint in favour of OAuth2ConnAuthAuthorizeEndpoint (OAuth2AuthorizationEndPoint will be removed in the future)
+  5. Deprecated OAuthDiscoveryMode in favour of EnableOIDCDiscovery (OAuthDiscoveryMode will be removed in the future)
+  6. Deprecated OAuthRefreshToken in favour of Auth_RefreshToken (OAuthRefreshToken will be removed in the future)
 
 ### Fixed
 - Ensured TIMESTAMP columns are returned in local time.
