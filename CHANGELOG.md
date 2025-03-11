@@ -1,5 +1,40 @@
 # Version Changelog
 
+## [v1.0.1-oss] - 2025-03-11
+
+### Added
+- Support for complex data types, including MAP, ARRAY, and STRUCT.
+- Support for TIMESTAMP_NTZ and VARIANT data types.
+- Extended support for prepared statement when using thrift DBSQL/all-purpose clusters.
+- Added full backward compatibility with the latest driver version.
+- Improved driver performance for large queries by optimizing chunk handling.
+- Configurable HTTP connection pool size for better resource management.
+- Support for Azure client secret authentication in M2M OAuth.
+- Added support for getPropertyInfo to fetch driver properties.
+
+### Updated
+- Set Thrift mode as the default for the driver.
+- Improved driver telemetry (opt-in feature) for better monitoring and debugging.
+- Enhanced test infrastructure to improve accuracy and reliability.
+- Added SQL state support in SEA mode.
+- Changes to JDBC URL parameters (to ensure compatibility with latest driver version):
+  1. catalog and schema are no longer supported, inline with existing driver, please use ConnCatalog and ConnSchema
+  2. Renamed OAuthDiscoveryURL to OIDCDiscoveryEndpoint
+  3. Renamed OAuth2TokenEndpoint to OAuth2ConnAuthTokenEndpoint
+  4. Renamed OAuth2AuthorizationEndPoint to OAuth2ConnAuthAuthorizeEndpoint
+  5. Renamed OAuthDiscoveryMode to EnableOIDCDiscovery
+  6. Renamed OAuthRefreshToken to Auth_RefreshToken
+
+### Fixed
+- Ensured TIMESTAMP columns are returned in local time.
+- Resolved inconsistencies in schema and catalog retrieval from the Connection class.
+- Fixed minor issues with metadata fetching in Thrift mode.
+- Addressed incorrect handling of access tokens provided via client info.
+- Corrected the driver version reported by DatabaseMetaData.
+- Fixed case-sensitive behaviour while fetching client info.
+
+---
+
 ## [v0.9.9-oss] - 2025-01-03
 
 ### Added
