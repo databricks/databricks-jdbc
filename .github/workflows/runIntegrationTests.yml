@@ -21,10 +21,10 @@ jobs:
           - test-command: mvn -B compile test -Dtest=*IntegrationTests
             token-secret: DATABRICKS_TOKEN
             connection-info: 'SQL_EXEC'
-          - test-command: mvn -B compile test -Dtest=*IntegrationTests -DexcludedTests=**/fakeservice/tests/M2MPrivateKeyCredentialsIntegrationTests.java,**/fakeservice/tests/PreparedStatementIntegrationTests.java
+          - test-command: mvn -B compile test -Dtest=*IntegrationTests -DexcludedTests=**/fakeservice/tests/M2MPrivateKeyCredentialsIntegrationTests,**/fakeservice/tests/PreparedStatementIntegrationTests
             token-secret: THRIFT_DATABRICKS_TOKEN
             connection-info: 'THRIFT_SERVER'
-          - test-command: mvn -B compile test -Dtest=*IntegrationTests -DexcludedTests=**/fakeservice/tests/M2MPrivateKeyCredentialsIntegrationTests.java,**/fakeservice/tests/PreparedStatementIntegrationTests.java
+          - test-command: mvn -B compile test -Dtest=*IntegrationTests -DexcludedTests=**/fakeservice/tests/M2MPrivateKeyCredentialsIntegrationTests,**/fakeservice/tests/PreparedStatementIntegrationTests
             token-secret: THRIFT_DATABRICKS_TOKEN
             connection-info: 'SQL_GATEWAY'
 
