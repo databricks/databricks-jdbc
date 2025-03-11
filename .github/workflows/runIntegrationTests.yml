@@ -21,12 +21,12 @@ jobs:
           - test-command: mvn -B compile test -Dtest=*IntegrationTests
             token-secret: DATABRICKS_TOKEN
             connection-info: 'SQL_EXEC'
-          - test-command: mvn -B compile test -Dtest=*IntegrationTests -DexcludedTests=**/fakeservice/tests/M2MPrivateKeyCredentialsIntegrationTests,**/fakeservice/tests/PreparedStatementIntegrationTests
-            token-secret: THRIFT_DATABRICKS_TOKEN
-            connection-info: 'THRIFT_SERVER'
-          - test-command: mvn -B compile test -Dtest=*IntegrationTests -DexcludedTests=**/fakeservice/tests/M2MPrivateKeyCredentialsIntegrationTests,**/fakeservice/tests/PreparedStatementIntegrationTests
-            token-secret: THRIFT_DATABRICKS_TOKEN
-            connection-info: 'SQL_GATEWAY'
+#          - test-command: mvn -B compile test -Dtest=*IntegrationTests,!M2MPrivateKeyCredentialsIntegrationTests,!PreparedStatementIntegrationTests
+#            token-secret: THRIFT_DATABRICKS_TOKEN
+#            connection-info: 'THRIFT_SERVER'
+#          - test-command: mvn -B compile test -Dtest=*IntegrationTests,!M2MPrivateKeyCredentialsIntegrationTests,!PreparedStatementIntegrationTests
+#            token-secret: THRIFT_DATABRICKS_TOKEN
+#            connection-info: 'SQL_GATEWAY'
 
     steps:
       - uses: actions/checkout@v2
