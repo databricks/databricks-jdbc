@@ -16,7 +16,7 @@ public class SqlExecApiHybridResultsIntegrationTests extends AbstractFakeService
 
   /** JDBC URL where hybrid results are enabled. */
   private static final String jdbcUrlTemplate =
-      "jdbc:databricks://%s/default;transportMode=http;ssl=0;AuthMech=3;httpPath=%s;EnableSQLExecHybridResults=1";
+      "jdbc:databricks://%s/default;transportMode=http;ssl=0;AuthMech=3;httpPath=%s;EnableSQLExecHybridResults=1;useThriftClient=0";
 
   private static final String e2BenchfoodHttpPath = "/sql/1.0/warehouses/7e635336d748166a";
   private static final String e2BenchfoodHost =
