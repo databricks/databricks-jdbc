@@ -18,12 +18,13 @@
 - Enhanced test infrastructure to improve accuracy and reliability.
 - Added SQL state support in SEA mode.
 - Changes to JDBC URL parameters (to ensure compatibility with the latest Databricks driver):
-  1. catalog and schema are no longer supported, inline with existing driver, please use ConnCatalog and ConnSchema
-  2. Deprecated OAuthDiscoveryURL in favour of OIDCDiscoveryEndpoint (OAuthDiscoveryURL will be removed in the future)
-  3. Deprecated OAuth2TokenEndpoint in favour of OAuth2ConnAuthTokenEndpoint (OAuth2TokenEndpoint will be removed in the future)
-  4. Deprecated OAuth2AuthorizationEndPoint in favour of OAuth2ConnAuthAuthorizeEndpoint (OAuth2AuthorizationEndPoint will be removed in the future)
-  5. Deprecated OAuthDiscoveryMode in favour of EnableOIDCDiscovery (OAuthDiscoveryMode will be removed in the future)
-  6. Deprecated OAuthRefreshToken in favour of Auth_RefreshToken (OAuthRefreshToken will be removed in the future)
+  1. Removed catalog in favour of ConnCatalog
+  2. Removed schema in favour of ConnSchema
+  3. Renamed OAuthDiscoveryURL to OIDCDiscoveryEndpoint
+  4. Renamed OAuth2TokenEndpoint to OAuth2ConnAuthTokenEndpoint
+  5. Renamed OAuth2AuthorizationEndPoint to OAuth2ConnAuthAuthorizeEndpoint
+  6. Renamed OAuthDiscoveryMode to EnableOIDCDiscovery
+  7. Renamed OAuthRefreshToken to Auth_RefreshToken
 
 ### Fixed
 - Ensured TIMESTAMP columns are returned in local time.
