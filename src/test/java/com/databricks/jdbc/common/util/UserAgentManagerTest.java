@@ -19,7 +19,7 @@ public class UserAgentManagerTest {
     UserAgentManager.setUserAgent(connectionContext);
     String userAgent = getUserAgentString();
     System.out.println(getUserAgentString());
-    assertTrue(userAgent.contains("DatabricksJDBCDriverOSS/0.9.11-oss"));
+    assertTrue(userAgent.contains("DatabricksJDBCDriverOSS/1.0.1-oss"));
     assertTrue(userAgent.contains(" Java/THttpClient"));
     assertTrue(userAgent.contains(" MyApp/version"));
     assertTrue(userAgent.contains(" databricks-jdbc-http "));
@@ -30,7 +30,7 @@ public class UserAgentManagerTest {
         DatabricksConnectionContextFactory.create(WAREHOUSE_JDBC_URL, new Properties());
     UserAgentManager.setUserAgent(connectionContext);
     userAgent = getUserAgentString();
-    assertTrue(userAgent.contains("DatabricksJDBCDriverOSS/0.9.11-oss"));
+    assertTrue(userAgent.contains("DatabricksJDBCDriverOSS/1.0.1-oss"));
     assertTrue(userAgent.contains(" Java/SQLExecHttpClient"));
     assertTrue(userAgent.contains(" databricks-jdbc-http "));
     assertFalse(userAgent.contains("databricks-sdk-java"));
