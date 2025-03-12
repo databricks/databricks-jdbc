@@ -2,9 +2,11 @@ package com.databricks.jdbc.api.impl;
 
 import static com.databricks.jdbc.common.MetadataResultConstants.*;
 import static com.databricks.jdbc.dbclient.impl.common.CommandConstants.METADATA_STATEMENT_ID;
+import static com.databricks.jdbc.dbclient.impl.common.MetadataResultSetBuilder.getFunctionsResult;
 import static com.databricks.jdbc.dbclient.impl.sqlexec.ResultConstants.CLIENT_INFO_PROPERTIES_RESULT;
 
 import com.databricks.jdbc.api.IDatabricksSession;
+import com.databricks.jdbc.api.impl.converters.ConverterHelper;
 import com.databricks.jdbc.api.internal.IDatabricksConnectionInternal;
 import com.databricks.jdbc.common.*;
 import com.databricks.jdbc.common.util.DriverUtil;
@@ -135,17 +137,17 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
   public String getDriverVersion() throws SQLException {
     LOGGER.debug("public String getDriverVersion()");
     throwExceptionIfConnectionIsClosed();
-    return DriverUtil.getVersion();
+    return DriverUtil.getDriverVersion();
   }
 
   @Override
   public int getDriverMajorVersion() {
-    return DriverUtil.getMajorVersion();
+    return DriverUtil.getDriverMajorVersion();
   }
 
   @Override
   public int getDriverMinorVersion() {
-    return DriverUtil.getMinorVersion();
+    return DriverUtil.getDriverMinorVersion();
   }
 
   @Override
@@ -309,9 +311,8 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
   }
 
   @Override
-  public boolean supportsConvert(int fromType, int toType) throws SQLException {
-    throw new UnsupportedOperationException(
-        "Not implemented in DatabricksDatabaseMetaData - supportsConvert(int fromType, int toType)");
+  public boolean supportsConvert(int fromType, int toType) {
+    return ConverterHelper.isConversionSupported(fromType, toType);
   }
 
   @Override
@@ -1381,27 +1382,27 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
   }
 
   @Override
-  public int getDatabaseMajorVersion() throws SQLException {
+  public int getDatabaseMajorVersion() {
     LOGGER.debug("public int getDatabaseMajorVersion()");
     return DATABASE_MAJOR_VERSION;
   }
 
   @Override
-  public int getDatabaseMinorVersion() throws SQLException {
+  public int getDatabaseMinorVersion() {
     LOGGER.debug("public int getDatabaseMinorVersion()");
     return DATABASE_MINOR_VERSION;
   }
 
   @Override
-  public int getJDBCMajorVersion() throws SQLException {
+  public int getJDBCMajorVersion() {
     LOGGER.debug("public int getJDBCMajorVersion()");
-    return DriverUtil.getMajorVersion();
+    return DriverUtil.getJDBCMajorVersion();
   }
 
   @Override
-  public int getJDBCMinorVersion() throws SQLException {
+  public int getJDBCMinorVersion() {
     LOGGER.debug("public int getJDBCMinorVersion()");
-    return DriverUtil.getMinorVersion();
+    return DriverUtil.getJDBCMinorVersion();
   }
 
   @Override
@@ -1466,10 +1467,19 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
   @Override
   public ResultSet getFunctions(String catalog, String schemaPattern, String functionNamePattern)
       throws SQLException {
+    LOGGER.debug(
+        String.format(
+            "public ResultSet getFunctions(String catalog = {%s}, String schemaPattern = {%s}, String functionNamePattern = {%s})",
+            catalog, schemaPattern, functionNamePattern));
     throwExceptionIfConnectionIsClosed();
-    return session
-        .getDatabricksMetadataClient()
-        .listFunctions(session, catalog, schemaPattern, functionNamePattern);
+    try {
+      return session
+          .getDatabricksMetadataClient()
+          .listFunctions(session, catalog, schemaPattern, functionNamePattern);
+    } catch (Exception e) {
+      LOGGER.error("Unable to fetch functions, returning empty result set", e);
+      return getFunctionsResult(catalog, List.of());
+    }
   }
 
   @Override

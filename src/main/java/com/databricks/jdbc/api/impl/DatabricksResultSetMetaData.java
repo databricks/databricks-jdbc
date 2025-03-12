@@ -23,7 +23,6 @@ import com.databricks.jdbc.model.core.ColumnMetadata;
 import com.databricks.jdbc.model.core.ResultManifest;
 import com.databricks.sdk.service.sql.ColumnInfo;
 import com.databricks.sdk.service.sql.ColumnInfoTypeName;
-import com.databricks.sdk.service.sql.Format;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import java.sql.ResultSetMetaData;
@@ -50,8 +49,11 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
    * @param statementId the unique identifier of the SQL statement execution
    * @param resultManifest the manifest containing metadata about the result set, including column
    *     information and types
+   * @param usesExternalLinks whether or not the resultData contains external links (cloud fetch is
+   *     used)
    */
-  public DatabricksResultSetMetaData(StatementId statementId, ResultManifest resultManifest) {
+  public DatabricksResultSetMetaData(
+      StatementId statementId, ResultManifest resultManifest, boolean usesExternalLinks) {
     this.statementId = statementId;
     Map<String, Integer> columnNameToIndexMap = new HashMap<>();
     ImmutableList.Builder<ImmutableDatabricksColumn> columnsBuilder = ImmutableList.builder();
@@ -117,7 +119,7 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
     this.columnNameIndex = ImmutableMap.copyOf(columnNameToIndexMap);
     this.totalRows = resultManifest.getTotalRowCount();
     this.chunkCount = resultManifest.getTotalChunkCount();
-    this.isCloudFetchUsed = getIsCloudFetchFromManifest(resultManifest);
+    this.isCloudFetchUsed = usesExternalLinks;
   }
 
   /**
@@ -505,10 +507,6 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
 
   public boolean getIsCloudFetchUsed() {
     return isCloudFetchUsed;
-  }
-
-  private boolean getIsCloudFetchFromManifest(ResultManifest resultManifest) {
-    return resultManifest.getFormat() == Format.ARROW_STREAM;
   }
 
   private boolean getIsCloudFetchFromManifest(TGetResultSetMetadataResp resultManifest) {

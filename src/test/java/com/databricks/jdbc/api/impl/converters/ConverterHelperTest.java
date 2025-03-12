@@ -112,6 +112,14 @@ class ConverterHelperTest {
   }
 
   @Test
+  void testIsConvertSupported() {
+    assertTrue(ConverterHelper.isConversionSupported(Types.TINYINT, Types.INTEGER));
+    assertTrue(ConverterHelper.isConversionSupported(Types.INTEGER, Types.INTEGER));
+    assertFalse(ConverterHelper.isConversionSupported(Types.BLOB, Types.CHAR));
+    assertFalse(ConverterHelper.isConversionSupported(Types.INTEGER, Types.BLOB));
+  }
+
+  @Test
   void testConvertToDate() throws DatabricksSQLException {
     Date current = new Date(System.currentTimeMillis());
     assertEquals(

@@ -37,8 +37,7 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.net.URL;
 import java.sql.*;
-import java.time.Instant;
-import java.time.LocalDate;
+import java.time.*;
 import java.util.Calendar;
 import java.util.List;
 import java.util.Map;
@@ -88,7 +87,9 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
       this.executionResult =
           ExecutionResultFactory.getResultSet(
               resultData, resultManifest, statementId, session, parentStatement);
-      this.resultSetMetaData = new DatabricksResultSetMetaData(statementId, resultManifest);
+      this.resultSetMetaData =
+          new DatabricksResultSetMetaData(
+              statementId, resultManifest, resultData.getExternalLinks() != null);
       switch (resultManifest.getFormat()) {
         case ARROW_STREAM:
           this.resultSetType = ResultSetType.SEA_ARROW_ENABLED;
@@ -1187,14 +1188,23 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
   @Override
   public Date getDate(int columnIndex, Calendar cal) throws SQLException {
     Date date = getDate(columnIndex);
-
-    // For date columns, we only get the date, calibrate it to the provided calendar timezone
     if (date != null && cal != null) {
-      Instant instant = Instant.ofEpochMilli(date.getTime());
-      LocalDate localDate = LocalDate.ofInstant(instant, cal.getTimeZone().toZoneId());
-      return Date.valueOf(localDate);
-    }
+      Calendar useCal = (Calendar) cal.clone();
 
+      // Convert Date to LocalDate
+      LocalDate ld = date.toLocalDate();
+
+      // Set date fields in calendar (set time to midnight)
+      useCal.set(Calendar.YEAR, ld.getYear());
+      useCal.set(Calendar.MONTH, ld.getMonthValue() - 1); // Calendar months are 0-based
+      useCal.set(Calendar.DAY_OF_MONTH, ld.getDayOfMonth());
+      useCal.set(Calendar.HOUR_OF_DAY, 0);
+      useCal.set(Calendar.MINUTE, 0);
+      useCal.set(Calendar.SECOND, 0);
+      useCal.set(Calendar.MILLISECOND, 0);
+
+      return new Date(useCal.getTimeInMillis());
+    }
     return date;
   }
 
@@ -1206,9 +1216,26 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
 
   @Override
   public Time getTime(int columnIndex, Calendar cal) throws SQLException {
-    // In Databricks, we always get the epoch value directly from the server
-    // Hence, no need to enforce calendar
-    return getTime(columnIndex);
+    Time time = getTime(columnIndex);
+    if (time != null && cal != null) {
+      Calendar useCal = (Calendar) cal.clone();
+
+      // Convert Time to LocalTime
+      LocalTime lt = time.toLocalTime();
+
+      // Reset date to epoch (1970-01-01)
+      useCal.set(Calendar.YEAR, 1970);
+      useCal.set(Calendar.MONTH, Calendar.JANUARY);
+      useCal.set(Calendar.DAY_OF_MONTH, 1);
+      // Set time fields in calendar (keeping current date)
+      useCal.set(Calendar.HOUR_OF_DAY, lt.getHour());
+      useCal.set(Calendar.MINUTE, lt.getMinute());
+      useCal.set(Calendar.SECOND, lt.getSecond());
+      useCal.set(Calendar.MILLISECOND, (int) time.getTime() % 1_000);
+
+      return new Time(useCal.getTimeInMillis());
+    }
+    return time;
   }
 
   @Override
@@ -1219,9 +1246,24 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
 
   @Override
   public Timestamp getTimestamp(int columnIndex, Calendar cal) throws SQLException {
-    // In Databricks, we always get the epoch value directly from the server
-    // Hence, no need to enforce calendar
-    return getTimestamp(columnIndex);
+    Timestamp timestamp = getTimestamp(columnIndex);
+    if (timestamp != null && cal != null) {
+      Calendar useCal = (Calendar) cal.clone();
+      // Convert timestamp to LocalDateTime
+      LocalDateTime ldt = timestamp.toLocalDateTime();
+
+      // Set the calendar fields using LocalDateTime components
+      useCal.set(Calendar.YEAR, ldt.getYear());
+      useCal.set(Calendar.MONTH, ldt.getMonthValue() - 1); // Calendar months are 0-based
+      useCal.set(Calendar.DAY_OF_MONTH, ldt.getDayOfMonth());
+      useCal.set(Calendar.HOUR_OF_DAY, ldt.getHour());
+      useCal.set(Calendar.MINUTE, ldt.getMinute());
+      useCal.set(Calendar.SECOND, ldt.getSecond());
+      useCal.set(Calendar.MILLISECOND, timestamp.getNanos() / 1_000_000);
+
+      return new Timestamp(useCal.getTimeInMillis());
+    }
+    return timestamp;
   }
 
   @Override

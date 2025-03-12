@@ -1,14 +1,14 @@
 package com.databricks.jdbc.dbclient.impl.common;
 
 import static com.databricks.jdbc.common.MetadataResultConstants.*;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.mock;
 
 import com.databricks.jdbc.model.core.ResultColumn;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Types;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Stream;
@@ -313,5 +313,47 @@ public class MetadataResultSetBuilderTest {
     System.out.println("Incorrect getCharOctet for typeVal : " + typeVal);
     int actual = MetadataResultSetBuilder.getCharOctetLength(typeVal);
     assertEquals(expected, actual);
+  }
+
+  @Test
+  void testGetTablesResultFilteringByTableTypes() throws SQLException {
+    // Create sample rows with different table types
+    List<List<Object>> rows = new ArrayList<>();
+    rows.add(Arrays.asList("catalog1", "schema1", "table1", "TABLE", "comment1"));
+    rows.add(Arrays.asList("catalog1", "schema1", "view1", "VIEW", "comment2"));
+    rows.add(Arrays.asList("catalog1", "schema1", "system1", "SYSTEM TABLE", "comment3"));
+
+    // Test filtering to include only TABLE type
+    String[] tableTypes = new String[] {"TABLE"};
+    ResultSet resultSet = MetadataResultSetBuilder.getTablesResult("catalog1", tableTypes, rows);
+
+    // Verify that only the row with table type "TABLE" is included
+    assertTrue(resultSet.next());
+    assertEquals("table1", resultSet.getString("TABLE_NAME"));
+    assertEquals("TABLE", resultSet.getString("TABLE_TYPE"));
+    assertEquals("comment1", resultSet.getString("REMARKS"));
+    assertEquals("schema1", resultSet.getString("TABLE_SCHEM"));
+    assertEquals("catalog1", resultSet.getString("TABLE_CAT"));
+    assertFalse(resultSet.next());
+  }
+
+  @Test
+  void testGetTablesResultWithNullTableType() throws SQLException {
+    // Create rows with null or empty table types
+    List<List<Object>> rows = new ArrayList<>();
+    rows.add(Arrays.asList("catalog1", "schema1", "table1", null, "comment1"));
+    rows.add(Arrays.asList("catalog1", "schema1", "table2", "", "comment2"));
+
+    // Test filtering to include only TABLE type
+    String[] tableTypes = new String[] {"TABLE"};
+    ResultSet resultSet = MetadataResultSetBuilder.getTablesResult("catalog1", tableTypes, rows);
+
+    // Verify rows with null/empty table type are converted to "TABLE" and included
+    int rowCount = 0;
+    while (resultSet.next()) {
+      rowCount++;
+      assertEquals("TABLE", resultSet.getString("TABLE_TYPE"));
+    }
+    assertEquals(2, rowCount);
   }
 }

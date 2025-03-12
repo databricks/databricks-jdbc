@@ -17,14 +17,15 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.sql.Date;
 import java.sql.Timestamp;
-import java.time.Instant;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
+import java.time.*;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Optional;
 import java.util.function.Function;
+import org.apache.arrow.vector.TimeStampMicroTZVector;
+import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.util.Text;
 
 public class ArrowToJavaObjectConverter {
@@ -56,8 +57,13 @@ public class ArrowToJavaObjectConverter {
           DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.S"),
           DateTimeFormatter.RFC_1123_DATE_TIME);
 
-  public static Object convert(Object object, ColumnInfoTypeName requiredType, String arrowMetadata)
+  public static Object convert(
+      ValueVector columnVector,
+      int vectorIndex,
+      ColumnInfoTypeName requiredType,
+      String arrowMetadata)
       throws DatabricksSQLException {
+    Object object = columnVector.getObject(vectorIndex);
     if (arrowMetadata != null) {
       if (arrowMetadata.startsWith(ARRAY)) {
         requiredType = ColumnInfoTypeName.ARRAY;
@@ -110,7 +116,11 @@ public class ArrowToJavaObjectConverter {
       case DATE:
         return convertToDate(object);
       case TIMESTAMP:
-        return convertToTimestamp(object);
+        Optional<String> timeZone = Optional.empty();
+        if (columnVector instanceof TimeStampMicroTZVector) {
+          timeZone = Optional.of(((TimeStampMicroTZVector) columnVector).getTimeZone());
+        }
+        return convertToTimestamp(object, timeZone);
       case NULL:
         return null;
       default:
@@ -138,7 +148,8 @@ public class ArrowToJavaObjectConverter {
     return parser.parseJsonStringToDbStruct(object.toString(), arrowMetadata);
   }
 
-  private static Object convertToTimestamp(Object object) throws DatabricksSQLException {
+  private static Object convertToTimestamp(Object object, Optional<String> timeZoneOpt)
+      throws DatabricksSQLException {
     if (object instanceof Text) {
       return convertArrowTextToTimestamp(object.toString());
     }
@@ -150,7 +161,42 @@ public class ArrowToJavaObjectConverter {
     Instant instant =
         Instant.ofEpochMilli(
             object instanceof Integer ? ((int) object) / 1000 : ((long) object) / 1000);
-    return Timestamp.from(instant);
+    ZoneId zoneId = getZoneIdFromTimeZoneOpt(timeZoneOpt);
+    LocalDateTime localDateTime = LocalDateTime.ofInstant(instant, zoneId);
+    return Timestamp.valueOf(localDateTime);
+  }
+
+  /**
+   * For TIMESTAMP columns, timeZone will be in the form 'Asia/Kolkata' or '+5:30'. For
+   * TIMESTAMP_NTZ columns, timeZoneOpt will be empty
+   *
+   * @param timeZoneOpt to fetch the zoneId for
+   * @return the zone ID for the timezone opt
+   */
+  static ZoneId getZoneIdFromTimeZoneOpt(Optional<String> timeZoneOpt) {
+    if (timeZoneOpt.isPresent()) {
+      String tz = timeZoneOpt.get();
+      try {
+        // Try standard parsing first
+        return ZoneId.of(tz);
+      } catch (DateTimeException e) {
+        if (tz.matches("[+-]\\d+:\\d+")) {
+          // Parse custom format like +4:15
+          boolean isNegative = tz.startsWith("-");
+          String[] parts = tz.substring(1).split(":");
+          int hours = Integer.parseInt(parts[0]);
+          int minutes = Integer.parseInt(parts[1]);
+
+          // Always pass positive values and use the sign parameter
+          return ZoneOffset.ofHoursMinutes(
+              isNegative ? -hours : hours, isNegative ? -minutes : minutes);
+        } else {
+          throw e;
+        }
+      }
+    }
+    // This will happen when reading timestamp_ntz columns
+    return ZoneId.systemDefault();
   }
 
   private static Object convertArrowTextToTimestamp(String arrowText)

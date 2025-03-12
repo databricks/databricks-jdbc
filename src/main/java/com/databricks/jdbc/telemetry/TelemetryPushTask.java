@@ -34,6 +34,8 @@ import org.apache.http.util.EntityUtils;
 class TelemetryPushTask implements Runnable {
 
   private static final JdbcLogger logger = JdbcLoggerFactory.getLogger(TelemetryPushTask.class);
+
+  private static final String REQUEST_ID_HEADER = "x-request-id";
   private final List<TelemetryFrontendLog> queueToBePushed;
   private final boolean isAuthenticated;
   private final IDatabricksConnectionContext connectionContext;
@@ -101,9 +103,16 @@ class TelemetryPushTask implements Runnable {
         TelemetryResponse telResponse =
             objectMapper.readValue(
                 EntityUtils.toString(response.getEntity()), TelemetryResponse.class);
-        logger.debug("Pushed Telemetry logs " + telResponse);
+        logger.debug(
+            "Pushed Telemetry logs with request-Id {%s} with events [%d] with error count [%d]",
+            response.getFirstHeader(REQUEST_ID_HEADER),
+            telResponse.getNumProtoSuccess(),
+            telResponse.getErrors().size());
+        if (!telResponse.getErrors().isEmpty()) {
+          logger.debug("Failed to push telemetry logs with error: {%s}", telResponse.getErrors());
+        }
         if (queueToBePushed.size() != telResponse.getNumProtoSuccess()) {
-          logger.error(
+          logger.debug(
               "Partial failure while pushing telemetry logs with error response: [%s], request count: [%d], upload count: [%d]",
               telResponse.getErrors(), queueToBePushed.size(), telResponse.getNumProtoSuccess());
           return;

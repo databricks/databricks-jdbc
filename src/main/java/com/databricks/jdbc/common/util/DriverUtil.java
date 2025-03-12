@@ -20,13 +20,14 @@ import java.io.IOException;
 public class DriverUtil {
 
   private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(DriverUtil.class);
-  private static final String DRIVER_VERSION = "0.9.9-oss";
+  private static final String DRIVER_VERSION = "1.0.1-oss";
   private static final String DRIVER_NAME = "oss-jdbc";
   private static final String JDBC_VERSION = "4.3";
 
   private static final String[] JDBC_VERSION_PARTS = JDBC_VERSION.split("[.-]");
+  private static final String[] DRIVER_VERSION_PARTS = DRIVER_VERSION.split("[.-]");
 
-  public static String getVersion() {
+  public static String getDriverVersion() {
     return DRIVER_VERSION;
   }
 
@@ -34,11 +35,19 @@ public class DriverUtil {
     return DRIVER_NAME;
   }
 
-  public static int getMajorVersion() {
+  public static int getDriverMajorVersion() {
+    return Integer.parseInt(DRIVER_VERSION_PARTS[0]);
+  }
+
+  public static int getDriverMinorVersion() {
+    return Integer.parseInt(DRIVER_VERSION_PARTS[1]);
+  }
+
+  public static int getJDBCMajorVersion() {
     return Integer.parseInt(JDBC_VERSION_PARTS[0]);
   }
 
-  public static int getMinorVersion() {
+  public static int getJDBCMinorVersion() {
     return Integer.parseInt(JDBC_VERSION_PARTS[1]);
   }
 

@@ -4,6 +4,7 @@ import static com.databricks.jdbc.common.DatabricksJdbcConstants.ARROW_METADATA_
 import static com.databricks.jdbc.common.util.DatabricksThriftUtil.createExternalLink;
 import static com.databricks.jdbc.common.util.ValidationUtil.checkHTTPError;
 
+import com.databricks.jdbc.api.impl.converters.ArrowToJavaObjectConverter;
 import com.databricks.jdbc.common.CompressionCodec;
 import com.databricks.jdbc.common.util.DecompressionUtil;
 import com.databricks.jdbc.common.util.DriverUtil;
@@ -16,6 +17,7 @@ import com.databricks.jdbc.model.client.thrift.generated.TSparkArrowResultLink;
 import com.databricks.jdbc.model.core.ExternalLink;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import com.databricks.sdk.service.sql.BaseChunkInfo;
+import com.databricks.sdk.service.sql.ColumnInfoTypeName;
 import com.google.common.annotations.VisibleForTesting;
 import java.io.IOException;
 import java.io.InputStream;
@@ -191,10 +193,13 @@ public class ArrowResultChunk {
     }
 
     /** Returns object in the current row at the specified columnIndex. */
-    Object getColumnObjectAtCurrentRow(int columnIndex) {
-      return this.resultChunk
-          .getColumnVector(this.recordBatchCursorInChunk, columnIndex)
-          .getObject(this.rowCursorInRecordBatch);
+    Object getColumnObjectAtCurrentRow(
+        int columnIndex, ColumnInfoTypeName requiredType, String arrowMetadata)
+        throws DatabricksSQLException {
+      ValueVector columnVector =
+          this.resultChunk.getColumnVector(this.recordBatchCursorInChunk, columnIndex);
+      return ArrowToJavaObjectConverter.convert(
+          columnVector, this.rowCursorInRecordBatch, requiredType, arrowMetadata);
     }
 
     String getType(int columnIndex) {

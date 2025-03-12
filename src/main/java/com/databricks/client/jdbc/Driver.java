@@ -83,12 +83,12 @@ public class Driver implements IDatabricksDriver, java.sql.Driver {
 
   @Override
   public int getMajorVersion() {
-    return DriverUtil.getMajorVersion();
+    return DriverUtil.getDriverMajorVersion();
   }
 
   @Override
   public int getMinorVersion() {
-    return DriverUtil.getMinorVersion();
+    return DriverUtil.getDriverMinorVersion();
   }
 
   @Override

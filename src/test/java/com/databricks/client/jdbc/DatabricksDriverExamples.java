@@ -47,6 +47,12 @@ import org.junit.jupiter.api.Test;
  */
 public class DatabricksDriverExamples {
 
+  private static final String JDBC_URL_WAREHOUSE =
+      "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;"
+          + "transportMode=https;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/791ba2a31c7fd70a;";
+  private static final String JDBC_URL_CLUSTER =
+      "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;"
+          + "transportMode=http;ssl=1;httpPath=sql/protocolv1/o/6051921418418893/0819-204509-hill72;AuthMech=3;";
   private static final String DATABRICKS_TOKEN = System.getenv("DATABRICKS_EXAMPLE_TOKEN");
 
   /**
@@ -123,10 +129,7 @@ public class DatabricksDriverExamples {
     // Register the Databricks JDBC driver
     DriverManager.registerDriver(new Driver());
 
-    String jdbcUrl =
-        "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;"
-            + "transportMode=https;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/791ba2a31c7fd70a;"
-            + "EnableTelemetry=1";
+    String jdbcUrl = JDBC_URL_WAREHOUSE + "EnableTelemetry=1";
 
     Connection con = DriverManager.getConnection(jdbcUrl, "token", DATABRICKS_TOKEN);
     System.out.println("Connection established......");
@@ -152,10 +155,7 @@ public class DatabricksDriverExamples {
   void exampleGetTables() throws Exception {
     DriverManager.registerDriver(new Driver());
 
-    String jdbcUrl =
-        "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;"
-            + "transportMode=https;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/791ba2a31c7fd70a;"
-            + "EnableTelemetry=1";
+    String jdbcUrl = JDBC_URL_WAREHOUSE + "EnableTelemetry=1";
     Connection con = DriverManager.getConnection(jdbcUrl, "token", DATABRICKS_TOKEN);
     System.out.println("Connection established......");
 
@@ -175,9 +175,7 @@ public class DatabricksDriverExamples {
     DriverManager.registerDriver(new Driver());
 
     String jdbcUrl =
-        "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;"
-            + "transportMode=https;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/791ba2a31c7fd70a;"
-            + "EnableTelemetry=1;UseThriftClient=1;LogLevel=6;LogPath=/tmp";
+        JDBC_URL_WAREHOUSE + "EnableTelemetry=1;UseThriftClient=1;LogLevel=6;LogPath=/tmp";
     Connection con = DriverManager.getConnection(jdbcUrl, "token", DATABRICKS_TOKEN);
     System.out.println("Connection established......");
 
@@ -197,10 +195,7 @@ public class DatabricksDriverExamples {
   void exampleGetCrossReferences() throws Exception {
     DriverManager.registerDriver(new Driver());
 
-    String jdbcUrl =
-        "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;"
-            + "transportMode=https;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/791ba2a31c7fd70a;"
-            + "EnableTelemetry=1;UseThriftClient=1";
+    String jdbcUrl = JDBC_URL_WAREHOUSE + "EnableTelemetry=1;UseThriftClient=1";
     Connection con = DriverManager.getConnection(jdbcUrl, "token", DATABRICKS_TOKEN);
     System.out.println("Connection established......");
 
@@ -222,9 +217,7 @@ public class DatabricksDriverExamples {
   @Test
   void exampleComplexDataTypes() throws Exception {
     DriverManager.registerDriver(new Driver());
-    String jdbcUrl =
-        "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;"
-            + "transportMode=https;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/791ba2a31c7fd70a;EnableComplexDatatypeSupport=1";
+    String jdbcUrl = JDBC_URL_WAREHOUSE + "EnableComplexDatatypeSupport=1";
     Connection con = DriverManager.getConnection(jdbcUrl, "token", DATABRICKS_TOKEN);
     System.out.println("Connection established......");
 
@@ -259,10 +252,7 @@ public class DatabricksDriverExamples {
   void exampleComplexDataTypesThrift() throws Exception {
     DriverManager.registerDriver(new Driver());
     // You can replace the httpPath or token as needed
-    String jdbcUrl =
-        "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;"
-            + "transportMode=https;ssl=1;AuthMech=3;"
-            + "httpPath=/sql/1.0/warehouses/791ba2a31c7fd70a;usethriftclient=1;EnableComplexDatatypeSupport=1";
+    String jdbcUrl = JDBC_URL_WAREHOUSE + "usethriftclient=1;EnableComplexDatatypeSupport=1";
     Connection con = DriverManager.getConnection(jdbcUrl, "token", DATABRICKS_TOKEN);
     System.out.println("Connection established......");
 
@@ -296,9 +286,7 @@ public class DatabricksDriverExamples {
   @Test
   void exampleResultSetMetaData() throws Exception {
     DriverManager.registerDriver(new Driver());
-    String jdbcUrl =
-        "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;"
-            + "transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/58aa1b363649e722";
+    String jdbcUrl = JDBC_URL_WAREHOUSE;
 
     Connection con = DriverManager.getConnection(jdbcUrl, "token", DATABRICKS_TOKEN);
     System.out.println("Connection established with jdbc driver......");
@@ -384,27 +372,31 @@ public class DatabricksDriverExamples {
   }
 
   /**
-   * Demonstrates how to query Databricks result set "disposition" and see if Cloud Fetch is in use
-   * (via DatabricksResultSetMetaData).
+   * Demonstrates how to query and see if Cloud Fetch is in use (via DatabricksResultSetMetaData).
    */
   @Test
-  void exampleGetDisposition() throws Exception {
+  void exampleGetCloudFetchUsed() throws Exception {
     DriverManager.registerDriver(new Driver());
-    String jdbcUrl =
-        "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;"
-            + "transportMode=https;ssl=1;AuthMech=3;"
-            + "httpPath=/sql/1.0/warehouses/791ba2a31c7fd70a;";
+    String jdbcUrl = JDBC_URL_WAREHOUSE + "UseThriftClient=0;EnableSqlExecHybridResults=1";
     Connection con = DriverManager.getConnection(jdbcUrl, "token", DATABRICKS_TOKEN);
     System.out.println("Connection established. Arrow is enabled by default......");
 
-    String query = "SELECT * FROM RANGE(10)";
-    ResultSet resultSet = con.createStatement().executeQuery(query);
+    String query = "SELECT * FROM RANGE(1)";
+    ResultSet smallResultSet = con.createStatement().executeQuery(query);
 
     // Cast metadata to Databricks-specific class
-    DatabricksResultSetMetaData rsmd = (DatabricksResultSetMetaData) resultSet.getMetaData();
-    System.out.println("isCloudFetchUsed when arrow is enabled: " + rsmd.getIsCloudFetchUsed());
+    DatabricksResultSetMetaData rsmd = (DatabricksResultSetMetaData) smallResultSet.getMetaData();
+    System.out.println("isCloudFetchUsed for small query: " + rsmd.getIsCloudFetchUsed());
+    smallResultSet.close();
 
-    resultSet.close();
+    query = "SELECT * FROM RANGE(10000000)";
+    ResultSet largeResultSet = con.createStatement().executeQuery(query);
+
+    // Cast metadata to Databricks-specific class
+    rsmd = (DatabricksResultSetMetaData) largeResultSet.getMetaData();
+    System.out.println("isCloudFetchUsed for large query: " + rsmd.getIsCloudFetchUsed());
+    largeResultSet.close();
+
     con.close();
   }
 
@@ -439,10 +431,7 @@ public class DatabricksDriverExamples {
   /** Demonstrates checking SQLState for a Thrift-based connection when a bad query is executed. */
   @Test
   void exampleThriftSqlState() throws Exception {
-    String jdbcUrl =
-        "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;"
-            + "ssl=1;AuthMech=3;"
-            + "httpPath=sql/protocolv1/o/6051921418418893/1115-130834-ms4m0yv";
+    String jdbcUrl = JDBC_URL_CLUSTER;
     Connection con = DriverManager.getConnection(jdbcUrl, "token", DATABRICKS_TOKEN);
     System.out.println("Connection established......");
 
@@ -461,10 +450,7 @@ public class DatabricksDriverExamples {
   /** Demonstrates connecting to an all-purpose cluster on Databricks and running a simple query. */
   @Test
   void exampleAllPurposeClusters() throws Exception {
-    String jdbcUrl =
-        "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;"
-            + "ssl=1;AuthMech=3;"
-            + "httpPath=sql/protocolv1/o/6051921418418893/1115-130834-ms4m0yv";
+    String jdbcUrl = JDBC_URL_CLUSTER;
     Connection con = DriverManager.getConnection(jdbcUrl, "token", DATABRICKS_TOKEN);
     System.out.println("Connection established......");
 
@@ -480,10 +466,7 @@ public class DatabricksDriverExamples {
    */
   @Test
   void exampleAllPurposeClustersInline() throws Exception {
-    String jdbcUrl =
-        "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;"
-            + "ssl=1;AuthMech=3;"
-            + "httpPath=sql/protocolv1/o/6051921418418893/1115-130834-ms4m0yv;enableArrow=0";
+    String jdbcUrl = JDBC_URL_CLUSTER + "enableArrow=0";
     Connection con = DriverManager.getConnection(jdbcUrl, "token", DATABRICKS_TOKEN);
     System.out.println("Connection established......");
 
@@ -509,9 +492,7 @@ public class DatabricksDriverExamples {
    */
   @Test
   void exampleAllPurposeClustersMetadata() throws Exception {
-    String jdbcUrl =
-        "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;"
-            + "AuthMech=3;httpPath=sql/protocolv1/o/6051921418418893/1115-130834-ms4m0yv";
+    String jdbcUrl = JDBC_URL_CLUSTER;
     Connection con = DriverManager.getConnection(jdbcUrl, "token", DATABRICKS_TOKEN);
     System.out.println("Connection established......");
 
@@ -531,10 +512,8 @@ public class DatabricksDriverExamples {
 
     // Logging parameters specified in the JDBC URL
     String jdbcUrl =
-        "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;"
-            + "transportMode=https;ssl=1;"
-            + "httpPath=sql/protocolv1/o/6051921418418893/1115-130834-ms4m0yv;"
-            + "AuthMech=3;UID=token;LogLevel=debug;LogPath=./logDir;LogFileCount=3;LogFileSize=2;";
+        JDBC_URL_CLUSTER
+            + "UID=token;LogLevel=debug;LogPath=./logDir;LogFileCount=3;LogFileSize=2;";
     Connection con = DriverManager.getConnection(jdbcUrl, "token", DATABRICKS_TOKEN);
     System.out.println("Connection established......");
 
@@ -554,10 +533,7 @@ public class DatabricksDriverExamples {
   @Test
   void exampleDatatypeConversion() throws SQLException {
     DriverManager.registerDriver(new Driver());
-    String jdbcUrl =
-        "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;"
-            + "transportMode=https;ssl=1;AuthMech=3;"
-            + "httpPath=/sql/1.0/warehouses/791ba2a31c7fd70a;";
+    String jdbcUrl = JDBC_URL_WAREHOUSE;
     Connection con = DriverManager.getConnection(jdbcUrl, "token", DATABRICKS_TOKEN);
     System.out.println("Connection established......");
 
@@ -584,10 +560,7 @@ public class DatabricksDriverExamples {
   @Test
   void exampleHttpFlags() throws Exception {
     DriverManager.registerDriver(new Driver());
-    String jdbcUrl =
-        "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;"
-            + "transportMode=https;ssl=1;AuthMech=3;"
-            + "httpPath=/sql/1.0/warehouses/791ba2a31c7fd70a;TemporarilyUnavailableRetry=3;";
+    String jdbcUrl = JDBC_URL_WAREHOUSE + "TemporarilyUnavailableRetry=3;";
     Connection con = DriverManager.getConnection(jdbcUrl, "token", DATABRICKS_TOKEN);
     System.out.println("Connection established......");
     con.close();
@@ -602,10 +575,7 @@ public class DatabricksDriverExamples {
     DriverManager.registerDriver(new Driver());
     System.out.println("Starting UC volume test...");
 
-    String jdbcUrl =
-        "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;"
-            + "transportMode=http;ssl=1;AuthMech=3;"
-            + "httpPath=/sql/1.0/warehouses/791ba2a31c7fd70a;";
+    String jdbcUrl = JDBC_URL_WAREHOUSE;
 
     Connection con = DriverManager.getConnection(jdbcUrl, "token", DATABRICKS_TOKEN);
 
@@ -665,10 +635,7 @@ public class DatabricksDriverExamples {
     System.out.println("Starting DBFS volume test...");
 
     // You can replace the token if using a different workspace/token
-    String jdbcUrl =
-        "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;"
-            + "transportMode=http;ssl=1;AuthMech=3;"
-            + "httpPath=/sql/1.0/warehouses/58aa1b363649e722;Loglevel=debug;";
+    String jdbcUrl = JDBC_URL_WAREHOUSE + "Loglevel=debug;";
 
     IDatabricksConnectionContext connectionContext =
         DatabricksConnectionContextFactory.create(jdbcUrl, "token", DATABRICKS_TOKEN);
@@ -716,10 +683,7 @@ public class DatabricksDriverExamples {
   void exampleDBFSVolumeOperation() throws Exception {
     System.out.println("Starting DBFS volume test...");
 
-    String jdbcUrl =
-        "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;"
-            + "transportMode=http;ssl=1;AuthMech=3;"
-            + "httpPath=/sql/1.0/warehouses/58aa1b363649e722;Loglevel=debug;VolumeOperationAllowedLocalPaths=/tmp;";
+    String jdbcUrl = JDBC_URL_WAREHOUSE + "Loglevel=debug;VolumeOperationAllowedLocalPaths=/tmp;";
 
     IDatabricksConnectionContext connectionContext =
         DatabricksConnectionContextFactory.create(jdbcUrl, "token", DATABRICKS_TOKEN);
@@ -769,10 +733,7 @@ public class DatabricksDriverExamples {
   @Test
   public void exampleThriftPreparedStatements() throws SQLException {
     DriverManager.registerDriver(new Driver());
-    String jdbcUrl =
-        "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;"
-            + "transportMode=https;ssl=1;AuthMech=3;"
-            + "httpPath=/sql/1.0/warehouses/791ba2a31c7fd70a;usethriftclient=1";
+    String jdbcUrl = JDBC_URL_WAREHOUSE + "usethriftclient=1";
     Connection con = DriverManager.getConnection(jdbcUrl, "token", DATABRICKS_TOKEN);
     System.out.println("Connection established......");
 
@@ -805,10 +766,7 @@ public class DatabricksDriverExamples {
     sql.append(joiner).append(")");
     System.out.println("SQL: " + sql);
 
-    String jdbcUrl =
-        "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;"
-            + "transportMode=https;ssl=1;AuthMech=3;"
-            + "httpPath=/sql/1.0/warehouses/791ba2a31c7fd70a;supportManyParameters=1";
+    String jdbcUrl = JDBC_URL_WAREHOUSE + "supportManyParameters=1";
 
     Connection con = DriverManager.getConnection(jdbcUrl, "token", DATABRICKS_TOKEN);
     PreparedStatement pstmt = con.prepareStatement(sql.toString());
@@ -834,11 +792,7 @@ public class DatabricksDriverExamples {
    */
   @Test
   void exampleAllPurposeClusters_errorHandling() throws Exception {
-    String jdbcUrl =
-        "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;"
-            + "ssl=1;AuthMech=3;"
-            + "httpPath=sql/protocolv1/o/6051921418418893/1115-130834-ms4m0yv;"
-            + "enableDirectResults=1";
+    String jdbcUrl = JDBC_URL_CLUSTER + "enableDirectResults=1";
     Connection con = DriverManager.getConnection(jdbcUrl, "token", DATABRICKS_TOKEN);
     System.out.println("Connection established......");
 
@@ -854,11 +808,7 @@ public class DatabricksDriverExamples {
    */
   @Test
   void exampleAllPurposeClusters_async() throws Exception {
-    String jdbcUrl =
-        "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;"
-            + "ssl=1;AuthMech=3;"
-            + "httpPath=sql/protocolv1/o/6051921418418893/1115-130834-ms4m0yv;"
-            + "enableDirectResults=1";
+    String jdbcUrl = JDBC_URL_CLUSTER + "enableDirectResults=1";
 
     Connection con = DriverManager.getConnection(jdbcUrl, "token", DATABRICKS_TOKEN);
     System.out.println("Connection established... (con1)");
@@ -935,10 +885,7 @@ public class DatabricksDriverExamples {
    */
   @Test
   void exampleDBSQL_async() throws Exception {
-    String jdbcUrl =
-        "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;"
-            + "ssl=1;AuthMech=3;"
-            + "httpPath=/sql/1.0/warehouses/791ba2a31c7fd70a;enableDirectResults=1";
+    String jdbcUrl = JDBC_URL_WAREHOUSE + "enableDirectResults=1";
 
     Connection con = DriverManager.getConnection(jdbcUrl, "token", DATABRICKS_TOKEN);
     System.out.println("Connection established... (con1)");
@@ -1010,10 +957,7 @@ public class DatabricksDriverExamples {
   /** Demonstrates how to close a connection by session ID on an all-purpose cluster. */
   @Test
   void exampleAllPurposeClusters_closeBySessionId() throws Exception {
-    String jdbcUrl =
-        "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;"
-            + "ssl=1;AuthMech=3;"
-            + "httpPath=sql/protocolv1/o/6051921418418893/1115-130834-ms4m0yv;enableDirectResults=1";
+    String jdbcUrl = JDBC_URL_CLUSTER + "enableDirectResults=1";
 
     Connection con = DriverManager.getConnection(jdbcUrl, "token", DATABRICKS_TOKEN);
     System.out.println("Connection established (con1)...");
@@ -1043,10 +987,7 @@ public class DatabricksDriverExamples {
   /** Demonstrates how to close a connection by session ID on a DBSQL warehouse. */
   @Test
   void exampleDBSQL_closeBySessionId() throws Exception {
-    String jdbcUrl =
-        "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;"
-            + "ssl=1;AuthMech=3;"
-            + "httpPath=/sql/1.0/warehouses/791ba2a31c7fd70a;enableDirectResults=1";
+    String jdbcUrl = JDBC_URL_WAREHOUSE + "enableDirectResults=1";
 
     Connection con = DriverManager.getConnection(jdbcUrl, "token", DATABRICKS_TOKEN);
     System.out.println("Connection established (con1)...");
@@ -1079,10 +1020,7 @@ public class DatabricksDriverExamples {
    */
   @Test
   void exampleBatchAllPurposeClusters() throws Exception {
-    String jdbcUrl =
-        "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;"
-            + "ssl=1;AuthMech=3;"
-            + "httpPath=sql/protocolv1/o/6051921418418893/1115-130834-ms4m0yv;MaxBatchSize=4";
+    String jdbcUrl = JDBC_URL_CLUSTER + "MaxBatchSize=4";
     String tableName = "batch_test_table";
     Connection con = DriverManager.getConnection(jdbcUrl, "token", DATABRICKS_TOKEN);
     System.out.println("Connection established......");
@@ -1125,10 +1063,7 @@ public class DatabricksDriverExamples {
    */
   @Test
   void exampleBatchFunction() throws Exception {
-    String jdbcUrl =
-        "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;"
-            + "transportMode=http;ssl=1;AuthMech=3;"
-            + "httpPath=/sql/1.0/warehouses/dd43ee29fedd958d;";
+    String jdbcUrl = JDBC_URL_WAREHOUSE;
     Connection con = DriverManager.getConnection(jdbcUrl, "token", DATABRICKS_TOKEN);
     System.out.println("Connection established......");
 
@@ -1206,10 +1141,7 @@ public class DatabricksDriverExamples {
     ArrowResultChunk.enableErrorInjection();
     ArrowResultChunk.setErrorInjectionCountMaxValue(2);
 
-    String jdbcUrl =
-        "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;"
-            + "ssl=1;AuthMech=3;"
-            + "httpPath=/sql/1.0/warehouses/58aa1b363649e722";
+    String jdbcUrl = JDBC_URL_WAREHOUSE;
     Connection con = DriverManager.getConnection(jdbcUrl, "token", DATABRICKS_TOKEN);
     System.out.println("Connection established......");
 

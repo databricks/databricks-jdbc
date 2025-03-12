@@ -58,7 +58,7 @@ public class TimestampConverterTest {
     // Example: "2023-03-15T12:34:56+05:30"
     String tsWithOffset = "2023-03-15T12:34:56+05:30";
     Timestamp expectedWithOffset =
-        new Timestamp(Instant.parse("2023-03-15T07:04:56Z").toEpochMilli()); // UTC
+        Timestamp.valueOf(OffsetDateTime.parse(tsWithOffset).toLocalDateTime()); // UTC
     assertEquals(expectedWithOffset, converter.toTimestamp(tsWithOffset));
 
     // Case 3: Input is a String without a timezone offset.
@@ -95,7 +95,9 @@ public class TimestampConverterTest {
 
   @Test
   public void testConvertToTime() throws DatabricksSQLException {
-    assertEquals(new Time(TIMESTAMP.getTime()), converter.toTime("2023-09-10T20:45:00Z"));
+    assertEquals(
+        Time.valueOf(TIMESTAMP.toLocalDateTime().toLocalTime()),
+        converter.toTime("2023-09-10T20:45:00Z"));
   }
 
   @Test
@@ -118,14 +120,14 @@ public class TimestampConverterTest {
     // Case 3: Input is a String with a timezone offset.
     // Example: "2023-03-15T12:34:56+05:30"
     String dateWithOffset = "2023-03-15T12:34:56+05:30";
-    Date expectedWithOffset = new Date(Instant.parse("2023-03-15T07:04:56Z").toEpochMilli());
-    assertEquals(expectedWithOffset, converter.toDate(dateWithOffset));
+    Date expectedWithOffset = Date.valueOf(OffsetDateTime.parse(dateWithOffset).toLocalDate());
+    Date actual = converter.toDate(dateWithOffset);
+    assertEquals(expectedWithOffset, actual);
 
     // Case 4: Input is a String without offset containing 'T'.
     // Example: "2023-03-15T12:34:56" will have 'T' replaced by a space.
     String dateWithoutOffsetT = "2023-03-15T12:34:56";
-    Timestamp tsWithoutOffset = Timestamp.valueOf("2023-03-15 12:34:56");
-    Date expectedWithoutOffset = new Date(tsWithoutOffset.getTime());
+    Date expectedWithoutOffset = Date.valueOf("2023-03-15");
     assertEquals(expectedWithoutOffset, converter.toDate(dateWithoutOffsetT));
 
     // Case 5: Input is a String without offset containing a space.

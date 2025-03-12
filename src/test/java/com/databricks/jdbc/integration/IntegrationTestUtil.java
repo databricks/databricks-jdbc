@@ -70,7 +70,7 @@ public class IntegrationTestUtil {
     // SSL is disabled as embedded web server of fake service uses HTTP protocol.
     // Note that in RECORD mode, the web server interacts with production services over HTTPS.
     String template =
-        "jdbc:databricks://%s/default;transportMode=http;ssl=0;authmech=11;auth_flow=1;httpPath=%s";
+        "jdbc:databricks://%s/default;transportMode=http;ssl=0;authmech=11;auth_flow=1;httpPath=%s;usethriftclient=0;";
     return String.format(template, getFakeServiceHost(), getM2MHTTPPath());
   }
 
@@ -78,7 +78,7 @@ public class IntegrationTestUtil {
     // SSL is disabled as embedded web server of fake service uses HTTP protocol.
     // Note that in RECORD mode, the web server interacts with production services over HTTPS.
     String template =
-        "jdbc:databricks://%s/default;transportMode=http;ssl=0;authmech=11;auth_flow=1;httpPath=%s;UseJWTAssertion=1;";
+        "jdbc:databricks://%s/default;transportMode=http;ssl=0;authmech=11;auth_flow=1;httpPath=%s;UseJWTAssertion=1;usethriftclient=0;";
     return String.format(template, getFakeServiceHost(), getM2MPrivateKeyCredentialsHTTPPath());
   }
 
@@ -236,6 +236,10 @@ public class IntegrationTestUtil {
       connectionProperties.put(
           DatabricksJdbcUrlParams.CONN_SCHEMA.getParamName(),
           FakeServiceConfigLoader.getProperty(DatabricksJdbcUrlParams.CONN_SCHEMA.getParamName()));
+      connectionProperties.put(
+          DatabricksJdbcUrlParams.USE_THRIFT_CLIENT.getParamName(),
+          FakeServiceConfigLoader.getProperty(
+              DatabricksJdbcUrlParams.USE_THRIFT_CLIENT.getParamName()));
 
       return DriverManager.getConnection(getFakeServiceJDBCUrl(), connectionProperties);
     }

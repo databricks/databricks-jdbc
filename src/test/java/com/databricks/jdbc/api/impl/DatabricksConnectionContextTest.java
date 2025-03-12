@@ -76,7 +76,7 @@ class DatabricksConnectionContextTest {
     assertEquals("./test1", connectionContext.getLogPathString());
     assertNull(connectionContext.getOAuthScopesForU2M());
     assertFalse(connectionContext.isAllPurposeCluster());
-    assertEquals(DatabricksClientType.SEA, connectionContext.getClientType());
+    assertEquals(DatabricksClientType.THRIFT, connectionContext.getClientType());
 
     // test default port
     connectionContext =
@@ -131,7 +131,7 @@ class DatabricksConnectionContextTest {
     assertEquals(connectionContext.getOAuthScopesForU2M(), expected_scopes);
     assertFalse(connectionContext.isAllPurposeCluster());
     assertEquals(5, connectionContext.parameters.size());
-    assertEquals(DatabricksClientType.SEA, connectionContext.getClientType());
+    assertEquals(DatabricksClientType.THRIFT, connectionContext.getClientType());
     assertEquals(
         "abc-compute@developer.gserviceaccount.com", connectionContext.getGoogleServiceAccount());
     assertNull(connectionContext.getGoogleCredentials());

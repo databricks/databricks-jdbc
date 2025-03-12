@@ -5,8 +5,10 @@ import static java.lang.Math.min;
 import static org.junit.jupiter.api.Assertions.*;
 
 import com.databricks.jdbc.exception.DatabricksParsingException;
+import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.model.client.thrift.generated.TSparkArrowResultLink;
 import com.databricks.sdk.service.sql.BaseChunkInfo;
+import com.databricks.sdk.service.sql.ColumnInfoTypeName;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
@@ -161,7 +163,7 @@ public class ArrowResultChunkTest {
   }
 
   @Test
-  public void testHasNextRow() throws DatabricksParsingException {
+  public void testHasNextRow() throws DatabricksSQLException {
     BaseChunkInfo emptyChunkInfo =
         new BaseChunkInfo().setChunkIndex(0L).setByteCount(200L).setRowOffset(0L).setRowCount(0L);
     ArrowResultChunk arrowResultChunk =
@@ -187,21 +189,21 @@ public class ArrowResultChunkTest {
     ArrowResultChunk.ArrowResultChunkIterator iterator = arrowResultChunk.getChunkIterator();
     assertTrue(iterator.hasNextRow());
     iterator.nextRow();
-    assertEquals(0, iterator.getColumnObjectAtCurrentRow(0));
+    assertEquals(0, iterator.getColumnObjectAtCurrentRow(0, ColumnInfoTypeName.INT, "INT"));
     assertTrue(iterator.hasNextRow());
     iterator.nextRow();
-    assertEquals(10, iterator.getColumnObjectAtCurrentRow(0));
+    assertEquals(10, iterator.getColumnObjectAtCurrentRow(0, ColumnInfoTypeName.INT, "INT"));
     assertTrue(iterator.hasNextRow());
     iterator.nextRow();
-    assertEquals(0, iterator.getColumnObjectAtCurrentRow(0));
+    assertEquals(0, iterator.getColumnObjectAtCurrentRow(0, ColumnInfoTypeName.INT, "INT"));
     assertTrue(iterator.hasNextRow());
     iterator.nextRow();
-    assertEquals(10, iterator.getColumnObjectAtCurrentRow(0));
+    assertEquals(10, iterator.getColumnObjectAtCurrentRow(0, ColumnInfoTypeName.INT, "INT"));
     assertFalse(iterator.hasNextRow());
   }
 
   @Test
-  public void testEmptyRecordBatches() throws DatabricksParsingException {
+  public void testEmptyRecordBatches() throws DatabricksSQLException {
     BaseChunkInfo chunkInfo =
         new BaseChunkInfo().setChunkIndex(18L).setByteCount(200L).setRowOffset(0L).setRowCount(4L);
     ArrowResultChunk arrowResultChunk =
@@ -222,16 +224,16 @@ public class ArrowResultChunkTest {
     ArrowResultChunk.ArrowResultChunkIterator iterator = arrowResultChunk.getChunkIterator();
     assertTrue(iterator.hasNextRow());
     iterator.nextRow();
-    assertEquals(0, iterator.getColumnObjectAtCurrentRow(0));
+    assertEquals(0, iterator.getColumnObjectAtCurrentRow(0, ColumnInfoTypeName.INT, "INT"));
     assertTrue(iterator.hasNextRow());
     iterator.nextRow();
-    assertEquals(10, iterator.getColumnObjectAtCurrentRow(0));
+    assertEquals(10, iterator.getColumnObjectAtCurrentRow(0, ColumnInfoTypeName.INT, "INT"));
     assertTrue(iterator.hasNextRow());
     iterator.nextRow();
-    assertEquals(0, iterator.getColumnObjectAtCurrentRow(0));
+    assertEquals(0, iterator.getColumnObjectAtCurrentRow(0, ColumnInfoTypeName.INT, "INT"));
     assertTrue(iterator.hasNextRow());
     iterator.nextRow();
-    assertEquals(10, iterator.getColumnObjectAtCurrentRow(0));
+    assertEquals(10, iterator.getColumnObjectAtCurrentRow(0, ColumnInfoTypeName.INT, "INT"));
     assertFalse(iterator.hasNextRow());
   }
 }

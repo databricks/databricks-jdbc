@@ -4,7 +4,6 @@ import static com.databricks.jdbc.common.util.DatabricksThriftUtil.getTypeFromTy
 
 import com.databricks.jdbc.api.IDatabricksSession;
 import com.databricks.jdbc.api.impl.IExecutionResult;
-import com.databricks.jdbc.api.impl.converters.ArrowToJavaObjectConverter;
 import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
 import com.databricks.jdbc.common.CompressionCodec;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
@@ -123,12 +122,11 @@ public class ArrowStreamResult implements IExecutionResult {
   @Override
   public Object getObject(int columnIndex) throws DatabricksSQLException {
     ColumnInfoTypeName requiredType = columnInfos.get(columnIndex).getTypeName();
-    Object unconvertedObject = chunkIterator.getColumnObjectAtCurrentRow(columnIndex);
     String arrowMetadata = chunkIterator.getType(columnIndex);
     if (arrowMetadata == null) {
       arrowMetadata = columnInfos.get(columnIndex).getTypeText();
     }
-    return ArrowToJavaObjectConverter.convert(unconvertedObject, requiredType, arrowMetadata);
+    return chunkIterator.getColumnObjectAtCurrentRow(columnIndex, requiredType, arrowMetadata);
   }
 
   /** {@inheritDoc} */
