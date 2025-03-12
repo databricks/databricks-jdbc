@@ -250,7 +250,7 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
 
   @Override
   public String getClientId() throws DatabricksParsingException {
-    String clientId = getParameter(DatabricksJdbcUrlParams.CLIENT_ID);
+    String clientId = getNullableClientId();
     if (nullOrEmptyString(clientId)) {
       Cloud cloud = getCloud();
       if (cloud == Cloud.AWS) {
@@ -262,6 +262,11 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
       }
     }
     return clientId;
+  }
+
+  @Override
+  public String getNullableClientId() {
+    return getParameter(DatabricksJdbcUrlParams.CLIENT_ID);
   }
 
   @Override
@@ -732,6 +737,11 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   @Override
   public int getHttpConnectionPoolSize() {
     return Integer.parseInt(getParameter(DatabricksJdbcUrlParams.HTTP_CONNECTION_POOL_SIZE));
+  }
+
+  @Override
+  public String getAzureWorkspaceResourceId() {
+    return getParameter(DatabricksJdbcUrlParams.AZURE_WORKSPACE_RESOURCE_ID);
   }
 
   private static boolean nullOrEmptyString(String s) {

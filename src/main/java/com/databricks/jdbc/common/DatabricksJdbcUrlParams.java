@@ -90,7 +90,9 @@ public enum DatabricksJdbcUrlParams {
       "EnableComplexDatatypeSupport",
       "flag to enable native support of complex data types as java objects",
       "0"),
-  AZURE_TENANT_ID("AzureTenantId", "Azure tenant ID");
+  AZURE_TENANT_ID("AzureTenantId", "Azure tenant ID"),
+  AZURE_WORKSPACE_RESOURCE_ID(
+      "azure_workspace_resource_id", "Resource ID of Azure Databricks workspace");
 
   private final String paramName;
   private final String defaultValue;
