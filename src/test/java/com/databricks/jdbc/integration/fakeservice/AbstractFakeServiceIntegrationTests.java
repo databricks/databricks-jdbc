@@ -6,7 +6,6 @@ import static com.databricks.jdbc.integration.fakeservice.FakeServiceConfigLoade
 import static com.github.tomakehurst.wiremock.core.WireMockConfiguration.wireMockConfig;
 
 import com.databricks.jdbc.common.DatabricksJdbcConstants;
-import com.databricks.jdbc.integration.IntegrationTestUtil;
 import com.github.tomakehurst.wiremock.extension.Extension;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.extension.RegisterExtension;
@@ -34,7 +33,7 @@ public abstract class AbstractFakeServiceIntegrationTests {
                       .httpClientFactory(
                           new FakeServiceHttpClientFactory(
                               FakeServiceConfigLoader.getFakeServiceUserAgent()))),
-          IntegrationTestUtil.getFakeServiceType(),
+          FakeServiceConfigLoader.getFakeServiceType(),
           FakeServiceConfigLoader.getProperty(DATABRICKS_HOST_PROP));
 
   /**
@@ -53,7 +52,7 @@ public abstract class AbstractFakeServiceIntegrationTests {
                       .httpClientFactory(
                           new FakeServiceHttpClientFactory(
                               FakeServiceConfigLoader.getFakeServiceUserAgent()))),
-          IntegrationTestUtil.getFakeServiceTypeCloudfetch(),
+          FakeServiceConfigLoader.getCloudFetchFakeServiceType(),
           FakeServiceConfigLoader.getProperty(CLOUD_FETCH_HOST_PROP));
 
   /**
@@ -109,8 +108,7 @@ public abstract class AbstractFakeServiceIntegrationTests {
    * com.databricks.jdbc.dbclient.impl.sqlexec.DatabricksSdkClient}.
    */
   protected boolean isSqlExecSdkClient() {
-    return FakeServiceConfigLoader.connectionInfo.equals(
-        FakeServiceConfigLoader.ConnectionInfoType.SQL_EXEC);
+    return FakeServiceConfigLoader.serverType.equals(DatabricksJdbcConstants.ServerType.SQL_EXEC);
   }
 
   /** Returns the extensions to be used for stubbing. */

@@ -1,18 +1,15 @@
 package com.databricks.jdbc.integration;
 
 import static com.databricks.jdbc.common.DatabricksJdbcConstants.*;
-import static com.databricks.jdbc.integration.fakeservice.AbstractFakeServiceIntegrationTests.getFakeServiceMode;
 import static com.databricks.jdbc.integration.fakeservice.FakeServiceConfigLoader.*;
 import static com.databricks.jdbc.integration.fakeservice.FakeServiceExtension.TARGET_URI_PROP_SUFFIX;
 
 import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.api.impl.DatabricksConnectionContextFactory;
-import com.databricks.jdbc.common.DatabricksJdbcConstants;
 import com.databricks.jdbc.common.DatabricksJdbcConstants.FakeServiceType;
 import com.databricks.jdbc.common.DatabricksJdbcUrlParams;
 import com.databricks.jdbc.common.util.DriverUtil;
 import com.databricks.jdbc.integration.fakeservice.FakeServiceConfigLoader;
-import com.databricks.jdbc.integration.fakeservice.FakeServiceExtension;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.sql.Connection;
@@ -29,7 +26,7 @@ public class IntegrationTestUtil {
   /** Get the host of the embedded web server of fake service to be used in the tests. */
   public static String getFakeServiceHost() {
     // Target base URL of the fake service type
-    FakeServiceType databricksFakeServiceType = getFakeServiceType();
+    FakeServiceType databricksFakeServiceType = FakeServiceConfigLoader.getFakeServiceType();
     String serviceURI =
         System.getProperty(databricksFakeServiceType.name().toLowerCase() + TARGET_URI_PROP_SUFFIX);
 
@@ -42,28 +39,6 @@ public class IntegrationTestUtil {
     }
 
     return fakeServiceURI.getAuthority();
-  }
-
-  public static DatabricksJdbcConstants.FakeServiceType getFakeServiceType() {
-    switch (FakeServiceConfigLoader.connectionInfo) {
-      case THRIFT_SERVER:
-        return DatabricksJdbcConstants.FakeServiceType.THRIFT_SERVER;
-      case SQL_GATEWAY:
-        return DatabricksJdbcConstants.FakeServiceType.SQL_GATEWAY;
-      default:
-        return DatabricksJdbcConstants.FakeServiceType.SQL_EXEC;
-    }
-  }
-
-  public static DatabricksJdbcConstants.FakeServiceType getFakeServiceTypeCloudfetch() {
-    switch (FakeServiceConfigLoader.connectionInfo) {
-      case THRIFT_SERVER:
-        return DatabricksJdbcConstants.FakeServiceType.CLOUD_FETCH_THRIFT_SERVER;
-      case SQL_GATEWAY:
-        return DatabricksJdbcConstants.FakeServiceType.CLOUD_FETCH_SQL_GATEWAY;
-      default:
-        return DatabricksJdbcConstants.FakeServiceType.CLOUD_FETCH;
-    }
   }
 
   public static String getFakeServiceM2MUrl() {
@@ -412,13 +387,5 @@ public class IntegrationTestUtil {
             + getFullyQualifiedTableName(tableName)
             + " (id, col1, col2) VALUES (1, 'value1', 'value2')";
     executeSQL(conn, insertSQL);
-  }
-
-  public static boolean isThriftMode() {
-    return getProperty(DatabricksJdbcUrlParams.USE_THRIFT_CLIENT.getParamName()).equals("1");
-  }
-
-  public static boolean isFakeReplayInThriftMode() {
-    return isThriftMode() && getFakeServiceMode() == FakeServiceExtension.FakeServiceMode.REPLAY;
   }
 }

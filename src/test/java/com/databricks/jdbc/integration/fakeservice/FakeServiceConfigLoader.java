@@ -1,5 +1,6 @@
 package com.databricks.jdbc.integration.fakeservice;
 
+import com.databricks.jdbc.common.DatabricksJdbcConstants;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Properties;
@@ -14,10 +15,10 @@ public class FakeServiceConfigLoader {
 
   public static final String TEST_SCHEMA = "testschema";
 
-  public static final ConnectionInfoType connectionInfo =
-      System.getenv("CONNECTION_INFO") != null
-          ? ConnectionInfoType.valueOf(System.getenv("CONNECTION_INFO").toUpperCase())
-          : ConnectionInfoType.SQL_EXEC;
+  public static final DatabricksJdbcConstants.ServerType serverType =
+      System.getenv("SERVER_TYPE") != null
+          ? DatabricksJdbcConstants.ServerType.valueOf(System.getenv("SERVER_TYPE").toUpperCase())
+          : DatabricksJdbcConstants.ServerType.SQL_EXEC;
 
   private static final String SQL_EXEC_FAKE_SERVICE_TEST_PROPS =
       "sqlexecfakeservicetest.properties";
@@ -29,12 +30,6 @@ public class FakeServiceConfigLoader {
 
   private static final String THRIFT_SERVER_FAKE_SERVICE_TEST_PROPS =
       "thriftserverfakeservicetest.properties";
-
-  public enum ConnectionInfoType {
-    THRIFT_SERVER,
-    SQL_GATEWAY,
-    SQL_EXEC
-  }
 
   private static final Properties properties = new Properties();
 
@@ -49,14 +44,25 @@ public class FakeServiceConfigLoader {
     }
   }
 
-  private static String getPropsFileName() {
-    switch (connectionInfo) {
+  public static DatabricksJdbcConstants.FakeServiceType getCloudFetchFakeServiceType() {
+    switch (serverType) {
       case THRIFT_SERVER:
-        return THRIFT_SERVER_FAKE_SERVICE_TEST_PROPS;
+        return DatabricksJdbcConstants.FakeServiceType.CLOUD_FETCH_THRIFT_SERVER;
       case SQL_GATEWAY:
-        return SQL_GATEWAY_FAKE_SERVICE_TEST_PROPS;
+        return DatabricksJdbcConstants.FakeServiceType.CLOUD_FETCH_SQL_GATEWAY;
       default:
-        return SQL_EXEC_FAKE_SERVICE_TEST_PROPS;
+        return DatabricksJdbcConstants.FakeServiceType.CLOUD_FETCH;
+    }
+  }
+
+  public static DatabricksJdbcConstants.FakeServiceType getFakeServiceType() {
+    switch (serverType) {
+      case THRIFT_SERVER:
+        return DatabricksJdbcConstants.FakeServiceType.THRIFT_SERVER;
+      case SQL_GATEWAY:
+        return DatabricksJdbcConstants.FakeServiceType.SQL_GATEWAY;
+      default:
+        return DatabricksJdbcConstants.FakeServiceType.SQL_EXEC;
     }
   }
 
@@ -70,5 +76,16 @@ public class FakeServiceConfigLoader {
 
   public static String getFakeServiceUserAgent() {
     return FAKE_SERVICE_USER_AGENT;
+  }
+
+  private static String getPropsFileName() {
+    switch (serverType) {
+      case THRIFT_SERVER:
+        return THRIFT_SERVER_FAKE_SERVICE_TEST_PROPS;
+      case SQL_GATEWAY:
+        return SQL_GATEWAY_FAKE_SERVICE_TEST_PROPS;
+      default:
+        return SQL_EXEC_FAKE_SERVICE_TEST_PROPS;
+    }
   }
 }

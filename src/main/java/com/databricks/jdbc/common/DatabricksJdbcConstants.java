@@ -111,6 +111,13 @@ public final class DatabricksJdbcConstants {
     JWT_TOKEN_ENDPOINT
   }
 
+  /** Enum for the different server options */
+  public enum ServerType {
+    THRIFT_SERVER,
+    SQL_GATEWAY,
+    SQL_EXEC
+  }
+
   public static final Pattern SELECT_PATTERN =
       Pattern.compile("^(\\s*\\()*\\s*SELECT", Pattern.CASE_INSENSITIVE);
   public static final Pattern SHOW_PATTERN =

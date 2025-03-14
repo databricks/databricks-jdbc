@@ -20,13 +20,13 @@ jobs:
         include:
           - test-command: mvn -B compile test -Dtest=*IntegrationTests
             token-secret: DATABRICKS_TOKEN
-            connection-info: 'SQL_EXEC'
-          - test-command: mvn -B compile test -Dtest=*IntegrationTests,!M2MPrivateKeyCredentialsIntegrationTests,!PreparedStatementIntegrationTests
+            server-type: 'SQL_EXEC'
+          - test-command: mvn -B compile test -Dtest=*IntegrationTests,!M2MPrivateKeyCredentialsIntegrationTests,!SqlExecApiHybridResultsIntegrationTests,!DBFSVolumeIntegrationTests
             token-secret: THRIFT_DATABRICKS_TOKEN
-            connection-info: 'THRIFT_SERVER'
-          - test-command: mvn -B compile test -Dtest=*IntegrationTests,!M2MPrivateKeyCredentialsIntegrationTests,!PreparedStatementIntegrationTests
+            server-type: 'THRIFT_SERVER'
+          - test-command: mvn -B compile test -Dtest=*IntegrationTests,!M2MPrivateKeyCredentialsIntegrationTests,!SqlExecApiHybridResultsIntegrationTests,!DBFSVolumeIntegrationTests
             token-secret: THRIFT_DATABRICKS_TOKEN
-            connection-info: 'SQL_GATEWAY'
+            server-type: 'SQL_GATEWAY'
 
     steps:
       - uses: actions/checkout@v2
@@ -48,7 +48,7 @@ jobs:
         env:
           DATABRICKS_TOKEN: ${{ secrets[matrix.token-secret] }}
           DATABRICKS_USER: ${{ secrets.DATABRICKS_USER }}
-          CONNECTION_INFO: ${{ matrix.connection-info }}
+          SERVER_TYPE: ${{ matrix.server-type }}
           DATABRICKS_JDBC_M2M_CLIENT_ID: ${{ secrets.DATABRICKS_JDBC_M2M_CLIENT_ID }}
           DATABRICKS_JDBC_M2M_CLIENT_SECRET: ${{ secrets.DATABRICKS_JDBC_M2M_CLIENT_SECRET }}
           DATABRICKS_JDBC_M2M_HOST: ${{ secrets.DATABRICKS_JDBC_M2M_HOST }}
