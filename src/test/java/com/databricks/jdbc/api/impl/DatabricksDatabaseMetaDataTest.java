@@ -1,7 +1,6 @@
 package com.databricks.jdbc.api.impl;
 
-import static com.databricks.jdbc.TestConstants.WAREHOUSE_JDBC_URL;
-import static com.databricks.jdbc.TestConstants.WAREHOUSE_JDBC_URL_WITH_THRIFT;
+import static com.databricks.jdbc.TestConstants.*;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
@@ -12,9 +11,7 @@ import com.databricks.jdbc.common.DatabricksJdbcConstants;
 import com.databricks.jdbc.dbclient.IDatabricksMetadataClient;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import java.sql.*;
-import java.util.List;
 import java.util.Properties;
-import java.util.concurrent.Callable;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -569,6 +566,14 @@ public class DatabricksDatabaseMetaDataTest {
   }
 
   @Test
+  public void getFunctions_returnsEmptyResultSetWhenExceptionIsThrown() throws Exception {
+    when(metadataClient.listFunctions(session, null, "%", "%")).thenThrow(new SQLException());
+    ResultSet resultSet = metaData.getFunctions(null, "%", "%");
+    assertNotNull(resultSet);
+    assertFalse(resultSet.next());
+  }
+
+  @Test
   public void supportsGroupBy_returnsTrue() throws Exception {
     assertTrue(metaData.supportsGroupBy());
   }
@@ -673,6 +678,9 @@ public class DatabricksDatabaseMetaDataTest {
 
   @Test
   public void testGetSchemas_SqlExec() throws SQLException {
+    when(session.getConnectionContext())
+        .thenReturn(
+            DatabricksConnectionContext.parse(WAREHOUSE_JDBC_URL_WITH_SEA, new Properties()));
     ResultSet resultSet = metaData.getSchemas();
     assertNotNull(resultSet);
 
@@ -793,7 +801,19 @@ public class DatabricksDatabaseMetaDataTest {
   @Test
   public void testGetDriverVersion() throws SQLException {
     String result = metaData.getDriverVersion();
-    assertEquals("0.9.9-oss", result);
+    assertEquals("1.0.1-oss", result);
+  }
+
+  @Test
+  public void testGetDriverMajorVersion() {
+    int result = metaData.getDriverMajorVersion();
+    assertEquals(1, result);
+  }
+
+  @Test
+  public void testGetDriverMinorVersion() {
+    int result = metaData.getDriverMinorVersion();
+    assertEquals(0, result);
   }
 
   @Test
@@ -937,6 +957,7 @@ public class DatabricksDatabaseMetaDataTest {
   public void testSupportsConvert() throws SQLException {
     boolean result = metaData.supportsConvert();
     assertTrue(result);
+    assertTrue(metaData.supportsConvert(Types.INTEGER, Types.INTEGER));
   }
 
   @Test
@@ -1009,22 +1030,6 @@ public class DatabricksDatabaseMetaDataTest {
   public void testGetSearchStringEscape() throws SQLException {
     String result = metaData.getSearchStringEscape();
     assertEquals(DatabricksJdbcConstants.BACKWARD_SLASH, result);
-  }
-
-  @Test
-  public void testUnsupportedOperations() {
-    List<Callable<Object>> tasks = List.of(() -> metaData.supportsConvert(0, 0));
-
-    for (Callable<Object> task : tasks) {
-      try {
-        task.call();
-        fail("Expected UnsupportedOperationException for " + task);
-      } catch (UnsupportedOperationException e) {
-        // This is expected
-      } catch (Exception e) {
-        fail("Unexpected exception type thrown: " + e);
-      }
-    }
   }
 
   @ParameterizedTest

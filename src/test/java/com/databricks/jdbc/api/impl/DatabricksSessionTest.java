@@ -42,7 +42,7 @@ public class DatabricksSessionTest {
   private static IDatabricksConnectionContext connectionContext;
 
   static void setupWarehouse(boolean useThrift) throws DatabricksSQLException {
-    String url = useThrift ? WAREHOUSE_JDBC_URL_WITH_THRIFT : WAREHOUSE_JDBC_URL;
+    String url = useThrift ? WAREHOUSE_JDBC_URL : WAREHOUSE_JDBC_URL_WITH_SEA;
     connectionContext = DatabricksConnectionContext.parse(url, new Properties());
   }
 
@@ -59,21 +59,20 @@ public class DatabricksSessionTest {
 
   @Test
   public void testOpenAndCloseSession() throws DatabricksSQLException {
-    setupWarehouse(false);
+    setupWarehouse(true /* useThrift */);
     ImmutableSessionInfo sessionInfo =
         ImmutableSessionInfo.builder()
             .sessionId(SESSION_ID)
             .computeResource(WAREHOUSE_COMPUTE)
             .build();
-    when(sdkClient.createSession(eq(WAREHOUSE_COMPUTE), any(), any(), any()))
-        .thenReturn(sessionInfo);
-    DatabricksSession session = new DatabricksSession(connectionContext, sdkClient);
-    assertEquals(DatabricksClientType.SEA, connectionContext.getClientType());
+    when(thriftClient.createSession(any(), any(), any(), any())).thenReturn(sessionInfo);
+    DatabricksSession session = new DatabricksSession(connectionContext, thriftClient);
+    assertEquals(DatabricksClientType.THRIFT, connectionContext.getClientType());
     assertFalse(session.isOpen());
     session.open();
     assertTrue(session.isOpen());
     assertEquals(SESSION_ID, session.getSessionId());
-    assertInstanceOf(DatabricksMetadataSdkClient.class, session.getDatabricksMetadataClient());
+    assertInstanceOf(DatabricksThriftServiceClient.class, session.getDatabricksMetadataClient());
     assertEquals(WAREHOUSE_COMPUTE, session.getComputeResource());
     session.close();
     assertFalse(session.isOpen());
@@ -82,7 +81,7 @@ public class DatabricksSessionTest {
 
   @Test
   public void testOpenRedirectedThriftSession() throws DatabricksSQLException {
-    setupWarehouse(false);
+    setupWarehouse(false /* useThrift */);
     ImmutableSessionInfo sessionInfo =
         ImmutableSessionInfo.builder()
             .sessionId(SESSION_ID)
@@ -119,7 +118,7 @@ public class DatabricksSessionTest {
 
   @Test
   public void testOpenAndCloseSessionUsingThrift() throws DatabricksSQLException {
-    setupWarehouse(true);
+    setupWarehouse(true /* useThrift */);
     ImmutableSessionInfo sessionInfo =
         ImmutableSessionInfo.builder()
             .sessionHandle(tSessionHandle)
@@ -175,7 +174,7 @@ public class DatabricksSessionTest {
 
   @Test
   public void testCatalogAndSchema() throws DatabricksSQLException {
-    setupWarehouse(false);
+    setupWarehouse(false /* useThrift */);
     DatabricksSession session = new DatabricksSession(connectionContext);
     session.setCatalog(NEW_CATALOG);
     assertEquals(NEW_CATALOG, session.getCatalog());
@@ -186,7 +185,7 @@ public class DatabricksSessionTest {
 
   @Test
   public void testSessionToString() throws DatabricksSQLException {
-    setupWarehouse(false);
+    setupWarehouse(false /* useThrift */);
     DatabricksSession session = new DatabricksSession(connectionContext);
     assertEquals(
         "DatabricksSession[compute='SQL Warehouse with warehouse ID {warehouse_id}', schema='default']",

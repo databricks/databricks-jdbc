@@ -403,6 +403,7 @@ public class MetadataResultSetBuilder {
         return 16;
       case "DATE":
         return 91;
+      case "TIMESTAMP_NTZ":
       case "TIMESTAMP":
         return 93;
       case "DECIMAL":
@@ -432,6 +433,8 @@ public class MetadataResultSetBuilder {
       case "CHAR":
       case "CHARACTER":
         return 1;
+      case "VARIANT":
+        return 1111;
     }
     return 0;
   }
@@ -635,16 +638,26 @@ public class MetadataResultSetBuilder {
     return buildResultSet(columns, rows, statementId, commandName);
   }
 
-  public static DatabricksResultSet getTablesResult(String catalog, List<List<Object>> rows) {
+  public static DatabricksResultSet getTablesResult(
+      String catalog, String[] tableTypes, List<List<Object>> rows) {
     List<List<Object>> updatedRows = new ArrayList<>();
     for (List<Object> row : rows) {
-      // If the table type is empty, set it to "TABLE"
-      if (row.get(3).equals("")) {
-        row.set(3, "TABLE");
-      }
       // If the catalog is not null and the catalog does not match, skip the row
       if (catalog != null && !row.get(0).toString().equals(catalog)) {
         continue;
+      }
+
+      // If the table type is empty or null, set it to "TABLE"
+      Object tableType = row.get(3);
+      if (tableType == null || tableType.equals("")) {
+        row.set(3, "TABLE");
+      }
+
+      if (tableTypes != null && tableTypes.length > 0) {
+        // If the table type is not in the list of allowed table types, skip the row
+        if (!Arrays.asList(tableTypes).contains(row.get(3).toString())) {
+          continue;
+        }
       }
       updatedRows.add(row);
     }
