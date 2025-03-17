@@ -734,6 +734,20 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
     return Integer.parseInt(getParameter(DatabricksJdbcUrlParams.HTTP_CONNECTION_POOL_SIZE));
   }
 
+  @Override
+  public List<Integer> getUCIngestionRetriableHttpCodes() {
+    return Arrays.stream(getParameter(DatabricksJdbcUrlParams.UC_INGESTION_RETRIABLE_HTTP_CODE).split(","))
+            .map(String::trim)
+            .filter(num -> num.matches("\\d+")) // Ensure only positive integers
+            .map(Integer::parseInt)
+            .collect(Collectors.toList());
+  }
+
+  @Override
+  public int getUCIngestionRetryTimeoutMinutes() {
+    return Integer.parseInt(getParameter(DatabricksJdbcUrlParams.UC_INGESTION_RETRY_TIMEOUT));
+  }
+
   private static boolean nullOrEmptyString(String s) {
     return s == null || s.isEmpty();
   }
