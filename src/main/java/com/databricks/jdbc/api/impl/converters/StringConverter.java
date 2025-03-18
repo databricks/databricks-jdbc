@@ -4,7 +4,6 @@ import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.exception.DatabricksValidationException;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
-
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.sql.Date;
@@ -135,7 +134,9 @@ public class StringConverter implements ObjectConverter {
         try {
           return Timestamp.valueOf(timestampStr);
         } catch (IllegalArgumentException ex) {
-          throw new DatabricksParsingException("Invalid timestamp format: " + timestampStr, DatabricksDriverErrorCode.JSON_PARSING_ERROR);
+          throw new DatabricksParsingException(
+              "Invalid timestamp format: " + timestampStr,
+              DatabricksDriverErrorCode.JSON_PARSING_ERROR);
         }
       }
     }
