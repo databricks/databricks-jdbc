@@ -108,7 +108,8 @@ public abstract class AbstractFakeServiceIntegrationTests {
    * com.databricks.jdbc.dbclient.impl.sqlexec.DatabricksSdkClient}.
    */
   protected boolean isSqlExecSdkClient() {
-    return FakeServiceConfigLoader.serverType.equals(DatabricksJdbcConstants.ServerType.SQL_EXEC);
+    return FakeServiceConfigLoader.getFakeServiceType()
+        .equals(DatabricksJdbcConstants.FakeServiceType.SQL_EXEC);
   }
 
   /** Returns the extensions to be used for stubbing. */
@@ -116,7 +117,7 @@ public abstract class AbstractFakeServiceIntegrationTests {
     return new Extension[] {new StubMappingRedactor()};
   }
 
-  public static FakeServiceExtension.FakeServiceMode getFakeServiceMode() {
+  protected static FakeServiceExtension.FakeServiceMode getFakeServiceMode() {
     return databricksApiExtension.getFakeServiceMode();
   }
 }

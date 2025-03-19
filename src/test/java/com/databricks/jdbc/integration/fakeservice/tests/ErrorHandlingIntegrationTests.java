@@ -80,11 +80,13 @@ public class ErrorHandlingIntegrationTests extends AbstractFakeServiceIntegratio
                       + " (id, col1, col2) VALUES (1, 'value1', 'value2')";
               statement.executeQuery(sql);
             });
-
-    // In thrift mode: for invalid syntax error, error is thrown and
-    // Operation handle is not provided
     if (((DatabricksConnection) connection).getConnectionContext().getClientType()
         == DatabricksClientType.THRIFT) {
+
+      // In thrift mode: for invalid syntax error, error is thrown as
+      // Operation handle is not provided
+      // @see
+      // com.databricks.jdbc.dbclient.impl.thrift.DatabricksThriftAccessor#checkResponseForErrors(TBase)
       assertTrue(e.getMessage().contains("Operation handle not set"));
     } else {
       assertTrue(e.getMessage().contains("Syntax error"));
