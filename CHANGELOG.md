@@ -4,7 +4,7 @@
 
 ### Fixed
 - Fixed columnType conversion for Variant and Timestamp_NTZ types
-- Fix minor issue while dealing with timestamp and variant conversion and fix string conversion issue
+- Fix minor issue for string dealing with whitespaces
 
 ---
 
