@@ -143,9 +143,8 @@ public class StringConverter implements ObjectConverter {
   }
 
   private String removeExtraQuotes(String str) {
-    str = str.trim();
     if (str.startsWith("\"") && str.endsWith("\"") && str.length() > 1) {
-      str = str.substring(1, str.length() - 1).trim();
+      str = str.substring(1, str.length() - 1);
     }
     return str;
   }
