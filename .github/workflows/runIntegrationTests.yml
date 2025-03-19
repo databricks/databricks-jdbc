@@ -27,7 +27,6 @@ jobs:
           - test-command: mvn -B compile test -Dtest=*IntegrationTests,!M2MPrivateKeyCredentialsIntegrationTests,!SqlExecApiHybridResultsIntegrationTests,!DBFSVolumeIntegrationTests
             token-secret: THRIFT_DATABRICKS_TOKEN
             fake-service-type: 'SQL_GATEWAY'
-
     steps:
       - uses: actions/checkout@v2
       - uses: actions/setup-java@v2
