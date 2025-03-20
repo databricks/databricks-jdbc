@@ -10,6 +10,7 @@ import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
 import com.databricks.jdbc.common.util.VolumeUtil;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
 import com.databricks.jdbc.dbclient.impl.http.DatabricksHttpClientFactory;
+import com.databricks.jdbc.dbclient.impl.http.HttpClientType;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.exception.DatabricksVolumeOperationException;
 import com.databricks.jdbc.log.JdbcLogger;
@@ -53,7 +54,8 @@ public class VolumeOperationResult implements IExecutionResult {
     this.resultHandler = resultHandler;
     this.statement = statement;
     this.httpClient =
-        DatabricksHttpClientFactory.getInstance().getClient(session.getConnectionContext());
+        DatabricksHttpClientFactory.getInstance()
+            .getClient(session.getConnectionContext(), HttpClientType.VOLUME);
     this.currentRowIndex = -1;
   }
 

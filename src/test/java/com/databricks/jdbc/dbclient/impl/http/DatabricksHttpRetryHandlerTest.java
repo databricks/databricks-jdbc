@@ -9,6 +9,8 @@ import static org.mockito.Mockito.*;
 import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.exception.DatabricksRetryHandlerException;
 import java.io.IOException;
+import java.time.Instant;
+import java.util.List;
 import org.apache.http.HttpRequest;
 import org.apache.http.HttpResponse;
 import org.apache.http.HttpStatus;
@@ -33,7 +35,7 @@ public class DatabricksHttpRetryHandlerTest {
 
   @BeforeEach
   public void setUp() {
-    retryHandler = new DatabricksHttpRetryHandler(mockConnectionContext);
+    retryHandler = new DatabricksHttpRetryHandler(mockConnectionContext, HttpClientType.COMMON);
   }
 
   @Test
@@ -42,6 +44,30 @@ public class DatabricksHttpRetryHandlerTest {
     retryHandler.process(response, mockHttpContext);
     // No exception should be thrown, and no attributes should be set
     verify(mockHttpContext, never()).setAttribute(anyString(), any());
+  }
+
+  @Test
+  void processUCVolumeRequestWithNonRetryableStatusCode() throws IOException {
+    when(mockConnectionContext.getUCIngestionRetriableHttpCodes())
+        .thenReturn(List.of(HttpStatus.SC_SERVICE_UNAVAILABLE, HttpStatus.SC_BAD_REQUEST));
+
+    retryHandler = new DatabricksHttpRetryHandler(mockConnectionContext, HttpClientType.VOLUME);
+    HttpResponse response = createMockResponse(HttpStatus.SC_OK);
+    retryHandler.process(response, mockHttpContext);
+    // No exception should be thrown, and no attributes should be set
+    verify(mockHttpContext, never()).setAttribute(anyString(), any());
+  }
+
+  @Test
+  void processUCVolumeRequestWithRetryableStatusCode() throws IOException {
+    when(mockConnectionContext.getUCIngestionRetriableHttpCodes())
+        .thenReturn(List.of(HttpStatus.SC_SERVICE_UNAVAILABLE, HttpStatus.SC_BAD_REQUEST));
+
+    retryHandler = new DatabricksHttpRetryHandler(mockConnectionContext, HttpClientType.VOLUME);
+    HttpResponse response = createMockResponse(HttpStatus.SC_BAD_REQUEST);
+    retryHandler.process(response, mockHttpContext);
+    // No exception should be thrown, and retry start time attributes should be set
+    verify(mockHttpContext).setAttribute(eq(DatabricksHttpRetryHandler.RETRY_START_TIME), any());
   }
 
   @Test
@@ -59,6 +85,45 @@ public class DatabricksHttpRetryHandlerTest {
   void retryRequestWithNonRetryableStatusCode() {
     IOException exception = new DatabricksRetryHandlerException("Test", HttpStatus.SC_BAD_REQUEST);
     assertFalse(retryHandler.retryRequest(exception, 1, mockHttpContext));
+  }
+
+  @Test
+  void retryUCVolumeRequestWithNonRetryableStatusCode() throws Exception {
+    when(mockConnectionContext.getUCIngestionRetriableHttpCodes())
+        .thenReturn(List.of(HttpStatus.SC_SERVICE_UNAVAILABLE, HttpStatus.SC_BAD_REQUEST));
+
+    retryHandler = new DatabricksHttpRetryHandler(mockConnectionContext, HttpClientType.VOLUME);
+
+    IOException exception = new DatabricksRetryHandlerException("Test", HttpStatus.SC_BAD_GATEWAY);
+    assertFalse(retryHandler.retryRequest(exception, 1, mockHttpContext));
+  }
+
+  @Test
+  void retryUCVolumeRequestWithRetryableStatusCodeTimeout() throws Exception {
+    when(mockConnectionContext.getUCIngestionRetriableHttpCodes())
+        .thenReturn(List.of(HttpStatus.SC_SERVICE_UNAVAILABLE, HttpStatus.SC_BAD_REQUEST));
+    when(mockConnectionContext.getUCIngestionRetryTimeoutMinutes()).thenReturn(1);
+    when(mockHttpContext.getAttribute(DatabricksHttpRetryHandler.RETRY_START_TIME))
+        .thenReturn(Instant.now().minusSeconds(100));
+
+    retryHandler = new DatabricksHttpRetryHandler(mockConnectionContext, HttpClientType.VOLUME);
+
+    IOException exception = new DatabricksRetryHandlerException("Test", HttpStatus.SC_BAD_REQUEST);
+    assertFalse(retryHandler.retryRequest(exception, 1, mockHttpContext));
+  }
+
+  @Test
+  void retryUCVolumeRequestWithRetryableStatusCode() throws Exception {
+    when(mockConnectionContext.getUCIngestionRetriableHttpCodes())
+        .thenReturn(List.of(HttpStatus.SC_SERVICE_UNAVAILABLE, HttpStatus.SC_BAD_REQUEST));
+    when(mockConnectionContext.getUCIngestionRetryTimeoutMinutes()).thenReturn(2);
+    when(mockHttpContext.getAttribute(DatabricksHttpRetryHandler.RETRY_START_TIME))
+        .thenReturn(Instant.now().minusSeconds(100));
+
+    retryHandler = new DatabricksHttpRetryHandler(mockConnectionContext, HttpClientType.VOLUME);
+
+    IOException exception = new DatabricksRetryHandlerException("Test", HttpStatus.SC_BAD_REQUEST);
+    assertTrue(retryHandler.retryRequest(exception, 1, mockHttpContext));
   }
 
   @Test

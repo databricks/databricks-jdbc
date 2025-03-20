@@ -13,6 +13,7 @@ import com.databricks.jdbc.common.util.VolumeUtil;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
 import com.databricks.jdbc.dbclient.impl.common.ClientConfigurator;
 import com.databricks.jdbc.dbclient.impl.http.DatabricksHttpClientFactory;
+import com.databricks.jdbc.dbclient.impl.http.HttpClientType;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.exception.DatabricksSQLFeatureNotImplementedException;
 import com.databricks.jdbc.exception.DatabricksVolumeOperationException;
@@ -55,7 +56,8 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
     this.connectionContext = connectionContext;
     this.workspaceClient = getWorkspaceClientFromConnectionContext(connectionContext);
     this.databricksHttpClient =
-        DatabricksHttpClientFactory.getInstance().getClient(connectionContext);
+        DatabricksHttpClientFactory.getInstance()
+            .getClient(connectionContext, HttpClientType.VOLUME);
     this.allowedVolumeIngestionPaths = connectionContext.getVolumeOperationAllowedPaths();
   }
 
