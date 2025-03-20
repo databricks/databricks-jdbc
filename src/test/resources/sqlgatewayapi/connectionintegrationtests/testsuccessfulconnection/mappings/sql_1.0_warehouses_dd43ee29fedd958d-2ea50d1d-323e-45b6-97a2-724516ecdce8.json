@@ -1,19 +1,19 @@
 {
-  "id" : "62fb223a-0f61-4d03-ab76-59f92a5e2b43",
+  "id" : "2ea50d1d-323e-45b6-97a2-724516ecdce8",
   "name" : "sql_1.0_warehouses_dd43ee29fedd958d",
   "request" : {
     "url" : "/sql/1.0/warehouses/dd43ee29fedd958d",
     "method" : "POST",
     "bodyPatterns" : [ {
-      "binaryEqualTo" : "gAEAAQAAAAtPcGVuU2Vzc2lvbgAAAAEMAAEIAAH////5DQAECwsAAAAACgUCAAAAAAAApQkMBQQLAAEAAAAFU1BBUksLAAIAAAAHZGVmYXVsdAACBQUBAAA="
+      "binaryEqualTo" : "gAEAAQAAAAxDbG9zZVNlc3Npb24AAAACDAABDAABDAABCwABAAAAEAHwBaPdgRChheRcZsYIXtsLAAIAAAAQM41SnYJyRuuEgstBlGaDnQAAAAA="
     } ]
   },
   "response" : {
     "status" : 200,
-    "base64Body" : "gAEAAgAAAAtPcGVuU2Vzc2lvbgAAAAEMAAAMAAEIAAEAAAAAAAgAAgAApQgMAAMMAAELAAEAAAAQAfAFnOujE0iMoTp3xN0cDQsAAgAAABAzjVKdgnJG64SCy0GUZoOdAAAPBQEMAAAAAAwFBAsAAQAAAAVTUEFSSwsAAgAAAAdkZWZhdWx0AAIFBQEAAA==",
+    "base64Body" : "gAEAAgAAAAxDbG9zZVNlc3Npb24AAAACDAAADAABCAABAAAAAAAAAA==",
     "headers" : {
-      "x-request-id" : "0755a6c4-f4a0-46bd-a9cc-063817e138b2",
-      "date" : "Thu, 20 Mar 2025 15:06:37 GMT",
+      "x-request-id" : "37ddb3b3-a531-4099-9d8b-bed901d27c67",
+      "date" : "Thu, 20 Mar 2025 15:56:21 GMT",
       "server" : "databricks",
       "x-databricks-popp-response-code-details" : "via_upstream",
       "x-content-type-options" : "nosniff",
@@ -25,6 +25,6 @@
       "strict-transport-security" : "max-age=31536000; includeSubDomains; preload"
     }
   },
-  "uuid" : "62fb223a-0f61-4d03-ab76-59f92a5e2b43",
-  "insertionIndex" : 5
+  "uuid" : "2ea50d1d-323e-45b6-97a2-724516ecdce8",
+  "insertionIndex" : 4
 }

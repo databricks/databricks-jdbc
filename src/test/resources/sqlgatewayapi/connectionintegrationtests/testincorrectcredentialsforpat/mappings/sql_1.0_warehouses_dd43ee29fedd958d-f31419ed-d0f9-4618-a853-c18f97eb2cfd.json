@@ -1,5 +1,5 @@
 {
-  "id" : "6c44a452-ed33-46c6-9ebe-7342c7babcd8",
+  "id" : "f31419ed-d0f9-4618-a853-c18f97eb2cfd",
   "name" : "sql_1.0_warehouses_dd43ee29fedd958d",
   "request" : {
     "url" : "/sql/1.0/warehouses/dd43ee29fedd958d",
@@ -10,10 +10,10 @@
   },
   "response" : {
     "status" : 401,
-    "body" : "{\"error_code\":401,\"message\":\"Credential was not sent or was of an unsupported type for this API. [ReqId: fe1976d6-92ef-4eba-829b-2c328d4802ae]\"}",
+    "body" : "{\"error_code\":401,\"message\":\"Credential was not sent or was of an unsupported type for this API. [ReqId: 1f338350-fedc-4612-bbf3-119db4d3cb3d]\"}",
     "headers" : {
-      "date" : "Thu, 20 Mar 2025 15:06:34 GMT",
-      "x-request-id" : "fe1976d6-92ef-4eba-829b-2c328d4802ae",
+      "date" : "Thu, 20 Mar 2025 15:56:18 GMT",
+      "x-request-id" : "1f338350-fedc-4612-bbf3-119db4d3cb3d",
       "server" : "databricks",
       "x-databricks-popp-response-code-details" : "via_upstream",
       "x-databricks-shard-debug" : "oregon-staging",
@@ -25,6 +25,6 @@
       "x-databricks-reason-phrase" : "Credential was not sent or was of an unsupported type for this API."
     }
   },
-  "uuid" : "6c44a452-ed33-46c6-9ebe-7342c7babcd8",
+  "uuid" : "f31419ed-d0f9-4618-a853-c18f97eb2cfd",
   "insertionIndex" : 2
 }
