@@ -40,6 +40,14 @@ public class StringUtil {
             /* lengthToMatch= */ prefix.length());
   }
 
+  public static String constructListPath(
+      String catalog, String schema, String volume, String path) {
+    String folder = StringUtil.getFolderNameFromPath(path);
+    return folder.isEmpty()
+        ? StringUtil.getVolumePath(catalog, schema, volume)
+        : StringUtil.getVolumePath(catalog, schema, volume + "/" + folder);
+  }
+
   /** Function to return the folder name from the path */
   public static String getFolderNameFromPath(String path) {
     if (path == null) return "";

@@ -2,6 +2,7 @@ package com.databricks.jdbc.api.impl.volume;
 
 import static com.databricks.jdbc.api.impl.volume.DatabricksUCVolumeClient.getObjectFullPath;
 import static com.databricks.jdbc.common.DatabricksJdbcConstants.JSON_HTTP_HEADERS;
+import static com.databricks.jdbc.common.util.StringUtil.constructListPath;
 import static com.databricks.jdbc.dbclient.impl.sqlexec.PathConstants.*;
 
 import com.databricks.jdbc.api.IDatabricksConnectionContext;
@@ -14,7 +15,6 @@ import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
 import com.databricks.jdbc.dbclient.impl.common.ClientConfigurator;
 import com.databricks.jdbc.dbclient.impl.http.DatabricksHttpClientFactory;
 import com.databricks.jdbc.exception.DatabricksSQLException;
-import com.databricks.jdbc.exception.DatabricksSQLFeatureNotImplementedException;
 import com.databricks.jdbc.exception.DatabricksVolumeOperationException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
@@ -63,30 +63,59 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
   @Override
   public boolean prefixExists(
       String catalog, String schema, String volume, String prefix, boolean caseSensitive)
-      throws DatabricksSQLFeatureNotImplementedException {
-    String errorMessage = "prefixExists function is unsupported in DBFSVolumeClient";
-    LOGGER.error(errorMessage);
-    throw new DatabricksSQLFeatureNotImplementedException(errorMessage);
+      throws SQLException {
+    if (prefix == null || prefix.isEmpty()) {
+      return false;
+    }
+    try {
+      List<String> objects = listObjects(catalog, schema, volume, prefix, caseSensitive);
+      return !objects.isEmpty();
+    } catch (Exception e) {
+      throw new DatabricksVolumeOperationException(
+          "Error checking prefix existence: " + e.getMessage(),
+          e,
+          DatabricksDriverErrorCode.VOLUME_OPERATION_INVALID_STATE);
+    }
   }
 
   /** {@inheritDoc} */
   @Override
   public boolean objectExists(
       String catalog, String schema, String volume, String objectPath, boolean caseSensitive)
-      throws DatabricksSQLException {
-    String errorMessage = "objectExists function is unsupported in DBFSVolumeClient";
-    LOGGER.error(errorMessage);
-    throw new DatabricksSQLFeatureNotImplementedException(errorMessage);
+      throws SQLException {
+    if (objectPath == null || objectPath.isEmpty()) {
+      return false;
+    }
+    try {
+      String baseName = StringUtil.getBaseNameFromPath(objectPath);
+      ListResponse listResponse =
+          getListResponse(constructListPath(catalog, schema, volume, objectPath));
+      return listResponseContainsEntity(caseSensitive, baseName, listResponse);
+    } catch (Exception e) {
+      throw new DatabricksVolumeOperationException(
+          "Error checking object existence: " + e.getMessage(),
+          e,
+          DatabricksDriverErrorCode.VOLUME_OPERATION_INVALID_STATE);
+    }
   }
 
   /** {@inheritDoc} */
   @Override
   public boolean volumeExists(
-      String catalog, String schema, String volumeName, boolean caseSensitive)
-      throws DatabricksSQLException {
-    String errorMessage = "volumeExists function is unsupported in DBFSVolumeClient";
-    LOGGER.error(errorMessage);
-    throw new DatabricksSQLFeatureNotImplementedException(errorMessage);
+      String catalog, String schema, String volumeName, boolean caseSensitive) throws SQLException {
+    try {
+      // Instead of directly listing the volume, list the parent directory
+      // (/Volumes/catalog/schema/)
+      // so that we can check the volume name with proper case sensitivity.
+      String parentPath = String.format("/Volumes/%s/%s/", catalog, schema);
+      ListResponse listResponse = getListResponse(parentPath);
+      return listResponseContainsEntity(caseSensitive, volumeName, listResponse);
+    } catch (Exception e) {
+      throw new DatabricksVolumeOperationException(
+          "Error checking volume existence: " + e.getMessage(),
+          e,
+          DatabricksDriverErrorCode.VOLUME_OPERATION_INVALID_STATE);
+    }
   }
 
   /** {@inheritDoc} */
@@ -99,15 +128,8 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
             "Entering listObjects method with parameters: catalog={%s}, schema={%s}, volume={%s}, prefix={%s}, caseSensitive={%s}",
             catalog, schema, volume, prefix, caseSensitive));
 
-    String folder = StringUtil.getFolderNameFromPath(prefix);
     String basename = StringUtil.getBaseNameFromPath(prefix);
-
-    String listPath =
-        (folder.isEmpty())
-            ? StringUtil.getVolumePath(catalog, schema, volume)
-            : StringUtil.getVolumePath(catalog, schema, volume + "/" + folder);
-
-    ListResponse listResponse = getListResponse(listPath);
+    ListResponse listResponse = getListResponse(constructListPath(catalog, schema, volume, prefix));
 
     return listResponse.getFiles().stream()
         .map(FileInfo::getPath)
@@ -435,6 +457,21 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
 
   public InputStreamEntity getVolumeOperationInputStream() {
     return new InputStreamEntity(this.volumeInputStream, this.volumeStreamContentLength);
+  }
+
+  private boolean listResponseContainsEntity(
+      boolean caseSensitive, String baseName, ListResponse listResponse) {
+    if (listResponse != null && listResponse.getFiles() != null) {
+      for (FileInfo file : listResponse.getFiles()) {
+        // Extract file/volume name from the full path.
+        String entityName = StringUtil.getBaseNameFromPath(file.getPath());
+        // Check for an exact match based on the case sensitivity flag.
+        if (caseSensitive ? entityName.equals(baseName) : entityName.equalsIgnoreCase(baseName)) {
+          return true;
+        }
+      }
+    }
+    return false;
   }
 
   @Override
