@@ -213,6 +213,7 @@ public class DatabricksTypeUtil {
       case BINARY:
         return precision + 1; // including negative sign
       case CHAR:
+      case STRING:
         return precision;
       case FLOAT:
         return 14;
@@ -230,7 +231,6 @@ public class DatabricksTypeUtil {
       case NULL:
         return 4; // Length of `NULL`
       case ARRAY:
-      case STRING:
       case STRUCT:
       default:
         return 255;
