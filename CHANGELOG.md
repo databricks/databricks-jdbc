@@ -1,5 +1,13 @@
 # Version Changelog
 
+## [v1.0.2-oss] - 2025-03-19
+
+### Fixed
+- Fixed columnType conversion for Variant and Timestamp_NTZ types
+- Fix minor issue for string dealing with whitespaces
+
+---
+
 ## [v1.0.1-oss] - 2025-03-11
 
 ### Added

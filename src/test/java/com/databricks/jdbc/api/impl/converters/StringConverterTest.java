@@ -7,6 +7,8 @@ import com.databricks.jdbc.exception.DatabricksSQLException;
 import java.math.BigDecimal;
 import java.sql.Date;
 import java.sql.Timestamp;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
 import org.junit.jupiter.api.Test;
 
 public class StringConverterTest {
@@ -15,7 +17,13 @@ public class StringConverterTest {
   private final String NUMBERICAL_ZERO_STRING = "0";
   private final String CHARACTER_STRING = "ABC";
   private final String TIME_STAMP_STRING = "2023-09-10 00:00:00";
+
+  private final String ALT_TIMESTAMP_STRING = "2025-03-18 12:08:31.552223-07:00";
+  private final String ALT_TIMESTAMP_STRING_WITH_EXTRA_QUOTES =
+      "\"2025-03-18 12:08:31.552223-07:00\"";
   private final String DATE_STRING = "2023-09-10";
+
+  private final String DATE_STRING_WITH_EXTRA_QUOTES = "\"2023-09-10\"";
 
   @Test
   public void testConvertToByte() throws DatabricksSQLException {
@@ -155,14 +163,22 @@ public class StringConverterTest {
   }
 
   @Test
-  public void testConvertToTimestamp() throws DatabricksSQLException {
+  public void testConvertToTimestamp() throws DatabricksSQLException, ParseException {
     assertEquals(
         new StringConverter().toTimestamp(TIME_STAMP_STRING), Timestamp.valueOf(TIME_STAMP_STRING));
+    assertEquals(
+        new StringConverter().toTimestamp(ALT_TIMESTAMP_STRING_WITH_EXTRA_QUOTES),
+        new Timestamp(
+            new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSSSSSXXX")
+                .parse(ALT_TIMESTAMP_STRING)
+                .getTime()));
   }
 
   @Test
   public void testConvertToDate() throws DatabricksSQLException {
     assertEquals(new StringConverter().toDate(DATE_STRING), Date.valueOf(DATE_STRING));
+    assertEquals(
+        new StringConverter().toDate(DATE_STRING_WITH_EXTRA_QUOTES), Date.valueOf(DATE_STRING));
   }
 
   @Test
