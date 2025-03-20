@@ -181,9 +181,7 @@ public class IntegrationTestUtil {
           FakeServiceConfigLoader.getProperty(DatabricksJdbcUrlParams.CONN_SCHEMA.getParamName()));
       connectionProperties.put(
           DatabricksJdbcUrlParams.USE_THRIFT_CLIENT.getParamName(),
-          FakeServiceConfigLoader.getProperty(
-              DatabricksJdbcUrlParams.USE_THRIFT_CLIENT.getParamName(),
-              DatabricksJdbcUrlParams.USE_THRIFT_CLIENT.getDefaultValue()));
+          FakeServiceConfigLoader.shouldUseThriftClient());
 
       return DriverManager.getConnection(getFakeServiceJDBCUrl(), connectionProperties);
     }
@@ -214,9 +212,7 @@ public class IntegrationTestUtil {
           FakeServiceConfigLoader.getProperty(DatabricksJdbcUrlParams.CONN_SCHEMA.getParamName()));
       connectionProperties.put(
           DatabricksJdbcUrlParams.USE_THRIFT_CLIENT.getParamName(),
-          FakeServiceConfigLoader.getProperty(
-              DatabricksJdbcUrlParams.USE_THRIFT_CLIENT.getParamName(),
-              DatabricksJdbcUrlParams.USE_THRIFT_CLIENT.getDefaultValue()));
+          FakeServiceConfigLoader.shouldUseThriftClient());
 
       return DriverManager.getConnection(getFakeServiceJDBCUrl(), connectionProperties);
     }

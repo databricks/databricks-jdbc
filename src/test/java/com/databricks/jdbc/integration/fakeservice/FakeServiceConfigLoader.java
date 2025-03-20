@@ -64,16 +64,16 @@ public class FakeServiceConfigLoader {
     return properties.getProperty(key);
   }
 
-  public static String getProperty(String key, String defaultValue) {
-    return properties.getProperty(key, defaultValue);
-  }
-
   public static Properties getProperties() {
     return properties;
   }
 
   public static String getFakeServiceUserAgent() {
     return FAKE_SERVICE_USER_AGENT;
+  }
+
+  public static boolean shouldUseThriftClient() {
+    return !fakeServiceType.equals(DatabricksJdbcConstants.FakeServiceType.SQL_EXEC);
   }
 
   private static String getPropsFileName() {
