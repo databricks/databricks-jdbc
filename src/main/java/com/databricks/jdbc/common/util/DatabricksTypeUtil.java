@@ -1,5 +1,6 @@
 package com.databricks.jdbc.common.util;
 
+import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.common.Nullable;
 import com.databricks.jdbc.exception.DatabricksSQLFeatureNotSupportedException;
 import com.databricks.jdbc.log.JdbcLogger;
@@ -191,6 +192,16 @@ public class DatabricksTypeUtil {
         LOGGER.error(errorMsg);
         throw new IllegalStateException(errorMsg);
     }
+  }
+
+  public static int[] getBaseScaleAndPrecision(int columnType) {
+    if (columnType == Types.VARCHAR || columnType == Types.CHAR) {
+      IDatabricksConnectionContext ctx = DatabricksThreadContextHolder.getConnectionContext();
+      return new int[] {ctx.getDefaultStringColumnLength(), 0};
+    }
+    return new int[] {
+      DatabricksTypeUtil.getPrecision(columnType), DatabricksTypeUtil.getScale(columnType)
+    };
   }
 
   private static int calculateDisplaySize(int scale, int precision) {

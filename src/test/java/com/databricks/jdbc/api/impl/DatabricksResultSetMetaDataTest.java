@@ -5,9 +5,12 @@ import static com.databricks.jdbc.common.util.DatabricksThriftUtil.getTypeFromTy
 import static com.databricks.jdbc.common.util.DatabricksTypeUtil.TIMESTAMP;
 import static com.databricks.jdbc.common.util.DatabricksTypeUtil.VARIANT;
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.when;
 
+import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.common.DatabricksJdbcConstants;
 import com.databricks.jdbc.common.StatementType;
+import com.databricks.jdbc.common.util.DatabricksThreadContextHolder;
 import com.databricks.jdbc.common.util.DatabricksTypeUtil;
 import com.databricks.jdbc.dbclient.impl.common.StatementId;
 import com.databricks.jdbc.model.client.thrift.generated.*;
@@ -18,16 +21,32 @@ import java.sql.SQLException;
 import java.sql.Types;
 import java.util.*;
 import java.util.stream.Stream;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.mockito.Mockito;
 
 public class DatabricksResultSetMetaDataTest {
   private static final StatementId STATEMENT_ID = new StatementId("statementId");
   private static final StatementId THRIFT_STATEMENT_ID =
       StatementId.deserialize(
           "01efc77c-7c8b-1a8e-9ecb-a9a6e6aa050a|338d529d-8272-46eb-8482-cb419466839d");
+
+  @BeforeEach
+  void setUp() {
+    DatabricksThreadContextHolder.setConnectionContext(
+        Mockito.mock(IDatabricksConnectionContext.class));
+    when(DatabricksThreadContextHolder.getConnectionContext().getDefaultStringColumnLength())
+        .thenReturn(255);
+  }
+
+  @AfterEach
+  void tearDown() {
+    DatabricksThreadContextHolder.clearAllContext();
+  }
 
   static Stream<TSparkRowSetType> thriftResultFormats() {
     return Stream.of(

@@ -9,12 +9,11 @@ import static com.databricks.jdbc.common.util.DatabricksThriftUtil.getTypeTextFr
 import static com.databricks.jdbc.common.util.DatabricksTypeUtil.TIMESTAMP;
 import static com.databricks.jdbc.common.util.DatabricksTypeUtil.TIMESTAMP_NTZ;
 import static com.databricks.jdbc.common.util.DatabricksTypeUtil.VARIANT;
+import static com.databricks.jdbc.common.util.DatabricksTypeUtil.getBaseScaleAndPrecision;
 import static com.databricks.jdbc.dbclient.impl.common.MetadataResultSetBuilder.stripTypeName;
 
-import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.common.AccessType;
 import com.databricks.jdbc.common.Nullable;
-import com.databricks.jdbc.common.util.DatabricksThreadContextHolder;
 import com.databricks.jdbc.common.util.DatabricksTypeUtil;
 import com.databricks.jdbc.common.util.WrapperUtil;
 import com.databricks.jdbc.dbclient.impl.common.StatementId;
@@ -519,18 +518,6 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
     return chunkCount;
   }
 
-  private int[] getBaseScaleAndPrecision(int columnType) {
-    if (columnType == Types.VARCHAR || columnType == Types.CHAR) {
-      IDatabricksConnectionContext ctx = DatabricksThreadContextHolder.getConnectionContext();
-      int defaultLength =
-          (ctx != null) ? ctx.getDefaultStringColumnLength() : 255; // fallback value
-      return new int[] {defaultLength, 0};
-    }
-    return new int[] {
-      DatabricksTypeUtil.getPrecision(columnType), DatabricksTypeUtil.getScale(columnType)
-    };
-  }
-
   public int[] getScaleAndPrecision(ColumnInfo columnInfo, int columnType) {
     int[] result = getBaseScaleAndPrecision(columnType);
     if (columnInfo.getTypePrecision() != null) {
@@ -549,8 +536,8 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
           && tTypeEntry.getPrimitiveEntry().getTypeQualifiers().isSetQualifiers()) {
         Map<String, TTypeQualifierValue> qualifiers =
             tTypeEntry.getPrimitiveEntry().getTypeQualifiers().getQualifiers();
-        result[1] = qualifiers.get("scale").getI32Value(); // scale
         result[0] = qualifiers.get("precision").getI32Value(); // precision
+        result[1] = qualifiers.get("scale").getI32Value(); // scale
       }
     }
     return result;

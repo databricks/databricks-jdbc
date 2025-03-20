@@ -143,15 +143,10 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
           int defaultStringColumnLength =
               Integer.parseInt(
                   propertiesMap.get(DEFAULT_STRING_COLUMN_LENGTH.getParamName().toLowerCase()));
-          if (defaultStringColumnLength < 0 || defaultStringColumnLength > 32767) {
-            throw new DatabricksSQLException(
-                "DefaultStringColumnLength must be in the range 0 to 32767",
-                DatabricksDriverErrorCode.CONNECTION_ERROR);
-          }
         } catch (NumberFormatException e) {
           throw new DatabricksSQLException(
               "Invalid number format for DefaultStringColumnLength",
-              DatabricksDriverErrorCode.CONNECTION_ERROR);
+              DatabricksDriverErrorCode.INPUT_VALIDATION_ERROR);
         }
       }
       return new DatabricksConnectionContext(url, hostValue, portValue, schema, propertiesMap);
@@ -738,7 +733,14 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
 
   @Override
   public int getDefaultStringColumnLength() {
-    return Integer.parseInt(getParameter(DEFAULT_STRING_COLUMN_LENGTH));
+    int defaultStringColumnLength = Integer.parseInt(getParameter(DEFAULT_STRING_COLUMN_LENGTH));
+    if (defaultStringColumnLength < 0 || defaultStringColumnLength > Short.MAX_VALUE) {
+      LOGGER.warn(
+          "DefaultStringColumnLength value {} is out of bounds (0 to 32767). Falling back to default value 255.",
+          defaultStringColumnLength);
+      return 255;
+    }
+    return defaultStringColumnLength;
   }
 
   @Override
