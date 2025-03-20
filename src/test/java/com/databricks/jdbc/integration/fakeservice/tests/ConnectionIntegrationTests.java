@@ -68,7 +68,7 @@ public class ConnectionIntegrationTests extends AbstractFakeServiceIntegrationTe
         FakeServiceConfigLoader.getProperty(DatabricksJdbcUrlParams.CONN_SCHEMA.getParamName()));
     connProps.put(
         DatabricksJdbcUrlParams.USE_THRIFT_CLIENT.getParamName(),
-        FakeServiceConfigLoader.shouldUseThriftClient());
+        FakeServiceConfigLoader.isThriftClient() ? '1' : '0');
 
     return connProps;
   }

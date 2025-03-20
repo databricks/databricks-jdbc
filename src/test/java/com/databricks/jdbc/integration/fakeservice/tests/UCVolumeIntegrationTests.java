@@ -1,7 +1,6 @@
 package com.databricks.jdbc.integration.fakeservice.tests;
 
 import static com.databricks.jdbc.TestConstants.*;
-import static com.databricks.jdbc.common.DatabricksJdbcConstants.*;
 import static com.databricks.jdbc.integration.IntegrationTestUtil.*;
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -363,7 +362,7 @@ public class UCVolumeIntegrationTests extends AbstractFakeServiceIntegrationTest
         FakeServiceConfigLoader.getProperty(DatabricksJdbcUrlParams.CONN_SCHEMA.getParamName()));
     connProps.put(
         DatabricksJdbcUrlParams.USE_THRIFT_CLIENT.getParamName(),
-        FakeServiceConfigLoader.shouldUseThriftClient());
+        FakeServiceConfigLoader.isThriftClient() ? '1' : '0');
 
     return DriverManager.getConnection(jdbcUrl, connProps);
   }

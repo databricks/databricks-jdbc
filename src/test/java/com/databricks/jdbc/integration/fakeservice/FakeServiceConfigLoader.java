@@ -72,7 +72,7 @@ public class FakeServiceConfigLoader {
     return FAKE_SERVICE_USER_AGENT;
   }
 
-  public static boolean shouldUseThriftClient() {
+  public static boolean isThriftClient() {
     return !fakeServiceType.equals(DatabricksJdbcConstants.FakeServiceType.SQL_EXEC);
   }
 
