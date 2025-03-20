@@ -1,6 +1,7 @@
 package com.databricks.jdbc.api.impl;
 
 import static com.databricks.jdbc.common.DatabricksJdbcConstants.*;
+import static com.databricks.jdbc.common.DatabricksJdbcUrlParams.DEFAULT_STRING_COLUMN_LENGTH;
 import static com.databricks.jdbc.common.util.UserAgentManager.USER_AGENT_SEA_CLIENT;
 import static com.databricks.jdbc.common.util.UserAgentManager.USER_AGENT_THRIFT_CLIENT;
 
@@ -134,6 +135,22 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
         } catch (NumberFormatException e) {
           throw new DatabricksParsingException(
               "Invalid port number " + propertiesMap.get(PORT),
+              DatabricksDriverErrorCode.CONNECTION_ERROR);
+        }
+      }
+      if (propertiesMap.containsKey(DEFAULT_STRING_COLUMN_LENGTH.getParamName().toLowerCase())) {
+        try {
+          int defaultStringColumnLength =
+              Integer.parseInt(
+                  propertiesMap.get(DEFAULT_STRING_COLUMN_LENGTH.getParamName().toLowerCase()));
+          if (defaultStringColumnLength < 0 || defaultStringColumnLength > 32767) {
+            throw new DatabricksSQLException(
+                "DefaultStringColumnLength must be in the range 0 to 32767",
+                DatabricksDriverErrorCode.CONNECTION_ERROR);
+          }
+        } catch (NumberFormatException e) {
+          throw new DatabricksSQLException(
+              "Invalid number format for DefaultStringColumnLength",
               DatabricksDriverErrorCode.CONNECTION_ERROR);
         }
       }
@@ -717,6 +734,11 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   @Override
   public String getAzureTenantId() {
     return getParameter(DatabricksJdbcUrlParams.AZURE_TENANT_ID);
+  }
+
+  @Override
+  public int getDefaultStringColumnLength() {
+    return Integer.parseInt(getParameter(DEFAULT_STRING_COLUMN_LENGTH));
   }
 
   @Override

@@ -90,7 +90,11 @@ public enum DatabricksJdbcUrlParams {
       "EnableComplexDatatypeSupport",
       "flag to enable native support of complex data types as java objects",
       "0"),
-  AZURE_TENANT_ID("AzureTenantId", "Azure tenant ID");
+  AZURE_TENANT_ID("AzureTenantId", "Azure tenant ID"),
+  DEFAULT_STRING_COLUMN_LENGTH(
+      "DefaultStringColumnLength",
+      "Maximum number of characters that can be contained in STRING columns",
+      "255");
 
   private final String paramName;
   private final String defaultValue;
