@@ -64,9 +64,8 @@ public class FakeServiceConfigLoader {
     return properties.getProperty(key);
   }
 
-  public static String getProperty(String key, String defaultValue)
-  {
-     return  properties.getProperty(key,defaultValue);
+  public static String getProperty(String key, String defaultValue) {
+    return properties.getProperty(key, defaultValue);
   }
 
   public static Properties getProperties() {

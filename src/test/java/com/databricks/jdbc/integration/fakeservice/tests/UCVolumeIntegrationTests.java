@@ -364,7 +364,8 @@ public class UCVolumeIntegrationTests extends AbstractFakeServiceIntegrationTest
     connProps.put(
         DatabricksJdbcUrlParams.USE_THRIFT_CLIENT.getParamName(),
         FakeServiceConfigLoader.getProperty(
-            DatabricksJdbcUrlParams.USE_THRIFT_CLIENT.getParamName()));
+            DatabricksJdbcUrlParams.USE_THRIFT_CLIENT.getParamName(),
+            DatabricksJdbcUrlParams.USE_THRIFT_CLIENT.getDefaultValue()));
 
     return DriverManager.getConnection(jdbcUrl, connProps);
   }
