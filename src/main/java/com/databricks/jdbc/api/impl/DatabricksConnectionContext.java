@@ -138,17 +138,6 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
               DatabricksDriverErrorCode.CONNECTION_ERROR);
         }
       }
-      if (propertiesMap.containsKey(DEFAULT_STRING_COLUMN_LENGTH.getParamName().toLowerCase())) {
-        try {
-          int defaultStringColumnLength =
-              Integer.parseInt(
-                  propertiesMap.get(DEFAULT_STRING_COLUMN_LENGTH.getParamName().toLowerCase()));
-        } catch (NumberFormatException e) {
-          throw new DatabricksSQLException(
-              "Invalid number format for DefaultStringColumnLength",
-              DatabricksDriverErrorCode.INPUT_VALIDATION_ERROR);
-        }
-      }
       return new DatabricksConnectionContext(url, hostValue, portValue, schema, propertiesMap);
     } else {
       // Should never reach here, since we have already checked for url validity
@@ -733,14 +722,20 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
 
   @Override
   public int getDefaultStringColumnLength() {
-    int defaultStringColumnLength = Integer.parseInt(getParameter(DEFAULT_STRING_COLUMN_LENGTH));
-    if (defaultStringColumnLength < 0 || defaultStringColumnLength > Short.MAX_VALUE) {
+    try {
+      int defaultStringColumnLength = Integer.parseInt(getParameter(DEFAULT_STRING_COLUMN_LENGTH));
+      if (defaultStringColumnLength < 0 || defaultStringColumnLength > Short.MAX_VALUE) {
+        LOGGER.warn(
+            "DefaultStringColumnLength value {} is out of bounds (0 to 32767). Falling back to default value 255.",
+            defaultStringColumnLength);
+        return 255;
+      }
+      return defaultStringColumnLength;
+    } catch (NumberFormatException e) {
       LOGGER.warn(
-          "DefaultStringColumnLength value {} is out of bounds (0 to 32767). Falling back to default value 255.",
-          defaultStringColumnLength);
+          "Invalid number format for DefaultStringColumnLength. Falling back to default value 255.");
       return 255;
     }
-    return defaultStringColumnLength;
   }
 
   @Override

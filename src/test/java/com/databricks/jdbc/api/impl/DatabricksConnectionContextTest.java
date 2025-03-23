@@ -155,47 +155,32 @@ class DatabricksConnectionContextTest {
   }
 
   @Test
-  public void testParseWithDefaultStringColumnLength() {
+  public void testParseWithDefaultStringColumnLength() throws DatabricksSQLException {
     // Test case 1: Valid DefaultStringColumnLength
     String validJdbcUrl = TestConstants.VALID_URL_1;
+    Properties properties = new Properties();
     properties.put("DefaultStringColumnLength", 500);
-    try {
-      DatabricksConnectionContext connectionContext =
-          (DatabricksConnectionContext) DatabricksConnectionContext.parse(validJdbcUrl, properties);
-      assertEquals(500, connectionContext.getDefaultStringColumnLength());
-    } catch (DatabricksSQLException e) {
-      fail("Exception should not be thrown for valid DefaultStringColumnLength");
-    }
+    DatabricksConnectionContext connectionContext =
+        (DatabricksConnectionContext) DatabricksConnectionContext.parse(validJdbcUrl, properties);
+    assertEquals(500, connectionContext.getDefaultStringColumnLength());
 
     // Test case 2: Out of bounds DefaultStringColumnLength
     properties.put("DefaultStringColumnLength", 400000);
-    try {
-      DatabricksConnectionContext connectionContext =
-          (DatabricksConnectionContext) DatabricksConnectionContext.parse(validJdbcUrl, properties);
-      assertEquals(255, connectionContext.getDefaultStringColumnLength());
-    } catch (DatabricksSQLException e) {
-      fail("Exception should not be thrown for out of bounds DefaultStringColumnLength");
-    }
+    connectionContext =
+        (DatabricksConnectionContext) DatabricksConnectionContext.parse(validJdbcUrl, properties);
+    assertEquals(255, connectionContext.getDefaultStringColumnLength());
 
     // Test case 3: Negative DefaultStringColumnLength
     properties.put("DefaultStringColumnLength", -1);
-    try {
-      DatabricksConnectionContext connectionContext =
-          (DatabricksConnectionContext) DatabricksConnectionContext.parse(validJdbcUrl, properties);
-      assertEquals(255, connectionContext.getDefaultStringColumnLength());
-    } catch (DatabricksSQLException e) {
-      fail("Exception should not be thrown for negative DefaultStringColumnLength");
-    }
+    connectionContext =
+        (DatabricksConnectionContext) DatabricksConnectionContext.parse(validJdbcUrl, properties);
+    assertEquals(255, connectionContext.getDefaultStringColumnLength());
 
     // Test case 4: Invalid format DefaultStringColumnLength
     properties.put("DefaultStringColumnLength", "invalid");
-    assertThrows(
-        DatabricksSQLException.class,
-        () -> DatabricksConnectionContext.parse(validJdbcUrl, properties),
-        "Invalid number format for DefaultStringColumnLength");
-
-    // clear the property
-    properties.remove("DefaultStringColumnLength");
+    connectionContext =
+        (DatabricksConnectionContext) DatabricksConnectionContext.parse(validJdbcUrl, properties);
+    assertEquals(255, connectionContext.getDefaultStringColumnLength());
   }
 
   @Test
