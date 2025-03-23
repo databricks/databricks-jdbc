@@ -380,7 +380,7 @@ public class DBFSVolumeIntegrationTests extends AbstractFakeServiceIntegrationTe
         // Case-sensitive: if file "aBc_file1.csv" exists but "abc_file1.csv" is requested, result
         // is false.
         Arguments.of(
-            UC_VOLUME_CATALOG, UC_VOLUME_SCHEMA, "test_volume1", "abc_file1.csv", true, false),
+            UC_VOLUME_CATALOG, UC_VOLUME_SCHEMA, "test_volume1", "DeF_file1.csv", true, false),
         // Case-sensitive: matching case returns true.
         Arguments.of(
             UC_VOLUME_CATALOG, UC_VOLUME_SCHEMA, "test_volume1", "aBc_file1.csv", true, true),

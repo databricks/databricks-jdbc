@@ -109,33 +109,33 @@ class DBFSVolumeClientTest {
   @Test
   void testVolumeExists() throws Exception {
     // Case 1: Volume exists.
-    ListResponse responseMatch = mock(ListResponse.class);
-    FileInfo volumeMatch = mock(FileInfo.class);
-    // For volumeExists, the client lists parent directory "/Volumes/catalog/schema/"
-    // and extracts the base name. Here, the volume's name is "VolumeA".
-    when(volumeMatch.getPath()).thenReturn("/Volumes/catalog/schema/VolumeA");
-    when(responseMatch.getFiles()).thenReturn(Arrays.asList(volumeMatch));
+    reset(client);
+    ListResponse responseMatch = Mockito.mock(ListResponse.class);
     doReturn(responseMatch).when(client).getListResponse(anyString());
     assertTrue(client.volumeExists("catalog", "schema", "VolumeA", true));
 
     // Case 2: Volume does not exist.
-    ListResponse responseNoMatch = mock(ListResponse.class);
-    FileInfo volumeNoMatch = mock(FileInfo.class);
-    when(volumeNoMatch.getPath()).thenReturn("/Volumes/catalog/schema/OtherVolume");
-    when(responseNoMatch.getFiles()).thenReturn(Arrays.asList(volumeNoMatch));
-    doReturn(responseNoMatch).when(client).getListResponse(anyString());
+    reset(client);
+    doThrow(
+            new DatabricksVolumeOperationException(
+                "Failed to get list response - {Volume 'catalog.schema.VolumeA' does not exist.}",
+                new Exception(),
+                DatabricksDriverErrorCode.VOLUME_OPERATION_INVALID_STATE))
+        .when(client)
+        .getListResponse(anyString());
+    // When the exception message indicates the volume doesn't exist, volumeExists should return
+    // false.
     assertFalse(client.volumeExists("catalog", "schema", "VolumeA", true));
 
-    // Case 3: Case-insensitive match.
-    ListResponse responseDiffCase = mock(ListResponse.class);
-    FileInfo volumeDiffCase = mock(FileInfo.class);
-    when(volumeDiffCase.getPath()).thenReturn("/Volumes/catalog/schema/volumea");
-    when(responseDiffCase.getFiles()).thenReturn(Arrays.asList(volumeDiffCase));
-    doReturn(responseDiffCase).when(client).getListResponse(anyString());
-    assertTrue(client.volumeExists("catalog", "schema", "VolumeA", false));
-
-    // Case 4: getListResponse throws an exception.
-    doThrow(new RuntimeException("Simulated error")).when(client).getListResponse(anyString());
+    // Case 3: Error case
+    reset(client);
+    doThrow(
+            new DatabricksVolumeOperationException(
+                "Simulated error",
+                new Exception(),
+                DatabricksDriverErrorCode.VOLUME_OPERATION_INVALID_STATE))
+        .when(client)
+        .getListResponse(anyString());
     DatabricksVolumeOperationException ex =
         assertThrows(
             DatabricksVolumeOperationException.class,

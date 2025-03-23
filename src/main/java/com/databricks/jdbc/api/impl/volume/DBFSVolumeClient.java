@@ -90,7 +90,15 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
       String baseName = StringUtil.getBaseNameFromPath(objectPath);
       ListResponse listResponse =
           getListResponse(constructListPath(catalog, schema, volume, objectPath));
-      return listResponseContainsEntity(caseSensitive, baseName, listResponse);
+      if (listResponse != null && listResponse.getFiles() != null) {
+        for (FileInfo file : listResponse.getFiles()) {
+          String fileName = StringUtil.getBaseNameFromPath(file.getPath());
+          if (caseSensitive ? fileName.equals(baseName) : fileName.equalsIgnoreCase(baseName)) {
+            return true;
+          }
+        }
+      }
+      return false;
     } catch (Exception e) {
       throw new DatabricksVolumeOperationException(
           "Error checking object existence: " + e.getMessage(),
@@ -103,14 +111,20 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
   @Override
   public boolean volumeExists(
       String catalog, String schema, String volumeName, boolean caseSensitive) throws SQLException {
+    if (volumeName == null || volumeName.isEmpty()) {
+      return false;
+    }
     try {
-      // Instead of directly listing the volume, list the parent directory
-      // (/Volumes/catalog/schema/)
-      // so that we can check the volume name with proper case sensitivity.
-      String parentPath = String.format("/Volumes/%s/%s/", catalog, schema);
-      ListResponse listResponse = getListResponse(parentPath);
-      return listResponseContainsEntity(caseSensitive, volumeName, listResponse);
-    } catch (Exception e) {
+      String volumePath = StringUtil.getVolumePath(catalog, schema, volumeName);
+      // If getListResponse does not throw, then the volume exists (even if it’s empty).
+      getListResponse(volumePath);
+      return true;
+    } catch (DatabricksVolumeOperationException e) {
+      // If the exception indicates an invalid path (i.e. missing volume name),
+      // then the volume does not exist. Otherwise, rethrow with proper error details.
+      if (e.getMessage().contains("does not exist")) {
+        return false;
+      }
       throw new DatabricksVolumeOperationException(
           "Error checking volume existence: " + e.getMessage(),
           e,
@@ -457,21 +471,6 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
 
   public InputStreamEntity getVolumeOperationInputStream() {
     return new InputStreamEntity(this.volumeInputStream, this.volumeStreamContentLength);
-  }
-
-  private boolean listResponseContainsEntity(
-      boolean caseSensitive, String baseName, ListResponse listResponse) {
-    if (listResponse != null && listResponse.getFiles() != null) {
-      for (FileInfo file : listResponse.getFiles()) {
-        // Extract file/volume name from the full path.
-        String entityName = StringUtil.getBaseNameFromPath(file.getPath());
-        // Check for an exact match based on the case sensitivity flag.
-        if (caseSensitive ? entityName.equals(baseName) : entityName.equalsIgnoreCase(baseName)) {
-          return true;
-        }
-      }
-    }
-    return false;
   }
 
   @Override
