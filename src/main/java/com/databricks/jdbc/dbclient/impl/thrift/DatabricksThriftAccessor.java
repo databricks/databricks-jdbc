@@ -39,7 +39,7 @@ final class DatabricksThriftAccessor {
       JdbcLoggerFactory.getLogger(DatabricksThriftAccessor.class);
   private static final TSparkGetDirectResults DEFAULT_DIRECT_RESULTS =
       new TSparkGetDirectResults().setMaxRows(DEFAULT_ROW_LIMIT).setMaxBytes(DEFAULT_BYTE_LIMIT);
-  private int max_row_per_block = DEFAULT_ROW_LIMIT;
+  private int maxRowsPerBlock = DEFAULT_ROW_LIMIT;
   private static final short directResultsFieldId =
       TExecuteStatementResp._Fields.DIRECT_RESULTS.getThriftFieldId();
   private static final short operationHandleFieldId =
@@ -56,7 +56,7 @@ final class DatabricksThriftAccessor {
     this.enableDirectResults = connectionContext.getDirectResultMode();
     this.databricksConfig = new ClientConfigurator(connectionContext).getDatabricksConfig();
     String endPointUrl = connectionContext.getEndpointURL();
-    this.max_row_per_block = connectionContext.getRowsFetchedPerBlock();
+    this.maxRowsPerBlock = connectionContext.getRowsFetchedPerBlock();
 
     if (!DriverUtil.isRunningAgainstFake()) {
       // Create a new thrift client for each thread as client state is not thread safe. Note that
@@ -150,7 +150,7 @@ final class DatabricksThriftAccessor {
         new TStatus().setStatusCode(TStatusCode.SUCCESS_STATUS),
         operationHandle,
         context,
-        max_row_per_block,
+        maxRowsPerBlock,
         false);
   }
 
@@ -190,7 +190,7 @@ final class DatabricksThriftAccessor {
         new TStatus().setStatusCode(TStatusCode.SUCCESS_STATUS),
         getOperationHandle(parentStatement.getStatementId()),
         context,
-        max_row_per_block,
+        maxRowsPerBlock,
         true);
   }
 
@@ -204,9 +204,7 @@ final class DatabricksThriftAccessor {
     // Set direct result configuration
     if (enableDirectResults) {
       TSparkGetDirectResults directResults =
-          new TSparkGetDirectResults()
-              .setMaxBytes(DEFAULT_BYTE_LIMIT)
-              .setMaxRows(max_row_per_block);
+          new TSparkGetDirectResults().setMaxBytes(DEFAULT_BYTE_LIMIT).setMaxRows(maxRowsPerBlock);
       request.setGetDirectResults(directResults);
     }
 
@@ -262,7 +260,7 @@ final class DatabricksThriftAccessor {
                 response.getStatus(),
                 response.getOperationHandle(),
                 response.toString(),
-                max_row_per_block,
+                maxRowsPerBlock,
                 true);
       }
 

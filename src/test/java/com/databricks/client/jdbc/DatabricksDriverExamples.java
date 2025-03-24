@@ -129,7 +129,7 @@ public class DatabricksDriverExamples {
     // Register the Databricks JDBC driver
     DriverManager.registerDriver(new Driver());
     String jdbcUrl =
-        JDBC_URL_WAREHOUSE + "EnableTelemetry=1" + ";enableArrow=0" + "RowsFetchedPerBlock=3";
+        JDBC_URL_WAREHOUSE + "EnableTelemetry=1" + ";enableArrow=0" + ";RowsFetchedPerBlock=3";
     Connection con = DriverManager.getConnection(jdbcUrl, "token", DATABRICKS_TOKEN);
     Statement stmt = con.createStatement();
     ResultSet rs = stmt.executeQuery("SELECT * FROM RANGE(12)"); // 4 FetchResults calls made

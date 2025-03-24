@@ -274,6 +274,33 @@ class DatabricksConnectionContextTest {
   }
 
   @Test
+  public void testRowsFetchedPerBlock() throws DatabricksSQLException {
+    // Test with default value
+    DatabricksConnectionContext connectionContext =
+        (DatabricksConnectionContext)
+            DatabricksConnectionContext.parse(TestConstants.VALID_CLUSTER_URL, properties);
+    assertEquals(2000000, connectionContext.getRowsFetchedPerBlock());
+
+    // Test with custom value
+    Properties properties = new Properties();
+    properties.setProperty("password", "passwd");
+    properties.setProperty("RowsFetchedPerBlock", "500000");
+
+    connectionContext =
+        (DatabricksConnectionContext)
+            DatabricksConnectionContext.parse(TestConstants.VALID_CLUSTER_URL, properties);
+    assertEquals(500000, connectionContext.getRowsFetchedPerBlock());
+
+    // Test with invalid value (should fall back to default)
+    properties.setProperty("RowsFetchedPerBlock", "invalid");
+
+    connectionContext =
+        (DatabricksConnectionContext)
+            DatabricksConnectionContext.parse(TestConstants.VALID_CLUSTER_URL, properties);
+    assertEquals(2000000, connectionContext.getRowsFetchedPerBlock());
+  }
+
+  @Test
   public void testParsingOfUrlWithoutDefault() throws DatabricksSQLException {
     DatabricksConnectionContext connectionContext =
         (DatabricksConnectionContext)
