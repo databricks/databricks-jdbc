@@ -65,13 +65,11 @@ public class AzureMSICredentials extends RefreshableTokenSource {
       Map<String, String> params,
       Map<String, String> headers) {
     try {
-      // Append query parameters to the URL
       URIBuilder uriBuilder = new URIBuilder(tokenUrl);
       params.forEach(uriBuilder::addParameter);
-
       HttpGet getRequest = new HttpGet(uriBuilder.build());
-
       headers.forEach(getRequest::setHeader);
+      System.out.println(getRequest.toString());
       HttpResponse response = hc.execute(getRequest);
       OAuthResponse resp =
           new ObjectMapper().readValue(response.getEntity().getContent(), OAuthResponse.class);

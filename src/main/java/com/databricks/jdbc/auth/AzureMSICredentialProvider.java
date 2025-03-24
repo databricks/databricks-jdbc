@@ -8,6 +8,7 @@ import com.databricks.jdbc.dbclient.impl.http.DatabricksHttpClientFactory;
 import com.databricks.sdk.core.CredentialsProvider;
 import com.databricks.sdk.core.DatabricksConfig;
 import com.databricks.sdk.core.HeaderFactory;
+import com.google.common.annotations.VisibleForTesting;
 import java.util.HashMap;
 import java.util.Map;
 import org.apache.http.HttpHeaders;
@@ -19,6 +20,14 @@ public class AzureMSICredentialProvider implements CredentialsProvider {
 
   public AzureMSICredentialProvider(IDatabricksConnectionContext connectionContext) {
     this.httpClient = DatabricksHttpClientFactory.getInstance().getClient(connectionContext);
+    this.clientId = connectionContext.getNullableClientId();
+    this.resourceId = connectionContext.getAzureWorkspaceResourceId();
+  }
+
+  @VisibleForTesting
+  AzureMSICredentialProvider(
+      IDatabricksConnectionContext connectionContext, IDatabricksHttpClient httpClient) {
+    this.httpClient = httpClient;
     this.clientId = connectionContext.getNullableClientId();
     this.resourceId = connectionContext.getAzureWorkspaceResourceId();
   }
