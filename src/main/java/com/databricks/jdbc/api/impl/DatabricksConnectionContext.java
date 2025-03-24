@@ -724,7 +724,8 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   public int getDefaultStringColumnLength() {
     try {
       int defaultStringColumnLength = Integer.parseInt(getParameter(DEFAULT_STRING_COLUMN_LENGTH));
-      if (defaultStringColumnLength < 0 || defaultStringColumnLength > Short.MAX_VALUE) {
+      if (defaultStringColumnLength < 0
+          || defaultStringColumnLength > MAX_DEFAULT_STRING_COLUMN_LENGTH) {
         LOGGER.warn(
             "DefaultStringColumnLength value {} is out of bounds (0 to 32767). Falling back to default value 255.",
             defaultStringColumnLength);
