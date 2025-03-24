@@ -34,6 +34,7 @@ public class MultiChunkExecutionIntegrationTests extends AbstractFakeServiceInte
     Connection connection = getValidJDBCConnection(properties);
 
     final Statement statement = connection.createStatement();
+    statement.setMaxRows(maxRows);
 
     try (ResultSet rs = statement.executeQuery(sql)) {
       DatabricksResultSetMetaData metaData = (DatabricksResultSetMetaData) rs.getMetaData();
