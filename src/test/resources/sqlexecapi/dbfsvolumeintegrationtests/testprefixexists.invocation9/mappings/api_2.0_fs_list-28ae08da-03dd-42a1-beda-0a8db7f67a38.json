@@ -1,0 +1,28 @@
+{
+  "id" : "28ae08da-03dd-42a1-beda-0a8db7f67a38",
+  "name" : "api_2.0_fs_list",
+  "request" : {
+    "url" : "/api/2.0/fs/list?path=%2FVolumes%2Fuc_volume_test_catalog%2Fuc_volume_test_schema%2Ftest_volume1%2Ffolder1%2Ffolder2%2F",
+    "method" : "GET"
+  },
+  "response" : {
+    "status" : 200,
+    "body" : "{\"files\":[{\"path\":\"/Volumes/uc_volume_test_catalog/uc_volume_test_schema/test_volume1/folder1/folder2/efg_file1.csv\",\"is_dir\":false,\"file_size\":13305,\"modification_time\":1717494193000,\"name\":\"efg_file1.csv\"},{\"path\":\"/Volumes/uc_volume_test_catalog/uc_volume_test_schema/test_volume1/folder1/folder2/upload2.csv\",\"is_dir\":false,\"file_size\":8,\"modification_time\":1742540211000,\"name\":\"upload2.csv\"},{\"path\":\"/Volumes/uc_volume_test_catalog/uc_volume_test_schema/test_volume1/folder1/folder2/upload2.txt\",\"is_dir\":false,\"file_size\":10,\"modification_time\":1731114292000,\"name\":\"upload2.txt\"},{\"path\":\"/Volumes/uc_volume_test_catalog/uc_volume_test_schema/test_volume1/folder1/folder2/folder3/\",\"is_dir\":true,\"name\":\"folder3\"}]}",
+    "headers" : {
+      "x-request-id" : "f684e05d-b4dc-497c-a6a3-e9fa30f9c2b1",
+      "date" : "Mon, 24 Mar 2025 04:58:49 GMT",
+      "server" : "databricks",
+      "x-databricks-popp-response-code-details" : "via_upstream",
+      "x-databricks-shard-debug" : "oregon-staging",
+      "vary" : "Accept-Encoding",
+      "x-databricks-org-id" : "6051921418418893",
+      "strict-transport-security" : "max-age=31536000; includeSubDomains; preload",
+      "x-content-type-options" : "nosniff",
+      "x-databricks-popp-routing-reason" : "deployment-name",
+      "content-type" : "application/json",
+      "x-databricks-apiproxy-response-code-details" : "via_upstream"
+    }
+  },
+  "uuid" : "28ae08da-03dd-42a1-beda-0a8db7f67a38",
+  "insertionIndex" : 16
+}
