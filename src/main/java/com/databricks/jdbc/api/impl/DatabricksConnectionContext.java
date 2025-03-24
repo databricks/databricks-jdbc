@@ -1,6 +1,7 @@
 package com.databricks.jdbc.api.impl;
 
 import static com.databricks.jdbc.common.DatabricksJdbcConstants.*;
+import static com.databricks.jdbc.common.EnvironmentVariables.DEFAULT_ROW_LIMIT;
 import static com.databricks.jdbc.common.util.UserAgentManager.USER_AGENT_SEA_CLIENT;
 import static com.databricks.jdbc.common.util.UserAgentManager.USER_AGENT_THRIFT_CLIENT;
 
@@ -732,6 +733,17 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   @Override
   public int getHttpConnectionPoolSize() {
     return Integer.parseInt(getParameter(DatabricksJdbcUrlParams.HTTP_CONNECTION_POOL_SIZE));
+  }
+
+  @Override
+  public int getRowsFetchedPerBlock() {
+    int maxRows = DEFAULT_ROW_LIMIT;
+    try {
+      maxRows = Integer.parseInt(getParameter(DatabricksJdbcUrlParams.ROWS_FETCHED_PER_BLOCK));
+    } catch (NumberFormatException e) {
+      LOGGER.warn("Invalid value for RowsFetchedPerBlock, using default value");
+    }
+    return maxRows;
   }
 
   private static boolean nullOrEmptyString(String s) {

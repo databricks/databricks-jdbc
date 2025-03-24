@@ -90,6 +90,10 @@ public enum DatabricksJdbcUrlParams {
       "EnableComplexDatatypeSupport",
       "flag to enable native support of complex data types as java objects",
       "0"),
+  ROWS_FETCHED_PER_BLOCK(
+      "RowsFetchedPerBlock",
+      "The maximum number of rows that a query returns at a time.",
+      "2000000"), // works only for inline results.
   AZURE_TENANT_ID("AzureTenantId", "Azure tenant ID");
 
   private final String paramName;

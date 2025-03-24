@@ -39,6 +39,7 @@ final class DatabricksThriftAccessor {
       JdbcLoggerFactory.getLogger(DatabricksThriftAccessor.class);
   private static final TSparkGetDirectResults DEFAULT_DIRECT_RESULTS =
       new TSparkGetDirectResults().setMaxRows(DEFAULT_ROW_LIMIT).setMaxBytes(DEFAULT_BYTE_LIMIT);
+  private int max_row_per_block = DEFAULT_ROW_LIMIT;
   private static final short directResultsFieldId =
       TExecuteStatementResp._Fields.DIRECT_RESULTS.getThriftFieldId();
   private static final short operationHandleFieldId =
@@ -55,6 +56,7 @@ final class DatabricksThriftAccessor {
     this.enableDirectResults = connectionContext.getDirectResultMode();
     this.databricksConfig = new ClientConfigurator(connectionContext).getDatabricksConfig();
     String endPointUrl = connectionContext.getEndpointURL();
+    this.max_row_per_block = connectionContext.getRowsFetchedPerBlock();
 
     if (!DriverUtil.isRunningAgainstFake()) {
       // Create a new thrift client for each thread as client state is not thread safe. Note that
@@ -148,7 +150,7 @@ final class DatabricksThriftAccessor {
         new TStatus().setStatusCode(TStatusCode.SUCCESS_STATUS),
         operationHandle,
         context,
-        DEFAULT_ROW_LIMIT,
+        max_row_per_block,
         false);
   }
 
@@ -184,12 +186,11 @@ final class DatabricksThriftAccessor {
         String.format(
             "Fetching more results as it has more rows %s",
             parentStatement.getStatementId().toSQLExecStatementId());
-    int maxRows = (parentStatement == null) ? DEFAULT_ROW_LIMIT : parentStatement.getMaxRows();
     return getResultSetResp(
         new TStatus().setStatusCode(TStatusCode.SUCCESS_STATUS),
         getOperationHandle(parentStatement.getStatementId()),
         context,
-        maxRows,
+        max_row_per_block,
         true);
   }
 
@@ -201,10 +202,11 @@ final class DatabricksThriftAccessor {
       throws SQLException {
 
     // Set direct result configuration
-    int maxRows = (parentStatement == null) ? DEFAULT_ROW_LIMIT : parentStatement.getMaxRows();
     if (enableDirectResults) {
       TSparkGetDirectResults directResults =
-          new TSparkGetDirectResults().setMaxBytes(DEFAULT_BYTE_LIMIT).setMaxRows(maxRows);
+          new TSparkGetDirectResults()
+              .setMaxBytes(DEFAULT_BYTE_LIMIT)
+              .setMaxRows(max_row_per_block);
       request.setGetDirectResults(directResults);
     }
 
@@ -260,7 +262,7 @@ final class DatabricksThriftAccessor {
                 response.getStatus(),
                 response.getOperationHandle(),
                 response.toString(),
-                maxRows,
+                max_row_per_block,
                 true);
       }
 

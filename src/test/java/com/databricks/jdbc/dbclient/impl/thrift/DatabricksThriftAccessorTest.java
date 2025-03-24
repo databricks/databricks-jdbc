@@ -99,7 +99,6 @@ public class DatabricksThriftAccessorTest {
             .setStatus(new TStatus().setStatusCode(TStatusCode.SUCCESS_STATUS));
     when(thriftClient.FetchResults(getFetchResultsRequest(true))).thenReturn(response);
     when(thriftClient.ExecuteStatement(request)).thenReturn(tExecuteStatementResp);
-    when(parentStatement.getMaxRows()).thenReturn(DEFAULT_ROW_LIMIT);
     when(thriftClient.GetOperationStatus(operationStatusReq)).thenReturn(operationStatusResp);
     when(session.getConnectionContext()).thenReturn(connectionContext);
     when(connectionContext.isComplexDatatypeSupportEnabled()).thenReturn(false);
@@ -174,7 +173,6 @@ public class DatabricksThriftAccessorTest {
             .setStatus(new TStatus().setStatusCode(TStatusCode.SUCCESS_STATUS))
             .setDirectResults(directResults);
     when(thriftClient.ExecuteStatement(request)).thenReturn(tExecuteStatementResp);
-    when(statement.getMaxRows()).thenReturn(25);
     when(session.getConnectionContext()).thenReturn(connectionContext);
     when(connectionContext.isComplexDatatypeSupportEnabled()).thenReturn(false);
     DatabricksResultSet resultSet =

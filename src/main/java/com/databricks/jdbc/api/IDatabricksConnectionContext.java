@@ -231,4 +231,6 @@ public interface IDatabricksConnectionContext {
 
   /** Returns the size for HTTP connection pool */
   int getHttpConnectionPoolSize();
+
+  int getRowsFetchedPerBlock();
 }
