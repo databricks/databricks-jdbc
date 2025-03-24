@@ -403,6 +403,7 @@ public class MetadataResultSetBuilder {
         return 16;
       case "DATE":
         return 91;
+      case "TIMESTAMP_NTZ":
       case "TIMESTAMP":
         return 93;
       case "DECIMAL":
@@ -432,6 +433,8 @@ public class MetadataResultSetBuilder {
       case "CHAR":
       case "CHARACTER":
         return 1;
+      case "VARIANT":
+        return 1111;
     }
     return 0;
   }

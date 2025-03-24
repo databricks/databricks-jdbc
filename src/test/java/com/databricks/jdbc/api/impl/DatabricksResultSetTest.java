@@ -145,6 +145,36 @@ public class DatabricksResultSetTest {
   }
 
   @Test
+  void testGetStringWithWhiteSpaces() throws SQLException {
+    when(mockedExecutionResult.getObject(0)).thenReturn(null);
+    DatabricksResultSet resultSet = getResultSet(StatementState.PENDING, null);
+    assertNull(resultSet.getString(1));
+    assertTrue(resultSet.wasNull());
+    when(mockedExecutionResult.getObject(0)).thenReturn("     test     ");
+    when(mockedResultSetMetadata.getColumnType(1)).thenReturn(Types.VARCHAR);
+    assertEquals("     test     ", resultSet.getString(1));
+    assertFalse(resultSet.wasNull());
+    // Test with column label
+    when(mockedResultSetMetadata.getColumnNameIndex("columnLabel")).thenReturn(1);
+    assertEquals("     test     ", resultSet.getString("columnLabel"));
+  }
+
+  @Test
+  void testGetStringWithQuotes() throws SQLException {
+    when(mockedExecutionResult.getObject(0)).thenReturn(null);
+    DatabricksResultSet resultSet = getResultSet(StatementState.PENDING, null);
+    assertNull(resultSet.getString(1));
+    assertTrue(resultSet.wasNull());
+    when(mockedExecutionResult.getObject(0)).thenReturn("\"test\"");
+    when(mockedResultSetMetadata.getColumnType(1)).thenReturn(Types.VARCHAR);
+    assertEquals("\"test\"", resultSet.getString(1));
+    assertFalse(resultSet.wasNull());
+    // Test with column label
+    when(mockedResultSetMetadata.getColumnNameIndex("columnLabel")).thenReturn(1);
+    assertEquals("\"test\"", resultSet.getString("columnLabel"));
+  }
+
+  @Test
   void testGetBoolean() throws SQLException {
     DatabricksResultSet resultSet = getResultSet(StatementState.SUCCEEDED, null);
     when(mockedExecutionResult.getObject(0)).thenReturn(true);

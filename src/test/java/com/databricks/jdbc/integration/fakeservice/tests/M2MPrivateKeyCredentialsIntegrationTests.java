@@ -36,6 +36,7 @@ public class M2MPrivateKeyCredentialsIntegrationTests extends AbstractFakeServic
   void testSuccessfulM2MPrivateKeyCredentialsConnection() throws SQLException {
     Connection conn = getValidJDBCPrivateKeyCredentialsConnection();
     assert ((conn != null) && !conn.isClosed());
+
     conn.close();
   }
 

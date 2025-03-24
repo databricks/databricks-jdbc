@@ -1,11 +1,15 @@
 package com.databricks.jdbc.api.impl.converters;
 
+import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.exception.DatabricksValidationException;
+import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.sql.Date;
 import java.sql.Timestamp;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
 
 public class StringConverter implements ObjectConverter {
   @Override
@@ -110,11 +114,38 @@ public class StringConverter implements ObjectConverter {
 
   @Override
   public Date toDate(Object object) throws DatabricksSQLException {
-    return Date.valueOf(toString(object));
+    return Date.valueOf(removeExtraQuotes(toString(object)));
   }
 
   @Override
   public Timestamp toTimestamp(Object object) throws DatabricksSQLException {
-    return Timestamp.valueOf(toString(object));
+    String timestampStr = removeExtraQuotes(toString(object));
+
+    try {
+      SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSSSSSXXX");
+      java.util.Date parsedDate = dateFormat.parse(timestampStr);
+      return new Timestamp(parsedDate.getTime());
+    } catch (ParseException e) {
+      try {
+        SimpleDateFormat simpleFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ssXXX");
+        java.util.Date parsedDate = simpleFormat.parse(timestampStr);
+        return new Timestamp(parsedDate.getTime());
+      } catch (ParseException e2) {
+        try {
+          return Timestamp.valueOf(timestampStr);
+        } catch (IllegalArgumentException ex) {
+          throw new DatabricksParsingException(
+              "Invalid timestamp format: " + timestampStr,
+              DatabricksDriverErrorCode.JSON_PARSING_ERROR);
+        }
+      }
+    }
+  }
+
+  private String removeExtraQuotes(String str) {
+    if (str.startsWith("\"") && str.endsWith("\"") && str.length() > 1) {
+      str = str.substring(1, str.length() - 1);
+    }
+    return str;
   }
 }

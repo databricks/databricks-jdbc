@@ -1806,9 +1806,6 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
     if (obj == null) {
       return defaultValue.get();
     }
-    if (obj instanceof String) {
-      obj = removeExtraQuotes((String) obj);
-    }
     int columnType = resultSetMetaData.getColumnType(columnIndex);
     ObjectConverter converter = ConverterHelper.getConverterForSqlType(columnType);
     return convertMethod.apply(converter, obj);
@@ -1825,14 +1822,6 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
       return bigDecimal;
     }
     return bigDecimal.setScale(scale, RoundingMode.HALF_UP);
-  }
-
-  private String removeExtraQuotes(String str) {
-    str = str.trim();
-    if (str.startsWith("\"") && str.endsWith("\"") && str.length() > 1) {
-      str = str.substring(1, str.length() - 1).trim();
-    }
-    return str;
   }
 
   @Override

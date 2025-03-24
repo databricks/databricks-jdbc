@@ -28,6 +28,7 @@ public class MetadataResultSetBuilderTest {
     assert MetadataResultSetBuilder.getCode("FLOAT") == 6;
     assert MetadataResultSetBuilder.getCode("BOOLEAN") == 16;
     assert MetadataResultSetBuilder.getCode("DATE") == 91;
+    assert MetadataResultSetBuilder.getCode("TIMESTAMP_NTZ") == 93;
     assert MetadataResultSetBuilder.getCode("TIMESTAMP") == 93;
     assert MetadataResultSetBuilder.getCode("DECIMAL") == 3;
     assert MetadataResultSetBuilder.getCode("BINARY") == -2;
@@ -47,6 +48,7 @@ public class MetadataResultSetBuilderTest {
     assert MetadataResultSetBuilder.getCode("TINYINT") == -6;
     assert MetadataResultSetBuilder.getCode("SMALLINT") == 5;
     assert MetadataResultSetBuilder.getCode("INTEGER") == 4;
+    assert MetadataResultSetBuilder.getCode("VARIANT") == 1111;
   }
 
   private static Stream<Arguments> provideSqlTypesAndExpectedSizes() {

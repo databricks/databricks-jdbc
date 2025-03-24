@@ -33,9 +33,7 @@ public abstract class AbstractFakeServiceIntegrationTests {
                       .httpClientFactory(
                           new FakeServiceHttpClientFactory(
                               FakeServiceConfigLoader.getFakeServiceUserAgent()))),
-          FakeServiceConfigLoader.shouldUseThriftClient
-              ? DatabricksJdbcConstants.FakeServiceType.SQL_GATEWAY
-              : DatabricksJdbcConstants.FakeServiceType.SQL_EXEC,
+          FakeServiceConfigLoader.getFakeServiceType(),
           FakeServiceConfigLoader.getProperty(DATABRICKS_HOST_PROP));
 
   /**
@@ -54,9 +52,7 @@ public abstract class AbstractFakeServiceIntegrationTests {
                       .httpClientFactory(
                           new FakeServiceHttpClientFactory(
                               FakeServiceConfigLoader.getFakeServiceUserAgent()))),
-          FakeServiceConfigLoader.shouldUseThriftClient
-              ? DatabricksJdbcConstants.FakeServiceType.CLOUD_FETCH_SQL_GATEWAY
-              : DatabricksJdbcConstants.FakeServiceType.CLOUD_FETCH,
+          FakeServiceConfigLoader.getCloudFetchFakeServiceType(),
           FakeServiceConfigLoader.getProperty(CLOUD_FETCH_HOST_PROP));
 
   /**
@@ -112,7 +108,8 @@ public abstract class AbstractFakeServiceIntegrationTests {
    * com.databricks.jdbc.dbclient.impl.sqlexec.DatabricksSdkClient}.
    */
   protected boolean isSqlExecSdkClient() {
-    return !FakeServiceConfigLoader.shouldUseThriftClient;
+    return FakeServiceConfigLoader.getFakeServiceType()
+        .equals(DatabricksJdbcConstants.FakeServiceType.SQL_EXEC);
   }
 
   /** Returns the extensions to be used for stubbing. */

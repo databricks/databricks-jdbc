@@ -1,8 +1,7 @@
 package com.databricks.jdbc.integration;
 
 import static com.databricks.jdbc.common.DatabricksJdbcConstants.*;
-import static com.databricks.jdbc.integration.fakeservice.FakeServiceConfigLoader.TEST_CATALOG;
-import static com.databricks.jdbc.integration.fakeservice.FakeServiceConfigLoader.TEST_SCHEMA;
+import static com.databricks.jdbc.integration.fakeservice.FakeServiceConfigLoader.*;
 import static com.databricks.jdbc.integration.fakeservice.FakeServiceExtension.TARGET_URI_PROP_SUFFIX;
 
 import com.databricks.jdbc.api.IDatabricksConnectionContext;
@@ -27,10 +26,7 @@ public class IntegrationTestUtil {
   /** Get the host of the embedded web server of fake service to be used in the tests. */
   public static String getFakeServiceHost() {
     // Target base URL of the fake service type
-    FakeServiceType databricksFakeServiceType =
-        FakeServiceConfigLoader.shouldUseThriftClient
-            ? FakeServiceType.SQL_GATEWAY
-            : FakeServiceType.SQL_EXEC;
+    FakeServiceType databricksFakeServiceType = FakeServiceConfigLoader.getFakeServiceType();
     String serviceURI =
         System.getProperty(databricksFakeServiceType.name().toLowerCase() + TARGET_URI_PROP_SUFFIX);
 
@@ -185,8 +181,7 @@ public class IntegrationTestUtil {
           FakeServiceConfigLoader.getProperty(DatabricksJdbcUrlParams.CONN_SCHEMA.getParamName()));
       connectionProperties.put(
           DatabricksJdbcUrlParams.USE_THRIFT_CLIENT.getParamName(),
-          FakeServiceConfigLoader.getProperty(
-              DatabricksJdbcUrlParams.USE_THRIFT_CLIENT.getParamName()));
+          FakeServiceConfigLoader.shouldUseThriftClient());
 
       return DriverManager.getConnection(getFakeServiceJDBCUrl(), connectionProperties);
     }
@@ -217,8 +212,7 @@ public class IntegrationTestUtil {
           FakeServiceConfigLoader.getProperty(DatabricksJdbcUrlParams.CONN_SCHEMA.getParamName()));
       connectionProperties.put(
           DatabricksJdbcUrlParams.USE_THRIFT_CLIENT.getParamName(),
-          FakeServiceConfigLoader.getProperty(
-              DatabricksJdbcUrlParams.USE_THRIFT_CLIENT.getParamName()));
+          FakeServiceConfigLoader.shouldUseThriftClient());
 
       return DriverManager.getConnection(getFakeServiceJDBCUrl(), connectionProperties);
     }
