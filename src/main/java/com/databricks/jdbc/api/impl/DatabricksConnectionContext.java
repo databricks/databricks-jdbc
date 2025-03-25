@@ -729,13 +729,13 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
         LOGGER.warn(
             "DefaultStringColumnLength value {} is out of bounds (0 to 32767). Falling back to default value 255.",
             defaultStringColumnLength);
-        return 255;
+        return DEFUALT_STRING_COLUMN_LENGTH;
       }
       return defaultStringColumnLength;
     } catch (NumberFormatException e) {
       LOGGER.warn(
           "Invalid number format for DefaultStringColumnLength. Falling back to default value 255.");
-      return 255;
+      return DEFUALT_STRING_COLUMN_LENGTH;
     }
   }
 
