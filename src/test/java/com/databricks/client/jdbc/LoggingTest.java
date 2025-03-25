@@ -19,7 +19,7 @@ public class LoggingTest {
       useThriftClient = "0"; // Default to non-Thrift client if not specified
     }
 
-    // Create log directory
+    // Create log directory with proper path handling
     String homeDir = System.getProperty("user.home");
     File logDir = new File(homeDir, "logstest");
     if (!logDir.exists()) {
@@ -27,35 +27,22 @@ public class LoggingTest {
       logger.info("Created log directory: " + logDir.getAbsolutePath());
     }
 
-    // Use the canonical path with forward slashes and URL encoding for all platforms
+    // Get the canonical path and always use forward slashes
     String logPath;
     try {
-      // Create a very simple path with no spaces or special characters
-      // Use only alphanumeric characters to avoid URL encoding issues
-      File simpleLogDir = new File(homeDir, "dblogtest");
-      if (!simpleLogDir.exists()) {
-        simpleLogDir.mkdirs();
-        logger.info("Created simple log directory: " + simpleLogDir.getAbsolutePath());
-      }
-
-      logPath = simpleLogDir.getCanonicalPath();
+      logPath = logDir.getCanonicalPath();
       // Always use forward slashes in JDBC URL parameters regardless of platform
       logPath = logPath.replace('\\', '/');
-      logger.info("Using simple canonical log path: " + logPath);
+      logger.info("Using log path: " + logPath);
     } catch (Exception e) {
-      // Fallback to a hardcoded path if all else fails
-      if (System.getProperty("os.name").toLowerCase().contains("windows")) {
-        logPath = "C:/temp/dblogs";
-      } else {
-        logPath = "/tmp/dblogs";
-      }
-      new File(logPath).mkdirs();
+      // Fallback to simple string-based path if canonical fails
+      logPath = homeDir.replace('\\', '/') + "/logstest";
       logger.info("Using fallback log path: " + logPath);
     }
 
     logger.info("Using usethriftclient=" + useThriftClient);
 
-    // Build the JDBC URL with properly formatted path
+    // Build the JDBC URL with the logPath and usethriftclient parameter
     String jdbcUrl =
         "jdbc:databricks://"
             + host
@@ -67,7 +54,12 @@ public class LoggingTest {
             + ";usethriftclient="
             + useThriftClient;
 
-    logger.info("Connecting with URL: " + jdbcUrl);
+    // Log the URL without exposing any sensitive information
+    String logUrl = jdbcUrl;
+    if (logUrl.contains("token=")) {
+      logUrl = logUrl.replaceAll("(token=)[^;]*", "$1*****");
+    }
+    logger.info("Connecting with URL: " + logUrl);
 
     return jdbcUrl;
   }

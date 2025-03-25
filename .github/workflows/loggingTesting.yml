@@ -86,9 +86,11 @@ jobs:
           if [ -f "$LOG_FILE" ]; then
             echo "Log file found. Checking contents..."
           
-            # Required strings for both client types
-            REQUIRED_STRINGS=("Executing HTTP request"
+            REQUIRED_STRINGS=("Executed sql [SELECT 1] with status [SUCCEEDED]"
+                              "Executing HTTP request"
                               "Result retrieved successfully"
+                              "Parsing data for chunk index [0]"
+                              "Data parsed for chunk index [0]"
                               "Closing global async HTTP client"
                               "Global async HTTP client has been shut down")
 
@@ -103,8 +105,8 @@ jobs:
 
             echo "All required log strings were found."
           else
-            echo "Log file ${LOG_DIR} directory contents:"
-            ls -la "${LOG_DIR}"
+            echo "Log file directory contents:"
+            ls -la "${LOG_DIR}" || echo "Directory does not exist"
             echo "Log file ${LOG_FILE} does not exist. Failing the build."
             exit 1
           fi
