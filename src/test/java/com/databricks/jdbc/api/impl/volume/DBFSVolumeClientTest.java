@@ -8,9 +8,11 @@ import com.databricks.jdbc.model.client.filesystem.*;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import com.databricks.sdk.WorkspaceClient;
 import com.databricks.sdk.core.ApiClient;
+import com.databricks.sdk.core.error.platform.NotFound;
 import java.io.File;
 import java.io.FileInputStream;
 import java.nio.file.Files;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import org.junit.jupiter.api.*;
@@ -119,7 +121,7 @@ class DBFSVolumeClientTest {
     doThrow(
             new DatabricksVolumeOperationException(
                 "Failed to get list response - {Volume 'catalog.schema.VolumeA' does not exist.}",
-                new Exception(),
+                new NotFound("Volume 'catalog.schema.VolumeA' does not exist.", new ArrayList<>()),
                 DatabricksDriverErrorCode.VOLUME_OPERATION_INVALID_STATE))
         .when(client)
         .getListResponse(anyString());

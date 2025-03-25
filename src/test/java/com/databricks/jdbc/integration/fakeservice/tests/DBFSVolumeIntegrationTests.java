@@ -377,7 +377,7 @@ public class DBFSVolumeIntegrationTests extends AbstractFakeServiceIntegrationTe
 
   private static Stream<Arguments> provideParametersForObjectExists() {
     return Stream.of(
-        // Case-sensitive: if file "aBc_file1.csv" exists but "abc_file1.csv" is requested, result
+        // Case-sensitive: if file "def_file1.csv" exists but "DeF_file1.csv" is requested, result
         // is false.
         Arguments.of(
             UC_VOLUME_CATALOG, UC_VOLUME_SCHEMA, "test_volume1", "DeF_file1.csv", true, false),

@@ -22,7 +22,9 @@ import com.databricks.jdbc.model.client.filesystem.*;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import com.databricks.sdk.WorkspaceClient;
 import com.databricks.sdk.core.DatabricksException;
+import com.databricks.sdk.core.error.platform.NotFound;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Strings;
 import java.io.Closeable;
 import java.io.IOException;
 import java.io.InputStream;
@@ -64,7 +66,11 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
   public boolean prefixExists(
       String catalog, String schema, String volume, String prefix, boolean caseSensitive)
       throws SQLException {
-    if (prefix == null || prefix.isEmpty()) {
+    LOGGER.debug(
+        String.format(
+            "Entering prefixExists method with parameters: catalog = {%s}, schema = {%s}, volume = {%s}, prefix = {%s}, caseSensitive = {%s}",
+            catalog, schema, volume, prefix, caseSensitive));
+    if (Strings.isNullOrEmpty(prefix)) {
       return false;
     }
     try {
@@ -83,7 +89,11 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
   public boolean objectExists(
       String catalog, String schema, String volume, String objectPath, boolean caseSensitive)
       throws SQLException {
-    if (objectPath == null || objectPath.isEmpty()) {
+    LOGGER.debug(
+        String.format(
+            "Entering objectExists method with parameters: catalog = {%s}, schema = {%s}, volume = {%s}, objectPath = {%s}, caseSensitive = {%s}",
+            catalog, schema, volume, objectPath, caseSensitive));
+    if (Strings.isNullOrEmpty(objectPath)) {
       return false;
     }
     try {
@@ -111,7 +121,11 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
   @Override
   public boolean volumeExists(
       String catalog, String schema, String volumeName, boolean caseSensitive) throws SQLException {
-    if (volumeName == null || volumeName.isEmpty()) {
+    LOGGER.debug(
+        String.format(
+            "Entering volumeExists method with parameters: catalog = {%s}, schema = {%s}, volumeName = {%s}, caseSensitive = {%s}",
+            catalog, schema, volumeName, caseSensitive));
+    if (Strings.isNullOrEmpty(volumeName)) {
       return false;
     }
     try {
@@ -122,7 +136,7 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
     } catch (DatabricksVolumeOperationException e) {
       // If the exception indicates an invalid path (i.e. missing volume name),
       // then the volume does not exist. Otherwise, rethrow with proper error details.
-      if (e.getMessage().contains("does not exist")) {
+      if (e.getCause() instanceof NotFound) {
         return false;
       }
       throw new DatabricksVolumeOperationException(

@@ -351,8 +351,6 @@ public class DBFSVolumeTests {
             false));
   }
 
-  // ------------------------ New E2E Tests for ObjectExists ------------------------
-
   @ParameterizedTest
   @MethodSource("provideParametersForObjectExists")
   void testObjectExists(
@@ -369,7 +367,7 @@ public class DBFSVolumeTests {
 
   private static Stream<Arguments> provideParametersForObjectExists() {
     return Stream.of(
-        // Case-sensitive: if file "aBc_file1.csv" exists but "abc_file1.csv" is requested, result
+        // Case-sensitive: if file "def_file1.csv" exists but "DeF_file1.csv" is requested, result
         // is false.
         Arguments.of(
             UC_VOLUME_CATALOG, UC_VOLUME_SCHEMA, "test_volume1", "DeF_file1.csv", true, false),
@@ -404,8 +402,6 @@ public class DBFSVolumeTests {
             true,
             false));
   }
-
-  // ------------------------ New E2E Tests for VolumeExists ------------------------
 
   @ParameterizedTest
   @MethodSource("provideParametersForVolumeExists")
