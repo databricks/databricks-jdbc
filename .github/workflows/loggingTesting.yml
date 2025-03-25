@@ -43,10 +43,11 @@ jobs:
           DATABRICKS_HTTP_PATH: ${{ secrets.DATABRICKS_HTTP_PATH }}
           USE_THRIFT_CLIENT: ${{ matrix.thrift-client }}
         run: |
-          echo "DATABRICKS_TOKEN=${DATABRICKS_TOKEN}" >> $GITHUB_ENV
-          echo "DATABRICKS_HOST=${DATABRICKS_HOST}" >> $GITHUB_ENV
-          echo "DATABRICKS_HTTP_PATH=${DATABRICKS_HTTP_PATH}" >> $GITHUB_ENV
-          echo "USE_THRIFT_CLIENT=${USE_THRIFT_CLIENT}" >> $GITHUB_ENV
+          # Use printf to avoid any newline or path translation issues
+          printf "DATABRICKS_TOKEN=%s\n" "${DATABRICKS_TOKEN}" >> $GITHUB_ENV
+          printf "DATABRICKS_HOST=%s\n" "${DATABRICKS_HOST}" >> $GITHUB_ENV
+          printf "DATABRICKS_HTTP_PATH=%s\n" "${DATABRICKS_HTTP_PATH}" >> $GITHUB_ENV
+          printf "USE_THRIFT_CLIENT=%s\n" "${USE_THRIFT_CLIENT}" >> $GITHUB_ENV
 
       - name: Clean & Compile LoggingTest
         shell: bash
