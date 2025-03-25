@@ -15,6 +15,22 @@ public class LoggingTest {
     // Get HTTP path and fix it if corrupted by Windows environment
     String httpPath = System.getenv("DATABRICKS_HTTP_PATH");
 
+    /*
+     * The GitHub Windows runner has an issue where environment variables containing paths
+     * can become corrupted, particularly when using Git Bash. Specifically, the HTTP path
+     * environment variable gets prepended with "C:/Program Files/Git" on Windows runners.
+     *
+     * This causes problems particularly with usethriftclient=1, which fails with an error:
+     * "Illegal character in path at index 66: https://***:443/C:/Program Files/Git***"
+     *
+     * We fix this by:
+     * 1. Detecting if the httpPath starts with the corrupted Windows Git path
+     * 2. Extracting the actual path portion if corruption is detected
+     * 3. Using a fallback path if we can't extract a valid one
+     *
+     * This approach works for both usethriftclient=0 and usethriftclient=1 settings,
+     * providing a uniform solution across all platforms and client configurations.
+     */
     // Check if the httpPath appears to be corrupted with Windows paths
     if (httpPath != null && httpPath.startsWith("C:/Program Files/Git")) {
       // The path is corrupted, extract just the actual path which should be after the Git path
@@ -60,14 +76,15 @@ public class LoggingTest {
 
     // Build the JDBC URL with the logPath and usethriftclient parameter
     String jdbcUrl =
-            "jdbc:databricks://"
-                    + host
-                    + "/default;transportMode=http;ssl=1;AuthMech=3;httpPath="
-                    + httpPath
-                    + ";logPath="
-                    + logPath
-                    + ";loglevel=DEBUG"
-                    + ";usethriftclient=" + useThriftClient;
+        "jdbc:databricks://"
+            + host
+            + "/default;transportMode=http;ssl=1;AuthMech=3;httpPath="
+            + httpPath
+            + ";logPath="
+            + logPath
+            + ";loglevel=DEBUG"
+            + ";usethriftclient="
+            + useThriftClient;
 
     // Log the URL without exposing any sensitive information
     String logUrl = jdbcUrl;
