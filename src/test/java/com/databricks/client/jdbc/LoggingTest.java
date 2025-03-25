@@ -16,7 +16,7 @@ public class LoggingTest {
     String useThriftClient = System.getenv("USE_THRIFT_CLIENT");
 
     if (useThriftClient == null || useThriftClient.isEmpty()) {
-      useThriftClient = "0"; // Default to SEA client if not specified
+      useThriftClient = "0"; // Default to non-Thrift client if not specified
     }
 
     // Create log directory
@@ -27,17 +27,30 @@ public class LoggingTest {
       logger.info("Created log directory: " + logDir.getAbsolutePath());
     }
 
-    // Use the canonical path with forward slashes for all platforms
+    // Use the canonical path with forward slashes and URL encoding for all platforms
     String logPath;
     try {
-      logPath = logDir.getCanonicalPath();
+      // Create a very simple path with no spaces or special characters
+      // Use only alphanumeric characters to avoid URL encoding issues
+      File simpleLogDir = new File(homeDir, "dblogtest");
+      if (!simpleLogDir.exists()) {
+        simpleLogDir.mkdirs();
+        logger.info("Created simple log directory: " + simpleLogDir.getAbsolutePath());
+      }
+
+      logPath = simpleLogDir.getCanonicalPath();
       // Always use forward slashes in JDBC URL parameters regardless of platform
       logPath = logPath.replace('\\', '/');
-      logger.info("Using canonical log path: " + logPath);
+      logger.info("Using simple canonical log path: " + logPath);
     } catch (Exception e) {
-      // Fallback to absolute path if canonical fails
-      logPath = logDir.getAbsolutePath().replace('\\', '/');
-      logger.info("Using absolute log path: " + logPath);
+      // Fallback to a hardcoded path if all else fails
+      if (System.getProperty("os.name").toLowerCase().contains("windows")) {
+        logPath = "C:/temp/dblogs";
+      } else {
+        logPath = "/tmp/dblogs";
+      }
+      new File(logPath).mkdirs();
+      logger.info("Using fallback log path: " + logPath);
     }
 
     logger.info("Using usethriftclient=" + useThriftClient);
@@ -53,6 +66,8 @@ public class LoggingTest {
             + ";loglevel=DEBUG"
             + ";usethriftclient="
             + useThriftClient;
+
+    logger.info("Connecting with URL: " + jdbcUrl);
 
     return jdbcUrl;
   }
