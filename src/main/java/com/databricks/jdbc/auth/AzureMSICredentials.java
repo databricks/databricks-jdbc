@@ -69,7 +69,6 @@ public class AzureMSICredentials extends RefreshableTokenSource {
       params.forEach(uriBuilder::addParameter);
       HttpGet getRequest = new HttpGet(uriBuilder.build());
       headers.forEach(getRequest::setHeader);
-      System.out.println(getRequest.toString());
       HttpResponse response = hc.execute(getRequest);
       OAuthResponse resp =
           new ObjectMapper().readValue(response.getEntity().getContent(), OAuthResponse.class);
