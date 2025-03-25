@@ -11,6 +11,7 @@ import com.databricks.jdbc.common.StatementType;
 import com.databricks.jdbc.common.util.DriverUtil;
 import com.databricks.jdbc.dbclient.impl.common.ClientConfigurator;
 import com.databricks.jdbc.dbclient.impl.common.StatementId;
+import com.databricks.jdbc.dbclient.impl.common.TimeoutHandler;
 import com.databricks.jdbc.dbclient.impl.http.DatabricksHttpClientFactory;
 import com.databricks.jdbc.exception.DatabricksHttpException;
 import com.databricks.jdbc.exception.DatabricksParsingException;
@@ -210,6 +211,8 @@ final class DatabricksThriftAccessor {
 
     TExecuteStatementResp response;
     TFetchResultsResp resultSet;
+    int timeoutInSeconds =
+        (parentStatement == null) ? 0 : parentStatement.getStatement().getQueryTimeout();
 
     try {
       response = getThriftClient().ExecuteStatement(request);
@@ -228,12 +231,18 @@ final class DatabricksThriftAccessor {
         checkOperationStatusForErrors(statusResp);
       }
 
+      // Create a timeout handler for this operation
+      TimeoutHandler timeoutHandler = getTimeoutHandler(response, timeoutInSeconds);
+
       // Polling until query operation state is finished
       TGetOperationStatusReq statusReq =
           new TGetOperationStatusReq()
               .setOperationHandle(response.getOperationHandle())
               .setGetProgressUpdate(false);
       while (shouldContinuePolling(statusResp)) {
+        // Check for timeout before continuing
+        timeoutHandler.checkTimeout();
+
         // Polling for operation status
         statusResp = getThriftClient().GetOperationStatus(statusReq);
         checkOperationStatusForErrors(statusResp);
@@ -607,5 +616,21 @@ final class DatabricksThriftAccessor {
 
   private boolean isPendingOperationState(TOperationState state) {
     return state == TOperationState.RUNNING_STATE || state == TOperationState.PENDING_STATE;
+  }
+
+  private TimeoutHandler getTimeoutHandler(TExecuteStatementResp response, int timeoutInSeconds) {
+    final TOperationHandle operationHandle = response.getOperationHandle();
+
+    return new TimeoutHandler(
+        timeoutInSeconds,
+        "Thrift Operation Handle: " + operationHandle.toString(),
+        () -> {
+          try {
+            LOGGER.debug("Canceling operation due to timeout: {}", operationHandle);
+            cancelOperation(new TCancelOperationReq().setOperationHandle(operationHandle));
+          } catch (Exception e) {
+            LOGGER.warn("Failed to cancel operation on timeout: {}", e.getMessage());
+          }
+        });
   }
 }

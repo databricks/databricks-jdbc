@@ -17,6 +17,7 @@ import com.databricks.jdbc.common.util.DatabricksThreadContextHolder;
 import com.databricks.jdbc.dbclient.IDatabricksClient;
 import com.databricks.jdbc.dbclient.impl.common.ClientConfigurator;
 import com.databricks.jdbc.dbclient.impl.common.StatementId;
+import com.databricks.jdbc.dbclient.impl.common.TimeoutHandler;
 import com.databricks.jdbc.dbclient.impl.common.TracingUtil;
 import com.databricks.jdbc.exception.*;
 import com.databricks.jdbc.log.JdbcLogger;
@@ -181,8 +182,19 @@ public class DatabricksSdkClient implements IDatabricksClient {
     if (parentStatement != null) {
       parentStatement.setStatementId(typedStatementId);
     }
+
+    int timeoutInSeconds =
+        parentStatement != null ? parentStatement.getStatement().getQueryTimeout() : 0;
+
+    // Create timeout handler
+    TimeoutHandler timeoutHandler =
+        TimeoutHandler.forStatement(timeoutInSeconds, typedStatementId, this);
+
     StatementState responseState = response.getStatus().getState();
     while (responseState == StatementState.PENDING || responseState == StatementState.RUNNING) {
+      // Check for timeout
+      timeoutHandler.checkTimeout();
+
       if (pollCount > 0) { // First poll happens without a delay
         try {
           Thread.sleep(connectionContext.getAsyncExecPollInterval());
