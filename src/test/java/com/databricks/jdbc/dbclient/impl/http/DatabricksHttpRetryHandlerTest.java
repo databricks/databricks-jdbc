@@ -234,7 +234,7 @@ public class DatabricksHttpRetryHandlerTest {
   @Test
   void testIsRequestMethodRetryable() {
     assertTrue(isRequestMethodRetryable("GET"), "GET requests should be allowed for retry");
-    assertFalse(isRequestMethodRetryable("HEAD"), "HEAD requests should be allowed for retry");
+    assertFalse(isRequestMethodRetryable("HEAD"), "HEAD requests should not be allowed for retry");
     assertTrue(isRequestMethodRetryable("PUT"), "PUT requests should be allowed for retry");
     assertTrue(isRequestMethodRetryable("POST"), "POST requests should be allowed for retry");
     assertFalse(
