@@ -13,10 +13,18 @@ public class LoggingTest {
   private static String buildJdbcUrl() {
     String host = System.getenv("DATABRICKS_HOST");
     String httpPath = System.getenv("DATABRICKS_HTTP_PATH");
+    String useThriftClient = System.getenv("USE_THRIFT_CLIENT");
+
+    if (useThriftClient == null || useThriftClient.isEmpty()) {
+      useThriftClient = "0"; // Default to HTTP client if not specified
+    }
+
     // Use the user's directory for logging
     String logDir = Paths.get(System.getProperty("user.home"), "logstest").toString();
     logger.info("Logging to: " + logDir);
-    // Build the JDBC URL with the new logPath
+    logger.info("Using usethriftclient=" + useThriftClient);
+
+    // Build the JDBC URL with the new logPath and use thrift client parameter
     String jdbcUrl =
         "jdbc:databricks://"
             + host
@@ -25,7 +33,9 @@ public class LoggingTest {
             + ";logPath="
             + logDir
             + ";loglevel=DEBUG"
-            + ";usethriftclient=0";
+            + ";usethriftclient="
+            + useThriftClient;
+
     return jdbcUrl;
   }
 
