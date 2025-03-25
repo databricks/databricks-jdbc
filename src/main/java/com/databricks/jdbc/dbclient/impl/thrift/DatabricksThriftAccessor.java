@@ -80,17 +80,6 @@ final class DatabricksThriftAccessor {
     this.asyncPollIntervalMillis = connectionContext.getAsyncExecPollInterval();
   }
 
-  @VisibleForTesting
-  DatabricksThriftAccessor(
-      TCLIService.Client client,
-      IDatabricksConnectionContext connectionContext,
-      DatabricksConfig databricksConfig) {
-    this.databricksConfig = databricksConfig;
-    this.thriftClient = ThreadLocal.withInitial(() -> client);
-    this.enableDirectResults = connectionContext.getDirectResultMode();
-    this.asyncPollIntervalMillis = connectionContext.getAsyncExecPollInterval();
-  }
-
   @SuppressWarnings("rawtypes")
   TBase getThriftResponse(TBase request) throws DatabricksSQLException {
     LOGGER.debug(String.format("Fetching thrift response for request {%s}", request.toString()));

@@ -72,7 +72,7 @@ public class DatabricksThriftAccessorTest {
 
   void setup(Boolean directResultsEnabled) {
     when(connectionContext.getDirectResultMode()).thenReturn(directResultsEnabled);
-    accessor = new DatabricksThriftAccessor(thriftClient, connectionContext, databricksConfig);
+    accessor = new DatabricksThriftAccessor(thriftClient, connectionContext);
   }
 
   @Test
@@ -82,7 +82,6 @@ public class DatabricksThriftAccessorTest {
     TOpenSessionResp response = new TOpenSessionResp();
     when(thriftClient.OpenSession(request)).thenReturn(response);
     assertEquals(accessor.getThriftResponse(request), response);
-    assertNotNull(accessor.getDatabricksConfig());
   }
 
   @Test
@@ -689,7 +688,7 @@ public class DatabricksThriftAccessorTest {
     // Set the async poll interval to 200 ms
     when(connectionContext.getAsyncExecPollInterval()).thenReturn(200);
 
-    accessor = new DatabricksThriftAccessor(thriftClient, connectionContext, databricksConfig);
+    accessor = new DatabricksThriftAccessor(thriftClient, connectionContext);
 
     // Create statement execution mocks
     TExecuteStatementReq request = new TExecuteStatementReq();
@@ -728,7 +727,7 @@ public class DatabricksThriftAccessorTest {
     // Set the async poll interval to 1 second
     when(connectionContext.getAsyncExecPollInterval()).thenReturn(1000);
 
-    accessor = new DatabricksThriftAccessor(thriftClient, connectionContext, databricksConfig);
+    accessor = new DatabricksThriftAccessor(thriftClient, connectionContext);
 
     // Create statement execution mocks
     TExecuteStatementReq request = new TExecuteStatementReq();
