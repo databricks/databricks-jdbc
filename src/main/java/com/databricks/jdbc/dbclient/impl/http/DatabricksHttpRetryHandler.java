@@ -258,10 +258,6 @@ public class DatabricksHttpRetryHandler
         return connectionContext.shouldRetryTemporarilyUnavailableError();
       case HttpStatus.SC_TOO_MANY_REQUESTS:
         return connectionContext.shouldRetryRateLimitError();
-      case HttpStatus.SC_INTERNAL_SERVER_ERROR:
-      case HttpStatus.SC_BAD_GATEWAY:
-      case HttpStatus.SC_GATEWAY_TIMEOUT:
-        return true;
       default:
         return false;
     }

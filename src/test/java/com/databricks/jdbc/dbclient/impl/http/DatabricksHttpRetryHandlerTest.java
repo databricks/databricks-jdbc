@@ -123,8 +123,8 @@ public class DatabricksHttpRetryHandlerTest {
 
     // Verify sleep durations match Retry-After values
     assertEquals(2, sleepDurations.size());
-    assertEquals(5L, sleepDurations.get(0));
-    assertEquals(10L, sleepDurations.get(1));
+    assertEquals(5000L, sleepDurations.get(0));
+    assertEquals(10000L, sleepDurations.get(1));
 
     // Verify accumulated time tracking
     Long finalAccumulatedTime =
@@ -182,64 +182,11 @@ public class DatabricksHttpRetryHandlerTest {
 
     // Verify sleep durations are constant
     assertEquals(3, sleepDurations.size());
-    sleepDurations.forEach(duration -> assertEquals(15L, duration));
+    sleepDurations.forEach(duration -> assertEquals(15000L, duration));
 
     // Verify accumulated time tracking
     Long finalAccumulatedTime = (Long) httpContext.getAttribute(RATE_LIMIT_ACCUMULATED_TIME_KEY);
     assertEquals(45L, finalAccumulatedTime); // 15 * 3
-  }
-
-  @Test
-  void testMixedErrorsWithExponentialBackoff() throws IOException {
-    when(mockConnectionContext.shouldRetryTemporarilyUnavailableError()).thenReturn(true);
-    when(mockConnectionContext.shouldRetryRateLimitError()).thenReturn(true);
-    when(mockConnectionContext.getTemporarilyUnavailableRetryTimeout()).thenReturn(30);
-    when(mockConnectionContext.getRateLimitRetryTimeout()).thenReturn(45);
-    HttpRequest request = createRequest("PUT", "/api/data");
-    httpContext.setAttribute(HttpCoreContext.HTTP_REQUEST, request);
-
-    // First: 500 error (should use exponential backoff)
-    HttpResponse response1 = createResponse(HttpStatus.SC_INTERNAL_SERVER_ERROR);
-    assertThrows(
-        DatabricksRetryHandlerException.class, () -> retryHandler.process(response1, httpContext));
-    assertTrue(
-        retryHandler.retryRequest(
-            new DatabricksRetryHandlerException("Test", HttpStatus.SC_INTERNAL_SERVER_ERROR),
-            1,
-            httpContext));
-
-    // Second: 503 with Retry-After: 5
-    HttpResponse response2 = createResponse(HttpStatus.SC_SERVICE_UNAVAILABLE, "5");
-    assertThrows(
-        DatabricksRetryHandlerException.class, () -> retryHandler.process(response2, httpContext));
-    assertTrue(
-        retryHandler.retryRequest(
-            new DatabricksRetryHandlerException("Test", HttpStatus.SC_SERVICE_UNAVAILABLE),
-            2,
-            httpContext));
-
-    // Third: 429 with Retry-After: 10
-    HttpResponse response3 = createResponse(HttpStatus.SC_TOO_MANY_REQUESTS, "10");
-    assertThrows(
-        DatabricksRetryHandlerException.class, () -> retryHandler.process(response3, httpContext));
-    assertTrue(
-        retryHandler.retryRequest(
-            new DatabricksRetryHandlerException("Test", HttpStatus.SC_TOO_MANY_REQUESTS),
-            3,
-            httpContext));
-
-    // Verify sleep durations follow expected pattern
-    assertEquals(3, sleepDurations.size());
-    assertEquals(2L, sleepDurations.get(0)); // Exponential backoff: 2^1
-    assertEquals(5L, sleepDurations.get(1)); // From Retry-After header
-    assertEquals(10L, sleepDurations.get(2)); // From Retry-After header
-
-    // Verify accumulated times are tracked separately
-    Long tempUnavailableTime =
-        (Long) httpContext.getAttribute(TEMP_UNAVAILABLE_ACCUMULATED_TIME_KEY);
-    Long rateLimitTime = (Long) httpContext.getAttribute(RATE_LIMIT_ACCUMULATED_TIME_KEY);
-    assertEquals(5L, tempUnavailableTime);
-    assertEquals(10L, rateLimitTime);
   }
 
   @Test
@@ -258,9 +205,9 @@ public class DatabricksHttpRetryHandlerTest {
     // Verify exponential growth
     assertTrue(delay2 > delay1);
     assertTrue(delay3 > delay2);
-    assertEquals(2L, delay1); // 1 * 2^1
-    assertEquals(4L, delay2); // 1 * 2^2
-    assertEquals(8L, delay3); // 1 * 2^3
+    assertEquals(2000L, delay1); // 1 * 2^1
+    assertEquals(4000L, delay2); // 1 * 2^2
+    assertEquals(8000L, delay3); // 1 * 2^3
   }
 
   @Test
@@ -269,7 +216,7 @@ public class DatabricksHttpRetryHandlerTest {
     long delay =
         DatabricksHttpRetryHandler.calculateDelayInMillis(
             HttpStatus.SC_INTERNAL_SERVER_ERROR, 10, 0);
-    assertEquals(10L, delay); // Should be capped at MAX_RETRY_INTERVAL (10 seconds)
+    assertEquals(10000L, delay); // Should be capped at MAX_RETRY_INTERVAL (10 seconds)
   }
 
   @Test
@@ -280,8 +227,8 @@ public class DatabricksHttpRetryHandlerTest {
     long delay429 =
         DatabricksHttpRetryHandler.calculateDelayInMillis(HttpStatus.SC_TOO_MANY_REQUESTS, 5, 3);
 
-    assertEquals(3, delay503); // Should use Retry-After value
-    assertEquals(3, delay429); // Should use Retry-After value
+    assertEquals(3000, delay503); // Should use Retry-After value
+    assertEquals(3000, delay429); // Should use Retry-After value
   }
 
   @Test
