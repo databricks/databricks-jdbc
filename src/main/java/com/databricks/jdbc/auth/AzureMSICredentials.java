@@ -9,7 +9,6 @@ import com.databricks.sdk.core.oauth.OAuthResponse;
 import com.databricks.sdk.core.oauth.RefreshableTokenSource;
 import com.databricks.sdk.core.oauth.Token;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.google.common.annotations.VisibleForTesting;
 import java.io.IOException;
 import java.net.URISyntaxException;
 import java.time.LocalDateTime;
@@ -58,8 +57,7 @@ public class AzureMSICredentials extends RefreshableTokenSource {
     return retrieveToken(hc, AZURE_METADATA_SERVICE_TOKEN_URL, params, headers);
   }
 
-  @VisibleForTesting
-  protected static Token retrieveToken(
+  private static Token retrieveToken(
       IDatabricksHttpClient hc,
       String tokenUrl,
       Map<String, String> params,
