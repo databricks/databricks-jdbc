@@ -46,16 +46,17 @@ final class DatabricksThriftAccessor {
       TExecuteStatementResp._Fields.OPERATION_HANDLE.getThriftFieldId();
   private static final short statusFieldId =
       TExecuteStatementResp._Fields.STATUS.getThriftFieldId();
-  private static final int POLLING_INTERVAL_SECONDS = 1;
   private final ThreadLocal<TCLIService.Client> thriftClient;
   private final DatabricksConfig databricksConfig;
   private final boolean enableDirectResults;
+  private final int asyncPollIntervalMillis;
 
   DatabricksThriftAccessor(IDatabricksConnectionContext connectionContext)
       throws DatabricksParsingException {
     this.enableDirectResults = connectionContext.getDirectResultMode();
     this.databricksConfig = new ClientConfigurator(connectionContext).getDatabricksConfig();
     String endPointUrl = connectionContext.getEndpointURL();
+    this.asyncPollIntervalMillis = connectionContext.getAsyncExecPollInterval();
 
     if (!DriverUtil.isRunningAgainstFake()) {
       // Create a new thrift client for each thread as client state is not thread safe. Note that
@@ -76,6 +77,7 @@ final class DatabricksThriftAccessor {
     this.databricksConfig = null;
     this.thriftClient = ThreadLocal.withInitial(() -> client);
     this.enableDirectResults = connectionContext.getDirectResultMode();
+    this.asyncPollIntervalMillis = connectionContext.getAsyncExecPollInterval();
   }
 
   @VisibleForTesting
@@ -86,6 +88,7 @@ final class DatabricksThriftAccessor {
     this.databricksConfig = databricksConfig;
     this.thriftClient = ThreadLocal.withInitial(() -> client);
     this.enableDirectResults = connectionContext.getDirectResultMode();
+    this.asyncPollIntervalMillis = connectionContext.getAsyncExecPollInterval();
   }
 
   @SuppressWarnings("rawtypes")
@@ -247,7 +250,7 @@ final class DatabricksThriftAccessor {
         statusResp = getThriftClient().GetOperationStatus(statusReq);
         checkOperationStatusForErrors(statusResp);
         try {
-          TimeUnit.SECONDS.sleep(POLLING_INTERVAL_SECONDS);
+          TimeUnit.MILLISECONDS.sleep(asyncPollIntervalMillis);
         } catch (InterruptedException e) {
           Thread.currentThread().interrupt(); // Restore interrupt flag
           cancelOperation(
