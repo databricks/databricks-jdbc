@@ -64,7 +64,12 @@ class DBFSVolumeClientTest {
     assertFalse(client.prefixExists("catalog", "schema", "volume", "file", true));
 
     // Case 4: getListResponse throws an exception.
-    doThrow(new RuntimeException("Simulated error")).when(client).getListResponse(anyString());
+    doThrow(
+            new DatabricksVolumeOperationException(
+                "Failed to get list response",
+                DatabricksDriverErrorCode.VOLUME_OPERATION_INVALID_STATE))
+        .when(client)
+        .getListResponse(anyString());
     DatabricksVolumeOperationException ex =
         assertThrows(
             DatabricksVolumeOperationException.class,
@@ -100,7 +105,12 @@ class DBFSVolumeClientTest {
     assertTrue(client.objectExists("catalog", "schema", "volume", "dir/file.txt", false));
 
     // Case 4: getListResponse throws an exception.
-    doThrow(new RuntimeException("Simulated error")).when(client).getListResponse(anyString());
+    doThrow(
+            new DatabricksVolumeOperationException(
+                "Failed to get list response",
+                DatabricksDriverErrorCode.VOLUME_OPERATION_INVALID_STATE))
+        .when(client)
+        .getListResponse(anyString());
     DatabricksVolumeOperationException ex =
         assertThrows(
             DatabricksVolumeOperationException.class,
