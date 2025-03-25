@@ -36,6 +36,7 @@ jobs:
         run: mvn clean package -DskipTests
 
       - name: Set Environment Variables
+        if: runner.os != 'Windows'
         shell: bash
         env:
           DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
@@ -43,11 +44,24 @@ jobs:
           DATABRICKS_HTTP_PATH: ${{ secrets.DATABRICKS_HTTP_PATH }}
           USE_THRIFT_CLIENT: ${{ matrix.thrift-client }}
         run: |
-          # Use printf to avoid any newline or path translation issues
-          printf "DATABRICKS_TOKEN=%s\n" "${DATABRICKS_TOKEN}" >> $GITHUB_ENV
-          printf "DATABRICKS_HOST=%s\n" "${DATABRICKS_HOST}" >> $GITHUB_ENV
-          printf "DATABRICKS_HTTP_PATH=%s\n" "${DATABRICKS_HTTP_PATH}" >> $GITHUB_ENV
-          printf "USE_THRIFT_CLIENT=%s\n" "${USE_THRIFT_CLIENT}" >> $GITHUB_ENV
+          echo "DATABRICKS_TOKEN=${DATABRICKS_TOKEN}" >> $GITHUB_ENV
+          echo "DATABRICKS_HOST=${DATABRICKS_HOST}" >> $GITHUB_ENV
+          echo "DATABRICKS_HTTP_PATH=${DATABRICKS_HTTP_PATH}" >> $GITHUB_ENV
+          echo "USE_THRIFT_CLIENT=${USE_THRIFT_CLIENT}" >> $GITHUB_ENV
+
+      - name: Set Environment Variables (Windows)
+        if: runner.os == 'Windows'
+        shell: powershell
+        env:
+          DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
+          DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
+          DATABRICKS_HTTP_PATH: ${{ secrets.DATABRICKS_HTTP_PATH }}
+          USE_THRIFT_CLIENT: ${{ matrix.thrift-client }}
+        run: |
+          "DATABRICKS_TOKEN=$env:DATABRICKS_TOKEN" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          "DATABRICKS_HOST=$env:DATABRICKS_HOST" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          "DATABRICKS_HTTP_PATH=$env:DATABRICKS_HTTP_PATH" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          "USE_THRIFT_CLIENT=$env:USE_THRIFT_CLIENT" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
       - name: Clean & Compile LoggingTest
         shell: bash
