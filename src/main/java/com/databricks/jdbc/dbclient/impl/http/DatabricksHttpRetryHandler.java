@@ -24,13 +24,13 @@ public class DatabricksHttpRetryHandler
   private static final JdbcLogger LOGGER =
       JdbcLoggerFactory.getLogger(DatabricksHttpRetryHandler.class);
   private static final String RETRY_INTERVAL_KEY = "retryInterval";
-  private static final String TEMP_UNAVAILABLE_RETRY_COUNT_KEY = "tempUnavailableRetryCount";
-  private static final String RATE_LIMIT_RETRY_COUNT_KEY = "rateLimitRetryCount";
+  private static final String TEMP_UNAVAILABLE_ACCUMULATED_TIME_KEY =
+      "tempUnavailableAccumulatedTime";
+  private static final String RATE_LIMIT_ACCUMULATED_TIME_KEY = "rateLimitAccumulatedTime";
   private static final String RETRY_AFTER_HEADER = "Retry-After";
   private static final int DEFAULT_BACKOFF_FACTOR = 2; // Exponential factor
   private static final int MIN_BACKOFF_INTERVAL = 1000; // 1s
   private static final int MAX_RETRY_INTERVAL = 10 * 1000; // 10s
-  public static final int DEFAULT_RETRY_COUNT = 5;
   private final IDatabricksConnectionContext connectionContext;
 
   public DatabricksHttpRetryHandler(IDatabricksConnectionContext connectionContext) {
@@ -60,7 +60,7 @@ public class DatabricksHttpRetryHandler
    * @implSpec This method adheres to the contract specified by its parent interface or class. It's
    *     designed to be called as part of the HTTP response handling pipeline.
    * @see #isStatusCodeRetryable(int)
-   * @see #initializeRetryCountsIfNotExist(HttpContext)
+   * @see #initializeRetryAccumulatedTimeIfNotExist(HttpContext)
    * @see DatabricksRetryHandlerException
    */
   @Override
@@ -79,7 +79,7 @@ public class DatabricksHttpRetryHandler
 
     // Set the context state
     httpContext.setAttribute(RETRY_INTERVAL_KEY, retryInterval);
-    initializeRetryCountsIfNotExist(httpContext);
+    initializeRetryAccumulatedTimeIfNotExist(httpContext);
 
     // Throw an exception to trigger the retry mechanism
     String errorReason;
@@ -120,8 +120,8 @@ public class DatabricksHttpRetryHandler
    *     the calculated duration before allowing a retry.
    * @see #isStatusCodeRetryable(int)
    * @see #isRequestMethodRetryable(String)
-   * @see #calculateDelay(int, int, int)
-   * @see #sleepForDelay(long)
+   * @see #calculateDelayInMillis(int, int, int)
+   * @see #doSleepForDelay(long)
    */
   @Override
   public boolean retryRequest(IOException exception, int executionCount, HttpContext context) {
@@ -143,12 +143,13 @@ public class DatabricksHttpRetryHandler
               + exception.getMessage());
     }
 
-    int tempUnavailableRetryCount = (int) context.getAttribute(TEMP_UNAVAILABLE_RETRY_COUNT_KEY);
-    int rateLimitRetryCount = (int) context.getAttribute(RATE_LIMIT_RETRY_COUNT_KEY);
+    long tempUnavailableAccumulatedTime =
+        getAccumulatedTime(context, TEMP_UNAVAILABLE_ACCUMULATED_TIME_KEY);
+    long rateLimitAccumulatedTime = getAccumulatedTime(context, RATE_LIMIT_ACCUMULATED_TIME_KEY);
 
     // check if retry timeout has been hit for error code 503
     if (statusCode == HttpStatus.SC_SERVICE_UNAVAILABLE
-        && tempUnavailableRetryCount * retryInterval
+        && tempUnavailableAccumulatedTime + retryInterval
             > connectionContext.getTemporarilyUnavailableRetryTimeout()) {
       LOGGER.warn(
           "TemporarilyUnavailableRetry timeout "
@@ -160,37 +161,37 @@ public class DatabricksHttpRetryHandler
 
     // check if retry timeout has been hit for error code 429
     if (statusCode == HttpStatus.SC_TOO_MANY_REQUESTS
-        && rateLimitRetryCount * retryInterval > connectionContext.getRateLimitRetryTimeout()) {
+        && rateLimitAccumulatedTime + retryInterval
+            > connectionContext.getRateLimitRetryTimeout()) {
       LOGGER.warn(
           "RateLimitRetry timeout "
-              + connectionContext.getTemporarilyUnavailableRetryTimeout()
+              + connectionContext.getRateLimitRetryTimeout()
               + " has been hit for the error: "
               + exception.getMessage());
       return false;
     }
 
-    // check the execution count and request method
-    boolean isExecutionCountExceeded = executionCount > DEFAULT_RETRY_COUNT;
+    // check if request method is retryable
     boolean isRequestMethodRetryable =
         isRequestMethodRetryable(
             ((HttpClientContext) context).getRequest().getRequestLine().getMethod());
-    if (isExecutionCountExceeded || !isRequestMethodRetryable) {
+    if (!isRequestMethodRetryable) {
       return false;
     }
 
     // if the control has reached here, then we can retry the request
-    // update the context state
+    // update the accumulated time in context
     if (statusCode == HttpStatus.SC_SERVICE_UNAVAILABLE) {
-      tempUnavailableRetryCount++;
-      context.setAttribute(TEMP_UNAVAILABLE_RETRY_COUNT_KEY, tempUnavailableRetryCount);
+      context.setAttribute(
+          TEMP_UNAVAILABLE_ACCUMULATED_TIME_KEY, tempUnavailableAccumulatedTime + retryInterval);
     } else if (statusCode == HttpStatus.SC_TOO_MANY_REQUESTS) {
-      rateLimitRetryCount++;
-      context.setAttribute(RATE_LIMIT_RETRY_COUNT_KEY, rateLimitRetryCount);
+      context.setAttribute(
+          RATE_LIMIT_ACCUMULATED_TIME_KEY, rateLimitAccumulatedTime + retryInterval);
     }
 
     // calculate the delay and sleep for that duration
-    long delay = calculateDelay(statusCode, executionCount, retryInterval);
-    sleepForDelay(delay);
+    long delayMillis = calculateDelayInMillis(statusCode, executionCount, retryInterval);
+    doSleepForDelay(delayMillis);
 
     return true;
   }
@@ -203,11 +204,11 @@ public class DatabricksHttpRetryHandler
   }
 
   @VisibleForTesting
-  static long calculateDelay(int errorCode, int executionCount, int retryInterval) {
+  static long calculateDelayInMillis(int errorCode, int executionCount, int retryInterval) {
     switch (errorCode) {
       case HttpStatus.SC_SERVICE_UNAVAILABLE:
       case HttpStatus.SC_TOO_MANY_REQUESTS:
-        return retryInterval;
+        return retryInterval * 1000L;
       default:
         return calculateExponentialBackoff(executionCount);
     }
@@ -226,18 +227,24 @@ public class DatabricksHttpRetryHandler
     return 0;
   }
 
-  private static void initializeRetryCountsIfNotExist(HttpContext httpContext) {
-    if (httpContext.getAttribute(TEMP_UNAVAILABLE_RETRY_COUNT_KEY) == null) {
-      httpContext.setAttribute(TEMP_UNAVAILABLE_RETRY_COUNT_KEY, 0);
+  private static void initializeRetryAccumulatedTimeIfNotExist(HttpContext httpContext) {
+    if (httpContext.getAttribute(TEMP_UNAVAILABLE_ACCUMULATED_TIME_KEY) == null) {
+      httpContext.setAttribute(TEMP_UNAVAILABLE_ACCUMULATED_TIME_KEY, 0L);
     }
-    if (httpContext.getAttribute(RATE_LIMIT_RETRY_COUNT_KEY) == null) {
-      httpContext.setAttribute(RATE_LIMIT_RETRY_COUNT_KEY, 0);
+    if (httpContext.getAttribute(RATE_LIMIT_ACCUMULATED_TIME_KEY) == null) {
+      httpContext.setAttribute(RATE_LIMIT_ACCUMULATED_TIME_KEY, 0L);
     }
   }
 
-  private static void sleepForDelay(long delayInSeconds) {
+  private static long getAccumulatedTime(HttpContext context, String key) {
+    Object value = context.getAttribute(key);
+    return value != null ? (long) value : 0L;
+  }
+
+  @VisibleForTesting
+  protected void doSleepForDelay(long delayMillis) {
     try {
-      Thread.sleep(delayInSeconds * 1000);
+      Thread.sleep(delayMillis);
     } catch (InterruptedException e) {
       Thread.currentThread().interrupt(); // Restore the interrupt status
       throw new RuntimeException("Sleep interrupted", e);
@@ -246,9 +253,13 @@ public class DatabricksHttpRetryHandler
 
   /** Check if the request is retryable based on the status code and any connection preferences. */
   private boolean isStatusCodeRetryable(int statusCode) {
-    return (statusCode == HttpStatus.SC_SERVICE_UNAVAILABLE
-            && connectionContext.shouldRetryTemporarilyUnavailableError())
-        || (statusCode == HttpStatus.SC_TOO_MANY_REQUESTS
-            && connectionContext.shouldRetryRateLimitError());
+    switch (statusCode) {
+      case HttpStatus.SC_SERVICE_UNAVAILABLE:
+        return connectionContext.shouldRetryTemporarilyUnavailableError();
+      case HttpStatus.SC_TOO_MANY_REQUESTS:
+        return connectionContext.shouldRetryRateLimitError();
+      default:
+        return false;
+    }
   }
 }
