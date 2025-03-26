@@ -704,7 +704,7 @@ public class DatabricksThriftAccessorTest {
         .thenReturn(operationStatusRunningResp)
         .thenReturn(operationStatusFinishedResp);
 
-    // Set a 10-second (large enough) timeout on the statement
+    // Set a 10-second (long enough) timeout on the statement
     Statement statement = mock(Statement.class);
     when(parentStatement.getStatement()).thenReturn(statement);
     when(statement.getQueryTimeout()).thenReturn(10);
@@ -724,7 +724,7 @@ public class DatabricksThriftAccessorTest {
 
   @Test
   void testExecuteWithTimeoutExpired() throws TException, SQLException {
-    // Set the async poll interval to 1 second
+    // Set the async poll interval to 1 second to facilitate testing
     when(connectionContext.getAsyncExecPollInterval()).thenReturn(1000);
 
     accessor = new DatabricksThriftAccessor(thriftClient, connectionContext);

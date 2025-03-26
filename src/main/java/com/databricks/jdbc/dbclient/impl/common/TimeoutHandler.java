@@ -14,13 +14,13 @@ public class TimeoutHandler {
   private final long startTimeMillis;
   private final int timeoutSeconds;
   private final String operationDescription;
-  private final Runnable onTimeoutAction; // do something on timeout
+  private final Runnable onTimeoutAction; // do something something on timeout
 
   /**
    * Creates a new timeout handler with the provided parameters.
    *
    * @param timeoutSeconds Timeout in seconds, 0 means no timeout
-   * @param operationDescription Human-readable description of the operation for logging
+   * @param operationDescription Description of the operation for logging
    * @param onTimeoutAction Runnable to call when a timeout occurs
    */
   public TimeoutHandler(int timeoutSeconds, String operationDescription, Runnable onTimeoutAction) {
@@ -66,7 +66,7 @@ public class TimeoutHandler {
 
   /**
    * Factory method to create a timeout handler for a databricks client with a statement ID. This
-   * works with any client that implements IDatabricksClient.
+   * works with any client that implements {@link IDatabricksClient}.
    *
    * @param timeoutSeconds Timeout in seconds
    * @param statementId The statement ID
