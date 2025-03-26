@@ -67,6 +67,7 @@ public class DatabricksThriftAccessorTest {
 
   void setup(Boolean directResultsEnabled) {
     when(connectionContext.getDirectResultMode()).thenReturn(directResultsEnabled);
+    when(connectionContext.getRowsFetchedPerBlock()).thenReturn(DEFAULT_ROW_LIMIT);
     accessor = new DatabricksThriftAccessor(thriftClient, connectionContext, databricksConfig);
   }
 
@@ -657,12 +658,46 @@ public class DatabricksThriftAccessorTest {
     }
   }
 
+  @Test
+  void testFetchResultsWithCustomMaxRowsPerBlock() throws TException, SQLException {
+    int customMaxRows = 500000;
+    IDatabricksConnectionContext mockConnectionContext = mock(IDatabricksConnectionContext.class);
+    when(mockConnectionContext.getDirectResultMode()).thenReturn(true);
+    when(mockConnectionContext.getRowsFetchedPerBlock()).thenReturn(customMaxRows);
+    accessor = new DatabricksThriftAccessor(thriftClient, mockConnectionContext, databricksConfig);
+
+    TExecuteStatementReq executeRequest = new TExecuteStatementReq();
+    TExecuteStatementResp executeResponse =
+        new TExecuteStatementResp()
+            .setOperationHandle(tOperationHandle)
+            .setStatus(new TStatus().setStatusCode(TStatusCode.SUCCESS_STATUS));
+
+    TFetchResultsReq expectedFetchRequest =
+        new TFetchResultsReq()
+            .setOperationHandle(tOperationHandle)
+            .setFetchType((short) 0)
+            .setMaxRows(customMaxRows)
+            .setMaxBytes(DEFAULT_BYTE_LIMIT)
+            .setIncludeResultSetMetadata(true);
+
+    when(thriftClient.ExecuteStatement(executeRequest)).thenReturn(executeResponse);
+    when(thriftClient.GetOperationStatus(operationStatusReq)).thenReturn(operationStatusResp);
+    when(thriftClient.FetchResults(expectedFetchRequest)).thenReturn(response);
+    when(session.getConnectionContext()).thenReturn(mockConnectionContext);
+    when(mockConnectionContext.isComplexDatatypeSupportEnabled()).thenReturn(false);
+
+    accessor.execute(executeRequest, parentStatement, session, StatementType.SQL);
+
+    // Verify that FetchResults was called with the correct maxRows value
+    verify(thriftClient).FetchResults(expectedFetchRequest);
+  }
+
   private TFetchResultsReq getFetchResultsRequest(boolean includeMetadata) {
     TFetchResultsReq request =
         new TFetchResultsReq()
             .setOperationHandle(tOperationHandle)
             .setFetchType((short) 0)
-            .setMaxRows(DEFAULT_ROW_LIMIT)
+            .setMaxRows(connectionContext.getRowsFetchedPerBlock())
             .setMaxBytes(DEFAULT_BYTE_LIMIT);
     if (includeMetadata) {
       request.setIncludeResultSetMetadata(true);

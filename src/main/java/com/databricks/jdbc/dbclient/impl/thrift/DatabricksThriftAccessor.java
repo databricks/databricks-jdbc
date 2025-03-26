@@ -39,7 +39,6 @@ final class DatabricksThriftAccessor {
       JdbcLoggerFactory.getLogger(DatabricksThriftAccessor.class);
   private static final TSparkGetDirectResults DEFAULT_DIRECT_RESULTS =
       new TSparkGetDirectResults().setMaxRows(DEFAULT_ROW_LIMIT).setMaxBytes(DEFAULT_BYTE_LIMIT);
-  private int maxRowsPerBlock = DEFAULT_ROW_LIMIT;
   private static final short directResultsFieldId =
       TExecuteStatementResp._Fields.DIRECT_RESULTS.getThriftFieldId();
   private static final short operationHandleFieldId =
@@ -50,6 +49,7 @@ final class DatabricksThriftAccessor {
   private final ThreadLocal<TCLIService.Client> thriftClient;
   private final DatabricksConfig databricksConfig;
   private final boolean enableDirectResults;
+  private final int maxRowsPerBlock;
 
   DatabricksThriftAccessor(IDatabricksConnectionContext connectionContext)
       throws DatabricksParsingException {
@@ -77,6 +77,7 @@ final class DatabricksThriftAccessor {
     this.databricksConfig = null;
     this.thriftClient = ThreadLocal.withInitial(() -> client);
     this.enableDirectResults = connectionContext.getDirectResultMode();
+    this.maxRowsPerBlock = connectionContext.getRowsFetchedPerBlock();
   }
 
   @VisibleForTesting
@@ -87,6 +88,7 @@ final class DatabricksThriftAccessor {
     this.databricksConfig = databricksConfig;
     this.thriftClient = ThreadLocal.withInitial(() -> client);
     this.enableDirectResults = connectionContext.getDirectResultMode();
+    this.maxRowsPerBlock = connectionContext.getRowsFetchedPerBlock();
   }
 
   @SuppressWarnings("rawtypes")
