@@ -55,7 +55,10 @@ public class DatabricksHttpClient implements IDatabricksHttpClient, Closeable {
   DatabricksHttpClient(IDatabricksConnectionContext connectionContext, HttpClientType type) {
     connectionManager = initializeConnectionManager(connectionContext);
     httpClient = makeClosableHttpClient(connectionContext);
-    retryHandler = new DatabricksHttpRetryHandler(connectionContext, type);
+    retryHandler =
+        type.equals(HttpClientType.COMMON)
+            ? new DatabricksHttpRetryHandler(connectionContext)
+            : new UCVolumeHttpRetryHandler(connectionContext);
     idleConnectionEvictor =
         new IdleConnectionEvictor(
             connectionManager, connectionContext.getIdleHttpConnectionExpiry(), TimeUnit.SECONDS);

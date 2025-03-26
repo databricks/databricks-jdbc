@@ -8,8 +8,6 @@ import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.google.common.annotations.VisibleForTesting;
 import java.io.IOException;
-import java.time.Duration;
-import java.time.Instant;
 import java.util.Objects;
 import org.apache.http.HttpResponse;
 import org.apache.http.HttpResponseInterceptor;
@@ -25,11 +23,10 @@ public class DatabricksHttpRetryHandler
     implements HttpResponseInterceptor, HttpRequestRetryHandler {
   private static final JdbcLogger LOGGER =
       JdbcLoggerFactory.getLogger(DatabricksHttpRetryHandler.class);
-  private static final String RETRY_INTERVAL_KEY = "retryInterval";
+  static final String RETRY_INTERVAL_KEY = "retryInterval";
   private static final String TEMP_UNAVAILABLE_RETRY_COUNT_KEY = "tempUnavailableRetryCount";
   private static final String RATE_LIMIT_RETRY_COUNT_KEY = "rateLimitRetryCount";
-  private static final String RETRY_AFTER_HEADER = "Retry-After";
-  static final String RETRY_START_TIME = "retry-start-time";
+  static final String RETRY_AFTER_HEADER = "Retry-After";
 
   private static final int DEFAULT_BACKOFF_FACTOR = 2; // Exponential factor
   private static final int MIN_BACKOFF_INTERVAL = 1000; // 1s
@@ -37,12 +34,9 @@ public class DatabricksHttpRetryHandler
   public static final int DEFAULT_RETRY_COUNT = 5;
 
   private final IDatabricksConnectionContext connectionContext;
-  private final HttpClientType httpClientType;
 
-  public DatabricksHttpRetryHandler(
-      IDatabricksConnectionContext connectionContext, HttpClientType httpClientType) {
+  public DatabricksHttpRetryHandler(IDatabricksConnectionContext connectionContext) {
     this.connectionContext = connectionContext;
-    this.httpClientType = httpClientType;
   }
 
   /**
@@ -76,15 +70,6 @@ public class DatabricksHttpRetryHandler
     int statusCode = httpResponse.getStatusLine().getStatusCode();
     if (!isStatusCodeRetryable(statusCode)) {
       // If the status code is not retryable, then no processing is needed for retry
-      return;
-    }
-
-    if (httpClientType == HttpClientType.VOLUME) {
-      Instant startTime = (Instant) httpContext.getAttribute(RETRY_START_TIME);
-      if (startTime == null) {
-        startTime = Instant.now();
-        httpContext.setAttribute(RETRY_START_TIME, startTime);
-      }
       return;
     }
 
@@ -146,15 +131,6 @@ public class DatabricksHttpRetryHandler
     int statusCode = getErrorCodeFromException(exception);
     if (!isStatusCodeRetryable(statusCode)) {
       return false;
-    }
-
-    if (httpClientType == HttpClientType.VOLUME) {
-      Instant startTime = (Instant) context.getAttribute(RETRY_START_TIME);
-      if (startTime == null) {
-        startTime = Instant.now();
-      }
-      long elapsedTime = Duration.between(startTime, Instant.now()).toMillis();
-      return elapsedTime <= connectionContext.getUCIngestionRetryTimeoutMinutes() * 60 * 1000L;
     }
 
     // check if retry interval is valid for 503 and 429
@@ -239,13 +215,13 @@ public class DatabricksHttpRetryHandler
     }
   }
 
-  private static long calculateExponentialBackoff(int executionCount) {
+  static long calculateExponentialBackoff(int executionCount) {
     return Math.min(
         MIN_BACKOFF_INTERVAL * (long) Math.pow(DEFAULT_BACKOFF_FACTOR, executionCount),
         MAX_RETRY_INTERVAL);
   }
 
-  private static int getErrorCodeFromException(IOException exception) {
+  static int getErrorCodeFromException(IOException exception) {
     if (exception instanceof DatabricksRetryHandlerException) {
       return ((DatabricksRetryHandlerException) exception).getErrCode();
     }
@@ -261,9 +237,9 @@ public class DatabricksHttpRetryHandler
     }
   }
 
-  private static void sleepForDelay(long delayInSeconds) {
+  static void sleepForDelay(long delayInMillis) {
     try {
-      Thread.sleep(delayInSeconds * 1000);
+      Thread.sleep(delayInMillis);
     } catch (InterruptedException e) {
       Thread.currentThread().interrupt(); // Restore the interrupt status
       throw new RuntimeException("Sleep interrupted", e);
@@ -272,16 +248,9 @@ public class DatabricksHttpRetryHandler
 
   /** Check if the request is retryable based on the status code and any connection preferences. */
   private boolean isStatusCodeRetryable(int statusCode) {
-    switch (httpClientType) {
-      case VOLUME:
-        return connectionContext.getUCIngestionRetriableHttpCodes().contains(statusCode);
-
-      case COMMON:
-      default:
-        return (statusCode == HttpStatus.SC_SERVICE_UNAVAILABLE
-                && connectionContext.shouldRetryTemporarilyUnavailableError())
-            || (statusCode == HttpStatus.SC_TOO_MANY_REQUESTS
-                && connectionContext.shouldRetryRateLimitError());
-    }
+    return (statusCode == HttpStatus.SC_SERVICE_UNAVAILABLE
+            && connectionContext.shouldRetryTemporarilyUnavailableError())
+        || (statusCode == HttpStatus.SC_TOO_MANY_REQUESTS
+            && connectionContext.shouldRetryRateLimitError());
   }
 }
