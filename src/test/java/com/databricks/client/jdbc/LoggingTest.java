@@ -39,16 +39,12 @@ public class LoggingTest {
         // Extract the actual path after the Git prefix
         httpPath = httpPath.substring(slashAfterGit);
         logger.info("Fixed corrupted HTTP path: " + httpPath);
-      } else {
-        // If we can't fix it, set a fallback
-        httpPath = "/sql/1.0/endpoints/abc123def456";
-        logger.warning("Using fallback HTTP path: " + httpPath);
       }
     }
     String useThriftClient = System.getenv("USE_THRIFT_CLIENT");
 
     if (useThriftClient == null || useThriftClient.isEmpty()) {
-      useThriftClient = "0"; // Default to non-Thrift client if not specified
+      useThriftClient = "1"; // Default to thrift client if not specified
     }
 
     // Create log directory with proper path handling
@@ -86,12 +82,7 @@ public class LoggingTest {
             + ";usethriftclient="
             + useThriftClient;
 
-    // Log the URL without exposing any sensitive information
-    String logUrl = jdbcUrl;
-    if (logUrl.contains("token=")) {
-      logUrl = logUrl.replaceAll("(token=)[^;]*", "$1*****");
-    }
-    logger.info("Connecting with URL: " + logUrl);
+    logger.info("Connecting with URL: " + jdbcUrl);
 
     return jdbcUrl;
   }
