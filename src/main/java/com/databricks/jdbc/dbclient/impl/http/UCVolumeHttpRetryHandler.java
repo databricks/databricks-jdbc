@@ -1,7 +1,6 @@
 package com.databricks.jdbc.dbclient.impl.http;
 
 import com.databricks.jdbc.api.IDatabricksConnectionContext;
-import com.databricks.jdbc.exception.DatabricksRetryHandlerException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import java.io.IOException;
@@ -14,7 +13,7 @@ import org.apache.http.protocol.HttpContext;
 public class UCVolumeHttpRetryHandler extends DatabricksHttpRetryHandler {
   private static final JdbcLogger LOGGER =
       JdbcLoggerFactory.getLogger(UCVolumeHttpRetryHandler.class);
-  static final String RETRY_START_TIME = "retry-start-time";
+  static final String RETRY_START_TIME_KEY = "retry-start-time";
 
   private final IDatabricksConnectionContext connectionContext;
 
@@ -24,28 +23,10 @@ public class UCVolumeHttpRetryHandler extends DatabricksHttpRetryHandler {
   }
 
   /**
-   * Processes an HTTP response to handle retryable status codes and set up retry logic.
+   * {@inheritDoc}
    *
-   * <p>This method is responsible for examining the HTTP response, determining if it's retryable,
-   * and setting up the necessary context for potential retry attempts.
-   *
-   * @param httpResponse The HTTP response to be processed.
-   * @param httpContext The HTTP context associated with the request and response.
-   * @throws IOException If there's an issue processing the response.
-   * @throws DatabricksRetryHandlerException If the status code is retryable, triggering the retry
-   *     mechanism.
-   * @implNote The method performs the following steps:
-   *     <ul>
-   *       <li>Checks if the status code is retryable.
-   *       <li>Extracts the retry interval from the response for status codes 503 and 429.
-   *       <li>Sets up the context state for retry logic.
-   *       <li>Throws a {@code DatabricksRetryHandlerException} to trigger the retry mechanism,
-   *           including relevant error information from the response.
-   *     </ul>
-   *
-   * @implSpec This method adheres to the contract specified by its parent interface or class. It's
-   *     designed to be called as part of the HTTP response handling pipeline.
-   * @see DatabricksRetryHandlerException
+   * <p>Specifically this handles retryable http codes and setting of retry start time for UC Volume
+   * operations
    */
   @Override
   public void process(HttpResponse httpResponse, HttpContext httpContext) throws IOException {
@@ -55,10 +36,10 @@ public class UCVolumeHttpRetryHandler extends DatabricksHttpRetryHandler {
       return;
     }
 
-    Instant startTime = (Instant) httpContext.getAttribute(RETRY_START_TIME);
+    Instant startTime = (Instant) httpContext.getAttribute(RETRY_START_TIME_KEY);
     if (startTime == null) {
       startTime = Instant.now();
-      httpContext.setAttribute(RETRY_START_TIME, startTime);
+      httpContext.setAttribute(RETRY_START_TIME_KEY, startTime);
     }
 
     // Extract the retry interval from the response if server supports retry after header
@@ -72,26 +53,10 @@ public class UCVolumeHttpRetryHandler extends DatabricksHttpRetryHandler {
   }
 
   /**
-   * Determines whether a request should be retried after encountering an IOException.
+   * {@inheritDoc}
    *
-   * <p>This method implements retry strategy for HTTP requests for UC Volume operations,
-   * considering various factors such as status codes, retry intervals, and execution counts.
-   *
-   * @param exception The IOException encountered during the request execution.
-   * @param executionCount The number of times this request has been executed.
-   * @param context The HttpContext containing attributes related to the request and retry logic.
-   * @return boolean True if the request should be retried, false otherwise.
-   * @throws RuntimeException If an invalid retry interval is found in the context for status codes
-   *     503 (Service Unavailable) or 429 (Too Many Requests).
-   * @implNote The method performs the following checks:
-   *     <ul>
-   *       <li>Verifies if the status code is retryable.
-   *     </ul>
-   *     If all checks pass, the method updates retry counters, calculates a delay, and sleeps for
-   *     the calculated duration before allowing a retry.
-   * @see #isRequestMethodRetryable(String)
-   * @see #calculateDelay(int, int, int)
-   * @see #sleepForDelay(long)
+   * <p>Specifically, this method implements retry strategy for HTTP requests for UC Volume
+   * operations
    */
   @Override
   public boolean retryRequest(IOException exception, int executionCount, HttpContext context) {
@@ -101,7 +66,7 @@ public class UCVolumeHttpRetryHandler extends DatabricksHttpRetryHandler {
       return false;
     }
 
-    Instant startTime = (Instant) context.getAttribute(RETRY_START_TIME);
+    Instant startTime = (Instant) context.getAttribute(RETRY_START_TIME_KEY);
     if (startTime == null) {
       startTime = Instant.now();
     }

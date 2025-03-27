@@ -80,7 +80,7 @@ public class DatabricksHttpRetryHandlerTest {
     HttpResponse response = createResponse(HttpStatus.SC_OK);
     retryHandler.process(response, httpContext);
     // No exception should be thrown, and no attributes should be set
-    assertNull(httpContext.getAttribute(UCVolumeHttpRetryHandler.RETRY_START_TIME));
+    assertNull(httpContext.getAttribute(UCVolumeHttpRetryHandler.RETRY_START_TIME_KEY));
   }
 
   @Test
@@ -92,7 +92,7 @@ public class DatabricksHttpRetryHandlerTest {
     HttpResponse response = createResponse(HttpStatus.SC_BAD_REQUEST);
     retryHandler.process(response, httpContext);
     // No exception should be thrown, and retry start time attributes should be set
-    assertNotNull(httpContext.getAttribute(UCVolumeHttpRetryHandler.RETRY_START_TIME));
+    assertNotNull(httpContext.getAttribute(UCVolumeHttpRetryHandler.RETRY_START_TIME_KEY));
   }
 
   @Test
@@ -232,7 +232,7 @@ public class DatabricksHttpRetryHandlerTest {
     when(mockConnectionContext.getUCIngestionRetryTimeoutMinutes()).thenReturn(1);
 
     httpContext.setAttribute(
-        UCVolumeHttpRetryHandler.RETRY_START_TIME, Instant.now().minusSeconds(100));
+        UCVolumeHttpRetryHandler.RETRY_START_TIME_KEY, Instant.now().minusSeconds(100));
     httpContext.setAttribute(DatabricksHttpRetryHandler.RETRY_INTERVAL_KEY, -1);
     retryHandler = new UCVolumeHttpRetryHandler(mockConnectionContext);
 
@@ -247,7 +247,7 @@ public class DatabricksHttpRetryHandlerTest {
     when(mockConnectionContext.getUCIngestionRetryTimeoutMinutes()).thenReturn(2);
 
     httpContext.setAttribute(
-        UCVolumeHttpRetryHandler.RETRY_START_TIME, Instant.now().minusSeconds(100));
+        UCVolumeHttpRetryHandler.RETRY_START_TIME_KEY, Instant.now().minusSeconds(100));
     httpContext.setAttribute(DatabricksHttpRetryHandler.RETRY_INTERVAL_KEY, -1);
     retryHandler = new UCVolumeHttpRetryHandler(mockConnectionContext);
 
