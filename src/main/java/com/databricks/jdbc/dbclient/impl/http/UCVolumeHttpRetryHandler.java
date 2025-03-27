@@ -71,11 +71,12 @@ public class UCVolumeHttpRetryHandler extends DatabricksHttpRetryHandler {
       startTime = Instant.now();
     }
 
-    // check if retry interval is valid for 503 and 429
+    // check if we have a retry interval set from retry-after header
     int retryInterval = (int) context.getAttribute(RETRY_INTERVAL_KEY);
     long delay = calculateDelay(statusCode, executionCount, retryInterval);
     doSleepForDelay(delay);
 
+    // Check if we are still good for retry
     long elapsedTime = Duration.between(startTime, Instant.now()).toMillis();
     return elapsedTime <= connectionContext.getUCIngestionRetryTimeoutMinutes() * 60 * 1000L;
   }
