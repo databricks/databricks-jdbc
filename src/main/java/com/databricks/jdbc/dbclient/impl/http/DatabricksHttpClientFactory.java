@@ -3,6 +3,7 @@ package com.databricks.jdbc.dbclient.impl.http;
 import static java.util.AbstractMap.SimpleEntry;
 
 import com.databricks.jdbc.api.IDatabricksConnectionContext;
+import com.databricks.jdbc.common.HttpClientType;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;

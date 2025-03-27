@@ -1,4 +1,4 @@
-package com.databricks.jdbc.dbclient.impl.http;
+package com.databricks.jdbc.common;
 
 public enum HttpClientType {
   COMMON,
