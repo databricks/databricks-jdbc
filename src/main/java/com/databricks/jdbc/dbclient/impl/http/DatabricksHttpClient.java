@@ -48,14 +48,12 @@ public class DatabricksHttpClient implements IDatabricksHttpClient, Closeable {
   private static final int DEFAULT_HTTP_CLIENT_SOCKET_TIMEOUT = 300 * 1000; // ms
   private final PoolingHttpClientConnectionManager connectionManager;
   private final CloseableHttpClient httpClient;
-  private DatabricksHttpRetryHandler retryHandler;
   private IdleConnectionEvictor idleConnectionEvictor;
   private CloseableHttpAsyncClient asyncClient;
 
   DatabricksHttpClient(IDatabricksConnectionContext connectionContext) {
     connectionManager = initializeConnectionManager(connectionContext);
     httpClient = makeClosableHttpClient(connectionContext);
-    retryHandler = new DatabricksHttpRetryHandler(connectionContext);
     idleConnectionEvictor =
         new IdleConnectionEvictor(
             connectionManager, connectionContext.getIdleHttpConnectionExpiry(), TimeUnit.SECONDS);
@@ -145,6 +143,7 @@ public class DatabricksHttpClient implements IDatabricksHttpClient, Closeable {
 
   private CloseableHttpClient makeClosableHttpClient(
       IDatabricksConnectionContext connectionContext) {
+    DatabricksHttpRetryHandler retryHandler = new DatabricksHttpRetryHandler(connectionContext);
     HttpClientBuilder builder =
         HttpClientBuilder.create()
             .setConnectionManager(connectionManager)
