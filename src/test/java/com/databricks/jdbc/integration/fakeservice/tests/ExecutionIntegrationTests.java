@@ -7,7 +7,10 @@ import static com.github.tomakehurst.wiremock.client.WireMock.postRequestedFor;
 import static com.github.tomakehurst.wiremock.client.WireMock.urlEqualTo;
 import static org.junit.jupiter.api.Assertions.*;
 
+import com.databricks.jdbc.api.impl.DatabricksConnection;
+import com.databricks.jdbc.common.DatabricksClientType;
 import com.databricks.jdbc.integration.fakeservice.AbstractFakeServiceIntegrationTests;
+import com.databricks.jdbc.integration.fakeservice.FakeServiceExtension;
 import com.github.tomakehurst.wiremock.client.CountMatchingStrategy;
 import java.sql.Connection;
 import java.sql.ResultSet;
@@ -29,7 +32,14 @@ public class ExecutionIntegrationTests extends AbstractFakeServiceIntegrationTes
   @AfterEach
   void cleanUp() throws SQLException {
     if (connection != null) {
-      connection.close();
+      if (((DatabricksConnection) connection).getConnectionContext().getClientType()
+              == DatabricksClientType.THRIFT
+          && getFakeServiceMode() == FakeServiceExtension.FakeServiceMode.REPLAY) {
+        // Hacky fix
+        // Wiremock has error in stub matching for close operation in THRIFT + REPLAY mode
+      } else {
+        connection.close();
+      }
     }
   }
 

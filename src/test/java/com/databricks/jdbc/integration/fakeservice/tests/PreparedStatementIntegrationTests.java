@@ -5,7 +5,10 @@ import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.databricks.jdbc.api.impl.DatabricksConnection;
+import com.databricks.jdbc.common.DatabricksClientType;
 import com.databricks.jdbc.integration.fakeservice.AbstractFakeServiceIntegrationTests;
+import com.databricks.jdbc.integration.fakeservice.FakeServiceExtension;
 import java.math.BigDecimal;
 import java.sql.*;
 import java.util.Properties;
@@ -29,7 +32,14 @@ public class PreparedStatementIntegrationTests extends AbstractFakeServiceIntegr
   @AfterEach
   void cleanUp() throws SQLException {
     if (connection != null) {
-      connection.close();
+      if (((DatabricksConnection) connection).getConnectionContext().getClientType()
+              == DatabricksClientType.THRIFT
+          && getFakeServiceMode() == FakeServiceExtension.FakeServiceMode.REPLAY) {
+        // Hacky fix
+        // Wiremock has error in stub matching for close operation in THRIFT + REPLAY mode
+      } else {
+        connection.close();
+      }
     }
   }
 
