@@ -226,6 +226,7 @@ public interface IDatabricksConnectionContext {
   /** Returns true if request tracing should be enabled. */
   boolean isRequestTracingEnabled();
 
+  /** Returns maximum number of characters that can be contained in STRING columns. */
   int getDefaultStringColumnLength();
 
   /** Returns true if driver return complex data type java objects natively as opposed to string */
