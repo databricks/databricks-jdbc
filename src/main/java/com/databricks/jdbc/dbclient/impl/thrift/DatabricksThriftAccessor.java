@@ -375,7 +375,7 @@ final class DatabricksThriftAccessor {
       TStatus responseStatus,
       TOperationHandle operationHandle,
       String context,
-      int maxRows,
+      int maxRowsPerBlock,
       boolean fetchMetadata)
       throws DatabricksHttpException {
     verifySuccessStatus(responseStatus, context);
@@ -383,7 +383,8 @@ final class DatabricksThriftAccessor {
         new TFetchResultsReq()
             .setOperationHandle(operationHandle)
             .setFetchType((short) 0) // 0 represents Query output. 1 represents Log
-            .setMaxRows(maxRows) // Max number of rows that should be returned in the rowset.
+            .setMaxRows(
+                maxRowsPerBlock) // Max number of rows that should be returned in the rowset.
             .setMaxBytes(DEFAULT_BYTE_LIMIT);
     if (fetchMetadata) {
       request.setIncludeResultSetMetadata(true);
