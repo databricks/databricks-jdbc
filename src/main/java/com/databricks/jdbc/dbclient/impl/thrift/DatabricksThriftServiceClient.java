@@ -205,7 +205,9 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
             .setParameters(sparkParameters)
             .setUseArrowNativeTypes(arrowNativeTypes);
 
-    if (parentStatement.getMaxRows() != DEFAULT_ROW_LIMIT) {
+    if (parentStatement.getMaxRows()
+        != DEFAULT_ROW_LIMIT) { // set request param only if user has set maxRows. Similar behavior
+      // to SEA flow
       request.setResultRowLimit(parentStatement.getMaxRows());
     }
 

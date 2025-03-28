@@ -232,5 +232,6 @@ public interface IDatabricksConnectionContext {
   /** Returns the size for HTTP connection pool */
   int getHttpConnectionPoolSize();
 
+  /** Returns maximum number of rows that a query returns at a time. */
   int getRowsFetchedPerBlock();
 }
