@@ -229,7 +229,7 @@ public class DatabricksHttpRetryHandlerTest {
   void retryUCVolumeRequestWithRetryableStatusCodeTimeout() throws Exception {
     when(mockConnectionContext.getUCIngestionRetriableHttpCodes())
         .thenReturn(List.of(HttpStatus.SC_SERVICE_UNAVAILABLE, HttpStatus.SC_BAD_REQUEST));
-    when(mockConnectionContext.getUCIngestionRetryTimeoutMinutes()).thenReturn(1);
+    when(mockConnectionContext.getUCIngestionRetryTimeoutSeconds()).thenReturn(60);
 
     httpContext.setAttribute(
         UCVolumeHttpRetryHandler.RETRY_START_TIME_KEY, Instant.now().minusSeconds(100));
@@ -244,7 +244,7 @@ public class DatabricksHttpRetryHandlerTest {
   void retryUCVolumeRequestWithRetryableStatusCode() throws Exception {
     when(mockConnectionContext.getUCIngestionRetriableHttpCodes())
         .thenReturn(List.of(HttpStatus.SC_SERVICE_UNAVAILABLE, HttpStatus.SC_BAD_REQUEST));
-    when(mockConnectionContext.getUCIngestionRetryTimeoutMinutes()).thenReturn(2);
+    when(mockConnectionContext.getUCIngestionRetryTimeoutSeconds()).thenReturn(120);
 
     httpContext.setAttribute(
         UCVolumeHttpRetryHandler.RETRY_START_TIME_KEY, Instant.now().minusSeconds(100));
@@ -253,6 +253,39 @@ public class DatabricksHttpRetryHandlerTest {
 
     IOException exception = new DatabricksRetryHandlerException("Test", HttpStatus.SC_BAD_REQUEST);
     assertTrue(retryHandler.retryRequest(exception, 1, httpContext));
+  }
+
+  @Test
+  void testUCVolumeRetryTimeout() throws IOException {
+    when(mockConnectionContext.getUCIngestionRetriableHttpCodes())
+        .thenReturn(List.of(HttpStatus.SC_SERVICE_UNAVAILABLE, HttpStatus.SC_BAD_REQUEST));
+    when(mockConnectionContext.getUCIngestionRetryTimeoutSeconds()).thenReturn(10);
+
+    httpContext.setAttribute(UCVolumeHttpRetryHandler.RETRY_START_TIME_KEY, Instant.now());
+    httpContext.setAttribute(DatabricksHttpRetryHandler.RETRY_INTERVAL_KEY, -1);
+
+    retryHandler = new UCVolumeHttpRetryHandler(mockConnectionContext);
+
+    // First attempt: should retry
+    assertTrue(
+        retryHandler.retryRequest(
+            new DatabricksRetryHandlerException("Test", HttpStatus.SC_SERVICE_UNAVAILABLE),
+            1,
+            httpContext));
+
+    // Second attempt: should retry
+    assertTrue(
+        retryHandler.retryRequest(
+            new DatabricksRetryHandlerException("Test", HttpStatus.SC_SERVICE_UNAVAILABLE),
+            2,
+            httpContext));
+
+    // Third attempt: should not retry
+    assertFalse(
+        retryHandler.retryRequest(
+            new DatabricksRetryHandlerException("Test", HttpStatus.SC_SERVICE_UNAVAILABLE),
+            3,
+            httpContext));
   }
 
   @Test

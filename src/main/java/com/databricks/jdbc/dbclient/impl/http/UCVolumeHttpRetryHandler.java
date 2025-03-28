@@ -78,7 +78,7 @@ public class UCVolumeHttpRetryHandler extends DatabricksHttpRetryHandler {
 
     // Check if we are still good for retry
     long elapsedTime = Duration.between(startTime, Instant.now()).toMillis();
-    return elapsedTime <= connectionContext.getUCIngestionRetryTimeoutMinutes() * 60 * 1000L;
+    return elapsedTime <= connectionContext.getUCIngestionRetryTimeoutSeconds() * 1000L;
   }
 
   static long calculateDelay(int errorCode, int executionCount, int retryInterval) {

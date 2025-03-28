@@ -246,7 +246,6 @@ public class DatabricksHttpRetryHandler
   @VisibleForTesting
   protected void doSleepForDelay(long delayMillis) {
     try {
-
       Thread.sleep(delayMillis);
     } catch (InterruptedException e) {
       Thread.currentThread().interrupt(); // Restore the interrupt status

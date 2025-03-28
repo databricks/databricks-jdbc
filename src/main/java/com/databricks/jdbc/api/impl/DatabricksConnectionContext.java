@@ -745,8 +745,9 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   }
 
   @Override
-  public int getUCIngestionRetryTimeoutMinutes() {
-    return Integer.parseInt(getParameter(DatabricksJdbcUrlParams.UC_INGESTION_RETRY_TIMEOUT));
+  public int getUCIngestionRetryTimeoutSeconds() {
+    // The Url param takes value in minutes
+    return 60 * Integer.parseInt(getParameter(DatabricksJdbcUrlParams.UC_INGESTION_RETRY_TIMEOUT));
   }
 
   private static boolean nullOrEmptyString(String s) {

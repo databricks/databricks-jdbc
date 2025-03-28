@@ -235,6 +235,6 @@ public interface IDatabricksConnectionContext {
   /** Returns the list of HTTP codes to retry for UC Volume Ingestion */
   List<Integer> getUCIngestionRetriableHttpCodes();
 
-  /** Returns retry timeout in minutes for UC Volume Ingestion */
-  int getUCIngestionRetryTimeoutMinutes();
+  /** Returns retry timeout in seconds for UC Volume Ingestion */
+  int getUCIngestionRetryTimeoutSeconds();
 }
