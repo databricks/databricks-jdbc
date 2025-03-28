@@ -7,6 +7,7 @@ import com.databricks.jdbc.api.IDatabricksSession;
 import com.databricks.jdbc.api.impl.IExecutionResult;
 import com.databricks.jdbc.api.impl.VolumeOperationStatus;
 import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
+import com.databricks.jdbc.common.util.JsonUtil;
 import com.databricks.jdbc.common.util.VolumeUtil;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
 import com.databricks.jdbc.dbclient.impl.http.DatabricksHttpClientFactory;
@@ -17,7 +18,6 @@ import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.model.core.ResultManifest;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Strings;
 import java.io.IOException;
@@ -128,9 +128,8 @@ public class VolumeOperationResult implements IExecutionResult {
               ? headersVal.substring(1, headersVal.length() - 1)
               : headersVal;
       if (!headers.isEmpty()) {
-        ObjectMapper objectMapper = new ObjectMapper();
         try {
-          return objectMapper.readValue(headers, Map.class);
+          return JsonUtil.getMapper().readValue(headers, Map.class);
         } catch (JsonProcessingException e) {
           throw new DatabricksVolumeOperationException(
               "Failed to parse headers",
