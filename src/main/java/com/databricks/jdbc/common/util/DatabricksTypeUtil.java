@@ -195,7 +195,7 @@ public class DatabricksTypeUtil {
   }
 
   /*
-   * Returns default scale and precision based on column type. For string columns, returns the default string col length.
+   * Returns default precision and scale based on column type. For string columns, returns the default string col length in precision.
    */
   public static int[] getBasePrecisionAndScale(int columnType) {
     if (columnType == Types.VARCHAR || columnType == Types.CHAR) {
