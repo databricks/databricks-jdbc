@@ -1,6 +1,7 @@
 package com.databricks.jdbc.common.util;
 
 import static com.databricks.jdbc.TestConstants.*;
+import static com.databricks.jdbc.common.EnvironmentVariables.DEFAULT_ROW_LIMIT;
 import static com.databricks.jdbc.common.util.DatabricksThriftUtil.checkDirectResultsForErrorStatus;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.when;
@@ -241,6 +242,7 @@ public class DatabricksThriftUtilTest {
   @Test
   public void testConvertColumnarToRowBased() throws DatabricksSQLException {
     when(fetchResultsResp.getResults()).thenReturn(BOOL_ROW_SET);
+    when(parentStatement.getMaxRows()).thenReturn(DEFAULT_ROW_LIMIT);
     List<List<Object>> rowBasedData =
         DatabricksThriftUtil.convertColumnarToRowBased(fetchResultsResp, parentStatement, session);
     assertEquals(rowBasedData.size(), 4);
@@ -262,6 +264,28 @@ public class DatabricksThriftUtilTest {
     TTypeEntry typeEntry = new TTypeEntry();
     typeEntry.setPrimitiveEntry(primitiveType);
     return new TTypeDesc().setTypes(Collections.singletonList(typeEntry));
+  }
+
+  @Test
+  public void testMaxRowsInStatement() throws DatabricksSQLException {
+    when(fetchResultsResp.getResults()).thenReturn(BOOL_ROW_SET);
+    int maxRows = 2;
+    when(parentStatement.getMaxRows()).thenReturn(maxRows);
+    List<List<Object>> rowBasedData =
+        DatabricksThriftUtil.convertColumnarToRowBased(fetchResultsResp, parentStatement, session);
+    assertEquals(maxRows, rowBasedData.size());
+
+    maxRows = 0;
+    when(parentStatement.getMaxRows()).thenReturn(maxRows);
+    rowBasedData =
+        DatabricksThriftUtil.convertColumnarToRowBased(fetchResultsResp, parentStatement, session);
+    assertTrue(rowBasedData.isEmpty());
+
+    maxRows = 5;
+    when(parentStatement.getMaxRows()).thenReturn(maxRows);
+    rowBasedData =
+        DatabricksThriftUtil.convertColumnarToRowBased(fetchResultsResp, parentStatement, session);
+    assertEquals(4, rowBasedData.size());
   }
 
   @ParameterizedTest

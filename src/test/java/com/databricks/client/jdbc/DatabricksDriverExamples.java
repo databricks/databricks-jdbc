@@ -139,6 +139,22 @@ public class DatabricksDriverExamples {
     con.close();
   }
 
+  /** Demonstrates use statement.setMaxRows(). Limits the number of rows returned by a query. */
+  @Test
+  void exampleMaxRows() throws Exception {
+    // Register the Databricks JDBC driver
+    DriverManager.registerDriver(new Driver());
+    String jdbcUrl = JDBC_URL_WAREHOUSE + "EnableTelemetry=1" + "enableArrow=0";
+    Connection con = DriverManager.getConnection(jdbcUrl, "token", DATABRICKS_TOKEN);
+    Statement stmt = con.createStatement();
+    stmt.setMaxRows(5);
+    ResultSet rs = stmt.executeQuery("SELECT * FROM RANGE(10)");
+    printResultSet(rs); // 5 rows will be printed
+    stmt.close();
+    rs.close();
+    con.close();
+  }
+
   /**
    * Demonstrates how SQLState is set/returned when an error occurs, for example using an invalid
    * SQL query.
