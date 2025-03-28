@@ -214,7 +214,7 @@ public class ClientConfigurator {
     }
   }
 
-  public void setupAzureMI() {
+  private void setupAzureMI() {
     databricksConfig.setHost(connectionContext.getHostForOAuth());
     databricksConfig.setAuthType(DatabricksJdbcConstants.AZURE_MSI_AUTH_TYPE);
     databricksConfig.setCredentialsProvider(new AzureMSICredentialProvider(connectionContext));

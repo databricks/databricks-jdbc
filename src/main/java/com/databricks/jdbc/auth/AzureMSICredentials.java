@@ -101,7 +101,12 @@ public class AzureMSICredentials extends RefreshableTokenSource {
     params.put("api-version", API_VERSION);
     params.put("resource", resource);
     if (clientId != null) {
+      LOGGER.debug(
+          "Attempting to connect via Azure user-assigned managed identity with client ID: {}",
+          clientId);
       params.put("client_id", clientId);
+    } else {
+      LOGGER.debug("Attempting to connect via Azure system-assigned managed identity");
     }
     Map<String, String> headers = new HashMap<>();
     headers.put("Metadata", "true");
@@ -131,10 +136,12 @@ public class AzureMSICredentials extends RefreshableTokenSource {
       params.forEach(uriBuilder::addParameter);
       HttpGet getRequest = new HttpGet(uriBuilder.build());
       headers.forEach(getRequest::setHeader);
+      LOGGER.debug("Executing GET request to retrieve Azure MSI token");
       HttpResponse response = hc.execute(getRequest);
       OAuthResponse resp =
           JsonUtil.getMapper().readValue(response.getEntity().getContent(), OAuthResponse.class);
       LocalDateTime expiry = LocalDateTime.now().plus(resp.getExpiresIn(), ChronoUnit.SECONDS);
+      LOGGER.debug("Azure MSI Token retrieved successfully");
       return new Token(resp.getAccessToken(), resp.getTokenType(), resp.getRefreshToken(), expiry);
     } catch (IOException | URISyntaxException | DatabricksHttpException e) {
       String errorMessage = "Failed to retrieve Azure MSI token: " + e.getMessage();
