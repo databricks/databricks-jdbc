@@ -205,6 +205,9 @@ final class DatabricksThriftAccessor {
 
     // Set direct result configuration
     if (enableDirectResults) {
+      // if getDirectResults.maxRows > 0, the server will immediately call FetchResults. Fetch
+      // initial rows limited by maxRows.
+      // if = 0, server does not call FetchResults.
       TSparkGetDirectResults directResults =
           new TSparkGetDirectResults().setMaxBytes(DEFAULT_BYTE_LIMIT).setMaxRows(maxRowsPerBlock);
       request.setGetDirectResults(directResults);
@@ -380,7 +383,7 @@ final class DatabricksThriftAccessor {
         new TFetchResultsReq()
             .setOperationHandle(operationHandle)
             .setFetchType((short) 0) // 0 represents Query output. 1 represents Log
-            .setMaxRows(maxRows)
+            .setMaxRows(maxRows) // Max number of rows that should be returned in the rowset.
             .setMaxBytes(DEFAULT_BYTE_LIMIT);
     if (fetchMetadata) {
       request.setIncludeResultSetMetadata(true);

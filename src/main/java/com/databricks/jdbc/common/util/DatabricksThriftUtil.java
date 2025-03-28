@@ -261,6 +261,7 @@ public class DatabricksThriftUtil {
     }
     if (parentStatement != null) {
       int statementMaxRows = parentStatement.getMaxRows();
+      // trim result set to max rows if result set is larger
       if (statementMaxRows != DEFAULT_ROW_LIMIT && rows.size() > statementMaxRows) {
         rows = rows.subList(0, statementMaxRows);
       }
