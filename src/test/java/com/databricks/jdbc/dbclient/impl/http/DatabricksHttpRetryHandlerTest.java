@@ -133,6 +133,63 @@ public class DatabricksHttpRetryHandlerTest {
   }
 
   @Test
+  void testRateLimitWithConstantRetryAfter() throws IOException {
+    when(mockConnectionContext.shouldRetryRateLimitError()).thenReturn(true);
+    when(mockConnectionContext.getRateLimitRetryTimeout()).thenReturn(45);
+    HttpRequest request = createRequest("POST", "/api/data");
+    httpContext.setAttribute(HttpCoreContext.HTTP_REQUEST, request);
+
+    // Configure a constant Retry-After of 15 seconds
+    // First attempt
+    HttpResponse response1 = createResponse(HttpStatus.SC_TOO_MANY_REQUESTS, "15");
+    assertThrows(
+        DatabricksRetryHandlerException.class, () -> retryHandler.process(response1, httpContext));
+    assertTrue(
+        retryHandler.retryRequest(
+            new DatabricksRetryHandlerException("Test", HttpStatus.SC_TOO_MANY_REQUESTS),
+            1,
+            httpContext));
+
+    // Second attempt
+    HttpResponse response2 = createResponse(HttpStatus.SC_TOO_MANY_REQUESTS, "15");
+    assertThrows(
+        DatabricksRetryHandlerException.class, () -> retryHandler.process(response2, httpContext));
+    assertTrue(
+        retryHandler.retryRequest(
+            new DatabricksRetryHandlerException("Test", HttpStatus.SC_TOO_MANY_REQUESTS),
+            2,
+            httpContext));
+
+    // Third attempt
+    HttpResponse response3 = createResponse(HttpStatus.SC_TOO_MANY_REQUESTS, "15");
+    assertThrows(
+        DatabricksRetryHandlerException.class, () -> retryHandler.process(response3, httpContext));
+    assertTrue(
+        retryHandler.retryRequest(
+            new DatabricksRetryHandlerException("Test", HttpStatus.SC_TOO_MANY_REQUESTS),
+            3,
+            httpContext));
+
+    // Fourth attempt - should exceed timeout (45 seconds)
+    HttpResponse response4 = createResponse(HttpStatus.SC_TOO_MANY_REQUESTS, "15");
+    assertThrows(
+        DatabricksRetryHandlerException.class, () -> retryHandler.process(response4, httpContext));
+    assertFalse(
+        retryHandler.retryRequest(
+            new DatabricksRetryHandlerException("Test", HttpStatus.SC_TOO_MANY_REQUESTS),
+            4,
+            httpContext));
+
+    // Verify sleep durations are constant
+    assertEquals(3, sleepDurations.size());
+    sleepDurations.forEach(duration -> assertEquals(15000L, duration));
+
+    // Verify accumulated time tracking
+    Long finalAccumulatedTime = (Long) httpContext.getAttribute(RATE_LIMIT_ACCUMULATED_TIME_KEY);
+    assertEquals(45L, finalAccumulatedTime); // 15 * 3
+  }
+
+  @Test
   void testExponentialBackoffDelay() {
     // Test exponential backoff for non-503/429 status codes
     long delay1 =
