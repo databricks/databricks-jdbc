@@ -9,7 +9,7 @@ import static com.databricks.jdbc.common.util.DatabricksThriftUtil.getTypeTextFr
 import static com.databricks.jdbc.common.util.DatabricksTypeUtil.TIMESTAMP;
 import static com.databricks.jdbc.common.util.DatabricksTypeUtil.TIMESTAMP_NTZ;
 import static com.databricks.jdbc.common.util.DatabricksTypeUtil.VARIANT;
-import static com.databricks.jdbc.common.util.DatabricksTypeUtil.getBaseScaleAndPrecision;
+import static com.databricks.jdbc.common.util.DatabricksTypeUtil.getBasePrecisionAndScale;
 import static com.databricks.jdbc.dbclient.impl.common.MetadataResultSetBuilder.stripTypeName;
 
 import com.databricks.jdbc.common.AccessType;
@@ -90,9 +90,9 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
             columnInfo.setTypeText(TIMESTAMP);
           }
           int columnType = DatabricksTypeUtil.getColumnType(columnTypeName);
-          int[] scaleAndPrecision = getScaleAndPrecision(columnInfo, columnType);
-          int precision = scaleAndPrecision[0];
-          int scale = scaleAndPrecision[1];
+          int[] precisionAndScale = getPrecisionAndScale(columnInfo, columnType);
+          int precision = precisionAndScale[0];
+          int scale = precisionAndScale[1];
           ImmutableDatabricksColumn.Builder columnBuilder = getColumnBuilder();
           columnBuilder
               .columnName(columnInfo.getName())
@@ -169,9 +169,9 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
           TColumnDesc columnInfo = resultManifest.getSchema().getColumns().get(columnIndex);
           ColumnInfoTypeName columnTypeName = getTypeFromTypeDesc(columnInfo.getTypeDesc());
           int columnType = DatabricksTypeUtil.getColumnType(columnTypeName);
-          int[] scaleAndPrecision = getScaleAndPrecision(columnInfo, columnType);
-          int precision = scaleAndPrecision[0];
-          int scale = scaleAndPrecision[1];
+          int[] precisionAndScale = getPrecisionAndScale(columnInfo, columnType);
+          int precision = precisionAndScale[0];
+          int scale = precisionAndScale[1];
 
           ImmutableDatabricksColumn.Builder columnBuilder = getColumnBuilder();
           columnBuilder
@@ -518,8 +518,8 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
     return chunkCount;
   }
 
-  public int[] getScaleAndPrecision(ColumnInfo columnInfo, int columnType) {
-    int[] result = getBaseScaleAndPrecision(columnType);
+  public int[] getPrecisionAndScale(ColumnInfo columnInfo, int columnType) {
+    int[] result = getBasePrecisionAndScale(columnType);
     if (columnInfo.getTypePrecision() != null) {
       result[0] = Math.toIntExact(columnInfo.getTypePrecision()); // precision
       result[1] = Math.toIntExact(columnInfo.getTypeScale()); // scale
@@ -527,8 +527,8 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
     return result;
   }
 
-  public int[] getScaleAndPrecision(TColumnDesc columnInfo, int columnType) {
-    int[] result = getBaseScaleAndPrecision(columnType);
+  public int[] getPrecisionAndScale(TColumnDesc columnInfo, int columnType) {
+    int[] result = getBasePrecisionAndScale(columnType);
     if (columnInfo.getTypeDesc() != null && columnInfo.getTypeDesc().getTypesSize() > 0) {
       TTypeEntry tTypeEntry = columnInfo.getTypeDesc().getTypes().get(0);
       if (tTypeEntry.isSetPrimitiveEntry()

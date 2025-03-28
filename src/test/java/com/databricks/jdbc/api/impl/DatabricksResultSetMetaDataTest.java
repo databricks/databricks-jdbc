@@ -56,10 +56,6 @@ public class DatabricksResultSetMetaDataTest {
         TSparkRowSetType.URL_BASED_SET);
   }
 
-  static Stream<Format> sdkResultFormats() {
-    return Stream.of(Format.ARROW_STREAM, Format.CSV, Format.JSON_ARRAY);
-  }
-
   public ColumnInfo getColumn(String name, ColumnInfoTypeName typeName, String typeText) {
     ColumnInfo columnInfo = new ColumnInfo();
     columnInfo.setName(name);
@@ -266,25 +262,25 @@ public class DatabricksResultSetMetaDataTest {
   }
 
   @Test
-  public void testGetScaleAndPrecisionWithColumnInfo() throws SQLException {
+  public void testGetPrecisionAndScaleWithColumnInfo() throws SQLException {
     DatabricksResultSetMetaData metaData =
         new DatabricksResultSetMetaData(STATEMENT_ID, getResultManifest(), false);
     ColumnInfo decimalColumnInfo = getColumn("col1", ColumnInfoTypeName.DECIMAL, "decimal");
     decimalColumnInfo.setTypePrecision(10L);
     decimalColumnInfo.setTypeScale(2L);
 
-    int[] scaleAndPrecision =
-        metaData.getScaleAndPrecision(
+    int[] precisionAndScale =
+        metaData.getPrecisionAndScale(
             decimalColumnInfo, DatabricksTypeUtil.getColumnType(decimalColumnInfo.getTypeName()));
-    assertEquals(10, scaleAndPrecision[0]);
-    assertEquals(2, scaleAndPrecision[1]);
+    assertEquals(10, precisionAndScale[0]);
+    assertEquals(2, precisionAndScale[1]);
 
     ColumnInfo stringColumnInfo = getColumn("col2", ColumnInfoTypeName.STRING, "string");
-    scaleAndPrecision =
-        metaData.getScaleAndPrecision(
+    precisionAndScale =
+        metaData.getPrecisionAndScale(
             stringColumnInfo, DatabricksTypeUtil.getColumnType(stringColumnInfo.getTypeName()));
-    assertEquals(255, scaleAndPrecision[0]);
-    assertEquals(0, scaleAndPrecision[1]);
+    assertEquals(255, precisionAndScale[0]);
+    assertEquals(0, precisionAndScale[1]);
   }
 
   @Test
@@ -314,7 +310,7 @@ public class DatabricksResultSetMetaDataTest {
   }
 
   @Test
-  public void testGetScaleAndPrecisionWithTColumnDesc() {
+  public void testGetPrecisionAndScaleWithTColumnDesc() {
     DatabricksResultSetMetaData metaData =
         new DatabricksResultSetMetaData(THRIFT_STATEMENT_ID, getResultManifest(), false);
 
@@ -335,12 +331,12 @@ public class DatabricksResultSetMetaDataTest {
     typeDesc.setTypes(Collections.singletonList(typeEntry));
     columnInfo.setTypeDesc(typeDesc);
 
-    int[] scaleAndPrecision =
-        metaData.getScaleAndPrecision(
+    int[] precisionAndScale =
+        metaData.getPrecisionAndScale(
             columnInfo,
             DatabricksTypeUtil.getColumnType(getTypeFromTypeDesc(columnInfo.getTypeDesc())));
-    assertEquals(10, scaleAndPrecision[0]);
-    assertEquals(2, scaleAndPrecision[1]);
+    assertEquals(10, precisionAndScale[0]);
+    assertEquals(2, precisionAndScale[1]);
 
     // Test with string type
     columnInfo = new TColumnDesc();
@@ -351,12 +347,12 @@ public class DatabricksResultSetMetaDataTest {
     typeDesc.setTypes(Collections.singletonList(typeEntry));
     columnInfo.setTypeDesc(typeDesc);
 
-    scaleAndPrecision =
-        metaData.getScaleAndPrecision(
+    precisionAndScale =
+        metaData.getPrecisionAndScale(
             columnInfo,
             DatabricksTypeUtil.getColumnType(getTypeFromTypeDesc(columnInfo.getTypeDesc())));
-    assertEquals(255, scaleAndPrecision[0]);
-    assertEquals(0, scaleAndPrecision[1]);
+    assertEquals(255, precisionAndScale[0]);
+    assertEquals(0, precisionAndScale[1]);
   }
 
   @ParameterizedTest
