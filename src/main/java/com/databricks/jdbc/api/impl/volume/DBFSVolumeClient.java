@@ -2,7 +2,7 @@ package com.databricks.jdbc.api.impl.volume;
 
 import static com.databricks.jdbc.api.impl.volume.DatabricksUCVolumeClient.getObjectFullPath;
 import static com.databricks.jdbc.common.DatabricksJdbcConstants.JSON_HTTP_HEADERS;
-import static com.databricks.jdbc.common.util.StringUtil.constructListPath;
+import static com.databricks.jdbc.common.util.VolumeUtil.VolumeOperationType.constructListPath;
 import static com.databricks.jdbc.dbclient.impl.sqlexec.PathConstants.*;
 
 import com.databricks.jdbc.api.IDatabricksConnectionContext;
@@ -11,6 +11,7 @@ import com.databricks.jdbc.api.impl.VolumeOperationStatus;
 import com.databricks.jdbc.common.util.DatabricksThreadContextHolder;
 import com.databricks.jdbc.common.util.StringUtil;
 import com.databricks.jdbc.common.util.VolumeUtil;
+import com.databricks.jdbc.common.util.WildcardUtil;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
 import com.databricks.jdbc.dbclient.impl.common.ClientConfigurator;
 import com.databricks.jdbc.dbclient.impl.http.DatabricksHttpClientFactory;
@@ -24,7 +25,6 @@ import com.databricks.sdk.WorkspaceClient;
 import com.databricks.sdk.core.DatabricksException;
 import com.databricks.sdk.core.error.platform.NotFound;
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Strings;
 import java.io.Closeable;
 import java.io.IOException;
 import java.io.InputStream;
@@ -70,13 +70,18 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
         String.format(
             "Entering prefixExists method with parameters: catalog = {%s}, schema = {%s}, volume = {%s}, prefix = {%s}, caseSensitive = {%s}",
             catalog, schema, volume, prefix, caseSensitive));
-    if (Strings.isNullOrEmpty(prefix)) {
+    if (WildcardUtil.isNullOrEmpty(prefix)) {
       return false;
     }
     try {
       List<String> objects = listObjects(catalog, schema, volume, prefix, caseSensitive);
       return !objects.isEmpty();
     } catch (Exception e) {
+      LOGGER.error(
+          String.format(
+              "Error checking prefix existence: catalog = {%s}, schema = {%s}, volume = {%s}, prefix = {%s}, caseSensitive = {%s}",
+              catalog, schema, volume, prefix, caseSensitive),
+          e);
       throw new DatabricksVolumeOperationException(
           "Error checking prefix existence: " + e.getMessage(),
           e,
@@ -93,7 +98,7 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
         String.format(
             "Entering objectExists method with parameters: catalog = {%s}, schema = {%s}, volume = {%s}, objectPath = {%s}, caseSensitive = {%s}",
             catalog, schema, volume, objectPath, caseSensitive));
-    if (Strings.isNullOrEmpty(objectPath)) {
+    if (WildcardUtil.isNullOrEmpty(objectPath)) {
       return false;
     }
     try {
@@ -110,6 +115,11 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
       }
       return false;
     } catch (Exception e) {
+      LOGGER.error(
+          String.format(
+              "Error checking object existence: catalog = {%s}, schema = {%s}, volume = {%s}, objectPath = {%s}, caseSensitive = {%s}",
+              catalog, schema, volume, objectPath, caseSensitive),
+          e);
       throw new DatabricksVolumeOperationException(
           "Error checking object existence: " + e.getMessage(),
           e,
@@ -125,7 +135,7 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
         String.format(
             "Entering volumeExists method with parameters: catalog = {%s}, schema = {%s}, volumeName = {%s}, caseSensitive = {%s}",
             catalog, schema, volumeName, caseSensitive));
-    if (Strings.isNullOrEmpty(volumeName)) {
+    if (WildcardUtil.isNullOrEmpty(volumeName)) {
       return false;
     }
     try {
@@ -139,6 +149,11 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
       if (e.getCause() instanceof NotFound) {
         return false;
       }
+      LOGGER.error(
+          String.format(
+              "Error checking volume existence: catalog = {%s}, schema = {%s}, volumeName = {%s}, caseSensitive = {%s}",
+              catalog, schema, volumeName, caseSensitive),
+          e);
       throw new DatabricksVolumeOperationException(
           "Error checking volume existence: " + e.getMessage(),
           e,
