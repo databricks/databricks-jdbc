@@ -22,11 +22,10 @@ import org.junit.jupiter.params.provider.MethodSource;
 
 public class DBFSVolumeTests {
   private IDatabricksVolumeClient client;
-  private IDatabricksConnectionContext connectionContext;
 
   @BeforeEach
   void setUp() throws SQLException {
-    connectionContext =
+    IDatabricksConnectionContext connectionContext =
         getDogfoodJDBCConnectionContext(
             List.of(List.of("VolumeOperationAllowedLocalPaths", "/tmp")));
     System.out.println("ConnectionContext parsed .....");
@@ -307,5 +306,119 @@ public class DBFSVolumeTests {
             "hello_world.txt",
             "/tmp/upload_hello_world.txt",
             "helloworld"));
+  }
+
+  @ParameterizedTest
+  @MethodSource("provideParametersForPrefixExists")
+  void testPrefixExists(
+      String catalog,
+      String schema,
+      String volume,
+      String prefix,
+      boolean caseSensitive,
+      boolean expected)
+      throws Exception {
+    boolean result = client.prefixExists(catalog, schema, volume, prefix, caseSensitive);
+    assertEquals(expected, result);
+  }
+
+  private static Stream<Arguments> provideParametersForPrefixExists() {
+    return Stream.of(
+        // Empty prefix should return false.
+        Arguments.of(UC_VOLUME_CATALOG, UC_VOLUME_SCHEMA, "test_volume1", "", true, false),
+        // Basic matching prefix should return true.
+        Arguments.of(UC_VOLUME_CATALOG, UC_VOLUME_SCHEMA, "test_volume1", "abc", true, true),
+        // Non-matching prefix should return false.
+        Arguments.of(UC_VOLUME_CATALOG, UC_VOLUME_SCHEMA, "test_volume1", "xyz", true, false),
+        // Case-insensitive match: "dEf" matches a file with "DEF" (assuming such file exists).
+        Arguments.of(UC_VOLUME_CATALOG, UC_VOLUME_SCHEMA, "test_volume1", "dEf", false, true),
+        // Special characters: prefix "#!" should be found.
+        Arguments.of(UC_VOLUME_CATALOG, UC_VOLUME_SCHEMA, "test_volume1", "#!", true, true),
+        // Mixed-case prefix: "aBc" matching exactly.
+        Arguments.of(UC_VOLUME_CATALOG, UC_VOLUME_SCHEMA, "test_volume1", "aBc", true, true),
+        // Prefix within a subfolder.
+        Arguments.of(UC_VOLUME_CATALOG, UC_VOLUME_SCHEMA, "test_volume1", "folder1/ab", true, true),
+        // Deep nested prefix found.
+        Arguments.of(
+            UC_VOLUME_CATALOG, UC_VOLUME_SCHEMA, "test_volume1", "folder1/folder2/e", true, true),
+        // Deep nested prefix not found.
+        Arguments.of(
+            UC_VOLUME_CATALOG,
+            UC_VOLUME_SCHEMA,
+            "test_volume1",
+            "folder1/folder2/xyz",
+            true,
+            false));
+  }
+
+  @ParameterizedTest
+  @MethodSource("provideParametersForObjectExists")
+  void testObjectExists(
+      String catalog,
+      String schema,
+      String volume,
+      String objectPath,
+      boolean caseSensitive,
+      boolean expected)
+      throws Exception {
+    boolean result = client.objectExists(catalog, schema, volume, objectPath, caseSensitive);
+    assertEquals(expected, result);
+  }
+
+  private static Stream<Arguments> provideParametersForObjectExists() {
+    return Stream.of(
+        // Case-sensitive: if file "def_file1.csv" exists but "DeF_file1.csv" is requested, result
+        // is false.
+        Arguments.of(
+            UC_VOLUME_CATALOG, UC_VOLUME_SCHEMA, "test_volume1", "DeF_file1.csv", true, false),
+        // Case-sensitive: matching case returns true.
+        Arguments.of(
+            UC_VOLUME_CATALOG, UC_VOLUME_SCHEMA, "test_volume1", "aBc_file1.csv", true, true),
+        // Case-insensitive: "abc_file1.csv" matches "aBc_file1.csv".
+        Arguments.of(
+            UC_VOLUME_CATALOG, UC_VOLUME_SCHEMA, "test_volume1", "abc_file1.csv", false, true),
+        // Object in a subfolder (case-insensitive match).
+        Arguments.of(
+            UC_VOLUME_CATALOG,
+            UC_VOLUME_SCHEMA,
+            "test_volume1",
+            "folder1/ABC_file1.csv",
+            false,
+            true),
+        // Nested folder: exact match found.
+        Arguments.of(
+            UC_VOLUME_CATALOG,
+            UC_VOLUME_SCHEMA,
+            "test_volume1",
+            "folder1/folder2/efg_file1.csv",
+            true,
+            true),
+        // No match.
+        Arguments.of(
+            UC_VOLUME_CATALOG,
+            UC_VOLUME_SCHEMA,
+            "test_volume1",
+            "folder1/folder2/xyz_file.csv",
+            true,
+            false));
+  }
+
+  @ParameterizedTest
+  @MethodSource("provideParametersForVolumeExists")
+  void testVolumeExists(
+      String catalog, String schema, String volumeName, boolean caseSensitive, boolean expected)
+      throws Exception {
+    boolean result = client.volumeExists(catalog, schema, volumeName, caseSensitive);
+    assertEquals(expected, result);
+  }
+
+  private static Stream<Arguments> provideParametersForVolumeExists() {
+    return Stream.of(
+        // Expected volume exists.
+        Arguments.of(UC_VOLUME_CATALOG, UC_VOLUME_SCHEMA, "test_volume1", true, true),
+        // Volume with special characters.
+        Arguments.of(UC_VOLUME_CATALOG, UC_VOLUME_SCHEMA, "###", true, true),
+        // Non-existent volume.
+        Arguments.of(UC_VOLUME_CATALOG, UC_VOLUME_SCHEMA, "test_volume5", true, false));
   }
 }
