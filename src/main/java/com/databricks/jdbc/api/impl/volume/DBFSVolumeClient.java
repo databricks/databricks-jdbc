@@ -2,6 +2,7 @@ package com.databricks.jdbc.api.impl.volume;
 
 import static com.databricks.jdbc.api.impl.volume.DatabricksUCVolumeClient.getObjectFullPath;
 import static com.databricks.jdbc.common.DatabricksJdbcConstants.JSON_HTTP_HEADERS;
+import static com.databricks.jdbc.common.util.VolumeUtil.VolumeOperationType.constructListPath;
 import static com.databricks.jdbc.dbclient.impl.sqlexec.PathConstants.*;
 
 import com.databricks.jdbc.api.IDatabricksConnectionContext;
@@ -10,11 +11,11 @@ import com.databricks.jdbc.api.impl.VolumeOperationStatus;
 import com.databricks.jdbc.common.util.DatabricksThreadContextHolder;
 import com.databricks.jdbc.common.util.StringUtil;
 import com.databricks.jdbc.common.util.VolumeUtil;
+import com.databricks.jdbc.common.util.WildcardUtil;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
 import com.databricks.jdbc.dbclient.impl.common.ClientConfigurator;
 import com.databricks.jdbc.dbclient.impl.http.DatabricksHttpClientFactory;
 import com.databricks.jdbc.exception.DatabricksSQLException;
-import com.databricks.jdbc.exception.DatabricksSQLFeatureNotImplementedException;
 import com.databricks.jdbc.exception.DatabricksVolumeOperationException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
@@ -22,6 +23,7 @@ import com.databricks.jdbc.model.client.filesystem.*;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import com.databricks.sdk.WorkspaceClient;
 import com.databricks.sdk.core.DatabricksException;
+import com.databricks.sdk.core.error.platform.NotFound;
 import com.google.common.annotations.VisibleForTesting;
 import java.io.Closeable;
 import java.io.IOException;
@@ -63,30 +65,100 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
   @Override
   public boolean prefixExists(
       String catalog, String schema, String volume, String prefix, boolean caseSensitive)
-      throws DatabricksSQLFeatureNotImplementedException {
-    String errorMessage = "prefixExists function is unsupported in DBFSVolumeClient";
-    LOGGER.error(errorMessage);
-    throw new DatabricksSQLFeatureNotImplementedException(errorMessage);
+      throws SQLException {
+    LOGGER.debug(
+        String.format(
+            "Entering prefixExists method with parameters: catalog = {%s}, schema = {%s}, volume = {%s}, prefix = {%s}, caseSensitive = {%s}",
+            catalog, schema, volume, prefix, caseSensitive));
+    if (WildcardUtil.isNullOrEmpty(prefix)) {
+      return false;
+    }
+    try {
+      List<String> objects = listObjects(catalog, schema, volume, prefix, caseSensitive);
+      return !objects.isEmpty();
+    } catch (Exception e) {
+      LOGGER.error(
+          String.format(
+              "Error checking prefix existence: catalog = {%s}, schema = {%s}, volume = {%s}, prefix = {%s}, caseSensitive = {%s}",
+              catalog, schema, volume, prefix, caseSensitive),
+          e);
+      throw new DatabricksVolumeOperationException(
+          "Error checking prefix existence: " + e.getMessage(),
+          e,
+          DatabricksDriverErrorCode.VOLUME_OPERATION_INVALID_STATE);
+    }
   }
 
   /** {@inheritDoc} */
   @Override
   public boolean objectExists(
       String catalog, String schema, String volume, String objectPath, boolean caseSensitive)
-      throws DatabricksSQLException {
-    String errorMessage = "objectExists function is unsupported in DBFSVolumeClient";
-    LOGGER.error(errorMessage);
-    throw new DatabricksSQLFeatureNotImplementedException(errorMessage);
+      throws SQLException {
+    LOGGER.debug(
+        String.format(
+            "Entering objectExists method with parameters: catalog = {%s}, schema = {%s}, volume = {%s}, objectPath = {%s}, caseSensitive = {%s}",
+            catalog, schema, volume, objectPath, caseSensitive));
+    if (WildcardUtil.isNullOrEmpty(objectPath)) {
+      return false;
+    }
+    try {
+      String baseName = StringUtil.getBaseNameFromPath(objectPath);
+      ListResponse listResponse =
+          getListResponse(constructListPath(catalog, schema, volume, objectPath));
+      if (listResponse != null && listResponse.getFiles() != null) {
+        for (FileInfo file : listResponse.getFiles()) {
+          String fileName = StringUtil.getBaseNameFromPath(file.getPath());
+          if (caseSensitive ? fileName.equals(baseName) : fileName.equalsIgnoreCase(baseName)) {
+            return true;
+          }
+        }
+      }
+      return false;
+    } catch (Exception e) {
+      LOGGER.error(
+          String.format(
+              "Error checking object existence: catalog = {%s}, schema = {%s}, volume = {%s}, objectPath = {%s}, caseSensitive = {%s}",
+              catalog, schema, volume, objectPath, caseSensitive),
+          e);
+      throw new DatabricksVolumeOperationException(
+          "Error checking object existence: " + e.getMessage(),
+          e,
+          DatabricksDriverErrorCode.VOLUME_OPERATION_INVALID_STATE);
+    }
   }
 
   /** {@inheritDoc} */
   @Override
   public boolean volumeExists(
-      String catalog, String schema, String volumeName, boolean caseSensitive)
-      throws DatabricksSQLException {
-    String errorMessage = "volumeExists function is unsupported in DBFSVolumeClient";
-    LOGGER.error(errorMessage);
-    throw new DatabricksSQLFeatureNotImplementedException(errorMessage);
+      String catalog, String schema, String volumeName, boolean caseSensitive) throws SQLException {
+    LOGGER.debug(
+        String.format(
+            "Entering volumeExists method with parameters: catalog = {%s}, schema = {%s}, volumeName = {%s}, caseSensitive = {%s}",
+            catalog, schema, volumeName, caseSensitive));
+    if (WildcardUtil.isNullOrEmpty(volumeName)) {
+      return false;
+    }
+    try {
+      String volumePath = StringUtil.getVolumePath(catalog, schema, volumeName);
+      // If getListResponse does not throw, then the volume exists (even if it’s empty).
+      getListResponse(volumePath);
+      return true;
+    } catch (DatabricksVolumeOperationException e) {
+      // If the exception indicates an invalid path (i.e. missing volume name),
+      // then the volume does not exist. Otherwise, rethrow with proper error details.
+      if (e.getCause() instanceof NotFound) {
+        return false;
+      }
+      LOGGER.error(
+          String.format(
+              "Error checking volume existence: catalog = {%s}, schema = {%s}, volumeName = {%s}, caseSensitive = {%s}",
+              catalog, schema, volumeName, caseSensitive),
+          e);
+      throw new DatabricksVolumeOperationException(
+          "Error checking volume existence: " + e.getMessage(),
+          e,
+          DatabricksDriverErrorCode.VOLUME_OPERATION_INVALID_STATE);
+    }
   }
 
   /** {@inheritDoc} */
@@ -99,15 +171,8 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
             "Entering listObjects method with parameters: catalog={%s}, schema={%s}, volume={%s}, prefix={%s}, caseSensitive={%s}",
             catalog, schema, volume, prefix, caseSensitive));
 
-    String folder = StringUtil.getFolderNameFromPath(prefix);
     String basename = StringUtil.getBaseNameFromPath(prefix);
-
-    String listPath =
-        (folder.isEmpty())
-            ? StringUtil.getVolumePath(catalog, schema, volume)
-            : StringUtil.getVolumePath(catalog, schema, volume + "/" + folder);
-
-    ListResponse listResponse = getListResponse(listPath);
+    ListResponse listResponse = getListResponse(constructListPath(catalog, schema, volume, prefix));
 
     return listResponse.getFiles().stream()
         .map(FileInfo::getPath)

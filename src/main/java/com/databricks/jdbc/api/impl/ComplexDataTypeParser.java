@@ -1,12 +1,12 @@
 package com.databricks.jdbc.api.impl;
 
 import com.databricks.jdbc.common.util.DatabricksTypeUtil;
+import com.databricks.jdbc.common.util.JsonUtil;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.sql.Date;
@@ -22,16 +22,10 @@ public class ComplexDataTypeParser {
 
   private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(ComplexDataTypeParser.class);
 
-  private final ObjectMapper objectMapper;
-
-  public ComplexDataTypeParser() {
-    this.objectMapper = new ObjectMapper();
-  }
-
   public DatabricksArray parseJsonStringToDbArray(String json, String arrayMetadata)
       throws DatabricksParsingException {
     try {
-      JsonNode node = objectMapper.readTree(json);
+      JsonNode node = JsonUtil.getMapper().readTree(json);
       return parseToArray(node, arrayMetadata);
     } catch (IOException e) {
       throw new DatabricksParsingException(
@@ -42,7 +36,7 @@ public class ComplexDataTypeParser {
   public DatabricksMap<String, Object> parseJsonStringToDbMap(String json, String mapMetadata)
       throws DatabricksParsingException {
     try {
-      JsonNode node = objectMapper.readTree(json);
+      JsonNode node = JsonUtil.getMapper().readTree(json);
       return parseToMap(node, mapMetadata);
     } catch (IOException e) {
       throw new DatabricksParsingException(
@@ -53,7 +47,7 @@ public class ComplexDataTypeParser {
   public DatabricksStruct parseJsonStringToDbStruct(String json, String structMetadata)
       throws DatabricksParsingException {
     try {
-      JsonNode node = objectMapper.readTree(json);
+      JsonNode node = JsonUtil.getMapper().readTree(json);
       return parseToStruct(node, structMetadata);
     } catch (IOException e) {
       throw new DatabricksParsingException(
@@ -142,7 +136,7 @@ public class ComplexDataTypeParser {
         Map.Entry<String, JsonNode> entry = iter.next();
         String keyString = entry.getKey();
         JsonNode valNode = entry.getValue();
-        Object typedKey = convertValueNode(objectMapper.valueToTree(keyString), keyType);
+        Object typedKey = convertValueNode(JsonUtil.getMapper().valueToTree(keyString), keyType);
         String mapKey = (typedKey == null) ? "null" : typedKey.toString();
         Object typedVal = convertValueNode(valNode, valueType);
         result.put(mapKey, typedVal);

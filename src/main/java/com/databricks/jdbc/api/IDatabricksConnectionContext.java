@@ -42,6 +42,8 @@ public interface IDatabricksConnectionContext {
 
   String getClientId() throws DatabricksParsingException;
 
+  String getNullableClientId();
+
   String getClientSecret();
 
   List<String> getOAuthScopesForU2M() throws DatabricksParsingException;
@@ -231,4 +233,6 @@ public interface IDatabricksConnectionContext {
 
   /** Returns the size for HTTP connection pool */
   int getHttpConnectionPoolSize();
+
+  String getAzureWorkspaceResourceId();
 }
