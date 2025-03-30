@@ -3,6 +3,7 @@ package com.databricks.jdbc.auth;
 import static com.nimbusds.jose.JWSAlgorithm.*;
 
 import com.databricks.jdbc.common.util.DriverUtil;
+import com.databricks.jdbc.common.util.JsonUtil;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
 import com.databricks.jdbc.exception.DatabricksHttpException;
 import com.databricks.jdbc.exception.DatabricksParsingException;
@@ -14,7 +15,6 @@ import com.databricks.sdk.core.DatabricksException;
 import com.databricks.sdk.core.oauth.OAuthResponse;
 import com.databricks.sdk.core.oauth.RefreshableTokenSource;
 import com.databricks.sdk.core.oauth.Token;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.annotations.VisibleForTesting;
 import com.nimbusds.jose.*;
 import com.nimbusds.jose.crypto.*;
@@ -181,7 +181,7 @@ public class JwtPrivateKeyClientCredentials extends RefreshableTokenSource {
       headers.forEach(postRequest::setHeader);
       HttpResponse response = hc.execute(postRequest);
       OAuthResponse resp =
-          new ObjectMapper().readValue(response.getEntity().getContent(), OAuthResponse.class);
+          JsonUtil.getMapper().readValue(response.getEntity().getContent(), OAuthResponse.class);
       LocalDateTime expiry = LocalDateTime.now().plus(resp.getExpiresIn(), ChronoUnit.SECONDS);
       return new Token(resp.getAccessToken(), resp.getTokenType(), resp.getRefreshToken(), expiry);
     } catch (IOException | URISyntaxException | DatabricksHttpException e) {

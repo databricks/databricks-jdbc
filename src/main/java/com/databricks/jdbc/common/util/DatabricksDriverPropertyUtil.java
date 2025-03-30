@@ -133,6 +133,10 @@ public class DatabricksDriverPropertyUtil {
             addMissingProperty(missingPropertyInfos, connectionContext, CLIENT_SECRET, false);
             addMissingProperty(missingPropertyInfos, connectionContext, AUTH_SCOPE, false);
             break;
+
+          case AZURE_MANAGED_IDENTITIES:
+            addMissingProperty(
+                missingPropertyInfos, connectionContext, AZURE_WORKSPACE_RESOURCE_ID, true);
         }
       } else {
         missingPropertyInfos.add(getUrlParamInfo(AUTH_FLOW, true));

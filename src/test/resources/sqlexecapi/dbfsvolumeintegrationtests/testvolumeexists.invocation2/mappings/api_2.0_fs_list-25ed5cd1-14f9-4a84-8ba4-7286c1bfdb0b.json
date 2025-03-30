@@ -1,0 +1,27 @@
+{
+  "id" : "25ed5cd1-14f9-4a84-8ba4-7286c1bfdb0b",
+  "name" : "api_2.0_fs_list",
+  "request" : {
+    "url" : "/api/2.0/fs/list?path=%2FVolumes%2Fuc_volume_test_catalog%2Fuc_volume_test_schema%2F%23%23%23%2F",
+    "method" : "GET"
+  },
+  "response" : {
+    "status" : 200,
+    "body" : "{}",
+    "headers" : {
+      "x-request-id" : "9c4ac3cf-ffc0-440d-89b7-48a218b5f7ac",
+      "date" : "Mon, 24 Mar 2025 04:57:26 GMT",
+      "server" : "databricks",
+      "x-databricks-popp-response-code-details" : "via_upstream",
+      "x-content-type-options" : "nosniff",
+      "x-databricks-shard-debug" : "oregon-staging",
+      "x-databricks-org-id" : "6051921418418893",
+      "x-databricks-popp-routing-reason" : "deployment-name",
+      "content-type" : "application/json",
+      "x-databricks-apiproxy-response-code-details" : "via_upstream",
+      "strict-transport-security" : "max-age=31536000; includeSubDomains; preload"
+    }
+  },
+  "uuid" : "25ed5cd1-14f9-4a84-8ba4-7286c1bfdb0b",
+  "insertionIndex" : 3
+}

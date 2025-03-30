@@ -42,6 +42,8 @@ public interface IDatabricksConnectionContext {
 
   String getClientId() throws DatabricksParsingException;
 
+  String getNullableClientId();
+
   String getClientSecret();
 
   List<String> getOAuthScopesForU2M() throws DatabricksParsingException;
@@ -237,4 +239,6 @@ public interface IDatabricksConnectionContext {
 
   /** Returns retry timeout in seconds for UC Volume Ingestion */
   int getUCIngestionRetryTimeoutSeconds();
+
+  String getAzureWorkspaceResourceId();
 }
