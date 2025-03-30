@@ -254,17 +254,21 @@ public class DatabricksThriftUtil {
       IDatabricksStatementInternal parentStatement,
       IDatabricksSession session)
       throws DatabricksSQLException {
+    int statementMaxRows =
+        parentStatement != null ? parentStatement.getMaxRows() : DEFAULT_ROW_LIMIT;
+    boolean hasRowLimit = statementMaxRows != DEFAULT_ROW_LIMIT;
     List<List<Object>> rows = extractRowsFromColumnar(resultsResp.getResults());
     while (resultsResp.hasMoreRows) {
       resultsResp = session.getDatabricksClient().getMoreResults(parentStatement);
       rows.addAll(extractRowsFromColumnar(resultsResp.getResults()));
-    }
-    if (parentStatement != null) {
-      int statementMaxRows = parentStatement.getMaxRows();
-      // trim result set to max rows if result set is larger
-      if (statementMaxRows != DEFAULT_ROW_LIMIT && rows.size() > statementMaxRows) {
-        rows = rows.subList(0, statementMaxRows);
+      if (hasRowLimit
+          && rows.size() >= statementMaxRows) { // check if we have reached requested row limit
+        break;
       }
+    }
+    if (hasRowLimit
+        && rows.size() > statementMaxRows) { // truncate rows to get exact number of rows requested
+      rows = rows.subList(0, statementMaxRows);
     }
     return rows;
   }

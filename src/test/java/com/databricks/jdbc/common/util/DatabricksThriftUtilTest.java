@@ -245,18 +245,18 @@ public class DatabricksThriftUtilTest {
     when(parentStatement.getMaxRows()).thenReturn(DEFAULT_ROW_LIMIT);
     List<List<Object>> rowBasedData =
         DatabricksThriftUtil.convertColumnarToRowBased(fetchResultsResp, parentStatement, session);
-    assertEquals(rowBasedData.size(), 4);
+    assertEquals(4, rowBasedData.size());
 
     when(fetchResultsResp.getResults()).thenReturn(null);
     rowBasedData =
         DatabricksThriftUtil.convertColumnarToRowBased(fetchResultsResp, parentStatement, session);
-    assertEquals(rowBasedData.size(), 0);
+    assertEquals(0, rowBasedData.size());
 
     when(fetchResultsResp.getResults())
         .thenReturn(new TRowSet().setColumns(Collections.emptyList()));
     rowBasedData =
         DatabricksThriftUtil.convertColumnarToRowBased(fetchResultsResp, parentStatement, session);
-    assertEquals(rowBasedData.size(), 0);
+    assertEquals(0, rowBasedData.size());
   }
 
   private static TTypeDesc createTypeDesc(TTypeId type) {
