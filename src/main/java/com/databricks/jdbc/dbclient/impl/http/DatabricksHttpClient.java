@@ -5,6 +5,7 @@ import static com.databricks.jdbc.dbclient.impl.common.ClientConfigurator.conver
 import static io.netty.util.NetUtil.LOCALHOST;
 
 import com.databricks.jdbc.api.IDatabricksConnectionContext;
+import com.databricks.jdbc.common.HttpClientType;
 import com.databricks.jdbc.common.util.DriverUtil;
 import com.databricks.jdbc.common.util.UserAgentManager;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
@@ -48,14 +49,12 @@ public class DatabricksHttpClient implements IDatabricksHttpClient, Closeable {
   private static final int DEFAULT_HTTP_CLIENT_SOCKET_TIMEOUT = 300 * 1000; // ms
   private final PoolingHttpClientConnectionManager connectionManager;
   private final CloseableHttpClient httpClient;
-  private DatabricksHttpRetryHandler retryHandler;
   private IdleConnectionEvictor idleConnectionEvictor;
   private CloseableHttpAsyncClient asyncClient;
 
-  DatabricksHttpClient(IDatabricksConnectionContext connectionContext) {
+  DatabricksHttpClient(IDatabricksConnectionContext connectionContext, HttpClientType type) {
     connectionManager = initializeConnectionManager(connectionContext);
-    httpClient = makeClosableHttpClient(connectionContext);
-    retryHandler = new DatabricksHttpRetryHandler(connectionContext);
+    httpClient = makeClosableHttpClient(connectionContext, type);
     idleConnectionEvictor =
         new IdleConnectionEvictor(
             connectionManager, connectionContext.getIdleHttpConnectionExpiry(), TimeUnit.SECONDS);
@@ -144,7 +143,11 @@ public class DatabricksHttpClient implements IDatabricksHttpClient, Closeable {
   }
 
   private CloseableHttpClient makeClosableHttpClient(
-      IDatabricksConnectionContext connectionContext) {
+      IDatabricksConnectionContext connectionContext, HttpClientType type) {
+    DatabricksHttpRetryHandler retryHandler =
+        type.equals(HttpClientType.COMMON)
+            ? new DatabricksHttpRetryHandler(connectionContext)
+            : new UCVolumeHttpRetryHandler(connectionContext);
     HttpClientBuilder builder =
         HttpClientBuilder.create()
             .setConnectionManager(connectionManager)

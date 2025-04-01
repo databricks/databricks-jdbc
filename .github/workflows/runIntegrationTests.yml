@@ -20,10 +20,10 @@ jobs:
         include:
           - test-command: mvn -B compile test -Dtest=*IntegrationTests
             token-secret: DATABRICKS_TOKEN
-            use-thrift-client: 'false'
-          - test-command: mvn -B compile test -Dtest=**/fakeservice/tests/MultiChunkExecutionIntegrationTests.java,**/fakeservice/tests/ConnectionIntegrationTests.java
+            fake-service-type: 'SQL_EXEC'
+          - test-command: mvn -B compile test -Dtest=*IntegrationTests,!M2MPrivateKeyCredentialsIntegrationTests,!SqlExecApiHybridResultsIntegrationTests,!DBFSVolumeIntegrationTests,!M2MAuthIntegrationTests,!UCVolumeIntegrationTests
             token-secret: THRIFT_DATABRICKS_TOKEN
-            use-thrift-client: 'true'
+            fake-service-type: 'THRIFT_SERVER'
     steps:
       - uses: actions/checkout@v2
       - uses: actions/setup-java@v2
@@ -44,7 +44,7 @@ jobs:
         env:
           DATABRICKS_TOKEN: ${{ secrets[matrix.token-secret] }}
           DATABRICKS_USER: ${{ secrets.DATABRICKS_USER }}
-          USE_THRIFT_CLIENT: ${{ matrix.use-thrift-client }}
+          FAKE_SERVICE_TYPE: ${{ matrix.fake-service-type }}
           DATABRICKS_JDBC_M2M_CLIENT_ID: ${{ secrets.DATABRICKS_JDBC_M2M_CLIENT_ID }}
           DATABRICKS_JDBC_M2M_CLIENT_SECRET: ${{ secrets.DATABRICKS_JDBC_M2M_CLIENT_SECRET }}
           DATABRICKS_JDBC_M2M_HOST: ${{ secrets.DATABRICKS_JDBC_M2M_HOST }}

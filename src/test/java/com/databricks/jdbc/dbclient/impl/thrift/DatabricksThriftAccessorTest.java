@@ -1,7 +1,7 @@
 package com.databricks.jdbc.dbclient.impl.thrift;
 
 import static com.databricks.jdbc.common.EnvironmentVariables.DEFAULT_BYTE_LIMIT;
-import static com.databricks.jdbc.common.EnvironmentVariables.DEFAULT_ROW_LIMIT;
+import static com.databricks.jdbc.common.EnvironmentVariables.DEFAULT_ROW_LIMIT_PER_BLOCK;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
@@ -67,6 +67,7 @@ public class DatabricksThriftAccessorTest {
 
   void setup(Boolean directResultsEnabled) {
     when(connectionContext.getDirectResultMode()).thenReturn(directResultsEnabled);
+    when(connectionContext.getRowsFetchedPerBlock()).thenReturn(DEFAULT_ROW_LIMIT_PER_BLOCK);
     accessor = new DatabricksThriftAccessor(thriftClient, connectionContext, databricksConfig);
   }
 
@@ -99,7 +100,6 @@ public class DatabricksThriftAccessorTest {
             .setStatus(new TStatus().setStatusCode(TStatusCode.SUCCESS_STATUS));
     when(thriftClient.FetchResults(getFetchResultsRequest(true))).thenReturn(response);
     when(thriftClient.ExecuteStatement(request)).thenReturn(tExecuteStatementResp);
-    when(parentStatement.getMaxRows()).thenReturn(DEFAULT_ROW_LIMIT);
     when(thriftClient.GetOperationStatus(operationStatusReq)).thenReturn(operationStatusResp);
     when(session.getConnectionContext()).thenReturn(connectionContext);
     when(connectionContext.isComplexDatatypeSupportEnabled()).thenReturn(false);
@@ -174,7 +174,6 @@ public class DatabricksThriftAccessorTest {
             .setStatus(new TStatus().setStatusCode(TStatusCode.SUCCESS_STATUS))
             .setDirectResults(directResults);
     when(thriftClient.ExecuteStatement(request)).thenReturn(tExecuteStatementResp);
-    when(statement.getMaxRows()).thenReturn(25);
     when(session.getConnectionContext()).thenReturn(connectionContext);
     when(connectionContext.isComplexDatatypeSupportEnabled()).thenReturn(false);
     DatabricksResultSet resultSet =
@@ -659,12 +658,46 @@ public class DatabricksThriftAccessorTest {
     }
   }
 
+  @Test
+  void testFetchResultsWithCustomMaxRowsPerBlock() throws TException, SQLException {
+    int customMaxRows = 500000;
+    IDatabricksConnectionContext mockConnectionContext = mock(IDatabricksConnectionContext.class);
+    when(mockConnectionContext.getDirectResultMode()).thenReturn(true);
+    when(mockConnectionContext.getRowsFetchedPerBlock()).thenReturn(customMaxRows);
+    accessor = new DatabricksThriftAccessor(thriftClient, mockConnectionContext, databricksConfig);
+
+    TExecuteStatementReq executeRequest = new TExecuteStatementReq();
+    TExecuteStatementResp executeResponse =
+        new TExecuteStatementResp()
+            .setOperationHandle(tOperationHandle)
+            .setStatus(new TStatus().setStatusCode(TStatusCode.SUCCESS_STATUS));
+
+    TFetchResultsReq expectedFetchRequest =
+        new TFetchResultsReq()
+            .setOperationHandle(tOperationHandle)
+            .setFetchType((short) 0)
+            .setMaxRows(customMaxRows)
+            .setMaxBytes(DEFAULT_BYTE_LIMIT)
+            .setIncludeResultSetMetadata(true);
+
+    when(thriftClient.ExecuteStatement(executeRequest)).thenReturn(executeResponse);
+    when(thriftClient.GetOperationStatus(operationStatusReq)).thenReturn(operationStatusResp);
+    when(thriftClient.FetchResults(expectedFetchRequest)).thenReturn(response);
+    when(session.getConnectionContext()).thenReturn(mockConnectionContext);
+    when(mockConnectionContext.isComplexDatatypeSupportEnabled()).thenReturn(false);
+
+    accessor.execute(executeRequest, parentStatement, session, StatementType.SQL);
+
+    // Verify that FetchResults was called with the correct maxRows value
+    verify(thriftClient).FetchResults(expectedFetchRequest);
+  }
+
   private TFetchResultsReq getFetchResultsRequest(boolean includeMetadata) {
     TFetchResultsReq request =
         new TFetchResultsReq()
             .setOperationHandle(tOperationHandle)
             .setFetchType((short) 0)
-            .setMaxRows(DEFAULT_ROW_LIMIT)
+            .setMaxRows(connectionContext.getRowsFetchedPerBlock())
             .setMaxBytes(DEFAULT_BYTE_LIMIT);
     if (includeMetadata) {
       request.setIncludeResultSetMetadata(true);
