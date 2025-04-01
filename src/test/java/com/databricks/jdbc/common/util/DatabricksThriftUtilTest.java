@@ -1,7 +1,7 @@
 package com.databricks.jdbc.common.util;
 
 import static com.databricks.jdbc.TestConstants.*;
-import static com.databricks.jdbc.common.EnvironmentVariables.DEFAULT_ROW_LIMIT;
+import static com.databricks.jdbc.common.EnvironmentVariables.DEFAULT_RESULT_ROW_LIMIT;
 import static com.databricks.jdbc.common.util.DatabricksThriftUtil.checkDirectResultsForErrorStatus;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.when;
@@ -242,7 +242,7 @@ public class DatabricksThriftUtilTest {
   @Test
   public void testConvertColumnarToRowBased() throws DatabricksSQLException {
     when(fetchResultsResp.getResults()).thenReturn(BOOL_ROW_SET);
-    when(parentStatement.getMaxRows()).thenReturn(DEFAULT_ROW_LIMIT);
+    when(parentStatement.getMaxRows()).thenReturn(DEFAULT_RESULT_ROW_LIMIT);
     List<List<Object>> rowBasedData =
         DatabricksThriftUtil.convertColumnarToRowBased(fetchResultsResp, parentStatement, session);
     assertEquals(4, rowBasedData.size());

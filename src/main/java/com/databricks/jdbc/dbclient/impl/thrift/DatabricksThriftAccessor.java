@@ -38,7 +38,9 @@ final class DatabricksThriftAccessor {
   private static final JdbcLogger LOGGER =
       JdbcLoggerFactory.getLogger(DatabricksThriftAccessor.class);
   private static final TSparkGetDirectResults DEFAULT_DIRECT_RESULTS =
-      new TSparkGetDirectResults().setMaxRows(DEFAULT_ROW_LIMIT).setMaxBytes(DEFAULT_BYTE_LIMIT);
+      new TSparkGetDirectResults()
+          .setMaxRows(DEFAULT_ROW_LIMIT_PER_BLOCK)
+          .setMaxBytes(DEFAULT_BYTE_LIMIT);
   private static final short directResultsFieldId =
       TExecuteStatementResp._Fields.DIRECT_RESULTS.getThriftFieldId();
   private static final short operationHandleFieldId =
@@ -547,7 +549,7 @@ final class DatabricksThriftAccessor {
       FResp statusField = response.fieldForId(statusFieldId);
       TStatus status = (TStatus) response.getFieldValue(statusField);
       return getResultSetResp(
-          status, operationHandle, contextDescription, DEFAULT_ROW_LIMIT, false);
+          status, operationHandle, contextDescription, DEFAULT_ROW_LIMIT_PER_BLOCK, false);
     }
   }
 

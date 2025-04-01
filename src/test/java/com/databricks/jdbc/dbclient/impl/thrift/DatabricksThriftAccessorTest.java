@@ -1,7 +1,7 @@
 package com.databricks.jdbc.dbclient.impl.thrift;
 
 import static com.databricks.jdbc.common.EnvironmentVariables.DEFAULT_BYTE_LIMIT;
-import static com.databricks.jdbc.common.EnvironmentVariables.DEFAULT_ROW_LIMIT;
+import static com.databricks.jdbc.common.EnvironmentVariables.DEFAULT_ROW_LIMIT_PER_BLOCK;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
@@ -67,7 +67,7 @@ public class DatabricksThriftAccessorTest {
 
   void setup(Boolean directResultsEnabled) {
     when(connectionContext.getDirectResultMode()).thenReturn(directResultsEnabled);
-    when(connectionContext.getRowsFetchedPerBlock()).thenReturn(DEFAULT_ROW_LIMIT);
+    when(connectionContext.getRowsFetchedPerBlock()).thenReturn(DEFAULT_ROW_LIMIT_PER_BLOCK);
     accessor = new DatabricksThriftAccessor(thriftClient, connectionContext, databricksConfig);
   }
 
