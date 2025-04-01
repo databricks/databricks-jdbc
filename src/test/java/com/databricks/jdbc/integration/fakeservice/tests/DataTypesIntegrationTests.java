@@ -40,8 +40,21 @@ public class DataTypesIntegrationTests extends AbstractFakeServiceIntegrationTes
   @Test
   void testStringEdgeCases() throws SQLException {
     String tableName = "string_edge_cases_table";
-    createTable(connection, tableName);
-    insertStringTestData(connection, tableName);
+    String createTableSQL =
+        "CREATE TABLE IF NOT EXISTS "
+            + getFullyQualifiedTableName(tableName)
+            + " (id INT PRIMARY KEY, test_string VARCHAR(255))";
+    setupDatabaseTable(connection, tableName, createTableSQL);
+    String insertSQL =
+        "INSERT INTO "
+            + getFullyQualifiedTableName(tableName)
+            + " (id, test_string) VALUES "
+            + "(1, '   leading and trailing spaces   '),"
+            + "(2, 'こんにちは'),"
+            + "(3, 'special chars: !@#$%^&*()'),"
+            + "(4, 'string with \"double quotes\" inside'),"
+            + "(5, NULL)";
+    executeSQL(connection, insertSQL);
 
     String query =
         "SELECT id, test_string FROM " + getFullyQualifiedTableName(tableName) + " ORDER BY id";
@@ -76,29 +89,10 @@ public class DataTypesIntegrationTests extends AbstractFakeServiceIntegrationTes
         Arguments.of("SELECT NULL UNION (SELECT 1) order by 1", Types.INTEGER));
   }
 
-  private void createTable(Connection connection, String tableName) throws SQLException {
-    String createTableSQL =
-        "CREATE TABLE IF NOT EXISTS "
-            + getFullyQualifiedTableName(tableName)
-            + " (id INT PRIMARY KEY, test_string VARCHAR(255))";
-    setupDatabaseTable(connection, tableName, createTableSQL);
-  }
-
-  private void insertStringTestData(Connection connection, String tableName) throws SQLException {
-    String insertSQL =
-        "INSERT INTO "
-            + getFullyQualifiedTableName(tableName)
-            + " (id, test_string) VALUES "
-            + "(1, '   leading and trailing spaces   '),"
-            + "(2, 'こんにちは'),"
-            + "(3, 'special chars: !@#$%^&*()'),"
-            + "(4, 'string with \"double quotes\" inside'),"
-            + "(5, NULL)";
-    executeSQL(connection, insertSQL);
-  }
-
   private void validateStringResults(ResultSet resultSet) throws SQLException {
+    int rowCount = 0;
     while (resultSet.next()) {
+      rowCount++;
       int id = resultSet.getInt("id");
       String value = resultSet.getString("test_string");
       switch (id) {
@@ -121,6 +115,7 @@ public class DataTypesIntegrationTests extends AbstractFakeServiceIntegrationTes
           fail("Unexpected row id: " + id);
       }
     }
+    assertEquals(5, rowCount);
   }
 
   @Test
@@ -178,6 +173,91 @@ public class DataTypesIntegrationTests extends AbstractFakeServiceIntegrationTes
     }
     assertEquals(3, rowCount);
     deleteTable(connection, tableName);
+  }
+
+  @Test
+  void testTimestampWithTimezoneConversion() throws SQLException {
+    String tableName = "timestamp_test_timezone";
+    String createTableSQL =
+        "CREATE TABLE IF NOT EXISTS "
+            + getFullyQualifiedTableName(tableName)
+            + " (id INT PRIMARY KEY, ts TIMESTAMP)";
+    setupDatabaseTable(connection, tableName, createTableSQL);
+
+    /*
+     * Use from_utc_timestamp to simulate converting a UTC timestamp into a specific timezone.
+     * converting '2021-06-15 12:34:56.789' from UTC to America/Los_Angeles.
+     * expected local time should be:
+     *    2021-06-15 12:34:56.789 UTC  --> 2021-06-15 05:34:56.789 PDT
+     */
+    String insertSQL =
+        "INSERT INTO "
+            + getFullyQualifiedTableName(tableName)
+            + " (id, ts) VALUES "
+            + "(1, from_utc_timestamp('2021-06-15 12:34:56.789', 'America/Los_Angeles'))";
+    executeSQL(connection, insertSQL);
+
+    // Query and validate the timezone conversion result.
+    String query = "SELECT id, ts FROM " + getFullyQualifiedTableName(tableName) + " ORDER BY id";
+    ResultSet rs = executeQuery(connection, query);
+    assertTrue(rs.next());
+    int id = rs.getInt("id");
+    Timestamp ts = rs.getTimestamp("ts");
+    assertEquals(1, id);
+    Timestamp expected = Timestamp.valueOf("2021-06-15 05:34:56.789"); // Expected PDT value.
+    assertEquals(expected, ts);
+    deleteTable(connection, tableName);
+  }
+
+  @Test
+  void testTimestamp() throws SQLException {
+    String tableName = "timestamp_test_table";
+    String createTableSQL =
+        "CREATE TABLE IF NOT EXISTS "
+            + getFullyQualifiedTableName(tableName)
+            + " (id INT PRIMARY KEY, ts TIMESTAMP)";
+    setupDatabaseTable(connection, tableName, createTableSQL);
+    String insertSQL =
+        "INSERT INTO "
+            + getFullyQualifiedTableName(tableName)
+            + " (id, ts) VALUES "
+            + "(1, '2021-01-01 10:00:00'), "
+            + "(2, '2021-06-15 12:34:56.789'), "
+            + "(3, NULL)";
+    executeSQL(connection, insertSQL);
+
+    String query = "SELECT id, ts FROM " + getFullyQualifiedTableName(tableName) + " ORDER BY id";
+    ResultSet resultSet = executeQuery(connection, query);
+    ResultSet inlineResultSet = executeQuery(inlineConnection, query);
+    validateTimestampResults(resultSet);
+    validateTimestampResults(inlineResultSet);
+
+    deleteTable(connection, tableName);
+  }
+
+  private void validateTimestampResults(ResultSet resultSet) throws SQLException {
+    int rowCount = 0;
+    while (resultSet.next()) {
+      rowCount++;
+      int id = resultSet.getInt("id");
+      Timestamp ts = resultSet.getTimestamp("ts");
+      switch (id) {
+        case 1:
+          Timestamp expected1 = Timestamp.valueOf("2021-01-01 10:00:00");
+          assertEquals(expected1, ts);
+          break;
+        case 2:
+          Timestamp expected2 = Timestamp.valueOf("2021-06-15 12:34:56.789");
+          assertEquals(expected2, ts);
+          break;
+        case 3:
+          assertNull(ts);
+          break;
+        default:
+          fail("Unexpected row id in timestamp test: " + id);
+      }
+    }
+    assertEquals(3, rowCount);
   }
 
   private void closeConnection(Connection connection) throws SQLException {
