@@ -23,5 +23,16 @@ public class VolumeUtil {
       }
       return VolumeOperationType.OTHER;
     }
+
+    /*
+    Function to construct the path for the listObjects API call
+     */
+    public static String constructListPath(
+        String catalog, String schema, String volume, String path) {
+      String folder = StringUtil.getFolderNameFromPath(path);
+      return folder.isEmpty()
+          ? StringUtil.getVolumePath(catalog, schema, volume)
+          : StringUtil.getVolumePath(catalog, schema, volume + "/" + folder);
+    }
   }
 }

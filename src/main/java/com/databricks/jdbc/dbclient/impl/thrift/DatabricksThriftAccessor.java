@@ -39,7 +39,9 @@ final class DatabricksThriftAccessor {
   private static final JdbcLogger LOGGER =
       JdbcLoggerFactory.getLogger(DatabricksThriftAccessor.class);
   private static final TSparkGetDirectResults DEFAULT_DIRECT_RESULTS =
-      new TSparkGetDirectResults().setMaxRows(DEFAULT_ROW_LIMIT).setMaxBytes(DEFAULT_BYTE_LIMIT);
+      new TSparkGetDirectResults()
+          .setMaxRows(DEFAULT_ROW_LIMIT_PER_BLOCK)
+          .setMaxBytes(DEFAULT_BYTE_LIMIT);
   private static final short directResultsFieldId =
       TExecuteStatementResp._Fields.DIRECT_RESULTS.getThriftFieldId();
   private static final short operationHandleFieldId =
@@ -50,6 +52,7 @@ final class DatabricksThriftAccessor {
   private final DatabricksConfig databricksConfig;
   private final boolean enableDirectResults;
   private final int asyncPollIntervalMillis;
+  private final int maxRowsPerBlock;
 
   DatabricksThriftAccessor(IDatabricksConnectionContext connectionContext)
       throws DatabricksParsingException {
@@ -57,6 +60,7 @@ final class DatabricksThriftAccessor {
     this.databricksConfig = new ClientConfigurator(connectionContext).getDatabricksConfig();
     String endPointUrl = connectionContext.getEndpointURL();
     this.asyncPollIntervalMillis = connectionContext.getAsyncExecPollInterval();
+    this.maxRowsPerBlock = connectionContext.getRowsFetchedPerBlock();
 
     if (!DriverUtil.isRunningAgainstFake()) {
       // Create a new thrift client for each thread as client state is not thread safe. Note that
@@ -78,6 +82,7 @@ final class DatabricksThriftAccessor {
     this.thriftClient = ThreadLocal.withInitial(() -> client);
     this.enableDirectResults = connectionContext.getDirectResultMode();
     this.asyncPollIntervalMillis = connectionContext.getAsyncExecPollInterval();
+    this.maxRowsPerBlock = connectionContext.getRowsFetchedPerBlock();
   }
 
   @SuppressWarnings("rawtypes")
@@ -141,7 +146,7 @@ final class DatabricksThriftAccessor {
         new TStatus().setStatusCode(TStatusCode.SUCCESS_STATUS),
         operationHandle,
         context,
-        DEFAULT_ROW_LIMIT,
+        maxRowsPerBlock,
         false);
   }
 
@@ -177,12 +182,11 @@ final class DatabricksThriftAccessor {
         String.format(
             "Fetching more results as it has more rows %s",
             parentStatement.getStatementId().toSQLExecStatementId());
-    int maxRows = (parentStatement == null) ? DEFAULT_ROW_LIMIT : parentStatement.getMaxRows();
     return getResultSetResp(
         new TStatus().setStatusCode(TStatusCode.SUCCESS_STATUS),
         getOperationHandle(parentStatement.getStatementId()),
         context,
-        maxRows,
+        maxRowsPerBlock,
         true);
   }
 
@@ -194,10 +198,12 @@ final class DatabricksThriftAccessor {
       throws SQLException {
 
     // Set direct result configuration
-    int maxRows = (parentStatement == null) ? DEFAULT_ROW_LIMIT : parentStatement.getMaxRows();
     if (enableDirectResults) {
+      // if getDirectResults.maxRows > 0, the server will immediately call FetchResults. Fetch
+      // initial rows limited by maxRows.
+      // if = 0, server does not call FetchResults.
       TSparkGetDirectResults directResults =
-          new TSparkGetDirectResults().setMaxBytes(DEFAULT_BYTE_LIMIT).setMaxRows(maxRows);
+          new TSparkGetDirectResults().setMaxBytes(DEFAULT_BYTE_LIMIT).setMaxRows(maxRowsPerBlock);
       request.setGetDirectResults(directResults);
     }
 
@@ -261,7 +267,7 @@ final class DatabricksThriftAccessor {
                 response.getStatus(),
                 response.getOperationHandle(),
                 response.toString(),
-                maxRows,
+                maxRowsPerBlock,
                 true);
       }
 
@@ -371,7 +377,7 @@ final class DatabricksThriftAccessor {
       TStatus responseStatus,
       TOperationHandle operationHandle,
       String context,
-      int maxRows,
+      int maxRowsPerBlock,
       boolean fetchMetadata)
       throws DatabricksHttpException {
     verifySuccessStatus(responseStatus, context);
@@ -379,7 +385,8 @@ final class DatabricksThriftAccessor {
         new TFetchResultsReq()
             .setOperationHandle(operationHandle)
             .setFetchType((short) 0) // 0 represents Query output. 1 represents Log
-            .setMaxRows(maxRows)
+            .setMaxRows(
+                maxRowsPerBlock) // Max number of rows that should be returned in the rowset.
             .setMaxBytes(DEFAULT_BYTE_LIMIT);
     if (fetchMetadata) {
       request.setIncludeResultSetMetadata(true);
@@ -542,7 +549,7 @@ final class DatabricksThriftAccessor {
       FResp statusField = response.fieldForId(statusFieldId);
       TStatus status = (TStatus) response.getFieldValue(statusField);
       return getResultSetResp(
-          status, operationHandle, contextDescription, DEFAULT_ROW_LIMIT, false);
+          status, operationHandle, contextDescription, DEFAULT_ROW_LIMIT_PER_BLOCK, false);
     }
   }
 

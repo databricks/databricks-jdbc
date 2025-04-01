@@ -3,15 +3,16 @@ package com.databricks.jdbc.api.impl.volume;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
-import com.databricks.jdbc.exception.DatabricksSQLFeatureNotImplementedException;
 import com.databricks.jdbc.exception.DatabricksVolumeOperationException;
 import com.databricks.jdbc.model.client.filesystem.*;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import com.databricks.sdk.WorkspaceClient;
 import com.databricks.sdk.core.ApiClient;
+import com.databricks.sdk.core.error.platform.NotFound;
 import java.io.File;
 import java.io.FileInputStream;
 import java.nio.file.Files;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import org.junit.jupiter.api.*;
@@ -40,39 +41,118 @@ class DBFSVolumeClientTest {
   }
 
   @Test
-  void testPrefixExists() {
-    DatabricksSQLFeatureNotImplementedException exception =
+  void testPrefixExists() throws Exception {
+    // Case 1: When prefix is empty, should return false.
+    assertFalse(client.prefixExists("catalog", "schema", "volume", "", true));
+
+    // Case 2: Valid non-empty prefix with a matching file.
+    ListResponse responseMatch = mock(ListResponse.class);
+    FileInfo matchingFile = mock(FileInfo.class);
+    // File base name extracted from the path is "file123.txt"
+    when(matchingFile.getPath()).thenReturn("/Volumes/catalog/schema/volume/file123.txt");
+    when(responseMatch.getFiles()).thenReturn(Arrays.asList(matchingFile));
+    doReturn(responseMatch).when(client).getListResponse(anyString());
+    // "file" should match "file123.txt" in a case-sensitive manner.
+    assertTrue(client.prefixExists("catalog", "schema", "volume", "file", true));
+
+    // Case 3: Non-empty prefix with no matching file.
+    ListResponse responseNoMatch = mock(ListResponse.class);
+    FileInfo nonMatchingFile = mock(FileInfo.class);
+    when(nonMatchingFile.getPath()).thenReturn("/Volumes/catalog/schema/volume/other.txt");
+    when(responseNoMatch.getFiles()).thenReturn(Arrays.asList(nonMatchingFile));
+    doReturn(responseNoMatch).when(client).getListResponse(anyString());
+    assertFalse(client.prefixExists("catalog", "schema", "volume", "file", true));
+
+    // Case 4: getListResponse throws an exception.
+    doThrow(
+            new DatabricksVolumeOperationException(
+                "Failed to get list response",
+                DatabricksDriverErrorCode.VOLUME_OPERATION_INVALID_STATE))
+        .when(client)
+        .getListResponse(anyString());
+    DatabricksVolumeOperationException ex =
         assertThrows(
-            DatabricksSQLFeatureNotImplementedException.class,
-            () -> {
-              client.prefixExists("catalog", "schema", "volume", "prefix", true);
-            });
-    assertEquals(
-        "prefixExists function is unsupported in DBFSVolumeClient", exception.getMessage());
+            DatabricksVolumeOperationException.class,
+            () -> client.prefixExists("catalog", "schema", "volume", "file", true));
+    assertTrue(ex.getMessage().contains("Error checking prefix existence"));
   }
 
   @Test
-  void testObjectExists() {
-    DatabricksSQLFeatureNotImplementedException exception =
+  void testObjectExists() throws Exception {
+    // Case 1: Exact match exists.
+    ListResponse responseMatch = mock(ListResponse.class);
+    FileInfo fileMatch = mock(FileInfo.class);
+    // Assume objectPath "dir/file.txt" -> base name "file.txt"
+    when(fileMatch.getPath()).thenReturn("/Volumes/catalog/schema/volume/dir/file.txt");
+    when(responseMatch.getFiles()).thenReturn(Arrays.asList(fileMatch));
+    doReturn(responseMatch).when(client).getListResponse(anyString());
+    assertTrue(client.objectExists("catalog", "schema", "volume", "dir/file.txt", true));
+
+    // Case 2: No matching object exists.
+    ListResponse responseNoMatch = mock(ListResponse.class);
+    FileInfo fileNoMatch = mock(FileInfo.class);
+    when(fileNoMatch.getPath()).thenReturn("/Volumes/catalog/schema/volume/dir/other.txt");
+    when(responseNoMatch.getFiles()).thenReturn(Arrays.asList(fileNoMatch));
+    doReturn(responseNoMatch).when(client).getListResponse(anyString());
+    assertFalse(client.objectExists("catalog", "schema", "volume", "dir/file.txt", true));
+
+    // Case 3: Case-insensitive match: different case should match.
+    ListResponse responseDiffCase = mock(ListResponse.class);
+    FileInfo fileDiffCase = mock(FileInfo.class);
+    when(fileDiffCase.getPath()).thenReturn("/Volumes/catalog/schema/volume/dir/File.TXT");
+    when(responseDiffCase.getFiles()).thenReturn(Arrays.asList(fileDiffCase));
+    doReturn(responseDiffCase).when(client).getListResponse(anyString());
+    assertTrue(client.objectExists("catalog", "schema", "volume", "dir/file.txt", false));
+
+    // Case 4: getListResponse throws an exception.
+    doThrow(
+            new DatabricksVolumeOperationException(
+                "Failed to get list response",
+                DatabricksDriverErrorCode.VOLUME_OPERATION_INVALID_STATE))
+        .when(client)
+        .getListResponse(anyString());
+    DatabricksVolumeOperationException ex =
         assertThrows(
-            DatabricksSQLFeatureNotImplementedException.class,
-            () -> {
-              client.objectExists("catalog", "schema", "volume", "objectPath", true);
-            });
-    assertEquals(
-        "objectExists function is unsupported in DBFSVolumeClient", exception.getMessage());
+            DatabricksVolumeOperationException.class,
+            () -> client.objectExists("catalog", "schema", "volume", "dir/file.txt", true));
+    assertTrue(ex.getMessage().contains("Error checking object existence"));
   }
 
   @Test
-  void testVolumeExists() {
-    DatabricksSQLFeatureNotImplementedException exception =
+  void testVolumeExists() throws Exception {
+    // Case 1: Volume exists.
+    reset(client);
+    ListResponse responseMatch = Mockito.mock(ListResponse.class);
+    doReturn(responseMatch).when(client).getListResponse(anyString());
+    assertTrue(client.volumeExists("catalog", "schema", "VolumeA", true));
+
+    // Case 2: Volume does not exist.
+    reset(client);
+    doThrow(
+            new DatabricksVolumeOperationException(
+                "Failed to get list response - {Volume 'catalog.schema.VolumeA' does not exist.}",
+                new NotFound("Volume 'catalog.schema.VolumeA' does not exist.", new ArrayList<>()),
+                DatabricksDriverErrorCode.VOLUME_OPERATION_INVALID_STATE))
+        .when(client)
+        .getListResponse(anyString());
+    // When the exception message indicates the volume doesn't exist, volumeExists should return
+    // false.
+    assertFalse(client.volumeExists("catalog", "schema", "VolumeA", true));
+
+    // Case 3: Error case
+    reset(client);
+    doThrow(
+            new DatabricksVolumeOperationException(
+                "Simulated error",
+                new Exception(),
+                DatabricksDriverErrorCode.VOLUME_OPERATION_INVALID_STATE))
+        .when(client)
+        .getListResponse(anyString());
+    DatabricksVolumeOperationException ex =
         assertThrows(
-            DatabricksSQLFeatureNotImplementedException.class,
-            () -> {
-              client.volumeExists("catalog", "schema", "volumeName", true);
-            });
-    assertEquals(
-        "volumeExists function is unsupported in DBFSVolumeClient", exception.getMessage());
+            DatabricksVolumeOperationException.class,
+            () -> client.volumeExists("catalog", "schema", "VolumeA", true));
+    assertTrue(ex.getMessage().contains("Error checking volume existence"));
   }
 
   @Test

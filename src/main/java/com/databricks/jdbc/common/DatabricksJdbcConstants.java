@@ -39,6 +39,7 @@ public final class DatabricksJdbcConstants {
   public static final String LOGIN_TIMEOUT = "loginTimeout";
   public static final String U2M_AUTH_TYPE = "external-browser";
   public static final String M2M_AUTH_TYPE = "oauth-m2m";
+  public static final String AZURE_MSI_AUTH_TYPE = "azure-msi";
   public static final String M2M_AZURE_CLIENT_SECRET_AUTH_TYPE = "azure-client-secret";
   public static final String ACCESS_TOKEN_AUTH_TYPE = "pat";
   public static final String U2M_AUTH_REDIRECT_URL = "http://localhost:8020";
@@ -97,6 +98,8 @@ public final class DatabricksJdbcConstants {
   public static final String DEFAULT_HTTP_EXCEPTION_SQLSTATE = "08000";
   public static final int TEMPORARY_REDIRECT_STATUS_CODE = 307;
   public static final String REDACTED_TOKEN = "****";
+  public static final int MAX_DEFAULT_STRING_COLUMN_LENGTH = 32767;
+  public static final int DEFUALT_STRING_COLUMN_LENGTH = 255;
 
   /** Enum for the services that can be replaced with a fake service in integration tests. */
   @VisibleForTesting

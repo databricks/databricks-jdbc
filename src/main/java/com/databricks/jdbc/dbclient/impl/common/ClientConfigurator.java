@@ -4,6 +4,7 @@ import static com.databricks.jdbc.common.DatabricksJdbcConstants.*;
 import static com.databricks.jdbc.common.util.DatabricksAuthUtil.initializeConfigWithToken;
 
 import com.databricks.jdbc.api.IDatabricksConnectionContext;
+import com.databricks.jdbc.auth.AzureMSICredentialProvider;
 import com.databricks.jdbc.auth.OAuthRefreshCredentialsProvider;
 import com.databricks.jdbc.auth.PrivateKeyClientCredentialProvider;
 import com.databricks.jdbc.common.AuthMech;
@@ -120,6 +121,9 @@ public class ClientConfigurator {
       case BROWSER_BASED_AUTHENTICATION:
         setupU2MConfig();
         break;
+      case AZURE_MANAGED_IDENTITIES:
+        setupAzureMI();
+        break;
     }
   }
 
@@ -208,6 +212,12 @@ public class ClientConfigurator {
             new PrivateKeyClientCredentialProvider(connectionContext, databricksConfig));
       }
     }
+  }
+
+  private void setupAzureMI() {
+    databricksConfig.setHost(connectionContext.getHostForOAuth());
+    databricksConfig.setAuthType(DatabricksJdbcConstants.AZURE_MSI_AUTH_TYPE);
+    databricksConfig.setCredentialsProvider(new AzureMSICredentialProvider(connectionContext));
   }
 
   /**

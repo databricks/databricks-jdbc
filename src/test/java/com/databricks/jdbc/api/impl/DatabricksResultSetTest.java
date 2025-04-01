@@ -14,6 +14,7 @@ import com.databricks.jdbc.api.impl.volume.VolumeOperationResult;
 import com.databricks.jdbc.api.internal.IDatabricksResultSetInternal;
 import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
 import com.databricks.jdbc.common.StatementType;
+import com.databricks.jdbc.common.util.DatabricksThreadContextHolder;
 import com.databricks.jdbc.dbclient.impl.common.StatementId;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.exception.DatabricksSQLFeatureNotSupportedException;
@@ -108,8 +109,10 @@ public class DatabricksResultSetTest {
   @Test
   void testThriftResultSet() throws SQLException {
     when(session.getConnectionContext()).thenReturn(databricksConnectionContext);
+    DatabricksThreadContextHolder.setConnectionContext(databricksConnectionContext);
     when(databricksConnectionContext.isComplexDatatypeSupportEnabled()).thenReturn(false);
     DatabricksResultSet resultSet = getThriftResultSetMetadata();
+    DatabricksThreadContextHolder.clearAllContext();
     assertFalse(resultSet.next());
   }
 

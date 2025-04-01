@@ -1,7 +1,7 @@
 package com.databricks.jdbc.dbclient.impl.thrift;
 
 import static com.databricks.jdbc.common.EnvironmentVariables.DEFAULT_BYTE_LIMIT;
-import static com.databricks.jdbc.common.EnvironmentVariables.DEFAULT_ROW_LIMIT;
+import static com.databricks.jdbc.common.EnvironmentVariables.DEFAULT_ROW_LIMIT_PER_BLOCK;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
@@ -15,7 +15,6 @@ import com.databricks.jdbc.exception.DatabricksHttpException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.exception.DatabricksTimeoutException;
 import com.databricks.jdbc.model.client.thrift.generated.*;
-import com.databricks.sdk.core.DatabricksConfig;
 import com.databricks.sdk.service.sql.StatementState;
 import java.sql.SQLException;
 import java.sql.Statement;
@@ -33,7 +32,6 @@ public class DatabricksThriftAccessorTest {
   @Mock IDatabricksSession session;
   @Mock IDatabricksConnectionContext connectionContext;
   @Mock IDatabricksStatementInternal parentStatement;
-  @Mock DatabricksConfig databricksConfig;
   private static DatabricksThriftAccessor accessor;
   private static final String TEST_STMT_ID =
       "01efc77c-7c8b-1a8e-9ecb-a9a6e6aa050a|338d529d-8272-46eb-8482-cb419466839d";
@@ -72,6 +70,7 @@ public class DatabricksThriftAccessorTest {
 
   void setup(Boolean directResultsEnabled) {
     when(connectionContext.getDirectResultMode()).thenReturn(directResultsEnabled);
+    when(connectionContext.getRowsFetchedPerBlock()).thenReturn(DEFAULT_ROW_LIMIT_PER_BLOCK);
     accessor = new DatabricksThriftAccessor(thriftClient, connectionContext);
   }
 
@@ -103,7 +102,6 @@ public class DatabricksThriftAccessorTest {
             .setStatus(new TStatus().setStatusCode(TStatusCode.SUCCESS_STATUS));
     when(thriftClient.FetchResults(getFetchResultsRequest(true))).thenReturn(fetchResultsResponse);
     when(thriftClient.ExecuteStatement(request)).thenReturn(tExecuteStatementResp);
-    when(parentStatement.getMaxRows()).thenReturn(DEFAULT_ROW_LIMIT);
     Statement statement = mock(Statement.class);
     when(parentStatement.getStatement()).thenReturn(statement);
     when(statement.getQueryTimeout()).thenReturn(0);
@@ -182,7 +180,6 @@ public class DatabricksThriftAccessorTest {
             .setStatus(new TStatus().setStatusCode(TStatusCode.SUCCESS_STATUS))
             .setDirectResults(directResults);
     when(thriftClient.ExecuteStatement(request)).thenReturn(tExecuteStatementResp);
-    when(parentStatement.getMaxRows()).thenReturn(25);
     Statement statement = mock(Statement.class);
     when(parentStatement.getStatement()).thenReturn(statement);
     when(statement.getQueryTimeout()).thenReturn(0);
@@ -709,7 +706,6 @@ public class DatabricksThriftAccessorTest {
     when(parentStatement.getStatement()).thenReturn(statement);
     when(statement.getQueryTimeout()).thenReturn(10);
 
-    when(parentStatement.getMaxRows()).thenReturn(DEFAULT_ROW_LIMIT);
     when(session.getConnectionContext()).thenReturn(connectionContext);
     when(connectionContext.isComplexDatatypeSupportEnabled()).thenReturn(false);
 
@@ -747,8 +743,6 @@ public class DatabricksThriftAccessorTest {
     when(parentStatement.getStatement()).thenReturn(statement);
     when(statement.getQueryTimeout()).thenReturn(1);
 
-    when(parentStatement.getMaxRows()).thenReturn(DEFAULT_ROW_LIMIT);
-
     // Create statement cancel mock
     TCancelOperationResp cancelResp =
         new TCancelOperationResp()
@@ -768,12 +762,50 @@ public class DatabricksThriftAccessorTest {
     verify(thriftClient).CancelOperation(any(TCancelOperationReq.class));
   }
 
+  @Test
+  void testFetchResultsWithCustomMaxRowsPerBlock() throws TException, SQLException {
+    int customMaxRows = 500000;
+    IDatabricksConnectionContext mockConnectionContext = mock(IDatabricksConnectionContext.class);
+    when(mockConnectionContext.getDirectResultMode()).thenReturn(true);
+    when(mockConnectionContext.getRowsFetchedPerBlock()).thenReturn(customMaxRows);
+    accessor = new DatabricksThriftAccessor(thriftClient, mockConnectionContext);
+
+    TExecuteStatementReq executeRequest = new TExecuteStatementReq();
+    TExecuteStatementResp executeResponse =
+        new TExecuteStatementResp()
+            .setOperationHandle(tOperationHandle)
+            .setStatus(new TStatus().setStatusCode(TStatusCode.SUCCESS_STATUS));
+
+    TFetchResultsReq expectedFetchRequest =
+        new TFetchResultsReq()
+            .setOperationHandle(tOperationHandle)
+            .setFetchType((short) 0)
+            .setMaxRows(customMaxRows)
+            .setMaxBytes(DEFAULT_BYTE_LIMIT)
+            .setIncludeResultSetMetadata(true);
+
+    Statement statement = mock(Statement.class);
+    when(parentStatement.getStatement()).thenReturn(statement);
+    when(statement.getQueryTimeout()).thenReturn(0);
+    when(thriftClient.ExecuteStatement(executeRequest)).thenReturn(executeResponse);
+    when(thriftClient.GetOperationStatus(operationStatusReq))
+        .thenReturn(operationStatusFinishedResp);
+    when(thriftClient.FetchResults(expectedFetchRequest)).thenReturn(fetchResultsResponse);
+    when(session.getConnectionContext()).thenReturn(mockConnectionContext);
+    when(mockConnectionContext.isComplexDatatypeSupportEnabled()).thenReturn(false);
+
+    accessor.execute(executeRequest, parentStatement, session, StatementType.SQL);
+
+    // Verify that FetchResults was called with the correct maxRows value
+    verify(thriftClient).FetchResults(expectedFetchRequest);
+  }
+
   private TFetchResultsReq getFetchResultsRequest(boolean includeMetadata) {
     TFetchResultsReq request =
         new TFetchResultsReq()
             .setOperationHandle(tOperationHandle)
             .setFetchType((short) 0)
-            .setMaxRows(DEFAULT_ROW_LIMIT)
+            .setMaxRows(connectionContext.getRowsFetchedPerBlock())
             .setMaxBytes(DEFAULT_BYTE_LIMIT);
     if (includeMetadata) {
       request.setIncludeResultSetMetadata(true);

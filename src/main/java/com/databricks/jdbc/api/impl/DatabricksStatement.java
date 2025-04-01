@@ -41,7 +41,7 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
   private boolean isClosed;
   private boolean closeOnCompletion;
   private SQLWarning warnings = null;
-  private int maxRows = DEFAULT_ROW_LIMIT;
+  private int maxRows = DEFAULT_RESULT_ROW_LIMIT;
   private int maxFieldSize = 0;
   private boolean escapeProcessing = DEFAULT_ESCAPE_PROCESSING;
   private InputStreamEntity inputStream = null;

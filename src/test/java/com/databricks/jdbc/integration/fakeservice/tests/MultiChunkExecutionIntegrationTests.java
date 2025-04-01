@@ -14,27 +14,11 @@ import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
+import java.util.Properties;
 import org.junit.jupiter.api.Test;
 
 /** Test SQL execution with results spanning multiple chunks. */
 public class MultiChunkExecutionIntegrationTests extends AbstractFakeServiceIntegrationTests {
-
-  private Connection connection;
-
-  @BeforeEach
-  void setUp() throws SQLException {
-    connection = getValidJDBCConnection();
-  }
-
-  @AfterEach
-  void cleanUp() throws SQLException {
-    // close the connection
-    if (connection != null) {
-      connection.close();
-    }
-  }
 
   @Test
   void testMultiChunkSelect() throws SQLException {
@@ -44,6 +28,10 @@ public class MultiChunkExecutionIntegrationTests extends AbstractFakeServiceInte
     // That minimum threshold is different for SQL Exec and SQL Gateway clients.
     final int maxRows = isSqlExecSdkClient() ? 122900 : 147500;
     final String sql = "SELECT * FROM " + table + " limit " + maxRows;
+
+    Properties properties = new Properties();
+    properties.setProperty("RowsFetchedPerBlock", String.valueOf(maxRows));
+    Connection connection = getValidJDBCConnection(properties);
 
     final Statement statement = connection.createStatement();
     statement.setMaxRows(maxRows);
@@ -82,5 +70,7 @@ public class MultiChunkExecutionIntegrationTests extends AbstractFakeServiceInte
                 getRequestedFor(urlPathMatching(resultChunkPathRegex)));
       }
     }
+
+    connection.close();
   }
 }
