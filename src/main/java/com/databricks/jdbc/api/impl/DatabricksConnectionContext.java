@@ -250,7 +250,7 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
 
   @Override
   public String getClientId() throws DatabricksParsingException {
-    String clientId = getParameter(DatabricksJdbcUrlParams.CLIENT_ID);
+    String clientId = getNullableClientId();
     if (nullOrEmptyString(clientId)) {
       Cloud cloud = getCloud();
       if (cloud == Cloud.AWS) {
@@ -262,6 +262,11 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
       }
     }
     return clientId;
+  }
+
+  @Override
+  public String getNullableClientId() {
+    return getParameter(DatabricksJdbcUrlParams.CLIENT_ID);
   }
 
   @Override
@@ -732,6 +737,27 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   @Override
   public int getHttpConnectionPoolSize() {
     return Integer.parseInt(getParameter(DatabricksJdbcUrlParams.HTTP_CONNECTION_POOL_SIZE));
+  }
+
+  @Override
+  public List<Integer> getUCIngestionRetriableHttpCodes() {
+    return Arrays.stream(
+            getParameter(DatabricksJdbcUrlParams.UC_INGESTION_RETRIABLE_HTTP_CODE).split(","))
+        .map(String::trim)
+        .filter(num -> num.matches("\\d+")) // Ensure only positive integers
+        .map(Integer::parseInt)
+        .collect(Collectors.toList());
+  }
+
+  @Override
+  public int getUCIngestionRetryTimeoutSeconds() {
+    // The Url param takes value in minutes
+    return 60 * Integer.parseInt(getParameter(DatabricksJdbcUrlParams.UC_INGESTION_RETRY_TIMEOUT));
+  }
+
+  @Override
+  public String getAzureWorkspaceResourceId() {
+    return getParameter(DatabricksJdbcUrlParams.AZURE_WORKSPACE_RESOURCE_ID);
   }
 
   @Override
