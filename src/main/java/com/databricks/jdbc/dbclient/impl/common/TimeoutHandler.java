@@ -14,7 +14,7 @@ public class TimeoutHandler {
   private final long startTimeMillis;
   private final int timeoutSeconds;
   private final String operationDescription;
-  private final Runnable onTimeoutAction; // do something something on timeout
+  private final Runnable onTimeoutAction; // do something on timeout
 
   /**
    * Creates a new timeout handler with the provided parameters.
