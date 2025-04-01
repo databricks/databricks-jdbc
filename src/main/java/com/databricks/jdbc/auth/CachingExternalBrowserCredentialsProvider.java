@@ -31,7 +31,7 @@ public class CachingExternalBrowserCredentialsProvider implements CredentialsPro
   private Token currentToken;
 
   public CachingExternalBrowserCredentialsProvider(DatabricksConfig config, String passphrase) {
-    this(config, new TokenCache(config.getUsername(), passphrase));
+    this(config, new TokenCache(config.getHost(), passphrase));
   }
 
   @VisibleForTesting
