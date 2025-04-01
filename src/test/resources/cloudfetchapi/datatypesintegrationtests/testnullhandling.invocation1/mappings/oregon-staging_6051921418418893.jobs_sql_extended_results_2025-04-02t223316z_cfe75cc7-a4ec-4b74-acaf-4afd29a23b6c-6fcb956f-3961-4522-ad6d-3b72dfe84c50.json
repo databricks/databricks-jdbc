@@ -2,7 +2,7 @@
   "id" : "6fcb956f-3961-4522-ad6d-3b72dfe84c50",
   "name" : "oregon-staging_6051921418418893.jobs_sql_extended_results_2025-04-02t223316z_cfe75cc7-a4ec-4b74-acaf-4afd29a23b6c",
   "request" : {
-    "url" : "/oregon-staging/6051921418418893.jobs/sql/extended/results_2025-04-02T22%3A33%3A16Z_cfe75cc7-a4ec-4b74-acaf-4afd29a23b6c?[REDACTED]X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Date=20250401T213316Z&X-Amz-SignedHeaders=host&X-Amz-Expires=899&[REDACTED]X-Amz-Signature=ff52df11aae4660459d98d813f558f0496ff73e7a5c95bcd23c61044c2f0df2b",
+    "urlPath" : "/oregon-staging/6051921418418893.jobs/sql/extended/results_2025-04-02T22%3A33%3A16Z_cfe75cc7-a4ec-4b74-acaf-4afd29a23b6c",
     "method" : "GET"
   },
   "response" : {
