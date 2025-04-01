@@ -1,0 +1,34 @@
+{
+  "id" : "4daf6299-23fb-449d-b7b5-901f1b418b86",
+  "name" : "api_2.0_sql_statements",
+  "request" : {
+    "url" : "/api/2.0/sql/statements/",
+    "method" : "POST",
+    "bodyPatterns" : [ {
+      "equalToJson" : "{\"statement\":\"SELECT id, test_string FROM main.jdbc_test_schema.string_edge_cases_table ORDER BY id\",\"warehouse_id\":\"dd43ee29fedd958d\",\"session_id\":\"01f00f40-d3cb-1bd7-b440-f6871b64fab5\",\"disposition\":\"INLINE\",\"format\":\"JSON_ARRAY\",\"on_wait_timeout\":\"CONTINUE\",\"wait_timeout\":\"10s\",\"parameters\":[],\"result_compression\":\"NONE\"}",
+      "ignoreArrayOrder" : true,
+      "ignoreExtraElements" : true
+    } ]
+  },
+  "response" : {
+    "status" : 200,
+    "body" : "{\"statement_id\":\"01f00f40-db3d-1511-a6dd-3b838f1520dc\",\"status\":{\"state\":\"SUCCEEDED\"},\"manifest\":{\"format\":\"JSON_ARRAY\",\"schema\":{\"column_count\":2,\"columns\":[{\"name\":\"id\",\"type_text\":\"INT\",\"type_name\":\"INT\",\"position\":0},{\"name\":\"test_string\",\"type_text\":\"STRING\",\"type_name\":\"STRING\",\"position\":1}]},\"total_chunk_count\":1,\"chunks\":[{\"chunk_index\":0,\"row_offset\":0,\"row_count\":5}],\"total_row_count\":5,\"truncated\":false},\"result\":{\"chunk_index\":0,\"row_offset\":0,\"row_count\":5,\"data_array\":[[\"1\",\"   leading and trailing spaces   \"],[\"2\",\"こんにちは\"],[\"3\",\"special chars: !@#$%^&*()\"],[\"4\",\"string with \\\"double quotes\\\" inside\"],[\"5\",null]]}}",
+    "headers" : {
+      "x-request-id" : "cdad215f-63bc-4074-8870-ae5568a5e7c6",
+      "date" : "Tue, 1 Apr 2025 21:32:48 GMT",
+      "server" : "databricks",
+      "x-databricks-popp-response-code-details" : "via_upstream",
+      "x-databricks-shard-debug" : "oregon-staging",
+      "vary" : "Accept-Encoding",
+      "x-databricks-org-id" : "6051921418418893",
+      "strict-transport-security" : "max-age=31536000; includeSubDomains; preload",
+      "x-content-type-options" : "nosniff",
+      "x-databricks-popp-routing-reason" : "deployment-name",
+      "content-type" : "application/json",
+      "alt-svc" : "h3=\":5443\"; ma=86400, h3-29=\":5443\"; ma=86400",
+      "x-databricks-apiproxy-response-code-details" : "via_upstream"
+    }
+  },
+  "uuid" : "4daf6299-23fb-449d-b7b5-901f1b418b86",
+  "insertionIndex" : 10
+}
