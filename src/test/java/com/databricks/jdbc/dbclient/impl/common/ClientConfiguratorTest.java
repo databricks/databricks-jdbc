@@ -8,6 +8,7 @@ import static org.mockito.Mockito.*;
 
 import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.api.impl.DatabricksConnectionContextFactory;
+import com.databricks.jdbc.auth.CachingExternalBrowserCredentialsProvider;
 import com.databricks.jdbc.auth.PrivateKeyClientCredentialProvider;
 import com.databricks.jdbc.common.AuthFlow;
 import com.databricks.jdbc.common.AuthMech;
@@ -207,6 +208,42 @@ public class ClientConfiguratorTest {
     assertEquals(List.of(new String[] {"scope1", "scope2"}), config.getScopes());
     assertEquals(DatabricksJdbcConstants.U2M_AUTH_REDIRECT_URL, config.getOAuthRedirectUrl());
     assertEquals(DatabricksJdbcConstants.U2M_AUTH_TYPE, config.getAuthType());
+  }
+
+  @Test
+  void getWorkspaceClient_OAuthWithCachingExternalBrowser_AuthenticatesCorrectly()
+      throws DatabricksParsingException {
+    when(mockContext.getAuthMech()).thenReturn(AuthMech.OAUTH);
+    when(mockContext.getAuthFlow()).thenReturn(AuthFlow.BROWSER_BASED_AUTHENTICATION);
+    when(mockContext.getHostForOAuth()).thenReturn("https://oauth-browser.databricks.com");
+    when(mockContext.getClientId()).thenReturn("client-id");
+    when(mockContext.getTokenCachePassPhrase()).thenReturn("test-passphrase");
+    when(mockContext.getHttpConnectionPoolSize()).thenReturn(100);
+    when(mockContext.isOAuthDiscoveryModeEnabled()).thenReturn(true);
+    configurator = new ClientConfigurator(mockContext);
+
+    WorkspaceClient client = configurator.getWorkspaceClient();
+    assertNotNull(client);
+    DatabricksConfig config = client.config();
+
+    assertEquals("https://oauth-browser.databricks.com", config.getHost());
+    assertEquals("client-id", config.getClientId());
+    assertInstanceOf(
+        CachingExternalBrowserCredentialsProvider.class, config.getCredentialsProvider());
+  }
+
+  @Test
+  void getWorkspaceClient_OAuthWithCachingExternalBrowser_NoPassphrase_ThrowsException()
+      throws DatabricksParsingException {
+    when(mockContext.getAuthMech()).thenReturn(AuthMech.OAUTH);
+    when(mockContext.getAuthFlow()).thenReturn(AuthFlow.BROWSER_BASED_AUTHENTICATION);
+    when(mockContext.getHostForOAuth()).thenReturn("https://oauth-browser.databricks.com");
+    when(mockContext.getClientId()).thenReturn("client-id");
+    when(mockContext.getTokenCachePassPhrase()).thenReturn(null);
+    when(mockContext.getHttpConnectionPoolSize()).thenReturn(100);
+    when(mockContext.isOAuthDiscoveryModeEnabled()).thenReturn(true);
+
+    assertThrows(IllegalArgumentException.class, () -> new ClientConfigurator(mockContext));
   }
 
   @Test

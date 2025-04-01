@@ -4,6 +4,7 @@ import static com.databricks.jdbc.common.DatabricksJdbcConstants.*;
 import static com.databricks.jdbc.common.util.DatabricksAuthUtil.initializeConfigWithToken;
 
 import com.databricks.jdbc.api.IDatabricksConnectionContext;
+import com.databricks.jdbc.auth.CachingExternalBrowserCredentialsProvider;
 import com.databricks.jdbc.auth.OAuthRefreshCredentialsProvider;
 import com.databricks.jdbc.auth.PrivateKeyClientCredentialProvider;
 import com.databricks.jdbc.common.AuthMech;
@@ -125,8 +126,12 @@ public class ClientConfigurator {
 
   /** Setup the OAuth U2M authentication settings in the databricks config. */
   public void setupU2MConfig() throws DatabricksParsingException {
+    CredentialsProvider provider =
+        new CachingExternalBrowserCredentialsProvider(
+            databricksConfig, connectionContext.getTokenCachePassPhrase());
     databricksConfig
-        .setAuthType(DatabricksJdbcConstants.U2M_AUTH_TYPE)
+        .setAuthType(provider.authType())
+        .setCredentialsProvider(provider)
         .setHost(connectionContext.getHostForOAuth())
         .setClientId(connectionContext.getClientId())
         .setClientSecret(connectionContext.getClientSecret())

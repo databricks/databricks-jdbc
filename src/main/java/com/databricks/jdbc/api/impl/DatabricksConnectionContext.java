@@ -734,6 +734,11 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
     return Integer.parseInt(getParameter(DatabricksJdbcUrlParams.HTTP_CONNECTION_POOL_SIZE));
   }
 
+  @Override
+  public String getTokenCachePassPhrase() {
+    return getParameter(DatabricksJdbcUrlParams.TOKEN_CACHE_PASS_PHRASE);
+  }
+
   private static boolean nullOrEmptyString(String s) {
     return s == null || s.isEmpty();
   }

@@ -231,4 +231,7 @@ public interface IDatabricksConnectionContext {
 
   /** Returns the size for HTTP connection pool */
   int getHttpConnectionPoolSize();
+
+  /** Returns the passphrase used for encrypting/decrypting token cache */
+  String getTokenCachePassPhrase();
 }

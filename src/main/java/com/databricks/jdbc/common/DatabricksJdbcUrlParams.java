@@ -90,7 +90,8 @@ public enum DatabricksJdbcUrlParams {
       "EnableComplexDatatypeSupport",
       "flag to enable native support of complex data types as java objects",
       "0"),
-  AZURE_TENANT_ID("AzureTenantId", "Azure tenant ID");
+  AZURE_TENANT_ID("AzureTenantId", "Azure tenant ID"),
+  TOKEN_CACHE_PASS_PHRASE("TokenCachePassPhrase", "Pass phrase to use for OAuth U2M Token Cache");
 
   private final String paramName;
   private final String defaultValue;
