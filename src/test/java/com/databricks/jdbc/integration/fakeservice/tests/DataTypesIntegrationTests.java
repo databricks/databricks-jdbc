@@ -123,6 +123,63 @@ public class DataTypesIntegrationTests extends AbstractFakeServiceIntegrationTes
     }
   }
 
+  @Test
+  void testVariantTypes() throws SQLException {
+    String tableName = "variant_types_table";
+    String createTableSQL =
+        "CREATE TABLE IF NOT EXISTS "
+            + getFullyQualifiedTableName(tableName)
+            + " (id INT PRIMARY KEY, variant_col VARIANT)";
+    setupDatabaseTable(connection, tableName, createTableSQL);
+
+    // Insert rows with JSON data via PARSE_JSON:
+    // - A simple JSON object
+    // - A nested JSON object with an array and boolean value
+    // - A null variant
+    String insertSQL =
+        "INSERT INTO "
+            + getFullyQualifiedTableName(tableName)
+            + " (id, variant_col) VALUES "
+            + "(1, PARSE_JSON('{\"key\": \"value\", \"number\": 123}')), "
+            + "(2, PARSE_JSON('{\"nested\": {\"a\": \"b\", \"c\": [1, 2, 3]}, \"flag\": true}')), "
+            + "(3, NULL)";
+    executeSQL(connection, insertSQL);
+
+    String query =
+        "SELECT id, variant_col FROM " + getFullyQualifiedTableName(tableName) + " ORDER BY id";
+    ResultSet rs = executeQuery(connection, query);
+    ResultSetMetaData rsmd = rs.getMetaData();
+    assertEquals(Types.OTHER, rsmd.getColumnType(2));
+    assertEquals("VARIANT", rsmd.getColumnTypeName(2));
+    int rowCount = 0;
+    while (rs.next()) {
+      rowCount++;
+      int id = rs.getInt("id");
+      Object variant = rs.getObject("variant_col");
+      switch (id) {
+        case 1:
+          String variantStr1 = variant.toString();
+          assertTrue(variantStr1.contains("\"key\":\"value\""));
+          assertTrue(variantStr1.contains("\"number\":123"));
+          break;
+        case 2:
+          String variantStr2 = variant.toString();
+          assertTrue(variantStr2.contains("\"nested\""));
+          assertTrue(variantStr2.contains("\"a\":\"b\""));
+          assertTrue(variantStr2.contains("\"c\":[1,2,3]"));
+          assertTrue(variantStr2.contains("\"flag\":true"));
+          break;
+        case 3:
+          assertNull(variant);
+          break;
+        default:
+          fail("Unexpected row id in variant test: " + id);
+      }
+    }
+    assertEquals(3, rowCount);
+    deleteTable(connection, tableName);
+  }
+
   private void closeConnection(Connection connection) throws SQLException {
     if (connection != null) {
       if (((DatabricksConnection) connection).getConnectionContext().getClientType()
