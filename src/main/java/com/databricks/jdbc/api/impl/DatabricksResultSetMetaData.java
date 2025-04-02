@@ -9,6 +9,7 @@ import static com.databricks.jdbc.common.util.DatabricksThriftUtil.getTypeTextFr
 import static com.databricks.jdbc.common.util.DatabricksTypeUtil.TIMESTAMP;
 import static com.databricks.jdbc.common.util.DatabricksTypeUtil.TIMESTAMP_NTZ;
 import static com.databricks.jdbc.common.util.DatabricksTypeUtil.VARIANT;
+import static com.databricks.jdbc.common.util.DatabricksTypeUtil.getBasePrecisionAndScale;
 import static com.databricks.jdbc.dbclient.impl.common.MetadataResultSetBuilder.stripTypeName;
 
 import com.databricks.jdbc.common.AccessType;
@@ -89,9 +90,9 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
             columnInfo.setTypeText(TIMESTAMP);
           }
           int columnType = DatabricksTypeUtil.getColumnType(columnTypeName);
-          int[] scaleAndPrecision = getScaleAndPrecision(columnInfo, columnType);
-          int precision = scaleAndPrecision[0];
-          int scale = scaleAndPrecision[1];
+          int[] precisionAndScale = getPrecisionAndScale(columnInfo, columnType);
+          int precision = precisionAndScale[0];
+          int scale = precisionAndScale[1];
           ImmutableDatabricksColumn.Builder columnBuilder = getColumnBuilder();
           columnBuilder
               .columnName(columnInfo.getName())
@@ -168,9 +169,9 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
           TColumnDesc columnInfo = resultManifest.getSchema().getColumns().get(columnIndex);
           ColumnInfoTypeName columnTypeName = getTypeFromTypeDesc(columnInfo.getTypeDesc());
           int columnType = DatabricksTypeUtil.getColumnType(columnTypeName);
-          int[] scaleAndPrecision = getScaleAndPrecision(columnInfo, columnType);
-          int precision = scaleAndPrecision[0];
-          int scale = scaleAndPrecision[1];
+          int[] precisionAndScale = getPrecisionAndScale(columnInfo, columnType);
+          int precision = precisionAndScale[0];
+          int scale = precisionAndScale[1];
 
           ImmutableDatabricksColumn.Builder columnBuilder = getColumnBuilder();
           columnBuilder
@@ -517,19 +518,17 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
     return chunkCount;
   }
 
-  public int[] getScaleAndPrecision(ColumnInfo columnInfo, int columnType) {
-    int precision = DatabricksTypeUtil.getPrecision(columnType);
-    int scale = DatabricksTypeUtil.getScale(columnType);
+  public int[] getPrecisionAndScale(ColumnInfo columnInfo, int columnType) {
+    int[] result = getBasePrecisionAndScale(columnType);
     if (columnInfo.getTypePrecision() != null) {
-      precision = Math.toIntExact(columnInfo.getTypePrecision());
-      scale = Math.toIntExact(columnInfo.getTypeScale());
+      result[0] = Math.toIntExact(columnInfo.getTypePrecision()); // precision
+      result[1] = Math.toIntExact(columnInfo.getTypeScale()); // scale
     }
-    return new int[] {precision, scale};
+    return result;
   }
 
-  public int[] getScaleAndPrecision(TColumnDesc columnInfo, int columnType) {
-    int precision = DatabricksTypeUtil.getPrecision(columnType);
-    int scale = DatabricksTypeUtil.getScale(columnType);
+  public int[] getPrecisionAndScale(TColumnDesc columnInfo, int columnType) {
+    int[] result = getBasePrecisionAndScale(columnType);
     if (columnInfo.getTypeDesc() != null && columnInfo.getTypeDesc().getTypesSize() > 0) {
       TTypeEntry tTypeEntry = columnInfo.getTypeDesc().getTypes().get(0);
       if (tTypeEntry.isSetPrimitiveEntry()
@@ -537,11 +536,11 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
           && tTypeEntry.getPrimitiveEntry().getTypeQualifiers().isSetQualifiers()) {
         Map<String, TTypeQualifierValue> qualifiers =
             tTypeEntry.getPrimitiveEntry().getTypeQualifiers().getQualifiers();
-        scale = qualifiers.get("scale").getI32Value();
-        precision = qualifiers.get("precision").getI32Value();
+        result[0] = qualifiers.get("precision").getI32Value(); // precision
+        result[1] = qualifiers.get("scale").getI32Value(); // scale
       }
     }
-    return new int[] {precision, scale};
+    return result;
   }
 
   private boolean isLargeColumn(String columnName) {

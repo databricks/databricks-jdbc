@@ -1,0 +1,33 @@
+{
+  "id" : "46b943e3-38b7-43e3-b2cb-c8d13ff5abcc",
+  "name" : "api_2.0_sql_statements",
+  "request" : {
+    "url" : "/api/2.0/sql/statements/",
+    "method" : "POST",
+    "bodyPatterns" : [ {
+      "equalToJson" : "{\"statement\":\"SELECT * FROM samples.tpch.lineitem limit 147500\",\"warehouse_id\":\"dd43ee29fedd958d\",\"row_limit\":147500,\"session_id\":\"01f00b9d-a52f-195d-aab8-c0bf87268216\",\"disposition\":\"EXTERNAL_LINKS\",\"format\":\"ARROW_STREAM\",\"on_wait_timeout\":\"CONTINUE\",\"wait_timeout\":\"10s\",\"parameters\":[],\"result_compression\":\"LZ4_FRAME\"}",
+      "ignoreArrayOrder" : true,
+      "ignoreExtraElements" : true
+    } ]
+  },
+  "response" : {
+    "status" : 200,
+    "body" : "{\"statement_id\":\"01f00b9d-a61c-12d7-8824-d615968f64c7\",\"status\":{\"state\":\"SUCCEEDED\"},\"manifest\":{\"format\":\"ARROW_STREAM\",\"schema\":{\"column_count\":16,\"columns\":[{\"name\":\"l_orderkey\",\"type_text\":\"BIGINT\",\"type_name\":\"LONG\",\"position\":0},{\"name\":\"l_partkey\",\"type_text\":\"BIGINT\",\"type_name\":\"LONG\",\"position\":1},{\"name\":\"l_suppkey\",\"type_text\":\"BIGINT\",\"type_name\":\"LONG\",\"position\":2},{\"name\":\"l_linenumber\",\"type_text\":\"INT\",\"type_name\":\"INT\",\"position\":3},{\"name\":\"l_quantity\",\"type_text\":\"DECIMAL(18,2)\",\"type_name\":\"DECIMAL\",\"position\":4,\"type_precision\":18,\"type_scale\":2},{\"name\":\"l_extendedprice\",\"type_text\":\"DECIMAL(18,2)\",\"type_name\":\"DECIMAL\",\"position\":5,\"type_precision\":18,\"type_scale\":2},{\"name\":\"l_discount\",\"type_text\":\"DECIMAL(18,2)\",\"type_name\":\"DECIMAL\",\"position\":6,\"type_precision\":18,\"type_scale\":2},{\"name\":\"l_tax\",\"type_text\":\"DECIMAL(18,2)\",\"type_name\":\"DECIMAL\",\"position\":7,\"type_precision\":18,\"type_scale\":2},{\"name\":\"l_returnflag\",\"type_text\":\"STRING\",\"type_name\":\"STRING\",\"position\":8},{\"name\":\"l_linestatus\",\"type_text\":\"STRING\",\"type_name\":\"STRING\",\"position\":9},{\"name\":\"l_shipdate\",\"type_text\":\"DATE\",\"type_name\":\"DATE\",\"position\":10},{\"name\":\"l_commitdate\",\"type_text\":\"DATE\",\"type_name\":\"DATE\",\"position\":11},{\"name\":\"l_receiptdate\",\"type_text\":\"DATE\",\"type_name\":\"DATE\",\"position\":12},{\"name\":\"l_shipinstruct\",\"type_text\":\"STRING\",\"type_name\":\"STRING\",\"position\":13},{\"name\":\"l_shipmode\",\"type_text\":\"STRING\",\"type_name\":\"STRING\",\"position\":14},{\"name\":\"l_comment\",\"type_text\":\"STRING\",\"type_name\":\"STRING\",\"position\":15}]},\"total_chunk_count\":2,\"chunks\":[{\"chunk_index\":0,\"row_offset\":0,\"row_count\":122880,\"byte_count\":21017592},{\"chunk_index\":1,\"row_offset\":122880,\"row_count\":24620,\"byte_count\":4213728}],\"total_row_count\":147500,\"total_byte_count\":25231320,\"truncated\":false,\"result_compression\":\"LZ4_FRAME\"},\"result\":{\"external_links\":[{\"chunk_index\":0,\"row_offset\":0,\"row_count\":122880,\"byte_count\":8095752,\"next_chunk_index\":1,\"next_chunk_internal_link\":\"/api/2.0/sql/statements/01f00b9d-a61c-12d7-8824-d615968f64c7/result/chunks/1\",\"external_link\":\"https://e2-dogfood-core.s3.us-west-2.amazonaws.com/oregon-staging/6051921418418893.jobs/sql/extended/results_2025-03-29T07%3A27%3A00Z_bcdc65db-fc83-416e-924a-514d1ff48a55?[REDACTED]X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Date=20250328T062700Z&X-Amz-SignedHeaders=host&X-Amz-Expires=899&[REDACTED]X-Amz-Signature=7d094157878012851ce72b96ac0de37cbcd09350e7a2512c2501659d2b648af3\",\"expiration\":\"2025-03-28T06:42:00.543Z\"}]}}",
+    "headers" : {
+      "x-request-id" : "6a04e810-c7f9-468d-ad40-79928dc51848",
+      "date" : "Fri, 28 Mar 2025 06:27:00 GMT",
+      "server" : "databricks",
+      "x-databricks-popp-response-code-details" : "via_upstream",
+      "x-databricks-shard-debug" : "oregon-staging",
+      "vary" : "Accept-Encoding",
+      "x-databricks-org-id" : "6051921418418893",
+      "strict-transport-security" : "max-age=31536000; includeSubDomains; preload",
+      "x-content-type-options" : "nosniff",
+      "x-databricks-popp-routing-reason" : "deployment-name",
+      "content-type" : "application/json",
+      "x-databricks-apiproxy-response-code-details" : "via_upstream"
+    }
+  },
+  "uuid" : "46b943e3-38b7-43e3-b2cb-c8d13ff5abcc",
+  "insertionIndex" : 4
+}

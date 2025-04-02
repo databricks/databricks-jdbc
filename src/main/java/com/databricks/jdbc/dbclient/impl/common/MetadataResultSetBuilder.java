@@ -8,6 +8,7 @@ import com.databricks.jdbc.api.impl.DatabricksResultSet;
 import com.databricks.jdbc.common.CommandName;
 import com.databricks.jdbc.common.Nullable;
 import com.databricks.jdbc.common.StatementType;
+import com.databricks.jdbc.common.util.DatabricksThreadContextHolder;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.model.core.ColumnMetadata;
 import com.databricks.jdbc.model.core.ResultColumn;
@@ -271,6 +272,9 @@ public class MetadataResultSetBuilder {
     if (sizeFromTypeVal != -1) {
       return sizeFromTypeVal;
     }
+    if (isTextType(typeVal)) {
+      return DatabricksThreadContextHolder.getConnectionContext().getDefaultStringColumnLength();
+    }
     String typeName = stripTypeName(typeVal);
     switch (typeName) {
       case "DECIMAL":
@@ -360,6 +364,10 @@ public class MetadataResultSetBuilder {
       if (typeVal.contains(BINARY_TYPE)) {
         return 32767;
       } else {
+        if (isTextType(typeVal)) {
+          return DatabricksThreadContextHolder.getConnectionContext()
+              .getDefaultStringColumnLength();
+        }
         return 255;
       }
     }

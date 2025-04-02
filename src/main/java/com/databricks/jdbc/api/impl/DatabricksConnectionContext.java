@@ -1,6 +1,8 @@
 package com.databricks.jdbc.api.impl;
 
 import static com.databricks.jdbc.common.DatabricksJdbcConstants.*;
+import static com.databricks.jdbc.common.DatabricksJdbcUrlParams.DEFAULT_STRING_COLUMN_LENGTH;
+import static com.databricks.jdbc.common.EnvironmentVariables.DEFAULT_ROW_LIMIT_PER_BLOCK;
 import static com.databricks.jdbc.common.util.UserAgentManager.USER_AGENT_SEA_CLIENT;
 import static com.databricks.jdbc.common.util.UserAgentManager.USER_AGENT_THRIFT_CLIENT;
 
@@ -725,6 +727,25 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   }
 
   @Override
+  public int getDefaultStringColumnLength() {
+    try {
+      int defaultStringColumnLength = Integer.parseInt(getParameter(DEFAULT_STRING_COLUMN_LENGTH));
+      if (defaultStringColumnLength < 0
+          || defaultStringColumnLength > MAX_DEFAULT_STRING_COLUMN_LENGTH) {
+        LOGGER.warn(
+            "DefaultStringColumnLength value {} is out of bounds (0 to 32767). Falling back to default value 255.",
+            defaultStringColumnLength);
+        return DEFUALT_STRING_COLUMN_LENGTH;
+      }
+      return defaultStringColumnLength;
+    } catch (NumberFormatException e) {
+      LOGGER.warn(
+          "Invalid number format for DefaultStringColumnLength. Falling back to default value 255.");
+      return DEFUALT_STRING_COLUMN_LENGTH;
+    }
+  }
+
+  @Override
   public boolean isComplexDatatypeSupportEnabled() {
     return getParameter(DatabricksJdbcUrlParams.ENABLE_COMPLEX_DATATYPE_SUPPORT).equals("1");
   }
@@ -740,8 +761,35 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   }
 
   @Override
+  public List<Integer> getUCIngestionRetriableHttpCodes() {
+    return Arrays.stream(
+            getParameter(DatabricksJdbcUrlParams.UC_INGESTION_RETRIABLE_HTTP_CODE).split(","))
+        .map(String::trim)
+        .filter(num -> num.matches("\\d+")) // Ensure only positive integers
+        .map(Integer::parseInt)
+        .collect(Collectors.toList());
+  }
+
+  @Override
+  public int getUCIngestionRetryTimeoutSeconds() {
+    // The Url param takes value in minutes
+    return 60 * Integer.parseInt(getParameter(DatabricksJdbcUrlParams.UC_INGESTION_RETRY_TIMEOUT));
+  }
+
+  @Override
   public String getAzureWorkspaceResourceId() {
     return getParameter(DatabricksJdbcUrlParams.AZURE_WORKSPACE_RESOURCE_ID);
+  }
+
+  @Override
+  public int getRowsFetchedPerBlock() {
+    int maxRows = DEFAULT_ROW_LIMIT_PER_BLOCK;
+    try {
+      maxRows = Integer.parseInt(getParameter(DatabricksJdbcUrlParams.ROWS_FETCHED_PER_BLOCK));
+    } catch (NumberFormatException e) {
+      LOGGER.warn("Invalid value for RowsFetchedPerBlock, using default value");
+    }
+    return maxRows;
   }
 
   private static boolean nullOrEmptyString(String s) {

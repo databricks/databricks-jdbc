@@ -8,6 +8,7 @@ import static com.databricks.jdbc.dbclient.impl.sqlexec.PathConstants.*;
 import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.api.IDatabricksVolumeClient;
 import com.databricks.jdbc.api.impl.VolumeOperationStatus;
+import com.databricks.jdbc.common.HttpClientType;
 import com.databricks.jdbc.common.util.DatabricksThreadContextHolder;
 import com.databricks.jdbc.common.util.StringUtil;
 import com.databricks.jdbc.common.util.VolumeUtil;
@@ -57,7 +58,8 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
     this.connectionContext = connectionContext;
     this.workspaceClient = getWorkspaceClientFromConnectionContext(connectionContext);
     this.databricksHttpClient =
-        DatabricksHttpClientFactory.getInstance().getClient(connectionContext);
+        DatabricksHttpClientFactory.getInstance()
+            .getClient(connectionContext, HttpClientType.VOLUME);
     this.allowedVolumeIngestionPaths = connectionContext.getVolumeOperationAllowedPaths();
   }
 
