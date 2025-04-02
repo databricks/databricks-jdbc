@@ -5,106 +5,118 @@ import java.sql.SQLException;
 import java.util.List;
 import org.apache.http.entity.InputStreamEntity;
 
+/**
+ * Interface for interacting with Databricks Unity Catalog (UC) Volumes. Provides methods for
+ * managing and accessing files and directories within UC Volumes, supporting operations such as
+ * checking existence, listing contents, and performing CRUD (Create, Read, Update, Delete)
+ * operations on objects stored in volumes.
+ */
 public interface IDatabricksVolumeClient {
 
   /**
-   * prefixExists(): Determines if a specific prefix (folder-like structure) exists in the UC Volume
-   * The prefix that we are looking for must be a part of the file name.
+   * Checks if a specific prefix (folder-like structure) exists in the UC Volume. The prefix must be
+   * a part of the file name or path.
    *
-   * @param catalog the catalog name of the cloud storage
-   * @param schema the schema name of the cloud storage
-   * @param volume the UC volume name of the cloud storage
-   * @param prefix the prefix to check for existence along with the relative path from the volume as
-   *     the root directory
-   * @param caseSensitive a boolean indicating whether the check should be case-sensitive or not
-   * @return a boolean indicating whether the prefix exists or not
+   * @param catalog the catalog name in Unity Catalog
+   * @param schema the schema name in the specified catalog
+   * @param volume the volume name in the specified schema
+   * @param prefix the prefix to check, including the relative path from the volume root
+   * @param caseSensitive whether the prefix check should be case-sensitive
+   * @return true if the prefix exists, false otherwise
+   * @throws SQLException if a database access error occurs or the volume is inaccessible
    */
   boolean prefixExists(
       String catalog, String schema, String volume, String prefix, boolean caseSensitive)
       throws SQLException;
 
   /**
-   * objectExists(): Determines if a specific object (file) exists in the UC Volume The object that
-   * we are looking for must match the file name exactly
+   * Checks if a specific object (file) exists in the UC Volume. The object path must exactly match
+   * an existing file.
    *
-   * @param catalog the catalog name of the cloud storage
-   * @param schema the schema name of the cloud storage
-   * @param volume the UC volume name of the cloud storage
-   * @param objectPath the path of the object (file) from the volume as the root directory to check
-   *     for existence within the volume (inside any sub-folder)
-   * @param caseSensitive a boolean indicating whether the check should be case-sensitive or not
-   * @return a boolean indicating whether the object exists or not
+   * @param catalog the catalog name in Unity Catalog
+   * @param schema the schema name in the specified catalog
+   * @param volume the volume name in the specified schema
+   * @param objectPath the path of the object from the volume root
+   * @param caseSensitive whether the path check should be case-sensitive
+   * @return true if the object exists, false otherwise
+   * @throws SQLException if a database access error occurs or the volume is inaccessible
    */
   boolean objectExists(
       String catalog, String schema, String volume, String objectPath, boolean caseSensitive)
       throws SQLException;
 
   /**
-   * volumeExists(): Determines if a specific volume exists in the given catalog and schema. The
-   * volume that we are looking for must match the volume name exactly.
+   * Checks if a specific volume exists in the given catalog and schema. The volume name must match
+   * exactly.
    *
-   * @param catalog the catalog name of the cloud storage
-   * @param schema the schema name of the cloud storage
-   * @param volumeName the name of the volume to check for existence
-   * @param caseSensitive a boolean indicating whether the check should be case-sensitive or not
-   * @return a boolean indicating whether the volume exists or not
+   * @param catalog the catalog name in Unity Catalog
+   * @param schema the schema name in the specified catalog
+   * @param volumeName the name of the volume to check
+   * @param caseSensitive whether the volume name check should be case-sensitive
+   * @return true if the volume exists, false otherwise
+   * @throws SQLException if a database access error occurs
    */
   boolean volumeExists(String catalog, String schema, String volumeName, boolean caseSensitive)
       throws SQLException;
 
   /**
-   * listObjects(): Lists all filenames in the UC Volume that start with a specified prefix. The
-   * prefix that we are looking for must be a part of the file path from the volume as the root.
+   * Lists all objects (files) in the UC Volume that start with a specified prefix. The prefix must
+   * be a part of the file path from the volume root.
    *
-   * @param catalog the catalog name of the cloud storage
-   * @param schema the schema name of the cloud storage
-   * @param volume the UC volume name of the cloud storage
-   * @param prefix the prefix of the filenames to list. This includes the relative path from the
-   *     volume as the root directory
-   * @param caseSensitive a boolean indicating whether the check should be case-sensitive or not
-   * @return a list of strings indicating the filenames that start with the specified prefix
+   * @param catalog the catalog name in Unity Catalog
+   * @param schema the schema name in the specified catalog
+   * @param volume the volume name in the specified schema
+   * @param prefix the prefix to filter objects by, including the relative path from volume root
+   * @param caseSensitive whether the prefix matching should be case-sensitive
+   * @return a list of object paths that match the specified prefix
+   * @throws SQLException if a database access error occurs or the volume is inaccessible
    */
   List<String> listObjects(
       String catalog, String schema, String volume, String prefix, boolean caseSensitive)
       throws SQLException;
 
   /**
-   * getObject(): Retrieves an object (file) from the UC Volume and stores it in the local path
+   * Downloads an object (file) from the UC Volume to a local path.
    *
-   * @param catalog the catalog name of the cloud storage
-   * @param schema the schema name of the cloud storage
-   * @param volume the UC volume name of the cloud storage
-   * @param objectPath the path of the object (file) from the volume as the root directory
-   * @param localPath the local path where the retrieved data is to be stored
-   * @return a boolean value indicating status of the GET operation
+   * @param catalog the catalog name in Unity Catalog
+   * @param schema the schema name in the specified catalog
+   * @param volume the volume name in the specified schema
+   * @param objectPath the path of the object in the volume
+   * @param localPath the local filesystem path where the object should be saved
+   * @return true if the download was successful, false otherwise
+   * @throws SQLException if a database access error occurs, the volume is inaccessible, or there
+   *     are issues with the local filesystem
    */
   boolean getObject(
       String catalog, String schema, String volume, String objectPath, String localPath)
       throws SQLException;
 
   /**
-   * getObject(): Retrieves an object as input stream from the UC Volume
+   * Retrieves an object as an input stream from the UC Volume. The caller is responsible for
+   * closing the returned input stream.
    *
-   * @param catalog the catalog name of the cloud storage
-   * @param schema the schema name of the cloud storage
-   * @param volume the UC volume name of the cloud storage
-   * @param objectPath the path of the object (file) from the volume as the root directory
-   * @return an instance of input stream entity
+   * @param catalog the catalog name in Unity Catalog
+   * @param schema the schema name in the specified catalog
+   * @param volume the volume name in the specified schema
+   * @param objectPath the path of the object in the volume
+   * @return an InputStreamEntity containing the object's data
+   * @throws SQLException if a database access error occurs or the volume is inaccessible
    */
   InputStreamEntity getObject(String catalog, String schema, String volume, String objectPath)
       throws SQLException;
 
   /**
-   * putObject(): Upload data from a local path to a specified path within a UC Volume.
+   * Uploads data from a local file to a specified path within a UC Volume.
    *
-   * @param catalog the catalog name of the cloud storage
-   * @param schema the schema name of the cloud storage
-   * @param volume the UC volume name of the cloud storage
-   * @param objectPath the destination path where the object (file) is to be uploaded from the
-   *     volume as the root directory
-   * @param localPath the local path from where the data is to be uploaded
-   * @param toOverwrite a boolean indicating whether to overwrite the object if it already exists
-   * @return a boolean value indicating status of the PUT operation
+   * @param catalog the catalog name in Unity Catalog
+   * @param schema the schema name in the specified catalog
+   * @param volume the volume name in the specified schema
+   * @param objectPath the destination path in the volume where the file should be uploaded
+   * @param localPath the local filesystem path of the file to upload
+   * @param toOverwrite whether to overwrite the object if it already exists
+   * @return true if the upload was successful, false otherwise
+   * @throws SQLException if a database access error occurs, the volume is inaccessible, or there
+   *     are issues with the local filesystem
    */
   boolean putObject(
       String catalog,
@@ -116,17 +128,17 @@ public interface IDatabricksVolumeClient {
       throws SQLException;
 
   /**
-   * putObject(): Upload data from an input stream to a specified path within a UC Volume.
+   * Uploads data from an input stream to a specified path within a UC Volume.
    *
-   * @param catalog the catalog name of the cloud storage
-   * @param schema the schema name of the cloud storage
-   * @param volume the UC volume name of the cloud storage
-   * @param objectPath the destination path where the object (file) is to be uploaded from the
-   *     volume as the root directory
-   * @param inputStream the input stream from where the data is to be uploaded
-   * @param contentLength the length of the input stream
-   * @param toOverwrite a boolean indicating whether to overwrite the object if it already exists
-   * @return a boolean value indicating status of the PUT operation
+   * @param catalog the catalog name in Unity Catalog
+   * @param schema the schema name in the specified catalog
+   * @param volume the volume name in the specified schema
+   * @param objectPath the destination path in the volume where the data should be uploaded
+   * @param inputStream the input stream containing the data to upload
+   * @param contentLength the length of the data in bytes
+   * @param toOverwrite whether to overwrite the object if it already exists
+   * @return true if the upload was successful, false otherwise
+   * @throws SQLException if a database access error occurs or the volume is inaccessible
    */
   boolean putObject(
       String catalog,
@@ -139,13 +151,14 @@ public interface IDatabricksVolumeClient {
       throws SQLException;
 
   /**
-   * deleteObject(): Remove an object from a specified path within a UC Volume
+   * Deletes an object from a specified path within a UC Volume.
    *
-   * @param catalog the catalog name of the cloud storage
-   * @param schema the schema name of the cloud storage
-   * @param volume the UC volume name of the cloud storage
-   * @param objectPath the path of the object (file) from the volume as the root directory to delete
-   * @return a boolean value indicating status of the DELETE operation
+   * @param catalog the catalog name in Unity Catalog
+   * @param schema the schema name in the specified catalog
+   * @param volume the volume name in the specified schema
+   * @param objectPath the path of the object to delete
+   * @return true if the deletion was successful, false otherwise
+   * @throws SQLException if a database access error occurs or the volume is inaccessible
    */
   boolean deleteObject(String catalog, String schema, String volume, String objectPath)
       throws SQLException;
