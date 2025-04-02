@@ -28,7 +28,7 @@ import javax.crypto.spec.SecretKeySpec;
  * provided passphrase using PBKDF2 key derivation.
  *
  * <p>The tokens are stored in a file within the system's temporary directory under a '.databricks'
- * subdirectory. Each host connection has its own token cache file.
+ * subdirectory. Each user has their own token cache file identified by the sanitized username.
  */
 public class TokenCache {
   private static final String CACHE_DIR = ".databricks";
@@ -78,22 +78,34 @@ public class TokenCache {
   }
 
   /**
-   * Constructs a new TokenCache instance for the specified host with encryption.
+   * Constructs a new TokenCache instance with encryption using the user's system username to
+   * identify the cache file.
    *
-   * @param host The Databricks host address for which to cache tokens
    * @param passphrase The passphrase used to encrypt/decrypt the token cache
    * @throws IllegalArgumentException if the passphrase is null or empty
    */
-  public TokenCache(String host, String passphrase) {
+  public TokenCache(String passphrase) {
     if (passphrase == null || passphrase.isEmpty()) {
       throw new IllegalArgumentException(
           "Required setting TokenCachePassPhrase has not been provided in connection settings");
     }
     this.passphrase = passphrase;
     this.cacheFile =
-        Paths.get(System.getProperty("java.io.tmpdir"), CACHE_DIR, host + CACHE_FILE_SUFFIX);
+        Paths.get(
+            System.getProperty("java.io.tmpdir"),
+            CACHE_DIR,
+            sanitizeUsernameForFile(System.getProperty("user.name")) + CACHE_FILE_SUFFIX);
     this.mapper = new ObjectMapper();
     this.mapper.registerModule(new JavaTimeModule());
+  }
+
+  /**
+   * Sanitizes the given username so it can be safely used in a file name. Replaces all characters
+   * that are not a-z, A-Z, 0-9, or underscore (_) with an underscore.
+   */
+  private static String sanitizeUsernameForFile(String username) {
+    if (username == null) return "unknown_user";
+    return username.replaceAll("[^a-zA-Z0-9_]", "_");
   }
 
   /**

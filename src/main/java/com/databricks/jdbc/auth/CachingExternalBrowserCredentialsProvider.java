@@ -52,7 +52,7 @@ public class CachingExternalBrowserCredentialsProvider implements CredentialsPro
    * @throws IllegalArgumentException if the passphrase is null or empty
    */
   public CachingExternalBrowserCredentialsProvider(DatabricksConfig config, String passphrase) {
-    this(config, new TokenCache(config.getHost(), passphrase));
+    this(config, new TokenCache(passphrase));
   }
 
   /**

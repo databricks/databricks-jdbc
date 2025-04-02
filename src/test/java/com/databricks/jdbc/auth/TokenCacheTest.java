@@ -13,19 +13,19 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 public class TokenCacheTest {
-  private static final String TEST_HOST = "test-host";
   private static final String TEST_PASSPHRASE = "test-passphrase";
   private Path cacheFile;
   private TokenCache tokenCache;
 
   @BeforeEach
   void setUp() {
-    tokenCache = new TokenCache(TEST_HOST, TEST_PASSPHRASE);
+    tokenCache = new TokenCache(TEST_PASSPHRASE);
+    String sanitizedUsername = System.getProperty("user.name").replaceAll("[^a-zA-Z0-9_]", "_");
     cacheFile =
         Paths.get(
             System.getProperty("java.io.tmpdir"),
             ".databricks",
-            TEST_HOST + ".databricks_jdbc_token_cache_test");
+            sanitizedUsername + ".databricks_jdbc_token_cache");
   }
 
   @AfterEach
@@ -55,8 +55,8 @@ public class TokenCacheTest {
 
   @Test
   void testInvalidPassphrase() {
-    assertThrows(IllegalArgumentException.class, () -> new TokenCache(TEST_HOST, null));
-    assertThrows(IllegalArgumentException.class, () -> new TokenCache(TEST_HOST, ""));
+    assertThrows(IllegalArgumentException.class, () -> new TokenCache(null));
+    assertThrows(IllegalArgumentException.class, () -> new TokenCache(""));
   }
 
   @Test
