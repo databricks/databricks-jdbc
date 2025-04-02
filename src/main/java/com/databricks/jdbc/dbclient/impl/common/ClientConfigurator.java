@@ -21,6 +21,7 @@ import com.databricks.sdk.core.DatabricksConfig;
 import com.databricks.sdk.core.DatabricksException;
 import com.databricks.sdk.core.ProxyConfig;
 import com.databricks.sdk.core.commons.CommonsHttpClient;
+import com.databricks.sdk.core.oauth.ExternalBrowserCredentialsProvider;
 import com.databricks.sdk.core.utils.Cloud;
 import java.security.cert.*;
 import java.util.Arrays;
@@ -130,9 +131,18 @@ public class ClientConfigurator {
 
   /** Setup the OAuth U2M authentication settings in the databricks config. */
   public void setupU2MConfig() throws DatabricksParsingException {
-    CredentialsProvider provider =
-        new CachingExternalBrowserCredentialsProvider(
-            databricksConfig, connectionContext.getTokenCachePassPhrase());
+    CredentialsProvider provider;
+
+    if (connectionContext.isTokenCacheEnabled()) {
+      LOGGER.debug("Using CachingExternalBrowserCredentialsProvider as token caching is enabled");
+      provider =
+          new CachingExternalBrowserCredentialsProvider(
+              databricksConfig, connectionContext.getTokenCachePassPhrase());
+    } else {
+      LOGGER.debug("Using ExternalBrowserCredentialsProvider as token caching is disabled");
+      provider = new ExternalBrowserCredentialsProvider();
+    }
+
     databricksConfig
         .setAuthType(provider.authType())
         .setCredentialsProvider(provider)

@@ -250,4 +250,7 @@ public interface IDatabricksConnectionContext {
 
   /** Returns the passphrase used for encrypting/decrypting token cache */
   String getTokenCachePassPhrase();
+
+  /** Returns whether token caching is enabled for OAuth authentication */
+  boolean isTokenCacheEnabled();
 }

@@ -441,13 +441,39 @@ class DatabricksConnectionContextTest {
 
   @Test
   void testLogLevels() {
-    assertEquals(getLogLevel(123), LogLevel.OFF);
-    assertEquals(getLogLevel(0), LogLevel.OFF);
-    assertEquals(getLogLevel(1), LogLevel.FATAL);
-    assertEquals(getLogLevel(2), LogLevel.ERROR);
-    assertEquals(getLogLevel(3), LogLevel.WARN);
-    assertEquals(getLogLevel(4), LogLevel.INFO);
-    assertEquals(getLogLevel(5), LogLevel.DEBUG);
-    assertEquals(getLogLevel(6), LogLevel.TRACE);
+    assertEquals(LogLevel.OFF, getLogLevel(0));
+    assertEquals(LogLevel.FATAL, getLogLevel(1));
+    assertEquals(LogLevel.ERROR, getLogLevel(2));
+    assertEquals(LogLevel.WARN, getLogLevel(3));
+    assertEquals(LogLevel.INFO, getLogLevel(4));
+    assertEquals(LogLevel.DEBUG, getLogLevel(5));
+    assertEquals(LogLevel.TRACE, getLogLevel(6));
+    assertEquals(LogLevel.INFO, getLogLevel(7));
+  }
+
+  @Test
+  public void testIsTokenCacheEnabled() throws DatabricksSQLException {
+    // Test with EnableTokenCache=1 (default)
+    Properties properties1 = new Properties();
+    DatabricksConnectionContext connectionContext1 =
+        (DatabricksConnectionContext)
+            DatabricksConnectionContext.parse(TestConstants.VALID_URL_1, properties1);
+    assertTrue(connectionContext1.isTokenCacheEnabled());
+
+    // Test with EnableTokenCache=0
+    Properties properties2 = new Properties();
+    properties2.setProperty("EnableTokenCache", "0");
+    DatabricksConnectionContext connectionContext2 =
+        (DatabricksConnectionContext)
+            DatabricksConnectionContext.parse(TestConstants.VALID_URL_1, properties2);
+    assertFalse(connectionContext2.isTokenCacheEnabled());
+
+    // Test with EnableTokenCache=1 explicitly set
+    Properties properties3 = new Properties();
+    properties3.setProperty("EnableTokenCache", "1");
+    DatabricksConnectionContext connectionContext3 =
+        (DatabricksConnectionContext)
+            DatabricksConnectionContext.parse(TestConstants.VALID_URL_1, properties3);
+    assertTrue(connectionContext3.isTokenCacheEnabled());
   }
 }
