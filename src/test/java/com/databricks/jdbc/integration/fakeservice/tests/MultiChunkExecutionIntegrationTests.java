@@ -31,7 +31,6 @@ public class MultiChunkExecutionIntegrationTests extends AbstractFakeServiceInte
 
     Properties properties = new Properties();
     properties.setProperty("RowsFetchedPerBlock", String.valueOf(maxRows));
-    properties.setProperty("EnableSQLExecHybridResults", "0");
     Connection connection = getValidJDBCConnection(properties);
 
     final Statement statement = connection.createStatement();
