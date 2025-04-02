@@ -5,9 +5,9 @@ import static com.databricks.jdbc.dbclient.impl.common.CommandConstants.METADATA
 import static com.databricks.jdbc.dbclient.impl.common.MetadataResultSetBuilder.getFunctionsResult;
 import static com.databricks.jdbc.dbclient.impl.sqlexec.ResultConstants.CLIENT_INFO_PROPERTIES_RESULT;
 
-import com.databricks.jdbc.api.IDatabricksSession;
 import com.databricks.jdbc.api.impl.converters.ConverterHelper;
 import com.databricks.jdbc.api.internal.IDatabricksConnectionInternal;
+import com.databricks.jdbc.api.internal.IDatabricksSession;
 import com.databricks.jdbc.common.*;
 import com.databricks.jdbc.common.util.DriverUtil;
 import com.databricks.jdbc.dbclient.impl.common.MetadataResultSetBuilder;

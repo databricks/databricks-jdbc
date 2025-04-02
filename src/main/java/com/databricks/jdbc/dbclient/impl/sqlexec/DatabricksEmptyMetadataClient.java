@@ -2,8 +2,8 @@ package com.databricks.jdbc.dbclient.impl.sqlexec;
 
 import static com.databricks.jdbc.dbclient.impl.sqlexec.ResultConstants.TYPE_INFO_RESULT;
 
-import com.databricks.jdbc.api.IDatabricksSession;
 import com.databricks.jdbc.api.impl.DatabricksResultSet;
+import com.databricks.jdbc.api.internal.IDatabricksSession;
 import com.databricks.jdbc.dbclient.IDatabricksMetadataClient;
 import com.databricks.jdbc.dbclient.impl.common.MetadataResultSetBuilder;
 import com.databricks.jdbc.log.JdbcLogger;

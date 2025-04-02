@@ -4,7 +4,7 @@ import static com.databricks.jdbc.common.DatabricksJdbcConstants.DEFAULT_HTTP_EX
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.when;
 
-import com.databricks.jdbc.api.IDatabricksConnectionContext;
+import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
 import com.databricks.jdbc.common.AuthMech;
 import com.databricks.jdbc.model.client.sqlexec.ExecuteStatementResponse;

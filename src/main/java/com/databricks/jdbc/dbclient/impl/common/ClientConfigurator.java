@@ -3,7 +3,7 @@ package com.databricks.jdbc.dbclient.impl.common;
 import static com.databricks.jdbc.common.DatabricksJdbcConstants.*;
 import static com.databricks.jdbc.common.util.DatabricksAuthUtil.initializeConfigWithToken;
 
-import com.databricks.jdbc.api.IDatabricksConnectionContext;
+import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.auth.AzureMSICredentialProvider;
 import com.databricks.jdbc.auth.OAuthRefreshCredentialsProvider;
 import com.databricks.jdbc.auth.PrivateKeyClientCredentialProvider;
@@ -21,7 +21,6 @@ import com.databricks.sdk.core.DatabricksException;
 import com.databricks.sdk.core.ProxyConfig;
 import com.databricks.sdk.core.commons.CommonsHttpClient;
 import com.databricks.sdk.core.utils.Cloud;
-import java.security.cert.*;
 import java.util.Arrays;
 import java.util.stream.Collectors;
 import org.apache.http.impl.conn.PoolingHttpClientConnectionManager;

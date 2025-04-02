@@ -8,7 +8,7 @@ import static com.databricks.jdbc.common.DatabricksJdbcConstants.M2M_AUTH_TYPE;
 import static org.junit.jupiter.api.Assertions.*;
 
 import com.databricks.jdbc.TestConstants;
-import com.databricks.jdbc.api.IDatabricksConnectionContext;
+import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.common.*;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.exception.DatabricksSQLException;

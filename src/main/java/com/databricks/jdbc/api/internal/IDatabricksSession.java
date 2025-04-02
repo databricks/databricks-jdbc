@@ -1,4 +1,4 @@
-package com.databricks.jdbc.api;
+package com.databricks.jdbc.api.internal;
 
 import com.databricks.jdbc.api.impl.ImmutableSessionInfo;
 import com.databricks.jdbc.common.CompressionCodec;

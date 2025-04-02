@@ -3,7 +3,7 @@ package com.databricks.jdbc.api.impl.converters;
 import static com.databricks.jdbc.TestConstants.TEST_BYTES;
 import static org.junit.jupiter.api.Assertions.*;
 
-import com.databricks.jdbc.api.IDatabricksConnectionContext;
+import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import java.math.BigDecimal;
 import java.math.BigInteger;

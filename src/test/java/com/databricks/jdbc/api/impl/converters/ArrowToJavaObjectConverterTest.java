@@ -4,9 +4,9 @@ import static com.databricks.jdbc.api.impl.converters.ArrowToJavaObjectConverter
 import static com.databricks.jdbc.common.util.DatabricksTypeUtil.VARIANT;
 import static org.junit.jupiter.api.Assertions.*;
 
-import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.api.impl.DatabricksArray;
 import com.databricks.jdbc.api.impl.DatabricksStruct;
+import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.exception.DatabricksValidationException;
 import com.databricks.sdk.service.sql.ColumnInfoTypeName;
 import com.fasterxml.jackson.core.JsonProcessingException;

@@ -2,7 +2,7 @@ package com.databricks.jdbc.common.util;
 
 import static com.databricks.jdbc.common.util.WildcardUtil.isNullOrEmpty;
 
-import com.databricks.jdbc.api.IDatabricksConnectionContext;
+import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.sdk.core.UserAgent;
 
 public class UserAgentManager {
