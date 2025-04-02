@@ -1,5 +1,17 @@
 # Version Changelog
 
+## [v1.0.3-oss] - 2025-04-02
+
+### Added
+- TBA
+
+### Updated
+- TBA
+
+### Fixed
+- TBA
+---
+
 ## [v1.0.2-oss] - 2025-03-19
 
 ### Fixed
