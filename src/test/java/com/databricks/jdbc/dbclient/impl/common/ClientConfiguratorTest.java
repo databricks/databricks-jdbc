@@ -170,7 +170,6 @@ public class ClientConfiguratorTest {
     when(mockContext.getClientSecret()).thenReturn("browser-client-secret");
     when(mockContext.getOAuthScopesForU2M()).thenReturn(List.of(new String[] {"scope1", "scope2"}));
     when(mockContext.getHttpConnectionPoolSize()).thenReturn(100);
-    when(mockContext.getTokenCachePassPhrase()).thenReturn("token-cache-passphrase");
     configurator = new ClientConfigurator(mockContext);
     WorkspaceClient client = configurator.getWorkspaceClient();
     assertNotNull(client);
@@ -181,7 +180,7 @@ public class ClientConfiguratorTest {
     assertEquals("browser-client-secret", config.getClientSecret());
     assertEquals(List.of(new String[] {"scope1", "scope2"}), config.getScopes());
     assertEquals(DatabricksJdbcConstants.U2M_AUTH_REDIRECT_URL, config.getOAuthRedirectUrl());
-    assertEquals("external-browser-with-cache", config.getAuthType());
+    assertEquals("external-browser", config.getAuthType());
   }
 
   @Test
@@ -198,6 +197,7 @@ public class ClientConfiguratorTest {
     when(mockContext.getOAuthDiscoveryURL()).thenReturn(TEST_DISCOVERY_URL);
     when(mockContext.getHttpConnectionPoolSize()).thenReturn(100);
     when(mockContext.getTokenCachePassPhrase()).thenReturn("token-cache-passphrase");
+    when(mockContext.isTokenCacheEnabled()).thenReturn(true);
     configurator = new ClientConfigurator(mockContext);
     WorkspaceClient client = configurator.getWorkspaceClient();
     assertNotNull(client);
@@ -242,6 +242,7 @@ public class ClientConfiguratorTest {
     when(mockContext.getTokenCachePassPhrase()).thenReturn(null);
     when(mockContext.getHttpConnectionPoolSize()).thenReturn(100);
     when(mockContext.isOAuthDiscoveryModeEnabled()).thenReturn(true);
+    when(mockContext.isTokenCacheEnabled()).thenReturn(true);
 
     assertThrows(IllegalArgumentException.class, () -> new ClientConfigurator(mockContext));
   }

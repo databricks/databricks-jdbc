@@ -448,7 +448,7 @@ class DatabricksConnectionContextTest {
     assertEquals(LogLevel.INFO, getLogLevel(4));
     assertEquals(LogLevel.DEBUG, getLogLevel(5));
     assertEquals(LogLevel.TRACE, getLogLevel(6));
-    assertEquals(LogLevel.INFO, getLogLevel(7));
+    assertEquals(LogLevel.OFF, getLogLevel(123));
   }
 
   @Test
