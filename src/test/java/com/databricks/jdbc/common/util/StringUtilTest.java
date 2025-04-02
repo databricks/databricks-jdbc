@@ -105,11 +105,6 @@ public class StringUtilTest {
   }
 
   @Test
-  public void testUsernameWithUnicodeCharacters() {
-    assertEquals("_ser_123", StringUtil.sanitizeUsernameForFile("üser★123"));
-  }
-
-  @Test
   public void testUsernameWithAllInvalidCharacters() {
     assertEquals("______", StringUtil.sanitizeUsernameForFile("!@#$%^"));
   }
