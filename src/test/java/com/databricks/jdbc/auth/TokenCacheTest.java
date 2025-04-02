@@ -2,6 +2,7 @@ package com.databricks.jdbc.auth;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+import com.databricks.jdbc.common.util.StringUtil;
 import com.databricks.sdk.core.oauth.Token;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -18,14 +19,15 @@ public class TokenCacheTest {
   private TokenCache tokenCache;
 
   @BeforeEach
-  void setUp() {
-    tokenCache = new TokenCache(TEST_PASSPHRASE);
-    String sanitizedUsername = System.getProperty("user.name").replaceAll("[^a-zA-Z0-9_]", "_");
+  void setUp() throws IOException {
+    String sanitizedUsername = StringUtil.sanitizeUsernameForFile(System.getProperty("user.name"));
     cacheFile =
         Paths.get(
             System.getProperty("java.io.tmpdir"),
             ".databricks",
-            sanitizedUsername + ".databricks_jdbc_token_cache");
+            sanitizedUsername + ".databricks_jdbc_token_cache_test");
+    tokenCache = new TokenCache(cacheFile, TEST_PASSPHRASE);
+    Files.deleteIfExists(cacheFile);
   }
 
   @AfterEach

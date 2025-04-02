@@ -13,6 +13,7 @@ import com.databricks.jdbc.auth.PrivateKeyClientCredentialProvider;
 import com.databricks.jdbc.common.AuthFlow;
 import com.databricks.jdbc.common.AuthMech;
 import com.databricks.jdbc.common.DatabricksJdbcConstants;
+import com.databricks.jdbc.common.util.DatabricksAuthUtil;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.sdk.WorkspaceClient;
@@ -21,6 +22,7 @@ import com.databricks.sdk.core.DatabricksConfig;
 import com.databricks.sdk.core.DatabricksException;
 import com.databricks.sdk.core.ProxyConfig;
 import com.databricks.sdk.core.commons.CommonsHttpClient;
+import com.databricks.sdk.core.oauth.ExternalBrowserCredentialsProvider;
 import com.databricks.sdk.core.utils.Cloud;
 import java.io.IOException;
 import java.util.List;
@@ -29,6 +31,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
+import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
@@ -180,7 +183,7 @@ public class ClientConfiguratorTest {
     assertEquals("browser-client-secret", config.getClientSecret());
     assertEquals(List.of(new String[] {"scope1", "scope2"}), config.getScopes());
     assertEquals(DatabricksJdbcConstants.U2M_AUTH_REDIRECT_URL, config.getOAuthRedirectUrl());
-    assertEquals("external-browser", config.getAuthType());
+    assertEquals(DatabricksJdbcConstants.U2M_AUTH_TYPE, config.getAuthType());
   }
 
   @Test
@@ -196,8 +199,6 @@ public class ClientConfiguratorTest {
     when(mockContext.isOAuthDiscoveryModeEnabled()).thenReturn(true);
     when(mockContext.getOAuthDiscoveryURL()).thenReturn(TEST_DISCOVERY_URL);
     when(mockContext.getHttpConnectionPoolSize()).thenReturn(100);
-    when(mockContext.getTokenCachePassPhrase()).thenReturn("token-cache-passphrase");
-    when(mockContext.isTokenCacheEnabled()).thenReturn(true);
     configurator = new ClientConfigurator(mockContext);
     WorkspaceClient client = configurator.getWorkspaceClient();
     assertNotNull(client);
@@ -209,30 +210,7 @@ public class ClientConfiguratorTest {
     assertEquals("browser-client-secret", config.getClientSecret());
     assertEquals(List.of(new String[] {"scope1", "scope2"}), config.getScopes());
     assertEquals(DatabricksJdbcConstants.U2M_AUTH_REDIRECT_URL, config.getOAuthRedirectUrl());
-    assertEquals("external-browser-with-cache", config.getAuthType());
-  }
-
-  @Test
-  void getWorkspaceClient_OAuthWithCachingExternalBrowser_AuthenticatesCorrectly()
-      throws DatabricksParsingException {
-    when(mockContext.getAuthMech()).thenReturn(AuthMech.OAUTH);
-    when(mockContext.getAuthFlow()).thenReturn(AuthFlow.BROWSER_BASED_AUTHENTICATION);
-    when(mockContext.getHostForOAuth()).thenReturn("https://oauth-browser.databricks.com");
-    when(mockContext.getClientId()).thenReturn("client-id");
-    when(mockContext.getTokenCachePassPhrase()).thenReturn("test-passphrase");
-    when(mockContext.getHttpConnectionPoolSize()).thenReturn(100);
-    when(mockContext.isOAuthDiscoveryModeEnabled()).thenReturn(true);
-    when(mockContext.isTokenCacheEnabled()).thenReturn(true);
-    configurator = new ClientConfigurator(mockContext);
-
-    WorkspaceClient client = configurator.getWorkspaceClient();
-    assertNotNull(client);
-    DatabricksConfig config = client.config();
-
-    assertEquals("https://oauth-browser.databricks.com", config.getHost());
-    assertEquals("client-id", config.getClientId());
-    assertInstanceOf(
-        CachingExternalBrowserCredentialsProvider.class, config.getCredentialsProvider());
+    assertEquals(DatabricksJdbcConstants.U2M_AUTH_TYPE, config.getAuthType());
   }
 
   @Test
@@ -250,22 +228,27 @@ public class ClientConfiguratorTest {
   @Test
   void getWorkspaceClient_OAuthBrowserAuth_WithTokenCacheEnabled_UsesCachedProvider()
       throws DatabricksParsingException {
-    when(mockContext.getAuthMech()).thenReturn(AuthMech.OAUTH);
-    when(mockContext.getAuthFlow()).thenReturn(AuthFlow.BROWSER_BASED_AUTHENTICATION);
-    when(mockContext.getHostForOAuth()).thenReturn("https://oauth-browser.databricks.com");
-    when(mockContext.getClientId()).thenReturn("client-id");
-    when(mockContext.getClientSecret()).thenReturn("client-secret");
-    when(mockContext.getTokenCachePassPhrase()).thenReturn("test-passphrase");
-    when(mockContext.getHttpConnectionPoolSize()).thenReturn(100);
-    when(mockContext.isTokenCacheEnabled()).thenReturn(true);
+    try (MockedStatic<DatabricksAuthUtil> mockedStatic = mockStatic(DatabricksAuthUtil.class)) {
+      when(mockContext.getAuthMech()).thenReturn(AuthMech.OAUTH);
+      when(mockContext.getAuthFlow()).thenReturn(AuthFlow.BROWSER_BASED_AUTHENTICATION);
+      when(mockContext.getHostForOAuth()).thenReturn("https://oauth-browser.databricks.com");
+      when(mockContext.getClientId()).thenReturn("client-id");
+      when(mockContext.getClientSecret()).thenReturn("client-secret");
+      when(mockContext.getTokenCachePassPhrase()).thenReturn("test-passphrase");
+      when(mockContext.getHttpConnectionPoolSize()).thenReturn(100);
+      when(mockContext.isTokenCacheEnabled()).thenReturn(true);
+      mockedStatic
+          .when(() -> DatabricksAuthUtil.getTokenEndpoint(any(), any()))
+          .thenReturn("https://oauth-browser.databricks.com");
 
-    configurator = new ClientConfigurator(mockContext);
-    WorkspaceClient client = configurator.getWorkspaceClient();
-    DatabricksConfig config = client.config();
+      configurator = new ClientConfigurator(mockContext);
+      WorkspaceClient client = configurator.getWorkspaceClient();
+      DatabricksConfig config = client.config();
 
-    assertEquals("external-browser-with-cache", config.getAuthType());
-    assertInstanceOf(
-        CachingExternalBrowserCredentialsProvider.class, config.getCredentialsProvider());
+      assertEquals("external-browser-with-cache", config.getAuthType());
+      assertInstanceOf(
+          CachingExternalBrowserCredentialsProvider.class, config.getCredentialsProvider());
+    }
   }
 
   @Test
@@ -284,9 +267,7 @@ public class ClientConfiguratorTest {
     DatabricksConfig config = client.config();
 
     assertEquals("external-browser", config.getAuthType());
-    assertInstanceOf(
-        com.databricks.sdk.core.oauth.ExternalBrowserCredentialsProvider.class,
-        config.getCredentialsProvider());
+    assertInstanceOf(ExternalBrowserCredentialsProvider.class, config.getCredentialsProvider());
   }
 
   @Test

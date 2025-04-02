@@ -73,4 +73,44 @@ public class StringUtilTest {
     String expected = "''1'';select * from other-table";
     assertEquals(expected, StringUtil.escapeStringLiteral(sqlValue));
   }
+
+  @Test
+  public void testNullUsername() {
+    assertEquals("unknown_user", StringUtil.sanitizeUsernameForFile(null));
+  }
+
+  @Test
+  public void testEmptyUsername() {
+    assertEquals("", StringUtil.sanitizeUsernameForFile(""));
+  }
+
+  @Test
+  public void testAlreadySanitizedUsername() {
+    assertEquals("john_doe123", StringUtil.sanitizeUsernameForFile("john_doe123"));
+  }
+
+  @Test
+  public void testUsernameWithSpaces() {
+    assertEquals("john_doe", StringUtil.sanitizeUsernameForFile("john doe"));
+  }
+
+  @Test
+  public void testUsernameWithSpecialCharacters() {
+    assertEquals("john_doe_123", StringUtil.sanitizeUsernameForFile("john.doe@123"));
+  }
+
+  @Test
+  public void testUsernameWithMixedCharacters() {
+    assertEquals("John_Doe_123_user", StringUtil.sanitizeUsernameForFile("John-Doe#123!user"));
+  }
+
+  @Test
+  public void testUsernameWithUnicodeCharacters() {
+    assertEquals("_ser_123", StringUtil.sanitizeUsernameForFile("üser★123"));
+  }
+
+  @Test
+  public void testUsernameWithAllInvalidCharacters() {
+    assertEquals("______", StringUtil.sanitizeUsernameForFile("!@#$%^"));
+  }
 }

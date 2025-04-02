@@ -1,5 +1,6 @@
 package com.databricks.jdbc.auth;
 
+import com.databricks.jdbc.common.util.StringUtil;
 import com.databricks.sdk.core.oauth.Token;
 import com.databricks.sdk.core.utils.ClockSupplier;
 import com.fasterxml.jackson.annotation.JsonCreator;
@@ -7,6 +8,7 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import com.google.common.annotations.VisibleForTesting;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -85,27 +87,31 @@ public class TokenCache {
    * @throws IllegalArgumentException if the passphrase is null or empty
    */
   public TokenCache(String passphrase) {
+    this(
+        Paths.get(
+            System.getProperty("java.io.tmpdir"),
+            CACHE_DIR,
+            StringUtil.sanitizeUsernameForFile(System.getProperty("user.name"))
+                + CACHE_FILE_SUFFIX),
+        passphrase);
+  }
+
+  /**
+   * Constructs a new TokenCache instance with encryption using the cache file path provided.
+   *
+   * @param cacheFile The cache file path
+   * @param passphrase The passphrase used to encrypt/decrypt the token cache
+   */
+  @VisibleForTesting
+  public TokenCache(Path cacheFile, String passphrase) {
     if (passphrase == null || passphrase.isEmpty()) {
       throw new IllegalArgumentException(
           "Required setting TokenCachePassPhrase has not been provided in connection settings");
     }
     this.passphrase = passphrase;
-    this.cacheFile =
-        Paths.get(
-            System.getProperty("java.io.tmpdir"),
-            CACHE_DIR,
-            sanitizeUsernameForFile(System.getProperty("user.name")) + CACHE_FILE_SUFFIX);
+    this.cacheFile = cacheFile;
     this.mapper = new ObjectMapper();
     this.mapper.registerModule(new JavaTimeModule());
-  }
-
-  /**
-   * Sanitizes the given username so it can be safely used in a file name. Replaces all characters
-   * that are not a-z, A-Z, 0-9, or underscore (_) with an underscore.
-   */
-  private static String sanitizeUsernameForFile(String username) {
-    if (username == null) return "unknown_user";
-    return username.replaceAll("[^a-zA-Z0-9_]", "_");
   }
 
   /**

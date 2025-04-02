@@ -59,4 +59,13 @@ public class StringUtil {
     // We need to escape '' to prevent SQL injection
     return escapeStringLiteral(String.format("/Volumes/%s/%s/%s/", catalog, schema, volume));
   }
+
+  /**
+   * Sanitizes the given username so it can be safely used in a file name. Replaces all characters
+   * that are not a-z, A-Z, 0-9, or underscore (_) with an underscore.
+   */
+  public static String sanitizeUsernameForFile(String username) {
+    if (username == null) return "unknown_user";
+    return username.replaceAll("[^a-zA-Z0-9_]", "_");
+  }
 }
