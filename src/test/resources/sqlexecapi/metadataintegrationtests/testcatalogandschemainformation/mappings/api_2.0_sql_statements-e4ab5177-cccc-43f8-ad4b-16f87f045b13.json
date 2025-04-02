@@ -1,0 +1,34 @@
+{
+  "id" : "e4ab5177-cccc-43f8-ad4b-16f87f045b13",
+  "name" : "api_2.0_sql_statements",
+  "request" : {
+    "url" : "/api/2.0/sql/statements/",
+    "method" : "POST",
+    "bodyPatterns" : [ {
+      "equalToJson" : "{\"statement\":\"SHOW TABLES IN CATALOG main SCHEMA LIKE 'jdbc.test.schema' LIKE '*'\",\"warehouse_id\":\"dd43ee29fedd958d\",\"session_id\":\"01f00fa5-ce07-1b60-9bf4-7b163f61186b\",\"disposition\":\"INLINE_OR_EXTERNAL_LINKS\",\"format\":\"ARROW_STREAM\",\"on_wait_timeout\":\"CONTINUE\",\"wait_timeout\":\"10s\",\"parameters\":[],\"result_compression\":\"LZ4_FRAME\"}",
+      "ignoreArrayOrder" : true,
+      "ignoreExtraElements" : true
+    } ]
+  },
+  "response" : {
+    "status" : 200,
+    "body" : "{\"statement_id\":\"01f00fa5-d620-16ad-81fc-fee9b1e2a996\",\"status\":{\"state\":\"SUCCEEDED\"},\"manifest\":{\"format\":\"ARROW_STREAM\",\"schema\":{\"column_count\":7,\"columns\":[{\"name\":\"namespace\",\"type_text\":\"STRING\",\"type_name\":\"STRING\",\"position\":0},{\"name\":\"tableName\",\"type_text\":\"STRING\",\"type_name\":\"STRING\",\"position\":1},{\"name\":\"isTemporary\",\"type_text\":\"BOOLEAN\",\"type_name\":\"BOOLEAN\",\"position\":2},{\"name\":\"information\",\"type_text\":\"STRING\",\"type_name\":\"STRING\",\"position\":3},{\"name\":\"catalogName\",\"type_text\":\"STRING\",\"type_name\":\"STRING\",\"position\":4},{\"name\":\"tableType\",\"type_text\":\"STRING\",\"type_name\":\"STRING\",\"position\":5},{\"name\":\"remarks\",\"type_text\":\"STRING\",\"type_name\":\"STRING\",\"position\":6}]},\"total_chunk_count\":1,\"chunks\":[{\"chunk_index\":0,\"row_offset\":0,\"row_count\":12,\"byte_count\":2040}],\"total_row_count\":12,\"total_byte_count\":2040,\"truncated\":false,\"result_compression\":\"LZ4_FRAME\"},\"result\":{\"chunk_index\":0,\"row_offset\":0,\"row_count\":12,\"byte_count\":1088,\"attachment\":\"BCJNGHRwjisBAACg/////+gBAAAQAAEAsAoADgAGAA0ACAAKDwAiAAQYAKEBCgAMAAAACAAEGAARCAwAASEA8QsABwAAAHQBAAAsAQAA9AAAALwAAABwAAAAOD4ApAAAZv///xQAAAAEAEIAAAUBbAACAgBAqP7//0QArHJlbWFya3MA6v4wACgABTAAUNj+//8JdADNYWJsZVR5cGUAAAAeZAAKNADwAwz///8LAAAAY2F0YWxvZ05hbTYAlRIAGAAUABMAEtwAFxKoAACwAAysABNUSADeaW5mb3JtYXRpb24AmnwAGAawABSINADOc1RlbXBvcmFyeQDONAAJ5AAnvP/kAAGuAAKsAD8AABOsAAIQGKsAMAAABSIABAIAEQQCACAAACwBwG5hbWVzcGFjZQAAABE2by8AAAAAySbrYgQiTRh0cI7IAgAAov////8IAgAAFAABAPIDDAAWAA4AFQAQAAQADAAAAPADGABQAAAEABAHANIDCgAYAAwACAAEAAoAOAAgWAE4AAAdAAICAARMAAACABACBQBBAAAACAYAMAAANAUAQQAAAEAGADAAAMAFAAACABABBQAHMAADEAAFMAADEAATLAgAE3BZAAMHACMAeAkAAwcAIwCACQADBwAjAIgJAARQABPAEAAEAgAEEAAEFwATyAkABDAAEwAIARMwMQATMBAAAycAIwA4EAAEMAATcBAAEzwwABOwEAAEMAATuBAABDAABmgBBgIAKgcAWAEAAgAIaAEAAgAPEAA9IP8PVgACAgAA8AETIPQAALABkFAAAABgAAAAcGABxwAAAJAAAACgAAAAsMgB/wFqZGJjX3Rlc3Rfc2NoZW1hEACdCAAB9hsJAAAAGQAAADYAAABTAAAAagAAAIIAAACKAAAAlwAAALoAAADeAAAAEwGYAuJha2poZGFoanNiYXRjaAoB8wF0YWJsZWNhdGFsb2dfYW5kGwEIHQDyAm9tcGxleF9kYXRhX3R5cGVzNQABIwAPHQABARcAgW5jdXJyZW50DwADMQDQMTJkaWFtb25kc2V4YVUAAhgA+AJwYXJhbWV0ZXJfYmluZGluZzQA+wZqYXlhbnRwcmVwYXJlZF9zdGF0ZW1YAAIkAFBzcGFya9MB8BJiYXNpY3N1aXRlMTgxMTMwNTc2NDY5MTY2X2luc2VydF8lAHFfZGZfamF5DgIDzwDQeXBlY29udmVyc2lvbmYCCHABAAIADBAADwIAHQhAABMEeAQTDMwCAJgEUxgAAAAc2AKTJAAAACgAAAAs5AIAAgBPbWFpbgQAGQhwADEFAAAUBQBDAwBsAAA8AlMeAAAAI2gAly0AAAAyAAAANxgEX1RBQkxFBQAkALAACIAADwIAHFAAAAAAAIZYXqQAAAAAlx9gAwQiTRh0cI4IAACA/////wAAAACGhpIIAAAAAIaGkgg=\"}}",
+    "headers" : {
+      "x-request-id" : "89f2ea5b-f564-4837-803f-a8921dc06edf",
+      "date" : "Wed, 2 Apr 2025 09:35:39 GMT",
+      "server" : "databricks",
+      "x-databricks-popp-response-code-details" : "via_upstream",
+      "x-databricks-shard-debug" : "oregon-staging",
+      "vary" : "Accept-Encoding",
+      "x-databricks-org-id" : "6051921418418893",
+      "strict-transport-security" : "max-age=31536000; includeSubDomains; preload",
+      "x-content-type-options" : "nosniff",
+      "x-databricks-popp-routing-reason" : "deployment-name",
+      "content-type" : "application/json",
+      "alt-svc" : "h3=\":5443\"; ma=86400, h3-29=\":5443\"; ma=86400",
+      "x-databricks-apiproxy-response-code-details" : "via_upstream"
+    }
+  },
+  "uuid" : "e4ab5177-cccc-43f8-ad4b-16f87f045b13",
+  "insertionIndex" : 23
+}

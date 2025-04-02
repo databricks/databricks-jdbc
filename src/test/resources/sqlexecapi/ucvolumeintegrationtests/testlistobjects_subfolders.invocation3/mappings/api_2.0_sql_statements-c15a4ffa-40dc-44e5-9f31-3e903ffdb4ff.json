@@ -1,0 +1,34 @@
+{
+  "id" : "c15a4ffa-40dc-44e5-9f31-3e903ffdb4ff",
+  "name" : "api_2.0_sql_statements",
+  "request" : {
+    "url" : "/api/2.0/sql/statements/",
+    "method" : "POST",
+    "bodyPatterns" : [ {
+      "equalToJson" : "{\"statement\":\"LIST '/Volumes/uc_volume_test_catalog/uc_volume_test_schema/test_volume1/folder1/folder2/'\",\"warehouse_id\":\"791ba2a31c7fd70a\",\"session_id\":\"01f00fa7-8a6c-1e60-91e1-155dcd13ad98\",\"disposition\":\"INLINE_OR_EXTERNAL_LINKS\",\"format\":\"ARROW_STREAM\",\"on_wait_timeout\":\"CONTINUE\",\"wait_timeout\":\"10s\",\"parameters\":[],\"result_compression\":\"LZ4_FRAME\"}",
+      "ignoreArrayOrder" : true,
+      "ignoreExtraElements" : true
+    } ]
+  },
+  "response" : {
+    "status" : 200,
+    "body" : "{\"statement_id\":\"01f00fa7-8b45-16d5-9e56-111a47828ff9\",\"status\":{\"state\":\"SUCCEEDED\"},\"manifest\":{\"format\":\"ARROW_STREAM\",\"schema\":{\"column_count\":4,\"columns\":[{\"name\":\"path\",\"type_text\":\"STRING\",\"type_name\":\"STRING\",\"position\":0},{\"name\":\"name\",\"type_text\":\"STRING\",\"type_name\":\"STRING\",\"position\":1},{\"name\":\"size\",\"type_text\":\"BIGINT\",\"type_name\":\"LONG\",\"position\":2},{\"name\":\"modification_time\",\"type_text\":\"BIGINT\",\"type_name\":\"LONG\",\"position\":3}]},\"total_chunk_count\":1,\"chunks\":[{\"chunk_index\":0,\"row_offset\":0,\"row_count\":4,\"byte_count\":1232}],\"total_row_count\":4,\"total_byte_count\":1232,\"truncated\":false,\"result_compression\":\"LZ4_FRAME\"},\"result\":{\"chunk_index\":0,\"row_offset\":0,\"row_count\":4,\"byte_count\":689,\"attachment\":\"BCJNGHRwjvIAAACg/////0gBAAAQAAEAsAoADgAGAA0ACAAKDwAiAAQYAKEBCgAMAAAACAAEGAARCAwAASEA4wAEAAAA1AAAAJAAAABMEACETv///xQAAAAEAFEAAAACGAcAAgIA9xa8////AAAAAUAAAAARAAAAbW9kaWZpY2F0aW9uX3RpbWUAAACSRAASHDcAIgIgCAABAgB0CAAMAAgAB4gAAUwAAIwAMHNpej8AJwDSQAAAiABCAAAABeQAAgIAQMD///8wACBuYW8AMRIAGK4AFRPoABcSwAADvAATBUgAAQIAEQQCAAAIAOAAAHBhdGgAAAAAAAAAAA7dkscAAAAAqXB0wgQiTRh0cI5yAQAAov////84AQAAFAABAPIDDAAWAA4AFQAQAAQADAAAADgCGABQAAAEABAHANIDCgAYAAwACAAEAAoAOAARuB4AAB0AAgIAABgABAIAEwEJABMICAAEaAATIBAAE3chABOYCAADBwAjAKAJAAQwABO4EAATKzgAE+gQAAMHACMA8AkABFgAExC4AAMXACMAGBAABCAAAAIAALQAAAQACAIADxAAHRcPPQCmYAAAALsAAAAZAdgA0S9Wb2x1bWVzL3VjX3YLANxfdGVzdF9jYXRhbG9nFwBxc2NoZW1hLyMAAi8AhDEvZm9sZGVyCAD/ADIvZWZnX2ZpbGUxLmNzdmAAQAJwAC8zL1sAQH91cGxvYWQyuQBEBF4AOXR4dJgBUw0AAAAV/AEEQAIJRQEE8gAEQQA0Y3N2CwAATAAA4wEEUAAg+TMOAAYCAATYAgT0AgQoAPAFaJuh4o8BAAC6Zeb1lQEAADhel8wIAIAg03MOkwEAAB15WWkAAAAAcOLkbwQiTRh0cI4IAACA/////wAAAACGhpIIAAAAAIaGkgg=\"}}",
+    "headers" : {
+      "x-request-id" : "cf91af99-fbe1-4b98-942a-870b59845754",
+      "date" : "Wed, 2 Apr 2025 09:47:52 GMT",
+      "server" : "databricks",
+      "x-databricks-popp-response-code-details" : "via_upstream",
+      "x-databricks-shard-debug" : "oregon-staging",
+      "vary" : "Accept-Encoding",
+      "x-databricks-org-id" : "6051921418418893",
+      "strict-transport-security" : "max-age=31536000; includeSubDomains; preload",
+      "x-content-type-options" : "nosniff",
+      "x-databricks-popp-routing-reason" : "deployment-name",
+      "content-type" : "application/json",
+      "alt-svc" : "h3=\":5443\"; ma=86400, h3-29=\":5443\"; ma=86400",
+      "x-databricks-apiproxy-response-code-details" : "via_upstream"
+    }
+  },
+  "uuid" : "c15a4ffa-40dc-44e5-9f31-3e903ffdb4ff",
+  "insertionIndex" : 13
+}
