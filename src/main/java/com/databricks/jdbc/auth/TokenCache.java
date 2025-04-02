@@ -20,6 +20,16 @@ import javax.crypto.SecretKeyFactory;
 import javax.crypto.spec.PBEKeySpec;
 import javax.crypto.spec.SecretKeySpec;
 
+/**
+ * A secure cache for OAuth tokens that encrypts and persists tokens to the local filesystem.
+ *
+ * <p>This class provides functionality to securely store and retrieve OAuth tokens between
+ * application sessions. Tokens are encrypted using AES encryption with a key derived from the
+ * provided passphrase using PBKDF2 key derivation.
+ *
+ * <p>The tokens are stored in a file within the system's temporary directory under a '.databricks'
+ * subdirectory. Each host connection has its own token cache file.
+ */
 public class TokenCache {
   private static final String CACHE_DIR = ".databricks";
   private static final String CACHE_FILE_SUFFIX = ".databricks_jdbc_token_cache";
@@ -33,6 +43,10 @@ public class TokenCache {
   private final String passphrase;
   private final ObjectMapper mapper;
 
+  /**
+   * A serializable version of the Token class that can be serialized/deserialized by Jackson. This
+   * class extends the Token class from the SDK and adds JSON annotations for proper serialization.
+   */
   @JsonIgnoreProperties(ignoreUnknown = true)
   static class SerializableToken extends Token {
     public SerializableToken(String accessToken, String tokenType, LocalDateTime expiry) {
@@ -63,6 +77,13 @@ public class TokenCache {
     }
   }
 
+  /**
+   * Constructs a new TokenCache instance for the specified host with encryption.
+   *
+   * @param host The Databricks host address for which to cache tokens
+   * @param passphrase The passphrase used to encrypt/decrypt the token cache
+   * @throws IllegalArgumentException if the passphrase is null or empty
+   */
   public TokenCache(String host, String passphrase) {
     if (passphrase == null || passphrase.isEmpty()) {
       throw new IllegalArgumentException(
@@ -75,6 +96,12 @@ public class TokenCache {
     this.mapper.registerModule(new JavaTimeModule());
   }
 
+  /**
+   * Saves a token to the cache file, encrypting it with the configured passphrase.
+   *
+   * @param token The token to save to the cache
+   * @throws IOException If an error occurs writing the token to the file or during encryption
+   */
   public void save(Token token) throws IOException {
     try {
       Files.createDirectories(cacheFile.getParent());
@@ -86,6 +113,12 @@ public class TokenCache {
     }
   }
 
+  /**
+   * Loads a token from the cache file, decrypting it with the configured passphrase.
+   *
+   * @return The decrypted token from the cache or null if the cache file doesn't exist
+   * @throws IOException If an error occurs reading the token from the file or during decryption
+   */
   public Token load() throws IOException {
     try {
       if (!Files.exists(cacheFile)) {
@@ -99,18 +132,38 @@ public class TokenCache {
     }
   }
 
+  /**
+   * Generates a secret key from the passphrase using PBKDF2 with HMAC-SHA256.
+   *
+   * @return A SecretKey generated from the passphrase
+   * @throws Exception If an error occurs generating the key
+   */
   private SecretKey generateSecretKey() throws Exception {
     SecretKeyFactory factory = SecretKeyFactory.getInstance(SECRET_KEY_ALGORITHM);
     KeySpec spec = new PBEKeySpec(passphrase.toCharArray(), SALT, ITERATION_COUNT, KEY_LENGTH);
     return new SecretKeySpec(factory.generateSecret(spec).getEncoded(), ALGORITHM);
   }
 
+  /**
+   * Encrypts the given data using AES encryption with a key derived from the passphrase.
+   *
+   * @param data The data to encrypt
+   * @return The encrypted data, Base64 encoded
+   * @throws Exception If an error occurs during encryption
+   */
   private byte[] encrypt(byte[] data) throws Exception {
     Cipher cipher = Cipher.getInstance(ALGORITHM);
     cipher.init(Cipher.ENCRYPT_MODE, generateSecretKey());
     return Base64.getEncoder().encode(cipher.doFinal(data));
   }
 
+  /**
+   * Decrypts the given encrypted data using AES decryption with a key derived from the passphrase.
+   *
+   * @param encryptedData The encrypted data, Base64 encoded
+   * @return The decrypted data
+   * @throws Exception If an error occurs during decryption
+   */
   private byte[] decrypt(byte[] encryptedData) throws Exception {
     Cipher cipher = Cipher.getInstance(ALGORITHM);
     cipher.init(Cipher.DECRYPT_MODE, generateSecretKey());
